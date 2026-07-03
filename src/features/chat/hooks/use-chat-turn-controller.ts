@@ -1,5 +1,11 @@
 import { useState } from "react"
 import { buildRagContext } from "@/features/chat/hooks/build-rag-context"
+import {
+  buildUserMessage,
+  evaluateSendPreconditions,
+  resolveTurnModel,
+  type TurnToast
+} from "@/features/chat/hooks/turn-preparation"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
 import type { ProcessedFile } from "@/lib/file-processors/types"
@@ -7,17 +13,11 @@ import { logger } from "@/lib/logger"
 import type {
   ActivityEvent,
   ChatMessage,
-  FileAttachment,
   ImageAttachment,
-  RagSources,
-  SelectedModelRef
+  RagSources
 } from "@/types"
 
-type ToastFn = (input: {
-  variant?: "default" | "destructive"
-  title: string
-  description?: string
-}) => void
+type ToastFn = (input: TurnToast) => void
 
 interface UseChatTurnControllerOptions {
   config: ReturnType<typeof useChatConfig>
@@ -46,26 +46,6 @@ interface UseChatTurnControllerOptions {
   ) => Promise<void>
   toast: ToastFn
 }
-
-const buildFileAttachments = (
-  files: ProcessedFile[] | undefined
-): FileAttachment[] | undefined =>
-  files && files.length > 0
-    ? files.map((file) => ({
-        fileId: file.metadata.fileId || `file-${Date.now()}-${Math.random()}`,
-        fileName: file.metadata.fileName,
-        fileType: file.metadata.fileType,
-        fileSize: file.metadata.fileSize,
-        textPreview: file.text.slice(0, 200),
-        processedAt: file.metadata.processedAt
-      }))
-    : undefined
-
-const modelForAssistantFallback = (
-  customModel: string | undefined,
-  selectedModelRef: SelectedModelRef | null,
-  selectedModel: string
-) => customModel || selectedModelRef?.modelId || selectedModel
 
 export const useChatTurnController = ({
   config,
@@ -96,34 +76,24 @@ export const useChatTurnController = ({
     images?: ImageAttachment[]
   ) => {
     const live = loadStreamStore.getState()
-    if (live.isLoading || live.isStreaming) return
-
     const rawInput = customInput?.trim() ?? input.trim()
-
-    if (config.selectionConflictModel) {
-      toast({
-        variant: "destructive",
-        title: "Model provider selection required",
-        description: `Select a provider for "${config.selectionConflictModel}" in the model menu before sending a message.`
-      })
-      return
-    }
-
     const hasImages = !!images && images.length > 0
-    if (!rawInput && (!files || files.length === 0) && !hasImages) return
+    const resolvedModel = resolveTurnModel(
+      customModel,
+      config.selectedModelRef,
+      config.selectedModel
+    )
 
-    // Guard against entering the loading state with no resolvable model:
-    // generateResponse would bail silently, leaving the turn stuck at
-    // "Preparing context..." forever.
-    const resolvedModel =
-      customModel || config.selectedModelRef?.modelId || config.selectedModel
-    if (!resolvedModel) {
-      toast({
-        variant: "destructive",
-        title: "No model selected",
-        description:
-          "Select a model in the model menu before sending a message."
-      })
+    const verdict = evaluateSendPreconditions({
+      isBusy: live.isLoading || live.isStreaming,
+      selectionConflictModel: config.selectionConflictModel,
+      rawInput,
+      hasFiles: !!files && files.length > 0,
+      hasImages,
+      resolvedModel
+    })
+    if (!verdict.proceed) {
+      if (verdict.toast) toast(verdict.toast)
       return
     }
 
@@ -148,12 +118,11 @@ export const useChatTurnController = ({
     const includeContext = selectedTabIds.length > 0 && !!contextText?.trim()
     const userContent = rawInput || ""
     const hasTabContext = includeContext && tabDocuments.length > 0
-    const userMessage: ChatMessage = {
-      role: "user",
+    const userMessage = buildUserMessage({
       content: userContent,
-      attachments: buildFileAttachments(files),
-      images: hasImages ? images : undefined
-    }
+      files,
+      images
+    })
 
     try {
       await addMessage(sessionId, userMessage)
@@ -215,11 +184,7 @@ export const useChatTurnController = ({
           content:
             "I couldn't prepare the context for this message. Please try again, or reduce the selected context/files if this keeps happening.",
           done: true,
-          model: modelForAssistantFallback(
-            customModel,
-            config.selectedModelRef,
-            config.selectedModel
-          ),
+          model: resolvedModel,
           metrics: {
             contextBuildFailed: true
           }
@@ -262,11 +227,7 @@ export const useChatTurnController = ({
         role: "assistant",
         content: `Insufficient page context. Select at least one tab with relevant extracted content and try again.\n\nIf you want to disable this behavior, go to [Settings > Context > Answer only from selected page context](${settingsDeepLink}).`,
         done: true,
-        model: modelForAssistantFallback(
-          customModel,
-          config.selectedModelRef,
-          config.selectedModel
-        ),
+        model: resolvedModel,
         metrics: {
           groundedOnlyMode: true,
           insufficientContext: true,

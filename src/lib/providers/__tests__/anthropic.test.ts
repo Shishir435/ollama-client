@@ -195,4 +195,115 @@ describe("AnthropicProvider", () => {
       metrics: { prompt_eval_count: 10, eval_count: 8 }
     })
   })
+
+  it("enables extended thinking for tool-free requests and drops sampling overrides", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new AnthropicProvider(config).streamChat(
+      {
+        model: "claude-sonnet",
+        messages: [{ role: "user", content: "Think hard." }],
+        think: true,
+        temperature: 0.4,
+        top_p: 0.9,
+        num_predict: 1000
+      },
+      () => {}
+    )
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+    )
+    expect(body.thinking).toEqual({ type: "enabled", budget_tokens: 1024 })
+    // max_tokens must exceed the thinking budget even when num_predict is small
+    expect(body.max_tokens).toBeGreaterThan(body.thinking.budget_tokens)
+    expect(body.temperature).toBeUndefined()
+    expect(body.top_p).toBeUndefined()
+  })
+
+  it("keeps thinking off when tools are present (no signed blocks to replay)", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new AnthropicProvider(config).streamChat(
+      {
+        model: "claude-sonnet",
+        messages: [{ role: "user", content: "Weather?" }],
+        tools: [weatherTool],
+        think: true,
+        temperature: 0.4
+      },
+      () => {}
+    )
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+    )
+    expect(body.thinking).toBeUndefined()
+    expect(body.temperature).toBe(0.4)
+  })
+
+  it("keeps thinking off during tool-loop synthesis (tool_choice none but tool history present)", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new AnthropicProvider(config).streamChat(
+      {
+        model: "claude-sonnet",
+        messages: [
+          { role: "user", content: "Weather?" },
+          {
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              { id: "tool-1", name: "weather", arguments: { city: "Paris" } }
+            ]
+          },
+          {
+            role: "tool",
+            content: "18 C",
+            toolName: "weather",
+            toolCallId: "tool-1"
+          }
+        ],
+        // Final synthesis turn: tools suppressed, but the signed thinking blocks
+        // for the earlier tool_use turn were never persisted.
+        tool_choice: "none",
+        think: true
+      },
+      () => {}
+    )
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+    )
+    expect(body.thinking).toBeUndefined()
+  })
+
+  it("collapses the unlimited num_predict sentinel to a positive max_tokens", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new AnthropicProvider(config).streamChat(
+      {
+        model: "claude-sonnet",
+        messages: [{ role: "user", content: "Think hard." }],
+        think: true,
+        num_predict: -1
+      },
+      () => {}
+    )
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+    )
+    // -1 must never reach the API; thinking budget derives from the default cap.
+    expect(body.max_tokens).toBeGreaterThan(body.thinking.budget_tokens)
+    expect(body.thinking.budget_tokens).toBe(2048)
+  })
 })

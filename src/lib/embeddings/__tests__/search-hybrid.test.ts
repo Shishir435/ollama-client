@@ -105,8 +105,7 @@ describe("searchHybrid — RRF fusion", () => {
     const results = await searchHybrid("typescript generics", [1, 0], {
       limit: 5,
       keywordWeight: 0.5,
-      semanticWeight: 0.5,
-      adaptiveWeights: false
+      semanticWeight: 0.5
     })
 
     expect(results.length).toBeGreaterThan(0)
@@ -128,8 +127,7 @@ describe("searchHybrid — RRF fusion", () => {
     const results = await searchHybrid("script patterns", [1, 0], {
       limit: 5,
       keywordWeight: 0.5,
-      semanticWeight: 0.5,
-      adaptiveWeights: false
+      semanticWeight: 0.5
     })
 
     const cIdx = results.findIndex((r) => r.document.id === 3)
@@ -147,8 +145,7 @@ describe("searchHybrid — RRF fusion", () => {
     ])
 
     const results = await searchHybrid("typescript", [1, 0], {
-      limit: 10,
-      adaptiveWeights: false
+      limit: 10
     })
 
     for (const r of results) {
@@ -165,8 +162,7 @@ describe("searchHybrid — RRF fusion", () => {
     ])
 
     const results = await searchHybrid("typescript", [1, 0], {
-      limit: 5,
-      adaptiveWeights: false
+      limit: 5
     })
 
     expect(results[0].similarity).toBeCloseTo(1.0, 5)
@@ -182,8 +178,7 @@ describe("searchHybrid — RRF fusion", () => {
     ])
 
     const results = await searchHybrid("query", [1, 0], {
-      limit: 2,
-      adaptiveWeights: false
+      limit: 2
     })
 
     expect(results.length).toBeLessThanOrEqual(2)
@@ -213,8 +208,7 @@ describe("searchHybrid — title boost", () => {
     noKeywordResults()
 
     const results = await searchHybrid("typescript generics", [1, 0], {
-      limit: 5,
-      adaptiveWeights: false
+      limit: 5
     })
 
     const aIdx = results.findIndex((r) => r.document.id === 10)
@@ -245,8 +239,7 @@ describe("searchHybrid — title boost", () => {
       "typescript generics inference patterns advanced",
       [1, 0],
       {
-        limit: 5,
-        adaptiveWeights: false
+        limit: 5
       }
     )
 
@@ -257,9 +250,7 @@ describe("searchHybrid — title boost", () => {
 describe("searchHybrid — edge cases", () => {
   it("returns empty array when DB and keyword index are both empty", async () => {
     noKeywordResults()
-    const results = await searchHybrid("anything", [1, 0], {
-      adaptiveWeights: false
-    })
+    const results = await searchHybrid("anything", [1, 0], {})
     expect(results).toHaveLength(0)
   })
 
@@ -283,8 +274,7 @@ describe("searchHybrid — edge cases", () => {
     ])
 
     const results = await searchHybrid("content", [1, 0], {
-      minSimilarity: 0.99, // blocks semantic
-      adaptiveWeights: false
+      minSimilarity: 0.99 // blocks semantic
     })
 
     // keyword result should still surface via RRF
@@ -296,9 +286,7 @@ describe("searchHybrid — edge cases", () => {
     await vectorDb.vectors.bulkAdd([docA] as any)
     noKeywordResults()
 
-    const results = await searchHybrid("typescript", [1, 0], {
-      adaptiveWeights: false
-    })
+    const results = await searchHybrid("typescript", [1, 0], {})
 
     expect(results.length).toBeGreaterThan(0)
     expect(results[0].document.id).toBe(1)
@@ -313,8 +301,7 @@ describe("searchHybrid — edge cases", () => {
     ])
 
     const results = await searchHybrid("query", [1, 0], {
-      limit: 10,
-      adaptiveWeights: false
+      limit: 10
     })
 
     for (let i = 1; i < results.length; i++) {
@@ -322,51 +309,5 @@ describe("searchHybrid — edge cases", () => {
         results[i].similarity
       )
     }
-  })
-})
-
-describe("searchHybrid — adaptive weights", () => {
-  it("conceptual query uses higher semantic weight (more semantic results)", async () => {
-    // docA: pure semantic match [1,0]. docB: keyword-only match.
-    await vectorDb.vectors.bulkAdd([docA, docB] as any)
-
-    vi.mocked(keywordIndexManager.search).mockReturnValue([
-      { id: 2, score: 50, document: docB as any, terms: ["explain"] }
-    ])
-
-    const results = await searchHybrid(
-      "explain how dependency injection works",
-      [1, 0],
-      {
-        limit: 5,
-        adaptiveWeights: true // conceptual → semantic-heavy (0.3 kw / 0.7 sem)
-      }
-    )
-
-    // Semantic match (docA) should beat keyword-only (docB) under conceptual weights
-    expect(results[0].document.id).toBe(1)
-  })
-
-  it("code query uses higher keyword weight (keyword match wins)", async () => {
-    // docB: keyword match. docA: semantic match.
-    await vectorDb.vectors.bulkAdd([docA, docB] as any)
-
-    vi.mocked(keywordIndexManager.search).mockReturnValue([
-      { id: 2, score: 50, document: docB as any, terms: ["const"] }
-    ])
-
-    const results = await searchHybrid(
-      "const x = items.map(i => i.id)",
-      [0, 1],
-      {
-        limit: 5,
-        adaptiveWeights: true // code → keyword-heavy (0.8 kw / 0.2 sem)
-      }
-    )
-
-    // With keyword weight 0.8 and docB at rank 0: 0.8/(60+1) = 0.01311
-    // docA semantic rank 1 (query [0,1] matches docB [0,1] better than docA [1,0])
-    // so docB should win
-    expect(results[0].document.id).toBe(2)
   })
 })

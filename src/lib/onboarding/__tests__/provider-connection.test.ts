@@ -53,4 +53,75 @@ describe("checkProviderConnection", () => {
       kind: "unavailable"
     })
   })
+
+  it("sends x-api-key (not Bearer) for Anthropic", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: [{ id: "claude-sonnet" }] }), {
+        status: 200
+      })
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(
+      checkProviderConnection({
+        id: "custom:anthropic:abc",
+        type: ProviderType.ANTHROPIC,
+        enabled: true,
+        name: "Anthropic",
+        baseUrl: "https://api.anthropic.com/v1",
+        apiKey: "sk-ant-test"
+      })
+    ).resolves.toEqual({ kind: "connected", modelCount: 1 })
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.anthropic.com/v1/models",
+      expect.objectContaining({
+        headers: {
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        }
+      })
+    )
+  })
+
+  it("sends no auth header for Ollama even when an apiKey is set", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ models: [] }), { status: 200 })
+      )
+    vi.stubGlobal("fetch", fetchMock)
+
+    // OllamaProvider never sends auth, so the onboarding check must not either —
+    // otherwise it passes behind a proxy the real model requests would fail.
+    await checkProviderConnection({ ...config, apiKey: "leak-me" })
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:11434/api/tags",
+      expect.objectContaining({ headers: undefined })
+    )
+  })
+
+  it("sends Bearer auth for OpenAI-compatible endpoints", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: [] }), { status: 200 })
+      )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await checkProviderConnection({
+      id: "custom:openai:abc",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      name: "vLLM",
+      baseUrl: "http://localhost:8000/v1",
+      apiKey: "secret"
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/v1/models",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer secret" }
+      })
+    )
+  })
 })

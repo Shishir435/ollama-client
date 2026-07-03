@@ -209,17 +209,45 @@ export class AnthropicProvider implements LLMProvider {
     const mapped = mapMessages(request.messages)
     const tools =
       request.tool_choice === "none" ? undefined : request.tools?.map(mapTool)
+    // A prior tool_use/tool_result turn in history means this is a tool loop
+    // (final synthesis passes tool_choice:"none", so `tools` is empty but the
+    // history isn't). Thinking there would need the original signed thinking
+    // blocks replayed, which we don't persist — Anthropic 400s. Detect it.
+    const hasToolHistory = request.messages.some(
+      (message) => message.role === "tool" || message.toolCalls?.length
+    )
+    // Extended thinking is enabled only for tool-free requests: replaying an
+    // assistant tool_use turn under thinking requires the original signed
+    // thinking block, which isn't persisted, and forced tool_choice is
+    // incompatible with thinking altogether.
+    const thinkEnabled =
+      Boolean(request.think) && !tools?.length && !hasToolHistory
+    // num_predict:-1 (and 0) is our "unlimited" sentinel; Anthropic requires a
+    // positive max_tokens, so collapse non-positive requests to a real default
+    // instead of forwarding -1 or deriving a bogus thinking budget from it.
+    const rawMaxTokens = request.max_tokens ?? request.num_predict ?? 4096
+    const requestedMaxTokens = rawMaxTokens > 0 ? rawMaxTokens : 4096
+    // Thinking needs budget_tokens ≥ 1024 and max_tokens strictly above it —
+    // grow the cap rather than silently dropping thinking when the configured
+    // num_predict is small. Sampling params must stay at their defaults while
+    // thinking; the API rejects temperature/top_p overrides.
+    const thinkingBudget = Math.max(1024, Math.floor(requestedMaxTokens / 2))
     const body = {
       model: request.model,
       messages: mapped.messages,
       system: mapped.system,
       stream: true,
-      max_tokens: request.max_tokens ?? request.num_predict ?? 4096,
+      max_tokens: thinkEnabled
+        ? Math.max(requestedMaxTokens, thinkingBudget + 1024)
+        : requestedMaxTokens,
+      thinking: thinkEnabled
+        ? { type: "enabled" as const, budget_tokens: thinkingBudget }
+        : undefined,
       temperature:
-        request.temperature === undefined
+        thinkEnabled || request.temperature === undefined
           ? undefined
           : Math.min(1, Math.max(0, request.temperature)),
-      top_p: request.top_p,
+      top_p: thinkEnabled ? undefined : request.top_p,
       stop_sequences: request.stop,
       tools: tools?.length ? tools : undefined,
       tool_choice:
