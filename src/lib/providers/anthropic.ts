@@ -62,7 +62,9 @@ const mapMessages = (
           type: "tool_result",
           tool_use_id: message.toolCallId,
           content: message.content,
-          is_error: false
+          // Denials and failed executions must read as errors, or Claude
+          // treats the failure text as a successful result and reasons on.
+          is_error: message.toolIsError === true
         }
       ])
       continue

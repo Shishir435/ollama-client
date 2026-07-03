@@ -103,6 +103,12 @@ export interface ChatMessage {
   /** For `role: "tool"` result messages — the originating tool call id. */
   toolCallId?: string
   /**
+   * For `role: "tool"` result messages — true when the result is an error or
+   * a user denial. Providers with a native error channel (Anthropic
+   * `is_error`) surface it so the model doesn't read failures as successes.
+   */
+  toolIsError?: boolean
+  /**
    * Terminal error for this assistant turn. Set when the stream ends in an
    * error so the UI can offer an inline retry for retryable failures.
    */

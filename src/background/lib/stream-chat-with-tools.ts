@@ -178,7 +178,8 @@ export const streamChatWithTools = async ({
           role: "tool",
           content,
           toolName: prepared.call.name,
-          toolCallId: prepared.call.id
+          toolCallId: prepared.call.id,
+          ...(result.isError ? { toolIsError: true } : {})
         },
         imageMessage: buildImageMessage(prepared.call, result)
       }

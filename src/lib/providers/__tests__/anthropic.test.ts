@@ -98,6 +98,20 @@ describe("AnthropicProvider", () => {
             content: "18 C",
             toolName: "weather",
             toolCallId: "tool-1"
+          },
+          {
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              { id: "tool-2", name: "weather", arguments: { city: "Lyon" } }
+            ]
+          },
+          {
+            role: "tool",
+            content: "The user declined this action, so it was not performed.",
+            toolName: "weather",
+            toolCallId: "tool-2",
+            toolIsError: true
           }
         ],
         tools: [weatherTool],
@@ -132,6 +146,16 @@ describe("AnthropicProvider", () => {
         tool_use_id: "tool-1",
         content: "18 C",
         is_error: false
+      }
+    ])
+    // Denied/failed results must carry the native error flag so the model
+    // doesn't read the failure text as a successful tool run.
+    expect(body.messages[4].content).toEqual([
+      {
+        type: "tool_result",
+        tool_use_id: "tool-2",
+        content: "The user declined this action, so it was not performed.",
+        is_error: true
       }
     ])
   })
