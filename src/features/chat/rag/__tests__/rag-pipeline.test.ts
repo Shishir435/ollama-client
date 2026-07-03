@@ -15,8 +15,7 @@ vi.mock("@/lib/embeddings/search", () => ({
 vi.mock("@/lib/embeddings/config", () => ({
   getEmbeddingConfig: vi.fn().mockResolvedValue({
     useReranking: false,
-    feedbackEnabled: false,
-    useTemporalBoosting: false
+    feedbackEnabled: false
   })
 }))
 
@@ -32,14 +31,9 @@ vi.mock("@/lib/embeddings/feedback-service", () => ({
   feedbackService: { getFeedbackScore: vi.fn().mockResolvedValue(null) }
 }))
 
-vi.mock("@/lib/embeddings/recency-boost", () => ({
-  applyRecencyBoost: vi.fn()
-}))
-
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
-import { applyRecencyBoost } from "@/lib/embeddings/recency-boost"
 import { rerankerService } from "@/lib/embeddings/reranker"
 import { searchHybrid } from "@/lib/embeddings/search"
 
@@ -140,8 +134,7 @@ describe("retrieveContextEnhanced — similarity mode", () => {
     vi.clearAllMocks()
     vi.mocked(getEmbeddingConfig).mockResolvedValue({
       useReranking: false,
-      feedbackEnabled: false,
-      useTemporalBoosting: false
+      feedbackEnabled: false
     } as any)
   })
 
@@ -210,8 +203,7 @@ describe("retrieveContextEnhanced — includeMemory: true", () => {
     vi.clearAllMocks()
     vi.mocked(getEmbeddingConfig).mockResolvedValue({
       useReranking: false,
-      feedbackEnabled: false,
-      useTemporalBoosting: false
+      feedbackEnabled: false
     } as any)
   })
 
@@ -368,8 +360,7 @@ describe("retrieveContextEnhanced — reranking enabled", () => {
       useReranking: true,
       rerankerBackend: "ollama",
       minRerankScore: 0.5,
-      feedbackEnabled: false,
-      useTemporalBoosting: false
+      feedbackEnabled: false
     } as any)
 
     vi.mocked(generateEmbedding).mockResolvedValue({
@@ -453,8 +444,7 @@ describe("retrieveContextEnhanced — feedback blending", () => {
     vi.mocked(getEmbeddingConfig).mockResolvedValue({
       useReranking: false,
       feedbackEnabled: true,
-      feedbackBlendWeight: 0.2,
-      useTemporalBoosting: false
+      feedbackBlendWeight: 0.2
     } as any)
 
     vi.mocked(generateEmbedding).mockResolvedValue({
@@ -505,58 +495,5 @@ describe("retrieveContextEnhanced — feedback blending", () => {
 
     expect(results).toHaveLength(1)
     expect(results[0].score).toBeCloseTo(originalSimilarity, 5)
-  })
-})
-
-// ─── Stage 2.6 — temporal boosting ───────────────────────────────────────────
-describe("retrieveContextEnhanced — temporal boosting", () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(getEmbeddingConfig).mockResolvedValue({
-      useReranking: false,
-      feedbackEnabled: false,
-      useTemporalBoosting: true,
-      temporalBoostWeight: 0.3,
-      temporalHalfLife: 90
-    } as any)
-
-    vi.mocked(generateEmbedding).mockResolvedValue({
-      embedding: [0.5, 0.5],
-      model: "test-model",
-      providerId: "ollama"
-    })
-  })
-
-  it("calls applyRecencyBoost on non-memory file results when useTemporalBoosting is true", async () => {
-    const fileDoc = makeDoc(10, "File result content")
-    const memoryDoc: VectorDocument = {
-      id: 20,
-      content: "Memory result content",
-      embedding: [0.4, 0.6],
-      metadata: {
-        source: "chat",
-        title: "Chat",
-        type: "chat",
-        timestamp: Date.now()
-      }
-    }
-
-    vi.mocked(searchHybrid)
-      .mockResolvedValueOnce([{ document: fileDoc, similarity: 0.85 }] as any)
-      .mockResolvedValueOnce([{ document: memoryDoc, similarity: 0.75 }] as any)
-
-    await retrieveContextEnhanced("query", {
-      mode: "similarity",
-      topK: 5,
-      includeMemory: true,
-      memoryTopK: 1,
-      diversityEnabled: false
-    })
-
-    expect(applyRecencyBoost).toHaveBeenCalledTimes(1)
-    // The argument passed to applyRecencyBoost should only contain non-memory results
-    const boostedResults = vi.mocked(applyRecencyBoost).mock
-      .calls[0][0] as any[]
-    expect(boostedResults.every((r: any) => !r.isMemory)).toBe(true)
   })
 })

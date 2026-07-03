@@ -1,7 +1,6 @@
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
-import { applyRecencyBoost } from "@/lib/embeddings/recency-boost"
 import { rerankerService } from "@/lib/embeddings/reranker"
 import { searchHybrid } from "@/lib/embeddings/search"
 import type { VectorDocument } from "@/lib/embeddings/types"
@@ -345,25 +344,6 @@ export async function retrieveContextEnhanced(
     }
 
     // Re-sort after blending
-    rerankedResults.sort((a, b) => b.score - a.score)
-  }
-
-  // ===== STAGE 2.6: Temporal Relevance Boosting =====
-  if (embeddingConfig.useTemporalBoosting) {
-    logger.verbose(
-      "Stage 2.6: Applying temporal relevance boost",
-      "RAGPipeline"
-    )
-
-    // Only apply to non-memory results
-    const fileResults = rerankedResults.filter((r) => !r.isMemory)
-    applyRecencyBoost(
-      fileResults,
-      embeddingConfig.temporalBoostWeight || 0.3,
-      embeddingConfig.temporalHalfLife || 90
-    )
-
-    // Re-sort after boosting
     rerankedResults.sort((a, b) => b.score - a.score)
   }
 
