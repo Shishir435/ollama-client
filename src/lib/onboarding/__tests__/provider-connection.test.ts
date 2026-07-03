@@ -84,6 +84,23 @@ describe("checkProviderConnection", () => {
     )
   })
 
+  it("sends no auth header for Ollama even when an apiKey is set", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ models: [] }), { status: 200 })
+      )
+    vi.stubGlobal("fetch", fetchMock)
+
+    // OllamaProvider never sends auth, so the onboarding check must not either —
+    // otherwise it passes behind a proxy the real model requests would fail.
+    await checkProviderConnection({ ...config, apiKey: "leak-me" })
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:11434/api/tags",
+      expect.objectContaining({ headers: undefined })
+    )
+  })
+
   it("sends Bearer auth for OpenAI-compatible endpoints", async () => {
     const fetchMock = vi
       .fn()

@@ -245,4 +245,65 @@ describe("AnthropicProvider", () => {
     expect(body.thinking).toBeUndefined()
     expect(body.temperature).toBe(0.4)
   })
+
+  it("keeps thinking off during tool-loop synthesis (tool_choice none but tool history present)", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new AnthropicProvider(config).streamChat(
+      {
+        model: "claude-sonnet",
+        messages: [
+          { role: "user", content: "Weather?" },
+          {
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              { id: "tool-1", name: "weather", arguments: { city: "Paris" } }
+            ]
+          },
+          {
+            role: "tool",
+            content: "18 C",
+            toolName: "weather",
+            toolCallId: "tool-1"
+          }
+        ],
+        // Final synthesis turn: tools suppressed, but the signed thinking blocks
+        // for the earlier tool_use turn were never persisted.
+        tool_choice: "none",
+        think: true
+      },
+      () => {}
+    )
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+    )
+    expect(body.thinking).toBeUndefined()
+  })
+
+  it("collapses the unlimited num_predict sentinel to a positive max_tokens", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new AnthropicProvider(config).streamChat(
+      {
+        model: "claude-sonnet",
+        messages: [{ role: "user", content: "Think hard." }],
+        think: true,
+        num_predict: -1
+      },
+      () => {}
+    )
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+    )
+    // -1 must never reach the API; thinking budget derives from the default cap.
+    expect(body.max_tokens).toBeGreaterThan(body.thinking.budget_tokens)
+    expect(body.thinking.budget_tokens).toBe(2048)
+  })
 })

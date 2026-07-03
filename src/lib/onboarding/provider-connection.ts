@@ -40,6 +40,10 @@ const connectionHeaders = (
       "anthropic-dangerous-direct-browser-access": "true"
     }
   }
+  // OllamaProvider never sends an auth header (see ollama.ts fetch calls), so
+  // an onboarding check that adds Bearer here would pass behind an auth proxy
+  // while the real getModels()/streamChat() calls then fail with no header.
+  if (config.type === ProviderType.OLLAMA) return undefined
   return { Authorization: `Bearer ${config.apiKey}` }
 }
 
