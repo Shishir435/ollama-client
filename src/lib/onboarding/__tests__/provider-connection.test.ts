@@ -53,4 +53,58 @@ describe("checkProviderConnection", () => {
       kind: "unavailable"
     })
   })
+
+  it("sends x-api-key (not Bearer) for Anthropic", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: [{ id: "claude-sonnet" }] }), {
+        status: 200
+      })
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(
+      checkProviderConnection({
+        id: "custom:anthropic:abc",
+        type: ProviderType.ANTHROPIC,
+        enabled: true,
+        name: "Anthropic",
+        baseUrl: "https://api.anthropic.com/v1",
+        apiKey: "sk-ant-test"
+      })
+    ).resolves.toEqual({ kind: "connected", modelCount: 1 })
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.anthropic.com/v1/models",
+      expect.objectContaining({
+        headers: {
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        }
+      })
+    )
+  })
+
+  it("sends Bearer auth for OpenAI-compatible endpoints", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: [] }), { status: 200 })
+      )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await checkProviderConnection({
+      id: "custom:openai:abc",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      name: "vLLM",
+      baseUrl: "http://localhost:8000/v1",
+      apiKey: "secret"
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/v1/models",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer secret" }
+      })
+    )
+  })
 })

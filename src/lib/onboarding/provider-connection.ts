@@ -27,6 +27,22 @@ const connectionEndpoint = (config: ProviderConfig): string => {
     : `${baseUrl}/models`
 }
 
+const connectionHeaders = (
+  config: ProviderConfig
+): Record<string, string> | undefined => {
+  if (!config.apiKey) return undefined
+  // Anthropic rejects Bearer auth — the Messages API wants x-api-key plus an
+  // explicit version and browser-access acknowledgement (mirrors anthropic.ts).
+  if (config.type === ProviderType.ANTHROPIC) {
+    return {
+      "x-api-key": config.apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    }
+  }
+  return { Authorization: `Bearer ${config.apiKey}` }
+}
+
 /**
  * Lightweight first-run connection check with actionable failure classes.
  * Network errors cannot distinguish a stopped localhost server from a browser
@@ -40,9 +56,7 @@ export const checkProviderConnection = async (
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const response = await fetch(connectionEndpoint(config), {
-      headers: config.apiKey
-        ? { Authorization: `Bearer ${config.apiKey}` }
-        : undefined,
+      headers: connectionHeaders(config),
       signal: controller.signal
     })
     if (response.status === 401 || response.status === 403) {
