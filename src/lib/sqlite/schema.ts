@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   createdAt INTEGER,
   updatedAt INTEGER,
   pinned INTEGER DEFAULT 0,
-  systemPrompt TEXT
+  systemPrompt TEXT,
+  tags TEXT
 );
 
 CREATE TABLE IF NOT EXISTS messages (

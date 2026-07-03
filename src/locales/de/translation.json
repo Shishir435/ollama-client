@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "Wiederholen",
-      "refresh": "Aktualisieren"
+      "refresh": "Aktualisieren",
+      "back": "Zurück"
     },
     "updated_at": "Aktualisiert",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ Unbekannter Fehler: {{message}}",
       "no_message": "Keine Nachricht",
       "response_failed_title": "Antwortgenerierung fehlgeschlagen",
-      "unknown_error_description": "Ein unbekannter Fehler ist aufgetreten"
+      "unknown_error_description": "Ein unbekannter Fehler ist aufgetreten",
+      "report_issue": "Problem melden"
     },
     "composer": {
       "rag": "Dateien",
@@ -461,7 +463,9 @@
       "aria_label": "Datei hochladen",
       "tooltip": "Datei hochladen (PDF, DOCX, CSV, HTML, Text)",
       "aria_label_with_images": "Datei oder Bild hochladen",
-      "tooltip_with_images": "Datei oder Bild hochladen (PDF, DOCX, CSV, HTML, Text, Bilder)"
+      "tooltip_with_images": "Datei oder Bild hochladen (PDF, DOCX, CSV, HTML, Text, Bilder)",
+      "formats": "PDF, DOCX, CSV, HTML, Text",
+      "formats_with_images": "PDF, DOCX, CSV, HTML, Text, Bilder"
     },
     "preview": {
       "remove_aria_label": "Datei entfernen",
@@ -544,6 +548,7 @@
       "add_button": "Hinzufügen"
     },
     "embedding_config": {
+      "title": "Embedding-Modell, Chunking, Suche und Speicher",
       "storage_stats_title": "Speicherstatistiken",
       "total_vectors": "Gesamtvektoren",
       "storage_used": "Verwendeter Speicher",
@@ -577,7 +582,8 @@
       "chunking_strategy_label": "Chunking-Strategie",
       "strategy_fixed": "Feste Größe",
       "strategy_semantic": "Semantische Grenzen",
-      "strategy_hybrid": "Hybrid (Empfohlen)",
+      "strategy_hybrid": "Hybrid",
+      "strategy_markdown": "Markdown-Struktur",
       "embedding_gen_title": "Embedding-Generierung",
       "embedding_gen_description": "Konfigurieren Sie die Leistung der Embedding-Generierung",
       "batch_size_label": "Batch-Größe",
@@ -752,6 +758,12 @@
       "pin": "Chat anheften",
       "unpin": "Chat lösen"
     },
+    "tags": {
+      "title": "Chat-Tags",
+      "description": "Kommagetrennte Labels zum Organisieren dieses Chats.",
+      "placeholder": "Arbeit, Recherche, Privat",
+      "action": "Tags bearbeiten"
+    },
     "groups": {
       "pinned": "Angeheftet"
     }
@@ -781,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "Lokal",
+      "header_tooltip": "Lokale Daten und Datenschutz prüfen",
+      "device_local": "Dieses Gerät",
+      "synced": "Synchronisiert",
+      "inventory": {
+        "title": "Deine Daten",
+        "description": "Alle gespeicherten Daten vor Sicherung oder Löschung ansehen.",
+        "chat": "Chats",
+        "chat_count": "{{sessions}} Sitzungen · {{messages}} Nachrichten",
+        "knowledge": "Wissen und Gedächtnis",
+        "knowledge_count": "{{files}} Dateien · {{vectors}} Vektoren",
+        "settings": "Lokale Einstellungen und Provider-Geheimnisse",
+        "settings_description": "Endpunkte, API-Schlüssel, Berechtigungen und Gerätestatus",
+        "preferences": "Übertragbare Einstellungen",
+        "preferences_description": "Anzeige- und Verhaltenseinstellungen in Browser Sync"
+      }
+    },
     "chat_display": {
       "title": "Chat-Anzeige",
       "description": "Konfigurieren Sie die Anzeige von Chat-Informationen",

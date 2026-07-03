@@ -83,10 +83,6 @@ const META: Record<string, PresetFieldMeta> = {
     descriptionKey: `${F}.min_rerank`
   },
   // Chunking
-  "embeddings-config.useEnhancedChunking": {
-    icon: Scissors,
-    descriptionKey: `${F}.enhanced_chunking`
-  },
   "embeddings-config.chunkSize": {
     icon: Scissors,
     descriptionKey: `${F}.chunk_size`

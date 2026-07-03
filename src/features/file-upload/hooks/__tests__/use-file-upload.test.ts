@@ -1,6 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { DEFAULT_EMBEDDING_CONFIG } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { useFileUpload } from "../use-file-upload"
 
@@ -15,10 +14,6 @@ vi.mock("@/lib/browser-api", () => ({
       sendMessage: vi.fn()
     }
   }
-}))
-
-vi.mock("@/lib/embeddings/chunker", () => ({
-  chunkTextAsync: vi.fn()
 }))
 
 vi.mock("@/lib/file-processors", () => ({
@@ -46,7 +41,6 @@ vi.mock("@/lib/logger", () => ({
 
 import { useStorage } from "@plasmohq/storage/hook"
 import { browser } from "@/lib/browser-api"
-import { chunkTextAsync } from "@/lib/embeddings/chunker"
 import { isFileTypeSupported, processFile } from "@/lib/file-processors"
 import { processKnowledge } from "@/lib/knowledge"
 
@@ -55,11 +49,6 @@ const fileUploadConfig = {
   autoEmbedFiles: false,
   showEmbeddingProgress: true,
   embeddingBatchSize: 2
-}
-
-const embeddingConfig = {
-  ...DEFAULT_EMBEDDING_CONFIG,
-  useEnhancedChunking: true
 }
 
 const processedFile: ProcessedFile = {
@@ -75,22 +64,12 @@ const processedFile: ProcessedFile = {
 const createFile = () =>
   new File(["hello world"], "notes.txt", { type: "text/plain" })
 
-const createMockPort = () => ({
-  postMessage: vi.fn(),
-  disconnect: vi.fn(),
-  onMessage: {
-    addListener: vi.fn()
-  }
-})
-
 describe("useFileUpload", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     fileUploadConfig.autoEmbedFiles = false
     fileUploadConfig.showEmbeddingProgress = true
     fileUploadConfig.embeddingBatchSize = 2
-    embeddingConfig.useEnhancedChunking = true
-
     vi.mocked(useStorage).mockImplementation(((
       options: any,
       defaultValue: any
@@ -104,10 +83,6 @@ describe("useFileUpload", () => {
         return [fileUploadConfig, vi.fn()]
       }
 
-      if (key === "embeddings-config") {
-        return [embeddingConfig, vi.fn()]
-      }
-
       return [defaultValue, vi.fn()]
     }) as any)
 
@@ -116,16 +91,11 @@ describe("useFileUpload", () => {
       ...processedFile,
       metadata: { ...processedFile.metadata }
     })
-    vi.mocked(chunkTextAsync).mockResolvedValue([
-      { index: 0, text: "hello", startPos: 0, endPos: 5 },
-      { index: 1, text: "world", startPos: 6, endPos: 11 }
-    ])
     vi.mocked(processKnowledge).mockResolvedValue({
       success: true,
       chunkCount: 2,
       vectorIds: [1, 2]
     })
-    vi.mocked(browser.runtime.connect).mockReturnValue(createMockPort() as any)
     vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
       success: true
     } as never)
@@ -151,37 +121,8 @@ describe("useFileUpload", () => {
     )
   })
 
-  it("calls onFileProcessed once after queueing legacy embedding chunks", async () => {
+  it("calls onFileProcessed once after knowledge processing", async () => {
     fileUploadConfig.autoEmbedFiles = true
-    embeddingConfig.useEnhancedChunking = false
-    const onFileProcessed = vi.fn()
-    const port = createMockPort()
-    vi.mocked(browser.runtime.connect).mockReturnValue(port as any)
-
-    const { result } = renderHook(() => useFileUpload({ onFileProcessed }))
-
-    await act(async () => {
-      await result.current.processFiles([createFile()])
-    })
-
-    expect(chunkTextAsync).toHaveBeenCalledWith(
-      "hello world",
-      expect.objectContaining({
-        chunkSize: embeddingConfig.chunkSize,
-        chunkOverlap: embeddingConfig.chunkOverlap,
-        strategy: embeddingConfig.chunkingStrategy
-      })
-    )
-    expect(port.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "init" })
-    )
-    expect(port.postMessage).toHaveBeenCalledWith({ type: "done" })
-    expect(onFileProcessed).toHaveBeenCalledTimes(1)
-  })
-
-  it("calls onFileProcessed once after enhanced knowledge processing", async () => {
-    fileUploadConfig.autoEmbedFiles = true
-    embeddingConfig.useEnhancedChunking = true
     const onFileProcessed = vi.fn()
 
     const { result } = renderHook(() => useFileUpload({ onFileProcessed }))

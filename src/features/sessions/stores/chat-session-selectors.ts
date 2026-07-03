@@ -13,6 +13,7 @@ export const useChatSessions = () => {
       renameSessionTitle: s.renameSessionTitle,
       togglePinSession: s.togglePinSession,
       setSessionSystemPrompt: s.setSessionSystemPrompt,
+      ...(s.setSessionTags ? { setSessionTags: s.setSessionTags } : {}),
       setCurrentSessionId: s.setCurrentSessionId,
       loadSessions: s.loadSessions,
       refreshSessions: s.refreshSessions,

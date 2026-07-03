@@ -15,7 +15,6 @@ export const PROVIDER_MESSAGE_KEYS = {
   GET_PROVIDER_VERSION: "get-provider-version",
   CHECK_EMBEDDING_MODEL: "check-embedding-model",
   PREPARE_EMBEDDING_MODEL: "prepare-embedding-model",
-  EMBED_FILE_CHUNKS: "embed-file-chunks",
   START_SELECTION_ACTION: "start-selection-action",
   CANCEL_SELECTION_ACTION: "cancel-selection-action",
   CONFIRM_TOOL: "confirm-tool"

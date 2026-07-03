@@ -194,6 +194,8 @@ export interface ChatSession {
    * configured system prompt for this session only.
    */
   systemPrompt?: string
+  /** User-managed labels for filtering and organizing chat history. */
+  tags?: string[]
 }
 
 export interface ChatStreamMessage {
@@ -284,6 +286,7 @@ export interface ChatSessionState {
   togglePinSession: (id: string) => Promise<void>
   /** Set (or clear, with an empty string) a session's system-prompt override. */
   setSessionSystemPrompt: (id: string, systemPrompt: string) => Promise<void>
+  setSessionTags?: (id: string, tags: string[]) => Promise<void>
   setCurrentSessionId: (id: string | null) => void
   loadSessions: () => Promise<void>
   /**

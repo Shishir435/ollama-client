@@ -1,7 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useRef } from "react"
 
-import { STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_MEMORY_ENABLED, STORAGE_KEYS } from "@/lib/constants"
 import { chunkTextAsync } from "@/lib/embeddings/chunker"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { assessContentQuality } from "@/lib/embeddings/content-quality-filter"
@@ -56,7 +56,7 @@ export const useAutoEmbedMessages = () => {
       key: STORAGE_KEYS.MEMORY.ENABLED,
       instance: plasmoGlobalStorage
     },
-    true // Default to enabled
+    DEFAULT_MEMORY_ENABLED
   )
 
   // Track messages currently being processed to avoid concurrent duplicates

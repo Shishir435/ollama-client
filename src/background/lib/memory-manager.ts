@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_MEMORY_ENABLED, STORAGE_KEYS } from "@/lib/constants"
 import { storeChatMessage } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -24,7 +24,7 @@ export const memoryManager = {
     // Check if memory is enabled
     const isMemoryEnabled =
       (await plasmoGlobalStorage.get<boolean>(STORAGE_KEYS.MEMORY.ENABLED)) ??
-      true
+      DEFAULT_MEMORY_ENABLED
     if (!isMemoryEnabled) {
       return
     }

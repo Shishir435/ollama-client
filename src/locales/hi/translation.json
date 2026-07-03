@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "पुनः प्रयास करें",
-      "refresh": "रिफ्रेश करें"
+      "refresh": "रिफ्रेश करें",
+      "back": "वापस"
     },
     "updated_at": "अपडेट किया गया",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ अज्ञात त्रुटि: {{message}}",
       "no_message": "कोई संदेश नहीं",
       "response_failed_title": "प्रतिक्रिया जनरेशन विफल",
-      "unknown_error_description": "एक अज्ञात त्रुटि उत्पन्न हुई"
+      "unknown_error_description": "एक अज्ञात त्रुटि उत्पन्न हुई",
+      "report_issue": "समस्या रिपोर्ट करें"
     },
     "composer": {
       "rag": "फ़ाइलें",
@@ -461,7 +463,9 @@
       "aria_label": "फ़ाइल अपलोड करें",
       "tooltip": "फ़ाइल अपलोड करें (PDF, DOCX, CSV, HTML, टेक्स्ट)",
       "aria_label_with_images": "फ़ाइल या छवि अपलोड करें",
-      "tooltip_with_images": "फ़ाइल या छवि अपलोड करें (PDF, DOCX, CSV, HTML, टेक्स्ट, छवियाँ)"
+      "tooltip_with_images": "फ़ाइल या छवि अपलोड करें (PDF, DOCX, CSV, HTML, टेक्स्ट, छवियाँ)",
+      "formats": "PDF, DOCX, CSV, HTML, टेक्स्ट",
+      "formats_with_images": "PDF, DOCX, CSV, HTML, टेक्स्ट, छवियाँ"
     },
     "preview": {
       "remove_aria_label": "फ़ाइल हटाएँ",
@@ -544,6 +548,7 @@
       "add_button": "जोड़ें"
     },
     "embedding_config": {
+      "title": "एम्बेडिंग मॉडल, चंकिंग, खोज और स्टोरेज",
       "storage_stats_title": "भंडारण आँकड़े",
       "total_vectors": "कुल वेक्टर",
       "storage_used": "उपयोग किया गया भंडारण",
@@ -577,7 +582,8 @@
       "chunking_strategy_label": "चंकिंग रणनीति",
       "strategy_fixed": "निश्चित साइज़",
       "strategy_semantic": "सिमेंटिक सीमाएँ",
-      "strategy_hybrid": "हाइब्रिड (अनुशंसित)",
+      "strategy_hybrid": "हाइब्रिड",
+      "strategy_markdown": "Markdown संरचना",
       "embedding_gen_title": "एम्बेडिंग जनरेशन",
       "embedding_gen_description": "एम्बेडिंग जनरेशन परफॉर्मेंस कॉन्फ़िगर करें",
       "batch_size_label": "बैच साइज़",
@@ -752,6 +758,12 @@
       "pin": "चैट पिन करें",
       "unpin": "चैट अनपिन करें"
     },
+    "tags": {
+      "title": "चैट टैग",
+      "description": "इस चैट को व्यवस्थित करने के लिए कॉमा से अलग लेबल जोड़ें।",
+      "placeholder": "काम, शोध, निजी",
+      "action": "टैग संपादित करें"
+    },
     "groups": {
       "pinned": "पिन किए गए"
     }
@@ -781,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "लोकल",
+      "header_tooltip": "लोकल डेटा और गोपनीयता नियंत्रण देखें",
+      "device_local": "यह डिवाइस",
+      "synced": "सिंक किया गया",
+      "inventory": {
+        "title": "आपका डेटा",
+        "description": "बैकअप या मिटाने से पहले संग्रहीत सभी डेटा देखें।",
+        "chat": "चैट",
+        "chat_count": "{{sessions}} सत्र · {{messages}} संदेश",
+        "knowledge": "ज्ञान और मेमोरी",
+        "knowledge_count": "{{files}} फ़ाइलें · {{vectors}} वेक्टर",
+        "settings": "लोकल सेटिंग और प्रोवाइडर सीक्रेट",
+        "settings_description": "एंडपॉइंट, API कुंजियाँ, अनुमतियाँ और डिवाइस स्थिति",
+        "preferences": "पोर्टेबल प्राथमिकताएँ",
+        "preferences_description": "ब्राउज़र सिंक में डिस्प्ले और व्यवहार सेटिंग"
+      }
+    },
     "chat_display": {
       "title": "चैट डिस्प्ले",
       "description": "चैट जानकारी कैसे प्रदर्शित हो, इसे कॉन्फ़िगर करें",

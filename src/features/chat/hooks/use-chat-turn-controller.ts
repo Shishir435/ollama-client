@@ -256,7 +256,7 @@ export const useChatTurnController = ({
       setIsLoading(false)
       setPendingActivityEvents([])
       const settingsDeepLink =
-        "/options.html?tab=knowledge-web&focus=grounded-only-mode"
+        "/options.html?tab=knowledge&focus=grounded-only-mode"
 
       await addMessage(sessionId, {
         role: "assistant",

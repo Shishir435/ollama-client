@@ -79,6 +79,7 @@ Chat-history storage now runs on sql.js (SQLite-in-WASM). The Dexie chat-history
 
 - **Chat / sessions / messages / files**: routed through `src/lib/repositories/chat-history.ts` — a SQLite-only facade over `src/lib/repositories/sqlite-chat-history.ts`. New code should keep using the facade rather than importing SQLite internals directly.
 - **SQLite**: `src/lib/sqlite/` (`db.ts`, `schema.ts`, `migrations/`). The on-install `runEmbeddingDimensionMigration` lives under `src/lib/migration/` and is invoked from `src/background/index.ts`. There is no `src/background/migrations/` directory anymore.
+- **Session metadata**: pinned state, per-chat system prompts, and user tags live on SQLite `sessions`; add columns through forward-only migrations.
 - **SQLite durability contract**: writes are debounced 1s to IndexedDB. Page-unload and explicit reset/export paths force-flush via `flushSave()` where needed.
 - **Tool-loop durability**: active native and non-native tool loops checkpoint to `tool_loop_runs` at model/tool/approval boundaries and force-flush before awaiting approval. The sidepanel reconnects with the same request id after an MV3 service-worker restart; do not remove this checkpoint/reconnect contract when changing tool execution.
 - **Vectors / embeddings**: `src/lib/embeddings/` (HNSW + keyword index). Vector storage still lives in IndexedDB via `lib/embeddings/storage.ts`. The vector store has not been migrated to SQLite yet.
@@ -100,7 +101,7 @@ Each feature folder should own its UI, hooks, and (if needed) its Zustand store:
 - `model/` — model management UI, provider/embedding settings screens
 - `file-upload/` — file ingestion for RAG, per-format processors under `processors/`
 - `prompt/` — prompt templates
-- `settings/` — settings registry, i18n-backed settings search index, and search/deep-link tests
+- `settings/` — six intent tabs (General, Models, Knowledge, Browser, Privacy, Help), settings registry, i18n-backed search, and legacy deep-link redirects
 - `memory/`, `knowledge/`, `context/`, `tabs/` — auxiliary chat-context features
 
 Cross-feature concerns (theme, shortcuts, search dialog) live in `src/stores/`. **Feature-scoped stores live under `features/<x>/stores/`, never in `src/stores/`.**
@@ -108,6 +109,7 @@ Cross-feature concerns (theme, shortcuts, search dialog) live in `src/stores/`. 
 ### RAG / Embeddings
 
 - Live RAG pipeline: `src/features/chat/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`).
+- All file, memory, and live-page splitting routes through `src/lib/embeddings/chunker.ts`. Do not recreate a parallel text-splitter pipeline.
 - Embedding plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `hnsw-index.ts`, `keyword-index.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
 - Embedding strategy chain: provider-native → shared model → Ollama fallback.
 - Hybrid search: keyword (`minisearch`) + dense (`hnsw`) with configurable weights.

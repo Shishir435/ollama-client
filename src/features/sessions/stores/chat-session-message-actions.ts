@@ -226,13 +226,15 @@ export const createChatSessionMessageActions = (
     if (!skipDb) {
       await repo.updateMessage(messageId, updates)
       if (updates.content) {
-        deleteVectors({ messageId }).catch((error) => {
+        try {
+          await deleteVectors({ messageId })
+        } catch (error) {
           logger.error(
             "Failed to delete outdated embeddings",
             "chatSessionStore",
             { error, messageId }
           )
-        })
+        }
       }
     }
 

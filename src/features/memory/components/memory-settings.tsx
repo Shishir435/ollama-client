@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_MEMORY_ENABLED, STORAGE_KEYS } from "@/lib/constants"
 import { clearAllVectors, getStorageStats } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import { Brain, Trash2 } from "@/lib/lucide-icon"
@@ -25,7 +25,7 @@ export const MemorySettings = () => {
       key: STORAGE_KEYS.MEMORY.ENABLED,
       instance: plasmoGlobalStorage
     },
-    true
+    DEFAULT_MEMORY_ENABLED
   )
   const [isClearing, setIsClearing] = useState(false)
   const clearDialog = useConfirmAction()

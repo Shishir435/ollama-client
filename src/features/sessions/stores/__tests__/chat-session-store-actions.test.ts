@@ -617,3 +617,22 @@ describe("setSessionSystemPrompt", () => {
     expect(chatSessionStore.getState().sessions[0].systemPrompt).toBeUndefined()
   })
 })
+
+describe("setSessionTags", () => {
+  it("normalizes, deduplicates, and persists tags", async () => {
+    mockRepo.updateSession.mockResolvedValue(undefined as any)
+    seedSession()
+
+    await chatSessionStore
+      .getState()
+      .setSessionTags?.(SESSION_ID, [" work ", "research", "work", ""])
+
+    expect(mockRepo.updateSession).toHaveBeenCalledWith(SESSION_ID, {
+      tags: ["work", "research"]
+    })
+    expect(chatSessionStore.getState().sessions[0].tags).toEqual([
+      "work",
+      "research"
+    ])
+  })
+})

@@ -1,4 +1,6 @@
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
+import { type ChunkDocument, chunkDocuments } from "@/lib/embeddings/chunker"
+import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import {
   cosineSimilarity,
   generateEmbedding,
@@ -9,8 +11,6 @@ import {
   type VectorDocument
 } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import { getTextSplitter } from "@/lib/text-processing"
-import type { Document } from "@/lib/text-processing/types"
 import {
   type EnhancedSearchResult,
   formatEnhancedResults,
@@ -229,7 +229,7 @@ export async function retrieveContextFromSources(
   }
 
   const timestamp = Date.now()
-  const documents: Document[] = sources.map((source) => ({
+  const documents: ChunkDocument[] = sources.map((source) => ({
     pageContent: source.content,
     metadata: {
       fileId: source.id,
@@ -240,8 +240,12 @@ export async function retrieveContextFromSources(
     }
   }))
 
-  const splitter = await getTextSplitter()
-  const chunks = await splitter.splitDocuments(documents)
+  const embeddingConfig = await getEmbeddingConfig()
+  const chunks = await chunkDocuments(documents, {
+    chunkSize: embeddingConfig.chunkSize,
+    chunkOverlap: embeddingConfig.chunkOverlap,
+    strategy: embeddingConfig.chunkingStrategy
+  })
   const texts = chunks.map((chunk) => chunk.pageContent)
 
   const queryEmbedding = await generateEmbedding(query)
@@ -270,17 +274,29 @@ export async function retrieveContextFromSources(
     const similarity = cosineSimilarity(queryEmbedding.embedding, emb.embedding)
     const chunk = chunks[i]
     const metadata = chunk.metadata || {}
+    const source =
+      typeof metadata.source === "string" ? metadata.source : "Page"
     const document: VectorDocument = {
       content: chunk.pageContent,
       embedding: emb.embedding,
       metadata: {
-        source: metadata.source || "Page",
-        title: metadata.title || metadata.source || "Page",
+        source,
+        title: typeof metadata.title === "string" ? metadata.title : source,
         type: "webpage",
-        timestamp: metadata.timestamp || timestamp,
-        fileId: metadata.fileId,
-        chunkIndex: metadata.chunkIndex,
-        totalChunks: metadata.totalChunks
+        timestamp:
+          typeof metadata.timestamp === "number"
+            ? metadata.timestamp
+            : timestamp,
+        fileId:
+          typeof metadata.fileId === "string" ? metadata.fileId : undefined,
+        chunkIndex:
+          typeof metadata.chunkIndex === "number"
+            ? metadata.chunkIndex
+            : undefined,
+        totalChunks:
+          typeof metadata.totalChunks === "number"
+            ? metadata.totalChunks
+            : undefined
       }
     }
 
@@ -332,7 +348,7 @@ export async function retrieveContextFromSources(
 
 const buildKeywordFallbackContext = async (
   query: string,
-  chunks: Document[],
+  chunks: ChunkDocument[],
   options: {
     topK?: number
     maxTokens?: number
@@ -357,18 +373,30 @@ const buildKeywordFallbackContext = async (
 
   const results: EnhancedSearchResult[] = fallback.map((item) => {
     const metadata = item.chunk.metadata || {}
+    const source =
+      typeof metadata.source === "string" ? metadata.source : "Page"
     return {
       document: {
         content: item.chunk.pageContent,
         embedding: [],
         metadata: {
-          source: metadata.source || "Page",
-          title: metadata.title || metadata.source || "Page",
+          source,
+          title: typeof metadata.title === "string" ? metadata.title : source,
           type: "webpage",
-          timestamp: metadata.timestamp || timestamp,
-          fileId: metadata.fileId,
-          chunkIndex: metadata.chunkIndex,
-          totalChunks: metadata.totalChunks
+          timestamp:
+            typeof metadata.timestamp === "number"
+              ? metadata.timestamp
+              : timestamp,
+          fileId:
+            typeof metadata.fileId === "string" ? metadata.fileId : undefined,
+          chunkIndex:
+            typeof metadata.chunkIndex === "number"
+              ? metadata.chunkIndex
+              : undefined,
+          totalChunks:
+            typeof metadata.totalChunks === "number"
+              ? metadata.totalChunks
+              : undefined
         }
       } as VectorDocument,
       score: maxScore > 0 ? item.score / maxScore : 0.1

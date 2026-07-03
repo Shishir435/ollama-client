@@ -52,10 +52,6 @@ vi.mock("@/background/handlers/handle-context-menu", () => ({
 vi.mock("@/background/handlers/handle-delete-model", () => ({
   handleDeleteModel: vi.fn()
 }))
-vi.mock("@/background/handlers/handle-embed-chunks", () => ({
-  handleEmbedFileChunks: vi.fn().mockResolvedValue(undefined),
-  handleEmbedFileChunksPort: vi.fn()
-}))
 vi.mock("@/background/handlers/handle-embedding-download", () => ({
   checkEmbeddingModelExists: vi.fn().mockResolvedValue(true),
   downloadEmbeddingModelSilently: vi.fn().mockResolvedValue({ success: true })
@@ -106,7 +102,6 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
-import { handleEmbedFileChunks } from "@/background/handlers/handle-embed-chunks"
 import { checkEmbeddingModelExists } from "@/background/handlers/handle-embedding-download"
 import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
@@ -277,12 +272,6 @@ describe("Background Script Entry Point", () => {
         vi.fn()
       )
       expect(checkEmbeddingModelExists).toHaveBeenCalled()
-    })
-
-    it("should route EMBED_FILE_CHUNKS", () => {
-      const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS }, {}, vi.fn())
-      expect(handleEmbedFileChunks).toHaveBeenCalled()
     })
   })
 })

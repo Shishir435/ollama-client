@@ -8,7 +8,11 @@ import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
 import { safePostMessage } from "@/background/lib/utils"
-import { DEFAULT_MAX_RAG_CONTEXT_CHARS, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_MAX_RAG_CONTEXT_CHARS,
+  DEFAULT_MEMORY_ENABLED,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -78,7 +82,7 @@ export const handleChatWithModel = withErrorContext(
     // --- System Prompt & Context Injection ---
     const isMemoryEnabled =
       (await plasmoGlobalStorage.get<boolean>(STORAGE_KEYS.MEMORY.ENABLED)) ??
-      true
+      DEFAULT_MEMORY_ENABLED
     // A per-chat system prompt override, when set, replaces the model's
     // configured prompt for this session only. Empty/whitespace is ignored, and
     // a failed read degrades to the model default rather than breaking the turn.

@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "Réessayer",
-      "refresh": "Actualiser"
+      "refresh": "Actualiser",
+      "back": "Retour"
     },
     "updated_at": "Mis à jour",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ Erreur inconnue : {{message}}",
       "no_message": "Aucun message",
       "response_failed_title": "Échec de la génération de la réponse",
-      "unknown_error_description": "Une erreur inconnue est survenue"
+      "unknown_error_description": "Une erreur inconnue est survenue",
+      "report_issue": "Signaler un problème"
     },
     "composer": {
       "rag": "Fichiers",
@@ -461,7 +463,9 @@
       "aria_label": "Téléverser un fichier",
       "tooltip": "Téléverser un fichier (PDF, DOCX, CSV, HTML, Texte)",
       "aria_label_with_images": "Téléverser un fichier ou une image",
-      "tooltip_with_images": "Téléverser un fichier ou une image (PDF, DOCX, CSV, HTML, Texte, Images)"
+      "tooltip_with_images": "Téléverser un fichier ou une image (PDF, DOCX, CSV, HTML, Texte, Images)",
+      "formats": "PDF, DOCX, CSV, HTML, Texte",
+      "formats_with_images": "PDF, DOCX, CSV, HTML, Texte, Images"
     },
     "preview": {
       "remove_aria_label": "Retirer le fichier",
@@ -544,6 +548,7 @@
       "add_button": "Ajouter"
     },
     "embedding_config": {
+      "title": "Modèle d'embedding, découpage, recherche et stockage",
       "storage_stats_title": "Statistiques de Stockage",
       "total_vectors": "Vecteurs Totaux",
       "storage_used": "Stockage Utilisé",
@@ -577,7 +582,8 @@
       "chunking_strategy_label": "Stratégie de Fragmentation",
       "strategy_fixed": "Taille Fixe",
       "strategy_semantic": "Limites Sémantiques",
-      "strategy_hybrid": "Hybride (Recommandé)",
+      "strategy_hybrid": "Hybride",
+      "strategy_markdown": "Structure Markdown",
       "embedding_gen_title": "Génération d'Incrustation",
       "embedding_gen_description": "Configure les performances de la génération d'incrustation",
       "batch_size_label": "Taille du Lot",
@@ -752,6 +758,12 @@
       "pin": "Épingler le chat",
       "unpin": "Désépingler le chat"
     },
+    "tags": {
+      "title": "Étiquettes du chat",
+      "description": "Ajoutez des étiquettes séparées par des virgules pour organiser ce chat.",
+      "placeholder": "travail, recherche, personnel",
+      "action": "Modifier les étiquettes"
+    },
     "groups": {
       "pinned": "Épinglés"
     }
@@ -781,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "Local",
+      "header_tooltip": "Voir les données locales et les contrôles de confidentialité",
+      "device_local": "Cet appareil",
+      "synced": "Synchronisé",
+      "inventory": {
+        "title": "Vos données",
+        "description": "Consultez toutes les données stockées avant sauvegarde ou effacement.",
+        "chat": "Chats",
+        "chat_count": "{{sessions}} sessions · {{messages}} messages",
+        "knowledge": "Connaissances et mémoire",
+        "knowledge_count": "{{files}} fichiers · {{vectors}} vecteurs",
+        "settings": "Réglages locaux et secrets des fournisseurs",
+        "settings_description": "Endpoints, clés API, autorisations et état de l’appareil",
+        "preferences": "Préférences portables",
+        "preferences_description": "Réglages d’affichage et de comportement synchronisés par le navigateur"
+      }
+    },
     "chat_display": {
       "title": "Affichage du Chat",
       "description": "Configurer l'affichage des informations du chat",

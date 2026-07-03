@@ -58,6 +58,22 @@ describe("sessions", () => {
     expect(await repo.getSession("nope")).toBeUndefined()
   })
 
+  it("parses persisted session tags", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      {
+        id: "tagged",
+        title: "Tagged",
+        createdAt: 1,
+        updatedAt: 2,
+        tags: '["work","research"]'
+      }
+    ])
+
+    await expect(repo.getSession("tagged")).resolves.toMatchObject({
+      tags: ["work", "research"]
+    })
+  })
+
   it("getLatestSession runs LIMIT 1 query", async () => {
     mockedQuery.mockResolvedValueOnce([])
     await repo.getLatestSession()
@@ -81,7 +97,7 @@ describe("sessions", () => {
     expect(mockedRun).toHaveBeenCalledTimes(1)
     const [sql, params] = mockedRun.mock.calls[0]
     expect(sql).toContain("INSERT INTO sessions")
-    expect(params).toEqual(["s9", "Hi", "m", 4, 100, 200, 0, null])
+    expect(params).toEqual(["s9", "Hi", "m", 4, 100, 200, 0, null, null])
   })
 
   it("bulkPutSessions runs INSERT OR REPLACE for each row", async () => {

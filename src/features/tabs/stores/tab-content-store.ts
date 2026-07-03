@@ -35,8 +35,11 @@ export const useTabContent = () => {
         const title = content?.title || "Untitled"
         const header = `Context-${index + 1}`
 
+        // Calm parenthetical, not "❌ Error:" — this string is fed to the model
+        // as page context, and models tend to echo alarming error text verbatim
+        // into their answer.
         if (errors[tabId]) {
-          return `${header}\nTitle: ${title}\nContent:\n❌ Error: ${errors[tabId]}`
+          return `${header}\nTitle: ${title}\nContent:\n(This tab could not be read: ${errors[tabId]})`
         }
 
         if (!content) {

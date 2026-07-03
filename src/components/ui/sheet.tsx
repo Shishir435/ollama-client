@@ -39,10 +39,13 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  closeButtonClassName,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
+  /** Reposition the built-in close button when the sheet uses non-default padding. */
+  closeButtonClassName?: string
 }) {
   return (
     <SheetPortal>
@@ -65,7 +68,10 @@ function SheetContent({
                 render={
                   <Button
                     variant="ghost"
-                    className="absolute top-4 right-4"
+                    className={cn(
+                      "absolute top-4 right-4",
+                      closeButtonClassName
+                    )}
                     size="icon-sm"
                     aria-label="Close"
                   />

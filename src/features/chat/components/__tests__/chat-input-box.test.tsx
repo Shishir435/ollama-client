@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
+import { useState } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ChatInputBox } from "@/features/chat/components/chat-input-box"
 
@@ -38,7 +39,20 @@ vi.mock("@/features/chat/stores/chat-input-store", () => ({
     input: "",
     setInput: vi.fn(),
     appendInput: vi.fn()
-  })
+  }),
+  useComposerUi: () => {
+    const [promptLibraryOpen, setPromptLibraryOpen] = useState(false)
+    const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false)
+    const [focused, setFocused] = useState(false)
+    return {
+      promptLibraryOpen,
+      attachmentSheetOpen,
+      focused,
+      setPromptLibraryOpen,
+      setAttachmentSheetOpen,
+      setFocused
+    }
+  }
 }))
 
 vi.mock("@/features/chat/stores/load-stream-store", () => ({

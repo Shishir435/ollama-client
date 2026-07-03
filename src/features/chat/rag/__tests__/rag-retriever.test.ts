@@ -27,21 +27,27 @@ vi.mock("@/lib/embeddings/embedding-client", () => ({
   cosineSimilarity: vi.fn().mockReturnValue(0.85)
 }))
 
-vi.mock("@/lib/text-processing", () => ({
-  getTextSplitter: vi.fn().mockResolvedValue({
-    splitDocuments: vi.fn().mockResolvedValue([
-      {
-        pageContent: "chunk content",
-        metadata: {
-          source: "Test Title",
-          title: "Test Title",
-          fileId: "src-1",
-          chunkIndex: 0,
-          totalChunks: 1
-        }
-      }
-    ])
+vi.mock("@/lib/embeddings/config", () => ({
+  getEmbeddingConfig: vi.fn().mockResolvedValue({
+    chunkSize: 500,
+    chunkOverlap: 50,
+    chunkingStrategy: "markdown"
   })
+}))
+
+vi.mock("@/lib/embeddings/chunker", () => ({
+  chunkDocuments: vi.fn().mockResolvedValue([
+    {
+      pageContent: "chunk content",
+      metadata: {
+        source: "Test Title",
+        title: "Test Title",
+        fileId: "src-1",
+        chunkIndex: 0,
+        totalChunks: 1
+      }
+    }
+  ])
 }))
 
 vi.mock("../rag-pipeline", () => ({

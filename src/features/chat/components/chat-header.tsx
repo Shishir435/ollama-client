@@ -1,6 +1,7 @@
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { EmbeddingStatusIndicator } from "@/features/model/components/embedding-status-indicator"
 import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
+import { PrivacyStatusChip } from "@/features/privacy/components/privacy-status-chip"
 import { ChatSessionSelector } from "@/features/sessions/components/chat-session-selector"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import type { ChatMessage } from "@/types"
@@ -23,6 +24,7 @@ export const ChatHeader = ({ messages }: { messages: ChatMessage[] }) => {
           <SessionMetricsBar messages={messages} />
         )}
         <div className="flex items-center gap-2">
+          <PrivacyStatusChip />
           <SessionSystemPromptButton />
           <EmbeddingStatusIndicator />
           <ProviderStatusIndicator />

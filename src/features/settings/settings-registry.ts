@@ -37,21 +37,32 @@ const TAB_GROUPS_AVAILABLE =
 
 /** Real options-page tab keys (see `settings-page.tsx` navSections). */
 export const SETTINGS_TABS = [
-  "chat",
-  "model-behavior",
-  "providers",
-  "knowledge-web",
-  "saved-knowledge",
-  "page-tabs",
-  "prompt-library",
-  "shortcuts",
-  "speech",
+  "general",
+  "models",
+  "knowledge",
+  "browser",
   "privacy",
-  "data-backup",
   "help"
 ] as const
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number]
+
+const LEGACY_TAB_MAP = {
+  chat: "general",
+  "model-behavior": "models",
+  providers: "models",
+  "knowledge-web": "knowledge",
+  "saved-knowledge": "knowledge",
+  "page-tabs": "browser",
+  "prompt-library": "general",
+  shortcuts: "general",
+  speech: "general",
+  privacy: "privacy",
+  "data-backup": "privacy",
+  help: "help"
+} as const
+
+type LegacySettingsTab = keyof typeof LEGACY_TAB_MAP
 
 export interface SettingsEntry {
   /** Kebab-case focus id; equals the control's `data-settings-focus-id`. */
@@ -78,6 +89,10 @@ export interface SettingsEntry {
   destructive?: boolean
 }
 
+type RawSettingsEntry = Omit<SettingsEntry, "tab"> & {
+  tab: LegacySettingsTab
+}
+
 /**
  * The registry. Grouped by tab for readability; order here is not significant.
  *
@@ -86,7 +101,7 @@ export interface SettingsEntry {
  * resolves a deep-linked focus id's home tab through this registry, so a link
  * only needs the correct `focus` id even if its `tab` is stale.
  */
-export const SETTINGS_REGISTRY: SettingsEntry[] = [
+const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
   // ---- General -----------------------------------------------------------
   {
     id: "language-select",
@@ -536,15 +551,6 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
 
   // ---- Context: Chunking (advanced) --------------------------------------
   {
-    id: "enhanced-chunking",
-    tab: "knowledge-web",
-    sectionId: "chunking",
-    labelKey: "model.embedding_config.enhanced_chunking_label",
-    descriptionKey: "model.embedding_config.enhanced_chunking_description",
-    advanced: true,
-    keywords: ["chunking", "enhanced", "splitting"]
-  },
-  {
     id: "chunk-size",
     tab: "knowledge-web",
     sectionId: "chunking",
@@ -748,66 +754,12 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
     aliases: ["semantic search", "test search", "search files"],
     keywords: ["search", "semantic", "uploaded files", "query"]
   },
-  {
-    id: "embeddings-search-limit-topk",
-    tab: "saved-knowledge",
-    sectionId: "embeddings-search",
-    labelKey: "model.embedding_config.search_limit_label",
-    descriptionKey: "model.embedding_config.search_limit_description",
-    advanced: true,
-    keywords: ["search limit", "top k", "semantic search", "retrieval"]
-  },
-  {
-    id: "embeddings-min-similarity",
-    tab: "saved-knowledge",
-    sectionId: "embeddings-search",
-    labelKey: "model.embedding_config.min_similarity_label",
-    descriptionKey: "model.embedding_config.min_similarity_description",
-    advanced: true,
-    keywords: ["similarity", "threshold", "semantic search", "cosine"]
-  },
-  {
-    id: "embeddings-cache-ttl",
-    tab: "saved-knowledge",
-    sectionId: "embeddings-search",
-    labelKey: "model.embedding_config.cache_ttl_label",
-    descriptionKey: "model.embedding_config.cache_ttl_description",
-    advanced: true,
-    keywords: ["cache", "ttl", "minutes", "search cache"]
-  },
-  {
-    id: "embeddings-cache-max-size",
-    tab: "saved-knowledge",
-    sectionId: "embeddings-search",
-    labelKey: "model.embedding_config.cache_max_size_label",
-    descriptionKey: "model.embedding_config.cache_max_size_description",
-    advanced: true,
-    keywords: ["cache", "cached queries", "search cache"]
-  },
-  {
-    id: "embeddings-ann-backend",
-    tab: "saved-knowledge",
-    sectionId: "embeddings-search",
-    labelKey: "model.embedding_config.ann_backend_label",
-    descriptionKey: "model.embedding_config.ann_backend_description",
-    searchKeys: [
-      "model.embedding_config.ann_backend_placeholder",
-      "model.embedding_config.ann_backend_group",
-      "model.embedding_config.ann_backend_ts",
-      "model.embedding_config.ann_backend_bruteforce"
-    ],
-    advanced: true,
-    keywords: ["ann", "hnsw", "brute force", "vector search"]
-  },
-  {
-    id: "embeddings-ann-min-vectors",
-    tab: "saved-knowledge",
-    sectionId: "embeddings-search",
-    labelKey: "model.embedding_config.ann_min_vectors_label",
-    descriptionKey: "model.embedding_config.ann_min_vectors_description",
-    advanced: true,
-    keywords: ["ann", "min vectors", "threshold", "vector search"]
-  },
+  // NOTE: the old "embeddings-search" advanced card (search limit, min
+  // similarity, cache TTL/size, ANN backend/min-vectors) no longer exists in
+  // the UI — its config fields are internal now. Registry entries for it were
+  // removed so search never offers results that focus nothing. The live
+  // search-limit and rerank-threshold sliders in RAG settings have their own
+  // entries ("search-limit-topk", "min-rerank-score").
   {
     id: "data-migration-export",
     tab: "data-backup",
@@ -1307,20 +1259,26 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
 
   // ---- Permissions & Privacy ---------------------------------------------
   {
+    id: "privacy-data-inventory",
+    tab: "privacy",
+    sectionId: "privacy",
+    labelKey: "settings.privacy_spine.inventory.title",
+    descriptionKey: "settings.privacy_spine.inventory.description",
+    searchKeys: [
+      "settings.privacy_spine.inventory.chat",
+      "settings.privacy_spine.inventory.knowledge",
+      "settings.privacy_spine.inventory.settings",
+      "settings.privacy_spine.inventory.preferences"
+    ],
+    aliases: ["local data", "stored data", "privacy", "inventory", "sync"]
+  },
+  {
     id: "permissions",
     tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.permissions.title",
     descriptionKey: "settings.permissions.description",
     aliases: ["permissions", "privacy", "access", "consent", "data"]
-  },
-  {
-    id: "privacy-overview",
-    tab: "privacy",
-    sectionId: "permissions",
-    labelKey: "settings.permissions.overview.title",
-    descriptionKey: "settings.permissions.overview.description",
-    aliases: ["local data", "data location", "private", "device only"]
   },
   {
     id: "browser-tab-access",
@@ -1514,11 +1472,24 @@ export const SETTINGS_REGISTRY: SettingsEntry[] = [
   }
 ]
 
+export const SETTINGS_REGISTRY: SettingsEntry[] = RAW_SETTINGS_REGISTRY.map(
+  (entry) => ({ ...entry, tab: LEGACY_TAB_MAP[entry.tab] })
+)
+
 const TAB_SET = new Set<string>(SETTINGS_TABS)
 
 /** Type guard: is `tab` a real options-page tab key. */
 export const isSettingsTab = (tab: string): tab is SettingsTab =>
   TAB_SET.has(tab)
+
+/** Resolve current and pre-0.12.1 deep links to the six intent tabs. */
+export const resolveSettingsTab = (
+  tab: string | null | undefined
+): SettingsTab | undefined => {
+  if (!tab) return undefined
+  if (isSettingsTab(tab)) return tab
+  return LEGACY_TAB_MAP[tab as LegacySettingsTab]
+}
 
 /** All entries rendered on a given tab. */
 export const getSettingsForTab = (tab: SettingsTab): SettingsEntry[] =>

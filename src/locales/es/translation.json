@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "Reintentar",
-      "refresh": "Actualizar"
+      "refresh": "Actualizar",
+      "back": "Atrás"
     },
     "updated_at": "Actualizado",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ Error desconocido: {{message}}",
       "no_message": "Sin mensaje",
       "response_failed_title": "Generación de respuesta fallida",
-      "unknown_error_description": "Ocurrió un error desconocido"
+      "unknown_error_description": "Ocurrió un error desconocido",
+      "report_issue": "Informar de un problema"
     },
     "composer": {
       "rag": "Archivos",
@@ -461,7 +463,9 @@
       "aria_label": "Subir archivo",
       "tooltip": "Subir archivo (PDF, DOCX, CSV, HTML, Texto)",
       "aria_label_with_images": "Subir archivo o imagen",
-      "tooltip_with_images": "Subir archivo o imagen (PDF, DOCX, CSV, HTML, Texto, Imágenes)"
+      "tooltip_with_images": "Subir archivo o imagen (PDF, DOCX, CSV, HTML, Texto, Imágenes)",
+      "formats": "PDF, DOCX, CSV, HTML, Texto",
+      "formats_with_images": "PDF, DOCX, CSV, HTML, Texto, Imágenes"
     },
     "preview": {
       "remove_aria_label": "Eliminar archivo",
@@ -544,6 +548,7 @@
       "add_button": "Añadir"
     },
     "embedding_config": {
+      "title": "Modelo de embeddings, fragmentación, búsqueda y almacenamiento",
       "storage_stats_title": "Estadísticas de Almacenamiento",
       "total_vectors": "Vectores Totales",
       "storage_used": "Almacenamiento Usado",
@@ -577,7 +582,8 @@
       "chunking_strategy_label": "Estrategia de Fragmentación",
       "strategy_fixed": "Tamaño Fijo",
       "strategy_semantic": "Límites Semánticos",
-      "strategy_hybrid": "Híbrido (Recomendado)",
+      "strategy_hybrid": "Híbrido",
+      "strategy_markdown": "Estructura Markdown",
       "embedding_gen_title": "Generación de Incrustaciones",
       "embedding_gen_description": "Configura el rendimiento de la generación de incrustaciones",
       "batch_size_label": "Tamaño del Lote",
@@ -752,6 +758,12 @@
       "pin": "Fijar chat",
       "unpin": "Dejar de fijar chat"
     },
+    "tags": {
+      "title": "Etiquetas del chat",
+      "description": "Añade etiquetas separadas por comas para organizar este chat.",
+      "placeholder": "trabajo, investigación, personal",
+      "action": "Editar etiquetas"
+    },
     "groups": {
       "pinned": "Fijados"
     }
@@ -781,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "Local",
+      "header_tooltip": "Revisar datos locales y controles de privacidad",
+      "device_local": "Este dispositivo",
+      "synced": "Sincronizado",
+      "inventory": {
+        "title": "Tus datos",
+        "description": "Consulta todo lo almacenado antes de crear una copia o borrarlo.",
+        "chat": "Chats",
+        "chat_count": "{{sessions}} sesiones · {{messages}} mensajes",
+        "knowledge": "Conocimiento y memoria",
+        "knowledge_count": "{{files}} archivos · {{vectors}} vectores",
+        "settings": "Ajustes locales y secretos de proveedores",
+        "settings_description": "Endpoints, claves API, permisos y estado del dispositivo",
+        "preferences": "Preferencias portátiles",
+        "preferences_description": "Ajustes de interfaz y comportamiento en la sincronización del navegador"
+      }
+    },
     "chat_display": {
       "title": "Visualización del Chat",
       "description": "Configura cómo se muestra la información del chat",

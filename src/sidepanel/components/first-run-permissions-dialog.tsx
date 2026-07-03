@@ -99,7 +99,7 @@ export const FirstRunPermissionsDialog = () => {
 
   const openProviderSetup = () => {
     void openOptionsInTab(
-      runtime.getURL("options.html?tab=providers&focus=provider-base-url")
+      runtime.getURL("options.html?tab=models&focus=provider-base-url")
     )
   }
 

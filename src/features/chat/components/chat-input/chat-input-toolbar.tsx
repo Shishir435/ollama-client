@@ -1,11 +1,8 @@
 import { useTranslation } from "react-i18next"
-import { TooltipActionButton } from "@/components/actions"
-import { IconBadge } from "@/components/icon-badge"
 import { SettingsButton } from "@/components/settings-button"
-import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import type { FileProcessingState } from "@/lib/file-processors/types"
-import { Camera, FileText } from "@/lib/lucide-icon"
+import type { ImageAttachment } from "@/types"
 import { ContextSettingsMenu } from "./context-settings-menu"
 import { InputMetrics } from "./input-metrics"
 import { VoiceInputButton } from "./voice-input-button"
@@ -15,10 +12,12 @@ export interface ChatInputToolbarProps {
   isLoading: boolean
   onFilesSelected: (files: FileList) => void
   processingStates?: FileProcessingState[]
-  onAttachmentClick?: () => void
+  /** Remove a staged file (Context sheet's inline attachment list). */
+  onRemoveFile?: (file: File) => void
   acceptImages?: boolean
-  /** Staged image count, shown in the same attachment badge as files. */
-  imageCount?: number
+  /** Staged images, shown in the same attachment view as files. */
+  images?: ImageAttachment[]
+  onRemoveImage?: (imageId: string) => void
   /** Capture the visible tab as an image (E1; shown only when enabled). */
   onCaptureScreenshot?: () => void
   showScreenshot?: boolean
@@ -29,9 +28,10 @@ export const ChatInputToolbar = ({
   isLoading,
   onFilesSelected,
   processingStates = [],
-  onAttachmentClick,
+  onRemoveFile,
   acceptImages = false,
-  imageCount = 0,
+  images = [],
+  onRemoveImage,
   onCaptureScreenshot,
   showScreenshot = false
 }: ChatInputToolbarProps) => {
@@ -39,7 +39,7 @@ export const ChatInputToolbar = ({
   const successfulStates = processingStates.filter(
     (s) => s.status === "success"
   )
-  const attachmentCount = successfulStates.length + imageCount
+  const attachmentCount = successfulStates.length + images.length
 
   return (
     <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-2 rounded-control bg-background/85 p-1 backdrop-blur">
@@ -49,7 +49,18 @@ export const ChatInputToolbar = ({
           tooltipTextContent={t("chat.input.switch_model")}
         />
 
-        <ContextSettingsMenu attachmentCount={attachmentCount} />
+        <ContextSettingsMenu
+          attachmentCount={attachmentCount}
+          onFilesSelected={onFilesSelected}
+          disabled={isLoading}
+          acceptImages={acceptImages}
+          processingStates={processingStates}
+          onRemoveFile={onRemoveFile}
+          images={images}
+          onRemoveImage={onRemoveImage}
+          onCaptureScreenshot={onCaptureScreenshot}
+          showScreenshot={showScreenshot}
+        />
 
         <SettingsButton
           showText={false}
@@ -59,43 +70,7 @@ export const ChatInputToolbar = ({
           iconClassName="icon-sm"
         />
 
-        <FileUploadButton
-          onFilesSelected={onFilesSelected}
-          disabled={isLoading}
-          acceptImages={acceptImages}
-        />
-
         <VoiceInputButton disabled={isLoading} />
-        {showScreenshot && onCaptureScreenshot && (
-          <TooltipActionButton
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
-            onClick={onCaptureScreenshot}
-            disabled={isLoading}
-            label={t("chat.input.screenshot")}
-            icon={<Camera className="icon-sm" aria-hidden="true" />}
-          />
-        )}
-        {attachmentCount > 0 && onAttachmentClick && (
-          <TooltipActionButton
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="relative shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
-            onClick={onAttachmentClick}
-            label={t("chat.input.attachments", {
-              count: attachmentCount
-            })}
-            icon={
-              <IconBadge
-                icon={<FileText className="icon-sm" aria-hidden="true" />}
-                count={attachmentCount}
-              />
-            }
-          />
-        )}
       </div>
 
       <InputMetrics inputLength={inputLength} />

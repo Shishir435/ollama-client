@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "再試行",
-      "refresh": "更新"
+      "refresh": "更新",
+      "back": "戻る"
     },
     "updated_at": "更新済み",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ 不明なエラー: {{message}}",
       "no_message": "メッセージなし",
       "response_failed_title": "応答の生成に失敗しました",
-      "unknown_error_description": "不明なエラーが発生しました"
+      "unknown_error_description": "不明なエラーが発生しました",
+      "report_issue": "問題を報告"
     },
     "composer": {
       "rag": "ファイル",
@@ -461,7 +463,9 @@
       "aria_label": "ファイルをアップロード",
       "tooltip": "ファイルをアップロード (PDF、DOCX、CSV、HTML、テキスト)",
       "aria_label_with_images": "ファイルまたは画像をアップロード",
-      "tooltip_with_images": "ファイルまたは画像をアップロード (PDF, DOCX, CSV, HTML, テキスト, 画像)"
+      "tooltip_with_images": "ファイルまたは画像をアップロード (PDF, DOCX, CSV, HTML, テキスト, 画像)",
+      "formats": "PDF、DOCX、CSV、HTML、テキスト",
+      "formats_with_images": "PDF、DOCX、CSV、HTML、テキスト、画像"
     },
     "preview": {
       "remove_aria_label": "ファイルを削除",
@@ -544,6 +548,7 @@
       "add_button": "追加"
     },
     "embedding_config": {
+      "title": "埋め込みモデル、チャンク分割、検索、ストレージ",
       "storage_stats_title": "ストレージ統計",
       "total_vectors": "総ベクトル数",
       "storage_used": "使用ストレージ",
@@ -577,7 +582,8 @@
       "chunking_strategy_label": "チャンク戦略",
       "strategy_fixed": "固定サイズ",
       "strategy_semantic": "セマンティック境界",
-      "strategy_hybrid": "ハイブリッド (推奨)",
+      "strategy_hybrid": "ハイブリッド",
+      "strategy_markdown": "Markdown 構造",
       "embedding_gen_title": "エンベディング生成",
       "embedding_gen_description": "エンベディング生成のパフォーマンスを設定します",
       "batch_size_label": "バッチサイズ",
@@ -752,6 +758,12 @@
       "pin": "チャットをピン留め",
       "unpin": "ピン留めを解除"
     },
+    "tags": {
+      "title": "チャットタグ",
+      "description": "カンマ区切りのラベルでこのチャットを整理します。",
+      "placeholder": "仕事, 調査, 個人",
+      "action": "タグを編集"
+    },
     "groups": {
       "pinned": "ピン留め"
     }
@@ -781,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "ローカル",
+      "header_tooltip": "ローカルデータとプライバシー設定を確認",
+      "device_local": "このデバイス",
+      "synced": "同期済み",
+      "inventory": {
+        "title": "あなたのデータ",
+        "description": "バックアップまたは消去する前に保存データをすべて確認できます。",
+        "chat": "チャット",
+        "chat_count": "{{sessions}} セッション · {{messages}} メッセージ",
+        "knowledge": "ナレッジとメモリ",
+        "knowledge_count": "{{files}} ファイル · {{vectors}} ベクトル",
+        "settings": "ローカル設定とプロバイダーの秘密情報",
+        "settings_description": "エンドポイント、APIキー、権限、デバイス状態",
+        "preferences": "同期可能な設定",
+        "preferences_description": "ブラウザー同期に保存される表示と動作の設定"
+      }
+    },
     "chat_display": {
       "title": "チャット表示",
       "description": "チャット情報の表示方法を設定",

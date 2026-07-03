@@ -1,6 +1,5 @@
 import type { Runtime } from "webextension-polyfill"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
-import { handleEmbedFileChunks } from "@/background/handlers/handle-embed-chunks"
 import {
   checkEmbeddingModelExists,
   handlePrepareEmbeddingModel
@@ -269,19 +268,6 @@ export const registerMessageRouter = () => {
 
       case MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL: {
         handlePrepareEmbeddingModel(message.payload, response)
-        return true
-      }
-
-      case MESSAGE_KEYS.PROVIDER.EMBED_FILE_CHUNKS: {
-        handleEmbedFileChunks(message, response).catch((err) => {
-          safeSendResponse(response, {
-            success: false,
-            error: {
-              status: 0,
-              message: err instanceof Error ? err.message : String(err)
-            }
-          })
-        })
         return true
       }
 

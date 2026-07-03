@@ -93,7 +93,7 @@ describe("SettingsPage", () => {
     fireEvent.mouseDown(screen.getAllByText("settings.providers.base_url")[0])
 
     const params = new URLSearchParams(window.location.search)
-    expect(params.get("tab")).toBe("providers")
+    expect(params.get("tab")).toBe("models")
     expect(params.get("focus")).toBe("provider-base-url")
   })
 })

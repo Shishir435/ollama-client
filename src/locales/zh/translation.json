@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "重试",
-      "refresh": "刷新"
+      "refresh": "刷新",
+      "back": "返回"
     },
     "updated_at": "已更新",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ 未知错误: {{message}}",
       "no_message": "无消息",
       "response_failed_title": "响应生成失败",
-      "unknown_error_description": "发生未知错误"
+      "unknown_error_description": "发生未知错误",
+      "report_issue": "报告问题"
     },
     "composer": {
       "rag": "文件",
@@ -461,7 +463,9 @@
       "aria_label": "上传文件",
       "tooltip": "上传文件（PDF、DOCX、CSV、HTML、文本）",
       "aria_label_with_images": "上传文件或图片",
-      "tooltip_with_images": "上传文件或图片 (PDF、DOCX、CSV、HTML、文本、图片)"
+      "tooltip_with_images": "上传文件或图片 (PDF、DOCX、CSV、HTML、文本、图片)",
+      "formats": "PDF、DOCX、CSV、HTML、文本",
+      "formats_with_images": "PDF、DOCX、CSV、HTML、文本、图片"
     },
     "preview": {
       "remove_aria_label": "移除文件",
@@ -544,6 +548,7 @@
       "add_button": "添加"
     },
     "embedding_config": {
+      "title": "嵌入模型、分块、搜索与存储",
       "storage_stats_title": "存储统计",
       "total_vectors": "总向量数",
       "storage_used": "已用存储空间",
@@ -577,7 +582,8 @@
       "chunking_strategy_label": "分块策略",
       "strategy_fixed": "固定大小",
       "strategy_semantic": "语义边界",
-      "strategy_hybrid": "混合 (推荐)",
+      "strategy_hybrid": "混合",
+      "strategy_markdown": "Markdown 结构",
       "embedding_gen_title": "嵌入生成",
       "embedding_gen_description": "配置嵌入生成性能",
       "batch_size_label": "批处理大小",
@@ -752,6 +758,12 @@
       "pin": "置顶对话",
       "unpin": "取消置顶"
     },
+    "tags": {
+      "title": "聊天标签",
+      "description": "添加以逗号分隔的标签来整理此聊天。",
+      "placeholder": "工作, 研究, 个人",
+      "action": "编辑标签"
+    },
     "groups": {
       "pinned": "已置顶"
     }
@@ -781,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "本地",
+      "header_tooltip": "查看本地数据和隐私控制",
+      "device_local": "此设备",
+      "synced": "已同步",
+      "inventory": {
+        "title": "你的数据",
+        "description": "备份或清除前查看 Ollama Client 存储的全部数据。",
+        "chat": "聊天",
+        "chat_count": "{{sessions}} 个会话 · {{messages}} 条消息",
+        "knowledge": "知识和记忆",
+        "knowledge_count": "{{files}} 个文件 · {{vectors}} 个向量",
+        "settings": "本地设置和提供商密钥",
+        "settings_description": "端点、API 密钥、权限和设备状态",
+        "preferences": "可同步偏好",
+        "preferences_description": "存储在浏览器同步中的显示和行为设置"
+      }
+    },
     "chat_display": {
       "title": "聊天显示",
       "description": "配置聊天信息的显示方式",

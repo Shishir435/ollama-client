@@ -3,19 +3,18 @@ import { useCallback, useEffect } from "react"
 import { create } from "zustand"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
-import { browser } from "@/lib/browser-api"
 import {
   blockedTabAccessMessage,
   isContentScriptReadableUrl
 } from "@/lib/browser-tab-access"
 import {
   DEFAULT_TABS_ACCESS,
-  MESSAGE_KEYS,
   STORAGE_KEYS,
   TAB_CONTENT_REFRESH_INTERVAL_MS
 } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { requestPageContentWithRecovery } from "@/lib/tools/internal/tab-utils"
 import type { ChromeResponse } from "@/types"
 
 interface TabFetchingState {
@@ -84,9 +83,9 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
     }))
 
     try {
-      const response = (await browser.tabs.sendMessage(tabId, {
-        type: MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT
-      })) as ChromeResponse & { html?: string; title?: string }
+      // Recovers from "Receiving end does not exist" (stale tab from before the
+      // extension loaded) by injecting the content script and retrying once.
+      const response = await requestPageContentWithRecovery(tabId)
 
       const html = response?.html || ""
       const title = response?.title || fallbackTitle || "Untitled"
@@ -110,7 +109,14 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
         }
       }))
     } catch (err) {
-      const errorMessage = getDisplayErrorMessage(err)
+      // Raw Chrome messaging errors ("Could not establish connection.
+      // Receiving end does not exist.") read like a crash; this string ends up
+      // in the model's context, so keep it calm and actionable instead.
+      const raw = getDisplayErrorMessage(err)
+      const errorMessage =
+        /receiving end does not exist|could not establish connection/i.test(raw)
+          ? `Can't read "${fallbackTitle || "this tab"}" right now — reload that tab and refresh the context.`
+          : raw
       setErrors((prev) => ({ ...prev, [tabId]: errorMessage }))
       set((s) => {
         const newLoading = { ...s.loadingIds }

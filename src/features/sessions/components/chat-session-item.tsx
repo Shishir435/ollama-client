@@ -1,13 +1,15 @@
 import { MessageSquare } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { MoreHorizontal, Pin, PinOff, Trash2 } from "@/lib/lucide-icon"
+import { MoreHorizontal, Pin, PinOff, Tag, Trash2 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { ChatSession } from "@/types"
 import { ChatSessionActions } from "./chat-session-actions"
+import { SessionTagsDialog } from "./session-tags-dialog"
 
 export interface ChatSessionItemProps {
   session: ChatSession
@@ -23,7 +25,8 @@ export const ChatSessionItem = ({
   onDelete
 }: ChatSessionItemProps) => {
   const { t } = useTranslation()
-  const { sessions, togglePinSession } = useChatSessions()
+  const { sessions, togglePinSession, setSessionTags } = useChatSessions()
+  const [tagsOpen, setTagsOpen] = useState(false)
   const {
     exportSessionAsPdf,
     exportSessionAsJson,
@@ -46,6 +49,14 @@ export const ChatSessionItem = ({
         onText: () => exportSessionAsText(current)
       })
     : []
+  if (current) {
+    actionItems.push({
+      key: "tags",
+      label: t("sessions.tags.action"),
+      icon: <Tag className="icon-sm" />,
+      onClick: () => setTagsOpen(true)
+    })
+  }
 
   return (
     <div
@@ -92,7 +103,9 @@ export const ChatSessionItem = ({
               </div>
             </div>
             <div className="mt-0.5 truncate text-micro text-sidebar-foreground/45">
-              {session.modelId || updatedTime}
+              {session.tags?.length
+                ? session.tags.map((tag) => `#${tag}`).join(" · ")
+                : session.modelId || updatedTime}
             </div>
           </div>
         </div>
@@ -141,6 +154,14 @@ export const ChatSessionItem = ({
           }}
         />
       </div>
+      <SessionTagsDialog
+        open={tagsOpen}
+        onOpenChange={setTagsOpen}
+        tags={current?.tags ?? []}
+        onSave={(tags) =>
+          setSessionTags?.(session.id, tags) ?? Promise.resolve()
+        }
+      />
     </div>
   )
 }

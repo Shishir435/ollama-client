@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "Riprova",
-      "refresh": "Aggiorna"
+      "refresh": "Aggiorna",
+      "back": "Indietro"
     },
     "updated_at": "Aggiornato",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ Errore sconosciuto: {{message}}",
       "no_message": "Nessun messaggio",
       "response_failed_title": "Generazione della risposta fallita",
-      "unknown_error_description": "Si è verificato un errore sconosciuto"
+      "unknown_error_description": "Si è verificato un errore sconosciuto",
+      "report_issue": "Segnala un problema"
     },
     "composer": {
       "rag": "File",
@@ -461,7 +463,9 @@
       "aria_label": "Carica file",
       "tooltip": "Carica file (PDF, DOCX, CSV, HTML, Testo)",
       "aria_label_with_images": "Carica file o immagine",
-      "tooltip_with_images": "Carica file o immagine (PDF, DOCX, CSV, HTML, Testo, Immagini)"
+      "tooltip_with_images": "Carica file o immagine (PDF, DOCX, CSV, HTML, Testo, Immagini)",
+      "formats": "PDF, DOCX, CSV, HTML, Testo",
+      "formats_with_images": "PDF, DOCX, CSV, HTML, Testo, Immagini"
     },
     "preview": {
       "remove_aria_label": "Rimuovi file",
@@ -544,6 +548,7 @@
       "add_button": "Aggiungi"
     },
     "embedding_config": {
+      "title": "Modello di embedding, suddivisione, ricerca e archiviazione",
       "storage_stats_title": "Statistiche di Archiviazione",
       "total_vectors": "Vettori Totali",
       "storage_used": "Spazio Utilizzato",
@@ -577,7 +582,8 @@
       "chunking_strategy_label": "Strategia di Suddivisione",
       "strategy_fixed": "Dimensione Fissa",
       "strategy_semantic": "Confini Semantici",
-      "strategy_hybrid": "Ibrido (Raccomandato)",
+      "strategy_hybrid": "Ibrido",
+      "strategy_markdown": "Struttura Markdown",
       "embedding_gen_title": "Generazione Embedding",
       "embedding_gen_description": "Configura le prestazioni di generazione degli embedding",
       "batch_size_label": "Dimensione del Batch",
@@ -752,6 +758,12 @@
       "pin": "Fissa chat",
       "unpin": "Rimuovi chat fissata"
     },
+    "tags": {
+      "title": "Tag della chat",
+      "description": "Aggiungi etichette separate da virgole per organizzare questa chat.",
+      "placeholder": "lavoro, ricerca, personale",
+      "action": "Modifica tag"
+    },
     "groups": {
       "pinned": "Fissati"
     }
@@ -781,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "Locale",
+      "header_tooltip": "Controlla dati locali e privacy",
+      "device_local": "Questo dispositivo",
+      "synced": "Sincronizzato",
+      "inventory": {
+        "title": "I tuoi dati",
+        "description": "Visualizza tutti i dati salvati prima del backup o della cancellazione.",
+        "chat": "Chat",
+        "chat_count": "{{sessions}} sessioni · {{messages}} messaggi",
+        "knowledge": "Conoscenza e memoria",
+        "knowledge_count": "{{files}} file · {{vectors}} vettori",
+        "settings": "Impostazioni locali e segreti dei provider",
+        "settings_description": "Endpoint, chiavi API, permessi e stato del dispositivo",
+        "preferences": "Preferenze portabili",
+        "preferences_description": "Impostazioni di visualizzazione e comportamento sincronizzate dal browser"
+      }
+    },
     "chat_display": {
       "title": "Visualizzazione Chat",
       "description": "Configura come vengono visualizzate le informazioni della chat",

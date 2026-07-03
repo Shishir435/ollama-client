@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "Повторить",
-      "refresh": "Обновить"
+      "refresh": "Обновить",
+      "back": "Назад"
     },
     "updated_at": "Обновлено",
     "social": {
@@ -398,7 +399,8 @@
       "unknown_error": "❌ Неизвестная ошибка: {{message}}",
       "no_message": "Нет сообщения",
       "response_failed_title": "Ошибка генерации ответа",
-      "unknown_error_description": "Произошла неизвестная ошибка"
+      "unknown_error_description": "Произошла неизвестная ошибка",
+      "report_issue": "Сообщить о проблеме"
     },
     "composer": {
       "rag": "Файлы",
@@ -461,7 +463,9 @@
       "aria_label": "Загрузить файл",
       "tooltip": "Загрузить файл (PDF, DOCX, CSV, HTML, Текст)",
       "aria_label_with_images": "Загрузить файл или изображение",
-      "tooltip_with_images": "Загрузить файл или изображение (PDF, DOCX, CSV, HTML, текст, изображения)"
+      "tooltip_with_images": "Загрузить файл или изображение (PDF, DOCX, CSV, HTML, текст, изображения)",
+      "formats": "PDF, DOCX, CSV, HTML, Текст",
+      "formats_with_images": "PDF, DOCX, CSV, HTML, Текст, Изображения"
     },
     "preview": {
       "remove_aria_label": "Удалить файл",
@@ -544,6 +548,7 @@
       "add_button": "Добавить"
     },
     "embedding_config": {
+      "title": "Модель эмбеддингов, разбиение, поиск и хранилище",
       "storage_stats_title": "Статистика хранилища",
       "total_vectors": "Всего векторов",
       "storage_used": "Использовано памяти",
@@ -577,7 +582,8 @@
       "chunking_strategy_label": "Стратегия разбиения",
       "strategy_fixed": "Фиксированный размер",
       "strategy_semantic": "Семантические границы",
-      "strategy_hybrid": "Гибридный (Рекомендуется)",
+      "strategy_hybrid": "Гибридный",
+      "strategy_markdown": "Структура Markdown",
       "embedding_gen_title": "Генерация эмбеддингов",
       "embedding_gen_description": "Настройка производительности генерации эмбеддингов",
       "batch_size_label": "Размер пакета (Batch Size)",
@@ -752,6 +758,12 @@
       "pin": "Закрепить чат",
       "unpin": "Открепить чат"
     },
+    "tags": {
+      "title": "Теги чата",
+      "description": "Добавьте метки через запятую для организации этого чата.",
+      "placeholder": "работа, исследование, личное",
+      "action": "Изменить теги"
+    },
     "groups": {
       "pinned": "Закреплённые"
     }
@@ -781,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "Локально",
+      "header_tooltip": "Проверить локальные данные и настройки приватности",
+      "device_local": "Это устройство",
+      "synced": "Синхронизировано",
+      "inventory": {
+        "title": "Ваши данные",
+        "description": "Просмотрите все сохранённые данные перед резервным копированием или удалением.",
+        "chat": "Чаты",
+        "chat_count": "{{sessions}} сессий · {{messages}} сообщений",
+        "knowledge": "Знания и память",
+        "knowledge_count": "{{files}} файлов · {{vectors}} векторов",
+        "settings": "Локальные настройки и секреты провайдеров",
+        "settings_description": "Эндпоинты, API-ключи, разрешения и состояние устройства",
+        "preferences": "Переносимые настройки",
+        "preferences_description": "Настройки интерфейса и поведения в синхронизации браузера"
+      }
+    },
     "chat_display": {
       "title": "Отображение чата",
       "description": "Настройте отображение информации о чате",

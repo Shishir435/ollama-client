@@ -19,6 +19,7 @@ export const createChatSessionListActions = (
   | "renameSessionTitle"
   | "togglePinSession"
   | "setSessionSystemPrompt"
+  | "setSessionTags"
 > => ({
   setCurrentSessionId: (id) => {
     set({ currentSessionId: id, hasSession: id !== null })
@@ -125,6 +126,18 @@ export const createChatSessionListActions = (
     set((state) => ({
       sessions: state.sessions.map((s) =>
         s.id === id ? { ...s, systemPrompt: value } : s
+      )
+    }))
+  },
+
+  setSessionTags: async (id: string, tags: string[]) => {
+    const normalized = Array.from(
+      new Set(tags.map((tag) => tag.trim()).filter(Boolean))
+    ).slice(0, 12)
+    await repo.updateSession(id, { tags: normalized })
+    set((state) => ({
+      sessions: state.sessions.map((session) =>
+        session.id === id ? { ...session, tags: normalized } : session
       )
     }))
   }

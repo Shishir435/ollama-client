@@ -19,7 +19,8 @@
     },
     "actions": {
       "retry": "Retry",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "back": "Back"
     },
     "toggle": {
       "on": "On",
@@ -431,7 +432,8 @@
       "unknown_error": "❌ Unknown error: {{message}}",
       "no_message": "No message",
       "response_failed_title": "Response Generation Failed",
-      "unknown_error_description": "An unknown error occurred"
+      "unknown_error_description": "An unknown error occurred",
+      "report_issue": "Report issue"
     },
     "composer": {
       "rag": "Files",
@@ -461,7 +463,9 @@
       "aria_label": "Upload file",
       "tooltip": "Upload file (PDF, DOCX, CSV, HTML, Text)",
       "aria_label_with_images": "Upload file or image",
-      "tooltip_with_images": "Upload file or image (PDF, DOCX, CSV, HTML, Text, Images)"
+      "tooltip_with_images": "Upload file or image (PDF, DOCX, CSV, HTML, Text, Images)",
+      "formats": "PDF, DOCX, CSV, HTML, Text",
+      "formats_with_images": "PDF, DOCX, CSV, HTML, Text, Images"
     },
     "preview": {
       "remove_aria_label": "Remove file",
@@ -585,6 +589,7 @@
       "add_button": "Add"
     },
     "embedding_config": {
+      "title": "Embedding model, chunking, search and storage",
       "storage_stats_title": "Storage Statistics",
       "total_vectors": "Total Vectors",
       "storage_used": "Storage Used",
@@ -618,7 +623,8 @@
       "chunking_strategy_label": "Chunking Strategy",
       "strategy_fixed": "Fixed Size",
       "strategy_semantic": "Semantic Boundaries",
-      "strategy_hybrid": "Hybrid (Recommended)",
+      "strategy_hybrid": "Hybrid",
+      "strategy_markdown": "Markdown structure",
       "embedding_gen_title": "Embedding Generation",
       "embedding_gen_description": "Configure embedding generation performance",
       "batch_size_label": "Batch Size",
@@ -752,6 +758,12 @@
       "pin": "Pin chat",
       "unpin": "Unpin chat"
     },
+    "tags": {
+      "title": "Chat tags",
+      "description": "Add comma-separated labels to organize this chat.",
+      "placeholder": "work, research, personal",
+      "action": "Edit tags"
+    },
     "groups": {
       "pinned": "Pinned"
     }
@@ -781,6 +793,24 @@
     }
   },
   "settings": {
+    "privacy_spine": {
+      "local_chip": "Local",
+      "header_tooltip": "Review local data and privacy controls",
+      "device_local": "This device",
+      "synced": "Synced",
+      "inventory": {
+        "title": "Your data",
+        "description": "See everything Ollama Client stores before backing it up or wiping it.",
+        "chat": "Chats",
+        "chat_count": "{{sessions}} sessions · {{messages}} messages",
+        "knowledge": "Knowledge and memory",
+        "knowledge_count": "{{files}} files · {{vectors}} vectors",
+        "settings": "Local settings and provider secrets",
+        "settings_description": "Endpoints, API keys, permissions, and device state",
+        "preferences": "Portable preferences",
+        "preferences_description": "Display and behavior settings stored with browser sync"
+      }
+    },
     "chat_display": {
       "title": "Chat Display",
       "description": "Configure how chat information is displayed",

@@ -24,6 +24,8 @@ Ollama Client gives you a browser-native chat workspace for local and bring-your
 - Let tool-capable models read the current tab, selected text, open tabs, uploaded files, local memory, and optionally the live web when the prompt calls for it.
 - Capture selected page text into chat with the selection-button overlay.
 - Keep chat history, sessions, files, settings, and embeddings on your machine by default.
+- Review all stored data, create a full backup, or wipe it from one Privacy screen.
+- Organize chats with tags; edit messages in place or fork an alternate branch.
 - Export, restore, print, and manage local conversation history.
 
 ## Supported Providers
@@ -42,7 +44,7 @@ Model routing uses saved model-to-provider mappings first. If a mapping is missi
 
 The RAG pipeline is browser-first and local-first:
 
-1. Files or chat text are chunked in the extension.
+1. Files, chat text, and live page context use one extension-owned chunker.
 2. Chunks are embedded through provider-native support, a shared embedding model, or Ollama fallback.
 3. Hybrid retrieval combines keyword and dense search.
 4. Retrieved snippets are injected into the prompt context before generation.
@@ -58,7 +60,8 @@ Ollama Client supports two context paths:
 
 Tool calls run inside the extension and are shown in the reasoning trace with status, inputs, sources, and trimmed output previews. They do not create extra chat-history rows; only the final answer and trace metadata are persisted.
 
-Before sending, the composer context pill shows what the model can see. After
+Before sending, the composer context tray shows what the model can see and
+consolidates tab selection, files, screenshots, knowledge, and web controls. After
 an answer, page/tab context, local knowledge, and web results appear in one
 grouped Sources sheet.
 
@@ -66,7 +69,7 @@ Recently closed and synced-session tools are read-only, require optional
 permission, and honor never-read exclusions. Restoring a session is not exposed
 until model actions have a real interactive approval boundary.
 
-Web search is off by default and appears to the model as a single `web_search` tool. Backend choice stays in Settings -> Knowledge & web, with SearXNG for local/self-hosted search and Brave Search or Tavily through API keys. Search config is device-local, API keys are masked, snippets are capped, and returned titles/snippets are treated as untrusted text.
+Web search appears to tool-capable models as a single `web_search` tool. Backend choice stays in Settings -> Knowledge, with SearXNG for local/self-hosted search and Brave Search or Tavily through API keys. Search config is device-local, API keys are masked, snippets are capped, and returned titles/snippets are treated as untrusted text.
 
 For local/private web search:
 
@@ -75,7 +78,7 @@ cd searxng
 docker compose up -d
 ```
 
-Then set the SearXNG endpoint to `http://localhost:8080` in Settings -> Knowledge & web -> Web Search.
+Then set the SearXNG endpoint to `http://localhost:8080` in Settings -> Knowledge -> Web Search.
 
 Image input is available only when the selected model resolves to vision-capable. Images are sent in the provider's native request format and stored locally with the conversation so previews reopen later.
 
