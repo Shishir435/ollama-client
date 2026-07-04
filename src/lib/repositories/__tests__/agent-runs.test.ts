@@ -76,6 +76,15 @@ describe("agent run repository", () => {
     )
   })
 
+  it("restores a persisted cap reason after restart", () => {
+    expect(
+      agentRunCapReason({
+        ...state,
+        stopReason: "page-action limit"
+      })
+    ).toBe("page-action limit")
+  })
+
   it("preserves capped status over successful loop completion", () => {
     expect(finalAgentRunStatus("page-action limit", false)).toBe("capped")
     expect(finalAgentRunStatus(undefined, true)).toBe("cancelled")

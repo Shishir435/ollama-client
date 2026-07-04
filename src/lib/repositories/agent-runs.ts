@@ -109,6 +109,7 @@ export const pauseInterruptedAgentRuns = async (): Promise<void> => {
 }
 
 export const agentRunCapReason = (state: AgentRunState): string | undefined => {
+  if (state.stopReason) return state.stopReason
   if (state.modelTurns >= AGENT_MAX_MODEL_TURNS) return "model-turn limit"
   if (state.actionCount >= AGENT_MAX_ACTIONS) return "page-action limit"
   if (state.activeMs >= AGENT_MAX_ACTIVE_MS) return "active-time limit"

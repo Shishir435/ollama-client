@@ -20,6 +20,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import {
   type AgentRun,
+  agentRunCapReason,
   finalAgentRunStatus,
   getActiveAgentRun,
   getAgentRun,
@@ -333,7 +334,7 @@ export const handleChatWithModel = withErrorContext(
                 maxActions: 15,
                 startedAt: Date.now() - agentRun.state.activeMs,
                 maxActiveMs: 15 * 60 * 1000,
-                capReason: undefined as string | undefined
+                capReason: agentRunCapReason(agentRun.state)
               }
             : undefined
         }
