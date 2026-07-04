@@ -3,12 +3,14 @@ import { downloadEmbeddingModelSilently } from "@/background/handlers/handle-emb
 import { updateDNRRules } from "@/background/lib/dnr"
 import { registerOmniboxQuickAsk } from "@/background/lib/omnibox"
 import { registerReminderAlarms } from "@/background/lib/reminders"
+import { clearModelToolCapabilityCache } from "@/background/lib/resolve-model-tools"
 import { registerScheduledJobs } from "@/background/lib/scheduled-jobs"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import { DEFAULT_EMBEDDING_MODEL, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
+import { ProviderStorageKey } from "@/lib/providers/types"
 import { pruneStaleToolLoopRuns } from "@/lib/repositories/tool-loop-runs"
 import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import { getToolRegistry } from "@/lib/tools/build-tool-registry"
@@ -142,11 +144,18 @@ const registerToolRegistryInvalidation = () => {
     if (STORAGE_KEYS.WEB_SEARCH.CONFIG in changes) {
       getToolRegistry().invalidate()
     }
+    if (ProviderStorageKey.CONFIG in changes) {
+      clearModelToolCapabilityCache()
+      void updateDNRRules()
+    }
   })
 }
 
 export const initializeBackgroundStartup = () => {
   void migrateLegacyProviderStorage()
+  // MV3 workers can start without a browser onStartup event (extension reload,
+  // event wakeup). Reconcile the request-origin rule on every worker boot.
+  void updateDNRRules()
   void runEmbeddingDimensionMigration()
   void pruneStaleToolLoopRuns().catch((error) => {
     logger.warn("Failed to prune stale tool-loop checkpoints", "BackgroundSW", {

@@ -1,9 +1,9 @@
 import { useQueries } from "@tanstack/react-query"
 
-import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
+import { fetchModelInfo } from "@/features/model/lib/fetch-model-info"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { queryKeys } from "@/lib/query-keys"
-import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import type { ProviderModel } from "@/types"
 
 export const modelTagsKey = (providerId: string, model: string): string =>
@@ -35,13 +35,7 @@ export const useModelCapabilityTags = (
       const providerId = m.providerId || DEFAULT_PROVIDER_ID
       return {
         queryKey: [...queryKeys.model.info(m.name), providerId || "auto"],
-        queryFn: async () => {
-          const res = await sendRuntimeMessage(
-            MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS,
-            { payload: { model: m.name, providerId } }
-          )
-          return res?.success ? (res.data ?? null) : null
-        },
+        queryFn: () => fetchModelInfo(m.name, providerId),
         enabled,
         staleTime: 1000 * 60 * 5
       }

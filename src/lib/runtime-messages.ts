@@ -36,7 +36,13 @@ export interface RuntimeMessageMap {
       type: typeof MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS
       payload: { model: string; providerId?: string }
     }
-    response: RuntimeResponse<{ data?: ProviderModelDetails | null }>
+    response: RuntimeResponse<{
+      data?: ProviderModelDetails | null
+      /** Provider the worker actually resolved the model to. */
+      providerId?: string
+      /** Whether that provider can self-report `/api/show`-style details. */
+      supportsDetails?: boolean
+    }>
   }
   [MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL]: {
     request: {

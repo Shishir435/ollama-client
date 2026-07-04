@@ -1,7 +1,8 @@
 import { browser } from "@/lib/browser-api"
-import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
+import { ProviderManager } from "@/lib/providers/manager"
+import { ProviderId } from "@/lib/providers/types"
 import type {
   ChatStreamMessage,
   ChromeMessage,
@@ -68,18 +69,11 @@ export const safeSendResponse = (
 }
 
 export const getBaseUrl = async (): Promise<string> => {
-  const providerUrl = (await plasmoGlobalStorage.get(
-    STORAGE_KEYS.PROVIDER.BASE_URL
-  )) as string | undefined
-  if (providerUrl) {
-    return providerUrl
+  const config = await ProviderManager.getProviderConfig(ProviderId.OLLAMA)
+  if (!config) {
+    throw new Error("Built-in Ollama provider configuration is missing")
   }
-
-  const legacyUrl = (await plasmoGlobalStorage.get(
-    LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL
-  )) as string | undefined
-
-  return legacyUrl || "http://localhost:11434"
+  return resolveProviderBaseUrl(config)
 }
 
 export const getPullAbortControllerKey = (

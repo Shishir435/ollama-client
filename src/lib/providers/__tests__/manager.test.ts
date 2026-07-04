@@ -98,6 +98,54 @@ describe("ProviderManager", () => {
     expect(providers.map((p) => p.id)).toContain("custom:openai:abc123")
   })
 
+  it("migrates the old global Ollama URL into canonical provider config on first read", async () => {
+    backing.set("provider-base-url", "http://old-device:11434")
+
+    const providers = await ProviderManager.getProviders()
+
+    expect(
+      providers.find((provider) => provider.id === ProviderId.OLLAMA)?.baseUrl
+    ).toBe("http://old-device:11434")
+    expect(backing.has("provider-base-url")).toBe(false)
+  })
+
+  it("keeps an explicit canonical URL over stale legacy/global values", async () => {
+    backing.set(ProviderStorageKey.CONFIG, [
+      {
+        ...DEFAULT_PROVIDERS[0],
+        baseUrl: "http://canonical:11434"
+      },
+      ...DEFAULT_PROVIDERS.slice(1)
+    ])
+    backing.set("ollama-base-url", "http://legacy:11434")
+    backing.set("provider-base-url", "http://global:11434")
+
+    const providers = await ProviderManager.getProviders()
+
+    expect(
+      providers.find((provider) => provider.id === ProviderId.OLLAMA)?.baseUrl
+    ).toBe("http://canonical:11434")
+    expect(backing.has("ollama-base-url")).toBe(false)
+    expect(backing.has("provider-base-url")).toBe(false)
+  })
+
+  it("updates only canonical provider config for Ollama URL changes", async () => {
+    backing.set(ProviderStorageKey.CONFIG, [...DEFAULT_PROVIDERS])
+
+    await ProviderManager.updateProviderConfig(ProviderId.OLLAMA, {
+      baseUrl: "http://new-host:11434"
+    })
+
+    const providers = backing.get(
+      ProviderStorageKey.CONFIG
+    ) as typeof DEFAULT_PROVIDERS
+    expect(
+      providers.find((provider) => provider.id === ProviderId.OLLAMA)?.baseUrl
+    ).toBe("http://new-host:11434")
+    expect(backing.has("ollama-base-url")).toBe(false)
+    expect(backing.has("provider-base-url")).toBe(false)
+  })
+
   it("drops untouched beta defaults but preserves configured ones as custom", async () => {
     backing.set(ProviderStorageKey.CONFIG, [
       ...DEFAULT_PROVIDERS,

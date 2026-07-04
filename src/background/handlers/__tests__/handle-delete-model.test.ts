@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { ProviderManager } from "@/lib/providers/manager"
 import { handleDeleteModel } from "../handle-delete-model"
 import {
   clearHandlerMocks,
@@ -7,11 +8,9 @@ import {
   setupHandlerMocks
 } from "./test-utils"
 
-// Mock the storage module
-vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
-    get: vi.fn().mockResolvedValue(undefined),
-    set: vi.fn().mockResolvedValue(undefined)
+vi.mock("@/lib/providers/manager", () => ({
+  ProviderManager: {
+    getProviderConfig: vi.fn()
   }
 }))
 
@@ -22,6 +21,13 @@ describe("handleDeleteModel", () => {
     clearHandlerMocks()
     setupHandlerMocks()
     mockSendResponse = createMockSendResponse()
+    vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+      id: "ollama",
+      name: "Ollama",
+      type: "ollama",
+      enabled: true,
+      baseUrl: "http://localhost:11434"
+    } as never)
   })
 
   describe("successful deletion", () => {
@@ -42,12 +48,13 @@ describe("handleDeleteModel", () => {
     })
 
     it("should use custom base URL", async () => {
-      const { plasmoGlobalStorage } = await import(
-        "@/lib/plasmo-global-storage"
-      )
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(
-        "http://192.168.1.100:11434"
-      )
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+        id: "ollama",
+        name: "Ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: "http://192.168.1.100:11434"
+      } as never)
       vi.mocked(fetch).mockResolvedValue(mockOllamaResponse({}))
 
       await handleDeleteModel("mistral:latest", mockSendResponse)

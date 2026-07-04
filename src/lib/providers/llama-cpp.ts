@@ -1,6 +1,7 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type { ProviderModel } from "@/types"
+import { resolveProviderBaseUrl } from "./base-url"
 import { OpenAICompatibleProvider } from "./openai-compatible"
 import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
 
@@ -44,10 +45,7 @@ export class LlamaCppProvider extends OpenAICompatibleProvider {
   }
 
   async getModels(): Promise<ProviderModel[]> {
-    const baseUrl = this.config.baseUrl || "http://localhost:8080/v1"
-
-    // Normalization: Ensure clean base URL without trailing slash
-    const cleanBase = baseUrl.replace(/\/$/, "")
+    const cleanBase = resolveProviderBaseUrl(this.config)
 
     // Try multiple endpoints to be robust against user config
     const endpoints = [

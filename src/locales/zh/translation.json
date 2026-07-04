@@ -669,11 +669,11 @@
         "reset": "重置为检测值",
         "save": "保存",
         "save_error": "无法保存能力。请重试。",
-        "probe_title": "检测工具支持",
-        "probe_description": "发送一个小型测试请求，检查此模型能否调用工具。",
+        "probe_title": "检测能力",
+        "probe_description": "发送小型测试请求，检查工具调用、推理和视觉能力。",
         "probe_button": "检测",
-        "probe_success": "模型调用了测试工具——工具调用已开启。",
-        "probe_no_support": "模型没有调用测试工具。你仍然可以手动开启工具调用。",
+        "probe_detected": "已检测到：{{capabilities}}。",
+        "probe_none_detected": "未检测到工具调用、推理或视觉。你仍然可以手动开启。",
         "probe_failed": "检测失败。请检查提供商连接后重试。"
       },
       "flags": {

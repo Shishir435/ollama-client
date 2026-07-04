@@ -30,7 +30,10 @@ import { logger } from "@/lib/logger"
 import { Check, ChevronDown, RotateCcw, Settings } from "@/lib/lucide-icon"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
 import {
+  type CapabilityProbeResult,
+  probeReasoning,
   probeToolCalling,
+  probeVision,
   setCapabilityProbe
 } from "@/lib/providers/capability-probe"
 import { ProviderFactory } from "@/lib/providers/factory"
@@ -112,7 +115,10 @@ export const ModelMenu = ({
     }
     setOpen(false)
 
-    if (modelName && modelName !== previousModel) {
+    if (
+      modelName &&
+      (modelName !== previousModel || providerId !== previousProviderId)
+    ) {
       browser.runtime
         .sendMessage({
           type: MESSAGE_KEYS.PROVIDER.WARMUP_MODEL,
@@ -296,14 +302,6 @@ export const ModelMenu = ({
                       model,
                       capabilityTags[modelTagsKey(providerId, model.name)]
                     )
-                    const hasOverride = Boolean(
-                      getOverride(providerId, model.name)
-                    )
-                    // Offer manual capability entry for providers that cannot
-                    // report capabilities themselves, or to edit an existing
-                    // override. Ollama self-reports, so it's not prompted here.
-                    const showCapabilityEdit =
-                      !canSelfReportCapabilities(providerId) || hasOverride
                     return (
                       <CommandItem
                         key={`${providerId}-${model.name}`}
@@ -355,24 +353,22 @@ export const ModelMenu = ({
                                 {formatFileSize(model.size, t)}
                               </span>
                             ) : null}
-                            {showCapabilityEdit && (
-                              <button
-                                type="button"
-                                aria-label={t(
-                                  "model.capabilities.edit_aria_label",
-                                  { model: model.name }
-                                )}
-                                title={t("model.capabilities.edit_tooltip")}
-                                className="ml-auto flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                                onPointerDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  e.preventDefault()
-                                  openCapabilitySheet(model.name, providerId)
-                                }}>
-                                <Settings className="icon-xs" />
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              aria-label={t(
+                                "model.capabilities.edit_aria_label",
+                                { model: model.name }
+                              )}
+                              title={t("model.capabilities.edit_tooltip")}
+                              className="ml-auto flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                e.preventDefault()
+                                openCapabilitySheet(model.name, providerId)
+                              }}>
+                              <Settings className="icon-xs" />
+                            </button>
                           </div>
                         </div>
                       </CommandItem>
@@ -414,16 +410,41 @@ export const ModelMenu = ({
             const provider = await ProviderFactory.getProvider(
               capabilityTarget.providerId
             )
-            const result = await probeToolCalling(
-              provider,
-              capabilityTarget.model
-            )
+            // Probe each capability independently — one failing must not discard
+            // the others' results.
+            const [tool, reasoning, vision] = await Promise.allSettled([
+              probeToolCalling(provider, capabilityTarget.model),
+              probeReasoning(provider, capabilityTarget.model),
+              probeVision(provider, capabilityTarget.model)
+            ])
+            if (
+              tool.status === "rejected" &&
+              reasoning.status === "rejected" &&
+              vision.status === "rejected"
+            ) {
+              throw tool.reason
+            }
+            const merged: CapabilityProbeResult = { probedAt: Date.now() }
+            if (tool.status === "fulfilled") {
+              merged.toolCalling = tool.value.toolCalling
+            }
+            if (reasoning.status === "fulfilled") {
+              merged.reasoning = reasoning.value.reasoning
+            }
+            // Vision is positive-only: adopt a verdict only when the probe
+            // reached one, so an inconclusive read never overrides metadata.
+            if (
+              vision.status === "fulfilled" &&
+              typeof vision.value.vision === "boolean"
+            ) {
+              merged.vision = vision.value.vision
+            }
             await setCapabilityProbe(
               capabilityTarget.providerId,
               capabilityTarget.model,
-              result
+              merged
             )
-            return result
+            return merged
           }}
         />
       )}

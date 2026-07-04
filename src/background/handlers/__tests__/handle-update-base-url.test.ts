@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { ProviderManager } from "@/lib/providers/manager"
+import { ProviderId } from "@/lib/providers/types"
 import { handleUpdateBaseUrl } from "../handle-update-base-url"
 import { clearHandlerMocks, createMockSendResponse } from "./test-utils"
 
 // Mock browser API
 vi.mock("@/lib/browser-api", () => ({
   isChromiumBased: vi.fn()
+}))
+
+vi.mock("@/lib/providers/manager", () => ({
+  ProviderManager: {
+    updateProviderConfig: vi.fn().mockResolvedValue(undefined)
+  }
 }))
 
 vi.mock("@/background/lib/utils", () => ({
@@ -52,9 +60,13 @@ describe("handleUpdateBaseUrl", () => {
         error: {
           status: 0,
           message:
-            "Firefox requires manual local provider origin configuration. See settings for instructions."
+            "Base URL saved. Firefox still requires manual local provider origin configuration."
         }
       })
+      expect(ProviderManager.updateProviderConfig).toHaveBeenCalledWith(
+        ProviderId.OLLAMA,
+        { baseUrl: "http://localhost:11434" }
+      )
     })
 
     it("should proceed with Chromium-based browsers", async () => {

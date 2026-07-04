@@ -1,5 +1,6 @@
 import { createErrorResponse } from "@/background/lib/error-handler"
-import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
+import { safeSendResponse } from "@/background/lib/utils"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderId } from "@/lib/providers/types"
 import type { SendResponseFunction } from "@/types"
@@ -16,9 +17,7 @@ export const handleUnloadModel = async (
       modelName,
       providerId
     )
-    const baseUrl = providerId
-      ? provider.config.baseUrl || (await getBaseUrl())
-      : await getBaseUrl()
+    const baseUrl = resolveProviderBaseUrl(provider.config)
 
     if (provider.id === ProviderId.LM_STUDIO) {
       const res = await fetch(

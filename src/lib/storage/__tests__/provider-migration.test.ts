@@ -22,7 +22,6 @@ const createStorage = (initial: Record<string, unknown>) => {
 describe("0.10.3 provider storage upgrade", () => {
   it("migrates legacy provider values and creates a qualified model ref", async () => {
     const { storage, values } = createStorage({
-      [LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL]: "http://old-device:11434",
       [LEGACY_STORAGE_KEYS.OLLAMA.SELECTED_MODEL]: "qwen3",
       [LEGACY_STORAGE_KEYS.OLLAMA.PROMPT_TEMPLATES]: [{ name: "Legacy" }],
       [LEGACY_STORAGE_KEYS.OLLAMA.MODEL_CONFIGS]: {
@@ -35,9 +34,6 @@ describe("0.10.3 provider storage upgrade", () => {
     const result = await migrateLegacyProviderStorage(storage as never)
 
     expect(result.migrated).toBe(true)
-    expect(values.get(STORAGE_KEYS.PROVIDER.BASE_URL)).toBe(
-      "http://old-device:11434"
-    )
     expect(values.get(STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF)).toEqual({
       providerId: "ollama",
       modelId: "qwen3"
@@ -47,7 +43,7 @@ describe("0.10.3 provider storage upgrade", () => {
     )
   })
 
-  it("never overwrites values already written by the new version", async () => {
+  it("leaves base URL migration to the canonical provider config migration", async () => {
     const { storage, values } = createStorage({
       [LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL]: "http://legacy:11434",
       [STORAGE_KEYS.PROVIDER.BASE_URL]: "http://current:11434"
@@ -57,6 +53,9 @@ describe("0.10.3 provider storage upgrade", () => {
 
     expect(values.get(STORAGE_KEYS.PROVIDER.BASE_URL)).toBe(
       "http://current:11434"
+    )
+    expect(values.get(LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL)).toBe(
+      "http://legacy:11434"
     )
   })
 

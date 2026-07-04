@@ -22,7 +22,12 @@ import type { LLMProvider } from "./types"
  */
 
 export interface CapabilityProbeResult {
-  toolCalling: boolean
+  /** Set when a tool-calling probe has run. Absent means "not yet probed". */
+  toolCalling?: boolean
+  /** Set when a reasoning/thinking probe has run. Absent means "not yet probed". */
+  reasoning?: boolean
+  /** Set when a vision probe reached a verdict. Absent means "inconclusive". */
+  vision?: boolean
   probedAt: number
 }
 
@@ -50,13 +55,19 @@ export const getCapabilityProbe = async (
   return all[capabilityProbeKey(providerId, modelName)] ?? null
 }
 
+/**
+ * Merge a probe result into the stored entry. Merging (not replacing) lets the
+ * tool-calling and reasoning probes accumulate independently — probing one never
+ * erases a previously-probed other.
+ */
 export const setCapabilityProbe = async (
   providerId: string,
   modelName: string,
   result: CapabilityProbeResult
 ): Promise<void> => {
   const all = await getAllCapabilityProbes()
-  all[capabilityProbeKey(providerId, modelName)] = result
+  const key = capabilityProbeKey(providerId, modelName)
+  all[key] = { ...all[key], ...result }
   await setPlasmoStoredValue(STORAGE_KEY, all)
 }
 
@@ -168,4 +179,166 @@ export const probeToolCalling = async (
   }
 
   return { toolCalling: sawToolCall, probedAt: Date.now() }
+}
+
+/** Matches the error Ollama returns when `think` is sent to a non-thinking model. */
+const THINKING_UNSUPPORTED = /does not support think/i
+
+/**
+ * Send one minimal `think: true` request and report whether the model emitted a
+ * separate reasoning stream. A thinking delta is a positive signal; a clean
+ * finish with no delta is recorded as `false` (mirrors the tool probe — a
+ * trivial prompt not triggering reasoning is treated as "not usable as served").
+ * A server that rejects `think` outright ("does not support thinking") is also a
+ * clean `false`; any other stream error is surfaced rather than recorded.
+ */
+export const probeReasoning = async (
+  provider: LLMProvider,
+  modelName: string
+): Promise<CapabilityProbeResult> => {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
+
+  let sawThinking = false
+  let streamError: string | undefined
+  try {
+    await provider.streamChat(
+      {
+        model: modelName,
+        messages: [
+          {
+            role: "user",
+            content:
+              "Think briefly before answering, then answer: what is 2 + 2?"
+          }
+        ],
+        think: true,
+        num_predict: 256
+      },
+      (chunk) => {
+        if (chunk.error) {
+          streamError = chunk.error.message || "Probe request failed"
+        }
+        if (chunk.thinkingDelta && chunk.thinkingDelta.length > 0) {
+          sawThinking = true
+          // Signal is in — cut the stream instead of paying for the full answer.
+          controller.abort()
+        }
+      },
+      controller.signal
+    )
+  } catch (error) {
+    if (!sawThinking) {
+      logger.debug("Reasoning probe request failed", "capabilityProbe", {
+        model: modelName,
+        error
+      })
+      const message = error instanceof Error ? error.message : ""
+      // "does not support thinking" is a definitive negative, not a failure.
+      if (THINKING_UNSUPPORTED.test(message)) {
+        return { reasoning: false, probedAt: Date.now() }
+      }
+      throw error
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  if (!sawThinking && streamError) {
+    if (THINKING_UNSUPPORTED.test(streamError)) {
+      return { reasoning: false, probedAt: Date.now() }
+    }
+    throw new Error(streamError)
+  }
+
+  return { reasoning: sawThinking, probedAt: Date.now() }
+}
+
+/**
+ * A 48×48 solid-red PNG (raw base64, no data prefix). Distinct, unambiguous
+ * content: a model that can actually read the pixels reports "red"; a text-only
+ * model given the same bytes cannot.
+ */
+const PROBE_IMAGE_RED_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAAOklEQVR42u3OMQ0AAAgDsImYf2WIwQXhaFIBzbSvREhISEhISEhISEhISEhISEhISEhISEhISEjozgLL0SSIMo/dHQAAAABJRU5ErkJggg=="
+
+/** Matches errors a server returns when a model can't accept image input. */
+const IMAGE_UNSUPPORTED = /image|vision|multimodal|missing data/i
+
+/**
+ * Send one image (a solid-red square) and ask for the dominant color. This probe
+ * is deliberately **positive-only**: a correct "red" answer proves the model read
+ * the pixels (`vision: true`); anything else is left *inconclusive* (no verdict
+ * recorded) so a model that phrases the color differently never overrides correct
+ * metadata. The one clean negative is a server that rejects image input outright.
+ */
+export const probeVision = async (
+  provider: LLMProvider,
+  modelName: string
+): Promise<CapabilityProbeResult> => {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
+
+  let answer = ""
+  let streamError: string | undefined
+  try {
+    await provider.streamChat(
+      {
+        model: modelName,
+        messages: [
+          {
+            role: "user",
+            content:
+              "What is the dominant color of this image? Reply with only the color word.",
+            images: [
+              {
+                imageId: "capability-probe",
+                fileName: "probe.png",
+                mimeType: "image/png",
+                size: 0,
+                base64: PROBE_IMAGE_RED_PNG
+              }
+            ]
+          }
+        ],
+        think: false,
+        num_predict: 16
+      },
+      (chunk) => {
+        if (chunk.error) {
+          streamError = chunk.error.message || "Probe request failed"
+        }
+        if (chunk.delta) answer += chunk.delta
+        if (chunk.content) answer += chunk.content
+      },
+      controller.signal
+    )
+  } catch (error) {
+    logger.debug("Vision probe request failed", "capabilityProbe", {
+      model: modelName,
+      error
+    })
+    const message = error instanceof Error ? error.message : ""
+    if (IMAGE_UNSUPPORTED.test(message)) {
+      return { vision: false, probedAt: Date.now() }
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  // A server that flat-out rejects image input is a clean negative.
+  if (streamError) {
+    if (IMAGE_UNSUPPORTED.test(streamError)) {
+      return { vision: false, probedAt: Date.now() }
+    }
+    throw new Error(streamError)
+  }
+
+  // Positive only: record `true` on a correct read; otherwise stay silent so the
+  // resolver falls back to metadata rather than a possibly-wrong `false`.
+  if (/red/i.test(answer)) {
+    return { vision: true, probedAt: Date.now() }
+  }
+  return { probedAt: Date.now() }
 }

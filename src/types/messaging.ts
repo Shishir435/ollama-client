@@ -78,6 +78,10 @@ export interface ChromeResponse {
   tabs?: browser.Tabs.Tab[]
   html?: string
   title?: string
+  /** Provider a model-scoped handler actually resolved the model to. */
+  providerId?: string
+  /** Whether that resolved provider can self-report model details. */
+  supportsDetails?: boolean
   extractionDebug?: {
     url: string
     title: string

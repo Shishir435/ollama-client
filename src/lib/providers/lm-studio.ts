@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger"
 import type { ProviderModel } from "@/types"
+import { resolveProviderBaseUrl } from "./base-url"
 import { OpenAICompatibleProvider } from "./openai-compatible"
 import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
 
@@ -30,7 +31,7 @@ export class LMStudioProvider extends OpenAICompatibleProvider {
   }
 
   async getModels(): Promise<ProviderModel[]> {
-    const baseUrl = this.config.baseUrl || "http://localhost:1234/v1"
+    const baseUrl = resolveProviderBaseUrl(this.config)
     try {
       // LM Studio's new API is at /api/v0/models, outside of /v1
       const apiBase = baseUrl.replace(/\/v1\/?$/, "")

@@ -113,10 +113,11 @@ vi.mock("@/lib/query-client", () => ({
 // Mock fetch globally
 global.fetch = vi.fn()
 
-const createWrapper = () => {
-  const queryClient = new QueryClient({
+const createWrapper = (
+  queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   })
+) => {
   return ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client: queryClient }, children)
 }
@@ -216,7 +217,7 @@ describe("useProviderModels", () => {
         expect(result.current.isLoading).toBe(false)
       })
 
-      expect(result.current.status).toBe("empty")
+      expect(result.current.status).toBe("error")
     })
 
     it("marks legacy selected model as a conflict when multiple providers expose it", async () => {
@@ -362,8 +363,18 @@ describe("useProviderModels", () => {
 
   describe("refresh", () => {
     it("should refetch models when refresh is called", async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: {
+          queries: { retry: false },
+          mutations: { retry: false }
+        }
+      })
+      const modelInfoKey = ["model", "info", "llama3:latest", "ollama"] as const
+      queryClient.setQueryData(modelInfoKey, {
+        capabilities: ["completion", "tools"]
+      })
       const { result } = renderHook(() => useProviderModels(), {
-        wrapper: createWrapper()
+        wrapper: createWrapper(queryClient)
       })
 
       await waitFor(() => {
@@ -384,6 +395,7 @@ describe("useProviderModels", () => {
       await waitFor(() => {
         expect(result.current.models?.[0].name).toBe("new-model")
       })
+      expect(queryClient.getQueryState(modelInfoKey)?.isInvalidated).toBe(true)
     })
   })
 })

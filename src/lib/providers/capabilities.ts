@@ -76,7 +76,11 @@ export interface ModelCapabilityInput {
    * Applied between the user override and detection: a probe is evidence from
    * the actual server, so it beats static metadata — but never a user's word.
    */
-  probed?: { toolCalling?: boolean } | null
+  probed?: {
+    toolCalling?: boolean
+    reasoning?: boolean
+    vision?: boolean
+  } | null
 }
 
 // LM Studio /api/v0/models model `type` values.
@@ -179,6 +183,18 @@ export const getModelCapabilities = (
 
   if (typeof input.probed?.toolCalling === "boolean") {
     merged.toolCalling = input.probed.toolCalling
+    merged.source = "probed"
+    merged.confidence = "medium"
+  }
+
+  if (typeof input.probed?.reasoning === "boolean") {
+    merged.reasoning = input.probed.reasoning
+    merged.source = "probed"
+    merged.confidence = "medium"
+  }
+
+  if (typeof input.probed?.vision === "boolean") {
+    merged.vision = input.probed.vision
     merged.source = "probed"
     merged.confidence = "medium"
   }

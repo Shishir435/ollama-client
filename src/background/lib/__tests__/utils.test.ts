@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { createMockPort } from "@/background/handlers/__tests__/test-utils"
 import { browser } from "@/lib/browser-api"
-import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { ProviderManager } from "@/lib/providers/manager"
 import type { ChatStreamMessage } from "@/types"
 import {
   getBaseUrl,
@@ -30,9 +29,9 @@ vi.mock("@/lib/logger", () => ({
   }
 }))
 
-vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
-    get: vi.fn()
+vi.mock("@/lib/providers/manager", () => ({
+  ProviderManager: {
+    getProviderConfig: vi.fn()
   }
 }))
 
@@ -114,24 +113,38 @@ describe("Background Utils", () => {
 
   describe("getBaseUrl", () => {
     it("should return stored URL", async () => {
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(
-        "http://custom:11434"
-      )
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+        id: "ollama",
+        name: "Ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: "http://custom:11434/"
+      } as never)
 
       const url = await getBaseUrl()
 
       expect(url).toBe("http://custom:11434")
-      expect(plasmoGlobalStorage.get).toHaveBeenCalledWith(
-        STORAGE_KEYS.PROVIDER.BASE_URL
-      )
     })
 
     it("should return default URL if not stored", async () => {
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(undefined)
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+        id: "ollama",
+        name: "Ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: ""
+      } as never)
 
       const url = await getBaseUrl()
 
       expect(url).toBe("http://localhost:11434")
+    })
+
+    it("rejects a missing canonical provider config", async () => {
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue(undefined)
+      await expect(getBaseUrl()).rejects.toThrow(
+        "Ollama provider configuration is missing"
+      )
     })
   })
 

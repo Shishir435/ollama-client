@@ -1,4 +1,4 @@
-import { LEGACY_STORAGE_KEYS } from "@/lib/constants"
+import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -208,8 +208,8 @@ export const ProviderManager = {
       ProviderStorageKey.CONFIG
     )
     if (!stored || stored.length === 0) {
-      await ProviderManager.saveProviders(DEFAULT_PROVIDERS)
-      return DEFAULT_PROVIDERS
+      stored = [...DEFAULT_PROVIDERS]
+      await ProviderManager.saveProviders(stored)
     }
 
     const sanitized = sanitizeStoredProviders(stored)
@@ -235,17 +235,30 @@ export const ProviderManager = {
     // it into the stored config, persist, and delete the legacy key so this
     // read stops happening on every getProviders call.
     try {
-      const legacyUrl = await plasmoGlobalStorage.get<string>(
+      const legacyStoredUrl = await plasmoGlobalStorage.get<string>(
         LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL
       )
+      const globalStoredUrl = await plasmoGlobalStorage.get<string>(
+        STORAGE_KEYS.PROVIDER.BASE_URL
+      )
+      const legacyUrl = legacyStoredUrl?.trim()
+        ? legacyStoredUrl
+        : globalStoredUrl?.trim()
+          ? globalStoredUrl
+          : undefined
 
       if (legacyUrl) {
         const defaultProviderIndex = stored.findIndex(
           (p) => p.id === ProviderId.OLLAMA
         )
+        const currentBaseUrl = stored[defaultProviderIndex]?.baseUrl
+        const defaultBaseUrl = DEFAULT_PROVIDERS.find(
+          (provider) => provider.id === ProviderId.OLLAMA
+        )?.baseUrl
         if (
           defaultProviderIndex !== -1 &&
-          legacyUrl !== stored[defaultProviderIndex].baseUrl
+          legacyUrl !== currentBaseUrl &&
+          (!currentBaseUrl || currentBaseUrl === defaultBaseUrl)
         ) {
           stored = [...stored]
           stored[defaultProviderIndex] = {
@@ -254,7 +267,10 @@ export const ProviderManager = {
           }
           await ProviderManager.saveProviders(stored)
         }
+      }
+      if (legacyStoredUrl !== undefined || globalStoredUrl !== undefined) {
         await plasmoGlobalStorage.remove(LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL)
+        await plasmoGlobalStorage.remove(STORAGE_KEYS.PROVIDER.BASE_URL)
       }
     } catch (e) {
       logger.warn(
@@ -315,19 +331,6 @@ export const ProviderManager = {
             error: e
           })
         })
-      }
-
-      if (id === ProviderId.OLLAMA && updates.baseUrl) {
-        try {
-          await plasmoGlobalStorage.set(
-            LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL,
-            updates.baseUrl
-          )
-        } catch (e) {
-          logger.warn("Failed to sync legacy provider URL", "ProviderManager", {
-            error: e
-          })
-        }
       }
     }
   },

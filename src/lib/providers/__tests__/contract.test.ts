@@ -101,7 +101,7 @@ describe("provider contracts", () => {
     )
   })
 
-  it("Ollama returns an empty model list on fetch errors", async () => {
+  it("Ollama surfaces model-list fetch errors", async () => {
     const provider = new OllamaProvider({
       id: ProviderId.OLLAMA,
       name: "Ollama",
@@ -111,7 +111,7 @@ describe("provider contracts", () => {
     })
     vi.mocked(fetch).mockRejectedValueOnce(new Error("offline"))
 
-    await expect(provider.getModels()).resolves.toEqual([])
+    await expect(provider.getModels()).rejects.toThrow("offline")
   })
 
   it("OpenAI-compatible providers parse model lists and SSE chunks", async () => {
@@ -188,7 +188,7 @@ describe("provider contracts", () => {
     }
   })
 
-  it("OpenAI throws useful chat errors and returns empty models for bad responses", async () => {
+  it("OpenAI surfaces useful model-list and chat errors", async () => {
     const provider = new OpenAICompatibleProvider({
       id: ProviderId.OPENAI,
       name: "OpenAI",
@@ -201,7 +201,9 @@ describe("provider contracts", () => {
       .mockResolvedValueOnce(textResponse("bad", { status: 500 }))
       .mockResolvedValueOnce(textResponse("nope", { status: 401 }))
 
-    await expect(provider.getModels()).resolves.toEqual([])
+    await expect(provider.getModels()).rejects.toThrow(
+      "Model list failed (500)"
+    )
     await expect(
       provider.streamChat(
         { model: "chat-model", messages: [{ role: "user", content: "hi" }] },

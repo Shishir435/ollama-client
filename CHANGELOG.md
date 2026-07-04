@@ -7,6 +7,28 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-07-04
+
+### Changed
+- Model capability overrides are now available for Ollama models as well as
+  custom providers, so users can correct incomplete or inaccurate capability
+  metadata reported by the installed model.
+- Refreshing the model menu now reloads the Ollama tag list and invalidates
+  cached per-model capability details together.
+- Bumped package version to `0.12.2`.
+
+### Fixed
+- Provider lifecycle requests now resolve one canonical configured base URL;
+  stale legacy/global Ollama URLs migrate once and can no longer split model
+  listing, details, version, pull, unload, warmup, embeddings, and chat across
+  different servers.
+- Model details and capability badges now share one failure-aware query
+  contract, preventing a failed capability request from being cached as
+  successful empty model information. Empty Ollama details surface an error and
+  in-place Retry action instead of silently hiding the card.
+- Runtime routes now return explicit invalid-payload responses instead of
+  leaving message channels open without a response.
+
 ## [0.12.1] - 2026-07-04
 
 ### Added

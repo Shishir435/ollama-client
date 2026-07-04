@@ -7,6 +7,7 @@ import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
@@ -33,6 +34,7 @@ const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
   })
 
   const allModels: ProviderModel[] = []
+  const failures: Array<{ providerId: string; error: unknown }> = []
 
   await Promise.all(
     enabledProviders.map(async (config) => {
@@ -75,6 +77,7 @@ const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
           allModels.push(model)
         })
       } catch (e) {
+        failures.push({ providerId: config.id, error: e })
         logger.error(
           `Failed to fetch models for ${config.id}`,
           "useProviderModels",
@@ -83,6 +86,18 @@ const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
       }
     })
   )
+
+  if (
+    enabledProviders.length > 0 &&
+    failures.length === enabledProviders.length
+  ) {
+    throw createAppError("Failed to fetch models from every enabled provider", {
+      kind: "provider",
+      cause: failures[0]?.error,
+      retryable: true,
+      debug: failures.map(({ providerId }) => providerId)
+    })
+  }
 
   // Persist model→provider mappings so the background script can route
   // correctly. Keys are provider-scoped, so name collisions across providers
@@ -106,7 +121,7 @@ const fetchProviderVersion = async (providerId: string): Promise<string> => {
     })
   }
 
-  const baseUrl = provider.config.baseUrl || "http://localhost:11434"
+  const baseUrl = resolveProviderBaseUrl(provider.config)
 
   if (provider.id === ProviderId.OLLAMA) {
     const response = await fetch(`${baseUrl}/api/version`)
@@ -182,8 +197,11 @@ export const useProviderModels = () => {
   })
 
   const selectedModelData = models.find((m) => m.name === selectedModel)
+  const selectedRefMatchesModel =
+    isSelectedModelRef(selectedModelRef) &&
+    selectedModelRef.modelId === selectedModel
   const selectedProviderId =
-    selectedModelRef?.providerId ||
+    (selectedRefMatchesModel ? selectedModelRef.providerId : undefined) ||
     selectedModelData?.providerId ||
     DEFAULT_PROVIDER_ID
 
@@ -282,6 +300,14 @@ export const useProviderModels = () => {
     retry: false
   })
 
+  const refresh = useCallback(async () => {
+    const result = await refetchModels()
+    await queryClientInstance.invalidateQueries({
+      queryKey: queryKeys.model.infoAll()
+    })
+    return result
+  }, [queryClientInstance, refetchModels])
+
   /**
    * Delete mutation — invalidates the model list on success
    */
@@ -304,7 +330,7 @@ export const useProviderModels = () => {
       }
 
       if (provider.id === DEFAULT_PROVIDER_ID) {
-        const baseUrl = provider.config.baseUrl || "http://localhost:11434"
+        const baseUrl = resolveProviderBaseUrl(provider.config)
         const response = await fetch(`${baseUrl}/api/delete`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
@@ -356,15 +382,13 @@ export const useProviderModels = () => {
   return {
     models,
     selectedModel,
-    selectedModelRef: isSelectedModelRef(selectedModelRef)
-      ? selectedModelRef
-      : null,
+    selectedModelRef: selectedRefMatchesModel ? selectedModelRef : null,
     setSelectedModel: persistSelectedModel,
     selectionConflictModel,
     clearSelectionConflict: () => setSelectionConflictModel(null),
     isLoading,
     error,
-    refresh: refetchModels,
+    refresh,
     status,
     version: isOllama ? version : null,
     versionError,

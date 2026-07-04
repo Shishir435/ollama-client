@@ -148,6 +148,7 @@ export const registerMessageRouter = () => {
       case MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS: {
         const ref = parseModelRef(message.payload)
         if (ref) handleShowModelDetails(ref, response)
+        else respondInvalidPayload(response)
         return true
       }
 
@@ -185,7 +186,8 @@ export const registerMessageRouter = () => {
           handleScrapeModel(query, response)
           return true
         }
-        break
+        respondInvalidPayload(response)
+        return true
       }
 
       case MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS:
@@ -195,13 +197,15 @@ export const registerMessageRouter = () => {
           handleScrapeModelVariants(name, response)
           return true
         }
-        break
+        respondInvalidPayload(response)
+        return true
       }
 
       case MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL:
       case MESSAGE_KEYS.OLLAMA.UPDATE_BASE_URL: {
         const baseUrl = parseStringPayload(message.payload)
         if (baseUrl) handleUpdateBaseUrl(baseUrl, response)
+        else respondInvalidPayload(response)
         return true
       }
 
@@ -214,6 +218,7 @@ export const registerMessageRouter = () => {
       case MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL: {
         const ref = parseModelRef(message.payload)
         if (ref) handleUnloadModel(ref, response)
+        else respondInvalidPayload(response)
         return true
       }
 
@@ -227,6 +232,7 @@ export const registerMessageRouter = () => {
       case MESSAGE_KEYS.PROVIDER.DELETE_MODEL: {
         const modelName = parseStringPayload(message.payload)
         if (modelName) handleDeleteModel(modelName, response)
+        else respondInvalidPayload(response)
         return true
       }
 

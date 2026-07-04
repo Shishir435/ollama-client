@@ -1,10 +1,10 @@
-import { DEFAULT_OPENAI_COMPATIBLE_BASE_URL } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { toDataUrl } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
 import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
+import { resolveProviderBaseUrl } from "./base-url"
 import { OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES } from "./capabilities"
 import {
   type ChatRequest,
@@ -125,7 +125,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   constructor(public config: ProviderConfig) {}
 
   async getModels(): Promise<ProviderModel[]> {
-    const baseUrl = this.config.baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+    const baseUrl = resolveProviderBaseUrl(this.config)
     const headers: Record<string, string> = {
       "Content-Type": "application/json"
     }
@@ -136,7 +136,18 @@ export class OpenAICompatibleProvider implements LLMProvider {
 
     try {
       const response = await fetch(`${baseUrl}/models`, { headers })
-      if (!response.ok) return []
+      if (!response.ok) {
+        throw createAppError(
+          `Model list failed (${response.status}): ${response.statusText}`,
+          {
+            kind: "provider",
+            status: response.status,
+            providerId: this.id,
+            retryable: response.status >= 500,
+            userMessage: providerErrorUserMessage(response.status, { baseUrl })
+          }
+        )
+      }
       const data = await response.json()
       return (
         (data.data as { id: string }[])?.map((m) => ({
@@ -159,7 +170,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
       logger.error("Failed to fetch models", "OpenAICompatibleProvider", {
         error: e
       })
-      return []
+      throw e
     }
   }
 
@@ -178,7 +189,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
       tool_choice
     } = request
     const hasTools = !!tools && tools.length > 0
-    const baseUrl = this.config.baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+    const baseUrl = resolveProviderBaseUrl(this.config)
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json"
@@ -407,7 +418,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   }
 
   async embed(text: string, model?: string): Promise<number[]> {
-    const baseUrl = this.config.baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+    const baseUrl = resolveProviderBaseUrl(this.config)
     const targetModel = model || this.config.modelId || "text-embedding-3-small"
     const headers: Record<string, string> = {
       "Content-Type": "application/json"
@@ -443,7 +454,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   }
 
   async embedBatch(texts: string[], model?: string): Promise<number[][]> {
-    const baseUrl = this.config.baseUrl || DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+    const baseUrl = resolveProviderBaseUrl(this.config)
     const targetModel = model || this.config.modelId || "text-embedding-3-small"
     const headers: Record<string, string> = {
       "Content-Type": "application/json"

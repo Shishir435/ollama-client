@@ -19,6 +19,7 @@ import {
   plasmoGlobalStorage,
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import type { ChromeResponse, DefaultProviderPullRequest } from "@/types"
 
 /**
@@ -189,7 +190,7 @@ export const checkEmbeddingModelExists = async (
 
     if (provider) {
       resolvedProviderId = provider.id
-      providerBaseUrl = provider.config.baseUrl
+      providerBaseUrl = resolveProviderBaseUrl(provider.config)
       const models = await withTimeout(
         provider.getModels(),
         "Provider model list"
