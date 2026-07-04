@@ -8,6 +8,8 @@ export type AgentRunStatus =
   | "capped"
 
 export type AgentPageAction = "click" | "type" | "select"
+export type AgentEditableKind = "input" | "textarea" | "contenteditable"
+export type AgentActionVerification = "confirmed" | "observation-required"
 
 export interface PageElementRef {
   elementId: number
@@ -19,6 +21,9 @@ export interface PageElementRef {
   disabled: boolean
   checked?: boolean
   selected?: boolean
+  editableKind?: AgentEditableKind
+  multiline?: boolean
+  actions: AgentPageAction[]
   inViewport: boolean
   framePath?: number[]
 }
@@ -46,6 +51,16 @@ export interface AgentPageActionRequest extends AgentElementTarget {
   value?: string
 }
 
+export interface AgentPageActionResult {
+  message: string
+  url: string
+  status: "performed"
+  verification: AgentActionVerification
+  observedTextLength?: number
+  checked?: boolean
+  selectedIndex?: number
+}
+
 export interface AgentStep {
   id: string
   kind: "observe" | "navigate" | "act" | "system"
@@ -61,6 +76,7 @@ export interface AgentRunState {
   task: string
   targetTabId: number
   targetUrl?: string
+  targetLocked?: boolean
   allowedOrigins: string[]
   lastSnapshot?: PageSnapshot
   steps: AgentStep[]

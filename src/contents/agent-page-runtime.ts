@@ -1,10 +1,38 @@
 import type {
+  AgentEditableKind,
+  AgentPageAction,
   AgentPageActionRequest,
+  AgentPageActionResult,
   PageElementRef,
   PageSnapshot
 } from "@/types/agent"
 
 const MAX_ELEMENTS = 150
+const RESTRICTED_INPUT_TYPES = new Set(["password", "file", "hidden"])
+const NON_TEXT_INPUT_TYPES = new Set([
+  "button",
+  "checkbox",
+  "color",
+  "file",
+  "hidden",
+  "image",
+  "password",
+  "radio",
+  "range",
+  "reset",
+  "submit"
+])
+const SENSITIVE_AUTOCOMPLETE =
+  /^(?:current-password|new-password|one-time-code|cc-)/
+const SENSITIVE_FIELD_TEXT =
+  /\b(?:password|passcode|one[- ]?time code|otp|2fa|authentication code|security code|credit card|card number|card expiry|expiration date|cvv|cvc)\b/i
+const CAPTCHA_TEXT = /\b(?:captcha|recaptcha|hcaptcha|turnstile)\b/i
+const RICH_EDITOR_SELECTOR = [
+  ".ProseMirror",
+  "[data-lexical-editor]",
+  "[data-slate-editor]",
+  "[role='textbox'][aria-multiline='true']"
+].join(",")
 const documentId =
   globalThis.crypto?.randomUUID?.() ??
   `document-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -15,11 +43,43 @@ interface CachedElement {
 }
 
 let currentSnapshotId = ""
+let currentSnapshotUrl = ""
 let elementCache = new Map<number, CachedElement>()
 let highlight: HTMLDivElement | undefined
 
 const normalized = (value: string | null | undefined): string =>
   (value ?? "").replace(/\s+/g, " ").trim()
+
+const isHtmlElement = (element: Element | null): element is HTMLElement =>
+  Boolean(element && typeof (element as HTMLElement).focus === "function")
+const isInputElement = (element: Element): element is HTMLInputElement =>
+  element.tagName === "INPUT"
+const isTextareaElement = (element: Element): element is HTMLTextAreaElement =>
+  element.tagName === "TEXTAREA"
+const isSelectElement = (element: Element): element is HTMLSelectElement =>
+  element.tagName === "SELECT"
+const isImageElement = (element: Element): element is HTMLImageElement =>
+  element.tagName === "IMG"
+const isButtonElement = (element: Element): element is HTMLButtonElement =>
+  element.tagName === "BUTTON"
+const isAnchorElement = (element: Element): element is HTMLAnchorElement =>
+  element.tagName === "A"
+
+const isContentEditableControl = (element: HTMLElement): boolean =>
+  element.isContentEditable ||
+  element.getAttribute("contenteditable") === "true" ||
+  element.getAttribute("contenteditable") === "plaintext-only"
+
+const editableKindFor = (
+  element: HTMLElement
+): AgentEditableKind | undefined => {
+  if (isInputElement(element) && !NON_TEXT_INPUT_TYPES.has(element.type)) {
+    return "input"
+  }
+  if (isTextareaElement(element)) return "textarea"
+  if (isContentEditableControl(element)) return "contenteditable"
+  return undefined
+}
 
 const textFromIds = (element: Element, ids: string): string =>
   ids
@@ -37,13 +97,13 @@ const accessibleName = (element: HTMLElement): string => {
   }
   const aria = normalized(element.getAttribute("aria-label"))
   if (aria) return aria
-  if (element instanceof HTMLImageElement && normalized(element.alt)) {
+  if (isImageElement(element) && normalized(element.alt)) {
     return normalized(element.alt)
   }
   if (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement ||
-    element instanceof HTMLSelectElement
+    isInputElement(element) ||
+    isTextareaElement(element) ||
+    isSelectElement(element)
   ) {
     if (element.id) {
       const label = element.ownerDocument.querySelector(
@@ -59,6 +119,18 @@ const accessibleName = (element: HTMLElement): string => {
       return normalized(element.getAttribute("placeholder"))
     }
   }
+  if (isContentEditableControl(element)) {
+    const placeholder =
+      normalized(element.getAttribute("aria-placeholder")) ||
+      normalized(element.getAttribute("data-placeholder")) ||
+      normalized(element.getAttribute("placeholder"))
+    if (placeholder) return placeholder
+    return (
+      normalized(element.getAttribute("title")) ||
+      normalized(element.getAttribute("name")) ||
+      "Editable text"
+    )
+  }
   return (
     normalized(element.textContent).slice(0, 160) ||
     normalized(element.getAttribute("title")) ||
@@ -70,11 +142,12 @@ const accessibleName = (element: HTMLElement): string => {
 const roleFor = (element: HTMLElement): string => {
   const explicit = normalized(element.getAttribute("role"))
   if (explicit) return explicit
-  if (element instanceof HTMLButtonElement) return "button"
-  if (element instanceof HTMLAnchorElement) return "link"
-  if (element instanceof HTMLSelectElement) return "combobox"
-  if (element instanceof HTMLTextAreaElement) return "textbox"
-  if (element instanceof HTMLInputElement) {
+  if (isButtonElement(element)) return "button"
+  if (isAnchorElement(element)) return "link"
+  if (isSelectElement(element)) return "combobox"
+  if (isTextareaElement(element)) return "textbox"
+  if (isContentEditableControl(element)) return "textbox"
+  if (isInputElement(element)) {
     if (element.type === "checkbox") return "checkbox"
     if (element.type === "radio") return "radio"
     if (element.type === "submit" || element.type === "button") return "button"
@@ -84,7 +157,9 @@ const roleFor = (element: HTMLElement): string => {
 }
 
 const isVisible = (element: HTMLElement): boolean => {
-  const style = getComputedStyle(element)
+  const style =
+    element.ownerDocument.defaultView?.getComputedStyle(element) ??
+    getComputedStyle(element)
   if (
     style.display === "none" ||
     style.visibility === "hidden" ||
@@ -99,9 +174,10 @@ const isVisible = (element: HTMLElement): boolean => {
 const isInteractive = (element: HTMLElement): boolean => {
   if (
     element.matches(
-      "a[href],button,input,textarea,select,summary,[role='button'],[role='link'],[role='checkbox'],[role='radio'],[role='switch'],[role='tab'],[role='menuitem'],[contenteditable='true'],[tabindex]"
+      "a[href],button,input,textarea,select,summary,[role='button'],[role='link'],[role='checkbox'],[role='radio'],[role='switch'],[role='tab'],[role='menuitem'],[contenteditable='true'],[contenteditable='plaintext-only'],[tabindex]"
     )
   ) {
+    if (isContentEditableControl(element)) return true
     const tabIndex = element.getAttribute("tabindex")
     return (
       tabIndex !== "-1" ||
@@ -109,6 +185,56 @@ const isInteractive = (element: HTMLElement): boolean => {
     )
   }
   return false
+}
+
+const controlDescriptor = (element: HTMLElement): string =>
+  [
+    accessibleName(element),
+    element.id,
+    element.getAttribute("name"),
+    element.getAttribute("placeholder"),
+    element.getAttribute("aria-placeholder"),
+    element.getAttribute("autocomplete"),
+    element.className
+  ]
+    .map((value) => (typeof value === "string" ? value : ""))
+    .join(" ")
+
+const restrictedControlReason = (
+  element: HTMLElement,
+  action?: AgentPageAction
+): string | undefined => {
+  const descriptor = controlDescriptor(element)
+  if (CAPTCHA_TEXT.test(descriptor)) {
+    return "CAPTCHA controls cannot be operated by the browser agent."
+  }
+  if (isInputElement(element) && RESTRICTED_INPUT_TYPES.has(element.type)) {
+    return element.type === "password"
+      ? "Password fields cannot be read or typed by the browser agent."
+      : element.type === "file"
+        ? "File uploads are not supported by the browser agent."
+        : "Hidden controls cannot be operated by the browser agent."
+  }
+  if (
+    action === "type" &&
+    ((isInputElement(element) &&
+      SENSITIVE_AUTOCOMPLETE.test(element.autocomplete)) ||
+      SENSITIVE_FIELD_TEXT.test(descriptor))
+  ) {
+    return "Passwords, payment data, and authentication codes cannot be typed by the browser agent."
+  }
+  return undefined
+}
+
+const actionsFor = (element: HTMLElement): AgentPageAction[] => {
+  if (restrictedControlReason(element)) return []
+  if (isSelectElement(element)) return ["click", "select"]
+  if (editableKindFor(element)) {
+    return restrictedControlReason(element, "type")
+      ? ["click"]
+      : ["click", "type"]
+  }
+  return ["click"]
 }
 
 const domPathFor = (element: HTMLElement): string => {
@@ -132,18 +258,20 @@ const signatureFor = (element: HTMLElement): string => {
   const form = element.closest("form")
   const type = element.getAttribute("type") ?? ""
   const mutableValue =
-    element instanceof HTMLInputElement &&
+    isInputElement(element) &&
     !["password", "file", "hidden"].includes(element.type)
       ? element.value
-      : element instanceof HTMLTextAreaElement
+      : isTextareaElement(element)
         ? element.value
-        : element instanceof HTMLSelectElement
+        : isSelectElement(element)
           ? `${element.value}|${Array.from(element.options)
               .map(
                 (option) => `${option.value}:${normalized(option.textContent)}`
               )
               .join(",")}`
-          : ""
+          : isContentEditableControl(element)
+            ? normalized(element.innerText || element.textContent)
+            : ""
   const dataset = Object.entries(element.dataset)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, value]) => `${key}=${value}`)
@@ -180,7 +308,7 @@ const collectRoots = (
 ) => {
   roots.push(root)
   for (const element of root.querySelectorAll("*")) {
-    if (element instanceof HTMLElement && element.shadowRoot) {
+    if (isHtmlElement(element) && element.shadowRoot) {
       collectRoots(element.shadowRoot, roots)
     }
   }
@@ -236,6 +364,7 @@ export const snapshotPage = (): PageSnapshot => {
   currentSnapshotId =
     globalThis.crypto?.randomUUID?.() ??
     `snapshot-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  currentSnapshotUrl = location.href
   elementCache = new Map()
   const candidates: Array<{ element: HTMLElement; framePath: number[] }> = []
   const { documents, unsupported } = collectDocuments()
@@ -245,11 +374,7 @@ export const snapshotPage = (): PageSnapshot => {
     collectRoots(entry.document, roots)
     for (const root of roots) {
       for (const node of root.querySelectorAll("*")) {
-        if (
-          node instanceof HTMLElement &&
-          isInteractive(node) &&
-          isVisible(node)
-        ) {
+        if (isHtmlElement(node) && isInteractive(node) && isVisible(node)) {
           candidates.push({ element: node, framePath: entry.framePath })
         }
       }
@@ -257,8 +382,8 @@ export const snapshotPage = (): PageSnapshot => {
   }
 
   candidates.sort((a, b) => {
-    const ar = a.element.getBoundingClientRect()
-    const br = b.element.getBoundingClientRect()
+    const ar = topLevelRect(a.element)
+    const br = topLevelRect(b.element)
     const av = ar.bottom >= 0 && ar.top <= innerHeight
     const bv = br.bottom >= 0 && br.top <= innerHeight
     if (av !== bv) return av ? -1 : 1
@@ -269,32 +394,47 @@ export const snapshotPage = (): PageSnapshot => {
     .slice(0, MAX_ELEMENTS)
     .map(({ element, framePath }, index) => {
       const elementId = index + 1
-      const rect = element.getBoundingClientRect()
+      const rect = topLevelRect(element)
       const disabled =
         element.matches(":disabled") ||
         element.getAttribute("aria-disabled") === "true"
+      const editableKind = editableKindFor(element)
+      const restricted = restrictedControlReason(element, "type")
       const value =
-        element instanceof HTMLInputElement &&
-        ["password", "file", "hidden"].includes(element.type)
+        restricted ||
+        (isInputElement(element) && RESTRICTED_INPUT_TYPES.has(element.type))
           ? undefined
-          : element instanceof HTMLInputElement ||
-              element instanceof HTMLTextAreaElement ||
-              element instanceof HTMLSelectElement
+          : isInputElement(element) ||
+              isTextareaElement(element) ||
+              isSelectElement(element)
             ? normalized(element.value).slice(0, 120)
-            : undefined
+            : editableKind === "contenteditable" && !restricted
+              ? normalized(element.innerText || element.textContent).slice(
+                  0,
+                  120
+                )
+              : undefined
       const ref: PageElementRef = {
         elementId,
         role: roleFor(element),
         name: accessibleName(element),
         tag: element.tagName.toLowerCase(),
-        type: element instanceof HTMLInputElement ? element.type : undefined,
+        type: isInputElement(element) ? element.type : undefined,
         value,
         disabled,
         checked:
-          element instanceof HTMLInputElement &&
+          isInputElement(element) &&
           (element.type === "checkbox" || element.type === "radio")
             ? element.checked
             : undefined,
+        editableKind,
+        multiline:
+          editableKind === "textarea" ||
+          editableKind === "contenteditable" ||
+          element.getAttribute("aria-multiline") === "true"
+            ? true
+            : undefined,
+        actions: disabled ? [] : actionsFor(element),
         inViewport: rect.bottom >= 0 && rect.top <= innerHeight,
         framePath: framePath.length ? framePath : undefined
       }
@@ -321,6 +461,9 @@ export const snapshotPage = (): PageSnapshot => {
 const resolveTarget = (snapshotId: string, elementId: number): HTMLElement => {
   if (!snapshotId || snapshotId !== currentSnapshotId) {
     throw new Error("Page changed; take a new snapshot before acting.")
+  }
+  if (location.href !== currentSnapshotUrl) {
+    throw new Error("Page URL changed; take a new snapshot before acting.")
   }
   const cached = elementCache.get(elementId)
   if (!cached) {
@@ -354,8 +497,10 @@ const topLevelRect = (element: HTMLElement): DOMRect => {
   let top = rect.top
   let currentWindow: Window | null = element.ownerDocument.defaultView
 
-  while (currentWindow?.frameElement instanceof HTMLElement) {
-    const frameRect = currentWindow.frameElement.getBoundingClientRect()
+  while (currentWindow) {
+    const frameElement = currentWindow.frameElement
+    if (!isHtmlElement(frameElement)) break
+    const frameRect = frameElement.getBoundingClientRect()
     left += frameRect.left
     top += frameRect.top
     currentWindow = currentWindow.parent
@@ -394,66 +539,224 @@ export const highlightAgentTarget = (
   }
 }
 
-export const executeAgentAction = (
-  request: AgentPageActionRequest
-): { message: string; url: string } => {
-  const element = resolveTarget(request.snapshotId, request.elementId)
-  const failRestricted = (): never => {
-    throw new Error("This control type is not supported for agent actions.")
+const invalidateSnapshot = (): void => {
+  currentSnapshotId = ""
+  currentSnapshotUrl = ""
+  elementCache.clear()
+}
+
+const dispatchBeforeInput = (element: HTMLElement, text: string): boolean =>
+  element.dispatchEvent(
+    new InputEvent("beforeinput", {
+      bubbles: true,
+      cancelable: true,
+      data: text,
+      inputType: "insertText"
+    })
+  )
+
+const dispatchInput = (element: HTMLElement, text: string): void => {
+  element.dispatchEvent(
+    new InputEvent("input", {
+      bubbles: true,
+      data: text,
+      inputType: "insertText"
+    })
+  )
+  element.dispatchEvent(new Event("change", { bubbles: true }))
+}
+
+const replaceNativeTextControl = (
+  element: HTMLInputElement | HTMLTextAreaElement,
+  text: string
+): number => {
+  element.focus()
+  element.setSelectionRange?.(0, element.value.length)
+  if (!dispatchBeforeInput(element, text)) {
+    throw new Error("The page rejected text entry before it was applied.")
+  }
+  const prototype = Object.getPrototypeOf(element)
+  const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set
+  if (!setter) throw new Error("This text control cannot be updated safely.")
+  setter.call(element, text)
+  dispatchInput(element, text)
+  if (element.value !== text) {
+    throw new Error("The page rejected or rewrote the requested text.")
+  }
+  return element.value.length
+}
+
+const replaceContentEditable = (element: HTMLElement, text: string): number => {
+  const ownerDocument = element.ownerDocument
+  const selection = ownerDocument.getSelection()
+  if (!selection) {
+    throw new Error("This rich-text editor does not expose an editable range.")
   }
 
+  element.focus()
+  const range = ownerDocument.createRange()
+  range.selectNodeContents(element)
+  selection.removeAllRanges()
+  selection.addRange(range)
+
+  let inputObserved = false
+  const markInput = () => {
+    inputObserved = true
+  }
+  element.addEventListener("input", markInput)
+  const currentText = () =>
+    normalized(element.innerText || element.textContent || "")
+  let commandApplied = currentText() === normalized(text)
+  if (!dispatchBeforeInput(element, text)) {
+    element.removeEventListener("input", markInput)
+    throw new Error("The rich-text editor rejected text entry.")
+  }
+  try {
+    commandApplied =
+      currentText() === normalized(text) ||
+      (typeof ownerDocument.execCommand === "function" &&
+        ownerDocument.execCommand("insertText", false, text))
+  } catch {
+    commandApplied = false
+  } finally {
+    element.removeEventListener("input", markInput)
+  }
+
+  if (!commandApplied && currentText() !== normalized(text)) {
+    if (element.matches(RICH_EDITOR_SELECTOR)) {
+      throw new Error(
+        "This rich-text editor requires trusted browser input that is not available."
+      )
+    }
+    range.deleteContents()
+    range.insertNode(ownerDocument.createTextNode(text))
+    range.collapse(false)
+  }
+  if (!inputObserved) {
+    element.dispatchEvent(
+      new InputEvent("input", {
+        bubbles: true,
+        data: text,
+        inputType: "insertText"
+      })
+    )
+  }
+  element.dispatchEvent(new Event("change", { bubbles: true }))
+
+  if (currentText() !== normalized(text)) {
+    throw new Error(
+      "The rich-text editor rejected or rewrote the requested text."
+    )
+  }
+  return (element.innerText || element.textContent || "").length
+}
+
+export const executeAgentAction = (
+  request: AgentPageActionRequest
+): AgentPageActionResult => {
+  const element = resolveTarget(request.snapshotId, request.elementId)
+  const restricted = restrictedControlReason(element, request.action)
+  if (restricted) throw new Error(restricted)
+  element.scrollIntoView({ block: "center", inline: "center" })
+
   if (request.action === "click") {
-    if (
-      element instanceof HTMLInputElement &&
-      ["password", "file", "hidden"].includes(element.type)
-    ) {
-      failRestricted()
+    const priorChecked =
+      isInputElement(element) &&
+      (element.type === "checkbox" || element.type === "radio")
+        ? element.checked
+        : undefined
+    element.focus()
+    try {
+      element.click()
+      const checked =
+        isInputElement(element) &&
+        (element.type === "checkbox" || element.type === "radio")
+          ? element.checked
+          : undefined
+      const verification =
+        checked !== undefined && (checked !== priorChecked || checked)
+          ? "confirmed"
+          : "observation-required"
+      return {
+        message:
+          verification === "confirmed"
+            ? "Click completed and control state changed."
+            : "Click dispatched; observe the page to verify its effect.",
+        url: location.href,
+        status: "performed",
+        verification,
+        checked
+      }
+    } finally {
+      invalidateSnapshot()
+      clearAgentHighlight()
     }
-    element.click()
   } else if (request.action === "type") {
-    if (
-      !(
-        element instanceof HTMLInputElement ||
-        element instanceof HTMLTextAreaElement
-      ) ||
-      (element instanceof HTMLInputElement &&
-        ["password", "file", "hidden"].includes(element.type)) ||
-      element.isContentEditable
-    ) {
-      failRestricted()
-    }
     const text = request.text
     if (typeof text !== "string") throw new Error("Typing requires text.")
-    const prototype =
-      element instanceof HTMLTextAreaElement
-        ? HTMLTextAreaElement.prototype
-        : HTMLInputElement.prototype
-    const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set
-    setter?.call(element, text)
-    element.dispatchEvent(
-      new InputEvent("input", { bubbles: true, data: text })
-    )
-    element.dispatchEvent(new Event("change", { bubbles: true }))
+    let observedTextLength: number
+    try {
+      observedTextLength =
+        isInputElement(element) || isTextareaElement(element)
+          ? replaceNativeTextControl(element, text)
+          : isContentEditableControl(element)
+            ? replaceContentEditable(element, text)
+            : (() => {
+                throw new Error(
+                  "Typing is supported only for text inputs, textareas, and contenteditable editors."
+                )
+              })()
+    } finally {
+      invalidateSnapshot()
+      clearAgentHighlight()
+    }
+    return {
+      message: "Text replaced and verified.",
+      url: location.href,
+      status: "performed",
+      verification: "confirmed",
+      observedTextLength
+    }
   } else {
-    if (!(element instanceof HTMLSelectElement)) return failRestricted()
+    if (!isSelectElement(element)) {
+      throw new Error("Selecting options requires a native select control.")
+    }
     const value = request.value
+    if (typeof value !== "string")
+      throw new Error("Selecting requires a value.")
     const option = Array.from(element.options).find(
       (candidate) =>
         candidate.value === value || normalized(candidate.textContent) === value
     )
     if (!option) throw new Error("Requested option does not exist.")
-    element.value = option.value
-    element.dispatchEvent(new Event("input", { bubbles: true }))
-    element.dispatchEvent(new Event("change", { bubbles: true }))
+    element.focus()
+    try {
+      element.value = option.value
+      element.dispatchEvent(new Event("input", { bubbles: true }))
+      element.dispatchEvent(new Event("change", { bubbles: true }))
+      if (element.selectedIndex !== option.index) {
+        throw new Error("The page rejected the requested option.")
+      }
+      const selectedIndex = element.selectedIndex
+      return {
+        message: "Option selected and verified.",
+        url: location.href,
+        status: "performed",
+        verification: "confirmed",
+        selectedIndex
+      }
+    } finally {
+      invalidateSnapshot()
+      clearAgentHighlight()
+    }
   }
-  clearAgentHighlight()
-  return { message: `${request.action} completed.`, url: location.href }
 }
 
 export const scrollAgentPage = (direction: unknown): string => {
   const amount = Math.max(240, Math.round(innerHeight * 0.8))
   const delta = direction === "up" ? -amount : amount
   scrollBy({ top: delta, behavior: "smooth" })
+  invalidateSnapshot()
   return `Scrolled ${direction === "up" ? "up" : "down"}.`
 }
 
@@ -475,6 +778,7 @@ export const findAgentText = (query: unknown): string => {
         const parent = node.parentElement
         if (parent && isVisible(parent)) {
           parent.scrollIntoView({ block: "center", behavior: "smooth" })
+          invalidateSnapshot()
           return `Found “${query.trim()}” on the page.`
         }
       }

@@ -272,6 +272,7 @@
         "save_artifact": "Enregistrement du fichier",
         "capture_screenshot": "Capture d'écran",
         "snapshot_page": "Observation de la page",
+        "select_tab": "Sélection de l’onglet de l’agent",
         "open_tab": "Ouverture de l’onglet",
         "navigate": "Navigation",
         "scroll": "Défilement de la page",

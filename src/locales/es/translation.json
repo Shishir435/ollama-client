@@ -272,6 +272,7 @@
         "save_artifact": "Guardando archivo",
         "capture_screenshot": "Capturando pantalla",
         "snapshot_page": "Observando página",
+        "select_tab": "Seleccionando pestaña del agente",
         "open_tab": "Abriendo pestaña",
         "navigate": "Navegando",
         "scroll": "Desplazando página",

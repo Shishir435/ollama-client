@@ -21,10 +21,12 @@ import {
   runOpenTab,
   runScroll,
   runSelect,
+  runSelectTab,
   runSnapshotPage,
   runType,
   scrollDefinition,
   selectDefinition,
+  selectTabDefinition,
   snapshotPageDefinition,
   typeDefinition
 } from "./agent-browser-tools"
@@ -97,6 +99,7 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: saveArtifactDefinition, run: runSaveArtifact },
   { definition: captureScreenshotDefinition, run: runCaptureScreenshot },
   { definition: snapshotPageDefinition, run: runSnapshotPage },
+  { definition: selectTabDefinition, run: runSelectTab },
   { definition: openTabDefinition, run: runOpenTab },
   { definition: navigateDefinition, run: runNavigate },
   { definition: scrollDefinition, run: runScroll },
@@ -158,7 +161,12 @@ export const createInternalToolSource = (): ToolSource => {
           isError: true
         }
       }
-      if (ctx.agent && isAgentBrowserTool(name) && name !== "open_tab") {
+      if (
+        ctx.agent &&
+        isAgentBrowserTool(name) &&
+        name !== "open_tab" &&
+        name !== "select_tab"
+      ) {
         if (args.tabId === undefined) args.tabId = ctx.agent.targetTabId
         if (args.tabId !== ctx.agent.targetTabId) {
           return {

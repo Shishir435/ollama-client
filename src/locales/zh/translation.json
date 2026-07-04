@@ -272,6 +272,7 @@
         "save_artifact": "正在保存文件",
         "capture_screenshot": "正在截屏",
         "snapshot_page": "正在观察页面",
+        "select_tab": "正在选择代理标签页",
         "open_tab": "正在打开标签页",
         "navigate": "正在导航",
         "scroll": "正在滚动页面",

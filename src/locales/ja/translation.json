@@ -272,6 +272,7 @@
         "save_artifact": "ファイルを保存中",
         "capture_screenshot": "スクリーンショットを撮影中",
         "snapshot_page": "ページを確認中",
+        "select_tab": "エージェントのタブを選択中",
         "open_tab": "タブを開いています",
         "navigate": "移動中",
         "scroll": "ページをスクロール中",

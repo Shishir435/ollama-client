@@ -316,6 +316,7 @@
         "save_artifact": "Saving file",
         "capture_screenshot": "Capturing screenshot",
         "snapshot_page": "Observing page",
+        "select_tab": "Selecting agent tab",
         "open_tab": "Opening tab",
         "navigate": "Navigating",
         "scroll": "Scrolling page",

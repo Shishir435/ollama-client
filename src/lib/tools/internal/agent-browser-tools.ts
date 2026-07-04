@@ -3,6 +3,7 @@ import { MESSAGE_KEYS } from "@/lib/constants"
 import type {
   AgentElementTarget,
   AgentPageActionRequest,
+  AgentPageActionResult,
   PageSnapshot
 } from "@/types/agent"
 import type { ChromeResponse } from "@/types/messaging"
@@ -137,9 +138,16 @@ const formatSnapshot = (snapshot: PageSnapshot, tabId: number): string => {
   const rows = snapshot.elements.map((element) => {
     const state = [
       element.type ? `type=${element.type}` : "",
+      element.editableKind ? `editable=${element.editableKind}` : "",
+      element.multiline ? "multiline" : "",
+      element.actions?.length ? `actions=${element.actions.join("/")}` : "",
       element.disabled ? "disabled" : "",
       element.checked !== undefined ? `checked=${element.checked}` : "",
-      element.value ? `value=${JSON.stringify(element.value)}` : "",
+      element.value
+        ? element.editableKind
+          ? `value=[redacted ${element.value.length} characters]`
+          : `value=${JSON.stringify(element.value)}`
+        : "",
       element.inViewport ? "viewport" : "offscreen"
     ]
       .filter(Boolean)
@@ -163,6 +171,14 @@ const formatSnapshot = (snapshot: PageSnapshot, tabId: number): string => {
     ...notes
   ].join("\n")
 }
+
+const durableSnapshot = (snapshot: PageSnapshot): PageSnapshot => ({
+  ...snapshot,
+  elements: snapshot.elements.map((element) => ({
+    ...element,
+    value: element.value === undefined ? undefined : "[redacted]"
+  }))
+})
 
 export const snapshotPageDefinition: ToolDefinition = {
   name: "snapshot_page",
@@ -201,12 +217,86 @@ export const runSnapshotPage = async (
     )
     if (ctx.agent) {
       ctx.agent.targetUrl = snapshot.url
-      ctx.agent.lastSnapshot = snapshot
+      ctx.agent.targetLocked = true
+      ctx.agent.lastSnapshot = durableSnapshot(snapshot)
       ctx.agent.injectionWarning = snapshot.injectionWarning
     }
     return {
       content: formatSnapshot(snapshot, tab.id),
       sources: [{ title: snapshot.title || "Page snapshot", url: snapshot.url }]
+    }
+  } catch (error) {
+    return {
+      content: error instanceof Error ? error.message : String(error),
+      isError: true
+    }
+  }
+}
+
+export const selectTabDefinition: ToolDefinition = {
+  name: "select_tab",
+  description:
+    "Select one existing readable tab as this agent run's fixed target. Use a tab id returned by list_tabs before the first snapshot or page action. Requires approval.",
+  displayNameKey: "chat.reasoning.trace.select_tab",
+  category: "browser",
+  iconKey: "panels-top-left",
+  risk: "medium",
+  cacheable: false,
+  requires: ["tabs"],
+  runtime: { parallelizable: false },
+  parameters: {
+    type: "object",
+    properties: {
+      tabId: {
+        type: "number",
+        description: "Exact existing tab id returned by list_tabs."
+      }
+    },
+    required: ["tabId"]
+  }
+}
+
+export const runSelectTab = async (
+  args: Record<string, unknown>,
+  ctx: ToolContext
+): Promise<ToolResult> => {
+  try {
+    if (typeof args.tabId !== "number" || !Number.isInteger(args.tabId)) {
+      throw new Error("select_tab requires an integer tabId from list_tabs.")
+    }
+    const tab = await browser.tabs.get(args.tabId)
+    if (!tab?.id || !tab.url) throw new Error("Target tab is no longer open.")
+    if (ctx.agent?.targetLocked && ctx.agent.targetTabId !== tab.id) {
+      throw new Error(
+        "Agent target is already locked. Start a new run to control another existing tab."
+      )
+    }
+    await readableTabOrError(tab.id, tab.url)
+    const origin = new URL(tab.url).origin
+    if (
+      typeof args.expectedOrigin === "string" &&
+      args.expectedOrigin !== origin
+    ) {
+      throw new Error(
+        "Target tab navigated after approval preview. Select it again."
+      )
+    }
+    if (typeof args.expectedUrl === "string" && args.expectedUrl !== tab.url) {
+      throw new Error(
+        "Target tab navigated after approval preview. Select it again."
+      )
+    }
+    await browser.tabs.update(tab.id, { active: true })
+    if (ctx.agent) {
+      ctx.agent.targetTabId = tab.id
+      ctx.agent.targetUrl = tab.url
+      ctx.agent.targetLocked = true
+      ctx.agent.lastSnapshot = undefined
+      allowAgentOrigin(ctx, origin)
+    }
+    return {
+      content: `Selected tab ${tab.id} (${tab.title || new URL(tab.url).host}) as the fixed agent target. Take a snapshot before acting.`,
+      sources: [{ title: tab.title || new URL(tab.url).host, url: tab.url }]
     }
   } catch (error) {
     return {
@@ -247,6 +337,7 @@ export const runOpenTab = async (
     if (ctx.agent && tab.id !== undefined) {
       ctx.agent.targetTabId = tab.id
       ctx.agent.targetUrl = url.href
+      ctx.agent.targetLocked = true
       ctx.agent.lastSnapshot = undefined
       allowAgentOrigin(ctx, url.origin)
     }
@@ -297,6 +388,7 @@ export const runNavigate = async (
     await browser.tabs.update(tab.id, { url: url.href, active: true })
     if (ctx.agent) {
       ctx.agent.targetUrl = url.href
+      ctx.agent.targetLocked = true
       ctx.agent.lastSnapshot = undefined
     }
     await recoverAgentPageRuntime(tab.id)
@@ -348,6 +440,10 @@ export const runScroll = async (
       MESSAGE_KEYS.BROWSER.AGENT_SCROLL,
       { direction: args.direction }
     )
+    if (ctx.agent) {
+      ctx.agent.targetLocked = true
+      ctx.agent.lastSnapshot = undefined
+    }
     return { content: `${message} Take a new snapshot.` }
   } catch (error) {
     return {
@@ -387,13 +483,16 @@ export const runFindInPage = async (
     if (!tab?.id) throw new Error("Target tab does not exist.")
     requireAgentOrigin(ctx, tab.url)
     await readableTabOrError(tab.id, tab.url)
-    return {
-      content: await sendToPage<string>(
-        tab.id,
-        MESSAGE_KEYS.BROWSER.AGENT_FIND_TEXT,
-        { text: args.text }
-      )
+    const content = await sendToPage<string>(
+      tab.id,
+      MESSAGE_KEYS.BROWSER.AGENT_FIND_TEXT,
+      { text: args.text }
+    )
+    if (ctx.agent) {
+      ctx.agent.targetLocked = true
+      ctx.agent.lastSnapshot = undefined
     }
+    return { content: `${content} Take a new snapshot before acting.` }
   } catch (error) {
     return {
       content: error instanceof Error ? error.message : String(error),
@@ -463,7 +562,7 @@ export const clickDefinition = actionDefinition(
 )
 export const typeDefinition = actionDefinition(
   "type",
-  "Replace text in one input from the latest page snapshot. Password, hidden, file, and contenteditable controls are refused. Always requires per-call approval."
+  "Replace text in one text input, textarea, or contenteditable rich-text editor from the latest page snapshot. Password, payment, authentication-code, hidden, and file controls are refused. Always requires per-call approval."
 )
 export const selectDefinition = actionDefinition(
   "select",
@@ -489,13 +588,22 @@ const runAction =
         text: typeof args.text === "string" ? args.text : undefined,
         value: typeof args.value === "string" ? args.value : undefined
       }
-      const result = await sendToPage<{ message: string; url: string }>(
+      const result = await sendToPage<AgentPageActionResult>(
         tab.id,
         MESSAGE_KEYS.BROWSER.AGENT_PAGE_ACTION,
         request as unknown as Record<string, unknown>
       )
+      if (ctx.agent) {
+        ctx.agent.targetUrl = result.url
+        ctx.agent.targetLocked = true
+        ctx.agent.lastSnapshot = undefined
+      }
+      const verification =
+        result.verification === "confirmed"
+          ? "Effect verified."
+          : "Effect needs observation."
       return {
-        content: `${result.message} Page changed; take a new snapshot.`,
+        content: `${result.message} ${verification} Take a new snapshot before continuing.`,
         sources: [{ title: new URL(result.url).host, url: result.url }]
       }
     } catch (error) {
@@ -514,6 +622,27 @@ export const preflightAgentPageAction = async (call: {
   name: string
   arguments: Record<string, unknown>
 }): Promise<{ preview: string; origin: string } | undefined> => {
+  if (call.name === "select_tab") {
+    if (
+      typeof call.arguments.tabId !== "number" ||
+      !Number.isInteger(call.arguments.tabId)
+    ) {
+      throw new Error("select_tab requires an integer tabId from list_tabs.")
+    }
+    const tab = await browser.tabs.get(call.arguments.tabId)
+    if (!tab?.id || !tab.url) throw new Error("Target tab is no longer open.")
+    const access = await classifyTabAccess(tab.url)
+    if (access !== "ok") {
+      throw new Error(accessDeniedMessage(access, new URL(tab.url).host))
+    }
+    const origin = new URL(tab.url).origin
+    call.arguments.expectedOrigin = origin
+    call.arguments.expectedUrl = tab.url
+    return {
+      preview: `Control “${tab.title || new URL(tab.url).host}” on ${new URL(tab.url).host}`,
+      origin
+    }
+  }
   if (!["click", "type", "select"].includes(call.name)) return undefined
   const tab = await resolveTab(call.arguments.tabId)
   if (!tab?.id || tab.id !== call.arguments.tabId) {
@@ -556,6 +685,7 @@ export const originForNonElementAgentToolCall = async (call: {
 export const isAgentBrowserTool = (name: string): boolean =>
   [
     "snapshot_page",
+    "select_tab",
     "open_tab",
     "navigate",
     "scroll",
@@ -566,10 +696,18 @@ export const isAgentBrowserTool = (name: string): boolean =>
   ].includes(name)
 
 export const isAgentPageActionTool = (name: string): boolean =>
-  ["open_tab", "navigate", "scroll", "click", "type", "select"].includes(name)
+  [
+    "select_tab",
+    "open_tab",
+    "navigate",
+    "scroll",
+    "click",
+    "type",
+    "select"
+  ].includes(name)
 
 export const isAgentNavigationTool = (name: string): boolean =>
-  name === "open_tab" || name === "navigate"
+  name === "select_tab" || name === "open_tab" || name === "navigate"
 
 export const isAgentElementActionTool = (name: string): boolean =>
   name === "click" || name === "type" || name === "select"

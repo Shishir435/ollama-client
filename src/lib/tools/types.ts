@@ -142,6 +142,7 @@ export interface ToolContext {
   agent?: {
     targetTabId: number
     targetUrl?: string
+    targetLocked?: boolean
     allowedOrigins: string[]
     lastSnapshot?: PageSnapshot
     pendingAction?: Omit<AgentPageActionRequest, "text" | "value"> & {

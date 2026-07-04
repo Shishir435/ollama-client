@@ -180,7 +180,12 @@ export const prepareToolCall = async (
     | Awaited<ReturnType<typeof preflightAgentPageAction>>
     | undefined
   let preflightError: string | undefined
-  if (ctx?.agent && isAgentBrowserTool(call.name) && call.name !== "open_tab") {
+  if (
+    ctx?.agent &&
+    isAgentBrowserTool(call.name) &&
+    call.name !== "open_tab" &&
+    call.name !== "select_tab"
+  ) {
     if (call.arguments.tabId === undefined) {
       call.arguments.tabId = ctx.agent.targetTabId
     }
@@ -189,7 +194,19 @@ export const prepareToolCall = async (
         "Agent target-tab mismatch. The run cannot act on a different tab."
     }
   }
-  if (!preflightError && isAgentElementActionTool(call.name)) {
+  if (
+    !preflightError &&
+    call.name === "select_tab" &&
+    ctx?.agent?.targetLocked &&
+    call.arguments.tabId !== ctx.agent.targetTabId
+  ) {
+    preflightError =
+      "Agent target is already locked. Start a new run to control another existing tab."
+  }
+  if (
+    !preflightError &&
+    (isAgentElementActionTool(call.name) || call.name === "select_tab")
+  ) {
     try {
       preflight = await preflightAgentPageAction(call)
       if (ctx?.agent) {
@@ -295,7 +312,11 @@ export const runPreparedToolCall = async (
     }
   }
   if (ctx.agent) {
-    if (isAgentBrowserTool(call.name) && call.name !== "open_tab") {
+    if (
+      isAgentBrowserTool(call.name) &&
+      call.name !== "open_tab" &&
+      call.name !== "select_tab"
+    ) {
       if (call.arguments.tabId === undefined) {
         call.arguments.tabId = ctx.agent.targetTabId
       }

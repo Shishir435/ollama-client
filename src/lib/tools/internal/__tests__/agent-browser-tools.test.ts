@@ -49,13 +49,16 @@ import type { ToolContext, ToolRegistry } from "@/lib/tools"
 import {
   clickDefinition,
   runNavigate,
-  runSnapshotPage
+  runSelectTab,
+  runSnapshotPage,
+  selectTabDefinition
 } from "../agent-browser-tools"
 
 const agentContext = (): ToolContext => ({
   sessionId: "session-1",
   agent: {
     targetTabId: 7,
+    targetLocked: false,
     allowedOrigins: ["https://allowed.example"],
     actionCount: 0,
     maxActions: 15,
@@ -98,6 +101,133 @@ describe("agent browser boundaries", () => {
     expect(result.isError).toBe(true)
     expect(result.content).toContain("origin boundary blocked")
     expect(mocks.sendContent).not.toHaveBeenCalled()
+  })
+
+  it("locks the initial target when observation begins", async () => {
+    const ctx = agentContext()
+
+    const result = await runSnapshotPage({ tabId: 7 }, ctx)
+
+    expect(result.isError).not.toBe(true)
+    expect(ctx.agent?.targetLocked).toBe(true)
+  })
+
+  it("redacts editable values from model output and durable snapshot state", async () => {
+    mocks.sendContent.mockResolvedValue({
+      success: true,
+      data: {
+        snapshotId: "snapshot-1",
+        documentId: "document-1",
+        title: "Draft",
+        url: "https://allowed.example/page",
+        capturedAt: Date.now(),
+        elements: [
+          {
+            elementId: 1,
+            role: "textbox",
+            name: "Draft",
+            tag: "textarea",
+            value: "private draft",
+            disabled: false,
+            editableKind: "textarea",
+            multiline: true,
+            actions: ["click", "type"],
+            inViewport: true
+          }
+        ],
+        truncated: 0,
+        unsupportedCrossOriginFrames: 0
+      }
+    })
+    const ctx = agentContext()
+
+    const result = await runSnapshotPage({ tabId: 7 }, ctx)
+
+    expect(result.content).not.toContain("private draft")
+    expect(result.content).toContain("value=[redacted 13 characters]")
+    expect(ctx.agent?.lastSnapshot?.elements[0].value).toBe("[redacted]")
+  })
+
+  it("selects and locks a requested open tab after approval preflight", async () => {
+    mocks.getTab.mockResolvedValue({
+      id: 9,
+      title: "ChatGPT",
+      url: "https://chatgpt.com/c/1"
+    })
+    mocks.updateTab.mockResolvedValue({ id: 9 })
+    const ctx = agentContext()
+    const registry = {
+      getDefinition: vi.fn(async () => selectTabDefinition),
+      call: vi.fn((_, args) => runSelectTab(args, ctx))
+    } as unknown as ToolRegistry
+    const call = {
+      id: "select-tab-1",
+      name: "select_tab",
+      arguments: { tabId: 9 }
+    }
+    const prepared = await prepareToolCall(registry, call, undefined, ctx)
+
+    expect(prepared.requiresConfirmation).toBe(true)
+    expect(prepared.origin).toBe("https://chatgpt.com")
+    expect(prepared.run.approvalPreview).toContain("ChatGPT")
+    expect(call.arguments).toMatchObject({
+      expectedOrigin: "https://chatgpt.com",
+      expectedUrl: "https://chatgpt.com/c/1"
+    })
+
+    const result = await runPreparedToolCall(
+      prepared,
+      registry,
+      ctx,
+      undefined,
+      undefined,
+      async () => resolveToolConfirmation("select-tab-1", true)
+    )
+
+    expect(result.result.isError).not.toBe(true)
+    expect(ctx.agent).toMatchObject({
+      targetTabId: 9,
+      targetUrl: "https://chatgpt.com/c/1",
+      targetLocked: true
+    })
+    expect(ctx.agent?.allowedOrigins).toContain("https://chatgpt.com")
+  })
+
+  it("rejects a selected tab that changes origin after approval preview", async () => {
+    mocks.getTab.mockResolvedValue({
+      id: 9,
+      title: "Changed",
+      url: "https://chatgpt.com/c/2"
+    })
+
+    const result = await runSelectTab(
+      {
+        tabId: 9,
+        expectedOrigin: "https://chatgpt.com",
+        expectedUrl: "https://chatgpt.com/c/1"
+      },
+      agentContext()
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("navigated after approval")
+  })
+
+  it("does not retarget an agent after its target is locked", async () => {
+    mocks.getTab.mockResolvedValue({
+      id: 9,
+      title: "Other",
+      url: "https://allowed.example/other"
+    })
+    const ctx = agentContext()
+    if (!ctx.agent) throw new Error("missing test agent")
+    ctx.agent.targetLocked = true
+
+    const result = await runSelectTab({ tabId: 9 }, ctx)
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("already locked")
+    expect(mocks.updateTab).not.toHaveBeenCalled()
   })
 
   it("adds a destination origin only after approved navigation executes", async () => {
