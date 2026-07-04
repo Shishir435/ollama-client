@@ -1,5 +1,6 @@
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
 import type { ModelCapabilityOverride } from "./capabilities"
 
 /**
@@ -14,28 +15,19 @@ export type ModelCapabilityOverrideMap = Record<string, ModelCapabilityOverride>
 const STORAGE_KEY = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
 
 /**
- * Serializes read-modify-write operations on the override map. Each write reads
- * the whole map, patches one key, and writes it back; without serialization two
- * rapid writes (e.g. configuring model A then model B in quick succession) would
- * both read the same stale map and the second write would drop the first key's
- * change. Chaining writes here guarantees each one observes the previous result.
+ * Web Locks name serializing read-modify-write on the override map across every
+ * extension context. Each write reads the whole map, patches one key, and
+ * writes it back; without a cross-context lock two writes (e.g. configuring
+ * model A in the options page while the side panel configures model B) could
+ * read the same stale map and the second write would drop the first's change.
  *
- * Note: this guards writes within a single extension context only. A concurrent
- * write from another context (a second extension page, or Chrome-sync from
- * another device) can still race; that is an accepted limitation for this
- * low-frequency, user-driven setting.
+ * A concurrent Chrome-sync write from another *device* can still race — that is
+ * an accepted limitation for this low-frequency, user-driven setting.
  */
-let writeQueue: Promise<unknown> = Promise.resolve()
+const OVERRIDE_WRITE_LOCK = "model-capability-override-write"
 
-const enqueueWrite = <T>(operation: () => Promise<T>): Promise<T> => {
-  const result = writeQueue.then(operation, operation)
-  // Keep the chain alive regardless of whether an individual op rejects.
-  writeQueue = result.then(
-    () => undefined,
-    () => undefined
-  )
-  return result
-}
+const enqueueWrite = <T>(operation: () => Promise<T>): Promise<T> =>
+  withStorageWriteLock(OVERRIDE_WRITE_LOCK, operation)
 
 export const modelCapabilityOverrideKey = (
   providerId: string,

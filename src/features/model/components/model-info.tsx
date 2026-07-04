@@ -2,7 +2,7 @@ import React, { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { TooltipActionButton } from "@/components/actions"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import {
   Collapsible,
@@ -10,7 +10,9 @@ import {
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useModelCapabilityOverrides } from "@/features/model/hooks/use-model-capability-overrides"
 import { useModelInfo } from "@/features/model/hooks/use-model-info"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import {
   ChevronDown,
   Cpu,
@@ -23,7 +25,10 @@ import {
   Settings,
   Zap
 } from "@/lib/lucide-icon"
+import { getModelCapabilities } from "@/lib/providers/capabilities"
 import { cn } from "@/lib/utils"
+
+import { ModelCapabilityBadges } from "./model-capabilities/capability-badges"
 
 const fileTypeMap: Record<number, string> = {
   1: "F32",
@@ -110,19 +115,6 @@ const getIconForKey = (key: string) => {
   return <Info className="icon-xs" />
 }
 
-const getCapabilityIcon = (capability: string) => {
-  const cap = capability.toLowerCase()
-  if (cap.includes("chat") || cap.includes("conversation"))
-    return <Zap className="icon-xs" />
-  if (cap.includes("code") || cap.includes("programming"))
-    return <Cpu className="icon-xs" />
-  if (cap.includes("file") || cap.includes("document"))
-    return <FileText className="icon-xs" />
-  if (cap.includes("data") || cap.includes("analysis"))
-    return <Database className="icon-xs" />
-  return <Settings className="icon-xs" />
-}
-
 const DetailRow = ({
   icon,
   label,
@@ -153,19 +145,35 @@ export const ModelInfo = ({
     selectedModel,
     selectedProviderId
   )
+  const { getOverride, getProbe } = useModelCapabilityOverrides()
   const [isExpanded, setIsExpanded] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true)
-    refresh()
-    setRefreshing(false)
+    try {
+      await refresh()
+    } finally {
+      setRefreshing(false)
+    }
   }
   const flatMeta = modelInfo?.model_info
     ? flattenObject(modelInfo.model_info)
     : {}
   const capabilities =
     (modelInfo as { capabilities?: string[] })?.capabilities ?? []
+  // Normalize raw `/api/show` tags into the shared capability set so vision,
+  // thinking (reasoning), and tool-calling render as the same badges the model
+  // menu uses — instead of raw capability strings. Layer the user's override and
+  // probe on top so edits made in the capability sheet show here too, not just
+  // in the model menu.
+  const providerId = selectedProviderId || DEFAULT_PROVIDER_ID
+  const caps = getModelCapabilities({
+    providerId,
+    ollamaCapabilities: capabilities,
+    override: getOverride(providerId, selectedModel),
+    probed: getProbe(providerId, selectedModel)
+  })
   const details = modelInfo?.details ?? {}
 
   const primaryKeys = [
@@ -201,9 +209,20 @@ export const ModelInfo = ({
   if (error) {
     return (
       <div className="rounded-panel border bg-card p-3">
-        <div className="flex items-center gap-2 text-xs text-destructive">
-          <Info className="icon-xs" />
-          {error}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-destructive">
+            <Info className="icon-xs" />
+            {error}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}>
+            {refreshing && <Loader2 className="icon-sm animate-spin" />}
+            {t("common.actions.retry")}
+          </Button>
         </div>
       </div>
     )
@@ -306,17 +325,7 @@ export const ModelInfo = ({
                         {t("settings.model_info.capabilities")}
                       </h4>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {capabilities.map((cap) => (
-                        <Badge
-                          key={cap}
-                          variant="secondary"
-                          className="gap-1.5 text-xs">
-                          {getCapabilityIcon(cap)}
-                          {cap}
-                        </Badge>
-                      ))}
-                    </div>
+                    <ModelCapabilityBadges caps={caps} />
                   </Card>
                 )}
 

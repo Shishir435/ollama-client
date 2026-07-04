@@ -4,6 +4,7 @@ import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderId } from "@/lib/providers/types"
 import type { ModelConfigMap, SendResponseFunction } from "@/types"
@@ -67,7 +68,7 @@ const warmupModel = async (
   const provider = await ProviderFactory.getProviderForModel(model, providerId)
   if (provider.id !== ProviderId.OLLAMA) return
 
-  const baseUrl = provider.config.baseUrl || "http://localhost:11434"
+  const baseUrl = resolveProviderBaseUrl(provider.config)
 
   await fetch(`${baseUrl}/api/generate`, {
     method: "POST",
@@ -85,7 +86,7 @@ const unloadModel = async (model: string, providerId?: string) => {
   const provider = await ProviderFactory.getProviderForModel(model, providerId)
   if (provider.id !== ProviderId.OLLAMA) return
 
-  const baseUrl = provider.config.baseUrl || "http://localhost:11434"
+  const baseUrl = resolveProviderBaseUrl(provider.config)
 
   await fetch(`${baseUrl}/api/chat`, {
     method: "POST",

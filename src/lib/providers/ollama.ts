@@ -12,6 +12,7 @@ import type {
   OllamaShowResponse,
   ProviderModel
 } from "@/types"
+import { resolveProviderBaseUrl } from "./base-url"
 import { PROVIDER_CAPABILITIES } from "./capabilities"
 import {
   type ChatRequest,
@@ -59,20 +60,25 @@ export class OllamaProvider implements LLMProvider {
 
   async getModels(): Promise<ProviderModel[]> {
     try {
-      if (!this.config.baseUrl) {
-        return []
+      const baseUrl = resolveProviderBaseUrl(this.config)
+      logger.debug(`Fetching models from ${baseUrl}`, "OllamaProvider")
+      const response = await fetch(`${baseUrl}/api/tags`)
+      if (!response.ok) {
+        throw createAppError(
+          `Ollama model list failed (${response.status}): ${response.statusText}`,
+          {
+            kind: "provider",
+            status: response.status,
+            providerId: ProviderId.OLLAMA,
+            retryable: response.status >= 500
+          }
+        )
       }
-      logger.debug(
-        `Fetching models from ${this.config.baseUrl}`,
-        "OllamaProvider"
-      )
-      const response = await fetch(`${this.config.baseUrl}/api/tags`)
-      if (!response.ok) return []
       const data = await response.json()
       return (data.models as ProviderModel[]) || []
     } catch (e) {
       logger.error("Failed to fetch models", "OllamaProvider", { error: e })
-      return []
+      throw e
     }
   }
 
@@ -102,7 +108,7 @@ export class OllamaProvider implements LLMProvider {
       tools,
       tool_choice
     } = request
-    const baseUrl = this.config.baseUrl || "http://localhost:11434"
+    const baseUrl = resolveProviderBaseUrl(this.config)
 
     const options: OllamaChatRequest["options"] = {
       temperature,
@@ -312,7 +318,7 @@ export class OllamaProvider implements LLMProvider {
   }
 
   async getModelDetails(model: string): Promise<OllamaShowResponse | null> {
-    const baseUrl = this.config.baseUrl || "http://localhost:11434"
+    const baseUrl = resolveProviderBaseUrl(this.config)
     const requestBody: OllamaShowRequest = { name: model }
 
     try {
@@ -322,13 +328,23 @@ export class OllamaProvider implements LLMProvider {
         body: JSON.stringify(requestBody)
       })
 
-      if (!res.ok) return null
+      if (!res.ok) {
+        throw createAppError(
+          `Ollama model details failed (${res.status}): ${res.statusText}`,
+          {
+            kind: "provider",
+            status: res.status,
+            providerId: ProviderId.OLLAMA,
+            retryable: res.status >= 500
+          }
+        )
+      }
       return await res.json()
     } catch (e) {
       logger.error("Failed to fetch model details", "OllamaProvider", {
         error: e
       })
-      return null
+      throw e
     }
   }
 
@@ -341,7 +357,7 @@ export class OllamaProvider implements LLMProvider {
   }
 
   async embed(text: string, model?: string): Promise<number[]> {
-    const baseUrl = this.config.baseUrl || "http://localhost:11434"
+    const baseUrl = resolveProviderBaseUrl(this.config)
     const targetModel = model || this.config.modelId || "nomic-embed-text"
 
     // Prefer current endpoint and fall back to legacy endpoint for compatibility.

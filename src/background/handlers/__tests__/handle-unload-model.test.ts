@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { safeSendResponse } from "@/background/lib/utils"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { ProviderId } from "@/lib/providers/types"
 import { handleUnloadModel } from "../handle-unload-model"
 import { createMockResponse } from "./test-utils"
 
@@ -53,6 +54,30 @@ describe("Handle Unload Model", () => {
       success: true,
       data: { done_reason: "unload" }
     })
+  })
+
+  it("uses the resolved LM Studio URL even without a providerId payload", async () => {
+    vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue({
+      id: ProviderId.LM_STUDIO,
+      config: {
+        id: ProviderId.LM_STUDIO,
+        type: "openai",
+        name: "LM Studio",
+        enabled: true,
+        baseUrl: "http://lm-box:1234/v1"
+      }
+    } as any)
+    vi.mocked(fetch).mockResolvedValue(createMockResponse({}))
+
+    await handleUnloadModel("shared-model", mockSendResponse)
+
+    expect(fetch).toHaveBeenCalledWith(
+      "http://lm-box:1234/api/v1/models/unload",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ model: "shared-model" })
+      })
+    )
   })
 
   it("should handle API errors", async () => {

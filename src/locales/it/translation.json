@@ -669,11 +669,11 @@
         "reset": "Ripristina ai valori rilevati",
         "save": "Salva",
         "save_error": "Impossibile salvare le capacità. Riprova.",
-        "probe_title": "Rileva supporto strumenti",
-        "probe_description": "Invia una piccola richiesta di prova per verificare se questo modello può chiamare strumenti.",
+        "probe_title": "Rileva capacità",
+        "probe_description": "Invia piccole richieste di prova per verificare chiamata di strumenti, ragionamento e visione.",
         "probe_button": "Rileva",
-        "probe_success": "Il modello ha chiamato lo strumento di prova — la chiamata di strumenti è attiva.",
-        "probe_no_support": "Il modello non ha chiamato lo strumento di prova. Puoi comunque attivare gli strumenti manualmente.",
+        "probe_detected": "Rilevate: {{capabilities}}.",
+        "probe_none_detected": "Nessuna chiamata di strumenti, ragionamento o visione rilevati. Puoi comunque attivarli manualmente.",
         "probe_failed": "Rilevamento non riuscito. Controlla la connessione al provider e riprova."
       },
       "flags": {

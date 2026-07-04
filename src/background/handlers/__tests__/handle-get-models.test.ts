@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { ProviderManager } from "@/lib/providers/manager"
 import { handleGetModels } from "../handle-get-models"
 import {
   clearHandlerMocks,
@@ -8,11 +9,9 @@ import {
   setupHandlerMocks
 } from "./test-utils"
 
-// Mock the storage module
-vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
-    get: vi.fn().mockResolvedValue(undefined),
-    set: vi.fn().mockResolvedValue(undefined)
+vi.mock("@/lib/providers/manager", () => ({
+  ProviderManager: {
+    getProviderConfig: vi.fn()
   }
 }))
 
@@ -23,6 +22,13 @@ describe("handleGetModels", () => {
     clearHandlerMocks()
     setupHandlerMocks()
     mockSendResponse = createMockSendResponse()
+    vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+      id: "ollama",
+      name: "Ollama",
+      type: "ollama",
+      enabled: true,
+      baseUrl: "http://localhost:11434"
+    } as never)
   })
 
   describe("successful requests", () => {
@@ -38,13 +44,14 @@ describe("handleGetModels", () => {
       })
     })
 
-    it("should use custom base URL from storage", async () => {
-      const { plasmoGlobalStorage } = await import(
-        "@/lib/plasmo-global-storage"
-      )
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(
-        "http://192.168.1.100:11434"
-      )
+    it("should use custom base URL from provider config", async () => {
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+        id: "ollama",
+        name: "Ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: "http://192.168.1.100:11434"
+      } as never)
       vi.mocked(fetch).mockResolvedValue(mockOllamaResponse(mockModelsResponse))
 
       await handleGetModels(mockSendResponse)
@@ -142,24 +149,28 @@ describe("handleGetModels", () => {
 
   describe("URL construction", () => {
     it("should construct URL correctly with trailing slash in base URL", async () => {
-      const { plasmoGlobalStorage } = await import(
-        "@/lib/plasmo-global-storage"
-      )
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(
-        "http://localhost:11434/"
-      )
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+        id: "ollama",
+        name: "Ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: "http://localhost:11434/"
+      } as never)
       vi.mocked(fetch).mockResolvedValue(mockOllamaResponse(mockModelsResponse))
 
       await handleGetModels(mockSendResponse)
 
-      expect(fetch).toHaveBeenCalledWith("http://localhost:11434//api/tags")
+      expect(fetch).toHaveBeenCalledWith("http://localhost:11434/api/tags")
     })
 
     it("should handle undefined base URL", async () => {
-      const { plasmoGlobalStorage } = await import(
-        "@/lib/plasmo-global-storage"
-      )
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(undefined)
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+        id: "ollama",
+        name: "Ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: undefined
+      } as never)
       vi.mocked(fetch).mockResolvedValue(mockOllamaResponse(mockModelsResponse))
 
       await handleGetModels(mockSendResponse)
@@ -168,10 +179,13 @@ describe("handleGetModels", () => {
     })
 
     it("should handle null base URL", async () => {
-      const { plasmoGlobalStorage } = await import(
-        "@/lib/plasmo-global-storage"
-      )
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(null)
+      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
+        id: "ollama",
+        name: "Ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: null
+      } as never)
       vi.mocked(fetch).mockResolvedValue(mockOllamaResponse(mockModelsResponse))
 
       await handleGetModels(mockSendResponse)

@@ -1,5 +1,6 @@
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
 import { getCapabilityProbe } from "@/lib/providers/capability-probe"
 import { getModelCapabilityOverride } from "@/lib/providers/model-capability-overrides"
@@ -56,7 +57,7 @@ export const resolveModelTools = async (
   provider: LLMProvider
 ): Promise<ResolvedModelTools | undefined> => {
   const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
-  const providerUrl = provider.config.baseUrl || ""
+  const providerUrl = resolveProviderBaseUrl(provider.config)
   const cacheKey = `${resolvedProviderId}::${providerUrl}::${model}`
 
   let ollamaCapabilities: string[] | undefined

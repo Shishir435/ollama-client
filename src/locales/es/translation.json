@@ -669,11 +669,11 @@
         "reset": "Restablecer a lo detectado",
         "save": "Guardar",
         "save_error": "No se pudieron guardar las capacidades. Inténtalo de nuevo.",
-        "probe_title": "Detectar compatibilidad con herramientas",
-        "probe_description": "Envía una pequeña solicitud de prueba para comprobar si este modelo puede llamar herramientas.",
+        "probe_title": "Detectar capacidades",
+        "probe_description": "Envía pequeñas solicitudes de prueba para comprobar llamadas a herramientas, razonamiento y visión.",
         "probe_button": "Detectar",
-        "probe_success": "El modelo llamó a la herramienta de prueba: las herramientas están activadas.",
-        "probe_no_support": "El modelo no llamó a la herramienta de prueba. Aún puedes activar las herramientas manualmente.",
+        "probe_detected": "Detectado: {{capabilities}}.",
+        "probe_none_detected": "No se detectaron llamadas a herramientas, razonamiento ni visión. Aún puedes activarlos manualmente.",
         "probe_failed": "La detección falló. Comprueba la conexión del proveedor e inténtalo de nuevo."
       },
       "flags": {

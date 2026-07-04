@@ -14,7 +14,9 @@ import type { ChatStreamMessage } from "@/types"
 import {
   clearCapabilityProbesForProvider,
   getCapabilityProbe,
+  probeReasoning,
   probeToolCalling,
+  probeVision,
   setCapabilityProbe
 } from "../capability-probe"
 
@@ -74,6 +76,97 @@ describe("probeToolCalling", () => {
   })
 })
 
+describe("probeReasoning", () => {
+  it("reports reasoning true when the model emits a thinking delta", async () => {
+    const provider = providerWith([
+      { thinkingDelta: "let me think..." },
+      { delta: "4" },
+      { done: true }
+    ])
+
+    const result = await probeReasoning(provider, "m")
+    expect(result.reasoning).toBe(true)
+  })
+
+  it("reports reasoning false when the model answers without thinking", async () => {
+    const provider = providerWith([{ delta: "4" }, { done: true }])
+
+    const result = await probeReasoning(provider, "m")
+    expect(result.reasoning).toBe(false)
+  })
+
+  it("treats a 'does not support thinking' error as a clean false", async () => {
+    const provider = providerWith([
+      {
+        error: { status: 400, message: "model does not support thinking" },
+        done: true
+      }
+    ])
+
+    const result = await probeReasoning(provider, "m")
+    expect(result.reasoning).toBe(false)
+  })
+
+  it("surfaces other request errors instead of recording false", async () => {
+    const provider = providerWith([
+      { error: { status: 404, message: "model not found" }, done: true }
+    ])
+
+    await expect(probeReasoning(provider, "m")).rejects.toThrow(
+      /model not found/
+    )
+  })
+
+  it("sends think:true in the probe request", async () => {
+    const provider = providerWith([{ done: true }])
+    await probeReasoning(provider, "m")
+
+    const request = vi.mocked(provider.streamChat).mock.calls[0]?.[0]
+    expect(request?.think).toBe(true)
+  })
+})
+
+describe("probeVision", () => {
+  it("reports vision true when the model reads the image color", async () => {
+    const provider = providerWith([
+      { delta: "The dominant color is red." },
+      { done: true }
+    ])
+
+    const result = await probeVision(provider, "m")
+    expect(result.vision).toBe(true)
+  })
+
+  it("stays inconclusive (no verdict) when the answer misses the color", async () => {
+    const provider = providerWith([{ delta: "I can't tell." }, { done: true }])
+
+    const result = await probeVision(provider, "m")
+    // No `vision` key → the resolver keeps metadata rather than a wrong false.
+    expect(result.vision).toBeUndefined()
+  })
+
+  it("reports vision false when the server rejects image input", async () => {
+    const provider = providerWith([
+      {
+        error: { status: 400, message: "this model does not support images" },
+        done: true
+      }
+    ])
+
+    const result = await probeVision(provider, "m")
+    expect(result.vision).toBe(false)
+  })
+
+  it("sends the probe image with the request", async () => {
+    const provider = providerWith([{ delta: "red" }, { done: true }])
+    await probeVision(provider, "m")
+
+    const request = vi.mocked(provider.streamChat).mock.calls[0]?.[0]
+    expect(request?.messages[0]?.images).toHaveLength(1)
+    expect(request?.messages[0]?.images?.[0]?.base64).toBeTruthy()
+  })
+})
+
 describe("probe storage", () => {
   beforeEach(() => {
     storageBacking.clear()
@@ -90,6 +183,41 @@ describe("probe storage", () => {
       probedAt: 123
     })
     expect(await getCapabilityProbe("vllm", "other")).toBeNull()
+  })
+
+  it("merges partial probe results instead of replacing them", async () => {
+    await setCapabilityProbe("vllm", "llama3", {
+      toolCalling: true,
+      probedAt: 1
+    })
+    await setCapabilityProbe("vllm", "llama3", {
+      reasoning: false,
+      probedAt: 2
+    })
+
+    expect(await getCapabilityProbe("vllm", "llama3")).toEqual({
+      toolCalling: true,
+      reasoning: false,
+      probedAt: 2
+    })
+  })
+
+  it("does not drop a concurrent write to a different model", async () => {
+    // Two contexts probing different models at the same instant — serialized
+    // writes must preserve both, not have the later write clobber the earlier.
+    await Promise.all([
+      setCapabilityProbe("vllm", "llama3", { toolCalling: true, probedAt: 1 }),
+      setCapabilityProbe("vllm", "qwen3", { reasoning: true, probedAt: 2 })
+    ])
+
+    expect(await getCapabilityProbe("vllm", "llama3")).toEqual({
+      toolCalling: true,
+      probedAt: 1
+    })
+    expect(await getCapabilityProbe("vllm", "qwen3")).toEqual({
+      reasoning: true,
+      probedAt: 2
+    })
   })
 
   it("clears every probe for a provider, keeping others", async () => {

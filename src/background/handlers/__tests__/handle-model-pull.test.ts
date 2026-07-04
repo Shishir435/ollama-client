@@ -6,6 +6,7 @@ import {
 } from "@/background/lib/abort-controller-registry"
 import { safePostMessage } from "@/background/lib/utils"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { ProviderId } from "@/lib/providers/types"
 import type { ModelPullMessage } from "@/types"
 import { handleModelPull } from "../handle-model-pull"
 import {
@@ -73,6 +74,35 @@ describe("Handle Model Pull", () => {
     )
     expect(setAbortController).toHaveBeenCalled()
     expect(handlePullStream).toHaveBeenCalled()
+  })
+
+  it("uses the resolved LM Studio URL for a bare model name", async () => {
+    vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue({
+      id: ProviderId.LM_STUDIO,
+      config: {
+        id: ProviderId.LM_STUDIO,
+        type: "openai",
+        name: "LM Studio",
+        enabled: true,
+        baseUrl: "http://lm-box:1234/v1"
+      },
+      capabilities: { modelPull: true }
+    } as any)
+    vi.mocked(fetch).mockResolvedValue(createMockResponse({}))
+
+    await handleModelPull(
+      { payload: "shared-model" } satisfies ModelPullMessage,
+      mockPort,
+      isPortClosed
+    )
+
+    expect(fetch).toHaveBeenCalledWith(
+      "http://lm-box:1234/api/v1/models/download",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ model: "shared-model" })
+      })
+    )
   })
 
   it("should handle cancellation", async () => {

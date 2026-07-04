@@ -11,6 +11,9 @@ export const queryKeys = {
     /** Invalidates / matches every model-related query. */
     all: () => ["model"] as const,
 
+    /** Invalidates / matches every per-model details query. */
+    infoAll: () => ["model", "info"] as const,
+
     /** Details for a specific model (shown in the model detail panel). */
     info: (modelId: string) => ["model", "info", modelId] as const,
 

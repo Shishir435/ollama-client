@@ -1,25 +1,31 @@
 import { createErrorResponse } from "@/background/lib/error-handler"
 import { safeSendResponse } from "@/background/lib/utils"
 import { isChromiumBased } from "@/lib/browser-api"
+import { ProviderManager } from "@/lib/providers/manager"
+import { ProviderId } from "@/lib/providers/types"
 import type { SendResponseFunction } from "@/types"
 
 export const handleUpdateBaseUrl = async (
   payload: string,
   sendResponse: SendResponseFunction
 ): Promise<void> => {
-  if (!isChromiumBased()) {
-    safeSendResponse(sendResponse, {
-      success: false,
-      error: {
-        status: 0,
-        message:
-          "Firefox requires manual local provider origin configuration. See settings for instructions."
-      }
-    })
-    return
-  }
-
   try {
+    await ProviderManager.updateProviderConfig(ProviderId.OLLAMA, {
+      baseUrl: payload
+    })
+
+    if (!isChromiumBased()) {
+      safeSendResponse(sendResponse, {
+        success: false,
+        error: {
+          status: 0,
+          message:
+            "Base URL saved. Firefox still requires manual local provider origin configuration."
+        }
+      })
+      return
+    }
+
     const origin = new URL(payload).origin
 
     await chrome.declarativeNetRequest.updateDynamicRules({

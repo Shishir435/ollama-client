@@ -1,5 +1,6 @@
 import { createErrorResponse } from "@/background/lib/error-handler"
 import { getBaseUrl, safeSendResponse } from "@/background/lib/utils"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderId } from "@/lib/providers/types"
 import type { SendResponseFunction } from "@/types"
@@ -14,7 +15,7 @@ export const handleGetLoadedModels = async (
       ? await ProviderFactory.getProvider(providerId)
       : await ProviderFactory.getProvider(ProviderId.OLLAMA)
     const baseUrl = providerId
-      ? provider.config.baseUrl || (await getBaseUrl())
+      ? resolveProviderBaseUrl(provider.config)
       : await getBaseUrl()
 
     const isLmStudio = provider.id === ProviderId.LM_STUDIO

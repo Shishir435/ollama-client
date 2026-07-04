@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -61,11 +61,22 @@ const toDraft = (caps: ModelCapabilities): Draft => ({
   embeddings: caps.embeddings
 })
 
+const CAPABILITY_FLAGS = [
+  "text",
+  "vision",
+  "toolCalling",
+  "reasoning",
+  "embeddings"
+] as const
+
+const draftsEqual = (a: Draft, b: Draft): boolean =>
+  CAPABILITY_FLAGS.every((flag) => a[flag] === b[flag])
+
 /**
- * Right-side Sheet for declaring a model's capabilities by hand. Surfaced for
- * models whose provider cannot report capabilities (vLLM, LocalAI, KoboldCpp,
- * llama.cpp) so features such as image input and tool calling gate correctly.
- * Works unchanged in both the side panel and the options page.
+ * Right-side Sheet for correcting a model's detected capabilities. This is
+ * useful both when a provider cannot report metadata and when self-reported
+ * metadata is incomplete or inaccurate. Works unchanged in both the side panel
+ * and the options page.
  */
 export const ModelCapabilitySheet = ({
   open,
@@ -92,13 +103,35 @@ export const ModelCapabilitySheet = ({
     (flag) => draft[flag] !== detected[flag]
   )
 
-  // Reseed when the sheet opens for a (possibly different) model, OR when an
-  // external source updates `current` (e.g. a Chrome-sync write from another
-  // device) — but only while the user hasn't edited the draft, so an external
-  // write never silently discards unsaved changes.
+  // Snapshot of the value we last seeded into the draft, keyed by model. The
+  // reseed guard compares against this — NOT against `detected` — so a toggle
+  // the user sets back to its detected value isn't mistaken for "no edits" and
+  // snapped back to the override (the bug where embeddings couldn't be turned
+  // off once an override had turned it on).
+  const seededRef = useRef<{ id: string; draft: Draft } | null>(null)
+  const seedId = `${providerId}::${modelName}`
+
+  // Seed when the sheet opens for a (possibly different) model, and reseed when
+  // an external source updates `current` (e.g. a Chrome-sync write from another
+  // device) — but only while the user hasn't edited away from the last seed, so
+  // an external write never silently discards unsaved changes.
   useEffect(() => {
-    if (open && !isDirty) setDraft(toDraft(current))
-  }, [open, current, isDirty])
+    if (!open) return
+    const next = toDraft(current)
+    const seeded = seededRef.current
+    // New model (or first open): always seed.
+    if (!seeded || seeded.id !== seedId) {
+      seededRef.current = { id: seedId, draft: next }
+      setDraft(next)
+      return
+    }
+    // Same model, `current` changed externally: adopt it only if the user hasn't
+    // edited and the value actually changed.
+    if (draftsEqual(draft, seeded.draft) && !draftsEqual(next, seeded.draft)) {
+      seededRef.current = { id: seedId, draft: next }
+      setDraft(next)
+    }
+  }, [open, current, seedId, draft])
 
   const providerName = getProviderDisplayName(providerId, providerDisplayName)
 
@@ -137,12 +170,19 @@ export const ModelCapabilitySheet = ({
       const result = await onProbe()
       // The persisted probe flows back through reactive storage and reseeds
       // the toggles (unless the user has unsaved edits) — only report here.
+      const detected: string[] = []
+      if (result.vision)
+        detected.push(t("model.capabilities.flags.vision.label"))
+      if (result.toolCalling)
+        detected.push(t("model.capabilities.flags.toolCalling.label"))
+      if (result.reasoning)
+        detected.push(t("model.capabilities.flags.reasoning.label"))
       toast({
-        description: t(
-          result.toolCalling
-            ? "model.capabilities.sheet.probe_success"
-            : "model.capabilities.sheet.probe_no_support"
-        )
+        description: detected.length
+          ? t("model.capabilities.sheet.probe_detected", {
+              capabilities: detected.join(", ")
+            })
+          : t("model.capabilities.sheet.probe_none_detected")
       })
     } catch (error) {
       logger.warn("Tool-calling probe failed", "ModelCapabilitySheet", {

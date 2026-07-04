@@ -10,11 +10,11 @@ import {
   PULL_CONNECT_TIMEOUT_MS
 } from "@/background/lib/fetch-timeout"
 import {
-  getBaseUrl,
   getPullAbortControllerKey,
   safePostMessage
 } from "@/background/lib/utils"
 import { isAbortError } from "@/lib/error-utils"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderId } from "@/lib/providers/types"
 import type {
@@ -52,9 +52,7 @@ export const handleModelPull = async (
     })
     return
   }
-  const baseUrl = providerId
-    ? provider.config.baseUrl || (await getBaseUrl())
-    : await getBaseUrl()
+  const baseUrl = resolveProviderBaseUrl(provider.config)
 
   const controller = new AbortController()
   const controllerKey = getPullAbortControllerKey(port.name, modelName)

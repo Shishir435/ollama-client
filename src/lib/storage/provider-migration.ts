@@ -7,10 +7,6 @@ type StorageLike = typeof plasmoGlobalStorage
 
 const LEGACY_PROVIDER_MAPPINGS = [
   {
-    legacyKey: LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL,
-    newKey: STORAGE_KEYS.PROVIDER.BASE_URL
-  },
-  {
     legacyKey: LEGACY_STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
     newKey: STORAGE_KEYS.PROVIDER.SELECTED_MODEL
   },

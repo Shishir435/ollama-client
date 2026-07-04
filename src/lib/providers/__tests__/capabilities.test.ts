@@ -181,6 +181,39 @@ describe("getModelCapabilities", () => {
     expect(caps.confidence).toBe("medium")
   })
 
+  it("applies a reasoning probe over detection", () => {
+    const caps = getModelCapabilities({
+      providerId: "custom:openai:abc123",
+      probed: { reasoning: true }
+    })
+
+    expect(caps.reasoning).toBe(true)
+    expect(caps.source).toBe("probed")
+    expect(caps.confidence).toBe("medium")
+  })
+
+  it("keeps the user override above a reasoning probe", () => {
+    const caps = getModelCapabilities({
+      providerId: "custom:openai:abc123",
+      probed: { reasoning: true },
+      override: { reasoning: false }
+    })
+
+    expect(caps.reasoning).toBe(false)
+    expect(caps.source).toBe("user-override")
+  })
+
+  it("applies a vision probe over detection", () => {
+    const caps = getModelCapabilities({
+      providerId: "custom:openai:abc123",
+      probed: { vision: true }
+    })
+
+    expect(caps.vision).toBe(true)
+    expect(caps.source).toBe("probed")
+    expect(caps.confidence).toBe("medium")
+  })
+
   it("lets a probe turn tool calling on for a provider-default model", () => {
     const caps = getModelCapabilities({
       providerId: "custom:openai:abc123",

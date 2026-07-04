@@ -1,7 +1,6 @@
 import { isChromiumBased } from "@/lib/browser-api"
-import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getBaseUrl } from "./utils"
 
 export const updateDNRRules = async (): Promise<void> => {
   if (!isChromiumBased()) {
@@ -13,15 +12,7 @@ export const updateDNRRules = async (): Promise<void> => {
   }
 
   try {
-    const baseUrl =
-      ((await plasmoGlobalStorage.get(
-        STORAGE_KEYS.PROVIDER.BASE_URL
-      )) as string) ||
-      ((await plasmoGlobalStorage.get(
-        LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL
-      )) as string) ||
-      "http://localhost:11434"
-
+    const baseUrl = await getBaseUrl()
     const origin = new URL(baseUrl).origin
 
     await chrome.declarativeNetRequest.updateDynamicRules({

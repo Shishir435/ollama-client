@@ -1,3 +1,4 @@
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import type { ProviderConfig } from "@/lib/providers/types"
 import { ProviderType } from "@/lib/providers/types"
 
@@ -18,10 +19,7 @@ export type ProviderConnectionResult =
     }
 
 const connectionEndpoint = (config: ProviderConfig): string => {
-  const baseUrl = (config.baseUrl || "http://localhost:11434").replace(
-    /\/+$/,
-    ""
-  )
+  const baseUrl = resolveProviderBaseUrl(config)
   return config.type === ProviderType.OLLAMA
     ? `${baseUrl}/api/tags`
     : `${baseUrl}/models`

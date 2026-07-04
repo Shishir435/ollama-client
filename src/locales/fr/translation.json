@@ -669,11 +669,11 @@
         "reset": "Réinitialiser aux valeurs détectées",
         "save": "Enregistrer",
         "save_error": "Impossible d'enregistrer les capacités. Veuillez réessayer.",
-        "probe_title": "Détecter la prise en charge des outils",
-        "probe_description": "Envoie une petite requête de test pour vérifier si ce modèle peut appeler des outils.",
+        "probe_title": "Détecter les capacités",
+        "probe_description": "Envoie de petites requêtes de test pour vérifier l'appel d'outils, le raisonnement et la vision.",
         "probe_button": "Détecter",
-        "probe_success": "Le modèle a appelé l'outil de test — l'appel d'outils est activé.",
-        "probe_no_support": "Le modèle n'a pas appelé l'outil de test. Vous pouvez tout de même activer les outils manuellement.",
+        "probe_detected": "Détecté : {{capabilities}}.",
+        "probe_none_detected": "Aucun appel d'outils, raisonnement ni vision détecté. Vous pouvez tout de même les activer manuellement.",
         "probe_failed": "La détection a échoué. Vérifiez la connexion au fournisseur et réessayez."
       },
       "flags": {

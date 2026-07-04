@@ -188,6 +188,22 @@ describe("Background Script Entry Point", () => {
       expect(handleShowModelDetails).toHaveBeenCalled()
     })
 
+    it.each([
+      MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS,
+      MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL,
+      MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL,
+      MESSAGE_KEYS.PROVIDER.DELETE_MODEL
+    ])("responds to invalid %s payloads", (type) => {
+      const onMessage = listeners.onMessage[0]
+      const sendResponse = vi.fn()
+
+      expect(onMessage({ type, payload: null }, {}, sendResponse)).toBe(true)
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: { status: 400, message: "Invalid message payload" }
+      })
+    })
+
     it("should route SCRAPE_MODEL", () => {
       const onMessage = listeners.onMessage[0]
       onMessage(
