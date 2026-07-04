@@ -68,6 +68,22 @@ CREATE INDEX IF NOT EXISTS idx_files_sessionId ON files(sessionId);
 CREATE INDEX IF NOT EXISTS idx_files_messageId ON files(messageId);
 CREATE INDEX IF NOT EXISTS idx_tool_loop_runs_sessionId ON tool_loop_runs(sessionId);
 
+-- Durable browser-agent runs. Unlike tool_loop_runs, completed runs remain
+-- attached to their chat so users can inspect/export the redacted action log.
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id TEXT PRIMARY KEY,
+  sessionId TEXT NOT NULL,
+  status TEXT NOT NULL,
+  state TEXT NOT NULL,
+  createdAt INTEGER NOT NULL,
+  updatedAt INTEGER NOT NULL,
+  completedAt INTEGER,
+  FOREIGN KEY(sessionId) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_runs_sessionId ON agent_runs(sessionId);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON agent_runs(status);
+
 -- Chunk feedback table for learning from user feedback
 CREATE TABLE IF NOT EXISTS chunk_feedback (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

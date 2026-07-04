@@ -43,15 +43,18 @@ const pendingSelectionStorage = getPlasmoStorageForKey(
 
 export const ChatInputBox = ({
   onSend,
-  stopGeneration
+  stopGeneration,
+  agentMode = false
 }: {
   onSend: (
     customInput?: string,
     customModel?: string,
     files?: ProcessedFile[],
-    images?: ImageAttachment[]
+    images?: ImageAttachment[],
+    agentMode?: boolean
   ) => void
   stopGeneration: () => void
+  agentMode?: boolean
 }) => {
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -193,7 +196,8 @@ export const ChatInputBox = ({
         undefined,
         undefined,
         successfulFiles.length > 0 ? successfulFiles : undefined,
-        outgoingImages.length > 0 ? outgoingImages : undefined
+        outgoingImages.length > 0 ? outgoingImages : undefined,
+        agentMode
       )
       clearAllProcessingStates()
       clearImages()

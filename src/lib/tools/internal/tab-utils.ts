@@ -33,6 +33,24 @@ const requestPageContent = (tabId: number): Promise<PageContentResponse> =>
     type: MESSAGE_KEYS.BROWSER.GET_PAGE_CONTENT
   }) as Promise<PageContentResponse>
 
+export const requestContentMessageWithRecovery = async (
+  tabId: number,
+  message: { type: string; payload?: unknown }
+): Promise<ChromeResponse> => {
+  try {
+    return (await browser.tabs.sendMessage(tabId, message)) as ChromeResponse
+  } catch (firstError) {
+    logger.debug("content message: no receiver, injecting", "tabUtils", {
+      error: firstError
+    })
+    await browser.scripting.executeScript({
+      target: { tabId },
+      files: [CONTENT_SCRIPT_FILE]
+    })
+    return (await browser.tabs.sendMessage(tabId, message)) as ChromeResponse
+  }
+}
+
 /**
  * Request page content, recovering from the missing-receiver case. The content
  * script is matched on `<all_urls>` but only exists on tabs that loaded *after*

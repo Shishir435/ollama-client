@@ -111,9 +111,10 @@ export const PendingToolConfirmation = ({
                   {t("chat.tool_confirmation.title")}
                 </div>
                 <div className="mt-0.5 text-muted-foreground">
-                  {t("chat.tool_confirmation.body", {
-                    action: runLabel(run, t)
-                  })}
+                  {run.approvalPreview ??
+                    t("chat.tool_confirmation.body", {
+                      action: runLabel(run, t)
+                    })}
                 </div>
               </div>
             </div>

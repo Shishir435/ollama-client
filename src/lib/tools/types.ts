@@ -138,6 +138,13 @@ export interface ToolContext {
   signal?: AbortSignal
   sessionId?: string
   model?: string
+  agent?: {
+    targetTabId: number
+    actionCount: number
+    maxActions: number
+    startedAt: number
+    maxActiveMs: number
+  }
 }
 
 /**

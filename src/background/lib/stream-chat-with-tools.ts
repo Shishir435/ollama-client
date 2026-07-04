@@ -19,6 +19,8 @@ interface StreamChatWithToolsOptions {
   ctx: ToolContext
   /** Hard cap on tool round-trips before forcing a final answer. */
   maxIterations?: number
+  /** Agent mode accepts at most one model-selected tool per turn. */
+  singleToolPerTurn?: boolean
   /** Per-result character cap; results above this are trimmed (transparency). */
   toolResultMaxChars?: number
   /** Restored SQLite checkpoint after a service-worker restart. */
@@ -64,6 +66,7 @@ export const streamChatWithTools = async ({
   signal,
   ctx,
   maxIterations = DEFAULT_MAX_ITERATIONS,
+  singleToolPerTurn = false,
   toolResultMaxChars,
   initialState,
   onCheckpoint
@@ -132,6 +135,9 @@ export const streamChatWithTools = async ({
       if (pendingToolCalls.length === 0) {
         onChunk({ done: true, metrics: finalMetrics, toolRuns })
         return
+      }
+      if (singleToolPerTurn && pendingToolCalls.length > 1) {
+        pendingToolCalls.splice(1)
       }
 
       workingMessages.push({

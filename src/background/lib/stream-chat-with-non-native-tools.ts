@@ -25,6 +25,7 @@ interface StreamChatWithNonNativeToolsOptions {
   signal?: AbortSignal
   ctx: ToolContext
   maxIterations?: number
+  singleToolPerTurn?: boolean
   toolResultMaxChars?: number
   initialState?: DurableToolLoopState
   onCheckpoint?: (
@@ -139,6 +140,7 @@ export const streamChatWithNonNativeTools = async ({
   signal,
   ctx,
   maxIterations = DEFAULT_MAX_ITERATIONS,
+  singleToolPerTurn = false,
   toolResultMaxChars,
   initialState,
   onCheckpoint
@@ -211,6 +213,7 @@ export const streamChatWithNonNativeTools = async ({
         ...call,
         id: `s${streamId}_i${state.iteration}_${call.id}`
       }))
+      if (singleToolPerTurn && toolCalls.length > 1) toolCalls.splice(1)
 
       if (toolCalls.length === 0) {
         gate.flushTail()
