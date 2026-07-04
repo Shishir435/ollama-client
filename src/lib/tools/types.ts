@@ -8,6 +8,7 @@
  * plug into — internal tools today, MCP servers later — so nothing downstream of
  * the registry needs to know where a tool came from.
  */
+import type { AgentPageActionRequest, PageSnapshot } from "@/types/agent"
 
 /** JSON Schema for a tool's arguments. Kept loose; providers pass it through. */
 export interface ToolParameterSchema {
@@ -140,10 +141,18 @@ export interface ToolContext {
   model?: string
   agent?: {
     targetTabId: number
+    targetUrl?: string
     allowedOrigins: string[]
+    lastSnapshot?: PageSnapshot
+    pendingAction?: Omit<AgentPageActionRequest, "text" | "value"> & {
+      textLength?: number
+      valueLength?: number
+    }
+    injectionWarning?: string
     actionCount: number
     maxActions: number
-    startedAt: number
+    activeMs: number
+    activeSince?: number
     maxActiveMs: number
     capReason?: string
   }

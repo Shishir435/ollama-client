@@ -64,7 +64,11 @@ export const MESSAGE_KEYS = {
     RELOAD: "app-reload",
     FLUSH_SQLITE: "app-flush-sqlite",
     NOTIFY_JOB_COMPLETE: "app-notify-job-complete",
-    KEEP_TOOL_LOOP_ALIVE: "app-keep-tool-loop-alive"
+    KEEP_TOOL_LOOP_ALIVE: "app-keep-tool-loop-alive",
+    AGENT_GET_CURRENT: "agent-get-current",
+    AGENT_PAUSE: "agent-pause",
+    AGENT_RESUME: "agent-resume",
+    AGENT_STOP: "agent-stop"
   }
 } as const
 

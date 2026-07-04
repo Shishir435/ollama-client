@@ -6,6 +6,7 @@ import { getModelCapabilityOverride } from "@/lib/providers/model-capability-ove
 import type { LLMProvider } from "@/lib/providers/types"
 import type { ToolDefinition } from "@/lib/tools"
 import { getToolRegistry } from "@/lib/tools"
+import { isAgentBrowserTool } from "@/lib/tools/internal/agent-browser-tools"
 import { getToolFamily } from "@/lib/tools/tool-families"
 import {
   getEffectiveToolFamilySettings,
@@ -53,7 +54,8 @@ export interface ResolvedModelTools {
 export const resolveModelTools = async (
   model: string,
   providerId: string | undefined,
-  provider: LLMProvider
+  provider: LLMProvider,
+  options?: { agentMode?: boolean }
 ): Promise<ResolvedModelTools | undefined> => {
   const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
   const providerUrl = provider.config.baseUrl || ""
@@ -119,6 +121,7 @@ export const resolveModelTools = async (
 
   const definitions = await getToolRegistry().listDefinitions()
   const allowed = definitions.filter((definition) => {
+    if (isAgentBrowserTool(definition.name) && !options?.agentMode) return false
     if (toolSettings.families[getToolFamily(definition)] === false) return false
     // Vision-only tools (e.g. capture_screenshot) are useless to a model that
     // can't see images — don't offer them, or the model may call one and choke

@@ -19,6 +19,7 @@ import {
   resolveGroundedOnlyModeForUrls
 } from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import type { AgentResumeDescriptor } from "@/types/agent"
 
 const EMPTY_PROFILE_LIST: PerSiteProfileSettings["profiles"] = []
 
@@ -141,6 +142,37 @@ export const useChat = () => {
     toast
   })
 
+  const resumeAgent = (resume: AgentResumeDescriptor) => {
+    const owningSession = sessions.find(
+      (session) => session.id === resume.sessionId
+    )
+    const runMessages = owningSession?.messages ?? []
+    let assistantIndex = -1
+    for (let index = runMessages.length - 1; index >= 0; index--) {
+      if (runMessages[index].role === "assistant") {
+        assistantIndex = index
+        break
+      }
+    }
+    const assistant =
+      assistantIndex >= 0 ? runMessages[assistantIndex] : undefined
+    if (!assistant || typeof assistant.id !== "number") {
+      throw new Error("Paused agent response is unavailable in this chat.")
+    }
+
+    setCurrentSessionId(resume.sessionId)
+    currentStreamingMessageIdRef.current = assistant.id
+    startStream({
+      model: resume.model,
+      providerId: resume.providerId,
+      messages: runMessages.slice(0, assistantIndex),
+      sessionId: resume.sessionId,
+      generatedMessage: { ...assistant, done: false },
+      agentMode: true,
+      requestId: resume.requestId
+    })
+  }
+
   const isModelReady = Boolean(
     config.selectedModelRef?.modelId || config.selectedModel
   )
@@ -153,6 +185,7 @@ export const useChat = () => {
     isModelReady,
     sendMessage,
     generateResponse,
+    resumeAgent,
     stopGeneration: stopStream,
     scrollRef,
     hasMore: hasMoreMessages,

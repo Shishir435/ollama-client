@@ -70,9 +70,26 @@ export const getAgentRunsForSession = async (
   return rows.map(parse).filter((value): value is AgentRun => value !== null)
 }
 
+export const getLatestAgentRunForSession = async (
+  sessionId: string
+): Promise<AgentRun | null> => {
+  const rows = (await query(
+    "SELECT id, sessionId, status, state, createdAt, updatedAt, completedAt FROM agent_runs WHERE sessionId = ? ORDER BY updatedAt DESC LIMIT 1",
+    [sessionId]
+  )) as unknown as AgentRunRow[]
+  return rows[0] ? parse(rows[0]) : null
+}
+
 export const getActiveAgentRun = async (): Promise<AgentRun | null> => {
   const rows = (await query(
     "SELECT id, sessionId, status, state, createdAt, updatedAt, completedAt FROM agent_runs WHERE status IN ('running', 'awaiting-approval') ORDER BY updatedAt DESC LIMIT 1"
+  )) as unknown as AgentRunRow[]
+  return rows[0] ? parse(rows[0]) : null
+}
+
+export const getCurrentAgentRun = async (): Promise<AgentRun | null> => {
+  const rows = (await query(
+    "SELECT id, sessionId, status, state, createdAt, updatedAt, completedAt FROM agent_runs WHERE status IN ('running', 'awaiting-approval', 'paused') ORDER BY updatedAt DESC LIMIT 1"
   )) as unknown as AgentRunRow[]
   return rows[0] ? parse(rows[0]) : null
 }

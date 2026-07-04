@@ -463,7 +463,48 @@
       "deny": "Ablehnen",
       "allow_once": "Einmal zulassen",
       "allow_session": "Für diesen Chat zulassen",
-      "allow_always": "Immer zulassen"
+      "allow_always": "Immer zulassen",
+      "risk_label": "Risiko: {{risk}}",
+      "risk": {
+        "low": "Niedrig",
+        "medium": "Mittel",
+        "high": "Hoch",
+        "critical": "Kritisch"
+      }
+    }
+  },
+  "agent": {
+    "header": {
+      "label": "Browser-Agent-Steuerung",
+      "agent_mode": "Browser-Agent",
+      "chat_mode": "Chat-Modus",
+      "steps": "{{count}} Schritte",
+      "ready": "Seitenaktionen benötigen Zustimmung",
+      "enable_hint": "Für Browser-Aufgaben aktivieren"
+    },
+    "status": {
+      "running": "Wird ausgeführt",
+      "awaiting-approval": "Wartet auf Zustimmung",
+      "paused": "Pausiert",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "capped": "Limit erreicht"
+    },
+    "actions": {
+      "enable": "Agent aktivieren",
+      "enabled": "Agent aktiv",
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "stop": "Stoppen",
+      "export": "Bereinigtes Protokoll exportieren"
+    },
+    "timeline": { "title": "Agent-Schritte" },
+    "step_status": {
+      "running": "Wird ausgeführt",
+      "awaiting-approval": "Wartet auf Zustimmung",
+      "done": "Abgeschlossen",
+      "error": "Fehlgeschlagen"
     }
   },
   "file_upload": {

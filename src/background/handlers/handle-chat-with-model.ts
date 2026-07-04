@@ -2,12 +2,15 @@ import {
   clearAbortController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
+import { consumeAgentControlIntent } from "@/background/lib/agent-control-registry"
 import { buildToolSystemGuidance } from "@/background/lib/build-tool-system-guidance"
 import { withErrorContext } from "@/background/lib/error-handler"
 import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
+import { agentActiveMs } from "@/background/lib/tool-execution"
 import { safePostMessage } from "@/background/lib/utils"
+import { redactAgentText } from "@/lib/agent-redaction"
 import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_MAX_RAG_CONTEXT_CHARS,
@@ -22,8 +25,8 @@ import {
   type AgentRun,
   agentRunCapReason,
   finalAgentRunStatus,
-  getActiveAgentRun,
   getAgentRun,
+  getCurrentAgentRun,
   saveAgentRun
 } from "@/lib/repositories/agent-runs"
 import { getSession } from "@/lib/repositories/chat-history"
@@ -189,7 +192,17 @@ export const handleChatWithModel = withErrorContext(
     // Resolve tools + how to drive them. Native models get an OpenAI/Ollama tool
     // array; models opted into the prompt-based fallback get a non-native loop;
     // everything else gets no tools and the old context-injection path as-is.
-    const resolvedTools = await resolveModelTools(model, providerId, provider)
+    const resolvedTools = await resolveModelTools(model, providerId, provider, {
+      agentMode: msg.payload.agentMode
+    })
+    if (
+      msg.payload.agentMode &&
+      (!resolvedTools || resolvedTools.tools.length === 0)
+    ) {
+      throw new Error(
+        "Browser agent requires a model with native tools or enabled tool fallback."
+      )
+    }
     // Only the native path sends a tools array + the native system guidance; the
     // non-native path injects its own protocol prompt inside its streamer.
     const nativeTools =
@@ -247,7 +260,9 @@ export const handleChatWithModel = withErrorContext(
       // so we pass the prepared messages
     }
 
+    let streamError: ChatStreamMessage["error"]
     const onChunk = (chunk: ChatStreamMessage) => {
+      if (chunk.error) streamError = chunk.error
       if (isPortClosed()) return
 
       if (process.env.NODE_ENV === "development") {
@@ -276,10 +291,10 @@ export const handleChatWithModel = withErrorContext(
       }
       agentRun = await getAgentRun(msg.payload.requestId)
       if (!agentRun) {
-        const active = await getActiveAgentRun()
+        const active = await getCurrentAgentRun()
         if (active && active.id !== msg.payload.requestId) {
           throw new Error(
-            "Another browser-agent run is active. Stop or pause it first."
+            "Another browser-agent run exists. Stop or resume it first."
           )
         }
         const tab =
@@ -312,6 +327,11 @@ export const handleChatWithModel = withErrorContext(
           updatedAt: now
         }
         await saveAgentRun(agentRun)
+      } else {
+        agentRun.status = "running"
+        agentRun.completedAt = undefined
+        agentRun.updatedAt = Date.now()
+        await saveAgentRun(agentRun)
       }
     }
 
@@ -329,10 +349,15 @@ export const handleChatWithModel = withErrorContext(
           agent: agentRun
             ? {
                 targetTabId: agentRun.state.targetTabId,
+                targetUrl: agentRun.state.targetUrl,
                 allowedOrigins: [...agentRun.state.allowedOrigins],
+                lastSnapshot: agentRun.state.lastSnapshot,
+                pendingAction: agentRun.state.pendingAction,
+                injectionWarning: agentRun.state.injectionWarning,
                 actionCount: agentRun.state.actionCount,
                 maxActions: 15,
-                startedAt: Date.now() - agentRun.state.activeMs,
+                activeMs: agentRun.state.activeMs,
+                activeSince: Date.now(),
                 maxActiveMs: 15 * 60 * 1000,
                 capReason: agentRunCapReason(agentRun.state)
               }
@@ -387,11 +412,17 @@ export const handleChatWithModel = withErrorContext(
                 ).length
                 if (ctx.agent) {
                   agentRun.state.targetTabId = ctx.agent.targetTabId
+                  agentRun.state.targetUrl = ctx.agent.targetUrl
                   agentRun.state.allowedOrigins = [...ctx.agent.allowedOrigins]
+                  agentRun.state.lastSnapshot = ctx.agent.lastSnapshot
+                  agentRun.state.pendingAction = ctx.agent.pendingAction
+                  agentRun.state.injectionWarning = ctx.agent.injectionWarning
                   agentRun.state.actionCount = ctx.agent.actionCount
                   agentRun.state.stopReason = ctx.agent.capReason
                 }
-                agentRun.state.activeMs = now - agentRun.createdAt
+                agentRun.state.activeMs = ctx.agent
+                  ? agentActiveMs(ctx.agent, now)
+                  : agentRun.state.activeMs
                 agentRun.state.steps = state.toolRuns.map((run) => ({
                   id: run.callId ?? `${run.toolId}-${run.startedAt}`,
                   kind: actionIds.has(run.toolId) ? "act" : "observe",
@@ -407,7 +438,10 @@ export const handleChatWithModel = withErrorContext(
                   origin: run.origin,
                   startedAt: run.startedAt,
                   completedAt: run.completedAt,
-                  result: run.error ?? run.resultPreview
+                  result:
+                    run.error || run.resultPreview
+                      ? redactAgentText(run.error ?? run.resultPreview ?? "")
+                      : undefined
                 }))
                 agentRun.updatedAt = now
                 await saveAgentRun(agentRun)
@@ -415,6 +449,7 @@ export const handleChatWithModel = withErrorContext(
             }
           : undefined
 
+        let loopError: unknown
         try {
           if (resolvedTools.mode === "non-native") {
             await streamChatWithNonNativeTools({
@@ -446,16 +481,54 @@ export const handleChatWithModel = withErrorContext(
               singleToolPerTurn: msg.payload.agentMode
             })
           }
+        } catch (error) {
+          loopError = error
+          throw error
         } finally {
           if (agentRun) {
             const now = Date.now()
-            agentRun.status = finalAgentRunStatus(
-              ctx.agent?.capReason,
-              ac.signal.aborted
-            )
-            agentRun.state.stopReason = ctx.agent?.capReason
+            const controlIntent = msg.payload.requestId
+              ? consumeAgentControlIntent(msg.payload.requestId)
+              : undefined
+            if (ctx.agent) {
+              agentRun.state.activeMs = agentActiveMs(ctx.agent, now)
+              agentRun.state.targetTabId = ctx.agent.targetTabId
+              agentRun.state.targetUrl = ctx.agent.targetUrl
+              agentRun.state.allowedOrigins = [...ctx.agent.allowedOrigins]
+              agentRun.state.lastSnapshot = ctx.agent.lastSnapshot
+              agentRun.state.pendingAction = ctx.agent.pendingAction
+              agentRun.state.injectionWarning = ctx.agent.injectionWarning
+              agentRun.state.actionCount = ctx.agent.actionCount
+            }
+            agentRun.status =
+              controlIntent === "pause"
+                ? "paused"
+                : controlIntent === "stop"
+                  ? "cancelled"
+                  : ac.signal.aborted
+                    ? "cancelled"
+                    : streamError
+                      ? "failed"
+                      : loopError
+                        ? "failed"
+                        : finalAgentRunStatus(
+                            ctx.agent?.capReason,
+                            ac.signal.aborted
+                          )
+            agentRun.state.stopReason =
+              ctx.agent?.capReason ??
+              (controlIntent === "stop"
+                ? "Stopped by user"
+                : streamError
+                  ? streamError.message
+                  : loopError
+                    ? loopError instanceof Error
+                      ? loopError.message
+                      : String(loopError)
+                    : undefined)
             agentRun.updatedAt = now
-            agentRun.completedAt = now
+            agentRun.completedAt =
+              agentRun.status === "paused" ? undefined : now
             await saveAgentRun(agentRun).catch((error) => {
               logger.warn(
                 "Failed to finalize agent run",
@@ -470,7 +543,9 @@ export const handleChatWithModel = withErrorContext(
           // error — ends the run, so the checkpoint must go with it (a stale
           // row could be replayed if the requestId ever recurs). The one case
           // a checkpoint must survive, an MV3 SW restart, never executes this.
-          if (msg.payload.requestId) {
+          const preserveCheckpoint =
+            agentRun?.status === "paused" && msg.payload.requestId
+          if (msg.payload.requestId && !preserveCheckpoint) {
             await deleteToolLoopRun(msg.payload.requestId).catch((error) => {
               logger.warn(
                 "Failed to remove completed tool-loop checkpoint",
@@ -483,6 +558,36 @@ export const handleChatWithModel = withErrorContext(
       } else {
         await provider.streamChat(request, onChunk, ac.signal)
       }
+    } catch (error) {
+      if (
+        agentRun &&
+        (agentRun.status === "running" ||
+          agentRun.status === "awaiting-approval")
+      ) {
+        const now = Date.now()
+        const controlIntent = msg.payload.requestId
+          ? consumeAgentControlIntent(msg.payload.requestId)
+          : undefined
+        agentRun.status =
+          controlIntent === "pause"
+            ? "paused"
+            : controlIntent === "stop" || ac.signal.aborted
+              ? "cancelled"
+              : "failed"
+        agentRun.state.stopReason =
+          controlIntent === "stop"
+            ? "Stopped by user"
+            : error instanceof Error
+              ? error.message
+              : String(error)
+        agentRun.updatedAt = now
+        agentRun.completedAt = agentRun.status === "paused" ? undefined : now
+        await saveAgentRun(agentRun).catch(() => undefined)
+        if (agentRun.status !== "paused" && msg.payload.requestId) {
+          await deleteToolLoopRun(msg.payload.requestId).catch(() => undefined)
+        }
+      }
+      throw error
     } finally {
       clearAbortController(abortKey)
     }

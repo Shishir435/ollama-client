@@ -18,6 +18,7 @@ interface ChatResponseOptions {
     sessionId: string
     generatedMessage: ChatMessage
     agentMode?: boolean
+    requestId?: string
   }) => void
   currentStreamingMessageIdRef: { current: number | null }
 }

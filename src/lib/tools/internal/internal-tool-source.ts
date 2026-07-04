@@ -151,6 +151,13 @@ export const createInternalToolSource = (): ToolSource => {
       if (!tool) {
         return { content: `Unknown internal tool: ${name}`, isError: true }
       }
+      if (isAgentBrowserTool(name) && !ctx.agent) {
+        return {
+          content:
+            "Browser-agent tools are available only during an explicit agent run.",
+          isError: true
+        }
+      }
       if (ctx.agent && isAgentBrowserTool(name) && name !== "open_tab") {
         if (args.tabId === undefined) args.tabId = ctx.agent.targetTabId
         if (args.tabId !== ctx.agent.targetTabId) {

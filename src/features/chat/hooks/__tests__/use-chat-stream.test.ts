@@ -506,6 +506,73 @@ describe("useChatStream", () => {
     vi.useRealTimers()
   })
 
+  it("does not auto-resume an agent after worker disconnect", () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "Hello" }],
+        agentMode: true
+      })
+    })
+    const streamListener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      streamListener({
+        toolRuns: [
+          {
+            toolId: "click",
+            callId: "call-1",
+            label: "click",
+            status: "awaiting-confirmation",
+            startedAt: 1
+          }
+        ]
+      })
+      mockPort.onDisconnect.addListener.mock.calls[0][0]()
+      vi.advanceTimersByTime(250)
+    })
+
+    expect(browser.runtime.connect).toHaveBeenCalledTimes(1)
+    expect(setIsLoading).toHaveBeenLastCalledWith(false)
+    vi.useRealTimers()
+  })
+
+  it("resumes a durable agent with its existing request id", () => {
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "Continue" }],
+        sessionId: "session-1",
+        agentMode: true,
+        requestId: "agent-run-1"
+      })
+    })
+
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      type: PROVIDER_MESSAGE_KEYS.CHAT_WITH_MODEL,
+      payload: expect.objectContaining({
+        requestId: "agent-run-1",
+        agentMode: true
+      })
+    })
+  })
+
   it("should handle stop when port not created", () => {
     const { result } = renderHook(() =>
       useChatStream({

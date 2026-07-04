@@ -41,6 +41,50 @@ const sendToPage = async <T>(
     await requestContentMessageWithRecovery(tabId, { type, payload })
   )
 
+const waitForTabReady = async (
+  tabId: number,
+  timeoutMs = 15_000
+): Promise<void> => {
+  const current = await browser.tabs.get(tabId)
+  if (current.status === "complete" || !browser.tabs.onUpdated) return
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      browser.tabs.onUpdated.removeListener(listener)
+      resolve()
+    }
+    const listener = (
+      updatedTabId: number,
+      changeInfo: { status?: string }
+    ) => {
+      if (updatedTabId !== tabId || changeInfo.status !== "complete") return
+      finish()
+    }
+    const timeout = setTimeout(() => {
+      if (settled) return
+      settled = true
+      browser.tabs.onUpdated.removeListener(listener)
+      reject(new Error("Navigation timed out before the page became ready."))
+    }, timeoutMs)
+    browser.tabs.onUpdated.addListener(listener)
+    void browser.tabs
+      .get(tabId)
+      .then((tab) => {
+        if (tab.status === "complete") finish()
+      })
+      .catch(() => undefined)
+  })
+}
+
+const recoverAgentPageRuntime = async (tabId: number): Promise<void> => {
+  await waitForTabReady(tabId)
+  await sendToPage<void>(tabId, MESSAGE_KEYS.BROWSER.AGENT_CLEAR_HIGHLIGHT)
+}
+
 const safeHttpUrl = (value: unknown): URL => {
   if (typeof value !== "string" || !value.trim()) {
     throw new Error("A URL is required.")
@@ -108,7 +152,8 @@ const formatSnapshot = (snapshot: PageSnapshot, tabId: number): string => {
       : "",
     snapshot.unsupportedCrossOriginFrames
       ? `${snapshot.unsupportedCrossOriginFrames} cross-origin frame(s) could not be inspected.`
-      : ""
+      : "",
+    snapshot.injectionWarning ?? ""
   ].filter(Boolean)
   return [
     `Page snapshot ${snapshot.snapshotId} on tab ${tabId}`,
@@ -154,6 +199,11 @@ export const runSnapshotPage = async (
       tab.id,
       MESSAGE_KEYS.BROWSER.SNAPSHOT_PAGE
     )
+    if (ctx.agent) {
+      ctx.agent.targetUrl = snapshot.url
+      ctx.agent.lastSnapshot = snapshot
+      ctx.agent.injectionWarning = snapshot.injectionWarning
+    }
     return {
       content: formatSnapshot(snapshot, tab.id),
       sources: [{ title: snapshot.title || "Page snapshot", url: snapshot.url }]
@@ -196,8 +246,11 @@ export const runOpenTab = async (
     const tab = await browser.tabs.create({ url: url.href, active: true })
     if (ctx.agent && tab.id !== undefined) {
       ctx.agent.targetTabId = tab.id
+      ctx.agent.targetUrl = url.href
+      ctx.agent.lastSnapshot = undefined
       allowAgentOrigin(ctx, url.origin)
     }
+    if (tab.id !== undefined) await recoverAgentPageRuntime(tab.id)
     return {
       content: `Opened ${url.href} in tab ${tab.id ?? "unknown"}. Take a snapshot after it loads.`,
       sources: [{ title: url.host, url: url.href }]
@@ -242,6 +295,11 @@ export const runNavigate = async (
     const access = await classifyTabAccess(url.href)
     if (access !== "ok") throw new Error(accessDeniedMessage(access, url.host))
     await browser.tabs.update(tab.id, { url: url.href, active: true })
+    if (ctx.agent) {
+      ctx.agent.targetUrl = url.href
+      ctx.agent.lastSnapshot = undefined
+    }
+    await recoverAgentPageRuntime(tab.id)
     allowAgentOrigin(ctx, url.origin)
     return {
       content: `Navigating tab ${tab.id} to ${url.href}. Wait for the page, then take a new snapshot.`,

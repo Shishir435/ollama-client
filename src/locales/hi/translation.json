@@ -463,7 +463,48 @@
       "deny": "अस्वीकार करें",
       "allow_once": "एक बार अनुमति दें",
       "allow_session": "इस चैट के लिए अनुमति दें",
-      "allow_always": "हमेशा अनुमति दें"
+      "allow_always": "हमेशा अनुमति दें",
+      "risk_label": "जोखिम: {{risk}}",
+      "risk": {
+        "low": "कम",
+        "medium": "मध्यम",
+        "high": "उच्च",
+        "critical": "गंभीर"
+      }
+    }
+  },
+  "agent": {
+    "header": {
+      "label": "ब्राउज़र एजेंट नियंत्रण",
+      "agent_mode": "ब्राउज़र एजेंट",
+      "chat_mode": "चैट मोड",
+      "steps": "{{count}} चरण",
+      "ready": "पेज कार्रवाइयों के लिए अनुमति चाहिए",
+      "enable_hint": "ब्राउज़र कार्यों के लिए सक्षम करें"
+    },
+    "status": {
+      "running": "चल रहा है",
+      "awaiting-approval": "अनुमति की प्रतीक्षा",
+      "paused": "रुका हुआ",
+      "completed": "पूर्ण",
+      "failed": "विफल",
+      "cancelled": "रद्द",
+      "capped": "सीमा पूरी"
+    },
+    "actions": {
+      "enable": "एजेंट सक्षम करें",
+      "enabled": "एजेंट चालू",
+      "pause": "रोकें",
+      "resume": "फिर शुरू करें",
+      "stop": "बंद करें",
+      "export": "संपादित लॉग निर्यात करें"
+    },
+    "timeline": { "title": "एजेंट चरण" },
+    "step_status": {
+      "running": "चल रहा है",
+      "awaiting-approval": "अनुमति की प्रतीक्षा",
+      "done": "पूर्ण",
+      "error": "विफल"
     }
   },
   "file_upload": {

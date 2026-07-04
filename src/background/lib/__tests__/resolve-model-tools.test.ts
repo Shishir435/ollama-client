@@ -39,6 +39,12 @@ const captureScreenshotTool: ToolDefinition = {
   requires: ["vision"]
 }
 
+const clickTool: ToolDefinition = {
+  name: "click",
+  description: "Click a snapshot target",
+  parameters: { type: "object", properties: {} }
+}
+
 vi.mock("@/lib/tools", () => ({
   getToolRegistry: () => ({
     listDefinitions: vi.fn(async () => definitions)
@@ -131,6 +137,18 @@ describe("resolveModelTools", () => {
     await expect(
       resolveModelTools("qwen", "ollama", toolModel())
     ).resolves.toEqual({ tools: definitions, mode: "native" })
+  })
+
+  it("offers browser-agent tools only in explicit agent mode", async () => {
+    definitions = [...baseDefinitions, clickTool]
+
+    const normal = await resolveModelTools("qwen", "ollama", toolModel())
+    const agent = await resolveModelTools("qwen", "ollama", toolModel(), {
+      agentMode: true
+    })
+
+    expect(normal?.tools.map((tool) => tool.name)).not.toContain("click")
+    expect(agent?.tools.map((tool) => tool.name)).toContain("click")
   })
 
   it("offers no tools when the master switch is off", async () => {

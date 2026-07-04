@@ -12,6 +12,7 @@ import {
   agentRunCapReason,
   finalAgentRunStatus,
   getActiveAgentRun,
+  getCurrentAgentRun,
   saveAgentRun
 } from "@/lib/repositories/agent-runs"
 
@@ -62,6 +63,28 @@ describe("agent run repository", () => {
       id: "run-1",
       status: "awaiting-approval"
     })
+  })
+
+  it("treats a paused run as the current resumable run", async () => {
+    mocks.query.mockResolvedValue([
+      {
+        id: "run-1",
+        sessionId: "session-1",
+        status: "paused",
+        state: JSON.stringify(state),
+        createdAt: 1,
+        updatedAt: 2,
+        completedAt: null
+      }
+    ])
+
+    await expect(getCurrentAgentRun()).resolves.toMatchObject({
+      id: "run-1",
+      status: "paused"
+    })
+    expect(mocks.query).toHaveBeenCalledWith(
+      expect.stringContaining("'paused'")
+    )
   })
 
   it("reports every hard cap", () => {

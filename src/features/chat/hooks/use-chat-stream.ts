@@ -24,6 +24,7 @@ interface StreamOptions {
   sessionId?: string
   generatedMessage?: ChatMessage
   agentMode?: boolean
+  requestId?: string
 }
 
 interface StreamMessage {
@@ -91,7 +92,8 @@ export const useChatStream = ({
     messages,
     sessionId,
     generatedMessage,
-    agentMode
+    agentMode,
+    requestId: resumedRequestId
   }: StreamOptions) => {
     // Create port synchronously BEFORE any async operations
     let port = browser.runtime.connect({
@@ -99,6 +101,7 @@ export const useChatStream = ({
     })
     portRef.current = port
     const requestId =
+      resumedRequestId ||
       globalThis.crypto?.randomUUID?.() ||
       `chat-stream-${Date.now()}-${Math.random().toString(36).slice(2)}`
     currentRequestIdRef.current = requestId
@@ -334,6 +337,7 @@ export const useChatStream = ({
       // Background restores its force-flushed SQLite checkpoint and
       // re-registers the exact pending tool call.
       if (
+        !agentMode &&
         !streamSettled &&
         !assistantMessage.done &&
         awaitingConfirmation &&

@@ -1,7 +1,10 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
 import { AgentRunHeader } from "@/features/agent/components/agent-run-header"
+import { AgentRunTimeline } from "@/features/agent/components/agent-run-timeline"
+import { useAgentRun } from "@/features/agent/hooks/use-agent-run"
+import { downloadAgentRunLog } from "@/features/agent/lib/agent-log"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
@@ -24,6 +27,7 @@ export const Chat = () => {
     pendingActivityEvents,
     sendMessage,
     generateResponse,
+    resumeAgent,
     stopGeneration,
     isModelReady,
     hasMore,
@@ -44,6 +48,17 @@ export const Chat = () => {
   const { embedMessage } = useAutoEmbedMessages()
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null)
   const [agentMode, setAgentMode] = useState(false)
+  const agent = useAgentRun(currentSessionId, resumeAgent)
+
+  useEffect(() => {
+    if (
+      agent.run?.status === "running" ||
+      agent.run?.status === "awaiting-approval" ||
+      agent.run?.status === "paused"
+    ) {
+      setAgentMode(true)
+    }
+  }, [agent.run?.status])
 
   // Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
   // the chat UI decoupled from address-bar integration.
@@ -178,14 +193,24 @@ export const Chat = () => {
           />
 
           <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
-            <PendingToolConfirmation messages={messages} />
+            <PendingToolConfirmation
+              messages={messages}
+              agentPaused={agent.run?.status === "paused"}
+            />
             <div className="mx-auto max-w-4xl px-2">
               <AgentRunHeader
                 enabled={agentMode}
-                running={agentMode && (isLoading || isStreaming)}
+                run={agent.run}
+                error={agent.error}
                 onEnabledChange={setAgentMode}
-                onStop={stopGeneration}
+                onPause={() => void agent.pause()}
+                onResume={() => void agent.resume()}
+                onStop={() => void agent.stop()}
+                onExport={() => {
+                  if (agent.run) downloadAgentRunLog(agent.run)
+                }}
               />
+              <AgentRunTimeline steps={agent.run?.state.steps ?? []} />
               <ChatInputBox
                 onSend={sendMessage}
                 stopGeneration={stopGeneration}

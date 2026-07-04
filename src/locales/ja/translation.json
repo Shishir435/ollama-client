@@ -463,7 +463,48 @@
       "deny": "拒否",
       "allow_once": "今回のみ許可",
       "allow_session": "このチャットで許可",
-      "allow_always": "常に許可"
+      "allow_always": "常に許可",
+      "risk_label": "リスク: {{risk}}",
+      "risk": {
+        "low": "低",
+        "medium": "中",
+        "high": "高",
+        "critical": "重大"
+      }
+    }
+  },
+  "agent": {
+    "header": {
+      "label": "ブラウザーエージェント操作",
+      "agent_mode": "ブラウザーエージェント",
+      "chat_mode": "チャットモード",
+      "steps": "{{count}} ステップ",
+      "ready": "ページ操作には承認が必要です",
+      "enable_hint": "ブラウザー作業で有効化"
+    },
+    "status": {
+      "running": "実行中",
+      "awaiting-approval": "承認待ち",
+      "paused": "一時停止",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル",
+      "capped": "上限到達"
+    },
+    "actions": {
+      "enable": "エージェントを有効化",
+      "enabled": "エージェント有効",
+      "pause": "一時停止",
+      "resume": "再開",
+      "stop": "停止",
+      "export": "編集済みログを出力"
+    },
+    "timeline": { "title": "エージェントのステップ" },
+    "step_status": {
+      "running": "実行中",
+      "awaiting-approval": "承認待ち",
+      "done": "完了",
+      "error": "失敗"
     }
   },
   "file_upload": {

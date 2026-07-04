@@ -32,6 +32,7 @@ export interface PageSnapshot {
   elements: PageElementRef[]
   truncated: number
   unsupportedCrossOriginFrames: number
+  injectionWarning?: string
 }
 
 export interface AgentElementTarget {
@@ -63,11 +64,20 @@ export interface AgentRunState {
   allowedOrigins: string[]
   lastSnapshot?: PageSnapshot
   steps: AgentStep[]
-  pendingAction?: Omit<AgentPageActionRequest, "text"> & {
+  pendingAction?: Omit<AgentPageActionRequest, "text" | "value"> & {
     textLength?: number
+    valueLength?: number
   }
   modelTurns: number
   actionCount: number
   activeMs: number
   stopReason?: string
+  injectionWarning?: string
+}
+
+export interface AgentResumeDescriptor {
+  requestId: string
+  sessionId: string
+  model: string
+  providerId?: string
 }

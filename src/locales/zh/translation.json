@@ -463,7 +463,48 @@
       "deny": "拒绝",
       "allow_once": "允许一次",
       "allow_session": "在此对话中允许",
-      "allow_always": "始终允许"
+      "allow_always": "始终允许",
+      "risk_label": "风险：{{risk}}",
+      "risk": {
+        "low": "低",
+        "medium": "中",
+        "high": "高",
+        "critical": "严重"
+      }
+    }
+  },
+  "agent": {
+    "header": {
+      "label": "浏览器代理控制",
+      "agent_mode": "浏览器代理",
+      "chat_mode": "聊天模式",
+      "steps": "{{count}} 个步骤",
+      "ready": "页面操作需要批准",
+      "enable_hint": "为浏览器任务启用"
+    },
+    "status": {
+      "running": "运行中",
+      "awaiting-approval": "等待批准",
+      "paused": "已暂停",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "capped": "已达上限"
+    },
+    "actions": {
+      "enable": "启用代理",
+      "enabled": "代理已开启",
+      "pause": "暂停",
+      "resume": "继续",
+      "stop": "停止",
+      "export": "导出已脱敏日志"
+    },
+    "timeline": { "title": "代理步骤" },
+    "step_status": {
+      "running": "运行中",
+      "awaiting-approval": "等待批准",
+      "done": "已完成",
+      "error": "失败"
     }
   },
   "file_upload": {

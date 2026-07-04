@@ -463,7 +463,48 @@
       "deny": "Rifiuta",
       "allow_once": "Consenti una volta",
       "allow_session": "Consenti per questa chat",
-      "allow_always": "Consenti sempre"
+      "allow_always": "Consenti sempre",
+      "risk_label": "Rischio: {{risk}}",
+      "risk": {
+        "low": "Basso",
+        "medium": "Medio",
+        "high": "Alto",
+        "critical": "Critico"
+      }
+    }
+  },
+  "agent": {
+    "header": {
+      "label": "Controlli agente browser",
+      "agent_mode": "Agente browser",
+      "chat_mode": "Modalità chat",
+      "steps": "{{count}} passaggi",
+      "ready": "Le azioni richiedono approvazione",
+      "enable_hint": "Attiva per attività nel browser"
+    },
+    "status": {
+      "running": "In esecuzione",
+      "awaiting-approval": "In attesa di approvazione",
+      "paused": "In pausa",
+      "completed": "Completato",
+      "failed": "Non riuscito",
+      "cancelled": "Annullato",
+      "capped": "Limite raggiunto"
+    },
+    "actions": {
+      "enable": "Attiva agente",
+      "enabled": "Agente attivo",
+      "pause": "Pausa",
+      "resume": "Riprendi",
+      "stop": "Interrompi",
+      "export": "Esporta registro oscurato"
+    },
+    "timeline": { "title": "Passaggi agente" },
+    "step_status": {
+      "running": "In esecuzione",
+      "awaiting-approval": "In attesa di approvazione",
+      "done": "Completato",
+      "error": "Non riuscito"
     }
   },
   "file_upload": {

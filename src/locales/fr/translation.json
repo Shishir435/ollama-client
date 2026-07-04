@@ -463,7 +463,48 @@
       "deny": "Refuser",
       "allow_once": "Autoriser une fois",
       "allow_session": "Autoriser pour cette discussion",
-      "allow_always": "Toujours autoriser"
+      "allow_always": "Toujours autoriser",
+      "risk_label": "Risque : {{risk}}",
+      "risk": {
+        "low": "Faible",
+        "medium": "Moyen",
+        "high": "Élevé",
+        "critical": "Critique"
+      }
+    }
+  },
+  "agent": {
+    "header": {
+      "label": "Commandes de l’agent",
+      "agent_mode": "Agent navigateur",
+      "chat_mode": "Mode discussion",
+      "steps": "{{count}} étapes",
+      "ready": "Les actions nécessitent une approbation",
+      "enable_hint": "Activer pour les tâches web"
+    },
+    "status": {
+      "running": "En cours",
+      "awaiting-approval": "En attente d’approbation",
+      "paused": "En pause",
+      "completed": "Terminé",
+      "failed": "Échec",
+      "cancelled": "Annulé",
+      "capped": "Limite atteinte"
+    },
+    "actions": {
+      "enable": "Activer l’agent",
+      "enabled": "Agent actif",
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "stop": "Arrêter",
+      "export": "Exporter le journal expurgé"
+    },
+    "timeline": { "title": "Étapes de l’agent" },
+    "step_status": {
+      "running": "En cours",
+      "awaiting-approval": "En attente d’approbation",
+      "done": "Terminé",
+      "error": "Échec"
     }
   },
   "file_upload": {

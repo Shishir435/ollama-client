@@ -1,5 +1,5 @@
 import { ShieldAlert } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -32,9 +32,11 @@ const SCOPE_LABEL_KEYS: Record<ApprovalScope, string> = {
  * ever allows a single call. Renders nothing when idle.
  */
 export const PendingToolConfirmation = ({
-  messages
+  messages,
+  agentPaused = false
 }: {
   messages: ChatMessage[]
+  agentPaused?: boolean
 }) => {
   const { t } = useTranslation()
   // Locally answered prompts hide instantly; the loop also updates the run
@@ -42,6 +44,7 @@ export const PendingToolConfirmation = ({
   // across turns, and a bare-callId set would silently swallow the second
   // prompt while the background waits forever.
   const [responded, setResponded] = useState<Set<string>>(new Set())
+  const surfaceRef = useRef<HTMLDivElement>(null)
 
   const respond = (
     key: string,
@@ -89,10 +92,38 @@ export const PendingToolConfirmation = ({
     return () => window.clearInterval(interval)
   }, [pending.length])
 
-  if (pending.length === 0) return null
+  useEffect(() => {
+    if (pending.length > 0) surfaceRef.current?.focus()
+  }, [pending.length])
+
+  if (pending.length === 0 || agentPaused) return null
 
   return (
-    <div className="mx-auto mb-2 max-w-4xl px-2">
+    <div
+      ref={surfaceRef}
+      className="mx-auto mb-2 max-w-4xl px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      tabIndex={-1}
+      role="alert"
+      aria-live="assertive"
+      onKeyDown={(event) => {
+        const first = pending[0]
+        if (!first || !surfaceRef.current?.contains(document.activeElement)) {
+          return
+        }
+        if (event.key.toLowerCase() === "y") {
+          event.preventDefault()
+          respond(
+            first.key,
+            first.run.callId,
+            true,
+            defaultScopeForRisk(first.run.risk ?? "high")
+          )
+        }
+        if (event.key.toLowerCase() === "n") {
+          event.preventDefault()
+          respond(first.key, first.run.callId, false)
+        }
+      }}>
       {pending.map(({ run, key }) => {
         // A run that paused for approval is at least high risk unless declared
         // otherwise — never offer broad grants on missing metadata.
@@ -109,6 +140,11 @@ export const PendingToolConfirmation = ({
               <div className="min-w-0">
                 <div className="font-medium">
                   {t("chat.tool_confirmation.title")}
+                </div>
+                <div className="mt-0.5 font-medium text-app-primary">
+                  {t("chat.tool_confirmation.risk_label", {
+                    risk: t(`chat.tool_confirmation.risk.${risk}`)
+                  })}
                 </div>
                 <div className="mt-0.5 text-muted-foreground">
                   {run.approvalPreview ??

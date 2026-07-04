@@ -5,11 +5,18 @@ import { registerOmniboxQuickAsk } from "@/background/lib/omnibox"
 import { registerReminderAlarms } from "@/background/lib/reminders"
 import { registerScheduledJobs } from "@/background/lib/scheduled-jobs"
 import { browser, isChromiumBased } from "@/lib/browser-api"
-import { DEFAULT_EMBEDDING_MODEL, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  MESSAGE_KEYS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
-import { pauseInterruptedAgentRuns } from "@/lib/repositories/agent-runs"
+import {
+  getCurrentAgentRun,
+  pauseInterruptedAgentRuns
+} from "@/lib/repositories/agent-runs"
 import { pruneStaleToolLoopRuns } from "@/lib/repositories/tool-loop-runs"
 import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import { getToolRegistry } from "@/lib/tools/build-tool-registry"
@@ -154,11 +161,21 @@ export const initializeBackgroundStartup = () => {
       error
     })
   })
-  void pauseInterruptedAgentRuns().catch((error) => {
-    logger.warn("Failed to pause interrupted agent runs", "BackgroundSW", {
-      error
+  void pauseInterruptedAgentRuns()
+    .then(async () => {
+      const interrupted = await getCurrentAgentRun()
+      if (!interrupted || interrupted.status !== "paused") return
+      await browser.tabs
+        .sendMessage(interrupted.state.targetTabId, {
+          type: MESSAGE_KEYS.BROWSER.AGENT_CLEAR_HIGHLIGHT
+        })
+        .catch(() => undefined)
     })
-  })
+    .catch((error) => {
+      logger.warn("Failed to pause interrupted agent runs", "BackgroundSW", {
+        error
+      })
+    })
   initializeContextMenu()
   registerActionHandler()
   registerInstallHandlers()

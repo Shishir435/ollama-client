@@ -323,6 +323,15 @@ describe("tab group tools", () => {
     expect(names).toContain("list_tab_groups")
     expect(names).toContain("read_tab_group")
   })
+
+  it("refuses direct browser-agent tool calls without agent context", async () => {
+    const source = createInternalToolSource()
+
+    const result = await source.callTool("click", {}, {})
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("explicit agent run")
+  })
 })
 
 describe("read_tab tool", () => {

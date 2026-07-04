@@ -174,7 +174,14 @@
       "deny": "Deny",
       "allow_once": "Allow once",
       "allow_session": "Allow for this chat",
-      "allow_always": "Always allow"
+      "allow_always": "Always allow",
+      "risk_label": "Risk: {{risk}}",
+      "risk": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "critical": "Critical"
+      }
     },
     "voice_input": {
       "start": "Dictate with your voice",
@@ -464,6 +471,40 @@
       "mermaid_empty": "No Mermaid content",
       "rendering_mermaid": "Rendering Mermaid diagram…",
       "empty": "No artifact content"
+    }
+  },
+  "agent": {
+    "header": {
+      "label": "Browser agent controls",
+      "agent_mode": "Browser agent",
+      "chat_mode": "Chat mode",
+      "steps": "{{count}} steps",
+      "ready": "Page actions require approval",
+      "enable_hint": "Enable for browser tasks"
+    },
+    "status": {
+      "running": "Running",
+      "awaiting-approval": "Awaiting approval",
+      "paused": "Paused",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "capped": "Limit reached"
+    },
+    "actions": {
+      "enable": "Enable agent",
+      "enabled": "Agent on",
+      "pause": "Pause",
+      "resume": "Resume",
+      "stop": "Stop",
+      "export": "Export redacted log"
+    },
+    "timeline": { "title": "Agent steps" },
+    "step_status": {
+      "running": "Running",
+      "awaiting-approval": "Awaiting approval",
+      "done": "Completed",
+      "error": "Failed"
     }
   },
   "file_upload": {

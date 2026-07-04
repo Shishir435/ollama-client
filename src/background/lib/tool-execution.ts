@@ -50,6 +50,32 @@ export interface PreparedToolCall {
   preflightError?: string
 }
 
+export const agentActiveMs = (
+  agent: NonNullable<ToolContext["agent"]>,
+  now = Date.now()
+): number =>
+  agent.activeMs +
+  (agent.activeSince === undefined ? 0 : Math.max(0, now - agent.activeSince))
+
+const pauseAgentActiveClock = (
+  agent: NonNullable<ToolContext["agent"]>,
+  now = Date.now()
+) => {
+  agent.activeMs = agentActiveMs(agent, now)
+  agent.activeSince = undefined
+}
+
+const resumeAgentActiveClock = (
+  agent: NonNullable<ToolContext["agent"]>,
+  now = Date.now()
+) => {
+  if (agent.activeSince === undefined) agent.activeSince = now
+}
+
+const clearPendingAgentAction = (ctx: ToolContext) => {
+  if (ctx.agent) ctx.agent.pendingAction = undefined
+}
+
 // The reasoning-trace component translates known tool ids (rag_search, etc.);
 // the raw name is the fallback label for any tool it doesn't special-case.
 export const labelForTool = (name: string): string => name
@@ -166,6 +192,19 @@ export const prepareToolCall = async (
   if (!preflightError && isAgentElementActionTool(call.name)) {
     try {
       preflight = await preflightAgentPageAction(call)
+      if (ctx?.agent) {
+        ctx.agent.pendingAction = {
+          action: call.name as "click" | "type" | "select",
+          snapshotId: String(call.arguments.snapshotId),
+          elementId: Number(call.arguments.elementId),
+          ...(call.name === "type" && typeof call.arguments.text === "string"
+            ? { textLength: call.arguments.text.length }
+            : {}),
+          ...(call.name === "select" && typeof call.arguments.value === "string"
+            ? { valueLength: call.arguments.value.length }
+            : {})
+        }
+      }
     } catch (error) {
       preflightError = error instanceof Error ? error.message : String(error)
     }
@@ -245,6 +284,7 @@ export const runPreparedToolCall = async (
 ): Promise<{ result: ToolResult; content: string }> => {
   const { call, policy, run } = prepared
   if (prepared.preflightError) {
+    clearPendingAgentAction(ctx)
     await clearAgentPageActionHighlight(call)
     run.status = "error"
     run.completedAt = Date.now()
@@ -272,12 +312,13 @@ export const runPreparedToolCall = async (
         }
       }
     }
-    if (Date.now() - ctx.agent.startedAt >= ctx.agent.maxActiveMs) {
+    if (agentActiveMs(ctx.agent) >= ctx.agent.maxActiveMs) {
       const capped = "Browser-agent active-time limit reached."
       run.status = "error"
       run.completedAt = Date.now()
       run.error = capped
       ctx.agent.capReason = capped
+      clearPendingAgentAction(ctx)
       await clearAgentPageActionHighlight(call)
       return { result: { content: capped, isError: true }, content: capped }
     }
@@ -290,6 +331,7 @@ export const runPreparedToolCall = async (
       run.completedAt = Date.now()
       run.error = capped
       ctx.agent.capReason = capped
+      clearPendingAgentAction(ctx)
       await clearAgentPageActionHighlight(call)
       return { result: { content: capped, isError: true }, content: capped }
     }
@@ -306,6 +348,7 @@ export const runPreparedToolCall = async (
       !ctx.agent.allowedOrigins.includes(prepared.origin)
     ) {
       const error = `Agent origin boundary blocked ${prepared.origin}. Navigate there with explicit approval first.`
+      clearPendingAgentAction(ctx)
       await clearAgentPageActionHighlight(call)
       run.status = "error"
       run.completedAt = Date.now()
@@ -317,6 +360,7 @@ export const runPreparedToolCall = async (
       }
     }
     run.status = "awaiting-confirmation"
+    if (ctx.agent) pauseAgentActiveClock(ctx.agent)
     emitTrace?.()
     await persistAwaitingConfirmation?.()
     const approved = await awaitToolConfirmation(
@@ -328,7 +372,9 @@ export const runPreparedToolCall = async (
       },
       signal
     )
+    if (ctx.agent) resumeAgentActiveClock(ctx.agent)
     if (!approved) {
+      clearPendingAgentAction(ctx)
       await clearAgentPageActionHighlight(call)
       run.status = "error"
       run.completedAt = Date.now()
@@ -352,6 +398,7 @@ export const runPreparedToolCall = async (
   if (ctx.agent && !result.isError && isAgentPageActionTool(call.name)) {
     ctx.agent.actionCount += 1
   }
+  clearPendingAgentAction(ctx)
   await clearAgentPageActionHighlight(call)
 
   const { content, truncated } = trimToolResult(

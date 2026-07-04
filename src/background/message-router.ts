@@ -1,4 +1,10 @@
 import type { Runtime } from "webextension-polyfill"
+import {
+  getCurrentAgentControlState,
+  pauseAgentRun,
+  resumeAgentRun,
+  stopAgentRun
+} from "@/background/handlers/handle-agent-control"
 import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
 import {
   checkEmbeddingModelExists,
@@ -39,6 +45,35 @@ const respondInvalidPayload = (sendResponse: SendResponseFunction) =>
     success: false,
     error: { status: 400, message: "Invalid message payload" }
   })
+
+const handleAgentControl = (
+  operation: () => Promise<unknown>,
+  sendResponse: SendResponseFunction
+): true => {
+  operation()
+    .then((data) => {
+      safeSendResponse(sendResponse, { success: true, data })
+    })
+    .catch((error) => {
+      safeSendResponse(sendResponse, {
+        success: false,
+        error: { status: 0, message: getErrorMessage(error) }
+      })
+    })
+  return true
+}
+
+const agentRequestId = (payload: unknown): string | undefined => {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "requestId" in payload &&
+    typeof payload.requestId === "string"
+  ) {
+    return payload.requestId
+  }
+  return undefined
+}
 
 const openSidePanelForSelection = (tab?: {
   windowId?: number
@@ -269,6 +304,47 @@ export const registerMessageRouter = () => {
       case MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL: {
         handlePrepareEmbeddingModel(message.payload, response)
         return true
+      }
+
+      case MESSAGE_KEYS.APP.AGENT_GET_CURRENT: {
+        const sessionId =
+          message.payload &&
+          typeof message.payload === "object" &&
+          "sessionId" in message.payload &&
+          typeof message.payload.sessionId === "string"
+            ? message.payload.sessionId
+            : undefined
+        return handleAgentControl(
+          () => getCurrentAgentControlState(sessionId),
+          response
+        )
+      }
+
+      case MESSAGE_KEYS.APP.AGENT_PAUSE: {
+        const requestId = agentRequestId(message.payload)
+        if (!requestId) {
+          respondInvalidPayload(response)
+          return true
+        }
+        return handleAgentControl(() => pauseAgentRun(requestId), response)
+      }
+
+      case MESSAGE_KEYS.APP.AGENT_RESUME: {
+        const requestId = agentRequestId(message.payload)
+        if (!requestId) {
+          respondInvalidPayload(response)
+          return true
+        }
+        return handleAgentControl(() => resumeAgentRun(requestId), response)
+      }
+
+      case MESSAGE_KEYS.APP.AGENT_STOP: {
+        const requestId = agentRequestId(message.payload)
+        if (!requestId) {
+          respondInvalidPayload(response)
+          return true
+        }
+        return handleAgentControl(() => stopAgentRun(requestId), response)
       }
 
       case MESSAGE_KEYS.APP.KEEP_TOOL_LOOP_ALIVE: {
