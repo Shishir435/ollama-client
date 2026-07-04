@@ -4,6 +4,7 @@ import {
   getPlasmoStoredValue,
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
+import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
 import type { LLMProvider } from "./types"
 
 /**
@@ -38,26 +39,16 @@ const STORAGE_KEY = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES
 const PROBE_TIMEOUT_MS = 30_000
 
 /**
- * Serializes read-modify-write operations on the probe map. Each write reads the
- * whole map, patches one key, and writes it back; without serialization two
- * writes racing (e.g. the side panel and options page probing different models
- * at once) would both read the same stale map and the later write would drop the
- * other's result. Chaining writes here guarantees each observes the previous one.
- *
- * Guards writes within a single extension context only — a concurrent write from
- * another context can still race, an accepted limitation for this low-frequency,
- * user-driven action. Mirrors `model-capability-overrides.ts`.
+ * Web Locks name serializing read-modify-write on the probe map across every
+ * extension context. Each write reads the whole map, patches one key, and
+ * writes it back; without a cross-context lock two contexts (e.g. the side
+ * panel and options page probing different models at once) could read the same
+ * stale map and the later write would drop the other's result.
  */
-let writeQueue: Promise<unknown> = Promise.resolve()
+const PROBE_WRITE_LOCK = "capability-probe-write"
 
-const enqueueWrite = <T>(operation: () => Promise<T>): Promise<T> => {
-  const result = writeQueue.then(operation, operation)
-  writeQueue = result.then(
-    () => undefined,
-    () => undefined
-  )
-  return result
-}
+const enqueueWrite = <T>(operation: () => Promise<T>): Promise<T> =>
+  withStorageWriteLock(PROBE_WRITE_LOCK, operation)
 
 export const capabilityProbeKey = (
   providerId: string,
