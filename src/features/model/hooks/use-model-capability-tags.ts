@@ -32,10 +32,13 @@ export const useModelCapabilityTags = (
 
   const results = useQueries({
     queries: detailModels.map((m) => {
-      const providerId = m.providerId || DEFAULT_PROVIDER_ID
+      // Mirror `useModelInfo` exactly: key + fetch use the raw provider id (or
+      // "auto"/undefined when the model carries none), so the list badges and
+      // the detail card share one cache entry instead of splitting on
+      // "ollama" vs "auto" for provider-less models.
       return {
-        queryKey: [...queryKeys.model.info(m.name), providerId || "auto"],
-        queryFn: () => fetchModelInfo(m.name, providerId),
+        queryKey: [...queryKeys.model.info(m.name), m.providerId || "auto"],
+        queryFn: () => fetchModelInfo(m.name, m.providerId),
         enabled,
         staleTime: 1000 * 60 * 5
       }

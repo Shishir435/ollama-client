@@ -202,6 +202,24 @@ describe("probe storage", () => {
     })
   })
 
+  it("does not drop a concurrent write to a different model", async () => {
+    // Two contexts probing different models at the same instant — serialized
+    // writes must preserve both, not have the later write clobber the earlier.
+    await Promise.all([
+      setCapabilityProbe("vllm", "llama3", { toolCalling: true, probedAt: 1 }),
+      setCapabilityProbe("vllm", "qwen3", { reasoning: true, probedAt: 2 })
+    ])
+
+    expect(await getCapabilityProbe("vllm", "llama3")).toEqual({
+      toolCalling: true,
+      probedAt: 1
+    })
+    expect(await getCapabilityProbe("vllm", "qwen3")).toEqual({
+      reasoning: true,
+      probedAt: 2
+    })
+  })
+
   it("clears every probe for a provider, keeping others", async () => {
     await setCapabilityProbe("vllm", "llama3", {
       toolCalling: true,

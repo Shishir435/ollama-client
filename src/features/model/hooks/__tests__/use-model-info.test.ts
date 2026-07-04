@@ -108,7 +108,7 @@ describe("useModelInfo", () => {
     })
   })
 
-  it("falls back to the worker (legacy string payload) when in-page fetch throws", async () => {
+  it("falls back to the worker (structured payload preserves providerId) when in-page fetch throws", async () => {
     mockProvider(vi.fn().mockRejectedValue(new Error("blocked")))
     vi.mocked(browser.runtime.sendMessage)
       .mockResolvedValueOnce(undefined)
@@ -135,7 +135,7 @@ describe("useModelInfo", () => {
 
     expect(browser.runtime.sendMessage).toHaveBeenNthCalledWith(2, {
       type: "show-model-details",
-      payload: "dolphin-llama3:latest"
+      payload: { model: "dolphin-llama3:latest", providerId: "ollama" }
     })
   })
 

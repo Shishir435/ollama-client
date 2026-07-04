@@ -80,11 +80,14 @@ const fetchModelInfoViaWorker = async (
     }
   )
 
-  // Compatibility for an already-open page talking to an older worker.
+  // Compatibility for an already-open page talking to an older worker. Send the
+  // structured `{ model, providerId }` payload (the handler accepts both shapes)
+  // so the provider hint survives — otherwise a model name shared across
+  // providers could resolve to the wrong one and the card would silently vanish.
   if (!response || (!response.success && !response.error)) {
     response = (await browser.runtime.sendMessage({
       type: MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS,
-      payload: model
+      payload: { model, providerId }
     })) as typeof response
   }
 

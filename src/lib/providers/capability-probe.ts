@@ -37,6 +37,28 @@ const STORAGE_KEY = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES
 
 const PROBE_TIMEOUT_MS = 30_000
 
+/**
+ * Serializes read-modify-write operations on the probe map. Each write reads the
+ * whole map, patches one key, and writes it back; without serialization two
+ * writes racing (e.g. the side panel and options page probing different models
+ * at once) would both read the same stale map and the later write would drop the
+ * other's result. Chaining writes here guarantees each observes the previous one.
+ *
+ * Guards writes within a single extension context only — a concurrent write from
+ * another context can still race, an accepted limitation for this low-frequency,
+ * user-driven action. Mirrors `model-capability-overrides.ts`.
+ */
+let writeQueue: Promise<unknown> = Promise.resolve()
+
+const enqueueWrite = <T>(operation: () => Promise<T>): Promise<T> => {
+  const result = writeQueue.then(operation, operation)
+  writeQueue = result.then(
+    () => undefined,
+    () => undefined
+  )
+  return result
+}
+
 export const capabilityProbeKey = (
   providerId: string,
   modelName: string
@@ -60,47 +82,50 @@ export const getCapabilityProbe = async (
  * tool-calling and reasoning probes accumulate independently — probing one never
  * erases a previously-probed other.
  */
-export const setCapabilityProbe = async (
+export const setCapabilityProbe = (
   providerId: string,
   modelName: string,
   result: CapabilityProbeResult
-): Promise<void> => {
-  const all = await getAllCapabilityProbes()
-  const key = capabilityProbeKey(providerId, modelName)
-  all[key] = { ...all[key], ...result }
-  await setPlasmoStoredValue(STORAGE_KEY, all)
-}
+): Promise<void> =>
+  enqueueWrite(async () => {
+    const all = await getAllCapabilityProbes()
+    const key = capabilityProbeKey(providerId, modelName)
+    all[key] = { ...all[key], ...result }
+    await setPlasmoStoredValue(STORAGE_KEY, all)
+  })
 
-export const clearCapabilityProbe = async (
+export const clearCapabilityProbe = (
   providerId: string,
   modelName: string
-): Promise<void> => {
-  const all = await getAllCapabilityProbes()
-  const key = capabilityProbeKey(providerId, modelName)
-  if (key in all) {
-    delete all[key]
-    await setPlasmoStoredValue(STORAGE_KEY, all)
-  }
-}
+): Promise<void> =>
+  enqueueWrite(async () => {
+    const all = await getAllCapabilityProbes()
+    const key = capabilityProbeKey(providerId, modelName)
+    if (key in all) {
+      delete all[key]
+      await setPlasmoStoredValue(STORAGE_KEY, all)
+    }
+  })
 
 /**
  * Drop every probe result for a provider. Called when its base URL changes —
  * a different server may sit behind the same provider entry.
  */
-export const clearCapabilityProbesForProvider = async (
+export const clearCapabilityProbesForProvider = (
   providerId: string
-): Promise<void> => {
-  const all = await getAllCapabilityProbes()
-  const prefix = `${providerId}::`
-  let changed = false
-  for (const key of Object.keys(all)) {
-    if (key.startsWith(prefix)) {
-      delete all[key]
-      changed = true
+): Promise<void> =>
+  enqueueWrite(async () => {
+    const all = await getAllCapabilityProbes()
+    const prefix = `${providerId}::`
+    let changed = false
+    for (const key of Object.keys(all)) {
+      if (key.startsWith(prefix)) {
+        delete all[key]
+        changed = true
+      }
     }
-  }
-  if (changed) await setPlasmoStoredValue(STORAGE_KEY, all)
-}
+    if (changed) await setPlasmoStoredValue(STORAGE_KEY, all)
+  })
 
 /** The trivial tool offered during a probe. */
 const PROBE_TOOL = {
