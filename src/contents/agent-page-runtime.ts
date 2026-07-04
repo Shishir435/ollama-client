@@ -111,13 +111,68 @@ const isInteractive = (element: HTMLElement): boolean => {
   return false
 }
 
-const signatureFor = (element: HTMLElement): string =>
-  [
-    element.tagName,
-    roleFor(element),
-    accessibleName(element),
-    element.getAttribute("type") ?? ""
-  ].join("\u0000")
+const domPathFor = (element: HTMLElement): string => {
+  const parts: string[] = []
+  let current: HTMLElement | null = element
+  while (current && parts.length < 8) {
+    const siblings = current.parentElement
+      ? Array.from(current.parentElement.children).filter(
+          (sibling) => sibling.tagName === current?.tagName
+        )
+      : []
+    parts.unshift(
+      `${current.tagName.toLowerCase()}:${Math.max(0, siblings.indexOf(current))}`
+    )
+    current = current.parentElement
+  }
+  return parts.join("/")
+}
+
+const signatureFor = (element: HTMLElement): string => {
+  const form = element.closest("form")
+  const type = element.getAttribute("type") ?? ""
+  const mutableValue =
+    element instanceof HTMLInputElement &&
+    !["password", "file", "hidden"].includes(element.type)
+      ? element.value
+      : element instanceof HTMLTextAreaElement
+        ? element.value
+        : element instanceof HTMLSelectElement
+          ? `${element.value}|${Array.from(element.options)
+              .map(
+                (option) => `${option.value}:${normalized(option.textContent)}`
+              )
+              .join(",")}`
+          : ""
+  const dataset = Object.entries(element.dataset)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&")
+  const rowContext = normalized(
+    element.closest("tr,li,[role='row']")?.textContent ??
+      element.parentElement?.textContent
+  ).slice(0, 240)
+
+  return JSON.stringify({
+    tag: element.tagName,
+    role: roleFor(element),
+    name: accessibleName(element),
+    type,
+    href: element.getAttribute("href") ?? "",
+    target: element.getAttribute("target") ?? "",
+    id: element.id,
+    nameAttribute: element.getAttribute("name") ?? "",
+    testId: element.getAttribute("data-testid") ?? "",
+    dataset,
+    ariaControls: element.getAttribute("aria-controls") ?? "",
+    ariaDescribedBy: element.getAttribute("aria-describedby") ?? "",
+    formAction: form?.getAttribute("action") ?? "",
+    formMethod: form?.getAttribute("method") ?? "",
+    mutableValue,
+    domPath: domPathFor(element),
+    rowContext
+  })
+}
 
 const collectRoots = (
   root: Document | ShadowRoot,
@@ -368,17 +423,24 @@ export const findAgentText = (query: unknown): string => {
     throw new Error("Search text is required.")
   }
   const needle = query.trim().toLocaleLowerCase()
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
-  let node = walker.nextNode()
-  while (node) {
-    if (normalized(node.textContent).toLocaleLowerCase().includes(needle)) {
-      const parent = node.parentElement
-      if (parent && isVisible(parent)) {
-        parent.scrollIntoView({ block: "center", behavior: "smooth" })
-        return `Found “${query.trim()}” on the page.`
+  const { documents } = collectDocuments()
+  for (const entry of documents) {
+    if (!entry.document.body) continue
+    const walker = entry.document.createTreeWalker(
+      entry.document.body,
+      NodeFilter.SHOW_TEXT
+    )
+    let node = walker.nextNode()
+    while (node) {
+      if (normalized(node.textContent).toLocaleLowerCase().includes(needle)) {
+        const parent = node.parentElement
+        if (parent && isVisible(parent)) {
+          parent.scrollIntoView({ block: "center", behavior: "smooth" })
+          return `Found “${query.trim()}” on the page.`
+        }
       }
+      node = walker.nextNode()
     }
-    node = walker.nextNode()
   }
   return `Text “${query.trim()}” was not found on the page.`
 }

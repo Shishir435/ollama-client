@@ -61,6 +61,23 @@ const readableTabOrError = async (tabId: number, url?: string) => {
   return tabId
 }
 
+const requireAgentOrigin = (ctx: ToolContext, url?: string): string => {
+  if (!url) throw new Error("The target tab has no readable URL.")
+  const origin = new URL(url).origin
+  if (ctx.agent && !ctx.agent.allowedOrigins.includes(origin)) {
+    throw new Error(
+      `Agent origin boundary blocked ${origin}. Navigate there with explicit approval first.`
+    )
+  }
+  return origin
+}
+
+const allowAgentOrigin = (ctx: ToolContext, origin: string): void => {
+  if (ctx.agent && !ctx.agent.allowedOrigins.includes(origin)) {
+    ctx.agent.allowedOrigins.push(origin)
+  }
+}
+
 const targetFrom = (args: Record<string, unknown>): AgentElementTarget => {
   if (
     typeof args.snapshotId !== "string" ||
@@ -126,11 +143,12 @@ export const snapshotPageDefinition: ToolDefinition = {
 
 export const runSnapshotPage = async (
   args: Record<string, unknown>,
-  _ctx: ToolContext
+  ctx: ToolContext
 ): Promise<ToolResult> => {
   try {
     const tab = await resolveTab(args.tabId)
     if (!tab?.id) throw new Error("No target tab is available.")
+    requireAgentOrigin(ctx, tab.url)
     await readableTabOrError(tab.id, tab.url)
     const snapshot = await sendToPage<PageSnapshot>(
       tab.id,
@@ -176,7 +194,10 @@ export const runOpenTab = async (
     const access = await classifyTabAccess(url.href)
     if (access !== "ok") throw new Error(accessDeniedMessage(access, url.host))
     const tab = await browser.tabs.create({ url: url.href, active: true })
-    if (ctx.agent && tab.id !== undefined) ctx.agent.targetTabId = tab.id
+    if (ctx.agent && tab.id !== undefined) {
+      ctx.agent.targetTabId = tab.id
+      allowAgentOrigin(ctx, url.origin)
+    }
     return {
       content: `Opened ${url.href} in tab ${tab.id ?? "unknown"}. Take a snapshot after it loads.`,
       sources: [{ title: url.host, url: url.href }]
@@ -211,15 +232,17 @@ export const navigateDefinition: ToolDefinition = {
 
 export const runNavigate = async (
   args: Record<string, unknown>,
-  _ctx: ToolContext
+  ctx: ToolContext
 ): Promise<ToolResult> => {
   try {
     const tab = await resolveTab(args.tabId)
     if (!tab?.id) throw new Error("Target tab does not exist.")
+    requireAgentOrigin(ctx, tab.url)
     const url = safeHttpUrl(args.url)
     const access = await classifyTabAccess(url.href)
     if (access !== "ok") throw new Error(accessDeniedMessage(access, url.host))
     await browser.tabs.update(tab.id, { url: url.href, active: true })
+    allowAgentOrigin(ctx, url.origin)
     return {
       content: `Navigating tab ${tab.id} to ${url.href}. Wait for the page, then take a new snapshot.`,
       sources: [{ title: url.host, url: url.href }]
@@ -255,11 +278,12 @@ export const scrollDefinition: ToolDefinition = {
 
 export const runScroll = async (
   args: Record<string, unknown>,
-  _ctx: ToolContext
+  ctx: ToolContext
 ): Promise<ToolResult> => {
   try {
     const tab = await resolveTab(args.tabId)
     if (!tab?.id) throw new Error("Target tab does not exist.")
+    requireAgentOrigin(ctx, tab.url)
     await readableTabOrError(tab.id, tab.url)
     const message = await sendToPage<string>(
       tab.id,
@@ -298,11 +322,12 @@ export const findInPageDefinition: ToolDefinition = {
 
 export const runFindInPage = async (
   args: Record<string, unknown>,
-  _ctx: ToolContext
+  ctx: ToolContext
 ): Promise<ToolResult> => {
   try {
     const tab = await resolveTab(args.tabId)
     if (!tab?.id) throw new Error("Target tab does not exist.")
+    requireAgentOrigin(ctx, tab.url)
     await readableTabOrError(tab.id, tab.url)
     return {
       content: await sendToPage<string>(
@@ -391,13 +416,14 @@ const runAction =
   (action: "click" | "type" | "select") =>
   async (
     args: Record<string, unknown>,
-    _ctx: ToolContext
+    ctx: ToolContext
   ): Promise<ToolResult> => {
     try {
       const tab = await resolveTab(args.tabId)
       if (!tab?.id || tab.id !== args.tabId) {
         throw new Error("The snapshot's target tab is unavailable.")
       }
+      requireAgentOrigin(ctx, tab.url)
       await readableTabOrError(tab.id, tab.url)
       const request: AgentPageActionRequest = {
         action,
@@ -492,6 +518,12 @@ export const isAgentBrowserTool = (name: string): boolean =>
 
 export const isAgentPageActionTool = (name: string): boolean =>
   ["open_tab", "navigate", "scroll", "click", "type", "select"].includes(name)
+
+export const isAgentNavigationTool = (name: string): boolean =>
+  name === "open_tab" || name === "navigate"
+
+export const isAgentElementActionTool = (name: string): boolean =>
+  name === "click" || name === "type" || name === "select"
 
 export const clearAgentPageActionHighlight = async (call: {
   name: string

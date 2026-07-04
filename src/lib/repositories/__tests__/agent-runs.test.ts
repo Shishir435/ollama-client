@@ -10,6 +10,7 @@ vi.mock("@/lib/sqlite/db", () => mocks)
 
 import {
   agentRunCapReason,
+  finalAgentRunStatus,
   getActiveAgentRun,
   saveAgentRun
 } from "@/lib/repositories/agent-runs"
@@ -73,5 +74,11 @@ describe("agent run repository", () => {
     expect(agentRunCapReason({ ...state, activeMs: 15 * 60 * 1000 })).toBe(
       "active-time limit"
     )
+  })
+
+  it("preserves capped status over successful loop completion", () => {
+    expect(finalAgentRunStatus("page-action limit", false)).toBe("capped")
+    expect(finalAgentRunStatus(undefined, true)).toBe("cancelled")
+    expect(finalAgentRunStatus(undefined, false)).toBe("completed")
   })
 })

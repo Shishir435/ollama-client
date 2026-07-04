@@ -20,6 +20,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import {
   type AgentRun,
+  finalAgentRunStatus,
   getActiveAgentRun,
   getAgentRun,
   saveAgentRun
@@ -327,10 +328,12 @@ export const handleChatWithModel = withErrorContext(
           agent: agentRun
             ? {
                 targetTabId: agentRun.state.targetTabId,
+                allowedOrigins: [...agentRun.state.allowedOrigins],
                 actionCount: agentRun.state.actionCount,
                 maxActions: 15,
                 startedAt: Date.now() - agentRun.state.activeMs,
-                maxActiveMs: 15 * 60 * 1000
+                maxActiveMs: 15 * 60 * 1000,
+                capReason: undefined as string | undefined
               }
             : undefined
         }
@@ -372,16 +375,20 @@ export const handleChatWithModel = withErrorContext(
                   "type",
                   "select"
                 ])
-                agentRun.status = awaitingConfirmation
-                  ? "awaiting-approval"
-                  : "running"
+                agentRun.status = ctx.agent?.capReason
+                  ? "capped"
+                  : awaitingConfirmation
+                    ? "awaiting-approval"
+                    : "running"
                 agentRun.state.modelTurns = state.iteration
                 agentRun.state.actionCount = state.toolRuns.filter(
                   (run) => run.status === "done" && actionIds.has(run.toolId)
                 ).length
                 if (ctx.agent) {
                   agentRun.state.targetTabId = ctx.agent.targetTabId
+                  agentRun.state.allowedOrigins = [...ctx.agent.allowedOrigins]
                   agentRun.state.actionCount = ctx.agent.actionCount
+                  agentRun.state.stopReason = ctx.agent.capReason
                 }
                 agentRun.state.activeMs = now - agentRun.createdAt
                 agentRun.state.steps = state.toolRuns.map((run) => ({
@@ -441,7 +448,11 @@ export const handleChatWithModel = withErrorContext(
         } finally {
           if (agentRun) {
             const now = Date.now()
-            agentRun.status = ac.signal.aborted ? "cancelled" : "completed"
+            agentRun.status = finalAgentRunStatus(
+              ctx.agent?.capReason,
+              ac.signal.aborted
+            )
+            agentRun.state.stopReason = ctx.agent?.capReason
             agentRun.updatedAt = now
             agentRun.completedAt = now
             await saveAgentRun(agentRun).catch((error) => {

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { executeAgentAction, snapshotPage } from "@/contents/agent-page-runtime"
+import {
+  executeAgentAction,
+  findAgentText,
+  snapshotPage
+} from "@/contents/agent-page-runtime"
 
 const visibleRect = {
   x: 10,
@@ -91,5 +95,52 @@ describe("agent page runtime", () => {
         elementId: 1
       })
     ).toThrow("changed or disappeared")
+  })
+
+  it("rejects a connected control whose destination changes", () => {
+    document.body.innerHTML =
+      '<a href="/safe" aria-label="Continue">Continue</a>'
+    const snapshot = snapshotPage()
+    document.querySelector("a")?.setAttribute("href", "/danger")
+
+    expect(() =>
+      executeAgentAction({
+        action: "click",
+        snapshotId: snapshot.snapshotId,
+        elementId: 1
+      })
+    ).toThrow("changed or disappeared")
+  })
+
+  it("rejects a reused row control when its context changes", () => {
+    document.body.innerHTML =
+      '<ul><li>Project A <button data-action="delete">Delete</button></li></ul>'
+    const snapshot = snapshotPage()
+    const row = document.querySelector("li")
+    if (row?.firstChild) row.firstChild.textContent = "Project B "
+
+    expect(() =>
+      executeAgentAction({
+        action: "click",
+        snapshotId: snapshot.snapshotId,
+        elementId: 1
+      })
+    ).toThrow("changed or disappeared")
+  })
+
+  it("finds visible text inside a same-origin frame", () => {
+    const frame = document.createElement("iframe")
+    const frameDocument = document.implementation.createHTMLDocument("frame")
+    frameDocument.body.innerHTML = "<p>Embedded account settings</p>"
+    Object.defineProperty(frame, "contentDocument", {
+      configurable: true,
+      value: frameDocument
+    })
+    document.body.append(frame)
+    const target = frameDocument.querySelector("p") as HTMLParagraphElement
+    target.scrollIntoView = vi.fn()
+
+    expect(findAgentText("account settings")).toContain("Found")
+    expect(target.scrollIntoView).toHaveBeenCalled()
   })
 })

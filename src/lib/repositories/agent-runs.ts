@@ -114,3 +114,9 @@ export const agentRunCapReason = (state: AgentRunState): string | undefined => {
   if (state.activeMs >= AGENT_MAX_ACTIVE_MS) return "active-time limit"
   return undefined
 }
+
+export const finalAgentRunStatus = (
+  capReason: string | undefined,
+  aborted: boolean
+): AgentRunStatus =>
+  capReason ? "capped" : aborted ? "cancelled" : "completed"

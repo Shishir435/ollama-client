@@ -69,4 +69,5 @@ export interface AgentRunState {
   modelTurns: number
   actionCount: number
   activeMs: number
+  stopReason?: string
 }
