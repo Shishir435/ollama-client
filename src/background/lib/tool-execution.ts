@@ -29,7 +29,7 @@ import {
   isAgentElementActionTool,
   isAgentNavigationTool,
   isAgentPageActionTool,
-  originForAgentToolCall,
+  originForNonElementAgentToolCall,
   preflightAgentPageAction
 } from "@/lib/tools/internal/agent-browser-tools"
 import type { ChatMessage, ImageAttachment, ToolRun } from "@/types"
@@ -173,7 +173,7 @@ export const prepareToolCall = async (
   const origin =
     preflight?.origin ??
     (isAgentBrowserTool(call.name) && !isAgentElementActionTool(call.name)
-      ? await originForAgentToolCall(call).catch(() => undefined)
+      ? await originForNonElementAgentToolCall(call).catch(() => undefined)
       : undefined)
   const expandsOrigin =
     Boolean(ctx?.agent) &&

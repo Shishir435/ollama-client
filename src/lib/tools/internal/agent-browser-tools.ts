@@ -481,23 +481,14 @@ export const preflightAgentPageAction = async (call: {
   }
 }
 
-export const originForAgentToolCall = async (call: {
+export const originForNonElementAgentToolCall = async (call: {
   name: string
   arguments: Record<string, unknown>
 }): Promise<string | undefined> => {
   if (call.name === "open_tab" || call.name === "navigate") {
     return safeHttpUrl(call.arguments.url).origin
   }
-  if (
-    [
-      "snapshot_page",
-      "scroll",
-      "find_in_page",
-      "click",
-      "type",
-      "select"
-    ].includes(call.name)
-  ) {
+  if (["snapshot_page", "scroll", "find_in_page"].includes(call.name)) {
     const tab = await resolveTab(call.arguments.tabId)
     return tab?.url ? new URL(tab.url).origin : undefined
   }
