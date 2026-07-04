@@ -103,20 +103,26 @@ const fetchModelInfoViaWorker = async (
   }
 
   const data = response.data ?? null
-  // Prefer the provider the worker actually resolved; only guess when an older
-  // worker didn't report it. `supportsDetails === false` means the resolved
-  // provider legitimately can't self-report — that null is not a failure.
-  const resolvedProviderId =
-    response.providerId || providerId || DEFAULT_PROVIDER_ID
+  if (data !== null) return data
+
+  // `data` is null. Only treat that as a failure when a *trusted* provider is
+  // known to support details: the worker's own `providerId` or the id the
+  // client asked for. An older worker may resolve a bare/mapped model to a
+  // non-Ollama provider and legitimately return null — guessing
+  // DEFAULT_PROVIDER_ID (Ollama, `modelDetails: true`) would misreport that as a
+  // retryable "no model info" error instead of the correct no-details state.
+  const resolvedProviderId = response.providerId || providerId
   const supportsDetails =
     response.supportsDetails ??
-    Boolean(getProviderCapabilities(resolvedProviderId)?.modelDetails)
-  if (data === null && supportsDetails) {
+    (resolvedProviderId
+      ? Boolean(getProviderCapabilities(resolvedProviderId)?.modelDetails)
+      : false)
+  if (supportsDetails) {
     throw createAppError(`Provider returned no model info for ${model}`, {
       kind: "provider",
-      providerId: resolvedProviderId,
+      providerId: resolvedProviderId ?? DEFAULT_PROVIDER_ID,
       retryable: true
     })
   }
-  return data
+  return null
 }

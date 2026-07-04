@@ -108,6 +108,27 @@ describe("useModelInfo", () => {
     })
   })
 
+  it("does not error on a null worker response with no provider hint", async () => {
+    // Older worker: success + null data, but no providerId/supportsDetails, and
+    // the client passed no providerId. We must NOT guess Ollama and reclassify
+    // this as a failure — it's a benign no-details state.
+    mockProvider(vi.fn().mockRejectedValue(new Error("blocked")))
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
+      success: true,
+      data: null
+    })
+
+    const { result } = renderHook(() => useModelInfo("mystery-model"), {
+      wrapper: createWrapper()
+    })
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+    expect(result.current.error).toBeNull()
+    expect(result.current.modelInfo).toBeNull()
+  })
+
   it("falls back to the worker (structured payload preserves providerId) when in-page fetch throws", async () => {
     mockProvider(vi.fn().mockRejectedValue(new Error("blocked")))
     vi.mocked(browser.runtime.sendMessage)
