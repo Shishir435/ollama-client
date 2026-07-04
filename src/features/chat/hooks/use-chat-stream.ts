@@ -23,6 +23,7 @@ interface StreamOptions {
   messages: ChatMessage[]
   sessionId?: string
   generatedMessage?: ChatMessage
+  agentMode?: boolean
 }
 
 interface StreamMessage {
@@ -89,7 +90,8 @@ export const useChatStream = ({
     providerId,
     messages,
     sessionId,
-    generatedMessage
+    generatedMessage,
+    agentMode
   }: StreamOptions) => {
     // Create port synchronously BEFORE any async operations
     let port = browser.runtime.connect({
@@ -123,7 +125,8 @@ export const useChatStream = ({
       providerId,
       messages,
       sessionId,
-      requestId
+      requestId,
+      agentMode
     }
 
     const cleanupPort = () => {

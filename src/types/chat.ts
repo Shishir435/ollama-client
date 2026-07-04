@@ -181,6 +181,10 @@ export interface ToolRun {
   truncated?: boolean
   /** Arguments the model passed to the tool (shown as the step's input). */
   args?: Record<string, unknown>
+  /** Human-readable, executor-validated action shown in approval UI. */
+  approvalPreview?: string
+  /** Origin affected by this tool call. */
+  origin?: string
   /** Short preview of the tool's output (shown as the step's result). */
   resultPreview?: string
 }
@@ -251,6 +255,7 @@ export interface ChatWithModelMessage {
     sessionId?: string
     chatId?: string
     requestId?: string
+    agentMode?: boolean
   }
 }
 

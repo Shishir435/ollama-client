@@ -10,6 +10,25 @@ import type {
   ToolSource
 } from "../types"
 import {
+  clickDefinition,
+  findInPageDefinition,
+  isAgentBrowserTool,
+  navigateDefinition,
+  openTabDefinition,
+  runClick,
+  runFindInPage,
+  runNavigate,
+  runOpenTab,
+  runScroll,
+  runSelect,
+  runSnapshotPage,
+  runType,
+  scrollDefinition,
+  selectDefinition,
+  snapshotPageDefinition,
+  typeDefinition
+} from "./agent-browser-tools"
+import {
   recentHistoryDefinition,
   runRecentHistory,
   runSearchBookmarks,
@@ -76,7 +95,15 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: listRemindersDefinition, run: runListReminders },
   { definition: cancelReminderDefinition, run: runCancelReminder },
   { definition: saveArtifactDefinition, run: runSaveArtifact },
-  { definition: captureScreenshotDefinition, run: runCaptureScreenshot }
+  { definition: captureScreenshotDefinition, run: runCaptureScreenshot },
+  { definition: snapshotPageDefinition, run: runSnapshotPage },
+  { definition: openTabDefinition, run: runOpenTab },
+  { definition: navigateDefinition, run: runNavigate },
+  { definition: scrollDefinition, run: runScroll },
+  { definition: findInPageDefinition, run: runFindInPage },
+  { definition: clickDefinition, run: runClick },
+  { definition: typeDefinition, run: runType },
+  { definition: selectDefinition, run: runSelect }
 ]
 
 const isToolVisible = async (tool: InternalTool): Promise<boolean> => {
@@ -123,6 +150,16 @@ export const createInternalToolSource = (): ToolSource => {
       const tool = byName.get(name)
       if (!tool) {
         return { content: `Unknown internal tool: ${name}`, isError: true }
+      }
+      if (ctx.agent && isAgentBrowserTool(name) && name !== "open_tab") {
+        if (args.tabId === undefined) args.tabId = ctx.agent.targetTabId
+        if (args.tabId !== ctx.agent.targetTabId) {
+          return {
+            content:
+              "Agent target-tab mismatch. The run cannot act on a different tab without an approved navigation step.",
+            isError: true
+          }
+        }
       }
       return tool.run(args, ctx)
     }

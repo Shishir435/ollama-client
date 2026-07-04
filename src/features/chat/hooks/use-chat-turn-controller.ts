@@ -42,7 +42,8 @@ interface UseChatTurnControllerOptions {
   generateResponse: (
     customModel?: string,
     sessionId?: string,
-    overrideMessages?: ChatMessage[]
+    overrideMessages?: ChatMessage[],
+    agentMode?: boolean
   ) => Promise<void>
   toast: ToastFn
 }
@@ -73,7 +74,8 @@ export const useChatTurnController = ({
     customInput?: string,
     customModel?: string,
     files?: ProcessedFile[],
-    images?: ImageAttachment[]
+    images?: ImageAttachment[],
+    agentMode = false
   ) => {
     const live = loadStreamStore.getState()
     const rawInput = customInput?.trim() ?? input.trim()
@@ -283,7 +285,11 @@ export const useChatTurnController = ({
       })
     }
 
-    await generateResponse(customModel, sessionId, messagesForLLM)
+    if (agentMode) {
+      await generateResponse(customModel, sessionId, messagesForLLM, true)
+    } else {
+      await generateResponse(customModel, sessionId, messagesForLLM)
+    }
     setPendingActivityEvents([])
   }
 

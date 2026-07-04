@@ -308,6 +308,14 @@
         "cancel_reminder": "Cancelling reminder",
         "save_artifact": "Saving file",
         "capture_screenshot": "Capturing screenshot",
+        "snapshot_page": "Observing page",
+        "open_tab": "Opening tab",
+        "navigate": "Navigating",
+        "scroll": "Scrolling page",
+        "find_in_page": "Finding page text",
+        "click": "Clicking control",
+        "type": "Typing in control",
+        "select": "Selecting option",
         "searches": "{{count}} searches"
       }
     },

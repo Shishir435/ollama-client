@@ -47,6 +47,12 @@ export const MESSAGE_KEYS = {
   BROWSER: {
     OPEN_TAB: "open-tab",
     GET_PAGE_CONTENT: "get-page-content",
+    SNAPSHOT_PAGE: "snapshot-page",
+    AGENT_PAGE_ACTION: "agent-page-action",
+    AGENT_HIGHLIGHT: "agent-highlight",
+    AGENT_CLEAR_HIGHLIGHT: "agent-clear-highlight",
+    AGENT_SCROLL: "agent-scroll",
+    AGENT_FIND_TEXT: "agent-find-text",
     ADD_SELECTION_TO_CHAT: "add-selection-to-chat",
     OMNIBOX_QUERY: "omnibox-query",
     SELECTION_BRIDGE_PORT: "selection-bridge-port",

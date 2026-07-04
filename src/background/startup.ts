@@ -9,6 +9,7 @@ import { DEFAULT_EMBEDDING_MODEL, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
+import { pauseInterruptedAgentRuns } from "@/lib/repositories/agent-runs"
 import { pruneStaleToolLoopRuns } from "@/lib/repositories/tool-loop-runs"
 import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import { getToolRegistry } from "@/lib/tools/build-tool-registry"
@@ -150,6 +151,11 @@ export const initializeBackgroundStartup = () => {
   void runEmbeddingDimensionMigration()
   void pruneStaleToolLoopRuns().catch((error) => {
     logger.warn("Failed to prune stale tool-loop checkpoints", "BackgroundSW", {
+      error
+    })
+  })
+  void pauseInterruptedAgentRuns().catch((error) => {
+    logger.warn("Failed to pause interrupted agent runs", "BackgroundSW", {
       error
     })
   })

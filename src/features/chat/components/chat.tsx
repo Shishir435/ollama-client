@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
+import { AgentRunHeader } from "@/features/agent/components/agent-run-header"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
@@ -42,6 +43,7 @@ export const Chat = () => {
   const { isOpen: isSearchOpen, closeSearchDialog } = useSearchDialogStore()
   const { embedMessage } = useAutoEmbedMessages()
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null)
+  const [agentMode, setAgentMode] = useState(false)
 
   // Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
   // the chat UI decoupled from address-bar integration.
@@ -178,9 +180,16 @@ export const Chat = () => {
           <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
             <PendingToolConfirmation messages={messages} />
             <div className="mx-auto max-w-4xl px-2">
+              <AgentRunHeader
+                enabled={agentMode}
+                running={agentMode && (isLoading || isStreaming)}
+                onEnabledChange={setAgentMode}
+                onStop={stopGeneration}
+              />
               <ChatInputBox
                 onSend={sendMessage}
                 stopGeneration={stopGeneration}
+                agentMode={agentMode}
               />
             </div>
           </div>

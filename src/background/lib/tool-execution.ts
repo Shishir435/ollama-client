@@ -23,6 +23,15 @@ import {
   confirmationRequired,
   effectiveRisk
 } from "@/lib/tools/approval/approval-policy"
+import {
+  clearAgentPageActionHighlight,
+  isAgentBrowserTool,
+  isAgentElementActionTool,
+  isAgentNavigationTool,
+  isAgentPageActionTool,
+  originForNonElementAgentToolCall,
+  preflightAgentPageAction
+} from "@/lib/tools/internal/agent-browser-tools"
 import type { ChatMessage, ImageAttachment, ToolRun } from "@/types"
 import { awaitToolConfirmation } from "./tool-confirmation-registry"
 import { hasSessionGrant } from "./tool-session-grants"
@@ -37,6 +46,8 @@ export interface PreparedToolCall {
    * per-tool boolean.
    */
   requiresConfirmation: boolean
+  origin?: string
+  preflightError?: string
 }
 
 // The reasoning-trace component translates known tool ids (rag_search, etc.);
@@ -139,17 +150,50 @@ export const prepareToolCall = async (
   // Low risk never prompts — skip the grant lookup (a storage read) entirely,
   // which is the hot path for read-only tools.
   const risk = effectiveRisk(definition)
+  let preflight:
+    | Awaited<ReturnType<typeof preflightAgentPageAction>>
+    | undefined
+  let preflightError: string | undefined
+  if (ctx?.agent && isAgentBrowserTool(call.name) && call.name !== "open_tab") {
+    if (call.arguments.tabId === undefined) {
+      call.arguments.tabId = ctx.agent.targetTabId
+    }
+    if (call.arguments.tabId !== ctx.agent.targetTabId) {
+      preflightError =
+        "Agent target-tab mismatch. The run cannot act on a different tab."
+    }
+  }
+  if (!preflightError && isAgentElementActionTool(call.name)) {
+    try {
+      preflight = await preflightAgentPageAction(call)
+    } catch (error) {
+      preflightError = error instanceof Error ? error.message : String(error)
+    }
+  }
+  const origin =
+    preflight?.origin ??
+    (isAgentBrowserTool(call.name) && !isAgentElementActionTool(call.name)
+      ? await originForNonElementAgentToolCall(call).catch(() => undefined)
+      : undefined)
+  const expandsOrigin =
+    Boolean(ctx?.agent) &&
+    isAgentNavigationTool(call.name) &&
+    Boolean(origin) &&
+    !ctx?.agent?.allowedOrigins.includes(origin as string)
   const requiresConfirmation =
     risk === "low"
       ? false
-      : confirmationRequired(definition, {
-          hasSessionGrant: hasSessionGrant(ctx?.sessionId, call.name),
-          hasAlwaysGrant: await hasAlwaysGrant(call.name)
+      : expandsOrigin ||
+        confirmationRequired(definition, {
+          hasSessionGrant: hasSessionGrant(ctx?.sessionId, call.name, origin),
+          hasAlwaysGrant: await hasAlwaysGrant(call.name, origin)
         })
   return {
     call,
     policy,
     requiresConfirmation,
+    origin,
+    preflightError,
     run: {
       toolId: call.name,
       callId: call.id,
@@ -160,9 +204,19 @@ export const prepareToolCall = async (
       risk: definition?.risk,
       status: "running",
       startedAt: Date.now(),
+      origin,
+      approvalPreview: preflight?.preview,
       args:
         call.arguments && Object.keys(call.arguments).length > 0
-          ? call.arguments
+          ? call.name === "type"
+            ? {
+                ...call.arguments,
+                text:
+                  typeof call.arguments.text === "string"
+                    ? `[redacted ${call.arguments.text.length} characters]`
+                    : "[redacted]"
+              }
+            : call.arguments
           : undefined
     }
   }
@@ -190,20 +244,92 @@ export const runPreparedToolCall = async (
   persistAwaitingConfirmation?: () => Promise<void>
 ): Promise<{ result: ToolResult; content: string }> => {
   const { call, policy, run } = prepared
+  if (prepared.preflightError) {
+    await clearAgentPageActionHighlight(call)
+    run.status = "error"
+    run.completedAt = Date.now()
+    run.error = prepared.preflightError
+    return {
+      result: { content: prepared.preflightError, isError: true },
+      content: prepared.preflightError
+    }
+  }
+  if (ctx.agent) {
+    if (isAgentBrowserTool(call.name) && call.name !== "open_tab") {
+      if (call.arguments.tabId === undefined) {
+        call.arguments.tabId = ctx.agent.targetTabId
+      }
+      if (call.arguments.tabId !== ctx.agent.targetTabId) {
+        const mismatch =
+          "Agent target-tab mismatch. The run cannot act on a different tab."
+        run.status = "error"
+        run.completedAt = Date.now()
+        run.error = mismatch
+        await clearAgentPageActionHighlight(call)
+        return {
+          result: { content: mismatch, isError: true },
+          content: mismatch
+        }
+      }
+    }
+    if (Date.now() - ctx.agent.startedAt >= ctx.agent.maxActiveMs) {
+      const capped = "Browser-agent active-time limit reached."
+      run.status = "error"
+      run.completedAt = Date.now()
+      run.error = capped
+      ctx.agent.capReason = capped
+      await clearAgentPageActionHighlight(call)
+      return { result: { content: capped, isError: true }, content: capped }
+    }
+    if (
+      isAgentPageActionTool(call.name) &&
+      ctx.agent.actionCount >= ctx.agent.maxActions
+    ) {
+      const capped = "Browser-agent page-action limit reached."
+      run.status = "error"
+      run.completedAt = Date.now()
+      run.error = capped
+      ctx.agent.capReason = capped
+      await clearAgentPageActionHighlight(call)
+      return { result: { content: capped, isError: true }, content: capped }
+    }
+  }
 
   // Confirmation-gated tools pause for explicit user approval before running.
   // A denial (or an abort while waiting) returns a declined result to the model
   // instead of executing — the tool never runs without a yes.
   if (prepared.requiresConfirmation) {
+    if (
+      ctx.agent &&
+      isAgentElementActionTool(call.name) &&
+      prepared.origin &&
+      !ctx.agent.allowedOrigins.includes(prepared.origin)
+    ) {
+      const error = `Agent origin boundary blocked ${prepared.origin}. Navigate there with explicit approval first.`
+      await clearAgentPageActionHighlight(call)
+      run.status = "error"
+      run.completedAt = Date.now()
+      run.error = error
+      emitTrace?.()
+      return {
+        result: { content: run.error, isError: true },
+        content: run.error
+      }
+    }
     run.status = "awaiting-confirmation"
     emitTrace?.()
     await persistAwaitingConfirmation?.()
     const approved = await awaitToolConfirmation(
       call.id,
-      { toolName: call.name, sessionId: ctx.sessionId },
+      {
+        toolName: call.name,
+        sessionId: ctx.sessionId,
+        origin: prepared.origin
+      },
       signal
     )
     if (!approved) {
+      await clearAgentPageActionHighlight(call)
       run.status = "error"
       run.completedAt = Date.now()
       run.error = "Declined by the user."
@@ -223,6 +349,10 @@ export const runPreparedToolCall = async (
         signal
       )
     : { content: `Tool "${call.name}" is disabled.`, isError: true }
+  if (ctx.agent && !result.isError && isAgentPageActionTool(call.name)) {
+    ctx.agent.actionCount += 1
+  }
+  await clearAgentPageActionHighlight(call)
 
   const { content, truncated } = trimToolResult(
     result.content,
