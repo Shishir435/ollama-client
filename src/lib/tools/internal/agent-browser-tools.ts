@@ -183,7 +183,7 @@ const durableSnapshot = (snapshot: PageSnapshot): PageSnapshot => ({
 export const snapshotPageDefinition: ToolDefinition = {
   name: "snapshot_page",
   description:
-    "Observe interactive controls on a browser tab. Returns a snapshot id and numbered controls. Always take a new snapshot before a page action, and pass its snapshotId plus elementId to the action.",
+    "Observe interactive controls on the agent's fixed target tab. Returns a snapshot id and numbered controls. Always take a new snapshot before a page action, and pass its snapshotId plus elementId to the action.",
   displayNameKey: "chat.reasoning.trace.snapshot_page",
   category: "browser",
   iconKey: "scan-search",
@@ -193,12 +193,7 @@ export const snapshotPageDefinition: ToolDefinition = {
   runtime: { parallelizable: false, timeoutMs: 15_000 },
   parameters: {
     type: "object",
-    properties: {
-      tabId: {
-        type: "number",
-        description: "Target tab id. Omit only for the visible active tab."
-      }
-    }
+    properties: {}
   }
 }
 
@@ -357,7 +352,7 @@ export const runOpenTab = async (
 export const navigateDefinition: ToolDefinition = {
   name: "navigate",
   description:
-    "Navigate a specific browser tab to an absolute http/https URL. Requires user approval. Take a new snapshot after navigation.",
+    "Navigate the agent's fixed target tab to an absolute http/https URL. Requires user approval. Take a new snapshot after navigation.",
   displayNameKey: "chat.reasoning.trace.navigate",
   category: "browser",
   iconKey: "navigation",
@@ -367,10 +362,9 @@ export const navigateDefinition: ToolDefinition = {
   parameters: {
     type: "object",
     properties: {
-      tabId: { type: "number", description: "Target tab id." },
       url: { type: "string", description: "Absolute http/https URL." }
     },
-    required: ["tabId", "url"]
+    required: ["url"]
   }
 }
 
@@ -408,7 +402,7 @@ export const runNavigate = async (
 export const scrollDefinition: ToolDefinition = {
   name: "scroll",
   description:
-    "Scroll a specific browser tab by about one viewport. Take a new snapshot afterward.",
+    "Scroll the agent's fixed target tab by about one viewport. Take a new snapshot afterward.",
   displayNameKey: "chat.reasoning.trace.scroll",
   category: "browser",
   iconKey: "move-vertical",
@@ -419,10 +413,9 @@ export const scrollDefinition: ToolDefinition = {
   parameters: {
     type: "object",
     properties: {
-      tabId: { type: "number" },
       direction: { type: "string", enum: ["up", "down"] }
     },
-    required: ["tabId", "direction"]
+    required: ["direction"]
   }
 }
 
@@ -456,7 +449,7 @@ export const runScroll = async (
 export const findInPageDefinition: ToolDefinition = {
   name: "find_in_page",
   description:
-    "Find visible text in a browser tab and scroll its first match into view.",
+    "Find visible text in the agent's fixed target tab and scroll its first match into view.",
   displayNameKey: "chat.reasoning.trace.find_in_page",
   category: "browser",
   iconKey: "search",
@@ -467,10 +460,9 @@ export const findInPageDefinition: ToolDefinition = {
   parameters: {
     type: "object",
     properties: {
-      tabId: { type: "number" },
       text: { type: "string" }
     },
-    required: ["tabId", "text"]
+    required: ["text"]
   }
 }
 
@@ -522,10 +514,6 @@ const actionDefinition = (
   parameters: {
     type: "object",
     properties: {
-      tabId: {
-        type: "number",
-        description: "Target tab id from snapshot_page."
-      },
       snapshotId: {
         type: "string",
         description: "Exact snapshot id from the latest snapshot_page."
@@ -547,7 +535,6 @@ const actionDefinition = (
         : {})
     },
     required: [
-      "tabId",
       "snapshotId",
       "elementId",
       ...(name === "type" ? ["text"] : []),

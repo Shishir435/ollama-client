@@ -48,10 +48,16 @@ import {
 import type { ToolContext, ToolRegistry } from "@/lib/tools"
 import {
   clickDefinition,
+  findInPageDefinition,
+  navigateDefinition,
   runNavigate,
   runSelectTab,
   runSnapshotPage,
-  selectTabDefinition
+  scrollDefinition,
+  selectDefinition,
+  selectTabDefinition,
+  snapshotPageDefinition,
+  typeDefinition
 } from "../agent-browser-tools"
 
 const agentContext = (): ToolContext => ({
@@ -101,6 +107,50 @@ describe("agent browser boundaries", () => {
     expect(result.isError).toBe(true)
     expect(result.content).toContain("origin boundary blocked")
     expect(mocks.sendContent).not.toHaveBeenCalled()
+  })
+
+  it("keeps fixed target tab ids out of model-facing action schemas", () => {
+    for (const definition of [
+      snapshotPageDefinition,
+      navigateDefinition,
+      scrollDefinition,
+      findInPageDefinition,
+      clickDefinition,
+      typeDefinition,
+      selectDefinition
+    ]) {
+      expect(definition.parameters.properties).not.toHaveProperty("tabId")
+      expect(definition.parameters.required ?? []).not.toContain("tabId")
+    }
+  })
+
+  it("overrides model tab ids with the locked target before preflight", async () => {
+    mocks.sendContent.mockResolvedValue({
+      success: true,
+      data: {
+        name: "Send",
+        role: "button",
+        url: "https://allowed.example/page"
+      }
+    })
+    const registry = {
+      getDefinition: vi.fn(async () => clickDefinition)
+    } as unknown as ToolRegistry
+    const call = {
+      id: "call-without-tab",
+      name: "click",
+      arguments: { tabId: "999", snapshotId: "snapshot-1", elementId: 2 }
+    }
+
+    const prepared = await prepareToolCall(
+      registry,
+      call,
+      undefined,
+      agentContext()
+    )
+
+    expect(call.arguments).toMatchObject({ tabId: 7 })
+    expect(prepared.preflightError).toBeUndefined()
   })
 
   it("locks the initial target when observation begins", async () => {

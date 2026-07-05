@@ -122,6 +122,13 @@ export const resolveModelTools = async (
   const definitions = await getToolRegistry().listDefinitions()
   const allowed = definitions.filter((definition) => {
     if (isAgentBrowserTool(definition.name) && !options?.agentMode) return false
+    if (
+      options?.agentMode &&
+      definition.name !== "list_tabs" &&
+      !isAgentBrowserTool(definition.name)
+    ) {
+      return false
+    }
     if (toolSettings.families[getToolFamily(definition)] === false) return false
     // Vision-only tools (e.g. capture_screenshot) are useless to a model that
     // can't see images — don't offer them, or the model may call one and choke

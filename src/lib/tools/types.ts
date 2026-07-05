@@ -156,6 +156,7 @@ export interface ToolContext {
     activeSince?: number
     maxActiveMs: number
     capReason?: string
+    failureReason?: string
   }
 }
 

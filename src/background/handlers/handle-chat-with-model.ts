@@ -359,7 +359,8 @@ export const handleChatWithModel = withErrorContext(
                 activeMs: agentRun.state.activeMs,
                 activeSince: Date.now(),
                 maxActiveMs: 15 * 60 * 1000,
-                capReason: agentRunCapReason(agentRun.state)
+                capReason: agentRunCapReason(agentRun.state),
+                failureReason: undefined as string | undefined
               }
             : undefined
         }
@@ -519,10 +520,12 @@ export const handleChatWithModel = withErrorContext(
                       ? "failed"
                       : loopError
                         ? "failed"
-                        : finalAgentRunStatus(
-                            ctx.agent?.capReason,
-                            ac.signal.aborted
-                          )
+                        : ctx.agent?.failureReason
+                          ? "failed"
+                          : finalAgentRunStatus(
+                              ctx.agent?.capReason,
+                              ac.signal.aborted
+                            )
             agentRun.state.stopReason =
               ctx.agent?.capReason ??
               (controlIntent === "stop"
@@ -533,7 +536,9 @@ export const handleChatWithModel = withErrorContext(
                     ? loopError instanceof Error
                       ? loopError.message
                       : String(loopError)
-                    : undefined)
+                    : ctx.agent?.failureReason
+                      ? ctx.agent.failureReason
+                      : undefined)
             agentRun.updatedAt = now
             agentRun.completedAt =
               agentRun.status === "paused" ? undefined : now

@@ -160,6 +160,9 @@ export const streamChatWithTools = async ({
           if (onCheckpoint) await checkpoint()
           continue
         }
+        if (decision?.failureReason && ctx.agent) {
+          ctx.agent.failureReason = decision.failureReason
+        }
         if (completionGuard && iterationContent) {
           onChunk({ delta: iterationContent })
         }

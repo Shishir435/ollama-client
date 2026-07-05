@@ -242,6 +242,9 @@ export const streamChatWithNonNativeTools = async ({
           if (onCheckpoint) await checkpoint()
           continue
         }
+        if (decision?.failureReason && ctx.agent) {
+          ctx.agent.failureReason = decision.failureReason
+        }
         if (completionGuard && gate.text) onChunk({ delta: gate.text })
         else gate.flushTail()
         onChunk({ done: true, metrics, toolRuns: [...toolRuns] })

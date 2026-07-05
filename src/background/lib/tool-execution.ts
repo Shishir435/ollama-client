@@ -186,13 +186,10 @@ export const prepareToolCall = async (
     call.name !== "open_tab" &&
     call.name !== "select_tab"
   ) {
-    if (call.arguments.tabId === undefined) {
-      call.arguments.tabId = ctx.agent.targetTabId
-    }
-    if (call.arguments.tabId !== ctx.agent.targetTabId) {
-      preflightError =
-        "Agent target-tab mismatch. The run cannot act on a different tab."
-    }
+    // Target ownership belongs to the controller, never the model. Ignore an
+    // omitted, stale, stringified, or hallucinated tabId and bind every call to
+    // the run's fixed target.
+    call.arguments.tabId = ctx.agent.targetTabId
   }
   if (
     !preflightError &&
@@ -317,21 +314,9 @@ export const runPreparedToolCall = async (
       call.name !== "open_tab" &&
       call.name !== "select_tab"
     ) {
-      if (call.arguments.tabId === undefined) {
-        call.arguments.tabId = ctx.agent.targetTabId
-      }
-      if (call.arguments.tabId !== ctx.agent.targetTabId) {
-        const mismatch =
-          "Agent target-tab mismatch. The run cannot act on a different tab."
-        run.status = "error"
-        run.completedAt = Date.now()
-        run.error = mismatch
-        await clearAgentPageActionHighlight(call)
-        return {
-          result: { content: mismatch, isError: true },
-          content: mismatch
-        }
-      }
+      // Re-bind immediately before execution in case restored durable
+      // arguments came from an older model turn.
+      call.arguments.tabId = ctx.agent.targetTabId
     }
     if (agentActiveMs(ctx.agent) >= ctx.agent.maxActiveMs) {
       const capped = "Browser-agent active-time limit reached."

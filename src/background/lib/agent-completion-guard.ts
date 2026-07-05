@@ -3,6 +3,7 @@ import type { ToolRun } from "@/types"
 export interface ToolLoopCompletionDecision {
   allowed: boolean
   feedback?: string
+  failureReason?: string
 }
 
 export type ToolLoopCompletionGuard = (
@@ -29,6 +30,8 @@ const GENERAL_MUTATION_INTENT =
   /\b(change|update|edit|set|enable|disable|turn on|turn off)\b/i
 const ACTION_SUCCESS_CLAIM =
   /\b(replied|sent|posted|submitted|clicked|pressed|typed|wrote|filled|entered|selected|changed|updated|enabled|disabled|navigated|opened)\b/i
+const FALSE_CAPABILITY_DISCLAIMER =
+  /\b(cannot|can't|unable to)\b.{0,80}\b(interact|click|type|fill|submit|access the dom)\b/i
 
 export const contractForAgentTask = (
   task: string
@@ -89,27 +92,45 @@ export const createAgentCompletionGuard = (
   const contract = contractForAgentTask(task)
 
   return (toolRuns, assistantText) => {
-    if (!contract) {
-      if (!ACTION_SUCCESS_CLAIM.test(assistantText)) return { allowed: true }
-      const actionIndexes = indexesForAction(toolRuns, "mutate")
-      const lastActionIndex = actionIndexes.at(-1)
-      if (lastActionIndex === undefined) {
-        return {
-          allowed: false,
-          feedback:
-            "Completion rejected: response claims a browser action, but no successful page-changing action exists in the run trace."
-        }
+    if (FALSE_CAPABILITY_DISCLAIMER.test(assistantText)) {
+      return {
+        allowed: false,
+        feedback:
+          "Completion rejected: browser interaction tools are available. Continue with snapshot_page or report the exact latest tool error without claiming general inability."
       }
-      const laterSnapshot = successfulIndexes(toolRuns, ["snapshot_page"]).some(
-        (index) => index > lastActionIndex
-      )
-      return laterSnapshot
-        ? { allowed: true }
-        : {
+    }
+    if (!contract) {
+      if (ACTION_SUCCESS_CLAIM.test(assistantText)) {
+        const actionIndexes = indexesForAction(toolRuns, "mutate")
+        const lastActionIndex = actionIndexes.at(-1)
+        if (lastActionIndex === undefined) {
+          return {
+            allowed: false,
+            feedback:
+              "Completion rejected: response claims a browser action, but no successful page-changing action exists in the run trace."
+          }
+        }
+        const laterSnapshot = successfulIndexes(toolRuns, [
+          "snapshot_page"
+        ]).some((index) => index > lastActionIndex)
+        if (!laterSnapshot) {
+          return {
             allowed: false,
             feedback:
               "Completion rejected: observe the page with snapshot_page after the claimed action before reporting success."
           }
+        }
+      }
+
+      const lastRun = toolRuns.at(-1)
+      if (lastRun?.status === "error") {
+        return {
+          allowed: true,
+          failureReason:
+            lastRun.error || `Browser tool ${lastRun.toolId} failed.`
+        }
+      }
+      return { allowed: true }
     }
 
     let previousActionIndex = -1

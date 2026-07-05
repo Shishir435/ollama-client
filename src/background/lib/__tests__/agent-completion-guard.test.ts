@@ -70,4 +70,36 @@ describe("agent completion guard", () => {
       }
     )
   })
+
+  it("rejects generic browser capability disclaimers", () => {
+    const guard = createAgentCompletionGuard("find the recommended video")
+
+    expect(
+      guard(
+        [run("snapshot_page", "error")],
+        "I cannot directly interact with the DOM or click controls."
+      )
+    ).toMatchObject({
+      allowed: false,
+      feedback: expect.stringContaining("tools are available")
+    })
+  })
+
+  it("marks a terminal read-tool error as failed", () => {
+    const guard = createAgentCompletionGuard("find this text on the page")
+    const decision = guard(
+      [
+        {
+          ...run("find_in_page", "error"),
+          error: "Requested text was not found."
+        }
+      ],
+      "The requested text was not found."
+    )
+
+    expect(decision).toEqual({
+      allowed: true,
+      failureReason: "Requested text was not found."
+    })
+  })
 })
