@@ -9,6 +9,7 @@ import {
   NON_NATIVE_TOOL_CALL_OPEN
 } from "@/lib/tools/non-native/non-native-tool-protocol"
 import type { ChatMessage, ChatStreamMessage } from "@/types"
+import type { ToolLoopCompletionGuard } from "./agent-completion-guard"
 import {
   type PreparedToolCall,
   prepareToolCall,
@@ -26,6 +27,7 @@ interface StreamChatWithNonNativeToolsOptions {
   ctx: ToolContext
   maxIterations?: number
   singleToolPerTurn?: boolean
+  completionGuard?: ToolLoopCompletionGuard
   toolResultMaxChars?: number
   initialState?: DurableToolLoopState
   onCheckpoint?: (
@@ -141,6 +143,7 @@ export const streamChatWithNonNativeTools = async ({
   ctx,
   maxIterations = DEFAULT_MAX_ITERATIONS,
   singleToolPerTurn = false,
+  completionGuard,
   toolResultMaxChars,
   initialState,
   onCheckpoint
@@ -179,7 +182,9 @@ export const streamChatWithNonNativeTools = async ({
     }
 
     if (state.phase === "model") {
-      const gate = new ToolCallStreamGate((text) => onChunk({ delta: text }))
+      const gate = new ToolCallStreamGate((text) => {
+        if (!completionGuard) onChunk({ delta: text })
+      })
       let metrics: ChatStreamMessage["metrics"] | undefined
       let stopped = false
 
@@ -216,7 +221,29 @@ export const streamChatWithNonNativeTools = async ({
       if (singleToolPerTurn && toolCalls.length > 1) toolCalls.splice(1)
 
       if (toolCalls.length === 0) {
-        gate.flushTail()
+        const decision = completionGuard?.(toolRuns, gate.text)
+        if (decision && !decision.allowed) {
+          state.completionRejections = (state.completionRejections ?? 0) + 1
+          if (state.completionRejections > 2) {
+            throw new Error(
+              "Browser agent stopped after repeatedly claiming completion without required action evidence."
+            )
+          }
+          workingMessages.push(
+            { role: "assistant", content: gate.text },
+            {
+              role: "user",
+              content:
+                `[Agent controller] ${decision.feedback ?? "Completion is not yet verified."} ` +
+                "Continue with exactly one tool call."
+            }
+          )
+          state.iteration += 1
+          if (onCheckpoint) await checkpoint()
+          continue
+        }
+        if (completionGuard && gate.text) onChunk({ delta: gate.text })
+        else gate.flushTail()
         onChunk({ done: true, metrics, toolRuns: [...toolRuns] })
         return
       }
@@ -308,6 +335,17 @@ export const streamChatWithNonNativeTools = async ({
   )
   if (signal?.aborted) {
     onChunk({ done: true, aborted: true })
+    return
+  }
+  if (completionGuard) {
+    if (ctx.agent) {
+      ctx.agent.capReason = "Browser-agent model-turn limit reached."
+    }
+    onChunk({
+      delta:
+        "Browser agent stopped at its model-turn limit before verifying completion."
+    })
+    onChunk({ done: true, metrics: lastMetrics, toolRuns: [...toolRuns] })
     return
   }
 

@@ -7,6 +7,7 @@ export type ToolLoopRunStatus = "running" | "awaiting-confirmation"
 
 export interface DurableToolLoopState {
   iteration: number
+  completionRejections?: number
   phase: "model" | "tools"
   workingMessages: ChatMessage[]
   toolRuns: ToolRun[]

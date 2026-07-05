@@ -46,6 +46,37 @@ const deltasOf = (chunks: ChatStreamMessage[]) =>
     .join("")
 
 describe("streamChatWithNonNativeTools", () => {
+  it("withholds and retries an agent completion rejected by trace evidence", async () => {
+    const provider = scriptedProvider([
+      [{ delta: "I did it." }, { done: true }],
+      [
+        {
+          delta: '<tool_call>{"name":"echo","arguments":{}}</tool_call>'
+        },
+        { done: true }
+      ],
+      [{ delta: "Now verified." }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+
+    await streamChatWithNonNativeTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "act" }] },
+      tools: [echoDef],
+      registry: registryWith(async () => ({ content: "ran" })),
+      onChunk: (chunk) => chunks.push(chunk),
+      ctx: {},
+      completionGuard: (toolRuns) => ({
+        allowed: toolRuns.some((item) => item.status === "done"),
+        feedback: "A successful action is required."
+      })
+    })
+
+    expect(provider.streamChat).toHaveBeenCalledTimes(3)
+    expect(deltasOf(chunks)).not.toContain("I did it.")
+    expect(deltasOf(chunks)).toContain("Now verified.")
+  })
+
   it("parses a <tool_call> turn, runs the tool, and finalizes the answer", async () => {
     const provider = scriptedProvider([
       [

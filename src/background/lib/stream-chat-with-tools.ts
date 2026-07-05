@@ -3,6 +3,7 @@ import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
 import type { ToolCall, ToolContext, ToolRegistry } from "@/lib/tools"
 import type { ChatMessage, ChatStreamMessage } from "@/types"
+import type { ToolLoopCompletionGuard } from "./agent-completion-guard"
 import {
   buildImageMessage,
   type PreparedToolCall,
@@ -21,6 +22,8 @@ interface StreamChatWithToolsOptions {
   maxIterations?: number
   /** Agent mode accepts at most one model-selected tool per turn. */
   singleToolPerTurn?: boolean
+  /** Reject unsupported success claims until agent trace satisfies task. */
+  completionGuard?: ToolLoopCompletionGuard
   /** Per-result character cap; results above this are trimmed (transparency). */
   toolResultMaxChars?: number
   /** Restored SQLite checkpoint after a service-worker restart. */
@@ -67,6 +70,7 @@ export const streamChatWithTools = async ({
   ctx,
   maxIterations = DEFAULT_MAX_ITERATIONS,
   singleToolPerTurn = false,
+  completionGuard,
   toolResultMaxChars,
   initialState,
   onCheckpoint
@@ -124,7 +128,9 @@ export const streamChatWithTools = async ({
           if (typeof chunk.delta === "string") {
             iterationContent += chunk.delta
           }
-          onChunk(chunk)
+          if (!completionGuard || typeof chunk.delta !== "string") {
+            onChunk(chunk)
+          }
         },
         signal
       )
@@ -133,6 +139,30 @@ export const streamChatWithTools = async ({
       if (finalMetrics) lastFinalMetrics = finalMetrics
 
       if (pendingToolCalls.length === 0) {
+        const decision = completionGuard?.(toolRuns, iterationContent)
+        if (decision && !decision.allowed) {
+          state.completionRejections = (state.completionRejections ?? 0) + 1
+          if (state.completionRejections > 2) {
+            throw new Error(
+              "Browser agent stopped after repeatedly claiming completion without required action evidence."
+            )
+          }
+          workingMessages.push(
+            { role: "assistant", content: iterationContent },
+            {
+              role: "user",
+              content:
+                `[Agent controller] ${decision.feedback ?? "Completion is not yet verified."} ` +
+                "Continue with exactly one tool call."
+            }
+          )
+          state.iteration += 1
+          if (onCheckpoint) await checkpoint()
+          continue
+        }
+        if (completionGuard && iterationContent) {
+          onChunk({ delta: iterationContent })
+        }
         onChunk({ done: true, metrics: finalMetrics, toolRuns })
         return
       }
@@ -261,6 +291,17 @@ export const streamChatWithTools = async ({
   })
   if (signal?.aborted) {
     onChunk({ done: true, aborted: true })
+    return
+  }
+  if (completionGuard) {
+    if (ctx.agent) {
+      ctx.agent.capReason = "Browser-agent model-turn limit reached."
+    }
+    onChunk({
+      delta:
+        "Browser agent stopped at its model-turn limit before verifying completion."
+    })
+    onChunk({ done: true, metrics: lastFinalMetrics, toolRuns })
     return
   }
 

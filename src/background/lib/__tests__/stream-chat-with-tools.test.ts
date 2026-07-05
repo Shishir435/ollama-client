@@ -58,6 +58,42 @@ const flushMicrotasks = async () => {
 }
 
 describe("streamChatWithTools", () => {
+  it("withholds and retries an agent completion rejected by trace evidence", async () => {
+    const provider = scriptedProvider([
+      [{ delta: "I did it." }, { done: true }],
+      [
+        { toolCalls: [{ id: "c1", name: "echo", arguments: {} }] },
+        { done: true }
+      ],
+      [{ delta: "Now verified." }, { done: true }]
+    ])
+    const chunks: ChatStreamMessage[] = []
+    const registry = registryWith(async () => ({ content: "ran" }))
+
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "act" }] },
+      registry,
+      onChunk: (chunk) => chunks.push(chunk),
+      ctx: {},
+      completionGuard: (toolRuns) => ({
+        allowed: toolRuns.some((item) => item.status === "done"),
+        feedback: "A successful action is required."
+      })
+    })
+
+    expect(provider.streamChat).toHaveBeenCalledTimes(3)
+    expect(chunks.some((chunk) => chunk.delta === "I did it.")).toBe(false)
+    expect(chunks.some((chunk) => chunk.delta === "Now verified.")).toBe(true)
+    const retryMessages = (provider.streamChat as ReturnType<typeof vi.fn>).mock
+      .calls[1][0].messages
+    expect(
+      retryMessages.some((message: { content: string }) =>
+        message.content.includes("[Agent controller]")
+      )
+    ).toBe(true)
+  })
+
   it("runs a tool, re-streams, and finalizes with the answer + trace", async () => {
     const provider = scriptedProvider([
       [

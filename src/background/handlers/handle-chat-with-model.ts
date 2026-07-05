@@ -2,6 +2,7 @@ import {
   clearAbortController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
+import { createAgentCompletionGuard } from "@/background/lib/agent-completion-guard"
 import { consumeAgentControlIntent } from "@/background/lib/agent-control-registry"
 import { buildAgentSystemGuidance } from "@/background/lib/build-agent-system-guidance"
 import { buildToolSystemGuidance } from "@/background/lib/build-tool-system-guidance"
@@ -363,6 +364,9 @@ export const handleChatWithModel = withErrorContext(
             : undefined
         }
         const mode: ToolLoopMode = resolvedTools.mode
+        const completionGuard = agentRun
+          ? createAgentCompletionGuard(agentRun.state.task)
+          : undefined
         const durableRun = msg.payload.requestId
           ? await getToolLoopRun(msg.payload.requestId)
           : null
@@ -465,7 +469,8 @@ export const handleChatWithModel = withErrorContext(
               initialState,
               onCheckpoint,
               maxIterations: msg.payload.agentMode ? 25 : undefined,
-              singleToolPerTurn: msg.payload.agentMode
+              singleToolPerTurn: msg.payload.agentMode,
+              completionGuard
             })
           } else {
             await streamChatWithTools({
@@ -479,7 +484,8 @@ export const handleChatWithModel = withErrorContext(
               initialState,
               onCheckpoint,
               maxIterations: msg.payload.agentMode ? 25 : undefined,
-              singleToolPerTurn: msg.payload.agentMode
+              singleToolPerTurn: msg.payload.agentMode,
+              completionGuard
             })
           }
         } catch (error) {
