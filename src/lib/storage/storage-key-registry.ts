@@ -9,6 +9,11 @@ export interface StorageKeyMetadata {
 }
 
 export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
+  [STORAGE_KEYS.PROVIDER.SECRETS]: {
+    key: STORAGE_KEYS.PROVIDER.SECRETS,
+    scope: "device-local",
+    reason: "Provider credentials must never sync between browser profiles."
+  },
   [STORAGE_KEYS.PROVIDER.BASE_URL]: {
     key: STORAGE_KEYS.PROVIDER.BASE_URL,
     scope: "sync-safe",

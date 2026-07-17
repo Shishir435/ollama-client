@@ -74,6 +74,8 @@ export const LEGACY_STORAGE_KEYS = {
 export const STORAGE_KEYS = {
   PROVIDER: {
     BASE_URL: "provider-base-url",
+    /** Device-local provider credentials; never store this key in sync. */
+    SECRETS: "llm_provider_secrets_v1",
     SELECTED_MODEL: "provider-selected-model",
     SELECTED_MODEL_REF: "provider-selected-model-ref",
     SELECTION_CONFLICT_MODEL: "provider-selection-conflict-model",

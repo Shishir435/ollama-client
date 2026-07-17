@@ -5,6 +5,11 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { clearCapabilityProbesForProvider } from "./capability-probe"
 import { clearModelCapabilityOverridesForProvider } from "./model-capability-overrides"
 import {
+  containsLegacySyncedSecrets,
+  hydrateProviderSecrets,
+  persistProviderConfigs
+} from "./provider-secret-store"
+import {
   type CustomProviderWire,
   isCustomProviderId,
   makeCustomProviderId,
@@ -212,6 +217,14 @@ export const ProviderManager = {
       await ProviderManager.saveProviders(stored)
     }
 
+    const containsLegacySecrets = containsLegacySyncedSecrets(stored)
+    stored = await hydrateProviderSecrets(stored)
+    if (containsLegacySecrets) {
+      // Idempotent migration: local credentials are written first, then the
+      // legacy secret-bearing sync payload is replaced with public config.
+      await ProviderManager.saveProviders(stored)
+    }
+
     const sanitized = sanitizeStoredProviders(stored)
     if (sanitized.removed.length > 0 || sanitized.migrated.length > 0) {
       logger.info(
@@ -299,7 +312,7 @@ export const ProviderManager = {
   },
 
   async saveProviders(providers: ProviderConfig[]): Promise<void> {
-    await plasmoGlobalStorage.set(ProviderStorageKey.CONFIG, providers)
+    await persistProviderConfigs(providers)
   },
 
   /**

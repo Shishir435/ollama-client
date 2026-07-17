@@ -1,6 +1,7 @@
 import { renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
+import { STORAGE_KEYS } from "@/lib/constants"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import {
@@ -88,6 +89,7 @@ describe("useResetAppStorage", () => {
 
     expect(keys.LANGUAGE).toEqual(["app-language"])
     expect(keys.PROVIDER).toContain(ProviderStorageKey.CONFIG)
+    expect(keys.PROVIDER).toContain(STORAGE_KEYS.PROVIDER.SECRETS)
     expect(keys.PROVIDER).toContain(ProviderStorageKey.MODEL_MAPPINGS)
   })
 })

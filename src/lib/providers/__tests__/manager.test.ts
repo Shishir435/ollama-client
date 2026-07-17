@@ -1,13 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { STORAGE_KEYS } from "@/lib/constants"
 
-const storage = vi.hoisted(() => ({
-  get: vi.fn(),
-  set: vi.fn(),
-  remove: vi.fn()
+const stores = vi.hoisted(() => ({
+  sync: {
+    get: vi.fn(),
+    set: vi.fn(),
+    remove: vi.fn()
+  },
+  local: {
+    get: vi.fn(),
+    set: vi.fn(),
+    remove: vi.fn()
+  }
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: storage
+  plasmoGlobalStorage: stores.sync,
+  plasmoDeviceStorage: stores.local
 }))
 
 import { DEFAULT_PROVIDERS, ProviderManager } from "../manager"
@@ -19,18 +28,31 @@ import {
 } from "../types"
 
 /** Back the mock with a real map so read-modify-write flows behave. */
-const backing = new Map<string, unknown>()
+const syncBacking = new Map<string, unknown>()
+const localBacking = new Map<string, unknown>()
 
 describe("ProviderManager", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    backing.clear()
-    storage.get.mockImplementation(async (key: string) => backing.get(key))
-    storage.set.mockImplementation(async (key: string, value: unknown) => {
-      backing.set(key, value)
+    syncBacking.clear()
+    localBacking.clear()
+    stores.sync.get.mockImplementation(async (key: string) =>
+      syncBacking.get(key)
+    )
+    stores.sync.set.mockImplementation(async (key: string, value: unknown) => {
+      syncBacking.set(key, value)
     })
-    storage.remove.mockImplementation(async (key: string) => {
-      backing.delete(key)
+    stores.sync.remove.mockImplementation(async (key: string) => {
+      syncBacking.delete(key)
+    })
+    stores.local.get.mockImplementation(async (key: string) =>
+      localBacking.get(key)
+    )
+    stores.local.set.mockImplementation(async (key: string, value: unknown) => {
+      localBacking.set(key, value)
+    })
+    stores.local.remove.mockImplementation(async (key: string) => {
+      localBacking.delete(key)
     })
   })
 
@@ -42,8 +64,103 @@ describe("ProviderManager", () => {
     ])
   })
 
+  it("stores provider API keys locally and keeps sync config secret-free", async () => {
+    const providers = [
+      ...DEFAULT_PROVIDERS,
+      {
+        id: "custom:openai:secure",
+        type: ProviderType.OPENAI,
+        name: "Remote",
+        enabled: true,
+        baseUrl: "https://example.com/v1",
+        apiKey: "sk-local-only"
+      }
+    ]
+
+    await ProviderManager.saveProviders(providers)
+
+    expect(localBacking.get(STORAGE_KEYS.PROVIDER.SECRETS)).toEqual({
+      "custom:openai:secure": "sk-local-only"
+    })
+    expect(syncBacking.get(ProviderStorageKey.CONFIG)).toEqual(
+      providers.map(({ apiKey: _apiKey, ...provider }) => provider)
+    )
+    expect(
+      JSON.stringify(syncBacking.get(ProviderStorageKey.CONFIG))
+    ).not.toContain("sk-local-only")
+    await expect(
+      ProviderManager.getProviderConfig("custom:openai:secure")
+    ).resolves.toMatchObject({ apiKey: "sk-local-only" })
+  })
+
+  it("migrates legacy synced API keys to local storage before purging them", async () => {
+    syncBacking.set(ProviderStorageKey.CONFIG, [
+      ...DEFAULT_PROVIDERS,
+      {
+        id: "custom:openai:legacy",
+        type: ProviderType.OPENAI,
+        name: "Legacy remote",
+        enabled: true,
+        baseUrl: "https://example.com/v1",
+        apiKey: "sk-legacy"
+      }
+    ])
+
+    const providers = await ProviderManager.getProviders()
+
+    expect(
+      providers.find((provider) => provider.id === "custom:openai:legacy")
+    ).toMatchObject({ apiKey: "sk-legacy" })
+    expect(localBacking.get(STORAGE_KEYS.PROVIDER.SECRETS)).toEqual({
+      "custom:openai:legacy": "sk-legacy"
+    })
+    expect(
+      JSON.stringify(syncBacking.get(ProviderStorageKey.CONFIG))
+    ).not.toContain("sk-legacy")
+    expect(stores.local.set.mock.invocationCallOrder[0]).toBeLessThan(
+      stores.sync.set.mock.invocationCallOrder[0]
+    )
+  })
+
+  it("does not purge a synced API key when local persistence fails", async () => {
+    const legacyProviders = [
+      ...DEFAULT_PROVIDERS,
+      {
+        id: "custom:openai:retry",
+        type: ProviderType.OPENAI,
+        name: "Retry remote",
+        enabled: true,
+        baseUrl: "https://example.com/v1",
+        apiKey: "sk-retry"
+      }
+    ]
+    syncBacking.set(ProviderStorageKey.CONFIG, legacyProviders)
+    stores.local.set.mockRejectedValueOnce(new Error("local write failed"))
+
+    await expect(ProviderManager.getProviders()).rejects.toThrow(
+      "local write failed"
+    )
+    expect(syncBacking.get(ProviderStorageKey.CONFIG)).toEqual(legacyProviders)
+  })
+
+  it("removes a cleared API key from local storage", async () => {
+    syncBacking.set(ProviderStorageKey.CONFIG, [...DEFAULT_PROVIDERS])
+    localBacking.set(STORAGE_KEYS.PROVIDER.SECRETS, {
+      [ProviderId.LM_STUDIO]: "old-key"
+    })
+
+    await ProviderManager.updateProviderConfig(ProviderId.LM_STUDIO, {
+      apiKey: ""
+    })
+
+    expect(localBacking.get(STORAGE_KEYS.PROVIDER.SECRETS)).toEqual({})
+    expect(
+      JSON.stringify(syncBacking.get(ProviderStorageKey.CONFIG))
+    ).not.toContain("old-key")
+  })
+
   it("removes stale OpenAI config that is no longer in the provider UI", async () => {
-    storage.get.mockImplementation(async (key: string) => {
+    stores.sync.get.mockImplementation(async (key: string) => {
       if (key === ProviderStorageKey.CONFIG) {
         return [
           DEFAULT_PROVIDERS[0],
@@ -74,7 +191,7 @@ describe("ProviderManager", () => {
     expect(providers.map((provider) => provider.id)).toContain(
       ProviderId.LM_STUDIO
     )
-    expect(storage.set).toHaveBeenCalledWith(
+    expect(stores.sync.set).toHaveBeenCalledWith(
       ProviderStorageKey.CONFIG,
       expect.not.arrayContaining([
         expect.objectContaining({ id: ProviderId.OPENAI })
@@ -83,7 +200,7 @@ describe("ProviderManager", () => {
   })
 
   it("keeps custom providers through the sanitizer", async () => {
-    backing.set(ProviderStorageKey.CONFIG, [
+    syncBacking.set(ProviderStorageKey.CONFIG, [
       ...DEFAULT_PROVIDERS,
       {
         id: "custom:openai:abc123",
@@ -99,55 +216,55 @@ describe("ProviderManager", () => {
   })
 
   it("migrates the old global Ollama URL into canonical provider config on first read", async () => {
-    backing.set("provider-base-url", "http://old-device:11434")
+    syncBacking.set("provider-base-url", "http://old-device:11434")
 
     const providers = await ProviderManager.getProviders()
 
     expect(
       providers.find((provider) => provider.id === ProviderId.OLLAMA)?.baseUrl
     ).toBe("http://old-device:11434")
-    expect(backing.has("provider-base-url")).toBe(false)
+    expect(syncBacking.has("provider-base-url")).toBe(false)
   })
 
   it("keeps an explicit canonical URL over stale legacy/global values", async () => {
-    backing.set(ProviderStorageKey.CONFIG, [
+    syncBacking.set(ProviderStorageKey.CONFIG, [
       {
         ...DEFAULT_PROVIDERS[0],
         baseUrl: "http://canonical:11434"
       },
       ...DEFAULT_PROVIDERS.slice(1)
     ])
-    backing.set("ollama-base-url", "http://legacy:11434")
-    backing.set("provider-base-url", "http://global:11434")
+    syncBacking.set("ollama-base-url", "http://legacy:11434")
+    syncBacking.set("provider-base-url", "http://global:11434")
 
     const providers = await ProviderManager.getProviders()
 
     expect(
       providers.find((provider) => provider.id === ProviderId.OLLAMA)?.baseUrl
     ).toBe("http://canonical:11434")
-    expect(backing.has("ollama-base-url")).toBe(false)
-    expect(backing.has("provider-base-url")).toBe(false)
+    expect(syncBacking.has("ollama-base-url")).toBe(false)
+    expect(syncBacking.has("provider-base-url")).toBe(false)
   })
 
   it("updates only canonical provider config for Ollama URL changes", async () => {
-    backing.set(ProviderStorageKey.CONFIG, [...DEFAULT_PROVIDERS])
+    syncBacking.set(ProviderStorageKey.CONFIG, [...DEFAULT_PROVIDERS])
 
     await ProviderManager.updateProviderConfig(ProviderId.OLLAMA, {
       baseUrl: "http://new-host:11434"
     })
 
-    const providers = backing.get(
+    const providers = syncBacking.get(
       ProviderStorageKey.CONFIG
     ) as typeof DEFAULT_PROVIDERS
     expect(
       providers.find((provider) => provider.id === ProviderId.OLLAMA)?.baseUrl
     ).toBe("http://new-host:11434")
-    expect(backing.has("ollama-base-url")).toBe(false)
-    expect(backing.has("provider-base-url")).toBe(false)
+    expect(syncBacking.has("ollama-base-url")).toBe(false)
+    expect(syncBacking.has("provider-base-url")).toBe(false)
   })
 
   it("drops untouched beta defaults but preserves configured ones as custom", async () => {
-    backing.set(ProviderStorageKey.CONFIG, [
+    syncBacking.set(ProviderStorageKey.CONFIG, [
       ...DEFAULT_PROVIDERS,
       {
         id: ProviderId.VLLM,
@@ -300,7 +417,7 @@ describe("ProviderManager", () => {
 
     it("resolves bare-name collisions preferring enabled providers", async () => {
       const customId = "custom:openai:vllm"
-      backing.set(ProviderStorageKey.CONFIG, [
+      syncBacking.set(ProviderStorageKey.CONFIG, [
         ...DEFAULT_PROVIDERS,
         {
           id: customId,
@@ -319,7 +436,7 @@ describe("ProviderManager", () => {
     })
 
     it("migrates the legacy flat map to scoped keys once", async () => {
-      backing.set(ProviderStorageKey.MODEL_MAPPINGS, {
+      syncBacking.set(ProviderStorageKey.MODEL_MAPPINGS, {
         llama3: ProviderId.LM_STUDIO,
         qwen3: "custom:openai:vllm"
       })
@@ -331,21 +448,23 @@ describe("ProviderManager", () => {
         providerId: "custom:openai:vllm"
       })
       // Legacy key deleted; scoped map holds provider-prefixed keys.
-      expect(backing.has(ProviderStorageKey.MODEL_MAPPINGS)).toBe(false)
-      expect(backing.get(ProviderStorageKey.MODEL_MAPPINGS_V2)).toMatchObject({
+      expect(syncBacking.has(ProviderStorageKey.MODEL_MAPPINGS)).toBe(false)
+      expect(
+        syncBacking.get(ProviderStorageKey.MODEL_MAPPINGS_V2)
+      ).toMatchObject({
         [`${ProviderId.LM_STUDIO}::llama3`]: ProviderId.LM_STUDIO
       })
     })
 
     it("remaps scoped beta-provider mappings to migrated custom ids", async () => {
-      backing.set(ProviderStorageKey.MODEL_MAPPINGS_V2, {
+      syncBacking.set(ProviderStorageKey.MODEL_MAPPINGS_V2, {
         [`${ProviderId.VLLM}::qwen3`]: ProviderId.VLLM
       })
 
       expect(await ProviderManager.getModelMapping("qwen3")).toEqual({
         providerId: "custom:openai:legacy-vllm"
       })
-      expect(backing.get(ProviderStorageKey.MODEL_MAPPINGS_V2)).toEqual({
+      expect(syncBacking.get(ProviderStorageKey.MODEL_MAPPINGS_V2)).toEqual({
         "custom:openai:legacy-vllm::qwen3": "custom:openai:legacy-vllm"
       })
     })

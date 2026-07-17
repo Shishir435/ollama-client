@@ -9,7 +9,12 @@ import {
   it,
   vi
 } from "vitest"
-import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
+import {
+  SQLITE_DB_KEY,
+  SQLITE_DB_NAME,
+  SQLITE_DB_STORE,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { OpenAICompatibleProvider } from "@/lib/providers/openai-compatible"
 import {
   ProviderId,
@@ -235,9 +240,9 @@ describe("S2 — reset actually wipes data", () => {
     const map = getAllResetKeys()
     const allKeys = Object.values(map).flat()
 
-    // The bug this guards: ProviderStorageKey.CONFIG (holds API keys) was in
-    // no reset map, so "reset provider data" left stored keys behind.
+    // Provider public config and device-local secrets must both be reset.
     expect(allKeys).toContain(ProviderStorageKey.CONFIG)
+    expect(allKeys).toContain(STORAGE_KEYS.PROVIDER.SECRETS)
     expect(allKeys).toContain(ProviderStorageKey.MODEL_MAPPINGS)
 
     // The other reset bug: Object.values() on a top-level *string* key
