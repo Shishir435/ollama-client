@@ -7,12 +7,6 @@ import { createAppError, getErrorMessage } from "./error-utils"
 import { knowledgeDb } from "./knowledge/knowledge-sets"
 import { logger } from "./logger"
 import {
-  persistProviderConfigsUnlocked,
-  recoverProviderPersistenceUnlocked,
-  recoverProviderResetUnlocked,
-  withProviderPersistenceLock
-} from "./providers/provider-secret-store"
-import {
   type ProviderConfig,
   ProviderStorageKey,
   ProviderType
@@ -22,9 +16,9 @@ import {
   flushSave,
   importDatabaseBytes
 } from "./sqlite/db"
+import { importPortableStorageTransaction } from "./storage/backup-import-transaction"
 import {
   BACKUP_MANIFEST_VERSION,
-  getImportResetStorageKeys,
   SUPPORTED_BACKUP_MANIFEST_VERSIONS,
   selectPortableStorageData
 } from "./storage/backup-storage-policy"
@@ -75,58 +69,29 @@ const requestLiveSqliteFlush = async (): Promise<void> => {
   }
 }
 
-const importPortableStorageData = async (
-  data: Record<string, unknown>,
-  options: { resetPortableSettings?: boolean } = {}
-): Promise<string[]> =>
-  withProviderPersistenceLock(async () => {
-    await recoverProviderResetUnlocked()
-    await recoverProviderPersistenceUnlocked()
+const preparePortableStorageImport = (
+  data: Record<string, unknown>
+): {
+  settings: Record<string, unknown>
+  providerConfigs?: ProviderConfig[]
+} => {
+  const settings = { ...data }
+  const providerConfigValue = settings[ProviderStorageKey.CONFIG]
+  delete settings[ProviderStorageKey.CONFIG]
+  if (providerConfigValue === undefined) return { settings }
 
-    if (options.resetPortableSettings === true) {
-      await chrome.storage.sync.remove(getImportResetStorageKeys())
-    }
-
-    const failedKeys: string[] = []
-    const providerConfigs = data[ProviderStorageKey.CONFIG]
-    const ordinaryEntries = Object.entries(data).filter(
-      ([key]) => key !== ProviderStorageKey.CONFIG
-    )
-
-    for (const [key, value] of ordinaryEntries) {
-      try {
-        await chrome.storage.sync.set({ [key]: value })
-      } catch (error) {
-        const errorMessage = getErrorMessage(error, "Unknown error")
-        logger.warn(
-          `Failed to import sync key ${key}: ${errorMessage}`,
-          "Backup"
-        )
-        failedKeys.push(key)
-      }
-    }
-
-    if (providerConfigs !== undefined) {
-      const parsedProviderConfigs =
-        ProviderConfigsBackupSchema.safeParse(providerConfigs)
-      if (!parsedProviderConfigs.success) {
-        failedKeys.push(ProviderStorageKey.CONFIG)
-      } else {
-        try {
-          await persistProviderConfigsUnlocked(
-            parsedProviderConfigs.data as ProviderConfig[]
-          )
-        } catch (error) {
-          logger.warn("Failed to import provider configuration", "Backup", {
-            error
-          })
-          failedKeys.push(ProviderStorageKey.CONFIG)
-        }
-      }
-    }
-
-    return failedKeys
-  })
+  const parsedProviderConfigs =
+    ProviderConfigsBackupSchema.safeParse(providerConfigValue)
+  if (!parsedProviderConfigs.success) {
+    throw createAppError("Invalid provider configuration in backup", {
+      kind: "validation"
+    })
+  }
+  return {
+    settings,
+    providerConfigs: parsedProviderConfigs.data as ProviderConfig[]
+  }
+}
 
 export const backupService = {
   exportAll: async (): Promise<Blob> => {
@@ -236,7 +201,11 @@ export const backupService = {
         )
       }
 
-      // Sync Storage
+      let syncData: Record<string, unknown> | undefined
+      let localData: Record<string, unknown> | undefined
+
+      // Parse both storage files before mutating either area. Legacy local
+      // values fill gaps only; the canonical sync file wins every conflict.
       try {
         const syncFile = zip.file("sync-storage.json")
         if (syncFile) {
@@ -248,24 +217,12 @@ export const backupService = {
               { kind: "validation" }
             )
           }
-          const { data: syncData, rejectedKeys } = selectPortableStorageData(
-            syncResult.data,
-            { allowLegacyKeys: manifest.version === 1 }
-          )
-          result.skippedStorageKeys.push(...rejectedKeys)
-
-          const failedKeys = await importPortableStorageData(syncData, {
-            resetPortableSettings: true
+          const selected = selectPortableStorageData(syncResult.data, {
+            allowLegacyKeys: manifest.version === 1
           })
-
-          if (failedKeys.length > 0) {
-            result.syncStorage = {
-              ok: false,
-              error: `Failed to import keys due to quota/size: ${failedKeys.join(", ")}`
-            }
-          } else {
-            result.syncStorage.ok = true
-          }
+          syncData = selected.data
+          result.skippedStorageKeys.push(...selected.rejectedKeys)
+          result.syncStorage.ok = true
         } else {
           result.syncStorage = { ok: false, error: "Missing sync-storage.json" }
         }
@@ -276,7 +233,6 @@ export const backupService = {
         }
       }
 
-      // Local Storage
       try {
         const localFile = zip.file("local-storage.json")
         if (localFile) {
@@ -288,19 +244,12 @@ export const backupService = {
               { kind: "validation" }
             )
           }
-          const { data: localData, rejectedKeys } = selectPortableStorageData(
-            localResult.data,
-            { allowLegacyKeys: manifest.version === 1 }
-          )
-          result.skippedStorageKeys.push(...rejectedKeys)
-          const failedKeys = await importPortableStorageData(localData)
-          result.localStorage =
-            failedKeys.length === 0
-              ? { ok: true }
-              : {
-                  ok: false,
-                  error: `Failed to import keys due to quota/size: ${failedKeys.join(", ")}`
-                }
+          const selected = selectPortableStorageData(localResult.data, {
+            allowLegacyKeys: manifest.version === 1
+          })
+          localData = selected.data
+          result.skippedStorageKeys.push(...selected.rejectedKeys)
+          result.localStorage.ok = true
         } else {
           result.localStorage = {
             ok: false,
@@ -311,6 +260,23 @@ export const backupService = {
         result.localStorage = {
           ok: false,
           error: e instanceof Error ? e.message : "Unknown error"
+        }
+      }
+
+      if (syncData !== undefined || localData !== undefined) {
+        try {
+          const mergedData = { ...(localData ?? {}), ...(syncData ?? {}) }
+          const { settings, providerConfigs } =
+            preparePortableStorageImport(mergedData)
+          await importPortableStorageTransaction(settings, providerConfigs)
+        } catch (error) {
+          const storageError = getErrorMessage(error, "Unknown error")
+          if (syncData !== undefined) {
+            result.syncStorage = { ok: false, error: storageError }
+          }
+          if (localData !== undefined) {
+            result.localStorage = { ok: false, error: storageError }
+          }
         }
       }
 

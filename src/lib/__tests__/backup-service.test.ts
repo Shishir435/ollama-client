@@ -256,15 +256,51 @@ describe("backupService", () => {
       expect(result.dexie.knowledgeDb.ok).toBe(true)
 
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
-        [STORAGE_KEYS.THEME.PREFERENCE]: "dark"
-      })
-      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        [STORAGE_KEYS.THEME.PREFERENCE]: "dark",
         [STORAGE_KEYS.LANGUAGE]: "fr"
       })
       expect(chrome.storage.sync.clear).not.toHaveBeenCalled()
       expect(chrome.storage.local.clear).not.toHaveBeenCalled()
       expect(importDatabaseBytes).toHaveBeenCalled()
       expect(importInto).toHaveBeenCalledTimes(2)
+    })
+
+    it("gives sync storage precedence over conflicting legacy local values", async () => {
+      const mockFile = (content: string) => ({
+        async: vi.fn().mockResolvedValue(content)
+      })
+      vi.mocked(JSZip.loadAsync).mockResolvedValue({
+        file: vi.fn().mockImplementation((name) => {
+          if (name === "manifest.json")
+            return mockFile(JSON.stringify(mockManifest))
+          if (name === "sync-storage.json")
+            return mockFile(
+              JSON.stringify({ [STORAGE_KEYS.THEME.PREFERENCE]: "dark" })
+            )
+          if (name === "local-storage.json")
+            return mockFile(
+              JSON.stringify({
+                [STORAGE_KEYS.THEME.PREFERENCE]: "light",
+                [STORAGE_KEYS.LANGUAGE]: "de"
+              })
+            )
+          return null
+        })
+      } as any)
+
+      const result = await backupService.importAll(
+        new File([], "conflicting-legacy.zip")
+      )
+
+      expect(result.syncStorage.ok).toBe(true)
+      expect(result.localStorage.ok).toBe(true)
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        [STORAGE_KEYS.THEME.PREFERENCE]: "dark",
+        [STORAGE_KEYS.LANGUAGE]: "de"
+      })
+      expect(
+        JSON.stringify(vi.mocked(chrome.storage.sync.set).mock.calls)
+      ).not.toContain('"light"')
     })
 
     it("filters secrets and internal markers from legacy backups", async () => {
@@ -313,9 +349,7 @@ describe("backupService", () => {
         ])
       )
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
-        [STORAGE_KEYS.THEME.PREFERENCE]: "dark"
-      })
-      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        [STORAGE_KEYS.THEME.PREFERENCE]: "dark",
         [STORAGE_KEYS.LANGUAGE]: "de"
       })
       expect(

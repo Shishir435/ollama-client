@@ -9,6 +9,11 @@ export interface StorageKeyMetadata {
 }
 
 export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
+  [STORAGE_KEYS.BACKUP.IMPORT_JOURNAL]: {
+    key: STORAGE_KEYS.BACKUP.IMPORT_JOURNAL,
+    scope: "device-local",
+    reason: "Temporary rollback state for portable-settings imports."
+  },
   [STORAGE_KEYS.PROVIDER.SECRETS]: {
     key: STORAGE_KEYS.PROVIDER.SECRETS,
     scope: "device-local",
