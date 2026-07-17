@@ -9,7 +9,7 @@ describe("content debug logging", () => {
   })
 
   it("is disabled by default", () => {
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+    const consoleSpy = vi.spyOn(console, "info").mockImplementation(() => {})
 
     contentDebugLog("hidden")
 
@@ -21,11 +21,14 @@ describe("content debug logging", () => {
     ;(
       window as unknown as { __OLLAMA_CLIENT_CONTENT_DEBUG__?: boolean }
     ).__OLLAMA_CLIENT_CONTENT_DEBUG__ = true
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+    const consoleSpy = vi.spyOn(console, "info").mockImplementation(() => {})
 
     contentDebugLog("visible", { ok: true })
 
     expect(isContentDebugEnabled()).toBe(true)
-    expect(consoleSpy).toHaveBeenCalledWith("visible", { ok: true })
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[ContentDebug] visible"),
+      { details: [{ ok: true }] }
+    )
   })
 })

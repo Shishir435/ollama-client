@@ -156,7 +156,7 @@ export const useChatStream = ({
           done: msg.done,
           error: msg.error
         })
-        logger.debug("MSG", "useChatStream", JSON.stringify(msg, null, 3))
+        logger.debug("MSG", "useChatStream", msg)
       }
       if (firstChunk) {
         setIsStreaming(true)

@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger"
+
 interface ContentDebugWindow extends Window {
   __OLLAMA_CLIENT_CONTENT_DEBUG__?: boolean
 }
@@ -9,6 +11,9 @@ export const isContentDebugEnabled = (): boolean =>
 
 export const contentDebugLog = (...args: unknown[]): void => {
   if (isContentDebugEnabled()) {
-    console.log(...args)
+    const [message, ...details] = args
+    logger.info(String(message ?? "Content debug event"), "ContentDebug", {
+      details
+    })
   }
 }

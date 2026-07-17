@@ -76,7 +76,7 @@ const installDebugHelpers = (): void => {
         )
       }
     } catch (error) {
-      console.error("[Manual Test] Error:", error)
+      contentDebugLog("[Manual Test] Error:", { error })
     }
   }
 
@@ -98,7 +98,7 @@ const installDebugHelpers = (): void => {
         result.logEntry.detectedPatterns
       )
     } catch (error) {
-      console.error("[Manual Test] Error:", error)
+      contentDebugLog("[Manual Test] Error:", { error })
     }
   }
 

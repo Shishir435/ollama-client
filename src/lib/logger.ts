@@ -1,3 +1,5 @@
+import { redactLogText, redactLogValue } from "@/lib/log-redaction"
+
 /**
  * Log levels for the application
  * Higher values = more severe
@@ -63,23 +65,24 @@ export class Logger {
 
     const levelName = LOG_LEVEL_NAMES[level]
     const timestamp = new Date().toISOString()
-    const contextStr = context ? `[${context}]` : ""
-    const sessionStr = sessionId ? `[Session:${sessionId}]` : ""
-    const formatted = `${timestamp} ${levelName.toUpperCase()} ${contextStr}${sessionStr} ${message}`
+    const contextStr = context ? `[${redactLogText(context)}]` : ""
+    const sessionStr = sessionId ? `[Session:${redactLogText(sessionId)}]` : ""
+    const formatted = `${timestamp} ${levelName.toUpperCase()} ${contextStr}${sessionStr} ${redactLogText(message)}`
+    const safeData = data === undefined ? "" : redactLogValue(data)
 
     switch (level) {
       case LogLevel.DEBUG:
       case LogLevel.VERBOSE:
-        console.log(formatted, data ?? "")
+        console.log(formatted, safeData)
         break
       case LogLevel.INFO:
-        console.info(formatted, data ?? "")
+        console.info(formatted, safeData)
         break
       case LogLevel.WARN:
-        console.warn(formatted, data ?? "")
+        console.warn(formatted, safeData)
         break
       case LogLevel.ERROR:
-        console.error(formatted, data ?? "")
+        console.error(formatted, safeData)
         break
     }
   }
