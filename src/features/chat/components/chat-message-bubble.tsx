@@ -7,13 +7,7 @@ import { ChatMessageContent } from "./chat-message-content"
 import { ChatMessageEditor } from "./chat-message-editor"
 import { ChatMessageFooter } from "./chat-message-footer"
 
-const looksLikeAssistantError = (message: ChatMessage) => {
-  if (message.error) return true
-  if (message.role === "user" || !message.done) return false
-  return /\b(error|failed|failure|unavailable|timed out|try again)\b/i.test(
-    message.content
-  )
-}
+const hasAssistantError = (message: ChatMessage) => Boolean(message.error)
 
 export const ChatMessageBubble = memo(
   ({
@@ -108,9 +102,7 @@ export const ChatMessageBubble = memo(
               feedbackEnabled={feedbackEnabled}
               onRegenerate={onRegenerate}
               canRetry={canRetry}
-              canReport={
-                !isLoading && !isStreaming && looksLikeAssistantError(msg)
-              }
+              canReport={!isLoading && !isStreaming && hasAssistantError(msg)}
               onEdit={() => setEditorMode("edit")}
               onFork={isUser ? () => setEditorMode("fork") : undefined}
               onDelete={onDelete}
