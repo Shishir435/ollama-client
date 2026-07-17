@@ -1740,6 +1740,11 @@
         "description": "Quellcode, Veröffentlichungen und Beitragsrichtlinien",
         "badge": "Code"
       },
+      "issue": {
+        "label": "GitHub-Issue öffnen",
+        "description": "Melden Sie Fehler oder Probleme, bevor Sie eine Store-Bewertung abgeben",
+        "badge": "Support"
+      },
       "faq": {
         "label": "Fehlerbehebung & FAQ",
         "description": "Häufige Probleme und Community-Support",

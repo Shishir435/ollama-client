@@ -14,6 +14,9 @@ import {
 } from "@/lib/lucide-icon"
 import type { ContentScraper, ScrollStrategy } from "@/types"
 
+export const GITHUB_NEW_ISSUE_URL =
+  "https://github.com/Shishir435/ollama-client/issues/new?title=Help%20needed%3A%20&body=What%20happened%3F%0A%0AWhat%20did%20you%20expect%3F%0A%0AExtension%20version%3A%200.12.3%0ABrowser%3A%0AProvider%3A%0AModel%3A"
+
 export interface SocialLink {
   id: string
   labelKey: string
@@ -124,6 +127,13 @@ export const GUIDES = [
     badgeKey: "guides.items.github.badge"
   },
   {
+    labelKey: "guides.items.issue.label",
+    href: GITHUB_NEW_ISSUE_URL,
+    icon: Bug,
+    descriptionKey: "guides.items.issue.description",
+    badgeKey: "guides.items.issue.badge"
+  },
+  {
     labelKey: "guides.items.faq.label",
     href: "https://github.com/Shishir435/ollama-client/issues",
     icon: HelpCircle,
@@ -166,7 +176,7 @@ export const SOCIAL_LINKS = [
   {
     id: "bug_report",
     labelKey: "social.bug_report",
-    href: "https://github.com/Shishir435/ollama-client/issues",
+    href: GITHUB_NEW_ISSUE_URL,
     icon: Bug
   }
 ]

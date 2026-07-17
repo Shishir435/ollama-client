@@ -1740,6 +1740,11 @@
         "description": "Codice sorgente, rilasci e linee guida per la contribuzione",
         "badge": "Codice"
       },
+      "issue": {
+        "label": "Apri una issue GitHub",
+        "description": "Segnala bug o problemi prima di lasciare una recensione nello store",
+        "badge": "Supporto"
+      },
       "faq": {
         "label": "Risoluzione dei Problemi e FAQ",
         "description": "Problemi comuni e supporto della comunità",

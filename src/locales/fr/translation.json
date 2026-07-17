@@ -1740,6 +1740,11 @@
         "description": "Code source, versions et directives de contribution",
         "badge": "Code"
       },
+      "issue": {
+        "label": "Ouvrir une issue GitHub",
+        "description": "Signalez les bugs ou problèmes avant de laisser un avis sur le store",
+        "badge": "Support"
+      },
       "faq": {
         "label": "Dépannage et FAQ",
         "description": "Problèmes courants et support communautaire",

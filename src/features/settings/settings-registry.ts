@@ -1240,6 +1240,15 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     aliases: ["github", "repo", "source code", "releases"]
   },
   {
+    id: "guide-issue",
+    tab: "help",
+    sectionId: "guides",
+    labelKey: "guides.items.issue.label",
+    descriptionKey: "guides.items.issue.description",
+    searchKeys: ["guides.items.issue.badge"],
+    aliases: ["bug", "issue", "support", "feedback", "github issue"]
+  },
+  {
     id: "guide-faq",
     tab: "help",
     sectionId: "guides",
