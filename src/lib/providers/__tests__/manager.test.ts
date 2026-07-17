@@ -144,6 +144,138 @@ describe("ProviderManager", () => {
     expect(syncBacking.get(ProviderStorageKey.CONFIG)).toEqual(legacyProviders)
   })
 
+  it("rolls local credentials back when the sync commit fails", async () => {
+    const provider = {
+      id: "custom:openai:rollback",
+      type: ProviderType.OPENAI,
+      name: "Rollback remote",
+      enabled: true,
+      baseUrl: "https://example.com/v1"
+    }
+    syncBacking.set(ProviderStorageKey.CONFIG, [...DEFAULT_PROVIDERS, provider])
+    localBacking.set(STORAGE_KEYS.PROVIDER.SECRETS, {
+      [provider.id]: "sk-preserved"
+    })
+    stores.sync.set.mockRejectedValueOnce(new Error("sync write failed"))
+
+    await expect(
+      ProviderManager.saveProviders([...DEFAULT_PROVIDERS])
+    ).rejects.toThrow("sync write failed")
+
+    expect(localBacking.get(STORAGE_KEYS.PROVIDER.SECRETS)).toEqual({
+      [provider.id]: "sk-preserved"
+    })
+    expect(syncBacking.get(ProviderStorageKey.CONFIG)).toContainEqual(provider)
+    expect(localBacking.has(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)).toBe(
+      false
+    )
+  })
+
+  it("repairs an interruption after journaling but before the sync commit", async () => {
+    const provider = {
+      id: "custom:openai:recover-pre-commit",
+      type: ProviderType.OPENAI,
+      name: "Recover pre-commit",
+      enabled: true,
+      baseUrl: "https://example.com/v1"
+    }
+    syncBacking.set(ProviderStorageKey.CONFIG, [...DEFAULT_PROVIDERS, provider])
+    localBacking.set(STORAGE_KEYS.PROVIDER.SECRETS, {
+      [provider.id]: "sk-before-interruption"
+    })
+    stores.local.set
+      .mockImplementationOnce(async (key: string, value: unknown) => {
+        localBacking.set(key, value)
+      })
+      .mockRejectedValueOnce(new Error("secret write interrupted"))
+
+    await expect(
+      ProviderManager.saveProviders([...DEFAULT_PROVIDERS])
+    ).rejects.toThrow("secret write interrupted")
+    expect(stores.sync.set).not.toHaveBeenCalled()
+    expect(localBacking.has(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)).toBe(
+      true
+    )
+
+    await expect(
+      ProviderManager.getProviderConfig(provider.id)
+    ).resolves.toMatchObject({ apiKey: "sk-before-interruption" })
+    expect(localBacking.has(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)).toBe(
+      false
+    )
+  })
+
+  it("repairs an interrupted rollback from the durable journal", async () => {
+    const provider = {
+      id: "custom:openai:recover-rollback",
+      type: ProviderType.OPENAI,
+      name: "Recover rollback",
+      enabled: true,
+      baseUrl: "https://example.com/v1"
+    }
+    syncBacking.set(ProviderStorageKey.CONFIG, [...DEFAULT_PROVIDERS, provider])
+    localBacking.set(STORAGE_KEYS.PROVIDER.SECRETS, {
+      [provider.id]: "sk-recovered"
+    })
+    stores.local.set
+      .mockImplementationOnce(async (key: string, value: unknown) => {
+        localBacking.set(key, value)
+      })
+      .mockImplementationOnce(async (key: string, value: unknown) => {
+        localBacking.set(key, value)
+      })
+      .mockRejectedValueOnce(new Error("rollback write failed"))
+    stores.sync.set.mockRejectedValueOnce(new Error("sync write failed"))
+
+    await expect(
+      ProviderManager.saveProviders([...DEFAULT_PROVIDERS])
+    ).rejects.toThrow("credential rollback both failed")
+    expect(localBacking.get(STORAGE_KEYS.PROVIDER.SECRETS)).toEqual({})
+    expect(localBacking.has(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)).toBe(
+      true
+    )
+
+    await expect(
+      ProviderManager.getProviderConfig(provider.id)
+    ).resolves.toMatchObject({ apiKey: "sk-recovered" })
+    expect(localBacking.get(STORAGE_KEYS.PROVIDER.SECRETS)).toEqual({
+      [provider.id]: "sk-recovered"
+    })
+    expect(localBacking.has(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)).toBe(
+      false
+    )
+  })
+
+  it("rolls a committed revision forward when journal cleanup was interrupted", async () => {
+    syncBacking.set(ProviderStorageKey.CONFIG, [...DEFAULT_PROVIDERS])
+    const provider = {
+      id: "custom:openai:recover-commit",
+      type: ProviderType.OPENAI,
+      name: "Recover commit",
+      enabled: true,
+      baseUrl: "https://example.com/v1",
+      apiKey: "sk-committed"
+    }
+    stores.local.remove.mockRejectedValueOnce(new Error("cleanup failed"))
+
+    await expect(
+      ProviderManager.saveProviders([...DEFAULT_PROVIDERS, provider])
+    ).rejects.toThrow("cleanup failed")
+    expect(localBacking.has(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)).toBe(
+      true
+    )
+
+    await expect(
+      ProviderManager.getProviderConfig(provider.id)
+    ).resolves.toMatchObject({ apiKey: "sk-committed" })
+    expect(localBacking.get(STORAGE_KEYS.PROVIDER.SECRETS)).toEqual({
+      [provider.id]: "sk-committed"
+    })
+    expect(localBacking.has(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)).toBe(
+      false
+    )
+  })
+
   it("serializes overlapping provider saves across both storage areas", async () => {
     const events: string[] = []
     let releaseFirstLocalWrite: (() => void) | undefined
@@ -173,16 +305,24 @@ describe("ProviderManager", () => {
       }
     ]
 
-    stores.local.set
-      .mockImplementationOnce(async (key: string, value: unknown) => {
-        events.push("local:first")
-        localBacking.set(key, value)
-        await firstLocalWriteBlocked
-      })
-      .mockImplementationOnce(async (key: string, value: unknown) => {
-        events.push("local:second")
-        localBacking.set(key, value)
-      })
+    stores.local.set.mockImplementation(async (key: string, value: unknown) => {
+      const revisionValue =
+        key === STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL
+          ? (value as { nextPublicConfigs: ProviderConfig[] }).nextPublicConfigs
+          : value
+      const revision = JSON.stringify(revisionValue).includes(
+        "custom:openai:first"
+      )
+        ? "first"
+        : "second"
+      if (key === STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL) {
+        events.push(`journal:${revision}`)
+      } else {
+        events.push(`local:${revision}`)
+      }
+      localBacking.set(key, value)
+      if (events.length === 1) await firstLocalWriteBlocked
+    })
     stores.sync.set.mockImplementation(async (key: string, value: unknown) => {
       const configs = value as ProviderConfig[]
       events.push(
@@ -194,17 +334,19 @@ describe("ProviderManager", () => {
     })
 
     const firstSave = ProviderManager.saveProviders(firstProviders)
-    await vi.waitFor(() => expect(events).toEqual(["local:first"]))
+    await vi.waitFor(() => expect(events).toEqual(["journal:first"]))
     const secondSave = ProviderManager.saveProviders(secondProviders)
 
     await Promise.resolve()
-    expect(events).toEqual(["local:first"])
+    expect(events).toEqual(["journal:first"])
     releaseFirstLocalWrite?.()
     await Promise.all([firstSave, secondSave])
 
     expect(events).toEqual([
+      "journal:first",
       "local:first",
       "sync:first",
+      "journal:second",
       "local:second",
       "sync:second"
     ])

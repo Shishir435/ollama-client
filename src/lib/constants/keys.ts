@@ -76,6 +76,8 @@ export const STORAGE_KEYS = {
     BASE_URL: "provider-base-url",
     /** Device-local provider credentials; never store this key in sync. */
     SECRETS: "llm_provider_secrets_v1",
+    /** Recovery journal for cross-area provider config commits. */
+    PERSISTENCE_JOURNAL: "llm_provider_persistence_journal_v1",
     SELECTED_MODEL: "provider-selected-model",
     SELECTED_MODEL_REF: "provider-selected-model-ref",
     SELECTION_CONFLICT_MODEL: "provider-selection-conflict-model",

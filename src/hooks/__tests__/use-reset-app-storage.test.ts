@@ -90,6 +90,7 @@ describe("useResetAppStorage", () => {
     expect(keys.LANGUAGE).toEqual(["app-language"])
     expect(keys.PROVIDER).toContain(ProviderStorageKey.CONFIG)
     expect(keys.PROVIDER).toContain(STORAGE_KEYS.PROVIDER.SECRETS)
+    expect(keys.PROVIDER).toContain(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)
     expect(keys.PROVIDER).toContain(ProviderStorageKey.MODEL_MAPPINGS)
   })
 })

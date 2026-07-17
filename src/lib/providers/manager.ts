@@ -9,6 +9,7 @@ import {
   hydrateProviderSecrets,
   persistProviderConfigs,
   persistProviderConfigsUnlocked,
+  recoverProviderPersistenceUnlocked,
   withProviderPersistenceLock
 } from "./provider-secret-store"
 import {
@@ -208,6 +209,7 @@ const validateProviderBaseUrl = (baseUrl?: string): void => {
 
 /** Caller must hold the provider-persistence lock. */
 const getProvidersUnlocked = async (): Promise<ProviderConfig[]> => {
+  await recoverProviderPersistenceUnlocked()
   let stored = await plasmoGlobalStorage.get<ProviderConfig[]>(
     ProviderStorageKey.CONFIG
   )
