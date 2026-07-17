@@ -244,6 +244,7 @@ describe("S2 — reset actually wipes data", () => {
     expect(allKeys).toContain(ProviderStorageKey.CONFIG)
     expect(allKeys).toContain(STORAGE_KEYS.PROVIDER.SECRETS)
     expect(allKeys).toContain(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)
+    expect(allKeys).toContain(STORAGE_KEYS.PROVIDER.RESET_JOURNAL)
     expect(allKeys).toContain(ProviderStorageKey.MODEL_MAPPINGS)
 
     // The other reset bug: Object.values() on a top-level *string* key

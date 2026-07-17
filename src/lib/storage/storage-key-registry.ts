@@ -19,6 +19,11 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "device-local",
     reason: "Temporary recovery state for cross-area provider config commits."
   },
+  [STORAGE_KEYS.PROVIDER.RESET_JOURNAL]: {
+    key: STORAGE_KEYS.PROVIDER.RESET_JOURNAL,
+    scope: "device-local",
+    reason: "Durable recovery state for interrupted provider-data resets."
+  },
   [STORAGE_KEYS.PROVIDER.BASE_URL]: {
     key: STORAGE_KEYS.PROVIDER.BASE_URL,
     scope: "sync-safe",

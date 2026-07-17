@@ -8,8 +8,10 @@ import {
   plasmoGlobalStorage,
   removePlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
-import { withProviderPersistenceLock } from "@/lib/providers/provider-secret-store"
-import { ProviderStorageKey } from "@/lib/providers/types"
+import {
+  resetProviderStorageUnlocked,
+  withProviderPersistenceLock
+} from "@/lib/providers/provider-secret-store"
 import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
@@ -30,6 +32,7 @@ export const useResetAppStorage = () => {
 
       if (key === "all") {
         await withProviderPersistenceLock(async () => {
+          await resetProviderStorageUnlocked(allKeys.PROVIDER || [])
           await plasmoGlobalStorage.clear()
           await plasmoDeviceStorage.clear()
         })
@@ -41,18 +44,9 @@ export const useResetAppStorage = () => {
             Promise.all(keysToRemove.map((key) => removePlasmoStoredValue(key)))
 
           if (key === "PROVIDER") {
-            await withProviderPersistenceLock(async () => {
-              // Remove public config before local credentials. If sync removal
-              // fails, the configured providers retain usable credentials.
-              await removePlasmoStoredValue(ProviderStorageKey.CONFIG)
-              await Promise.all(
-                keysToRemove
-                  .filter(
-                    (storageKey) => storageKey !== ProviderStorageKey.CONFIG
-                  )
-                  .map((storageKey) => removePlasmoStoredValue(storageKey))
-              )
-            })
+            await withProviderPersistenceLock(() =>
+              resetProviderStorageUnlocked(keysToRemove)
+            )
           } else {
             await removeKeys()
           }

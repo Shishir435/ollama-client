@@ -78,6 +78,8 @@ export const STORAGE_KEYS = {
     SECRETS: "llm_provider_secrets_v1",
     /** Recovery journal for cross-area provider config commits. */
     PERSISTENCE_JOURNAL: "llm_provider_persistence_journal_v1",
+    /** Durable tombstone for interrupted provider-data resets. */
+    RESET_JOURNAL: "llm_provider_reset_journal_v1",
     SELECTED_MODEL: "provider-selected-model",
     SELECTED_MODEL_REF: "provider-selected-model-ref",
     SELECTION_CONFLICT_MODEL: "provider-selection-conflict-model",

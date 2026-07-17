@@ -1,7 +1,8 @@
 import { STORAGE_KEYS } from "@/lib/constants"
 import {
   plasmoDeviceStorage,
-  plasmoGlobalStorage
+  plasmoGlobalStorage,
+  removePlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { type ProviderConfig, ProviderStorageKey } from "@/lib/providers/types"
 import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
@@ -16,6 +17,10 @@ type ProviderPersistenceJournal = {
   previousSecrets: ProviderSecretMap
   nextSecrets: ProviderSecretMap
   nextPublicConfigs: ProviderConfig[]
+}
+type ProviderResetJournal = {
+  version: 1
+  keys: string[]
 }
 
 const PROVIDER_PERSISTENCE_LOCK = "ollama-client:provider-persistence"
@@ -66,6 +71,44 @@ export const hydrateProviderSecrets = async (
 export const containsLegacySyncedSecrets = (
   providers: ProviderConfig[]
 ): boolean => providers.some(hasOwnApiKey)
+
+/** Caller must hold the provider-persistence lock. */
+export const recoverProviderResetUnlocked = async (): Promise<void> => {
+  const journal = await plasmoDeviceStorage.get<ProviderResetJournal>(
+    STORAGE_KEYS.PROVIDER.RESET_JOURNAL
+  )
+  if (!journal) return
+
+  for (const key of journal.keys) {
+    await removePlasmoStoredValue(key)
+  }
+  await plasmoDeviceStorage.remove(STORAGE_KEYS.PROVIDER.RESET_JOURNAL)
+}
+
+/**
+ * Durably clear provider storage. The journal remains until every removal
+ * succeeds, so a later provider read or write can finish interrupted cleanup.
+ * Caller must hold the provider-persistence lock.
+ */
+export const resetProviderStorageUnlocked = async (
+  keys: string[]
+): Promise<void> => {
+  const resetKeys = [
+    ProviderStorageKey.CONFIG,
+    ...keys.filter(
+      (key) =>
+        key !== ProviderStorageKey.CONFIG &&
+        key !== STORAGE_KEYS.PROVIDER.RESET_JOURNAL
+    )
+  ]
+  const journal: ProviderResetJournal = {
+    version: 1,
+    keys: [...new Set(resetKeys)]
+  }
+
+  await plasmoDeviceStorage.set(STORAGE_KEYS.PROVIDER.RESET_JOURNAL, journal)
+  await recoverProviderResetUnlocked()
+}
 
 /** Caller must hold the provider-persistence lock. */
 export const recoverProviderPersistenceUnlocked = async (): Promise<void> => {
@@ -146,6 +189,7 @@ export const persistProviderConfigs = async (
   // earlier save owns the cross-context lock.
   const snapshot = providers.map((provider) => ({ ...provider }))
   await withProviderPersistenceLock(async () => {
+    await recoverProviderResetUnlocked()
     await recoverProviderPersistenceUnlocked()
     await persistProviderConfigsUnlocked(snapshot)
   })

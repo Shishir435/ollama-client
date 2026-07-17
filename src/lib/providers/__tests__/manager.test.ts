@@ -16,10 +16,16 @@ const stores = vi.hoisted(() => ({
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: stores.sync,
-  plasmoDeviceStorage: stores.local
+  plasmoDeviceStorage: stores.local,
+  removePlasmoStoredValue: vi.fn(async (key: string) =>
+    key.startsWith("llm_provider_")
+      ? stores.local.remove(key)
+      : stores.sync.remove(key)
+  )
 }))
 
 import { DEFAULT_PROVIDERS, ProviderManager } from "../manager"
+import { resetProviderStorageUnlocked } from "../provider-secret-store"
 import {
   isCustomProviderId,
   type ProviderConfig,
@@ -274,6 +280,55 @@ describe("ProviderManager", () => {
     expect(localBacking.has(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)).toBe(
       false
     )
+  })
+
+  it("finishes an interrupted provider reset before restoring defaults", async () => {
+    const removedProvider = {
+      id: "custom:openai:reset-interrupted",
+      type: ProviderType.OPENAI,
+      name: "Reset interrupted",
+      enabled: true,
+      baseUrl: "https://example.com/v1"
+    }
+    syncBacking.set(ProviderStorageKey.CONFIG, [
+      ...DEFAULT_PROVIDERS,
+      removedProvider
+    ])
+    localBacking.set(STORAGE_KEYS.PROVIDER.SECRETS, {
+      [removedProvider.id]: "sk-must-be-cleared"
+    })
+    let interruptSecretRemoval = true
+    stores.local.remove.mockImplementation(async (key: string) => {
+      if (key === STORAGE_KEYS.PROVIDER.SECRETS && interruptSecretRemoval) {
+        interruptSecretRemoval = false
+        throw new Error("secret cleanup interrupted")
+      }
+      localBacking.delete(key)
+    })
+
+    await expect(
+      resetProviderStorageUnlocked([
+        ProviderStorageKey.CONFIG,
+        STORAGE_KEYS.PROVIDER.SECRETS,
+        STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL,
+        STORAGE_KEYS.PROVIDER.RESET_JOURNAL
+      ])
+    ).rejects.toThrow("secret cleanup interrupted")
+
+    expect(syncBacking.has(ProviderStorageKey.CONFIG)).toBe(false)
+    expect(localBacking.get(STORAGE_KEYS.PROVIDER.SECRETS)).toEqual({
+      [removedProvider.id]: "sk-must-be-cleared"
+    })
+    expect(localBacking.has(STORAGE_KEYS.PROVIDER.RESET_JOURNAL)).toBe(true)
+
+    const providers = await ProviderManager.getProviders()
+
+    expect(providers).toEqual(DEFAULT_PROVIDERS)
+    expect(localBacking.get(STORAGE_KEYS.PROVIDER.SECRETS)).toEqual({})
+    expect(localBacking.has(STORAGE_KEYS.PROVIDER.RESET_JOURNAL)).toBe(false)
+    expect(
+      JSON.stringify(syncBacking.get(ProviderStorageKey.CONFIG))
+    ).not.toContain(removedProvider.id)
   })
 
   it("serializes overlapping provider saves across both storage areas", async () => {
