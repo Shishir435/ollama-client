@@ -218,6 +218,47 @@ describe("ProviderManager", () => {
     ).toBe(true)
   })
 
+  it("locks concurrent provider read-modify-write operations", async () => {
+    syncBacking.set(ProviderStorageKey.CONFIG, [...DEFAULT_PROVIDERS])
+    let releaseFirstWrite: (() => void) | undefined
+    const firstWriteBlocked = new Promise<void>((resolve) => {
+      releaseFirstWrite = resolve
+    })
+    stores.local.set.mockImplementationOnce(
+      async (key: string, value: unknown) => {
+        localBacking.set(key, value)
+        await firstWriteBlocked
+      }
+    )
+
+    const enableLmStudio = ProviderManager.updateProviderConfig(
+      ProviderId.LM_STUDIO,
+      { enabled: true }
+    )
+    await vi.waitFor(() => expect(stores.local.set).toHaveBeenCalledTimes(1))
+
+    const enableLlamaCpp = ProviderManager.updateProviderConfig(
+      ProviderId.LLAMA_CPP,
+      { enabled: true }
+    )
+    await Promise.resolve()
+
+    // Second transaction cannot read its snapshot while first write is open.
+    expect(stores.sync.get).toHaveBeenCalledTimes(3)
+    releaseFirstWrite?.()
+    await Promise.all([enableLmStudio, enableLlamaCpp])
+
+    const stored = syncBacking.get(
+      ProviderStorageKey.CONFIG
+    ) as ProviderConfig[]
+    expect(
+      stored.find((provider) => provider.id === ProviderId.LM_STUDIO)?.enabled
+    ).toBe(true)
+    expect(
+      stored.find((provider) => provider.id === ProviderId.LLAMA_CPP)?.enabled
+    ).toBe(true)
+  })
+
   it("removes a cleared API key from local storage", async () => {
     syncBacking.set(ProviderStorageKey.CONFIG, [...DEFAULT_PROVIDERS])
     localBacking.set(STORAGE_KEYS.PROVIDER.SECRETS, {

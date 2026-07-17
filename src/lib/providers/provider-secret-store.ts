@@ -40,14 +40,19 @@ const enqueuePersistence = (operation: () => Promise<void>): Promise<void> => {
   return queued
 }
 
-const withPersistenceLock = (operation: () => Promise<void>): Promise<void> => {
+export const withProviderPersistenceLock = <T>(
+  operation: () => Promise<T>
+): Promise<T> => {
   const lockManager = globalThis.navigator?.locks
   if (lockManager) {
     return lockManager
       .request(PROVIDER_PERSISTENCE_LOCK, operation)
-      .then(() => undefined)
+      .then((result) => result)
   }
-  return enqueuePersistence(operation)
+  let result: T
+  return enqueuePersistence(async () => {
+    result = await operation()
+  }).then(() => result)
 }
 
 export const hydrateProviderSecrets = async (
@@ -75,24 +80,28 @@ export const containsLegacySyncedSecrets = (
  * Persist credentials before public config. A failed local write leaves sync
  * untouched; a failed sync write is safe to retry and cannot lose credentials.
  */
-export const persistProviderConfigs = async (
+export const persistProviderConfigsUnlocked = async (
   providers: ProviderConfig[]
 ): Promise<void> => {
-  // Snapshot before waiting: callers may mutate their form state while an
-  // earlier save owns the cross-context lock.
   const snapshot: ProviderPersistenceSnapshot = {
     secrets: extractSecrets(providers),
     publicConfigs: providers.map(stripSecrets)
   }
 
-  await withPersistenceLock(async () => {
-    await plasmoDeviceStorage.set(
-      STORAGE_KEYS.PROVIDER.SECRETS,
-      snapshot.secrets
-    )
-    await plasmoGlobalStorage.set(
-      ProviderStorageKey.CONFIG,
-      snapshot.publicConfigs
-    )
-  })
+  await plasmoDeviceStorage.set(STORAGE_KEYS.PROVIDER.SECRETS, snapshot.secrets)
+  await plasmoGlobalStorage.set(
+    ProviderStorageKey.CONFIG,
+    snapshot.publicConfigs
+  )
+}
+
+export const persistProviderConfigs = async (
+  providers: ProviderConfig[]
+): Promise<void> => {
+  // Snapshot before waiting: callers may mutate their form state while an
+  // earlier save owns the cross-context lock.
+  const snapshot = providers.map((provider) => ({ ...provider }))
+  await withProviderPersistenceLock(() =>
+    persistProviderConfigsUnlocked(snapshot)
+  )
 }
