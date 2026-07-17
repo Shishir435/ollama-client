@@ -51,6 +51,19 @@ const PRIVATE_CONTENT_KEYS = new Set([
 
 const PRIVATE_CONTAINER_KEYS = new Set(["customheaders", "headers"])
 
+const SENSITIVE_TEXT_KEY_PATTERN =
+  "(?:api[-_ ]?key|access[-_ ]?token|auth(?:orization)?|bearer[-_ ]?token|client[-_ ]?secret|cookie|credential|password|private[-_ ]?key|proxy[-_ ]?authorization|refresh[-_ ]?token|secret(?:[-_ ]?key)?|token|x[-_ ]?api[-_ ]?key)"
+
+const QUOTED_SECRET_PATTERN = new RegExp(
+  `(["']?${SENSITIVE_TEXT_KEY_PATTERN}["']?\\s*[:=]\\s*)(["'])((?:\\\\[\\s\\S]|(?!\\2)[\\s\\S])*)\\2`,
+  "gi"
+)
+
+const UNQUOTED_SECRET_PATTERN = new RegExp(
+  `(["']?${SENSITIVE_TEXT_KEY_PATTERN}["']?\\s*[:=]\\s*)([^\\s,"'}]+)`,
+  "gi"
+)
+
 const isSecretKey = (key: string): boolean => {
   const normalized = normalizeKey(key)
   return (
@@ -91,10 +104,8 @@ export const redactLogText = (value: string): string => {
   return urlRedacted
     .replace(/\b(Bearer|Basic)\s+[^\s,;]+/gi, `$1 ${REDACTED_LOG_VALUE}`)
     .replace(/\bsk-[a-z0-9_-]{8,}\b/gi, REDACTED_LOG_VALUE)
-    .replace(
-      /(["']?(?:api[-_ ]?key|access[-_ ]?token|auth(?:orization)?|bearer[-_ ]?token|client[-_ ]?secret|cookie|credential|password|private[-_ ]?key|proxy[-_ ]?authorization|refresh[-_ ]?token|secret(?:[-_ ]?key)?|token|x[-_ ]?api[-_ ]?key)["']?\s*[:=]\s*["']?)([^\s,"'}]+)/gi,
-      `$1${REDACTED_LOG_VALUE}`
-    )
+    .replace(QUOTED_SECRET_PATTERN, `$1$2${REDACTED_LOG_VALUE}$2`)
+    .replace(UNQUOTED_SECRET_PATTERN, `$1${REDACTED_LOG_VALUE}`)
     .replace(/(https?:\/\/)[^\s/@:]+:[^\s/@]+@/gi, "$1")
 }
 
@@ -182,7 +193,10 @@ export const redactLogValue = (
   seen.add(value)
 
   if (value instanceof Error) return redactError(value, seen)
-  if (value instanceof Date) return value.toISOString()
+  if (value instanceof Date)
+    return Number.isNaN(value.getTime())
+      ? UNREADABLE_LOG_VALUE
+      : value.toISOString()
   if (value instanceof URL) return redactLogText(value.toString())
   if (Array.isArray(value))
     return value.map((item) => redactLogValue(item, seen))

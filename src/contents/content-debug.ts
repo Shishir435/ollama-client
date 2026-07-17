@@ -17,3 +17,7 @@ export const contentDebugLog = (...args: unknown[]): void => {
     })
   }
 }
+
+export const contentDebugError = (message: string, error: unknown): void => {
+  logger.error(message, "ContentDebug", { error })
+}

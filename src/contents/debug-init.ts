@@ -6,7 +6,7 @@
  * test entry points. They never affect user-facing behavior.
  */
 
-import { contentDebugLog } from "./content-debug"
+import { contentDebugError, contentDebugLog } from "./content-debug"
 
 interface ContentScriptWindow extends Window {
   __providerContentScript?: boolean
@@ -76,7 +76,7 @@ const installDebugHelpers = (): void => {
         )
       }
     } catch (error) {
-      contentDebugLog("[Manual Test] Error:", { error })
+      contentDebugError("[Manual Test] Transcript failed", error)
     }
   }
 
@@ -98,7 +98,7 @@ const installDebugHelpers = (): void => {
         result.logEntry.detectedPatterns
       )
     } catch (error) {
-      contentDebugLog("[Manual Test] Error:", { error })
+      contentDebugError("[Manual Test] Extraction failed", error)
     }
   }
 

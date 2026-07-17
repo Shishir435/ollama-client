@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { contentDebugLog, isContentDebugEnabled } from "../content-debug"
+import {
+  contentDebugError,
+  contentDebugLog,
+  isContentDebugEnabled
+} from "../content-debug"
 
 describe("content debug logging", () => {
   afterEach(() => {
@@ -29,6 +33,23 @@ describe("content debug logging", () => {
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining("[ContentDebug] visible"),
       { details: [{ ok: true }] }
+    )
+  })
+
+  it("always reports manual helper failures through the redacted logger", () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    contentDebugError(
+      "Manual test failed with password='correct horse battery staple'",
+      new Error("Bearer manual-test-secret")
+    )
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(consoleSpy.mock.calls)).not.toContain(
+      "correct horse battery staple"
+    )
+    expect(JSON.stringify(consoleSpy.mock.calls)).not.toContain(
+      "manual-test-secret"
     )
   })
 })

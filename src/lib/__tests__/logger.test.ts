@@ -83,6 +83,33 @@ describe("privacy-safe logger", () => {
     })
   })
 
+  it("fully redacts quoted secrets containing spaces", () => {
+    const result = redactLogValue({
+      note: [
+        "password='correct horse battery staple'",
+        'api_key="quoted api secret"',
+        String.raw`client_secret="escaped \"quote\" secret"`,
+        "token=unquoted-secret safe=value"
+      ].join(" ")
+    })
+    const serialized = JSON.stringify(result)
+
+    expect(serialized).not.toContain("correct horse battery staple")
+    expect(serialized).not.toContain("quoted api secret")
+    expect(serialized).not.toContain('escaped \\"quote\\" secret')
+    expect(serialized).not.toContain("unquoted-secret")
+    expect(serialized).toContain("safe=value")
+  })
+
+  it("turns invalid dates into an unreadable marker without throwing", () => {
+    expect(() =>
+      redactLogValue({ createdAt: new Date(Number.NaN) })
+    ).not.toThrow()
+    expect(redactLogValue({ createdAt: new Date(Number.NaN) })).toEqual({
+      createdAt: "[Unreadable]"
+    })
+  })
+
   it("sends only redacted snapshots to the console sink", () => {
     const consoleInfo = vi.spyOn(console, "info").mockImplementation(() => {})
     const logger = new Logger(LogLevel.DEBUG)
