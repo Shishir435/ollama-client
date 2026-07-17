@@ -1471,25 +1471,26 @@
     },
     "migration": {
       "title": "Migration de Données",
-      "description": "Exportez ou importez toutes les données de votre extension, y compris les préférences, l'historique des discussions et les bases de données d'intégration.",
+      "description": "Exportez ou importez les réglages portables, l’historique des discussions et les bases de données d’intégration sans inclure les clés API ni l’état propre à l’appareil.",
       "export": {
-        "label": "Exporter la Sauvegarde Complète",
-        "description": "Télécharger une sauvegarde complète de toutes les données de l'extension sous forme de fichier ZIP.",
-        "button": "Tout Exporter",
+        "label": "Exporter une sauvegarde respectueuse de la vie privée",
+        "description": "Téléchargez les réglages portables et les données utilisateur au format ZIP. Les clés API, autorisations et données internes de récupération sont exclues.",
+        "button": "Exporter la sauvegarde",
         "error_title": "Échec de l’exportation"
       },
       "import": {
         "label": "Importer la Sauvegarde",
-        "description": "Restaurer les données à partir d'une sauvegarde ZIP précédemment exportée. Cela écrasera les données existantes.",
-        "button": "Tout Importer"
+        "description": "Restaurez une sauvegarde ZIP actuelle ou ancienne via la liste autorisée. Les identifiants et l’état interne ne sont jamais restaurés.",
+        "button": "Importer la sauvegarde"
       },
       "import_confirm": {
         "title": "Êtes-vous absolument sûr ?",
-        "description": "Cette action écrasera complètement vos préférences existantes, votre historique de discussion et vos bases de données avec le contenu du fichier de sauvegarde. Cette action est irréversible."
+        "description": "Cette action écrasera les réglages portables, l’historique des discussions et les bases de données. Les clés API des fournisseurs ne sont pas restaurées et devront peut-être être saisies à nouveau. Cette action est irréversible."
       },
       "import_result": {
         "title": "Résultats de l'Importation",
         "description": "Passez en revue l'état de votre importation de données ci-dessous :",
+        "skipped_private": "Certains identifiants, réglages propres à l’appareil ou données internes de récupération ont été ignorés en toute sécurité.",
         "labels": {
           "sync": "Préférences (Sync)",
           "local": "Stockage Local",

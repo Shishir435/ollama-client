@@ -1681,25 +1681,26 @@
     },
     "migration": {
       "title": "Data Migration",
-      "description": "Export or import all your extension data including preferences, chat history, and embedding databases.",
+      "description": "Export or import portable settings, chat history, and embedding databases without including API keys or device-only state.",
       "export": {
-        "label": "Export Full Backup",
-        "description": "Download a complete backup of all extension data as a ZIP file.",
-        "button": "Export All",
+        "label": "Export Privacy-Safe Backup",
+        "description": "Download portable settings and user data as a ZIP file. API keys, approval grants, temporary handoffs, and recovery state are excluded.",
+        "button": "Export Backup",
         "error_title": "Export failed"
       },
       "import": {
         "label": "Import Backup",
-        "description": "Restore data from a previously exported ZIP backup. This will overwrite existing data.",
-        "button": "Import All"
+        "description": "Restore a current or legacy ZIP backup through the privacy-safe allowlist. Credentials and internal state are never restored.",
+        "button": "Import Backup"
       },
       "import_confirm": {
         "title": "Are you absolutely sure?",
-        "description": "This action will completely overwrite your existing preferences, chat history, and databases with the contents of the backup file. This action cannot be undone."
+        "description": "This action will overwrite portable preferences, chat history, and databases. Provider API keys are not restored and may need to be entered again. This action cannot be undone."
       },
       "import_result": {
         "title": "Import Results",
         "description": "Review the status of your data import below:",
+        "skipped_private": "Some credentials, device-only settings, or internal recovery data in this backup were safely skipped.",
         "labels": {
           "sync": "Preferences (Sync)",
           "local": "Local Storage",

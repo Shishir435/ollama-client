@@ -1471,25 +1471,26 @@
     },
     "migration": {
       "title": "Datenmigration",
-      "description": "Exportieren oder importieren Sie alle Ihre Erweiterungsdaten einschließlich Einstellungen, Chat-Verlauf und Einbettungsdatenbanken.",
+      "description": "Exportieren oder importieren Sie portable Einstellungen, Chat-Verlauf und Einbettungsdatenbanken, ohne API-Schlüssel oder gerätespezifische Daten einzuschließen.",
       "export": {
-        "label": "Vollständiges Backup Exportieren",
-        "description": "Laden Sie ein vollständiges Backup aller Erweiterungsdaten als ZIP-Datei herunter.",
-        "button": "Alles Exportieren",
+        "label": "Datenschutzsicheres Backup exportieren",
+        "description": "Laden Sie portable Einstellungen und Benutzerdaten als ZIP-Datei herunter. API-Schlüssel, Genehmigungen und interne Wiederherstellungsdaten werden ausgeschlossen.",
+        "button": "Backup exportieren",
         "error_title": "Export fehlgeschlagen"
       },
       "import": {
         "label": "Backup Importieren",
-        "description": "Stellen Sie Daten aus einem zuvor exportierten ZIP-Backup wieder her. Dies überschreibt vorhandene Daten.",
-        "button": "Alles Importieren"
+        "description": "Stellen Sie ein aktuelles oder älteres ZIP-Backup über die datenschutzsichere Positivliste wieder her. Zugangsdaten und interner Zustand werden nie wiederhergestellt.",
+        "button": "Backup importieren"
       },
       "import_confirm": {
         "title": "Sind Sie absolut sicher?",
-        "description": "Diese Aktion überschreibt Ihre vorhandenen Einstellungen, den Chat-Verlauf und die Datenbanken vollständig mit dem Inhalt der Backup-Datei. Diese Aktion kann nicht rückgängig gemacht werden."
+        "description": "Diese Aktion überschreibt portable Einstellungen, Chat-Verlauf und Datenbanken. Anbieter-API-Schlüssel werden nicht wiederhergestellt und müssen möglicherweise erneut eingegeben werden. Diese Aktion kann nicht rückgängig gemacht werden."
       },
       "import_result": {
         "title": "Import-Ergebnisse",
         "description": "Überprüfen Sie den Status Ihres Datenimports unten:",
+        "skipped_private": "Einige Zugangsdaten, gerätespezifische Einstellungen oder interne Wiederherstellungsdaten wurden sicher übersprungen.",
         "labels": {
           "sync": "Einstellungen (Sync)",
           "local": "Lokaler Speicher",

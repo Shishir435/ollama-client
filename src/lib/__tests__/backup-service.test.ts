@@ -2,6 +2,12 @@ import { importInto } from "dexie-export-import"
 import JSZip from "jszip"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { backupService } from "../backup-service"
+import { STORAGE_KEYS } from "../constants/keys"
+import {
+  plasmoDeviceStorage,
+  plasmoGlobalStorage
+} from "../plasmo-global-storage"
+import { ProviderStorageKey } from "../providers/types"
 import {
   exportPersistedDatabaseBytes,
   flushSave,
@@ -59,8 +65,8 @@ describe("backupService", () => {
     vi.clearAllMocks()
 
     // Mock chrome storage returns
-    vi.mocked(chrome.storage.sync.get).mockResolvedValue()
-    vi.mocked(chrome.storage.local.get).mockResolvedValue()
+    ;(chrome.storage.sync.get as any).mockResolvedValue({})
+    ;(chrome.storage.local.get as any).mockResolvedValue({})
 
     // Mock chrome.runtime.getManifest
     global.chrome.runtime.getManifest = vi
@@ -85,9 +91,10 @@ describe("backupService", () => {
       )
       expect(manifestCall).toBeDefined()
       const manifest = JSON.parse(manifestCall[1])
-      expect(manifest.version).toBe(1)
+      expect(manifest.version).toBe(2)
       expect(manifest.appVersion).toBe("1.0.0")
       expect(manifest.timestamp).toBeDefined()
+      expect(manifest.credentialsIncluded).toBe(false)
 
       const calledFiles = fileMock.mock.calls.map((c: any) => c[0])
       expect(calledFiles).toContain("manifest.json")
@@ -96,6 +103,58 @@ describe("backupService", () => {
       expect(calledFiles).toContain("database.sqlite")
       expect(calledFiles).toContain("vector-db.json")
       expect(calledFiles).toContain("knowledge-db.json")
+    })
+
+    it("exports only portable settings and strips nested credentials", async () => {
+      ;(chrome.storage.sync.get as any).mockResolvedValue({
+        [STORAGE_KEYS.THEME.PREFERENCE]: "dark",
+        [ProviderStorageKey.CONFIG]: [
+          {
+            id: "remote",
+            name: "Remote",
+            type: "openai",
+            enabled: true,
+            baseUrl: "https://user:password@example.com/v1",
+            apiKey: "sync-secret",
+            customHeaders: { Authorization: "Bearer nested-secret" },
+            metadata: { accessToken: "nested-token", label: "safe" }
+          }
+        ],
+        unknownInternalMarker: true
+      })
+      ;(chrome.storage.local.get as any).mockResolvedValue({
+        [STORAGE_KEYS.PROVIDER.SECRETS]: { remote: "local-secret" },
+        [STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL]: { secret: "journal" },
+        [STORAGE_KEYS.WEB_SEARCH.CONFIG]: { apiKey: "search-secret" }
+      })
+
+      await backupService.exportAll()
+
+      const zipInstance = vi.mocked(JSZip).mock.instances[0]
+      const fileMock = zipInstance.file as any
+      const syncCall = fileMock.mock.calls.find(
+        (call: any) => call[0] === "sync-storage.json"
+      )
+      const localCall = fileMock.mock.calls.find(
+        (call: any) => call[0] === "local-storage.json"
+      )
+      const syncData = JSON.parse(syncCall[1])
+      const localData = JSON.parse(localCall[1])
+
+      expect(syncData[STORAGE_KEYS.THEME.PREFERENCE]).toBe("dark")
+      expect(syncData[ProviderStorageKey.CONFIG]).toEqual([
+        {
+          id: "remote",
+          name: "Remote",
+          type: "openai",
+          enabled: true,
+          baseUrl: "https://example.com/v1",
+          metadata: { label: "safe" }
+        }
+      ])
+      expect(syncData).not.toHaveProperty("unknownInternalMarker")
+      expect(localData).toEqual({})
+      expect(JSON.stringify({ syncData, localData })).not.toContain("secret")
     })
 
     it("should flush live SQLite contexts before reading persisted bytes", async () => {
@@ -172,9 +231,11 @@ describe("backupService", () => {
           if (name === "manifest.json")
             return mockFile(JSON.stringify(mockManifest))
           if (name === "sync-storage.json")
-            return mockFile(JSON.stringify({ testKey: "testValue" }))
+            return mockFile(
+              JSON.stringify({ [STORAGE_KEYS.THEME.PREFERENCE]: "dark" })
+            )
           if (name === "local-storage.json")
-            return mockFile(JSON.stringify({ localKey: "localValue" }))
+            return mockFile(JSON.stringify({ [STORAGE_KEYS.LANGUAGE]: "fr" }))
           if (name === "database.sqlite")
             return { async: vi.fn().mockResolvedValue(new Uint8Array([1])) }
           if (name === "vector-db.json")
@@ -195,13 +256,163 @@ describe("backupService", () => {
       expect(result.dexie.knowledgeDb.ok).toBe(true)
 
       expect(chrome.storage.sync.set).toHaveBeenCalledWith({
-        testKey: "testValue"
+        [STORAGE_KEYS.THEME.PREFERENCE]: "dark",
+        [STORAGE_KEYS.LANGUAGE]: "fr"
       })
-      expect(chrome.storage.local.set).toHaveBeenCalledWith({
-        localKey: "localValue"
-      })
+      expect(chrome.storage.sync.clear).not.toHaveBeenCalled()
+      expect(chrome.storage.local.clear).not.toHaveBeenCalled()
       expect(importDatabaseBytes).toHaveBeenCalled()
       expect(importInto).toHaveBeenCalledTimes(2)
+    })
+
+    it("gives sync storage precedence over conflicting legacy local values", async () => {
+      const mockFile = (content: string) => ({
+        async: vi.fn().mockResolvedValue(content)
+      })
+      vi.mocked(JSZip.loadAsync).mockResolvedValue({
+        file: vi.fn().mockImplementation((name) => {
+          if (name === "manifest.json")
+            return mockFile(JSON.stringify(mockManifest))
+          if (name === "sync-storage.json")
+            return mockFile(
+              JSON.stringify({ [STORAGE_KEYS.THEME.PREFERENCE]: "dark" })
+            )
+          if (name === "local-storage.json")
+            return mockFile(
+              JSON.stringify({
+                [STORAGE_KEYS.THEME.PREFERENCE]: "light",
+                [STORAGE_KEYS.LANGUAGE]: "de"
+              })
+            )
+          return null
+        })
+      } as any)
+
+      const result = await backupService.importAll(
+        new File([], "conflicting-legacy.zip")
+      )
+
+      expect(result.syncStorage.ok).toBe(true)
+      expect(result.localStorage.ok).toBe(true)
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        [STORAGE_KEYS.THEME.PREFERENCE]: "dark",
+        [STORAGE_KEYS.LANGUAGE]: "de"
+      })
+      expect(
+        JSON.stringify(vi.mocked(chrome.storage.sync.set).mock.calls)
+      ).not.toContain('"light"')
+    })
+
+    it("filters secrets and internal markers from legacy backups", async () => {
+      const mockFile = (content: string) => ({
+        async: vi.fn().mockResolvedValue(content)
+      })
+      const zipInstance = {
+        file: vi.fn().mockImplementation((name) => {
+          if (name === "manifest.json")
+            return mockFile(JSON.stringify(mockManifest))
+          if (name === "sync-storage.json")
+            return mockFile(
+              JSON.stringify({
+                [STORAGE_KEYS.THEME.PREFERENCE]: "dark",
+                [STORAGE_KEYS.PROVIDER.SECRETS]: { remote: "secret" },
+                [STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL]: {
+                  secret: "journal"
+                },
+                staleInternalMarker: true
+              })
+            )
+          if (name === "local-storage.json")
+            return mockFile(
+              JSON.stringify({
+                [STORAGE_KEYS.LANGUAGE]: "de",
+                [STORAGE_KEYS.WEB_SEARCH.CONFIG]: {
+                  apiKey: "search-secret"
+                }
+              })
+            )
+          return null
+        })
+      }
+      vi.mocked(JSZip.loadAsync).mockResolvedValue(zipInstance as any)
+
+      const result = await backupService.importAll(new File([], "legacy.zip"))
+
+      expect(result.syncStorage.ok).toBe(true)
+      expect(result.localStorage.ok).toBe(true)
+      expect(result.skippedStorageKeys).toEqual(
+        expect.arrayContaining([
+          STORAGE_KEYS.PROVIDER.SECRETS,
+          STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL,
+          STORAGE_KEYS.WEB_SEARCH.CONFIG,
+          "staleInternalMarker"
+        ])
+      )
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        [STORAGE_KEYS.THEME.PREFERENCE]: "dark",
+        [STORAGE_KEYS.LANGUAGE]: "de"
+      })
+      expect(
+        JSON.stringify(vi.mocked(chrome.storage.sync.set).mock.calls)
+      ).not.toContain("search-secret")
+      expect(chrome.storage.local.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          [STORAGE_KEYS.PROVIDER.SECRETS]: expect.anything()
+        })
+      )
+    })
+
+    it("imports legacy provider config without restoring its API keys", async () => {
+      const legacyProvider = {
+        id: "custom:openai:legacy",
+        name: "Legacy remote",
+        type: "openai",
+        enabled: true,
+        baseUrl: "https://example.com/v1",
+        apiKey: "legacy-plaintext-key"
+      }
+      const mockFile = (content: string) => ({
+        async: vi.fn().mockResolvedValue(content)
+      })
+      vi.mocked(JSZip.loadAsync).mockResolvedValue({
+        file: vi.fn().mockImplementation((name) => {
+          if (name === "manifest.json")
+            return mockFile(JSON.stringify(mockManifest))
+          if (name === "sync-storage.json")
+            return mockFile(
+              JSON.stringify({
+                [ProviderStorageKey.CONFIG]: [legacyProvider]
+              })
+            )
+          if (name === "local-storage.json") return mockFile("{}")
+          return null
+        })
+      } as any)
+
+      const result = await backupService.importAll(
+        new File([], "legacy-provider.zip")
+      )
+
+      expect(result.syncStorage.ok).toBe(true)
+      expect(plasmoDeviceStorage.set).toHaveBeenCalledWith(
+        STORAGE_KEYS.PROVIDER.SECRETS,
+        {}
+      )
+      expect(plasmoGlobalStorage.set).toHaveBeenCalledWith(
+        ProviderStorageKey.CONFIG,
+        [
+          {
+            id: legacyProvider.id,
+            name: legacyProvider.name,
+            type: legacyProvider.type,
+            enabled: true,
+            baseUrl: legacyProvider.baseUrl
+          }
+        ]
+      )
+      expect(
+        JSON.stringify(vi.mocked(plasmoGlobalStorage.set).mock.calls)
+      ).not.toContain("legacy-plaintext-key")
     })
 
     it("should report failures for individual components", async () => {

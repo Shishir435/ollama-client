@@ -116,7 +116,8 @@ export const DataMigrationSettings = () => {
             ok: false,
             error: t("settings.migration.import_result.status.aborted")
           }
-        }
+        },
+        skippedStorageKeys: []
       })
       resultDialog.openDialog()
     } finally {
@@ -210,6 +211,11 @@ export const DataMigrationSettings = () => {
             <AlertDialogDescription>
               {t("settings.migration.import_result.description")}
             </AlertDialogDescription>
+            {importResult && importResult.skippedStorageKeys.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {t("settings.migration.import_result.skipped_private")}
+              </p>
+            )}
           </AlertDialogHeader>
 
           <div className="py-4 space-y-4">

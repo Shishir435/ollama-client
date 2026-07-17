@@ -12,6 +12,7 @@ import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimens
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { ProviderStorageKey } from "@/lib/providers/types"
 import { pruneStaleToolLoopRuns } from "@/lib/repositories/tool-loop-runs"
+import { recoverBackupImport } from "@/lib/storage/backup-import-transaction"
 import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import { getToolRegistry } from "@/lib/tools/build-tool-registry"
 import type { ChromeSidePanel } from "@/types"
@@ -152,7 +153,13 @@ const registerToolRegistryInvalidation = () => {
 }
 
 export const initializeBackgroundStartup = () => {
-  void migrateLegacyProviderStorage()
+  void recoverBackupImport()
+    .then(() => migrateLegacyProviderStorage())
+    .catch((error) => {
+      logger.error("Failed to recover interrupted settings import", "Backup", {
+        error
+      })
+    })
   // MV3 workers can start without a browser onStartup event (extension reload,
   // event wakeup). Reconcile the request-origin rule on every worker boot.
   void updateDNRRules()

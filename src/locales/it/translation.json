@@ -1471,25 +1471,26 @@
     },
     "migration": {
       "title": "Migrazione dei Dati",
-      "description": "Esporta o importa tutti i dati della tua estensione, incluse le preferenze, la cronologia delle chat e le directory delle incorporazioni.",
+      "description": "Esporta o importa impostazioni portabili, cronologia chat e database di incorporamenti senza includere chiavi API o stato specifico del dispositivo.",
       "export": {
-        "label": "Esporta Backup Completo",
-        "description": "Scarica un backup completo di tutti i dati dell'estensione come file ZIP.",
-        "button": "Esporta Tutto",
+        "label": "Esporta backup rispettoso della privacy",
+        "description": "Scarica impostazioni portabili e dati utente come ZIP. Chiavi API, autorizzazioni e dati interni di recupero sono esclusi.",
+        "button": "Esporta backup",
         "error_title": "Esportazione non riuscita"
       },
       "import": {
         "label": "Importa Backup",
-        "description": "Ripristina i dati da un backup ZIP esportato in precedenza. Questo sovrascriverà i dati esistenti.",
-        "button": "Importa Tutto"
+        "description": "Ripristina un backup ZIP attuale o precedente tramite l’elenco sicuro. Credenziali e stato interno non vengono mai ripristinati.",
+        "button": "Importa backup"
       },
       "import_confirm": {
         "title": "Sei assolutamente sicuro?",
-        "description": "Questa azione sovrascriverà completamente le tue preferenze, la cronologia delle chat e i database esistenti con il contenuto del file di backup. Questa azione non può essere annullata."
+        "description": "Questa azione sovrascriverà impostazioni portabili, cronologia chat e database. Le chiavi API dei provider non vengono ripristinate e potrebbero dover essere reinserite. Questa azione non può essere annullata."
       },
       "import_result": {
         "title": "Risultati dell'Importazione",
         "description": "Rivedi lo stato della tua importazione di dati di seguito:",
+        "skipped_private": "Alcune credenziali, impostazioni specifiche del dispositivo o dati interni di recupero sono stati ignorati in sicurezza.",
         "labels": {
           "sync": "Preferenze (Sync)",
           "local": "Archiviazione Locale",

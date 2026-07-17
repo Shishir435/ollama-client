@@ -7,10 +7,21 @@ import { createAppError, getErrorMessage } from "./error-utils"
 import { knowledgeDb } from "./knowledge/knowledge-sets"
 import { logger } from "./logger"
 import {
+  type ProviderConfig,
+  ProviderStorageKey,
+  ProviderType
+} from "./providers/types"
+import {
   exportPersistedDatabaseBytes,
   flushSave,
   importDatabaseBytes
 } from "./sqlite/db"
+import { importPortableStorageTransaction } from "./storage/backup-import-transaction"
+import {
+  BACKUP_MANIFEST_VERSION,
+  SUPPORTED_BACKUP_MANIFEST_VERSIONS,
+  selectPortableStorageData
+} from "./storage/backup-storage-policy"
 import { safeJsonParse } from "./validation"
 
 const BackupManifestSchema = z.object({
@@ -20,6 +31,18 @@ const BackupManifestSchema = z.object({
 })
 
 const StorageObjectSchema = z.record(z.string(), z.unknown())
+const ProviderConfigBackupSchema = z
+  .object({
+    id: z.string(),
+    type: z.nativeEnum(ProviderType),
+    enabled: z.boolean(),
+    baseUrl: z.string().optional(),
+    modelId: z.string().optional(),
+    name: z.string(),
+    customModels: z.array(z.string()).optional()
+  })
+  .passthrough()
+const ProviderConfigsBackupSchema = z.array(ProviderConfigBackupSchema)
 
 export type ImportResult = {
   syncStorage: { ok: boolean; error?: string }
@@ -29,9 +52,8 @@ export type ImportResult = {
     vectorDb: { ok: boolean; error?: string }
     knowledgeDb: { ok: boolean; error?: string }
   }
+  skippedStorageKeys: string[]
 }
-
-const MANIFEST_VERSION = 1
 
 const requestLiveSqliteFlush = async (): Promise<void> => {
   try {
@@ -47,6 +69,30 @@ const requestLiveSqliteFlush = async (): Promise<void> => {
   }
 }
 
+const preparePortableStorageImport = (
+  data: Record<string, unknown>
+): {
+  settings: Record<string, unknown>
+  providerConfigs?: ProviderConfig[]
+} => {
+  const settings = { ...data }
+  const providerConfigValue = settings[ProviderStorageKey.CONFIG]
+  delete settings[ProviderStorageKey.CONFIG]
+  if (providerConfigValue === undefined) return { settings }
+
+  const parsedProviderConfigs =
+    ProviderConfigsBackupSchema.safeParse(providerConfigValue)
+  if (!parsedProviderConfigs.success) {
+    throw createAppError("Invalid provider configuration in backup", {
+      kind: "validation"
+    })
+  }
+  return {
+    settings,
+    providerConfigs: parsedProviderConfigs.data as ProviderConfig[]
+  }
+}
+
 export const backupService = {
   exportAll: async (): Promise<Blob> => {
     logger.info("Exporting all user data...", "Backup")
@@ -55,21 +101,25 @@ export const backupService = {
     // Manifest
     logger.info("Exporting manifest...", "Backup")
     const manifest = {
-      version: MANIFEST_VERSION,
+      version: BACKUP_MANIFEST_VERSION,
       timestamp: new Date().toISOString(),
-      appVersion: chrome.runtime.getManifest().version
+      appVersion: chrome.runtime.getManifest().version,
+      storagePolicy: "portable-settings-v1",
+      credentialsIncluded: false
     }
     zip.file("manifest.json", JSON.stringify(manifest, null, 2))
 
     // Sync Storage
     logger.info("Exporting sync storage...", "Backup")
-    const syncData = await chrome.storage.sync.get(null)
+    const rawSyncData = await chrome.storage.sync.get(null)
+    const { data: syncData } = selectPortableStorageData(rawSyncData)
     zip.file("sync-storage.json", JSON.stringify(syncData, null, 2))
 
     // Local Storage
     logger.info("Exporting local storage...", "Backup")
-    const localData = await chrome.storage.local.get(null)
-    zip.file("local-storage.json", JSON.stringify(localData, null, 2))
+    const rawLocalData = await chrome.storage.local.get(null)
+    const { data: localPortableData } = selectPortableStorageData(rawLocalData)
+    zip.file("local-storage.json", JSON.stringify(localPortableData, null, 2))
 
     // SQLite Database
     try {
@@ -119,7 +169,8 @@ export const backupService = {
       dexie: {
         vectorDb: { ok: false },
         knowledgeDb: { ok: false }
-      }
+      },
+      skippedStorageKeys: []
     }
 
     try {
@@ -141,7 +192,7 @@ export const backupService = {
         })
       }
       const manifest = manifestResult.data
-      if (manifest.version !== MANIFEST_VERSION) {
+      if (!SUPPORTED_BACKUP_MANIFEST_VERSIONS.has(manifest.version)) {
         throw createAppError(
           `Unsupported backup version: ${manifest.version}`,
           {
@@ -150,7 +201,11 @@ export const backupService = {
         )
       }
 
-      // Sync Storage
+      let syncData: Record<string, unknown> | undefined
+      let localData: Record<string, unknown> | undefined
+
+      // Parse both storage files before mutating either area. Legacy local
+      // values fill gaps only; the canonical sync file wins every conflict.
       try {
         const syncFile = zip.file("sync-storage.json")
         if (syncFile) {
@@ -162,33 +217,12 @@ export const backupService = {
               { kind: "validation" }
             )
           }
-          const syncData = syncResult.data
-
-          await chrome.storage.sync.clear()
-
-          const failedKeys: string[] = []
-          for (const [key, value] of Object.entries(syncData)) {
-            try {
-              await chrome.storage.sync.set({ [key]: value })
-            } catch (e) {
-              const errorMessage =
-                e instanceof Error ? e.message : "Unknown error"
-              logger.warn(
-                `Failed to import sync key ${key}: ${errorMessage}`,
-                "Backup"
-              )
-              failedKeys.push(key)
-            }
-          }
-
-          if (failedKeys.length > 0) {
-            result.syncStorage = {
-              ok: false,
-              error: `Failed to import keys due to quota/size: ${failedKeys.join(", ")}`
-            }
-          } else {
-            result.syncStorage.ok = true
-          }
+          const selected = selectPortableStorageData(syncResult.data, {
+            allowLegacyKeys: manifest.version === 1
+          })
+          syncData = selected.data
+          result.skippedStorageKeys.push(...selected.rejectedKeys)
+          result.syncStorage.ok = true
         } else {
           result.syncStorage = { ok: false, error: "Missing sync-storage.json" }
         }
@@ -199,7 +233,6 @@ export const backupService = {
         }
       }
 
-      // Local Storage
       try {
         const localFile = zip.file("local-storage.json")
         if (localFile) {
@@ -211,9 +244,11 @@ export const backupService = {
               { kind: "validation" }
             )
           }
-          const localData = localResult.data
-          await chrome.storage.local.clear()
-          await chrome.storage.local.set(localData)
+          const selected = selectPortableStorageData(localResult.data, {
+            allowLegacyKeys: manifest.version === 1
+          })
+          localData = selected.data
+          result.skippedStorageKeys.push(...selected.rejectedKeys)
           result.localStorage.ok = true
         } else {
           result.localStorage = {
@@ -225,6 +260,23 @@ export const backupService = {
         result.localStorage = {
           ok: false,
           error: e instanceof Error ? e.message : "Unknown error"
+        }
+      }
+
+      if (syncData !== undefined || localData !== undefined) {
+        try {
+          const mergedData = { ...(localData ?? {}), ...(syncData ?? {}) }
+          const { settings, providerConfigs } =
+            preparePortableStorageImport(mergedData)
+          await importPortableStorageTransaction(settings, providerConfigs)
+        } catch (error) {
+          const storageError = getErrorMessage(error, "Unknown error")
+          if (syncData !== undefined) {
+            result.syncStorage = { ok: false, error: storageError }
+          }
+          if (localData !== undefined) {
+            result.localStorage = { ok: false, error: storageError }
+          }
         }
       }
 
@@ -284,6 +336,7 @@ export const backupService = {
         }
       }
 
+      result.skippedStorageKeys = [...new Set(result.skippedStorageKeys)].sort()
       return result
     } catch (e) {
       // If we completely fail to parse zip or manifest:
