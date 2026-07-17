@@ -1471,25 +1471,26 @@
     },
     "migration": {
       "title": "数据迁移",
-      "description": "导出或导入您所有的扩展程序数据，包括首选项、聊天记录和嵌入数据库。",
+      "description": "导出或导入可迁移设置、聊天记录和嵌入数据库，不包含 API 密钥或仅限设备的状态。",
       "export": {
-        "label": "导出完整备份",
-        "description": "将所有扩展程序数据的完整备份下载为 ZIP 文件。",
-        "button": "全部导出",
+        "label": "导出隐私安全备份",
+        "description": "以 ZIP 格式下载可迁移设置和用户数据。API 密钥、授权和内部恢复数据不会包含在内。",
+        "button": "导出备份",
         "error_title": "导出失败"
       },
       "import": {
         "label": "导入备份",
-        "description": "从之前导出的 ZIP 备份中恢复数据。这将覆盖现有数据。",
-        "button": "全部导入"
+        "description": "通过隐私安全白名单恢复当前或旧版 ZIP 备份。凭据和内部状态不会被恢复。",
+        "button": "导入备份"
       },
       "import_confirm": {
         "title": "您完全确定吗？",
-        "description": "此操作将用备份文件的内容完全覆盖您现有的首选项、聊天记录和数据库。此操作无法撤销。"
+        "description": "此操作将覆盖可迁移设置、聊天记录和数据库。提供商 API 密钥不会恢复，您可能需要重新输入。此操作无法撤销。"
       },
       "import_result": {
         "title": "导入结果",
         "description": "查看下面您的数据导入状态：",
+        "skipped_private": "备份中的部分凭据、仅限设备的设置或内部恢复数据已被安全跳过。",
         "labels": {
           "sync": "偏好设置 (Sync)",
           "local": "本地存储",

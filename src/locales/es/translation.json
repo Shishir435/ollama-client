@@ -1471,25 +1471,26 @@
     },
     "migration": {
       "title": "Migración de Datos",
-      "description": "Exportar o importar todos los datos de su extensión, incluyendo preferencias, historial de chat y bases de datos de incrustaciones.",
+      "description": "Exporte o importe ajustes portátiles, historial de chat y bases de datos de incrustaciones sin incluir claves API ni estado exclusivo del dispositivo.",
       "export": {
-        "label": "Exportar Copia de Seguridad Completa",
-        "description": "Descargar una copia de seguridad completa de todos los datos de la extensión como un archivo ZIP.",
-        "button": "Exportar Todo",
+        "label": "Exportar copia segura para la privacidad",
+        "description": "Descargue ajustes portátiles y datos de usuario como ZIP. Se excluyen claves API, permisos y datos internos de recuperación.",
+        "button": "Exportar copia",
         "error_title": "Error al exportar"
       },
       "import": {
         "label": "Importar Copia de Seguridad",
-        "description": "Restaurar datos desde una copia de seguridad ZIP exportada previamente. Esto sobrescribirá los datos existentes.",
-        "button": "Importar Todo"
+        "description": "Restaure una copia ZIP actual o antigua mediante la lista segura. Las credenciales y el estado interno nunca se restauran.",
+        "button": "Importar copia"
       },
       "import_confirm": {
         "title": "¿Está absolutamente seguro?",
-        "description": "Esta acción sobrescribirá completamente sus preferencias existentes, el historial de chat y las bases de datos con el contenido del archivo de copia de seguridad. Esta acción no se puede deshacer."
+        "description": "Esta acción sobrescribirá los ajustes portátiles, el historial de chat y las bases de datos. Las claves API de proveedores no se restauran y quizá deban introducirse de nuevo. Esta acción no se puede deshacer."
       },
       "import_result": {
         "title": "Resultados de la Importación",
         "description": "Revise el estado de su importación de datos a continuación:",
+        "skipped_private": "Se omitieron de forma segura algunas credenciales, opciones exclusivas del dispositivo o datos internos de recuperación.",
         "labels": {
           "sync": "Preferencias (Sync)",
           "local": "Almacenamiento Local",
