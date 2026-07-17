@@ -8,6 +8,7 @@ const DOCS_HOME = DEFAULT_DOCS_HOME.replace(/\/+$/, "")
 export const EXTERNAL_URLS = {
   DOCS_HOME,
   GITHUB_ISSUES: "https://github.com/Shishir435/ollama-client/issues",
+  GITHUB_NEW_ISSUE: "https://github.com/Shishir435/ollama-client/issues/new",
   SETUP_GUIDE: `${DOCS_HOME}/guides/provider-setup/`,
   FIREFOX_CORS_SCRIPT:
     "https://github.com/Shishir435/ollama-client/blob/main/tools/ollama-env.sh",

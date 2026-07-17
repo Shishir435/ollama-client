@@ -22,6 +22,28 @@ describe("providerErrorUserMessage", () => {
     expect(providerErrorUserMessage(400).toLowerCase()).toContain("vision")
   })
 
+  it("adds recovery steps and a new issue link for provider server errors", () => {
+    const msg = providerErrorUserMessage(500)
+
+    expect(msg).toContain("provider app is running")
+    expect(msg).toContain("selected model is loaded")
+    expect(msg).toContain("base URL/port")
+    expect(msg).toContain("[open an issue](")
+    const issueUrlMatch = msg.match(/\[open an issue]\((?<url>.*)\)\./)
+    const issueUrlValue = issueUrlMatch?.groups?.url
+    expect(issueUrlValue).toContain(
+      "https://github.com/Shishir435/ollama-client/issues/new?"
+    )
+    if (!issueUrlValue) {
+      throw new Error("Expected provider error message to include an issue URL")
+    }
+    const issueUrl = new URL(issueUrlValue)
+    expect(issueUrl.searchParams.get("title")).toBe(
+      "[bug] Provider server error (500)"
+    )
+    expect(issueUrl.searchParams.get("body")).toContain("- Error status: 500")
+  })
+
   it("points local 401/403 responses at CORS setup instead of credentials", () => {
     const msg = providerErrorUserMessage(403, {
       baseUrl: "http://localhost:1234/v1"

@@ -27,6 +27,32 @@ export const isLocalProviderBaseUrl = (baseUrl?: string): boolean => {
   }
 }
 
+const providerServerIssueUrl = (status: number): string => {
+  const params = new URLSearchParams({
+    title: `[bug] Provider server error (${status})`,
+    body: [
+      "**What happened**",
+      "The provider server returned an error while generating a response.",
+      "",
+      "**Checks tried**",
+      "- Provider app is running: ",
+      "- Selected model is loaded: ",
+      "- Base URL/port is correct: ",
+      "",
+      "**Details**",
+      `- Error status: ${status}`,
+      "- Provider/model: ",
+      "- Browser: ",
+      "- Extension version: ",
+      "",
+      "**Steps to reproduce**",
+      "1. "
+    ].join("\n")
+  })
+
+  return `${EXTERNAL_URLS.GITHUB_NEW_ISSUE}?${params.toString()}`
+}
+
 /**
  * Map a provider HTTP status to a clean, user-facing message. Keeps raw
  * provider response bodies (which can be JSON or stack traces) out of the chat
@@ -58,7 +84,7 @@ export const providerErrorUserMessage = (
     return "The provider is rate-limiting requests. Wait a moment and try again."
   }
   if (status >= 500) {
-    return "The provider server returned an error. Check that it is running and try again."
+    return `The provider server returned an error. Check that the provider app is running, the selected model is loaded, and the base URL/port are correct. If it keeps happening, this may be a bug — [open an issue](${providerServerIssueUrl(status)}).`
   }
   return "The provider returned an error. Check the provider, model, and server logs."
 }
