@@ -22,6 +22,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 import { DEFAULT_PROVIDERS, ProviderManager } from "../manager"
 import {
   isCustomProviderId,
+  type ProviderConfig,
   ProviderId,
   ProviderStorageKey,
   ProviderType
@@ -141,6 +142,80 @@ describe("ProviderManager", () => {
       "local write failed"
     )
     expect(syncBacking.get(ProviderStorageKey.CONFIG)).toEqual(legacyProviders)
+  })
+
+  it("serializes overlapping provider saves across both storage areas", async () => {
+    const events: string[] = []
+    let releaseFirstLocalWrite: (() => void) | undefined
+    const firstLocalWriteBlocked = new Promise<void>((resolve) => {
+      releaseFirstLocalWrite = resolve
+    })
+    const firstProviders = [
+      ...DEFAULT_PROVIDERS,
+      {
+        id: "custom:openai:first",
+        type: ProviderType.OPENAI,
+        name: "First",
+        enabled: true,
+        baseUrl: "https://first.example/v1",
+        apiKey: "sk-first"
+      }
+    ]
+    const secondProviders = [
+      ...DEFAULT_PROVIDERS,
+      {
+        id: "custom:openai:second",
+        type: ProviderType.OPENAI,
+        name: "Second",
+        enabled: true,
+        baseUrl: "https://second.example/v1",
+        apiKey: "sk-second"
+      }
+    ]
+
+    stores.local.set
+      .mockImplementationOnce(async (key: string, value: unknown) => {
+        events.push("local:first")
+        localBacking.set(key, value)
+        await firstLocalWriteBlocked
+      })
+      .mockImplementationOnce(async (key: string, value: unknown) => {
+        events.push("local:second")
+        localBacking.set(key, value)
+      })
+    stores.sync.set.mockImplementation(async (key: string, value: unknown) => {
+      const configs = value as ProviderConfig[]
+      events.push(
+        configs.some((provider) => provider.id === "custom:openai:first")
+          ? "sync:first"
+          : "sync:second"
+      )
+      syncBacking.set(key, value)
+    })
+
+    const firstSave = ProviderManager.saveProviders(firstProviders)
+    await vi.waitFor(() => expect(events).toEqual(["local:first"]))
+    const secondSave = ProviderManager.saveProviders(secondProviders)
+
+    await Promise.resolve()
+    expect(events).toEqual(["local:first"])
+    releaseFirstLocalWrite?.()
+    await Promise.all([firstSave, secondSave])
+
+    expect(events).toEqual([
+      "local:first",
+      "sync:first",
+      "local:second",
+      "sync:second"
+    ])
+    expect(localBacking.get(STORAGE_KEYS.PROVIDER.SECRETS)).toEqual({
+      "custom:openai:second": "sk-second"
+    })
+    expect(
+      (syncBacking.get(ProviderStorageKey.CONFIG) as ProviderConfig[]).some(
+        (provider) => provider.id === "custom:openai:second"
+      )
+    ).toBe(true)
   })
 
   it("removes a cleared API key from local storage", async () => {

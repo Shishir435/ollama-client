@@ -6,6 +6,13 @@ import {
 import { type ProviderConfig, ProviderStorageKey } from "@/lib/providers/types"
 
 type ProviderSecretMap = Record<string, string>
+type ProviderPersistenceSnapshot = {
+  publicConfigs: ProviderConfig[]
+  secrets: ProviderSecretMap
+}
+
+const PROVIDER_PERSISTENCE_LOCK = "ollama-client:provider-persistence"
+let persistenceQueue = Promise.resolve()
 
 const hasOwnApiKey = (provider: ProviderConfig): boolean =>
   Object.hasOwn(provider, "apiKey")
@@ -22,6 +29,25 @@ const extractSecrets = (providers: ProviderConfig[]): ProviderSecretMap => {
     if (apiKey) secrets[String(provider.id)] = apiKey
   }
   return secrets
+}
+
+const enqueuePersistence = (operation: () => Promise<void>): Promise<void> => {
+  const queued = persistenceQueue.then(operation, operation)
+  persistenceQueue = queued.then(
+    () => undefined,
+    () => undefined
+  )
+  return queued
+}
+
+const withPersistenceLock = (operation: () => Promise<void>): Promise<void> => {
+  const lockManager = globalThis.navigator?.locks
+  if (lockManager) {
+    return lockManager
+      .request(PROVIDER_PERSISTENCE_LOCK, operation)
+      .then(() => undefined)
+  }
+  return enqueuePersistence(operation)
 }
 
 export const hydrateProviderSecrets = async (
@@ -52,12 +78,21 @@ export const containsLegacySyncedSecrets = (
 export const persistProviderConfigs = async (
   providers: ProviderConfig[]
 ): Promise<void> => {
-  await plasmoDeviceStorage.set(
-    STORAGE_KEYS.PROVIDER.SECRETS,
-    extractSecrets(providers)
-  )
-  await plasmoGlobalStorage.set(
-    ProviderStorageKey.CONFIG,
-    providers.map(stripSecrets)
-  )
+  // Snapshot before waiting: callers may mutate their form state while an
+  // earlier save owns the cross-context lock.
+  const snapshot: ProviderPersistenceSnapshot = {
+    secrets: extractSecrets(providers),
+    publicConfigs: providers.map(stripSecrets)
+  }
+
+  await withPersistenceLock(async () => {
+    await plasmoDeviceStorage.set(
+      STORAGE_KEYS.PROVIDER.SECRETS,
+      snapshot.secrets
+    )
+    await plasmoGlobalStorage.set(
+      ProviderStorageKey.CONFIG,
+      snapshot.publicConfigs
+    )
+  })
 }
