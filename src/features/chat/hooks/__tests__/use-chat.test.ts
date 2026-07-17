@@ -735,7 +735,10 @@ describe("useChat", () => {
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining("Failed to embed messages"),
       expect.objectContaining({
-        error: expect.any(Error)
+        error: expect.objectContaining({
+          name: "Error",
+          message: "Embedding failed"
+        })
       })
     )
     consoleSpy.mockRestore()
