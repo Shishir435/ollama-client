@@ -14,7 +14,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ModelIdListEditor } from "@/features/model/components/model-id-list-editor"
 import { Bot, Globe, Loader2, Server } from "@/lib/lucide-icon"
-import type { CustomProviderWire } from "@/lib/providers/types"
+import { providerProfileRequiresApiKey } from "@/lib/providers/service-profile"
+import {
+  type CustomProviderWire,
+  ProviderServiceProfile
+} from "@/lib/providers/types"
 import { cn } from "@/lib/utils"
 
 export interface AddProviderDialogProps {
@@ -26,13 +30,54 @@ export interface AddProviderDialogProps {
     wire: CustomProviderWire
     apiKey?: string
     customModels?: string[]
+    serviceProfile?: ProviderServiceProfile
   }) => Promise<boolean>
 }
 
-const DEFAULT_BASE_URL: Record<CustomProviderWire, string> = {
-  openai: "http://localhost:8080/v1",
-  ollama: "http://localhost:11434",
-  anthropic: "https://api.anthropic.com/v1"
+type ProviderPreset =
+  | "openai"
+  | "openai-api"
+  | "ollama"
+  | "anthropic"
+  | "anthropic-compatible"
+  | "openrouter"
+
+const PRESET_CONFIG: Record<
+  ProviderPreset,
+  {
+    wire: CustomProviderWire
+    baseUrl: string
+    serviceProfile?: ProviderServiceProfile
+    defaultName?: string
+  }
+> = {
+  openai: {
+    wire: "openai",
+    baseUrl: "http://localhost:8080/v1"
+  },
+  "openai-api": {
+    wire: "openai",
+    baseUrl: "https://api.openai.com/v1",
+    serviceProfile: ProviderServiceProfile.OPENAI,
+    defaultName: "OpenAI"
+  },
+  ollama: { wire: "ollama", baseUrl: "http://localhost:11434" },
+  anthropic: {
+    wire: "anthropic",
+    baseUrl: "https://api.anthropic.com/v1",
+    serviceProfile: ProviderServiceProfile.ANTHROPIC,
+    defaultName: "Anthropic"
+  },
+  "anthropic-compatible": {
+    wire: "anthropic",
+    baseUrl: "http://localhost:8080/v1"
+  },
+  openrouter: {
+    wire: "openai",
+    baseUrl: "https://openrouter.ai/api/v1",
+    serviceProfile: ProviderServiceProfile.OPENROUTER,
+    defaultName: "OpenRouter"
+  }
 }
 
 const isRemoteUrl = (value: string): boolean => {
@@ -55,25 +100,30 @@ export const AddProviderDialog = ({
 }: AddProviderDialogProps) => {
   const { t } = useTranslation()
   const [name, setName] = useState("")
-  const [wire, setWire] = useState<CustomProviderWire>("openai")
-  const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL.openai)
+  const [preset, setPreset] = useState<ProviderPreset>("openai")
+  const [baseUrl, setBaseUrl] = useState(PRESET_CONFIG.openai.baseUrl)
   const [apiKey, setApiKey] = useState("")
   const [customModels, setCustomModels] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
 
   const reset = () => {
     setName("")
-    setWire("openai")
-    setBaseUrl(DEFAULT_BASE_URL.openai)
+    setPreset("openai")
+    setBaseUrl(PRESET_CONFIG.openai.baseUrl)
     setApiKey("")
     setCustomModels([])
   }
 
-  const handleWireChange = (next: CustomProviderWire) => {
-    if (!baseUrl.trim() || baseUrl === DEFAULT_BASE_URL[wire]) {
-      setBaseUrl(DEFAULT_BASE_URL[next])
+  const handlePresetChange = (next: ProviderPreset) => {
+    const current = PRESET_CONFIG[preset]
+    const selected = PRESET_CONFIG[next]
+    if (!baseUrl.trim() || baseUrl === current.baseUrl) {
+      setBaseUrl(selected.baseUrl)
     }
-    setWire(next)
+    if (!name.trim() || name === current.defaultName) {
+      setName(selected.defaultName || "")
+    }
+    setPreset(next)
   }
 
   const handleOpenChange = (next: boolean) => {
@@ -87,9 +137,10 @@ export const AddProviderDialog = ({
       const added = await onAdd({
         name,
         baseUrl: baseUrl.trim(),
-        wire,
+        wire: PRESET_CONFIG[preset].wire,
         apiKey: apiKey.trim() || undefined,
-        customModels
+        customModels,
+        serviceProfile: PRESET_CONFIG[preset].serviceProfile
       })
       if (added) {
         handleOpenChange(false)
@@ -99,34 +150,56 @@ export const AddProviderDialog = ({
     }
   }
 
-  const apiKeyRequired = wire === "anthropic"
+  const apiKeyRequired = providerProfileRequiresApiKey(
+    PRESET_CONFIG[preset].serviceProfile
+  )
   const canSubmit =
     name.trim().length > 0 &&
     baseUrl.trim().length > 0 &&
     (!apiKeyRequired || apiKey.trim().length > 0)
   const options: Array<{
-    wire: CustomProviderWire
+    preset: ProviderPreset
     icon: typeof Server
     label: string
     description: string
   }> = [
     {
-      wire: "openai",
+      preset: "openai",
       icon: Server,
       label: t("settings.providers.add.wire_openai"),
       description: t("settings.providers.add.wire_openai_description")
     },
     {
-      wire: "ollama",
+      preset: "openai-api",
+      icon: Globe,
+      label: t("settings.providers.add.wire_openai_api"),
+      description: t("settings.providers.add.wire_openai_api_description")
+    },
+    {
+      preset: "ollama",
       icon: Bot,
       label: t("settings.providers.add.wire_ollama"),
       description: t("settings.providers.add.wire_ollama_description")
     },
     {
-      wire: "anthropic",
+      preset: "anthropic",
       icon: Globe,
       label: t("settings.providers.add.wire_anthropic"),
       description: t("settings.providers.add.wire_anthropic_description")
+    },
+    {
+      preset: "anthropic-compatible",
+      icon: Server,
+      label: t("settings.providers.add.wire_anthropic_compatible"),
+      description: t(
+        "settings.providers.add.wire_anthropic_compatible_description"
+      )
+    },
+    {
+      preset: "openrouter",
+      icon: Globe,
+      label: t("settings.providers.add.wire_openrouter"),
+      description: t("settings.providers.add.wire_openrouter_description")
     }
   ]
 
@@ -158,16 +231,16 @@ export const AddProviderDialog = ({
             <legend className="text-sm font-medium">
               {t("settings.providers.add.wire_label")}
             </legend>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2">
               {options.map((option) => {
                 const Icon = option.icon
-                const selected = wire === option.wire
+                const selected = preset === option.preset
                 return (
                   <button
-                    key={option.wire}
+                    key={option.preset}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() => handleWireChange(option.wire)}
+                    onClick={() => handlePresetChange(option.preset)}
                     className={cn(
                       "rounded-control border p-3 text-left transition-colors",
                       selected
@@ -198,7 +271,7 @@ export const AddProviderDialog = ({
               id="add-provider-url"
               value={baseUrl}
               onChange={(event) => setBaseUrl(event.target.value)}
-              placeholder={DEFAULT_BASE_URL[wire]}
+              placeholder={PRESET_CONFIG[preset].baseUrl}
             />
             {isRemoteUrl(baseUrl) && (
               <p className="text-xs text-status-warning">
@@ -218,7 +291,7 @@ export const AddProviderDialog = ({
               type="password"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder={wire === "anthropic" ? "sk-ant-..." : "sk-..."}
+              placeholder={preset === "anthropic" ? "sk-ant-..." : "sk-..."}
             />
           </div>
 

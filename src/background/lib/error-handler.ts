@@ -46,6 +46,8 @@ export const normalizeError = (
       error.userMessage && { userMessage: error.userMessage }),
     ...(isAppError(error) &&
       error.retryable !== undefined && { retryable: error.retryable }),
+    ...(isAppError(error) &&
+      error.retryAfterMs !== undefined && { retryAfterMs: error.retryAfterMs }),
     ...(options.context && { context: options.context }),
     ...(!options.context &&
       isAppError(error) &&

@@ -30,6 +30,7 @@ import {
   isCustomProviderId,
   type ProviderConfig,
   ProviderId,
+  ProviderServiceProfile,
   ProviderStorageKey,
   ProviderType
 } from "../types"
@@ -643,6 +644,7 @@ describe("ProviderManager", () => {
         name: "Claude",
         baseUrl: "https://api.anthropic.com/v1",
         wire: "anthropic",
+        serviceProfile: ProviderServiceProfile.ANTHROPIC,
         apiKey: "sk-ant-test",
         customModels: ["claude-sonnet", "claude-sonnet", " "]
       })
@@ -652,12 +654,81 @@ describe("ProviderManager", () => {
       expect(config.customModels).toEqual(["claude-sonnet"])
     })
 
-    it("requires an API key for Anthropic", async () => {
+    it("requires an API key for branded Anthropic", async () => {
       await expect(
         ProviderManager.addCustomProvider({
           name: "Claude",
           baseUrl: "https://api.anthropic.com/v1",
-          wire: "anthropic"
+          wire: "anthropic",
+          serviceProfile: ProviderServiceProfile.ANTHROPIC
+        })
+      ).rejects.toThrow(/API key/i)
+    })
+
+    it("allows keyless generic Anthropic-compatible endpoints", async () => {
+      const config = await ProviderManager.addCustomProvider({
+        name: "Local Messages server",
+        baseUrl: "http://localhost:8080/v1",
+        wire: "anthropic"
+      })
+
+      expect(config.type).toBe(ProviderType.ANTHROPIC)
+      expect(config.apiKey).toBeUndefined()
+      expect(config.serviceProfile).toBeUndefined()
+    })
+
+    it("persists the OpenRouter service profile on the OpenAI wire", async () => {
+      const config = await ProviderManager.addCustomProvider({
+        name: "OpenRouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        wire: "openai",
+        apiKey: "sk-or-test",
+        serviceProfile: ProviderServiceProfile.OPENROUTER
+      })
+
+      expect(config.type).toBe(ProviderType.OPENAI)
+      expect(config.serviceProfile).toBe(ProviderServiceProfile.OPENROUTER)
+    })
+
+    it("rejects clearing credentials from an existing hosted profile", async () => {
+      const config = await ProviderManager.addCustomProvider({
+        name: "OpenRouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        wire: "openai",
+        apiKey: "sk-or-test",
+        serviceProfile: ProviderServiceProfile.OPENROUTER
+      })
+
+      await expect(
+        ProviderManager.updateProviderConfig(String(config.id), { apiKey: "" })
+      ).rejects.toThrow(/API key/i)
+      await expect(
+        ProviderManager.getProviderConfig(String(config.id))
+      ).resolves.toMatchObject({ apiKey: "sk-or-test" })
+    })
+
+    it("rejects hosted profile and wire mismatches during edits", async () => {
+      const config = await ProviderManager.addCustomProvider({
+        name: "Local Messages",
+        baseUrl: "http://localhost:8080/v1",
+        wire: "anthropic"
+      })
+
+      await expect(
+        ProviderManager.updateProviderConfig(String(config.id), {
+          type: ProviderType.OPENAI,
+          serviceProfile: ProviderServiceProfile.ANTHROPIC,
+          apiKey: "sk-ant-test"
+        })
+      ).rejects.toThrow(/Messages wire/i)
+    })
+
+    it("requires credentials when the OpenAI endpoint implies its profile", async () => {
+      await expect(
+        ProviderManager.addCustomProvider({
+          name: "OpenAI",
+          baseUrl: "https://api.openai.com/v1",
+          wire: "openai"
         })
       ).rejects.toThrow(/API key/i)
     })

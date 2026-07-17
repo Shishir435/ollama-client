@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import { isAppError } from "@/lib/error-utils"
 import type { ToolDefinition } from "@/lib/tools/types"
 import type { ChatStreamMessage } from "@/types"
 import { OllamaProvider } from "../ollama"
 import { OpenAICompatibleProvider } from "../openai-compatible"
-import { type ChatRequest, type ProviderConfig, ProviderType } from "../types"
+import {
+  type ChatRequest,
+  type ProviderConfig,
+  ProviderId,
+  ProviderServiceProfile,
+  ProviderType
+} from "../types"
 
 const encoder = new TextEncoder()
 
@@ -218,6 +225,104 @@ describe("provider tool calling — request mapping", () => {
       content: "18C"
     })
   })
+
+  it("maps num_predict to the configured OpenAI output-token field", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+    const config: ProviderConfig = {
+      ...openaiConfig,
+      id: "custom:openai:tokens",
+      compatibility: { maxTokensField: "max_completion_tokens" }
+    }
+
+    const provider = new OpenAICompatibleProvider(config)
+    await provider.streamChat(
+      { model: "m", messages: [], num_predict: 321 },
+      () => {}
+    )
+
+    expect(provider.id).toBe("custom:openai:tokens")
+    expect(bodyOf(fetchMock)).toMatchObject({ max_completion_tokens: 321 })
+    expect(bodyOf(fetchMock).max_tokens).toBeUndefined()
+  })
+
+  it("applies the OpenRouter profile without leaking the current page", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+    const provider = new OpenAICompatibleProvider({
+      ...openaiConfig,
+      id: "custom:openai:openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "sk-or-test",
+      serviceProfile: ProviderServiceProfile.OPENROUTER
+    })
+
+    await provider.streamChat(
+      { model: "openai/gpt-test", messages: [], num_predict: 64 },
+      () => {}
+    )
+
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(request.headers).toMatchObject({
+      Authorization: "Bearer sk-or-test",
+      "HTTP-Referer": "https://www.ollamaclient.in",
+      "X-OpenRouter-Title": "Ollama Client"
+    })
+    expect(JSON.stringify(request.headers)).not.toContain("chrome-extension://")
+    expect(bodyOf(fetchMock)).toMatchObject({
+      max_tokens: 64,
+      stream_options: { include_usage: true }
+    })
+  })
+
+  it("infers OpenAI usage and token defaults from its hosted endpoint", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new OpenAICompatibleProvider({
+      ...openaiConfig,
+      id: "custom:openai:openai",
+      baseUrl: "https://api.openai.com/v1"
+    }).streamChat(
+      { model: "gpt-test", messages: [], num_predict: 48 },
+      () => {}
+    )
+
+    expect(bodyOf(fetchMock)).toMatchObject({
+      max_completion_tokens: 48,
+      stream_options: { include_usage: true }
+    })
+    expect(bodyOf(fetchMock).max_tokens).toBeUndefined()
+  })
+
+  it("omits stream_options for generic compatible endpoints", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new OpenAICompatibleProvider(openaiConfig).streamChat(
+      { model: "m", messages: [] },
+      () => {}
+    )
+
+    expect(bodyOf(fetchMock).stream_options).toBeUndefined()
+  })
+
+  it("keeps usage streaming enabled for verified built-ins", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new OpenAICompatibleProvider({
+      ...openaiConfig,
+      id: ProviderId.LM_STUDIO
+    }).streamChat({ model: "m", messages: [] }, () => {})
+
+    expect(bodyOf(fetchMock).stream_options).toEqual({ include_usage: true })
+  })
 })
 
 describe("provider tool calling — stream parsing", () => {
@@ -279,6 +384,35 @@ describe("provider tool calling — stream parsing", () => {
     expect(toolChunk?.toolCalls).toEqual([
       { id: "c1", name: "get_weather", arguments: { city: "Paris" } }
     ])
+  })
+
+  it("ignores OpenRouter keep-alive comments and surfaces in-band errors", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      streamResponse([
+        ": OPENROUTER PROCESSING\n",
+        'data: {"choices":[{"delta":{"content":"partial"}}]}\n',
+        'data: {"error":{"code":429,"message":"upstream rate limit","metadata":{"headers":{"Retry-After":"7"}}}}\n'
+      ])
+    )
+    const chunks: ChatStreamMessage[] = []
+
+    try {
+      await new OpenAICompatibleProvider(openaiConfig).streamChat(
+        baseRequest,
+        collect(chunks)
+      )
+      throw new Error("Expected streamChat to fail")
+    } catch (error) {
+      expect(isAppError(error)).toBe(true)
+      if (isAppError(error)) {
+        expect(error.message).toContain("upstream rate limit")
+        expect(error.status).toBe(429)
+        expect(error.retryable).toBe(true)
+        expect(error.retryAfterMs).toBe(7000)
+        expect(error.userMessage).toContain("7 seconds")
+      }
+    }
+    expect(chunks).toContainEqual({ delta: "partial", done: false })
   })
 
   it("Ollama surfaces provider stream errors instead of swallowing them as parse warnings", async () => {

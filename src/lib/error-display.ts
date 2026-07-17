@@ -15,6 +15,7 @@ type ErrorEnvelope = {
   kind?: AppErrorKind
   userMessage?: string
   retryable?: boolean
+  retryAfterMs?: number
   context?: string
   providerId?: string
 }

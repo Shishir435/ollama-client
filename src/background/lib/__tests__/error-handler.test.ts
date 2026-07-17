@@ -61,6 +61,25 @@ describe("error-handler", () => {
         kind: "provider"
       })
     })
+
+    it("preserves provider retry timing without exposing debug data", () => {
+      expect(
+        normalizeError(
+          createAppError("Rate limited", {
+            kind: "provider",
+            retryable: true,
+            retryAfterMs: 3000,
+            debug: "private upstream body"
+          })
+        )
+      ).toEqual({
+        status: 0,
+        message: "Rate limited",
+        kind: "provider",
+        retryable: true,
+        retryAfterMs: 3000
+      })
+    })
   })
 
   it("creates a standard failed response", () => {

@@ -38,6 +38,8 @@ The extension sends prompts to whichever provider endpoint you configure. Typica
 
 LAN endpoints are supported when configured by the user. If you point the extension to a remote endpoint, your prompt data will be sent to that endpoint.
 
+The OpenRouter preset sends two static application-attribution headers: the Ollama Client website and application name. It never substitutes the page you are viewing, a chat URL, or another user-specific value into those headers. Your API key remains device-local, but prompts and selected context are processed according to OpenRouter and its routed model provider's policies.
+
 When browser-context tools or image input are used, the extracted context or image data becomes part of the provider request for that chat turn. Local providers receive it locally; remote providers receive it over the configured remote endpoint.
 
 :::caution

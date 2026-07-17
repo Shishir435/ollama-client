@@ -1,9 +1,9 @@
 ---
 title: Provider Setup
-description: Configure Ollama, LM Studio, llama.cpp, Anthropic, or any OpenAI-compatible server.
+description: Configure Ollama, LM Studio, llama.cpp, OpenAI, OpenRouter, Anthropic, or compatible servers.
 ---
 
-Verified built-ins are Ollama, LM Studio, and llama.cpp. Add vLLM, LocalAI, KoboldCPP, or another compatible endpoint through **Add provider**. Anthropic uses its native Messages API and sends selected chat context to Anthropic.
+Verified built-ins are Ollama, LM Studio, and llama.cpp. Add vLLM, LocalAI, KoboldCPP, or another compatible endpoint through **Add provider**. The OpenRouter preset uses its OpenAI-compatible Chat Completions API. Anthropic uses the native Messages API, while the generic Anthropic-compatible option also supports keyless local or LAN endpoints.
 
 Web search is configured separately in the Context tab. Use SearXNG for local/self-hosted search, or Brave Search/Tavily when you want an API-backed provider.
 
@@ -19,7 +19,10 @@ Install [Ollama Client](https://chromewebstore.google.com/detail/ollama-client-c
 | LM Studio | `http://localhost:1234/v1` | OpenAI-compatible chat, embeddings, tool calling, and LM Studio model discovery. |
 | llama.cpp server | `http://localhost:8000/v1` | OpenAI-compatible. Run with `llama-server`. |
 | OpenAI-compatible | User configured | Add vLLM, LocalAI, KoboldCPP, or another compatible endpoint. |
+| OpenAI | `https://api.openai.com/v1` | Hosted OpenAI API; API key required. Uses streamed usage and the modern completion-token field. |
 | Anthropic | `https://api.anthropic.com/v1` | Remote Claude Messages API; API key required. |
+| Anthropic-compatible | User configured | Native Messages wire; API key is optional for compatible self-hosted endpoints. |
+| OpenRouter | `https://openrouter.ai/api/v1` | OpenAI-compatible hosted gateway; API key required. Model IDs keep their provider prefix. |
 
 ## 3. Start Ollama (primary path)
 

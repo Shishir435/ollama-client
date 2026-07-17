@@ -116,6 +116,7 @@ export interface ChatMessage {
     status?: number
     kind?: import("./errors").AppErrorKind
     retryable?: boolean
+    retryAfterMs?: number
   }
   timestamp?: number
   metrics?: {
@@ -227,6 +228,7 @@ export interface ChatStreamMessage {
     kind?: import("./errors").AppErrorKind
     userMessage?: string
     retryable?: boolean
+    retryAfterMs?: number
     context?: string
     providerId?: string
   }

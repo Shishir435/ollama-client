@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { isAppError } from "@/lib/error-utils"
 import { OllamaProvider } from "../ollama"
+import { OpenAICompatibleProvider } from "../openai-compatible"
 import {
   isLocalProviderBaseUrl,
+  parseRetryAfter,
   providerErrorUserMessage
 } from "../provider-errors"
 import { type ProviderConfig, ProviderType } from "../types"
@@ -63,6 +65,30 @@ describe("providerErrorUserMessage", () => {
     expect(msg).toContain("credentials")
     expect(msg).not.toContain("OLLAMA_ORIGINS")
   })
+
+  it("distinguishes hosted payment, overload, and retry timing", () => {
+    expect(providerErrorUserMessage(402)).toContain("insufficient credits")
+    expect(providerErrorUserMessage(529)).toContain("overloaded")
+    expect(providerErrorUserMessage(429, { retryAfterMs: 42_000 })).toContain(
+      "42 seconds"
+    )
+    expect(
+      providerErrorUserMessage(503, {
+        baseUrl: "https://openrouter.ai/api/v1",
+        retryAfterMs: 2_000
+      })
+    ).toContain("hosted provider")
+  })
+})
+
+describe("parseRetryAfter", () => {
+  it("parses seconds and HTTP dates", () => {
+    expect(parseRetryAfter("1.5")).toBe(1500)
+    expect(parseRetryAfter("Thu, 01 Jan 2026 00:00:02 GMT", 0)).toBe(
+      Date.parse("Thu, 01 Jan 2026 00:00:02 GMT")
+    )
+    expect(parseRetryAfter("invalid")).toBeUndefined()
+  })
 })
 
 describe("isLocalProviderBaseUrl", () => {
@@ -112,6 +138,39 @@ describe("Ollama streamChat error", () => {
         expect(err.userMessage).not.toMatch(/[{}]/)
         // Raw body retained for diagnostics only.
         expect(err.debug).toContain("unmarshal")
+      }
+    }
+  })
+})
+
+describe("hosted provider retry metadata", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it("preserves Retry-After and the custom provider id", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response('{"error":"slow down"}', {
+        status: 429,
+        headers: { "Retry-After": "3" }
+      })
+    )
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:openai:hosted",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "https://api.example.com/v1",
+      name: "Hosted"
+    })
+
+    try {
+      await provider.streamChat({ model: "m", messages: [] }, () => {})
+      throw new Error("Expected streamChat to fail")
+    } catch (error) {
+      expect(isAppError(error)).toBe(true)
+      if (isAppError(error)) {
+        expect(error.providerId).toBe("custom:openai:hosted")
+        expect(error.retryable).toBe(true)
+        expect(error.retryAfterMs).toBe(3000)
+        expect(error.userMessage).toContain("3 seconds")
       }
     }
   })

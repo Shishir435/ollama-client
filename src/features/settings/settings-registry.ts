@@ -292,8 +292,11 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     searchKeys: [
       "settings.providers.add.title",
       "settings.providers.add.wire_openai",
+      "settings.providers.add.wire_openai_api",
       "settings.providers.add.wire_ollama",
       "settings.providers.add.wire_anthropic",
+      "settings.providers.add.wire_anthropic_compatible",
+      "settings.providers.add.wire_openrouter",
       "settings.providers.models.title"
     ],
     aliases: [

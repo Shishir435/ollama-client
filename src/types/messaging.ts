@@ -32,6 +32,7 @@ export interface ChromeMessage {
     kind?: import("./errors").AppErrorKind
     userMessage?: string
     retryable?: boolean
+    retryAfterMs?: number
     context?: string
     providerId?: string
   }
@@ -72,6 +73,7 @@ export interface ChromeResponse {
     kind?: import("./errors").AppErrorKind
     userMessage?: string
     retryable?: boolean
+    retryAfterMs?: number
     context?: string
     providerId?: string
   }
