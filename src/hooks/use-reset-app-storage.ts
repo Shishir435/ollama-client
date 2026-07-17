@@ -8,6 +8,8 @@ import {
   plasmoGlobalStorage,
   removePlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
+import { withProviderPersistenceLock } from "@/lib/providers/provider-secret-store"
+import { ProviderStorageKey } from "@/lib/providers/types"
 import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
@@ -27,15 +29,33 @@ export const useResetAppStorage = () => {
       }
 
       if (key === "all") {
-        await plasmoGlobalStorage.clear()
-        await plasmoDeviceStorage.clear()
+        await withProviderPersistenceLock(async () => {
+          await plasmoGlobalStorage.clear()
+          await plasmoDeviceStorage.clear()
+        })
         sessionStorage.clear()
       } else if (key !== "CHAT_SESSIONS" && key !== "FEEDBACK") {
         const keysToRemove = allKeys[key] || []
         if (keysToRemove.length > 0) {
-          await Promise.all(
-            keysToRemove.map((key) => removePlasmoStoredValue(key))
-          )
+          const removeKeys = () =>
+            Promise.all(keysToRemove.map((key) => removePlasmoStoredValue(key)))
+
+          if (key === "PROVIDER") {
+            await withProviderPersistenceLock(async () => {
+              // Remove public config before local credentials. If sync removal
+              // fails, the configured providers retain usable credentials.
+              await removePlasmoStoredValue(ProviderStorageKey.CONFIG)
+              await Promise.all(
+                keysToRemove
+                  .filter(
+                    (storageKey) => storageKey !== ProviderStorageKey.CONFIG
+                  )
+                  .map((storageKey) => removePlasmoStoredValue(storageKey))
+              )
+            })
+          } else {
+            await removeKeys()
+          }
         }
       }
 

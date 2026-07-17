@@ -9,6 +9,7 @@ import {
   plasmoGlobalStorage,
   removePlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
+import { withProviderPersistenceLock } from "@/lib/providers/provider-secret-store"
 import { ProviderStorageKey } from "@/lib/providers/types"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
@@ -20,6 +21,12 @@ vi.mock("@/lib/embeddings/feedback-service", () => ({
 
 vi.mock("@/lib/sqlite/db", () => ({
   resetSQLiteDatabase: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock("@/lib/providers/provider-secret-store", () => ({
+  withProviderPersistenceLock: vi.fn(
+    async (operation: () => Promise<unknown>) => operation()
+  )
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
@@ -48,6 +55,7 @@ describe("useResetAppStorage", () => {
     expect(feedbackService.clearAllFeedback).toHaveBeenCalled()
     expect(plasmoGlobalStorage.clear).toHaveBeenCalled()
     expect(plasmoDeviceStorage.clear).toHaveBeenCalled()
+    expect(withProviderPersistenceLock).toHaveBeenCalledOnce()
   })
 
   it("should reset only chat sessions when key is 'CHAT_SESSIONS'", async () => {
@@ -82,6 +90,58 @@ describe("useResetAppStorage", () => {
     expect(removePlasmoStoredValue).toHaveBeenCalled()
     expect(resetSQLiteDatabase).not.toHaveBeenCalled()
     expect(feedbackService.clearAllFeedback).not.toHaveBeenCalled()
+    expect(withProviderPersistenceLock).not.toHaveBeenCalled()
+  })
+
+  it("holds the provider persistence lock while removing provider keys", async () => {
+    let runLockedReset: (() => Promise<unknown>) | undefined
+    vi.mocked(withProviderPersistenceLock).mockImplementationOnce(
+      async (operation) => {
+        runLockedReset = operation
+        return new Promise(() => undefined)
+      }
+    )
+
+    const { result } = renderHook(() => useResetAppStorage())
+    void result.current("PROVIDER")
+    await Promise.resolve()
+
+    expect(withProviderPersistenceLock).toHaveBeenCalledOnce()
+    expect(removePlasmoStoredValue).not.toHaveBeenCalled()
+
+    const lockedReset = runLockedReset?.()
+    await Promise.resolve()
+
+    expect(removePlasmoStoredValue).toHaveBeenCalledWith(
+      ProviderStorageKey.CONFIG
+    )
+    await lockedReset
+    expect(removePlasmoStoredValue).toHaveBeenCalledWith(
+      STORAGE_KEYS.PROVIDER.SECRETS
+    )
+    expect(removePlasmoStoredValue).toHaveBeenCalledWith(
+      STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL
+    )
+  })
+
+  it("keeps credentials when provider config removal fails", async () => {
+    vi.mocked(removePlasmoStoredValue).mockImplementation(async (key) => {
+      if (key === ProviderStorageKey.CONFIG) {
+        throw new Error("sync removal failed")
+      }
+    })
+
+    const { result } = renderHook(() => useResetAppStorage())
+    const message = await result.current("PROVIDER")
+
+    expect(message).toBe("Failed to reset app data. Check console for details.")
+    expect(removePlasmoStoredValue).toHaveBeenCalledTimes(1)
+    expect(removePlasmoStoredValue).not.toHaveBeenCalledWith(
+      STORAGE_KEYS.PROVIDER.SECRETS
+    )
+    expect(removePlasmoStoredValue).not.toHaveBeenCalledWith(
+      STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL
+    )
   })
 
   it("includes string storage keys and provider secrets in module reset maps", () => {
