@@ -1740,6 +1740,11 @@
         "description": "ソースコード、リリース、貢献ガイドライン",
         "badge": "コード"
       },
+      "issue": {
+        "label": "GitHub Issueを開く",
+        "description": "ストアレビューの前にバグや問題を報告してください",
+        "badge": "サポート"
+      },
       "faq": {
         "label": "トラブルシューティングとFAQ",
         "description": "一般的な問題とコミュニティサポート",

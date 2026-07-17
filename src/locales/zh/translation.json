@@ -1740,6 +1740,11 @@
         "description": "源代码、发布和贡献指南",
         "badge": "代码"
       },
+      "issue": {
+        "label": "打开 GitHub Issue",
+        "description": "在商店评价前报告错误或使用问题",
+        "badge": "支持"
+      },
       "faq": {
         "label": "故障排除和常见问题",
         "description": "常见问题和社区支持",

@@ -1740,6 +1740,11 @@
         "description": "Source code, releases, and contribution guidelines",
         "badge": "Code"
       },
+      "issue": {
+        "label": "Open a GitHub Issue",
+        "description": "Report bugs or rough edges before leaving a store review",
+        "badge": "Support"
+      },
       "faq": {
         "label": "Troubleshooting & FAQ",
         "description": "Common issues and community support",
