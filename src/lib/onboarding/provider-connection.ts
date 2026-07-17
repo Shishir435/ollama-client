@@ -1,6 +1,7 @@
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
+import { resolveProviderServiceProfile } from "@/lib/providers/service-profile"
 import type { ProviderConfig } from "@/lib/providers/types"
-import { ProviderType } from "@/lib/providers/types"
+import { ProviderServiceProfile, ProviderType } from "@/lib/providers/types"
 
 export const OLLAMA_CORS_COMMAND =
   'OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*" ollama serve'
@@ -28,16 +29,19 @@ const connectionEndpoint = (config: ProviderConfig): string => {
 const connectionHeaders = (
   config: ProviderConfig
 ): Record<string, string> | undefined => {
-  if (!config.apiKey) return undefined
   // Anthropic rejects Bearer auth — the Messages API wants x-api-key plus an
   // explicit version and browser-access acknowledgement (mirrors anthropic.ts).
   if (config.type === ProviderType.ANTHROPIC) {
     return {
-      "x-api-key": config.apiKey,
+      ...(config.apiKey ? { "x-api-key": config.apiKey } : {}),
       "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true"
+      ...(resolveProviderServiceProfile(config) ===
+      ProviderServiceProfile.ANTHROPIC
+        ? { "anthropic-dangerous-direct-browser-access": "true" }
+        : {})
     }
   }
+  if (!config.apiKey) return undefined
   // OllamaProvider never sends an auth header (see ollama.ts fetch calls), so
   // an onboarding check that adds Bearer here would pass behind an auth proxy
   // while the real getModels()/streamChat() calls then fail with no header.

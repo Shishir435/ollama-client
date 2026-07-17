@@ -294,6 +294,8 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
       "settings.providers.add.wire_openai",
       "settings.providers.add.wire_ollama",
       "settings.providers.add.wire_anthropic",
+      "settings.providers.add.wire_anthropic_compatible",
+      "settings.providers.add.wire_openrouter",
       "settings.providers.models.title"
     ],
     aliases: [

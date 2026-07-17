@@ -3,7 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import type { ToolDefinition } from "@/lib/tools/types"
 import type { ChatStreamMessage } from "@/types"
 import { AnthropicProvider } from "../anthropic"
-import { type ProviderConfig, ProviderType } from "../types"
+import {
+  type ProviderConfig,
+  ProviderServiceProfile,
+  ProviderType
+} from "../types"
 
 const encoder = new TextEncoder()
 const config: ProviderConfig = {
@@ -69,6 +73,31 @@ describe("AnthropicProvider", () => {
         })
       })
     )
+  })
+
+  it("keeps generic Anthropic-compatible requests keyless", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: [] }), { status: 200 })
+      )
+    const genericConfig: ProviderConfig = {
+      ...config,
+      id: "custom:anthropic:local",
+      baseUrl: "http://localhost:8080/v1",
+      apiKey: undefined,
+      serviceProfile: ProviderServiceProfile.GENERIC
+    }
+
+    await new AnthropicProvider(genericConfig).getModels()
+
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<
+      string,
+      string
+    >
+    expect(headers["x-api-key"]).toBeUndefined()
+    expect(headers["anthropic-dangerous-direct-browser-access"]).toBeUndefined()
+    expect(headers["anthropic-version"]).toBe("2023-06-01")
   })
 
   it("maps system, tools, and tool results to native content blocks", async () => {

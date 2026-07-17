@@ -7,11 +7,15 @@ import { logger } from "@/lib/logger"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import {
+  providerProfileRequiresApiKey,
+  resolveProviderServiceProfile
+} from "@/lib/providers/service-profile"
+import {
   type CustomProviderWire,
   isCustomProviderId,
   type ProviderConfig,
   ProviderId,
-  ProviderType
+  type ProviderServiceProfile
 } from "@/lib/providers/types"
 import { useProviderHealth } from "./use-provider-health"
 
@@ -117,7 +121,9 @@ export const useProviderSettingsState = () => {
     // Custom endpoints may be keyless local/LAN servers — never require a key
     // for them; a real 401 from the test surfaces its own error.
     if (
-      activeConfig.type === ProviderType.ANTHROPIC &&
+      providerProfileRequiresApiKey(
+        resolveProviderServiceProfile(activeConfig)
+      ) &&
       !activeConfig.apiKey?.trim()
     ) {
       const message = t("settings.providers.test_connection.api_key_required", {
@@ -241,6 +247,7 @@ export const useProviderSettingsState = () => {
     wire: CustomProviderWire
     apiKey?: string
     customModels?: string[]
+    serviceProfile?: ProviderServiceProfile
   }): Promise<boolean> => {
     try {
       const config = await ProviderManager.addCustomProvider(input)

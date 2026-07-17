@@ -30,6 +30,11 @@ Studio at `http://localhost:1234/v1`, requests stay on your machine. If you
 configure a remote OpenAI-compatible server, prompts and selected context are
 sent to that remote server.
 
+The OpenRouter preset uses its OpenAI-compatible endpoint and adds only static
+Ollama Client application-attribution headers. It does not send the URL of the
+page you are viewing as attribution. OpenRouter can route requests to other
+model providers, so their retention and processing policies also apply.
+
 Optional web search can contact the backend you configure, such as SearXNG,
 Brave Search, or Tavily.
 

@@ -13,6 +13,7 @@ export type AppErrorOptions = {
   status?: number
   userMessage?: string
   retryable?: boolean
+  retryAfterMs?: number
   context?: string
   providerId?: string
   debug?: unknown
@@ -24,6 +25,7 @@ export class AppError extends Error {
   status?: number
   userMessage?: string
   retryable?: boolean
+  retryAfterMs?: number
   context?: string
   providerId?: string
   debug?: unknown
@@ -35,6 +37,7 @@ export class AppError extends Error {
     this.status = options.status
     this.userMessage = options.userMessage
     this.retryable = options.retryable
+    this.retryAfterMs = options.retryAfterMs
     this.context = options.context
     this.providerId = options.providerId
     this.debug = options.debug

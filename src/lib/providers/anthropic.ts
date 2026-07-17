@@ -1,15 +1,21 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
+import {
+  isRetryableProviderStatus,
+  parseRetryAfter,
+  providerErrorUserMessage
+} from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
 import { ANTHROPIC_PROVIDER_CAPABILITIES } from "./capabilities"
+import { resolveProviderServiceProfile } from "./service-profile"
 import type {
   ChatRequest,
   EmbeddingSupport,
   LLMProvider,
   ProviderConfig
 } from "./types"
+import { ProviderServiceProfile } from "./types"
 
 const DEFAULT_ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
 const ANTHROPIC_VERSION = "2023-06-01"
@@ -150,13 +156,34 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   private headers(): Record<string, string> {
+    const brandedAnthropic =
+      resolveProviderServiceProfile(this.config) ===
+      ProviderServiceProfile.ANTHROPIC
     return {
       "content-type": "application/json",
-      "x-api-key": this.config.apiKey || "",
+      ...(this.config.apiKey ? { "x-api-key": this.config.apiKey } : {}),
       "anthropic-version": ANTHROPIC_VERSION,
-      // Anthropic requires explicit acknowledgement for direct browser use.
-      "anthropic-dangerous-direct-browser-access": "true"
+      ...(brandedAnthropic
+        ? { "anthropic-dangerous-direct-browser-access": "true" }
+        : {})
     }
+  }
+
+  private async responseError(response: Response): Promise<never> {
+    const detail = await response.text()
+    const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
+    throw createAppError(`Anthropic Error (${response.status}): ${detail}`, {
+      kind: "provider",
+      status: response.status,
+      providerId: this.id,
+      retryable: isRetryableProviderStatus(response.status),
+      retryAfterMs,
+      userMessage: providerErrorUserMessage(response.status, {
+        baseUrl: this.baseUrl,
+        retryAfterMs
+      }),
+      debug: detail
+    })
   }
 
   async getModels(): Promise<ProviderModel[]> {
@@ -164,17 +191,7 @@ export class AnthropicProvider implements LLMProvider {
       headers: this.headers()
     })
     if (!response.ok) {
-      const detail = await response.text()
-      throw createAppError(`Anthropic Error (${response.status}): ${detail}`, {
-        kind: "provider",
-        status: response.status,
-        providerId: this.id,
-        retryable: response.status === 429 || response.status >= 500,
-        userMessage: providerErrorUserMessage(response.status, {
-          baseUrl: this.baseUrl
-        }),
-        debug: detail
-      })
+      await this.responseError(response)
     }
 
     const payload = (await response.json()) as {
@@ -265,17 +282,7 @@ export class AnthropicProvider implements LLMProvider {
       signal
     })
     if (!response.ok) {
-      const detail = await response.text()
-      throw createAppError(`Anthropic Error (${response.status}): ${detail}`, {
-        kind: "provider",
-        status: response.status,
-        providerId: this.id,
-        retryable: response.status === 429 || response.status >= 500,
-        userMessage: providerErrorUserMessage(response.status, {
-          baseUrl: this.baseUrl
-        }),
-        debug: detail
-      })
+      await this.responseError(response)
     }
 
     await this.processSSE(response, onChunk, Date.now())

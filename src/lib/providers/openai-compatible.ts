@@ -1,11 +1,16 @@
 import { createAppError } from "@/lib/error-utils"
 import { toDataUrl } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
-import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
+import {
+  isRetryableProviderStatus,
+  parseRetryAfter,
+  providerErrorUserMessage
+} from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
 import { resolveProviderBaseUrl } from "./base-url"
 import { OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES } from "./capabilities"
+import { getOpenAIServiceCompatibility } from "./service-profile"
 import {
   type ChatRequest,
   type EmbeddingSupport,
@@ -122,31 +127,50 @@ export class OpenAICompatibleProvider implements LLMProvider {
   id: string = ProviderId.OPENAI
   capabilities = { ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES }
 
-  constructor(public config: ProviderConfig) {}
+  constructor(public config: ProviderConfig) {
+    this.id = String(config.id)
+  }
+
+  private headers(): Record<string, string> {
+    const compatibility = getOpenAIServiceCompatibility(this.config)
+    return {
+      "Content-Type": "application/json",
+      ...compatibility.extraHeaders,
+      ...(this.config.apiKey
+        ? { Authorization: `Bearer ${this.config.apiKey}` }
+        : {})
+    }
+  }
+
+  private async responseError(
+    response: Response,
+    label: string,
+    baseUrl: string
+  ): Promise<never> {
+    const detail = await response.text()
+    const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
+    throw createAppError(`${label} (${response.status}): ${detail}`, {
+      kind: "provider",
+      status: response.status,
+      providerId: this.id,
+      retryable: isRetryableProviderStatus(response.status),
+      retryAfterMs,
+      userMessage: providerErrorUserMessage(response.status, {
+        baseUrl,
+        retryAfterMs
+      }),
+      debug: detail
+    })
+  }
 
   async getModels(): Promise<ProviderModel[]> {
     const baseUrl = resolveProviderBaseUrl(this.config)
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json"
-    }
-
-    if (this.config.apiKey) {
-      headers.Authorization = `Bearer ${this.config.apiKey}`
-    }
-
     try {
-      const response = await fetch(`${baseUrl}/models`, { headers })
+      const response = await fetch(`${baseUrl}/models`, {
+        headers: this.headers()
+      })
       if (!response.ok) {
-        throw createAppError(
-          `Model list failed (${response.status}): ${response.statusText}`,
-          {
-            kind: "provider",
-            status: response.status,
-            providerId: this.id,
-            retryable: response.status >= 500,
-            userMessage: providerErrorUserMessage(response.status, { baseUrl })
-          }
-        )
+        await this.responseError(response, "Model list failed", baseUrl)
       }
       const data = await response.json()
       return (
@@ -184,6 +208,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
       messages,
       temperature,
       max_tokens,
+      num_predict,
       top_p,
       tools,
       tool_choice
@@ -191,48 +216,43 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const hasTools = !!tools && tools.length > 0
     const baseUrl = resolveProviderBaseUrl(this.config)
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json"
-    }
-
-    if (this.config.apiKey) {
-      headers.Authorization = `Bearer ${this.config.apiKey}`
-    }
+    const compatibility = getOpenAIServiceCompatibility(this.config)
+    const requestedOutputTokens = max_tokens ?? num_predict
+    const outputTokens =
+      requestedOutputTokens !== undefined && requestedOutputTokens > 0
+        ? requestedOutputTokens
+        : undefined
 
     // Map to OpenAI chat-completions shape. Vision models take images as
     // content parts: a text part plus one image_url part per image (data URL).
     // Tool turns round-trip through `assistant.tool_calls` (arguments as a JSON
     // string) and `tool` result messages keyed by `tool_call_id`.
-    const body = {
+    const body: Record<string, unknown> = {
       model,
       messages: messages.map((m) => mapToOpenAIMessage(m)),
       stream: true,
-      stream_options: { include_usage: true },
+      stream_options: compatibility.sendStreamOptions
+        ? { include_usage: true }
+        : undefined,
       temperature,
-      max_tokens,
       top_p,
       tools: hasTools ? tools.map(toOpenAITool) : undefined,
       // tool_choice is only valid alongside a tools array; omit it otherwise.
       tool_choice: hasTools ? tool_choice : undefined
     }
+    if (outputTokens !== undefined) {
+      body[compatibility.maxTokensField] = outputTokens
+    }
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
-      headers,
+      headers: this.headers(),
       body: JSON.stringify(body),
       signal
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
-      throw createAppError(`OpenAI Error (${response.status}): ${errorText}`, {
-        kind: "provider",
-        status: response.status,
-        providerId: this.id,
-        retryable: response.status >= 500,
-        userMessage: providerErrorUserMessage(response.status, { baseUrl }),
-        debug: errorText
-      })
+      await this.responseError(response, "OpenAI Error", baseUrl)
     }
 
     const startTime = Date.now()
@@ -420,33 +440,14 @@ export class OpenAICompatibleProvider implements LLMProvider {
   async embed(text: string, model?: string): Promise<number[]> {
     const baseUrl = resolveProviderBaseUrl(this.config)
     const targetModel = model || this.config.modelId || "text-embedding-3-small"
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json"
-    }
-
-    if (this.config.apiKey) {
-      headers.Authorization = `Bearer ${this.config.apiKey}`
-    }
-
     const response = await fetch(`${baseUrl}/embeddings`, {
       method: "POST",
-      headers,
+      headers: this.headers(),
       body: JSON.stringify({ model: targetModel, input: text })
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
-      throw createAppError(
-        `OpenAI Embedding Error (${response.status}): ${errorText}`,
-        {
-          kind: "provider",
-          status: response.status,
-          providerId: this.id,
-          retryable: response.status >= 500,
-          userMessage: providerErrorUserMessage(response.status, { baseUrl }),
-          debug: errorText
-        }
-      )
+      await this.responseError(response, "OpenAI Embedding Error", baseUrl)
     }
 
     const data = await response.json()
@@ -456,33 +457,14 @@ export class OpenAICompatibleProvider implements LLMProvider {
   async embedBatch(texts: string[], model?: string): Promise<number[][]> {
     const baseUrl = resolveProviderBaseUrl(this.config)
     const targetModel = model || this.config.modelId || "text-embedding-3-small"
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json"
-    }
-
-    if (this.config.apiKey) {
-      headers.Authorization = `Bearer ${this.config.apiKey}`
-    }
-
     const response = await fetch(`${baseUrl}/embeddings`, {
       method: "POST",
-      headers,
+      headers: this.headers(),
       body: JSON.stringify({ model: targetModel, input: texts })
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
-      throw createAppError(
-        `OpenAI Embedding Error (${response.status}): ${errorText}`,
-        {
-          kind: "provider",
-          status: response.status,
-          providerId: this.id,
-          retryable: response.status >= 500,
-          userMessage: providerErrorUserMessage(response.status, { baseUrl }),
-          debug: errorText
-        }
-      )
+      await this.responseError(response, "OpenAI Embedding Error", baseUrl)
     }
 
     const data = await response.json()

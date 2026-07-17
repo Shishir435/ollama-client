@@ -84,6 +84,30 @@ describe("checkProviderConnection", () => {
     )
   })
 
+  it("keeps keyless generic Anthropic-compatible checks versioned", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: [] }), {
+        status: 200
+      })
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await checkProviderConnection({
+      id: "custom:anthropic:local",
+      type: ProviderType.ANTHROPIC,
+      enabled: true,
+      name: "Local Messages",
+      baseUrl: "http://localhost:8080/v1"
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/v1/models",
+      expect.objectContaining({
+        headers: { "anthropic-version": "2023-06-01" }
+      })
+    )
+  })
+
   it("sends no auth header for Ollama even when an apiKey is set", async () => {
     const fetchMock = vi
       .fn()

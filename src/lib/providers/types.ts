@@ -23,6 +23,19 @@ export enum ProviderId {
   OPENAI = "openai"
 }
 
+export enum ProviderServiceProfile {
+  GENERIC = "generic",
+  ANTHROPIC = "anthropic",
+  OPENROUTER = "openrouter"
+}
+
+export type OpenAIOutputTokenField = "max_tokens" | "max_completion_tokens"
+
+export interface OpenAICompatibilityOptions {
+  maxTokensField?: OpenAIOutputTokenField
+  sendStreamOptions?: "always" | "never"
+}
+
 /**
  * User-added providers get ids of the form `custom:<wire>:<random>`, where
  * `<wire>` is the wire protocol ("openai" | "ollama" | "anthropic"). Encoding
@@ -72,6 +85,8 @@ export interface ProviderConfig {
   modelId?: string
   name: string
   customModels?: string[]
+  serviceProfile?: ProviderServiceProfile
+  compatibility?: OpenAICompatibilityOptions
 }
 
 export interface ChatRequest {

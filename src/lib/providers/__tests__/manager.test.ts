@@ -30,6 +30,7 @@ import {
   isCustomProviderId,
   type ProviderConfig,
   ProviderId,
+  ProviderServiceProfile,
   ProviderStorageKey,
   ProviderType
 } from "../types"
@@ -643,6 +644,7 @@ describe("ProviderManager", () => {
         name: "Claude",
         baseUrl: "https://api.anthropic.com/v1",
         wire: "anthropic",
+        serviceProfile: ProviderServiceProfile.ANTHROPIC,
         apiKey: "sk-ant-test",
         customModels: ["claude-sonnet", "claude-sonnet", " "]
       })
@@ -652,14 +654,40 @@ describe("ProviderManager", () => {
       expect(config.customModels).toEqual(["claude-sonnet"])
     })
 
-    it("requires an API key for Anthropic", async () => {
+    it("requires an API key for branded Anthropic", async () => {
       await expect(
         ProviderManager.addCustomProvider({
           name: "Claude",
           baseUrl: "https://api.anthropic.com/v1",
-          wire: "anthropic"
+          wire: "anthropic",
+          serviceProfile: ProviderServiceProfile.ANTHROPIC
         })
       ).rejects.toThrow(/API key/i)
+    })
+
+    it("allows keyless generic Anthropic-compatible endpoints", async () => {
+      const config = await ProviderManager.addCustomProvider({
+        name: "Local Messages server",
+        baseUrl: "http://localhost:8080/v1",
+        wire: "anthropic"
+      })
+
+      expect(config.type).toBe(ProviderType.ANTHROPIC)
+      expect(config.apiKey).toBeUndefined()
+      expect(config.serviceProfile).toBeUndefined()
+    })
+
+    it("persists the OpenRouter service profile on the OpenAI wire", async () => {
+      const config = await ProviderManager.addCustomProvider({
+        name: "OpenRouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        wire: "openai",
+        apiKey: "sk-or-test",
+        serviceProfile: ProviderServiceProfile.OPENROUTER
+      })
+
+      expect(config.type).toBe(ProviderType.OPENAI)
+      expect(config.serviceProfile).toBe(ProviderServiceProfile.OPENROUTER)
     })
 
     it("rejects empty names and invalid URLs", async () => {

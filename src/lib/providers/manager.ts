@@ -19,6 +19,7 @@ import {
   makeCustomProviderId,
   type ProviderConfig,
   ProviderId,
+  ProviderServiceProfile,
   ProviderStorageKey,
   ProviderType
 } from "./types"
@@ -454,14 +455,35 @@ export const ProviderManager = {
     wire: CustomProviderWire
     apiKey?: string
     customModels?: string[]
+    serviceProfile?: ProviderServiceProfile
   }): Promise<ProviderConfig> {
     const name = input.name.trim()
     if (!name) {
       throw createAppError("Provider name is required", { kind: "validation" })
     }
     validateProviderBaseUrl(input.baseUrl)
-    if (input.wire === "anthropic" && !input.apiKey?.trim()) {
-      throw createAppError("Anthropic API key is required", {
+    if (
+      (input.serviceProfile === ProviderServiceProfile.ANTHROPIC ||
+        input.serviceProfile === ProviderServiceProfile.OPENROUTER) &&
+      !input.apiKey?.trim()
+    ) {
+      throw createAppError("An API key is required for this provider", {
+        kind: "validation"
+      })
+    }
+    if (
+      input.serviceProfile === ProviderServiceProfile.OPENROUTER &&
+      input.wire !== "openai"
+    ) {
+      throw createAppError("OpenRouter requires the OpenAI-compatible wire", {
+        kind: "validation"
+      })
+    }
+    if (
+      input.serviceProfile === ProviderServiceProfile.ANTHROPIC &&
+      input.wire !== "anthropic"
+    ) {
+      throw createAppError("Anthropic requires the Anthropic Messages wire", {
         kind: "validation"
       })
     }
@@ -479,6 +501,7 @@ export const ProviderManager = {
       name,
       enabled: true,
       baseUrl: input.baseUrl,
+      ...(input.serviceProfile ? { serviceProfile: input.serviceProfile } : {}),
       ...(input.apiKey?.trim() ? { apiKey: input.apiKey.trim() } : {}),
       ...(input.customModels?.length
         ? {

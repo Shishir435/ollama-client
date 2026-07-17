@@ -56,6 +56,7 @@ interface StreamMessage {
     kind?: import("@/types/errors").AppErrorKind
     userMessage?: string
     retryable?: boolean
+    retryAfterMs?: number
     context?: string
     providerId?: string
     debug?: unknown
@@ -265,7 +266,8 @@ export const useChatStream = ({
               error: {
                 status: msg.error.status,
                 kind: msg.error.kind,
-                retryable: msg.error.retryable
+                retryable: msg.error.retryable,
+                retryAfterMs: msg.error.retryAfterMs
               }
             }
           ]
