@@ -4,6 +4,7 @@ import {
   plasmoGlobalStorage
 } from "@/lib/plasmo-global-storage"
 import { type ProviderConfig, ProviderStorageKey } from "@/lib/providers/types"
+import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
 
 type ProviderSecretMap = Record<string, string>
 type ProviderPersistenceSnapshot = {
@@ -12,7 +13,6 @@ type ProviderPersistenceSnapshot = {
 }
 
 const PROVIDER_PERSISTENCE_LOCK = "ollama-client:provider-persistence"
-let persistenceQueue = Promise.resolve()
 
 const hasOwnApiKey = (provider: ProviderConfig): boolean =>
   Object.hasOwn(provider, "apiKey")
@@ -31,29 +31,9 @@ const extractSecrets = (providers: ProviderConfig[]): ProviderSecretMap => {
   return secrets
 }
 
-const enqueuePersistence = (operation: () => Promise<void>): Promise<void> => {
-  const queued = persistenceQueue.then(operation, operation)
-  persistenceQueue = queued.then(
-    () => undefined,
-    () => undefined
-  )
-  return queued
-}
-
 export const withProviderPersistenceLock = <T>(
   operation: () => Promise<T>
-): Promise<T> => {
-  const lockManager = globalThis.navigator?.locks
-  if (lockManager) {
-    return lockManager
-      .request(PROVIDER_PERSISTENCE_LOCK, operation)
-      .then((result) => result)
-  }
-  let result: T
-  return enqueuePersistence(async () => {
-    result = await operation()
-  }).then(() => result)
-}
+): Promise<T> => withStorageWriteLock(PROVIDER_PERSISTENCE_LOCK, operation)
 
 export const hydrateProviderSecrets = async (
   providers: ProviderConfig[]

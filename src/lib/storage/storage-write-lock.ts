@@ -9,33 +9,13 @@
  * per-origin and shared across every context of the extension, so a lock taken
  * in the options page blocks the side panel and vice versa.
  *
- * Where the Web Locks API is unavailable (test/legacy environments) this falls
- * back to a per-context in-memory queue — still correct within one context,
- * which is all a single-context environment has.
+ * Supported extension targets provide Web Locks. If the API is unavailable,
+ * fail closed: an in-memory queue would only protect one JavaScript realm and
+ * would silently reintroduce lost updates between extension contexts.
  */
 
-type LockGrantedCallback = () => Promise<unknown>
 interface LockManagerLike {
   request<T>(name: string, callback: () => Promise<T>): Promise<T>
-}
-
-const inProcessQueues = new Map<string, Promise<unknown>>()
-
-const enqueueInProcess = <T>(
-  name: string,
-  operation: () => Promise<T>
-): Promise<T> => {
-  const previous = inProcessQueues.get(name) ?? Promise.resolve()
-  const result = previous.then(operation, operation)
-  // Keep the chain alive regardless of whether an individual op rejects.
-  inProcessQueues.set(
-    name,
-    result.then(
-      () => undefined,
-      () => undefined
-    )
-  )
-  return result
 }
 
 const getLockManager = (): LockManagerLike | null => {
@@ -53,8 +33,10 @@ export const withStorageWriteLock = <T>(
   operation: () => Promise<T>
 ): Promise<T> => {
   const locks = getLockManager()
-  if (locks) {
-    return locks.request(name, operation as LockGrantedCallback) as Promise<T>
+  if (!locks) {
+    return Promise.reject(
+      new Error("Cross-context storage locking is unavailable")
+    )
   }
-  return enqueueInProcess(name, operation)
+  return locks.request(name, operation)
 }

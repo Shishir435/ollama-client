@@ -20,39 +20,11 @@ describe("withStorageWriteLock", () => {
     expect(request).toHaveBeenCalledWith("k", expect.any(Function))
   })
 
-  it("falls back to an in-process queue that serializes writes", async () => {
-    // No navigator.locks → in-process queue path.
-    vi.stubGlobal("navigator", {})
-
-    const order: string[] = []
-    const makeOp = (id: string) => async () => {
-      order.push(`start:${id}`)
-      await Promise.resolve()
-      await Promise.resolve()
-      order.push(`end:${id}`)
-    }
-
-    await Promise.all([
-      withStorageWriteLock("same", makeOp("a")),
-      withStorageWriteLock("same", makeOp("b"))
-    ])
-
-    // Serialized: a fully completes before b starts.
-    expect(order).toEqual(["start:a", "end:a", "start:b", "end:b"])
-  })
-
-  it("keeps the queue alive after a rejecting operation", async () => {
+  it("fails closed when navigator.locks is unavailable", async () => {
     vi.stubGlobal("navigator", {})
 
     await expect(
-      withStorageWriteLock("chain", async () => {
-        throw new Error("boom")
-      })
-    ).rejects.toThrow("boom")
-
-    // A later write on the same lock still runs.
-    await expect(withStorageWriteLock("chain", async () => "ok")).resolves.toBe(
-      "ok"
-    )
+      withStorageWriteLock("same", async () => "never runs")
+    ).rejects.toThrow("Cross-context storage locking is unavailable")
   })
 })
