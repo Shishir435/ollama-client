@@ -1444,6 +1444,8 @@
         "wire_label": "API 类型",
         "wire_openai": "OpenAI 兼容",
         "wire_openai_description": "vLLM、LocalAI、KoboldCPP 或其他兼容端点",
+        "wire_openai_api": "OpenAI",
+        "wire_openai_api_description": "托管的 OpenAI API；需要 API 密钥",
         "wire_ollama": "Ollama",
         "wire_ollama_description": "另一个本地或远程 Ollama 服务器",
         "wire_anthropic": "Anthropic",

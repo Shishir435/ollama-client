@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import { isAppError } from "@/lib/error-utils"
 import type { ToolDefinition } from "@/lib/tools/types"
 import type { ChatStreamMessage } from "@/types"
 import { OllamaProvider } from "../ollama"
@@ -276,6 +277,27 @@ describe("provider tool calling — request mapping", () => {
     })
   })
 
+  it("infers OpenAI usage and token defaults from its hosted endpoint", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new OpenAICompatibleProvider({
+      ...openaiConfig,
+      id: "custom:openai:openai",
+      baseUrl: "https://api.openai.com/v1"
+    }).streamChat(
+      { model: "gpt-test", messages: [], num_predict: 48 },
+      () => {}
+    )
+
+    expect(bodyOf(fetchMock)).toMatchObject({
+      max_completion_tokens: 48,
+      stream_options: { include_usage: true }
+    })
+    expect(bodyOf(fetchMock).max_tokens).toBeUndefined()
+  })
+
   it("omits stream_options for generic compatible endpoints", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -369,17 +391,27 @@ describe("provider tool calling — stream parsing", () => {
       streamResponse([
         ": OPENROUTER PROCESSING\n",
         'data: {"choices":[{"delta":{"content":"partial"}}]}\n',
-        'data: {"error":{"code":429,"message":"upstream rate limit"}}\n'
+        'data: {"error":{"code":429,"message":"upstream rate limit","metadata":{"headers":{"Retry-After":"7"}}}}\n'
       ])
     )
     const chunks: ChatStreamMessage[] = []
 
-    await expect(
-      new OpenAICompatibleProvider(openaiConfig).streamChat(
+    try {
+      await new OpenAICompatibleProvider(openaiConfig).streamChat(
         baseRequest,
         collect(chunks)
       )
-    ).rejects.toThrow("upstream rate limit")
+      throw new Error("Expected streamChat to fail")
+    } catch (error) {
+      expect(isAppError(error)).toBe(true)
+      if (isAppError(error)) {
+        expect(error.message).toContain("upstream rate limit")
+        expect(error.status).toBe(429)
+        expect(error.retryable).toBe(true)
+        expect(error.retryAfterMs).toBe(7000)
+        expect(error.userMessage).toContain("7 seconds")
+      }
+    }
     expect(chunks).toContainEqual({ delta: "partial", done: false })
   })
 

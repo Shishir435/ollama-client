@@ -1444,6 +1444,8 @@
         "wire_label": "Тип API",
         "wire_openai": "OpenAI-совместимый",
         "wire_openai_description": "vLLM, LocalAI, KoboldCPP или другой совместимый endpoint",
+        "wire_openai_api": "OpenAI",
+        "wire_openai_api_description": "Облачный API OpenAI; требуется ключ API",
         "wire_ollama": "Ollama",
         "wire_ollama_description": "Другой локальный или удалённый сервер Ollama",
         "wire_anthropic": "Anthropic",

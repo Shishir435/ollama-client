@@ -14,6 +14,10 @@ import {
   withProviderPersistenceLock
 } from "./provider-secret-store"
 import {
+  providerProfileRequiresApiKey,
+  resolveProviderServiceProfile
+} from "./service-profile"
+import {
   type CustomProviderWire,
   isCustomProviderId,
   makeCustomProviderId,
@@ -74,6 +78,34 @@ const REMOVED_BETA_DEFAULTS: Record<
 // data from an old version and gets dropped.
 const isKnownProviderId = (id: string): boolean =>
   DEFAULT_PROVIDER_IDS.has(id as ProviderId) || isCustomProviderId(id)
+
+const validateHostedProfileConfig = (config: ProviderConfig): void => {
+  const profile = resolveProviderServiceProfile(config)
+  if (providerProfileRequiresApiKey(profile) && !config.apiKey?.trim()) {
+    throw createAppError("An API key is required for this provider", {
+      kind: "validation"
+    })
+  }
+
+  if (
+    (profile === ProviderServiceProfile.OPENAI ||
+      profile === ProviderServiceProfile.OPENROUTER) &&
+    config.type !== ProviderType.OPENAI
+  ) {
+    throw createAppError(
+      `${profile === ProviderServiceProfile.OPENROUTER ? "OpenRouter" : "OpenAI"} requires the OpenAI-compatible wire`,
+      { kind: "validation" }
+    )
+  }
+  if (
+    profile === ProviderServiceProfile.ANTHROPIC &&
+    config.type !== ProviderType.ANTHROPIC
+  ) {
+    throw createAppError("Anthropic requires the Anthropic Messages wire", {
+      kind: "validation"
+    })
+  }
+}
 
 const sanitizeStoredProviders = (
   providers: ProviderConfig[]
@@ -346,7 +378,9 @@ export const ProviderManager = {
       if (index === -1) return
 
       previousBaseUrl = providers[index].baseUrl
-      providers[index] = { ...providers[index], ...updates }
+      const nextConfig = { ...providers[index], ...updates }
+      validateHostedProfileConfig(nextConfig)
+      providers[index] = nextConfig
       await persistProviderConfigsUnlocked(providers)
       updated = true
     })
@@ -462,32 +496,6 @@ export const ProviderManager = {
       throw createAppError("Provider name is required", { kind: "validation" })
     }
     validateProviderBaseUrl(input.baseUrl)
-    if (
-      (input.serviceProfile === ProviderServiceProfile.ANTHROPIC ||
-        input.serviceProfile === ProviderServiceProfile.OPENROUTER) &&
-      !input.apiKey?.trim()
-    ) {
-      throw createAppError("An API key is required for this provider", {
-        kind: "validation"
-      })
-    }
-    if (
-      input.serviceProfile === ProviderServiceProfile.OPENROUTER &&
-      input.wire !== "openai"
-    ) {
-      throw createAppError("OpenRouter requires the OpenAI-compatible wire", {
-        kind: "validation"
-      })
-    }
-    if (
-      input.serviceProfile === ProviderServiceProfile.ANTHROPIC &&
-      input.wire !== "anthropic"
-    ) {
-      throw createAppError("Anthropic requires the Anthropic Messages wire", {
-        kind: "validation"
-      })
-    }
-
     const type =
       input.wire === "ollama"
         ? ProviderType.OLLAMA
@@ -513,6 +521,7 @@ export const ProviderManager = {
           }
         : {})
     }
+    validateHostedProfileConfig(config)
 
     await withProviderPersistenceLock(async () => {
       const providers = await getProvidersUnlocked()

@@ -25,6 +25,7 @@ export enum ProviderId {
 
 export enum ProviderServiceProfile {
   GENERIC = "generic",
+  OPENAI = "openai",
   ANTHROPIC = "anthropic",
   OPENROUTER = "openrouter"
 }

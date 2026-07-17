@@ -40,6 +40,16 @@ export const resolveProviderServiceProfile = (
     }
   }
 
+  if (config.type === ProviderType.OPENAI) {
+    try {
+      if (new URL(config.baseUrl || "").hostname === "api.openai.com") {
+        return ProviderServiceProfile.OPENAI
+      }
+    } catch {
+      // Invalid URLs are rejected when configs are created or edited.
+    }
+  }
+
   return ProviderServiceProfile.GENERIC
 }
 
@@ -50,11 +60,16 @@ export const getOpenAIServiceCompatibility = (
   return {
     extraHeaders:
       profile === ProviderServiceProfile.OPENROUTER ? OPENROUTER_HEADERS : {},
-    maxTokensField: config.compatibility?.maxTokensField ?? "max_tokens",
+    maxTokensField:
+      config.compatibility?.maxTokensField ??
+      (profile === ProviderServiceProfile.OPENAI
+        ? "max_completion_tokens"
+        : "max_tokens"),
     sendStreamOptions:
       config.compatibility?.sendStreamOptions === "always" ||
       (config.compatibility?.sendStreamOptions === undefined &&
-        (profile === ProviderServiceProfile.OPENROUTER ||
+        (profile === ProviderServiceProfile.OPENAI ||
+          profile === ProviderServiceProfile.OPENROUTER ||
           STREAM_USAGE_PROVIDER_IDS.has(String(config.id))))
   }
 }
@@ -62,5 +77,6 @@ export const getOpenAIServiceCompatibility = (
 export const providerProfileRequiresApiKey = (
   profile: ProviderServiceProfile | undefined
 ): boolean =>
+  profile === ProviderServiceProfile.OPENAI ||
   profile === ProviderServiceProfile.ANTHROPIC ||
   profile === ProviderServiceProfile.OPENROUTER

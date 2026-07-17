@@ -36,6 +36,7 @@ export interface AddProviderDialogProps {
 
 type ProviderPreset =
   | "openai"
+  | "openai-api"
   | "ollama"
   | "anthropic"
   | "anthropic-compatible"
@@ -53,6 +54,12 @@ const PRESET_CONFIG: Record<
   openai: {
     wire: "openai",
     baseUrl: "http://localhost:8080/v1"
+  },
+  "openai-api": {
+    wire: "openai",
+    baseUrl: "https://api.openai.com/v1",
+    serviceProfile: ProviderServiceProfile.OPENAI,
+    defaultName: "OpenAI"
   },
   ollama: { wire: "ollama", baseUrl: "http://localhost:11434" },
   anthropic: {
@@ -161,6 +168,12 @@ export const AddProviderDialog = ({
       icon: Server,
       label: t("settings.providers.add.wire_openai"),
       description: t("settings.providers.add.wire_openai_description")
+    },
+    {
+      preset: "openai-api",
+      icon: Globe,
+      label: t("settings.providers.add.wire_openai_api"),
+      description: t("settings.providers.add.wire_openai_api_description")
     },
     {
       preset: "ollama",

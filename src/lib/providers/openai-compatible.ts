@@ -123,6 +123,40 @@ class ToolCallAccumulator {
   }
 }
 
+const asRecord = (value: unknown): Record<string, unknown> | undefined =>
+  value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+
+const streamErrorStatus = (error: unknown): number | undefined => {
+  const record = asRecord(error)
+  if (!record) return undefined
+  for (const candidate of [record.status, record.status_code, record.code]) {
+    const status = Number(candidate)
+    if (Number.isInteger(status) && status >= 400 && status <= 599) {
+      return status
+    }
+  }
+
+  const kind = String(record.type ?? record.code ?? "").toLowerCase()
+  if (kind.includes("rate_limit")) return 429
+  if (kind.includes("overload")) return 529
+  return undefined
+}
+
+const streamErrorRetryAfter = (error: unknown): number | undefined => {
+  const record = asRecord(error)
+  if (!record) return undefined
+  const metadata = asRecord(record.metadata)
+  const headers = asRecord(metadata?.headers)
+  const value =
+    record.retry_after ??
+    record.retryAfter ??
+    headers?.["Retry-After"] ??
+    headers?.["retry-after"]
+  return value === undefined ? undefined : parseRetryAfter(String(value))
+}
+
 export class OpenAICompatibleProvider implements LLMProvider {
   id: string = ProviderId.OPENAI
   capabilities = { ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES }
@@ -321,18 +355,32 @@ export class OpenAICompatibleProvider implements LLMProvider {
       // answer. This is outside the parse try/catch so it propagates rather
       // than being downgraded to a parse warning.
       if (data.error) {
+        const errorRecord = asRecord(data.error)
         const message =
           typeof data.error === "string"
             ? data.error
-            : (data.error as { message?: string })?.message
+            : typeof errorRecord?.message === "string"
+              ? errorRecord.message
+              : undefined
+        const status = streamErrorStatus(data.error)
+        const retryAfterMs = streamErrorRetryAfter(data.error)
+        const baseUrl = resolveProviderBaseUrl(this.config)
         throw createAppError(
           message ||
             "The provider reported an error while generating the response.",
           {
             kind: "provider",
+            status,
             providerId: this.id,
+            retryable:
+              status === undefined
+                ? undefined
+                : isRetryableProviderStatus(status),
+            retryAfterMs,
             userMessage:
-              "The provider reported an error while generating the response.",
+              status === undefined
+                ? "The provider reported an error while generating the response."
+                : providerErrorUserMessage(status, { baseUrl, retryAfterMs }),
             debug:
               typeof data.error === "string"
                 ? data.error

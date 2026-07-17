@@ -1444,6 +1444,8 @@
         "wire_label": "API प्रकार",
         "wire_openai": "OpenAI-संगत",
         "wire_openai_description": "vLLM, LocalAI, KoboldCPP या दूसरा संगत एंडपॉइंट",
+        "wire_openai_api": "OpenAI",
+        "wire_openai_api_description": "होस्टेड OpenAI API; API कुंजी आवश्यक",
         "wire_ollama": "Ollama",
         "wire_ollama_description": "दूसरा लोकल या रिमोट Ollama सर्वर",
         "wire_anthropic": "Anthropic",

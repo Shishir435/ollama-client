@@ -100,6 +100,46 @@ describe("AddProviderDialog", () => {
     )
   })
 
+  it("preconfigures the hosted OpenAI API with required credentials", async () => {
+    const onAdd = vi.fn().mockResolvedValue(true)
+    render(
+      <TooltipProvider>
+        <AddProviderDialog open onOpenChange={vi.fn()} onAdd={onAdd} />
+      </TooltipProvider>
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /settings\.providers\.add\.wire_openai_api/
+      })
+    )
+    expect(screen.getByDisplayValue("OpenAI")).toBeInTheDocument()
+    expect(
+      screen.getByDisplayValue("https://api.openai.com/v1")
+    ).toBeInTheDocument()
+    const submit = screen.getByRole("button", {
+      name: "settings.providers.add.submit"
+    })
+    expect(submit).toBeDisabled()
+
+    fireEvent.change(
+      screen.getByLabelText("settings.providers.add.api_key_required_label"),
+      { target: { value: "sk-openai-test" } }
+    )
+    fireEvent.click(submit)
+
+    await waitFor(() =>
+      expect(onAdd).toHaveBeenCalledWith({
+        name: "OpenAI",
+        baseUrl: "https://api.openai.com/v1",
+        wire: "openai",
+        apiKey: "sk-openai-test",
+        customModels: [],
+        serviceProfile: ProviderServiceProfile.OPENAI
+      })
+    )
+  })
+
   it("allows a keyless generic Anthropic-compatible endpoint", () => {
     render(
       <TooltipProvider>

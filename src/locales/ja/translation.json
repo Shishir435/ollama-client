@@ -1444,6 +1444,8 @@
         "wire_label": "APIタイプ",
         "wire_openai": "OpenAI互換",
         "wire_openai_description": "vLLM、LocalAI、KoboldCPP、その他の互換エンドポイント",
+        "wire_openai_api": "OpenAI",
+        "wire_openai_api_description": "ホスト型OpenAI API。APIキーが必要です",
         "wire_ollama": "Ollama",
         "wire_ollama_description": "別のローカルまたはリモートOllamaサーバー",
         "wire_anthropic": "Anthropic",
