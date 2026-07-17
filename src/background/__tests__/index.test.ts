@@ -11,6 +11,7 @@ const listeners = {
 
 const mockBrowser = {
   runtime: {
+    id: "test-extension-id",
     onConnect: {
       addListener: vi.fn((fn) => listeners.onConnect.push(fn))
     },
@@ -23,7 +24,7 @@ const mockBrowser = {
     onStartup: {
       addListener: vi.fn((fn) => listeners.onStartup.push(fn))
     },
-    getURL: vi.fn()
+    getURL: vi.fn((path: string) => `chrome-extension://test/${path}`)
   },
   windows: {
     create: vi.fn()
@@ -33,6 +34,17 @@ const mockBrowser = {
       addListener: vi.fn()
     }
   }
+}
+
+const extensionSender = {
+  id: "test-extension-id",
+  url: "chrome-extension://test/sidepanel.html"
+}
+
+const contentScriptSender = {
+  id: "test-extension-id",
+  tab: { id: 42 },
+  url: "https://example.com/page"
 }
 
 vi.mock("@/lib/browser-api", () => ({
@@ -133,17 +145,71 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       const sendResponse = vi.fn()
 
-      onMessage({ type: MESSAGE_KEYS.PROVIDER.GET_MODELS }, {}, sendResponse)
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.GET_MODELS },
+        extensionSender,
+        sendResponse
+      )
 
       expect(handleGetModels).toHaveBeenCalledWith(sendResponse)
+    })
+
+    it("allows content scripts to use an allowlisted message", () => {
+      const onMessage = listeners.onMessage[0]
+      const sendResponse = vi.fn()
+
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.GET_MODELS },
+        contentScriptSender,
+        sendResponse
+      )
+
+      expect(handleGetModels).toHaveBeenCalledWith(sendResponse)
+    })
+
+    it("rejects privileged messages from content scripts", () => {
+      const onMessage = listeners.onMessage[0]
+      const sendResponse = vi.fn()
+
+      expect(
+        onMessage(
+          { type: MESSAGE_KEYS.PROVIDER.DELETE_MODEL, payload: "model" },
+          contentScriptSender,
+          sendResponse
+        )
+      ).toBe(true)
+
+      expect(handleDeleteModel).not.toHaveBeenCalled()
+      expect(sendResponse).toHaveBeenCalledWith({
+        success: false,
+        error: { status: 403, message: "Message not allowed from this context" }
+      })
+    })
+
+    it("rejects non-selection ports from content scripts", () => {
+      const onConnect = listeners.onConnect[0]
+      const port = {
+        name: "request-id",
+        sender: contentScriptSender,
+        onMessage: { addListener: vi.fn() },
+        onDisconnect: { addListener: vi.fn() },
+        disconnect: vi.fn()
+      }
+
+      onConnect(port)
+
+      expect(port.disconnect).toHaveBeenCalledOnce()
+      expect(port.onMessage.addListener).not.toHaveBeenCalled()
     })
 
     it("should route CHAT_WITH_MODEL via port", () => {
       const onConnect = listeners.onConnect[0]
       const port = {
         name: "test-port",
+        sender: extensionSender,
         onMessage: { addListener: vi.fn() },
-        onDisconnect: { addListener: vi.fn() }
+        onDisconnect: { addListener: vi.fn() },
+        disconnect: vi.fn()
       }
 
       onConnect(port)
@@ -161,8 +227,10 @@ describe("Background Script Entry Point", () => {
       const onConnect = listeners.onConnect[0]
       const port = {
         name: MESSAGE_KEYS.PROVIDER.PULL_MODEL,
+        sender: extensionSender,
         onMessage: { addListener: vi.fn() },
-        onDisconnect: { addListener: vi.fn() }
+        onDisconnect: { addListener: vi.fn() },
+        disconnect: vi.fn()
       }
 
       onConnect(port)
@@ -182,7 +250,7 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       onMessage(
         { type: MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS, payload: "model" },
-        {},
+        extensionSender,
         vi.fn()
       )
       expect(handleShowModelDetails).toHaveBeenCalled()
@@ -197,7 +265,9 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       const sendResponse = vi.fn()
 
-      expect(onMessage({ type, payload: null }, {}, sendResponse)).toBe(true)
+      expect(
+        onMessage({ type, payload: null }, extensionSender, sendResponse)
+      ).toBe(true)
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
         error: { status: 400, message: "Invalid message payload" }
@@ -208,7 +278,7 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       onMessage(
         { type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL, query: "q" },
-        {},
+        extensionSender,
         vi.fn()
       )
       expect(handleScrapeModel).toHaveBeenCalled()
@@ -218,7 +288,7 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       onMessage(
         { type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS, name: "m" },
-        {},
+        extensionSender,
         vi.fn()
       )
       expect(handleScrapeModelVariants).toHaveBeenCalled()
@@ -228,7 +298,7 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       onMessage(
         { type: MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL, payload: "url" },
-        {},
+        extensionSender,
         vi.fn()
       )
       expect(handleUpdateBaseUrl).toHaveBeenCalled()
@@ -236,7 +306,11 @@ describe("Background Script Entry Point", () => {
 
     it("should route GET_LOADED_MODELS", () => {
       const onMessage = listeners.onMessage[0]
-      onMessage({ type: MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS }, {}, vi.fn())
+      onMessage(
+        { type: MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS },
+        extensionSender,
+        vi.fn()
+      )
       expect(handleGetLoadedModels).toHaveBeenCalled()
     })
 
@@ -244,7 +318,7 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       onMessage(
         { type: MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL, payload: "m" },
-        {},
+        extensionSender,
         vi.fn()
       )
       expect(handleUnloadModel).toHaveBeenCalled()
@@ -254,7 +328,7 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       onMessage(
         { type: MESSAGE_KEYS.PROVIDER.WARMUP_MODEL, payload: { model: "m" } },
-        {},
+        extensionSender,
         vi.fn()
       )
       expect(handleWarmupModel).toHaveBeenCalled()
@@ -264,7 +338,7 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       onMessage(
         { type: MESSAGE_KEYS.PROVIDER.DELETE_MODEL, payload: "m" },
-        {},
+        extensionSender,
         vi.fn()
       )
       expect(handleDeleteModel).toHaveBeenCalled()
@@ -274,7 +348,7 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       onMessage(
         { type: MESSAGE_KEYS.PROVIDER.GET_PROVIDER_VERSION },
-        {},
+        extensionSender,
         vi.fn()
       )
       expect(handleGetProviderVersion).toHaveBeenCalled()
@@ -284,7 +358,7 @@ describe("Background Script Entry Point", () => {
       const onMessage = listeners.onMessage[0]
       onMessage(
         { type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL, payload: "m" },
-        {},
+        extensionSender,
         vi.fn()
       )
       expect(checkEmbeddingModelExists).toHaveBeenCalled()

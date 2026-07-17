@@ -23,6 +23,10 @@ import { notifyJobComplete } from "@/background/lib/notify"
 import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
 import { resolveToolConfirmation } from "@/background/lib/tool-confirmation-registry"
 import { safeSendResponse } from "@/background/lib/utils"
+import {
+  classifyRuntimeSender,
+  isRuntimeMessageAllowed
+} from "@/background/runtime-sender-authorization"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
@@ -34,11 +38,33 @@ import type {
   SendResponseFunction
 } from "@/types"
 
+const extensionUrlPrefix = browser.runtime.getURL("")
+
 const respondInvalidPayload = (sendResponse: SendResponseFunction) =>
   safeSendResponse(sendResponse, {
     success: false,
     error: { status: 400, message: "Invalid message payload" }
   })
+
+const respondForbidden = (
+  type: string,
+  sender: Runtime.MessageSender,
+  sendResponse: SendResponseFunction
+) => {
+  logger.warn("Blocked unauthorized runtime message", "RuntimeAuthorization", {
+    type,
+    surface: classifyRuntimeSender(
+      sender,
+      browser.runtime.id,
+      extensionUrlPrefix
+    ),
+    tabId: sender.tab?.id
+  })
+  safeSendResponse(sendResponse, {
+    success: false,
+    error: { status: 403, message: "Message not allowed from this context" }
+  })
+}
 
 const openSidePanelForSelection = (tab?: {
   windowId?: number
@@ -137,6 +163,23 @@ export const registerMessageRouter = () => {
   ): true | undefined => {
     const response = sendResponse as SendResponseFunction
     const message = rawMessage as ChromeMessage
+
+    if (
+      typeof message?.type !== "string" ||
+      !isRuntimeMessageAllowed(
+        message.type,
+        sender,
+        browser.runtime.id,
+        extensionUrlPrefix
+      )
+    ) {
+      respondForbidden(
+        typeof message?.type === "string" ? message.type : "invalid",
+        sender,
+        response
+      )
+      return true
+    }
 
     switch (message.type) {
       case MESSAGE_KEYS.PROVIDER.GET_MODELS:

@@ -6,6 +6,11 @@ import {
   registerSelectionBridgePort,
   unregisterSelectionBridgePort
 } from "@/background/lib/selection-bridge"
+import {
+  classifyRuntimeSender,
+  isRuntimePortAllowed,
+  isRuntimePortMessageAllowed
+} from "@/background/runtime-sender-authorization"
 import type { SelectionActionMessage } from "@/features/selection-actions/types"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
@@ -18,11 +23,36 @@ import type {
   PortStatusFunction
 } from "@/types"
 
+const extensionUrlPrefix = browser.runtime.getURL("")
+
 let portConnectionSeq = 0
 
 export const registerPortRouter = () => {
   browser.runtime.onConnect.addListener((rawPort) => {
     const port = rawPort as unknown as ChromePort
+    const sender = rawPort.sender ?? {}
+
+    if (
+      !isRuntimePortAllowed(
+        port.name,
+        sender,
+        browser.runtime.id,
+        extensionUrlPrefix
+      )
+    ) {
+      logger.warn("Blocked unauthorized runtime port", "RuntimeAuthorization", {
+        portName: port.name,
+        surface: classifyRuntimeSender(
+          sender,
+          browser.runtime.id,
+          extensionUrlPrefix
+        ),
+        tabId: sender.tab?.id
+      })
+      port.disconnect()
+      return
+    }
+
     let isPortClosed = false
     let currentAbortKey: string | undefined
     // Port names are shared constants; give each live connection its own
@@ -45,6 +75,34 @@ export const registerPortRouter = () => {
 
     port.onMessage.addListener(async (message) => {
       const msg = message as ChromeMessage
+      const messageType = typeof msg?.type === "string" ? msg.type : ""
+      if (
+        !isRuntimePortMessageAllowed(
+          port.name,
+          messageType,
+          sender,
+          browser.runtime.id,
+          extensionUrlPrefix
+        )
+      ) {
+        logger.warn(
+          "Blocked unauthorized runtime port message",
+          "RuntimeAuthorization",
+          {
+            portName: port.name,
+            type: messageType || "invalid",
+            surface: classifyRuntimeSender(
+              sender,
+              browser.runtime.id,
+              extensionUrlPrefix
+            ),
+            tabId: sender.tab?.id
+          }
+        )
+        port.disconnect()
+        return
+      }
+
       if (msg.type === MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL) {
         currentAbortKey = (msg as ChatWithModelMessage).payload?.requestId
         await handleChatWithModel(
@@ -82,6 +140,33 @@ export const registerPortRouter = () => {
     ) {
       port.onMessage.addListener(async (message) => {
         const msg = message as ChromeMessage
+        const messageType = typeof msg?.type === "string" ? msg.type : ""
+        if (
+          !isRuntimePortMessageAllowed(
+            port.name,
+            messageType,
+            sender,
+            browser.runtime.id,
+            extensionUrlPrefix
+          )
+        ) {
+          logger.warn(
+            "Blocked unauthorized model-pull message",
+            "RuntimeAuthorization",
+            {
+              portName: port.name,
+              type: messageType || "invalid",
+              surface: classifyRuntimeSender(
+                sender,
+                browser.runtime.id,
+                extensionUrlPrefix
+              ),
+              tabId: sender.tab?.id
+            }
+          )
+          port.disconnect()
+          return
+        }
         await handleModelPull(msg as ModelPullMessage, port, getPortStatus)
       })
     }
