@@ -2,6 +2,27 @@ import { afterEach, beforeEach, vi } from "vitest"
 import "@testing-library/jest-dom"
 import "fake-indexeddb/auto"
 
+const testWebLockQueues = new Map<string, Promise<unknown>>()
+const requestTestWebLock = vi.fn(
+  (name: string, callback: () => Promise<unknown>): Promise<unknown> => {
+    const previous = testWebLockQueues.get(name) ?? Promise.resolve()
+    const result = previous.then(callback, callback)
+    testWebLockQueues.set(
+      name,
+      result.then(
+        () => undefined,
+        () => undefined
+      )
+    )
+    return result
+  }
+)
+
+Object.defineProperty(globalThis.navigator, "locks", {
+  configurable: true,
+  value: { request: requestTestWebLock }
+})
+
 // Mock chrome extension APIs
 global.chrome = {
   runtime: {

@@ -5,6 +5,15 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { clearCapabilityProbesForProvider } from "./capability-probe"
 import { clearModelCapabilityOverridesForProvider } from "./model-capability-overrides"
 import {
+  containsLegacySyncedSecrets,
+  hydrateProviderSecrets,
+  persistProviderConfigs,
+  persistProviderConfigsUnlocked,
+  recoverProviderPersistenceUnlocked,
+  recoverProviderResetUnlocked,
+  withProviderPersistenceLock
+} from "./provider-secret-store"
+import {
   type CustomProviderWire,
   isCustomProviderId,
   makeCustomProviderId,
@@ -199,98 +208,113 @@ const validateProviderBaseUrl = (baseUrl?: string): void => {
   }
 }
 
+/** Caller must hold the provider-persistence lock. */
+const getProvidersUnlocked = async (): Promise<ProviderConfig[]> => {
+  await recoverProviderResetUnlocked()
+  await recoverProviderPersistenceUnlocked()
+  let stored = await plasmoGlobalStorage.get<ProviderConfig[]>(
+    ProviderStorageKey.CONFIG
+  )
+  if (!stored || stored.length === 0) {
+    stored = [...DEFAULT_PROVIDERS]
+    await persistProviderConfigsUnlocked(stored)
+  }
+
+  const containsLegacySecrets = containsLegacySyncedSecrets(stored)
+  stored = await hydrateProviderSecrets(stored)
+  if (containsLegacySecrets) {
+    // Idempotent migration: local credentials are written first, then the
+    // legacy secret-bearing sync payload is replaced with public config.
+    await persistProviderConfigsUnlocked(stored)
+  }
+
+  const sanitized = sanitizeStoredProviders(stored)
+  if (sanitized.removed.length > 0 || sanitized.migrated.length > 0) {
+    logger.info(
+      "Sanitized provider configs not present in the built-in provider UI",
+      "ProviderManager",
+      {
+        removed: sanitized.removed.map((provider) => provider.id),
+        migrated: sanitized.migrated
+      }
+    )
+    stored = sanitized.providers
+  }
+
+  // Merge new defaults if they are missing from stored config
+  const currentStored = stored ?? []
+  const missing = DEFAULT_PROVIDERS.filter(
+    (d) => !currentStored.find((s) => s.id === d.id)
+  )
+
+  // One-time migration of the pre-provider-config Ollama base URL: adopt
+  // it into the stored config, persist, and delete the legacy key so this
+  // read stops happening on every getProviders call.
+  try {
+    const legacyStoredUrl = await plasmoGlobalStorage.get<string>(
+      LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL
+    )
+    const globalStoredUrl = await plasmoGlobalStorage.get<string>(
+      STORAGE_KEYS.PROVIDER.BASE_URL
+    )
+    const legacyUrl = legacyStoredUrl?.trim()
+      ? legacyStoredUrl
+      : globalStoredUrl?.trim()
+        ? globalStoredUrl
+        : undefined
+
+    if (legacyUrl) {
+      const defaultProviderIndex = stored.findIndex(
+        (p) => p.id === ProviderId.OLLAMA
+      )
+      const currentBaseUrl = stored[defaultProviderIndex]?.baseUrl
+      const defaultBaseUrl = DEFAULT_PROVIDERS.find(
+        (provider) => provider.id === ProviderId.OLLAMA
+      )?.baseUrl
+      if (
+        defaultProviderIndex !== -1 &&
+        legacyUrl !== currentBaseUrl &&
+        (!currentBaseUrl || currentBaseUrl === defaultBaseUrl)
+      ) {
+        stored = [...stored]
+        stored[defaultProviderIndex] = {
+          ...stored[defaultProviderIndex],
+          baseUrl: legacyUrl
+        }
+        await persistProviderConfigsUnlocked(stored)
+      }
+    }
+    if (legacyStoredUrl !== undefined || globalStoredUrl !== undefined) {
+      await plasmoGlobalStorage.remove(LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL)
+      await plasmoGlobalStorage.remove(STORAGE_KEYS.PROVIDER.BASE_URL)
+    }
+  } catch (e) {
+    logger.warn(
+      "Failed to migrate legacy provider URL in getProviders",
+      "ProviderManager",
+      { error: e }
+    )
+  }
+
+  if (missing.length > 0) {
+    const merged = [...stored, ...missing]
+    await persistProviderConfigsUnlocked(merged)
+    return merged
+  }
+
+  if (sanitized.removed.length > 0 || sanitized.migrated.length > 0) {
+    await persistProviderConfigsUnlocked(stored)
+  }
+
+  return stored
+}
+
 /**
  * Manages persistence and retrieval of provider configurations.
  */
 export const ProviderManager = {
   async getProviders(): Promise<ProviderConfig[]> {
-    let stored = await plasmoGlobalStorage.get<ProviderConfig[]>(
-      ProviderStorageKey.CONFIG
-    )
-    if (!stored || stored.length === 0) {
-      stored = [...DEFAULT_PROVIDERS]
-      await ProviderManager.saveProviders(stored)
-    }
-
-    const sanitized = sanitizeStoredProviders(stored)
-    if (sanitized.removed.length > 0 || sanitized.migrated.length > 0) {
-      logger.info(
-        "Sanitized provider configs not present in the built-in provider UI",
-        "ProviderManager",
-        {
-          removed: sanitized.removed.map((provider) => provider.id),
-          migrated: sanitized.migrated
-        }
-      )
-      stored = sanitized.providers
-    }
-
-    // Merge new defaults if they are missing from stored config
-    const currentStored = stored ?? []
-    const missing = DEFAULT_PROVIDERS.filter(
-      (d) => !currentStored.find((s) => s.id === d.id)
-    )
-
-    // One-time migration of the pre-provider-config Ollama base URL: adopt
-    // it into the stored config, persist, and delete the legacy key so this
-    // read stops happening on every getProviders call.
-    try {
-      const legacyStoredUrl = await plasmoGlobalStorage.get<string>(
-        LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL
-      )
-      const globalStoredUrl = await plasmoGlobalStorage.get<string>(
-        STORAGE_KEYS.PROVIDER.BASE_URL
-      )
-      const legacyUrl = legacyStoredUrl?.trim()
-        ? legacyStoredUrl
-        : globalStoredUrl?.trim()
-          ? globalStoredUrl
-          : undefined
-
-      if (legacyUrl) {
-        const defaultProviderIndex = stored.findIndex(
-          (p) => p.id === ProviderId.OLLAMA
-        )
-        const currentBaseUrl = stored[defaultProviderIndex]?.baseUrl
-        const defaultBaseUrl = DEFAULT_PROVIDERS.find(
-          (provider) => provider.id === ProviderId.OLLAMA
-        )?.baseUrl
-        if (
-          defaultProviderIndex !== -1 &&
-          legacyUrl !== currentBaseUrl &&
-          (!currentBaseUrl || currentBaseUrl === defaultBaseUrl)
-        ) {
-          stored = [...stored]
-          stored[defaultProviderIndex] = {
-            ...stored[defaultProviderIndex],
-            baseUrl: legacyUrl
-          }
-          await ProviderManager.saveProviders(stored)
-        }
-      }
-      if (legacyStoredUrl !== undefined || globalStoredUrl !== undefined) {
-        await plasmoGlobalStorage.remove(LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL)
-        await plasmoGlobalStorage.remove(STORAGE_KEYS.PROVIDER.BASE_URL)
-      }
-    } catch (e) {
-      logger.warn(
-        "Failed to migrate legacy provider URL in getProviders",
-        "ProviderManager",
-        { error: e }
-      )
-    }
-
-    if (missing.length > 0) {
-      const merged = [...stored, ...missing]
-      await ProviderManager.saveProviders(merged)
-      return merged
-    }
-
-    if (sanitized.removed.length > 0 || sanitized.migrated.length > 0) {
-      await ProviderManager.saveProviders(stored)
-    }
-
-    return stored
+    return withProviderPersistenceLock(getProvidersUnlocked)
   },
 
   async getProviderConfig(id: string): Promise<ProviderConfig | undefined> {
@@ -299,7 +323,7 @@ export const ProviderManager = {
   },
 
   async saveProviders(providers: ProviderConfig[]): Promise<void> {
-    await plasmoGlobalStorage.set(ProviderStorageKey.CONFIG, providers)
+    await persistProviderConfigs(providers)
   },
 
   /**
@@ -309,29 +333,35 @@ export const ProviderManager = {
     id: string,
     updates: Partial<ProviderConfig>
   ): Promise<void> {
-    const providers = await ProviderManager.getProviders()
-    const index = providers.findIndex((p) => p.id === id)
-    if (index !== -1) {
-      if (updates.baseUrl !== undefined) {
-        validateProviderBaseUrl(updates.baseUrl)
-      }
-      const previousBaseUrl = providers[index].baseUrl
-      const updatedConfig = { ...providers[index], ...updates }
-      providers[index] = updatedConfig
-      await ProviderManager.saveProviders(providers)
+    if (updates.baseUrl !== undefined) {
+      validateProviderBaseUrl(updates.baseUrl)
+    }
+    let previousBaseUrl: string | undefined
+    let updated = false
 
-      // A different endpoint may be a different server — probe results no
-      // longer describe it.
-      if (
-        updates.baseUrl !== undefined &&
-        updates.baseUrl !== previousBaseUrl
-      ) {
-        await clearCapabilityProbesForProvider(id).catch((e) => {
-          logger.warn("Failed to clear capability probes", "ProviderManager", {
-            error: e
-          })
+    await withProviderPersistenceLock(async () => {
+      const providers = await getProvidersUnlocked()
+      const index = providers.findIndex((p) => p.id === id)
+      if (index === -1) return
+
+      previousBaseUrl = providers[index].baseUrl
+      providers[index] = { ...providers[index], ...updates }
+      await persistProviderConfigsUnlocked(providers)
+      updated = true
+    })
+
+    // A different endpoint may be a different server — probe results no
+    // longer describe it.
+    if (
+      updated &&
+      updates.baseUrl !== undefined &&
+      updates.baseUrl !== previousBaseUrl
+    ) {
+      await clearCapabilityProbesForProvider(id).catch((e) => {
+        logger.warn("Failed to clear capability probes", "ProviderManager", {
+          error: e
         })
-      }
+      })
     }
   },
 
@@ -461,8 +491,10 @@ export const ProviderManager = {
         : {})
     }
 
-    const providers = await ProviderManager.getProviders()
-    await ProviderManager.saveProviders([...providers, config])
+    await withProviderPersistenceLock(async () => {
+      const providers = await getProvidersUnlocked()
+      await persistProviderConfigsUnlocked([...providers, config])
+    })
     return config
   },
 
@@ -473,10 +505,12 @@ export const ProviderManager = {
         kind: "validation"
       })
     }
-    const providers = await ProviderManager.getProviders()
-    await ProviderManager.saveProviders(
-      providers.filter((p) => String(p.id) !== id)
-    )
+    await withProviderPersistenceLock(async () => {
+      const providers = await getProvidersUnlocked()
+      await persistProviderConfigsUnlocked(
+        providers.filter((p) => String(p.id) !== id)
+      )
+    })
     await ProviderManager.removeModelMappingsForProvider(id)
     await clearCapabilityProbesForProvider(id).catch(() => undefined)
     await clearModelCapabilityOverridesForProvider(id).catch(() => undefined)

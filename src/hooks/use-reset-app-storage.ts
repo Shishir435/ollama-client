@@ -8,6 +8,10 @@ import {
   plasmoGlobalStorage,
   removePlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
+import {
+  resetProviderStorageUnlocked,
+  withProviderPersistenceLock
+} from "@/lib/providers/provider-secret-store"
 import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
@@ -27,15 +31,25 @@ export const useResetAppStorage = () => {
       }
 
       if (key === "all") {
-        await plasmoGlobalStorage.clear()
-        await plasmoDeviceStorage.clear()
+        await withProviderPersistenceLock(async () => {
+          await resetProviderStorageUnlocked(allKeys.PROVIDER || [])
+          await plasmoGlobalStorage.clear()
+          await plasmoDeviceStorage.clear()
+        })
         sessionStorage.clear()
       } else if (key !== "CHAT_SESSIONS" && key !== "FEEDBACK") {
         const keysToRemove = allKeys[key] || []
         if (keysToRemove.length > 0) {
-          await Promise.all(
-            keysToRemove.map((key) => removePlasmoStoredValue(key))
-          )
+          const removeKeys = () =>
+            Promise.all(keysToRemove.map((key) => removePlasmoStoredValue(key)))
+
+          if (key === "PROVIDER") {
+            await withProviderPersistenceLock(() =>
+              resetProviderStorageUnlocked(keysToRemove)
+            )
+          } else {
+            await removeKeys()
+          }
         }
       }
 

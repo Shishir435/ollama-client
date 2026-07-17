@@ -29,6 +29,7 @@ export default defineConfig({
     description: "__MSG_extDescription__",
     default_locale: "en",
     version: packageJson.version,
+    ...(browser === "firefox" ? {} : { minimum_chrome_version: "88" }),
     homepage_url: packageJson.homepage,
     icons: {
       16: "assets/icon.png",
