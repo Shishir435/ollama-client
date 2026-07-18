@@ -123,4 +123,28 @@ describe("ProviderRpcService", () => {
       retryable: true
     })
   })
+
+  it("propagates cancellation through aggregate model discovery", async () => {
+    const controller = new AbortController()
+    const getModels = vi.fn(async (signal?: AbortSignal) => {
+      await new Promise((_resolve, reject) => {
+        signal?.addEventListener("abort", () => {
+          reject(new DOMException("Cancelled", "AbortError"))
+        })
+      })
+      return []
+    })
+    mocks.getProviders.mockResolvedValue([configs[0]])
+    mocks.getProvider.mockResolvedValue({ id: "ollama", getModels })
+
+    const pending = ProviderRpcService.listModels(
+      { enabledOnly: true },
+      controller.signal
+    )
+    await vi.waitFor(() => expect(getModels).toHaveBeenCalled())
+    controller.abort()
+
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" })
+    expect(getModels).toHaveBeenCalledWith(controller.signal)
+  })
 })

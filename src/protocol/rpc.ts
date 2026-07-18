@@ -3,6 +3,7 @@ import { z } from "zod"
 export const RPC_PROTOCOL_VERSION = 1 as const
 export const RPC_REQUEST_MESSAGE_TYPE = "app-rpc-request" as const
 export const RPC_RESPONSE_MESSAGE_TYPE = "app-rpc-response" as const
+export const RPC_CANCEL_MESSAGE_TYPE = "app-rpc-cancel" as const
 
 export enum RpcMethod {
   ProvidersList = "providers.list",
@@ -69,6 +70,14 @@ export const RpcRequestEnvelopeSchema = z
     requestId: z.string().uuid(),
     method: z.enum(RpcMethod),
     request: z.unknown()
+  })
+  .strict()
+
+export const RpcCancellationEnvelopeSchema = z
+  .object({
+    type: z.literal(RPC_CANCEL_MESSAGE_TYPE),
+    version: z.literal(RPC_PROTOCOL_VERSION),
+    requestId: z.string().uuid()
   })
   .strict()
 

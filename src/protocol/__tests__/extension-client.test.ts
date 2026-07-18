@@ -8,6 +8,7 @@ vi.mock("@/lib/browser-api", () => ({
 
 import { extensionRpcClient } from "../extension-client"
 import {
+  RPC_CANCEL_MESSAGE_TYPE,
   RPC_PROTOCOL_VERSION,
   RPC_RESPONSE_MESSAGE_TYPE,
   RpcErrorCode,
@@ -105,7 +106,11 @@ describe("extension RPC client", () => {
 
   it("times out a worker request that never settles", async () => {
     vi.useFakeTimers()
-    sendMessage.mockReturnValue(new Promise(() => undefined))
+    sendMessage.mockImplementation((message) =>
+      message.type === RPC_CANCEL_MESSAGE_TYPE
+        ? Promise.resolve({ success: true, cancelled: true })
+        : new Promise(() => undefined)
+    )
 
     const rejection = expect(
       extensionRpcClient.call(RpcMethod.ProvidersList, {})
@@ -116,5 +121,12 @@ describe("extension RPC client", () => {
     })
     await vi.advanceTimersByTimeAsync(5_000)
     await rejection
+
+    const requestId = sendMessage.mock.calls[0][0].requestId
+    expect(sendMessage).toHaveBeenNthCalledWith(2, {
+      type: RPC_CANCEL_MESSAGE_TYPE,
+      version: RPC_PROTOCOL_VERSION,
+      requestId
+    })
   })
 })

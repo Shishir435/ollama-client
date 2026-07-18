@@ -93,6 +93,9 @@ RPC service during migration, but new provider request/response work should use
 the RPC boundary. Methods registered as queries must stay free of persistence
 side effects so a client timeout cannot commit stale state; persist derived
 state only after the caller receives and accepts the query result.
+Client timeouts send `app-rpc-cancel`; the server aborts the matching request
+and provider model-discovery fetches receive that `AbortSignal`. Preserve this
+end-to-end cancellation path when adding long-running RPC methods.
 
 ### Storage
 

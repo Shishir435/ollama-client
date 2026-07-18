@@ -23,9 +23,13 @@ vi.mock("@/lib/logger", () => ({
   }
 }))
 
-import { handleRpcRequest } from "@/background/rpc-server"
+import {
+  handleRpcCancellation,
+  handleRpcRequest
+} from "@/background/rpc-server"
 import { createAppError } from "@/lib/error-utils"
 import {
+  RPC_CANCEL_MESSAGE_TYPE,
   RPC_PROTOCOL_VERSION,
   RPC_REQUEST_MESSAGE_TYPE,
   RpcErrorCode,
@@ -47,6 +51,7 @@ const request = (method: RpcMethod, payload: unknown) => ({
 })
 
 beforeEach(() => {
+  vi.clearAllMocks()
   mocks.list.mockResolvedValue({ providers: [] })
   mocks.testConnection.mockResolvedValue({
     providerId: "ollama",
@@ -198,5 +203,55 @@ describe("RPC server", () => {
     expect(serializedResponse).toContain("Authentication failed")
     expect(serializedResponse).not.toContain("private-value")
     expect(serializedLogs).not.toContain("private-value")
+  })
+
+  it("aborts an active provider request when the client cancels", async () => {
+    let receivedSignal: AbortSignal | undefined
+    mocks.listModels.mockImplementation(
+      async (_request: unknown, signal: AbortSignal) => {
+        receivedSignal = signal
+        await new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => {
+            reject(new DOMException("Cancelled", "AbortError"))
+          })
+        })
+        return { models: [], failures: [] }
+      }
+    )
+    const envelope = request(RpcMethod.ProvidersListModels, {})
+    const requestResponse = vi.fn()
+    const pending = handleRpcRequest(
+      envelope,
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      requestResponse
+    )
+    await vi.waitFor(() => expect(receivedSignal).toBeDefined())
+
+    const cancellationResponse = vi.fn()
+    handleRpcCancellation(
+      {
+        type: RPC_CANCEL_MESSAGE_TYPE,
+        version: RPC_PROTOCOL_VERSION,
+        requestId: envelope.requestId
+      },
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      cancellationResponse
+    )
+    await pending
+
+    expect(receivedSignal?.aborted).toBe(true)
+    expect(cancellationResponse).toHaveBeenCalledWith({
+      success: true,
+      cancelled: true
+    })
+    expect(requestResponse.mock.calls[0][0]).toMatchObject({
+      ok: false,
+      error: { code: RpcErrorCode.Timeout, status: 408 }
+    })
+    expect(mocks.error).not.toHaveBeenCalled()
   })
 })

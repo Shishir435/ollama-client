@@ -23,7 +23,10 @@ import { notifyJobComplete } from "@/background/lib/notify"
 import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
 import { resolveToolConfirmation } from "@/background/lib/tool-confirmation-registry"
 import { safeSendResponse } from "@/background/lib/utils"
-import { handleRpcRequest } from "@/background/rpc-server"
+import {
+  handleRpcCancellation,
+  handleRpcRequest
+} from "@/background/rpc-server"
 import {
   classifyRuntimeSender,
   isRuntimeMessageAllowed
@@ -33,7 +36,10 @@ import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
-import { RPC_REQUEST_MESSAGE_TYPE } from "@/protocol/rpc"
+import {
+  RPC_CANCEL_MESSAGE_TYPE,
+  RPC_REQUEST_MESSAGE_TYPE
+} from "@/protocol/rpc"
 import type {
   ChromeMessage,
   ChromeSidePanel,
@@ -184,6 +190,17 @@ export const registerMessageRouter = () => {
     }
 
     switch (message.type) {
+      case RPC_CANCEL_MESSAGE_TYPE: {
+        handleRpcCancellation(
+          rawMessage,
+          sender,
+          browser.runtime.id,
+          extensionUrlPrefix,
+          sendResponse
+        )
+        return true
+      }
+
       case RPC_REQUEST_MESSAGE_TYPE: {
         handleRpcRequest(
           rawMessage,

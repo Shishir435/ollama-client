@@ -61,7 +61,8 @@ export const ProviderRpcService = {
   },
 
   async testConnection(
-    request: ProviderTestConnectionRequest
+    request: ProviderTestConnectionRequest,
+    signal?: AbortSignal
   ): Promise<ProviderTestConnectionResult> {
     const startedAt = performance.now()
     const provider =
@@ -70,7 +71,7 @@ export const ProviderRpcService = {
             request.config as ProviderConfig
           )
         : await ProviderFactory.getProvider(request.providerId)
-    const models = await provider.getModels()
+    const models = await provider.getModels(signal)
     return {
       providerId: String(provider.id),
       reachable: true,
@@ -80,7 +81,8 @@ export const ProviderRpcService = {
   },
 
   async listModels(
-    request: ProvidersListModelsRequest
+    request: ProvidersListModelsRequest,
+    signal?: AbortSignal
   ): Promise<ProvidersListModelsResult> {
     const providers = await ProviderManager.getProviders()
     const selected = providers.filter((provider) => {
@@ -104,9 +106,10 @@ export const ProviderRpcService = {
       selected.map(async (config) => {
         try {
           const provider = await ProviderFactory.getProvider(String(config.id))
-          const discovered = await provider.getModels()
+          const discovered = await provider.getModels(signal)
           models.push(...mergeProviderModels(discovered, config))
-        } catch {
+        } catch (error) {
+          if (signal?.aborted) throw error
           failures.push({
             providerId: String(config.id),
             code: "request_failed"

@@ -4,6 +4,7 @@ import { createAppError, isAppError } from "@/lib/error-utils"
 import type { RpcRequest, RpcResponse } from "./provider-rpc"
 import {
   createRpcResponseEnvelopeSchema,
+  RPC_CANCEL_MESSAGE_TYPE,
   RPC_PROTOCOL_VERSION,
   RPC_REQUEST_MESSAGE_TYPE,
   RpcErrorCode,
@@ -21,6 +22,21 @@ const timeoutError = (method: RpcMethod) =>
     userMessage: "The background request timed out. Please try again.",
     retryable: true
   })
+
+const cancelRpcRequest = (requestId: string): void => {
+  try {
+    void browser.runtime
+      .sendMessage({
+        type: RPC_CANCEL_MESSAGE_TYPE,
+        version: RPC_PROTOCOL_VERSION,
+        requestId
+      })
+      .catch(() => undefined)
+  } catch {
+    // The original timeout remains the user-facing error if cancellation
+    // cannot reach a worker that is already stopping.
+  }
+}
 
 export const extensionRpcClient = {
   async call<M extends RpcMethod>(
@@ -51,10 +67,10 @@ export const extensionRpcClient = {
       const rawResponse = await Promise.race([
         browser.runtime.sendMessage(envelope),
         new Promise<never>((_resolve, reject) => {
-          timeoutId = setTimeout(
-            () => reject(timeoutError(method)),
-            definition.timeoutMs
-          )
+          timeoutId = setTimeout(() => {
+            cancelRpcRequest(requestId)
+            reject(timeoutError(method))
+          }, definition.timeoutMs)
         })
       ])
       const responseSchema = createRpcResponseEnvelopeSchema(

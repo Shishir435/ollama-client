@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { MESSAGE_KEYS } from "@/lib/constants"
-import { RPC_REQUEST_MESSAGE_TYPE } from "@/protocol/rpc"
+import {
+  RPC_CANCEL_MESSAGE_TYPE,
+  RPC_REQUEST_MESSAGE_TYPE
+} from "@/protocol/rpc"
 
 // Mock browser API
 const listeners = {
@@ -100,6 +103,7 @@ vi.mock("@/background/handlers/handle-update-base-url", () => ({
   handleUpdateBaseUrl: vi.fn()
 }))
 vi.mock("@/background/rpc-server", () => ({
+  handleRpcCancellation: vi.fn(),
   handleRpcRequest: vi.fn()
 }))
 vi.mock("@/background/lib/dnr", () => ({ updateDNRRules: vi.fn() }))
@@ -129,7 +133,10 @@ import { handleShowModelDetails } from "@/background/handlers/handle-show-model-
 import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
 import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
 import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
-import { handleRpcRequest } from "@/background/rpc-server"
+import {
+  handleRpcCancellation,
+  handleRpcRequest
+} from "@/background/rpc-server"
 
 describe("Background Script Entry Point", () => {
   beforeEach(async () => {
@@ -180,6 +187,22 @@ describe("Background Script Entry Point", () => {
       expect(onMessage(message, extensionSender, sendResponse)).toBe(true)
 
       expect(handleRpcRequest).toHaveBeenCalledWith(
+        message,
+        extensionSender,
+        "test-extension-id",
+        "chrome-extension://test/",
+        sendResponse
+      )
+    })
+
+    it("routes RPC cancellation to the active-request registry", () => {
+      const onMessage = listeners.onMessage[0]
+      const sendResponse = vi.fn()
+      const message = { type: RPC_CANCEL_MESSAGE_TYPE }
+
+      expect(onMessage(message, extensionSender, sendResponse)).toBe(true)
+
+      expect(handleRpcCancellation).toHaveBeenCalledWith(
         message,
         extensionSender,
         "test-extension-id",

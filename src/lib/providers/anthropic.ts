@@ -208,9 +208,10 @@ export class AnthropicProvider implements LLMProvider {
     })
   }
 
-  async getModels(): Promise<ProviderModel[]> {
+  async getModels(signal?: AbortSignal): Promise<ProviderModel[]> {
     const response = await fetch(`${this.baseUrl}/models`, {
-      headers: this.headers()
+      headers: this.headers(),
+      ...(signal ? { signal } : {})
     })
     if (!response.ok) {
       await this.responseError(response)

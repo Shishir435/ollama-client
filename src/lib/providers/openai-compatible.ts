@@ -228,11 +228,12 @@ export class OpenAICompatibleProvider implements LLMProvider {
     })
   }
 
-  async getModels(): Promise<ProviderModel[]> {
+  async getModels(signal?: AbortSignal): Promise<ProviderModel[]> {
     const baseUrl = resolveProviderBaseUrl(this.config)
     try {
       const response = await fetch(`${baseUrl}/models`, {
-        headers: this.headers()
+        headers: this.headers(),
+        ...(signal ? { signal } : {})
       })
       if (!response.ok) {
         await this.responseError(response, "Model list failed", baseUrl)
@@ -256,9 +257,11 @@ export class OpenAICompatibleProvider implements LLMProvider {
         })) || []
       )
     } catch (e) {
-      logger.error("Failed to fetch models", "OpenAICompatibleProvider", {
-        error: e
-      })
+      if (!signal?.aborted) {
+        logger.error("Failed to fetch models", "OpenAICompatibleProvider", {
+          error: e
+        })
+      }
       throw e
     }
   }
