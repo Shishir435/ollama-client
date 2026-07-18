@@ -1813,7 +1813,16 @@
     }
   },
   "errors": {
-    "failed_to_fetch_models": "No se pudieron obtener los modelos"
+    "failed_to_fetch_models": "No se pudieron obtener los modelos",
+    "rpc": {
+      "invalid_request": "La solicitud no era válida.",
+      "invalid_response": "La respuesta en segundo plano no era válida.",
+      "forbidden": "Esta acción no está permitida desde esta página.",
+      "not_found": "No se encontró la configuración del proveedor.",
+      "provider_failed": "La solicitud al proveedor falló.",
+      "timeout": "La solicitud en segundo plano agotó el tiempo. Inténtalo de nuevo.",
+      "internal": "La solicitud en segundo plano falló. Inténtalo de nuevo."
+    }
   },
   "onboarding": {
     "step": "Paso {{current}} de {{total}}",

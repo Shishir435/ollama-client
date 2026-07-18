@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next"
 import { toast } from "@/hooks/use-toast"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
+import { isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import {
   providerProfileRequiresApiKey,
@@ -17,6 +17,8 @@ import {
   ProviderId,
   type ProviderServiceProfile
 } from "@/lib/providers/types"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import { RpcMethod } from "@/protocol/rpc"
 import { useProviderHealth } from "./use-provider-health"
 
 const LOCAL_PROVIDER_IDS = [
@@ -141,17 +143,15 @@ export const useProviderSettingsState = () => {
     }
 
     try {
-      const provider = await ProviderFactory.getProviderWithConfig(activeConfig)
-      logger.debug(
-        "Provider instance created, calling getModels()",
-        "ProviderSettings"
+      const result = await extensionRpcClient.call(
+        RpcMethod.ProvidersTestConnection,
+        { target: "draft", config: activeConfig }
       )
-      const models = await provider.getModels()
-      logger.debug("getModels() succeeded", "ProviderSettings", {
-        count: models.length
+      logger.debug("Provider connection RPC succeeded", "ProviderSettings", {
+        count: result.modelCount
       })
 
-      if (models.length === 0) {
+      if (result.modelCount === 0) {
         setConnectionStatus({
           success: false,
           message: t("settings.providers.test_connection.inline_no_models", {
@@ -173,7 +173,7 @@ export const useProviderSettingsState = () => {
         success: true,
         message: t("settings.providers.test_connection.inline_success", {
           url: displayUrl,
-          count: models.length
+          count: result.modelCount
         })
       })
       toast({
@@ -183,14 +183,17 @@ export const useProviderSettingsState = () => {
           {
             name: activeConfig.name,
             url: displayUrl,
-            count: models.length
+            count: result.modelCount
           }
         ),
         variant: "default"
       })
     } catch (error: unknown) {
       logger.error("Connection test failed", "ProviderSettings", { error })
-      const errorMessage = getDisplayErrorMessage(error, "Failed to connect")
+      const errorMessage =
+        isAppError(error) && error.messageKey
+          ? t(error.messageKey, error.messageParams)
+          : getDisplayErrorMessage(error, "Failed to connect")
       const shouldShowCspHint =
         errorMessage.toLowerCase().includes("failed to fetch") &&
         Boolean(cspCompatibilityHint)

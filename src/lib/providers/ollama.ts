@@ -58,11 +58,14 @@ export class OllamaProvider implements LLMProvider {
 
   constructor(public config: ProviderConfig) {}
 
-  async getModels(): Promise<ProviderModel[]> {
+  async getModels(signal?: AbortSignal): Promise<ProviderModel[]> {
     try {
       const baseUrl = resolveProviderBaseUrl(this.config)
       logger.debug(`Fetching models from ${baseUrl}`, "OllamaProvider")
-      const response = await fetch(`${baseUrl}/api/tags`)
+      const response = await fetch(
+        `${baseUrl}/api/tags`,
+        signal ? { signal } : undefined
+      )
       if (!response.ok) {
         throw createAppError(
           `Ollama model list failed (${response.status}): ${response.statusText}`,
@@ -77,7 +80,9 @@ export class OllamaProvider implements LLMProvider {
       const data = await response.json()
       return (data.models as ProviderModel[]) || []
     } catch (e) {
-      logger.error("Failed to fetch models", "OllamaProvider", { error: e })
+      if (!signal?.aborted) {
+        logger.error("Failed to fetch models", "OllamaProvider", { error: e })
+      }
       throw e
     }
   }

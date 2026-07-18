@@ -44,7 +44,7 @@ export class LlamaCppProvider extends OpenAICompatibleProvider {
     }
   }
 
-  async getModels(): Promise<ProviderModel[]> {
+  async getModels(signal?: AbortSignal): Promise<ProviderModel[]> {
     const cleanBase = resolveProviderBaseUrl(this.config)
 
     // Try multiple endpoints to be robust against user config
@@ -60,12 +60,13 @@ export class LlamaCppProvider extends OpenAICompatibleProvider {
     for (const url of uniqueEndpoints) {
       try {
         logger.debug(`Fetching models from ${url}`, "LlamaCpp")
-        const res = await fetch(url)
+        const res = await fetch(url, signal ? { signal } : undefined)
         if (res.ok) {
           response = res
           break
         }
       } catch (e) {
+        if (signal?.aborted) throw e
         logger.warn(`Failed to fetch from ${url}`, "LlamaCpp", { error: e })
       }
     }

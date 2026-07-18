@@ -24,10 +24,9 @@ const compactModelDetails = (
 }
 
 /**
- * Fetch model details directly in the page via the provider — the same path the
- * model list (`ProviderFactory.getProvider().getModels()`) already uses. This
- * avoids a background-worker round-trip whose async `onMessage` response can be
- * dropped under MV3, which surfaced as a permanent "Failed to fetch model info".
+ * Fetch model details directly in the page via the provider. Model discovery
+ * uses the typed RPC boundary, while provider-specific detail lookup remains a
+ * direct call until that optional capability joins the protocol.
  */
 const fetchModelInfoInPage = async (
   model: string,

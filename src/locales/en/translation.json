@@ -1813,7 +1813,16 @@
     }
   },
   "errors": {
-    "failed_to_fetch_models": "Failed to fetch models"
+    "failed_to_fetch_models": "Failed to fetch models",
+    "rpc": {
+      "invalid_request": "The request was invalid.",
+      "invalid_response": "The background response was invalid.",
+      "forbidden": "This action is not allowed from this page.",
+      "not_found": "The provider configuration was not found.",
+      "provider_failed": "The provider request failed.",
+      "timeout": "The background request timed out. Please try again.",
+      "internal": "The background request failed. Please try again."
+    }
   },
   "onboarding": {
     "step": "Step {{current}} of {{total}}",

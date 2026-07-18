@@ -30,14 +30,17 @@ export class LMStudioProvider extends OpenAICompatibleProvider {
     }
   }
 
-  async getModels(): Promise<ProviderModel[]> {
+  async getModels(signal?: AbortSignal): Promise<ProviderModel[]> {
     const baseUrl = resolveProviderBaseUrl(this.config)
     try {
       // LM Studio's new API is at /api/v0/models, outside of /v1
       const apiBase = baseUrl.replace(/\/v1\/?$/, "")
-      const response = await fetch(`${apiBase}/api/v0/models`)
+      const response = await fetch(
+        `${apiBase}/api/v0/models`,
+        signal ? { signal } : undefined
+      )
 
-      if (!response.ok) return super.getModels()
+      if (!response.ok) return super.getModels(signal)
 
       const json = await response.json()
       const data = json.data as Array<{
@@ -74,12 +77,13 @@ export class LMStudioProvider extends OpenAICompatibleProvider {
         }
       }))
     } catch (_e) {
+      if (signal?.aborted) throw _e
       logger.warn(
         "/api/v0/models failed, falling back to openai compat",
         "LMStudio",
         { error: _e }
       )
-      return super.getModels()
+      return super.getModels(signal)
     }
   }
 }

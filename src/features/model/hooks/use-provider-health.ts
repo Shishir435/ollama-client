@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
 
-import { ProviderFactory } from "@/lib/providers/factory"
 import type { ProviderConfig } from "@/lib/providers/types"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import { RpcMethod } from "@/protocol/rpc"
 
 export interface ProviderHealthEntry {
   success: boolean
@@ -13,8 +14,8 @@ export type ProviderHealthMap = Record<string, ProviderHealthEntry>
 const HEALTH_CHECK_INTERVAL_MS = 10_000
 
 /**
- * Poll every enabled provider every 10s, calling `getModels()` on a
- * fresh provider instance. A provider is "healthy" when the call
+ * Poll every enabled provider every 10s through the provider connection RPC.
+ * A provider is "healthy" when the call
  * succeeds and returns at least one model. Disabled providers are
  * skipped — their health entries stay stale until they're re-enabled.
  *
@@ -31,13 +32,15 @@ export const useProviderHealth = (
 
     const checkOne = async (provider: ProviderConfig) => {
       try {
-        const instance = await ProviderFactory.getProviderWithConfig(provider)
-        const models = await instance.getModels()
+        const result = await extensionRpcClient.call(
+          RpcMethod.ProvidersTestConnection,
+          { target: "stored", providerId: String(provider.id) }
+        )
         if (cancelled) return
         setHealth((prev) => ({
           ...prev,
           [provider.id]: {
-            success: models.length > 0,
+            success: result.modelCount > 0,
             lastChecked: Date.now()
           }
         }))

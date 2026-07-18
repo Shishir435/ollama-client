@@ -1813,7 +1813,16 @@
     }
   },
   "errors": {
-    "failed_to_fetch_models": "Impossible de récupérer les modèles"
+    "failed_to_fetch_models": "Impossible de récupérer les modèles",
+    "rpc": {
+      "invalid_request": "La requête n’était pas valide.",
+      "invalid_response": "La réponse en arrière-plan n’était pas valide.",
+      "forbidden": "Cette action n’est pas autorisée depuis cette page.",
+      "not_found": "La configuration du fournisseur est introuvable.",
+      "provider_failed": "La requête au fournisseur a échoué.",
+      "timeout": "La requête en arrière-plan a expiré. Réessayez.",
+      "internal": "La requête en arrière-plan a échoué. Réessayez."
+    }
   },
   "onboarding": {
     "step": "Étape {{current}} sur {{total}}",
