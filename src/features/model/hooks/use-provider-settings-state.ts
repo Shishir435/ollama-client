@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "@/hooks/use-toast"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
@@ -79,6 +79,9 @@ export const useProviderSettingsState = () => {
   const [apiKeyEditedProviderIds, setApiKeyEditedProviderIds] = useState<
     Set<string>
   >(new Set())
+  // Incremented synchronously for every local edit. An RPC response may update
+  // local state only when the provider still has the revision it started with.
+  const configRevisions = useRef(new Map<string, number>())
 
   const providerHealth = useProviderHealth(providers)
 
@@ -259,8 +262,11 @@ export const useProviderSettingsState = () => {
   const persistConfig = useCallback(
     async (
       config: ProviderSettingsConfig,
-      showSuccessToast = true
+      showSuccessToast = true,
+      showErrorToast = true
     ): Promise<boolean> => {
+      const providerId = String(config.id)
+      const startedRevision = configRevisions.current.get(providerId) ?? 0
       try {
         const { provider: saved } = await extensionRpcClient.call(
           RpcMethod.ProvidersUpsert,
@@ -269,6 +275,16 @@ export const useProviderSettingsState = () => {
             config: configForRpc(config)
           }
         )
+        if (
+          (configRevisions.current.get(providerId) ?? 0) !== startedRevision
+        ) {
+          logger.debug(
+            "Ignored stale provider save response",
+            "ProviderSettings",
+            { providerId }
+          )
+          return false
+        }
         setProviders((prev) =>
           prev.map((provider) =>
             provider.id === config.id ? toSettingsConfig(saved) : provider
@@ -276,7 +292,7 @@ export const useProviderSettingsState = () => {
         )
         setApiKeyEditedProviderIds((previous) => {
           const next = new Set(previous)
-          next.delete(String(config.id))
+          next.delete(providerId)
           return next
         })
         setHasUnsavedChanges(false)
@@ -295,11 +311,13 @@ export const useProviderSettingsState = () => {
             error
           }
         )
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to save configuration."
-        })
+        if (showErrorToast) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to save configuration."
+          })
+        }
         return false
       }
     },
@@ -410,6 +428,11 @@ export const useProviderSettingsState = () => {
 
   const updateConfig = (updates: Partial<ProviderConfig>) => {
     if (!activeConfig) return
+    const providerId = String(activeConfig.id)
+    configRevisions.current.set(
+      providerId,
+      (configRevisions.current.get(providerId) ?? 0) + 1
+    )
     if (Object.hasOwn(updates, "apiKey")) {
       setApiKeyEditedProviderIds((previous) =>
         new Set(previous).add(String(activeConfig.id))
@@ -425,6 +448,11 @@ export const useProviderSettingsState = () => {
 
   const setProviderEnabled = async (enabled: boolean) => {
     if (!activeConfig) return
+    const providerId = String(activeConfig.id)
+    configRevisions.current.set(
+      providerId,
+      (configRevisions.current.get(providerId) ?? 0) + 1
+    )
     const updated = { ...activeConfig, enabled }
     setProviders((prev) =>
       prev.map((p) => (p.id === activeConfig.id ? updated : p))
@@ -443,23 +471,16 @@ export const useProviderSettingsState = () => {
     if (!hasUnsavedChanges || !activeConfig) return
 
     const timeoutId = setTimeout(async () => {
-      try {
-        await extensionRpcClient.call(RpcMethod.ProvidersUpsert, {
-          target: "existing",
-          config: configForRpc(activeConfig)
-        })
-        setHasUnsavedChanges(false)
+      if (await persistConfig(activeConfig, false, false)) {
         logger.debug(
           `Auto-saved configuration for ${activeConfig.name}`,
           "ProviderSettings"
         )
-      } catch (error) {
-        logger.error("Auto-save failed", "ProviderSettings", { error })
       }
     }, 2000)
 
     return () => clearTimeout(timeoutId)
-  }, [activeConfig, configForRpc, hasUnsavedChanges])
+  }, [activeConfig, hasUnsavedChanges, persistConfig])
 
   const headerStatusConfigs = [
     {

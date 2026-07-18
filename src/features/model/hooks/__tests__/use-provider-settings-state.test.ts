@@ -215,4 +215,90 @@ describe("useProviderSettingsState", () => {
         )
     ).toHaveLength(0)
   })
+
+  it("keeps edits made while the pre-switch save is pending", async () => {
+    const added = {
+      ...custom,
+      id: "custom:openai:added",
+      name: "Added server"
+    }
+    let resolveSave: ((value: { provider: typeof ollama }) => void) | undefined
+    const pendingSave = new Promise<{ provider: typeof ollama }>((resolve) => {
+      resolveSave = resolve
+    })
+    vi.mocked(extensionRpcClient.call).mockImplementation(
+      async (method, request) => {
+        if (method === RpcMethod.ProvidersList) {
+          return { providers: [ollama] } as never
+        }
+        if (
+          method === RpcMethod.ProvidersUpsert &&
+          getMutationTarget(request) === "existing"
+        ) {
+          return (await pendingSave) as never
+        }
+        if (method === RpcMethod.ProvidersUpsert) {
+          return { provider: added } as never
+        }
+        throw new Error(`Unexpected method: ${method}`)
+      }
+    )
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toEqual([ollama]))
+
+    act(() => {
+      result.current.updateConfig({ baseUrl: "http://localhost:11435" })
+    })
+    let didAdd = true
+    let addPromise: Promise<boolean>
+    act(() => {
+      addPromise = result.current.addProvider({
+        name: added.name,
+        baseUrl: added.baseUrl,
+        wire: "openai"
+      })
+    })
+    await waitFor(() =>
+      expect(
+        vi
+          .mocked(extensionRpcClient.call)
+          .mock.calls.some(
+            ([method, request]) =>
+              method === RpcMethod.ProvidersUpsert &&
+              getMutationTarget(request) === "existing"
+          )
+      ).toBe(true)
+    )
+
+    act(() => {
+      result.current.updateConfig({ name: "Edited while saving" })
+    })
+    await act(async () => {
+      resolveSave?.({
+        provider: { ...ollama, baseUrl: "http://localhost:11435" }
+      })
+      didAdd = await addPromise
+    })
+
+    expect(didAdd).toBe(false)
+    expect(result.current.selectedId).toBe(ProviderId.OLLAMA)
+    expect(result.current.hasUnsavedChanges).toBe(true)
+    expect(result.current.providers).toEqual([
+      {
+        ...ollama,
+        name: "Edited while saving",
+        baseUrl: "http://localhost:11435"
+      }
+    ])
+    expect(
+      vi
+        .mocked(extensionRpcClient.call)
+        .mock.calls.filter(
+          ([method, request]) =>
+            method === RpcMethod.ProvidersUpsert &&
+            getMutationTarget(request) === "new"
+        )
+    ).toHaveLength(0)
+  })
 })
