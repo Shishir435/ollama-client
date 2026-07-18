@@ -170,7 +170,15 @@ export const handleChatWithModel = withErrorContext(
     // Resolve tools + how to drive them. Native models get an OpenAI/Ollama tool
     // array; models opted into the prompt-based fallback get a non-native loop;
     // everything else gets no tools and the old context-injection path as-is.
-    const resolvedTools = await resolveModelTools(model, providerId, provider)
+    const latestUserText = [...messages]
+      .reverse()
+      .find((message) => message.role === "user")?.content
+    const resolvedTools = await resolveModelTools(
+      model,
+      providerId,
+      provider,
+      latestUserText
+    )
     // Only the native path sends a tools array + the native system guidance; the
     // non-native path injects its own protocol prompt inside its streamer.
     const nativeTools =

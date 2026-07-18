@@ -12,6 +12,7 @@ import {
   getEffectiveToolFamilySettings,
   getToolModelOverride
 } from "@/lib/tools/tool-model-overrides"
+import { filterToolsForTurn } from "./tool-exposure-policy"
 
 /**
  * Caches a model's `/api/show` capability tags briefly, keyed by the provider
@@ -58,7 +59,8 @@ export interface ResolvedModelTools {
 export const resolveModelTools = async (
   model: string,
   providerId: string | undefined,
-  provider: LLMProvider
+  provider: LLMProvider,
+  latestUserText?: string
 ): Promise<ResolvedModelTools | undefined> => {
   const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
   const providerUrl = resolveProviderBaseUrl(provider.config)
@@ -168,7 +170,7 @@ export const resolveModelTools = async (
   if (!toolSettings.enabled) return undefined
 
   const definitions = await getToolRegistry().listDefinitions()
-  const allowed = definitions.filter((definition) => {
+  const governed = definitions.filter((definition) => {
     if (toolSettings.families[getToolFamily(definition)] === false) return false
     // Vision-only tools (e.g. capture_screenshot) are useless to a model that
     // can't see images — don't offer them, or the model may call one and choke
@@ -178,5 +180,9 @@ export const resolveModelTools = async (
     }
     return true
   })
+  // Apply the provider-independent, turn-level safety policy last. Sensitive
+  // browser-data tools are not sent to any provider unless their optional
+  // permission is already granted and this request explicitly asks for them.
+  const allowed = await filterToolsForTurn(governed, latestUserText)
   return allowed.length > 0 ? { tools: allowed, mode } : undefined
 }
