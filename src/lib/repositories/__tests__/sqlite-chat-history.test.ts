@@ -287,7 +287,7 @@ describe("sessions", () => {
 })
 
 describe("messages", () => {
-  it("messageFromRow normalizes done/metrics/thinking from SQL types", async () => {
+  it("messageFromRow normalizes display and opaque replay state", async () => {
     mockedQuery.mockResolvedValueOnce([
       {
         id: 1,
@@ -299,7 +299,9 @@ describe("messages", () => {
         parentId: null,
         done: 0,
         metrics: '{"prompt_eval_count":3}',
-        thinking: "reasoning..."
+        thinking: "reasoning...",
+        replayArtifact:
+          '{"version":1,"wire":"openai","providerId":"openrouter","model":"m","blocks":[{"type":"reasoning.encrypted","data":"opaque"}]}'
       }
     ])
     const [msg] = await repo.getAllMessages()
@@ -307,6 +309,9 @@ describe("messages", () => {
     expect(msg.parentId).toBeUndefined()
     expect(msg.metrics).toEqual({ prompt_eval_count: 3 })
     expect(msg.thinking).toBe("reasoning...")
+    expect(msg.replayArtifact?.blocks).toEqual([
+      { type: "reasoning.encrypted", data: "opaque" }
+    ])
   })
 
   it("messageFromRow preserves persisted web-search tool sources", async () => {
@@ -436,6 +441,7 @@ describe("messages", () => {
       null,
       1,
       null,
+      null,
       null
     ])
   })
@@ -446,6 +452,25 @@ describe("messages", () => {
     const [sql, params] = mockedRun.mock.calls[0]
     expect(sql).toBe("UPDATE messages SET done = ?, metrics = ? WHERE id = ?")
     expect(params).toEqual([0, '{"eval_count":1}', 5])
+  })
+
+  it("updateMessage serializes provider replay state separately", async () => {
+    mockedRun.mockResolvedValueOnce(undefined)
+    await repo.updateMessage(5, {
+      replayArtifact: {
+        version: 1,
+        wire: "openai",
+        providerId: "openrouter",
+        model: "m",
+        blocks: [{ type: "reasoning.encrypted", data: "opaque" }]
+      }
+    })
+    const [sql, params] = mockedRun.mock.calls[0]
+    expect(sql).toBe("UPDATE messages SET replayArtifact = ? WHERE id = ?")
+    expect(JSON.parse(String(params?.[0]))).toMatchObject({
+      providerId: "openrouter",
+      blocks: [{ type: "reasoning.encrypted", data: "opaque" }]
+    })
   })
 
   it("updateMessage with empty updates returns 0 and does not run SQL", async () => {

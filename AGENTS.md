@@ -82,6 +82,7 @@ Chat-history storage now runs on sql.js (SQLite-in-WASM). The Dexie chat-history
 - **Session metadata**: pinned state, per-chat system prompts, and user tags live on SQLite `sessions`; add columns through forward-only migrations.
 - **SQLite durability contract**: writes are debounced 1s to IndexedDB. Page-unload and explicit reset/export paths force-flush via `flushSave()` where needed.
 - **Tool-loop durability**: active native and non-native tool loops checkpoint to `tool_loop_runs` at model/tool/approval boundaries and force-flush before awaiting approval. The sidepanel reconnects with the same request id after an MV3 service-worker restart; do not remove this checkpoint/reconnect contract when changing tool execution.
+- **Provider reasoning replay**: signed Anthropic thinking/redacted blocks and OpenRouter `reasoning_details` live in the versioned, size-capped `ChatMessage.replayArtifact`, separately from display-only `thinking`. Preserve block order and opaque values through SQLite and tool-loop checkpoints, validate provider/model ownership before replay, and never render or log opaque block contents.
 - **Vectors / embeddings**: `src/lib/embeddings/` (HNSW + keyword index). Vector storage still lives in IndexedDB via `lib/embeddings/storage.ts`. The vector store has not been migrated to SQLite yet.
 - **Settings / config / per-extension state**: `@plasmohq/storage` accessed through `src/lib/plasmo-global-storage.ts`. Sync-safe settings use `chrome.storage.sync`; device-local keys are routed to `chrome.storage.local` by the wrapper.
 

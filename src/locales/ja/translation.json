@@ -400,6 +400,7 @@
       "no_message": "メッセージなし",
       "response_failed_title": "応答の生成に失敗しました",
       "unknown_error_description": "不明なエラーが発生しました",
+      "provider_replay_invalid": "この応答を安全に続行できません。プロバイダーのコンテキストを再構築するため、このターンを再試行してください。",
       "report_issue": "問題を報告"
     },
     "composer": {

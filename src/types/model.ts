@@ -195,6 +195,7 @@ export interface PullStreamMessage {
         status: number
         message: string
         kind?: import("./errors").AppErrorKind
+        messageKey?: string
         userMessage?: string
         retryable?: boolean
         retryAfterMs?: number

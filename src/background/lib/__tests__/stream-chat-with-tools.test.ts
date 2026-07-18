@@ -90,6 +90,48 @@ describe("streamChatWithTools", () => {
     expect(lastTrace?.[0]).toMatchObject({ toolId: "echo", status: "done" })
   })
 
+  it("checkpoints opaque replay state with the assistant tool turn", async () => {
+    const replayArtifact = {
+      version: 1 as const,
+      wire: "openai" as const,
+      providerId: "test",
+      model: "m",
+      blocks: [{ type: "reasoning.encrypted", data: "opaque-state" }]
+    }
+    const provider = scriptedProvider([
+      [
+        {
+          toolCalls: [{ id: "c1", name: "echo", arguments: {} }],
+          replayArtifact
+        },
+        { done: true, replayArtifact }
+      ],
+      [{ delta: "done" }, { done: true }]
+    ])
+    const checkpoints: DurableToolLoopState[] = []
+
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      registry: registryWith(async () => ({ content: "ran" })),
+      onChunk: () => {},
+      ctx: {},
+      onCheckpoint: async (state) => {
+        checkpoints.push(structuredClone(state))
+      }
+    })
+
+    expect(
+      checkpoints.some((state) =>
+        state.workingMessages.some(
+          (message) =>
+            message.role === "assistant" &&
+            message.replayArtifact?.blocks[0]?.data === "opaque-state"
+        )
+      )
+    ).toBe(true)
+  })
+
   it("forwards a tool's image result as a follow-up user message", async () => {
     const provider = scriptedProvider([
       [
@@ -704,7 +746,19 @@ describe("streamChatWithTools", () => {
         {
           role: "assistant",
           content: "",
-          toolCalls: [{ id: "resume-c1", name: "danger", arguments: {} }]
+          toolCalls: [{ id: "resume-c1", name: "danger", arguments: {} }],
+          replayArtifact: {
+            version: 1,
+            wire: "openai",
+            providerId: "test",
+            model: "m",
+            blocks: [
+              {
+                type: "reasoning.encrypted",
+                data: "opaque-restart-state"
+              }
+            ]
+          }
         }
       ],
       toolRuns: [
@@ -744,5 +798,10 @@ describe("streamChatWithTools", () => {
 
     expect(run).toHaveBeenCalledTimes(1)
     expect(provider.streamChat).toHaveBeenCalledTimes(1)
+    const resumedMessages = (provider.streamChat as ReturnType<typeof vi.fn>)
+      .mock.calls[0][0].messages
+    expect(resumedMessages[1].replayArtifact?.blocks).toEqual([
+      { type: "reasoning.encrypted", data: "opaque-restart-state" }
+    ])
   })
 })

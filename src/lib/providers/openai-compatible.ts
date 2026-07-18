@@ -10,13 +10,21 @@ import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
 import { resolveProviderBaseUrl } from "./base-url"
 import { OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES } from "./capabilities"
-import { getOpenAIServiceCompatibility } from "./service-profile"
+import {
+  createProviderReplayArtifact,
+  getProviderReplayBlocks
+} from "./provider-replay"
+import {
+  getOpenAIServiceCompatibility,
+  resolveProviderServiceProfile
+} from "./service-profile"
 import {
   type ChatRequest,
   type EmbeddingSupport,
   type LLMProvider,
   type ProviderConfig,
-  ProviderId
+  ProviderId,
+  ProviderServiceProfile
 } from "./types"
 
 /** Normalized tool → OpenAI `tools` entry. */
@@ -30,14 +38,24 @@ const toOpenAITool = (tool: ToolDefinition) => ({
 })
 
 /** ChatMessage → OpenAI chat-completions message (images + tool turns). */
-const mapToOpenAIMessage = (m: ChatMessage): Record<string, unknown> => {
+const mapToOpenAIMessage = (
+  m: ChatMessage,
+  expectedReplay?: { providerId: string; model: string }
+): Record<string, unknown> => {
   if (m.role === "tool") {
     return { role: "tool", tool_call_id: m.toolCallId, content: m.content }
   }
   if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {
+    const reasoningDetails = expectedReplay
+      ? getProviderReplayBlocks(m.replayArtifact, {
+          wire: "openai",
+          ...expectedReplay
+        })
+      : undefined
     return {
       role: "assistant",
       content: m.content || "",
+      ...(reasoningDetails ? { reasoning_details: reasoningDetails } : {}),
       tool_calls: m.toolCalls.map((call) => ({
         id: call.id,
         type: "function",
@@ -46,6 +64,19 @@ const mapToOpenAIMessage = (m: ChatMessage): Record<string, unknown> => {
           arguments: JSON.stringify(call.arguments ?? {})
         }
       }))
+    }
+  }
+  if (m.role === "assistant") {
+    const reasoningDetails = expectedReplay
+      ? getProviderReplayBlocks(m.replayArtifact, {
+          wire: "openai",
+          ...expectedReplay
+        })
+      : undefined
+    return {
+      role: "assistant",
+      content: m.content,
+      ...(reasoningDetails ? { reasoning_details: reasoningDetails } : {})
     }
   }
   if (m.role === "user" && m.images && m.images.length > 0) {
@@ -251,6 +282,11 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const baseUrl = resolveProviderBaseUrl(this.config)
 
     const compatibility = getOpenAIServiceCompatibility(this.config)
+    const replayOwner =
+      resolveProviderServiceProfile(this.config) ===
+      ProviderServiceProfile.OPENROUTER
+        ? { providerId: this.id, model }
+        : undefined
     const requestedOutputTokens = max_tokens ?? num_predict
     const outputTokens =
       requestedOutputTokens !== undefined && requestedOutputTokens > 0
@@ -263,7 +299,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     // string) and `tool` result messages keyed by `tool_call_id`.
     const body: Record<string, unknown> = {
       model,
-      messages: messages.map((m) => mapToOpenAIMessage(m)),
+      messages: messages.map((m) => mapToOpenAIMessage(m, replayOwner)),
       stream: true,
       stream_options: compatibility.sendStreamOptions
         ? { include_usage: true }
@@ -290,13 +326,14 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }
 
     const startTime = Date.now()
-    await this.processSSE(response, onChunk, startTime)
+    await this.processSSE(response, onChunk, startTime, model)
   }
 
   protected async processSSE(
     response: Response,
     onChunk: (chunk: ChatStreamMessage) => void,
-    startTime: number
+    startTime: number,
+    model: string
   ) {
     const reader = response.body?.getReader()
     if (!reader) {
@@ -312,11 +349,29 @@ export class OpenAICompatibleProvider implements LLMProvider {
     let latestMetrics: ChatStreamMessage["metrics"] | undefined
     const toolCalls = new ToolCallAccumulator()
     let toolCallsEmitted = false
+    const reasoningDetails: Array<Record<string, unknown>> = []
+    const captureReasoningDetails =
+      resolveProviderServiceProfile(this.config) ===
+      ProviderServiceProfile.OPENROUTER
+
+    const replayArtifact = () =>
+      reasoningDetails.length > 0
+        ? createProviderReplayArtifact(
+            "openai",
+            this.id,
+            model,
+            reasoningDetails
+          )
+        : undefined
 
     const emitToolCalls = () => {
       if (toolCallsEmitted || toolCalls.size === 0) return
       toolCallsEmitted = true
-      onChunk({ toolCalls: toolCalls.finalize(), done: false })
+      onChunk({
+        toolCalls: toolCalls.finalize(),
+        replayArtifact: replayArtifact(),
+        done: false
+      })
     }
 
     const processLine = (line: string) => {
@@ -333,6 +388,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
             reasoning_content?: string
             thinking?: string
             thoughts?: string
+            reasoning_details?: unknown[]
             tool_calls?: ToolCallFragment[]
           }
           finish_reason?: string
@@ -390,6 +446,13 @@ export class OpenAICompatibleProvider implements LLMProvider {
       }
 
       const delta = data.choices?.[0]?.delta
+
+      if (captureReasoningDetails && Array.isArray(delta?.reasoning_details)) {
+        for (const detail of delta.reasoning_details) {
+          const record = asRecord(detail)
+          if (record) reasoningDetails.push(record)
+        }
+      }
 
       const thinkingDelta =
         delta?.reasoning ||
@@ -454,6 +517,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
           const totalDurationNs = (Date.now() - startTime) * 1_000_000
           onChunk({
             done: true,
+            replayArtifact: replayArtifact(),
             metrics: {
               ...latestMetrics,
               total_duration: totalDurationNs

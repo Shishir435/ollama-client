@@ -1,6 +1,7 @@
 import type { Database } from "sql.js"
 
 import { logger } from "@/lib/logger"
+import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
 import { ensureSessionsPinnedColumn } from "./add-session-pinned-column"
 import { ensureSessionsSystemPromptColumn } from "./add-session-system-prompt-column"
 import { ensureSessionsTagsColumn } from "./add-session-tags-column"
@@ -55,6 +56,11 @@ export const MIGRATIONS: Migration[] = [
     version: 5,
     name: "add-session-tags-column",
     up: ensureSessionsTagsColumn
+  },
+  {
+    version: 6,
+    name: "add-message-replay-artifact-column",
+    up: ensureMessagesReplayArtifactColumn
   }
 ]
 

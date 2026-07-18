@@ -21,6 +21,13 @@ describe("ChatMessageSchema", () => {
       role: "assistant",
       content: "response",
       thinking: "hmm",
+      replayArtifact: {
+        version: 1,
+        wire: "openai",
+        providerId: "openrouter",
+        model: "remote-model",
+        blocks: [{ type: "reasoning.encrypted", data: "opaque" }]
+      },
       done: true,
       model: "llama3",
       toolName: "read_tab",

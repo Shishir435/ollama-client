@@ -43,6 +43,8 @@ export const normalizeError = (
     message,
     ...(isAppError(error) && { kind: error.kind }),
     ...(isAppError(error) &&
+      error.messageKey && { messageKey: error.messageKey }),
+    ...(isAppError(error) &&
       error.userMessage && { userMessage: error.userMessage }),
     ...(isAppError(error) &&
       error.retryable !== undefined && { retryable: error.retryable }),

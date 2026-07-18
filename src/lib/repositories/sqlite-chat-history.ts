@@ -1,4 +1,8 @@
 import { imageToStoredFile } from "@/lib/image-utils"
+import {
+  parseStoredReplayArtifact,
+  serializeReplayArtifact
+} from "@/lib/providers/provider-replay"
 import { flushSave, query, resetSQLiteDatabase, run } from "@/lib/sqlite/db"
 import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
 import { ChatMessageMetricsSchema } from "@/types/chat.schemas"
@@ -68,7 +72,8 @@ const messageFromRow = (row: Row): StoredMessage => ({
   parentId: (row.parentId as number | null) ?? undefined,
   done: ((row.done as number | null) ?? 1) !== 0,
   metrics: parseMetrics(row.metrics),
-  thinking: (row.thinking as string | null) ?? undefined
+  thinking: (row.thinking as string | null) ?? undefined,
+  replayArtifact: parseStoredReplayArtifact(row.replayArtifact)
 })
 
 const fileFromRow = (row: Row): StoredFile => ({
@@ -108,8 +113,8 @@ const insertImportedMessage = async (
   // pass once the full old→new id map for this session is known.
   await run(
     `INSERT INTO messages
-     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       sessionId,
       message.role,
@@ -119,7 +124,8 @@ const insertImportedMessage = async (
       null,
       message.done === false ? 0 : 1,
       message.metrics ? JSON.stringify(message.metrics) : null,
-      message.thinking ?? null
+      message.thinking ?? null,
+      serializeReplayArtifact(message.replayArtifact)
     ]
   )
   const rows = await query("SELECT last_insert_rowid() AS id")
@@ -414,8 +420,8 @@ export const addMessage = async (
 ): Promise<number> => {
   await run(
     `INSERT INTO messages
-     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       message.sessionId,
       message.role,
@@ -425,7 +431,8 @@ export const addMessage = async (
       typeof message.parentId === "number" ? message.parentId : null,
       message.done === false ? 0 : 1,
       message.metrics ? JSON.stringify(message.metrics) : null,
-      message.thinking ?? null
+      message.thinking ?? null,
+      serializeReplayArtifact(message.replayArtifact)
     ]
   )
   const rows = await query("SELECT last_insert_rowid() AS id")
@@ -446,6 +453,10 @@ export const updateMessage = async (
   if (Object.hasOwn(updates, "thinking")) {
     fields.push("thinking = ?")
     values.push(updates.thinking ?? null)
+  }
+  if (Object.hasOwn(updates, "replayArtifact")) {
+    fields.push("replayArtifact = ?")
+    values.push(serializeReplayArtifact(updates.replayArtifact))
   }
   if (Object.hasOwn(updates, "done")) {
     fields.push("done = ?")

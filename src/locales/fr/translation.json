@@ -400,6 +400,7 @@
       "no_message": "Aucun message",
       "response_failed_title": "Échec de la génération de la réponse",
       "unknown_error_description": "Une erreur inconnue est survenue",
+      "provider_replay_invalid": "Cette réponse ne peut pas être poursuivie en toute sécurité. Réessayez ce tour pour reconstruire le contexte du fournisseur.",
       "report_issue": "Signaler un problème"
     },
     "composer": {

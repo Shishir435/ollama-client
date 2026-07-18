@@ -107,6 +107,14 @@ const ToolCallSchema = z.object({
   arguments: z.record(z.string(), z.unknown())
 })
 
+const ProviderReplayArtifactSchema = z.object({
+  version: z.literal(1),
+  wire: z.enum(["anthropic", "openai"]),
+  providerId: z.string(),
+  model: z.string(),
+  blocks: z.array(z.record(z.string(), z.unknown()))
+})
+
 export const ChatMessageMetricsSchema = z.object({
   total_duration: z.number().optional(),
   load_duration: z.number().optional(),
@@ -173,6 +181,7 @@ export const ChatMessageSchema = z.object({
   role: z.enum(["user", "assistant", "system", "tool"]),
   content: z.string(),
   thinking: z.string().optional(),
+  replayArtifact: ProviderReplayArtifactSchema.optional(),
   done: z.boolean().optional(),
   model: z.string().optional(),
   attachments: z.array(FileAttachmentSchema).optional(),
