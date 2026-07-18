@@ -34,6 +34,7 @@ describe("handleShowModelDetails", () => {
       const { ProviderFactory } = await import("@/lib/providers/factory")
       const mockProvider = {
         id: "ollama",
+        capabilities: { modelDetails: true },
         getModelDetails: vi.fn().mockResolvedValue(mockModelDetailsResponse)
       }
       vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue(
@@ -59,6 +60,7 @@ describe("handleShowModelDetails", () => {
       const { ProviderFactory } = await import("@/lib/providers/factory")
       const mockProvider = {
         id: "ollama",
+        capabilities: { modelDetails: true },
         getModelDetails: vi.fn().mockResolvedValue({
           ...mockModelDetailsResponse,
           license: "large license",
@@ -92,6 +94,7 @@ describe("handleShowModelDetails", () => {
       const { ProviderFactory } = await import("@/lib/providers/factory")
       const mockProvider = {
         id: "openai-compatible",
+        capabilities: { modelDetails: false },
         getModelDetails: undefined
       }
       vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue(
@@ -107,12 +110,36 @@ describe("handleShowModelDetails", () => {
         supportsDetails: false
       })
     })
+
+    it("ignores inherited null detail methods when capability is false", async () => {
+      const { ProviderFactory } = await import("@/lib/providers/factory")
+      const getModelDetails = vi.fn().mockResolvedValue(null)
+      vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue({
+        id: "llama-cpp",
+        capabilities: { modelDetails: false },
+        getModelDetails
+      } as any)
+
+      await handleShowModelDetails(
+        { model: "gemma.gguf", providerId: "llama-cpp" },
+        mockSendResponse
+      )
+
+      expect(getModelDetails).not.toHaveBeenCalled()
+      expect(mockSendResponse).toHaveBeenCalledWith({
+        success: true,
+        data: null,
+        providerId: "llama-cpp",
+        supportsDetails: false
+      })
+    })
   })
 
   describe("error handling", () => {
     it("should handle provider errors", async () => {
       const { ProviderFactory } = await import("@/lib/providers/factory")
       const mockProvider = {
+        capabilities: { modelDetails: true },
         getModelDetails: vi.fn().mockRejectedValue(new Error("Provider error"))
       }
       vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue(
@@ -135,6 +162,7 @@ describe("handleShowModelDetails", () => {
     it("should call sendResponse exactly once", async () => {
       const { ProviderFactory } = await import("@/lib/providers/factory")
       const mockProvider = {
+        capabilities: { modelDetails: true },
         getModelDetails: vi.fn().mockResolvedValue(mockModelDetailsResponse)
       }
       vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue(

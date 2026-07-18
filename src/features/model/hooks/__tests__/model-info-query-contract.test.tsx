@@ -39,6 +39,7 @@ describe("shared model-info query contract", () => {
     // query must land in `error`, never cache a transport failure as `null`.
     vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue({
       id: "ollama",
+      capabilities: { modelDetails: true },
       getModelDetails: vi.fn().mockRejectedValue(new Error("network down"))
     } as never)
     vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
@@ -87,6 +88,7 @@ describe("shared model-info query contract", () => {
     )
     vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue({
       id: "ollama",
+      capabilities: { modelDetails: true },
       getModelDetails: vi.fn().mockResolvedValue({
         license: "big license text",
         modelfile: "FROM ...",
@@ -125,6 +127,7 @@ describe("shared model-info query contract", () => {
     // transport failure.
     vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue({
       id: "openai-compatible",
+      capabilities: { modelDetails: false },
       getModelDetails: undefined
     } as never)
 

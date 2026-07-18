@@ -27,7 +27,7 @@ export const handleShowModelDetails = async (
       providerId
     )
 
-    if (!provider.getModelDetails) {
+    if (!provider.capabilities.modelDetails || !provider.getModelDetails) {
       // Legit "no details" — the resolved provider can't self-report. Tell the
       // client the truth so it doesn't treat this null as a transport failure.
       safeSendResponse(sendResponse, {

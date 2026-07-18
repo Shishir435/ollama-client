@@ -32,7 +32,11 @@ export class LlamaCppProvider extends OpenAICompatibleProvider {
       modelUnload: false,
       modelDelete: false,
       providerVersion: false,
-      toolCalling: true
+      // llama.cpp exposes OpenAI tool transport, but support ultimately depends
+      // on the loaded model's chat template. Some templates can emit a tool
+      // call yet reject the required follow-up `tool` role with HTTP 500, so
+      // native tools must be enabled only by model evidence or user override.
+      toolCalling: false
     }
   }
 

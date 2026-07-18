@@ -43,6 +43,34 @@ describe("probeToolCalling", () => {
 
     const result = await probeToolCalling(provider, "m")
     expect(result.toolCalling).toBe(true)
+    expect(provider.streamChat).toHaveBeenCalledTimes(2)
+  })
+
+  it("reports false when the model calls a tool but rejects its result", async () => {
+    const provider = providerWith([])
+    vi.mocked(provider.streamChat)
+      .mockImplementationOnce(async (_request, onChunk) => {
+        onChunk({
+          toolCalls: [
+            { id: "ping_0", name: "ping", arguments: { value: "pong" } }
+          ]
+        })
+        onChunk({ done: true })
+      })
+      .mockRejectedValueOnce(
+        new Error("Conversation roles must alternate user/assistant")
+      )
+
+    const result = await probeToolCalling(provider, "m")
+
+    expect(result.toolCalling).toBe(false)
+    const followUp = vi.mocked(provider.streamChat).mock.calls[1]?.[0]
+    expect(followUp?.messages.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "tool"
+    ])
+    expect(followUp?.tool_choice).toBe("none")
   })
 
   it("reports toolCalling false when the model answers in text", async () => {

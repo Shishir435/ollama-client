@@ -5,6 +5,7 @@ import {
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
+import type { ToolCall } from "@/lib/tools"
 import type { LLMProvider } from "./types"
 
 /**
@@ -150,10 +151,10 @@ const PROBE_TOOL = {
 }
 
 /**
- * Send one minimal tool-call request and report whether the model natively
- * called the tool. `false` means "did not call" — which can be a model
- * limitation or a server that ignores the `tools` field; either way native
- * tool-calling is not usable for this model as served today.
+ * Send a minimal tool call and then return its result to the model. A model is
+ * native-tool capable only when both halves succeed: several llama.cpp chat
+ * templates can emit a call but reject the follow-up `tool` role with HTTP 500.
+ * `false` therefore means a complete native tool loop is not usable as served.
  */
 export const probeToolCalling = async (
   provider: LLMProvider,
@@ -162,19 +163,15 @@ export const probeToolCalling = async (
 ): Promise<CapabilityProbeResult> => {
   const scope = createProbeAbortScope(externalSignal)
 
-  let sawToolCall = false
+  const probePrompt =
+    "Call the ping tool with value 'pong' to verify tool support. Do not answer in text."
+  let probeCall: ToolCall | undefined
   let streamError: string | undefined
   try {
     await provider.streamChat(
       {
         model: modelName,
-        messages: [
-          {
-            role: "user",
-            content:
-              "Call the ping tool with value 'pong' to verify tool support. Do not answer in text."
-          }
-        ],
+        messages: [{ role: "user", content: probePrompt }],
         tools: [PROBE_TOOL],
         think: false,
         num_predict: 256
@@ -183,35 +180,70 @@ export const probeToolCalling = async (
         if (chunk.error) {
           streamError = chunk.error.message || "Probe request failed"
         }
-        if (chunk.toolCalls && chunk.toolCalls.length > 0) {
-          sawToolCall = true
-          // The answer is in — cut the stream instead of letting the model run.
-          scope.abort()
+        if (!probeCall && chunk.toolCalls && chunk.toolCalls.length > 0) {
+          probeCall = chunk.toolCalls[0]
         }
       },
       scope.signal
     )
   } catch (error) {
-    // Abort-after-success is expected; anything else only matters if we never
-    // saw a tool call (the caller still records toolCalling: false).
-    if (!sawToolCall) {
-      logger.debug("Tool-calling probe request failed", "capabilityProbe", {
-        model: modelName,
-        error
-      })
-      throw error
-    }
-  } finally {
+    logger.debug("Tool-calling probe request failed", "capabilityProbe", {
+      model: modelName,
+      error
+    })
     scope.cleanup()
+    throw error
   }
 
   // A failed request proves nothing about the model — surface it instead of
   // recording a misleading `toolCalling: false`.
-  if (!sawToolCall && streamError) {
+  if (streamError) {
+    scope.cleanup()
     throw new Error(streamError)
   }
+  if (!probeCall) {
+    scope.cleanup()
+    return { toolCalling: false, probedAt: Date.now() }
+  }
 
-  return { toolCalling: sawToolCall, probedAt: Date.now() }
+  try {
+    await provider.streamChat(
+      {
+        model: modelName,
+        messages: [
+          { role: "user", content: probePrompt },
+          { role: "assistant", content: "", toolCalls: [probeCall] },
+          {
+            role: "tool",
+            content: '{"value":"pong"}',
+            toolName: probeCall.name,
+            toolCallId: probeCall.id
+          }
+        ],
+        tools: [PROBE_TOOL],
+        tool_choice: "none",
+        think: false,
+        num_predict: 32
+      },
+      (chunk) => {
+        if (chunk.error) {
+          streamError = chunk.error.message || "Probe follow-up failed"
+        }
+      },
+      scope.signal
+    )
+  } catch (error) {
+    logger.debug(
+      "Tool-calling probe follow-up is incompatible",
+      "capabilityProbe",
+      { model: modelName, error }
+    )
+    return { toolCalling: false, probedAt: Date.now() }
+  } finally {
+    scope.cleanup()
+  }
+
+  return { toolCalling: !streamError, probedAt: Date.now() }
 }
 
 /** Matches the error Ollama returns when `think` is sent to a non-thinking model. */

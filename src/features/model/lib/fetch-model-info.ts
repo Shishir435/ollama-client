@@ -33,7 +33,7 @@ const fetchModelInfoInPage = async (
   providerId?: string
 ): Promise<{ data: ProviderModelDetails | null; supportsDetails: boolean }> => {
   const provider = await ProviderFactory.getProviderForModel(model, providerId)
-  if (!provider.getModelDetails) {
+  if (!provider.capabilities.modelDetails || !provider.getModelDetails) {
     return { data: null, supportsDetails: false }
   }
   const data = await provider.getModelDetails(model)
