@@ -64,7 +64,9 @@ const ProviderModelSchema = z
     capabilityHints: z
       .object({
         modelType: z.string().optional(),
-        contextLength: z.number().optional()
+        contextLength: z.number().optional(),
+        modalities: z.array(z.string()).max(50).optional(),
+        supportedParameters: z.array(z.string()).max(100).optional()
       })
       .optional()
   })
@@ -90,6 +92,42 @@ const ProviderModelSchema = z
 export const ProvidersListRequestSchema = z.object({}).strict()
 export const ProvidersListResultSchema = z
   .object({ providers: z.array(PublicProviderConfigSchema) })
+  .strict()
+
+const NewProviderInputSchema = z
+  .object({
+    name: z.string().min(1).max(200),
+    baseUrl: z.string().min(1).max(4096),
+    wire: z.enum(["ollama", "openai", "anthropic"]),
+    apiKey: z.string().max(32_768).optional(),
+    customModels: z.array(z.string().min(1).max(500)).max(500).optional(),
+    serviceProfile: ProviderServiceProfileSchema.optional()
+  })
+  .strict()
+
+export const ProvidersUpsertRequestSchema = z.discriminatedUnion("target", [
+  z
+    .object({
+      target: z.literal("existing"),
+      config: ProviderConfigInputSchema
+    })
+    .strict(),
+  z
+    .object({
+      target: z.literal("new"),
+      provider: NewProviderInputSchema
+    })
+    .strict()
+])
+export const ProvidersUpsertResultSchema = z
+  .object({ provider: PublicProviderConfigSchema })
+  .strict()
+
+export const ProvidersRemoveRequestSchema = z
+  .object({ providerId: z.string().min(1).max(200) })
+  .strict()
+export const ProvidersRemoveResultSchema = z
+  .object({ removedProviderId: z.string() })
   .strict()
 
 export const ProviderTestConnectionRequestSchema = z.discriminatedUnion(
@@ -138,8 +176,31 @@ export const ProvidersListModelsResultSchema = z
   })
   .strict()
 
+export const ProvidersProbeModelCapabilitiesRequestSchema = z
+  .object({
+    providerId: z.string().min(1).max(200),
+    modelName: z.string().min(1).max(500)
+  })
+  .strict()
+export const ProvidersProbeModelCapabilitiesResultSchema = z
+  .object({
+    toolCalling: z.boolean().optional(),
+    reasoning: z.boolean().optional(),
+    vision: z.boolean().optional(),
+    probedAt: z.number().int().nonnegative()
+  })
+  .strict()
+
 export type ProvidersListRequest = z.input<typeof ProvidersListRequestSchema>
 export type ProvidersListResult = z.infer<typeof ProvidersListResultSchema>
+export type ProvidersUpsertRequest = z.input<
+  typeof ProvidersUpsertRequestSchema
+>
+export type ProvidersUpsertResult = z.infer<typeof ProvidersUpsertResultSchema>
+export type ProvidersRemoveRequest = z.input<
+  typeof ProvidersRemoveRequestSchema
+>
+export type ProvidersRemoveResult = z.infer<typeof ProvidersRemoveResultSchema>
 export type ProviderTestConnectionRequest = z.input<
   typeof ProviderTestConnectionRequestSchema
 >
@@ -151,6 +212,12 @@ export type ProvidersListModelsRequest = z.input<
 >
 export type ProvidersListModelsResult = z.infer<
   typeof ProvidersListModelsResultSchema
+>
+export type ProvidersProbeModelCapabilitiesRequest = z.input<
+  typeof ProvidersProbeModelCapabilitiesRequestSchema
+>
+export type ProvidersProbeModelCapabilitiesResult = z.infer<
+  typeof ProvidersProbeModelCapabilitiesResultSchema
 >
 
 export interface RpcMap {
@@ -165,6 +232,18 @@ export interface RpcMap {
   [RpcMethod.ProvidersListModels]: RpcDefinition<
     ProvidersListModelsRequest,
     ProvidersListModelsResult
+  >
+  [RpcMethod.ProvidersUpsert]: RpcDefinition<
+    ProvidersUpsertRequest,
+    ProvidersUpsertResult
+  >
+  [RpcMethod.ProvidersRemove]: RpcDefinition<
+    ProvidersRemoveRequest,
+    ProvidersRemoveResult
+  >
+  [RpcMethod.ProvidersProbeModelCapabilities]: RpcDefinition<
+    ProvidersProbeModelCapabilitiesRequest,
+    ProvidersProbeModelCapabilitiesResult
   >
 }
 

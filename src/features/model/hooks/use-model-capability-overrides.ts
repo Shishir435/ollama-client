@@ -74,6 +74,8 @@ export const useModelCapabilityOverrides = () => {
         ollamaCapabilities,
         lmStudioModelType: model.capabilityHints?.modelType,
         contextLength: model.capabilityHints?.contextLength,
+        modalities: model.capabilityHints?.modalities,
+        supportedParameters: model.capabilityHints?.supportedParameters,
         override: getOverride(providerId, model.name),
         probed: getProbe(providerId, model.name)
       })

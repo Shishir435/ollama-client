@@ -22,6 +22,10 @@ const CAPABILITY_TAGS_CACHE_TTL_MS = 60_000
 
 interface CapabilityTagsCacheEntry {
   tags: string[] | undefined
+  modelType?: string
+  contextLength?: number
+  modalities?: string[]
+  supportedParameters?: string[]
   expiresAt: number
 }
 
@@ -60,27 +64,68 @@ export const resolveModelTools = async (
   const providerUrl = resolveProviderBaseUrl(provider.config)
   const cacheKey = `${resolvedProviderId}::${providerUrl}::${model}`
 
-  let ollamaCapabilities: string[] | undefined
+  let metadata: Omit<CapabilityTagsCacheEntry, "expiresAt"> = {
+    tags: undefined
+  }
   const cached = capabilityTagsCache.get(cacheKey)
   if (cached && cached.expiresAt > Date.now()) {
-    ollamaCapabilities = cached.tags
-  } else if (provider.getModelDetails) {
-    try {
-      const details = await provider.getModelDetails(model)
-      ollamaCapabilities = (details as { capabilities?: string[] } | null)
-        ?.capabilities
+    metadata = cached
+  } else {
+    let resolvedMetadata = false
+    if (provider.getModelDetails) {
+      try {
+        const details = await provider.getModelDetails(model)
+        const tags = (details as { capabilities?: string[] } | null)
+          ?.capabilities
+        if (tags?.length) {
+          metadata = { tags }
+          resolvedMetadata = true
+        }
+      } catch (error) {
+        logger.debug(
+          "Failed to read model details for tool gating",
+          "resolveModelTools",
+          { error }
+        )
+      }
+    }
+
+    // OpenAI-compatible providers expose a null-returning detail method. A
+    // missing detail verdict must fall through to their richer model catalog.
+    if (
+      !resolvedMetadata &&
+      provider.capabilities?.modelDiscovery &&
+      provider.getModels
+    ) {
+      try {
+        const servedModel = (await provider.getModels()).find(
+          (candidate) => candidate.name === model
+        )
+        if (servedModel) {
+          metadata = {
+            tags: undefined,
+            modelType: servedModel.capabilityHints?.modelType,
+            contextLength: servedModel.capabilityHints?.contextLength,
+            modalities: servedModel.capabilityHints?.modalities,
+            supportedParameters:
+              servedModel.capabilityHints?.supportedParameters
+          }
+          resolvedMetadata = true
+        }
+      } catch (error) {
+        logger.debug(
+          "Failed to read model catalog metadata for tool gating",
+          "resolveModelTools",
+          { error }
+        )
+      }
+    }
+
+    if (resolvedMetadata) {
       capabilityTagsCache.set(cacheKey, {
-        tags: ollamaCapabilities,
+        ...metadata,
         expiresAt: Date.now() + CAPABILITY_TAGS_CACHE_TTL_MS
       })
-    } catch (error) {
-      logger.debug(
-        "Failed to read model details for tool gating",
-        "resolveModelTools",
-        {
-          error
-        }
-      )
     }
   }
 
@@ -90,7 +135,11 @@ export const resolveModelTools = async (
   ])
   const capabilities = getModelCapabilities({
     providerId: resolvedProviderId,
-    ollamaCapabilities,
+    ollamaCapabilities: metadata.tags,
+    lmStudioModelType: metadata.modelType,
+    contextLength: metadata.contextLength,
+    modalities: metadata.modalities,
+    supportedParameters: metadata.supportedParameters,
     override,
     probed
   })

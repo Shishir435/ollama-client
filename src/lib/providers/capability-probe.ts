@@ -38,6 +38,23 @@ const STORAGE_KEY = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES
 
 const PROBE_TIMEOUT_MS = 30_000
 
+const createProbeAbortScope = (externalSignal?: AbortSignal) => {
+  const controller = new AbortController()
+  const abortFromCaller = () => controller.abort(externalSignal?.reason)
+  if (externalSignal?.aborted) abortFromCaller()
+  else
+    externalSignal?.addEventListener("abort", abortFromCaller, { once: true })
+  const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
+  return {
+    signal: controller.signal,
+    abort: () => controller.abort(),
+    cleanup: () => {
+      clearTimeout(timeout)
+      externalSignal?.removeEventListener("abort", abortFromCaller)
+    }
+  }
+}
+
 /**
  * Web Locks name serializing read-modify-write on the probe map across every
  * extension context. Each write reads the whole map, patches one key, and
@@ -140,10 +157,10 @@ const PROBE_TOOL = {
  */
 export const probeToolCalling = async (
   provider: LLMProvider,
-  modelName: string
+  modelName: string,
+  externalSignal?: AbortSignal
 ): Promise<CapabilityProbeResult> => {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
+  const scope = createProbeAbortScope(externalSignal)
 
   let sawToolCall = false
   let streamError: string | undefined
@@ -169,10 +186,10 @@ export const probeToolCalling = async (
         if (chunk.toolCalls && chunk.toolCalls.length > 0) {
           sawToolCall = true
           // The answer is in — cut the stream instead of letting the model run.
-          controller.abort()
+          scope.abort()
         }
       },
-      controller.signal
+      scope.signal
     )
   } catch (error) {
     // Abort-after-success is expected; anything else only matters if we never
@@ -185,7 +202,7 @@ export const probeToolCalling = async (
       throw error
     }
   } finally {
-    clearTimeout(timeout)
+    scope.cleanup()
   }
 
   // A failed request proves nothing about the model — surface it instead of
@@ -210,10 +227,10 @@ const THINKING_UNSUPPORTED = /does not support think/i
  */
 export const probeReasoning = async (
   provider: LLMProvider,
-  modelName: string
+  modelName: string,
+  externalSignal?: AbortSignal
 ): Promise<CapabilityProbeResult> => {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
+  const scope = createProbeAbortScope(externalSignal)
 
   let sawThinking = false
   let streamError: string | undefined
@@ -238,10 +255,10 @@ export const probeReasoning = async (
         if (chunk.thinkingDelta && chunk.thinkingDelta.length > 0) {
           sawThinking = true
           // Signal is in — cut the stream instead of paying for the full answer.
-          controller.abort()
+          scope.abort()
         }
       },
-      controller.signal
+      scope.signal
     )
   } catch (error) {
     if (!sawThinking) {
@@ -257,7 +274,7 @@ export const probeReasoning = async (
       throw error
     }
   } finally {
-    clearTimeout(timeout)
+    scope.cleanup()
   }
 
   if (!sawThinking && streamError) {
@@ -290,10 +307,10 @@ const IMAGE_UNSUPPORTED = /image|vision|multimodal|missing data/i
  */
 export const probeVision = async (
   provider: LLMProvider,
-  modelName: string
+  modelName: string,
+  externalSignal?: AbortSignal
 ): Promise<CapabilityProbeResult> => {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
+  const scope = createProbeAbortScope(externalSignal)
 
   let answer = ""
   let streamError: string | undefined
@@ -327,7 +344,7 @@ export const probeVision = async (
         if (chunk.delta) answer += chunk.delta
         if (chunk.content) answer += chunk.content
       },
-      controller.signal
+      scope.signal
     )
   } catch (error) {
     logger.debug("Vision probe request failed", "capabilityProbe", {
@@ -340,7 +357,7 @@ export const probeVision = async (
     }
     throw error
   } finally {
-    clearTimeout(timeout)
+    scope.cleanup()
   }
 
   // A server that flat-out rejects image input is a clean negative.

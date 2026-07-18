@@ -25,6 +25,10 @@ export type ProviderModel = {
     modelType?: string
     /** Context window in tokens, when the list endpoint reports it. */
     contextLength?: number
+    /** Input/output modalities reported by hosted model catalogs. */
+    modalities?: string[]
+    /** Request parameters explicitly supported by the served model. */
+    supportedParameters?: string[]
   }
 }
 

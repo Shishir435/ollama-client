@@ -5,6 +5,12 @@ import {
   ProvidersListModelsResultSchema,
   ProvidersListRequestSchema,
   ProvidersListResultSchema,
+  ProvidersProbeModelCapabilitiesRequestSchema,
+  ProvidersProbeModelCapabilitiesResultSchema,
+  ProvidersRemoveRequestSchema,
+  ProvidersRemoveResultSchema,
+  ProvidersUpsertRequestSchema,
+  ProvidersUpsertResultSchema,
   ProviderTestConnectionRequestSchema,
   ProviderTestConnectionResultSchema
 } from "./provider-rpc"
@@ -41,5 +47,26 @@ export const RPC_METHOD_DEFINITIONS = {
     allowedSources: extensionPagesOnly,
     timeoutMs: 30_000,
     operation: "query"
+  },
+  [RpcMethod.ProvidersUpsert]: {
+    request: ProvidersUpsertRequestSchema,
+    response: ProvidersUpsertResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
+    operation: "command"
+  },
+  [RpcMethod.ProvidersRemove]: {
+    request: ProvidersRemoveRequestSchema,
+    response: ProvidersRemoveResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
+    operation: "command"
+  },
+  [RpcMethod.ProvidersProbeModelCapabilities]: {
+    request: ProvidersProbeModelCapabilitiesRequestSchema,
+    response: ProvidersProbeModelCapabilitiesResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 35_000,
+    operation: "command"
   }
 } as const satisfies Record<RpcMethod, RpcMethodDefinition>

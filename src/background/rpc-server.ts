@@ -29,7 +29,13 @@ const handlers = {
   [RpcMethod.ProvidersTestConnection]: async (request, signal) =>
     ProviderRpcService.testConnection(request, signal),
   [RpcMethod.ProvidersListModels]: async (request, signal) =>
-    ProviderRpcService.listModels(request, signal)
+    ProviderRpcService.listModels(request, signal),
+  [RpcMethod.ProvidersUpsert]: async (request) =>
+    ProviderRpcService.upsert(request),
+  [RpcMethod.ProvidersRemove]: async (request) =>
+    ProviderRpcService.remove(request),
+  [RpcMethod.ProvidersProbeModelCapabilities]: async (request, signal) =>
+    ProviderRpcService.probeModelCapabilities(request, signal)
 } satisfies RpcHandlers
 
 const activeRequests = new Map<string, AbortController>()

@@ -240,7 +240,16 @@ export class OpenAICompatibleProvider implements LLMProvider {
       }
       const data = await response.json()
       return (
-        (data.data as { id: string }[])?.map((m) => ({
+        (
+          data.data as Array<{
+            id: string
+            context_length?: number
+            architecture?: {
+              input_modalities?: string[]
+            }
+            supported_parameters?: string[]
+          }>
+        )?.map((m) => ({
           name: m.id,
           model: m.id,
           modified_at: new Date().toISOString(),
@@ -253,7 +262,20 @@ export class OpenAICompatibleProvider implements LLMProvider {
             families: [],
             parameter_size: "",
             quantization_level: ""
-          }
+          },
+          ...((m.context_length ||
+            m.architecture?.input_modalities ||
+            m.supported_parameters) && {
+            capabilityHints: {
+              ...(m.context_length ? { contextLength: m.context_length } : {}),
+              ...(m.architecture?.input_modalities && {
+                modalities: [...new Set(m.architecture.input_modalities)]
+              }),
+              ...(m.supported_parameters && {
+                supportedParameters: m.supported_parameters
+              })
+            }
+          })
         })) || []
       )
     } catch (e) {

@@ -212,6 +212,42 @@ describe("provider contracts", () => {
     ).rejects.toThrow("OpenAI Error (401): nope")
   })
 
+  it("normalizes hosted model-catalog capability metadata", async () => {
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:openai:openrouter",
+      name: "OpenRouter",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "https://openrouter.test/api/v1"
+    })
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        data: [
+          {
+            id: "multimodal-model",
+            context_length: 131072,
+            architecture: {
+              input_modalities: ["text", "image"],
+              output_modalities: ["text"]
+            },
+            supported_parameters: ["tools", "reasoning"]
+          }
+        ]
+      })
+    )
+
+    await expect(provider.getModels()).resolves.toEqual([
+      expect.objectContaining({
+        name: "multimodal-model",
+        capabilityHints: {
+          contextLength: 131072,
+          modalities: ["text", "image"],
+          supportedParameters: ["tools", "reasoning"]
+        }
+      })
+    ])
+  })
+
   it("LM Studio prefers /api/v0/models rich metadata and falls back to OpenAI models", async () => {
     const provider = new LMStudioProvider({
       id: ProviderId.LM_STUDIO,
@@ -268,7 +304,11 @@ describe("provider contracts", () => {
           {
             id: "llama-cpp-model",
             created: 1_700_000_000,
-            meta: { n_params: 7_000_000_000, size: 1234 }
+            meta: {
+              n_params: 7_000_000_000,
+              n_ctx_train: 32768,
+              size: 1234
+            }
           }
         ]
       })
@@ -278,6 +318,7 @@ describe("provider contracts", () => {
       expect.objectContaining({
         name: "llama-cpp-model",
         size: 1234,
+        capabilityHints: { contextLength: 32768 },
         details: expect.objectContaining({ parameter_size: "7B" })
       })
     ])

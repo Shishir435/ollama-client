@@ -16,6 +16,7 @@ interface LlamaCppModel {
   size?: number | string
   meta?: {
     n_params?: number
+    n_ctx_train?: number
     size?: number | string
   }
 }
@@ -129,7 +130,10 @@ export class LlamaCppProvider extends OpenAICompatibleProvider {
             families: [],
             parameter_size: paramSize,
             quantization_level: ""
-          }
+          },
+          ...(meta.n_ctx_train && {
+            capabilityHints: { contextLength: meta.n_ctx_train }
+          })
         }
       })
     } catch (e) {
