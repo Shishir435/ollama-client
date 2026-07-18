@@ -43,6 +43,9 @@ const custom = {
   hasApiKey: false
 }
 
+const getMutationTarget = (request: unknown) =>
+  (request as { target?: "existing" | "new" }).target
+
 describe("useProviderSettingsState", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -95,15 +98,24 @@ describe("useProviderSettingsState", () => {
       id: "custom:openai:added",
       name: "Added server"
     }
-    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
-      if (method === RpcMethod.ProvidersList) {
-        return { providers: [ollama] } as never
+    vi.mocked(extensionRpcClient.call).mockImplementation(
+      async (method, request) => {
+        if (method === RpcMethod.ProvidersList) {
+          return { providers: [ollama] } as never
+        }
+        if (method === RpcMethod.ProvidersUpsert) {
+          return getMutationTarget(request) === "existing"
+            ? {
+                provider: {
+                  ...ollama,
+                  baseUrl: "http://localhost:11435"
+                }
+              }
+            : ({ provider: added } as never)
+        }
+        throw new Error(`Unexpected method: ${method}`)
       }
-      if (method === RpcMethod.ProvidersUpsert) {
-        return { provider: added } as never
-      }
-      throw new Error(`Unexpected method: ${method}`)
-    })
+    )
 
     const { result } = renderHook(() => useProviderSettingsState())
 
@@ -126,6 +138,19 @@ describe("useProviderSettingsState", () => {
       { ...ollama, baseUrl: "http://localhost:11435" },
       added
     ])
+    const upserts = vi
+      .mocked(extensionRpcClient.call)
+      .mock.calls.filter(
+        ([calledMethod]) => calledMethod === RpcMethod.ProvidersUpsert
+      )
+    expect(upserts.map(([, request]) => getMutationTarget(request))).toEqual([
+      "existing",
+      "new"
+    ])
+    expect(upserts[0]?.[1]).toMatchObject({
+      target: "existing",
+      config: { id: ProviderId.OLLAMA, baseUrl: "http://localhost:11435" }
+    })
     expect(
       vi
         .mocked(extensionRpcClient.call)
@@ -133,5 +158,61 @@ describe("useProviderSettingsState", () => {
           ([calledMethod]) => calledMethod === RpcMethod.ProvidersList
         )
     ).toHaveLength(1)
+  })
+
+  it("does not add or switch providers when the pending edit cannot save", async () => {
+    const added = {
+      ...custom,
+      id: "custom:openai:added",
+      name: "Added server"
+    }
+    vi.mocked(extensionRpcClient.call).mockImplementation(
+      async (method, request) => {
+        if (method === RpcMethod.ProvidersList) {
+          return { providers: [ollama] } as never
+        }
+        if (
+          method === RpcMethod.ProvidersUpsert &&
+          getMutationTarget(request) === "existing"
+        ) {
+          throw new Error("save failed")
+        }
+        if (method === RpcMethod.ProvidersUpsert) {
+          return { provider: added } as never
+        }
+        throw new Error(`Unexpected method: ${method}`)
+      }
+    )
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toEqual([ollama]))
+
+    act(() => {
+      result.current.updateConfig({ baseUrl: "http://localhost:11435" })
+    })
+    let didAdd = true
+    await act(async () => {
+      didAdd = await result.current.addProvider({
+        name: added.name,
+        baseUrl: added.baseUrl,
+        wire: "openai"
+      })
+    })
+
+    expect(didAdd).toBe(false)
+    expect(result.current.selectedId).toBe(ProviderId.OLLAMA)
+    expect(result.current.hasUnsavedChanges).toBe(true)
+    expect(result.current.providers).toEqual([
+      { ...ollama, baseUrl: "http://localhost:11435" }
+    ])
+    expect(
+      vi
+        .mocked(extensionRpcClient.call)
+        .mock.calls.filter(
+          ([method, request]) =>
+            method === RpcMethod.ProvidersUpsert &&
+            getMutationTarget(request) === "new"
+        )
+    ).toHaveLength(0)
   })
 })

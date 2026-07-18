@@ -69,7 +69,7 @@ export const useProviderSettingsState = () => {
   const { t } = useTranslation()
   const [providers, setProviders] = useState<ProviderSettingsConfig[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedId, setSelectedId] = useState<string>(DEFAULT_PROVIDER_ID)
+  const [selectedId, setSelectedIdState] = useState<string>(DEFAULT_PROVIDER_ID)
   const [testingConnection, setTestingConnection] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<{
     success: boolean
@@ -256,37 +256,73 @@ export const useProviderSettingsState = () => {
     }
   }
 
-  const handleSave = async (config: ProviderConfig) => {
-    try {
-      const { provider: saved } = await extensionRpcClient.call(
-        RpcMethod.ProvidersUpsert,
-        {
-          target: "existing",
-          config: configForRpc(config)
-        }
-      )
-      setProviders((prev) =>
-        prev.map((provider) =>
-          provider.id === config.id ? toSettingsConfig(saved) : provider
+  const persistConfig = useCallback(
+    async (
+      config: ProviderSettingsConfig,
+      showSuccessToast = true
+    ): Promise<boolean> => {
+      try {
+        const { provider: saved } = await extensionRpcClient.call(
+          RpcMethod.ProvidersUpsert,
+          {
+            target: "existing",
+            config: configForRpc(config)
+          }
         )
-      )
-      setApiKeyEditedProviderIds((previous) => {
-        const next = new Set(previous)
-        next.delete(String(config.id))
-        return next
-      })
-      setHasUnsavedChanges(false)
-      toast({
-        title: t("settings.saved"),
-        description: `Configuration for ${config.name} saved.`
-      })
-    } catch (_error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to save configuration."
-      })
-    }
+        setProviders((prev) =>
+          prev.map((provider) =>
+            provider.id === config.id ? toSettingsConfig(saved) : provider
+          )
+        )
+        setApiKeyEditedProviderIds((previous) => {
+          const next = new Set(previous)
+          next.delete(String(config.id))
+          return next
+        })
+        setHasUnsavedChanges(false)
+        if (showSuccessToast) {
+          toast({
+            title: t("settings.saved"),
+            description: `Configuration for ${config.name} saved.`
+          })
+        }
+        return true
+      } catch (error) {
+        logger.error(
+          "Failed to save provider configuration",
+          "ProviderSettings",
+          {
+            error
+          }
+        )
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to save configuration."
+        })
+        return false
+      }
+    },
+    [configForRpc, t]
+  )
+
+  const setSelectedId = useCallback(
+    async (nextId: string): Promise<void> => {
+      if (nextId === selectedId) return
+      if (
+        hasUnsavedChanges &&
+        activeConfig &&
+        !(await persistConfig(activeConfig, false))
+      ) {
+        return
+      }
+      setSelectedIdState(nextId)
+    },
+    [activeConfig, hasUnsavedChanges, persistConfig, selectedId]
+  )
+
+  const handleSave = async (config: ProviderConfig) => {
+    await persistConfig(config, true)
   }
 
   const addProvider = async (input: {
@@ -297,6 +333,13 @@ export const useProviderSettingsState = () => {
     customModels?: string[]
     serviceProfile?: ProviderServiceProfile
   }): Promise<boolean> => {
+    if (
+      hasUnsavedChanges &&
+      activeConfig &&
+      !(await persistConfig(activeConfig, false))
+    ) {
+      return false
+    }
     try {
       const { provider: config } = await extensionRpcClient.call(
         RpcMethod.ProvidersUpsert,
@@ -309,7 +352,7 @@ export const useProviderSettingsState = () => {
         ...current.filter((provider) => provider.id !== config.id),
         toSettingsConfig(config)
       ])
-      setSelectedId(String(config.id))
+      setSelectedIdState(String(config.id))
       toast({
         title: t("settings.providers.add.added_title"),
         description: t("settings.providers.add.added_description", {
@@ -345,7 +388,7 @@ export const useProviderSettingsState = () => {
       setProviders((current) =>
         current.filter((provider) => String(provider.id) !== id)
       )
-      if (selectedId === id) setSelectedId(DEFAULT_PROVIDER_ID)
+      if (selectedId === id) setSelectedIdState(DEFAULT_PROVIDER_ID)
       toast({
         title: t("settings.providers.add.removed_title"),
         description: t("settings.providers.add.removed_description", {
