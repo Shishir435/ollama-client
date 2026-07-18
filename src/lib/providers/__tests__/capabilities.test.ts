@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   getModelCapabilities,
+  getModelCapabilityStates,
   getProviderCapabilities,
   PROVIDER_CAPABILITIES
 } from "@/lib/providers/capabilities"
@@ -249,6 +250,39 @@ describe("getModelCapabilities", () => {
       embeddings: false,
       modelDiscovery: true,
       toolCalling: true
+    })
+  })
+
+  it("keeps unknown separate from unsupported in the new capability contract", () => {
+    const states = getModelCapabilityStates({
+      providerId: "unknown-provider"
+    })
+
+    expect(states.vision.status).toBe("unknown")
+    expect(states.reasoning.status).toBe("unknown")
+  })
+
+  it("uses hosted catalog metadata as high-confidence capability evidence", () => {
+    const input = {
+      providerId: "custom:openai:openrouter",
+      modalities: ["text", "image"],
+      supportedParameters: ["tools", "reasoning"]
+    }
+    const caps = getModelCapabilities(input)
+    const states = getModelCapabilityStates(input)
+
+    expect(caps).toMatchObject({
+      text: true,
+      vision: true,
+      toolCalling: true,
+      reasoning: true,
+      source: "model-metadata",
+      confidence: "high"
+    })
+    expect(states.toolCalling).toEqual({
+      status: "supported",
+      source: "model-metadata",
+      confidence: "high"
     })
   })
 })

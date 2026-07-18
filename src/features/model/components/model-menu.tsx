@@ -29,16 +29,10 @@ import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { Check, ChevronDown, RotateCcw, Settings } from "@/lib/lucide-icon"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
-import {
-  type CapabilityProbeResult,
-  probeReasoning,
-  probeToolCalling,
-  probeVision,
-  setCapabilityProbe
-} from "@/lib/providers/capability-probe"
-import { ProviderFactory } from "@/lib/providers/factory"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import { RpcMethod } from "@/protocol/rpc"
 import {
   formatFileSize,
   getModelIcon,
@@ -175,6 +169,9 @@ export const ModelMenu = ({
         ollamaCapabilities: targetTags,
         lmStudioModelType: targetModelData?.capabilityHints?.modelType,
         contextLength: targetModelData?.capabilityHints?.contextLength,
+        modalities: targetModelData?.capabilityHints?.modalities,
+        supportedParameters:
+          targetModelData?.capabilityHints?.supportedParameters,
         probed: getProbe(capabilityTarget.providerId, capabilityTarget.model)
       })
     : null
@@ -186,6 +183,9 @@ export const ModelMenu = ({
         ollamaCapabilities: targetTags,
         lmStudioModelType: targetModelData?.capabilityHints?.modelType,
         contextLength: targetModelData?.capabilityHints?.contextLength,
+        modalities: targetModelData?.capabilityHints?.modalities,
+        supportedParameters:
+          targetModelData?.capabilityHints?.supportedParameters,
         override: getOverride(
           capabilityTarget.providerId,
           capabilityTarget.model
@@ -407,44 +407,13 @@ export const ModelMenu = ({
             clearOverride(capabilityTarget.providerId, capabilityTarget.model)
           }
           onProbe={async () => {
-            const provider = await ProviderFactory.getProvider(
-              capabilityTarget.providerId
+            return extensionRpcClient.call(
+              RpcMethod.ProvidersProbeModelCapabilities,
+              {
+                providerId: capabilityTarget.providerId,
+                modelName: capabilityTarget.model
+              }
             )
-            // Probe each capability independently — one failing must not discard
-            // the others' results.
-            const [tool, reasoning, vision] = await Promise.allSettled([
-              probeToolCalling(provider, capabilityTarget.model),
-              probeReasoning(provider, capabilityTarget.model),
-              probeVision(provider, capabilityTarget.model)
-            ])
-            if (
-              tool.status === "rejected" &&
-              reasoning.status === "rejected" &&
-              vision.status === "rejected"
-            ) {
-              throw tool.reason
-            }
-            const merged: CapabilityProbeResult = { probedAt: Date.now() }
-            if (tool.status === "fulfilled") {
-              merged.toolCalling = tool.value.toolCalling
-            }
-            if (reasoning.status === "fulfilled") {
-              merged.reasoning = reasoning.value.reasoning
-            }
-            // Vision is positive-only: adopt a verdict only when the probe
-            // reached one, so an inconclusive read never overrides metadata.
-            if (
-              vision.status === "fulfilled" &&
-              typeof vision.value.vision === "boolean"
-            ) {
-              merged.vision = vision.value.vision
-            }
-            await setCapabilityProbe(
-              capabilityTarget.providerId,
-              capabilityTarget.model,
-              merged
-            )
-            return merged
           }}
         />
       )}

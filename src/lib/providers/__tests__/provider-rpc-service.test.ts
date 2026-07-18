@@ -2,14 +2,33 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   getProviders: vi.fn(),
+  getProviderConfig: vi.fn(),
+  updateProviderConfig: vi.fn(),
+  addCustomProvider: vi.fn(),
+  removeCustomProvider: vi.fn(),
   getProvider: vi.fn(),
-  getProviderWithConfig: vi.fn()
+  getProviderWithConfig: vi.fn(),
+  probeToolCalling: vi.fn(),
+  probeReasoning: vi.fn(),
+  probeVision: vi.fn(),
+  setCapabilityProbe: vi.fn()
 }))
 
 vi.mock("../manager", () => ({
   ProviderManager: {
-    getProviders: mocks.getProviders
+    getProviders: mocks.getProviders,
+    getProviderConfig: mocks.getProviderConfig,
+    updateProviderConfig: mocks.updateProviderConfig,
+    addCustomProvider: mocks.addCustomProvider,
+    removeCustomProvider: mocks.removeCustomProvider
   }
+}))
+
+vi.mock("../capability-probe", () => ({
+  probeToolCalling: mocks.probeToolCalling,
+  probeReasoning: mocks.probeReasoning,
+  probeVision: mocks.probeVision,
+  setCapabilityProbe: mocks.setCapabilityProbe
 }))
 
 vi.mock("../factory", () => ({
@@ -58,7 +77,17 @@ const model = (name: string) => ({
 })
 
 beforeEach(() => {
+  vi.clearAllMocks()
   mocks.getProviders.mockResolvedValue(configs)
+  mocks.getProviderConfig.mockImplementation(async (id: string) =>
+    configs.find((config) => config.id === id)
+  )
+  mocks.addCustomProvider.mockImplementation(async (input) => ({
+    id: "custom:openai:new",
+    type: ProviderType.OPENAI,
+    enabled: true,
+    ...input
+  }))
   mocks.getProvider.mockImplementation(async (id: string) => ({
     id,
     getModels: async () => [model(`${id}-model`)]
@@ -67,6 +96,12 @@ beforeEach(() => {
     id: config.id,
     getModels: async () => [model("draft-model")]
   }))
+  mocks.probeToolCalling.mockResolvedValue({
+    toolCalling: true,
+    probedAt: 1
+  })
+  mocks.probeReasoning.mockResolvedValue({ reasoning: false, probedAt: 2 })
+  mocks.probeVision.mockResolvedValue({ vision: true, probedAt: 3 })
 })
 
 describe("ProviderRpcService", () => {
@@ -94,6 +129,35 @@ describe("ProviderRpcService", () => {
       modelCount: 1
     })
     expect(result).not.toHaveProperty("apiKey")
+  })
+
+  it("keeps a stored credential background-only when testing an edited draft", async () => {
+    await ProviderRpcService.testConnection({
+      target: "draft",
+      config: {
+        ...configs[0],
+        apiKey: undefined,
+        baseUrl: "https://edited.example.test/v1"
+      }
+    })
+
+    expect(mocks.getProviderWithConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseUrl: "https://edited.example.test/v1",
+        apiKey: "private-key"
+      })
+    )
+  })
+
+  it("does not restore a stored credential after the user explicitly clears it", async () => {
+    await ProviderRpcService.testConnection({
+      target: "draft",
+      config: { ...configs[0], apiKey: "" }
+    })
+
+    expect(mocks.getProviderWithConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "" })
+    )
   })
 
   it("merges custom models and reports partial failures without query side effects", async () => {
@@ -146,5 +210,46 @@ describe("ProviderRpcService", () => {
 
     await expect(pending).rejects.toMatchObject({ name: "AbortError" })
     expect(getModels).toHaveBeenCalledWith(controller.signal)
+  })
+
+  it("upserts and removes providers without returning credentials", async () => {
+    const created = await ProviderRpcService.upsert({
+      target: "new",
+      provider: {
+        name: "New remote",
+        baseUrl: "https://example.test/v1",
+        wire: "openai",
+        apiKey: "private-new-key"
+      }
+    })
+
+    expect(created.provider).toMatchObject({
+      id: "custom:openai:new",
+      hasApiKey: true
+    })
+    expect(created.provider).not.toHaveProperty("apiKey")
+
+    await expect(
+      ProviderRpcService.remove({ providerId: "custom:openai:new" })
+    ).resolves.toEqual({ removedProviderId: "custom:openai:new" })
+    expect(mocks.removeCustomProvider).toHaveBeenCalledWith("custom:openai:new")
+  })
+
+  it("probes capabilities in background and persists partial evidence", async () => {
+    const result = await ProviderRpcService.probeModelCapabilities({
+      providerId: "custom:openai:remote",
+      modelName: "vision-model"
+    })
+
+    expect(result).toMatchObject({
+      toolCalling: true,
+      reasoning: false,
+      vision: true
+    })
+    expect(mocks.setCapabilityProbe).toHaveBeenCalledWith(
+      "custom:openai:remote",
+      "vision-model",
+      result
+    )
   })
 })

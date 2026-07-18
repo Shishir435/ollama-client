@@ -5,7 +5,6 @@ import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { ProviderManager } from "@/lib/providers/manager"
 import {
   providerProfileRequiresApiKey,
   resolveProviderServiceProfile
@@ -18,6 +17,7 @@ import {
   type ProviderServiceProfile
 } from "@/lib/providers/types"
 import { extensionRpcClient } from "@/protocol/extension-client"
+import type { PublicProviderConfig } from "@/protocol/provider-rpc"
 import { RpcMethod } from "@/protocol/rpc"
 import { useProviderHealth } from "./use-provider-health"
 
@@ -26,6 +26,14 @@ const LOCAL_PROVIDER_IDS = [
   ProviderId.LM_STUDIO,
   ProviderId.LLAMA_CPP
 ]
+
+type ProviderSettingsConfig = ProviderConfig & {
+  hasApiKey?: boolean
+}
+
+const toSettingsConfig = (
+  provider: PublicProviderConfig
+): ProviderSettingsConfig => provider as unknown as ProviderSettingsConfig
 
 const isLocalhostEndpoint = (baseUrl?: string) => {
   const url = baseUrl?.trim()
@@ -59,7 +67,7 @@ const getCspCompatibilityHint = (baseUrl?: string) => {
 
 export const useProviderSettingsState = () => {
   const { t } = useTranslation()
-  const [providers, setProviders] = useState<ProviderConfig[]>([])
+  const [providers, setProviders] = useState<ProviderSettingsConfig[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string>(DEFAULT_PROVIDER_ID)
   const [testingConnection, setTestingConnection] = useState(false)
@@ -68,14 +76,20 @@ export const useProviderSettingsState = () => {
     message: string
   } | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [apiKeyEditedProviderIds, setApiKeyEditedProviderIds] = useState<
+    Set<string>
+  >(new Set())
 
   const providerHealth = useProviderHealth(providers)
 
   const loadProviders = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await ProviderManager.getProviders()
-      setProviders(data)
+      const { providers: data } = await extensionRpcClient.call(
+        RpcMethod.ProvidersList,
+        {}
+      )
+      setProviders(data.map(toSettingsConfig))
     } catch (error) {
       logger.error("Failed to load providers", "ProviderSettings", { error })
     } finally {
@@ -106,6 +120,21 @@ export const useProviderSettingsState = () => {
   const isRemoteEndpoint =
     Boolean(activeConfig?.baseUrl?.trim()) &&
     !isLocalhostEndpoint(activeConfig?.baseUrl)
+  const apiKeyWasEdited = activeConfig
+    ? apiKeyEditedProviderIds.has(String(activeConfig.id))
+    : false
+
+  const configForRpc = useCallback(
+    (config: ProviderSettingsConfig): ProviderConfig => {
+      const { hasApiKey: _hasApiKey, ...withoutPublicMarker } = config
+      if (apiKeyEditedProviderIds.has(String(config.id))) {
+        return withoutPublicMarker
+      }
+      const { apiKey: _apiKey, ...publicConfig } = withoutPublicMarker
+      return publicConfig as ProviderConfig
+    },
+    [apiKeyEditedProviderIds]
+  )
 
   const handleTestConnection = async () => {
     if (!activeConfig) return
@@ -126,7 +155,8 @@ export const useProviderSettingsState = () => {
       providerProfileRequiresApiKey(
         resolveProviderServiceProfile(activeConfig)
       ) &&
-      !activeConfig.apiKey?.trim()
+      !activeConfig.apiKey?.trim() &&
+      (!activeConfig.hasApiKey || apiKeyWasEdited)
     ) {
       const message = t("settings.providers.test_connection.api_key_required", {
         name: activeConfig.name
@@ -145,7 +175,7 @@ export const useProviderSettingsState = () => {
     try {
       const result = await extensionRpcClient.call(
         RpcMethod.ProvidersTestConnection,
-        { target: "draft", config: activeConfig }
+        { target: "draft", config: configForRpc(activeConfig) }
       )
       logger.debug("Provider connection RPC succeeded", "ProviderSettings", {
         count: result.modelCount
@@ -228,8 +258,23 @@ export const useProviderSettingsState = () => {
 
   const handleSave = async (config: ProviderConfig) => {
     try {
-      await ProviderManager.updateProviderConfig(config.id, config)
-      setProviders((prev) => prev.map((p) => (p.id === config.id ? config : p)))
+      const { provider: saved } = await extensionRpcClient.call(
+        RpcMethod.ProvidersUpsert,
+        {
+          target: "existing",
+          config: configForRpc(config)
+        }
+      )
+      setProviders((prev) =>
+        prev.map((provider) =>
+          provider.id === config.id ? toSettingsConfig(saved) : provider
+        )
+      )
+      setApiKeyEditedProviderIds((previous) => {
+        const next = new Set(previous)
+        next.delete(String(config.id))
+        return next
+      })
       setHasUnsavedChanges(false)
       toast({
         title: t("settings.saved"),
@@ -253,7 +298,10 @@ export const useProviderSettingsState = () => {
     serviceProfile?: ProviderServiceProfile
   }): Promise<boolean> => {
     try {
-      const config = await ProviderManager.addCustomProvider(input)
+      const { provider: config } = await extensionRpcClient.call(
+        RpcMethod.ProvidersUpsert,
+        { target: "new", provider: input }
+      )
       await loadProviders()
       setSelectedId(String(config.id))
       toast({
@@ -279,7 +327,9 @@ export const useProviderSettingsState = () => {
 
   const removeProvider = async (id: string) => {
     try {
-      await ProviderManager.removeCustomProvider(id)
+      await extensionRpcClient.call(RpcMethod.ProvidersRemove, {
+        providerId: id
+      })
       await loadProviders()
       if (selectedId === id) setSelectedId(DEFAULT_PROVIDER_ID)
     } catch (error) {
@@ -297,6 +347,11 @@ export const useProviderSettingsState = () => {
 
   const updateConfig = (updates: Partial<ProviderConfig>) => {
     if (!activeConfig) return
+    if (Object.hasOwn(updates, "apiKey")) {
+      setApiKeyEditedProviderIds((previous) =>
+        new Set(previous).add(String(activeConfig.id))
+      )
+    }
     const updated = { ...activeConfig, ...updates }
     setProviders((prev) =>
       prev.map((p) => (p.id === activeConfig.id ? updated : p))
@@ -312,7 +367,10 @@ export const useProviderSettingsState = () => {
       prev.map((p) => (p.id === activeConfig.id ? updated : p))
     )
     try {
-      await ProviderManager.updateProviderConfig(activeConfig.id, { enabled })
+      await extensionRpcClient.call(RpcMethod.ProvidersUpsert, {
+        target: "existing",
+        config: configForRpc(updated)
+      })
     } catch (error) {
       logger.error("Failed to auto-save toggle", "ProviderSettings", { error })
     }
@@ -323,10 +381,10 @@ export const useProviderSettingsState = () => {
 
     const timeoutId = setTimeout(async () => {
       try {
-        await ProviderManager.updateProviderConfig(
-          activeConfig.id,
-          activeConfig
-        )
+        await extensionRpcClient.call(RpcMethod.ProvidersUpsert, {
+          target: "existing",
+          config: configForRpc(activeConfig)
+        })
         setHasUnsavedChanges(false)
         logger.debug(
           `Auto-saved configuration for ${activeConfig.name}`,
@@ -338,7 +396,7 @@ export const useProviderSettingsState = () => {
     }, 2000)
 
     return () => clearTimeout(timeoutId)
-  }, [activeConfig, hasUnsavedChanges])
+  }, [activeConfig, configForRpc, hasUnsavedChanges])
 
   const headerStatusConfigs = [
     {

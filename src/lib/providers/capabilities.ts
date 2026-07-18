@@ -19,6 +19,19 @@ export type ModelCapabilitySource =
  */
 export type ModelCapabilityConfidence = "high" | "medium" | "low"
 
+export type CapabilityStatus = "supported" | "unsupported" | "unknown"
+
+export interface ModelCapabilityState {
+  status: CapabilityStatus
+  source: ModelCapabilitySource
+  confidence: ModelCapabilityConfidence
+}
+
+export type ModelCapabilityStates = Record<
+  "text" | "vision" | "embeddings" | "toolCalling" | "reasoning",
+  ModelCapabilityState
+>
+
 export interface ModelCapabilities {
   text: boolean
   vision: boolean
@@ -69,6 +82,10 @@ export interface ModelCapabilityInput {
   lmStudioModelType?: string
   /** Context window length in tokens, when known. */
   contextLength?: number
+  /** Modalities reported by model catalogs such as OpenRouter. */
+  modalities?: string[]
+  /** Supported request parameters reported by the model catalog. */
+  supportedParameters?: string[]
   /** User-set capability override for this model, if any. */
   override?: ModelCapabilityOverride | null
   /**
@@ -142,6 +159,37 @@ const detectModelCapabilities = (
       contextLength: input.contextLength,
       source: "model-metadata",
       confidence: "medium"
+    }
+  }
+
+  const modalities = input.modalities?.map((value) => value.toLowerCase())
+  const supportedParameters = input.supportedParameters?.map((value) =>
+    value.toLowerCase()
+  )
+  if (modalities !== undefined || supportedParameters !== undefined) {
+    const supportsAnyParameter = (...names: string[]) =>
+      names.some((name) => supportedParameters?.includes(name))
+    return {
+      text:
+        modalities?.includes("text") ??
+        (providerCaps?.chat === true || modalities === undefined),
+      vision: modalities?.includes("image") ?? false,
+      embeddings: providerCaps?.embeddings ?? false,
+      toolCalling:
+        supportedParameters !== undefined
+          ? supportsAnyParameter("tools", "tool_choice")
+          : (providerCaps?.toolCalling ?? false),
+      reasoning:
+        supportedParameters !== undefined
+          ? supportsAnyParameter(
+              "reasoning",
+              "reasoning_effort",
+              "include_reasoning"
+            )
+          : false,
+      contextLength: input.contextLength,
+      source: "model-metadata",
+      confidence: "high"
     }
   }
 
@@ -220,6 +268,93 @@ export const getModelCapabilities = (
   }
 
   return merged
+}
+
+const capabilityStatus = (value: boolean): CapabilityStatus =>
+  value ? "supported" : "unsupported"
+
+/**
+ * Source-aware capability contract for new consumers. Existing UI can keep
+ * using `getModelCapabilities` booleans during migration; new RPC/enforcement
+ * code can distinguish a real negative from missing evidence.
+ */
+export const getModelCapabilityStates = (
+  input: ModelCapabilityInput
+): ModelCapabilityStates => {
+  const resolved = getModelCapabilities(input)
+  const flags = [
+    "text",
+    "vision",
+    "embeddings",
+    "toolCalling",
+    "reasoning"
+  ] as const
+  const states = {} as ModelCapabilityStates
+  const tagsAvailable = Boolean(input.ollamaCapabilities?.length)
+  const modalitiesAvailable = input.modalities !== undefined
+  const parametersAvailable = input.supportedParameters !== undefined
+  const lmTypeAvailable = Boolean(input.lmStudioModelType)
+  const providerCaps = getProviderCapabilities(input.providerId)
+
+  for (const flag of flags) {
+    const override = input.override?.[flag]
+    if (typeof override === "boolean") {
+      states[flag] = {
+        status: capabilityStatus(override),
+        source: "user-override",
+        confidence: "high"
+      }
+      continue
+    }
+
+    const probed =
+      flag === "toolCalling" || flag === "reasoning" || flag === "vision"
+        ? input.probed?.[flag]
+        : undefined
+    if (typeof probed === "boolean") {
+      states[flag] = {
+        status: capabilityStatus(probed),
+        source: "probed",
+        confidence: "medium"
+      }
+      continue
+    }
+
+    const metadataOwnsFlag =
+      tagsAvailable ||
+      (modalitiesAvailable && (flag === "text" || flag === "vision")) ||
+      (parametersAvailable &&
+        (flag === "toolCalling" || flag === "reasoning")) ||
+      (lmTypeAvailable &&
+        (flag === "text" || flag === "vision" || flag === "embeddings"))
+    if (metadataOwnsFlag) {
+      states[flag] = {
+        status: capabilityStatus(resolved[flag]),
+        source: "model-metadata",
+        confidence: resolved.confidence
+      }
+      continue
+    }
+
+    const providerValue =
+      flag === "text"
+        ? providerCaps?.chat
+        : flag === "embeddings"
+          ? providerCaps?.embeddings
+          : flag === "toolCalling"
+            ? providerCaps?.toolCalling
+            : undefined
+    states[flag] = {
+      status:
+        typeof providerValue === "boolean"
+          ? capabilityStatus(providerValue)
+          : "unknown",
+      source: "provider-default",
+      confidence: "low"
+    }
+  }
+
+  return states
 }
 
 export const OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES: ProviderCapabilities = {

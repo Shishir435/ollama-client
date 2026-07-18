@@ -49,6 +49,8 @@ export const useSelectedModelCapabilities = (): SelectedModelCapabilities => {
     ollamaCapabilities,
     lmStudioModelType: model?.capabilityHints?.modelType,
     contextLength: model?.capabilityHints?.contextLength,
+    modalities: model?.capabilityHints?.modalities,
+    supportedParameters: model?.capabilityHints?.supportedParameters,
     override: getOverride(providerId, selectedModel)
   })
 

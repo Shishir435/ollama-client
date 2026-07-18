@@ -4,6 +4,9 @@ const mocks = vi.hoisted(() => ({
   list: vi.fn(),
   testConnection: vi.fn(),
   listModels: vi.fn(),
+  upsert: vi.fn(),
+  remove: vi.fn(),
+  probeModelCapabilities: vi.fn(),
   info: vi.fn(),
   error: vi.fn()
 }))
@@ -12,7 +15,10 @@ vi.mock("@/lib/providers/provider-rpc-service", () => ({
   ProviderRpcService: {
     list: mocks.list,
     testConnection: mocks.testConnection,
-    listModels: mocks.listModels
+    listModels: mocks.listModels,
+    upsert: mocks.upsert,
+    remove: mocks.remove,
+    probeModelCapabilities: mocks.probeModelCapabilities
   }
 }))
 
@@ -60,6 +66,20 @@ beforeEach(() => {
     latencyMs: 4
   })
   mocks.listModels.mockResolvedValue({ models: [], failures: [] })
+  mocks.upsert.mockResolvedValue({
+    provider: {
+      id: "custom:openai:test",
+      type: "openai",
+      enabled: true,
+      name: "Test",
+      hasApiKey: false
+    }
+  })
+  mocks.remove.mockResolvedValue({ removedProviderId: "custom:openai:test" })
+  mocks.probeModelCapabilities.mockResolvedValue({
+    toolCalling: true,
+    probedAt: 1
+  })
 })
 
 describe("RPC server", () => {
@@ -169,6 +189,34 @@ describe("RPC server", () => {
     expect(sendResponse.mock.calls[0][0]).toMatchObject({
       ok: false,
       error: { code: RpcErrorCode.Forbidden, status: 403 }
+    })
+  })
+
+  it("dispatches capability probes only through the typed command", async () => {
+    const envelope = request(RpcMethod.ProvidersProbeModelCapabilities, {
+      providerId: "custom:openai:test",
+      modelName: "tool-model"
+    })
+    const sendResponse = vi.fn()
+
+    await handleRpcRequest(
+      envelope,
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      sendResponse
+    )
+
+    expect(mocks.probeModelCapabilities).toHaveBeenCalledWith(
+      {
+        providerId: "custom:openai:test",
+        modelName: "tool-model"
+      },
+      expect.anything()
+    )
+    expect(sendResponse.mock.calls[0][0]).toMatchObject({
+      ok: true,
+      result: { toolCalling: true, probedAt: 1 }
     })
   })
 

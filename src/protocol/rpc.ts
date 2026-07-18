@@ -8,7 +8,10 @@ export const RPC_CANCEL_MESSAGE_TYPE = "app-rpc-cancel" as const
 export enum RpcMethod {
   ProvidersList = "providers.list",
   ProvidersTestConnection = "providers.testConnection",
-  ProvidersListModels = "providers.listModels"
+  ProvidersListModels = "providers.listModels",
+  ProvidersUpsert = "providers.upsert",
+  ProvidersRemove = "providers.remove",
+  ProvidersProbeModelCapabilities = "providers.probeModelCapabilities"
 }
 
 export enum RpcErrorCode {
