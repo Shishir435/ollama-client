@@ -326,12 +326,21 @@ export const useProviderSettingsState = () => {
   }
 
   const removeProvider = async (id: string) => {
+    const providerName = providers.find(
+      (provider) => String(provider.id) === id
+    )?.name
     try {
       await extensionRpcClient.call(RpcMethod.ProvidersRemove, {
         providerId: id
       })
       await loadProviders()
       if (selectedId === id) setSelectedId(DEFAULT_PROVIDER_ID)
+      toast({
+        title: t("settings.providers.add.removed_title"),
+        description: t("settings.providers.add.removed_description", {
+          name: providerName ?? id
+        })
+      })
     } catch (error) {
       logger.error("Failed to remove provider", "ProviderSettings", { error })
       toast({

@@ -1464,6 +1464,8 @@
         "failed_title": "प्रोवाइडर जोड़ा नहीं जा सका",
         "remove": "हटाएं",
         "remove_failed_title": "प्रोवाइडर हटाया नहीं जा सका",
+        "removed_title": "प्रोवाइडर हटाया गया",
+        "removed_description": "{{name}} को हटा दिया गया।",
         "remove_confirm_title": "{{name}} हटाएं?",
         "remove_confirm_description": "इसकी कनेक्शन सेटिंग्स और मॉडल मैपिंग हटा दी जाएंगी। आपकी चैट सुरक्षित रहेंगी।",
         "custom_badge": "कस्टम"

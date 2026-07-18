@@ -1464,6 +1464,8 @@
         "failed_title": "Impossible d'ajouter le fournisseur",
         "remove": "Supprimer",
         "remove_failed_title": "Impossible de supprimer le fournisseur",
+        "removed_title": "Fournisseur supprimé",
+        "removed_description": "{{name}} a été supprimé.",
         "remove_confirm_title": "Supprimer {{name}} ?",
         "remove_confirm_description": "Ses paramètres de connexion et ses associations de modèles seront supprimés. Vos conversations sont conservées.",
         "custom_badge": "Personnalisé"

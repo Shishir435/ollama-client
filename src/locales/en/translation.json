@@ -1674,6 +1674,8 @@
         "failed_title": "Could not add provider",
         "remove": "Remove",
         "remove_failed_title": "Could not remove provider",
+        "removed_title": "Provider removed",
+        "removed_description": "{{name}} was removed.",
         "remove_confirm_title": "Remove {{name}}?",
         "remove_confirm_description": "Its connection settings and model mappings will be deleted. Your chats are kept.",
         "custom_badge": "Custom"

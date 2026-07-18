@@ -1464,6 +1464,8 @@
         "failed_title": "プロバイダーを追加できませんでした",
         "remove": "削除",
         "remove_failed_title": "プロバイダーを削除できませんでした",
+        "removed_title": "プロバイダーを削除しました",
+        "removed_description": "{{name}} を削除しました。",
         "remove_confirm_title": "{{name}} を削除しますか？",
         "remove_confirm_description": "接続設定とモデルの割り当てが削除されます。チャットは保持されます。",
         "custom_badge": "カスタム"

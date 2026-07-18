@@ -14,11 +14,9 @@ import { useEmbeddingMigration } from "@/features/chat/hooks/use-embedding-migra
 import { useLanguageSync } from "@/hooks/use-language-sync"
 import { useProviderStorageMigration } from "@/hooks/use-provider-storage-migration"
 import { useThemeWatcher } from "@/hooks/use-theme-watcher"
-import { MESSAGE_KEYS } from "@/lib/constants/keys"
-import { getErrorMessage } from "@/lib/error-utils"
 import { queryClient } from "@/lib/query-client"
-import { flushSave } from "@/lib/sqlite/db"
 import { FirstRunPermissionsDialog } from "@/sidepanel/components/first-run-permissions-dialog"
+import { createSidepanelRuntimeMessageListener } from "@/sidepanel/runtime-message-listener"
 
 const IndexSidePanel = () => {
   useThemeWatcher()
@@ -27,26 +25,7 @@ const IndexSidePanel = () => {
   useProviderStorageMigration()
 
   useEffect(() => {
-    const listener = async (message: { type?: string }) => {
-      if (message.type === MESSAGE_KEYS.APP.RELOAD) {
-        window.location.reload()
-      }
-      if (message.type === MESSAGE_KEYS.APP.FLUSH_SQLITE) {
-        try {
-          await flushSave()
-          return { success: true }
-        } catch (error) {
-          return {
-            success: false,
-            error: {
-              status: 0,
-              message: getErrorMessage(error)
-            }
-          }
-        }
-      }
-      return undefined
-    }
+    const listener = createSidepanelRuntimeMessageListener()
     browser.runtime.onMessage.addListener(listener)
     return () => browser.runtime.onMessage.removeListener(listener)
   }, [])
