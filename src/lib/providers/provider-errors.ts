@@ -45,9 +45,17 @@ export const parseRetryAfter = (
 export const isRetryableProviderStatus = (status: number): boolean =>
   status === 408 || status === 429 || status === 529 || status >= 500
 
-const providerServerIssueUrl = (status: number): string => {
+export const buildProviderServerIssueUrl = (
+  status: number,
+  options: { providerName?: string; model?: string } = {}
+): string => {
+  const providerName = options.providerName?.trim()
+  const model = options.model?.trim()
+  const subject = providerName
+    ? `${providerName} server error`
+    : "Provider server error"
   const params = new URLSearchParams({
-    title: `[bug] Provider server error (${status})`,
+    title: `[bug] ${subject} (${status})`,
     body: [
       "**What happened**",
       "The provider server returned an error while generating a response.",
@@ -59,7 +67,7 @@ const providerServerIssueUrl = (status: number): string => {
       "",
       "**Details**",
       `- Error status: ${status}`,
-      "- Provider/model: ",
+      `- Provider/model: ${[providerName, model].filter(Boolean).join(" / ")}`,
       "- Browser: ",
       "- Extension version: ",
       "",
@@ -78,22 +86,32 @@ const providerServerIssueUrl = (status: number): string => {
  */
 export const providerErrorUserMessage = (
   status: number,
-  options: { baseUrl?: string; retryAfterMs?: number } = {}
+  options: {
+    baseUrl?: string
+    retryAfterMs?: number
+    providerName?: string
+    model?: string
+  } = {}
 ): string => {
+  const providerName = options.providerName?.trim()
+  const provider = providerName || "The provider"
+  const providerLower = providerName || "the provider"
+  const model = options.model?.trim()
+  const selectedModel = model ? `model "${model}"` : "selected model"
   if (status === 400) {
-    return "The provider rejected the request. The selected model may not support this input — for example, images on a model without vision support."
+    return `${provider} rejected the request. The ${selectedModel} may not support this input — for example, images on a model without vision support.`
   }
   if (status === 401 || status === 403) {
     if (isLocalProviderBaseUrl(options.baseUrl)) {
       return localCorsForbiddenMessage(status)
     }
-    return "The provider rejected your credentials. Check the API key or access for this provider."
+    return `${provider} rejected your credentials. Check its API key or account access.`
   }
   if (status === 404) {
-    return "The model or endpoint was not found. Check the model name and the provider's base URL."
+    return `${provider} could not find the ${selectedModel} or endpoint. Check the model name and ${providerLower}'s base URL.`
   }
   if (status === 408 || status === 504) {
-    return "The provider timed out. Check that the server is responsive and try again."
+    return `${provider} timed out. Check that its server is responsive and try again.`
   }
   if (status === 413) {
     return "The request was too large. Try a smaller image or shorter message."
@@ -105,7 +123,7 @@ export const providerErrorUserMessage = (
     const retryIn = options.retryAfterMs
       ? ` Retry in about ${Math.max(1, Math.ceil(options.retryAfterMs / 1000))} seconds.`
       : " Wait a moment and try again."
-    return `The provider is rate-limiting requests.${retryIn}`
+    return `${provider} is rate-limiting requests.${retryIn}`
   }
   if (status === 529) {
     return "The hosted provider is temporarily overloaded. Wait a moment and try again."
@@ -115,9 +133,9 @@ export const providerErrorUserMessage = (
       const retryIn = options.retryAfterMs
         ? ` Retry in about ${Math.max(1, Math.ceil(options.retryAfterMs / 1000))} seconds.`
         : " Try again shortly."
-      return `The hosted provider is temporarily unavailable.${retryIn}`
+      return `${providerName || "The hosted provider"} is temporarily unavailable.${retryIn}`
     }
-    return `The provider server returned an error. Check that the provider app is running, the selected model is loaded, and the base URL/port are correct. If it keeps happening, this may be a bug — [open an issue](${providerServerIssueUrl(status)}).`
+    return `${provider} returned a server error. Check that ${providerLower} is running, the ${selectedModel} is loaded, and its base URL/port are correct.`
   }
-  return "The provider returned an error. Check the provider, model, and server logs."
+  return `${provider} returned an error. Check ${providerLower}, the ${selectedModel}, and its server logs.`
 }

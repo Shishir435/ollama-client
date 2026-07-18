@@ -210,7 +210,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
   private async responseError(
     response: Response,
     label: string,
-    baseUrl: string
+    baseUrl: string,
+    model?: string
   ): Promise<never> {
     const detail = await response.text()
     const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
@@ -222,7 +223,9 @@ export class OpenAICompatibleProvider implements LLMProvider {
       retryAfterMs,
       userMessage: providerErrorUserMessage(response.status, {
         baseUrl,
-        retryAfterMs
+        retryAfterMs,
+        providerName: this.config.name,
+        model
       }),
       debug: detail
     })
@@ -347,7 +350,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     })
 
     if (!response.ok) {
-      await this.responseError(response, "OpenAI Error", baseUrl)
+      await this.responseError(response, "OpenAI Error", baseUrl, model)
     }
 
     const startTime = Date.now()
@@ -461,7 +464,12 @@ export class OpenAICompatibleProvider implements LLMProvider {
             userMessage:
               status === undefined
                 ? "The provider reported an error while generating the response."
-                : providerErrorUserMessage(status, { baseUrl, retryAfterMs }),
+                : providerErrorUserMessage(status, {
+                    baseUrl,
+                    retryAfterMs,
+                    providerName: this.config.name,
+                    model
+                  }),
             debug:
               typeof data.error === "string"
                 ? data.error

@@ -9,7 +9,11 @@ import {
   getDisplayErrorMessage
 } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
-import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
+import {
+  buildProviderServerIssueUrl,
+  providerErrorUserMessage
+} from "@/lib/providers/provider-errors"
+import { getProviderDisplayName } from "@/lib/providers/registry"
 import {
   makeThinkingParserState,
   splitThinkingDelta,
@@ -254,6 +258,18 @@ export const useChatStream = ({
         let finalMessages: ChatMessage[]
 
         if (msg.error) {
+          const errorProviderId = msg.error.providerId || providerId
+          const providerName = errorProviderId
+            ? getProviderDisplayName(errorProviderId, errorProviderId)
+            : undefined
+          const issueUrl =
+            msg.error.status >= 500 &&
+            (msg.error.kind === "provider" || Boolean(errorProviderId))
+              ? buildProviderServerIssueUrl(msg.error.status, {
+                  providerName,
+                  model
+                })
+              : undefined
           const localizedUserMessage = msg.error.messageKey
             ? t(msg.error.messageKey)
             : msg.error.userMessage
@@ -267,17 +283,31 @@ export const useChatStream = ({
             // Any provider error with a real HTTP status gets the clean
             // per-status copy — raw response bodies never render in chat.
             (msg.error.status > 0
-              ? providerErrorUserMessage(msg.error.status)
+              ? providerErrorUserMessage(msg.error.status, {
+                  providerName,
+                  model
+                })
               : t("chat.errors.unknown_error", {
                   message:
                     getDisplayErrorMessage(msg.error) ||
                     t("chat.errors.no_message")
                 }))
+          const chatErrorMessage = issueUrl
+            ? `${errMsg}\n\n[Open a new issue](${issueUrl})`
+            : errMsg
+          const toastDescription =
+            msg.error.kind === "provider" && providerName
+              ? `${displayError.rawMessage}${
+                  msg.error.retryable
+                    ? " This may be temporary; try again."
+                    : ""
+                }`
+              : displayError.message
           finalMessages = [
             ...currentMessagesRef.current.slice(0, -1),
             {
               ...assistantMessage,
-              content: errMsg,
+              content: chatErrorMessage,
               done: true,
               error: {
                 status: msg.error.status,
@@ -290,9 +320,19 @@ export const useChatStream = ({
           toast({
             variant: "destructive",
             title: displayError.kind
-              ? displayError.title
+              ? msg.error.kind === "provider" && providerName
+                ? `${providerName} error`
+                : displayError.title
               : t("chat.errors.response_failed_title"),
-            description: displayError.message
+            description: toastDescription,
+            ...(issueUrl && {
+              action: {
+                label: "Open new issue",
+                onClick: () => {
+                  void browser.tabs.create({ url: issueUrl })
+                }
+              }
+            })
           })
         } else {
           const thinkingOnlyResponse =

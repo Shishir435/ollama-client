@@ -199,7 +199,10 @@ export class OllamaProvider implements LLMProvider {
         userMessage:
           response.status === 401 || response.status === 403
             ? localCorsForbiddenMessage(response.status)
-            : providerErrorUserMessage(response.status),
+            : providerErrorUserMessage(response.status, {
+                providerName: this.config.name,
+                model
+              }),
         debug: errorText
       })
     }
