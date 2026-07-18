@@ -400,6 +400,7 @@
       "no_message": "Keine Nachricht",
       "response_failed_title": "Antwortgenerierung fehlgeschlagen",
       "unknown_error_description": "Ein unbekannter Fehler ist aufgetreten",
+      "provider_replay_invalid": "Diese Antwort kann nicht sicher fortgesetzt werden. Wiederhole die Anfrage, um den Anbieterkontext neu aufzubauen.",
       "report_issue": "Problem melden"
     },
     "composer": {

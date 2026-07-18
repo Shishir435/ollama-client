@@ -80,6 +80,23 @@ describe("error-handler", () => {
         retryAfterMs: 3000
       })
     })
+
+    it("preserves localized error keys without exposing debug data", () => {
+      expect(
+        normalizeError(
+          createAppError("Invalid provider continuation data", {
+            kind: "validation",
+            messageKey: "chat.errors.provider_replay_invalid",
+            debug: { signature: "private" }
+          })
+        )
+      ).toEqual({
+        status: 0,
+        message: "Invalid provider continuation data",
+        kind: "validation",
+        messageKey: "chat.errors.provider_replay_invalid"
+      })
+    })
   })
 
   it("creates a standard failed response", () => {

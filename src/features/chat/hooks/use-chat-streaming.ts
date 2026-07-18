@@ -66,6 +66,7 @@ export const useChatStreaming = ({
         {
           content: streamedMsg.content,
           thinking: streamedMsg.thinking,
+          replayArtifact: streamedMsg.replayArtifact,
           metrics: streamedMsg.metrics,
           done: streamedMsg.done
         },
@@ -90,6 +91,7 @@ export const useChatStreaming = ({
         {
           content: streamedMsg.content,
           thinking: streamedMsg.thinking,
+          replayArtifact: streamedMsg.replayArtifact,
           metrics: streamedMsg.metrics,
           done: true
         },

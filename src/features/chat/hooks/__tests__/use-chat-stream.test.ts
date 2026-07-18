@@ -193,6 +193,37 @@ describe("useChatStream", () => {
     expect(mockPort.disconnect).toHaveBeenCalled()
   })
 
+  it("keeps opaque replay state separate on the assistant message", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "remote-model",
+        messages: [{ role: "user", content: "Hello" }]
+      })
+    })
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+    const replayArtifact = {
+      version: 1,
+      wire: "openai",
+      providerId: "openrouter",
+      model: "remote-model",
+      blocks: [{ type: "reasoning.encrypted", data: "opaque" }]
+    }
+
+    act(() => {
+      listener({ delta: "Answer" })
+      listener({ done: true, replayArtifact })
+    })
+
+    const latestMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(latestMessages?.at(-1)).toMatchObject({
+      content: "Answer",
+      replayArtifact
+    })
+  })
+
   it("shows a safe fallback when the model returns only thinking", () => {
     const { result } = renderHook(() =>
       useChatStream({

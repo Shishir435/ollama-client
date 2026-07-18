@@ -15,11 +15,22 @@ These data types are stored locally by the extension:
 - Uploaded-file metadata and local retrieval indexes
 - Knowledge sets and embeddings
 - Provider settings and model mappings
+- Provider-opaque continuation blocks needed to resume signed or encrypted reasoning
 - Web-search configuration
 - Browser permission state and feature settings
 
 Chat history uses SQLite-in-WASM persisted to IndexedDB. Vector storage and
 knowledge sets use local IndexedDB storage.
+
+Some reasoning-capable remote providers return signed or encrypted continuation
+blocks that must be echoed back unchanged during tool use. This is part of the
+[Anthropic extended-thinking](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)
+and [OpenRouter reasoning](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens)
+protocols. Ollama Client stores those opaque blocks locally with the related
+assistant message, separately from the reasoning text shown in the UI. They are
+never rendered or written to diagnostic logs. Because they are part of chat
+continuity, they are included in chat-history backups alongside the messages
+they belong to.
 
 ## What can leave your device?
 

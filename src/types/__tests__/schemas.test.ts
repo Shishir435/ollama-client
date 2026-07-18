@@ -21,6 +21,13 @@ describe("ChatMessageSchema", () => {
       role: "assistant",
       content: "response",
       thinking: "hmm",
+      replayArtifact: {
+        version: 1,
+        wire: "openai",
+        providerId: "openrouter",
+        model: "remote-model",
+        blocks: [{ type: "reasoning.encrypted", data: "opaque" }]
+      },
       done: true,
       model: "llama3",
       toolName: "read_tab",
@@ -71,6 +78,67 @@ describe("ChatMessageSchema", () => {
   it("rejects missing content", () => {
     const result = ChatMessageSchema.safeParse({ role: "user" })
     expect(result.success).toBe(false)
+  })
+
+  it("rejects replay artifacts that persistence would reject", () => {
+    const malformed = ChatMessageSchema.safeParse({
+      role: "assistant",
+      content: "response",
+      replayArtifact: {
+        version: 1,
+        wire: "anthropic",
+        providerId: "anthropic-1",
+        model: "claude-test",
+        blocks: [{ type: "thinking", thinking: "missing signature" }]
+      }
+    })
+    const oversized = ChatMessageSchema.safeParse({
+      role: "assistant",
+      content: "response",
+      replayArtifact: {
+        version: 1,
+        wire: "openai",
+        providerId: "openrouter",
+        model: "remote-model",
+        blocks: [
+          {
+            type: "reasoning.encrypted",
+            data: "x".repeat(1024 * 1024)
+          }
+        ]
+      }
+    })
+
+    expect(malformed.success).toBe(false)
+    expect(oversized.success).toBe(false)
+  })
+
+  it("preserves opaque replay block fields during import parsing", () => {
+    const result = ChatMessageSchema.safeParse({
+      role: "assistant",
+      content: "response",
+      replayArtifact: {
+        version: 1,
+        wire: "anthropic",
+        providerId: "anthropic-1",
+        model: "claude-test",
+        blocks: [
+          {
+            type: "thinking",
+            thinking: "summary",
+            signature: "opaque",
+            provider_extension: "keep-exactly"
+          }
+        ]
+      }
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.replayArtifact?.blocks[0]).toMatchObject({
+        provider_extension: "keep-exactly"
+      })
+    }
   })
 })
 

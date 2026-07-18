@@ -179,11 +179,13 @@ export const streamChatWithNonNativeTools = async ({
     if (state.phase === "model") {
       const gate = new ToolCallStreamGate((text) => onChunk({ delta: text }))
       let metrics: ChatStreamMessage["metrics"] | undefined
+      let replayArtifact: ChatStreamMessage["replayArtifact"]
       let stopped = false
 
       await provider.streamChat(
         { ...baseRequest, messages: workingMessages },
         (chunk) => {
+          if (chunk.replayArtifact) replayArtifact = chunk.replayArtifact
           if (chunk.done && !chunk.error && !chunk.aborted) {
             if (chunk.metrics) metrics = chunk.metrics
             return
@@ -214,11 +216,20 @@ export const streamChatWithNonNativeTools = async ({
 
       if (toolCalls.length === 0) {
         gate.flushTail()
-        onChunk({ done: true, metrics, toolRuns: [...toolRuns] })
+        onChunk({
+          done: true,
+          metrics,
+          toolRuns: [...toolRuns],
+          replayArtifact
+        })
         return
       }
 
-      workingMessages.push({ role: "assistant", content: gate.text })
+      workingMessages.push({
+        role: "assistant",
+        content: gate.text,
+        replayArtifact
+      })
       state.phase = "tools"
       state.pendingToolCalls = toolCalls
       state.nextToolIndex = 0
@@ -311,10 +322,14 @@ export const streamChatWithNonNativeTools = async ({
   const finalGate = new ToolCallStreamGate((text) => onChunk({ delta: text }))
   let synthesisMetrics = lastMetrics
   let synthesisStopped = false
+  let synthesisReplayArtifact: ChatStreamMessage["replayArtifact"]
 
   await provider.streamChat(
     { ...baseRequest, messages: workingMessages },
     (chunk) => {
+      if (chunk.replayArtifact) {
+        synthesisReplayArtifact = chunk.replayArtifact
+      }
       if (chunk.done && !chunk.error && !chunk.aborted) {
         if (chunk.metrics) synthesisMetrics = chunk.metrics
         return
@@ -339,5 +354,10 @@ export const streamChatWithNonNativeTools = async ({
   if (finalGate.text.trim().length === 0) {
     onChunk({ delta: TOOL_LIMIT_FALLBACK_MESSAGE })
   }
-  onChunk({ done: true, metrics: synthesisMetrics, toolRuns: [...toolRuns] })
+  onChunk({
+    done: true,
+    metrics: synthesisMetrics,
+    toolRuns: [...toolRuns],
+    replayArtifact: synthesisReplayArtifact
+  })
 }

@@ -8,6 +8,10 @@ import {
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
 import { ANTHROPIC_PROVIDER_CAPABILITIES } from "./capabilities"
+import {
+  createProviderReplayArtifact,
+  getProviderReplayBlocks
+} from "./provider-replay"
 import { resolveProviderServiceProfile } from "./service-profile"
 import type {
   ChatRequest,
@@ -51,7 +55,8 @@ const appendMessage = (
  * merged into one user turn as required by multi-tool calls.
  */
 const mapMessages = (
-  messages: ChatMessage[]
+  messages: ChatMessage[],
+  expectedReplay: { providerId: string; model: string }
 ): { system?: string; messages: AnthropicMessage[] } => {
   const system = messages
     .filter((message) => message.role === "system" && message.content.trim())
@@ -74,6 +79,17 @@ const mapMessages = (
         }
       ])
       continue
+    }
+
+    if (message.role === "assistant") {
+      const replayBlocks = getProviderReplayBlocks(message.replayArtifact, {
+        wire: "anthropic",
+        ...expectedReplay
+      })
+      if (replayBlocks) {
+        appendMessage(mapped, "assistant", replayBlocks)
+        continue
+      }
     }
 
     const blocks: AnthropicContentBlock[] = []
@@ -126,11 +142,17 @@ interface AnthropicStreamEvent {
     type?: string
     id?: string
     name?: string
+    text?: string
+    thinking?: string
+    signature?: string
+    data?: string
+    input?: Record<string, unknown>
   }
   delta?: {
     type?: string
     text?: string
     thinking?: string
+    signature?: string
     partial_json?: string
   }
   message?: {
@@ -223,22 +245,36 @@ export class AnthropicProvider implements LLMProvider {
     onChunk: (chunk: ChatStreamMessage) => void,
     signal?: AbortSignal
   ): Promise<void> {
-    const mapped = mapMessages(request.messages)
+    const mapped = mapMessages(request.messages, {
+      providerId: this.id,
+      model: request.model
+    })
     const tools =
       request.tool_choice === "none" ? undefined : request.tools?.map(mapTool)
-    // A prior tool_use/tool_result turn in history means this is a tool loop
-    // (final synthesis passes tool_choice:"none", so `tools` is empty but the
-    // history isn't). Thinking there would need the original signed thinking
-    // blocks replayed, which we don't persist — Anthropic 400s. Detect it.
+    const assistantToolTurns = request.messages.filter(
+      (message) => message.role === "assistant" && message.toolCalls?.length
+    )
     const hasToolHistory = request.messages.some(
       (message) => message.role === "tool" || message.toolCalls?.length
     )
-    // Extended thinking is enabled only for tool-free requests: replaying an
-    // assistant tool_use turn under thinking requires the original signed
-    // thinking block, which isn't persisted, and forced tool_choice is
-    // incompatible with thinking altogether.
+    const hasReplayableToolHistory =
+      assistantToolTurns.length > 0 &&
+      assistantToolTurns.every((message) =>
+        Boolean(
+          getProviderReplayBlocks(message.replayArtifact, {
+            wire: "anthropic",
+            providerId: this.id,
+            model: request.model
+          })
+        )
+      )
+    // Thinking may continue through auto/none tool turns now that signed and
+    // redacted blocks are replayed. Old/incomplete checkpoints keep the prior
+    // safe degradation, and Anthropic still rejects forced tool choice.
     const thinkEnabled =
-      Boolean(request.think) && !tools?.length && !hasToolHistory
+      Boolean(request.think) &&
+      request.tool_choice !== "required" &&
+      (!hasToolHistory || hasReplayableToolHistory)
     // num_predict:-1 (and 0) is our "unlimited" sentinel; Anthropic requires a
     // positive max_tokens, so collapse non-positive requests to a real default
     // instead of forwarding -1 or deriving a bogus thinking budget from it.
@@ -285,13 +321,14 @@ export class AnthropicProvider implements LLMProvider {
       await this.responseError(response)
     }
 
-    await this.processSSE(response, onChunk, Date.now())
+    await this.processSSE(response, onChunk, Date.now(), request.model)
   }
 
   private async processSSE(
     response: Response,
     onChunk: (chunk: ChatStreamMessage) => void,
-    startTime: number
+    startTime: number,
+    model: string
   ): Promise<void> {
     const reader = response.body?.getReader()
     if (!reader) {
@@ -306,10 +343,24 @@ export class AnthropicProvider implements LLMProvider {
       number,
       { id: string; name: string; input: string }
     >()
+    const contentBlocks = new Map<number, AnthropicContentBlock>()
     let buffer = ""
     let inputTokens: number | undefined
     let outputTokens: number | undefined
     let emittedDone = false
+
+    const replayArtifact = () => {
+      const blocks = [...contentBlocks.entries()]
+        .sort(([left], [right]) => left - right)
+        .map(([, block]) => block)
+      const hasReasoning = blocks.some(
+        (block) =>
+          block.type === "thinking" || block.type === "redacted_thinking"
+      )
+      return hasReasoning
+        ? createProviderReplayArtifact("anthropic", this.id, model, blocks)
+        : undefined
+    }
 
     const emitDone = () => {
       if (emittedDone) return
@@ -337,9 +388,32 @@ export class AnthropicProvider implements LLMProvider {
           }
         }
       )
-      if (toolCalls.length) onChunk({ toolCalls, done: false })
+      for (const [index, tool] of toolBlocks) {
+        let input: Record<string, unknown> = {}
+        try {
+          const parsed = tool.input ? JSON.parse(tool.input) : {}
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            input = parsed as Record<string, unknown>
+          }
+        } catch {
+          // The normalized tool call below intentionally uses the same empty
+          // input fallback so replay and execution cannot diverge.
+        }
+        contentBlocks.set(index, {
+          ...contentBlocks.get(index),
+          type: "tool_use",
+          id: tool.id,
+          name: tool.name,
+          input
+        })
+      }
+      const artifact = replayArtifact()
+      if (toolCalls.length) {
+        onChunk({ toolCalls, replayArtifact: artifact, done: false })
+      }
       onChunk({
         done: true,
+        replayArtifact: artifact,
         metrics: {
           total_duration: (Date.now() - startTime) * 1_000_000,
           prompt_eval_count: inputTokens,
@@ -383,24 +457,80 @@ export class AnthropicProvider implements LLMProvider {
       }
       if (
         event.type === "content_block_start" &&
-        event.content_block?.type === "tool_use" &&
         typeof event.index === "number"
       ) {
-        toolBlocks.set(event.index, {
-          id: event.content_block.id || "",
-          name: event.content_block.name || "",
-          input: ""
-        })
+        const block = event.content_block
+        if (block?.type === "tool_use") {
+          toolBlocks.set(event.index, {
+            id: block.id || "",
+            name: block.name || "",
+            input: ""
+          })
+          contentBlocks.set(event.index, {
+            ...block,
+            type: "tool_use",
+            id: block.id || "",
+            name: block.name || "",
+            input: block.input || {}
+          })
+        } else if (block?.type === "thinking") {
+          contentBlocks.set(event.index, {
+            ...block,
+            type: "thinking",
+            thinking: block.thinking || "",
+            signature: block.signature || ""
+          })
+        } else if (
+          block?.type === "redacted_thinking" &&
+          typeof block.data === "string"
+        ) {
+          contentBlocks.set(event.index, {
+            ...block,
+            type: "redacted_thinking",
+            data: block.data
+          })
+        } else if (block?.type === "text") {
+          contentBlocks.set(event.index, {
+            ...block,
+            type: "text",
+            text: block.text || ""
+          })
+        } else if (block?.type) {
+          // Preserve unknown blocks so wire validation fails locally instead
+          // of silently replaying an altered assistant message.
+          contentBlocks.set(event.index, { ...block })
+        }
         return
       }
       if (event.type === "content_block_delta") {
         if (event.delta?.type === "text_delta" && event.delta.text) {
+          if (typeof event.index === "number") {
+            const block = contentBlocks.get(event.index)
+            if (block?.type === "text") {
+              block.text = `${String(block.text)}${event.delta.text}`
+            }
+          }
           onChunk({ delta: event.delta.text, done: false })
         } else if (
           event.delta?.type === "thinking_delta" &&
           event.delta.thinking
         ) {
+          if (typeof event.index === "number") {
+            const block = contentBlocks.get(event.index)
+            if (block?.type === "thinking") {
+              block.thinking = `${String(block.thinking)}${event.delta.thinking}`
+            }
+          }
           onChunk({ thinkingDelta: event.delta.thinking, done: false })
+        } else if (
+          event.delta?.type === "signature_delta" &&
+          event.delta.signature &&
+          typeof event.index === "number"
+        ) {
+          const block = contentBlocks.get(event.index)
+          if (block?.type === "thinking") {
+            block.signature = `${String(block.signature)}${event.delta.signature}`
+          }
         } else if (
           event.delta?.type === "input_json_delta" &&
           typeof event.index === "number"

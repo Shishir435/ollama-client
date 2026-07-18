@@ -400,6 +400,7 @@
       "no_message": "Sin mensaje",
       "response_failed_title": "Generación de respuesta fallida",
       "unknown_error_description": "Ocurrió un error desconocido",
+      "provider_replay_invalid": "Esta respuesta no puede continuar de forma segura. Reintenta el turno para reconstruir el contexto del proveedor.",
       "report_issue": "Informar de un problema"
     },
     "composer": {

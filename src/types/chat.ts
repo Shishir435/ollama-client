@@ -81,11 +81,26 @@ export interface ActivityEvent {
   error?: string
 }
 
+/**
+ * Provider-owned continuation state. The UI must never render or inspect
+ * `blocks`: Anthropic signatures and OpenRouter encrypted reasoning are opaque
+ * protocol data that adapters echo back unchanged.
+ */
+export interface ProviderReplayArtifact {
+  version: 1
+  wire: "anthropic" | "openai"
+  providerId: string
+  model: string
+  blocks: Array<Record<string, unknown>>
+}
+
 export interface ChatMessage {
   id?: number | string
   role: Role
   content: string
   thinking?: string
+  /** Opaque provider continuation state, kept separate from display thinking. */
+  replayArtifact?: ProviderReplayArtifact
   done?: boolean
   model?: string
   attachments?: FileAttachment[]
@@ -208,6 +223,8 @@ export interface ChatSession {
 export interface ChatStreamMessage {
   delta?: string
   thinkingDelta?: string
+  /** Opaque provider continuation state; never log or render its blocks. */
+  replayArtifact?: ProviderReplayArtifact
   done?: boolean
   content?: string
   aborted?: boolean
@@ -226,6 +243,7 @@ export interface ChatStreamMessage {
     status: number
     message: string
     kind?: import("./errors").AppErrorKind
+    messageKey?: string
     userMessage?: string
     retryable?: boolean
     retryAfterMs?: number

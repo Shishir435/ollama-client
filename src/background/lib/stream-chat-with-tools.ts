@@ -100,11 +100,15 @@ export const streamChatWithTools = async ({
       const pendingToolCalls: ToolCall[] = []
       let iterationContent = ""
       let finalMetrics: ChatStreamMessage["metrics"] | undefined
+      let iterationReplayArtifact: ChatStreamMessage["replayArtifact"]
       let stopped = false
 
       await provider.streamChat(
         { ...request, messages: workingMessages },
         (chunk) => {
+          if (chunk.replayArtifact) {
+            iterationReplayArtifact = chunk.replayArtifact
+          }
           if (chunk.toolCalls && chunk.toolCalls.length > 0) {
             pendingToolCalls.push(...chunk.toolCalls)
             return
@@ -130,14 +134,20 @@ export const streamChatWithTools = async ({
       if (finalMetrics) lastFinalMetrics = finalMetrics
 
       if (pendingToolCalls.length === 0) {
-        onChunk({ done: true, metrics: finalMetrics, toolRuns })
+        onChunk({
+          done: true,
+          metrics: finalMetrics,
+          toolRuns,
+          replayArtifact: iterationReplayArtifact
+        })
         return
       }
 
       workingMessages.push({
         role: "assistant",
         content: iterationContent,
-        toolCalls: pendingToolCalls
+        toolCalls: pendingToolCalls,
+        replayArtifact: iterationReplayArtifact
       })
       state.phase = "tools"
       state.pendingToolCalls = pendingToolCalls
@@ -261,6 +271,7 @@ export const streamChatWithTools = async ({
   let synthesisMetrics = lastFinalMetrics
   let synthesisStopped = false
   let emittedSynthesisText = false
+  let synthesisReplayArtifact: ChatStreamMessage["replayArtifact"]
 
   // Keep the `tools` array but forbid new calls via `tool_choice: "none"`.
   // Dropping `tools` entirely would 400 on strict OpenAI-compatible endpoints
@@ -269,6 +280,9 @@ export const streamChatWithTools = async ({
   await provider.streamChat(
     { ...request, messages: workingMessages, tool_choice: "none" },
     (chunk) => {
+      if (chunk.replayArtifact) {
+        synthesisReplayArtifact = chunk.replayArtifact
+      }
       if (chunk.toolCalls && chunk.toolCalls.length > 0) return
       if (chunk.done && !chunk.error && !chunk.aborted) {
         if (chunk.metrics) synthesisMetrics = chunk.metrics
@@ -291,5 +305,10 @@ export const streamChatWithTools = async ({
   if (!emittedSynthesisText) {
     onChunk({ delta: TOOL_LIMIT_FALLBACK_MESSAGE })
   }
-  onChunk({ done: true, metrics: synthesisMetrics, toolRuns })
+  onChunk({
+    done: true,
+    metrics: synthesisMetrics,
+    toolRuns,
+    replayArtifact: synthesisReplayArtifact
+  })
 }

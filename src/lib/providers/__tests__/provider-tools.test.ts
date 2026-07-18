@@ -386,6 +386,78 @@ describe("provider tool calling — stream parsing", () => {
     ])
   })
 
+  it("preserves fragmented OpenRouter reasoning details across a tool turn", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        streamResponse([
+          'data: {"choices":[{"delta":{"reasoning_details":[{"type":"reasoning.text","text":"plan ","signature":null,"id":"r1","format":"anthropic-claude-v1","index":0}]}}]}\n',
+          'data: {"choices":[{"delta":{"reasoning_details":[{"type":"reasoning.text","text":"continued","signature":"opaque-sig","id":"r1","format":"anthropic-claude-v1","index":0}]}}]}\n',
+          'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\":\\"Paris\\"}"}}]},"finish_reason":"tool_calls"}]}\n'
+        ])
+      )
+      .mockResolvedValueOnce(streamResponse([]))
+    const config: ProviderConfig = {
+      ...openaiConfig,
+      id: "custom:openai:openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      serviceProfile: ProviderServiceProfile.OPENROUTER
+    }
+    const provider = new OpenAICompatibleProvider(config)
+    const chunks: ChatStreamMessage[] = []
+
+    await provider.streamChat(baseRequest, collect(chunks))
+
+    const toolChunk = chunks.find((chunk) => chunk.toolCalls)
+    expect(toolChunk?.replayArtifact?.blocks).toEqual([
+      {
+        type: "reasoning.text",
+        text: "plan ",
+        signature: null,
+        id: "r1",
+        format: "anthropic-claude-v1",
+        index: 0
+      },
+      {
+        type: "reasoning.text",
+        text: "continued",
+        signature: "opaque-sig",
+        id: "r1",
+        format: "anthropic-claude-v1",
+        index: 0
+      }
+    ])
+
+    await provider.streamChat(
+      {
+        ...baseRequest,
+        messages: [
+          ...baseRequest.messages,
+          {
+            role: "assistant",
+            content: "",
+            toolCalls: toolChunk?.toolCalls,
+            replayArtifact: toolChunk?.replayArtifact
+          },
+          {
+            role: "tool",
+            content: "18 C",
+            toolName: "get_weather",
+            toolCallId: "call-1"
+          }
+        ]
+      },
+      () => {}
+    )
+
+    const secondBody = JSON.parse(
+      (fetchMock.mock.calls[1]?.[1] as RequestInit).body as string
+    )
+    expect(secondBody.messages[1].reasoning_details).toEqual(
+      toolChunk?.replayArtifact?.blocks
+    )
+  })
+
   it("ignores OpenRouter keep-alive comments and surfaces in-band errors", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       streamResponse([

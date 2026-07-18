@@ -17,7 +17,13 @@ describe("privacy-safe logger", () => {
         requestBody: { messages: [{ content: "private prompt" }] },
         messages: [{ content: "private message" }],
         pageContent: "private page",
-        file_content: "private file"
+        file_content: "private file",
+        replayArtifact: {
+          blocks: [
+            { type: "thinking", signature: "opaque-signature" },
+            { type: "reasoning.encrypted", data: "opaque-reasoning" }
+          ]
+        }
       },
       customHeaders: {
         "X-Tenant": "tenant-secret",
@@ -34,7 +40,8 @@ describe("privacy-safe logger", () => {
         requestBody: REDACTED_LOG_VALUE,
         messages: REDACTED_LOG_VALUE,
         pageContent: REDACTED_LOG_VALUE,
-        file_content: REDACTED_LOG_VALUE
+        file_content: REDACTED_LOG_VALUE,
+        replayArtifact: REDACTED_LOG_VALUE
       },
       customHeaders: {
         "X-Tenant": REDACTED_LOG_VALUE,

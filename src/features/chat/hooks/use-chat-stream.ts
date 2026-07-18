@@ -15,7 +15,7 @@ import {
   splitThinkingDelta,
   type ThinkingParserState
 } from "@/lib/thinking-parser"
-import type { ChatMessage, ToolRun } from "@/types"
+import type { ChatMessage, ProviderReplayArtifact, ToolRun } from "@/types"
 
 interface StreamOptions {
   model: string
@@ -48,12 +48,14 @@ interface StreamMessage {
   }
   delta?: string
   thinkingDelta?: string
+  replayArtifact?: ProviderReplayArtifact
   toolRuns?: ToolRun[]
   done?: boolean
   error?: {
     status: number
     message: string
     kind?: import("@/types/errors").AppErrorKind
+    messageKey?: string
     userMessage?: string
     retryable?: boolean
     retryAfterMs?: number
@@ -157,7 +159,13 @@ export const useChatStream = ({
           done: msg.done,
           error: msg.error
         })
-        logger.debug("MSG", "useChatStream", msg)
+        logger.debug("Stream msg detail", "useChatStream", {
+          type: msg.type,
+          done: msg.done,
+          aborted: msg.aborted,
+          error: msg.error,
+          metrics: msg.metrics
+        })
       }
       if (firstChunk) {
         setIsStreaming(true)
@@ -187,6 +195,11 @@ export const useChatStream = ({
           ...assistantMessage.metrics,
           toolRuns: msg.toolRuns
         }
+        didUpdate = true
+      }
+
+      if (msg.replayArtifact) {
+        assistantMessage.replayArtifact = msg.replayArtifact
         didUpdate = true
       }
 
@@ -241,12 +254,15 @@ export const useChatStream = ({
         let finalMessages: ChatMessage[]
 
         if (msg.error) {
+          const localizedUserMessage = msg.error.messageKey
+            ? t(msg.error.messageKey)
+            : msg.error.userMessage
           const displayError = formatErrorForDisplay(
-            msg.error,
+            { ...msg.error, userMessage: localizedUserMessage },
             t("chat.errors.unknown_error_description")
           )
           const errMsg =
-            msg.error.userMessage ??
+            localizedUserMessage ??
             ERROR_MESSAGES[msg.error.status] ??
             // Any provider error with a real HTTP status gets the clean
             // per-status copy — raw response bodies never render in chat.

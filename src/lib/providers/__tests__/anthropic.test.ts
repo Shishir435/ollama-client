@@ -252,7 +252,7 @@ describe("AnthropicProvider", () => {
     expect(body.top_p).toBeUndefined()
   })
 
-  it("keeps thinking off when tools are present (no signed blocks to replay)", async () => {
+  it("enables thinking with auto tool choice", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(streamResponse([]))
@@ -271,8 +271,8 @@ describe("AnthropicProvider", () => {
     const body = JSON.parse(
       (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
     )
-    expect(body.thinking).toBeUndefined()
-    expect(body.temperature).toBe(0.4)
+    expect(body.thinking).toEqual({ type: "enabled", budget_tokens: 2048 })
+    expect(body.temperature).toBeUndefined()
   })
 
   it("keeps thinking off during tool-loop synthesis (tool_choice none but tool history present)", async () => {
@@ -311,6 +311,118 @@ describe("AnthropicProvider", () => {
       (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
     )
     expect(body.thinking).toBeUndefined()
+  })
+
+  it("captures and exactly replays signed and redacted thinking around tool use", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        streamResponse([
+          'data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}}\n',
+          'data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"plan"}}\n',
+          'data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"opaque-signature"}}\n',
+          'data: {"type":"content_block_start","index":1,"content_block":{"type":"redacted_thinking","data":"opaque-redacted"}}\n',
+          'data: {"type":"content_block_start","index":2,"content_block":{"type":"tool_use","id":"tool-1","name":"weather"}}\n',
+          'data: {"type":"content_block_delta","index":2,"delta":{"type":"input_json_delta","partial_json":"{\\"city\\":\\"Paris\\"}"}}\n',
+          'data: {"type":"message_stop"}\n'
+        ])
+      )
+      .mockResolvedValueOnce(streamResponse([]))
+    const chunks: ChatStreamMessage[] = []
+    const provider = new AnthropicProvider(config)
+
+    await provider.streamChat(
+      {
+        model: "claude-sonnet",
+        messages: [{ role: "user", content: "Weather?" }],
+        tools: [weatherTool],
+        think: true
+      },
+      (chunk) => chunks.push(chunk)
+    )
+
+    const toolChunk = chunks.find((chunk) => chunk.toolCalls)
+    expect(toolChunk?.replayArtifact?.blocks).toEqual([
+      {
+        type: "thinking",
+        thinking: "plan",
+        signature: "opaque-signature"
+      },
+      { type: "redacted_thinking", data: "opaque-redacted" },
+      {
+        type: "tool_use",
+        id: "tool-1",
+        name: "weather",
+        input: { city: "Paris" }
+      }
+    ])
+
+    await provider.streamChat(
+      {
+        model: "claude-sonnet",
+        messages: [
+          { role: "user", content: "Weather?" },
+          {
+            role: "assistant",
+            content: "",
+            toolCalls: toolChunk?.toolCalls,
+            replayArtifact: toolChunk?.replayArtifact
+          },
+          {
+            role: "tool",
+            content: "18 C",
+            toolName: "weather",
+            toolCallId: "tool-1"
+          }
+        ],
+        tools: [weatherTool],
+        think: true
+      },
+      () => {}
+    )
+
+    const secondBody = JSON.parse(
+      (fetchMock.mock.calls[1]?.[1] as RequestInit).body as string
+    )
+    expect(secondBody.messages[1].content).toEqual(
+      toolChunk?.replayArtifact?.blocks
+    )
+    expect(secondBody.thinking).toEqual({
+      type: "enabled",
+      budget_tokens: 2048
+    })
+  })
+
+  it("preserves an omitted thinking block when only its signature is streamed", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      streamResponse([
+        'data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}}\n',
+        'data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"encrypted-full-thinking"}}\n',
+        'data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"tool-1","name":"weather"}}\n',
+        'data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{}"}}\n',
+        'data: {"type":"message_stop"}\n'
+      ])
+    )
+    const chunks: ChatStreamMessage[] = []
+
+    await new AnthropicProvider(config).streamChat(
+      {
+        model: "claude-sonnet",
+        messages: [{ role: "user", content: "Weather?" }],
+        tools: [weatherTool],
+        think: true
+      },
+      (chunk) => chunks.push(chunk)
+    )
+
+    expect(
+      chunks.find((chunk) => chunk.toolCalls)?.replayArtifact?.blocks[0]
+    ).toEqual({
+      type: "thinking",
+      thinking: "",
+      signature: "encrypted-full-thinking"
+    })
+    expect(chunks.some((chunk) => chunk.thinkingDelta)).toBe(false)
   })
 
   it("collapses the unlimited num_predict sentinel to a positive max_tokens", async () => {

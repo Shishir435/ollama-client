@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { ensureMessagesReplayArtifactColumn } from "../add-message-replay-artifact-column"
 import { ensureMessagesThinkingColumn } from "../add-thinking-column"
 
 // ─── add-thinking-column ──────────────────────────────────────────────────────
@@ -39,5 +40,21 @@ describe("ensureMessagesThinkingColumn", () => {
     ensureMessagesThinkingColumn(freshDb as any)
     // prepare was called — statement was freed
     expect(freshDb.prepare).toHaveBeenCalledWith("PRAGMA table_info(messages)")
+  })
+})
+
+describe("ensureMessagesReplayArtifactColumn", () => {
+  it("does nothing when replayArtifact already exists", () => {
+    const db = makeDb(["id", "replayArtifact"])
+    ensureMessagesReplayArtifactColumn(db as any)
+    expect(db.run).not.toHaveBeenCalled()
+  })
+
+  it("adds replayArtifact to legacy message tables", () => {
+    const db = makeDb(["id", "content", "thinking"])
+    ensureMessagesReplayArtifactColumn(db as any)
+    expect(db.run).toHaveBeenCalledWith(
+      "ALTER TABLE messages ADD COLUMN replayArtifact TEXT"
+    )
   })
 })

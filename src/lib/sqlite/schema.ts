@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS messages (
   done INTEGER DEFAULT 1,
   metrics TEXT,
   thinking TEXT,
+  replayArtifact TEXT,
   FOREIGN KEY(sessionId) REFERENCES sessions(id) ON DELETE CASCADE
 );
 

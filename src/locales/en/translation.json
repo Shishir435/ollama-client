@@ -433,6 +433,7 @@
       "no_message": "No message",
       "response_failed_title": "Response Generation Failed",
       "unknown_error_description": "An unknown error occurred",
+      "provider_replay_invalid": "This response cannot be continued safely. Retry the turn to rebuild its provider context.",
       "report_issue": "Report issue"
     },
     "composer": {

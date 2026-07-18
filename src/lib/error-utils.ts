@@ -11,6 +11,7 @@ export type AppErrorKind =
 export type AppErrorOptions = {
   kind?: AppErrorKind
   status?: number
+  messageKey?: string
   userMessage?: string
   retryable?: boolean
   retryAfterMs?: number
@@ -23,6 +24,7 @@ export type AppErrorOptions = {
 export class AppError extends Error {
   kind: AppErrorKind
   status?: number
+  messageKey?: string
   userMessage?: string
   retryable?: boolean
   retryAfterMs?: number
@@ -35,6 +37,7 @@ export class AppError extends Error {
     this.name = "AppError"
     this.kind = options.kind || "unknown"
     this.status = options.status
+    this.messageKey = options.messageKey
     this.userMessage = options.userMessage
     this.retryable = options.retryable
     this.retryAfterMs = options.retryAfterMs

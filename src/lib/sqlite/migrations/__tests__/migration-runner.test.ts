@@ -31,6 +31,12 @@ vi.mock("../add-session-tags-column", () => ({
   ensureSessionsTagsColumn: (db: unknown) => ensureSessionsTagsColumn(db)
 }))
 
+const ensureMessagesReplayArtifactColumn = vi.fn()
+vi.mock("../add-message-replay-artifact-column", () => ({
+  ensureMessagesReplayArtifactColumn: (db: unknown) =>
+    ensureMessagesReplayArtifactColumn(db)
+}))
+
 import {
   getSchemaVersion,
   LATEST_SCHEMA_VERSION,
@@ -63,6 +69,7 @@ beforeEach(() => {
   ensureSessionsSystemPromptColumn.mockClear()
   ensureToolLoopRunsTable.mockClear()
   ensureSessionsTagsColumn.mockClear()
+  ensureMessagesReplayArtifactColumn.mockClear()
 })
 
 describe("migration-runner", () => {
@@ -100,6 +107,7 @@ describe("migration-runner", () => {
     expect(ensureSessionsSystemPromptColumn).toHaveBeenCalledTimes(1)
     expect(ensureToolLoopRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledTimes(1)
+    expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -113,6 +121,7 @@ describe("migration-runner", () => {
     expect(ensureSessionsSystemPromptColumn).toHaveBeenCalledTimes(1)
     expect(ensureToolLoopRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledTimes(1)
+    expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 

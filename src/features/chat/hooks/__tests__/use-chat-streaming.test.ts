@@ -203,6 +203,13 @@ describe("useChatStreaming", () => {
         id: 11,
         content: "complete",
         thinking: "done thinking",
+        replayArtifact: {
+          version: 1 as const,
+          wire: "openai" as const,
+          providerId: "openrouter",
+          model: "m",
+          blocks: [{ type: "reasoning.encrypted", data: "opaque" }]
+        },
         done: true,
         metrics: { eval_count: 5 }
       }
@@ -220,7 +227,11 @@ describe("useChatStreaming", () => {
     expect(spies.updateMessage).toHaveBeenNthCalledWith(
       3,
       11,
-      expect.objectContaining({ content: "complete", done: true }),
+      expect.objectContaining({
+        content: "complete",
+        done: true,
+        replayArtifact: finalMessages[0].replayArtifact
+      }),
       false
     )
 
