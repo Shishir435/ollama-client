@@ -37,7 +37,7 @@ export const clearModelToolCapabilityCache = () => {
 }
 
 /** How the resolved tools should be driven for this turn. */
-export type ToolCallingMode = "native" | "non-native"
+export type ToolCallingMode = "native" | "native-user-results" | "non-native"
 
 export interface ResolvedModelTools {
   tools: ToolDefinition[]
@@ -151,7 +151,11 @@ export const resolveModelTools = async (
   // non-tool-calling model without the opt-in gets no tools (unchanged behavior).
   let mode: ToolCallingMode
   if (capabilities.toolCalling) {
-    mode = "native"
+    mode =
+      probed?.toolCalling === true &&
+      probed.toolCallingMode === "native-user-results"
+        ? "native-user-results"
+        : "native"
   } else {
     const override = await getToolModelOverride(resolvedProviderId, model)
     if (!override?.nonNativeToolFallback) return undefined

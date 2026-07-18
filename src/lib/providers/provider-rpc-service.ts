@@ -236,6 +236,7 @@ export const ProviderRpcService = {
     }
     if (tool.status === "fulfilled") {
       result.toolCalling = tool.value.toolCalling
+      result.toolCallingMode = tool.value.toolCallingMode
     }
     if (reasoning.status === "fulfilled") {
       result.reasoning = reasoning.value.reasoning

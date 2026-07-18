@@ -2,7 +2,7 @@ import { flushSave, query, run } from "@/lib/sqlite/db"
 import type { ToolCall } from "@/lib/tools"
 import type { ChatMessage, ToolRun } from "@/types"
 
-export type ToolLoopMode = "native" | "non-native"
+export type ToolLoopMode = "native" | "native-user-results" | "non-native"
 export type ToolLoopRunStatus = "running" | "awaiting-confirmation"
 
 export interface DurableToolLoopState {
@@ -43,7 +43,9 @@ interface ToolLoopRunRow {
 const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun | null => {
   try {
     if (
-      (row.mode !== "native" && row.mode !== "non-native") ||
+      (row.mode !== "native" &&
+        row.mode !== "native-user-results" &&
+        row.mode !== "non-native") ||
       (row.status !== "running" && row.status !== "awaiting-confirmation")
     ) {
       return null

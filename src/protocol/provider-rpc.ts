@@ -217,6 +217,7 @@ export const ProvidersProbeModelCapabilitiesRequestSchema = z
 export const ProvidersProbeModelCapabilitiesResultSchema = z
   .object({
     toolCalling: z.boolean().optional(),
+    toolCallingMode: z.enum(["native", "native-user-results"]).optional(),
     reasoning: z.boolean().optional(),
     vision: z.boolean().optional(),
     probedAt: z.number().int().nonnegative()

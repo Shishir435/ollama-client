@@ -44,10 +44,11 @@ describe("probeToolCalling", () => {
 
     const result = await probeToolCalling(provider, "m")
     expect(result.toolCalling).toBe(true)
+    expect(result.toolCallingMode).toBe("native")
     expect(provider.streamChat).toHaveBeenCalledTimes(2)
   })
 
-  it("reports false when the model calls a tool but rejects its result", async () => {
+  it("uses user-role results when the standard tool role is rejected", async () => {
     const provider = providerWith([])
     vi.mocked(provider.streamChat)
       .mockImplementationOnce(async (_request, onChunk) => {
@@ -61,17 +62,48 @@ describe("probeToolCalling", () => {
       .mockRejectedValueOnce(
         new Error("Conversation roles must alternate user/assistant")
       )
+      .mockImplementationOnce(async (_request, onChunk) => {
+        onChunk({ delta: "pong received" })
+        onChunk({ done: true })
+      })
 
     const result = await probeToolCalling(provider, "m")
 
-    expect(result.toolCalling).toBe(false)
-    const followUp = vi.mocked(provider.streamChat).mock.calls[1]?.[0]
-    expect(followUp?.messages.map((message) => message.role)).toEqual([
+    expect(result).toMatchObject({
+      toolCalling: true,
+      toolCallingMode: "native-user-results"
+    })
+    const standardFollowUp = vi.mocked(provider.streamChat).mock.calls[1]?.[0]
+    expect(standardFollowUp?.messages.map((message) => message.role)).toEqual([
       "user",
       "assistant",
       "tool"
     ])
-    expect(followUp?.tool_choice).toBe("none")
+    const compatibleFollowUp = vi.mocked(provider.streamChat).mock.calls[2]?.[0]
+    expect(compatibleFollowUp?.messages.map((message) => message.role)).toEqual(
+      ["user", "assistant", "user"]
+    )
+    expect(compatibleFollowUp?.messages[1]?.toolCalls).toHaveLength(1)
+    expect(compatibleFollowUp?.tool_choice).toBe("none")
+  })
+
+  it("reports false when both tool-result transports fail", async () => {
+    const provider = providerWith([])
+    vi.mocked(provider.streamChat)
+      .mockImplementationOnce(async (_request, onChunk) => {
+        onChunk({
+          toolCalls: [
+            { id: "ping_0", name: "ping", arguments: { value: "pong" } }
+          ]
+        })
+        onChunk({ done: true })
+      })
+      .mockRejectedValueOnce(new Error("tool role rejected"))
+      .mockRejectedValueOnce(new Error("user result rejected"))
+
+    await expect(probeToolCalling(provider, "m")).resolves.toMatchObject({
+      toolCalling: false
+    })
   })
 
   it("reports toolCalling false when the model answers in text", async () => {

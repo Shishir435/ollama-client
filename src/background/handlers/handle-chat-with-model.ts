@@ -319,6 +319,8 @@ export const handleChatWithModel = withErrorContext(
               signal: ac.signal,
               ctx,
               toolResultMaxChars,
+              toolResultMode:
+                resolvedTools.mode === "native-user-results" ? "user" : "tool",
               initialState,
               onCheckpoint
             })
