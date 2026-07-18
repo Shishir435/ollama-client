@@ -446,6 +446,72 @@ describe("messages", () => {
     ])
   })
 
+  it("atomically repairs a missing session and appends its message", async () => {
+    mockedQuery.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 43 }])
+    mockedRun.mockResolvedValue(undefined)
+
+    const id = await repo.appendMessage(
+      {
+        sessionId: "repaired",
+        role: "user",
+        content: "Hi",
+        timestamp: 100
+      },
+      [],
+      {
+        id: "repaired",
+        title: "Recovered",
+        createdAt: 1,
+        updatedAt: 1,
+        messages: []
+      }
+    )
+
+    expect(id).toBe(43)
+    expect(mockedRun.mock.calls.map(([sql]) => sql)).toEqual(
+      expect.arrayContaining([
+        "BEGIN IMMEDIATE",
+        expect.stringContaining("INSERT OR REPLACE INTO sessions"),
+        expect.stringContaining("INSERT INTO messages"),
+        expect.stringContaining("UPDATE sessions SET"),
+        "COMMIT"
+      ])
+    )
+  })
+
+  it("rolls back the append when a file write fails", async () => {
+    mockedQuery
+      .mockResolvedValueOnce([{ id: "s1" }])
+      .mockResolvedValueOnce([{ id: 44 }])
+    mockedRun.mockImplementation(async (sql) => {
+      if (sql.includes("INSERT INTO files")) throw new Error("file failed")
+    })
+
+    await expect(
+      repo.appendMessage(
+        {
+          sessionId: "s1",
+          role: "user",
+          content: "Hi",
+          timestamp: 100
+        },
+        [
+          {
+            fileId: "f1",
+            sessionId: "s1",
+            fileType: "text/plain",
+            fileName: "a.txt",
+            fileSize: 1,
+            processedAt: 100
+          }
+        ]
+      )
+    ).rejects.toThrow("file failed")
+
+    expect(mockedRun).toHaveBeenLastCalledWith("ROLLBACK")
+    expect(mockedRun.mock.calls.some(([sql]) => sql === "COMMIT")).toBe(false)
+  })
+
   it("updateMessage stringifies metrics and encodes done as 0/1", async () => {
     mockedRun.mockResolvedValueOnce(undefined)
     await repo.updateMessage(5, { metrics: { eval_count: 1 }, done: false })

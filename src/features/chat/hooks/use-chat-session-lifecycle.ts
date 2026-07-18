@@ -16,7 +16,12 @@ export const useChatSessionLifecycle = ({
   renameSessionTitle
 }: ChatSessionLifecycleOptions) => {
   const ensureSessionId = async (): Promise<string | null> => {
-    if (currentSessionId) return currentSessionId
+    if (
+      currentSessionId &&
+      sessions.some((session) => session.id === currentSessionId)
+    ) {
+      return currentSessionId
+    }
     const sessionId = await createSession()
     setCurrentSessionId(sessionId)
     return sessionId

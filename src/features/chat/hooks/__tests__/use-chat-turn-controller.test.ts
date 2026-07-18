@@ -85,4 +85,74 @@ describe("useChatTurnController", () => {
       expect.objectContaining({ role: "user", content: "question\n\ncontext" })
     ])
   })
+
+  it("continues the turn when automatic title rename fails", async () => {
+    const generateResponse = vi.fn().mockResolvedValue(undefined)
+    const toast = vi.fn()
+    const { result } = renderHook(() =>
+      useChatTurnController({
+        config: baseConfig as any,
+        input: "question",
+        setInput: vi.fn(),
+        selectedTabIds: [],
+        contextText: "",
+        tabDocuments: [],
+        messages: [],
+        setIsLoading: vi.fn(),
+        setIsStreaming: vi.fn(),
+        ensureSessionId: vi.fn().mockResolvedValue("session-1"),
+        autoRenameSession: vi
+          .fn()
+          .mockRejectedValue(new Error("rename failed")),
+        addMessage: vi.fn().mockResolvedValue(1),
+        setNextResponseMetrics: vi.fn(),
+        clearNextResponseMetrics: vi.fn(),
+        generateResponse,
+        toast
+      })
+    )
+
+    await act(async () => {
+      await result.current.sendMessage()
+    })
+
+    expect(generateResponse).toHaveBeenCalledOnce()
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Couldn't send message" })
+    )
+  })
+
+  it("reports session creation failures without attempting a write", async () => {
+    const addMessage = vi.fn()
+    const toast = vi.fn()
+    const { result } = renderHook(() =>
+      useChatTurnController({
+        config: baseConfig as any,
+        input: "question",
+        setInput: vi.fn(),
+        selectedTabIds: [],
+        contextText: "",
+        tabDocuments: [],
+        messages: [],
+        setIsLoading: vi.fn(),
+        setIsStreaming: vi.fn(),
+        ensureSessionId: vi.fn().mockRejectedValue(new Error("session failed")),
+        autoRenameSession: vi.fn(),
+        addMessage,
+        setNextResponseMetrics: vi.fn(),
+        clearNextResponseMetrics: vi.fn(),
+        generateResponse: vi.fn(),
+        toast
+      })
+    )
+
+    await act(async () => {
+      await result.current.sendMessage()
+    })
+
+    expect(addMessage).not.toHaveBeenCalled()
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Couldn't start chat" })
+    )
+  })
 })

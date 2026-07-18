@@ -50,9 +50,8 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("addMessage", () => {
-  it("calls repo.addMessage with the correct shape", async () => {
-    mockRepo.addMessage.mockResolvedValue(99)
-    mockRepo.updateSession.mockResolvedValue(undefined as any)
+  it("atomically appends a message with the correct shape", async () => {
+    mockRepo.appendMessage.mockResolvedValue(99)
     setupLoadSessionMessagesMocks()
 
     chatSessionStore.setState({
@@ -76,20 +75,24 @@ describe("addMessage", () => {
     }
     await chatSessionStore.getState().addMessage(SESSION_ID, message as any)
 
-    expect(mockRepo.addMessage).toHaveBeenCalledWith(
+    expect(mockRepo.appendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: SESSION_ID,
         role: "user",
         content: "hello",
         timestamp: 1000
-      })
+      }),
+      [],
+      expect.objectContaining({ id: SESSION_ID })
     )
   })
 
-  it("calls repo.updateSession with updatedAt and currentLeafId after adding", async () => {
-    mockRepo.addMessage.mockResolvedValue(42)
-    mockRepo.updateSession.mockResolvedValue(undefined as any)
-    setupLoadSessionMessagesMocks()
+  it("updates local leaf state after the atomic append", async () => {
+    mockRepo.appendMessage.mockResolvedValue(42)
+    setupLoadSessionMessagesMocks(
+      [{ id: 42, role: "user", content: "hi", timestamp: 2 }],
+      { id: SESSION_ID, title: "Test", currentLeafId: 42 }
+    )
 
     chatSessionStore.setState({
       sessions: [
@@ -109,19 +112,12 @@ describe("addMessage", () => {
       .getState()
       .addMessage(SESSION_ID, { role: "user", content: "hi" } as any)
 
-    expect(mockRepo.updateSession).toHaveBeenCalledWith(
-      SESSION_ID,
-      expect.objectContaining({ currentLeafId: 42 })
-    )
-    expect(
-      (mockRepo.updateSession.mock.calls[0][1] as any).updatedAt
-    ).toBeDefined()
+    expect(mockRepo.appendMessage).toHaveBeenCalledOnce()
+    expect(chatSessionStore.getState().sessions[0]?.currentLeafId).toBe(42)
   })
 
-  it("calls repo.bulkAddFiles when message has attachments", async () => {
-    mockRepo.addMessage.mockResolvedValue(10)
-    mockRepo.updateSession.mockResolvedValue(undefined as any)
-    mockRepo.bulkAddFiles.mockResolvedValue(undefined as any)
+  it("includes attachments in the atomic append", async () => {
+    mockRepo.appendMessage.mockResolvedValue(10)
     setupLoadSessionMessagesMocks()
 
     chatSessionStore.setState({
@@ -151,20 +147,20 @@ describe("addMessage", () => {
       attachments: [attachment]
     } as any)
 
-    expect(mockRepo.bulkAddFiles).toHaveBeenCalledWith(
+    expect(mockRepo.appendMessage).toHaveBeenCalledWith(
+      expect.anything(),
       expect.arrayContaining([
         expect.objectContaining({
           fileId: "f1",
-          messageId: 10,
           sessionId: SESSION_ID
         })
-      ])
+      ]),
+      expect.objectContaining({ id: SESSION_ID })
     )
   })
 
   it("calls loadSessionMessages after adding (repo.getSession is called)", async () => {
-    mockRepo.addMessage.mockResolvedValue(5)
-    mockRepo.updateSession.mockResolvedValue(undefined as any)
+    mockRepo.appendMessage.mockResolvedValue(5)
     setupLoadSessionMessagesMocks()
 
     chatSessionStore.setState({
@@ -189,8 +185,7 @@ describe("addMessage", () => {
   })
 
   it("uses last message id as parentId when currentLeafId is not set", async () => {
-    mockRepo.addMessage.mockResolvedValue(7)
-    mockRepo.updateSession.mockResolvedValue(undefined as any)
+    mockRepo.appendMessage.mockResolvedValue(7)
     setupLoadSessionMessagesMocks()
 
     chatSessionStore.setState({
@@ -211,9 +206,39 @@ describe("addMessage", () => {
       .getState()
       .addMessage(SESSION_ID, { role: "assistant", content: "resp" } as any)
 
-    expect(mockRepo.addMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ parentId: 55 })
+    expect(mockRepo.appendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: 55 }),
+      [],
+      expect.objectContaining({ id: SESSION_ID })
     )
+  })
+
+  it("keeps the optimistic message when post-save refresh fails", async () => {
+    mockRepo.appendMessage.mockResolvedValue(8)
+    mockRepo.getSession.mockRejectedValue(new Error("read failed"))
+
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: SESSION_ID,
+          title: "T",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: []
+        }
+      ],
+      currentSessionId: SESSION_ID
+    })
+
+    await expect(
+      chatSessionStore
+        .getState()
+        .addMessage(SESSION_ID, { role: "user", content: "saved" } as any)
+    ).resolves.toBe(8)
+
+    expect(chatSessionStore.getState().sessions[0]?.messages).toEqual([
+      expect.objectContaining({ id: 8, content: "saved" })
+    ])
   })
 })
 
@@ -300,8 +325,7 @@ describe("forkMessage", () => {
       parentId: 10,
       model: "llama3"
     } as any)
-    mockRepo.addMessage.mockResolvedValue(21)
-    mockRepo.updateSession.mockResolvedValue(undefined as any)
+    mockRepo.appendMessage.mockResolvedValue(21)
     setupLoadSessionMessagesMocks()
 
     chatSessionStore.setState({
@@ -323,7 +347,7 @@ describe("forkMessage", () => {
     expect(mockRepo.getMessage).toHaveBeenCalledWith(20)
   })
 
-  it("calls repo.addMessage with parentId and role from original message", async () => {
+  it("atomically appends the fork with the original parent and role", async () => {
     mockRepo.getMessage.mockResolvedValue({
       id: 20,
       role: "user",
@@ -332,8 +356,7 @@ describe("forkMessage", () => {
       parentId: 10,
       model: "llama3"
     } as any)
-    mockRepo.addMessage.mockResolvedValue(21)
-    mockRepo.updateSession.mockResolvedValue(undefined as any)
+    mockRepo.appendMessage.mockResolvedValue(21)
     setupLoadSessionMessagesMocks()
 
     chatSessionStore.setState({
@@ -352,17 +375,19 @@ describe("forkMessage", () => {
 
     await chatSessionStore.getState().forkMessage(SESSION_ID, 20, "forked")
 
-    expect(mockRepo.addMessage).toHaveBeenCalledWith(
+    expect(mockRepo.appendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         role: "user",
         content: "forked",
         parentId: 10,
         sessionId: SESSION_ID
-      })
+      }),
+      [],
+      expect.objectContaining({ id: SESSION_ID })
     )
   })
 
-  it("calls repo.updateSession with new currentLeafId", async () => {
+  it("returns the id from the atomic fork append", async () => {
     mockRepo.getMessage.mockResolvedValue({
       id: 20,
       role: "user",
@@ -371,8 +396,7 @@ describe("forkMessage", () => {
       parentId: 10,
       model: "llama3"
     } as any)
-    mockRepo.addMessage.mockResolvedValue(21)
-    mockRepo.updateSession.mockResolvedValue(undefined as any)
+    mockRepo.appendMessage.mockResolvedValue(21)
     setupLoadSessionMessagesMocks()
 
     chatSessionStore.setState({
@@ -389,12 +413,9 @@ describe("forkMessage", () => {
       currentSessionId: SESSION_ID
     })
 
-    await chatSessionStore.getState().forkMessage(SESSION_ID, 20, "forked")
-
-    expect(mockRepo.updateSession).toHaveBeenCalledWith(
-      SESSION_ID,
-      expect.objectContaining({ currentLeafId: 21 })
-    )
+    await expect(
+      chatSessionStore.getState().forkMessage(SESSION_ID, 20, "forked")
+    ).resolves.toBe(21)
   })
 
   it("returns the new message id", async () => {
@@ -406,8 +427,7 @@ describe("forkMessage", () => {
       parentId: 10,
       model: "llama3"
     } as any)
-    mockRepo.addMessage.mockResolvedValue(99)
-    mockRepo.updateSession.mockResolvedValue(undefined as any)
+    mockRepo.appendMessage.mockResolvedValue(99)
     setupLoadSessionMessagesMocks()
 
     chatSessionStore.setState({

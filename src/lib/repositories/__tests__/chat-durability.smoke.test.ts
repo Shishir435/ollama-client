@@ -199,6 +199,40 @@ describe("S1 — chat-history survives a service-worker restart", () => {
     },
     TIMEOUT
   )
+
+  it(
+    "repairs a missing live session while atomically appending a message",
+    async () => {
+      const first = await bootFreshContext()
+      const session = makeSession("s-repaired")
+
+      await first.facade.appendMessage(
+        {
+          sessionId: session.id,
+          role: "user",
+          content: "survives repaired session",
+          timestamp: 1_700_000_000_004
+        },
+        [],
+        session
+      )
+      await first.db.flushSave()
+
+      const second = await bootFreshContext()
+      await expect(second.facade.getSession(session.id)).resolves.toMatchObject(
+        {
+          id: session.id,
+          currentLeafId: expect.any(Number)
+        }
+      )
+      await expect(
+        second.facade.getMessagesBySession(session.id)
+      ).resolves.toEqual([
+        expect.objectContaining({ content: "survives repaired session" })
+      ])
+    },
+    TIMEOUT
+  )
 })
 
 describe("S2 — reset actually wipes data", () => {
