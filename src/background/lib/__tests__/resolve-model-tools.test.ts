@@ -11,6 +11,15 @@ vi.mock("@/lib/providers/model-capability-overrides", () => ({
   getModelCapabilityOverride: vi.fn(async () => null)
 }))
 
+let probedCapability: {
+  toolCalling?: boolean
+  toolCallingMode?: "native" | "native-user-results"
+  probedAt: number
+} | null = null
+vi.mock("@/lib/providers/capability-probe", () => ({
+  getCapabilityProbe: vi.fn(async () => probedCapability)
+}))
+
 const baseDefinitions: ToolDefinition[] = [
   {
     name: "current_tab",
@@ -99,6 +108,7 @@ describe("resolveModelTools", () => {
     toolSettings = allOn
     definitions = baseDefinitions
     modelOverride = null
+    probedCapability = null
   })
 
   it("re-reads cached model capability tags after the short TTL expires", async () => {
@@ -240,6 +250,21 @@ describe("resolveModelTools", () => {
     await expect(
       resolveModelTools("plain", "ollama", nonToolModel)
     ).resolves.toEqual({ tools: definitions, mode: "non-native" })
+  })
+
+  it("uses alternating user-role results when the probe detects that mode", async () => {
+    probedCapability = {
+      toolCalling: true,
+      toolCallingMode: "native-user-results",
+      probedAt: 1
+    }
+    const nonToolModel = providerWithDetails(
+      vi.fn(async () => ({ capabilities: ["completion"] }))
+    )
+
+    await expect(
+      resolveModelTools("gemma", "llamacpp", nonToolModel)
+    ).resolves.toEqual({ tools: definitions, mode: "native-user-results" })
   })
 
   it("still honors family governance in non-native mode", async () => {

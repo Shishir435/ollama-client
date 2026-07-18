@@ -1464,6 +1464,8 @@
         "failed_title": "无法添加提供商",
         "remove": "移除",
         "remove_failed_title": "无法移除提供商",
+        "removed_title": "已移除提供商",
+        "removed_description": "已移除 {{name}}。",
         "remove_confirm_title": "移除 {{name}}？",
         "remove_confirm_description": "其连接设置和模型映射将被删除。你的聊天记录会保留。",
         "custom_badge": "自定义"

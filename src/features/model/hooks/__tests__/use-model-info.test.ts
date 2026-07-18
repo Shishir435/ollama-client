@@ -27,6 +27,7 @@ const mockProvider = (
 ) => {
   vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue({
     id,
+    capabilities: { modelDetails: Boolean(getModelDetails) },
     getModelDetails
   } as never)
 }
@@ -127,6 +128,25 @@ describe("useModelInfo", () => {
     })
     expect(result.current.error).toBeNull()
     expect(result.current.modelInfo).toBeNull()
+  })
+
+  it("does not call an inherited null detail method when unsupported", async () => {
+    const getModelDetails = vi.fn().mockResolvedValue(null)
+    vi.mocked(ProviderFactory.getProviderForModel).mockResolvedValue({
+      id: "llama-cpp",
+      capabilities: { modelDetails: false },
+      getModelDetails
+    } as never)
+
+    const { result } = renderHook(
+      () => useModelInfo("gemma.gguf", "llama-cpp"),
+      { wrapper: createWrapper() }
+    )
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).toBeNull()
+    expect(getModelDetails).not.toHaveBeenCalled()
+    expect(browser.runtime.sendMessage).not.toHaveBeenCalled()
   })
 
   it("falls back to the worker (structured payload preserves providerId) when in-page fetch throws", async () => {

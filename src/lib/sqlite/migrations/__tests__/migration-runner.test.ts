@@ -41,13 +41,26 @@ import {
   getSchemaVersion,
   LATEST_SCHEMA_VERSION,
   MIGRATIONS,
+  repairSchemaDrift,
   runMigrations,
   setSchemaVersion
 } from "../migration-runner"
 
 // Minimal sql.js Database stub that models `PRAGMA user_version`.
-const makeDb = (initialVersion = 0) => {
+const makeDb = (
+  initialVersion = 0,
+  schema: {
+    messages?: string[]
+    sessions?: string[]
+    tables?: string[]
+  } = {}
+) => {
   let userVersion = initialVersion
+  const columns = {
+    messages: schema.messages ?? ["thinking", "replayArtifact"],
+    sessions: schema.sessions ?? ["pinned", "systemPrompt", "tags"]
+  }
+  const tables = new Set(schema.tables ?? ["tool_loop_runs"])
   return {
     getVersion: () => userVersion,
     exec: vi.fn((sql: string) => {
@@ -59,6 +72,32 @@ const makeDb = (initialVersion = 0) => {
     run: vi.fn((sql: string) => {
       const match = /PRAGMA user_version = (\d+)/.exec(sql)
       if (match) userVersion = Number(match[1])
+    }),
+    prepare: vi.fn((sql: string) => {
+      const tableInfoMatch = /PRAGMA table_info\((messages|sessions)\)/.exec(
+        sql
+      )
+      const rows = tableInfoMatch
+        ? columns[tableInfoMatch[1] as "messages" | "sessions"].map((name) => ({
+            name
+          }))
+        : []
+      let index = -1
+      let boundTable = ""
+      return {
+        bind: vi.fn((values: string[]) => {
+          boundTable = values[0] ?? ""
+        }),
+        step: vi.fn(() => {
+          if (tableInfoMatch) {
+            index += 1
+            return index < rows.length
+          }
+          return tables.has(boundTable)
+        }),
+        getAsObject: vi.fn(() => rows[index] ?? {}),
+        free: vi.fn()
+      }
     })
   }
 }
@@ -139,5 +178,34 @@ describe("migration-runner", () => {
     const applied = runMigrations(db as never)
     expect(applied).toBe(0)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
+  })
+
+  it("repairs physical schema drift even at the latest recorded version", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION, {
+      messages: ["thinking"],
+      sessions: ["pinned", "systemPrompt"],
+      tables: []
+    })
+
+    const repaired = repairSchemaDrift(db as never)
+
+    expect(repaired).toBe(3)
+    expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledWith(db)
+    expect(ensureSessionsTagsColumn).toHaveBeenCalledWith(db)
+    expect(ensureToolLoopRunsTable).toHaveBeenCalledWith(db)
+    expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
+    expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
+  })
+
+  it("does not rewrite a complete physical schema", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION)
+
+    expect(repairSchemaDrift(db as never)).toBe(0)
+    expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
+    expect(ensureMessagesReplayArtifactColumn).not.toHaveBeenCalled()
+    expect(ensureSessionsPinnedColumn).not.toHaveBeenCalled()
+    expect(ensureSessionsSystemPromptColumn).not.toHaveBeenCalled()
+    expect(ensureSessionsTagsColumn).not.toHaveBeenCalled()
+    expect(ensureToolLoopRunsTable).not.toHaveBeenCalled()
   })
 })

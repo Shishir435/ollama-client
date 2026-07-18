@@ -439,6 +439,47 @@ export const addMessage = async (
   return rows[0].id as number
 }
 
+/**
+ * Atomically append a message, its files, and the session's active-leaf
+ * pointer. A live session snapshot may be supplied to repair a session row
+ * lost by a stale or competing sql.js context.
+ */
+export const appendMessage = async (
+  message: Omit<StoredMessage, "id">,
+  files: Array<FileAttachment & { sessionId: string; messageId?: number }> = [],
+  session?: ChatSession
+): Promise<number> => {
+  let messageId: number | undefined
+
+  await withTransaction(async () => {
+    const existing = await query("SELECT id FROM sessions WHERE id = ?", [
+      message.sessionId
+    ])
+    if (existing.length === 0) {
+      if (!session || session.id !== message.sessionId) {
+        throw new Error(`Session ${message.sessionId} was not found`)
+      }
+      await putSessionRow(session)
+    }
+
+    messageId = await addMessage(message)
+    if (files.length > 0) {
+      await bulkAddFiles(
+        files.map((file) => ({ ...file, messageId: messageId as number }))
+      )
+    }
+    await updateSession(message.sessionId, {
+      updatedAt: Date.now(),
+      currentLeafId: messageId
+    })
+  })
+
+  if (messageId === undefined) {
+    throw new Error("Message append completed without an id")
+  }
+  return messageId
+}
+
 export const updateMessage = async (
   id: number,
   updates: Partial<ChatMessage>

@@ -29,7 +29,7 @@ describe("provider capabilities", () => {
       modelPull: false,
       modelUnload: false,
       modelDelete: false,
-      toolCalling: true
+      toolCalling: false
     })
   })
 
@@ -170,8 +170,7 @@ describe("getModelCapabilities", () => {
   })
 
   it("applies a probe result over detection (probed, medium confidence)", () => {
-    // llama.cpp default would be provider-level toolCalling; probe is
-    // empirical evidence from the actual server and wins.
+    // A negative probe remains authoritative over provider defaults.
     const caps = getModelCapabilities({
       providerId: ProviderId.LLAMA_CPP,
       probed: { toolCalling: false }
@@ -180,6 +179,17 @@ describe("getModelCapabilities", () => {
     expect(caps.toolCalling).toBe(false)
     expect(caps.source).toBe("probed")
     expect(caps.confidence).toBe("medium")
+  })
+
+  it("keeps llama.cpp tools off without model-level evidence", () => {
+    const caps = getModelCapabilities({
+      providerId: ProviderId.LLAMA_CPP,
+      contextLength: 32768
+    })
+
+    expect(caps.toolCalling).toBe(false)
+    expect(caps.source).toBe("provider-default")
+    expect(caps.confidence).toBe("low")
   })
 
   it("applies a reasoning probe over detection", () => {

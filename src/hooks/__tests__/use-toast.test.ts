@@ -90,6 +90,16 @@ describe("toast", () => {
       expect.objectContaining({ duration: undefined })
     )
   })
+
+  it("passes a labelled action to sonner", () => {
+    const action = { label: "Open new issue", onClick: vi.fn() }
+    toast({ title: "llama.cpp error", action })
+
+    expect(mockedSonnerToast).toHaveBeenCalledWith(
+      "llama.cpp error",
+      expect.objectContaining({ action })
+    )
+  })
 })
 
 describe("useToast", () => {

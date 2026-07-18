@@ -4,6 +4,7 @@ import { isAppError } from "@/lib/error-utils"
 import { OllamaProvider } from "../ollama"
 import { OpenAICompatibleProvider } from "../openai-compatible"
 import {
+  buildProviderServerIssueUrl,
   isLocalProviderBaseUrl,
   parseRetryAfter,
   providerErrorUserMessage
@@ -24,26 +25,34 @@ describe("providerErrorUserMessage", () => {
     expect(providerErrorUserMessage(400).toLowerCase()).toContain("vision")
   })
 
-  it("adds recovery steps and a new issue link for provider server errors", () => {
-    const msg = providerErrorUserMessage(500)
+  it("names the failing provider and keeps issue URLs out of message copy", () => {
+    const msg = providerErrorUserMessage(500, {
+      providerName: "llama.cpp",
+      model: "gemma.gguf"
+    })
 
-    expect(msg).toContain("provider app is running")
-    expect(msg).toContain("selected model is loaded")
+    expect(msg).toContain("llama.cpp returned a server error")
+    expect(msg).toContain("llama.cpp is running")
+    expect(msg).toContain('model "gemma.gguf" is loaded')
     expect(msg).toContain("base URL/port")
-    expect(msg).toContain("[open an issue](")
-    const issueUrlMatch = msg.match(/\[open an issue]\((?<url>.*)\)\./)
-    const issueUrlValue = issueUrlMatch?.groups?.url
+    expect(msg).not.toContain("http")
+    expect(msg).not.toContain("[open an issue]")
+
+    const issueUrlValue = buildProviderServerIssueUrl(500, {
+      providerName: "llama.cpp",
+      model: "gemma.gguf"
+    })
     expect(issueUrlValue).toContain(
       "https://github.com/Shishir435/ollama-client/issues/new?"
     )
-    if (!issueUrlValue) {
-      throw new Error("Expected provider error message to include an issue URL")
-    }
     const issueUrl = new URL(issueUrlValue)
     expect(issueUrl.searchParams.get("title")).toBe(
-      "[bug] Provider server error (500)"
+      "[bug] llama.cpp server error (500)"
     )
     expect(issueUrl.searchParams.get("body")).toContain("- Error status: 500")
+    expect(issueUrl.searchParams.get("body")).toContain(
+      "- Provider/model: llama.cpp / gemma.gguf"
+    )
   })
 
   it("points local 401/403 responses at CORS setup instead of credentials", () => {
@@ -171,6 +180,38 @@ describe("hosted provider retry metadata", () => {
         expect(error.retryable).toBe(true)
         expect(error.retryAfterMs).toBe(3000)
         expect(error.userMessage).toContain("3 seconds")
+      }
+    }
+  })
+})
+
+describe("provider-specific server errors", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it("includes the configured provider and selected model", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response('{"error":"template failure"}', { status: 500 })
+    )
+    const provider = new OpenAICompatibleProvider({
+      id: "llamacpp",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "http://localhost:8000/v1",
+      name: "llama.cpp"
+    })
+
+    try {
+      await provider.streamChat(
+        { model: "gemma.gguf", messages: [{ role: "user", content: "hi" }] },
+        () => {}
+      )
+      throw new Error("Expected streamChat to fail")
+    } catch (error) {
+      expect(isAppError(error)).toBe(true)
+      if (isAppError(error)) {
+        expect(error.userMessage).toContain("llama.cpp returned a server error")
+        expect(error.userMessage).toContain('model "gemma.gguf" is loaded')
+        expect(error.userMessage).not.toContain("https://")
       }
     }
   })

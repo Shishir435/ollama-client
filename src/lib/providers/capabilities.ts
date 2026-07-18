@@ -407,7 +407,9 @@ export const PROVIDER_CAPABILITIES: Record<ProviderId, ProviderCapabilities> = {
   },
   [ProviderId.LLAMA_CPP]: {
     ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES,
-    toolCalling: true
+    // Server transport support is not model/template support. Keep this off
+    // until a model-level probe or user override proves a complete tool loop.
+    toolCalling: false
   },
   [ProviderId.VLLM]: {
     ...OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES,

@@ -44,50 +44,82 @@ export type PublicProviderConfig = z.infer<typeof PublicProviderConfigSchema>
 const ProviderModelSchema = z
   .object({
     name: z.string().min(1),
-    model: z.string().optional(),
-    modified_at: z.string().optional(),
-    size: z.number().optional(),
-    digest: z.string().optional(),
-    providerId: z.string().optional(),
-    providerName: z.string().optional(),
-    family: z.string().optional(),
+    model: z.string().nullish(),
+    modified_at: z.string().nullish(),
+    size: z.number().nullish(),
+    digest: z.string().nullish(),
+    providerId: z.string().nullish(),
+    providerName: z.string().nullish(),
+    family: z.string().nullish(),
     details: z
       .object({
-        parent_model: z.string().optional(),
-        format: z.string().optional(),
-        family: z.string().optional(),
-        families: z.array(z.string()).optional(),
-        parameter_size: z.string().optional(),
-        quantization_level: z.string().optional()
+        parent_model: z.string().nullish(),
+        format: z.string().nullish(),
+        family: z.string().nullish(),
+        families: z.array(z.string()).nullish(),
+        parameter_size: z.string().nullish(),
+        quantization_level: z.string().nullish()
       })
-      .optional(),
+      .nullish(),
     capabilityHints: z
       .object({
-        modelType: z.string().optional(),
-        contextLength: z.number().optional(),
-        modalities: z.array(z.string()).max(50).optional(),
-        supportedParameters: z.array(z.string()).max(100).optional()
+        modelType: z.string().nullish(),
+        contextLength: z.number().nullish(),
+        modalities: z.array(z.string()).max(50).nullish(),
+        supportedParameters: z.array(z.string()).max(100).nullish()
       })
-      .optional()
+      .nullish()
   })
-  .transform(({ family, details, ...model }) => {
-    const resolvedFamily = details?.family ?? family ?? ""
-    return {
-      ...model,
-      model: model.model || model.name,
-      modified_at: model.modified_at ?? "",
-      size: model.size ?? 0,
-      digest: model.digest ?? "",
-      details: {
-        parent_model: details?.parent_model ?? "",
-        format: details?.format ?? "",
-        family: resolvedFamily,
-        families: details?.families ?? (resolvedFamily ? [resolvedFamily] : []),
-        parameter_size: details?.parameter_size ?? "",
-        quantization_level: details?.quantization_level ?? ""
+  .transform(
+    ({
+      family,
+      details,
+      capabilityHints,
+      providerId,
+      providerName,
+      ...model
+    }) => {
+      const resolvedFamily = details?.family ?? family ?? ""
+      const normalizedCapabilityHints = capabilityHints
+        ? {
+            ...(capabilityHints.modelType && {
+              modelType: capabilityHints.modelType
+            }),
+            ...(capabilityHints.contextLength != null && {
+              contextLength: capabilityHints.contextLength
+            }),
+            ...(capabilityHints.modalities && {
+              modalities: capabilityHints.modalities
+            }),
+            ...(capabilityHints.supportedParameters && {
+              supportedParameters: capabilityHints.supportedParameters
+            })
+          }
+        : undefined
+      return {
+        ...model,
+        model: model.model || model.name,
+        modified_at: model.modified_at ?? "",
+        size: model.size ?? 0,
+        digest: model.digest ?? "",
+        details: {
+          parent_model: details?.parent_model ?? "",
+          format: details?.format ?? "",
+          family: resolvedFamily,
+          families:
+            details?.families ?? (resolvedFamily ? [resolvedFamily] : []),
+          parameter_size: details?.parameter_size ?? "",
+          quantization_level: details?.quantization_level ?? ""
+        },
+        ...(providerId && { providerId }),
+        ...(providerName && { providerName }),
+        ...(normalizedCapabilityHints &&
+          Object.keys(normalizedCapabilityHints).length > 0 && {
+            capabilityHints: normalizedCapabilityHints
+          })
       }
     }
-  })
+  )
 
 export const ProvidersListRequestSchema = z.object({}).strict()
 export const ProvidersListResultSchema = z
@@ -185,6 +217,7 @@ export const ProvidersProbeModelCapabilitiesRequestSchema = z
 export const ProvidersProbeModelCapabilitiesResultSchema = z
   .object({
     toolCalling: z.boolean().optional(),
+    toolCallingMode: z.enum(["native", "native-user-results"]).optional(),
     reasoning: z.boolean().optional(),
     vision: z.boolean().optional(),
     probedAt: z.number().int().nonnegative()

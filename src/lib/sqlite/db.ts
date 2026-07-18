@@ -4,6 +4,7 @@ import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import {
   LATEST_SCHEMA_VERSION,
+  repairSchemaDrift,
   runMigrations,
   setSchemaVersion
 } from "./migrations/migration-runner"
@@ -160,7 +161,8 @@ export const initSQLite = async (): Promise<Database> => {
       // latest version above (no-op here); databases loaded from IndexedDB are
       // upgraded from their recorded `user_version` and persisted if changed.
       const appliedMigrations = runMigrations(db)
-      if (appliedMigrations > 0) {
+      const repairedSchemaItems = repairSchemaDrift(db)
+      if (appliedMigrations > 0 || repairedSchemaItems > 0) {
         await saveDatabaseToIndexedDB(db.export())
       }
 

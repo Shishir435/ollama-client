@@ -191,7 +191,10 @@ export class AnthropicProvider implements LLMProvider {
     }
   }
 
-  private async responseError(response: Response): Promise<never> {
+  private async responseError(
+    response: Response,
+    model?: string
+  ): Promise<never> {
     const detail = await response.text()
     const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
     throw createAppError(`Anthropic Error (${response.status}): ${detail}`, {
@@ -202,7 +205,9 @@ export class AnthropicProvider implements LLMProvider {
       retryAfterMs,
       userMessage: providerErrorUserMessage(response.status, {
         baseUrl: this.baseUrl,
-        retryAfterMs
+        retryAfterMs,
+        providerName: this.config.name,
+        model
       }),
       debug: detail
     })
@@ -319,7 +324,7 @@ export class AnthropicProvider implements LLMProvider {
       signal
     })
     if (!response.ok) {
-      await this.responseError(response)
+      await this.responseError(response, request.model)
     }
 
     await this.processSSE(response, onChunk, Date.now(), request.model)

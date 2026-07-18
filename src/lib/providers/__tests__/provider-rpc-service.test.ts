@@ -98,6 +98,7 @@ beforeEach(() => {
   }))
   mocks.probeToolCalling.mockResolvedValue({
     toolCalling: true,
+    toolCallingMode: "native-user-results",
     probedAt: 1
   })
   mocks.probeReasoning.mockResolvedValue({ reasoning: false, probedAt: 2 })
@@ -243,6 +244,7 @@ describe("ProviderRpcService", () => {
 
     expect(result).toMatchObject({
       toolCalling: true,
+      toolCallingMode: "native-user-results",
       reasoning: false,
       vision: true
     })

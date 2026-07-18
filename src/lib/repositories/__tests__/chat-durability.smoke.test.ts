@@ -199,6 +199,64 @@ describe("S1 — chat-history survives a service-worker restart", () => {
     },
     TIMEOUT
   )
+
+  it(
+    "repairs a missing live session while atomically appending a message",
+    async () => {
+      const first = await bootFreshContext()
+      const session = makeSession("s-repaired")
+
+      await first.facade.appendMessage(
+        {
+          sessionId: session.id,
+          role: "user",
+          content: "survives repaired session",
+          timestamp: 1_700_000_000_004
+        },
+        [],
+        session
+      )
+      await first.db.flushSave()
+
+      const second = await bootFreshContext()
+      await expect(second.facade.getSession(session.id)).resolves.toMatchObject(
+        {
+          id: session.id,
+          currentLeafId: expect.any(Number)
+        }
+      )
+      await expect(
+        second.facade.getMessagesBySession(session.id)
+      ).resolves.toEqual([
+        expect.objectContaining({ content: "survives repaired session" })
+      ])
+    },
+    TIMEOUT
+  )
+
+  it(
+    "repairs a latest-version database missing a required message column",
+    async () => {
+      const first = await bootFreshContext()
+      const liveDb = await first.db.getDb()
+      liveDb.run("ALTER TABLE messages DROP COLUMN replayArtifact")
+      liveDb.run("PRAGMA user_version = 6")
+      await first.db.flushSave()
+
+      const second = await bootFreshContext()
+      const session = makeSession("s-schema-repaired")
+      await second.facade.addSession(session)
+      await expect(
+        second.facade.appendMessage({
+          sessionId: session.id,
+          role: "user",
+          content: "insert succeeds after physical schema repair",
+          timestamp: 1_700_000_000_005
+        })
+      ).resolves.toEqual(expect.any(Number))
+    },
+    TIMEOUT
+  )
 })
 
 describe("S2 — reset actually wipes data", () => {

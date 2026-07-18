@@ -1464,6 +1464,8 @@
         "failed_title": "No se pudo añadir el proveedor",
         "remove": "Eliminar",
         "remove_failed_title": "No se pudo eliminar el proveedor",
+        "removed_title": "Proveedor eliminado",
+        "removed_description": "Se eliminó {{name}}.",
         "remove_confirm_title": "¿Eliminar {{name}}?",
         "remove_confirm_description": "Se eliminarán su configuración de conexión y las asignaciones de modelos. Tus chats se conservan.",
         "custom_badge": "Personalizado"

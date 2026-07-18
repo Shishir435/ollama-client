@@ -529,6 +529,29 @@ describe("ProviderManager", () => {
     expect(providers.map((p) => p.id)).toContain("custom:openai:abc123")
   })
 
+  it("restores all verified built-ins when stored config omits them", async () => {
+    syncBacking.set(ProviderStorageKey.CONFIG, [
+      {
+        id: "custom:openai:only-provider",
+        type: ProviderType.OPENAI,
+        name: "Only custom provider",
+        enabled: true,
+        baseUrl: "https://api.example.com/v1"
+      }
+    ])
+
+    const providers = await ProviderManager.getProviders()
+
+    expect(providers.map((provider) => provider.id)).toEqual(
+      expect.arrayContaining([
+        ProviderId.OLLAMA,
+        ProviderId.LM_STUDIO,
+        ProviderId.LLAMA_CPP,
+        "custom:openai:only-provider"
+      ])
+    )
+  })
+
   it("migrates the old global Ollama URL into canonical provider config on first read", async () => {
     syncBacking.set("provider-base-url", "http://old-device:11434")
 

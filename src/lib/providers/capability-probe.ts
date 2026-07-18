@@ -5,6 +5,7 @@ import {
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
+import type { ToolCall } from "@/lib/tools"
 import type { LLMProvider } from "./types"
 
 /**
@@ -25,6 +26,14 @@ import type { LLMProvider } from "./types"
 export interface CapabilityProbeResult {
   /** Set when a tool-calling probe has run. Absent means "not yet probed". */
   toolCalling?: boolean
+  /** Wire shape that completed the full tool-result round-trip. */
+  toolCallingMode?: "native" | "native-user-results"
+  /**
+   * Probe contract that produced `toolCalling`. Version 3 validates both the
+   * standard tool-result role and the alternating-role compatibility path.
+   * Legacy results cannot select the correct runtime transport safely.
+   */
+  toolCallingProbeVersion?: number
   /** Set when a reasoning/thinking probe has run. Absent means "not yet probed". */
   reasoning?: boolean
   /** Set when a vision probe reached a verdict. Absent means "inconclusive". */
@@ -37,6 +46,7 @@ export type CapabilityProbeMap = Record<string, CapabilityProbeResult>
 const STORAGE_KEY = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES
 
 const PROBE_TIMEOUT_MS = 30_000
+export const TOOL_CALLING_PROBE_VERSION = 3
 
 const createProbeAbortScope = (externalSignal?: AbortSignal) => {
   const controller = new AbortController()
@@ -82,7 +92,26 @@ export const getCapabilityProbe = async (
   modelName: string
 ): Promise<CapabilityProbeResult | null> => {
   const all = await getAllCapabilityProbes()
-  return all[capabilityProbeKey(providerId, modelName)] ?? null
+  const stored = all[capabilityProbeKey(providerId, modelName)]
+  if (!stored) return null
+
+  if (
+    stored.toolCalling !== undefined &&
+    stored.toolCallingProbeVersion !== TOOL_CALLING_PROBE_VERSION
+  ) {
+    // Keep independent reasoning/vision evidence, but make the old tool result
+    // inconclusive so llama.cpp and other metadata-poor providers fail closed
+    // until the user runs the stronger probe.
+    const {
+      toolCalling: _toolCalling,
+      toolCallingMode: _toolCallingMode,
+      toolCallingProbeVersion: _toolCallingProbeVersion,
+      ...currentEvidence
+    } = stored
+    return currentEvidence
+  }
+
+  return stored
 }
 
 /**
@@ -98,7 +127,14 @@ export const setCapabilityProbe = (
   enqueueWrite(async () => {
     const all = await getAllCapabilityProbes()
     const key = capabilityProbeKey(providerId, modelName)
-    all[key] = { ...all[key], ...result }
+    const versionedResult =
+      result.toolCalling === undefined
+        ? result
+        : {
+            ...result,
+            toolCallingProbeVersion: TOOL_CALLING_PROBE_VERSION
+          }
+    all[key] = { ...all[key], ...versionedResult }
     await setPlasmoStoredValue(STORAGE_KEY, all)
   })
 
@@ -150,10 +186,11 @@ const PROBE_TOOL = {
 }
 
 /**
- * Send one minimal tool-call request and report whether the model natively
- * called the tool. `false` means "did not call" — which can be a model
- * limitation or a server that ignores the `tools` field; either way native
- * tool-calling is not usable for this model as served today.
+ * Send a minimal tool call and then return its result to the model. Prefer the
+ * standard `tool` role. Some llama.cpp templates can emit native calls but only
+ * accept alternating user/assistant roles; for those, retry with the same
+ * assistant tool call followed by a user-role result. Both are complete native
+ * tool loops—the mode records which result transport the runtime must use.
  */
 export const probeToolCalling = async (
   provider: LLMProvider,
@@ -162,19 +199,17 @@ export const probeToolCalling = async (
 ): Promise<CapabilityProbeResult> => {
   const scope = createProbeAbortScope(externalSignal)
 
-  let sawToolCall = false
+  const probePrompt =
+    "Call the ping tool with value 'pong' to verify tool support. Do not answer in text."
+  let probeCall: ToolCall | undefined
   let streamError: string | undefined
+  let standardFollowUpFailed = false
+  streamError = undefined
   try {
     await provider.streamChat(
       {
         model: modelName,
-        messages: [
-          {
-            role: "user",
-            content:
-              "Call the ping tool with value 'pong' to verify tool support. Do not answer in text."
-          }
-        ],
+        messages: [{ role: "user", content: probePrompt }],
         tools: [PROBE_TOOL],
         think: false,
         num_predict: 256
@@ -183,35 +218,128 @@ export const probeToolCalling = async (
         if (chunk.error) {
           streamError = chunk.error.message || "Probe request failed"
         }
-        if (chunk.toolCalls && chunk.toolCalls.length > 0) {
-          sawToolCall = true
-          // The answer is in — cut the stream instead of letting the model run.
-          scope.abort()
+        if (!probeCall && chunk.toolCalls && chunk.toolCalls.length > 0) {
+          probeCall = chunk.toolCalls[0]
         }
       },
       scope.signal
     )
   } catch (error) {
-    // Abort-after-success is expected; anything else only matters if we never
-    // saw a tool call (the caller still records toolCalling: false).
-    if (!sawToolCall) {
-      logger.debug("Tool-calling probe request failed", "capabilityProbe", {
-        model: modelName,
-        error
-      })
-      throw error
-    }
-  } finally {
+    logger.debug("Tool-calling probe request failed", "capabilityProbe", {
+      model: modelName,
+      error
+    })
     scope.cleanup()
+    throw error
   }
 
   // A failed request proves nothing about the model — surface it instead of
   // recording a misleading `toolCalling: false`.
-  if (!sawToolCall && streamError) {
+  if (streamError) {
+    scope.cleanup()
     throw new Error(streamError)
   }
+  if (!probeCall) {
+    scope.cleanup()
+    return { toolCalling: false, probedAt: Date.now() }
+  }
 
-  return { toolCalling: sawToolCall, probedAt: Date.now() }
+  try {
+    await provider.streamChat(
+      {
+        model: modelName,
+        messages: [
+          { role: "user", content: probePrompt },
+          { role: "assistant", content: "", toolCalls: [probeCall] },
+          {
+            role: "tool",
+            content: '{"value":"pong"}',
+            toolName: probeCall.name,
+            toolCallId: probeCall.id
+          }
+        ],
+        tools: [PROBE_TOOL],
+        tool_choice: "none",
+        think: false,
+        num_predict: 32
+      },
+      (chunk) => {
+        if (chunk.error) {
+          streamError = chunk.error.message || "Probe follow-up failed"
+        }
+      },
+      scope.signal
+    )
+  } catch (error) {
+    logger.debug(
+      "Tool-calling probe follow-up is incompatible",
+      "capabilityProbe",
+      { model: modelName, error }
+    )
+    standardFollowUpFailed = true
+  }
+
+  if (!standardFollowUpFailed && !streamError) {
+    scope.cleanup()
+    return {
+      toolCalling: true,
+      toolCallingMode: "native",
+      probedAt: Date.now()
+    }
+  }
+
+  if (scope.signal.aborted) {
+    scope.cleanup()
+    scope.signal.throwIfAborted()
+  }
+
+  streamError = undefined
+  try {
+    await provider.streamChat(
+      {
+        model: modelName,
+        messages: [
+          { role: "user", content: probePrompt },
+          { role: "assistant", content: "", toolCalls: [probeCall] },
+          {
+            role: "user",
+            content:
+              "Tool result for ping (call id: " +
+              `${probeCall.id}):\n{"value":"pong"}\n` +
+              "Use this result to finish the original request."
+          }
+        ],
+        tools: [PROBE_TOOL],
+        tool_choice: "none",
+        think: false,
+        num_predict: 32
+      },
+      (chunk) => {
+        if (chunk.error) {
+          streamError = chunk.error.message || "Probe follow-up failed"
+        }
+      },
+      scope.signal
+    )
+  } catch (error) {
+    if (scope.signal.aborted) scope.signal.throwIfAborted()
+    logger.debug(
+      "Tool-calling alternating-role follow-up is incompatible",
+      "capabilityProbe",
+      { model: modelName, error }
+    )
+    return { toolCalling: false, probedAt: Date.now() }
+  } finally {
+    scope.cleanup()
+  }
+
+  return streamError
+    ? { toolCalling: false, probedAt: Date.now() }
+    : {
+        toolCalling: true,
+        toolCallingMode: "native-user-results",
+        probedAt: Date.now()
+      }
 }
 
 /** Matches the error Ollama returns when `think` is sent to a non-thinking model. */

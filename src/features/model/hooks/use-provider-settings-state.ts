@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "@/hooks/use-toast"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
@@ -69,7 +69,7 @@ export const useProviderSettingsState = () => {
   const { t } = useTranslation()
   const [providers, setProviders] = useState<ProviderSettingsConfig[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedId, setSelectedId] = useState<string>(DEFAULT_PROVIDER_ID)
+  const [selectedId, setSelectedIdState] = useState<string>(DEFAULT_PROVIDER_ID)
   const [testingConnection, setTestingConnection] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<{
     success: boolean
@@ -79,6 +79,9 @@ export const useProviderSettingsState = () => {
   const [apiKeyEditedProviderIds, setApiKeyEditedProviderIds] = useState<
     Set<string>
   >(new Set())
+  // Incremented synchronously for every local edit. An RPC response may update
+  // local state only when the provider still has the revision it started with.
+  const configRevisions = useRef(new Map<string, number>())
 
   const providerHealth = useProviderHealth(providers)
 
@@ -256,37 +259,88 @@ export const useProviderSettingsState = () => {
     }
   }
 
-  const handleSave = async (config: ProviderConfig) => {
-    try {
-      const { provider: saved } = await extensionRpcClient.call(
-        RpcMethod.ProvidersUpsert,
-        {
-          target: "existing",
-          config: configForRpc(config)
-        }
-      )
-      setProviders((prev) =>
-        prev.map((provider) =>
-          provider.id === config.id ? toSettingsConfig(saved) : provider
+  const persistConfig = useCallback(
+    async (
+      config: ProviderSettingsConfig,
+      showSuccessToast = true,
+      showErrorToast = true
+    ): Promise<boolean> => {
+      const providerId = String(config.id)
+      const startedRevision = configRevisions.current.get(providerId) ?? 0
+      try {
+        const { provider: saved } = await extensionRpcClient.call(
+          RpcMethod.ProvidersUpsert,
+          {
+            target: "existing",
+            config: configForRpc(config)
+          }
         )
-      )
-      setApiKeyEditedProviderIds((previous) => {
-        const next = new Set(previous)
-        next.delete(String(config.id))
-        return next
-      })
-      setHasUnsavedChanges(false)
-      toast({
-        title: t("settings.saved"),
-        description: `Configuration for ${config.name} saved.`
-      })
-    } catch (_error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to save configuration."
-      })
-    }
+        if (
+          (configRevisions.current.get(providerId) ?? 0) !== startedRevision
+        ) {
+          logger.debug(
+            "Ignored stale provider save response",
+            "ProviderSettings",
+            { providerId }
+          )
+          return false
+        }
+        setProviders((prev) =>
+          prev.map((provider) =>
+            provider.id === config.id ? toSettingsConfig(saved) : provider
+          )
+        )
+        setApiKeyEditedProviderIds((previous) => {
+          const next = new Set(previous)
+          next.delete(providerId)
+          return next
+        })
+        setHasUnsavedChanges(false)
+        if (showSuccessToast) {
+          toast({
+            title: t("settings.saved"),
+            description: `Configuration for ${config.name} saved.`
+          })
+        }
+        return true
+      } catch (error) {
+        logger.error(
+          "Failed to save provider configuration",
+          "ProviderSettings",
+          {
+            error
+          }
+        )
+        if (showErrorToast) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to save configuration."
+          })
+        }
+        return false
+      }
+    },
+    [configForRpc, t]
+  )
+
+  const setSelectedId = useCallback(
+    async (nextId: string): Promise<void> => {
+      if (nextId === selectedId) return
+      if (
+        hasUnsavedChanges &&
+        activeConfig &&
+        !(await persistConfig(activeConfig, false))
+      ) {
+        return
+      }
+      setSelectedIdState(nextId)
+    },
+    [activeConfig, hasUnsavedChanges, persistConfig, selectedId]
+  )
+
+  const handleSave = async (config: ProviderConfig) => {
+    await persistConfig(config, true)
   }
 
   const addProvider = async (input: {
@@ -297,13 +351,26 @@ export const useProviderSettingsState = () => {
     customModels?: string[]
     serviceProfile?: ProviderServiceProfile
   }): Promise<boolean> => {
+    if (
+      hasUnsavedChanges &&
+      activeConfig &&
+      !(await persistConfig(activeConfig, false))
+    ) {
+      return false
+    }
     try {
       const { provider: config } = await extensionRpcClient.call(
         RpcMethod.ProvidersUpsert,
         { target: "new", provider: input }
       )
-      await loadProviders()
-      setSelectedId(String(config.id))
+      // The mutation response is authoritative. Merge it into the current
+      // client state instead of replacing every provider with a list snapshot
+      // that may have started before another pending save completed.
+      setProviders((current) => [
+        ...current.filter((provider) => provider.id !== config.id),
+        toSettingsConfig(config)
+      ])
+      setSelectedIdState(String(config.id))
       toast({
         title: t("settings.providers.add.added_title"),
         description: t("settings.providers.add.added_description", {
@@ -326,12 +393,26 @@ export const useProviderSettingsState = () => {
   }
 
   const removeProvider = async (id: string) => {
+    const providerName = providers.find(
+      (provider) => String(provider.id) === id
+    )?.name
     try {
       await extensionRpcClient.call(RpcMethod.ProvidersRemove, {
         providerId: id
       })
-      await loadProviders()
-      if (selectedId === id) setSelectedId(DEFAULT_PROVIDER_ID)
+      // The mutation result is authoritative. Do not follow it with a full
+      // list refresh: an older snapshot could overwrite concurrent edits or
+      // reintroduce the removed provider locally.
+      setProviders((current) =>
+        current.filter((provider) => String(provider.id) !== id)
+      )
+      if (selectedId === id) setSelectedIdState(DEFAULT_PROVIDER_ID)
+      toast({
+        title: t("settings.providers.add.removed_title"),
+        description: t("settings.providers.add.removed_description", {
+          name: providerName ?? id
+        })
+      })
     } catch (error) {
       logger.error("Failed to remove provider", "ProviderSettings", { error })
       toast({
@@ -347,6 +428,11 @@ export const useProviderSettingsState = () => {
 
   const updateConfig = (updates: Partial<ProviderConfig>) => {
     if (!activeConfig) return
+    const providerId = String(activeConfig.id)
+    configRevisions.current.set(
+      providerId,
+      (configRevisions.current.get(providerId) ?? 0) + 1
+    )
     if (Object.hasOwn(updates, "apiKey")) {
       setApiKeyEditedProviderIds((previous) =>
         new Set(previous).add(String(activeConfig.id))
@@ -362,6 +448,11 @@ export const useProviderSettingsState = () => {
 
   const setProviderEnabled = async (enabled: boolean) => {
     if (!activeConfig) return
+    const providerId = String(activeConfig.id)
+    configRevisions.current.set(
+      providerId,
+      (configRevisions.current.get(providerId) ?? 0) + 1
+    )
     const updated = { ...activeConfig, enabled }
     setProviders((prev) =>
       prev.map((p) => (p.id === activeConfig.id ? updated : p))
@@ -380,23 +471,16 @@ export const useProviderSettingsState = () => {
     if (!hasUnsavedChanges || !activeConfig) return
 
     const timeoutId = setTimeout(async () => {
-      try {
-        await extensionRpcClient.call(RpcMethod.ProvidersUpsert, {
-          target: "existing",
-          config: configForRpc(activeConfig)
-        })
-        setHasUnsavedChanges(false)
+      if (await persistConfig(activeConfig, false, false)) {
         logger.debug(
           `Auto-saved configuration for ${activeConfig.name}`,
           "ProviderSettings"
         )
-      } catch (error) {
-        logger.error("Auto-save failed", "ProviderSettings", { error })
       }
     }, 2000)
 
     return () => clearTimeout(timeoutId)
-  }, [activeConfig, configForRpc, hasUnsavedChanges])
+  }, [activeConfig, hasUnsavedChanges, persistConfig])
 
   const headerStatusConfigs = [
     {

@@ -189,32 +189,59 @@ export const createChatSessionMessageActions = (
 
     const timestamp = message.timestamp || Date.now()
     const { id: _ignored, ...messageWithoutId } = message
-    const id = await repo.addMessage({
-      ...messageWithoutId,
-      sessionId,
-      timestamp,
-      parentId
-    })
-
     const fileRows = [
       ...(message.attachments?.map((f) => ({
         ...f,
-        messageId: id,
         sessionId
       })) ?? []),
-      ...(message.images?.map((img) => imageToStoredFile(img, id, sessionId)) ??
+      ...(message.images?.map((img) => imageToStoredFile(img, 0, sessionId)) ??
         [])
     ]
-    if (fileRows.length > 0) {
-      await repo.bulkAddFiles(fileRows)
+    const id = await repo.appendMessage(
+      {
+        ...messageWithoutId,
+        sessionId,
+        timestamp,
+        parentId
+      },
+      fileRows,
+      session
+    )
+
+    const savedMessage: ChatMessage = {
+      ...message,
+      id,
+      timestamp,
+      parentId
     }
+    set((state) => ({
+      sessions: state.sessions.map((candidate) =>
+        candidate.id === sessionId
+          ? {
+              ...candidate,
+              updatedAt: Date.now(),
+              currentLeafId: id,
+              messages: [...(candidate.messages ?? []), savedMessage]
+            }
+          : candidate
+      )
+    }))
 
-    await repo.updateSession(sessionId, {
-      updatedAt: Date.now(),
-      currentLeafId: id
-    })
-
-    await get().loadSessionMessages(sessionId)
+    try {
+      await get().loadSessionMessages(sessionId)
+    } catch (error) {
+      // The atomic append already succeeded and the optimistic state above is
+      // usable. A read-back failure must not tell the user their send failed.
+      logger.error(
+        "Failed to refresh messages after append",
+        "chatSessionStore",
+        {
+          error,
+          sessionId,
+          messageId: id
+        }
+      )
+    }
     return id
   },
 
@@ -264,19 +291,21 @@ export const createChatSessionMessageActions = (
     if (!originalMsg) return
 
     const timestamp = Date.now()
-    const newId = await repo.addMessage({
-      role: originalMsg.role,
-      content: newContent,
-      sessionId,
-      timestamp,
-      parentId: originalMsg.parentId,
-      model: originalMsg.model
-    })
-
-    await repo.updateSession(sessionId, {
-      currentLeafId: newId,
-      updatedAt: timestamp
-    })
+    const session = get().sessions.find(
+      (candidate) => candidate.id === sessionId
+    )
+    const newId = await repo.appendMessage(
+      {
+        role: originalMsg.role,
+        content: newContent,
+        sessionId,
+        timestamp,
+        parentId: originalMsg.parentId,
+        model: originalMsg.model
+      },
+      [],
+      session
+    )
     await get().loadSessionMessages(sessionId)
     return newId
   },

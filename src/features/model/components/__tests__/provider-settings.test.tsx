@@ -136,6 +136,31 @@ describe("ProviderSettings", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }))
     expect(actions.handleSave).toHaveBeenCalledWith(baseProvider)
+    expect(
+      screen.queryByRole("button", { name: "settings.providers.add.remove" })
+    ).not.toBeInTheDocument()
+  })
+
+  it("offers removal only for custom providers", () => {
+    const customProvider = {
+      ...remoteProvider,
+      id: "custom:openai:test",
+      name: "Custom server"
+    }
+    mockProviderState({
+      providers: [baseProvider, customProvider],
+      selectedId: customProvider.id,
+      activeConfig: customProvider,
+      isCustomProvider: true,
+      isLocalProvider: false,
+      isRemoteEndpoint: true
+    })
+
+    renderProviderSettings()
+
+    expect(
+      screen.getByRole("button", { name: "settings.providers.add.remove" })
+    ).toBeInTheDocument()
   })
 
   it("renders remote provider fields and custom model actions", () => {

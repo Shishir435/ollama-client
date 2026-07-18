@@ -1464,6 +1464,8 @@
         "failed_title": "Anbieter konnte nicht hinzugefügt werden",
         "remove": "Entfernen",
         "remove_failed_title": "Anbieter konnte nicht entfernt werden",
+        "removed_title": "Anbieter entfernt",
+        "removed_description": "{{name}} wurde entfernt.",
         "remove_confirm_title": "{{name}} entfernen?",
         "remove_confirm_description": "Verbindungseinstellungen und Modellzuordnungen werden gelöscht. Deine Chats bleiben erhalten.",
         "custom_badge": "Eigener"

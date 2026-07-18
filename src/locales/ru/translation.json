@@ -1464,6 +1464,8 @@
         "failed_title": "Не удалось добавить провайдера",
         "remove": "Удалить",
         "remove_failed_title": "Не удалось удалить провайдера",
+        "removed_title": "Провайдер удалён",
+        "removed_description": "{{name}} удалён.",
         "remove_confirm_title": "Удалить {{name}}?",
         "remove_confirm_description": "Настройки подключения и сопоставления моделей будут удалены. Ваши чаты сохранятся.",
         "custom_badge": "Свой"

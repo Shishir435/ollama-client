@@ -1,12 +1,12 @@
 import type { ReactNode } from "react"
-import { toast as sonnerToast } from "sonner"
+import { type Action, toast as sonnerToast } from "sonner"
 
 type ToastVariant = "default" | "destructive"
 
 export type ToastOptions = {
   title?: ReactNode
   description?: ReactNode
-  action?: ReactNode
+  action?: Action | ReactNode
   variant?: ToastVariant
   duration?: number
 }
@@ -18,7 +18,7 @@ const normalizeTimeout = (duration?: number) => {
 }
 
 function toast(options: ToastOptions) {
-  const { title, description, variant, duration } = options
+  const { title, description, action, variant, duration } = options
   const isDestructive = variant === "destructive"
 
   const toastFn = isDestructive ? sonnerToast.error : sonnerToast
@@ -35,6 +35,7 @@ function toast(options: ToastOptions) {
 
   const id = toastFn(message, {
     description: optDesc,
+    action,
     duration: sonnerDuration
   })
 
@@ -56,6 +57,7 @@ function toast(options: ToastOptions) {
       updateFn(updMsg, {
         id,
         description: updDesc,
+        action: updates.action,
         duration: updateDuration
       })
     }
@@ -81,6 +83,7 @@ function useToast() {
       updateFn(updMsg, {
         id: toastId,
         description: updDesc,
+        action: updates.action,
         duration: updateDuration
       })
     }

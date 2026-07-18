@@ -80,6 +80,31 @@ describe("tool-loop run repository", () => {
     })
   })
 
+  it("restores an alternating-role native checkpoint", async () => {
+    db.query.mockResolvedValue([
+      {
+        requestId: "request-gemma",
+        sessionId: "session-1",
+        model: "gemma",
+        providerId: "llamacpp",
+        mode: "native-user-results",
+        status: "running",
+        state: JSON.stringify({
+          iteration: 1,
+          phase: "model",
+          workingMessages: [],
+          toolRuns: []
+        }),
+        updatedAt: 456
+      }
+    ])
+
+    await expect(getToolLoopRun("request-gemma")).resolves.toMatchObject({
+      mode: "native-user-results",
+      model: "gemma"
+    })
+  })
+
   it("deletes and force-flushes completed checkpoints", async () => {
     await deleteToolLoopRun("request-1")
 

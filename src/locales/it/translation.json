@@ -1464,6 +1464,8 @@
         "failed_title": "Impossibile aggiungere il provider",
         "remove": "Rimuovi",
         "remove_failed_title": "Impossibile rimuovere il provider",
+        "removed_title": "Provider rimosso",
+        "removed_description": "{{name}} è stato rimosso.",
         "remove_confirm_title": "Rimuovere {{name}}?",
         "remove_confirm_description": "Le impostazioni di connessione e le mappature dei modelli verranno eliminate. Le tue chat vengono conservate.",
         "custom_badge": "Personalizzato"

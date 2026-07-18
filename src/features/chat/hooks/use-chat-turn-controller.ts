@@ -108,7 +108,20 @@ export const useChatTurnController = ({
     }
     setPendingActivityEvents([preparingEvent])
 
-    const sessionId = await ensureSessionId()
+    let sessionId: string | null
+    try {
+      sessionId = await ensureSessionId()
+    } catch (error) {
+      logger.error("Failed to create chat session", "useChat", { error })
+      setPendingActivityEvents([])
+      setIsLoading(false)
+      toast({
+        variant: "destructive",
+        title: "Couldn't start chat",
+        description: "Creating the chat failed. Please try again."
+      })
+      return
+    }
     if (!sessionId) {
       setPendingActivityEvents([])
       setIsLoading(false)
@@ -128,9 +141,6 @@ export const useChatTurnController = ({
       await addMessage(sessionId, userMessage)
 
       if (!customInput) setInput("")
-
-      const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
-      await autoRenameSession(sessionId, titleContent)
     } catch (error) {
       logger.error("Failed to persist user message", "useChat", { error })
       setPendingActivityEvents([])
@@ -141,6 +151,15 @@ export const useChatTurnController = ({
         description: "Saving the message failed. Please try again."
       })
       return
+    }
+
+    const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
+    try {
+      await autoRenameSession(sessionId, titleContent)
+    } catch (error) {
+      // Title generation is cosmetic. The message is durable and should still
+      // proceed to context building and model generation.
+      logger.error("Failed to rename chat session", "useChat", { error })
     }
 
     let ragResult: Awaited<ReturnType<typeof buildRagContext>>
