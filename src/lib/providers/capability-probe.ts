@@ -26,6 +26,12 @@ import type { LLMProvider } from "./types"
 export interface CapabilityProbeResult {
   /** Set when a tool-calling probe has run. Absent means "not yet probed". */
   toolCalling?: boolean
+  /**
+   * Probe contract that produced `toolCalling`. Version 2 validates both the
+   * initial call and the follow-up tool-result turn. Legacy positive results
+   * only tested the first half and are unsafe evidence for native tool loops.
+   */
+  toolCallingProbeVersion?: number
   /** Set when a reasoning/thinking probe has run. Absent means "not yet probed". */
   reasoning?: boolean
   /** Set when a vision probe reached a verdict. Absent means "inconclusive". */
@@ -38,6 +44,7 @@ export type CapabilityProbeMap = Record<string, CapabilityProbeResult>
 const STORAGE_KEY = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES
 
 const PROBE_TIMEOUT_MS = 30_000
+export const TOOL_CALLING_PROBE_VERSION = 2
 
 const createProbeAbortScope = (externalSignal?: AbortSignal) => {
   const controller = new AbortController()
@@ -83,7 +90,25 @@ export const getCapabilityProbe = async (
   modelName: string
 ): Promise<CapabilityProbeResult | null> => {
   const all = await getAllCapabilityProbes()
-  return all[capabilityProbeKey(providerId, modelName)] ?? null
+  const stored = all[capabilityProbeKey(providerId, modelName)]
+  if (!stored) return null
+
+  if (
+    stored.toolCalling !== undefined &&
+    stored.toolCallingProbeVersion !== TOOL_CALLING_PROBE_VERSION
+  ) {
+    // Keep independent reasoning/vision evidence, but make the old tool result
+    // inconclusive so llama.cpp and other metadata-poor providers fail closed
+    // until the user runs the stronger probe.
+    const {
+      toolCalling: _toolCalling,
+      toolCallingProbeVersion: _toolCallingProbeVersion,
+      ...currentEvidence
+    } = stored
+    return currentEvidence
+  }
+
+  return stored
 }
 
 /**
@@ -99,7 +124,14 @@ export const setCapabilityProbe = (
   enqueueWrite(async () => {
     const all = await getAllCapabilityProbes()
     const key = capabilityProbeKey(providerId, modelName)
-    all[key] = { ...all[key], ...result }
+    const versionedResult =
+      result.toolCalling === undefined
+        ? result
+        : {
+            ...result,
+            toolCallingProbeVersion: TOOL_CALLING_PROBE_VERSION
+          }
+    all[key] = { ...all[key], ...versionedResult }
     await setPlasmoStoredValue(STORAGE_KEY, all)
   })
 

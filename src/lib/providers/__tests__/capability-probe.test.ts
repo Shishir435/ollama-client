@@ -17,7 +17,8 @@ import {
   probeReasoning,
   probeToolCalling,
   probeVision,
-  setCapabilityProbe
+  setCapabilityProbe,
+  TOOL_CALLING_PROBE_VERSION
 } from "../capability-probe"
 
 const providerWith = (chunks: ChatStreamMessage[]): LLMProvider => ({
@@ -208,6 +209,7 @@ describe("probe storage", () => {
 
     expect(await getCapabilityProbe("vllm", "llama3")).toEqual({
       toolCalling: true,
+      toolCallingProbeVersion: TOOL_CALLING_PROBE_VERSION,
       probedAt: 123
     })
     expect(await getCapabilityProbe("vllm", "other")).toBeNull()
@@ -225,6 +227,7 @@ describe("probe storage", () => {
 
     expect(await getCapabilityProbe("vllm", "llama3")).toEqual({
       toolCalling: true,
+      toolCallingProbeVersion: TOOL_CALLING_PROBE_VERSION,
       reasoning: false,
       probedAt: 2
     })
@@ -240,6 +243,7 @@ describe("probe storage", () => {
 
     expect(await getCapabilityProbe("vllm", "llama3")).toEqual({
       toolCalling: true,
+      toolCallingProbeVersion: TOOL_CALLING_PROBE_VERSION,
       probedAt: 1
     })
     expect(await getCapabilityProbe("vllm", "qwen3")).toEqual({
@@ -268,7 +272,23 @@ describe("probe storage", () => {
     expect(await getCapabilityProbe("vllm", "qwen3")).toBeNull()
     expect(await getCapabilityProbe("lm studio", "llama3")).toEqual({
       toolCalling: true,
+      toolCallingProbeVersion: TOOL_CALLING_PROBE_VERSION,
       probedAt: 3
+    })
+  })
+
+  it("ignores legacy tool evidence that did not test the result turn", async () => {
+    storageBacking.set("provider-model-capability-probes", {
+      "llamacpp::gemma": {
+        toolCalling: true,
+        reasoning: false,
+        probedAt: 1
+      }
+    })
+
+    expect(await getCapabilityProbe("llamacpp", "gemma")).toEqual({
+      reasoning: false,
+      probedAt: 1
     })
   })
 })

@@ -258,13 +258,15 @@ export const useChatStream = ({
         let finalMessages: ChatMessage[]
 
         if (msg.error) {
-          const errorProviderId = msg.error.providerId || providerId
+          const isProviderError = msg.error.kind === "provider"
+          const errorProviderId = isProviderError
+            ? msg.error.providerId || providerId
+            : undefined
           const providerName = errorProviderId
             ? getProviderDisplayName(errorProviderId, errorProviderId)
             : undefined
           const issueUrl =
-            msg.error.status >= 500 &&
-            (msg.error.kind === "provider" || Boolean(errorProviderId))
+            isProviderError && msg.error.status >= 500
               ? buildProviderServerIssueUrl(msg.error.status, {
                   providerName,
                   model
@@ -282,7 +284,7 @@ export const useChatStream = ({
             ERROR_MESSAGES[msg.error.status] ??
             // Any provider error with a real HTTP status gets the clean
             // per-status copy — raw response bodies never render in chat.
-            (msg.error.status > 0
+            (isProviderError && msg.error.status > 0
               ? providerErrorUserMessage(msg.error.status, {
                   providerName,
                   model

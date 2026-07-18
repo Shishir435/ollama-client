@@ -495,6 +495,42 @@ describe("useChatStream", () => {
     expect(lastMessages?.at(-1)?.content).toContain("llama.cpp")
   })
 
+  it("does not mislabel a generic background 500 as a provider failure", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+
+    act(() => {
+      result.current.startStream({
+        model: "gemma.gguf",
+        providerId: "llamacpp",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
+    })
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+
+    act(() => {
+      listener({
+        error: {
+          status: 500,
+          message: "Tool-loop checkpoint failed"
+        }
+      })
+    })
+
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "chat.errors.response_failed_title",
+        description: "Tool-loop checkpoint failed"
+      })
+    )
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.not.objectContaining({ action: expect.anything() })
+    )
+    const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(lastMessages?.at(-1)?.content).toBe("chat.errors.unknown_error")
+  })
+
   it("should stop stream correctly", () => {
     const { result } = renderHook(() =>
       useChatStream({
