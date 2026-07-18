@@ -70,47 +70,62 @@ export const resolveModelTools = async (
   const cached = capabilityTagsCache.get(cacheKey)
   if (cached && cached.expiresAt > Date.now()) {
     metadata = cached
-  } else if (provider.getModelDetails) {
-    try {
-      const details = await provider.getModelDetails(model)
-      metadata = {
-        tags: (details as { capabilities?: string[] } | null)?.capabilities
-      }
-      capabilityTagsCache.set(cacheKey, {
-        ...metadata,
-        expiresAt: Date.now() + CAPABILITY_TAGS_CACHE_TTL_MS
-      })
-    } catch (error) {
-      logger.debug(
-        "Failed to read model details for tool gating",
-        "resolveModelTools",
-        {
-          error
+  } else {
+    let resolvedMetadata = false
+    if (provider.getModelDetails) {
+      try {
+        const details = await provider.getModelDetails(model)
+        const tags = (details as { capabilities?: string[] } | null)
+          ?.capabilities
+        if (tags?.length) {
+          metadata = { tags }
+          resolvedMetadata = true
         }
-      )
-    }
-  } else if (provider.capabilities?.modelDiscovery && provider.getModels) {
-    try {
-      const servedModel = (await provider.getModels()).find(
-        (candidate) => candidate.name === model
-      )
-      metadata = {
-        tags: undefined,
-        modelType: servedModel?.capabilityHints?.modelType,
-        contextLength: servedModel?.capabilityHints?.contextLength,
-        modalities: servedModel?.capabilityHints?.modalities,
-        supportedParameters: servedModel?.capabilityHints?.supportedParameters
+      } catch (error) {
+        logger.debug(
+          "Failed to read model details for tool gating",
+          "resolveModelTools",
+          { error }
+        )
       }
+    }
+
+    // OpenAI-compatible providers expose a null-returning detail method. A
+    // missing detail verdict must fall through to their richer model catalog.
+    if (
+      !resolvedMetadata &&
+      provider.capabilities?.modelDiscovery &&
+      provider.getModels
+    ) {
+      try {
+        const servedModel = (await provider.getModels()).find(
+          (candidate) => candidate.name === model
+        )
+        if (servedModel) {
+          metadata = {
+            tags: undefined,
+            modelType: servedModel.capabilityHints?.modelType,
+            contextLength: servedModel.capabilityHints?.contextLength,
+            modalities: servedModel.capabilityHints?.modalities,
+            supportedParameters:
+              servedModel.capabilityHints?.supportedParameters
+          }
+          resolvedMetadata = true
+        }
+      } catch (error) {
+        logger.debug(
+          "Failed to read model catalog metadata for tool gating",
+          "resolveModelTools",
+          { error }
+        )
+      }
+    }
+
+    if (resolvedMetadata) {
       capabilityTagsCache.set(cacheKey, {
         ...metadata,
         expiresAt: Date.now() + CAPABILITY_TAGS_CACHE_TTL_MS
       })
-    } catch (error) {
-      logger.debug(
-        "Failed to read model catalog metadata for tool gating",
-        "resolveModelTools",
-        { error }
-      )
     }
   }
 

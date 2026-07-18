@@ -285,4 +285,24 @@ describe("getModelCapabilities", () => {
       confidence: "high"
     })
   })
+
+  it("treats empty catalog arrays as missing evidence", () => {
+    const input = {
+      providerId: "custom:openai:openrouter",
+      modalities: [] as string[],
+      supportedParameters: [] as string[]
+    }
+    const caps = getModelCapabilities(input)
+    const states = getModelCapabilityStates(input)
+
+    expect(caps.source).toBe("provider-default")
+    expect(caps.confidence).toBe("low")
+    expect(states.vision.status).toBe("unknown")
+    expect(states.reasoning.status).toBe("unknown")
+    expect(states.toolCalling).toEqual({
+      status: "supported",
+      source: "provider-default",
+      confidence: "low"
+    })
+  })
 })

@@ -162,10 +162,15 @@ const detectModelCapabilities = (
     }
   }
 
-  const modalities = input.modalities?.map((value) => value.toLowerCase())
-  const supportedParameters = input.supportedParameters?.map((value) =>
-    value.toLowerCase()
-  )
+  // Empty catalog arrays are frequently placeholders, not authoritative
+  // negatives. Treat them as missing evidence and fall back to probes,
+  // overrides, or provider defaults.
+  const modalities = input.modalities?.length
+    ? input.modalities.map((value) => value.toLowerCase())
+    : undefined
+  const supportedParameters = input.supportedParameters?.length
+    ? input.supportedParameters.map((value) => value.toLowerCase())
+    : undefined
   if (modalities !== undefined || supportedParameters !== undefined) {
     const supportsAnyParameter = (...names: string[]) =>
       names.some((name) => supportedParameters?.includes(name))
@@ -291,8 +296,8 @@ export const getModelCapabilityStates = (
   ] as const
   const states = {} as ModelCapabilityStates
   const tagsAvailable = Boolean(input.ollamaCapabilities?.length)
-  const modalitiesAvailable = input.modalities !== undefined
-  const parametersAvailable = input.supportedParameters !== undefined
+  const modalitiesAvailable = Boolean(input.modalities?.length)
+  const parametersAvailable = Boolean(input.supportedParameters?.length)
   const lmTypeAvailable = Boolean(input.lmStudioModelType)
   const providerCaps = getProviderCapabilities(input.providerId)
 

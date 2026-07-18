@@ -172,6 +172,57 @@ describe("resolveModelTools", () => {
     expect(resolved?.tools.map((t) => t.name)).toContain("capture_screenshot")
   })
 
+  it("falls back to catalog metadata when model details return null", async () => {
+    definitions = [...baseDefinitions, captureScreenshotTool]
+    const getModelDetails = vi.fn(async () => null)
+    const getModels = vi.fn(async () => [
+      {
+        name: "remote-vl",
+        model: "remote-vl",
+        modified_at: "",
+        size: 0,
+        digest: "",
+        details: {
+          parent_model: "",
+          format: "",
+          family: "",
+          families: [],
+          parameter_size: "",
+          quantization_level: ""
+        },
+        capabilityHints: {
+          modalities: ["text", "image"],
+          supportedParameters: ["tools"]
+        }
+      }
+    ])
+    const provider: LLMProvider = {
+      ...providerWithDetails(getModelDetails),
+      id: "custom:openai:remote",
+      config: {
+        id: "custom:openai:remote",
+        type: "openai" as never,
+        name: "Remote",
+        enabled: true,
+        baseUrl: "https://example.test/v1"
+      },
+      capabilities: {
+        modelDiscovery: true
+      } as LLMProvider["capabilities"],
+      getModels
+    }
+
+    const resolved = await resolveModelTools(
+      "remote-vl",
+      "custom:openai:remote",
+      provider
+    )
+
+    expect(getModelDetails).toHaveBeenCalledOnce()
+    expect(getModels).toHaveBeenCalledOnce()
+    expect(resolved).toEqual({ tools: definitions, mode: "native" })
+  })
+
   it("returns no tools for a non-tool-calling model without the fallback opt-in", async () => {
     const nonToolModel = providerWithDetails(
       vi.fn(async () => ({ capabilities: ["completion"] }))
