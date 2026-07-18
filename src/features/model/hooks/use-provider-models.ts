@@ -32,6 +32,17 @@ const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
   const result = await extensionRpcClient.call(RpcMethod.ProvidersListModels, {
     enabledOnly: true
   })
+  const pairs = result.models
+    .filter(
+      (model) => model.providerId && model.providerId !== DEFAULT_PROVIDER_ID
+    )
+    .map((model) => ({
+      modelId: model.name,
+      providerId: model.providerId as string
+    }))
+  if (pairs.length > 0) {
+    await ProviderManager.saveModelMappings(pairs)
+  }
   return result.models
 }
 

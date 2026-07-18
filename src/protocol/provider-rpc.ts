@@ -41,29 +41,51 @@ export const PublicProviderConfigSchema = ProviderConfigInputSchema.omit({
 
 export type PublicProviderConfig = z.infer<typeof PublicProviderConfigSchema>
 
-const ProviderModelSchema = z.object({
-  name: z.string(),
-  model: z.string(),
-  modified_at: z.string(),
-  size: z.number(),
-  digest: z.string(),
-  providerId: z.string().optional(),
-  providerName: z.string().optional(),
-  details: z.object({
-    parent_model: z.string(),
-    format: z.string(),
-    family: z.string(),
-    families: z.array(z.string()),
-    parameter_size: z.string(),
-    quantization_level: z.string()
-  }),
-  capabilityHints: z
-    .object({
-      modelType: z.string().optional(),
-      contextLength: z.number().optional()
-    })
-    .optional()
-})
+const ProviderModelSchema = z
+  .object({
+    name: z.string().min(1),
+    model: z.string().optional(),
+    modified_at: z.string().optional(),
+    size: z.number().optional(),
+    digest: z.string().optional(),
+    providerId: z.string().optional(),
+    providerName: z.string().optional(),
+    family: z.string().optional(),
+    details: z
+      .object({
+        parent_model: z.string().optional(),
+        format: z.string().optional(),
+        family: z.string().optional(),
+        families: z.array(z.string()).optional(),
+        parameter_size: z.string().optional(),
+        quantization_level: z.string().optional()
+      })
+      .optional(),
+    capabilityHints: z
+      .object({
+        modelType: z.string().optional(),
+        contextLength: z.number().optional()
+      })
+      .optional()
+  })
+  .transform(({ family, details, ...model }) => {
+    const resolvedFamily = details?.family ?? family ?? ""
+    return {
+      ...model,
+      model: model.model || model.name,
+      modified_at: model.modified_at ?? "",
+      size: model.size ?? 0,
+      digest: model.digest ?? "",
+      details: {
+        parent_model: details?.parent_model ?? "",
+        format: details?.format ?? "",
+        family: resolvedFamily,
+        families: details?.families ?? (resolvedFamily ? [resolvedFamily] : []),
+        parameter_size: details?.parameter_size ?? "",
+        quantization_level: details?.quantization_level ?? ""
+      }
+    }
+  })
 
 export const ProvidersListRequestSchema = z.object({}).strict()
 export const ProvidersListResultSchema = z

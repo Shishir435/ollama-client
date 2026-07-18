@@ -2,15 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   getProviders: vi.fn(),
-  saveModelMappings: vi.fn(),
   getProvider: vi.fn(),
   getProviderWithConfig: vi.fn()
 }))
 
 vi.mock("../manager", () => ({
   ProviderManager: {
-    getProviders: mocks.getProviders,
-    saveModelMappings: mocks.saveModelMappings
+    getProviders: mocks.getProviders
   }
 }))
 
@@ -61,7 +59,6 @@ const model = (name: string) => ({
 
 beforeEach(() => {
   mocks.getProviders.mockResolvedValue(configs)
-  mocks.saveModelMappings.mockResolvedValue(undefined)
   mocks.getProvider.mockImplementation(async (id: string) => ({
     id,
     getModels: async () => [model(`${id}-model`)]
@@ -99,7 +96,7 @@ describe("ProviderRpcService", () => {
     expect(result).not.toHaveProperty("apiKey")
   })
 
-  it("merges custom models, records mappings, and reports partial failures", async () => {
+  it("merges custom models and reports partial failures without query side effects", async () => {
     mocks.getProvider.mockImplementation(async (id: string) => {
       if (id === "custom:openai:remote") throw new Error("offline")
       return { id, getModels: async () => [model("discovered")] }
@@ -113,10 +110,6 @@ describe("ProviderRpcService", () => {
     ])
     expect(result.failures).toEqual([
       { providerId: "custom:openai:remote", code: "request_failed" }
-    ])
-    expect(mocks.saveModelMappings).toHaveBeenCalledWith([
-      { modelId: "discovered", providerId: "ollama" },
-      { modelId: "manual-model", providerId: "ollama" }
     ])
   })
 

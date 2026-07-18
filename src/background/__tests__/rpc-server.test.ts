@@ -80,25 +80,15 @@ describe("RPC server", () => {
     })
   })
 
-  it("normalizes provider model extensions to the public wire shape", async () => {
+  it("normalizes sparse provider models to the public wire shape", async () => {
     mocks.listModels.mockResolvedValue({
       models: [
         {
           name: "future-model",
-          model: "future-model",
-          modified_at: "2026-07-18T00:00:00.000Z",
           size: 1,
-          digest: "digest",
+          family: "future",
           futureField: "provider-owned",
-          details: {
-            parent_model: "",
-            format: "gguf",
-            family: "future",
-            families: [],
-            parameter_size: "",
-            quantization_level: "",
-            futureDetail: true
-          }
+          details: { futureDetail: true }
         }
       ],
       failures: []
@@ -115,8 +105,21 @@ describe("RPC server", () => {
     )
 
     const result = sendResponse.mock.calls[0][0].result
-    expect(result.models[0]).not.toHaveProperty("futureField")
-    expect(result.models[0].details).not.toHaveProperty("futureDetail")
+    expect(result.models[0]).toEqual({
+      name: "future-model",
+      model: "future-model",
+      modified_at: "",
+      size: 1,
+      digest: "",
+      details: {
+        parent_model: "",
+        format: "",
+        family: "future",
+        families: ["future"],
+        parameter_size: "",
+        quantization_level: ""
+      }
+    })
   })
 
   it("rejects malformed method payloads before invoking a handler", async () => {

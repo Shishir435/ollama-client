@@ -204,6 +204,34 @@ describe("useProviderModels", () => {
       )
     })
 
+    it("records only non-default mappings after discovery succeeds", async () => {
+      vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
+        models: [
+          { ...mockModelList[0], providerId: ProviderId.OLLAMA },
+          {
+            ...mockModelList[1],
+            providerId: "custom:openai:remote"
+          }
+        ],
+        failures: []
+      } as never)
+
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
+
+      expect(ProviderManager.saveModelMappings).toHaveBeenCalledWith([
+        {
+          modelId: "mistral:latest",
+          providerId: "custom:openai:remote"
+        }
+      ])
+    })
+
     it("should handle empty models list", async () => {
       vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
         models: [],
@@ -236,6 +264,7 @@ describe("useProviderModels", () => {
       })
 
       expect(result.current.status).toBe("error")
+      expect(ProviderManager.saveModelMappings).not.toHaveBeenCalled()
     })
 
     it("marks legacy selected model as a conflict when multiple providers expose it", async () => {

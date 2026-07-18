@@ -127,14 +127,6 @@ export const ProviderRpcService = {
       )
     }
 
-    const pairs = models
-      .filter((model) => model.providerId)
-      .map((model) => ({
-        modelId: model.name,
-        providerId: model.providerId as string
-      }))
-    await ProviderManager.saveModelMappings(pairs)
-
     models.sort((left, right) => left.name.localeCompare(right.name))
     failures.sort((left, right) =>
       left.providerId.localeCompare(right.providerId)

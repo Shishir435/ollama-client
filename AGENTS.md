@@ -90,7 +90,9 @@ to methods through the enum rather than duplicating wire strings. Validate both
 ends, keep credentials out of results and diagnostics, and return i18n message
 keys plus safe fallback text. Legacy `MESSAGE_KEYS` handlers may delegate to the
 RPC service during migration, but new provider request/response work should use
-the RPC boundary.
+the RPC boundary. Methods registered as queries must stay free of persistence
+side effects so a client timeout cannot commit stale state; persist derived
+state only after the caller receives and accepts the query result.
 
 ### Storage
 
