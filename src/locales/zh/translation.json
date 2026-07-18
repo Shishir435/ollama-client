@@ -1813,7 +1813,16 @@
     }
   },
   "errors": {
-    "failed_to_fetch_models": "无法获取模型"
+    "failed_to_fetch_models": "无法获取模型",
+    "rpc": {
+      "invalid_request": "请求无效。",
+      "invalid_response": "后台响应无效。",
+      "forbidden": "此页面不允许执行该操作。",
+      "not_found": "未找到提供商配置。",
+      "provider_failed": "提供商请求失败。",
+      "timeout": "后台请求超时。请重试。",
+      "internal": "后台请求失败。请重试。"
+    }
   },
   "onboarding": {
     "step": "第 {{current}} 步，共 {{total}} 步",

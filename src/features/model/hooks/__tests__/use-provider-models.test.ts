@@ -7,30 +7,12 @@ import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderId } from "@/lib/providers/types"
+import { extensionRpcClient } from "@/protocol/extension-client"
 import { useProviderModels } from "../use-provider-models"
 
-const { mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
-  const ollamaProvider = {
-    id: "ollama",
-    config: {
-      id: "ollama",
-      type: "ollama",
-      enabled: true,
-      baseUrl: "http://localhost:11434",
-      name: "Ollama"
-    },
-    capabilities: {
-      chat: true,
-      embeddings: true,
-      modelDiscovery: true,
-      modelDetails: true,
-      modelPull: true,
-      modelUnload: true,
-      modelDelete: true,
-      providerVersion: true,
-      toolCalling: false
-    },
-    getModels: vi.fn().mockResolvedValue([
+const { mockModelList, mockOllamaProvider, mockProviderConfig } = vi.hoisted(
+  () => {
+    const models = [
       {
         name: "llama3:latest",
         model: "llama3:latest",
@@ -43,14 +25,37 @@ const { mockOllamaProvider, mockProviderConfig } = vi.hoisted(() => {
         size: 0,
         details: { family: "mistral" }
       }
-    ]),
-    streamChat: vi.fn()
+    ]
+    const ollamaProvider = {
+      id: "ollama",
+      config: {
+        id: "ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: "http://localhost:11434",
+        name: "Ollama"
+      },
+      capabilities: {
+        chat: true,
+        embeddings: true,
+        modelDiscovery: true,
+        modelDetails: true,
+        modelPull: true,
+        modelUnload: true,
+        modelDelete: true,
+        providerVersion: true,
+        toolCalling: false
+      },
+      getModels: vi.fn().mockResolvedValue(models),
+      streamChat: vi.fn()
+    }
+    return {
+      mockModelList: models,
+      mockOllamaProvider: ollamaProvider,
+      mockProviderConfig: [ollamaProvider.config] // Stable reference
+    }
   }
-  return {
-    mockOllamaProvider: ollamaProvider,
-    mockProviderConfig: [ollamaProvider.config] // Stable reference
-  }
-})
+)
 
 // Mock useStorage from Plasmo
 vi.mock("@plasmohq/storage/hook", () => ({
@@ -92,6 +97,12 @@ vi.mock("@/lib/providers/manager", () => ({
     getProviders: vi.fn().mockResolvedValue([mockOllamaProvider.config]),
     getProviderConfig: vi.fn().mockResolvedValue(mockOllamaProvider.config),
     saveModelMappings: vi.fn().mockResolvedValue(undefined)
+  }
+}))
+
+vi.mock("@/protocol/extension-client", () => ({
+  extensionRpcClient: {
+    call: vi.fn()
   }
 }))
 
@@ -152,6 +163,10 @@ describe("useProviderModels", () => {
       mockOllamaProvider.config as any
     )
     vi.mocked(ProviderManager.saveModelMappings).mockResolvedValue(undefined)
+    vi.mocked(extensionRpcClient.call).mockResolvedValue({
+      models: mockModelList,
+      failures: []
+    } as never)
     vi.mocked(fetch).mockImplementation(async (url) => {
       const urlStr = url.toString()
       if (urlStr.includes("/api/version")) {
@@ -190,7 +205,10 @@ describe("useProviderModels", () => {
     })
 
     it("should handle empty models list", async () => {
-      vi.mocked(mockOllamaProvider.getModels).mockResolvedValueOnce([])
+      vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
+        models: [],
+        failures: []
+      } as never)
 
       const { result } = renderHook(() => useProviderModels(), {
         wrapper: createWrapper()
@@ -205,7 +223,7 @@ describe("useProviderModels", () => {
     })
 
     it("should handle fetch errors", async () => {
-      vi.mocked(mockOllamaProvider.getModels).mockRejectedValueOnce(
+      vi.mocked(extensionRpcClient.call).mockRejectedValueOnce(
         new Error("API Error")
       )
 
@@ -259,12 +277,30 @@ describe("useProviderModels", () => {
         ])
       )
 
-      vi.mocked(ProviderManager.getProviders).mockResolvedValueOnce(
-        providers as any
-      )
-      vi.mocked(ProviderFactory.getProvider).mockImplementation(
-        async (providerId: string) => providerById.get(providerId) as any
-      )
+      vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
+        models: [...providerById.values()].flatMap((provider) =>
+          provider.config.id === "ollama"
+            ? [
+                {
+                  name: "shared-model",
+                  model: "shared-model",
+                  size: 0,
+                  providerId: "ollama",
+                  details: { family: "llama" }
+                }
+              ]
+            : [
+                {
+                  name: "shared-model",
+                  model: "shared-model",
+                  size: 0,
+                  providerId: "lm studio",
+                  details: { family: "llama" }
+                }
+              ]
+        ),
+        failures: []
+      } as never)
       vi.mocked(useStorage).mockImplementation(((
         config: any,
         initialValue: any
@@ -381,14 +417,17 @@ describe("useProviderModels", () => {
         expect(result.current.status).toBe("ready")
       })
 
-      vi.mocked(mockOllamaProvider.getModels).mockResolvedValueOnce([
-        {
-          name: "new-model",
-          model: "new-model",
-          size: 0,
-          details: { family: "llama" }
-        }
-      ])
+      vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
+        models: [
+          {
+            name: "new-model",
+            model: "new-model",
+            size: 0,
+            details: { family: "llama" }
+          }
+        ],
+        failures: []
+      } as never)
 
       await result.current.refresh()
 

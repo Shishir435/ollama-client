@@ -1813,7 +1813,16 @@
     }
   },
   "errors": {
-    "failed_to_fetch_models": "Impossibile recuperare i modelli"
+    "failed_to_fetch_models": "Impossibile recuperare i modelli",
+    "rpc": {
+      "invalid_request": "La richiesta non era valida.",
+      "invalid_response": "La risposta in background non era valida.",
+      "forbidden": "Questa azione non è consentita da questa pagina.",
+      "not_found": "La configurazione del provider non è stata trovata.",
+      "provider_failed": "La richiesta al provider non è riuscita.",
+      "timeout": "La richiesta in background è scaduta. Riprova.",
+      "internal": "La richiesta in background non è riuscita. Riprova."
+    }
   },
   "onboarding": {
     "step": "Passaggio {{current}} di {{total}}",

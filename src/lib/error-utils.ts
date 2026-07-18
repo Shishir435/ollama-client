@@ -12,6 +12,7 @@ export type AppErrorOptions = {
   kind?: AppErrorKind
   status?: number
   messageKey?: string
+  messageParams?: Record<string, string | number | boolean>
   userMessage?: string
   retryable?: boolean
   retryAfterMs?: number
@@ -25,6 +26,7 @@ export class AppError extends Error {
   kind: AppErrorKind
   status?: number
   messageKey?: string
+  messageParams?: Record<string, string | number | boolean>
   userMessage?: string
   retryable?: boolean
   retryAfterMs?: number
@@ -38,6 +40,7 @@ export class AppError extends Error {
     this.kind = options.kind || "unknown"
     this.status = options.status
     this.messageKey = options.messageKey
+    this.messageParams = options.messageParams
     this.userMessage = options.userMessage
     this.retryable = options.retryable
     this.retryAfterMs = options.retryAfterMs

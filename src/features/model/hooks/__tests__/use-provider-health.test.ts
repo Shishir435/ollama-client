@@ -1,19 +1,19 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("@/lib/providers/factory", () => ({
-  ProviderFactory: {
-    getProviderWithConfig: vi.fn()
+vi.mock("@/protocol/extension-client", () => ({
+  extensionRpcClient: {
+    call: vi.fn()
   }
 }))
 
-import { ProviderFactory } from "@/lib/providers/factory"
 import type { ProviderConfig } from "@/lib/providers/types"
 import { ProviderId, ProviderType } from "@/lib/providers/types"
+import { extensionRpcClient } from "@/protocol/extension-client"
 
 import { useProviderHealth } from "../use-provider-health"
 
-const mockedGetProvider = vi.mocked(ProviderFactory.getProviderWithConfig)
+const mockedCall = vi.mocked(extensionRpcClient.call)
 
 const mkProvider = (
   id: ProviderId,
@@ -27,20 +27,8 @@ const mkProvider = (
   baseUrl: "http://localhost:1234/v1"
 })
 
-const fakeProviderReturning = (modelCount: number) => ({
-  getModels: vi.fn(async () =>
-    Array.from({ length: modelCount }, (_, i) => ({ id: `m${i}` }))
-  )
-})
-
-const fakeProviderThrowing = (err: Error) => ({
-  getModels: vi.fn(async () => {
-    throw err
-  })
-})
-
 beforeEach(() => {
-  mockedGetProvider.mockReset()
+  mockedCall.mockReset()
 })
 
 // ---------------------------------------------------------------------------
@@ -51,7 +39,7 @@ beforeEach(() => {
 
 describe("useProviderHealth — initial check (real timers)", () => {
   it("returns an empty map on first render before async checks resolve", () => {
-    mockedGetProvider.mockResolvedValue(fakeProviderReturning(1) as never)
+    mockedCall.mockResolvedValue({ modelCount: 1 } as never)
     const { result } = renderHook(() =>
       useProviderHealth([mkProvider(ProviderId.OLLAMA, true)])
     )
@@ -59,7 +47,7 @@ describe("useProviderHealth — initial check (real timers)", () => {
   })
 
   it("marks an enabled provider with models as healthy after the initial check", async () => {
-    mockedGetProvider.mockResolvedValue(fakeProviderReturning(3) as never)
+    mockedCall.mockResolvedValue({ modelCount: 3 } as never)
     const { result } = renderHook(() =>
       useProviderHealth([mkProvider(ProviderId.OLLAMA, true)])
     )
@@ -75,7 +63,7 @@ describe("useProviderHealth — initial check (real timers)", () => {
   })
 
   it("treats empty model lists as unhealthy", async () => {
-    mockedGetProvider.mockResolvedValue(fakeProviderReturning(0) as never)
+    mockedCall.mockResolvedValue({ modelCount: 0 } as never)
     const { result } = renderHook(() =>
       useProviderHealth([mkProvider(ProviderId.OLLAMA, true)])
     )
@@ -87,9 +75,7 @@ describe("useProviderHealth — initial check (real timers)", () => {
   })
 
   it("treats getModels rejection as unhealthy without throwing", async () => {
-    mockedGetProvider.mockResolvedValue(
-      fakeProviderThrowing(new Error("connect EHOSTUNREACH")) as never
-    )
+    mockedCall.mockRejectedValue(new Error("connect EHOSTUNREACH"))
     const { result } = renderHook(() =>
       useProviderHealth([mkProvider(ProviderId.OLLAMA, true)])
     )
@@ -101,7 +87,7 @@ describe("useProviderHealth — initial check (real timers)", () => {
   })
 
   it("skips disabled providers — they never get a health entry", async () => {
-    mockedGetProvider.mockResolvedValue(fakeProviderReturning(2) as never)
+    mockedCall.mockResolvedValue({ modelCount: 2 } as never)
     const { result } = renderHook(() =>
       useProviderHealth([
         mkProvider(ProviderId.OLLAMA, false),
@@ -118,8 +104,12 @@ describe("useProviderHealth — initial check (real timers)", () => {
   })
 
   it("checks each enabled provider in the list independently", async () => {
-    mockedGetProvider.mockImplementation((async (config: ProviderConfig) =>
-      fakeProviderReturning(config.id === ProviderId.OLLAMA ? 1 : 0)) as never)
+    mockedCall.mockImplementation((async (
+      _method: unknown,
+      request: { providerId?: string }
+    ) => ({
+      modelCount: request.providerId === ProviderId.OLLAMA ? 1 : 0
+    })) as never)
 
     const { result } = renderHook(() =>
       useProviderHealth([
@@ -153,24 +143,24 @@ describe("useProviderHealth — interval + cleanup (fake timers)", () => {
   })
 
   it("re-checks every 10s on the interval", async () => {
-    mockedGetProvider.mockResolvedValue(fakeProviderReturning(1) as never)
+    mockedCall.mockResolvedValue({ modelCount: 1 } as never)
     renderHook(() => useProviderHealth([mkProvider(ProviderId.OLLAMA, true)]))
 
     // Let the initial check + its microtasks settle. With fake timers, we
     // run pending microtasks via vi.runOnlyPendingTimersAsync (which also
     // resolves promises queued on the timer queue).
     await vi.runOnlyPendingTimersAsync()
-    const initialCalls = mockedGetProvider.mock.calls.length
+    const initialCalls = mockedCall.mock.calls.length
     expect(initialCalls).toBeGreaterThanOrEqual(1)
 
     // Advance one full polling interval.
     await vi.advanceTimersByTimeAsync(10_000)
 
-    expect(mockedGetProvider.mock.calls.length).toBeGreaterThan(initialCalls)
+    expect(mockedCall.mock.calls.length).toBeGreaterThan(initialCalls)
   })
 
   it("clears the interval on unmount", async () => {
-    mockedGetProvider.mockResolvedValue(fakeProviderReturning(1) as never)
+    mockedCall.mockResolvedValue({ modelCount: 1 } as never)
     const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval")
 
     const { unmount } = renderHook(() =>

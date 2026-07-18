@@ -1813,7 +1813,16 @@
     }
   },
   "errors": {
-    "failed_to_fetch_models": "モデルの取得に失敗しました"
+    "failed_to_fetch_models": "モデルの取得に失敗しました",
+    "rpc": {
+      "invalid_request": "リクエストが無効です。",
+      "invalid_response": "バックグラウンドの応答が無効です。",
+      "forbidden": "このページからこの操作は許可されていません。",
+      "not_found": "プロバイダー設定が見つかりません。",
+      "provider_failed": "プロバイダーへのリクエストに失敗しました。",
+      "timeout": "バックグラウンドのリクエストがタイムアウトしました。もう一度お試しください。",
+      "internal": "バックグラウンドのリクエストに失敗しました。もう一度お試しください。"
+    }
   },
   "onboarding": {
     "step": "{{total}} ステップ中 {{current}}",

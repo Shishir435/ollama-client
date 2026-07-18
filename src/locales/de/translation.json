@@ -1813,7 +1813,16 @@
     }
   },
   "errors": {
-    "failed_to_fetch_models": "Modelle konnten nicht abgerufen werden"
+    "failed_to_fetch_models": "Modelle konnten nicht abgerufen werden",
+    "rpc": {
+      "invalid_request": "Die Anfrage war ungültig.",
+      "invalid_response": "Die Hintergrundantwort war ungültig.",
+      "forbidden": "Diese Aktion ist auf dieser Seite nicht erlaubt.",
+      "not_found": "Die Anbieterkonfiguration wurde nicht gefunden.",
+      "provider_failed": "Die Anbieteranfrage ist fehlgeschlagen.",
+      "timeout": "Die Hintergrundanfrage hat zu lange gedauert. Bitte versuche es erneut.",
+      "internal": "Die Hintergrundanfrage ist fehlgeschlagen. Bitte versuche es erneut."
+    }
   },
   "onboarding": {
     "step": "Schritt {{current}} von {{total}}",

@@ -73,6 +73,25 @@ Manifest (permissions, CSP, host permissions, `browser_specific_settings`) lives
 
 **Default fallback** is Ollama when no explicit model→provider mapping exists.
 
+### Provider RPC Boundary (`src/protocol/`)
+
+Provider configuration reads, connection tests, and model discovery cross the
+extension-page/background boundary through the versioned RPC contract:
+
+- `rpc.ts` — protocol version, `RpcMethod`/`RpcErrorCode` enums, and envelopes
+- `provider-rpc.ts` — method request/result schemas and the typed `RpcMap`
+- `rpc-registry.ts` — per-method schemas, sender policy, timeout, and operation metadata
+- `extension-client.ts` — validated extension-page client
+- `src/background/rpc-server.ts` — authorization, validation, dispatch, and safe errors
+- `src/lib/providers/provider-rpc-service.ts` — background-owned provider operations
+
+Add each new method to `RpcMethod`, `RpcMap`, and `RPC_METHOD_DEFINITIONS`; refer
+to methods through the enum rather than duplicating wire strings. Validate both
+ends, keep credentials out of results and diagnostics, and return i18n message
+keys plus safe fallback text. Legacy `MESSAGE_KEYS` handlers may delegate to the
+RPC service during migration, but new provider request/response work should use
+the RPC boundary.
+
 ### Storage
 
 Chat-history storage now runs on sql.js (SQLite-in-WASM). The Dexie chat-history fallback has been retired; Dexie remains only for vector embeddings and knowledge-set storage.

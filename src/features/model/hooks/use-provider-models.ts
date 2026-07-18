@@ -23,94 +23,16 @@ import {
   ProviderStorageKey
 } from "@/lib/providers/types"
 import { queryKeys } from "@/lib/query-keys"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import { RpcMethod } from "@/protocol/rpc"
 import type { ProviderModel, SelectedModelRef } from "@/types"
 import { isEmbeddingModel } from "../lib/model-utils"
 
 const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
-  const providers = await ProviderManager.getProviders()
-  const enabledProviders = providers.filter((p) => p.enabled)
-  logger.info("Enabled providers", "useProviderModels", {
-    providers: enabledProviders.map((p) => p.id)
+  const result = await extensionRpcClient.call(RpcMethod.ProvidersListModels, {
+    enabledOnly: true
   })
-
-  const allModels: ProviderModel[] = []
-  const failures: Array<{ providerId: string; error: unknown }> = []
-
-  await Promise.all(
-    enabledProviders.map(async (config) => {
-      try {
-        logger.debug(`Fetching for ${config.id}`, "useProviderModels")
-        const provider = await ProviderFactory.getProvider(config.id)
-        const providerModels = await provider.getModels()
-        const customs = config.customModels || []
-
-        const modelMap = new Map<string, ProviderModel>()
-        providerModels.forEach((m) => {
-          modelMap.set(m.name, m)
-        })
-
-        customs.forEach((name) => {
-          if (!modelMap.has(name)) {
-            modelMap.set(name, {
-              name,
-              model: name,
-              modified_at: new Date().toISOString(),
-              size: 0,
-              digest: config.id,
-              providerId: config.id,
-              providerName: config.name,
-              details: {
-                parent_model: "",
-                format: "gguf",
-                family: config.type,
-                families: [],
-                parameter_size: "",
-                quantization_level: ""
-              }
-            })
-          }
-        })
-
-        modelMap.forEach((model) => {
-          if (!model.providerId) model.providerId = config.id
-          if (!model.providerName) model.providerName = config.name
-          allModels.push(model)
-        })
-      } catch (e) {
-        failures.push({ providerId: config.id, error: e })
-        logger.error(
-          `Failed to fetch models for ${config.id}`,
-          "useProviderModels",
-          { error: e }
-        )
-      }
-    })
-  )
-
-  if (
-    enabledProviders.length > 0 &&
-    failures.length === enabledProviders.length
-  ) {
-    throw createAppError("Failed to fetch models from every enabled provider", {
-      kind: "provider",
-      cause: failures[0]?.error,
-      retryable: true,
-      debug: failures.map(({ providerId }) => providerId)
-    })
-  }
-
-  // Persist model→provider mappings so the background script can route
-  // correctly. Keys are provider-scoped, so name collisions across providers
-  // are all recorded — bare-name lookups disambiguate by provider order.
-  const pairs = allModels
-    .filter((m) => m.providerId && m.providerId !== DEFAULT_PROVIDER_ID)
-    .map((m) => ({ modelId: m.name, providerId: m.providerId as string }))
-  if (pairs.length > 0) {
-    await ProviderManager.saveModelMappings(pairs)
-  }
-
-  allModels.sort((a, b) => a.name.localeCompare(b.name))
-  return allModels
+  return result.models
 }
 
 const fetchProviderVersion = async (providerId: string): Promise<string> => {
