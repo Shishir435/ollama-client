@@ -302,7 +302,13 @@ export const useProviderSettingsState = () => {
         RpcMethod.ProvidersUpsert,
         { target: "new", provider: input }
       )
-      await loadProviders()
+      // The mutation response is authoritative. Merge it into the current
+      // client state instead of replacing every provider with a list snapshot
+      // that may have started before another pending save completed.
+      setProviders((current) => [
+        ...current.filter((provider) => provider.id !== config.id),
+        toSettingsConfig(config)
+      ])
       setSelectedId(String(config.id))
       toast({
         title: t("settings.providers.add.added_title"),
@@ -333,9 +339,9 @@ export const useProviderSettingsState = () => {
       await extensionRpcClient.call(RpcMethod.ProvidersRemove, {
         providerId: id
       })
-      // The mutation result is authoritative. Update local state before the
-      // best-effort refresh so a refresh failure cannot leave a removed
-      // provider visible alongside a success toast.
+      // The mutation result is authoritative. Do not follow it with a full
+      // list refresh: an older snapshot could overwrite concurrent edits or
+      // reintroduce the removed provider locally.
       setProviders((current) =>
         current.filter((provider) => String(provider.id) !== id)
       )
@@ -346,7 +352,6 @@ export const useProviderSettingsState = () => {
           name: providerName ?? id
         })
       })
-      void loadProviders()
     } catch (error) {
       logger.error("Failed to remove provider", "ProviderSettings", { error })
       toast({

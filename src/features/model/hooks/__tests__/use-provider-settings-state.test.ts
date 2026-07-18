@@ -48,15 +48,9 @@ describe("useProviderSettingsState", () => {
     vi.clearAllMocks()
   })
 
-  it("keeps a removed provider out of local state when refresh fails", async () => {
+  it("removes a provider without replacing concurrent local edits", async () => {
     vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
       if (method === RpcMethod.ProvidersList) {
-        const listCalls = vi
-          .mocked(extensionRpcClient.call)
-          .mock.calls.filter(
-            ([calledMethod]) => calledMethod === RpcMethod.ProvidersList
-          ).length
-        if (listCalls > 1) throw new Error("refresh failed")
         return { providers: [ollama, custom] } as never
       }
       if (method === RpcMethod.ProvidersRemove) {
@@ -71,17 +65,73 @@ describe("useProviderSettingsState", () => {
       expect(result.current.providers).toHaveLength(2)
     })
 
+    act(() => {
+      result.current.updateConfig({ baseUrl: "http://localhost:11435" })
+    })
+
     await act(async () => {
       await result.current.removeProvider(custom.id)
     })
 
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false)
-    })
-    expect(result.current.providers).toEqual([ollama])
+    expect(result.current.providers).toEqual([
+      { ...ollama, baseUrl: "http://localhost:11435" }
+    ])
+    expect(
+      vi
+        .mocked(extensionRpcClient.call)
+        .mock.calls.filter(
+          ([calledMethod]) => calledMethod === RpcMethod.ProvidersList
+        )
+    ).toHaveLength(1)
     expect(mocks.toast).toHaveBeenCalledWith({
       title: "settings.providers.add.removed_title",
       description: "settings.providers.add.removed_description Custom server"
     })
+  })
+
+  it("adds a provider without replacing concurrent local edits", async () => {
+    const added = {
+      ...custom,
+      id: "custom:openai:added",
+      name: "Added server"
+    }
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList) {
+        return { providers: [ollama] } as never
+      }
+      if (method === RpcMethod.ProvidersUpsert) {
+        return { provider: added } as never
+      }
+      throw new Error(`Unexpected method: ${method}`)
+    })
+
+    const { result } = renderHook(() => useProviderSettingsState())
+
+    await waitFor(() => {
+      expect(result.current.providers).toEqual([ollama])
+    })
+
+    act(() => {
+      result.current.updateConfig({ baseUrl: "http://localhost:11435" })
+    })
+    await act(async () => {
+      await result.current.addProvider({
+        name: added.name,
+        baseUrl: added.baseUrl,
+        wire: "openai"
+      })
+    })
+
+    expect(result.current.providers).toEqual([
+      { ...ollama, baseUrl: "http://localhost:11435" },
+      added
+    ])
+    expect(
+      vi
+        .mocked(extensionRpcClient.call)
+        .mock.calls.filter(
+          ([calledMethod]) => calledMethod === RpcMethod.ProvidersList
+        )
+    ).toHaveLength(1)
   })
 })

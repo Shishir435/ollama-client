@@ -86,6 +86,80 @@ export const setSchemaVersion = (db: Database, version: number): void => {
   db.run(`PRAGMA user_version = ${Math.trunc(version)}`)
 }
 
+const getTableColumns = (db: Database, table: "messages" | "sessions") => {
+  const stmt = db.prepare(`PRAGMA table_info(${table})`)
+  const columns = new Set<string>()
+  while (stmt.step()) {
+    const row = stmt.getAsObject() as { name?: string }
+    if (row.name) columns.add(row.name)
+  }
+  stmt.free()
+  return columns
+}
+
+const hasTable = (db: Database, table: "tool_loop_runs") => {
+  const stmt = db.prepare(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1"
+  )
+  stmt.bind([table])
+  const found = stmt.step()
+  stmt.free()
+  return found
+}
+
+/**
+ * Repair databases whose recorded version is newer than their physical
+ * schema. This can happen when an older extension context persists a stale
+ * sql.js snapshot after another context migrated it. Version-only migration
+ * checks cannot detect that state, and subsequent message inserts then fail on
+ * missing columns.
+ */
+export const repairSchemaDrift = (db: Database): number => {
+  const messageColumns = getTableColumns(db, "messages")
+  const sessionColumns = getTableColumns(db, "sessions")
+  const repairs: Array<{ missing: boolean; apply: () => void }> = [
+    {
+      missing: !messageColumns.has("thinking"),
+      apply: () => ensureMessagesThinkingColumn(db)
+    },
+    {
+      missing: !messageColumns.has("replayArtifact"),
+      apply: () => ensureMessagesReplayArtifactColumn(db)
+    },
+    {
+      missing: !sessionColumns.has("pinned"),
+      apply: () => ensureSessionsPinnedColumn(db)
+    },
+    {
+      missing: !sessionColumns.has("systemPrompt"),
+      apply: () => ensureSessionsSystemPromptColumn(db)
+    },
+    {
+      missing: !sessionColumns.has("tags"),
+      apply: () => ensureSessionsTagsColumn(db)
+    },
+    {
+      missing: !hasTable(db, "tool_loop_runs"),
+      apply: () => ensureToolLoopRunsTable(db)
+    }
+  ]
+
+  let repaired = 0
+  for (const repair of repairs) {
+    if (!repair.missing) continue
+    repair.apply()
+    repaired += 1
+  }
+
+  if (repaired > 0) {
+    logger.warn(
+      `Repaired ${repaired} SQLite schema item(s) missing at recorded version ${getSchemaVersion(db)}`,
+      "SQLite/migrations"
+    )
+  }
+  return repaired
+}
+
 /**
  * Apply every migration whose version is above the database's current
  * `user_version`, in order, bumping the recorded version after each. Returns
