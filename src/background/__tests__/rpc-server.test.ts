@@ -110,10 +110,23 @@ describe("RPC server", () => {
       models: [
         {
           name: "future-model",
+          model: null,
+          modified_at: null,
           size: 1,
-          family: "future",
+          family: null,
           futureField: "provider-owned",
-          details: { futureDetail: true }
+          details: {
+            family: "future",
+            families: null,
+            quantization_level: null,
+            futureDetail: true
+          },
+          capabilityHints: {
+            modelType: null,
+            contextLength: null,
+            modalities: null,
+            supportedParameters: null
+          }
         }
       ],
       failures: []

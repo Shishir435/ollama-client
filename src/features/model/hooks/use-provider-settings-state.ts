@@ -333,7 +333,12 @@ export const useProviderSettingsState = () => {
       await extensionRpcClient.call(RpcMethod.ProvidersRemove, {
         providerId: id
       })
-      await loadProviders()
+      // The mutation result is authoritative. Update local state before the
+      // best-effort refresh so a refresh failure cannot leave a removed
+      // provider visible alongside a success toast.
+      setProviders((current) =>
+        current.filter((provider) => String(provider.id) !== id)
+      )
       if (selectedId === id) setSelectedId(DEFAULT_PROVIDER_ID)
       toast({
         title: t("settings.providers.add.removed_title"),
@@ -341,6 +346,7 @@ export const useProviderSettingsState = () => {
           name: providerName ?? id
         })
       })
+      void loadProviders()
     } catch (error) {
       logger.error("Failed to remove provider", "ProviderSettings", { error })
       toast({

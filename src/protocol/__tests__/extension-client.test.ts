@@ -56,6 +56,46 @@ describe("extension RPC client", () => {
     expect(sendMessage).not.toHaveBeenCalled()
   })
 
+  it("accepts normalized model catalogs with sparse provider metadata", async () => {
+    sendMessage.mockImplementation(async (message) => ({
+      type: RPC_RESPONSE_MESSAGE_TYPE,
+      version: RPC_PROTOCOL_VERSION,
+      requestId: message.requestId,
+      ok: true,
+      result: {
+        models: [
+          {
+            name: "gemma4:latest",
+            model: "gemma4:latest",
+            modified_at: "",
+            size: 0,
+            digest: "",
+            providerId: "ollama",
+            providerName: "Ollama",
+            details: {
+              parent_model: "",
+              format: "gguf",
+              family: "gemma4",
+              families: [],
+              parameter_size: "",
+              quantization_level: ""
+            }
+          }
+        ],
+        failures: []
+      }
+    }))
+
+    await expect(
+      extensionRpcClient.call(RpcMethod.ProvidersListModels, {
+        enabledOnly: true
+      })
+    ).resolves.toMatchObject({
+      models: [{ name: "gemma4:latest", providerId: "ollama" }],
+      failures: []
+    })
+  })
+
   it("converts RPC error envelopes into localized AppErrors", async () => {
     sendMessage.mockImplementation(async (message) => ({
       type: RPC_RESPONSE_MESSAGE_TYPE,
