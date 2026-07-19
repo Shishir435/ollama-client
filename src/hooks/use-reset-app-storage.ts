@@ -1,5 +1,5 @@
 import { useCallback } from "react"
-import { MESSAGE_KEYS } from "@/lib/constants"
+import { browser } from "wxt/browser"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import { logger } from "@/lib/logger"
@@ -12,7 +12,6 @@ import {
   resetProviderStorageUnlocked,
   withProviderPersistenceLock
 } from "@/lib/providers/provider-secret-store"
-import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
 export type ResetKey = keyof ReturnType<typeof getAllResetKeys> | "all"
@@ -54,11 +53,17 @@ export const useResetAppStorage = () => {
       }
 
       if (key === "all" || key === "CHAT_SESSIONS") {
-        // Tell other extension pages to reload so they pick up the fresh state.
-        sendRuntimeMessage(MESSAGE_KEYS.APP.RELOAD).catch(() => {
-          /* not available in test */
-        })
-        setTimeout(() => window.location.reload(), 100)
+        // Restart the whole extension so every context — including the
+        // background worker, which has no APP.RELOAD listener — reinitializes
+        // with the new import generation. Contexts left running with the old
+        // generation have all chat saves silently skipped.
+        setTimeout(() => {
+          try {
+            browser.runtime.reload()
+          } catch {
+            window.location.reload()
+          }
+        }, 100)
         return "Resetting..."
       }
 
