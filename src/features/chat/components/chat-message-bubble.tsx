@@ -51,26 +51,15 @@ export const ChatMessageBubble = memo(
 
     /* import { useMessageExport } from "@/features/chat/hooks/use-message-export" */
 
-    const {
-      exportMessageAsJson,
-      exportMessageAsMarkdown,
-      exportMessageAsPdf,
-      exportMessageAsText
-    } = useMessageExport()
+    const { exportMessageAsJson, exportMessageAsPdf } = useMessageExport()
 
-    const handleExport = (format: "json" | "pdf" | "markdown" | "text") => {
+    const handleExport = (format: "json" | "pdf") => {
       switch (format) {
         case "json":
           exportMessageAsJson(msg)
           break
         case "pdf":
           exportMessageAsPdf(msg)
-          break
-        case "markdown":
-          exportMessageAsMarkdown(msg)
-          break
-        case "text":
-          exportMessageAsText(msg)
           break
       }
     }

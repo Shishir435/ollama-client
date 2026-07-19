@@ -210,8 +210,6 @@
       "export": "निर्यात करें",
       "export_format_json": "JSON",
       "export_format_pdf": "PDF",
-      "export_format_markdown": "Markdown",
-      "export_format_text": "पाठ",
       "previous_branch": "पिछली शाखा",
       "next_branch": "अगली शाखा",
       "preview": "पूर्वावलोकन",
@@ -452,6 +450,7 @@
     "tool_confirmation": {
       "title": "क्रिया की पुष्टि करें",
       "body": "सहायक यह करना चाहता है: {{action}}। अनुमति दें?",
+      "body_on_origin": "सहायक यह करना चाहता है: {{origin}} पर {{action}}। अनुमति दें?",
       "allow": "अनुमति दें",
       "deny": "अस्वीकार करें",
       "allow_once": "एक बार अनुमति दें",
@@ -745,12 +744,11 @@
       "aria_label": "चैट निर्यात करें",
       "format_json": "JSON",
       "format_pdf": "PDF",
-      "format_markdown": "Markdown",
-      "format_text": "पाठ",
       "default_title": "चैट सत्र",
       "all_sessions_title": "सभी चैट सत्र",
       "role_user": "आप",
-      "role_assistant": "AI सहायक"
+      "role_assistant": "AI सहायक",
+      "remote_image_blocked": "रिमोट इमेज अवरुद्ध"
     },
     "actions": {
       "more": "{{title}} के लिए अधिक क्रियाएं",
@@ -865,12 +863,8 @@
       "toggle_session_metrics_desc": "सत्र मेट्रिक्स बार दिखाएं या छिपाएं",
       "export_json": "JSON निर्यात करें",
       "export_json_desc": "वर्तमान चैट को JSON फ़ाइल के रूप में निर्यात करें",
-      "export_markdown": "Markdown निर्यात करें",
-      "export_markdown_desc": "वर्तमान चैट को Markdown फ़ाइल के रूप में निर्यात करें",
       "export_pdf": "PDF निर्यात करें",
       "export_pdf_desc": "वर्तमान चैट को PDF फ़ाइल के रूप में निर्यात करें",
-      "export_text": "पाठ निर्यात करें",
-      "export_text_desc": "वर्तमान चैट को पाठ फ़ाइल के रूप में निर्यात करें",
       "browser": {
         "title": "कहीं से भी खोलें",
         "description": "किसी भी पृष्ठ से चैट साइड पैनल खोलने के लिए ब्राउज़र-स्तरीय शॉर्टकट सेट करें। ब्राउज़र इस बाइंडिंग को प्रबंधित करता है — नीचे दिया पता कॉपी करें और कुंजी सेट या बदलने के लिए इसे अपने पता बार में पेस्ट करें।",
@@ -1728,6 +1722,10 @@
       "description": "restore_session टूल को नियंत्रित करता है, जो हाल ही में बंद किए गए टैब फिर से खोलता है।",
       "max_label": "एक बार में अधिकतम टैब",
       "max_hint": "एक ही क्रिया में सहायक कितने टैब फिर से खोल सकता है (1–25)। ‘सभी खोलें’ को बहुत सारे टैब बनाने से रोकता है।"
+    },
+    "export_privacy": {
+      "remote_images_label": "एक्सपोर्ट में रिमोट इमेज लोड करें",
+      "remote_images_hint": "प्रिंट और PDF एक्सपोर्ट को बाहरी सर्वर से इमेज लोड करने की अनुमति दें। बंद होने पर एक्सपोर्ट पूरी तरह ऑफ़लाइन रहते हैं और रिमोट इमेज की जगह प्लेसहोल्डर दिखता है।"
     }
   },
   "guides": {

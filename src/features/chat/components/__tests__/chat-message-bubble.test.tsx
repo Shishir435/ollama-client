@@ -13,9 +13,7 @@ vi.mock("react-i18next", () => ({
 vi.mock("@/features/chat/hooks/use-message-export", () => ({
   useMessageExport: () => ({
     exportMessageAsJson: vi.fn(),
-    exportMessageAsMarkdown: vi.fn(),
-    exportMessageAsPdf: vi.fn(),
-    exportMessageAsText: vi.fn()
+    exportMessageAsPdf: vi.fn()
   })
 }))
 

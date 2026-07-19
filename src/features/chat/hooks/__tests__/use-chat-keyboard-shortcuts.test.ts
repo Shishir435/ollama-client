@@ -11,9 +11,7 @@ const mocks = vi.hoisted(() => ({
   toggleSpeech: vi.fn(),
   toast: vi.fn(),
   exportSessionAsJson: vi.fn(),
-  exportSessionAsMarkdown: vi.fn(),
   exportSessionAsPdf: vi.fn(),
-  exportSessionAsText: vi.fn(),
   openOptionsInTab: vi.fn(),
   openSearchDialog: vi.fn(),
   setTheme: vi.fn()
@@ -45,9 +43,7 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => ({
 vi.mock("@/features/sessions/hooks/use-export-chat", () => ({
   useChatExport: () => ({
     exportSessionAsJson: mocks.exportSessionAsJson,
-    exportSessionAsMarkdown: mocks.exportSessionAsMarkdown,
-    exportSessionAsPdf: mocks.exportSessionAsPdf,
-    exportSessionAsText: mocks.exportSessionAsText
+    exportSessionAsPdf: mocks.exportSessionAsPdf
   })
 }))
 
@@ -113,9 +109,7 @@ describe("useChatKeyboardShortcuts", () => {
     expect(capturedHandlers).toHaveProperty("clearChat")
     expect(capturedHandlers).toHaveProperty("copyLastResponse")
     expect(capturedHandlers).toHaveProperty("exportJson")
-    expect(capturedHandlers).toHaveProperty("exportMarkdown")
     expect(capturedHandlers).toHaveProperty("exportPdf")
-    expect(capturedHandlers).toHaveProperty("exportText")
   })
 
   it("newChat: calls createSession and shows toast", async () => {
@@ -204,22 +198,10 @@ describe("useChatKeyboardShortcuts", () => {
     )
   })
 
-  it("exportMarkdown: exports session as markdown", () => {
-    renderShortcuts()
-    capturedHandlers.exportMarkdown(fakeEvent())
-    expect(mocks.exportSessionAsMarkdown).toHaveBeenCalledWith(sessions[0])
-  })
-
   it("exportPdf: exports session as PDF", () => {
     renderShortcuts()
     capturedHandlers.exportPdf(fakeEvent())
     expect(mocks.exportSessionAsPdf).toHaveBeenCalledWith(sessions[0])
-  })
-
-  it("exportText: exports session as plain text", () => {
-    renderShortcuts()
-    capturedHandlers.exportText(fakeEvent())
-    expect(mocks.exportSessionAsText).toHaveBeenCalledWith(sessions[0])
   })
 
   it("export: no-op when currentSessionId matches no session", () => {

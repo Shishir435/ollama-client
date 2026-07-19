@@ -38,6 +38,7 @@ import { ModelSettingsForm } from "@/features/model/components/model-settings-fo
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
 import { RestoreSessionsLimitSettings } from "@/features/permissions/components/restore-sessions-limit-settings"
+import { ExportPrivacySettings } from "@/features/privacy/components/export-privacy-settings"
 import { PrivacyDataInventory } from "@/features/privacy/components/privacy-data-inventory"
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import {
@@ -173,6 +174,7 @@ export const SettingsPage = () => {
         <PrivacyDataInventory />
         <DataMigrationSettings />
         <PermissionsPanel />
+        <ExportPrivacySettings />
         <RestoreSessionsLimitSettings />
         <ResetStorage />
       </SectionStack>

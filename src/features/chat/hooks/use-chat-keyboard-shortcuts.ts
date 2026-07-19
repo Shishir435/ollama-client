@@ -28,12 +28,7 @@ export const useChatKeyboardShortcuts = ({
   const { toggle: toggleSpeech } = useSpeechSynthesis()
   const { toast } = useToast()
   const { sessions } = useChatSessions()
-  const {
-    exportSessionAsJson,
-    exportSessionAsMarkdown,
-    exportSessionAsPdf,
-    exportSessionAsText
-  } = useChatExport()
+  const { exportSessionAsJson, exportSessionAsPdf } = useChatExport()
 
   useKeyboardShortcuts({
     newChat: (e) => {
@@ -92,28 +87,12 @@ export const useChatKeyboardShortcuts = ({
         toast({ description: "Chat exported as JSON" })
       }
     },
-    exportMarkdown: (e) => {
-      e.preventDefault()
-      const session = sessions.find((s) => s.id === currentSessionId)
-      if (session) {
-        exportSessionAsMarkdown(session)
-        toast({ description: "Chat exported as Markdown" })
-      }
-    },
     exportPdf: (e) => {
       e.preventDefault()
       const session = sessions.find((s) => s.id === currentSessionId)
       if (session) {
         exportSessionAsPdf(session)
         toast({ description: "Chat exported as PDF" })
-      }
-    },
-    exportText: (e) => {
-      e.preventDefault()
-      const session = sessions.find((s) => s.id === currentSessionId)
-      if (session) {
-        exportSessionAsText(session)
-        toast({ description: "Chat exported as Text" })
       }
     }
   })

@@ -210,8 +210,6 @@
       "export": "Esporta",
       "export_format_json": "JSON",
       "export_format_pdf": "PDF",
-      "export_format_markdown": "Markdown",
-      "export_format_text": "Testo",
       "previous_branch": "Branch Precedente",
       "next_branch": "Branch Successivo",
       "preview": "Anteprima",
@@ -452,6 +450,7 @@
     "tool_confirmation": {
       "title": "Conferma azione",
       "body": "L’assistente vuole: {{action}}. Consentire?",
+      "body_on_origin": "L’assistente vuole: {{action}} su {{origin}}. Consentire?",
       "allow": "Consenti",
       "deny": "Rifiuta",
       "allow_once": "Consenti una volta",
@@ -745,12 +744,11 @@
       "aria_label": "Esporta chat",
       "format_json": "JSON",
       "format_pdf": "PDF",
-      "format_markdown": "Markdown",
-      "format_text": "Testo",
       "default_title": "Sessione di chat",
       "all_sessions_title": "Tutte le sessioni",
       "role_user": "Tu",
-      "role_assistant": "Assistente IA"
+      "role_assistant": "Assistente IA",
+      "remote_image_blocked": "Immagine remota bloccata"
     },
     "actions": {
       "more": "Altre azioni per {{title}}",
@@ -865,12 +863,8 @@
       "toggle_session_metrics_desc": "Mostra o nascondi la barra delle metriche della sessione",
       "export_json": "Esporta come JSON",
       "export_json_desc": "Esporta chat corrente come JSON",
-      "export_markdown": "Esporta come Markdown",
-      "export_markdown_desc": "Esporta chat corrente come Markdown",
       "export_pdf": "Esporta come PDF",
       "export_pdf_desc": "Esporta chat corrente come PDF",
-      "export_text": "Esporta come Testo",
-      "export_text_desc": "Esporta chat corrente come testo",
       "browser": {
         "title": "Apri da ovunque",
         "description": "Imposta una scorciatoia a livello di browser per aprire il pannello laterale della chat da qualsiasi pagina. Il browser gestisce questa associazione: copia l'indirizzo qui sotto e incollalo nella barra degli indirizzi per impostare o cambiare il tasto.",
@@ -1728,6 +1722,10 @@
       "description": "Controlla lo strumento restore_session, che riapre le schede chiuse di recente.",
       "max_label": "Max schede da riaprire insieme",
       "max_hint": "Il numero massimo di schede che l’assistente può riaprire in una singola azione (1–25). Evita che «apri tutte» generi troppe schede."
+    },
+    "export_privacy": {
+      "remote_images_label": "Carica immagini remote nelle esportazioni",
+      "remote_images_hint": "Consente alle esportazioni di stampa e PDF di caricare immagini da server esterni. Se disattivato, le esportazioni restano completamente offline e le immagini remote vengono sostituite da un segnaposto."
     }
   },
   "guides": {

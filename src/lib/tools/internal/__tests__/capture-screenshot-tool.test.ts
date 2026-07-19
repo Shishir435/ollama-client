@@ -19,7 +19,8 @@ vi.mock("@/lib/browser-api", () => ({
 vi.mock("../tab-utils", () => ({
   classifyTabAccess: (...args: unknown[]) => mocks.classifyTabAccess(...args),
   accessDeniedMessage: (access: string, label: string) =>
-    `denied:${access}:${label}`
+    `denied:${access}:${label}`,
+  queryActiveTab: async () => (await mocks.query({ active: true }))[0]
 }))
 
 import {
@@ -43,9 +44,50 @@ describe("capture_screenshot definition", () => {
     expect(captureScreenshotDefinition.requires).toContain("vision")
     expect(captureScreenshotDefinition.requires).toContain("tabs")
   })
+
+  it("binds its approval grant to the active tab's origin", async () => {
+    mocks.query.mockResolvedValue([
+      { id: 9, windowId: 3, url: "https://example.test/some/page?q=1" }
+    ])
+    await expect(
+      captureScreenshotDefinition.grantScopeResolver?.({}, {})
+    ).resolves.toBe("https://example.test")
+  })
+
+  it("resolves no origin on internal pages so no grant applies", async () => {
+    mocks.query.mockResolvedValue([
+      { id: 9, windowId: 3, url: "chrome://settings" }
+    ])
+    await expect(
+      captureScreenshotDefinition.grantScopeResolver?.({}, {})
+    ).resolves.toBeUndefined()
+  })
 })
 
 describe("capture_screenshot tool", () => {
+  it("refuses to capture when the active origin no longer matches the approval", async () => {
+    mocks.query.mockResolvedValue([
+      { id: 9, windowId: 3, url: "https://bank.example/account" }
+    ])
+
+    const result = await runCaptureScreenshot(
+      {},
+      { approvedOrigin: "https://github.com" }
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("https://github.com")
+    expect(mocks.captureVisibleTab).not.toHaveBeenCalled()
+  })
+
+  it("captures when the active origin still matches the approval", async () => {
+    const result = await runCaptureScreenshot(
+      {},
+      { approvedOrigin: "https://example.test" }
+    )
+    expect(result.isError).toBeUndefined()
+    expect(mocks.captureVisibleTab).toHaveBeenCalled()
+  })
+
   it("returns the screenshot as raw base64 image content", async () => {
     const result = await runCaptureScreenshot({}, {})
     expect(result.isError).toBeUndefined()

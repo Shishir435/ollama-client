@@ -12,6 +12,11 @@ import taskLists from "markdown-it-task-lists"
 
 import { hljs } from "@/lib/hljs"
 import { logger } from "@/lib/logger"
+import {
+  EXPORT_ALLOWED_ATTR,
+  EXPORT_ALLOWED_TAGS,
+  EXPORT_ALLOWED_URI_REGEXP
+} from "./export-sanitizer"
 
 /**
  * Creates and configures the MarkdownIt parser instance
@@ -65,51 +70,9 @@ export const parseMessageContent = (
   try {
     const rawHtml = md.render(content)
     const safeHtml = DOMPurify.sanitize(rawHtml, {
-      ALLOWED_TAGS: [
-        "p",
-        "br",
-        "strong",
-        "em",
-        "u",
-        "strike",
-        "code",
-        "pre",
-        "h1",
-        "h2",
-        "h3",
-        "h4",
-        "h5",
-        "h6",
-        "ul",
-        "ol",
-        "li",
-        "blockquote",
-        "a",
-        "img",
-        "table",
-        "thead",
-        "tbody",
-        "tr",
-        "th",
-        "td",
-        "div",
-        "span",
-        "mark",
-        "sub",
-        "sup",
-        "del",
-        "ins"
-      ],
-      ALLOWED_ATTR: [
-        "href",
-        "src",
-        "alt",
-        "title",
-        "class",
-        "id",
-        "checked",
-        "type"
-      ]
+      ALLOWED_TAGS: EXPORT_ALLOWED_TAGS,
+      ALLOWED_ATTR: EXPORT_ALLOWED_ATTR,
+      ALLOWED_URI_REGEXP: EXPORT_ALLOWED_URI_REGEXP
     })
     return safeHtml
   } catch (error) {

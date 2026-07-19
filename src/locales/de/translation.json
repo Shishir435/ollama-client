@@ -210,8 +210,6 @@
       "export": "Exportieren",
       "export_format_json": "JSON",
       "export_format_pdf": "PDF",
-      "export_format_markdown": "Markdown",
-      "export_format_text": "Text",
       "previous_branch": "Vorheriger Zweig",
       "next_branch": "Nächster Zweig",
       "preview": "Vorschau",
@@ -452,6 +450,7 @@
     "tool_confirmation": {
       "title": "Aktion bestätigen",
       "body": "Der Assistent möchte: {{action}}. Zulassen?",
+      "body_on_origin": "Der Assistent möchte: {{action}} auf {{origin}}. Zulassen?",
       "allow": "Zulassen",
       "deny": "Ablehnen",
       "allow_once": "Einmal zulassen",
@@ -745,12 +744,11 @@
       "aria_label": "Chat exportieren",
       "format_json": "JSON",
       "format_pdf": "PDF",
-      "format_markdown": "Markdown",
-      "format_text": "Text",
       "default_title": "Chat-Sitzung",
       "all_sessions_title": "Alle Chat-Sitzungen",
       "role_user": "Du",
-      "role_assistant": "KI-Assistent"
+      "role_assistant": "KI-Assistent",
+      "remote_image_blocked": "Externes Bild blockiert"
     },
     "actions": {
       "more": "Weitere Aktionen für {{title}}",
@@ -865,12 +863,8 @@
       "toggle_session_metrics_desc": "Sitzungsmetriken anzeigen oder ausblenden",
       "export_json": "Als JSON exportieren",
       "export_json_desc": "Aktuellen Chat als JSON exportieren",
-      "export_markdown": "Als Markdown exportieren",
-      "export_markdown_desc": "Aktuellen Chat als Markdown exportieren",
       "export_pdf": "Als PDF exportieren",
       "export_pdf_desc": "Aktuellen Chat als PDF exportieren",
-      "export_text": "Als Text exportieren",
-      "export_text_desc": "Aktuellen Chat als Text exportieren",
       "browser": {
         "title": "Von überall öffnen",
         "description": "Lege einen browserweiten Shortcut fest, um das Chat-Seitenpanel von jeder Seite aus zu öffnen. Der Browser verwaltet diese Belegung – kopiere die Adresse unten und füge sie in die Adressleiste ein, um die Taste festzulegen oder zu ändern.",
@@ -1728,6 +1722,10 @@
       "description": "Steuert das restore_session-Tool, das kürzlich geschlossene Tabs wieder öffnet.",
       "max_label": "Max. Tabs auf einmal öffnen",
       "max_hint": "Die maximale Anzahl an Tabs, die der Assistent in einer Aktion wieder öffnen darf (1–25). Verhindert, dass „alle öffnen“ zu viele Tabs erzeugt."
+    },
+    "export_privacy": {
+      "remote_images_label": "Externe Bilder in Exporten laden",
+      "remote_images_hint": "Erlaubt Druck- und PDF-Exporten, Bilder von externen Servern zu laden. Wenn deaktiviert, bleiben Exporte vollständig offline und externe Bilder werden durch einen Platzhalter ersetzt."
     }
   },
   "guides": {

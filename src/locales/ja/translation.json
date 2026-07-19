@@ -210,8 +210,6 @@
       "export": "エクスポート",
       "export_format_json": "JSON",
       "export_format_pdf": "PDF",
-      "export_format_markdown": "Markdown",
-      "export_format_text": "テキスト",
       "previous_branch": "前のブランチ",
       "next_branch": "次のブランチ",
       "preview": "プレビュー",
@@ -452,6 +450,7 @@
     "tool_confirmation": {
       "title": "操作の確認",
       "body": "アシスタントが次を実行しようとしています: {{action}}。許可しますか？",
+      "body_on_origin": "アシスタントが {{origin}} で次を実行しようとしています: {{action}}。許可しますか？",
       "allow": "許可",
       "deny": "拒否",
       "allow_once": "今回のみ許可",
@@ -745,12 +744,11 @@
       "aria_label": "チャットをエクスポート",
       "format_json": "JSON",
       "format_pdf": "PDF",
-      "format_markdown": "Markdown",
-      "format_text": "テキスト",
       "default_title": "チャットセッション",
       "all_sessions_title": "すべてのチャットセッション",
       "role_user": "あなた",
-      "role_assistant": "AIアシスタント"
+      "role_assistant": "AIアシスタント",
+      "remote_image_blocked": "リモート画像をブロックしました"
     },
     "actions": {
       "more": "{{title}} のその他のアクション",
@@ -865,12 +863,8 @@
       "toggle_session_metrics_desc": "セッションメトリクスバーを表示または非表示にする",
       "export_json": "JSONとしてエクスポート",
       "export_json_desc": "現在のチャットをJSONファイルとしてエクスポート",
-      "export_markdown": "Markdownとしてエクスポート",
-      "export_markdown_desc": "現在のチャットをMarkdownファイルとしてエクスポート",
       "export_pdf": "PDFとしてエクスポート",
       "export_pdf_desc": "現在のチャットをPDFファイルとしてエクスポート",
-      "export_text": "テキストとしてエクスポート",
-      "export_text_desc": "現在のチャットをテキストファイルとしてエクスポート",
       "browser": {
         "title": "どこからでも開く",
         "description": "任意のページからチャットのサイドパネルを開くためのブラウザレベルのショートカットを設定します。この割り当てはブラウザが管理します。下のアドレスをコピーしてアドレスバーに貼り付け、キーを設定または変更してください。",
@@ -1728,6 +1722,10 @@
       "description": "最近閉じたタブを再度開く restore_session ツールを制御します。",
       "max_label": "一度に開く最大タブ数",
       "max_hint": "アシスタントが1回の操作で再度開けるタブの上限（1〜25）。「すべて開く」で大量のタブが開くのを防ぎます。"
+    },
+    "export_privacy": {
+      "remote_images_label": "エクスポートでリモート画像を読み込む",
+      "remote_images_hint": "印刷・PDF エクスポートが外部サーバーから画像を読み込むことを許可します。オフの場合、エクスポートは完全にオフラインのまま行われ、リモート画像はプレースホルダーに置き換えられます。"
     }
   },
   "guides": {

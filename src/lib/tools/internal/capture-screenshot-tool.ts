@@ -1,12 +1,17 @@
 import { browser } from "@/lib/browser-api"
 import { stripDataUrlPrefix } from "@/lib/image-utils"
+import { normalizeGrantOrigin } from "@/lib/tools/approval/approval-policy"
 import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
   ToolResultImage
 } from "../types"
-import { accessDeniedMessage, classifyTabAccess } from "./tab-utils"
+import {
+  accessDeniedMessage,
+  classifyTabAccess,
+  queryActiveTab
+} from "./tab-utils"
 
 /**
  * `capture_screenshot` (0.11.17) — let a vision-capable model look at the user's
@@ -66,12 +71,20 @@ export const captureScreenshotDefinition: ToolDefinition = {
   parameters: {
     type: "object",
     properties: {}
+  },
+  // A screenshot approval binds to the site actually on screen: the origin
+  // comes from the resolved active tab, never from anything the model wrote.
+  // "Allow for this chat" on github.com therefore doesn't cover a later
+  // capture on mail.example.com — the user is re-asked there.
+  grantScopeResolver: async () => {
+    const tab = await queryActiveTab()
+    return normalizeGrantOrigin(tab?.url)
   }
 }
 
 export const runCaptureScreenshot = async (
   _args: Record<string, unknown>,
-  _ctx: ToolContext
+  ctx: ToolContext
 ): Promise<ToolResult> => {
   if (typeof browser.tabs?.captureVisibleTab !== "function") {
     return {
@@ -81,20 +94,31 @@ export const runCaptureScreenshot = async (
   }
 
   try {
-    // Only resolve the active tab of the user's focused window. A bare
-    // `{ active: true }` fallback could return an active tab from a *non*-focused
-    // window, and capturing that window fails — surfacing a confusing "capture
-    // failed" instead of a clear "no active tab".
-    const tab =
-      (
-        await browser.tabs.query({ active: true, lastFocusedWindow: true })
-      )[0] ??
-      (await browser.tabs.query({ active: true, currentWindow: true }))[0]
+    // Only the active tab of the user's focused window (capturing a
+    // non-focused window fails with a confusing error) — the same resolution
+    // the grantScopeResolver used, so the approval's origin matches what is
+    // actually captured.
+    const tab = await queryActiveTab()
 
     if (!tab?.id || tab.windowId === undefined) {
       return {
         content: "No active tab is available to capture.",
         isError: true
+      }
+    }
+
+    // The approval named a specific origin, resolved before the prompt. The
+    // user can switch tabs while the prompt is open (or between a standing
+    // grant's check and now), so re-verify the ACTUAL target: capturing a
+    // different site under an approval that displayed another one would make
+    // the prompt a lie.
+    if (ctx.approvedOrigin) {
+      const currentOrigin = normalizeGrantOrigin(tab.url)
+      if (currentOrigin !== ctx.approvedOrigin) {
+        return {
+          content: `The active tab changed after the approval was given (approved ${ctx.approvedOrigin}, now ${currentOrigin ?? "an unsupported page"}). Nothing was captured — ask again to capture the current tab.`,
+          isError: true
+        }
       }
     }
 

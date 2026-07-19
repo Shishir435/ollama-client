@@ -210,8 +210,6 @@
       "export": "导出",
       "export_format_json": "JSON",
       "export_format_pdf": "PDF",
-      "export_format_markdown": "Markdown",
-      "export_format_text": "文本",
       "previous_branch": "上一个分支",
       "next_branch": "下一个分支",
       "preview": "预览",
@@ -452,6 +450,7 @@
     "tool_confirmation": {
       "title": "确认操作",
       "body": "助手想要执行：{{action}}。是否允许？",
+      "body_on_origin": "助手想要在 {{origin}} 上执行：{{action}}。是否允许？",
       "allow": "允许",
       "deny": "拒绝",
       "allow_once": "允许一次",
@@ -745,12 +744,11 @@
       "aria_label": "导出聊天",
       "format_json": "JSON",
       "format_pdf": "PDF",
-      "format_markdown": "Markdown",
-      "format_text": "文本",
       "default_title": "聊天会话",
       "all_sessions_title": "所有会话",
       "role_user": "你",
-      "role_assistant": "AI助手"
+      "role_assistant": "AI助手",
+      "remote_image_blocked": "已阻止远程图片"
     },
     "actions": {
       "more": "{{title}} 的更多操作",
@@ -865,12 +863,8 @@
       "toggle_session_metrics_desc": "显示或隐藏会话指标栏",
       "export_json": "导出为JSON",
       "export_json_desc": "导出当前聊天为JSON文件",
-      "export_markdown": "导出为Markdown",
-      "export_markdown_desc": "导出当前聊天为Markdown文件",
       "export_pdf": "导出为PDF",
       "export_pdf_desc": "导出当前聊天为PDF文件",
-      "export_text": "导出为文本",
-      "export_text_desc": "导出当前聊天为文本文件",
       "browser": {
         "title": "随处打开",
         "description": "设置浏览器级快捷键，从任意页面打开聊天侧边栏。该绑定由浏览器管理——复制下面的地址并粘贴到地址栏中以设置或更改按键。",
@@ -1728,6 +1722,10 @@
       "description": "控制 restore_session 工具，用于重新打开最近关闭的标签页。",
       "max_label": "单次最多重开标签数",
       "max_hint": "助手在一次操作中可重新打开的最大标签数（1–25），避免“全部打开”生成过多标签页。"
+    },
+    "export_privacy": {
+      "remote_images_label": "在导出中加载远程图片",
+      "remote_images_hint": "允许打印和 PDF 导出从外部服务器加载图片。关闭时，导出完全离线进行，远程图片将被占位符替代。"
     }
   },
   "guides": {

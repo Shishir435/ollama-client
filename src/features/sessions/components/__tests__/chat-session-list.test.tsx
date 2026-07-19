@@ -53,9 +53,7 @@ vi.mock("@/features/sessions/stores/chat-session-store", () => {
 vi.mock("@/features/sessions/hooks/use-export-chat", () => ({
   useChatExport: () => ({
     exportSessionAsPdf: vi.fn(),
-    exportSessionAsJson: vi.fn(),
-    exportSessionAsMarkdown: vi.fn(),
-    exportSessionAsText: vi.fn()
+    exportSessionAsJson: vi.fn()
   })
 }))
 

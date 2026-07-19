@@ -37,6 +37,18 @@ export interface PreparedToolCall {
    * per-tool boolean.
    */
   requiresConfirmation: boolean
+  /**
+   * Normalized origin this call acts on, produced by the definition's own
+   * `grantScopeResolver` (from the resolved target, never model text).
+   * Undefined for tools without a resolver — their grants use the wildcard.
+   */
+  origin?: string
+  /**
+   * The definition declared a `grantScopeResolver`, so grants for this call
+   * are origin-scoped: without a resolved origin, no grant is checked here
+   * and none may be persisted on approval (fail closed).
+   */
+  originScoped: boolean
 }
 
 // The reasoning-trace component translates known tool ids (rag_search, etc.);
@@ -139,17 +151,36 @@ export const prepareToolCall = async (
   // Low risk never prompts — skip the grant lookup (a storage read) entirely,
   // which is the hot path for read-only tools.
   const risk = effectiveRisk(definition)
+  const originScoped = Boolean(definition?.grantScopeResolver)
+  let origin: string | undefined
+  if (risk !== "low" && definition?.grantScopeResolver) {
+    try {
+      origin = await definition.grantScopeResolver(call.arguments, ctx ?? {})
+    } catch {
+      // Resolution failure must not widen the grant to the wildcard — leave
+      // origin undefined so no standing grant matches and the call re-prompts.
+      origin = undefined
+    }
+  }
+  // An origin-scoped tool without a resolved origin matches no grant at all;
+  // checking the wildcard key here would resurrect exactly the over-broad
+  // grants this scoping exists to prevent.
+  const grantsApply = !originScoped || origin !== undefined
   const requiresConfirmation =
     risk === "low"
       ? false
       : confirmationRequired(definition, {
-          hasSessionGrant: hasSessionGrant(ctx?.sessionId, call.name),
-          hasAlwaysGrant: await hasAlwaysGrant(call.name)
+          hasSessionGrant:
+            grantsApply && hasSessionGrant(ctx?.sessionId, call.name, origin),
+          hasAlwaysGrant:
+            grantsApply && (await hasAlwaysGrant(call.name, origin))
         })
   return {
     call,
     policy,
     requiresConfirmation,
+    origin,
+    originScoped,
     run: {
       toolId: call.name,
       callId: call.id,
@@ -158,6 +189,7 @@ export const prepareToolCall = async (
       iconKey: definition?.iconKey,
       category: definition?.category,
       risk: definition?.risk,
+      origin,
       status: "running",
       startedAt: Date.now(),
       args:
@@ -200,7 +232,12 @@ export const runPreparedToolCall = async (
     await persistAwaitingConfirmation?.()
     const approved = await awaitToolConfirmation(
       call.id,
-      { toolName: call.name, sessionId: ctx.sessionId },
+      {
+        toolName: call.name,
+        sessionId: ctx.sessionId,
+        origin: prepared.origin,
+        originScoped: prepared.originScoped
+      },
       signal
     )
     if (!approved) {
@@ -215,9 +252,16 @@ export const runPreparedToolCall = async (
     emitTrace?.()
   }
 
+  // Origin-scoped calls run with the origin the approval/grant named, so the
+  // tool can verify its actual target still matches before acting.
+  const runCtx =
+    prepared.originScoped && prepared.origin
+      ? { ...ctx, approvedOrigin: prepared.origin }
+      : ctx
+
   const result = policy.enabled
     ? await callWithTimeout(
-        registry.call(call.name, call.arguments, ctx),
+        registry.call(call.name, call.arguments, runCtx),
         call.name,
         policy.timeoutMs,
         signal

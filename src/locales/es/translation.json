@@ -210,8 +210,6 @@
       "export": "Exportar",
       "export_format_json": "JSON",
       "export_format_pdf": "PDF",
-      "export_format_markdown": "Markdown",
-      "export_format_text": "Texto",
       "previous_branch": "Rama Anterior",
       "next_branch": "Rama Siguiente",
       "preview": "Vista previa",
@@ -452,6 +450,7 @@
     "tool_confirmation": {
       "title": "Confirmar acción",
       "body": "El asistente quiere: {{action}}. ¿Permitir?",
+      "body_on_origin": "El asistente quiere: {{action}} en {{origin}}. ¿Permitir?",
       "allow": "Permitir",
       "deny": "Denegar",
       "allow_once": "Permitir una vez",
@@ -745,12 +744,11 @@
       "aria_label": "Exportar chat",
       "format_json": "JSON",
       "format_pdf": "PDF",
-      "format_markdown": "Markdown",
-      "format_text": "Texto",
       "default_title": "Sesión de chat",
       "all_sessions_title": "Todas las sesiones",
       "role_user": "Tú",
-      "role_assistant": "Asistente IA"
+      "role_assistant": "Asistente IA",
+      "remote_image_blocked": "Imagen remota bloqueada"
     },
     "actions": {
       "more": "Más acciones para {{title}}",
@@ -865,12 +863,8 @@
       "toggle_session_metrics_desc": "Mostrar u ocultar métricas de sesión",
       "export_json": "Exportar como JSON",
       "export_json_desc": "Exportar chat actual como JSON",
-      "export_markdown": "Exportar como Markdown",
-      "export_markdown_desc": "Exportar chat actual como Markdown",
       "export_pdf": "Exportar como PDF",
       "export_pdf_desc": "Exportar chat actual como PDF",
-      "export_text": "Exportar como Texto",
-      "export_text_desc": "Exportar chat actual como texto",
       "browser": {
         "title": "Abrir desde cualquier lugar",
         "description": "Configura un atajo a nivel de navegador para abrir el panel lateral de chat desde cualquier página. El navegador gestiona esta asignación: copia la dirección de abajo y pégala en la barra de direcciones para establecer o cambiar la tecla.",
@@ -1728,6 +1722,10 @@
       "description": "Controla la herramienta restore_session, que reabre pestañas cerradas recientemente.",
       "max_label": "Máx. pestañas a reabrir a la vez",
       "max_hint": "El máximo de pestañas que el asistente puede reabrir en una sola acción (1–25). Evita que «abrir todas» genere demasiadas pestañas."
+    },
+    "export_privacy": {
+      "remote_images_label": "Cargar imágenes remotas en las exportaciones",
+      "remote_images_hint": "Permite que las exportaciones de impresión y PDF carguen imágenes de servidores externos. Si está desactivado, las exportaciones permanecen totalmente sin conexión y las imágenes remotas se sustituyen por un marcador de posición."
     }
   },
   "guides": {

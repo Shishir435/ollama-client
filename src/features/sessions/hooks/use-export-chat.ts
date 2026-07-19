@@ -63,29 +63,11 @@ export const useChatExport = () => {
     guard(async () => {
       const fullSession = await getFullSession(session)
       const { pdfExporter } = await import("@/lib/exporters/pdf-exporter")
-      pdfExporter.exportSession(fullSession, t, { fileName })
-    })
-
-  const exportSessionAsMarkdown = (session: ChatSession, fileName?: string) =>
-    guard(async () => {
-      const fullSession = await getFullSession(session)
-      const { markdownExporter } = await import(
-        "@/lib/exporters/markdown-exporter"
-      )
-      markdownExporter.exportSession(fullSession, t, { fileName })
-    })
-
-  const exportSessionAsText = (session: ChatSession, fileName?: string) =>
-    guard(async () => {
-      const fullSession = await getFullSession(session)
-      const { textExporter } = await import("@/lib/exporters/text-exporter")
-      textExporter.exportSession(fullSession, t, { fileName })
+      await pdfExporter.exportSession(fullSession, t, { fileName })
     })
 
   return {
     exportSessionAsJson,
-    exportSessionAsPdf,
-    exportSessionAsMarkdown,
-    exportSessionAsText
+    exportSessionAsPdf
   }
 }

@@ -25,6 +25,27 @@ export const approvalGrantKey = (toolName: string, origin?: string): string =>
   `${toolName}::${origin || NO_ORIGIN}`
 
 /**
+ * Normalize a resolved target URL to the origin a grant binds to. Only
+ * http(s) origins are grantable — internal pages (chrome://, about:,
+ * moz-extension://) are already blocked by the tab-access filters, and a
+ * grant for them would be meaningless. Returns undefined when the URL is
+ * missing, unparseable, or not http(s); with `grantScopeResolver` semantics
+ * that means "no grant applies", never a fall-back to the wildcard.
+ */
+export const normalizeGrantOrigin = (url?: string): string | undefined => {
+  if (!url) return undefined
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return undefined
+    }
+    return parsed.origin
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * A tool's risk for approval purposes. The legacy `requiresConfirmation` flag
  * forces at least `high`, so tools that predate risk-driven approvals keep
  * their per-call prompt.

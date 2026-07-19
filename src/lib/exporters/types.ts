@@ -2,7 +2,7 @@ import type { TFunction } from "i18next"
 
 import type { ChatMessage, ChatSession } from "@/types"
 
-export type ExportFormat = "json" | "pdf" | "markdown" | "text"
+export type ExportFormat = "json" | "pdf"
 
 export interface ExportOptions {
   fileName?: string

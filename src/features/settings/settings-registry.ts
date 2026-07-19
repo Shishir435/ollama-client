@@ -991,12 +991,8 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
       "settings.shortcuts.toggle_session_metrics_desc",
       "settings.shortcuts.export_json",
       "settings.shortcuts.export_json_desc",
-      "settings.shortcuts.export_markdown",
-      "settings.shortcuts.export_markdown_desc",
       "settings.shortcuts.export_pdf",
-      "settings.shortcuts.export_pdf_desc",
-      "settings.shortcuts.export_text",
-      "settings.shortcuts.export_text_desc"
+      "settings.shortcuts.export_pdf_desc"
     ],
     aliases: ["shortcuts", "keyboard", "hotkeys", "keybindings"]
   },
@@ -1073,28 +1069,12 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     aliases: ["json export shortcut"]
   },
   {
-    id: "shortcut-export-markdown",
-    tab: "shortcuts",
-    sectionId: "shortcuts",
-    labelKey: "settings.shortcuts.export_markdown",
-    descriptionKey: "settings.shortcuts.export_markdown_desc",
-    aliases: ["markdown export shortcut"]
-  },
-  {
     id: "shortcut-export-pdf",
     tab: "shortcuts",
     sectionId: "shortcuts",
     labelKey: "settings.shortcuts.export_pdf",
     descriptionKey: "settings.shortcuts.export_pdf_desc",
     aliases: ["pdf export shortcut"]
-  },
-  {
-    id: "shortcut-export-text",
-    tab: "shortcuts",
-    sectionId: "shortcuts",
-    labelKey: "settings.shortcuts.export_text",
-    descriptionKey: "settings.shortcuts.export_text_desc",
-    aliases: ["text export shortcut"]
   },
   {
     id: "shortcut-toggle-theme",
@@ -1329,6 +1309,21 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
       "browser tools",
       "available tools",
       "tool inventory"
+    ]
+  },
+  {
+    id: "export-allow-remote-images",
+    tab: "privacy",
+    sectionId: "permissions",
+    labelKey: "settings.export_privacy.remote_images_label",
+    descriptionKey: "settings.export_privacy.remote_images_hint",
+    focusId: "export-allow-remote-images",
+    aliases: [
+      "export images",
+      "remote images",
+      "print images",
+      "pdf images",
+      "tracking pixel"
     ]
   },
   {

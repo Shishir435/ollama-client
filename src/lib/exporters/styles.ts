@@ -1,7 +1,7 @@
+// No remote @import here: the export stylesheet must not fetch third-party
+// resources (fonts included) — printing a chat should leave no network trace.
 export const getPdfStyles = () => `
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-  
   * {
     box-sizing: border-box;
   }
@@ -189,6 +189,36 @@ export const getPdfStyles = () => `
     margin-right: 8px;
   }
   
+  .message-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .message-content img,
+  .message-image {
+    display: block;
+    width: auto !important;
+    height: auto !important;
+    max-width: 320px !important;
+    max-height: 320px !important;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    object-fit: contain;
+    page-break-inside: avoid;
+  }
+
+  .blocked-remote-image {
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1px dashed #d1d5db;
+    border-radius: 4px;
+    color: #6b7280;
+    font-size: 12px;
+    font-style: italic;
+  }
+
   .session-separator {
     margin: 40px 0;
     border: none;
