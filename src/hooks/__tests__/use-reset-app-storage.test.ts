@@ -5,11 +5,7 @@ import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
-import {
-  plasmoDeviceStorage,
-  plasmoGlobalStorage,
-  removePlasmoStoredValue
-} from "@/lib/plasmo-global-storage"
+import { removePlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
   resetProviderStorageUnlocked,
   withProviderPersistenceLock
