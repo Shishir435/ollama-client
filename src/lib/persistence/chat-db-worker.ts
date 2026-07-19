@@ -50,33 +50,61 @@ const wasmBinaryReady = new Promise<ArrayBuffer>((resolve) => {
 
 let contextPromise: Promise<{ db: Database; pool: SAHPoolUtil }> | null = null
 
+// A rejected context must never stay cached: the next op (including a
+// migration retry) has to re-attempt the open instead of replaying the
+// original failure until the worker is recreated.
+const selfClearing = (
+  promise: Promise<{ db: Database; pool: SAHPoolUtil }>
+): Promise<{ db: Database; pool: SAHPoolUtil }> => {
+  const tracked = promise.catch((error) => {
+    if (contextPromise === tracked) contextPromise = null
+    throw error
+  })
+  return tracked
+}
+
+const reopenContext = (
+  pool: SAHPoolUtil
+): NonNullable<typeof contextPromise> => {
+  contextPromise = selfClearing(
+    (async () => {
+      const reopened = new pool.OpfsSAHPoolDb(DB_PATH)
+      initializeSchema(reopened)
+      return { db: reopened, pool }
+    })()
+  )
+  return contextPromise
+}
+
 const openContext = (): NonNullable<typeof contextPromise> => {
   if (!contextPromise) {
-    contextPromise = (async () => {
-      const wasmBinary = await wasmBinaryReady
-      // The published typings declare init() without arguments, but the
-      // runtime accepts an Emscripten config; wasmBinary avoids any fetch
-      // inside the worker (bundler ?url assets inline as data: URLs in MV2
-      // iife output, which Firefox's fetch rejects).
-      const sqlite3 = await (
-        sqlite3InitModule as unknown as (config: {
-          wasmBinary: ArrayBuffer
-          print: (message: string) => void
-          printErr: (message: string) => void
-        }) => Promise<Sqlite3Static>
-      )({
-        wasmBinary,
-        print: () => {},
-        printErr: (message: string) => console.error("[chat-db]", message)
-      })
-      const pool = await sqlite3.installOpfsSAHPoolVfs({
-        name: "chat-history-pool",
-        initialCapacity: 6
-      })
-      const db = new pool.OpfsSAHPoolDb(DB_PATH)
-      initializeSchema(db)
-      return { db, pool }
-    })()
+    contextPromise = selfClearing(
+      (async () => {
+        const wasmBinary = await wasmBinaryReady
+        // The published typings declare init() without arguments, but the
+        // runtime accepts an Emscripten config; wasmBinary avoids any fetch
+        // inside the worker (bundler ?url assets inline as data: URLs in MV2
+        // iife output, which Firefox's fetch rejects).
+        const sqlite3 = await (
+          sqlite3InitModule as unknown as (config: {
+            wasmBinary: ArrayBuffer
+            print: (message: string) => void
+            printErr: (message: string) => void
+          }) => Promise<Sqlite3Static>
+        )({
+          wasmBinary,
+          print: () => {},
+          printErr: (message: string) => console.error("[chat-db]", message)
+        })
+        const pool = await sqlite3.installOpfsSAHPoolVfs({
+          name: "chat-history-pool",
+          initialCapacity: 6
+        })
+        const db = new pool.OpfsSAHPoolDb(DB_PATH)
+        initializeSchema(db)
+        return { db, pool }
+      })()
+    )
   }
   return contextPromise
 }
@@ -234,11 +262,7 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
       try {
         await pool.importDb(DB_PATH, new Uint8Array(request.bytes))
       } finally {
-        contextPromise = (async () => {
-          const reopened = new pool.OpfsSAHPoolDb(DB_PATH)
-          initializeSchema(reopened)
-          return { db: reopened, pool }
-        })()
+        void reopenContext(pool)
       }
       const { db: fresh } = await openContext()
       return counts(fresh)
@@ -247,12 +271,7 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
       db.close()
       contextPromise = null
       pool.unlink(DB_PATH)
-      contextPromise = (async () => {
-        const reopened = new pool.OpfsSAHPoolDb(DB_PATH)
-        initializeSchema(reopened)
-        return { db: reopened, pool }
-      })()
-      await openContext()
+      await reopenContext(pool)
       return null
     }
     default:

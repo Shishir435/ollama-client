@@ -8,6 +8,7 @@ import type { SqlJsStatic } from "sql.js"
 import initSqlJs from "sql.js/dist/sql-wasm.js"
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { readPersistenceBackend } from "@/lib/persistence/backend"
 import {
   LATEST_SCHEMA_VERSION,
   repairSchemaDrift,
@@ -56,6 +57,20 @@ const bumpDatabaseImportGeneration = async (): Promise<string> => {
 }
 
 const canPersistLoadedDatabase = async (): Promise<boolean> => {
+  // Once the profile has migrated to the OPFS backend, the blob is the
+  // frozen rollback artifact: a context still holding a legacy in-memory
+  // database (opened pre-flip) must never overwrite it.
+  try {
+    if ((await readPersistenceBackend()) === "opfs") {
+      logger.warn(
+        "Skipping legacy blob save: profile migrated to the OPFS backend",
+        "SQLite"
+      )
+      return false
+    }
+  } catch {
+    // Backend marker unavailable; fall through to the generation guard.
+  }
   const currentGeneration = await getDatabaseImportGeneration()
   const canPersist = currentGeneration === loadedImportGeneration
   if (!canPersist) {

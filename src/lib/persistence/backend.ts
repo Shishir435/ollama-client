@@ -17,7 +17,29 @@ interface BackendMarker {
   sourceCounts?: { sessions: number; messages: number }
 }
 
+// Only "opfs" is cached permanently — it is the terminal state. "legacy" is
+// transitional (the owner may flip the marker at any moment), so it is
+// re-read on demand and the cache is invalidated live through
+// storage.onChanged where the API exists. Pinning "legacy" for a page's
+// lifetime would keep it writing the rollback blob after migration —
+// split-brain history.
 let cachedBackend: PersistenceBackend | null = null
+
+let watcherRegistered = false
+const registerMarkerWatcher = (): void => {
+  if (watcherRegistered) return
+  watcherRegistered = true
+  try {
+    chrome.storage?.onChanged?.addListener((changes, areaName) => {
+      if (areaName === "local" && STORAGE_KEYS.PERSISTENCE.BACKEND in changes) {
+        cachedBackend = null
+      }
+    })
+  } catch {
+    // Contexts without chrome.storage (offscreen host) flip the cache
+    // themselves through markOpfsBackend.
+  }
+}
 
 // Offscreen documents expose runtime messaging but not chrome.storage; the
 // background answers marker reads/writes on their behalf.
@@ -59,17 +81,20 @@ const writeMarkerRaw = async (marker: BackendMarker): Promise<void> => {
 }
 
 export const readPersistenceBackend = async (): Promise<PersistenceBackend> => {
-  if (cachedBackend) return cachedBackend
+  registerMarkerWatcher()
+  if (cachedBackend === "opfs") return cachedBackend
   try {
     const marker = await readMarkerRaw()
     cachedBackend = marker?.backend === "opfs" ? "opfs" : "legacy"
+    return cachedBackend
   } catch (error) {
+    // Never cache a failed read: answer legacy for this call only, so a
+    // transient storage error cannot pin a context to the wrong backend.
     logger.warn("Failed to read persistence backend marker", "Persistence", {
       error
     })
-    cachedBackend = "legacy"
+    return "legacy"
   }
-  return cachedBackend
 }
 
 export const markOpfsBackend = async (details: {
