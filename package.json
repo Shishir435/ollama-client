@@ -120,6 +120,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
+    "@sqlite.org/sqlite-wasm": "3.53.0-build1",
     "@tailwindcss/postcss": "^4.3.0",
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/jest-dom": "^6.9.1",

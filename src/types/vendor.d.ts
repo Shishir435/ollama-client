@@ -47,3 +47,10 @@ declare module "pdfjs-dist/build/pdf.worker.min.mjs" {
   const worker: unknown
   export default worker
 }
+
+// Vite `?url` asset import for the official SQLite WASM binary, used by the
+// section 9.4 OPFS spike worker.
+declare module "@sqlite.org/sqlite-wasm/sqlite3.wasm?url" {
+  const url: string
+  export default url
+}

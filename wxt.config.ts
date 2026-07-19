@@ -22,17 +22,19 @@ export default defineConfig({
       )
       if (promoIndex !== -1) files.splice(promoIndex, 1)
     },
-    // The persistence benchmark page is a dev tool for the section 9.8
-    // browser measurements. Keep it out of store packages: it only builds in
-    // dev mode or when WXT_BENCHMARK=1 is set explicitly.
+    // The persistence benchmark and OPFS spike pages are dev tools for the
+    // section 9.8/9.4 browser measurements. Keep them out of store packages:
+    // they only build in dev mode or when WXT_BENCHMARK=1 is set explicitly.
     "entrypoints:resolved": (wxt, entrypoints) => {
       const includeBenchmark =
         wxt.config.command === "serve" || process.env.WXT_BENCHMARK === "1"
       if (includeBenchmark) return
-      const benchmarkIndex = entrypoints.findIndex(
-        (entrypoint) => entrypoint.name === "benchmark"
-      )
-      if (benchmarkIndex !== -1) entrypoints.splice(benchmarkIndex, 1)
+      for (const name of ["benchmark", "spike-opfs"]) {
+        const index = entrypoints.findIndex(
+          (entrypoint) => entrypoint.name === name
+        )
+        if (index !== -1) entrypoints.splice(index, 1)
+      }
     }
   },
   manifest: ({ browser }) => ({
