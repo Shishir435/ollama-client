@@ -243,6 +243,11 @@ export const handleChatWithModel = withErrorContext(
       // so we pass the prepared messages
     }
 
+    // Monotonic per-turn sequence, stamped on every emitted chunk so the UI
+    // reducer can drop duplicates/out-of-order and resume from the last applied
+    // sequence. Resets to 0 on a fresh SW instance (including after a restart),
+    // so the UI resets its counter when it reconnects.
+    let nextSeq = 0
     const onChunk = (chunk: ChatStreamMessage) => {
       if (isPortClosed()) return
 
@@ -260,7 +265,7 @@ export const handleChatWithModel = withErrorContext(
           error: chunk.error
         })
       }
-      safePostMessage(port, chunk)
+      safePostMessage(port, { ...chunk, seq: nextSeq++ })
     }
 
     try {

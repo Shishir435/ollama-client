@@ -33,6 +33,7 @@ interface StreamOptions {
 
 interface StreamMessage {
   type?: string
+  seq?: number
   message?: {
     content?: string
     thinking?: string
@@ -127,6 +128,10 @@ export const useChatStream = ({
     let firstChunk = true
     let streamSettled = false
     let resumeAttempts = 0
+    // Last applied per-turn sequence. Chunks with a seq <= this are duplicates
+    // or out-of-order and are dropped. Reset to -1 on reconnect because the
+    // restarted background worker restarts its counter at 0.
+    let lastSeq = -1
     const thinkingState: ThinkingParserState = makeThinkingParserState()
     const requestPayload = {
       model,
@@ -151,6 +156,13 @@ export const useChatStream = ({
     const listener = (rawMsg: unknown) => {
       const msg = rawMsg as StreamMessage
       if (streamSettled) return
+
+      // Drop duplicate/out-of-order sequenced chunks. Messages without a seq
+      // (legacy, or the context/rag_sources side channel) always pass through.
+      if (typeof msg.seq === "number") {
+        if (msg.seq <= lastSeq) return
+        lastSeq = msg.seq
+      }
       if (DEBUG_THINKING_STREAM) {
         logger.debug("Stream msg", "useChatStream", {
           type: msg.type,
@@ -410,6 +422,8 @@ export const useChatStream = ({
           ) {
             return
           }
+          // Restarted worker restarts its sequence at 0 — accept it afresh.
+          lastSeq = -1
           port = browser.runtime.connect({
             name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
           })

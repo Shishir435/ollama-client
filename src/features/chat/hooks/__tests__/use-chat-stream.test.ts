@@ -131,6 +131,36 @@ describe("useChatStream", () => {
     expect(setMessages).toHaveBeenCalledTimes(3) // Initial + 2 chunks
   })
 
+  it("drops duplicate and out-of-order sequenced chunks", () => {
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
+    })
+
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+    ;(setMessages as ReturnType<typeof vi.fn>).mockClear()
+
+    act(() => {
+      listener({ seq: 0, delta: "Hello" })
+      listener({ seq: 1, delta: " world" })
+      listener({ seq: 1, delta: " DUP" }) // duplicate seq — dropped
+      listener({ seq: 0, delta: " STALE" }) // out-of-order — dropped
+    })
+
+    // Only the two in-order chunks were applied.
+    expect(setMessages).toHaveBeenCalledTimes(2)
+  })
+
   it("accepts raw provider thinking chunks if normalization is bypassed", () => {
     const { result } = renderHook(() =>
       useChatStream({

@@ -228,6 +228,13 @@ export interface ChatSession {
 }
 
 export interface ChatStreamMessage {
+  /**
+   * Monotonic per-turn sequence number, stamped by the background at emission.
+   * Lets the UI reducer drop duplicate/out-of-order chunks and (with the
+   * durable turn snapshot) resume from the last applied sequence after an MV3
+   * worker restart. Optional so legacy in-flight clients still parse.
+   */
+  seq?: number
   delta?: string
   thinkingDelta?: string
   /** Opaque provider continuation state; never log or render its blocks. */
