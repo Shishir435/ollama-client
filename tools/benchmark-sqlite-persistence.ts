@@ -112,12 +112,13 @@ const openStore = async (name: string): Promise<IDBDatabase> =>
 const persist = async (name: string, bytes: Uint8Array): Promise<void> => {
   const database = await openStore(name)
   try {
-    await idbRequest(
-      database.transaction("sqlite", "readwrite").objectStore("sqlite").put(
-        bytes,
-        "database"
-      )
-    )
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction("sqlite", "readwrite")
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error)
+      transaction.onabort = () => reject(transaction.error)
+      transaction.objectStore("sqlite").put(bytes, "database")
+    })
   } finally {
     database.close()
   }
@@ -187,21 +188,26 @@ const runScale = async (
     coldDatabase.close()
 
     const appendDatabase = new SQL.Database(fixtureBytes)
-    const durableAppendMs = await measure(async () => {
-      appendDatabase.run(
-        `INSERT INTO messages (sessionId, role, content, model, timestamp)
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          "benchmark-chat-0",
-          "user",
-          "durable append",
-          "benchmark-model",
-          Date.now()
-        ]
-      )
-      await persist(idbName, appendDatabase.export())
-    })
-    appendDatabase.close()
+    let durableAppendMs: number
+    try {
+      durableAppendMs = await measure(async () => {
+        appendDatabase.run(
+          `INSERT INTO messages (sessionId, role, content, model, timestamp)
+           VALUES (?, ?, ?, ?, ?)`,
+          [
+            "benchmark-chat-0",
+            "user",
+            "durable append",
+            "benchmark-model",
+            Date.now()
+          ]
+        )
+        await persist(idbName, appendDatabase.export())
+      })
+    } finally {
+      appendDatabase.close()
+      await persist(idbName, fixtureBytes)
+    }
 
     if (iteration >= 0) {
       coldOpenSamples.push(coldOpenMs)
