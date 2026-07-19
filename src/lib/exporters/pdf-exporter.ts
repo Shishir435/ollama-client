@@ -77,7 +77,12 @@ const renderImages = (images?: ImageAttachment[]): string => {
         .map((img) => {
           const src = escapeHtml(`data:${img.mimeType};base64,${img.base64}`)
           const alt = escapeHtml(img.fileName ?? "")
-          return `<img class="message-image" src="${src}" alt="${alt}" />`
+          // Clamp inline (not just via the stylesheet) so the size limit rides
+          // on the element itself and can't be missed by selector matching in
+          // the print window.
+          const style =
+            "max-width:280px;max-height:280px;width:auto;height:auto;object-fit:contain"
+          return `<img class="message-image" style="${style}" src="${src}" alt="${alt}" />`
         })
         .join("")}
     </div>`

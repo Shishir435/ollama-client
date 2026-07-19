@@ -50,7 +50,13 @@ export const EXPORT_ALLOWED_ATTR = [
   "class",
   "id",
   "checked",
-  "type"
+  "type",
+  // Inline `style` is allowed so exported images can carry their own size clamp
+  // directly on the element. DOMPurify still sanitizes the CSS (drops url(),
+  // expression(), etc.) and the print page's CSP blocks remote resources, so a
+  // crafted style cannot fetch anything. Relying on the element's own style
+  // avoids depending on the injected <style> block matching a selector.
+  "style"
 ]
 
 /**

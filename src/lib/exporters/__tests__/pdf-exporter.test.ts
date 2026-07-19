@@ -152,8 +152,10 @@ describe("pdfExporter print fragment", () => {
     const { html } = onlyJob()
     expect(html).toContain(`src="data:image/png;base64,${base64}"`)
     expect(html).toContain('alt="flag.png"')
-    // Base64 payload is the inline image, not leaked as visible text.
     expect(html).toContain("message-image")
+    // Size clamp rides inline on the element so it survives regardless of
+    // whether the injected <style> block matches in the print window.
+    expect(html).toMatch(/<img[^>]*style="[^"]*max-width:280px/)
   })
 
   it("ships no remote stylesheet imports", async () => {
