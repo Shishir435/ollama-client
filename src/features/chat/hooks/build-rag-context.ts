@@ -4,6 +4,10 @@ import {
   retrieveContextFromSources
 } from "@/features/chat/rag"
 import { classifyQuery } from "@/features/chat/rag/query-classifier"
+import {
+  formatEnhancedResults,
+  retrieveContextEnhanced
+} from "@/features/chat/rag/rag-pipeline"
 import { STORAGE_KEYS } from "@/lib/constants"
 import {
   DEFAULT_KNOWLEDGE_SET_ID,
@@ -436,9 +440,9 @@ export const buildRagContext = async (
 
           if (fileIds && fileIds.length > 0) {
             const searchEvent = startActivityEvent(
-              "file-memory-search",
-              memoryEnabled ? "searching_memory" : "searching_files",
-              memoryEnabled ? "Searching memory and files" : "Searching files",
+              "file-search",
+              "searching_files",
+              "Searching files",
               preview(queryForRag)
             )
             logger.verbose("RAG searching for context", "useChat", {
@@ -447,14 +451,16 @@ export const buildRagContext = async (
               suggestedMode: queryClassification.suggestedMode
             })
 
+            // Memory is retrieved by its own standalone step below (independent
+            // of file scope), so file retrieval must not also fold memory in or
+            // it would be injected twice.
             const context = await retrieveContext(queryForRag, fileIds, {
               mode: queryClassification.suggestedMode,
               topK:
                 retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
               minSimilarity: retrievalOverrides?.minSimilarity,
               minRerankScore: retrievalOverrides?.minRerankScore,
-              includeMemory: memoryEnabled,
-              memoryTopK: 2
+              includeMemory: false
             })
 
             if (context.documents.length > 0) {
@@ -486,13 +492,52 @@ export const buildRagContext = async (
               outputPreview:
                 context.documents.length > 0
                   ? preview(context.formattedContext)
-                  : "No matching file or memory chunks"
+                  : "No matching file chunks"
             })
           } else {
             logger.info(
               "Skipping file RAG: no scoped files selected",
               "useChat"
             )
+          }
+
+          // Conversation-memory recall, independent of file scope. This is the
+          // path that answers "based on our past conversation …": it runs
+          // whenever memory is enabled, with or without selected files.
+          if (memoryEnabled) {
+            const memoryEvent = startActivityEvent(
+              "memory-recall",
+              "searching_memory",
+              "Searching memory",
+              preview(queryForRag)
+            )
+            const memoryResults = await retrieveContextEnhanced(queryForRag, {
+              type: "chat",
+              topK: 4
+            })
+            if (memoryResults.length > 0) {
+              const { formattedContext, sources } =
+                formatEnhancedResults(memoryResults)
+              const clamped = clampContext(formattedContext, maxRagContextChars)
+              contentWithRAG = appendRagContext(contentWithRAG, clamped.text)
+              ragContextLength += clamped.text.length
+              ragSources = mergeRagSources(ragSources, sources, queryForRag)
+              addUsedContextChunks(usedContextChunks, sources, () => "memory")
+            }
+            finishActivityEvent(memoryEvent, {
+              resultCount: memoryResults.length,
+              sourceTitles: memoryResults
+                .slice(0, 3)
+                .map((result) =>
+                  result.isMemory
+                    ? "Previous conversation"
+                    : result.document.metadata.title || "Memory"
+                ),
+              outputPreview:
+                memoryResults.length > 0
+                  ? "Recalled past conversation context"
+                  : "No matching memory"
+            })
           }
         }
       }
