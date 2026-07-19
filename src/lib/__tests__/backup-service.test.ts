@@ -157,6 +157,50 @@ describe("backupService", () => {
       expect(JSON.stringify({ syncData, localData })).not.toContain("secret")
     })
 
+    it("decodes plasmo-encoded values so nested secrets are stripped", async () => {
+      // @plasmohq/storage persists values as JSON strings; raw
+      // chrome.storage reads therefore return encoded strings, and
+      // sanitization must not pass secrets through inside them.
+      ;(chrome.storage.sync.get as any).mockResolvedValue({
+        [ProviderStorageKey.CONFIG]: JSON.stringify([
+          {
+            id: "remote",
+            name: "Remote",
+            type: "openai",
+            enabled: true,
+            baseUrl: "https://example.com/v1",
+            apiKey: "encoded-secret"
+          }
+        ]),
+        [STORAGE_KEYS.THEME.PREFERENCE]: JSON.stringify("dark")
+      })
+
+      await backupService.exportAll()
+
+      const zipInstance = vi.mocked(JSZip).mock.instances[0]
+      const syncCall = (zipInstance.file as any).mock.calls.find(
+        (call: any) => call[0] === "sync-storage.json"
+      )
+      const syncData = JSON.parse(syncCall[1])
+
+      const providerValue = syncData[ProviderStorageKey.CONFIG]
+      expect(typeof providerValue).toBe("string")
+      expect(providerValue).not.toContain("encoded-secret")
+      expect(JSON.parse(providerValue)).toEqual([
+        {
+          id: "remote",
+          name: "Remote",
+          type: "openai",
+          enabled: true,
+          baseUrl: "https://example.com/v1"
+        }
+      ])
+      // Plain scalar values keep their encoded form byte-for-byte.
+      expect(syncData[STORAGE_KEYS.THEME.PREFERENCE]).toBe(
+        JSON.stringify("dark")
+      )
+    })
+
     it("should flush live SQLite contexts before reading persisted bytes", async () => {
       await backupService.exportAll()
 
@@ -413,6 +457,76 @@ describe("backupService", () => {
       expect(
         JSON.stringify(vi.mocked(plasmoGlobalStorage.set).mock.calls)
       ).not.toContain("legacy-plaintext-key")
+    })
+
+    it("imports provider config stored in plasmo-encoded string form", async () => {
+      // Real v2 backups export raw chrome.storage values, where
+      // @plasmohq/storage keeps provider configs as a JSON string. Import
+      // must accept that form — this is the exact shape user backups have.
+      const provider = {
+        id: "custom:openai:remote",
+        name: "Remote",
+        type: "openai",
+        enabled: true,
+        baseUrl: "https://example.com/v1"
+      }
+      const mockFile = (content: string) => ({
+        async: vi.fn().mockResolvedValue(content)
+      })
+      vi.mocked(JSZip.loadAsync).mockResolvedValue({
+        file: vi.fn().mockImplementation((name) => {
+          if (name === "manifest.json")
+            return mockFile(JSON.stringify({ ...mockManifest, version: 2 }))
+          if (name === "sync-storage.json")
+            return mockFile(
+              JSON.stringify({
+                [ProviderStorageKey.CONFIG]: JSON.stringify([provider])
+              })
+            )
+          if (name === "local-storage.json") return mockFile("{}")
+          return null
+        })
+      } as any)
+
+      const result = await backupService.importAll(
+        new File([], "encoded-provider.zip")
+      )
+
+      expect(result.syncStorage.ok).toBe(true)
+      expect(result.localStorage.ok).toBe(true)
+      expect(plasmoGlobalStorage.set).toHaveBeenCalledWith(
+        ProviderStorageKey.CONFIG,
+        [provider]
+      )
+    })
+
+    it("rejects provider config strings that are not valid JSON", async () => {
+      const mockFile = (content: string) => ({
+        async: vi.fn().mockResolvedValue(content)
+      })
+      vi.mocked(JSZip.loadAsync).mockResolvedValue({
+        file: vi.fn().mockImplementation((name) => {
+          if (name === "manifest.json")
+            return mockFile(JSON.stringify({ ...mockManifest, version: 2 }))
+          if (name === "sync-storage.json")
+            return mockFile(
+              JSON.stringify({
+                [ProviderStorageKey.CONFIG]: "not-json{"
+              })
+            )
+          if (name === "local-storage.json") return mockFile("{}")
+          return null
+        })
+      } as any)
+
+      const result = await backupService.importAll(
+        new File([], "corrupt-provider.zip")
+      )
+
+      expect(result.syncStorage.ok).toBe(false)
+      expect(result.syncStorage.error).toContain(
+        "Invalid provider configuration"
+      )
     })
 
     it("should report failures for individual components", async () => {

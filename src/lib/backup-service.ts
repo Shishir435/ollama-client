@@ -76,9 +76,22 @@ const preparePortableStorageImport = (
   providerConfigs?: ProviderConfig[]
 } => {
   const settings = { ...data }
-  const providerConfigValue = settings[ProviderStorageKey.CONFIG]
+  let providerConfigValue = settings[ProviderStorageKey.CONFIG]
   delete settings[ProviderStorageKey.CONFIG]
   if (providerConfigValue === undefined) return { settings }
+
+  // Backups written from raw chrome.storage reads carry the value in
+  // @plasmohq/storage's encoded form: a JSON string, not an array. Accept
+  // both so existing user backups import.
+  if (typeof providerConfigValue === "string") {
+    try {
+      providerConfigValue = JSON.parse(providerConfigValue)
+    } catch {
+      throw createAppError("Invalid provider configuration in backup", {
+        kind: "validation"
+      })
+    }
+  }
 
   const parsedProviderConfigs =
     ProviderConfigsBackupSchema.safeParse(providerConfigValue)

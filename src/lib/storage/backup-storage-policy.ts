@@ -79,6 +79,21 @@ const sanitizePortableValue = (value: unknown): unknown => {
   return sanitized
 }
 
+// @plasmohq/storage JSON-stringifies every value it persists, so raw
+// chrome.storage reads return encoded strings. Sanitization cannot strip
+// secrets it cannot see inside a string, so encoded values are decoded
+// before sanitizing and re-encoded after to preserve the stored format.
+const decodePlasmoValue = (
+  value: unknown
+): { decoded: unknown; wasEncoded: boolean } => {
+  if (typeof value !== "string") return { decoded: value, wasEncoded: false }
+  try {
+    return { decoded: JSON.parse(value), wasEncoded: true }
+  } catch {
+    return { decoded: value, wasEncoded: false }
+  }
+}
+
 export const selectPortableStorageData = (
   storageData: Record<string, unknown>,
   options: { allowLegacyKeys?: boolean } = {}
@@ -95,7 +110,9 @@ export const selectPortableStorageData = (
       rejectedKeys.push(key)
       continue
     }
-    data[key] = sanitizePortableValue(value)
+    const { decoded, wasEncoded } = decodePlasmoValue(value)
+    const sanitized = sanitizePortableValue(decoded)
+    data[key] = wasEncoded ? JSON.stringify(sanitized) : sanitized
   }
 
   return { data, rejectedKeys }
