@@ -1,12 +1,17 @@
+import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { PERSISTENCE_ENSURE } from "./protocol"
+import { PERSISTENCE_ENSURE, PERSISTENCE_MARKER } from "./protocol"
 
 // Chromium control plane for the persistence owner. The background service
 // worker never opens the database itself: it guarantees that the offscreen
 // owner document exists (for its own calls and on behalf of extension pages,
 // which cannot create offscreen documents).
 
-const OFFSCREEN_URL = "persistence-host.html"
+const OFFSCREEN_PATH = "persistence-host.html"
+// The owner=1 parameter is the host page's registration guard: only the
+// document the background creates carries it, so a user-opened tab of the
+// same page never becomes a second owner.
+const OFFSCREEN_URL = `${OFFSCREEN_PATH}?owner=1`
 
 let creating: Promise<void> | null = null
 
@@ -15,8 +20,8 @@ const hasOwnerDocument = async (): Promise<boolean> => {
     contextTypes: ["OFFSCREEN_DOCUMENT" as chrome.runtime.ContextType]
   })
   const ownerExists = contexts.some((context) =>
-    (context as { documentUrl?: string }).documentUrl?.endsWith(
-      `/${OFFSCREEN_URL}`
+    (context as { documentUrl?: string }).documentUrl?.includes(
+      `/${OFFSCREEN_PATH}`
     )
   )
   if (!ownerExists && contexts.length > 0) {
@@ -57,14 +62,43 @@ export const registerChromiumPersistenceControl = (): void => {
   globalThis.__persistenceEnsureOwner = ensurePersistenceOwner
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if ((message as { type?: string } | undefined)?.type !== PERSISTENCE_ENSURE)
-      return false
-    ensurePersistenceOwner()
-      .then(() => sendResponse({ ok: true }))
-      .catch((error: unknown) =>
+    const type = (message as { type?: string } | undefined)?.type
+    if (type === PERSISTENCE_ENSURE) {
+      ensurePersistenceOwner()
+        .then(() => sendResponse({ ok: true }))
+        .catch((error: unknown) =>
+          sendResponse({ ok: false, error: String(error) })
+        )
+      return true
+    }
+    if (type === PERSISTENCE_MARKER) {
+      // The offscreen owner has no chrome.storage; read/write the backend
+      // marker on its behalf.
+      const request = message as {
+        action: "get" | "set"
+        marker?: unknown
+      }
+      ;(async () => {
+        if (request.action === "get") {
+          const stored = await chrome.storage.local.get(
+            STORAGE_KEYS.PERSISTENCE.BACKEND
+          )
+          sendResponse({
+            ok: true,
+            marker: stored[STORAGE_KEYS.PERSISTENCE.BACKEND]
+          })
+          return
+        }
+        await chrome.storage.local.set({
+          [STORAGE_KEYS.PERSISTENCE.BACKEND]: request.marker
+        })
+        sendResponse({ ok: true })
+      })().catch((error: unknown) =>
         sendResponse({ ok: false, error: String(error) })
       )
-    return true
+      return true
+    }
+    return false
   })
 
   // Create the owner eagerly so the one-time legacy migration runs at boot,

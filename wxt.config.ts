@@ -49,7 +49,13 @@ export default defineConfig({
         ? wxt.config.browser === "firefox"
           ? ["spike-owner-offscreen"]
           : []
-        : ["benchmark", "spike-opfs", "spike-owner", "spike-owner-offscreen"]
+        : [
+            "benchmark",
+            "spike-opfs",
+            "spike-owner",
+            "spike-owner-offscreen",
+            "persistence-verify"
+          ]
       // The production persistence owner document is Chromium-only; Firefox
       // hosts the worker in its persistent background page.
       const strip =

@@ -6,6 +6,9 @@
 
 export const PERSISTENCE_RPC = "persistence-rpc"
 export const PERSISTENCE_ENSURE = "persistence-ensure"
+// Offscreen documents have no chrome.storage; the owner proxies backend-
+// marker reads/writes to the background service worker with this message.
+export const PERSISTENCE_MARKER = "persistence-marker"
 
 export type SqlValue = string | number | null | Uint8Array
 export type QueryRow = Record<string, SqlValue>
