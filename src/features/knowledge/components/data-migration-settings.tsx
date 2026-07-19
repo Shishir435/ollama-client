@@ -20,7 +20,6 @@ import { Button } from "@/components/ui/button"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
 import { backupService, type ImportResult } from "@/lib/backup-service"
-import { MESSAGE_KEYS } from "@/lib/constants/keys"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { formatBackupFilenameTimestamp } from "@/lib/format-utils"
 import { logger } from "@/lib/logger"
@@ -132,10 +131,17 @@ export const DataMigrationSettings = () => {
     // Vector/knowledge DB failures are non-fatal for the reload decision.
     const restoredChatHistory = importResult?.database.ok
     if (restoredChatHistory) {
-      browser.runtime
-        .sendMessage({ type: MESSAGE_KEYS.APP.RELOAD })
-        .catch(() => {})
-      window.location.reload()
+      // Restart the whole extension: service worker and every page. The
+      // import bumped the SQLite import generation, so any context that
+      // keeps running with the old generation (background worker, an open
+      // sidepanel) has all of its chat saves silently skipped by the
+      // stale-writer guard. A page-level reload fan-out cannot guarantee
+      // delivery — runtime.reload() can.
+      try {
+        browser.runtime.reload()
+      } catch {
+        window.location.reload()
+      }
     }
   }
 
