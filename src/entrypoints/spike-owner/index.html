@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OPFS Owner Spike Client</title>
+  <style>
+    body { margin: 24px; font-family: ui-monospace, monospace; max-width: 900px; }
+    h1 { font-size: 18px; }
+    .row { margin: 8px 0; display: flex; gap: 8px; align-items: center; }
+    button { padding: 4px 12px; }
+    #status { color: #666; min-height: 1.2em; }
+    pre { background: #f4f4f5; padding: 12px; overflow-x: auto; white-space: pre-wrap; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #18181b; color: #e4e4e7; }
+      pre { background: #27272a; }
+      #status { color: #a1a1aa; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Section 9.4 spike: single-owner client (dev-only page)</h1>
+  <p>
+    Every button routes through the offscreen owner document via runtime
+    messaging — this page never opens the database. The gate runner
+    (<code>pnpm spike:owner-gates</code>) drives <code>window.__spikeOwner</code>
+    directly; the buttons exist for manual poking.
+  </p>
+  <div class="row">
+    <button id="info" type="button">Owner info</button>
+    <button id="append" type="button">Append message</button>
+    <button id="counts" type="button">Counts</button>
+    <button id="kill-worker" type="button">Terminate worker</button>
+    <button id="close-owner" type="button">Close owner document</button>
+    <button id="reset" type="button">Reset spike tables</button>
+  </div>
+  <p id="status"></p>
+  <pre id="output"></pre>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
