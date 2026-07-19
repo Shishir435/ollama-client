@@ -48,7 +48,12 @@ const ensureWorker = (): Worker => {
       if (event.data.ok) entry.resolve(event.data.result)
       else entry.reject(new Error(event.data.error ?? "Unknown worker error"))
     }
-    worker.onerror = () => rejectAllPending("Owner worker crashed")
+    worker.onerror = () => {
+      // Drop the dead worker so the next RPC spawns a fresh generation;
+      // otherwise every later call would hang until the client timeout.
+      worker = null
+      rejectAllPending("Owner worker crashed")
+    }
   }
   return worker
 }

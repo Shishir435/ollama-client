@@ -223,8 +223,7 @@ const runBenchmark = async (
   }
 }
 
-self.onmessage = async (event: MessageEvent<SpikeRequest>) => {
-  const request = event.data
+const processRequest = async (request: SpikeRequest): Promise<void> => {
   try {
     if (request.type === "run") {
       const result = await runBenchmark(request)
@@ -244,4 +243,13 @@ self.onmessage = async (event: MessageEvent<SpikeRequest>) => {
     }
     self.postMessage(response)
   }
+}
+
+// Async handlers interleave at await points, so requests are serialized
+// through one chain: a cleanup arriving mid-run must not wipeFiles() under
+// the active database connection.
+let operationChain: Promise<void> = Promise.resolve()
+
+self.onmessage = (event: MessageEvent<SpikeRequest>) => {
+  operationChain = operationChain.then(() => processRequest(event.data))
 }

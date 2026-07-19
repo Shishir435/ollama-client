@@ -164,8 +164,8 @@ const handle = async (op: OwnerOp, payload: unknown): Promise<unknown> => {
   }
 }
 
-self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
-  const { id, op, payload } = event.data
+const processRequest = async (request: WorkerRequest): Promise<void> => {
+  const { id, op, payload } = request
   try {
     const result = await handle(op, payload)
     self.postMessage({ id, ok: true, result })
@@ -176,4 +176,13 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       error: error instanceof Error ? error.message : String(error)
     })
   }
+}
+
+// The owner serializes all database operations through one chain — async
+// handlers would otherwise interleave at await points and break the
+// single-writer ordering the topology exists to guarantee.
+let operationChain: Promise<void> = Promise.resolve()
+
+self.onmessage = (event: MessageEvent<WorkerRequest>) => {
+  operationChain = operationChain.then(() => processRequest(event.data))
 }
