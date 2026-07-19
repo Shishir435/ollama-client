@@ -101,11 +101,21 @@ const runBenchmark = async (
 
   let db = openDb()
   const journalMode = queryString(db, "PRAGMA journal_mode")
+  const importedSessions = queryNumber(db, "SELECT COUNT(*) FROM sessions")
+  const importedMessages = queryNumber(db, "SELECT COUNT(*) FROM messages")
   const rowCountsOk =
-    queryNumber(db, "SELECT COUNT(*) FROM sessions") ===
-      request.expectedSessions &&
-    queryNumber(db, "SELECT COUNT(*) FROM messages") ===
-      request.expectedMessages
+    importedSessions === request.expectedSessions &&
+    importedMessages === request.expectedMessages
+  if (!rowCountsOk) {
+    // Data preservation is the benchmark's prerequisite; timings measured on
+    // a partially imported database are meaningless, so fail the run instead
+    // of reporting a completed result.
+    db.close()
+    pool.unlink(DB_PATH)
+    throw new Error(
+      `Imported row counts mismatch: sessions ${importedSessions}/${request.expectedSessions}, messages ${importedMessages}/${request.expectedMessages}`
+    )
+  }
   db.close()
 
   const coldOpenSamples: number[] = []

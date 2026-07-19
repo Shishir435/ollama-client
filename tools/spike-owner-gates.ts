@@ -274,12 +274,17 @@ const runGates = async (visible: boolean): Promise<void> => {
     const pageD = await context.newPage()
     await pageD.goto(ownerPageUrl)
     const rpcD = pageRpc(pageD)
-    const GATE7_APPENDS = 60
+    const GATE7_APPENDS = 120
+    const GATE7_SYNC_THRESHOLD = 10
     const [, exportMid] = await Promise.all([
       appendMany(pageD, "writer-export", GATE7_APPENDS),
-      // Fire the export roughly mid-stream of the appends.
+      // Real overlap, not a fixed delay: wait until some appends have
+      // committed, then export while the rest are still streaming.
       (async () => {
-        await new Promise((resolvePause) => setTimeout(resolvePause, 150))
+        for (;;) {
+          const midCounts = (await rpcC("counts")) as { total: number }
+          if (midCounts.total >= GATE7_SYNC_THRESHOLD) break
+        }
         return (await rpcC("exportDb")) as {
           exportedBytes: number
           verifiedTotal: number
@@ -290,8 +295,10 @@ const runGates = async (visible: boolean): Promise<void> => {
     record(
       "gate7-export-during-writes",
       exportMid.exportedBytes > 0 &&
-        exportMid.verifiedTotal >= 0 &&
-        exportMid.verifiedTotal <= GATE7_APPENDS &&
+        // The snapshot must prove overlap: strictly after the sync point and
+        // strictly before the final append.
+        exportMid.verifiedTotal >= GATE7_SYNC_THRESHOLD &&
+        exportMid.verifiedTotal < GATE7_APPENDS &&
         gate7Final.total === GATE7_APPENDS,
       { exportMid, gate7Final, expected: GATE7_APPENDS }
     )
