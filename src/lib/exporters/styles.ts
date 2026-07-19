@@ -189,6 +189,24 @@ export const getPdfStyles = () => `
     margin-right: 8px;
   }
   
+  .message-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .message-image {
+    max-width: 320px;
+    max-height: 320px;
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    object-fit: contain;
+    page-break-inside: avoid;
+  }
+
   .blocked-remote-image {
     display: inline-block;
     padding: 2px 8px;

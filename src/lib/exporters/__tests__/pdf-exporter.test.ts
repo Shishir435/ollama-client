@@ -122,6 +122,40 @@ describe("pdfExporter print fragment", () => {
     expect(job.allowRemoteImages).toBe(true)
   })
 
+  it("renders message-scoped vision images inline as data URIs", async () => {
+    const base64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg=="
+    await pdfExporter.exportSession(
+      makeSession({
+        messages: [
+          {
+            id: "m1",
+            role: "user",
+            content: "what is this?",
+            timestamp: 1000,
+            done: true,
+            images: [
+              {
+                imageId: "img1",
+                fileName: "flag.png",
+                mimeType: "image/png",
+                size: 123,
+                base64
+              }
+            ]
+          }
+        ]
+      } as Partial<ChatSession>),
+      mockT
+    )
+
+    const { html } = onlyJob()
+    expect(html).toContain(`src="data:image/png;base64,${base64}"`)
+    expect(html).toContain('alt="flag.png"')
+    // Base64 payload is the inline image, not leaked as visible text.
+    expect(html).toContain("message-image")
+  })
+
   it("ships no remote stylesheet imports", async () => {
     await pdfExporter.exportSession(makeSession(), mockT)
     const { html } = onlyJob()

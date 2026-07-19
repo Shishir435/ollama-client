@@ -3,7 +3,7 @@ import type { TFunction } from "i18next"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
-import type { ChatMessage, ChatSession } from "@/types"
+import type { ChatMessage, ChatSession, ImageAttachment } from "@/types"
 
 import { escapeHtml, sanitizeExportFragment } from "./export-sanitizer"
 import { createMarkdownParser, parseMessageContent } from "./markdown-utils"
@@ -62,6 +62,27 @@ const renderPdf = async (
   }
 }
 
+/**
+ * Render message-scoped vision images inline as `data:` URIs. Images are stored
+ * as raw base64 (no `data:` prefix) plus a separate `mimeType`, so the URI is
+ * reassembled here. The whole fragment is DOMPurify-sanitized downstream (with
+ * `data:` allowed), so these inert local images survive while the remote-image
+ * gate leaves them untouched.
+ */
+const renderImages = (images?: ImageAttachment[]): string => {
+  if (!images?.length) return ""
+  return `
+    <div class="message-images">
+      ${images
+        .map((img) => {
+          const src = escapeHtml(`data:${img.mimeType};base64,${img.base64}`)
+          const alt = escapeHtml(img.fileName ?? "")
+          return `<img class="message-image" src="${src}" alt="${alt}" />`
+        })
+        .join("")}
+    </div>`
+}
+
 const renderMessage = (
   msg: ChatMessage,
   t: TFunction,
@@ -70,6 +91,7 @@ const renderMessage = (
   <div class="message ${msg.role === "user" ? "user-message" : "ai-message"}">
     <div class="message-header">${msg.role === "user" ? t("sessions.export.role_user") : t("sessions.export.role_assistant")}</div>
     <div class="message-content">
+      ${renderImages(msg.images)}
       ${parseMessageContent(msg.content, md)}
     </div>
   </div>
