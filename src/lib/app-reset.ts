@@ -27,10 +27,34 @@ export type ResetKey = keyof ReturnType<typeof getAllResetKeys> | "all"
 interface PendingReset {
   key: ResetKey
   reopenUrl?: string
+  sidePanelWindowIds?: number[]
 }
 
 interface ReopenOptions {
   url: string
+  sidePanelWindowIds?: number[]
+}
+
+// Which browser windows had the side panel open when the reload was
+// scheduled. chrome.runtime.getContexts is Chromium 116+; elsewhere (or on
+// failure) reopening is simply skipped.
+const getOpenSidePanelWindowIds = async (): Promise<number[]> => {
+  try {
+    const getContexts = (
+      chrome.runtime as unknown as {
+        getContexts?: (filter: {
+          contextTypes: string[]
+        }) => Promise<{ windowId?: number }[]>
+      }
+    ).getContexts
+    if (!getContexts) return []
+    const contexts = await getContexts({ contextTypes: ["SIDE_PANEL"] })
+    return contexts
+      .map((context) => context.windowId)
+      .filter((id): id is number => typeof id === "number" && id >= 0)
+  } catch {
+    return []
+  }
 }
 
 /**
@@ -82,7 +106,11 @@ export const scheduleDestructiveReset = async (
   key: ResetKey,
   reopenUrl?: string
 ): Promise<void> => {
-  const pending: PendingReset = { key, reopenUrl }
+  const pending: PendingReset = {
+    key,
+    reopenUrl,
+    sidePanelWindowIds: await getOpenSidePanelWindowIds()
+  }
   await chrome.storage.local.set({
     [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: pending
   })
@@ -95,11 +123,48 @@ export const scheduleDestructiveReset = async (
  * context and need a clean restart without looking like a crash.
  */
 export const scheduleReloadWithReopen = async (url: string): Promise<void> => {
-  const reopen: ReopenOptions = { url }
+  const reopen: ReopenOptions = {
+    url,
+    sidePanelWindowIds: await getOpenSidePanelWindowIds()
+  }
   await chrome.storage.local.set({
     [STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS]: reopen
   })
   browser.runtime.reload()
+}
+
+// Restore the chat surface after a self-reload. chrome.sidePanel.open()
+// requires a user gesture (verified empirically: it rejects from a fresh
+// worker), so the native panel is attempted first for the day Chrome relaxes
+// this, and the extension's existing popup-window chat surface is the
+// fallback. One popup at most, however many windows had panels.
+const reopenChatSurface = async (windowIds: number[]): Promise<void> => {
+  if (windowIds.length === 0) return
+  const sidePanel = (
+    chrome as unknown as {
+      sidePanel?: { open: (options: { windowId: number }) => Promise<void> }
+    }
+  ).sidePanel
+  if (sidePanel) {
+    try {
+      await sidePanel.open({ windowId: windowIds[0] })
+      return
+    } catch {
+      // No user gesture available from a fresh worker; fall through.
+    }
+  }
+  try {
+    await browser.windows.create({
+      url: browser.runtime.getURL("sidepanel.html"),
+      type: "popup",
+      width: 420,
+      height: 640
+    })
+  } catch (error) {
+    logger.warn("Failed to reopen chat surface after reload", "AppReset", {
+      error
+    })
+  }
 }
 
 const reopenOptionsPage = async (url: string | undefined): Promise<void> => {
@@ -153,10 +218,12 @@ export const resumePendingAppLifecycle = async (): Promise<void> => {
       logger.error("Scheduled reset failed", "AppReset", { error })
     }
     await reopenOptionsPage(pending.reopenUrl)
+    await reopenChatSurface(pending.sidePanelWindowIds ?? [])
     return
   }
 
   if (reopen) {
     await reopenOptionsPage(reopen.url)
+    await reopenChatSurface(reopen.sidePanelWindowIds ?? [])
   }
 }

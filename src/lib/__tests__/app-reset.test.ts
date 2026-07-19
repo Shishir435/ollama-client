@@ -21,9 +21,11 @@ vi.mock("@/lib/browser-api", () => ({
   browser: {
     runtime: {
       reload: vi.fn(),
-      openOptionsPage: vi.fn().mockResolvedValue(undefined)
+      openOptionsPage: vi.fn().mockResolvedValue(undefined),
+      getURL: vi.fn((path: string) => `chrome-extension://x/${path}`)
     },
-    tabs: { create: vi.fn().mockResolvedValue(undefined) }
+    tabs: { create: vi.fn().mockResolvedValue(undefined) },
+    windows: { create: vi.fn().mockResolvedValue(undefined) }
   },
   isChromiumBased: () => true
 }))
@@ -87,7 +89,8 @@ describe("app-reset", () => {
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
       [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: {
         key: "all",
-        reopenUrl: "chrome-extension://x/options.html"
+        reopenUrl: "chrome-extension://x/options.html",
+        sidePanelWindowIds: []
       }
     })
     expect(browser.runtime.reload).toHaveBeenCalled()
@@ -127,6 +130,28 @@ describe("app-reset", () => {
     expect(resetSQLiteDatabase).not.toHaveBeenCalled()
     expect(browser.tabs.create).toHaveBeenCalledWith({
       url: "chrome-extension://x/options.html"
+    })
+    // No side panel was recorded, so no chat surface is reopened.
+    expect(browser.windows.create).not.toHaveBeenCalled()
+  })
+
+  it("reopens the chat surface when a side panel was open before reload", async () => {
+    ;(chrome.storage.local.get as any).mockResolvedValue({
+      [STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS]: {
+        url: "chrome-extension://x/options.html",
+        sidePanelWindowIds: [7]
+      }
+    })
+
+    await resumePendingAppLifecycle()
+
+    // chrome.sidePanel.open needs a user gesture the fresh worker does not
+    // have, so the popup chat surface is the expected fallback.
+    expect(browser.windows.create).toHaveBeenCalledWith({
+      url: "chrome-extension://x/sidepanel.html",
+      type: "popup",
+      width: 420,
+      height: 640
     })
   })
 
