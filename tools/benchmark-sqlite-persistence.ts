@@ -3,11 +3,28 @@ import { indexedDB } from "fake-indexeddb"
 import initSqlJs, { type Database, type SqlJsStatic } from "sql.js"
 import { SCHEMA_SQL } from "../src/lib/sqlite/schema"
 
-type ScaleName = "small" | "medium" | "large"
+type ScaleName = "small" | "medium" | "large" | "binary" | "tree"
+
+interface AttachmentPlan {
+  count: number
+  imageBytes: number
+  pdfBytes: number
+  everyNthChat: number
+}
+
+interface TreePlan {
+  trunkDepth: number
+  branchRoots: number[]
+  branchDepth: number
+  wideAt: number
+  wideChildren: number
+}
 
 interface Scale {
   chats: number
   messages: number
+  attachments?: AttachmentPlan
+  tree?: TreePlan
 }
 
 interface SampleSummary {
@@ -15,10 +32,36 @@ interface SampleSummary {
   p95: number
 }
 
+const TREE_PLAN: TreePlan = {
+  trunkDepth: 40,
+  branchRoots: [10, 20, 30],
+  branchDepth: 10,
+  wideAt: 5,
+  wideChildren: 12
+}
+
+const messagesPerTreeChat = (plan: TreePlan): number =>
+  plan.trunkDepth + plan.branchRoots.length * plan.branchDepth + plan.wideChildren
+
 const SCALES: Record<ScaleName, Scale> = {
   small: { chats: 500, messages: 10_000 },
   medium: { chats: 1_000, messages: 20_000 },
-  large: { chats: 10_000, messages: 200_000 }
+  large: { chats: 10_000, messages: 200_000 },
+  binary: {
+    chats: 1_000,
+    messages: 20_000,
+    attachments: {
+      count: 100,
+      imageBytes: 256 * 1024,
+      pdfBytes: 1024 * 1024,
+      everyNthChat: 10
+    }
+  },
+  tree: {
+    chats: 500,
+    messages: 500 * messagesPerTreeChat(TREE_PLAN),
+    tree: TREE_PLAN
+  }
 }
 
 const require = createRequire(import.meta.url)
@@ -40,34 +83,24 @@ const summarize = (samples: number[]): SampleSummary => {
 
 const toMiB = (bytes: number): number => bytes / (1024 * 1024)
 
-const createFixture = (SQL: SqlJsStatic, scale: Scale): Database => {
-  const database = new SQL.Database()
-  database.run(SCHEMA_SQL)
-  database.run("BEGIN")
+const makeBlob = (size: number, seed: number): Uint8Array => {
+  const bytes = new Uint8Array(size)
+  for (let index = 0; index < size; index += 1) {
+    bytes[index] = (index * 31 + seed) % 256
+  }
+  return bytes
+}
 
-  const insertSession = database.prepare(
-    `INSERT INTO sessions (id, title, modelId, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?)`
-  )
+const createLinearMessages = (database: Database, scale: Scale): void => {
   const insertMessage = database.prepare(
     `INSERT INTO messages (sessionId, role, content, model, timestamp)
      VALUES (?, ?, ?, ?, ?)`
   )
-
   try {
     const messagesPerChat = scale.messages / scale.chats
     for (let chatIndex = 0; chatIndex < scale.chats; chatIndex += 1) {
       const sessionId = `benchmark-chat-${chatIndex}`
       const timestamp = 1_700_000_000_000 + chatIndex
-      insertSession.run([
-        sessionId,
-        `Benchmark chat ${chatIndex}`,
-        "benchmark-model",
-        timestamp,
-        timestamp
-      ])
-      insertSession.reset()
-
       for (
         let messageIndex = 0;
         messageIndex < messagesPerChat;
@@ -83,6 +116,142 @@ const createFixture = (SQL: SqlJsStatic, scale: Scale): Database => {
         insertMessage.reset()
       }
     }
+  } finally {
+    insertMessage.free()
+  }
+}
+
+// Explicit message ids so parentId wiring and currentLeafId stay deterministic.
+const createTreeMessages = (database: Database, scale: Scale): void => {
+  const plan = scale.tree
+  if (!plan) throw new Error("Tree scale requires a tree plan")
+
+  const insertMessage = database.prepare(
+    `INSERT INTO messages (id, sessionId, role, content, model, timestamp, parentId)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  )
+  const setLeaf = database.prepare(
+    "UPDATE sessions SET currentLeafId = ? WHERE id = ?"
+  )
+
+  try {
+    let nextId = 1
+    for (let chatIndex = 0; chatIndex < scale.chats; chatIndex += 1) {
+      const sessionId = `benchmark-chat-${chatIndex}`
+      const timestamp = 1_700_000_000_000 + chatIndex
+      let tick = 0
+
+      const insertNode = (parentId: number | null): number => {
+        const id = nextId
+        nextId += 1
+        tick += 1
+        insertMessage.run([
+          id,
+          sessionId,
+          tick % 2 === 1 ? "user" : "assistant",
+          content,
+          "benchmark-model",
+          timestamp + tick,
+          parentId
+        ])
+        insertMessage.reset()
+        return id
+      }
+
+      const trunkIds: number[] = []
+      let parentId: number | null = null
+      for (let depth = 0; depth < plan.trunkDepth; depth += 1) {
+        parentId = insertNode(parentId)
+        trunkIds.push(parentId)
+      }
+
+      for (const branchRoot of plan.branchRoots) {
+        let branchParent: number = trunkIds[branchRoot - 1]
+        for (let depth = 0; depth < plan.branchDepth; depth += 1) {
+          branchParent = insertNode(branchParent)
+        }
+      }
+
+      const wideParent = trunkIds[plan.wideAt - 1]
+      for (let child = 0; child < plan.wideChildren; child += 1) {
+        insertNode(wideParent)
+      }
+
+      setLeaf.run([trunkIds[trunkIds.length - 1], sessionId])
+      setLeaf.reset()
+    }
+  } finally {
+    setLeaf.free()
+    insertMessage.free()
+  }
+}
+
+const createAttachments = (database: Database, scale: Scale): void => {
+  const plan = scale.attachments
+  if (!plan) return
+
+  const insertFile = database.prepare(
+    `INSERT INTO files (fileId, sessionId, messageId, fileType, fileName, fileSize, processedAt, data)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+  try {
+    const messagesPerChat = scale.messages / scale.chats
+    for (let index = 0; index < plan.count; index += 1) {
+      const chatIndex = index * plan.everyNthChat
+      const sessionId = `benchmark-chat-${chatIndex}`
+      // Linear fixture inserts sequentially, so the first message of chat N
+      // has autoincrement id N * messagesPerChat + 1.
+      const messageId = chatIndex * messagesPerChat + 1
+      const isImage = index % 2 === 0
+      const size = isImage ? plan.imageBytes : plan.pdfBytes
+      insertFile.run([
+        `benchmark-file-${index}`,
+        sessionId,
+        messageId,
+        isImage ? "image/png" : "application/pdf",
+        isImage ? `benchmark-${index}.png` : `benchmark-${index}.pdf`,
+        size,
+        1_700_000_000_000 + index,
+        makeBlob(size, index)
+      ])
+      insertFile.reset()
+    }
+  } finally {
+    insertFile.free()
+  }
+}
+
+const createFixture = (SQL: SqlJsStatic, scale: Scale): Database => {
+  const database = new SQL.Database()
+  database.run(SCHEMA_SQL)
+  database.run("BEGIN")
+
+  const insertSession = database.prepare(
+    `INSERT INTO sessions (id, title, modelId, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?)`
+  )
+
+  try {
+    for (let chatIndex = 0; chatIndex < scale.chats; chatIndex += 1) {
+      const sessionId = `benchmark-chat-${chatIndex}`
+      const timestamp = 1_700_000_000_000 + chatIndex
+      insertSession.run([
+        sessionId,
+        `Benchmark chat ${chatIndex}`,
+        "benchmark-model",
+        timestamp,
+        timestamp
+      ])
+      insertSession.reset()
+    }
+
+    if (scale.tree) {
+      createTreeMessages(database, scale)
+    } else {
+      createLinearMessages(database, scale)
+    }
+    createAttachments(database, scale)
+
     database.run("COMMIT")
     return database
   } catch (error) {
@@ -90,7 +259,6 @@ const createFixture = (SQL: SqlJsStatic, scale: Scale): Database => {
     database.close()
     throw error
   } finally {
-    insertMessage.free()
     insertSession.free()
   }
 }
@@ -140,6 +308,16 @@ const load = async (name: string): Promise<Uint8Array> => {
   }
 }
 
+const ACTIVE_PATH_SQL = `
+WITH RECURSIVE path(id, parentId, role, content, timestamp) AS (
+  SELECT id, parentId, role, content, timestamp FROM messages
+  WHERE id = (SELECT currentLeafId FROM sessions WHERE id = 'benchmark-chat-0')
+  UNION ALL
+  SELECT m.id, m.parentId, m.role, m.content, m.timestamp
+  FROM messages m JOIN path p ON m.id = p.parentId
+)
+SELECT id, role, content, timestamp FROM path LIMIT 50`
+
 const runScale = async (
   SQL: SqlJsStatic,
   scaleName: ScaleName,
@@ -163,6 +341,7 @@ const runScale = async (
   const coldOpenSamples: number[] = []
   const firstSessionPageSamples: number[] = []
   const warmMessagePageSamples: number[] = []
+  const activePathSamples: number[] = []
   const durableAppendSamples: number[] = []
 
   // One warm-up run is intentionally excluded from reported percentiles.
@@ -185,6 +364,12 @@ const runScale = async (
          ORDER BY timestamp DESC LIMIT 50`
       )
     })
+    let activePathMs = 0
+    if (scale.tree) {
+      activePathMs = await measure(() => {
+        coldDatabase?.exec(ACTIVE_PATH_SQL)
+      })
+    }
     coldDatabase.close()
 
     const appendDatabase = new SQL.Database(fixtureBytes)
@@ -213,22 +398,42 @@ const runScale = async (
       coldOpenSamples.push(coldOpenMs)
       firstSessionPageSamples.push(firstSessionPageMs)
       warmMessagePageSamples.push(warmMessagePageMs)
+      if (scale.tree) activePathSamples.push(activePathMs)
       durableAppendSamples.push(durableAppendMs)
     }
   }
 
   fixture.close()
+  const attachmentTotalBytes = scale.attachments
+    ? Array.from({ length: scale.attachments.count }, (_, index) =>
+        index % 2 === 0
+          ? (scale.attachments as AttachmentPlan).imageBytes
+          : (scale.attachments as AttachmentPlan).pdfBytes
+      ).reduce((total, size) => total + size, 0)
+    : 0
+
   return {
     scale: scaleName,
-    ...scale,
+    chats: scale.chats,
+    messages: scale.messages,
     iterations,
     fixtureMiB: toMiB(fixtureBytes.byteLength),
     fixtureBuildMs,
     initialExportMs,
     initialPersistMs,
+    ...(scale.attachments
+      ? {
+          attachments: {
+            count: scale.attachments.count,
+            totalMiB: toMiB(attachmentTotalBytes)
+          }
+        }
+      : {}),
+    ...(scale.tree ? { treePlan: scale.tree } : {}),
     coldOpenMs: summarize(coldOpenSamples),
     first50SessionsMs: summarize(firstSessionPageSamples),
     warm50MessagesMs: summarize(warmMessagePageSamples),
+    ...(scale.tree ? { activePath50Ms: summarize(activePathSamples) } : {}),
     durableAppendMs: summarize(durableAppendSamples),
     rssDeltaMiB: toMiB(process.memoryUsage().rss - rssBefore)
   }
@@ -248,17 +453,19 @@ const main = async (): Promise<void> => {
   if (
     !Number.isInteger(iterations) ||
     iterations < 1 ||
-    !["small", "medium", "large", "all"].includes(scaleArgument)
+    !["small", "medium", "large", "binary", "tree", "all"].includes(
+      scaleArgument
+    )
   ) {
     throw new Error(
-      "Usage: pnpm benchmark:persistence --scale=small|medium|large|all --iterations=N"
+      "Usage: pnpm benchmark:persistence --scale=small|medium|large|binary|tree|all --iterations=N"
     )
   }
 
   const SQL = await initSqlJs({ locateFile: () => wasmPath })
   const scaleNames: ScaleName[] =
     scaleArgument === "all"
-      ? ["small", "medium", "large"]
+      ? ["small", "medium", "large", "binary", "tree"]
       : [scaleArgument as ScaleName]
   const results = []
   for (const scaleName of scaleNames) {
