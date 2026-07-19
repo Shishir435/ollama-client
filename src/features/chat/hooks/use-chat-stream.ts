@@ -27,6 +27,8 @@ interface StreamOptions {
   messages: ChatMessage[]
   sessionId?: string
   generatedMessage?: ChatMessage
+  /** See {@link ChatWithModelMessage} `clientContextPrepared`. */
+  clientContextPrepared?: boolean
 }
 
 interface StreamMessage {
@@ -96,7 +98,8 @@ export const useChatStream = ({
     providerId,
     messages,
     sessionId,
-    generatedMessage
+    generatedMessage,
+    clientContextPrepared
   }: StreamOptions) => {
     // Create port synchronously BEFORE any async operations
     let port = browser.runtime.connect({
@@ -130,7 +133,8 @@ export const useChatStream = ({
       providerId,
       messages,
       sessionId,
-      requestId
+      requestId,
+      clientContextPrepared
     }
 
     const cleanupPort = () => {

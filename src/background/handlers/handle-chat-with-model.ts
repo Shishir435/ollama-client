@@ -105,7 +105,17 @@ export const handleChatWithModel = withErrorContext(
       "You are a helpful AI assistant."
     let contextHeader = ""
 
-    if (isMemoryEnabled && messages.length > 0) {
+    // Skip background memory retrieval when the UI already prepared context for
+    // this turn. Otherwise memory is injected twice (UI into the user content,
+    // background into the system prompt) and the background would embed the
+    // RAG-augmented last message instead of the raw user query. Regenerate/fork
+    // paths leave `clientContextPrepared` false, so the background remains the
+    // sole memory source there and embeds the original query.
+    if (
+      isMemoryEnabled &&
+      !msg.payload.clientContextPrepared &&
+      messages.length > 0
+    ) {
       const lastUserMessage = messages[messages.length - 1]
       if (lastUserMessage.role === "user") {
         // Dynamic import to reduce bundle size

@@ -138,6 +138,48 @@ describe("handleChatWithModel - Contextual Memory", () => {
     )
   })
 
+  it("should NOT retrieve memory when the client already prepared context", async () => {
+    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
+    const { retrieveContextEnhanced } = await import(
+      "@/features/chat/rag/rag-pipeline"
+    )
+
+    // Memory enabled, but the UI already built page/file/memory context for
+    // this turn — the background must not run a second memory retrieval.
+    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+      if (key === STORAGE_KEYS.MEMORY.ENABLED) return true
+      return undefined
+    })
+
+    const message: ChatWithModelMessage = {
+      type: "CHAT_WITH_MODEL",
+      payload: {
+        model: "llama3:latest",
+        messages: [{ role: "user", content: "What do I like?" }],
+        sessionId: "session-123",
+        clientContextPrepared: true
+      }
+    }
+
+    await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+    expect(retrieveContextEnhanced).not.toHaveBeenCalled()
+
+    expect(mockStreamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.not.arrayContaining([
+          expect.objectContaining({
+            content: expect.stringContaining(
+              "context from previous conversations"
+            )
+          })
+        ])
+      }),
+      expect.any(Function),
+      expect.any(AbortSignal)
+    )
+  })
+
   it("should NOT inject context when memory is disabled", async () => {
     const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
     const { retrieveContextEnhanced } = await import(

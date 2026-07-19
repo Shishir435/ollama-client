@@ -17,6 +17,7 @@ interface ChatResponseOptions {
     messages: ChatMessage[]
     sessionId: string
     generatedMessage: ChatMessage
+    clientContextPrepared?: boolean
   }) => void
   currentStreamingMessageIdRef: { current: number | null }
 }
@@ -47,7 +48,8 @@ export const useChatResponse = ({
   const generateResponse = async (
     customModel?: string,
     sessionIdParam?: string,
-    contextMessages?: ChatMessage[]
+    contextMessages?: ChatMessage[],
+    options?: { contextPrepared?: boolean }
   ) => {
     const sessionId = sessionIdParam || currentSessionId
     if (!sessionId) return
@@ -78,7 +80,8 @@ export const useChatResponse = ({
       providerId: config.selectedModelRef?.providerId,
       messages: contextMessages || messages,
       sessionId,
-      generatedMessage: { ...assistantMessage, id: assistantId }
+      generatedMessage: { ...assistantMessage, id: assistantId },
+      clientContextPrepared: options?.contextPrepared ?? false
     })
   }
 

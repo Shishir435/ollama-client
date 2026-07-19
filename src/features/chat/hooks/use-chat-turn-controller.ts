@@ -42,7 +42,8 @@ interface UseChatTurnControllerOptions {
   generateResponse: (
     customModel?: string,
     sessionId?: string,
-    overrideMessages?: ChatMessage[]
+    overrideMessages?: ChatMessage[],
+    options?: { contextPrepared?: boolean }
   ) => Promise<void>
   toast: ToastFn
 }
@@ -302,7 +303,12 @@ export const useChatTurnController = ({
       })
     }
 
-    await generateResponse(customModel, sessionId, messagesForLLM)
+    // The UI just built page/file/memory context into `messagesForLLM`, so tell
+    // the background not to run its own memory retrieval (which would double-
+    // inject memory and embed the RAG-augmented prompt instead of the raw query).
+    await generateResponse(customModel, sessionId, messagesForLLM, {
+      contextPrepared: true
+    })
     setPendingActivityEvents([])
   }
 

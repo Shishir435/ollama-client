@@ -81,9 +81,17 @@ describe("useChatTurnController", () => {
       expect.objectContaining({ rawInput: "question" })
     )
     expect(setNextResponseMetrics).toHaveBeenCalled()
-    expect(generateResponse).toHaveBeenCalledWith(undefined, "session-1", [
-      expect.objectContaining({ role: "user", content: "question\n\ncontext" })
-    ])
+    expect(generateResponse).toHaveBeenCalledWith(
+      undefined,
+      "session-1",
+      [
+        expect.objectContaining({
+          role: "user",
+          content: "question\n\ncontext"
+        })
+      ],
+      { contextPrepared: true }
+    )
   })
 
   it("continues the turn when automatic title rename fails", async () => {

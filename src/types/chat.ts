@@ -277,6 +277,18 @@ export interface ChatWithModelMessage {
     sessionId?: string
     chatId?: string
     requestId?: string
+    /**
+     * True when the sender already built the turn's context (page/file/memory
+     * RAG) in the UI, so the background must NOT run its own memory retrieval.
+     * Without this, the normal-send path double-injects memory and — because
+     * the UI ships the RAG-augmented text as the last user message — the
+     * background would embed that augmented prompt instead of the raw query.
+     *
+     * Regenerate/fork paths leave this false: they send the original persisted
+     * messages, so the background is the only memory source and correctly
+     * embeds the original user query.
+     */
+    clientContextPrepared?: boolean
   }
 }
 
