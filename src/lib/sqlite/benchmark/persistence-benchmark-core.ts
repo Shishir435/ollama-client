@@ -87,7 +87,7 @@ const measure = async (work: () => void | Promise<void>): Promise<number> => {
   return performance.now() - startedAt
 }
 
-const summarize = (samples: number[]): SampleSummary => {
+export const summarize = (samples: number[]): SampleSummary => {
   const sorted = [...samples].sort((left, right) => left - right)
   const percentile = (value: number) =>
     sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * value) - 1)]

@@ -48,6 +48,7 @@
     "benchmark:build": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_OUTPUT_DIR=build/chrome-mv3-benchmark wxt build",
     "benchmark:build:firefox": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_OUTPUT_DIR=build/firefox-mv2-benchmark wxt build -b firefox --mv2 --mode production",
     "benchmark:browser": "tsx tools/benchmark-browser-persistence.ts",
+    "spike:owner-gates": "tsx tools/spike-owner-gates.ts",
     "verify": "pnpm typecheck && pnpm lint:check && pnpm test:run && pnpm check:generated",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -120,6 +121,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
+    "@sqlite.org/sqlite-wasm": "3.53.0-build1",
     "@tailwindcss/postcss": "^4.3.0",
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/jest-dom": "^6.9.1",

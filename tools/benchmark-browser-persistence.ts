@@ -36,6 +36,7 @@ interface CliOptions {
   scales: string[]
   iterations: number
   headful: boolean
+  page: string
 }
 
 const parseArgs = (): CliOptions => {
@@ -61,6 +62,11 @@ const parseArgs = (): CliOptions => {
     throw new Error("--iterations must be a positive integer")
   }
 
+  const page = argValue("page") ?? "benchmark.html"
+  if (!["benchmark.html", "spike-opfs.html"].includes(page)) {
+    throw new Error("--page must be benchmark.html or spike-opfs.html")
+  }
+
   return {
     browsers:
       browserArgument === "all"
@@ -68,7 +74,8 @@ const parseArgs = (): CliOptions => {
         : [browserArgument as "chromium" | "firefox"],
     scales,
     iterations,
-    headful: process.argv.includes("--headful")
+    headful: process.argv.includes("--headful"),
+    page
   }
 }
 
@@ -168,9 +175,9 @@ const resolveChromiumExtensionId = async (
 }
 
 const runChromium = async (options: CliOptions): Promise<unknown[]> => {
-  if (!existsSync(resolve(chromeBuildPath, "benchmark.html"))) {
+  if (!existsSync(resolve(chromeBuildPath, options.page))) {
     throw new Error(
-      `Missing ${chromeBuildPath}/benchmark.html — run: pnpm benchmark:build`
+      `Missing ${chromeBuildPath}/${options.page} — run: pnpm benchmark:build`
     )
   }
   const userDataDir = mkdtempSync(`${tmpdir()}/ollama-client-benchmark-`)
@@ -185,7 +192,7 @@ const runChromium = async (options: CliOptions): Promise<unknown[]> => {
     const extensionId = await resolveChromiumExtensionId(context, userDataDir)
     console.error(`[chromium] extension id: ${extensionId}`)
     const page = await context.newPage()
-    await page.goto(`chrome-extension://${extensionId}/benchmark.html`)
+    await page.goto(`chrome-extension://${extensionId}/${options.page}`)
     return await runScalesOnPage(
       page,
       options.scales,
@@ -238,16 +245,16 @@ const startStaticServer = async (
 }
 
 const runFirefox = async (options: CliOptions): Promise<unknown[]> => {
-  if (!existsSync(resolve(firefoxBuildPath, "benchmark.html"))) {
+  if (!existsSync(resolve(firefoxBuildPath, options.page))) {
     throw new Error(
-      `Missing ${firefoxBuildPath}/benchmark.html — run: pnpm benchmark:build:firefox`
+      `Missing ${firefoxBuildPath}/${options.page} — run: pnpm benchmark:build:firefox`
     )
   }
   const server = await startStaticServer(firefoxBuildPath)
   const browser = await firefox.launch({ headless: !options.headful })
   try {
     const page = await browser.newPage()
-    await page.goto(`${server.origin}/benchmark.html`)
+    await page.goto(`${server.origin}/${options.page}`)
     return await runScalesOnPage(
       page,
       options.scales,
