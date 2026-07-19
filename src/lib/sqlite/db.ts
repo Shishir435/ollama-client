@@ -393,6 +393,10 @@ export const resetSQLiteDatabase = async (): Promise<void> => {
     clearTimeout(saveTimeout)
     saveTimeout = null
   }
+  // An in-flight save transaction holds an open IndexedDB connection, which
+  // blocks the deleteDatabase below and then fails re-initialization. Let it
+  // settle first; failures were already swallowed into saveInFlight.
+  await saveInFlight
   if (db) {
     try {
       db.close()

@@ -14,6 +14,17 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "device-local",
     reason: "Temporary rollback state for portable-settings imports."
   },
+  [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: {
+    key: STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET,
+    scope: "device-local",
+    reason:
+      "One-shot flag for a destructive reset the background runs after reload."
+  },
+  [STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS]: {
+    key: STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS,
+    scope: "device-local",
+    reason: "One-shot flag to reopen the options page after a self-reload."
+  },
   [STORAGE_KEYS.PROVIDER.SECRETS]: {
     key: STORAGE_KEYS.PROVIDER.SECRETS,
     scope: "device-local",

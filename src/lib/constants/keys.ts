@@ -80,6 +80,16 @@ export const STORAGE_KEYS = {
     /** Durable rollback state for interrupted portable-settings imports. */
     IMPORT_JOURNAL: "backup_import_journal_v1"
   },
+  APP_LIFECYCLE: {
+    /**
+     * Raw chrome.storage.local flag: a destructive reset the background
+     * executes on next worker boot, after runtime.reload() has closed every
+     * page that could hold a database handle.
+     */
+    PENDING_RESET: "app_pending_reset_v1",
+    /** Raw chrome.storage.local flag: reopen this options URL after reload. */
+    REOPEN_OPTIONS: "app_reopen_options_v1"
+  },
   PROVIDER: {
     BASE_URL: "provider-base-url",
     /** Device-local provider credentials; never store this key in sync. */

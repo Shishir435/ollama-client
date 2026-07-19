@@ -1,6 +1,5 @@
 import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { browser } from "wxt/browser"
 import {
   ConfirmActionDialog,
   SettingsCard,
@@ -19,6 +18,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
+import { scheduleReloadWithReopen } from "@/lib/app-reset"
 import { backupService, type ImportResult } from "@/lib/backup-service"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { formatBackupFilenameTimestamp } from "@/lib/format-utils"
@@ -136,12 +136,11 @@ export const DataMigrationSettings = () => {
       // keeps running with the old generation (background worker, an open
       // sidepanel) has all of its chat saves silently skipped by the
       // stale-writer guard. A page-level reload fan-out cannot guarantee
-      // delivery — runtime.reload() can.
-      try {
-        browser.runtime.reload()
-      } catch {
+      // delivery — runtime.reload() can. The background reopens this options
+      // page after the restart so the reload does not look like a crash.
+      scheduleReloadWithReopen(window.location.href).catch(() => {
         window.location.reload()
-      }
+      })
     }
   }
 
