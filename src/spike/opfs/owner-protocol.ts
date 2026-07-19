@@ -16,7 +16,15 @@ export type OwnerOp =
   | "upsertCheckpoint"
   | "readCheckpoint"
   | "beginHang"
+  | "exportDb"
   | "reset"
+
+export interface ExportDbResult {
+  exportedBytes: number
+  // Row count observed by importing the exported bytes into a scratch file —
+  // proves the export is a consistent, openable database (gate 7).
+  verifiedTotal: number
+}
 
 export interface OwnerRpcMessage {
   type: typeof SPIKE_OWNER_RPC

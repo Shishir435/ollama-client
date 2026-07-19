@@ -12,9 +12,16 @@
 //      call without manual reload, preserving durable state.
 //   5. A worker terminated inside an open transaction rolls back to the
 //      pre-transaction state on the next worker generation.
+//   7. Export serializes a consistent, verifiable snapshot while another
+//      client keeps writing.
+//   8. Two writers keep writing (with client-side retry) across a deliberate
+//      owner-document recreation, with no lost or duplicated update.
+//   4c. Full browser restart (same profile relaunch) preserves durable rows
+//       and the owner topology recovers without manual intervention.
 //
-// Not covered here: forced service-worker termination and full browser
-// restart (manual), packaged Firefox (offscreen API is Chromium-only).
+// Not covered here: forced service-worker termination mid-write (manual),
+// incognito/split mode (explicitly unsupported for the spike), packaged
+// Firefox (offscreen API is Chromium-only; MV2 uses a background page host).
 //
 // Usage: pnpm spike:owner-gates [--headful]
 // Requires: pnpm benchmark:build
@@ -152,22 +159,25 @@ const runGates = async (visible: boolean): Promise<void> => {
     const rpcB = pageRpc(pageB)
 
     const APPENDS = 100
-    const appendMany = (page: Page, writer: string) =>
+    const appendMany = (page: Page, writer: string, total: number) =>
       page.evaluate(
-        async ([writerName, total]) => {
+        async ([writerName, count]) => {
           const owner = (
             window as unknown as {
               __spikeOwner: (op: string, payload?: unknown) => Promise<unknown>
             }
           ).__spikeOwner
-          for (let seq = 0; seq < (total as number); seq += 1) {
+          for (let seq = 0; seq < (count as number); seq += 1) {
             await owner("append", { writer: writerName, seq })
           }
         },
-        [writer, APPENDS]
+        [writer, total] as const
       )
 
-    await Promise.all([appendMany(pageA, "writer-a"), appendMany(pageB, "writer-b")])
+    await Promise.all([
+      appendMany(pageA, "writer-a", APPENDS),
+      appendMany(pageB, "writer-b", APPENDS)
+    ])
     const gate2Counts = (await rpcA("counts")) as {
       total: number
       byWriter: Record<string, number>
@@ -259,10 +269,147 @@ const runGates = async (visible: boolean): Promise<void> => {
       { preHang, hang, postCrash }
     )
 
+    // ---- Gate 7: consistent export while another client keeps writing ----
     await rpcC("reset")
+    const pageD = await context.newPage()
+    await pageD.goto(ownerPageUrl)
+    const rpcD = pageRpc(pageD)
+    const GATE7_APPENDS = 120
+    const GATE7_SYNC_THRESHOLD = 10
+    const [, exportMid] = await Promise.all([
+      appendMany(pageD, "writer-export", GATE7_APPENDS),
+      // Real overlap, not a fixed delay: wait until some appends have
+      // committed, then export while the rest are still streaming.
+      (async () => {
+        for (;;) {
+          const midCounts = (await rpcC("counts")) as { total: number }
+          if (midCounts.total >= GATE7_SYNC_THRESHOLD) break
+        }
+        return (await rpcC("exportDb")) as {
+          exportedBytes: number
+          verifiedTotal: number
+        }
+      })()
+    ])
+    const gate7Final = (await rpcC("counts")) as { total: number }
+    record(
+      "gate7-export-during-writes",
+      exportMid.exportedBytes > 0 &&
+        // The snapshot must prove overlap: strictly after the sync point and
+        // strictly before the final append.
+        exportMid.verifiedTotal >= GATE7_SYNC_THRESHOLD &&
+        exportMid.verifiedTotal < GATE7_APPENDS &&
+        gate7Final.total === GATE7_APPENDS,
+      { exportMid, gate7Final, expected: GATE7_APPENDS }
+    )
+
+    // ---- Gate 8: two writers keep writing across an owner recreation ----
+    await rpcC("reset")
+    const appendManyWithRetry = (page: Page, writer: string, total: number) =>
+      page.evaluate(
+        async ([writerName, count]) => {
+          const owner = (
+            window as unknown as {
+              __spikeOwner: (op: string, payload?: unknown) => Promise<unknown>
+            }
+          ).__spikeOwner
+          for (let seq = 0; seq < (count as number); seq += 1) {
+            // The owner document is deliberately destroyed mid-run; a call
+            // in flight at that moment fails and is retried. Each (writer,
+            // seq) is appended exactly once by construction.
+            for (let attempt = 0; ; attempt += 1) {
+              try {
+                await owner("append", { writer: writerName, seq })
+                break
+              } catch (error) {
+                if (attempt >= 3) throw error
+              }
+            }
+          }
+        },
+        [writer, total]
+      )
+    const GATE8_APPENDS = 80
+    await Promise.all([
+      appendManyWithRetry(pageC, "writer-w1", GATE8_APPENDS),
+      appendManyWithRetry(pageD, "writer-w2", GATE8_APPENDS),
+      (async () => {
+        await new Promise((resolvePause) => setTimeout(resolvePause, 200))
+        await pageC.evaluate(() =>
+          (
+            window as unknown as {
+              __spikeOwnerControl: { close: () => Promise<unknown> }
+            }
+          ).__spikeOwnerControl.close()
+        )
+      })()
+    ])
+    const gate8Counts = (await rpcC("counts")) as {
+      total: number
+      byWriter: Record<string, number>
+    }
+    record(
+      "gate8-writers-across-owner-recreation",
+      gate8Counts.total === GATE8_APPENDS * 2 &&
+        gate8Counts.byWriter["writer-w1"] === GATE8_APPENDS &&
+        gate8Counts.byWriter["writer-w2"] === GATE8_APPENDS,
+      { expected: GATE8_APPENDS * 2, ...gate8Counts }
+    )
+    await pageD.close()
+
+    // ---- Gate 10 (informational): quota and persistence posture ----
+    const storageInfo = await pageC.evaluate(async () => {
+      const estimate = navigator.storage?.estimate
+        ? await navigator.storage.estimate()
+        : null
+      return {
+        usageMiB: estimate?.usage ? estimate.usage / (1024 * 1024) : null,
+        quotaMiB: estimate?.quota ? estimate.quota / (1024 * 1024) : null,
+        persisted: navigator.storage?.persisted
+          ? await navigator.storage.persisted()
+          : null
+      }
+    })
+    record("gate10-storage-posture-info", true, storageInfo)
+
+    // ---- Gate 4c: full browser restart preserves data, owner recovers ----
+    await rpcC("reset")
+    const RESTART_ROWS = 25
+    await appendMany(pageC, "restart-writer", RESTART_ROWS)
     await pageC.close()
-  } finally {
     await context.close()
+
+    const restarted = await chromium.launchPersistentContext(userDataDir, {
+      headless: !visible,
+      args: [
+        `--disable-extensions-except=${chromeBuildPath}`,
+        `--load-extension=${chromeBuildPath}`
+      ]
+    })
+    try {
+      const pageE = await restarted.newPage()
+      await pageE.goto(ownerPageUrl)
+      const rpcE = pageRpc(pageE)
+      const afterRestart = (await rpcE("counts")) as {
+        total: number
+        byWriter: Record<string, number>
+      }
+      record(
+        "gate4c-browser-restart-recovery",
+        afterRestart.byWriter["restart-writer"] === RESTART_ROWS,
+        { expected: RESTART_ROWS, ...afterRestart }
+      )
+      await rpcE("reset")
+      await pageE.close()
+    } finally {
+      await restarted.close()
+    }
+  } finally {
+    try {
+      await context.close()
+    } catch {
+      // already closed by the restart phase
+    }
     rmSync(userDataDir, { recursive: true, force: true })
   }
 }

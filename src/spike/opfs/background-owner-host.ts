@@ -19,7 +19,20 @@ const hasOwnerDocument = async (): Promise<boolean> => {
   const contexts = await chrome.runtime.getContexts({
     contextTypes: ["OFFSCREEN_DOCUMENT" as chrome.runtime.ContextType]
   })
-  return contexts.length > 0
+  // Chrome has one offscreen-document slot per extension; another feature
+  // could own it. Only a document actually hosting the owner page counts —
+  // anything else must surface as a conflict, not a silent RPC timeout.
+  const ownerExists = contexts.some((context) =>
+    (context as { documentUrl?: string }).documentUrl?.endsWith(
+      `/${OFFSCREEN_URL}`
+    )
+  )
+  if (!ownerExists && contexts.length > 0) {
+    throw new Error(
+      "Offscreen document slot is occupied by another page; cannot host the SQLite owner"
+    )
+  }
+  return ownerExists
 }
 
 const ensureOwner = async (): Promise<void> => {

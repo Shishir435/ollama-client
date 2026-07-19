@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS spike_messages (
   writer TEXT NOT NULL,
   seq INTEGER NOT NULL,
   content TEXT NOT NULL,
-  timestamp INTEGER NOT NULL
+  timestamp INTEGER NOT NULL,
+  UNIQUE(writer, seq)
 );
 CREATE TABLE IF NOT EXISTS spike_checkpoints (
   requestId TEXT PRIMARY KEY,
@@ -40,11 +41,11 @@ interface WorkerRequest {
   payload?: unknown
 }
 
-let dbPromise: Promise<Database> | null = null
+let contextPromise: Promise<{ db: Database; pool: SAHPoolUtil }> | null = null
 
-const openDatabase = (): Promise<Database> => {
-  if (!dbPromise) {
-    dbPromise = (async () => {
+const openContext = (): NonNullable<typeof contextPromise> => {
+  if (!contextPromise) {
+    contextPromise = (async () => {
       // The published typings declare init() without arguments, but the
       // runtime accepts an Emscripten module config; locateFile is required
       // so the bundled wasm asset resolves inside the worker chunk.
@@ -67,11 +68,13 @@ const openDatabase = (): Promise<Database> => {
       })
       const db = new pool.OpfsSAHPoolDb(DB_PATH)
       db.exec(SPIKE_SCHEMA)
-      return db
+      return { db, pool }
     })()
   }
-  return dbPromise
+  return contextPromise
 }
+
+const openDatabase = async (): Promise<Database> => (await openContext()).db
 
 const queryNumber = (db: Database, sql: string): number => {
   let value = 0
@@ -105,8 +108,10 @@ const handle = async (op: OwnerOp, payload: unknown): Promise<unknown> => {
   switch (op) {
     case "append": {
       const { writer, seq } = payload as AppendPayload
+      // OR IGNORE + UNIQUE(writer, seq): clients retry appends whose response
+      // was lost to an owner recreation, so the write must be idempotent.
       db.exec({
-        sql: `INSERT INTO spike_messages (writer, seq, content, timestamp)
+        sql: `INSERT OR IGNORE INTO spike_messages (writer, seq, content, timestamp)
               VALUES (?, ?, ?, ?)`,
         bind: [writer, seq, `message ${writer}#${seq}`, Date.now()]
       })
@@ -148,6 +153,28 @@ const handle = async (op: OwnerOp, payload: unknown): Promise<unknown> => {
         bind: ["hanging-txn", 0, "must roll back", Date.now()]
       })
       return { uncommittedTotal: counts(db).total }
+    }
+    case "exportDb": {
+      // Gate 7: serialize a consistent snapshot while other clients keep
+      // writing. Worker ops run on one chain, so the export can never
+      // observe a half-applied transaction. The exported bytes are verified
+      // by importing them into a scratch file and counting rows.
+      const { pool } = await openContext()
+      const bytes = await pool.exportFile(DB_PATH)
+      const scratchPath = "/spike-export-verify.sqlite"
+      await pool.importDb(scratchPath, bytes)
+      const scratch = new pool.OpfsSAHPoolDb(scratchPath)
+      let verifiedTotal: number
+      try {
+        verifiedTotal = queryNumber(
+          scratch,
+          "SELECT COUNT(*) FROM spike_messages"
+        )
+      } finally {
+        scratch.close()
+        pool.unlink(scratchPath)
+      }
+      return { exportedBytes: bytes.byteLength, verifiedTotal }
     }
     case "reset": {
       try {
