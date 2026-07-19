@@ -1,3 +1,4 @@
+import { browser } from "wxt/browser"
 import {
   type OwnerOp,
   type OwnerRpcResponse,
@@ -42,7 +43,7 @@ const withTimeout = async <T>(work: Promise<T>): Promise<T> => {
 
 const ensureOwner = async (): Promise<void> => {
   const response = (await withTimeout(
-    chrome.runtime.sendMessage({ type: SPIKE_OWNER_ENSURE })
+    browser.runtime.sendMessage({ type: SPIKE_OWNER_ENSURE })
   )) as OwnerRpcResponse | undefined
   if (!response) throw new Error("Ensure-owner message dropped")
   if (!response.ok) throw new Error(response.error)
@@ -51,7 +52,7 @@ const ensureOwner = async (): Promise<void> => {
 const ownerRpc = async (op: OwnerOp, payload?: unknown): Promise<unknown> => {
   await ensureOwner()
   const response = (await withTimeout(
-    chrome.runtime.sendMessage({ type: SPIKE_OWNER_RPC, op, payload })
+    browser.runtime.sendMessage({ type: SPIKE_OWNER_RPC, op, payload })
   )) as OwnerRpcResponse | undefined
   if (!response) throw new Error("Owner RPC message dropped")
   if (!response.ok) throw new Error(response.error)
@@ -60,7 +61,7 @@ const ownerRpc = async (op: OwnerOp, payload?: unknown): Promise<unknown> => {
 
 const closeOwner = async (): Promise<unknown> => {
   const response = (await withTimeout(
-    chrome.runtime.sendMessage({ type: SPIKE_OWNER_CLOSE })
+    browser.runtime.sendMessage({ type: SPIKE_OWNER_CLOSE })
   )) as OwnerRpcResponse | undefined
   if (!response) throw new Error("Close-owner message dropped")
   if (!response.ok) throw new Error(response.error)

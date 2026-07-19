@@ -15,3 +15,14 @@ if (typeof __SPIKE_OPFS_OWNER__ !== "undefined" && __SPIKE_OPFS_OWNER__) {
     module.registerSpikeOwnerHost()
   )
 }
+
+// Firefox MV2 variant: the persistent background page hosts the owner worker
+// itself — no offscreen API exists there. Same dead-code elimination rule.
+if (
+  typeof __SPIKE_OPFS_OWNER_MV2__ !== "undefined" &&
+  __SPIKE_OPFS_OWNER_MV2__
+) {
+  void import("@/spike/opfs/firefox-owner-host").then((module) =>
+    module.registerSpikeOwnerHostMv2()
+  )
+}

@@ -49,6 +49,7 @@
     "benchmark:build:firefox": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_OUTPUT_DIR=build/firefox-mv2-benchmark wxt build -b firefox --mv2 --mode production",
     "benchmark:browser": "tsx tools/benchmark-browser-persistence.ts",
     "spike:owner-gates": "tsx tools/spike-owner-gates.ts",
+    "spike:firefox-owner-gates": "tsx tools/spike-firefox-owner-gates.ts",
     "verify": "pnpm typecheck && pnpm lint:check && pnpm test:run && pnpm check:generated",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -135,6 +136,7 @@
     "@types/node": "^22.19.19",
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
+    "@types/selenium-webdriver": "^4.35.6",
     "@types/sql.js": "^1.4.11",
     "@types/turndown": "^5.0.6",
     "@types/webextension-polyfill": "^0.12.5",
@@ -143,6 +145,7 @@
     "@vitest/ui": "^4.1.7",
     "babel-plugin-react-compiler": "1.0.0",
     "fake-indexeddb": "^6.2.5",
+    "geckodriver": "^6.1.1",
     "happy-dom": "^20.9.0",
     "husky": "^9.1.7",
     "knip": "^6.24.0",
@@ -150,6 +153,7 @@
     "playwright": "^1.60.0",
     "postcss": "8.5.10",
     "rollup-plugin-visualizer": "^6.0.11",
+    "selenium-webdriver": "^4.27.0",
     "shadcn": "^4.12.0",
     "tailwindcss": "4.3.0",
     "tsx": "^4.23.1",
@@ -176,6 +180,9 @@
       "form-data@<4.0.6": ">=4.0.6",
       "linkify-it@<5.0.1": ">=5.0.1",
       "vite@>=8.0.0 <8.0.16": ">=8.0.16"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "geckodriver"
+    ]
   }
 }
