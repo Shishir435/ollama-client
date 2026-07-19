@@ -26,6 +26,7 @@ export const SessionTagsDialog = ({
 }: SessionTagsDialogProps) => {
   const { t } = useTranslation()
   const [value, setValue] = useState(tags.join(", "))
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (open) setValue(tags.join(", "))
@@ -51,9 +52,16 @@ export const SessionTagsDialog = ({
             {t("common.cancel")}
           </Button>
           <Button
+            disabled={saving}
             onClick={async () => {
-              await onSave(value.split(","))
-              onOpenChange(false)
+              if (saving) return
+              setSaving(true)
+              try {
+                await onSave(value.split(","))
+                onOpenChange(false)
+              } finally {
+                setSaving(false)
+              }
             }}>
             {t("common.save")}
           </Button>

@@ -57,6 +57,13 @@ export const MESSAGE_KEYS = {
   APP: {
     RELOAD: "app-reload",
     FLUSH_SQLITE: "app-flush-sqlite",
+    // Ask other extension contexts to close their Dexie handles so a backup
+    // import can delete/recreate the vector and knowledge databases without
+    // blocked-deletion warnings.
+    CLOSE_DEXIE: "app-close-dexie",
+    // Counterpart: reopen the handles once the import attempt is over, so a
+    // sidepanel that never reloads (partial import failure) keeps working.
+    REOPEN_DEXIE: "app-reopen-dexie",
     NOTIFY_JOB_COMPLETE: "app-notify-job-complete",
     KEEP_TOOL_LOOP_ALIVE: "app-keep-tool-loop-alive"
   }
@@ -75,6 +82,18 @@ export const STORAGE_KEYS = {
   BACKUP: {
     /** Durable rollback state for interrupted portable-settings imports. */
     IMPORT_JOURNAL: "backup_import_journal_v1"
+  },
+  APP_LIFECYCLE: {
+    /**
+     * Raw chrome.storage.local flag: a destructive reset the background
+     * executes on next worker boot, after runtime.reload() has closed every
+     * page that could hold a database handle.
+     */
+    PENDING_RESET: "app_pending_reset_v1",
+    /** Raw chrome.storage.local flag: reopen this options URL after reload. */
+    REOPEN_OPTIONS: "app_reopen_options_v1",
+    /** Raw chrome.storage.local record of the last failed scheduled reset. */
+    RESET_FAILURE: "app_reset_failure_v1"
   },
   PROVIDER: {
     BASE_URL: "provider-base-url",

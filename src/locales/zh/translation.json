@@ -1402,7 +1402,11 @@
       },
       "item_count": "{{count}} 个项目",
       "item_count_plural": "{{count}} 个项目",
-      "reset_button": "重置"
+      "reset_button": "重置",
+      "failure_notice": {
+        "title": "上次重置未完成",
+        "description": "上一次重置在完成前失败，部分数据可能仍然保留。请查看控制台了解详情并重试。"
+      }
     },
     "providers": {
       "default": "默认",

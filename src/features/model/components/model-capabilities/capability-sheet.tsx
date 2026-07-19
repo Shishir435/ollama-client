@@ -96,6 +96,7 @@ export const ModelCapabilitySheet = ({
   const { toast } = useToast()
   const [draft, setDraft] = useState<Draft>(() => toDraft(current))
   const [probing, setProbing] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   // The draft differs from what detection produced — the user has edited
   // something this session.
@@ -140,6 +141,8 @@ export const ModelCapabilitySheet = ({
   const canReset = hasOverride || isDirty
 
   const handleSave = async () => {
+    if (saving) return
+    setSaving(true)
     try {
       await onSave({ ...draft })
       onOpenChange(false)
@@ -154,6 +157,8 @@ export const ModelCapabilitySheet = ({
         variant: "destructive",
         description: t("model.capabilities.sheet.save_error")
       })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -290,7 +295,7 @@ export const ModelCapabilitySheet = ({
             disabled={!canReset}>
             {t("model.capabilities.sheet.reset")}
           </Button>
-          <Button size="sm" onClick={handleSave}>
+          <Button size="sm" disabled={saving} onClick={handleSave}>
             {t("model.capabilities.sheet.save")}
           </Button>
         </SheetFooter>

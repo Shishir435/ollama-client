@@ -148,6 +148,14 @@ export interface RuntimeMessageMap {
     request: { type: typeof MESSAGE_KEYS.APP.FLUSH_SQLITE }
     response: RuntimeResponse
   }
+  [MESSAGE_KEYS.APP.CLOSE_DEXIE]: {
+    request: { type: typeof MESSAGE_KEYS.APP.CLOSE_DEXIE }
+    response: RuntimeResponse
+  }
+  [MESSAGE_KEYS.APP.REOPEN_DEXIE]: {
+    request: { type: typeof MESSAGE_KEYS.APP.REOPEN_DEXIE }
+    response: RuntimeResponse
+  }
   [MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE]: {
     request: {
       type: typeof MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE

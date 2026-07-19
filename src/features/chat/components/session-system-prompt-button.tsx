@@ -27,6 +27,7 @@ export const SessionSystemPromptButton = () => {
     useChatSessions()
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
+  const [saving, setSaving] = useState(false)
 
   const current = sessions.find((s) => s.id === currentSessionId)
   const saved = current?.systemPrompt ?? ""
@@ -43,14 +44,26 @@ export const SessionSystemPromptButton = () => {
   const hasPrompt = saved.trim().length > 0
 
   const handleSave = async () => {
-    await setSessionSystemPrompt(currentSessionId, draft)
-    setOpen(false)
+    if (saving) return
+    setSaving(true)
+    try {
+      await setSessionSystemPrompt(currentSessionId, draft)
+      setOpen(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleClear = async () => {
-    await setSessionSystemPrompt(currentSessionId, "")
-    setDraft("")
-    setOpen(false)
+    if (saving) return
+    setSaving(true)
+    try {
+      await setSessionSystemPrompt(currentSessionId, "")
+      setDraft("")
+      setOpen(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -92,10 +105,10 @@ export const SessionSystemPromptButton = () => {
             variant="ghost"
             size="sm"
             onClick={handleClear}
-            disabled={!hasPrompt && draft.trim().length === 0}>
+            disabled={saving || (!hasPrompt && draft.trim().length === 0)}>
             {t("chat.system_prompt.clear")}
           </Button>
-          <Button size="sm" onClick={handleSave}>
+          <Button size="sm" disabled={saving} onClick={handleSave}>
             {t("chat.system_prompt.save")}
           </Button>
         </div>

@@ -76,6 +76,11 @@ export default defineConfig({
     host_permissions: ["<all_urls>"],
     permissions: [
       "storage",
+      // Chat history, vectors, and (0.12.4+) OPFS SQLite share the extension
+      // origin's quota; unlimitedStorage removes eviction risk and, on
+      // Firefox, makes the storage persistent without a user prompt. It adds
+      // no install-time permission warning.
+      "unlimitedStorage",
       "tabs",
       "scripting",
       "contextMenus",

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { SectionStack } from "@/components/layout"
@@ -17,11 +17,13 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
+import { readAndClearResetFailure } from "@/lib/app-reset"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import {
   CircleCheck,
   Globe,
   Library,
+  Loader2,
   type LucideIcon,
   MessageSquare,
   RefreshCcw,
@@ -35,10 +37,36 @@ export const ResetStorage = () => {
   const reset = useResetAppStorage()
   const keysByModule = getAllResetKeys()
   const [open, setOpen] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+  const [showFailureNotice, setShowFailureNotice] = useState(false)
+
+  // A destructive reset runs in the background after a self-reload; if it
+  // failed there, a one-shot record survives the restart. Surface it here.
+  useEffect(() => {
+    void readAndClearResetFailure().then((failure) => {
+      if (failure) setShowFailureNotice(true)
+    })
+  }, [])
 
   const handleResetAll = async () => {
-    await reset("all")
-    setOpen(false)
+    if (isResetting) return
+    setIsResetting(true)
+    setShowFailureNotice(false)
+    try {
+      // Scheduling persists a flag and restarts the extension; the dialog
+      // stays up with a spinner for the brief moment before the reload.
+      const outcome = await reset("all")
+      if (outcome.ok) {
+        setOpen(false)
+        return
+      }
+      // Scheduling itself failed; keep the dialog closed but show why the
+      // data was not cleared instead of silently looking done.
+      setOpen(false)
+      setShowFailureNotice(true)
+    } finally {
+      setIsResetting(false)
+    }
   }
 
   const getModuleIcon = (module: string): LucideIcon => {
@@ -105,6 +133,14 @@ export const ResetStorage = () => {
         focusId="reset-settings"
         title={t("settings.reset.title")}
         description={t("settings.reset.description")}>
+        {showFailureNotice && (
+          <StatusAlert
+            variant="destructive"
+            icon={RefreshCcw}
+            title={t("settings.reset.failure_notice.title")}
+            description={t("settings.reset.failure_notice.description")}
+          />
+        )}
         <div className="grid gap-3">
           {Object.entries(keysByModule).map(([module, keys]) => (
             <ModuleResetItem
@@ -115,6 +151,7 @@ export const ResetStorage = () => {
               getModuleName={getModuleName}
               getModuleDescription={getModuleDescription}
               reset={reset}
+              onFailure={() => setShowFailureNotice(true)}
             />
           ))}
         </div>
@@ -130,7 +167,11 @@ export const ResetStorage = () => {
             title={t("settings.reset.danger_zone.title")}
             description={t("settings.reset.danger_zone.description")}
             actions={
-              <Dialog open={open} onOpenChange={setOpen}>
+              <Dialog
+                open={open}
+                onOpenChange={(next) => {
+                  if (!isResetting) setOpen(next)
+                }}>
                 <DialogTrigger
                   render={
                     <Button
@@ -150,10 +191,19 @@ export const ResetStorage = () => {
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter className="flex flex-col gap-4">
-                    <Button variant="destructive" onClick={handleResetAll}>
+                    <Button
+                      variant="destructive"
+                      disabled={isResetting}
+                      onClick={handleResetAll}>
+                      {isResetting && (
+                        <Loader2 className="mr-2 icon-md animate-spin" />
+                      )}
                       {t("settings.reset.dialog.confirm")}
                     </Button>
-                    <Button variant="secondary" onClick={() => setOpen(false)}>
+                    <Button
+                      variant="secondary"
+                      disabled={isResetting}
+                      onClick={() => setOpen(false)}>
                       {t("settings.reset.dialog.cancel")}
                     </Button>
                   </DialogFooter>
@@ -173,19 +223,41 @@ const ModuleResetItem = ({
   getModuleIcon,
   getModuleName,
   getModuleDescription,
-  reset
+  reset,
+  onFailure
 }: {
   module: string
   keys: string[]
   getModuleIcon: (module: string) => LucideIcon
   getModuleName: (module: string) => string
   getModuleDescription: (module: string) => string
-  reset: (key: string) => Promise<string>
+  reset: (key: string) => Promise<{ ok: boolean; message: string }>
+  onFailure: () => void
 }) => {
   const { t } = useTranslation()
-  const [resetting, setResetting] = useState(false)
+  const [resetState, setResetState] = useState<"idle" | "working" | "done">(
+    "idle"
+  )
   const ModuleIcon = getModuleIcon(module)
   const focusId = `reset-${module.toLowerCase().replace(/_/g, "-")}`
+
+  const handleReset = async () => {
+    if (resetState !== "idle") return
+    setResetState("working")
+    try {
+      const outcome = await reset(module)
+      if (!outcome.ok) {
+        onFailure()
+        setResetState("idle")
+        return
+      }
+      setResetState("done")
+      setTimeout(() => setResetState("idle"), 1500)
+    } catch {
+      onFailure()
+      setResetState("idle")
+    }
+  }
 
   return (
     <Card
@@ -211,13 +283,13 @@ const ModuleResetItem = ({
       <Button
         size="sm"
         variant="ghost"
-        onClick={async () => {
-          setResetting(true)
-          await reset(module)
-          setTimeout(() => setResetting(false), 1000)
-        }}>
+        disabled={resetState !== "idle"}
+        onClick={handleReset}>
         {t("settings.reset.reset_button")}{" "}
-        {resetting ? <CircleCheck className="icon-md" /> : ""}
+        {resetState === "working" && (
+          <Loader2 className="icon-md animate-spin" />
+        )}
+        {resetState === "done" && <CircleCheck className="icon-md" />}
       </Button>
     </Card>
   )

@@ -1,20 +1,28 @@
 import { renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
+import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
-import {
-  plasmoDeviceStorage,
-  plasmoGlobalStorage,
-  removePlasmoStoredValue
-} from "@/lib/plasmo-global-storage"
+import { removePlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
   resetProviderStorageUnlocked,
   withProviderPersistenceLock
 } from "@/lib/providers/provider-secret-store"
 import { ProviderStorageKey } from "@/lib/providers/types"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
+
+vi.mock("@/lib/browser-api", () => ({
+  browser: {
+    runtime: {
+      reload: vi.fn(),
+      openOptionsPage: vi.fn().mockResolvedValue(undefined)
+    },
+    tabs: { create: vi.fn().mockResolvedValue(undefined) }
+  },
+  isChromiumBased: () => true
+}))
 
 vi.mock("@/lib/embeddings/feedback-service", () => ({
   feedbackService: {
@@ -49,29 +57,38 @@ describe("useResetAppStorage", () => {
     vi.clearAllMocks()
   })
 
-  it("should reset all data when key is 'all'", async () => {
+  it("schedules a background reset and reloads for key 'all'", async () => {
     const { result } = renderHook(() => useResetAppStorage())
     const reset = result.current
 
-    await reset("all")
+    const outcome = await reset("all")
 
-    expect(resetSQLiteDatabase).toHaveBeenCalled()
-    expect(feedbackService.clearAllFeedback).toHaveBeenCalled()
-    expect(plasmoGlobalStorage.clear).toHaveBeenCalled()
-    expect(plasmoDeviceStorage.clear).toHaveBeenCalled()
-    expect(withProviderPersistenceLock).toHaveBeenCalledOnce()
-    expect(resetProviderStorageUnlocked).toHaveBeenCalled()
+    // Destructive resets never run in the page: pages hold IndexedDB
+    // handles that block deleteDatabase. The work happens in the fresh
+    // background worker after runtime.reload().
+    expect(outcome).toEqual({ ok: true, message: "Resetting..." })
+    expect(resetSQLiteDatabase).not.toHaveBeenCalled()
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: expect.objectContaining({
+        key: "all"
+      })
+    })
+    expect(browser.runtime.reload).toHaveBeenCalled()
   })
 
-  it("should reset only chat sessions when key is 'CHAT_SESSIONS'", async () => {
+  it("schedules a background reset for key 'CHAT_SESSIONS'", async () => {
     const { result } = renderHook(() => useResetAppStorage())
     const reset = result.current
 
     await reset("CHAT_SESSIONS")
 
-    expect(resetSQLiteDatabase).toHaveBeenCalled()
-    expect(feedbackService.clearAllFeedback).not.toHaveBeenCalled()
-    expect(removePlasmoStoredValue).not.toHaveBeenCalled()
+    expect(resetSQLiteDatabase).not.toHaveBeenCalled()
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: expect.objectContaining({
+        key: "CHAT_SESSIONS"
+      })
+    })
+    expect(browser.runtime.reload).toHaveBeenCalled()
   })
 
   it("should reset only feedback when key is 'FEEDBACK'", async () => {
@@ -131,9 +148,12 @@ describe("useResetAppStorage", () => {
     )
 
     const { result } = renderHook(() => useResetAppStorage())
-    const message = await result.current("PROVIDER")
+    const outcome = await result.current("PROVIDER")
 
-    expect(message).toBe("Failed to reset app data. Check console for details.")
+    expect(outcome.ok).toBe(false)
+    expect(outcome.message).toBe(
+      "Failed to reset app data. Check console for details."
+    )
     expect(removePlasmoStoredValue).not.toHaveBeenCalled()
   })
 

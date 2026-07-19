@@ -1402,7 +1402,11 @@
       },
       "item_count": "{{count}} elemento",
       "item_count_plural": "{{count}} elementi",
-      "reset_button": "Ripristina"
+      "reset_button": "Ripristina",
+      "failure_notice": {
+        "title": "L'ultimo ripristino non è stato completato",
+        "description": "Il ripristino precedente non è riuscito prima del completamento. Alcuni dati potrebbero essere rimasti. Controlla la console per i dettagli e riprova."
+      }
     },
     "providers": {
       "default": "Predefinito",

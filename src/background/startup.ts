@@ -5,6 +5,7 @@ import { registerOmniboxQuickAsk } from "@/background/lib/omnibox"
 import { registerReminderAlarms } from "@/background/lib/reminders"
 import { clearModelToolCapabilityCache } from "@/background/lib/resolve-model-tools"
 import { registerScheduledJobs } from "@/background/lib/scheduled-jobs"
+import { resumePendingAppLifecycle } from "@/lib/app-reset"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import { DEFAULT_EMBEDDING_MODEL, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -153,22 +154,39 @@ const registerToolRegistryInvalidation = () => {
 }
 
 export const initializeBackgroundStartup = () => {
-  void recoverBackupImport()
-    .then(() => migrateLegacyProviderStorage())
-    .catch((error) => {
-      logger.error("Failed to recover interrupted settings import", "Backup", {
-        error
-      })
-    })
-  // MV3 workers can start without a browser onStartup event (extension reload,
-  // event wakeup). Reconcile the request-origin rule on every worker boot.
-  void updateDNRRules()
-  void runEmbeddingDimensionMigration()
-  void pruneStaleToolLoopRuns().catch((error) => {
-    logger.warn("Failed to prune stale tool-loop checkpoints", "BackgroundSW", {
+  // A scheduled destructive reset must complete before any other startup
+  // task opens the chat database — an open handle would block the delete.
+  const lifecycleReady = resumePendingAppLifecycle().catch((error) => {
+    logger.error("Failed to resume app lifecycle actions", "BackgroundSW", {
       error
     })
   })
+  void lifecycleReady.then(() => {
+    void recoverBackupImport()
+      .then(() => migrateLegacyProviderStorage())
+      .catch((error) => {
+        logger.error(
+          "Failed to recover interrupted settings import",
+          "Backup",
+          {
+            error
+          }
+        )
+      })
+    void runEmbeddingDimensionMigration()
+    void pruneStaleToolLoopRuns().catch((error) => {
+      logger.warn(
+        "Failed to prune stale tool-loop checkpoints",
+        "BackgroundSW",
+        {
+          error
+        }
+      )
+    })
+  })
+  // MV3 workers can start without a browser onStartup event (extension reload,
+  // event wakeup). Reconcile the request-origin rule on every worker boot.
+  void updateDNRRules()
   initializeContextMenu()
   registerActionHandler()
   registerInstallHandlers()
