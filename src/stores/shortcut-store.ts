@@ -20,9 +20,7 @@ export type ShortcutAction =
   | "clearChat"
   | "copyLastResponse"
   | "exportJson"
-  | "exportMarkdown"
   | "exportPdf"
-  | "exportText"
 
 export interface Shortcut {
   id: ShortcutAction
@@ -120,14 +118,6 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, Shortcut> = {
     defaultKey: "Alt+J",
     key: "Alt+J"
   },
-  exportMarkdown: {
-    id: "exportMarkdown",
-    label: "settings.shortcuts.export_markdown",
-    description: "settings.shortcuts.export_markdown_desc",
-    category: "actions",
-    defaultKey: "Alt+M",
-    key: "Alt+M"
-  },
   exportPdf: {
     id: "exportPdf",
     label: "settings.shortcuts.export_pdf",
@@ -135,14 +125,6 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutAction, Shortcut> = {
     category: "actions",
     defaultKey: "Alt+P",
     key: "Alt+P"
-  },
-  exportText: {
-    id: "exportText",
-    label: "settings.shortcuts.export_text",
-    description: "settings.shortcuts.export_text_desc",
-    category: "actions",
-    defaultKey: "Alt+Shift+T",
-    key: "Alt+Shift+T"
   },
 
   // Toggles

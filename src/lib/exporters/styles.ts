@@ -196,11 +196,13 @@ export const getPdfStyles = () => `
     margin-bottom: 12px;
   }
 
+  .message-content img,
   .message-image {
-    max-width: 320px;
-    max-height: 320px;
-    width: auto;
-    height: auto;
+    display: block;
+    width: auto !important;
+    height: auto !important;
+    max-width: 320px !important;
+    max-height: 320px !important;
     border-radius: 8px;
     border: 1px solid #e5e7eb;
     object-fit: contain;

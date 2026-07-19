@@ -27,12 +27,7 @@ export const ChatSessionItem = ({
   const { t } = useTranslation()
   const { sessions, togglePinSession, setSessionTags } = useChatSessions()
   const [tagsOpen, setTagsOpen] = useState(false)
-  const {
-    exportSessionAsPdf,
-    exportSessionAsJson,
-    exportSessionAsMarkdown,
-    exportSessionAsText
-  } = useChatExport()
+  const { exportSessionAsPdf, exportSessionAsJson } = useChatExport()
 
   const current = sessions.find((s) => s.id === session.id)
   const isPinned = current?.pinned ?? session.pinned ?? false
@@ -43,10 +38,8 @@ export const ChatSessionItem = ({
 
   const actionItems = current
     ? buildExportActionItems(t, {
-        onMarkdown: () => exportSessionAsMarkdown(current),
         onPdf: () => exportSessionAsPdf(current),
-        onJson: () => exportSessionAsJson(current),
-        onText: () => exportSessionAsText(current)
+        onJson: () => exportSessionAsJson(current)
       })
     : []
   if (current) {

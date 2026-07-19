@@ -50,7 +50,7 @@ export const ChatMessageFooter = ({
   onEdit?: () => void
   onFork?: () => void
   onDelete?: () => void
-  onExport?: (format: "json" | "pdf" | "markdown" | "text") => void
+  onExport?: (format: "json" | "pdf") => void
   onNavigate?: (nodeId: number | string) => void
 }) => {
   const { t } = useTranslation()
@@ -70,10 +70,8 @@ export const ChatMessageFooter = ({
 
   const exportItems = onExport
     ? buildExportActionItems(t, {
-        onMarkdown: () => onExport("markdown"),
         onPdf: () => onExport("pdf"),
-        onJson: () => onExport("json"),
-        onText: () => onExport("text")
+        onJson: () => onExport("json")
       })
     : []
   const reportUrl = canReport

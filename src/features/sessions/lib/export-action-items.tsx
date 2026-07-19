@@ -1,13 +1,11 @@
 import type { TFunction } from "i18next"
 
 import type { ActionMenuItemConfig } from "@/components/actions"
-import { Code, FileDown, FileText, Hash } from "@/lib/lucide-icon"
+import { Code, FileDown } from "@/lib/lucide-icon"
 
 export interface ExportActionHandlers {
-  onMarkdown: () => void
   onPdf: () => void
   onJson: () => void
-  onText: () => void
 }
 
 /**
@@ -22,12 +20,6 @@ export function buildExportActionItems(
 ): ActionMenuItemConfig[] {
   return [
     {
-      key: "markdown",
-      label: t("sessions.export.format_markdown"),
-      icon: <Hash className="icon-sm" />,
-      onClick: handlers.onMarkdown
-    },
-    {
       key: "pdf",
       label: t("sessions.export.format_pdf"),
       icon: <FileDown className="icon-sm" />,
@@ -38,12 +30,6 @@ export function buildExportActionItems(
       label: t("sessions.export.format_json"),
       icon: <Code className="icon-sm" />,
       onClick: handlers.onJson
-    },
-    {
-      key: "text",
-      label: t("sessions.export.format_text"),
-      icon: <FileText className="icon-sm" />,
-      onClick: handlers.onText
     }
   ]
 }

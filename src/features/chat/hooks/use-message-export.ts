@@ -34,24 +34,8 @@ export const useMessageExport = () => {
       await pdfExporter.exportMessage(message, t, { fileName })
     })
 
-  const exportMessageAsMarkdown = (message: ChatMessage, fileName?: string) =>
-    guard(async () => {
-      const { markdownExporter } = await import(
-        "@/lib/exporters/markdown-exporter"
-      )
-      markdownExporter.exportMessage(message, t, { fileName })
-    })
-
-  const exportMessageAsText = (message: ChatMessage, fileName?: string) =>
-    guard(async () => {
-      const { textExporter } = await import("@/lib/exporters/text-exporter")
-      textExporter.exportMessage(message, t, { fileName })
-    })
-
   return {
     exportMessageAsJson,
-    exportMessageAsPdf,
-    exportMessageAsMarkdown,
-    exportMessageAsText
+    exportMessageAsPdf
   }
 }
