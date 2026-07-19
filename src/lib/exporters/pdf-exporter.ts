@@ -7,6 +7,7 @@ import type { ChatMessage, ChatSession } from "@/types"
 
 import { escapeHtml, sanitizeExportFragment } from "./export-sanitizer"
 import { createMarkdownParser, parseMessageContent } from "./markdown-utils"
+import { type PrintJobPayload, printJobKey } from "./print-job"
 import { getPdfStyles } from "./styles"
 import type { Exporter, ExportOptions } from "./types"
 
@@ -34,17 +35,26 @@ const renderPdf = async (
     allowRemoteImages,
     blockedImageLabel: t("sessions.export.remote_image_blocked")
   })
-  localStorage.setItem("print_html", safeHtml)
-  localStorage.setItem("print_filename", filename)
-  localStorage.setItem("print_allow_remote", allowRemoteImages ? "1" : "0")
+  // One payload key per export: concurrent exports must not overwrite or
+  // clear each other's documents, so each print window is handed its own
+  // job id and consumes only its own payload.
+  const jobId = crypto.randomUUID()
+  const jobKey = printJobKey(jobId)
+  localStorage.setItem(
+    jobKey,
+    JSON.stringify({
+      html: safeHtml,
+      filename,
+      allowRemoteImages,
+      createdAt: Date.now()
+    } satisfies PrintJobPayload)
+  )
 
-  const printPageUrl = chrome.runtime.getURL("print.html")
+  const printPageUrl = `${chrome.runtime.getURL("print.html")}?job=${jobId}`
   const printWindow = window.open(printPageUrl, "_blank")
 
   if (!printWindow) {
-    localStorage.removeItem("print_html")
-    localStorage.removeItem("print_filename")
-    localStorage.removeItem("print_allow_remote")
+    localStorage.removeItem(jobKey)
     throw createAppError(
       "Failed to open print window. Please check if popups are blocked.",
       { kind: "validation" }

@@ -11,8 +11,8 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 
 import { ToolRegistry } from "@/lib/tools"
 import { addAlwaysGrant } from "@/lib/tools/approval/approval-grants"
-import type { ToolDefinition, ToolResult } from "@/lib/tools/types"
-import { prepareToolCall } from "../tool-execution"
+import type { ToolContext, ToolDefinition, ToolResult } from "@/lib/tools/types"
+import { prepareToolCall, runPreparedToolCall } from "../tool-execution"
 import { addSessionGrant, clearSessionGrants } from "../tool-session-grants"
 
 const registryWith = (definition: ToolDefinition) => {
@@ -102,6 +102,29 @@ describe("prepareToolCall origin scoping", () => {
       expect(prepared.originScoped).toBe(true)
       expect(prepared.requiresConfirmation).toBe(true)
     }
+  })
+
+  it("hands the tool the origin its grant was resolved against", async () => {
+    await addAlwaysGrant("site_tool", "https://github.com")
+    const seen: ToolContext[] = []
+    const reg = new ToolRegistry()
+    reg.register({
+      id: "test",
+      listTools: () => [scopedDef(() => "https://github.com")],
+      callTool: async (_name, _args, ctx): Promise<ToolResult> => {
+        seen.push(ctx)
+        return { content: "ok" }
+      }
+    })
+
+    const prepared = await prepareToolCall(reg, call, undefined, {
+      sessionId: "s1"
+    })
+    expect(prepared.requiresConfirmation).toBe(false)
+    await runPreparedToolCall(prepared, reg, { sessionId: "s1" })
+
+    // The tool re-verifies its actual target against this approved origin.
+    expect(seen[0]?.approvedOrigin).toBe("https://github.com")
   })
 
   it("keeps wildcard semantics for tools without a resolver", async () => {

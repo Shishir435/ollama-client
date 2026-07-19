@@ -65,6 +65,29 @@ describe("capture_screenshot definition", () => {
 })
 
 describe("capture_screenshot tool", () => {
+  it("refuses to capture when the active origin no longer matches the approval", async () => {
+    mocks.query.mockResolvedValue([
+      { id: 9, windowId: 3, url: "https://bank.example/account" }
+    ])
+
+    const result = await runCaptureScreenshot(
+      {},
+      { approvedOrigin: "https://github.com" }
+    )
+    expect(result.isError).toBe(true)
+    expect(result.content).toContain("https://github.com")
+    expect(mocks.captureVisibleTab).not.toHaveBeenCalled()
+  })
+
+  it("captures when the active origin still matches the approval", async () => {
+    const result = await runCaptureScreenshot(
+      {},
+      { approvedOrigin: "https://example.test" }
+    )
+    expect(result.isError).toBeUndefined()
+    expect(mocks.captureVisibleTab).toHaveBeenCalled()
+  })
+
   it("returns the screenshot as raw base64 image content", async () => {
     const result = await runCaptureScreenshot({}, {})
     expect(result.isError).toBeUndefined()

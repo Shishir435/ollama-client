@@ -152,6 +152,15 @@ export interface ToolContext {
   signal?: AbortSignal
   sessionId?: string
   model?: string
+  /**
+   * The normalized origin the user's approval (or standing grant) was
+   * resolved against, for origin-scoped tools. The target can change between
+   * approval and execution (e.g. the user switches tabs while the prompt is
+   * open), so the tool MUST re-check its actual target against this value and
+   * refuse to act when they differ — the approval named this origin, not
+   * whatever is active by the time the tool runs.
+   */
+  approvedOrigin?: string
 }
 
 /**

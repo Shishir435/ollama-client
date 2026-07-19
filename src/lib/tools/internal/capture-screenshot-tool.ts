@@ -84,7 +84,7 @@ export const captureScreenshotDefinition: ToolDefinition = {
 
 export const runCaptureScreenshot = async (
   _args: Record<string, unknown>,
-  _ctx: ToolContext
+  ctx: ToolContext
 ): Promise<ToolResult> => {
   if (typeof browser.tabs?.captureVisibleTab !== "function") {
     return {
@@ -104,6 +104,21 @@ export const runCaptureScreenshot = async (
       return {
         content: "No active tab is available to capture.",
         isError: true
+      }
+    }
+
+    // The approval named a specific origin, resolved before the prompt. The
+    // user can switch tabs while the prompt is open (or between a standing
+    // grant's check and now), so re-verify the ACTUAL target: capturing a
+    // different site under an approval that displayed another one would make
+    // the prompt a lie.
+    if (ctx.approvedOrigin) {
+      const currentOrigin = normalizeGrantOrigin(tab.url)
+      if (currentOrigin !== ctx.approvedOrigin) {
+        return {
+          content: `The active tab changed after the approval was given (approved ${ctx.approvedOrigin}, now ${currentOrigin ?? "an unsupported page"}). Nothing was captured — ask again to capture the current tab.`,
+          isError: true
+        }
       }
     }
 

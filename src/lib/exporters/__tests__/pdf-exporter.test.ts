@@ -14,6 +14,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 
 import { STORAGE_KEYS } from "@/lib/constants"
 import { pdfExporter } from "../pdf-exporter"
+import type { PrintJobPayload } from "../print-job"
 
 const mockT = vi.fn((key: string) => key) as unknown as TFunction
 
@@ -28,6 +29,23 @@ const makeSession = (overrides: Partial<ChatSession> = {}): ChatSession =>
     ],
     ...overrides
   }) as unknown as ChatSession
+
+/** Every stored print job, newest-agnostic (order not guaranteed). */
+const storedJobs = (): PrintJobPayload[] => {
+  const jobs: PrintJobPayload[] = []
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index)
+    if (!key?.startsWith("print-job:")) continue
+    jobs.push(JSON.parse(localStorage.getItem(key) ?? "") as PrintJobPayload)
+  }
+  return jobs
+}
+
+const onlyJob = (): PrintJobPayload => {
+  const jobs = storedJobs()
+  expect(jobs).toHaveLength(1)
+  return jobs[0]
+}
 
 describe("pdfExporter print fragment", () => {
   beforeEach(() => {
@@ -52,7 +70,7 @@ describe("pdfExporter print fragment", () => {
       mockT
     )
 
-    const html = localStorage.getItem("print_html") ?? ""
+    const { html } = onlyJob()
     // No element carries the payload — it survives only as escaped text.
     expect(html).not.toContain("<img src=x")
     expect(html).not.toMatch(/<[^>]*onerror/)
@@ -75,10 +93,10 @@ describe("pdfExporter print fragment", () => {
       mockT
     )
 
-    const html = localStorage.getItem("print_html") ?? ""
-    expect(html).not.toContain("tracker.example.com/pixel.png")
-    expect(html).toContain("blocked-remote-image")
-    expect(localStorage.getItem("print_allow_remote")).toBe("0")
+    const job = onlyJob()
+    expect(job.html).not.toContain("tracker.example.com/pixel.png")
+    expect(job.html).toContain("blocked-remote-image")
+    expect(job.allowRemoteImages).toBe(false)
   })
 
   it("keeps remote images when the user opted in", async () => {
@@ -99,16 +117,35 @@ describe("pdfExporter print fragment", () => {
       mockT
     )
 
-    const html = localStorage.getItem("print_html") ?? ""
-    expect(html).toContain("https://example.com/a.png")
-    expect(localStorage.getItem("print_allow_remote")).toBe("1")
+    const job = onlyJob()
+    expect(job.html).toContain("https://example.com/a.png")
+    expect(job.allowRemoteImages).toBe(true)
   })
 
   it("ships no remote stylesheet imports", async () => {
     await pdfExporter.exportSession(makeSession(), mockT)
-    const html = localStorage.getItem("print_html") ?? ""
+    const { html } = onlyJob()
     expect(html).not.toContain("@import")
     expect(html).not.toContain("fonts.googleapis.com")
+  })
+
+  it("hands each print window its own job id", async () => {
+    const open = vi.fn((_url?: string) => ({}) as Window)
+    vi.stubGlobal("open", open)
+
+    await pdfExporter.exportSession(makeSession({ title: "First" }), mockT)
+    await pdfExporter.exportSession(makeSession({ title: "Second" }), mockT)
+
+    // Concurrent exports keep separate payloads — neither overwrites the other.
+    const jobs = storedJobs()
+    expect(jobs).toHaveLength(2)
+    expect(jobs.map((job) => job.html).join("")).toContain("First")
+    expect(jobs.map((job) => job.html).join("")).toContain("Second")
+
+    const urls = open.mock.calls.map((call) => String(call[0]))
+    expect(urls[0]).toMatch(/print\.html\?job=.+/)
+    expect(urls[1]).toMatch(/print\.html\?job=.+/)
+    expect(urls[0]).not.toBe(urls[1])
   })
 
   it("cleans up and throws when the print window is blocked", async () => {
@@ -120,7 +157,6 @@ describe("pdfExporter print fragment", () => {
     await expect(
       pdfExporter.exportSession(makeSession(), mockT)
     ).rejects.toThrow()
-    expect(localStorage.getItem("print_html")).toBeNull()
-    expect(localStorage.getItem("print_allow_remote")).toBeNull()
+    expect(storedJobs()).toHaveLength(0)
   })
 })

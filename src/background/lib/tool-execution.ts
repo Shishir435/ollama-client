@@ -252,9 +252,16 @@ export const runPreparedToolCall = async (
     emitTrace?.()
   }
 
+  // Origin-scoped calls run with the origin the approval/grant named, so the
+  // tool can verify its actual target still matches before acting.
+  const runCtx =
+    prepared.originScoped && prepared.origin
+      ? { ...ctx, approvedOrigin: prepared.origin }
+      : ctx
+
   const result = policy.enabled
     ? await callWithTimeout(
-        registry.call(call.name, call.arguments, ctx),
+        registry.call(call.name, call.arguments, runCtx),
         call.name,
         policy.timeoutMs,
         signal
