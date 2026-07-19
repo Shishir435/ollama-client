@@ -1332,6 +1332,21 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     ]
   },
   {
+    id: "export-allow-remote-images",
+    tab: "privacy",
+    sectionId: "permissions",
+    labelKey: "settings.export_privacy.remote_images_label",
+    descriptionKey: "settings.export_privacy.remote_images_hint",
+    focusId: "export-allow-remote-images",
+    aliases: [
+      "export images",
+      "remote images",
+      "print images",
+      "pdf images",
+      "tracking pixel"
+    ]
+  },
+  {
     id: "tool-approvals",
     tab: "privacy",
     sectionId: "permissions",

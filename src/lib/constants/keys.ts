@@ -157,6 +157,12 @@ export const STORAGE_KEYS = {
     // the composer toggle doesn't silently flip the settings-level enable.
     ACTIVE: "web-search-active"
   },
+  EXPORT: {
+    // 0.12.x security cleanup: opt-in to loading remote http(s) images in
+    // print/PDF export. Off by default — exporting a chat must not fire
+    // requests to third-party servers embedded in message content.
+    ALLOW_REMOTE_IMAGES: "export-allow-remote-images"
+  },
   TOOLS: {
     // E10: per-family governance over model-callable tools (master + families).
     FAMILIES: "tools-families-config",

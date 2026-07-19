@@ -19,6 +19,13 @@ export interface ConfirmationMeta {
   toolName: string
   sessionId?: string
   origin?: string
+  /**
+   * The tool's definition owns a `grantScopeResolver`, so grants must bind to
+   * a resolved origin. When true and `origin` is missing, the approval covers
+   * only this one call — persisting a session/always grant here would create
+   * the wildcard `*` grant origin scoping exists to prevent.
+   */
+  originScoped?: boolean
 }
 
 interface PendingConfirmation {
@@ -49,10 +56,14 @@ export const awaitToolConfirmation = (
       pending.delete(callId)
       if (onAbort) signal?.removeEventListener("abort", onAbort)
 
-      if (approved && scope === "session" && meta.sessionId) {
+      // Fail closed for origin-scoped tools: no resolved origin, no standing
+      // grant of any scope — the in-hand approval still covers this one call.
+      const grantable = !meta.originScoped || meta.origin !== undefined
+
+      if (approved && scope === "session" && meta.sessionId && grantable) {
         addSessionGrant(meta.sessionId, meta.toolName, meta.origin)
       }
-      if (approved && scope === "always") {
+      if (approved && scope === "always" && grantable) {
         // Fire-and-forget: the grant covers future calls; this one proceeds on
         // the in-hand approval either way.
         addAlwaysGrant(meta.toolName, meta.origin).catch((error) => {

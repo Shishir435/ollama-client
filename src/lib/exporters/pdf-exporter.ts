@@ -1,15 +1,42 @@
 import type { TFunction } from "i18next"
 
+import { STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
+import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import type { ChatMessage, ChatSession } from "@/types"
 
+import { escapeHtml, sanitizeExportFragment } from "./export-sanitizer"
 import { createMarkdownParser, parseMessageContent } from "./markdown-utils"
 import { getPdfStyles } from "./styles"
 import type { Exporter, ExportOptions } from "./types"
 
-const renderPdf = async (html: string, filename: string) => {
-  localStorage.setItem("print_html", html)
+/**
+ * Whether the user opted in to loading remote http(s) images in print/PDF
+ * export. Off by default: printing a chat must not fire requests to
+ * third-party servers embedded in message content.
+ */
+const allowRemoteExportImages = async (): Promise<boolean> =>
+  (await getPlasmoStoredValue<boolean>(
+    STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES
+  )) === true
+
+const renderPdf = async (
+  html: string,
+  filename: string,
+  t: TFunction
+): Promise<void> => {
+  const allowRemoteImages = await allowRemoteExportImages()
+  // The print page reads this fragment back out of localStorage and injects
+  // it via innerHTML, so the COMPLETE assembled document is sanitized here
+  // (titles included, not just message bodies) and re-sanitized on the print
+  // side with the same shared config.
+  const safeHtml = sanitizeExportFragment(html, {
+    allowRemoteImages,
+    blockedImageLabel: t("sessions.export.remote_image_blocked")
+  })
+  localStorage.setItem("print_html", safeHtml)
   localStorage.setItem("print_filename", filename)
+  localStorage.setItem("print_allow_remote", allowRemoteImages ? "1" : "0")
 
   const printPageUrl = chrome.runtime.getURL("print.html")
   const printWindow = window.open(printPageUrl, "_blank")
@@ -17,6 +44,7 @@ const renderPdf = async (html: string, filename: string) => {
   if (!printWindow) {
     localStorage.removeItem("print_html")
     localStorage.removeItem("print_filename")
+    localStorage.removeItem("print_allow_remote")
     throw createAppError(
       "Failed to open print window. Please check if popups are blocked.",
       { kind: "validation" }
@@ -24,29 +52,32 @@ const renderPdf = async (html: string, filename: string) => {
   }
 }
 
+const renderMessage = (
+  msg: ChatMessage,
+  t: TFunction,
+  md: ReturnType<typeof createMarkdownParser>
+): string => `
+  <div class="message ${msg.role === "user" ? "user-message" : "ai-message"}">
+    <div class="message-header">${msg.role === "user" ? t("sessions.export.role_user") : t("sessions.export.role_assistant")}</div>
+    <div class="message-content">
+      ${parseMessageContent(msg.content, md)}
+    </div>
+  </div>
+  `
+
 export const pdfExporter: Exporter = {
-  exportSession: (
+  exportSession: async (
     session: ChatSession,
     t: TFunction,
     options?: ExportOptions
   ) => {
     const md = createMarkdownParser()
+    const title = session.title || t("sessions.export.default_title")
     const html = `
       ${getPdfStyles()}
       <div class="chat-container">
-        <h1 class="chat-title">${session.title || t("sessions.export.default_title")}</h1>
-        ${(session.messages ?? [])
-          .map(
-            (msg) => `
-            <div class="message ${msg.role === "user" ? "user-message" : "ai-message"}">
-              <div class="message-header">${msg.role === "user" ? t("sessions.export.role_user") : t("sessions.export.role_assistant")}</div>
-              <div class="message-content">
-                ${parseMessageContent(msg.content, md)}
-              </div>
-            </div>
-            `
-          )
-          .join("")}
+        <h1 class="chat-title">${escapeHtml(title)}</h1>
+        ${(session.messages ?? []).map((msg) => renderMessage(msg, t, md)).join("")}
       </div>
     `
 
@@ -54,42 +85,31 @@ export const pdfExporter: Exporter = {
       options?.fileName ||
       `${session.title || t("sessions.export.default_title")}.pdf`
 
-    void renderPdf(html, filename)
+    await renderPdf(html, filename, t)
   },
 
-  exportAllSessions: (sessions: ChatSession[], t: TFunction) => {
+  exportAllSessions: async (sessions: ChatSession[], t: TFunction) => {
     const md = createMarkdownParser()
     const html = `
       ${getPdfStyles()}
       <div class="chat-container">
-        <h1 class="chat-title">${t("sessions.export.all_sessions_title")}</h1>
+        <h1 class="chat-title">${escapeHtml(t("sessions.export.all_sessions_title"))}</h1>
         ${sessions
           .map(
             (session, index) => `
             ${index > 0 ? '<hr class="session-separator" />' : ""}
-            <h2 class="chat-title">${session.title || `Chat Session ${index + 1}`}</h2>
-            ${(session.messages ?? [])
-              .map(
-                (msg) => `
-                <div class="message ${msg.role === "user" ? "user-message" : "ai-message"}">
-                  <div class="message-header">${msg.role === "user" ? t("sessions.export.role_user") : t("sessions.export.role_assistant")}</div>
-                  <div class="message-content">
-                    ${parseMessageContent(msg.content, md)}
-                  </div>
-                </div>
-                `
-              )
-              .join("")}
+            <h2 class="chat-title">${escapeHtml(session.title || `Chat Session ${index + 1}`)}</h2>
+            ${(session.messages ?? []).map((msg) => renderMessage(msg, t, md)).join("")}
             `
           )
           .join("")}
       </div>
     `
 
-    void renderPdf(html, "all-chat-sessions.pdf")
+    await renderPdf(html, "all-chat-sessions.pdf", t)
   },
 
-  exportMessage: (
+  exportMessage: async (
     message: ChatMessage,
     t: TFunction,
     options?: ExportOptions
@@ -98,18 +118,13 @@ export const pdfExporter: Exporter = {
     const html = `
       ${getPdfStyles()}
       <div class="chat-container">
-        <div class="message ${message.role === "user" ? "user-message" : "ai-message"}">
-          <div class="message-header">${message.role === "user" ? t("sessions.export.role_user") : t("sessions.export.role_assistant")}</div>
-          <div class="message-content">
-            ${parseMessageContent(message.content, md)}
-          </div>
-        </div>
+        ${renderMessage(message, t, md)}
       </div>
     `
 
     const filename =
       options?.fileName || `message-${message.id || "export"}.pdf`
 
-    void renderPdf(html, filename)
+    await renderPdf(html, filename, t)
   }
 }

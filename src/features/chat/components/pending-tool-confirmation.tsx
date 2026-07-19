@@ -16,6 +16,16 @@ import type { ChatMessage, ToolRun } from "@/types"
 const runLabel = (run: ToolRun, t: (key: string) => string): string =>
   run.displayNameKey ? t(run.displayNameKey) : run.label
 
+/** Host shown in the prompt for an origin-bound call ("github.com"). */
+const originHost = (origin?: string): string | undefined => {
+  if (!origin) return undefined
+  try {
+    return new URL(origin).host
+  } catch {
+    return origin
+  }
+}
+
 const SCOPE_LABEL_KEYS: Record<ApprovalScope, string> = {
   once: "chat.tool_confirmation.allow_once",
   session: "chat.tool_confirmation.allow_session",
@@ -111,9 +121,14 @@ export const PendingToolConfirmation = ({
                   {t("chat.tool_confirmation.title")}
                 </div>
                 <div className="mt-0.5 text-muted-foreground">
-                  {t("chat.tool_confirmation.body", {
-                    action: runLabel(run, t)
-                  })}
+                  {originHost(run.origin)
+                    ? t("chat.tool_confirmation.body_on_origin", {
+                        action: runLabel(run, t),
+                        origin: originHost(run.origin)
+                      })
+                    : t("chat.tool_confirmation.body", {
+                        action: runLabel(run, t)
+                      })}
                 </div>
               </div>
             </div>

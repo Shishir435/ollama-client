@@ -174,6 +174,15 @@ const toOpenTab = (tab: {
   active: Boolean(tab.active)
 })
 
+/**
+ * The active tab of the user's focused window (falling back to the current
+ * window). A bare `{ active: true }` could return an active tab from a
+ * NON-focused window, which is never what "the visible tab" means.
+ */
+export const queryActiveTab = async () =>
+  (await browser.tabs.query({ active: true, lastFocusedWindow: true }))[0] ??
+  (await browser.tabs.query({ active: true, currentWindow: true }))[0]
+
 /** Every tab that has an id, across all normal windows (any scheme). */
 export const getAllTabs = async (): Promise<OpenTab[]> => {
   const tabs = await browser.tabs.query({})

@@ -63,7 +63,7 @@ export const useChatExport = () => {
     guard(async () => {
       const fullSession = await getFullSession(session)
       const { pdfExporter } = await import("@/lib/exporters/pdf-exporter")
-      pdfExporter.exportSession(fullSession, t, { fileName })
+      await pdfExporter.exportSession(fullSession, t, { fileName })
     })
 
   const exportSessionAsMarkdown = (session: ChatSession, fileName?: string) =>

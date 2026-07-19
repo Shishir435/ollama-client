@@ -452,6 +452,7 @@
     "tool_confirmation": {
       "title": "Confirmer l’action",
       "body": "L’assistant veut : {{action}}. Autoriser ?",
+      "body_on_origin": "L’assistant veut : {{action}} sur {{origin}}. Autoriser ?",
       "allow": "Autoriser",
       "deny": "Refuser",
       "allow_once": "Autoriser une fois",
@@ -750,7 +751,8 @@
       "default_title": "Session de chat",
       "all_sessions_title": "Toutes les sessions",
       "role_user": "Vous",
-      "role_assistant": "Assistant IA"
+      "role_assistant": "Assistant IA",
+      "remote_image_blocked": "Image distante bloquée"
     },
     "actions": {
       "more": "Plus d'actions pour {{title}}",
@@ -1728,6 +1730,10 @@
       "description": "Contrôle l’outil restore_session, qui rouvre les onglets récemment fermés.",
       "max_label": "Onglets max. à rouvrir d’un coup",
       "max_hint": "Le nombre maximal d’onglets que l’assistant peut rouvrir en une action (1–25). Évite qu’un « tout rouvrir » ne crée trop d’onglets."
+    },
+    "export_privacy": {
+      "remote_images_label": "Charger les images distantes dans les exports",
+      "remote_images_hint": "Autorise les exports impression et PDF à charger des images depuis des serveurs externes. Désactivé, les exports restent entièrement hors ligne et les images distantes sont remplacées par un espace réservé."
     }
   },
   "guides": {

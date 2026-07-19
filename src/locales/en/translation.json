@@ -170,6 +170,7 @@
     "tool_confirmation": {
       "title": "Confirm action",
       "body": "The assistant wants to: {{action}}. Allow it?",
+      "body_on_origin": "The assistant wants to: {{action}} on {{origin}}. Allow it?",
       "allow": "Allow",
       "deny": "Deny",
       "allow_once": "Allow once",
@@ -750,7 +751,8 @@
       "default_title": "Chat Session",
       "all_sessions_title": "All Chat Sessions",
       "role_user": "You",
-      "role_assistant": "AI Assistant"
+      "role_assistant": "AI Assistant",
+      "remote_image_blocked": "Remote image blocked"
     },
     "actions": {
       "more": "More actions for {{title}}",
@@ -1728,7 +1730,11 @@
         }
       }
     },
-    "saved": "Saved"
+    "saved": "Saved",
+    "export_privacy": {
+      "remote_images_label": "Load remote images in exports",
+      "remote_images_hint": "Allow print and PDF exports to load images from external servers. When off, exports stay fully offline and remote images are replaced with a placeholder."
+    }
   },
   "guides": {
     "title": "Helpful Guides & Documentation",

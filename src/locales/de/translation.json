@@ -452,6 +452,7 @@
     "tool_confirmation": {
       "title": "Aktion bestätigen",
       "body": "Der Assistent möchte: {{action}}. Zulassen?",
+      "body_on_origin": "Der Assistent möchte: {{action}} auf {{origin}}. Zulassen?",
       "allow": "Zulassen",
       "deny": "Ablehnen",
       "allow_once": "Einmal zulassen",
@@ -750,7 +751,8 @@
       "default_title": "Chat-Sitzung",
       "all_sessions_title": "Alle Chat-Sitzungen",
       "role_user": "Du",
-      "role_assistant": "KI-Assistent"
+      "role_assistant": "KI-Assistent",
+      "remote_image_blocked": "Externes Bild blockiert"
     },
     "actions": {
       "more": "Weitere Aktionen für {{title}}",
@@ -1728,6 +1730,10 @@
       "description": "Steuert das restore_session-Tool, das kürzlich geschlossene Tabs wieder öffnet.",
       "max_label": "Max. Tabs auf einmal öffnen",
       "max_hint": "Die maximale Anzahl an Tabs, die der Assistent in einer Aktion wieder öffnen darf (1–25). Verhindert, dass „alle öffnen“ zu viele Tabs erzeugt."
+    },
+    "export_privacy": {
+      "remote_images_label": "Externe Bilder in Exporten laden",
+      "remote_images_hint": "Erlaubt Druck- und PDF-Exporten, Bilder von externen Servern zu laden. Wenn deaktiviert, bleiben Exporte vollständig offline und externe Bilder werden durch einen Platzhalter ersetzt."
     }
   },
   "guides": {

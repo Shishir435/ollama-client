@@ -77,6 +77,20 @@ export interface ToolDefinition {
    * to the model instead of executing.
    */
   requiresConfirmation?: boolean
+  /**
+   * For site-acting tools: derive the normalized origin this call acts on
+   * (`new URL(target).origin`) from the tool's OWN resolved target — the
+   * actual tab URL, never model-provided text. Declaring a resolver makes
+   * every approval grant for this tool origin-scoped: a wildcard `*` grant no
+   * longer matches, and when the origin cannot be resolved no grant is
+   * checked or persisted (fail closed — the call just re-prompts). Tools
+   * without a resolver intentionally keep the wildcard (they act on no
+   * specific site).
+   */
+  grantScopeResolver?: (
+    args: Record<string, unknown>,
+    ctx: ToolContext
+  ) => Promise<string | undefined> | string | undefined
 }
 
 /** A model's request to invoke a tool, normalized across providers. */

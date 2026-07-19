@@ -110,6 +110,50 @@ describe("confirmation scopes", () => {
     expect(hasSessionGrant("s1", "restore_session")).toBe(false)
   })
 
+  it("binds grants to the resolved origin for origin-scoped tools", async () => {
+    const pending = awaitToolConfirmation("call-origin", {
+      toolName: "capture_screenshot",
+      sessionId: "s1",
+      origin: "https://github.com",
+      originScoped: true
+    })
+    resolveToolConfirmation("call-origin", true, "always")
+
+    await expect(pending).resolves.toBe(true)
+    await vi.waitFor(async () => {
+      expect(
+        await hasAlwaysGrant("capture_screenshot", "https://github.com")
+      ).toBe(true)
+    })
+    // The origin-bound grant must not be reachable through the wildcard key.
+    expect(await hasAlwaysGrant("capture_screenshot")).toBe(false)
+    expect(
+      await hasAlwaysGrant("capture_screenshot", "https://evil.example")
+    ).toBe(false)
+  })
+
+  it("persists no grant when an origin-scoped call has no resolved origin", async () => {
+    const session = awaitToolConfirmation("call-noorigin-1", {
+      toolName: "capture_screenshot",
+      sessionId: "s1",
+      originScoped: true
+    })
+    resolveToolConfirmation("call-noorigin-1", true, "session")
+    await expect(session).resolves.toBe(true)
+
+    const always = awaitToolConfirmation("call-noorigin-2", {
+      toolName: "capture_screenshot",
+      sessionId: "s1",
+      originScoped: true
+    })
+    resolveToolConfirmation("call-noorigin-2", true, "always")
+    await expect(always).resolves.toBe(true)
+
+    expect(hasSessionGrant("s1", "capture_screenshot")).toBe(false)
+    expect(await hasAlwaysGrant("capture_screenshot")).toBe(false)
+    expect(grantStore.get(STORAGE_KEYS.TOOLS.APPROVAL_GRANTS) ?? {}).toEqual({})
+  })
+
   it("consumes a decision that arrived before restart recovery registered", async () => {
     resolveToolConfirmation("recovered-call", true, "session")
     const pending = awaitToolConfirmation("recovered-call", {

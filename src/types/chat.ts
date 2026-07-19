@@ -168,6 +168,12 @@ export interface ToolRun {
   iconKey?: string
   category?: import("@/lib/tools/types").ToolCategory
   risk?: import("@/lib/tools/types").ToolRiskLevel
+  /**
+   * Normalized origin a site-acting tool call binds to (from the definition's
+   * `grantScopeResolver`), shown in the confirmation prompt so the user knows
+   * which site an approval covers.
+   */
+  origin?: string
   status: "pending" | "running" | "done" | "error" | "awaiting-confirmation"
   /**
    * The tool-call id, echoed back in a CONFIRM_TOOL message when the run is

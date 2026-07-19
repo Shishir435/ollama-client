@@ -452,6 +452,7 @@
     "tool_confirmation": {
       "title": "Conferma azione",
       "body": "L’assistente vuole: {{action}}. Consentire?",
+      "body_on_origin": "L’assistente vuole: {{action}} su {{origin}}. Consentire?",
       "allow": "Consenti",
       "deny": "Rifiuta",
       "allow_once": "Consenti una volta",
@@ -750,7 +751,8 @@
       "default_title": "Sessione di chat",
       "all_sessions_title": "Tutte le sessioni",
       "role_user": "Tu",
-      "role_assistant": "Assistente IA"
+      "role_assistant": "Assistente IA",
+      "remote_image_blocked": "Immagine remota bloccata"
     },
     "actions": {
       "more": "Altre azioni per {{title}}",
@@ -1728,6 +1730,10 @@
       "description": "Controlla lo strumento restore_session, che riapre le schede chiuse di recente.",
       "max_label": "Max schede da riaprire insieme",
       "max_hint": "Il numero massimo di schede che l’assistente può riaprire in una singola azione (1–25). Evita che «apri tutte» generi troppe schede."
+    },
+    "export_privacy": {
+      "remote_images_label": "Carica immagini remote nelle esportazioni",
+      "remote_images_hint": "Consente alle esportazioni di stampa e PDF di caricare immagini da server esterni. Se disattivato, le esportazioni restano completamente offline e le immagini remote vengono sostituite da un segnaposto."
     }
   },
   "guides": {

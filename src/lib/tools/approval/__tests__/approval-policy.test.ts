@@ -5,10 +5,32 @@ import {
   approvalGrantKey,
   confirmationRequired,
   defaultScopeForRisk,
-  effectiveRisk
+  effectiveRisk,
+  normalizeGrantOrigin
 } from "../approval-policy"
 
 const noGrants = { hasSessionGrant: false, hasAlwaysGrant: false }
+
+describe("normalizeGrantOrigin", () => {
+  it("reduces an http(s) URL to its origin", () => {
+    expect(normalizeGrantOrigin("https://github.com/a/b?c=d#e")).toBe(
+      "https://github.com"
+    )
+    expect(normalizeGrantOrigin("http://localhost:8080/page")).toBe(
+      "http://localhost:8080"
+    )
+  })
+
+  it("returns undefined for non-web and unparseable URLs", () => {
+    expect(normalizeGrantOrigin("chrome://settings")).toBeUndefined()
+    expect(normalizeGrantOrigin("about:blank")).toBeUndefined()
+    expect(normalizeGrantOrigin("file:///etc/passwd")).toBeUndefined()
+    expect(normalizeGrantOrigin("javascript:alert(1)")).toBeUndefined()
+    expect(normalizeGrantOrigin("not a url")).toBeUndefined()
+    expect(normalizeGrantOrigin("")).toBeUndefined()
+    expect(normalizeGrantOrigin(undefined)).toBeUndefined()
+  })
+})
 
 describe("effectiveRisk", () => {
   it("defaults an undeclared tool to low", () => {

@@ -452,6 +452,7 @@
     "tool_confirmation": {
       "title": "Confirmar acción",
       "body": "El asistente quiere: {{action}}. ¿Permitir?",
+      "body_on_origin": "El asistente quiere: {{action}} en {{origin}}. ¿Permitir?",
       "allow": "Permitir",
       "deny": "Denegar",
       "allow_once": "Permitir una vez",
@@ -750,7 +751,8 @@
       "default_title": "Sesión de chat",
       "all_sessions_title": "Todas las sesiones",
       "role_user": "Tú",
-      "role_assistant": "Asistente IA"
+      "role_assistant": "Asistente IA",
+      "remote_image_blocked": "Imagen remota bloqueada"
     },
     "actions": {
       "more": "Más acciones para {{title}}",
@@ -1728,6 +1730,10 @@
       "description": "Controla la herramienta restore_session, que reabre pestañas cerradas recientemente.",
       "max_label": "Máx. pestañas a reabrir a la vez",
       "max_hint": "El máximo de pestañas que el asistente puede reabrir en una sola acción (1–25). Evita que «abrir todas» genere demasiadas pestañas."
+    },
+    "export_privacy": {
+      "remote_images_label": "Cargar imágenes remotas en las exportaciones",
+      "remote_images_hint": "Permite que las exportaciones de impresión y PDF carguen imágenes de servidores externos. Si está desactivado, las exportaciones permanecen totalmente sin conexión y las imágenes remotas se sustituyen por un marcador de posición."
     }
   },
   "guides": {
