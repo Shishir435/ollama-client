@@ -28,13 +28,16 @@ export default defineConfig({
     "entrypoints:resolved": (wxt, entrypoints) => {
       const includeBenchmark =
         wxt.config.command === "serve" || process.env.WXT_BENCHMARK === "1"
-      if (includeBenchmark) return
-      for (const name of [
-        "benchmark",
-        "spike-opfs",
-        "spike-owner",
-        "spike-owner-offscreen"
-      ]) {
+      // The owner-topology spike depends on chrome.offscreen and
+      // chrome.runtime.getContexts, which Firefox does not provide; its two
+      // pages are Chromium-only even in benchmark builds. The measurement
+      // pages (benchmark, spike-opfs) stay cross-browser.
+      const strip = includeBenchmark
+        ? wxt.config.browser === "firefox"
+          ? ["spike-owner", "spike-owner-offscreen"]
+          : []
+        : ["benchmark", "spike-opfs", "spike-owner", "spike-owner-offscreen"]
+      for (const name of strip) {
         const index = entrypoints.findIndex(
           (entrypoint) => entrypoint.name === name
         )
@@ -130,13 +133,16 @@ export default defineConfig({
     }
   }),
 
-  vite: () =>
+  vite: (env) =>
     ({
       // Compile-time flag for the dev-only section 9.4 spike host in the
-      // background entry; false in store builds so the branch and its
-      // dynamic import are dead-code eliminated.
+      // background entry; false in store builds — and in Firefox benchmark
+      // builds, which lack the offscreen API — so the branch and its dynamic
+      // import are dead-code eliminated.
       define: {
-        __SPIKE_OPFS_OWNER__: JSON.stringify(process.env.WXT_BENCHMARK === "1")
+        __SPIKE_OPFS_OWNER__: JSON.stringify(
+          process.env.WXT_BENCHMARK === "1" && env.browser !== "firefox"
+        )
       },
       plugins: [
         react({
