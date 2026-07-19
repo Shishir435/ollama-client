@@ -25,12 +25,22 @@ let wasmBinaryPromise: Promise<ArrayBuffer> | null = null
 const getWasmBinary = (): Promise<ArrayBuffer> => {
   if (!wasmBinaryPromise) {
     const wasmUrl = chrome.runtime.getURL("assets/sqlite3.wasm")
-    wasmBinaryPromise = fetch(wasmUrl).then((response) => {
-      if (!response.ok) {
-        throw new Error(`Failed to fetch sqlite3.wasm: ${response.status}`)
-      }
-      return response.arrayBuffer()
-    })
+    const attempt = fetch(wasmUrl)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch sqlite3.wasm: ${response.status}`)
+        }
+        return response.arrayBuffer()
+      })
+      .catch((error) => {
+        // Never cache a rejection: the Firefox background page hosts the
+        // owner for the whole browser session, and a single transient fetch
+        // failure must not disable persistence until restart. The next RPC
+        // retries the fetch.
+        if (wasmBinaryPromise === attempt) wasmBinaryPromise = null
+        throw error
+      })
+    wasmBinaryPromise = attempt
   }
   return wasmBinaryPromise
 }
