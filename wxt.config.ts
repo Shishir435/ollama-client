@@ -22,18 +22,16 @@ export default defineConfig({
         (file) => file.relativeDest === "assets/icon-promo-light.png"
       )
       if (promoIndex !== -1) files.splice(promoIndex, 1)
-      // Benchmark builds ship the official sqlite3.wasm at a stable path:
-      // the spike owner host fetches it and hands bytes to its worker.
-      // Bundler ?url imports are not portable here — Firefox MV2 iife
-      // output inlines the asset as a data: URL, which fetch() rejects.
-      if (process.env.WXT_BENCHMARK === "1") {
-        files.push({
-          absoluteSrc: resolve(
-            "node_modules/@sqlite.org/sqlite-wasm/dist/sqlite3.wasm"
-          ),
-          relativeDest: "assets/sqlite3.wasm"
-        })
-      }
+      // Ship the official sqlite3.wasm at a stable path: the persistence
+      // owner host fetches it and hands bytes to its worker. Bundler ?url
+      // imports are not portable here — Firefox MV2 iife output inlines the
+      // asset as a data: URL, which fetch() rejects.
+      files.push({
+        absoluteSrc: resolve(
+          "node_modules/@sqlite.org/sqlite-wasm/dist/sqlite3.wasm"
+        ),
+        relativeDest: "assets/sqlite3.wasm"
+      })
     },
     // The persistence benchmark and OPFS spike pages are dev tools for the
     // section 9.8/9.4 browser measurements. Keep them out of store packages:
@@ -47,11 +45,23 @@ export default defineConfig({
       // pages (benchmark, spike-opfs) stay cross-browser.
       // Firefox hosts the owner in its persistent background page, so it
       // keeps the client page but never ships the Chromium offscreen page.
-      const strip = includeBenchmark
+      const devOnly = includeBenchmark
         ? wxt.config.browser === "firefox"
           ? ["spike-owner-offscreen"]
           : []
-        : ["benchmark", "spike-opfs", "spike-owner", "spike-owner-offscreen"]
+        : [
+            "benchmark",
+            "spike-opfs",
+            "spike-owner",
+            "spike-owner-offscreen",
+            "persistence-verify"
+          ]
+      // The production persistence owner document is Chromium-only; Firefox
+      // hosts the worker in its persistent background page.
+      const strip =
+        wxt.config.browser === "firefox"
+          ? [...devOnly, "persistence-host"]
+          : devOnly
       for (const name of strip) {
         const index = entrypoints.findIndex(
           (entrypoint) => entrypoint.name === name
@@ -99,12 +109,11 @@ export default defineConfig({
       "tabs",
       "scripting",
       "contextMenus",
-      ...(browser === "firefox" ? [] : ["sidePanel", "declarativeNetRequest"]),
-      // Dev-only: the section 9.4 spike's offscreen owner document. Never in
-      // store packages — gated by the same flag as the spike entrypoints.
-      ...(browser !== "firefox" && process.env.WXT_BENCHMARK === "1"
-        ? ["offscreen"]
-        : [])
+      // offscreen: production permission — the hidden document that hosts
+      // the single SQLite worker owning durable chat history (Chromium only).
+      ...(browser === "firefox"
+        ? []
+        : ["sidePanel", "declarativeNetRequest", "offscreen"])
     ],
     // Optional API permissions requested from the Permissions UI.
     // Declared so they can be requested at runtime via src/lib/permissions.ts;

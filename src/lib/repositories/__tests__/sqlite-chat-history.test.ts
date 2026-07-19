@@ -2,12 +2,37 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // Mock the db module so we can capture SQL strings + bindings without
 // booting sql.js for every test.
-vi.mock("@/lib/sqlite/db", () => ({
-  query: vi.fn(),
-  run: vi.fn(),
-  flushSave: vi.fn().mockResolvedValue(undefined),
-  resetSQLiteDatabase: vi.fn().mockResolvedValue(undefined)
-}))
+vi.mock("@/lib/sqlite/db", () => {
+  const query = vi.fn()
+  const run = vi.fn()
+  return {
+    query,
+    run,
+    // The facade helper mirrors the legacy composition so existing
+    // assertions on run("BEGIN IMMEDIATE")/COMMIT/ROLLBACK keep holding.
+    withTransaction: vi.fn(async (work: () => Promise<void>) => {
+      await run("BEGIN IMMEDIATE")
+      try {
+        await work()
+        await run("COMMIT")
+      } catch (error) {
+        await run("ROLLBACK")
+        throw error
+      }
+    }),
+    // Legacy-equivalent composition: execute the statement, then read the
+    // rowid through the mocked query so per-test row fixtures apply.
+    runWithMeta: vi.fn(async (sql: string, bind?: unknown[]) => {
+      await run(sql, bind)
+      const rows = (await query("SELECT last_insert_rowid() AS id")) as Array<{
+        id?: number
+      }>
+      return { lastInsertRowid: Number(rows?.[0]?.id ?? 0), changes: 1 }
+    }),
+    flushSave: vi.fn().mockResolvedValue(undefined),
+    resetSQLiteDatabase: vi.fn().mockResolvedValue(undefined)
+  }
+})
 
 import { query, resetSQLiteDatabase, run } from "@/lib/sqlite/db"
 

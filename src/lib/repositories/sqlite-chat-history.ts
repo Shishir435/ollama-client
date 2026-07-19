@@ -3,7 +3,14 @@ import {
   parseStoredReplayArtifact,
   serializeReplayArtifact
 } from "@/lib/providers/provider-replay"
-import { flushSave, query, resetSQLiteDatabase, run } from "@/lib/sqlite/db"
+import {
+  flushSave,
+  query,
+  resetSQLiteDatabase,
+  run,
+  runWithMeta,
+  withTransaction
+} from "@/lib/sqlite/db"
 import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
 import { ChatMessageMetricsSchema } from "@/types/chat.schemas"
 
@@ -111,7 +118,9 @@ const insertImportedMessage = async (
   // would silently overwrite a colliding message belonging to a *different*
   // existing session. parentId is written null here and remapped in a second
   // pass once the full old→new id map for this session is known.
-  await run(
+  // runWithMeta reports lastInsertRowid from the same owner-side operation,
+  // which is the only race-free read on the shared OPFS connection.
+  const { lastInsertRowid } = await runWithMeta(
     `INSERT INTO messages
      (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -128,19 +137,7 @@ const insertImportedMessage = async (
       serializeReplayArtifact(message.replayArtifact)
     ]
   )
-  const rows = await query("SELECT last_insert_rowid() AS id")
-  return rows[0].id as number
-}
-
-const withTransaction = async (work: () => Promise<void>): Promise<void> => {
-  await run("BEGIN IMMEDIATE")
-  try {
-    await work()
-    await run("COMMIT")
-  } catch (error) {
-    await run("ROLLBACK")
-    throw error
-  }
+  return lastInsertRowid
 }
 
 const putSessionRow = async (session: ChatSession): Promise<void> => {
@@ -418,7 +415,7 @@ export const getRootMessagesForSession = async (
 export const addMessage = async (
   message: Omit<StoredMessage, "id">
 ): Promise<number> => {
-  await run(
+  const { lastInsertRowid } = await runWithMeta(
     `INSERT INTO messages
      (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -435,8 +432,7 @@ export const addMessage = async (
       serializeReplayArtifact(message.replayArtifact)
     ]
   )
-  const rows = await query("SELECT last_insert_rowid() AS id")
-  return rows[0].id as number
+  return lastInsertRowid
 }
 
 /**
