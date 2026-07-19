@@ -328,14 +328,17 @@ const load = async (factory: IDBFactory, name: string): Promise<Uint8Array> => {
   }
 }
 
+// Resolves true when the database was deleted, false when deletion stayed
+// blocked by an open connection — callers must not report a blocked
+// deletion as success.
 export const deleteBenchmarkStore = async (
   factory: IDBFactory,
   scaleName: ScaleName
-): Promise<void> =>
+): Promise<boolean> =>
   new Promise((resolve, reject) => {
     const request = factory.deleteDatabase(`persistence-benchmark-${scaleName}`)
-    request.onsuccess = () => resolve()
-    request.onblocked = () => resolve()
+    request.onsuccess = () => resolve(true)
+    request.onblocked = () => resolve(false)
     request.onerror = () => reject(request.error)
   })
 
@@ -386,86 +389,100 @@ export const runScale = async (
     fixture = createFixture(SQL, scale)
   })
   if (!fixture) throw new Error("Fixture creation failed")
+  const fixtureDatabase = fixture
 
   let fixtureBytes: Uint8Array<ArrayBufferLike> = new Uint8Array()
-  const initialExportMs = await measure(() => {
-    fixtureBytes = fixture?.export() ?? new Uint8Array()
-  })
-  const initialPersistMs = await measure(() =>
-    persist(factory, idbName, fixtureBytes)
-  )
-
+  let initialExportMs = 0
+  let initialPersistMs = 0
   const coldOpenSamples: number[] = []
   const firstSessionPageSamples: number[] = []
   const warmMessagePageSamples: number[] = []
   const activePathSamples: number[] = []
   const durableAppendSamples: number[] = []
 
-  // One warm-up run is intentionally excluded from reported percentiles.
-  for (let iteration = -1; iteration < iterations; iteration += 1) {
-    onProgress?.(
-      iteration < 0
-        ? `${scaleName} warm-up`
-        : `${scaleName} iteration ${iteration + 1}/${iterations}`
+  // The fixture holds the full WASM database allocation; close it on every
+  // exit path so a failed run (quota, load error) does not retain it and
+  // exhaust page memory on retry.
+  try {
+    initialExportMs = await measure(() => {
+      fixtureBytes = fixture?.export() ?? new Uint8Array()
+    })
+    initialPersistMs = await measure(() =>
+      persist(factory, idbName, fixtureBytes)
     )
-    let coldDatabase: Database | undefined
-    const coldOpenMs = await measure(async () => {
-      coldDatabase = new SQL.Database(await load(factory, idbName))
-    })
-    if (!coldDatabase) throw new Error("Cold database open failed")
 
-    const firstSessionPageMs = await measure(() => {
-      coldDatabase?.exec(
-        "SELECT id, title, updatedAt FROM sessions ORDER BY updatedAt DESC LIMIT 50"
+    // One warm-up run is intentionally excluded from reported percentiles.
+    for (let iteration = -1; iteration < iterations; iteration += 1) {
+      onProgress?.(
+        iteration < 0
+          ? `${scaleName} warm-up`
+          : `${scaleName} iteration ${iteration + 1}/${iterations}`
       )
-    })
-    const warmMessagePageMs = await measure(() => {
-      coldDatabase?.exec(
-        `SELECT id, role, content, timestamp FROM messages
-         WHERE sessionId = 'benchmark-chat-0'
-         ORDER BY timestamp DESC LIMIT 50`
-      )
-    })
-    let activePathMs = 0
-    if (scale.tree) {
-      activePathMs = await measure(() => {
-        coldDatabase?.exec(ACTIVE_PATH_SQL)
+      let coldDatabase: Database | undefined
+      const coldOpenMs = await measure(async () => {
+        coldDatabase = new SQL.Database(await load(factory, idbName))
       })
-    }
-    coldDatabase.close()
+      if (!coldDatabase) throw new Error("Cold database open failed")
 
-    const appendDatabase = new SQL.Database(fixtureBytes)
-    let durableAppendMs: number
-    try {
-      durableAppendMs = await measure(async () => {
-        appendDatabase.run(
-          `INSERT INTO messages (sessionId, role, content, model, timestamp)
+      let firstSessionPageMs: number
+      let warmMessagePageMs: number
+      let activePathMs = 0
+      try {
+        firstSessionPageMs = await measure(() => {
+          coldDatabase?.exec(
+            "SELECT id, title, updatedAt FROM sessions ORDER BY updatedAt DESC LIMIT 50"
+          )
+        })
+        warmMessagePageMs = await measure(() => {
+          coldDatabase?.exec(
+            `SELECT id, role, content, timestamp FROM messages
+           WHERE sessionId = 'benchmark-chat-0'
+           ORDER BY timestamp DESC LIMIT 50`
+          )
+        })
+        if (scale.tree) {
+          activePathMs = await measure(() => {
+            coldDatabase?.exec(ACTIVE_PATH_SQL)
+          })
+        }
+      } finally {
+        coldDatabase.close()
+      }
+
+      const appendDatabase = new SQL.Database(fixtureBytes)
+      let durableAppendMs: number
+      try {
+        durableAppendMs = await measure(async () => {
+          appendDatabase.run(
+            `INSERT INTO messages (sessionId, role, content, model, timestamp)
            VALUES (?, ?, ?, ?, ?)`,
-          [
-            "benchmark-chat-0",
-            "user",
-            "durable append",
-            "benchmark-model",
-            Date.now()
-          ]
-        )
-        await persist(factory, idbName, appendDatabase.export())
-      })
-    } finally {
-      appendDatabase.close()
-      await persist(factory, idbName, fixtureBytes)
-    }
+            [
+              "benchmark-chat-0",
+              "user",
+              "durable append",
+              "benchmark-model",
+              Date.now()
+            ]
+          )
+          await persist(factory, idbName, appendDatabase.export())
+        })
+      } finally {
+        appendDatabase.close()
+        await persist(factory, idbName, fixtureBytes)
+      }
 
-    if (iteration >= 0) {
-      coldOpenSamples.push(coldOpenMs)
-      firstSessionPageSamples.push(firstSessionPageMs)
-      warmMessagePageSamples.push(warmMessagePageMs)
-      if (scale.tree) activePathSamples.push(activePathMs)
-      durableAppendSamples.push(durableAppendMs)
+      if (iteration >= 0) {
+        coldOpenSamples.push(coldOpenMs)
+        firstSessionPageSamples.push(firstSessionPageMs)
+        warmMessagePageSamples.push(warmMessagePageMs)
+        if (scale.tree) activePathSamples.push(activePathMs)
+        durableAppendSamples.push(durableAppendMs)
+      }
     }
+  } finally {
+    fixtureDatabase.close()
   }
 
-  fixture.close()
   const memoryAfter = environment.sampleMemoryBytes()
   const attachmentTotalBytes = scale.attachments
     ? Array.from({ length: scale.attachments.count }, (_, index) =>

@@ -81,6 +81,9 @@ runButton.addEventListener("click", async () => {
 
   runButton.disabled = true
   copyButton.disabled = true
+  // The run reads and rewrites the same persistence-benchmark-* databases;
+  // deleting them mid-run would corrupt the measurement.
+  cleanupButton.disabled = true
   output.textContent = ""
   try {
     setStatus("Loading sql.js WASM…")
@@ -116,26 +119,40 @@ runButton.addEventListener("click", async () => {
     setStatus(`Failed: ${error instanceof Error ? error.message : error}`)
   } finally {
     runButton.disabled = false
+    cleanupButton.disabled = false
   }
 })
 
 copyButton.addEventListener("click", async () => {
-  await navigator.clipboard.writeText(output.textContent ?? "")
-  setStatus("Copied")
+  try {
+    await navigator.clipboard.writeText(output.textContent ?? "")
+    setStatus("Copied")
+  } catch (error) {
+    setStatus(`Copy failed: ${error instanceof Error ? error.message : error}`)
+  }
 })
 
 cleanupButton.addEventListener("click", async () => {
   cleanupButton.disabled = true
+  runButton.disabled = true
   try {
+    const blocked: string[] = []
     for (const scaleName of SCALE_NAMES) {
-      await deleteBenchmarkStore(indexedDB, scaleName)
+      if (!(await deleteBenchmarkStore(indexedDB, scaleName))) {
+        blocked.push(scaleName)
+      }
     }
-    setStatus("Benchmark databases deleted")
+    setStatus(
+      blocked.length === 0
+        ? "Benchmark databases deleted"
+        : `Cleanup blocked by open connections: ${blocked.join(", ")}`
+    )
   } catch (error) {
     setStatus(
       `Cleanup failed: ${error instanceof Error ? error.message : error}`
     )
   } finally {
     cleanupButton.disabled = false
+    runButton.disabled = false
   }
 })

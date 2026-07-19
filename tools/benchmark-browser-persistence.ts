@@ -104,13 +104,14 @@ const runScalesOnPage = async (
   // Free benchmark IndexedDB space before the browser closes.
   await page.click("#cleanup")
   await page.waitForFunction(
-    () =>
-      (document.getElementById("status")?.textContent ?? "").startsWith(
-        "Benchmark databases deleted"
-      ) ||
-      (document.getElementById("status")?.textContent ?? "").startsWith(
-        "Cleanup failed"
-      ),
+    () => {
+      const status = document.getElementById("status")?.textContent ?? ""
+      return (
+        status.startsWith("Benchmark databases deleted") ||
+        status.startsWith("Cleanup blocked") ||
+        status.startsWith("Cleanup failed")
+      )
+    },
     undefined,
     { timeout: 60_000 }
   )
