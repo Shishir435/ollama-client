@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OPFS SAHPool Spike</title>
+  <style>
+    body { margin: 24px; font-family: ui-monospace, monospace; max-width: 900px; }
+    h1 { font-size: 18px; }
+    .row { margin: 8px 0; display: flex; gap: 8px; align-items: center; }
+    label { min-width: 80px; }
+    button { padding: 4px 12px; }
+    #status { color: #666; min-height: 1.2em; }
+    #warning { color: #b45309; }
+    pre { background: #f4f4f5; padding: 12px; overflow-x: auto; white-space: pre-wrap; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #18181b; color: #e4e4e7; }
+      pre { background: #27272a; }
+      #status { color: #a1a1aa; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Section 9.4 spike: sqlite-wasm + opfs-sahpool (dev-only page)</h1>
+  <p>
+    Builds the section 9.8 fixtures with sql.js in this page, physically
+    imports the exported bytes into an official sqlite-wasm database behind
+    the <code>opfs-sahpool</code> VFS in one dedicated worker, then measures
+    incremental durable writes. Spike code — not a product surface.
+  </p>
+  <div class="row">
+    <label for="scale">Scale</label>
+    <select id="scale">
+      <option value="small" selected>small (500 chats / 10k messages)</option>
+      <option value="medium">medium (1k chats / 20k messages)</option>
+      <option value="binary">binary (medium + 62.5 MiB attachments)</option>
+      <option value="tree">tree (500 branched chats / 41k messages)</option>
+      <option value="large">large (10k chats / 200k messages)</option>
+    </select>
+  </div>
+  <div class="row">
+    <label for="iterations">Iterations</label>
+    <input id="iterations" type="number" min="1" max="20" value="3">
+  </div>
+  <p id="warning" hidden>
+    Warning: the large fixture allocates multiple GiB in this page while
+    sql.js builds it and may crash the tab.
+  </p>
+  <div class="row">
+    <button id="run" type="button">Run</button>
+    <button id="copy" type="button" disabled>Copy JSON</button>
+    <button id="cleanup" type="button">Wipe spike OPFS files</button>
+  </div>
+  <p id="status"></p>
+  <pre id="output"></pre>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

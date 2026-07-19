@@ -22,17 +22,24 @@ export default defineConfig({
       )
       if (promoIndex !== -1) files.splice(promoIndex, 1)
     },
-    // The persistence benchmark page is a dev tool for the section 9.8
-    // browser measurements. Keep it out of store packages: it only builds in
-    // dev mode or when WXT_BENCHMARK=1 is set explicitly.
+    // The persistence benchmark and OPFS spike pages are dev tools for the
+    // section 9.8/9.4 browser measurements. Keep them out of store packages:
+    // they only build in dev mode or when WXT_BENCHMARK=1 is set explicitly.
     "entrypoints:resolved": (wxt, entrypoints) => {
       const includeBenchmark =
         wxt.config.command === "serve" || process.env.WXT_BENCHMARK === "1"
       if (includeBenchmark) return
-      const benchmarkIndex = entrypoints.findIndex(
-        (entrypoint) => entrypoint.name === "benchmark"
-      )
-      if (benchmarkIndex !== -1) entrypoints.splice(benchmarkIndex, 1)
+      for (const name of [
+        "benchmark",
+        "spike-opfs",
+        "spike-owner",
+        "spike-owner-offscreen"
+      ]) {
+        const index = entrypoints.findIndex(
+          (entrypoint) => entrypoint.name === name
+        )
+        if (index !== -1) entrypoints.splice(index, 1)
+      }
     }
   },
   manifest: ({ browser }) => ({
@@ -69,7 +76,12 @@ export default defineConfig({
       "tabs",
       "scripting",
       "contextMenus",
-      ...(browser === "firefox" ? [] : ["sidePanel", "declarativeNetRequest"])
+      ...(browser === "firefox" ? [] : ["sidePanel", "declarativeNetRequest"]),
+      // Dev-only: the section 9.4 spike's offscreen owner document. Never in
+      // store packages — gated by the same flag as the spike entrypoints.
+      ...(browser !== "firefox" && process.env.WXT_BENCHMARK === "1"
+        ? ["offscreen"]
+        : [])
     ],
     // Optional API permissions requested from the Permissions UI.
     // Declared so they can be requested at runtime via src/lib/permissions.ts;
@@ -120,6 +132,12 @@ export default defineConfig({
 
   vite: () =>
     ({
+      // Compile-time flag for the dev-only section 9.4 spike host in the
+      // background entry; false in store builds so the branch and its
+      // dynamic import are dead-code eliminated.
+      define: {
+        __SPIKE_OPFS_OWNER__: JSON.stringify(process.env.WXT_BENCHMARK === "1")
+      },
       plugins: [
         react({
           babel: {
