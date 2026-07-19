@@ -1,3 +1,4 @@
+import { resolve } from "node:path"
 import react from "@vitejs/plugin-react"
 import { visualizer } from "rollup-plugin-visualizer"
 import { defineConfig } from "wxt"
@@ -21,6 +22,18 @@ export default defineConfig({
         (file) => file.relativeDest === "assets/icon-promo-light.png"
       )
       if (promoIndex !== -1) files.splice(promoIndex, 1)
+      // Benchmark builds ship the official sqlite3.wasm at a stable path:
+      // the spike owner host fetches it and hands bytes to its worker.
+      // Bundler ?url imports are not portable here — Firefox MV2 iife
+      // output inlines the asset as a data: URL, which fetch() rejects.
+      if (process.env.WXT_BENCHMARK === "1") {
+        files.push({
+          absoluteSrc: resolve(
+            "node_modules/@sqlite.org/sqlite-wasm/dist/sqlite3.wasm"
+          ),
+          relativeDest: "assets/sqlite3.wasm"
+        })
+      }
     },
     // The persistence benchmark and OPFS spike pages are dev tools for the
     // section 9.8/9.4 browser measurements. Keep them out of store packages:
@@ -32,9 +45,11 @@ export default defineConfig({
       // chrome.runtime.getContexts, which Firefox does not provide; its two
       // pages are Chromium-only even in benchmark builds. The measurement
       // pages (benchmark, spike-opfs) stay cross-browser.
+      // Firefox hosts the owner in its persistent background page, so it
+      // keeps the client page but never ships the Chromium offscreen page.
       const strip = includeBenchmark
         ? wxt.config.browser === "firefox"
-          ? ["spike-owner", "spike-owner-offscreen"]
+          ? ["spike-owner-offscreen"]
           : []
         : ["benchmark", "spike-opfs", "spike-owner", "spike-owner-offscreen"]
       for (const name of strip) {
@@ -147,6 +162,9 @@ export default defineConfig({
       define: {
         __SPIKE_OPFS_OWNER__: JSON.stringify(
           process.env.WXT_BENCHMARK === "1" && env.browser !== "firefox"
+        ),
+        __SPIKE_OPFS_OWNER_MV2__: JSON.stringify(
+          process.env.WXT_BENCHMARK === "1" && env.browser === "firefox"
         )
       },
       plugins: [

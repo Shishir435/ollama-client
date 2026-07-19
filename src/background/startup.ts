@@ -153,15 +153,39 @@ const registerToolRegistryInvalidation = () => {
   })
 }
 
+// Resolves true when lifecycle flags were read and handled (or none exist);
+// false when even a retry could not resolve them — in that case a pending
+// destructive reset may still be queued, so database startup must not run.
+const resumeLifecycleWithRetry = async (): Promise<boolean> => {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await resumePendingAppLifecycle()
+      return true
+    } catch (error) {
+      logger.error("Failed to resume app lifecycle actions", "BackgroundSW", {
+        attempt,
+        error
+      })
+    }
+  }
+  return false
+}
+
 export const initializeBackgroundStartup = () => {
   // A scheduled destructive reset must complete before any other startup
   // task opens the chat database — an open handle would block the delete.
-  const lifecycleReady = resumePendingAppLifecycle().catch((error) => {
-    logger.error("Failed to resume app lifecycle actions", "BackgroundSW", {
-      error
-    })
-  })
-  void lifecycleReady.then(() => {
+  const lifecycleReady = resumeLifecycleWithRetry()
+  void lifecycleReady.then((lifecycleResolved) => {
+    if (!lifecycleResolved) {
+      // A queued reset may still exist; opening the database now could block
+      // its delete on the next boot. Skip DB-touching startup for this boot —
+      // the flags are retried on the next worker start.
+      logger.error(
+        "Skipping database startup tasks: lifecycle state unresolved",
+        "BackgroundSW"
+      )
+      return
+    }
     void recoverBackupImport()
       .then(() => migrateLegacyProviderStorage())
       .catch((error) => {

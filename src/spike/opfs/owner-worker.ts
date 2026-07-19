@@ -4,7 +4,6 @@ import sqlite3InitModule, {
   type SAHPoolUtil,
   type Sqlite3Static
 } from "@sqlite.org/sqlite-wasm"
-import sqliteWasmUrl from "@sqlite.org/sqlite-wasm/sqlite3.wasm?url"
 import type {
   AppendPayload,
   CheckpointPayload,
@@ -41,22 +40,38 @@ interface WorkerRequest {
   payload?: unknown
 }
 
+// The host fetches the wasm and hands the bytes over before the first op.
+// Fetching inside the worker is not portable: Firefox MV2 worker chunks get
+// the ?url asset inlined as a giant data: URL, which Emscripten's streaming
+// fetch rejects with NetworkError.
+interface InitMessage {
+  op: "init"
+  wasmBinary: ArrayBuffer
+}
+
+let resolveWasmBinary: (binary: ArrayBuffer) => void
+const wasmBinaryReady = new Promise<ArrayBuffer>((resolve) => {
+  resolveWasmBinary = resolve
+})
+
 let contextPromise: Promise<{ db: Database; pool: SAHPoolUtil }> | null = null
 
 const openContext = (): NonNullable<typeof contextPromise> => {
   if (!contextPromise) {
     contextPromise = (async () => {
+      const wasmBinary = await wasmBinaryReady
       // The published typings declare init() without arguments, but the
-      // runtime accepts an Emscripten module config; locateFile is required
-      // so the bundled wasm asset resolves inside the worker chunk.
+      // runtime accepts an Emscripten module config; wasmBinary skips the
+      // fetch entirely so the same worker runs on chrome-extension and
+      // moz-extension origins.
       const sqlite3 = await (
         sqlite3InitModule as unknown as (config: {
-          locateFile: () => string
+          wasmBinary: ArrayBuffer
           print: (message: string) => void
           printErr: (message: string) => void
         }) => Promise<Sqlite3Static>
       )({
-        locateFile: () => sqliteWasmUrl,
+        wasmBinary,
         print: () => {},
         printErr: (message: string) => console.error("[sqlite3]", message)
       })
@@ -210,6 +225,13 @@ const processRequest = async (request: WorkerRequest): Promise<void> => {
 // single-writer ordering the topology exists to guarantee.
 let operationChain: Promise<void> = Promise.resolve()
 
-self.onmessage = (event: MessageEvent<WorkerRequest>) => {
-  operationChain = operationChain.then(() => processRequest(event.data))
+self.onmessage = (event: MessageEvent<WorkerRequest | InitMessage>) => {
+  // The init message must be handled outside the op chain: the first op is
+  // usually already queued and blocked awaiting the wasm bytes.
+  if (event.data.op === "init") {
+    resolveWasmBinary((event.data as InitMessage).wasmBinary)
+    return
+  }
+  const request = event.data as WorkerRequest
+  operationChain = operationChain.then(() => processRequest(request))
 }
