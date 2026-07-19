@@ -1,494 +1,230 @@
-import type { SqlJsStatic } from "sql.js"
-import initSqlJs from "sql.js/dist/sql-wasm.js"
-import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { readPersistenceBackend } from "@/lib/persistence/backend"
 import {
-  LATEST_SCHEMA_VERSION,
-  repairSchemaDrift,
-  runMigrations,
-  setSchemaVersion
-} from "./migrations/migration-runner"
-import { SCHEMA_SQL } from "./schema"
+  rpcExportDb,
+  rpcImportDb,
+  rpcPing,
+  rpcQuery,
+  rpcReset,
+  rpcRun,
+  rpcTxBegin,
+  rpcTxCommit,
+  rpcTxRollback
+} from "@/lib/persistence/client"
+import type { RunResult } from "@/lib/persistence/protocol"
 
-// Dynamic type for Database
-type Database = import("sql.js").Database
+// Chat-history database facade. Dispatches every operation to the profile's
+// active backend:
+//
+//   "opfs"   — the production single-owner topology: one sqlite-wasm database
+//              behind opfs-sahpool, hosted by the Chromium offscreen document
+//              or the Firefox MV2 background page, reached over persistence
+//              RPC. Durability is per-transaction; there is no debounced
+//              full-blob save and no stale-writer hazard.
+//   "legacy" — the historical in-memory sql.js database persisted as one
+//              IndexedDB blob. Only active until the owner's one-time
+//              migration verifies row counts and flips the backend marker.
+//
+// The legacy implementation is loaded lazily so sql.js and its WASM stay out
+// of every startup chunk on migrated profiles.
 
-let db: Database | null = null
-let initPromise: Promise<Database> | null = null
-let loadedImportGeneration: string | null = null
-let transactionDepth = 0
-let dirtyDuringTransaction = false
-let saveInFlight: Promise<void> = Promise.resolve()
-
-// Type for SQL parameter bindings
 type SqlValue = string | number | null | Uint8Array
 type QueryResult = Record<string, SqlValue>
 
-const SQLITE_DB_IMPORT_GENERATION_KEY = "sqlite-db-import-generation"
+type LegacyDb = typeof import("./legacy-db")
 
-const getDatabaseImportGeneration = async (): Promise<string | null> => {
-  try {
-    const data = await chrome.storage.local.get(SQLITE_DB_IMPORT_GENERATION_KEY)
-    const value = data?.[SQLITE_DB_IMPORT_GENERATION_KEY]
-    return typeof value === "string" ? value : null
-  } catch (error) {
-    logger.warn("Failed to read SQLite import generation", "SQLite", { error })
-    return null
-  }
+let legacyPromise: Promise<LegacyDb> | null = null
+const legacy = (): Promise<LegacyDb> => {
+  if (!legacyPromise) legacyPromise = import("./legacy-db")
+  return legacyPromise
 }
 
-const bumpDatabaseImportGeneration = async (): Promise<string> => {
-  const nextGeneration =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+const isOpfs = async (): Promise<boolean> =>
+  (await readPersistenceBackend()) === "opfs"
 
-  await chrome.storage.local.set({
-    [SQLITE_DB_IMPORT_GENERATION_KEY]: nextGeneration
-  })
-  return nextGeneration
-}
+// ---------------------------------------------------------------------------
+// Transaction scope. The OPFS worker grants a transaction lease keyed by a
+// client token; every query/run issued inside withTransaction carries it so
+// the owner can park other clients' statements until commit. One transaction
+// at a time per context (local mutex) — same constraint the legacy
+// transactionDepth counter imposed.
+// ---------------------------------------------------------------------------
 
-const canPersistLoadedDatabase = async (): Promise<boolean> => {
-  const currentGeneration = await getDatabaseImportGeneration()
-  const canPersist = currentGeneration === loadedImportGeneration
-  if (!canPersist) {
-    logger.warn(
-      "Skipping SQLite save from stale context after backup restore",
-      "SQLite"
-    )
-  }
-  return canPersist
-}
+let currentTxToken: string | null = null
+let txMutex: Promise<void> = Promise.resolve()
 
-/**
- * Load database from IndexedDB
- */
-async function loadDatabaseFromIndexedDB(): Promise<Uint8Array | null> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(SQLITE_DB_NAME, 1)
-
-    request.onerror = () => reject(request.error)
-    request.onsuccess = () => {
-      const db = request.result
-      const transaction = db.transaction([SQLITE_DB_STORE], "readonly")
-      const store = transaction.objectStore(SQLITE_DB_STORE)
-      const getRequest = store.get(SQLITE_DB_KEY)
-
-      getRequest.onsuccess = () => resolve(getRequest.result || null)
-      getRequest.onerror = () => resolve(null)
-    }
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result
-      if (!db.objectStoreNames.contains(SQLITE_DB_STORE)) {
-        db.createObjectStore(SQLITE_DB_STORE)
-      }
-    }
-  })
-}
-
-/**
- * Save database to IndexedDB
- */
-async function saveDatabaseToIndexedDB(data: Uint8Array): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(SQLITE_DB_NAME, 1)
-
-    request.onerror = () => reject(request.error)
-    request.onsuccess = () => {
-      const db = request.result
-      const transaction = db.transaction([SQLITE_DB_STORE], "readwrite")
-      const store = transaction.objectStore(SQLITE_DB_STORE)
-      const putRequest = store.put(data, SQLITE_DB_KEY)
-
-      putRequest.onsuccess = () => resolve()
-      putRequest.onerror = () => reject(putRequest.error)
-    }
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result
-      if (!db.objectStoreNames.contains(SQLITE_DB_STORE)) {
-        db.createObjectStore(SQLITE_DB_STORE)
-      }
-    }
-  })
-}
-
-export const initSQLite = async (): Promise<Database> => {
-  if (db) return db
-  if (initPromise) return initPromise
-
-  initPromise = (async () => {
+export const withTransaction = async (
+  work: () => Promise<void>
+): Promise<void> => {
+  if (!(await isOpfs())) {
+    const legacyDb = await legacy()
+    await legacyDb.run("BEGIN IMMEDIATE")
     try {
-      logger.info("Initializing SQLite (sql.js)...", "SQLite")
-
-      const wasmUrl = chrome.runtime.getURL("assets/sql-wasm.wasm")
-      const response = await fetch(wasmUrl)
-      const wasmBinary = await response.arrayBuffer()
-
-      const SQL = await (
-        initSqlJs as unknown as (config: {
-          wasmBinary: Uint8Array
-        }) => Promise<SqlJsStatic>
-      )({
-        wasmBinary: new Uint8Array(wasmBinary)
-      })
-      loadedImportGeneration = await getDatabaseImportGeneration()
-
-      // Try to load existing database from IndexedDB
-      const savedDb = await loadDatabaseFromIndexedDB()
-
-      if (savedDb) {
-        logger.info("Loaded existing database from IndexedDB", "SQLite")
-        db = new SQL.Database(savedDb)
-      } else {
-        logger.info("Creating new database", "SQLite")
-        db = new SQL.Database()
-
-        // SCHEMA_SQL is the latest schema, so stamp the new database at the
-        // latest version and skip the migration runner below.
-        db.run(SCHEMA_SQL)
-        setSchemaVersion(db, LATEST_SCHEMA_VERSION)
-
-        // Save initial database
-        await saveDatabaseToIndexedDB(db.export())
-      }
-
-      db.run("PRAGMA foreign_keys=ON")
-
-      // Version-gated forward migrations. Fresh databases were stamped at the
-      // latest version above (no-op here); databases loaded from IndexedDB are
-      // upgraded from their recorded `user_version` and persisted if changed.
-      const appliedMigrations = runMigrations(db)
-      const repairedSchemaItems = repairSchemaDrift(db)
-      if (appliedMigrations > 0 || repairedSchemaItems > 0) {
-        await saveDatabaseToIndexedDB(db.export())
-      }
-
-      logger.info("SQLite initialized successfully", "SQLite")
-      return db
-    } catch (e) {
-      logger.error("Failed to initialize SQLite", "SQLite", { error: e })
-      throw e
+      await work()
+      await legacyDb.run("COMMIT")
+    } catch (error) {
+      await legacyDb.run("ROLLBACK")
+      throw error
     }
-  })()
-
-  return initPromise
-}
-
-export const getDb = async (): Promise<Database> => {
-  if (!db) {
-    return initSQLite()
+    return
   }
-  return db
+
+  const previous = txMutex
+  let release: () => void = () => {}
+  txMutex = new Promise((resolve) => {
+    release = resolve
+  })
+  await previous
+
+  const token = crypto.randomUUID()
+  try {
+    await rpcTxBegin(token)
+    currentTxToken = token
+    try {
+      await work()
+      await rpcTxCommit(token)
+    } catch (error) {
+      try {
+        await rpcTxRollback(token)
+      } catch (rollbackError) {
+        logger.warn("Transaction rollback failed", "SQLite", {
+          error: rollbackError
+        })
+      }
+      throw error
+    }
+  } finally {
+    currentTxToken = null
+    release()
+  }
 }
 
-/**
- * Utility to run a query and return array of objects
- */
+// ---------------------------------------------------------------------------
+// Core statement API (signature-compatible with the legacy module)
+// ---------------------------------------------------------------------------
+
 export const query = async (
   sql: string,
   bind: SqlValue[] = []
 ): Promise<QueryResult[]> => {
-  const database = await getDb()
-  const stmt = database.prepare(sql)
-  try {
-    stmt.bind(bind)
-
-    const results: QueryResult[] = []
-    while (stmt.step()) {
-      results.push(stmt.getAsObject())
-    }
-    return results
-  } finally {
-    stmt.free()
+  if (await isOpfs()) {
+    return (await rpcQuery(
+      sql,
+      bind,
+      currentTxToken ?? undefined
+    )) as QueryResult[]
   }
+  return (await legacy()).query(sql, bind)
 }
 
-/**
- * Utility to run a command (INSERT, UPDATE, DELETE)
- */
 export const run = async (
   sql: string,
   bind: SqlValue[] = []
 ): Promise<void> => {
-  const database = await getDb()
-  const normalizedSql = sql.trim().toUpperCase()
-  const startsTransaction = normalizedSql.startsWith("BEGIN")
-  const commitsTransaction = normalizedSql.startsWith("COMMIT")
-  const rollsBackTransaction = normalizedSql.startsWith("ROLLBACK")
-
-  const stmt = database.prepare(sql)
-  try {
-    stmt.bind(bind)
-    stmt.step()
-    // Only count the transaction once BEGIN actually executes. Incrementing
-    // before stmt.step() would skew the depth permanently if BEGIN throws
-    // (e.g. a transaction is already open), silently halting auto-saves.
-    if (startsTransaction) {
-      transactionDepth += 1
-    }
-  } finally {
-    // Decrement in finally so a throwing COMMIT/ROLLBACK step still releases
-    // the depth: SQLite auto-rolls-back a failed COMMIT, so the transaction is
-    // over either way. Leaving the counter elevated would silently halt every
-    // future auto-save.
-    if (commitsTransaction || rollsBackTransaction) {
-      transactionDepth = Math.max(0, transactionDepth - 1)
-    }
-    stmt.free()
-  }
-
-  if (startsTransaction) {
+  if (await isOpfs()) {
+    await rpcRun(sql, bind, currentTxToken ?? undefined)
     return
   }
-
-  if (rollsBackTransaction) {
-    // Discard the dirty flag — the rolled-back writes are gone, so a later
-    // no-op COMMIT must not schedule a save for them.
-    dirtyDuringTransaction = false
-    return
-  }
-
-  if (transactionDepth > 0) {
-    dirtyDuringTransaction = true
-    return
-  }
-
-  if (commitsTransaction) {
-    if (dirtyDuringTransaction) {
-      dirtyDuringTransaction = false
-      scheduleAutoSave()
-    }
-    return
-  }
-
-  scheduleAutoSave()
-}
-
-// Auto-save scheduling
-let saveTimeout: NodeJS.Timeout | null = null
-const cancelPendingAutoSave = () => {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout)
-    saveTimeout = null
-  }
-}
-const persistDatabaseNow = async (): Promise<void> => {
-  if (!db) return
-  if (transactionDepth > 0) {
-    dirtyDuringTransaction = true
-    return
-  }
-  if (!(await canPersistLoadedDatabase())) return
-
-  const pending = saveInFlight.then(async () => {
-    if (!db) return
-    if (transactionDepth > 0) {
-      dirtyDuringTransaction = true
-      return
-    }
-    await saveDatabaseToIndexedDB(db.export())
-  })
-  // Keep the serialization chain alive even if this write rejects. Otherwise
-  // one transient IndexedDB failure leaves `saveInFlight` permanently rejected
-  // and every later save silently chains onto it without running — durability
-  // would stay broken for the rest of the service-worker lifetime.
-  saveInFlight = pending.catch(() => {})
-  await pending
-}
-
-const scheduleAutoSave = () => {
-  cancelPendingAutoSave()
-  saveTimeout = setTimeout(async () => {
-    saveTimeout = null
-    try {
-      await persistDatabaseNow()
-      logger.info("Database auto-saved to IndexedDB", "SQLite")
-    } catch (e) {
-      logger.error("Failed to auto-save database", "SQLite", { error: e })
-    }
-  }, 1000) // Save 1 second after last change
+  return (await legacy()).run(sql, bind)
 }
 
 /**
- * Force-flush any in-memory writes to IndexedDB *now*, cancelling any
- * pending debounced auto-save. Use this at boundaries where the next
- * operation will rely on the data being durable:
- *
- *   - end of a migration (before persisting "migration completed")
- *   - before exposing newly imported SQLite chat data
- *   - on page/sidepanel unload
- *
- * No-op if no database is open yet.
+ * Run a mutating statement and atomically report its lastInsertRowid and
+ * change count. On the shared OPFS connection this is the only race-free way
+ * to read last_insert_rowid(); the legacy per-context database reads it with
+ * a follow-up query, which is safe there because nothing else shares the
+ * connection.
+ */
+export const runWithMeta = async (
+  sql: string,
+  bind: SqlValue[] = []
+): Promise<RunResult> => {
+  if (await isOpfs()) {
+    return rpcRun(sql, bind, currentTxToken ?? undefined)
+  }
+  const legacyDb = await legacy()
+  await legacyDb.run(sql, bind)
+  const rows = await legacyDb.query(
+    "SELECT last_insert_rowid() AS id, changes() AS changed"
+  )
+  return {
+    lastInsertRowid: Number(rows[0]?.id ?? 0),
+    changes: Number(rows[0]?.changed ?? 0)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle
+// ---------------------------------------------------------------------------
+
+export const initSQLite = async (): Promise<void> => {
+  if (await isOpfs()) {
+    await rpcPing()
+    return
+  }
+  await (await legacy()).initSQLite()
+}
+
+/**
+ * Force-flush pending writes. On the OPFS backend every committed statement
+ * is already durable, so this is a no-op kept for the callers that flush at
+ * unload/migration boundaries; on the legacy backend it persists the blob.
  */
 export const flushSave = async (): Promise<void> => {
-  cancelPendingAutoSave()
-  if (!db) return
-  await persistDatabaseNow()
-  logger.info("Database flushed to IndexedDB", "SQLite")
+  if (await isOpfs()) return
+  await (await legacy()).flushSave()
 }
 
-/**
- * Manually save database to IndexedDB. Alias of `flushSave` kept for
- * existing callers (feedback-service); both cancel the pending
- * debounce so a stale in-flight write can't clobber the explicit save.
- */
 export const saveDatabase = flushSave
 
-/**
- * Export raw database bytes for backup
- */
 export const exportDatabaseBytes = async (): Promise<Uint8Array> => {
-  const database = await getDb()
-  return database.export()
+  if (await isOpfs()) return rpcExportDb()
+  return (await legacy()).exportDatabaseBytes()
 }
 
-/**
- * Export the durable IndexedDB copy directly. Backup export calls this after
- * asking live extension pages to flush, so it does not accidentally read a
- * stale in-memory SQL.js instance from the Options page.
- */
 export const exportPersistedDatabaseBytes = async (): Promise<Uint8Array> => {
-  const savedDb = await loadDatabaseFromIndexedDB()
-  if (savedDb) return savedDb
-  return exportDatabaseBytes()
+  if (await isOpfs()) return rpcExportDb()
+  return (await legacy()).exportPersistedDatabaseBytes()
 }
 
-/**
- * Import raw database bytes from backup and reload memory DB
- */
 export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {
-  logger.info("Importing database bytes...", "SQLite")
-
-  cancelPendingAutoSave()
-  const nextGeneration = await bumpDatabaseImportGeneration()
-
-  // Save to IndexedDB
-  await saveDatabaseToIndexedDB(bytes)
-
-  // Reset singletons to force reload
-  db = null
-  initPromise = null
-  loadedImportGeneration = nextGeneration
-  transactionDepth = 0
-  dirtyDuringTransaction = false
-
-  // Reinitialize DB
-  await initSQLite()
-  logger.info("Database imported successfully", "SQLite")
+  if (await isOpfs()) {
+    const counts = await rpcImportDb(bytes)
+    logger.info(
+      `Backup imported into OPFS backend: ${counts.sessions} sessions, ${counts.messages} messages`,
+      "SQLite"
+    )
+    return
+  }
+  await (await legacy()).importDatabaseBytes(bytes)
 }
 
-/**
- * Drop the entire SQLite-backed chat database. Deletes the
- * IndexedDB store that holds the persisted SQLite blob, then resets
- * the in-memory singleton. The next call to `getDb()` reinitializes
- * from scratch via `initSQLite()` -> SCHEMA_SQL.
- *
- * Used by the user-facing "reset all app data" flow.
- */
 export const resetSQLiteDatabase = async (): Promise<void> => {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout)
-    saveTimeout = null
-  }
-  // An in-flight save transaction holds an open IndexedDB connection, which
-  // blocks the deleteDatabase below and then fails re-initialization. Let it
-  // settle first; failures were already swallowed into saveInFlight.
-  await saveInFlight
-  if (db) {
+  if (await isOpfs()) {
+    await rpcReset()
+    // A user-initiated reset must also remove the legacy rollback blob —
+    // keeping it would resurrect deleted chats on a backend rollback.
     try {
-      db.close()
-    } catch (e) {
-      logger.warn("Failed to close SQLite database before reset", "SQLite", {
-        error: e
+      await (await legacy()).resetSQLiteDatabase()
+    } catch (error) {
+      logger.warn("Failed to clear legacy blob during reset", "SQLite", {
+        error
       })
     }
+    return
   }
-  db = null
-  initPromise = null
-  loadedImportGeneration = await bumpDatabaseImportGeneration()
-  transactionDepth = 0
-  dirtyDuringTransaction = false
-
-  await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(SQLITE_DB_NAME)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-    request.onblocked = () => {
-      // Other tabs hold an open handle; the delete will complete once
-      // they close. Resolve optimistically — the caller usually reloads.
-      logger.warn(
-        "deleteDatabase blocked by an open connection; will complete when handles close",
-        "SQLite"
-      )
-      resolve()
-    }
-  })
-  logger.info("SQLite database reset", "SQLite")
+  await (await legacy()).resetSQLiteDatabase()
 }
 
 /**
- * Register a one-time unload listener that force-flushes the SQLite
- * blob to IndexedDB before the page/sidepanel context tears down.
- *
- * Why this matters: every `run()` schedules a debounced auto-save 1s
- * out (intentional, so streaming a long reply doesn't write to disk
- * on every token). The catch is that the JS context can die in that
- * 1-second window — the user closes the sidepanel, the browser
- * suspends the service worker, etc. — and the in-memory writes go
- * with it. `pagehide` and `visibilitychange=hidden` are the most
- * reliable single-shot hooks we have for that boundary.
- *
- * `flushSave()` returns a Promise; both events let the browser keep
- * the IndexedDB transaction alive long enough to complete in
- * practice, which is all we need.
+ * Raw legacy database handle. Exists for the durability test suite, which
+ * tampers with schema state directly; production code must use query/run.
+ * Unavailable on the OPFS backend — no context but the owner worker ever
+ * holds the database handle there.
  */
-const registerUnloadFlush = () => {
-  if (typeof globalThis === "undefined") return
-  const target = globalThis as unknown as {
-    addEventListener?: (type: string, listener: () => void) => void
-    document?: {
-      addEventListener?: (type: string, listener: () => void) => void
-      visibilityState?: string
-    }
+export const getDb = async () => {
+  if (await isOpfs()) {
+    throw new Error("getDb is unavailable on the OPFS persistence backend")
   }
-  const flush = () => {
-    flushSave().catch((e) => {
-      logger.warn("Unload flush failed", "SQLite", { error: e })
-    })
-  }
-  if (typeof target.addEventListener === "function") {
-    target.addEventListener("pagehide", flush)
-    target.addEventListener("beforeunload", flush)
-  }
-  const runtime = (
-    globalThis as unknown as {
-      chrome?: {
-        runtime?: {
-          onSuspend?: { addListener?: (listener: () => void) => void }
-        }
-      }
-    }
-  ).chrome?.runtime
-  runtime?.onSuspend?.addListener?.(flush)
-  if (target.document?.addEventListener) {
-    target.document.addEventListener("visibilitychange", () => {
-      if (target.document?.visibilityState === "hidden") flush()
-    })
-  }
-}
-registerUnloadFlush()
-
-const isDevelopment = process.env.NODE_ENV === "development"
-
-if (isDevelopment) {
-  const globalAny = (typeof window !== "undefined"
-    ? window
-    : self) as unknown as {
-    sqlite: Record<string, unknown>
-  }
-  globalAny.sqlite = { query, run, getDb, initSQLite, saveDatabase }
-  logger.info("SQLite Debug Tools exposed at window.sqlite", "SQLite")
+  return (await legacy()).getDb()
 }

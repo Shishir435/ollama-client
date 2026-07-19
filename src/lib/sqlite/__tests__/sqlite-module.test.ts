@@ -32,7 +32,7 @@ import {
   resetSQLiteDatabase,
   run,
   saveDatabase
-} from "../db"
+} from "../legacy-db"
 
 // ---------------------------------------------------------------------------
 // Minimal in-memory IndexedDB stub

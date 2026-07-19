@@ -83,6 +83,14 @@ export const STORAGE_KEYS = {
     /** Durable rollback state for interrupted portable-settings imports. */
     IMPORT_JOURNAL: "backup_import_journal_v1"
   },
+  PERSISTENCE: {
+    /**
+     * Raw chrome.storage.local marker: which chat-history backend this
+     * profile runs on ("legacy" sql.js blob vs "opfs" single owner). Flips
+     * exactly once, after the migration verifies row counts.
+     */
+    BACKEND: "persistence_backend_v1"
+  },
   APP_LIFECYCLE: {
     /**
      * Raw chrome.storage.local flag: a destructive reset the background

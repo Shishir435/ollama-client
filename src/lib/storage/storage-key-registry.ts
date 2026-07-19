@@ -14,6 +14,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "device-local",
     reason: "Temporary rollback state for portable-settings imports."
   },
+  [STORAGE_KEYS.PERSISTENCE.BACKEND]: {
+    key: STORAGE_KEYS.PERSISTENCE.BACKEND,
+    scope: "device-local",
+    reason:
+      "Which chat-history backend this device runs on; migration state never syncs."
+  },
   [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: {
     key: STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET,
     scope: "device-local",
