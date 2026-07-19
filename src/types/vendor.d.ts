@@ -54,3 +54,7 @@ declare module "@sqlite.org/sqlite-wasm/sqlite3.wasm?url" {
   const url: string
   export default url
 }
+
+// Compile-time flag defined in wxt.config.ts vite `define`; true only for
+// WXT_BENCHMARK=1 builds that carry the section 9.4 spike owner host.
+declare const __SPIKE_OPFS_OWNER__: boolean

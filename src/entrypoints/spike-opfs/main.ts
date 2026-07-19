@@ -115,6 +115,7 @@ runButton.addEventListener("click", async () => {
 
   runButton.disabled = true
   copyButton.disabled = true
+  cleanupButton.disabled = true
   output.textContent = ""
   try {
     const memoryBefore = sampleMemoryBytes()
@@ -190,16 +191,22 @@ runButton.addEventListener("click", async () => {
     setStatus(`Failed: ${error instanceof Error ? error.message : error}`)
   } finally {
     runButton.disabled = false
+    cleanupButton.disabled = false
   }
 })
 
 copyButton.addEventListener("click", async () => {
-  await navigator.clipboard.writeText(output.textContent ?? "")
-  setStatus("Copied")
+  try {
+    await navigator.clipboard.writeText(output.textContent ?? "")
+    setStatus("Copied")
+  } catch (error) {
+    setStatus(`Copy failed: ${error instanceof Error ? error.message : error}`)
+  }
 })
 
 cleanupButton.addEventListener("click", async () => {
   cleanupButton.disabled = true
+  runButton.disabled = true
   try {
     const response = await callWorker({ type: "cleanup" })
     if (!response.ok) throw new Error(response.error)
@@ -210,5 +217,6 @@ cleanupButton.addEventListener("click", async () => {
     )
   } finally {
     cleanupButton.disabled = false
+    runButton.disabled = false
   }
 })
