@@ -1,9 +1,11 @@
+import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { safePostMessage } from "@/background/lib/utils"
 import {
   type BuildRagContextResult,
   buildRagContext
 } from "@/features/chat/hooks/build-rag-context"
 import { logger } from "@/lib/logger"
+import { ProviderFactory } from "@/lib/providers/factory"
 import type {
   ActivityEvent,
   BuildContextMessage,
@@ -11,6 +13,47 @@ import type {
   ChromePort,
   PortStatusFunction
 } from "@/types"
+
+/**
+ * Tools that let the model retrieve stored file/conversation context itself.
+ * When any is offered this turn, the harness defers to the model instead of
+ * pre-injecting that context.
+ */
+const RETRIEVAL_TOOL_NAMES = new Set(["rag_search", "file_search"])
+
+/**
+ * Whether this model+turn will be offered its own retrieval tools. Resolved
+ * through the same governance/capability path the chat turn uses. Failures
+ * default to false so context is auto-injected (safe fallback).
+ */
+const resolveRetrievalToolsActive = async (
+  modelId: string,
+  providerId: string | undefined,
+  latestUserText: string
+): Promise<boolean> => {
+  try {
+    const provider = await ProviderFactory.getProviderForModel(
+      modelId,
+      providerId
+    )
+    const resolved = await resolveModelTools(
+      modelId,
+      providerId,
+      provider,
+      latestUserText
+    )
+    return Boolean(
+      resolved?.tools.some((tool) => RETRIEVAL_TOOL_NAMES.has(tool.name))
+    )
+  } catch (error) {
+    logger.debug(
+      "Failed to resolve retrieval tools for context gating; auto-injecting",
+      "handleBuildContext",
+      { error }
+    )
+    return false
+  }
+}
 
 /**
  * Background owner of turn context building. The sidepanel sends the raw query
@@ -33,6 +76,14 @@ export const handleBuildContext = async (
   }
 
   try {
+    const modelId =
+      p.customModel || p.selectedModelRef?.modelId || p.selectedModel
+    const retrievalToolsActive = await resolveRetrievalToolsActive(
+      modelId,
+      p.selectedModelRef?.providerId,
+      p.rawInput
+    )
+
     const result: BuildRagContextResult = await buildRagContext({
       rawInput: p.rawInput,
       files: p.files,
@@ -44,6 +95,7 @@ export const handleBuildContext = async (
       maxTabContextChars: p.maxTabContextChars,
       maxRagContextChars: p.maxRagContextChars,
       groundedOnlyMode: p.groundedOnlyMode,
+      retrievalToolsActive,
       selectedModel: p.selectedModel,
       selectedModelRef: p.selectedModelRef,
       customModel: p.customModel,

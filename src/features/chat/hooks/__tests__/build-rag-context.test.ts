@@ -742,3 +742,49 @@ describe("conversation-memory recall (file-independent)", () => {
     expect(mockedRetrieveEnhanced).not.toHaveBeenCalled()
   })
 })
+
+describe("retrieval-tool gating", () => {
+  it("skips file and memory auto-injection when the model has retrieval tools", async () => {
+    ragsetOn()
+    mockedGetKnowledgeSetFileIds.mockResolvedValue(["f1"])
+
+    await buildRagContext(
+      defaults({
+        rawInput: "who is shishir?",
+        files: [
+          {
+            text: "doc",
+            metadata: { fileName: "a.txt", fileId: "f1" }
+          } as never
+        ],
+        memoryEnabled: true,
+        retrievalToolsActive: true
+      })
+    )
+
+    // The model pulls these itself via rag_search / file_search — no pre-inject.
+    expect(mockedRetrieve).not.toHaveBeenCalled()
+    expect(mockedRetrieveEnhanced).not.toHaveBeenCalled()
+  })
+
+  it("still injects explicitly-selected page context when tools are active", async () => {
+    ragsetOn()
+    mockedRetrieveFromSources.mockResolvedValue({
+      documents: [{ id: "t1" }],
+      formattedContext: "PAGE CONTENT",
+      sources: [{ id: "t1", title: "Tab", content: "PAGE CONTENT", score: 0.9 }]
+    } as never)
+
+    const result = await buildRagContext(
+      defaults({
+        rawInput: "summarize this page",
+        hasTabContext: true,
+        tabDocuments: [{ id: "t1", title: "Tab", content: "PAGE CONTENT" }],
+        retrievalToolsActive: true
+      })
+    )
+
+    expect(mockedRetrieveFromSources).toHaveBeenCalled()
+    expect(result.contentWithRAG).toContain("PAGE CONTENT")
+  })
+})

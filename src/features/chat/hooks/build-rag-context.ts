@@ -67,6 +67,16 @@ export interface BuildRagContextOptions {
   maxTabContextChars: number
   maxRagContextChars: number
   groundedOnlyMode: boolean
+  /**
+   * True when this turn offers the model its own retrieval tools
+   * (`rag_search` / `file_search`). When set, the harness does NOT pre-inject
+   * file or conversation-memory context — the model pulls it on demand, which
+   * keeps the prompt clean and avoids retrieving the same store twice.
+   * Explicitly-selected page/tab context is still injected (no tool covers the
+   * live selection), and the current-turn attached-file full-text fallback
+   * still runs so a just-uploaded file is available before it is indexed.
+   */
+  retrievalToolsActive?: boolean
   /** Model selection (used for query reformulation, not the final chat). */
   selectedModel: string
   selectedModelRef: SelectedModelRef | null
@@ -219,6 +229,7 @@ export const buildRagContext = async (
     maxTabContextChars,
     maxRagContextChars,
     groundedOnlyMode,
+    retrievalToolsActive,
     selectedModel,
     selectedModelRef,
     customModel,
@@ -435,7 +446,10 @@ export const buildRagContext = async (
           })
         }
 
-        if (!groundedOnlyMode) {
+        // Skip pre-injecting stored file/memory context when the model has its
+        // own retrieval tools this turn — it pulls on demand instead, so the
+        // prompt stays clean and the same store isn't retrieved twice.
+        if (!groundedOnlyMode && !retrievalToolsActive) {
           const fileIds = await resolveFileRagScope(files, activeKnowledgeSet)
 
           if (fileIds && fileIds.length > 0) {

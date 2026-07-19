@@ -5,12 +5,23 @@ import type { BuildContextMessage } from "@/types"
 import { handleBuildContext } from "../handle-build-context"
 import { createMockIsPortClosed, createMockPort } from "./test-utils"
 
-const { mockBuildRagContext } = vi.hoisted(() => ({
-  mockBuildRagContext: vi.fn()
+const { mockBuildRagContext, mockResolveModelTools } = vi.hoisted(() => ({
+  mockBuildRagContext: vi.fn(),
+  mockResolveModelTools: vi.fn()
 }))
 
 vi.mock("@/features/chat/hooks/build-rag-context", () => ({
   buildRagContext: mockBuildRagContext
+}))
+
+vi.mock("@/background/lib/resolve-model-tools", () => ({
+  resolveModelTools: mockResolveModelTools
+}))
+
+vi.mock("@/lib/providers/factory", () => ({
+  ProviderFactory: {
+    getProviderForModel: vi.fn().mockResolvedValue({ config: {} })
+  }
 }))
 
 const makeMessage = (): BuildContextMessage => ({
@@ -51,6 +62,38 @@ const result = {
 describe("handleBuildContext", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default: no retrieval tools → context is auto-injected.
+    mockResolveModelTools.mockResolvedValue(undefined)
+  })
+
+  it("passes retrievalToolsActive to buildRagContext when the model has rag_search", async () => {
+    mockResolveModelTools.mockResolvedValue({
+      tools: [{ name: "rag_search" }, { name: "web_search" }],
+      mode: "native"
+    })
+    mockBuildRagContext.mockResolvedValue(result)
+
+    const port = createMockPort("ctx-port")
+    await handleBuildContext(makeMessage(), port, createMockIsPortClosed(false))
+
+    expect(mockBuildRagContext).toHaveBeenCalledWith(
+      expect.objectContaining({ retrievalToolsActive: true })
+    )
+  })
+
+  it("leaves retrievalToolsActive false when no retrieval tool is offered", async () => {
+    mockResolveModelTools.mockResolvedValue({
+      tools: [{ name: "web_search" }],
+      mode: "native"
+    })
+    mockBuildRagContext.mockResolvedValue(result)
+
+    const port = createMockPort("ctx-port")
+    await handleBuildContext(makeMessage(), port, createMockIsPortClosed(false))
+
+    expect(mockBuildRagContext).toHaveBeenCalledWith(
+      expect.objectContaining({ retrievalToolsActive: false })
+    )
   })
 
   it("streams progress and posts a single terminal result", async () => {
