@@ -49,7 +49,12 @@ let sqlPromise: Promise<SqlJsStatic> | undefined
 const initSql = (): Promise<SqlJsStatic> => {
   if (!sqlPromise) {
     sqlPromise = (async () => {
-      const wasmUrl = chrome.runtime.getURL("assets/sql-wasm.wasm")
+      // Falls back to a same-origin path so the page also runs when the
+      // built bundle is served over plain HTTP (Firefox engine-level runs,
+      // where Playwright cannot install extensions).
+      const wasmUrl =
+        globalThis.chrome?.runtime?.getURL?.("assets/sql-wasm.wasm") ??
+        new URL("/assets/sql-wasm.wasm", location.origin).toString()
       const response = await fetch(wasmUrl)
       const wasmBinary = await response.arrayBuffer()
       return (
