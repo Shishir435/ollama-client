@@ -4,11 +4,13 @@ import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
 import type { ChatMessage } from "@/types"
 import { useChatTurnController } from "../use-chat-turn-controller"
 
-const rag = vi.hoisted(() => ({
-  buildRagContext: vi.fn()
+const ctx = vi.hoisted(() => ({
+  buildContext: vi.fn()
 }))
 
-vi.mock("@/features/chat/hooks/build-rag-context", () => rag)
+vi.mock("@/features/chat/hooks/use-build-context", () => ({
+  useBuildContext: () => ({ buildContext: ctx.buildContext })
+}))
 
 const baseConfig = {
   selectedModel: "llama3",
@@ -24,7 +26,7 @@ describe("useChatTurnController", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     loadStreamStore.setState({ isLoading: false, isStreaming: false })
-    rag.buildRagContext.mockResolvedValue({
+    ctx.buildContext.mockResolvedValue({
       contentWithRAG: "question\n\ncontext",
       ragSources: null,
       pageContextAdded: false,
@@ -77,8 +79,9 @@ describe("useChatTurnController", () => {
       "session-1",
       expect.objectContaining({ role: "user", content: "question" })
     )
-    expect(rag.buildRagContext).toHaveBeenCalledWith(
-      expect.objectContaining({ rawInput: "question" })
+    expect(ctx.buildContext).toHaveBeenCalledWith(
+      expect.objectContaining({ rawInput: "question" }),
+      expect.objectContaining({ onActivityEvent: expect.any(Function) })
     )
     expect(setNextResponseMetrics).toHaveBeenCalled()
     expect(generateResponse).toHaveBeenCalledWith(

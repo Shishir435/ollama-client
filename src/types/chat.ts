@@ -1,4 +1,5 @@
 import type { ToolCall } from "@/lib/tools/types"
+import type { SelectedModelRef } from "@/types/model"
 
 export type Role = "user" | "assistant" | "system" | "tool"
 
@@ -290,6 +291,40 @@ export interface ChatWithModelMessage {
      */
     clientContextPrepared?: boolean
   }
+}
+
+/**
+ * Request to build a turn's RAG/page/memory context in the background.
+ * Sent over the provider stream port; the background streams progress back as
+ * `context_progress` / `context_warning` messages and finishes with a single
+ * `context_result` (or `context_error`). The UI no longer runs retrieval
+ * itself — the background is the sole context owner.
+ */
+export interface BuildContextRequestPayload {
+  requestId: string
+  rawInput: string
+  /** Prior conversation, for query classification / reformulation. */
+  messages: ChatMessage[]
+  hasTabContext: boolean
+  contextText: string
+  tabDocuments: Array<{ id: string; title: string; content: string }>
+  memoryEnabled: boolean
+  maxTabContextChars: number
+  maxRagContextChars: number
+  groundedOnlyMode: boolean
+  selectedModel: string
+  selectedModelRef: SelectedModelRef | null
+  customModel?: string
+  /** Minimal file shape for scope + full-text fallback (structural `ContextFileInput`). */
+  files?: Array<{
+    text: string
+    metadata: { fileName: string; fileId?: string }
+  }>
+}
+
+export interface BuildContextMessage {
+  type: string
+  payload: BuildContextRequestPayload
 }
 
 export interface StreamChunkResult {

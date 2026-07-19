@@ -1,3 +1,4 @@
+import { handleBuildContext } from "@/background/handlers/handle-build-context"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
 import { handleSelectionAction } from "@/background/handlers/handle-selection-action"
@@ -16,6 +17,7 @@ import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import type {
+  BuildContextMessage,
   ChatWithModelMessage,
   ChromeMessage,
   ChromePort,
@@ -107,6 +109,14 @@ export const registerPortRouter = () => {
         currentAbortKey = (msg as ChatWithModelMessage).payload?.requestId
         await handleChatWithModel(
           msg as ChatWithModelMessage,
+          port,
+          getPortStatus
+        )
+      }
+
+      if (msg.type === MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT) {
+        await handleBuildContext(
+          msg as unknown as BuildContextMessage,
           port,
           getPortStatus
         )

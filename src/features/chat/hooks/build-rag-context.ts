@@ -5,7 +5,6 @@ import {
 } from "@/features/chat/rag"
 import { classifyQuery } from "@/features/chat/rag/query-classifier"
 import { STORAGE_KEYS } from "@/lib/constants"
-import type { ProcessedFile } from "@/lib/file-processors/types"
 import {
   DEFAULT_KNOWLEDGE_SET_ID,
   DEFAULT_RAG_PROMPT,
@@ -27,6 +26,17 @@ import type {
 
 export type { RagSource, RagSources, UsedContextChunk }
 
+/**
+ * The minimal file shape context building needs: the scope id and the raw text
+ * used for the full-text fallback. A full `ProcessedFile` satisfies this
+ * structurally, and it is small enough to ship across the extension port when
+ * context building runs in the background.
+ */
+export interface ContextFileInput {
+  text: string
+  metadata: { fileName: string; fileId?: string }
+}
+
 export interface PromptContextStats {
   promptInputLength: number
   promptAugmentedLength: number
@@ -41,7 +51,7 @@ export interface PromptContextStats {
 
 export interface BuildRagContextOptions {
   rawInput: string
-  files?: ProcessedFile[]
+  files?: ContextFileInput[]
   /** Prior conversation messages (used for query classification and reformulation). */
   messages: ChatMessage[]
   /** Currently-selected tabs' built page context, if any. */
@@ -113,7 +123,7 @@ const addUsedContextChunks = (
 }
 
 const resolveFileRagScope = async (
-  files: ProcessedFile[] | undefined,
+  files: ContextFileInput[] | undefined,
   activeKnowledgeSet: KnowledgeSetRecord | undefined
 ) => {
   const explicitFileIds =
@@ -147,7 +157,7 @@ const buildTabFallbackContext = (contextText: string, maxChars: number) => {
   return { clampedFallback, chunk }
 }
 
-const buildFileFullTextFallback = (files: ProcessedFile[]) =>
+const buildFileFullTextFallback = (files: ContextFileInput[]) =>
   files
     .map(
       (file) =>
