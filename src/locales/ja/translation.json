@@ -1402,7 +1402,11 @@
       },
       "item_count": "{{count}} 項目",
       "item_count_plural": "{{count}} 項目",
-      "reset_button": "リセット"
+      "reset_button": "リセット",
+      "failure_notice": {
+        "title": "前回のリセットが完了しませんでした",
+        "description": "前回のリセットは完了前に失敗しました。一部のデータが残っている可能性があります。詳細はコンソールを確認して、もう一度お試しください。"
+      }
     },
     "providers": {
       "default": "デフォルト",

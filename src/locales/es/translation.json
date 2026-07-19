@@ -1402,7 +1402,11 @@
       },
       "item_count": "{{count}} elemento",
       "item_count_plural": "{{count}} elementos",
-      "reset_button": "Restablecer"
+      "reset_button": "Restablecer",
+      "failure_notice": {
+        "title": "El último restablecimiento no terminó",
+        "description": "El restablecimiento anterior falló antes de completarse. Es posible que queden algunos datos. Revisa la consola para más detalles e inténtalo de nuevo."
+      }
     },
     "providers": {
       "default": "Predeterminado",

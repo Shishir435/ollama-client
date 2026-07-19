@@ -25,6 +25,11 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "device-local",
     reason: "One-shot flag to reopen the options page after a self-reload."
   },
+  [STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE]: {
+    key: STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE,
+    scope: "device-local",
+    reason: "One-shot record of a failed scheduled reset, shown once in UI."
+  },
   [STORAGE_KEYS.PROVIDER.SECRETS]: {
     key: STORAGE_KEYS.PROVIDER.SECRETS,
     scope: "device-local",

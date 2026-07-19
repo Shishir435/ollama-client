@@ -1612,7 +1612,11 @@
       },
       "item_count": "{{count}} item",
       "item_count_plural": "{{count}} items",
-      "reset_button": "Reset"
+      "reset_button": "Reset",
+      "failure_notice": {
+        "title": "Last reset did not finish",
+        "description": "The previous reset failed before completing. Some data may remain. Check the console for details and try again."
+      }
     },
     "providers": {
       "default": "Default",

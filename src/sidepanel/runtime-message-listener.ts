@@ -14,11 +14,17 @@ interface SidepanelMessageDependencies {
   flush?: () => Promise<void>
   reload?: () => void
   closeDexie?: () => void
+  reopenDexie?: () => void
 }
 
 const closeDexieHandles = (): void => {
   vectorDb.close()
   knowledgeDb.close()
+}
+
+const reopenDexieHandles = (): void => {
+  void vectorDb.open().catch(() => undefined)
+  void knowledgeDb.open().catch(() => undefined)
 }
 
 export const createSidepanelRuntimeMessageListener = (
@@ -27,6 +33,7 @@ export const createSidepanelRuntimeMessageListener = (
   const flush = dependencies.flush ?? flushSave
   const reload = dependencies.reload ?? (() => window.location.reload())
   const closeDexie = dependencies.closeDexie ?? closeDexieHandles
+  const reopenDexie = dependencies.reopenDexie ?? reopenDexieHandles
 
   // This listener must stay synchronous for messages it does not handle.
   // Declaring the listener `async` returns Promise<undefined> for every runtime
@@ -45,6 +52,16 @@ export const createSidepanelRuntimeMessageListener = (
         closeDexie()
       } catch {
         // best effort — a closed or unopened handle is fine
+      }
+      return Promise.resolve({ success: true } as const)
+    }
+    if (message.type === MESSAGE_KEYS.APP.REOPEN_DEXIE) {
+      // Import finished without a reload (partial failure); restore the
+      // handles this context closed for the import.
+      try {
+        reopenDexie()
+      } catch {
+        // best effort
       }
       return Promise.resolve({ success: true } as const)
     }

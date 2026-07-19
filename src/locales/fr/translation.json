@@ -1402,7 +1402,11 @@
       },
       "item_count": "{{count}} élément",
       "item_count_plural": "{{count}} éléments",
-      "reset_button": "Réinitialiser"
+      "reset_button": "Réinitialiser",
+      "failure_notice": {
+        "title": "La dernière réinitialisation n'a pas abouti",
+        "description": "La réinitialisation précédente a échoué avant de se terminer. Certaines données peuvent subsister. Consultez la console pour plus de détails et réessayez."
+      }
     },
     "providers": {
       "default": "Par défaut",

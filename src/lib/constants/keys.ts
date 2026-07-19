@@ -61,6 +61,9 @@ export const MESSAGE_KEYS = {
     // import can delete/recreate the vector and knowledge databases without
     // blocked-deletion warnings.
     CLOSE_DEXIE: "app-close-dexie",
+    // Counterpart: reopen the handles once the import attempt is over, so a
+    // sidepanel that never reloads (partial import failure) keeps working.
+    REOPEN_DEXIE: "app-reopen-dexie",
     NOTIFY_JOB_COMPLETE: "app-notify-job-complete",
     KEEP_TOOL_LOOP_ALIVE: "app-keep-tool-loop-alive"
   }
@@ -88,7 +91,9 @@ export const STORAGE_KEYS = {
      */
     PENDING_RESET: "app_pending_reset_v1",
     /** Raw chrome.storage.local flag: reopen this options URL after reload. */
-    REOPEN_OPTIONS: "app_reopen_options_v1"
+    REOPEN_OPTIONS: "app_reopen_options_v1",
+    /** Raw chrome.storage.local record of the last failed scheduled reset. */
+    RESET_FAILURE: "app_reset_failure_v1"
   },
   PROVIDER: {
     BASE_URL: "provider-base-url",

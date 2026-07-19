@@ -74,6 +74,22 @@ const requestLiveSqliteFlush = async (): Promise<void> => {
 // delete database" warnings on the extensions page. Ask every context —
 // including this one — to close its handles first; the post-import
 // runtime.reload() reopens everything fresh.
+const reopenDexieConnectionsEverywhere = async (): Promise<void> => {
+  try {
+    await chrome.runtime.sendMessage({ type: MESSAGE_KEYS.APP.REOPEN_DEXIE })
+  } catch (error) {
+    logger.debug("No other context reopened Dexie connections", "Backup", {
+      error
+    })
+  }
+  try {
+    await vectorDb.open()
+    await knowledgeDb.open()
+  } catch (error) {
+    logger.debug("Reopening local Dexie handles failed", "Backup", { error })
+  }
+}
+
 const closeDexieConnectionsEverywhere = async (): Promise<void> => {
   try {
     await chrome.runtime.sendMessage({ type: MESSAGE_KEYS.APP.CLOSE_DEXIE })
@@ -370,6 +386,12 @@ export const backupService = {
           error: e instanceof Error ? e.message : "Unknown error"
         }
       }
+
+      // The reload that follows a successful import reopens everything, but
+      // a partial failure leaves this session running — restore the handles
+      // every context closed for the import so vector/knowledge features
+      // keep working without a reload.
+      await reopenDexieConnectionsEverywhere()
 
       result.skippedStorageKeys = [...new Set(result.skippedStorageKeys)].sort()
       return result

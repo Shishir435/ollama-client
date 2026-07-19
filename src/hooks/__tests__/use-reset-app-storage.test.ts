@@ -61,12 +61,12 @@ describe("useResetAppStorage", () => {
     const { result } = renderHook(() => useResetAppStorage())
     const reset = result.current
 
-    const message = await reset("all")
+    const outcome = await reset("all")
 
     // Destructive resets never run in the page: pages hold IndexedDB
     // handles that block deleteDatabase. The work happens in the fresh
     // background worker after runtime.reload().
-    expect(message).toBe("Resetting...")
+    expect(outcome).toEqual({ ok: true, message: "Resetting..." })
     expect(resetSQLiteDatabase).not.toHaveBeenCalled()
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
       [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: expect.objectContaining({
@@ -148,9 +148,12 @@ describe("useResetAppStorage", () => {
     )
 
     const { result } = renderHook(() => useResetAppStorage())
-    const message = await result.current("PROVIDER")
+    const outcome = await result.current("PROVIDER")
 
-    expect(message).toBe("Failed to reset app data. Check console for details.")
+    expect(outcome.ok).toBe(false)
+    expect(outcome.message).toBe(
+      "Failed to reset app data. Check console for details."
+    )
     expect(removePlasmoStoredValue).not.toHaveBeenCalled()
   })
 

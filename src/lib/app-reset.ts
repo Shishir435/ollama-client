@@ -216,6 +216,19 @@ export const resumePendingAppLifecycle = async (): Promise<void> => {
       )
     } catch (error) {
       logger.error("Scheduled reset failed", "AppReset", { error })
+      // Leave a one-shot record so the reopened options page can tell the
+      // user the reset did not complete instead of silently looking done.
+      try {
+        await chrome.storage.local.set({
+          [STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE]: {
+            key: pending.key,
+            error: error instanceof Error ? error.message : String(error),
+            at: Date.now()
+          }
+        })
+      } catch {
+        // storage unavailable; the log line above is the only trace
+      }
     }
     await reopenOptionsPage(pending.reopenUrl)
     await reopenChatSurface(pending.sidePanelWindowIds ?? [])
@@ -227,3 +240,23 @@ export const resumePendingAppLifecycle = async (): Promise<void> => {
     await reopenChatSurface(reopen.sidePanelWindowIds ?? [])
   }
 }
+
+export interface ResetFailureRecord {
+  key: ResetKey
+  error: string
+  at: number
+}
+
+/** Read and clear the one-shot record of a failed scheduled reset. */
+export const readAndClearResetFailure =
+  async (): Promise<ResetFailureRecord | null> => {
+    const stored = await chrome.storage.local.get(
+      STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE
+    )
+    const record = stored[STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE] as
+      | ResetFailureRecord
+      | undefined
+    if (!record) return null
+    await chrome.storage.local.remove(STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE)
+    return record
+  }

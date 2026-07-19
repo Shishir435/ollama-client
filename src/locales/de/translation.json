@@ -1402,7 +1402,11 @@
       },
       "item_count": "{{count}} Element",
       "item_count_plural": "{{count}} Elemente",
-      "reset_button": "Zurücksetzen"
+      "reset_button": "Zurücksetzen",
+      "failure_notice": {
+        "title": "Letzter Reset nicht abgeschlossen",
+        "description": "Der letzte Reset ist vor dem Abschluss fehlgeschlagen. Einige Daten sind möglicherweise noch vorhanden. Prüfe die Konsole für Details und versuche es erneut."
+      }
     },
     "providers": {
       "default": "Standard",
