@@ -22,6 +22,7 @@ import {
   CircleCheck,
   Globe,
   Library,
+  Loader2,
   type LucideIcon,
   MessageSquare,
   RefreshCcw,
@@ -35,10 +36,19 @@ export const ResetStorage = () => {
   const reset = useResetAppStorage()
   const keysByModule = getAllResetKeys()
   const [open, setOpen] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
 
   const handleResetAll = async () => {
-    await reset("all")
-    setOpen(false)
+    if (isResetting) return
+    setIsResetting(true)
+    try {
+      // Deleting a large chat database takes seconds; the extension reloads
+      // itself when this finishes, so the dialog stays up with a spinner.
+      await reset("all")
+    } finally {
+      setIsResetting(false)
+      setOpen(false)
+    }
   }
 
   const getModuleIcon = (module: string): LucideIcon => {
@@ -130,7 +140,11 @@ export const ResetStorage = () => {
             title={t("settings.reset.danger_zone.title")}
             description={t("settings.reset.danger_zone.description")}
             actions={
-              <Dialog open={open} onOpenChange={setOpen}>
+              <Dialog
+                open={open}
+                onOpenChange={(next) => {
+                  if (!isResetting) setOpen(next)
+                }}>
                 <DialogTrigger
                   render={
                     <Button
@@ -150,10 +164,19 @@ export const ResetStorage = () => {
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter className="flex flex-col gap-4">
-                    <Button variant="destructive" onClick={handleResetAll}>
+                    <Button
+                      variant="destructive"
+                      disabled={isResetting}
+                      onClick={handleResetAll}>
+                      {isResetting && (
+                        <Loader2 className="mr-2 icon-md animate-spin" />
+                      )}
                       {t("settings.reset.dialog.confirm")}
                     </Button>
-                    <Button variant="secondary" onClick={() => setOpen(false)}>
+                    <Button
+                      variant="secondary"
+                      disabled={isResetting}
+                      onClick={() => setOpen(false)}>
                       {t("settings.reset.dialog.cancel")}
                     </Button>
                   </DialogFooter>
@@ -183,9 +206,23 @@ const ModuleResetItem = ({
   reset: (key: string) => Promise<string>
 }) => {
   const { t } = useTranslation()
-  const [resetting, setResetting] = useState(false)
+  const [resetState, setResetState] = useState<"idle" | "working" | "done">(
+    "idle"
+  )
   const ModuleIcon = getModuleIcon(module)
   const focusId = `reset-${module.toLowerCase().replace(/_/g, "-")}`
+
+  const handleReset = async () => {
+    if (resetState === "working") return
+    setResetState("working")
+    try {
+      await reset(module)
+      setResetState("done")
+      setTimeout(() => setResetState("idle"), 1500)
+    } catch {
+      setResetState("idle")
+    }
+  }
 
   return (
     <Card
@@ -211,13 +248,13 @@ const ModuleResetItem = ({
       <Button
         size="sm"
         variant="ghost"
-        onClick={async () => {
-          setResetting(true)
-          await reset(module)
-          setTimeout(() => setResetting(false), 1000)
-        }}>
+        disabled={resetState === "working"}
+        onClick={handleReset}>
         {t("settings.reset.reset_button")}{" "}
-        {resetting ? <CircleCheck className="icon-md" /> : ""}
+        {resetState === "working" && (
+          <Loader2 className="icon-md animate-spin" />
+        )}
+        {resetState === "done" && <CircleCheck className="icon-md" />}
       </Button>
     </Card>
   )

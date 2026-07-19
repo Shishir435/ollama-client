@@ -57,6 +57,10 @@ export const MESSAGE_KEYS = {
   APP: {
     RELOAD: "app-reload",
     FLUSH_SQLITE: "app-flush-sqlite",
+    // Ask other extension contexts to close their Dexie handles so a backup
+    // import can delete/recreate the vector and knowledge databases without
+    // blocked-deletion warnings.
+    CLOSE_DEXIE: "app-close-dexie",
     NOTIFY_JOB_COMPLETE: "app-notify-job-complete",
     KEEP_TOOL_LOOP_ALIVE: "app-keep-tool-loop-alive"
   }
