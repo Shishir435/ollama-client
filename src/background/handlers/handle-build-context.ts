@@ -1,4 +1,5 @@
 import { resolveModelTools } from "@/background/lib/resolve-model-tools"
+import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { safePostMessage } from "@/background/lib/utils"
 import {
   type BuildRagContextResult,
@@ -13,13 +14,6 @@ import type {
   ChromePort,
   PortStatusFunction
 } from "@/types"
-
-/**
- * Tools that let the model retrieve stored file/conversation context itself.
- * When any is offered this turn, the harness defers to the model instead of
- * pre-injecting that context.
- */
-const RETRIEVAL_TOOL_NAMES = new Set(["rag_search", "file_search"])
 
 /**
  * Whether this model+turn will be offered its own retrieval tools. Resolved
@@ -42,9 +36,7 @@ const resolveRetrievalToolsActive = async (
       provider,
       latestUserText
     )
-    return Boolean(
-      resolved?.tools.some((tool) => RETRIEVAL_TOOL_NAMES.has(tool.name))
-    )
+    return hasRetrievalTool(resolved)
   } catch (error) {
     logger.debug(
       "Failed to resolve retrieval tools for context gating; auto-injecting",

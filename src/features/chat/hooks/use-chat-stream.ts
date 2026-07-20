@@ -51,6 +51,10 @@ export const useChatStream = ({
   const portRef = useRef<browser.Runtime.Port | null>(null)
   const currentMessagesRef = useRef<ChatMessage[]>([])
   const currentRequestIdRef = useRef<string | null>(null)
+  // The request id of a turn the user explicitly stopped. Lets the disconnect
+  // handler tell a user-initiated stop (finalize cleanly) from an unexpected
+  // worker/port death (finalize as interrupted, offer retry).
+  const manualStopRequestIdRef = useRef<string | null>(null)
 
   const startStream = ({
     model,
@@ -283,8 +287,20 @@ export const useChatStream = ({
       if (!streamSettled && !state.assistant.done) {
         setIsLoading(false)
         setIsStreaming(false)
-        state = { ...state, assistant: { ...state.assistant, done: true } }
-        renderAssistant(state.assistant)
+        // A user-initiated stop finalizes cleanly. An unexpected disconnect
+        // (worker death) truncated a live answer: flag it interrupted so the
+        // startup sweep's `done=0` scan isn't the only recovery path — the
+        // partial persists with the interrupted note + retry immediately.
+        const userStopped = manualStopRequestIdRef.current === requestId
+        const finalized: ChatMessage = {
+          ...state.assistant,
+          done: true,
+          ...(userStopped
+            ? {}
+            : { metrics: { ...state.assistant.metrics, interrupted: true } })
+        }
+        state = { ...state, assistant: finalized }
+        renderAssistant(finalized)
         if (portRef.current === port) {
           portRef.current = null
           currentRequestIdRef.current = null
@@ -311,6 +327,9 @@ export const useChatStream = ({
 
     try {
       const requestId = currentRequestIdRef.current
+      // Record the stop so the disconnect handler finalizes cleanly rather than
+      // flagging this turn as interrupted.
+      manualStopRequestIdRef.current = requestId
       currentRequestIdRef.current = null
       portRef.current.postMessage({
         type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION,

@@ -647,6 +647,53 @@ describe("useChatStream", () => {
     vi.useRealTimers()
   })
 
+  it("flags an unexpected disconnect as interrupted with the partial preserved", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "Hi" }]
+      })
+    })
+    const streamListener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      streamListener({ delta: "partial answer" })
+      // Worker death mid-stream, not a tool-confirmation reconnect.
+      mockPort.onDisconnect.addListener.mock.calls[0][0]()
+    })
+
+    const lastMessages = (setMessages as any).mock.calls.at(-1)[0]
+    const assistant = lastMessages.at(-1)
+    expect(assistant.done).toBe(true)
+    expect(assistant.content).toBe("partial answer")
+    expect(assistant.metrics?.interrupted).toBe(true)
+  })
+
+  it("finalizes a user stop cleanly, without the interrupted flag", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "Hi" }]
+      })
+    })
+    const streamListener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      streamListener({ delta: "partial answer" })
+      result.current.stopStream()
+      mockPort.onDisconnect.addListener.mock.calls[0][0]()
+    })
+
+    const lastMessages = (setMessages as any).mock.calls.at(-1)[0]
+    const assistant = lastMessages.at(-1)
+    expect(assistant.done).toBe(true)
+    expect(assistant.metrics?.interrupted).toBeUndefined()
+  })
+
   it("should handle stop when port not created", () => {
     const { result } = renderHook(() =>
       useChatStream({

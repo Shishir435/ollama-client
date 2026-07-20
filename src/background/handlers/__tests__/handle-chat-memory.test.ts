@@ -31,7 +31,16 @@ const { mockProvider, mockStreamChat } = vi.hoisted(() => {
   }
 })
 
+const { mockHasRetrievalTool } = vi.hoisted(() => ({
+  mockHasRetrievalTool: vi.fn(() => false)
+}))
+
 // Mock dependencies
+vi.mock("@/background/lib/retrieval-tools", () => ({
+  hasRetrievalTool: () => mockHasRetrievalTool(),
+  RETRIEVAL_TOOL_NAMES: new Set(["rag_search", "file_search"])
+}))
+
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
     get: vi.fn(),
@@ -79,6 +88,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
     mockPort = createMockPort("chat-port")
     mockIsPortClosed = createMockIsPortClosed(false)
     vi.clearAllMocks()
+    mockHasRetrievalTool.mockReturnValue(false)
   })
 
   it("should inject context when memory is enabled", async () => {
@@ -165,6 +175,48 @@ describe("handleChatWithModel - Contextual Memory", () => {
 
     expect(retrieveContextEnhanced).not.toHaveBeenCalled()
 
+    expect(mockStreamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: expect.not.arrayContaining([
+          expect.objectContaining({
+            content: expect.stringContaining(
+              "context from previous conversations"
+            )
+          })
+        ])
+      }),
+      expect.any(Function),
+      expect.any(AbortSignal)
+    )
+  })
+
+  it("should NOT inject memory on a regenerate turn when retrieval tools are active", async () => {
+    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
+    const { retrieveContextEnhanced } = await import(
+      "@/features/chat/rag/rag-pipeline"
+    )
+
+    // Memory enabled, regenerate path (clientContextPrepared unset), but the
+    // model has rag_search/file_search this turn — it pulls memory itself, so
+    // the background must not also inject it into the system prompt.
+    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+      if (key === STORAGE_KEYS.MEMORY.ENABLED) return true
+      return undefined
+    })
+    mockHasRetrievalTool.mockReturnValue(true)
+
+    const message: ChatWithModelMessage = {
+      type: "CHAT_WITH_MODEL",
+      payload: {
+        model: "llama3:latest",
+        messages: [{ role: "user", content: "What do I like?" }],
+        sessionId: "session-123"
+      }
+    }
+
+    await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+    expect(retrieveContextEnhanced).not.toHaveBeenCalled()
     expect(mockStreamChat).toHaveBeenCalledWith(
       expect.objectContaining({
         messages: expect.not.arrayContaining([

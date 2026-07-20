@@ -741,6 +741,49 @@ describe("conversation-memory recall (file-independent)", () => {
     )
     expect(mockedRetrieveEnhanced).not.toHaveBeenCalled()
   })
+
+  it("keeps file + memory context within one shared RAG budget", async () => {
+    ragsetOn()
+    mockedGetKnowledgeSetFileIds.mockResolvedValue(["f1"])
+    // File retrieval fills the entire budget.
+    mockedRetrieve.mockResolvedValue({
+      documents: [{ id: 1 }],
+      formattedContext: "F".repeat(500),
+      sources: [
+        { id: 1, title: "File", content: "F", score: 0.9, source: "file" }
+      ]
+    } as never)
+    // Memory would add another full budget's worth if unclamped.
+    mockedRetrieveEnhanced.mockResolvedValue([
+      { document: { id: 2, content: "M", metadata: {} }, score: 0.8 }
+    ] as never)
+    mockedFormatEnhanced.mockReturnValue({
+      documents: [{ id: 2 }],
+      formattedContext: "M".repeat(500),
+      sources: [
+        { id: 2, title: "Memory", content: "M", score: 0.8, type: "memory" }
+      ]
+    } as never)
+
+    const result = await buildRagContext(
+      defaults({
+        rawInput: "who is shishir?",
+        files: [
+          {
+            text: "doc",
+            metadata: { fileName: "a.txt", fileId: "f1" }
+          } as never
+        ],
+        memoryEnabled: true,
+        maxRagContextChars: 500
+      })
+    )
+
+    // File retrieval consumed the whole 500-char budget, so memory adds nothing
+    // more — combined stored-context length must not exceed the single budget.
+    expect(result.promptContextStats.ragContextLength).toBeLessThanOrEqual(500)
+    expect(result.contentWithRAG).not.toContain("M".repeat(10))
+  })
 })
 
 describe("retrieval-tool gating", () => {

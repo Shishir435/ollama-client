@@ -242,6 +242,14 @@ export const buildRagContext = async (
   let tabContextLength = 0
   let ragContextLength = 0
   let tabContextTruncated = false
+
+  // Stored file context and conversation-memory context share ONE budget: the
+  // configured RAG cap is the ceiling for their combined length, not a per-step
+  // limit. Otherwise a turn with both could inject nearly twice the budget and
+  // crowd out recent messages / the answer. `<= 0` means unlimited.
+  const ragBudget =
+    maxRagContextChars > 0 ? maxRagContextChars : Number.POSITIVE_INFINITY
+  const remainingRagBudget = () => Math.max(0, ragBudget - ragContextLength)
   const usedContextChunks: UsedContextChunk[] = []
   const activityEvents: ActivityEvent[] = []
   let ragSources: RagSources | null = null
@@ -483,7 +491,7 @@ export const buildRagContext = async (
               })
               const clamped = clampContext(
                 context.formattedContext,
-                maxRagContextChars
+                remainingRagBudget()
               )
               ragSources = mergeRagSources(
                 ragSources,
@@ -529,10 +537,13 @@ export const buildRagContext = async (
               type: "chat",
               topK: 4
             })
-            if (memoryResults.length > 0) {
+            // Memory shares the RAG budget with file context above; only append
+            // what fits in the remainder so the two together stay within cap.
+            const memoryBudget = remainingRagBudget()
+            if (memoryResults.length > 0 && memoryBudget > 0) {
               const { formattedContext, sources } =
                 formatEnhancedResults(memoryResults)
-              const clamped = clampContext(formattedContext, maxRagContextChars)
+              const clamped = clampContext(formattedContext, memoryBudget)
               contentWithRAG = appendRagContext(contentWithRAG, clamped.text)
               ragContextLength += clamped.text.length
               ragSources = mergeRagSources(ragSources, sources, queryForRag)

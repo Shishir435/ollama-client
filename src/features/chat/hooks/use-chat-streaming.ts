@@ -1,9 +1,16 @@
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
 
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChatStream } from "@/features/chat/hooks/use-chat-stream"
+import {
+  beatStreamingHeartbeat,
+  clearStreamingHeartbeat
+} from "@/features/chat/lib/streaming-heartbeat"
 import { logger } from "@/lib/logger"
 import type { ChatMessage } from "@/types"
+
+/** Throttle heartbeat writes to shared storage while streaming. */
+const HEARTBEAT_INTERVAL_MS = 3000
 
 interface ChatStreamingOptions {
   currentSessionId: string | null
@@ -32,8 +39,20 @@ export const useChatStreaming = ({
 }: ChatStreamingOptions) => {
   const currentStreamingMessageIdRef = useRef<number | null>(null)
   const dbUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastHeartbeatRef = useRef(0)
 
   const { embedMessages } = useAutoEmbedMessages()
+
+  // Clear the cross-panel streaming heartbeat when this panel unloads, so a
+  // reload recovers interrupted turns immediately instead of waiting for the
+  // stale timeout. A crash (no pagehide) still ages out via the timestamp.
+  useEffect(() => {
+    const onPageHide = () => {
+      void clearStreamingHeartbeat()
+    }
+    window.addEventListener("pagehide", onPageHide)
+    return () => window.removeEventListener("pagehide", onPageHide)
+  }, [])
 
   const debouncedDbUpdate = (
     id: number,
@@ -74,6 +93,13 @@ export const useChatStreaming = ({
       )
 
       if (!streamedMsg.done) {
+        // Refresh the cross-panel liveness signal (throttled) so another
+        // panel's interrupted-turn sweep won't treat this live turn as orphaned.
+        const now = Date.now()
+        if (now - lastHeartbeatRef.current > HEARTBEAT_INTERVAL_MS) {
+          lastHeartbeatRef.current = now
+          void beatStreamingHeartbeat()
+        }
         debouncedDbUpdate(
           currentStreamingMessageIdRef.current,
           streamedMsg.content,
@@ -83,6 +109,8 @@ export const useChatStreaming = ({
       }
 
       // Final chunk: flush DB immediately and trigger background embedding.
+      lastHeartbeatRef.current = 0
+      void clearStreamingHeartbeat()
       if (dbUpdateTimeoutRef.current) {
         clearTimeout(dbUpdateTimeoutRef.current)
       }
@@ -108,5 +136,17 @@ export const useChatStreaming = ({
     setIsStreaming
   })
 
-  return { startStream, stopStream, currentStreamingMessageIdRef }
+  // Clear the heartbeat on an explicit stop; the underlying stream tears down
+  // without a `done:true` chunk, so the debounced clear above may not fire.
+  const stopStreamWithHeartbeat = () => {
+    lastHeartbeatRef.current = 0
+    void clearStreamingHeartbeat()
+    stopStream()
+  }
+
+  return {
+    startStream,
+    stopStream: stopStreamWithHeartbeat,
+    currentStreamingMessageIdRef
+  }
 }
