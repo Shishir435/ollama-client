@@ -5,18 +5,14 @@ import { useInterruptedTurnRecovery } from "../use-interrupted-turn-recovery"
 
 const finalizeInterruptedMessages = vi.fn()
 const loadSessionMessages = vi.fn()
-const isStreamingActiveElsewhere = vi.fn()
 let storeState: {
   currentSessionId: string | null
   loadSessionMessages: typeof loadSessionMessages
 }
 
 vi.mock("@/lib/repositories/chat-history", () => ({
-  finalizeInterruptedMessages: () => finalizeInterruptedMessages()
-}))
-
-vi.mock("@/features/chat/lib/streaming-heartbeat", () => ({
-  isStreamingActiveElsewhere: () => isStreamingActiveElsewhere()
+  finalizeInterruptedMessages: (staleMs?: number) =>
+    finalizeInterruptedMessages(staleMs)
 }))
 
 vi.mock("@/features/sessions/stores/chat-session-store", () => ({
@@ -27,8 +23,6 @@ describe("useInterruptedTurnRecovery", () => {
   beforeEach(() => {
     finalizeInterruptedMessages.mockReset()
     loadSessionMessages.mockReset()
-    isStreamingActiveElsewhere.mockReset()
-    isStreamingActiveElsewhere.mockResolvedValue(false)
     storeState = { currentSessionId: "s1", loadSessionMessages }
   })
 
@@ -36,6 +30,17 @@ describe("useInterruptedTurnRecovery", () => {
     finalizeInterruptedMessages.mockResolvedValue(2)
     renderHook(() => useInterruptedTurnRecovery())
     await waitFor(() => expect(loadSessionMessages).toHaveBeenCalledWith("s1"))
+  })
+
+  it("finalizes with a staleness window so live turns are never selected", async () => {
+    finalizeInterruptedMessages.mockResolvedValue(0)
+    renderHook(() => useInterruptedTurnRecovery())
+    await waitFor(() =>
+      expect(finalizeInterruptedMessages).toHaveBeenCalledWith(
+        expect.any(Number)
+      )
+    )
+    expect(finalizeInterruptedMessages.mock.calls[0][0]).toBeGreaterThan(0)
   })
 
   it("skips the reload when nothing was finalized", async () => {
@@ -51,20 +56,7 @@ describe("useInterruptedTurnRecovery", () => {
     finalizeInterruptedMessages.mockResolvedValue(3)
     storeState = { currentSessionId: null, loadSessionMessages }
     renderHook(() => useInterruptedTurnRecovery())
-    await waitFor(() =>
-      expect(finalizeInterruptedMessages).toHaveBeenCalledTimes(1)
-    )
-    expect(loadSessionMessages).not.toHaveBeenCalled()
-  })
-
-  it("defers the sweep while a stream is active in another panel", async () => {
-    isStreamingActiveElsewhere.mockResolvedValue(true)
-    finalizeInterruptedMessages.mockResolvedValue(1)
-    renderHook(() => useInterruptedTurnRecovery())
-    await waitFor(() =>
-      expect(isStreamingActiveElsewhere).toHaveBeenCalledTimes(1)
-    )
-    expect(finalizeInterruptedMessages).not.toHaveBeenCalled()
+    await waitFor(() => expect(finalizeInterruptedMessages).toHaveBeenCalled())
     expect(loadSessionMessages).not.toHaveBeenCalled()
   })
 })

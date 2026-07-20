@@ -467,7 +467,9 @@ describe("messages", () => {
       1,
       null,
       null,
-      null
+      null,
+      // updatedAt seeded to the creation timestamp
+      100
     ])
   })
 
@@ -541,8 +543,10 @@ describe("messages", () => {
     mockedRun.mockResolvedValueOnce(undefined)
     await repo.updateMessage(5, { metrics: { eval_count: 1 }, done: false })
     const [sql, params] = mockedRun.mock.calls[0]
-    expect(sql).toBe("UPDATE messages SET done = ?, metrics = ? WHERE id = ?")
-    expect(params).toEqual([0, '{"eval_count":1}', 5])
+    expect(sql).toBe(
+      "UPDATE messages SET done = ?, metrics = ?, updatedAt = ? WHERE id = ?"
+    )
+    expect(params).toEqual([0, '{"eval_count":1}', expect.any(Number), 5])
   })
 
   it("updateMessage serializes provider replay state separately", async () => {
@@ -557,7 +561,9 @@ describe("messages", () => {
       }
     })
     const [sql, params] = mockedRun.mock.calls[0]
-    expect(sql).toBe("UPDATE messages SET replayArtifact = ? WHERE id = ?")
+    expect(sql).toBe(
+      "UPDATE messages SET replayArtifact = ?, updatedAt = ? WHERE id = ?"
+    )
     expect(JSON.parse(String(params?.[0]))).toMatchObject({
       providerId: "openrouter",
       blocks: [{ type: "reasoning.encrypted", data: "opaque" }]
@@ -588,6 +594,18 @@ describe("messages", () => {
     const fixed = await repo.finalizeInterruptedMessages()
     expect(fixed).toBe(0)
     expect(mockedRun).not.toHaveBeenCalled()
+  })
+
+  it("finalizeInterruptedMessages only selects done=0 rows stale past the window", async () => {
+    mockedQuery.mockResolvedValueOnce([])
+    const before = Date.now()
+    await repo.finalizeInterruptedMessages(20_000)
+    const [sql, params] = mockedQuery.mock.calls[0]
+    expect(sql).toContain("done = 0")
+    expect(sql).toContain("updatedAt IS NULL OR updatedAt <")
+    // Cutoff = now - staleMs, so a live turn touched within 20s is excluded.
+    const cutoff = params?.[0] as number
+    expect(cutoff).toBeLessThanOrEqual(before - 20_000)
   })
 
   it("finalizeInterruptedMessages marks orphans done and merges interrupted into metrics", async () => {

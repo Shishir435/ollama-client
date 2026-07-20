@@ -415,21 +415,25 @@ export const getRootMessagesForSession = async (
 export const addMessage = async (
   message: Omit<StoredMessage, "id">
 ): Promise<number> => {
+  const timestamp = message.timestamp ?? Date.now()
   const { lastInsertRowid } = await runWithMeta(
     `INSERT INTO messages
-     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       message.sessionId,
       message.role,
       message.content,
       message.model ?? null,
-      message.timestamp ?? Date.now(),
+      timestamp,
       typeof message.parentId === "number" ? message.parentId : null,
       message.done === false ? 0 : 1,
       message.metrics ? JSON.stringify(message.metrics) : null,
       message.thinking ?? null,
-      serializeReplayArtifact(message.replayArtifact)
+      serializeReplayArtifact(message.replayArtifact),
+      // Seed last-touched at creation so a shell that dies before its first
+      // streaming write still ages into "stale" for the interrupted sweep.
+      timestamp
     ]
   )
   return lastInsertRowid
@@ -522,6 +526,12 @@ export const updateMessage = async (
 
   if (fields.length === 0) return 0
 
+  // Stamp last-touched on every write. Streaming partial-content writes land
+  // here ~1s apart, keeping a live turn's row fresh so the interrupted sweep
+  // (which finalizes only stale rows) never mistakes it for an orphan.
+  fields.push("updatedAt = ?")
+  values.push(Date.now())
+
   values.push(id)
   await run(`UPDATE messages SET ${fields.join(", ")} WHERE id = ?`, values)
   return 1
@@ -530,13 +540,25 @@ export const updateMessage = async (
 /**
  * Finalize assistant turns left in-flight (`done=0`) by a worker/sidepanel
  * death mid-stream. Marks each done and flags `metrics.interrupted` so the UI
- * can surface the partial answer as interrupted and offer a retry. Idempotent
- * and safe to run once at startup: at that point nothing is streaming, so the
- * only `done=0` assistant rows are genuine orphans. Returns the count fixed.
+ * can surface the partial answer as interrupted and offer a retry.
+ *
+ * Ownership is enforced inside the query by staleness: a row is finalized only
+ * if it has not been written within `staleMs`. Streaming partial-content writes
+ * bump `updatedAt` ~every second, so a turn that is actively streaming in ANY
+ * window is never selected here — this is atomic with the finalize, so a stream
+ * starting concurrently cannot be clobbered (its row is fresh). A `NULL`
+ * `updatedAt` (rows predating the column) is treated as stale. Returns the
+ * count fixed.
  */
-export const finalizeInterruptedMessages = async (): Promise<number> => {
+export const finalizeInterruptedMessages = async (
+  staleMs = 20_000
+): Promise<number> => {
+  const cutoff = Date.now() - staleMs
   const rows = await query(
-    "SELECT id, metrics FROM messages WHERE role = 'assistant' AND done = 0"
+    `SELECT id, metrics FROM messages
+     WHERE role = 'assistant' AND done = 0
+       AND (updatedAt IS NULL OR updatedAt < ?)`,
+    [cutoff]
   )
   if (rows.length === 0) return 0
 
