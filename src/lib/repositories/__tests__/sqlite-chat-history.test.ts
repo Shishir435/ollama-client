@@ -603,6 +603,10 @@ describe("messages", () => {
     const [sql, params] = mockedQuery.mock.calls[0]
     expect(sql).toContain("done = 0")
     expect(sql).toContain("updatedAt IS NULL OR updatedAt <")
+    // Turns whose session has a live tool-loop checkpoint are excluded, so a
+    // long tool-approval wait isn't finalized as interrupted.
+    expect(sql).toContain("sessionId NOT IN")
+    expect(sql).toContain("FROM tool_loop_runs")
     // Cutoff = now - staleMs, so a live turn touched within 20s is excluded.
     const cutoff = params?.[0] as number
     expect(cutoff).toBeLessThanOrEqual(before - 20_000)

@@ -671,7 +671,10 @@ describe("useChatStream", () => {
     expect(assistant.metrics?.interrupted).toBe(true)
   })
 
-  it("finalizes a user stop cleanly, without the interrupted flag", () => {
+  it("persists a clean done:true on a user stop, without the interrupted flag", () => {
+    // A user stop calls port.disconnect() ourselves, which does NOT fire our
+    // own onDisconnect — so stopStream itself must render the clean completion
+    // (no manual disconnect invoked here, mirroring real browser behavior).
     const { result } = renderHook(() =>
       useChatStream({ setMessages, setIsLoading, setIsStreaming })
     )
@@ -685,12 +688,12 @@ describe("useChatStream", () => {
     act(() => {
       streamListener({ delta: "partial answer" })
       result.current.stopStream()
-      mockPort.onDisconnect.addListener.mock.calls[0][0]()
     })
 
     const lastMessages = (setMessages as any).mock.calls.at(-1)[0]
     const assistant = lastMessages.at(-1)
     expect(assistant.done).toBe(true)
+    expect(assistant.content).toBe("partial answer")
     expect(assistant.metrics?.interrupted).toBeUndefined()
   })
 

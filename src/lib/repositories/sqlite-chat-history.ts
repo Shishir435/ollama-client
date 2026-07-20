@@ -542,13 +542,19 @@ export const updateMessage = async (
  * death mid-stream. Marks each done and flags `metrics.interrupted` so the UI
  * can surface the partial answer as interrupted and offer a retry.
  *
- * Ownership is enforced inside the query by staleness: a row is finalized only
- * if it has not been written within `staleMs`. Streaming partial-content writes
- * bump `updatedAt` ~every second, so a turn that is actively streaming in ANY
- * window is never selected here — this is atomic with the finalize, so a stream
- * starting concurrently cannot be clobbered (its row is fresh). A `NULL`
- * `updatedAt` (rows predating the column) is treated as stale. Returns the
- * count fixed.
+ * Ownership is enforced inside the query, so there is no separate liveness
+ * check to race:
+ *   - Staleness: a row is finalized only if it has not been written within
+ *     `staleMs`. Streaming partial-content writes bump `updatedAt` ~every
+ *     second, so a turn actively streaming in ANY window is never selected. A
+ *     `NULL` `updatedAt` (rows predating the column) is treated as stale.
+ *   - Tool-loop ownership: a turn awaiting tool approval can legitimately go
+ *     minutes without a message write while its durable `tool_loop_runs`
+ *     checkpoint is live. Excluding sessions that have any checkpoint row
+ *     keeps those live waits from being finalized (rows are deleted on
+ *     completion and pruned when abandoned).
+ *
+ * Returns the count fixed.
  */
 export const finalizeInterruptedMessages = async (
   staleMs = 20_000
@@ -557,7 +563,10 @@ export const finalizeInterruptedMessages = async (
   const rows = await query(
     `SELECT id, metrics FROM messages
      WHERE role = 'assistant' AND done = 0
-       AND (updatedAt IS NULL OR updatedAt < ?)`,
+       AND (updatedAt IS NULL OR updatedAt < ?)
+       AND sessionId NOT IN (
+         SELECT sessionId FROM tool_loop_runs WHERE sessionId IS NOT NULL
+       )`,
     [cutoff]
   )
   if (rows.length === 0) return 0

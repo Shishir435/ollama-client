@@ -55,6 +55,12 @@ export const useChatStream = ({
   // handler tell a user-initiated stop (finalize cleanly) from an unexpected
   // worker/port death (finalize as interrupted, offer retry).
   const manualStopRequestIdRef = useRef<string | null>(null)
+  // Finalizes the active turn's assistant message as a clean `done:true` and
+  // persists it (via the render → persistence bridge). Set by the active
+  // stream; invoked by `stopStream`, because calling `port.disconnect()`
+  // ourselves does NOT fire our own `onDisconnect`, so the disconnect fallback
+  // never runs on a manual stop and the row would otherwise stay `done=0`.
+  const finalizeCleanRef = useRef<(() => void) | null>(null)
 
   const startStream = ({
     model,
@@ -102,6 +108,14 @@ export const useChatStream = ({
       setMessages(updated)
     }
 
+    // Persist a clean completion for the current partial answer. Used by a
+    // user stop, where no terminal stream event arrives to flip `done`.
+    finalizeCleanRef.current = () => {
+      if (streamSettled || state.assistant.done) return
+      state = { ...state, assistant: { ...state.assistant, done: true } }
+      renderAssistant(state.assistant)
+    }
+
     const requestPayload = {
       model,
       providerId,
@@ -113,6 +127,7 @@ export const useChatStream = ({
 
     const cleanupPort = () => {
       streamSettled = true
+      finalizeCleanRef.current = null
       port.onMessage.removeListener(listener)
       port.onDisconnect.removeListener(handleDisconnect)
       port.disconnect()
@@ -327,9 +342,14 @@ export const useChatStream = ({
 
     try {
       const requestId = currentRequestIdRef.current
-      // Record the stop so the disconnect handler finalizes cleanly rather than
+      // Record the stop so a racing disconnect finalizes cleanly rather than
       // flagging this turn as interrupted.
       manualStopRequestIdRef.current = requestId
+      // Persist the partial answer as a clean completion now. `disconnect()`
+      // below won't fire our own `onDisconnect`, so this is the only place the
+      // stopped turn gets its `done:true` written — otherwise the recovery
+      // sweep would later mark this clean stop as interrupted.
+      finalizeCleanRef.current?.()
       currentRequestIdRef.current = null
       portRef.current.postMessage({
         type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION,
