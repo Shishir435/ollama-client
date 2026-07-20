@@ -15,6 +15,11 @@ vi.mock("@/features/chat/rag/query-classifier", () => ({
   classifyQuery: vi.fn()
 }))
 
+vi.mock("@/features/chat/rag/rag-pipeline", () => ({
+  retrieveContextEnhanced: vi.fn(),
+  formatEnhancedResults: vi.fn()
+}))
+
 vi.mock("@/lib/knowledge/knowledge-sets", () => ({
   DEFAULT_KNOWLEDGE_SET_ID: "default",
   DEFAULT_RAG_PROMPT: "Use context. If absent, say you don't know.",
@@ -45,6 +50,10 @@ import {
 } from "@/features/chat/rag"
 import { classifyQuery } from "@/features/chat/rag/query-classifier"
 import {
+  formatEnhancedResults,
+  retrieveContextEnhanced
+} from "@/features/chat/rag/rag-pipeline"
+import {
   getActiveKnowledgeSet,
   getKnowledgeSetFileIds
 } from "@/lib/knowledge/knowledge-sets"
@@ -65,6 +74,8 @@ const mockedGetActiveKnowledgeSet = vi.mocked(getActiveKnowledgeSet)
 const mockedGetKnowledgeSetFileIds = vi.mocked(getKnowledgeSetFileIds)
 const mockedStorageGet = vi.mocked(plasmoGlobalStorage.get)
 const mockedGetProvider = vi.mocked(ProviderFactory.getProviderForModel)
+const mockedRetrieveEnhanced = vi.mocked(retrieveContextEnhanced)
+const mockedFormatEnhanced = vi.mocked(formatEnhancedResults)
 
 const toastSpy = vi.fn()
 
@@ -114,6 +125,13 @@ beforeEach(() => {
     sources: []
   } as never)
   mockedReformulate.mockResolvedValue("")
+  // Default: no memory recall unless a test opts in.
+  mockedRetrieveEnhanced.mockResolvedValue([] as never)
+  mockedFormatEnhanced.mockReturnValue({
+    documents: [],
+    formattedContext: "",
+    sources: []
+  } as never)
 })
 
 describe("RAG off (storage USE_RAG=false)", () => {
@@ -659,5 +677,157 @@ describe("query reformulation provider call", () => {
     )
     // The reformulated value ("pong") should be the query sent to retrieve.
     expect(mockedRetrieve.mock.calls[0]?.[0]).toBe("pong")
+  })
+})
+
+describe("conversation-memory recall (file-independent)", () => {
+  it("recalls chat memory even with no files selected", async () => {
+    ragsetOn()
+    mockedRetrieveEnhanced.mockResolvedValue([
+      {
+        document: { id: 1, content: "Shishir is the maintainer", metadata: {} },
+        score: 0.4,
+        isMemory: true
+      }
+    ] as never)
+    mockedFormatEnhanced.mockReturnValue({
+      documents: [{ id: 1 }],
+      formattedContext: "<memory>Shishir is the maintainer</memory>",
+      sources: [
+        {
+          id: 1,
+          title: "Previous Conversation",
+          content: "Shishir is the maintainer",
+          score: 0.4,
+          type: "memory",
+          isMemory: true
+        }
+      ]
+    } as never)
+
+    const result = await buildRagContext(
+      defaults({
+        rawInput: "based on our past conversation who is shishir chaurasiya?",
+        files: undefined,
+        memoryEnabled: true
+      })
+    )
+
+    // Memory is searched with the chat scope, independent of any file scope.
+    expect(mockedRetrieveEnhanced).toHaveBeenCalledWith(
+      expect.stringContaining("shishir"),
+      expect.objectContaining({ type: "chat" })
+    )
+    // File retrieval is skipped (no files) but memory is still injected.
+    expect(mockedRetrieve).not.toHaveBeenCalled()
+    expect(result.contentWithRAG).toContain("Shishir is the maintainer")
+    expect(result.ragSources?.sources).toHaveLength(1)
+  })
+
+  it("does not recall memory when memory is disabled", async () => {
+    ragsetOn()
+    await buildRagContext(defaults({ memoryEnabled: false, files: undefined }))
+    expect(mockedRetrieveEnhanced).not.toHaveBeenCalled()
+  })
+
+  it("does not recall memory in grounded-only mode", async () => {
+    ragsetOn()
+    await buildRagContext(
+      defaults({
+        groundedOnlyMode: true,
+        memoryEnabled: true,
+        files: undefined
+      })
+    )
+    expect(mockedRetrieveEnhanced).not.toHaveBeenCalled()
+  })
+
+  it("keeps file + memory context within one shared RAG budget", async () => {
+    ragsetOn()
+    mockedGetKnowledgeSetFileIds.mockResolvedValue(["f1"])
+    // File retrieval fills the entire budget.
+    mockedRetrieve.mockResolvedValue({
+      documents: [{ id: 1 }],
+      formattedContext: "F".repeat(500),
+      sources: [
+        { id: 1, title: "File", content: "F", score: 0.9, source: "file" }
+      ]
+    } as never)
+    // Memory would add another full budget's worth if unclamped.
+    mockedRetrieveEnhanced.mockResolvedValue([
+      { document: { id: 2, content: "M", metadata: {} }, score: 0.8 }
+    ] as never)
+    mockedFormatEnhanced.mockReturnValue({
+      documents: [{ id: 2 }],
+      formattedContext: "M".repeat(500),
+      sources: [
+        { id: 2, title: "Memory", content: "M", score: 0.8, type: "memory" }
+      ]
+    } as never)
+
+    const result = await buildRagContext(
+      defaults({
+        rawInput: "who is shishir?",
+        files: [
+          {
+            text: "doc",
+            metadata: { fileName: "a.txt", fileId: "f1" }
+          } as never
+        ],
+        memoryEnabled: true,
+        maxRagContextChars: 500
+      })
+    )
+
+    // File retrieval consumed the whole 500-char budget, so memory adds nothing
+    // more — combined stored-context length must not exceed the single budget.
+    expect(result.promptContextStats.ragContextLength).toBeLessThanOrEqual(500)
+    expect(result.contentWithRAG).not.toContain("M".repeat(10))
+  })
+})
+
+describe("retrieval-tool gating", () => {
+  it("skips file and memory auto-injection when the model has retrieval tools", async () => {
+    ragsetOn()
+    mockedGetKnowledgeSetFileIds.mockResolvedValue(["f1"])
+
+    await buildRagContext(
+      defaults({
+        rawInput: "who is shishir?",
+        files: [
+          {
+            text: "doc",
+            metadata: { fileName: "a.txt", fileId: "f1" }
+          } as never
+        ],
+        memoryEnabled: true,
+        retrievalToolsActive: true
+      })
+    )
+
+    // The model pulls these itself via rag_search / file_search — no pre-inject.
+    expect(mockedRetrieve).not.toHaveBeenCalled()
+    expect(mockedRetrieveEnhanced).not.toHaveBeenCalled()
+  })
+
+  it("still injects explicitly-selected page context when tools are active", async () => {
+    ragsetOn()
+    mockedRetrieveFromSources.mockResolvedValue({
+      documents: [{ id: "t1" }],
+      formattedContext: "PAGE CONTENT",
+      sources: [{ id: "t1", title: "Tab", content: "PAGE CONTENT", score: 0.9 }]
+    } as never)
+
+    const result = await buildRagContext(
+      defaults({
+        rawInput: "summarize this page",
+        hasTabContext: true,
+        tabDocuments: [{ id: "t1", title: "Tab", content: "PAGE CONTENT" }],
+        retrievalToolsActive: true
+      })
+    )
+
+    expect(mockedRetrieveFromSources).toHaveBeenCalled()
+    expect(result.contentWithRAG).toContain("PAGE CONTENT")
   })
 })

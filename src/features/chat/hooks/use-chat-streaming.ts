@@ -1,9 +1,17 @@
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
 
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChatStream } from "@/features/chat/hooks/use-chat-stream"
 import { logger } from "@/lib/logger"
+import { touchMessageActivity } from "@/lib/repositories/chat-history"
 import type { ChatMessage } from "@/types"
+
+/**
+ * Cadence of the per-turn liveness beat. Must be comfortably below the
+ * interrupted sweep's staleness window (20s) with margin for a missed beat, so
+ * a live-but-quiet stream (slow/paused provider) is never finalized.
+ */
+const LIVENESS_BEAT_MS = 8000
 
 interface ChatStreamingOptions {
   currentSessionId: string | null
@@ -32,8 +40,41 @@ export const useChatStreaming = ({
 }: ChatStreamingOptions) => {
   const currentStreamingMessageIdRef = useRef<number | null>(null)
   const dbUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const livenessIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const { embedMessages } = useAutoEmbedMessages()
+
+  const stopLivenessBeat = () => {
+    if (livenessIntervalRef.current) {
+      clearInterval(livenessIntervalRef.current)
+      livenessIntervalRef.current = null
+    }
+  }
+
+  // Keep the streaming row's `updatedAt` fresh on a timer, independent of token
+  // arrival, so the interrupted sweep sees a live-but-quiet turn (slow first
+  // token, long gaps) as active rather than orphaned. Stops when the turn ends,
+  // is stopped, or the panel unmounts — a crash simply lets the beat lapse and
+  // the row ages into "orphaned" as intended.
+  const startLivenessBeat = (id: number) => {
+    if (livenessIntervalRef.current) return
+    livenessIntervalRef.current = setInterval(() => {
+      touchMessageActivity(id).catch((error) => {
+        logger.debug("Liveness beat failed", "useChatStreaming", { error })
+      })
+    }, LIVENESS_BEAT_MS)
+  }
+
+  // Stop the beat if the panel unmounts mid-stream (uses only the stable ref).
+  useEffect(
+    () => () => {
+      if (livenessIntervalRef.current) {
+        clearInterval(livenessIntervalRef.current)
+        livenessIntervalRef.current = null
+      }
+    },
+    []
+  )
 
   const debouncedDbUpdate = (
     id: number,
@@ -48,7 +89,7 @@ export const useChatStreaming = ({
     }, 1000)
   }
 
-  const { startStream, stopStream } = useChatStream({
+  const { startStream, stopStream: baseStopStream } = useChatStream({
     setMessages: async (newMessages) => {
       if (!currentStreamingMessageIdRef.current || newMessages.length === 0) {
         return
@@ -74,6 +115,8 @@ export const useChatStreaming = ({
       )
 
       if (!streamedMsg.done) {
+        // Ensure the token-independent liveness beat is running for this turn.
+        startLivenessBeat(currentStreamingMessageIdRef.current)
         debouncedDbUpdate(
           currentStreamingMessageIdRef.current,
           streamedMsg.content,
@@ -82,7 +125,8 @@ export const useChatStreaming = ({
         return
       }
 
-      // Final chunk: flush DB immediately and trigger background embedding.
+      // Final chunk: stop the liveness beat, flush DB immediately, embed.
+      stopLivenessBeat()
       if (dbUpdateTimeoutRef.current) {
         clearTimeout(dbUpdateTimeoutRef.current)
       }
@@ -107,6 +151,11 @@ export const useChatStreaming = ({
     setIsLoading,
     setIsStreaming
   })
+
+  const stopStream = () => {
+    stopLivenessBeat()
+    baseStopStream()
+  }
 
   return { startStream, stopStream, currentStreamingMessageIdRef }
 }

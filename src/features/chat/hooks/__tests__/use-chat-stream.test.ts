@@ -131,6 +131,36 @@ describe("useChatStream", () => {
     expect(setMessages).toHaveBeenCalledTimes(3) // Initial + 2 chunks
   })
 
+  it("drops duplicate and out-of-order sequenced chunks", () => {
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming
+      })
+    )
+
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
+    })
+
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+    ;(setMessages as ReturnType<typeof vi.fn>).mockClear()
+
+    act(() => {
+      listener({ seq: 0, delta: "Hello" })
+      listener({ seq: 1, delta: " world" })
+      listener({ seq: 1, delta: " DUP" }) // duplicate seq — dropped
+      listener({ seq: 0, delta: " STALE" }) // out-of-order — dropped
+    })
+
+    // Only the two in-order chunks were applied.
+    expect(setMessages).toHaveBeenCalledTimes(2)
+  })
+
   it("accepts raw provider thinking chunks if normalization is bypassed", () => {
     const { result } = renderHook(() =>
       useChatStream({
@@ -615,6 +645,56 @@ describe("useChatStream", () => {
     })
     expect(setIsLoading).not.toHaveBeenLastCalledWith(false)
     vi.useRealTimers()
+  })
+
+  it("flags an unexpected disconnect as interrupted with the partial preserved", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "Hi" }]
+      })
+    })
+    const streamListener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      streamListener({ delta: "partial answer" })
+      // Worker death mid-stream, not a tool-confirmation reconnect.
+      mockPort.onDisconnect.addListener.mock.calls[0][0]()
+    })
+
+    const lastMessages = (setMessages as any).mock.calls.at(-1)[0]
+    const assistant = lastMessages.at(-1)
+    expect(assistant.done).toBe(true)
+    expect(assistant.content).toBe("partial answer")
+    expect(assistant.metrics?.interrupted).toBe(true)
+  })
+
+  it("persists a clean done:true on a user stop, without the interrupted flag", () => {
+    // A user stop calls port.disconnect() ourselves, which does NOT fire our
+    // own onDisconnect — so stopStream itself must render the clean completion
+    // (no manual disconnect invoked here, mirroring real browser behavior).
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "Hi" }]
+      })
+    })
+    const streamListener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      streamListener({ delta: "partial answer" })
+      result.current.stopStream()
+    })
+
+    const lastMessages = (setMessages as any).mock.calls.at(-1)[0]
+    const assistant = lastMessages.at(-1)
+    expect(assistant.done).toBe(true)
+    expect(assistant.content).toBe("partial answer")
+    expect(assistant.metrics?.interrupted).toBeUndefined()
   })
 
   it("should handle stop when port not created", () => {

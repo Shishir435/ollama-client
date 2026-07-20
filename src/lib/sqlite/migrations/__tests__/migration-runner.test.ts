@@ -37,6 +37,12 @@ vi.mock("../add-message-replay-artifact-column", () => ({
     ensureMessagesReplayArtifactColumn(db)
 }))
 
+const ensureMessagesUpdatedAtColumn = vi.fn()
+vi.mock("../add-message-updated-at-column", () => ({
+  ensureMessagesUpdatedAtColumn: (db: unknown) =>
+    ensureMessagesUpdatedAtColumn(db)
+}))
+
 import {
   getSchemaVersion,
   LATEST_SCHEMA_VERSION,
@@ -57,7 +63,7 @@ const makeDb = (
 ) => {
   let userVersion = initialVersion
   const columns = {
-    messages: schema.messages ?? ["thinking", "replayArtifact"],
+    messages: schema.messages ?? ["thinking", "replayArtifact", "updatedAt"],
     sessions: schema.sessions ?? ["pinned", "systemPrompt", "tags"]
   }
   const tables = new Set(schema.tables ?? ["tool_loop_runs"])
@@ -109,6 +115,7 @@ beforeEach(() => {
   ensureToolLoopRunsTable.mockClear()
   ensureSessionsTagsColumn.mockClear()
   ensureMessagesReplayArtifactColumn.mockClear()
+  ensureMessagesUpdatedAtColumn.mockClear()
 })
 
 describe("migration-runner", () => {
@@ -182,7 +189,7 @@ describe("migration-runner", () => {
 
   it("repairs physical schema drift even at the latest recorded version", () => {
     const db = makeDb(LATEST_SCHEMA_VERSION, {
-      messages: ["thinking"],
+      messages: ["thinking", "updatedAt"],
       sessions: ["pinned", "systemPrompt"],
       tables: []
     })

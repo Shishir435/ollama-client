@@ -4,8 +4,11 @@ import {
   retrieveContextFromSources
 } from "@/features/chat/rag"
 import { classifyQuery } from "@/features/chat/rag/query-classifier"
+import {
+  formatEnhancedResults,
+  retrieveContextEnhanced
+} from "@/features/chat/rag/rag-pipeline"
 import { STORAGE_KEYS } from "@/lib/constants"
-import type { ProcessedFile } from "@/lib/file-processors/types"
 import {
   DEFAULT_KNOWLEDGE_SET_ID,
   DEFAULT_RAG_PROMPT,
@@ -27,6 +30,17 @@ import type {
 
 export type { RagSource, RagSources, UsedContextChunk }
 
+/**
+ * The minimal file shape context building needs: the scope id and the raw text
+ * used for the full-text fallback. A full `ProcessedFile` satisfies this
+ * structurally, and it is small enough to ship across the extension port when
+ * context building runs in the background.
+ */
+export interface ContextFileInput {
+  text: string
+  metadata: { fileName: string; fileId?: string }
+}
+
 export interface PromptContextStats {
   promptInputLength: number
   promptAugmentedLength: number
@@ -41,7 +55,7 @@ export interface PromptContextStats {
 
 export interface BuildRagContextOptions {
   rawInput: string
-  files?: ProcessedFile[]
+  files?: ContextFileInput[]
   /** Prior conversation messages (used for query classification and reformulation). */
   messages: ChatMessage[]
   /** Currently-selected tabs' built page context, if any. */
@@ -53,6 +67,16 @@ export interface BuildRagContextOptions {
   maxTabContextChars: number
   maxRagContextChars: number
   groundedOnlyMode: boolean
+  /**
+   * True when this turn offers the model its own retrieval tools
+   * (`rag_search` / `file_search`). When set, the harness does NOT pre-inject
+   * file or conversation-memory context — the model pulls it on demand, which
+   * keeps the prompt clean and avoids retrieving the same store twice.
+   * Explicitly-selected page/tab context is still injected (no tool covers the
+   * live selection), and the current-turn attached-file full-text fallback
+   * still runs so a just-uploaded file is available before it is indexed.
+   */
+  retrievalToolsActive?: boolean
   /** Model selection (used for query reformulation, not the final chat). */
   selectedModel: string
   selectedModelRef: SelectedModelRef | null
@@ -113,7 +137,7 @@ const addUsedContextChunks = (
 }
 
 const resolveFileRagScope = async (
-  files: ProcessedFile[] | undefined,
+  files: ContextFileInput[] | undefined,
   activeKnowledgeSet: KnowledgeSetRecord | undefined
 ) => {
   const explicitFileIds =
@@ -147,7 +171,7 @@ const buildTabFallbackContext = (contextText: string, maxChars: number) => {
   return { clampedFallback, chunk }
 }
 
-const buildFileFullTextFallback = (files: ProcessedFile[]) =>
+const buildFileFullTextFallback = (files: ContextFileInput[]) =>
   files
     .map(
       (file) =>
@@ -205,6 +229,7 @@ export const buildRagContext = async (
     maxTabContextChars,
     maxRagContextChars,
     groundedOnlyMode,
+    retrievalToolsActive,
     selectedModel,
     selectedModelRef,
     customModel,
@@ -217,6 +242,14 @@ export const buildRagContext = async (
   let tabContextLength = 0
   let ragContextLength = 0
   let tabContextTruncated = false
+
+  // Stored file context and conversation-memory context share ONE budget: the
+  // configured RAG cap is the ceiling for their combined length, not a per-step
+  // limit. Otherwise a turn with both could inject nearly twice the budget and
+  // crowd out recent messages / the answer. `<= 0` means unlimited.
+  const ragBudget =
+    maxRagContextChars > 0 ? maxRagContextChars : Number.POSITIVE_INFINITY
+  const remainingRagBudget = () => Math.max(0, ragBudget - ragContextLength)
   const usedContextChunks: UsedContextChunk[] = []
   const activityEvents: ActivityEvent[] = []
   let ragSources: RagSources | null = null
@@ -421,14 +454,17 @@ export const buildRagContext = async (
           })
         }
 
-        if (!groundedOnlyMode) {
+        // Skip pre-injecting stored file/memory context when the model has its
+        // own retrieval tools this turn — it pulls on demand instead, so the
+        // prompt stays clean and the same store isn't retrieved twice.
+        if (!groundedOnlyMode && !retrievalToolsActive) {
           const fileIds = await resolveFileRagScope(files, activeKnowledgeSet)
 
           if (fileIds && fileIds.length > 0) {
             const searchEvent = startActivityEvent(
-              "file-memory-search",
-              memoryEnabled ? "searching_memory" : "searching_files",
-              memoryEnabled ? "Searching memory and files" : "Searching files",
+              "file-search",
+              "searching_files",
+              "Searching files",
               preview(queryForRag)
             )
             logger.verbose("RAG searching for context", "useChat", {
@@ -437,14 +473,16 @@ export const buildRagContext = async (
               suggestedMode: queryClassification.suggestedMode
             })
 
+            // Memory is retrieved by its own standalone step below (independent
+            // of file scope), so file retrieval must not also fold memory in or
+            // it would be injected twice.
             const context = await retrieveContext(queryForRag, fileIds, {
               mode: queryClassification.suggestedMode,
               topK:
                 retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
               minSimilarity: retrievalOverrides?.minSimilarity,
               minRerankScore: retrievalOverrides?.minRerankScore,
-              includeMemory: memoryEnabled,
-              memoryTopK: 2
+              includeMemory: false
             })
 
             if (context.documents.length > 0) {
@@ -453,7 +491,7 @@ export const buildRagContext = async (
               })
               const clamped = clampContext(
                 context.formattedContext,
-                maxRagContextChars
+                remainingRagBudget()
               )
               ragSources = mergeRagSources(
                 ragSources,
@@ -476,13 +514,55 @@ export const buildRagContext = async (
               outputPreview:
                 context.documents.length > 0
                   ? preview(context.formattedContext)
-                  : "No matching file or memory chunks"
+                  : "No matching file chunks"
             })
           } else {
             logger.info(
               "Skipping file RAG: no scoped files selected",
               "useChat"
             )
+          }
+
+          // Conversation-memory recall, independent of file scope. This is the
+          // path that answers "based on our past conversation …": it runs
+          // whenever memory is enabled, with or without selected files.
+          if (memoryEnabled) {
+            const memoryEvent = startActivityEvent(
+              "memory-recall",
+              "searching_memory",
+              "Searching memory",
+              preview(queryForRag)
+            )
+            const memoryResults = await retrieveContextEnhanced(queryForRag, {
+              type: "chat",
+              topK: 4
+            })
+            // Memory shares the RAG budget with file context above; only append
+            // what fits in the remainder so the two together stay within cap.
+            const memoryBudget = remainingRagBudget()
+            if (memoryResults.length > 0 && memoryBudget > 0) {
+              const { formattedContext, sources } =
+                formatEnhancedResults(memoryResults)
+              const clamped = clampContext(formattedContext, memoryBudget)
+              contentWithRAG = appendRagContext(contentWithRAG, clamped.text)
+              ragContextLength += clamped.text.length
+              ragSources = mergeRagSources(ragSources, sources, queryForRag)
+              addUsedContextChunks(usedContextChunks, sources, () => "memory")
+            }
+            finishActivityEvent(memoryEvent, {
+              resultCount: memoryResults.length,
+              sourceTitles: memoryResults
+                .slice(0, 3)
+                .map((result) =>
+                  result.isMemory
+                    ? "Previous conversation"
+                    : result.document.metadata.title || "Memory"
+                ),
+              outputPreview:
+                memoryResults.length > 0
+                  ? "Recalled past conversation context"
+                  : "No matching memory"
+            })
           }
         }
       }

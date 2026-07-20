@@ -415,21 +415,25 @@ export const getRootMessagesForSession = async (
 export const addMessage = async (
   message: Omit<StoredMessage, "id">
 ): Promise<number> => {
+  const timestamp = message.timestamp ?? Date.now()
   const { lastInsertRowid } = await runWithMeta(
     `INSERT INTO messages
-     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       message.sessionId,
       message.role,
       message.content,
       message.model ?? null,
-      message.timestamp ?? Date.now(),
+      timestamp,
       typeof message.parentId === "number" ? message.parentId : null,
       message.done === false ? 0 : 1,
       message.metrics ? JSON.stringify(message.metrics) : null,
       message.thinking ?? null,
-      serializeReplayArtifact(message.replayArtifact)
+      serializeReplayArtifact(message.replayArtifact),
+      // Seed last-touched at creation so a shell that dies before its first
+      // streaming write still ages into "stale" for the interrupted sweep.
+      timestamp
     ]
   )
   return lastInsertRowid
@@ -522,9 +526,73 @@ export const updateMessage = async (
 
   if (fields.length === 0) return 0
 
+  // Stamp last-touched on every write. Streaming partial-content writes land
+  // here ~1s apart, keeping a live turn's row fresh so the interrupted sweep
+  // (which finalizes only stale rows) never mistakes it for an orphan.
+  fields.push("updatedAt = ?")
+  values.push(Date.now())
+
   values.push(id)
   await run(`UPDATE messages SET ${fields.join(", ")} WHERE id = ?`, values)
   return 1
+}
+
+/**
+ * Finalize assistant turns left in-flight (`done=0`) by a worker/sidepanel
+ * death mid-stream. Marks each done and flags `metrics.interrupted` so the UI
+ * can surface the partial answer as interrupted and offer a retry.
+ *
+ * Ownership is enforced inside the query, so there is no separate liveness
+ * check to race:
+ *   - Staleness: a row is finalized only if it has not been written within
+ *     `staleMs`. Streaming partial-content writes bump `updatedAt` ~every
+ *     second, so a turn actively streaming in ANY window is never selected. A
+ *     `NULL` `updatedAt` (rows predating the column) is treated as stale.
+ *   - Tool-loop ownership: a turn awaiting tool approval can legitimately go
+ *     minutes without a message write while its durable `tool_loop_runs`
+ *     checkpoint is live. Excluding sessions that have any checkpoint row
+ *     keeps those live waits from being finalized (rows are deleted on
+ *     completion and pruned when abandoned).
+ *
+ * Returns the count fixed.
+ */
+export const finalizeInterruptedMessages = async (
+  staleMs = 20_000
+): Promise<number> => {
+  const cutoff = Date.now() - staleMs
+  const rows = await query(
+    `SELECT id, metrics FROM messages
+     WHERE role = 'assistant' AND done = 0
+       AND (updatedAt IS NULL OR updatedAt < ?)
+       AND sessionId NOT IN (
+         SELECT sessionId FROM tool_loop_runs WHERE sessionId IS NOT NULL
+       )`,
+    [cutoff]
+  )
+  if (rows.length === 0) return 0
+
+  for (const row of rows) {
+    const metrics = { ...(parseMetrics(row.metrics) ?? {}), interrupted: true }
+    await run("UPDATE messages SET done = 1, metrics = ? WHERE id = ?", [
+      JSON.stringify(metrics),
+      row.id as number
+    ])
+  }
+  await flushSave()
+  return rows.length
+}
+
+/**
+ * Refresh a message's `updatedAt` without changing its content — a per-turn
+ * liveness beat. The streaming client calls this on a timer while a turn is in
+ * flight (independent of token arrival), so a slow or quiet provider (long
+ * time-to-first-token, long gaps between tokens) keeps its row fresh and the
+ * interrupted sweep never mistakes a live turn for an orphan. Deliberately not
+ * force-flushed: the 1s autosave carries it, and being a beat or two behind is
+ * harmless against the multi-second staleness window.
+ */
+export const touchMessageActivity = async (id: number): Promise<void> => {
+  await run("UPDATE messages SET updatedAt = ? WHERE id = ?", [Date.now(), id])
 }
 
 export const deleteMessagesBySession = async (

@@ -1,11 +1,12 @@
 import { useState } from "react"
-import { buildRagContext } from "@/features/chat/hooks/build-rag-context"
+import type { BuildRagContextResult } from "@/features/chat/hooks/build-rag-context"
 import {
   buildUserMessage,
   evaluateSendPreconditions,
   resolveTurnModel,
   type TurnToast
 } from "@/features/chat/hooks/turn-preparation"
+import { useBuildContext } from "@/features/chat/hooks/use-build-context"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
 import type { ProcessedFile } from "@/lib/file-processors/types"
@@ -34,15 +35,14 @@ interface UseChatTurnControllerOptions {
   addMessage: (sessionId: string, message: ChatMessage) => Promise<unknown>
   setNextResponseMetrics: (
     ragSources: RagSources | null,
-    promptContextStats: Awaited<
-      ReturnType<typeof buildRagContext>
-    >["promptContextStats"]
+    promptContextStats: BuildRagContextResult["promptContextStats"]
   ) => void
   clearNextResponseMetrics: () => void
   generateResponse: (
     customModel?: string,
     sessionId?: string,
-    overrideMessages?: ChatMessage[]
+    overrideMessages?: ChatMessage[],
+    options?: { contextPrepared?: boolean }
   ) => Promise<void>
   toast: ToastFn
 }
@@ -68,6 +68,7 @@ export const useChatTurnController = ({
   const [pendingActivityEvents, setPendingActivityEvents] = useState<
     ActivityEvent[]
   >([])
+  const { buildContext } = useBuildContext()
 
   const sendMessage = async (
     customInput?: string,
@@ -162,34 +163,46 @@ export const useChatTurnController = ({
       logger.error("Failed to rename chat session", "useChat", { error })
     }
 
-    let ragResult: Awaited<ReturnType<typeof buildRagContext>>
+    let ragResult: BuildRagContextResult
     try {
-      ragResult = await buildRagContext({
-        rawInput: userContent,
-        files,
-        messages,
-        hasTabContext,
-        contextText: contextText || "",
-        tabDocuments,
-        memoryEnabled: config.memoryEnabled,
-        maxTabContextChars: config.maxTabContextChars,
-        maxRagContextChars: config.maxRagContextChars,
-        groundedOnlyMode: config.groundedOnlyMode,
-        selectedModel: config.selectedModel,
-        selectedModelRef: config.selectedModelRef,
-        customModel,
-        onActivityEvent: (events) => {
-          setPendingActivityEvents([
-            {
-              ...preparingEvent,
-              status: "done",
-              finishedAt: Date.now()
-            },
-            ...events
-          ])
+      ragResult = await buildContext(
+        {
+          rawInput: userContent,
+          // Ship only what context building needs: scope id + text for the
+          // full-text fallback. Keeps the port payload small.
+          files: files?.map((file) => ({
+            text: file.text,
+            metadata: {
+              fileName: file.metadata.fileName,
+              fileId: file.metadata.fileId
+            }
+          })),
+          messages,
+          hasTabContext,
+          contextText: contextText || "",
+          tabDocuments,
+          memoryEnabled: config.memoryEnabled,
+          maxTabContextChars: config.maxTabContextChars,
+          maxRagContextChars: config.maxRagContextChars,
+          groundedOnlyMode: config.groundedOnlyMode,
+          selectedModel: config.selectedModel,
+          selectedModelRef: config.selectedModelRef,
+          customModel
         },
-        toast
-      })
+        {
+          onActivityEvent: (events) => {
+            setPendingActivityEvents([
+              {
+                ...preparingEvent,
+                status: "done",
+                finishedAt: Date.now()
+              },
+              ...events
+            ])
+          },
+          toast
+        }
+      )
     } catch (error) {
       logger.error("Failed to build chat context", "useChat", { error })
       clearNextResponseMetrics()
@@ -302,7 +315,12 @@ export const useChatTurnController = ({
       })
     }
 
-    await generateResponse(customModel, sessionId, messagesForLLM)
+    // The UI just built page/file/memory context into `messagesForLLM`, so tell
+    // the background not to run its own memory retrieval (which would double-
+    // inject memory and embed the RAG-augmented prompt instead of the raw query).
+    await generateResponse(customModel, sessionId, messagesForLLM, {
+      contextPrepared: true
+    })
     setPendingActivityEvents([])
   }
 

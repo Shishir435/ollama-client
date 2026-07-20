@@ -1,4 +1,5 @@
 import type { ToolCall } from "@/lib/tools/types"
+import type { SelectedModelRef } from "@/types/model"
 
 export type Role = "user" | "assistant" | "system" | "tool"
 
@@ -155,6 +156,13 @@ export interface ChatMessage {
     tabContextTruncated?: boolean
     contextBuildFailed?: boolean
     thinkingOnlyResponse?: boolean
+    /**
+     * The turn was cut off before the stream finished (worker/sidepanel died
+     * mid-generation) and was finalized on the next startup. Set so the UI can
+     * mark the partial answer as interrupted and offer a retry. Distinct from
+     * the transient, non-persisted {@link ChatMessage.error}.
+     */
+    interrupted?: boolean
   }
   parentId?: number | string
   childrenIds?: Array<number | string>
@@ -227,6 +235,13 @@ export interface ChatSession {
 }
 
 export interface ChatStreamMessage {
+  /**
+   * Monotonic per-turn sequence number, stamped by the background at emission.
+   * Lets the UI reducer drop duplicate/out-of-order chunks and (with the
+   * durable turn snapshot) resume from the last applied sequence after an MV3
+   * worker restart. Optional so legacy in-flight clients still parse.
+   */
+  seq?: number
   delta?: string
   thinkingDelta?: string
   /** Opaque provider continuation state; never log or render its blocks. */
@@ -277,7 +292,53 @@ export interface ChatWithModelMessage {
     sessionId?: string
     chatId?: string
     requestId?: string
+    /**
+     * True when the sender already built the turn's context (page/file/memory
+     * RAG) in the UI, so the background must NOT run its own memory retrieval.
+     * Without this, the normal-send path double-injects memory and — because
+     * the UI ships the RAG-augmented text as the last user message — the
+     * background would embed that augmented prompt instead of the raw query.
+     *
+     * Regenerate/fork paths leave this false: they send the original persisted
+     * messages, so the background is the only memory source and correctly
+     * embeds the original user query.
+     */
+    clientContextPrepared?: boolean
   }
+}
+
+/**
+ * Request to build a turn's RAG/page/memory context in the background.
+ * Sent over the provider stream port; the background streams progress back as
+ * `context_progress` / `context_warning` messages and finishes with a single
+ * `context_result` (or `context_error`). The UI no longer runs retrieval
+ * itself — the background is the sole context owner.
+ */
+export interface BuildContextRequestPayload {
+  requestId: string
+  rawInput: string
+  /** Prior conversation, for query classification / reformulation. */
+  messages: ChatMessage[]
+  hasTabContext: boolean
+  contextText: string
+  tabDocuments: Array<{ id: string; title: string; content: string }>
+  memoryEnabled: boolean
+  maxTabContextChars: number
+  maxRagContextChars: number
+  groundedOnlyMode: boolean
+  selectedModel: string
+  selectedModelRef: SelectedModelRef | null
+  customModel?: string
+  /** Minimal file shape for scope + full-text fallback (structural `ContextFileInput`). */
+  files?: Array<{
+    text: string
+    metadata: { fileName: string; fileId?: string }
+  }>
+}
+
+export interface BuildContextMessage {
+  type: string
+  payload: BuildContextRequestPayload
 }
 
 export interface StreamChunkResult {

@@ -5,6 +5,7 @@ import {
 import { buildToolSystemGuidance } from "@/background/lib/build-tool-system-guidance"
 import { withErrorContext } from "@/background/lib/error-handler"
 import { resolveModelTools } from "@/background/lib/resolve-model-tools"
+import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
 import { safePostMessage } from "@/background/lib/utils"
@@ -105,7 +106,50 @@ export const handleChatWithModel = withErrorContext(
       "You are a helpful AI assistant."
     let contextHeader = ""
 
-    if (isMemoryEnabled && messages.length > 0) {
+    // Get Provider
+    const provider = await ProviderFactory.getProviderForModel(
+      model,
+      providerId
+    )
+
+    // Resolve tools + how to drive them. Native models get an OpenAI/Ollama tool
+    // array; models opted into the prompt-based fallback get a non-native loop;
+    // everything else gets no tools and the old context-injection path as-is.
+    // Resolved up here (before memory injection) so the regenerate/fork path can
+    // gate auto-injection on retrieval-tool availability too.
+    const latestUserText = [...messages]
+      .reverse()
+      .find((message) => message.role === "user")?.content
+    const resolvedTools = await resolveModelTools(
+      model,
+      providerId,
+      provider,
+      latestUserText
+    )
+    // Only the native path sends a tools array + the native system guidance; the
+    // non-native path injects its own protocol prompt inside its streamer.
+    const nativeTools =
+      resolvedTools?.mode === "native" ? resolvedTools.tools : undefined
+    // When the model has its own retrieval tools this turn, it pulls stored
+    // context on demand — so neither the client nor this background path should
+    // pre-inject memory (it would appear in the prompt AND be retrievable via
+    // the tool, contrary to the no-auto-injection contract).
+    const retrievalToolsActive = hasRetrievalTool(resolvedTools)
+
+    // Skip background memory retrieval when the UI already prepared context for
+    // this turn, when retrieval tools cover it, or when there is nothing to key
+    // off. Otherwise memory is injected twice (UI into the user content,
+    // background into the system prompt) and the background would embed the
+    // RAG-augmented last message instead of the raw user query. Regenerate/fork
+    // paths leave `clientContextPrepared` false, so the background is the sole
+    // memory source there and embeds the original query — but still defers to
+    // active retrieval tools.
+    if (
+      isMemoryEnabled &&
+      !msg.payload.clientContextPrepared &&
+      !retrievalToolsActive &&
+      messages.length > 0
+    ) {
       const lastUserMessage = messages[messages.length - 1]
       if (lastUserMessage.role === "user") {
         // Dynamic import to reduce bundle size
@@ -161,29 +205,6 @@ export const handleChatWithModel = withErrorContext(
       }
     }
 
-    // Get Provider
-    const provider = await ProviderFactory.getProviderForModel(
-      model,
-      providerId
-    )
-
-    // Resolve tools + how to drive them. Native models get an OpenAI/Ollama tool
-    // array; models opted into the prompt-based fallback get a non-native loop;
-    // everything else gets no tools and the old context-injection path as-is.
-    const latestUserText = [...messages]
-      .reverse()
-      .find((message) => message.role === "user")?.content
-    const resolvedTools = await resolveModelTools(
-      model,
-      providerId,
-      provider,
-      latestUserText
-    )
-    // Only the native path sends a tools array + the native system guidance; the
-    // non-native path injects its own protocol prompt inside its streamer.
-    const nativeTools =
-      resolvedTools?.mode === "native" ? resolvedTools.tools : undefined
-
     // Tell the model the tools exist and when to use them. Without this, weaker
     // and reasoning-tuned models (e.g. deepseek-r1) ignore the offered tools and
     // hallucinate "I can't access your tabs" instead of calling current_tab.
@@ -233,6 +254,11 @@ export const handleChatWithModel = withErrorContext(
       // so we pass the prepared messages
     }
 
+    // Monotonic per-turn sequence, stamped on every emitted chunk so the UI
+    // reducer can drop duplicates/out-of-order and resume from the last applied
+    // sequence. Resets to 0 on a fresh SW instance (including after a restart),
+    // so the UI resets its counter when it reconnects.
+    let nextSeq = 0
     const onChunk = (chunk: ChatStreamMessage) => {
       if (isPortClosed()) return
 
@@ -250,7 +276,7 @@ export const handleChatWithModel = withErrorContext(
           error: chunk.error
         })
       }
-      safePostMessage(port, chunk)
+      safePostMessage(port, { ...chunk, seq: nextSeq++ })
     }
 
     try {

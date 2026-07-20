@@ -1,6 +1,7 @@
 export const PROVIDER_MESSAGE_KEYS = {
   GET_MODELS: "get-provider-models",
   CHAT_WITH_MODEL: "chat-with-model",
+  BUILD_CONTEXT: "build-context",
   STREAM_RESPONSE: "provider-stream-response",
   STOP_GENERATION: "stop-generation",
   SHOW_MODEL_DETAILS: "show-model-details",

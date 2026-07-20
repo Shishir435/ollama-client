@@ -32,6 +32,9 @@ export const getRootMessagesForSession = sqliteRepo.getRootMessagesForSession
 export const addMessage = sqliteRepo.addMessage
 export const appendMessage = sqliteRepo.appendMessage
 export const updateMessage = sqliteRepo.updateMessage
+export const finalizeInterruptedMessages =
+  sqliteRepo.finalizeInterruptedMessages
+export const touchMessageActivity = sqliteRepo.touchMessageActivity
 export const deleteMessagesBySession = sqliteRepo.deleteMessagesBySession
 export const bulkDeleteMessages = sqliteRepo.bulkDeleteMessages
 

@@ -47,6 +47,33 @@ vi.mock("@/features/chat/rag/rag-retriever", () => ({
   })
 }))
 
+// Context building now runs in the background over a port. Route the hook to
+// the real `buildRagContext` so these integration tests still exercise the RAG
+// pipeline (with the retrieval mocks above) without a live extension port.
+vi.mock("@/features/chat/hooks/use-build-context", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/features/chat/hooks/build-rag-context")
+  >("@/features/chat/hooks/build-rag-context")
+  return {
+    useBuildContext: () => ({
+      buildContext: (
+        request: Record<string, unknown>,
+        callbacks?: {
+          onActivityEvent?: (events: unknown[]) => void
+          toast?: (input: unknown) => void
+        }
+      ) =>
+        actual.buildRagContext({
+          ...(request as unknown as Parameters<
+            typeof actual.buildRagContext
+          >[0]),
+          onActivityEvent: callbacks?.onActivityEvent as never,
+          toast: (callbacks?.toast ?? (() => {})) as never
+        })
+    })
+  }
+})
+
 vi.mock("@/lib/knowledge/knowledge-sets", () => ({
   DEFAULT_RAG_PROMPT:
     "Use ONLY the following context in <doc> blocks. If the answer is not in the context, say you don't know.",

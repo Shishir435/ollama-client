@@ -38,7 +38,7 @@ export const ChatMessageBubble = memo(
     const isUser = msg.role === "user"
     const canRetry =
       !isUser &&
-      Boolean(msg.error?.retryable) &&
+      (Boolean(msg.error?.retryable) || Boolean(msg.metrics?.interrupted)) &&
       Boolean(onRegenerate) &&
       !isLoading &&
       !isStreaming

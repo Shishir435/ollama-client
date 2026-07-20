@@ -95,6 +95,24 @@ describe("handleChatWithModel", () => {
   })
 
   describe("successful chat requests", () => {
+    it("stamps a monotonic seq on every streamed chunk", async () => {
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [{ role: "user", content: "Hello" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      const seqs = (mockPort.postMessage as ReturnType<typeof vi.fn>).mock.calls
+        .map((call) => call[0]?.seq)
+        .filter((seq) => typeof seq === "number")
+      // Default mock streams two chunks -> seq 0, 1 in order.
+      expect(seqs).toEqual([0, 1])
+    })
+
     it("should send chat request with correct payload", async () => {
       const { ProviderFactory } = await import("@/lib/providers/factory")
 

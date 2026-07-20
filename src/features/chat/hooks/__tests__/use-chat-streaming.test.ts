@@ -17,6 +17,11 @@ let capturedSetMessages:
   | null = null
 
 const embedMessages = vi.fn(async () => undefined)
+const touchMessageActivity = vi.fn(async (_id: number) => undefined)
+
+vi.mock("@/lib/repositories/chat-history", () => ({
+  touchMessageActivity: (id: number) => touchMessageActivity(id)
+}))
 
 vi.mock("@/features/chat/hooks/use-chat-stream", () => ({
   useChatStream: vi.fn(
@@ -58,6 +63,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   capturedSetMessages = null
   embedMessages.mockClear()
+  touchMessageActivity.mockClear()
 })
 
 afterEach(() => {
@@ -134,6 +140,40 @@ describe("useChatStreaming", () => {
       { content: "partial", thinking: "thinking text" },
       false
     )
+  })
+
+  it("beats liveness on a timer while streaming and stops when done", async () => {
+    const { options } = mkOptions()
+    const { result } = renderHook(() => useChatStreaming(options))
+    result.current.currentStreamingMessageIdRef.current = 21
+
+    // A quiet stream: one non-done chunk, then no further tokens.
+    await capturedSetMessages?.([{ id: 21, content: "", done: false }])
+
+    // The liveness beat fires on its own timer, independent of tokens, so a
+    // slow/quiet provider keeps its row fresh past the staleness window.
+    await vi.advanceTimersByTimeAsync(8000)
+    expect(touchMessageActivity).toHaveBeenCalledWith(21)
+    await vi.advanceTimersByTimeAsync(8000)
+    expect(touchMessageActivity).toHaveBeenCalledTimes(2)
+
+    // The terminal chunk stops the beat.
+    await capturedSetMessages?.([{ id: 21, content: "answer", done: true }])
+    touchMessageActivity.mockClear()
+    await vi.advanceTimersByTimeAsync(16000)
+    expect(touchMessageActivity).not.toHaveBeenCalled()
+  })
+
+  it("stopStream halts the liveness beat", async () => {
+    const { options } = mkOptions()
+    const { result } = renderHook(() => useChatStreaming(options))
+    result.current.currentStreamingMessageIdRef.current = 22
+
+    await capturedSetMessages?.([{ id: 22, content: "", done: false }])
+    result.current.stopStream()
+    touchMessageActivity.mockClear()
+    await vi.advanceTimersByTimeAsync(16000)
+    expect(touchMessageActivity).not.toHaveBeenCalled()
   })
 
   it("non-done thinking-only chunk writes thinking to UI immediately", async () => {
