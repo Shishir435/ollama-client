@@ -14,12 +14,13 @@ import {
   providerErrorUserMessage
 } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
+import type { ChatMessage } from "@/types"
 import {
-  makeThinkingParserState,
-  splitThinkingDelta,
-  type ThinkingParserState
-} from "@/lib/thinking-parser"
-import type { ChatMessage, ProviderReplayArtifact, ToolRun } from "@/types"
+  makeStreamReducerState,
+  reduceStreamEvent,
+  type StreamMessage,
+  type StreamReducerState
+} from "./chat-stream-reducer"
 
 interface StreamOptions {
   model: string
@@ -29,49 +30,6 @@ interface StreamOptions {
   generatedMessage?: ChatMessage
   /** See {@link ChatWithModelMessage} `clientContextPrepared`. */
   clientContextPrepared?: boolean
-}
-
-interface StreamMessage {
-  type?: string
-  seq?: number
-  message?: {
-    content?: string
-    thinking?: string
-    reasoning?: string
-    reasoning_content?: string
-  }
-  payload?: {
-    sources?: Array<{
-      id: string | number
-      title: string
-      content: string
-      score: number
-      source?: string
-      chunkIndex?: number
-      fileId?: string
-      type?: string
-    }>
-    query?: string
-  }
-  delta?: string
-  thinkingDelta?: string
-  replayArtifact?: ProviderReplayArtifact
-  toolRuns?: ToolRun[]
-  done?: boolean
-  error?: {
-    status: number
-    message: string
-    kind?: import("@/types/errors").AppErrorKind
-    messageKey?: string
-    userMessage?: string
-    retryable?: boolean
-    retryAfterMs?: number
-    context?: string
-    providerId?: string
-    debug?: unknown
-  }
-  aborted?: boolean
-  metrics?: Record<string, unknown>
 }
 
 export interface UseChatStreamProps {
@@ -121,18 +79,25 @@ export const useChatStream = ({
       model
     }
 
-    // Initialize with user + assistant shell
+    // Initialize with user + assistant shell. `messages` is the stable base
+    // (everything before the assistant turn); every render replaces only the
+    // trailing assistant message with the reducer's latest.
     currentMessagesRef.current = [...messages, assistantMessage]
     setMessages(currentMessagesRef.current)
 
-    let firstChunk = true
+    // All per-turn accumulation lives in the reducer state; the hook keeps
+    // only the port-lifecycle flags. `state.lastSeq` resets to -1 on reconnect
+    // because a restarted worker restarts its sequence counter at 0.
+    let state: StreamReducerState = makeStreamReducerState(assistantMessage)
     let streamSettled = false
     let resumeAttempts = 0
-    // Last applied per-turn sequence. Chunks with a seq <= this are duplicates
-    // or out-of-order and are dropped. Reset to -1 on reconnect because the
-    // restarted background worker restarts its counter at 0.
-    let lastSeq = -1
-    const thinkingState: ThinkingParserState = makeThinkingParserState()
+
+    const renderAssistant = (assistant: ChatMessage) => {
+      const updated = [...messages, assistant]
+      currentMessagesRef.current = updated
+      setMessages(updated)
+    }
+
     const requestPayload = {
       model,
       providerId,
@@ -154,191 +119,97 @@ export const useChatStream = ({
     }
 
     const listener = (rawMsg: unknown) => {
-      const msg = rawMsg as StreamMessage
       if (streamSettled) return
+      const msg = rawMsg as StreamMessage
 
-      // Drop duplicate/out-of-order sequenced chunks. Messages without a seq
-      // (legacy, or the context/rag_sources side channel) always pass through.
-      if (typeof msg.seq === "number") {
-        if (msg.seq <= lastSeq) return
-        lastSeq = msg.seq
-      }
+      // Fold the chunk into turn state purely; the hook only performs effects.
+      const result = reduceStreamEvent(state, msg)
+      state = result.state
+      if (result.dropped) return
+
       if (DEBUG_THINKING_STREAM) {
         logger.debug("Stream msg", "useChatStream", {
           type: msg.type,
           hasDelta: typeof msg.delta === "string" && msg.delta.length > 0,
-          deltaPreview:
-            typeof msg.delta === "string" ? msg.delta.slice(0, 120) : undefined,
           hasThinkingDelta:
             typeof msg.thinkingDelta === "string" &&
             msg.thinkingDelta.length > 0,
-          thinkingPreview:
-            typeof msg.thinkingDelta === "string"
-              ? msg.thinkingDelta.slice(0, 120)
-              : undefined,
-          done: msg.done,
-          error: msg.error
-        })
-        logger.debug("Stream msg detail", "useChatStream", {
-          type: msg.type,
           done: msg.done,
           aborted: msg.aborted,
-          error: msg.error,
-          metrics: msg.metrics
+          error: msg.error
         })
       }
-      if (firstChunk) {
-        setIsStreaming(true)
-        firstChunk = false
+
+      if (result.justStarted) setIsStreaming(true)
+      if (onToken) {
+        for (const token of result.tokens) onToken(token)
       }
 
-      if (msg.type === "rag_sources" && msg.payload?.sources) {
-        assistantMessage.metrics = {
-          ...assistantMessage.metrics,
-          ragSources: msg.payload.sources,
-          ragQuery: msg.payload.query
-        }
-        return
-      }
-
-      let didUpdate = false
-      const rawThinkingDelta =
-        msg.message?.thinking ||
-        msg.message?.reasoning ||
-        msg.message?.reasoning_content
-      const normalizedThinkingDelta = msg.thinkingDelta ?? rawThinkingDelta
-
-      // Live tool-run trace snapshot — replace with the latest so the
-      // chain-of-thought trace reflects what tools are running / have run.
-      if (msg.toolRuns) {
-        assistantMessage.metrics = {
-          ...assistantMessage.metrics,
-          toolRuns: msg.toolRuns
-        }
-        didUpdate = true
-      }
-
-      if (msg.replayArtifact) {
-        assistantMessage.replayArtifact = msg.replayArtifact
-        didUpdate = true
-      }
-
-      if (normalizedThinkingDelta) {
-        if (DEBUG_THINKING_STREAM) {
-          logger.debug("ThinkingStream delta", "useChatStream", {
-            delta: normalizedThinkingDelta
-          })
-        }
-        assistantMessage.thinking = `${assistantMessage.thinking || ""}${normalizedThinkingDelta}`
-        didUpdate = true
-      }
-
-      const normalizedDelta = msg.delta ?? msg.message?.content
-      if (normalizedDelta !== undefined) {
-        const { visible, thinking } = splitThinkingDelta(
-          normalizedDelta,
-          thinkingState
-        )
-
-        if (thinking) {
-          if (DEBUG_THINKING_STREAM) {
-            logger.debug("ThinkingStream parsed", "useChatStream", { thinking })
-          }
-          assistantMessage.thinking = `${assistantMessage.thinking || ""}${thinking}`
-          didUpdate = true
-        }
-
-        if (visible) {
-          if (onToken) {
-            onToken(visible)
-          }
-
-          assistantMessage.content += visible
-          didUpdate = true
-        }
-      }
-
-      if (didUpdate) {
-        const updated = [
-          ...currentMessagesRef.current.slice(0, -1),
-          { ...assistantMessage }
-        ]
-        currentMessagesRef.current = updated
-        setMessages(updated)
-      }
-
-      if (msg.done || msg.error || msg.aborted) {
+      if (result.terminal) {
         setIsLoading(false)
         setIsStreaming(false)
 
-        let finalMessages: ChatMessage[]
-
-        if (msg.error) {
-          const isProviderError = msg.error.kind === "provider"
+        if (result.terminal.type === "error") {
+          const { error, partial } = result.terminal
+          const isProviderError = error.kind === "provider"
           const errorProviderId = isProviderError
-            ? msg.error.providerId || providerId
+            ? error.providerId || providerId
             : undefined
           const providerName = errorProviderId
             ? getProviderDisplayName(errorProviderId, errorProviderId)
             : undefined
           const issueUrl =
-            isProviderError && msg.error.status >= 500
-              ? buildProviderServerIssueUrl(msg.error.status, {
+            isProviderError && error.status >= 500
+              ? buildProviderServerIssueUrl(error.status, {
                   providerName,
                   model
                 })
               : undefined
-          const localizedUserMessage = msg.error.messageKey
-            ? t(msg.error.messageKey)
-            : msg.error.userMessage
+          const localizedUserMessage = error.messageKey
+            ? t(error.messageKey)
+            : error.userMessage
           const displayError = formatErrorForDisplay(
-            { ...msg.error, userMessage: localizedUserMessage },
+            { ...error, userMessage: localizedUserMessage },
             t("chat.errors.unknown_error_description")
           )
           const errMsg =
             localizedUserMessage ??
-            ERROR_MESSAGES[msg.error.status] ??
+            ERROR_MESSAGES[error.status] ??
             // Any provider error with a real HTTP status gets the clean
             // per-status copy — raw response bodies never render in chat.
-            (isProviderError && msg.error.status > 0
-              ? providerErrorUserMessage(msg.error.status, {
+            (isProviderError && error.status > 0
+              ? providerErrorUserMessage(error.status, {
                   providerName,
                   model
                 })
               : t("chat.errors.unknown_error", {
                   message:
-                    getDisplayErrorMessage(msg.error) ||
-                    t("chat.errors.no_message")
+                    getDisplayErrorMessage(error) || t("chat.errors.no_message")
                 }))
           const chatErrorMessage = issueUrl
             ? `${errMsg}\n\n[Open a new issue](${issueUrl})`
             : errMsg
           const toastDescription =
-            msg.error.kind === "provider" && providerName
+            error.kind === "provider" && providerName
               ? `${displayError.rawMessage}${
-                  msg.error.retryable
-                    ? " This may be temporary; try again."
-                    : ""
+                  error.retryable ? " This may be temporary; try again." : ""
                 }`
               : displayError.message
-          finalMessages = [
-            ...currentMessagesRef.current.slice(0, -1),
-            {
-              ...assistantMessage,
-              content: chatErrorMessage,
-              done: true,
-              error: {
-                status: msg.error.status,
-                kind: msg.error.kind,
-                retryable: msg.error.retryable,
-                retryAfterMs: msg.error.retryAfterMs
-              }
+          renderAssistant({
+            ...partial,
+            content: chatErrorMessage,
+            done: true,
+            error: {
+              status: error.status,
+              kind: error.kind,
+              retryable: error.retryable,
+              retryAfterMs: error.retryAfterMs
             }
-          ]
+          })
           toast({
             variant: "destructive",
             title: displayError.kind
-              ? msg.error.kind === "provider" && providerName
+              ? error.kind === "provider" && providerName
                 ? `${providerName} error`
                 : displayError.title
               : t("chat.errors.response_failed_title"),
@@ -353,43 +224,14 @@ export const useChatStream = ({
             })
           })
         } else {
-          const thinkingOnlyResponse =
-            !assistantMessage.content.trim() &&
-            Boolean(assistantMessage.thinking?.trim())
-          const toolBackedThinkingOnlyResponse =
-            thinkingOnlyResponse &&
-            (assistantMessage.metrics?.toolRuns?.length ?? 0) > 0
-          const finalAssistantMessage = thinkingOnlyResponse
-            ? {
-                ...assistantMessage,
-                content: toolBackedThinkingOnlyResponse
-                  ? assistantMessage.thinking?.trim() || ""
-                  : "I did not receive a final answer from the model. Please try again.",
-                metrics: {
-                  ...assistantMessage.metrics,
-                  thinkingOnlyResponse: true
-                }
-              }
-            : assistantMessage
-
-          finalMessages = [
-            ...currentMessagesRef.current.slice(0, -1),
-            {
-              ...finalAssistantMessage,
-              metrics: {
-                ...finalAssistantMessage.metrics,
-                ...msg.metrics
-              },
-              done: true
-            }
-          ]
+          renderAssistant(result.terminal.message)
         }
 
-        currentMessagesRef.current = finalMessages
-        setMessages(finalMessages)
-        assistantMessage.done = true
         cleanupPort()
+        return
       }
+
+      if (result.changed) renderAssistant(state.assistant)
     }
 
     const handleDisconnect = () => {
@@ -399,7 +241,7 @@ export const useChatStream = ({
         })
       }
       const awaitingConfirmation =
-        assistantMessage.metrics?.toolRuns?.some(
+        state.assistant.metrics?.toolRuns?.some(
           (run) => run.status === "awaiting-confirmation"
         ) ?? false
 
@@ -408,7 +250,7 @@ export const useChatStream = ({
       // re-registers the exact pending tool call.
       if (
         !streamSettled &&
-        !assistantMessage.done &&
+        !state.assistant.done &&
         awaitingConfirmation &&
         currentRequestIdRef.current === requestId &&
         resumeAttempts < 3
@@ -417,13 +259,13 @@ export const useChatStream = ({
         window.setTimeout(() => {
           if (
             streamSettled ||
-            assistantMessage.done ||
+            state.assistant.done ||
             currentRequestIdRef.current !== requestId
           ) {
             return
           }
           // Restarted worker restarts its sequence at 0 — accept it afresh.
-          lastSeq = -1
+          state = { ...state, lastSeq: -1 }
           port = browser.runtime.connect({
             name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
           })
@@ -438,16 +280,11 @@ export const useChatStream = ({
         return
       }
 
-      if (!streamSettled && !assistantMessage.done) {
+      if (!streamSettled && !state.assistant.done) {
         setIsLoading(false)
         setIsStreaming(false)
-        assistantMessage.done = true
-        const updated = [
-          ...currentMessagesRef.current.slice(0, -1),
-          { ...assistantMessage }
-        ]
-        currentMessagesRef.current = updated
-        setMessages(updated)
+        state = { ...state, assistant: { ...state.assistant, done: true } }
+        renderAssistant(state.assistant)
         if (portRef.current === port) {
           portRef.current = null
           currentRequestIdRef.current = null
