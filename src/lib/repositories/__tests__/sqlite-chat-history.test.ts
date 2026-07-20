@@ -582,6 +582,36 @@ describe("messages", () => {
     expect(sql).toBe("DELETE FROM messages WHERE id IN (?, ?, ?)")
     expect(params).toEqual([10, 20, 30])
   })
+
+  it("finalizeInterruptedMessages returns 0 and runs no UPDATE when none are in-flight", async () => {
+    mockedQuery.mockResolvedValueOnce([])
+    const fixed = await repo.finalizeInterruptedMessages()
+    expect(fixed).toBe(0)
+    expect(mockedRun).not.toHaveBeenCalled()
+  })
+
+  it("finalizeInterruptedMessages marks orphans done and merges interrupted into metrics", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      { id: 7, metrics: JSON.stringify({ ragQuery: "q" }) },
+      { id: 9, metrics: null }
+    ])
+    const fixed = await repo.finalizeInterruptedMessages()
+    expect(fixed).toBe(2)
+
+    const first = mockedRun.mock.calls[0]
+    expect(first[0]).toBe(
+      "UPDATE messages SET done = 1, metrics = ? WHERE id = ?"
+    )
+    expect(JSON.parse(String(first[1]?.[0]))).toEqual({
+      ragQuery: "q",
+      interrupted: true
+    })
+    expect(first[1]?.[1]).toBe(7)
+
+    const second = mockedRun.mock.calls[1]
+    expect(JSON.parse(String(second[1]?.[0]))).toEqual({ interrupted: true })
+    expect(second[1]?.[1]).toBe(9)
+  })
 })
 
 describe("files", () => {

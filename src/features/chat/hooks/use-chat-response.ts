@@ -61,6 +61,10 @@ export const useChatResponse = ({
     const assistantMessage: ChatMessage = {
       role: "assistant",
       content: "",
+      // Persist the in-flight turn as not-done so a worker/sidepanel death
+      // mid-stream leaves a `done=0` row. Startup recovery finalizes any such
+      // orphan (marking it interrupted); a normal completion flips it to done.
+      done: false,
       model: modelForRequest,
       metrics: ragSourcesRef.current
         ? {

@@ -527,6 +527,30 @@ export const updateMessage = async (
   return 1
 }
 
+/**
+ * Finalize assistant turns left in-flight (`done=0`) by a worker/sidepanel
+ * death mid-stream. Marks each done and flags `metrics.interrupted` so the UI
+ * can surface the partial answer as interrupted and offer a retry. Idempotent
+ * and safe to run once at startup: at that point nothing is streaming, so the
+ * only `done=0` assistant rows are genuine orphans. Returns the count fixed.
+ */
+export const finalizeInterruptedMessages = async (): Promise<number> => {
+  const rows = await query(
+    "SELECT id, metrics FROM messages WHERE role = 'assistant' AND done = 0"
+  )
+  if (rows.length === 0) return 0
+
+  for (const row of rows) {
+    const metrics = { ...(parseMetrics(row.metrics) ?? {}), interrupted: true }
+    await run("UPDATE messages SET done = 1, metrics = ? WHERE id = ?", [
+      JSON.stringify(metrics),
+      row.id as number
+    ])
+  }
+  await flushSave()
+  return rows.length
+}
+
 export const deleteMessagesBySession = async (
   sessionId: string
 ): Promise<number> => {

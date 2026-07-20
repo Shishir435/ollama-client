@@ -156,6 +156,13 @@ export interface ChatMessage {
     tabContextTruncated?: boolean
     contextBuildFailed?: boolean
     thinkingOnlyResponse?: boolean
+    /**
+     * The turn was cut off before the stream finished (worker/sidepanel died
+     * mid-generation) and was finalized on the next startup. Set so the UI can
+     * mark the partial answer as interrupted and offer a retry. Distinct from
+     * the transient, non-persisted {@link ChatMessage.error}.
+     */
+    interrupted?: boolean
   }
   parentId?: number | string
   childrenIds?: Array<number | string>

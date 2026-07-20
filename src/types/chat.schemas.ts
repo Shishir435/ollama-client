@@ -207,7 +207,8 @@ export const ChatMessageMetricsSchema = z.object({
   ragContextLength: z.number().optional(),
   tabContextTruncated: z.boolean().optional(),
   contextBuildFailed: z.boolean().optional(),
-  thinkingOnlyResponse: z.boolean().optional()
+  thinkingOnlyResponse: z.boolean().optional(),
+  interrupted: z.boolean().optional()
 })
 
 // ---- FileAttachment ----

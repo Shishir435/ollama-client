@@ -399,7 +399,8 @@
       "response_failed_title": "响应生成失败",
       "unknown_error_description": "发生未知错误",
       "provider_replay_invalid": "无法安全地继续此响应。请重试本轮，以重新建立提供商上下文。",
-      "report_issue": "报告问题"
+      "report_issue": "报告问题",
+      "interrupted": "响应已中断"
     },
     "composer": {
       "rag": "文件",

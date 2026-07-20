@@ -58,6 +58,11 @@ export const ChatMessageContent = ({
           />
         )}
       </div>
+      {!isUser && msg.metrics?.interrupted && !isLoading && !isStreaming && (
+        <p className="mt-1 text-xs text-muted-foreground italic">
+          {t("chat.errors.interrupted")}
+        </p>
+      )}
     </div>
   )
 }
