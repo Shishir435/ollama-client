@@ -612,6 +612,16 @@ describe("messages", () => {
     expect(cutoff).toBeLessThanOrEqual(before - 20_000)
   })
 
+  it("touchMessageActivity bumps only updatedAt for the given id", async () => {
+    mockedRun.mockResolvedValueOnce(undefined)
+    const before = Date.now()
+    await repo.touchMessageActivity(42)
+    const [sql, params] = mockedRun.mock.calls[0]
+    expect(sql).toBe("UPDATE messages SET updatedAt = ? WHERE id = ?")
+    expect(params?.[0] as number).toBeGreaterThanOrEqual(before)
+    expect(params?.[1]).toBe(42)
+  })
+
   it("finalizeInterruptedMessages marks orphans done and merges interrupted into metrics", async () => {
     mockedQuery.mockResolvedValueOnce([
       { id: 7, metrics: JSON.stringify({ ragQuery: "q" }) },

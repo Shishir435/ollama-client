@@ -582,6 +582,19 @@ export const finalizeInterruptedMessages = async (
   return rows.length
 }
 
+/**
+ * Refresh a message's `updatedAt` without changing its content — a per-turn
+ * liveness beat. The streaming client calls this on a timer while a turn is in
+ * flight (independent of token arrival), so a slow or quiet provider (long
+ * time-to-first-token, long gaps between tokens) keeps its row fresh and the
+ * interrupted sweep never mistakes a live turn for an orphan. Deliberately not
+ * force-flushed: the 1s autosave carries it, and being a beat or two behind is
+ * harmless against the multi-second staleness window.
+ */
+export const touchMessageActivity = async (id: number): Promise<void> => {
+  await run("UPDATE messages SET updatedAt = ? WHERE id = ?", [Date.now(), id])
+}
+
 export const deleteMessagesBySession = async (
   sessionId: string
 ): Promise<number> => {
