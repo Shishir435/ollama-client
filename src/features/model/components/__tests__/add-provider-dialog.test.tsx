@@ -10,6 +10,18 @@ vi.mock("react-i18next", () => ({
 }))
 
 describe("AddProviderDialog", () => {
+  it("labels custom provider setup as beta", () => {
+    render(
+      <TooltipProvider>
+        <AddProviderDialog open onOpenChange={vi.fn()} onAdd={vi.fn()} />
+      </TooltipProvider>
+    )
+
+    expect(
+      screen.getByText("settings.providers.beta_badge")
+    ).toBeInTheDocument()
+  })
+
   it("adds a native Anthropic provider with manual models", async () => {
     const onAdd = vi.fn().mockResolvedValue(true)
     const onOpenChange = vi.fn()

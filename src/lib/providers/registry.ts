@@ -64,7 +64,8 @@ export const getProviderMeta = (
     return {
       id,
       displayName: fallbackName || FALLBACK_PROVIDER_META.displayName,
-      icon: { kind: "lucide", icon: Server }
+      icon: { kind: "lucide", icon: Server },
+      isBeta: true
     }
   }
   return FALLBACK_PROVIDER_META

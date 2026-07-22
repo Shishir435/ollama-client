@@ -72,10 +72,12 @@ describe("useProviderSettingsState", () => {
       result.current.updateConfig({ baseUrl: "http://localhost:11435" })
     })
 
+    let removed = false
     await act(async () => {
-      await result.current.removeProvider(custom.id)
+      removed = await result.current.removeProvider(custom.id)
     })
 
+    expect(removed).toBe(true)
     expect(result.current.providers).toEqual([
       { ...ollama, baseUrl: "http://localhost:11435" }
     ])

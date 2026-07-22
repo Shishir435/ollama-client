@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { MiniBadge } from "@/components/ui/mini-badge"
 import { ModelIdListEditor } from "@/features/model/components/model-id-list-editor"
 import { Bot, Globe, Loader2, Server } from "@/lib/lucide-icon"
 import { providerProfileRequiresApiKey } from "@/lib/providers/service-profile"
@@ -207,7 +208,10 @@ export const AddProviderDialog = ({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{t("settings.providers.add.title")}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {t("settings.providers.add.title")}
+            <MiniBadge text={t("settings.providers.beta_badge")} />
+          </DialogTitle>
           <DialogDescription>
             {t("settings.providers.add.description")}
           </DialogDescription>

@@ -392,7 +392,7 @@ export const useProviderSettingsState = () => {
     }
   }
 
-  const removeProvider = async (id: string) => {
+  const removeProvider = async (id: string): Promise<boolean> => {
     const providerName = providers.find(
       (provider) => String(provider.id) === id
     )?.name
@@ -413,6 +413,7 @@ export const useProviderSettingsState = () => {
           name: providerName ?? id
         })
       })
+      return true
     } catch (error) {
       logger.error("Failed to remove provider", "ProviderSettings", { error })
       toast({
@@ -423,6 +424,7 @@ export const useProviderSettingsState = () => {
           t("settings.providers.add.remove_failed_title")
         )
       })
+      return false
     }
   }
 
