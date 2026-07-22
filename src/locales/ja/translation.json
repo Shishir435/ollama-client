@@ -794,7 +794,7 @@
   },
   "settings": {
     "disclosure": {
-      "title": "設定の詳細度",
+      "title": "設定レベル",
       "description": "表示する設定の量を選びます。検索すると非表示の設定も自動的に開きます。",
       "levels": {
         "basic": "基本",

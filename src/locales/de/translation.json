@@ -794,7 +794,7 @@
   },
   "settings": {
     "disclosure": {
-      "title": "Einstellungsdetails",
+      "title": "Konfigurationsebene",
       "description": "Wähle, wie viele Optionen angezeigt werden. Die Suche öffnet ausgeblendete Einstellungen automatisch.",
       "levels": {
         "basic": "Basis",

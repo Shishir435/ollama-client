@@ -794,7 +794,7 @@
   },
   "settings": {
     "disclosure": {
-      "title": "Dettaglio impostazioni",
+      "title": "Livello di configurazione",
       "description": "Scegli quanta configurazione mostrare. La ricerca apre automaticamente le impostazioni nascoste.",
       "levels": {
         "basic": "Base",

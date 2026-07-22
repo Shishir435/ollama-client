@@ -14,7 +14,6 @@ import {
   PageBody,
   PageHeader,
   SectionStack,
-  Toolbar,
   TwoColumnGrid
 } from "@/components/layout"
 import { PerformanceWarning } from "@/components/performance-warning"
@@ -395,8 +394,8 @@ export const SettingsPage = () => {
     <SettingsDisclosureProvider level={settingsLevel}>
       <AppShell>
         <PageHeader className="z-50">
-          <Toolbar className="bg-surface-chat px-4 py-4 sm:px-6 lg:px-8">
-            <div>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-4 bg-surface-chat px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center lg:gap-x-6 lg:px-8">
+            <div className="min-w-0">
               <h1 className="text-2xl font-semibold tracking-tight">
                 {t("settings.page.title")}
               </h1>
@@ -404,7 +403,12 @@ export const SettingsPage = () => {
                 {t("settings.page.description")}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <SettingsDisclosureControl
+              level={settingsLevel}
+              onLevelChange={updateSettingsLevel}
+              className="col-span-2 row-start-2 border-t pt-4 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:border-t-0 lg:pt-0"
+            />
+            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2 lg:col-start-3">
               <SocialLinkButton
                 href={githubLink}
                 icon={Github}
@@ -420,7 +424,7 @@ export const SettingsPage = () => {
               />
               <ThemeToggle showText={false} />
             </div>
-          </Toolbar>
+          </div>
         </PageHeader>
 
         <div className="flex flex-1 overflow-hidden">
@@ -456,11 +460,7 @@ export const SettingsPage = () => {
               className="flex-none px-4 pt-4 sm:px-6"
             />
             <main className="min-w-0 flex-1 overflow-y-auto">
-              <PageBody className="space-y-6">
-                <SettingsDisclosureControl
-                  level={settingsLevel}
-                  onLevelChange={updateSettingsLevel}
-                />
+              <PageBody>
                 <div key={activeTab}>{tabContent[activeTab]}</div>
               </PageBody>
             </main>

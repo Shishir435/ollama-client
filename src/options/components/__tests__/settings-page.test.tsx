@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { SettingsPage } from "../settings-page"
@@ -84,6 +90,27 @@ describe("SettingsPage", () => {
       mobileSearch.compareDocumentPosition(nav) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
+  })
+
+  it("renders the global disclosure control only in the page header", () => {
+    render(<SettingsPage />)
+
+    const header = document.querySelector("header")
+    const main = document.querySelector("main")
+
+    expect(header).not.toBeNull()
+    expect(main).not.toBeNull()
+    expect(
+      within(header as HTMLElement).getByRole("tablist", {
+        name: "settings.disclosure.title"
+      })
+    ).toBeInTheDocument()
+    expect(within(main as HTMLElement).queryByRole("tablist")).toBeNull()
+    expect(
+      document.querySelectorAll(
+        '[data-settings-focus-id="settings-disclosure-level"]'
+      )
+    ).toHaveLength(1)
   })
 
   it("writes the selected record focus id into the URL", () => {

@@ -794,7 +794,7 @@
   },
   "settings": {
     "disclosure": {
-      "title": "Settings level",
+      "title": "Configuration level",
       "description": "Choose how much configuration to show. Search opens hidden settings automatically.",
       "levels": {
         "basic": "Basic",
