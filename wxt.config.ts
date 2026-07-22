@@ -13,6 +13,7 @@ export default defineConfig({
   outDir: process.env.WXT_OUTPUT_DIR || "build",
   outDirTemplate: "",
   publicDir: "public",
+  imports: false,
   zip: {
     exclude: ["assets/icon-promo-light.png"]
   },
@@ -178,11 +179,14 @@ export default defineConfig({
       },
       plugins: [
         react({
+          exclude: [/node_modules/, /src\/i18n\/resources\.ts$/],
           babel: {
             plugins: [["babel-plugin-react-compiler"]]
           }
         }),
-        visualizer({ open: false, filename: "stats.html" })
+        ...(process.env.WXT_ANALYZE === "1"
+          ? [visualizer({ open: false, filename: "stats.html" })]
+          : [])
       ]
     }) as WxtViteConfig
 })
