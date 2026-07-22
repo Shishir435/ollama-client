@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
+import { useState } from "react"
 import { describe, expect, it, vi } from "vitest"
 
 import {
@@ -32,18 +33,42 @@ describe("settings disclosure", () => {
     expect(screen.queryByText("advanced content")).toBeNull()
   })
 
-  it("emits the selected level", () => {
+  it("changes the selected tab and visible settings", () => {
     const onLevelChange = vi.fn()
-    render(
-      <SettingsDisclosureControl level="basic" onLevelChange={onLevelChange} />
-    )
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "settings.disclosure.levels.advanced"
-      })
-    )
+    const Harness = () => {
+      const [level, setLevel] = useState<"basic" | "power" | "advanced">(
+        "basic"
+      )
+      return (
+        <SettingsDisclosureProvider level={level}>
+          <SettingsDisclosureControl
+            level={level}
+            onLevelChange={(next) => {
+              onLevelChange(next)
+              setLevel(next)
+            }}
+          />
+          <SettingsLevelGate level="advanced">
+            <span>advanced content</span>
+          </SettingsLevelGate>
+        </SettingsDisclosureProvider>
+      )
+    }
+
+    render(<Harness />)
+
+    const advancedTab = screen.getByRole("tab", {
+      name: "settings.disclosure.levels.advanced"
+    })
+
+    expect(advancedTab).toHaveAttribute("aria-selected", "false")
+    expect(screen.queryByText("advanced content")).toBeNull()
+
+    fireEvent.click(advancedTab)
 
     expect(onLevelChange).toHaveBeenCalledWith("advanced")
+    expect(advancedTab).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByText("advanced content")).toBeInTheDocument()
   })
 })

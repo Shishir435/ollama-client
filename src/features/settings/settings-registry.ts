@@ -1562,9 +1562,17 @@ const SETTINGS_LEVEL_RANK: Record<SettingsLevel, number> = {
   advanced: 2
 }
 
+const POWER_DISCLOSURE_SECTIONS = new Set(["voices", "prompts", "shortcuts"])
+
 export const getSettingsEntryLevel = (
   entry: SettingsEntry | undefined
-): SettingsLevel => entry?.level ?? (entry?.advanced ? "advanced" : "basic")
+): SettingsLevel =>
+  entry?.level ??
+  (entry?.advanced
+    ? "advanced"
+    : entry && POWER_DISCLOSURE_SECTIONS.has(entry.sectionId)
+      ? "power"
+      : "basic")
 
 export const settingsLevelIncludes = (
   current: SettingsLevel,

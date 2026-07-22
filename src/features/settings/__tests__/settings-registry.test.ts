@@ -79,6 +79,15 @@ describe("settings-registry", () => {
     expect(getSettingsEntryLevel(getSettingsEntry("temperature"))).toBe(
       "advanced"
     )
+    expect(getSettingsEntryLevel(getSettingsEntry("voice-selection"))).toBe(
+      "power"
+    )
+    expect(getSettingsEntryLevel(getSettingsEntry("prompt-templates"))).toBe(
+      "power"
+    )
+    expect(
+      getSettingsEntryLevel(getSettingsEntry("shortcut-focus-input"))
+    ).toBe("power")
   })
 
   it("derives persistence scope from registered storage metadata", () => {

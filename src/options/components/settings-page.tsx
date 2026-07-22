@@ -24,6 +24,7 @@ import {
   PresetPicker,
   SettingsDisclosureControl,
   SettingsDisclosureProvider,
+  SettingsLevelGate,
   SettingsMobileNav,
   SettingsSearch,
   SettingsSidebar
@@ -78,6 +79,7 @@ export const SettingsPage = () => {
   const mobileSearchRef = useRef<HTMLInputElement>(null)
   const highlightTimersRef = useRef<Set<number>>(new Set())
   const revealedFocusRef = useRef<string | null>(null)
+  const userSelectedLevelRef = useRef(false)
   const [settingsLevel, setSettingsLevel] = useState<SettingsLevel>("basic")
   const [activeFocusId, setActiveFocusId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
@@ -99,7 +101,13 @@ export const SettingsPage = () => {
     plasmoGlobalStorage
       .get<SettingsLevel>(STORAGE_KEYS.UI.SETTINGS_LEVEL)
       .then((stored) => {
-        if (active && isSettingsLevel(stored)) setSettingsLevel(stored)
+        if (
+          active &&
+          !userSelectedLevelRef.current &&
+          isSettingsLevel(stored)
+        ) {
+          setSettingsLevel(stored)
+        }
       })
       .catch(() => undefined)
     return () => {
@@ -108,6 +116,7 @@ export const SettingsPage = () => {
   }, [])
 
   const updateSettingsLevel = useCallback((next: SettingsLevel) => {
+    userSelectedLevelRef.current = true
     setSettingsLevel(next)
     void plasmoGlobalStorage.set(STORAGE_KEYS.UI.SETTINGS_LEVEL, next)
   }, [])
@@ -184,16 +193,18 @@ export const SettingsPage = () => {
           <ChatDisplaySettings />
         </TwoColumnGrid>
         <PresetPicker />
-        <AdvancedSection
-          title={t("settings.sections.more")}
-          forceOpen={Boolean(activeFocusId)}
-          summary={`${t("settings.tabs.prompts")} · ${t("settings.tabs.voices")} · ${t("settings.tabs.shortcuts")}`}>
-          <SectionStack>
-            <SpeechSettings />
-            <PromptTemplateManager />
-            <ShortcutsSettings />
-          </SectionStack>
-        </AdvancedSection>
+        <SettingsLevelGate level="power">
+          <AdvancedSection
+            title={t("settings.sections.more")}
+            forceOpen={Boolean(activeFocusId)}
+            summary={`${t("settings.tabs.prompts")} · ${t("settings.tabs.voices")} · ${t("settings.tabs.shortcuts")}`}>
+            <SectionStack>
+              <SpeechSettings />
+              <PromptTemplateManager />
+              <ShortcutsSettings />
+            </SectionStack>
+          </AdvancedSection>
+        </SettingsLevelGate>
       </SectionStack>
     ),
     models: (
@@ -445,7 +456,7 @@ export const SettingsPage = () => {
               className="flex-none px-4 pt-4 sm:px-6"
             />
             <main className="min-w-0 flex-1 overflow-y-auto">
-              <PageBody>
+              <PageBody className="space-y-6">
                 <SettingsDisclosureControl
                   level={settingsLevel}
                   onLevelChange={updateSettingsLevel}

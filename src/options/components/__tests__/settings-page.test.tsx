@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { SettingsPage } from "../settings-page"
 
 vi.mock("react-i18next", () => ({
@@ -104,24 +105,61 @@ describe("SettingsPage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("button", {
+        screen.getByRole("tab", {
           name: "settings.disclosure.levels.advanced"
         })
-      ).toHaveAttribute("aria-pressed", "true")
+      ).toHaveAttribute("aria-selected", "true")
     })
 
     fireEvent.click(
-      screen.getByRole("button", {
+      screen.getByRole("tab", {
         name: "settings.disclosure.levels.basic"
       })
     )
 
     await waitFor(() => {
       expect(
-        screen.getByRole("button", {
+        screen.getByRole("tab", {
           name: "settings.disclosure.levels.basic"
         })
-      ).toHaveAttribute("aria-pressed", "true")
+      ).toHaveAttribute("aria-selected", "true")
+    })
+  })
+
+  it("shows power-only settings when the Power tab is selected", () => {
+    render(<SettingsPage />)
+
+    const powerSummary =
+      "settings.tabs.prompts · settings.tabs.voices · settings.tabs.shortcuts"
+    expect(screen.queryByText(powerSummary)).toBeNull()
+
+    fireEvent.click(
+      screen.getByRole("tab", {
+        name: "settings.disclosure.levels.power"
+      })
+    )
+
+    expect(screen.getByText(powerSummary)).toBeInTheDocument()
+  })
+
+  it("does not let a late storage read undo a user selection", async () => {
+    let resolveStoredLevel: (value: "basic") => void = () => undefined
+    vi.mocked(plasmoGlobalStorage.get).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveStoredLevel = resolve
+      })
+    )
+
+    render(<SettingsPage />)
+
+    const advancedTab = screen.getByRole("tab", {
+      name: "settings.disclosure.levels.advanced"
+    })
+    fireEvent.click(advancedTab)
+    resolveStoredLevel("basic")
+
+    await waitFor(() => {
+      expect(advancedTab).toHaveAttribute("aria-selected", "true")
     })
   })
 })
