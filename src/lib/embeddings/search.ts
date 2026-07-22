@@ -243,6 +243,7 @@ export const searchSimilarVectors = async (
     config.useHNSW &&
     config.annBackend !== "bruteforce" &&
     config.hnswAutoRebuild &&
+    !hnswIndexManager.isDeletionRebuildPending() &&
     vectorCount > 0
   ) {
     const stats = hnswIndexManager.getStats()
