@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { type ProviderConfig, ProviderType } from "@/lib/providers/types"
 import { ProviderGrid } from "../provider-grid"
@@ -57,9 +57,13 @@ describe("ProviderGrid", () => {
       />
     )
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /settings.providers.add.button/ })
-    )
+    const addProvider = screen.getByRole("button", {
+      name: /settings.providers.add.button/
+    })
+    expect(
+      within(addProvider).getByText("settings.providers.beta_badge")
+    ).toBeInTheDocument()
+    fireEvent.click(addProvider)
     expect(onAdd).toHaveBeenCalled()
   })
 
@@ -86,6 +90,10 @@ describe("ProviderGrid", () => {
     expect(screen.getByText("Home box")).toBeInTheDocument()
     expect(
       screen.getByText("settings.providers.add.custom_badge")
+    ).toBeInTheDocument()
+    const customProvider = screen.getByRole("button", { name: /Home box/ })
+    expect(
+      within(customProvider).getByText("settings.providers.beta_badge")
     ).toBeInTheDocument()
   })
 

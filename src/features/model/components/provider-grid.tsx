@@ -136,6 +136,7 @@ export const ProviderGrid = ({
           <span className="font-medium">
             {t("settings.providers.add.button")}
           </span>
+          <MiniBadge text={t("settings.providers.beta_badge")} />
         </span>
       </Button>
     </div>
