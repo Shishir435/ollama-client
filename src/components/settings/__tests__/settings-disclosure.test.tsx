@@ -63,6 +63,8 @@ describe("settings disclosure", () => {
     })
 
     expect(advancedTab).toHaveAttribute("aria-selected", "false")
+    expect(advancedTab).toHaveClass("data-active:bg-background")
+    expect(advancedTab).not.toHaveClass("data-active:bg-primary")
     expect(screen.queryByText("advanced content")).toBeNull()
 
     fireEvent.click(advancedTab)

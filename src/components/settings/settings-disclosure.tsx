@@ -74,12 +74,12 @@ export const SettingsDisclosureControl = ({
         className="min-w-0 w-full sm:w-auto sm:flex-none">
         <TabsList
           aria-label={t("settings.disclosure.title")}
-          className="grid h-9 w-full grid-cols-3 border bg-muted/50 p-1 shadow-inner sm:min-w-72">
+          className="grid h-9 w-full grid-cols-3 bg-muted/60 p-1 sm:min-w-72">
           {SETTINGS_LEVELS.map((option) => (
             <TabsTrigger
               key={option}
               value={option}
-              className="px-3 text-sm data-active:border-border/50 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm focus-visible:ring-2 focus-visible:outline-none dark:data-active:bg-primary dark:data-active:text-primary-foreground">
+              className="px-3 text-sm transition-all duration-150 hover:bg-background/50 hover:text-foreground data-active:bg-background data-active:text-foreground data-active:shadow-xs focus-visible:ring-2 focus-visible:outline-none dark:data-active:border-transparent dark:data-active:bg-background dark:data-active:text-foreground">
               {t(`settings.disclosure.levels.${option}`)}
             </TabsTrigger>
           ))}
