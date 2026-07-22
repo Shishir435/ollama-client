@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
@@ -44,19 +44,38 @@ export const Chat = () => {
   const { isOpen: isSearchOpen, closeSearchDialog } = useSearchDialogStore()
   const { embedMessage } = useAutoEmbedMessages()
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null)
+  const pendingSendInFlightRef = useRef(false)
 
   // Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
   // the chat UI decoupled from address-bar integration.
   useOmniboxQuery({ sendMessage, isModelReady })
 
   useEffect(() => {
-    if (!currentSessionId || !isModelReady || !pendingChatSend) return
-    clearPendingChatSend()
+    if (
+      !currentSessionId ||
+      !isModelReady ||
+      isLoading ||
+      isStreaming ||
+      !pendingChatSend ||
+      pendingSendInFlightRef.current
+    ) {
+      return
+    }
+    pendingSendInFlightRef.current = true
     void sendMessage(pendingChatSend)
+      .then((accepted) => {
+        if (accepted) clearPendingChatSend()
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        pendingSendInFlightRef.current = false
+      })
   }, [
     clearPendingChatSend,
     currentSessionId,
     isModelReady,
+    isLoading,
+    isStreaming,
     pendingChatSend,
     sendMessage
   ])

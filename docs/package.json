@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "description": "Marketing + docs site for the Ollama Client extension. Built with Astro for Vercel.",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",

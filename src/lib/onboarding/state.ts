@@ -102,18 +102,25 @@ export const selectOnboardingModel = (modelRef: SelectedModelRef) =>
   })
 
 /** Called only after a final assistant message has been durably written. */
-export const completeOnboardingAfterFirstResponse =
-  async (): Promise<boolean> =>
-    withStorageWriteLock(ONBOARDING_LOCK, async () => {
-      const current = await getOnboardingState()
-      if (current.stage !== "test-chat") return false
-      await setPlasmoStoredValue(STORAGE_KEYS.ONBOARDING.STATE, {
-        ...current,
-        stage: "complete",
-        completedAt: Date.now()
-      } satisfies OnboardingState)
-      return true
-    })
+export const completeOnboardingAfterFirstResponse = async (
+  sessionId: string | null
+): Promise<boolean> =>
+  withStorageWriteLock(ONBOARDING_LOCK, async () => {
+    const current = await getOnboardingState()
+    if (
+      current.stage !== "test-chat" ||
+      !sessionId ||
+      current.testSessionId !== sessionId
+    ) {
+      return false
+    }
+    await setPlasmoStoredValue(STORAGE_KEYS.ONBOARDING.STATE, {
+      ...current,
+      stage: "complete",
+      completedAt: Date.now()
+    } satisfies OnboardingState)
+    return true
+  })
 
 export const skipOnboarding = () =>
   updateOnboardingState({ stage: "complete", skippedAt: Date.now() })

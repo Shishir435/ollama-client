@@ -71,10 +71,12 @@ describe("useChatTurnController", () => {
       })
     )
 
+    let accepted = false
     await act(async () => {
-      await result.current.sendMessage()
+      accepted = await result.current.sendMessage()
     })
 
+    expect(accepted).toBe(true)
     expect(addMessage).toHaveBeenCalledWith(
       "session-1",
       expect.objectContaining({ role: "user", content: "question" })
@@ -157,13 +159,48 @@ describe("useChatTurnController", () => {
       })
     )
 
+    let accepted = true
     await act(async () => {
-      await result.current.sendMessage()
+      accepted = await result.current.sendMessage()
     })
 
+    expect(accepted).toBe(false)
     expect(addMessage).not.toHaveBeenCalled()
     expect(toast).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Couldn't start chat" })
     )
+  })
+
+  it("does not accept a queued turn while another turn is active", async () => {
+    loadStreamStore.setState({ isLoading: true, isStreaming: false })
+    const addMessage = vi.fn()
+    const { result } = renderHook(() =>
+      useChatTurnController({
+        config: baseConfig as any,
+        input: "question",
+        setInput: vi.fn(),
+        selectedTabIds: [],
+        contextText: "",
+        tabDocuments: [],
+        messages: [],
+        setIsLoading: vi.fn(),
+        setIsStreaming: vi.fn(),
+        ensureSessionId: vi.fn().mockResolvedValue("session-1"),
+        autoRenameSession: vi.fn(),
+        addMessage,
+        setNextResponseMetrics: vi.fn(),
+        clearNextResponseMetrics: vi.fn(),
+        generateResponse: vi.fn(),
+        toast: vi.fn()
+      })
+    )
+
+    let accepted = true
+    await act(async () => {
+      accepted = await result.current.sendMessage()
+    })
+
+    expect(accepted).toBe(false)
+    expect(addMessage).not.toHaveBeenCalled()
   })
 })

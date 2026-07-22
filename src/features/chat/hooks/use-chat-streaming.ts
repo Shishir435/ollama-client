@@ -40,6 +40,7 @@ export const useChatStreaming = ({
   setIsStreaming
 }: ChatStreamingOptions) => {
   const currentStreamingMessageIdRef = useRef<number | null>(null)
+  const currentStreamingSessionIdRef = useRef<string | null>(null)
   const dbUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const livenessIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -153,7 +154,9 @@ export const useChatStreaming = ({
     onSuccessfulResponse: async (message) => {
       if (!message.content.trim()) return
       try {
-        await completeOnboardingAfterFirstResponse()
+        await completeOnboardingAfterFirstResponse(
+          currentStreamingSessionIdRef.current
+        )
       } catch (error) {
         logger.debug("Failed to complete onboarding", "useChatStreaming", {
           error
@@ -167,5 +170,10 @@ export const useChatStreaming = ({
     baseStopStream()
   }
 
-  return { startStream, stopStream, currentStreamingMessageIdRef }
+  return {
+    startStream,
+    stopStream,
+    currentStreamingMessageIdRef,
+    currentStreamingSessionIdRef
+  }
 }

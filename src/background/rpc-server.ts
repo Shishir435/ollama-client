@@ -264,7 +264,7 @@ export const handleRpcRequest = async (
       durationMs: Math.max(0, performance.now() - startedAt)
     })
     if (method !== RpcMethod.DiagnosticsClear) {
-      recordDiagnosticEvent({
+      await recordDiagnosticEvent({
         level:
           status === "error"
             ? "error"

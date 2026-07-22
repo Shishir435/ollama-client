@@ -17,6 +17,7 @@ const MAX_PENDING_SERIALIZED_CHARS = 32 * 1024
 const EVENT_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const FLUSH_DELAY_MS = 15_000
 const DIAGNOSTIC_LOCK = "diagnostic-events-v1-write"
+const PENDING_STORAGE_KEY = "diagnostic-pending-events-v1"
 const SAFE_METADATA_KEYS = new Set([
   "browserApi",
   "capability",
@@ -33,8 +34,21 @@ type DiagnosticInput = Omit<DiagnosticEvent, "id" | "at" | "metadata"> & {
   metadata?: Record<string, unknown>
 }
 
-let pendingEvents: DiagnosticEvent[] = []
+let fallbackPendingEvents: DiagnosticEvent[] = []
 let flushTimer: ReturnType<typeof setTimeout> | undefined
+
+type SessionStorageArea = {
+  get: (key: string) => Promise<Record<string, unknown>>
+  set: (items: Record<string, unknown>) => Promise<void>
+  remove: (key: string) => Promise<void>
+}
+
+const getSessionStorage = (): SessionStorageArea | undefined =>
+  (
+    chrome.storage as typeof chrome.storage & {
+      session?: SessionStorageArea
+    }
+  ).session
 
 const safeMetadata = (
   metadata: Record<string, unknown> | undefined
@@ -64,9 +78,13 @@ const compactEvents = (
   maxEvents = MAX_EVENTS,
   maxSerializedChars = MAX_SERIALIZED_CHARS
 ) => {
-  const compacted = events
-    .filter((event) => now - event.at <= EVENT_TTL_MS)
-    .slice(-maxEvents)
+  const compacted = Array.from(
+    new Map(
+      events
+        .filter((event) => now - event.at <= EVENT_TTL_MS)
+        .map((event) => [event.id, event])
+    ).values()
+  ).slice(-maxEvents)
   while (
     compacted.length > 0 &&
     JSON.stringify(compacted).length > maxSerializedChars
@@ -87,37 +105,65 @@ const readStoredEvents = async (): Promise<DiagnosticEvent[]> => {
   })
 }
 
+const parseEvents = (raw: unknown): DiagnosticEvent[] => {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((event) => {
+    const parsed = DiagnosticEventSchema.safeParse(event)
+    return parsed.success ? [parsed.data] : []
+  })
+}
+
+const readPendingEvents = async (): Promise<DiagnosticEvent[]> => {
+  const sessionStorage = getSessionStorage()
+  if (!sessionStorage) return fallbackPendingEvents
+  const stored = await sessionStorage.get(PENDING_STORAGE_KEY)
+  return parseEvents(stored[PENDING_STORAGE_KEY])
+}
+
+const writePendingEvents = async (events: DiagnosticEvent[]): Promise<void> => {
+  const sessionStorage = getSessionStorage()
+  if (!sessionStorage) {
+    fallbackPendingEvents = events
+    return
+  }
+  await sessionStorage.set({ [PENDING_STORAGE_KEY]: events })
+}
+
+const clearPendingEvents = async (): Promise<void> => {
+  fallbackPendingEvents = []
+  await getSessionStorage()?.remove(PENDING_STORAGE_KEY)
+}
+
 export const getDiagnosticEvents = async (
   now = Date.now()
 ): Promise<DiagnosticEvent[]> =>
-  compactEvents([...(await readStoredEvents()), ...pendingEvents], now)
+  withStorageWriteLock(DIAGNOSTIC_LOCK, async () =>
+    compactEvents(
+      [...(await readStoredEvents()), ...(await readPendingEvents())],
+      now
+    )
+  )
 
 export const flushDiagnosticEvents = async (): Promise<void> => {
   if (flushTimer) {
     clearTimeout(flushTimer)
     flushTimer = undefined
   }
-  if (pendingEvents.length === 0) return
-
-  const batch = pendingEvents
-  pendingEvents = []
-  try {
-    await withStorageWriteLock(DIAGNOSTIC_LOCK, async () => {
+  await withStorageWriteLock(DIAGNOSTIC_LOCK, async () => {
+    const batch = await readPendingEvents()
+    if (batch.length === 0) return
+    try {
       const stored = await readStoredEvents()
       await setPlasmoStoredValue(
         STORAGE_KEYS.DIAGNOSTICS.EVENTS,
         compactEvents([...stored, ...batch], Date.now())
       )
-    })
-  } catch (error) {
-    pendingEvents = compactEvents(
-      [...batch, ...pendingEvents],
-      Date.now(),
-      MAX_PENDING_EVENTS,
-      MAX_PENDING_SERIALIZED_CHARS
-    )
-    throw error
-  }
+      await clearPendingEvents()
+    } catch (error) {
+      await writePendingEvents(batch)
+      throw error
+    }
+  })
 }
 
 const scheduleFlush = () => {
@@ -137,12 +183,17 @@ export const recordDiagnosticEvent = async (
     at: Date.now(),
     metadata: safeMetadata(input.metadata)
   })
-  pendingEvents = compactEvents(
-    [...pendingEvents, event],
-    event.at,
-    MAX_PENDING_EVENTS,
-    MAX_PENDING_SERIALIZED_CHARS
-  )
+  await withStorageWriteLock(DIAGNOSTIC_LOCK, async () => {
+    const pendingEvents = await readPendingEvents()
+    await writePendingEvents(
+      compactEvents(
+        [...pendingEvents, event],
+        event.at,
+        MAX_PENDING_EVENTS,
+        MAX_PENDING_SERIALIZED_CHARS
+      )
+    )
+  })
   scheduleFlush()
 }
 
@@ -151,8 +202,8 @@ export const clearDiagnosticEvents = async (): Promise<void> => {
     clearTimeout(flushTimer)
     flushTimer = undefined
   }
-  pendingEvents = []
-  await withStorageWriteLock(DIAGNOSTIC_LOCK, () =>
-    removePlasmoStoredValue(STORAGE_KEYS.DIAGNOSTICS.EVENTS)
-  )
+  await withStorageWriteLock(DIAGNOSTIC_LOCK, async () => {
+    await clearPendingEvents()
+    await removePlasmoStoredValue(STORAGE_KEYS.DIAGNOSTICS.EVENTS)
+  })
 }

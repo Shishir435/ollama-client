@@ -66,13 +66,17 @@ export const useChat = () => {
   const currentSession = sessions.find((s) => s.id === currentSessionId)
   const messages = currentSession?.messages ?? []
 
-  const { startStream, stopStream, currentStreamingMessageIdRef } =
-    useChatStreaming({
-      currentSessionId,
-      updateMessage,
-      setIsLoading,
-      setIsStreaming
-    })
+  const {
+    startStream,
+    stopStream,
+    currentStreamingMessageIdRef,
+    currentStreamingSessionIdRef
+  } = useChatStreaming({
+    currentSessionId,
+    updateMessage,
+    setIsLoading,
+    setIsStreaming
+  })
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -105,7 +109,8 @@ export const useChat = () => {
       messages,
       addMessage,
       startStream,
-      currentStreamingMessageIdRef
+      currentStreamingMessageIdRef,
+      currentStreamingSessionIdRef
     })
 
   const effectiveConfig = useMemo(() => {

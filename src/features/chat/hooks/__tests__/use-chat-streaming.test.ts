@@ -21,10 +21,11 @@ let capturedOnSuccessfulResponse:
 
 const embedMessages = vi.fn(async () => undefined)
 const touchMessageActivity = vi.fn(async (_id: number) => undefined)
-const completeOnboarding = vi.fn(async () => true)
+const completeOnboarding = vi.fn(async (_sessionId: string | null) => true)
 
 vi.mock("@/lib/onboarding/state", () => ({
-  completeOnboardingAfterFirstResponse: () => completeOnboarding()
+  completeOnboardingAfterFirstResponse: (sessionId: string | null) =>
+    completeOnboarding(sessionId)
 }))
 
 vi.mock("@/lib/repositories/chat-history", () => ({
@@ -312,7 +313,8 @@ describe("useChatStreaming", () => {
 
   it("completes onboarding only from explicit successful-response callback", async () => {
     const { options } = mkOptions()
-    renderHook(() => useChatStreaming(options))
+    const { result } = renderHook(() => useChatStreaming(options))
+    result.current.currentStreamingSessionIdRef.current = "s1"
 
     expect(completeOnboarding).not.toHaveBeenCalled()
     await capturedOnSuccessfulResponse?.({
@@ -320,7 +322,7 @@ describe("useChatStreaming", () => {
       content: "hello",
       done: true
     })
-    expect(completeOnboarding).toHaveBeenCalledOnce()
+    expect(completeOnboarding).toHaveBeenCalledWith("s1")
   })
 
   it("falls back to the last message in newMessages when the streamed id isn't in the array", async () => {

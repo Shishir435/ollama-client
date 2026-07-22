@@ -13,6 +13,11 @@ const storage = vi.hoisted(() => ({
   set: vi.fn(),
   remove: vi.fn()
 }))
+const sessionStorage = vi.hoisted(() => ({
+  get: vi.fn(),
+  set: vi.fn(),
+  remove: vi.fn()
+}))
 vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: storage.get,
   setPlasmoStoredValue: storage.set,
@@ -20,10 +25,27 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 }))
 
 beforeEach(async () => {
-  await clearDiagnosticEvents()
+  let sessionValues: Record<string, unknown> = {}
+  Object.assign(chrome.storage, { session: sessionStorage })
+  sessionStorage.get.mockReset().mockImplementation(async (key: string) => ({
+    [key]: sessionValues[key]
+  }))
+  sessionStorage.set.mockReset().mockImplementation(async (items) => {
+    sessionValues = { ...sessionValues, ...items }
+  })
+  sessionStorage.remove.mockReset().mockImplementation(async (key: string) => {
+    delete sessionValues[key]
+  })
   storage.get.mockReset().mockResolvedValue([])
   storage.set.mockReset().mockResolvedValue(undefined)
   storage.remove.mockReset().mockResolvedValue(undefined)
+  await clearDiagnosticEvents()
+  sessionStorage.get.mockClear()
+  sessionStorage.set.mockClear()
+  sessionStorage.remove.mockClear()
+  storage.get.mockClear()
+  storage.set.mockClear()
+  storage.remove.mockClear()
 })
 
 describe("diagnostic recorder", () => {
@@ -64,11 +86,41 @@ describe("diagnostic recorder", () => {
     })
 
     expect(storage.set).not.toHaveBeenCalled()
+    expect(sessionStorage.set).toHaveBeenCalledTimes(2)
     await expect(getDiagnosticEvents()).resolves.toHaveLength(2)
 
     await flushDiagnosticEvents()
     expect(storage.set).toHaveBeenCalledOnce()
     expect(storage.set.mock.calls[0]?.[1]).toHaveLength(2)
+  })
+
+  it("serializes clear after an in-flight flush", async () => {
+    let releaseWrite: (() => void) | undefined
+    storage.set.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseWrite = resolve
+        })
+    )
+    await recordDiagnosticEvent({
+      level: "info",
+      code: "RPC_COMPLETED",
+      operation: "providers.list",
+      surface: "background"
+    })
+
+    const flush = flushDiagnosticEvents()
+    await vi.waitFor(() => expect(storage.set).toHaveBeenCalledOnce())
+    const clear = clearDiagnosticEvents()
+    expect(storage.remove).not.toHaveBeenCalled()
+
+    releaseWrite?.()
+    await flush
+    await clear
+    expect(storage.remove).toHaveBeenCalledOnce()
+    expect(storage.set.mock.invocationCallOrder[0]).toBeLessThan(
+      storage.remove.mock.invocationCallOrder[0]
+    )
   })
 
   it("keeps the pending in-memory batch small during an event burst", async () => {
