@@ -5,6 +5,7 @@ import {
   AdvancedSection,
   SettingsCard,
   SettingsFormField,
+  SettingsLevelGate,
   SettingsSwitch
 } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
@@ -190,14 +191,16 @@ export const ContentExtractionSettings = () => {
     <SectionStack>
       <ContentExtractionSettingsForm config={config} onUpdate={handleUpdate} />
 
-      <SiteSpecificOverrides
-        config={config}
-        perSiteProfiles={perSiteProfileSettings?.profiles ?? []}
-        onAddSiteOverride={handleAddSiteOverride}
-        onRemoveSiteOverride={handleRemoveSiteOverride}
-        onUpdateSiteOverride={handleUpdateSiteOverride}
-        onUpdateSiteProfile={handleUpdateSiteProfile}
-      />
+      <SettingsLevelGate settingId="site-overrides">
+        <SiteSpecificOverrides
+          config={config}
+          perSiteProfiles={perSiteProfileSettings?.profiles ?? []}
+          onAddSiteOverride={handleAddSiteOverride}
+          onRemoveSiteOverride={handleRemoveSiteOverride}
+          onUpdateSiteOverride={handleUpdateSiteOverride}
+          onUpdateSiteProfile={handleUpdateSiteProfile}
+        />
+      </SettingsLevelGate>
 
       <ExcludedUrls
         patterns={config.excludedUrlPatterns || []}
@@ -321,144 +324,146 @@ const ContentExtractionSettingsForm = ({
         onCheckedChange={(checked) => onUpdate({ enabled: checked })}
       />
 
-      <SettingsSwitch
-        id="selection-actions-enabled"
-        label={t("settings.content_extraction.selection_actions.label")}
-        description={t(
-          "settings.content_extraction.selection_actions.description"
-        )}
-        checked={config.selectionActionsEnabled}
-        onCheckedChange={(checked) =>
-          onUpdate({
-            selectionActionsEnabled: checked,
-            showSelectionButton: checked
-          })
-        }
-      />
-
-      <SettingsFormField
-        focusId="selection-actions-min-chars"
-        label={t(
-          "settings.content_extraction.selection_actions_min_chars.label"
-        )}
-        description={t(
-          "settings.content_extraction.selection_actions_min_chars.description"
-        )}>
-        <Input
-          type="number"
-          min={1}
-          max={500}
-          value={
-            config.selectionActionsMinChars ??
-            DEFAULT_CONTENT_EXTRACTION_CONFIG.selectionActionsMinChars
-          }
-          onChange={(event) =>
+      <SettingsLevelGate settingId="selection-actions-enabled">
+        <SettingsSwitch
+          id="selection-actions-enabled"
+          label={t("settings.content_extraction.selection_actions.label")}
+          description={t(
+            "settings.content_extraction.selection_actions.description"
+          )}
+          checked={config.selectionActionsEnabled}
+          onCheckedChange={(checked) =>
             onUpdate({
-              selectionActionsMinChars: Math.max(
-                1,
-                Number(event.target.value) || 1
-              )
+              selectionActionsEnabled: checked,
+              showSelectionButton: checked
             })
           }
         />
-      </SettingsFormField>
 
-      <SettingsFormField
-        label={t("settings.content_extraction.selection_actions_list.label")}
-        description={t(
-          "settings.content_extraction.selection_actions_list.description"
-        )}>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {SELECTION_ACTIONS.map((action) => {
-            const enabledIds =
-              config.selectionActionsEnabledIds ??
-              DEFAULT_CONTENT_EXTRACTION_CONFIG.selectionActionsEnabledIds
-            const checked = enabledIds.includes(action.id)
-            return (
-              <label
-                key={action.id}
-                className="flex items-center gap-2 rounded-control border border-border px-3 py-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(event) => {
-                    const next = event.target.checked
-                      ? [...new Set([...enabledIds, action.id])]
-                      : enabledIds.filter((id) => id !== action.id)
-                    onUpdate({
-                      selectionActionsEnabledIds:
-                        next.length > 0 ? next : [SELECTION_ACTIONS[0].id]
-                    })
-                  }}
-                />
-                <span>{action.label}</span>
-              </label>
-            )
-          })}
-        </div>
-      </SettingsFormField>
+        <SettingsFormField
+          focusId="selection-actions-min-chars"
+          label={t(
+            "settings.content_extraction.selection_actions_min_chars.label"
+          )}
+          description={t(
+            "settings.content_extraction.selection_actions_min_chars.description"
+          )}>
+          <Input
+            type="number"
+            min={1}
+            max={500}
+            value={
+              config.selectionActionsMinChars ??
+              DEFAULT_CONTENT_EXTRACTION_CONFIG.selectionActionsMinChars
+            }
+            onChange={(event) =>
+              onUpdate({
+                selectionActionsMinChars: Math.max(
+                  1,
+                  Number(event.target.value) || 1
+                )
+              })
+            }
+          />
+        </SettingsFormField>
 
-      <Separator />
+        <SettingsFormField
+          label={t("settings.content_extraction.selection_actions_list.label")}
+          description={t(
+            "settings.content_extraction.selection_actions_list.description"
+          )}>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {SELECTION_ACTIONS.map((action) => {
+              const enabledIds =
+                config.selectionActionsEnabledIds ??
+                DEFAULT_CONTENT_EXTRACTION_CONFIG.selectionActionsEnabledIds
+              const checked = enabledIds.includes(action.id)
+              return (
+                <label
+                  key={action.id}
+                  className="flex items-center gap-2 rounded-control border border-border px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                        ? [...new Set([...enabledIds, action.id])]
+                        : enabledIds.filter((id) => id !== action.id)
+                      onUpdate({
+                        selectionActionsEnabledIds:
+                          next.length > 0 ? next : [SELECTION_ACTIONS[0].id]
+                      })
+                    }}
+                  />
+                  <span>{action.label}</span>
+                </label>
+              )
+            })}
+          </div>
+        </SettingsFormField>
+      </SettingsLevelGate>
 
-      {/* Content Scraper Selection */}
-      {renderContentScraperSelect(config.contentScraper, (value) =>
-        onUpdate({ contentScraper: value })
-      )}
-
-      <Separator />
-
-      {/* Scroll Strategy */}
-      <ScrollStrategyField
-        value={config.scrollStrategy}
-        onValueChange={(value) => onUpdate({ scrollStrategy: value })}
-        focusId="scroll-strategy"
-        label={
-          <>
-            <Target className="icon-md" />
-            {t("settings.content_extraction.scroll_strategy.label")}
-          </>
-        }
-        description={t(
-          `settings.content_extraction.scroll_strategy.${config.scrollStrategy}`
+      <SettingsLevelGate settingId="content-scraper">
+        <Separator />
+        {renderContentScraperSelect(config.contentScraper, (value) =>
+          onUpdate({ contentScraper: value })
         )}
-      />
+      </SettingsLevelGate>
 
-      {/* Scroll Depth */}
-      <ScrollDepthField
-        depth={config.scrollDepth}
-        onValueChange={(value) => onUpdate({ scrollDepth: value })}
-        focusId="scroll-depth"
-        label={
-          <>
-            <Zap className="icon-md" />
-            {t("settings.content_extraction.scroll_depth.label")}
-          </>
-        }
-        description={t("settings.content_extraction.scroll_depth.description")}
-      />
+      <SettingsLevelGate settingId="scroll-strategy">
+        <Separator />
+        <ScrollStrategyField
+          value={config.scrollStrategy}
+          onValueChange={(value) => onUpdate({ scrollStrategy: value })}
+          focusId="scroll-strategy"
+          label={
+            <>
+              <Target className="icon-md" />
+              {t("settings.content_extraction.scroll_strategy.label")}
+            </>
+          }
+          description={t(
+            `settings.content_extraction.scroll_strategy.${config.scrollStrategy}`
+          )}
+        />
 
-      {/* Advanced page-load timeouts — collapsed by default with a summary */}
-      <AdvancedSection
-        title={t("settings.content_extraction.timeout.section_title")}
-        summary={TIMEOUT_FIELDS.map(
-          (field) => `${field.label}: ${config[field.name]}`
-        ).join(" · ")}>
-        <FormGrid>
-          {TIMEOUT_FIELDS.map((field) => (
-            <TimeoutInputField
-              key={field.id}
-              field={field}
-              value={config[field.name]}
-              onValueChange={(value) => onUpdate({ [field.name]: value })}
-              focusId={field.id}
-              label={t(
-                `settings.content_extraction.timeout.${field.id.replace(/-/g, "_")}`
-              )}
-              inputClassName="text-center"
-            />
-          ))}
-        </FormGrid>
-      </AdvancedSection>
+        <ScrollDepthField
+          depth={config.scrollDepth}
+          onValueChange={(value) => onUpdate({ scrollDepth: value })}
+          focusId="scroll-depth"
+          label={
+            <>
+              <Zap className="icon-md" />
+              {t("settings.content_extraction.scroll_depth.label")}
+            </>
+          }
+          description={t(
+            "settings.content_extraction.scroll_depth.description"
+          )}
+        />
+
+        <AdvancedSection
+          title={t("settings.content_extraction.timeout.section_title")}
+          summary={TIMEOUT_FIELDS.map(
+            (field) => `${field.label}: ${config[field.name]}`
+          ).join(" · ")}>
+          <FormGrid>
+            {TIMEOUT_FIELDS.map((field) => (
+              <TimeoutInputField
+                key={field.id}
+                field={field}
+                value={config[field.name]}
+                onValueChange={(value) => onUpdate({ [field.name]: value })}
+                focusId={field.id}
+                label={t(
+                  `settings.content_extraction.timeout.${field.id.replace(/-/g, "_")}`
+                )}
+                inputClassName="text-center"
+              />
+            ))}
+          </FormGrid>
+        </AdvancedSection>
+      </SettingsLevelGate>
     </SettingsCard>
   )
 }

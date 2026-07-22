@@ -1,5 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { STORAGE_KEYS } from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { SettingsPage } from "../settings-page"
 
 vi.mock("react-i18next", () => ({
@@ -85,6 +93,27 @@ describe("SettingsPage", () => {
     ).toBeTruthy()
   })
 
+  it("renders the global disclosure control only in the page header", () => {
+    render(<SettingsPage />)
+
+    const header = document.querySelector("header")
+    const main = document.querySelector("main")
+
+    expect(header).not.toBeNull()
+    expect(main).not.toBeNull()
+    expect(
+      within(header as HTMLElement).getByRole("tablist", {
+        name: "settings.disclosure.title"
+      })
+    ).toBeInTheDocument()
+    expect(within(main as HTMLElement).queryByRole("tablist")).toBeNull()
+    expect(
+      document.querySelectorAll(
+        '[data-settings-focus-id="settings-disclosure-level"]'
+      )
+    ).toHaveLength(1)
+  })
+
   it("writes the selected record focus id into the URL", () => {
     render(<SettingsPage />)
     const search = screen.getAllByRole("combobox")[0]
@@ -95,5 +124,102 @@ describe("SettingsPage", () => {
     const params = new URLSearchParams(window.location.search)
     expect(params.get("tab")).toBe("models")
     expect(params.get("focus")).toBe("provider-base-url")
+  })
+
+  it("reveals an advanced setting targeted by a deep link", async () => {
+    window.history.replaceState({}, "", "/?tab=models&focus=temperature")
+
+    render(<SettingsPage />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("tab", {
+          name: "settings.disclosure.levels.advanced"
+        })
+      ).toHaveAttribute("aria-selected", "true")
+    })
+
+    fireEvent.click(
+      screen.getByRole("tab", {
+        name: "settings.disclosure.levels.basic"
+      })
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("tab", {
+          name: "settings.disclosure.levels.basic"
+        })
+      ).toHaveAttribute("aria-selected", "true")
+    })
+  })
+
+  it("shows power-only settings when the Power tab is selected", () => {
+    render(<SettingsPage />)
+
+    const powerSummary =
+      "settings.tabs.prompts · settings.tabs.voices · settings.tabs.shortcuts"
+    expect(screen.queryByText(powerSummary)).toBeNull()
+
+    fireEvent.click(
+      screen.getByRole("tab", {
+        name: "settings.disclosure.levels.power"
+      })
+    )
+
+    expect(screen.getByText(powerSummary)).toBeInTheDocument()
+  })
+
+  it("does not let a late storage read undo a user selection", async () => {
+    let resolveStoredLevel: (value: "basic") => void = () => undefined
+    vi.mocked(plasmoGlobalStorage.get).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveStoredLevel = resolve
+      })
+    )
+
+    render(<SettingsPage />)
+
+    const advancedTab = screen.getByRole("tab", {
+      name: "settings.disclosure.levels.advanced"
+    })
+    fireEvent.click(advancedTab)
+    resolveStoredLevel("basic")
+
+    await waitFor(() => {
+      expect(advancedTab).toHaveAttribute("aria-selected", "true")
+    })
+  })
+
+  it("does not let deep-link promotion downgrade a stored level", async () => {
+    let resolveStoredLevel: (value: "advanced") => void = () => undefined
+    vi.mocked(plasmoGlobalStorage.get).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveStoredLevel = resolve
+      })
+    )
+    window.history.replaceState({}, "", "/?tab=general&focus=prompt-templates")
+
+    render(<SettingsPage />)
+
+    expect(
+      screen.getByRole("tab", {
+        name: "settings.disclosure.levels.power"
+      })
+    ).toHaveAttribute("aria-selected", "true")
+
+    resolveStoredLevel("advanced")
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("tab", {
+          name: "settings.disclosure.levels.advanced"
+        })
+      ).toHaveAttribute("aria-selected", "true")
+    })
+    expect(plasmoGlobalStorage.set).not.toHaveBeenCalledWith(
+      STORAGE_KEYS.UI.SETTINGS_LEVEL,
+      "power"
+    )
   })
 })

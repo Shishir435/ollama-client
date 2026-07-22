@@ -129,6 +129,9 @@ export const STORAGE_KEYS = {
   THEME: {
     PREFERENCE: "light-dark-theme"
   },
+  UI: {
+    SETTINGS_LEVEL: "settings-disclosure-level"
+  },
   LANGUAGE: "app-language",
   ONBOARDING: {
     /** Device-local resumable onboarding state. */

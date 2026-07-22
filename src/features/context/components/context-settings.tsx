@@ -1,7 +1,11 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
-import { SettingsCard, SettingsSwitch } from "@/components/settings"
+import {
+  SettingsCard,
+  SettingsLevelGate,
+  SettingsSwitch
+} from "@/components/settings"
 import { ChatBackfillPanel } from "@/features/chat/components"
 import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"
 import { PromptContextLimitsSettings } from "@/features/context/components/prompt-context-limits-settings"
@@ -60,37 +64,45 @@ export const ContextSettings = () => {
     <SectionStack>
       <TwoColumnGrid>
         <MemorySettings />
-        <ChatBackfillPanel />
+        <SettingsLevelGate settingId="backfill-embeddings">
+          <ChatBackfillPanel />
+        </SettingsLevelGate>
       </TwoColumnGrid>
 
-      <PromptContextLimitsSettings />
+      <SettingsLevelGate settingId="max-tab-context-chars">
+        <PromptContextLimitsSettings />
+      </SettingsLevelGate>
 
-      <SettingsCard
-        icon={ShieldCheck}
-        title={t("settings.context.sections.grounding")}
-        description={t("settings.context.sections.grounding_description")}>
-        <div className="grid gap-4">
-          <GroundingModeSettings />
-          <AutoScreenshotSettings />
-        </div>
-      </SettingsCard>
+      <SettingsLevelGate settingId="grounded-only-mode">
+        <SettingsCard
+          icon={ShieldCheck}
+          title={t("settings.context.sections.grounding")}
+          description={t("settings.context.sections.grounding_description")}>
+          <div className="grid gap-4">
+            <GroundingModeSettings />
+            <AutoScreenshotSettings />
+          </div>
+        </SettingsCard>
+      </SettingsLevelGate>
 
-      <TwoColumnGrid>
-        <SettingsCard
-          icon={Globe}
-          title={t("settings.web_search.title")}
-          description={t("settings.web_search.description")}
-          badge={t("settings.web_search.beta_badge")}
-          badgeTooltip={t("settings.web_search.beta_tooltip")}>
-          <WebSearchSettings />
-        </SettingsCard>
-        <SettingsCard
-          icon={BookOpen}
-          title={t("model.embedding_config.rag_settings_title")}
-          description={t("model.embedding_config.rag_settings_description")}>
-          <RAGSettings />
-        </SettingsCard>
-      </TwoColumnGrid>
+      <SettingsLevelGate settingId="web-search-enabled">
+        <TwoColumnGrid>
+          <SettingsCard
+            icon={Globe}
+            title={t("settings.web_search.title")}
+            description={t("settings.web_search.description")}
+            badge={t("settings.web_search.beta_badge")}
+            badgeTooltip={t("settings.web_search.beta_tooltip")}>
+            <WebSearchSettings />
+          </SettingsCard>
+          <SettingsCard
+            icon={BookOpen}
+            title={t("model.embedding_config.rag_settings_title")}
+            description={t("model.embedding_config.rag_settings_description")}>
+            <RAGSettings />
+          </SettingsCard>
+        </TwoColumnGrid>
+      </SettingsLevelGate>
 
       <TwoColumnGrid>
         <SettingsCard
@@ -100,12 +112,14 @@ export const ContextSettings = () => {
           <FileUploadSettings />
         </SettingsCard>
 
-        <SettingsCard
-          icon={Scissors}
-          title={t("model.embedding_config.chunking_title")}
-          description={t("model.embedding_config.chunking_description")}>
-          <TextSplittingSettings />
-        </SettingsCard>
+        <SettingsLevelGate settingId="chunk-size">
+          <SettingsCard
+            icon={Scissors}
+            title={t("model.embedding_config.chunking_title")}
+            description={t("model.embedding_config.chunking_description")}>
+            <TextSplittingSettings />
+          </SettingsCard>
+        </SettingsLevelGate>
       </TwoColumnGrid>
     </SectionStack>
   )

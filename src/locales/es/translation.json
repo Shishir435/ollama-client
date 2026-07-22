@@ -793,6 +793,15 @@
     }
   },
   "settings": {
+    "disclosure": {
+      "title": "Nivel de configuración",
+      "description": "Elige cuánta configuración mostrar. La búsqueda abre automáticamente los ajustes ocultos.",
+      "levels": {
+        "basic": "Básico",
+        "power": "Potente",
+        "advanced": "Avanzado"
+      }
+    },
     "privacy_spine": {
       "local_chip": "Local",
       "header_tooltip": "Revisar datos locales y controles de privacidad",

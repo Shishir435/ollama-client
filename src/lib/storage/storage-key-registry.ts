@@ -113,6 +113,11 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "sync-safe",
     reason: "UI preference."
   },
+  [STORAGE_KEYS.UI.SETTINGS_LEVEL]: {
+    key: STORAGE_KEYS.UI.SETTINGS_LEVEL,
+    scope: "sync-safe",
+    reason: "Progressive settings disclosure is a portable UI preference."
+  },
   [STORAGE_KEYS.LANGUAGE]: {
     key: STORAGE_KEYS.LANGUAGE,
     scope: "sync-safe",

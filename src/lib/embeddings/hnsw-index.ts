@@ -5,6 +5,9 @@ import { logger } from "@/lib/logger"
 
 type AnnBackendType = "ts-hnsw" | "bruteforce"
 
+const DELETION_REBUILD_DEBOUNCE_MS = 1_000
+const DELETION_REBUILD_MAX_WAIT_MS = 5_000
+
 interface AnnBackendStats {
   count: number
   dimension: number | null
@@ -411,6 +414,11 @@ class HNSWIndexManager {
   private tsBackend = new TsHnswBackend()
   private isBuilding: boolean = false
   private buildProgress: number = 0
+  private buildPromise: Promise<void> | null = null
+  private deletionRebuildDirty = false
+  private deletionRebuildStartedAt = 0
+  private deletionRebuildTimer: ReturnType<typeof setTimeout> | null = null
+  private deletionRebuildPromise: Promise<void> | null = null
 
   private async getConfig(): Promise<EmbeddingConfig> {
     return getEmbeddingConfig()
@@ -449,11 +457,25 @@ class HNSWIndexManager {
     onProgress?: (current: number, total: number) => void,
     targetDimension?: number
   ): Promise<void> {
-    if (this.isBuilding) {
+    if (this.buildPromise) {
       logger.warn("Vector Index build already in progress", "HNSWIndex")
+      await this.buildPromise
       return
     }
 
+    const buildPromise = this.performBuild(onProgress, targetDimension)
+    this.buildPromise = buildPromise
+    try {
+      await buildPromise
+    } finally {
+      if (this.buildPromise === buildPromise) this.buildPromise = null
+    }
+  }
+
+  private async performBuild(
+    onProgress?: (current: number, total: number) => void,
+    targetDimension?: number
+  ): Promise<void> {
     this.isBuilding = true
     this.buildProgress = 0
 
@@ -548,16 +570,66 @@ class HNSWIndexManager {
   }
 
   /**
+   * Invalidates HNSW after one or more vectors are deleted.
+   *
+   * Keyword removal and Dexie deletion happen synchronously at the call site.
+   * The stale ANN graph is cleared once so searches safely fall back to a
+   * brute-force scan, then a burst of deletions is coalesced into one rebuild.
+   */
+  async markDeletionDirty(): Promise<void> {
+    const wasDirty = this.deletionRebuildDirty
+    this.deletionRebuildDirty = true
+
+    if (!wasDirty && !this.deletionRebuildPromise) {
+      this.deletionRebuildStartedAt = Date.now()
+      await this.clearBackendState()
+    }
+
+    this.scheduleDeletionRebuild()
+  }
+
+  /** Flushes a deferred deletion rebuild at an explicit maintenance boundary. */
+  async flushPendingDeletionRebuild(): Promise<void> {
+    if (this.deletionRebuildPromise) {
+      await this.deletionRebuildPromise
+      return
+    }
+    if (!this.deletionRebuildDirty) return
+
+    this.cancelDeletionRebuildTimer()
+    this.deletionRebuildPromise = this.rebuildAfterDeletions()
+    try {
+      await this.deletionRebuildPromise
+    } finally {
+      this.deletionRebuildPromise = null
+      if (this.deletionRebuildDirty) this.scheduleDeletionRebuild()
+    }
+  }
+
+  isDeletionRebuildPending(): boolean {
+    return this.deletionRebuildDirty || this.deletionRebuildPromise !== null
+  }
+
+  /**
    * Performs a k-NN search across the active indexing backend.
    * Falls back to brute-force if the primary backend (HNSW) is not yet populated.
    */
   async search(
     queryEmbedding: number[],
-    k: number = 10
+    k: number = 10,
+    eligibleIds?: ReadonlySet<number>
   ): Promise<Array<{ id: number; distance: number }>> {
     const config = await this.getConfig()
     const minSimilarity = config.defaultMinSimilarity
     const backend = this.getBackendInstance(config)
+    if (this.isDeletionRebuildPending()) {
+      return this.searchPersistedVectors(
+        queryEmbedding,
+        k,
+        minSimilarity,
+        eligibleIds
+      )
+    }
     if (backend?.isInitialized()) {
       const stats = backend.getStats()
       if (stats.count > 0) {
@@ -568,12 +640,94 @@ class HNSWIndexManager {
   }
 
   /**
+   * Searches the current IndexedDB rows while deletion maintenance is pending.
+   * The in-memory indexes are intentionally invalidated during this window, so
+   * neither is a safe source of truth until the deferred rebuild completes.
+   */
+  private async searchPersistedVectors(
+    queryEmbedding: number[],
+    k: number,
+    minSimilarity: number,
+    eligibleIds?: ReadonlySet<number>
+  ): Promise<Array<{ id: number; distance: number }>> {
+    const vectors = await vectorDb.vectors.toArray()
+    const exactIndex = new LocalVectorIndex()
+    exactIndex.buildIndex(
+      vectors
+        .filter(
+          (vector) =>
+            vector.id !== undefined &&
+            (!eligibleIds || eligibleIds.has(vector.id)) &&
+            vector.embedding.length === queryEmbedding.length
+        )
+        .map((vector) => ({
+          id: vector.id as number,
+          embedding: vector.embedding
+        }))
+    )
+    return exactIndex.search(queryEmbedding, k, minSimilarity)
+  }
+
+  /**
    * Clears all indexing state.
    */
   async clearIndex(): Promise<void> {
+    this.cancelDeletionRebuildTimer()
+    this.deletionRebuildDirty = false
+    this.deletionRebuildStartedAt = 0
+    await this.clearBackendState()
+  }
+
+  private async clearBackendState(): Promise<void> {
     await this.tsBackend.clear()
     this.localIndex.clear()
     logger.verbose("Vector Index cleared", "HNSWIndex")
+  }
+
+  private scheduleDeletionRebuild(): void {
+    if (this.deletionRebuildPromise) return
+    this.cancelDeletionRebuildTimer()
+
+    const elapsed = Date.now() - this.deletionRebuildStartedAt
+    const delay = Math.max(
+      0,
+      Math.min(
+        DELETION_REBUILD_DEBOUNCE_MS,
+        DELETION_REBUILD_MAX_WAIT_MS - elapsed
+      )
+    )
+    this.deletionRebuildTimer = setTimeout(() => {
+      this.deletionRebuildTimer = null
+      void this.flushPendingDeletionRebuild().catch((error) => {
+        logger.warn(
+          "Deferred vector index rebuild after deletion failed",
+          "HNSWIndex",
+          { error }
+        )
+      })
+    }, delay)
+  }
+
+  private cancelDeletionRebuildTimer(): void {
+    if (!this.deletionRebuildTimer) return
+    clearTimeout(this.deletionRebuildTimer)
+    this.deletionRebuildTimer = null
+  }
+
+  private async rebuildAfterDeletions(): Promise<void> {
+    // A deletion can arrive while a rebuild is reading Dexie. Repeat only when
+    // that happens; ordinary deletion bursts still produce one final rebuild.
+    do {
+      this.deletionRebuildDirty = false
+      // Let an unrelated/manual build settle, then rebuild from the latest DB
+      // state. Merely joining the older build could restore deleted vectors.
+      const activeBuild = this.buildPromise
+      if (activeBuild) await activeBuild.catch(() => undefined)
+      await this.clearBackendState()
+      await this.buildIndex()
+    } while (this.deletionRebuildDirty)
+
+    this.deletionRebuildStartedAt = 0
   }
 
   /**
@@ -610,7 +764,7 @@ class HNSWIndexManager {
   async shouldUseHNSW(vectorCount: number): Promise<boolean> {
     const config = await this.getConfig()
 
-    if (!config.useHNSW) {
+    if (!config.useHNSW || this.isDeletionRebuildPending()) {
       return false
     }
 

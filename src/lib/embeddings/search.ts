@@ -32,15 +32,20 @@ async function searchWithHNSW(
   minSimilarity: number,
   query: Dexie.Collection<VectorDocument, number>
 ): Promise<SearchResult[]> {
-  // Get HNSW results (returns IDs and distances)
-  const hnswResults = await hnswIndexManager.search(queryEmbedding, limit * 2) // Get more candidates
-
   // Get matching documents from filtered query
   const documents = await query.toArray()
   const docMap = new Map(
     documents
       .filter((d): d is VectorDocument & { id: number } => d.id !== undefined)
       .map((d) => [d.id, d])
+  )
+
+  // Pass eligible IDs so a deletion-time persisted fallback applies filters
+  // before ranking and limiting candidates rather than afterward.
+  const hnswResults = await hnswIndexManager.search(
+    queryEmbedding,
+    limit * 2,
+    new Set(docMap.keys())
   )
 
   // Map HNSW results to SearchResults with filtering
@@ -243,6 +248,7 @@ export const searchSimilarVectors = async (
     config.useHNSW &&
     config.annBackend !== "bruteforce" &&
     config.hnswAutoRebuild &&
+    !hnswIndexManager.isDeletionRebuildPending() &&
     vectorCount > 0
   ) {
     const stats = hnswIndexManager.getStats()

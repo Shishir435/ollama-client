@@ -17,6 +17,9 @@ vi.mock("@/lib/embeddings/hnsw-index", () => ({
     search: vi.fn(),
     shouldUseHNSW: vi.fn().mockResolvedValue(false), // brute-force so DB controls results
     isCompatibleDimension: vi.fn().mockReturnValue(true),
+    isDeletionRebuildPending: vi.fn().mockReturnValue(false),
+    markDeletionDirty: vi.fn().mockResolvedValue(undefined),
+    flushPendingDeletionRebuild: vi.fn().mockResolvedValue(undefined),
     buildIndex: vi.fn().mockResolvedValue(undefined),
     getStats: vi.fn().mockReturnValue({
       isInitialized: false,

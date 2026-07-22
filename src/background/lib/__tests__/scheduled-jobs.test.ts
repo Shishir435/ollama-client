@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getScheduledJobSettings: vi.fn(),
   checkStorageLimit: vi.fn(),
   removeDuplicateVectors: vi.fn(),
+  flushPendingDeletionRebuild: vi.fn(),
   loggerWarn: vi.fn(),
   notifyJobComplete: vi.fn()
 }))
@@ -43,6 +44,12 @@ vi.mock("@/lib/embeddings/storage", () => ({
   removeDuplicateVectors: mocks.removeDuplicateVectors
 }))
 
+vi.mock("@/lib/embeddings/hnsw-index", () => ({
+  hnswIndexManager: {
+    flushPendingDeletionRebuild: mocks.flushPendingDeletionRebuild
+  }
+}))
+
 vi.mock("@/background/lib/notify", () => ({
   notifyJobComplete: mocks.notifyJobComplete
 }))
@@ -68,6 +75,7 @@ beforeEach(() => {
   mocks.getAlarm.mockResolvedValue(null)
   mocks.checkStorageLimit.mockResolvedValue(undefined)
   mocks.removeDuplicateVectors.mockResolvedValue({ deleted: 0, kept: 0 })
+  mocks.flushPendingDeletionRebuild.mockResolvedValue(undefined)
 })
 
 describe("background scheduled jobs", () => {
@@ -140,6 +148,7 @@ describe("background scheduled jobs", () => {
     await runScheduledJob("vector-maintenance")
 
     expect(mocks.checkStorageLimit).toHaveBeenCalled()
+    expect(mocks.flushPendingDeletionRebuild).toHaveBeenCalledTimes(1)
     expect(mocks.notifyJobComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "vector-maintenance",

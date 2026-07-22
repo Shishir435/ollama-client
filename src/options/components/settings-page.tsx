@@ -14,7 +14,6 @@ import {
   PageBody,
   PageHeader,
   SectionStack,
-  Toolbar,
   TwoColumnGrid
 } from "@/components/layout"
 import { PerformanceWarning } from "@/components/performance-warning"
@@ -22,6 +21,9 @@ import {
   AdvancedSection,
   type NavSection,
   PresetPicker,
+  SettingsDisclosureControl,
+  SettingsDisclosureProvider,
+  SettingsLevelGate,
   SettingsMobileNav,
   SettingsSearch,
   SettingsSidebar
@@ -44,12 +46,17 @@ import { PrivacyDataInventory } from "@/features/privacy/components/privacy-data
 import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import {
   getSettingsEntry,
+  getSettingsEntryLevel,
+  isSettingsLevel,
   isSettingsTab,
+  maxSettingsLevel,
   resolveSettingsTab,
-  type SettingsTab
+  type SettingsLevel,
+  type SettingsTab,
+  settingsLevelIncludes
 } from "@/features/settings/settings-registry"
 import type { SettingsSearchRecord } from "@/features/settings/settings-search-index"
-import { HIGHLIGHT_FOCUS_DELAY_MS } from "@/lib/constants"
+import { HIGHLIGHT_FOCUS_DELAY_MS, STORAGE_KEYS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
 import {
   BookOpen,
@@ -60,6 +67,7 @@ import {
   Lock,
   MessageSquare
 } from "@/lib/lucide-icon"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { Guides } from "@/options/components/guides"
 import { ResetStorage } from "@/options/components/reset-storage"
 import { ShortcutsSettings } from "@/options/components/shortcuts-settings"
@@ -69,6 +77,11 @@ export const SettingsPage = () => {
   const desktopSearchRef = useRef<HTMLInputElement>(null)
   const mobileSearchRef = useRef<HTMLInputElement>(null)
   const highlightTimersRef = useRef<Set<number>>(new Set())
+  const revealedFocusRef = useRef<string | null>(null)
+  const userSelectedLevelRef = useRef(false)
+  const hydratedLevelRef = useRef(false)
+  const promotedLevelRef = useRef<SettingsLevel>("basic")
+  const [settingsLevel, setSettingsLevel] = useState<SettingsLevel>("basic")
   const [activeFocusId, setActiveFocusId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
     return new URLSearchParams(window.location.search).get("focus")
@@ -83,6 +96,70 @@ export const SettingsPage = () => {
     const entryTab = focusId ? getSettingsEntry(focusId)?.tab : undefined
     return entryTab || resolveSettingsTab(requestedTab) || "general"
   })
+
+  useEffect(() => {
+    let active = true
+    plasmoGlobalStorage
+      .get<SettingsLevel>(STORAGE_KEYS.UI.SETTINGS_LEVEL)
+      .then((stored) => {
+        if (!active) return
+        hydratedLevelRef.current = true
+        if (userSelectedLevelRef.current) return
+
+        const storedLevel = isSettingsLevel(stored) ? stored : "basic"
+        const reconciledLevel = maxSettingsLevel(
+          storedLevel,
+          promotedLevelRef.current
+        )
+        setSettingsLevel(reconciledLevel)
+        if (reconciledLevel !== storedLevel) {
+          void plasmoGlobalStorage.set(
+            STORAGE_KEYS.UI.SETTINGS_LEVEL,
+            reconciledLevel
+          )
+        }
+      })
+      .catch(() => {
+        hydratedLevelRef.current = true
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const updateSettingsLevel = useCallback((next: SettingsLevel) => {
+    userSelectedLevelRef.current = true
+    setSettingsLevel(next)
+    void plasmoGlobalStorage.set(STORAGE_KEYS.UI.SETTINGS_LEVEL, next)
+  }, [])
+
+  const revealSetting = useCallback(
+    (focusId: string) => {
+      const required = getSettingsEntryLevel(getSettingsEntry(focusId))
+      if (!settingsLevelIncludes(settingsLevel, required)) {
+        const promoted = maxSettingsLevel(settingsLevel, required)
+        promotedLevelRef.current = maxSettingsLevel(
+          promotedLevelRef.current,
+          promoted
+        )
+        setSettingsLevel(promoted)
+        if (hydratedLevelRef.current) {
+          void plasmoGlobalStorage.set(STORAGE_KEYS.UI.SETTINGS_LEVEL, promoted)
+        }
+      }
+    },
+    [settingsLevel]
+  )
+
+  useEffect(() => {
+    if (!activeFocusId) {
+      revealedFocusRef.current = null
+      return
+    }
+    if (revealedFocusRef.current === activeFocusId) return
+    revealedFocusRef.current = activeFocusId
+    revealSetting(activeFocusId)
+  }, [activeFocusId, revealSetting])
 
   const navSections: NavSection[] = [
     {
@@ -136,16 +213,18 @@ export const SettingsPage = () => {
           <ChatDisplaySettings />
         </TwoColumnGrid>
         <PresetPicker />
-        <AdvancedSection
-          title={t("settings.sections.more")}
-          forceOpen={Boolean(activeFocusId)}
-          summary={`${t("settings.tabs.prompts")} · ${t("settings.tabs.voices")} · ${t("settings.tabs.shortcuts")}`}>
-          <SectionStack>
-            <SpeechSettings />
-            <PromptTemplateManager />
-            <ShortcutsSettings />
-          </SectionStack>
-        </AdvancedSection>
+        <SettingsLevelGate level="power">
+          <AdvancedSection
+            title={t("settings.sections.more")}
+            forceOpen={Boolean(activeFocusId)}
+            summary={`${t("settings.tabs.prompts")} · ${t("settings.tabs.voices")} · ${t("settings.tabs.shortcuts")}`}>
+            <SectionStack>
+              <SpeechSettings />
+              <PromptTemplateManager />
+              <ShortcutsSettings />
+            </SectionStack>
+          </AdvancedSection>
+        </SettingsLevelGate>
       </SectionStack>
     ),
     models: (
@@ -292,13 +371,14 @@ export const SettingsPage = () => {
         window.history.replaceState({}, "", url.toString())
       }
       setActiveFocusId(record.focusId)
+      revealSetting(record.focusId)
       if (record.tab !== activeTab) {
         setActiveTab(record.tab)
       } else {
         highlightFocus(record.focusId)
       }
     },
-    [activeTab, highlightFocus]
+    [activeTab, highlightFocus, revealSetting]
   )
 
   const handleTabChange = useCallback((key: string) => {
@@ -332,75 +412,80 @@ export const SettingsPage = () => {
   }, [])
 
   return (
-    <AppShell>
-      <PageHeader className="z-50">
-        <Toolbar className="bg-surface-chat px-4 py-4 sm:px-6 lg:px-8">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+    <SettingsDisclosureProvider level={settingsLevel}>
+      <AppShell>
+        <PageHeader className="z-50">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 bg-surface-chat px-4 py-4 sm:px-6 md:grid-cols-[auto_minmax(15rem,18rem)_minmax(0,1fr)_auto] md:gap-x-5 lg:px-8">
+            <h1 className="col-start-1 row-start-1 min-w-0 text-2xl font-semibold tracking-tight">
               {t("settings.page.title")}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="col-span-2 row-start-2 min-w-0 text-sm text-muted-foreground md:col-span-3 md:col-start-1">
               {t("settings.page.description")}
             </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <SocialLinkButton
-              href={githubLink}
-              icon={Github}
-              buttonVariant="ghost"
-              size="compact"
-              iconSize={16}
-              iconOnly
-              showShadow={false}
-              label={t("social.github")}
-              aria-label={t("common.social.visit_profile", {
-                platform: t("social.github")
-              })}
+            <SettingsDisclosureControl
+              level={settingsLevel}
+              onLevelChange={updateSettingsLevel}
+              className="col-span-2 row-start-3 mt-2 md:col-span-1 md:col-start-2 md:row-start-1 md:mt-0"
             />
-            <ThemeToggle showText={false} />
+            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2 md:col-start-4">
+              <SocialLinkButton
+                href={githubLink}
+                icon={Github}
+                buttonVariant="ghost"
+                size="compact"
+                iconSize={16}
+                iconOnly
+                showShadow={false}
+                label={t("social.github")}
+                aria-label={t("common.social.visit_profile", {
+                  platform: t("social.github")
+                })}
+              />
+              <ThemeToggle showText={false} />
+            </div>
           </div>
-        </Toolbar>
-      </PageHeader>
+        </PageHeader>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="hidden w-64 flex-none flex-col border-r border-sidebar-border bg-surface-sidebar lg:flex">
-          <div className="p-4 pb-2">
-            <SettingsSearch
+        <div className="flex flex-1 overflow-hidden">
+          <div className="hidden w-64 flex-none flex-col border-r border-sidebar-border bg-surface-sidebar lg:flex">
+            <div className="p-4 pb-2">
+              <SettingsSearch
+                activeTab={activeTab}
+                inputRef={desktopSearchRef}
+                onSelect={navigateToSetting}
+                showShortcutHint
+              />
+            </div>
+            <SettingsSidebar
+              sections={navSections}
               activeTab={activeTab}
-              inputRef={desktopSearchRef}
-              onSelect={navigateToSetting}
-              showShortcutHint
+              onTabChange={handleTabChange}
+              className="w-full min-h-0 flex-1 p-4 pt-2"
             />
           </div>
-          <SettingsSidebar
-            sections={navSections}
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            className="w-full min-h-0 flex-1 p-4 pt-2"
-          />
-        </div>
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <div className="px-4 pt-4 sm:px-6 lg:hidden">
-            <SettingsSearch
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="px-4 pt-4 sm:px-6 lg:hidden">
+              <SettingsSearch
+                activeTab={activeTab}
+                inputRef={mobileSearchRef}
+                onSelect={navigateToSetting}
+                showShortcutHint
+              />
+            </div>
+            <SettingsMobileNav
+              items={allNavItems}
               activeTab={activeTab}
-              inputRef={mobileSearchRef}
-              onSelect={navigateToSetting}
-              showShortcutHint
+              onTabChange={handleTabChange}
+              className="flex-none px-4 pt-4 sm:px-6"
             />
+            <main className="min-w-0 flex-1 overflow-y-auto">
+              <PageBody>
+                <div key={activeTab}>{tabContent[activeTab]}</div>
+              </PageBody>
+            </main>
           </div>
-          <SettingsMobileNav
-            items={allNavItems}
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            className="flex-none px-4 pt-4 sm:px-6"
-          />
-          <main className="min-w-0 flex-1 overflow-y-auto">
-            <PageBody>
-              <div key={activeTab}>{tabContent[activeTab]}</div>
-            </PageBody>
-          </main>
         </div>
-      </div>
-    </AppShell>
+      </AppShell>
+    </SettingsDisclosureProvider>
   )
 }

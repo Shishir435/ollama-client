@@ -793,6 +793,15 @@
     }
   },
   "settings": {
+    "disclosure": {
+      "title": "配置级别",
+      "description": "选择要显示的配置数量。搜索会自动打开隐藏设置。",
+      "levels": {
+        "basic": "基础",
+        "power": "增强",
+        "advanced": "高级"
+      }
+    },
     "privacy_spine": {
       "local_chip": "本地",
       "header_tooltip": "查看本地数据和隐私控制",
