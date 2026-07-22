@@ -58,6 +58,11 @@ describe("settings disclosure", () => {
 
     render(<Harness />)
 
+    expect(screen.queryByText("settings.disclosure.title")).toBeNull()
+    expect(screen.getByRole("tablist")).toHaveAccessibleName(
+      "settings.disclosure.title"
+    )
+
     const advancedTab = screen.getByRole("tab", {
       name: "settings.disclosure.levels.advanced"
     })

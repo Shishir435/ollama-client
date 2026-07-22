@@ -61,20 +61,14 @@ export const SettingsDisclosureControl = ({
     <div
       data-settings-focus="true"
       data-settings-focus-id="settings-disclosure-level"
-      className={cn(
-        "flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between lg:justify-start",
-        className
-      )}>
-      <span className="shrink-0 whitespace-nowrap text-sm font-medium text-muted-foreground">
-        {t("settings.disclosure.title")}
-      </span>
+      className={cn("min-w-0", className)}>
       <Tabs
         value={level}
         onValueChange={(value) => onLevelChange(value as SettingsLevel)}
-        className="min-w-0 w-full sm:w-auto sm:flex-none">
+        className="min-w-0 w-full">
         <TabsList
           aria-label={t("settings.disclosure.title")}
-          className="grid h-9 w-full grid-cols-3 bg-muted/60 p-1 sm:min-w-72">
+          className="grid h-9 w-full grid-cols-3 bg-muted/60 p-1 lg:min-w-72">
           {SETTINGS_LEVELS.map((option) => (
             <TabsTrigger
               key={option}

@@ -406,7 +406,7 @@ export const SettingsPage = () => {
             <SettingsDisclosureControl
               level={settingsLevel}
               onLevelChange={updateSettingsLevel}
-              className="col-span-2 row-start-2 border-t pt-4 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:border-t-0 lg:pt-0"
+              className="col-span-2 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"
             />
             <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2 lg:col-start-3">
               <SocialLinkButton
