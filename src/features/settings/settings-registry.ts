@@ -102,6 +102,15 @@ type RawSettingsEntry = Omit<SettingsEntry, "tab"> & {
  * only needs the correct `focus` id even if its `tab` is stale.
  */
 const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
+  {
+    id: "diagnostics-support",
+    tab: "help",
+    sectionId: "diagnostics",
+    labelKey: "diagnostics.title",
+    descriptionKey: "diagnostics.description",
+    searchKeys: ["diagnostics.run", "diagnostics.preview"],
+    aliases: ["support bundle", "self test", "support code"]
+  },
   // ---- General -----------------------------------------------------------
   {
     id: "language-select",

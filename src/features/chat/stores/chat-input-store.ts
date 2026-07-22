@@ -6,8 +6,11 @@ import type { ChatInput } from "@/types"
 interface ComposerState extends ChatInput {
   promptLibraryOpen: boolean
   focused: boolean
+  pendingChatSend?: string
   setPromptLibraryOpen: (open: boolean) => void
   setFocused: (focused: boolean) => void
+  queueChatSend: (input: string) => void
+  clearPendingChatSend: () => void
 }
 
 export const chatInputStore = create<ComposerState>((set) => ({
@@ -16,8 +19,11 @@ export const chatInputStore = create<ComposerState>((set) => ({
   appendInput: (text) => set((state) => ({ input: state.input + text })),
   promptLibraryOpen: false,
   focused: false,
+  pendingChatSend: undefined,
   setPromptLibraryOpen: (promptLibraryOpen) => set({ promptLibraryOpen }),
-  setFocused: (focused) => set({ focused })
+  setFocused: (focused) => set({ focused }),
+  queueChatSend: (pendingChatSend) => set({ pendingChatSend }),
+  clearPendingChatSend: () => set({ pendingChatSend: undefined })
 }))
 
 export const useChatInput = () => {
@@ -37,5 +43,14 @@ export const useComposerUi = () =>
       focused: state.focused,
       setPromptLibraryOpen: state.setPromptLibraryOpen,
       setFocused: state.setFocused
+    }))
+  )
+
+export const usePendingChatSend = () =>
+  chatInputStore(
+    useShallow((state) => ({
+      pendingChatSend: state.pendingChatSend,
+      queueChatSend: state.queueChatSend,
+      clearPendingChatSend: state.clearPendingChatSend
     }))
   )

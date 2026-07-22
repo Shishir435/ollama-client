@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { describe, expect, it } from "vitest"
 
 import {
@@ -44,10 +46,11 @@ describe("sanitizeExportFragment", () => {
     expect(clean).toContain('href="mailto:x@y.z"')
   })
 
-  it("keeps the export stylesheet", () => {
+  it("drops untrusted stylesheet elements", () => {
     const clean = sanitizeExportFragment("<style>.x{color:red}</style><p>t</p>")
-    expect(clean).toContain("<style>")
-    expect(clean).toContain(".x{color:red}")
+    expect(clean).not.toContain("<style>")
+    expect(clean).not.toContain(".x{color:red}")
+    expect(clean).toContain("<p>t</p>")
   })
 
   it("replaces remote images with a placeholder by default", () => {

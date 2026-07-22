@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChatStream } from "@/features/chat/hooks/use-chat-stream"
 import { logger } from "@/lib/logger"
+import { completeOnboardingAfterFirstResponse } from "@/lib/onboarding/state"
 import { touchMessageActivity } from "@/lib/repositories/chat-history"
 import type { ChatMessage } from "@/types"
 
@@ -39,6 +40,7 @@ export const useChatStreaming = ({
   setIsStreaming
 }: ChatStreamingOptions) => {
   const currentStreamingMessageIdRef = useRef<number | null>(null)
+  const currentStreamingSessionIdRef = useRef<string | null>(null)
   const dbUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const livenessIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -141,7 +143,6 @@ export const useChatStreaming = ({
         },
         false
       )
-
       if (currentSessionId) {
         embedMessages(newMessages, currentSessionId, false).catch((err) => {
           logger.error("Failed to embed messages", "useChat", { error: err })
@@ -149,7 +150,19 @@ export const useChatStreaming = ({
       }
     },
     setIsLoading,
-    setIsStreaming
+    setIsStreaming,
+    onSuccessfulResponse: async (message) => {
+      if (!message.content.trim()) return
+      try {
+        await completeOnboardingAfterFirstResponse(
+          currentStreamingSessionIdRef.current
+        )
+      } catch (error) {
+        logger.debug("Failed to complete onboarding", "useChatStreaming", {
+          error
+        })
+      }
+    }
   })
 
   const stopStream = () => {
@@ -157,5 +170,10 @@ export const useChatStreaming = ({
     baseStopStream()
   }
 
-  return { startStream, stopStream, currentStreamingMessageIdRef }
+  return {
+    startStream,
+    stopStream,
+    currentStreamingMessageIdRef,
+    currentStreamingSessionIdRef
+  }
 }

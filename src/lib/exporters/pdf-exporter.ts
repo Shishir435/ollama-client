@@ -8,7 +8,6 @@ import type { ChatMessage, ChatSession, ImageAttachment } from "@/types"
 import { escapeHtml, sanitizeExportFragment } from "./export-sanitizer"
 import { createMarkdownParser, parseMessageContent } from "./markdown-utils"
 import { type PrintJobPayload, printJobKey } from "./print-job"
-import { getPdfStyles } from "./styles"
 import type { Exporter, ExportOptions } from "./types"
 
 /**
@@ -111,7 +110,6 @@ export const pdfExporter: Exporter = {
     const md = createMarkdownParser()
     const title = session.title || t("sessions.export.default_title")
     const html = `
-      ${getPdfStyles()}
       <div class="chat-container">
         <h1 class="chat-title">${escapeHtml(title)}</h1>
         ${(session.messages ?? []).map((msg) => renderMessage(msg, t, md)).join("")}
@@ -128,7 +126,6 @@ export const pdfExporter: Exporter = {
   exportAllSessions: async (sessions: ChatSession[], t: TFunction) => {
     const md = createMarkdownParser()
     const html = `
-      ${getPdfStyles()}
       <div class="chat-container">
         <h1 class="chat-title">${escapeHtml(t("sessions.export.all_sessions_title"))}</h1>
         ${sessions
@@ -153,7 +150,6 @@ export const pdfExporter: Exporter = {
   ) => {
     const md = createMarkdownParser()
     const html = `
-      ${getPdfStyles()}
       <div class="chat-container">
         ${renderMessage(message, t, md)}
       </div>

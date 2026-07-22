@@ -20,6 +20,7 @@ interface ChatResponseOptions {
     clientContextPrepared?: boolean
   }) => void
   currentStreamingMessageIdRef: { current: number | null }
+  currentStreamingSessionIdRef: { current: string | null }
 }
 
 export const useChatResponse = ({
@@ -28,7 +29,8 @@ export const useChatResponse = ({
   messages,
   addMessage,
   startStream,
-  currentStreamingMessageIdRef
+  currentStreamingMessageIdRef,
+  currentStreamingSessionIdRef
 }: ChatResponseOptions) => {
   const ragSourcesRef = useRef<RagSources | null>(null)
   const promptContextStatsRef = useRef<PromptContextStats | null>(null)
@@ -78,6 +80,7 @@ export const useChatResponse = ({
 
     const assistantId = await addMessage(sessionId, assistantMessage)
     currentStreamingMessageIdRef.current = assistantId
+    currentStreamingSessionIdRef.current = sessionId
 
     startStream({
       model: modelForRequest,

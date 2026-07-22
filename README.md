@@ -184,6 +184,7 @@ Ollama Client does not include a built-in telemetry pipeline. Your privacy depen
 - Remote providers receive the prompts, context, and files snippets you send to them.
 - Remote search providers receive search queries when web search is enabled and selected.
 - Chat history and RAG data are stored locally by default.
+- Diagnostics are bounded, content-free, previewed locally, and never uploaded automatically.
 
 Do not expose local provider APIs publicly without authentication and network controls.
 

@@ -130,7 +130,15 @@ export const STORAGE_KEYS = {
     PREFERENCE: "light-dark-theme"
   },
   LANGUAGE: "app-language",
-  // One-shot flag: the first-run permissions/privacy intro has been shown.
+  ONBOARDING: {
+    /** Device-local resumable onboarding state. */
+    STATE: "onboarding-state-v2"
+  },
+  DIAGNOSTICS: {
+    /** Device-local, content-free diagnostic ring buffer. */
+    EVENTS: "diagnostic-events-v1"
+  },
+  // Legacy one-shot flag. Read only while migrating onboarding state v2.
   ONBOARDING_PERMISSIONS_SEEN: "onboarding-permissions-seen",
   BROWSER: {
     TABS_ACCESS: "browser-tab-access",

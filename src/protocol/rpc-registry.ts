@@ -1,6 +1,15 @@
 import type { z } from "zod"
 
 import {
+  DiagnosticsClearRequestSchema,
+  DiagnosticsClearResultSchema,
+  DiagnosticsGetBundleRequestSchema,
+  DiagnosticsGetBundleResultSchema,
+  DiagnosticsRunRequestSchema,
+  DiagnosticsRunResultSchema
+} from "./diagnostics-rpc"
+
+import {
   ProvidersListModelsRequestSchema,
   ProvidersListModelsResultSchema,
   ProvidersListRequestSchema,
@@ -67,6 +76,27 @@ export const RPC_METHOD_DEFINITIONS = {
     response: ProvidersProbeModelCapabilitiesResultSchema,
     allowedSources: extensionPagesOnly,
     timeoutMs: 35_000,
+    operation: "command"
+  },
+  [RpcMethod.DiagnosticsRun]: {
+    request: DiagnosticsRunRequestSchema,
+    response: DiagnosticsRunResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 30_000,
+    operation: "command"
+  },
+  [RpcMethod.DiagnosticsGetBundle]: {
+    request: DiagnosticsGetBundleRequestSchema,
+    response: DiagnosticsGetBundleResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 30_000,
+    operation: "query"
+  },
+  [RpcMethod.DiagnosticsClear]: {
+    request: DiagnosticsClearRequestSchema,
+    response: DiagnosticsClearResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 5_000,
     operation: "command"
   }
 } as const satisfies Record<RpcMethod, RpcMethodDefinition>

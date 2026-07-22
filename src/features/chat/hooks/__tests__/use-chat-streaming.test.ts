@@ -15,9 +15,18 @@ type UpdateMessageFn = (
 let capturedSetMessages:
   | ((messages: Array<Record<string, unknown>>) => Promise<void> | void)
   | null = null
+let capturedOnSuccessfulResponse:
+  | ((message: ChatMessage) => Promise<void> | void)
+  | null = null
 
 const embedMessages = vi.fn(async () => undefined)
 const touchMessageActivity = vi.fn(async (_id: number) => undefined)
+const completeOnboarding = vi.fn(async (_sessionId: string | null) => true)
+
+vi.mock("@/lib/onboarding/state", () => ({
+  completeOnboardingAfterFirstResponse: (sessionId: string | null) =>
+    completeOnboarding(sessionId)
+}))
 
 vi.mock("@/lib/repositories/chat-history", () => ({
   touchMessageActivity: (id: number) => touchMessageActivity(id)
@@ -25,8 +34,12 @@ vi.mock("@/lib/repositories/chat-history", () => ({
 
 vi.mock("@/features/chat/hooks/use-chat-stream", () => ({
   useChatStream: vi.fn(
-    (config: { setMessages: typeof capturedSetMessages }) => {
+    (config: {
+      setMessages: typeof capturedSetMessages
+      onSuccessfulResponse?: typeof capturedOnSuccessfulResponse
+    }) => {
       capturedSetMessages = config.setMessages
+      capturedOnSuccessfulResponse = config.onSuccessfulResponse ?? null
       return {
         startStream: vi.fn(),
         stopStream: vi.fn()
@@ -62,8 +75,10 @@ const mkOptions = (
 beforeEach(() => {
   vi.useFakeTimers()
   capturedSetMessages = null
+  capturedOnSuccessfulResponse = null
   embedMessages.mockClear()
   touchMessageActivity.mockClear()
+  completeOnboarding.mockClear()
 })
 
 afterEach(() => {
@@ -294,6 +309,20 @@ describe("useChatStreaming", () => {
 
     expect(spies.updateMessage).toHaveBeenCalledTimes(2) // UI + DB flush
     expect(embedMessages).not.toHaveBeenCalled()
+  })
+
+  it("completes onboarding only from explicit successful-response callback", async () => {
+    const { options } = mkOptions()
+    const { result } = renderHook(() => useChatStreaming(options))
+    result.current.currentStreamingSessionIdRef.current = "s1"
+
+    expect(completeOnboarding).not.toHaveBeenCalled()
+    await capturedOnSuccessfulResponse?.({
+      role: "assistant",
+      content: "hello",
+      done: true
+    })
+    expect(completeOnboarding).toHaveBeenCalledWith("s1")
   })
 
   it("falls back to the last message in newMessages when the streamed id isn't in the array", async () => {

@@ -1,6 +1,8 @@
 import type { Runtime } from "webextension-polyfill"
 
 import { classifyRuntimeSender } from "@/background/runtime-sender-authorization"
+import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
+import { DiagnosticsService } from "@/lib/diagnostics/diagnostics-service"
 import { isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
@@ -35,13 +37,18 @@ const handlers = {
   [RpcMethod.ProvidersRemove]: async (request) =>
     ProviderRpcService.remove(request),
   [RpcMethod.ProvidersProbeModelCapabilities]: async (request, signal) =>
-    ProviderRpcService.probeModelCapabilities(request, signal)
+    ProviderRpcService.probeModelCapabilities(request, signal),
+  [RpcMethod.DiagnosticsRun]: async (_request, signal) =>
+    DiagnosticsService.run(signal),
+  [RpcMethod.DiagnosticsGetBundle]: async (_request, signal) =>
+    DiagnosticsService.getBundle(signal),
+  [RpcMethod.DiagnosticsClear]: async () => DiagnosticsService.clear()
 } satisfies RpcHandlers
 
 const activeRequests = new Map<string, AbortController>()
 
 const supportCode = (code: RpcErrorCode, requestId: string): string =>
-  `RPC-${code.replaceAll("_", "-").toUpperCase()}-${requestId.slice(0, 8).toUpperCase()}`
+  `OLC-RPC-${code.replaceAll("_", "-").toUpperCase()}-${requestId.slice(0, 8).toUpperCase()}`
 
 const rpcError = (
   code: RpcErrorCode,
@@ -209,6 +216,7 @@ export const handleRpcRequest = async (
 
   let status = "success"
   let errorCode: RpcErrorCode | undefined
+  let diagnosticSupportCode: string | undefined
   try {
     const handler = handlers[method] as (
       value: unknown,
@@ -232,6 +240,7 @@ export const handleRpcRequest = async (
         })
       : normalizeRpcError(error, requestId)
     errorCode = normalized.code
+    diagnosticSupportCode = normalized.supportCode
     sendResponse(response(requestId, { ok: false, error: normalized }))
     if (!cancelled) {
       logger.error("RPC request failed", "RpcServer", {
@@ -254,5 +263,22 @@ export const handleRpcRequest = async (
       errorCode,
       durationMs: Math.max(0, performance.now() - startedAt)
     })
+    if (method !== RpcMethod.DiagnosticsClear) {
+      await recordDiagnosticEvent({
+        level:
+          status === "error"
+            ? "error"
+            : status === "cancelled"
+              ? "warn"
+              : "info",
+        code: errorCode ? `RPC_${errorCode.toUpperCase()}` : "RPC_COMPLETED",
+        operation: method,
+        surface: "background",
+        requestId,
+        durationMs: Math.max(0, performance.now() - startedAt),
+        ...(diagnosticSupportCode && { supportCode: diagnosticSupportCode }),
+        ...(errorCode && { metadata: { errorCode } })
+      }).catch(() => undefined)
+    }
   }
 }

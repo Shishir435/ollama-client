@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
 import { useOmniboxQuery } from "@/features/chat/hooks/use-omnibox-query"
+import { usePendingChatSend } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
@@ -29,6 +30,7 @@ export const Chat = () => {
     onLoadMore
   } = useChat()
   const { isLoading, isStreaming } = useLoadStream()
+  const { pendingChatSend, clearPendingChatSend } = usePendingChatSend()
   const {
     currentSessionId,
     highlightedMessage,
@@ -42,10 +44,41 @@ export const Chat = () => {
   const { isOpen: isSearchOpen, closeSearchDialog } = useSearchDialogStore()
   const { embedMessage } = useAutoEmbedMessages()
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null)
+  const pendingSendInFlightRef = useRef(false)
 
   // Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
   // the chat UI decoupled from address-bar integration.
   useOmniboxQuery({ sendMessage, isModelReady })
+
+  useEffect(() => {
+    if (
+      !currentSessionId ||
+      !isModelReady ||
+      isLoading ||
+      isStreaming ||
+      !pendingChatSend ||
+      pendingSendInFlightRef.current
+    ) {
+      return
+    }
+    pendingSendInFlightRef.current = true
+    void sendMessage(pendingChatSend)
+      .then((accepted) => {
+        if (accepted) clearPendingChatSend()
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        pendingSendInFlightRef.current = false
+      })
+  }, [
+    clearPendingChatSend,
+    currentSessionId,
+    isModelReady,
+    isLoading,
+    isStreaming,
+    pendingChatSend,
+    sendMessage
+  ])
 
   // Handle all keyboard shortcuts
   useChatKeyboardShortcuts({

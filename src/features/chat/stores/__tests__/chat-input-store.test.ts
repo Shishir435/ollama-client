@@ -4,7 +4,7 @@ import { chatInputStore } from "../chat-input-store"
 describe("chatInputStore", () => {
   beforeEach(() => {
     // Reset store to initial state
-    chatInputStore.setState({ input: "" })
+    chatInputStore.setState({ input: "", pendingChatSend: undefined })
   })
 
   it("should initialize with empty input", () => {
@@ -45,5 +45,15 @@ describe("chatInputStore", () => {
     setInput("Replaced")
 
     expect(chatInputStore.getState().input).toBe("Replaced")
+  })
+
+  it("queues and clears a one-time chat send", () => {
+    const { queueChatSend, clearPendingChatSend } = chatInputStore.getState()
+
+    queueChatSend("Test message")
+    expect(chatInputStore.getState().pendingChatSend).toBe("Test message")
+
+    clearPendingChatSend()
+    expect(chatInputStore.getState().pendingChatSend).toBeUndefined()
   })
 })

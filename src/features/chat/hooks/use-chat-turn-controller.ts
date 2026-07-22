@@ -95,7 +95,7 @@ export const useChatTurnController = ({
     })
     if (!verdict.proceed) {
       if (verdict.toast) toast(verdict.toast)
-      return
+      return false
     }
 
     setIsLoading(true)
@@ -121,12 +121,12 @@ export const useChatTurnController = ({
         title: "Couldn't start chat",
         description: "Creating the chat failed. Please try again."
       })
-      return
+      return false
     }
     if (!sessionId) {
       setPendingActivityEvents([])
       setIsLoading(false)
-      return
+      return false
     }
 
     const includeContext = selectedTabIds.length > 0 && !!contextText?.trim()
@@ -151,7 +151,7 @@ export const useChatTurnController = ({
         title: "Couldn't send message",
         description: "Saving the message failed. Please try again."
       })
-      return
+      return false
     }
 
     const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
@@ -235,7 +235,7 @@ export const useChatTurnController = ({
         description:
           "The message was saved, but the assistant could not start because context preparation failed."
       })
-      return
+      return true
     }
 
     let { contentWithRAG } = ragResult
@@ -271,7 +271,7 @@ export const useChatTurnController = ({
           usedContextChunks: promptContextStats.usedContextChunks
         }
       })
-      return
+      return true
     }
 
     const messagesForLLM = [
@@ -322,6 +322,7 @@ export const useChatTurnController = ({
       contextPrepared: true
     })
     setPendingActivityEvents([])
+    return true
   }
 
   return { pendingActivityEvents, sendMessage }
