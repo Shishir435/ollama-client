@@ -272,6 +272,30 @@ describe("Vector Store - Baseline Tests", () => {
       ])
     })
 
+    it("filters persisted fallback before limiting search results", async () => {
+      for (let index = 0; index < 4; index++) {
+        await storeVector(`Noise ${index}`, [1, 0, 0], {
+          type: "chat",
+          sessionId: "noise",
+          timestamp: Date.now() + index,
+          source: ""
+        })
+      }
+      const keptId = await storeVector("Eligible", [0, 1, 0], {
+        type: "chat",
+        sessionId: "eligible",
+        timestamp: Date.now() + 5,
+        source: ""
+      })
+      await hnswIndexManager.buildIndex()
+
+      await hnswIndexManager.markDeletionDirty()
+
+      expect(
+        await hnswIndexManager.search([0, 1, 0], 1, new Set([keptId]))
+      ).toEqual([{ id: keptId, distance: 1 }])
+    })
+
     it("coalesces deletion bursts into one HNSW rebuild", async () => {
       await storeVector("Delete A", [1, 0, 0], {
         type: "chat",

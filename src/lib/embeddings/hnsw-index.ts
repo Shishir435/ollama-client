@@ -616,13 +616,19 @@ class HNSWIndexManager {
    */
   async search(
     queryEmbedding: number[],
-    k: number = 10
+    k: number = 10,
+    eligibleIds?: ReadonlySet<number>
   ): Promise<Array<{ id: number; distance: number }>> {
     const config = await this.getConfig()
     const minSimilarity = config.defaultMinSimilarity
     const backend = this.getBackendInstance(config)
     if (this.isDeletionRebuildPending()) {
-      return this.searchPersistedVectors(queryEmbedding, k, minSimilarity)
+      return this.searchPersistedVectors(
+        queryEmbedding,
+        k,
+        minSimilarity,
+        eligibleIds
+      )
     }
     if (backend?.isInitialized()) {
       const stats = backend.getStats()
@@ -641,7 +647,8 @@ class HNSWIndexManager {
   private async searchPersistedVectors(
     queryEmbedding: number[],
     k: number,
-    minSimilarity: number
+    minSimilarity: number,
+    eligibleIds?: ReadonlySet<number>
   ): Promise<Array<{ id: number; distance: number }>> {
     const vectors = await vectorDb.vectors.toArray()
     const exactIndex = new LocalVectorIndex()
@@ -650,6 +657,7 @@ class HNSWIndexManager {
         .filter(
           (vector) =>
             vector.id !== undefined &&
+            (!eligibleIds || eligibleIds.has(vector.id)) &&
             vector.embedding.length === queryEmbedding.length
         )
         .map((vector) => ({

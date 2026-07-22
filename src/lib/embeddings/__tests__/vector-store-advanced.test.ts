@@ -369,6 +369,45 @@ describe("Vector Store - Advanced Tests", () => {
       expect(results[0].document.content).toBe("Target")
     })
 
+    it("passes filtered IDs into HNSW search", async () => {
+      const { hnswIndexManager } = await import("@/lib/embeddings/hnsw-index")
+      const eligibleId = await vectorDb.vectors.add({
+        content: "Eligible",
+        embedding: [1, 0],
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "eligible",
+          timestamp: 1
+        }
+      } as any)
+      await vectorDb.vectors.add({
+        content: "Noise",
+        embedding: [1, 0],
+        metadata: {
+          source: "",
+          type: "chat",
+          sessionId: "noise",
+          timestamp: 2
+        }
+      } as any)
+      vi.mocked(hnswIndexManager.search).mockResolvedValue([
+        { id: eligibleId, distance: 1 }
+      ])
+
+      const results = await searchSimilarVectors([1, 0], {
+        limit: 1,
+        sessionId: "eligible"
+      })
+
+      expect(hnswIndexManager.search).toHaveBeenCalledWith(
+        [1, 0],
+        2,
+        new Set([eligibleId])
+      )
+      expect(results.map((result) => result.document.id)).toEqual([eligibleId])
+    })
+
     it("should handle large cleanup batches with yielding", async () => {
       // Mock config to force cleanup
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue({
