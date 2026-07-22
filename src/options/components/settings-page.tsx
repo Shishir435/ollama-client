@@ -394,21 +394,19 @@ export const SettingsPage = () => {
     <SettingsDisclosureProvider level={settingsLevel}>
       <AppShell>
         <PageHeader className="z-50">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-4 bg-surface-chat px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center lg:gap-x-6 lg:px-8">
-            <div className="min-w-0">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                {t("settings.page.title")}
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("settings.page.description")}
-              </p>
-            </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 bg-surface-chat px-4 py-4 sm:px-6 md:grid-cols-[auto_minmax(15rem,18rem)_minmax(0,1fr)_auto] md:gap-x-5 lg:px-8">
+            <h1 className="col-start-1 row-start-1 min-w-0 text-2xl font-semibold tracking-tight">
+              {t("settings.page.title")}
+            </h1>
+            <p className="col-span-2 row-start-2 min-w-0 text-sm text-muted-foreground md:col-span-3 md:col-start-1">
+              {t("settings.page.description")}
+            </p>
             <SettingsDisclosureControl
               level={settingsLevel}
               onLevelChange={updateSettingsLevel}
-              className="col-span-2 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"
+              className="col-span-2 row-start-3 mt-2 md:col-span-1 md:col-start-2 md:row-start-1 md:mt-0"
             />
-            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2 lg:col-start-3">
+            <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2 md:col-start-4">
               <SocialLinkButton
                 href={githubLink}
                 icon={Github}

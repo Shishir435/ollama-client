@@ -68,7 +68,7 @@ export const SettingsDisclosureControl = ({
         className="min-w-0 w-full">
         <TabsList
           aria-label={t("settings.disclosure.title")}
-          className="grid h-9 w-full grid-cols-3 bg-muted/60 p-1 lg:min-w-72">
+          className="grid h-9 w-full grid-cols-3 bg-muted/60 p-1">
           {SETTINGS_LEVELS.map((option) => (
             <TabsTrigger
               key={option}
