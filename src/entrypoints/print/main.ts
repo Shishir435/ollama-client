@@ -1,5 +1,6 @@
 import { sanitizeExportFragment } from "@/lib/exporters/export-sanitizer"
 import { consumePrintJob, purgeStalePrintJobs } from "@/lib/exporters/print-job"
+import { getPdfStyles } from "@/lib/exporters/styles"
 
 // The print payload arrives via localStorage, which any extension page can
 // write. Treat it as untrusted: re-sanitize with the same shared config the
@@ -19,12 +20,19 @@ const installCsp = (): void => {
   document.head.appendChild(meta)
 }
 
+const installExportStyles = (): void => {
+  const style = document.createElement("style")
+  style.textContent = getPdfStyles()
+  document.head.appendChild(style)
+}
+
 window.onload = () => {
   const jobId = new URLSearchParams(window.location.search).get("job")
   const job = jobId ? consumePrintJob(jobId) : null
   purgeStalePrintJobs()
 
   if (job) {
+    installExportStyles()
     if (job.filename) document.title = job.filename
     if (!job.allowRemoteImages) installCsp()
     const container = document.getElementById("print-content")

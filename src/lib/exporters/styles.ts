@@ -1,7 +1,6 @@
 // No remote @import here: the export stylesheet must not fetch third-party
 // resources (fonts included) — printing a chat should leave no network trace.
 export const getPdfStyles = () => `
-<style>
   * {
     box-sizing: border-box;
   }
@@ -243,5 +242,4 @@ export const getPdfStyles = () => `
       word-wrap: break-word;
     }
   }
-</style>
 `

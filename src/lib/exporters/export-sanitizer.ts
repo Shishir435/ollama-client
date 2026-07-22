@@ -120,16 +120,16 @@ export interface ExportSanitizeOptions {
 /**
  * Sanitize the COMPLETE assembled print/export fragment. The print page reads
  * this fragment out of localStorage — writable by any extension page — so it
- * re-sanitizes on its side too; both ends share this one config. `<style>` is
- * allowed because the export carries its own stylesheet; when remote images
- * are blocked, the print page's CSP meta also covers CSS `url()` loads.
+ * re-sanitizes on its side too; both ends share this one config. App-owned
+ * print CSS is installed separately so untrusted payloads cannot inject style
+ * elements. When remote images are blocked, print CSP also covers CSS loads.
  */
 export const sanitizeExportFragment = (
   html: string,
   options?: ExportSanitizeOptions
 ): string => {
   const safe = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [...EXPORT_ALLOWED_TAGS, "style", "hr"],
+    ALLOWED_TAGS: [...EXPORT_ALLOWED_TAGS, "hr"],
     ALLOWED_ATTR: EXPORT_ALLOWED_ATTR,
     ALLOWED_URI_REGEXP: EXPORT_ALLOWED_URI_REGEXP
   })
