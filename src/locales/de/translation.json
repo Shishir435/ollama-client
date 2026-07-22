@@ -793,6 +793,15 @@
     }
   },
   "settings": {
+    "disclosure": {
+      "title": "Einstellungsdetails",
+      "description": "Wähle, wie viele Optionen angezeigt werden. Die Suche öffnet ausgeblendete Einstellungen automatisch.",
+      "levels": {
+        "basic": "Basis",
+        "power": "Erweitert",
+        "advanced": "Experte"
+      }
+    },
     "privacy_spine": {
       "local_chip": "Lokal",
       "header_tooltip": "Lokale Daten und Datenschutz prüfen",

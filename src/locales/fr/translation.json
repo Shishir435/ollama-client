@@ -793,6 +793,15 @@
     }
   },
   "settings": {
+    "disclosure": {
+      "title": "Niveau de détail",
+      "description": "Choisissez le niveau de configuration à afficher. La recherche ouvre automatiquement les réglages masqués.",
+      "levels": {
+        "basic": "Basique",
+        "power": "Puissant",
+        "advanced": "Avancé"
+      }
+    },
     "privacy_spine": {
       "local_chip": "Local",
       "header_tooltip": "Voir les données locales et les contrôles de confidentialité",

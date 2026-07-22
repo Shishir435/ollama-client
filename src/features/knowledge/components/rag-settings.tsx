@@ -5,6 +5,7 @@ import {
   ConfirmActionDialog,
   SettingsActionRow,
   SettingsFormField,
+  SettingsLevelGate,
   SettingsSliderField,
   SettingsSwitch
 } from "@/components/settings"
@@ -228,50 +229,56 @@ export const RAGSettings = () => {
           onCheckedChange={handleRAGToggle}
         />
 
-        <SettingsSwitch
-          id="use-reranking"
-          label={t("model.embedding_config.reranking_label")}
-          description={t("model.embedding_config.reranking_description")}
-          checked={config.useReranking ?? false}
-          onCheckedChange={(checked) =>
-            setConfig((prev) => ({
-              ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
-              useReranking: checked,
-              rerankerBackend: checked ? "cosine" : "none"
-            }))
-          }
-        />
+        <SettingsLevelGate settingId="use-reranking">
+          <SettingsSwitch
+            id="use-reranking"
+            label={t("model.embedding_config.reranking_label")}
+            description={t("model.embedding_config.reranking_description")}
+            checked={config.useReranking ?? false}
+            onCheckedChange={(checked) =>
+              setConfig((prev) => ({
+                ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
+                useReranking: checked,
+                rerankerBackend: checked ? "cosine" : "none"
+              }))
+            }
+          />
+        </SettingsLevelGate>
       </div>
 
-      <SettingsSliderField
-        focusId="search-limit-topk"
-        label={t("model.embedding_config.search_limit_label")}
-        valueLabel={`Top-K: ${topK}`}
-        description={t("model.embedding_config.search_limit_description")}
-        value={topK}
-        min={1}
-        max={20}
-        step={1}
-        onValueChange={(value) => handleTopKChange([value])}
-      />
+      <SettingsLevelGate settingId="search-limit-topk">
+        <SettingsSliderField
+          focusId="search-limit-topk"
+          label={t("model.embedding_config.search_limit_label")}
+          valueLabel={`Top-K: ${topK}`}
+          description={t("model.embedding_config.search_limit_description")}
+          value={topK}
+          min={1}
+          max={20}
+          step={1}
+          onValueChange={(value) => handleTopKChange([value])}
+        />
+      </SettingsLevelGate>
 
-      <SettingsSliderField
-        focusId="min-rerank-score"
-        label={t("knowledge_sets.min_rerank_label")}
-        valueLabel={minRerankScore.toFixed(2)}
-        description={t("knowledge_sets.min_rerank_description")}
-        value={minRerankScore}
-        min={0}
-        max={1}
-        step={0.05}
-        onValueChange={(next) => {
-          setMinRerankScore(next)
-          setConfig((prev) => ({
-            ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
-            minRerankScore: next
-          }))
-        }}
-      />
+      <SettingsLevelGate settingId="min-rerank-score">
+        <SettingsSliderField
+          focusId="min-rerank-score"
+          label={t("knowledge_sets.min_rerank_label")}
+          valueLabel={minRerankScore.toFixed(2)}
+          description={t("knowledge_sets.min_rerank_description")}
+          value={minRerankScore}
+          min={0}
+          max={1}
+          step={0.05}
+          onValueChange={(next) => {
+            setMinRerankScore(next)
+            setConfig((prev) => ({
+              ...(prev ?? DEFAULT_EMBEDDING_CONFIG),
+              minRerankScore: next
+            }))
+          }}
+        />
+      </SettingsLevelGate>
 
       <Accordion className="w-full">
         <AccordionItem value="knowledge-sets">

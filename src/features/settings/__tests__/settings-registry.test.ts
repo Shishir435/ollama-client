@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   getSectionEntries,
   getSettingsEntry,
+  getSettingsEntryLevel,
   getSettingsForTab,
   isSettingsTab,
   rankSettings,
@@ -66,6 +67,28 @@ describe("settings-registry", () => {
   it("getSettingsEntry finds by id", () => {
     expect(getSettingsEntry("grounded-only-mode")?.tab).toBe("knowledge")
     expect(getSettingsEntry("does-not-exist")).toBeUndefined()
+  })
+
+  it("drives progressive disclosure from registry metadata", () => {
+    expect(getSettingsEntryLevel(getSettingsEntry("language-select"))).toBe(
+      "basic"
+    )
+    expect(getSettingsEntryLevel(getSettingsEntry("memory-enabled"))).toBe(
+      "power"
+    )
+    expect(getSettingsEntryLevel(getSettingsEntry("temperature"))).toBe(
+      "advanced"
+    )
+  })
+
+  it("derives persistence scope from registered storage metadata", () => {
+    expect(getSettingsEntry("settings-disclosure-level")).toMatchObject({
+      storageKey: "settings-disclosure-level",
+      scope: "sync-safe"
+    })
+    for (const entry of SETTINGS_REGISTRY) {
+      if (entry.storageKey) expect(entry.scope, entry.id).toBeDefined()
+    }
   })
 
   describe("searchSettings", () => {

@@ -793,6 +793,15 @@
     }
   },
   "settings": {
+    "disclosure": {
+      "title": "Settings detail",
+      "description": "Choose how much configuration to show. Search opens hidden settings automatically.",
+      "levels": {
+        "basic": "Basic",
+        "power": "Power",
+        "advanced": "Advanced"
+      }
+    },
     "privacy_spine": {
       "local_chip": "Local",
       "header_tooltip": "Review local data and privacy controls",

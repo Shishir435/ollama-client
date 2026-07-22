@@ -2,6 +2,11 @@ import {
   normalizeSettingsSearchText,
   scoreSettingsSearchToken
 } from "@/features/settings/settings-search-scoring"
+import { STORAGE_KEYS } from "@/lib/constants"
+import {
+  getStorageKeyMetadata,
+  type StorageSyncScope
+} from "@/lib/storage/storage-key-registry"
 
 /**
  * Only register tab-group search when this browser exposes the API. Chromium and
@@ -47,6 +52,9 @@ export const SETTINGS_TABS = [
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number]
 
+export const SETTINGS_LEVELS = ["basic", "power", "advanced"] as const
+export type SettingsLevel = (typeof SETTINGS_LEVELS)[number]
+
 const LEGACY_TAB_MAP = {
   chat: "general",
   "model-behavior": "models",
@@ -85,6 +93,12 @@ export interface SettingsEntry {
   aliases?: string[]
   /** Power-user tuning control — eligible for "Advanced" grouping (item 10). */
   advanced?: boolean
+  /** Minimum progressive-disclosure level needed to show this setting. */
+  level?: SettingsLevel
+  /** Registered persistence key, when this UI maps directly to stored state. */
+  storageKey?: string
+  /** Derived from storageKey; never duplicate scope by hand. */
+  scope?: StorageSyncScope
   /** Deletes/clears data — never auto-collapsed, flagged in danger zones. */
   destructive?: boolean
 }
@@ -103,6 +117,15 @@ type RawSettingsEntry = Omit<SettingsEntry, "tab"> & {
  */
 const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
   {
+    id: "settings-disclosure-level",
+    tab: "chat",
+    sectionId: "general",
+    labelKey: "settings.disclosure.title",
+    descriptionKey: "settings.disclosure.description",
+    storageKey: STORAGE_KEYS.UI.SETTINGS_LEVEL,
+    aliases: ["basic settings", "power settings", "advanced settings"]
+  },
+  {
     id: "diagnostics-support",
     tab: "help",
     sectionId: "diagnostics",
@@ -117,6 +140,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     tab: "chat",
     sectionId: "general",
     labelKey: "common.language.select_label",
+    storageKey: STORAGE_KEYS.LANGUAGE,
     aliases: ["language", "locale", "translation"]
   },
   {
@@ -125,6 +149,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "general",
     labelKey: "settings.chat_display.session_metrics_label",
     descriptionKey: "settings.chat_display.session_metrics_description",
+    storageKey: STORAGE_KEYS.CHAT.SHOW_SESSION_METRICS,
     aliases: ["metrics", "tokens", "performance", "stats"]
   },
   {
@@ -243,6 +268,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "model-runtime",
     labelKey: "settings.model.runtime.keep_alive_label",
     descriptionKey: "settings.model.runtime.keep_alive_description",
+    level: "advanced",
     keywords: ["keep alive", "memory", "unload"]
   },
   {
@@ -251,6 +277,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "model-runtime",
     labelKey: "settings.model.runtime.warm_on_select_label",
     descriptionKey: "settings.model.runtime.warm_on_select_description",
+    level: "advanced",
     keywords: ["warm", "preload"]
   },
   {
@@ -259,6 +286,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "model-runtime",
     labelKey: "settings.model.runtime.unload_on_switch_label",
     descriptionKey: "settings.model.runtime.unload_on_switch_description",
+    level: "advanced",
     keywords: ["unload", "memory", "switch"]
   },
 
@@ -373,6 +401,8 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "conversation-context",
     labelKey: "settings.memory.enable.label",
     descriptionKey: "settings.memory.enable.description",
+    level: "power",
+    storageKey: STORAGE_KEYS.MEMORY.ENABLED,
     keywords: ["memory", "remember", "recall"]
   },
   {
@@ -390,6 +420,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "conversation-context",
     labelKey: "chat.backfill.title",
     descriptionKey: "chat.backfill.description",
+    level: "power",
     keywords: ["backfill", "history", "embed", "index"]
   },
 
@@ -399,6 +430,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     tab: "knowledge-web",
     sectionId: "prompt-budget",
     labelKey: "settings.prompt_context_limits.max_tab_context_chars",
+    level: "advanced",
     keywords: ["tab context", "characters", "limit", "budget"]
   },
   {
@@ -406,6 +438,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     tab: "knowledge-web",
     sectionId: "prompt-budget",
     labelKey: "settings.prompt_context_limits.max_rag_context_chars",
+    level: "advanced",
     keywords: ["rag context", "characters", "limit", "budget"]
   },
   {
@@ -414,6 +447,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "prompt-budget",
     labelKey: "settings.prompt_context_limits.max_tool_result_chars",
     descriptionKey: "settings.prompt_context_limits.max_tool_result_chars_hint",
+    level: "advanced",
     keywords: ["tool result", "characters", "limit", "budget"]
   },
   {
@@ -422,6 +456,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "prompt-budget",
     labelKey: "settings.prompt_context_limits.auto_refresh_label",
     descriptionKey: "settings.prompt_context_limits.auto_refresh_description",
+    level: "advanced",
     keywords: ["auto refresh", "tab context"]
   },
 
@@ -432,6 +467,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "grounding",
     labelKey: "settings.grounding_mode.label",
     descriptionKey: "settings.grounding_mode.description",
+    level: "power",
     keywords: ["grounding", "grounded", "page only", "answer from page"]
   },
   {
@@ -439,6 +475,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     tab: "knowledge-web",
     sectionId: "grounding",
     labelKey: "chat.input.auto_screenshot",
+    level: "power",
     aliases: [
       "auto screenshot",
       "automatic screenshot",
@@ -454,6 +491,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "web-search",
     labelKey: "settings.web_search.enable.label",
     descriptionKey: "settings.web_search.enable.description",
+    level: "power",
     keywords: ["web search", "internet", "online", "search"]
   },
   {
@@ -462,6 +500,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "web-search",
     labelKey: "settings.web_search.provider.label",
     descriptionKey: "settings.web_search.provider.description",
+    level: "power",
     keywords: ["web search", "provider", "searxng", "brave", "tavily"]
   },
   {
@@ -470,6 +509,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "web-search",
     labelKey: "settings.web_search.safe_search.label",
     descriptionKey: "settings.web_search.safe_search.description",
+    level: "power",
     keywords: ["safe search", "filter"]
   },
   {
@@ -478,6 +518,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "web-search",
     labelKey: "settings.web_search.endpoint.label",
     descriptionKey: "settings.web_search.endpoint.description",
+    level: "power",
     keywords: ["endpoint", "url", "searxng"]
   },
   {
@@ -486,6 +527,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "web-search",
     labelKey: "settings.web_search.api_key.label",
     descriptionKey: "settings.web_search.api_key.description",
+    level: "power",
     keywords: ["api key", "token", "brave", "tavily"]
   },
   {
@@ -494,6 +536,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "web-search",
     labelKey: "settings.web_search.result_count.label",
     descriptionKey: "settings.web_search.result_count.description",
+    level: "power",
     keywords: ["result count", "results"]
   },
 
@@ -504,6 +547,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "retrieval",
     labelKey: "model.embedding_config.rag_enable_label",
     descriptionKey: "model.embedding_config.rag_enable_description",
+    level: "power",
     keywords: ["rag", "retrieval", "knowledge"],
     aliases: ["document search", "search my documents", "knowledge base"]
   },
@@ -540,6 +584,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "retrieval",
     labelKey: "knowledge_sets.active_label",
     descriptionKey: "knowledge_sets.active_description",
+    level: "power",
     keywords: ["knowledge set", "active", "collection"]
   },
 
@@ -690,6 +735,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "embeddings-model",
     labelKey: "settings.embeddings.model_select.label",
     descriptionKey: "settings.embeddings.model_select.description",
+    level: "advanced",
     keywords: ["embedding model", "model", "select"]
   },
   {
@@ -804,6 +850,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     tab: "page-tabs",
     sectionId: "content-extraction",
     labelKey: "settings.content_extraction.scraper.label",
+    level: "power",
     keywords: ["scraper", "extraction", "engine"]
   },
   {
@@ -811,6 +858,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     tab: "page-tabs",
     sectionId: "content-extraction",
     labelKey: "settings.content_extraction.scroll_strategy.label",
+    level: "advanced",
     keywords: ["scroll", "strategy"]
   },
   {
@@ -819,6 +867,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "content-extraction",
     labelKey: "settings.content_extraction.scroll_depth.label",
     descriptionKey: "settings.content_extraction.scroll_depth.description",
+    level: "advanced",
     keywords: ["scroll", "depth"]
   },
   {
@@ -827,6 +876,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "site-overrides",
     labelKey: "model.site_overrides.title",
     descriptionKey: "model.site_overrides.description",
+    level: "power",
     searchKeys: [
       "model.site_overrides.scroll_strategy_label",
       "model.site_overrides.scroll_depth_label",
@@ -850,6 +900,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "selection-actions",
     labelKey: "settings.content_extraction.selection_actions.label",
     descriptionKey: "settings.content_extraction.selection_actions.description",
+    level: "power",
     keywords: ["selection", "actions", "highlight", "toolbar"]
   },
   {
@@ -859,6 +910,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     labelKey: "settings.content_extraction.selection_actions_min_chars.label",
     descriptionKey:
       "settings.content_extraction.selection_actions_min_chars.description",
+    level: "power",
     keywords: ["selection", "minimum", "characters"]
   },
   {
@@ -1286,6 +1338,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     tab: "privacy",
     sectionId: "permissions",
     labelKey: "settings.presets.fields.tab_access",
+    storageKey: STORAGE_KEYS.BROWSER.TABS_ACCESS,
     aliases: [
       "tab access",
       "other tabs",
@@ -1300,6 +1353,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "permissions",
     labelKey: "settings.permissions.tools.title",
     descriptionKey: "settings.permissions.tools.description",
+    level: "power",
     searchKeys: [
       "settings.permissions.tools.master.label",
       "settings.permissions.tools.families.browser.label",
@@ -1327,6 +1381,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     labelKey: "settings.export_privacy.remote_images_label",
     descriptionKey: "settings.export_privacy.remote_images_hint",
     focusId: "export-allow-remote-images",
+    storageKey: STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES,
     aliases: [
       "export images",
       "remote images",
@@ -1362,6 +1417,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     sectionId: "permissions",
     labelKey: "settings.permissions.tools.perModel.title",
     descriptionKey: "settings.permissions.tools.perModel.description",
+    level: "advanced",
     aliases: ["per model tools", "per-model", "model specific tools"]
   },
   {
@@ -1374,6 +1430,7 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     labelKey: "settings.permissions.tools.perModel.nonNativeFallback.label",
     descriptionKey:
       "settings.permissions.tools.perModel.nonNativeFallback.description",
+    level: "advanced",
     aliases: [
       "non-native tools",
       "prompt-based tools",
@@ -1484,13 +1541,44 @@ const RAW_SETTINGS_REGISTRY: RawSettingsEntry[] = [
     labelKey: "settings.permissions.scheduled.items.vectorMaintenance.label",
     descriptionKey:
       "settings.permissions.scheduled.items.vectorMaintenance.description",
+    level: "advanced",
     aliases: ["scheduled jobs", "maintenance", "alarms", "cleanup"]
   }
 ]
 
 export const SETTINGS_REGISTRY: SettingsEntry[] = RAW_SETTINGS_REGISTRY.map(
-  (entry) => ({ ...entry, tab: LEGACY_TAB_MAP[entry.tab] })
+  (entry) => ({
+    ...entry,
+    tab: LEGACY_TAB_MAP[entry.tab],
+    scope: entry.storageKey
+      ? getStorageKeyMetadata(entry.storageKey)?.scope
+      : undefined
+  })
 )
+
+const SETTINGS_LEVEL_RANK: Record<SettingsLevel, number> = {
+  basic: 0,
+  power: 1,
+  advanced: 2
+}
+
+export const getSettingsEntryLevel = (
+  entry: SettingsEntry | undefined
+): SettingsLevel => entry?.level ?? (entry?.advanced ? "advanced" : "basic")
+
+export const settingsLevelIncludes = (
+  current: SettingsLevel,
+  required: SettingsLevel
+): boolean => SETTINGS_LEVEL_RANK[current] >= SETTINGS_LEVEL_RANK[required]
+
+export const maxSettingsLevel = (
+  left: SettingsLevel,
+  right: SettingsLevel
+): SettingsLevel =>
+  SETTINGS_LEVEL_RANK[left] >= SETTINGS_LEVEL_RANK[right] ? left : right
+
+export const isSettingsLevel = (value: unknown): value is SettingsLevel =>
+  typeof value === "string" && SETTINGS_LEVELS.includes(value as SettingsLevel)
 
 const TAB_SET = new Set<string>(SETTINGS_TABS)
 

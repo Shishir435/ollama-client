@@ -793,6 +793,15 @@
     }
   },
   "settings": {
+    "disclosure": {
+      "title": "सेटिंग विवरण",
+      "description": "चुनें कि कितनी कॉन्फ़िगरेशन दिखानी है। खोज छिपी सेटिंग अपने आप खोलती है।",
+      "levels": {
+        "basic": "बेसिक",
+        "power": "पावर",
+        "advanced": "उन्नत"
+      }
+    },
     "privacy_spine": {
       "local_chip": "लोकल",
       "header_tooltip": "लोकल डेटा और गोपनीयता नियंत्रण देखें",

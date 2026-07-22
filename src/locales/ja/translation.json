@@ -793,6 +793,15 @@
     }
   },
   "settings": {
+    "disclosure": {
+      "title": "設定の詳細度",
+      "description": "表示する設定の量を選びます。検索すると非表示の設定も自動的に開きます。",
+      "levels": {
+        "basic": "基本",
+        "power": "パワー",
+        "advanced": "詳細"
+      }
+    },
     "privacy_spine": {
       "local_chip": "ローカル",
       "header_tooltip": "ローカルデータとプライバシー設定を確認",

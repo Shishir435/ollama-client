@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { SettingsPage } from "../settings-page"
 
@@ -95,5 +95,33 @@ describe("SettingsPage", () => {
     const params = new URLSearchParams(window.location.search)
     expect(params.get("tab")).toBe("models")
     expect(params.get("focus")).toBe("provider-base-url")
+  })
+
+  it("reveals an advanced setting targeted by a deep link", async () => {
+    window.history.replaceState({}, "", "/?tab=models&focus=temperature")
+
+    render(<SettingsPage />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", {
+          name: "settings.disclosure.levels.advanced"
+        })
+      ).toHaveAttribute("aria-pressed", "true")
+    })
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "settings.disclosure.levels.basic"
+      })
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", {
+          name: "settings.disclosure.levels.basic"
+        })
+      ).toHaveAttribute("aria-pressed", "true")
+    })
   })
 })

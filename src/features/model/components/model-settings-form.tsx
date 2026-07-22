@@ -3,7 +3,7 @@ import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { SectionStack } from "@/components/layout"
-import { SettingsCard } from "@/components/settings"
+import { SettingsCard, SettingsLevelGate } from "@/components/settings"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LoadedModelsInfo } from "@/features/model/components/loaded-models-info"
 import { ModelInfo } from "@/features/model/components/model-info"
@@ -219,8 +219,15 @@ export const ModelSettingsForm = () => {
           onSave={saveFormChanges}
           onResetSystemPrompt={handleResetSystemPrompt}
         />
-        <ModelPerformanceSection config={config} updateConfig={updateConfig} />
-        <ModelParametersSection />
+        <SettingsLevelGate settingId="keep-alive">
+          <ModelPerformanceSection
+            config={config}
+            updateConfig={updateConfig}
+          />
+        </SettingsLevelGate>
+        <SettingsLevelGate settingId="temperature">
+          <ModelParametersSection />
+        </SettingsLevelGate>
       </SectionStack>
     </FormProvider>
   )
