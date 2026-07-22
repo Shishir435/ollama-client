@@ -17,7 +17,7 @@ export const SettingsMobileNav = ({
 }: SettingsMobileNavProps) => {
   return (
     <nav
-      className={cn("mb-6 lg:hidden", className)}
+      className={cn("lg:hidden", className)}
       aria-label="Settings navigation">
       <div className="scroll-fade-x flex gap-0.5 overflow-x-auto rounded-panel bg-muted/60 p-1 scrollbar-none">
         {items.map((item) => {

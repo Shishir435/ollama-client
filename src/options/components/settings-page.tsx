@@ -79,6 +79,8 @@ export const SettingsPage = () => {
   const highlightTimersRef = useRef<Set<number>>(new Set())
   const revealedFocusRef = useRef<string | null>(null)
   const userSelectedLevelRef = useRef(false)
+  const hydratedLevelRef = useRef(false)
+  const promotedLevelRef = useRef<SettingsLevel>("basic")
   const [settingsLevel, setSettingsLevel] = useState<SettingsLevel>("basic")
   const [activeFocusId, setActiveFocusId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
@@ -100,15 +102,26 @@ export const SettingsPage = () => {
     plasmoGlobalStorage
       .get<SettingsLevel>(STORAGE_KEYS.UI.SETTINGS_LEVEL)
       .then((stored) => {
-        if (
-          active &&
-          !userSelectedLevelRef.current &&
-          isSettingsLevel(stored)
-        ) {
-          setSettingsLevel(stored)
+        if (!active) return
+        hydratedLevelRef.current = true
+        if (userSelectedLevelRef.current) return
+
+        const storedLevel = isSettingsLevel(stored) ? stored : "basic"
+        const reconciledLevel = maxSettingsLevel(
+          storedLevel,
+          promotedLevelRef.current
+        )
+        setSettingsLevel(reconciledLevel)
+        if (reconciledLevel !== storedLevel) {
+          void plasmoGlobalStorage.set(
+            STORAGE_KEYS.UI.SETTINGS_LEVEL,
+            reconciledLevel
+          )
         }
       })
-      .catch(() => undefined)
+      .catch(() => {
+        hydratedLevelRef.current = true
+      })
     return () => {
       active = false
     }
@@ -124,10 +137,18 @@ export const SettingsPage = () => {
     (focusId: string) => {
       const required = getSettingsEntryLevel(getSettingsEntry(focusId))
       if (!settingsLevelIncludes(settingsLevel, required)) {
-        updateSettingsLevel(maxSettingsLevel(settingsLevel, required))
+        const promoted = maxSettingsLevel(settingsLevel, required)
+        promotedLevelRef.current = maxSettingsLevel(
+          promotedLevelRef.current,
+          promoted
+        )
+        setSettingsLevel(promoted)
+        if (hydratedLevelRef.current) {
+          void plasmoGlobalStorage.set(STORAGE_KEYS.UI.SETTINGS_LEVEL, promoted)
+        }
       }
     },
-    [settingsLevel, updateSettingsLevel]
+    [settingsLevel]
   )
 
   useEffect(() => {

@@ -6,6 +6,7 @@ import {
   within
 } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { SettingsPage } from "../settings-page"
 
@@ -188,5 +189,37 @@ describe("SettingsPage", () => {
     await waitFor(() => {
       expect(advancedTab).toHaveAttribute("aria-selected", "true")
     })
+  })
+
+  it("does not let deep-link promotion downgrade a stored level", async () => {
+    let resolveStoredLevel: (value: "advanced") => void = () => undefined
+    vi.mocked(plasmoGlobalStorage.get).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveStoredLevel = resolve
+      })
+    )
+    window.history.replaceState({}, "", "/?tab=general&focus=prompt-templates")
+
+    render(<SettingsPage />)
+
+    expect(
+      screen.getByRole("tab", {
+        name: "settings.disclosure.levels.power"
+      })
+    ).toHaveAttribute("aria-selected", "true")
+
+    resolveStoredLevel("advanced")
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("tab", {
+          name: "settings.disclosure.levels.advanced"
+        })
+      ).toHaveAttribute("aria-selected", "true")
+    })
+    expect(plasmoGlobalStorage.set).not.toHaveBeenCalledWith(
+      STORAGE_KEYS.UI.SETTINGS_LEVEL,
+      "power"
+    )
   })
 })

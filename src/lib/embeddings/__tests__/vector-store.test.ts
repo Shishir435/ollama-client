@@ -249,6 +249,29 @@ describe("Vector Store - Baseline Tests", () => {
       expect(hnswIndexManager.getStats().numElements).toBe(0)
     })
 
+    it("searches persisted vectors while deletion rebuild is pending", async () => {
+      await storeVector("Delete", [1, 0, 0], {
+        type: "chat",
+        sessionId: "delete-me",
+        timestamp: Date.now(),
+        source: ""
+      })
+      const keptId = await storeVector("Keep", [0, 1, 0], {
+        type: "chat",
+        sessionId: "keep-me",
+        timestamp: Date.now(),
+        source: ""
+      })
+      await hnswIndexManager.buildIndex()
+
+      await deleteVectors({ sessionId: "delete-me" })
+
+      expect(hnswIndexManager.isDeletionRebuildPending()).toBe(true)
+      expect(await hnswIndexManager.search([0, 1, 0], 2)).toEqual([
+        { id: keptId, distance: 1 }
+      ])
+    })
+
     it("coalesces deletion bursts into one HNSW rebuild", async () => {
       await storeVector("Delete A", [1, 0, 0], {
         type: "chat",

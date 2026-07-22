@@ -70,10 +70,7 @@ export const SettingsDisclosureControl = ({
           aria-label={t("settings.disclosure.title")}
           className="grid h-9 w-full grid-cols-3 bg-muted/60 p-1">
           {SETTINGS_LEVELS.map((option) => (
-            <TabsTrigger
-              key={option}
-              value={option}
-              className="px-3 text-sm transition-all duration-150 hover:bg-background/50 hover:text-foreground data-active:bg-background data-active:text-foreground data-active:shadow-xs focus-visible:ring-2 focus-visible:outline-none dark:data-active:border-transparent dark:data-active:bg-background dark:data-active:text-foreground">
+            <TabsTrigger key={option} value={option}>
               {t(`settings.disclosure.levels.${option}`)}
             </TabsTrigger>
           ))}

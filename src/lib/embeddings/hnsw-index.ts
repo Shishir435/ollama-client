@@ -622,7 +622,7 @@ class HNSWIndexManager {
     const minSimilarity = config.defaultMinSimilarity
     const backend = this.getBackendInstance(config)
     if (this.isDeletionRebuildPending()) {
-      return this.localIndex.search(queryEmbedding, k, minSimilarity)
+      return this.searchPersistedVectors(queryEmbedding, k, minSimilarity)
     }
     if (backend?.isInitialized()) {
       const stats = backend.getStats()
@@ -631,6 +631,33 @@ class HNSWIndexManager {
       }
     }
     return this.localIndex.search(queryEmbedding, k, minSimilarity)
+  }
+
+  /**
+   * Searches the current IndexedDB rows while deletion maintenance is pending.
+   * The in-memory indexes are intentionally invalidated during this window, so
+   * neither is a safe source of truth until the deferred rebuild completes.
+   */
+  private async searchPersistedVectors(
+    queryEmbedding: number[],
+    k: number,
+    minSimilarity: number
+  ): Promise<Array<{ id: number; distance: number }>> {
+    const vectors = await vectorDb.vectors.toArray()
+    const exactIndex = new LocalVectorIndex()
+    exactIndex.buildIndex(
+      vectors
+        .filter(
+          (vector) =>
+            vector.id !== undefined &&
+            vector.embedding.length === queryEmbedding.length
+        )
+        .map((vector) => ({
+          id: vector.id as number,
+          embedding: vector.embedding
+        }))
+    )
+    return exactIndex.search(queryEmbedding, k, minSimilarity)
   }
 
   /**
