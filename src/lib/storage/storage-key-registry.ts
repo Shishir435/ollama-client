@@ -124,6 +124,16 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "One-shot first-run intro flag; optional permissions are per-device, so each browser shows it once."
   },
+  [STORAGE_KEYS.ONBOARDING.STATE]: {
+    key: STORAGE_KEYS.ONBOARDING.STATE,
+    scope: "device-local",
+    reason: "Onboarding progress and provider detection are per-device."
+  },
+  [STORAGE_KEYS.DIAGNOSTICS.EVENTS]: {
+    key: STORAGE_KEYS.DIAGNOSTICS.EVENTS,
+    scope: "device-local",
+    reason: "Sanitized support diagnostics describe this browser profile only."
+  },
   [STORAGE_KEYS.BROWSER.TABS_ACCESS]: {
     key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
     scope: "sync-safe",

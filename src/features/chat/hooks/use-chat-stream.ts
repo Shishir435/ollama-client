@@ -33,17 +33,19 @@ interface StreamOptions {
 }
 
 export interface UseChatStreamProps {
-  setMessages: (messages: ChatMessage[]) => void
+  setMessages: (messages: ChatMessage[]) => void | Promise<void>
   setIsLoading: (v: boolean) => void
   setIsStreaming: (v: boolean) => void
   onToken?: (token: string) => void
+  onSuccessfulResponse?: (message: ChatMessage) => void | Promise<void>
 }
 
 export const useChatStream = ({
   setMessages,
   setIsLoading,
   setIsStreaming,
-  onToken
+  onToken,
+  onSuccessfulResponse
 }: UseChatStreamProps) => {
   const DEBUG_THINKING_STREAM = false
   const { t } = useTranslation()
@@ -214,7 +216,7 @@ export const useChatStream = ({
                   error.retryable ? " This may be temporary; try again." : ""
                 }`
               : displayError.message
-          renderAssistant({
+          void renderAssistant({
             ...partial,
             content: chatErrorMessage,
             done: true,
@@ -243,7 +245,16 @@ export const useChatStream = ({
             })
           })
         } else {
-          renderAssistant(result.terminal.message)
+          const message = result.terminal.message
+          Promise.resolve(renderAssistant(message))
+            .then(() => onSuccessfulResponse?.(message))
+            .catch((error) => {
+              logger.debug(
+                "Successful response post-persistence callback failed",
+                "useChatStream",
+                { error }
+              )
+            })
         }
 
         cleanupPort()

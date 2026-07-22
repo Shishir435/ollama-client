@@ -21,6 +21,7 @@ The extension does **not** run first-party analytics, ad trackers, or telemetry 
 - Optional images attached to chat messages.
 - Optional page content, tab titles/URLs, and selected text when you use browser-context features or when a tool-capable model calls a browser-context tool.
 - Settings and provider configuration values.
+- A bounded local diagnostic event buffer containing technical status codes, request IDs, and timing data, but no prompt or response content.
 
 ## Where data is stored
 
@@ -60,6 +61,9 @@ The extension requests browser permissions for chat UX, optional page extraction
 - You can disable RAG and related indexing features.
 - You can disable browser tab access from settings or the composer context controls.
 - You can reset storage and configuration from the settings page.
+- Diagnostic events expire after seven days, are capped at 300 records, and can be cleared from **Help → Diagnostics & support**.
+
+Diagnostic support bundles are generated and previewed locally. They exclude chats, prompts, responses, uploaded files, page content, embeddings, API keys, headers, cookies, browser history, and full provider endpoints. The extension never uploads a support bundle automatically; you choose whether to copy, download, or share it.
 
 ## Security notes
 

@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
 import { useOmniboxQuery } from "@/features/chat/hooks/use-omnibox-query"
+import { usePendingChatSend } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
@@ -29,6 +30,7 @@ export const Chat = () => {
     onLoadMore
   } = useChat()
   const { isLoading, isStreaming } = useLoadStream()
+  const { pendingChatSend, clearPendingChatSend } = usePendingChatSend()
   const {
     currentSessionId,
     highlightedMessage,
@@ -46,6 +48,18 @@ export const Chat = () => {
   // Omnibox quick-ask ("olc <query>") plumbing lives in its own hook to keep
   // the chat UI decoupled from address-bar integration.
   useOmniboxQuery({ sendMessage, isModelReady })
+
+  useEffect(() => {
+    if (!currentSessionId || !isModelReady || !pendingChatSend) return
+    clearPendingChatSend()
+    void sendMessage(pendingChatSend)
+  }, [
+    clearPendingChatSend,
+    currentSessionId,
+    isModelReady,
+    pendingChatSend,
+    sendMessage
+  ])
 
   // Handle all keyboard shortcuts
   useChatKeyboardShortcuts({

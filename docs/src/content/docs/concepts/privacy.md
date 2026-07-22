@@ -18,6 +18,7 @@ These data types are stored locally by the extension:
 - Provider-opaque continuation blocks needed to resume signed or encrypted reasoning
 - Web-search configuration
 - Browser permission state and feature settings
+- A bounded, seven-day local diagnostic event buffer containing technical codes and timing only
 
 Chat history uses SQLite-in-WASM persisted to IndexedDB. Vector storage and
 knowledge sets use local IndexedDB storage.
@@ -73,6 +74,21 @@ context.
 Web search is off unless configured. When enabled, the model can use the selected
 web-search backend through the tool system. API keys are stored locally and are
 not logged by the extension.
+
+## Diagnostics stay local
+
+The extension records up to 200 content-free diagnostic events for seven days,
+with a hard serialized-data ceiling of about 128 KiB. Events are batched before
+device-local browser storage writes to avoid write amplification. The pending
+in-memory batch is separately capped at 50 events and about 32 KiB serialized.
+Events can include an operation name, request ID, status, duration, retry state,
+and support code. They cannot include prompts, responses, file or page content,
+credentials, headers, full endpoints, cookies, or browser history.
+
+In **Help → Diagnostics & support**, you can run local self-tests and preview
+the complete support bundle before copying or downloading it. Nothing is
+uploaded automatically. Clearing diagnostic history removes the local event
+buffer.
 
 ## Reset and backup
 

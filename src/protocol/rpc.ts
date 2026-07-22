@@ -11,7 +11,10 @@ export enum RpcMethod {
   ProvidersListModels = "providers.listModels",
   ProvidersUpsert = "providers.upsert",
   ProvidersRemove = "providers.remove",
-  ProvidersProbeModelCapabilities = "providers.probeModelCapabilities"
+  ProvidersProbeModelCapabilities = "providers.probeModelCapabilities",
+  DiagnosticsRun = "diagnostics.run",
+  DiagnosticsGetBundle = "diagnostics.getBundle",
+  DiagnosticsClear = "diagnostics.clear"
 }
 
 export enum RpcErrorCode {

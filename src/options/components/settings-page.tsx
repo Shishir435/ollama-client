@@ -31,6 +31,7 @@ import { SocialLinkButton } from "@/components/social-link-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { ChatDisplaySettings, SpeechSettings } from "@/features/chat/components"
 import { ContextSettings } from "@/features/context/components/context-settings"
+import { DiagnosticsSettings } from "@/features/diagnostics/components/diagnostics-settings"
 import { DataMigrationSettings } from "@/features/knowledge/components/data-migration-settings"
 import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
 import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
@@ -181,6 +182,7 @@ export const SettingsPage = () => {
     ),
     help: (
       <SectionStack>
+        <DiagnosticsSettings />
         <Guides />
         <SocialHandles />
       </SectionStack>

@@ -1829,10 +1829,47 @@
       "internal": "La solicitud en segundo plano falló. Inténtalo de nuevo."
     }
   },
+  "diagnostics": {
+    "title": "Diagnostics & support",
+    "description": "Run local self-tests and preview a privacy-safe support bundle. Nothing uploads automatically.",
+    "run": "Run diagnostics",
+    "preview": "Preview support bundle",
+    "copy": "Copy bundle",
+    "download": "Download bundle",
+    "open_issue": "Open GitHub issue",
+    "clear": "Clear diagnostic history",
+    "copied": "Support bundle copied",
+    "cleared": "Diagnostic history cleared",
+    "failed": "Diagnostics request failed",
+    "privacy_notice": "Review before sharing. Bundle excludes chats, prompts, files, page content, credentials, cookies, and full endpoints.",
+    "status": {
+      "pass": "Pass",
+      "fail": "Fail",
+      "action": "Action needed",
+      "unsupported": "Unsupported"
+    },
+    "tests": {
+      "runtime_version": "Runtime version",
+      "browser_apis": "Browser APIs",
+      "permissions": "Browser permissions",
+      "sync_storage": "Sync storage",
+      "local_storage": "Local storage",
+      "chat_repository": "Chat repository",
+      "vector_store": "Vector store",
+      "provider_discovery": "Provider and model discovery",
+      "migration": "Persistence migration"
+    }
+  },
   "onboarding": {
     "step": "Paso {{current}} de {{total}}",
     "continue": "Continuar",
     "privacy": {
+      "title": "Private by default",
+      "description": "Choose where your conversations are processed. Ollama Client has no product telemetry.",
+      "local_storage": "Chats and settings are stored in this browser profile.",
+      "no_telemetry": "Prompts, responses, and errors are not uploaded to an Ollama Client server.",
+      "remote_policy": "Remote providers receive requests directly and apply their own data policies.",
+      "permissions_jit": "Optional browser access is requested only when you use a related feature.",
       "host_access": "El acceso a páginas permite que la extensión lea los sitios que solicites. No se envía nada salvo que configures un proveedor remoto."
     },
     "permissions": {
@@ -1843,7 +1880,30 @@
       "open": "Abrir permisos",
       "dismiss": "Quizás más tarde"
     },
+    "model": {
+      "title": "Choose a chat model",
+      "description": "Embedding-only models are hidden. You can change this choice later.",
+      "none": "Connection succeeded, but no chat models were found. Install or configure a model, then retry.",
+      "placeholder": "Select a model",
+      "use": "Use this model"
+    },
+    "test_chat": {
+      "title": "Send your first message",
+      "description": "Close setup and send the sample below. Setup completes only after the response is saved.",
+      "prompt": "Say hello in one sentence and tell me which model you are.",
+      "cost": "A remote request may incur a small provider charge.",
+      "open_chat": "Open chat"
+    },
     "provider": {
+      "choose_title": "Choose a provider",
+      "choose_description": "Local providers keep processing on your device. Remote providers receive the content you send.",
+      "local": "Local provider",
+      "remote": "Remote provider",
+      "key_configured": "API key configured",
+      "connect_title": "Check provider connection",
+      "connect_description": "Connect to {{provider}} and discover its available models.",
+      "remote_disclosure": "This check contacts the remote provider directly. No prompt is sent.",
+      "connection_failed": "Connection failed. Use this support code when asking for help.",
       "title": "Conectar un proveedor",
       "description": "Comprueba ahora el endpoint predeterminado de Ollama. Puedes cambiarlo o configurar otro proveedor después.",
       "connected": "Conectado. Se encontraron {{count}} modelo(s).",

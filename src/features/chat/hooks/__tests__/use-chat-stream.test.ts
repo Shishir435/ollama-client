@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { browser } from "@/lib/browser-api"
 import { PROVIDER_MESSAGE_KEYS } from "@/lib/constants/keys"
@@ -221,6 +221,61 @@ describe("useChatStream", () => {
     expect(setIsLoading).toHaveBeenCalledWith(false)
     expect(setIsStreaming).toHaveBeenCalledWith(false)
     expect(mockPort.disconnect).toHaveBeenCalled()
+  })
+
+  it("reports success only after final message persistence resolves", async () => {
+    let resolvePersistence: (() => void) | undefined
+    const persistence = new Promise<void>((resolve) => {
+      resolvePersistence = resolve
+    })
+    const onSuccessfulResponse = vi.fn()
+    setMessages = vi.fn((messages) =>
+      messages.at(-1)?.done ? persistence : undefined
+    )
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming,
+        onSuccessfulResponse
+      })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user", content: "Hello" }]
+      })
+    })
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+
+    act(() => listener({ delta: "Response" }))
+    act(() => listener({ done: true }))
+    expect(onSuccessfulResponse).not.toHaveBeenCalled()
+
+    resolvePersistence?.()
+    await waitFor(() => expect(onSuccessfulResponse).toHaveBeenCalledOnce())
+  })
+
+  it("does not report provider errors as successful responses", () => {
+    const onSuccessfulResponse = vi.fn()
+    const { result } = renderHook(() =>
+      useChatStream({
+        setMessages,
+        setIsLoading,
+        setIsStreaming,
+        onSuccessfulResponse
+      })
+    )
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user", content: "Hello" }]
+      })
+    })
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => listener({ error: { status: 500, message: "failed" } }))
+
+    expect(onSuccessfulResponse).not.toHaveBeenCalled()
   })
 
   it("keeps opaque replay state separate on the assistant message", () => {
