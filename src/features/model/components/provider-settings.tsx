@@ -59,7 +59,10 @@ export const ProviderSettings = () => {
     removeProvider
   } = useProviderSettingsState()
   const [addOpen, setAddOpen] = useState(false)
-  const [removeOpen, setRemoveOpen] = useState(false)
+  const [pendingRemoval, setPendingRemoval] = useState<{
+    id: string
+    name: string
+  } | null>(null)
 
   if (loading) {
     return (
@@ -160,7 +163,12 @@ export const ProviderSettings = () => {
                   variant="outline"
                   size="sm"
                   className="text-status-danger hover:text-status-danger"
-                  onClick={() => setRemoveOpen(true)}>
+                  onClick={() =>
+                    setPendingRemoval({
+                      id: String(activeConfig.id),
+                      name: activeConfig.name
+                    })
+                  }>
                   <Trash2 className="icon-md mr-2" />
                   {t("settings.providers.add.remove")}
                 </Button>
@@ -206,13 +214,17 @@ export const ProviderSettings = () => {
         </Card>
       )}
 
-      {activeConfig && (
-        <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
+      {pendingRemoval && (
+        <AlertDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setPendingRemoval(null)
+          }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
                 {t("settings.providers.add.remove_confirm_title", {
-                  name: activeConfig.name
+                  name: pendingRemoval.name
                 })}
               </AlertDialogTitle>
               <AlertDialogDescription>
@@ -222,7 +234,11 @@ export const ProviderSettings = () => {
             <AlertDialogFooter>
               <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => removeProvider(String(activeConfig.id))}>
+                onClick={async () => {
+                  if (await removeProvider(pendingRemoval.id)) {
+                    setPendingRemoval(null)
+                  }
+                }}>
                 {t("settings.providers.add.remove")}
               </AlertDialogAction>
             </AlertDialogFooter>

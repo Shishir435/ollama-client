@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ProviderId, ProviderType } from "@/lib/providers/types"
@@ -53,6 +59,8 @@ const mockProviderState = (
   const updateConfig = vi.fn()
   const setProviderEnabled = vi.fn()
   const setSelectedId = vi.fn()
+  const addProvider = vi.fn()
+  const removeProvider = vi.fn().mockResolvedValue(true)
 
   state.useProviderSettingsState.mockReturnValue({
     providers: [baseProvider, remoteProvider],
@@ -72,6 +80,8 @@ const mockProviderState = (
     handleSave,
     updateConfig,
     setProviderEnabled,
+    addProvider,
+    removeProvider,
     ...overrides
   })
 
@@ -80,7 +90,9 @@ const mockProviderState = (
     handleSave,
     updateConfig,
     setProviderEnabled,
-    setSelectedId
+    setSelectedId,
+    addProvider,
+    removeProvider
   }
 }
 
@@ -161,6 +173,45 @@ describe("ProviderSettings", () => {
     expect(
       screen.getByRole("button", { name: "settings.providers.add.remove" })
     ).toBeInTheDocument()
+  })
+
+  it("closes the confirmation after removing its captured provider", async () => {
+    const customProvider = {
+      ...remoteProvider,
+      id: "custom:openai:test",
+      name: "Custom server"
+    }
+    const actions = mockProviderState({
+      providers: [baseProvider, customProvider],
+      selectedId: customProvider.id,
+      activeConfig: customProvider,
+      isCustomProvider: true,
+      isLocalProvider: false,
+      isRemoteEndpoint: true
+    })
+
+    renderProviderSettings()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "settings.providers.add.remove" })
+    )
+    const dialog = screen.getByRole("alertdialog")
+    expect(
+      within(dialog).getByText(
+        "settings.providers.add.remove_confirm_title Custom server"
+      )
+    ).toBeInTheDocument()
+
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: "settings.providers.add.remove"
+      })
+    )
+
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+    )
+    expect(actions.removeProvider).toHaveBeenCalledWith(customProvider.id)
   })
 
   it("renders remote provider fields and custom model actions", () => {
