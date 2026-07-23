@@ -129,6 +129,18 @@ kill_ollama_listeners() {
   [ -n "$ollama_pids" ] && kill $ollama_pids 2>/dev/null || true
 }
 
+# Kill lingering `ollama serve` processes that are not (yet) holding the port —
+# but verify each candidate's executable is actually Ollama first. `pkill -f`
+# alone would match ANY process whose command line merely contains
+# "ollama serve", killing an unrelated program.
+kill_ollama_serve() {
+  local pid exe
+  for pid in $(pgrep -f "ollama serve" 2>/dev/null || true); do
+    exe=$(ps -o comm= -p "$pid" 2>/dev/null || true)
+    [ "${exe##*/}" = "ollama" ] && kill "$pid" 2>/dev/null || true
+  done
+}
+
 # Is a server answering at all (no Origin header — checks liveness only)?
 server_up() {
   curl -sf "http://localhost:$PORT/api/version" >/dev/null 2>&1
@@ -213,7 +225,7 @@ else
     sleep 1
   else
     kill_ollama_listeners
-    pkill -f "ollama serve" 2>/dev/null || true
+    kill_ollama_serve
   fi
 
   # Wait for the port to free so our server can bind (and we don't mistake a
