@@ -9,6 +9,22 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.12.4] - 2026-07-24
+
+### Changed
+
+- Reduced the packaged extension size by dropping a duplicate SQLite WASM binary
+  and a redundant bundled PDF worker (Chrome package about 6.3 MB down to about
+  4.3 MB), with no change to features or behavior.
+- Selected the persistence owner for each browser at build time so a build ships
+  only its own owner path — the Chromium offscreen document or the Firefox
+  background page — instead of carrying both.
+- Raised the minimum supported Chrome version to 116, the real floor for the
+  OPFS SQLite persistence backend, so the requirement is stated honestly.
+- Consolidated provider HTTP error handling into one shared path for consistent
+  status codes, retry hints, and user-facing messages across providers.
+- Bumped package version to `0.12.4`.
+
 ## [0.12.3] - 2026-07-23
 
 ### Added
@@ -477,7 +493,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.3...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.4...HEAD
+[0.12.4]: https://github.com/Shishir435/ollama-client/compare/0.12.3...0.12.4
 [0.12.3]: https://github.com/Shishir435/ollama-client/compare/0.11.27...0.12.3
 [0.11.27]: https://github.com/Shishir435/ollama-client/compare/v0.10.3...0.11.27
 [0.10.3]: https://github.com/Shishir435/ollama-client/compare/v0.10.2...v0.10.3
