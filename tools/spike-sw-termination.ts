@@ -23,14 +23,24 @@
 // Requires: pnpm benchmark:build
 
 import { spawn } from "node:child_process"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { resolve } from "node:path"
 import { chromium } from "playwright"
 
 const chromeBuildPath = resolve("build/chrome-mv3-benchmark")
 const artifactDir = resolve("artifacts/persistence-benchmark")
-const DEBUG_PORT = 9333
+
+// Chromium picks a free port when launched with --remote-debugging-port=0 and
+// writes it to DevToolsActivePort in the profile dir. Resolving it per run
+// keeps concurrent runners (and a busy 9333) from colliding on a shared port.
+let debugPort = 0
 
 interface GateResult {
   gate: string
@@ -61,7 +71,7 @@ interface CdpTarget {
 }
 
 const httpJson = async (path: string): Promise<unknown> => {
-  const res = await fetch(`http://127.0.0.1:${DEBUG_PORT}${path}`)
+  const res = await fetch(`http://127.0.0.1:${debugPort}${path}`)
   const text = await res.text()
   try {
     return JSON.parse(text)
@@ -194,7 +204,7 @@ const run = async (): Promise<void> => {
       `--user-data-dir=${userDataDir}`,
       `--load-extension=${chromeBuildPath}`,
       `--disable-extensions-except=${chromeBuildPath}`,
-      `--remote-debugging-port=${DEBUG_PORT}`,
+      "--remote-debugging-port=0",
       "--no-first-run",
       "--no-default-browser-check"
     ],
@@ -202,6 +212,24 @@ const run = async (): Promise<void> => {
   )
 
   try {
+    // Chromium writes the port it actually chose to DevToolsActivePort once the
+    // endpoint is listening.
+    const activePortFile = resolve(userDataDir, "DevToolsActivePort")
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try {
+        const firstLine = readFileSync(activePortFile, "utf8").split("\n")[0]
+        const parsed = Number.parseInt(firstLine, 10)
+        if (Number.isInteger(parsed) && parsed > 0) {
+          debugPort = parsed
+          break
+        }
+      } catch {
+        // not written yet
+      }
+      await sleep(100)
+    }
+    if (!debugPort) throw new Error("Chromium never reported its debugging port")
+
     // Wait for the CDP endpoint.
     let browserWsUrl = ""
     for (let attempt = 0; attempt < 50; attempt += 1) {
@@ -256,17 +284,24 @@ const run = async (): Promise<void> => {
     }>(ownerCall("ownerInfo"))
     record("gate4d-seed", seeded.total === SEED, { expected: SEED, ...seeded })
 
-    // ---- Kill the service worker mid-write ----
-    // Fire a service-worker-initiated write (SPIKE_OWNER_BG_WRITE runs inside
-    // the SW), do NOT await it, then immediately terminate the worker. The
-    // checkpoint is keyed by requestId, so any client-driven retry is
-    // idempotent: it can land exactly once or not at all, never twice.
+    // ---- Commit a service-worker-initiated write, then kill the worker ----
+    // SPIKE_OWNER_BG_WRITE runs inside the SW: it ensures the owner and forwards
+    // to the offscreen worker. We AWAIT its ack so the keyed checkpoint is
+    // durably committed BEFORE termination — the gate then requires it to be
+    // present exactly once after recovery. (Firing it unawaited would let a
+    // dropped write pass as "absent", which is precisely the durability the
+    // gate exists to prove, so absence must be a failure, not an accepted
+    // outcome.) The requestId key makes any client retry idempotent: never two
+    // rows for the same write.
     const CRASH_KEY = "gate4d-crashwrite"
-    await page.evaluate(
-      `(() => { chrome.runtime.sendMessage({ type: "spike-owner-bg-write", payload: { requestId: ${JSON.stringify(
+    const CRASH_STATE = "committed-before-sw-kill"
+    const bgWriteAck = await page.evaluate<{ ok?: boolean } | undefined>(
+      `(async () => await chrome.runtime.sendMessage({ type: "spike-owner-bg-write", payload: { requestId: ${JSON.stringify(
         CRASH_KEY
-      )}, state: "in-flight-at-crash" } }); return "dispatched"; })()`
+      )}, state: ${JSON.stringify(CRASH_STATE)} } }))()`
     )
+    record("gate4d-sw-write-committed", Boolean(bgWriteAck?.ok), { bgWriteAck })
+
     const closeResult = await httpJson(`/json/close/${originalSwId}`)
     console.error(`[gate4d] /json/close: ${JSON.stringify(closeResult)}`)
 
@@ -310,39 +345,45 @@ const run = async (): Promise<void> => {
         )
       : null
 
+    const swRespawned = Boolean(newSw) && newSw?.id !== originalSwId
     record(
       "gate4d-recovery-after-sw-kill",
       recovered !== null &&
         recovered.total === SEED &&
         recovered.byWriter.seed === SEED &&
-        Boolean(newSw) &&
-        newSw?.id !== originalSwId,
+        swRespawned,
       {
         seededTotal: SEED,
         recovered,
         lastError,
         originalSwId,
         newSwId: newSw?.id ?? null,
-        swRespawned: Boolean(newSw) && newSw?.id !== originalSwId
+        swRespawned
       }
     )
 
-    // The mid-flight checkpoint must be present exactly once or absent — never
-    // duplicated, never a partial/corrupt row (idempotent keyed upsert).
+    // The committed checkpoint MUST survive the worker's death — present with
+    // its exact state (absence = lost write = fail) and exactly one row for the
+    // key (idempotent upsert; a duplicate would surface as a wrong/merged state
+    // or a second row the schema's unique key forbids).
     const checkpoint = (await page.evaluate<{ state: string } | null>(
       ownerCall("readCheckpoint", { requestId: CRASH_KEY })
     )) as { state: string } | null
-    const crashWriteClean =
-      checkpoint === null || checkpoint.state === "in-flight-at-crash"
-    record("gate4d-crashwrite-exactly-once-or-absent", crashWriteClean, {
-      checkpoint,
-      landed: checkpoint !== null
-    })
-
-    // Owner topology self-healed to a fresh generation, not a stale handle.
     record(
-      "gate4d-owner-reachable",
-      ownerAfter !== null && typeof ownerAfter.ownerId === "string",
+      "gate4d-crashwrite-durable",
+      checkpoint !== null && checkpoint.state === CRASH_STATE,
+      { checkpoint, expectedState: CRASH_STATE }
+    )
+
+    // The core claim: the OFFSCREEN owner survived the SW's death rather than
+    // being torn down and replaced. Same ownerId AND same workerGeneration
+    // across the kill proves continuity — a replacement would change ownerId,
+    // and a worker restart would bump the generation.
+    record(
+      "gate4d-owner-continuity",
+      ownerAfter !== null &&
+        ownerAfter.ownerId === ownerBefore.ownerId &&
+        ownerAfter.workerGeneration === ownerBefore.workerGeneration,
       { ownerBefore, ownerAfter }
     )
 
