@@ -7,76 +7,90 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
-## [0.12.2] - 2026-07-04
+## [0.12.3] - 2026-07-23
+
+### Added
+- Added OpenRouter support and normalized remote-provider handling, including
+  durable replay of provider reasoning metadata across tool calls and restarts.
+- Added a versioned, validated provider RPC boundary for configuration,
+  connection tests, and model discovery, with authorization, safe errors,
+  timeouts, and end-to-end cancellation.
+- Added a provider-neutral onboarding flow and local diagnostics for connection,
+  storage, permissions, and browser compatibility.
+- Added a single-owner OPFS SQLite persistence backend with verified migration
+  and packaged-browser persistence benchmarks for Chrome and Firefox.
+- Added durable SQLite checkpoints for native and prompt-based tool loops, with
+  same-request recovery after MV3 service-worker restarts.
+- Added native Anthropic Messages API support for user-added providers,
+  including streaming, images, tool calls, and manual model IDs.
+- Added session tags, explicit message forks, and a local-data inventory with
+  backup and wipe controls.
 
 ### Changed
-- Model capability overrides are now available for Ollama models as well as
-  custom providers, so users can correct incomplete or inaccurate capability
-  metadata reported by the installed model.
-- Refreshing the model menu now reloads the Ollama tag list and invalidates
-  cached per-model capability details together.
-- Bumped package version to `0.12.2`.
+- Rebuilt the settings and maintenance experience with intent-based navigation,
+  searchable settings, consistent controls, improved responsive layouts, and
+  clearer status and recovery feedback.
+- Centralized provider capability detection and model routing so saved mappings
+  and runtime evidence remain the source of truth.
+- Marked custom provider setup as Beta to reflect its first public release and
+  distinguish it from verified built-in providers.
+- Limited verified built-in provider profiles to Ollama, LM Studio, and
+  llama.cpp; other compatible endpoints now use the custom-provider flow.
+- Unified composer context controls and RAG chunking, simplified message edits,
+  and disabled chat-memory indexing by default for new profiles.
+- Added Ollama model capability overrides and made model refresh invalidate
+  cached capability details.
+- Adopted the TypeScript 7 compiler and reduced build and test times.
+- Bumped package version to `0.12.3`.
 
 ### Fixed
-- Provider lifecycle requests now resolve one canonical configured base URL;
-  stale legacy/global Ollama URLs migrate once and can no longer split model
-  listing, details, version, pull, unload, warmup, embeddings, and chat across
-  different servers.
-- Model details and capability badges now share one failure-aware query
-  contract, preventing a failed capability request from being cached as
-  successful empty model information. Empty Ollama details surface an error and
-  in-place Retry action instead of silently hiding the card.
-- Runtime routes now return explicit invalid-payload responses instead of
-  leaving message channels open without a response.
+- Fixed provider state races involving saves, model refreshes, tool probes,
+  provider switching, and stale RPC responses.
+- Fixed provider removal confirmation remaining open and retargeting another
+  provider after a successful removal.
+- Fixed backup import and reset flows for encoded settings, open database
+  handles, and loading-state recovery.
+- Fixed interrupted chat persistence, atomic message saves, provider error
+  attribution, alternating tool-result roles, and native llama.cpp tool loops.
+- Fixed provider lifecycle requests using inconsistent base URLs, failed model
+  details being cached as successful empty data, and invalid runtime payloads
+  leaving message channels open.
 
-## [0.12.1] - 2026-07-04
+### Security
+- Upgraded PostCSS to `8.5.16`, removing the vulnerable docs-build dependency
+  path reported in `GHSA-6g55-p6wh-862q`.
+- Kept provider API keys and other private provider state in device-local
+  storage and excluded them from backups.
+- Redacted private values from diagnostics and restricted runtime messages to
+  authorized extension surfaces.
+- Sanitized print and PDF export content and bound sensitive browser-tool grants
+  to their approved origin.
 
-### Added
-- Durable SQLite checkpoints for native and prompt-based tool loops, with
-  approval-prompt keepalive and same-request recovery after an MV3
-  service-worker restart.
-- A localized three-step first-run flow covering the local privacy contract,
-  an in-app Ollama connection check with CORS/port guidance, and optional
-  browser permissions.
-- Native Anthropic Messages API support for user-added providers, including
-  model discovery, streaming, images, tool calls, and manual model IDs.
-- Session tags, explicit message forks, and a local-data inventory with
-  backup and wipe controls promoted into Privacy settings.
-
-### Changed
-- Provider settings now show only verified Ollama, LM Studio, and llama.cpp
-  built-ins. vLLM, LocalAI, KoboldCPP, and other compatible endpoints use the
-  redesigned custom-provider flow.
-- Composer context controls now use one full-height tray for page context,
-  knowledge, web search, files, screenshots, and attachment inspection.
-- Settings now use six intent-based tabs; legacy deep links redirect to their
-  new destination.
-- RAG ingestion and live-page retrieval now share one chunker implementation.
-- Reasoning trace events use isolated activity, tool, and thinking renderers.
-- Message edits update in place by default; Fork remains an explicit action.
-- Chat-memory indexing is off by default for new profiles.
-- Bumped package version to `0.12.1`.
-
-## [0.11.25] - 2026-06-30
+## [0.11.27] - 2026-07-01
 
 ### Added
-- Session-title filtering in the chat-session sidebar, with localized empty and
-  clear-search states.
+- Unified chat search across session titles and message content, with localized
+  empty and clear-search states.
 - S4 vector durability smoke coverage: persist a chunk, reload the module graph,
   and verify similarity search still finds it.
+- Competitor comparison pages for the documentation site.
 
 ### Changed
 - Updated shadcn tooling and added restrained scroll fades plus live-status
   shimmer to existing chat and settings surfaces.
 - AI-readable docs now remove MDX `export const` data and SEO-only FAQ markup
   while preserving the rendered documentation prose.
-- Bumped package version to `0.11.25`.
+- Polished the prompt sheet, options tab naming, sources icon, and compact
+  scroll-to-bottom control.
+- Bumped package version to `0.11.27`.
 
 ### Fixed
 - Selection Actions now preserve configured model system instructions and
   requested output language instead of biasing extraction results toward English.
 - Message footers use explicit export and delete actions instead of ambiguous
   ellipsis menus, and chat-memory sources use a primary-colored user icon.
+- Session titles now truncate through CSS without clipping focus rings, chat
+  search resets cleanly, and the scroll-to-bottom button hides near the end.
 
 ## [0.11.24] - 2026-06-29
 
@@ -468,8 +482,9 @@ Consolidated 0.11.x line: the "agent's hands" features plus a data-integrity har
 ### Documentation
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/v0.11.25...HEAD
-[0.11.25]: https://github.com/Shishir435/ollama-client/compare/v0.11.24...v0.11.25
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.3...HEAD
+[0.12.3]: https://github.com/Shishir435/ollama-client/compare/0.11.27...0.12.3
+[0.11.27]: https://github.com/Shishir435/ollama-client/compare/0.11.24...0.11.27
 [0.11.24]: https://github.com/Shishir435/ollama-client/compare/v0.11.23...v0.11.24
 [0.11.23]: https://github.com/Shishir435/ollama-client/compare/v0.11.22...v0.11.23
 [0.11.22]: https://github.com/Shishir435/ollama-client/compare/v0.11.20...v0.11.22
