@@ -77,7 +77,10 @@ export default defineConfig({
     description: "__MSG_extDescription__",
     default_locale: "en",
     version: packageJson.version,
-    ...(browser === "firefox" ? {} : { minimum_chrome_version: "88" }),
+    // The Chromium persistence owner uses chrome.offscreen (Chrome 109+) and
+    // chrome.runtime.getContexts (Chrome 116+); 116 is the real floor for
+    // durable chat history on Chromium, so the manifest states it honestly.
+    ...(browser === "firefox" ? {} : { minimum_chrome_version: "116" }),
     homepage_url: packageJson.homepage,
     icons: {
       16: "assets/icon.png",
@@ -175,9 +178,33 @@ export default defineConfig({
         ),
         __SPIKE_OPFS_OWNER_MV2__: JSON.stringify(
           process.env.WXT_BENCHMARK === "1" && env.browser === "firefox"
-        )
+        ),
+        // Persistence owner topology, resolved at build time so the unused
+        // branch (and its ~1.4 MB SQLite worker chunk) is dead-code eliminated
+        // from the background entry. Firefox MV2 hosts the worker in its
+        // persistent background page; Chromium delegates to the offscreen
+        // document, so its background never bundles the worker.
+        __FIREFOX_BG_OWNER__: JSON.stringify(env.browser === "firefox")
       },
       plugins: [
+        // Drop the content-hashed sqlite3-<hash>.wasm that the sqlite-wasm
+        // emscripten glue's `new URL("sqlite3.wasm", import.meta.url)` makes
+        // the bundler emit. It is byte-identical to the stable
+        // assets/sqlite3.wasm we copy in `build:publicAssets`, and the worker
+        // inits with wasmBinary from that stable copy, so the glue never
+        // fetches the hashed URL. Removing it at generateBundle means it is
+        // never written, never recorded in the manifest, and never packaged —
+        // no ENOENT warning, single copy in both the unpacked build and zip.
+        {
+          name: "wxt:drop-redundant-sqlite-wasm",
+          generateBundle(_options, bundle) {
+            for (const fileName of Object.keys(bundle)) {
+              if (/(^|\/)sqlite3-[^/]*\.wasm$/.test(fileName)) {
+                delete bundle[fileName]
+              }
+            }
+          }
+        },
         react({
           exclude: [/node_modules/, /src\/i18n\/resources\.ts$/],
           babel: {

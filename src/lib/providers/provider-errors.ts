@@ -1,4 +1,5 @@
 import { EXTERNAL_URLS } from "@/lib/constants/urls"
+import { createAppError } from "@/lib/error-utils"
 
 /**
  * A 401/403 from a LOCAL provider (Ollama et al.) is almost always a CORS/origin
@@ -138,4 +139,42 @@ export const providerErrorUserMessage = (
     return `${provider} returned a server error. Check that ${providerLower} is running, the ${selectedModel} is loaded, and its base URL/port are correct.`
   }
   return `${provider} returned an error. Check ${providerLower}, the ${selectedModel}, and its server logs.`
+}
+
+/**
+ * Shape a failed provider HTTP response into an `AppError` and throw it.
+ * Shared by the OpenAI-compatible and Anthropic adapters, whose per-response
+ * error handling was byte-identical: read the body for `debug`, parse
+ * `Retry-After`, and map the status to a safe user message. Raw response
+ * bodies stay in `debug`, never in `userMessage`.
+ *
+ * Ollama does NOT use this: its local-provider 401/403 CORS special-case and
+ * `>= 500`-only retryability differ intentionally.
+ */
+export const throwProviderResponseError = async (
+  response: Response,
+  options: {
+    label: string
+    providerId: string
+    baseUrl?: string
+    providerName?: string
+    model?: string
+  }
+): Promise<never> => {
+  const detail = await response.text()
+  const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
+  throw createAppError(`${options.label} (${response.status}): ${detail}`, {
+    kind: "provider",
+    status: response.status,
+    providerId: options.providerId,
+    retryable: isRetryableProviderStatus(response.status),
+    retryAfterMs,
+    userMessage: providerErrorUserMessage(response.status, {
+      baseUrl: options.baseUrl,
+      retryAfterMs,
+      providerName: options.providerName,
+      model: options.model
+    }),
+    debug: detail
+  })
 }
