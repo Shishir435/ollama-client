@@ -18,6 +18,18 @@ function registerPersistenceTopology() {
   // Test environments mock a minimal chrome; the topology only registers
   // where runtime messaging actually exists.
   if (!chrome?.runtime?.onMessage?.addListener) return
+  // Benchmark builds carry a section 9.4 spike owner that claims the one
+  // offscreen-document slot Chromium allows per extension. Registering the
+  // production topology too would race for that slot and, when the spike's
+  // createDocument loses, silently drop the spike's owner RPC. The spike is
+  // dev-only, so stand down here and let it own the slot.
+  if (
+    (typeof __SPIKE_OPFS_OWNER__ !== "undefined" && __SPIKE_OPFS_OWNER__) ||
+    (typeof __SPIKE_OPFS_OWNER_MV2__ !== "undefined" &&
+      __SPIKE_OPFS_OWNER_MV2__)
+  ) {
+    return
+  }
   if (__FIREFOX_BG_OWNER__) {
     void import("@/lib/persistence/owner-host").then((module) =>
       module.registerPersistenceHost()
