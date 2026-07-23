@@ -1,10 +1,6 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import {
-  isRetryableProviderStatus,
-  parseRetryAfter,
-  providerErrorUserMessage
-} from "@/lib/providers/provider-errors"
+import { throwProviderResponseError } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
 import { ANTHROPIC_PROVIDER_CAPABILITIES } from "./capabilities"
@@ -191,25 +187,13 @@ export class AnthropicProvider implements LLMProvider {
     }
   }
 
-  private async responseError(
-    response: Response,
-    model?: string
-  ): Promise<never> {
-    const detail = await response.text()
-    const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
-    throw createAppError(`Anthropic Error (${response.status}): ${detail}`, {
-      kind: "provider",
-      status: response.status,
+  private responseError(response: Response, model?: string): Promise<never> {
+    return throwProviderResponseError(response, {
+      label: "Anthropic Error",
       providerId: this.id,
-      retryable: isRetryableProviderStatus(response.status),
-      retryAfterMs,
-      userMessage: providerErrorUserMessage(response.status, {
-        baseUrl: this.baseUrl,
-        retryAfterMs,
-        providerName: this.config.name,
-        model
-      }),
-      debug: detail
+      baseUrl: this.baseUrl,
+      providerName: this.config.name,
+      model
     })
   }
 

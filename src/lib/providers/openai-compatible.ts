@@ -4,7 +4,8 @@ import { logger } from "@/lib/logger"
 import {
   isRetryableProviderStatus,
   parseRetryAfter,
-  providerErrorUserMessage
+  providerErrorUserMessage,
+  throwProviderResponseError
 } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
@@ -207,27 +208,18 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }
   }
 
-  private async responseError(
+  private responseError(
     response: Response,
     label: string,
     baseUrl: string,
     model?: string
   ): Promise<never> {
-    const detail = await response.text()
-    const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
-    throw createAppError(`${label} (${response.status}): ${detail}`, {
-      kind: "provider",
-      status: response.status,
+    return throwProviderResponseError(response, {
+      label,
       providerId: this.id,
-      retryable: isRetryableProviderStatus(response.status),
-      retryAfterMs,
-      userMessage: providerErrorUserMessage(response.status, {
-        baseUrl,
-        retryAfterMs,
-        providerName: this.config.name,
-        model
-      }),
-      debug: detail
+      baseUrl,
+      providerName: this.config.name,
+      model
     })
   }
 
