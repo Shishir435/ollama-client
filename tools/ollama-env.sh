@@ -103,16 +103,21 @@ port_listener_pids() {
 # foreign holder so the caller does not proceed to start a server that cannot
 # bind anyway.
 kill_ollama_listeners() {
-  local pid cmd ollama_pids="" foreign=""
+  local pid exe base ollama_pids="" foreign=""
   for pid in $(port_listener_pids); do
-    cmd=$(ps -o command= -p "$pid" 2>/dev/null || true)
+    # Classify by the EXECUTABLE basename only (`comm` excludes arguments), not
+    # a substring of the full command line: otherwise any listener whose path
+    # or args merely contain "ollama" (e.g. a process started from an
+    # ollama-* directory) would be misidentified as Ollama and killed.
+    exe=$(ps -o comm= -p "$pid" 2>/dev/null || true)
     # Process vanished between the lookup and now — nothing to do.
-    [ -z "$cmd" ] && continue
-    if printf '%s' "$cmd" | grep -qi "ollama"; then
+    [ -z "$exe" ] && continue
+    base=${exe##*/}
+    if [ "$base" = "ollama" ]; then
       ollama_pids="$ollama_pids $pid"
     else
       foreign="$foreign
-   • PID $pid: $cmd"
+   • PID $pid: $(ps -o command= -p "$pid" 2>/dev/null || printf '%s' "$exe")"
     fi
   done
   if [ -n "$foreign" ]; then
