@@ -17,7 +17,13 @@
 // the service worker's death does not touch — so gate 4d certifies the
 // partial-topology failure that gate 4c (full browser restart) does not:
 // the worker dies mid-write, the offscreen owner survives, and a fresh worker
-// generation resumes serving with data durable and uncorrupted.
+// generation resumes serving.
+//
+// Two writes bracket the kill so both properties are proven: a committed write
+// (awaited) that MUST survive — durability — and a burst of unawaited writes
+// still crossing the SW -> offscreen boundary when it dies — atomicity, each
+// all-or-nothing, never partial/duplicated. Owner continuity (same ownerId and
+// workerGeneration across the kill) proves the offscreen owner was not replaced.
 //
 // Usage: pnpm spike:sw-termination
 // Requires: pnpm benchmark:build
@@ -272,6 +278,19 @@ const run = async (): Promise<void> => {
     }
 
     // ---- Seed durable, committed state ----
+    // The offscreen owner initializes its SQLite worker asynchronously (fetch
+    // the wasm, acquire the opfs-sahpool lock); the very first RPC can race that
+    // init. Warm up with a few retries so a one-off startup stall does not flake
+    // the gate before it has tested anything.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await page.evaluate(ownerCall("ownerInfo"))
+        break
+      } catch (error) {
+        if (attempt >= 3) throw error
+        await sleep(500)
+      }
+    }
     await page.evaluate(ownerCall("reset"))
     const SEED = 30
     for (let seq = 0; seq < SEED; seq += 1) {
@@ -284,24 +303,47 @@ const run = async (): Promise<void> => {
     }>(ownerCall("ownerInfo"))
     record("gate4d-seed", seeded.total === SEED, { expected: SEED, ...seeded })
 
-    // ---- Commit a service-worker-initiated write, then kill the worker ----
+    // ---- Two service-worker writes, then terminate the worker ----
     // SPIKE_OWNER_BG_WRITE runs inside the SW: it ensures the owner and forwards
-    // to the offscreen worker. We AWAIT its ack so the keyed checkpoint is
-    // durably committed BEFORE termination — the gate then requires it to be
-    // present exactly once after recovery. (Firing it unawaited would let a
-    // dropped write pass as "absent", which is precisely the durability the
-    // gate exists to prove, so absence must be a failure, not an accepted
-    // outcome.) The requestId key makes any client retry idempotent: never two
-    // rows for the same write.
-    const CRASH_KEY = "gate4d-crashwrite"
-    const CRASH_STATE = "committed-before-sw-kill"
-    const bgWriteAck = await page.evaluate<{ ok?: boolean } | undefined>(
+    // the keyed upsert to the offscreen worker.
+    //
+    // (a) Durability. A committed write that MUST survive. We AWAIT its ack, so
+    // the checkpoint is on disk in the offscreen owner before termination; the
+    // gate then requires it present with its exact state afterward. Absence is a
+    // failure — that is the durability guarantee the gate exists to prove.
+    const DURABLE_KEY = "gate4d-durable"
+    const DURABLE_STATE = "committed-before-sw-kill"
+    const durableAck = await page.evaluate<{ ok?: boolean } | undefined>(
       `(async () => await chrome.runtime.sendMessage({ type: "spike-owner-bg-write", payload: { requestId: ${JSON.stringify(
-        CRASH_KEY
-      )}, state: ${JSON.stringify(CRASH_STATE)} } }))()`
+        DURABLE_KEY
+      )}, state: ${JSON.stringify(DURABLE_STATE)} } }))()`
     )
-    record("gate4d-sw-write-committed", Boolean(bgWriteAck?.ok), { bgWriteAck })
+    record("gate4d-sw-write-committed", Boolean(durableAck?.ok), { durableAck })
 
+    // (b) Atomicity across the genuine mid-write window. A burst of keyed SW
+    // writes dispatched WITHOUT awaiting, so they are still crossing the service
+    // worker -> offscreen boundary (or mid-exec) when the worker is torn down a
+    // moment later. Whether each one lands is timing-dependent — that IS the
+    // crash window this gate is meant to exercise — but the invariant is not:
+    // every key must be present with its exact state or wholly absent, never a
+    // partial, wrong, or duplicated row (the requestId is the upsert key).
+    const INFLIGHT_STATE = "in-flight-at-kill"
+    // A large burst so the worker is torn down with writes still queued and
+    // undelivered — a small burst drains before /json/close lands and never
+    // exercises the crash window. The gate asserts atomicity (below), and
+    // expects the interruption to be real: some of these must NOT survive.
+    const INFLIGHT_KEYS = Array.from(
+      { length: 400 },
+      (_, index) => `gate4d-inflight-${index}`
+    )
+    await page.evaluate(
+      `(() => { for (const key of ${JSON.stringify(
+        INFLIGHT_KEYS
+      )}) { chrome.runtime.sendMessage({ type: "spike-owner-bg-write", payload: { requestId: key, state: ${JSON.stringify(
+        INFLIGHT_STATE
+      )} } }); } return "dispatched"; })()`
+    )
+    // Terminate immediately, while the burst is in flight.
     const closeResult = await httpJson(`/json/close/${originalSwId}`)
     console.error(`[gate4d] /json/close: ${JSON.stringify(closeResult)}`)
 
@@ -362,17 +404,42 @@ const run = async (): Promise<void> => {
       }
     )
 
-    // The committed checkpoint MUST survive the worker's death — present with
-    // its exact state (absence = lost write = fail) and exactly one row for the
-    // key (idempotent upsert; a duplicate would surface as a wrong/merged state
-    // or a second row the schema's unique key forbids).
-    const checkpoint = (await page.evaluate<{ state: string } | null>(
-      ownerCall("readCheckpoint", { requestId: CRASH_KEY })
-    )) as { state: string } | null
+    // One aggregate read of the whole checkpoint table — a single RPC, so the
+    // readback cannot itself drop a response the way hundreds of per-key reads
+    // could. Every checkpoint row was written by the service worker; the
+    // requestId primary key means at most one row per key (no duplicates by
+    // construction), and each write set exactly one of the two known states.
+    const summary = await page.evaluate<{
+      total: number
+      byState: Record<string, number>
+    }>(ownerCall("checkpointSummary"))
+
+    // (a) Durability: the committed write MUST have survived — exactly one row
+    // in its own state (absence = lost write = fail).
+    record("gate4d-crashwrite-durable", summary.byState[DURABLE_STATE] === 1, {
+      summary,
+      expectedState: DURABLE_STATE
+    })
+
+    // (b) Atomicity across the genuine crash window. Any state other than the
+    // two the writers set is a partial/corrupt row and fails. The interruption
+    // must also be real: fewer than all in-flight writes survived — if the full
+    // burst drained before the kill landed, the window was never exercised and
+    // the gate fails rather than certify vacuously.
+    const landed = summary.byState[INFLIGHT_STATE] ?? 0
+    const unexpectedStates = Object.keys(summary.byState).filter(
+      (state) => state !== DURABLE_STATE && state !== INFLIGHT_STATE
+    )
     record(
-      "gate4d-crashwrite-durable",
-      checkpoint !== null && checkpoint.state === CRASH_STATE,
-      { checkpoint, expectedState: CRASH_STATE }
+      "gate4d-inflight-write-atomic",
+      unexpectedStates.length === 0 && landed < INFLIGHT_KEYS.length,
+      {
+        landed,
+        total: INFLIGHT_KEYS.length,
+        dropped: INFLIGHT_KEYS.length - landed,
+        unexpectedStates,
+        checkpointRows: summary.total
+      }
     )
 
     // The core claim: the OFFSCREEN owner survived the SW's death rather than
@@ -391,7 +458,16 @@ const run = async (): Promise<void> => {
     page.close()
   } finally {
     child.kill("SIGKILL")
-    rmSync(userDataDir, { recursive: true, force: true })
+    // The killed browser releases the profile dir asynchronously; retry the
+    // removal instead of letting an ENOTEMPTY race fail an otherwise-green run.
+    for (let attempt = 0; attempt < 15; attempt += 1) {
+      try {
+        rmSync(userDataDir, { recursive: true, force: true })
+        break
+      } catch {
+        await sleep(200)
+      }
+    }
   }
 }
 

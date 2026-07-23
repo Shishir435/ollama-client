@@ -15,6 +15,7 @@ export type OwnerOp =
   | "counts"
   | "upsertCheckpoint"
   | "readCheckpoint"
+  | "checkpointSummary"
   | "beginHang"
   | "exportDb"
   | "reset"
