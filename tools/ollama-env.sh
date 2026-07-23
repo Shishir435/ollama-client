@@ -97,6 +97,33 @@ port_listener_pids() {
   lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null || true
 }
 
+# Kill ONLY Ollama processes that hold the port. If some other program owns the
+# port, refuse to touch it — blindly killing the port owner could terminate an
+# unrelated local service and lose its unsaved state. Exits the script on a
+# foreign holder so the caller does not proceed to start a server that cannot
+# bind anyway.
+kill_ollama_listeners() {
+  local pid cmd ollama_pids="" foreign=""
+  for pid in $(port_listener_pids); do
+    cmd=$(ps -o command= -p "$pid" 2>/dev/null || true)
+    # Process vanished between the lookup and now — nothing to do.
+    [ -z "$cmd" ] && continue
+    if printf '%s' "$cmd" | grep -qi "ollama"; then
+      ollama_pids="$ollama_pids $pid"
+    else
+      foreign="$foreign
+   • PID $pid: $cmd"
+    fi
+  done
+  if [ -n "$foreign" ]; then
+    echo "❌ Port $PORT is held by a non-Ollama process; refusing to kill it:$foreign"
+    echo "   Free the port yourself, then re-run this script."
+    exit 1
+  fi
+  # shellcheck disable=SC2086
+  [ -n "$ollama_pids" ] && kill $ollama_pids 2>/dev/null || true
+}
+
 # Is a server answering at all (no Origin header — checks liveness only)?
 server_up() {
   curl -sf "http://localhost:$PORT/api/version" >/dev/null 2>&1
@@ -169,8 +196,7 @@ if [ -n "$MACOS_APP" ]; then
       break
     fi
     pkill -x Ollama 2>/dev/null || true
-    pids="$(port_listener_pids)"
-    [ -n "$pids" ] && kill $pids 2>/dev/null || true
+    kill_ollama_listeners
     sleep 1
   done
   open -a Ollama 2>/dev/null || true
@@ -181,8 +207,7 @@ else
     taskkill //F //IM ollama.exe 2>/dev/null || true
     sleep 1
   else
-    pids="$(port_listener_pids)"
-    [ -n "$pids" ] && kill $pids 2>/dev/null || true
+    kill_ollama_listeners
     pkill -f "ollama serve" 2>/dev/null || true
   fi
 
