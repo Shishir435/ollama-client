@@ -1,6 +1,8 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes from Chrome Web Store releases are documented in this file.
+GitHub-only release-candidate changes are consolidated into the next version
+published on the Chrome Web Store.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -92,8 +94,6 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Session titles now truncate through CSS without clipping focus rings, chat
   search resets cleanly, and the scroll-to-bottom button hides near the end.
 
-## [0.11.24] - 2026-06-29
-
 ### Added
 - OpenAI-compatible provider round-trip smoke coverage:
   stream a response, persist the assistant reply, reload the SQLite facade, and
@@ -106,9 +106,6 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   setup instead of misleading API-key guidance when the provider URL is local.
 - Docs site upgraded to Astro 7 and Starlight 0.41, with the Mermaid markdown
   hook moved to Astro's current markdown processor API.
-- Bumped package version to `0.11.24`.
-
-## [0.11.23] - 2026-06-28
 
 ### Added
 - An always-visible context-state pill and pre-send context preview covering page tabs, attached files, local knowledge, and web search.
@@ -122,8 +119,6 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Privacy is a first-class settings group with an explicit local-storage overview.
 - Streaming follows output without restarting smooth-scroll animations, and returning to the bottom no longer waits 300 ms.
 - Queued assistant replies use a stable message-shaped loading skeleton.
-
-## [0.11.22] - 2026-06-28
 
 ### Added
 - Optional, permission-gated tools for recently closed tabs/windows and synced-device sessions. Session reads honor unreadable and never-read URL exclusions.
@@ -140,10 +135,6 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Browser smoke verification no longer calls the deleted Firefox manifest post-processing script.
 - Browser automation now serializes TSX callbacks safely, waits for fonts before screenshots, and completes live Chromium/Firefox chat checks.
 - Firefox builds declare no extension data collection and no longer emit the missing declaration warning.
-
-## [0.11.20] - 2026-06-26
-
-Consolidated 0.11.x line: the "agent's hands" features plus a data-integrity hardening pass.
 
 ### Added
 - Permissions & privacy panel (Options + chat popover) with optional, on-demand browser permissions and feature-flag gating.
@@ -238,7 +229,6 @@ Consolidated 0.11.x line: the "agent's hands" features plus a data-integrity har
 - The tool exchange is ephemeral, mirroring RAG context injection: only the final answer and the tool-run trace persist — no schema migration and no new message rows.
 - Architecture is MCP-ready: a future MCP server registers as another tool source with no change to the adapters, loop, or UI.
 
-## [0.9.1] - 2026-06-13
 ### Added
 - Image / vision input: attach images to a chat message for vision-capable models. Drag-and-drop, file picker, and clipboard paste are supported; staged images appear in the composer's attachment sheet (reusing the file-attachment UI) and as click-to-enlarge thumbnails in sent messages.
 - Image attach is gated on the selected model's resolved `vision` capability — non-vision models show a clear blocked state pointing at the model-menu capability override.
@@ -254,7 +244,6 @@ Consolidated 0.11.x line: the "agent's hands" features plus a data-integrity har
 - Capability override sheet: an external (Chrome-sync) update no longer overwrites unsaved edits, and a failed save keeps the sheet open and surfaces the error instead of failing silently.
 - Per-model capability overrides are written through a serialized queue so two rapid saves can't drop one another.
 
-## [0.9.0] - 2026-06-13
 ### Added
 - Model capability detection foundation: a normalized `ModelCapabilities` layer (`text`, `vision`, `tool calling`, `reasoning`, `context length`) resolved per model with a `source` and `confidence`, layered as **user override → model metadata → provider default**.
 - Capability detection across all providers: Ollama `/api/show` capability tags (high confidence), LM Studio model `type` (`vlm`/`embeddings`, medium confidence), and provider defaults elsewhere. Unknown capabilities resolve to off — never enabled on a guess.
@@ -409,7 +398,6 @@ Consolidated 0.11.x line: the "agent's hands" features plus a data-integrity har
 - Chat-stream now handles unexpected runtime-port disconnects without leaving the UI in a stuck loading state.
 - Slider behavior and several lint violations introduced during the shadcn migration.
 
-## [0.6.4] - 2026-05
 ### Added
 - Grounding mode plus configurable per-conversation context limits.
 - Tab-content extraction wired into chat context.
@@ -421,7 +409,6 @@ Consolidated 0.11.x line: the "agent's hands" features plus a data-integrity har
 ### Fixed
 - i18n strings added for the extracted-tab context popup and the context-settings screen.
 
-## [0.6.3] - 2026-05
 ### Added
 - Tab-extraction inspector for debugging page content capture.
 - Cross-browser verification automation (`pnpm verify:browser-smoke`, `pnpm verify:browser-automation`) covering CSP, manifest permissions, and an optional Ollama connectivity check.
@@ -484,23 +471,15 @@ Consolidated 0.11.x line: the "agent's hands" features plus a data-integrity har
 
 [Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.3...HEAD
 [0.12.3]: https://github.com/Shishir435/ollama-client/compare/0.11.27...0.12.3
-[0.11.27]: https://github.com/Shishir435/ollama-client/compare/0.11.24...0.11.27
-[0.11.24]: https://github.com/Shishir435/ollama-client/compare/v0.11.23...v0.11.24
-[0.11.23]: https://github.com/Shishir435/ollama-client/compare/v0.11.22...v0.11.23
-[0.11.22]: https://github.com/Shishir435/ollama-client/compare/v0.11.20...v0.11.22
-[0.11.20]: https://github.com/Shishir435/ollama-client/compare/v0.10.3...v0.11.20
+[0.11.27]: https://github.com/Shishir435/ollama-client/compare/v0.10.3...0.11.27
 [0.10.3]: https://github.com/Shishir435/ollama-client/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/Shishir435/ollama-client/compare/v0.10.1...v0.10.2
-[0.10.1]: https://github.com/Shishir435/ollama-client/compare/v0.9.1...v0.10.1
-[0.9.1]: https://github.com/Shishir435/ollama-client/compare/v0.9.0...v0.9.1
-[0.9.0]: https://github.com/Shishir435/ollama-client/compare/v0.8.0...v0.9.0
+[0.10.1]: https://github.com/Shishir435/ollama-client/compare/v0.8.0...v0.10.1
 [0.8.0]: https://github.com/Shishir435/ollama-client/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/Shishir435/ollama-client/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/Shishir435/ollama-client/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/Shishir435/ollama-client/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Shishir435/ollama-client/compare/v0.6.5...v0.7.0
-[0.6.5]: https://github.com/Shishir435/ollama-client/compare/v0.6.4...v0.6.5
-[0.6.4]: https://github.com/Shishir435/ollama-client/compare/v0.6.3...v0.6.4
-[0.6.3]: https://github.com/Shishir435/ollama-client/compare/v0.6.2...v0.6.3
+[0.6.5]: https://github.com/Shishir435/ollama-client/compare/v0.6.2...v0.6.5
 [0.6.2]: https://github.com/Shishir435/ollama-client/compare/v0.6.0...v0.6.2
 [0.6.0]: https://github.com/Shishir435/ollama-client/releases/tag/v0.6.0
