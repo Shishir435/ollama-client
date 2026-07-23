@@ -42,6 +42,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   attribution, alternating tool-result roles, and native llama.cpp tool loops.
 
 ### Security
+- Upgraded PostCSS to `8.5.16`, removing the vulnerable docs-build dependency
+  path reported in `GHSA-6g55-p6wh-862q`.
 - Kept provider API keys and other private provider state in device-local
   storage and excluded them from backups.
 - Redacted private values from diagnostics and restricted runtime messages to
@@ -510,7 +512,8 @@ Consolidated 0.11.x line: the "agent's hands" features plus a data-integrity har
 ### Documentation
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/v0.11.25...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.3...HEAD
+[0.12.3]: https://github.com/Shishir435/ollama-client/compare/0.12.2-rc...0.12.3
 [0.11.25]: https://github.com/Shishir435/ollama-client/compare/v0.11.24...v0.11.25
 [0.11.24]: https://github.com/Shishir435/ollama-client/compare/v0.11.23...v0.11.24
 [0.11.23]: https://github.com/Shishir435/ollama-client/compare/v0.11.22...v0.11.23
