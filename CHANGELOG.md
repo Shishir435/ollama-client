@@ -7,6 +7,48 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.12.3] - 2026-07-23
+
+### Added
+- Added OpenRouter support and normalized remote-provider handling, including
+  durable replay of provider reasoning metadata across tool calls and restarts.
+- Added a versioned, validated provider RPC boundary for configuration,
+  connection tests, and model discovery, with authorization, safe errors,
+  timeouts, and end-to-end cancellation.
+- Added a provider-neutral onboarding flow and local diagnostics for connection,
+  storage, permissions, and browser compatibility.
+- Added a single-owner OPFS SQLite persistence backend with verified migration
+  and packaged-browser persistence benchmarks for Chrome and Firefox.
+
+### Changed
+- Rebuilt the settings and maintenance experience with intent-based navigation,
+  searchable settings, consistent controls, improved responsive layouts, and
+  clearer status and recovery feedback.
+- Centralized provider capability detection and model routing so saved mappings
+  and runtime evidence remain the source of truth.
+- Marked custom provider setup as Beta to reflect its first public release and
+  distinguish it from verified built-in providers.
+- Adopted the TypeScript 7 compiler and reduced build and test times.
+- Bumped package version to `0.12.3`.
+
+### Fixed
+- Fixed provider state races involving saves, model refreshes, tool probes,
+  provider switching, and stale RPC responses.
+- Fixed provider removal confirmation remaining open and retargeting another
+  provider after a successful removal.
+- Fixed backup import and reset flows for encoded settings, open database
+  handles, and loading-state recovery.
+- Fixed interrupted chat persistence, atomic message saves, provider error
+  attribution, alternating tool-result roles, and native llama.cpp tool loops.
+
+### Security
+- Kept provider API keys and other private provider state in device-local
+  storage and excluded them from backups.
+- Redacted private values from diagnostics and restricted runtime messages to
+  authorized extension surfaces.
+- Sanitized print and PDF export content and bound sensitive browser-tool grants
+  to their approved origin.
+
 ## [0.12.2] - 2026-07-04
 
 ### Changed
