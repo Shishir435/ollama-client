@@ -21,9 +21,12 @@
 //
 // Two writes bracket the kill so both properties are proven: a committed write
 // (awaited) that MUST survive — durability — and a burst of unawaited writes
-// still crossing the SW -> offscreen boundary when it dies — atomicity, each
-// all-or-nothing, never partial/duplicated. Owner continuity (same ownerId and
-// workerGeneration across the kill) proves the offscreen owner was not replaced.
+// still crossing the SW -> offscreen boundary when it dies — atomicity. The
+// crash window counts as exercised only when the kill SPLITS the burst (some
+// writes commit, some are dropped: 0 < landed < total); an unsplit outcome is
+// retried, not accepted. Every surviving row must carry its exact state, never
+// partial/duplicated. Owner continuity (same ownerId and workerGeneration
+// across the kill) proves the offscreen owner was not replaced.
 //
 // Usage: pnpm spike:sw-termination
 // Requires: pnpm benchmark:build
@@ -303,14 +306,11 @@ const run = async (): Promise<void> => {
     }>(ownerCall("ownerInfo"))
     record("gate4d-seed", seeded.total === SEED, { expected: SEED, ...seeded })
 
-    // ---- Two service-worker writes, then terminate the worker ----
+    // ---- (a) Durability: a committed SW write that MUST survive ----
     // SPIKE_OWNER_BG_WRITE runs inside the SW: it ensures the owner and forwards
-    // the keyed upsert to the offscreen worker.
-    //
-    // (a) Durability. A committed write that MUST survive. We AWAIT its ack, so
-    // the checkpoint is on disk in the offscreen owner before termination; the
-    // gate then requires it present with its exact state afterward. Absence is a
-    // failure — that is the durability guarantee the gate exists to prove.
+    // the keyed upsert to the offscreen worker. We AWAIT its ack, so the
+    // checkpoint is on disk before any termination; the gate then requires it
+    // present afterward. Absence = lost write = fail.
     const DURABLE_KEY = "gate4d-durable"
     const DURABLE_STATE = "committed-before-sw-kill"
     const durableAck = await page.evaluate<{ ok?: boolean } | undefined>(
@@ -320,74 +320,111 @@ const run = async (): Promise<void> => {
     )
     record("gate4d-sw-write-committed", Boolean(durableAck?.ok), { durableAck })
 
-    // (b) Atomicity across the genuine mid-write window. A burst of keyed SW
-    // writes dispatched WITHOUT awaiting, so they are still crossing the service
-    // worker -> offscreen boundary (or mid-exec) when the worker is torn down a
-    // moment later. Whether each one lands is timing-dependent — that IS the
-    // crash window this gate is meant to exercise — but the invariant is not:
-    // every key must be present with its exact state or wholly absent, never a
-    // partial, wrong, or duplicated row (the requestId is the upsert key).
-    const INFLIGHT_STATE = "in-flight-at-kill"
-    // A large burst so the worker is torn down with writes still queued and
-    // undelivered — a small burst drains before /json/close lands and never
-    // exercises the crash window. The gate asserts atomicity (below), and
-    // expects the interruption to be real: some of these must NOT survive.
-    const INFLIGHT_KEYS = Array.from(
-      { length: 400 },
-      (_, index) => `gate4d-inflight-${index}`
-    )
-    await page.evaluate(
-      `(() => { for (const key of ${JSON.stringify(
-        INFLIGHT_KEYS
-      )}) { chrome.runtime.sendMessage({ type: "spike-owner-bg-write", payload: { requestId: key, state: ${JSON.stringify(
-        INFLIGHT_STATE
-      )} } }); } return "dispatched"; })()`
-    )
-    // Terminate immediately, while the burst is in flight.
-    const closeResult = await httpJson(`/json/close/${originalSwId}`)
-    console.error(`[gate4d] /json/close: ${JSON.stringify(closeResult)}`)
+    // ---- (b) Atomicity across the genuine mid-write crash window ----
+    // Dispatch a large burst of keyed SW writes WITHOUT awaiting, then tear the
+    // worker down a moment later so it dies with writes still crossing the
+    // service-worker -> offscreen boundary. The window is only genuinely
+    // exercised when the kill SPLITS the burst: some writes reach the owner and
+    // commit, some are dropped with the worker. `0 < landed < total` proves that
+    // overlap — landed == 0 (killed before any write crossed) or landed == total
+    // (whole burst drained first) both mean the window was NOT exercised, so the
+    // attempt is retried against the respawned worker rather than accepted.
+    // Distinct per-attempt keys and state keep earlier attempts from masking the
+    // measured one. The invariant under interruption: every surviving row
+    // carries its exact state — never partial/wrong/duplicated (requestId is the
+    // primary key, so duplicates are impossible by construction).
+    const INFLIGHT_TOTAL = 400
+    const MAX_ATTEMPTS = 4
+    const usedInflightStates: string[] = []
 
-    // Confirm the worker target actually went away.
+    let killedSwId = originalSwId
+    let currentSwId = originalSwId
     let swGone = false
-    for (let attempt = 0; attempt < 25; attempt += 1) {
-      await sleep(200)
-      const stillListed = (await listTargets()).some(
-        (target) => target.id === originalSwId
-      )
-      if (!stillListed) {
-        swGone = true
-        break
-      }
-    }
-    record("gate4d-worker-terminated", swGone, { originalSwId, swGone })
-
-    // ---- Wake the topology and verify recovery + durability ----
-    // Any owner call wakes the service worker (ensure runs first). Retry across
-    // the respawn window; client retry is the documented contract.
     let recovered: { total: number; byWriter: Record<string, number> } | null =
       null
     let lastError = ""
-    for (let attempt = 0; attempt < 25; attempt += 1) {
-      try {
-        recovered = await page.evaluate<{
-          total: number
-          byWriter: Record<string, number>
-        }>(ownerCall("counts"))
-        break
-      } catch (error) {
-        lastError = String(error)
+    let newSw: CdpTarget | undefined
+    let ownerAfter: { ownerId: string; workerGeneration: number } | null = null
+    let summary: { total: number; byState: Record<string, number> } | null =
+      null
+    let landed = 0
+    let windowExercised = false
+    let attempts = 0
+
+    for (attempts = 1; attempts <= MAX_ATTEMPTS; attempts += 1) {
+      const attemptState = `in-flight-at-kill-a${attempts}`
+      usedInflightStates.push(attemptState)
+      const keys = Array.from(
+        { length: INFLIGHT_TOTAL },
+        (_, index) => `gate4d-inflight-a${attempts}-${index}`
+      )
+      await page.evaluate(
+        `(() => { for (const key of ${JSON.stringify(
+          keys
+        )}) { chrome.runtime.sendMessage({ type: "spike-owner-bg-write", payload: { requestId: key, state: ${JSON.stringify(
+          attemptState
+        )} } }); } return "dispatched"; })()`
+      )
+      // Terminate immediately, while the burst is in flight.
+      killedSwId = currentSwId
+      const closeResult = await httpJson(`/json/close/${killedSwId}`)
+      console.error(
+        `[gate4d] attempt ${attempts} /json/close ${killedSwId}: ${JSON.stringify(
+          closeResult
+        )}`
+      )
+
+      // Confirm the worker target went away.
+      swGone = false
+      for (let poll = 0; poll < 25; poll += 1) {
         await sleep(200)
+        if (!(await listTargets()).some((target) => target.id === killedSwId)) {
+          swGone = true
+          break
+        }
       }
+
+      // Any owner call wakes a fresh service worker (ensure runs first). Retry
+      // across the respawn window; client retry is the documented contract.
+      recovered = null
+      lastError = ""
+      for (let poll = 0; poll < 25; poll += 1) {
+        try {
+          recovered = await page.evaluate<{
+            total: number
+            byWriter: Record<string, number>
+          }>(ownerCall("counts"))
+          break
+        } catch (error) {
+          lastError = String(error)
+          await sleep(200)
+        }
+      }
+
+      newSw = findServiceWorker(await listTargets())
+      ownerAfter = recovered
+        ? await page.evaluate<{ ownerId: string; workerGeneration: number }>(
+            ownerCall("ownerInfo")
+          )
+        : null
+      summary = await page.evaluate<{
+        total: number
+        byState: Record<string, number>
+      }>(ownerCall("checkpointSummary"))
+      landed = summary.byState[attemptState] ?? 0
+      console.error(`[gate4d] attempt ${attempts} landed ${landed}/${INFLIGHT_TOTAL}`)
+
+      if (landed > 0 && landed < INFLIGHT_TOTAL) {
+        windowExercised = true
+        break
+      }
+      // Not a clean split; kill the worker that respawned during the wake.
+      if (newSw) currentSwId = newSw.id
     }
 
-    const newSw = findServiceWorker(await listTargets())
-    const ownerAfter = recovered
-      ? await page.evaluate<{ ownerId: string; workerGeneration: number }>(
-          ownerCall("ownerInfo")
-        )
-      : null
+    record("gate4d-worker-terminated", swGone, { killedSwId, swGone, attempts })
 
-    const swRespawned = Boolean(newSw) && newSw?.id !== originalSwId
+    const swRespawned = Boolean(newSw) && newSw?.id !== killedSwId
     record(
       "gate4d-recovery-after-sw-kill",
       recovered !== null &&
@@ -398,47 +435,41 @@ const run = async (): Promise<void> => {
         seededTotal: SEED,
         recovered,
         lastError,
-        originalSwId,
+        killedSwId,
         newSwId: newSw?.id ?? null,
         swRespawned
       }
     )
 
-    // One aggregate read of the whole checkpoint table — a single RPC, so the
-    // readback cannot itself drop a response the way hundreds of per-key reads
-    // could. Every checkpoint row was written by the service worker; the
-    // requestId primary key means at most one row per key (no duplicates by
-    // construction), and each write set exactly one of the two known states.
-    const summary = await page.evaluate<{
-      total: number
-      byState: Record<string, number>
-    }>(ownerCall("checkpointSummary"))
-
     // (a) Durability: the committed write MUST have survived — exactly one row
     // in its own state (absence = lost write = fail).
-    record("gate4d-crashwrite-durable", summary.byState[DURABLE_STATE] === 1, {
-      summary,
-      expectedState: DURABLE_STATE
-    })
-
-    // (b) Atomicity across the genuine crash window. Any state other than the
-    // two the writers set is a partial/corrupt row and fails. The interruption
-    // must also be real: fewer than all in-flight writes survived — if the full
-    // burst drained before the kill landed, the window was never exercised and
-    // the gate fails rather than certify vacuously.
-    const landed = summary.byState[INFLIGHT_STATE] ?? 0
-    const unexpectedStates = Object.keys(summary.byState).filter(
-      (state) => state !== DURABLE_STATE && state !== INFLIGHT_STATE
+    record(
+      "gate4d-crashwrite-durable",
+      summary?.byState[DURABLE_STATE] === 1,
+      { summary, expectedState: DURABLE_STATE }
     )
+
+    // (b) Atomicity: the kill overlapped owner writes (0 < landed < total, i.e.
+    // windowExercised), and no surviving row carries a state other than the
+    // durable write or one of the in-flight attempts — any other state would be
+    // a partial/corrupt row.
+    const unexpectedStates = summary
+      ? Object.keys(summary.byState).filter(
+          (state) =>
+            state !== DURABLE_STATE && !usedInflightStates.includes(state)
+        )
+      : ["<no summary captured>"]
     record(
       "gate4d-inflight-write-atomic",
-      unexpectedStates.length === 0 && landed < INFLIGHT_KEYS.length,
+      windowExercised && unexpectedStates.length === 0,
       {
         landed,
-        total: INFLIGHT_KEYS.length,
-        dropped: INFLIGHT_KEYS.length - landed,
+        total: INFLIGHT_TOTAL,
+        dropped: INFLIGHT_TOTAL - landed,
+        windowExercised,
+        attempts,
         unexpectedStates,
-        checkpointRows: summary.total
+        checkpointRows: summary?.total ?? null
       }
     )
 
