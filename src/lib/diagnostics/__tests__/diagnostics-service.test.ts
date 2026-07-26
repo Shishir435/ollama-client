@@ -129,6 +129,27 @@ describe("DiagnosticsService", () => {
     expect(mocks.record).toHaveBeenCalledTimes(2)
   })
 
+  it("shares one suite between forced requests that arrive together", async () => {
+    // Double click, or two open options pages. Both want current state, and a
+    // run that began at or after their request is measuring exactly that — so
+    // they must not each pay for a suite or each record a completion event.
+    let release: (value: unknown) => void = () => {}
+    mocks.listModels.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve
+        })
+    )
+
+    const first = DiagnosticsService.run(undefined, { force: true })
+    const second = DiagnosticsService.run(undefined, { force: true })
+    release({ models: [], failures: [] })
+    await Promise.all([first, second])
+
+    expect(mocks.listModels).toHaveBeenCalledOnce()
+    expect(mocks.record).toHaveBeenCalledOnce()
+  })
+
   it("does not let a forced run attach to a suite that started before it", async () => {
     // "Run self-tests" pressed while an error bubble's bundle request is still
     // in flight: that request measured the configuration from before the click,
@@ -141,8 +162,13 @@ describe("DiagnosticsService", () => {
         })
     )
 
+    vi.useFakeTimers({ toFake: ["Date"] })
     const automatic = DiagnosticsService.run()
+    // A click lands some time after the bundle request began — the gap is what
+    // makes the in-flight run's measurement potentially stale.
+    vi.advanceTimersByTime(2_000)
     const forced = DiagnosticsService.run(undefined, { force: true })
+    vi.useRealTimers()
     expect(mocks.listModels).toHaveBeenCalledTimes(2)
 
     // Resolve the forced (newer) run first, then the older one, so an

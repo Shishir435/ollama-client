@@ -180,6 +180,7 @@ type SharedRun = {
   controller: AbortController
   waiters: number
   seq: number
+  startedAt: number
 }
 
 let selfTestCache:
@@ -233,6 +234,7 @@ const startSharedRun = (): SharedRun => {
     controller,
     waiters: 0,
     seq: ++runSeq,
+    startedAt: Date.now(),
     promise: undefined as unknown as Promise<DiagnosticTestResult[]>
   }
   run.promise = executeSelfTests(controller.signal)
@@ -260,13 +262,22 @@ export const DiagnosticsService = {
     signal?: AbortSignal,
     options?: { force?: boolean }
   ): Promise<DiagnosticsRunResult> {
-    // A forced run means "measure the state I am looking at now", so it must
-    // neither read the cache nor attach to work that started before the caller
-    // asked — an automatic bundle request already in flight was measuring the
-    // configuration from before the user's change. It still becomes the run that
-    // later callers share, so forcing does not multiply concurrent suites.
+    // A forced run means "measure the state I am looking at now": it must not
+    // read the cache, and it must not attach to work that began before the
+    // caller asked, because such a run was measuring the configuration from
+    // before the change that prompted the click.
+    //
+    // A run that began at or after this request is by definition measuring the
+    // state the caller is asking about, so concurrent forced requests — a double
+    // click, or two open options pages — share one suite and record one
+    // completion event instead of duplicating both.
     if (options?.force) {
-      return { tests: await joinSharedRun(startSharedRun(), signal) }
+      const requestedAt = Date.now()
+      const fresh =
+        sharedRun && sharedRun.startedAt >= requestedAt
+          ? sharedRun
+          : startSharedRun()
+      return { tests: await joinSharedRun(fresh, signal) }
     }
     if (selfTestCache && Date.now() - selfTestCache.at < SELF_TEST_TTL_MS) {
       signal?.throwIfAborted()
