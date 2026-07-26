@@ -124,30 +124,55 @@ export const ChatErrorReportAction = ({
     }
   }, [loadDiagnostics])
 
+  /**
+   * Read the enabled flag from provider config. A successful `listModels` used
+   * to stand in for it, which is not the same claim: discovery is run with
+   * `enabledOnly: false`, so it succeeds against a *disabled* provider and the
+   * report then asserted "enabled: yes" while the diagnostics line right below
+   * it read `disabled`.
+   */
+  const readProviderEnabled = async (
+    providerId: string
+  ): Promise<boolean | undefined> => {
+    try {
+      const { providers } = await extensionRpcClient.call(
+        RpcMethod.ProvidersList,
+        {}
+      )
+      return providers.find((provider) => provider.id === providerId)?.enabled
+    } catch {
+      return undefined
+    }
+  }
+
   const openIssue = async () => {
     setPreparing(true)
     try {
+      const providerId = msg.error?.providerId
       const checks: SafeErrorChecks = {
         providerEnabled:
-          msg.error?.code === "OLC-PROVIDER-DISABLED" ? false : undefined,
+          msg.error?.code === "OLC-PROVIDER-DISABLED"
+            ? false
+            : providerId
+              ? await readProviderEnabled(providerId)
+              : undefined,
         baseUrlValid: msg.error?.baseUrl
           ? Boolean(sanitizeProviderBaseUrl(msg.error.baseUrl))
           : undefined
       }
-      if (msg.error?.providerId && msg.error.code !== "OLC-PROVIDER-DISABLED") {
+      if (providerId && msg.error?.code !== "OLC-PROVIDER-DISABLED") {
         const startedAt = performance.now()
         try {
           const result = await extensionRpcClient.call(
             RpcMethod.ProvidersListModels,
             {
-              providerId: msg.error.providerId,
+              providerId,
               enabledOnly: false
             }
           )
           checks.latencyMs = Math.max(0, performance.now() - startedAt)
           checks.providerReachable = result.failures.length === 0
-          checks.providerEnabled = true
-          if (msg.error.model) {
+          if (msg.error?.model) {
             checks.selectedModelFound = result.models.some(
               (model) =>
                 model.name === msg.error?.model ||
@@ -155,6 +180,9 @@ export const ChatErrorReportAction = ({
             )
           }
         } catch {
+          // Kept on the failure path on purpose — an instant refusal and a
+          // 30 s timeout are different bugs. The draft labels it as time to
+          // failure so it cannot be misread as a successful round trip.
           checks.latencyMs = Math.max(0, performance.now() - startedAt)
           checks.providerReachable = false
         }
@@ -171,6 +199,7 @@ export const ChatErrorReportAction = ({
   const recoveryContext: ErrorRecoveryContext = {
     error: msg.error ?? {},
     retry: onRetry,
+    ageMs: msg.timestamp ? Math.max(0, Date.now() - msg.timestamp) : 0,
     openSettings: (focusId) => {
       // Tab comes from the settings registry, so moving a control between tabs
       // cannot silently break this deep link.

@@ -336,6 +336,105 @@ describe("ChatErrorReportAction", () => {
     )
   })
 
+  it("reads the enabled flag from provider config, not from discovery success", async () => {
+    ;(extensionRpcClient.call as any).mockImplementation(
+      async (method: RpcMethod) => {
+        if (method === RpcMethod.ProvidersList) {
+          // Discovery below runs with enabledOnly:false and succeeds anyway, so
+          // only the config read can answer this honestly.
+          return { providers: [{ id: "ollama", enabled: false }] }
+        }
+        if (method === RpcMethod.ProvidersListModels) {
+          return { models: [{ name: "qwen3" }], failures: [] }
+        }
+        return { bundle: undefined }
+      }
+    )
+
+    render(
+      <ChatErrorReportAction
+        msg={{
+          role: "assistant",
+          content: "Ollama returned 500",
+          error: {
+            code: "OLC-PROVIDER-HTTP",
+            status: 500,
+            providerId: "ollama",
+            model: "qwen3"
+          }
+        }}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.open_issue" })
+    )
+
+    await waitFor(() => expect(openExternalUrl).toHaveBeenCalledOnce())
+    const body =
+      new URL(vi.mocked(openExternalUrl).mock.calls[0][0]).searchParams.get(
+        "body"
+      ) || ""
+    expect(body).toContain("- Provider enabled: no")
+    expect(body).toContain("- Provider reachable: yes")
+  })
+
+  it("drops a config-mutating recovery action once the failure is stale", () => {
+    ;(extensionRpcClient.call as any).mockResolvedValue({ bundle: undefined })
+    const onRetry = vi.fn()
+
+    render(
+      <ChatErrorReportAction
+        onRetry={onRetry}
+        msg={{
+          role: "assistant",
+          content: "Provider disabled",
+          // Two hours old: scrolled-back history, not a live failure.
+          timestamp: Date.now() - 2 * 60 * 60 * 1000,
+          error: {
+            code: "OLC-PROVIDER-DISABLED",
+            recoveryAction: "enable-provider",
+            providerId: "ollama",
+            providerName: "Ollama"
+          }
+        }}
+      />
+    )
+
+    expect(
+      screen.queryByRole("button", { name: "chat.errors.enable_provider" })
+    ).not.toBeInTheDocument()
+    // Degrades to the read-only deep link rather than to nothing.
+    expect(
+      screen.getByRole("button", { name: "settings.shortcuts.open_settings" })
+    ).toBeInTheDocument()
+  })
+
+  it("keeps the in-place fix on a fresh failure", () => {
+    ;(extensionRpcClient.call as any).mockResolvedValue({ bundle: undefined })
+
+    render(
+      <ChatErrorReportAction
+        onRetry={vi.fn()}
+        msg={{
+          role: "assistant",
+          content: "Provider disabled",
+          timestamp: Date.now() - 5_000,
+          error: {
+            code: "OLC-PROVIDER-DISABLED",
+            recoveryAction: "enable-provider",
+            providerId: "ollama",
+            providerName: "Ollama"
+          }
+        }}
+      />
+    )
+
+    expect(
+      screen.getByRole("button", { name: "chat.errors.enable_provider" })
+    ).toBeInTheDocument()
+  })
+
   it("opens focused recovery settings", () => {
     render(
       <ChatErrorReportAction

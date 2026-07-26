@@ -22,6 +22,11 @@ export interface ErrorRecoveryContext {
   retry?: () => void
   /** Open the options page focused on a settings control. */
   openSettings: (focusId: string) => void
+  /**
+   * Age of the failed message in ms. `0` for a message with no timestamp, which
+   * only happens for a turn that has not been persisted yet — i.e. a live one.
+   */
+  ageMs: number
 }
 
 export interface ErrorRecoveryAction {
@@ -45,7 +50,23 @@ export interface ErrorRecoveryAction {
    * only reason the turn failed is the thing `run` just repaired.
    */
   retryAfterRun?: boolean
+  /**
+   * Stop offering the action once the failure is older than this. Set it on any
+   * action that mutates configuration or appends a turn: scrolling back to a
+   * week-old failure should not present a button that silently flips a provider
+   * setting and drops a fresh response into the middle of that conversation.
+   * Read-only actions (navigation) leave it unset and stay available forever.
+   */
+  maxAgeMs?: number
 }
+
+/**
+ * How long a failure keeps its actionable recovery affordance. Long enough to
+ * survive a coffee break with the panel open, short enough that a failure the
+ * user scrolls back to is treated as history rather than as something still
+ * happening.
+ */
+export const RECOVERY_ACTION_MAX_AGE_MS = 60 * 60 * 1000
 
 /**
  * Settings control to focus when a recovery action can only be completed on the
@@ -71,6 +92,7 @@ export const ERROR_RECOVERY_ACTIONS: readonly ErrorRecoveryAction[] = [
     busyLabelKey: "chat.errors.enabling_provider",
     icon: Power,
     retryAfterRun: true,
+    maxAgeMs: RECOVERY_ACTION_MAX_AGE_MS,
     labelParams: ({ error }) => ({
       provider: error.providerName || error.providerId || ""
     }),
@@ -89,6 +111,7 @@ export const ERROR_RECOVERY_ACTIONS: readonly ErrorRecoveryAction[] = [
     id: "retry-turn",
     labelKey: "common.actions.retry",
     icon: RefreshCcw,
+    maxAgeMs: RECOVERY_ACTION_MAX_AGE_MS,
     isAvailable: ({ error, retry }) =>
       Boolean(retry) &&
       (error.recoveryAction === "retry" ||
@@ -98,6 +121,9 @@ export const ERROR_RECOVERY_ACTIONS: readonly ErrorRecoveryAction[] = [
     run: ({ retry }) => retry?.()
   },
   {
+    // No `maxAgeMs`: opening a focused setting is read-only and is still the
+    // right suggestion for an old failure. It is also the graceful landing spot
+    // when a stale in-place fix above drops out of the running.
     id: "open-settings",
     labelKey: "settings.shortcuts.open_settings",
     icon: Settings,
@@ -113,4 +139,8 @@ export const ERROR_RECOVERY_ACTIONS: readonly ErrorRecoveryAction[] = [
 export const resolveErrorRecoveryAction = (
   context: ErrorRecoveryContext
 ): ErrorRecoveryAction | undefined =>
-  ERROR_RECOVERY_ACTIONS.find((action) => action.isAvailable(context))
+  ERROR_RECOVERY_ACTIONS.find(
+    (action) =>
+      (action.maxAgeMs === undefined || context.ageMs < action.maxAgeMs) &&
+      action.isAvailable(context)
+  )
