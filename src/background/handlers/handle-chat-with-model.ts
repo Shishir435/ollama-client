@@ -19,6 +19,7 @@ import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { getSession } from "@/lib/repositories/chat-history"
 import {
   deleteToolLoopRun,
@@ -112,6 +113,7 @@ export const handleChatWithModel = withErrorContext(
       model,
       providerId
     )
+    assertProviderEnabled(provider, model)
 
     // Resolve tools + how to drive them. Native models get an OpenAI/Ollama tool
     // array; models opted into the prompt-based fallback get a non-native loop;

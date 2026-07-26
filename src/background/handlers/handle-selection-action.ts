@@ -8,6 +8,7 @@ import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { isSelectedModelRef } from "@/lib/providers/selected-model"
 import type { ChromePort, ModelConfigMap, PortStatusFunction } from "@/types"
 
@@ -57,6 +58,7 @@ export const handleSelectionAction = async (
       model,
       providerId
     )
+    assertProviderEnabled(provider, model)
     // Use the user's explicitly configured system prompt, not the
     // default-merged one. DEFAULT_MODEL_CONFIG.system ("...format with
     // markdown...") conflicts with the selection action's "Return plain text

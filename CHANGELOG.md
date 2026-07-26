@@ -20,6 +20,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Provider response errors now identify the configured provider, selected
   model, sanitized base URL, and HTTP status in chat and prefilled issue
   reports, while keeping credentials and raw upstream responses private.
+- Disabled providers can no longer serve chat, selection-action, RAG
+  reformulation, or model-warmup requests from stale model selections.
 
 ## [0.12.4] - 2026-07-24
 

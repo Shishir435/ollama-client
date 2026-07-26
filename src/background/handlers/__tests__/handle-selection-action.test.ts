@@ -17,6 +17,14 @@ const { mockProvider, mockStreamChat } = vi.hoisted(() => {
   return {
     mockStreamChat: streamChat,
     mockProvider: {
+      id: "ollama",
+      config: {
+        id: "ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: "http://localhost:11434",
+        name: "Ollama"
+      },
       streamChat,
       getModels: vi.fn()
     }
@@ -60,6 +68,7 @@ describe("handleSelectionAction", () => {
     clearHandlerMocks()
     setupHandlerMocks()
     vi.clearAllMocks()
+    mockProvider.config.enabled = true
   })
 
   it("streams selection action chunks through selected provider", async () => {
