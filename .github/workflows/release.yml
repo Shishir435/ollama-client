@@ -102,15 +102,57 @@ jobs:
             fi
           done
 
-          # A tag can arrive here more than once. Moving a tag re-triggers this
+          # A tag can arrive here more than once: moving a tag re-triggers this
           # workflow, and `gh release create` fails on an existing release, so a
-          # corrected tag would report a red run for work that is already
-          # published. Refresh the assets instead, and leave the notes alone:
-          # a published body may have been edited by hand, and regenerating it
-          # would silently discard those edits.
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists. Refreshing assets, keeping notes."
-            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+          # corrected tag would report a red run for work already published.
+          #
+          # Only a genuine "not found" counts as absence. A network, rate-limit,
+          # or auth failure must not be read as "no release", because falling
+          # through to `create` would then fail on the existing release and bury
+          # the real diagnostic behind a misleading one.
+          set +e
+          view_error="$(gh release view "$TAG" 2>&1 >/dev/null)"
+          view_rc=$?
+          set -e
+          if [ "$view_rc" -eq 0 ]; then
+            release_exists=true
+          elif printf '%s' "$view_error" | grep -qiE "release not found|HTTP 404"; then
+            release_exists=false
+          else
+            echo "Could not determine whether release $TAG exists:"
+            printf '%s\n' "$view_error"
+            exit 1
+          fi
+
+          if [ "$release_exists" = true ]; then
+            # Add only what is absent; never replace a published asset.
+            #
+            # A published zip may already have been downloaded, and gh has no
+            # atomic multi-asset swap, so a --clobber that failed partway would
+            # leave the Chrome and Firefox packages out of step with each other
+            # — a worse outcome than the red run this branch exists to avoid.
+            # Additive-only keeps the step monotonic: a failed run leaves the
+            # release exactly as it was, and re-running finishes the job.
+            #
+            # Notes are left alone for the same reason: a published body may
+            # have been edited by hand, and --generate-notes would discard those
+            # edits without saying so.
+            published="$(gh release view "$TAG" --json assets -q '.assets[].name')"
+            missing=()
+            for asset in "${ASSETS[@]}"; do
+              if ! printf '%s\n' "$published" | grep -qxF "$(basename "$asset")"; then
+                missing+=("$asset")
+              fi
+            done
+
+            if [ ${#missing[@]} -eq 0 ]; then
+              echo "Release $TAG is already published with all its assets. Nothing to do."
+              exit 0
+            fi
+
+            echo "Release $TAG exists but is missing ${#missing[@]} asset(s):"
+            printf '  %s\n' "${missing[@]}"
+            gh release upload "$TAG" "${missing[@]}"
             exit 0
           fi
 
