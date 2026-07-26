@@ -10,6 +10,13 @@ name: Release
 # 2. Manual: Actions → Release → Run workflow. Enter the version (e.g.
 #    0.12.0 or 0.13.0-rc.1) and pick the branch/commit to release from —
 #    the workflow creates the tag for you and publishes the release.
+#
+# Tag the merge commit on main, after the release PR merges — never a branch
+# commit beforehand. Squash-merging rewrites the SHA, which leaves the tag
+# pointing at a commit that is not in main's history. GitHub then cannot see
+# that tag when picking the previous release, so the next release's generated
+# notes silently reach further back and re-list the earlier release's PRs.
+# This happened to 0.12.3, whose tag had to be moved afterwards.
 
 on:
   push:
@@ -78,10 +85,35 @@ jobs:
       - name: Package Firefox (MV2)
         run: pnpm package:firefox
 
-      - name: Create GitHub release
+      - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          TAG="${{ steps.meta.outputs.tag }}"
+          ASSETS=(build/chrome-mv3-prod/*.zip build/firefox-mv2-prod/*.zip)
+
+          # An unmatched glob stays literal in bash and would be handed to gh as
+          # a filename, which fails obscurely on create and, worse, uploads a
+          # partial asset set on refresh. Fail here with the missing path named.
+          for asset in "${ASSETS[@]}"; do
+            if [ ! -f "$asset" ]; then
+              echo "Expected release asset is missing: $asset"
+              exit 1
+            fi
+          done
+
+          # A tag can arrive here more than once. Moving a tag re-triggers this
+          # workflow, and `gh release create` fails on an existing release, so a
+          # corrected tag would report a red run for work that is already
+          # published. Refresh the assets instead, and leave the notes alone:
+          # a published body may have been edited by hand, and regenerating it
+          # would silently discard those edits.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists. Refreshing assets, keeping notes."
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+            exit 0
+          fi
+
           PRERELEASE_FLAG=""
           if [ "${{ steps.meta.outputs.prerelease }}" = "true" ]; then
             PRERELEASE_FLAG="--prerelease"
@@ -93,10 +125,9 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             TARGET_FLAG="--target $GITHUB_SHA"
           fi
-          gh release create "${{ steps.meta.outputs.tag }}" \
-            --title "${{ steps.meta.outputs.tag }}" \
+          gh release create "$TAG" \
+            --title "$TAG" \
             --generate-notes \
             $PRERELEASE_FLAG \
             $TARGET_FLAG \
-            build/chrome-mv3-prod/*.zip \
-            build/firefox-mv2-prod/*.zip
+            "${ASSETS[@]}"
