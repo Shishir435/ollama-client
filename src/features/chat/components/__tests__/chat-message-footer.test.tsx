@@ -52,7 +52,7 @@ describe("ChatMessageFooter", () => {
     expect(screen.getByText("deepseek-r1:8b")).toBeInTheDocument()
   })
 
-  it("keeps the compact bug-report action for structured errors", () => {
+  it("leaves error reporting to the error panel instead of duplicating it", () => {
     render(
       <ChatMessageFooter
         msg={{
@@ -62,12 +62,14 @@ describe("ChatMessageFooter", () => {
           timestamp: 1
         }}
         isUser={false}
-        canReport
       />
     )
 
+    // The footer used to build its own report URL with no diagnostics and no
+    // local checks, two rows below the panel's richer one. One failed turn gets
+    // one report entry point.
     expect(
-      screen.getByRole("link", { name: "chat.errors.report_issue" })
-    ).toBeInTheDocument()
+      screen.queryByRole("link", { name: "chat.errors.report_issue" })
+    ).not.toBeInTheDocument()
   })
 })

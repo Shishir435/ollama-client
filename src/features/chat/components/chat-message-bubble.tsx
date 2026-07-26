@@ -122,7 +122,6 @@ export const ChatMessageBubble = memo(
               feedbackEnabled={feedbackEnabled}
               onRegenerate={onRegenerate}
               canRetry={canRetry}
-              canReport={showErrorTreatment}
               onEdit={() => setEditorMode("edit")}
               onFork={isUser ? () => setEditorMode("fork") : undefined}
               onDelete={onDelete}

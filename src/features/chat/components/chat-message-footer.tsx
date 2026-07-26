@@ -4,10 +4,8 @@ import { TooltipActionButton } from "@/components/actions"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
 import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
-import { buildChatMessageErrorReportUrl } from "@/lib/error-report"
 import {
   Bot,
-  Bug,
   ChevronLeft,
   ChevronRight,
   GitFork,
@@ -32,7 +30,6 @@ export const ChatMessageFooter = ({
   feedbackEnabled = true,
   onRegenerate,
   canRetry,
-  canReport,
   onEdit,
   onFork,
   onDelete,
@@ -46,7 +43,6 @@ export const ChatMessageFooter = ({
   feedbackEnabled?: boolean
   onRegenerate?: (model?: string) => void
   canRetry?: boolean
-  canReport?: boolean
   onEdit?: () => void
   onFork?: () => void
   onDelete?: () => void
@@ -74,7 +70,6 @@ export const ChatMessageFooter = ({
         onJson: () => onExport("json")
       })
     : []
-  const reportUrl = canReport ? buildChatMessageErrorReportUrl(msg) : null
   const footerButtonClass = cn(chatIconBtnCls, "[&_svg]:icon-xs")
 
   return (
@@ -175,26 +170,6 @@ export const ChatMessageFooter = ({
             className={footerButtonClass}
             onClick={() => onRegenerate?.()}
             icon={<RefreshCcw className="icon-xs" />}
-          />
-        )}
-
-        {!isUser && reportUrl && (
-          <TooltipActionButton
-            trigger={
-              // biome-ignore lint/a11y/useAnchorContent: children are forwarded by Base UI's render-prop merge at runtime
-              <a
-                href={reportUrl}
-                target="_blank"
-                rel="noreferrer"
-                className={cn(
-                  footerButtonClass,
-                  "inline-flex items-center justify-center"
-                )}
-                aria-label={t("chat.errors.report_issue")}
-              />
-            }
-            icon={<Bug className="icon-xs" />}
-            label={t("chat.errors.report_issue")}
           />
         )}
 

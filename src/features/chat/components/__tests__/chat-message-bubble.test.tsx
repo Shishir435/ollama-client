@@ -34,9 +34,7 @@ vi.mock("@/features/chat/components/chat-message-editor", () => ({
 }))
 
 vi.mock("@/features/chat/components/chat-message-footer", () => ({
-  ChatMessageFooter: ({ canReport }: { canReport?: boolean }) => (
-    <div>{canReport ? "can report" : "cannot report"}</div>
-  )
+  ChatMessageFooter: () => <div>footer</div>
 }))
 
 describe("ChatMessageBubble", () => {
@@ -52,7 +50,6 @@ describe("ChatMessageBubble", () => {
       />
     )
 
-    expect(screen.getByText("cannot report")).toBeInTheDocument()
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
     expect(
       screen.queryByRole("button", { name: "chat.errors.open_issue" })
@@ -72,7 +69,6 @@ describe("ChatMessageBubble", () => {
       />
     )
 
-    expect(screen.getByText("can report")).toBeInTheDocument()
     // A failed turn must not read as ordinary model output.
     expect(screen.getByRole("alert")).toBeInTheDocument()
     expect(
