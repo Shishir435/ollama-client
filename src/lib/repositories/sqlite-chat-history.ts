@@ -12,7 +12,10 @@ import {
   withTransaction
 } from "@/lib/sqlite/db"
 import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
-import { ChatMessageMetricsSchema } from "@/types/chat.schemas"
+import {
+  ChatMessageErrorSchema,
+  ChatMessageMetricsSchema
+} from "@/types/chat.schemas"
 
 /**
  * SQLite-backed implementation of the chat-history persistence surface.
@@ -69,6 +72,16 @@ const parseMetrics = (raw: RowValue): ChatMessage["metrics"] => {
   }
 }
 
+const parseMessageError = (raw: RowValue): ChatMessage["error"] => {
+  if (typeof raw !== "string" || raw.length === 0) return undefined
+  try {
+    const result = ChatMessageErrorSchema.safeParse(JSON.parse(raw))
+    return result.success ? result.data : undefined
+  } catch {
+    return undefined
+  }
+}
+
 const messageFromRow = (row: Row): StoredMessage => ({
   id: row.id as number,
   sessionId: row.sessionId as string,
@@ -80,7 +93,8 @@ const messageFromRow = (row: Row): StoredMessage => ({
   done: ((row.done as number | null) ?? 1) !== 0,
   metrics: parseMetrics(row.metrics),
   thinking: (row.thinking as string | null) ?? undefined,
-  replayArtifact: parseStoredReplayArtifact(row.replayArtifact)
+  replayArtifact: parseStoredReplayArtifact(row.replayArtifact),
+  error: parseMessageError(row.error)
 })
 
 const fileFromRow = (row: Row): StoredFile => ({
@@ -122,8 +136,8 @@ const insertImportedMessage = async (
   // which is the only race-free read on the shared OPFS connection.
   const { lastInsertRowid } = await runWithMeta(
     `INSERT INTO messages
-     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact, error)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       sessionId,
       message.role,
@@ -134,7 +148,8 @@ const insertImportedMessage = async (
       message.done === false ? 0 : 1,
       message.metrics ? JSON.stringify(message.metrics) : null,
       message.thinking ?? null,
-      serializeReplayArtifact(message.replayArtifact)
+      serializeReplayArtifact(message.replayArtifact),
+      message.error ? JSON.stringify(message.error) : null
     ]
   )
   return lastInsertRowid
@@ -418,8 +433,8 @@ export const addMessage = async (
   const timestamp = message.timestamp ?? Date.now()
   const { lastInsertRowid } = await runWithMeta(
     `INSERT INTO messages
-     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact, error, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       message.sessionId,
       message.role,
@@ -431,6 +446,7 @@ export const addMessage = async (
       message.metrics ? JSON.stringify(message.metrics) : null,
       message.thinking ?? null,
       serializeReplayArtifact(message.replayArtifact),
+      message.error ? JSON.stringify(message.error) : null,
       // Seed last-touched at creation so a shell that dies before its first
       // streaming write still ages into "stale" for the interrupted sweep.
       timestamp
@@ -498,6 +514,10 @@ export const updateMessage = async (
   if (Object.hasOwn(updates, "replayArtifact")) {
     fields.push("replayArtifact = ?")
     values.push(serializeReplayArtifact(updates.replayArtifact))
+  }
+  if (Object.hasOwn(updates, "error")) {
+    fields.push("error = ?")
+    values.push(updates.error ? JSON.stringify(updates.error) : null)
   }
   if (Object.hasOwn(updates, "done")) {
     fields.push("done = ?")

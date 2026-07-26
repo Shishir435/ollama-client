@@ -2,7 +2,8 @@ import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
   localCorsForbiddenMessage,
-  providerErrorUserMessage
+  providerErrorUserMessage,
+  throwProviderConnectionError
 } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type {
@@ -187,7 +188,14 @@ export class OllamaProvider implements LLMProvider {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       signal
-    })
+    }).catch((error) =>
+      throwProviderConnectionError(error, {
+        providerId: this.id,
+        providerName: this.config.name,
+        model,
+        baseUrl
+      })
+    )
 
     if (!response.ok) {
       const errorText = await response.text()

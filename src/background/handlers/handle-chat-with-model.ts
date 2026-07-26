@@ -17,6 +17,7 @@ import {
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { getSession } from "@/lib/repositories/chat-history"
 import {
@@ -375,6 +376,19 @@ export const handleChatWithModel = withErrorContext(
   },
   {
     handler: "handleChatWithModel",
-    operation: "streaming chat"
+    operation: "streaming chat",
+    resolveProviderErrorContext: async (msg) => {
+      const { model, providerId } = msg.payload
+      const provider = await ProviderFactory.getProviderForModel(
+        model,
+        providerId
+      )
+      return {
+        providerId: provider.id,
+        providerName: provider.config.name,
+        model,
+        baseUrl: resolveProviderBaseUrl(provider.config)
+      }
+    }
   }
 )

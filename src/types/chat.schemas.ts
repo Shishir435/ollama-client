@@ -249,6 +249,20 @@ const ImageAttachmentSchema = z.object({
 
 // ---- ChatMessage ----
 
+export const ChatMessageErrorSchema = z.object({
+  status: z.number().optional(),
+  kind: z
+    .enum(["network", "provider", "storage", "validation", "abort", "unknown"])
+    .optional(),
+  retryable: z.boolean().optional(),
+  retryAfterMs: z.number().optional(),
+  userMessage: z.string().optional(),
+  providerId: z.string().optional(),
+  providerName: z.string().optional(),
+  model: z.string().optional(),
+  baseUrl: z.string().optional()
+})
+
 export const ChatMessageSchema = z.object({
   id: z.union([z.number(), z.string()]).optional(),
   role: z.enum(["user", "assistant", "system", "tool"]),
@@ -263,6 +277,7 @@ export const ChatMessageSchema = z.object({
   toolName: z.string().optional(),
   toolCallId: z.string().optional(),
   toolIsError: z.boolean().optional(),
+  error: ChatMessageErrorSchema.optional(),
   timestamp: z.number().optional(),
   metrics: ChatMessageMetricsSchema.optional(),
   parentId: z.union([z.number(), z.string()]).optional(),

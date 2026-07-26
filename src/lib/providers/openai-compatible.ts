@@ -5,6 +5,7 @@ import {
   isRetryableProviderStatus,
   parseRetryAfter,
   providerErrorUserMessage,
+  throwProviderConnectionError,
   throwProviderResponseError
 } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
@@ -339,7 +340,14 @@ export class OpenAICompatibleProvider implements LLMProvider {
       headers: this.headers(),
       body: JSON.stringify(body),
       signal
-    })
+    }).catch((error) =>
+      throwProviderConnectionError(error, {
+        providerId: this.id,
+        providerName: this.config.name,
+        model,
+        baseUrl
+      })
+    )
 
     if (!response.ok) {
       await this.responseError(response, "OpenAI Error", baseUrl, model)

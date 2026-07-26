@@ -78,7 +78,11 @@ export const ChatMessageFooter = ({
     ? buildErrorReportUrl({
         status: msg.error?.status,
         kind: msg.error?.kind,
-        message: msg.content
+        message: msg.error?.userMessage || msg.content,
+        providerId: msg.error?.providerId,
+        providerName: msg.error?.providerName,
+        model: msg.error?.model || msg.model,
+        baseUrl: msg.error?.baseUrl
       })
     : null
   const footerButtonClass = cn(chatIconBtnCls, "[&_svg]:icon-xs")

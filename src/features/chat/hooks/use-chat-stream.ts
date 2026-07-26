@@ -8,11 +8,9 @@ import {
   formatErrorForDisplay,
   getDisplayErrorMessage
 } from "@/lib/error-display"
+import { buildErrorReportUrl } from "@/lib/error-report"
 import { logger } from "@/lib/logger"
-import {
-  buildProviderServerIssueUrl,
-  providerErrorUserMessage
-} from "@/lib/providers/provider-errors"
+import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import type { ChatMessage } from "@/types"
 import {
@@ -176,16 +174,12 @@ export const useChatStream = ({
           const errorProviderId = isProviderError
             ? error.providerId || providerId
             : undefined
-          const providerName = errorProviderId
-            ? getProviderDisplayName(errorProviderId, errorProviderId)
-            : undefined
-          const issueUrl =
-            isProviderError && error.status >= 500
-              ? buildProviderServerIssueUrl(error.status, {
-                  providerName,
-                  model
-                })
-              : undefined
+          const providerName =
+            error.providerName ||
+            (errorProviderId
+              ? getProviderDisplayName(errorProviderId)
+              : undefined)
+          const errorModel = error.model || model
           const localizedUserMessage = error.messageKey
             ? t(error.messageKey)
             : error.userMessage
@@ -201,30 +195,45 @@ export const useChatStream = ({
             (isProviderError && error.status > 0
               ? providerErrorUserMessage(error.status, {
                   providerName,
-                  model
+                  model: errorModel,
+                  baseUrl: error.baseUrl
                 })
               : t("chat.errors.unknown_error", {
                   message:
                     getDisplayErrorMessage(error) || t("chat.errors.no_message")
                 }))
-          const chatErrorMessage = issueUrl
-            ? `${errMsg}\n\n[Open a new issue](${issueUrl})`
-            : errMsg
+          const issueUrl =
+            isProviderError && error.status >= 500
+              ? buildErrorReportUrl({
+                  status: error.status,
+                  kind: error.kind,
+                  message: errMsg,
+                  providerId: errorProviderId,
+                  providerName,
+                  model: errorModel,
+                  baseUrl: error.baseUrl
+                })
+              : undefined
           const toastDescription =
             error.kind === "provider" && providerName
-              ? `${displayError.rawMessage}${
+              ? `${displayError.message}${
                   error.retryable ? " This may be temporary; try again." : ""
                 }`
               : displayError.message
           void renderAssistant({
             ...partial,
-            content: chatErrorMessage,
+            content: errMsg,
             done: true,
             error: {
               status: error.status,
               kind: error.kind,
               retryable: error.retryable,
-              retryAfterMs: error.retryAfterMs
+              retryAfterMs: error.retryAfterMs,
+              userMessage: errMsg,
+              providerId: errorProviderId,
+              providerName,
+              model: errorModel,
+              baseUrl: error.baseUrl
             }
           })
           toast({

@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import { buildErrorReportUrl } from "@/lib/error-report"
 import { isAppError } from "@/lib/error-utils"
 import { OllamaProvider } from "../ollama"
 import { OpenAICompatibleProvider } from "../openai-compatible"
 import {
-  buildProviderServerIssueUrl,
   isLocalProviderBaseUrl,
   parseRetryAfter,
   providerErrorUserMessage
@@ -31,16 +31,22 @@ describe("providerErrorUserMessage", () => {
       model: "gemma.gguf"
     })
 
-    expect(msg).toContain("llama.cpp returned a server error")
+    expect(msg).toContain(
+      'llama.cpp returned HTTP 500 while generating a response with model "gemma.gguf"'
+    )
     expect(msg).toContain("llama.cpp is running")
     expect(msg).toContain('model "gemma.gguf" is loaded')
     expect(msg).toContain("base URL/port")
     expect(msg).not.toContain("http")
     expect(msg).not.toContain("[open an issue]")
 
-    const issueUrlValue = buildProviderServerIssueUrl(500, {
+    const issueUrlValue = buildErrorReportUrl({
+      status: 500,
+      kind: "provider",
+      message: msg,
       providerName: "llama.cpp",
-      model: "gemma.gguf"
+      model: "gemma.gguf",
+      baseUrl: "http://user:secret@localhost:8000/v1?token=private"
     })
     expect(issueUrlValue).toContain(
       "https://github.com/Shishir435/ollama-client/issues/new?"
@@ -50,9 +56,13 @@ describe("providerErrorUserMessage", () => {
       "[bug] llama.cpp server error (500)"
     )
     expect(issueUrl.searchParams.get("body")).toContain("- Error status: 500")
+    expect(issueUrl.searchParams.get("body")).toContain("- Provider: llama.cpp")
+    expect(issueUrl.searchParams.get("body")).toContain("- Model: gemma.gguf")
     expect(issueUrl.searchParams.get("body")).toContain(
-      "- Provider/model: llama.cpp / gemma.gguf"
+      "- Base URL: http://localhost:8000/v1"
     )
+    expect(issueUrl.searchParams.get("body")).not.toContain("secret")
+    expect(issueUrl.searchParams.get("body")).not.toContain("private")
   })
 
   it("points local 401/403 responses at CORS setup instead of credentials", () => {
@@ -185,6 +195,45 @@ describe("hosted provider retry metadata", () => {
   })
 })
 
+describe("custom provider connection errors", () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it("identifies the saved provider, base URL, and selected model", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(
+      new TypeError("Failed to fetch")
+    )
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:openai:localai",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "http://localhost:8080/v1",
+      name: "My LocalAI"
+    })
+
+    try {
+      await provider.streamChat({ model: "qwen3", messages: [] }, () => {})
+      throw new Error("Expected streamChat to fail")
+    } catch (error) {
+      expect(isAppError(error)).toBe(true)
+      if (isAppError(error)) {
+        expect(error).toMatchObject({
+          kind: "provider",
+          status: 0,
+          providerId: "custom:openai:localai",
+          providerName: "My LocalAI",
+          model: "qwen3",
+          baseUrl: "http://localhost:8080/v1",
+          retryable: true
+        })
+        expect(error.userMessage).toContain(
+          'My LocalAI at http://localhost:8080/v1 could not be reached while requesting a response with model "qwen3"'
+        )
+        expect(error.userMessage).not.toContain("Failed to fetch")
+      }
+    }
+  })
+})
+
 describe("provider-specific server errors", () => {
   afterEach(() => vi.restoreAllMocks())
 
@@ -209,9 +258,11 @@ describe("provider-specific server errors", () => {
     } catch (error) {
       expect(isAppError(error)).toBe(true)
       if (isAppError(error)) {
-        expect(error.userMessage).toContain("llama.cpp returned a server error")
+        expect(error.userMessage).toContain(
+          'llama.cpp at http://localhost:8000/v1 returned HTTP 500 while generating a response with model "gemma.gguf"'
+        )
         expect(error.userMessage).toContain('model "gemma.gguf" is loaded')
-        expect(error.userMessage).not.toContain("https://")
+        expect(error.userMessage).not.toContain("template failure")
       }
     }
   })

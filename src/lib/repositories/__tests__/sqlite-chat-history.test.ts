@@ -325,6 +325,8 @@ describe("messages", () => {
         done: 0,
         metrics: '{"prompt_eval_count":3}',
         thinking: "reasoning...",
+        error:
+          '{"status":500,"kind":"provider","providerName":"Ollama","model":"m","baseUrl":"http://localhost:11434"}',
         replayArtifact:
           '{"version":1,"wire":"openai","providerId":"openrouter","model":"m","blocks":[{"type":"reasoning.encrypted","data":"opaque"}]}'
       }
@@ -334,6 +336,12 @@ describe("messages", () => {
     expect(msg.parentId).toBeUndefined()
     expect(msg.metrics).toEqual({ prompt_eval_count: 3 })
     expect(msg.thinking).toBe("reasoning...")
+    expect(msg.error).toMatchObject({
+      status: 500,
+      providerName: "Ollama",
+      model: "m",
+      baseUrl: "http://localhost:11434"
+    })
     expect(msg.replayArtifact?.blocks).toEqual([
       { type: "reasoning.encrypted", data: "opaque" }
     ])
@@ -468,6 +476,7 @@ describe("messages", () => {
       null,
       null,
       null,
+      null,
       // updatedAt seeded to the creation timestamp
       100
     ])
@@ -567,6 +576,28 @@ describe("messages", () => {
     expect(JSON.parse(String(params?.[0]))).toMatchObject({
       providerId: "openrouter",
       blocks: [{ type: "reasoning.encrypted", data: "opaque" }]
+    })
+  })
+
+  it("updateMessage persists safe provider error context", async () => {
+    mockedRun.mockResolvedValueOnce(undefined)
+    await repo.updateMessage(5, {
+      error: {
+        status: 500,
+        kind: "provider",
+        providerName: "Ollama",
+        model: "llama3.2",
+        baseUrl: "http://localhost:11434"
+      }
+    })
+    const [sql, params] = mockedRun.mock.calls[0]
+    expect(sql).toBe(
+      "UPDATE messages SET error = ?, updatedAt = ? WHERE id = ?"
+    )
+    expect(JSON.parse(String(params?.[0]))).toMatchObject({
+      providerName: "Ollama",
+      model: "llama3.2",
+      baseUrl: "http://localhost:11434"
     })
   })
 

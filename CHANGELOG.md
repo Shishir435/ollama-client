@@ -15,6 +15,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   plus extension version and browser language context to help diagnose
   release-specific issues without attaching chat content or settings.
 
+### Fixed
+
+- Provider response errors now identify the configured provider, selected
+  model, sanitized base URL, and HTTP status in chat and prefilled issue
+  reports, while keeping credentials and raw upstream responses private.
+
 ## [0.12.4] - 2026-07-24
 
 ### Changed

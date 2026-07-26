@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { createAppError } from "@/lib/error-utils"
 import type { ChatMessage, ChatWithModelMessage } from "@/types"
 import { handleChatWithModel } from "../handle-chat-with-model"
 import {
@@ -524,6 +525,45 @@ describe("handleChatWithModel", () => {
   })
 
   describe("error handling", () => {
+    it("reports the resolved provider, model, base URL, and status", async () => {
+      mockStreamChat.mockRejectedValueOnce(
+        createAppError("raw Ollama response", {
+          kind: "provider",
+          status: 500,
+          debug: "private upstream body"
+        })
+      )
+
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          providerId: "ollama",
+          messages: [{ role: "user", content: "Test" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockPort.postMessage).toHaveBeenCalledWith({
+        error: expect.objectContaining({
+          status: 500,
+          kind: "provider",
+          providerId: "ollama",
+          providerName: "Ollama",
+          model: "llama3:latest",
+          baseUrl: "http://localhost:11434",
+          userMessage: expect.stringContaining(
+            'Ollama at http://localhost:11434 returned HTTP 500 while generating a response with model "llama3:latest"'
+          )
+        })
+      })
+      const postMessage = mockPort.postMessage as ReturnType<typeof vi.fn>
+      expect(JSON.stringify(postMessage.mock.calls)).not.toContain(
+        "private upstream body"
+      )
+    })
+
     it("should handle stream errors", async () => {
       mockStreamChat.mockRejectedValueOnce(new Error("Stream failure"))
 
