@@ -171,6 +171,171 @@ describe("ChatErrorReportAction", () => {
     expect(writeText.mock.calls[0][0]).not.toContain("**What happened**")
   })
 
+  it("enables a disabled provider in place and re-runs the turn", async () => {
+    ;(extensionRpcClient.call as any).mockImplementation(
+      async (method: RpcMethod) => {
+        if (method === RpcMethod.ProvidersSetEnabled) {
+          return { provider: { id: "ollama", enabled: true } }
+        }
+        return { bundle: undefined }
+      }
+    )
+    const onRetry = vi.fn()
+
+    render(
+      <ChatErrorReportAction
+        sessionId="session-123"
+        onRetry={onRetry}
+        msg={{
+          role: "assistant",
+          content: "Provider disabled",
+          error: {
+            code: "OLC-PROVIDER-DISABLED",
+            recoveryAction: "enable-provider",
+            providerId: "ollama",
+            providerName: "Ollama"
+          }
+        }}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.enable_provider" })
+    )
+
+    await waitFor(() =>
+      expect(extensionRpcClient.call).toHaveBeenCalledWith(
+        RpcMethod.ProvidersSetEnabled,
+        { providerId: "ollama", enabled: true }
+      )
+    )
+    await waitFor(() => expect(onRetry).toHaveBeenCalledOnce())
+    // The in-place fix replaces the settings deep link, not adds to it.
+    expect(
+      screen.queryByRole("button", { name: "settings.shortcuts.open_settings" })
+    ).not.toBeInTheDocument()
+  })
+
+  it("keeps the turn untouched when the in-place fix fails", async () => {
+    ;(extensionRpcClient.call as any).mockImplementation(
+      async (method: RpcMethod) => {
+        if (method === RpcMethod.ProvidersSetEnabled) {
+          throw new Error("forbidden")
+        }
+        return { bundle: undefined }
+      }
+    )
+    const onRetry = vi.fn()
+
+    render(
+      <ChatErrorReportAction
+        onRetry={onRetry}
+        msg={{
+          role: "assistant",
+          content: "Provider disabled",
+          error: {
+            code: "OLC-PROVIDER-DISABLED",
+            recoveryAction: "enable-provider",
+            providerId: "ollama",
+            providerName: "Ollama"
+          }
+        }}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.enable_provider" })
+    )
+
+    await waitFor(() =>
+      expect(extensionRpcClient.call).toHaveBeenCalledWith(
+        RpcMethod.ProvidersSetEnabled,
+        { providerId: "ollama", enabled: true }
+      )
+    )
+    expect(onRetry).not.toHaveBeenCalled()
+  })
+
+  it("holds Retry back for the provider's requested wait", async () => {
+    ;(extensionRpcClient.call as any).mockResolvedValue({ bundle: undefined })
+    const onRetry = vi.fn()
+
+    render(
+      <ChatErrorReportAction
+        onRetry={onRetry}
+        msg={{
+          role: "assistant",
+          content: "Rate limited",
+          timestamp: Date.now(),
+          error: {
+            code: "OLC-RATE-LIMITED",
+            status: 429,
+            recoveryAction: "wait-retry",
+            retryAfterMs: 30_000
+          }
+        }}
+      />
+    )
+
+    const chip = screen.getByRole("button", { name: /chat.errors.retry_in/ })
+    expect(chip).toBeDisabled()
+    fireEvent.click(chip)
+    expect(onRetry).not.toHaveBeenCalled()
+  })
+
+  it("offers Retry immediately when no wait was requested", () => {
+    ;(extensionRpcClient.call as any).mockResolvedValue({ bundle: undefined })
+    const onRetry = vi.fn()
+
+    render(
+      <ChatErrorReportAction
+        onRetry={onRetry}
+        msg={{
+          role: "assistant",
+          content: "Stream dropped",
+          timestamp: Date.now(),
+          error: { code: "OLC-STREAM-DROPPED", recoveryAction: "retry" }
+        }}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "common.actions.retry" })
+    )
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
+  it("warns instead of failing silently when the clipboard is refused", async () => {
+    ;(extensionRpcClient.call as any).mockResolvedValue({
+      bundle: { format: "ollama-client-support-v1", events: [] }
+    })
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+      new Error("Document is not focused")
+    )
+
+    render(
+      <ChatErrorReportAction
+        msg={{
+          role: "assistant",
+          content: "Provider failed",
+          error: { code: "OLC-PROVIDER-HTTP" }
+        }}
+      />
+    )
+
+    const copyButton = await screen.findByRole("button", {
+      name: "chat.errors.copy_diagnostics"
+    })
+    await waitFor(() => expect(copyButton).toBeEnabled())
+    fireEvent.click(copyButton)
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText("chat.errors.diagnostics_copied")
+      ).not.toBeInTheDocument()
+    )
+  })
+
   it("opens focused recovery settings", () => {
     render(
       <ChatErrorReportAction

@@ -440,6 +440,13 @@
       "open_diagnostics": "Open diagnostics",
       "copy_diagnostics": "Copy diagnostics",
       "diagnostics_copied": "Diagnostics copied",
+      "enable_provider": "Enable {{provider}}",
+      "enabling_provider": "Enabling…",
+      "recovery_failed_title": "Recovery failed",
+      "recovery_failed_description": "Could not apply the fix. Open Settings and change it manually.",
+      "retry_in": "Retry in {{seconds}}s",
+      "diagnostics_copy_failed_title": "Could not copy diagnostics",
+      "diagnostics_copy_failed_description": "Clipboard access was refused. Focus this panel and try again.",
       "interrupted": "Response interrupted"
     },
     "composer": {

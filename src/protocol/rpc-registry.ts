@@ -18,6 +18,8 @@ import {
   ProvidersProbeModelCapabilitiesResultSchema,
   ProvidersRemoveRequestSchema,
   ProvidersRemoveResultSchema,
+  ProvidersSetEnabledRequestSchema,
+  ProvidersSetEnabledResultSchema,
   ProvidersUpsertRequestSchema,
   ProvidersUpsertResultSchema,
   ProviderTestConnectionRequestSchema,
@@ -60,6 +62,13 @@ export const RPC_METHOD_DEFINITIONS = {
   [RpcMethod.ProvidersUpsert]: {
     request: ProvidersUpsertRequestSchema,
     response: ProvidersUpsertResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
+    operation: "command"
+  },
+  [RpcMethod.ProvidersSetEnabled]: {
+    request: ProvidersSetEnabledRequestSchema,
+    response: ProvidersSetEnabledResultSchema,
     allowedSources: extensionPagesOnly,
     timeoutMs: 10_000,
     operation: "command"

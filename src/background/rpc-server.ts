@@ -34,6 +34,8 @@ const handlers = {
     ProviderRpcService.listModels(request, signal),
   [RpcMethod.ProvidersUpsert]: async (request) =>
     ProviderRpcService.upsert(request),
+  [RpcMethod.ProvidersSetEnabled]: async (request) =>
+    ProviderRpcService.setEnabled(request),
   [RpcMethod.ProvidersRemove]: async (request) =>
     ProviderRpcService.remove(request),
   [RpcMethod.ProvidersProbeModelCapabilities]: async (request, signal) =>

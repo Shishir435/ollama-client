@@ -236,6 +236,26 @@ describe("ProviderRpcService", () => {
     expect(mocks.removeCustomProvider).toHaveBeenCalledWith("custom:openai:new")
   })
 
+  it("toggles enabled with a partial update so stored credentials survive", async () => {
+    const result = await ProviderRpcService.setEnabled({
+      providerId: "ollama",
+      enabled: true
+    })
+
+    expect(mocks.updateProviderConfig).toHaveBeenCalledWith("ollama", {
+      enabled: true
+    })
+    expect(result.provider).toMatchObject({ id: "ollama", hasApiKey: true })
+    expect(result.provider).not.toHaveProperty("apiKey")
+  })
+
+  it("rejects enabling a provider that is not configured", async () => {
+    await expect(
+      ProviderRpcService.setEnabled({ providerId: "missing", enabled: true })
+    ).rejects.toMatchObject({ status: 404 })
+    expect(mocks.updateProviderConfig).not.toHaveBeenCalled()
+  })
+
   it("probes capabilities in background and persists partial evidence", async () => {
     const result = await ProviderRpcService.probeModelCapabilities({
       providerId: "custom:openai:remote",
