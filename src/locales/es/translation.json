@@ -400,6 +400,8 @@
       "unknown_error_description": "Ocurrió un error desconocido",
       "provider_replay_invalid": "Esta respuesta no puede continuar de forma segura. Reintenta el turno para reconstruir el contexto del proveedor.",
       "report_issue": "Informar de un problema",
+      "open_issue": "Abrir una incidencia",
+      "issue_draft_notice": "Rellenado localmente. Revísalo antes de enviarlo.",
       "interrupted": "Respuesta interrumpida"
     },
     "composer": {

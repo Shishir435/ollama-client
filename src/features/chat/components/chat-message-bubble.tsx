@@ -2,6 +2,7 @@ import { memo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
 import type { ChatMessage } from "@/types"
+import { ChatErrorReportAction } from "./chat-error-report-action"
 import { ChatMessageContainer } from "./chat-message-container"
 import { ChatMessageContent } from "./chat-message-content"
 import { ChatMessageEditor } from "./chat-message-editor"
@@ -83,6 +84,9 @@ export const ChatMessageBubble = memo(
               isLoading={isLoading}
               isStreaming={isStreaming}
             />
+            {!isLoading && !isStreaming && hasAssistantError(msg) && (
+              <ChatErrorReportAction msg={msg} />
+            )}
             <ChatMessageFooter
               isUser={isUser}
               msg={msg}

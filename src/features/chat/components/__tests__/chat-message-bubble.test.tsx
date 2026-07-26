@@ -53,6 +53,9 @@ describe("ChatMessageBubble", () => {
     )
 
     expect(screen.getByText("cannot report")).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "chat.errors.open_issue" })
+    ).not.toBeInTheDocument()
   })
 
   it("marks structured assistant errors as reportable", () => {
@@ -69,5 +72,11 @@ describe("ChatMessageBubble", () => {
     )
 
     expect(screen.getByText("can report")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "chat.errors.open_issue" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("chat.errors.issue_draft_notice")
+    ).toBeInTheDocument()
   })
 })

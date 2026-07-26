@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { buildErrorReportUrl } from "@/lib/error-report"
+import {
+  buildErrorReportUrl,
+  getSafeClientEnvironment
+} from "@/lib/error-report"
 import { isAppError } from "@/lib/error-utils"
 import { OllamaProvider } from "../ollama"
 import { OpenAICompatibleProvider } from "../openai-compatible"
@@ -12,6 +15,8 @@ import {
 import { type ProviderConfig, ProviderType } from "../types"
 
 describe("providerErrorUserMessage", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
   it("returns a clean, body-free message for each status class", () => {
     for (const status of [400, 401, 404, 408, 429, 500]) {
       const msg = providerErrorUserMessage(status)
@@ -61,8 +66,28 @@ describe("providerErrorUserMessage", () => {
     expect(issueUrl.searchParams.get("body")).toContain(
       "- Base URL: http://localhost:8000/v1"
     )
+    expect(issueUrl.searchParams.get("body")).toContain("- OS:")
+    expect(issueUrl.searchParams.get("body")).toContain(
+      "best effort; edit if incorrect"
+    )
+    expect(issueUrl.searchParams.get("body")).toContain("includes no telemetry")
+    expect(issueUrl.searchParams.get("body")).toContain("or console logs")
     expect(issueUrl.searchParams.get("body")).not.toContain("secret")
     expect(issueUrl.searchParams.get("body")).not.toContain("private")
+  })
+
+  it("detects Brave locally without requesting high-entropy browser data", () => {
+    vi.stubGlobal("navigator", {
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+      platform: "MacIntel",
+      brave: {}
+    })
+
+    expect(getSafeClientEnvironment()).toEqual({
+      browser: "Brave (Chromium 140)",
+      os: "macOS"
+    })
   })
 
   it("points local 401/403 responses at CORS setup instead of credentials", () => {

@@ -51,4 +51,23 @@ describe("ChatMessageFooter", () => {
     ).not.toBeInTheDocument()
     expect(screen.getByText("deepseek-r1:8b")).toBeInTheDocument()
   })
+
+  it("keeps the compact bug-report action for structured errors", () => {
+    render(
+      <ChatMessageFooter
+        msg={{
+          role: "assistant",
+          content: "Provider failed",
+          error: { kind: "provider", status: 500 },
+          timestamp: 1
+        }}
+        isUser={false}
+        canReport
+      />
+    )
+
+    expect(
+      screen.getByRole("link", { name: "chat.errors.report_issue" })
+    ).toBeInTheDocument()
+  })
 })

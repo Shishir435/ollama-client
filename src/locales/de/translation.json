@@ -400,6 +400,8 @@
       "unknown_error_description": "Ein unbekannter Fehler ist aufgetreten",
       "provider_replay_invalid": "Diese Antwort kann nicht sicher fortgesetzt werden. Wiederhole die Anfrage, um den Anbieterkontext neu aufzubauen.",
       "report_issue": "Problem melden",
+      "open_issue": "Issue öffnen",
+      "issue_draft_notice": "Lokal vorausgefüllt. Vor dem Absenden prüfen.",
       "interrupted": "Antwort unterbrochen"
     },
     "composer": {
