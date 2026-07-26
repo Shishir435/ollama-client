@@ -21,9 +21,14 @@ interface Props {
   title: string
   description: string
   jsonLd?: Record<string, unknown>
+  /**
+   * Keep this page out of search results while leaving it fully reachable.
+   * For pages that are destinations rather than answers — see goodbye.astro.
+   */
+  noindex?: boolean
 }
 
-const { title, description, jsonLd } = Astro.props
+const { title, description, jsonLd, noindex } = Astro.props
 const site = Astro.site?.toString() ?? SITE_URL
 
 /*
@@ -55,8 +60,13 @@ const ogUrl = new URL(ogPath, site)
     <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
     <link rel="canonical" href={canonical} />
     {
-      IS_NON_PRODUCTION_DEPLOY && (
-        <meta name="robots" content="noindex, nofollow" />
+      (IS_NON_PRODUCTION_DEPLOY || noindex) && (
+        <meta
+          name="robots"
+          content={
+            IS_NON_PRODUCTION_DEPLOY ? "noindex, nofollow" : "noindex, follow"
+          }
+        />
       )
     }
     <link rel="alternate" type="text/markdown" href="/llms.txt" />

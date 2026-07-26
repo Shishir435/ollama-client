@@ -250,7 +250,14 @@ export default defineConfig({
        * They stay published and linked for people reading the codebase; Head.astro
        * pairs this with `noindex, follow` so existing links still pass through.
        */
-      filter: (page) => !/\/reference(\/|$)/.test(new URL(page).pathname),
+      filter: (page) => {
+        const { pathname } = new URL(page)
+        // /goodbye is the post-uninstall destination set by setUninstallURL. It
+        // is reachable and functional, but offering it as a search result means
+        // a brand query can answer with a farewell page.
+        if (/^\/goodbye\/?$/.test(pathname)) return false
+        return !/\/reference(\/|$)/.test(pathname)
+      },
       /*
        * lastmod from git history (see src/seo/last-modified.mjs). Omitted rather
        * than approximated when history is unavailable.
