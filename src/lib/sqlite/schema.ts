@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS messages (
   metrics TEXT,
   thinking TEXT,
   replayArtifact TEXT,
+  error TEXT,
   updatedAt INTEGER,
   FOREIGN KEY(sessionId) REFERENCES sessions(id) ON DELETE CASCADE
 );
@@ -40,11 +41,10 @@ CREATE TABLE IF NOT EXISTS files (
   FOREIGN KEY(sessionId) REFERENCES sessions(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS vectors (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  embedding BLOB NOT NULL,
-  metadata TEXT NOT NULL
-);
+-- No embeddings table here by design: the vector store lives in IndexedDB
+-- (Dexie) via lib/embeddings/. Persistence convergence (plan 9.3/9.4)
+-- deliberately did not migrate embeddings to SQLite. Do not add a vectors
+-- table here unless that decision is revisited.
 
 CREATE TABLE IF NOT EXISTS kv_store (
   key TEXT PRIMARY KEY,

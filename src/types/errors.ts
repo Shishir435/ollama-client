@@ -8,4 +8,9 @@ export interface ParseError extends Error {
   data?: unknown
 }
 
-export type { AppErrorKind } from "@/lib/error-utils"
+export type {
+  AppErrorCode,
+  AppErrorKind,
+  AppErrorPhase,
+  AppErrorRecoveryAction
+} from "@/lib/error-utils"

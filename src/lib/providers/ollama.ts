@@ -1,8 +1,11 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
+  classifyProviderError,
   localCorsForbiddenMessage,
-  providerErrorUserMessage
+  providerErrorUserMessage,
+  readProviderStreamChunk,
+  throwProviderConnectionError
 } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type {
@@ -187,21 +190,39 @@ export class OllamaProvider implements LLMProvider {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       signal
-    })
+    }).catch((error) =>
+      throwProviderConnectionError(error, {
+        providerId: this.id,
+        providerName: this.config.name,
+        model,
+        baseUrl
+      })
+    )
 
     if (!response.ok) {
       const errorText = await response.text()
+      const classification = classifyProviderError(response.status, errorText)
       throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
         kind: "provider",
         status: response.status,
         providerId: ProviderId.OLLAMA,
+        providerName: this.config.name,
+        model,
+        baseUrl,
         retryable: response.status >= 500,
+        code:
+          response.status === 401 || response.status === 403
+            ? "OLC-CORS-BLOCKED"
+            : classification.code,
+        phase: "response",
+        recoveryAction: classification.recoveryAction,
         userMessage:
           response.status === 401 || response.status === 403
             ? localCorsForbiddenMessage(response.status)
             : providerErrorUserMessage(response.status, {
                 providerName: this.config.name,
-                model
+                model,
+                reason: classification.reason
               }),
         debug: errorText
       })
@@ -255,11 +276,19 @@ export class OllamaProvider implements LLMProvider {
           typeof data.error === "string"
             ? data.error
             : "The provider reported an error while generating the response."
+        const classification = classifyProviderError(undefined, message)
         throw createAppError(message, {
           kind: "provider",
           providerId: ProviderId.OLLAMA,
-          userMessage:
-            "The provider reported an error while generating the response.",
+          providerName: this.config.name,
+          model,
+          baseUrl,
+          code: classification.code,
+          phase: "read-stream",
+          recoveryAction: classification.recoveryAction,
+          userMessage: classification.reason
+            ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+            : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
           debug: typeof data.error === "string" ? data.error : undefined
         })
       }
@@ -306,7 +335,12 @@ export class OllamaProvider implements LLMProvider {
 
     try {
       while (true) {
-        const { done, value } = await reader.read()
+        const { done, value } = await readProviderStreamChunk(reader, {
+          providerId: this.id,
+          providerName: this.config.name,
+          model,
+          baseUrl
+        })
         if (done) {
           // Flush a final line left without a trailing newline at EOF.
           if (buffer.trim()) processLine(buffer)

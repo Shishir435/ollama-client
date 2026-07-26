@@ -34,14 +34,18 @@ const handlers = {
     ProviderRpcService.listModels(request, signal),
   [RpcMethod.ProvidersUpsert]: async (request) =>
     ProviderRpcService.upsert(request),
+  [RpcMethod.ProvidersSetEnabled]: async (request) =>
+    ProviderRpcService.setEnabled(request),
   [RpcMethod.ProvidersRemove]: async (request) =>
     ProviderRpcService.remove(request),
   [RpcMethod.ProvidersProbeModelCapabilities]: async (request, signal) =>
     ProviderRpcService.probeModelCapabilities(request, signal),
+  // `diagnostics.run` is only reachable from the user pressing "Run self-tests",
+  // which means "measure now" — never answer it from the shared TTL result.
   [RpcMethod.DiagnosticsRun]: async (_request, signal) =>
-    DiagnosticsService.run(signal),
-  [RpcMethod.DiagnosticsGetBundle]: async (_request, signal) =>
-    DiagnosticsService.getBundle(signal),
+    DiagnosticsService.run(signal, { force: true }),
+  [RpcMethod.DiagnosticsGetBundle]: async (request, signal) =>
+    DiagnosticsService.getBundle(signal, request.sessionId),
   [RpcMethod.DiagnosticsClear]: async () => DiagnosticsService.clear()
 } satisfies RpcHandlers
 

@@ -62,3 +62,10 @@ declare const __SPIKE_OPFS_OWNER__: boolean
 // True only for WXT_BENCHMARK=1 Firefox builds: the MV2 background page
 // hosts the section 9.4 spike owner worker directly (no offscreen API).
 declare const __SPIKE_OPFS_OWNER_MV2__: boolean
+
+// Compile-time flag defined in wxt.config.ts vite `define`; true only for
+// Firefox (MV2) builds, whose persistent background page hosts the SQLite
+// persistence worker directly. On Chromium (false) the offscreen document is
+// the owner, so this lets the bundler dead-code-eliminate the owner-host +
+// worker chunk out of the Chromium background entry.
+declare const __FIREFOX_BG_OWNER__: boolean

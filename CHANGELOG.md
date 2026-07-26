@@ -7,7 +7,59 @@ published on the Chrome Web Store.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.12.4] - 2026-07-24
+
+### Added
+
+- Chat errors now carry a stable support code, an incident ID, and the failure
+  phase, and a failed turn is styled as a failure rather than as model output.
+- Recovery actions on the failed message itself: re-enable a switched-off
+  provider and re-run the turn, wait out a rate limit, or jump straight to the
+  setting involved.
+- Failure details are saved with the message, so a report survives reopening the
+  side panel or restarting the browser.
+- **Copy diagnostics** beside **Open an issue**, with a matching empty code block
+  in the draft to paste into. Generated locally; nothing is uploaded on its own.
+- A reference for every error code the extension can show, under Docs → Guides →
+  Troubleshooting → Error reports.
+- A post-uninstall feedback page. It receives only the extension version and
+  interface language — no identifier, no usage data, no chat content.
+
+### Changed
+
+- Reduced the packaged extension size by dropping a duplicate SQLite WASM binary
+  and a redundant bundled PDF worker (Chrome package about 6.3 MB down to about
+  4.3 MB), with no change to features or behavior.
+- Selected the persistence owner for each browser at build time so a build ships
+  only its own owner path — the Chromium offscreen document or the Firefox
+  background page — instead of carrying both.
+- Raised the minimum supported Chrome version to 116, the real floor for the
+  OPFS SQLite persistence backend, so the requirement is stated honestly.
+- Consolidated provider HTTP error handling into one shared path for consistent
+  status codes, retry hints, and user-facing messages across providers.
+- Every bug-report draft now carries the same environment details, paste block,
+  privacy note, and length safeguards, wherever it was started from.
+- One report action per failed turn instead of two with different detail.
+- Recovery buttons stop being offered once a failure is over an hour old, so
+  scrolling back cannot re-run an old turn or change a provider setting by
+  accident. The link to the relevant setting stays.
+- Diagnostic self-tests are shared briefly between requests, so viewing several
+  failed messages no longer repeats the same provider checks. **Run self-tests**
+  always measures fresh.
+- Bumped package version to `0.12.4`.
+
+### Fixed
+
+- Provider errors now identify the provider, model, sanitized base URL, and HTTP
+  status, while keeping credentials and raw upstream responses private.
+- Disabled providers can no longer serve chat, selection-action, RAG
+  reformulation, or model-warmup requests from a stale model selection.
+- Provider adapters recognize missing or unloaded models, context limits,
+  unsupported input, memory exhaustion, rate limits, overload, and interrupted
+  streams without exposing raw responses. Filesystem-shaped model IDs redact
+  local account names in drafts.
+- Reports read the provider's on/off state instead of inferring it, and label a
+  duration measured against an unreachable provider as time-to-failure.
 
 ## [0.12.3] - 2026-07-23
 
@@ -477,7 +529,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.3...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.4...HEAD
+[0.12.4]: https://github.com/Shishir435/ollama-client/compare/0.12.3...0.12.4
 [0.12.3]: https://github.com/Shishir435/ollama-client/compare/0.11.27...0.12.3
 [0.11.27]: https://github.com/Shishir435/ollama-client/compare/v0.10.3...0.11.27
 [0.10.3]: https://github.com/Shishir435/ollama-client/compare/v0.10.2...v0.10.3

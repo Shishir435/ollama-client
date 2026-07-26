@@ -19,9 +19,10 @@ export class PdfProcessor implements FileProcessor {
       // Lazy load pdfjs-dist
       const pdfjsLib = await import("pdfjs-dist")
 
-      // Import worker
-      await import("pdfjs-dist/build/pdf.worker.min.mjs")
-
+      // pdf.js spawns the worker itself from workerSrc below; the URL
+      // reference is what makes the bundler emit the worker asset. Do NOT also
+      // `import()` the worker module — that only forces a redundant ~1.3 MB
+      // duplicate chunk of the same file into the bundle.
       pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
         "pdfjs-dist/build/pdf.worker.min.mjs",
         import.meta.url

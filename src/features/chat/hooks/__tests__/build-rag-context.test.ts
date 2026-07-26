@@ -636,6 +636,14 @@ describe("query reformulation provider call", () => {
     })
 
     const fakeProvider = {
+      id: "ollama",
+      config: {
+        id: "ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: "http://localhost:11434",
+        name: "Ollama"
+      },
       streamChat: vi.fn(async (_req, onChunk) => {
         onChunk({ delta: "pong" })
       })

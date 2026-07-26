@@ -167,6 +167,10 @@ export default defineConfig({
             {
               label: "Fix Ollama CORS errors",
               slug: "guides/troubleshooting/ollama-cors-error"
+            },
+            {
+              label: "Understand error reports",
+              slug: "guides/troubleshooting/error-reports"
             }
           ]
         },

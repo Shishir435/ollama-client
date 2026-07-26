@@ -561,9 +561,12 @@ describe("useChatStream", () => {
           status: 500,
           kind: "provider",
           providerId: "llamacpp",
+          providerName: "llama.cpp",
+          model: "gemma.gguf",
+          baseUrl: "http://localhost:8000/v1",
           message: "raw failure",
           userMessage:
-            'llama.cpp returned a server error. Check that llama.cpp is running and model "gemma.gguf" is loaded.',
+            'llama.cpp at http://localhost:8000/v1 returned HTTP 500 while generating a response with model "gemma.gguf".',
           retryable: true
         }
       })
@@ -576,8 +579,59 @@ describe("useChatStream", () => {
       })
     )
     const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
-    expect(lastMessages?.at(-1)?.content).toContain("[Open a new issue](")
+    expect(lastMessages?.at(-1)?.content).not.toContain("[Open a new issue](")
     expect(lastMessages?.at(-1)?.content).toContain("llama.cpp")
+    expect(lastMessages?.at(-1)?.error).toMatchObject({
+      providerId: "llamacpp",
+      providerName: "llama.cpp",
+      model: "gemma.gguf",
+      baseUrl: "http://localhost:8000/v1"
+    })
+  })
+
+  it("keeps the provider id on a non-provider-kind error so recovery can act", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+
+    act(() => {
+      result.current.startStream({
+        model: "gemma4:e2b-mlx",
+        providerId: "ollama",
+        messages: [{ role: "user" as const, content: "Hello" }]
+      })
+    })
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+
+    act(() => {
+      listener({
+        error: {
+          status: 409,
+          // A disabled provider is a config problem, not a provider failure —
+          // but the id still has to survive or the in-place enable action
+          // cannot target it.
+          kind: "validation",
+          code: "OLC-PROVIDER-DISABLED",
+          phase: "configuration",
+          recoveryAction: "enable-provider",
+          providerId: "ollama",
+          providerName: "Ollama",
+          model: "gemma4:e2b-mlx",
+          incidentId: "INC-0F5976C7",
+          message: "Ollama is disabled.",
+          userMessage: "Ollama is disabled."
+        }
+      })
+    })
+
+    const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(lastMessages?.at(-1)?.error).toMatchObject({
+      providerId: "ollama",
+      providerName: "Ollama",
+      code: "OLC-PROVIDER-DISABLED",
+      recoveryAction: "enable-provider",
+      incidentId: "INC-0F5976C7"
+    })
   })
 
   it("does not mislabel a generic background 500 as a provider failure", () => {

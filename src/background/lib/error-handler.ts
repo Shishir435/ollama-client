@@ -1,5 +1,10 @@
+import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { getErrorMessage, isAbortError, isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import {
+  applyProviderErrorContext,
+  type ProviderErrorContext
+} from "@/lib/providers/provider-errors"
 import type {
   ChromePort,
   ChromeResponse,
@@ -14,11 +19,15 @@ type HandlerFunction<T> = (
   isPortClosed: PortStatusFunction
 ) => Promise<void>
 
-interface ErrorContext {
+interface ErrorContext<T> {
   handler: string
   operation?: string
   modelId?: string
   providerId?: string
+  resolveProviderErrorContext?: (
+    msg: T
+  ) => Promise<ProviderErrorContext | undefined>
+  resolveDiagnosticSessionId?: (msg: T) => string | undefined
 }
 
 type ErrorEnvelope = NonNullable<ChromeResponse["error"]>
@@ -36,7 +45,10 @@ export const normalizeError = (
 ): ErrorEnvelope => {
   const networkError =
     error && typeof error === "object" ? (error as Partial<NetworkError>) : {}
-  const message = getErrorMessage(error, options.fallbackMessage).trim()
+  const message =
+    isAppError(error) && error.userMessage
+      ? error.userMessage.trim()
+      : getErrorMessage(error, options.fallbackMessage).trim()
 
   return {
     status: options.status ?? networkError.status ?? 0,
@@ -61,7 +73,18 @@ export const normalizeError = (
       isAppError(error) &&
       error.providerId && {
         providerId: error.providerId
-      })
+      }),
+    ...(isAppError(error) &&
+      error.providerName && { providerName: error.providerName }),
+    ...(isAppError(error) && error.model && { model: error.model }),
+    ...(isAppError(error) && error.baseUrl && { baseUrl: error.baseUrl }),
+    ...(isAppError(error) && { code: error.code }),
+    ...(isAppError(error) && { phase: error.phase }),
+    ...(isAppError(error) && { incidentId: error.incidentId }),
+    ...(isAppError(error) &&
+      error.durationMs !== undefined && { durationMs: error.durationMs }),
+    ...(isAppError(error) &&
+      error.recoveryAction && { recoveryAction: error.recoveryAction })
   }
 }
 
@@ -86,9 +109,10 @@ export const createErrorResponse = (
  */
 export const withErrorContext = <T>(
   handler: HandlerFunction<T>,
-  context: ErrorContext
+  context: ErrorContext<T>
 ) => {
   return async (msg: T, port: ChromePort, isPortClosed: PortStatusFunction) => {
+    const startedAt = performance.now()
     try {
       await handler(msg, port, isPortClosed)
     } catch (err) {
@@ -100,27 +124,79 @@ export const withErrorContext = <T>(
         return
       }
 
+      let reportedError = err
+      if (isAppError(reportedError) && reportedError.durationMs === undefined) {
+        reportedError.durationMs = Math.max(0, performance.now() - startedAt)
+      }
+      if (
+        isAppError(err) &&
+        err.kind === "provider" &&
+        context.resolveProviderErrorContext
+      ) {
+        try {
+          const providerContext = await context.resolveProviderErrorContext(msg)
+          if (providerContext) {
+            reportedError = applyProviderErrorContext(err, providerContext)
+          }
+        } catch (contextError) {
+          logger.debug(
+            "Failed to resolve provider error context",
+            context.handler,
+            { error: contextError }
+          )
+        }
+      }
+
       // 4. Handle generic errors with enhanced logging
       logger.error(
         `Error during ${context.operation || "operation"}`,
         context.handler,
         {
-          message: getErrorMessage(err),
+          message:
+            isAppError(reportedError) && reportedError.userMessage
+              ? reportedError.userMessage
+              : getErrorMessage(reportedError),
           model: context.modelId,
           provider: context.providerId,
-          stack: err instanceof Error ? err.stack : undefined
+          stack:
+            err instanceof Error &&
+            (!isAppError(err) || err.kind !== "provider")
+              ? err.stack
+              : undefined
         }
       )
 
       if (!isPortClosed()) {
-        const response = createErrorResponse(err, {
+        const response = createErrorResponse(reportedError, {
           status:
-            err && typeof err === "object" && "status" in err
-              ? ((err as Partial<NetworkError>).status ?? 500)
+            reportedError &&
+            typeof reportedError === "object" &&
+            "status" in reportedError
+              ? ((reportedError as Partial<NetworkError>).status ?? 500)
               : 500,
           context: `${context.handler}${context.operation ? ` - ${context.operation}` : ""}`,
           providerId: context.providerId
         })
+        if (isAppError(reportedError)) {
+          const sessionId = context.resolveDiagnosticSessionId?.(msg)
+          await recordDiagnosticEvent({
+            level: "error",
+            code: "REQUEST_FAILED",
+            operation: (context.operation || context.handler)
+              .replaceAll(" ", "-")
+              .slice(0, 100),
+            surface: "background",
+            status: reportedError.status,
+            retryable: reportedError.retryable,
+            supportCode: reportedError.incidentId,
+            ...(sessionId && { sessionId }),
+            durationMs: reportedError.durationMs,
+            metadata: {
+              errorCode: reportedError.code,
+              phase: reportedError.phase
+            }
+          }).catch(() => undefined)
+        }
         safePostMessage(port, { error: response.error })
       }
     }

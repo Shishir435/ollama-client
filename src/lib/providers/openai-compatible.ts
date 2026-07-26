@@ -2,9 +2,13 @@ import { createAppError } from "@/lib/error-utils"
 import { toDataUrl } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
 import {
+  classifyProviderError,
   isRetryableProviderStatus,
   parseRetryAfter,
-  providerErrorUserMessage
+  providerErrorUserMessage,
+  readProviderStreamChunk,
+  throwProviderConnectionError,
+  throwProviderResponseError
 } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
@@ -207,27 +211,18 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }
   }
 
-  private async responseError(
+  private responseError(
     response: Response,
     label: string,
     baseUrl: string,
     model?: string
   ): Promise<never> {
-    const detail = await response.text()
-    const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
-    throw createAppError(`${label} (${response.status}): ${detail}`, {
-      kind: "provider",
-      status: response.status,
+    return throwProviderResponseError(response, {
+      label,
       providerId: this.id,
-      retryable: isRetryableProviderStatus(response.status),
-      retryAfterMs,
-      userMessage: providerErrorUserMessage(response.status, {
-        baseUrl,
-        retryAfterMs,
-        providerName: this.config.name,
-        model
-      }),
-      debug: detail
+      baseUrl,
+      providerName: this.config.name,
+      model
     })
   }
 
@@ -347,7 +342,14 @@ export class OpenAICompatibleProvider implements LLMProvider {
       headers: this.headers(),
       body: JSON.stringify(body),
       signal
-    })
+    }).catch((error) =>
+      throwProviderConnectionError(error, {
+        providerId: this.id,
+        providerName: this.config.name,
+        model,
+        baseUrl
+      })
+    )
 
     if (!response.ok) {
       await this.responseError(response, "OpenAI Error", baseUrl, model)
@@ -449,6 +451,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
         const status = streamErrorStatus(data.error)
         const retryAfterMs = streamErrorRetryAfter(data.error)
         const baseUrl = resolveProviderBaseUrl(this.config)
+        const classification = classifyProviderError(status, message)
         throw createAppError(
           message ||
             "The provider reported an error while generating the response.",
@@ -461,14 +464,24 @@ export class OpenAICompatibleProvider implements LLMProvider {
                 ? undefined
                 : isRetryableProviderStatus(status),
             retryAfterMs,
+            code:
+              status === undefined ? "OLC-PROVIDER-HTTP" : classification.code,
+            phase: "read-stream",
+            recoveryAction: classification.recoveryAction,
+            providerName: this.config.name,
+            model,
+            baseUrl,
             userMessage:
               status === undefined
-                ? "The provider reported an error while generating the response."
+                ? classification.reason
+                  ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+                  : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`
                 : providerErrorUserMessage(status, {
                     baseUrl,
                     retryAfterMs,
                     providerName: this.config.name,
-                    model
+                    model,
+                    reason: classification.reason
                   }),
             debug:
               typeof data.error === "string"
@@ -541,7 +554,12 @@ export class OpenAICompatibleProvider implements LLMProvider {
 
     try {
       while (true) {
-        const { done, value } = await reader.read()
+        const { done, value } = await readProviderStreamChunk(reader, {
+          providerId: this.id,
+          providerName: this.config.name,
+          model,
+          baseUrl: resolveProviderBaseUrl(this.config)
+        })
         if (done) {
           // Flush a final data line left without a trailing newline at EOF.
           if (buffer.trim()) processLine(buffer)

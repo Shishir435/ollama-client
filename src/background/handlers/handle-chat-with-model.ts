@@ -17,7 +17,9 @@ import {
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { getSession } from "@/lib/repositories/chat-history"
 import {
   deleteToolLoopRun,
@@ -111,6 +113,7 @@ export const handleChatWithModel = withErrorContext(
       model,
       providerId
     )
+    assertProviderEnabled(provider, model)
 
     // Resolve tools + how to drive them. Native models get an OpenAI/Ollama tool
     // array; models opted into the prompt-based fallback get a non-native loop;
@@ -375,6 +378,20 @@ export const handleChatWithModel = withErrorContext(
   },
   {
     handler: "handleChatWithModel",
-    operation: "streaming chat"
+    operation: "streaming chat",
+    resolveDiagnosticSessionId: (msg) => msg.payload.sessionId,
+    resolveProviderErrorContext: async (msg) => {
+      const { model, providerId } = msg.payload
+      const provider = await ProviderFactory.getProviderForModel(
+        model,
+        providerId
+      )
+      return {
+        providerId: provider.id,
+        providerName: provider.config.name,
+        model,
+        baseUrl: resolveProviderBaseUrl(provider.config)
+      }
+    }
   }
 )

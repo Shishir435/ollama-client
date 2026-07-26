@@ -16,6 +16,7 @@ import { ChatMessageBubble } from "./chat-message-bubble"
 
 export interface ChatMessageListProps {
   messages: ChatMessage[]
+  sessionId?: string
   pendingActivityEvents?: ActivityEvent[]
   isLoading: boolean
   isStreaming: boolean
@@ -37,6 +38,7 @@ const virtuosoComponents = {
 
 export const ChatMessageList = ({
   messages,
+  sessionId,
   pendingActivityEvents,
   isLoading,
   isStreaming,
@@ -178,6 +180,7 @@ export const ChatMessageList = ({
                 }>
                 <ChatMessageBubble
                   msg={msg}
+                  sessionId={sessionId}
                   isLoading={isLoading && isLastAssistantMessage}
                   isStreaming={isStreaming && isLastAssistantMessage}
                   showRetrievedChunks={showRetrievedChunks}

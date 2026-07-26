@@ -36,6 +36,14 @@ export interface ChromeMessage {
     retryAfterMs?: number
     context?: string
     providerId?: string
+    providerName?: string
+    model?: string
+    baseUrl?: string
+    code?: import("./errors").AppErrorCode
+    phase?: import("./errors").AppErrorPhase
+    incidentId?: string
+    durationMs?: number
+    recoveryAction?: import("./errors").AppErrorRecoveryAction
   }
 }
 
@@ -78,6 +86,14 @@ export interface ChromeResponse {
     retryAfterMs?: number
     context?: string
     providerId?: string
+    providerName?: string
+    model?: string
+    baseUrl?: string
+    code?: import("./errors").AppErrorCode
+    phase?: import("./errors").AppErrorPhase
+    incidentId?: string
+    durationMs?: number
+    recoveryAction?: import("./errors").AppErrorRecoveryAction
   }
   tabs?: browser.Tabs.Tab[]
   html?: string

@@ -155,6 +155,22 @@ export const ProvidersUpsertResultSchema = z
   .object({ provider: PublicProviderConfigSchema })
   .strict()
 
+/**
+ * Narrow enable/disable toggle. Deliberately not expressed as a full
+ * `providers.upsert`: that requires the whole config, so a caller holding only
+ * the public (apiKey-stripped) shape would have to round-trip credentials it
+ * cannot see. This maps to a partial `updateProviderConfig` instead.
+ */
+export const ProvidersSetEnabledRequestSchema = z
+  .object({
+    providerId: z.string().min(1).max(200),
+    enabled: z.boolean()
+  })
+  .strict()
+export const ProvidersSetEnabledResultSchema = z
+  .object({ provider: PublicProviderConfigSchema })
+  .strict()
+
 export const ProvidersRemoveRequestSchema = z
   .object({ providerId: z.string().min(1).max(200) })
   .strict()
@@ -230,6 +246,12 @@ export type ProvidersUpsertRequest = z.input<
   typeof ProvidersUpsertRequestSchema
 >
 export type ProvidersUpsertResult = z.infer<typeof ProvidersUpsertResultSchema>
+export type ProvidersSetEnabledRequest = z.input<
+  typeof ProvidersSetEnabledRequestSchema
+>
+export type ProvidersSetEnabledResult = z.infer<
+  typeof ProvidersSetEnabledResultSchema
+>
 export type ProvidersRemoveRequest = z.input<
   typeof ProvidersRemoveRequestSchema
 >
@@ -269,6 +291,10 @@ export interface RpcMap {
   [RpcMethod.ProvidersUpsert]: RpcDefinition<
     ProvidersUpsertRequest,
     ProvidersUpsertResult
+  >
+  [RpcMethod.ProvidersSetEnabled]: RpcDefinition<
+    ProvidersSetEnabledRequest,
+    ProvidersSetEnabledResult
   >
   [RpcMethod.ProvidersRemove]: RpcDefinition<
     ProvidersRemoveRequest,

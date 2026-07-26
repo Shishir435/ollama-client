@@ -44,6 +44,9 @@ import { DiagnosticsService } from "../diagnostics-service"
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // Self-test results are shared across callers for a TTL window; each test
+  // needs to observe its own run.
+  DiagnosticsService.__resetSelfTestCache()
   chrome.runtime.getManifest = vi.fn(() => ({ version: "1.2.3" })) as never
   mocks.countMessages.mockResolvedValue(12)
   mocks.vectorCount.mockResolvedValue(4)
@@ -89,10 +92,92 @@ describe("DiagnosticsService", () => {
       expect.stringMatching(/^diagnostic-/)
     )
     expect(mocks.txRollback).toHaveBeenCalledOnce()
+    // The shared run owns its own controller so one caller's abort cannot
+    // cancel another's suite; discovery still receives a real signal.
     expect(mocks.listModels).toHaveBeenCalledWith(
       { enabledOnly: true },
-      undefined
+      expect.any(AbortSignal)
     )
+  })
+
+  it("shares one suite across bundles requested inside the TTL window", async () => {
+    // Several error bubbles mounting at once is the real case: each prepares a
+    // bundle, and each used to pay for a network probe and a recorded event.
+    const [first, second, third] = await Promise.all([
+      DiagnosticsService.getBundle(),
+      DiagnosticsService.getBundle(),
+      DiagnosticsService.getBundle()
+    ])
+
+    expect(mocks.listModels).toHaveBeenCalledOnce()
+    expect(mocks.txBegin).toHaveBeenCalledOnce()
+    expect(mocks.record).toHaveBeenCalledOnce()
+    expect(second.bundle.selfTests).toEqual(first.bundle.selfTests)
+    expect(third.bundle.selfTests).toEqual(first.bundle.selfTests)
+
+    // A later caller still reuses the completed result.
+    await DiagnosticsService.getBundle()
+    expect(mocks.listModels).toHaveBeenCalledOnce()
+    expect(mocks.record).toHaveBeenCalledOnce()
+  })
+
+  it("re-measures when the caller explicitly forces a run", async () => {
+    await DiagnosticsService.run()
+    await DiagnosticsService.run(undefined, { force: true })
+
+    expect(mocks.listModels).toHaveBeenCalledTimes(2)
+    expect(mocks.record).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not let a forced run attach to a suite that started before it", async () => {
+    // "Run self-tests" pressed while an error bubble's bundle request is still
+    // in flight: that request measured the configuration from before the click,
+    // so joining it would report pre-change state as the current state.
+    const releases: Array<(value: unknown) => void> = []
+    mocks.listModels.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releases.push(resolve)
+        })
+    )
+
+    const automatic = DiagnosticsService.run()
+    const forced = DiagnosticsService.run(undefined, { force: true })
+    expect(mocks.listModels).toHaveBeenCalledTimes(2)
+
+    // Resolve the forced (newer) run first, then the older one, so an
+    // out-of-order finish cannot publish the stale result.
+    releases[1]?.({ models: [{ name: "after-change" }], failures: [] })
+    releases[0]?.({ models: [], failures: [] })
+    await Promise.all([automatic, forced])
+
+    const { tests } = await DiagnosticsService.run()
+    expect(
+      tests.find((test) => test.id === "provider_discovery")?.metadata?.count
+    ).toBe(1)
+  })
+
+  it("keeps one caller's abort from cancelling another caller's suite", async () => {
+    const aborter = new AbortController()
+    let release: (value: unknown) => void = () => {}
+    mocks.listModels.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve
+        })
+    )
+
+    const abandoned = DiagnosticsService.run(aborter.signal)
+    const patient = DiagnosticsService.run()
+    aborter.abort(new Error("client timeout"))
+
+    await expect(abandoned).rejects.toThrow("client timeout")
+    release({ models: [], failures: [] })
+    await expect(patient).resolves.toMatchObject({
+      tests: expect.arrayContaining([
+        expect.objectContaining({ id: "provider_discovery" })
+      ])
+    })
   })
 
   it("exports provider classes without identities, endpoints, models, or secrets", async () => {
@@ -107,6 +192,37 @@ describe("DiagnosticsService", () => {
     expect(serialized).not.toContain("secret.example")
     expect(serialized).not.toContain("private-model")
     expect(serialized).not.toContain("sk-secret")
+  })
+
+  it("exports only diagnostic events from the requested chat session", async () => {
+    mocks.events.mockResolvedValue([
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        at: 1,
+        level: "error",
+        code: "REQUEST_FAILED",
+        operation: "streaming-chat",
+        surface: "background",
+        sessionId: "session-current"
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        at: 2,
+        level: "error",
+        code: "REQUEST_FAILED",
+        operation: "streaming-chat",
+        surface: "background",
+        sessionId: "session-other"
+      }
+    ])
+
+    const { bundle } = await DiagnosticsService.getBundle(
+      undefined,
+      "session-current"
+    )
+
+    expect(bundle.events).toHaveLength(1)
+    expect(bundle.events[0]?.sessionId).toBe("session-current")
   })
 
   it("surfaces legacy persistence as a recoverable migration action", async () => {

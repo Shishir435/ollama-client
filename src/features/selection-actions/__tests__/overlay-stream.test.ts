@@ -133,6 +133,34 @@ describe("connectSelectionStream", () => {
     expect(onError).toHaveBeenCalledWith("Model not loaded")
   })
 
+  it("prefers safe recovery guidance over the raw error message", () => {
+    const port = makeMockPort()
+    vi.mocked(chrome.runtime.connect).mockReturnValue(
+      port as unknown as chrome.runtime.Port
+    )
+
+    const onError = vi.fn()
+    connectSelectionStream(request, {
+      onChunk: vi.fn(),
+      onDone: vi.fn(),
+      onError
+    })
+
+    port._emit({
+      type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR,
+      error: {
+        status: 409,
+        message: "Ollama is disabled",
+        userMessage:
+          "Ollama is disabled. Enable it in Settings → Model behavior before chatting."
+      }
+    })
+
+    expect(onError).toHaveBeenCalledWith(
+      "Ollama is disabled. Enable it in Settings → Model behavior before chatting."
+    )
+  })
+
   it("calls onError with fallback when error message is missing", () => {
     const port = makeMockPort()
     vi.mocked(chrome.runtime.connect).mockReturnValue(

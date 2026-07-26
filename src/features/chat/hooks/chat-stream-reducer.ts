@@ -47,6 +47,14 @@ export interface StreamMessage {
     retryAfterMs?: number
     context?: string
     providerId?: string
+    providerName?: string
+    model?: string
+    baseUrl?: string
+    code?: import("@/types/errors").AppErrorCode
+    phase?: import("@/types/errors").AppErrorPhase
+    incidentId?: string
+    durationMs?: number
+    recoveryAction?: import("@/types/errors").AppErrorRecoveryAction
     debug?: unknown
   }
   aborted?: boolean

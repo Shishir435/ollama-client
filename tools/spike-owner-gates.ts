@@ -19,9 +19,13 @@
 //   4c. Full browser restart (same profile relaunch) preserves durable rows
 //       and the owner topology recovers without manual intervention.
 //
-// Not covered here: forced service-worker termination mid-write (manual),
-// incognito/split mode (explicitly unsupported for the spike), packaged
-// Firefox (offscreen API is Chromium-only; MV2 uses a background page host).
+// Forced service-worker termination mid-write (gate 4d) is covered by a
+// separate runner, tools/spike-sw-termination.ts (pnpm spike:sw-termination):
+// Playwright pins any worker it attaches to, so that gate launches Chromium
+// itself and kills the worker over the DevTools HTTP endpoint. Also not
+// covered here: incognito/split mode (explicitly unsupported for the spike),
+// packaged Firefox (offscreen API is Chromium-only; MV2 uses a background
+// page host).
 //
 // Usage: pnpm spike:owner-gates [--headful]
 // Requires: pnpm benchmark:build

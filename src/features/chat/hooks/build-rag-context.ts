@@ -19,6 +19,7 @@ import {
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type {
   ActivityEvent,
   ChatMessage,
@@ -308,6 +309,7 @@ export const buildRagContext = async (
         modelId,
         selectedModelRef?.providerId
       )
+      assertProviderEnabled(provider, modelId)
       let response = ""
       await withTimeoutSignal(
         (signal) =>

@@ -133,6 +133,16 @@ export interface ChatMessage {
     kind?: import("./errors").AppErrorKind
     retryable?: boolean
     retryAfterMs?: number
+    userMessage?: string
+    providerId?: string
+    providerName?: string
+    model?: string
+    baseUrl?: string
+    code?: import("./errors").AppErrorCode
+    phase?: import("./errors").AppErrorPhase
+    incidentId?: string
+    durationMs?: number
+    recoveryAction?: import("./errors").AppErrorRecoveryAction
   }
   timestamp?: number
   metrics?: {
@@ -270,6 +280,14 @@ export interface ChatStreamMessage {
     retryAfterMs?: number
     context?: string
     providerId?: string
+    providerName?: string
+    model?: string
+    baseUrl?: string
+    code?: import("./errors").AppErrorCode
+    phase?: import("./errors").AppErrorPhase
+    incidentId?: string
+    durationMs?: number
+    recoveryAction?: import("./errors").AppErrorRecoveryAction
   }
   metrics?: {
     total_duration?: number

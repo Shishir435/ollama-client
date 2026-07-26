@@ -6,6 +6,7 @@ import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { ProviderId } from "@/lib/providers/types"
 import type { ModelConfigMap, SendResponseFunction } from "@/types"
 
@@ -66,6 +67,7 @@ const warmupModel = async (
   providerId?: string
 ) => {
   const provider = await ProviderFactory.getProviderForModel(model, providerId)
+  assertProviderEnabled(provider, model)
   if (provider.id !== ProviderId.OLLAMA) return
 
   const baseUrl = resolveProviderBaseUrl(provider.config)

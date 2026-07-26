@@ -51,4 +51,25 @@ describe("ChatMessageFooter", () => {
     ).not.toBeInTheDocument()
     expect(screen.getByText("deepseek-r1:8b")).toBeInTheDocument()
   })
+
+  it("leaves error reporting to the error panel instead of duplicating it", () => {
+    render(
+      <ChatMessageFooter
+        msg={{
+          role: "assistant",
+          content: "Provider failed",
+          error: { kind: "provider", status: 500 },
+          timestamp: 1
+        }}
+        isUser={false}
+      />
+    )
+
+    // The footer used to build its own report URL with no diagnostics and no
+    // local checks, two rows below the panel's richer one. One failed turn gets
+    // one report entry point.
+    expect(
+      screen.queryByRole("link", { name: "chat.errors.report_issue" })
+    ).not.toBeInTheDocument()
+  })
 })

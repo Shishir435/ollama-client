@@ -1,9 +1,10 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
-  isRetryableProviderStatus,
-  parseRetryAfter,
-  providerErrorUserMessage
+  classifyProviderError,
+  readProviderStreamChunk,
+  throwProviderConnectionError,
+  throwProviderResponseError
 } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
@@ -191,25 +192,13 @@ export class AnthropicProvider implements LLMProvider {
     }
   }
 
-  private async responseError(
-    response: Response,
-    model?: string
-  ): Promise<never> {
-    const detail = await response.text()
-    const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
-    throw createAppError(`Anthropic Error (${response.status}): ${detail}`, {
-      kind: "provider",
-      status: response.status,
+  private responseError(response: Response, model?: string): Promise<never> {
+    return throwProviderResponseError(response, {
+      label: "Anthropic Error",
       providerId: this.id,
-      retryable: isRetryableProviderStatus(response.status),
-      retryAfterMs,
-      userMessage: providerErrorUserMessage(response.status, {
-        baseUrl: this.baseUrl,
-        retryAfterMs,
-        providerName: this.config.name,
-        model
-      }),
-      debug: detail
+      baseUrl: this.baseUrl,
+      providerName: this.config.name,
+      model
     })
   }
 
@@ -322,7 +311,14 @@ export class AnthropicProvider implements LLMProvider {
       headers: this.headers(),
       body: JSON.stringify(body),
       signal
-    })
+    }).catch((error) =>
+      throwProviderConnectionError(error, {
+        providerId: this.id,
+        providerName: this.config.name,
+        model: request.model,
+        baseUrl: this.baseUrl
+      })
+    )
     if (!response.ok) {
       await this.responseError(response, request.model)
     }
@@ -446,15 +442,27 @@ export class AnthropicProvider implements LLMProvider {
       }
 
       if (event.type === "error") {
-        throw createAppError(
-          event.error?.message || "Anthropic stream returned an error.",
-          {
-            kind: "provider",
-            providerId: this.id,
-            retryable: event.error?.type === "overloaded_error",
-            debug: event.error
-          }
-        )
+        const status =
+          event.error?.type === "overloaded_error" ? 529 : undefined
+        const message =
+          event.error?.message || "Anthropic stream returned an error."
+        const classification = classifyProviderError(status, message)
+        throw createAppError(message, {
+          kind: "provider",
+          status,
+          providerId: this.id,
+          providerName: this.config.name,
+          model,
+          baseUrl: this.baseUrl,
+          retryable: event.error?.type === "overloaded_error",
+          code: classification.code,
+          phase: "read-stream",
+          recoveryAction: classification.recoveryAction,
+          userMessage: classification.reason
+            ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+            : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
+          debug: event.error
+        })
       }
       if (event.type === "message_start") {
         inputTokens = event.message?.usage?.input_tokens
@@ -557,7 +565,12 @@ export class AnthropicProvider implements LLMProvider {
 
     try {
       while (true) {
-        const { done, value } = await reader.read()
+        const { done, value } = await readProviderStreamChunk(reader, {
+          providerId: this.id,
+          providerName: this.config.name,
+          model,
+          baseUrl: this.baseUrl
+        })
         if (done) {
           if (buffer.trim()) processLine(buffer)
           emitDone()

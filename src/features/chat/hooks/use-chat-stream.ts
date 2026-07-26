@@ -8,11 +8,9 @@ import {
   formatErrorForDisplay,
   getDisplayErrorMessage
 } from "@/lib/error-display"
+import { buildErrorReportUrl } from "@/lib/error-report"
 import { logger } from "@/lib/logger"
-import {
-  buildProviderServerIssueUrl,
-  providerErrorUserMessage
-} from "@/lib/providers/provider-errors"
+import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import type { ChatMessage } from "@/types"
 import {
@@ -173,19 +171,19 @@ export const useChatStream = ({
         if (result.terminal.type === "error") {
           const { error, partial } = result.terminal
           const isProviderError = error.kind === "provider"
-          const errorProviderId = isProviderError
-            ? error.providerId || providerId
-            : undefined
-          const providerName = errorProviderId
-            ? getProviderDisplayName(errorProviderId, errorProviderId)
-            : undefined
-          const issueUrl =
-            isProviderError && error.status >= 500
-              ? buildProviderServerIssueUrl(error.status, {
-                  providerName,
-                  model
-                })
-              : undefined
+          // An explicit providerId from the background is authoritative for any
+          // kind — a disabled provider is `kind: "validation"` but still names
+          // the provider, and recovery actions need that id. Only the fallback
+          // to the request's providerId stays provider-kind-gated, so a generic
+          // background 500 is not mislabelled as a provider failure.
+          const errorProviderId =
+            error.providerId || (isProviderError ? providerId : undefined)
+          const providerName =
+            error.providerName ||
+            (errorProviderId
+              ? getProviderDisplayName(errorProviderId)
+              : undefined)
+          const errorModel = error.model || model
           const localizedUserMessage = error.messageKey
             ? t(error.messageKey)
             : error.userMessage
@@ -201,30 +199,55 @@ export const useChatStream = ({
             (isProviderError && error.status > 0
               ? providerErrorUserMessage(error.status, {
                   providerName,
-                  model
+                  model: errorModel,
+                  baseUrl: error.baseUrl
                 })
               : t("chat.errors.unknown_error", {
                   message:
                     getDisplayErrorMessage(error) || t("chat.errors.no_message")
                 }))
-          const chatErrorMessage = issueUrl
-            ? `${errMsg}\n\n[Open a new issue](${issueUrl})`
-            : errMsg
+          const issueUrl =
+            isProviderError && error.status >= 500
+              ? buildErrorReportUrl({
+                  status: error.status,
+                  kind: error.kind,
+                  message: errMsg,
+                  providerId: errorProviderId,
+                  providerName,
+                  model: errorModel,
+                  baseUrl: error.baseUrl,
+                  code: error.code,
+                  phase: error.phase,
+                  incidentId: error.incidentId,
+                  durationMs: error.durationMs,
+                  recoveryAction: error.recoveryAction
+                })
+              : undefined
           const toastDescription =
             error.kind === "provider" && providerName
-              ? `${displayError.rawMessage}${
+              ? `${displayError.message}${
                   error.retryable ? " This may be temporary; try again." : ""
                 }`
               : displayError.message
           void renderAssistant({
             ...partial,
-            content: chatErrorMessage,
+            content: errMsg,
             done: true,
             error: {
               status: error.status,
               kind: error.kind,
               retryable: error.retryable,
-              retryAfterMs: error.retryAfterMs
+              retryAfterMs: error.retryAfterMs,
+              userMessage: errMsg,
+              providerId: errorProviderId,
+              providerName,
+              model: errorModel,
+              baseUrl: error.baseUrl,
+              code: error.code,
+              phase: error.phase,
+              incidentId: error.incidentId,
+              durationMs: error.durationMs,
+              recoveryAction: error.recoveryAction
             }
           })
           toast({

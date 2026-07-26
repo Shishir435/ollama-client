@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { openExternalUrl } from "@/lib/browser-api"
-import { EXTERNAL_URLS } from "@/lib/constants"
+import { buildDiagnosticIssueUrl } from "@/lib/error-report"
 import {
   Activity,
   Copy,
@@ -22,32 +22,6 @@ import type {
 } from "@/protocol/diagnostics-rpc"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import { RpcMethod } from "@/protocol/rpc"
-
-export const buildDiagnosticIssueUrl = (
-  bundle: DiagnosticsGetBundleResult["bundle"]
-): string => {
-  const failed = bundle.selfTests
-    .filter((test) => test.status === "fail")
-    .map((test) => `- ${test.id}: ${test.code ?? "failed"}`)
-  const body = [
-    "**What happened**",
-    "_Describe the problem here._",
-    "",
-    "**Safe diagnostic summary**",
-    `- Extension: ${bundle.appVersion}`,
-    `- Browser: ${bundle.browserFamily}`,
-    `- OS: ${bundle.osFamily}`,
-    `- Storage backend: ${bundle.storage.backend}`,
-    ...(failed.length > 0 ? failed : ["- Self-tests: passed"]),
-    "",
-    "Review and attach the downloaded support bundle if useful."
-  ].join("\n")
-  const params = new URLSearchParams({
-    title: "[bug] Diagnostics support request",
-    body
-  })
-  return `${EXTERNAL_URLS.GITHUB_ISSUES}/new?${params.toString()}`
-}
 
 export const DiagnosticsSettings = () => {
   const { t } = useTranslation()

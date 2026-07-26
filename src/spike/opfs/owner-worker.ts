@@ -157,6 +157,23 @@ const handle = async (op: OwnerOp, payload: unknown): Promise<unknown> => {
       })
       return checkpoint
     }
+    case "checkpointSummary": {
+      // One-shot aggregate of the whole checkpoint table: row count and a
+      // count per state. Gate 4d reads back a large in-flight burst this way in
+      // a single RPC instead of one round-trip per key — hundreds of rapid
+      // runtime messages otherwise risk a silently dropped response on MV3.
+      const byState: Record<string, number> = {}
+      let total = 0
+      db.exec({
+        sql: "SELECT state, COUNT(*) FROM spike_checkpoints GROUP BY state",
+        callback: (row) => {
+          const [state, count] = row as unknown[]
+          byState[String(state)] = Number(count)
+          total += Number(count)
+        }
+      })
+      return { total, byState }
+    }
     case "beginHang": {
       // Gate 5 setup: leave an uncommitted transaction open. The driver then
       // terminates this worker; the journal must roll the insert back when

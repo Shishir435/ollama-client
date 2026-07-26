@@ -30,6 +30,17 @@ describe("ChatMessageSchema", () => {
       },
       done: true,
       model: "llama3",
+      error: {
+        status: 500,
+        kind: "provider",
+        retryable: true,
+        userMessage:
+          "Ollama at http://localhost:11434 returned HTTP 500 while generating a response with model llama3.",
+        providerId: "ollama",
+        providerName: "Ollama",
+        model: "llama3",
+        baseUrl: "http://localhost:11434"
+      },
       toolName: "read_tab",
       toolCallId: "call-1",
       toolCalls: [

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type React from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { describe, expect, it, vi } from "vitest"
@@ -122,9 +122,14 @@ describe("ControlledNumberInput", () => {
     fireEvent.change(input, { target: { value: "30" } })
     fireEvent.blur(input)
 
-    expect(await screen.findByLabelText("Limit")).toHaveAttribute(
-      "aria-invalid",
-      "true"
+    // Poll the attribute, not the element: the input exists from the first
+    // render, so awaiting a query for it resolves before React Hook Form's
+    // async validation has re-rendered the invalid state.
+    await waitFor(() =>
+      expect(screen.getByLabelText("Limit")).toHaveAttribute(
+        "aria-invalid",
+        "true"
+      )
     )
   })
 })
