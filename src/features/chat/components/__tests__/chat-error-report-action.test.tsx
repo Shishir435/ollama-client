@@ -24,7 +24,7 @@ vi.mock("@/protocol/extension-client", () => ({
 }))
 
 describe("ChatErrorReportAction", () => {
-  it("runs local diagnostics only after click and includes safe incident data", async () => {
+  it("runs safe diagnostics automatically and includes incident data", async () => {
     ;(extensionRpcClient.call as any).mockImplementation(
       async (method: RpcMethod) => {
         if (method === RpcMethod.ProvidersListModels) {
@@ -83,7 +83,12 @@ describe("ChatErrorReportAction", () => {
       />
     )
 
-    expect(extensionRpcClient.call).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(extensionRpcClient.call).toHaveBeenCalledWith(
+        RpcMethod.DiagnosticsGetBundle,
+        {}
+      )
+    )
     fireEvent.click(
       screen.getByRole("button", { name: "chat.errors.open_issue" })
     )
@@ -98,6 +103,53 @@ describe("ChatErrorReportAction", () => {
     expect(body).toContain("- Provider reachable: yes")
     expect(body).toContain("- Selected model discovered: yes")
     expect(body).not.toContain("/Users/alice")
+  })
+
+  it("copies the automatic diagnostic report from the error bubble", async () => {
+    ;(extensionRpcClient.call as any).mockResolvedValue({
+      bundle: {
+        format: "ollama-client-support-v1",
+        createdAt: 1,
+        appVersion: "0.12.4",
+        browserFamily: "chromium",
+        osFamily: "macos",
+        capabilities: {},
+        permissions: {},
+        providers: [],
+        storage: { backend: "sqlite", messageCount: 0, vectorCount: 0 },
+        selfTests: [],
+        events: []
+      }
+    })
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockResolvedValue(undefined)
+
+    render(
+      <ChatErrorReportAction
+        msg={{
+          role: "assistant",
+          content: "Ollama failed",
+          error: {
+            code: "OLC-PROVIDER-HTTP",
+            incidentId: "INC-ABC12345",
+            providerName: "Ollama"
+          }
+        }}
+      />
+    )
+
+    const copyButton = await screen.findByRole("button", {
+      name: "chat.errors.copy_diagnostics"
+    })
+    await waitFor(() => expect(copyButton).toBeEnabled())
+    fireEvent.click(copyButton)
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledOnce())
+    expect(writeText.mock.calls[0][0]).toContain(
+      "- Error code: OLC-PROVIDER-HTTP"
+    )
+    expect(writeText.mock.calls[0][0]).toContain("- Incident ID: INC-ABC12345")
   })
 
   it("opens focused recovery settings", () => {

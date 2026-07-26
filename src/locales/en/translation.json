@@ -438,6 +438,8 @@
       "issue_draft_notice": "Prefilled locally. Review before submitting.",
       "preparing_issue": "Running safe checks…",
       "open_diagnostics": "Open diagnostics",
+      "copy_diagnostics": "Copy diagnostics",
+      "diagnostics_copied": "Diagnostics copied",
       "interrupted": "Response interrupted"
     },
     "composer": {

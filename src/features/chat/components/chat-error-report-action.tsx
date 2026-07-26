@@ -1,14 +1,24 @@
-import { useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { openExternalUrl, openOptionsInTab, runtime } from "@/lib/browser-api"
 import {
+  buildChatMessageErrorReportText,
   buildChatMessageErrorReportUrl,
   type SafeErrorChecks
 } from "@/lib/error-report"
 import { sanitizeProviderBaseUrl } from "@/lib/error-utils"
-import { Bug, Loader2, RefreshCcw, Settings } from "@/lib/lucide-icon"
+import { logger } from "@/lib/logger"
+import {
+  Bug,
+  Check,
+  Copy,
+  Loader2,
+  RefreshCcw,
+  Settings
+} from "@/lib/lucide-icon"
+import type { DiagnosticsGetBundleResult } from "@/protocol/diagnostics-rpc"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import { RpcMethod } from "@/protocol/rpc"
 import type { ChatMessage } from "@/types"
@@ -19,7 +29,6 @@ const recoveryFocus = (
   if (action === "enable-provider") return "provider-enabled"
   if (action === "test-connection") return "provider-test-connection"
   if (action === "choose-model") return "provider-picker"
-  if (action === "open-diagnostics") return "diagnostics-support"
   return undefined
 }
 
@@ -32,16 +41,35 @@ export const ChatErrorReportAction = ({
 }) => {
   const { t } = useTranslation()
   const [preparing, setPreparing] = useState(false)
+  const [diagnosticsPreparing, setDiagnosticsPreparing] = useState(true)
+  const [copied, setCopied] = useState(false)
+  const diagnosticsPromise = useRef<
+    Promise<DiagnosticsGetBundleResult["bundle"] | undefined> | undefined
+  >(undefined)
   const action = msg.error?.recoveryAction
   const focus = recoveryFocus(action)
+
+  const loadDiagnostics = useCallback(() => {
+    diagnosticsPromise.current ??= extensionRpcClient
+      .call(RpcMethod.DiagnosticsGetBundle, {})
+      .then(({ bundle }) => bundle)
+      .catch(() => undefined)
+    return diagnosticsPromise.current
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+    void loadDiagnostics().finally(() => {
+      if (mounted) setDiagnosticsPreparing(false)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [loadDiagnostics])
 
   const openIssue = async () => {
     setPreparing(true)
     try {
-      const diagnosticsPromise = extensionRpcClient
-        .call(RpcMethod.DiagnosticsGetBundle, {})
-        .then(({ bundle }) => bundle)
-        .catch(() => undefined)
       const checks: SafeErrorChecks = {
         providerEnabled:
           msg.error?.code === "OLC-PROVIDER-DISABLED" ? false : undefined,
@@ -74,7 +102,7 @@ export const ChatErrorReportAction = ({
           checks.providerReachable = false
         }
       }
-      const bundle = await diagnosticsPromise
+      const bundle = await loadDiagnostics()
       openExternalUrl(buildChatMessageErrorReportUrl(msg, bundle, checks))
     } catch {
       openExternalUrl(buildChatMessageErrorReportUrl(msg))
@@ -84,11 +112,25 @@ export const ChatErrorReportAction = ({
   }
 
   const openRecoverySettings = () => {
-    const tab = action === "open-diagnostics" ? "help" : "models"
     const url = runtime.getURL(
-      `options.html?tab=${tab}${focus ? `&focus=${focus}` : ""}`
+      `options.html?tab=models${focus ? `&focus=${focus}` : ""}`
     )
     void openOptionsInTab(url)
+  }
+
+  const copyDiagnostics = async () => {
+    try {
+      const bundle = await loadDiagnostics()
+      await navigator.clipboard.writeText(
+        buildChatMessageErrorReportText(msg, bundle)
+      )
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch (error) {
+      logger.error("Diagnostic report copy failed", "ChatErrorReportAction", {
+        error
+      })
+    }
   }
 
   return (
@@ -101,9 +143,7 @@ export const ChatErrorReportAction = ({
             className="border border-border/30 bg-muted/25 text-foreground shadow-none hover:border-border/50 hover:bg-muted/45"
             onClick={openRecoverySettings}>
             <Settings className="icon-xs" />
-            {action === "open-diagnostics"
-              ? t("chat.errors.open_diagnostics")
-              : t("settings.shortcuts.open_settings")}
+            {t("settings.shortcuts.open_settings")}
           </Button>
         )}
         {(action === "retry" || action === "wait-retry") && onRetry && (
@@ -116,6 +156,23 @@ export const ChatErrorReportAction = ({
             {t("common.actions.retry")}
           </Button>
         )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="border border-border/30 bg-muted/25 text-foreground shadow-none hover:border-border/50 hover:bg-muted/45"
+          disabled={diagnosticsPreparing}
+          onClick={() => void copyDiagnostics()}>
+          {diagnosticsPreparing ? (
+            <Loader2 className="icon-xs animate-spin" />
+          ) : copied ? (
+            <Check className="icon-xs text-status-success" />
+          ) : (
+            <Copy className="icon-xs" />
+          )}
+          {copied
+            ? t("chat.errors.diagnostics_copied")
+            : t("chat.errors.copy_diagnostics")}
+        </Button>
         <Button
           variant="ghost"
           size="sm"

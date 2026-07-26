@@ -401,6 +401,8 @@
       "provider_replay_invalid": "Questa risposta non può continuare in modo sicuro. Riprova il turno per ricostruire il contesto del provider.",
       "report_issue": "Segnala un problema",
       "open_issue": "Apri una segnalazione",
+      "copy_diagnostics": "Copia diagnostica",
+      "diagnostics_copied": "Diagnostica copiata",
       "issue_draft_notice": "Precompilata localmente. Controlla prima di inviare.",
       "preparing_issue": "Esecuzione dei controlli sicuri…",
       "open_diagnostics": "Apri diagnostica",

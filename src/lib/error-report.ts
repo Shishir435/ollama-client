@@ -186,7 +186,7 @@ const diagnosticLines = (
     .slice(-5)
   return [
     "",
-    "**Local diagnostics (run when Open an issue was clicked)**",
+    "**Local diagnostics (run automatically after the error)**",
     `- Self-tests: ${bundle.selfTests
       .slice(0, 20)
       .map(
@@ -214,11 +214,11 @@ const diagnosticLines = (
   ]
 }
 
-export const buildErrorReportUrl = (
+const buildErrorReportDraft = (
   error: ErrorReportInput,
   diagnostics?: DiagnosticBundle,
   checks?: SafeErrorChecks
-): string => {
+): { title: string; body: string } => {
   const message = (error.message ?? "").replace(/\s+/g, " ").trim()
   const providerName = error.providerName
     ?.replace(/\s+/g, " ")
@@ -265,30 +265,46 @@ export const buildErrorReportUrl = (
     "**Steps to reproduce**",
     "1. "
   ].join("\n")
-  const params = new URLSearchParams({ title, body })
+  return { title, body }
+}
+
+export const buildErrorReportUrl = (
+  error: ErrorReportInput,
+  diagnostics?: DiagnosticBundle,
+  checks?: SafeErrorChecks
+): string => {
+  const params = new URLSearchParams(
+    buildErrorReportDraft(error, diagnostics, checks)
+  )
   return `${EXTERNAL_URLS.GITHUB_ISSUES}/new?${params.toString()}`
 }
+
+const chatMessageErrorInput = (message: ChatMessage): ErrorReportInput => ({
+  status: message.error?.status,
+  kind: message.error?.kind,
+  message: message.error?.userMessage || message.content,
+  providerId: message.error?.providerId,
+  providerName: message.error?.providerName,
+  model: message.error?.model || message.model,
+  baseUrl: message.error?.baseUrl,
+  code: message.error?.code,
+  phase: message.error?.phase,
+  incidentId: message.error?.incidentId,
+  durationMs: message.error?.durationMs,
+  recoveryAction: message.error?.recoveryAction
+})
+
+export const buildChatMessageErrorReportText = (
+  message: ChatMessage,
+  diagnostics?: DiagnosticBundle,
+  checks?: SafeErrorChecks
+): string =>
+  buildErrorReportDraft(chatMessageErrorInput(message), diagnostics, checks)
+    .body
 
 export const buildChatMessageErrorReportUrl = (
   message: ChatMessage,
   diagnostics?: DiagnosticBundle,
   checks?: SafeErrorChecks
 ): string =>
-  buildErrorReportUrl(
-    {
-      status: message.error?.status,
-      kind: message.error?.kind,
-      message: message.error?.userMessage || message.content,
-      providerId: message.error?.providerId,
-      providerName: message.error?.providerName,
-      model: message.error?.model || message.model,
-      baseUrl: message.error?.baseUrl,
-      code: message.error?.code,
-      phase: message.error?.phase,
-      incidentId: message.error?.incidentId,
-      durationMs: message.error?.durationMs,
-      recoveryAction: message.error?.recoveryAction
-    },
-    diagnostics,
-    checks
-  )
+  buildErrorReportUrl(chatMessageErrorInput(message), diagnostics, checks)

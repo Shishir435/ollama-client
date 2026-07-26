@@ -22,7 +22,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   includes the selected provider/model reference without attaching chat data.
 - Issue drafts now explain how users can optionally review and attach the local
   seven-day support bundle for faster diagnosis; it is never uploaded
-  automatically.
+  automatically. Chat errors run privacy-safe checks automatically and provide
+  **Copy diagnostics** beside **Open an issue**.
 
 ### Fixed
 

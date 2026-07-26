@@ -401,6 +401,8 @@
       "provider_replay_invalid": "Diese Antwort kann nicht sicher fortgesetzt werden. Wiederhole die Anfrage, um den Anbieterkontext neu aufzubauen.",
       "report_issue": "Problem melden",
       "open_issue": "Issue öffnen",
+      "copy_diagnostics": "Diagnosedaten kopieren",
+      "diagnostics_copied": "Diagnosedaten kopiert",
       "issue_draft_notice": "Lokal vorausgefüllt. Vor dem Absenden prüfen.",
       "preparing_issue": "Sichere Prüfungen laufen…",
       "open_diagnostics": "Diagnose öffnen",

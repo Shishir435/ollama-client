@@ -401,6 +401,8 @@
       "provider_replay_invalid": "この応答を安全に続行できません。プロバイダーのコンテキストを再構築するため、このターンを再試行してください。",
       "report_issue": "問題を報告",
       "open_issue": "Issueを開く",
+      "copy_diagnostics": "診断情報をコピー",
+      "diagnostics_copied": "診断情報をコピーしました",
       "issue_draft_notice": "ローカルで入力済みです。送信前に確認してください。",
       "preparing_issue": "安全なチェックを実行中…",
       "open_diagnostics": "診断を開く",

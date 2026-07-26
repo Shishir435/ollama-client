@@ -401,6 +401,8 @@
       "provider_replay_invalid": "无法安全地继续此响应。请重试本轮，以重新建立提供商上下文。",
       "report_issue": "报告问题",
       "open_issue": "新建议题",
+      "copy_diagnostics": "复制诊断信息",
+      "diagnostics_copied": "诊断信息已复制",
       "issue_draft_notice": "已在本地预填。提交前请检查。",
       "preparing_issue": "正在运行安全检查…",
       "open_diagnostics": "打开诊断",

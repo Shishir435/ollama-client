@@ -43,7 +43,9 @@ can select **Preview support bundle**, review its contents, then
 **Download bundle** and drag the JSON file into the GitHub issue. Attaching it
 is optional, but its safe event sequence often makes diagnosis faster. Nothing
 is uploaded automatically, and GitHub does not allow the extension to attach a
-local file silently.
+local file silently. Chat errors run privacy-safe diagnostics locally and
+include a **Copy diagnostics** button beside **Open an issue**. Paste the copied
+report into a new issue if you prefer to create it manually.
 
 ## Error-code reference
 

@@ -401,6 +401,8 @@
       "provider_replay_invalid": "Cette réponse ne peut pas être poursuivie en toute sécurité. Réessayez ce tour pour reconstruire le contexte du fournisseur.",
       "report_issue": "Signaler un problème",
       "open_issue": "Ouvrir un ticket",
+      "copy_diagnostics": "Copier le diagnostic",
+      "diagnostics_copied": "Diagnostic copié",
       "issue_draft_notice": "Prérempli localement. Vérifiez avant l’envoi.",
       "preparing_issue": "Exécution des vérifications sûres…",
       "open_diagnostics": "Ouvrir le diagnostic",
