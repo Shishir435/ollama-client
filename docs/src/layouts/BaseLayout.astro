@@ -11,7 +11,6 @@ import "@fontsource-variable/geist"
 import "@fontsource-variable/geist-mono"
 import "@/styles/globals.css"
 import {
-  GOOGLE_SITE_VERIFICATION,
   IS_NON_PRODUCTION_DEPLOY,
   KEYWORDS,
   SITE_URL,
@@ -58,14 +57,6 @@ const ogUrl = new URL(ogPath, site)
     {
       IS_NON_PRODUCTION_DEPLOY && (
         <meta name="robots" content="noindex, nofollow" />
-      )
-    }
-    {
-      GOOGLE_SITE_VERIFICATION && (
-        <meta
-          name="google-site-verification"
-          content={GOOGLE_SITE_VERIFICATION}
-        />
       )
     }
     <link rel="alternate" type="text/markdown" href="/llms.txt" />

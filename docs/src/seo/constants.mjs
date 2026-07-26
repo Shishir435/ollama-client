@@ -91,21 +91,6 @@ export const IS_NON_PRODUCTION_DEPLOY = Boolean(
   process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production"
 )
 
-/**
- * Google Search Console verification token, when configured.
- *
- * Search Console is the only measurement this site has: without it there is no
- * query, impression, or coverage data, so no SEO change here can be evaluated
- * afterwards. It verifies with a meta tag, a DNS record, or an HTML file and
- * ships **no client-side script**, which is what makes it compatible with the
- * project's no-telemetry, no-tracker position. Analytics stay out.
- *
- * Empty by default so nothing is emitted until a token is actually set.
- */
-export const GOOGLE_SITE_VERIFICATION = (
-  process.env.PUBLIC_GOOGLE_SITE_VERIFICATION || ""
-).trim()
-
 export const SITE_TITLE = "Ollama Client"
 
 export const REPO_URL = "https://github.com/Shishir435/ollama-client"

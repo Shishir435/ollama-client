@@ -1,9 +1,5 @@
 ---
-import {
-  GOOGLE_SITE_VERIFICATION,
-  IS_NON_PRODUCTION_DEPLOY,
-  SITE_URL,
-} from "@/seo/constants.mjs"
+import { IS_NON_PRODUCTION_DEPLOY, SITE_URL } from "@/seo/constants.mjs"
 import { SECTION_LABELS } from "@/seo/doc-ia.mjs"
 
 type StarlightHeadTag = {
@@ -105,11 +101,6 @@ const breadcrumbJsonLd = {
         IS_NON_PRODUCTION_DEPLOY ? "noindex, nofollow" : "noindex, follow"
       }
     />
-  )
-}
-{
-  GOOGLE_SITE_VERIFICATION && (
-    <meta name="google-site-verification" content={GOOGLE_SITE_VERIFICATION} />
   )
 }
 <meta property="og:image" content={ogUrl} />
