@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { SocialLinkButton } from "@/components/social-link-button"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
+import { buildGenericIssueReportUrl } from "@/lib/error-report"
 
 export const SocialHandles = () => {
   const { t } = useTranslation()
@@ -18,7 +19,7 @@ export const SocialHandles = () => {
         {SOCIAL_LINKS.map(({ id, labelKey, href, icon: Icon }) => (
           <SocialLinkButton
             key={id}
-            href={href}
+            href={id === "bug_report" ? buildGenericIssueReportUrl() : href}
             aria-label={t("common.social.visit_profile", {
               platform: t(labelKey)
             })}

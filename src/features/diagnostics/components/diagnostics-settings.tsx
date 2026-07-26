@@ -40,7 +40,8 @@ export const buildDiagnosticIssueUrl = (
     `- Storage backend: ${bundle.storage.backend}`,
     ...(failed.length > 0 ? failed : ["- Self-tests: passed"]),
     "",
-    "Review and attach the downloaded support bundle if useful."
+    "**Attach the support bundle (helps diagnose faster)**",
+    "Select **Download bundle**, review the JSON file, then drag it into this issue. It can include up to seven days of privacy-safe technical events. Nothing is uploaded automatically."
   ].join("\n")
   const params = new URLSearchParams({
     title: "[bug] Diagnostics support request",

@@ -17,6 +17,14 @@ const { mockProvider, mockStreamChat } = vi.hoisted(() => {
   return {
     mockStreamChat: streamChat,
     mockProvider: {
+      id: "ollama",
+      config: {
+        id: "ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: "http://localhost:11434",
+        name: "Ollama"
+      },
       streamChat,
       getModels: vi.fn()
     }
@@ -60,6 +68,7 @@ describe("handleSelectionAction", () => {
     clearHandlerMocks()
     setupHandlerMocks()
     vi.clearAllMocks()
+    mockProvider.config.enabled = true
   })
 
   it("streams selection action chunks through selected provider", async () => {
@@ -157,6 +166,37 @@ describe("handleSelectionAction", () => {
         status: 400,
         message: "Select a model before running Selection Actions"
       }
+    })
+  })
+
+  it("preserves disabled-provider recovery details", async () => {
+    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+      if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {
+        return { modelId: "llama3:latest", providerId: "ollama" }
+      }
+      return undefined
+    })
+    mockProvider.config.enabled = false
+
+    const port = createMockPort(MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION)
+    await handleSelectionAction(message, port, createMockIsPortClosed(false))
+
+    expect(mockStreamChat).not.toHaveBeenCalled()
+    expect(port.postMessage).toHaveBeenCalledWith({
+      type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR,
+      error: expect.objectContaining({
+        status: 409,
+        kind: "validation",
+        message:
+          "Ollama is disabled. Enable it in Settings → Model behavior before chatting.",
+        userMessage:
+          "Ollama is disabled. Enable it in Settings → Model behavior before chatting.",
+        providerId: "ollama",
+        providerName: "Ollama",
+        model: "llama3:latest",
+        baseUrl: "http://localhost:11434"
+      })
     })
   })
 

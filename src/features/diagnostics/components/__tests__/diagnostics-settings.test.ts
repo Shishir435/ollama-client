@@ -36,10 +36,14 @@ describe("buildDiagnosticIssueUrl", () => {
       ]
     }
 
-    const decoded = decodeURIComponent(buildDiagnosticIssueUrl(bundle))
-    expect(decoded).toContain("OLC-PROVIDER-DISCOVERY-001")
-    expect(decoded).not.toContain("openrouter")
-    expect(decoded).not.toContain("messageCount")
-    expect(decoded).not.toContain("OLC-RPC-PROVIDER-FAILED-12345678")
+    const body =
+      new URL(buildDiagnosticIssueUrl(bundle)).searchParams.get("body") ?? ""
+    expect(body).toContain("OLC-PROVIDER-DISCOVERY-001")
+    expect(body).toContain("Attach the support bundle")
+    expect(body).toContain("up to seven days")
+    expect(body).toContain("Nothing is uploaded automatically")
+    expect(body).not.toContain("openrouter")
+    expect(body).not.toContain("messageCount")
+    expect(body).not.toContain("OLC-RPC-PROVIDER-FAILED-12345678")
   })
 })

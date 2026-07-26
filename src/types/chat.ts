@@ -138,6 +138,11 @@ export interface ChatMessage {
     providerName?: string
     model?: string
     baseUrl?: string
+    code?: import("./errors").AppErrorCode
+    phase?: import("./errors").AppErrorPhase
+    incidentId?: string
+    durationMs?: number
+    recoveryAction?: import("./errors").AppErrorRecoveryAction
   }
   timestamp?: number
   metrics?: {
@@ -278,6 +283,11 @@ export interface ChatStreamMessage {
     providerName?: string
     model?: string
     baseUrl?: string
+    code?: import("./errors").AppErrorCode
+    phase?: import("./errors").AppErrorPhase
+    incidentId?: string
+    durationMs?: number
+    recoveryAction?: import("./errors").AppErrorRecoveryAction
   }
   metrics?: {
     total_duration?: number

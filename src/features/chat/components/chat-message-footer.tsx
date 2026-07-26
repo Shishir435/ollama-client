@@ -4,7 +4,7 @@ import { TooltipActionButton } from "@/components/actions"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
 import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
-import { buildErrorReportUrl } from "@/lib/error-report"
+import { buildChatMessageErrorReportUrl } from "@/lib/error-report"
 import {
   Bot,
   Bug,
@@ -74,17 +74,7 @@ export const ChatMessageFooter = ({
         onJson: () => onExport("json")
       })
     : []
-  const reportUrl = canReport
-    ? buildErrorReportUrl({
-        status: msg.error?.status,
-        kind: msg.error?.kind,
-        message: msg.error?.userMessage || msg.content,
-        providerId: msg.error?.providerId,
-        providerName: msg.error?.providerName,
-        model: msg.error?.model || msg.model,
-        baseUrl: msg.error?.baseUrl
-      })
-    : null
+  const reportUrl = canReport ? buildChatMessageErrorReportUrl(msg) : null
   const footerButtonClass = cn(chatIconBtnCls, "[&_svg]:icon-xs")
 
   return (

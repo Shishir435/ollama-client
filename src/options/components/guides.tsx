@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { GUIDES } from "@/lib/constants-ui"
+import { buildGenericIssueReportUrl } from "@/lib/error-report"
 import { ExternalLink, Notebook } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
@@ -50,7 +51,11 @@ export const Guides = () => {
                     </div>
                   </div>
                   <a
-                    href={href}
+                    href={
+                      labelKey === "guides.items.issue.label"
+                        ? buildGenericIssueReportUrl()
+                        : href
+                    }
                     target="_blank"
                     rel="noreferrer"
                     className={cn(

@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { buildErrorReportUrl } from "@/lib/error-report"
-import { isAppError } from "@/lib/error-utils"
+import {
+  buildErrorReportUrl,
+  buildGenericIssueReportUrl,
+  getSafeClientEnvironment
+} from "@/lib/error-report"
+import { isAppError, sanitizeModelIdentifier } from "@/lib/error-utils"
 import { OllamaProvider } from "../ollama"
 import { OpenAICompatibleProvider } from "../openai-compatible"
 import {
+  classifyProviderError,
   isLocalProviderBaseUrl,
   parseRetryAfter,
   providerErrorUserMessage
@@ -12,6 +17,8 @@ import {
 import { type ProviderConfig, ProviderType } from "../types"
 
 describe("providerErrorUserMessage", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
   it("returns a clean, body-free message for each status class", () => {
     for (const status of [400, 401, 404, 408, 429, 500]) {
       const msg = providerErrorUserMessage(status)
@@ -61,8 +68,66 @@ describe("providerErrorUserMessage", () => {
     expect(issueUrl.searchParams.get("body")).toContain(
       "- Base URL: http://localhost:8000/v1"
     )
+    expect(issueUrl.searchParams.get("body")).toContain("- OS:")
+    expect(issueUrl.searchParams.get("body")).toContain(
+      "best effort; edit if incorrect"
+    )
+    expect(issueUrl.searchParams.get("body")).toContain("includes no telemetry")
+    expect(issueUrl.searchParams.get("body")).toContain("or console logs")
+    expect(issueUrl.searchParams.get("body")).toContain(
+      "Optional support bundle (helps diagnose faster)"
+    )
+    expect(issueUrl.searchParams.get("body")).toContain(
+      "Nothing is uploaded automatically"
+    )
     expect(issueUrl.searchParams.get("body")).not.toContain("secret")
     expect(issueUrl.searchParams.get("body")).not.toContain("private")
+  })
+
+  it("detects Brave locally without requesting high-entropy browser data", () => {
+    vi.stubGlobal("navigator", {
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+      platform: "MacIntel",
+      brave: {}
+    })
+
+    expect(getSafeClientEnvironment()).toEqual({
+      browser: "Brave (Chromium 140)",
+      os: "macOS"
+    })
+  })
+
+  it("prefills generic reports with safe current environment and selection", () => {
+    vi.stubGlobal("navigator", {
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/150.0.0.0 Safari/537.36",
+      platform: "MacIntel",
+      brave: {}
+    })
+
+    const issueUrl = new URL(
+      buildGenericIssueReportUrl({
+        providerId: "ollama",
+        model: "/Users/alice/Models/qwen.gguf"
+      })
+    )
+    const body = issueUrl.searchParams.get("body")
+
+    expect(issueUrl.searchParams.get("title")).toBe("[bug] Help needed: ")
+    expect(body).toContain("- Extension version:")
+    expect(body).not.toContain("Extension version: 0.12.3")
+    expect(body).toContain(
+      "- Browser: Brave (Chromium 150) (best effort; edit if incorrect)"
+    )
+    expect(body).toContain("- OS: macOS (coarse family only)")
+    expect(body).toContain("- Selected provider: ollama")
+    expect(body).toContain(
+      "- Selected model: /Users/<redacted>/Models/qwen.gguf"
+    )
+    expect(body).toContain("Preview support bundle")
+    expect(body).toContain("up to seven days")
+    expect(body).toContain("includes no telemetry")
   })
 
   it("points local 401/403 responses at CORS setup instead of credentials", () => {
@@ -97,6 +162,30 @@ describe("providerErrorUserMessage", () => {
         retryAfterMs: 2_000
       })
     ).toContain("hosted provider")
+  })
+
+  it("classifies safe provider reasons without returning raw text", () => {
+    expect(
+      classifyProviderError(
+        500,
+        "CUDA out of memory while loading /Users/alice/private/model.gguf"
+      )
+    ).toEqual({
+      code: "OLC-OUT-OF-MEMORY",
+      reason: "Provider could not allocate enough memory for this model.",
+      recoveryAction: "choose-model"
+    })
+  })
+
+  it("redacts usernames from path-shaped model IDs", () => {
+    expect(
+      sanitizeModelIdentifier(
+        "/Users/mr.ak/Desktop/private/DeepSeek-R1-Qwen3-8B.gguf"
+      )
+    ).toBe("/Users/<redacted>/Desktop/private/DeepSeek-R1-Qwen3-8B.gguf")
+    expect(sanitizeModelIdentifier("C:\\Users\\Alice\\Models\\qwen.gguf")).toBe(
+      "C:\\Users\\<redacted>\\Models\\qwen.gguf"
+    )
   })
 })
 
@@ -262,10 +351,13 @@ describe("custom provider connection errors", () => {
           providerId: "custom:openai:localai",
           providerName: "My LocalAI",
           model: "qwen3",
-          baseUrl: "http://localhost:8080/v1"
+          baseUrl: "http://localhost:8080/v1",
+          code: "OLC-STREAM-DROPPED",
+          phase: "read-stream",
+          recoveryAction: "retry"
         })
         expect(error.userMessage).toContain(
-          "My LocalAI at http://localhost:8080/v1 could not be reached"
+          'My LocalAI at http://localhost:8080/v1 connection dropped while reading the response with model "qwen3"'
         )
         expect(error.userMessage).not.toContain("socket closed")
       }
@@ -302,6 +394,48 @@ describe("provider-specific server errors", () => {
         )
         expect(error.userMessage).toContain('model "gemma.gguf" is loaded')
         expect(error.userMessage).not.toContain("template failure")
+      }
+    }
+  })
+
+  it("surfaces a classified safe reason but not raw provider detail", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(
+          '{"error":"CUDA out of memory loading /Users/alice/private.gguf"}',
+          { status: 500 }
+        )
+    )
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:localai",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "http://localhost:8080/v1",
+      name: "LocalAI"
+    })
+
+    await expect(
+      provider.streamChat(
+        { model: "large.gguf", messages: [{ role: "user", content: "hi" }] },
+        () => {}
+      )
+    ).rejects.toMatchObject({
+      code: "OLC-OUT-OF-MEMORY",
+      recoveryAction: "choose-model",
+      userMessage: expect.stringContaining(
+        "Provider could not allocate enough memory for this model."
+      )
+    })
+
+    try {
+      await provider.streamChat(
+        { model: "large.gguf", messages: [{ role: "user", content: "hi" }] },
+        () => {}
+      )
+    } catch (error) {
+      expect(isAppError(error)).toBe(true)
+      if (isAppError(error)) {
+        expect(error.userMessage).not.toContain("/Users/alice")
       }
     }
   })

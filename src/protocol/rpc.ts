@@ -10,6 +10,7 @@ export enum RpcMethod {
   ProvidersTestConnection = "providers.testConnection",
   ProvidersListModels = "providers.listModels",
   ProvidersUpsert = "providers.upsert",
+  ProvidersSetEnabled = "providers.setEnabled",
   ProvidersRemove = "providers.remove",
   ProvidersProbeModelCapabilities = "providers.probeModelCapabilities",
   DiagnosticsRun = "diagnostics.run",

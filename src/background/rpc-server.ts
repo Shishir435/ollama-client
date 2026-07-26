@@ -34,14 +34,16 @@ const handlers = {
     ProviderRpcService.listModels(request, signal),
   [RpcMethod.ProvidersUpsert]: async (request) =>
     ProviderRpcService.upsert(request),
+  [RpcMethod.ProvidersSetEnabled]: async (request) =>
+    ProviderRpcService.setEnabled(request),
   [RpcMethod.ProvidersRemove]: async (request) =>
     ProviderRpcService.remove(request),
   [RpcMethod.ProvidersProbeModelCapabilities]: async (request, signal) =>
     ProviderRpcService.probeModelCapabilities(request, signal),
   [RpcMethod.DiagnosticsRun]: async (_request, signal) =>
     DiagnosticsService.run(signal),
-  [RpcMethod.DiagnosticsGetBundle]: async (_request, signal) =>
-    DiagnosticsService.getBundle(signal),
+  [RpcMethod.DiagnosticsGetBundle]: async (request, signal) =>
+    DiagnosticsService.getBundle(signal, request.sessionId),
   [RpcMethod.DiagnosticsClear]: async () => DiagnosticsService.clear()
 } satisfies RpcHandlers
 

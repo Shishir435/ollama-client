@@ -50,6 +50,11 @@ export interface StreamMessage {
     providerName?: string
     model?: string
     baseUrl?: string
+    code?: import("@/types/errors").AppErrorCode
+    phase?: import("@/types/errors").AppErrorPhase
+    incidentId?: string
+    durationMs?: number
+    recoveryAction?: import("@/types/errors").AppErrorRecoveryAction
     debug?: unknown
   }
   aborted?: boolean

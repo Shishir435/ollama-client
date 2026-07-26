@@ -83,6 +83,7 @@ describe("handleChatWithModel", () => {
     mockPort = createMockPort("chat-port")
     mockIsPortClosed = createMockIsPortClosed(false)
     vi.clearAllMocks()
+    mockProvider.config.enabled = true
 
     // clearAllMocks resets calls but not implementations, so restore the RAG
     // mock defaults here. This makes every test start with empty memory and
@@ -96,6 +97,33 @@ describe("handleChatWithModel", () => {
   })
 
   describe("successful chat requests", () => {
+    it("rejects chat when the selected provider is disabled", async () => {
+      mockProvider.config.enabled = false
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [{ role: "user", content: "Hello" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockStreamChat).not.toHaveBeenCalled()
+      expect(mockPort.postMessage).toHaveBeenCalledWith({
+        error: expect.objectContaining({
+          status: 409,
+          kind: "validation",
+          userMessage:
+            "Ollama is disabled. Enable it in Settings → Model behavior before chatting.",
+          providerId: "ollama",
+          providerName: "Ollama",
+          model: "llama3:latest",
+          baseUrl: "http://localhost:11434"
+        })
+      })
+    })
+
     it("stamps a monotonic seq on every streamed chunk", async () => {
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",

@@ -7,6 +7,8 @@ import type {
   ProvidersProbeModelCapabilitiesResult,
   ProvidersRemoveRequest,
   ProvidersRemoveResult,
+  ProvidersSetEnabledRequest,
+  ProvidersSetEnabledResult,
   ProvidersUpsertRequest,
   ProvidersUpsertResult,
   ProviderTestConnectionRequest,
@@ -143,6 +145,34 @@ export const ProviderRpcService = {
         kind: "provider",
         status: 500,
         providerId: id,
+        userMessage: "Provider configuration could not be saved"
+      })
+    }
+    return { provider: toPublicConfig(saved) }
+  },
+
+  async setEnabled(
+    request: ProvidersSetEnabledRequest
+  ): Promise<ProvidersSetEnabledResult> {
+    const { providerId, enabled } = request
+    const existing = await ProviderManager.getProviderConfig(providerId)
+    if (!existing) {
+      throw createAppError(`Provider ${providerId} not found`, {
+        kind: "provider",
+        status: 404,
+        providerId,
+        userMessage: "Provider configuration was not found"
+      })
+    }
+    // Partial update: everything except `enabled` — including the API key the
+    // caller never receives — stays exactly as stored.
+    await ProviderManager.updateProviderConfig(providerId, { enabled })
+    const saved = await ProviderManager.getProviderConfig(providerId)
+    if (!saved) {
+      throw createAppError(`Provider ${providerId} disappeared after update`, {
+        kind: "provider",
+        status: 500,
+        providerId,
         userMessage: "Provider configuration could not be saved"
       })
     }

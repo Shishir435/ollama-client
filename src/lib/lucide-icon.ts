@@ -64,6 +64,7 @@ export {
   Pin,
   PinOff,
   Plus,
+  Power,
   Quote,
   RefreshCcw,
   RefreshCw,

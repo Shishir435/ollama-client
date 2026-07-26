@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from "vitest"
 import { createAppError, isAbortError } from "@/lib/error-utils"
+
+const recordDiagnosticEvent = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(undefined)
+)
+
+vi.mock("@/lib/diagnostics/diagnostic-recorder", () => ({
+  recordDiagnosticEvent
+}))
+
 import {
   createErrorResponse,
   normalizeError,
@@ -55,11 +64,13 @@ describe("error-handler", () => {
             debug: "raw provider payload"
           })
         )
-      ).toEqual({
-        status: 0,
-        message: "Provider failed",
-        kind: "provider"
-      })
+      ).toEqual(
+        expect.objectContaining({
+          status: 0,
+          message: "Provider failed",
+          kind: "provider"
+        })
+      )
     })
 
     it("preserves provider retry timing without exposing debug data", () => {
@@ -72,13 +83,15 @@ describe("error-handler", () => {
             debug: "private upstream body"
           })
         )
-      ).toEqual({
-        status: 0,
-        message: "Rate limited",
-        kind: "provider",
-        retryable: true,
-        retryAfterMs: 3000
-      })
+      ).toEqual(
+        expect.objectContaining({
+          status: 0,
+          message: "Rate limited",
+          kind: "provider",
+          retryable: true,
+          retryAfterMs: 3000
+        })
+      )
     })
 
     it("preserves localized error keys without exposing debug data", () => {
@@ -90,12 +103,14 @@ describe("error-handler", () => {
             debug: { signature: "private" }
           })
         )
-      ).toEqual({
-        status: 0,
-        message: "Invalid provider continuation data",
-        kind: "validation",
-        messageKey: "chat.errors.provider_replay_invalid"
-      })
+      ).toEqual(
+        expect.objectContaining({
+          status: 0,
+          message: "Invalid provider continuation data",
+          kind: "validation",
+          messageKey: "chat.errors.provider_replay_invalid"
+        })
+      )
     })
   })
 
@@ -178,6 +193,7 @@ describe("error-handler", () => {
         providerName: "Ollama",
         model: "llama3.2",
         baseUrl: "http://localhost:11434",
+        message: expect.not.stringContaining("raw upstream failure"),
         userMessage: expect.stringContaining(
           'Ollama at http://localhost:11434 returned HTTP 500 while generating a response with model "llama3.2"'
         )
@@ -185,6 +201,36 @@ describe("error-handler", () => {
     })
     expect(JSON.stringify(port.postMessage.mock.calls)).not.toContain(
       "private response body"
+    )
+  })
+
+  it("correlates saved chat errors with their session", async () => {
+    const port = {
+      name: "test-port",
+      postMessage: vi.fn()
+    } as any
+    const handler = withErrorContext(
+      async () => {
+        throw createAppError("Provider failed", {
+          kind: "provider",
+          status: 500
+        })
+      },
+      {
+        handler: "testHandler",
+        operation: "streaming chat",
+        resolveDiagnosticSessionId: (msg: { sessionId: string }) =>
+          msg.sessionId
+      }
+    )
+
+    await handler({ sessionId: "session-current" }, port, () => false)
+
+    expect(recordDiagnosticEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "session-current",
+        operation: "streaming-chat"
+      })
     )
   })
 })

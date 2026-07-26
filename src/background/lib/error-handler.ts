@@ -1,3 +1,4 @@
+import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { getErrorMessage, isAbortError, isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
@@ -26,6 +27,7 @@ interface ErrorContext<T> {
   resolveProviderErrorContext?: (
     msg: T
   ) => Promise<ProviderErrorContext | undefined>
+  resolveDiagnosticSessionId?: (msg: T) => string | undefined
 }
 
 type ErrorEnvelope = NonNullable<ChromeResponse["error"]>
@@ -43,7 +45,10 @@ export const normalizeError = (
 ): ErrorEnvelope => {
   const networkError =
     error && typeof error === "object" ? (error as Partial<NetworkError>) : {}
-  const message = getErrorMessage(error, options.fallbackMessage).trim()
+  const message =
+    isAppError(error) && error.userMessage
+      ? error.userMessage.trim()
+      : getErrorMessage(error, options.fallbackMessage).trim()
 
   return {
     status: options.status ?? networkError.status ?? 0,
@@ -72,7 +77,14 @@ export const normalizeError = (
     ...(isAppError(error) &&
       error.providerName && { providerName: error.providerName }),
     ...(isAppError(error) && error.model && { model: error.model }),
-    ...(isAppError(error) && error.baseUrl && { baseUrl: error.baseUrl })
+    ...(isAppError(error) && error.baseUrl && { baseUrl: error.baseUrl }),
+    ...(isAppError(error) && { code: error.code }),
+    ...(isAppError(error) && { phase: error.phase }),
+    ...(isAppError(error) && { incidentId: error.incidentId }),
+    ...(isAppError(error) &&
+      error.durationMs !== undefined && { durationMs: error.durationMs }),
+    ...(isAppError(error) &&
+      error.recoveryAction && { recoveryAction: error.recoveryAction })
   }
 }
 
@@ -100,6 +112,7 @@ export const withErrorContext = <T>(
   context: ErrorContext<T>
 ) => {
   return async (msg: T, port: ChromePort, isPortClosed: PortStatusFunction) => {
+    const startedAt = performance.now()
     try {
       await handler(msg, port, isPortClosed)
     } catch (err) {
@@ -112,6 +125,9 @@ export const withErrorContext = <T>(
       }
 
       let reportedError = err
+      if (isAppError(reportedError) && reportedError.durationMs === undefined) {
+        reportedError.durationMs = Math.max(0, performance.now() - startedAt)
+      }
       if (
         isAppError(err) &&
         err.kind === "provider" &&
@@ -136,10 +152,17 @@ export const withErrorContext = <T>(
         `Error during ${context.operation || "operation"}`,
         context.handler,
         {
-          message: getErrorMessage(reportedError),
+          message:
+            isAppError(reportedError) && reportedError.userMessage
+              ? reportedError.userMessage
+              : getErrorMessage(reportedError),
           model: context.modelId,
           provider: context.providerId,
-          stack: err instanceof Error ? err.stack : undefined
+          stack:
+            err instanceof Error &&
+            (!isAppError(err) || err.kind !== "provider")
+              ? err.stack
+              : undefined
         }
       )
 
@@ -154,6 +177,26 @@ export const withErrorContext = <T>(
           context: `${context.handler}${context.operation ? ` - ${context.operation}` : ""}`,
           providerId: context.providerId
         })
+        if (isAppError(reportedError)) {
+          const sessionId = context.resolveDiagnosticSessionId?.(msg)
+          await recordDiagnosticEvent({
+            level: "error",
+            code: "REQUEST_FAILED",
+            operation: (context.operation || context.handler)
+              .replaceAll(" ", "-")
+              .slice(0, 100),
+            surface: "background",
+            status: reportedError.status,
+            retryable: reportedError.retryable,
+            supportCode: reportedError.incidentId,
+            ...(sessionId && { sessionId }),
+            durationMs: reportedError.durationMs,
+            metadata: {
+              errorCode: reportedError.code,
+              phase: reportedError.phase
+            }
+          }).catch(() => undefined)
+        }
         safePostMessage(port, { error: response.error })
       }
     }

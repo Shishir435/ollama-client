@@ -1,7 +1,9 @@
 import { memo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
+import { TriangleAlert } from "@/lib/lucide-icon"
 import type { ChatMessage } from "@/types"
+import { ChatErrorReportAction } from "./chat-error-report-action"
 import { ChatMessageContainer } from "./chat-message-container"
 import { ChatMessageContent } from "./chat-message-content"
 import { ChatMessageEditor } from "./chat-message-editor"
@@ -12,6 +14,7 @@ const hasAssistantError = (message: ChatMessage) => Boolean(message.error)
 export const ChatMessageBubble = memo(
   ({
     msg,
+    sessionId,
     onRegenerate,
     isLoading,
     isStreaming,
@@ -23,6 +26,7 @@ export const ChatMessageBubble = memo(
     onNavigate
   }: {
     msg: ChatMessage
+    sessionId?: string
     onRegenerate?: (model?: string) => void
     isLoading?: boolean
     isStreaming?: boolean
@@ -36,6 +40,8 @@ export const ChatMessageBubble = memo(
     const { t } = useTranslation()
     const [editorMode, setEditorMode] = useState<"edit" | "fork" | null>(null)
     const isUser = msg.role === "user"
+    const showErrorTreatment =
+      !isLoading && !isStreaming && hasAssistantError(msg)
     const canRetry =
       !isUser &&
       (Boolean(msg.error?.retryable) || Boolean(msg.metrics?.interrupted)) &&
@@ -77,12 +83,37 @@ export const ChatMessageBubble = memo(
           />
         ) : (
           <>
-            <ChatMessageContent
-              msg={msg}
-              isUser={isUser}
-              isLoading={isLoading}
-              isStreaming={isStreaming}
-            />
+            {showErrorTreatment ? (
+              // A failed turn is styled as a failure, not as model output: same
+              // copy in the same neutral bubble reads as something the model
+              // said. The rail + icon separate the two at a glance.
+              <div
+                role="alert"
+                className="mt-0.5 w-full border-l-2 border-destructive/50 pl-2">
+                <div className="flex items-center gap-1.5 px-2 pb-0.5 text-micro font-medium text-destructive/80">
+                  <TriangleAlert className="icon-xs shrink-0" />
+                  <span>{t("chat.errors.response_failed_title")}</span>
+                </div>
+                <ChatMessageContent
+                  msg={msg}
+                  isUser={isUser}
+                  isLoading={isLoading}
+                  isStreaming={isStreaming}
+                />
+                <ChatErrorReportAction
+                  msg={msg}
+                  sessionId={sessionId}
+                  onRetry={onRegenerate ? () => onRegenerate() : undefined}
+                />
+              </div>
+            ) : (
+              <ChatMessageContent
+                msg={msg}
+                isUser={isUser}
+                isLoading={isLoading}
+                isStreaming={isStreaming}
+              />
+            )}
             <ChatMessageFooter
               isUser={isUser}
               msg={msg}
@@ -91,7 +122,7 @@ export const ChatMessageBubble = memo(
               feedbackEnabled={feedbackEnabled}
               onRegenerate={onRegenerate}
               canRetry={canRetry}
-              canReport={!isLoading && !isStreaming && hasAssistantError(msg)}
+              canReport={showErrorTreatment}
               onEdit={() => setEditorMode("edit")}
               onFork={isUser ? () => setEditorMode("fork") : undefined}
               onDelete={onDelete}
@@ -106,6 +137,7 @@ export const ChatMessageBubble = memo(
   (prev, next) => {
     return (
       prev.msg === next.msg &&
+      prev.sessionId === next.sessionId &&
       prev.isLoading === next.isLoading &&
       prev.isStreaming === next.isStreaming &&
       prev.showRetrievedChunks === next.showRetrievedChunks &&

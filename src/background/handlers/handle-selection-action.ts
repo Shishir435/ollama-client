@@ -1,13 +1,14 @@
 import { setAbortController } from "@/background/lib/abort-controller-registry"
+import { normalizeError } from "@/background/lib/error-handler"
 import { safePostMessage } from "@/background/lib/utils"
 import { buildSelectionActionPrompt } from "@/features/selection-actions/prompt-builder"
 import type { SelectionActionMessage } from "@/features/selection-actions/types"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
-import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { isSelectedModelRef } from "@/lib/providers/selected-model"
 import type { ChromePort, ModelConfigMap, PortStatusFunction } from "@/types"
 
@@ -57,6 +58,7 @@ export const handleSelectionAction = async (
       model,
       providerId
     )
+    assertProviderEnabled(provider, model)
     // Use the user's explicitly configured system prompt, not the
     // default-merged one. DEFAULT_MODEL_CONFIG.system ("...format with
     // markdown...") conflicts with the selection action's "Return plain text
@@ -117,10 +119,7 @@ export const handleSelectionAction = async (
     logger.error("Selection action failed", "handleSelectionAction", { error })
     safePostMessage(port, {
       type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR,
-      error: {
-        status: 0,
-        message: getErrorMessage(error)
-      }
+      error: normalizeError(error)
     })
   } finally {
     setAbortController(abortKey, null)

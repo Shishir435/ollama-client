@@ -2,6 +2,7 @@ import { createAppError } from "@/lib/error-utils"
 import { toDataUrl } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
 import {
+  classifyProviderError,
   isRetryableProviderStatus,
   parseRetryAfter,
   providerErrorUserMessage,
@@ -450,6 +451,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
         const status = streamErrorStatus(data.error)
         const retryAfterMs = streamErrorRetryAfter(data.error)
         const baseUrl = resolveProviderBaseUrl(this.config)
+        const classification = classifyProviderError(status, message)
         throw createAppError(
           message ||
             "The provider reported an error while generating the response.",
@@ -462,14 +464,24 @@ export class OpenAICompatibleProvider implements LLMProvider {
                 ? undefined
                 : isRetryableProviderStatus(status),
             retryAfterMs,
+            code:
+              status === undefined ? "OLC-PROVIDER-HTTP" : classification.code,
+            phase: "read-stream",
+            recoveryAction: classification.recoveryAction,
+            providerName: this.config.name,
+            model,
+            baseUrl,
             userMessage:
               status === undefined
-                ? "The provider reported an error while generating the response."
+                ? classification.reason
+                  ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+                  : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`
                 : providerErrorUserMessage(status, {
                     baseUrl,
                     retryAfterMs,
                     providerName: this.config.name,
-                    model
+                    model,
+                    reason: classification.reason
                   }),
             debug:
               typeof data.error === "string"

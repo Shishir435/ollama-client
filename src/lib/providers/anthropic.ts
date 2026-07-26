@@ -1,6 +1,7 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
+  classifyProviderError,
   readProviderStreamChunk,
   throwProviderConnectionError,
   throwProviderResponseError
@@ -441,15 +442,27 @@ export class AnthropicProvider implements LLMProvider {
       }
 
       if (event.type === "error") {
-        throw createAppError(
-          event.error?.message || "Anthropic stream returned an error.",
-          {
-            kind: "provider",
-            providerId: this.id,
-            retryable: event.error?.type === "overloaded_error",
-            debug: event.error
-          }
-        )
+        const status =
+          event.error?.type === "overloaded_error" ? 529 : undefined
+        const message =
+          event.error?.message || "Anthropic stream returned an error."
+        const classification = classifyProviderError(status, message)
+        throw createAppError(message, {
+          kind: "provider",
+          status,
+          providerId: this.id,
+          providerName: this.config.name,
+          model,
+          baseUrl: this.baseUrl,
+          retryable: event.error?.type === "overloaded_error",
+          code: classification.code,
+          phase: "read-stream",
+          recoveryAction: classification.recoveryAction,
+          userMessage: classification.reason
+            ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+            : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
+          debug: event.error
+        })
       }
       if (event.type === "message_start") {
         inputTokens = event.message?.usage?.input_tokens

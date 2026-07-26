@@ -195,6 +195,7 @@ export const Chat = () => {
         <>
           <ChatMessageList
             messages={messages}
+            sessionId={currentSessionId ?? undefined}
             pendingActivityEvents={pendingActivityEvents}
             isLoading={isLoading}
             isStreaming={isStreaming}
