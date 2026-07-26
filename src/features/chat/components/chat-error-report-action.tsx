@@ -92,44 +92,56 @@ export const ChatErrorReportAction = ({
   }
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-      {focus && (
-        <Button variant="secondary" size="sm" onClick={openRecoverySettings}>
-          <Settings className="icon-xs" />
-          {action === "open-diagnostics"
-            ? t("chat.errors.open_diagnostics")
-            : t("settings.shortcuts.open_settings")}
-        </Button>
-      )}
-      {(action === "retry" || action === "wait-retry") && onRetry && (
-        <Button variant="secondary" size="sm" onClick={onRetry}>
-          <RefreshCcw className="icon-xs" />
-          {t("common.actions.retry")}
-        </Button>
-      )}
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={preparing}
-        onClick={() => void openIssue()}>
-        {preparing ? (
-          <Loader2 className="icon-xs animate-spin" />
-        ) : (
-          <Bug className="icon-xs" />
+    <div className="mt-1.5 w-full max-w-[90vw] px-2 sm:max-w-2xl">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {focus && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="border border-border/30 bg-muted/25 text-foreground shadow-none hover:border-border/50 hover:bg-muted/45"
+            onClick={openRecoverySettings}>
+            <Settings className="icon-xs" />
+            {action === "open-diagnostics"
+              ? t("chat.errors.open_diagnostics")
+              : t("settings.shortcuts.open_settings")}
+          </Button>
         )}
-        {preparing
-          ? t("chat.errors.preparing_issue")
-          : t("chat.errors.open_issue")}
-      </Button>
-      <span className="text-micro text-muted-foreground">
-        {t("chat.errors.issue_draft_notice")}
-      </span>
-      {msg.error?.code && (
-        <code className="select-all text-micro text-muted-foreground">
-          {msg.error.code}
-          {msg.error.incidentId ? ` · ${msg.error.incidentId}` : ""}
-        </code>
-      )}
+        {(action === "retry" || action === "wait-retry") && onRetry && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="border border-border/30 bg-muted/25 text-foreground shadow-none hover:border-border/50 hover:bg-muted/45"
+            onClick={onRetry}>
+            <RefreshCcw className="icon-xs" />
+            {t("common.actions.retry")}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="border border-border/25 bg-transparent text-muted-foreground shadow-none hover:border-border/50 hover:bg-muted/35 hover:text-foreground"
+          disabled={preparing}
+          onClick={() => void openIssue()}>
+          {preparing ? (
+            <Loader2 className="icon-xs animate-spin" />
+          ) : (
+            <Bug className="icon-xs" />
+          )}
+          {preparing
+            ? t("chat.errors.preparing_issue")
+            : t("chat.errors.open_issue")}
+        </Button>
+      </div>
+
+      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-micro text-muted-foreground/65">
+        <span>{t("chat.errors.issue_draft_notice")}</span>
+        {msg.error?.code && (
+          <code className="select-all font-mono text-micro tracking-tight text-muted-foreground/60">
+            {msg.error.code}
+            {msg.error.incidentId ? ` · ${msg.error.incidentId}` : ""}
+          </code>
+        )}
+      </div>
     </div>
   )
 }
