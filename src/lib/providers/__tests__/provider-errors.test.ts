@@ -74,6 +74,12 @@ describe("providerErrorUserMessage", () => {
     )
     expect(issueUrl.searchParams.get("body")).toContain("includes no telemetry")
     expect(issueUrl.searchParams.get("body")).toContain("or console logs")
+    expect(issueUrl.searchParams.get("body")).toContain(
+      "Optional support bundle (helps diagnose faster)"
+    )
+    expect(issueUrl.searchParams.get("body")).toContain(
+      "Nothing is uploaded automatically"
+    )
     expect(issueUrl.searchParams.get("body")).not.toContain("secret")
     expect(issueUrl.searchParams.get("body")).not.toContain("private")
   })
@@ -119,6 +125,8 @@ describe("providerErrorUserMessage", () => {
     expect(body).toContain(
       "- Selected model: /Users/<redacted>/Models/qwen.gguf"
     )
+    expect(body).toContain("Preview support bundle")
+    expect(body).toContain("up to seven days")
     expect(body).toContain("includes no telemetry")
   })
 

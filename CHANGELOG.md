@@ -20,6 +20,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Unified every in-extension bug-report entry point around current extension,
   best-effort browser/version, and coarse OS details. The sidebar report also
   includes the selected provider/model reference without attaching chat data.
+- Issue drafts now explain how users can optionally review and attach the local
+  seven-day support bundle for faster diagnosis; it is never uploaded
+  automatically.
 
 ### Fixed
 

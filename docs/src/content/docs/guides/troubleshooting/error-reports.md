@@ -39,8 +39,11 @@ Read these fields in order:
    and browser-specific behavior.
 
 The support bundle is available under **Help → Diagnostics & support**. Users
-can preview it before copying or downloading it. Nothing is uploaded
-automatically.
+can select **Preview support bundle**, review its contents, then
+**Download bundle** and drag the JSON file into the GitHub issue. Attaching it
+is optional, but its safe event sequence often makes diagnosis faster. Nothing
+is uploaded automatically, and GitHub does not allow the extension to attach a
+local file silently.
 
 ## Error-code reference
 

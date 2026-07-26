@@ -98,6 +98,13 @@ type ErrorReportInput = {
 
 type DiagnosticBundle = DiagnosticsGetBundleResult["bundle"]
 
+const supportBundleLines = [
+  "",
+  "**Optional support bundle (helps diagnose faster)**",
+  "Open Ollama Client → Settings → Help → Diagnostics & support, select **Preview support bundle**, then **Download bundle**. Review the JSON file and drag it into this issue.",
+  "The bundle can include up to seven days of privacy-safe technical events. Nothing is uploaded automatically."
+]
+
 export interface GenericIssueContext {
   providerId?: string
   model?: string
@@ -125,6 +132,7 @@ export const buildGenericIssueReportUrl = (
     `- OS: ${environment.os} (coarse family only)`,
     `- Selected provider: ${providerId ?? "n/a"}`,
     `- Selected model: ${model || "n/a"}`,
+    ...supportBundleLines,
     "",
     "**Privacy**",
     "This draft was generated locally and opened for your review. It includes no telemetry, prompts, page content, file names, API keys, provider responses, or console logs.",
@@ -249,6 +257,7 @@ export const buildErrorReportUrl = (
     `- Base URL: ${baseUrl || "n/a"}`,
     ...checkLines(checks),
     ...diagnosticLines(diagnostics, incidentId),
+    ...supportBundleLines,
     "",
     "**Privacy**",
     "This draft was generated locally and opened for your review. It includes no telemetry, prompts, page content, file names, API keys, raw provider responses, or console logs.",
