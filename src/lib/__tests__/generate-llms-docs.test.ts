@@ -1,5 +1,13 @@
+import { readdirSync, statSync } from "node:fs"
+import { join, relative } from "node:path"
+
 import { describe, expect, it } from "vitest"
-import { cleanMarkdown } from "../../../tools/generate-llms-docs"
+
+import { DOC_ORDER } from "../../../docs/src/seo/doc-ia.mjs"
+import {
+  assertIaMatches,
+  cleanMarkdown
+} from "../../../tools/generate-llms-docs"
 
 describe("cleanMarkdown", () => {
   it("removes multiline MDX export declarations but keeps prose", () => {
@@ -64,5 +72,47 @@ Body text.`
     expect(cleaned).not.toContain("FAQPageJsonLd")
     expect(cleaned).not.toContain("Rendered component")
     expect(cleaned).toContain("# Public")
+  })
+})
+
+const DOCS_CONTENT_DIR = join(__dirname, "../../../docs/src/content/docs")
+
+const contentSlugs = () => {
+  const walk = (dir: string): string[] =>
+    readdirSync(dir).flatMap((entry) => {
+      const path = join(dir, entry)
+      return statSync(path).isDirectory() ? walk(path) : [path]
+    })
+
+  return walk(DOCS_CONTENT_DIR)
+    .filter((path) => /\.(md|mdx)$/.test(path))
+    .map((path) => relative(DOCS_CONTENT_DIR, path).replace(/\\/g, "/"))
+    .filter((path) => !path.startsWith("reference/"))
+    .map((path) => path.replace(/\.(md|mdx)$/, "").replace(/\/index$/, ""))
+}
+
+describe("docs IA", () => {
+  /*
+   * The generator enforces this at build time, but a build runs later than a
+   * push. Failing here means a new docs page shows up in `pnpm test:run` rather
+   * than silently landing at the bottom of llms.txt — the exact regression this
+   * check exists for, which went unnoticed for two pages.
+   */
+  it("matches the content tree", () => {
+    expect(() => assertIaMatches(contentSlugs())).not.toThrow()
+  })
+
+  it("names the page when the content tree has one the IA does not", () => {
+    expect(() =>
+      assertIaMatches([...contentSlugs(), "guides/unlisted-page"])
+    ).toThrow(/guides\/unlisted-page.*not in DOC_SECTIONS/s)
+  })
+
+  it("names the page when the IA has one the content tree does not", () => {
+    const withoutFirst = contentSlugs().filter((slug) => slug !== DOC_ORDER[0])
+
+    expect(() => assertIaMatches(withoutFirst)).toThrow(
+      new RegExp(`${DOC_ORDER[0]}.*has no content file`, "s")
+    )
   })
 })

@@ -11,3 +11,5 @@ export const AUTHOR_NAME: string
 export const AUTHOR_URL: string
 export const CONTACT_EMAIL: string
 export const REPO_URL: string
+export const GOOGLE_SITE_VERIFICATION: string
+export const IS_NON_PRODUCTION_DEPLOY: boolean
