@@ -265,6 +265,17 @@ export const DiagnosticsService = {
     // asked — an automatic bundle request already in flight was measuring the
     // configuration from before the user's change. It still becomes the run that
     // later callers share, so forcing does not multiply concurrent suites.
+    //
+    // Deliberately not coalesced with a concurrent forced run. Comparing start
+    // times to decide "is that run fresh enough for me" cannot be made exact:
+    // wall-clock granularity makes a run that started just before the request
+    // indistinguishable from one that started just after, and freshness really
+    // depends on whether config changed in between, which is not tracked. The
+    // only caller that can force is the "Run self-tests" button, which is
+    // disabled while running, so the duplication this would save is two open
+    // options pages measuring at different times — which *should* measure twice.
+    // If this ever needs coalescing, gate it on a config-mutation counter, not
+    // on a clock.
     if (options?.force) {
       return { tests: await joinSharedRun(startSharedRun(), signal) }
     }
