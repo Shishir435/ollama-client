@@ -105,6 +105,22 @@ const supportBundleLines = [
   "The bundle can include up to seven days of privacy-safe technical events. Nothing is uploaded automatically."
 ]
 
+/**
+ * Empty fenced block the reporter pastes their copied diagnostics into. The
+ * chat error panel and the diagnostics settings screen both expose a "Copy
+ * diagnostics" action; without a paste target in the draft, that clipboard
+ * payload has nowhere obvious to go and reporters drop it.
+ */
+const diagnosticsPasteLines = [
+  "",
+  "**Diagnostic logs**",
+  "Optional but very helpful. Select **Copy diagnostics** on the failed message (or Settings → Help → Diagnostics & support), then paste between the fences below. Review it first — it is generated locally and never uploaded on its own.",
+  "",
+  "```json",
+  "",
+  "```"
+]
+
 export interface GenericIssueContext {
   providerId?: string
   model?: string
@@ -132,6 +148,7 @@ export const buildGenericIssueReportUrl = (
     `- OS: ${environment.os} (coarse family only)`,
     `- Selected provider: ${providerId ?? "n/a"}`,
     `- Selected model: ${model || "n/a"}`,
+    ...diagnosticsPasteLines,
     ...supportBundleLines,
     "",
     "**Privacy**",
@@ -140,11 +157,7 @@ export const buildGenericIssueReportUrl = (
     "**Steps to reproduce**",
     "1. "
   ].join("\n")
-  const params = new URLSearchParams({
-    title: "[bug] Help needed: ",
-    body
-  })
-  return `${EXTERNAL_URLS.GITHUB_ISSUES}/new?${params.toString()}`
+  return composeIssueUrl("[bug] Help needed: ", body)
 }
 
 export interface SafeErrorChecks {
@@ -174,6 +187,27 @@ const checkLines = (checks?: SafeErrorChecks): string[] => {
   ]
 }
 
+/**
+ * GitHub answers 414 on very long request URLs, and a prefilled draft is a URL.
+ * Stay under the ~8 KB practical ceiling with room to spare.
+ *
+ * Measured: a real provider-unreachable report is ~2.5 KB, and the worst case
+ * the per-field clamps below allow (every field at its cap, 20 self-tests, 12
+ * providers, 5 events) is ~4.9 KB. Encoding inflates the body only ~1.2x — the
+ * cost is `%0A` per newline, since `URLSearchParams` writes spaces as `+`.
+ * The trim tiers in `buildErrorReportUrl` are therefore unreachable today; they
+ * exist so adding an unclamped field later degrades the draft instead of
+ * shipping a URL GitHub rejects.
+ */
+const MAX_REPORT_URL_LENGTH = 7_500
+
+/** One diagnostics line can otherwise grow with the number of providers/events. */
+const clampLine = (value: string, max = 500): string =>
+  value.length > max ? `${value.slice(0, max - 1)}…` : value
+
+const composeIssueUrl = (title: string, body: string): string =>
+  `${EXTERNAL_URLS.GITHUB_ISSUES}/new?${new URLSearchParams({ title, body }).toString()}`
+
 const diagnosticLines = (
   bundle: DiagnosticBundle | undefined,
   incidentId?: string
@@ -187,30 +221,36 @@ const diagnosticLines = (
   return [
     "",
     "**Local diagnostics (run automatically after the error)**",
-    `- Self-tests: ${bundle.selfTests
-      .slice(0, 20)
-      .map(
-        (test) =>
-          `${test.id}=${test.status}${test.code ? ` (${test.code})` : ""}`
-      )
-      .join(", ")}`,
-    `- Provider profiles: ${bundle.providers
-      .slice(0, 12)
-      .map(
-        (provider) =>
-          `${provider.profile}/${provider.wire}=${provider.enabled ? "enabled" : "disabled"}`
-      )
-      .join(", ")}`,
-    `- Matching safe events: ${
-      matchingEvents.length > 0
-        ? matchingEvents
-            .map(
-              (event) =>
-                `${event.code}@${event.operation}${event.status ? `:${event.status}` : ""}`
-            )
-            .join(", ")
-        : "none"
-    }`
+    clampLine(
+      `- Self-tests: ${bundle.selfTests
+        .slice(0, 20)
+        .map(
+          (test) =>
+            `${test.id}=${test.status}${test.code ? ` (${test.code})` : ""}`
+        )
+        .join(", ")}`
+    ),
+    clampLine(
+      `- Provider profiles: ${bundle.providers
+        .slice(0, 12)
+        .map(
+          (provider) =>
+            `${provider.profile}/${provider.wire}=${provider.enabled ? "enabled" : "disabled"}`
+        )
+        .join(", ")}`
+    ),
+    clampLine(
+      `- Matching safe events: ${
+        matchingEvents.length > 0
+          ? matchingEvents
+              .map(
+                (event) =>
+                  `${event.code}@${event.operation}${event.status ? `:${event.status}` : ""}`
+              )
+              .join(", ")
+          : "none"
+      }`
+    )
   ]
 }
 
@@ -218,7 +258,7 @@ const buildErrorReportDraft = (
   error: ErrorReportInput,
   diagnostics?: DiagnosticBundle,
   checks?: SafeErrorChecks
-): { title: string; body: string } => {
+): { title: string; head: string; tail: string } => {
   const message = (error.message ?? "").replace(/\s+/g, " ").trim()
   const providerName = error.providerName
     ?.replace(/\s+/g, " ")
@@ -237,9 +277,12 @@ const buildErrorReportDraft = (
     ? `${providerName} server error`
     : message.slice(0, 80) || "Error while chatting"
   const title = `[bug] ${code ? `${code}: ` : ""}${subject}${error.status ? ` (${error.status})` : ""}`
-  const body = [
+  // `head` is the variable-size part (it scales with the user's install and the
+  // error text); `tail` is fixed prose that must survive any trimming, because
+  // it holds the diagnostics paste block and the privacy statement.
+  const head = [
     "**What happened**",
-    message || "_describe the error here_",
+    clampLine(message, 800) || "_describe the error here_",
     "",
     "**Details**",
     `- Extension version: ${getExtensionVersion()}`,
@@ -254,9 +297,12 @@ const buildErrorReportDraft = (
     `- Suggested recovery: ${recoveryAction ?? "n/a"}`,
     `- Provider: ${providerName || error.providerId || "n/a"}`,
     `- Model: ${model || "n/a"}`,
-    `- Base URL: ${baseUrl || "n/a"}`,
+    `- Base URL: ${clampLine(baseUrl || "n/a", 300)}`,
     ...checkLines(checks),
-    ...diagnosticLines(diagnostics, incidentId),
+    ...diagnosticLines(diagnostics, incidentId)
+  ].join("\n")
+  const tail = [
+    ...diagnosticsPasteLines,
     ...supportBundleLines,
     "",
     "**Privacy**",
@@ -265,7 +311,27 @@ const buildErrorReportDraft = (
     "**Steps to reproduce**",
     "1. "
   ].join("\n")
-  return { title, body }
+  return { title, head, tail }
+}
+
+const TRIMMED_NOTICE =
+  "\n\n_Some automatic detail was left out to fit the issue-URL length limit. Use **Copy diagnostics** and paste the full log below._"
+
+/**
+ * Shrink `head` until the composed URL fits, keeping `tail` intact. The 0.85
+ * factor with a floor guarantees termination; `tail` is fixed-size prose well
+ * under the limit on its own.
+ */
+const fitHeadToUrl = (title: string, head: string, tail: string): string => {
+  let candidate = head
+  while (
+    candidate.length > 0 &&
+    composeIssueUrl(title, `${candidate}${TRIMMED_NOTICE}\n${tail}`).length >
+      MAX_REPORT_URL_LENGTH
+  ) {
+    candidate = candidate.slice(0, Math.floor(candidate.length * 0.85))
+  }
+  return `${candidate}${TRIMMED_NOTICE}\n${tail}`
 }
 
 export const buildErrorReportUrl = (
@@ -273,10 +339,26 @@ export const buildErrorReportUrl = (
   diagnostics?: DiagnosticBundle,
   checks?: SafeErrorChecks
 ): string => {
-  const params = new URLSearchParams(
-    buildErrorReportDraft(error, diagnostics, checks)
+  const full = buildErrorReportDraft(error, diagnostics, checks)
+  const url = composeIssueUrl(full.title, `${full.head}\n${full.tail}`)
+  if (url.length <= MAX_REPORT_URL_LENGTH) return url
+
+  // Tier 2: the embedded diagnostics summary is the section that scales with the
+  // user's install, so it goes first. The paste block is a better home for a
+  // long log anyway.
+  const lean = buildErrorReportDraft(error, undefined, checks)
+  const leanUrl = composeIssueUrl(
+    lean.title,
+    `${lean.head}${TRIMMED_NOTICE}\n${lean.tail}`
   )
-  return `${EXTERNAL_URLS.GITHUB_ISSUES}/new?${params.toString()}`
+  if (leanUrl.length <= MAX_REPORT_URL_LENGTH) return leanUrl
+
+  // Tier 3: hard guarantee. Trim the details themselves rather than hand GitHub
+  // a URL it answers 414 to.
+  return composeIssueUrl(
+    lean.title,
+    fitHeadToUrl(lean.title, lean.head, lean.tail)
+  )
 }
 
 const chatMessageErrorInput = (message: ChatMessage): ErrorReportInput => ({
