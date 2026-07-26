@@ -7,42 +7,23 @@ published on the Chrome Web Store.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.12.4] - 2026-07-24
 
 ### Added
 
-- Added a post-uninstall feedback page with optional GitHub and email prompts,
-  plus extension version and browser language context to help diagnose
-  release-specific issues without attaching chat content or settings.
-- Added stable support codes, incident IDs, failure phases, and tailored
-  recovery actions to chat errors. Opening an issue now runs local, privacy-safe
-  checks on demand and includes matching diagnostics in the reviewed draft.
-- Unified every in-extension bug-report entry point around current extension,
-  best-effort browser/version, and coarse OS details. The sidebar report also
-  includes the selected provider/model reference without attaching chat data.
-- Issue drafts now explain how users can optionally review and attach the local
-  seven-day support bundle for faster diagnosis; it is never uploaded
-  automatically. Chat errors run privacy-safe checks automatically and provide
-  **Copy diagnostics** beside **Open an issue** for copying the saved diagnostic
-  events for that chat session separately from the concise GitHub issue draft.
-
-### Fixed
-
-- Provider response errors now identify the configured provider, selected
-  model, sanitized base URL, and HTTP status in chat and prefilled issue
-  reports, while keeping credentials and raw upstream responses private.
-- Failed messages now show a visible **Open an issue** action while retaining
-  the compact footer icon. Prefilled drafts add best-effort browser/version and
-  coarse OS details, explain that users can edit them, and disclose exactly
-  which sensitive data and console logs are excluded.
-- Disabled providers can no longer serve chat, selection-action, RAG
-  reformulation, or model-warmup requests from stale model selections.
-- Provider adapters now recognize safe reasons such as missing or unloaded
-  models, context limits, unsupported input, memory exhaustion, rate limits,
-  overload, and interrupted streams without exposing raw provider responses.
-  Filesystem-shaped model IDs redact local account names in issue drafts.
-
-## [0.12.4] - 2026-07-24
+- Chat errors now carry a stable support code, an incident ID, and the failure
+  phase, and a failed turn is styled as a failure rather than as model output.
+- Recovery actions on the failed message itself: re-enable a switched-off
+  provider and re-run the turn, wait out a rate limit, or jump straight to the
+  setting involved.
+- Failure details are saved with the message, so a report survives reopening the
+  side panel or restarting the browser.
+- **Copy diagnostics** beside **Open an issue**, with a matching empty code block
+  in the draft to paste into. Generated locally; nothing is uploaded on its own.
+- A reference for every error code the extension can show, under Docs → Guides →
+  Troubleshooting → Error reports.
+- A post-uninstall feedback page. It receives only the extension version and
+  interface language — no identifier, no usage data, no chat content.
 
 ### Changed
 
@@ -56,7 +37,29 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   OPFS SQLite persistence backend, so the requirement is stated honestly.
 - Consolidated provider HTTP error handling into one shared path for consistent
   status codes, retry hints, and user-facing messages across providers.
+- Every bug-report draft now carries the same environment details, paste block,
+  privacy note, and length safeguards, wherever it was started from.
+- One report action per failed turn instead of two with different detail.
+- Recovery buttons stop being offered once a failure is over an hour old, so
+  scrolling back cannot re-run an old turn or change a provider setting by
+  accident. The link to the relevant setting stays.
+- Diagnostic self-tests are shared briefly between requests, so viewing several
+  failed messages no longer repeats the same provider checks. **Run self-tests**
+  always measures fresh.
 - Bumped package version to `0.12.4`.
+
+### Fixed
+
+- Provider errors now identify the provider, model, sanitized base URL, and HTTP
+  status, while keeping credentials and raw upstream responses private.
+- Disabled providers can no longer serve chat, selection-action, RAG
+  reformulation, or model-warmup requests from a stale model selection.
+- Provider adapters recognize missing or unloaded models, context limits,
+  unsupported input, memory exhaustion, rate limits, overload, and interrupted
+  streams without exposing raw responses. Filesystem-shaped model IDs redact
+  local account names in drafts.
+- Reports read the provider's on/off state instead of inferring it, and label a
+  duration measured against an unreachable provider as time-to-failure.
 
 ## [0.12.3] - 2026-07-23
 
