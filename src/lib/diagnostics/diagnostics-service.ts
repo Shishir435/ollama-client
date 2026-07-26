@@ -95,69 +95,164 @@ const runMigrationTest = async (): Promise<DiagnosticTestResult> => {
   return result
 }
 
-export const DiagnosticsService = {
-  async run(signal?: AbortSignal): Promise<DiagnosticsRunResult> {
-    const tests = await Promise.all([
-      runTest("runtime_version", async () => {
-        const version = chrome.runtime.getManifest().version
-        if (!version) throw new Error("missing version")
-        return { result: "available" }
-      }),
-      runTest("browser_apis", async () => ({
-        count: Object.values(capabilities()).filter(Boolean).length
-      })),
-      runTest("permissions", async () => ({
-        count: Object.values(await permissions()).filter(Boolean).length
-      })),
-      runTest("sync_storage", () => storageRoundTrip(chrome.storage.sync)),
-      runTest("local_storage", () => storageRoundTrip(chrome.storage.local)),
-      runTest("chat_repository", async () => {
-        const token = `diagnostic-${crypto.randomUUID()}`
-        let began = false
-        try {
-          await rpcTxBegin(token)
-          began = true
-          const rows = await rpcQuery("SELECT 1 AS ok", undefined, token)
-          if (rows[0]?.ok !== 1) throw new Error("transaction smoke mismatch")
-        } finally {
-          if (began) await rpcTxRollback(token)
-        }
-        const count = await countMessages()
-        return { count }
-      }),
-      runTest("vector_store", async () => ({
-        count: await vectorDb.vectors.count()
-      })),
-      runTest("provider_discovery", async () => {
-        const result = await ProviderRpcService.listModels(
-          {
-            enabledOnly: true
-          },
-          signal
-        )
-        return {
-          count: result.models.length,
-          status: result.failures.length > 0 ? "partial" : "pass"
-        }
-      }),
-      runMigrationTest()
-    ])
-    signal?.throwIfAborted()
-    await recordDiagnosticEvent({
-      level: tests.every((test) => test.status === "pass") ? "info" : "warn",
-      code: "DIAGNOSTICS_SELF_TEST_COMPLETED",
-      operation: "diagnostics.run",
-      surface: "background",
-      metadata: {
-        count: tests.length,
-        result: tests.some((test) => test.status === "fail")
-          ? "failure"
-          : tests.some((test) => test.status === "action")
-            ? "action"
-            : "pass"
+const executeSelfTests = async (
+  signal?: AbortSignal
+): Promise<DiagnosticTestResult[]> => {
+  const tests = await Promise.all([
+    runTest("runtime_version", async () => {
+      const version = chrome.runtime.getManifest().version
+      if (!version) throw new Error("missing version")
+      return { result: "available" }
+    }),
+    runTest("browser_apis", async () => ({
+      count: Object.values(capabilities()).filter(Boolean).length
+    })),
+    runTest("permissions", async () => ({
+      count: Object.values(await permissions()).filter(Boolean).length
+    })),
+    runTest("sync_storage", () => storageRoundTrip(chrome.storage.sync)),
+    runTest("local_storage", () => storageRoundTrip(chrome.storage.local)),
+    runTest("chat_repository", async () => {
+      const token = `diagnostic-${crypto.randomUUID()}`
+      let began = false
+      try {
+        await rpcTxBegin(token)
+        began = true
+        const rows = await rpcQuery("SELECT 1 AS ok", undefined, token)
+        if (rows[0]?.ok !== 1) throw new Error("transaction smoke mismatch")
+      } finally {
+        if (began) await rpcTxRollback(token)
       }
+      const count = await countMessages()
+      return { count }
+    }),
+    runTest("vector_store", async () => ({
+      count: await vectorDb.vectors.count()
+    })),
+    runTest("provider_discovery", async () => {
+      const result = await ProviderRpcService.listModels(
+        { enabledOnly: true },
+        signal
+      )
+      return {
+        count: result.models.length,
+        status: result.failures.length > 0 ? "partial" : "pass"
+      }
+    }),
+    runMigrationTest()
+  ])
+  signal?.throwIfAborted()
+  // Recorded once per real execution, never on a shared/cached result, so
+  // displaying failures cannot flood the ring buffer that explains them.
+  await recordDiagnosticEvent({
+    level: tests.every((test) => test.status === "pass") ? "info" : "warn",
+    code: "DIAGNOSTICS_SELF_TEST_COMPLETED",
+    operation: "diagnostics.run",
+    surface: "background",
+    metadata: {
+      count: tests.length,
+      result: tests.some((test) => test.status === "fail")
+        ? "failure"
+        : tests.some((test) => test.status === "action")
+          ? "action"
+          : "pass"
+    }
+  })
+  return tests
+}
+
+/**
+ * The suite is not free: it opens a repository transaction, round-trips both
+ * storage areas, and performs provider model discovery over the network. A chat
+ * error bubble prepares a bundle on mount, and the message list is virtualized,
+ * so N visible failures used to mean N full suites — including N network probes
+ * and N recorded events, which diluted the very ring buffer the events explain.
+ *
+ * Results are therefore shared for a short window. Short enough that a user who
+ * changes a setting and re-runs from the diagnostics screen sees fresh truth
+ * (that path passes `force`), long enough that painting a screenful of failures
+ * costs one suite.
+ */
+const SELF_TEST_TTL_MS = 60_000
+
+type SharedRun = {
+  promise: Promise<DiagnosticTestResult[]>
+  controller: AbortController
+  waiters: number
+}
+
+let selfTestCache: { at: number; tests: DiagnosticTestResult[] } | undefined
+let sharedRun: SharedRun | undefined
+
+const rejectOnAbort = (signal: AbortSignal): Promise<never> =>
+  new Promise((_resolve, reject) => {
+    signal.addEventListener("abort", () => reject(signal.reason), {
+      once: true
     })
-    return { tests }
+  })
+
+/**
+ * Await the shared run while keeping this caller's cancellation meaningful: an
+ * aborting caller stops waiting immediately, and the underlying work is only
+ * cancelled once every interested caller has abandoned it. Preserves the
+ * end-to-end RPC cancellation path without letting one client's timeout kill
+ * another client's in-flight suite.
+ */
+const joinSharedRun = async (
+  run: SharedRun,
+  signal?: AbortSignal
+): Promise<DiagnosticTestResult[]> => {
+  run.waiters += 1
+  if (!signal) return run.promise
+  const abandon = () => {
+    run.waiters -= 1
+    if (run.waiters <= 0) run.controller.abort(signal.reason)
+  }
+  signal.addEventListener("abort", abandon, { once: true })
+  try {
+    return await Promise.race([run.promise, rejectOnAbort(signal)])
+  } finally {
+    signal.removeEventListener("abort", abandon)
+  }
+}
+
+export const DiagnosticsService = {
+  /** Exposed for tests; production callers get the TTL-shared path. */
+  __resetSelfTestCache() {
+    selfTestCache = undefined
+    sharedRun = undefined
+  },
+
+  async run(
+    signal?: AbortSignal,
+    options?: { force?: boolean }
+  ): Promise<DiagnosticsRunResult> {
+    if (
+      !options?.force &&
+      selfTestCache &&
+      Date.now() - selfTestCache.at < SELF_TEST_TTL_MS
+    ) {
+      signal?.throwIfAborted()
+      return { tests: selfTestCache.tests }
+    }
+    if (!sharedRun) {
+      const controller = new AbortController()
+      const run: SharedRun = {
+        controller,
+        waiters: 0,
+        promise: undefined as unknown as Promise<DiagnosticTestResult[]>
+      }
+      run.promise = executeSelfTests(controller.signal)
+        .then((tests) => {
+          selfTestCache = { at: Date.now(), tests }
+          return tests
+        })
+        .finally(() => {
+          if (sharedRun === run) sharedRun = undefined
+        })
+      sharedRun = run
+    }
+    return { tests: await joinSharedRun(sharedRun, signal) }
   },
 
   async getBundle(
