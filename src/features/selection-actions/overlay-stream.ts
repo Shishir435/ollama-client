@@ -68,7 +68,9 @@ export function connectSelectionStream(
 
     if (message.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR) {
       callbacks.onError(
-        message.error?.message ?? "Selection action failed. Try again."
+        message.error?.userMessage ??
+          message.error?.message ??
+          "Selection action failed. Try again."
       )
     }
   })
