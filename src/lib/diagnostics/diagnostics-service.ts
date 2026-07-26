@@ -179,10 +179,14 @@ type SharedRun = {
   promise: Promise<DiagnosticTestResult[]>
   controller: AbortController
   waiters: number
+  seq: number
 }
 
-let selfTestCache: { at: number; tests: DiagnosticTestResult[] } | undefined
+let selfTestCache:
+  | { at: number; seq: number; tests: DiagnosticTestResult[] }
+  | undefined
 let sharedRun: SharedRun | undefined
+let runSeq = 0
 
 const rejectOnAbort = (signal: AbortSignal): Promise<never> =>
   new Promise((_resolve, reject) => {
@@ -216,6 +220,35 @@ const joinSharedRun = async (
   }
 }
 
+/**
+ * Begin a fresh execution and make it the run new callers attach to.
+ *
+ * A run that finishes out of order must not publish stale results, which is
+ * possible once a forced run overtakes an in-flight one: results are only cached
+ * when they come from a newer execution than whatever is cached.
+ */
+const startSharedRun = (): SharedRun => {
+  const controller = new AbortController()
+  const run: SharedRun = {
+    controller,
+    waiters: 0,
+    seq: ++runSeq,
+    promise: undefined as unknown as Promise<DiagnosticTestResult[]>
+  }
+  run.promise = executeSelfTests(controller.signal)
+    .then((tests) => {
+      if (!selfTestCache || run.seq > selfTestCache.seq) {
+        selfTestCache = { at: Date.now(), seq: run.seq, tests }
+      }
+      return tests
+    })
+    .finally(() => {
+      if (sharedRun === run) sharedRun = undefined
+    })
+  sharedRun = run
+  return run
+}
+
 export const DiagnosticsService = {
   /** Exposed for tests; production callers get the TTL-shared path. */
   __resetSelfTestCache() {
@@ -227,32 +260,19 @@ export const DiagnosticsService = {
     signal?: AbortSignal,
     options?: { force?: boolean }
   ): Promise<DiagnosticsRunResult> {
-    if (
-      !options?.force &&
-      selfTestCache &&
-      Date.now() - selfTestCache.at < SELF_TEST_TTL_MS
-    ) {
+    // A forced run means "measure the state I am looking at now", so it must
+    // neither read the cache nor attach to work that started before the caller
+    // asked — an automatic bundle request already in flight was measuring the
+    // configuration from before the user's change. It still becomes the run that
+    // later callers share, so forcing does not multiply concurrent suites.
+    if (options?.force) {
+      return { tests: await joinSharedRun(startSharedRun(), signal) }
+    }
+    if (selfTestCache && Date.now() - selfTestCache.at < SELF_TEST_TTL_MS) {
       signal?.throwIfAborted()
       return { tests: selfTestCache.tests }
     }
-    if (!sharedRun) {
-      const controller = new AbortController()
-      const run: SharedRun = {
-        controller,
-        waiters: 0,
-        promise: undefined as unknown as Promise<DiagnosticTestResult[]>
-      }
-      run.promise = executeSelfTests(controller.signal)
-        .then((tests) => {
-          selfTestCache = { at: Date.now(), tests }
-          return tests
-        })
-        .finally(() => {
-          if (sharedRun === run) sharedRun = undefined
-        })
-      sharedRun = run
-    }
-    return { tests: await joinSharedRun(sharedRun, signal) }
+    return { tests: await joinSharedRun(sharedRun ?? startSharedRun(), signal) }
   },
 
   async getBundle(

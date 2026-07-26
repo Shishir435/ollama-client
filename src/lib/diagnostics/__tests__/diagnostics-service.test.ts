@@ -129,6 +129,34 @@ describe("DiagnosticsService", () => {
     expect(mocks.record).toHaveBeenCalledTimes(2)
   })
 
+  it("does not let a forced run attach to a suite that started before it", async () => {
+    // "Run self-tests" pressed while an error bubble's bundle request is still
+    // in flight: that request measured the configuration from before the click,
+    // so joining it would report pre-change state as the current state.
+    const releases: Array<(value: unknown) => void> = []
+    mocks.listModels.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releases.push(resolve)
+        })
+    )
+
+    const automatic = DiagnosticsService.run()
+    const forced = DiagnosticsService.run(undefined, { force: true })
+    expect(mocks.listModels).toHaveBeenCalledTimes(2)
+
+    // Resolve the forced (newer) run first, then the older one, so an
+    // out-of-order finish cannot publish the stale result.
+    releases[1]?.({ models: [{ name: "after-change" }], failures: [] })
+    releases[0]?.({ models: [], failures: [] })
+    await Promise.all([automatic, forced])
+
+    const { tests } = await DiagnosticsService.run()
+    expect(
+      tests.find((test) => test.id === "provider_discovery")?.metadata?.count
+    ).toBe(1)
+  })
+
   it("keeps one caller's abort from cancelling another caller's suite", async () => {
     const aborter = new AbortController()
     let release: (value: unknown) => void = () => {}
