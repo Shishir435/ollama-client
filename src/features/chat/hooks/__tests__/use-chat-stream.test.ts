@@ -561,9 +561,12 @@ describe("useChatStream", () => {
           status: 500,
           kind: "provider",
           providerId: "llamacpp",
+          providerName: "llama.cpp",
+          model: "gemma.gguf",
+          baseUrl: "http://localhost:8000/v1",
           message: "raw failure",
           userMessage:
-            'llama.cpp returned a server error. Check that llama.cpp is running and model "gemma.gguf" is loaded.',
+            'llama.cpp at http://localhost:8000/v1 returned HTTP 500 while generating a response with model "gemma.gguf".',
           retryable: true
         }
       })
@@ -576,8 +579,14 @@ describe("useChatStream", () => {
       })
     )
     const lastMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
-    expect(lastMessages?.at(-1)?.content).toContain("[Open a new issue](")
+    expect(lastMessages?.at(-1)?.content).not.toContain("[Open a new issue](")
     expect(lastMessages?.at(-1)?.content).toContain("llama.cpp")
+    expect(lastMessages?.at(-1)?.error).toMatchObject({
+      providerId: "llamacpp",
+      providerName: "llama.cpp",
+      model: "gemma.gguf",
+      baseUrl: "http://localhost:8000/v1"
+    })
   })
 
   it("does not mislabel a generic background 500 as a provider failure", () => {

@@ -142,4 +142,49 @@ describe("error-handler", () => {
       }
     })
   })
+
+  it("adds resolved provider context without exposing debug data", async () => {
+    const port = {
+      name: "test-port",
+      postMessage: vi.fn()
+    } as any
+    const handler = withErrorContext(
+      async () => {
+        throw createAppError("raw upstream failure", {
+          kind: "provider",
+          status: 500,
+          debug: "private response body"
+        })
+      },
+      {
+        handler: "testHandler",
+        operation: "streaming chat",
+        resolveProviderErrorContext: async () => ({
+          providerId: "ollama",
+          providerName: "Ollama",
+          model: "llama3.2",
+          baseUrl: "http://user:secret@localhost:11434?token=private"
+        })
+      }
+    )
+
+    await handler({} as never, port, () => false)
+
+    expect(port.postMessage).toHaveBeenCalledWith({
+      error: expect.objectContaining({
+        status: 500,
+        kind: "provider",
+        providerId: "ollama",
+        providerName: "Ollama",
+        model: "llama3.2",
+        baseUrl: "http://localhost:11434",
+        userMessage: expect.stringContaining(
+          'Ollama at http://localhost:11434 returned HTTP 500 while generating a response with model "llama3.2"'
+        )
+      })
+    })
+    expect(JSON.stringify(port.postMessage.mock.calls)).not.toContain(
+      "private response body"
+    )
+  })
 })

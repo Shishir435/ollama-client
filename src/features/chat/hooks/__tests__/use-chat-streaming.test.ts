@@ -266,7 +266,15 @@ describe("useChatStreaming", () => {
           blocks: [{ type: "reasoning.encrypted", data: "opaque" }]
         },
         done: true,
-        metrics: { eval_count: 5 }
+        metrics: { eval_count: 5 },
+        error: {
+          status: 500,
+          kind: "provider" as const,
+          providerId: "openrouter",
+          providerName: "OpenRouter",
+          model: "m",
+          baseUrl: "https://openrouter.ai/api/v1"
+        }
       }
     ]
     await capturedSetMessages?.(finalMessages)
@@ -276,7 +284,11 @@ describe("useChatStreaming", () => {
     expect(spies.updateMessage).toHaveBeenNthCalledWith(
       2,
       11,
-      expect.objectContaining({ content: "complete", done: true }),
+      expect.objectContaining({
+        content: "complete",
+        done: true,
+        error: finalMessages[0].error
+      }),
       true
     )
     expect(spies.updateMessage).toHaveBeenNthCalledWith(
@@ -285,7 +297,8 @@ describe("useChatStreaming", () => {
       expect.objectContaining({
         content: "complete",
         done: true,
-        replayArtifact: finalMessages[0].replayArtifact
+        replayArtifact: finalMessages[0].replayArtifact,
+        error: finalMessages[0].error
       }),
       false
     )

@@ -1,6 +1,10 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { throwProviderResponseError } from "@/lib/providers/provider-errors"
+import {
+  readProviderStreamChunk,
+  throwProviderConnectionError,
+  throwProviderResponseError
+} from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
 import { ANTHROPIC_PROVIDER_CAPABILITIES } from "./capabilities"
@@ -306,7 +310,14 @@ export class AnthropicProvider implements LLMProvider {
       headers: this.headers(),
       body: JSON.stringify(body),
       signal
-    })
+    }).catch((error) =>
+      throwProviderConnectionError(error, {
+        providerId: this.id,
+        providerName: this.config.name,
+        model: request.model,
+        baseUrl: this.baseUrl
+      })
+    )
     if (!response.ok) {
       await this.responseError(response, request.model)
     }
@@ -541,7 +552,12 @@ export class AnthropicProvider implements LLMProvider {
 
     try {
       while (true) {
-        const { done, value } = await reader.read()
+        const { done, value } = await readProviderStreamChunk(reader, {
+          providerId: this.id,
+          providerName: this.config.name,
+          model,
+          baseUrl: this.baseUrl
+        })
         if (done) {
           if (buffer.trim()) processLine(buffer)
           emitDone()

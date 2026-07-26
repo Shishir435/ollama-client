@@ -36,6 +36,9 @@ export interface ChromeMessage {
     retryAfterMs?: number
     context?: string
     providerId?: string
+    providerName?: string
+    model?: string
+    baseUrl?: string
   }
 }
 
@@ -78,6 +81,9 @@ export interface ChromeResponse {
     retryAfterMs?: number
     context?: string
     providerId?: string
+    providerName?: string
+    model?: string
+    baseUrl?: string
   }
   tabs?: browser.Tabs.Tab[]
   html?: string

@@ -43,6 +43,11 @@ vi.mock("../add-message-updated-at-column", () => ({
     ensureMessagesUpdatedAtColumn(db)
 }))
 
+const ensureMessagesErrorColumn = vi.fn()
+vi.mock("../add-message-error-column", () => ({
+  ensureMessagesErrorColumn: (db: unknown) => ensureMessagesErrorColumn(db)
+}))
+
 import {
   getSchemaVersion,
   LATEST_SCHEMA_VERSION,
@@ -63,7 +68,12 @@ const makeDb = (
 ) => {
   let userVersion = initialVersion
   const columns = {
-    messages: schema.messages ?? ["thinking", "replayArtifact", "updatedAt"],
+    messages: schema.messages ?? [
+      "thinking",
+      "replayArtifact",
+      "updatedAt",
+      "error"
+    ],
     sessions: schema.sessions ?? ["pinned", "systemPrompt", "tags"]
   }
   const tables = new Set(schema.tables ?? ["tool_loop_runs"])
@@ -116,6 +126,7 @@ beforeEach(() => {
   ensureSessionsTagsColumn.mockClear()
   ensureMessagesReplayArtifactColumn.mockClear()
   ensureMessagesUpdatedAtColumn.mockClear()
+  ensureMessagesErrorColumn.mockClear()
 })
 
 describe("migration-runner", () => {
@@ -154,6 +165,7 @@ describe("migration-runner", () => {
     expect(ensureToolLoopRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledTimes(1)
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledTimes(1)
+    expect(ensureMessagesErrorColumn).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -168,6 +180,7 @@ describe("migration-runner", () => {
     expect(ensureToolLoopRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledTimes(1)
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledTimes(1)
+    expect(ensureMessagesErrorColumn).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -196,8 +209,9 @@ describe("migration-runner", () => {
 
     const repaired = repairSchemaDrift(db as never)
 
-    expect(repaired).toBe(3)
+    expect(repaired).toBe(4)
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledWith(db)
+    expect(ensureMessagesErrorColumn).toHaveBeenCalledWith(db)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledWith(db)
     expect(ensureToolLoopRunsTable).toHaveBeenCalledWith(db)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
@@ -210,6 +224,7 @@ describe("migration-runner", () => {
     expect(repairSchemaDrift(db as never)).toBe(0)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(ensureMessagesReplayArtifactColumn).not.toHaveBeenCalled()
+    expect(ensureMessagesErrorColumn).not.toHaveBeenCalled()
     expect(ensureSessionsPinnedColumn).not.toHaveBeenCalled()
     expect(ensureSessionsSystemPromptColumn).not.toHaveBeenCalled()
     expect(ensureSessionsTagsColumn).not.toHaveBeenCalled()

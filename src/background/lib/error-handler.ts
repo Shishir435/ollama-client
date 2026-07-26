@@ -1,5 +1,9 @@
 import { getErrorMessage, isAbortError, isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import {
+  applyProviderErrorContext,
+  type ProviderErrorContext
+} from "@/lib/providers/provider-errors"
 import type {
   ChromePort,
   ChromeResponse,
@@ -14,11 +18,14 @@ type HandlerFunction<T> = (
   isPortClosed: PortStatusFunction
 ) => Promise<void>
 
-interface ErrorContext {
+interface ErrorContext<T> {
   handler: string
   operation?: string
   modelId?: string
   providerId?: string
+  resolveProviderErrorContext?: (
+    msg: T
+  ) => Promise<ProviderErrorContext | undefined>
 }
 
 type ErrorEnvelope = NonNullable<ChromeResponse["error"]>
@@ -61,7 +68,11 @@ export const normalizeError = (
       isAppError(error) &&
       error.providerId && {
         providerId: error.providerId
-      })
+      }),
+    ...(isAppError(error) &&
+      error.providerName && { providerName: error.providerName }),
+    ...(isAppError(error) && error.model && { model: error.model }),
+    ...(isAppError(error) && error.baseUrl && { baseUrl: error.baseUrl })
   }
 }
 
@@ -86,7 +97,7 @@ export const createErrorResponse = (
  */
 export const withErrorContext = <T>(
   handler: HandlerFunction<T>,
-  context: ErrorContext
+  context: ErrorContext<T>
 ) => {
   return async (msg: T, port: ChromePort, isPortClosed: PortStatusFunction) => {
     try {
@@ -100,12 +111,32 @@ export const withErrorContext = <T>(
         return
       }
 
+      let reportedError = err
+      if (
+        isAppError(err) &&
+        err.kind === "provider" &&
+        context.resolveProviderErrorContext
+      ) {
+        try {
+          const providerContext = await context.resolveProviderErrorContext(msg)
+          if (providerContext) {
+            reportedError = applyProviderErrorContext(err, providerContext)
+          }
+        } catch (contextError) {
+          logger.debug(
+            "Failed to resolve provider error context",
+            context.handler,
+            { error: contextError }
+          )
+        }
+      }
+
       // 4. Handle generic errors with enhanced logging
       logger.error(
         `Error during ${context.operation || "operation"}`,
         context.handler,
         {
-          message: getErrorMessage(err),
+          message: getErrorMessage(reportedError),
           model: context.modelId,
           provider: context.providerId,
           stack: err instanceof Error ? err.stack : undefined
@@ -113,10 +144,12 @@ export const withErrorContext = <T>(
       )
 
       if (!isPortClosed()) {
-        const response = createErrorResponse(err, {
+        const response = createErrorResponse(reportedError, {
           status:
-            err && typeof err === "object" && "status" in err
-              ? ((err as Partial<NetworkError>).status ?? 500)
+            reportedError &&
+            typeof reportedError === "object" &&
+            "status" in reportedError
+              ? ((reportedError as Partial<NetworkError>).status ?? 500)
               : 500,
           context: `${context.handler}${context.operation ? ` - ${context.operation}` : ""}`,
           providerId: context.providerId

@@ -5,6 +5,8 @@ import {
   isRetryableProviderStatus,
   parseRetryAfter,
   providerErrorUserMessage,
+  readProviderStreamChunk,
+  throwProviderConnectionError,
   throwProviderResponseError
 } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
@@ -339,7 +341,14 @@ export class OpenAICompatibleProvider implements LLMProvider {
       headers: this.headers(),
       body: JSON.stringify(body),
       signal
-    })
+    }).catch((error) =>
+      throwProviderConnectionError(error, {
+        providerId: this.id,
+        providerName: this.config.name,
+        model,
+        baseUrl
+      })
+    )
 
     if (!response.ok) {
       await this.responseError(response, "OpenAI Error", baseUrl, model)
@@ -533,7 +542,12 @@ export class OpenAICompatibleProvider implements LLMProvider {
 
     try {
       while (true) {
-        const { done, value } = await reader.read()
+        const { done, value } = await readProviderStreamChunk(reader, {
+          providerId: this.id,
+          providerName: this.config.name,
+          model,
+          baseUrl: resolveProviderBaseUrl(this.config)
+        })
         if (done) {
           // Flush a final data line left without a trailing newline at EOF.
           if (buffer.trim()) processLine(buffer)

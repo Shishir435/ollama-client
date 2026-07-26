@@ -1,6 +1,7 @@
 import type { Database } from "sql.js"
 
 import { logger } from "@/lib/logger"
+import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
 import { ensureMessagesUpdatedAtColumn } from "./add-message-updated-at-column"
 import { ensureSessionsPinnedColumn } from "./add-session-pinned-column"
@@ -67,6 +68,11 @@ export const MIGRATIONS: Migration[] = [
     version: 7,
     name: "add-message-updated-at-column",
     up: ensureMessagesUpdatedAtColumn
+  },
+  {
+    version: 8,
+    name: "add-message-error-column",
+    up: ensureMessagesErrorColumn
   }
 ]
 
@@ -135,6 +141,10 @@ export const repairSchemaDrift = (db: Database): number => {
     {
       missing: !messageColumns.has("updatedAt"),
       apply: () => ensureMessagesUpdatedAtColumn(db)
+    },
+    {
+      missing: !messageColumns.has("error"),
+      apply: () => ensureMessagesErrorColumn(db)
     },
     {
       missing: !sessionColumns.has("pinned"),

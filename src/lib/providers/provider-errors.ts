@@ -1,5 +1,11 @@
 import { EXTERNAL_URLS } from "@/lib/constants/urls"
-import { createAppError } from "@/lib/error-utils"
+import {
+  type AppError,
+  createAppError,
+  getErrorMessage,
+  isAbortError,
+  sanitizeProviderBaseUrl
+} from "@/lib/error-utils"
 
 /**
  * A 401/403 from a LOCAL provider (Ollama et al.) is almost always a CORS/origin
@@ -46,40 +52,6 @@ export const parseRetryAfter = (
 export const isRetryableProviderStatus = (status: number): boolean =>
   status === 408 || status === 429 || status === 529 || status >= 500
 
-export const buildProviderServerIssueUrl = (
-  status: number,
-  options: { providerName?: string; model?: string } = {}
-): string => {
-  const providerName = options.providerName?.trim()
-  const model = options.model?.trim()
-  const subject = providerName
-    ? `${providerName} server error`
-    : "Provider server error"
-  const params = new URLSearchParams({
-    title: `[bug] ${subject} (${status})`,
-    body: [
-      "**What happened**",
-      "The provider server returned an error while generating a response.",
-      "",
-      "**Checks tried**",
-      "- Provider app is running: ",
-      "- Selected model is loaded: ",
-      "- Base URL/port is correct: ",
-      "",
-      "**Details**",
-      `- Error status: ${status}`,
-      `- Provider/model: ${[providerName, model].filter(Boolean).join(" / ")}`,
-      "- Browser: ",
-      "- Extension version: ",
-      "",
-      "**Steps to reproduce**",
-      "1. "
-    ].join("\n")
-  })
-
-  return `${EXTERNAL_URLS.GITHUB_NEW_ISSUE}?${params.toString()}`
-}
-
 /**
  * Map a provider HTTP status to a clean, user-facing message. Keeps raw
  * provider response bodies (which can be JSON or stack traces) out of the chat
@@ -99,46 +71,132 @@ export const providerErrorUserMessage = (
   const providerLower = providerName || "the provider"
   const model = options.model?.trim()
   const selectedModel = model ? `model "${model}"` : "selected model"
+  const baseUrl = sanitizeProviderBaseUrl(options.baseUrl)
+  const endpoint = baseUrl ? ` at ${baseUrl}` : ""
+  const operation = model
+    ? ` while generating a response with model "${model}"`
+    : " while generating a response"
+  const lead = `${provider}${endpoint} returned HTTP ${status}${operation}.`
   if (status === 400) {
-    return `${provider} rejected the request. The ${selectedModel} may not support this input — for example, images on a model without vision support.`
+    return `${lead} The ${selectedModel} may not support this input — for example, images on a model without vision support.`
   }
   if (status === 401 || status === 403) {
     if (isLocalProviderBaseUrl(options.baseUrl)) {
-      return localCorsForbiddenMessage(status)
+      return `${lead} This is likely a CORS/origin block. Allow chrome-extension://* and moz-extension://* in the provider's CORS or origin settings, then retry. Provider-specific setup: ${EXTERNAL_URLS.SETUP_GUIDE}`
     }
-    return `${provider} rejected your credentials. Check its API key or account access.`
+    return `${lead} Check its credentials, API key, or account access.`
   }
   if (status === 404) {
-    return `${provider} could not find the ${selectedModel} or endpoint. Check the model name and ${providerLower}'s base URL.`
+    return `${lead} ${provider} could not find the ${selectedModel} or endpoint. Check the model name and ${providerLower}'s base URL.`
   }
   if (status === 408 || status === 504) {
-    return `${provider} timed out. Check that its server is responsive and try again.`
+    return `${lead} Check that its server is responsive and try again.`
   }
   if (status === 413) {
-    return "The request was too large. Try a smaller image or shorter message."
+    return `${lead} The request was too large. Try a smaller image or shorter message.`
   }
   if (status === 402) {
-    return "The provider account has insufficient credits or requires payment. Add credits or choose another provider."
+    return `${lead} The provider account has insufficient credits or requires payment. Add credits or choose another provider.`
   }
   if (status === 429) {
     const retryIn = options.retryAfterMs
       ? ` Retry in about ${Math.max(1, Math.ceil(options.retryAfterMs / 1000))} seconds.`
       : " Wait a moment and try again."
-    return `${provider} is rate-limiting requests.${retryIn}`
+    return `${lead} The provider is rate-limiting requests.${retryIn}`
   }
   if (status === 529) {
-    return "The hosted provider is temporarily overloaded. Wait a moment and try again."
+    return `${lead} The hosted provider is temporarily overloaded. Wait a moment and try again.`
   }
   if (status >= 500) {
     if (!isLocalProviderBaseUrl(options.baseUrl)) {
       const retryIn = options.retryAfterMs
         ? ` Retry in about ${Math.max(1, Math.ceil(options.retryAfterMs / 1000))} seconds.`
         : " Try again shortly."
-      return `${providerName || "The hosted provider"} is temporarily unavailable.${retryIn}`
+      return `${lead} The hosted provider is temporarily unavailable.${retryIn}`
     }
-    return `${provider} returned a server error. Check that ${providerLower} is running, the ${selectedModel} is loaded, and its base URL/port are correct.`
+    return `${lead} Check that ${providerLower} is running, the ${selectedModel} is loaded, and its base URL/port are correct.`
   }
-  return `${provider} returned an error. Check ${providerLower}, the ${selectedModel}, and its server logs.`
+  return `${lead} Check ${providerLower}, the ${selectedModel}, and its server logs.`
+}
+
+export interface ProviderErrorContext {
+  providerId?: string
+  providerName?: string
+  model?: string
+  baseUrl?: string
+}
+
+export const throwProviderConnectionError = (
+  error: unknown,
+  context: ProviderErrorContext
+): never => {
+  if (isAbortError(error)) throw error
+
+  const providerName = context.providerName?.trim() || "The provider"
+  const baseUrl = sanitizeProviderBaseUrl(context.baseUrl)
+  const endpoint = baseUrl ? ` at ${baseUrl}` : ""
+  const model = context.model?.trim()
+  const modelContext = model ? ` with model "${model}"` : ""
+
+  throw createAppError(
+    `${providerName}${endpoint} connection failed: ${getErrorMessage(error)}`,
+    {
+      kind: "provider",
+      status: 0,
+      providerId: context.providerId,
+      providerName,
+      model,
+      baseUrl,
+      retryable: true,
+      userMessage: `${providerName}${endpoint} could not be reached while requesting a response${modelContext}. Check that the provider is running and the configured base URL is correct.`,
+      debug: getErrorMessage(error),
+      cause: error
+    }
+  )
+}
+
+export const readProviderStreamChunk = async (
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  context: ProviderErrorContext
+): Promise<ReadableStreamReadResult<Uint8Array>> => {
+  try {
+    return await reader.read()
+  } catch (error) {
+    return throwProviderConnectionError(error, context)
+  }
+}
+
+/**
+ * Add request context at the background boundary, where the resolved provider
+ * config is authoritative. Provider adapters never need to duplicate this
+ * metadata, and custom provider names survive transport to the UI.
+ */
+export const applyProviderErrorContext = (
+  error: AppError,
+  context: ProviderErrorContext
+): AppError => {
+  error.providerId = context.providerId || error.providerId
+  error.providerName = context.providerName || error.providerName
+  error.model = context.model || error.model
+  error.baseUrl =
+    sanitizeProviderBaseUrl(context.baseUrl) ||
+    sanitizeProviderBaseUrl(error.baseUrl)
+
+  if (error.status) {
+    error.userMessage = providerErrorUserMessage(error.status, {
+      retryAfterMs: error.retryAfterMs,
+      providerName: error.providerName,
+      model: error.model,
+      baseUrl: error.baseUrl
+    })
+  } else if (!error.userMessage) {
+    const provider = error.providerName || "The provider"
+    const endpoint = error.baseUrl ? ` at ${error.baseUrl}` : ""
+    const model = error.model ? ` with model "${error.model}"` : ""
+    error.userMessage = `${provider}${endpoint} returned an error while generating a response${model}. Check its server logs and configuration.`
+  }
+
+  return error
 }
 
 /**
@@ -167,6 +225,9 @@ export const throwProviderResponseError = async (
     kind: "provider",
     status: response.status,
     providerId: options.providerId,
+    providerName: options.providerName,
+    model: options.model,
+    baseUrl: sanitizeProviderBaseUrl(options.baseUrl),
     retryable: isRetryableProviderStatus(response.status),
     retryAfterMs,
     userMessage: providerErrorUserMessage(response.status, {

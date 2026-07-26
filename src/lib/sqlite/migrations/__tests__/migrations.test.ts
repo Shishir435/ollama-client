@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { ensureMessagesErrorColumn } from "../add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "../add-message-replay-artifact-column"
 import { ensureMessagesThinkingColumn } from "../add-thinking-column"
 
@@ -55,6 +56,22 @@ describe("ensureMessagesReplayArtifactColumn", () => {
     ensureMessagesReplayArtifactColumn(db as any)
     expect(db.run).toHaveBeenCalledWith(
       "ALTER TABLE messages ADD COLUMN replayArtifact TEXT"
+    )
+  })
+})
+
+describe("ensureMessagesErrorColumn", () => {
+  it("does nothing when error already exists", () => {
+    const db = makeDb(["id", "error"])
+    ensureMessagesErrorColumn(db as any)
+    expect(db.run).not.toHaveBeenCalled()
+  })
+
+  it("adds error to legacy message tables", () => {
+    const db = makeDb(["id", "content"])
+    ensureMessagesErrorColumn(db as any)
+    expect(db.run).toHaveBeenCalledWith(
+      "ALTER TABLE messages ADD COLUMN error TEXT"
     )
   })
 })

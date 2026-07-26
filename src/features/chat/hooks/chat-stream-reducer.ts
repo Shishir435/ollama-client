@@ -47,6 +47,9 @@ export interface StreamMessage {
     retryAfterMs?: number
     context?: string
     providerId?: string
+    providerName?: string
+    model?: string
+    baseUrl?: string
     debug?: unknown
   }
   aborted?: boolean

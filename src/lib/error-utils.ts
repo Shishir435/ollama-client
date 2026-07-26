@@ -18,6 +18,9 @@ export type AppErrorOptions = {
   retryAfterMs?: number
   context?: string
   providerId?: string
+  providerName?: string
+  model?: string
+  baseUrl?: string
   debug?: unknown
   cause?: unknown
 }
@@ -32,6 +35,9 @@ export class AppError extends Error {
   retryAfterMs?: number
   context?: string
   providerId?: string
+  providerName?: string
+  model?: string
+  baseUrl?: string
   debug?: unknown
 
   constructor(message: string, options: AppErrorOptions = {}) {
@@ -46,6 +52,9 @@ export class AppError extends Error {
     this.retryAfterMs = options.retryAfterMs
     this.context = options.context
     this.providerId = options.providerId
+    this.providerName = options.providerName
+    this.model = options.model
+    this.baseUrl = options.baseUrl
     this.debug = options.debug
   }
 }
@@ -84,3 +93,24 @@ export const isNamedError = (error: unknown, name: string) =>
 
 export const isAbortError = (error: unknown) =>
   isNamedError(error, "AbortError")
+
+/**
+ * Keep provider endpoints useful for support without ever exposing embedded
+ * credentials, query parameters, or fragments.
+ */
+export const sanitizeProviderBaseUrl = (
+  baseUrl?: string
+): string | undefined => {
+  if (!baseUrl?.trim()) return undefined
+  try {
+    const url = new URL(baseUrl.trim())
+    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined
+    url.username = ""
+    url.password = ""
+    url.search = ""
+    url.hash = ""
+    return url.toString().replace(/\/$/, "")
+  } catch {
+    return undefined
+  }
+}
