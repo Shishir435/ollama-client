@@ -1,4 +1,5 @@
 import { vectorDb } from "@/lib/embeddings/db"
+import { getSafeClientEnvironment } from "@/lib/error-report"
 import { readPersistenceBackend } from "@/lib/persistence/backend"
 import { rpcQuery, rpcTxBegin, rpcTxRollback } from "@/lib/persistence/client"
 import { ProviderManager } from "@/lib/providers/manager"
@@ -78,22 +79,6 @@ const permissions = async (): Promise<Record<string, boolean>> => {
     bookmarks: names.has("bookmarks"),
     notifications: names.has("notifications")
   }
-}
-
-const browserFamily = () => {
-  const ua = navigator.userAgent
-  if (/Firefox/i.test(ua)) return "firefox"
-  if (/Edg/i.test(ua)) return "edge"
-  if (/Chrom/i.test(ua)) return "chromium"
-  return "other"
-}
-
-const osFamily = () => {
-  const ua = navigator.userAgent
-  if (/Windows/i.test(ua)) return "windows"
-  if (/Mac OS|Macintosh/i.test(ua)) return "macos"
-  if (/Linux/i.test(ua)) return "linux"
-  return "other"
 }
 
 const runMigrationTest = async (): Promise<DiagnosticTestResult> => {
@@ -193,13 +178,14 @@ export const DiagnosticsService = {
     ])
     signal?.throwIfAborted()
     const backend = await readPersistenceBackend()
+    const environment = getSafeClientEnvironment()
     return {
       bundle: {
         format: "ollama-client-support-v1",
         createdAt: Date.now(),
         appVersion: chrome.runtime.getManifest().version,
-        browserFamily: browserFamily(),
-        osFamily: osFamily(),
+        browserFamily: environment.browser,
+        osFamily: environment.os,
         capabilities: capabilities(),
         permissions: permissionState,
         providers: providers.map((provider) => ({

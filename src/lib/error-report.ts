@@ -18,6 +18,14 @@ type NavigatorWithBrands = Navigator & {
 const majorVersion = (userAgent: string, pattern: RegExp): string | undefined =>
   userAgent.match(pattern)?.[1]
 
+const getExtensionVersion = (): string => {
+  try {
+    return runtime.getManifest().version
+  } catch {
+    return "unknown"
+  }
+}
+
 export const getSafeClientEnvironment = (): {
   browser: string
   os: string
@@ -89,6 +97,47 @@ type ErrorReportInput = {
 }
 
 type DiagnosticBundle = DiagnosticsGetBundleResult["bundle"]
+
+export interface GenericIssueContext {
+  providerId?: string
+  model?: string
+}
+
+export const buildGenericIssueReportUrl = (
+  context: GenericIssueContext = {}
+): string => {
+  const environment = getSafeClientEnvironment()
+  const providerId =
+    context.providerId && /^[a-zA-Z0-9_.:-]{1,100}$/.test(context.providerId)
+      ? context.providerId
+      : undefined
+  const model = sanitizeModelIdentifier(context.model)?.replace(/[\r\n]+/g, " ")
+  const body = [
+    "**What happened?**",
+    "",
+    "",
+    "**What did you expect?**",
+    "",
+    "",
+    "**Environment**",
+    `- Extension version: ${getExtensionVersion()}`,
+    `- Browser: ${environment.browser} (best effort; edit if incorrect)`,
+    `- OS: ${environment.os} (coarse family only)`,
+    `- Selected provider: ${providerId ?? "n/a"}`,
+    `- Selected model: ${model || "n/a"}`,
+    "",
+    "**Privacy**",
+    "This draft was generated locally and opened for your review. It includes no telemetry, prompts, page content, file names, API keys, provider responses, or console logs.",
+    "",
+    "**Steps to reproduce**",
+    "1. "
+  ].join("\n")
+  const params = new URLSearchParams({
+    title: "[bug] Help needed: ",
+    body
+  })
+  return `${EXTERNAL_URLS.GITHUB_ISSUES}/new?${params.toString()}`
+}
 
 export interface SafeErrorChecks {
   providerEnabled?: boolean
@@ -162,12 +211,6 @@ export const buildErrorReportUrl = (
   diagnostics?: DiagnosticBundle,
   checks?: SafeErrorChecks
 ): string => {
-  let version = "unknown"
-  try {
-    version = runtime.getManifest().version
-  } catch {
-    // Not running inside the extension (tests); leave "unknown".
-  }
   const message = (error.message ?? "").replace(/\s+/g, " ").trim()
   const providerName = error.providerName
     ?.replace(/\s+/g, " ")
@@ -191,7 +234,7 @@ export const buildErrorReportUrl = (
     message || "_describe the error here_",
     "",
     "**Details**",
-    `- Extension version: ${version}`,
+    `- Extension version: ${getExtensionVersion()}`,
     `- Browser: ${environment.browser} (best effort; edit if incorrect)`,
     `- OS: ${environment.os} (coarse family only)`,
     `- Error status: ${error.status ?? "n/a"}`,

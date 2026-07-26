@@ -90,9 +90,9 @@ const prompts = [
     </div>
 
     <p class="mt-10 text-xs leading-relaxed text-muted-foreground">
-      The extension adds only its version and your browser language to the
-      feedback draft. It does not attach chat content, settings, or personal
-      identifiers.
+      The feedback draft adds only the extension version, browser language,
+      best-effort browser/version, and coarse operating-system family. It does
+      not attach chat content, settings, or personal identifiers.
     </p>
 
     <p class="mt-10 text-[15px] text-foreground/70">
@@ -107,10 +107,40 @@ const prompts = [
       const params = new URLSearchParams(window.location.search)
       const version = params.get("v")
       const locale = params.get("l")
+      const ua = navigator.userAgent || ""
+      const major = (pattern) => ua.match(pattern)?.[1]
+      const browser = /Firefox\/(\d+)/i.test(ua)
+        ? `Firefox ${major(/Firefox\/(\d+)/i)}`
+        : /Edg(?:e|A|iOS)?\/(\d+)/i.test(ua)
+          ? `Edge ${major(/Edg(?:e|A|iOS)?\/(\d+)/i)}`
+          : /OPR\/(\d+)/i.test(ua)
+            ? `Opera ${major(/OPR\/(\d+)/i)}`
+            : "brave" in navigator
+              ? `Brave${major(/Chrome\/(\d+)/i) ? ` (Chromium ${major(/Chrome\/(\d+)/i)})` : ""}`
+              : /(?:Chrome|CriOS)\/(\d+)/i.test(ua)
+                ? `Chrome/Chromium ${major(/(?:Chrome|CriOS)\/(\d+)/i)}`
+                : /Version\/(\d+).+Safari\//i.test(ua)
+                  ? `Safari ${major(/Version\/(\d+)/i)}`
+                  : "unknown"
+      const os = /Android/i.test(ua)
+        ? "Android"
+        : /iPhone|iPad|iPod/i.test(ua)
+          ? "iOS/iPadOS"
+          : /Windows/i.test(ua)
+            ? "Windows"
+            : /CrOS/i.test(ua)
+              ? "ChromeOS"
+              : /Mac OS|Macintosh/i.test(ua)
+                ? "macOS"
+                : /Linux/i.test(ua)
+                  ? "Linux"
+                  : "unknown"
 
       const footer = [
         `Version: ${version || "unknown"}`,
-        `Language: ${locale || "unknown"}`
+        `Language: ${locale || "unknown"}`,
+        `Browser: ${browser} (best effort; edit if incorrect)`,
+        `OS: ${os} (coarse family only)`
       ].join("\n")
 
       const questions = [

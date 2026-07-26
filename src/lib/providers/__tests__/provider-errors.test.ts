@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
   buildErrorReportUrl,
+  buildGenericIssueReportUrl,
   getSafeClientEnvironment
 } from "@/lib/error-report"
 import { isAppError, sanitizeModelIdentifier } from "@/lib/error-utils"
@@ -89,6 +90,36 @@ describe("providerErrorUserMessage", () => {
       browser: "Brave (Chromium 140)",
       os: "macOS"
     })
+  })
+
+  it("prefills generic reports with safe current environment and selection", () => {
+    vi.stubGlobal("navigator", {
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/150.0.0.0 Safari/537.36",
+      platform: "MacIntel",
+      brave: {}
+    })
+
+    const issueUrl = new URL(
+      buildGenericIssueReportUrl({
+        providerId: "ollama",
+        model: "/Users/alice/Models/qwen.gguf"
+      })
+    )
+    const body = issueUrl.searchParams.get("body")
+
+    expect(issueUrl.searchParams.get("title")).toBe("[bug] Help needed: ")
+    expect(body).toContain("- Extension version:")
+    expect(body).not.toContain("Extension version: 0.12.3")
+    expect(body).toContain(
+      "- Browser: Brave (Chromium 150) (best effort; edit if incorrect)"
+    )
+    expect(body).toContain("- OS: macOS (coarse family only)")
+    expect(body).toContain("- Selected provider: ollama")
+    expect(body).toContain(
+      "- Selected model: /Users/<redacted>/Models/qwen.gguf"
+    )
+    expect(body).toContain("includes no telemetry")
   })
 
   it("points local 401/403 responses at CORS setup instead of credentials", () => {

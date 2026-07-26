@@ -17,6 +17,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Added stable support codes, incident IDs, failure phases, and tailored
   recovery actions to chat errors. Opening an issue now runs local, privacy-safe
   checks on demand and includes matching diagnostics in the reviewed draft.
+- Unified every in-extension bug-report entry point around current extension,
+  best-effort browser/version, and coarse OS details. The sidebar report also
+  includes the selected provider/model reference without attaching chat data.
 
 ### Fixed
 
