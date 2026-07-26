@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { openExternalUrl, openOptionsInTab, runtime } from "@/lib/browser-api"
 import {
-  buildChatMessageErrorReportText,
   buildChatMessageErrorReportUrl,
   type SafeErrorChecks
 } from "@/lib/error-report"
@@ -34,9 +33,11 @@ const recoveryFocus = (
 
 export const ChatErrorReportAction = ({
   msg,
+  sessionId,
   onRetry
 }: {
   msg: ChatMessage
+  sessionId?: string
   onRetry?: () => void
 }) => {
   const { t } = useTranslation()
@@ -51,11 +52,11 @@ export const ChatErrorReportAction = ({
 
   const loadDiagnostics = useCallback(() => {
     diagnosticsPromise.current ??= extensionRpcClient
-      .call(RpcMethod.DiagnosticsGetBundle, {})
+      .call(RpcMethod.DiagnosticsGetBundle, { sessionId })
       .then(({ bundle }) => bundle)
       .catch(() => undefined)
     return diagnosticsPromise.current
-  }, [])
+  }, [sessionId])
 
   useEffect(() => {
     let mounted = true
@@ -121,9 +122,8 @@ export const ChatErrorReportAction = ({
   const copyDiagnostics = async () => {
     try {
       const bundle = await loadDiagnostics()
-      await navigator.clipboard.writeText(
-        buildChatMessageErrorReportText(msg, bundle)
-      )
+      if (!bundle) throw new Error("Diagnostic bundle unavailable")
+      await navigator.clipboard.writeText(JSON.stringify(bundle, null, 2))
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch (error) {

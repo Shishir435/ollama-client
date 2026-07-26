@@ -23,7 +23,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Issue drafts now explain how users can optionally review and attach the local
   seven-day support bundle for faster diagnosis; it is never uploaded
   automatically. Chat errors run privacy-safe checks automatically and provide
-  **Copy diagnostics** beside **Open an issue**.
+  **Copy diagnostics** beside **Open an issue** for copying the saved diagnostic
+  events for that chat session separately from the concise GitHub issue draft.
 
 ### Fixed
 

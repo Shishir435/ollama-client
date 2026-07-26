@@ -55,6 +55,7 @@ describe("ChatErrorReportAction", () => {
                 code: "REQUEST_FAILED",
                 operation: "streaming-chat",
                 surface: "background",
+                sessionId: "session-123",
                 status: 500,
                 supportCode: "INC-ABC12345"
               }
@@ -66,6 +67,7 @@ describe("ChatErrorReportAction", () => {
 
     render(
       <ChatErrorReportAction
+        sessionId="session-123"
         msg={{
           role: "assistant",
           content: "Ollama failed",
@@ -86,7 +88,7 @@ describe("ChatErrorReportAction", () => {
     await waitFor(() =>
       expect(extensionRpcClient.call).toHaveBeenCalledWith(
         RpcMethod.DiagnosticsGetBundle,
-        {}
+        { sessionId: "session-123" }
       )
     )
     fireEvent.click(
@@ -118,7 +120,18 @@ describe("ChatErrorReportAction", () => {
         providers: [],
         storage: { backend: "sqlite", messageCount: 0, vectorCount: 0 },
         selfTests: [],
-        events: []
+        events: [
+          {
+            id: "00000000-0000-4000-8000-000000000000",
+            at: 1,
+            level: "error",
+            code: "PROVIDER_DISABLED",
+            operation: "streaming-chat",
+            surface: "background",
+            sessionId: "session-123",
+            supportCode: "INC-ABC12345"
+          }
+        ]
       }
     })
     const writeText = vi
@@ -127,6 +140,7 @@ describe("ChatErrorReportAction", () => {
 
     render(
       <ChatErrorReportAction
+        sessionId="session-123"
         msg={{
           role: "assistant",
           content: "Ollama failed",
@@ -146,15 +160,21 @@ describe("ChatErrorReportAction", () => {
     fireEvent.click(copyButton)
 
     await waitFor(() => expect(writeText).toHaveBeenCalledOnce())
-    expect(writeText.mock.calls[0][0]).toContain(
-      "- Error code: OLC-PROVIDER-HTTP"
-    )
-    expect(writeText.mock.calls[0][0]).toContain("- Incident ID: INC-ABC12345")
+    const copiedBundle = JSON.parse(writeText.mock.calls[0][0])
+    expect(copiedBundle.format).toBe("ollama-client-support-v1")
+    expect(copiedBundle.events).toEqual([
+      expect.objectContaining({
+        code: "PROVIDER_DISABLED",
+        supportCode: "INC-ABC12345"
+      })
+    ])
+    expect(writeText.mock.calls[0][0]).not.toContain("**What happened**")
   })
 
   it("opens focused recovery settings", () => {
     render(
       <ChatErrorReportAction
+        sessionId="session-123"
         msg={{
           role: "assistant",
           content: "Provider disabled",

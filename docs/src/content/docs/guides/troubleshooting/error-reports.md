@@ -45,7 +45,11 @@ is optional, but its safe event sequence often makes diagnosis faster. Nothing
 is uploaded automatically, and GitHub does not allow the extension to attach a
 local file silently. Chat errors run privacy-safe diagnostics locally and
 include a **Copy diagnostics** button beside **Open an issue**. Paste the copied
-report into a new issue if you prefer to create it manually.
+support-bundle JSON into a new issue if you prefer to create it manually. The
+inline copy includes only privacy-safe events correlated with the current chat
+session; the prefilled issue contains a concise summary and matching event
+highlights. The full retained event history remains available from the
+Diagnostics & support settings card.
 
 ## Error-code reference
 

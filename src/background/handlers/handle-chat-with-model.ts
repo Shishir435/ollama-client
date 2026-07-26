@@ -379,6 +379,7 @@ export const handleChatWithModel = withErrorContext(
   {
     handler: "handleChatWithModel",
     operation: "streaming chat",
+    resolveDiagnosticSessionId: (msg) => msg.payload.sessionId,
     resolveProviderErrorContext: async (msg) => {
       const { model, providerId } = msg.payload
       const provider = await ProviderFactory.getProviderForModel(

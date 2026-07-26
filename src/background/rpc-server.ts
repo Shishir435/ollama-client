@@ -40,8 +40,8 @@ const handlers = {
     ProviderRpcService.probeModelCapabilities(request, signal),
   [RpcMethod.DiagnosticsRun]: async (_request, signal) =>
     DiagnosticsService.run(signal),
-  [RpcMethod.DiagnosticsGetBundle]: async (_request, signal) =>
-    DiagnosticsService.getBundle(signal),
+  [RpcMethod.DiagnosticsGetBundle]: async (request, signal) =>
+    DiagnosticsService.getBundle(signal, request.sessionId),
   [RpcMethod.DiagnosticsClear]: async () => DiagnosticsService.clear()
 } satisfies RpcHandlers
 

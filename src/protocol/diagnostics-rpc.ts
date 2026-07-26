@@ -27,6 +27,10 @@ export const DiagnosticEventSchema = z
     operation: z.string().regex(/^[a-zA-Z0-9_.:-]{1,100}$/),
     surface: z.enum(["sidepanel", "options", "background", "content"]),
     requestId: z.string().uuid().optional(),
+    sessionId: z
+      .string()
+      .regex(/^[a-zA-Z0-9_.:-]{1,120}$/)
+      .optional(),
     providerProfile: z
       .string()
       .regex(/^[a-zA-Z0-9_.:-]{1,100}$/)
@@ -56,7 +60,14 @@ export const DiagnosticsRunResultSchema = z
   .object({ tests: z.array(DiagnosticTestResultSchema).max(30) })
   .strict()
 
-export const DiagnosticsGetBundleRequestSchema = z.object({}).strict()
+export const DiagnosticsGetBundleRequestSchema = z
+  .object({
+    sessionId: z
+      .string()
+      .regex(/^[a-zA-Z0-9_.:-]{1,120}$/)
+      .optional()
+  })
+  .strict()
 export const DiagnosticsGetBundleResultSchema = z
   .object({
     bundle: z

@@ -27,6 +27,7 @@ interface ErrorContext<T> {
   resolveProviderErrorContext?: (
     msg: T
   ) => Promise<ProviderErrorContext | undefined>
+  resolveDiagnosticSessionId?: (msg: T) => string | undefined
 }
 
 type ErrorEnvelope = NonNullable<ChromeResponse["error"]>
@@ -177,7 +178,8 @@ export const withErrorContext = <T>(
           providerId: context.providerId
         })
         if (isAppError(reportedError)) {
-          void recordDiagnosticEvent({
+          const sessionId = context.resolveDiagnosticSessionId?.(msg)
+          await recordDiagnosticEvent({
             level: "error",
             code: "REQUEST_FAILED",
             operation: (context.operation || context.handler)
@@ -187,6 +189,7 @@ export const withErrorContext = <T>(
             status: reportedError.status,
             retryable: reportedError.retryable,
             supportCode: reportedError.incidentId,
+            ...(sessionId && { sessionId }),
             durationMs: reportedError.durationMs,
             metadata: {
               errorCode: reportedError.code,

@@ -294,14 +294,6 @@ const chatMessageErrorInput = (message: ChatMessage): ErrorReportInput => ({
   recoveryAction: message.error?.recoveryAction
 })
 
-export const buildChatMessageErrorReportText = (
-  message: ChatMessage,
-  diagnostics?: DiagnosticBundle,
-  checks?: SafeErrorChecks
-): string =>
-  buildErrorReportDraft(chatMessageErrorInput(message), diagnostics, checks)
-    .body
-
 export const buildChatMessageErrorReportUrl = (
   message: ChatMessage,
   diagnostics?: DiagnosticBundle,

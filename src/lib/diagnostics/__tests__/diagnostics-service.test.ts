@@ -109,6 +109,37 @@ describe("DiagnosticsService", () => {
     expect(serialized).not.toContain("sk-secret")
   })
 
+  it("exports only diagnostic events from the requested chat session", async () => {
+    mocks.events.mockResolvedValue([
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        at: 1,
+        level: "error",
+        code: "REQUEST_FAILED",
+        operation: "streaming-chat",
+        surface: "background",
+        sessionId: "session-current"
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        at: 2,
+        level: "error",
+        code: "REQUEST_FAILED",
+        operation: "streaming-chat",
+        surface: "background",
+        sessionId: "session-other"
+      }
+    ])
+
+    const { bundle } = await DiagnosticsService.getBundle(
+      undefined,
+      "session-current"
+    )
+
+    expect(bundle.events).toHaveLength(1)
+    expect(bundle.events[0]?.sessionId).toBe("session-current")
+  })
+
   it("surfaces legacy persistence as a recoverable migration action", async () => {
     mocks.backend.mockResolvedValue("legacy")
     const result = await DiagnosticsService.run()

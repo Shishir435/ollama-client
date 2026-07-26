@@ -160,7 +160,10 @@ export const DiagnosticsService = {
     return { tests }
   },
 
-  async getBundle(signal?: AbortSignal): Promise<DiagnosticsGetBundleResult> {
+  async getBundle(
+    signal?: AbortSignal,
+    sessionId?: string
+  ): Promise<DiagnosticsGetBundleResult> {
     const [
       providers,
       events,
@@ -194,7 +197,9 @@ export const DiagnosticsService = {
           enabled: provider.enabled
         })),
         storage: { backend, messageCount, vectorCount },
-        events,
+        events: sessionId
+          ? events.filter((event) => event.sessionId === sessionId)
+          : events,
         selfTests
       }
     }

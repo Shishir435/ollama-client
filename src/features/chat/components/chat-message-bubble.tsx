@@ -13,6 +13,7 @@ const hasAssistantError = (message: ChatMessage) => Boolean(message.error)
 export const ChatMessageBubble = memo(
   ({
     msg,
+    sessionId,
     onRegenerate,
     isLoading,
     isStreaming,
@@ -24,6 +25,7 @@ export const ChatMessageBubble = memo(
     onNavigate
   }: {
     msg: ChatMessage
+    sessionId?: string
     onRegenerate?: (model?: string) => void
     isLoading?: boolean
     isStreaming?: boolean
@@ -87,6 +89,7 @@ export const ChatMessageBubble = memo(
             {!isLoading && !isStreaming && hasAssistantError(msg) && (
               <ChatErrorReportAction
                 msg={msg}
+                sessionId={sessionId}
                 onRetry={onRegenerate ? () => onRegenerate() : undefined}
               />
             )}
@@ -113,6 +116,7 @@ export const ChatMessageBubble = memo(
   (prev, next) => {
     return (
       prev.msg === next.msg &&
+      prev.sessionId === next.sessionId &&
       prev.isLoading === next.isLoading &&
       prev.isStreaming === next.isStreaming &&
       prev.showRetrievedChunks === next.showRetrievedChunks &&

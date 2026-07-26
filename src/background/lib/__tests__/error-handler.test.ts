@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from "vitest"
 import { createAppError, isAbortError } from "@/lib/error-utils"
+
+const recordDiagnosticEvent = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(undefined)
+)
+
+vi.mock("@/lib/diagnostics/diagnostic-recorder", () => ({
+  recordDiagnosticEvent
+}))
+
 import {
   createErrorResponse,
   normalizeError,
@@ -192,6 +201,36 @@ describe("error-handler", () => {
     })
     expect(JSON.stringify(port.postMessage.mock.calls)).not.toContain(
       "private response body"
+    )
+  })
+
+  it("correlates saved chat errors with their session", async () => {
+    const port = {
+      name: "test-port",
+      postMessage: vi.fn()
+    } as any
+    const handler = withErrorContext(
+      async () => {
+        throw createAppError("Provider failed", {
+          kind: "provider",
+          status: 500
+        })
+      },
+      {
+        handler: "testHandler",
+        operation: "streaming chat",
+        resolveDiagnosticSessionId: (msg: { sessionId: string }) =>
+          msg.sessionId
+      }
+    )
+
+    await handler({ sessionId: "session-current" }, port, () => false)
+
+    expect(recordDiagnosticEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "session-current",
+        operation: "streaming-chat"
+      })
     )
   })
 })
