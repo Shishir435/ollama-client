@@ -9,6 +9,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+
+- Added a post-uninstall feedback page with optional GitHub and email prompts,
+  plus extension version and browser language context to help diagnose
+  release-specific issues without attaching chat content or settings.
+
 ## [0.12.4] - 2026-07-24
 
 ### Changed

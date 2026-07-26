@@ -7,3 +7,7 @@ export const SITE_DESCRIPTION: string
 export const LANDING_TITLE: string
 export const LANDING_DESCRIPTION: string
 export const KEYWORDS: string[]
+export const AUTHOR_NAME: string
+export const AUTHOR_URL: string
+export const CONTACT_EMAIL: string
+export const REPO_URL: string

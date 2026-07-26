@@ -7,7 +7,11 @@ import { clearModelToolCapabilityCache } from "@/background/lib/resolve-model-to
 import { registerScheduledJobs } from "@/background/lib/scheduled-jobs"
 import { resumePendingAppLifecycle } from "@/lib/app-reset"
 import { browser, isChromiumBased } from "@/lib/browser-api"
-import { DEFAULT_EMBEDDING_MODEL, STORAGE_KEYS } from "@/lib/constants"
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  EXTERNAL_URLS,
+  STORAGE_KEYS
+} from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
@@ -139,6 +143,36 @@ const registerInstallHandlers = () => {
   browser.runtime.onStartup.addListener(() => updateDNRRules())
 }
 
+// Point the browser's post-uninstall tab at the docs feedback page. Runs on
+// both Chromium and Firefox (both implement setUninstallURL), so it is NOT
+// gated behind isChromiumBased(). Set on every worker boot so the version
+// param tracks upgrades. Only anonymous context is attached — extension
+// version and UI locale — so a churn spike can be traced to a release without
+// identifying the user.
+const setUninstallFeedbackURL = () => {
+  if (!browser.runtime?.setUninstallURL) return
+
+  try {
+    const params = new URLSearchParams({
+      v: browser.runtime.getManifest().version,
+      l: browser.i18n?.getUILanguage?.() ?? "en"
+    })
+    void browser.runtime
+      .setUninstallURL(
+        `${EXTERNAL_URLS.UNINSTALL_FEEDBACK}?${params.toString()}`
+      )
+      .catch((error) => {
+        logger.warn("Failed to set uninstall feedback URL", "BackgroundSW", {
+          error
+        })
+      })
+  } catch (error) {
+    logger.warn("Failed to set uninstall feedback URL", "BackgroundSW", {
+      error
+    })
+  }
+}
+
 const registerToolRegistryInvalidation = () => {
   if (!browser.storage?.onChanged) return
 
@@ -214,6 +248,7 @@ export const initializeBackgroundStartup = () => {
   initializeContextMenu()
   registerActionHandler()
   registerInstallHandlers()
+  setUninstallFeedbackURL()
   registerToolRegistryInvalidation()
   registerOmniboxQuickAsk(openPanelForTab)
   registerScheduledJobs()
