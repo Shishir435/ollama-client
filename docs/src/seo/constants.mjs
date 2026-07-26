@@ -75,6 +75,14 @@ export const SITE_URL = normalizeSiteUrl(
 
 export const SITE_TITLE = "Ollama Client"
 
+export const REPO_URL = "https://github.com/Shishir435/ollama-client"
+
+export const CONTACT_EMAIL = "shishirchaurasiya435@gmail.com"
+
+export const AUTHOR_NAME = "Shishir Chaurasiya"
+
+export const AUTHOR_URL = "https://www.shishirchaurasiya.in/"
+
 export const SITE_DESCRIPTION =
   "Privacy-first browser extension for local LLM chat with Ollama, LM Studio, llama.cpp, and OpenAI-compatible servers."
 

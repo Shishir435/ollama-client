@@ -28,7 +28,12 @@ const mockBrowser = {
     onStartup: {
       addListener: vi.fn((fn) => listeners.onStartup.push(fn))
     },
+    getManifest: vi.fn(() => ({ version: "0.12.4" })),
+    setUninstallURL: vi.fn().mockResolvedValue(undefined),
     getURL: vi.fn((path: string) => `chrome-extension://test/${path}`)
+  },
+  i18n: {
+    getUILanguage: vi.fn(() => "en-US")
   },
   windows: {
     create: vi.fn()
@@ -151,6 +156,9 @@ describe("Background Script Entry Point", () => {
   describe("Message Routing", () => {
     it("registers context menu handling on service worker startup", () => {
       expect(initializeContextMenu).toHaveBeenCalled()
+      expect(mockBrowser.runtime.setUninstallURL).toHaveBeenCalledWith(
+        "https://www.ollamaclient.in/goodbye?v=0.12.4&l=en-US"
+      )
     })
 
     it("should route GET_MODELS", () => {

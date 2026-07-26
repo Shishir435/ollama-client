@@ -2,6 +2,8 @@
 import BaseLayout from "@/layouts/BaseLayout.astro"
 import {
   APP_VERSION,
+  AUTHOR_NAME,
+  AUTHOR_URL,
   LANDING_TITLE,
   LANDING_DESCRIPTION,
   SITE_TITLE
@@ -45,8 +47,8 @@ const jsonLd = {
       },
       author: {
         "@type": "Person",
-        name: "Shishir Chaurasiya",
-        url: "https://www.shishirchaurasiya.in/"
+        name: AUTHOR_NAME,
+        url: AUTHOR_URL
       },
       url: "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
       downloadUrl:

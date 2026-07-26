@@ -1,0 +1,150 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro"
+import {
+  AUTHOR_URL,
+  CONTACT_EMAIL,
+  REPO_URL,
+  SITE_TITLE
+} from "@/seo/constants.mjs"
+
+const title = `Thank you for trying ${SITE_TITLE}`
+const description =
+  "Tell us what could have made Ollama Client work better for you. Your feedback helps guide future improvements."
+
+const REPO = REPO_URL
+const EMAIL = CONTACT_EMAIL
+
+const prompts = [
+  "What were you trying to do?",
+  "What did not work as expected?",
+  "What would have made you keep Ollama Client installed?"
+]
+---
+
+<BaseLayout title={title} description={description}>
+  <section class="mx-auto max-w-2xl pb-24 pt-24 sm:pt-32">
+    <p
+      class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground"
+    >
+      Ollama Client · Feedback
+    </p>
+
+    <h1
+      class="mt-5 text-balance text-3xl font-semibold leading-[1.15] tracking-tight sm:text-4xl"
+    >
+      Thank you for trying Ollama Client
+    </h1>
+
+    <div class="mt-6 space-y-4 text-[15px] leading-relaxed text-foreground/70">
+      <p>
+        We are sorry to see you go. If something fell short, a brief note about
+        your experience would help us understand what to improve.
+      </p>
+      <p>
+        Ollama Client is independently developed by{" "}
+        <a
+          class="text-foreground underline decoration-border underline-offset-4 transition hover:decoration-foreground"
+          href={AUTHOR_URL}
+          target="_blank"
+          rel="noopener">Shishir</a
+        >. Every report is reviewed and helps prioritize fixes and future
+        improvements.
+      </p>
+    </div>
+
+    <div class="mt-8 flex flex-wrap items-center gap-3">
+      <a
+        id="issue-link"
+        class="inline-flex h-9 items-center rounded-md bg-foreground px-4 text-sm font-medium text-background transition hover:bg-foreground/90"
+        href={`${REPO}/issues/new`}
+        target="_blank"
+        rel="noopener"
+      >
+        Leave feedback on GitHub
+      </a>
+      <a
+        id="email-link"
+        class="inline-flex h-9 items-center rounded-md border border-border px-4 text-sm font-medium text-foreground transition hover:bg-foreground/5"
+        href={`mailto:${EMAIL}`}
+      >
+        Send feedback by email
+      </a>
+    </div>
+
+    <div class="mt-12 border-t border-border/60 pt-8">
+      <p class="text-sm font-medium text-foreground">
+        A few useful details to include
+      </p>
+      <ul class="mt-4 space-y-2.5 text-[15px] leading-relaxed text-foreground/70">
+        {
+          prompts.map((prompt) => (
+            <li class="flex gap-3">
+              <span class="select-none text-muted-foreground" aria-hidden="true">
+                &bull;
+              </span>
+              <span>{prompt}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <p class="mt-10 text-xs leading-relaxed text-muted-foreground">
+      The extension adds only its version and your browser language to the
+      feedback draft. It does not attach chat content, settings, or personal
+      identifiers.
+    </p>
+
+    <p class="mt-10 text-[15px] text-foreground/70">
+      Thank you for helping make Ollama Client better.
+    </p>
+  </section>
+
+  <script is:inline define:vars={{ REPO, EMAIL }}>
+    // Enrich the feedback links with the anonymous context the extension's
+    // setUninstallURL passes: ?v=<version>&l=<locale>. No identifiers.
+    ;(() => {
+      const params = new URLSearchParams(window.location.search)
+      const version = params.get("v")
+      const locale = params.get("l")
+
+      const footer = [
+        `Version: ${version || "unknown"}`,
+        `Language: ${locale || "unknown"}`
+      ].join("\n")
+
+      const questions = [
+        "## What were you trying to do?",
+        "",
+        "",
+        "## What happened?",
+        "",
+        "",
+        "## What could have made you keep Ollama Client installed?",
+        "",
+        "",
+        "---",
+        footer
+      ].join("\n")
+
+      const issueLink = document.getElementById("issue-link")
+      if (issueLink) {
+        const url = new URL(`${REPO}/issues/new`)
+        url.searchParams.set("title", "Feedback after uninstall")
+        url.searchParams.set("body", questions)
+        url.searchParams.set("labels", "feedback")
+        issueLink.href = url.toString()
+      }
+
+      const emailLink = document.getElementById("email-link")
+      if (emailLink) {
+        const subject = version
+          ? `Ollama Client feedback (v${version})`
+          : "Ollama Client feedback"
+        emailLink.href = `mailto:${EMAIL}?subject=${encodeURIComponent(
+          subject
+        )}&body=${encodeURIComponent(questions)}`
+      }
+    })()
+  </script>
+</BaseLayout>
