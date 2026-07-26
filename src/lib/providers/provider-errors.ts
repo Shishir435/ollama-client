@@ -155,6 +155,17 @@ export const throwProviderConnectionError = (
   )
 }
 
+export const readProviderStreamChunk = async (
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  context: ProviderErrorContext
+): Promise<ReadableStreamReadResult<Uint8Array>> => {
+  try {
+    return await reader.read()
+  } catch (error) {
+    return throwProviderConnectionError(error, context)
+  }
+}
+
 /**
  * Add request context at the background boundary, where the resolved provider
  * config is authoritative. Provider adapters never need to duplicate this

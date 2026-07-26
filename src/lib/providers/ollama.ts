@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger"
 import {
   localCorsForbiddenMessage,
   providerErrorUserMessage,
+  readProviderStreamChunk,
   throwProviderConnectionError
 } from "@/lib/providers/provider-errors"
 import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
@@ -314,7 +315,12 @@ export class OllamaProvider implements LLMProvider {
 
     try {
       while (true) {
-        const { done, value } = await reader.read()
+        const { done, value } = await readProviderStreamChunk(reader, {
+          providerId: this.id,
+          providerName: this.config.name,
+          model,
+          baseUrl
+        })
         if (done) {
           // Flush a final line left without a trailing newline at EOF.
           if (buffer.trim()) processLine(buffer)

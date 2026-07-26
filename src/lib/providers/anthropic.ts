@@ -1,6 +1,7 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
+  readProviderStreamChunk,
   throwProviderConnectionError,
   throwProviderResponseError
 } from "@/lib/providers/provider-errors"
@@ -551,7 +552,12 @@ export class AnthropicProvider implements LLMProvider {
 
     try {
       while (true) {
-        const { done, value } = await reader.read()
+        const { done, value } = await readProviderStreamChunk(reader, {
+          providerId: this.id,
+          providerName: this.config.name,
+          model,
+          baseUrl: this.baseUrl
+        })
         if (done) {
           if (buffer.trim()) processLine(buffer)
           emitDone()

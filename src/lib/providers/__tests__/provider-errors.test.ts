@@ -232,6 +232,45 @@ describe("custom provider connection errors", () => {
       }
     }
   })
+
+  it("keeps provider context when an HTTP-200 stream disconnects", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new TypeError("socket closed"))
+      }
+    })
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(stream, { status: 200 })
+    )
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:openai:localai",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "http://localhost:8080/v1",
+      name: "My LocalAI"
+    })
+
+    try {
+      await provider.streamChat({ model: "qwen3", messages: [] }, () => {})
+      throw new Error("Expected streamChat to fail")
+    } catch (error) {
+      expect(isAppError(error)).toBe(true)
+      if (isAppError(error)) {
+        expect(error).toMatchObject({
+          kind: "provider",
+          status: 0,
+          providerId: "custom:openai:localai",
+          providerName: "My LocalAI",
+          model: "qwen3",
+          baseUrl: "http://localhost:8080/v1"
+        })
+        expect(error.userMessage).toContain(
+          "My LocalAI at http://localhost:8080/v1 could not be reached"
+        )
+        expect(error.userMessage).not.toContain("socket closed")
+      }
+    }
+  })
 })
 
 describe("provider-specific server errors", () => {
