@@ -39,6 +39,11 @@ export interface ChromeMessage {
     providerName?: string
     model?: string
     baseUrl?: string
+    code?: import("./errors").AppErrorCode
+    phase?: import("./errors").AppErrorPhase
+    incidentId?: string
+    durationMs?: number
+    recoveryAction?: import("./errors").AppErrorRecoveryAction
   }
 }
 
@@ -84,6 +89,11 @@ export interface ChromeResponse {
     providerName?: string
     model?: string
     baseUrl?: string
+    code?: import("./errors").AppErrorCode
+    phase?: import("./errors").AppErrorPhase
+    incidentId?: string
+    durationMs?: number
+    recoveryAction?: import("./errors").AppErrorRecoveryAction
   }
   tabs?: browser.Tabs.Tab[]
   html?: string

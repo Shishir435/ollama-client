@@ -402,6 +402,8 @@
       "report_issue": "Problem melden",
       "open_issue": "Issue öffnen",
       "issue_draft_notice": "Lokal vorausgefüllt. Vor dem Absenden prüfen.",
+      "preparing_issue": "Sichere Prüfungen laufen…",
+      "open_diagnostics": "Diagnose öffnen",
       "interrupted": "Antwort unterbrochen"
     },
     "composer": {

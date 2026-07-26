@@ -211,7 +211,12 @@ export const useChatStream = ({
                   providerId: errorProviderId,
                   providerName,
                   model: errorModel,
-                  baseUrl: error.baseUrl
+                  baseUrl: error.baseUrl,
+                  code: error.code,
+                  phase: error.phase,
+                  incidentId: error.incidentId,
+                  durationMs: error.durationMs,
+                  recoveryAction: error.recoveryAction
                 })
               : undefined
           const toastDescription =
@@ -233,7 +238,12 @@ export const useChatStream = ({
               providerId: errorProviderId,
               providerName,
               model: errorModel,
-              baseUrl: error.baseUrl
+              baseUrl: error.baseUrl,
+              code: error.code,
+              phase: error.phase,
+              incidentId: error.incidentId,
+              durationMs: error.durationMs,
+              recoveryAction: error.recoveryAction
             }
           })
           toast({

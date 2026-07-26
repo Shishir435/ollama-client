@@ -402,6 +402,8 @@
       "report_issue": "Informar de un problema",
       "open_issue": "Abrir una incidencia",
       "issue_draft_notice": "Rellenado localmente. Revísalo antes de enviarlo.",
+      "preparing_issue": "Ejecutando comprobaciones seguras…",
+      "open_diagnostics": "Abrir diagnósticos",
       "interrupted": "Respuesta interrumpida"
     },
     "composer": {

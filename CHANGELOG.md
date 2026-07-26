@@ -14,6 +14,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Added a post-uninstall feedback page with optional GitHub and email prompts,
   plus extension version and browser language context to help diagnose
   release-specific issues without attaching chat content or settings.
+- Added stable support codes, incident IDs, failure phases, and tailored
+  recovery actions to chat errors. Opening an issue now runs local, privacy-safe
+  checks on demand and includes matching diagnostics in the reviewed draft.
 
 ### Fixed
 
@@ -26,6 +29,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   which sensitive data and console logs are excluded.
 - Disabled providers can no longer serve chat, selection-action, RAG
   reformulation, or model-warmup requests from stale model selections.
+- Provider adapters now recognize safe reasons such as missing or unloaded
+  models, context limits, unsupported input, memory exhaustion, rate limits,
+  overload, and interrupted streams without exposing raw provider responses.
+  Filesystem-shaped model IDs redact local account names in issue drafts.
 
 ## [0.12.4] - 2026-07-24
 

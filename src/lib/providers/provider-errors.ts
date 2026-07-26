@@ -1,11 +1,174 @@
 import { EXTERNAL_URLS } from "@/lib/constants/urls"
 import {
   type AppError,
+  type AppErrorCode,
+  type AppErrorRecoveryAction,
   createAppError,
   getErrorMessage,
   isAbortError,
   sanitizeProviderBaseUrl
 } from "@/lib/error-utils"
+
+export interface ProviderErrorClassification {
+  code: AppErrorCode
+  reason?: string
+  recoveryAction: AppErrorRecoveryAction
+}
+
+const reasonForCode = (code: AppErrorCode): string | undefined => {
+  if (code === "OLC-CONTEXT-TOO-LARGE")
+    return "Request exceeds model context limit."
+  if (code === "OLC-OUT-OF-MEMORY")
+    return "Provider could not allocate enough memory for this model."
+  if (code === "OLC-MODEL-NOT-FOUND")
+    return "Provider could not find selected model."
+  if (code === "OLC-MODEL-NOT-LOADED")
+    return "Selected model is not loaded by provider."
+  if (code === "OLC-MODEL-LOADING") return "Selected model is still loading."
+  if (code === "OLC-INPUT-UNSUPPORTED")
+    return "Selected model does not support part of this request."
+  return undefined
+}
+
+const includesAny = (value: string, patterns: RegExp[]) =>
+  patterns.some((pattern) => pattern.test(value))
+
+/**
+ * Convert known provider messages into a small, safe vocabulary. Never return
+ * provider text itself: it may contain prompts, filesystem paths, or secrets.
+ */
+export const classifyProviderError = (
+  status: number | undefined,
+  detail?: string
+): ProviderErrorClassification => {
+  const value = detail?.slice(0, 8_000) ?? ""
+
+  if (
+    includesAny(value, [
+      /context.{0,30}(?:length|window|limit).{0,30}(?:exceed|large|maximum)/i,
+      /maximum context length/i,
+      /too many tokens/i,
+      /context_length_exceeded/i
+    ])
+  ) {
+    return {
+      code: "OLC-CONTEXT-TOO-LARGE",
+      reason: "Request exceeds model context limit.",
+      recoveryAction: "reduce-input"
+    }
+  }
+  if (
+    includesAny(value, [
+      /out of memory/i,
+      /insufficient (?:system |video |gpu )?memory/i,
+      /cuda.{0,20}memory/i,
+      /failed to allocate/i
+    ])
+  ) {
+    return {
+      code: "OLC-OUT-OF-MEMORY",
+      reason: "Provider could not allocate enough memory for this model.",
+      recoveryAction: "choose-model"
+    }
+  }
+  if (
+    includesAny(value, [
+      /model.{0,30}(?:not found|does not exist|unknown)/i,
+      /no such model/i,
+      /pull model/i
+    ])
+  ) {
+    return {
+      code: "OLC-MODEL-NOT-FOUND",
+      reason: "Provider could not find selected model.",
+      recoveryAction: "choose-model"
+    }
+  }
+  if (status === 404) {
+    return {
+      code: "OLC-RESOURCE-NOT-FOUND",
+      recoveryAction: "test-connection"
+    }
+  }
+  if (
+    includesAny(value, [
+      /model.{0,30}(?:not loaded|unloaded)/i,
+      /load (?:a |the )?model first/i
+    ])
+  ) {
+    return {
+      code: "OLC-MODEL-NOT-LOADED",
+      reason: "Selected model is not loaded by provider.",
+      recoveryAction: "test-connection"
+    }
+  }
+  if (
+    includesAny(value, [
+      /model.{0,30}(?:loading|initializing)/i,
+      /loading model/i
+    ])
+  ) {
+    return {
+      code: "OLC-MODEL-LOADING",
+      reason: "Selected model is still loading.",
+      recoveryAction: "wait-retry"
+    }
+  }
+  if (
+    includesAny(value, [
+      /(?:image|vision).{0,30}(?:not supported|unsupported)/i,
+      /does not support.{0,30}(?:image|vision|tool)/i,
+      /tool.{0,30}(?:not supported|unsupported)/i
+    ])
+  ) {
+    return {
+      code: "OLC-INPUT-UNSUPPORTED",
+      reason: "Selected model does not support part of this request.",
+      recoveryAction: "reduce-input"
+    }
+  }
+  if (status === 401 || status === 403) {
+    return {
+      code: "OLC-AUTH-FAILED",
+      recoveryAction: "test-connection"
+    }
+  }
+  if (status === 402) {
+    return {
+      code: "OLC-PAYMENT-REQUIRED",
+      recoveryAction: "choose-model"
+    }
+  }
+  if (status === 408 || status === 504) {
+    return {
+      code: "OLC-PROVIDER-TIMEOUT",
+      recoveryAction: "retry"
+    }
+  }
+  if (status === 413) {
+    return {
+      code: "OLC-CONTEXT-TOO-LARGE",
+      reason: "Request is larger than provider accepts.",
+      recoveryAction: "reduce-input"
+    }
+  }
+  if (status === 429) {
+    return {
+      code: "OLC-RATE-LIMITED",
+      recoveryAction: "wait-retry"
+    }
+  }
+  if (status === 529 || (status !== undefined && status >= 500)) {
+    return {
+      code: status === 529 ? "OLC-PROVIDER-OVERLOADED" : "OLC-PROVIDER-HTTP",
+      recoveryAction: "retry"
+    }
+  }
+  return {
+    code: "OLC-PROVIDER-HTTP",
+    recoveryAction: "test-connection"
+  }
+}
 
 /**
  * A 401/403 from a LOCAL provider (Ollama et al.) is almost always a CORS/origin
@@ -64,6 +227,7 @@ export const providerErrorUserMessage = (
     retryAfterMs?: number
     providerName?: string
     model?: string
+    reason?: string
   } = {}
 ): string => {
   const providerName = options.providerName?.trim()
@@ -77,8 +241,9 @@ export const providerErrorUserMessage = (
     ? ` while generating a response with model "${model}"`
     : " while generating a response"
   const lead = `${provider}${endpoint} returned HTTP ${status}${operation}.`
+  const reason = options.reason ? ` ${options.reason}` : ""
   if (status === 400) {
-    return `${lead} The ${selectedModel} may not support this input — for example, images on a model without vision support.`
+    return `${lead}${reason || ` The ${selectedModel} may not support this input — for example, images on a model without vision support.`}`
   }
   if (status === 401 || status === 403) {
     if (isLocalProviderBaseUrl(options.baseUrl)) {
@@ -87,13 +252,13 @@ export const providerErrorUserMessage = (
     return `${lead} Check its credentials, API key, or account access.`
   }
   if (status === 404) {
-    return `${lead} ${provider} could not find the ${selectedModel} or endpoint. Check the model name and ${providerLower}'s base URL.`
+    return `${lead}${reason || ` ${provider} could not find the ${selectedModel} or endpoint.`} Check the model name and ${providerLower}'s base URL.`
   }
   if (status === 408 || status === 504) {
     return `${lead} Check that its server is responsive and try again.`
   }
   if (status === 413) {
-    return `${lead} The request was too large. Try a smaller image or shorter message.`
+    return `${lead}${reason || " The request was too large."} Try a smaller image or shorter message.`
   }
   if (status === 402) {
     return `${lead} The provider account has insufficient credits or requires payment. Add credits or choose another provider.`
@@ -112,11 +277,11 @@ export const providerErrorUserMessage = (
       const retryIn = options.retryAfterMs
         ? ` Retry in about ${Math.max(1, Math.ceil(options.retryAfterMs / 1000))} seconds.`
         : " Try again shortly."
-      return `${lead} The hosted provider is temporarily unavailable.${retryIn}`
+      return `${lead}${reason} The hosted provider is temporarily unavailable.${retryIn}`
     }
-    return `${lead} Check that ${providerLower} is running, the ${selectedModel} is loaded, and its base URL/port are correct.`
+    return `${lead}${reason} Check that ${providerLower} is running, the ${selectedModel} is loaded, and its base URL/port are correct.`
   }
-  return `${lead} Check ${providerLower}, the ${selectedModel}, and its server logs.`
+  return `${lead}${reason} Check ${providerLower}, the ${selectedModel}, and its server logs.`
 }
 
 export interface ProviderErrorContext {
@@ -148,6 +313,9 @@ export const throwProviderConnectionError = (
       model,
       baseUrl,
       retryable: true,
+      code: "OLC-PROVIDER-UNREACHABLE",
+      phase: "connect",
+      recoveryAction: "test-connection",
       userMessage: `${providerName}${endpoint} could not be reached while requesting a response${modelContext}. Check that the provider is running and the configured base URL is correct.`,
       debug: getErrorMessage(error),
       cause: error
@@ -162,7 +330,29 @@ export const readProviderStreamChunk = async (
   try {
     return await reader.read()
   } catch (error) {
-    return throwProviderConnectionError(error, context)
+    if (isAbortError(error)) throw error
+    const providerName = context.providerName?.trim() || "The provider"
+    const baseUrl = sanitizeProviderBaseUrl(context.baseUrl)
+    const endpoint = baseUrl ? ` at ${baseUrl}` : ""
+    const model = context.model ? ` with model "${context.model}"` : ""
+    throw createAppError(
+      `${providerName} stream failed: ${getErrorMessage(error)}`,
+      {
+        kind: "provider",
+        status: 0,
+        code: "OLC-STREAM-DROPPED",
+        phase: "read-stream",
+        recoveryAction: "retry",
+        providerId: context.providerId,
+        providerName,
+        model: context.model,
+        baseUrl,
+        retryable: true,
+        userMessage: `${providerName}${endpoint} connection dropped while reading the response${model}. Retry to continue with a fresh response.`,
+        debug: getErrorMessage(error),
+        cause: error
+      }
+    )
   }
 }
 
@@ -175,6 +365,14 @@ export const applyProviderErrorContext = (
   error: AppError,
   context: ProviderErrorContext
 ): AppError => {
+  const classification = classifyProviderError(
+    error.status,
+    typeof error.debug === "string" ? error.debug : undefined
+  )
+  if (error.code === "OLC-UNKNOWN") error.code = classification.code
+  if (!error.recoveryAction)
+    error.recoveryAction = classification.recoveryAction
+  if (error.phase === "unknown") error.phase = "response"
   error.providerId = context.providerId || error.providerId
   error.providerName = context.providerName || error.providerName
   error.model = context.model || error.model
@@ -187,7 +385,8 @@ export const applyProviderErrorContext = (
       retryAfterMs: error.retryAfterMs,
       providerName: error.providerName,
       model: error.model,
-      baseUrl: error.baseUrl
+      baseUrl: error.baseUrl,
+      reason: reasonForCode(error.code) || classification.reason
     })
   } else if (!error.userMessage) {
     const provider = error.providerName || "The provider"
@@ -221,6 +420,13 @@ export const throwProviderResponseError = async (
 ): Promise<never> => {
   const detail = await response.text()
   const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
+  const classification = classifyProviderError(response.status, detail)
+  if (
+    (response.status === 401 || response.status === 403) &&
+    isLocalProviderBaseUrl(options.baseUrl)
+  ) {
+    classification.code = "OLC-CORS-BLOCKED"
+  }
   throw createAppError(`${options.label} (${response.status}): ${detail}`, {
     kind: "provider",
     status: response.status,
@@ -230,11 +436,15 @@ export const throwProviderResponseError = async (
     baseUrl: sanitizeProviderBaseUrl(options.baseUrl),
     retryable: isRetryableProviderStatus(response.status),
     retryAfterMs,
+    code: classification.code,
+    phase: "response",
+    recoveryAction: classification.recoveryAction,
     userMessage: providerErrorUserMessage(response.status, {
       baseUrl: options.baseUrl,
       retryAfterMs,
       providerName: options.providerName,
-      model: options.model
+      model: options.model,
+      reason: classification.reason
     }),
     debug: detail
   })

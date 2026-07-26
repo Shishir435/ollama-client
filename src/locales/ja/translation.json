@@ -402,6 +402,8 @@
       "report_issue": "問題を報告",
       "open_issue": "Issueを開く",
       "issue_draft_notice": "ローカルで入力済みです。送信前に確認してください。",
+      "preparing_issue": "安全なチェックを実行中…",
+      "open_diagnostics": "診断を開く",
       "interrupted": "応答が中断されました"
     },
     "composer": {

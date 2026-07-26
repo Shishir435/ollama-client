@@ -402,6 +402,8 @@
       "report_issue": "Сообщить о проблеме",
       "open_issue": "Открыть issue",
       "issue_draft_notice": "Заполнено локально. Проверьте перед отправкой.",
+      "preparing_issue": "Выполняются безопасные проверки…",
+      "open_diagnostics": "Открыть диагностику",
       "interrupted": "Ответ прерван"
     },
     "composer": {

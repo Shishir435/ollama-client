@@ -4,10 +4,11 @@ import {
   buildErrorReportUrl,
   getSafeClientEnvironment
 } from "@/lib/error-report"
-import { isAppError } from "@/lib/error-utils"
+import { isAppError, sanitizeModelIdentifier } from "@/lib/error-utils"
 import { OllamaProvider } from "../ollama"
 import { OpenAICompatibleProvider } from "../openai-compatible"
 import {
+  classifyProviderError,
   isLocalProviderBaseUrl,
   parseRetryAfter,
   providerErrorUserMessage
@@ -122,6 +123,30 @@ describe("providerErrorUserMessage", () => {
         retryAfterMs: 2_000
       })
     ).toContain("hosted provider")
+  })
+
+  it("classifies safe provider reasons without returning raw text", () => {
+    expect(
+      classifyProviderError(
+        500,
+        "CUDA out of memory while loading /Users/alice/private/model.gguf"
+      )
+    ).toEqual({
+      code: "OLC-OUT-OF-MEMORY",
+      reason: "Provider could not allocate enough memory for this model.",
+      recoveryAction: "choose-model"
+    })
+  })
+
+  it("redacts usernames from path-shaped model IDs", () => {
+    expect(
+      sanitizeModelIdentifier(
+        "/Users/mr.ak/Desktop/private/DeepSeek-R1-Qwen3-8B.gguf"
+      )
+    ).toBe("/Users/<redacted>/Desktop/private/DeepSeek-R1-Qwen3-8B.gguf")
+    expect(sanitizeModelIdentifier("C:\\Users\\Alice\\Models\\qwen.gguf")).toBe(
+      "C:\\Users\\<redacted>\\Models\\qwen.gguf"
+    )
   })
 })
 
@@ -287,10 +312,13 @@ describe("custom provider connection errors", () => {
           providerId: "custom:openai:localai",
           providerName: "My LocalAI",
           model: "qwen3",
-          baseUrl: "http://localhost:8080/v1"
+          baseUrl: "http://localhost:8080/v1",
+          code: "OLC-STREAM-DROPPED",
+          phase: "read-stream",
+          recoveryAction: "retry"
         })
         expect(error.userMessage).toContain(
-          "My LocalAI at http://localhost:8080/v1 could not be reached"
+          'My LocalAI at http://localhost:8080/v1 connection dropped while reading the response with model "qwen3"'
         )
         expect(error.userMessage).not.toContain("socket closed")
       }
@@ -327,6 +355,48 @@ describe("provider-specific server errors", () => {
         )
         expect(error.userMessage).toContain('model "gemma.gguf" is loaded')
         expect(error.userMessage).not.toContain("template failure")
+      }
+    }
+  })
+
+  it("surfaces a classified safe reason but not raw provider detail", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(
+          '{"error":"CUDA out of memory loading /Users/alice/private.gguf"}',
+          { status: 500 }
+        )
+    )
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:localai",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "http://localhost:8080/v1",
+      name: "LocalAI"
+    })
+
+    await expect(
+      provider.streamChat(
+        { model: "large.gguf", messages: [{ role: "user", content: "hi" }] },
+        () => {}
+      )
+    ).rejects.toMatchObject({
+      code: "OLC-OUT-OF-MEMORY",
+      recoveryAction: "choose-model",
+      userMessage: expect.stringContaining(
+        "Provider could not allocate enough memory for this model."
+      )
+    })
+
+    try {
+      await provider.streamChat(
+        { model: "large.gguf", messages: [{ role: "user", content: "hi" }] },
+        () => {}
+      )
+    } catch (error) {
+      expect(isAppError(error)).toBe(true)
+      if (isAppError(error)) {
+        expect(error.userMessage).not.toContain("/Users/alice")
       }
     }
   })

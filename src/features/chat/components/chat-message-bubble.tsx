@@ -85,7 +85,10 @@ export const ChatMessageBubble = memo(
               isStreaming={isStreaming}
             />
             {!isLoading && !isStreaming && hasAssistantError(msg) && (
-              <ChatErrorReportAction msg={msg} />
+              <ChatErrorReportAction
+                msg={msg}
+                onRetry={onRegenerate ? () => onRegenerate() : undefined}
+              />
             )}
             <ChatMessageFooter
               isUser={isUser}

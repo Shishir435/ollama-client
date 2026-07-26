@@ -402,6 +402,8 @@
       "report_issue": "Segnala un problema",
       "open_issue": "Apri una segnalazione",
       "issue_draft_notice": "Precompilata localmente. Controlla prima di inviare.",
+      "preparing_issue": "Esecuzione dei controlli sicuri…",
+      "open_diagnostics": "Apri diagnostica",
       "interrupted": "Risposta interrotta"
     },
     "composer": {

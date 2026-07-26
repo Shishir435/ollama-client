@@ -402,6 +402,8 @@
       "report_issue": "Signaler un problème",
       "open_issue": "Ouvrir un ticket",
       "issue_draft_notice": "Prérempli localement. Vérifiez avant l’envoi.",
+      "preparing_issue": "Exécution des vérifications sûres…",
+      "open_diagnostics": "Ouvrir le diagnostic",
       "interrupted": "Réponse interrompue"
     },
     "composer": {

@@ -402,6 +402,8 @@
       "report_issue": "报告问题",
       "open_issue": "新建议题",
       "issue_draft_notice": "已在本地预填。提交前请检查。",
+      "preparing_issue": "正在运行安全检查…",
+      "open_diagnostics": "打开诊断",
       "interrupted": "响应已中断"
     },
     "composer": {

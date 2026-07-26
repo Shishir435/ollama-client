@@ -188,7 +188,8 @@ describe("handleSelectionAction", () => {
       error: expect.objectContaining({
         status: 409,
         kind: "validation",
-        message: "Ollama is disabled",
+        message:
+          "Ollama is disabled. Enable it in Settings → Model behavior before chatting.",
         userMessage:
           "Ollama is disabled. Enable it in Settings → Model behavior before chatting.",
         providerId: "ollama",

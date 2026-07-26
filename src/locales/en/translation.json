@@ -436,6 +436,8 @@
       "report_issue": "Report issue",
       "open_issue": "Open an issue",
       "issue_draft_notice": "Prefilled locally. Review before submitting.",
+      "preparing_issue": "Running safe checks…",
+      "open_diagnostics": "Open diagnostics",
       "interrupted": "Response interrupted"
     },
     "composer": {

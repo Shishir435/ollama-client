@@ -1,6 +1,7 @@
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
+  classifyProviderError,
   localCorsForbiddenMessage,
   providerErrorUserMessage,
   readProviderStreamChunk,
@@ -200,17 +201,28 @@ export class OllamaProvider implements LLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text()
+      const classification = classifyProviderError(response.status, errorText)
       throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
         kind: "provider",
         status: response.status,
         providerId: ProviderId.OLLAMA,
+        providerName: this.config.name,
+        model,
+        baseUrl,
         retryable: response.status >= 500,
+        code:
+          response.status === 401 || response.status === 403
+            ? "OLC-CORS-BLOCKED"
+            : classification.code,
+        phase: "response",
+        recoveryAction: classification.recoveryAction,
         userMessage:
           response.status === 401 || response.status === 403
             ? localCorsForbiddenMessage(response.status)
             : providerErrorUserMessage(response.status, {
                 providerName: this.config.name,
-                model
+                model,
+                reason: classification.reason
               }),
         debug: errorText
       })
@@ -264,11 +276,19 @@ export class OllamaProvider implements LLMProvider {
           typeof data.error === "string"
             ? data.error
             : "The provider reported an error while generating the response."
+        const classification = classifyProviderError(undefined, message)
         throw createAppError(message, {
           kind: "provider",
           providerId: ProviderId.OLLAMA,
-          userMessage:
-            "The provider reported an error while generating the response.",
+          providerName: this.config.name,
+          model,
+          baseUrl,
+          code: classification.code,
+          phase: "read-stream",
+          recoveryAction: classification.recoveryAction,
+          userMessage: classification.reason
+            ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+            : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
           debug: typeof data.error === "string" ? data.error : undefined
         })
       }
