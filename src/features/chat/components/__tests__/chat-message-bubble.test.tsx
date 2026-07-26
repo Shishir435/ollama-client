@@ -53,6 +53,7 @@ describe("ChatMessageBubble", () => {
     )
 
     expect(screen.getByText("cannot report")).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
     expect(
       screen.queryByRole("button", { name: "chat.errors.open_issue" })
     ).not.toBeInTheDocument()
@@ -72,6 +73,11 @@ describe("ChatMessageBubble", () => {
     )
 
     expect(screen.getByText("can report")).toBeInTheDocument()
+    // A failed turn must not read as ordinary model output.
+    expect(screen.getByRole("alert")).toBeInTheDocument()
+    expect(
+      screen.getByText("chat.errors.response_failed_title")
+    ).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "chat.errors.open_issue" })
     ).toBeInTheDocument()
