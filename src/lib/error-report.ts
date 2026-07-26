@@ -121,6 +121,23 @@ const diagnosticsPasteLines = [
   "```"
 ]
 
+/**
+ * Fixed prose every draft ends with. Shared by all three builders so a report's
+ * completeness never depends on which button the reporter happened to find:
+ * paste target, bundle instructions, and the privacy statement are not optional
+ * extras, they are what makes a draft safe to submit.
+ */
+const REPORT_TAIL = [
+  ...diagnosticsPasteLines,
+  ...supportBundleLines,
+  "",
+  "**Privacy**",
+  "This draft was generated locally and opened for your review. It includes no telemetry, prompts, page content, file names, API keys, raw provider responses, or console logs.",
+  "",
+  "**Steps to reproduce**",
+  "1. "
+].join("\n")
+
 export interface GenericIssueContext {
   providerId?: string
   model?: string
@@ -135,29 +152,52 @@ export const buildGenericIssueReportUrl = (
       ? context.providerId
       : undefined
   const model = sanitizeModelIdentifier(context.model)?.replace(/[\r\n]+/g, " ")
-  const body = [
-    "**What happened?**",
-    "",
-    "",
-    "**What did you expect?**",
-    "",
-    "",
-    "**Environment**",
-    `- Extension version: ${getExtensionVersion()}`,
-    `- Browser: ${environment.browser} (best effort; edit if incorrect)`,
-    `- OS: ${environment.os} (coarse family only)`,
-    `- Selected provider: ${providerId ?? "n/a"}`,
-    `- Selected model: ${model || "n/a"}`,
-    ...diagnosticsPasteLines,
-    ...supportBundleLines,
-    "",
-    "**Privacy**",
-    "This draft was generated locally and opened for your review. It includes no telemetry, prompts, page content, file names, API keys, provider responses, or console logs.",
-    "",
-    "**Steps to reproduce**",
-    "1. "
-  ].join("\n")
-  return composeIssueUrl("[bug] Help needed: ", body)
+  return composeReportUrl(
+    "[bug] Help needed: ",
+    [
+      "**What happened?**",
+      "",
+      "",
+      "**What did you expect?**",
+      "",
+      "",
+      "**Environment**",
+      `- Extension version: ${getExtensionVersion()}`,
+      `- Browser: ${environment.browser} (best effort; edit if incorrect)`,
+      `- OS: ${environment.os} (coarse family only)`,
+      `- Selected provider: ${providerId ?? "n/a"}`,
+      `- Selected model: ${model || "n/a"}`
+    ].join("\n")
+  )
+}
+
+/**
+ * Draft opened from Settings → Help → Diagnostics & support, where the reporter
+ * already has a bundle in hand. Shares the composer above, so this draft carries
+ * the same paste block, privacy statement, and length guarantee as a chat-error
+ * draft — it previously had none of the three.
+ */
+export const buildDiagnosticIssueUrl = (
+  bundle: NonNullable<DiagnosticBundle>
+): string => {
+  const failed = bundle.selfTests
+    .filter((test) => test.status === "fail")
+    .map((test) => clampLine(`- ${test.id}: ${test.code ?? "failed"}`, 200))
+    .slice(0, 20)
+  return composeReportUrl(
+    "[bug] Diagnostics support request",
+    [
+      "**What happened**",
+      "_Describe the problem here._",
+      "",
+      "**Safe diagnostic summary**",
+      `- Extension: ${clampLine(bundle.appVersion, 100)}`,
+      `- Browser: ${clampLine(bundle.browserFamily, 100)}`,
+      `- OS: ${clampLine(bundle.osFamily, 100)}`,
+      `- Storage backend: ${clampLine(bundle.storage.backend, 100)}`,
+      ...(failed.length > 0 ? failed : ["- Self-tests: passed"])
+    ].join("\n")
+  )
 }
 
 export interface SafeErrorChecks {
@@ -172,6 +212,15 @@ const checkLines = (checks?: SafeErrorChecks): string[] => {
   if (!checks) return []
   const value = (result: boolean | undefined) =>
     result === undefined ? "not checked" : result ? "yes" : "no"
+  // A duration measured on the failure path is useful (an instant refusal and a
+  // 30 s timeout are different bugs) but reads as a contradiction next to
+  // "reachable: no" unless it says what it timed.
+  const latency =
+    checks.latencyMs === undefined
+      ? "n/a"
+      : `${Math.round(checks.latencyMs)} ms${
+          checks.providerReachable === false ? " (time to failure)" : ""
+        }`
   return [
     "",
     "**Automatic checks (run locally after click)**",
@@ -179,11 +228,7 @@ const checkLines = (checks?: SafeErrorChecks): string[] => {
     `- Provider reachable: ${value(checks.providerReachable)}`,
     `- Selected model discovered: ${value(checks.selectedModelFound)}`,
     `- Base URL valid: ${value(checks.baseUrlValid)}`,
-    `- Provider discovery latency: ${
-      checks.latencyMs === undefined
-        ? "n/a"
-        : `${Math.round(checks.latencyMs)} ms`
-    }`
+    `- Provider discovery latency: ${latency}`
   ]
 }
 
@@ -258,7 +303,7 @@ const buildErrorReportDraft = (
   error: ErrorReportInput,
   diagnostics?: DiagnosticBundle,
   checks?: SafeErrorChecks
-): { title: string; head: string; tail: string } => {
+): { title: string; head: string } => {
   const message = (error.message ?? "").replace(/\s+/g, " ").trim()
   const providerName = error.providerName
     ?.replace(/\s+/g, " ")
@@ -278,8 +323,8 @@ const buildErrorReportDraft = (
     : message.slice(0, 80) || "Error while chatting"
   const title = `[bug] ${code ? `${code}: ` : ""}${subject}${error.status ? ` (${error.status})` : ""}`
   // `head` is the variable-size part (it scales with the user's install and the
-  // error text); `tail` is fixed prose that must survive any trimming, because
-  // it holds the diagnostics paste block and the privacy statement.
+  // error text); `REPORT_TAIL` is fixed prose that must survive any trimming,
+  // because it holds the diagnostics paste block and the privacy statement.
   const head = [
     "**What happened**",
     clampLine(message, 800) || "_describe the error here_",
@@ -301,37 +346,35 @@ const buildErrorReportDraft = (
     ...checkLines(checks),
     ...diagnosticLines(diagnostics, incidentId)
   ].join("\n")
-  const tail = [
-    ...diagnosticsPasteLines,
-    ...supportBundleLines,
-    "",
-    "**Privacy**",
-    "This draft was generated locally and opened for your review. It includes no telemetry, prompts, page content, file names, API keys, raw provider responses, or console logs.",
-    "",
-    "**Steps to reproduce**",
-    "1. "
-  ].join("\n")
-  return { title, head, tail }
+  return { title, head }
 }
 
 const TRIMMED_NOTICE =
   "\n\n_Some automatic detail was left out to fit the issue-URL length limit. Use **Copy diagnostics** and paste the full log below._"
 
 /**
- * Shrink `head` until the composed URL fits, keeping `tail` intact. The 0.85
- * factor with a floor guarantees termination; `tail` is fixed-size prose well
- * under the limit on its own.
+ * Shrink `head` until the composed URL fits, keeping `REPORT_TAIL` intact. The
+ * 0.85 factor with a floor guarantees termination; the tail is fixed-size prose
+ * well under the limit on its own.
  */
-const fitHeadToUrl = (title: string, head: string, tail: string): string => {
+const fitHeadToUrl = (title: string, head: string): string => {
   let candidate = head
   while (
     candidate.length > 0 &&
-    composeIssueUrl(title, `${candidate}${TRIMMED_NOTICE}\n${tail}`).length >
-      MAX_REPORT_URL_LENGTH
+    composeIssueUrl(title, `${candidate}${TRIMMED_NOTICE}\n${REPORT_TAIL}`)
+      .length > MAX_REPORT_URL_LENGTH
   ) {
     candidate = candidate.slice(0, Math.floor(candidate.length * 0.85))
   }
-  return `${candidate}${TRIMMED_NOTICE}\n${tail}`
+  return `${candidate}${TRIMMED_NOTICE}\n${REPORT_TAIL}`
+}
+
+/** Attach the shared tail and guarantee the result is a URL GitHub accepts. */
+const composeReportUrl = (title: string, head: string): string => {
+  const url = composeIssueUrl(title, `${head}\n${REPORT_TAIL}`)
+  return url.length <= MAX_REPORT_URL_LENGTH
+    ? url
+    : composeIssueUrl(title, fitHeadToUrl(title, head))
 }
 
 export const buildErrorReportUrl = (
@@ -340,7 +383,7 @@ export const buildErrorReportUrl = (
   checks?: SafeErrorChecks
 ): string => {
   const full = buildErrorReportDraft(error, diagnostics, checks)
-  const url = composeIssueUrl(full.title, `${full.head}\n${full.tail}`)
+  const url = composeIssueUrl(full.title, `${full.head}\n${REPORT_TAIL}`)
   if (url.length <= MAX_REPORT_URL_LENGTH) return url
 
   // Tier 2: the embedded diagnostics summary is the section that scales with the
@@ -349,16 +392,13 @@ export const buildErrorReportUrl = (
   const lean = buildErrorReportDraft(error, undefined, checks)
   const leanUrl = composeIssueUrl(
     lean.title,
-    `${lean.head}${TRIMMED_NOTICE}\n${lean.tail}`
+    `${lean.head}${TRIMMED_NOTICE}\n${REPORT_TAIL}`
   )
   if (leanUrl.length <= MAX_REPORT_URL_LENGTH) return leanUrl
 
   // Tier 3: hard guarantee. Trim the details themselves rather than hand GitHub
   // a URL it answers 414 to.
-  return composeIssueUrl(
-    lean.title,
-    fitHeadToUrl(lean.title, lean.head, lean.tail)
-  )
+  return composeIssueUrl(lean.title, fitHeadToUrl(lean.title, lean.head))
 }
 
 const chatMessageErrorInput = (message: ChatMessage): ErrorReportInput => ({
