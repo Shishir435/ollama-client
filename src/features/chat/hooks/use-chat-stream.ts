@@ -171,9 +171,13 @@ export const useChatStream = ({
         if (result.terminal.type === "error") {
           const { error, partial } = result.terminal
           const isProviderError = error.kind === "provider"
-          const errorProviderId = isProviderError
-            ? error.providerId || providerId
-            : undefined
+          // An explicit providerId from the background is authoritative for any
+          // kind — a disabled provider is `kind: "validation"` but still names
+          // the provider, and recovery actions need that id. Only the fallback
+          // to the request's providerId stays provider-kind-gated, so a generic
+          // background 500 is not mislabelled as a provider failure.
+          const errorProviderId =
+            error.providerId || (isProviderError ? providerId : undefined)
           const providerName =
             error.providerName ||
             (errorProviderId
