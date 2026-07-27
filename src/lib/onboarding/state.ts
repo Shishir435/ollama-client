@@ -1,10 +1,8 @@
 import { z } from "zod"
 
 import { STORAGE_KEYS } from "@/lib/constants"
-import {
-  getPlasmoStoredValue,
-  setPlasmoStoredValue
-} from "@/lib/plasmo-global-storage"
+import { readSetting, writeSetting } from "@/lib/storage/setting-access"
+import { defineSetting } from "@/lib/storage/setting-descriptor"
 import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
 import type { SelectedModelRef } from "@/types/model"
 
@@ -44,12 +42,18 @@ export const INITIAL_ONBOARDING_STATE: OnboardingState = {
   stage: "privacy"
 }
 
+const ONBOARDING_STATE_SETTING = defineSetting<OnboardingState>(
+  STORAGE_KEYS.ONBOARDING.STATE,
+  { parser: OnboardingStateSchema }
+)
+const LEGACY_ONBOARDING_SEEN_SETTING = defineSetting<boolean>(
+  STORAGE_KEYS.ONBOARDING_PERMISSIONS_SEEN
+)
+
 const ONBOARDING_LOCK = "onboarding-state-v2-write"
 
 const readStoredState = async (): Promise<OnboardingState | undefined> => {
-  const raw = await getPlasmoStoredValue<unknown>(STORAGE_KEYS.ONBOARDING.STATE)
-  const parsed = OnboardingStateSchema.safeParse(raw)
-  return parsed.success ? parsed.data : undefined
+  return readSetting(ONBOARDING_STATE_SETTING)
 }
 
 /**
@@ -61,13 +65,11 @@ export const getOnboardingState = async (): Promise<OnboardingState> => {
   const current = await readStoredState()
   if (current) return current
 
-  const legacySeen = await getPlasmoStoredValue<boolean>(
-    STORAGE_KEYS.ONBOARDING_PERMISSIONS_SEEN
-  )
+  const legacySeen = await readSetting(LEGACY_ONBOARDING_SEEN_SETTING)
   const migrated: OnboardingState = legacySeen
     ? { version: 2, stage: "complete", completedAt: Date.now() }
     : INITIAL_ONBOARDING_STATE
-  await setPlasmoStoredValue(STORAGE_KEYS.ONBOARDING.STATE, migrated)
+  await writeSetting(ONBOARDING_STATE_SETTING, migrated)
   return migrated
 }
 
@@ -82,7 +84,7 @@ export const updateOnboardingState = async (
       ...update,
       version: 2
     })
-    await setPlasmoStoredValue(STORAGE_KEYS.ONBOARDING.STATE, next)
+    await writeSetting(ONBOARDING_STATE_SETTING, next)
     return next
   })
 
@@ -114,7 +116,7 @@ export const completeOnboardingAfterFirstResponse = async (
     ) {
       return false
     }
-    await setPlasmoStoredValue(STORAGE_KEYS.ONBOARDING.STATE, {
+    await writeSetting(ONBOARDING_STATE_SETTING, {
       ...current,
       stage: "complete",
       completedAt: Date.now()

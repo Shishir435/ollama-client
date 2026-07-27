@@ -1,28 +1,10 @@
-import { useStorage } from "@plasmohq/storage/hook"
-import { STORAGE_KEYS } from "@/lib/constants"
-import {
-  getPlasmoStorageForKey,
-  plasmoGlobalStorage
-} from "@/lib/plasmo-global-storage"
+import { useSetting } from "@/hooks/use-setting"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export const useSpeechSettings = () => {
-  const [rate, setRate] = useStorage<number>(
-    { key: STORAGE_KEYS.TTS.RATE, instance: plasmoGlobalStorage },
-    1
-  )
-
-  const [pitch, setPitch] = useStorage<number>(
-    { key: STORAGE_KEYS.TTS.PITCH, instance: plasmoGlobalStorage },
-    1
-  )
-
-  const [voiceURI, setVoiceURI] = useStorage<string>(
-    {
-      key: STORAGE_KEYS.TTS.VOICE_URI,
-      instance: getPlasmoStorageForKey(STORAGE_KEYS.TTS.VOICE_URI)
-    },
-    ""
-  )
+  const [rate, setRate] = useSetting(SETTINGS.TTS_RATE)
+  const [pitch, setPitch] = useSetting(SETTINGS.TTS_PITCH)
+  const [voiceURI, setVoiceURI] = useSetting(SETTINGS.TTS_VOICE_URI)
 
   return { rate, setRate, pitch, setPitch, voiceURI, setVoiceURI }
 }

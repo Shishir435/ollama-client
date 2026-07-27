@@ -1,5 +1,6 @@
 import { Storage } from "@plasmohq/storage"
 import { getStorageKeyMetadata } from "@/lib/storage/storage-key-registry"
+import { assertSyncStorageQuota } from "@/lib/storage/sync-quota"
 
 export const plasmoSyncStorage = new Storage({ area: "sync" })
 export const plasmoDeviceStorage = new Storage({ area: "local" })
@@ -39,6 +40,9 @@ export const setPlasmoStoredValue = async <T>(
   key: string,
   value: T
 ): Promise<void> => {
+  if (!isDeviceLocalStorageKey(key)) {
+    await assertSyncStorageQuota(key, value)
+  }
   await getPlasmoStorageForKey(key).set(key, value)
 }
 
@@ -46,4 +50,5 @@ export const removePlasmoStoredValue = async (key: string): Promise<void> => {
   await getPlasmoStorageForKey(key).remove(key)
 }
 
+/** @deprecated Use typed descriptors with readSetting/writeSetting/useSetting. */
 export const plasmoGlobalStorage = plasmoSyncStorage

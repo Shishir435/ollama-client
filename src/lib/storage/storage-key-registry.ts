@@ -75,7 +75,7 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
   [STORAGE_KEYS.PROVIDER.PROMPT_TEMPLATES]: {
     key: STORAGE_KEYS.PROVIDER.PROMPT_TEMPLATES,
     scope: "sync-safe",
-    reason: "User-authored prompt templates should follow the user."
+    reason: "Legacy migration source only; prompt templates now live in SQLite."
   },
   [STORAGE_KEYS.PROVIDER.MODEL_CONFIGS]: {
     key: STORAGE_KEYS.PROVIDER.MODEL_CONFIGS,
