@@ -651,6 +651,45 @@ describe("ProviderManager", () => {
       expect(providers.map((p) => p.id)).toContain(config.id)
     })
 
+    it("regenerates an id that is already taken", async () => {
+      const existing = await ProviderManager.addCustomProvider({
+        name: "First",
+        baseUrl: "http://192.168.1.10:8080/v1",
+        wire: "openai"
+      })
+      const takenSuffix = String(existing.id).slice("custom:openai:".length)
+
+      // 32 bits makes this vanishingly unlikely in the wild, but the failure
+      // mode — a provider the user configured and cannot reach — is bad out of
+      // proportion to the odds, so force it.
+      const uuid = vi
+        .spyOn(crypto, "randomUUID")
+        .mockReturnValueOnce(
+          `${takenSuffix}-0000-4000-8000-000000000000` as ReturnType<
+            typeof crypto.randomUUID
+          >
+        )
+
+      const added = await ProviderManager.addCustomProvider({
+        name: "Second",
+        baseUrl: "http://192.168.1.11:8080/v1",
+        wire: "openai"
+      })
+      const attempts = uuid.mock.calls.length
+      uuid.mockRestore()
+
+      // Without the guard the first (colliding) id would have been kept, so a
+      // second draw is the thing under test — `added.id !== existing.id` alone
+      // would pass even if the forced collision never happened.
+      expect(attempts).toBeGreaterThan(1)
+      expect(added.id).not.toBe(existing.id)
+      expect(String(added.id)).toMatch(/^custom:openai:/)
+      const providers = await ProviderManager.getProviders()
+      expect(
+        providers.filter((p) => isCustomProviderId(String(p.id)))
+      ).toHaveLength(2)
+    })
+
     it("adds an ollama-wire custom provider with ollama type", async () => {
       const config = await ProviderManager.addCustomProvider({
         name: "Second Ollama",
@@ -802,6 +841,100 @@ describe("ProviderManager", () => {
       await expect(
         ProviderManager.removeCustomProvider(ProviderId.OLLAMA)
       ).rejects.toThrow(/built-in/i)
+    })
+  })
+
+  describe("duplicate provider ids", () => {
+    const duplicateId = "custom:openai:dupe"
+    const readStoredIds = () =>
+      (syncBacking.get(ProviderStorageKey.CONFIG) as ProviderConfig[]).map(
+        (provider) => String(provider.id)
+      )
+
+    const seed = (...duplicates: Partial<ProviderConfig>[]) => {
+      syncBacking.set(ProviderStorageKey.CONFIG, [
+        ...DEFAULT_PROVIDERS,
+        ...duplicates.map((overrides) => ({
+          id: duplicateId,
+          type: ProviderType.OPENAI,
+          name: "Duplicate",
+          enabled: true,
+          baseUrl: "http://duplicate.local/v1",
+          ...overrides
+        }))
+      ])
+    }
+
+    it("collapses duplicates when nothing else needs sanitizing", async () => {
+      // The collapse used to be adopted only when some *other* anomaly was
+      // present in the same read. A plain duplicate therefore survived on disk,
+      // and getProviderConfig's `find` shadowed the second copy: unreachable by
+      // id, yet still listed in the provider grid and queried by discovery.
+      seed({ name: "First" }, { name: "Second" })
+
+      const providers = await ProviderManager.getProviders()
+
+      expect(
+        providers.filter((provider) => provider.id === duplicateId)
+      ).toHaveLength(1)
+      expect(readStoredIds().filter((id) => id === duplicateId)).toHaveLength(1)
+    })
+
+    it("breaks a tie toward the entry a lookup already returned", async () => {
+      seed({ name: "First" }, { name: "Second" })
+
+      await expect(
+        ProviderManager.getProviderConfig(duplicateId)
+      ).resolves.toMatchObject({ name: "First" })
+    })
+
+    it("keeps the copy holding credentials over array order", async () => {
+      seed({ name: "Bare" }, { name: "Credentialed", apiKey: "sk-keep" })
+
+      await expect(
+        ProviderManager.getProviderConfig(duplicateId)
+      ).resolves.toMatchObject({ name: "Credentialed", apiKey: "sk-keep" })
+    })
+
+    it("keeps the copy holding user-added models", async () => {
+      seed({ name: "Bare" }, { name: "Curated", customModels: ["gpt-5"] })
+
+      await expect(
+        ProviderManager.getProviderConfig(duplicateId)
+      ).resolves.toMatchObject({ name: "Curated" })
+    })
+
+    it("resolves a legacy beta migration onto an id that already exists", async () => {
+      // Reachable from a partial restore: the vLLM entry migrates onto the
+      // fixed custom:openai:legacy-vllm id, which the backup already contained.
+      syncBacking.set(ProviderStorageKey.CONFIG, [
+        ...DEFAULT_PROVIDERS,
+        {
+          id: "custom:openai:legacy-vllm",
+          type: ProviderType.OPENAI,
+          name: "Already migrated",
+          enabled: false,
+          baseUrl: "http://localhost:8001/v1"
+        },
+        {
+          id: ProviderId.VLLM,
+          type: ProviderType.OPENAI,
+          name: "vLLM",
+          enabled: true,
+          baseUrl: "http://localhost:8001/v1",
+          customModels: ["qwen3"]
+        }
+      ])
+
+      const providers = await ProviderManager.getProviders()
+
+      expect(
+        providers.filter((p) => String(p.id) === "custom:openai:legacy-vllm")
+      ).toHaveLength(1)
+      expect(providers.map((p) => String(p.id))).not.toContain(ProviderId.VLLM)
+      await expect(
+        ProviderManager.getProviderConfig("custom:openai:legacy-vllm")
+      ).resolves.toMatchObject({ customModels: ["qwen3"] })
     })
   })
 
