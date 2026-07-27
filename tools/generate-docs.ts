@@ -10,8 +10,8 @@ import {
   readFileSync,
   writeFileSync
 } from "node:fs"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
+import { dirname, join, relative } from "node:path"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
 import { AnthropicProvider } from "../src/lib/providers/anthropic"
 import { LlamaCppProvider } from "../src/lib/providers/llama-cpp"
@@ -35,6 +35,20 @@ const CHANGELOG_OUTPUT_PATH = join(
 const PROVIDER_MATRIX_OUTPUT_PATH = join(
   REPO_ROOT,
   "docs/src/content/docs/concepts/provider-matrix.md"
+)
+
+/**
+ * The pages this generator owns, as docs slugs. Exported so the IA drift test
+ * can check them against `GENERATED_DOC_SLUGS` in docs/src/seo/doc-ia.mjs
+ * instead of restating the pair a third time.
+ */
+export const GENERATED_PAGE_SLUGS = [
+  CHANGELOG_OUTPUT_PATH,
+  PROVIDER_MATRIX_OUTPUT_PATH
+].map((path) =>
+  relative(join(REPO_ROOT, "docs/src/content/docs"), path)
+    .replace(/\\/g, "/")
+    .replace(/\.mdx?$/, "")
 )
 
 function generateChangelogPage() {
@@ -219,5 +233,15 @@ The first three are mandatory for the runtime; the fourth keeps the docs honest.
   console.log(`  ${providers.length} providers × ${COLUMNS.length} capabilities`)
 }
 
-generateProviderMatrix()
-generateChangelogPage()
+/*
+ * Guarded the way generate-llms-docs.ts is. Without this, importing the module
+ * to read GENERATED_PAGE_SLUGS would write both pages as a side effect — a test
+ * that asserts a clean tree would create the very files it is checking for.
+ */
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  generateProviderMatrix()
+  generateChangelogPage()
+}

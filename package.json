@@ -51,6 +51,7 @@
     "spike:owner-gates": "tsx tools/spike-owner-gates.ts",
     "spike:sw-termination": "tsx tools/spike-sw-termination.ts",
     "spike:firefox-owner-gates": "tsx tools/spike-firefox-owner-gates.ts",
+    "verify:ci-parity": "tsx tools/verify-ci-parity.ts",
     "verify:opfs-migration": "tsx tools/verify-opfs-migration.ts",
     "verify": "pnpm typecheck && pnpm lint:check && pnpm test:run && pnpm check:generated",
     "test": "vitest",

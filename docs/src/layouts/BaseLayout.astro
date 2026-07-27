@@ -10,17 +10,40 @@
 import "@fontsource-variable/geist"
 import "@fontsource-variable/geist-mono"
 import "@/styles/globals.css"
-import { KEYWORDS, SITE_URL, SITE_TITLE } from "@/seo/constants.mjs"
+import {
+  IS_NON_PRODUCTION_DEPLOY,
+  KEYWORDS,
+  SITE_URL,
+  SITE_TITLE
+} from "@/seo/constants.mjs"
 
 interface Props {
   title: string
   description: string
   jsonLd?: Record<string, unknown>
+  /**
+   * Keep this page out of search results while leaving it fully reachable.
+   * For pages that are destinations rather than answers — see goodbye.astro.
+   */
+  noindex?: boolean
 }
 
-const { title, description, jsonLd } = Astro.props
+const { title, description, jsonLd, noindex } = Astro.props
 const site = Astro.site?.toString() ?? SITE_URL
-const canonical = new URL(Astro.url.pathname, site)
+
+/*
+ * Normalize to a trailing slash before building the canonical URL.
+ *
+ * `trailingSlash: "ignore"` means /goodbye and /goodbye/ both resolve, and
+ * echoing Astro.url.pathname straight back made each variant self-canonicalize
+ * to whichever form the visitor happened to arrive on — two canonical URLs for
+ * one page, which is the duplicate-content case canonical tags exist to close.
+ * The Starlight side already normalizes this way, so both surfaces now agree.
+ */
+const canonicalPath = Astro.url.pathname.endsWith("/")
+  ? Astro.url.pathname
+  : `${Astro.url.pathname}/`
+const canonical = new URL(canonicalPath, site)
 const ogPath =
   Astro.url.pathname === "/"
     ? "/og/index.png"
@@ -36,6 +59,16 @@ const ogUrl = new URL(ogPath, site)
     <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
     <link rel="canonical" href={canonical} />
+    {
+      (IS_NON_PRODUCTION_DEPLOY || noindex) && (
+        <meta
+          name="robots"
+          content={
+            IS_NON_PRODUCTION_DEPLOY ? "noindex, nofollow" : "noindex, follow"
+          }
+        />
+      )
+    }
     <link rel="alternate" type="text/markdown" href="/llms.txt" />
     <title>{title}</title>
     <meta name="description" content={description} />

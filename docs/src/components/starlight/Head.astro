@@ -1,5 +1,6 @@
 ---
-import { SITE_URL } from "@/seo/constants.mjs"
+import { IS_NON_PRODUCTION_DEPLOY, SITE_URL } from "@/seo/constants.mjs"
+import { SECTION_LABELS } from "@/seo/doc-ia.mjs"
 
 type StarlightHeadTag = {
   tag: "meta" | "link" | "script" | "style" | "title"
@@ -32,6 +33,8 @@ const ogUrl = `${site}/og/${slug}.png`
 const pageUrl = `${site}/${slug}/`
 const markdownUrl = `${site}/${slug}.md`
 
+const sectionLabel = SECTION_LABELS[slug.split("/")[0]]
+
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "TechArticle",
@@ -39,6 +42,7 @@ const jsonLd = {
   description: entry.data.description,
   url: pageUrl,
   ...(lastUpdated && { dateModified: lastUpdated.toISOString() }),
+  ...(sectionLabel && { articleSection: sectionLabel }),
   inLanguage: lang,
   isPartOf: {
     "@type": "WebSite",
@@ -46,9 +50,59 @@ const jsonLd = {
     url: site,
   },
 }
+
+/*
+ * The generated TypeDoc reference is published for people reading the codebase
+ * but kept out of search results: 62 of the site's 80 URLs lived under it, none
+ * with a description, which meant near-duplicate thin pages outnumbered the
+ * hand-written docs 3.4:1. `follow` keeps their internal links crawlable, and
+ * the sitemap filter in astro.config.mjs excludes the same subtree.
+ */
+const isReference = slug === "reference" || slug.startsWith("reference/")
+
+/*
+ * Breadcrumb trail. Deliberately two levels — site root, then this page.
+ *
+ * A three-level trail (Home > Guides > page) would need an `item` URL for the
+ * section, and the sidebar groups are not pages: /guides/ and
+ * /guides/troubleshooting/ do not exist. Google requires `item` on every
+ * element except the last, so the options were to invent URLs that 404 or to
+ * emit name-only intermediates it flags as invalid. The section name is carried
+ * as `articleSection` on the page instead, which is honest about the structure
+ * that actually exists. Adding real section index pages is a content decision;
+ * if they ever land, extend the trail here.
+ */
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: siteTitle,
+      item: `${site}/`,
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: entry.data.title,
+      item: pageUrl,
+    },
+  ],
+}
 ---
 
 {head.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}
+{
+  (IS_NON_PRODUCTION_DEPLOY || isReference) && (
+    <meta
+      name="robots"
+      content={
+        IS_NON_PRODUCTION_DEPLOY ? "noindex, nofollow" : "noindex, follow"
+      }
+    />
+  )
+}
 <meta property="og:image" content={ogUrl} />
 <meta property="og:image:alt" content={entry.data.title} />
 <meta property="og:image:width" content="1200" />
@@ -57,3 +111,4 @@ const jsonLd = {
 <meta name="twitter:image:alt" content={entry.data.title} />
 <link rel="alternate" type="text/markdown" href={markdownUrl} />
 <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+<script type="application/ld+json" set:html={JSON.stringify(breadcrumbJsonLd)} />

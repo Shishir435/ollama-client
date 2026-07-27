@@ -12,6 +12,8 @@ import {
   SITE_DESCRIPTION,
   SITE_URL
 } from "./src/seo/constants.mjs"
+import { withReferenceGroup } from "./src/seo/doc-ia.mjs"
+import { lastModifiedForUrl } from "./src/seo/last-modified.mjs"
 
 /**
  * Astro config for the Ollama Client docs site.
@@ -154,78 +156,16 @@ export default defineConfig({
           }
         })
       ],
-      sidebar: [
-        {
-          label: "Guides",
-          items: [
-            { label: "Quick Start", slug: "guides/quick-start" },
-            { label: "Provider Setup", slug: "guides/provider-setup" },
-            {
-              label: "Context, Images, and Tools",
-              slug: "guides/context-and-tools"
-            },
-            {
-              label: "Fix Ollama CORS errors",
-              slug: "guides/troubleshooting/ollama-cors-error"
-            },
-            {
-              label: "Understand error reports",
-              slug: "guides/troubleshooting/error-reports"
-            }
-          ]
-        },
-        {
-          label: "Concepts",
-          items: [
-            { label: "Privacy", slug: "concepts/privacy" },
-            { label: "Architecture", slug: "concepts/architecture" },
-            {
-              label: "Provider capabilities",
-              slug: "concepts/provider-matrix"
-            }
-          ]
-        },
-        {
-          label: "Compare",
-          items: [
-            {
-              label: "vs Open WebUI",
-              slug: "compare/open-webui-vs-ollama-client"
-            },
-            {
-              label: "vs Page Assist",
-              slug: "compare/page-assist-vs-ollama-client"
-            },
-            {
-              label: "vs LM Studio",
-              slug: "compare/lm-studio-vs-ollama-client"
-            }
-          ]
-        },
-        {
-          label: "Internal",
-          items: [
-            {
-              label: "Frontend Design System",
-              slug: "internal/frontend-design-system"
-            }
-          ]
-        },
-        // Auto-populated by starlight-typedoc from the entryPoints above.
-        typeDocSidebarGroup,
-        {
-          label: "Legal",
-          items: [{ label: "Privacy Policy", slug: "legal/privacy-policy" }]
-        },
-        {
-          label: "About",
-          items: [
-            { label: "FAQ", slug: "about/faq" },
-            { label: "Changelog", slug: "about/changelog" },
-            { label: "Keyboard Shortcuts", slug: "about/keyboard-shortcuts" }
-          ]
-        }
-      ],
+      /*
+       * Content sections come from src/seo/doc-ia.mjs, which is also what the
+       * AI-entrypoint generator orders llms.txt/ai.txt by. Keeping one list
+       * means the sidebar and those files cannot drift apart again (they had:
+       * two guides pages were missing from the generator's copy and landed at
+       * the bottom of llms.txt). `typeDocSidebarGroup` is auto-populated by
+       * starlight-typedoc from the entryPoints above and is injected into its
+       * slot by the helper.
+       */
+      sidebar: withReferenceGroup(typeDocSidebarGroup),
       head: [
         {
           tag: "meta",
@@ -295,7 +235,38 @@ export default defineConfig({
       credits: false
     }),
     mdx(),
-    sitemap()
+    sitemap({
+      /*
+       * Keep the generated TypeDoc reference out of the sitemap.
+       *
+       * It was 62 of 80 URLs — pages like
+       * reference/lib/repositories/chat-history/variables/getMessage, none of
+       * which carry a description, so each offered no meta description, an OG
+       * image with an empty description line, and TechArticle JSON-LD with an
+       * undefined description. Near-duplicate thin pages outnumbered the
+       * hand-written ones 3.4:1, which is crawl budget spent on the pages least
+       * able to answer a query.
+       *
+       * They stay published and linked for people reading the codebase; Head.astro
+       * pairs this with `noindex, follow` so existing links still pass through.
+       */
+      filter: (page) => {
+        const { pathname } = new URL(page)
+        // /goodbye is the post-uninstall destination set by setUninstallURL. It
+        // is reachable and functional, but offering it as a search result means
+        // a brand query can answer with a farewell page.
+        if (/^\/goodbye\/?$/.test(pathname)) return false
+        return !/\/reference(\/|$)/.test(pathname)
+      },
+      /*
+       * lastmod from git history (see src/seo/last-modified.mjs). Omitted rather
+       * than approximated when history is unavailable.
+       */
+      serialize: (item) => {
+        const lastmod = lastModifiedForUrl(item.url)
+        return lastmod ? { ...item, lastmod } : item
+      }
+    })
   ],
   vite: {
     resolve: {
