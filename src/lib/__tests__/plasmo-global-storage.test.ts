@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import browser from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 
 vi.unmock("@/lib/plasmo-global-storage")
@@ -38,6 +39,65 @@ describe("plasmoGlobalStorage", () => {
     expect(getPlasmoStorageForKey(STORAGE_KEYS.LANGUAGE)).toBe(
       plasmoSyncStorage
     )
+  })
+
+  /*
+   * The guard used to sit in `setPlasmoStoredValue`, so the 34 direct writes
+   * through the raw alias and every `useStorage({ instance })` setter wrote
+   * past it — including provider configs and model/tool overrides, the records
+   * most likely to overflow. These pin the guard to the instance instead.
+   */
+  describe("sync quota enforcement", () => {
+    const oversized = "x".repeat(9_000)
+
+    it("rejects an over-quota write made through the deprecated alias", async () => {
+      const { plasmoGlobalStorage } = await import("../plasmo-global-storage")
+
+      await expect(
+        plasmoGlobalStorage.set(STORAGE_KEYS.LANGUAGE, oversized)
+      ).rejects.toMatchObject({
+        name: "SyncStorageQuotaError",
+        kind: "item"
+      })
+    })
+
+    it("rejects an over-quota write made through setMany", async () => {
+      const { plasmoSyncStorage } = await import("../plasmo-global-storage")
+
+      await expect(
+        plasmoSyncStorage.setMany({ [STORAGE_KEYS.LANGUAGE]: oversized })
+      ).rejects.toMatchObject({ key: STORAGE_KEYS.LANGUAGE, kind: "item" })
+    })
+
+    it("leaves local storage unguarded — it has no per-item ceiling", async () => {
+      const { plasmoDeviceStorage } = await import("../plasmo-global-storage")
+      const set = vi
+        .spyOn(plasmoDeviceStorage, "set")
+        .mockResolvedValueOnce(null)
+
+      await expect(
+        plasmoDeviceStorage.set(STORAGE_KEYS.PROVIDER.SECRETS, oversized)
+      ).resolves.not.toThrow()
+      expect(set).toHaveBeenCalled()
+    })
+
+    it("checks a sync write once, not once per wrapper layer", async () => {
+      // setPlasmoStoredValue used to assert the quota itself and then call an
+      // instance that now asserts it again — two getBytesInUse round trips per
+      // write, on the hot path for every settings change.
+      const sync = browser.storage.sync as unknown as {
+        getBytesInUse?: (keys: string | string[] | null) => Promise<number>
+      }
+      const getBytesInUse = vi.fn(async () => 1)
+      sync.getBytesInUse = getBytesInUse
+
+      const { setPlasmoStoredValue } = await import("../plasmo-global-storage")
+      await setPlasmoStoredValue(STORAGE_KEYS.LANGUAGE, "en")
+
+      // One assertion => two reads (total + this key).
+      expect(getBytesInUse).toHaveBeenCalledTimes(2)
+      delete sync.getBytesInUse
+    })
   })
 
   it("moves legacy sync values into local storage on first device-local read", async () => {

@@ -31,4 +31,34 @@ describe("sync storage quota guard", () => {
     ).rejects.toMatchObject({ kind: "total", limitBytes: 102_400 })
     delete (sync as { getBytesInUse?: unknown }).getBytesInUse
   })
+
+  it("allows the write when the browser cannot report usage", async () => {
+    // The guard sits on every sync write, so a browser without a working
+    // getBytesInUse must not turn each settings change into a failure. The
+    // browser's own quota rejection stays the backstop.
+    const sync = browser.storage.sync as unknown as {
+      getBytesInUse?: (keys: string | string[] | null) => Promise<number>
+    }
+    sync.getBytesInUse = vi.fn(async () => {
+      throw new Error("not implemented")
+    })
+
+    await expect(
+      assertSyncStorageQuota("new-setting", "value")
+    ).resolves.toBeUndefined()
+    delete sync.getBytesInUse
+  })
+
+  it("still enforces the per-item limit without usage reporting", async () => {
+    // The item check is pure arithmetic; losing the total check must not lose
+    // the one that needs no browser support.
+    const sync = browser.storage.sync as unknown as {
+      getBytesInUse?: (keys: string | string[] | null) => Promise<number>
+    }
+    delete sync.getBytesInUse
+
+    await expect(
+      assertSyncStorageQuota("large-setting", "x".repeat(9_000))
+    ).rejects.toMatchObject({ kind: "item" })
+  })
 })
