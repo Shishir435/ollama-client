@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   txBegin: vi.fn(),
   txRollback: vi.fn(),
   query: vi.fn(),
+  run: vi.fn(),
   events: vi.fn(),
   record: vi.fn(),
   clear: vi.fn(),
@@ -46,7 +47,8 @@ vi.mock("@/lib/persistence/backend", () => ({
 vi.mock("@/lib/persistence/client", () => ({
   rpcTxBegin: mocks.txBegin,
   rpcTxRollback: mocks.txRollback,
-  rpcQuery: mocks.query
+  rpcQuery: mocks.query,
+  rpcRun: mocks.run
 }))
 vi.mock("../diagnostic-recorder", () => ({
   getDiagnosticEvents: mocks.events,
@@ -55,6 +57,33 @@ vi.mock("../diagnostic-recorder", () => ({
 }))
 
 import { DiagnosticsService } from "../diagnostics-service"
+
+/**
+ * A database in good health. Both transactional self-tests share the mock, so
+ * it answers by statement rather than by call order — the suite runs them
+ * concurrently and the interleaving is not part of the contract.
+ */
+const healthyQuery = async (sql: string, bind?: unknown[]) => {
+  if (sql.includes("SELECT 1 AS ok")) return [{ ok: 1 }]
+  if (sql.includes("FROM tool_loop_runs WHERE requestId")) {
+    return [
+      {
+        state: JSON.stringify({ iteration: 2, phase: "tools" }),
+        status: "awaiting-confirmation"
+      }
+    ]
+  }
+  if (sql.includes("COUNT(*) AS count FROM tool_loop_runs")) {
+    return [{ count: 1 }]
+  }
+  if (sql.includes("COUNT(*) AS count FROM messages")) return [{ count: 3 }]
+  // The recovery predicate binds [cutoff, orphanSession, loopSession]; only the
+  // orphan may come back.
+  if (sql.includes("SELECT sessionId FROM messages")) {
+    return [{ sessionId: bind?.[1] }]
+  }
+  return []
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -82,7 +111,8 @@ beforeEach(() => {
   mocks.backend.mockResolvedValue("opfs")
   mocks.txBegin.mockResolvedValue(undefined)
   mocks.txRollback.mockResolvedValue(undefined)
-  mocks.query.mockResolvedValue([{ ok: 1 }])
+  mocks.run.mockResolvedValue({ changes: 1 })
+  mocks.query.mockImplementation(healthyQuery)
   mocks.supportsDNR.mockReturnValue(true)
   mocks.providerConfig.mockResolvedValue({
     id: "ollama",
@@ -109,13 +139,15 @@ describe("DiagnosticsService", () => {
         "migration"
       ])
     )
-    expect(mocks.txBegin).toHaveBeenCalledOnce()
+    // Two rollback-only probes now: the repository smoke test and the turn
+    // checkpoint round trip.
+    expect(mocks.txBegin).toHaveBeenCalledTimes(2)
     expect(mocks.query).toHaveBeenCalledWith(
       "SELECT 1 AS ok",
       undefined,
       expect.stringMatching(/^diagnostic-/)
     )
-    expect(mocks.txRollback).toHaveBeenCalledOnce()
+    expect(mocks.txRollback).toHaveBeenCalledTimes(2)
     // The shared run owns its own controller so one caller's abort cannot
     // cancel another's suite; discovery still receives a real signal.
     expect(mocks.listModels).toHaveBeenCalledWith(
@@ -134,7 +166,7 @@ describe("DiagnosticsService", () => {
     ])
 
     expect(mocks.listModels).toHaveBeenCalledOnce()
-    expect(mocks.txBegin).toHaveBeenCalledOnce()
+    expect(mocks.txBegin).toHaveBeenCalledTimes(2)
     expect(mocks.record).toHaveBeenCalledOnce()
     expect(second.bundle.selfTests).toEqual(first.bundle.selfTests)
     expect(third.bundle.selfTests).toEqual(first.bundle.selfTests)
@@ -311,6 +343,55 @@ describe("DiagnosticsService", () => {
     const { bundle } = await DiagnosticsService.getBundle()
 
     expect(JSON.stringify(bundle)).not.toContain("secret-host.example")
+  })
+
+  it("round-trips a tool-loop checkpoint and exercises the recovery predicate", async () => {
+    const { tests } = await DiagnosticsService.run()
+
+    expect(tests.find((test) => test.id === "turn_checkpoint")).toMatchObject({
+      status: "pass",
+      metadata: { activeRuns: 1, orphanedTurns: 3 }
+    })
+    expect(mocks.run).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO tool_loop_runs"),
+      expect.arrayContaining([expect.stringContaining("diagnostic-request-")]),
+      expect.stringMatching(/^diagnostic-/)
+    )
+  })
+
+  it("fails the checkpoint test when a persisted loop state does not survive the round trip", async () => {
+    mocks.query.mockImplementation(async (sql: string, bind?: unknown[]) => {
+      if (sql.includes("FROM tool_loop_runs WHERE requestId")) {
+        return [{ state: "{}", status: "awaiting-confirmation" }]
+      }
+      return healthyQuery(sql, bind)
+    })
+
+    const { tests } = await DiagnosticsService.run()
+
+    expect(tests.find((test) => test.id === "turn_checkpoint")).toMatchObject({
+      status: "fail",
+      code: "OLC-TURN-CHECKPOINT-001"
+    })
+    expect(mocks.txRollback).toHaveBeenCalledTimes(2)
+  })
+
+  it("fails the checkpoint test when recovery would finalize a turn parked in a tool loop", async () => {
+    // The exclusion is the load-bearing half: a turn waiting at an approval
+    // prompt must not be swept up as an orphan.
+    mocks.query.mockImplementation(async (sql: string, bind?: unknown[]) => {
+      if (sql.includes("SELECT sessionId FROM messages")) {
+        return [{ sessionId: bind?.[1] }, { sessionId: bind?.[2] }]
+      }
+      return healthyQuery(sql, bind)
+    })
+
+    const { tests } = await DiagnosticsService.run()
+
+    expect(tests.find((test) => test.id === "turn_checkpoint")).toMatchObject({
+      status: "fail",
+      code: "OLC-TURN-CHECKPOINT-001"
+    })
   })
 
   it("surfaces legacy persistence as a recoverable migration action", async () => {

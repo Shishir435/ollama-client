@@ -1880,7 +1880,8 @@
       "vector_store": "Vector store",
       "provider_discovery": "Provider and model discovery",
       "migration": "Persistence migration",
-      "dnr_rules": "Local provider CORS rule"
+      "dnr_rules": "Local provider CORS rule",
+      "turn_checkpoint": "Turn recovery checkpoints"
     }
   },
   "onboarding": {

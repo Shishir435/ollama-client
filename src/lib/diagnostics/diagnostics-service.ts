@@ -6,7 +6,12 @@ import {
 import { vectorDb } from "@/lib/embeddings/db"
 import { getSafeClientEnvironment } from "@/lib/error-report"
 import { readPersistenceBackend } from "@/lib/persistence/backend"
-import { rpcQuery, rpcTxBegin, rpcTxRollback } from "@/lib/persistence/client"
+import {
+  rpcQuery,
+  rpcRun,
+  rpcTxBegin,
+  rpcTxRollback
+} from "@/lib/persistence/client"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
@@ -181,6 +186,119 @@ const runDnrTest = async (): Promise<DiagnosticTestResult> => {
   return result
 }
 
+/** Comfortably older than the recovery sweep's staleness window. */
+const CHECKPOINT_PROBE_AGE_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Two mechanisms keep a turn recoverable across an MV3 worker restart, and both
+ * fail silently: `tool_loop_runs` checkpoints (PR #193 tool loops) and the
+ * interrupted-turn sweep that finalizes assistant rows left at `done = 0`.
+ * Neither had an assertion, so schema or predicate drift would only ever
+ * surface as turns that quietly never come back.
+ *
+ * Three claims, all against the real schema:
+ *
+ * 1. a checkpoint's `state` JSON survives a write/read round trip;
+ * 2. a stale unfinished assistant turn is selected by the recovery predicate;
+ * 3. the same turn is *not* selected while its session holds a live tool-loop
+ *    checkpoint — the exclusion that stops recovery from finalizing a turn
+ *    parked at an approval prompt.
+ *
+ * Runs inside a rolled-back transaction on synthetic ids, like
+ * `chat_repository`, so it exercises real SQL without leaving a row behind.
+ */
+const runTurnCheckpointTest = async (): Promise<DiagnosticTestResult> =>
+  runTest("turn_checkpoint", async () => {
+    // Read the real counts before the probe rows exist, so they describe the
+    // user's database rather than this test's scratch state.
+    const [activeRuns, orphanedTurns] = await Promise.all([
+      rpcQuery("SELECT COUNT(*) AS count FROM tool_loop_runs"),
+      rpcQuery(
+        `SELECT COUNT(*) AS count FROM messages
+         WHERE role = 'assistant' AND done = 0`
+      )
+    ])
+
+    const token = `diagnostic-${crypto.randomUUID()}`
+    const orphanSession = `diagnostic-orphan-${crypto.randomUUID()}`
+    const loopSession = `diagnostic-loop-${crypto.randomUUID()}`
+    const requestId = `diagnostic-request-${crypto.randomUUID()}`
+    const staleAt = Date.now() - CHECKPOINT_PROBE_AGE_MS
+    const state = JSON.stringify({ iteration: 2, phase: "tools" })
+
+    let began = false
+    try {
+      await rpcTxBegin(token)
+      began = true
+
+      for (const sessionId of [orphanSession, loopSession]) {
+        await rpcRun(
+          "INSERT INTO sessions (id, createdAt, updatedAt) VALUES (?, ?, ?)",
+          [sessionId, staleAt, staleAt],
+          token
+        )
+        await rpcRun(
+          `INSERT INTO messages (sessionId, role, content, timestamp, done, updatedAt)
+           VALUES (?, 'assistant', '', ?, 0, ?)`,
+          [sessionId, staleAt, staleAt],
+          token
+        )
+      }
+
+      await rpcRun(
+        `INSERT INTO tool_loop_runs
+           (requestId, sessionId, model, mode, status, state, updatedAt)
+         VALUES (?, ?, 'diagnostic', 'native', 'awaiting-confirmation', ?, ?)`,
+        [requestId, loopSession, state, staleAt],
+        token
+      )
+
+      const checkpoint = (
+        await rpcQuery(
+          "SELECT state, status FROM tool_loop_runs WHERE requestId = ?",
+          [requestId],
+          token
+        )
+      )[0]
+      const restored =
+        typeof checkpoint?.state === "string"
+          ? (JSON.parse(checkpoint.state) as { iteration?: number })
+          : undefined
+      if (
+        checkpoint?.status !== "awaiting-confirmation" ||
+        restored?.iteration !== 2
+      ) {
+        throw new Error("checkpoint round trip mismatch")
+      }
+
+      // The shipped recovery predicate, narrowed to the probe sessions.
+      const recoverable = await rpcQuery(
+        `SELECT sessionId FROM messages
+         WHERE role = 'assistant' AND done = 0
+           AND (updatedAt IS NULL OR updatedAt < ?)
+           AND sessionId IN (?, ?)
+           AND sessionId NOT IN (
+             SELECT sessionId FROM tool_loop_runs WHERE sessionId IS NOT NULL
+           )`,
+        [Date.now(), orphanSession, loopSession],
+        token
+      )
+      if (
+        recoverable.length !== 1 ||
+        recoverable[0]?.sessionId !== orphanSession
+      ) {
+        throw new Error("interrupted-turn recovery predicate mismatch")
+      }
+    } finally {
+      if (began) await rpcTxRollback(token)
+    }
+
+    return {
+      activeRuns: Number(activeRuns[0]?.count ?? 0),
+      orphanedTurns: Number(orphanedTurns[0]?.count ?? 0)
+    }
+  })
+
 const executeSelfTests = async (
   signal?: AbortSignal
 ): Promise<DiagnosticTestResult[]> => {
@@ -226,7 +344,8 @@ const executeSelfTests = async (
       }
     }),
     runMigrationTest(),
-    runDnrTest()
+    runDnrTest(),
+    runTurnCheckpointTest()
   ])
   signal?.throwIfAborted()
   // Recorded once per real execution, never on a shared/cached result, so
