@@ -3,40 +3,69 @@ import { getStorageKeyMetadata } from "@/lib/storage/storage-key-registry"
 import { assertSyncStorageQuota } from "@/lib/storage/sync-quota"
 
 /**
- * Enforce the sync quota on the storage instance rather than at each call site.
+ * A device-local key reached the sync area. Thrown rather than rerouted: the
+ * caller asked for the wrong area, and silently writing somewhere else would
+ * leave its later read looking in the place it named.
+ */
+export class DeviceLocalKeyInSyncError extends Error {
+  constructor(readonly key: string) {
+    super(
+      `Storage key ${key} is registered device-local and must not be written to sync`
+    )
+    this.name = "DeviceLocalKeyInSyncError"
+  }
+}
+
+/**
+ * Enforce sync invariants on the storage instance rather than at each call site.
  *
- * The guard used to live in `setPlasmoStoredValue`, which meant every caller
- * holding the raw handle — 34 direct writes plus every `useStorage({ instance })`
- * setter — wrote past it. Those are exactly the records most likely to overflow
- * (provider configs, model and tool overrides, knowledge sets), so the one path
- * that was checked was the one least at risk.
+ * The quota check used to live in `setPlasmoStoredValue`, which meant every
+ * caller holding the raw handle — 34 direct writes plus every
+ * `useStorage({ instance })` setter — wrote past it. Those are exactly the
+ * records most likely to overflow (provider configs, model and tool overrides,
+ * knowledge sets), so the one path that was checked was the one least at risk.
+ *
+ * The scope check is here for the same reason. `plasmoGlobalStorage` does not
+ * route by registry scope, so a device-local key written through it lands in
+ * sync — for credentials that is the difference between one profile and every
+ * profile. No such key is written through it today; this is what keeps that
+ * true without migrating ~95 call sites to descriptors first, and it fails
+ * loudly on the write rather than quietly on someone else's machine.
+ *
+ * Reads and removes stay open: `getPlasmoStoredValue` deliberately reads a
+ * legacy sync value and removes it as part of moving a key to local.
  *
  * Wrapped imperatively because Plasmo declares `set`/`setMany` as instance
  * fields, not prototype methods: a subclass override is assigned first and then
  * shadowed by the base class's own field, so it would silently never run.
  */
-const withSyncQuotaGuard = (storage: Storage): Storage => {
+const guardSyncWrites = (storage: Storage): Storage => {
   const rawSet = storage.set.bind(storage)
   const rawSetMany = storage.setMany.bind(storage)
 
-  storage.set = async (key, rawValue) => {
+  // `isDeviceLocalStorageKey` is declared below; these closures only run after
+  // module initialization, so the forward reference is resolved by then.
+  const assertWritable = async (key: string, rawValue: unknown) => {
+    if (isDeviceLocalStorageKey(key)) throw new DeviceLocalKeyInSyncError(key)
     await assertSyncStorageQuota(key, rawValue)
+  }
+
+  storage.set = async (key, rawValue) => {
+    await assertWritable(key, rawValue)
     return rawSet(key, rawValue)
   }
   storage.setMany = async (items) => {
     // Per item: the browser applies the item limit to each key, and failing on
     // the offending key is more useful than failing on the batch.
     for (const [key, rawValue] of Object.entries(items)) {
-      await assertSyncStorageQuota(key, rawValue)
+      await assertWritable(key, rawValue)
     }
     return rawSetMany(items)
   }
   return storage
 }
 
-export const plasmoSyncStorage = withSyncQuotaGuard(
-  new Storage({ area: "sync" })
-)
+export const plasmoSyncStorage = guardSyncWrites(new Storage({ area: "sync" }))
 export const plasmoDeviceStorage = new Storage({ area: "local" })
 
 const EXTRA_DEVICE_LOCAL_KEYS = new Set([
