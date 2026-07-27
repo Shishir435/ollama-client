@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { browser } from "@/lib/browser-api"
 
 type ThemeToken = {
   key: string
@@ -311,8 +312,11 @@ export const DevThemePane = () => {
     setIsOptionsPage(optionsPage)
 
     const loadOverrides = async () => {
-      const stored = await chrome.storage.local.get(DEV_THEME_STORAGE_KEY)
-      overridesRef.current = stored[DEV_THEME_STORAGE_KEY] ?? {}
+      const stored = await browser.storage.local.get(DEV_THEME_STORAGE_KEY)
+      // The polyfill types the result as unknown-valued; @types/chrome did not.
+      overridesRef.current =
+        (stored[DEV_THEME_STORAGE_KEY] as Record<string, string> | undefined) ??
+        {}
       applyOverrides(overridesRef.current)
       setParams(readTokenParams())
     }
@@ -329,8 +333,8 @@ export const DevThemePane = () => {
       setParams(readTokenParams())
     }
 
-    chrome.storage.onChanged.addListener(onStorageChanged)
-    return () => chrome.storage.onChanged.removeListener(onStorageChanged)
+    browser.storage.onChanged.addListener(onStorageChanged)
+    return () => browser.storage.onChanged.removeListener(onStorageChanged)
   }, [])
 
   const updateToken = (
@@ -352,7 +356,7 @@ export const DevThemePane = () => {
         [key]: formatted
       }
       document.documentElement.style.setProperty(key, formatted)
-      void chrome.storage.local.set({
+      void browser.storage.local.set({
         [DEV_THEME_STORAGE_KEY]: overridesRef.current
       })
       return next
@@ -370,7 +374,7 @@ export const DevThemePane = () => {
     overridesRef.current = {}
     applyOverrides(overridesRef.current)
     setParams(readTokenParams())
-    void chrome.storage.local.remove(DEV_THEME_STORAGE_KEY)
+    void browser.storage.local.remove(DEV_THEME_STORAGE_KEY)
   }
 
   if (

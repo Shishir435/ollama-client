@@ -1,6 +1,7 @@
 import { exportDB, importInto } from "dexie-export-import"
 import JSZip from "jszip"
 import { z } from "zod"
+import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "./constants"
 import { vectorDb } from "./embeddings/db"
 import { createAppError, getErrorMessage } from "./error-utils"
@@ -57,7 +58,7 @@ export type ImportResult = {
 
 const requestLiveSqliteFlush = async (): Promise<void> => {
   try {
-    await chrome.runtime.sendMessage({ type: MESSAGE_KEYS.APP.FLUSH_SQLITE })
+    await browser.runtime.sendMessage({ type: MESSAGE_KEYS.APP.FLUSH_SQLITE })
   } catch (error) {
     logger.debug(
       "No live SQLite context responded to flush request",
@@ -76,7 +77,7 @@ const requestLiveSqliteFlush = async (): Promise<void> => {
 // runtime.reload() reopens everything fresh.
 const reopenDexieConnectionsEverywhere = async (): Promise<void> => {
   try {
-    await chrome.runtime.sendMessage({ type: MESSAGE_KEYS.APP.REOPEN_DEXIE })
+    await browser.runtime.sendMessage({ type: MESSAGE_KEYS.APP.REOPEN_DEXIE })
   } catch (error) {
     logger.debug("No other context reopened Dexie connections", "Backup", {
       error
@@ -92,7 +93,7 @@ const reopenDexieConnectionsEverywhere = async (): Promise<void> => {
 
 const closeDexieConnectionsEverywhere = async (): Promise<void> => {
   try {
-    await chrome.runtime.sendMessage({ type: MESSAGE_KEYS.APP.CLOSE_DEXIE })
+    await browser.runtime.sendMessage({ type: MESSAGE_KEYS.APP.CLOSE_DEXIE })
   } catch (error) {
     logger.debug("No other context held Dexie connections", "Backup", {
       error
@@ -161,13 +162,13 @@ export const backupService = {
 
     // Sync Storage
     logger.info("Exporting sync storage...", "Backup")
-    const rawSyncData = await chrome.storage.sync.get(null)
+    const rawSyncData = await browser.storage.sync.get(null)
     const { data: syncData } = selectPortableStorageData(rawSyncData)
     zip.file("sync-storage.json", JSON.stringify(syncData, null, 2))
 
     // Local Storage
     logger.info("Exporting local storage...", "Backup")
-    const rawLocalData = await chrome.storage.local.get(null)
+    const rawLocalData = await browser.storage.local.get(null)
     const { data: localPortableData } = selectPortableStorageData(rawLocalData)
     zip.file("local-storage.json", JSON.stringify(localPortableData, null, 2))
 

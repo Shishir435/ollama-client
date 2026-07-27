@@ -1,6 +1,6 @@
 import type { SqlJsStatic } from "sql.js"
 import initSqlJs from "sql.js/dist/sql-wasm.js"
-import { browser } from "wxt/browser"
+import { browser } from "@/lib/browser-api"
 import {
   SQLITE_DB_KEY,
   SQLITE_DB_NAME,
@@ -19,6 +19,11 @@ import { exportPersistedDatabaseBytes, query } from "@/lib/sqlite/db"
 // backend dispatcher, the persistence RPC, and the owner worker. Only the
 // legacy-blob seeding writes directly, because it must reproduce what an
 // unmigrated 0.11.x profile leaves behind.
+//
+// Extension APIs go through `browser`, never the `chrome` alias: on Firefox
+// the `chrome` namespace is callback-only, so `await chrome.storage.local.get`
+// resolves to undefined rather than the stored value. That made every hook
+// here silently unusable on the Firefox runner while working on Chromium.
 
 const putLegacyBlob = async (bytes: Uint8Array): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -72,14 +77,14 @@ const readLegacyBlobLength = async (): Promise<number> =>
 
 const verifyApi = {
   async backendMarker(): Promise<unknown> {
-    const stored = await chrome.storage.local.get(
+    const stored = await browser.storage.local.get(
       STORAGE_KEYS.PERSISTENCE.BACKEND
     )
     return stored[STORAGE_KEYS.PERSISTENCE.BACKEND] ?? null
   },
 
   async clearMarker(): Promise<void> {
-    await chrome.storage.local.remove(STORAGE_KEYS.PERSISTENCE.BACKEND)
+    await browser.storage.local.remove(STORAGE_KEYS.PERSISTENCE.BACKEND)
   },
 
   /** Reproduce an unmigrated profile: build a real sql.js database with the
@@ -88,7 +93,7 @@ const verifyApi = {
     chats: number,
     messages: number
   ): Promise<{ sessions: number; messages: number; blobBytes: number }> {
-    const wasmUrl = chrome.runtime.getURL("assets/sql-wasm.wasm")
+    const wasmUrl = browser.runtime.getURL("assets/sql-wasm.wasm")
     const wasmBinary = await (await fetch(wasmUrl)).arrayBuffer()
     const SQL = await (
       initSqlJs as unknown as (config: {

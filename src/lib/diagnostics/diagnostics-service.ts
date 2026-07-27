@@ -1,3 +1,4 @@
+import { browser } from "@/lib/browser-api"
 import { vectorDb } from "@/lib/embeddings/db"
 import { getSafeClientEnvironment } from "@/lib/error-report"
 import { readPersistenceBackend } from "@/lib/persistence/backend"
@@ -45,8 +46,21 @@ const runTest = async (
   }
 }
 
+/*
+ * Typed structurally rather than as chrome.storage.StorageArea or the
+ * polyfill's Storage.StorageArea: the two disagree on members this function
+ * never touches (setAccessLevel, among others), and naming either one couples
+ * a three-call round trip to whichever type package the caller happened to
+ * come from.
+ */
+interface RoundTrippableStorage {
+  get: (key: string) => Promise<Record<string, unknown>>
+  set: (items: Record<string, unknown>) => Promise<void>
+  remove: (key: string) => Promise<void>
+}
+
 const storageRoundTrip = async (
-  area: chrome.storage.StorageArea
+  area: RoundTrippableStorage
 ): Promise<undefined> => {
   const key = `diagnostic-self-test-${crypto.randomUUID()}`
   const value = crypto.randomUUID()
@@ -70,7 +84,7 @@ const capabilities = () => ({
 
 const permissions = async (): Promise<Record<string, boolean>> => {
   if (!chrome.permissions?.getAll) return {}
-  const granted = await chrome.permissions.getAll()
+  const granted = await browser.permissions.getAll()
   const names = new Set(granted.permissions ?? [])
   return {
     tabs: names.has("tabs"),
@@ -110,8 +124,8 @@ const executeSelfTests = async (
     runTest("permissions", async () => ({
       count: Object.values(await permissions()).filter(Boolean).length
     })),
-    runTest("sync_storage", () => storageRoundTrip(chrome.storage.sync)),
-    runTest("local_storage", () => storageRoundTrip(chrome.storage.local)),
+    runTest("sync_storage", () => storageRoundTrip(browser.storage.sync)),
+    runTest("local_storage", () => storageRoundTrip(browser.storage.local)),
     runTest("chat_repository", async () => {
       const token = `diagnostic-${crypto.randomUUID()}`
       let began = false
