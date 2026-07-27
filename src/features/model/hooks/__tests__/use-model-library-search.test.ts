@@ -2,17 +2,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, renderHook, waitFor } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { browser } from "@/lib/browser-api"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import { RpcMethod } from "@/protocol/rpc"
 import { useModelLibrarySearch } from "../use-model-library-search"
 
-// Mock browser API
-vi.mock("@/lib/browser-api", () => ({
-  browser: {
-    runtime: {
-      sendMessage: vi.fn()
-    }
-  }
+vi.mock("@/protocol/extension-client", () => ({
+  extensionRpcClient: { call: vi.fn() }
 }))
+
+const rpc = vi.mocked(extensionRpcClient.call)
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -39,14 +37,11 @@ describe("useModelLibrarySearch", () => {
   it("should not search with empty query", () => {
     renderHook(() => useModelLibrarySearch(), { wrapper: createWrapper() })
 
-    expect(browser.runtime.sendMessage).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
   })
 
   it("should search models when query is set", async () => {
-    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
-      success: true,
-      html: "<html></html>" // Empty HTML for simple test
-    })
+    rpc.mockResolvedValue({ html: "<html></html>" })
 
     const { result } = renderHook(() => useModelLibrarySearch(), {
       wrapper: createWrapper()
@@ -67,10 +62,7 @@ describe("useModelLibrarySearch", () => {
   it("should handle search errors", async () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
 
-    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
-      success: false,
-      error: { message: "Failed to scrape" }
-    })
+    rpc.mockRejectedValue(new Error("Failed to scrape"))
 
     const { result } = renderHook(() => useModelLibrarySearch(), {
       wrapper: createWrapper()
@@ -98,10 +90,7 @@ describe("useModelLibrarySearch", () => {
       </a>
     `
 
-    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
-      success: true,
-      html: mockSearchHtml
-    })
+    rpc.mockResolvedValue({ html: mockSearchHtml })
 
     const { result } = renderHook(() => useModelLibrarySearch(), {
       wrapper: createWrapper()
@@ -123,10 +112,7 @@ describe("useModelLibrarySearch", () => {
       </section>
     `
 
-    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
-      success: true,
-      html: mockVariantsHtml
-    })
+    rpc.mockResolvedValue({ html: mockVariantsHtml })
 
     await act(async () => {
       await result.current.loadVariants("llama2")
@@ -135,6 +121,10 @@ describe("useModelLibrarySearch", () => {
     await waitFor(() => {
       const model = result.current.models.find((m) => m.name === "llama2")
       expect(model?.variants).toBeDefined()
+    })
+
+    expect(rpc).toHaveBeenCalledWith(RpcMethod.ModelsGetLibraryVariants, {
+      name: "llama2"
     })
   })
 })

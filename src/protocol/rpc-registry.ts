@@ -10,6 +10,25 @@ import {
 } from "./diagnostics-rpc"
 
 import {
+  EmbeddingsCheckModelRequestSchema,
+  EmbeddingsCheckModelResultSchema,
+  EmbeddingsPrepareModelRequestSchema,
+  EmbeddingsPrepareModelResultSchema,
+  ModelsGetDetailsRequestSchema,
+  ModelsGetDetailsResultSchema,
+  ModelsGetLibraryVariantsRequestSchema,
+  ModelsGetLibraryVariantsResultSchema,
+  ModelsListLoadedRequestSchema,
+  ModelsListLoadedResultSchema,
+  ModelsSearchLibraryRequestSchema,
+  ModelsSearchLibraryResultSchema,
+  ModelsUnloadRequestSchema,
+  ModelsUnloadResultSchema,
+  ModelsWarmupRequestSchema,
+  ModelsWarmupResultSchema
+} from "./model-rpc"
+
+import {
   ProvidersListModelsRequestSchema,
   ProvidersListModelsResultSchema,
   ProvidersListRequestSchema,
@@ -85,6 +104,65 @@ export const RPC_METHOD_DEFINITIONS = {
     response: ProvidersProbeModelCapabilitiesResultSchema,
     allowedSources: extensionPagesOnly,
     timeoutMs: 35_000,
+    operation: "command"
+  },
+  [RpcMethod.ModelsGetDetails]: {
+    request: ModelsGetDetailsRequestSchema,
+    response: ModelsGetDetailsResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
+    operation: "query"
+  },
+  [RpcMethod.ModelsListLoaded]: {
+    request: ModelsListLoadedRequestSchema,
+    response: ModelsListLoadedResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
+    operation: "query"
+  },
+  [RpcMethod.ModelsUnload]: {
+    request: ModelsUnloadRequestSchema,
+    response: ModelsUnloadResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 30_000,
+    operation: "command"
+  },
+  [RpcMethod.ModelsWarmup]: {
+    request: ModelsWarmupRequestSchema,
+    response: ModelsWarmupResultSchema,
+    allowedSources: extensionPagesOnly,
+    // A cold model can take a while to become resident; this is the same wait
+    // the user would see on their first message.
+    timeoutMs: 120_000,
+    operation: "command"
+  },
+  [RpcMethod.ModelsSearchLibrary]: {
+    request: ModelsSearchLibraryRequestSchema,
+    response: ModelsSearchLibraryResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 20_000,
+    operation: "query"
+  },
+  [RpcMethod.ModelsGetLibraryVariants]: {
+    request: ModelsGetLibraryVariantsRequestSchema,
+    response: ModelsGetLibraryVariantsResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 20_000,
+    operation: "query"
+  },
+  [RpcMethod.EmbeddingsCheckModel]: {
+    request: EmbeddingsCheckModelRequestSchema,
+    response: EmbeddingsCheckModelResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
+    operation: "query"
+  },
+  [RpcMethod.EmbeddingsPrepareModel]: {
+    request: EmbeddingsPrepareModelRequestSchema,
+    response: EmbeddingsPrepareModelResultSchema,
+    allowedSources: extensionPagesOnly,
+    // Preparing can mean pulling the model.
+    timeoutMs: 300_000,
     operation: "command"
   },
   [RpcMethod.DiagnosticsRun]: {

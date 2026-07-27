@@ -1,120 +1,22 @@
 import type { Tabs } from "webextension-polyfill"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
-import type {
-  ChromeResponse,
-  ProviderModel,
-  ProviderModelDetails
-} from "@/types"
+import type { ChromeResponse, ProviderModel } from "@/types"
 
 type RuntimeResponse<T = object> = Omit<ChromeResponse, keyof T> & T
 
-export interface LoadedRuntimeModel {
-  name: string
-  model: string
-  size: number
-  digest: string
-  details: {
-    parent_model: string
-    format: string
-    family: string
-    families: string[]
-    parameter_size: string
-    quantization_level: string
-  }
-  expires_at: string
-  size_vram: number
-}
-
+/**
+ * Untyped runtime messages the background still answers.
+ *
+ * Provider and model request/response operations moved to the typed RPC
+ * boundary (`extensionRpcClient` + `RpcMethod`); anything left here is a
+ * one-way event, a lifecycle signal, or the content-script-reachable model
+ * read. New request/response work belongs in `src/protocol/`, not this map.
+ */
 export interface RuntimeMessageMap {
   [MESSAGE_KEYS.PROVIDER.GET_MODELS]: {
     request: { type: typeof MESSAGE_KEYS.PROVIDER.GET_MODELS }
     response: RuntimeResponse<{ data?: { models: ProviderModel[] } }>
-  }
-  [MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS]: {
-    request: {
-      type: typeof MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS
-      payload: { model: string; providerId?: string }
-    }
-    response: RuntimeResponse<{
-      data?: ProviderModelDetails | null
-      /** Provider the worker actually resolved the model to. */
-      providerId?: string
-      /** Whether that provider can self-report `/api/show`-style details. */
-      supportsDetails?: boolean
-    }>
-  }
-  [MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL]: {
-    request: {
-      type: typeof MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL
-      query: string
-    }
-    response: RuntimeResponse<{ html?: string }>
-  }
-  [MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS]: {
-    request: {
-      type: typeof MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS
-      name: string
-    }
-    response: RuntimeResponse<{ html?: string }>
-  }
-  [MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL]: {
-    request: {
-      type: typeof MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL
-      payload: { model: string; providerId?: string }
-    }
-    response: RuntimeResponse<{ data?: { exists?: boolean; debug?: object } }>
-  }
-  [MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS]: {
-    request: {
-      type: typeof MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS
-      payload?: { providerId?: string }
-    }
-    response: RuntimeResponse<{ data?: { models?: LoadedRuntimeModel[] } }>
-  }
-  [MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL]: {
-    request: {
-      type: typeof MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL
-      payload: { model: string; providerId?: string }
-    }
-    response: RuntimeResponse
-  }
-  [MESSAGE_KEYS.PROVIDER.WARMUP_MODEL]: {
-    request: {
-      type: typeof MESSAGE_KEYS.PROVIDER.WARMUP_MODEL
-      payload: {
-        model: string
-        providerId?: string
-        previousModel?: string
-        previousProviderId?: string
-      }
-    }
-    response: RuntimeResponse
-  }
-  [MESSAGE_KEYS.PROVIDER.DELETE_MODEL]: {
-    request: {
-      type: typeof MESSAGE_KEYS.PROVIDER.DELETE_MODEL
-      payload: string
-    }
-    response: RuntimeResponse
-  }
-  [MESSAGE_KEYS.PROVIDER.GET_PROVIDER_VERSION]: {
-    request: { type: typeof MESSAGE_KEYS.PROVIDER.GET_PROVIDER_VERSION }
-    response: RuntimeResponse<{ data?: { version?: string } }>
-  }
-  [MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL]: {
-    request: {
-      type: typeof MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL
-      payload: { model: string; providerId?: string }
-    }
-    response: RuntimeResponse
-  }
-  [MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL]: {
-    request: {
-      type: typeof MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL
-      payload: string
-    }
-    response: RuntimeResponse
   }
   [MESSAGE_KEYS.BROWSER.OPEN_TAB]: {
     request: { type: typeof MESSAGE_KEYS.BROWSER.OPEN_TAB }

@@ -86,7 +86,7 @@ describe("runtime sender authorization", () => {
 
   it("allows extension pages to use the internal runtime API", () => {
     expect(
-      messageAllowed(MESSAGE_KEYS.PROVIDER.DELETE_MODEL, extensionPage)
+      messageAllowed(MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE, extensionPage)
     ).toBe(true)
     expect(portAllowed("request-id", extensionPage)).toBe(true)
     expect(
@@ -103,11 +103,10 @@ describe("runtime sender authorization", () => {
 
   it("gives content scripts only the narrow message allowlist", () => {
     expect(messageAllowed(MESSAGE_KEYS.PROVIDER.GET_MODELS)).toBe(true)
-    expect(messageAllowed(MESSAGE_KEYS.OLLAMA.GET_MODELS)).toBe(true)
     expect(messageAllowed(MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT)).toBe(
       true
     )
-    expect(messageAllowed(MESSAGE_KEYS.PROVIDER.DELETE_MODEL)).toBe(false)
+    expect(messageAllowed(MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE)).toBe(false)
     expect(messageAllowed(MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL)).toBe(false)
   })
 

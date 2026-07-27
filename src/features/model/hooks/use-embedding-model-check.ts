@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react"
 import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
-  MESSAGE_KEYS,
   normalizeEmbeddingModelName
 } from "@/lib/constants"
 import {
@@ -10,7 +9,8 @@ import {
   recommendedEmbeddingBaseSet
 } from "@/lib/embeddings/model-name-filter"
 import { logger } from "@/lib/logger"
-import { sendRuntimeMessage } from "@/lib/runtime-messages"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import { RpcMethod } from "@/protocol/rpc"
 import type { ProviderModel } from "@/types"
 
 const POLL_INTERVAL_MS = 5_000
@@ -34,7 +34,7 @@ export interface UseEmbeddingModelCheckOptions {
  *   1. Verify the selected embedding model is actually installed on
  *      its provider. We ask the background worker every 5s (and
  *      immediately on selection change) via the
- *      `MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL` round-trip.
+ *      `embeddings.checkModel` RPC round-trip.
  *   2. If the check fails and the user hasn't already been moved
  *      automatically, pick the best available alternative (prefer
  *      Ollama-hosted, then anything in our recommended set, then
@@ -74,25 +74,23 @@ export const useEmbeddingModelCheck = ({
         const currentModel = selectedModel || DEFAULT_EMBEDDING_MODEL
         const looksLikeEmbedding = isLikelyEmbeddingModelName(currentModel)
         const currentProviderId = resolveProviderForModel(currentModel)
-        const response = await sendRuntimeMessage(
-          MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL,
+        const response = await extensionRpcClient.call(
+          RpcMethod.EmbeddingsCheckModel,
           {
-            payload: { model: currentModel, providerId: currentProviderId }
+            model: currentModel,
+            ...(currentProviderId && { providerId: currentProviderId })
           }
         )
 
-        if (response?.data?.debug) {
+        if (response.debug) {
           logger.debug(
             `Check debug for ${currentModel}`,
             "useEmbeddingModelCheck",
-            response.data.debug
+            response.debug
           )
         }
 
-        const exists =
-          looksLikeEmbedding &&
-          response?.success === true &&
-          response.data?.exists === true
+        const exists = looksLikeEmbedding && response.exists
 
         setModelExists(exists)
         if (exists) return

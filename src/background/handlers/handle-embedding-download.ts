@@ -1,4 +1,3 @@
-import { createErrorResponse } from "@/background/lib/error-handler"
 import {
   type AbortTimeout,
   createAbortTimeout,
@@ -9,7 +8,6 @@ import { getBaseUrl } from "@/background/lib/utils"
 import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
-  MESSAGE_KEYS,
   normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
@@ -20,7 +18,7 @@ import {
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
-import type { ChromeResponse, DefaultProviderPullRequest } from "@/types"
+import type { DefaultProviderPullRequest } from "@/types"
 
 /**
  * Checks if the embedding model is already downloaded
@@ -448,33 +446,5 @@ export const prepareEmbeddingModel = async (
     ready: false,
     prepared: false,
     error: downloadResult.error
-  }
-}
-
-/**
- * Runtime message handler used by the embedding fallback chain.
- */
-export const handlePrepareEmbeddingModel = async (
-  payload: unknown,
-  sendResponse: (response: ChromeResponse) => void
-) => {
-  try {
-    const prepared = await prepareEmbeddingModel(
-      (payload as PrepareEmbeddingPayload) || {}
-    )
-
-    sendResponse({
-      success: true,
-      data: prepared
-    })
-  } catch (error) {
-    logger.error(
-      "Failed to prepare embedding model",
-      MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL,
-      {
-        error
-      }
-    )
-    sendResponse(createErrorResponse(error))
   }
 }
