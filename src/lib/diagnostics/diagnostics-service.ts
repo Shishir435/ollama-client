@@ -1,10 +1,16 @@
-import { browser } from "@/lib/browser-api"
+import { browser, supportsDNR } from "@/lib/browser-api"
+import {
+  localProviderOriginRuleMatches,
+  readLocalProviderOriginRule
+} from "@/lib/dnr-rules"
 import { vectorDb } from "@/lib/embeddings/db"
 import { getSafeClientEnvironment } from "@/lib/error-report"
 import { readPersistenceBackend } from "@/lib/persistence/backend"
 import { rpcQuery, rpcTxBegin, rpcTxRollback } from "@/lib/persistence/client"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
+import { ProviderId } from "@/lib/providers/types"
 import { countMessages } from "@/lib/repositories/chat-history"
 import type {
   DiagnosticsGetBundleResult,
@@ -109,6 +115,72 @@ const runMigrationTest = async (): Promise<DiagnosticTestResult> => {
   return result
 }
 
+/**
+ * The Origin rewrite is installed for the built-in local provider only.
+ * Resolved here rather than imported from the background helper so a lib-level
+ * diagnostic does not reach into the background layer — and the origin itself
+ * never leaves this module, only the boolean "does the rule still describe it".
+ */
+const resolveLocalProviderOrigin = async (): Promise<string | undefined> => {
+  try {
+    const config = await ProviderManager.getProviderConfig(ProviderId.OLLAMA)
+    return config ? new URL(resolveProviderBaseUrl(config)).origin : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * `capabilities()` already reports that the declarativeNetRequest API exists,
+ * which is not the question a support report needs answered. Chromium's Origin
+ * rewrite is exactly what makes `OLC-PROVIDER-UNREACHABLE` and
+ * `OLC-CORS-BLOCKED` — the two codes that dominate reports — ambiguous:
+ * "reachable: no" reads identically whether the local server is down or the
+ * rule that lets the extension reach it was never installed. So read the rule
+ * set, not the namespace.
+ *
+ * A rule installed for a base URL the user has since changed is the third
+ * state, and the most confusing one in a report: API present, rule present,
+ * requests still rejected.
+ *
+ * Firefox has no DNR equivalent and asks the user to configure the origin on
+ * the server instead, so the rule's absence there is correct rather than a
+ * defect — `unsupported`, never `fail`.
+ */
+const runDnrTest = async (): Promise<DiagnosticTestResult> => {
+  if (!supportsDNR()) {
+    return {
+      id: "dnr_rules",
+      status: "unsupported",
+      durationMs: 0,
+      metadata: { result: "not_applicable" }
+    }
+  }
+
+  const result = await runTest("dnr_rules", async () => {
+    const state = await readLocalProviderOriginRule()
+    if (!state.installed) return { result: "missing" }
+    const origin = await resolveLocalProviderOrigin()
+    // No resolvable local provider means there is nothing for the rule to be
+    // stale against; presence is all this can honestly claim.
+    if (!origin) return { result: "installed" }
+    return {
+      result: localProviderOriginRuleMatches(state, origin)
+        ? "installed"
+        : "stale"
+    }
+  })
+
+  if (result.status !== "pass") return result
+  if (result.metadata?.result === "missing") {
+    return { ...result, status: "action", code: "OLC-DNR-RULE-MISSING-001" }
+  }
+  if (result.metadata?.result === "stale") {
+    return { ...result, status: "action", code: "OLC-DNR-RULE-STALE-001" }
+  }
+  return result
+}
+
 const executeSelfTests = async (
   signal?: AbortSignal
 ): Promise<DiagnosticTestResult[]> => {
@@ -153,7 +225,8 @@ const executeSelfTests = async (
         status: result.failures.length > 0 ? "partial" : "pass"
       }
     }),
-    runMigrationTest()
+    runMigrationTest(),
+    runDnrTest()
   ])
   signal?.throwIfAborted()
   // Recorded once per real execution, never on a shared/cached result, so

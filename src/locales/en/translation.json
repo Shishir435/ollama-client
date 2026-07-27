@@ -1879,7 +1879,8 @@
       "chat_repository": "Chat repository",
       "vector_store": "Vector store",
       "provider_discovery": "Provider and model discovery",
-      "migration": "Persistence migration"
+      "migration": "Persistence migration",
+      "dnr_rules": "Local provider CORS rule"
     }
   },
   "onboarding": {

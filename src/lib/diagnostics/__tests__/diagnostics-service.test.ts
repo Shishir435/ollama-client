@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   countMessages: vi.fn(),
   vectorCount: vi.fn(),
   providers: vi.fn(),
+  providerConfig: vi.fn(),
   listModels: vi.fn(),
   backend: vi.fn(),
   txBegin: vi.fn(),
@@ -11,7 +12,9 @@ const mocks = vi.hoisted(() => ({
   query: vi.fn(),
   events: vi.fn(),
   record: vi.fn(),
-  clear: vi.fn()
+  clear: vi.fn(),
+  supportsDNR: vi.fn(),
+  readRule: vi.fn()
 }))
 
 vi.mock("@/lib/repositories/chat-history", () => ({
@@ -21,7 +24,18 @@ vi.mock("@/lib/embeddings/db", () => ({
   vectorDb: { vectors: { count: mocks.vectorCount } }
 }))
 vi.mock("@/lib/providers/manager", () => ({
-  ProviderManager: { getProviders: mocks.providers }
+  ProviderManager: {
+    getProviders: mocks.providers,
+    getProviderConfig: mocks.providerConfig
+  }
+}))
+vi.mock("@/lib/browser-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/browser-api")>()),
+  supportsDNR: mocks.supportsDNR
+}))
+vi.mock("@/lib/dnr-rules", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/dnr-rules")>()),
+  readLocalProviderOriginRule: mocks.readRule
 }))
 vi.mock("@/lib/providers/provider-rpc-service", () => ({
   ProviderRpcService: { listModels: mocks.listModels }
@@ -69,6 +83,16 @@ beforeEach(() => {
   mocks.txBegin.mockResolvedValue(undefined)
   mocks.txRollback.mockResolvedValue(undefined)
   mocks.query.mockResolvedValue([{ ok: 1 }])
+  mocks.supportsDNR.mockReturnValue(true)
+  mocks.providerConfig.mockResolvedValue({
+    id: "ollama",
+    baseUrl: "http://localhost:11434"
+  })
+  mocks.readRule.mockResolvedValue({
+    installed: true,
+    urlFilter: "http://localhost:11434/*",
+    headerValue: "http://localhost:11434"
+  })
   mocks.events.mockResolvedValue([])
   mocks.record.mockResolvedValue(undefined)
   mocks.clear.mockResolvedValue(undefined)
@@ -223,6 +247,70 @@ describe("DiagnosticsService", () => {
 
     expect(bundle.events).toHaveLength(1)
     expect(bundle.events[0]?.sessionId).toBe("session-current")
+  })
+
+  it("reports the local-provider CORS rule as installed when it matches the configured origin", async () => {
+    const { tests } = await DiagnosticsService.run()
+
+    expect(tests.find((test) => test.id === "dnr_rules")).toMatchObject({
+      status: "pass",
+      metadata: { result: "installed" }
+    })
+  })
+
+  it("flags a missing CORS rule as an action rather than a passing API check", async () => {
+    // The distinction the test exists for: the declarativeNetRequest namespace
+    // is present (capabilities() would say yes) but no rule is installed, which
+    // is what makes a reachable provider answer like an unreachable one.
+    mocks.readRule.mockResolvedValue({ installed: false })
+
+    const { tests } = await DiagnosticsService.run()
+
+    expect(tests.find((test) => test.id === "dnr_rules")).toMatchObject({
+      status: "action",
+      code: "OLC-DNR-RULE-MISSING-001",
+      metadata: { result: "missing" }
+    })
+  })
+
+  it("flags a CORS rule left behind by an earlier base URL as stale", async () => {
+    mocks.providerConfig.mockResolvedValue({
+      id: "ollama",
+      baseUrl: "http://127.0.0.1:11434"
+    })
+
+    const { tests } = await DiagnosticsService.run()
+
+    expect(tests.find((test) => test.id === "dnr_rules")).toMatchObject({
+      status: "action",
+      code: "OLC-DNR-RULE-STALE-001",
+      metadata: { result: "stale" }
+    })
+  })
+
+  it("reports the CORS rule as unsupported where the browser has no DNR", async () => {
+    // Firefox asks the user to configure the origin on the server instead, so
+    // an absent rule there is correct rather than a defect.
+    mocks.supportsDNR.mockReturnValue(false)
+
+    const { tests } = await DiagnosticsService.run()
+
+    expect(tests.find((test) => test.id === "dnr_rules")).toMatchObject({
+      status: "unsupported",
+      metadata: { result: "not_applicable" }
+    })
+    expect(mocks.readRule).not.toHaveBeenCalled()
+  })
+
+  it("keeps the endpoint out of the CORS rule result", async () => {
+    mocks.providerConfig.mockResolvedValue({
+      id: "ollama",
+      baseUrl: "http://secret-host.example:11434"
+    })
+
+    const { bundle } = await DiagnosticsService.getBundle()
+
+    expect(JSON.stringify(bundle)).not.toContain("secret-host.example")
   })
 
   it("surfaces legacy persistence as a recoverable migration action", async () => {
