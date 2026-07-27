@@ -1,475 +1,204 @@
-import { act, renderHook } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { PromptTemplate } from "@/types/ui-state"
 import { usePromptTemplates } from "../use-prompt-templates"
 
-// Mock useStorage
-vi.mock("@plasmohq/storage/hook", () => ({
-  useStorage: vi.fn()
+const repository = vi.hoisted(() => ({
+  list: vi.fn<() => Promise<PromptTemplate[]>>(),
+  add: vi.fn(),
+  update: vi.fn(),
+  remove: vi.fn(),
+  increment: vi.fn(),
+  importMany: vi.fn(),
+  replace: vi.fn(),
+  subscribe: vi.fn(() => () => undefined),
+  logError: vi.fn()
 }))
 
-import { useStorage } from "@plasmohq/storage/hook"
+vi.mock("@/lib/repositories/prompt-templates", () => ({
+  listPromptTemplates: repository.list,
+  addPromptTemplate: repository.add,
+  updatePromptTemplate: repository.update,
+  deletePromptTemplate: repository.remove,
+  incrementPromptTemplateUsage: repository.increment,
+  importPromptTemplates: repository.importMany,
+  replacePromptTemplates: repository.replace,
+  subscribePromptTemplates: repository.subscribe,
+  logPromptTemplateError: repository.logError
+}))
+
+const template = (
+  id: string,
+  overrides: Partial<PromptTemplate> = {}
+): PromptTemplate => ({
+  id,
+  title: `Template ${id}`,
+  userPrompt: `Prompt ${id}`,
+  createdAt: new Date(1),
+  usageCount: 0,
+  ...overrides
+})
 
 describe("usePromptTemplates", () => {
-  let mockSetTemplates: ReturnType<typeof vi.fn>
-
   beforeEach(() => {
-    mockSetTemplates = vi.fn().mockResolvedValue(undefined)
-    vi.mocked(useStorage).mockReturnValue([
-      [],
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
-    ])
+    vi.clearAllMocks()
+    repository.list.mockResolvedValue([template("one")])
+    repository.add.mockResolvedValue(undefined)
+    repository.update.mockResolvedValue(undefined)
+    repository.remove.mockResolvedValue(undefined)
+    repository.increment.mockResolvedValue(undefined)
+    repository.importMany.mockResolvedValue(undefined)
+    repository.replace.mockResolvedValue(undefined)
+    repository.subscribe.mockReturnValue(() => undefined)
   })
 
-  it("should initialize with empty templates", () => {
+  it("loads templates from SQLite repository", async () => {
     const { result } = renderHook(() => usePromptTemplates())
-
-    expect(result.current.templates).toBeDefined()
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.templates.map(({ id }) => id)).toEqual(["one"])
   })
 
-  it("should add a new template", () => {
+  it("persists individual CRUD without rewriting an array", async () => {
     const { result } = renderHook(() => usePromptTemplates())
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
 
     act(() => {
       result.current.addTemplate({
-        id: "test-1",
-        title: "Test Template",
-        userPrompt: "Test prompt",
-        category: "Test"
+        id: "two",
+        title: "Two",
+        userPrompt: "Use two"
       })
+      result.current.updateTemplate("one", { title: "Updated" })
+      result.current.incrementUsageCount("one")
+      result.current.deleteTemplate("one")
     })
 
-    expect(mockSetTemplates).toHaveBeenCalled()
+    expect(repository.add).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "two", usageCount: 0 })
+    )
+    expect(repository.update).toHaveBeenCalledWith("one", { title: "Updated" })
+    expect(repository.increment).toHaveBeenCalledWith("one")
+    expect(repository.remove).toHaveBeenCalledWith("one")
   })
 
-  it("should update a template", () => {
-    const mockTemplates = [
-      {
-        id: "template-1",
-        title: "Original",
-        userPrompt: "Prompt",
-        createdAt: new Date(),
-        usageCount: 0
-      }
-    ]
-
-    vi.mocked(useStorage).mockReturnValue([
-      mockTemplates,
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
-    ])
-
+  it("validates imports and replaces duplicate ids", async () => {
+    vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "new-id") })
     const { result } = renderHook(() => usePromptTemplates())
-
-    act(() => {
-      result.current.updateTemplate("template-1", { title: "Updated" })
-    })
-
-    expect(mockSetTemplates).toHaveBeenCalled()
-  })
-
-  it("should delete a template", () => {
-    const mockTemplates = [
-      {
-        id: "template-1",
-        title: "Test",
-        userPrompt: "Prompt",
-        createdAt: new Date(),
-        usageCount: 0
-      }
-    ]
-
-    vi.mocked(useStorage).mockReturnValue([
-      mockTemplates,
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
-    ])
-
-    const { result } = renderHook(() => usePromptTemplates())
-
-    act(() => {
-      result.current.deleteTemplate("template-1")
-    })
-
-    expect(mockSetTemplates).toHaveBeenCalled()
-  })
-
-  it("should increment usage count", () => {
-    const mockTemplates = [
-      {
-        id: "template-1",
-        title: "Test",
-        userPrompt: "Prompt",
-        createdAt: new Date(),
-        usageCount: 5
-      }
-    ]
-
-    vi.mocked(useStorage).mockReturnValue([
-      mockTemplates,
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
-    ])
-
-    const { result } = renderHook(() => usePromptTemplates())
-
-    act(() => {
-      result.current.incrementUsageCount("template-1")
-    })
-
-    expect(mockSetTemplates).toHaveBeenCalled()
-  })
-
-  it("should duplicate a template", () => {
-    const mockTemplates = [
-      {
-        id: "template-1",
-        title: "Original",
-        userPrompt: "Prompt",
-        createdAt: new Date(),
-        usageCount: 5
-      }
-    ]
-
-    vi.mocked(useStorage).mockReturnValue([
-      mockTemplates,
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
-    ])
-
-    const { result } = renderHook(() => usePromptTemplates())
-
-    act(() => {
-      result.current.duplicateTemplate("template-1")
-    })
-
-    expect(mockSetTemplates).toHaveBeenCalled()
-  })
-
-  it("should import templates", () => {
-    const { result } = renderHook(() => usePromptTemplates())
-
-    const newTemplates = [
-      {
-        id: "imported-1",
-        title: "Imported",
-        userPrompt: "Prompt",
-        createdAt: new Date(),
-        usageCount: 0
-      }
-    ]
-
-    act(() => {
-      result.current.importTemplates(newTemplates)
-    })
-
-    expect(mockSetTemplates).toHaveBeenCalled()
-  })
-
-  it("should validate imported templates and avoid duplicate ids", () => {
-    const existingTemplates = [
-      {
-        id: "existing",
-        title: "Existing",
-        userPrompt: "Prompt",
-        createdAt: new Date(),
-        usageCount: 0
-      }
-    ]
-    vi.mocked(useStorage).mockReturnValue([
-      existingTemplates,
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
-    ])
-
-    const { result } = renderHook(() => usePromptTemplates())
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
 
     act(() => {
       result.current.importTemplates([
-        {
-          id: "existing",
-          title: "Imported",
-          userPrompt: "Use this",
-          tags: ["valid", 42]
-        },
-        { id: "bad-title", title: "", userPrompt: "No title" },
-        { id: "bad-prompt", title: "No prompt", userPrompt: "" },
-        null
+        { id: "one", title: "Imported", userPrompt: "Valid", tags: ["x", 1] },
+        { id: "bad", title: "", userPrompt: "Invalid" }
       ])
     })
 
-    const updater = mockSetTemplates.mock.calls[0][0]
-    const nextTemplates = updater(existingTemplates)
+    expect(repository.importMany).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "new-id", tags: ["x"] })
+    ])
+    vi.unstubAllGlobals()
+  })
 
-    expect(nextTemplates).toHaveLength(2)
-    expect(nextTemplates[1]).toEqual(
+  it("drops non-object entries from an import without rejecting the batch", async () => {
+    vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "new-id") })
+    const { result } = renderHook(() => usePromptTemplates())
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    act(() => {
+      result.current.importTemplates([
+        null,
+        "not-a-template",
+        { id: "fresh", title: "Valid", userPrompt: "Keep me" }
+      ])
+    })
+
+    expect(repository.importMany).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "fresh", title: "Valid" })
+    ])
+    vi.unstubAllGlobals()
+  })
+
+  it("duplicates a template as an independent copy", async () => {
+    vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "copy-id") })
+    repository.list.mockResolvedValue([
+      template("one", { title: "Original", usageCount: 7 })
+    ])
+    const { result } = renderHook(() => usePromptTemplates())
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    act(() => {
+      result.current.duplicateTemplate("one")
+    })
+
+    // A copy that kept the source id or its usage count would overwrite the
+    // original on the next write and inherit stats it never earned.
+    expect(repository.add).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: "Imported",
-        userPrompt: "Use this",
-        tags: ["valid"]
+        id: "copy-id",
+        title: "Original (Copy)",
+        usageCount: 0
       })
     )
-    expect(nextTemplates[1].id).not.toBe("existing")
+    vi.unstubAllGlobals()
   })
 
-  it("should export templates", () => {
-    const mockTemplates = [
-      {
-        id: "template-1",
-        title: "Test",
-        userPrompt: "Prompt",
-        createdAt: new Date(),
-        usageCount: 0
-      }
-    ]
-
-    vi.mocked(useStorage).mockReturnValue([
-      mockTemplates,
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
-    ])
-
+  it("ignores a duplicate request for an unknown id", async () => {
     const { result } = renderHook(() => usePromptTemplates())
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    const exported = result.current.exportTemplates()
+    act(() => {
+      result.current.duplicateTemplate("missing")
+    })
 
-    expect(exported).toEqual(mockTemplates)
+    expect(repository.add).not.toHaveBeenCalled()
   })
 
-  it("should reset to defaults", () => {
+  it("replaces the library wholesale when resetting to defaults", async () => {
     const { result } = renderHook(() => usePromptTemplates())
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
 
     act(() => {
       result.current.resetToDefaults()
     })
 
-    expect(mockSetTemplates).toHaveBeenCalled()
+    // Reset must replace, not append — `add` would leave the old library in
+    // place alongside the defaults.
+    expect(repository.replace).toHaveBeenCalledOnce()
+    expect(repository.add).not.toHaveBeenCalled()
+    const [defaults] = repository.replace.mock.calls[0] as [PromptTemplate[]]
+    expect(defaults.length).toBeGreaterThan(0)
+    expect(defaults.every((entry) => entry.createdAt instanceof Date)).toBe(
+      true
+    )
   })
 
-  it("should get templates by category", () => {
-    const mockTemplates = [
-      {
-        id: "1",
-        title: "Test 1",
-        userPrompt: "Prompt",
-        category: "Code",
-        createdAt: new Date(),
-        usageCount: 0
-      },
-      {
-        id: "2",
-        title: "Test 2",
-        userPrompt: "Prompt",
-        category: "Writing",
-        createdAt: new Date(),
-        usageCount: 0
-      }
-    ]
-
-    vi.mocked(useStorage).mockReturnValue([
-      mockTemplates,
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
+  it("orders recent templates by creation time, not insertion order", async () => {
+    repository.list.mockResolvedValue([
+      template("old", { createdAt: new Date(1_000) }),
+      template("newest", { createdAt: new Date(9_000) }),
+      template("middle", { createdAt: new Date(5_000) })
     ])
-
     const { result } = renderHook(() => usePromptTemplates())
+    await waitFor(() => expect(result.current.templates).toHaveLength(3))
 
-    const codeTemplates = result.current.getTemplatesByCategory("Code")
-
-    expect(codeTemplates).toHaveLength(1)
-    expect(codeTemplates[0].title).toBe("Test 1")
+    expect(result.current.getRecentTemplates(2).map(({ id }) => id)).toEqual([
+      "newest",
+      "middle"
+    ])
   })
 
-  it("should search templates", () => {
-    const mockTemplates = [
-      {
-        id: "1",
-        title: "Code Review",
-        userPrompt: "Review code",
-        createdAt: new Date(),
-        usageCount: 0
-      },
-      {
-        id: "2",
-        title: "Writing Help",
-        userPrompt: "Help writing",
-        createdAt: new Date(),
-        usageCount: 0
-      }
-    ]
-
-    vi.mocked(useStorage).mockReturnValue([
-      mockTemplates,
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
+  it("keeps search, category, popularity, and export helpers", async () => {
+    repository.list.mockResolvedValue([
+      template("a", { title: "Code Review", category: "Code", usageCount: 9 }),
+      template("b", { title: "Write", category: "Writing", usageCount: 2 })
     ])
-
     const { result } = renderHook(() => usePromptTemplates())
+    await waitFor(() => expect(result.current.templates).toHaveLength(2))
 
-    const results = result.current.searchTemplates("code")
-
-    expect(results).toHaveLength(1)
-    expect(results[0].title).toBe("Code Review")
-  })
-
-  it("should get categories", () => {
-    const mockTemplates = [
-      {
-        id: "1",
-        title: "Test 1",
-        userPrompt: "Prompt",
-        category: "Code",
-        createdAt: new Date(),
-        usageCount: 0
-      },
-      {
-        id: "2",
-        title: "Test 2",
-        userPrompt: "Prompt",
-        category: "Writing",
-        createdAt: new Date(),
-        usageCount: 0
-      }
-    ]
-
-    vi.mocked(useStorage).mockReturnValue([
-      mockTemplates,
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
-    ])
-
-    const { result } = renderHook(() => usePromptTemplates())
-
-    const categories = result.current.getCategories()
-
-    expect(categories).toContain("Code")
-    expect(categories).toContain("Writing")
-  })
-
-  it("should get popular templates", () => {
-    const mockTemplates = [
-      {
-        id: "1",
-        title: "Popular",
-        userPrompt: "Prompt",
-        createdAt: new Date(),
-        usageCount: 100
-      },
-      {
-        id: "2",
-        title: "Less Popular",
-        userPrompt: "Prompt",
-        createdAt: new Date(),
-        usageCount: 10
-      }
-    ]
-
-    vi.mocked(useStorage).mockReturnValue([
-      mockTemplates,
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
-    ])
-
-    const { result } = renderHook(() => usePromptTemplates())
-
-    const popular = result.current.getPopularTemplates(1)
-
-    expect(popular).toHaveLength(1)
-    expect(popular[0].title).toBe("Popular")
-  })
-
-  it("should get recent templates", () => {
-    const now = new Date()
-    const yesterday = new Date(now.getTime() - 86400000)
-
-    const mockTemplates = [
-      {
-        id: "1",
-        title: "Recent",
-        userPrompt: "Prompt",
-        createdAt: now,
-        usageCount: 0
-      },
-      {
-        id: "2",
-        title: "Old",
-        userPrompt: "Prompt",
-        createdAt: yesterday,
-        usageCount: 0
-      }
-    ]
-
-    vi.mocked(useStorage).mockReturnValue([
-      mockTemplates,
-      mockSetTemplates as any,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
-    ])
-
-    const { result } = renderHook(() => usePromptTemplates())
-
-    const recent = result.current.getRecentTemplates(1)
-
-    expect(recent).toHaveLength(1)
-    expect(recent[0].title).toBe("Recent")
+    expect(result.current.searchTemplates("code")[0]?.id).toBe("a")
+    expect(result.current.getTemplatesByCategory("Writing")[0]?.id).toBe("b")
+    expect(result.current.getPopularTemplates(1)[0]?.id).toBe("a")
+    expect(result.current.getCategories()).toEqual(["Code", "Writing"])
+    expect(result.current.exportTemplates()).toHaveLength(2)
   })
 })
