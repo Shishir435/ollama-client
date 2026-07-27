@@ -1,9 +1,7 @@
-import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
-  MESSAGE_KEYS,
   normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
@@ -13,6 +11,8 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import type { LLMProvider } from "@/lib/providers/types"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import { RpcMethod } from "@/protocol/rpc"
 import { getEmbeddingConfig } from "./config"
 
 export type EmbeddingRoute =
@@ -230,21 +230,13 @@ const scheduleSharedModelWarmup = async (
 
   warmupThrottle.set(throttleKey, Date.now())
 
-  const sendMessage = browser?.runtime?.sendMessage
-  if (typeof sendMessage !== "function") {
-    return
-  }
-
-  // Fire-and-forget warmup request so UI remains responsive.
+  // Fire-and-forget warmup request so UI remains responsive. Only extension
+  // pages can reach the RPC boundary; called from the background itself the
+  // request has no listener and rejects, which is the same no-op this was
+  // before and is why the failure is logged at debug.
   try {
-    void sendMessage
-      .call(browser.runtime, {
-        type: MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL,
-        payload: {
-          providerId,
-          model
-        }
-      })
+    void extensionRpcClient
+      .call(RpcMethod.EmbeddingsPrepareModel, { providerId, model })
       .catch((error: unknown) => {
         logger.debug(
           "Shared embedding model warmup request failed",

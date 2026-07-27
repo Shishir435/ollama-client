@@ -10,7 +10,6 @@ import {
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
-import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import {
   Brain,
@@ -19,11 +18,10 @@ import {
   RefreshCw,
   Trash
 } from "@/lib/lucide-icon"
-import {
-  type LoadedRuntimeModel,
-  sendRuntimeMessage
-} from "@/lib/runtime-messages"
 import { cn } from "@/lib/utils"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import type { LoadedModel } from "@/protocol/model-rpc"
+import { RpcMethod } from "@/protocol/rpc"
 
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return "0 B"
@@ -37,7 +35,7 @@ export const LoadedModelsInfo = () => {
   const { t } = useTranslation()
   const { selectedProviderCapabilities, selectedProviderId } =
     useProviderModels()
-  const [models, setModels] = useState<LoadedRuntimeModel[]>([])
+  const [models, setModels] = useState<LoadedModel[]>([])
   const [loading, setLoading] = useState(false)
   const [unloading, setUnloading] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -52,22 +50,11 @@ export const LoadedModelsInfo = () => {
       }
 
       try {
-        const res = await sendRuntimeMessage(
-          MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS,
-          {
-            payload: {
-              providerId: selectedProviderId
-            }
-          }
+        const { models } = await extensionRpcClient.call(
+          RpcMethod.ModelsListLoaded,
+          selectedProviderId ? { providerId: selectedProviderId } : {}
         )
-        if (res?.success && res.data?.models) {
-          setModels(res.data.models)
-        } else {
-          logger.error("Failed to fetch loaded models", "LoadedModelsInfo", {
-            error: res?.error
-          })
-          setModels([])
-        }
+        setModels(models)
       } catch (error) {
         logger.error("Failed to fetch loaded models", "LoadedModelsInfo", {
           error
@@ -84,16 +71,19 @@ export const LoadedModelsInfo = () => {
   const unloadModel = async (modelName: string) => {
     setUnloading(modelName)
     try {
-      const res = await sendRuntimeMessage(MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL, {
-        payload: {
+      const { unloaded } = await extensionRpcClient.call(
+        RpcMethod.ModelsUnload,
+        {
           model: modelName,
-          providerId: selectedProviderId
+          ...(selectedProviderId && { providerId: selectedProviderId })
         }
-      })
-      if (res?.success) {
+      )
+      if (unloaded) {
         setModels((prev) => prev.filter((m) => m.name !== modelName))
       } else {
-        logger.error("Unload error", "LoadedModelsInfo", { error: res?.error })
+        logger.error("Unload did not take effect", "LoadedModelsInfo", {
+          model: modelName
+        })
       }
     } catch (error) {
       logger.error("Failed to unload model", "LoadedModelsInfo", { error })
@@ -117,7 +107,7 @@ export const LoadedModelsInfo = () => {
     return null
   }
 
-  const totalSize = models.reduce((acc, model) => acc + model.size, 0)
+  const totalSize = models.reduce((acc, model) => acc + model.sizeBytes, 0)
 
   return (
     <Card className="w-full py-0">
@@ -207,21 +197,19 @@ export const LoadedModelsInfo = () => {
                         <Badge
                           variant="outline"
                           className="h-5 font-mono text-xs">
-                          {model.details.family}
+                          {model.family}
                         </Badge>
                       </div>
 
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Badge variant="secondary" className="h-4 text-xs">
-                          {formatBytes(model.size)}
+                          {formatBytes(model.sizeBytes)}
                         </Badge>
                         <span>•</span>
-                        <span className="font-mono">
-                          {model.details.parameter_size}
-                        </span>
+                        <span className="font-mono">{model.parameterSize}</span>
                         <span>•</span>
                         <span className="font-mono">
-                          {model.details.quantization_level}
+                          {model.quantizationLevel}
                         </span>
                       </div>
                     </div>

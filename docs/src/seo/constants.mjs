@@ -73,6 +73,24 @@ export const SITE_URL = normalizeSiteUrl(
     process.env.VERCEL_URL
 )
 
+/**
+ * True on a deploy that is not production.
+ *
+ * Preview deployments resolve `SITE_URL` from `VERCEL_URL`, so every page
+ * canonicalizes to the preview host while `robots.txt` says `Allow: /` — a
+ * complete indexable copy of the site on a throwaway domain. Vercel does add
+ * `X-Robots-Tag: noindex` to preview deployments by default, which is why this
+ * has most likely never bitten; that is a platform default we neither control
+ * nor test, and stating the intent in the build costs one meta tag.
+ *
+ * Local builds are unaffected: the flag reads as production unless `VERCEL_ENV`
+ * is present and says otherwise, so `pnpm docs:build` on a laptop behaves
+ * exactly as it did.
+ */
+export const IS_NON_PRODUCTION_DEPLOY = Boolean(
+  process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production"
+)
+
 export const SITE_TITLE = "Ollama Client"
 
 export const REPO_URL = "https://github.com/Shishir435/ollama-client"

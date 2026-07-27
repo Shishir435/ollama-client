@@ -4,6 +4,7 @@ import { logger } from "@/lib/logger"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
 import { ensureMessagesUpdatedAtColumn } from "./add-message-updated-at-column"
+import { ensurePromptTemplatesTable } from "./add-prompt-templates-table"
 import { ensureSessionsPinnedColumn } from "./add-session-pinned-column"
 import { ensureSessionsSystemPromptColumn } from "./add-session-system-prompt-column"
 import { ensureSessionsTagsColumn } from "./add-session-tags-column"
@@ -73,6 +74,11 @@ export const MIGRATIONS: Migration[] = [
     version: 8,
     name: "add-message-error-column",
     up: ensureMessagesErrorColumn
+  },
+  {
+    version: 9,
+    name: "add-prompt-templates-table",
+    up: ensurePromptTemplatesTable
   }
 ]
 
@@ -109,7 +115,10 @@ const getTableColumns = (db: Database, table: "messages" | "sessions") => {
   return columns
 }
 
-const hasTable = (db: Database, table: "tool_loop_runs") => {
+const hasTable = (
+  db: Database,
+  table: "tool_loop_runs" | "prompt_templates"
+) => {
   const stmt = db.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1"
   )
@@ -161,6 +170,10 @@ export const repairSchemaDrift = (db: Database): number => {
     {
       missing: !hasTable(db, "tool_loop_runs"),
       apply: () => ensureToolLoopRunsTable(db)
+    },
+    {
+      missing: !hasTable(db, "prompt_templates"),
+      apply: () => ensurePromptTemplatesTable(db)
     }
   ]
 

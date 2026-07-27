@@ -1,21 +1,18 @@
+/**
+ * Runtime messages the background still accepts.
+ *
+ * Provider request/response work now goes through the typed RPC boundary
+ * (`src/protocol/`), so what remains here is streaming ports, one-way events,
+ * and the single content-script-reachable read (`GET_MODELS`). Do not add a
+ * new request/response key — add an `RpcMethod` instead.
+ */
 export const PROVIDER_MESSAGE_KEYS = {
   GET_MODELS: "get-provider-models",
   CHAT_WITH_MODEL: "chat-with-model",
   BUILD_CONTEXT: "build-context",
   STREAM_RESPONSE: "provider-stream-response",
   STOP_GENERATION: "stop-generation",
-  SHOW_MODEL_DETAILS: "show-model-details",
   PULL_MODEL: "PROVIDER.PULL_MODEL",
-  SCRAPE_MODEL: "scrape-model-library",
-  SCRAPE_MODEL_VARIANTS: "scrape-model-library-variant",
-  UPDATE_BASE_URL: "provider-update-base-url",
-  GET_LOADED_MODELS: "get-loaded-models",
-  UNLOAD_MODEL: "unload-model",
-  WARMUP_MODEL: "warmup-model",
-  DELETE_MODEL: "delete-model",
-  GET_PROVIDER_VERSION: "get-provider-version",
-  CHECK_EMBEDDING_MODEL: "check-embedding-model",
-  PREPARE_EMBEDDING_MODEL: "prepare-embedding-model",
   START_SELECTION_ACTION: "start-selection-action",
   CANCEL_SELECTION_ACTION: "cancel-selection-action",
   CONFIRM_TOOL: "confirm-tool"
@@ -24,22 +21,15 @@ export const PROVIDER_MESSAGE_KEYS = {
 /**
  * Legacy Ollama-named message keys.
  *
- * Only kept for the keys that have a string value distinct from
- * PROVIDER_MESSAGE_KEYS — these are real backward-compatibility strings that
- * older clients (already-open tabs during an extension upgrade) may still send.
- *
- * Keys whose value matched the provider-namespaced version exactly were
- * removed; those `case` arms in the background dispatcher were dead code.
+ * Only the *port* names remain. Every legacy request/response twin was retired
+ * with the RPC migration: a page old enough to send one is a page whose
+ * extension context the browser already invalidated during the upgrade, so the
+ * duplicate string bought compatibility with nothing while giving each action
+ * two ways to behave differently.
  */
 export const LEGACY_OLLAMA_MESSAGE_KEYS = {
-  GET_MODELS: "get-ollama-models",
   STREAM_RESPONSE: "ollama-stream-response",
-  PULL_MODEL: "OLLAMA.PULL_MODEL",
-  SCRAPE_MODEL: "scrape-ollama-model",
-  SCRAPE_MODEL_VARIANTS: "scrape-ollama-model-variant",
-  UPDATE_BASE_URL: "ollama-update-base-url",
-  GET_LOADED_MODELS: "get-loaded-model",
-  GET_OLLAMA_VERSION: "get-ollama-version"
+  PULL_MODEL: "OLLAMA.PULL_MODEL"
 } as const
 
 export const MESSAGE_KEYS = {

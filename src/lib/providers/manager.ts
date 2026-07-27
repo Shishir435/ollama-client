@@ -107,12 +107,26 @@ const validateHostedProfileConfig = (config: ProviderConfig): void => {
   }
 }
 
+/**
+ * Which of two configs sharing an id survives.
+ *
+ * Array order is not a reason. The entry carrying credentials or user-added
+ * models is the one whose loss the user would actually notice, so rank by what
+ * is expensive to retype and break ties toward the earlier entry — the one a
+ * lookup would already have been returning.
+ */
+const duplicateRetentionScore = (config: ProviderConfig): number =>
+  (config.apiKey?.trim() ? 4 : 0) +
+  ((config.customModels?.length ?? 0) > 0 ? 2 : 0) +
+  (config.enabled ? 1 : 0)
+
 const sanitizeStoredProviders = (
   providers: ProviderConfig[]
 ): {
   providers: ProviderConfig[]
   removed: ProviderConfig[]
   migrated: Array<{ from: string; to: string }>
+  duplicates: string[]
 } => {
   const kept: ProviderConfig[] = []
   const removed: ProviderConfig[] = []
@@ -146,12 +160,37 @@ const sanitizeStoredProviders = (
     removed.push(provider)
   }
 
+  /*
+   * Two entries can end up sharing an id: a backup import (the backup schema
+   * validates shape, not uniqueness), a legacy beta migration onto a fixed
+   * `custom:openai:legacy-*` id that is already present, or — vanishingly
+   * rarely — a random suffix collision. Duplicates used to be reported as "no
+   * change", so both survived and `getProviderConfig`'s `find` silently
+   * shadowed the second: it stayed in the provider grid and in model discovery
+   * while being unreachable by id.
+   */
+  const byId = new Map<string, ProviderConfig>()
+  const duplicates: string[] = []
+  for (const provider of kept) {
+    const id = String(provider.id)
+    const incumbent = byId.get(id)
+    if (!incumbent) {
+      byId.set(id, provider)
+      continue
+    }
+    duplicates.push(id)
+    if (
+      duplicateRetentionScore(provider) > duplicateRetentionScore(incumbent)
+    ) {
+      byId.set(id, provider)
+    }
+  }
+
   return {
-    providers: [
-      ...new Map(kept.map((provider) => [provider.id, provider])).values()
-    ],
+    providers: [...byId.values()],
     removed,
-    migrated
+    migrated,
+    duplicates
   }
 }
 
@@ -262,13 +301,23 @@ const getProvidersUnlocked = async (): Promise<ProviderConfig[]> => {
   }
 
   const sanitized = sanitizeStoredProviders(stored)
-  if (sanitized.removed.length > 0 || sanitized.migrated.length > 0) {
+  // Deliberately includes `duplicates`: collapsing them used to be conditional
+  // on some *other* anomaly being present in the same read, which meant the
+  // surviving entry depended on an unrelated condition.
+  const sanitizationChanged =
+    sanitized.removed.length > 0 ||
+    sanitized.migrated.length > 0 ||
+    sanitized.duplicates.length > 0
+  if (sanitizationChanged) {
     logger.info(
       "Sanitized provider configs not present in the built-in provider UI",
       "ProviderManager",
       {
         removed: sanitized.removed.map((provider) => provider.id),
-        migrated: sanitized.migrated
+        migrated: sanitized.migrated,
+        // Ids only. A duplicate is a config the user cannot see collapsing, so
+        // it has to leave a trace, but provider names are user text.
+        duplicates: sanitized.duplicates
       }
     )
     stored = sanitized.providers
@@ -335,7 +384,7 @@ const getProvidersUnlocked = async (): Promise<ProviderConfig[]> => {
     return merged
   }
 
-  if (sanitized.removed.length > 0 || sanitized.migrated.length > 0) {
+  if (sanitizationChanged) {
     await persistProviderConfigsUnlocked(stored)
   }
 
@@ -503,7 +552,7 @@ export const ProviderManager = {
           ? ProviderType.ANTHROPIC
           : ProviderType.OPENAI
 
-    const config: ProviderConfig = {
+    let config: ProviderConfig = {
       id: makeCustomProviderId(input.wire),
       type,
       name,
@@ -525,6 +574,24 @@ export const ProviderManager = {
 
     await withProviderPersistenceLock(async () => {
       const providers = await getProvidersUnlocked()
+      /*
+       * The suffix carries 32 bits, so a collision is vanishingly unlikely —
+       * but unlikely is not a guarantee, and the failure mode is bad out of
+       * proportion to the odds: an id that already exists produces a provider
+       * the user configured and cannot reach, or one that silently replaces
+       * another during the next sanitize. Checked against the same snapshot
+       * that gets persisted, inside the lock, so a concurrent add cannot slip
+       * between the check and the write.
+       */
+      const taken = new Set(providers.map((provider) => String(provider.id)))
+      for (let attempt = 0; taken.has(String(config.id)); attempt += 1) {
+        if (attempt >= 8) {
+          throw createAppError("Could not allocate a unique provider id", {
+            kind: "validation"
+          })
+        }
+        config = { ...config, id: makeCustomProviderId(input.wire) }
+      }
       await persistProviderConfigsUnlocked([...providers, config])
     })
     return config

@@ -51,6 +51,24 @@ CREATE TABLE IF NOT EXISTS kv_store (
   value TEXT
 );
 
+-- User-authored prompt templates. These can exceed storage.sync's 8 KiB
+-- per-item quota, so rows live in SQLite instead of one synced JSON array.
+CREATE TABLE IF NOT EXISTS prompt_templates (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  category TEXT,
+  systemPrompt TEXT,
+  userPrompt TEXT NOT NULL,
+  tags TEXT,
+  createdAt INTEGER NOT NULL,
+  usageCount INTEGER NOT NULL DEFAULT 0,
+  sortOrder INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_prompt_templates_sortOrder
+ON prompt_templates(sortOrder);
+
 -- Resumable checkpoints for tool-calling chat turns. Rows exist only while a
 -- tool loop is active and are force-flushed at approval/step boundaries.
 CREATE TABLE IF NOT EXISTS tool_loop_runs (

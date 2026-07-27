@@ -24,6 +24,7 @@ import {
   SITE_TITLE,
   SITE_URL
 } from "../docs/src/seo/constants.mjs"
+import { DOC_ORDER } from "../docs/src/seo/doc-ia.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(__dirname, "..")
@@ -40,23 +41,6 @@ type DocPage = {
   markdownUrl: string
   body: string
 }
-
-const DOC_ORDER = [
-  "about/faq",
-  "guides/quick-start",
-  "guides/provider-setup",
-  "guides/troubleshooting/ollama-cors-error",
-  "concepts/privacy",
-  "concepts/architecture",
-  "concepts/provider-matrix",
-  "compare/open-webui-vs-ollama-client",
-  "compare/page-assist-vs-ollama-client",
-  "compare/lm-studio-vs-ollama-client",
-  "internal/frontend-design-system",
-  "legal/privacy-policy",
-  "about/changelog",
-  "about/keyboard-shortcuts"
-]
 
 function walk(dir: string): string[] {
   return readdirSync(dir)
@@ -173,25 +157,84 @@ export function cleanMarkdown(body: string) {
 }
 
 function sortPages(a: DocPage, b: DocPage) {
-  const aIndex = DOC_ORDER.indexOf(a.slug)
-  const bIndex = DOC_ORDER.indexOf(b.slug)
-  if (aIndex !== -1 || bIndex !== -1) {
-    if (aIndex === -1) return 1
-    if (bIndex === -1) return -1
-    return aIndex - bIndex
-  }
-  return a.slug.localeCompare(b.slug)
+  // Every slug is present in DOC_ORDER by the time this runs — assertIaMatches
+  // has already failed the build otherwise — so index order is total.
+  return DOC_ORDER.indexOf(a.slug) - DOC_ORDER.indexOf(b.slug)
+}
+
+/**
+ * Fail the build when the content tree and the shared IA disagree.
+ *
+ * The previous behavior was to sort unknown slugs to the end alphabetically,
+ * which is how `guides/context-and-tools` and
+ * `guides/troubleshooting/error-reports` ended up at the bottom of llms.txt and
+ * ai.txt, below the changelog, for however long it had been. Appending silently
+ * makes a new page look published while presenting it to AI crawlers in the
+ * wrong place; a missing page is worth stopping for.
+ *
+ * `skipMissing` exists for callers that run against a clean tree, where the
+ * generated pages (GENERATED_DOC_SLUGS) have not been written yet. The build
+ * never passes it: by the time this runs in `docs:generate`, generate-docs.ts
+ * has already emitted them, so an absent one is a real failure there.
+ */
+export function assertIaMatches(
+  slugs: string[],
+  { skipMissing = [] }: { skipMissing?: readonly string[] } = {}
+) {
+  const inIa = new Set(DOC_ORDER)
+  const onDisk = new Set(slugs)
+  const skipped = new Set(skipMissing)
+  const missing = slugs.filter((slug) => !inIa.has(slug))
+  const stale = DOC_ORDER.filter(
+    (slug) => !onDisk.has(slug) && !skipped.has(slug)
+  )
+
+  if (missing.length === 0 && stale.length === 0) return
+
+  const problems = [
+    ...missing.map(
+      (slug) =>
+        `  + ${slug} exists in docs/src/content/docs but is not in DOC_SECTIONS`
+    ),
+    ...stale.map(
+      (slug) => `  - ${slug} is in DOC_SECTIONS but has no content file`
+    )
+  ]
+
+  throw new Error(
+    `docs IA is out of sync with the content tree.\n${problems.join("\n")}\n` +
+      "Add or remove the page in docs/src/seo/doc-ia.mjs, which also drives the " +
+      "Starlight sidebar."
+  )
 }
 
 function loadPages() {
-  return walk(DOCS_CONTENT_DIR)
+  const pages = walk(DOCS_CONTENT_DIR)
     .filter((path) => !relative(DOCS_CONTENT_DIR, path).startsWith("reference/"))
     .map((sourcePath) => {
       const raw = readFileSync(sourcePath, "utf-8")
       const { data, body } = parseFrontmatter(raw)
       const slug = routeFromSource(sourcePath)
-      const title = data.get("title") || slug
-      const description = data.get("description") || SITE_DESCRIPTION
+      const title = data.get("title")
+      const description = data.get("description")
+
+      /*
+       * Both were previously optional: title fell back to the slug and
+       * description to SITE_DESCRIPTION, so an undescribed page shipped the same
+       * generic sentence as every other one into llms.txt, ai.txt, its .md
+       * header, and its OG image — indistinguishable from a real description
+       * while being useless as one. A page in the indexable IA has to say what
+       * it is.
+       */
+      if (!title || !description) {
+        const missing = [!title && "title", !description && "description"]
+          .filter(Boolean)
+          .join(" and ")
+        throw new Error(
+          `${relative(REPO_ROOT, sourcePath)} is missing frontmatter ${missing}.`
+        )
+      }
+
       const url = `${SITE_URL}/${slug}/`
       const markdownUrl = `${SITE_URL}/${slug}.md`
       const markdownPath = join(PUBLIC_DIR, `${slug}.md`)
@@ -207,7 +250,9 @@ function loadPages() {
         body: cleanMarkdown(body)
       }
     })
-    .sort(sortPages)
+
+  assertIaMatches(pages.map((page) => page.slug))
+  return pages.sort(sortPages)
 }
 
 function pageMarkdown(page: DocPage) {

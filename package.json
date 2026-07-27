@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Chat with Local LLM Models",
-  "version": "0.12.4",
+  "version": "0.12.5",
   "description": "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, llama.cpp, and other local/remote providers, including local RAG workflows.",
   "author": "Shishir Chaurasiya",
   "keywords": [
@@ -48,10 +48,14 @@
     "benchmark:build": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_OUTPUT_DIR=build/chrome-mv3-benchmark wxt build",
     "benchmark:build:firefox": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_OUTPUT_DIR=build/firefox-mv2-benchmark wxt build -b firefox --mv2 --mode production",
     "benchmark:browser": "tsx tools/benchmark-browser-persistence.ts",
+    "spike:build": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_SPIKE_OWNER=1 WXT_OUTPUT_DIR=build/chrome-mv3-spike wxt build",
+    "spike:build:firefox": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_SPIKE_OWNER=1 WXT_OUTPUT_DIR=build/firefox-mv2-spike wxt build -b firefox --mv2 --mode production",
     "spike:owner-gates": "tsx tools/spike-owner-gates.ts",
     "spike:sw-termination": "tsx tools/spike-sw-termination.ts",
     "spike:firefox-owner-gates": "tsx tools/spike-firefox-owner-gates.ts",
+    "verify:ci-parity": "tsx tools/verify-ci-parity.ts",
     "verify:opfs-migration": "tsx tools/verify-opfs-migration.ts",
+    "verify:firefox-opfs-migration": "tsx tools/verify-firefox-opfs-migration.ts",
     "verify": "pnpm typecheck && pnpm lint:check && pnpm test:run && pnpm check:generated",
     "test": "vitest",
     "test:ui": "vitest --ui",

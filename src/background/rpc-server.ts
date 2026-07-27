@@ -1,10 +1,15 @@
 import type { Runtime } from "webextension-polyfill"
 
+import {
+  checkEmbeddingModelExists,
+  prepareEmbeddingModel
+} from "@/background/handlers/handle-embedding-download"
 import { classifyRuntimeSender } from "@/background/runtime-sender-authorization"
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { DiagnosticsService } from "@/lib/diagnostics/diagnostics-service"
 import { isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import { ModelRpcService } from "@/lib/providers/model-rpc-service"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
 import type { RpcMap, RpcRequest, RpcResponse } from "@/protocol/provider-rpc"
 import {
@@ -40,6 +45,30 @@ const handlers = {
     ProviderRpcService.remove(request),
   [RpcMethod.ProvidersProbeModelCapabilities]: async (request, signal) =>
     ProviderRpcService.probeModelCapabilities(request, signal),
+  [RpcMethod.ModelsGetDetails]: async (request) =>
+    ModelRpcService.getDetails(request),
+  [RpcMethod.ModelsListLoaded]: async (request, signal) =>
+    ModelRpcService.listLoaded(request, signal),
+  [RpcMethod.ModelsUnload]: async (request, signal) =>
+    ModelRpcService.unload(request, signal),
+  [RpcMethod.ModelsWarmup]: async (request, signal) =>
+    ModelRpcService.warmup(request, signal),
+  [RpcMethod.ModelsSearchLibrary]: async (request, signal) =>
+    ModelRpcService.searchLibrary(request, signal),
+  [RpcMethod.ModelsGetLibraryVariants]: async (request, signal) =>
+    ModelRpcService.getLibraryVariants(request, signal),
+  // Embedding preparation is owned by the background download handler, which
+  // also drives the pull port; wired here rather than proxied through
+  // ModelRpcService so `src/lib` keeps no dependency on `src/background`.
+  [RpcMethod.EmbeddingsCheckModel]: async (request) => {
+    const { exists, debug } = await checkEmbeddingModelExists(
+      request.model,
+      request.providerId
+    )
+    return { exists, ...(debug && { debug: debug as Record<string, unknown> }) }
+  },
+  [RpcMethod.EmbeddingsPrepareModel]: async (request) =>
+    prepareEmbeddingModel(request),
   // `diagnostics.run` is only reachable from the user pressing "Run self-tests",
   // which means "measure now" — never answer it from the shared TTL result.
   [RpcMethod.DiagnosticsRun]: async (_request, signal) =>

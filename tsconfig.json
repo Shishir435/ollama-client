@@ -5,6 +5,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "tools/**/*.ts",
+    "config/**/*.ts",
     "wxt.config.ts"
   ],
   "compilerOptions": {

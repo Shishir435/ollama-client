@@ -111,7 +111,7 @@ export const scheduleDestructiveReset = async (
     reopenUrl,
     sidePanelWindowIds: await getOpenSidePanelWindowIds()
   }
-  await chrome.storage.local.set({
+  await browser.storage.local.set({
     [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: pending
   })
   browser.runtime.reload()
@@ -127,7 +127,7 @@ export const scheduleReloadWithReopen = async (url: string): Promise<void> => {
     url,
     sidePanelWindowIds: await getOpenSidePanelWindowIds()
   }
-  await chrome.storage.local.set({
+  await browser.storage.local.set({
     [STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS]: reopen
   })
   browser.runtime.reload()
@@ -187,7 +187,7 @@ const reopenOptionsPage = async (url: string | undefined): Promise<void> => {
  * database, otherwise deleteDatabase blocks again.
  */
 export const resumePendingAppLifecycle = async (): Promise<void> => {
-  const stored = await chrome.storage.local.get([
+  const stored = await browser.storage.local.get([
     STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET,
     STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS
   ])
@@ -201,7 +201,7 @@ export const resumePendingAppLifecycle = async (): Promise<void> => {
 
   // Clear flags first so a crash mid-reset cannot loop the worker.
   if (pending || reopen) {
-    await chrome.storage.local.remove([
+    await browser.storage.local.remove([
       STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET,
       STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS
     ])
@@ -219,7 +219,7 @@ export const resumePendingAppLifecycle = async (): Promise<void> => {
       // Leave a one-shot record so the reopened options page can tell the
       // user the reset did not complete instead of silently looking done.
       try {
-        await chrome.storage.local.set({
+        await browser.storage.local.set({
           [STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE]: {
             key: pending.key,
             error: error instanceof Error ? error.message : String(error),
@@ -250,13 +250,13 @@ export interface ResetFailureRecord {
 /** Read and clear the one-shot record of a failed scheduled reset. */
 export const readAndClearResetFailure =
   async (): Promise<ResetFailureRecord | null> => {
-    const stored = await chrome.storage.local.get(
+    const stored = await browser.storage.local.get(
       STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE
     )
     const record = stored[STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE] as
       | ResetFailureRecord
       | undefined
     if (!record) return null
-    await chrome.storage.local.remove(STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE)
+    await browser.storage.local.remove(STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE)
     return record
   }

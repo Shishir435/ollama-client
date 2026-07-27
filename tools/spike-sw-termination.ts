@@ -29,7 +29,7 @@
 // across the kill) proves the offscreen owner was not replaced.
 //
 // Usage: pnpm spike:sw-termination
-// Requires: pnpm benchmark:build
+// Requires: pnpm spike:build
 
 import { spawn } from "node:child_process"
 import {
@@ -43,7 +43,7 @@ import { tmpdir } from "node:os"
 import { resolve } from "node:path"
 import { chromium } from "playwright"
 
-const chromeBuildPath = resolve("build/chrome-mv3-benchmark")
+const chromeBuildPath = resolve("build/chrome-mv3-spike")
 const artifactDir = resolve("artifacts/persistence-benchmark")
 
 // Chromium picks a free port when launched with --remote-debugging-port=0 and

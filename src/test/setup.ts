@@ -50,6 +50,19 @@ global.chrome = {
   }
 } as unknown as typeof chrome
 
+/*
+ * Production code reaches extension APIs through `browser`
+ * (webextension-polyfill), never the `chrome` alias — see the contract test in
+ * src/lib/__tests__/browser-api-contract.test.ts for why. Point the global at
+ * the same mock object so a test that configures chrome.storage.local.get is
+ * configuring the API the code under test actually calls.
+ *
+ * This deliberately makes the two indistinguishable in unit tests. The real
+ * difference only shows up in a browser, so the guard against reintroducing
+ * `chrome` is the contract test, not this mock.
+ */
+;(globalThis as { browser?: unknown }).browser = global.chrome
+
 vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStorageForKey: vi.fn(() => ({
     get: vi.fn().mockResolvedValue(undefined),

@@ -21,7 +21,15 @@ const prompts = [
 ]
 ---
 
-<BaseLayout title={title} description={description}>
+{/*
+  Kept out of search results. This page is where `setUninstallURL` sends the
+  browser after the extension is removed, so the only person it is written for
+  arrived by leaving — while a searcher looking for the extension would be shown
+  "Thank you for trying Ollama Client" as a result for the product's own name.
+  It stays published and fully functional at the same URL, query parameters
+  included; only its search visibility is withdrawn.
+*/}
+<BaseLayout title={title} description={description} noindex>
   <section class="mx-auto max-w-2xl pb-24 pt-24 sm:pt-32">
     <p
       class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground"

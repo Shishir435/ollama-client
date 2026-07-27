@@ -19,6 +19,13 @@ vi.mock("@/lib/browser-api", () => ({
       reload: vi.fn(),
       openOptionsPage: vi.fn().mockResolvedValue(undefined)
     },
+    /*
+     * app-reset now reaches storage through `browser`, not the `chrome` alias
+     * (see src/lib/__tests__/browser-api-contract.test.ts). Point the mock at
+     * the same global object the assertions below configure, so one mock still
+     * describes one API.
+     */
+    storage: globalThis.chrome.storage,
     tabs: { create: vi.fn().mockResolvedValue(undefined) }
   },
   isChromiumBased: () => true

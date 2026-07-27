@@ -2,17 +2,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, renderHook, waitFor } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { browser } from "@/lib/browser-api"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import { RpcMethod } from "@/protocol/rpc"
 import { useModelInfo } from "../use-model-info"
 
-vi.mock("@/lib/browser-api", () => ({
-  browser: {
-    runtime: {
-      sendMessage: vi.fn()
-    }
-  }
+vi.mock("@/protocol/extension-client", () => ({
+  extensionRpcClient: { call: vi.fn() }
 }))
+
+const rpc = vi.mocked(extensionRpcClient.call)
 
 vi.mock("@/lib/providers/factory", () => ({
   ProviderFactory: {
@@ -68,14 +67,12 @@ describe("useModelInfo", () => {
 
     expect(result.current.modelInfo).toBeTruthy()
     // In-page path served it; no worker round-trip.
-    expect(browser.runtime.sendMessage).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
   })
 
   it("should surface an error when both in-page and worker fail", async () => {
     mockProvider(vi.fn().mockRejectedValue(new Error("network down")))
-    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
-      success: false
-    })
+    rpc.mockRejectedValue(new Error("Failed to fetch model info"))
 
     const { result } = renderHook(() => useModelInfo("llama2"), {
       wrapper: createWrapper()
@@ -90,9 +87,8 @@ describe("useModelInfo", () => {
     // In-page reports details supported but returns null → fall back to worker,
     // which also returns null for a detail-capable provider → error.
     mockProvider(vi.fn().mockResolvedValue(null))
-    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
-      success: true,
-      data: null,
+    rpc.mockResolvedValue({
+      details: null,
       providerId: "ollama",
       supportsDetails: true
     })
@@ -109,14 +105,14 @@ describe("useModelInfo", () => {
     })
   })
 
-  it("does not error on a null worker response with no provider hint", async () => {
-    // Older worker: success + null data, but no providerId/supportsDetails, and
-    // the client passed no providerId. We must NOT guess Ollama and reclassify
-    // this as a failure — it's a benign no-details state.
+  it("does not error when the worker resolves a provider that cannot report details", async () => {
+    // A benign no-details state, not a failure: the worker says which provider
+    // it resolved to and that the provider has no detail endpoint.
     mockProvider(vi.fn().mockRejectedValue(new Error("blocked")))
-    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
-      success: true,
-      data: null
+    rpc.mockResolvedValue({
+      details: null,
+      providerId: "llama-cpp",
+      supportsDetails: false
     })
 
     const { result } = renderHook(() => useModelInfo("mystery-model"), {
@@ -146,26 +142,25 @@ describe("useModelInfo", () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.error).toBeNull()
     expect(getModelDetails).not.toHaveBeenCalled()
-    expect(browser.runtime.sendMessage).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
   })
 
-  it("falls back to the worker (structured payload preserves providerId) when in-page fetch throws", async () => {
+  it("falls back to the worker, keeping the provider hint, when the in-page fetch throws", async () => {
     mockProvider(vi.fn().mockRejectedValue(new Error("blocked")))
-    vi.mocked(browser.runtime.sendMessage)
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({
-        success: true,
-        data: {
-          details: {
-            parent_model: "",
-            format: "gguf",
-            family: "llama",
-            families: ["llama"],
-            parameter_size: "8B",
-            quantization_level: "Q4_0"
-          }
+    rpc.mockResolvedValue({
+      providerId: "ollama",
+      supportsDetails: true,
+      details: {
+        details: {
+          parent_model: "",
+          format: "gguf",
+          family: "llama",
+          families: ["llama"],
+          parameter_size: "8B",
+          quantization_level: "Q4_0"
         }
-      })
+      }
+    })
 
     const { result } = renderHook(
       () => useModelInfo("dolphin-llama3:latest", "ollama"),
@@ -174,9 +169,12 @@ describe("useModelInfo", () => {
 
     await waitFor(() => expect(result.current.modelInfo).toBeTruthy())
 
-    expect(browser.runtime.sendMessage).toHaveBeenNthCalledWith(2, {
-      type: "show-model-details",
-      payload: { model: "dolphin-llama3:latest", providerId: "ollama" }
+    // The provider hint must survive the fallback: a model name shared across
+    // providers would otherwise resolve to the wrong one and the card would
+    // silently vanish.
+    expect(rpc).toHaveBeenCalledWith(RpcMethod.ModelsGetDetails, {
+      model: "dolphin-llama3:latest",
+      providerId: "ollama"
     })
   })
 

@@ -7,6 +7,60 @@ published on the Chrome Web Store.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.5] - 2026-07-27
+
+### Added
+
+- Two new diagnostic self-tests. **Local provider CORS rule** reports whether
+  Chromium's request-header rule is installed and still matches the provider
+  address you have configured — a rule left behind by an older address looks
+  identical to an unreachable server otherwise, and those two are the most
+  commonly reported failures. Firefox reports it as not applicable, since it
+  asks you to configure the origin on the server instead.
+- **Turn recovery checkpoints** self-test, which checks that an interrupted
+  reply can still be recovered and that a turn waiting at a tool-approval
+  prompt is not mistaken for an abandoned one.
+
+### Changed
+
+- Prompt templates are stored as individual database rows instead of one
+  synced blob. Editing a template no longer rewrites the whole library, and a
+  large collection can no longer fail to save because the sync-storage limit
+  was reached. Existing templates move across on first use, import and export
+  are unchanged, and anything that fails to convert is left in place rather
+  than discarded.
+- Settings now report an over-limit save with the setting that caused it,
+  instead of the browser silently rejecting the write.
+- Loaded-model details for LM Studio now show model family, size, and
+  quantization instead of blank fields.
+- Model information, loaded models, unload, warm-up, model-library search, and
+  embedding-model checks all moved onto the internal typed request boundary
+  introduced in 0.12.4, which validates both ends and keeps credentials and
+  endpoints out of results.
+- Bumped package version to `0.12.5`.
+
+### Fixed
+
+- A duplicated provider entry is now collapsed to one, keeping whichever copy
+  holds your API key or custom models. Previously both entries could persist,
+  with the second invisible to everything that looked a provider up by name
+  while still appearing in the provider list.
+- Removed three provider actions that no code path could reach.
+
+### Documentation
+
+- Search engines are pointed at the 18 written guides rather than the 62
+  auto-generated API reference pages, which had been outnumbering them more
+  than three to one in the sitemap.
+- Pages now publish a last-updated date, breadcrumb information, and a correct
+  canonical address whether or not the address ends in a slash.
+- Preview deployments of the documentation site now refuse indexing outright
+  instead of relying on the hosting platform's default.
+- The AI-entrypoint files (`llms.txt`, `ai.txt`) take their page order from the
+  same source as the sidebar, so the two can no longer disagree, and a page
+  missing a description fails the build instead of silently advertising the
+  site's generic one.
+
 ## [0.12.4] - 2026-07-24
 
 ### Added
@@ -529,7 +583,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.4...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.5...HEAD
+[0.12.5]: https://github.com/Shishir435/ollama-client/compare/0.12.4...0.12.5
 [0.12.4]: https://github.com/Shishir435/ollama-client/compare/0.12.3...0.12.4
 [0.12.3]: https://github.com/Shishir435/ollama-client/compare/0.11.27...0.12.3
 [0.11.27]: https://github.com/Shishir435/ollama-client/compare/v0.10.3...0.11.27

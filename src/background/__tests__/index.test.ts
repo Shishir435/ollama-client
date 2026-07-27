@@ -70,42 +70,15 @@ vi.mock("@/background/handlers/handle-chat-with-model", () => ({
 vi.mock("@/background/handlers/handle-context-menu", () => ({
   initializeContextMenu: vi.fn()
 }))
-vi.mock("@/background/handlers/handle-delete-model", () => ({
-  handleDeleteModel: vi.fn()
-}))
 vi.mock("@/background/handlers/handle-embedding-download", () => ({
   checkEmbeddingModelExists: vi.fn().mockResolvedValue(true),
   downloadEmbeddingModelSilently: vi.fn().mockResolvedValue({ success: true })
 }))
-vi.mock("@/background/handlers/handle-get-loaded-model", () => ({
-  handleGetLoadedModels: vi.fn()
-}))
 vi.mock("@/background/handlers/handle-get-models", () => ({
   handleGetModels: vi.fn()
 }))
-vi.mock("@/background/handlers/handle-get-provider-version", () => ({
-  handleGetProviderVersion: vi.fn()
-}))
 vi.mock("@/background/handlers/handle-model-pull", () => ({
   handleModelPull: vi.fn()
-}))
-vi.mock("@/background/handlers/handle-scrape-model", () => ({
-  handleScrapeModel: vi.fn()
-}))
-vi.mock("@/background/handlers/handle-scrape-model-variants", () => ({
-  handleScrapeModelVariants: vi.fn()
-}))
-vi.mock("@/background/handlers/handle-show-model-details", () => ({
-  handleShowModelDetails: vi.fn()
-}))
-vi.mock("@/background/handlers/handle-unload-model", () => ({
-  handleUnloadModel: vi.fn()
-}))
-vi.mock("@/background/handlers/handle-warmup-model", () => ({
-  handleWarmupModel: vi.fn()
-}))
-vi.mock("@/background/handlers/handle-update-base-url", () => ({
-  handleUpdateBaseUrl: vi.fn()
 }))
 vi.mock("@/background/rpc-server", () => ({
   handleRpcCancellation: vi.fn(),
@@ -126,18 +99,8 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 // Import handlers to verify calls
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
-import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
-import { checkEmbeddingModelExists } from "@/background/handlers/handle-embedding-download"
-import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
-import { handleGetProviderVersion } from "@/background/handlers/handle-get-provider-version"
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
-import { handleScrapeModel } from "@/background/handlers/handle-scrape-model"
-import { handleScrapeModelVariants } from "@/background/handlers/handle-scrape-model-variants"
-import { handleShowModelDetails } from "@/background/handlers/handle-show-model-details"
-import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
-import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
-import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
 import {
   handleRpcCancellation,
   handleRpcRequest
@@ -244,13 +207,12 @@ describe("Background Script Entry Point", () => {
 
       expect(
         onMessage(
-          { type: MESSAGE_KEYS.PROVIDER.DELETE_MODEL, payload: "model" },
+          { type: MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE, payload: {} },
           contentScriptSender,
           sendResponse
         )
       ).toBe(true)
 
-      expect(handleDeleteModel).not.toHaveBeenCalled()
       expect(sendResponse).toHaveBeenCalledWith({
         success: false,
         error: { status: 403, message: "Message not allowed from this context" }
@@ -317,122 +279,35 @@ describe("Background Script Entry Point", () => {
       expect(handleModelPull).toHaveBeenCalled()
     })
 
-    it("should route SHOW_MODEL_DETAILS", () => {
+    it("no longer answers the retired provider message keys", () => {
+      // Every one of these moved to the typed RPC boundary. Falling through
+      // (undefined, not `true`) is what lets another listener answer and is the
+      // observable difference from "handled by a stale case arm".
       const onMessage = listeners.onMessage[0]
-      onMessage(
-        { type: MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS, payload: "model" },
-        extensionSender,
-        vi.fn()
-      )
-      expect(handleShowModelDetails).toHaveBeenCalled()
-    })
 
-    it.each([
-      MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS,
-      MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL,
-      MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL,
-      MESSAGE_KEYS.PROVIDER.DELETE_MODEL
-    ])("responds to invalid %s payloads", (type) => {
-      const onMessage = listeners.onMessage[0]
-      const sendResponse = vi.fn()
-
-      expect(
-        onMessage({ type, payload: null }, extensionSender, sendResponse)
-      ).toBe(true)
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: { status: 400, message: "Invalid message payload" }
-      })
-    })
-
-    it("should route SCRAPE_MODEL", () => {
-      const onMessage = listeners.onMessage[0]
-      onMessage(
-        { type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL, query: "q" },
-        extensionSender,
-        vi.fn()
-      )
-      expect(handleScrapeModel).toHaveBeenCalled()
-    })
-
-    it("should route SCRAPE_MODEL_VARIANTS", () => {
-      const onMessage = listeners.onMessage[0]
-      onMessage(
-        { type: MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS, name: "m" },
-        extensionSender,
-        vi.fn()
-      )
-      expect(handleScrapeModelVariants).toHaveBeenCalled()
-    })
-
-    it("should route UPDATE_BASE_URL", () => {
-      const onMessage = listeners.onMessage[0]
-      onMessage(
-        { type: MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL, payload: "url" },
-        extensionSender,
-        vi.fn()
-      )
-      expect(handleUpdateBaseUrl).toHaveBeenCalled()
-    })
-
-    it("should route GET_LOADED_MODELS", () => {
-      const onMessage = listeners.onMessage[0]
-      onMessage(
-        { type: MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS },
-        extensionSender,
-        vi.fn()
-      )
-      expect(handleGetLoadedModels).toHaveBeenCalled()
-    })
-
-    it("should route UNLOAD_MODEL", () => {
-      const onMessage = listeners.onMessage[0]
-      onMessage(
-        { type: MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL, payload: "m" },
-        extensionSender,
-        vi.fn()
-      )
-      expect(handleUnloadModel).toHaveBeenCalled()
-    })
-
-    it("should route WARMUP_MODEL", () => {
-      const onMessage = listeners.onMessage[0]
-      onMessage(
-        { type: MESSAGE_KEYS.PROVIDER.WARMUP_MODEL, payload: { model: "m" } },
-        extensionSender,
-        vi.fn()
-      )
-      expect(handleWarmupModel).toHaveBeenCalled()
-    })
-
-    it("should route DELETE_MODEL", () => {
-      const onMessage = listeners.onMessage[0]
-      onMessage(
-        { type: MESSAGE_KEYS.PROVIDER.DELETE_MODEL, payload: "m" },
-        extensionSender,
-        vi.fn()
-      )
-      expect(handleDeleteModel).toHaveBeenCalled()
-    })
-
-    it("should route GET_PROVIDER_VERSION", () => {
-      const onMessage = listeners.onMessage[0]
-      onMessage(
-        { type: MESSAGE_KEYS.PROVIDER.GET_PROVIDER_VERSION },
-        extensionSender,
-        vi.fn()
-      )
-      expect(handleGetProviderVersion).toHaveBeenCalled()
-    })
-
-    it("should route CHECK_EMBEDDING_MODEL", () => {
-      const onMessage = listeners.onMessage[0]
-      onMessage(
-        { type: MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL, payload: "m" },
-        extensionSender,
-        vi.fn()
-      )
-      expect(checkEmbeddingModelExists).toHaveBeenCalled()
+      for (const type of [
+        "show-model-details",
+        "provider-update-base-url",
+        "ollama-update-base-url",
+        "get-loaded-models",
+        "get-loaded-model",
+        "unload-model",
+        "warmup-model",
+        "delete-model",
+        "get-provider-version",
+        "get-ollama-version",
+        "scrape-model-library",
+        "scrape-ollama-model",
+        "check-embedding-model",
+        "prepare-embedding-model",
+        "get-ollama-models"
+      ]) {
+        const sendResponse = vi.fn()
+        expect(
+          onMessage({ type, payload: "m" }, extensionSender, sendResponse)
+        ).toBeUndefined()
+        expect(sendResponse).not.toHaveBeenCalled()
+      }
     })
   })
 })

@@ -1,24 +1,5 @@
 import type { Runtime } from "webextension-polyfill"
-import { handleDeleteModel } from "@/background/handlers/handle-delete-model"
-import {
-  checkEmbeddingModelExists,
-  handlePrepareEmbeddingModel
-} from "@/background/handlers/handle-embedding-download"
-import { handleGetLoadedModels } from "@/background/handlers/handle-get-loaded-model"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
-import { handleGetProviderVersion } from "@/background/handlers/handle-get-provider-version"
-import { handleScrapeModel } from "@/background/handlers/handle-scrape-model"
-import { handleScrapeModelVariants } from "@/background/handlers/handle-scrape-model-variants"
-import { handleShowModelDetails } from "@/background/handlers/handle-show-model-details"
-import { handleUnloadModel } from "@/background/handlers/handle-unload-model"
-import { handleUpdateBaseUrl } from "@/background/handlers/handle-update-base-url"
-import { handleWarmupModel } from "@/background/handlers/handle-warmup-model"
-import {
-  parseModelRef,
-  parseProviderIdPayload,
-  parseStringPayload,
-  parseWarmupPayload
-} from "@/background/lib/message-payloads"
 import { notifyJobComplete } from "@/background/lib/notify"
 import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
 import { resolveToolConfirmation } from "@/background/lib/tool-confirmation-registry"
@@ -47,12 +28,6 @@ import type {
 } from "@/types"
 
 const extensionUrlPrefix = browser.runtime.getURL("")
-
-const respondInvalidPayload = (sendResponse: SendResponseFunction) =>
-  safeSendResponse(sendResponse, {
-    success: false,
-    error: { status: 400, message: "Invalid message payload" }
-  })
 
 const respondForbidden = (
   type: string,
@@ -212,16 +187,15 @@ export const registerMessageRouter = () => {
         return true
       }
 
-      case MESSAGE_KEYS.PROVIDER.GET_MODELS:
-      case MESSAGE_KEYS.OLLAMA.GET_MODELS: {
+      /*
+       * The last provider-domain runtime message, kept because its only caller
+       * is the selection overlay's content script. The RPC envelope is
+       * deliberately extension-page-only (plan section 4.13: never trust a
+       * content script), so this narrow, allowlisted read stays a plain
+       * message rather than opening the protocol to page contexts.
+       */
+      case MESSAGE_KEYS.PROVIDER.GET_MODELS: {
         handleGetModels(response)
-        return true
-      }
-
-      case MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS: {
-        const ref = parseModelRef(message.payload)
-        if (ref) handleShowModelDetails(ref, response)
-        else respondInvalidPayload(response)
         return true
       }
 
@@ -252,104 +226,6 @@ export const registerMessageRouter = () => {
         return true
       }
 
-      case MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL:
-      case MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL: {
-        const query = parseStringPayload(message.query)
-        if (query) {
-          handleScrapeModel(query, response)
-          return true
-        }
-        respondInvalidPayload(response)
-        return true
-      }
-
-      case MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS:
-      case MESSAGE_KEYS.OLLAMA.SCRAPE_MODEL_VARIANTS: {
-        const name = parseStringPayload(message.name)
-        if (name) {
-          handleScrapeModelVariants(name, response)
-          return true
-        }
-        respondInvalidPayload(response)
-        return true
-      }
-
-      case MESSAGE_KEYS.PROVIDER.UPDATE_BASE_URL:
-      case MESSAGE_KEYS.OLLAMA.UPDATE_BASE_URL: {
-        const baseUrl = parseStringPayload(message.payload)
-        if (baseUrl) handleUpdateBaseUrl(baseUrl, response)
-        else respondInvalidPayload(response)
-        return true
-      }
-
-      case MESSAGE_KEYS.PROVIDER.GET_LOADED_MODELS:
-      case MESSAGE_KEYS.OLLAMA.GET_LOADED_MODELS: {
-        handleGetLoadedModels(parseProviderIdPayload(message.payload), response)
-        return true
-      }
-
-      case MESSAGE_KEYS.PROVIDER.UNLOAD_MODEL: {
-        const ref = parseModelRef(message.payload)
-        if (ref) handleUnloadModel(ref, response)
-        else respondInvalidPayload(response)
-        return true
-      }
-
-      case MESSAGE_KEYS.PROVIDER.WARMUP_MODEL: {
-        const ref = parseWarmupPayload(message.payload)
-        if (ref) handleWarmupModel(ref, response)
-        else respondInvalidPayload(response)
-        return true
-      }
-
-      case MESSAGE_KEYS.PROVIDER.DELETE_MODEL: {
-        const modelName = parseStringPayload(message.payload)
-        if (modelName) handleDeleteModel(modelName, response)
-        else respondInvalidPayload(response)
-        return true
-      }
-
-      case MESSAGE_KEYS.PROVIDER.GET_PROVIDER_VERSION:
-      case MESSAGE_KEYS.OLLAMA.GET_OLLAMA_VERSION: {
-        handleGetProviderVersion(response)
-        return true
-      }
-
-      case MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL: {
-        const ref = parseModelRef(message.payload)
-
-        if (!ref) {
-          safeSendResponse(response, {
-            success: false,
-            error: { status: 400, message: "Invalid embedding model request" }
-          })
-          return true
-        }
-
-        checkEmbeddingModelExists(ref.model, ref.providerId)
-          .then((result) => {
-            safeSendResponse(response, {
-              success: true,
-              data: result
-            })
-          })
-          .catch((error) => {
-            safeSendResponse(response, {
-              success: false,
-              error: {
-                status: 0,
-                message: getErrorMessage(error)
-              }
-            })
-          })
-        return true
-      }
-
-      case MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL: {
-        handlePrepareEmbeddingModel(message.payload, response)
-        return true
-      }
-
       case MESSAGE_KEYS.APP.KEEP_TOOL_LOOP_ALIVE: {
         // A visible approval prompt sends this periodically. Runtime messages
         // reset Chromium's MV3 idle timer without adding a standing `alarms`
@@ -367,7 +243,10 @@ export const registerMessageRouter = () => {
           typeof payload.title !== "string" ||
           typeof payload.message !== "string"
         ) {
-          respondInvalidPayload(response)
+          safeSendResponse(response, {
+            success: false,
+            error: { status: 400, message: "Invalid message payload" }
+          })
           return true
         }
 

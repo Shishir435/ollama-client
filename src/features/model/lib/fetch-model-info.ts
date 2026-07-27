@@ -1,10 +1,9 @@
-import { browser } from "@/lib/browser-api"
-import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
-import { sendRuntimeMessage } from "@/lib/runtime-messages"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import { RpcMethod } from "@/protocol/rpc"
 import type { ProviderModelDetails } from "@/types"
 
 /**
@@ -67,59 +66,28 @@ export const fetchModelInfo = async (
   return fetchModelInfoViaWorker(model, providerId)
 }
 
-/** Fallback path: ask the background worker (older-worker / edge compatibility). */
+/**
+ * Fallback path: ask the background worker over the typed RPC boundary.
+ *
+ * The result carries the provider the worker actually resolved to and whether
+ * that provider can self-report details, so a `null` here is never guessed at:
+ * a detail-capable provider returning nothing is a retryable failure, while a
+ * provider without the capability is a settled "no details".
+ */
 const fetchModelInfoViaWorker = async (
   model: string,
   providerId?: string
 ): Promise<ProviderModelDetails | null> => {
-  let response = await sendRuntimeMessage(
-    MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS,
-    {
-      payload: { model, providerId }
-    }
-  )
+  const result = await extensionRpcClient.call(RpcMethod.ModelsGetDetails, {
+    model,
+    ...(providerId && { providerId })
+  })
 
-  // Compatibility for an already-open page talking to an older worker. Send the
-  // structured `{ model, providerId }` payload (the handler accepts both shapes)
-  // so the provider hint survives — otherwise a model name shared across
-  // providers could resolve to the wrong one and the card would silently vanish.
-  if (!response || (!response.success && !response.error)) {
-    response = (await browser.runtime.sendMessage({
-      type: MESSAGE_KEYS.PROVIDER.SHOW_MODEL_DETAILS,
-      payload: { model, providerId }
-    })) as typeof response
-  }
-
-  if (!response?.success) {
-    throw createAppError(
-      response?.error?.message || "Failed to fetch model info",
-      {
-        kind: "provider",
-        cause: response?.error,
-        providerId
-      }
-    )
-  }
-
-  const data = response.data ?? null
-  if (data !== null) return data
-
-  // `data` is null. Only treat that as a failure when a *trusted* provider is
-  // known to support details: the worker's own `providerId` or the id the
-  // client asked for. An older worker may resolve a bare/mapped model to a
-  // non-Ollama provider and legitimately return null — guessing
-  // DEFAULT_PROVIDER_ID (Ollama, `modelDetails: true`) would misreport that as a
-  // retryable "no model info" error instead of the correct no-details state.
-  const resolvedProviderId = response.providerId || providerId
-  const supportsDetails =
-    response.supportsDetails ??
-    (resolvedProviderId
-      ? Boolean(getProviderCapabilities(resolvedProviderId)?.modelDetails)
-      : false)
-  if (supportsDetails) {
+  if (result.details !== null) return result.details
+  if (result.supportsDetails) {
     throw createAppError(`Provider returned no model info for ${model}`, {
       kind: "provider",
-      providerId: resolvedProviderId ?? DEFAULT_PROVIDER_ID,
+      providerId: result.providerId || providerId || DEFAULT_PROVIDER_ID,
       retryable: true
     })
   }
