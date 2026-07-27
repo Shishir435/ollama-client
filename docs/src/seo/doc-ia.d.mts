@@ -3,6 +3,8 @@
 export type DocIaItem = {
   label: string
   slug: string
+  /** Written by tools/generate-docs.ts and gitignored, not committed. */
+  generated?: boolean
 }
 
 export type DocIaSection = {
@@ -12,5 +14,6 @@ export type DocIaSection = {
 
 export const DOC_SECTIONS: DocIaSection[]
 export const DOC_ORDER: string[]
+export const GENERATED_DOC_SLUGS: string[]
 export const SECTION_LABELS: Record<string, string>
 export function withReferenceGroup<T>(referenceGroup: T): (DocIaSection | T)[]

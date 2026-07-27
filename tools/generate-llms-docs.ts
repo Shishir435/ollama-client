@@ -171,12 +171,23 @@ function sortPages(a: DocPage, b: DocPage) {
  * ai.txt, below the changelog, for however long it had been. Appending silently
  * makes a new page look published while presenting it to AI crawlers in the
  * wrong place; a missing page is worth stopping for.
+ *
+ * `skipMissing` exists for callers that run against a clean tree, where the
+ * generated pages (GENERATED_DOC_SLUGS) have not been written yet. The build
+ * never passes it: by the time this runs in `docs:generate`, generate-docs.ts
+ * has already emitted them, so an absent one is a real failure there.
  */
-export function assertIaMatches(slugs: string[]) {
+export function assertIaMatches(
+  slugs: string[],
+  { skipMissing = [] }: { skipMissing?: readonly string[] } = {}
+) {
   const inIa = new Set(DOC_ORDER)
   const onDisk = new Set(slugs)
+  const skipped = new Set(skipMissing)
   const missing = slugs.filter((slug) => !inIa.has(slug))
-  const stale = DOC_ORDER.filter((slug) => !onDisk.has(slug))
+  const stale = DOC_ORDER.filter(
+    (slug) => !onDisk.has(slug) && !skipped.has(slug)
+  )
 
   if (missing.length === 0 && stale.length === 0) return
 

@@ -3,7 +3,11 @@ import { join, relative } from "node:path"
 
 import { describe, expect, it } from "vitest"
 
-import { DOC_ORDER } from "../../../docs/src/seo/doc-ia.mjs"
+import {
+  DOC_ORDER,
+  GENERATED_DOC_SLUGS
+} from "../../../docs/src/seo/doc-ia.mjs"
+import { GENERATED_PAGE_SLUGS } from "../../../tools/generate-docs"
 import {
   assertIaMatches,
   cleanMarkdown
@@ -91,6 +95,15 @@ const contentSlugs = () => {
     .map((path) => path.replace(/\.(md|mdx)$/, "").replace(/\/index$/, ""))
 }
 
+/*
+ * `about/changelog` and `concepts/provider-matrix` are written by
+ * generate-docs.ts and gitignored, so they are present in a working tree that
+ * has run `pnpm docs:build` and absent in a fresh CI checkout. Skipping them
+ * here is what makes this suite hermetic; the build path still requires them,
+ * and the test below keeps this list honest.
+ */
+const skipGenerated = { skipMissing: GENERATED_DOC_SLUGS }
+
 describe("docs IA", () => {
   /*
    * The generator enforces this at build time, but a build runs later than a
@@ -99,20 +112,49 @@ describe("docs IA", () => {
    * check exists for, which went unnoticed for two pages.
    */
   it("matches the content tree", () => {
-    expect(() => assertIaMatches(contentSlugs())).not.toThrow()
+    expect(() => assertIaMatches(contentSlugs(), skipGenerated)).not.toThrow()
   })
 
   it("names the page when the content tree has one the IA does not", () => {
     expect(() =>
-      assertIaMatches([...contentSlugs(), "guides/unlisted-page"])
+      assertIaMatches(
+        [...contentSlugs(), "guides/unlisted-page"],
+        skipGenerated
+      )
     ).toThrow(/guides\/unlisted-page.*not in DOC_SECTIONS/s)
   })
 
   it("names the page when the IA has one the content tree does not", () => {
-    const withoutFirst = contentSlugs().filter((slug) => slug !== DOC_ORDER[0])
+    const handWritten = DOC_ORDER.filter(
+      (slug) => !GENERATED_DOC_SLUGS.includes(slug)
+    )
+    const dropped = handWritten[0]
+    const withoutFirst = contentSlugs().filter((slug) => slug !== dropped)
 
-    expect(() => assertIaMatches(withoutFirst)).toThrow(
-      new RegExp(`${DOC_ORDER[0]}.*has no content file`, "s")
+    expect(() => assertIaMatches(withoutFirst, skipGenerated)).toThrow(
+      new RegExp(`${dropped}.*has no content file`, "s")
+    )
+  })
+
+  /*
+   * The skip above is only safe while the IA's `generated: true` flags name the
+   * same pages generate-docs.ts actually writes. If a future generated page is
+   * added to one list and not the other, either the build breaks on a page the
+   * test excused, or a real committed page gets silently excused here.
+   */
+  it("skips exactly the pages the generator owns", () => {
+    expect([...GENERATED_DOC_SLUGS].sort()).toEqual(
+      [...GENERATED_PAGE_SLUGS].sort()
+    )
+  })
+
+  it("still fails on a generated page missing at build time", () => {
+    const withoutGenerated = contentSlugs().filter(
+      (slug) => !GENERATED_DOC_SLUGS.includes(slug)
+    )
+
+    expect(() => assertIaMatches(withoutGenerated)).toThrow(
+      new RegExp(`${GENERATED_DOC_SLUGS[0]}.*has no content file`, "s")
     )
   })
 })

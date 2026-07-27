@@ -48,7 +48,8 @@ export const DOC_SECTIONS = [
       { label: "Architecture", slug: "concepts/architecture" },
       {
         label: "Provider capabilities",
-        slug: "concepts/provider-matrix"
+        slug: "concepts/provider-matrix",
+        generated: true
       }
     ]
   },
@@ -86,7 +87,7 @@ export const DOC_SECTIONS = [
     label: "About",
     items: [
       { label: "FAQ", slug: "about/faq" },
-      { label: "Changelog", slug: "about/changelog" },
+      { label: "Changelog", slug: "about/changelog", generated: true },
       { label: "Keyboard Shortcuts", slug: "about/keyboard-shortcuts" }
     ]
   }
@@ -110,6 +111,22 @@ export const withReferenceGroup = (referenceGroup) =>
 /** Flat slug order used by the AI-entrypoint generator. */
 export const DOC_ORDER = DOC_SECTIONS.flatMap((section) =>
   section.items.map((item) => item.slug)
+)
+
+/**
+ * Slugs whose content file is written by tools/generate-docs.ts rather than
+ * committed. Both are gitignored, so they exist only after `pnpm docs:generate`
+ * — which `docs:build` and `docs:dev` always run first and `pnpm test:run`
+ * never does.
+ *
+ * Marking them here rather than in the drift check keeps the strictness where
+ * it belongs: the docs build still requires every slug in this file to have a
+ * real page, because generation has already happened by then. Only a test
+ * running against a clean tree may skip them, and it verifies separately that
+ * this list still matches what the generator writes.
+ */
+export const GENERATED_DOC_SLUGS = DOC_SECTIONS.flatMap((section) =>
+  section.items.filter((item) => item.generated).map((item) => item.slug)
 )
 
 /**
