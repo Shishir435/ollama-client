@@ -168,16 +168,27 @@ export default defineConfig({
 
   vite: (env) =>
     ({
-      // Compile-time flag for the dev-only section 9.4 spike host in the
-      // background entry; false in store builds — and in Firefox benchmark
-      // builds, which lack the offscreen API — so the branch and its dynamic
-      // import are dead-code eliminated.
+      /*
+       * Compile-time flag for the dev-only section 9.4 spike host in the
+       * background entry; false in store builds, so the branch and its dynamic
+       * import are dead-code eliminated.
+       *
+       * Gated on WXT_SPIKE_OWNER, NOT on WXT_BENCHMARK, because the two dev
+       * surfaces want opposite things from the owner slot. The spike pages need
+       * the spike host to own it; the persistence-verify page exists to drive
+       * the PRODUCTION owner and is worthless if that owner stood down. Both
+       * pages ship under WXT_BENCHMARK, so while one flag drove both,
+       * `pnpm verify:opfs-migration` could only ever run against an absent
+       * owner — it reported "Backend marker never became opfs: null" on every
+       * scenario from PR #200 until this split. Use `pnpm spike:build` for the
+       * spike runners and `pnpm benchmark:build` for the verify runners.
+       */
       define: {
         __SPIKE_OPFS_OWNER__: JSON.stringify(
-          process.env.WXT_BENCHMARK === "1" && env.browser !== "firefox"
+          process.env.WXT_SPIKE_OWNER === "1" && env.browser !== "firefox"
         ),
         __SPIKE_OPFS_OWNER_MV2__: JSON.stringify(
-          process.env.WXT_BENCHMARK === "1" && env.browser === "firefox"
+          process.env.WXT_SPIKE_OWNER === "1" && env.browser === "firefox"
         ),
         // Persistence owner topology, resolved at build time so the unused
         // branch (and its ~1.4 MB SQLite worker chunk) is dead-code eliminated

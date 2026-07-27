@@ -8,7 +8,7 @@
 // worker-termination recovery, verified export, and transaction rollback.
 //
 // Usage: pnpm spike:firefox-owner-gates [--headful]
-// Requires: pnpm benchmark:build:firefox and a local Firefox install
+// Requires: pnpm spike:build:firefox and a local Firefox install
 // (override the binary with FIREFOX_BIN).
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
@@ -16,7 +16,7 @@ import { resolve } from "node:path"
 import { Builder } from "selenium-webdriver"
 import firefox from "selenium-webdriver/firefox"
 
-const buildPath = resolve("build/firefox-mv2-benchmark")
+const buildPath = resolve("build/firefox-mv2-spike")
 const artifactDir = resolve("artifacts/persistence-benchmark")
 const geckodriverBin = resolve("node_modules/.bin/geckodriver")
 const firefoxBin =
@@ -49,7 +49,7 @@ interface RpcResult {
 const main = async (): Promise<void> => {
   if (!existsSync(resolve(buildPath, "spike-owner.html"))) {
     throw new Error(
-      `Missing ${buildPath}/spike-owner.html — run: pnpm benchmark:build:firefox`
+      `Missing ${buildPath}/spike-owner.html — run: pnpm spike:build:firefox`
     )
   }
   if (!existsSync(firefoxBin)) {
@@ -70,7 +70,14 @@ const main = async (): Promise<void> => {
   const driver = await new Builder()
     .forBrowser("firefox")
     .setFirefoxOptions(options)
-    .setFirefoxService(new firefox.ServiceBuilder(geckodriverBin))
+    .setFirefoxService(
+      // Enables the chrome-context system principal used to open the spike
+      // page below. It is a geckodriver flag; passing the equivalent Firefox
+      // argument through capabilities is rejected.
+      new firefox.ServiceBuilder(geckodriverBin).addArguments(
+        "--allow-system-access"
+      )
+    )
     .build()
 
   try {
@@ -80,7 +87,53 @@ const main = async (): Promise<void> => {
         installAddon: (path: string, temporary: boolean) => Promise<string>
       }
     ).installAddon(buildPath, true)
-    await driver.get(`moz-extension://${UUID}/spike-owner.html`)
+
+    /*
+     * Firefox 153 rejects WebDriver navigation to a moz-extension:// URL with
+     * UnsupportedOperationError ("Navigation ... is not allowed in this
+     * context"), and a content page cannot reach one either without
+     * web_accessible_resources. `driver.get(url)` worked when these gates were
+     * first recorded and does not now, which silently made this runner
+     * unrunnable rather than failing a gate.
+     *
+     * Opening the tab from Firefox's own chrome context with a system
+     * principal sidesteps the content-context restriction. Same approach as
+     * tools/verify-firefox-opfs-migration.ts.
+     */
+    const context = driver as unknown as {
+      setContext: (c: unknown) => Promise<void>
+    }
+    const before = new Set(await driver.getAllWindowHandles())
+    await context.setContext(firefox.Context.CHROME)
+    await driver.executeScript(
+      `const win = Services.wm.getMostRecentWindow("navigator:browser");
+       win.gBrowser.selectedTab = win.gBrowser.addTab(arguments[0], {
+         triggeringPrincipal:
+           Services.scriptSecurityManager.getSystemPrincipal()
+       });`,
+      `moz-extension://${UUID}/spike-owner.html`
+    )
+    await context.setContext(firefox.Context.CONTENT)
+
+    const deadline = Date.now() + 30000
+    for (;;) {
+      const opened = (await driver.getAllWindowHandles()).find(
+        (handle) => !before.has(handle)
+      )
+      if (opened) {
+        await driver.switchTo().window(opened)
+        const ready = await driver
+          .executeScript<boolean>(
+            "return typeof window.__spikeOwner === 'function'"
+          )
+          .catch(() => false)
+        if (ready) break
+      }
+      if (Date.now() > deadline) {
+        throw new Error("spike-owner.html never exposed __spikeOwner")
+      }
+      await new Promise((wait) => setTimeout(wait, 250))
+    }
 
     const rpc = (op: string, payload?: unknown): Promise<RpcResult> =>
       driver.executeAsyncScript(
