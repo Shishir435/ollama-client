@@ -11,7 +11,6 @@ import {
   DEFAULT_EMBEDDING_CONFIG,
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
-  MESSAGE_KEYS,
   normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
@@ -25,9 +24,10 @@ import {
   RefreshCw
 } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { cn } from "@/lib/utils"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import { RpcMethod } from "@/protocol/rpc"
 
 export const EmbeddingStatusIndicator = () => {
   const { t } = useTranslation()
@@ -78,8 +78,9 @@ export const EmbeddingStatusIndicator = () => {
       })
 
       const resp = await Promise.race([
-        sendRuntimeMessage(MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL, {
-          payload: { model: modelName, providerId }
+        extensionRpcClient.call(RpcMethod.EmbeddingsCheckModel, {
+          model: modelName,
+          ...(providerId && { providerId })
         }),
         new Promise<never>((_, reject) =>
           setTimeout(
@@ -92,19 +93,10 @@ export const EmbeddingStatusIndicator = () => {
       logger.debug("Check response", "EmbeddingStatusIndicator", {
         model: modelName,
         providerId,
-        success: resp?.success,
-        exists: resp?.data?.exists,
-        error: resp?.error
+        exists: resp.exists
       })
 
-      if (resp?.success && resp.data && resp.data.exists === true) {
-        setModelExists(true)
-      } else {
-        setModelExists(false)
-        if (resp?.error) {
-          setError(getDisplayErrorMessage(resp.error, "Unknown error"))
-        }
-      }
+      setModelExists(resp.exists)
     } catch (err) {
       const message = getDisplayErrorMessage(err, "Unknown error")
       logger.warn("Check failed", "EmbeddingStatusIndicator", {

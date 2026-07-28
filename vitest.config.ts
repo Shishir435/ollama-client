@@ -25,7 +25,10 @@ export default defineConfig({
           pool: "vmThreads",
           maxWorkers: 6,
           vmMemoryLimit: "256MB",
-          include: ["src/**/*.{test,spec}.{ts,tsx}"],
+          include: [
+            "src/**/*.{test,spec}.{ts,tsx}",
+            "config/**/*.{test,spec}.ts"
+          ],
           exclude: THREAD_TEST_PATTERNS
         }
       },

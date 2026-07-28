@@ -1,4 +1,5 @@
 import { isEmbeddingModel } from "@/features/model/lib/model-utils"
+import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   MESSAGE_KEYS,
@@ -83,7 +84,7 @@ function parseStoredTheme(raw: unknown): string | null {
 }
 
 export async function applyStoredTheme(container: HTMLElement) {
-  const result = await chrome.storage.sync.get(STORAGE_KEYS.THEME.PREFERENCE)
+  const result = await browser.storage.sync.get(STORAGE_KEYS.THEME.PREFERENCE)
   const pref =
     parseStoredTheme(result[STORAGE_KEYS.THEME.PREFERENCE]) ?? "system"
   const isDark =

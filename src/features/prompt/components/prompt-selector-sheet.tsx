@@ -80,8 +80,8 @@ export function PromptSelectorSheet({
       if (sortBy === "popular") return (b.usageCount || 0) - (a.usageCount || 0)
       if (sortBy === "alphabetical") return a.title.localeCompare(b.title)
       return (
-        (new Date(b.createdAt).getTime() || 0) -
-        (new Date(a.createdAt).getTime() || 0)
+        (new Date(b.createdAt ?? 0).getTime() || 0) -
+        (new Date(a.createdAt ?? 0).getTime() || 0)
       )
     })
   }, [templates, searchQuery, selectedCategory, sortBy])

@@ -1,4 +1,3 @@
-import { createErrorResponse } from "@/background/lib/error-handler"
 import {
   type AbortTimeout,
   createAbortTimeout,
@@ -9,7 +8,6 @@ import { getBaseUrl } from "@/background/lib/utils"
 import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
-  MESSAGE_KEYS,
   normalizeEmbeddingModelName,
   STORAGE_KEYS
 } from "@/lib/constants"
@@ -20,15 +18,58 @@ import {
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
-import type { ChromeResponse, DefaultProviderPullRequest } from "@/types"
+import type { DefaultProviderPullRequest } from "@/types"
+
+const abortError = (signal: AbortSignal): Error =>
+  signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException("Embedding request cancelled", "AbortError")
+
+const throwIfAborted = (signal?: AbortSignal): void => {
+  if (signal?.aborted) throw abortError(signal)
+}
+
+const forwardAbort = (
+  source: AbortSignal | undefined,
+  target: AbortController
+): (() => void) => {
+  if (!source) return () => {}
+  const abort = () => target.abort(source.reason)
+  if (source.aborted) abort()
+  else source.addEventListener("abort", abort, { once: true })
+  return () => source.removeEventListener("abort", abort)
+}
+
+const commitDownloadedEmbeddingModel = async (
+  modelName: string,
+  signal?: AbortSignal
+): Promise<void> => {
+  throwIfAborted(signal)
+
+  // Treat the completion marker as the commit record. Storage writes are not
+  // abortable, so once this pair starts it must finish without observing
+  // cancellation between writes. If the second write fails, the model may be
+  // selected but the preparation is not falsely recorded as complete.
+  await plasmoGlobalStorage.set(
+    STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
+    modelName
+  )
+  await setPlasmoStoredValue(STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED, true)
+
+  // Preserve cancellation semantics for the RPC caller after state is
+  // consistent, even if cancellation arrived during the commit section.
+  throwIfAborted(signal)
+}
 
 /**
  * Checks if the embedding model is already downloaded
  */
 export const checkEmbeddingModelExists = async (
   modelName: string = DEFAULT_EMBEDDING_MODEL,
-  providerId?: string
+  providerId?: string,
+  signal?: AbortSignal
 ): Promise<{ exists: boolean; debug?: object }> => {
+  throwIfAborted(signal)
   const normalizedModelName = normalizeEmbeddingModelName(modelName)
   let providerDebug: object | null = null
   let providerBaseUrl: string | undefined
@@ -37,27 +78,46 @@ export const checkEmbeddingModelExists = async (
   const CHECK_TIMEOUT_MS = 4000
 
   const withTimeout = async <T>(
-    promise: Promise<T>,
+    operation: (operationSignal: AbortSignal) => Promise<T>,
     label: string
   ): Promise<T> => {
+    throwIfAborted(signal)
+    const controller = new AbortController()
+    const stopForwarding = forwardAbort(signal, controller)
     let timeoutId: ReturnType<typeof setTimeout> | undefined
     const timeoutPromise = new Promise<T>((_, reject) => {
-      timeoutId = setTimeout(
-        () =>
-          reject(
-            createAppError(`${label} timed out`, {
-              kind: "network",
-              retryable: true,
-              context: "embedding-download"
-            })
-          ),
-        CHECK_TIMEOUT_MS
-      )
+      timeoutId = setTimeout(() => {
+        controller.abort(`${label} timed out`)
+        reject(
+          createAppError(`${label} timed out`, {
+            kind: "network",
+            retryable: true,
+            context: "embedding-download"
+          })
+        )
+      }, CHECK_TIMEOUT_MS)
+    })
+    let stopRejectingOnAbort = () => {}
+    const callerAbortPromise = new Promise<T>((_, reject) => {
+      if (!signal) return
+      const rejectOnAbort = () => reject(abortError(signal))
+      if (signal.aborted) rejectOnAbort()
+      else {
+        signal.addEventListener("abort", rejectOnAbort, { once: true })
+        stopRejectingOnAbort = () =>
+          signal.removeEventListener("abort", rejectOnAbort)
+      }
     })
     try {
-      return await Promise.race([promise, timeoutPromise])
+      return await Promise.race([
+        operation(controller.signal),
+        timeoutPromise,
+        callerAbortPromise
+      ])
     } finally {
       if (timeoutId) clearTimeout(timeoutId)
+      stopForwarding()
+      stopRejectingOnAbort()
     }
   }
 
@@ -72,15 +132,11 @@ export const checkEmbeddingModelExists = async (
   } | null> => {
     try {
       const baseUrl = providerBaseUrl || (await getBaseUrl())
-      const controller = new AbortController()
-      const timeoutId = setTimeout(
-        () => controller.abort("Status check timed out"),
-        CHECK_TIMEOUT_MS
+      const res = await withTimeout(
+        (operationSignal) =>
+          fetch(`${baseUrl}/api/tags`, { signal: operationSignal }),
+        "Embedding model status check"
       )
-      const res = await fetch(`${baseUrl}/api/tags`, {
-        signal: controller.signal
-      })
-      clearTimeout(timeoutId)
 
       if (!res.ok) {
         return {
@@ -158,6 +214,7 @@ export const checkEmbeddingModelExists = async (
       )
       return result
     } catch (error) {
+      throwIfAborted(signal)
       logger.error(
         "Error checking embedding model (fallback)",
         "checkEmbeddingModelExists",
@@ -184,6 +241,7 @@ export const checkEmbeddingModelExists = async (
   // Try High-Level Provider Check
   try {
     const { ProviderFactory } = await import("@/lib/providers/factory")
+    throwIfAborted(signal)
     const provider = providerId
       ? await ProviderFactory.getProvider(providerId)
       : await ProviderFactory.getProviderForModel(normalizedModelName)
@@ -192,7 +250,7 @@ export const checkEmbeddingModelExists = async (
       resolvedProviderId = provider.id
       providerBaseUrl = resolveProviderBaseUrl(provider.config)
       const models = await withTimeout(
-        provider.getModels(),
+        (operationSignal) => provider.getModels(operationSignal),
         "Provider model list"
       )
       const modelNames = models
@@ -265,6 +323,7 @@ export const checkEmbeddingModelExists = async (
       )
     }
   } catch (error) {
+    throwIfAborted(signal)
     logger.warn(
       "Provider check failed, trying fallback",
       "checkEmbeddingModelExists",
@@ -293,6 +352,7 @@ export const checkEmbeddingModelExists = async (
       return fallbackResult
     }
   } catch (error) {
+    throwIfAborted(signal)
     logger.error(
       "Error checking embedding model (fallback)",
       "checkEmbeddingModelExists",
@@ -316,15 +376,22 @@ export const checkEmbeddingModelExists = async (
  * Used for auto-download on installation
  */
 export const downloadEmbeddingModelSilently = async (
-  modelName: string = DEFAULT_EMBEDDING_MODEL
+  modelName: string = DEFAULT_EMBEDDING_MODEL,
+  signal?: AbortSignal
 ): Promise<{ success: boolean; error?: string }> => {
   // Declared here (armed only around the fetch below) so the catch can tell a
   // timeout from other errors without leaving a timer running on early returns.
   let downloadTimeout: AbortTimeout | undefined
+  let stopForwarding = () => {}
   try {
+    throwIfAborted(signal)
     const normalizedModelName = normalizeEmbeddingModelName(modelName)
     // Check if model already exists
-    const result = await checkEmbeddingModelExists(normalizedModelName)
+    const result = await checkEmbeddingModelExists(
+      normalizedModelName,
+      undefined,
+      signal
+    )
     if (result.exists) {
       logger.info(
         "Embedding model already exists",
@@ -344,6 +411,7 @@ export const downloadEmbeddingModelSilently = async (
     // Non-streaming pull holds the connection until the whole model downloads;
     // cap it so a hung provider can't keep the request (and SW) alive forever.
     const controller = new AbortController()
+    stopForwarding = forwardAbort(signal, controller)
     downloadTimeout = createAbortTimeout(
       controller,
       EMBEDDING_DOWNLOAD_TIMEOUT_MS
@@ -355,6 +423,7 @@ export const downloadEmbeddingModelSilently = async (
       signal: controller.signal
     })
     downloadTimeout.clear()
+    throwIfAborted(signal)
 
     if (!res.ok) {
       const errorText = await res.text()
@@ -372,12 +441,7 @@ export const downloadEmbeddingModelSilently = async (
       }
     }
 
-    // Mark as auto-downloaded
-    await setPlasmoStoredValue(STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED, true)
-    await plasmoGlobalStorage.set(
-      STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
-      normalizedModelName
-    )
+    await commitDownloadedEmbeddingModel(normalizedModelName, signal)
 
     logger.info(
       "Successfully downloaded embedding model",
@@ -391,7 +455,7 @@ export const downloadEmbeddingModelSilently = async (
     })
     return { success: true }
   } catch (error) {
-    downloadTimeout?.clear()
+    throwIfAborted(signal)
     if (downloadTimeout?.timedOut()) {
       const message = `Embedding model download timed out after ${
         EMBEDDING_DOWNLOAD_TIMEOUT_MS / 60_000
@@ -409,6 +473,9 @@ export const downloadEmbeddingModelSilently = async (
       success: false,
       error: errorMessage
     }
+  } finally {
+    downloadTimeout?.clear()
+    stopForwarding()
   }
 }
 
@@ -422,8 +489,10 @@ interface PrepareEmbeddingPayload {
  * Keeps behavior non-blocking and only performs model pull for the default provider.
  */
 export const prepareEmbeddingModel = async (
-  payload: PrepareEmbeddingPayload = {}
+  payload: PrepareEmbeddingPayload = {},
+  signal?: AbortSignal
 ): Promise<{ ready: boolean; prepared: boolean; error?: string }> => {
+  throwIfAborted(signal)
   const providerId = payload.providerId || DEFAULT_PROVIDER_ID
   const modelName = normalizeEmbeddingModelName(
     payload.model || DEFAULT_EMBEDDING_MODEL
@@ -434,12 +503,16 @@ export const prepareEmbeddingModel = async (
     return { ready: true, prepared: false }
   }
 
-  const existsResult = await checkEmbeddingModelExists(modelName)
+  const existsResult = await checkEmbeddingModelExists(
+    modelName,
+    providerId,
+    signal
+  )
   if (existsResult.exists) {
     return { ready: true, prepared: false }
   }
 
-  const downloadResult = await downloadEmbeddingModelSilently(modelName)
+  const downloadResult = await downloadEmbeddingModelSilently(modelName, signal)
   if (downloadResult.success) {
     return { ready: true, prepared: true }
   }
@@ -448,33 +521,5 @@ export const prepareEmbeddingModel = async (
     ready: false,
     prepared: false,
     error: downloadResult.error
-  }
-}
-
-/**
- * Runtime message handler used by the embedding fallback chain.
- */
-export const handlePrepareEmbeddingModel = async (
-  payload: unknown,
-  sendResponse: (response: ChromeResponse) => void
-) => {
-  try {
-    const prepared = await prepareEmbeddingModel(
-      (payload as PrepareEmbeddingPayload) || {}
-    )
-
-    sendResponse({
-      success: true,
-      data: prepared
-    })
-  } catch (error) {
-    logger.error(
-      "Failed to prepare embedding model",
-      MESSAGE_KEYS.PROVIDER.PREPARE_EMBEDDING_MODEL,
-      {
-        error
-      }
-    )
-    sendResponse(createErrorResponse(error))
   }
 }

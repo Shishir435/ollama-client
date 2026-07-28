@@ -1,20 +1,16 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 
 import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { useSetting } from "@/hooks/use-setting"
 import { ShieldCheck } from "@/lib/lucide-icon"
-import { getPlasmoStorageForKey } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 import {
-  type ApprovalGrantMap,
   clearAllApprovalGrants,
   revokeApprovalGrant
 } from "@/lib/tools/approval/approval-grants"
 import { NO_ORIGIN } from "@/lib/tools/approval/approval-policy"
 import { getToolDisplayMeta } from "@/lib/tools/tool-display"
-
-const grantsStorage = getPlasmoStorageForKey(STORAGE_KEYS.TOOLS.APPROVAL_GRANTS)
 
 /**
  * Settings → Privacy → Approvals: every persisted "Always allow" grant on this
@@ -23,10 +19,7 @@ const grantsStorage = getPlasmoStorageForKey(STORAGE_KEYS.TOOLS.APPROVAL_GRANTS)
  */
 export const ApprovalsCard = () => {
   const { t, i18n } = useTranslation()
-  const [grants] = useStorage<ApprovalGrantMap>(
-    { key: STORAGE_KEYS.TOOLS.APPROVAL_GRANTS, instance: grantsStorage },
-    {}
-  )
+  const [grants] = useSetting(SETTINGS.APPROVAL_GRANTS)
 
   const entries = Object.entries(grants ?? {}).sort(
     ([, a], [, b]) => b.grantedAt - a.grantedAt

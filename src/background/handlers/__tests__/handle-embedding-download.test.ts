@@ -109,6 +109,31 @@ describe("Handle Embedding Download", () => {
       const result = await checkEmbeddingModelExists("nomic-embed-text")
       expect(result.exists).toBe(false)
     })
+
+    it("aborts an in-flight model check with the caller signal", async () => {
+      const controller = new AbortController()
+      let fetchSignal: AbortSignal | undefined
+      vi.mocked(fetch).mockImplementation(
+        async (_input, init) =>
+          new Promise((_resolve, reject) => {
+            fetchSignal = init?.signal as AbortSignal
+            fetchSignal.addEventListener("abort", () => {
+              reject(new DOMException("Cancelled", "AbortError"))
+            })
+          })
+      )
+
+      const pending = checkEmbeddingModelExists(
+        "nomic-embed-text",
+        undefined,
+        controller.signal
+      )
+      await vi.waitFor(() => expect(fetchSignal).toBeDefined())
+      controller.abort()
+
+      await expect(pending).rejects.toMatchObject({ name: "AbortError" })
+      expect(fetchSignal?.aborted).toBe(true)
+    })
   })
 
   describe("downloadEmbeddingModelSilently", () => {
@@ -185,6 +210,73 @@ describe("Handle Embedding Download", () => {
 
       expect(result.success).toBe(false)
       expect(result.error).toBe("Network Error")
+    })
+
+    it("aborts an in-flight model download with the caller signal", async () => {
+      const controller = new AbortController()
+      let pullSignal: AbortSignal | undefined
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(createMockResponse({ models: [] }))
+        .mockImplementationOnce(
+          async (_input, init) =>
+            new Promise((_resolve, reject) => {
+              pullSignal = init?.signal as AbortSignal
+              pullSignal.addEventListener("abort", () => {
+                reject(new DOMException("Cancelled", "AbortError"))
+              })
+            })
+        )
+
+      const pending = downloadEmbeddingModelSilently(
+        "nomic-embed-text",
+        controller.signal
+      )
+      await vi.waitFor(() => expect(pullSignal).toBeDefined())
+      controller.abort()
+
+      await expect(pending).rejects.toMatchObject({ name: "AbortError" })
+      expect(pullSignal?.aborted).toBe(true)
+      expect(setPlasmoStoredValue).not.toHaveBeenCalled()
+    })
+
+    it("finishes the state commit before reporting cancellation", async () => {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(createMockResponse({ models: [] }))
+        .mockResolvedValueOnce(createMockResponse(null))
+
+      let finishSelectedModelWrite: (() => void) | undefined
+      vi.mocked(plasmoGlobalStorage.set).mockImplementationOnce(
+        () =>
+          new Promise<null>((resolve) => {
+            finishSelectedModelWrite = () => resolve(null)
+          })
+      )
+
+      const controller = new AbortController()
+      const pending = downloadEmbeddingModelSilently(
+        "nomic-embed-text",
+        controller.signal
+      )
+
+      await vi.waitFor(() =>
+        expect(plasmoGlobalStorage.set).toHaveBeenCalledWith(
+          STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
+          "nomic-embed-text"
+        )
+      )
+      controller.abort()
+      finishSelectedModelWrite?.()
+
+      await expect(pending).rejects.toMatchObject({ name: "AbortError" })
+      expect(setPlasmoStoredValue).toHaveBeenCalledWith(
+        STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED,
+        true
+      )
+      expect(
+        vi.mocked(plasmoGlobalStorage.set).mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        vi.mocked(setPlasmoStoredValue).mock.invocationCallOrder[0] as number
+      )
     })
   })
 })

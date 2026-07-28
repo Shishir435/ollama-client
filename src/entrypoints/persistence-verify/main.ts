@@ -1,6 +1,6 @@
 import type { SqlJsStatic } from "sql.js"
 import initSqlJs from "sql.js/dist/sql-wasm.js"
-import { browser } from "wxt/browser"
+import { browser } from "@/lib/browser-api"
 import {
   SQLITE_DB_KEY,
   SQLITE_DB_NAME,
@@ -13,12 +13,18 @@ import {
   type Scale
 } from "@/lib/sqlite/benchmark/persistence-benchmark-core"
 import { exportPersistedDatabaseBytes, query } from "@/lib/sqlite/db"
+import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
 
 // Dev-only verification surface for the production OPFS migration. Every
 // call below exercises the REAL production path: the repository facade, the
 // backend dispatcher, the persistence RPC, and the owner worker. Only the
 // legacy-blob seeding writes directly, because it must reproduce what an
 // unmigrated 0.11.x profile leaves behind.
+//
+// Extension APIs go through `browser`, never the `chrome` alias: on Firefox
+// the `chrome` namespace is callback-only, so `await chrome.storage.local.get`
+// resolves to undefined rather than the stored value. That made every hook
+// here silently unusable on the Firefox runner while working on Chromium.
 
 const putLegacyBlob = async (bytes: Uint8Array): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -70,16 +76,51 @@ const readLegacyBlobLength = async (): Promise<number> =>
     }
   })
 
+const readLegacyBlobDigest = async (): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const request = indexedDB.open(SQLITE_DB_NAME, 1)
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const get = database
+        .transaction([SQLITE_DB_STORE], "readonly")
+        .objectStore(SQLITE_DB_STORE)
+        .get(SQLITE_DB_KEY)
+      get.onsuccess = async () => {
+        database.close()
+        if (!(get.result instanceof Uint8Array)) {
+          resolve("")
+          return
+        }
+        try {
+          const bytes = Uint8Array.from(get.result)
+          const digest = await crypto.subtle.digest("SHA-256", bytes.buffer)
+          resolve(
+            [...new Uint8Array(digest)]
+              .map((value) => value.toString(16).padStart(2, "0"))
+              .join("")
+          )
+        } catch (error) {
+          reject(error)
+        }
+      }
+      get.onerror = () => {
+        database.close()
+        reject(get.error)
+      }
+    }
+  })
+
 const verifyApi = {
   async backendMarker(): Promise<unknown> {
-    const stored = await chrome.storage.local.get(
+    const stored = await browser.storage.local.get(
       STORAGE_KEYS.PERSISTENCE.BACKEND
     )
     return stored[STORAGE_KEYS.PERSISTENCE.BACKEND] ?? null
   },
 
   async clearMarker(): Promise<void> {
-    await chrome.storage.local.remove(STORAGE_KEYS.PERSISTENCE.BACKEND)
+    await browser.storage.local.remove(STORAGE_KEYS.PERSISTENCE.BACKEND)
   },
 
   /** Reproduce an unmigrated profile: build a real sql.js database with the
@@ -88,7 +129,7 @@ const verifyApi = {
     chats: number,
     messages: number
   ): Promise<{ sessions: number; messages: number; blobBytes: number }> {
-    const wasmUrl = chrome.runtime.getURL("assets/sql-wasm.wasm")
+    const wasmUrl = browser.runtime.getURL("assets/sql-wasm.wasm")
     const wasmBinary = await (await fetch(wasmUrl)).arrayBuffer()
     const SQL = await (
       initSqlJs as unknown as (config: {
@@ -98,6 +139,12 @@ const verifyApi = {
     const scale: Scale = { chats, messages }
     const fixture = createFixture(SQL, scale)
     try {
+      // createFixture uses the latest schema but intentionally leaves
+      // user_version at zero for benchmark portability. A current legacy
+      // profile is already stamped; mirror that state here so this fixture can
+      // detect migration writes to the rollback blob instead of observing the
+      // legacy backend's expected one-time schema-version stamp.
+      fixture.run(`PRAGMA user_version = ${LATEST_SCHEMA_VERSION}`)
       const bytes = fixture.export()
       await putLegacyBlob(bytes)
       return { sessions: chats, messages, blobBytes: bytes.byteLength }
@@ -107,6 +154,7 @@ const verifyApi = {
   },
 
   readLegacyBlobLength,
+  readLegacyBlobDigest,
 
   /** Row counts through the production path (facade → RPC → owner). */
   async counts(): Promise<{ sessions: number; messages: number }> {

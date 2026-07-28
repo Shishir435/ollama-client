@@ -24,8 +24,7 @@ import {
   useModelCapabilityTags
 } from "@/features/model/hooks/use-model-capability-tags"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
-import { browser } from "@/lib/browser-api"
-import { DEFAULT_PROVIDER_ID, MESSAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { Check, ChevronDown, RotateCcw, Settings } from "@/lib/lucide-icon"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
@@ -113,15 +112,14 @@ export const ModelMenu = ({
       modelName &&
       (modelName !== previousModel || providerId !== previousProviderId)
     ) {
-      browser.runtime
-        .sendMessage({
-          type: MESSAGE_KEYS.PROVIDER.WARMUP_MODEL,
-          payload: {
-            model: modelName,
-            providerId,
-            previousModel,
-            previousProviderId
-          }
+      // Fire-and-forget: warmup is an optimization, and the user has already
+      // been given the newly selected model.
+      extensionRpcClient
+        .call(RpcMethod.ModelsWarmup, {
+          model: modelName,
+          ...(providerId && { providerId }),
+          ...(previousModel && { previousModel }),
+          ...(previousProviderId && { previousProviderId })
         })
         .catch((error) => {
           logger.warn("Failed to trigger model warmup", "ModelMenu", { error })

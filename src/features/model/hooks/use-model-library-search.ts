@@ -1,12 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 
-import { DEFAULT_MODEL_LIBRARY_BASE_URL, MESSAGE_KEYS } from "@/lib/constants"
-import { getDisplayErrorMessage } from "@/lib/error-display"
-import { createAppError } from "@/lib/error-utils"
+import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { queryKeys } from "@/lib/query-keys"
-import { sendRuntimeMessage } from "@/lib/runtime-messages"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import { RpcMethod } from "@/protocol/rpc"
 
 interface ModelMeta {
   name: string
@@ -18,23 +17,13 @@ interface ModelMeta {
 }
 
 const fetchSearchResults = async (query: string): Promise<ModelMeta[]> => {
-  const res = await sendRuntimeMessage(MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL, {
-    query
-  })
-
-  if (res.error || !res.success || !res.html) {
-    throw createAppError(
-      getDisplayErrorMessage(res.error, "Failed to fetch search results"),
-      {
-        kind: "provider",
-        retryable: true,
-        cause: res.error
-      }
-    )
-  }
+  const { html } = await extensionRpcClient.call(
+    RpcMethod.ModelsSearchLibrary,
+    { query }
+  )
 
   const parser = new DOMParser()
-  const doc = parser.parseFromString(res.html, "text/html")
+  const doc = parser.parseFromString(html, "text/html")
   const results: ModelMeta[] = []
 
   const links = doc.querySelectorAll("a[href^='/library/']")
@@ -57,31 +46,20 @@ const fetchSearchResults = async (query: string): Promise<ModelMeta[]> => {
 }
 
 const fetchModelVariants = async (modelName: string): Promise<string[]> => {
-  const res = await sendRuntimeMessage(
-    MESSAGE_KEYS.PROVIDER.SCRAPE_MODEL_VARIANTS,
-    {
-      name: modelName
-    }
+  const { html } = await extensionRpcClient.call(
+    RpcMethod.ModelsGetLibraryVariants,
+    { name: modelName }
   )
 
-  if (res.error || !res.success || !res.html) {
-    throw createAppError(
-      getDisplayErrorMessage(res.error, "Failed to fetch model variants"),
-      {
-        kind: "provider",
-        retryable: true,
-        cause: res.error
-      }
-    )
-  }
-
   const parser = new DOMParser()
-  const doc = parser.parseFromString(res.html, "text/html")
+  const doc = parser.parseFromString(html, "text/html")
 
   const section = doc.querySelector("section")
   if (!section) return []
 
   const linkElements = section.querySelectorAll("a[href]")
+  const variantPrefix = `${modelName}:`
+  const validVariantTag = /^(latest|\d+(\.\d+)?[bB]|[a-zA-Z0-9_+\-.]+)$/
 
   const variants = Array.from(linkElements)
     .map((link) => link.getAttribute("href"))
@@ -93,10 +71,8 @@ const fetchModelVariants = async (modelName: string): Promise<string[]> => {
     })
     .filter(Boolean)
     .filter((variant) => {
-      const pattern = new RegExp(
-        `^${modelName}:(latest|\\d+(\\.\\d+)?[bB]|[a-zA-Z0-9_+\\-\\.]+)$`
-      )
-      return variant ? pattern.test(variant) : false
+      if (!variant?.startsWith(variantPrefix)) return false
+      return validVariantTag.test(variant.slice(variantPrefix.length))
     })
 
   return [...new Set(variants as string[])]

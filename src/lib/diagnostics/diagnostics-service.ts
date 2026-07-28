@@ -1,9 +1,21 @@
+import { browser, supportsDNR } from "@/lib/browser-api"
+import {
+  localProviderOriginRuleMatches,
+  readLocalProviderOriginRule
+} from "@/lib/dnr-rules"
 import { vectorDb } from "@/lib/embeddings/db"
 import { getSafeClientEnvironment } from "@/lib/error-report"
 import { readPersistenceBackend } from "@/lib/persistence/backend"
-import { rpcQuery, rpcTxBegin, rpcTxRollback } from "@/lib/persistence/client"
+import {
+  rpcQuery,
+  rpcRun,
+  rpcTxBegin,
+  rpcTxRollback
+} from "@/lib/persistence/client"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
+import { ProviderId } from "@/lib/providers/types"
 import { countMessages } from "@/lib/repositories/chat-history"
 import type {
   DiagnosticsGetBundleResult,
@@ -45,8 +57,21 @@ const runTest = async (
   }
 }
 
+/*
+ * Typed structurally rather than as chrome.storage.StorageArea or the
+ * polyfill's Storage.StorageArea: the two disagree on members this function
+ * never touches (setAccessLevel, among others), and naming either one couples
+ * a three-call round trip to whichever type package the caller happened to
+ * come from.
+ */
+interface RoundTrippableStorage {
+  get: (key: string) => Promise<Record<string, unknown>>
+  set: (items: Record<string, unknown>) => Promise<void>
+  remove: (key: string) => Promise<void>
+}
+
 const storageRoundTrip = async (
-  area: chrome.storage.StorageArea
+  area: RoundTrippableStorage
 ): Promise<undefined> => {
   const key = `diagnostic-self-test-${crypto.randomUUID()}`
   const value = crypto.randomUUID()
@@ -70,7 +95,7 @@ const capabilities = () => ({
 
 const permissions = async (): Promise<Record<string, boolean>> => {
   if (!chrome.permissions?.getAll) return {}
-  const granted = await chrome.permissions.getAll()
+  const granted = await browser.permissions.getAll()
   const names = new Set(granted.permissions ?? [])
   return {
     tabs: names.has("tabs"),
@@ -95,6 +120,185 @@ const runMigrationTest = async (): Promise<DiagnosticTestResult> => {
   return result
 }
 
+/**
+ * The Origin rewrite is installed for the built-in local provider only.
+ * Resolved here rather than imported from the background helper so a lib-level
+ * diagnostic does not reach into the background layer — and the origin itself
+ * never leaves this module, only the boolean "does the rule still describe it".
+ */
+const resolveLocalProviderOrigin = async (): Promise<string | undefined> => {
+  try {
+    const config = await ProviderManager.getProviderConfig(ProviderId.OLLAMA)
+    return config ? new URL(resolveProviderBaseUrl(config)).origin : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * `capabilities()` already reports that the declarativeNetRequest API exists,
+ * which is not the question a support report needs answered. Chromium's Origin
+ * rewrite is exactly what makes `OLC-PROVIDER-UNREACHABLE` and
+ * `OLC-CORS-BLOCKED` — the two codes that dominate reports — ambiguous:
+ * "reachable: no" reads identically whether the local server is down or the
+ * rule that lets the extension reach it was never installed. So read the rule
+ * set, not the namespace.
+ *
+ * A rule installed for a base URL the user has since changed is the third
+ * state, and the most confusing one in a report: API present, rule present,
+ * requests still rejected.
+ *
+ * Firefox has no DNR equivalent and asks the user to configure the origin on
+ * the server instead, so the rule's absence there is correct rather than a
+ * defect — `unsupported`, never `fail`.
+ */
+const runDnrTest = async (): Promise<DiagnosticTestResult> => {
+  if (!supportsDNR()) {
+    return {
+      id: "dnr_rules",
+      status: "unsupported",
+      durationMs: 0,
+      metadata: { result: "not_applicable" }
+    }
+  }
+
+  const result = await runTest("dnr_rules", async () => {
+    const state = await readLocalProviderOriginRule()
+    if (!state.installed) return { result: "missing" }
+    const origin = await resolveLocalProviderOrigin()
+    // No resolvable local provider means there is nothing for the rule to be
+    // stale against; presence is all this can honestly claim.
+    if (!origin) return { result: "installed" }
+    return {
+      result: localProviderOriginRuleMatches(state, origin)
+        ? "installed"
+        : "stale"
+    }
+  })
+
+  if (result.status !== "pass") return result
+  if (result.metadata?.result === "missing") {
+    return { ...result, status: "action", code: "OLC-DNR-RULE-MISSING-001" }
+  }
+  if (result.metadata?.result === "stale") {
+    return { ...result, status: "action", code: "OLC-DNR-RULE-STALE-001" }
+  }
+  return result
+}
+
+/** Comfortably older than the recovery sweep's staleness window. */
+const CHECKPOINT_PROBE_AGE_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Two mechanisms keep a turn recoverable across an MV3 worker restart, and both
+ * fail silently: `tool_loop_runs` checkpoints (PR #193 tool loops) and the
+ * interrupted-turn sweep that finalizes assistant rows left at `done = 0`.
+ * Neither had an assertion, so schema or predicate drift would only ever
+ * surface as turns that quietly never come back.
+ *
+ * Three claims, all against the real schema:
+ *
+ * 1. a checkpoint's `state` JSON survives a write/read round trip;
+ * 2. a stale unfinished assistant turn is selected by the recovery predicate;
+ * 3. the same turn is *not* selected while its session holds a live tool-loop
+ *    checkpoint — the exclusion that stops recovery from finalizing a turn
+ *    parked at an approval prompt.
+ *
+ * Runs inside a rolled-back transaction on synthetic ids, like
+ * `chat_repository`, so it exercises real SQL without leaving a row behind.
+ */
+const runTurnCheckpointTest = async (): Promise<DiagnosticTestResult> =>
+  runTest("turn_checkpoint", async () => {
+    // Read the real counts before the probe rows exist, so they describe the
+    // user's database rather than this test's scratch state.
+    const [activeRuns, orphanedTurns] = await Promise.all([
+      rpcQuery("SELECT COUNT(*) AS count FROM tool_loop_runs"),
+      rpcQuery(
+        `SELECT COUNT(*) AS count FROM messages
+         WHERE role = 'assistant' AND done = 0`
+      )
+    ])
+
+    const token = `diagnostic-${crypto.randomUUID()}`
+    const orphanSession = `diagnostic-orphan-${crypto.randomUUID()}`
+    const loopSession = `diagnostic-loop-${crypto.randomUUID()}`
+    const requestId = `diagnostic-request-${crypto.randomUUID()}`
+    const staleAt = Date.now() - CHECKPOINT_PROBE_AGE_MS
+    const state = JSON.stringify({ iteration: 2, phase: "tools" })
+
+    let began = false
+    try {
+      await rpcTxBegin(token)
+      began = true
+
+      for (const sessionId of [orphanSession, loopSession]) {
+        await rpcRun(
+          "INSERT INTO sessions (id, createdAt, updatedAt) VALUES (?, ?, ?)",
+          [sessionId, staleAt, staleAt],
+          token
+        )
+        await rpcRun(
+          `INSERT INTO messages (sessionId, role, content, timestamp, done, updatedAt)
+           VALUES (?, 'assistant', '', ?, 0, ?)`,
+          [sessionId, staleAt, staleAt],
+          token
+        )
+      }
+
+      await rpcRun(
+        `INSERT INTO tool_loop_runs
+           (requestId, sessionId, model, mode, status, state, updatedAt)
+         VALUES (?, ?, 'diagnostic', 'native', 'awaiting-confirmation', ?, ?)`,
+        [requestId, loopSession, state, staleAt],
+        token
+      )
+
+      const checkpoint = (
+        await rpcQuery(
+          "SELECT state, status FROM tool_loop_runs WHERE requestId = ?",
+          [requestId],
+          token
+        )
+      )[0]
+      const restored =
+        typeof checkpoint?.state === "string"
+          ? (JSON.parse(checkpoint.state) as { iteration?: number })
+          : undefined
+      if (
+        checkpoint?.status !== "awaiting-confirmation" ||
+        restored?.iteration !== 2
+      ) {
+        throw new Error("checkpoint round trip mismatch")
+      }
+
+      // The shipped recovery predicate, narrowed to the probe sessions.
+      const recoverable = await rpcQuery(
+        `SELECT sessionId FROM messages
+         WHERE role = 'assistant' AND done = 0
+           AND (updatedAt IS NULL OR updatedAt < ?)
+           AND sessionId IN (?, ?)
+           AND sessionId NOT IN (
+             SELECT sessionId FROM tool_loop_runs WHERE sessionId IS NOT NULL
+           )`,
+        [Date.now(), orphanSession, loopSession],
+        token
+      )
+      if (
+        recoverable.length !== 1 ||
+        recoverable[0]?.sessionId !== orphanSession
+      ) {
+        throw new Error("interrupted-turn recovery predicate mismatch")
+      }
+    } finally {
+      if (began) await rpcTxRollback(token)
+    }
+
+    return {
+      activeRuns: Number(activeRuns[0]?.count ?? 0),
+      orphanedTurns: Number(orphanedTurns[0]?.count ?? 0)
+    }
+  })
+
 const executeSelfTests = async (
   signal?: AbortSignal
 ): Promise<DiagnosticTestResult[]> => {
@@ -110,8 +314,8 @@ const executeSelfTests = async (
     runTest("permissions", async () => ({
       count: Object.values(await permissions()).filter(Boolean).length
     })),
-    runTest("sync_storage", () => storageRoundTrip(chrome.storage.sync)),
-    runTest("local_storage", () => storageRoundTrip(chrome.storage.local)),
+    runTest("sync_storage", () => storageRoundTrip(browser.storage.sync)),
+    runTest("local_storage", () => storageRoundTrip(browser.storage.local)),
     runTest("chat_repository", async () => {
       const token = `diagnostic-${crypto.randomUUID()}`
       let began = false
@@ -139,7 +343,9 @@ const executeSelfTests = async (
         status: result.failures.length > 0 ? "partial" : "pass"
       }
     }),
-    runMigrationTest()
+    runMigrationTest(),
+    runDnrTest(),
+    runTurnCheckpointTest()
   ])
   signal?.throwIfAborted()
   // Recorded once per real execution, never on a shared/cached result, so

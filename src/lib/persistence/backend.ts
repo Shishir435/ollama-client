@@ -30,25 +30,30 @@ const registerMarkerWatcher = (): void => {
   if (watcherRegistered) return
   watcherRegistered = true
   try {
-    chrome.storage?.onChanged?.addListener((changes, areaName) => {
+    browser.storage?.onChanged?.addListener((changes, areaName) => {
       if (areaName === "local" && STORAGE_KEYS.PERSISTENCE.BACKEND in changes) {
         cachedBackend = null
       }
     })
   } catch {
-    // Contexts without chrome.storage (offscreen host) flip the cache
-    // themselves through markOpfsBackend.
+    // Contexts without storage (offscreen host) flip the cache themselves
+    // through markOpfsBackend.
   }
 }
 
-// Offscreen documents expose runtime messaging but not chrome.storage; the
-// background answers marker reads/writes on their behalf.
-const hasStorageApi = (): boolean =>
-  typeof chrome !== "undefined" && Boolean(chrome.storage?.local)
+// Offscreen documents expose runtime messaging but not storage; the background
+// answers marker reads/writes on their behalf.
+//
+// Probed through `browser` — the promise-based polyfill — and not the `chrome`
+// alias. On Firefox `chrome` is callback-only, so `await chrome.storage.local
+// .get(key)` resolves to undefined and the property read below throws. That
+// threw on every marker read, readPersistenceBackend swallowed it and answered
+// "legacy", and Firefox therefore never left the sql.js blob backend.
+const hasStorageApi = (): boolean => Boolean(browser.storage?.local)
 
 const readMarkerRaw = async (): Promise<BackendMarker | undefined> => {
   if (hasStorageApi()) {
-    const stored = await chrome.storage.local.get(
+    const stored = await browser.storage.local.get(
       STORAGE_KEYS.PERSISTENCE.BACKEND
     )
     return stored[STORAGE_KEYS.PERSISTENCE.BACKEND] as BackendMarker | undefined
@@ -65,7 +70,7 @@ const readMarkerRaw = async (): Promise<BackendMarker | undefined> => {
 
 const writeMarkerRaw = async (marker: BackendMarker): Promise<void> => {
   if (hasStorageApi()) {
-    await chrome.storage.local.set({
+    await browser.storage.local.set({
       [STORAGE_KEYS.PERSISTENCE.BACKEND]: marker
     })
     return

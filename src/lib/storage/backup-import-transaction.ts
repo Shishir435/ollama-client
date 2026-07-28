@@ -1,3 +1,4 @@
+import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 import {
   plasmoDeviceStorage,
@@ -22,7 +23,7 @@ type BackupImportJournal = {
 }
 
 const getSyncSnapshot = async (): Promise<Record<string, unknown>> =>
-  (await chrome.storage.sync.get(getImportResetStorageKeys())) as Record<
+  (await browser.storage.sync.get(getImportResetStorageKeys())) as Record<
     string,
     unknown
   >
@@ -31,14 +32,14 @@ const replacePortableSyncState = async (
   nextSync: Record<string, unknown>
 ): Promise<void> => {
   if (Object.keys(nextSync).length > 0) {
-    await chrome.storage.sync.set(nextSync)
+    await browser.storage.sync.set(nextSync)
   }
 
   const keysToRemove = getImportResetStorageKeys().filter(
     (key) => !Object.hasOwn(nextSync, key)
   )
   if (keysToRemove.length > 0) {
-    await chrome.storage.sync.remove(keysToRemove)
+    await browser.storage.sync.remove(keysToRemove)
   }
 }
 
@@ -49,10 +50,10 @@ const restorePreviousSyncState = async (
     (key) => !Object.hasOwn(previousSync, key)
   )
   if (keysToRemove.length > 0) {
-    await chrome.storage.sync.remove(keysToRemove)
+    await browser.storage.sync.remove(keysToRemove)
   }
   if (Object.keys(previousSync).length > 0) {
-    await chrome.storage.sync.set(previousSync)
+    await browser.storage.sync.set(previousSync)
   }
 }
 

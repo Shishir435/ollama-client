@@ -4,8 +4,10 @@
 // whose migration has not completed, and as the reader for the rollback blob
 // and legacy backup imports. Reached only through the src/lib/sqlite/db.ts
 // dispatcher — never import this module directly from feature code.
+
 import type { SqlJsStatic } from "sql.js"
 import initSqlJs from "sql.js/dist/sql-wasm.js"
+import { browser } from "@/lib/browser-api"
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { readPersistenceBackend } from "@/lib/persistence/backend"
@@ -35,7 +37,9 @@ const SQLITE_DB_IMPORT_GENERATION_KEY = "sqlite-db-import-generation"
 
 const getDatabaseImportGeneration = async (): Promise<string | null> => {
   try {
-    const data = await chrome.storage.local.get(SQLITE_DB_IMPORT_GENERATION_KEY)
+    const data = await browser.storage.local.get(
+      SQLITE_DB_IMPORT_GENERATION_KEY
+    )
     const value = data?.[SQLITE_DB_IMPORT_GENERATION_KEY]
     return typeof value === "string" ? value : null
   } catch (error) {
@@ -50,7 +54,7 @@ const bumpDatabaseImportGeneration = async (): Promise<string> => {
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-  await chrome.storage.local.set({
+  await browser.storage.local.set({
     [SQLITE_DB_IMPORT_GENERATION_KEY]: nextGeneration
   })
   return nextGeneration

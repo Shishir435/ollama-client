@@ -75,22 +75,26 @@ Manifest (permissions, CSP, host permissions, `browser_specific_settings`) lives
 
 ### Provider RPC Boundary (`src/protocol/`)
 
-Provider configuration reads, connection tests, and model discovery cross the
+Every provider, model, and embedding request/response crosses the
 extension-page/background boundary through the versioned RPC contract:
 
 - `rpc.ts` — protocol version, `RpcMethod`/`RpcErrorCode` enums, and envelopes
-- `provider-rpc.ts` — method request/result schemas and the typed `RpcMap`
+- `provider-rpc.ts` — `providers.*` schemas and the typed `RpcMap`
+- `model-rpc.ts` — `models.*` and `embeddings.*` schemas
+- `diagnostics-rpc.ts` — `diagnostics.*` schemas
 - `rpc-registry.ts` — per-method schemas, sender policy, timeout, and operation metadata
 - `extension-client.ts` — validated extension-page client
 - `src/background/rpc-server.ts` — authorization, validation, dispatch, and safe errors
-- `src/lib/providers/provider-rpc-service.ts` — background-owned provider operations
+- `src/lib/providers/provider-rpc-service.ts` — background-owned provider-config operations
+- `src/lib/providers/model-rpc-service.ts` — background-owned model lifecycle and catalog operations
 
 Add each new method to `RpcMethod`, `RpcMap`, and `RPC_METHOD_DEFINITIONS`; refer
 to methods through the enum rather than duplicating wire strings. Validate both
 ends, keep credentials out of results and diagnostics, and return i18n message
-keys plus safe fallback text. Legacy `MESSAGE_KEYS` handlers may delegate to the
-RPC service during migration, but new provider request/response work should use
-the RPC boundary. Methods registered as queries must stay free of persistence
+keys plus safe fallback text. `allowedSources` is `["extension-page"]` for every
+method and a contract test asserts it — content scripts never reach the protocol
+(page-controlled data influenced their messages), so widening it is a security
+decision, not a registry edit. Methods registered as queries must stay free of persistence
 side effects so a client timeout cannot commit stale state; persist derived
 state only after the caller receives and accepts the query result.
 Client timeouts send `app-rpc-cancel`; the server aborts the matching request
@@ -163,18 +167,15 @@ Cross-feature concerns (theme, shortcuts, search dialog) live in `src/stores/`. 
 
 ### Messaging keys: provider-* vs ollama-*
 
-`MESSAGE_KEYS` in `src/lib/constants/keys.ts` exposes two namespaces:
+**Do not add a request/response runtime message.** Add an `RpcMethod` instead (see the RPC boundary section above). As of `0.12.5` every provider, model, and embedding round trip goes through `src/protocol/`; `MESSAGE_KEYS` keeps only streaming port names, one-way events, and `PROVIDER.GET_MODELS` — the single content-script-reachable read, which stays outside the protocol because the RPC envelope is extension-page-only by policy.
 
-- `MESSAGE_KEYS.PROVIDER.*` — current. Use for any new handler. New messages should be sent only with this namespace.
-- `MESSAGE_KEYS.OLLAMA.*` — legacy, **only** contains keys whose string value differs from the PROVIDER counterpart (e.g. `"ollama-stream-response"` vs `"provider-stream-response"`). Old in-tab clients during an extension upgrade may still send these strings, so the background dispatcher accepts both. Keys that had identical values between the two namespaces have been removed from this map — they were redundant.
+`MESSAGE_KEYS.OLLAMA.*` is down to two *port* names (`STREAM_RESPONSE`, `PULL_MODEL`). Every legacy request/response twin was deleted with the RPC migration: a page old enough to send one has an extension context the browser already invalidated during the upgrade, so the duplicate string bought compatibility with nothing. Do not add to `LEGACY_OLLAMA_MESSAGE_KEYS`.
 
-`STORAGE_KEYS.PROVIDER.*` vs `LEGACY_STORAGE_KEYS.OLLAMA.*` follow the same rule.
-
-When adding a new message: declare it only under `PROVIDER_MESSAGE_KEYS`. Do not mirror it into `LEGACY_OLLAMA_MESSAGE_KEYS`.
+`STORAGE_KEYS.PROVIDER.*` vs `LEGACY_STORAGE_KEYS.OLLAMA.*` still follow the old rule — storage keys name persisted data, so those legacy strings are real.
 
 ### Background Handlers (`src/background/handlers/`)
 
-Each handler follows the pattern `handle-{action}.ts` and is registered in `src/background/index.ts`. Keep handlers thin — they should adapt the message protocol to `src/lib/` calls and stream results back through the port.
+Each remaining handler follows the pattern `handle-{action}.ts` and is registered in `src/background/index.ts`. Only streaming/port work lives here now (chat, context build, pull, selection actions, embedding download); request/response provider and model operations live in `ProviderRpcService` / `ModelRpcService` behind the RPC boundary. Keep handlers thin — they adapt the port protocol to `src/lib/` calls and stream results back.
 
 ### Internal LLM Tools
 

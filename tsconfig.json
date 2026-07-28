@@ -4,7 +4,10 @@
     ".wxt/**/*.d.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
+    "e2e/**/*.ts",
     "tools/**/*.ts",
+    "config/**/*.ts",
+    "playwright.config.ts",
     "wxt.config.ts"
   ],
   "compilerOptions": {

@@ -28,7 +28,7 @@
 // page host).
 //
 // Usage: pnpm spike:owner-gates [--headful]
-// Requires: pnpm benchmark:build
+// Requires: pnpm spike:build
 
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -36,7 +36,7 @@ import { resolve } from "node:path"
 import { chromium } from "playwright"
 import type { BrowserContext, Page, Worker as PlaywrightWorker } from "playwright"
 
-const chromeBuildPath = resolve("build/chrome-mv3-benchmark")
+const chromeBuildPath = resolve("build/chrome-mv3-spike")
 const artifactDir = resolve("artifacts/persistence-benchmark")
 const headful = process.argv.includes("--headful")
 
@@ -129,7 +129,7 @@ const pageRpc =
 const runGates = async (visible: boolean): Promise<void> => {
   if (!existsSync(resolve(chromeBuildPath, "spike-owner.html"))) {
     throw new Error(
-      `Missing ${chromeBuildPath}/spike-owner.html — run: pnpm benchmark:build`
+      `Missing ${chromeBuildPath}/spike-owner.html — run: pnpm spike:build`
     )
   }
 

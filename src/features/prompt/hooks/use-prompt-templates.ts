@@ -1,19 +1,18 @@
-import { useStorage } from "@plasmohq/storage/hook"
-import { useCallback } from "react"
-import { DEFAULT_PROMPT_TEMPLATES, STORAGE_KEYS } from "@/lib/constants"
-import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import type { PromptTemplate } from "@/types"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { DEFAULT_PROMPT_TEMPLATES } from "@/lib/constants"
+import {
+  addPromptTemplate,
+  deletePromptTemplate,
+  incrementPromptTemplateUsage,
+  listPromptTemplates,
+  logPromptTemplateError,
+  importPromptTemplates as persistImportedTemplates,
+  replacePromptTemplates,
+  subscribePromptTemplates,
+  updatePromptTemplate
+} from "@/lib/repositories/prompt-templates"
+import type { PromptTemplate } from "@/types/ui-state"
 import { PromptTemplateSchema } from "@/types/ui-state.schemas"
-
-const normalizeCreatedAt = (value: unknown): Date => {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value
-  if (typeof value === "string" || typeof value === "number") {
-    const date = new Date(value)
-    if (!Number.isNaN(date.getTime())) return date
-  }
-  return new Date()
-}
 
 const normalizeImportedTemplate = (
   value: unknown,
@@ -21,203 +20,225 @@ const normalizeImportedTemplate = (
 ): PromptTemplate | null => {
   const parsed = PromptTemplateSchema.safeParse(value)
   if (!parsed.success) return null
-
-  const template = parsed.data
-  const rawId = template.id.trim() || crypto.randomUUID()
+  const rawId = parsed.data.id.trim() || crypto.randomUUID()
   const id = existingIds.has(rawId) ? crypto.randomUUID() : rawId
   existingIds.add(id)
-
-  return { ...template, id }
+  return { ...parsed.data, id } as PromptTemplate
 }
 
 export const usePromptTemplates = () => {
-  const [templates, setTemplates] = useStorage<PromptTemplate[]>(
-    {
-      key: STORAGE_KEYS.PROVIDER.PROMPT_TEMPLATES,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_PROMPT_TEMPLATES
-  )
+  const [templates, setTemplates] = useState<PromptTemplate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const effectiveTemplates =
-    templates && templates.length > 0
-      ? templates.map((t) => ({
-          ...t,
-          createdAt: normalizeCreatedAt(t.createdAt)
-        }))
-      : DEFAULT_PROMPT_TEMPLATES.map((t) => ({
-          ...t,
-          createdAt: normalizeCreatedAt(t.createdAt)
-        }))
+  const reload = useCallback(async () => {
+    try {
+      setTemplates(await listPromptTemplates())
+    } catch (error) {
+      logPromptTemplateError(error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void reload()
+    return subscribePromptTemplates(() => void reload())
+  }, [reload])
+
+  const persist = useCallback(
+    (work: () => Promise<void>) => {
+      void work().catch((error) => {
+        logPromptTemplateError(error)
+        void reload()
+      })
+    },
+    [reload]
+  )
 
   const addTemplate = useCallback(
     (template: Omit<PromptTemplate, "createdAt" | "usageCount">) => {
-      const newTemplate: PromptTemplate = {
+      const next: PromptTemplate = {
         ...template,
         createdAt: new Date(),
         usageCount: 0
       }
-      setTemplates((prev) => [...(prev || []), newTemplate])
+      setTemplates((current) => [...current, next])
+      persist(() => addPromptTemplate(next))
     },
-    [setTemplates]
+    [persist]
   )
 
   const updateTemplate = useCallback(
     (id: string, updated: Partial<PromptTemplate>) => {
-      setTemplates(
-        (prev) =>
-          prev?.map((t) => (t.id === id ? { ...t, ...updated } : t)) ?? []
+      setTemplates((current) =>
+        current.map((template) =>
+          template.id === id ? { ...template, ...updated, id } : template
+        )
       )
+      persist(() => updatePromptTemplate(id, updated))
     },
-    [setTemplates]
+    [persist]
   )
 
   const deleteTemplate = useCallback(
     (id: string) => {
-      setTemplates((prev) => prev?.filter((t) => t.id !== id) ?? [])
+      setTemplates((current) =>
+        current.filter((template) => template.id !== id)
+      )
+      persist(() => deletePromptTemplate(id))
     },
-    [setTemplates]
+    [persist]
   )
 
   const incrementUsageCount = useCallback(
     (id: string) => {
-      setTemplates(
-        (prev) =>
-          prev?.map((t) =>
-            t.id === id ? { ...t, usageCount: (t.usageCount || 0) + 1 } : t
-          ) ?? []
+      setTemplates((current) =>
+        current.map((template) =>
+          template.id === id
+            ? { ...template, usageCount: (template.usageCount ?? 0) + 1 }
+            : template
+        )
       )
+      persist(() => incrementPromptTemplateUsage(id))
     },
-    [setTemplates]
+    [persist]
   )
 
   const duplicateTemplate = useCallback(
     (id: string) => {
-      const template = templates?.find((t) => t.id === id)
-      if (template) {
-        const duplicated: PromptTemplate = {
-          ...template,
-          id: crypto.randomUUID(),
-          title: `${template.title} (Copy)`,
-          createdAt: new Date(),
-          usageCount: 0
-        }
-        setTemplates((prev) => [...(prev || []), duplicated])
+      const template = templates.find((item) => item.id === id)
+      if (!template) return
+      const copy: PromptTemplate = {
+        ...template,
+        id: crypto.randomUUID(),
+        title: `${template.title} (Copy)`,
+        createdAt: new Date(),
+        usageCount: 0
       }
+      setTemplates((current) => [...current, copy])
+      persist(() => addPromptTemplate(copy))
     },
-    [templates, setTemplates]
+    [persist, templates]
   )
 
   const importTemplates = useCallback(
-    (newTemplates: unknown) => {
-      const items = Array.isArray(newTemplates) ? newTemplates : []
-      if (items.length === 0) return
-
-      setTemplates((prev) => {
-        const current = prev || []
-        const existingIds = new Set(current.map((template) => template.id))
-        const normalized = items
-          .map((template) => normalizeImportedTemplate(template, existingIds))
-          .filter((template): template is PromptTemplate => Boolean(template))
-
-        return [...current, ...normalized]
-      })
+    (values: unknown) => {
+      if (!Array.isArray(values) || values.length === 0) return
+      const existingIds = new Set(templates.map((template) => template.id))
+      const imported = values
+        .map((value) => normalizeImportedTemplate(value, existingIds))
+        .filter((template): template is PromptTemplate => template !== null)
+      if (imported.length === 0) return
+      setTemplates((current) => [...current, ...imported])
+      persist(() => persistImportedTemplates(imported))
     },
-    [setTemplates]
+    [persist, templates]
   )
 
-  const exportTemplates = useCallback((): PromptTemplate[] => {
-    const validated: PromptTemplate[] = []
-    for (const t of effectiveTemplates) {
-      const result = PromptTemplateSchema.safeParse(t)
-      if (result.success) {
-        validated.push(result.data as PromptTemplate)
-      } else {
-        logger.warn(
-          "Skipping invalid template on export",
-          "usePromptTemplates",
-          {
-            id: t.id,
-            error: result.error.message
-          }
-        )
-      }
-    }
-    return validated
-  }, [effectiveTemplates])
+  const exportTemplates = useCallback(
+    () =>
+      templates.filter(
+        (template) => PromptTemplateSchema.safeParse(template).success
+      ),
+    [templates]
+  )
 
   const resetToDefaults = useCallback(() => {
-    setTemplates(DEFAULT_PROMPT_TEMPLATES)
-  }, [setTemplates])
+    const defaults = DEFAULT_PROMPT_TEMPLATES.map((template) => ({
+      ...template,
+      createdAt: template.createdAt ?? new Date()
+    }))
+    setTemplates(defaults)
+    persist(() => replacePromptTemplates(defaults))
+  }, [persist])
 
   const getTemplatesByCategory = useCallback(
-    (category: string) => {
-      return effectiveTemplates.filter((t) => t.category === category)
-    },
-    [effectiveTemplates]
+    (category: string) =>
+      templates.filter((template) => template.category === category),
+    [templates]
   )
 
   const searchTemplates = useCallback(
-    (query: string) => {
-      if (!query.trim()) return effectiveTemplates
-
-      const searchTerm = query.toLowerCase().trim()
-      return effectiveTemplates.filter(
+    (queryText: string) => {
+      const term = queryText.toLowerCase().trim()
+      if (!term) return templates
+      return templates.filter(
         (template) =>
-          template.title.toLowerCase().includes(searchTerm) ||
-          template.description?.toLowerCase().includes(searchTerm) ||
-          template.userPrompt.toLowerCase().includes(searchTerm) ||
-          template.tags?.some((tag) =>
-            tag.toLowerCase().includes(searchTerm)
-          ) ||
-          template.category?.toLowerCase().includes(searchTerm)
+          template.title.toLowerCase().includes(term) ||
+          template.description?.toLowerCase().includes(term) ||
+          template.userPrompt.toLowerCase().includes(term) ||
+          template.tags?.some((tag) => tag.toLowerCase().includes(term)) ||
+          template.category?.toLowerCase().includes(term)
       )
     },
-    [effectiveTemplates]
+    [templates]
   )
 
-  const getCategories = useCallback(() => {
-    const categories = new Set(
-      effectiveTemplates.map((t) => t.category).filter(Boolean)
-    )
-    return Array.from(categories).sort()
-  }, [effectiveTemplates])
+  const getCategories = useCallback(
+    () =>
+      Array.from(
+        new Set(
+          templates
+            .map((template) => template.category)
+            .filter((category): category is string => Boolean(category))
+        )
+      ).sort(),
+    [templates]
+  )
 
   const getPopularTemplates = useCallback(
-    (limit: number = 5) => {
-      return [...effectiveTemplates]
-        .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))
-        .slice(0, limit)
-    },
-    [effectiveTemplates]
+    (limit = 5) =>
+      [...templates]
+        .sort((a, b) => (b.usageCount ?? 0) - (a.usageCount ?? 0))
+        .slice(0, limit),
+    [templates]
   )
 
   const getRecentTemplates = useCallback(
-    (limit: number = 5) => {
-      return [...effectiveTemplates]
+    (limit = 5) =>
+      [...templates]
         .sort(
           (a, b) =>
-            (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
+            (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0)
         )
-        .slice(0, limit)
-    },
-    [effectiveTemplates]
+        .slice(0, limit),
+    [templates]
   )
 
-  return {
-    templates: effectiveTemplates,
-    addTemplate,
-    updateTemplate,
-    deleteTemplate,
-    incrementUsageCount,
-    duplicateTemplate,
-    importTemplates,
-    exportTemplates,
-    resetToDefaults,
-    getTemplatesByCategory,
-    searchTemplates,
-    getCategories,
-    getPopularTemplates,
-    getRecentTemplates
-  }
+  return useMemo(
+    () => ({
+      templates,
+      isLoading,
+      addTemplate,
+      updateTemplate,
+      deleteTemplate,
+      incrementUsageCount,
+      duplicateTemplate,
+      importTemplates,
+      exportTemplates,
+      resetToDefaults,
+      getTemplatesByCategory,
+      searchTemplates,
+      getCategories,
+      getPopularTemplates,
+      getRecentTemplates
+    }),
+    [
+      templates,
+      isLoading,
+      addTemplate,
+      updateTemplate,
+      deleteTemplate,
+      incrementUsageCount,
+      duplicateTemplate,
+      importTemplates,
+      exportTemplates,
+      resetToDefaults,
+      getTemplatesByCategory,
+      searchTemplates,
+      getCategories,
+      getPopularTemplates,
+      getRecentTemplates
+    ]
+  )
 }

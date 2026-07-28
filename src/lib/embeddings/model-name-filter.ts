@@ -9,7 +9,7 @@ import { RECOMMENDED_EMBEDDING_MODELS } from "@/lib/constants"
  *
  * The implementation is intentionally permissive — we'd rather show a
  * non-embedding model in the embedding picker than hide a legitimate
- * one — because the runtime check (`MESSAGE_KEYS.PROVIDER.CHECK_EMBEDDING_MODEL`)
+ * one — because the runtime check (the `embeddings.checkModel` RPC)
  * is the authoritative gate.
  */
 

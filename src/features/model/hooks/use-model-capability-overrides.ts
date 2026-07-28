@@ -1,11 +1,7 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback } from "react"
 
-import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
-import {
-  getPlasmoStorageForKey,
-  plasmoGlobalStorage
-} from "@/lib/plasmo-global-storage"
+import { useSetting } from "@/hooks/use-setting"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import {
   getModelCapabilities,
   getProviderCapabilities,
@@ -13,21 +9,16 @@ import {
   type ModelCapabilityOverride
 } from "@/lib/providers/capabilities"
 import {
-  type CapabilityProbeMap,
   type CapabilityProbeResult,
   capabilityProbeKey
 } from "@/lib/providers/capability-probe"
 import {
   clearModelCapabilityOverride,
-  type ModelCapabilityOverrideMap,
   modelCapabilityOverrideKey,
   setModelCapabilityOverride
 } from "@/lib/providers/model-capability-overrides"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ProviderModel } from "@/types"
-
-const probeStorage = getPlasmoStorageForKey(
-  STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES
-)
 
 /**
  * Reactive access to per-model capability overrides plus a resolver that layers
@@ -36,20 +27,8 @@ const probeStorage = getPlasmoStorageForKey(
  * so the prune/merge rules stay in one place.
  */
 export const useModelCapabilityOverrides = () => {
-  const [overrides] = useStorage<ModelCapabilityOverrideMap>(
-    {
-      key: STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES,
-      instance: plasmoGlobalStorage
-    },
-    {}
-  )
-  const [probes] = useStorage<CapabilityProbeMap>(
-    {
-      key: STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES,
-      instance: probeStorage
-    },
-    {}
-  )
+  const [overrides] = useSetting(SETTINGS.MODEL_CAPABILITY_OVERRIDES)
+  const [probes] = useSetting(SETTINGS.MODEL_CAPABILITY_PROBES)
 
   const getOverride = useCallback(
     (providerId: string, modelName: string): ModelCapabilityOverride | null =>
