@@ -52,6 +52,7 @@ analysis/stats.html
 
 # generated at build time by tools/generate-i18n-resources.ts
 src/i18n/resources.ts
+src/i18n/selection-resources.ts
 
 # generated at build time by starlight-typedoc from the extension's
 # TypeScript source. Regenerated on every `pnpm docs/:build`.

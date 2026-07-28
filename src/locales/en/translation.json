@@ -464,11 +464,6 @@
       "web": "Web"
     },
     "artifacts": {
-      "render_failed_title": "Couldn't render this diagram",
-      "render_failed_desc": "The raw source is shown below — expand details for the error.",
-      "error_details": "Error details",
-      "mermaid_empty": "No Mermaid content",
-      "rendering_mermaid": "Rendering Mermaid diagram…",
       "empty": "No artifact content"
     }
   },

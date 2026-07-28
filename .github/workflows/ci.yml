@@ -61,3 +61,7 @@ jobs:
 
       - name: Build
         run: pnpm ${{ matrix.target == 'firefox' && 'build:firefox' || 'build' }}
+
+      - name: Check Chrome bundle budgets
+        if: matrix.target == 'chrome'
+        run: pnpm bundle:check

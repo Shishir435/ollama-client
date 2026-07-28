@@ -29,8 +29,10 @@ vi.mock("@/components/social-link-button", () => ({
 vi.mock("@/components/theme-toggle", () => ({
   ThemeToggle: () => <button type="button">theme</button>
 }))
-vi.mock("@/features/chat/components", () => ({
-  ChatDisplaySettings: () => <div>chat display</div>,
+vi.mock("@/features/chat/components/chat-display-settings", () => ({
+  ChatDisplaySettings: () => <div>chat display</div>
+}))
+vi.mock("@/features/chat/components/speech-settings", () => ({
   SpeechSettings: () => <div>speech</div>
 }))
 vi.mock("@/features/context/components/context-settings", () => ({
@@ -154,7 +156,7 @@ describe("SettingsPage", () => {
     })
   })
 
-  it("shows power-only settings when the Power tab is selected", () => {
+  it("shows power-only settings when the Power tab is selected", async () => {
     render(<SettingsPage />)
 
     const powerSummary =
@@ -167,7 +169,7 @@ describe("SettingsPage", () => {
       })
     )
 
-    expect(screen.getByText(powerSummary)).toBeInTheDocument()
+    expect(await screen.findByText(powerSummary)).toBeInTheDocument()
   })
 
   it("does not let a late storage read undo a user selection", async () => {

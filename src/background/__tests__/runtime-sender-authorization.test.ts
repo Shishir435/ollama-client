@@ -106,6 +106,9 @@ describe("runtime sender authorization", () => {
     expect(messageAllowed(MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT)).toBe(
       true
     )
+    expect(messageAllowed(MESSAGE_KEYS.BROWSER.LOAD_SELECTION_OVERLAY)).toBe(
+      true
+    )
     expect(messageAllowed(MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE)).toBe(false)
     expect(messageAllowed(MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL)).toBe(false)
   })

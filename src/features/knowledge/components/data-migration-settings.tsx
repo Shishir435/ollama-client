@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
 import { scheduleReloadWithReopen } from "@/lib/app-reset"
-import { backupService, type ImportResult } from "@/lib/backup-service"
+import type { ImportResult } from "@/lib/backup-service"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { formatBackupFilenameTimestamp } from "@/lib/format-utils"
 import { logger } from "@/lib/logger"
@@ -48,6 +48,7 @@ export const DataMigrationSettings = () => {
   const handleExport = async () => {
     try {
       setIsExporting(true)
+      const { backupService } = await import("@/lib/backup-service")
       const blob = await backupService.exportAll()
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
@@ -88,6 +89,7 @@ export const DataMigrationSettings = () => {
     setIsImporting(true)
 
     try {
+      const { backupService } = await import("@/lib/backup-service")
       const result = await backupService.importAll(selectedFile)
       setImportResult(result)
       resultDialog.openDialog()

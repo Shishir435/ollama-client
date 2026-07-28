@@ -28,6 +28,7 @@ import type {
 } from "@/types"
 
 const extensionUrlPrefix = browser.runtime.getURL("")
+const SELECTION_OVERLAY_FILE = "content-scripts/selection-overlay.js"
 
 const respondForbidden = (
   type: string,
@@ -281,6 +282,29 @@ export const registerMessageRouter = () => {
 
       case MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT: {
         return handleSelectionMessage(message, sender.tab, response)
+      }
+
+      case MESSAGE_KEYS.BROWSER.LOAD_SELECTION_OVERLAY: {
+        const tabId = sender.tab?.id
+        if (typeof tabId !== "number") return
+
+        const frameId = sender.frameId
+        browser.scripting
+          .executeScript({
+            target: {
+              tabId,
+              ...(typeof frameId === "number" ? { frameIds: [frameId] } : {})
+            },
+            files: [SELECTION_OVERLAY_FILE]
+          })
+          .catch((error: unknown) => {
+            logger.debug(
+              "Could not inject selection overlay",
+              "SelectionOverlay",
+              { error }
+            )
+          })
+        return
       }
 
       case MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL: {
