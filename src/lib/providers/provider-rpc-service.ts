@@ -248,11 +248,30 @@ export const ProviderRpcService = {
     signal?: AbortSignal
   ): Promise<ProvidersProbeModelCapabilitiesResult> {
     const provider = await ProviderFactory.getProvider(request.providerId)
-    const [tool, reasoning, vision] = await Promise.allSettled([
-      probeToolCalling(provider, request.modelName, signal),
-      probeReasoning(provider, request.modelName, signal),
+
+    /*
+     * One probe at a time, on purpose.
+     *
+     * These ran concurrently, which is self-defeating against a local
+     * single-model server: three generations arrive at once, the server serializes
+     * them behind a cold model load anyway, and the later ones burn their 30s
+     * timeout waiting in that queue. The symptom was a first Detect reporting
+     * tool calling and vision while reasoning timed out, then a second Detect
+     * finding reasoning because the model was warm by then.
+     *
+     * Sequential pays the model load once, on the first probe, and each check
+     * then gets its full timeout for its own work.
+     */
+    const tool = await Promise.allSettled([
+      probeToolCalling(provider, request.modelName, signal)
+    ]).then(([outcome]) => outcome)
+    const reasoning = await Promise.allSettled([
+      probeReasoning(provider, request.modelName, signal)
+    ]).then(([outcome]) => outcome)
+    const vision = await Promise.allSettled([
       probeVision(provider, request.modelName, signal)
-    ])
+    ]).then(([outcome]) => outcome)
+
     if (
       tool.status === "rejected" &&
       reasoning.status === "rejected" &&
@@ -264,21 +283,34 @@ export const ProviderRpcService = {
     const result: ProvidersProbeModelCapabilitiesResult = {
       probedAt: Date.now()
     }
+    const incomplete: Array<"toolCalling" | "reasoning" | "vision"> = []
     if (tool.status === "fulfilled") {
       result.toolCalling = tool.value.toolCalling
       result.toolCallingMode = tool.value.toolCallingMode
+    } else {
+      incomplete.push("toolCalling")
     }
     if (reasoning.status === "fulfilled") {
       result.reasoning = reasoning.value.reasoning
+    } else {
+      incomplete.push("reasoning")
     }
     if (
       vision.status === "fulfilled" &&
       typeof vision.value.vision === "boolean"
     ) {
       result.vision = vision.value.vision
+    } else if (vision.status === "rejected") {
+      incomplete.push("vision")
     }
+    // A check that never returned is not the same as one that returned "no";
+    // without this the sheet shows an unsupported toggle either way.
+    if (incomplete.length > 0) result.incomplete = incomplete
     signal?.throwIfAborted()
-    await setCapabilityProbe(request.providerId, request.modelName, result)
+    // `incomplete` describes this run, not the model, so it is reported to the
+    // caller but never merged into the stored evidence.
+    const { incomplete: _incomplete, ...persisted } = result
+    await setCapabilityProbe(request.providerId, request.modelName, persisted)
     return result
   }
 }

@@ -274,4 +274,78 @@ describe("ProviderRpcService", () => {
       result
     )
   })
+
+  it("runs the three probes one at a time", async () => {
+    // Concurrent probes queue behind a local server's cold model load and burn
+    // their own timeouts waiting, which made the first Detect miss reasoning and
+    // a second Detect find it.
+    const order: string[] = []
+    const track =
+      (name: string, value: Record<string, unknown>) => async () => {
+        order.push(`${name}:start`)
+        await Promise.resolve()
+        order.push(`${name}:end`)
+        return { ...value, probedAt: 1 }
+      }
+    mocks.probeToolCalling.mockImplementation(
+      track("tool", { toolCalling: true })
+    )
+    mocks.probeReasoning.mockImplementation(
+      track("reasoning", { reasoning: true })
+    )
+    mocks.probeVision.mockImplementation(track("vision", { vision: true }))
+
+    await ProviderRpcService.probeModelCapabilities({
+      providerId: "custom:openai:remote",
+      modelName: "vision-model"
+    })
+
+    expect(order).toEqual([
+      "tool:start",
+      "tool:end",
+      "reasoning:start",
+      "reasoning:end",
+      "vision:start",
+      "vision:end"
+    ])
+  })
+
+  it("reports a check that did not finish instead of calling it unsupported", async () => {
+    mocks.probeToolCalling.mockResolvedValue({
+      toolCalling: true,
+      probedAt: 1
+    })
+    mocks.probeReasoning.mockRejectedValue(new Error("timed out"))
+    mocks.probeVision.mockResolvedValue({ vision: true, probedAt: 1 })
+
+    const result = await ProviderRpcService.probeModelCapabilities({
+      providerId: "custom:openai:remote",
+      modelName: "vision-model"
+    })
+
+    expect(result.incomplete).toEqual(["reasoning"])
+    expect(result).not.toHaveProperty("reasoning")
+
+    // The run report is not evidence about the model, so it is not stored.
+    const [, , persisted] = mocks.setCapabilityProbe.mock.calls.at(-1) as [
+      string,
+      string,
+      Record<string, unknown>
+    ]
+    expect(persisted).not.toHaveProperty("incomplete")
+    expect(persisted).toMatchObject({ toolCalling: true, vision: true })
+  })
+
+  it("still throws when every check fails", async () => {
+    mocks.probeToolCalling.mockRejectedValue(new Error("server down"))
+    mocks.probeReasoning.mockRejectedValue(new Error("server down"))
+    mocks.probeVision.mockRejectedValue(new Error("server down"))
+
+    await expect(
+      ProviderRpcService.probeModelCapabilities({
+        providerId: "custom:openai:remote",
+        modelName: "vision-model"
+      })
+    ).rejects.toThrow("server down")
+  })
 })

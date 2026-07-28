@@ -80,6 +80,12 @@ export interface ModelCapabilityInput {
   ollamaCapabilities?: string[]
   /** LM Studio model type: "llm" | "vlm" | "embeddings". */
   lmStudioModelType?: string
+  /**
+   * Capability tags a list endpoint reports for the model itself, e.g. LM
+   * Studio's `["tool_use"]`. Reported support rather than inferred, so it
+   * outranks the provider default for the flags it covers.
+   */
+  capabilityTags?: string[]
   /** Context window length in tokens, when known. */
   contextLength?: number
   /** Modalities reported by model catalogs such as OpenRouter. */
@@ -103,6 +109,16 @@ export interface ModelCapabilityInput {
 // LM Studio /api/v0/models model `type` values.
 const LM_STUDIO_TYPE_VLM = "vlm"
 const LM_STUDIO_TYPE_EMBEDDINGS = "embeddings"
+
+// LM Studio /api/v0/models `capabilities[]` tag.
+//
+// "tool_use" is the only value a live server was observed to emit, and the
+// vocabulary demonstrably does not cover reasoning: `qwen3-4b-thinking-2507`
+// reports exactly ["tool_use"] while streaming `reasoning_content`, as does
+// `gemma-4-12b`. So this list is evidence about tool calling only — the absence
+// of a tag says nothing about any other capability, and reasoning must stay
+// unknown here so a probe or override can settle it.
+const LM_STUDIO_CAP_TOOL_USE = "tool_use"
 
 // Ollama /api/show capability tag → normalized capability.
 const OLLAMA_CAP_COMPLETION = "completion"
@@ -145,6 +161,11 @@ const detectModelCapabilities = (
 
   const providerCaps = getProviderCapabilities(input.providerId)
   const lmType = input.lmStudioModelType?.toLowerCase()
+  // An empty array is a placeholder often enough that it is treated as missing
+  // evidence, the same way modalities are below — never as a reported "no".
+  const tagsReported = input.capabilityTags?.length
+    ? input.capabilityTags.map((tag) => tag.toLowerCase())
+    : undefined
   if (lmType) {
     const isEmbeddings = lmType === LM_STUDIO_TYPE_EMBEDDINGS
     const isVlm = lmType === LM_STUDIO_TYPE_VLM
@@ -152,12 +173,19 @@ const detectModelCapabilities = (
       text: !isEmbeddings,
       vision: isVlm,
       embeddings: isEmbeddings,
-      // The model type does not reveal tool/reasoning support; defer to the
-      // provider default rather than guessing.
-      toolCalling: providerCaps?.toolCalling ?? false,
+      // The model type says nothing about tools, but `capabilities[]` does when
+      // the server sends it. Without it there is nothing to read, so the
+      // provider default stands.
+      toolCalling: tagsReported
+        ? tagsReported.includes(LM_STUDIO_CAP_TOOL_USE)
+        : (providerCaps?.toolCalling ?? false),
       reasoning: false,
       contextLength: input.contextLength,
       source: "model-metadata",
+      // Stays medium even with tags present. This confidence covers the whole
+      // result, and most of it still comes from the model *type*, which is a
+      // category rather than a statement about this model. Claiming high here
+      // would have marked a reasoning model as definitively non-reasoning.
       confidence: "medium"
     }
   }
@@ -299,6 +327,7 @@ export const getModelCapabilityStates = (
   const modalitiesAvailable = Boolean(input.modalities?.length)
   const parametersAvailable = Boolean(input.supportedParameters?.length)
   const lmTypeAvailable = Boolean(input.lmStudioModelType)
+  const capabilityTagsAvailable = Boolean(input.capabilityTags?.length)
   const providerCaps = getProviderCapabilities(input.providerId)
 
   for (const flag of flags) {
@@ -331,7 +360,11 @@ export const getModelCapabilityStates = (
       (parametersAvailable &&
         (flag === "toolCalling" || flag === "reasoning")) ||
       (lmTypeAvailable &&
-        (flag === "text" || flag === "vision" || flag === "embeddings"))
+        (flag === "text" || flag === "vision" || flag === "embeddings")) ||
+      // Reported tags own tool calling. Without this the capability sheet would
+      // credit it to the provider default while detection had already read it
+      // from the catalog — the two answers must agree.
+      (capabilityTagsAvailable && flag === "toolCalling")
     if (metadataOwnsFlag) {
       states[flag] = {
         status: capabilityStatus(resolved[flag]),

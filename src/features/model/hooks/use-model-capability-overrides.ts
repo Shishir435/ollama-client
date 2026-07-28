@@ -4,7 +4,6 @@ import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import {
   getModelCapabilities,
-  getProviderCapabilities,
   type ModelCapabilities,
   type ModelCapabilityOverride
 } from "@/lib/providers/capabilities"
@@ -52,6 +51,7 @@ export const useModelCapabilityOverrides = () => {
         providerId,
         ollamaCapabilities,
         lmStudioModelType: model.capabilityHints?.modelType,
+        capabilityTags: model.capabilityHints?.capabilityTags,
         contextLength: model.capabilityHints?.contextLength,
         modalities: model.capabilityHints?.modalities,
         supportedParameters: model.capabilityHints?.supportedParameters,
@@ -62,22 +62,11 @@ export const useModelCapabilityOverrides = () => {
     [getOverride, getProbe]
   )
 
-  /**
-   * Whether a provider reports model-level capabilities on its own (Ollama).
-   * Providers that cannot are the ones a user must configure by hand.
-   */
-  const canSelfReportCapabilities = useCallback(
-    (providerId: string): boolean =>
-      getProviderCapabilities(providerId)?.modelDetails === true,
-    []
-  )
-
   return {
     overrides: overrides ?? {},
     getOverride,
     getProbe,
     resolve,
-    canSelfReportCapabilities,
     setOverride: setModelCapabilityOverride,
     clearOverride: clearModelCapabilityOverride
   }

@@ -676,6 +676,7 @@
         "title": "Capacità del modello",
         "subtitle": "{{model}} · {{provider}}",
         "note_manual": "{{provider}} non può segnalare le capacità di questo modello, quindi non possiamo rilevarle. Attiva ciò che questo modello supporta: funzioni come l'input di immagini e gli strumenti usano queste impostazioni.",
+        "note_partial": "{{provider}} segnala solo alcune capacità di questo modello. Rileva le altre o attiva quelle che sai supportate.",
         "note_self_report": "{{provider}} segnala automaticamente le capacità di questo modello. Le modifiche qui sovrascrivono ciò che è stato rilevato.",
         "reset": "Ripristina ai valori rilevati",
         "save": "Salva",
@@ -685,6 +686,7 @@
         "probe_button": "Rileva",
         "probe_detected": "Rilevate: {{capabilities}}.",
         "probe_none_detected": "Nessuna chiamata di strumenti, ragionamento o visione rilevati. Puoi comunque attivarli manualmente.",
+        "probe_incomplete": "Controllo non completato: {{capabilities}}. Esegui di nuovo il rilevamento: un modello ancora in caricamento risponde spesso al secondo tentativo.",
         "probe_failed": "Rilevamento non riuscito. Controlla la connessione al provider e riprova."
       },
       "flags": {

@@ -38,6 +38,13 @@ export interface CapabilityProbeResult {
   reasoning?: boolean
   /** Set when a vision probe reached a verdict. Absent means "inconclusive". */
   vision?: boolean
+  /**
+   * Checks that did not finish in this run, so a caller can distinguish "not
+   * supported" from "we could not find out". Describes the run rather than the
+   * model, so it is stripped before the result is stored. Individual probe
+   * functions never set it — only the orchestrator that runs all three.
+   */
+  incomplete?: Array<"toolCalling" | "reasoning" | "vision">
   probedAt: number
 }
 

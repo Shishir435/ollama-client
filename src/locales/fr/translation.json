@@ -676,6 +676,7 @@
         "title": "Capacités du modèle",
         "subtitle": "{{model}} · {{provider}}",
         "note_manual": "{{provider}} ne peut pas signaler les capacités de ce modèle, nous ne pouvons donc pas les détecter. Activez ce que ce modèle prend en charge — des fonctions comme l'entrée d'image et les outils utilisent ces paramètres.",
+        "note_partial": "{{provider}} ne signale qu'une partie des capacités de ce modèle. Détectez les autres ou activez celles que vous savez prises en charge.",
         "note_self_report": "{{provider}} signale automatiquement les capacités de ce modèle. Les modifications ici remplacent ce qui a été détecté.",
         "reset": "Réinitialiser aux valeurs détectées",
         "save": "Enregistrer",
@@ -685,6 +686,7 @@
         "probe_button": "Détecter",
         "probe_detected": "Détecté : {{capabilities}}.",
         "probe_none_detected": "Aucun appel d'outils, raisonnement ni vision détecté. Vous pouvez tout de même les activer manuellement.",
+        "probe_incomplete": "Vérification incomplète : {{capabilities}}. Relancez la détection — un modèle encore en cours de chargement répond souvent au second essai.",
         "probe_failed": "La détection a échoué. Vérifiez la connexion au fournisseur et réessayez."
       },
       "flags": {

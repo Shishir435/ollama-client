@@ -15,6 +15,7 @@ import {
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
+import { clearOllamaDetailBackfillCache } from "@/lib/providers/ollama"
 import { ProviderStorageKey } from "@/lib/providers/types"
 import { pruneStaleToolLoopRuns } from "@/lib/repositories/tool-loop-runs"
 import { recoverBackupImport } from "@/lib/storage/backup-import-transaction"
@@ -182,6 +183,7 @@ const registerToolRegistryInvalidation = () => {
     }
     if (ProviderStorageKey.CONFIG in changes) {
       clearModelToolCapabilityCache()
+      clearOllamaDetailBackfillCache()
       void updateDNRRules()
     }
   })

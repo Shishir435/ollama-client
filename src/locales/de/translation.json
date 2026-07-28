@@ -676,6 +676,7 @@
         "title": "Modellfähigkeiten",
         "subtitle": "{{model}} · {{provider}}",
         "note_manual": "{{provider}} kann die Fähigkeiten dieses Modells nicht melden, daher können wir sie nicht erkennen. Aktiviere, was dieses Modell unterstützt – Funktionen wie Bildeingabe und Tools verwenden diese Einstellungen.",
+        "note_partial": "{{provider}} meldet nur einen Teil der Fähigkeiten dieses Modells. Erkenne den Rest oder aktiviere, was das Modell unterstützt.",
         "note_self_report": "{{provider}} meldet die Fähigkeiten dieses Modells automatisch. Änderungen hier überschreiben die erkannten Werte.",
         "reset": "Auf erkannt zurücksetzen",
         "save": "Speichern",
@@ -685,6 +686,7 @@
         "probe_button": "Erkennen",
         "probe_detected": "Erkannt: {{capabilities}}.",
         "probe_none_detected": "Keine Tool-Aufrufe, Reasoning oder Vision erkannt. Du kannst sie weiterhin manuell aktivieren.",
+        "probe_incomplete": "Prüfung nicht abgeschlossen: {{capabilities}}. Führe die Erkennung erneut aus — ein Modell, das noch geladen wurde, antwortet meist beim zweiten Versuch.",
         "probe_failed": "Erkennung fehlgeschlagen. Prüfe die Verbindung zum Anbieter und versuche es erneut."
       },
       "flags": {
