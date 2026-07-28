@@ -30,6 +30,50 @@ import type {
 const extensionUrlPrefix = browser.runtime.getURL("")
 const SELECTION_OVERLAY_FILE = "content-scripts/selection-overlay.js"
 
+export const handleLoadSelectionOverlay = (
+  sender: Runtime.MessageSender,
+  sendResponse: SendResponseFunction
+): true => {
+  const tabId = sender.tab?.id
+  if (typeof tabId !== "number") {
+    safeSendResponse(sendResponse, {
+      success: false,
+      error: {
+        status: 400,
+        message: "Selection overlay requires a source tab"
+      }
+    })
+    return true
+  }
+
+  const frameId = sender.frameId
+  browser.scripting
+    .executeScript({
+      target: {
+        tabId,
+        ...(typeof frameId === "number" ? { frameIds: [frameId] } : {})
+      },
+      files: [SELECTION_OVERLAY_FILE]
+    })
+    .then(() => {
+      safeSendResponse(sendResponse, { success: true })
+    })
+    .catch((error: unknown) => {
+      logger.debug("Could not inject selection overlay", "SelectionOverlay", {
+        error
+      })
+      safeSendResponse(sendResponse, {
+        success: false,
+        error: {
+          status: 0,
+          message: error instanceof Error ? error.message : String(error)
+        }
+      })
+    })
+
+  return true
+}
+
 const respondForbidden = (
   type: string,
   sender: Runtime.MessageSender,
@@ -285,26 +329,7 @@ export const registerMessageRouter = () => {
       }
 
       case MESSAGE_KEYS.BROWSER.LOAD_SELECTION_OVERLAY: {
-        const tabId = sender.tab?.id
-        if (typeof tabId !== "number") return
-
-        const frameId = sender.frameId
-        browser.scripting
-          .executeScript({
-            target: {
-              tabId,
-              ...(typeof frameId === "number" ? { frameIds: [frameId] } : {})
-            },
-            files: [SELECTION_OVERLAY_FILE]
-          })
-          .catch((error: unknown) => {
-            logger.debug(
-              "Could not inject selection overlay",
-              "SelectionOverlay",
-              { error }
-            )
-          })
-        return
+        return handleLoadSelectionOverlay(sender, response)
       }
 
       case MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL: {

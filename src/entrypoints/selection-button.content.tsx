@@ -1,5 +1,6 @@
 import { defineContentScript } from "wxt/utils/define-content-script"
 import { MESSAGE_KEYS } from "@/lib/constants/keys"
+import type { ChromeResponse } from "@/types/messaging"
 
 const MIN_SELECTION_CHARS = 3
 
@@ -17,8 +18,11 @@ export default defineContentScript({
       overlayRequested = true
       chrome.runtime.sendMessage(
         { type: MESSAGE_KEYS.BROWSER.LOAD_SELECTION_OVERLAY },
-        () => {
-          void chrome.runtime.lastError
+        (response?: ChromeResponse) => {
+          const runtimeError = chrome.runtime.lastError
+          if (runtimeError || response?.success !== true) {
+            overlayRequested = false
+          }
         }
       )
     }
