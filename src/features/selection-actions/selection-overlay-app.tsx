@@ -1,5 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
-import { useEffect, useLayoutEffect, useReducer, useRef } from "react"
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react"
 import { SelectionActionsOverlay } from "@/features/selection-actions/components/selection-actions-overlay"
 import {
   copySelectionResult,
@@ -61,19 +61,23 @@ export function SelectionOverlayApp({
   const streamPortRef = useRef<chrome.runtime.Port | null>(null)
   // Init from modelsRef so remounts (selectionKey++) don't re-fetch already-loaded models
   const modelsLoadedRef = useRef(modelsRef.current.length > 0)
+  const [availableModels, setAvailableModels] = useState(modelsRef.current)
   const placedRef = useRef(false)
 
-  // ── Fetch models once ────────────────────────────────────────────────
+  // ── Fetch models only after the toolbar expands ──────────────────────
   useEffect(() => {
-    if (!modelsLoadedRef.current) {
-      loadAvailablePanelModels()
-        .then((models) => {
-          modelsRef.current = models
-          modelsLoadedRef.current = true
-        })
-        .catch(() => {})
-    }
-  }, [modelsRef])
+    if (state.mode !== "panel" || modelsLoadedRef.current) return
+
+    modelsLoadedRef.current = true
+    loadAvailablePanelModels()
+      .then((models) => {
+        modelsRef.current = models
+        setAvailableModels(models)
+      })
+      .catch(() => {
+        modelsLoadedRef.current = false
+      })
+  }, [state.mode, modelsRef])
 
   // ── Cleanup stream on unmount ────────────────────────────────────────
   useEffect(() => {
@@ -244,7 +248,7 @@ export function SelectionOverlayApp({
       errorText={state.errorText}
       isThinking={state.isThinking}
       thinkingText={state.thinkingText}
-      availableModels={modelsRef.current}
+      availableModels={availableModels}
       panelModel={panelModelRef.current}
       onModelChange={onModelChange}
       canReplace={canReplace}

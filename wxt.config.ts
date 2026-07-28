@@ -33,20 +33,20 @@ export default defineConfig({
     ...(browser === "firefox" ? {} : { minimum_chrome_version: "116" }),
     homepage_url: packageJson.homepage,
     icons: {
-      16: "assets/icon.png",
-      32: "assets/icon.png",
-      48: "assets/icon.png",
-      64: "assets/icon.png",
-      128: "assets/icon.png"
+      16: "assets/icon-16.png",
+      32: "assets/icon-32.png",
+      48: "assets/icon-48.png",
+      64: "assets/icon-64.png",
+      128: "assets/icon-128.png"
     },
     action: {
       default_title: "__MSG_actionDefaultTitle__",
       default_icon: {
-        16: "assets/icon.png",
-        32: "assets/icon.png",
-        48: "assets/icon.png",
-        64: "assets/icon.png",
-        128: "assets/icon.png"
+        16: "assets/icon-16.png",
+        32: "assets/icon-32.png",
+        48: "assets/icon-48.png",
+        64: "assets/icon-64.png",
+        128: "assets/icon-128.png"
       }
     },
     omnibox: {
@@ -97,7 +97,12 @@ export default defineConfig({
     },
     web_accessible_resources: [
       {
-        resources: ["assets/*.wasm", "chunks/*.js", "content-scripts/*.css"],
+        resources: [
+          "assets/*.wasm",
+          "assets/selection-locales/*.json",
+          "chunks/*.js",
+          "content-scripts/*.css"
+        ],
         matches: ["<all_urls>"]
       }
     ],

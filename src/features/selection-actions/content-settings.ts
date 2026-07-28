@@ -1,4 +1,5 @@
 import { isEmbeddingModel } from "@/features/model/lib/model-utils"
+import { setSelectionLanguage } from "@/i18n/selection-config"
 import { browser } from "@/lib/browser-api"
 import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
@@ -11,14 +12,10 @@ import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import type { ContentExtractionConfig, ProviderModel } from "@/types"
 
 export async function syncSelectionLanguage() {
-  const { default: i18n, selectionI18nReady } = await import(
-    "@/i18n/selection-config"
-  )
-  await selectionI18nReady
   const stored = await plasmoGlobalStorage.get<string>(STORAGE_KEYS.LANGUAGE)
-  if (stored && i18n.language !== stored) {
-    await i18n.changeLanguage(stored)
-  }
+  const browserLanguage =
+    chrome.i18n?.getUILanguage?.() ?? globalThis.navigator?.language
+  await setSelectionLanguage(stored ?? browserLanguage)
 }
 
 export async function loadSelectionConfig() {

@@ -36,6 +36,9 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
+      - name: Dead code check
+        run: pnpm check:dead
+
       - name: Tests
         run: pnpm test:run
 
@@ -59,9 +62,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm ${{ matrix.target == 'firefox' && 'build:firefox' || 'build' }}
+      - name: Package
+        run: pnpm ${{ matrix.target == 'firefox' && 'package:firefox' || 'package' }}
 
-      - name: Check Chrome bundle budgets
-        if: matrix.target == 'chrome'
-        run: pnpm bundle:check
+      - name: Check bundle budgets
+        run: pnpm ${{ matrix.target == 'firefox' && 'bundle:check:firefox' || 'bundle:check' }}

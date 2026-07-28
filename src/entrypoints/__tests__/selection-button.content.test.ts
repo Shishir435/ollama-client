@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import selectionButton from "@/entrypoints/selection-button.content"
+import type { SelectionOverlayLoadRequest } from "@/protocol/content-messages"
 import type { ChromeResponse } from "@/types/messaging"
 
 describe("selection button bootstrap", () => {
@@ -42,6 +43,27 @@ describe("selection button bootstrap", () => {
     vi.advanceTimersByTime(80)
   }
 
+  const currentRequest = (): SelectionOverlayLoadRequest => {
+    const message = sendMessage.mock.calls.at(-1)?.[0] as
+      | { payload?: SelectionOverlayLoadRequest }
+      | undefined
+    if (!message?.payload) throw new Error("Expected overlay request payload")
+    return message.payload
+  }
+
+  const successfulResponse = (): ChromeResponse => {
+    const request = currentRequest()
+    return {
+      success: true,
+      data: {
+        requestId: request.requestId,
+        tabId: 17,
+        frameId: 0,
+        documentId: "document-1"
+      }
+    }
+  }
+
   it("retries after the background reports an injection failure", () => {
     selectText()
     expect(sendMessage).toHaveBeenCalledTimes(1)
@@ -70,9 +92,24 @@ describe("selection button bootstrap", () => {
 
   it("keeps the latch after successful injection", () => {
     selectText()
-    reply?.({ success: true })
+    reply?.(successfulResponse())
     selectText()
 
     expect(sendMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it("retries when a response does not match its request identity", () => {
+    selectText()
+    reply?.({
+      success: true,
+      data: {
+        requestId: "stale-request",
+        tabId: 17,
+        frameId: 0
+      }
+    })
+    selectText()
+
+    expect(sendMessage).toHaveBeenCalledTimes(2)
   })
 })

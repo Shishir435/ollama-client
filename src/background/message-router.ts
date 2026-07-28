@@ -18,6 +18,10 @@ import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
+  isSelectionOverlayLoadRequest,
+  type SelectionOverlayLoadResult
+} from "@/protocol/content-messages"
+import {
   RPC_CANCEL_MESSAGE_TYPE,
   RPC_REQUEST_MESSAGE_TYPE
 } from "@/protocol/rpc"
@@ -31,9 +35,21 @@ const extensionUrlPrefix = browser.runtime.getURL("")
 const SELECTION_OVERLAY_FILE = "content-scripts/selection-overlay.js"
 
 export const handleLoadSelectionOverlay = (
+  payload: unknown,
   sender: Runtime.MessageSender,
   sendResponse: SendResponseFunction
 ): true => {
+  if (!isSelectionOverlayLoadRequest(payload)) {
+    safeSendResponse(sendResponse, {
+      success: false,
+      error: {
+        status: 400,
+        message: "Invalid selection overlay request"
+      }
+    })
+    return true
+  }
+
   const tabId = sender.tab?.id
   if (typeof tabId !== "number") {
     safeSendResponse(sendResponse, {
@@ -56,7 +72,18 @@ export const handleLoadSelectionOverlay = (
       files: [SELECTION_OVERLAY_FILE]
     })
     .then(() => {
-      safeSendResponse(sendResponse, { success: true })
+      const senderWithDocument = sender as Runtime.MessageSender & {
+        documentId?: string
+      }
+      const result: SelectionOverlayLoadResult = {
+        requestId: payload.requestId,
+        tabId,
+        frameId: sender.frameId ?? 0,
+        ...(senderWithDocument.documentId
+          ? { documentId: senderWithDocument.documentId }
+          : {})
+      }
+      safeSendResponse(sendResponse, { success: true, data: result })
     })
     .catch((error: unknown) => {
       logger.debug("Could not inject selection overlay", "SelectionOverlay", {
@@ -329,7 +356,7 @@ export const registerMessageRouter = () => {
       }
 
       case MESSAGE_KEYS.BROWSER.LOAD_SELECTION_OVERLAY: {
-        return handleLoadSelectionOverlay(sender, response)
+        return handleLoadSelectionOverlay(message.payload, sender, response)
       }
 
       case MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL: {

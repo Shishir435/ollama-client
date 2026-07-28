@@ -1,4 +1,5 @@
 import fs from "node:fs"
+import { createHash } from "node:crypto"
 import path from "node:path"
 import { gzipSync } from "node:zlib"
 
@@ -15,6 +16,9 @@ type Budget = {
 
 type BundleReport = {
   total: Metric
+  zip: Metric
+  largestChunk: Metric
+  duplicateAssets: Metric
   manifestContentScripts: Metric
   selectionBootstrap: Metric
   selectionOverlay: Metric
@@ -25,8 +29,7 @@ type BundleReport = {
 
 const DEFAULT_OUTPUT_DIR = "build/chrome-mv3-prod"
 
-const budgets: Budget[] = [
-  { metric: "total", field: "bytes", max: 9_500_000 },
+const sharedBudgets: Budget[] = [
   {
     metric: "manifestContentScripts",
     field: "gzipBytes",
@@ -34,9 +37,10 @@ const budgets: Budget[] = [
   },
   { metric: "selectionBootstrap", field: "gzipBytes", max: 5_000 },
   { metric: "selectionOverlay", field: "gzipBytes", max: 235_000 },
-  { metric: "background", field: "gzipBytes", max: 190_000 },
   { metric: "sidepanelInitial", field: "gzipBytes", max: 650_000 },
-  { metric: "optionsInitial", field: "gzipBytes", max: 440_000 }
+  { metric: "optionsInitial", field: "gzipBytes", max: 440_000 },
+  { metric: "largestChunk", field: "gzipBytes", max: 225_000 },
+  { metric: "duplicateAssets", field: "bytes", max: 0 }
 ]
 
 const collectFiles = (directory: string): string[] =>
@@ -57,6 +61,41 @@ const measureFiles = (files: string[]): Metric =>
     { bytes: 0, gzipBytes: 0 }
   )
 
+const measureDuplicateAssets = (files: string[]): Metric => {
+  const assetExtensions = new Set([
+    ".avif",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".svg",
+    ".wasm",
+    ".webp",
+    ".woff",
+    ".woff2"
+  ])
+  const byHash = new Map<string, string[]>()
+
+  for (const file of files) {
+    if (!assetExtensions.has(path.extname(file).toLowerCase())) continue
+    const content = fs.readFileSync(file)
+    const hash = createHash("sha256").update(content).digest("hex")
+    byHash.set(hash, [...(byHash.get(hash) ?? []), file])
+  }
+
+  return [...byHash.values()].reduce<Metric>(
+    (total, duplicates) => {
+      if (duplicates.length < 2) return total
+      const redundant = duplicates.slice(1)
+      const metric = measureFiles(redundant)
+      total.bytes += metric.bytes
+      total.gzipBytes += metric.gzipBytes
+      return total
+    },
+    { bytes: 0, gzipBytes: 0 }
+  )
+}
+
 const resolveOutputFiles = (outputDir: string, files: string[]): string[] =>
   [...new Set(files)].map((file) =>
     path.join(outputDir, file.replace(/^\/+/, ""))
@@ -76,6 +115,7 @@ const outputArg = process.argv.find(
 )
 const outputDir = path.resolve(outputArg ?? DEFAULT_OUTPUT_DIR)
 const shouldCheck = process.argv.includes("--check")
+const isFirefox = outputDir.includes("firefox")
 
 if (!fs.existsSync(outputDir)) {
   throw new Error(`Bundle output not found: ${outputDir}`)
@@ -91,10 +131,24 @@ const manifestFiles =
     ...(entry.js ?? []),
     ...(entry.css ?? [])
   ]) ?? []
+const outputFiles = collectFiles(outputDir)
+const packageZip = outputFiles.find(
+  (file) => file.endsWith(".zip") && !file.endsWith("-sources.zip")
+)
+const chunkFiles = outputFiles.filter(
+  (file) =>
+    path.basename(path.dirname(file)) === "chunks" && file.endsWith(".js")
+)
+const largestChunk = chunkFiles
+  .map((file) => ({ file, metric: measureFiles([file]) }))
+  .sort((left, right) => right.metric.gzipBytes - left.metric.gzipBytes)[0]
 
 const report: BundleReport = {
-  total: measureFiles(
-    collectFiles(outputDir).filter((file) => !file.endsWith(".zip"))
+  total: measureFiles(outputFiles.filter((file) => !file.endsWith(".zip"))),
+  zip: measureFiles(packageZip ? [packageZip] : []),
+  largestChunk: largestChunk?.metric ?? { bytes: 0, gzipBytes: 0 },
+  duplicateAssets: measureDuplicateAssets(
+    outputFiles.filter((file) => !file.endsWith(".zip"))
   ),
   manifestContentScripts: measureFiles(
     resolveOutputFiles(outputDir, manifestFiles)
@@ -109,8 +163,40 @@ const report: BundleReport = {
   sidepanelInitial: measureFiles(htmlInitialFiles(outputDir, "sidepanel.html")),
   optionsInitial: measureFiles(htmlInitialFiles(outputDir, "options.html"))
 }
+const budgets: Budget[] = [
+  ...sharedBudgets,
+  {
+    metric: "total",
+    field: "bytes",
+    max: isFirefox ? 11_800_000 : 9_500_000
+  },
+  {
+    metric: "zip",
+    field: "bytes",
+    max: isFirefox ? 4_350_000 : 3_300_000
+  },
+  {
+    metric: "background",
+    field: "gzipBytes",
+    max: isFirefox ? 210_000 : 190_000
+  }
+]
 
-console.log(JSON.stringify({ outputDir, report, budgets }, null, 2))
+console.log(
+  JSON.stringify(
+    {
+      outputDir,
+      target: isFirefox ? "firefox" : "chrome",
+      largestChunk: largestChunk
+        ? path.relative(outputDir, largestChunk.file)
+        : null,
+      report,
+      budgets
+    },
+    null,
+    2
+  )
+)
 
 if (shouldCheck) {
   const failures = budgets.filter(
