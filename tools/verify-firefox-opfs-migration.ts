@@ -394,6 +394,7 @@ const runScenarios = async (): Promise<void> => {
       messages: number
       blobBytes: number
     }>(driver, "seedLegacyBlob", FIXTURE_SESSIONS, FIXTURE_MESSAGES)
+    const sourceDigest = await call<string>(driver, "readLegacyBlobDigest")
     await call<void>(driver, "clearMarker")
 
     // A full restart on the same profile, matching the Chromium runner's
@@ -409,6 +410,7 @@ const runScenarios = async (): Promise<void> => {
       "counts"
     )
     const blobAfter = await call<number>(driver, "readLegacyBlobLength")
+    const digestAfter = await call<string>(driver, "readLegacyBlobDigest")
     record(
       "legacy-blob-migration-verified",
       migratedCounts.sessions === FIXTURE_SESSIONS &&
@@ -416,10 +418,16 @@ const runScenarios = async (): Promise<void> => {
         migratedMarker.sourceCounts?.sessions === FIXTURE_SESSIONS,
       { seeded, migratedMarker, migratedCounts }
     )
-    record("rollback-blob-untouched", blobAfter === seeded.blobBytes, {
-      blobAfter,
-      seededBytes: seeded.blobBytes
-    })
+    record(
+      "rollback-blob-untouched",
+      blobAfter === seeded.blobBytes && digestAfter === sourceDigest,
+      {
+        blobAfter,
+        seededBytes: seeded.blobBytes,
+        digestAfter,
+        sourceDigest
+      }
+    )
 
     // ---- 4. Backup export served by the OPFS owner ----
     const exportInfo = await call<{ byteLength: number; magic: string }>(
