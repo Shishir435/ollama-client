@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next"
 import { Card } from "@/components/ui/card"
 import { Sparkles } from "@/lib/lucide-icon"
 
-export const HeroSection = () => {
+export const HeroCard = () => {
   const { t } = useTranslation()
 
   return (

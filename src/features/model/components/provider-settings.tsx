@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { Switch } from "@/components/ui/switch"
 import { AddProviderDialog } from "@/features/model/components/add-provider-dialog"
-import { ProviderConnectionPanel } from "@/features/model/components/provider-connection-panel"
+import { ProviderConnectionFields } from "@/features/model/components/provider-connection-fields"
 import { ProviderCustomModels } from "@/features/model/components/provider-custom-models"
 import { ProviderGrid } from "@/features/model/components/provider-grid"
 import { useProviderSettingsState } from "@/features/model/hooks/use-provider-settings-state"
@@ -193,7 +193,7 @@ export const ProviderSettings = () => {
 
           <CardContent>
             <FieldStack>
-              <ProviderConnectionPanel
+              <ProviderConnectionFields
                 activeConfig={activeConfig}
                 cspCompatibilityHint={cspCompatibilityHint}
                 isLocalProvider={isLocalProvider}

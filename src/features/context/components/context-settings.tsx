@@ -6,7 +6,7 @@ import {
   SettingsLevelGate,
   SettingsSwitch
 } from "@/components/settings"
-import { ChatBackfillPanel } from "@/features/chat/components"
+import { ChatBackfillCard } from "@/features/chat/components"
 import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"
 import { PromptContextLimitsSettings } from "@/features/context/components/prompt-context-limits-settings"
 import { FileUploadSettings } from "@/features/file-upload/components/file-upload-settings"
@@ -65,7 +65,7 @@ export const ContextSettings = () => {
       <TwoColumnGrid>
         <MemorySettings />
         <SettingsLevelGate settingId="backfill-embeddings">
-          <ChatBackfillPanel />
+          <ChatBackfillCard />
         </SettingsLevelGate>
       </TwoColumnGrid>
 
