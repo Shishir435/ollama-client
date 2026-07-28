@@ -1,18 +1,7 @@
 import { render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import type { ChatArtifact } from "@/lib/artifacts"
 import { ArtifactPreview, previewSrcDoc } from "../artifact-preview"
-
-const mermaidMock = vi.hoisted(() => ({
-  initialize: vi.fn(),
-  render: vi.fn(async () => ({
-    svg: '<svg role="img"><text>Rendered Mermaid</text></svg>'
-  }))
-}))
-
-vi.mock("mermaid", () => ({
-  default: mermaidMock
-}))
 
 describe("ArtifactPreview", () => {
   it("renders a sandboxed iframe for HTML artifacts", () => {
@@ -54,7 +43,7 @@ describe("ArtifactPreview", () => {
     expect(screen.getByText("const value = 1")).toBeInTheDocument()
   })
 
-  it("renders Mermaid artifacts as diagrams", async () => {
+  it("shows Mermaid artifacts as source text", () => {
     render(
       <ArtifactPreview
         artifact={{
@@ -63,21 +52,13 @@ describe("ArtifactPreview", () => {
           language: "mermaid",
           title: "Mermaid diagram 1",
           content: "graph TD\n  A --> B",
-          renderable: true
+          renderable: false
         }}
       />
     )
 
-    expect(await screen.findByTestId("mermaid-preview")).toContainHTML(
-      "Rendered Mermaid"
-    )
-    expect(mermaidMock.initialize).toHaveBeenCalledWith(
-      expect.objectContaining({ securityLevel: "strict" })
-    )
-    expect(mermaidMock.render).toHaveBeenCalledWith(
-      expect.stringMatching(/^artifact-mermaid-1-[a-z0-9]+$/),
-      "graph TD\n  A --> B"
-    )
+    expect(screen.getByText(/graph TD/)).toBeInTheDocument()
+    expect(screen.getByText(/A --> B/)).toBeInTheDocument()
   })
 })
 

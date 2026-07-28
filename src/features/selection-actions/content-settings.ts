@@ -11,7 +11,10 @@ import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import type { ContentExtractionConfig, ProviderModel } from "@/types"
 
 export async function syncSelectionLanguage() {
-  const { default: i18n } = await import("@/i18n/config")
+  const { default: i18n, selectionI18nReady } = await import(
+    "@/i18n/selection-config"
+  )
+  await selectionI18nReady
   const stored = await plasmoGlobalStorage.get<string>(STORAGE_KEYS.LANGUAGE)
   if (stored && i18n.language !== stored) {
     await i18n.changeLanguage(stored)

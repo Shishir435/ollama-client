@@ -24,6 +24,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
   defineContentScript({
     matches: ["<all_urls>"],
     allFrames: true,
+    registration: "runtime",
     cssInjectionMode: "manual",
     async main(ctx) {
       let container: HTMLDivElement | null = null
@@ -185,8 +186,11 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         [STORAGE_KEYS.LANGUAGE]: (change: { newValue?: unknown }) => {
           const lng = change.newValue as string | undefined
           if (lng) {
-            void import("@/i18n/config").then(({ default: i18n }) =>
-              i18n.changeLanguage(lng)
+            void import("@/i18n/selection-config").then(
+              async ({ default: i18n, selectionI18nReady }) => {
+                await selectionI18nReady
+                await i18n.changeLanguage(lng)
+              }
             )
           }
         },
@@ -216,6 +220,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
       document.addEventListener("mouseup", queueSelectionCheck, true)
       document.addEventListener("keyup", queueSelectionCheck, true)
       document.addEventListener("keydown", handleEscape, true)
+      queueSelectionCheck()
 
       ctx.onInvalidated(() => {
         document.removeEventListener(

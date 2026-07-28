@@ -15,8 +15,9 @@ WXT auto-discovers entry points under `src/entrypoints/`. Each entry is a thin s
 | `src/entrypoints/sidepanel/index.tsx` | extension page | `src/sidepanel/index.tsx` (React root) |
 | `src/entrypoints/options/index.tsx` | extension page | `src/options/index.tsx` (React root) |
 | `src/entrypoints/print/main.ts` | extension page | self-contained (print-to-PDF helper) |
-| `src/entrypoints/content.ts` | content script (all URLs) | `src/contents/index.ts` (lazy-imported) |
-| `src/entrypoints/selection-button.content.tsx` | content script (selection overlay) | self-contained (shadow-DOM UI) |
+| `src/entrypoints/content.ts` | runtime content script | `src/contents/index.ts` (injected only when page content is requested) |
+| `src/entrypoints/selection-button.content.tsx` | manifest content script | tiny selection detector; asks the background to inject the UI |
+| `src/entrypoints/selection-overlay.content.tsx` | runtime content script | shadow-DOM selection UI, injected into the requesting frame |
 
 The WXT shells are intentionally minimal — `background.ts` is a 4-line import, `content.ts` is a 6-line lazy-import. Real work lives in the feature modules:
 
@@ -24,6 +25,44 @@ The WXT shells are intentionally minimal — `background.ts` is a 4-line import,
 - `src/sidepanel/` — chat surface React app, opens the runtime port
 - `src/options/` — settings React app
 - `src/contents/` — selection capture, page extraction helpers, URL filtering
+
+### Content-script loading boundary
+
+Only `selection-button.js` is registered in the production manifest. It watches
+for a valid selection without mounting React, loading translations, or injecting
+styles. The first valid selection sends the allowlisted
+`LOAD_SELECTION_OVERLAY` event; the background injects
+`selection-overlay.js` into that exact tab frame.
+
+The injected overlay has its own Tailwind source boundary and a generated
+`selection_button`-only i18n resource. It does not carry the full application
+stylesheet or translation trees.
+
+The page extractor is runtime-only. `requestPageContentWithRecovery()` first
+tries the existing receiver, injects `content.js` when none exists, then retries.
+This keeps Defuddle, Readability, transcript extraction, and enhanced extraction
+logic off ordinary page startup.
+
+Keep manifest content scripts small. They must not import the app UI system,
+full locale tables, content parsers, provider implementations, or persistence
+code.
+
+### Bundle budgets
+
+`pnpm bundle:report` measures the Chrome production build.
+`pnpm bundle:check` enforces budgets for total package size, manifest content
+scripts, the selection bootstrap and overlay, background code, and initial
+sidepanel/options assets. Chrome CI runs the budget check after its production
+build.
+
+Translations load as one locale chunk at a time through
+`src/i18n/locale-loader.ts`; extension-store metadata under `public/_locales`
+continues to be generated from the same locale source files.
+
+The options shell keeps the default General tab eager and lazy-loads the
+inactive settings tabs. Backup/restore loads its ZIP implementation only when
+an import or export starts. These boundaries keep inactive settings and export
+code out of the initial options-page graph without delaying the first tab.
 
 ## System responsibilities
 

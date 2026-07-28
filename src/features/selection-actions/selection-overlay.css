@@ -1,0 +1,69 @@
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@source "./";
+@source "../../components/actions";
+@source "../../components/ui/button.tsx";
+@source "../../components/ui/card.tsx";
+@source "../../components/ui/dropdown-menu.tsx";
+@source "../../components/ui/input.tsx";
+@source "../../components/ui/tooltip.tsx";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-control: var(--radius-control);
+  --radius-panel: var(--radius-panel);
+  --radius-chip: var(--radius-chip);
+  --font-heading: var(--font-sans);
+  --font-sans: system-ui, sans-serif;
+  --text-micro: 0.625rem;
+  --text-micro--line-height: 0.875rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --icon-micro: 0.625rem;
+  --icon-xs: 0.75rem;
+  --icon-sm: 0.875rem;
+  --icon-md: 1rem;
+}
+
+@utility icon-micro {
+  width: var(--icon-micro);
+  height: var(--icon-micro);
+}
+
+@utility icon-xs {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+
+@utility icon-sm {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+@utility icon-md {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}

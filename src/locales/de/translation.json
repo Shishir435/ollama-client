@@ -430,11 +430,6 @@
       "web": "Web"
     },
     "artifacts": {
-      "render_failed_title": "Dieses Diagramm konnte nicht gerendert werden",
-      "render_failed_desc": "Der Quelltext wird unten angezeigt – Details für den Fehler aufklappen.",
-      "error_details": "Fehlerdetails",
-      "mermaid_empty": "Kein Mermaid-Inhalt",
-      "rendering_mermaid": "Mermaid-Diagramm wird gerendert …",
       "empty": "Kein Artefakt-Inhalt"
     },
     "system_prompt": {

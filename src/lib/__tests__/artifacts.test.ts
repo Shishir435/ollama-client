@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { extractChatArtifacts } from "@/lib/artifacts"
 
 describe("extractChatArtifacts", () => {
-  it("extracts renderable HTML, SVG, and Mermaid fenced blocks", () => {
+  it("extracts HTML, SVG, and source-only Mermaid fenced blocks", () => {
     const artifacts = extractChatArtifacts(`
 Text
 \`\`\`html
@@ -33,7 +33,7 @@ graph TD
     expect(artifacts[2]).toMatchObject({
       kind: "mermaid",
       language: "mermaid",
-      renderable: true
+      renderable: false
     })
   })
 

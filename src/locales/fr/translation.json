@@ -430,11 +430,6 @@
       "web": "Web"
     },
     "artifacts": {
-      "render_failed_title": "Impossible d'afficher ce diagramme",
-      "render_failed_desc": "Le code source est affiché ci-dessous — développez les détails pour voir l'erreur.",
-      "error_details": "Détails de l'erreur",
-      "mermaid_empty": "Aucun contenu Mermaid",
-      "rendering_mermaid": "Rendu du diagramme Mermaid…",
       "empty": "Aucun contenu d'artefact"
     },
     "system_prompt": {

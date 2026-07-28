@@ -1,5 +1,7 @@
 import {
+  lazy,
   type ReactNode,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -8,42 +10,17 @@ import {
 } from "react"
 import { useTranslation } from "react-i18next"
 
-import { LanguageSelector } from "@/components/language-selector"
+import { AppShell, PageBody, PageHeader } from "@/components/layout"
 import {
-  AppShell,
-  PageBody,
-  PageHeader,
-  SectionStack,
-  TwoColumnGrid
-} from "@/components/layout"
-import { PerformanceWarning } from "@/components/performance-warning"
-import {
-  AdvancedSection,
   type NavSection,
-  PresetPicker,
   SettingsDisclosureControl,
   SettingsDisclosureProvider,
-  SettingsLevelGate,
   SettingsMobileNav,
   SettingsSearch,
   SettingsSidebar
 } from "@/components/settings"
-import { SocialHandles } from "@/components/social-handles"
 import { SocialLinkButton } from "@/components/social-link-button"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { ChatDisplaySettings, SpeechSettings } from "@/features/chat/components"
-import { ContextSettings } from "@/features/context/components/context-settings"
-import { DiagnosticsSettings } from "@/features/diagnostics/components/diagnostics-settings"
-import { DataMigrationSettings } from "@/features/knowledge/components/data-migration-settings"
-import { ContentExtractionSettings } from "@/features/model/components/content-extraction-settings"
-import { EmbeddingSettings } from "@/features/model/components/embedding-settings"
-import { ModelSettingsForm } from "@/features/model/components/model-settings-form"
-import { ProviderSettings } from "@/features/model/components/provider-settings"
-import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
-import { RestoreSessionsLimitSettings } from "@/features/permissions/components/restore-sessions-limit-settings"
-import { ExportPrivacySettings } from "@/features/privacy/components/export-privacy-settings"
-import { PrivacyDataInventory } from "@/features/privacy/components/privacy-data-inventory"
-import { PromptTemplateManager } from "@/features/prompt/components/prompt-template-manager"
 import {
   getSettingsEntry,
   getSettingsEntryLevel,
@@ -68,9 +45,23 @@ import {
   MessageSquare
 } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { Guides } from "@/options/components/guides"
-import { ResetStorage } from "@/options/components/reset-storage"
-import { ShortcutsSettings } from "@/options/components/shortcuts-settings"
+import GeneralSettingsTab from "@/options/components/tabs/general-settings-tab"
+
+const ModelsSettingsTab = lazy(
+  () => import("@/options/components/tabs/models-settings-tab")
+)
+const BrowserSettingsTab = lazy(
+  () => import("@/options/components/tabs/browser-settings-tab")
+)
+const KnowledgeSettingsTab = lazy(
+  () => import("@/options/components/tabs/knowledge-settings-tab")
+)
+const PrivacySettingsTab = lazy(
+  () => import("@/options/components/tabs/privacy-settings-tab")
+)
+const HelpSettingsTab = lazy(
+  () => import("@/options/components/tabs/help-settings-tab")
+)
 
 export const SettingsPage = () => {
   const { t } = useTranslation()
@@ -205,67 +196,12 @@ export const SettingsPage = () => {
   ]
 
   const tabContent: Record<string, ReactNode> = {
-    general: (
-      <SectionStack>
-        <PerformanceWarning />
-        <TwoColumnGrid>
-          <LanguageSelector />
-          <ChatDisplaySettings />
-        </TwoColumnGrid>
-        <PresetPicker />
-        <SettingsLevelGate level="power">
-          <AdvancedSection
-            title={t("settings.sections.more")}
-            forceOpen={Boolean(activeFocusId)}
-            summary={`${t("settings.tabs.prompts")} · ${t("settings.tabs.voices")} · ${t("settings.tabs.shortcuts")}`}>
-            <SectionStack>
-              <SpeechSettings />
-              <PromptTemplateManager />
-              <ShortcutsSettings />
-            </SectionStack>
-          </AdvancedSection>
-        </SettingsLevelGate>
-      </SectionStack>
-    ),
-    models: (
-      <SectionStack>
-        <ProviderSettings />
-        <ModelSettingsForm />
-      </SectionStack>
-    ),
-    browser: (
-      <SectionStack>
-        <ContentExtractionSettings />
-      </SectionStack>
-    ),
-    knowledge: (
-      <SectionStack>
-        <ContextSettings />
-        <AdvancedSection
-          title={t("settings.tabs.embeddings")}
-          forceOpen={Boolean(activeFocusId)}
-          summary={t("model.embedding_config.title")}>
-          <EmbeddingSettings />
-        </AdvancedSection>
-      </SectionStack>
-    ),
-    privacy: (
-      <SectionStack>
-        <PrivacyDataInventory />
-        <DataMigrationSettings />
-        <PermissionsPanel />
-        <ExportPrivacySettings />
-        <RestoreSessionsLimitSettings />
-        <ResetStorage />
-      </SectionStack>
-    ),
-    help: (
-      <SectionStack>
-        <DiagnosticsSettings />
-        <Guides />
-        <SocialHandles />
-      </SectionStack>
-    )
+    general: <GeneralSettingsTab activeFocusId={activeFocusId} />,
+    models: <ModelsSettingsTab />,
+    browser: <BrowserSettingsTab />,
+    knowledge: <KnowledgeSettingsTab activeFocusId={activeFocusId} />,
+    privacy: <PrivacySettingsTab />,
+    help: <HelpSettingsTab />
   }
 
   const allNavItems = navSections.flatMap((s) => s.items)
@@ -480,7 +416,12 @@ export const SettingsPage = () => {
             />
             <main className="min-w-0 flex-1 overflow-y-auto">
               <PageBody>
-                <div key={activeTab}>{tabContent[activeTab]}</div>
+                <Suspense
+                  fallback={
+                    <div className="h-24 animate-pulse rounded-panel bg-muted/40" />
+                  }>
+                  <div key={activeTab}>{tabContent[activeTab]}</div>
+                </Suspense>
               </PageBody>
             </main>
           </div>
