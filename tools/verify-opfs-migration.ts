@@ -212,6 +212,7 @@ const runScenarios = async (visible: boolean): Promise<void> => {
       messages: number
       blobBytes: number
     }
+    const sourceDigest = (await call("readLegacyBlobDigest")) as string
     await call("clearMarker")
     // Restart the whole browser with the same profile — runtime.reload() on
     // an unpacked extension leaves it blocked under Playwright, and a real
@@ -231,6 +232,7 @@ const runScenarios = async (visible: boolean): Promise<void> => {
       messages: number
     }
     const blobAfter = (await call("readLegacyBlobLength")) as number
+    const digestAfter = (await call("readLegacyBlobDigest")) as string
     record(
       "legacy-blob-migration-verified",
       migratedCounts.sessions === FIXTURE_SESSIONS &&
@@ -240,8 +242,13 @@ const runScenarios = async (visible: boolean): Promise<void> => {
     )
     record(
       "rollback-blob-untouched",
-      blobAfter === seeded.blobBytes,
-      { blobAfter, seededBytes: seeded.blobBytes }
+      blobAfter === seeded.blobBytes && digestAfter === sourceDigest,
+      {
+        blobAfter,
+        seededBytes: seeded.blobBytes,
+        digestAfter,
+        sourceDigest
+      }
     )
 
     // ---- 4. Backup export served by the OPFS owner ----
