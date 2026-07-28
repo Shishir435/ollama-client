@@ -8,35 +8,46 @@ selectionI18n.use(initReactI18next)
 let languageChangeQueue = Promise.resolve()
 
 export const setSelectionLanguage = (language?: string): Promise<void> => {
-  languageChangeQueue = languageChangeQueue.then(async () => {
-    const loaded = await loadSelectionTranslation(language)
-
-    if (!selectionI18n.isInitialized) {
-      await selectionI18n.init({
-        lng: loaded.language,
-        fallbackLng: false,
-        resources: {
-          [loaded.language]: { translation: loaded.translation }
-        },
-        interpolation: {
-          escapeValue: false
-        },
-        react: {
-          useSuspense: true
+  languageChangeQueue = languageChangeQueue
+    .catch(() => {})
+    .then(async () => {
+      let loaded: Awaited<ReturnType<typeof loadSelectionTranslation>>
+      try {
+        loaded = await loadSelectionTranslation(language)
+      } catch {
+        try {
+          loaded = await loadSelectionTranslation("en")
+        } catch {
+          loaded = { language: "en", translation: {} }
         }
-      })
-      return
-    }
+      }
 
-    if (!selectionI18n.hasResourceBundle(loaded.language, "translation")) {
-      selectionI18n.addResourceBundle(
-        loaded.language,
-        "translation",
-        loaded.translation
-      )
-    }
-    await selectionI18n.changeLanguage(loaded.language)
-  })
+      if (!selectionI18n.isInitialized) {
+        await selectionI18n.init({
+          lng: loaded.language,
+          fallbackLng: false,
+          resources: {
+            [loaded.language]: { translation: loaded.translation }
+          },
+          interpolation: {
+            escapeValue: false
+          },
+          react: {
+            useSuspense: true
+          }
+        })
+        return
+      }
+
+      if (!selectionI18n.hasResourceBundle(loaded.language, "translation")) {
+        selectionI18n.addResourceBundle(
+          loaded.language,
+          "translation",
+          loaded.translation
+        )
+      }
+      await selectionI18n.changeLanguage(loaded.language)
+    })
 
   return languageChangeQueue
 }

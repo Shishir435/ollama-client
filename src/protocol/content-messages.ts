@@ -1,4 +1,6 @@
 export const CONTENT_MESSAGE_PROTOCOL_VERSION = 1 as const
+export const SELECTION_OVERLAY_READY_EVENT =
+  "ollama-client:selection-overlay-ready:v1"
 
 export interface SelectionOverlayLoadRequest {
   version: typeof CONTENT_MESSAGE_PROTOCOL_VERSION

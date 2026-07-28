@@ -18,6 +18,7 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SELECTION_OVERLAY_READY_EVENT } from "@/protocol/content-messages"
 import type { ContentExtractionConfig, ProviderModel } from "@/types"
 
 export const createSelectionActionsContentScript = (appStyles: string) =>
@@ -179,6 +180,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
       ui.mount()
       void applyTheme()
       renderApp()
+      document.dispatchEvent(new Event(SELECTION_OVERLAY_READY_EVENT))
 
       // ── Storage watchers ─────────────────────────────────────────────
       chrome.storage.onChanged.addListener(handleThemeChange)

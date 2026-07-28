@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import selectionButton from "@/entrypoints/selection-button.content"
-import type { SelectionOverlayLoadRequest } from "@/protocol/content-messages"
+import {
+  SELECTION_OVERLAY_READY_EVENT,
+  type SelectionOverlayLoadRequest
+} from "@/protocol/content-messages"
 import type { ChromeResponse } from "@/types/messaging"
 
 describe("selection button bootstrap", () => {
@@ -93,6 +96,26 @@ describe("selection button bootstrap", () => {
   it("keeps the latch after successful injection", () => {
     selectText()
     reply?.(successfulResponse())
+    document.dispatchEvent(new Event(SELECTION_OVERLAY_READY_EVENT))
+    selectText()
+
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it("retries when injection succeeds but the overlay never becomes ready", () => {
+    selectText()
+    reply?.(successfulResponse())
+    vi.advanceTimersByTime(3_000)
+    selectText()
+
+    expect(sendMessage).toHaveBeenCalledTimes(2)
+  })
+
+  it("accepts readiness that arrives before the injection response", () => {
+    selectText()
+    document.dispatchEvent(new Event(SELECTION_OVERLAY_READY_EVENT))
+    reply?.(successfulResponse())
+    vi.advanceTimersByTime(3_000)
     selectText()
 
     expect(sendMessage).toHaveBeenCalledTimes(1)
