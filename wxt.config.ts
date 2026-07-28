@@ -21,7 +21,7 @@ export default defineConfig({
     exclude: ["assets/icon-promo-light.png"]
   },
   hooks,
-  manifest: ({ browser }) => ({
+  manifest: ({ browser, command }) => ({
     name: "__MSG_extName__",
     short_name: "__MSG_extShortName__",
     description: "__MSG_extDescription__",
@@ -107,8 +107,22 @@ export default defineConfig({
       }
     ],
     content_security_policy: {
-      extension_pages:
-        "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' http://*:* https://*:* ws://*:* wss://*:*; object-src 'self'"
+      extension_pages: [
+        "script-src 'self' 'wasm-unsafe-eval'",
+        // Dev serves every module from the Vite dev server, including the
+        // chat-db worker: `new Worker(new URL("./chat-db-worker.ts",
+        // import.meta.url))` resolves to that origin because `import.meta.url`
+        // does. WXT adds the origin to script-src for us but not to worker-src,
+        // so the worker was refused before it ran and durable chat history could
+        // never migrate to OPFS under `pnpm dev`. Port-agnostic so a non-default
+        // dev port still works. Store builds keep 'self' only — they resolve the
+        // worker to a bundled /assets chunk and never need this.
+        command === "serve"
+          ? "worker-src 'self' http://localhost:* http://127.0.0.1:*"
+          : "worker-src 'self'",
+        "connect-src 'self' http://*:* https://*:* ws://*:* wss://*:*",
+        "object-src 'self'"
+      ].join("; ")
     },
     browser_specific_settings: {
       gecko: {

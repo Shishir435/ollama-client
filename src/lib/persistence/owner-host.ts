@@ -31,6 +31,29 @@ const rejectAllPending = (reason: string): void => {
   }
 }
 
+/**
+ * Turns a worker `error` event into something a bug report can act on.
+ *
+ * `ErrorEvent.error` is null for a worker that failed to load or parse at all —
+ * which is the common case here, and the case where `message` and the source
+ * location are the only evidence there is. Rejecting with a bare "worker
+ * crashed" discarded every one of those fields, so the log named the symptom and
+ * nothing else.
+ */
+export const describeWorkerError = (event: ErrorEvent | Event): string => {
+  if (!(event instanceof ErrorEvent)) {
+    return "Persistence worker crashed (no error detail available)"
+  }
+  const where = event.filename
+    ? ` at ${event.filename}:${event.lineno}:${event.colno}`
+    : ""
+  const message =
+    event.message ||
+    (event.error instanceof Error ? event.error.message : "") ||
+    "no message"
+  return `Persistence worker crashed: ${message}${where}`
+}
+
 let wasmBinaryPromise: Promise<ArrayBuffer> | null = null
 const getWasmBinary = (): Promise<ArrayBuffer> => {
   if (!wasmBinaryPromise) {
@@ -72,11 +95,22 @@ const ensureWorker = (): Worker => {
       if (event.data.ok) entry.resolve(event.data.result)
       else entry.reject(new Error(event.data.error ?? "Unknown worker error"))
     }
-    worker.onerror = () => {
+    worker.onerror = (event) => {
+      const reason = describeWorkerError(event)
+      logger.error(reason, "Persistence", {
+        stack: event instanceof ErrorEvent ? event.error?.stack : undefined
+      })
       // Drop the dead worker so the next call spawns a fresh one; OPFS holds
       // the durable state, so recovery is a respawn away.
       worker = null
-      rejectAllPending("Persistence worker crashed")
+      rejectAllPending(reason)
+    }
+    // A message the worker could not structured-clone never reaches onmessage,
+    // so its request would hang in `pending` forever without this.
+    worker.onmessageerror = (event) => {
+      const reason = "Persistence worker could not deserialize a message"
+      logger.error(reason, "Persistence", { data: event.data })
+      rejectAllPending(reason)
     }
     const spawned = worker
     void getWasmBinary()
