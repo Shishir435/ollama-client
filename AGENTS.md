@@ -33,7 +33,7 @@ pnpm typecheck              # tsc --noEmit
 pnpm docs:dev               # Astro dev for the marketing/docs site (docs/)
 pnpm docs:build             # Astro build → docs/dist/ (Vercel output)
 
-pnpm generate:resources     # Regenerate src/i18n/resources.ts from src/locales/
+pnpm generate:resources     # Validate locales and regenerate derived extension assets
 ```
 
 Run `pnpm typecheck && pnpm lint:check && pnpm test:run` before opening a PR. If you changed anything under `docs/` or `src/locales/`, also run `pnpm docs:build && pnpm generate:resources` to verify docs build and i18n regeneration succeed.
@@ -182,7 +182,7 @@ Each remaining handler follows the pattern `handle-{action}.ts` and is registere
 Built-in model-callable tools live under `src/lib/tools/internal/` and are registered in `src/lib/tools/internal/internal-tool-source.ts`. When adding a tool:
 
 - Give it a stable `displayNameKey` and add that key to `chat.reasoning.trace` in every `src/locales/<lang>/translation.json` file. Otherwise the reasoning trace UI will show raw key paths.
-- Run `pnpm generate:resources` after locale edits so `src/i18n/resources.ts` and `public/_locales/**/messages.json` stay in sync.
+- Run `pnpm generate:resources` after locale edits so the selection-overlay catalogs and `public/_locales/**/messages.json` stay in sync.
 - Keep privacy-sensitive tools aligned with the same permission and scope filters used by their indexing/search pipeline; live tools must not bypass user exclusions.
 
 ### Testing
@@ -226,13 +226,24 @@ When binding form fields to React Hook Form, use the app-owned `Controlled*` wra
 
 ### i18n build pipeline
 
-`src/i18n/resources.ts` and Chrome Web Store locale metadata under `public/_locales/<lang>/messages.json` are **generated** from `src/locales/<lang>/translation.json` by `tools/generate-i18n-resources.ts`. The typed resources file is `.gitignored`; `_locales` is committed because extension packages need it.
+`src/locales/<lang>/translation.json` is loaded directly through the explicit
+dynamic-import map in `src/i18n/locale-loader.ts`, producing one lazy chunk per
+language. Do not recreate an aggregated all-languages TypeScript resource.
+Chrome Web Store locale metadata under `public/_locales/<lang>/messages.json`
+and the small selection-overlay catalogs under
+`public/assets/selection-locales/` are generated from those source JSON files
+by `tools/generate-i18n-resources.ts`. `_locales` is committed because extension
+packages need it; selection catalogs are generated before builds.
 
 `src/locales/<lang>/translation.json` is the source of truth for both in-app UI copy and extension package metadata. Keep the top-level `extension` block filled in for every locale, and do not hand-edit `public/_locales/**/messages.json`.
 
-It is regenerated automatically before any build/dev/package command (`pnpm dev`, `pnpm build`, `pnpm package`, and Firefox variants all chain `pnpm generate:resources &&` first), and by `pnpm prepare` (so a fresh `pnpm install` produces the file).
+Derived locale assets are regenerated automatically before any
+build/dev/package command (`pnpm dev`, `pnpm build`, `pnpm package`, and Firefox
+variants all chain `pnpm generate:resources &&` first), and by `pnpm prepare`.
 
-If you change anything under `src/locales/`, run `pnpm generate:resources` manually to refresh the typed map and `_locales` output in your editor. Tests and typecheck do not regenerate — they rely on the file having been produced at install/dev time.
+If you change anything under `src/locales/`, run `pnpm generate:resources`
+manually to validate every catalog and refresh the selection-overlay and
+`_locales` outputs.
 
 ### Git hooks (.husky)
 

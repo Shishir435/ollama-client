@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { SETTINGS_REGISTRY_ORDER } from "../registry/order"
 import {
   getSectionEntries,
   getSettingsEntry,
@@ -27,6 +28,14 @@ describe("settings-registry", () => {
     const dupes = ids.filter((id, i) => ids.indexOf(id) !== i)
     expect(dupes).toEqual([])
     expect(unique.size).toBe(ids.length)
+  })
+
+  it("preserves stable registry and search tie-break ordering", () => {
+    expect(SETTINGS_REGISTRY.map((entry) => entry.id)).toEqual(
+      SETTINGS_REGISTRY_ORDER.filter((id) =>
+        SETTINGS_REGISTRY.some((entry) => entry.id === id)
+      )
+    )
   })
 
   it("uses kebab-case ids", () => {

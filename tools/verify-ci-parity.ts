@@ -36,7 +36,7 @@ const REPO_ROOT = resolve(import.meta.dirname, "..")
 /*
  * Mirrors the `checks` job. `pnpm install --frozen-lockfile` is represented by
  * generate:resources alone: its only effect this suite depends on is the
- * `prepare` hook writing the gitignored src/i18n/resources.ts.
+ * `prepare` hook writing derived extension locale assets.
  */
 const STEPS: ReadonlyArray<{ name: string; args: string[] }> = [
   { name: "Generate resources (install prepare hook)", args: ["generate:resources"] },

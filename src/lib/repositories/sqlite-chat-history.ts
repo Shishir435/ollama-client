@@ -33,6 +33,9 @@ type StoredFile = FileAttachment & { sessionId: string; id?: number }
 type RowValue = string | number | null | Uint8Array
 type Row = Record<string, RowValue>
 
+/** Force pending chat-history writes through the SQLite durability boundary. */
+export const flushChatHistory = (): Promise<void> => flushSave()
+
 const parseTags = (raw: RowValue): string[] => {
   if (typeof raw !== "string" || raw.length === 0) return []
   try {

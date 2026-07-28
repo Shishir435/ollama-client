@@ -42,7 +42,7 @@ Required only when relevant:
 
 <!-- Pick what applies. -->
 
-- [ ] Touches **chat history persistence** (`src/lib/repositories/chat-history.ts`, `dexie-chat-history.ts`, `sqlite-chat-history.ts`, the Dexie→SQLite migration)
+- [ ] Touches **chat history persistence** (`src/lib/repositories/chat-history.ts`, `sqlite-chat-history.ts`, or SQLite migrations)
 - [ ] Touches **the content script** (`src/contents/`) — runs on every webpage
 - [ ] Touches **the background worker** message routing
 - [ ] Touches a **provider implementation** (`src/lib/providers/`)
