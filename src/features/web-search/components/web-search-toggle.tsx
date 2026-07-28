@@ -1,8 +1,8 @@
+import { Globe } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Toggle } from "@/components/ui/toggle"
 import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
-import { Globe } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import {
   useWebSearchActive,

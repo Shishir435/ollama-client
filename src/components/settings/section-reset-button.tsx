@@ -1,13 +1,12 @@
+import { RotateCcw } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { SettingsChangeDialog } from "@/components/settings/settings-change-dialog"
 import { Button } from "@/components/ui/button"
 import { applyStorageWrites } from "@/features/settings/apply-settings"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
 import { getSectionDefaults } from "@/lib/constants/section-defaults"
-import { RotateCcw } from "@/lib/lucide-icon"
 
 interface SectionResetButtonProps {
   /** A sectionId present in the F2 section-defaults manifest. */

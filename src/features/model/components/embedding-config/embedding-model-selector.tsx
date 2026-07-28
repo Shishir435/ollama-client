@@ -1,6 +1,6 @@
+import { Brain, RefreshCw } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-
 import {
   SettingsCard,
   SettingsFormField,
@@ -27,7 +27,6 @@ import {
   RECOMMENDED_EMBEDDING_MODELS
 } from "@/lib/constants"
 import { recommendedEmbeddingBaseSet } from "@/lib/embeddings/model-name-filter"
-import { Brain, RefreshCw } from "@/lib/lucide-icon"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import type { ProviderModel } from "@/types"
 

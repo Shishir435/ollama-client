@@ -1,9 +1,8 @@
+import { Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
-
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Plus, Trash2 } from "@/lib/lucide-icon"
 
 interface ModelIdListEditorProps {
   models: string[]

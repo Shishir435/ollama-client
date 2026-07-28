@@ -1,5 +1,5 @@
+import { Cpu, Globe, Shield, Sparkles } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { Cpu, Globe, Shield, Sparkles } from "@/lib/lucide-icon"
 import { FeatureCard, type FeatureColor } from "./feature-card"
 
 export const FeatureGrid = () => {

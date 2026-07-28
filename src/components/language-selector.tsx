@@ -1,11 +1,10 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { Globe } from "lucide-react"
 import { Trans, useTranslation } from "react-i18next"
-
 import { SettingsCard, SettingsSelectField } from "@/components/settings"
 import { SelectItem } from "@/components/ui/select"
 import { LANGUAGES } from "@/i18n/languages"
 import { EXTERNAL_URLS, STORAGE_KEYS } from "@/lib/constants"
-import { Globe } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const LanguageSelector = () => {

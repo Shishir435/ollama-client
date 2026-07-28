@@ -6,7 +6,7 @@ import {
   Settings,
   Sparkles,
   Zap
-} from "@/lib/lucide-icon"
+} from "lucide-react"
 
 export const getModelIcon = (modelName: string): LucideIcon => {
   const name = modelName.toLowerCase()

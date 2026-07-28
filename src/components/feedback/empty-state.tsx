@@ -1,6 +1,5 @@
+import type { LucideIcon } from "lucide-react"
 import type React from "react"
-
-import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 /**

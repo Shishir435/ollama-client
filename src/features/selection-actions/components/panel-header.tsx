@@ -1,3 +1,4 @@
+import { ArrowLeft, GripHorizontal, Pin, X } from "lucide-react"
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -5,7 +6,6 @@ import {
   ActionGroup,
   TooltipActionButton
 } from "@/components/actions"
-import { ArrowLeft, GripHorizontal, Pin, X } from "@/lib/lucide-icon"
 import type { ProviderModel } from "@/types"
 import { SELECTION_ACTIONS } from "../actions"
 import type { SelectionActionId } from "../types"

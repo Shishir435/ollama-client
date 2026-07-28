@@ -1,11 +1,17 @@
-import { MessageSquare } from "lucide-react"
+import {
+  MessageSquare,
+  MoreHorizontal,
+  Pin,
+  PinOff,
+  Tag,
+  Trash2
+} from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { useChatExport } from "@/features/sessions/hooks/use-export-chat"
 import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { MoreHorizontal, Pin, PinOff, Tag, Trash2 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { ChatSession } from "@/types"
 import { ChatSessionActions } from "./chat-session-actions"

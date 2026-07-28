@@ -62,9 +62,7 @@ describe("design-system source contracts", () => {
         if (
           !ts.isImportDeclaration(statement) ||
           !ts.isStringLiteral(statement.moduleSpecifier) ||
-          !["lucide-react", "@/lib/lucide-icon"].includes(
-            statement.moduleSpecifier.text
-          )
+          statement.moduleSpecifier.text !== "lucide-react"
         ) {
           continue
         }

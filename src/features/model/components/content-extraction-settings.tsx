@@ -1,4 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { BookOpen, Code, FileText, Sparkles, Target, Zap } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { FormGrid, SectionStack } from "@/components/layout"
 import {
@@ -25,14 +26,6 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { CONTENT_SCRAPER_OPTIONS } from "@/lib/constants-ui"
-import {
-  BookOpen,
-  Code,
-  FileText,
-  Sparkles,
-  Target,
-  Zap
-} from "@/lib/lucide-icon"
 import {
   createPerSiteProfile,
   DEFAULT_PER_SITE_PROFILE_SETTINGS,

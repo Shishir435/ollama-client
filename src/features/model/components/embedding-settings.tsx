@@ -1,4 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { AlertTriangle, RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
@@ -29,7 +30,6 @@ import {
   removeDuplicateVectors
 } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import { AlertTriangle, RefreshCw } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 import { DatabaseManagementCard } from "./embedding-config/database-management-card"

@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react"
 import { type ComponentProps, useId, useState } from "react"
 import {
   type RegisterOptions,
@@ -5,10 +6,8 @@ import {
   useFormContext,
   useFormState
 } from "react-hook-form"
-
 import { SettingsFormField } from "@/components/settings"
 import { Input } from "@/components/ui/input"
-import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export type ControlledNumberInputValidation = Omit<

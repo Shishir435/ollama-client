@@ -1,3 +1,4 @@
+import { GripHorizontal, MessageSquare, MoreHorizontal, X } from "lucide-react"
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -8,12 +9,6 @@ import {
 } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import {
-  GripHorizontal,
-  MessageSquare,
-  MoreHorizontal,
-  X
-} from "@/lib/lucide-icon"
 import { selectionActionCommand } from "../action-commands"
 import { SELECTION_ACTIONS } from "../actions"
 import type { SelectionActionId } from "../types"

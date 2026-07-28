@@ -1,4 +1,3 @@
-import { defineCommandRegistry } from "@/components/actions"
 import {
   HelpCircle,
   Languages,
@@ -7,7 +6,8 @@ import {
   Scissors,
   Sparkles,
   SquarePen
-} from "@/lib/lucide-icon"
+} from "lucide-react"
+import { defineCommandRegistry } from "@/components/actions"
 import type { SelectionActionId } from "./types"
 
 export const SELECTION_ACTION_COMMANDS = defineCommandRegistry<

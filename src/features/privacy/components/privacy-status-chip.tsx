@@ -1,7 +1,7 @@
+import { ShieldCheck } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
-import { ShieldCheck } from "@/lib/lucide-icon"
 
 export const PrivacyStatusChip = () => {
   const { t } = useTranslation()

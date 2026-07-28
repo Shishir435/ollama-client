@@ -1,6 +1,6 @@
+import { Bot } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import {
   SettingsActionRow,
   SettingsCard,
@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/select"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
-import { Bot } from "@/lib/lucide-icon"
 import { TOOL_FAMILIES, type ToolFamily } from "@/lib/tools/tool-families"
 import {
   clearToolModelOverride,

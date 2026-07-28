@@ -1,5 +1,5 @@
+import { Clock, Globe, RefreshCw } from "lucide-react"
 import { TIMEOUT_FIELDS_CONFIG } from "@/lib/constants-ui"
-import { Clock, Globe, RefreshCw } from "@/lib/lucide-icon"
 
 // Icon mapping for timeout fields
 export const TIMEOUT_FIELD_ICONS = {

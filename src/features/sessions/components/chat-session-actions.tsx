@@ -1,3 +1,4 @@
+import { MoreHorizontal } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   ActionMenuGrid,
@@ -12,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export interface ChatSessionDestructiveAction {

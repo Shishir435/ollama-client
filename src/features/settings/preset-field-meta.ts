@@ -12,7 +12,7 @@ import {
   Search,
   Shield,
   Sparkles
-} from "@/lib/lucide-icon"
+} from "lucide-react"
 import type { SettingWrite } from "./apply-settings"
 
 export interface PresetFieldMeta {

@@ -1,3 +1,4 @@
+import { Loader2, Search } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard } from "@/components/settings"
@@ -9,7 +10,6 @@ import {
   type SearchResult,
   searchSimilarVectors
 } from "@/lib/embeddings/vector-store"
-import { Loader2, Search } from "@/lib/lucide-icon"
 
 export interface EmbeddingTestSearchProps {
   modelExists: boolean

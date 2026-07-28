@@ -1,11 +1,10 @@
+import { Info, Plus } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import type { ProviderHealthMap } from "@/features/model/hooks/use-provider-health"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
-import { Info, Plus } from "@/lib/lucide-icon"
 import { isBetaProvider } from "@/lib/providers/registry"
 import { isCustomProviderId, type ProviderConfig } from "@/lib/providers/types"
 import { cn } from "@/lib/utils"

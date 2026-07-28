@@ -1,6 +1,6 @@
+import { Mic, Settings, Volume2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { FieldStack } from "@/components/layout"
 import {
   SettingsCard,
@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useSpeechSettings } from "@/features/chat/hooks/use-speech-settings"
 import { useVoices } from "@/features/chat/hooks/use-voice"
-import { Mic, Settings, Volume2 } from "@/lib/lucide-icon"
 import { VoiceSelector } from "./voice-selector"
 
 const getRateDescription = (rate: number, t: (key: string) => string) => {

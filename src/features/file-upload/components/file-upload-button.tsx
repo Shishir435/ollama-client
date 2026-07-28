@@ -1,10 +1,9 @@
+import { Paperclip } from "lucide-react"
 import type React from "react"
 import { useRef } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { SUPPORTED_IMAGE_MIME_TYPES } from "@/lib/constants"
-import { Paperclip } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export interface FileUploadButtonProps {

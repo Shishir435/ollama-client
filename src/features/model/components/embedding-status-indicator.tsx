@@ -1,7 +1,13 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import {
+  AlertTriangle,
+  Brain,
+  Download,
+  Loader2,
+  RefreshCw
+} from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { useModelPull } from "@/features/model/hooks/use-model-pull"
@@ -16,13 +22,6 @@ import {
 } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
-import {
-  AlertTriangle,
-  Brain,
-  Download,
-  Loader2,
-  RefreshCw
-} from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { cn } from "@/lib/utils"

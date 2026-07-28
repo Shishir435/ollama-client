@@ -1,6 +1,15 @@
+import {
+  ArrowLeft,
+  Bot,
+  CircleCheck,
+  Globe,
+  Loader2,
+  Server,
+  ShieldCheck,
+  TriangleAlert
+} from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -25,16 +34,6 @@ import {
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useToast } from "@/hooks/use-toast"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
-import {
-  ArrowLeft,
-  Bot,
-  CircleCheck,
-  Globe,
-  Loader2,
-  Server,
-  ShieldCheck,
-  TriangleAlert
-} from "@/lib/lucide-icon"
 import {
   getOnboardingState,
   type OnboardingStage,

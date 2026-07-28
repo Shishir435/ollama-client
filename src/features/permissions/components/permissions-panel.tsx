@@ -1,6 +1,6 @@
+import { Globe, Lock, Sparkles } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import {
   SettingsActionRow,
   SettingsCard,
@@ -16,7 +16,6 @@ import {
   MESSAGE_KEYS,
   STORAGE_KEYS
 } from "@/lib/constants"
-import { Globe, Lock, Sparkles } from "@/lib/lucide-icon"
 import {
   hasPermission,
   type OptionalApiPermission,

@@ -1,3 +1,4 @@
+import { Moon, Sun } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
@@ -7,7 +8,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { Moon, Sun } from "@/lib/lucide-icon"
 import { useThemeStore } from "@/stores/theme"
 
 export const ThemeToggle = ({ showText = true }: { showText?: boolean }) => {

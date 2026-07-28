@@ -1,3 +1,4 @@
+import { CheckCircle, Loader2, Search, TriangleAlert } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -17,7 +18,6 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { CheckCircle, Loader2, Search, TriangleAlert } from "@/lib/lucide-icon"
 import {
   BRAVE_SEARCH_ENDPOINT,
   getWebSearchBackend,

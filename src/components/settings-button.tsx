@@ -1,7 +1,7 @@
+import { Settings } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { openOptionsInTab } from "@/lib/browser-api"
-import { Settings } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const SettingsButton = ({

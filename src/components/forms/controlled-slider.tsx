@@ -1,10 +1,9 @@
+import type { LucideIcon } from "lucide-react"
 import type React from "react"
 import { useController, useFormContext, useWatch } from "react-hook-form"
-
 import { SettingsFormField } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
-import type { LucideIcon } from "@/lib/lucide-icon"
 
 type SliderProps = React.ComponentProps<typeof Slider>
 

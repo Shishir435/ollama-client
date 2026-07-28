@@ -1,3 +1,4 @@
+import { ChevronDown, FileText, Plus, Search } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SectionStack } from "@/components/layout"
@@ -18,7 +19,6 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
-import { ChevronDown, FileText, Plus, Search } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { PromptTemplate } from "@/types"
 import { PromptTemplateActions } from "./prompt-template-actions"

@@ -1,3 +1,12 @@
+import {
+  AlertCircle,
+  Check,
+  ChevronsUpDown,
+  Globe,
+  Plus,
+  Target,
+  Trash2
+} from "lucide-react"
 import { useEffect, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { EmptyState } from "@/components/feedback"
@@ -37,15 +46,6 @@ import {
   ScrollStrategyField,
   TimeoutInputField
 } from "@/features/model/components/content-extraction-fields"
-import {
-  AlertCircle,
-  Check,
-  ChevronsUpDown,
-  Globe,
-  Plus,
-  Target,
-  Trash2
-} from "@/lib/lucide-icon"
 import type { PerSiteProfile, PerSiteRuleMode } from "@/lib/per-site-profiles"
 import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig } from "@/types"

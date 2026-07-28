@@ -1,6 +1,17 @@
+import {
+  ChevronDown,
+  Cpu,
+  Database,
+  FileText,
+  Info,
+  Layers,
+  Loader2,
+  RefreshCw,
+  Settings,
+  Zap
+} from "lucide-react"
 import React, { useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -13,18 +24,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useModelCapabilityOverrides } from "@/features/model/hooks/use-model-capability-overrides"
 import { useModelInfo } from "@/features/model/hooks/use-model-info"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
-import {
-  ChevronDown,
-  Cpu,
-  Database,
-  FileText,
-  Info,
-  Layers,
-  Loader2,
-  RefreshCw,
-  Settings,
-  Zap
-} from "@/lib/lucide-icon"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
 import { cn } from "@/lib/utils"
 

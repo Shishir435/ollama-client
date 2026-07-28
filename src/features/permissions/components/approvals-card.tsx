@@ -1,9 +1,8 @@
+import { ShieldCheck } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { useSetting } from "@/hooks/use-setting"
-import { ShieldCheck } from "@/lib/lucide-icon"
 import { SETTINGS } from "@/lib/storage/settings"
 import {
   clearAllApprovalGrants,

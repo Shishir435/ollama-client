@@ -1,6 +1,6 @@
+import { Check, ChevronDown, RotateCcw, Settings } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,7 +26,6 @@ import {
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { Check, ChevronDown, RotateCcw, Settings } from "@/lib/lucide-icon"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"

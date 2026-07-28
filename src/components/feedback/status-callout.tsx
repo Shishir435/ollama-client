@@ -1,7 +1,6 @@
+import type { LucideIcon } from "lucide-react"
 import type React from "react"
-
 import { Card } from "@/components/ui/card"
-import type { LucideIcon } from "@/lib/lucide-icon"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { cn } from "@/lib/utils"
 
