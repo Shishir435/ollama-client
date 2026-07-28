@@ -33,6 +33,13 @@ export interface PreparedToolCall {
   run: ToolRun
   policy: ToolRuntimePolicy
   /**
+   * Whether this call can depend on a standing approval grant. Low-risk tools
+   * are authorization-independent and may be prepared together; every other
+   * risk level must be prepared only after preceding tool results have updated
+   * the turn's taint generation.
+   */
+  authorizationSensitive: boolean
+  /**
    * Pause for explicit user approval before running. Resolved from the tool's
    * risk level and any standing grants (see `approval-policy.ts`), not a
    * per-tool boolean.
@@ -57,6 +64,27 @@ export interface PreparedToolCall {
 // The reasoning-trace component translates known tool ids (rag_search, etc.);
 // the raw name is the fallback label for any tool it doesn't special-case.
 export const labelForTool = (name: string): string => name
+
+/**
+ * Check whether a call may join an in-flight parallel group without consulting
+ * approval grants. This intentionally inspects only static definition policy;
+ * authorization-sensitive calls are prepared after preceding results have
+ * advanced the durable taint generation.
+ */
+export const isAuthorizationIndependentParallelCall = async (
+  registry: ToolRegistry,
+  call: ToolCall,
+  toolResultMaxChars?: number
+): Promise<boolean> => {
+  const definition = await registry.getDefinition(call.name)
+  const policy = resolveToolRuntimePolicy(
+    definition,
+    toolResultMaxChars !== undefined
+      ? { maxResultChars: toolResultMaxChars }
+      : undefined
+  )
+  return policy.parallelizable && effectiveRisk(definition) === "low"
+}
 
 /** Race a tool call against a timeout so a hung tool can't stall the stream. */
 export const callWithTimeout = (
@@ -185,6 +213,7 @@ export const prepareToolCall = async (
   return {
     call,
     policy,
+    authorizationSensitive: risk !== "low",
     requiresConfirmation,
     origin,
     originScoped,

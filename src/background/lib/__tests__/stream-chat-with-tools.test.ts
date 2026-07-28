@@ -54,10 +54,6 @@ const registryWithTools = (
   return reg
 }
 
-const flushMicrotasks = async () => {
-  for (let i = 0; i < 5; i++) await Promise.resolve()
-}
-
 describe("streamChatWithTools", () => {
   it("runs a tool, re-streams, and finalizes with the answer + trace", async () => {
     const provider = scriptedProvider([
@@ -485,8 +481,7 @@ describe("streamChatWithTools", () => {
       ctx: {}
     })
 
-    await flushMicrotasks()
-    expect(started).toEqual(["one", "two"])
+    await vi.waitFor(() => expect(started).toEqual(["one", "two"]))
 
     resolvers.get("two")?.({ content: "two result" })
     resolvers.get("one")?.({ content: "one result" })
@@ -557,8 +552,7 @@ describe("streamChatWithTools", () => {
       ctx: {}
     })
 
-    await flushMicrotasks()
-    expect(started).toEqual(["serial"])
+    await vi.waitFor(() => expect(started).toEqual(["serial"]))
 
     resolveSerial?.({ content: "serial result" })
     await promise
@@ -752,16 +746,17 @@ describe("streamChatWithTools", () => {
     expect(trace?.[0]).toMatchObject({ toolId: "danger", status: "done" })
   })
 
-  it("re-prompts after untrusted output invalidates an earlier grant", async () => {
+  it("re-prompts a batched gated call after preceding untrusted output", async () => {
     clearSessionGrants()
     addSessionGrant("taint-session", "egress", undefined, 0)
     const provider = scriptedProvider([
       [
-        { toolCalls: [{ id: "read-1", name: "read", arguments: {} }] },
-        { done: true }
-      ],
-      [
-        { toolCalls: [{ id: "egress-1", name: "egress", arguments: {} }] },
+        {
+          toolCalls: [
+            { id: "read-1", name: "read", arguments: {} },
+            { id: "egress-1", name: "egress", arguments: {} }
+          ]
+        },
         { done: true }
       ],
       [{ delta: "done" }, { done: true }]

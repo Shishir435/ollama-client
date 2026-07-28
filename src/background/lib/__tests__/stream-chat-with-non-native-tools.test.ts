@@ -204,7 +204,7 @@ describe("streamChatWithNonNativeTools", () => {
     expect(new Set(ids).size).toBe(4)
   })
 
-  it("re-prompts after untrusted output on the non-native path", async () => {
+  it("re-prompts a batched gated call after untrusted non-native output", async () => {
     clearSessionGrants()
     addSessionGrant("non-native-taint", "egress", undefined, 0)
     const readDef: ToolDefinition = {
@@ -222,11 +222,10 @@ describe("streamChatWithNonNativeTools", () => {
     }
     const provider = scriptedProvider([
       [
-        { delta: '<tool_call>{"name":"read","arguments":{}}</tool_call>' },
-        { done: true }
-      ],
-      [
-        { delta: '<tool_call>{"name":"egress","arguments":{}}</tool_call>' },
+        {
+          delta:
+            '<tool_call>{"name":"read","arguments":{}}</tool_call><tool_call>{"name":"egress","arguments":{}}</tool_call>'
+        },
         { done: true }
       ],
       [{ delta: "done" }, { done: true }]
