@@ -1,6 +1,7 @@
 import { DEFAULT_PROMPT_TEMPLATES, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
+import type { SqlExecutor } from "@/lib/sqlite/db"
 import {
   flushSave,
   initSQLite,
@@ -57,10 +58,14 @@ const fromRow = (row: Row): PromptTemplate | null => {
   })
 }
 
-const insert = async (template: PromptTemplate, sortOrder: number) => {
+const insert = async (
+  template: PromptTemplate,
+  sortOrder: number,
+  executor: Pick<SqlExecutor, "run"> = { run }
+) => {
   const valid = normalize(template)
   if (!valid) throw new Error("Invalid prompt template")
-  await run(
+  await executor.run(
     `INSERT OR REPLACE INTO prompt_templates
      (id, title, description, category, systemPrompt, userPrompt, tags, createdAt, usageCount, sortOrder)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -116,14 +121,14 @@ export const ensurePromptTemplatesMigrated = async (): Promise<void> => {
     const legacy = await readLegacyTemplates()
     let migrated = false
 
-    await withTransaction(async () => {
-      const marker = await query(
+    await withTransaction(async (transaction) => {
+      const marker = await transaction.query(
         "SELECT value FROM kv_store WHERE key = ? LIMIT 1",
         [MIGRATION_MARKER]
       )
       if (marker.length > 0) return
 
-      const existing = await query(
+      const existing = await transaction.query(
         "SELECT COUNT(*) AS count FROM prompt_templates"
       )
       if (Number(existing[0]?.count ?? 0) === 0) {
@@ -132,13 +137,13 @@ export const ensurePromptTemplatesMigrated = async (): Promise<void> => {
             ? legacy.templates
             : DEFAULT_PROMPT_TEMPLATES
         for (const [index, template] of seed.entries()) {
-          await insert(template, index)
+          await insert(template, index, transaction)
         }
       }
-      await run("INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)", [
-        MIGRATION_MARKER,
-        "complete"
-      ])
+      await transaction.run(
+        "INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)",
+        [MIGRATION_MARKER, "complete"]
+      )
       migrated = true
     })
 
@@ -193,11 +198,11 @@ export const addPromptTemplate = async (
   template: PromptTemplate
 ): Promise<void> => {
   await ensurePromptTemplatesMigrated()
-  await withTransaction(async () => {
-    const rows = await query(
+  await withTransaction(async (transaction) => {
+    const rows = await transaction.query(
       "SELECT COALESCE(MAX(sortOrder), -1) + 1 AS nextOrder FROM prompt_templates"
     )
-    await insert(template, Number(rows[0]?.nextOrder ?? 0))
+    await insert(template, Number(rows[0]?.nextOrder ?? 0), transaction)
   })
   await flushSave()
   notify()
@@ -209,8 +214,8 @@ export const updatePromptTemplate = async (
 ): Promise<void> => {
   await ensurePromptTemplatesMigrated()
   let changed = false
-  await withTransaction(async () => {
-    const rows = await query(
+  await withTransaction(async (transaction) => {
+    const rows = await transaction.query(
       "SELECT * FROM prompt_templates WHERE id = ? LIMIT 1",
       [id]
     )
@@ -219,7 +224,7 @@ export const updatePromptTemplate = async (
 
     const next = normalize({ ...current, ...updated, id })
     if (!next) throw new Error("Invalid prompt template update")
-    await run(
+    await transaction.run(
       `UPDATE prompt_templates
        SET title = ?, description = ?, category = ?, systemPrompt = ?,
            userPrompt = ?, tags = ?, createdAt = ?, usageCount = ?
@@ -266,13 +271,13 @@ export const importPromptTemplates = async (
   templates: PromptTemplate[]
 ): Promise<void> => {
   await ensurePromptTemplatesMigrated()
-  await withTransaction(async () => {
-    const rows = await query(
+  await withTransaction(async (transaction) => {
+    const rows = await transaction.query(
       "SELECT COALESCE(MAX(sortOrder), -1) + 1 AS nextOrder FROM prompt_templates"
     )
     let order = Number(rows[0]?.nextOrder ?? 0)
     for (const template of templates) {
-      await insert(template, order++)
+      await insert(template, order++, transaction)
     }
   })
   await flushSave()
@@ -283,10 +288,10 @@ export const replacePromptTemplates = async (
   templates: PromptTemplate[]
 ): Promise<void> => {
   await ensurePromptTemplatesMigrated()
-  await withTransaction(async () => {
-    await run("DELETE FROM prompt_templates")
+  await withTransaction(async (transaction) => {
+    await transaction.run("DELETE FROM prompt_templates")
     for (const [index, template] of templates.entries()) {
-      await insert(template, index)
+      await insert(template, index, transaction)
     }
   })
   await flushSave()

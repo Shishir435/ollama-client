@@ -33,6 +33,12 @@ type QueryResult = Record<string, SqlValue>
 
 type LegacyDb = typeof import("./legacy-db")
 
+export interface SqlExecutor {
+  query: (sql: string, bind?: SqlValue[]) => Promise<QueryResult[]>
+  run: (sql: string, bind?: SqlValue[]) => Promise<void>
+  runWithMeta: (sql: string, bind?: SqlValue[]) => Promise<RunResult>
+}
+
 let legacyPromise: Promise<LegacyDb> | null = null
 const legacy = (): Promise<LegacyDb> => {
   if (!legacyPromise) legacyPromise = import("./legacy-db")
@@ -43,45 +49,79 @@ const isOpfs = async (): Promise<boolean> =>
   (await readPersistenceBackend()) === "opfs"
 
 // ---------------------------------------------------------------------------
-// Transaction scope. The OPFS worker grants a transaction lease keyed by a
-// client token; every query/run issued inside withTransaction carries it so
-// the owner can park other clients' statements until commit. One transaction
-// at a time per context (local mutex) — same constraint the legacy
-// transactionDepth counter imposed.
+// Transaction scope. Every public statement and transaction acquires this
+// context-local mutex. Transaction callbacks receive a scoped executor that
+// bypasses the mutex and, for OPFS, carries the owner's lease token.
+//
+// Do not represent async transaction ownership with a process-global token:
+// unrelated work can run while a callback is awaiting and would accidentally
+// inherit that token. Explicit executors keep those operations outside the
+// transaction; the mutex parks them until commit/rollback on both backends.
 // ---------------------------------------------------------------------------
 
-let currentTxToken: string | null = null
-let txMutex: Promise<void> = Promise.resolve()
+let dbMutex: Promise<void> = Promise.resolve()
 
-export const withTransaction = async (
-  work: () => Promise<void>
-): Promise<void> => {
-  if (!(await isOpfs())) {
-    const legacyDb = await legacy()
-    await legacyDb.run("BEGIN IMMEDIATE")
-    try {
-      await work()
-      await legacyDb.run("COMMIT")
-    } catch (error) {
-      await legacyDb.run("ROLLBACK")
-      throw error
-    }
-    return
-  }
-
-  const previous = txMutex
+const withDbLock = async <T>(work: () => Promise<T>): Promise<T> => {
+  const previous = dbMutex
   let release: () => void = () => {}
-  txMutex = new Promise((resolve) => {
+  dbMutex = new Promise((resolve) => {
     release = resolve
   })
   await previous
-
-  const token = crypto.randomUUID()
   try {
+    return await work()
+  } finally {
+    release()
+  }
+}
+
+const legacyExecutor = (legacyDb: LegacyDb): SqlExecutor => ({
+  query: (sql, bind = []) => legacyDb.query(sql, bind),
+  run: (sql, bind = []) => legacyDb.run(sql, bind),
+  runWithMeta: async (sql, bind = []) => {
+    await legacyDb.run(sql, bind)
+    const rows = await legacyDb.query(
+      "SELECT last_insert_rowid() AS id, changes() AS changed"
+    )
+    return {
+      lastInsertRowid: Number(rows[0]?.id ?? 0),
+      changes: Number(rows[0]?.changed ?? 0)
+    }
+  }
+})
+
+const opfsExecutor = (token?: string): SqlExecutor => ({
+  query: async (sql, bind = []) =>
+    (await rpcQuery(sql, bind, token)) as QueryResult[],
+  run: async (sql, bind = []) => {
+    await rpcRun(sql, bind, token)
+  },
+  runWithMeta: (sql, bind = []) => rpcRun(sql, bind, token)
+})
+
+export const withTransaction = async (
+  work: (transaction: SqlExecutor) => Promise<void>
+): Promise<void> =>
+  withDbLock(async () => {
+    if (!(await isOpfs())) {
+      const legacyDb = await legacy()
+      const transaction = legacyExecutor(legacyDb)
+      await legacyDb.run("BEGIN IMMEDIATE")
+      try {
+        await work(transaction)
+        await legacyDb.run("COMMIT")
+      } catch (error) {
+        await legacyDb.run("ROLLBACK")
+        throw error
+      }
+      return
+    }
+
+    const token = crypto.randomUUID()
+    const transaction = opfsExecutor(token)
     await rpcTxBegin(token)
-    currentTxToken = token
     try {
-      await work()
+      await work(transaction)
       await rpcTxCommit(token)
     } catch (error) {
       try {
@@ -93,11 +133,7 @@ export const withTransaction = async (
       }
       throw error
     }
-  } finally {
-    currentTxToken = null
-    release()
-  }
-}
+  })
 
 // ---------------------------------------------------------------------------
 // Core statement API (signature-compatible with the legacy module)
@@ -106,27 +142,17 @@ export const withTransaction = async (
 export const query = async (
   sql: string,
   bind: SqlValue[] = []
-): Promise<QueryResult[]> => {
-  if (await isOpfs()) {
-    return (await rpcQuery(
-      sql,
-      bind,
-      currentTxToken ?? undefined
-    )) as QueryResult[]
-  }
-  return (await legacy()).query(sql, bind)
-}
+): Promise<QueryResult[]> =>
+  withDbLock(async () => {
+    if (await isOpfs()) return opfsExecutor().query(sql, bind)
+    return legacyExecutor(await legacy()).query(sql, bind)
+  })
 
-export const run = async (
-  sql: string,
-  bind: SqlValue[] = []
-): Promise<void> => {
-  if (await isOpfs()) {
-    await rpcRun(sql, bind, currentTxToken ?? undefined)
-    return
-  }
-  return (await legacy()).run(sql, bind)
-}
+export const run = async (sql: string, bind: SqlValue[] = []): Promise<void> =>
+  withDbLock(async () => {
+    if (await isOpfs()) return opfsExecutor().run(sql, bind)
+    return legacyExecutor(await legacy()).run(sql, bind)
+  })
 
 /**
  * Run a mutating statement and atomically report its lastInsertRowid and
@@ -138,20 +164,11 @@ export const run = async (
 export const runWithMeta = async (
   sql: string,
   bind: SqlValue[] = []
-): Promise<RunResult> => {
-  if (await isOpfs()) {
-    return rpcRun(sql, bind, currentTxToken ?? undefined)
-  }
-  const legacyDb = await legacy()
-  await legacyDb.run(sql, bind)
-  const rows = await legacyDb.query(
-    "SELECT last_insert_rowid() AS id, changes() AS changed"
-  )
-  return {
-    lastInsertRowid: Number(rows[0]?.id ?? 0),
-    changes: Number(rows[0]?.changed ?? 0)
-  }
-}
+): Promise<RunResult> =>
+  withDbLock(async () => {
+    if (await isOpfs()) return opfsExecutor().runWithMeta(sql, bind)
+    return legacyExecutor(await legacy()).runWithMeta(sql, bind)
+  })
 
 // ---------------------------------------------------------------------------
 // Lifecycle

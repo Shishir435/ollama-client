@@ -65,7 +65,12 @@ beforeEach(async () => {
     return []
   })
   mocks.withTransaction.mockImplementation(
-    async (work: () => Promise<unknown>) => work()
+    async (
+      work: (transaction: {
+        query: typeof mocks.query
+        run: typeof mocks.run
+      }) => Promise<unknown>
+    ) => work({ query: mocks.query, run: mocks.run })
   )
 })
 

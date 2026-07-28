@@ -238,5 +238,45 @@ describe("Handle Embedding Download", () => {
       expect(pullSignal?.aborted).toBe(true)
       expect(setPlasmoStoredValue).not.toHaveBeenCalled()
     })
+
+    it("finishes the state commit before reporting cancellation", async () => {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce(createMockResponse({ models: [] }))
+        .mockResolvedValueOnce(createMockResponse(null))
+
+      let finishSelectedModelWrite: (() => void) | undefined
+      vi.mocked(plasmoGlobalStorage.set).mockImplementationOnce(
+        () =>
+          new Promise<null>((resolve) => {
+            finishSelectedModelWrite = () => resolve(null)
+          })
+      )
+
+      const controller = new AbortController()
+      const pending = downloadEmbeddingModelSilently(
+        "nomic-embed-text",
+        controller.signal
+      )
+
+      await vi.waitFor(() =>
+        expect(plasmoGlobalStorage.set).toHaveBeenCalledWith(
+          STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
+          "nomic-embed-text"
+        )
+      )
+      controller.abort()
+      finishSelectedModelWrite?.()
+
+      await expect(pending).rejects.toMatchObject({ name: "AbortError" })
+      expect(setPlasmoStoredValue).toHaveBeenCalledWith(
+        STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED,
+        true
+      )
+      expect(
+        vi.mocked(plasmoGlobalStorage.set).mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        vi.mocked(setPlasmoStoredValue).mock.invocationCallOrder[0] as number
+      )
+    })
   })
 })

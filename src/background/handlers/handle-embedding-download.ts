@@ -40,6 +40,27 @@ const forwardAbort = (
   return () => source.removeEventListener("abort", abort)
 }
 
+const commitDownloadedEmbeddingModel = async (
+  modelName: string,
+  signal?: AbortSignal
+): Promise<void> => {
+  throwIfAborted(signal)
+
+  // Treat the completion marker as the commit record. Storage writes are not
+  // abortable, so once this pair starts it must finish without observing
+  // cancellation between writes. If the second write fails, the model may be
+  // selected but the preparation is not falsely recorded as complete.
+  await plasmoGlobalStorage.set(
+    STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
+    modelName
+  )
+  await setPlasmoStoredValue(STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED, true)
+
+  // Preserve cancellation semantics for the RPC caller after state is
+  // consistent, even if cancellation arrived during the commit section.
+  throwIfAborted(signal)
+}
+
 /**
  * Checks if the embedding model is already downloaded
  */
@@ -420,13 +441,7 @@ export const downloadEmbeddingModelSilently = async (
       }
     }
 
-    // Mark as auto-downloaded
-    await setPlasmoStoredValue(STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED, true)
-    throwIfAborted(signal)
-    await plasmoGlobalStorage.set(
-      STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
-      normalizedModelName
-    )
+    await commitDownloadedEmbeddingModel(normalizedModelName, signal)
 
     logger.info(
       "Successfully downloaded embedding model",
