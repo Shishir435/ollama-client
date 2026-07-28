@@ -8,15 +8,45 @@ import {
   Zap
 } from "lucide-react"
 
+const MODEL_ICON_FAMILIES: ReadonlyArray<readonly [string, LucideIcon]> = [
+  ["codellama", Code],
+  ["starcoder", Code],
+  ["qwen", Sparkles],
+  ["qwq", Sparkles],
+  ["gemma", Sparkles],
+  ["mistral", Zap],
+  ["mixtral", Zap],
+  ["phi", Settings],
+  ["deepseek", Brain],
+  ["llama", Bot]
+]
+
+/**
+ * Picks a family icon by matching name *tokens*, not raw substrings.
+ *
+ * Substring matching mis-assigned real models. "dolphin-llama3" contains "phi",
+ * so a `phi` pattern claimed it; only the accident that `llama` happened to be
+ * tested first kept it on the llama icon, and reordering the list for any other
+ * reason silently broke it. "codellama" contains "llama" the same way, which made
+ * the `Code` branch unreachable no matter what it was ordered against.
+ *
+ * A pattern matches when some token *starts with* it — "phi4" matches `phi`,
+ * "dolphin" does not, and "codellama" does not match `llama`. That removes the
+ * dependence on ordering; the list stays specific-first only for readability.
+ */
 export const getModelIcon = (modelName: string): LucideIcon => {
-  const name = modelName.toLowerCase()
-  if (name.includes("llama")) return Bot
-  if (name.includes("mistral")) return Zap
-  if (name.includes("codellama")) return Code
-  if (name.includes("phi")) return Settings
-  if (name.includes("gemma")) return Sparkles
-  if (name.includes("qwq")) return Sparkles
+  // Checked first: an embedding model's name usually carries a family too
+  // ("mxbai-embed-large", "qwen3-embedding"), and what it is matters more than
+  // who made it.
   if (isEmbeddingModel(modelName)) return Brain
+
+  const tokens = modelName
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+  for (const [family, icon] of MODEL_ICON_FAMILIES) {
+    if (tokens.some((token) => token.startsWith(family))) return icon
+  }
   return Bot
 }
 

@@ -1,6 +1,7 @@
+import { Bot, Brain, Code, Settings, Sparkles, Zap } from "lucide-react"
 import { describe, expect, it } from "vitest"
 
-import { formatParameterSize } from "../model-utils"
+import { formatParameterSize, getModelIcon } from "../model-utils"
 
 describe("formatParameterSize", () => {
   it("caps the decimals at one and drops a trailing zero", () => {
@@ -36,5 +37,43 @@ describe("formatParameterSize", () => {
     expect(formatParameterSize("unknown")).toBe("unknown")
     expect(formatParameterSize("8B (q4)")).toBe("8B (q4)")
     expect(formatParameterSize("0B")).toBe("0B")
+  })
+})
+
+describe("getModelIcon", () => {
+  it("reaches the code icon for codellama", () => {
+    // "codellama" contains "llama", so testing the shorter pattern first made
+    // this branch unreachable.
+    expect(getModelIcon("codellama:13b")).toBe(Code)
+    expect(getModelIcon("starcoder2:3b")).toBe(Code)
+  })
+
+  it("matches a family only at a token boundary", () => {
+    // "dolphin" contains "phi", so substring matching handed this model the phi
+    // icon the moment the pattern list was reordered.
+    expect(getModelIcon("dolphin-llama3:latest")).toBe(Bot)
+    expect(getModelIcon("llama3.2:3b")).toBe(Bot)
+    expect(getModelIcon("phi4:14b")).toBe(Settings)
+  })
+
+  it("picks embedding models by what they are, not who made them", () => {
+    expect(getModelIcon("nomic-embed-text")).toBe(Brain)
+    expect(getModelIcon("mxbai-embed-large")).toBe(Brain)
+    // Would otherwise match the qwen family pattern.
+    expect(getModelIcon("qwen3-embedding:0.6b")).toBe(Brain)
+  })
+
+  it("maps the remaining families", () => {
+    expect(getModelIcon("gemma4:12b")).toBe(Sparkles)
+    expect(getModelIcon("qwen3:8b")).toBe(Sparkles)
+    expect(getModelIcon("qwq:32b")).toBe(Sparkles)
+    expect(getModelIcon("mistral:7b")).toBe(Zap)
+    expect(getModelIcon("mixtral:8x7b")).toBe(Zap)
+    expect(getModelIcon("phi4:14b")).toBe(Settings)
+    expect(getModelIcon("deepseek-r1:8b")).toBe(Brain)
+  })
+
+  it("falls back to the bot icon for an unknown family", () => {
+    expect(getModelIcon("some-unreleased-model:1b")).toBe(Bot)
   })
 })
