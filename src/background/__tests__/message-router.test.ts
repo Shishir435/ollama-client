@@ -4,6 +4,7 @@ import { handleLoadSelectionOverlay } from "@/background/message-router"
 import { browser } from "@/lib/browser-api"
 import {
   CONTENT_MESSAGE_PROTOCOL_VERSION,
+  SELECTION_OVERLAY_REQUEST_ID_GLOBAL,
   type SelectionOverlayLoadRequest
 } from "@/protocol/content-messages"
 import type { SendResponseFunction } from "@/types/messaging"
@@ -54,7 +55,12 @@ describe("handleLoadSelectionOverlay", () => {
         }
       })
     })
-    expect(executeScript).toHaveBeenCalledWith({
+    expect(executeScript).toHaveBeenNthCalledWith(1, {
+      target: { tabId: 17, frameIds: [4] },
+      func: expect.any(Function),
+      args: [SELECTION_OVERLAY_REQUEST_ID_GLOBAL, "request-1"]
+    })
+    expect(executeScript).toHaveBeenNthCalledWith(2, {
       target: { tabId: 17, frameIds: [4] },
       files: ["content-scripts/selection-overlay.js"]
     })

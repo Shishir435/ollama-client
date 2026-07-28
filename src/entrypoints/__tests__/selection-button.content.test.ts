@@ -67,6 +67,14 @@ describe("selection button bootstrap", () => {
     }
   }
 
+  const dispatchReady = (requestId = currentRequest().requestId) => {
+    document.dispatchEvent(
+      new CustomEvent(SELECTION_OVERLAY_READY_EVENT, {
+        detail: { requestId }
+      })
+    )
+  }
+
   it("retries after the background reports an injection failure", () => {
     selectText()
     expect(sendMessage).toHaveBeenCalledTimes(1)
@@ -96,7 +104,7 @@ describe("selection button bootstrap", () => {
   it("keeps the latch after successful injection", () => {
     selectText()
     reply?.(successfulResponse())
-    document.dispatchEvent(new Event(SELECTION_OVERLAY_READY_EVENT))
+    dispatchReady()
     selectText()
 
     expect(sendMessage).toHaveBeenCalledTimes(1)
@@ -113,12 +121,32 @@ describe("selection button bootstrap", () => {
 
   it("accepts readiness that arrives before the injection response", () => {
     selectText()
-    document.dispatchEvent(new Event(SELECTION_OVERLAY_READY_EVENT))
+    dispatchReady()
     reply?.(successfulResponse())
     vi.advanceTimersByTime(3_000)
     selectText()
 
     expect(sendMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it("ignores page-spoofed readiness without the request identity", () => {
+    selectText()
+    document.dispatchEvent(new Event(SELECTION_OVERLAY_READY_EVENT))
+    reply?.(successfulResponse())
+    vi.advanceTimersByTime(3_000)
+    selectText()
+
+    expect(sendMessage).toHaveBeenCalledTimes(2)
+  })
+
+  it("ignores readiness for a different injection request", () => {
+    selectText()
+    dispatchReady("stale-request")
+    reply?.(successfulResponse())
+    vi.advanceTimersByTime(3_000)
+    selectText()
+
+    expect(sendMessage).toHaveBeenCalledTimes(2)
   })
 
   it("retries when a response does not match its request identity", () => {

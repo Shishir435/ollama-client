@@ -19,6 +19,7 @@ import { logger } from "@/lib/logger"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
   isSelectionOverlayLoadRequest,
+  SELECTION_OVERLAY_REQUEST_ID_GLOBAL,
   type SelectionOverlayLoadResult
 } from "@/protocol/content-messages"
 import {
@@ -33,6 +34,10 @@ import type {
 
 const extensionUrlPrefix = browser.runtime.getURL("")
 const SELECTION_OVERLAY_FILE = "content-scripts/selection-overlay.js"
+
+const setSelectionOverlayRequestId = (key: string, requestId: string) => {
+  Reflect.set(globalThis, key, requestId)
+}
 
 export const handleLoadSelectionOverlay = (
   payload: unknown,
@@ -63,14 +68,22 @@ export const handleLoadSelectionOverlay = (
   }
 
   const frameId = sender.frameId
+  const target = {
+    tabId,
+    ...(typeof frameId === "number" ? { frameIds: [frameId] } : {})
+  }
   browser.scripting
     .executeScript({
-      target: {
-        tabId,
-        ...(typeof frameId === "number" ? { frameIds: [frameId] } : {})
-      },
-      files: [SELECTION_OVERLAY_FILE]
+      target,
+      func: setSelectionOverlayRequestId,
+      args: [SELECTION_OVERLAY_REQUEST_ID_GLOBAL, payload.requestId]
     })
+    .then(() =>
+      browser.scripting.executeScript({
+        target,
+        files: [SELECTION_OVERLAY_FILE]
+      })
+    )
     .then(() => {
       const senderWithDocument = sender as Runtime.MessageSender & {
         documentId?: string

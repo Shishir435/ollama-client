@@ -1,6 +1,12 @@
 export const CONTENT_MESSAGE_PROTOCOL_VERSION = 1 as const
 export const SELECTION_OVERLAY_READY_EVENT =
   "ollama-client:selection-overlay-ready:v1"
+export const SELECTION_OVERLAY_REQUEST_ID_GLOBAL =
+  "__ollamaClientSelectionOverlayRequestIdV1"
+
+export interface SelectionOverlayReadyDetail {
+  requestId: string
+}
 
 export interface SelectionOverlayLoadRequest {
   version: typeof CONTENT_MESSAGE_PROTOCOL_VERSION
@@ -17,6 +23,12 @@ export interface SelectionOverlayLoadResult {
   frameId: number
   documentId?: string
 }
+
+export const isSelectionOverlayReadyEvent = (
+  event: Event,
+  requestId: string
+): event is CustomEvent<SelectionOverlayReadyDetail> =>
+  event instanceof CustomEvent && event.detail?.requestId === requestId
 
 export const isSelectionOverlayLoadRequest = (
   value: unknown
