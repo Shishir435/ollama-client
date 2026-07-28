@@ -4,6 +4,7 @@ import {
   markOpfsBackend,
   readPersistenceBackend
 } from "../backend"
+import { describeWorkerError } from "../owner-host"
 import {
   decodeBind,
   decodeRows,
@@ -90,5 +91,51 @@ describe("persistence backend marker", () => {
       })
     })
     await expect(readPersistenceBackend()).resolves.toBe("opfs")
+  })
+})
+
+describe("worker error description", () => {
+  it("names the message and source location", () => {
+    const event = new ErrorEvent("error", {
+      message: "Refused to create a worker",
+      filename: "http://localhost:3000/src/lib/persistence/chat-db-worker.ts",
+      lineno: 12,
+      colno: 4
+    })
+
+    expect(describeWorkerError(event)).toBe(
+      "Persistence worker crashed: Refused to create a worker at http://localhost:3000/src/lib/persistence/chat-db-worker.ts:12:4"
+    )
+  })
+
+  it("falls back to the thrown error when the event has no message", () => {
+    // A worker that throws at runtime carries `error`; one that failed to load
+    // carries only `message`, and the old handler discarded both.
+    const event = new ErrorEvent("error", {
+      message: "",
+      error: new Error("boom")
+    })
+
+    expect(describeWorkerError(event)).toBe("Persistence worker crashed: boom")
+  })
+
+  it("omits the location when the event has no filename", () => {
+    const event = new ErrorEvent("error", { message: "opaque failure" })
+
+    expect(describeWorkerError(event)).toBe(
+      "Persistence worker crashed: opaque failure"
+    )
+  })
+
+  it("stays useful for a plain Event", () => {
+    expect(describeWorkerError(new Event("error"))).toBe(
+      "Persistence worker crashed (no error detail available)"
+    )
+  })
+
+  it("says so when there is no message at all", () => {
+    expect(describeWorkerError(new ErrorEvent("error"))).toBe(
+      "Persistence worker crashed: no message"
+    )
   })
 })
