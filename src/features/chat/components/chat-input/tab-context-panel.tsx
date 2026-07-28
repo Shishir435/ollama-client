@@ -9,6 +9,7 @@ import {
 import { useTranslation } from "react-i18next"
 
 import { TooltipActionButton } from "@/components/actions"
+import { EmptyState } from "@/components/feedback"
 import { ListRow, ListRowTitleButton } from "@/components/layout"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -156,9 +157,11 @@ export const TabContextPanel = ({
             )
           })}
           {filteredTabOptions.length === 0 && (
-            <p className="px-1.5 py-1 text-xs text-muted-foreground">
-              {t("tabs.inspector.no_content")}
-            </p>
+            <EmptyState
+              density="compact"
+              icon={AppWindow}
+              title={t("tabs.inspector.no_content")}
+            />
           )}
         </div>
       </ScrollArea>
