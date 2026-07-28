@@ -1,36 +1,19 @@
 import { Copy, MessageSquare, RefreshCw, SquarePen } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { type ActionConfig, ActionGroup } from "@/components/actions"
-import type { SelectionPanelState } from "../types"
+import { useSelectionOverlay } from "../selection-overlay-context"
 
-interface PanelFooterProps {
-  panelState: SelectionPanelState
-  resultText: string
-  canReplace: boolean
-  canInsert: boolean
-  tooltipContainer: HTMLElement | ShadowRoot | null
-  onCopy: () => void
-  onRetry: () => void
-  onReplace: () => void
-  onInsertBelow: () => void
-  onOpenChat: () => void
-  onCancel: () => void
-}
-
-export function PanelFooter({
-  panelState,
-  resultText,
-  canReplace,
-  canInsert,
-  tooltipContainer,
-  onCopy,
-  onRetry,
-  onReplace,
-  onInsertBelow,
-  onOpenChat,
-  onCancel
-}: PanelFooterProps) {
+export function PanelFooter() {
   const { t } = useTranslation()
+  const {
+    panelState,
+    resultText,
+    canReplace,
+    canInsert,
+    tooltipContainer,
+    actions
+  } = useSelectionOverlay()
+
   const utilityActions: ActionConfig[] = [
     {
       key: "copy",
@@ -38,7 +21,7 @@ export function PanelFooter({
       size: "icon",
       label: t("selection_button.panel.copy"),
       disabled: !resultText.trim(),
-      onClick: onCopy,
+      onClick: actions.copy,
       icon: Copy
     },
     {
@@ -47,7 +30,7 @@ export function PanelFooter({
       size: "icon",
       label: t("selection_button.panel.retry"),
       disabled: panelState === "streaming",
-      onClick: onRetry,
+      onClick: actions.retry,
       icon: RefreshCw
     }
   ]
@@ -60,7 +43,7 @@ export function PanelFooter({
       label: t("selection_button.panel.insert"),
       tooltip: t("selection_button.panel.insert_tip"),
       showLabel: true,
-      onClick: onInsertBelow
+      onClick: actions.insertBelow
     },
     {
       key: "open-chat",
@@ -69,7 +52,7 @@ export function PanelFooter({
       label: t("selection_button.panel.open_chat"),
       tooltip: t("selection_button.panel.open_chat_tip"),
       disabled: !resultText.trim(),
-      onClick: onOpenChat,
+      onClick: actions.openChat,
       icon: MessageSquare,
       showLabel: true
     },
@@ -80,7 +63,7 @@ export function PanelFooter({
       size: "default",
       label: t("selection_button.panel.replace"),
       tooltip: t("selection_button.panel.replace_tip"),
-      onClick: onReplace,
+      onClick: actions.replace,
       icon: SquarePen,
       showLabel: true
     },
@@ -91,7 +74,7 @@ export function PanelFooter({
       size: "default",
       label: t("selection_button.panel.cancel"),
       tooltip: t("selection_button.panel.cancel_tip"),
-      onClick: onCancel,
+      onClick: actions.cancel,
       showLabel: true
     }
   ]
