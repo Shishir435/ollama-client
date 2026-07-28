@@ -235,7 +235,9 @@ Note that the options-page composites are built for a ~900px page and do not fit
 
 ### React Hook Form fields
 
-When binding form fields to React Hook Form, use the app-owned `Controlled*` wrappers in `src/components/forms/` (`ControlledTextInput`, `ControlledTextarea`, `ControlledNumberInput`, `ControlledSelect`, `ControlledSlider`, `ControlledSwitch`). Do **not** spread `register(...)` into `src/components/ui/*` primitives. Several UI primitives are controlled Base UI wrappers; spread-register can make the DOM look updated while RHF state still holds the old value. The contract test in `src/components/forms/__tests__/react-hook-form-contract.test.ts` enforces this for production TSX.
+When binding form fields to React Hook Form, use the app-owned `Controlled*` wrappers in `src/components/forms/`. Do **not** spread `register(...)` into `src/components/ui/*` primitives. Several UI primitives are controlled Base UI wrappers; spread-register can make the DOM look updated while RHF state still holds the old value. The contract test in `src/components/forms/__tests__/react-hook-form-contract.test.ts` enforces this for production TSX and does not enumerate wrapper names, so it keeps holding as the set changes.
+
+The set is currently `ControlledTextarea`, `ControlledNumberInput`, and `ControlledSlider` — the fields the one RHF form in the app (`model-settings-form.tsx`) actually binds. `ControlledTextInput`, `ControlledSelect`, `ControlledSwitch`, and `NumberStepper` were deleted for having no caller. Writing the next one when a form needs it is cheaper than carrying four that read as adopted; recover them from git rather than starting from scratch.
 
 ### Settings search and deep links
 
@@ -310,5 +312,7 @@ If you're touching one of these, expect to refactor as you go:
 - `src/features/sessions/stores/chat-session-store.ts` is now a thin barrel (~19 LOC) over extracted store slices/actions; persistence reads via `src/lib/repositories/chat-history.ts`. The earlier ~485-LOC god-store has been split — don't go looking for it.
 - `src/features/model/components/provider-settings.tsx` delegates provider connection details and custom model editing to small components; keep new provider settings slices similarly scoped and covered by component tests.
 - `src/contents/index.ts` is now a thin entry (~38 LOC); selection-capture / dom-observer / messaging have been pulled into siblings.
+- `src/features/chat/components/chat-input/context-settings-menu.tsx` is now the sheet shell and view switch only (~205 LOC). Settings live in `hooks/use-context-settings.ts`, the tab list and its reconciliation effects in `hooks/use-context-tab-options.ts`, the summary line in `context-summary.ts`, and the views in `context-main-view.tsx` / `context-sub-view.tsx`. Add new context controls to the hook and the main view, not to the shell.
+- `src/features/selection-actions/` still drills props: `SelectionActionsOverlay` takes 32 and `SelectionPanel` 28, threaded from `selection-overlay-app.tsx`. Every other feature uses a Zustand store or context for this. If you touch that tree, move state into one rather than adding a prop.
 - `src/types/index.ts` is now a 14-line re-export barrel over six domain files (`chat`, `model`, `messaging`, `errors`, `content-extraction`, `ui-state`). New code should prefer importing from the per-domain path (`@/types/chat`) over the barrel.
 - Dexie chat-history paths are retired. Vector storage and knowledge sets still use Dexie; chat history stays SQLite-only through the facade.
