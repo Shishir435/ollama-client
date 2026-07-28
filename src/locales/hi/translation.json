@@ -173,8 +173,6 @@
       "chars": "अक्षर",
       "enter_to_send": "भेजें",
       "enter_key": "एंटर",
-      "rag_toggle_on": "स्मार्ट संदर्भ चालू है",
-      "rag_toggle_off": "स्मार्ट संदर्भ बंद है",
       "rag_toggle_tooltip": "Smart Context (Beta): फ़ाइल और चैट संदर्भ का उपयोग करें",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "वेब खोज के लिए टूल कॉलिंग चाहिए, जो यह मॉडल समर्थित नहीं करता। इसे उपयोग करने के लिए मॉडल सेटिंग्स में टूल फ़ॉलबैक सक्षम करें।",
@@ -421,13 +419,17 @@
       "web": "वेब"
     },
     "context": {
-      "preview_title": "मॉडल यह देखेगा",
       "none": "कोई अतिरिक्त संदर्भ नहीं",
       "page": "पेज",
       "tabs": "{{count}} टैब",
       "files": "{{count}} फ़ाइलें",
       "knowledge": "ज्ञान",
-      "web": "वेब"
+      "web": "वेब",
+      "rows": {
+        "tabs": "पेज और टैब संदर्भ",
+        "knowledge": "अपलोड की गई फ़ाइलें खोजें",
+        "web": "वेब खोज"
+      }
     },
     "artifacts": {
       "empty": "कोई आर्टिफ़ैक्ट सामग्री नहीं"
@@ -783,11 +785,9 @@
       "ready": "{{selected}}/{{total}} टैब तैयार",
       "updated": "अपडेट किया",
       "view_content": "निकाली गई सामग्री देखें",
-      "refresh_now": "अभी संदर्भ रीफ्रेश करें"
-    },
-    "toggle": {
-      "label_off": "टैब",
-      "label_on": "टैब+"
+      "refresh_now": "अभी संदर्भ रीफ्रेश करें",
+      "select_all": "सभी चुनें",
+      "clear_selection": "चयन हटाएँ"
     },
     "context": "संदर्भ",
     "inspector": {

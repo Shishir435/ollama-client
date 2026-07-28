@@ -107,22 +107,24 @@ export const useContextSettings = () => {
     (Boolean(capabilities?.toolCalling) || isResolving) &&
     Boolean(webSearchConfig.enabled)
 
+  // Each row carries one stable label. They used to change with state — "Tabs"
+  // became "Tab+" and "RAG" became "RAG+" when switched on — which made the
+  // label do the checkmark's job in a notation nobody could read, and meant the
+  // row you were looking for was worded differently depending on its state.
   const toggleActions: ContextToggleAction[] = [
     {
       key: "page",
       checked: Boolean(tabAccess),
       onClick: () => setTabAccess(!tabAccess),
       icon: AppWindow,
-      label: tabAccess ? t("tabs.toggle.label_on") : t("tabs.toggle.label_off")
+      label: t("chat.context.rows.tabs")
     },
     {
       key: "rag",
       checked: Boolean(useRAG),
       onClick: () => setUseRAG(!useRAG),
       icon: BrainCircuit,
-      label: useRAG
-        ? t("chat.input.rag_toggle_on")
-        : t("chat.input.rag_toggle_off")
+      label: t("chat.context.rows.knowledge")
     },
     ...(showWebSearch
       ? [
@@ -131,7 +133,7 @@ export const useContextSettings = () => {
             checked: webSearchActive,
             onClick: () => setWebSearchActive(!webSearchActive),
             icon: Search,
-            label: t("chat.context.web")
+            label: t("chat.context.rows.web")
           }
         ]
       : []),

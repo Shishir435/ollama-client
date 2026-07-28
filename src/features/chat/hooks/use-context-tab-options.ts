@@ -116,12 +116,39 @@ export const useContextTabOptions = ({
     [selectedTabIds, setSelectedTabIds]
   )
 
+  // Memoized off the already-memoized option list so it is a stable dependency
+  // for the callback below.
+  const visibleIds = useMemo(
+    () => filteredTabOptions.map((option) => option.value),
+    [filteredTabOptions]
+  )
+  const allVisibleSelected =
+    visibleIds.length > 0 &&
+    visibleIds.every((id) => selectedTabIds.includes(id))
+
+  /**
+   * Selects every tab currently listed, or clears them when they are all already
+   * selected. Scoped to the visible list rather than every open tab so it stays
+   * predictable while a search filter is applied, and it leaves selections that
+   * the filter is hiding alone.
+   */
+  const toggleAllVisible = useCallback(() => {
+    if (allVisibleSelected) {
+      const visible = new Set(visibleIds)
+      setSelectedTabIds(selectedTabIds.filter((id) => !visible.has(id)))
+      return
+    }
+    setSelectedTabIds([...new Set([...selectedTabIds, ...visibleIds])])
+  }, [allVisibleSelected, selectedTabIds, setSelectedTabIds, visibleIds])
+
   const previewTab = previewTabId
     ? tabContents[parseInt(previewTabId, 10)]
     : null
 
   return {
     filteredTabOptions,
+    allVisibleSelected,
+    toggleAllVisible,
     tabContents,
     getTabStatus,
     selectedTabIds,

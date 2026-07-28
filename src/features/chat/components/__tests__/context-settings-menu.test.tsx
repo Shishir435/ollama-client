@@ -37,11 +37,13 @@ vi.mock("@plasmohq/storage/hook", () => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, values?: { count?: number }) =>
+    t: (
+      key: string,
+      values?: { count?: number; selected?: number; total?: number }
+    ) =>
       ({
         "tabs.context": "Context",
-        "tabs.toggle.label_on": "Tab+",
-        "tabs.toggle.label_off": "Tabs",
+        "chat.context.rows.tabs": "Page & tab context",
         "tabs.select.placeholder": "Select open tabs",
         "tabs.select.search_placeholder": "Search tabs...",
         "tabs.select.refresh_now": "Refresh context now",
@@ -49,9 +51,11 @@ vi.mock("react-i18next", () => ({
         "tabs.inspector.untitled": "Untitled",
         "tabs.inspector.no_content": "(No extracted content yet)",
         "tabs.inspector.chars": `${values?.count ?? 0} chars`,
-        "chat.input.rag_toggle_on": "RAG+",
-        "chat.input.rag_toggle_off": "RAG",
-        "chat.context.preview_title": "The model will see",
+        "chat.context.rows.knowledge": "Search uploaded files",
+        "chat.context.rows.web": "Web search",
+        "tabs.select.ready": `${values?.selected ?? 0}/${values?.total ?? 0} tabs ready`,
+        "tabs.select.select_all": "Select all",
+        "tabs.select.clear_selection": "Clear selection",
         "chat.context.none": "No extra context",
         "chat.context.page": "Page",
         "chat.context.tabs": `${values?.count ?? 0} tabs`,
@@ -59,7 +63,8 @@ vi.mock("react-i18next", () => ({
         "chat.context.knowledge": "Knowledge",
         "chat.context.web": "Web",
         "settings.grounding_mode.label":
-          "Answer only from selected page context"
+          "Answer only from selected page context",
+        "settings.permissions.title": "Permissions & privacy"
       })[key] ?? key
   })
 }))
@@ -154,10 +159,18 @@ describe("ContextSettingsMenu", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Context" }))
 
-    expect(screen.getByText("Tab+")).toBeInTheDocument()
-    expect(screen.getByText("RAG+")).toBeInTheDocument()
-    expect(screen.getByText("Web")).toBeInTheDocument()
-    expect(screen.getByText("The model will see")).toBeInTheDocument()
+    // One stable label per row; the checkmark carries the on/off state.
+    expect(screen.getByText("Page & tab context")).toBeInTheDocument()
+    expect(screen.getByText("Search uploaded files")).toBeInTheDocument()
+    expect(screen.getByText("Web search")).toBeInTheDocument()
+    // The context summary is the sheet's subtitle now, not a labelled card in
+    // the main view — so it also survives into the sub-views.
+    expect(screen.getByText("1 tabs · Knowledge · Web")).toBeInTheDocument()
+    // Permissions opens another sheet, so it is a navigation row rather than a
+    // toggle sharing the switch stack above it.
+    expect(
+      screen.getByRole("button", { name: /Permissions & privacy/ })
+    ).toBeInTheDocument()
     expect(
       screen.getByText("Answer only from selected page context")
     ).toBeInTheDocument()
@@ -182,12 +195,51 @@ describe("ContextSettingsMenu", () => {
   it("controls the per-device web-search flag from the unified context tray", () => {
     render(<ContextSettingsMenu />)
     fireEvent.click(screen.getByRole("button", { name: "Context" }))
-    fireEvent.click(screen.getByRole("button", { name: "Web" }))
+    fireEvent.click(screen.getByRole("button", { name: "Web search" }))
 
     // Only the device-local active flag flips; the settings-level enable
     // (config.enabled) is never written from the chat tray.
     expect(mocks.setWebSearchActive).toHaveBeenCalledWith(false)
     expect(mocks.updateWebSearchConfig).not.toHaveBeenCalled()
+  })
+
+  it("selects every listed tab from the list header", () => {
+    render(<ContextSettingsMenu />)
+    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+
+    expect(screen.getByText("1/2 tabs ready")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Select all" }))
+
+    expect(mocks.setSelectedTabIds).toHaveBeenCalledWith(["7", "9"])
+  })
+
+  it("offers to clear instead once every listed tab is selected", () => {
+    mocks.selectedTabIds = ["7", "9"]
+    render(<ContextSettingsMenu />)
+    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+
+    expect(screen.getByText("2/2 tabs ready")).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Select all" })
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear selection" }))
+    expect(mocks.setSelectedTabIds).toHaveBeenCalledWith([])
+  })
+
+  it("keeps select-all scoped to the tabs the search leaves visible", () => {
+    mocks.selectedTabIds = []
+    render(<ContextSettingsMenu />)
+    fireEvent.click(screen.getByRole("button", { name: "Context" }))
+
+    fireEvent.change(screen.getByLabelText("Search tabs..."), {
+      target: { value: "current" }
+    })
+    // Only one tab matches, so the control is not offered for a single row.
+    expect(
+      screen.queryByRole("button", { name: "Select all" })
+    ).not.toBeInTheDocument()
+    expect(screen.getByText("0/1 tabs ready")).toBeInTheDocument()
   })
 
   it("hides and clears tabs matched by a never-read profile", () => {

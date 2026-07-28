@@ -173,8 +173,6 @@
       "chars": "文字",
       "enter_to_send": "送信",
       "enter_key": "Enter キー",
-      "rag_toggle_on": "スマートコンテキストがオン",
-      "rag_toggle_off": "スマートコンテキストがオフ",
       "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "ウェブ検索にはツール呼び出しが必要ですが、このモデルは対応していません。モデル設定でツールフォールバックを有効にしてください。",
@@ -421,13 +419,17 @@
       "web": "Web"
     },
     "context": {
-      "preview_title": "モデルに渡す内容",
       "none": "追加コンテキストなし",
       "page": "ページ",
       "tabs": "{{count}} 個のタブ",
       "files": "{{count}} 個のファイル",
       "knowledge": "ナレッジ",
-      "web": "Web"
+      "web": "Web",
+      "rows": {
+        "tabs": "ページとタブのコンテキスト",
+        "knowledge": "アップロードしたファイルを検索",
+        "web": "ウェブ検索"
+      }
     },
     "artifacts": {
       "empty": "アーティファクトの内容がありません"
@@ -783,11 +785,9 @@
       "ready": "{{selected}}/{{total}} タブ準備完了",
       "updated": "更新済み",
       "view_content": "抽出されたコンテンツを表示",
-      "refresh_now": "コンテキストを今すぐ更新"
-    },
-    "toggle": {
-      "label_off": "タブ",
-      "label_on": "タブ+"
+      "refresh_now": "コンテキストを今すぐ更新",
+      "select_all": "すべて選択",
+      "clear_selection": "選択を解除"
     },
     "context": "コンテキスト",
     "inspector": {

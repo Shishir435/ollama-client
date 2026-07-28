@@ -215,8 +215,6 @@
       "chars": "Characters",
       "enter_to_send": "Send",
       "enter_key": "Enter",
-      "rag_toggle_on": "RAG+",
-      "rag_toggle_off": "RAG",
       "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "Web search needs tool calling, which this model doesn't support. Enable tool fallback in model settings to use it.",
@@ -455,13 +453,17 @@
       "web": "Web"
     },
     "context": {
-      "preview_title": "The model will see",
       "none": "No extra context",
       "page": "Page",
       "tabs": "{{count}} tabs",
       "files": "{{count}} files",
       "knowledge": "Knowledge",
-      "web": "Web"
+      "web": "Web",
+      "rows": {
+        "tabs": "Page & tab context",
+        "knowledge": "Search uploaded files",
+        "web": "Web search"
+      }
     },
     "artifacts": {
       "empty": "No artifact content"
@@ -783,11 +785,9 @@
       "ready": "{{selected}}/{{total}} tabs ready",
       "updated": "Updated",
       "view_content": "View extracted content",
-      "refresh_now": "Refresh context now"
-    },
-    "toggle": {
-      "label_off": "Tabs",
-      "label_on": "Tab+"
+      "refresh_now": "Refresh context now",
+      "select_all": "Select all",
+      "clear_selection": "Clear selection"
     },
     "context": "Context",
     "inspector": {

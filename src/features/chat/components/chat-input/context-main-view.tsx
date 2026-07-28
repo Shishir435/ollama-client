@@ -1,6 +1,13 @@
-import { Camera, Check as CheckIcon, FileText, Lock } from "lucide-react"
+import {
+  Camera,
+  Check as CheckIcon,
+  ChevronRight,
+  FileText,
+  Lock
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
 import {
   ListRow,
   ListRowButton,
@@ -11,7 +18,6 @@ import type { ContextToggleAction } from "@/features/chat/hooks/use-context-sett
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
 
 interface ContextMainViewProps {
-  contextSummary: string
   toggleActions: ContextToggleAction[]
   attachmentCount: number
   disabled: boolean
@@ -26,7 +32,6 @@ interface ContextMainViewProps {
 }
 
 export const ContextMainView = ({
-  contextSummary,
   toggleActions,
   attachmentCount,
   disabled,
@@ -50,12 +55,6 @@ export const ContextMainView = ({
     // when the controls alone outgrow the sheet (short window, every optional
     // row visible).
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-      <div className="shrink-0 rounded-control border border-border/40 bg-muted/25 px-2.5 py-1.5">
-        <p className="text-micro font-medium uppercase text-muted-foreground">
-          {t("chat.context.preview_title")}
-        </p>
-        <p className="mt-0.5 text-xs text-foreground">{contextSummary}</p>
-      </div>
       {/* Single column: at a side panel's width a two-column row clipped labels
           like "Capture screenshot" mid-word. */}
       {hasActions && (
@@ -73,12 +72,30 @@ export const ContextMainView = ({
                   )}
                 </ListRowDescription>
               }
+              // Screenshot capture rides in this row rather than owning a
+              // separate bordered one below it: both add an attachment to the
+              // next message, so they belong to the same control, and the
+              // standalone row was the widest label in the sheet.
               trailing={
-                <FileUploadButton
-                  onFilesSelected={onFilesSelected}
-                  disabled={disabled}
-                  acceptImages={acceptImages}
-                />
+                <>
+                  {showScreenshot && onCaptureScreenshot && (
+                    <TooltipActionButton
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-control text-muted-foreground hover:text-foreground"
+                      disabled={disabled}
+                      onClick={onCaptureScreenshot}
+                      label={t("chat.input.screenshot")}
+                      icon={<Camera className="icon-sm" />}
+                    />
+                  )}
+                  <FileUploadButton
+                    onFilesSelected={onFilesSelected}
+                    disabled={disabled}
+                    acceptImages={acceptImages}
+                  />
+                </>
               }>
               <ListRowTitle className="text-foreground">
                 {t(
@@ -89,23 +106,27 @@ export const ContextMainView = ({
               </ListRowTitle>
             </ListRow>
           )}
-          {attachmentCount > 0 && (
-            <ListRowButton
-              surface="outline"
-              leading={<FileText className="icon-sm" />}
-              onClick={onOpenAttachments}>
-              <ListRowTitle>
-                {t("chat.input.attachments", { count: attachmentCount })}
-              </ListRowTitle>
-            </ListRowButton>
-          )}
-          {showScreenshot && onCaptureScreenshot && (
+          {/* Only reachable when the parent withheld the upload handler; with it
+              present, capture lives in the row above. */}
+          {!onFilesSelected && showScreenshot && onCaptureScreenshot && (
             <ListRowButton
               surface="outline"
               leading={<Camera className="icon-sm" />}
               disabled={disabled}
               onClick={onCaptureScreenshot}>
               <ListRowTitle>{t("chat.input.screenshot")}</ListRowTitle>
+            </ListRowButton>
+          )}
+          {attachmentCount > 0 && (
+            <ListRowButton
+              surface="outline"
+              leading={<FileText className="icon-sm" />}
+              trailing={<ChevronRight className="icon-sm" />}
+              trailingKind="control"
+              onClick={onOpenAttachments}>
+              <ListRowTitle>
+                {t("chat.input.attachments", { count: attachmentCount })}
+              </ListRowTitle>
             </ListRowButton>
           )}
         </div>
@@ -130,9 +151,16 @@ export const ContextMainView = ({
             </ListRowButton>
           )
         })}
+      </div>
+      {/* Its own group behind a rule. Sharing the toggle stack made it read as a
+          switch that never turned on, when it opens another sheet — hence the
+          chevron, which is the sheet's only navigation affordance. */}
+      <div className="shrink-0 border-t border-border/40 pt-1.5">
         <ListRowButton
           className="text-muted-foreground"
           leading={<Lock className="icon-sm" />}
+          trailing={<ChevronRight className="icon-sm" />}
+          trailingKind="control"
           onClick={onOpenPermissions}>
           <ListRowTitle className="font-normal">
             {t("settings.permissions.title")}

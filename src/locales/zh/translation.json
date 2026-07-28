@@ -173,8 +173,6 @@
       "chars": "字符",
       "enter_to_send": "发送",
       "enter_key": "回车",
-      "rag_toggle_on": "智能上下文已开启",
-      "rag_toggle_off": "智能上下文已关闭",
       "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "网页搜索需要工具调用，而此模型不支持。请在模型设置中启用工具回退以使用该功能。",
@@ -421,13 +419,17 @@
       "web": "网页"
     },
     "context": {
-      "preview_title": "模型将看到",
       "none": "无额外上下文",
       "page": "页面",
       "tabs": "{{count}} 个标签页",
       "files": "{{count}} 个文件",
       "knowledge": "知识",
-      "web": "网页"
+      "web": "网页",
+      "rows": {
+        "tabs": "页面和标签页上下文",
+        "knowledge": "搜索已上传的文件",
+        "web": "网页搜索"
+      }
     },
     "artifacts": {
       "empty": "没有工件内容"
@@ -783,11 +785,9 @@
       "ready": "{{selected}}/{{total}} 个标签页就绪",
       "updated": "已更新",
       "view_content": "查看提取的内容",
-      "refresh_now": "立即刷新上下文"
-    },
-    "toggle": {
-      "label_off": "标签页",
-      "label_on": "标签页+"
+      "refresh_now": "立即刷新上下文",
+      "select_all": "全选",
+      "clear_selection": "清除选择"
     },
     "context": "上下文",
     "inspector": {
