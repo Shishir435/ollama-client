@@ -15,7 +15,13 @@ export async function syncSelectionLanguage() {
   const stored = await plasmoGlobalStorage.get<string>(STORAGE_KEYS.LANGUAGE)
   const browserLanguage =
     chrome.i18n?.getUILanguage?.() ?? globalThis.navigator?.language
-  await setSelectionLanguage(stored ?? browserLanguage)
+  try {
+    await setSelectionLanguage(stored ?? browserLanguage)
+  } catch {
+    // Selection actions must still mount if i18next itself fails unexpectedly.
+    // The readiness handshake protects injection; untranslated keys are safer
+    // than disabling the feature for the rest of the frame lifetime.
+  }
 }
 
 export async function loadSelectionConfig() {
