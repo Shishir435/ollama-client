@@ -58,6 +58,8 @@ const fetchModelVariants = async (modelName: string): Promise<string[]> => {
   if (!section) return []
 
   const linkElements = section.querySelectorAll("a[href]")
+  const variantPrefix = `${modelName}:`
+  const validVariantTag = /^(latest|\d+(\.\d+)?[bB]|[a-zA-Z0-9_+\-.]+)$/
 
   const variants = Array.from(linkElements)
     .map((link) => link.getAttribute("href"))
@@ -69,10 +71,8 @@ const fetchModelVariants = async (modelName: string): Promise<string[]> => {
     })
     .filter(Boolean)
     .filter((variant) => {
-      const pattern = new RegExp(
-        `^${modelName}:(latest|\\d+(\\.\\d+)?[bB]|[a-zA-Z0-9_+\\-\\.]+)$`
-      )
-      return variant ? pattern.test(variant) : false
+      if (!variant?.startsWith(variantPrefix)) return false
+      return validVariantTag.test(variant.slice(variantPrefix.length))
     })
 
   return [...new Set(variants as string[])]

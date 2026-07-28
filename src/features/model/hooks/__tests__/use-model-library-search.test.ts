@@ -127,4 +127,30 @@ describe("useModelLibrarySearch", () => {
       name: "llama2"
     })
   })
+
+  it("treats model names literally when filtering variants", async () => {
+    rpc.mockResolvedValue({
+      html: `<a href="/library/model.name+"><h3>Literal name</h3></a>`
+    })
+    const { result } = renderHook(() => useModelLibrarySearch(), {
+      wrapper: createWrapper()
+    })
+
+    act(() => result.current.setSearchQuery("literal"))
+    await waitFor(() => expect(result.current.models).toHaveLength(1))
+
+    rpc.mockResolvedValue({
+      html: `<section>
+        <a href="/library/model.name+:latest">literal</a>
+        <a href="/library/modelXnameee:latest">regex lookalike</a>
+      </section>`
+    })
+    await act(async () => {
+      await result.current.loadVariants("model.name+")
+    })
+
+    await waitFor(() => {
+      expect(result.current.models[0]?.variants).toEqual(["model.name+:latest"])
+    })
+  })
 })

@@ -207,17 +207,38 @@ export const updatePromptTemplate = async (
   id: string,
   updated: Partial<PromptTemplate>
 ): Promise<void> => {
-  const current = (await listPromptTemplates()).find(
-    (template) => template.id === id
-  )
-  if (!current) return
-  const next = normalize({ ...current, ...updated, id })
-  if (!next) throw new Error("Invalid prompt template update")
-  const order = await query(
-    "SELECT sortOrder FROM prompt_templates WHERE id = ? LIMIT 1",
-    [id]
-  )
-  await insert(next, Number(order[0]?.sortOrder ?? 0))
+  await ensurePromptTemplatesMigrated()
+  let changed = false
+  await withTransaction(async () => {
+    const rows = await query(
+      "SELECT * FROM prompt_templates WHERE id = ? LIMIT 1",
+      [id]
+    )
+    const current = rows[0] ? fromRow(rows[0]) : null
+    if (!current) return
+
+    const next = normalize({ ...current, ...updated, id })
+    if (!next) throw new Error("Invalid prompt template update")
+    await run(
+      `UPDATE prompt_templates
+       SET title = ?, description = ?, category = ?, systemPrompt = ?,
+           userPrompt = ?, tags = ?, createdAt = ?, usageCount = ?
+       WHERE id = ?`,
+      [
+        next.title,
+        next.description ?? null,
+        next.category ?? null,
+        next.systemPrompt ?? null,
+        next.userPrompt,
+        next.tags?.length ? JSON.stringify(next.tags) : null,
+        next.createdAt?.getTime() ?? Date.now(),
+        next.usageCount ?? 0,
+        id
+      ]
+    )
+    changed = true
+  })
+  if (!changed) return
   await flushSave()
   notify()
 }
