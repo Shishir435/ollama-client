@@ -336,18 +336,24 @@ describe("panelActiveRef sync", () => {
 // ── model loading ─────────────────────────────────────────────────────────────
 
 describe("model loading", () => {
-  it("fetches models on mount when modelsRef is empty", async () => {
+  it("defers model loading until the toolbar expands", async () => {
+    const { getByText } = renderApp({ modelsPreloaded: false })
+
+    expect(contentSettings.loadAvailablePanelModels).not.toHaveBeenCalled()
+
     await act(async () => {
-      renderApp({ modelsPreloaded: false })
+      fireEvent.click(getByText("run-summarize"))
       vi.runAllTimers()
     })
 
     expect(contentSettings.loadAvailablePanelModels).toHaveBeenCalledOnce()
   })
 
-  it("skips model fetch when modelsRef already has data", async () => {
+  it("skips model fetch after expansion when modelsRef already has data", async () => {
+    const { getByText } = renderApp({ modelsPreloaded: true })
+
     await act(async () => {
-      renderApp({ modelsPreloaded: true })
+      fireEvent.click(getByText("run-summarize"))
       vi.runAllTimers()
     })
 

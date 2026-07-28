@@ -1,14 +1,22 @@
 import { defineContentScript } from "wxt/utils/define-content-script"
 import { MESSAGE_KEYS } from "@/lib/constants/keys"
+import {
+  CONTENT_MESSAGE_PROTOCOL_VERSION,
+  SELECTION_OVERLAY_READY_EVENT,
+  type SelectionOverlayLoadResult
+} from "@/protocol/content-messages"
 import type { ChromeResponse } from "@/types/messaging"
 
 const MIN_SELECTION_CHARS = 3
+const OVERLAY_READY_TIMEOUT_MS = 3_000
 
 export default defineContentScript({
   matches: ["<all_urls>"],
   allFrames: true,
   main(ctx) {
     let overlayRequested = false
+    let requestSequence = 0
+    let cancelPendingReadiness: (() => void) | undefined
 
     const requestOverlay = () => {
       if (overlayRequested) return
@@ -16,13 +24,72 @@ export default defineContentScript({
       if (!selection || selection.length < MIN_SELECTION_CHARS) return
 
       overlayRequested = true
+      requestSequence += 1
+      const requestId = `${Date.now()}:${requestSequence}`
+      let injectionAccepted = false
+      let overlayReady = false
+      let settled = false
+
+      const cleanupReadiness = () => {
+        document.removeEventListener(
+          SELECTION_OVERLAY_READY_EVENT,
+          handleOverlayReady
+        )
+        window.clearTimeout(readinessTimeout)
+        cancelPendingReadiness = undefined
+      }
+      const failRequest = () => {
+        if (settled) return
+        settled = true
+        overlayRequested = false
+        cleanupReadiness()
+      }
+      const acceptWhenReady = () => {
+        if (settled || !injectionAccepted || !overlayReady) return
+        settled = true
+        cleanupReadiness()
+      }
+      const handleOverlayReady = () => {
+        overlayReady = true
+        acceptWhenReady()
+      }
+      const readinessTimeout = window.setTimeout(
+        failRequest,
+        OVERLAY_READY_TIMEOUT_MS
+      )
+      document.addEventListener(
+        SELECTION_OVERLAY_READY_EVENT,
+        handleOverlayReady
+      )
+      cancelPendingReadiness = failRequest
+
       chrome.runtime.sendMessage(
-        { type: MESSAGE_KEYS.BROWSER.LOAD_SELECTION_OVERLAY },
+        {
+          type: MESSAGE_KEYS.BROWSER.LOAD_SELECTION_OVERLAY,
+          payload: {
+            version: CONTENT_MESSAGE_PROTOCOL_VERSION,
+            requestId,
+            document: {
+              url: window.location.href,
+              isTopFrame: window.top === window
+            }
+          }
+        },
         (response?: ChromeResponse) => {
           const runtimeError = chrome.runtime.lastError
-          if (runtimeError || response?.success !== true) {
-            overlayRequested = false
+          const result = response?.data as
+            | SelectionOverlayLoadResult
+            | undefined
+          if (
+            runtimeError ||
+            response?.success !== true ||
+            result?.requestId !== requestId
+          ) {
+            failRequest()
+            return
           }
+          injectionAccepted = true
+          acceptWhenReady()
         }
       )
     }
@@ -35,6 +102,7 @@ export default defineContentScript({
     document.addEventListener("keyup", queueOverlayRequest, true)
 
     ctx.onInvalidated(() => {
+      cancelPendingReadiness?.()
       document.removeEventListener("selectionchange", queueOverlayRequest, true)
       document.removeEventListener("pointerup", queueOverlayRequest, true)
       document.removeEventListener("mouseup", queueOverlayRequest, true)

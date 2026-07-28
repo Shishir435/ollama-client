@@ -4,7 +4,7 @@ Guidance for AI coding assistants (Claude Code, Cursor, Warp, Copilot, etc.) wor
 
 ## Project Overview
 
-Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files and optional provider-backed web search. Built with WXT, React 19, TypeScript 5.9, Tailwind v4, and Biome.
+Browser extension (Chrome MV3 / Firefox MV2) for chatting with local and remote LLM providers, with local-first RAG over uploaded files and optional provider-backed web search. Built with WXT, React 19, TypeScript 6, Tailwind v4, and Biome.
 
 Verified built-in providers: **Ollama, LM Studio, llama.cpp**. Users add vLLM, LocalAI, KoboldCPP, and other compatible servers through the OpenAI-compatible custom-provider flow. Anthropic is a custom provider backed by the native Claude Messages API. `openai-compatible.ts` is the shared implementation, not a separate built-in tile.
 
