@@ -7,6 +7,31 @@ published on the Chrome Web Store.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Chrome and Firefox package budgets now cover unpacked size, ZIP size, the
+  largest generated chunk, duplicate binary assets, and critical entry
+  surfaces. Dead-code checks also run in CI.
+
+### Changed
+
+- Ordinary pages now load only a small selection detector. The React selection
+  overlay, its active-locale catalog, page extraction, provider-model
+  discovery, inactive settings tabs, and backup code load only when needed.
+- Extension icons now use purpose-sized 16–128 pixel assets instead of shipping
+  one oversized source image.
+- Removed Mermaid runtime rendering and unused font subsets. Mermaid source can
+  still be previewed as text, copied, and downloaded.
+- Standardized typechecking on one TypeScript package.
+
+### Fixed
+
+- Selection-overlay injection can recover from transient background injection,
+  locale loading, and mount failures. The bootstrap waits for an explicit
+  ready signal and releases its retry latch when startup does not complete.
+
 ## [0.12.5] - 2026-07-27
 
 ### Added
