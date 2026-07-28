@@ -173,8 +173,6 @@
       "chars": "Caractères",
       "enter_to_send": "Envoyer",
       "enter_key": "Entrée",
-      "rag_toggle_on": "Contexte intelligent activé",
-      "rag_toggle_off": "Contexte intelligent désactivé",
       "rag_toggle_tooltip": "Smart Context (Beta): Utiliser le contexte des fichiers et du chat",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "La recherche web nécessite l'appel d'outils, que ce modèle ne prend pas en charge. Activez le fallback d'outils dans les paramètres du modèle.",
@@ -421,13 +419,17 @@
       "web": "Web"
     },
     "context": {
-      "preview_title": "Le modèle verra",
       "none": "Aucun contexte supplémentaire",
       "page": "Page",
       "tabs": "{{count}} onglets",
       "files": "{{count}} fichiers",
       "knowledge": "Connaissances",
-      "web": "Web"
+      "web": "Web",
+      "rows": {
+        "tabs": "Contexte de la page et des onglets",
+        "knowledge": "Rechercher dans les fichiers importés",
+        "web": "Recherche web"
+      }
     },
     "artifacts": {
       "empty": "Aucun contenu d'artefact"
@@ -783,11 +785,9 @@
       "ready": "{{selected}}/{{total}} onglets prêts",
       "updated": "Mis à jour",
       "view_content": "Voir le contenu extrait",
-      "refresh_now": "Actualiser le contexte maintenant"
-    },
-    "toggle": {
-      "label_off": "Onglets",
-      "label_on": "Onglet+"
+      "refresh_now": "Actualiser le contexte maintenant",
+      "select_all": "Tout sélectionner",
+      "clear_selection": "Effacer la sélection"
     },
     "context": "Contexte",
     "inspector": {

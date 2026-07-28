@@ -126,9 +126,13 @@ export const ContextSettingsMenu = ({
               <Layers className="icon-sm" />
               {t("tabs.context")}
             </SheetTitle>
-            <SheetDescription className="sr-only">
-              {t("tabs.inspector.description")}
-            </SheetDescription>
+            {/* The summary used to be a bordered card at the top of the main
+                view, spending a full boxed row plus its own uppercase label on
+                one line of text, and vanishing in the sub-views even though the
+                context it names does not change. As the sheet's description it
+                sits under the title where a subtitle belongs, needs no label to
+                be understood, and stays visible everywhere. */}
+            <SheetDescription>{contextSummary}</SheetDescription>
           </SheetHeader>
           {tabs.previewTabId ? (
             <ContextSubView
@@ -166,7 +170,6 @@ export const ContextSettingsMenu = ({
             </ContextSubView>
           ) : (
             <ContextMainView
-              contextSummary={contextSummary}
               toggleActions={settings.toggleActions}
               attachmentCount={attachmentCount}
               disabled={disabled}
@@ -183,6 +186,8 @@ export const ContextSettingsMenu = ({
                 settings.tabAccess ? (
                   <TabContextPanel
                     filteredTabOptions={tabs.filteredTabOptions}
+                    allVisibleSelected={tabs.allVisibleSelected}
+                    toggleAllVisible={tabs.toggleAllVisible}
                     tabContents={tabs.tabContents}
                     getTabStatus={tabs.getTabStatus}
                     selectedTabIds={tabs.selectedTabIds}

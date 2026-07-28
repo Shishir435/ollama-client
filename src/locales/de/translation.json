@@ -173,8 +173,6 @@
       "chars": "Zeichen",
       "enter_to_send": "Senden",
       "enter_key": "Eingabe",
-      "rag_toggle_on": "Intelligenter Kontext aktiviert",
-      "rag_toggle_off": "Intelligenter Kontext deaktiviert",
       "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "Websuche benötigt Tool-Aufrufe, die dieses Modell nicht unterstützt. Aktiviere den Tool-Fallback in den Modelleinstellungen.",
@@ -421,13 +419,17 @@
       "web": "Web"
     },
     "context": {
-      "preview_title": "Das Modell sieht",
       "none": "Kein zusätzlicher Kontext",
       "page": "Seite",
       "tabs": "{{count}} Tabs",
       "files": "{{count}} Dateien",
       "knowledge": "Wissen",
-      "web": "Web"
+      "web": "Web",
+      "rows": {
+        "tabs": "Seiten- und Tab-Kontext",
+        "knowledge": "Hochgeladene Dateien durchsuchen",
+        "web": "Websuche"
+      }
     },
     "artifacts": {
       "empty": "Kein Artefakt-Inhalt"
@@ -783,11 +785,9 @@
       "ready": "{{selected}}/{{total}} Tabs bereit",
       "updated": "Aktualisiert",
       "view_content": "Extrahierten Inhalt anzeigen",
-      "refresh_now": "Kontext jetzt aktualisieren"
-    },
-    "toggle": {
-      "label_off": "Aus",
-      "label_on": "Ein"
+      "refresh_now": "Kontext jetzt aktualisieren",
+      "select_all": "Alle auswählen",
+      "clear_selection": "Auswahl aufheben"
     },
     "context": "Kontext",
     "inspector": {

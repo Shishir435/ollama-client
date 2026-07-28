@@ -173,8 +173,6 @@
       "chars": "Caratteri",
       "enter_to_send": "Invia",
       "enter_key": "Invio",
-      "rag_toggle_on": "Contesto intelligente attivo",
-      "rag_toggle_off": "Contesto intelligente disattivato",
       "rag_toggle_tooltip": "Smart Context (Beta): Usa contesto file e chat",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "La ricerca web richiede le chiamate agli strumenti, che questo modello non supporta. Attiva il fallback degli strumenti nelle impostazioni del modello.",
@@ -421,13 +419,17 @@
       "web": "Web"
     },
     "context": {
-      "preview_title": "Il modello vedrà",
       "none": "Nessun contesto aggiuntivo",
       "page": "Pagina",
       "tabs": "{{count}} schede",
       "files": "{{count}} file",
       "knowledge": "Conoscenza",
-      "web": "Web"
+      "web": "Web",
+      "rows": {
+        "tabs": "Contesto di pagina e schede",
+        "knowledge": "Cerca nei file caricati",
+        "web": "Ricerca web"
+      }
     },
     "artifacts": {
       "empty": "Nessun contenuto dell'artefatto"
@@ -783,11 +785,9 @@
       "ready": "{{selected}}/{{total}} schede pronte",
       "updated": "Aggiornato",
       "view_content": "Visualizza contenuto estratto",
-      "refresh_now": "Aggiorna contesto ora"
-    },
-    "toggle": {
-      "label_off": "Schede",
-      "label_on": "Scheda+"
+      "refresh_now": "Aggiorna contesto ora",
+      "select_all": "Seleziona tutto",
+      "clear_selection": "Cancella selezione"
     },
     "context": "Contesto",
     "inspector": {

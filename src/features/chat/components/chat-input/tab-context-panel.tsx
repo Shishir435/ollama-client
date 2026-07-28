@@ -1,10 +1,12 @@
 import {
   AppWindow,
-  CheckIcon,
+  Check as CheckIcon,
   Eye,
   Loader2,
   RefreshCw,
-  Search
+  Search,
+  SquareCheck,
+  SquareMinus
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
@@ -86,6 +88,8 @@ const TabOptionRow = ({
 
 interface TabContextPanelProps {
   filteredTabOptions: { value: string; label: string }[]
+  allVisibleSelected: boolean
+  toggleAllVisible: () => void
   tabContents: Record<number, { html?: string; title?: string } | undefined>
   getTabStatus: (id: string) => { loading: boolean }
   selectedTabIds: string[]
@@ -98,6 +102,8 @@ interface TabContextPanelProps {
 
 export const TabContextPanel = ({
   filteredTabOptions,
+  allVisibleSelected,
+  toggleAllVisible,
   tabContents,
   getTabStatus,
   selectedTabIds,
@@ -108,19 +114,54 @@ export const TabContextPanel = ({
   openPreview
 }: TabContextPanelProps) => {
   const { t } = useTranslation()
+  const visibleIds = new Set(filteredTabOptions.map((option) => option.value))
+  const selectedCount = selectedTabIds.filter((id) => visibleIds.has(id)).length
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1.5 border-t border-border/40 pt-1.5">
       <div className="flex shrink-0 items-center justify-between gap-2 pl-2.5 pr-1 text-2xs font-medium text-muted-foreground">
-        <span>{t("tabs.select.placeholder")}</span>
-        <TooltipActionButton
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-6 rounded-control"
-          onClick={refreshTabs}
-          label={t("tabs.select.refresh_now")}
-          icon={<RefreshCw className="icon-xs" />}
-        />
+        {/* How many tabs are actually going into the prompt, rather than a static
+            "Select open tabs" instruction — the count is the thing that changes
+            and the thing worth checking before sending. */}
+        <span className="min-w-0 truncate">
+          {filteredTabOptions.length > 0
+            ? t("tabs.select.ready", {
+                selected: selectedCount,
+                total: filteredTabOptions.length
+              })
+            : t("tabs.select.placeholder")}
+        </span>
+        <div className="flex shrink-0 items-center">
+          {filteredTabOptions.length > 1 && (
+            <TooltipActionButton
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-6 rounded-control"
+              onClick={toggleAllVisible}
+              label={
+                allVisibleSelected
+                  ? t("tabs.select.clear_selection")
+                  : t("tabs.select.select_all")
+              }
+              icon={
+                allVisibleSelected ? (
+                  <SquareMinus className="icon-xs" />
+                ) : (
+                  <SquareCheck className="icon-xs" />
+                )
+              }
+            />
+          )}
+          <TooltipActionButton
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-6 rounded-control"
+            onClick={refreshTabs}
+            label={t("tabs.select.refresh_now")}
+            icon={<RefreshCw className="icon-xs" />}
+          />
+        </div>
       </div>
       <div className="relative shrink-0">
         <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 icon-sm text-muted-foreground" />
