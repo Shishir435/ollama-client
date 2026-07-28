@@ -210,6 +210,29 @@ Uses Biome (not ESLint/Prettier):
 
 `src/components/ui/` is a curated set of in-use shadcn primitives, not the default kitchen-sink install. Before adding a new primitive, check whether an existing one or a small component composition would do. If you add one, verify it is actually imported somewhere before merging.
 
+The same rule applies to the app-owned composite layers (`components/settings/`, `components/actions/`, `components/feedback/`, `components/forms/`, `components/layout/`): a component with no importer outside its own layer is speculative, and five of them were deleted from `components/feedback/` for that reason. Add the second real caller in the same change, or don't add the component.
+
+### Component name suffixes
+
+The suffix names what a component *renders*, not how important it feels. Four are in use:
+
+| Suffix | Renders |
+|---|---|
+| `*-card.tsx` | Its own bordered surface as the root — `Card` or `SettingsCard` |
+| `*-section.tsx` | A titled group with no surface of its own (`SettingsSection`, `AdvancedSection`) |
+| `*-fields.tsx` | A bare group of form fields — fragment root, no title, no surface |
+| `*-panel.tsx` | A feature's whole composed surface, owning the arrangement of its own cards and sections |
+
+These had drifted far enough that `permissions-panel`, `approvals-card`, and `model-parameters-section` were the same shape under three suffixes. Match the suffix to the root element when adding or restructuring a component.
+
+### Dense list rows
+
+Side-panel rows of the shape *leading glyph → label → trailing action* go through `ListRow` / `ListRowButton` in `src/components/layout/list-row.tsx`. Do not rebuild the grid: hand-rolled copies are what left one sheet with leading edges on 8/16/18/26px and trailing glyphs on 8/14/16px.
+
+`ListRow` is a `div` for rows whose title and trailing control are separate hit areas; `ListRowButton` is the same geometry on a `<button>` for whole-row targets. Use `inset="nested"` inside an already-padded scroll container, and `trailingKind="control"` when the trailing slot ends in a hit-area that pays its own padding.
+
+Note that the options-page composites are built for a ~900px page and do not fit a ~400px side panel: `SettingsRow` is `p-3 text-sm` with breakpoints, and `EmptyState` needs `density="compact"` for a dense list. Reach for the dense primitive rather than hand-rolling a smaller copy of a page-sized one.
+
 ### React Hook Form fields
 
 When binding form fields to React Hook Form, use the app-owned `Controlled*` wrappers in `src/components/forms/` (`ControlledTextInput`, `ControlledTextarea`, `ControlledNumberInput`, `ControlledSelect`, `ControlledSlider`, `ControlledSwitch`). Do **not** spread `register(...)` into `src/components/ui/*` primitives. Several UI primitives are controlled Base UI wrappers; spread-register can make the DOM look updated while RHF state still holds the old value. The contract test in `src/components/forms/__tests__/react-hook-form-contract.test.ts` enforces this for production TSX.

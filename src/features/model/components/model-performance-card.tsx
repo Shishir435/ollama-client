@@ -11,7 +11,7 @@ import type { ProviderModelConfig } from "@/features/model/hooks/use-model-confi
 import { useDebounce } from "@/hooks/use-debounce"
 import { Zap } from "@/lib/lucide-icon"
 
-export interface ModelPerformanceSectionProps {
+export interface ModelPerformanceCardProps {
   config: ProviderModelConfig
   updateConfig: (updates: Partial<ProviderModelConfig>) => void
 }
@@ -26,10 +26,10 @@ const parseKeepAlive = (value: string): string | number | undefined => {
 const stringifyKeepAlive = (value?: string | number) =>
   value === undefined || value === null ? "" : String(value)
 
-export const ModelPerformanceSection = ({
+export const ModelPerformanceCard = ({
   config,
   updateConfig
-}: ModelPerformanceSectionProps) => {
+}: ModelPerformanceCardProps) => {
   const { t } = useTranslation()
   const [keepAliveInput, setKeepAliveInput] = useState(
     stringifyKeepAlive(config.keep_alive)

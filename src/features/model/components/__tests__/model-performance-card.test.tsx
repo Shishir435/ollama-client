@@ -2,17 +2,17 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
-import { ModelPerformanceSection } from "../model-performance-section"
+import { ModelPerformanceCard } from "../model-performance-card"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key })
 }))
 
-describe("ModelPerformanceSection", () => {
+describe("ModelPerformanceCard", () => {
   it("does not flush partial keep_alive values while typing", () => {
     const updateConfig = vi.fn()
     const { unmount } = render(
-      <ModelPerformanceSection
+      <ModelPerformanceCard
         config={DEFAULT_MODEL_CONFIG}
         updateConfig={updateConfig}
       />

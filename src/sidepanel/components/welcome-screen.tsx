@@ -4,13 +4,13 @@ import { SetupGuideLink } from "@/components/setup-guide-link"
 import { SocialHandles } from "@/components/social-handles"
 import { StartChatButton } from "@/components/start-chat-button"
 import { FeatureGrid } from "./welcome/feature-grid"
-import { HeroSection } from "./welcome/hero-section"
+import { HeroCard } from "./welcome/hero-card"
 import { StatusCard } from "./welcome/status-card"
 
 export const WelcomeScreen = () => {
   return (
     <div className="flex w-full flex-col items-center justify-start overflow-auto rounded-b-lg rounded-t-2xl bg-background px-4 py-6 text-foreground scrollbar-none">
-      <HeroSection />
+      <HeroCard />
 
       <StatusCard />
 

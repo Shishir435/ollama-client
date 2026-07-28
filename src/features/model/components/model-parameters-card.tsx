@@ -8,7 +8,7 @@ import {
 } from "@/features/model/lib/model-form-config"
 import { Brain, Target } from "@/lib/lucide-icon"
 
-export const ModelParametersSection = () => {
+export const ModelParametersCard = () => {
   const { t } = useTranslation()
 
   const sliderConfigs = getSliderConfigs(t)

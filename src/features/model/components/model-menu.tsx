@@ -34,6 +34,7 @@ import { extensionRpcClient } from "@/protocol/extension-client"
 import { RpcMethod } from "@/protocol/rpc"
 import {
   formatFileSize,
+  formatParameterSize,
   getModelIcon,
   isEmbeddingModel
 } from "../lib/model-utils"
@@ -259,7 +260,7 @@ export const ModelMenu = ({
                   <strong>{selectionConflictModel}</strong>.
                 </div>
               )}
-              <div className="flex items-center justify-between p-1">
+              <div className="flex items-center justify-between px-2 py-1">
                 <span className="text-micro font-semibold text-muted-foreground uppercase tracking-wider">
                   {t("model.menu.models_label")}
                 </span>
@@ -293,7 +294,10 @@ export const ModelMenu = ({
               </CommandEmpty>
 
               {Object.entries(groupedModels).map(([providerId, group]) => (
-                <CommandGroup key={providerId} heading={group.name}>
+                <CommandGroup
+                  key={providerId}
+                  heading={group.name}
+                  className="**:[[cmdk-group-heading]]:px-1.5">
                   {group.models.map((model) => {
                     const ModelIcon = getModelIcon(model.name)
                     const caps = resolve(
@@ -305,70 +309,75 @@ export const ModelMenu = ({
                         key={`${providerId}-${model.name}`}
                         value={model.name}
                         onSelect={() => handleSelect(model.name, providerId)}
-                        className="flex items-center gap-2 rounded-control px-1.5 py-1.5 mb-0.5 cursor-pointer aria-selected:bg-accent">
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-control bg-muted/50">
+                        className="mb-0.5 flex cursor-pointer items-center gap-2 rounded-control px-1.5 py-1.5 aria-selected:bg-accent [&>svg]:hidden">
+                        <div className="flex size-7 shrink-0 items-center justify-center">
                           <ModelIcon className="icon-sm text-muted-foreground" />
                         </div>
 
                         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
                             <span className="truncate font-medium text-micro">
                               {model.name}
                             </span>
                             {duplicateModelNames.has(model.name) && (
                               <Badge
                                 variant="secondary"
-                                className="h-4 px-1 text-micro">
+                                className="h-4 shrink-0 px-1 text-micro">
                                 Conflict
                               </Badge>
                             )}
+                            {model.size ? (
+                              <span className="shrink-0 whitespace-nowrap text-nano text-muted-foreground tabular-nums">
+                                {formatFileSize(model.size, t)}
+                              </span>
+                            ) : null}
                             {(selectedModelRef
                               ? selectedModelRef.modelId === model.name &&
                                 selectedModelRef.providerId === providerId
                               : selectedModel === model.name) && (
-                              <Check className="icon-sm text-primary" />
+                              <Check className="icon-sm shrink-0 text-primary" />
                             )}
                           </div>
 
-                          <div className="flex items-center gap-1.5 mt-0.5">
+                          <div className="flex items-center gap-1.5 mt-0.5 overflow-hidden">
                             {model.details?.parameter_size && (
                               <Badge
                                 variant="outline"
-                                className="h-4 border px-1 text-nano font-mono text-muted-foreground border-border/50">
-                                {model.details.parameter_size}
+                                className="h-4 shrink-0 border px-1 text-nano font-mono text-muted-foreground border-border/50">
+                                {formatParameterSize(
+                                  model.details.parameter_size
+                                )}
                               </Badge>
                             )}
                             {model.details?.quantization_level && (
                               <Badge
                                 variant="outline"
-                                className="h-4 px-1 text-nano font-mono text-muted-foreground border-border/50">
+                                className="h-4 shrink-0 px-1 text-nano font-mono text-muted-foreground border-border/50">
                                 {model.details.quantization_level}
                               </Badge>
                             )}
-                            <ModelCapabilityBadges caps={caps} />
-                            {model.size ? (
-                              <span className="text-nano text-muted-foreground tabular-nums">
-                                {formatFileSize(model.size, t)}
-                              </span>
-                            ) : null}
-                            <button
-                              type="button"
-                              aria-label={t(
-                                "model.capabilities.edit_aria_label",
-                                { model: model.name }
-                              )}
-                              title={t("model.capabilities.edit_tooltip")}
-                              className="ml-auto flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                e.preventDefault()
-                                openCapabilitySheet(model.name, providerId)
-                              }}>
-                              <Settings className="icon-xs" />
-                            </button>
+                            <ModelCapabilityBadges
+                              caps={caps}
+                              className="shrink-0"
+                            />
                           </div>
                         </div>
+
+                        <button
+                          type="button"
+                          aria-label={t("model.capabilities.edit_aria_label", {
+                            model: model.name
+                          })}
+                          title={t("model.capabilities.edit_tooltip")}
+                          className="flex size-7 shrink-0 items-center justify-center self-center rounded-control text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            e.preventDefault()
+                            openCapabilitySheet(model.name, providerId)
+                          }}>
+                          <Settings className="icon-sm" />
+                        </button>
                       </CommandItem>
                     )
                   })}

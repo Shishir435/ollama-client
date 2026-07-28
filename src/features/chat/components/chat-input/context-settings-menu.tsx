@@ -13,6 +13,12 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
+import {
+  ListRow,
+  ListRowButton,
+  ListRowDescription,
+  ListRowTitle
+} from "@/components/layout"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -49,15 +55,11 @@ import {
 } from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { matchesUserPattern } from "@/lib/url-pattern"
-import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig, ImageAttachment } from "@/types"
 import { CopyButton } from "../copy-button"
 import { PreviewTextBlock } from "../preview-sheet"
 import { AttachmentList } from "./attachment-list"
 import { TabContextPanel } from "./tab-context-panel"
-
-const trimTitle = (title: string, max = 38) =>
-  title ? (title.length > max ? `${title.slice(0, max)}...` : title) : ""
 
 const EMPTY_PROFILE_LIST: PerSiteProfileSettings["profiles"] = []
 const EMPTY_PROCESSING_STATES: FileProcessingState[] = []
@@ -171,7 +173,9 @@ export const ContextSettingsMenu = ({
     return openTabs
       .filter((tab) => tab.id !== undefined && isAccessible(tab.url))
       .map((tab) => ({
-        label: trimTitle(tab.title || tab.url || t("tabs.inspector.untitled")),
+        // Full title: the row truncates with CSS so it uses whatever width the
+        // sheet has, and the untruncated string feeds search and the tooltip.
+        label: tab.title || tab.url || t("tabs.inspector.untitled"),
         value: String(tab.id),
         icon: AppWindow
       }))
@@ -332,9 +336,14 @@ export const ContextSettingsMenu = ({
         />
         <SheetContent
           side="right"
-          className="w-[min(28rem,calc(100vw-1rem))] gap-2 overflow-y-auto p-2 sm:max-w-md"
-          closeButtonClassName="top-2 right-2">
-          <SheetHeader className="p-0 pr-10">
+          className="w-[min(28rem,calc(100vw-1rem))] gap-2 overflow-hidden p-2 sm:max-w-md"
+          // Every text and leading glyph in this sheet sits on one content edge
+          // 18px from the sheet's outer edge (8px sheet inset + 10px inner), and
+          // every trailing glyph is optically 18px from the right edge. A
+          // trailing hit-area therefore carries a smaller box inset than its
+          // leading side: 18px minus the button's own padding.
+          closeButtonClassName="top-2 right-3">
+          <SheetHeader className="p-0 pl-2.5 pr-10">
             <SheetTitle className="flex items-center gap-2">
               <Layers className="icon-sm" />
               {t("tabs.context")}
@@ -396,8 +405,12 @@ export const ContextSettingsMenu = ({
               </ScrollArea>
             </div>
           ) : (
-            <>
-              <div className="rounded-control border border-border/40 bg-muted/25 px-2.5 py-1.5">
+            // The sheet itself no longer scrolls: the controls keep their
+            // natural height here and the tab list below claims the remainder.
+            // This column only scrolls when the controls alone outgrow the
+            // sheet (short window, every optional row visible).
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+              <div className="shrink-0 rounded-control border border-border/40 bg-muted/25 px-2.5 py-1.5">
                 <p className="text-micro font-medium uppercase text-muted-foreground">
                   {t("chat.context.preview_title")}
                 </p>
@@ -405,96 +418,95 @@ export const ContextSettingsMenu = ({
                   {contextSummary}
                 </p>
               </div>
+              {/* Single column: at a side panel's width a two-column row
+                  clipped labels like "Capture screenshot" mid-word. */}
               {(onFilesSelected ||
                 attachmentCount > 0 ||
                 (showScreenshot && onCaptureScreenshot)) && (
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid shrink-0 gap-1.5">
                   {onFilesSelected && (
-                    <div className="col-span-2 flex items-center justify-between gap-2 rounded-control border border-border/40 px-2.5 py-1.5">
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-medium text-foreground">
-                          {t(
-                            acceptImages
-                              ? "file_upload.button.aria_label_with_images"
-                              : "file_upload.button.aria_label"
-                          )}
-                        </p>
-                        <p className="truncate text-2xs text-muted-foreground">
+                    <ListRow
+                      surface="outline"
+                      trailingKind="control"
+                      description={
+                        <ListRowDescription>
                           {t(
                             acceptImages
                               ? "file_upload.button.formats_with_images"
                               : "file_upload.button.formats"
                           )}
-                        </p>
-                      </div>
-                      <FileUploadButton
-                        onFilesSelected={onFilesSelected}
-                        disabled={disabled}
-                        acceptImages={acceptImages}
-                      />
-                    </div>
+                        </ListRowDescription>
+                      }
+                      trailing={
+                        <FileUploadButton
+                          onFilesSelected={onFilesSelected}
+                          disabled={disabled}
+                          acceptImages={acceptImages}
+                        />
+                      }>
+                      <ListRowTitle className="text-foreground">
+                        {t(
+                          acceptImages
+                            ? "file_upload.button.aria_label_with_images"
+                            : "file_upload.button.aria_label"
+                        )}
+                      </ListRowTitle>
+                    </ListRow>
                   )}
                   {attachmentCount > 0 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-auto justify-start gap-2 px-2.5 py-2 text-xs"
+                    <ListRowButton
+                      surface="outline"
+                      leading={<FileText className="icon-sm" />}
                       onClick={() => setView("attachments")}>
-                      <FileText className="icon-sm" />
-                      {t("chat.input.attachments", { count: attachmentCount })}
-                    </Button>
+                      <ListRowTitle>
+                        {t("chat.input.attachments", {
+                          count: attachmentCount
+                        })}
+                      </ListRowTitle>
+                    </ListRowButton>
                   )}
                   {showScreenshot && onCaptureScreenshot && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-auto justify-start gap-2 px-2.5 py-2 text-xs"
+                    <ListRowButton
+                      surface="outline"
+                      leading={<Camera className="icon-sm" />}
                       disabled={disabled}
                       onClick={onCaptureScreenshot}>
-                      <Camera className="icon-sm" />
-                      {t("chat.input.screenshot")}
-                    </Button>
+                      <ListRowTitle>{t("chat.input.screenshot")}</ListRowTitle>
+                    </ListRowButton>
                   )}
                 </div>
               )}
-              <div className="grid gap-0.5">
+              <div className="grid shrink-0 gap-0.5">
                 {toggleActions.map((action) => {
                   const Icon = action.icon
                   return (
-                    <Button
+                    <ListRowButton
                       key={action.key}
-                      type="button"
-                      variant="ghost"
-                      className={cn(
-                        "h-7 justify-start gap-2 rounded-control px-2 text-xs",
-                        action.checked
-                          ? "bg-muted/55 text-foreground"
-                          : "text-muted-foreground"
-                      )}
+                      active={Boolean(action.checked)}
+                      leading={<Icon className="icon-sm" />}
+                      trailing={
+                        action.checked ? (
+                          <CheckIcon className="icon-sm text-app-primary" />
+                        ) : undefined
+                      }
                       onClick={action.onClick}>
-                      <Icon className="icon-sm shrink-0" />
-                      <span className="min-w-0 flex-1 truncate text-left">
+                      <ListRowTitle className="font-normal">
                         {action.label}
-                      </span>
-                      {action.checked && (
-                        <CheckIcon className="icon-sm shrink-0 text-app-primary" />
-                      )}
-                    </Button>
+                      </ListRowTitle>
+                    </ListRowButton>
                   )
                 })}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-7 justify-start gap-2 rounded-control px-2 text-xs text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+                <ListRowButton
+                  className="text-muted-foreground"
+                  leading={<Lock className="icon-sm" />}
                   onClick={() => {
                     setOpen(false)
                     setPermsOpen(true)
                   }}>
-                  <Lock className="icon-sm shrink-0" />
-                  <span className="min-w-0 flex-1 truncate text-left">
+                  <ListRowTitle className="font-normal">
                     {t("settings.permissions.title")}
-                  </span>
-                </Button>
+                  </ListRowTitle>
+                </ListRowButton>
               </div>
               {tabAccess && (
                 <TabContextPanel
@@ -509,7 +521,7 @@ export const ContextSettingsMenu = ({
                   openPreview={openPreview}
                 />
               )}
-            </>
+            </div>
           )}
         </SheetContent>
       </Sheet>

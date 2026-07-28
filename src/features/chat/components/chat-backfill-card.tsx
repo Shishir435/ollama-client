@@ -13,7 +13,7 @@ import { logger } from "@/lib/logger"
 import { AlertCircle, Loader2, Sparkles } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
-export const ChatBackfillPanel = () => {
+export const ChatBackfillCard = () => {
   const { t } = useTranslation()
   const [memoryEnabled] = useStorage<boolean>(
     {
@@ -55,7 +55,7 @@ export const ChatBackfillPanel = () => {
     } catch (err) {
       const errorMessage = getDisplayErrorMessage(err, "Backfill failed")
       setError(errorMessage)
-      logger.error("Backfill error", "ChatBackfillPanel", { error: err })
+      logger.error("Backfill error", "ChatBackfillCard", { error: err })
     } finally {
       setIsRunning(false)
     }
