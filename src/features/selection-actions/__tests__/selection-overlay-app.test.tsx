@@ -41,61 +41,52 @@ vi.mock("@/lib/runtime-messages", () => ({
   sendRuntimeMessage: vi.fn().mockResolvedValue(undefined)
 }))
 
-// Stub SelectionActionsOverlay — exposes each callback as a named button
-// so tests can trigger actions without depending on translations or icon layout.
-vi.mock("../components/selection-actions-overlay", () => ({
-  SelectionActionsOverlay: ({
-    onRunAction,
-    onCancel,
-    onBack,
-    onClose,
-    onRetry,
-    onRunCustom,
-    onToggleMore,
-    panelState,
-    mode
-  }: {
-    onRunAction: (id: string) => void
-    onCancel: () => void
-    onBack: () => void
-    onClose: () => void
-    onRetry: () => void
-    onRunCustom: () => void
-    onToggleMore: () => void
-    panelState: string
-    mode: string
-  }) => (
-    <div data-testid="overlay" data-mode={mode} data-panel-state={panelState}>
-      <button type="button" onClick={() => onRunAction("summarize")}>
-        run-summarize
-      </button>
-      <button type="button" onClick={() => onRunAction("shorten")}>
-        run-shorten
-      </button>
-      <button type="button" onClick={() => onRunAction("custom")}>
-        run-custom
-      </button>
-      <button type="button" onClick={onCancel}>
-        cancel
-      </button>
-      <button type="button" onClick={onBack}>
-        back
-      </button>
-      <button type="button" onClick={onClose}>
-        close
-      </button>
-      <button type="button" onClick={onRetry}>
-        retry
-      </button>
-      <button type="button" onClick={onRunCustom}>
-        run-custom-submit
-      </button>
-      <button type="button" onClick={onToggleMore}>
-        toggle-more
-      </button>
-    </div>
-  )
-}))
+// Stub SelectionActionsOverlay — exposes each action as a named button so tests
+// can trigger it without depending on translations or icon layout. It reads the
+// overlay context, which is also what the real tree does, so a missing provider
+// fails here rather than silently rendering nothing.
+vi.mock("../components/selection-actions-overlay", async () => {
+  const { useSelectionOverlay } = await import("../selection-overlay-context")
+  return {
+    SelectionActionsOverlay: () => {
+      const { mode, panelState, actions } = useSelectionOverlay()
+      return (
+        <div
+          data-testid="overlay"
+          data-mode={mode}
+          data-panel-state={panelState}>
+          <button type="button" onClick={() => actions.runAction("summarize")}>
+            run-summarize
+          </button>
+          <button type="button" onClick={() => actions.runAction("shorten")}>
+            run-shorten
+          </button>
+          <button type="button" onClick={() => actions.runAction("custom")}>
+            run-custom
+          </button>
+          <button type="button" onClick={actions.cancel}>
+            cancel
+          </button>
+          <button type="button" onClick={actions.back}>
+            back
+          </button>
+          <button type="button" onClick={actions.close}>
+            close
+          </button>
+          <button type="button" onClick={actions.retry}>
+            retry
+          </button>
+          <button type="button" onClick={actions.runCustom}>
+            run-custom-submit
+          </button>
+          <button type="button" onClick={actions.toggleMore}>
+            toggle-more
+          </button>
+        </div>
+      )
+    }
+  }
+})
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
