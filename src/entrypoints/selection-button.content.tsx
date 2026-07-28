@@ -2,6 +2,7 @@ import { defineContentScript } from "wxt/utils/define-content-script"
 import { MESSAGE_KEYS } from "@/lib/constants/keys"
 import {
   CONTENT_MESSAGE_PROTOCOL_VERSION,
+  isSelectionOverlayReadyEvent,
   SELECTION_OVERLAY_READY_EVENT,
   type SelectionOverlayLoadResult
 } from "@/protocol/content-messages"
@@ -9,13 +10,16 @@ import type { ChromeResponse } from "@/types/messaging"
 
 const MIN_SELECTION_CHARS = 3
 const OVERLAY_READY_TIMEOUT_MS = 3_000
+const createRequestId = () =>
+  Array.from(crypto.getRandomValues(new Uint32Array(4)), (value) =>
+    value.toString(16).padStart(8, "0")
+  ).join("")
 
 export default defineContentScript({
   matches: ["<all_urls>"],
   allFrames: true,
   main(ctx) {
     let overlayRequested = false
-    let requestSequence = 0
     let cancelPendingReadiness: (() => void) | undefined
 
     const requestOverlay = () => {
@@ -24,8 +28,7 @@ export default defineContentScript({
       if (!selection || selection.length < MIN_SELECTION_CHARS) return
 
       overlayRequested = true
-      requestSequence += 1
-      const requestId = `${Date.now()}:${requestSequence}`
+      const requestId = createRequestId()
       let injectionAccepted = false
       let overlayReady = false
       let settled = false
@@ -49,7 +52,8 @@ export default defineContentScript({
         settled = true
         cleanupReadiness()
       }
-      const handleOverlayReady = () => {
+      const handleOverlayReady = (event: Event) => {
+        if (!isSelectionOverlayReadyEvent(event, requestId)) return
         overlayReady = true
         acceptWhenReady()
       }
