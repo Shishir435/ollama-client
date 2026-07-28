@@ -65,7 +65,7 @@
     "e2e:chromium:critical": "playwright test --grep @critical",
     "e2e:headed": "E2E_HEADFUL=1 playwright test --grep @critical",
     "e2e:report": "playwright show-report artifacts/e2e/html",
-    "verify": "pnpm typecheck && pnpm lint:check && pnpm test:run && pnpm check:generated && pnpm check:compatibility",
+    "verify": "pnpm typecheck && pnpm lint:check && pnpm check:dead && pnpm check:i18n && pnpm test:run && pnpm check:generated && pnpm check:compatibility",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
@@ -84,7 +84,7 @@
     "clean": "rm -rf build .plasmo .wxt .output node_modules",
     "prepare": "husky && pnpm generate:resources",
     "generate:resources": "pnpm exec tsx tools/generate-i18n-resources.ts",
-    "check:generated": "pnpm generate:resources && git diff --exit-code -- src/i18n/resources.ts public/_locales",
+    "check:generated": "pnpm generate:resources && git diff --exit-code -- public/_locales",
     "check:i18n": "pnpm exec tsx tools/check-i18n-drift.ts --strict",
     "check:compatibility": "node tools/check-compatibility-ledger.mjs"
   },

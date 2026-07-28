@@ -43,4 +43,5 @@ export const bulkAddFiles = sqliteRepo.bulkAddFiles
 export const deleteFilesBySession = sqliteRepo.deleteFilesBySession
 export const deleteFilesByMessageIds = sqliteRepo.deleteFilesByMessageIds
 
+export const flushChatHistory = sqliteRepo.flushChatHistory
 export const dropDatabase = sqliteRepo.dropDatabase

@@ -29,6 +29,7 @@ vi.mock("../sqlite-chat-history", () => ({
   bulkAddFiles: vi.fn(),
   deleteFilesBySession: vi.fn(),
   deleteFilesByMessageIds: vi.fn(),
+  flushChatHistory: vi.fn(),
   dropDatabase: vi.fn()
 }))
 

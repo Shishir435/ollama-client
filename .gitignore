@@ -51,7 +51,6 @@ analysis/stats.html
 .idea
 
 # generated at build time by tools/generate-i18n-resources.ts
-src/i18n/resources.ts
 public/assets/selection-locales/
 
 # generated at build time by starlight-typedoc from the extension's

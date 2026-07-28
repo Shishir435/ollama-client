@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from "node:fs"
-import { resolve } from "node:path"
 import { execSync } from "node:child_process"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
+import { resolve } from "node:path"
+
+import { LANGUAGES } from "../src/i18n/languages"
 
 interface ExtensionManifest {
   manifest_version?: number
@@ -131,6 +133,36 @@ const expectBuiltFile = (
   assert(
     existsSync(resolve(rootDir, relativePath)),
     `${browserName} build missing file: ${label}`
+  )
+}
+
+const expectLazyLocaleArtifacts = (
+  relativeOutputDir: string,
+  browserName: string
+): void => {
+  for (const language of LANGUAGES) {
+    expectBuiltFile(
+      `${relativeOutputDir}/assets/selection-locales/${language.value}.json`,
+      `${language.value} selection locale`,
+      browserName
+    )
+  }
+
+  const chunkNames = readdirSync(resolve(rootDir, relativeOutputDir, "chunks"))
+  const translationChunks = chunkNames.filter((name) =>
+    /^translation-[\w-]+\.js$/.test(name)
+  )
+  const localeLoaderChunks = chunkNames.filter((name) =>
+    /^locale-loader-[\w-]+\.js$/.test(name)
+  )
+
+  assert(
+    translationChunks.length === LANGUAGES.length,
+    `${browserName} build expected ${LANGUAGES.length} lazy translation chunks, found ${translationChunks.length}`
+  )
+  assert(
+    localeLoaderChunks.length === 1,
+    `${browserName} build expected one locale-loader chunk, found ${localeLoaderChunks.length}`
   )
 }
 
@@ -275,6 +307,8 @@ const main = (): void => {
     "runtime-injected selection overlay",
     "Firefox"
   )
+  expectLazyLocaleArtifacts("build/chrome-mv3-prod", "Chrome")
+  expectLazyLocaleArtifacts("build/firefox-mv2-prod", "Firefox")
 
   expectPermission(chromeManifest, "storage", "Chrome")
   expectPermission(chromeManifest, "tabs", "Chrome")
@@ -321,7 +355,7 @@ const main = (): void => {
 
   console.log("\n✅ Browser smoke verification passed")
   console.log(
-    "   Chrome/Firefox manifests, entry surfaces, CSP connect-src, and browser-specific permissions are valid."
+    "   Chrome/Firefox manifests, entry surfaces, lazy locales, CSP connect-src, and browser-specific permissions are valid."
   )
 }
 

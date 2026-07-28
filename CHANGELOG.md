@@ -9,9 +9,30 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.12.6]
+
 ### Changed
 
 - Bumped package version to `0.12.6`.
+
+### Development
+
+- Split the settings search/deep-link registry into one module per options tab
+  while preserving its existing public API and ordering.
+- Added a policy registry for retained runtime messages and ports, plus source
+  contracts that keep chat history behind its repository facade, SQLite
+  internals out of feature/UI code, and feature stores out of the root store
+  directory.
+- Extracted the tab-context picker from the chat context menu so tab browsing
+  and preview behavior can evolve independently from attachment and model
+  context controls.
+- Stopped generating the obsolete all-languages TypeScript catalog. App
+  translations remain source JSON files loaded as one lazy chunk per language;
+  generation now produces only extension metadata and the small selection
+  overlay catalogs.
+- Aligned local verification with CI's dead-code and translation-completeness
+  gates, and extended browser smoke checks to enforce lazy locale packaging for
+  both browser targets.
 
 ## [0.12.5] - 2026-07-29
 
@@ -624,7 +645,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.5...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.6...HEAD
+[0.12.6]: https://github.com/Shishir435/ollama-client/compare/0.12.5...0.12.6
 [0.12.5]: https://github.com/Shishir435/ollama-client/compare/0.12.4...0.12.5
 [0.12.4]: https://github.com/Shishir435/ollama-client/compare/0.12.3...0.12.4
 [0.12.3]: https://github.com/Shishir435/ollama-client/compare/0.11.27...0.12.3
