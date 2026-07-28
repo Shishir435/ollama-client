@@ -1,6 +1,6 @@
+import { Loader2, Search } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
-import { Loader2, Search } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export interface SearchInputProps {

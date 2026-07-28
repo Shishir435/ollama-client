@@ -1,8 +1,7 @@
+import { RefreshCcw } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { Button } from "@/components/ui/button"
 import { ModelMenu } from "@/features/model/components/model-menu"
-import { RefreshCcw } from "@/lib/lucide-icon"
 
 export interface RegenerateButtonProps {
   model: string

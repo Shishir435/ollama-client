@@ -1,7 +1,7 @@
+import { Download } from "lucide-react"
 import type { RefObject } from "react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { ArtifactPreview } from "@/features/chat/components/artifact-preview"
 import { CopyButton } from "@/features/chat/components/copy-button"
@@ -10,7 +10,6 @@ import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { downloadArtifact } from "@/lib/artifact-download"
 import type { ChatArtifact } from "@/lib/artifacts"
 import { createChatArtifactFromCodeBlock } from "@/lib/artifacts"
-import { Download } from "@/lib/lucide-icon"
 
 const codeActionButtonClass =
   "inline-flex items-center justify-center rounded border border-border/50 bg-background/90 p-1 text-muted-foreground shadow-xs backdrop-blur hover:text-foreground"

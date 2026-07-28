@@ -1,6 +1,6 @@
+import { Sparkles } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Card } from "@/components/ui/card"
-import { Sparkles } from "@/lib/lucide-icon"
 
 export const HeroCard = () => {
   const { t } = useTranslation()

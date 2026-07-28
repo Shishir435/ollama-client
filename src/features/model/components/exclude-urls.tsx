@@ -1,6 +1,6 @@
+import { AlertCircle, Globe, Plus, Shield, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
-
 import {
   SettingsActionRow,
   SettingsCard,
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { DEFAULT_EXCLUDE_URLS } from "@/lib/constants"
-import { AlertCircle, Globe, Plus, Shield, Trash2 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export interface ExcludedUrlsProps {

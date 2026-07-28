@@ -1,5 +1,5 @@
+import { AlertCircle, CircleCheck, FileText, Loader2, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import {
   Popover,
@@ -9,13 +9,6 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { FILE_UPLOAD } from "@/lib/constants"
 import type { FileProcessingState } from "@/lib/file-processors/types"
-import {
-  AlertCircle,
-  CircleCheck,
-  FileText,
-  Loader2,
-  X
-} from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export interface FilePreviewProps {

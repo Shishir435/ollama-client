@@ -1,6 +1,6 @@
+import { Info, Loader2, Zap } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -13,7 +13,6 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/logger"
-import { Info, Loader2, Zap } from "@/lib/lucide-icon"
 import type {
   ModelCapabilities,
   ModelCapabilityOverride

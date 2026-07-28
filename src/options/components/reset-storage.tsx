@@ -1,6 +1,17 @@
+import {
+  CircleCheck,
+  Globe,
+  Library,
+  Loader2,
+  type LucideIcon,
+  MessageSquare,
+  RefreshCcw,
+  Settings,
+  Shield,
+  Volume2
+} from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { SectionStack } from "@/components/layout"
 import { SettingsCard, StatusAlert } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
@@ -19,18 +30,6 @@ import { Separator } from "@/components/ui/separator"
 import { useResetAppStorage } from "@/hooks/use-reset-app-storage"
 import { readAndClearResetFailure } from "@/lib/app-reset"
 import { getAllResetKeys } from "@/lib/get-all-reset-keys"
-import {
-  CircleCheck,
-  Globe,
-  Library,
-  Loader2,
-  type LucideIcon,
-  MessageSquare,
-  RefreshCcw,
-  Settings,
-  Shield,
-  Volume2
-} from "@/lib/lucide-icon"
 
 export const ResetStorage = () => {
   const { t } = useTranslation()

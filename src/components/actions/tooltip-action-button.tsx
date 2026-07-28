@@ -1,14 +1,13 @@
+import type { LucideIcon } from "lucide-react"
 import type React from "react"
 import { createElement, type ElementType, isValidElement } from "react"
 import { useTranslation } from "react-i18next"
-
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export interface TooltipActionButtonProps

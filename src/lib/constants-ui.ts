@@ -1,5 +1,3 @@
-import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
-import { EXTERNAL_URLS } from "@/lib/constants/urls"
 import {
   BookOpen,
   Bug,
@@ -11,7 +9,9 @@ import {
   Linkedin,
   type LucideIcon,
   Twitter
-} from "@/lib/lucide-icon"
+} from "lucide-react"
+import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
+import { EXTERNAL_URLS } from "@/lib/constants/urls"
 import type { ContentScraper, ScrollStrategy } from "@/types"
 
 export interface SocialLink {

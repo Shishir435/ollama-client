@@ -46,11 +46,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
       include: ["src/**/*.ts"],
-      exclude: [
-        "src/**/*.{test,spec}.{ts,tsx}",
-        "src/**/*.d.ts",
-        "src/lib/lucide-icon.ts"
-      ]
+      exclude: ["src/**/*.{test,spec}.{ts,tsx}", "src/**/*.d.ts"]
     }
   },
   resolve: {

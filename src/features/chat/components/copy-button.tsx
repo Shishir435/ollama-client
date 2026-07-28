@@ -1,10 +1,9 @@
+import { Check, Copy } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { logger } from "@/lib/logger"
-import { Check, Copy } from "@/lib/lucide-icon"
 
 export const CopyButton = ({ text }: { text: string }) => {
   const { t } = useTranslation()

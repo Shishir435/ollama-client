@@ -1,4 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { BookOpen, Globe, Scissors, ShieldCheck, Upload } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
 import {
@@ -17,13 +18,6 @@ import {
 import { MemorySettings } from "@/features/memory/components/memory-settings"
 import { WebSearchSettings } from "@/features/web-search/components/web-search-settings"
 import { STORAGE_KEYS } from "@/lib/constants"
-import {
-  BookOpen,
-  Globe,
-  Scissors,
-  ShieldCheck,
-  Upload
-} from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 const AutoScreenshotSettings = () => {

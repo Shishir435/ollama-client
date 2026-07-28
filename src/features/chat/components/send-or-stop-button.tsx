@@ -1,8 +1,7 @@
+import { SendHorizontal, StopCircle } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
-import { SendHorizontal, StopCircle } from "@/lib/lucide-icon"
 
 export const SendOrStopButton = ({
   onSend,

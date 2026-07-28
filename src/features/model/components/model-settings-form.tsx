@@ -1,3 +1,4 @@
+import { Settings } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -22,7 +23,6 @@ import {
 } from "@/features/model/lib/model-form-config"
 import { useDebounce } from "@/hooks/use-debounce"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
-import { Settings } from "@/lib/lucide-icon"
 
 const MODEL_CONFIG_FORM_KEYS: (keyof FormValues)[] = [
   "system",

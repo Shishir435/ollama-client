@@ -1,6 +1,6 @@
+import { MessageSquare } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { ChatSearchResult } from "@/features/chat/hooks/use-semantic-chat-search"
-import { MessageSquare } from "@/lib/lucide-icon"
 import { SearchResultItem } from "./search-result-item"
 
 export interface SearchResultGroupProps {

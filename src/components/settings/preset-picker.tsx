@@ -1,6 +1,6 @@
+import { Layers, type LucideIcon, Shield, Sparkles, Zap } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { SettingsCard } from "@/components/settings/settings-card"
 import { SettingsChangeDialog } from "@/components/settings/settings-change-dialog"
 import { applyStorageWrites } from "@/features/settings/apply-settings"
@@ -10,13 +10,6 @@ import {
 } from "@/features/settings/presets"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
-import {
-  Layers,
-  type LucideIcon,
-  Shield,
-  Sparkles,
-  Zap
-} from "@/lib/lucide-icon"
 
 const PRESET_ICONS: Record<string, LucideIcon> = {
   fast: Zap,

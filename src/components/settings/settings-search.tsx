@@ -1,3 +1,4 @@
+import { Search } from "lucide-react"
 import { type Ref, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
@@ -8,7 +9,6 @@ import {
   rankSettingsSearchRecords,
   type SettingsSearchRecord
 } from "@/features/settings/settings-search-index"
-import { Search } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 /** Registry tab key → the i18n key for that tab's nav label. */

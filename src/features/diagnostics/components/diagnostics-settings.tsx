@@ -1,6 +1,6 @@
+import { Activity, Copy, Download, Github, Loader2, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { SettingsCard } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -8,14 +8,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { openExternalUrl } from "@/lib/browser-api"
 import { buildDiagnosticIssueUrl } from "@/lib/error-report"
-import {
-  Activity,
-  Copy,
-  Download,
-  Github,
-  Loader2,
-  Trash2
-} from "@/lib/lucide-icon"
 import type {
   DiagnosticsGetBundleResult,
   DiagnosticTestResult

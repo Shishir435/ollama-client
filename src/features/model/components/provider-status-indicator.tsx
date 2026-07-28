@@ -1,15 +1,14 @@
-import { useEffect } from "react"
-import { useTranslation } from "react-i18next"
-
-import { TooltipActionButton } from "@/components/actions"
-import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import {
   AlertTriangle,
   Loader2,
   RefreshCw,
   Server,
   XCircle
-} from "@/lib/lucide-icon"
+} from "lucide-react"
+import { useEffect } from "react"
+import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { cn } from "@/lib/utils"
 

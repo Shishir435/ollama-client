@@ -1,3 +1,11 @@
+import {
+  CheckCircle,
+  Download,
+  HardDriveDownload,
+  Loader2,
+  Upload,
+  XCircle
+} from "lucide-react"
 import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -23,14 +31,6 @@ import type { ImportResult } from "@/lib/backup-service"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { formatBackupFilenameTimestamp } from "@/lib/format-utils"
 import { logger } from "@/lib/logger"
-import {
-  CheckCircle,
-  Download,
-  HardDriveDownload,
-  Loader2,
-  Upload,
-  XCircle
-} from "@/lib/lucide-icon"
 
 export const DataMigrationSettings = () => {
   const { t } = useTranslation()

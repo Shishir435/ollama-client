@@ -1,5 +1,4 @@
-import type { LucideIcon } from "@/lib/lucide-icon"
-import { Power, RefreshCcw, Settings } from "@/lib/lucide-icon"
+import { type LucideIcon, Power, RefreshCcw, Settings } from "lucide-react"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import { RpcMethod } from "@/protocol/rpc"
 import type { ChatMessage } from "@/types"

@@ -192,7 +192,7 @@ Built-in model-callable tools live under `src/lib/tools/internal/` and are regis
 - Setup: `src/test/setup.ts` mocks chrome APIs and IndexedDB.
 - Run a single file: `pnpm test src/path/to/module.test.ts`.
 
-Coverage config (`vitest.config.ts`) excludes only test files, `.d.ts` declarations, and `src/lib/lucide-icon.ts`. UI components, type modules, and barrels are now included so coverage numbers reflect reality.
+Coverage config (`vitest.config.ts`) excludes only test files and `.d.ts` declarations. UI components, type modules, and barrels are included so coverage numbers reflect reality.
 
 ### Linting / Formatting
 
@@ -211,6 +211,14 @@ Uses Biome (not ESLint/Prettier):
 `src/components/ui/` is a curated set of in-use shadcn primitives, not the default kitchen-sink install. Before adding a new primitive, check whether an existing one or a small component composition would do. If you add one, verify it is actually imported somewhere before merging.
 
 The same rule applies to the app-owned composite layers (`components/settings/`, `components/actions/`, `components/feedback/`, `components/forms/`, `components/layout/`): a component with no importer outside its own layer is speculative, and five of them were deleted from `components/feedback/` for that reason. Add the second real caller in the same change, or don't add the component.
+
+### Icons
+
+Import icons straight from `lucide-react`. The `@/lib/lucide-icon` re-export barrel was retired: it bought nothing measurable. Tree-shaking already drops unused icons through a re-export (verified by building and checking that icon path `key` strings for unreferenced icons are absent from `build/chrome-mv3-prod`, and that removing the barrel left the bundle at the same 9.13 MB), the design-system contract test accepted both specifiers so it enforced no allowlist, and 34 files imported `lucide-react` directly anyway. It cost a split convention, five dead exports, and an edit-the-barrel-first step for every new icon.
+
+`LucideIcon` is a type export of `lucide-react`. Note there is no `CheckIcon` there — the barrel had aliased `Check as CheckIcon`, so keep that alias when a file wants the old name.
+
+The contract test in `src/components/__tests__/design-system-contract.test.ts` requires named icon-size tokens (`icon-sm`, `icon-xs`, …) on any component imported from `lucide-react`, not raw `size-4`-style classes.
 
 ### Component name suffixes
 

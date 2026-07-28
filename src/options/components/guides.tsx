@@ -1,5 +1,5 @@
+import { ExternalLink, Notebook } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { SectionStack } from "@/components/layout"
 import { SettingsCard } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
@@ -7,7 +7,6 @@ import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { GUIDES } from "@/lib/constants-ui"
 import { buildGenericIssueReportUrl } from "@/lib/error-report"
-import { ExternalLink, Notebook } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 const guideFocusId = (labelKey: string) =>

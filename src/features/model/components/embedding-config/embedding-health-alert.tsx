@@ -1,5 +1,5 @@
+import { AlertTriangle, RefreshCw } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { StatusAlert } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -8,7 +8,6 @@ import type {
   UseEmbeddingDimensionStatsResult
 } from "@/features/model/hooks/use-embedding-dimension-stats"
 import type { RebuildProgress } from "@/features/model/hooks/use-embedding-rebuild"
-import { AlertTriangle, RefreshCw } from "@/lib/lucide-icon"
 
 const stripStats = (
   stats: UseEmbeddingDimensionStatsResult["stats"]

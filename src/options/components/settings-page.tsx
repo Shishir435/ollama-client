@@ -1,4 +1,13 @@
 import {
+  BookOpen,
+  Bot,
+  Brain,
+  FileText,
+  Github,
+  Lock,
+  MessageSquare
+} from "lucide-react"
+import {
   lazy,
   type ReactNode,
   Suspense,
@@ -9,7 +18,6 @@ import {
   useState
 } from "react"
 import { useTranslation } from "react-i18next"
-
 import { AppShell, PageBody, PageHeader } from "@/components/layout"
 import {
   type NavSection,
@@ -35,15 +43,6 @@ import {
 import type { SettingsSearchRecord } from "@/features/settings/settings-search-index"
 import { HIGHLIGHT_FOCUS_DELAY_MS, STORAGE_KEYS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
-import {
-  BookOpen,
-  Bot,
-  Brain,
-  FileText,
-  Github,
-  Lock,
-  MessageSquare
-} from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import GeneralSettingsTab from "@/options/components/tabs/general-settings-tab"
 

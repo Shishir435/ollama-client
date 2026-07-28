@@ -1,3 +1,4 @@
+import { AlertTriangle, CheckCircle, RefreshCw } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
@@ -15,7 +16,6 @@ import {
 } from "@/components/ui/sheet"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
-import { AlertTriangle, CheckCircle, RefreshCw } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const StatusCard = () => {

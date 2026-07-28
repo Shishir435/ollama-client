@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react"
 import type React from "react"
 import {
   Card,
@@ -12,7 +13,6 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import type { LucideIcon } from "@/lib/lucide-icon"
 
 export interface SettingsCardProps {
   icon?: LucideIcon

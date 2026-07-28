@@ -5,7 +5,7 @@ import {
   Eye,
   type LucideIcon,
   MessageSquare
-} from "@/lib/lucide-icon"
+} from "lucide-react"
 import type { ModelCapabilities } from "@/lib/providers/capabilities"
 
 export type CapabilityFlag =

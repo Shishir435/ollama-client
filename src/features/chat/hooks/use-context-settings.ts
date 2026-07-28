@@ -3,6 +3,7 @@ import {
   AppWindow,
   BrainCircuit,
   Camera,
+  type LucideIcon,
   Search,
   ShieldCheck
 } from "lucide-react"
@@ -19,7 +20,6 @@ import {
   DEFAULT_TABS_ACCESS,
   STORAGE_KEYS
 } from "@/lib/constants"
-import type { LucideIcon } from "@/lib/lucide-icon"
 import {
   DEFAULT_PER_SITE_PROFILE_SETTINGS,
   type PerSiteProfileSettings

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react"
+import { Shield } from "lucide-react"
 import { describe, expect, it, vi } from "vitest"
-import { Shield } from "@/lib/lucide-icon"
 import { SettingsChangeDialog } from "../settings-change-dialog"
 
 vi.mock("react-i18next", () => ({

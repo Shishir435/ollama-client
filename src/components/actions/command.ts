@@ -1,6 +1,6 @@
+import type { LucideIcon } from "lucide-react"
 import type { ReactElement } from "react"
 import type { ActionConfig } from "@/components/actions/action-group"
-import type { LucideIcon } from "@/lib/lucide-icon"
 
 export interface CommandDefinition<TId extends string = string> {
   id: TId

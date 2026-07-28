@@ -1,7 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { Brain, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import {
   ConfirmActionDialog,
   SettingsCard,
@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast"
 import { DEFAULT_MEMORY_ENABLED, STORAGE_KEYS } from "@/lib/constants"
 import { clearAllVectors, getStorageStats } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import { Brain, Trash2 } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const MemorySettings = () => {

@@ -1,4 +1,4 @@
-import { Camera, FileText, Lock } from "lucide-react"
+import { Camera, Check as CheckIcon, FileText, Lock } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import {
@@ -9,7 +9,6 @@ import {
 } from "@/components/layout"
 import type { ContextToggleAction } from "@/features/chat/hooks/use-context-settings"
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
-import { CheckIcon } from "@/lib/lucide-icon"
 
 interface ContextMainViewProps {
   contextSummary: string

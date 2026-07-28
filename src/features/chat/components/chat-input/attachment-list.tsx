@@ -1,3 +1,4 @@
+import { CircleCheck, FileText, Loader2, X } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
@@ -8,7 +9,6 @@ import {
 } from "@/components/ui/collapsible"
 import type { FileProcessingState } from "@/lib/file-processors/types"
 import { toDataUrl } from "@/lib/image-utils"
-import { CircleCheck, FileText, Loader2, X } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { ImageAttachment } from "@/types"
 import { CopyButton } from "../copy-button"

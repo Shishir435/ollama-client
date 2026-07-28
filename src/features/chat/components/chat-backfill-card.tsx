@@ -1,4 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { AlertCircle, Loader2, Sparkles } from "lucide-react"
 import { useCallback, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard, StatusAlert } from "@/components/settings"
@@ -10,7 +11,6 @@ import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { DEFAULT_MEMORY_ENABLED, STORAGE_KEYS } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
-import { AlertCircle, Loader2, Sparkles } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const ChatBackfillCard = () => {

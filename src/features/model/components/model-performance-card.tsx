@@ -1,3 +1,4 @@
+import { Zap } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { FormGrid } from "@/components/layout"
@@ -9,7 +10,6 @@ import {
 import { Input } from "@/components/ui/input"
 import type { ProviderModelConfig } from "@/features/model/hooks/use-model-config"
 import { useDebounce } from "@/hooks/use-debounce"
-import { Zap } from "@/lib/lucide-icon"
 
 export interface ModelPerformanceCardProps {
   config: ProviderModelConfig
