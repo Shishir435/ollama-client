@@ -9,6 +9,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped package version to `0.12.6`.
+
 ## [0.12.5] - 2026-07-29
 
 ### Added
