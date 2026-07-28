@@ -187,6 +187,12 @@ export interface ToolRun {
   category?: import("@/lib/tools/types").ToolCategory
   risk?: import("@/lib/tools/types").ToolRiskLevel
   /**
+   * Input-trust generation used for this approval decision. A value above zero
+   * means untrusted tool output already entered the turn, so the UI must not
+   * offer a persisted "always" grant.
+   */
+  taintGeneration?: number
+  /**
    * Normalized origin a site-acting tool call binds to (from the definition's
    * `grantScopeResolver`), shown in the confirmation prompt so the user knows
    * which site an approval covers.

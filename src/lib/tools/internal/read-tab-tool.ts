@@ -27,6 +27,7 @@ export const readTabDefinition: ToolDefinition = {
   category: "browser",
   iconKey: "file-text",
   risk: "low",
+  resultProvenance: "web-untrusted",
   cacheable: true,
   requires: ["tabs"],
   runtime: { parallelizable: false },

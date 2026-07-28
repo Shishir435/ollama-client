@@ -168,6 +168,22 @@ const expectContentScript = (
   )
 }
 
+const expectNoContentScript = (
+  manifest: ExtensionManifest,
+  matcher: RegExp,
+  label: string,
+  browserName: string
+): void => {
+  const scripts = (manifest.content_scripts || []).flatMap(
+    (contentScript) => contentScript.js || []
+  )
+
+  assert(
+    !scripts.some((script) => matcher.test(script)),
+    `${browserName} manifest should not eagerly load content script: ${label}`
+  )
+}
+
 const expectCspToken = (
   manifest: ExtensionManifest,
   token: string,
@@ -203,18 +219,60 @@ const main = (): void => {
   expectExtensionPage(firefoxManifest, /options\.html$/, "options page", "Firefox")
   expectBackgroundScript(chromeManifest, /background\.js$/, "message router", "Chrome")
   expectBackgroundScript(firefoxManifest, /background\.js$/, "message router", "Firefox")
-  expectContentScript(chromeManifest, /content-scripts\/content\.js$/, "page extraction", "Chrome")
-  expectContentScript(firefoxManifest, /content-scripts\/content\.js$/, "page extraction", "Firefox")
+  expectNoContentScript(
+    chromeManifest,
+    /content-scripts\/content\.js$/,
+    "page extraction",
+    "Chrome"
+  )
+  expectNoContentScript(
+    firefoxManifest,
+    /content-scripts\/content\.js$/,
+    "page extraction",
+    "Firefox"
+  )
+  expectBuiltFile(
+    "build/chrome-mv3-prod/content-scripts/content.js",
+    "runtime-injected page extraction",
+    "Chrome"
+  )
+  expectBuiltFile(
+    "build/firefox-mv2-prod/content-scripts/content.js",
+    "runtime-injected page extraction",
+    "Firefox"
+  )
   expectContentScript(
     chromeManifest,
     /content-scripts\/selection-button\.js$/,
-    "selection overlay",
+    "selection sentinel",
     "Chrome"
   )
   expectContentScript(
     firefoxManifest,
     /content-scripts\/selection-button\.js$/,
-    "selection overlay",
+    "selection sentinel",
+    "Firefox"
+  )
+  expectNoContentScript(
+    chromeManifest,
+    /content-scripts\/selection-overlay\.js$/,
+    "selection overlay runtime",
+    "Chrome"
+  )
+  expectNoContentScript(
+    firefoxManifest,
+    /content-scripts\/selection-overlay\.js$/,
+    "selection overlay runtime",
+    "Firefox"
+  )
+  expectBuiltFile(
+    "build/chrome-mv3-prod/content-scripts/selection-overlay.js",
+    "runtime-injected selection overlay",
+    "Chrome"
+  )
+  expectBuiltFile(
+    "build/firefox-mv2-prod/content-scripts/selection-overlay.js",
+    "runtime-injected selection overlay",
     "Firefox"
   )
 

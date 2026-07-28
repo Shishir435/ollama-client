@@ -13,6 +13,7 @@ export const fileSearchDefinition: ToolDefinition = {
   category: "files",
   iconKey: "file-stack",
   risk: "low",
+  resultProvenance: "web-untrusted",
   cacheable: false,
   requires: ["storage"],
   parameters: {

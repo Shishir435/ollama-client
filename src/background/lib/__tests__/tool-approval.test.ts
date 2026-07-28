@@ -34,6 +34,13 @@ describe("tool session grants", () => {
     expect(hasSessionGrant(undefined, "restore_session")).toBe(false)
   })
 
+  it("invalidates a session grant when untrusted input advances", () => {
+    addSessionGrant("s1", "save_artifact", undefined, 0)
+
+    expect(hasSessionGrant("s1", "save_artifact", undefined, 0)).toBe(true)
+    expect(hasSessionGrant("s1", "save_artifact", undefined, 1)).toBe(false)
+  })
+
   it("clears one session's grants without touching others", () => {
     addSessionGrant("s1", "restore_session")
     addSessionGrant("s2", "restore_session")
@@ -75,6 +82,18 @@ describe("confirmation scopes", () => {
       expect(await hasAlwaysGrant("cancel_reminder")).toBe(true)
     })
     expect(hasSessionGrant("s1", "cancel_reminder")).toBe(false)
+  })
+
+  it("does not persist an always grant from a tainted turn", async () => {
+    const pending = awaitToolConfirmation("tainted-always", {
+      toolName: "save_artifact",
+      sessionId: "s1",
+      taintGeneration: 1
+    })
+    resolveToolConfirmation("tainted-always", true, "always")
+
+    await expect(pending).resolves.toBe(true)
+    expect(await hasAlwaysGrant("save_artifact")).toBe(false)
   })
 
   it("applies no grant on a plain once approval or a denial", async () => {

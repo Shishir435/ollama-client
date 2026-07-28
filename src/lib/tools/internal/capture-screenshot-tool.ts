@@ -65,6 +65,7 @@ export const captureScreenshotDefinition: ToolDefinition = {
   category: "browser",
   iconKey: "camera",
   risk: "medium",
+  resultProvenance: "web-untrusted",
   cacheable: false,
   requires: ["tabs", "vision"],
   runtime: { parallelizable: false, timeoutMs: 15_000 },

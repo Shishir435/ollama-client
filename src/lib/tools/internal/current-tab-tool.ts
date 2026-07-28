@@ -19,6 +19,7 @@ export const currentTabDefinition: ToolDefinition = {
   category: "browser",
   iconKey: "panels-top-left",
   risk: "low",
+  resultProvenance: "web-untrusted",
   cacheable: true,
   requires: ["tabs"],
   runtime: { parallelizable: false },

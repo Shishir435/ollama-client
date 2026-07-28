@@ -1,7 +1,12 @@
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
-import type { ToolCall, ToolContext, ToolRegistry } from "@/lib/tools"
+import type {
+  ToolCall,
+  ToolContext,
+  ToolRegistry,
+  ToolResultProvenance
+} from "@/lib/tools"
 import type { ChatMessage, ChatStreamMessage } from "@/types"
 import {
   buildImageMessage,
@@ -42,6 +47,7 @@ interface ExecutedToolCall {
   toolMessage: ChatMessage
   /** A follow-up `user` message carrying any images the tool returned. */
   imageMessage?: ChatMessage
+  provenance: ToolResultProvenance
 }
 
 /**
@@ -77,6 +83,7 @@ export const streamChatWithTools = async ({
       : {
           iteration: 0,
           phase: "model",
+          taintGeneration: 0,
           workingMessages: [...request.messages],
           toolRuns: []
         }
@@ -194,14 +201,18 @@ export const streamChatWithTools = async ({
           toolCallId: prepared.call.id,
           ...(result.isError ? { toolIsError: true } : {})
         },
-        imageMessage: buildImageMessage(prepared.call, result)
+        imageMessage: buildImageMessage(prepared.call, result),
+        provenance: result.provenance ?? "trusted"
       }
     }
 
     const pendingToolCalls = state.pendingToolCalls ?? []
     const preparedCalls = await Promise.all(
       pendingToolCalls.map((call) =>
-        prepareToolCall(registry, call, toolResultMaxChars, ctx)
+        prepareToolCall(registry, call, toolResultMaxChars, {
+          ...ctx,
+          taintGeneration: state.taintGeneration ?? 0
+        })
       )
     )
     const toolResultMessages = state.toolResultMessages ?? []
@@ -215,6 +226,9 @@ export const streamChatWithTools = async ({
     const collect = (executed: ExecutedToolCall) => {
       toolResultMessages.push(executed.toolMessage)
       if (executed.imageMessage) imageMessages.push(executed.imageMessage)
+      if (executed.provenance === "web-untrusted") {
+        state.taintGeneration = (state.taintGeneration ?? 0) + 1
+      }
     }
 
     for (let index = state.nextToolIndex ?? 0; index < preparedCalls.length; ) {

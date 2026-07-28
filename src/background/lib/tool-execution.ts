@@ -15,6 +15,7 @@ import type {
   ToolContext,
   ToolRegistry,
   ToolResult,
+  ToolResultProvenance,
   ToolRuntimePolicy
 } from "@/lib/tools"
 import { resolveToolRuntimePolicy } from "@/lib/tools"
@@ -49,6 +50,8 @@ export interface PreparedToolCall {
    * and none may be persisted on approval (fail closed).
    */
   originScoped: boolean
+  /** Static fallback used when the tool result does not classify itself. */
+  resultProvenance: ToolResultProvenance
 }
 
 // The reasoning-trace component translates known tool ids (rag_search, etc.);
@@ -151,6 +154,7 @@ export const prepareToolCall = async (
   // Low risk never prompts — skip the grant lookup (a storage read) entirely,
   // which is the hot path for read-only tools.
   const risk = effectiveRisk(definition)
+  const taintGeneration = ctx?.taintGeneration ?? 0
   const originScoped = Boolean(definition?.grantScopeResolver)
   let origin: string | undefined
   if (risk !== "low" && definition?.grantScopeResolver) {
@@ -171,9 +175,12 @@ export const prepareToolCall = async (
       ? false
       : confirmationRequired(definition, {
           hasSessionGrant:
-            grantsApply && hasSessionGrant(ctx?.sessionId, call.name, origin),
+            grantsApply &&
+            hasSessionGrant(ctx?.sessionId, call.name, origin, taintGeneration),
           hasAlwaysGrant:
-            grantsApply && (await hasAlwaysGrant(call.name, origin))
+            taintGeneration === 0 &&
+            grantsApply &&
+            (await hasAlwaysGrant(call.name, origin))
         })
   return {
     call,
@@ -181,6 +188,7 @@ export const prepareToolCall = async (
     requiresConfirmation,
     origin,
     originScoped,
+    resultProvenance: definition?.resultProvenance ?? "trusted",
     run: {
       toolId: call.name,
       callId: call.id,
@@ -189,6 +197,7 @@ export const prepareToolCall = async (
       iconKey: definition?.iconKey,
       category: definition?.category,
       risk: definition?.risk,
+      taintGeneration,
       origin,
       status: "running",
       startedAt: Date.now(),
@@ -236,7 +245,8 @@ export const runPreparedToolCall = async (
         toolName: call.name,
         sessionId: ctx.sessionId,
         origin: prepared.origin,
-        originScoped: prepared.originScoped
+        originScoped: prepared.originScoped,
+        taintGeneration: run.taintGeneration
       },
       signal
     )
@@ -259,7 +269,7 @@ export const runPreparedToolCall = async (
       ? { ...ctx, approvedOrigin: prepared.origin }
       : ctx
 
-  const result = policy.enabled
+  const rawResult = policy.enabled
     ? await callWithTimeout(
         registry.call(call.name, call.arguments, runCtx),
         call.name,
@@ -267,6 +277,10 @@ export const runPreparedToolCall = async (
         signal
       )
     : { content: `Tool "${call.name}" is disabled.`, isError: true }
+  const result: ToolResult = {
+    ...rawResult,
+    provenance: rawResult.provenance ?? prepared.resultProvenance
+  }
 
   const { content, truncated } = trimToolResult(
     result.content,

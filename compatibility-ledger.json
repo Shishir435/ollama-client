@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "lastReviewed": "2026-07-28",
+  "entries": [
+    {
+      "id": "legacy-sqljs-live-fallback",
+      "owner": "src/lib/sqlite/legacy-db.ts",
+      "introducedIn": "pre-0.12.3",
+      "sourceVersions": ["<=0.12.2", "unmarked profiles"],
+      "removalGate": "Historical Dexie/sql.js/OPFS migration fixtures pass in packaged Chrome and Firefox, rollback evidence is retained, and the fallback has completed its evidence window.",
+      "targetRelease": "0.13.x",
+      "recoveryPath": "Keep a lazy migration-only reader and the untouched source blob so skipped upgrades and offline returning profiles remain recoverable."
+    },
+    {
+      "id": "legacy-sqljs-import-generation-guard",
+      "owner": "src/lib/sqlite/legacy-db.ts",
+      "introducedIn": "0.12.3",
+      "sourceVersions": ["0.12.3+"],
+      "removalGate": "Remove with legacy-sqljs-live-fallback; no production writer may retain the old import-generation concept.",
+      "targetRelease": "0.13.x",
+      "recoveryPath": "Migration receipts and the single OPFS owner replace the guard."
+    },
+    {
+      "id": "legacy-chat-blob-reader",
+      "owner": "src/lib/persistence/legacy-blob-reader.ts",
+      "introducedIn": "0.12.3",
+      "sourceVersions": ["sql.js chat-history releases"],
+      "removalGate": "Indefinite recovery capability; remove only with an explicit decision to stop direct upgrades from every covered source version.",
+      "targetRelease": null,
+      "recoveryPath": "Lazy-load only during verified import; never restore it as a normal live backend after the 0.13.x cutover."
+    },
+    {
+      "id": "backup-format-v1-reader",
+      "owner": "src/lib/backup-service.ts",
+      "introducedIn": "0.12.3",
+      "sourceVersions": ["backup format v1"],
+      "removalGate": "No supported backup can require v1 and a separately documented offline converter exists.",
+      "targetRelease": null,
+      "recoveryPath": "Read through the privacy-safe allowlist; never restore credentials or internal storage state."
+    },
+    {
+      "id": "legacy-provider-secret-migration",
+      "owner": "src/lib/providers/manager.ts",
+      "introducedIn": "0.12.3",
+      "sourceVersions": ["versions that synced provider API keys"],
+      "removalGate": "Direct upgrades from every affected store version are no longer supported.",
+      "targetRelease": null,
+      "recoveryPath": "Copy secrets to device-local storage before purging the synchronized copy."
+    },
+    {
+      "id": "legacy-onboarding-seen-flag",
+      "owner": "src/lib/onboarding/state.ts",
+      "introducedIn": "0.12.3",
+      "sourceVersions": ["pre-resumable onboarding releases"],
+      "removalGate": "Direct upgrades from the legacy onboarding state are no longer supported.",
+      "targetRelease": null,
+      "recoveryPath": "Map the legacy seen flag to the completed resumable state."
+    },
+    {
+      "id": "legacy-excluded-url-patterns",
+      "owner": "src/contents/url-filter.ts",
+      "introducedIn": "pre-0.12.3",
+      "sourceVersions": ["legacy exclusion-setting releases"],
+      "removalGate": "A forward migration has copied every legacy pattern and direct upgrades from unmigrated releases are no longer supported.",
+      "targetRelease": null,
+      "recoveryPath": "Use the legacy patterns only when the current exclusion configuration is empty."
+    },
+    {
+      "id": "legacy-reranker-backend-values",
+      "owner": "src/lib/constants/config.ts",
+      "introducedIn": "pre-0.12.3",
+      "sourceVersions": [
+        "settings containing transformers-js or onnxruntime-web"
+      ],
+      "removalGate": "Stored settings have been normalized and direct upgrades from unnormalized releases are no longer supported.",
+      "targetRelease": null,
+      "recoveryPath": "Collapse both retired backend strings to the shipped cosine reranker."
+    }
+  ]
+}
