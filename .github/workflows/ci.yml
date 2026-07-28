@@ -39,6 +39,15 @@ jobs:
       - name: Dead code check
         run: pnpm check:dead
 
+      - name: Generated resource drift
+        run: pnpm check:generated
+
+      - name: Translation completeness
+        run: pnpm check:i18n
+
+      - name: Compatibility ledger
+        run: pnpm check:compatibility
+
       - name: Tests
         run: pnpm test:run
 

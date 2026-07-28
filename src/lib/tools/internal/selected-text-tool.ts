@@ -15,6 +15,7 @@ export const selectedTextDefinition: ToolDefinition = {
   category: "selection",
   iconKey: "text-select",
   risk: "low",
+  resultProvenance: "web-untrusted",
   cacheable: false,
   requires: ["selection"],
   runtime: { timeoutMs: 10_000, maxResultChars: 6000 },

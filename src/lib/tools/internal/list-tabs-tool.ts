@@ -15,6 +15,7 @@ export const listTabsDefinition: ToolDefinition = {
   category: "browser",
   iconKey: "list",
   risk: "low",
+  resultProvenance: "web-untrusted",
   cacheable: false,
   requires: ["tabs"],
   runtime: { timeoutMs: 10_000, maxResultChars: 6000 },

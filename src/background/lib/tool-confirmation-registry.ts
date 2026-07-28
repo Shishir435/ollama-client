@@ -26,6 +26,11 @@ export interface ConfirmationMeta {
    * the wildcard `*` grant origin scoping exists to prevent.
    */
   originScoped?: boolean
+  /**
+   * Grants are valid only for the input-trust generation in which the user
+   * approved them. Persisted grants are never created from a tainted turn.
+   */
+  taintGeneration?: number
 }
 
 interface PendingConfirmation {
@@ -61,9 +66,19 @@ export const awaitToolConfirmation = (
       const grantable = !meta.originScoped || meta.origin !== undefined
 
       if (approved && scope === "session" && meta.sessionId && grantable) {
-        addSessionGrant(meta.sessionId, meta.toolName, meta.origin)
+        addSessionGrant(
+          meta.sessionId,
+          meta.toolName,
+          meta.origin,
+          meta.taintGeneration
+        )
       }
-      if (approved && scope === "always" && grantable) {
+      if (
+        approved &&
+        scope === "always" &&
+        grantable &&
+        (meta.taintGeneration ?? 0) === 0
+      ) {
         // Fire-and-forget: the grant covers future calls; this one proceeds on
         // the in-hand approval either way.
         addAlwaysGrant(meta.toolName, meta.origin).catch((error) => {

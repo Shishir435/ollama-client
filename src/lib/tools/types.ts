@@ -34,6 +34,15 @@ export type ToolCategory =
  */
 export type ToolRiskLevel = "low" | "medium" | "high" | "critical"
 
+/**
+ * Trust assigned to content returned by a tool.
+ *
+ * `web-untrusted` covers page-, search-, history-, bookmark-, selection-, and
+ * user-document-derived text. Once such content enters a turn, approval grants
+ * created before that point must not authorize later egress-capable calls.
+ */
+export type ToolResultProvenance = "trusted" | "web-untrusted"
+
 export type ToolRequirement =
   | "tabs"
   | "storage"
@@ -70,6 +79,12 @@ export interface ToolDefinition {
   cacheable?: boolean
   requires?: ToolRequirement[]
   runtime?: ToolRuntimePolicyOverrides
+  /**
+   * Static trust classification for this tool's successful and error output.
+   * Defaults to `trusted`; tools that return page-controlled or document text
+   * must opt into `web-untrusted`.
+   */
+  resultProvenance?: ToolResultProvenance
   /**
    * Require an explicit per-call user approval before this tool runs. Set on
    * destructive/irreversible actions (deletes, cancels). The tool loop pauses
@@ -135,6 +150,8 @@ export interface ToolResultImage {
 export interface ToolResult {
   /** Plain-text content handed back to the model. */
   content: string
+  /** Trust classification applied before the result re-enters model context. */
+  provenance?: ToolResultProvenance
   /** True when the tool failed; the content carries the error explanation. */
   isError?: boolean
   /** Provenance shown in the reasoning trace (what the tool looked at). */
@@ -152,6 +169,11 @@ export interface ToolContext {
   signal?: AbortSignal
   sessionId?: string
   model?: string
+  /**
+   * Monotonic per-turn generation. It advances whenever untrusted content
+   * enters model context, invalidating grants created against earlier input.
+   */
+  taintGeneration?: number
   /**
    * The normalized origin the user's approval (or standing grant) was
    * resolved against, for origin-scoped tools. The target can change between

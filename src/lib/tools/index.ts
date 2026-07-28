@@ -15,6 +15,7 @@ export type {
   ToolParameterSchema,
   ToolRequirement,
   ToolResult,
+  ToolResultProvenance,
   ToolResultSource,
   ToolRiskLevel,
   ToolRuntimePolicy,

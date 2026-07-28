@@ -7,10 +7,15 @@ published on the Chrome Web Store.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.12.5] - 2026-07-27
+## [Unreleased]
+
+## [0.12.5] - 2026-07-29
 
 ### Added
 
+- Chrome and Firefox package budgets now cover unpacked size, ZIP size, the
+  largest generated chunk, duplicate binary assets, and critical entry
+  surfaces. Dead-code checks also run in CI.
 - Two new diagnostic self-tests. **Local provider CORS rule** reports whether
   Chromium's request-header rule is installed and still matches the provider
   address you have configured — a rule left behind by an older address looks
@@ -23,6 +28,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Changed
 
+- Ordinary pages now load only a small selection detector. The React selection
+  overlay, its active-locale catalog, page extraction, provider-model
+  discovery, inactive settings tabs, and backup code load only when needed.
+- Extension icons now use purpose-sized 16–128 pixel assets instead of shipping
+  one oversized source image.
+- Removed Mermaid runtime rendering and unused font subsets. Mermaid source can
+  still be previewed as text, copied, and downloaded.
+- Standardized typechecking on one TypeScript package.
+- Release and documentation scripts now use the installed `tsx` executable
+  instead of allowing `npx` to resolve or download a different version.
 - Prompt templates are stored as individual database rows instead of one
   synced blob. Editing a template no longer rewrites the whole library, and a
   large collection can no longer fail to save because the sync-storage limit
@@ -41,11 +56,33 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Fixed
 
+- Selection-overlay injection can recover from transient background injection,
+  locale loading, and mount failures. The bootstrap waits for an explicit
+  ready signal and releases its retry latch when startup does not complete.
 - A duplicated provider entry is now collapsed to one, keeping whichever copy
   holds your API key or custom models. Previously both entries could persist,
   with the second invisible to everything that looked a provider up by name
   while still appearing in the provider list.
 - Removed three provider actions that no code path could reach.
+
+### Security
+
+- Page, web-search, browser-history, selection, screenshot, and local-document
+  tool results are marked as untrusted input. When one enters a turn, approval
+  grants issued against earlier input no longer authorize later tool calls,
+  and a tainted turn cannot create a persisted **Always allow** grant.
+
+### Development
+
+- CI now rejects generated-resource drift and incomplete translations
+  explicitly, in addition to type, lint, dead-code, test, package, and bundle
+  checks.
+- Critical packaged-browser persistence tests cover Chromium owner restart,
+  migration, rollback-blob integrity, and durability behavior.
+- Added a machine-readable compatibility ledger with source-version,
+  removal-gate, target-release, and recovery-path ownership for retained legacy
+  behavior. The sql.js live fallback remains in `0.12.x`; removal is gated for
+  `0.13.x`.
 
 ### Documentation
 

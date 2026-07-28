@@ -15,6 +15,7 @@ import type {
   ToolContext,
   ToolRegistry,
   ToolResult,
+  ToolResultProvenance,
   ToolRuntimePolicy
 } from "@/lib/tools"
 import { resolveToolRuntimePolicy } from "@/lib/tools"
@@ -31,6 +32,13 @@ export interface PreparedToolCall {
   call: ToolCall
   run: ToolRun
   policy: ToolRuntimePolicy
+  /**
+   * Whether this call can depend on a standing approval grant. Low-risk tools
+   * are authorization-independent and may be prepared together; every other
+   * risk level must be prepared only after preceding tool results have updated
+   * the turn's taint generation.
+   */
+  authorizationSensitive: boolean
   /**
    * Pause for explicit user approval before running. Resolved from the tool's
    * risk level and any standing grants (see `approval-policy.ts`), not a
@@ -49,11 +57,34 @@ export interface PreparedToolCall {
    * and none may be persisted on approval (fail closed).
    */
   originScoped: boolean
+  /** Static fallback used when the tool result does not classify itself. */
+  resultProvenance: ToolResultProvenance
 }
 
 // The reasoning-trace component translates known tool ids (rag_search, etc.);
 // the raw name is the fallback label for any tool it doesn't special-case.
 export const labelForTool = (name: string): string => name
+
+/**
+ * Check whether a call may join an in-flight parallel group without consulting
+ * approval grants. This intentionally inspects only static definition policy;
+ * authorization-sensitive calls are prepared after preceding results have
+ * advanced the durable taint generation.
+ */
+export const isAuthorizationIndependentParallelCall = async (
+  registry: ToolRegistry,
+  call: ToolCall,
+  toolResultMaxChars?: number
+): Promise<boolean> => {
+  const definition = await registry.getDefinition(call.name)
+  const policy = resolveToolRuntimePolicy(
+    definition,
+    toolResultMaxChars !== undefined
+      ? { maxResultChars: toolResultMaxChars }
+      : undefined
+  )
+  return policy.parallelizable && effectiveRisk(definition) === "low"
+}
 
 /** Race a tool call against a timeout so a hung tool can't stall the stream. */
 export const callWithTimeout = (
@@ -151,6 +182,7 @@ export const prepareToolCall = async (
   // Low risk never prompts — skip the grant lookup (a storage read) entirely,
   // which is the hot path for read-only tools.
   const risk = effectiveRisk(definition)
+  const taintGeneration = ctx?.taintGeneration ?? 0
   const originScoped = Boolean(definition?.grantScopeResolver)
   let origin: string | undefined
   if (risk !== "low" && definition?.grantScopeResolver) {
@@ -171,16 +203,21 @@ export const prepareToolCall = async (
       ? false
       : confirmationRequired(definition, {
           hasSessionGrant:
-            grantsApply && hasSessionGrant(ctx?.sessionId, call.name, origin),
+            grantsApply &&
+            hasSessionGrant(ctx?.sessionId, call.name, origin, taintGeneration),
           hasAlwaysGrant:
-            grantsApply && (await hasAlwaysGrant(call.name, origin))
+            taintGeneration === 0 &&
+            grantsApply &&
+            (await hasAlwaysGrant(call.name, origin))
         })
   return {
     call,
     policy,
+    authorizationSensitive: risk !== "low",
     requiresConfirmation,
     origin,
     originScoped,
+    resultProvenance: definition?.resultProvenance ?? "trusted",
     run: {
       toolId: call.name,
       callId: call.id,
@@ -189,6 +226,7 @@ export const prepareToolCall = async (
       iconKey: definition?.iconKey,
       category: definition?.category,
       risk: definition?.risk,
+      taintGeneration,
       origin,
       status: "running",
       startedAt: Date.now(),
@@ -236,7 +274,8 @@ export const runPreparedToolCall = async (
         toolName: call.name,
         sessionId: ctx.sessionId,
         origin: prepared.origin,
-        originScoped: prepared.originScoped
+        originScoped: prepared.originScoped,
+        taintGeneration: run.taintGeneration
       },
       signal
     )
@@ -259,7 +298,7 @@ export const runPreparedToolCall = async (
       ? { ...ctx, approvedOrigin: prepared.origin }
       : ctx
 
-  const result = policy.enabled
+  const rawResult = policy.enabled
     ? await callWithTimeout(
         registry.call(call.name, call.arguments, runCtx),
         call.name,
@@ -267,6 +306,10 @@ export const runPreparedToolCall = async (
         signal
       )
     : { content: `Tool "${call.name}" is disabled.`, isError: true }
+  const result: ToolResult = {
+    ...rawResult,
+    provenance: rawResult.provenance ?? prepared.resultProvenance
+  }
 
   const { content, truncated } = trimToolResult(
     result.content,

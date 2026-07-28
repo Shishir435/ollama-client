@@ -1,10 +1,16 @@
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
-import type { ToolCall, ToolContext, ToolRegistry } from "@/lib/tools"
+import type {
+  ToolCall,
+  ToolContext,
+  ToolRegistry,
+  ToolResultProvenance
+} from "@/lib/tools"
 import type { ChatMessage, ChatStreamMessage } from "@/types"
 import {
   buildImageMessage,
+  isAuthorizationIndependentParallelCall,
   type PreparedToolCall,
   prepareToolCall,
   runPreparedToolCall
@@ -42,6 +48,7 @@ interface ExecutedToolCall {
   toolMessage: ChatMessage
   /** A follow-up `user` message carrying any images the tool returned. */
   imageMessage?: ChatMessage
+  provenance: ToolResultProvenance
 }
 
 /**
@@ -77,6 +84,7 @@ export const streamChatWithTools = async ({
       : {
           iteration: 0,
           phase: "model",
+          taintGeneration: 0,
           workingMessages: [...request.messages],
           toolRuns: []
         }
@@ -194,16 +202,12 @@ export const streamChatWithTools = async ({
           toolCallId: prepared.call.id,
           ...(result.isError ? { toolIsError: true } : {})
         },
-        imageMessage: buildImageMessage(prepared.call, result)
+        imageMessage: buildImageMessage(prepared.call, result),
+        provenance: result.provenance ?? "trusted"
       }
     }
 
     const pendingToolCalls = state.pendingToolCalls ?? []
-    const preparedCalls = await Promise.all(
-      pendingToolCalls.map((call) =>
-        prepareToolCall(registry, call, toolResultMaxChars, ctx)
-      )
-    )
     const toolResultMessages = state.toolResultMessages ?? []
     // `tool`-role messages can't carry images on Ollama / OpenAI-compatible
     // providers, so image-bearing tool results become follow-up user messages.
@@ -215,20 +219,40 @@ export const streamChatWithTools = async ({
     const collect = (executed: ExecutedToolCall) => {
       toolResultMessages.push(executed.toolMessage)
       if (executed.imageMessage) imageMessages.push(executed.imageMessage)
+      if (executed.provenance === "web-untrusted") {
+        state.taintGeneration = (state.taintGeneration ?? 0) + 1
+      }
     }
 
-    for (let index = state.nextToolIndex ?? 0; index < preparedCalls.length; ) {
-      const prepared = preparedCalls[index]
-      if (prepared.policy.parallelizable) {
-        // Run consecutive safe tools together, but keep group boundaries so a
-        // non-parallel tool (for example a live browser tab read) still gates
-        // the calls after it.
-        const parallelGroup: PreparedToolCall[] = []
-        while (
-          index < preparedCalls.length &&
-          preparedCalls[index].policy.parallelizable
-        ) {
-          parallelGroup.push(preparedCalls[index])
+    const prepareAtCurrentGeneration = (call: ToolCall) =>
+      prepareToolCall(registry, call, toolResultMaxChars, {
+        ...ctx,
+        taintGeneration: state.taintGeneration ?? 0
+      })
+
+    for (
+      let index = state.nextToolIndex ?? 0;
+      index < pendingToolCalls.length;
+    ) {
+      const prepared = await prepareAtCurrentGeneration(pendingToolCalls[index])
+      if (prepared.policy.parallelizable && !prepared.authorizationSensitive) {
+        // Only authorization-independent low-risk calls may overlap. A later
+        // grant-gated call is deliberately prepared after this group finishes,
+        // so an untrusted result can advance the taint generation first.
+        const parallelGroup: PreparedToolCall[] = [prepared]
+        index++
+        while (index < pendingToolCalls.length) {
+          const candidateCall = pendingToolCalls[index]
+          if (
+            !(await isAuthorizationIndependentParallelCall(
+              registry,
+              candidateCall,
+              toolResultMaxChars
+            ))
+          ) {
+            break
+          }
+          parallelGroup.push(await prepareAtCurrentGeneration(candidateCall))
           index++
         }
 

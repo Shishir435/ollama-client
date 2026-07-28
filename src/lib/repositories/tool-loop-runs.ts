@@ -8,6 +8,8 @@ export type ToolLoopRunStatus = "running" | "awaiting-confirmation"
 export interface DurableToolLoopState {
   iteration: number
   phase: "model" | "tools"
+  /** Advances whenever web/page/document-derived tool output enters context. */
+  taintGeneration?: number
   workingMessages: ChatMessage[]
   toolRuns: ToolRun[]
   pendingToolCalls?: ToolCall[]
