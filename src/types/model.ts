@@ -25,6 +25,11 @@ export type ProviderModel = {
     modelType?: string
     /** Context window in tokens, when the list endpoint reports it. */
     contextLength?: number
+    /**
+     * Capability tags the list endpoint reports for the model itself, e.g. LM
+     * Studio's `["tool_use"]`. Reported support, not inferred.
+     */
+    capabilityTags?: string[]
     /** Input/output modalities reported by hosted model catalogs. */
     modalities?: string[]
     /** Request parameters explicitly supported by the served model. */

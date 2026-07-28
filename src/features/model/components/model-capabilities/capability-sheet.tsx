@@ -36,8 +36,6 @@ interface ModelCapabilitySheetProps {
   current: ModelCapabilities
   /** Capabilities from detection only (pre-override) — the "reset" target. */
   detected: ModelCapabilities
-  /** Whether the provider can report capabilities on its own (Ollama). */
-  canSelfReport: boolean
   /** Whether a saved override already exists for this model. */
   hasOverride: boolean
   onSave: (override: ModelCapabilityOverride) => void | Promise<void>
@@ -85,7 +83,6 @@ export const ModelCapabilitySheet = ({
   modelName,
   current,
   detected,
-  canSelfReport,
   hasOverride,
   onSave,
   onReset,
@@ -93,6 +90,26 @@ export const ModelCapabilitySheet = ({
 }: ModelCapabilitySheetProps) => {
   const { t } = useTranslation()
   const { toast } = useToast()
+  /*
+   * Which note to show, from what detection produced for *this* model rather
+   * than a static provider flag. `modelDetails` was the old signal, so LM Studio
+   * was told it "can't report this model's capabilities" while it was in fact
+   * reporting the model type and, for some models, tool support.
+   *
+   * - high confidence from metadata → the provider answered for every flag
+   *   (Ollama `/api/show` tags)
+   * - metadata at lower confidence → it answered for some, and the rest need a
+   *   probe or a manual toggle (LM Studio's `type` plus `capabilities[]`, which
+   *   has no reasoning vocabulary at all)
+   * - anything else → nothing was reported
+   */
+  const reportNoteKey =
+    detected.source === "model-metadata"
+      ? detected.confidence === "high"
+        ? "model.capabilities.sheet.note_self_report"
+        : "model.capabilities.sheet.note_partial"
+      : "model.capabilities.sheet.note_manual"
+
   const [draft, setDraft] = useState<Draft>(() => toDraft(current))
   const [probing, setProbing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -181,13 +198,22 @@ export const ModelCapabilitySheet = ({
         detected.push(t("model.capabilities.flags.toolCalling.label"))
       if (result.reasoning)
         detected.push(t("model.capabilities.flags.reasoning.label"))
-      toast({
-        description: detected.length
-          ? t("model.capabilities.sheet.probe_detected", {
-              capabilities: detected.join(", ")
-            })
-          : t("model.capabilities.sheet.probe_none_detected")
-      })
+      // A check that timed out is not a capability the model lacks. Saying so
+      // matters most on a cold local model, where the first run can time out and
+      // a second finds the capability — which reads as a bug otherwise.
+      const summary = detected.length
+        ? t("model.capabilities.sheet.probe_detected", {
+            capabilities: detected.join(", ")
+          })
+        : t("model.capabilities.sheet.probe_none_detected")
+      const unfinished = result.incomplete?.length
+        ? ` ${t("model.capabilities.sheet.probe_incomplete", {
+            capabilities: result.incomplete
+              .map((flag) => t(`model.capabilities.flags.${flag}.label`))
+              .join(", ")
+          })}`
+        : ""
+      toast({ description: `${summary}${unfinished}` })
     } catch (error) {
       logger.warn("Tool-calling probe failed", "ModelCapabilitySheet", {
         error
@@ -220,15 +246,7 @@ export const ModelCapabilitySheet = ({
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-4 scrollbar-none">
           <div className="mb-2 flex items-start gap-2 rounded-control border border-status-info/30 bg-status-info/10 px-3 py-2 text-xs/relaxed text-muted-foreground">
             <Info className="icon-sm mt-0.5 shrink-0 text-status-info" />
-            <span>
-              {canSelfReport
-                ? t("model.capabilities.sheet.note_self_report", {
-                    provider: providerName
-                  })
-                : t("model.capabilities.sheet.note_manual", {
-                    provider: providerName
-                  })}
-            </span>
+            <span>{t(reportNoteKey, { provider: providerName })}</span>
           </div>
 
           {onProbe && (

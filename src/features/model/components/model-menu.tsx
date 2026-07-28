@@ -66,14 +66,8 @@ export const ModelMenu = ({
     clearSelectionConflict
   } = useProviderModels()
 
-  const {
-    resolve,
-    getOverride,
-    getProbe,
-    canSelfReportCapabilities,
-    setOverride,
-    clearOverride
-  } = useModelCapabilityOverrides()
+  const { resolve, getOverride, getProbe, setOverride, clearOverride } =
+    useModelCapabilityOverrides()
 
   // Per-model capability tags from providers that self-report (Ollama). Fetched
   // only while the menu is open; cached and shared with the model-detail panel.
@@ -166,6 +160,7 @@ export const ModelMenu = ({
         providerId: capabilityTarget.providerId,
         ollamaCapabilities: targetTags,
         lmStudioModelType: targetModelData?.capabilityHints?.modelType,
+        capabilityTags: targetModelData?.capabilityHints?.capabilityTags,
         contextLength: targetModelData?.capabilityHints?.contextLength,
         modalities: targetModelData?.capabilityHints?.modalities,
         supportedParameters:
@@ -180,6 +175,7 @@ export const ModelMenu = ({
         providerId: capabilityTarget.providerId,
         ollamaCapabilities: targetTags,
         lmStudioModelType: targetModelData?.capabilityHints?.modelType,
+        capabilityTags: targetModelData?.capabilityHints?.capabilityTags,
         contextLength: targetModelData?.capabilityHints?.contextLength,
         modalities: targetModelData?.capabilityHints?.modalities,
         supportedParameters:
@@ -398,7 +394,6 @@ export const ModelMenu = ({
           modelName={capabilityTarget.model}
           current={targetCurrent}
           detected={targetDetected}
-          canSelfReport={canSelfReportCapabilities(capabilityTarget.providerId)}
           hasOverride={Boolean(
             getOverride(capabilityTarget.providerId, capabilityTarget.model)
           )}

@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger"
 import type { ProviderModel } from "@/types"
 import { resolveProviderBaseUrl } from "./base-url"
+import { parameterSizeFromModelId } from "./model-id-metadata"
 import { OpenAICompatibleProvider } from "./openai-compatible"
 import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
 
@@ -51,6 +52,8 @@ export class LMStudioProvider extends OpenAICompatibleProvider {
         arch: string
         quantization?: string
         max_context_length?: number
+        /** e.g. ["tool_use"]. Absent on older LM Studio builds. */
+        capabilities?: string[]
       }>
 
       return data.map((m) => ({
@@ -64,16 +67,23 @@ export class LMStudioProvider extends OpenAICompatibleProvider {
           format: "gguf", // LM Studio mostly uses GGUF
           family: m.arch || "lm-studio",
           families: [],
-          parameter_size: m.max_context_length
-            ? `${Math.round(m.max_context_length / 1024)}k`
-            : "",
+          // Read out of the id, because no LM Studio endpoint reports a size:
+          // not the list route, not the per-model route, not /v1/models. This
+          // field used to hold `max_context_length / 1024`, so an 8192-token
+          // window rendered in the model menu's parameter badge as "8K" — a
+          // context window presented as a model size, next to genuine "8B"
+          // values from other providers. The context length belongs in
+          // capabilityHints below, which is where every consumer reads it.
+          parameter_size: parameterSizeFromModelId(m.id),
           quantization_level: m.quantization || ""
         },
-        // Surface LM Studio's model type ("llm"/"vlm"/"embeddings") so vision
-        // and embedding capability can be detected without a manual override.
         capabilityHints: {
+          // Model type ("llm"/"vlm"/"embeddings") settles vision and embeddings.
           modelType: m.type,
-          contextLength: m.max_context_length
+          contextLength: m.max_context_length,
+          // Tool support is reported outright here, so detection can stop
+          // inferring it from the provider default.
+          ...(m.capabilities?.length ? { capabilityTags: m.capabilities } : {})
         }
       }))
     } catch (_e) {

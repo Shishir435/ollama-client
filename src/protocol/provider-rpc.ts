@@ -65,6 +65,7 @@ const ProviderModelSchema = z
       .object({
         modelType: z.string().nullish(),
         contextLength: z.number().nullish(),
+        capabilityTags: z.array(z.string()).max(50).nullish(),
         modalities: z.array(z.string()).max(50).nullish(),
         supportedParameters: z.array(z.string()).max(100).nullish()
       })
@@ -87,6 +88,9 @@ const ProviderModelSchema = z
             }),
             ...(capabilityHints.contextLength != null && {
               contextLength: capabilityHints.contextLength
+            }),
+            ...(capabilityHints.capabilityTags && {
+              capabilityTags: capabilityHints.capabilityTags
             }),
             ...(capabilityHints.modalities && {
               modalities: capabilityHints.modalities
@@ -236,6 +240,13 @@ export const ProvidersProbeModelCapabilitiesResultSchema = z
     toolCallingMode: z.enum(["native", "native-user-results"]).optional(),
     reasoning: z.boolean().optional(),
     vision: z.boolean().optional(),
+    /**
+     * Checks that did not finish, so the caller can say so instead of leaving
+     * the user to read a failed probe as an unsupported capability.
+     */
+    incomplete: z
+      .array(z.enum(["toolCalling", "reasoning", "vision"]))
+      .optional(),
     probedAt: z.number().int().nonnegative()
   })
   .strict()

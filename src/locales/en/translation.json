@@ -524,6 +524,7 @@
         "title": "Model capabilities",
         "subtitle": "{{model}} · {{provider}}",
         "note_manual": "{{provider}} can't report this model's capabilities, so we can't detect them. Turn on what this model supports — features like image input and tools use these settings.",
+        "note_partial": "{{provider}} reports some of this model's capabilities. Detect the rest, or turn on what you know it supports.",
         "note_self_report": "{{provider}} reports this model's capabilities automatically. Changes here override what was detected.",
         "reset": "Reset to detected",
         "save": "Save",
@@ -533,6 +534,7 @@
         "probe_button": "Detect",
         "probe_detected": "Detected: {{capabilities}}.",
         "probe_none_detected": "No tool calling, reasoning, or vision detected. You can still enable them manually.",
+        "probe_incomplete": "Couldn't finish checking: {{capabilities}}. Run Detect again — a model that was still loading often answers the second time.",
         "probe_failed": "Detection failed. Check the provider connection and try again."
       },
       "flags": {

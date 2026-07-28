@@ -25,6 +25,34 @@ import {
   ProviderId
 } from "./types"
 
+// Ceiling on the per-list `/api/show` fan-out that recovers metadata missing
+// from `/api/tags`. Sized above a normal library's count of non-GGUF models so
+// the cap never bites in practice, and low enough that a server reporting no
+// metadata at all cannot turn one list request into dozens.
+const OLLAMA_DETAIL_BACKFILL_LIMIT = 12
+
+/**
+ * Remembers backfilled details so a repeated model list costs no extra requests.
+ *
+ * `getModels` runs far more often than once per user action — tool gating calls
+ * it per turn, and the UI refetches — so an uncached backfill added a request per
+ * affected model to every one of those. Keyed by base URL, model, and digest:
+ * a model file replaced under the same name gets a new digest, so the entry
+ * cannot go stale rather than expiring on a guessed timer.
+ */
+const detailBackfillCache = new Map<string, ProviderModel["details"]>()
+
+const backfillCacheKey = (baseUrl: string, model: ProviderModel): string =>
+  `${baseUrl}::${model.model}::${model.digest}`
+
+/**
+ * Drops every cached backfill. Called when provider configuration changes, since
+ * a re-pointed base URL should not answer from the previous server's metadata.
+ */
+export const clearOllamaDetailBackfillCache = (): void => {
+  detailBackfillCache.clear()
+}
+
 /** Normalized tool → Ollama `/api/chat` `tools` entry (OpenAI-style). */
 const toOllamaTool = (tool: ToolDefinition) => ({
   type: "function",
@@ -81,13 +109,86 @@ export class OllamaProvider implements LLMProvider {
         )
       }
       const data = await response.json()
-      return (data.models as ProviderModel[]) || []
+      const models = (data.models as ProviderModel[]) || []
+      return await this.backfillMissingDetails(models, signal)
     } catch (e) {
       if (!signal?.aborted) {
         logger.error("Failed to fetch models", "OllamaProvider", { error: e })
       }
       throw e
     }
+  }
+
+  /**
+   * Recovers the metadata `/api/tags` omits for non-GGUF models.
+   *
+   * Ollama reports empty `family`, `parameter_size`, and `quantization_level` in
+   * `/api/tags` for safetensors/MLX models — `gemma4:12b-mlx` comes back blank
+   * while `gemma4:12b` carries "11.9B" / "Q4_K_M". The data exists; `/api/show`
+   * has it ("12.4B" / "nvfp4"), so the two entries only looked different because
+   * of which endpoint answered.
+   *
+   * One `/api/show` per affected model, so a server that reports everything costs
+   * nothing extra. Capped, because a server that reports nothing must not turn one
+   * list request into an unbounded fan-out. A failed or aborted lookup leaves that
+   * model exactly as `/api/tags` gave it — a blank badge beats a broken list.
+   */
+  private async backfillMissingDetails(
+    models: ProviderModel[],
+    signal?: AbortSignal
+  ): Promise<ProviderModel[]> {
+    // Narrow to the shape that actually exhibits the gap: a model whose format
+    // Ollama does report, is not GGUF, and yet has no parameter size. GGUF
+    // entries always carry one, and a model with no format at all is not an
+    // Ollama tags entry we can reason about — widening past this would issue an
+    // /api/show for every model any provider declines to size, on every refresh.
+    const baseUrl = resolveProviderBaseUrl(this.config)
+    const incomplete = models.filter(
+      (model) =>
+        !model.details?.parameter_size &&
+        !!model.details?.format &&
+        model.details.format !== "gguf"
+    )
+    if (incomplete.length === 0) return models
+
+    const enriched = new Map<string, ProviderModel["details"]>()
+    const unresolved: ProviderModel[] = []
+    for (const model of incomplete) {
+      const cached = detailBackfillCache.get(backfillCacheKey(baseUrl, model))
+      if (cached) enriched.set(model.model, cached)
+      else unresolved.push(model)
+    }
+
+    const targets = unresolved.slice(0, OLLAMA_DETAIL_BACKFILL_LIMIT)
+    if (unresolved.length > targets.length) {
+      logger.debug(
+        `Backfilling details for ${targets.length} of ${unresolved.length} models missing metadata`,
+        "OllamaProvider"
+      )
+    }
+
+    await Promise.all(
+      targets.map(async (model) => {
+        try {
+          const shown = await this.getModelDetails(model.model, signal)
+          if (shown?.details?.parameter_size) {
+            enriched.set(model.model, shown.details)
+            detailBackfillCache.set(
+              backfillCacheKey(baseUrl, model),
+              shown.details
+            )
+          }
+        } catch {
+          // Already logged by getModelDetails; this model keeps its blank fields.
+        }
+      })
+    )
+
+    if (enriched.size === 0) return models
+    return models.map((model) => {
+      const details = enriched.get(model.model)
+      return details ? { ...model, details } : model
+    })
   }
 
   async streamChat(
@@ -359,7 +460,10 @@ export class OllamaProvider implements LLMProvider {
     }
   }
 
-  async getModelDetails(model: string): Promise<OllamaShowResponse | null> {
+  async getModelDetails(
+    model: string,
+    signal?: AbortSignal
+  ): Promise<OllamaShowResponse | null> {
     const baseUrl = resolveProviderBaseUrl(this.config)
     const requestBody: OllamaShowRequest = { name: model }
 
@@ -367,7 +471,8 @@ export class OllamaProvider implements LLMProvider {
       const res = await fetch(`${baseUrl}/api/show`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        ...(signal ? { signal } : {})
       })
 
       if (!res.ok) {
