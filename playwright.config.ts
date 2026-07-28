@@ -25,11 +25,9 @@ export default defineConfig({
     ["list"],
     ["html", { outputFolder: "artifacts/e2e/html", open: "never" }]
   ],
-  use: {
-    screenshot: "only-on-failure",
-    trace: "retain-on-failure",
-    video: "retain-on-failure"
-  },
+  // The extension fixture launches its own persistent context so profiles can
+  // survive full browser restarts. It therefore owns trace, screenshot, and
+  // video capture instead of relying on Playwright's `use` context.
   projects: [
     chromiumProject(
       "chromium-production",
