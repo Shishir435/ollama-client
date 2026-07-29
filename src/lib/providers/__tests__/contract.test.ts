@@ -248,6 +248,33 @@ describe("provider contracts", () => {
     ])
   })
 
+  it("recovers a parameter size from self-hosted model ids and leaves ambiguous ones blank", async () => {
+    // `/v1/models` has no size field, so a locally served "Qwen3-8B" rendered a
+    // blank badge next to real sizes from Ollama and llama.cpp.
+    const provider = new VllmProvider({
+      id: ProviderId.VLLM,
+      name: "vLLM",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "http://vllm.test/v1"
+    })
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        data: [
+          { id: "Qwen/Qwen3-8B" },
+          // A hosted catalog naming no size must stay blank rather than have
+          // one invented from a version number.
+          { id: "gpt-4o-mini" }
+        ]
+      })
+    )
+
+    const models = await provider.getModels()
+
+    expect(models[0].details.parameter_size).toBe("8B")
+    expect(models[1].details.parameter_size).toBe("")
+  })
+
   it("LM Studio prefers /api/v0/models rich metadata and falls back to OpenAI models", async () => {
     const provider = new LMStudioProvider({
       id: ProviderId.LM_STUDIO,
