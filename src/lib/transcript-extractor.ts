@@ -850,21 +850,19 @@ const extractYouTubeTranscript = async (): Promise<string | null> => {
 
   logger.info("Starting YouTube transcript extraction", "TranscriptExtractor")
 
-  // An already-open panel is read without an id check, deliberately: it is
-  // rendered by YouTube for the video it is currently showing, so it agrees with
-  // what the user sees on screen. A stale panel would mean YouTube itself is
-  // displaying the previous video's transcript beside the new video — visible on
-  // the page, not a silent mismatch like the inline player response, which stays
-  // stale indefinitely because nothing re-renders a script tag.
-  const existingPanelTranscript = extractYouTubePanelTranscript()
-  if (existingPanelTranscript) {
-    logger.info(
-      `Successfully extracted open panel transcript (${existingPanelTranscript.length} chars)`,
-      "TranscriptExtractor"
-    )
-    return existingPanelTranscript
-  }
-
+  // Captions first, panel second — the reverse of the original order.
+  //
+  // The panel used to win because it costs no request when it is already open.
+  // But it is the one source that cannot be tied to the current video: nothing
+  // in that DOM names a video id, so an open panel left behind by a navigation
+  // would be read as the current transcript. It is also built lazily, so a long
+  // video's panel can hold only part of its segments and would truncate the
+  // answer silently.
+  //
+  // The caption track has neither problem: it is verified against the address bar
+  // and it arrives whole. The panel stays as the fallback for when the caption
+  // fetch fails — YouTube's own player already resolved that data, so the panel
+  // still has it when a direct request does not.
   const captionTranscript = await fetchYouTubeCaptionTranscript()
   if (captionTranscript) {
     logger.info(
@@ -872,6 +870,15 @@ const extractYouTubeTranscript = async (): Promise<string | null> => {
       "TranscriptExtractor"
     )
     return captionTranscript
+  }
+
+  const existingPanelTranscript = extractYouTubePanelTranscript()
+  if (existingPanelTranscript) {
+    logger.info(
+      `Falling back to the open panel transcript (${existingPanelTranscript.length} chars)`,
+      "TranscriptExtractor"
+    )
+    return existingPanelTranscript
   }
 
   // Try to open transcript panel if not already open

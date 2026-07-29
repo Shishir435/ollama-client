@@ -22,6 +22,9 @@ describe("Transcript Extractor", () => {
       value: originalLocation,
       writable: true
     })
+    // Globals stubbed by one test used to survive into the next, so a test that
+    // never stubbed `fetch` could still pass on a neighbour's mock.
+    vi.unstubAllGlobals()
   })
 
   const mockLocation = (href: string) => {
@@ -252,6 +255,71 @@ describe("Transcript Extractor", () => {
           .find((url) => url.includes("timedtext"))
         expect(captionUrl).toContain("v=123")
         expect(captionUrl).not.toContain("previous-video")
+      })
+
+      it("prefers the verified caption track over an already-open panel", async () => {
+        // The panel is the one source that cannot be tied to the current video —
+        // no id in that DOM — and it renders lazily, so a long video's panel can
+        // hold only part of its segments. Captions are checked against the
+        // address bar and arrive whole, so they win when both are available.
+        const panel = document.createElement("yt-section-list-renderer")
+        panel.setAttribute("data-target-id", "PAmodern_transcript_view")
+        panel.innerHTML = `
+          <transcript-segment-view-model>
+            <span class="ytAttributedStringHost" role="text">Panel text.</span>
+          </transcript-segment-view-model>
+        `
+        document.body.appendChild(panel)
+
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          videoDetails: { videoId: "123" },
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [
+                {
+                  baseUrl: "https://www.youtube.com/api/timedtext?v=123",
+                  languageCode: "en",
+                  name: { simpleText: "English" }
+                }
+              ]
+            }
+          }
+        })};`
+        document.head.appendChild(script)
+
+        vi.stubGlobal(
+          "fetch",
+          vi.fn().mockResolvedValue({
+            ok: true,
+            text: vi.fn().mockResolvedValue(
+              JSON.stringify({
+                events: [{ tStartMs: 0, segs: [{ utf8: "Caption text." }] }]
+              })
+            )
+          })
+        )
+
+        const result = await getTranscript()
+        expect(result).toBe("0:00 Caption text.")
+      })
+
+      it("falls back to the open panel when the caption fetch fails", async () => {
+        // YouTube's own player already resolved that data, so the panel still
+        // has it when a direct request does not.
+        const panel = document.createElement("yt-section-list-renderer")
+        panel.setAttribute("data-target-id", "PAmodern_transcript_view")
+        panel.innerHTML = `
+          <transcript-segment-view-model>
+            <span class="ytAttributedStringHost" role="text">Panel text.</span>
+          </transcript-segment-view-model>
+        `
+        document.body.appendChild(panel)
+
+        vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+
+        const result = await getTranscript()
+        expect(result).toBe("Panel text.")
       })
 
       it("refetches when the inline payload names no video at all", async () => {
