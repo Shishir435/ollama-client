@@ -12,6 +12,7 @@ import { buildErrorReportUrl } from "@/lib/error-report"
 import { logger } from "@/lib/logger"
 import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
+import { turnService } from "@/lib/turn-service"
 import type { ChatMessage } from "@/types"
 import {
   makeStreamReducerState,
@@ -28,6 +29,7 @@ interface StreamOptions {
   generatedMessage?: ChatMessage
   /** See {@link ChatWithModelMessage} `clientContextPrepared`. */
   clientContextPrepared?: boolean
+  turnId?: string
 }
 
 export interface UseChatStreamProps {
@@ -51,6 +53,7 @@ export const useChatStream = ({
   const portRef = useRef<browser.Runtime.Port | null>(null)
   const currentMessagesRef = useRef<ChatMessage[]>([])
   const currentRequestIdRef = useRef<string | null>(null)
+  const currentTurnIdRef = useRef<string | null>(null)
   // The request id of a turn the user explicitly stopped. Lets the disconnect
   // handler tell a user-initiated stop (finalize cleanly) from an unexpected
   // worker/port death (finalize as interrupted, offer retry).
@@ -68,7 +71,8 @@ export const useChatStream = ({
     messages,
     sessionId,
     generatedMessage,
-    clientContextPrepared
+    clientContextPrepared,
+    turnId
   }: StreamOptions) => {
     // Create port synchronously BEFORE any async operations
     let port = browser.runtime.connect({
@@ -79,6 +83,7 @@ export const useChatStream = ({
       globalThis.crypto?.randomUUID?.() ||
       `chat-stream-${Date.now()}-${Math.random().toString(36).slice(2)}`
     currentRequestIdRef.current = requestId
+    currentTurnIdRef.current = turnId ?? null
 
     setIsLoading(true)
     setIsStreaming(false)
@@ -105,7 +110,7 @@ export const useChatStream = ({
     const renderAssistant = (assistant: ChatMessage) => {
       const updated = [...messages, assistant]
       currentMessagesRef.current = updated
-      setMessages(updated)
+      return setMessages(updated)
     }
 
     // Persist a clean completion for the current partial answer. Used by a
@@ -134,6 +139,7 @@ export const useChatStream = ({
       if (portRef.current === port) {
         portRef.current = null
         currentRequestIdRef.current = null
+        currentTurnIdRef.current = null
       }
     }
 
@@ -169,6 +175,22 @@ export const useChatStream = ({
         setIsStreaming(false)
 
         if (result.terminal.type === "error") {
+          if (turnId) {
+            void turnService
+              .fail(
+                turnId,
+                result.terminal.error.userMessage ?? "Generation failed"
+              )
+              .catch((error) =>
+                logger.error(
+                  "Failed to persist turn failure",
+                  "useChatStream",
+                  {
+                    error
+                  }
+                )
+              )
+          }
           const { error, partial } = result.terminal
           const isProviderError = error.kind === "provider"
           // An explicit providerId from the background is authoritative for any
@@ -281,10 +303,13 @@ export const useChatStream = ({
               }
             : result.terminal.message
           Promise.resolve(renderAssistant(message))
-            .then(() => onSuccessfulResponse?.(message))
+            .then(async () => {
+              if (turnId) await turnService.complete(turnId)
+              await onSuccessfulResponse?.(message)
+            })
             .catch((error) => {
               logger.debug(
-                "Successful response post-persistence callback failed",
+                "Successful response persistence finalization failed",
                 "useChatStream",
                 { error }
               )
@@ -352,6 +377,20 @@ export const useChatStream = ({
         // startup sweep's `done=0` scan isn't the only recovery path — the
         // partial persists with the interrupted note + retry immediately.
         const userStopped = manualStopRequestIdRef.current === requestId
+        if (turnId) {
+          const lifecycleUpdate = userStopped
+            ? turnService.cancel(turnId)
+            : turnService.fail(turnId, "Stream disconnected")
+          void lifecycleUpdate.catch((error) =>
+            logger.error(
+              "Failed to persist disconnected turn",
+              "useChatStream",
+              {
+                error
+              }
+            )
+          )
+        }
         const finalized: ChatMessage = {
           ...state.assistant,
           done: true,
@@ -364,6 +403,7 @@ export const useChatStream = ({
         if (portRef.current === port) {
           portRef.current = null
           currentRequestIdRef.current = null
+          currentTurnIdRef.current = null
         }
       }
     }
@@ -387,15 +427,24 @@ export const useChatStream = ({
 
     try {
       const requestId = currentRequestIdRef.current
+      const turnId = currentTurnIdRef.current
       // Record the stop so a racing disconnect finalizes cleanly rather than
       // flagging this turn as interrupted.
       manualStopRequestIdRef.current = requestId
+      if (turnId) {
+        void turnService.cancel(turnId).catch((error) =>
+          logger.error("Failed to persist cancelled turn", "useChatStream", {
+            error
+          })
+        )
+      }
       // Persist the partial answer as a clean completion now. `disconnect()`
       // below won't fire our own `onDisconnect`, so this is the only place the
       // stopped turn gets its `done:true` written — otherwise the recovery
       // sweep would later mark this clean stop as interrupted.
       finalizeCleanRef.current?.()
       currentRequestIdRef.current = null
+      currentTurnIdRef.current = null
       portRef.current.postMessage({
         type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION,
         payload: requestId ? { requestId } : undefined

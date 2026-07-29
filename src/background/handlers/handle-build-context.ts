@@ -74,7 +74,7 @@ export const handleBuildContext = async (
     )
 
     const output = await new ContextService().build({
-      turnId: p.requestId,
+      turnId: p.turnId ?? p.requestId,
       mode: p.mode ?? "new",
       model: modelId,
       providerId: p.selectedModelRef?.providerId,

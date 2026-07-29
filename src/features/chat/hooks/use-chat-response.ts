@@ -4,6 +4,7 @@ import type {
   RagSources
 } from "@/application/context/build-context"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
+import { turnService } from "@/lib/turn-service"
 import type { ChatMessage } from "@/types"
 
 interface ChatResponseOptions {
@@ -18,6 +19,7 @@ interface ChatResponseOptions {
     sessionId: string
     generatedMessage: ChatMessage
     clientContextPrepared?: boolean
+    turnId?: string
   }) => void
   currentStreamingMessageIdRef: { current: number | null }
   currentStreamingSessionIdRef: { current: string | null }
@@ -51,7 +53,7 @@ export const useChatResponse = ({
     customModel?: string,
     sessionIdParam?: string,
     contextMessages?: ChatMessage[],
-    options?: { contextPrepared?: boolean }
+    options?: { contextPrepared?: boolean; turnId?: string }
   ) => {
     const sessionId = sessionIdParam || currentSessionId
     if (!sessionId) return
@@ -79,6 +81,9 @@ export const useChatResponse = ({
     clearNextResponseMetrics()
 
     const assistantId = await addMessage(sessionId, assistantMessage)
+    if (options?.turnId) {
+      await turnService.attachAssistantMessage(options.turnId, assistantId)
+    }
     currentStreamingMessageIdRef.current = assistantId
     currentStreamingSessionIdRef.current = sessionId
 
@@ -88,7 +93,8 @@ export const useChatResponse = ({
       messages: contextMessages || messages,
       sessionId,
       generatedMessage: { ...assistantMessage, id: assistantId },
-      clientContextPrepared: options?.contextPrepared ?? false
+      clientContextPrepared: options?.contextPrepared ?? false,
+      turnId: options?.turnId
     })
   }
 

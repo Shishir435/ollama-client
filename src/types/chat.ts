@@ -347,6 +347,8 @@ export interface ChatWithModelMessage {
  */
 export interface BuildContextRequestPayload {
   requestId: string
+  /** Durable turn identity; distinct from this short-lived port request. */
+  turnId?: string
   /** Turn behavior is data; every path uses the same context service. */
   mode?: import("@/application/turns/turn-contract").TurnMode
   rawInput: string

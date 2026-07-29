@@ -27,6 +27,25 @@ const baseRequest = {
   selectedModelRef: null
 }
 
+const receipt = {
+  version: 1 as const,
+  turnId: "turn-1",
+  mode: "new" as const,
+  createdAt: 1,
+  query: "hi",
+  model: { id: "llama3" },
+  prompt: {
+    inputLength: 2,
+    augmentedLength: 2,
+    tabContextLength: 0,
+    ragContextLength: 0,
+    tabContextTruncated: false,
+    groundedOnlyMode: false,
+    insufficientContext: false
+  },
+  sources: []
+}
+
 describe("useBuildContext", () => {
   let mockPort: any
   let messageListener: (msg: unknown) => void
@@ -82,10 +101,14 @@ describe("useBuildContext", () => {
         ragSources: null,
         pageContextAdded: false,
         promptContextStats: {}
-      }
+      },
+      receipt
     })
 
-    await expect(promise).resolves.toMatchObject({ contentWithRAG: "hi" })
+    await expect(promise).resolves.toMatchObject({
+      result: { contentWithRAG: "hi" },
+      receipt
+    })
     expect(mockPort.disconnect).toHaveBeenCalled()
   })
 

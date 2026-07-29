@@ -7,6 +7,11 @@ import type { UseChatStreamProps } from "../use-chat-stream"
 import { useChatStream } from "../use-chat-stream"
 
 const mockToast = vi.hoisted(() => vi.fn())
+const turnServiceMock = vi.hoisted(() => ({
+  complete: vi.fn().mockResolvedValue(undefined),
+  fail: vi.fn().mockResolvedValue(undefined),
+  cancel: vi.fn().mockResolvedValue(undefined)
+}))
 
 // Mock browser API
 vi.mock("@/lib/browser-api", () => ({
@@ -30,6 +35,10 @@ vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: mockToast })
 }))
 
+vi.mock("@/lib/turn-service", () => ({
+  turnService: turnServiceMock
+}))
+
 describe("useChatStream", () => {
   let mockPort: any
   let setMessages: UseChatStreamProps["setMessages"]
@@ -39,6 +48,9 @@ describe("useChatStream", () => {
   beforeEach(() => {
     // Reset mocks
     vi.clearAllMocks()
+    turnServiceMock.complete.mockResolvedValue(undefined)
+    turnServiceMock.fail.mockResolvedValue(undefined)
+    turnServiceMock.cancel.mockResolvedValue(undefined)
 
     // Create mock port
     mockPort = {
@@ -196,7 +208,7 @@ describe("useChatStream", () => {
     })
   })
 
-  it("should handle stream completion", () => {
+  it("should handle stream completion", async () => {
     const { result } = renderHook(() =>
       useChatStream({
         setMessages,
@@ -208,7 +220,11 @@ describe("useChatStream", () => {
     const messages = [{ role: "user" as const, content: "Hello" }]
 
     act(() => {
-      result.current.startStream({ model: "llama2", messages })
+      result.current.startStream({
+        model: "llama2",
+        messages,
+        turnId: "turn-1"
+      })
     })
 
     const listener = mockPort.onMessage.addListener.mock.calls[0][0]
@@ -221,6 +237,9 @@ describe("useChatStream", () => {
     expect(setIsLoading).toHaveBeenCalledWith(false)
     expect(setIsStreaming).toHaveBeenCalledWith(false)
     expect(mockPort.disconnect).toHaveBeenCalled()
+    await waitFor(() =>
+      expect(turnServiceMock.complete).toHaveBeenCalledWith("turn-1")
+    )
   })
 
   it("reports success only after final message persistence resolves", async () => {
@@ -710,7 +729,11 @@ describe("useChatStream", () => {
     const messages = [{ role: "user" as const, content: "Hello" }]
 
     act(() => {
-      result.current.startStream({ model: "llama2", messages })
+      result.current.startStream({
+        model: "llama2",
+        messages,
+        turnId: "turn-1"
+      })
     })
 
     act(() => {
@@ -724,6 +747,7 @@ describe("useChatStream", () => {
     expect(mockPort.disconnect).toHaveBeenCalled()
     expect(setIsLoading).toHaveBeenCalledWith(false)
     expect(setIsStreaming).toHaveBeenCalledWith(false)
+    expect(turnServiceMock.cancel).toHaveBeenCalledWith("turn-1")
   })
 
   it("reconnects an awaiting approval with the same request id", () => {

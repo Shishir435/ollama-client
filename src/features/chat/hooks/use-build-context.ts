@@ -1,6 +1,10 @@
 import { useCallback } from "react"
 import type { BuildRagContextResult } from "@/application/context/build-context"
-import type { TurnToast } from "@/application/turns/turn-contract"
+import type { ContextBuildOutput } from "@/application/context/context-service"
+import type {
+  ContextReceipt,
+  TurnToast
+} from "@/application/turns/turn-contract"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import type { ActivityEvent, BuildContextRequestPayload } from "@/types"
@@ -18,7 +22,12 @@ interface BuildContextCallbacks {
 type BuildContextPortMessage =
   | { type: "context_progress"; requestId: string; events: ActivityEvent[] }
   | { type: "context_warning"; requestId: string; payload: TurnToast }
-  | { type: "context_result"; requestId: string; result: BuildRagContextResult }
+  | {
+      type: "context_result"
+      requestId: string
+      result: BuildRagContextResult
+      receipt: ContextReceipt
+    }
   | { type: "context_error"; requestId: string; error: string }
 
 /**
@@ -33,8 +42,8 @@ export const useBuildContext = () => {
     (
       request: Omit<BuildContextRequestPayload, "requestId">,
       callbacks?: BuildContextCallbacks
-    ): Promise<BuildRagContextResult> =>
-      new Promise<BuildRagContextResult>((resolve, reject) => {
+    ): Promise<ContextBuildOutput> =>
+      new Promise<ContextBuildOutput>((resolve, reject) => {
         const requestId =
           globalThis.crypto?.randomUUID?.() ??
           `ctx-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -65,7 +74,9 @@ export const useBuildContext = () => {
               callbacks?.toast?.(msg.payload)
               break
             case "context_result":
-              finish(() => resolve(msg.result))
+              finish(() =>
+                resolve({ result: msg.result, receipt: msg.receipt })
+              )
               break
             case "context_error":
               finish(() => reject(new Error(msg.error)))

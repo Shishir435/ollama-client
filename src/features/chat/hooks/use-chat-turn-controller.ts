@@ -12,6 +12,7 @@ import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
+import { turnService } from "@/lib/turn-service"
 import type {
   ActivityEvent,
   ChatMessage,
@@ -37,7 +38,7 @@ interface UseChatTurnControllerOptions {
   setIsStreaming: (value: boolean) => void
   ensureSessionId: () => Promise<string | null>
   autoRenameSession: (sessionId: string, content: string) => Promise<void>
-  addMessage: (sessionId: string, message: ChatMessage) => Promise<unknown>
+  addMessage: (sessionId: string, message: ChatMessage) => Promise<number>
   setNextResponseMetrics: (
     ragSources: RagSources | null,
     promptContextStats: BuildRagContextResult["promptContextStats"]
@@ -47,7 +48,7 @@ interface UseChatTurnControllerOptions {
     customModel?: string,
     sessionId?: string,
     overrideMessages?: ChatMessage[],
-    options?: { contextPrepared?: boolean }
+    options?: { contextPrepared?: boolean; turnId?: string }
   ) => Promise<void>
   toast: ToastFn
 }
@@ -160,8 +161,9 @@ export const useChatTurnController = ({
       images
     })
 
+    let userMessageId: number
     try {
-      await addMessage(sessionId, userMessage)
+      userMessageId = await addMessage(sessionId, userMessage)
 
       if (!customInput) setInput("")
     } catch (error) {
@@ -185,32 +187,45 @@ export const useChatTurnController = ({
       logger.error("Failed to rename chat session", "useChat", { error })
     }
 
+    const turnId =
+      globalThis.crypto?.randomUUID?.() ??
+      `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const contextRequest = {
+      rawInput: userContent,
+      files: files?.map((file) => ({
+        text: file.text,
+        metadata: {
+          fileName: file.metadata.fileName,
+          fileId: file.metadata.fileId
+        }
+      })),
+      messages,
+      hasTabContext,
+      contextText: contextText || "",
+      tabDocuments,
+      memoryEnabled: config.memoryEnabled,
+      maxTabContextChars: config.maxTabContextChars,
+      maxRagContextChars: config.maxRagContextChars,
+      groundedOnlyMode: config.groundedOnlyMode,
+      selectedModel: config.selectedModel,
+      selectedModelRef: config.selectedModelRef,
+      customModel
+    }
+
     let ragResult: BuildRagContextResult
     try {
-      ragResult = await buildContext(
-        {
-          rawInput: userContent,
-          // Ship only what context building needs: scope id + text for the
-          // full-text fallback. Keeps the port payload small.
-          files: files?.map((file) => ({
-            text: file.text,
-            metadata: {
-              fileName: file.metadata.fileName,
-              fileId: file.metadata.fileId
-            }
-          })),
-          messages,
-          hasTabContext,
-          contextText: contextText || "",
-          tabDocuments,
-          memoryEnabled: config.memoryEnabled,
-          maxTabContextChars: config.maxTabContextChars,
-          maxRagContextChars: config.maxRagContextChars,
-          groundedOnlyMode: config.groundedOnlyMode,
-          selectedModel: config.selectedModel,
-          selectedModelRef: config.selectedModelRef,
-          customModel
-        },
+      await turnService.submit({
+        id: turnId,
+        sessionId,
+        mode: "new",
+        model: resolvedModel,
+        providerId: config.selectedModelRef?.providerId,
+        request: { version: 1, context: contextRequest },
+        createdAt: Date.now()
+      })
+      await turnService.markBuildingContext(turnId, userMessageId)
+      const contextOutput = await buildContext(
+        { ...contextRequest, turnId },
         {
           onActivityEvent: (events) => {
             setPendingActivityEvents([
@@ -225,7 +240,15 @@ export const useChatTurnController = ({
           toast: showTurnToast
         }
       )
+      ragResult = contextOutput.result
+      await turnService.markGenerating(turnId, contextOutput.receipt)
     } catch (error) {
+      await turnService
+        .fail(
+          turnId,
+          error instanceof Error ? error.message : "Context build failed"
+        )
+        .catch(() => undefined)
       logger.error("Failed to build chat context", "useChat", { error })
       clearNextResponseMetrics()
       setPendingActivityEvents([])
@@ -296,6 +319,7 @@ export const useChatTurnController = ({
           usedContextChunks: promptContextStats.usedContextChunks
         }
       })
+      await turnService.complete(turnId)
       return true
     }
 
@@ -342,9 +366,20 @@ export const useChatTurnController = ({
     // The UI just built page/file/memory context into `messagesForLLM`, so tell
     // the background not to run its own memory retrieval (which would double-
     // inject memory and embed the RAG-augmented prompt instead of the raw query).
-    await generateResponse(customModel, sessionId, messagesForLLM, {
-      contextPrepared: true
-    })
+    try {
+      await generateResponse(customModel, sessionId, messagesForLLM, {
+        contextPrepared: true,
+        turnId
+      })
+    } catch (error) {
+      await turnService
+        .fail(
+          turnId,
+          error instanceof Error ? error.message : "Generation failed"
+        )
+        .catch(() => undefined)
+      throw error
+    }
     setPendingActivityEvents([])
     return true
   }

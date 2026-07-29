@@ -4,6 +4,19 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { useChat } from "../use-chat"
 
 const toastMock = vi.hoisted(() => vi.fn())
+const turnServiceMock = vi.hoisted(() => ({
+  submit: vi.fn().mockResolvedValue(undefined),
+  markBuildingContext: vi.fn().mockResolvedValue(undefined),
+  markGenerating: vi.fn().mockResolvedValue(undefined),
+  attachAssistantMessage: vi.fn().mockResolvedValue(undefined),
+  complete: vi.fn().mockResolvedValue(undefined),
+  fail: vi.fn().mockResolvedValue(undefined),
+  cancel: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock("@/lib/turn-service", () => ({
+  turnService: turnServiceMock
+}))
 
 // Mock dependencies
 vi.mock("@plasmohq/storage/hook", () => ({
@@ -63,13 +76,38 @@ vi.mock("@/features/chat/hooks/use-build-context", async () => {
           toast?: (input: unknown) => void
         }
       ) =>
-        actual.buildRagContext({
-          ...(request as unknown as Parameters<
-            typeof actual.buildRagContext
-          >[0]),
-          onActivityEvent: callbacks?.onActivityEvent as never,
-          toast: (callbacks?.toast ?? (() => {})) as never
-        })
+        actual
+          .buildRagContext({
+            ...(request as unknown as Parameters<
+              typeof actual.buildRagContext
+            >[0]),
+            onActivityEvent: callbacks?.onActivityEvent as never,
+            toast: (callbacks?.toast ?? (() => {})) as never
+          })
+          .then((result) => ({
+            result,
+            receipt: {
+              version: 1,
+              turnId: String(request.turnId),
+              mode: "new",
+              createdAt: 1,
+              query: String(request.rawInput),
+              model: { id: String(request.selectedModel) },
+              prompt: {
+                inputLength: result.promptContextStats.promptInputLength,
+                augmentedLength:
+                  result.promptContextStats.promptAugmentedLength,
+                tabContextLength: result.promptContextStats.tabContextLength,
+                ragContextLength: result.promptContextStats.ragContextLength,
+                tabContextTruncated:
+                  result.promptContextStats.tabContextTruncated,
+                groundedOnlyMode: result.promptContextStats.groundedOnlyMode,
+                insufficientContext:
+                  result.promptContextStats.insufficientContext
+              },
+              sources: []
+            }
+          }))
     })
   }
 })
@@ -172,6 +210,9 @@ vi.mock("@/features/tabs/stores/tab-content-store", () => ({
 describe("useChat", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    for (const mock of Object.values(turnServiceMock)) {
+      mock.mockResolvedValue(undefined)
+    }
   })
 
   it("should initialize with default values", () => {

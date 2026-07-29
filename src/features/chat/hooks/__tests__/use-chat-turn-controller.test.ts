@@ -5,11 +5,26 @@ import type { ChatMessage } from "@/types"
 import { useChatTurnController } from "../use-chat-turn-controller"
 
 const ctx = vi.hoisted(() => ({
-  buildContext: vi.fn()
+  buildContext: vi.fn(),
+  submit: vi.fn(),
+  markBuildingContext: vi.fn(),
+  markGenerating: vi.fn(),
+  complete: vi.fn(),
+  fail: vi.fn()
 }))
 
 vi.mock("@/features/chat/hooks/use-build-context", () => ({
   useBuildContext: () => ({ buildContext: ctx.buildContext })
+}))
+
+vi.mock("@/lib/turn-service", () => ({
+  turnService: {
+    submit: ctx.submit,
+    markBuildingContext: ctx.markBuildingContext,
+    markGenerating: ctx.markGenerating,
+    complete: ctx.complete,
+    fail: ctx.fail
+  }
 }))
 
 const baseConfig = {
@@ -25,21 +40,46 @@ const baseConfig = {
 describe("useChatTurnController", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    ctx.submit.mockResolvedValue(undefined)
+    ctx.markBuildingContext.mockResolvedValue(undefined)
+    ctx.markGenerating.mockResolvedValue(undefined)
+    ctx.complete.mockResolvedValue(undefined)
+    ctx.fail.mockResolvedValue(undefined)
     loadStreamStore.setState({ isLoading: false, isStreaming: false })
     ctx.buildContext.mockResolvedValue({
-      contentWithRAG: "question\n\ncontext",
-      ragSources: null,
-      pageContextAdded: false,
-      promptContextStats: {
-        promptInputLength: 8,
-        promptAugmentedLength: 18,
-        tabContextLength: 0,
-        ragContextLength: 10,
-        tabContextTruncated: false,
-        groundedOnlyMode: false,
-        insufficientContext: false,
-        usedContextChunks: [],
-        activityEvents: []
+      result: {
+        contentWithRAG: "question\n\ncontext",
+        ragSources: null,
+        pageContextAdded: false,
+        promptContextStats: {
+          promptInputLength: 8,
+          promptAugmentedLength: 18,
+          tabContextLength: 0,
+          ragContextLength: 10,
+          tabContextTruncated: false,
+          groundedOnlyMode: false,
+          insufficientContext: false,
+          usedContextChunks: [],
+          activityEvents: []
+        }
+      },
+      receipt: {
+        version: 1,
+        turnId: "turn-1",
+        mode: "new",
+        createdAt: 1,
+        query: "question",
+        model: { id: "llama3" },
+        prompt: {
+          inputLength: 8,
+          augmentedLength: 18,
+          tabContextLength: 0,
+          ragContextLength: 10,
+          tabContextTruncated: false,
+          groundedOnlyMode: false,
+          insufficientContext: false
+        },
+        sources: []
       }
     })
   })
@@ -86,6 +126,14 @@ describe("useChatTurnController", () => {
       expect.objectContaining({ onActivityEvent: expect.any(Function) })
     )
     expect(setNextResponseMetrics).toHaveBeenCalled()
+    expect(ctx.submit).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "session-1" })
+    )
+    expect(ctx.markBuildingContext).toHaveBeenCalledWith(expect.any(String), 1)
+    expect(ctx.markGenerating).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ version: 1 })
+    )
     expect(generateResponse).toHaveBeenCalledWith(
       undefined,
       "session-1",
@@ -95,7 +143,7 @@ describe("useChatTurnController", () => {
           content: "question\n\ncontext"
         })
       ],
-      { contextPrepared: true }
+      { contextPrepared: true, turnId: expect.any(String) }
     )
   })
 
