@@ -32,6 +32,7 @@ export const webSearchDefinition: ToolDefinition = {
   category: "web",
   iconKey: "globe",
   risk: "medium",
+  resultProvenance: "web-untrusted",
   cacheable: true,
   requires: ["network", "storage"],
   runtime: { timeoutMs: 15_000 },

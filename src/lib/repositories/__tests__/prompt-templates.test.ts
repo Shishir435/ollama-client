@@ -65,7 +65,12 @@ beforeEach(async () => {
     return []
   })
   mocks.withTransaction.mockImplementation(
-    async (work: () => Promise<unknown>) => work()
+    async (
+      work: (transaction: {
+        query: typeof mocks.query
+        run: typeof mocks.run
+      }) => Promise<unknown>
+    ) => work({ query: mocks.query, run: mocks.run })
   )
 })
 
@@ -184,5 +189,56 @@ describe("prompt template migration", () => {
       "db unavailable"
     )
     await expect(ensurePromptTemplatesMigrated()).resolves.toBeUndefined()
+  })
+})
+
+describe("prompt template mutations", () => {
+  const storedRow = {
+    id: "one",
+    title: "Original",
+    description: null,
+    category: null,
+    systemPrompt: null,
+    userPrompt: "Keep this prompt",
+    tags: null,
+    createdAt: 1,
+    usageCount: 2,
+    sortOrder: 7
+  }
+
+  it("updates the existing row inside one transaction", async () => {
+    mocks.query.mockImplementation(async (sql: string) => {
+      if (String(sql).includes("FROM kv_store")) return [{ value: "complete" }]
+      if (String(sql).includes("FROM prompt_templates")) return [storedRow]
+      return []
+    })
+    const { updatePromptTemplate } = await load()
+
+    await updatePromptTemplate("one", { title: "Updated" })
+
+    expect(mocks.withTransaction).toHaveBeenCalledOnce()
+    expect(mocks.run).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE prompt_templates"),
+      ["Updated", null, null, null, "Keep this prompt", null, 1, 2, "one"]
+    )
+    expect(
+      mocks.run.mock.calls.some(([sql]) =>
+        String(sql).includes("INSERT OR REPLACE INTO prompt_templates")
+      )
+    ).toBe(false)
+    expect(mocks.flushSave).toHaveBeenCalledOnce()
+  })
+
+  it("does not recreate a template deleted before its update transaction", async () => {
+    mocks.query.mockImplementation(async (sql: string) =>
+      String(sql).includes("FROM kv_store") ? [{ value: "complete" }] : []
+    )
+    const { updatePromptTemplate } = await load()
+
+    await updatePromptTemplate("deleted", { title: "Stale edit" })
+
+    expect(mocks.withTransaction).toHaveBeenCalledOnce()
+    expect(mocks.run).not.toHaveBeenCalled()
+    expect(mocks.flushSave).not.toHaveBeenCalled()
   })
 })

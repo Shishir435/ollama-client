@@ -7,6 +7,7 @@ import { ToolRegistry } from "@/lib/tools"
 import type { ChatStreamMessage } from "@/types"
 import { streamChatWithTools } from "../stream-chat-with-tools"
 import { resolveToolConfirmation } from "../tool-confirmation-registry"
+import { addSessionGrant, clearSessionGrants } from "../tool-session-grants"
 
 /** Build a provider whose streamChat replays a scripted chunk list per call. */
 const scriptedProvider = (scripts: ChatStreamMessage[][]): LLMProvider => {
@@ -51,10 +52,6 @@ const registryWithTools = (
     callTool: (name, args) => run(name, args)
   })
   return reg
-}
-
-const flushMicrotasks = async () => {
-  for (let i = 0; i < 5; i++) await Promise.resolve()
 }
 
 describe("streamChatWithTools", () => {
@@ -484,8 +481,7 @@ describe("streamChatWithTools", () => {
       ctx: {}
     })
 
-    await flushMicrotasks()
-    expect(started).toEqual(["one", "two"])
+    await vi.waitFor(() => expect(started).toEqual(["one", "two"]))
 
     resolvers.get("two")?.({ content: "two result" })
     resolvers.get("one")?.({ content: "one result" })
@@ -556,8 +552,7 @@ describe("streamChatWithTools", () => {
       ctx: {}
     })
 
-    await flushMicrotasks()
-    expect(started).toEqual(["serial"])
+    await vi.waitFor(() => expect(started).toEqual(["serial"]))
 
     resolveSerial?.({ content: "serial result" })
     await promise
@@ -749,6 +744,83 @@ describe("streamChatWithTools", () => {
     expect(chunks.find((c) => c.delta)?.delta).toBe("done")
     const trace = [...chunks].reverse().find((c) => c.toolRuns)?.toolRuns
     expect(trace?.[0]).toMatchObject({ toolId: "danger", status: "done" })
+  })
+
+  it("re-prompts a batched gated call after preceding untrusted output", async () => {
+    clearSessionGrants()
+    addSessionGrant("taint-session", "egress", undefined, 0)
+    const provider = scriptedProvider([
+      [
+        {
+          toolCalls: [
+            { id: "read-1", name: "read", arguments: {} },
+            { id: "egress-1", name: "egress", arguments: {} }
+          ]
+        },
+        { done: true }
+      ],
+      [{ delta: "done" }, { done: true }]
+    ])
+    const run = vi.fn(async (name: string) => ({ content: `${name} result` }))
+    const registry = registryWithTools(
+      [
+        {
+          name: "read",
+          description: "",
+          parameters: { type: "object", properties: {} },
+          risk: "low",
+          resultProvenance: "web-untrusted"
+        },
+        {
+          name: "egress",
+          description: "",
+          parameters: { type: "object", properties: {} },
+          risk: "medium"
+        }
+      ],
+      run
+    )
+    const chunks: ChatStreamMessage[] = []
+    const checkpoints: DurableToolLoopState[] = []
+
+    const promise = streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "go" }] },
+      registry,
+      onChunk: (chunk) => chunks.push(chunk),
+      ctx: { sessionId: "taint-session" },
+      onCheckpoint: async (state) => {
+        checkpoints.push(structuredClone(state))
+      }
+    })
+
+    await vi.waitFor(() =>
+      expect(
+        chunks.some((chunk) =>
+          chunk.toolRuns?.some(
+            (toolRun) =>
+              toolRun.callId === "egress-1" &&
+              toolRun.status === "awaiting-confirmation"
+          )
+        )
+      ).toBe(true)
+    )
+    expect(run.mock.calls.map(([name]) => name)).toEqual(["read"])
+    expect(checkpoints.some((state) => state.taintGeneration === 1)).toBe(true)
+
+    resolveToolConfirmation("egress-1", true, "session")
+    await promise
+
+    expect(run.mock.calls.map(([name]) => name)).toEqual(["read", "egress"])
+    expect(
+      checkpoints.some((state) =>
+        state.toolRuns.some(
+          (toolRun) =>
+            toolRun.callId === "egress-1" && toolRun.taintGeneration === 1
+        )
+      )
+    ).toBe(true)
+    clearSessionGrants()
   })
 
   it("skips a gated tool when the user denies it", async () => {

@@ -65,6 +65,20 @@ describe("prepareToolCall origin scoping", () => {
     expect(prepared.requiresConfirmation).toBe(false)
   })
 
+  it("ignores persisted and earlier-session grants after untrusted input", async () => {
+    await addAlwaysGrant("site_tool", "https://github.com")
+    addSessionGrant("s1", "site_tool", "https://github.com", 0)
+    const registry = registryWith(scopedDef(() => "https://github.com"))
+
+    const prepared = await prepareToolCall(registry, call, undefined, {
+      sessionId: "s1",
+      taintGeneration: 1
+    })
+
+    expect(prepared.run.taintGeneration).toBe(1)
+    expect(prepared.requiresConfirmation).toBe(true)
+  })
+
   it("ignores a legacy wildcard grant for an origin-scoped tool", async () => {
     await addAlwaysGrant("site_tool") // wildcard "*"
     const registry = registryWith(scopedDef(() => "https://github.com"))

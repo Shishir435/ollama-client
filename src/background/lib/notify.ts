@@ -46,7 +46,7 @@ export const notifyJobComplete = async ({
 
     const options = {
       type: "basic",
-      iconUrl: browser.runtime.getURL("assets/icon.png"),
+      iconUrl: browser.runtime.getURL("assets/icon-128.png"),
       title,
       message
     } as const

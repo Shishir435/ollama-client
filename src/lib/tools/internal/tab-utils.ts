@@ -12,7 +12,7 @@ import { logger } from "@/lib/logger"
 import { isNeverReadUrl } from "@/lib/per-site-profiles"
 import type { ChromeResponse } from "@/types"
 
-/** Built content-script file (see manifest `content_scripts`). */
+/** Runtime-only extractor injected when a readable tab is requested. */
 const CONTENT_SCRIPT_FILE = "content-scripts/content.js"
 
 export type PageContentResponse = ChromeResponse & {
@@ -34,12 +34,10 @@ const requestPageContent = (tabId: number): Promise<PageContentResponse> =>
   }) as Promise<PageContentResponse>
 
 /**
- * Request page content, recovering from the missing-receiver case. The content
- * script is matched on `<all_urls>` but only exists on tabs that loaded *after*
- * the extension did, so a stale tab (common right after install or an extension
- * reload) rejects with "Receiving end does not exist." Inject on demand and
- * retry once — no page refresh needed. Throws when injection itself is blocked
- * (restricted pages); callers should pre-check with {@link classifyTabAccess}.
+ * Request page content through the runtime-only extractor. The first request
+ * injects it into the tab and retries; later requests reuse that receiver until
+ * navigation replaces the page. Throws when injection is blocked (restricted
+ * pages); callers should pre-check with {@link classifyTabAccess}.
  */
 export const requestPageContentWithRecovery = async (
   tabId: number

@@ -1,7 +1,13 @@
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
-import type { ToolContext, ToolDefinition, ToolRegistry } from "@/lib/tools"
+import type {
+  ToolCall,
+  ToolContext,
+  ToolDefinition,
+  ToolRegistry,
+  ToolResultProvenance
+} from "@/lib/tools"
 import { parseNonNativeToolCalls } from "@/lib/tools/non-native/non-native-tool-parser"
 import {
   buildNonNativeToolPrompt,
@@ -10,6 +16,7 @@ import {
 } from "@/lib/tools/non-native/non-native-tool-protocol"
 import type { ChatMessage, ChatStreamMessage } from "@/types"
 import {
+  isAuthorizationIndependentParallelCall,
   type PreparedToolCall,
   prepareToolCall,
   runPreparedToolCall
@@ -149,6 +156,7 @@ export const streamChatWithNonNativeTools = async ({
       : {
           iteration: 0,
           phase: "model",
+          taintGeneration: 0,
           workingMessages: injectToolPrompt(
             request.messages,
             buildNonNativeToolPrompt(tools)
@@ -238,11 +246,6 @@ export const streamChatWithNonNativeTools = async ({
     }
 
     const toolCalls = state.pendingToolCalls ?? []
-    const prepared = await Promise.all(
-      toolCalls.map((call) =>
-        prepareToolCall(registry, call, toolResultMaxChars, ctx)
-      )
-    )
     const responseParts = state.nonNativeResponseParts ?? []
 
     const startToolRun = (item: PreparedToolCall) => {
@@ -258,8 +261,10 @@ export const streamChatWithNonNativeTools = async ({
       onChunk({ toolRuns: [...toolRuns] })
     }
 
-    const runAndFormat = async (item: PreparedToolCall): Promise<string> => {
-      const { content } = await runPreparedToolCall(
+    const runAndFormat = async (
+      item: PreparedToolCall
+    ): Promise<{ content: string; provenance: ToolResultProvenance }> => {
+      const { content, result } = await runPreparedToolCall(
         item,
         registry,
         ctx,
@@ -268,29 +273,59 @@ export const streamChatWithNonNativeTools = async ({
         onCheckpoint ? () => checkpoint(true) : undefined
       )
       onChunk({ toolRuns: [...toolRuns] })
-      return formatNonNativeToolResult(item.call.name, content)
+      return {
+        content: formatNonNativeToolResult(item.call.name, content),
+        provenance: result.provenance ?? "trusted"
+      }
     }
 
-    for (let index = state.nextToolIndex ?? 0; index < prepared.length; ) {
-      const item = prepared[index]
-      if (item.policy.parallelizable) {
-        const group: PreparedToolCall[] = []
-        while (
-          index < prepared.length &&
-          prepared[index].policy.parallelizable
-        ) {
-          group.push(prepared[index])
+    const collect = (result: {
+      content: string
+      provenance: ToolResultProvenance
+    }) => {
+      responseParts.push(result.content)
+      if (result.provenance === "web-untrusted") {
+        state.taintGeneration = (state.taintGeneration ?? 0) + 1
+      }
+    }
+
+    const prepareAtCurrentGeneration = (call: ToolCall) =>
+      prepareToolCall(registry, call, toolResultMaxChars, {
+        ...ctx,
+        taintGeneration: state.taintGeneration ?? 0
+      })
+
+    for (let index = state.nextToolIndex ?? 0; index < toolCalls.length; ) {
+      const item = await prepareAtCurrentGeneration(toolCalls[index])
+      if (item.policy.parallelizable && !item.authorizationSensitive) {
+        // Keep concurrent execution for low-risk calls only. Any later call
+        // that can consume a grant is prepared after these results update the
+        // durable taint generation.
+        const group: PreparedToolCall[] = [item]
+        index++
+        while (index < toolCalls.length) {
+          const candidateCall = toolCalls[index]
+          if (
+            !(await isAuthorizationIndependentParallelCall(
+              registry,
+              candidateCall,
+              toolResultMaxChars
+            ))
+          ) {
+            break
+          }
+          group.push(await prepareAtCurrentGeneration(candidateCall))
           index++
         }
         for (const g of group) startToolRun(g)
         const groupResults = await Promise.all(group.map(runAndFormat))
-        responseParts.push(...groupResults)
+        for (const result of groupResults) collect(result)
         state.nextToolIndex = index
         if (onCheckpoint) await checkpoint()
         continue
       }
       startToolRun(item)
-      responseParts.push(await runAndFormat(item))
+      collect(await runAndFormat(item))
       index++
       state.nextToolIndex = index
       if (onCheckpoint) await checkpoint()

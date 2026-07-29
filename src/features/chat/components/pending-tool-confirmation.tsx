@@ -107,7 +107,9 @@ export const PendingToolConfirmation = ({
         // A run that paused for approval is at least high risk unless declared
         // otherwise — never offer broad grants on missing metadata.
         const risk = run.risk ?? "high"
-        const scopes = allowedScopesForRisk(risk)
+        const scopes = allowedScopesForRisk(risk).filter(
+          (scope) => scope !== "always" || (run.taintGeneration ?? 0) === 0
+        )
         const primaryScope = defaultScopeForRisk(risk)
 
         return (

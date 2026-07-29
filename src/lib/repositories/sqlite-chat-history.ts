@@ -3,6 +3,7 @@ import {
   parseStoredReplayArtifact,
   serializeReplayArtifact
 } from "@/lib/providers/provider-replay"
+import type { SqlExecutor } from "@/lib/sqlite/db"
 import {
   flushSave,
   query,
@@ -125,7 +126,8 @@ const normalizeFileData = (data: unknown): Uint8Array | undefined => {
 
 const insertImportedMessage = async (
   sessionId: string,
-  message: ChatMessage
+  message: ChatMessage,
+  executor: Pick<SqlExecutor, "runWithMeta"> = { runWithMeta }
 ): Promise<number> => {
   // Always allocate a fresh autoincrement id. messages.id is a GLOBAL primary
   // key (not per-session), so reusing the exported id via INSERT OR REPLACE
@@ -134,7 +136,7 @@ const insertImportedMessage = async (
   // pass once the full old→new id map for this session is known.
   // runWithMeta reports lastInsertRowid from the same owner-side operation,
   // which is the only race-free read on the shared OPFS connection.
-  const { lastInsertRowid } = await runWithMeta(
+  const { lastInsertRowid } = await executor.runWithMeta(
     `INSERT INTO messages
      (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact, error)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -155,8 +157,11 @@ const insertImportedMessage = async (
   return lastInsertRowid
 }
 
-const putSessionRow = async (session: ChatSession): Promise<void> => {
-  await run(
+const putSessionRow = async (
+  session: ChatSession,
+  executor: Pick<SqlExecutor, "run"> = { run }
+): Promise<void> => {
+  await executor.run(
     `INSERT OR REPLACE INTO sessions (id, title, modelId, currentLeafId, createdAt, updatedAt, pinned, systemPrompt, tags)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
@@ -229,18 +234,26 @@ export const bulkPutSessions = async (
       continue
     }
 
-    await withTransaction(async () => {
+    await withTransaction(async (transaction) => {
       const messages = session.messages ?? []
-      await putSessionRow(session)
-      await run("DELETE FROM files WHERE sessionId = ?", [session.id])
-      await run("DELETE FROM messages WHERE sessionId = ?", [session.id])
+      await putSessionRow(session, transaction)
+      await transaction.run("DELETE FROM files WHERE sessionId = ?", [
+        session.id
+      ])
+      await transaction.run("DELETE FROM messages WHERE sessionId = ?", [
+        session.id
+      ])
 
       // Pass 1: insert each message with a fresh id, record old→new, and
       // persist its files (which need the new message id).
       const idMap = new Map<number, number>()
       for (const message of messages) {
         const oldId = typeof message.id === "number" ? message.id : undefined
-        const messageId = await insertImportedMessage(session.id, message)
+        const messageId = await insertImportedMessage(
+          session.id,
+          message,
+          transaction
+        )
         if (oldId !== undefined) idMap.set(oldId, messageId)
 
         const fileRows = [
@@ -254,7 +267,9 @@ export const bulkPutSessions = async (
             imageToStoredFile(image, messageId, session.id)
           ) ?? [])
         ]
-        if (fileRows.length > 0) await bulkAddFiles(fileRows)
+        if (fileRows.length > 0) {
+          await insertFiles(fileRows, transaction)
+        }
       }
 
       // Pass 2: remap parentId links to the freshly-allocated ids.
@@ -266,7 +281,7 @@ export const bulkPutSessions = async (
         const newId = idMap.get(oldId)
         const newParentId = idMap.get(oldParentId)
         if (newId === undefined || newParentId === undefined) continue
-        await run("UPDATE messages SET parentId = ? WHERE id = ?", [
+        await transaction.run("UPDATE messages SET parentId = ? WHERE id = ?", [
           newParentId,
           newId
         ])
@@ -279,10 +294,10 @@ export const bulkPutSessions = async (
         typeof session.currentLeafId === "number"
           ? (idMap.get(session.currentLeafId) ?? null)
           : null
-      await run("UPDATE sessions SET currentLeafId = ? WHERE id = ?", [
-        newLeafId,
-        session.id
-      ])
+      await transaction.run(
+        "UPDATE sessions SET currentLeafId = ? WHERE id = ?",
+        [newLeafId, session.id]
+      )
     })
   }
 
@@ -292,9 +307,10 @@ export const bulkPutSessions = async (
   await flushSave()
 }
 
-export const updateSession = async (
+const updateSessionWithExecutor = async (
   id: string,
-  updates: Partial<ChatSession>
+  updates: Partial<ChatSession>,
+  executor: Pick<SqlExecutor, "run">
 ): Promise<number> => {
   const fields: string[] = []
   const values: RowValue[] = []
@@ -337,9 +353,17 @@ export const updateSession = async (
   if (fields.length === 0) return 0
 
   values.push(id)
-  await run(`UPDATE sessions SET ${fields.join(", ")} WHERE id = ?`, values)
+  await executor.run(
+    `UPDATE sessions SET ${fields.join(", ")} WHERE id = ?`,
+    values
+  )
   return 1
 }
+
+export const updateSession = (
+  id: string,
+  updates: Partial<ChatSession>
+): Promise<number> => updateSessionWithExecutor(id, updates, { run })
 
 export const deleteSessionRow = async (id: string): Promise<void> => {
   await run("DELETE FROM sessions WHERE id = ?", [id])
@@ -427,11 +451,12 @@ export const getRootMessagesForSession = async (
   return rows.map(messageFromRow)
 }
 
-export const addMessage = async (
-  message: Omit<StoredMessage, "id">
+const insertMessage = async (
+  message: Omit<StoredMessage, "id">,
+  executor: Pick<SqlExecutor, "runWithMeta">
 ): Promise<number> => {
   const timestamp = message.timestamp ?? Date.now()
-  const { lastInsertRowid } = await runWithMeta(
+  const { lastInsertRowid } = await executor.runWithMeta(
     `INSERT INTO messages
      (sessionId, role, content, model, timestamp, parentId, done, metrics, thinking, replayArtifact, error, updatedAt)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -455,6 +480,10 @@ export const addMessage = async (
   return lastInsertRowid
 }
 
+export const addMessage = (
+  message: Omit<StoredMessage, "id">
+): Promise<number> => insertMessage(message, { runWithMeta })
+
 /**
  * Atomically append a message, its files, and the session's active-leaf
  * pointer. A live session snapshot may be supplied to repair a session row
@@ -467,27 +496,33 @@ export const appendMessage = async (
 ): Promise<number> => {
   let messageId: number | undefined
 
-  await withTransaction(async () => {
-    const existing = await query("SELECT id FROM sessions WHERE id = ?", [
-      message.sessionId
-    ])
+  await withTransaction(async (transaction) => {
+    const existing = await transaction.query(
+      "SELECT id FROM sessions WHERE id = ?",
+      [message.sessionId]
+    )
     if (existing.length === 0) {
       if (!session || session.id !== message.sessionId) {
         throw new Error(`Session ${message.sessionId} was not found`)
       }
-      await putSessionRow(session)
+      await putSessionRow(session, transaction)
     }
 
-    messageId = await addMessage(message)
+    messageId = await insertMessage(message, transaction)
     if (files.length > 0) {
-      await bulkAddFiles(
-        files.map((file) => ({ ...file, messageId: messageId as number }))
+      await insertFiles(
+        files.map((file) => ({ ...file, messageId: messageId as number })),
+        transaction
       )
     }
-    await updateSession(message.sessionId, {
-      updatedAt: Date.now(),
-      currentLeafId: messageId
-    })
+    await updateSessionWithExecutor(
+      message.sessionId,
+      {
+        updatedAt: Date.now(),
+        currentLeafId: messageId
+      },
+      transaction
+    )
   })
 
   if (messageId === undefined) {
@@ -647,12 +682,13 @@ export const getFilesByMessageIds = async (
   return rows.map(fileFromRow)
 }
 
-export const bulkAddFiles = async (
-  files: Array<FileAttachment & { sessionId: string; messageId?: number }>
+const insertFiles = async (
+  files: Array<FileAttachment & { sessionId: string; messageId?: number }>,
+  executor: Pick<SqlExecutor, "run">
 ): Promise<void> => {
   for (const file of files) {
     const blob = file.data instanceof Uint8Array ? file.data : null
-    await run(
+    await executor.run(
       `INSERT INTO files (fileId, sessionId, messageId, fileType, fileName, fileSize, processedAt, data)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -668,6 +704,10 @@ export const bulkAddFiles = async (
     )
   }
 }
+
+export const bulkAddFiles = (
+  files: Array<FileAttachment & { sessionId: string; messageId?: number }>
+): Promise<void> => insertFiles(files, { run })
 
 export const deleteFilesBySession = async (
   sessionId: string

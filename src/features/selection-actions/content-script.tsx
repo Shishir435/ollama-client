@@ -18,14 +18,27 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  SELECTION_OVERLAY_READY_EVENT,
+  SELECTION_OVERLAY_REQUEST_ID_GLOBAL,
+  type SelectionOverlayReadyDetail
+} from "@/protocol/content-messages"
 import type { ContentExtractionConfig, ProviderModel } from "@/types"
 
 export const createSelectionActionsContentScript = (appStyles: string) =>
   defineContentScript({
     matches: ["<all_urls>"],
     allFrames: true,
+    registration: "runtime",
     cssInjectionMode: "manual",
     async main(ctx) {
+      const requestId = Reflect.get(
+        globalThis,
+        SELECTION_OVERLAY_REQUEST_ID_GLOBAL
+      )
+      Reflect.deleteProperty(globalThis, SELECTION_OVERLAY_REQUEST_ID_GLOBAL)
+      if (typeof requestId !== "string" || requestId.length === 0) return
+
       let container: HTMLDivElement | null = null
       let tooltipContainer: HTMLElement | ShadowRoot | null = null
       let root: Root | null = null
@@ -178,6 +191,12 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
       ui.mount()
       void applyTheme()
       renderApp()
+      document.dispatchEvent(
+        new CustomEvent<SelectionOverlayReadyDetail>(
+          SELECTION_OVERLAY_READY_EVENT,
+          { detail: { requestId } }
+        )
+      )
 
       // ── Storage watchers ─────────────────────────────────────────────
       chrome.storage.onChanged.addListener(handleThemeChange)
@@ -185,8 +204,8 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         [STORAGE_KEYS.LANGUAGE]: (change: { newValue?: unknown }) => {
           const lng = change.newValue as string | undefined
           if (lng) {
-            void import("@/i18n/config").then(({ default: i18n }) =>
-              i18n.changeLanguage(lng)
+            void import("@/i18n/selection-config").then(
+              ({ setSelectionLanguage }) => setSelectionLanguage(lng)
             )
           }
         },
@@ -216,6 +235,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
       document.addEventListener("mouseup", queueSelectionCheck, true)
       document.addEventListener("keyup", queueSelectionCheck, true)
       document.addEventListener("keydown", handleEscape, true)
+      queueSelectionCheck()
 
       ctx.onInvalidated(() => {
         document.removeEventListener(

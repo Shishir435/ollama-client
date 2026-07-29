@@ -13,6 +13,7 @@ import {
   type Scale
 } from "@/lib/sqlite/benchmark/persistence-benchmark-core"
 import { exportPersistedDatabaseBytes, query } from "@/lib/sqlite/db"
+import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
 
 // Dev-only verification surface for the production OPFS migration. Every
 // call below exercises the REAL production path: the repository facade, the
@@ -75,6 +76,41 @@ const readLegacyBlobLength = async (): Promise<number> =>
     }
   })
 
+const readLegacyBlobDigest = async (): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const request = indexedDB.open(SQLITE_DB_NAME, 1)
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const get = database
+        .transaction([SQLITE_DB_STORE], "readonly")
+        .objectStore(SQLITE_DB_STORE)
+        .get(SQLITE_DB_KEY)
+      get.onsuccess = async () => {
+        database.close()
+        if (!(get.result instanceof Uint8Array)) {
+          resolve("")
+          return
+        }
+        try {
+          const bytes = Uint8Array.from(get.result)
+          const digest = await crypto.subtle.digest("SHA-256", bytes.buffer)
+          resolve(
+            [...new Uint8Array(digest)]
+              .map((value) => value.toString(16).padStart(2, "0"))
+              .join("")
+          )
+        } catch (error) {
+          reject(error)
+        }
+      }
+      get.onerror = () => {
+        database.close()
+        reject(get.error)
+      }
+    }
+  })
+
 const verifyApi = {
   async backendMarker(): Promise<unknown> {
     const stored = await browser.storage.local.get(
@@ -103,6 +139,12 @@ const verifyApi = {
     const scale: Scale = { chats, messages }
     const fixture = createFixture(SQL, scale)
     try {
+      // createFixture uses the latest schema but intentionally leaves
+      // user_version at zero for benchmark portability. A current legacy
+      // profile is already stamped; mirror that state here so this fixture can
+      // detect migration writes to the rollback blob instead of observing the
+      // legacy backend's expected one-time schema-version stamp.
+      fixture.run(`PRAGMA user_version = ${LATEST_SCHEMA_VERSION}`)
       const bytes = fixture.export()
       await putLegacyBlob(bytes)
       return { sessions: chats, messages, blobBytes: bytes.byteLength }
@@ -112,6 +154,7 @@ const verifyApi = {
   },
 
   readLegacyBlobLength,
+  readLegacyBlobDigest,
 
   /** Row counts through the production path (facade → RPC → owner). */
   async counts(): Promise<{ sessions: number; messages: number }> {

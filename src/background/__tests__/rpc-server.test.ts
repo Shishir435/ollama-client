@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   upsert: vi.fn(),
   remove: vi.fn(),
   probeModelCapabilities: vi.fn(),
+  checkEmbeddingModelExists: vi.fn(),
+  prepareEmbeddingModel: vi.fn(),
   info: vi.fn(),
   error: vi.fn()
 }))
@@ -27,6 +29,11 @@ vi.mock("@/lib/logger", () => ({
     info: mocks.info,
     error: mocks.error
   }
+}))
+
+vi.mock("@/background/handlers/handle-embedding-download", () => ({
+  checkEmbeddingModelExists: mocks.checkEmbeddingModelExists,
+  prepareEmbeddingModel: mocks.prepareEmbeddingModel
 }))
 
 import {
@@ -79,6 +86,11 @@ beforeEach(() => {
   mocks.probeModelCapabilities.mockResolvedValue({
     toolCalling: true,
     probedAt: 1
+  })
+  mocks.checkEmbeddingModelExists.mockResolvedValue({ exists: true })
+  mocks.prepareEmbeddingModel.mockResolvedValue({
+    ready: true,
+    prepared: false
   })
 })
 
@@ -231,6 +243,43 @@ describe("RPC server", () => {
       ok: true,
       result: { toolCalling: true, probedAt: 1 }
     })
+  })
+
+  it("passes request cancellation signals to embedding operations", async () => {
+    const checkEnvelope = request(RpcMethod.EmbeddingsCheckModel, {
+      model: "embed-model",
+      providerId: "ollama"
+    })
+    await handleRpcRequest(
+      checkEnvelope,
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      vi.fn()
+    )
+
+    expect(mocks.checkEmbeddingModelExists).toHaveBeenCalledWith(
+      "embed-model",
+      "ollama",
+      expect.any(AbortSignal)
+    )
+
+    const prepareEnvelope = request(RpcMethod.EmbeddingsPrepareModel, {
+      model: "embed-model",
+      providerId: "ollama"
+    })
+    await handleRpcRequest(
+      prepareEnvelope,
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      vi.fn()
+    )
+
+    expect(mocks.prepareEmbeddingModel).toHaveBeenCalledWith(
+      { model: "embed-model", providerId: "ollama" },
+      expect.any(AbortSignal)
+    )
   })
 
   it("returns safe provider errors without logging upstream bodies", async () => {

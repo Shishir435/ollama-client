@@ -87,7 +87,7 @@ export const createChatArtifactFromCodeBlock = ({
     language: normalizedLanguage || kind,
     title: titleFor(kind, normalizedLanguage, index),
     content: content.slice(0, MAX_ARTIFACT_CHARS),
-    renderable: kind === "html" || kind === "svg" || kind === "mermaid"
+    renderable: kind === "html" || kind === "svg"
   }
 }
 

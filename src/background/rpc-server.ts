@@ -60,15 +60,16 @@ const handlers = {
   // Embedding preparation is owned by the background download handler, which
   // also drives the pull port; wired here rather than proxied through
   // ModelRpcService so `src/lib` keeps no dependency on `src/background`.
-  [RpcMethod.EmbeddingsCheckModel]: async (request) => {
+  [RpcMethod.EmbeddingsCheckModel]: async (request, signal) => {
     const { exists, debug } = await checkEmbeddingModelExists(
       request.model,
-      request.providerId
+      request.providerId,
+      signal
     )
     return { exists, ...(debug && { debug: debug as Record<string, unknown> }) }
   },
-  [RpcMethod.EmbeddingsPrepareModel]: async (request) =>
-    prepareEmbeddingModel(request),
+  [RpcMethod.EmbeddingsPrepareModel]: async (request, signal) =>
+    prepareEmbeddingModel(request, signal),
   // `diagnostics.run` is only reachable from the user pressing "Run self-tests",
   // which means "measure now" — never answer it from the shared TTL result.
   [RpcMethod.DiagnosticsRun]: async (_request, signal) =>

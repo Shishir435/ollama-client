@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest"
 
 import type { LLMProvider } from "@/lib/providers/types"
+import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
 import type { ToolDefinition, ToolResult } from "@/lib/tools"
 import { ToolRegistry } from "@/lib/tools"
 import type { ChatStreamMessage } from "@/types"
 import { streamChatWithNonNativeTools } from "../stream-chat-with-non-native-tools"
+import { resolveToolConfirmation } from "../tool-confirmation-registry"
+import { addSessionGrant, clearSessionGrants } from "../tool-session-grants"
 
 const scriptedProvider = (scripts: ChatStreamMessage[][]): LLMProvider => {
   let call = 0
@@ -199,6 +202,69 @@ describe("streamChatWithNonNativeTools", () => {
     const ids = [...(await runOnce()), ...(await runOnce())]
     expect(ids).toHaveLength(4)
     expect(new Set(ids).size).toBe(4)
+  })
+
+  it("re-prompts a batched gated call after untrusted non-native output", async () => {
+    clearSessionGrants()
+    addSessionGrant("non-native-taint", "egress", undefined, 0)
+    const readDef: ToolDefinition = {
+      name: "read",
+      description: "read",
+      parameters: { type: "object", properties: {} },
+      risk: "low",
+      resultProvenance: "web-untrusted"
+    }
+    const egressDef: ToolDefinition = {
+      name: "egress",
+      description: "egress",
+      parameters: { type: "object", properties: {} },
+      risk: "medium"
+    }
+    const provider = scriptedProvider([
+      [
+        {
+          delta:
+            '<tool_call>{"name":"read","arguments":{}}</tool_call><tool_call>{"name":"egress","arguments":{}}</tool_call>'
+        },
+        { done: true }
+      ],
+      [{ delta: "done" }, { done: true }]
+    ])
+    const run = vi.fn(async (name: string) => ({ content: `${name} result` }))
+    const chunks: ChatStreamMessage[] = []
+    const checkpoints: DurableToolLoopState[] = []
+
+    const promise = streamChatWithNonNativeTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "go" }] },
+      tools: [readDef, egressDef],
+      registry: registryWith(run, [readDef, egressDef]),
+      onChunk: (chunk) => chunks.push(chunk),
+      ctx: { sessionId: "non-native-taint" },
+      onCheckpoint: async (state) => {
+        checkpoints.push(structuredClone(state))
+      }
+    })
+
+    let pendingCallId: string | undefined
+    await vi.waitFor(() => {
+      pendingCallId = chunks
+        .flatMap((chunk) => chunk.toolRuns ?? [])
+        .find(
+          (toolRun) =>
+            toolRun.toolId === "egress" &&
+            toolRun.status === "awaiting-confirmation"
+        )?.callId
+      expect(pendingCallId).toBeDefined()
+    })
+    expect(run.mock.calls.map(([name]) => name)).toEqual(["read"])
+    expect(checkpoints.some((state) => state.taintGeneration === 1)).toBe(true)
+
+    resolveToolConfirmation(pendingCallId as string, true, "session")
+    await promise
+
+    expect(run.mock.calls.map(([name]) => name)).toEqual(["read", "egress"])
+    clearSessionGrants()
   })
 
   it("aborts immediately when the signal is already aborted", async () => {

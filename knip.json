@@ -1,27 +1,32 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
-    "src/entrypoints/background.ts",
-    "src/entrypoints/content.ts",
-    "src/entrypoints/selection-button.content.tsx",
-    "src/entrypoints/sidepanel/index.tsx",
-    "src/entrypoints/options/index.tsx",
-    "src/entrypoints/print/main.ts",
-    "src/entrypoints/mic-permission/main.ts",
+    "src/entrypoints/**/*.{ts,tsx}",
+    "config/**/*.ts",
     "tools/*.ts",
     "wxt.config.ts",
     "vitest.config.ts"
   ],
-  "project": ["src/**/*.{ts,tsx}", "tools/**/*.ts"],
+  "project": ["src/**/*.{ts,tsx}", "config/**/*.ts", "tools/**/*.ts"],
   "ignore": ["docs/**", "src/i18n/resources.ts"],
   "ignoreExportsUsedInFile": true,
+  "include": [
+    "files",
+    "dependencies",
+    "devDependencies",
+    "optionalPeerDependencies",
+    "unlisted",
+    "binaries",
+    "unresolved"
+  ],
   "ignoreDependencies": [
     "tailwindcss",
     "tw-animate-css",
     "@tailwindcss/typography",
     "tailwind-scrollbar",
     "babel-plugin-react-compiler",
+    "geckodriver",
     "shadcn"
   ],
-  "ignoreBinaries": ["preview"]
+  "ignoreBinaries": ["geckodriver", "preview"]
 }

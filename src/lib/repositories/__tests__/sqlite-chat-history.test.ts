@@ -5,30 +5,39 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 vi.mock("@/lib/sqlite/db", () => {
   const query = vi.fn()
   const run = vi.fn()
+  const runWithMeta = vi.fn(async (sql: string, bind?: unknown[]) => {
+    await run(sql, bind)
+    const rows = (await query("SELECT last_insert_rowid() AS id")) as Array<{
+      id?: number
+    }>
+    return { lastInsertRowid: Number(rows?.[0]?.id ?? 0), changes: 1 }
+  })
   return {
     query,
     run,
     // The facade helper mirrors the legacy composition so existing
     // assertions on run("BEGIN IMMEDIATE")/COMMIT/ROLLBACK keep holding.
-    withTransaction: vi.fn(async (work: () => Promise<void>) => {
-      await run("BEGIN IMMEDIATE")
-      try {
-        await work()
-        await run("COMMIT")
-      } catch (error) {
-        await run("ROLLBACK")
-        throw error
+    withTransaction: vi.fn(
+      async (
+        work: (transaction: {
+          query: typeof query
+          run: typeof run
+          runWithMeta: typeof runWithMeta
+        }) => Promise<void>
+      ) => {
+        await run("BEGIN IMMEDIATE")
+        try {
+          await work({ query, run, runWithMeta })
+          await run("COMMIT")
+        } catch (error) {
+          await run("ROLLBACK")
+          throw error
+        }
       }
-    }),
+    ),
     // Legacy-equivalent composition: execute the statement, then read the
     // rowid through the mocked query so per-test row fixtures apply.
-    runWithMeta: vi.fn(async (sql: string, bind?: unknown[]) => {
-      await run(sql, bind)
-      const rows = (await query("SELECT last_insert_rowid() AS id")) as Array<{
-        id?: number
-      }>
-      return { lastInsertRowid: Number(rows?.[0]?.id ?? 0), changes: 1 }
-    }),
+    runWithMeta,
     flushSave: vi.fn().mockResolvedValue(undefined),
     resetSQLiteDatabase: vi.fn().mockResolvedValue(undefined)
   }

@@ -7,6 +7,18 @@ const __dirname = path.dirname(__filename)
 
 const LOCALES_DIR = path.join(__dirname, "../src/locales")
 const OUTPUT_FILE = path.join(__dirname, "../src/i18n/resources.ts")
+const SELECTION_OUTPUT_DIR = path.join(
+  __dirname,
+  "../public/assets/selection-locales"
+)
+const LEGACY_SELECTION_OUTPUT_DIR = path.join(
+  __dirname,
+  "../src/i18n/selection-locales"
+)
+const LEGACY_SELECTION_OUTPUT_FILE = path.join(
+  __dirname,
+  "../src/i18n/selection-resources.ts"
+)
 const CHROME_LOCALES_DIR = path.join(__dirname, "../public/_locales")
 const CHROME_LOCALE_MAP: Record<string, string> = {
   zh: "zh_CN"
@@ -113,6 +125,11 @@ async function generateResources() {
     process.exit(1)
   }
 
+  fs.rmSync(SELECTION_OUTPUT_DIR, { recursive: true, force: true })
+  fs.rmSync(LEGACY_SELECTION_OUTPUT_DIR, { recursive: true, force: true })
+  fs.rmSync(LEGACY_SELECTION_OUTPUT_FILE, { force: true })
+  fs.mkdirSync(SELECTION_OUTPUT_DIR, { recursive: true })
+
   const locales = fs.readdirSync(LOCALES_DIR).filter((item) => {
     return fs.statSync(path.join(LOCALES_DIR, item)).isDirectory()
   })
@@ -126,6 +143,10 @@ async function generateResources() {
         const json = JSON.parse(content) as TranslationJson
         assertExtensionMessages(locale, json.extension)
         resources[locale] = { translation: json }
+        fs.writeFileSync(
+          path.join(SELECTION_OUTPUT_DIR, `${locale}.json`),
+          `${JSON.stringify({ selection_button: json.selection_button })}\n`
+        )
         chromeMessages[CHROME_LOCALE_MAP[locale] ?? locale] = toChromeMessages(
           json.extension
         )
@@ -150,6 +171,8 @@ export const resources = ${JSON.stringify(resources, null, 2)} as const;
   fs.writeFileSync(OUTPUT_FILE, fileContent)
   console.log(`✨ Generated resources at ${OUTPUT_FILE}`)
 
+  console.log(`✨ Generated selection locales at ${SELECTION_OUTPUT_DIR}`)
+
   writeChromeLocalesDir(chromeMessages)
 
   try {
@@ -157,7 +180,7 @@ export const resources = ${JSON.stringify(resources, null, 2)} as const;
     const { execSync } = await import("child_process")
     // --vcs-use-ignore-file=false so biome will touch the file even though it is .gitignored
     execSync(
-      `npx biome check --write --vcs-use-ignore-file=false "${OUTPUT_FILE}" "${CHROME_LOCALES_DIR}"`,
+      `npx biome check --write --vcs-use-ignore-file=false "${OUTPUT_FILE}" "${SELECTION_OUTPUT_DIR}" "${CHROME_LOCALES_DIR}"`,
       { stdio: "inherit" }
     )
     console.log("✅ Formatting complete")
