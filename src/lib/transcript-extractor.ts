@@ -529,9 +529,13 @@ const fetchPlayerResponseForVideo = async (
  * document first loaded. YouTube navigates without a reload, so after moving to
  * a second video that script still describes the first one — and its caption
  * `baseUrl` still points there, which is how a request about the open video can
- * be answered from a different video's transcript with no visible error. So the
- * payload is only trusted when it names the video in the address bar, and the
- * watch document is refetched when it does not.
+ * be answered from a different video's transcript with no visible error.
+ *
+ * So the payload is trusted only when it *names* the video in the address bar.
+ * A payload that names no video is not treated as current: unverifiable is not
+ * the same as correct, and the stale case cannot be distinguished from the fresh
+ * one without the id. Refetching costs one same-origin request in a case that
+ * should not arise, which is the cheaper side to be wrong on.
  */
 const resolveCurrentPlayerResponse =
   async (): Promise<YouTubePlayerResponse | null> => {
@@ -539,21 +543,41 @@ const resolveCurrentPlayerResponse =
     const inlineResponse = getYouTubePlayerResponse()
     const inlineVideoId = inlineResponse?.videoDetails?.videoId
 
-    // With no id in the URL there is nothing to compare and nothing to refetch;
-    // and a payload that names no video is as trustworthy as it was before.
+    // With no id in the URL there is nothing to compare and nothing to refetch.
     if (!videoId) return inlineResponse
-    if (inlineResponse && (!inlineVideoId || inlineVideoId === videoId)) {
-      return inlineResponse
-    }
+    if (inlineResponse && inlineVideoId === videoId) return inlineResponse
 
     logger.info(
-      "Inline YouTube player response is for another video; refetching",
+      "Inline YouTube player response is not confirmed as the current video; refetching",
       "TranscriptExtractor",
       { inlineVideoId: inlineVideoId || null, videoId }
     )
 
     return (await fetchPlayerResponseForVideo(videoId)) ?? null
   }
+
+/**
+ * Rejects a caption track belonging to another video.
+ *
+ * The track URL is what actually decides whose words arrive, so it is checked
+ * directly rather than inferred from the payload that carried it. Reaching here
+ * with a mismatch means the resolved player response disagreed with the address
+ * bar, and fetching it anyway would return a different video's transcript.
+ */
+const captionTrackMatchesVideo = (
+  track: YouTubeCaptionTrack,
+  videoId: string
+): boolean => {
+  if (!videoId || !track.baseUrl) return true
+  try {
+    const trackVideoId = new URL(track.baseUrl).searchParams.get("v")
+    return !trackVideoId || trackVideoId === videoId
+  } catch {
+    // An unparseable URL is not evidence of a mismatch; the fetch below will
+    // fail on its own if it is genuinely broken.
+    return true
+  }
+}
 
 const normalizeTranscriptLine = (text: string): string =>
   text.replace(/\s+/g, " ").trim()
@@ -690,6 +714,16 @@ const fetchYouTubeCaptionTranscript = async (): Promise<string | null> => {
     return null
   }
 
+  const videoId = currentYouTubeVideoId()
+  if (!captionTrackMatchesVideo(selectedTrack, videoId)) {
+    logger.warn(
+      "Discarding a caption track that belongs to another video",
+      "TranscriptExtractor",
+      { videoId }
+    )
+    return null
+  }
+
   logger.info("Using YouTube caption track", "TranscriptExtractor", {
     count: tracks.length,
     selected: getCaptionTrackLabel(selectedTrack)
@@ -816,6 +850,12 @@ const extractYouTubeTranscript = async (): Promise<string | null> => {
 
   logger.info("Starting YouTube transcript extraction", "TranscriptExtractor")
 
+  // An already-open panel is read without an id check, deliberately: it is
+  // rendered by YouTube for the video it is currently showing, so it agrees with
+  // what the user sees on screen. A stale panel would mean YouTube itself is
+  // displaying the previous video's transcript beside the new video — visible on
+  // the page, not a silent mismatch like the inline player response, which stays
+  // stale indefinitely because nothing re-renders a script tag.
   const existingPanelTranscript = extractYouTubePanelTranscript()
   if (existingPanelTranscript) {
     logger.info(

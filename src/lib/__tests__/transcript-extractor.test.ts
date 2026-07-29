@@ -78,6 +78,8 @@ describe("Transcript Extractor", () => {
       it("should extract transcript from YouTube caption tracks", async () => {
         const script = document.createElement("script")
         script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          // Real payloads always name their video; the resolver requires it.
+          videoDetails: { videoId: "123" },
           captions: {
             playerCaptionsTracklistRenderer: {
               captionTracks: [
@@ -117,6 +119,8 @@ describe("Transcript Extractor", () => {
       it("should keep timestamps from XML caption tracks", async () => {
         const script = document.createElement("script")
         script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          // Real payloads always name their video; the resolver requires it.
+          videoDetails: { videoId: "123" },
           captions: {
             playerCaptionsTracklistRenderer: {
               captionTracks: [
@@ -150,6 +154,8 @@ describe("Transcript Extractor", () => {
       it("should not add 0:00 for XML caption nodes without start", async () => {
         const script = document.createElement("script")
         script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          // Real payloads always name their video; the resolver requires it.
+          videoDetails: { videoId: "123" },
           captions: {
             playerCaptionsTracklistRenderer: {
               captionTracks: [
@@ -246,6 +252,110 @@ describe("Transcript Extractor", () => {
           .find((url) => url.includes("timedtext"))
         expect(captionUrl).toContain("v=123")
         expect(captionUrl).not.toContain("previous-video")
+      })
+
+      it("refetches when the inline payload names no video at all", async () => {
+        // Unverifiable is not the same as current: without an id there is no way
+        // to tell a stale payload from a fresh one, and the stale one's caption
+        // URL points at the previously loaded video.
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [
+                {
+                  baseUrl:
+                    "https://www.youtube.com/api/timedtext?v=unverifiable",
+                  languageCode: "en",
+                  name: { simpleText: "English" }
+                }
+              ]
+            }
+          }
+        })};`
+        document.head.appendChild(script)
+
+        const fetchMock = vi.fn(async (url: string) => {
+          if (url.includes("/watch")) {
+            return {
+              ok: true,
+              text: async () =>
+                `<script>var ytInitialPlayerResponse = ${JSON.stringify({
+                  videoDetails: { videoId: "123" },
+                  captions: {
+                    playerCaptionsTracklistRenderer: {
+                      captionTracks: [
+                        {
+                          baseUrl:
+                            "https://www.youtube.com/api/timedtext?v=123",
+                          languageCode: "en",
+                          name: { simpleText: "English" }
+                        }
+                      ]
+                    }
+                  }
+                })};</script>`
+            }
+          }
+          return {
+            ok: true,
+            text: async () =>
+              JSON.stringify({
+                events: [{ tStartMs: 0, segs: [{ utf8: "Confirmed video" }] }]
+              })
+          }
+        })
+        vi.stubGlobal("fetch", fetchMock)
+
+        const result = await getTranscript()
+
+        expect(result).toBe("0:00 Confirmed video")
+        const captionUrl = fetchMock.mock.calls
+          .map(([url]) => String(url))
+          .find((url) => url.includes("timedtext"))
+        expect(captionUrl).toContain("v=123")
+        expect(captionUrl).not.toContain("unverifiable")
+      })
+
+      it("discards a caption track whose url belongs to another video", async () => {
+        // The track URL is what decides whose words arrive, so it is checked on
+        // its own rather than trusted because the payload looked right.
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          videoDetails: { videoId: "123" },
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [
+                {
+                  baseUrl:
+                    "https://www.youtube.com/api/timedtext?v=other-video",
+                  languageCode: "en",
+                  name: { simpleText: "English" }
+                }
+              ]
+            }
+          }
+        })};`
+        document.head.appendChild(script)
+
+        const fetchMock = vi.fn().mockResolvedValue({
+          ok: true,
+          text: vi.fn().mockResolvedValue(
+            JSON.stringify({
+              events: [{ tStartMs: 0, segs: [{ utf8: "Wrong video" }] }]
+            })
+          )
+        })
+        vi.stubGlobal("fetch", fetchMock)
+
+        const result = await getTranscript()
+
+        expect(result).toBeNull()
+        expect(
+          fetchMock.mock.calls.filter(([url]) =>
+            String(url).includes("timedtext")
+          )
+        ).toHaveLength(0)
       })
 
       it("uses the inline payload when it names the video being watched", async () => {
