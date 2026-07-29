@@ -77,8 +77,29 @@ export interface StreamReducerState {
   started: boolean
 }
 
+/**
+ * Why a finished turn has no answer to show.
+ *
+ * - `thinking-only`: the model reasoned but never emitted a visible answer, and
+ *   no tool run made that reasoning worth promoting to content.
+ * - `no-output`: the stream completed without content, thinking, or tool runs.
+ *   Servers do this on a stopped/unloaded model or an exhausted context, and
+ *   report it as a clean success, so the turn used to finalize as an empty
+ *   bubble with nothing to read and no retry.
+ */
+export type StreamEmptyReason = "thinking-only" | "no-output"
+
 export type StreamTerminal =
-  | { type: "success"; message: ChatMessage }
+  | {
+      type: "success"
+      message: ChatMessage
+      /**
+       * Set when the finished turn has no answer. The message's `content` is
+       * empty in that case: the copy is the caller's, because it is UI text
+       * that must be localized and this module holds no i18n.
+       */
+      emptyReason?: StreamEmptyReason
+    }
   | {
       type: "error"
       error: NonNullable<StreamMessage["error"]>
@@ -108,14 +129,6 @@ export const makeStreamReducerState = (
   lastSeq: -1,
   started: false
 })
-
-/**
- * English fallback shown when a stream ends with no visible answer and no
- * tool-backed reasoning to promote. Preexisting content string, not an i18n
- * fallback: it is a synthesized assistant message, not UI chrome.
- */
-const THINKING_ONLY_FALLBACK =
-  "I did not receive a final answer from the model. Please try again."
 
 /**
  * Pure transition: fold one {@link StreamMessage} into the turn state and
@@ -220,22 +233,40 @@ export const reduceStreamEvent = (
       terminal = { type: "error", error: msg.error, partial: assistant }
       assistant = { ...assistant, done: true }
     } else {
-      const thinkingOnlyResponse =
-        !assistant.content.trim() && Boolean(assistant.thinking?.trim())
-      const toolBackedThinkingOnlyResponse =
-        thinkingOnlyResponse && (assistant.metrics?.toolRuns?.length ?? 0) > 0
+      const hasThinking = Boolean(assistant.thinking?.trim())
+      const hasToolRuns = (assistant.metrics?.toolRuns?.length ?? 0) > 0
+      const thinkingOnlyResponse = !assistant.content.trim() && hasThinking
+      // A tool-backed turn's reasoning is the answer often enough to show it,
+      // and this is content promotion rather than copy, so it stays here.
+      const toolBackedThinkingOnlyResponse = thinkingOnlyResponse && hasToolRuns
+      const emptyReason: StreamEmptyReason | undefined =
+        thinkingOnlyResponse && !toolBackedThinkingOnlyResponse
+          ? "thinking-only"
+          : // A stop the user asked for is not a server that answered nothing:
+            // it finalizes through the abort path, which owns its own copy.
+            !assistant.content.trim() &&
+              !hasThinking &&
+              !hasToolRuns &&
+              !msg.aborted
+            ? "no-output"
+            : undefined
       const base = thinkingOnlyResponse
         ? {
             ...assistant,
-            content: toolBackedThinkingOnlyResponse
-              ? assistant.thinking?.trim() || ""
-              : THINKING_ONLY_FALLBACK,
+            ...(toolBackedThinkingOnlyResponse
+              ? { content: assistant.thinking?.trim() || "" }
+              : {}),
             metrics: {
               ...assistant.metrics,
               thinkingOnlyResponse: true
             }
           }
-        : assistant
+        : emptyReason === "no-output"
+          ? {
+              ...assistant,
+              metrics: { ...assistant.metrics, emptyResponse: true }
+            }
+          : assistant
       const finalMessage: ChatMessage = {
         ...base,
         metrics: {
@@ -244,7 +275,11 @@ export const reduceStreamEvent = (
         },
         done: true
       }
-      terminal = { type: "success", message: finalMessage }
+      terminal = {
+        type: "success",
+        message: finalMessage,
+        ...(emptyReason ? { emptyReason } : {})
+      }
       assistant = finalMessage
     }
   }

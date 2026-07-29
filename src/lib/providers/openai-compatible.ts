@@ -14,6 +14,7 @@ import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
 import { resolveProviderBaseUrl } from "./base-url"
 import { OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES } from "./capabilities"
+import { parameterSizeFromModelId } from "./model-id-metadata"
 import {
   createProviderReplayArtifact,
   getProviderReplayBlocks
@@ -258,7 +259,14 @@ export class OpenAICompatibleProvider implements LLMProvider {
             format: "",
             family: "openai",
             families: [],
-            parameter_size: "",
+            // `/v1/models` reports no size: the OpenAI schema has no field for
+            // one, and neither vLLM, LocalAI, KoboldCPP, nor an LM Studio
+            // fallback list adds one. So a self-hosted "Qwen3-8B" showed a
+            // blank badge beside genuine sizes from Ollama and llama.cpp. The
+            // id is the only source, and the parser refuses ambiguous ids
+            // rather than guessing, so hosted catalogs naming no size (gpt-4o)
+            // stay blank instead of inventing one.
+            parameter_size: parameterSizeFromModelId(m.id),
             quantization_level: ""
           },
           ...((m.context_length ||

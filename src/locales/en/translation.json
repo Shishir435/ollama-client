@@ -445,6 +445,24 @@
       "retry_in": "Retry in {{seconds}}s",
       "diagnostics_copy_failed_title": "Could not copy diagnostics",
       "diagnostics_copy_failed_description": "Clipboard access was refused. Focus this panel and try again.",
+      "empty_response": "The model finished without sending an answer. It may have been unloaded, or the conversation may have left no room to reply. Try again, or start a new chat.",
+      "thinking_only_response": "I did not receive a final answer from the model. Please try again.",
+      "provider_selection_required_title": "Model provider selection required",
+      "provider_selection_required_description": "Select a provider for \"{{model}}\" in the model menu before sending a message.",
+      "no_model_selected_title": "No model selected",
+      "no_model_selected_description": "Select a model in the model menu before sending a message.",
+      "chat_create_failed_title": "Couldn't start chat",
+      "chat_create_failed_description": "Creating the chat failed. Please try again.",
+      "message_save_failed_title": "Couldn't send message",
+      "message_save_failed_description": "Saving the message failed. Please try again.",
+      "context_preparation_failed": "I couldn't prepare the context for this message. Please try again, or reduce the selected context/files if this keeps happening.",
+      "context_preparation_failed_title": "Context preparation failed",
+      "context_preparation_failed_description": "The message was saved, but the assistant could not start because context preparation failed.",
+      "insufficient_page_context": "Insufficient page context. Select at least one tab with relevant extracted content and try again.\n\nTo turn this off, open [{{settingsLabel}}]({{settingsLink}}).",
+      "context_trimmed_title": "Context trimmed",
+      "context_trimmed_description": "Extracted tab context exceeded your limit and was trimmed before sending.",
+      "context_retrieval_warning_title": "Context retrieval failed",
+      "context_retrieval_warning_description": "Couldn't retrieve context from your files. Continuing without it.",
       "interrupted": "Response interrupted"
     },
     "composer": {
@@ -1735,6 +1753,7 @@
           "vectorDb": "Vector Embeddings (Dexie)",
           "knowledgeDb": "Knowledge Sets (Dexie)"
         },
+        "legacy_chat_backup": "This backup was made by version 0.6.3 or earlier, which stored chats in a format the extension no longer reads. Its settings, embeddings, and knowledge sets were restored; its chats were not.",
         "status": {
           "success": "Success",
           "failed": "Failed",

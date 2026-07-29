@@ -16,6 +16,10 @@ type YouTubePlayerResponse = {
       captionTracks?: YouTubeCaptionTrack[]
     }
   }
+  /** Which video this payload describes — the staleness check below needs it. */
+  videoDetails?: {
+    videoId?: string
+  }
 }
 
 const YOUTUBE_TRANSCRIPT_PANEL_SELECTOR =
@@ -441,18 +445,18 @@ const extractBalancedJson = (
   return null
 }
 
-const getYouTubePlayerResponse = (): YouTubePlayerResponse | null => {
-  const scripts = Array.from(document.querySelectorAll("script"))
+/** Reads the first `ytInitialPlayerResponse` object out of a script or document. */
+const parsePlayerResponse = (source: string): YouTubePlayerResponse | null => {
+  let searchFrom = 0
+  while (true) {
+    const markerIndex = source.indexOf("ytInitialPlayerResponse", searchFrom)
+    if (markerIndex === -1) return null
+    searchFrom = markerIndex + 1
 
-  for (const script of scripts) {
-    const text = script.textContent || ""
-    const markerIndex = text.indexOf("ytInitialPlayerResponse")
-    if (markerIndex === -1) continue
+    const jsonStart = source.indexOf("{", markerIndex)
+    if (jsonStart === -1) return null
 
-    const jsonStart = text.indexOf("{", markerIndex)
-    if (jsonStart === -1) continue
-
-    const jsonText = extractBalancedJson(text, jsonStart)
+    const jsonText = extractBalancedJson(source, jsonStart)
     if (!jsonText) continue
 
     try {
@@ -461,14 +465,138 @@ const getYouTubePlayerResponse = (): YouTubePlayerResponse | null => {
       logger.debug(
         "Failed to parse ytInitialPlayerResponse",
         "TranscriptExtractor",
-        {
-          error
-        }
+        { error }
       )
     }
   }
+}
+
+const getYouTubePlayerResponse = (): YouTubePlayerResponse | null => {
+  for (const script of Array.from(document.querySelectorAll("script"))) {
+    const parsed = parsePlayerResponse(script.textContent || "")
+    if (parsed) return parsed
+  }
 
   return null
+}
+
+/** The video the address bar currently points at, or "" off a watch URL. */
+const currentYouTubeVideoId = (): string => {
+  try {
+    return new URL(window.location.href).searchParams.get("v") || ""
+  } catch {
+    return ""
+  }
+}
+
+/**
+ * Fetches the watch document for one video and reads its player response.
+ *
+ * Same-origin from a YouTube content script, so the request carries the user's
+ * session exactly as the page's own would — which is what makes captions on
+ * age-restricted and members-only videos resolve the same way they do in the
+ * player.
+ */
+const fetchPlayerResponseForVideo = async (
+  videoId: string
+): Promise<YouTubePlayerResponse | null> => {
+  try {
+    const response = await fetch(
+      `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
+      { credentials: "same-origin" }
+    )
+    if (!response.ok) {
+      logger.warn("YouTube watch page fetch failed", "TranscriptExtractor", {
+        status: response.status,
+        videoId
+      })
+      return null
+    }
+    return parsePlayerResponse(await response.text())
+  } catch (error) {
+    logger.warn("YouTube watch page fetch failed", "TranscriptExtractor", {
+      error,
+      videoId
+    })
+    return null
+  }
+}
+
+/**
+ * The player response for the video currently being watched.
+ *
+ * The inline `ytInitialPlayerResponse` script belongs to whichever video the
+ * document first loaded. YouTube navigates without a reload, so after moving to
+ * a second video that script still describes the first one — and its caption
+ * `baseUrl` still points there, which is how a request about the open video can
+ * be answered from a different video's transcript with no visible error.
+ *
+ * So the payload is trusted only when it *names* the video in the address bar.
+ * A payload that names no video is not treated as current: unverifiable is not
+ * the same as correct, and the stale case cannot be distinguished from the fresh
+ * one without the id. Refetching costs one same-origin request in a case that
+ * should not arise, which is the cheaper side to be wrong on.
+ */
+const resolveCurrentPlayerResponse =
+  async (): Promise<YouTubePlayerResponse | null> => {
+    const videoId = currentYouTubeVideoId()
+    const inlineResponse = getYouTubePlayerResponse()
+    const inlineVideoId = inlineResponse?.videoDetails?.videoId
+
+    // With no id in the URL there is nothing to compare and nothing to refetch.
+    if (!videoId) return inlineResponse
+    if (inlineResponse && inlineVideoId === videoId) return inlineResponse
+
+    logger.info(
+      "Inline YouTube player response is not confirmed as the current video; refetching",
+      "TranscriptExtractor",
+      { inlineVideoId: inlineVideoId || null, videoId }
+    )
+
+    return (await fetchPlayerResponseForVideo(videoId)) ?? null
+  }
+
+/**
+ * Whether this document was loaded for the video in the address bar.
+ *
+ * The staleness that makes the inline player response untrustworthy is exactly
+ * what makes it useful here: it is part of the document, so if it still names the
+ * video being watched, no navigation has happened since load and every mounted
+ * element — the transcript panel included — was rendered for this video. If it
+ * names a different video, or names none, the document has moved on and its
+ * unlabelled DOM cannot be tied to anything.
+ *
+ * This needs no new selectors, which matters: YouTube's internal element and
+ * attribute names change without notice, and a guess about them would be a second
+ * source of silent wrongness rather than a check on the first.
+ */
+const documentBelongsToCurrentVideo = (): boolean => {
+  const videoId = currentYouTubeVideoId()
+  if (!videoId) return false
+  return getYouTubePlayerResponse()?.videoDetails?.videoId === videoId
+}
+
+/**
+ * Rejects a caption track belonging to another video.
+ *
+ * The track URL is what actually decides whose words arrive, so it is checked
+ * directly rather than inferred from the payload that carried it. Reaching here
+ * with a mismatch means the resolved player response disagreed with the address
+ * bar, and fetching it anyway would return a different video's transcript.
+ */
+const captionTrackMatchesVideo = (
+  track: YouTubeCaptionTrack,
+  videoId: string
+): boolean => {
+  if (!videoId || !track.baseUrl) return true
+  try {
+    const trackVideoId = new URL(track.baseUrl).searchParams.get("v")
+    return !trackVideoId || trackVideoId === videoId
+  } catch {
+    // An unparseable URL is not evidence of a mismatch; the fetch below will
+    // fail on its own if it is genuinely broken.
+    return true
+  }
 }
 
 const normalizeTranscriptLine = (text: string): string =>
@@ -508,17 +636,35 @@ const getCaptionTrackLabel = (track: YouTubeCaptionTrack): string => {
   )
 }
 
+/** The browser UI language as a bare subtag ("de-AT" → "de"). */
+const preferredCaptionLanguage = (): string =>
+  (navigator.language || "").split("-")[0]?.toLowerCase() || ""
+
 const selectCaptionTrack = (
   tracks: YouTubeCaptionTrack[]
 ): YouTubeCaptionTrack | null => {
   const usableTracks = tracks.filter((track) => track.baseUrl)
   if (usableTracks.length === 0) return null
 
+  const inLanguage = (language: string, track: YouTubeCaptionTrack) =>
+    Boolean(language) &&
+    Boolean(track.languageCode?.toLowerCase().startsWith(language))
+
+  // Author-written captions in the reader's own language first, then anything in
+  // it: a German user asking about a video with German subtitles should not be
+  // summarizing the English track. English keeps its old place as the fallback
+  // for everyone else, ahead of automatic speech recognition of any language.
+  const preferred = preferredCaptionLanguage()
+
   return (
     usableTracks.find(
-      (track) => track.languageCode?.startsWith("en") && track.kind !== "asr"
+      (track) => inLanguage(preferred, track) && track.kind !== "asr"
     ) ||
-    usableTracks.find((track) => track.languageCode?.startsWith("en")) ||
+    usableTracks.find((track) => inLanguage(preferred, track)) ||
+    usableTracks.find(
+      (track) => inLanguage("en", track) && track.kind !== "asr"
+    ) ||
+    usableTracks.find((track) => inLanguage("en", track)) ||
     usableTracks.find((track) => track.kind !== "asr") ||
     usableTracks[0] ||
     null
@@ -571,7 +717,7 @@ const parseXmlTranscript = (payload: string): string | null => {
 }
 
 const fetchYouTubeCaptionTranscript = async (): Promise<string | null> => {
-  const playerResponse = getYouTubePlayerResponse()
+  const playerResponse = await resolveCurrentPlayerResponse()
   const tracks =
     playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks ||
     []
@@ -584,6 +730,16 @@ const fetchYouTubeCaptionTranscript = async (): Promise<string | null> => {
       {
         count: tracks.length
       }
+    )
+    return null
+  }
+
+  const videoId = currentYouTubeVideoId()
+  if (!captionTrackMatchesVideo(selectedTrack, videoId)) {
+    logger.warn(
+      "Discarding a caption track that belongs to another video",
+      "TranscriptExtractor",
+      { videoId }
     )
     return null
   }
@@ -714,15 +870,9 @@ const extractYouTubeTranscript = async (): Promise<string | null> => {
 
   logger.info("Starting YouTube transcript extraction", "TranscriptExtractor")
 
-  const existingPanelTranscript = extractYouTubePanelTranscript()
-  if (existingPanelTranscript) {
-    logger.info(
-      `Successfully extracted open panel transcript (${existingPanelTranscript.length} chars)`,
-      "TranscriptExtractor"
-    )
-    return existingPanelTranscript
-  }
-
+  // Captions first: the only source verified against the address bar, and the
+  // only one that arrives whole rather than as however much of the panel
+  // YouTube has rendered so far.
   const captionTranscript = await fetchYouTubeCaptionTranscript()
   if (captionTranscript) {
     logger.info(
@@ -732,7 +882,38 @@ const extractYouTubeTranscript = async (): Promise<string | null> => {
     return captionTranscript
   }
 
-  // Try to open transcript panel if not already open
+  // A panel that was already mounted when this ran is only trustworthy if the
+  // document itself belongs to the video in the address bar. Reading it
+  // otherwise is the original defect wearing a different hat: no id lives in
+  // that DOM, so an unverifiable panel is indistinguishable from one a
+  // navigation left behind.
+  const mountedPanel = document.querySelector(YOUTUBE_TRANSCRIPT_PANEL_SELECTOR)
+  if (mountedPanel) {
+    if (!documentBelongsToCurrentVideo()) {
+      logger.warn(
+        "Ignoring a mounted transcript panel: this document belongs to another video",
+        "TranscriptExtractor",
+        { videoId: currentYouTubeVideoId() }
+      )
+      // Deliberately no transcript rather than possibly the wrong one. The
+      // caller reports that none was found, which is true and checkable; a
+      // previous video's transcript would be neither.
+      return null
+    }
+
+    const existingPanelTranscript = extractYouTubePanelTranscript()
+    if (existingPanelTranscript) {
+      logger.info(
+        `Falling back to the open panel transcript (${existingPanelTranscript.length} chars)`,
+        "TranscriptExtractor"
+      )
+      return existingPanelTranscript
+    }
+  }
+
+  // Nothing was mounted, so whatever the click renders is built by the live page
+  // for the video it is currently showing — current by construction, with no id
+  // check available or needed.
   logger.debug("Attempting to open transcript panel...", "TranscriptExtractor")
   const opened = await openYouTubeTranscript()
   logger.debug(`Panel open result: ${opened}`, "TranscriptExtractor")

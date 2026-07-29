@@ -4,10 +4,21 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Lets the browser gates be re-run against any branch on demand — before
+  # tagging a release, or after a flake — without opening a pull request.
+  # Dispatch only becomes available once this file is on the default branch.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+# Nothing here writes to the repository: it typechecks, builds, and boots a
+# packaged extension. Declared explicitly so the token cannot inherit a
+# repository or organization default that is wider than that. Artifact
+# upload/download use the Actions runtime token, not this one.
+permissions:
+  contents: read
 
 jobs:
   checks:
@@ -15,11 +26,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           cache: pnpm
@@ -59,11 +70,11 @@ jobs:
       matrix:
         target: [chrome, firefox]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           cache: pnpm
@@ -76,3 +87,83 @@ jobs:
 
       - name: Check bundle budgets
         run: pnpm ${{ matrix.target == 'firefox' && 'bundle:check:firefox' || 'bundle:check' }}
+
+      # The persistence gates drive a benchmark build, which exposes the
+      # lifecycle harness the production build strips. Built here so the whole
+      # CI run pays for each build exactly once.
+      - name: Build benchmark target for the browser gates
+        if: matrix.target == 'chrome'
+        run: pnpm benchmark:build
+
+      - name: Upload builds for the browser gates
+        if: matrix.target == 'chrome'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: chrome-e2e-builds
+          path: |
+            build/chrome-mv3-prod
+            build/chrome-mv3-benchmark
+          retention-days: 1
+          if-no-files-found: error
+
+  e2e:
+    name: Critical browser gates
+    # Runs last and only on green: these are the most expensive minutes in the
+    # run, and a branch that fails typecheck or a unit test has nothing to prove
+    # in a browser. Also runs on the exact bytes `build` packaged rather than a
+    # rebuild, so what boots here is what would ship.
+    needs: [checks, build]
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.draft == false &&
+       !contains(github.event.pull_request.labels.*.name, 'skip-e2e'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download packaged builds
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: chrome-e2e-builds
+          path: build
+
+      - name: Resolve Playwright version
+        id: playwright
+        run: |
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Keyed on the Playwright version, so a browser download happens only when
+      # that dependency actually changes.
+      - name: Cache Playwright browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run critical browser gates
+        run: pnpm e2e:chromium:critical
+
+      # Traces, videos, and the HTML report are only worth minutes and storage
+      # when something failed.
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: e2e-artifacts
+          path: artifacts/e2e
+          retention-days: 7
+          if-no-files-found: ignore

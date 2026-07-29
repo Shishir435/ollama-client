@@ -411,6 +411,24 @@
       "issue_draft_notice": "Lokal vorausgefüllt. Vor dem Absenden prüfen.",
       "preparing_issue": "Sichere Prüfungen laufen…",
       "open_diagnostics": "Diagnose öffnen",
+      "empty_response": "Das Modell hat die Antwort beendet, ohne etwas zu senden. Möglicherweise wurde es entladen oder der Verlauf ließ keinen Platz für eine Antwort. Versuche es erneut oder starte einen neuen Chat.",
+      "thinking_only_response": "Ich habe keine endgültige Antwort vom Modell erhalten. Bitte versuche es erneut.",
+      "provider_selection_required_title": "Anbieterauswahl erforderlich",
+      "provider_selection_required_description": "Wähle im Modellmenü einen Anbieter für \"{{model}}\", bevor du eine Nachricht sendest.",
+      "no_model_selected_title": "Kein Modell ausgewählt",
+      "no_model_selected_description": "Wähle im Modellmenü ein Modell, bevor du eine Nachricht sendest.",
+      "chat_create_failed_title": "Chat konnte nicht gestartet werden",
+      "chat_create_failed_description": "Das Erstellen des Chats ist fehlgeschlagen. Bitte versuche es erneut.",
+      "message_save_failed_title": "Nachricht konnte nicht gesendet werden",
+      "message_save_failed_description": "Das Speichern der Nachricht ist fehlgeschlagen. Bitte versuche es erneut.",
+      "context_preparation_failed": "Ich konnte den Kontext für diese Nachricht nicht vorbereiten. Bitte versuche es erneut oder reduziere den ausgewählten Kontext bzw. die Dateien, wenn das weiterhin passiert.",
+      "context_preparation_failed_title": "Kontextvorbereitung fehlgeschlagen",
+      "context_preparation_failed_description": "Die Nachricht wurde gespeichert, aber der Assistent konnte nicht starten, weil die Kontextvorbereitung fehlgeschlagen ist.",
+      "insufficient_page_context": "Nicht genügend Seitenkontext. Wähle mindestens einen Tab mit relevantem extrahierten Inhalt und versuche es erneut.\n\nUm das abzuschalten, öffne [{{settingsLabel}}]({{settingsLink}}).",
+      "context_trimmed_title": "Kontext gekürzt",
+      "context_trimmed_description": "Der extrahierte Tab-Kontext hat dein Limit überschritten und wurde vor dem Senden gekürzt.",
+      "context_retrieval_warning_title": "Kontextabruf fehlgeschlagen",
+      "context_retrieval_warning_description": "Der Kontext aus deinen Dateien konnte nicht abgerufen werden. Es geht ohne ihn weiter.",
       "interrupted": "Antwort unterbrochen"
     },
     "composer": {
@@ -1525,6 +1543,7 @@
           "vectorDb": "Vektor-Embeddings (Dexie)",
           "knowledgeDb": "Wissensdatenbanken (Dexie)"
         },
+        "legacy_chat_backup": "Dieses Backup wurde mit Version 0.6.3 oder älter erstellt und speichert Chats in einem Format, das die Erweiterung nicht mehr liest. Einstellungen, Embeddings und Wissenssammlungen wurden wiederhergestellt, die Chats nicht.",
         "status": {
           "success": "Erfolg",
           "failed": "Fehlgeschlagen",

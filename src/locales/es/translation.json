@@ -411,6 +411,24 @@
       "issue_draft_notice": "Rellenado localmente. Revísalo antes de enviarlo.",
       "preparing_issue": "Ejecutando comprobaciones seguras…",
       "open_diagnostics": "Abrir diagnósticos",
+      "empty_response": "El modelo terminó sin enviar ninguna respuesta. Puede que se haya descargado o que la conversación no haya dejado espacio para responder. Inténtalo de nuevo o empieza un chat nuevo.",
+      "thinking_only_response": "No recibí una respuesta final del modelo. Inténtalo de nuevo.",
+      "provider_selection_required_title": "Falta seleccionar el proveedor del modelo",
+      "provider_selection_required_description": "Selecciona un proveedor para \"{{model}}\" en el menú de modelos antes de enviar un mensaje.",
+      "no_model_selected_title": "Ningún modelo seleccionado",
+      "no_model_selected_description": "Selecciona un modelo en el menú de modelos antes de enviar un mensaje.",
+      "chat_create_failed_title": "No se pudo iniciar el chat",
+      "chat_create_failed_description": "No se pudo crear el chat. Inténtalo de nuevo.",
+      "message_save_failed_title": "No se pudo enviar el mensaje",
+      "message_save_failed_description": "No se pudo guardar el mensaje. Inténtalo de nuevo.",
+      "context_preparation_failed": "No pude preparar el contexto de este mensaje. Inténtalo de nuevo o reduce el contexto y los archivos seleccionados si sigue ocurriendo.",
+      "context_preparation_failed_title": "Falló la preparación del contexto",
+      "context_preparation_failed_description": "El mensaje se guardó, pero el asistente no pudo empezar porque falló la preparación del contexto.",
+      "insufficient_page_context": "Contexto de página insuficiente. Selecciona al menos una pestaña con contenido extraído relevante e inténtalo de nuevo.\n\nPara desactivarlo, abre [{{settingsLabel}}]({{settingsLink}}).",
+      "context_trimmed_title": "Contexto recortado",
+      "context_trimmed_description": "El contexto extraído de las pestañas superó tu límite y se recortó antes de enviarlo.",
+      "context_retrieval_warning_title": "Falló la recuperación de contexto",
+      "context_retrieval_warning_description": "No se pudo recuperar el contexto de tus archivos. Se continúa sin él.",
       "interrupted": "Respuesta interrumpida"
     },
     "composer": {
@@ -1525,6 +1543,7 @@
           "vectorDb": "Incrustaciones vectoriales (Dexie)",
           "knowledgeDb": "Bases de conocimiento (Dexie)"
         },
+        "legacy_chat_backup": "Esta copia de seguridad se creó con la versión 0.6.3 o anterior, que guardaba los chats en un formato que la extensión ya no lee. Se restauraron sus ajustes, embeddings y conjuntos de conocimiento; sus chats no.",
         "status": {
           "success": "Éxito",
           "failed": "Fallido",

@@ -268,7 +268,18 @@ export const useChatStream = ({
             })
           })
         } else {
-          const message = result.terminal.message
+          // A finished turn with nothing to show gets its copy here, where i18n
+          // lives; the reducer only reports why it was empty.
+          const emptyReason = result.terminal.emptyReason
+          const message = emptyReason
+            ? {
+                ...result.terminal.message,
+                content:
+                  emptyReason === "thinking-only"
+                    ? t("chat.errors.thinking_only_response")
+                    : t("chat.errors.empty_response")
+              }
+            : result.terminal.message
           Promise.resolve(renderAssistant(message))
             .then(() => onSuccessfulResponse?.(message))
             .catch((error) => {

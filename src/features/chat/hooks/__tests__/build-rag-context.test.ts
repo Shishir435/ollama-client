@@ -578,7 +578,8 @@ describe("error path", () => {
     expect(toastSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         variant: "destructive",
-        title: "RAG Warning"
+        // Named by key: this runs in the background, which cannot localize it.
+        titleKey: "chat.errors.context_retrieval_warning_title"
       })
     )
     expect(result.contentWithRAG).toContain("[File: doc.txt]")

@@ -5,29 +5,21 @@ import { MESSAGE_KEYS } from "@/lib/constants"
 import type { ActivityEvent, BuildContextRequestPayload } from "@/types"
 
 import type { BuildRagContextResult } from "./build-rag-context"
+import type { TurnToast } from "./turn-preparation"
 
 interface BuildContextCallbacks {
   /** Live activity trace, streamed from the background as retrieval progresses. */
   onActivityEvent?: (events: ActivityEvent[]) => void
-  /** User-facing warning (e.g. RAG failure) forwarded from the background. */
-  toast?: (input: {
-    variant?: "default" | "destructive"
-    title: string
-    description?: string
-  }) => void
+  /**
+   * User-facing warning (e.g. RAG failure) forwarded from the background, named
+   * by translation key because the background cannot localize it.
+   */
+  toast?: (input: TurnToast) => void
 }
 
 type BuildContextPortMessage =
   | { type: "context_progress"; requestId: string; events: ActivityEvent[] }
-  | {
-      type: "context_warning"
-      requestId: string
-      payload: {
-        variant?: "default" | "destructive"
-        title: string
-        description?: string
-      }
-    }
+  | { type: "context_warning"; requestId: string; payload: TurnToast }
   | { type: "context_result"; requestId: string; result: BuildRagContextResult }
   | { type: "context_error"; requestId: string; error: string }
 

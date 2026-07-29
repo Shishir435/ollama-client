@@ -167,7 +167,7 @@ describe("useChatTurnController", () => {
     expect(accepted).toBe(false)
     expect(addMessage).not.toHaveBeenCalled()
     expect(toast).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Couldn't start chat" })
+      expect.objectContaining({ title: "chat.errors.chat_create_failed_title" })
     )
   })
 

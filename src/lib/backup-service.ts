@@ -45,13 +45,25 @@ const ProviderConfigBackupSchema = z
   .passthrough()
 const ProviderConfigsBackupSchema = z.array(ProviderConfigBackupSchema)
 
+/**
+ * One restored section's outcome. `error` carries technical detail from an
+ * exception; `errorKey` names displayable copy for a state this module
+ * recognizes and the user can act on, since backup import runs where there is
+ * no `t`.
+ */
+export type ImportSectionResult = {
+  ok: boolean
+  error?: string
+  errorKey?: string
+}
+
 export type ImportResult = {
-  syncStorage: { ok: boolean; error?: string }
-  localStorage: { ok: boolean; error?: string }
-  database: { ok: boolean; error?: string }
+  syncStorage: ImportSectionResult
+  localStorage: ImportSectionResult
+  database: ImportSectionResult
   dexie: {
-    vectorDb: { ok: boolean; error?: string }
-    knowledgeDb: { ok: boolean; error?: string }
+    vectorDb: ImportSectionResult
+    knowledgeDb: ImportSectionResult
   }
   skippedStorageKeys: string[]
 }
@@ -338,6 +350,16 @@ export const backupService = {
           const dbBytes = await dbFile.async("uint8array")
           await importDatabaseBytes(dbBytes)
           result.database.ok = true
+        } else if (zip.file("chat-db.json")) {
+          // Backups written by 0.6.3 and earlier carry chat history as a Dexie
+          // export instead of a SQLite file. Nothing reads that format any more
+          // — the Dexie chat bridge shipped only in 0.6.5–0.7.3 — so say which
+          // backup this is rather than reporting a missing file, which reads as
+          // a corrupt archive.
+          result.database = {
+            ok: false,
+            errorKey: "settings.migration.import_result.legacy_chat_backup"
+          }
         } else {
           result.database = { ok: false, error: "Missing database.sqlite" }
         }
