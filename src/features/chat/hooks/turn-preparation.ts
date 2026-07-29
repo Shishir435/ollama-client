@@ -6,10 +6,16 @@ import type {
   SelectedModelRef
 } from "@/types"
 
+/**
+ * A toast this module decided to show, named by translation key rather than
+ * text: this is a pure module with no `t`, and the copy is user-visible, so the
+ * caller resolves it. Values are interpolation arguments for the description.
+ */
 export type TurnToast = {
   variant?: "default" | "destructive"
-  title: string
-  description?: string
+  titleKey: string
+  descriptionKey?: string
+  descriptionValues?: Record<string, string>
 }
 
 /**
@@ -37,8 +43,9 @@ export const evaluateSendPreconditions = (input: {
       proceed: false,
       toast: {
         variant: "destructive",
-        title: "Model provider selection required",
-        description: `Select a provider for "${input.selectionConflictModel}" in the model menu before sending a message.`
+        titleKey: "chat.errors.provider_selection_required_title",
+        descriptionKey: "chat.errors.provider_selection_required_description",
+        descriptionValues: { model: input.selectionConflictModel }
       }
     }
   }
@@ -55,9 +62,8 @@ export const evaluateSendPreconditions = (input: {
       proceed: false,
       toast: {
         variant: "destructive",
-        title: "No model selected",
-        description:
-          "Select a model in the model menu before sending a message."
+        titleKey: "chat.errors.no_model_selected_title",
+        descriptionKey: "chat.errors.no_model_selected_description"
       }
     }
   }

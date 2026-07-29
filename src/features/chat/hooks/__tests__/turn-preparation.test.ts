@@ -55,12 +55,13 @@ describe("evaluateSendPreconditions", () => {
     expect(verdict).toMatchObject({
       toast: {
         variant: "destructive",
-        title: "Model provider selection required"
+        titleKey: "chat.errors.provider_selection_required_title",
+        descriptionKey: "chat.errors.provider_selection_required_description",
+        // The model name travels as an interpolation value, so the copy stays
+        // translatable instead of being assembled here.
+        descriptionValues: { model: "mixtral" }
       }
     })
-    expect(verdict.proceed === false && verdict.toast?.description).toContain(
-      "mixtral"
-    )
   })
 
   it("surfaces a destructive toast when no model resolves", () => {
@@ -70,7 +71,10 @@ describe("evaluateSendPreconditions", () => {
     })
     expect(verdict).toMatchObject({
       proceed: false,
-      toast: { variant: "destructive", title: "No model selected" }
+      toast: {
+        variant: "destructive",
+        titleKey: "chat.errors.no_model_selected_title"
+      }
     })
   })
 
@@ -82,7 +86,7 @@ describe("evaluateSendPreconditions", () => {
     })
     expect(verdict).toMatchObject({
       proceed: false,
-      toast: { title: "Model provider selection required" }
+      toast: { titleKey: "chat.errors.provider_selection_required_title" }
     })
   })
 })
