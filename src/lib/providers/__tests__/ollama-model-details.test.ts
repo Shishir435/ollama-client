@@ -144,6 +144,26 @@ describe("OllamaProvider.getModels metadata backfill", () => {
     expect(model.details.parameter_size).toBe("")
   })
 
+  it("propagates a cancelled backfill instead of returning a partial list", async () => {
+    // Tolerating a failed /api/show must not tolerate cancellation: a caller
+    // that aborted gets the abort, not a catalog missing whatever the backfill
+    // had not finished reading.
+    const controller = new AbortController()
+    vi.mocked(fetch).mockImplementation((url) => {
+      if (String(url).endsWith("/api/tags")) {
+        return Promise.resolve(
+          jsonOk({ models: [tagsModel("gemma4:12b-mlx", "")] })
+        )
+      }
+      controller.abort()
+      return Promise.reject(new DOMException("Aborted", "AbortError"))
+    })
+
+    await expect(
+      makeProvider().getModels(controller.signal)
+    ).rejects.toThrowError(/abort/i)
+  })
+
   it("keeps the blank entry when /api/show also reports nothing", async () => {
     mockEndpoints([tagsModel("weird:1b", "")], {
       "weird:1b": { details: { parameter_size: "" } }

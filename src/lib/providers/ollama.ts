@@ -130,8 +130,9 @@ export class OllamaProvider implements LLMProvider {
    *
    * One `/api/show` per affected model, so a server that reports everything costs
    * nothing extra. Capped, because a server that reports nothing must not turn one
-   * list request into an unbounded fan-out. A failed or aborted lookup leaves that
-   * model exactly as `/api/tags` gave it — a blank badge beats a broken list.
+   * list request into an unbounded fan-out. A failed lookup leaves that model
+   * exactly as `/api/tags` gave it — a blank badge beats a broken list — but an
+   * aborted one propagates, because cancellation is not a partial success.
    */
   private async backfillMissingDetails(
     models: ProviderModel[],
@@ -178,7 +179,11 @@ export class OllamaProvider implements LLMProvider {
               shown.details
             )
           }
-        } catch {
+        } catch (error) {
+          // A cancelled request must not resolve as a partial list: the caller
+          // aborted, so it gets the abort, not a catalog missing whatever the
+          // backfill had not finished reading.
+          if (signal?.aborted) throw error
           // Already logged by getModelDetails; this model keeps its blank fields.
         }
       })
