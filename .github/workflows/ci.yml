@@ -88,6 +88,16 @@ jobs:
       - name: Check bundle budgets
         run: pnpm ${{ matrix.target == 'firefox' && 'bundle:check:firefox' || 'bundle:check' }}
 
+      # Release workflow downloads these exact ZIPs from a successful run for
+      # its commit. It never rebuilds a second, unverified artifact.
+      - name: Upload release package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-package-${{ matrix.target }}
+          path: build/${{ matrix.target == 'firefox' && 'firefox-mv2-prod' || 'chrome-mv3-prod' }}/*.zip
+          retention-days: 14
+          if-no-files-found: error
+
       # The persistence gates drive a benchmark build, which exposes the
       # lifecycle harness the production build strips. Built here so the whole
       # CI run pays for each build exactly once.

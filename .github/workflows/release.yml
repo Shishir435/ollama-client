@@ -11,6 +11,10 @@ name: Release
 #    0.12.0 or 0.13.0-rc.1) and pick the branch/commit to release from —
 #    the workflow creates the tag for you and publishes the release.
 #
+# Both paths require a successful CI run for the exact release commit, including
+# Critical browser gates. Release downloads CI's retained Chrome and Firefox
+# ZIPs; it never rebuilds packages after verification.
+#
 # Tag the merge commit on main, after the release PR merges — never a branch
 # commit beforehand. Squash-merging rewrites the SHA, which leaves the tag
 # pointing at a commit that is not in main's history. GitHub then cannot see
@@ -32,23 +36,14 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Resolve release tag
         id: meta
@@ -79,22 +74,65 @@ jobs:
             exit 1
           fi
 
-      - name: Package Chrome (MV3)
-        run: pnpm package
+      - name: Resolve verified CI run
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -t CANDIDATE_RUNS < <(gh run list \
+            --workflow ci.yml \
+            --commit "$GITHUB_SHA" \
+            --status success \
+            --limit 20 \
+            --json databaseId,event \
+            --jq '.[] | select(.event == "push" or .event == "workflow_dispatch") | .databaseId')
 
-      - name: Package Firefox (MV2)
-        run: pnpm package:firefox
+          RUN_ID=""
+          for candidate in "${CANDIDATE_RUNS[@]}"; do
+            E2E_CONCLUSION="$(gh run view "$candidate" \
+              --json jobs \
+              --jq '[.jobs[] | select(.name == "Critical browser gates")][0].conclusion')"
+            if [ "$E2E_CONCLUSION" = "success" ]; then
+              RUN_ID="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$RUN_ID" ]; then
+            echo "No trusted CI run passed Critical browser gates for $GITHUB_SHA."
+            echo "Run CI manually for this exact commit before releasing it."
+            exit 1
+          fi
+
+          echo "run-id=$RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download verified release packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          run-id: ${{ steps.ci.outputs.run-id }}
+          github-token: ${{ github.token }}
+          pattern: release-package-*
+          merge-multiple: true
+          path: verified-release-artifacts
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.meta.outputs.tag }}"
-          ASSETS=(build/chrome-mv3-prod/*.zip build/firefox-mv2-prod/*.zip)
+          ASSETS=(
+            verified-release-artifacts/*-chrome.zip
+            verified-release-artifacts/*-firefox.zip
+            verified-release-artifacts/*-sources.zip
+          )
 
-          # An unmatched glob stays literal in bash and would be handed to gh as
-          # a filename, which fails obscurely on create and, worse, uploads a
-          # partial asset set on refresh. Fail here with the missing path named.
+          # CI publishes one Chrome ZIP, one Firefox ZIP, and Firefox's required
+          # source ZIP. Refuse an incomplete or ambiguous set before touching a
+          # release.
+          if [ ${#ASSETS[@]} -ne 3 ]; then
+            echo "Expected exactly three verified release assets; found ${#ASSETS[@]}."
+            exit 1
+          fi
           for asset in "${ASSETS[@]}"; do
             if [ ! -f "$asset" ]; then
               echo "Expected release asset is missing: $asset"

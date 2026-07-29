@@ -123,11 +123,11 @@ describe("persistence backend marker", () => {
 
 describe("first boot with no legacy blob", () => {
   /*
-   * A profile whose chat history predates the SQLite backend entirely — written
-   * by 0.6.3 or earlier into the Dexie `ChatDatabase`, and never migrated
-   * because that bridge only shipped in 0.6.5–0.7.3 and ran on side-panel mount.
-   * There is no sql.js blob to import, and by decision there is no Dexie reader
-   * either: such a profile starts clean.
+   * Direct upgrades are supported from 0.6.0 through the sql.js blob introduced
+   * there. A profile with only the older Dexie `ChatDatabase` — written before
+   * 0.6.0, or inherited but never copied into sql.js — is outside that support
+   * contract. There is no sql.js blob to import and, by decision, no Dexie
+   * reader: such a profile starts clean.
    *
    * What must not happen is a *failed* migration. `ensureMigrated` rejecting
    * would leave the marker on "legacy", so every boot would retry, the sql.js
