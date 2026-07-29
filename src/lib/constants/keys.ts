@@ -9,6 +9,7 @@
 export const PROVIDER_MESSAGE_KEYS = {
   GET_MODELS: "get-provider-models",
   CHAT_WITH_MODEL: "chat-with-model",
+  START_TURN: "start-turn",
   BUILD_CONTEXT: "build-context",
   STREAM_RESPONSE: "provider-stream-response",
   STOP_GENERATION: "stop-generation",

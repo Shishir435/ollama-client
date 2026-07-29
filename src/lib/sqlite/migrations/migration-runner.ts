@@ -10,6 +10,7 @@ import { ensureSessionsSystemPromptColumn } from "./add-session-system-prompt-co
 import { ensureSessionsTagsColumn } from "./add-session-tags-column"
 import { ensureMessagesThinkingColumn } from "./add-thinking-column"
 import { ensureToolLoopRunsTable } from "./add-tool-loop-runs-table"
+import { ensureTurnRunsTable } from "./add-turn-runs-table"
 
 /**
  * A single forward-only schema migration. `up` must be idempotent-safe for the
@@ -79,6 +80,11 @@ export const MIGRATIONS: Migration[] = [
     version: 9,
     name: "add-prompt-templates-table",
     up: ensurePromptTemplatesTable
+  },
+  {
+    version: 10,
+    name: "add-turn-runs-table",
+    up: ensureTurnRunsTable
   }
 ]
 
@@ -117,7 +123,7 @@ const getTableColumns = (db: Database, table: "messages" | "sessions") => {
 
 const hasTable = (
   db: Database,
-  table: "tool_loop_runs" | "prompt_templates"
+  table: "tool_loop_runs" | "prompt_templates" | "turn_runs"
 ) => {
   const stmt = db.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1"
@@ -174,6 +180,10 @@ export const repairSchemaDrift = (db: Database): number => {
     {
       missing: !hasTable(db, "prompt_templates"),
       apply: () => ensurePromptTemplatesTable(db)
+    },
+    {
+      missing: !hasTable(db, "turn_runs"),
+      apply: () => ensureTurnRunsTable(db)
     }
   ]
 

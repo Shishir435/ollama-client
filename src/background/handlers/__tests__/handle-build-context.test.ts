@@ -10,7 +10,7 @@ const { mockBuildRagContext, mockResolveModelTools } = vi.hoisted(() => ({
   mockResolveModelTools: vi.fn()
 }))
 
-vi.mock("@/features/chat/hooks/build-rag-context", () => ({
+vi.mock("@/application/context/build-context", () => ({
   buildRagContext: mockBuildRagContext
 }))
 
@@ -28,6 +28,7 @@ const makeMessage = (): BuildContextMessage => ({
   type: "build-context",
   payload: {
     requestId: "req-1",
+    turnId: "turn-1",
     rawInput: "what is this",
     messages: [],
     hasTabContext: false,
@@ -79,6 +80,11 @@ describe("handleBuildContext", () => {
     expect(mockBuildRagContext).toHaveBeenCalledWith(
       expect.objectContaining({ retrievalToolsActive: true })
     )
+    expect(
+      (port.postMessage as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]
+    ).toMatchObject({
+      receipt: { turnId: "turn-1" }
+    })
   })
 
   it("leaves retrievalToolsActive false when no retrieval tool is offered", async () => {

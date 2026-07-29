@@ -2,7 +2,11 @@ import { useRef } from "react"
 import type {
   PromptContextStats,
   RagSources
-} from "@/features/chat/hooks/build-rag-context"
+} from "@/application/context/build-context"
+import type {
+  DurableTurnStart,
+  TurnMode
+} from "@/application/turns/turn-contract"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import type { ChatMessage } from "@/types"
 
@@ -18,6 +22,7 @@ interface ChatResponseOptions {
     sessionId: string
     generatedMessage: ChatMessage
     clientContextPrepared?: boolean
+    durableTurn?: DurableTurnStart & { assistantMessageId: number }
   }) => void
   currentStreamingMessageIdRef: { current: number | null }
   currentStreamingSessionIdRef: { current: string | null }
@@ -51,7 +56,11 @@ export const useChatResponse = ({
     customModel?: string,
     sessionIdParam?: string,
     contextMessages?: ChatMessage[],
-    options?: { contextPrepared?: boolean }
+    options?: {
+      contextPrepared?: boolean
+      durableTurn?: DurableTurnStart
+      mode?: TurnMode
+    }
   ) => {
     const sessionId = sessionIdParam || currentSessionId
     if (!sessionId) return
@@ -82,13 +91,62 @@ export const useChatResponse = ({
     currentStreamingMessageIdRef.current = assistantId
     currentStreamingSessionIdRef.current = sessionId
 
+    let durableTurn = options?.durableTurn
+    if (!durableTurn && contextMessages) {
+      let userMessageIndex = -1
+      for (let index = contextMessages.length - 1; index >= 0; index -= 1) {
+        if (contextMessages[index].role === "user") {
+          userMessageIndex = index
+          break
+        }
+      }
+      const userMessage = contextMessages[userMessageIndex]
+      if (userMessage && typeof userMessage.id === "number") {
+        const turnId =
+          globalThis.crypto?.randomUUID?.() ??
+          `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        durableTurn = {
+          submission: {
+            id: turnId,
+            sessionId,
+            mode: options?.mode ?? "regenerate",
+            model: modelForRequest,
+            providerId: config.selectedModelRef?.providerId,
+            request: {
+              version: 1,
+              context: {
+                rawInput: userMessage.content,
+                messages: contextMessages.slice(0, userMessageIndex),
+                hasTabContext: false,
+                contextText: "",
+                tabDocuments: [],
+                memoryEnabled: config.memoryEnabled,
+                maxTabContextChars: config.maxTabContextChars,
+                maxRagContextChars: config.maxRagContextChars,
+                groundedOnlyMode: false,
+                selectedModel: config.selectedModel,
+                selectedModelRef: config.selectedModelRef,
+                customModel
+              },
+              userMessage
+            },
+            createdAt: Date.now()
+          },
+          userMessageId: userMessage.id
+        }
+      }
+    }
+
     startStream({
       model: modelForRequest,
       providerId: config.selectedModelRef?.providerId,
       messages: contextMessages || messages,
       sessionId,
       generatedMessage: { ...assistantMessage, id: assistantId },
-      clientContextPrepared: options?.contextPrepared ?? false
+      clientContextPrepared: options?.contextPrepared ?? false,
+      durableTurn: durableTurn
+        ? { ...durableTurn, assistantMessageId: assistantId }
+        : undefined
     })
   }
 

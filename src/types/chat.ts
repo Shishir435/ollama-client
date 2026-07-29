@@ -338,6 +338,14 @@ export interface ChatWithModelMessage {
   }
 }
 
+export interface StartTurnMessage {
+  type: string
+  payload: {
+    start: import("@/application/turns/turn-contract").DurableTurnStart
+    assistantMessageId: number
+  }
+}
+
 /**
  * Request to build a turn's RAG/page/memory context in the background.
  * Sent over the provider stream port; the background streams progress back as
@@ -347,6 +355,10 @@ export interface ChatWithModelMessage {
  */
 export interface BuildContextRequestPayload {
   requestId: string
+  /** Durable turn identity; distinct from this short-lived port request. */
+  turnId?: string
+  /** Turn behavior is data; every path uses the same context service. */
+  mode?: import("@/application/turns/turn-contract").TurnMode
   rawInput: string
   /** Prior conversation, for query classification / reformulation. */
   messages: ChatMessage[]

@@ -1,5 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react"
+import type { SelectionActionId } from "@/application/selection-actions/types"
 import { SelectionActionsOverlay } from "@/features/selection-actions/components/selection-actions-overlay"
 import {
   copySelectionResult,
@@ -25,7 +26,6 @@ import {
   type SelectionOverlayContextValue,
   SelectionOverlayProvider
 } from "@/features/selection-actions/selection-overlay-context"
-import type { SelectionActionId } from "@/features/selection-actions/types"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { sendRuntimeMessage } from "@/lib/runtime-messages"
 import type { ContentExtractionConfig, ProviderModel } from "@/types"

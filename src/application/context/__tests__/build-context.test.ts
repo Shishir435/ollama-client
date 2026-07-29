@@ -5,17 +5,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 // RAG pipeline. Imports go BELOW the vi.mock calls — vitest hoists
 // them, but explicit ordering helps when reading the file top to bottom.
 
-vi.mock("@/features/chat/rag", () => ({
+vi.mock("@/application/context/rag", () => ({
   reformulateQuestion: vi.fn(),
   retrieveContext: vi.fn(),
   retrieveContextFromSources: vi.fn()
 }))
 
-vi.mock("@/features/chat/rag/query-classifier", () => ({
+vi.mock("@/application/context/rag/query-classifier", () => ({
   classifyQuery: vi.fn()
 }))
 
-vi.mock("@/features/chat/rag/rag-pipeline", () => ({
+vi.mock("@/application/context/rag/rag-pipeline", () => ({
   retrieveContextEnhanced: vi.fn(),
   formatEnhancedResults: vi.fn()
 }))
@@ -47,12 +47,12 @@ import {
   reformulateQuestion,
   retrieveContext,
   retrieveContextFromSources
-} from "@/features/chat/rag"
-import { classifyQuery } from "@/features/chat/rag/query-classifier"
+} from "@/application/context/rag"
+import { classifyQuery } from "@/application/context/rag/query-classifier"
 import {
   formatEnhancedResults,
   retrieveContextEnhanced
-} from "@/features/chat/rag/rag-pipeline"
+} from "@/application/context/rag/rag-pipeline"
 import {
   getActiveKnowledgeSet,
   getKnowledgeSetFileIds
@@ -61,10 +61,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import type { ChatMessage } from "@/types"
 
-import {
-  type BuildRagContextOptions,
-  buildRagContext
-} from "../build-rag-context"
+import { type BuildRagContextOptions, buildRagContext } from "../build-context"
 
 const mockedClassify = vi.mocked(classifyQuery)
 const mockedRetrieve = vi.mocked(retrieveContext)

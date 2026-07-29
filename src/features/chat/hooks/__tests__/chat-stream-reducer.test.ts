@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest"
-
-import type { ChatMessage } from "@/types"
 import {
   makeStreamReducerState,
   reduceStreamEvent,
   type StreamMessage,
   type StreamReducerState
-} from "../chat-stream-reducer"
+} from "@/application/turns/chat-stream-reducer"
+import type { ChatMessage } from "@/types"
 
 const shell = (): ChatMessage => ({
   role: "assistant",

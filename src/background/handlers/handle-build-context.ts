@@ -1,10 +1,7 @@
+import { ContextService } from "@/application/context/context-service"
 import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { safePostMessage } from "@/background/lib/utils"
-import {
-  type BuildRagContextResult,
-  buildRagContext
-} from "@/features/chat/hooks/build-rag-context"
 import { logger } from "@/lib/logger"
 import { ProviderFactory } from "@/lib/providers/factory"
 import type {
@@ -20,7 +17,7 @@ import type {
  * through the same governance/capability path the chat turn uses. Failures
  * default to false so context is auto-injected (safe fallback).
  */
-const resolveRetrievalToolsActive = async (
+export const resolveRetrievalToolsActive = async (
   modelId: string,
   providerId: string | undefined,
   latestUserText: string
@@ -76,36 +73,47 @@ export const handleBuildContext = async (
       p.rawInput
     )
 
-    const result: BuildRagContextResult = await buildRagContext({
-      rawInput: p.rawInput,
-      files: p.files,
-      messages: p.messages,
-      hasTabContext: p.hasTabContext,
-      contextText: p.contextText,
-      tabDocuments: p.tabDocuments,
-      memoryEnabled: p.memoryEnabled,
-      maxTabContextChars: p.maxTabContextChars,
-      maxRagContextChars: p.maxRagContextChars,
-      groundedOnlyMode: p.groundedOnlyMode,
-      retrievalToolsActive,
-      selectedModel: p.selectedModel,
-      selectedModelRef: p.selectedModelRef,
-      customModel: p.customModel,
-      onActivityEvent: (events: ActivityEvent[]) =>
-        post({
-          type: "context_progress",
-          requestId: p.requestId,
-          events
-        }),
-      toast: (warning) =>
-        post({
-          type: "context_warning",
-          requestId: p.requestId,
-          payload: warning
-        })
+    const output = await new ContextService().build({
+      turnId: p.turnId ?? p.requestId,
+      mode: p.mode ?? "new",
+      model: modelId,
+      providerId: p.selectedModelRef?.providerId,
+      options: {
+        rawInput: p.rawInput,
+        files: p.files,
+        messages: p.messages,
+        hasTabContext: p.hasTabContext,
+        contextText: p.contextText,
+        tabDocuments: p.tabDocuments,
+        memoryEnabled: p.memoryEnabled,
+        maxTabContextChars: p.maxTabContextChars,
+        maxRagContextChars: p.maxRagContextChars,
+        groundedOnlyMode: p.groundedOnlyMode,
+        retrievalToolsActive,
+        selectedModel: p.selectedModel,
+        selectedModelRef: p.selectedModelRef,
+        customModel: p.customModel,
+        onActivityEvent: (events: ActivityEvent[]) =>
+          post({
+            type: "context_progress",
+            requestId: p.requestId,
+            events
+          }),
+        toast: (warning) =>
+          post({
+            type: "context_warning",
+            requestId: p.requestId,
+            payload: warning
+          })
+      }
     })
 
-    post({ type: "context_result", requestId: p.requestId, result })
+    post({
+      type: "context_result",
+      requestId: p.requestId,
+      result: output.result,
+      receipt: output.receipt
+    })
   } catch (error) {
     logger.error("Failed to build context", "handleBuildContext", { error })
     post({

@@ -1,14 +1,14 @@
-import type { TurnToast } from "@/features/chat/hooks/turn-preparation"
 import {
   reformulateQuestion,
   retrieveContext,
   retrieveContextFromSources
-} from "@/features/chat/rag"
-import { classifyQuery } from "@/features/chat/rag/query-classifier"
+} from "@/application/context/rag"
+import { classifyQuery } from "@/application/context/rag/query-classifier"
 import {
   formatEnhancedResults,
   retrieveContextEnhanced
-} from "@/features/chat/rag/rag-pipeline"
+} from "@/application/context/rag/rag-pipeline"
+import type { TurnToast } from "@/application/turns/turn-contract"
 import { STORAGE_KEYS } from "@/lib/constants"
 import {
   DEFAULT_KNOWLEDGE_SET_ID,
@@ -23,14 +23,14 @@ import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type {
   ActivityEvent,
-  ChatMessage,
   RagSource,
   RagSources,
-  SelectedModelRef,
   UsedContextChunk
 } from "@/types"
-
-export type { RagSource, RagSources, UsedContextChunk }
+import type {
+  ContextFileInput,
+  DurableContextOptions
+} from "./context-contract"
 
 /**
  * The minimal file shape context building needs: the scope id and the raw text
@@ -38,10 +38,8 @@ export type { RagSource, RagSources, UsedContextChunk }
  * structurally, and it is small enough to ship across the extension port when
  * context building runs in the background.
  */
-export interface ContextFileInput {
-  text: string
-  metadata: { fileName: string; fileId?: string }
-}
+export type { ContextFileInput } from "./context-contract"
+export type { RagSource, RagSources, UsedContextChunk }
 
 export interface PromptContextStats {
   promptInputLength: number
@@ -55,20 +53,7 @@ export interface PromptContextStats {
   activityEvents: ActivityEvent[]
 }
 
-export interface BuildRagContextOptions {
-  rawInput: string
-  files?: ContextFileInput[]
-  /** Prior conversation messages (used for query classification and reformulation). */
-  messages: ChatMessage[]
-  /** Currently-selected tabs' built page context, if any. */
-  hasTabContext: boolean
-  contextText: string
-  tabDocuments: Array<{ id: string; title: string; content: string }>
-  /** Configuration. */
-  memoryEnabled: boolean
-  maxTabContextChars: number
-  maxRagContextChars: number
-  groundedOnlyMode: boolean
+export interface BuildRagContextOptions extends DurableContextOptions {
   /**
    * True when this turn offers the model its own retrieval tools
    * (`rag_search` / `file_search`). When set, the harness does NOT pre-inject
@@ -78,18 +63,13 @@ export interface BuildRagContextOptions {
    * live selection), and the current-turn attached-file full-text fallback
    * still runs so a just-uploaded file is available before it is indexed.
    */
-  retrievalToolsActive?: boolean
-  /** Model selection (used for query reformulation, not the final chat). */
-  selectedModel: string
-  selectedModelRef: SelectedModelRef | null
-  customModel?: string
   onActivityEvent?: (events: ActivityEvent[]) => void
   /**
    * Side-channel toast for user-facing warnings (e.g. RAG failure). Context
    * building runs in the background, which has no `t`, so the warning names its
    * copy by key and the extension page resolves it.
    */
-  toast: (input: TurnToast) => void
+  toast?: (input: TurnToast) => void
 }
 
 export interface BuildRagContextResult {
@@ -580,7 +560,7 @@ export const buildRagContext = async (
         finishedAt: Date.now(),
         error: e instanceof Error ? e.message : "Context search failed"
       })
-      toast({
+      toast?.({
         variant: "destructive",
         titleKey: "chat.errors.context_retrieval_warning_title",
         descriptionKey: "chat.errors.context_retrieval_warning_description"
@@ -608,6 +588,13 @@ export const buildRagContext = async (
     contentWithRAG = `${contentWithRAG}\n\n---\n\n${fullTextContext}`
   }
 
+  const insufficientContext = groundedOnlyMode && tabContextLength === 0
+  if (groundedOnlyMode && !insufficientContext) {
+    const strictGroundingInstruction =
+      'You must answer only from the supplied selected-page context. If context is insufficient, respond with: "Insufficient page context."'
+    contentWithRAG = `${strictGroundingInstruction}\n\n${contentWithRAG}`
+  }
+
   const promptContextStats: PromptContextStats = {
     promptInputLength: userContent.length,
     promptAugmentedLength: contentWithRAG.length,
@@ -615,7 +602,7 @@ export const buildRagContext = async (
     ragContextLength,
     tabContextTruncated,
     groundedOnlyMode,
-    insufficientContext: false,
+    insufficientContext,
     usedContextChunks,
     activityEvents
   }

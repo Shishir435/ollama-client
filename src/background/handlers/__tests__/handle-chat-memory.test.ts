@@ -55,7 +55,7 @@ vi.mock("@/background/lib/abort-controller-registry", () => ({
   clearAbortController: vi.fn()
 }))
 
-vi.mock("@/features/chat/rag/rag-pipeline", () => ({
+vi.mock("@/application/context/rag/rag-pipeline", () => ({
   retrieveContextEnhanced: vi.fn().mockResolvedValue([]),
   formatEnhancedResults: vi
     .fn()
@@ -94,7 +94,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
   it("should inject context when memory is enabled", async () => {
     const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
     const { retrieveContextEnhanced, formatEnhancedResults } = await import(
-      "@/features/chat/rag/rag-pipeline"
+      "@/application/context/rag/rag-pipeline"
     )
 
     // Mock Memory Enabled
@@ -151,7 +151,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
   it("should NOT retrieve memory when the client already prepared context", async () => {
     const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
     const { retrieveContextEnhanced } = await import(
-      "@/features/chat/rag/rag-pipeline"
+      "@/application/context/rag/rag-pipeline"
     )
 
     // Memory enabled, but the UI already built page/file/memory context for
@@ -193,7 +193,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
   it("should NOT inject memory on a regenerate turn when retrieval tools are active", async () => {
     const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
     const { retrieveContextEnhanced } = await import(
-      "@/features/chat/rag/rag-pipeline"
+      "@/application/context/rag/rag-pipeline"
     )
 
     // Memory enabled, regenerate path (clientContextPrepared unset), but the
@@ -235,7 +235,7 @@ describe("handleChatWithModel - Contextual Memory", () => {
   it("should NOT inject context when memory is disabled", async () => {
     const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
     const { retrieveContextEnhanced } = await import(
-      "@/features/chat/rag/rag-pipeline"
+      "@/application/context/rag/rag-pipeline"
     )
 
     // Mock Memory Disabled

@@ -1,7 +1,13 @@
 import { useRef } from "react"
 import { useTranslation } from "react-i18next"
+import {
+  makeStreamReducerState,
+  reduceStreamEvent,
+  type StreamMessage,
+  type StreamReducerState
+} from "@/application/turns/chat-stream-reducer"
+import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import { useToast } from "@/hooks/use-toast"
-
 import { browser } from "@/lib/browser-api"
 import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constants"
 import {
@@ -13,12 +19,6 @@ import { logger } from "@/lib/logger"
 import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import type { ChatMessage } from "@/types"
-import {
-  makeStreamReducerState,
-  reduceStreamEvent,
-  type StreamMessage,
-  type StreamReducerState
-} from "./chat-stream-reducer"
 
 interface StreamOptions {
   model: string
@@ -28,6 +28,7 @@ interface StreamOptions {
   generatedMessage?: ChatMessage
   /** See {@link ChatWithModelMessage} `clientContextPrepared`. */
   clientContextPrepared?: boolean
+  durableTurn?: DurableTurnStart & { assistantMessageId: number }
 }
 
 export interface UseChatStreamProps {
@@ -68,7 +69,8 @@ export const useChatStream = ({
     messages,
     sessionId,
     generatedMessage,
-    clientContextPrepared
+    clientContextPrepared,
+    durableTurn
   }: StreamOptions) => {
     // Create port synchronously BEFORE any async operations
     let port = browser.runtime.connect({
@@ -76,6 +78,7 @@ export const useChatStream = ({
     })
     portRef.current = port
     const requestId =
+      durableTurn?.submission.id ||
       globalThis.crypto?.randomUUID?.() ||
       `chat-stream-${Date.now()}-${Math.random().toString(36).slice(2)}`
     currentRequestIdRef.current = requestId
@@ -105,7 +108,7 @@ export const useChatStream = ({
     const renderAssistant = (assistant: ChatMessage) => {
       const updated = [...messages, assistant]
       currentMessagesRef.current = updated
-      setMessages(updated)
+      return setMessages(updated)
     }
 
     // Persist a clean completion for the current partial answer. Used by a
@@ -124,6 +127,21 @@ export const useChatStream = ({
       requestId,
       clientContextPrepared
     }
+    const requestMessage = durableTurn
+      ? {
+          type: MESSAGE_KEYS.PROVIDER.START_TURN,
+          payload: {
+            start: {
+              submission: durableTurn.submission,
+              userMessageId: durableTurn.userMessageId
+            },
+            assistantMessageId: durableTurn.assistantMessageId
+          }
+        }
+      : {
+          type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
+          payload: requestPayload
+        }
 
     const cleanupPort = () => {
       streamSettled = true
@@ -140,6 +158,29 @@ export const useChatStream = ({
     const listener = (rawMsg: unknown) => {
       if (streamSettled) return
       const msg = rawMsg as StreamMessage
+      if (msg.type === "context_warning") {
+        const warning = (
+          rawMsg as {
+            payload?: {
+              variant?: "default" | "destructive"
+              titleKey?: string
+              descriptionKey?: string
+              descriptionValues?: Record<string, string>
+            }
+          }
+        ).payload
+        if (warning?.titleKey) {
+          toast({
+            variant: warning.variant,
+            title: t(warning.titleKey),
+            description: warning.descriptionKey
+              ? t(warning.descriptionKey, warning.descriptionValues)
+              : undefined
+          })
+        }
+        return
+      }
+      if (msg.type === "context_progress") return
 
       // Fold the chunk into turn state purely; the hook only performs effects.
       const result = reduceStreamEvent(state, msg)
@@ -281,10 +322,12 @@ export const useChatStream = ({
               }
             : result.terminal.message
           Promise.resolve(renderAssistant(message))
-            .then(() => onSuccessfulResponse?.(message))
+            .then(async () => {
+              await onSuccessfulResponse?.(message)
+            })
             .catch((error) => {
               logger.debug(
-                "Successful response post-persistence callback failed",
+                "Successful response persistence finalization failed",
                 "useChatStream",
                 { error }
               )
@@ -336,10 +379,7 @@ export const useChatStream = ({
           portRef.current = port
           port.onMessage.addListener(listener)
           port.onDisconnect.addListener(handleDisconnect)
-          port.postMessage({
-            type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
-            payload: requestPayload
-          })
+          port.postMessage(requestMessage)
         }, 250)
         return
       }
@@ -370,10 +410,7 @@ export const useChatStream = ({
 
     port.onMessage.addListener(listener)
     port.onDisconnect.addListener(handleDisconnect)
-    port.postMessage({
-      type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
-      payload: requestPayload
-    })
+    port.postMessage(requestMessage)
   }
 
   const stopStream = () => {

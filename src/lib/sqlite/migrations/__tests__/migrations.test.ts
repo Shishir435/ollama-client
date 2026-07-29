@@ -3,6 +3,7 @@ import { ensureMessagesErrorColumn } from "../add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "../add-message-replay-artifact-column"
 import { ensurePromptTemplatesTable } from "../add-prompt-templates-table"
 import { ensureMessagesThinkingColumn } from "../add-thinking-column"
+import { ensureTurnRunsTable } from "../add-turn-runs-table"
 
 // ─── add-thinking-column ──────────────────────────────────────────────────────
 
@@ -125,5 +126,19 @@ describe("ensurePromptTemplatesTable", () => {
 
   it("defaults usageCount so an insert omitting it cannot write NULL", () => {
     expect(runMigration()[0]).toContain("usageCount INTEGER NOT NULL DEFAULT 0")
+  })
+})
+
+describe("ensureTurnRunsTable", () => {
+  it("creates durable turn ownership table and lookup indexes", () => {
+    const db = { run: vi.fn() }
+    ensureTurnRunsTable(db as never)
+    const statements = db.run.mock.calls.map(([sql]) => String(sql))
+
+    expect(statements[0]).toContain("CREATE TABLE IF NOT EXISTS turn_runs")
+    expect(statements[0]).toContain("request TEXT NOT NULL")
+    expect(statements[0]).toContain("contextReceipt TEXT")
+    expect(statements[1]).toContain("idx_turn_runs_sessionId")
+    expect(statements[2]).toContain("idx_turn_runs_status")
   })
 })

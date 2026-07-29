@@ -80,6 +80,12 @@ vi.mock("@/background/handlers/handle-get-models", () => ({
 vi.mock("@/background/handlers/handle-model-pull", () => ({
   handleModelPull: vi.fn()
 }))
+vi.mock("@/background/handlers/handle-start-turn", () => ({
+  handleStartTurn: vi.fn()
+}))
+vi.mock("@/background/lib/abort-controller-registry", () => ({
+  abortAndClearController: vi.fn()
+}))
 vi.mock("@/background/rpc-server", () => ({
   handleRpcCancellation: vi.fn(),
   handleRpcRequest: vi.fn()
@@ -101,6 +107,8 @@ import { handleChatWithModel } from "@/background/handlers/handle-chat-with-mode
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
+import { handleStartTurn } from "@/background/handlers/handle-start-turn"
+import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import {
   handleRpcCancellation,
   handleRpcRequest
@@ -254,6 +262,32 @@ describe("Background Script Entry Point", () => {
       portMessageListener(msg)
 
       expect(handleChatWithModel).toHaveBeenCalled()
+    })
+
+    it("does not abort a durable turn when its observing panel closes", () => {
+      const onConnect = listeners.onConnect[0]
+      const port = {
+        name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE,
+        sender: extensionSender,
+        onMessage: { addListener: vi.fn() },
+        onDisconnect: { addListener: vi.fn() },
+        disconnect: vi.fn()
+      }
+
+      onConnect(port)
+      const portMessageListener = port.onMessage.addListener.mock.calls[0][0]
+      const disconnectListener = port.onDisconnect.addListener.mock.calls[0][0]
+      portMessageListener({
+        type: MESSAGE_KEYS.PROVIDER.START_TURN,
+        payload: {
+          start: { submission: { id: "turn-1" } },
+          assistantMessageId: 2
+        }
+      })
+      disconnectListener()
+
+      expect(handleStartTurn).toHaveBeenCalled()
+      expect(abortAndClearController).not.toHaveBeenCalledWith("turn-1")
     })
 
     it("should route PULL_MODEL via named port", () => {

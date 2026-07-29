@@ -53,6 +53,11 @@ vi.mock("../add-prompt-templates-table", () => ({
   ensurePromptTemplatesTable: (db: unknown) => ensurePromptTemplatesTable(db)
 }))
 
+const ensureTurnRunsTable = vi.fn()
+vi.mock("../add-turn-runs-table", () => ({
+  ensureTurnRunsTable: (db: unknown) => ensureTurnRunsTable(db)
+}))
+
 import {
   getSchemaVersion,
   LATEST_SCHEMA_VERSION,
@@ -82,7 +87,7 @@ const makeDb = (
     sessions: schema.sessions ?? ["pinned", "systemPrompt", "tags"]
   }
   const tables = new Set(
-    schema.tables ?? ["tool_loop_runs", "prompt_templates"]
+    schema.tables ?? ["tool_loop_runs", "prompt_templates", "turn_runs"]
   )
   return {
     getVersion: () => userVersion,
@@ -135,6 +140,7 @@ beforeEach(() => {
   ensureMessagesUpdatedAtColumn.mockClear()
   ensureMessagesErrorColumn.mockClear()
   ensurePromptTemplatesTable.mockClear()
+  ensureTurnRunsTable.mockClear()
 })
 
 describe("migration-runner", () => {
@@ -175,6 +181,7 @@ describe("migration-runner", () => {
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledTimes(1)
     expect(ensureMessagesErrorColumn).toHaveBeenCalledTimes(1)
     expect(ensurePromptTemplatesTable).toHaveBeenCalledTimes(1)
+    expect(ensureTurnRunsTable).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -191,6 +198,7 @@ describe("migration-runner", () => {
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledTimes(1)
     expect(ensureMessagesErrorColumn).toHaveBeenCalledTimes(1)
     expect(ensurePromptTemplatesTable).toHaveBeenCalledTimes(1)
+    expect(ensureTurnRunsTable).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -219,12 +227,13 @@ describe("migration-runner", () => {
 
     const repaired = repairSchemaDrift(db as never)
 
-    expect(repaired).toBe(5)
+    expect(repaired).toBe(6)
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledWith(db)
     expect(ensureMessagesErrorColumn).toHaveBeenCalledWith(db)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledWith(db)
     expect(ensureToolLoopRunsTable).toHaveBeenCalledWith(db)
     expect(ensurePromptTemplatesTable).toHaveBeenCalledWith(db)
+    expect(ensureTurnRunsTable).toHaveBeenCalledWith(db)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })

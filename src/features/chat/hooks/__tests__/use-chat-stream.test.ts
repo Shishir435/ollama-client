@@ -97,6 +97,59 @@ describe("useChatStream", () => {
     expect(setIsStreaming).toHaveBeenCalledWith(false)
   })
 
+  it("submits durable turns as one background-owned command", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    const durableTurn = {
+      submission: {
+        id: "turn-1",
+        sessionId: "session-1",
+        mode: "new" as const,
+        model: "llama2",
+        request: {
+          version: 1 as const,
+          context: {
+            rawInput: "Hello",
+            messages: [],
+            hasTabContext: false,
+            contextText: "",
+            tabDocuments: [],
+            memoryEnabled: false,
+            maxTabContextChars: 1000,
+            maxRagContextChars: 1000,
+            groundedOnlyMode: false,
+            selectedModel: "llama2",
+            selectedModelRef: null
+          },
+          userMessage: { role: "user" as const, content: "Hello" }
+        },
+        createdAt: 1
+      },
+      userMessageId: 1,
+      assistantMessageId: 2
+    }
+
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user", content: "Hello" }],
+        durableTurn
+      })
+    })
+
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      type: PROVIDER_MESSAGE_KEYS.START_TURN,
+      payload: {
+        start: {
+          submission: durableTurn.submission,
+          userMessageId: 1
+        },
+        assistantMessageId: 2
+      }
+    })
+  })
+
   it("should handle streaming chunks", () => {
     const { result } = renderHook(() =>
       useChatStream({
@@ -196,7 +249,7 @@ describe("useChatStream", () => {
     })
   })
 
-  it("should handle stream completion", () => {
+  it("should handle stream completion", async () => {
     const { result } = renderHook(() =>
       useChatStream({
         setMessages,
@@ -208,7 +261,10 @@ describe("useChatStream", () => {
     const messages = [{ role: "user" as const, content: "Hello" }]
 
     act(() => {
-      result.current.startStream({ model: "llama2", messages })
+      result.current.startStream({
+        model: "llama2",
+        messages
+      })
     })
 
     const listener = mockPort.onMessage.addListener.mock.calls[0][0]
@@ -710,7 +766,10 @@ describe("useChatStream", () => {
     const messages = [{ role: "user" as const, content: "Hello" }]
 
     act(() => {
-      result.current.startStream({ model: "llama2", messages })
+      result.current.startStream({
+        model: "llama2",
+        messages
+      })
     })
 
     act(() => {

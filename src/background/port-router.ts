@@ -1,7 +1,9 @@
+import type { SelectionActionMessage } from "@/application/selection-actions/types"
 import { handleBuildContext } from "@/background/handlers/handle-build-context"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
 import { handleSelectionAction } from "@/background/handlers/handle-selection-action"
+import { handleStartTurn } from "@/background/handlers/handle-start-turn"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import {
   registerSelectionBridgePort,
@@ -12,7 +14,6 @@ import {
   isRuntimePortAllowed,
   isRuntimePortMessageAllowed
 } from "@/background/runtime-sender-authorization"
-import type { SelectionActionMessage } from "@/features/selection-actions/types"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
@@ -22,7 +23,8 @@ import type {
   ChromeMessage,
   ChromePort,
   ModelPullMessage,
-  PortStatusFunction
+  PortStatusFunction,
+  StartTurnMessage
 } from "@/types"
 
 const extensionUrlPrefix = browser.runtime.getURL("")
@@ -57,6 +59,7 @@ export const registerPortRouter = () => {
 
     let isPortClosed = false
     let currentAbortKey: string | undefined
+    let abortCurrentOnDisconnect = true
     // Port names are shared constants; give each live connection its own
     // abort key so same-named ports (e.g. two windows) never collide.
     port.abortScopeKey = `${port.name}#${++portConnectionSeq}`
@@ -71,7 +74,9 @@ export const registerPortRouter = () => {
       }
       // Abort whatever this connection may have registered: a chat stream
       // (keyed by requestId) and/or a selection action (keyed by scope key).
-      if (currentAbortKey) abortAndClearController(currentAbortKey)
+      if (currentAbortKey && abortCurrentOnDisconnect) {
+        abortAndClearController(currentAbortKey)
+      }
       if (port.abortScopeKey) abortAndClearController(port.abortScopeKey)
     })
 
@@ -106,12 +111,22 @@ export const registerPortRouter = () => {
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL) {
+        abortCurrentOnDisconnect = true
         currentAbortKey = (msg as ChatWithModelMessage).payload?.requestId
         await handleChatWithModel(
           msg as ChatWithModelMessage,
           port,
           getPortStatus
         )
+      }
+
+      if (msg.type === MESSAGE_KEYS.PROVIDER.START_TURN) {
+        const startMessage = msg as unknown as StartTurnMessage
+        currentAbortKey = startMessage.payload.start.submission.id
+        // The sidepanel is an observer after submission. Closing it must not
+        // cancel background-owned context building or generation.
+        abortCurrentOnDisconnect = false
+        await handleStartTurn(startMessage, port, getPortStatus)
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT) {
@@ -128,6 +143,7 @@ export const registerPortRouter = () => {
         abortAndClearController(
           requestedKey ?? currentAbortKey ?? port.abortScopeKey ?? port.name
         )
+        abortCurrentOnDisconnect = true
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION) {

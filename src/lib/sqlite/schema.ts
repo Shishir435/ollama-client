@@ -88,6 +88,28 @@ CREATE INDEX IF NOT EXISTS idx_files_sessionId ON files(sessionId);
 CREATE INDEX IF NOT EXISTS idx_files_messageId ON files(messageId);
 CREATE INDEX IF NOT EXISTS idx_tool_loop_runs_sessionId ON tool_loop_runs(sessionId);
 
+-- Durable owner for every submitted turn. Unlike tool_loop_runs, these rows
+-- begin before context building and remain as lifecycle receipts.
+CREATE TABLE IF NOT EXISTS turn_runs (
+  id TEXT PRIMARY KEY,
+  sessionId TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  model TEXT NOT NULL,
+  providerId TEXT,
+  status TEXT NOT NULL,
+  request TEXT NOT NULL,
+  contextReceipt TEXT,
+  userMessageId INTEGER,
+  assistantMessageId INTEGER,
+  failure TEXT,
+  createdAt INTEGER NOT NULL,
+  updatedAt INTEGER NOT NULL,
+  FOREIGN KEY(sessionId) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_turn_runs_sessionId ON turn_runs(sessionId);
+CREATE INDEX IF NOT EXISTS idx_turn_runs_status ON turn_runs(status);
+
 -- Chunk feedback table for learning from user feedback
 CREATE TABLE IF NOT EXISTS chunk_feedback (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

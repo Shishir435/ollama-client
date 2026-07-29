@@ -47,7 +47,7 @@ vi.mock("@/background/lib/abort-controller-registry", () => ({
   clearAbortController: vi.fn()
 }))
 
-vi.mock("@/features/chat/rag/rag-pipeline", () => ({
+vi.mock("@/application/context/rag/rag-pipeline", () => ({
   retrieveContextEnhanced: vi.fn().mockResolvedValue([]),
   formatEnhancedResults: vi
     .fn()
@@ -88,7 +88,7 @@ describe("handleChatWithModel", () => {
     // clearAllMocks resets calls but not implementations, so restore the RAG
     // mock defaults here. This makes every test start with empty memory and
     // removes the need for per-test teardown (which leaks if an assert throws).
-    const rag = await import("@/features/chat/rag/rag-pipeline")
+    const rag = await import("@/application/context/rag/rag-pipeline")
     vi.mocked(rag.retrieveContextEnhanced).mockResolvedValue([])
     vi.mocked(rag.formatEnhancedResults).mockReturnValue({
       formattedContext: "",
@@ -277,7 +277,7 @@ describe("handleChatWithModel", () => {
         if (key === STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS) return 20
         return undefined
       })
-      const rag = await import("@/features/chat/rag/rag-pipeline")
+      const rag = await import("@/application/context/rag/rag-pipeline")
       vi.mocked(rag.retrieveContextEnhanced).mockResolvedValue([
         { score: 1 }
       ] as never)
