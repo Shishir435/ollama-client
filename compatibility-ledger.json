@@ -1,15 +1,18 @@
 {
   "version": 1,
-  "lastReviewed": "2026-07-28",
+  "lastReviewed": "2026-07-29",
   "entries": [
     {
       "id": "legacy-sqljs-live-fallback",
       "owner": "src/lib/sqlite/legacy-db.ts",
       "introducedIn": "pre-0.12.3",
-      "sourceVersions": ["<=0.12.2", "unmarked profiles"],
-      "removalGate": "Historical Dexie/sql.js/OPFS migration fixtures pass in packaged Chrome and Firefox, rollback evidence is retained, and the fallback has completed its evidence window.",
+      "sourceVersions": [
+        "0.6.0-0.12.2 sql.js profiles",
+        "unmarked sql.js profiles"
+      ],
+      "removalGate": "Supported sql.js/OPFS migration fixtures pass in packaged Chrome and Firefox, including offscreen eviction and integrity verification; a migration receipt and operator rollback switch exist; rollback evidence is retained; and the fallback has completed its evidence window.",
       "targetRelease": "0.13.x",
-      "recoveryPath": "Keep a lazy migration-only reader and the untouched source blob so skipped upgrades and offline returning profiles remain recoverable."
+      "recoveryPath": "Keep a lazy sql.js migration-only reader and the untouched source blob so supported skipped upgrades from 0.6.0 onward remain recoverable. Pre-0.6.0 Dexie-only chat history is outside the direct-upgrade contract."
     },
     {
       "id": "legacy-sqljs-import-generation-guard",
@@ -24,7 +27,7 @@
       "id": "legacy-chat-blob-reader",
       "owner": "src/lib/persistence/legacy-blob-reader.ts",
       "introducedIn": "0.12.3",
-      "sourceVersions": ["sql.js chat-history releases"],
+      "sourceVersions": ["0.6.0+ sql.js chat-history releases"],
       "removalGate": "Indefinite recovery capability; remove only with an explicit decision to stop direct upgrades from every covered source version.",
       "targetRelease": null,
       "recoveryPath": "Lazy-load only during verified import; never restore it as a normal live backend after the 0.13.x cutover."
