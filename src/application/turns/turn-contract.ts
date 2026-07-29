@@ -1,4 +1,8 @@
 import { z } from "zod"
+import {
+  type DurableContextOptions,
+  DurableContextOptionsSchema
+} from "@/application/context/context-contract"
 
 export const TURN_MODES = [
   "new",
@@ -64,18 +68,32 @@ export const ContextReceiptSchema = z.object({
 
 export type ContextReceipt = z.infer<typeof ContextReceiptSchema>
 
-export interface TurnSubmission<TRequest = unknown> {
+export const PersistedTurnRequestSchema = z.object({
+  version: z.literal(1),
+  context: DurableContextOptionsSchema
+})
+
+export interface PersistedTurnRequest {
+  version: 1
+  context: DurableContextOptions
+}
+
+export const parsePersistedTurnRequest = (
+  value: unknown
+): PersistedTurnRequest =>
+  PersistedTurnRequestSchema.parse(value) as PersistedTurnRequest
+
+export interface TurnSubmission {
   id: string
   sessionId: string
   mode: TurnMode
   model: string
   providerId?: string
-  request: TRequest
+  request: PersistedTurnRequest
   createdAt: number
 }
 
-export interface DurableTurnRun<TRequest = unknown>
-  extends TurnSubmission<TRequest> {
+export interface DurableTurnRun extends TurnSubmission {
   status: TurnStatus
   contextReceipt?: ContextReceipt
   userMessageId?: number

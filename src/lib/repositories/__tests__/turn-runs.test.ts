@@ -10,6 +10,23 @@ vi.mock("@/lib/sqlite/db", () => ({ query, run, flushSave }))
 
 import { createTurnRun, getTurnRun, updateTurnRun } from "../turn-runs"
 
+const persistedRequest = {
+  version: 1 as const,
+  context: {
+    rawInput: "hello",
+    messages: [],
+    hasTabContext: false,
+    contextText: "",
+    tabDocuments: [],
+    memoryEnabled: false,
+    maxTabContextChars: 1000,
+    maxRagContextChars: 1000,
+    groundedOnlyMode: false,
+    selectedModel: "llama3",
+    selectedModelRef: null
+  }
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
 })
@@ -21,7 +38,7 @@ describe("turn-runs repository", () => {
       sessionId: "session-1",
       mode: "retry",
       model: "llama3",
-      request: { rawInput: "hello" },
+      request: persistedRequest,
       createdAt: 10
     })
 
@@ -33,7 +50,7 @@ describe("turn-runs repository", () => {
         "retry",
         "llama3",
         null,
-        '{"rawInput":"hello"}',
+        JSON.stringify(persistedRequest),
         10,
         10
       ]
@@ -50,7 +67,7 @@ describe("turn-runs repository", () => {
         model: "llama3",
         providerId: null,
         status: "submitted",
-        request: '{"rawInput":"hello"}',
+        request: JSON.stringify(persistedRequest),
         contextReceipt: null,
         userMessageId: null,
         assistantMessageId: null,
@@ -65,7 +82,7 @@ describe("turn-runs repository", () => {
         id: "turn-1",
         mode: "new",
         status: "submitted",
-        request: { rawInput: "hello" }
+        request: persistedRequest
       })
     )
 

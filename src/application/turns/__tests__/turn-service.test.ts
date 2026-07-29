@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import type { ContextService } from "@/application/context/context-service"
 import type { ContextReceipt } from "../turn-contract"
+import { parsePersistedTurnRequest } from "../turn-contract"
 import {
   type TurnGenerationOwner,
   type TurnRunStore,
@@ -99,12 +100,23 @@ describe("TurnService", () => {
       "generation",
       "update:completed"
     ])
-    expect(store.create).toHaveBeenCalledWith(
+    const created = vi.mocked(store.create).mock.calls[0][0]
+    expect(created).toEqual(
       expect.objectContaining({
         id: "turn-1",
-        request: command.contextOptions
+        request: {
+          version: 1,
+          context: expect.objectContaining({ rawInput: "hello" })
+        }
       })
     )
+    expect(created.request.context).not.toHaveProperty("toast")
+    expect(created.request.context).not.toHaveProperty("onActivityEvent")
+    expect(
+      parsePersistedTurnRequest(
+        JSON.parse(JSON.stringify(created.request)) as unknown
+      )
+    ).toEqual(created.request)
     expect(store.update).toHaveBeenLastCalledWith("turn-1", {
       status: "completed",
       userMessageId: 1,

@@ -1,4 +1,5 @@
 import type { BuildRagContextOptions } from "@/application/context/build-context"
+import { parseDurableContextOptions } from "@/application/context/context-contract"
 import type {
   ContextBuildOutput,
   ContextService
@@ -58,13 +59,21 @@ export class TurnService {
   ) {}
 
   async start(command: StartTurnCommand): Promise<void> {
+    const {
+      onActivityEvent: _onActivityEvent,
+      toast: _toast,
+      ...context
+    } = command.contextOptions
     const submission: TurnSubmission = {
       id: command.id,
       sessionId: command.sessionId,
       mode: command.mode,
       model: command.model,
       providerId: command.providerId,
-      request: command.contextOptions,
+      request: {
+        version: 1,
+        context: parseDurableContextOptions(context)
+      },
       createdAt: command.createdAt ?? Date.now()
     }
 

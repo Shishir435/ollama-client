@@ -1,6 +1,7 @@
 import {
   ContextReceiptSchema,
   type DurableTurnRun,
+  parsePersistedTurnRequest,
   TurnModeSchema,
   type TurnStatus,
   TurnStatusSchema,
@@ -39,7 +40,7 @@ const parseRow = (row: TurnRunRow): DurableTurnRun | null => {
       model: row.model,
       providerId: row.providerId ?? undefined,
       status,
-      request: JSON.parse(row.request) as unknown,
+      request: parsePersistedTurnRequest(JSON.parse(row.request)),
       contextReceipt: receipt,
       userMessageId: row.userMessageId ?? undefined,
       assistantMessageId: row.assistantMessageId ?? undefined,
