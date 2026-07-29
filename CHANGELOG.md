@@ -86,6 +86,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   refresh.
 - Staged images in the attachments view now fill the sheet's width instead of
   sitting as small fixed tiles in an otherwise empty panel.
+- Restoring a backup made by version 0.6.3 or earlier now says that its chats are
+  in a format the extension no longer reads, instead of reporting the archive as
+  missing a database file. Its settings, embeddings, and knowledge sets still
+  restore.
 
 ### Development
 
