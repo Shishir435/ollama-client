@@ -361,10 +361,11 @@ export const getModelCapabilityStates = (
         (flag === "toolCalling" || flag === "reasoning")) ||
       (lmTypeAvailable &&
         (flag === "text" || flag === "vision" || flag === "embeddings")) ||
-      // Reported tags own tool calling. Without this the capability sheet would
-      // credit it to the provider default while detection had already read it
-      // from the catalog — the two answers must agree.
-      (capabilityTagsAvailable && flag === "toolCalling")
+      // Reported tags own tool calling, but only where detection reads them:
+      // inside the LM Studio model-type branch. Claiming them without a type
+      // would credit the catalog for a value detection took from the provider
+      // default — the two answers must agree.
+      (lmTypeAvailable && capabilityTagsAvailable && flag === "toolCalling")
     if (metadataOwnsFlag) {
       states[flag] = {
         status: capabilityStatus(resolved[flag]),

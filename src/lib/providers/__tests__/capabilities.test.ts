@@ -383,6 +383,22 @@ describe("LM Studio reported capability tags", () => {
     expect(states.toolCalling.status).toBe("supported")
   })
 
+  it("does not claim the catalog for tags detection never reads", () => {
+    // Tags only settle tool calling inside the model-type branch. Without a
+    // type, detection falls through to the provider default, so the sheet has
+    // to say provider-default too.
+    const input = {
+      providerId: ProviderId.LM_STUDIO,
+      contextLength: 262144,
+      capabilityTags: ["tool_use"]
+    }
+
+    expect(getModelCapabilities(input).source).toBe("provider-default")
+    expect(getModelCapabilityStates(input).toolCalling.source).toBe(
+      "provider-default"
+    )
+  })
+
   it("lets a user override still win over a reported tag", () => {
     const resolved = getModelCapabilities({
       ...base,
