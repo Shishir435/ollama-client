@@ -6,10 +6,12 @@ const mocks = vi.hoisted(() => ({
   handleChat: vi.fn(),
   resolveRetrievalToolsActive: vi.fn(),
   appendMessage: vi.fn(),
+  getMessage: vi.fn(),
   getSession: vi.fn(),
   updateMessage: vi.fn(),
   createTurnRun: vi.fn(),
   getIncompleteTurnRuns: vi.fn(),
+  getTurnRun: vi.fn(),
   updateTurnRun: vi.fn()
 }))
 
@@ -29,6 +31,7 @@ vi.mock("@/background/handlers/handle-build-context", () => ({
 
 vi.mock("@/lib/repositories/chat-history", () => ({
   appendMessage: mocks.appendMessage,
+  getMessage: mocks.getMessage,
   getSession: mocks.getSession,
   updateMessage: mocks.updateMessage
 }))
@@ -36,6 +39,7 @@ vi.mock("@/lib/repositories/chat-history", () => ({
 vi.mock("@/lib/repositories/turn-runs", () => ({
   createTurnRun: mocks.createTurnRun,
   getIncompleteTurnRuns: mocks.getIncompleteTurnRuns,
+  getTurnRun: mocks.getTurnRun,
   updateTurnRun: mocks.updateTurnRun
 }))
 
@@ -48,9 +52,18 @@ import type {
   TurnSubmission
 } from "@/application/turns/turn-contract"
 import {
+  reconnectDurableTurn,
   resumeIncompleteTurnRuns,
   startDurableTurn
 } from "@/background/durable-turn-runtime"
+
+const deferred = <T>() => {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  const promise = new Promise<T>((next) => {
+    resolve = next
+  })
+  return { promise, resolve }
+}
 
 const contextResult = {
   contentWithRAG: "hello\n\ncontext",
@@ -130,6 +143,7 @@ beforeEach(() => {
     }
   })
   mocks.updateMessage.mockResolvedValue(1)
+  mocks.getMessage.mockResolvedValue(null)
   mocks.handleChat.mockImplementation(async (_message, port) => {
     mocks.order.push("generation")
     port.postMessage({ delta: "answer" })
@@ -222,7 +236,11 @@ describe("durable turn runtime", () => {
 
     expect(mocks.updateTurnRun).toHaveBeenLastCalledWith("turn-1", {
       status: "failed",
-      failure: "context unavailable"
+      failure: expect.objectContaining({
+        status: 0,
+        message: "context unavailable",
+        context: "turn-run"
+      })
     })
     expect(mocks.updateMessage).toHaveBeenLastCalledWith(
       2,
@@ -231,5 +249,185 @@ describe("durable turn runtime", () => {
         done: true
       })
     )
+  })
+
+  it("reattaches an observer with a persisted snapshot", async () => {
+    mocks.getTurnRun.mockResolvedValue({
+      ...submission,
+      status: "generating",
+      assistantMessageId: 2,
+      updatedAt: 12
+    } satisfies DurableTurnRun)
+    mocks.getMessage.mockResolvedValue({
+      id: 2,
+      role: "assistant",
+      content: "partial",
+      done: false
+    })
+    const port = { postMessage: vi.fn() } as any
+
+    await reconnectDurableTurn("turn-1", 3, {
+      port,
+      isPortClosed: () => false
+    })
+
+    expect(port.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "stream_snapshot",
+      requestId: "turn-1",
+      seq: -1,
+      sequenceReset: true,
+      status: "generating",
+      assistant: expect.objectContaining({ content: "partial" })
+    })
+  })
+
+  it("buffers live chunks until a coherent snapshot is sent", async () => {
+    const assistantRead = deferred<any>()
+    const generationStarted = deferred<void>()
+    const finishGeneration = deferred<void>()
+    mocks.getTurnRun.mockResolvedValue({
+      ...submission,
+      status: "generating",
+      assistantMessageId: 2,
+      updatedAt: 12
+    } satisfies DurableTurnRun)
+    mocks.getMessage.mockReturnValueOnce(assistantRead.promise)
+    mocks.handleChat.mockImplementationOnce(async (_message, port) => {
+      port.postMessage({ seq: 0, delta: "new" })
+      generationStarted.resolve()
+      await finishGeneration.promise
+      port.postMessage({ seq: 1, done: true })
+    })
+    const port = { postMessage: vi.fn() } as any
+
+    const reconnecting = reconnectDurableTurn("turn-1", 3, {
+      port,
+      isPortClosed: () => false
+    })
+    await vi.waitFor(() => expect(mocks.getMessage).toHaveBeenCalledOnce())
+
+    const generating = startDurableTurn(submission, 1, 2, {})
+    await generationStarted.promise
+    assistantRead.resolve({
+      id: 2,
+      role: "assistant",
+      content: "old",
+      done: false
+    })
+    await reconnecting
+
+    expect(port.postMessage.mock.calls[0][0]).toEqual({
+      version: 1,
+      type: "stream_snapshot",
+      requestId: "turn-1",
+      seq: 0,
+      sequenceReset: true,
+      status: "generating",
+      assistant: expect.objectContaining({ content: "new" })
+    })
+    expect(port.postMessage).toHaveBeenCalledTimes(1)
+
+    finishGeneration.resolve()
+    await generating
+    expect(port.postMessage.mock.calls[1][0]).toMatchObject({
+      type: "chat_chunk",
+      seq: 1,
+      done: true
+    })
+  })
+
+  it("retains the terminal snapshot until its persistence finishes", async () => {
+    const assistantRead = deferred<any>()
+    const deltaEmitted = deferred<void>()
+    const emitTerminal = deferred<void>()
+    const terminalEmitted = deferred<void>()
+    const terminalWrite = deferred<number>()
+    mocks.getTurnRun.mockResolvedValue({
+      ...submission,
+      status: "generating",
+      assistantMessageId: 2,
+      updatedAt: 12
+    } satisfies DurableTurnRun)
+    mocks.getMessage.mockReturnValueOnce(assistantRead.promise)
+    mocks.updateMessage.mockImplementation(async (_id, update) => {
+      if (update.content === "new" && update.done) {
+        return terminalWrite.promise
+      }
+      return 1
+    })
+    mocks.handleChat.mockImplementationOnce(async (_message, port) => {
+      port.postMessage({ seq: 0, delta: "new" })
+      deltaEmitted.resolve()
+      await emitTerminal.promise
+      port.postMessage({ seq: 1, done: true })
+      terminalEmitted.resolve()
+    })
+
+    const generating = startDurableTurn(submission, 1, 2, {})
+    await deltaEmitted.promise
+    const port = { postMessage: vi.fn() } as any
+    const reconnecting = reconnectDurableTurn("turn-1", 0, {
+      port,
+      isPortClosed: () => false
+    })
+    await vi.waitFor(() => expect(mocks.getMessage).toHaveBeenCalledOnce())
+
+    emitTerminal.resolve()
+    await terminalEmitted.promise
+    assistantRead.resolve({
+      id: 2,
+      role: "assistant",
+      content: "old",
+      done: false
+    })
+    await reconnecting
+
+    expect(port.postMessage).toHaveBeenCalledTimes(1)
+    expect(port.postMessage.mock.calls[0][0]).toEqual({
+      version: 1,
+      type: "stream_snapshot",
+      requestId: "turn-1",
+      seq: 1,
+      sequenceReset: false,
+      status: "generating",
+      assistant: expect.objectContaining({ content: "new", done: true })
+    })
+
+    terminalWrite.resolve(1)
+    await generating
+  })
+
+  it("detaches a closed observer before later chunks", async () => {
+    const releaseGeneration = deferred<void>()
+    mocks.handleChat.mockImplementationOnce(async (_message, port) => {
+      await releaseGeneration.promise
+      port.postMessage({ delta: "answer" })
+      port.postMessage({ done: true })
+    })
+    const disconnectListeners: Array<() => void> = []
+    const port = {
+      postMessage: vi.fn(),
+      onDisconnect: {
+        addListener: vi.fn((listener: () => void) => {
+          disconnectListeners.push(listener)
+        }),
+        removeListener: vi.fn((listener: () => void) => {
+          const index = disconnectListeners.indexOf(listener)
+          if (index >= 0) disconnectListeners.splice(index, 1)
+        })
+      }
+    } as any
+
+    const generating = startDurableTurn(submission, 1, 2, {
+      port,
+      isPortClosed: () => false
+    })
+    await vi.waitFor(() => expect(mocks.handleChat).toHaveBeenCalledOnce())
+    disconnectListeners[0]?.()
+    releaseGeneration.resolve()
+    await generating
+
+    expect(port.postMessage).not.toHaveBeenCalled()
   })
 })

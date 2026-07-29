@@ -1,4 +1,5 @@
 import type browser from "webextension-polyfill"
+import type { AppFailure } from "@/protocol/app-failure"
 
 export interface EmbeddingStatusMessage {
   status: string
@@ -20,31 +21,15 @@ export interface PendingOmniboxQuery {
 
 export interface ChromeMessage {
   type: string
+  version?: number
   payload?: unknown
   disposition?: string
   query?: string
   name?: string
   cancel?: boolean
   fromBackground?: boolean
-  error?: {
-    status: number
-    message: string
-    kind?: import("./errors").AppErrorKind
-    messageKey?: string
-    userMessage?: string
-    retryable?: boolean
-    retryAfterMs?: number
-    context?: string
-    providerId?: string
-    providerName?: string
-    model?: string
-    baseUrl?: string
-    code?: import("./errors").AppErrorCode
-    phase?: import("./errors").AppErrorPhase
-    incidentId?: string
-    durationMs?: number
-    recoveryAction?: import("./errors").AppErrorRecoveryAction
-  }
+  error?: AppFailure
+  failure?: AppFailure
 }
 
 // Omit the members we deliberately narrow: the base `postMessage`/`onMessage`
@@ -64,6 +49,8 @@ export interface ChromePort
    * if keyed by name alone.
    */
   abortScopeKey?: string
+  /** Next monotonic event sequence for the active chat stream. */
+  streamSequence?: number
 }
 
 export interface ChromeSidePanel {
@@ -76,25 +63,7 @@ export interface ChromeSidePanel {
 export interface ChromeResponse {
   success: boolean
   data?: unknown
-  error?: {
-    status: number
-    message: string
-    kind?: import("./errors").AppErrorKind
-    messageKey?: string
-    userMessage?: string
-    retryable?: boolean
-    retryAfterMs?: number
-    context?: string
-    providerId?: string
-    providerName?: string
-    model?: string
-    baseUrl?: string
-    code?: import("./errors").AppErrorCode
-    phase?: import("./errors").AppErrorPhase
-    incidentId?: string
-    durationMs?: number
-    recoveryAction?: import("./errors").AppErrorRecoveryAction
-  }
+  error?: AppFailure
   tabs?: browser.Tabs.Tab[]
   html?: string
   title?: string

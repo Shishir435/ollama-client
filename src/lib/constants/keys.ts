@@ -12,6 +12,7 @@ export const PROVIDER_MESSAGE_KEYS = {
   START_TURN: "start-turn",
   BUILD_CONTEXT: "build-context",
   STREAM_RESPONSE: "provider-stream-response",
+  RECONNECT_STREAM: "stream-reconnect",
   STOP_GENERATION: "stop-generation",
   PULL_MODEL: "PROVIDER.PULL_MODEL",
   START_SELECTION_ACTION: "start-selection-action",

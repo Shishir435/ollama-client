@@ -1,3 +1,4 @@
+import type { AppFailure } from "@/protocol/app-failure"
 import type { ChatMessage } from "./chat"
 import type { ChromeResponse } from "./messaging"
 
@@ -198,19 +199,7 @@ export interface PullStreamMessage {
   status?: string
   progress?: number
   done?: boolean
-  error?:
-    | string
-    | {
-        status: number
-        message: string
-        kind?: import("./errors").AppErrorKind
-        messageKey?: string
-        userMessage?: string
-        retryable?: boolean
-        retryAfterMs?: number
-        context?: string
-        providerId?: string
-      }
+  error?: string | AppFailure
 }
 
 export interface ModelPullMessage {

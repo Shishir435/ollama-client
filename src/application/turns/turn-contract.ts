@@ -3,6 +3,7 @@ import {
   type DurableContextOptions,
   DurableContextOptionsSchema
 } from "@/application/context/context-contract"
+import type { AppFailure } from "@/protocol/app-failure"
 import type { ChatMessage } from "@/types"
 import { ChatMessageSchema } from "@/types/chat.schemas"
 
@@ -107,6 +108,6 @@ export interface DurableTurnRun extends TurnSubmission {
   contextReceipt?: ContextReceipt
   userMessageId?: number
   assistantMessageId?: number
-  failure?: string
+  failure?: AppFailure
   updatedAt: number
 }

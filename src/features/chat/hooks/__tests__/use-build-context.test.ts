@@ -100,7 +100,17 @@ describe("useBuildContext", () => {
         contentWithRAG: "hi",
         ragSources: null,
         pageContextAdded: false,
-        promptContextStats: {}
+        promptContextStats: {
+          promptInputLength: 2,
+          promptAugmentedLength: 2,
+          tabContextLength: 0,
+          ragContextLength: 0,
+          tabContextTruncated: false,
+          groundedOnlyMode: false,
+          insufficientContext: false,
+          usedContextChunks: [],
+          activityEvents: []
+        }
       },
       receipt
     })

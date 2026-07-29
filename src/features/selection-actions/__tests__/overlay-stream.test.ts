@@ -64,6 +64,7 @@ describe("connectSelectionStream", () => {
       name: MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION
     })
     expect(port.postMessage).toHaveBeenCalledWith({
+      version: 1,
       type: MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION,
       payload: request
     })
@@ -127,7 +128,7 @@ describe("connectSelectionStream", () => {
 
     port._emit({
       type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR,
-      error: { message: "Model not loaded" }
+      error: { status: 0, message: "Model not loaded" }
     })
 
     expect(onError).toHaveBeenCalledWith("Model not loaded")

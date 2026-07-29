@@ -149,6 +149,9 @@ describe("error-handler", () => {
     await handler({} as never, port, () => false)
 
     expect(port.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "chat_chunk",
+      seq: 0,
       error: {
         status: 503,
         message: "Provider failed",
@@ -186,6 +189,9 @@ describe("error-handler", () => {
     await handler({} as never, port, () => false)
 
     expect(port.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "chat_chunk",
+      seq: 0,
       error: expect.objectContaining({
         status: 500,
         kind: "provider",

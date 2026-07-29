@@ -145,7 +145,11 @@ describe("TurnService", () => {
     expect(store.create).toHaveBeenCalledTimes(1)
     expect(store.update).toHaveBeenLastCalledWith("turn-1", {
       status: "failed",
-      failure: "context unavailable"
+      failure: expect.objectContaining({
+        status: 0,
+        message: "context unavailable",
+        context: "turn-run"
+      })
     })
     expect(generation.start).not.toHaveBeenCalled()
   })

@@ -2,7 +2,7 @@ import { buildSelectionActionPrompt } from "@/application/selection-actions/prom
 import type { SelectionActionMessage } from "@/application/selection-actions/types"
 import { setAbortController } from "@/background/lib/abort-controller-registry"
 import { normalizeError } from "@/background/lib/error-handler"
-import { safePostMessage } from "@/background/lib/utils"
+import { safePostChatStreamEvent } from "@/background/lib/utils"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
@@ -32,9 +32,10 @@ export const handleSelectionAction = async (
     (isSelectedModelRef(selectedRef) ? selectedRef.providerId : undefined)
 
   if (!model) {
-    safePostMessage(port, {
+    safePostChatStreamEvent(port, {
+      version: 1,
       type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR,
-      error: {
+      failure: {
         status: 400,
         message: "Select a model before running Selection Actions"
       }
@@ -92,14 +93,16 @@ export const handleSelectionAction = async (
       (chunk) => {
         if (isPortClosed()) return
         if (chunk.error) {
-          safePostMessage(port, {
+          safePostChatStreamEvent(port, {
+            version: 1,
             type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR,
-            error: chunk.error
+            failure: chunk.error
           })
           return
         }
         if (chunk.delta || chunk.thinkingDelta) {
-          safePostMessage(port, {
+          safePostChatStreamEvent(port, {
+            version: 1,
             type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_CHUNK,
             payload: {
               delta: chunk.delta ?? "",
@@ -108,7 +111,8 @@ export const handleSelectionAction = async (
           })
         }
         if (chunk.done) {
-          safePostMessage(port, {
+          safePostChatStreamEvent(port, {
+            version: 1,
             type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_DONE
           })
         }
@@ -117,9 +121,10 @@ export const handleSelectionAction = async (
     )
   } catch (error) {
     logger.error("Selection action failed", "handleSelectionAction", { error })
-    safePostMessage(port, {
+    safePostChatStreamEvent(port, {
+      version: 1,
       type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR,
-      error: normalizeError(error)
+      failure: normalizeError(error)
     })
   } finally {
     setAbortController(abortKey, null)

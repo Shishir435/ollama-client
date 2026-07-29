@@ -4,7 +4,8 @@ import {
   splitThinkingDelta,
   type ThinkingParserState
 } from "@/lib/thinking-parser"
-import type { ChromeMessage } from "@/types"
+import { parseSelectionStreamServerEvent } from "@/protocol/streams/selection-stream"
+import { STREAM_PROTOCOL_VERSION } from "@/protocol/streams/version"
 import type { SelectionActionRequest } from "./types"
 
 export interface StreamChunkResult {
@@ -37,15 +38,13 @@ export function connectSelectionStream(
   })
 
   port.onMessage.addListener((raw) => {
-    const message = raw as ChromeMessage
+    const parsed = parseSelectionStreamServerEvent(raw)
+    if (!parsed.success) return
+    const message = parsed.data
 
     if (message.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_CHUNK) {
-      const payload = message.payload as
-        | { delta?: string; thinkingDelta?: string }
-        | undefined
-
-      const rawDelta = payload?.delta ?? ""
-      const rawThinkingDelta = payload?.thinkingDelta ?? ""
+      const rawDelta = message.payload.delta
+      const rawThinkingDelta = message.payload.thinkingDelta
       const { visible, thinking: inlineThinking } = splitThinkingDelta(
         rawDelta,
         thinkingState
@@ -68,14 +67,15 @@ export function connectSelectionStream(
 
     if (message.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR) {
       callbacks.onError(
-        message.error?.userMessage ??
-          message.error?.message ??
+        message.failure.userMessage ??
+          message.failure.message ??
           "Selection action failed. Try again."
       )
     }
   })
 
   port.postMessage({
+    version: STREAM_PROTOCOL_VERSION,
     type: MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION,
     payload: request
   })

@@ -4,7 +4,7 @@ import {
   abortAndClearController,
   setAbortController
 } from "@/background/lib/abort-controller-registry"
-import { safePostMessage } from "@/background/lib/utils"
+import { safePostModelPullEvent } from "@/background/lib/utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderId } from "@/lib/providers/types"
 import type { ModelPullMessage } from "@/types"
@@ -29,7 +29,7 @@ vi.mock("@/background/lib/abort-controller-registry", () => ({
 vi.mock("@/background/lib/utils", () => ({
   getBaseUrl: vi.fn().mockResolvedValue("http://localhost:11434"),
   getPullAbortControllerKey: vi.fn().mockReturnValue("key"),
-  safePostMessage: vi.fn()
+  safePostModelPullEvent: vi.fn()
 }))
 vi.mock("@/lib/providers/factory", () => ({
   ProviderFactory: {
@@ -127,8 +127,10 @@ describe("Handle Model Pull", () => {
 
     await handleModelPull(msg, mockPort, isPortClosed)
 
-    expect(safePostMessage).toHaveBeenCalledWith(mockPort, {
-      error: { status: 404, message: "Not Found" }
+    expect(safePostModelPullEvent).toHaveBeenCalledWith(mockPort, {
+      version: 1,
+      type: "model_pull_error",
+      failure: { status: 404, message: "Not Found" }
     })
     expect(handlePullStream).not.toHaveBeenCalled()
   })
@@ -140,8 +142,10 @@ describe("Handle Model Pull", () => {
 
     await handleModelPull(msg, mockPort, isPortClosed)
 
-    expect(safePostMessage).toHaveBeenCalledWith(mockPort, {
-      error: "No response body received"
+    expect(safePostModelPullEvent).toHaveBeenCalledWith(mockPort, {
+      version: 1,
+      type: "model_pull_error",
+      failure: { status: 0, message: "No response body received" }
     })
   })
 
@@ -152,8 +156,10 @@ describe("Handle Model Pull", () => {
 
     await handleModelPull(msg, mockPort, isPortClosed)
 
-    expect(safePostMessage).toHaveBeenCalledWith(mockPort, {
-      error: { status: 0, message: "Network Error" }
+    expect(safePostModelPullEvent).toHaveBeenCalledWith(mockPort, {
+      version: 1,
+      type: "model_pull_error",
+      failure: { status: 0, message: "Network Error" }
     })
   })
 
@@ -166,8 +172,10 @@ describe("Handle Model Pull", () => {
 
     await handleModelPull(msg, mockPort, isPortClosed)
 
-    expect(safePostMessage).toHaveBeenCalledWith(mockPort, {
-      error: "Download cancelled"
+    expect(safePostModelPullEvent).toHaveBeenCalledWith(mockPort, {
+      version: 1,
+      type: "model_pull_error",
+      failure: { status: 499, message: "Download cancelled" }
     })
   })
 })

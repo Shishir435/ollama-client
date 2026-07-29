@@ -148,7 +148,7 @@ describe("handleBuildContext", () => {
       expect.objectContaining({
         type: "context_error",
         requestId: "req-1",
-        error: "boom"
+        failure: expect.objectContaining({ message: "boom" })
       })
     )
     expect(posts.some((p) => p.type === "context_result")).toBe(false)

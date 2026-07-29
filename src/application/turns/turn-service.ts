@@ -4,6 +4,7 @@ import type {
   ContextBuildOutput,
   ContextService
 } from "@/application/context/context-service"
+import { toAppFailure } from "@/protocol/app-failure"
 import type { ChatMessage } from "@/types"
 import type { DurableTurnRun, TurnMode, TurnSubmission } from "./turn-contract"
 
@@ -23,7 +24,7 @@ export interface TurnRunStore {
         >
       >,
       "failure"
-    > & { failure?: string | null }
+    > & { failure?: DurableTurnRun["failure"] | null }
   ) => Promise<void>
 }
 
@@ -168,7 +169,10 @@ export class TurnService {
     } catch (error) {
       await this.store.update(submission.id, {
         status: "failed",
-        failure: error instanceof Error ? error.message : "Turn failed"
+        failure: toAppFailure(error, {
+          fallbackMessage: "Turn failed",
+          context: "turn-run"
+        })
       })
       throw error
     }

@@ -1,13 +1,14 @@
 import { ContextService } from "@/application/context/context-service"
 import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
-import { safePostMessage } from "@/background/lib/utils"
+import { safePostChatStreamEvent } from "@/background/lib/utils"
 import { logger } from "@/lib/logger"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { toAppFailure } from "@/protocol/app-failure"
+import type { ChatStreamServerEvent } from "@/protocol/streams"
 import type {
   ActivityEvent,
   BuildContextMessage,
-  ChromeMessage,
   ChromePort,
   PortStatusFunction
 } from "@/types"
@@ -59,9 +60,9 @@ export const handleBuildContext = async (
   isPortClosed: PortStatusFunction
 ): Promise<void> => {
   const p = msg.payload
-  const post = (message: Record<string, unknown>): void => {
+  const post = (message: ChatStreamServerEvent): void => {
     if (isPortClosed()) return
-    safePostMessage(port, message as unknown as ChromeMessage)
+    safePostChatStreamEvent(port, message)
   }
 
   try {
@@ -95,12 +96,14 @@ export const handleBuildContext = async (
         customModel: p.customModel,
         onActivityEvent: (events: ActivityEvent[]) =>
           post({
+            version: 1,
             type: "context_progress",
             requestId: p.requestId,
             events
           }),
         toast: (warning) =>
           post({
+            version: 1,
             type: "context_warning",
             requestId: p.requestId,
             payload: warning
@@ -109,6 +112,7 @@ export const handleBuildContext = async (
     })
 
     post({
+      version: 1,
       type: "context_result",
       requestId: p.requestId,
       result: output.result,
@@ -117,9 +121,13 @@ export const handleBuildContext = async (
   } catch (error) {
     logger.error("Failed to build context", "handleBuildContext", { error })
     post({
+      version: 1,
       type: "context_error",
       requestId: p.requestId,
-      error: error instanceof Error ? error.message : "Context build failed"
+      failure: toAppFailure(error, {
+        fallbackMessage: "Context build failed",
+        context: "context-build"
+      })
     })
   }
 }
