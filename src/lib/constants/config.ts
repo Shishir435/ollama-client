@@ -1,4 +1,4 @@
-import { DEFAULT_SELECTION_ACTION_IDS } from "@/features/selection-actions/actions"
+import { DEFAULT_SELECTION_ACTION_IDS } from "@/application/selection-actions/actions"
 import type { ContentExtractionConfig, FileUploadConfig } from "@/types"
 import {
   DEFAULT_EMBEDDING_MODEL,

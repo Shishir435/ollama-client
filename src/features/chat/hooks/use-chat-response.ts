@@ -2,7 +2,7 @@ import { useRef } from "react"
 import type {
   PromptContextStats,
   RagSources
-} from "@/features/chat/hooks/build-rag-context"
+} from "@/application/context/build-context"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import type { ChatMessage } from "@/types"
 

@@ -44,7 +44,7 @@ export const runRagSearch = async (
   // Dynamic import keeps the RAG pipeline out of the background entry bundle
   // until a tool call actually needs it (mirrors handleChatWithModel).
   const { retrieveContextEnhanced, formatEnhancedResults } = await import(
-    "@/features/chat/rag/rag-pipeline"
+    "@/application/context/rag/rag-pipeline"
   )
 
   const results = await retrieveContextEnhanced(query, { type: "chat" })

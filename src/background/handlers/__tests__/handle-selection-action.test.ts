@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { SelectionActionMessage } from "@/features/selection-actions/types"
+import type { SelectionActionMessage } from "@/application/selection-actions/types"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { handleSelectionAction } from "../handle-selection-action"
 import {

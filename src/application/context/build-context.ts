@@ -1,14 +1,14 @@
-import type { TurnToast } from "@/features/chat/hooks/turn-preparation"
 import {
   reformulateQuestion,
   retrieveContext,
   retrieveContextFromSources
-} from "@/features/chat/rag"
-import { classifyQuery } from "@/features/chat/rag/query-classifier"
+} from "@/application/context/rag"
+import { classifyQuery } from "@/application/context/rag/query-classifier"
 import {
   formatEnhancedResults,
   retrieveContextEnhanced
-} from "@/features/chat/rag/rag-pipeline"
+} from "@/application/context/rag/rag-pipeline"
+import type { TurnToast } from "@/application/turns/turn-contract"
 import { STORAGE_KEYS } from "@/lib/constants"
 import {
   DEFAULT_KNOWLEDGE_SET_ID,

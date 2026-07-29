@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import type { BuildRagContextResult } from "@/features/chat/hooks/build-rag-context"
+import type { BuildRagContextResult } from "@/application/context/build-context"
 import {
   buildUserMessage,
   evaluateSendPreconditions,

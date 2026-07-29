@@ -347,6 +347,8 @@ export interface ChatWithModelMessage {
  */
 export interface BuildContextRequestPayload {
   requestId: string
+  /** Turn behavior is data; every path uses the same context service. */
+  mode?: import("@/application/turns/turn-contract").TurnMode
   rawInput: string
   /** Prior conversation, for query classification / reformulation. */
   messages: ChatMessage[]

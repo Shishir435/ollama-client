@@ -10,7 +10,7 @@ const { mockBuildRagContext, mockResolveModelTools } = vi.hoisted(() => ({
   mockResolveModelTools: vi.fn()
 }))
 
-vi.mock("@/features/chat/hooks/build-rag-context", () => ({
+vi.mock("@/application/context/build-context", () => ({
   buildRagContext: mockBuildRagContext
 }))
 

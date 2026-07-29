@@ -1,11 +1,9 @@
 import { useCallback } from "react"
-
+import type { BuildRagContextResult } from "@/application/context/build-context"
+import type { TurnToast } from "@/application/turns/turn-contract"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import type { ActivityEvent, BuildContextRequestPayload } from "@/types"
-
-import type { BuildRagContextResult } from "./build-rag-context"
-import type { TurnToast } from "./turn-preparation"
 
 interface BuildContextCallbacks {
   /** Live activity trace, streamed from the background as retrieval progresses. */

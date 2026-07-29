@@ -157,7 +157,7 @@ export const handleChatWithModel = withErrorContext(
       if (lastUserMessage.role === "user") {
         // Dynamic import to reduce bundle size
         const { retrieveContextEnhanced, formatEnhancedResults } = await import(
-          "@/features/chat/rag/rag-pipeline"
+          "@/application/context/rag/rag-pipeline"
         )
 
         const enhancedResults = await retrieveContextEnhanced(

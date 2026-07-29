@@ -1,3 +1,4 @@
+import type { SelectionActionMessage } from "@/application/selection-actions/types"
 import { handleBuildContext } from "@/background/handlers/handle-build-context"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
@@ -12,7 +13,6 @@ import {
   isRuntimePortAllowed,
   isRuntimePortMessageAllowed
 } from "@/background/runtime-sender-authorization"
-import type { SelectionActionMessage } from "@/features/selection-actions/types"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"

@@ -34,7 +34,7 @@ vi.mock("@/lib/embeddings/vector-store", () => ({
   searchSimilarVectors: vi.fn()
 }))
 
-vi.mock("@/features/chat/rag/rag-retriever", () => ({
+vi.mock("@/application/context/rag/rag-retriever", () => ({
   retrieveContext: vi.fn().mockResolvedValue({
     documents: [],
     formattedContext: "",
@@ -52,8 +52,8 @@ vi.mock("@/features/chat/rag/rag-retriever", () => ({
 // pipeline (with the retrieval mocks above) without a live extension port.
 vi.mock("@/features/chat/hooks/use-build-context", async () => {
   const actual = await vi.importActual<
-    typeof import("@/features/chat/hooks/build-rag-context")
-  >("@/features/chat/hooks/build-rag-context")
+    typeof import("@/application/context/build-context")
+  >("@/application/context/build-context")
   return {
     useBuildContext: () => ({
       buildContext: (
@@ -804,7 +804,7 @@ describe("useChat", () => {
 
     it("should use RAG when enabled", async () => {
       const { retrieveContext } = await import(
-        "@/features/chat/rag/rag-retriever"
+        "@/application/context/rag/rag-retriever"
       )
 
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true) // RAG enabled
@@ -864,7 +864,7 @@ describe("useChat", () => {
 
     it("should fallback to full text when RAG fails", async () => {
       const { retrieveContext } = await import(
-        "@/features/chat/rag/rag-retriever"
+        "@/application/context/rag/rag-retriever"
       )
       const { useSelectedTabs } = await import(
         "@/features/tabs/stores/selected-tabs-store"
@@ -925,7 +925,7 @@ describe("useChat", () => {
 
     it("should fallback to full text when RAG finds no results", async () => {
       const { retrieveContext } = await import(
-        "@/features/chat/rag/rag-retriever"
+        "@/application/context/rag/rag-retriever"
       )
       const { useSelectedTabs } = await import(
         "@/features/tabs/stores/selected-tabs-store"

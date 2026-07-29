@@ -71,4 +71,15 @@ describe("architecture import boundaries", () => {
 
     expect(rootStores).toEqual([])
   })
+
+  it("keeps application and infrastructure layers independent of features", () => {
+    const lowerLayerRoots = ["application/", "background/", "lib/"]
+    const offenders = productionSources.filter((file) => {
+      if (!lowerLayerRoots.some((root) => file.startsWith(root))) return false
+      const source = readFileSync(join(sourceRoot, file), "utf8")
+      return importsModule(source, /@\/features\/[^"']+/)
+    })
+
+    expect(offenders).toEqual([])
+  })
 })
