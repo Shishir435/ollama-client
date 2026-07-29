@@ -180,6 +180,198 @@ describe("Transcript Extractor", () => {
         expect(result).toBe("Untimed line")
       })
 
+      it("refetches the watch page when the inline payload is for another video", async () => {
+        // YouTube navigates without a reload, so after moving from one video to
+        // the next this script still describes the first one — and its caption
+        // baseUrl still points there. Trusting it answers a question about the
+        // open video with a different video's transcript, and nothing looks
+        // wrong from the outside.
+        const staleScript = document.createElement("script")
+        staleScript.textContent = `var ytInitialPlayerResponse = ${JSON.stringify(
+          {
+            videoDetails: { videoId: "previous-video" },
+            captions: {
+              playerCaptionsTracklistRenderer: {
+                captionTracks: [
+                  {
+                    baseUrl:
+                      "https://www.youtube.com/api/timedtext?v=previous-video",
+                    languageCode: "en",
+                    name: { simpleText: "English" }
+                  }
+                ]
+              }
+            }
+          }
+        )};`
+        document.head.appendChild(staleScript)
+
+        const fetchMock = vi.fn(async (url: string) => {
+          if (url.includes("/watch")) {
+            return {
+              ok: true,
+              text: async () =>
+                `<html><script>var ytInitialPlayerResponse = ${JSON.stringify({
+                  videoDetails: { videoId: "123" },
+                  captions: {
+                    playerCaptionsTracklistRenderer: {
+                      captionTracks: [
+                        {
+                          baseUrl:
+                            "https://www.youtube.com/api/timedtext?v=123",
+                          languageCode: "en",
+                          name: { simpleText: "English" }
+                        }
+                      ]
+                    }
+                  }
+                })};</script></html>`
+            }
+          }
+          return {
+            ok: true,
+            text: async () =>
+              JSON.stringify({
+                events: [{ tStartMs: 3000, segs: [{ utf8: "Current video" }] }]
+              })
+          }
+        })
+        vi.stubGlobal("fetch", fetchMock)
+
+        const result = await getTranscript()
+
+        expect(result).toBe("0:03 Current video")
+        const captionUrl = fetchMock.mock.calls
+          .map(([url]) => String(url))
+          .find((url) => url.includes("timedtext"))
+        expect(captionUrl).toContain("v=123")
+        expect(captionUrl).not.toContain("previous-video")
+      })
+
+      it("uses the inline payload when it names the video being watched", async () => {
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          videoDetails: { videoId: "123" },
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [
+                {
+                  baseUrl: "https://www.youtube.com/api/timedtext?v=123",
+                  languageCode: "en",
+                  name: { simpleText: "English" }
+                }
+              ]
+            }
+          }
+        })};`
+        document.head.appendChild(script)
+
+        const fetchMock = vi.fn().mockResolvedValue({
+          ok: true,
+          text: vi.fn().mockResolvedValue(
+            JSON.stringify({
+              events: [{ tStartMs: 0, segs: [{ utf8: "Inline line" }] }]
+            })
+          )
+        })
+        vi.stubGlobal("fetch", fetchMock)
+
+        const result = await getTranscript()
+
+        expect(result).toBe("0:00 Inline line")
+        // Matching id means no extra document fetch: only the caption request.
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        expect(String(fetchMock.mock.calls[0][0])).toContain("timedtext")
+      })
+
+      it("prefers captions in the reader's own language over the English track", async () => {
+        const languageSpy = vi
+          .spyOn(navigator, "language", "get")
+          .mockReturnValue("de-AT")
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          videoDetails: { videoId: "123" },
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [
+                {
+                  baseUrl:
+                    "https://www.youtube.com/api/timedtext?v=123&lang=en",
+                  languageCode: "en",
+                  name: { simpleText: "English" }
+                },
+                {
+                  baseUrl:
+                    "https://www.youtube.com/api/timedtext?v=123&lang=de",
+                  languageCode: "de",
+                  name: { simpleText: "Deutsch" }
+                }
+              ]
+            }
+          }
+        })};`
+        document.head.appendChild(script)
+
+        const fetchMock = vi.fn().mockResolvedValue({
+          ok: true,
+          text: vi.fn().mockResolvedValue(
+            JSON.stringify({
+              events: [{ tStartMs: 0, segs: [{ utf8: "Guten Tag" }] }]
+            })
+          )
+        })
+        vi.stubGlobal("fetch", fetchMock)
+
+        await getTranscript()
+
+        expect(String(fetchMock.mock.calls[0][0])).toContain("lang=de")
+        languageSpy.mockRestore()
+      })
+
+      it("falls back to the English track when none matches the reader", async () => {
+        const languageSpy = vi
+          .spyOn(navigator, "language", "get")
+          .mockReturnValue("hi-IN")
+        const script = document.createElement("script")
+        script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+          videoDetails: { videoId: "123" },
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [
+                {
+                  baseUrl:
+                    "https://www.youtube.com/api/timedtext?v=123&lang=ja",
+                  languageCode: "ja",
+                  name: { simpleText: "日本語" }
+                },
+                {
+                  baseUrl:
+                    "https://www.youtube.com/api/timedtext?v=123&lang=en",
+                  languageCode: "en",
+                  name: { simpleText: "English" }
+                }
+              ]
+            }
+          }
+        })};`
+        document.head.appendChild(script)
+
+        const fetchMock = vi.fn().mockResolvedValue({
+          ok: true,
+          text: vi.fn().mockResolvedValue(
+            JSON.stringify({
+              events: [{ tStartMs: 0, segs: [{ utf8: "Hello" }] }]
+            })
+          )
+        })
+        vi.stubGlobal("fetch", fetchMock)
+
+        await getTranscript()
+
+        expect(String(fetchMock.mock.calls[0][0])).toContain("lang=en")
+        languageSpy.mockRestore()
+      })
+
       it("should extract transcript from modern YouTube transcript panel", async () => {
         const panel = document.createElement("yt-section-list-renderer")
         panel.setAttribute("data-target-id", "PAmodern_transcript_view")

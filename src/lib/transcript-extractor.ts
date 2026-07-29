@@ -16,6 +16,10 @@ type YouTubePlayerResponse = {
       captionTracks?: YouTubeCaptionTrack[]
     }
   }
+  /** Which video this payload describes — the staleness check below needs it. */
+  videoDetails?: {
+    videoId?: string
+  }
 }
 
 const YOUTUBE_TRANSCRIPT_PANEL_SELECTOR =
@@ -441,18 +445,18 @@ const extractBalancedJson = (
   return null
 }
 
-const getYouTubePlayerResponse = (): YouTubePlayerResponse | null => {
-  const scripts = Array.from(document.querySelectorAll("script"))
+/** Reads the first `ytInitialPlayerResponse` object out of a script or document. */
+const parsePlayerResponse = (source: string): YouTubePlayerResponse | null => {
+  let searchFrom = 0
+  while (true) {
+    const markerIndex = source.indexOf("ytInitialPlayerResponse", searchFrom)
+    if (markerIndex === -1) return null
+    searchFrom = markerIndex + 1
 
-  for (const script of scripts) {
-    const text = script.textContent || ""
-    const markerIndex = text.indexOf("ytInitialPlayerResponse")
-    if (markerIndex === -1) continue
+    const jsonStart = source.indexOf("{", markerIndex)
+    if (jsonStart === -1) return null
 
-    const jsonStart = text.indexOf("{", markerIndex)
-    if (jsonStart === -1) continue
-
-    const jsonText = extractBalancedJson(text, jsonStart)
+    const jsonText = extractBalancedJson(source, jsonStart)
     if (!jsonText) continue
 
     try {
@@ -461,15 +465,95 @@ const getYouTubePlayerResponse = (): YouTubePlayerResponse | null => {
       logger.debug(
         "Failed to parse ytInitialPlayerResponse",
         "TranscriptExtractor",
-        {
-          error
-        }
+        { error }
       )
     }
+  }
+}
+
+const getYouTubePlayerResponse = (): YouTubePlayerResponse | null => {
+  for (const script of Array.from(document.querySelectorAll("script"))) {
+    const parsed = parsePlayerResponse(script.textContent || "")
+    if (parsed) return parsed
   }
 
   return null
 }
+
+/** The video the address bar currently points at, or "" off a watch URL. */
+const currentYouTubeVideoId = (): string => {
+  try {
+    return new URL(window.location.href).searchParams.get("v") || ""
+  } catch {
+    return ""
+  }
+}
+
+/**
+ * Fetches the watch document for one video and reads its player response.
+ *
+ * Same-origin from a YouTube content script, so the request carries the user's
+ * session exactly as the page's own would — which is what makes captions on
+ * age-restricted and members-only videos resolve the same way they do in the
+ * player.
+ */
+const fetchPlayerResponseForVideo = async (
+  videoId: string
+): Promise<YouTubePlayerResponse | null> => {
+  try {
+    const response = await fetch(
+      `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
+      { credentials: "same-origin" }
+    )
+    if (!response.ok) {
+      logger.warn("YouTube watch page fetch failed", "TranscriptExtractor", {
+        status: response.status,
+        videoId
+      })
+      return null
+    }
+    return parsePlayerResponse(await response.text())
+  } catch (error) {
+    logger.warn("YouTube watch page fetch failed", "TranscriptExtractor", {
+      error,
+      videoId
+    })
+    return null
+  }
+}
+
+/**
+ * The player response for the video currently being watched.
+ *
+ * The inline `ytInitialPlayerResponse` script belongs to whichever video the
+ * document first loaded. YouTube navigates without a reload, so after moving to
+ * a second video that script still describes the first one — and its caption
+ * `baseUrl` still points there, which is how a request about the open video can
+ * be answered from a different video's transcript with no visible error. So the
+ * payload is only trusted when it names the video in the address bar, and the
+ * watch document is refetched when it does not.
+ */
+const resolveCurrentPlayerResponse =
+  async (): Promise<YouTubePlayerResponse | null> => {
+    const videoId = currentYouTubeVideoId()
+    const inlineResponse = getYouTubePlayerResponse()
+    const inlineVideoId = inlineResponse?.videoDetails?.videoId
+
+    // With no id in the URL there is nothing to compare and nothing to refetch;
+    // and a payload that names no video is as trustworthy as it was before.
+    if (!videoId) return inlineResponse
+    if (inlineResponse && (!inlineVideoId || inlineVideoId === videoId)) {
+      return inlineResponse
+    }
+
+    logger.info(
+      "Inline YouTube player response is for another video; refetching",
+      "TranscriptExtractor",
+      { inlineVideoId: inlineVideoId || null, videoId }
+    )
+
+    return (await fetchPlayerResponseForVideo(videoId)) ?? null
+  }
 
 const normalizeTranscriptLine = (text: string): string =>
   text.replace(/\s+/g, " ").trim()
@@ -508,17 +592,35 @@ const getCaptionTrackLabel = (track: YouTubeCaptionTrack): string => {
   )
 }
 
+/** The browser UI language as a bare subtag ("de-AT" → "de"). */
+const preferredCaptionLanguage = (): string =>
+  (navigator.language || "").split("-")[0]?.toLowerCase() || ""
+
 const selectCaptionTrack = (
   tracks: YouTubeCaptionTrack[]
 ): YouTubeCaptionTrack | null => {
   const usableTracks = tracks.filter((track) => track.baseUrl)
   if (usableTracks.length === 0) return null
 
+  const inLanguage = (language: string, track: YouTubeCaptionTrack) =>
+    Boolean(language) &&
+    Boolean(track.languageCode?.toLowerCase().startsWith(language))
+
+  // Author-written captions in the reader's own language first, then anything in
+  // it: a German user asking about a video with German subtitles should not be
+  // summarizing the English track. English keeps its old place as the fallback
+  // for everyone else, ahead of automatic speech recognition of any language.
+  const preferred = preferredCaptionLanguage()
+
   return (
     usableTracks.find(
-      (track) => track.languageCode?.startsWith("en") && track.kind !== "asr"
+      (track) => inLanguage(preferred, track) && track.kind !== "asr"
     ) ||
-    usableTracks.find((track) => track.languageCode?.startsWith("en")) ||
+    usableTracks.find((track) => inLanguage(preferred, track)) ||
+    usableTracks.find(
+      (track) => inLanguage("en", track) && track.kind !== "asr"
+    ) ||
+    usableTracks.find((track) => inLanguage("en", track)) ||
     usableTracks.find((track) => track.kind !== "asr") ||
     usableTracks[0] ||
     null
@@ -571,7 +673,7 @@ const parseXmlTranscript = (payload: string): string | null => {
 }
 
 const fetchYouTubeCaptionTranscript = async (): Promise<string | null> => {
-  const playerResponse = getYouTubePlayerResponse()
+  const playerResponse = await resolveCurrentPlayerResponse()
   const tracks =
     playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks ||
     []
