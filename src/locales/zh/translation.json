@@ -1543,6 +1543,7 @@
           "vectorDb": "向量嵌入 (Dexie)",
           "knowledgeDb": "知识库 (Dexie)"
         },
+        "legacy_chat_backup": "此备份由 0.6.3 或更早版本创建，其聊天记录使用扩展已不再读取的格式。备份中的设置、嵌入和知识集已恢复，聊天记录未恢复。",
         "status": {
           "success": "成功",
           "failed": "失败",

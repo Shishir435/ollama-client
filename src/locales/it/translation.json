@@ -1543,6 +1543,7 @@
           "vectorDb": "Incorporamenti vettoriali (Dexie)",
           "knowledgeDb": "Set di conoscenze (Dexie)"
         },
+        "legacy_chat_backup": "Questo backup è stato creato dalla versione 0.6.3 o precedente, che salvava le chat in un formato che l'estensione non legge più. Impostazioni, embedding e raccolte di conoscenza sono stati ripristinati; le chat no.",
         "status": {
           "success": "Successo",
           "failed": "Fallito",

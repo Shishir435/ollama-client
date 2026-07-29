@@ -1543,6 +1543,7 @@
           "vectorDb": "Vektor-Embeddings (Dexie)",
           "knowledgeDb": "Wissensdatenbanken (Dexie)"
         },
+        "legacy_chat_backup": "Dieses Backup wurde mit Version 0.6.3 oder älter erstellt und speichert Chats in einem Format, das die Erweiterung nicht mehr liest. Einstellungen, Embeddings und Wissenssammlungen wurden wiederhergestellt, die Chats nicht.",
         "status": {
           "success": "Erfolg",
           "failed": "Fehlgeschlagen",

@@ -1753,6 +1753,7 @@
           "vectorDb": "Vector Embeddings (Dexie)",
           "knowledgeDb": "Knowledge Sets (Dexie)"
         },
+        "legacy_chat_backup": "This backup was made by version 0.6.3 or earlier, which stored chats in a format the extension no longer reads. Its settings, embeddings, and knowledge sets were restored; its chats were not.",
         "status": {
           "success": "Success",
           "failed": "Failed",

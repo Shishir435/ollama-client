@@ -1543,6 +1543,7 @@
           "vectorDb": "Incrustaciones vectoriales (Dexie)",
           "knowledgeDb": "Bases de conocimiento (Dexie)"
         },
+        "legacy_chat_backup": "Esta copia de seguridad se creó con la versión 0.6.3 o anterior, que guardaba los chats en un formato que la extensión ya no lee. Se restauraron sus ajustes, embeddings y conjuntos de conocimiento; sus chats no.",
         "status": {
           "success": "Éxito",
           "failed": "Fallido",

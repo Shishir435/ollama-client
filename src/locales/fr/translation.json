@@ -1543,6 +1543,7 @@
           "vectorDb": "Intégrations vectorielles (Dexie)",
           "knowledgeDb": "Bases de connaissances (Dexie)"
         },
+        "legacy_chat_backup": "Cette sauvegarde a été créée par la version 0.6.3 ou antérieure, qui stockait les discussions dans un format que l'extension ne lit plus. Ses réglages, embeddings et ensembles de connaissances ont été restaurés ; ses discussions non.",
         "status": {
           "success": "Succès",
           "failed": "Échoué",

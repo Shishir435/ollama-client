@@ -4,7 +4,8 @@ import {
   markOpfsBackend,
   readPersistenceBackend
 } from "../backend"
-import { describeWorkerError } from "../owner-host"
+import { describeWorkerError, ensureMigrated } from "../owner-host"
+
 import {
   decodeBind,
   decodeRows,
@@ -13,6 +14,32 @@ import {
   encodeRows,
   encodeValue
 } from "../protocol"
+
+const legacyBlob = vi.hoisted(() => ({
+  readLegacyBlobBytes: vi.fn(),
+  countLegacyRows: vi.fn()
+}))
+vi.mock("../legacy-blob-reader", () => legacyBlob)
+
+/**
+ * Stands in for the chat-db worker: answers any request with an id, ignores the
+ * id-less wasm init message. The host under test only needs a reply to `ping`.
+ */
+class StubWorker {
+  onmessage: ((event: { data: unknown }) => void) | null = null
+  onerror: ((event: unknown) => void) | null = null
+  onmessageerror: ((event: unknown) => void) | null = null
+
+  postMessage(payload: { id?: number }) {
+    if (typeof payload.id !== "number") return
+    const { id } = payload
+    queueMicrotask(() => {
+      this.onmessage?.({ data: { id, ok: true, result: "pong" } })
+    })
+  }
+
+  terminate() {}
+}
 
 describe("persistence blob codec", () => {
   it("round-trips Uint8Array binds through JSON", () => {
@@ -91,6 +118,71 @@ describe("persistence backend marker", () => {
       })
     })
     await expect(readPersistenceBackend()).resolves.toBe("opfs")
+  })
+})
+
+describe("first boot with no legacy blob", () => {
+  /*
+   * A profile whose chat history predates the SQLite backend entirely — written
+   * by 0.6.3 or earlier into the Dexie `ChatDatabase`, and never migrated
+   * because that bridge only shipped in 0.6.5–0.7.3 and ran on side-panel mount.
+   * There is no sql.js blob to import, and by decision there is no Dexie reader
+   * either: such a profile starts clean.
+   *
+   * What must not happen is a *failed* migration. `ensureMigrated` rejecting
+   * would leave the marker on "legacy", so every boot would retry, the sql.js
+   * path would stay live, and chat writes would land somewhere the OPFS owner is
+   * not reading. "Nothing to migrate" has to stay a success.
+   */
+  beforeEach(() => {
+    invalidateBackendCache()
+    vi.mocked(chrome.storage.local.get as any).mockReset()
+    vi.mocked(chrome.storage.local.set as any).mockReset()
+    ;(chrome.storage.local.get as any).mockResolvedValue({})
+    ;(chrome.storage.local.set as any).mockResolvedValue(undefined)
+    legacyBlob.readLegacyBlobBytes.mockResolvedValue(null)
+    legacyBlob.countLegacyRows.mockReset()
+    vi.stubGlobal("Worker", StubWorker)
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(8))
+      })
+    )
+  })
+
+  it("initializes the OPFS backend fresh and ignores leftover Dexie data", async () => {
+    // Leftovers from the pre-SQLite era, deliberately not read.
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open("ChatDatabase", 2)
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore("sessions", { keyPath: "id" })
+      }
+      request.onsuccess = () => {
+        const database = request.result
+        const store = database
+          .transaction(["sessions"], "readwrite")
+          .objectStore("sessions")
+        store.put({ id: "old-session", title: "From 0.6.3" })
+        database.close()
+        resolve()
+      }
+      request.onerror = () => reject(request.error)
+    })
+
+    await expect(ensureMigrated()).resolves.toBeUndefined()
+
+    // Flipped to opfs with no source counts: nothing was imported, and the
+    // absence of counts is what says so.
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      persistence_backend_v1: expect.objectContaining({ backend: "opfs" })
+    })
+    const marker = vi.mocked(chrome.storage.local.set as any).mock.calls[0][0]
+      .persistence_backend_v1
+    expect(marker.sourceCounts).toBeUndefined()
+    // No blob means no verification pass to run.
+    expect(legacyBlob.countLegacyRows).not.toHaveBeenCalled()
   })
 })
 

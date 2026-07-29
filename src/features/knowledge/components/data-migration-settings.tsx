@@ -269,11 +269,14 @@ export const DataMigrationSettings = () => {
                         : t("settings.migration.import_result.status.failed")}
                     </Badge>
                   </div>
-                  {!item.result.ok && item.result.error && (
-                    <p className="text-xs text-destructive mt-1">
-                      {item.result.error}
-                    </p>
-                  )}
+                  {!item.result.ok &&
+                    (item.result.errorKey || item.result.error) && (
+                      <p className="text-xs text-destructive mt-1">
+                        {item.result.errorKey
+                          ? t(item.result.errorKey)
+                          : item.result.error}
+                      </p>
+                    )}
                 </div>
               ))}
           </div>
