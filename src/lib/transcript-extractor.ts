@@ -557,6 +557,26 @@ const resolveCurrentPlayerResponse =
   }
 
 /**
+ * Whether this document was loaded for the video in the address bar.
+ *
+ * The staleness that makes the inline player response untrustworthy is exactly
+ * what makes it useful here: it is part of the document, so if it still names the
+ * video being watched, no navigation has happened since load and every mounted
+ * element — the transcript panel included — was rendered for this video. If it
+ * names a different video, or names none, the document has moved on and its
+ * unlabelled DOM cannot be tied to anything.
+ *
+ * This needs no new selectors, which matters: YouTube's internal element and
+ * attribute names change without notice, and a guess about them would be a second
+ * source of silent wrongness rather than a check on the first.
+ */
+const documentBelongsToCurrentVideo = (): boolean => {
+  const videoId = currentYouTubeVideoId()
+  if (!videoId) return false
+  return getYouTubePlayerResponse()?.videoDetails?.videoId === videoId
+}
+
+/**
  * Rejects a caption track belonging to another video.
  *
  * The track URL is what actually decides whose words arrive, so it is checked
@@ -850,19 +870,9 @@ const extractYouTubeTranscript = async (): Promise<string | null> => {
 
   logger.info("Starting YouTube transcript extraction", "TranscriptExtractor")
 
-  // Captions first, panel second — the reverse of the original order.
-  //
-  // The panel used to win because it costs no request when it is already open.
-  // But it is the one source that cannot be tied to the current video: nothing
-  // in that DOM names a video id, so an open panel left behind by a navigation
-  // would be read as the current transcript. It is also built lazily, so a long
-  // video's panel can hold only part of its segments and would truncate the
-  // answer silently.
-  //
-  // The caption track has neither problem: it is verified against the address bar
-  // and it arrives whole. The panel stays as the fallback for when the caption
-  // fetch fails — YouTube's own player already resolved that data, so the panel
-  // still has it when a direct request does not.
+  // Captions first: the only source verified against the address bar, and the
+  // only one that arrives whole rather than as however much of the panel
+  // YouTube has rendered so far.
   const captionTranscript = await fetchYouTubeCaptionTranscript()
   if (captionTranscript) {
     logger.info(
@@ -872,16 +882,38 @@ const extractYouTubeTranscript = async (): Promise<string | null> => {
     return captionTranscript
   }
 
-  const existingPanelTranscript = extractYouTubePanelTranscript()
-  if (existingPanelTranscript) {
-    logger.info(
-      `Falling back to the open panel transcript (${existingPanelTranscript.length} chars)`,
-      "TranscriptExtractor"
-    )
-    return existingPanelTranscript
+  // A panel that was already mounted when this ran is only trustworthy if the
+  // document itself belongs to the video in the address bar. Reading it
+  // otherwise is the original defect wearing a different hat: no id lives in
+  // that DOM, so an unverifiable panel is indistinguishable from one a
+  // navigation left behind.
+  const mountedPanel = document.querySelector(YOUTUBE_TRANSCRIPT_PANEL_SELECTOR)
+  if (mountedPanel) {
+    if (!documentBelongsToCurrentVideo()) {
+      logger.warn(
+        "Ignoring a mounted transcript panel: this document belongs to another video",
+        "TranscriptExtractor",
+        { videoId: currentYouTubeVideoId() }
+      )
+      // Deliberately no transcript rather than possibly the wrong one. The
+      // caller reports that none was found, which is true and checkable; a
+      // previous video's transcript would be neither.
+      return null
+    }
+
+    const existingPanelTranscript = extractYouTubePanelTranscript()
+    if (existingPanelTranscript) {
+      logger.info(
+        `Falling back to the open panel transcript (${existingPanelTranscript.length} chars)`,
+        "TranscriptExtractor"
+      )
+      return existingPanelTranscript
+    }
   }
 
-  // Try to open transcript panel if not already open
+  // Nothing was mounted, so whatever the click renders is built by the live page
+  // for the video it is currently showing — current by construction, with no id
+  // check available or needed.
   logger.debug("Attempting to open transcript panel...", "TranscriptExtractor")
   const opened = await openYouTubeTranscript()
   logger.debug(`Panel open result: ${opened}`, "TranscriptExtractor")

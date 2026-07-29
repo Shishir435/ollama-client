@@ -34,6 +34,36 @@ describe("Transcript Extractor", () => {
     })
   }
 
+  /**
+   * A watch document loaded for `videoId`, which is what every real one is: the
+   * inline player response is part of the document, so naming the video in the
+   * address bar is what proves no navigation has happened since load — and
+   * therefore that a mounted transcript panel belongs to this video.
+   */
+  const mountPlayerResponse = (videoId: string) => {
+    const script = document.createElement("script")
+    script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({
+      videoDetails: { videoId },
+      captions: {
+        playerCaptionsTracklistRenderer: {
+          captionTracks: [
+            {
+              baseUrl: `https://www.youtube.com/api/timedtext?v=${videoId}`,
+              languageCode: "en",
+              name: { simpleText: "English" }
+            }
+          ]
+        }
+      }
+    })};`
+    document.head.appendChild(script)
+  }
+
+  /** Caption retrieval unavailable, so the panel fallback is what answers. */
+  const failCaptionFetch = () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+  }
+
   describe("getTranscript", () => {
     it("should return null for unsupported sites", async () => {
       mockLocation("https://example.com")
@@ -47,6 +77,8 @@ describe("Transcript Extractor", () => {
       })
 
       it("should extract existing transcript", async () => {
+        mountPlayerResponse("123")
+        failCaptionFetch()
         // Setup DOM with existing transcript
         const renderer = document.createElement("ytd-transcript-renderer")
         const cueGroup = document.createElement("div")
@@ -63,6 +95,8 @@ describe("Transcript Extractor", () => {
       })
 
       it("should extract transcript from legacy segment renderers", async () => {
+        mountPlayerResponse("123")
+        failCaptionFetch()
         const renderer = document.createElement("ytd-transcript-renderer")
         renderer.innerHTML = `
           <ytd-transcript-segment-renderer>
@@ -316,10 +350,60 @@ describe("Transcript Extractor", () => {
         `
         document.body.appendChild(panel)
 
-        vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")))
+        mountPlayerResponse("123")
+        failCaptionFetch()
 
         const result = await getTranscript()
         expect(result).toBe("Panel text.")
+      })
+
+      it("returns nothing rather than a panel left behind by a navigation", async () => {
+        // Caption retrieval failed and a transcript panel is mounted, but this
+        // document was loaded for another video — so the panel was rendered for
+        // that one. No id exists in panel DOM to check, which is exactly why the
+        // document's own identity is what decides.
+        const panel = document.createElement("yt-section-list-renderer")
+        panel.setAttribute("data-target-id", "PAmodern_transcript_view")
+        panel.innerHTML = `
+          <transcript-segment-view-model>
+            <span class="ytAttributedStringHost" role="text">Previous video.</span>
+          </transcript-segment-view-model>
+        `
+        document.body.appendChild(panel)
+
+        mountPlayerResponse("previous-video")
+        failCaptionFetch()
+
+        const result = await getTranscript()
+
+        // Null, not the mounted text: no transcript is a true and checkable
+        // answer, a previous video's transcript is neither.
+        expect(result).toBeNull()
+      })
+
+      it("reads a freshly opened panel even when the document is stale", async () => {
+        // Nothing was mounted, so whatever the click renders is built by the live
+        // page for the video it is showing — current by construction, which is
+        // why a stale inline payload does not disqualify it.
+        mountPlayerResponse("previous-video")
+        failCaptionFetch()
+
+        const transcriptButton = document.createElement("button")
+        transcriptButton.setAttribute("aria-label", "Show transcript")
+        transcriptButton.addEventListener("click", () => {
+          const panel = document.createElement("yt-section-list-renderer")
+          panel.setAttribute("data-target-id", "PAmodern_transcript_view")
+          panel.innerHTML = `
+            <transcript-segment-view-model>
+              <span class="ytAttributedStringHost" role="text">Freshly rendered.</span>
+            </transcript-segment-view-model>
+          `
+          document.body.appendChild(panel)
+        })
+        document.body.appendChild(transcriptButton)
+
+        const result = await getTranscript()
+        expect(result).toBe("Freshly rendered.")
       })
 
       it("refetches when the inline payload names no video at all", async () => {
@@ -551,6 +635,8 @@ describe("Transcript Extractor", () => {
       })
 
       it("should extract transcript from modern YouTube transcript panel", async () => {
+        mountPlayerResponse("123")
+        failCaptionFetch()
         const panel = document.createElement("yt-section-list-renderer")
         panel.setAttribute("data-target-id", "PAmodern_transcript_view")
         panel.innerHTML = `
@@ -576,6 +662,8 @@ describe("Transcript Extractor", () => {
       })
 
       it("should not infer timestamp from transcript text content", async () => {
+        mountPlayerResponse("123")
+        failCaptionFetch()
         const panel = document.createElement("yt-section-list-renderer")
         panel.setAttribute("data-target-id", "PAmodern_transcript_view")
         panel.innerHTML = `
