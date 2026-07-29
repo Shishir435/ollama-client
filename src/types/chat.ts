@@ -338,6 +338,14 @@ export interface ChatWithModelMessage {
   }
 }
 
+export interface StartTurnMessage {
+  type: string
+  payload: {
+    start: import("@/application/turns/turn-contract").DurableTurnStart
+    assistantMessageId: number
+  }
+}
+
 /**
  * Request to build a turn's RAG/page/memory context in the background.
  * Sent over the provider stream port; the background streams progress back as

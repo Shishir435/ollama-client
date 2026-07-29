@@ -36,6 +36,12 @@ export const RUNTIME_TRANSPORT_DEFINITIONS = [
     allowedSources: extensionPage
   },
   {
+    type: MESSAGE_KEYS.PROVIDER.START_TURN,
+    transport: "port-message",
+    operation: "stream",
+    allowedSources: extensionPage
+  },
+  {
     type: MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT,
     transport: "port-message",
     operation: "stream",

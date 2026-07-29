@@ -1,24 +1,17 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import type { BuildRagContextResult } from "@/application/context/build-context"
+import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import {
   buildUserMessage,
   evaluateSendPreconditions,
   resolveTurnModel,
   type TurnToast
 } from "@/features/chat/hooks/turn-preparation"
-import { useBuildContext } from "@/features/chat/hooks/use-build-context"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
-import { turnService } from "@/lib/turn-service"
-import type {
-  ActivityEvent,
-  ChatMessage,
-  ImageAttachment,
-  RagSources
-} from "@/types"
+import type { ActivityEvent, ChatMessage, ImageAttachment } from "@/types"
 
 type ToastFn = (input: {
   variant?: "default" | "destructive"
@@ -39,16 +32,15 @@ interface UseChatTurnControllerOptions {
   ensureSessionId: () => Promise<string | null>
   autoRenameSession: (sessionId: string, content: string) => Promise<void>
   addMessage: (sessionId: string, message: ChatMessage) => Promise<number>
-  setNextResponseMetrics: (
-    ragSources: RagSources | null,
-    promptContextStats: BuildRagContextResult["promptContextStats"]
-  ) => void
-  clearNextResponseMetrics: () => void
   generateResponse: (
     customModel?: string,
     sessionId?: string,
     overrideMessages?: ChatMessage[],
-    options?: { contextPrepared?: boolean; turnId?: string }
+    options?: {
+      contextPrepared?: boolean
+      durableTurn?: DurableTurnStart
+      mode?: import("@/application/turns/turn-contract").TurnMode
+    }
   ) => Promise<void>
   toast: ToastFn
 }
@@ -66,15 +58,12 @@ export const useChatTurnController = ({
   ensureSessionId,
   autoRenameSession,
   addMessage,
-  setNextResponseMetrics,
-  clearNextResponseMetrics,
   generateResponse,
   toast
 }: UseChatTurnControllerOptions) => {
   const [pendingActivityEvents, setPendingActivityEvents] = useState<
     ActivityEvent[]
   >([])
-  const { buildContext } = useBuildContext()
   const { t } = useTranslation()
 
   /** Resolves a pure module's key-named toast into displayable copy. */
@@ -212,173 +201,38 @@ export const useChatTurnController = ({
       customModel
     }
 
-    let ragResult: BuildRagContextResult
-    try {
-      await turnService.submit({
+    const durableTurn: DurableTurnStart = {
+      submission: {
         id: turnId,
         sessionId,
         mode: "new",
         model: resolvedModel,
         providerId: config.selectedModelRef?.providerId,
-        request: { version: 1, context: contextRequest },
+        request: { version: 1, context: contextRequest, userMessage },
         createdAt: Date.now()
-      })
-      await turnService.markBuildingContext(turnId, userMessageId)
-      const contextOutput = await buildContext(
-        { ...contextRequest, turnId },
+      },
+      userMessageId
+    }
+
+    try {
+      await generateResponse(
+        customModel,
+        sessionId,
+        [...messages, userMessage],
         {
-          onActivityEvent: (events) => {
-            setPendingActivityEvents([
-              {
-                ...preparingEvent,
-                status: "done",
-                finishedAt: Date.now()
-              },
-              ...events
-            ])
-          },
-          toast: showTurnToast
+          durableTurn
         }
       )
-      ragResult = contextOutput.result
-      await turnService.markGenerating(turnId, contextOutput.receipt)
     } catch (error) {
-      await turnService
-        .fail(
-          turnId,
-          error instanceof Error ? error.message : "Context build failed"
-        )
-        .catch(() => undefined)
-      logger.error("Failed to build chat context", "useChat", { error })
-      clearNextResponseMetrics()
-      setPendingActivityEvents([])
+      logger.error("Failed to submit durable turn", "useChat", { error })
       setIsLoading(false)
       setIsStreaming(false)
-
-      try {
-        await addMessage(sessionId, {
-          role: "assistant",
-          content: t("chat.errors.context_preparation_failed"),
-          done: true,
-          model: resolvedModel,
-          metrics: {
-            contextBuildFailed: true
-          }
-        })
-      } catch (messageError) {
-        logger.error(
-          "Failed to persist context preparation error message",
-          "useChat",
-          { error: messageError }
-        )
-      }
-
       toast({
         variant: "destructive",
-        title: t("chat.errors.context_preparation_failed_title"),
-        description: t("chat.errors.context_preparation_failed_description")
+        title: t("chat.errors.response_failed_title"),
+        description: t("chat.errors.unknown_error_description")
       })
-      return true
-    }
-
-    let { contentWithRAG } = ragResult
-    const { ragSources, promptContextStats } = ragResult
-
-    const hasRelevantPageContext = promptContextStats.tabContextLength > 0
-    if (config.groundedOnlyMode) {
-      const strictGroundingInstruction =
-        'You must answer only from the supplied selected-page context. If context is insufficient, respond with: "Insufficient page context."'
-      contentWithRAG = `${strictGroundingInstruction}\n\n${contentWithRAG}`
-      promptContextStats.promptAugmentedLength = contentWithRAG.length
-    }
-
-    if (config.groundedOnlyMode && !hasRelevantPageContext) {
-      setIsLoading(false)
-      setPendingActivityEvents([])
-      const settingsDeepLink =
-        "/options.html?tab=knowledge&focus=grounded-only-mode"
-
-      await addMessage(sessionId, {
-        role: "assistant",
-        // The link text is the setting's own label, so renaming the setting
-        // cannot leave this message naming something the user cannot find.
-        content: t("chat.errors.insufficient_page_context", {
-          settingsLabel: t("settings.grounding_mode.label"),
-          settingsLink: settingsDeepLink
-        }),
-        done: true,
-        model: resolvedModel,
-        metrics: {
-          groundedOnlyMode: true,
-          insufficientContext: true,
-          promptInputLength: userContent.length,
-          promptAugmentedLength: contentWithRAG.length,
-          tabContextLength: promptContextStats.tabContextLength,
-          ragContextLength: promptContextStats.ragContextLength,
-          tabContextTruncated: promptContextStats.tabContextTruncated,
-          usedContextChunks: promptContextStats.usedContextChunks
-        }
-      })
-      await turnService.complete(turnId)
-      return true
-    }
-
-    const messagesForLLM = [
-      ...messages,
-      { ...userMessage, content: contentWithRAG }
-    ]
-
-    setNextResponseMetrics(ragSources, promptContextStats)
-    setPendingActivityEvents([
-      {
-        ...preparingEvent,
-        status: "done",
-        finishedAt: Date.now()
-      },
-      ...promptContextStats.activityEvents,
-      {
-        id: "generating-answer",
-        kind: "generating_answer",
-        label: "Generating answer",
-        status: "running",
-        startedAt: Date.now()
-      }
-    ])
-
-    logger.info("Prompt context stats", "useChat", {
-      sessionId,
-      promptInputLength: promptContextStats.promptInputLength,
-      promptAugmentedLength: promptContextStats.promptAugmentedLength,
-      tabContextLength: promptContextStats.tabContextLength,
-      ragContextLength: promptContextStats.ragContextLength,
-      tabContextTruncated: promptContextStats.tabContextTruncated,
-      groundedOnlyMode: config.groundedOnlyMode,
-      usedContextChunkCount: promptContextStats.usedContextChunks.length
-    })
-
-    if (promptContextStats.tabContextTruncated) {
-      toast({
-        title: t("chat.errors.context_trimmed_title"),
-        description: t("chat.errors.context_trimmed_description")
-      })
-    }
-
-    // The UI just built page/file/memory context into `messagesForLLM`, so tell
-    // the background not to run its own memory retrieval (which would double-
-    // inject memory and embed the RAG-augmented prompt instead of the raw query).
-    try {
-      await generateResponse(customModel, sessionId, messagesForLLM, {
-        contextPrepared: true,
-        turnId
-      })
-    } catch (error) {
-      await turnService
-        .fail(
-          turnId,
-          error instanceof Error ? error.message : "Generation failed"
-        )
-        .catch(() => undefined)
-      throw error
+      return false
     }
     setPendingActivityEvents([])
     return true

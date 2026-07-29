@@ -17,7 +17,7 @@ import type {
  * through the same governance/capability path the chat turn uses. Failures
  * default to false so context is auto-injected (safe fallback).
  */
-const resolveRetrievalToolsActive = async (
+export const resolveRetrievalToolsActive = async (
   modelId: string,
   providerId: string | undefined,
   latestUserText: string

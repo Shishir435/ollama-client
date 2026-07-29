@@ -4,12 +4,8 @@ import type {
   ContextBuildOutput,
   ContextService
 } from "@/application/context/context-service"
-import type {
-  ContextReceipt,
-  DurableTurnRun,
-  TurnMode,
-  TurnSubmission
-} from "./turn-contract"
+import type { ChatMessage } from "@/types"
+import type { DurableTurnRun, TurnMode, TurnSubmission } from "./turn-contract"
 
 export interface TurnRunStore {
   create: (submission: TurnSubmission) => Promise<void>
@@ -34,10 +30,13 @@ export interface TurnRunStore {
 export interface TurnGenerationInput {
   submission: TurnSubmission
   context: ContextBuildOutput
+  userMessageId?: number
+  assistantMessageId?: number
 }
 
 export interface TurnGenerationOwner {
   start: (input: TurnGenerationInput) => Promise<{
+    outcome?: "completed" | "cancelled"
     userMessageId?: number
     assistantMessageId?: number
   }>
@@ -50,6 +49,12 @@ export interface StartTurnCommand {
   model: string
   providerId?: string
   contextOptions: BuildRagContextOptions
+  userMessage: ChatMessage
+  userMessageId?: number
+  assistantMessageId?: number
+  prepareContextOptions?: (
+    options: BuildRagContextOptions
+  ) => Promise<BuildRagContextOptions>
   createdAt?: number
 }
 
@@ -62,51 +67,11 @@ export interface StartTurnCommand {
 export class TurnService {
   constructor(
     private readonly store: TurnRunStore,
-    private readonly contextService?: ContextService,
-    private readonly generation?: TurnGenerationOwner
+    private readonly contextService: ContextService,
+    private readonly generation: TurnGenerationOwner
   ) {}
 
-  submit(submission: TurnSubmission): Promise<void> {
-    return this.store.create(submission)
-  }
-
-  markBuildingContext(id: string, userMessageId?: number): Promise<void> {
-    return this.store.update(id, {
-      status: "building-context",
-      ...(userMessageId !== undefined ? { userMessageId } : {})
-    })
-  }
-
-  markGenerating(id: string, contextReceipt: ContextReceipt): Promise<void> {
-    return this.store.update(id, { status: "generating", contextReceipt })
-  }
-
-  attachAssistantMessage(
-    id: string,
-    assistantMessageId: number
-  ): Promise<void> {
-    return this.store.update(id, { assistantMessageId })
-  }
-
-  complete(
-    id: string,
-    messageIds?: { userMessageId?: number; assistantMessageId?: number }
-  ): Promise<void> {
-    return this.store.update(id, { status: "completed", ...messageIds })
-  }
-
-  fail(id: string, failure: string): Promise<void> {
-    return this.store.update(id, { status: "failed", failure })
-  }
-
-  cancel(id: string): Promise<void> {
-    return this.store.update(id, { status: "cancelled", failure: null })
-  }
-
   async start(command: StartTurnCommand): Promise<void> {
-    if (!this.contextService || !this.generation) {
-      throw new Error("TurnService orchestration dependencies are unavailable")
-    }
     const {
       onActivityEvent: _onActivityEvent,
       toast: _toast,
@@ -120,30 +85,91 @@ export class TurnService {
       providerId: command.providerId,
       request: {
         version: 1,
-        context: parseDurableContextOptions(context)
+        context: parseDurableContextOptions(context),
+        userMessage: command.userMessage
       },
       createdAt: command.createdAt ?? Date.now()
     }
 
-    await this.submit(submission)
+    await this.store.create(submission)
+    await this.run(
+      submission,
+      command.contextOptions,
+      command.userMessageId,
+      command.assistantMessageId,
+      command.prepareContextOptions
+    )
+  }
 
+  async resume(
+    turn: DurableTurnRun,
+    prepareContextOptions?: (
+      options: BuildRagContextOptions
+    ) => Promise<BuildRagContextOptions>
+  ): Promise<void> {
+    const baseOptions: BuildRagContextOptions = {
+      ...turn.request.context,
+      toast: () => undefined
+    }
+    await this.run(
+      turn,
+      baseOptions,
+      turn.userMessageId,
+      turn.assistantMessageId,
+      prepareContextOptions
+    )
+  }
+
+  private async run(
+    submission: TurnSubmission,
+    contextOptions: BuildRagContextOptions,
+    userMessageId?: number,
+    assistantMessageId?: number,
+    prepareContextOptions?: (
+      options: BuildRagContextOptions
+    ) => Promise<BuildRagContextOptions>
+  ): Promise<void> {
     try {
-      await this.markBuildingContext(submission.id)
+      await this.store.update(submission.id, {
+        status: "building-context",
+        ...(userMessageId !== undefined ? { userMessageId } : {}),
+        ...(assistantMessageId !== undefined ? { assistantMessageId } : {})
+      })
+      const preparedContextOptions = prepareContextOptions
+        ? await prepareContextOptions(contextOptions)
+        : contextOptions
       const context = await this.contextService.build({
         turnId: submission.id,
         mode: submission.mode,
         model: submission.model,
         providerId: submission.providerId,
-        options: command.contextOptions
+        options: preparedContextOptions
       })
-      await this.markGenerating(submission.id, context.receipt)
-      const messages = await this.generation.start({ submission, context })
-      await this.complete(submission.id, messages)
+      await this.store.update(submission.id, {
+        status: "generating",
+        contextReceipt: context.receipt
+      })
+      const result = await this.generation.start({
+        submission,
+        context,
+        userMessageId,
+        assistantMessageId
+      })
+      await this.store.update(submission.id, {
+        status: result.outcome === "cancelled" ? "cancelled" : "completed",
+        ...(result.outcome === "cancelled" ? { failure: null } : {}),
+        ...(result.userMessageId !== undefined
+          ? { userMessageId: result.userMessageId }
+          : {}),
+        ...(result.assistantMessageId !== undefined
+          ? { assistantMessageId: result.assistantMessageId }
+          : {})
+      })
     } catch (error) {
-      await this.fail(
-        submission.id,
-        error instanceof Error ? error.message : "Turn failed"
-      )
+      await this.store.update(submission.id, {
+        status: "failed",
+        failure: error instanceof Error ? error.message : "Turn failed"
+      })
       throw error
     }
   }

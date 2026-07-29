@@ -63,6 +63,7 @@ const command = {
     selectedModelRef: null,
     toast: vi.fn()
   },
+  userMessage: { role: "user" as const, content: "hello" },
   createdAt: 10
 }
 
@@ -106,7 +107,8 @@ describe("TurnService", () => {
         id: "turn-1",
         request: {
           version: 1,
-          context: expect.objectContaining({ rawInput: "hello" })
+          context: expect.objectContaining({ rawInput: "hello" }),
+          userMessage: { role: "user", content: "hello" }
         }
       })
     )

@@ -588,6 +588,13 @@ export const buildRagContext = async (
     contentWithRAG = `${contentWithRAG}\n\n---\n\n${fullTextContext}`
   }
 
+  const insufficientContext = groundedOnlyMode && tabContextLength === 0
+  if (groundedOnlyMode && !insufficientContext) {
+    const strictGroundingInstruction =
+      'You must answer only from the supplied selected-page context. If context is insufficient, respond with: "Insufficient page context."'
+    contentWithRAG = `${strictGroundingInstruction}\n\n${contentWithRAG}`
+  }
+
   const promptContextStats: PromptContextStats = {
     promptInputLength: userContent.length,
     promptAugmentedLength: contentWithRAG.length,
@@ -595,7 +602,7 @@ export const buildRagContext = async (
     ragContextLength,
     tabContextTruncated,
     groundedOnlyMode,
-    insufficientContext: false,
+    insufficientContext,
     usedContextChunks,
     activityEvents
   }

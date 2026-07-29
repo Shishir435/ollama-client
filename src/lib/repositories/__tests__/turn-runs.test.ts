@@ -24,7 +24,8 @@ const persistedRequest = {
     groundedOnlyMode: false,
     selectedModel: "llama3",
     selectedModelRef: null
-  }
+  },
+  userMessage: { role: "user" as const, content: "hello" }
 }
 
 beforeEach(() => {

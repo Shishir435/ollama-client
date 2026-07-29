@@ -88,6 +88,21 @@ export const getTurnRun = async (
   return rows[0] ? parseRow(rows[0]) : null
 }
 
+export const getIncompleteTurnRuns = async (): Promise<DurableTurnRun[]> => {
+  const rows = (await query(
+    `SELECT id, sessionId, mode, model, providerId, status, request,
+            contextReceipt, userMessageId, assistantMessageId, failure,
+            createdAt, updatedAt
+       FROM turn_runs
+      WHERE status IN ('submitted', 'building-context', 'generating')
+      ORDER BY createdAt ASC`
+  )) as unknown as TurnRunRow[]
+  return rows.flatMap((row) => {
+    const parsed = parseRow(row)
+    return parsed ? [parsed] : []
+  })
+}
+
 export const updateTurnRun = async (
   id: string,
   updates: {

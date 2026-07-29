@@ -4,29 +4,6 @@ import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
 import type { ChatMessage } from "@/types"
 import { useChatTurnController } from "../use-chat-turn-controller"
 
-const ctx = vi.hoisted(() => ({
-  buildContext: vi.fn(),
-  submit: vi.fn(),
-  markBuildingContext: vi.fn(),
-  markGenerating: vi.fn(),
-  complete: vi.fn(),
-  fail: vi.fn()
-}))
-
-vi.mock("@/features/chat/hooks/use-build-context", () => ({
-  useBuildContext: () => ({ buildContext: ctx.buildContext })
-}))
-
-vi.mock("@/lib/turn-service", () => ({
-  turnService: {
-    submit: ctx.submit,
-    markBuildingContext: ctx.markBuildingContext,
-    markGenerating: ctx.markGenerating,
-    complete: ctx.complete,
-    fail: ctx.fail
-  }
-}))
-
 const baseConfig = {
   selectedModel: "llama3",
   selectedModelRef: { providerId: "ollama", modelId: "llama3" },
@@ -40,55 +17,13 @@ const baseConfig = {
 describe("useChatTurnController", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    ctx.submit.mockResolvedValue(undefined)
-    ctx.markBuildingContext.mockResolvedValue(undefined)
-    ctx.markGenerating.mockResolvedValue(undefined)
-    ctx.complete.mockResolvedValue(undefined)
-    ctx.fail.mockResolvedValue(undefined)
     loadStreamStore.setState({ isLoading: false, isStreaming: false })
-    ctx.buildContext.mockResolvedValue({
-      result: {
-        contentWithRAG: "question\n\ncontext",
-        ragSources: null,
-        pageContextAdded: false,
-        promptContextStats: {
-          promptInputLength: 8,
-          promptAugmentedLength: 18,
-          tabContextLength: 0,
-          ragContextLength: 10,
-          tabContextTruncated: false,
-          groundedOnlyMode: false,
-          insufficientContext: false,
-          usedContextChunks: [],
-          activityEvents: []
-        }
-      },
-      receipt: {
-        version: 1,
-        turnId: "turn-1",
-        mode: "new",
-        createdAt: 1,
-        query: "question",
-        model: { id: "llama3" },
-        prompt: {
-          inputLength: 8,
-          augmentedLength: 18,
-          tabContextLength: 0,
-          ragContextLength: 10,
-          tabContextTruncated: false,
-          groundedOnlyMode: false,
-          insufficientContext: false
-        },
-        sources: []
-      }
-    })
   })
 
-  it("persists the user turn, builds context, and starts response generation", async () => {
+  it("persists the user message and submits one background-owned turn", async () => {
     const addMessage = vi.fn().mockResolvedValue(1)
     const autoRenameSession = vi.fn().mockResolvedValue(undefined)
     const generateResponse = vi.fn().mockResolvedValue(undefined)
-    const setNextResponseMetrics = vi.fn()
 
     const { result } = renderHook(() =>
       useChatTurnController({
@@ -104,8 +39,6 @@ describe("useChatTurnController", () => {
         ensureSessionId: vi.fn().mockResolvedValue("session-1"),
         autoRenameSession,
         addMessage,
-        setNextResponseMetrics,
-        clearNextResponseMetrics: vi.fn(),
         generateResponse,
         toast: vi.fn()
       })
@@ -121,29 +54,28 @@ describe("useChatTurnController", () => {
       "session-1",
       expect.objectContaining({ role: "user", content: "question" })
     )
-    expect(ctx.buildContext).toHaveBeenCalledWith(
-      expect.objectContaining({ rawInput: "question" }),
-      expect.objectContaining({ onActivityEvent: expect.any(Function) })
-    )
-    expect(setNextResponseMetrics).toHaveBeenCalled()
-    expect(ctx.submit).toHaveBeenCalledWith(
-      expect.objectContaining({ sessionId: "session-1" })
-    )
-    expect(ctx.markBuildingContext).toHaveBeenCalledWith(expect.any(String), 1)
-    expect(ctx.markGenerating).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ version: 1 })
-    )
     expect(generateResponse).toHaveBeenCalledWith(
       undefined,
       "session-1",
       [
         expect.objectContaining({
           role: "user",
-          content: "question\n\ncontext"
+          content: "question"
         })
       ],
-      { contextPrepared: true, turnId: expect.any(String) }
+      {
+        durableTurn: {
+          submission: expect.objectContaining({
+            id: expect.any(String),
+            sessionId: "session-1",
+            request: expect.objectContaining({
+              context: expect.objectContaining({ rawInput: "question" }),
+              userMessage: expect.objectContaining({ content: "question" })
+            })
+          }),
+          userMessageId: 1
+        }
+      }
     )
   })
 
@@ -166,8 +98,6 @@ describe("useChatTurnController", () => {
           .fn()
           .mockRejectedValue(new Error("rename failed")),
         addMessage: vi.fn().mockResolvedValue(1),
-        setNextResponseMetrics: vi.fn(),
-        clearNextResponseMetrics: vi.fn(),
         generateResponse,
         toast
       })
@@ -200,8 +130,6 @@ describe("useChatTurnController", () => {
         ensureSessionId: vi.fn().mockRejectedValue(new Error("session failed")),
         autoRenameSession: vi.fn(),
         addMessage,
-        setNextResponseMetrics: vi.fn(),
-        clearNextResponseMetrics: vi.fn(),
         generateResponse: vi.fn(),
         toast
       })
@@ -236,8 +164,6 @@ describe("useChatTurnController", () => {
         ensureSessionId: vi.fn().mockResolvedValue("session-1"),
         autoRenameSession: vi.fn(),
         addMessage,
-        setNextResponseMetrics: vi.fn(),
-        clearNextResponseMetrics: vi.fn(),
         generateResponse: vi.fn(),
         toast: vi.fn()
       })

@@ -4,19 +4,6 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { useChat } from "../use-chat"
 
 const toastMock = vi.hoisted(() => vi.fn())
-const turnServiceMock = vi.hoisted(() => ({
-  submit: vi.fn().mockResolvedValue(undefined),
-  markBuildingContext: vi.fn().mockResolvedValue(undefined),
-  markGenerating: vi.fn().mockResolvedValue(undefined),
-  attachAssistantMessage: vi.fn().mockResolvedValue(undefined),
-  complete: vi.fn().mockResolvedValue(undefined),
-  fail: vi.fn().mockResolvedValue(undefined),
-  cancel: vi.fn().mockResolvedValue(undefined)
-}))
-
-vi.mock("@/lib/turn-service", () => ({
-  turnService: turnServiceMock
-}))
 
 // Mock dependencies
 vi.mock("@plasmohq/storage/hook", () => ({
@@ -210,9 +197,6 @@ vi.mock("@/features/tabs/stores/tab-content-store", () => ({
 describe("useChat", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    for (const mock of Object.values(turnServiceMock)) {
-      mock.mockResolvedValue(undefined)
-    }
   })
 
   it("should initialize with default values", () => {
@@ -311,7 +295,7 @@ describe("useChat", () => {
     )
   })
 
-  it("adds a completed assistant error when context preparation fails", async () => {
+  it("submits context work to the background without reading UI storage", async () => {
     const { useLoadStream } = await import(
       "@/features/chat/stores/load-stream-store"
     )
@@ -378,10 +362,8 @@ describe("useChat", () => {
       await result.current.sendMessage("Hello")
     })
 
-    expect(startStream).not.toHaveBeenCalled()
+    expect(startStream).toHaveBeenCalled()
     expect(setIsLoading).toHaveBeenCalledWith(true)
-    expect(setIsLoading).toHaveBeenCalledWith(false)
-    expect(setIsStreaming).toHaveBeenCalledWith(false)
     expect(addMessage).toHaveBeenNthCalledWith(
       1,
       "session-1",
@@ -395,21 +377,13 @@ describe("useChat", () => {
       "session-1",
       expect.objectContaining({
         role: "assistant",
-        done: true,
-        metrics: expect.objectContaining({
-          contextBuildFailed: true
-        })
+        done: false
       })
     )
-    expect(toastMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        variant: "destructive",
-        title: "chat.errors.context_preparation_failed_title"
-      })
-    )
+    expect(toastMock).not.toHaveBeenCalled()
   })
 
-  it("still shows context failure toast when persisting assistant error fails", async () => {
+  it("shows a submission error when persisting the assistant shell fails", async () => {
     const { useChatStream } = await import(
       "@/features/chat/hooks/use-chat-stream"
     )
@@ -473,7 +447,7 @@ describe("useChat", () => {
     expect(toastMock).toHaveBeenCalledWith(
       expect.objectContaining({
         variant: "destructive",
-        title: "chat.errors.context_preparation_failed_title"
+        title: "chat.errors.response_failed_title"
       })
     )
   })
@@ -663,11 +637,18 @@ describe("useChat", () => {
 
     expect(startStream).toHaveBeenCalledWith(
       expect.objectContaining({
-        messages: expect.arrayContaining([
-          expect.objectContaining({
-            content: expect.stringContaining("Page content")
+        durableTurn: expect.objectContaining({
+          submission: expect.objectContaining({
+            request: expect.objectContaining({
+              context: expect.objectContaining({
+                contextText: "Page content",
+                tabDocuments: [
+                  { id: "1", title: "Tab 1", content: "Page content" }
+                ]
+              })
+            })
           })
-        ])
+        })
       })
     )
   })
@@ -708,11 +689,16 @@ describe("useChat", () => {
 
     expect(startStream).toHaveBeenCalledWith(
       expect.objectContaining({
-        messages: expect.arrayContaining([
-          expect.objectContaining({
-            content: expect.stringContaining("Page content")
+        durableTurn: expect.objectContaining({
+          submission: expect.objectContaining({
+            request: expect.objectContaining({
+              context: expect.objectContaining({
+                rawInput: "Use this custom prompt",
+                contextText: "Page content"
+              })
+            })
           })
-        ])
+        })
       })
     )
   })
@@ -847,6 +833,14 @@ describe("useChat", () => {
       const { retrieveContext } = await import(
         "@/application/context/rag/rag-retriever"
       )
+      const { useChatStream } = await import(
+        "@/features/chat/hooks/use-chat-stream"
+      )
+      const startStream = vi.fn()
+      vi.mocked(useChatStream).mockReturnValue({
+        startStream,
+        stopStream: vi.fn()
+      })
 
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true) // RAG enabled
       vi.mocked(retrieveContext).mockResolvedValue({
@@ -893,12 +887,23 @@ describe("useChat", () => {
         await result.current.sendMessage("Summarize", undefined, [file])
       })
 
-      expect(retrieveContext).toHaveBeenCalledWith(
-        "Summarize",
-        ["file-1"],
+      expect(retrieveContext).not.toHaveBeenCalled()
+      expect(startStream).toHaveBeenCalledWith(
         expect.objectContaining({
-          mode: "similarity",
-          topK: 5
+          durableTurn: expect.objectContaining({
+            submission: expect.objectContaining({
+              request: expect.objectContaining({
+                context: expect.objectContaining({
+                  files: [
+                    expect.objectContaining({
+                      text: "Full file content",
+                      metadata: expect.objectContaining({ fileId: "file-1" })
+                    })
+                  ]
+                })
+              })
+            })
+          })
         })
       )
     })
@@ -955,11 +960,17 @@ describe("useChat", () => {
       // Should not throw, should use fallback
       expect(startStream).toHaveBeenCalledWith(
         expect.objectContaining({
-          messages: expect.arrayContaining([
-            expect.objectContaining({
-              content: expect.stringContaining("Full file content")
+          durableTurn: expect.objectContaining({
+            submission: expect.objectContaining({
+              request: expect.objectContaining({
+                context: expect.objectContaining({
+                  files: [
+                    expect.objectContaining({ text: "Full file content" })
+                  ]
+                })
+              })
             })
-          ])
+          })
         })
       )
     })
@@ -1019,11 +1030,17 @@ describe("useChat", () => {
 
       expect(startStream).toHaveBeenCalledWith(
         expect.objectContaining({
-          messages: expect.arrayContaining([
-            expect.objectContaining({
-              content: expect.stringContaining("Full file content")
+          durableTurn: expect.objectContaining({
+            submission: expect.objectContaining({
+              request: expect.objectContaining({
+                context: expect.objectContaining({
+                  files: [
+                    expect.objectContaining({ text: "Full file content" })
+                  ]
+                })
+              })
             })
-          ])
+          })
         })
       )
     })

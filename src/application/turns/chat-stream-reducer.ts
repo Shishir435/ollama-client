@@ -6,7 +6,7 @@ import {
 import type { ChatMessage, ProviderReplayArtifact, ToolRun } from "@/types"
 
 /**
- * A raw chunk received over the provider stream port. Deltas, thinking, tool
+ * A raw chunk received from the background turn owner. Deltas, thinking, tool
  * traces, the `rag_sources` side channel, and terminal done/error/aborted all
  * arrive as this shape; {@link reduceStreamEvent} folds them into turn state.
  */

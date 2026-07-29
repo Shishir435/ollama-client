@@ -3,6 +3,8 @@ import {
   type DurableContextOptions,
   DurableContextOptionsSchema
 } from "@/application/context/context-contract"
+import type { ChatMessage } from "@/types"
+import { ChatMessageSchema } from "@/types/chat.schemas"
 
 export const TURN_MODES = [
   "new",
@@ -70,12 +72,14 @@ export type ContextReceipt = z.infer<typeof ContextReceiptSchema>
 
 export const PersistedTurnRequestSchema = z.object({
   version: z.literal(1),
-  context: DurableContextOptionsSchema
+  context: DurableContextOptionsSchema,
+  userMessage: ChatMessageSchema
 })
 
 export interface PersistedTurnRequest {
   version: 1
   context: DurableContextOptions
+  userMessage: ChatMessage
 }
 
 export const parsePersistedTurnRequest = (
@@ -91,6 +95,11 @@ export interface TurnSubmission {
   providerId?: string
   request: PersistedTurnRequest
   createdAt: number
+}
+
+export interface DurableTurnStart {
+  submission: TurnSubmission
+  userMessageId: number
 }
 
 export interface DurableTurnRun extends TurnSubmission {

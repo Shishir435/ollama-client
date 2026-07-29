@@ -1,3 +1,4 @@
+import { resumeIncompleteTurnRuns } from "@/background/durable-turn-runtime"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { downloadEmbeddingModelSilently } from "@/background/handlers/handle-embedding-download"
 import { updateDNRRules } from "@/background/lib/dnr"
@@ -242,6 +243,9 @@ export const initializeBackgroundStartup = () => {
           error
         }
       )
+    })
+    void resumeIncompleteTurnRuns().catch((error) => {
+      logger.error("Failed to resume durable turns", "BackgroundSW", { error })
     })
   })
   // MV3 workers can start without a browser onStartup event (extension reload,

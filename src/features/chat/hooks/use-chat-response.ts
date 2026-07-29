@@ -3,8 +3,11 @@ import type {
   PromptContextStats,
   RagSources
 } from "@/application/context/build-context"
+import type {
+  DurableTurnStart,
+  TurnMode
+} from "@/application/turns/turn-contract"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
-import { turnService } from "@/lib/turn-service"
 import type { ChatMessage } from "@/types"
 
 interface ChatResponseOptions {
@@ -19,7 +22,7 @@ interface ChatResponseOptions {
     sessionId: string
     generatedMessage: ChatMessage
     clientContextPrepared?: boolean
-    turnId?: string
+    durableTurn?: DurableTurnStart & { assistantMessageId: number }
   }) => void
   currentStreamingMessageIdRef: { current: number | null }
   currentStreamingSessionIdRef: { current: string | null }
@@ -53,7 +56,11 @@ export const useChatResponse = ({
     customModel?: string,
     sessionIdParam?: string,
     contextMessages?: ChatMessage[],
-    options?: { contextPrepared?: boolean; turnId?: string }
+    options?: {
+      contextPrepared?: boolean
+      durableTurn?: DurableTurnStart
+      mode?: TurnMode
+    }
   ) => {
     const sessionId = sessionIdParam || currentSessionId
     if (!sessionId) return
@@ -81,11 +88,54 @@ export const useChatResponse = ({
     clearNextResponseMetrics()
 
     const assistantId = await addMessage(sessionId, assistantMessage)
-    if (options?.turnId) {
-      await turnService.attachAssistantMessage(options.turnId, assistantId)
-    }
     currentStreamingMessageIdRef.current = assistantId
     currentStreamingSessionIdRef.current = sessionId
+
+    let durableTurn = options?.durableTurn
+    if (!durableTurn && contextMessages) {
+      let userMessageIndex = -1
+      for (let index = contextMessages.length - 1; index >= 0; index -= 1) {
+        if (contextMessages[index].role === "user") {
+          userMessageIndex = index
+          break
+        }
+      }
+      const userMessage = contextMessages[userMessageIndex]
+      if (userMessage && typeof userMessage.id === "number") {
+        const turnId =
+          globalThis.crypto?.randomUUID?.() ??
+          `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        durableTurn = {
+          submission: {
+            id: turnId,
+            sessionId,
+            mode: options?.mode ?? "regenerate",
+            model: modelForRequest,
+            providerId: config.selectedModelRef?.providerId,
+            request: {
+              version: 1,
+              context: {
+                rawInput: userMessage.content,
+                messages: contextMessages.slice(0, userMessageIndex),
+                hasTabContext: false,
+                contextText: "",
+                tabDocuments: [],
+                memoryEnabled: config.memoryEnabled,
+                maxTabContextChars: config.maxTabContextChars,
+                maxRagContextChars: config.maxRagContextChars,
+                groundedOnlyMode: false,
+                selectedModel: config.selectedModel,
+                selectedModelRef: config.selectedModelRef,
+                customModel
+              },
+              userMessage
+            },
+            createdAt: Date.now()
+          },
+          userMessageId: userMessage.id
+        }
+      }
+    }
 
     startStream({
       model: modelForRequest,
@@ -94,7 +144,9 @@ export const useChatResponse = ({
       sessionId,
       generatedMessage: { ...assistantMessage, id: assistantId },
       clientContextPrepared: options?.contextPrepared ?? false,
-      turnId: options?.turnId
+      durableTurn: durableTurn
+        ? { ...durableTurn, assistantMessageId: assistantId }
+        : undefined
     })
   }
 
