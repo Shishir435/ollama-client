@@ -167,6 +167,13 @@ export interface ChatMessage {
     contextBuildFailed?: boolean
     thinkingOnlyResponse?: boolean
     /**
+     * The stream completed cleanly with no content, no thinking, and no tool
+     * run — what a server reports when the model was unloaded mid-turn or the
+     * context left no room to answer. Set so the turn reads as a failure with a
+     * retry instead of an empty bubble.
+     */
+    emptyResponse?: boolean
+    /**
      * The turn was cut off before the stream finished (worker/sidepanel died
      * mid-generation) and was finalized on the next startup. Set so the UI can
      * mark the partial answer as interrupted and offer a retry. Distinct from

@@ -411,6 +411,8 @@
       "issue_draft_notice": "Precompilata localmente. Controlla prima di inviare.",
       "preparing_issue": "Esecuzione dei controlli sicuri…",
       "open_diagnostics": "Apri diagnostica",
+      "empty_response": "Il modello ha terminato senza inviare una risposta. Potrebbe essere stato scaricato, o la conversazione potrebbe non aver lasciato spazio per rispondere. Riprova o avvia una nuova chat.",
+      "thinking_only_response": "Non ho ricevuto una risposta finale dal modello. Riprova.",
       "interrupted": "Risposta interrotta"
     },
     "composer": {

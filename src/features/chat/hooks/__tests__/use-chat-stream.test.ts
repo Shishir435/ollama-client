@@ -309,6 +309,35 @@ describe("useChatStream", () => {
     })
   })
 
+  it("explains a turn that finished without any answer, and offers a retry", () => {
+    // The provider reported success with nothing in it — the shape behind
+    // "connected, model loaded, says nothing back". The turn has to read as a
+    // failure, not as a blank assistant bubble.
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user" as const, content: "hi" }]
+      })
+    })
+
+    const listener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      listener({ done: true })
+    })
+
+    const finalMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
+    expect(finalMessages?.at(-1)).toMatchObject({
+      role: "assistant",
+      content: "chat.errors.empty_response",
+      metrics: { emptyResponse: true },
+      done: true
+    })
+  })
+
   it("shows a safe fallback when the model returns only thinking", () => {
     const { result } = renderHook(() =>
       useChatStream({
@@ -334,8 +363,7 @@ describe("useChatStream", () => {
     const finalMessages = vi.mocked(setMessages).mock.calls.at(-1)?.[0]
     expect(finalMessages?.at(-1)).toMatchObject({
       role: "assistant",
-      content:
-        "I did not receive a final answer from the model. Please try again.",
+      content: "chat.errors.thinking_only_response",
       thinking: "This is the answer.",
       metrics: {
         thinkingOnlyResponse: true

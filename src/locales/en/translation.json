@@ -445,6 +445,8 @@
       "retry_in": "Retry in {{seconds}}s",
       "diagnostics_copy_failed_title": "Could not copy diagnostics",
       "diagnostics_copy_failed_description": "Clipboard access was refused. Focus this panel and try again.",
+      "empty_response": "The model finished without sending an answer. It may have been unloaded, or the conversation may have left no room to reply. Try again, or start a new chat.",
+      "thinking_only_response": "I did not receive a final answer from the model. Please try again.",
       "interrupted": "Response interrupted"
     },
     "composer": {

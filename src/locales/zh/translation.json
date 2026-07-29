@@ -411,6 +411,8 @@
       "issue_draft_notice": "已在本地预填。提交前请检查。",
       "preparing_issue": "正在运行安全检查…",
       "open_diagnostics": "打开诊断",
+      "empty_response": "模型结束了本轮，但没有发送任何回答。可能是模型已被卸载，或者对话没有留出回答的空间。请重试，或新建一个对话。",
+      "thinking_only_response": "没有收到模型的最终回答。请重试。",
       "interrupted": "响应已中断"
     },
     "composer": {

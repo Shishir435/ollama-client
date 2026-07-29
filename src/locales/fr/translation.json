@@ -411,6 +411,8 @@
       "issue_draft_notice": "Prérempli localement. Vérifiez avant l’envoi.",
       "preparing_issue": "Exécution des vérifications sûres…",
       "open_diagnostics": "Ouvrir le diagnostic",
+      "empty_response": "Le modèle a terminé sans envoyer de réponse. Il a peut-être été déchargé, ou la conversation n'a laissé aucune place pour répondre. Réessaie ou commence une nouvelle discussion.",
+      "thinking_only_response": "Je n'ai pas reçu de réponse finale du modèle. Réessaie, s'il te plaît.",
       "interrupted": "Réponse interrompue"
     },
     "composer": {

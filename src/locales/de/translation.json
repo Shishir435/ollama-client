@@ -411,6 +411,8 @@
       "issue_draft_notice": "Lokal vorausgefüllt. Vor dem Absenden prüfen.",
       "preparing_issue": "Sichere Prüfungen laufen…",
       "open_diagnostics": "Diagnose öffnen",
+      "empty_response": "Das Modell hat die Antwort beendet, ohne etwas zu senden. Möglicherweise wurde es entladen oder der Verlauf ließ keinen Platz für eine Antwort. Versuche es erneut oder starte einen neuen Chat.",
+      "thinking_only_response": "Ich habe keine endgültige Antwort vom Modell erhalten. Bitte versuche es erneut.",
       "interrupted": "Antwort unterbrochen"
     },
     "composer": {

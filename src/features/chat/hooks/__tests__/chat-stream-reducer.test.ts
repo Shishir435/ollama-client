@@ -157,14 +157,53 @@ describe("reduceStreamEvent", () => {
     }
   })
 
-  it("uses the fallback answer when a turn ends with neither content nor tools", () => {
+  it("reports a thinking-only turn without composing its copy", () => {
     const { last } = apply(start(), [
       { thinkingDelta: "just musing" },
       { done: true }
     ])
     if (last.terminal?.type === "success") {
-      expect(last.terminal.message.content).toContain("did not receive")
+      // The reason travels to the caller, which owns the localized text: this
+      // module has no `t`, so an English sentence here could not be translated.
+      expect(last.terminal.emptyReason).toBe("thinking-only")
+      expect(last.terminal.message.content).toBe("")
       expect(last.terminal.message.metrics?.thinkingOnlyResponse).toBe(true)
+    } else {
+      throw new Error("expected success terminal")
+    }
+  })
+
+  it("reports a turn that finished with no output at all", () => {
+    // A server that unloads the model mid-turn, or has no context left to
+    // answer in, closes the stream as a clean success with nothing in it. That
+    // used to finalize as an empty bubble with no explanation and no retry.
+    const { last } = apply(start(), [{ done: true }])
+    if (last.terminal?.type === "success") {
+      expect(last.terminal.emptyReason).toBe("no-output")
+      expect(last.terminal.message.metrics?.emptyResponse).toBe(true)
+      expect(last.terminal.message.done).toBe(true)
+    } else {
+      throw new Error("expected success terminal")
+    }
+  })
+
+  it("does not call a user-stopped turn an empty answer", () => {
+    // Stopping before the first token is a stop, not a server that answered
+    // nothing; the abort path owns that copy.
+    const { last } = apply(start(), [{ aborted: true, done: true }])
+    if (last.terminal?.type === "success") {
+      expect(last.terminal.emptyReason).toBeUndefined()
+      expect(last.terminal.message.metrics?.emptyResponse).toBeUndefined()
+    } else {
+      throw new Error("expected success terminal")
+    }
+  })
+
+  it("leaves an answered turn unflagged", () => {
+    const { last } = apply(start(), [{ delta: "here you go" }, { done: true }])
+    if (last.terminal?.type === "success") {
+      expect(last.terminal.emptyReason).toBeUndefined()
+      expect(last.terminal.message.metrics?.emptyResponse).toBeUndefined()
     } else {
       throw new Error("expected success terminal")
     }
