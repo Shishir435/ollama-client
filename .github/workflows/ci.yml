@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Lets the browser gates be re-run against any branch on demand — before
+  # tagging a release, or after a flake — without opening a pull request.
+  # Dispatch only becomes available once this file is on the default branch.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -76,3 +80,83 @@ jobs:
 
       - name: Check bundle budgets
         run: pnpm ${{ matrix.target == 'firefox' && 'bundle:check:firefox' || 'bundle:check' }}
+
+      # The persistence gates drive a benchmark build, which exposes the
+      # lifecycle harness the production build strips. Built here so the whole
+      # CI run pays for each build exactly once.
+      - name: Build benchmark target for the browser gates
+        if: matrix.target == 'chrome'
+        run: pnpm benchmark:build
+
+      - name: Upload builds for the browser gates
+        if: matrix.target == 'chrome'
+        uses: actions/upload-artifact@v7
+        with:
+          name: chrome-e2e-builds
+          path: |
+            build/chrome-mv3-prod
+            build/chrome-mv3-benchmark
+          retention-days: 1
+          if-no-files-found: error
+
+  e2e:
+    name: Critical browser gates
+    # Runs last and only on green: these are the most expensive minutes in the
+    # run, and a branch that fails typecheck or a unit test has nothing to prove
+    # in a browser. Also runs on the exact bytes `build` packaged rather than a
+    # rebuild, so what boots here is what would ship.
+    needs: [checks, build]
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.draft == false &&
+       !contains(github.event.pull_request.labels.*.name, 'skip-e2e'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download packaged builds
+        uses: actions/download-artifact@v8
+        with:
+          name: chrome-e2e-builds
+          path: build
+
+      - name: Resolve Playwright version
+        id: playwright
+        run: |
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Keyed on the Playwright version, so a browser download happens only when
+      # that dependency actually changes.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run critical browser gates
+        run: pnpm e2e:chromium:critical
+
+      # Traces, videos, and the HTML report are only worth minutes and storage
+      # when something failed.
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-artifacts
+          path: artifacts/e2e
+          retention-days: 7
+          if-no-files-found: ignore
