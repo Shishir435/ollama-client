@@ -82,7 +82,7 @@
     "check:dead": "knip --no-config-hints",
     "audit": "pnpm audit",
     "clean": "rm -rf build .plasmo .wxt .output node_modules",
-    "prepare": "husky && pnpm generate:resources",
+    "prepare": "husky",
     "generate:resources": "pnpm exec tsx tools/generate-i18n-resources.ts",
     "check:generated": "pnpm generate:resources && git diff --exit-code -- public/_locales",
     "check:i18n": "pnpm exec tsx tools/check-i18n-drift.ts --strict",

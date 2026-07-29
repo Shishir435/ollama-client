@@ -297,7 +297,7 @@ The set is `ControlledTextarea`, `ControlledNumberInput`, `ControlledSlider` —
 - **Never pass a fallback string to `t()`.** Add the key to every locale instead.
 - Keep the top-level `extension` block filled in for every locale.
 - `public/_locales/**/messages.json` and `public/assets/selection-locales/` are **generated** by `tools/generate-i18n-resources.ts`. Do not hand-edit them. `_locales` is committed because extension packages need it.
-- Generation runs automatically before `dev`/`build`/`package` and on `pnpm prepare`. Run `pnpm generate:resources` manually after any locale edit to validate the catalogs.
+- Generation runs automatically before `dev`/`build`/`package`. It no longer runs on install — `prepare` only installs husky — so run `pnpm generate:resources` manually after any locale edit to validate the catalogs.
 - Before adding a key, check for an orphan that already fits — `tabs.select.ready` sat fully translated and unused.
 
 ### Testing
