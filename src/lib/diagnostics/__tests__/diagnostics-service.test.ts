@@ -455,4 +455,50 @@ describe("DiagnosticsService", () => {
     expect(serialized).not.toContain("sourceCounts")
     expect(serialized).not.toContain("sourceBytes")
   })
+
+  it("strips count pairs a previous release wrote into the receipt", async () => {
+    mocks.backend.mockResolvedValue("legacy")
+    mocks.receipt.mockResolvedValue({
+      version: 1,
+      outcome: "verification-failed",
+      recordedAt: 1,
+      extensionVersion: "0.13.0",
+      attempts: 1,
+      // A receipt is written once and then persists, so this text can come from
+      // a build that formatted count pairs. The summary cannot assume its own
+      // formatter produced it.
+      failure: "Migration verification failed: messages 39199/39204",
+      importedIntegrity: {
+        integrityCheck: "row 39204 missing from index idx_messages_session",
+        foreignKeyViolations: 0
+      }
+    })
+
+    const { bundle } = await DiagnosticsService.getBundle()
+    const serialized = JSON.stringify(bundle?.storage.migration)
+
+    expect(serialized).not.toContain("39199")
+    expect(serialized).not.toContain("39204")
+    expect(bundle?.storage.migration?.failure).toContain("[counts removed]")
+  })
+
+  it("names an empty table instead of a shortfall equal to its count", async () => {
+    mocks.backend.mockResolvedValue("legacy")
+    mocks.receipt.mockResolvedValue({
+      version: 1,
+      outcome: "verification-failed",
+      recordedAt: 1,
+      extensionVersion: "0.13.0",
+      attempts: 1,
+      // Nothing arrived, so "short by 39204" would be the total row count.
+      mismatches: [{ table: "messages", source: 39_204, imported: 0 }]
+    })
+
+    const { bundle } = await DiagnosticsService.getBundle()
+
+    expect(bundle?.storage.migration?.mismatches).toEqual([
+      "messages arrived empty"
+    ])
+    expect(JSON.stringify(bundle?.storage.migration)).not.toContain("39204")
+  })
 })
