@@ -242,15 +242,23 @@ const verifyImportCandidate = async (
 ): Promise<IntegrityReport> => {
   pool.unlink(PROBE_PATH)
   await ensureFreeSlots(pool, 1)
-  await pool.importDb(PROBE_PATH, new Uint8Array(bytes))
-  const probe = new pool.OpfsSAHPoolDb(PROBE_PATH)
+  // Owns the scratch file's whole lifetime, including the failure paths. The
+  // caller's cleanup ran only after the rollback copy was staged, so a payload
+  // that imported but would not open left the scratch file linked and holding
+  // one of the pool's fixed slots.
   try {
-    // Read before any schema runner sees the file: migrations write, and
-    // writing into a corrupt database turns a rejectable import into a
-    // damaged one.
-    return integrity(probe)
+    await pool.importDb(PROBE_PATH, new Uint8Array(bytes))
+    const probe = new pool.OpfsSAHPoolDb(PROBE_PATH)
+    try {
+      // Read before any schema runner sees the file: migrations write, and
+      // writing into a corrupt database turns a rejectable import into a
+      // damaged one.
+      return integrity(probe)
+    } finally {
+      probe.close()
+    }
   } finally {
-    probe.close()
+    pool.unlink(PROBE_PATH)
   }
 }
 
@@ -360,19 +368,27 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
       // for the next one to trip over.
       pool.unlink(PROBE_PATH)
       await ensureFreeSlots(pool, 1)
-      await pool.importDb(PROBE_PATH, new Uint8Array(request.bytes))
-      const source = new pool.OpfsSAHPoolDb(PROBE_PATH)
+      // The unlink covers the import and the open, not just the survey: a blob
+      // that imports but cannot be opened would otherwise keep the scratch file
+      // linked and hold a pool slot until some later op happened to clear it.
+      // The pool has a fixed capacity, so a leaked slot is a resource the next
+      // import has to grow the pool to replace.
       try {
-        // Nothing writes to this handle — no schema runner, no migrations. A
-        // source blob is evidence, and evidence that has been written to is
-        // no longer the thing that was measured.
-        return {
-          ...counts(source),
-          schemaVersion: queryNumber(source, "PRAGMA user_version"),
-          integrity: integrity(source)
-        } satisfies SurveyResult
+        await pool.importDb(PROBE_PATH, new Uint8Array(request.bytes))
+        const source = new pool.OpfsSAHPoolDb(PROBE_PATH)
+        try {
+          // Nothing writes to this handle — no schema runner, no migrations. A
+          // source blob is evidence, and evidence that has been written to is
+          // no longer the thing that was measured.
+          return {
+            ...counts(source),
+            schemaVersion: queryNumber(source, "PRAGMA user_version"),
+            integrity: integrity(source)
+          } satisfies SurveyResult
+        } finally {
+          source.close()
+        }
       } finally {
-        source.close()
         pool.unlink(PROBE_PATH)
       }
     }
@@ -384,9 +400,10 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
       // whenever the payload turned out to be unusable: a rejected restore
       // reported failure over an already-destroyed database. Nothing touches
       // the live file until the incoming one is known to be sound.
+      // The scratch file is gone by the time this returns, whichever way it
+      // went — verifyImportCandidate owns it end to end.
       const report = await verifyImportCandidate(pool, request.bytes)
       if (!isSoundDatabase(report)) {
-        pool.unlink(PROBE_PATH)
         throw new Error(
           `Imported database failed integrity_check: ${report.integrityCheck}`
         )
@@ -426,8 +443,6 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
           })
         }
         throw error
-      } finally {
-        pool.unlink(PROBE_PATH)
       }
     }
     case "reset": {
