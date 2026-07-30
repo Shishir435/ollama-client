@@ -20,6 +20,18 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "Which chat-history backend this device runs on; migration state never syncs."
   },
+  [STORAGE_KEYS.PERSISTENCE.MIGRATION_RECEIPT]: {
+    key: STORAGE_KEYS.PERSISTENCE.MIGRATION_RECEIPT,
+    scope: "device-local",
+    reason:
+      "Evidence of this device's chat-history migration attempt; counts and failures describe one profile only."
+  },
+  [STORAGE_KEYS.PERSISTENCE.LEGACY_OVERRIDE]: {
+    key: STORAGE_KEYS.PERSISTENCE.LEGACY_OVERRIDE,
+    scope: "device-local",
+    reason:
+      "Operator recovery switch pinning this device to the legacy blob; syncing it would strand other profiles on a retired backend."
+  },
   [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: {
     key: STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET,
     scope: "device-local",

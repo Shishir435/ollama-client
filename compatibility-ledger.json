@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastReviewed": "2026-07-29",
+  "lastReviewed": "2026-07-30",
   "entries": [
     {
       "id": "legacy-sqljs-live-fallback",
@@ -10,9 +10,9 @@
         "0.6.0-0.12.2 sql.js profiles",
         "unmarked sql.js profiles"
       ],
-      "removalGate": "Supported sql.js/OPFS migration fixtures pass in packaged Chrome and Firefox, including offscreen eviction and integrity verification; a migration receipt and operator rollback switch exist; rollback evidence is retained; and the fallback has completed its evidence window.",
+      "removalGate": "Migration fixtures pass in packaged Chrome and Firefox with per-table verification, integrity checks, and host loss during migration; a migration receipt and the operator rollback switch exist (both shipped); CI retains the evidence; and the fallback has completed its evidence window.",
       "targetRelease": "0.13.x",
-      "recoveryPath": "Keep a lazy sql.js migration-only reader and the untouched source blob so supported skipped upgrades from 0.6.0 onward remain recoverable. Pre-0.6.0 Dexie-only chat history is outside the direct-upgrade contract."
+      "recoveryPath": "Keep a lazy migration-only reader and the untouched source blob so supported skipped upgrades from 0.6.0 onward remain recoverable, plus the persistence_legacy_override_v1 switch to serve history from the blob again. Pre-0.6.0 Dexie-only chat history is outside the direct-upgrade contract."
     },
     {
       "id": "legacy-sqljs-import-generation-guard",
@@ -22,6 +22,15 @@
       "removalGate": "Remove with legacy-sqljs-live-fallback; no production writer may retain the old import-generation concept.",
       "targetRelease": "0.13.x",
       "recoveryPath": "Migration receipts and the single OPFS owner replace the guard."
+    },
+    {
+      "id": "persistence-legacy-override-switch",
+      "owner": "src/lib/persistence/backend.ts",
+      "introducedIn": "0.12.6",
+      "sourceVersions": ["0.12.6+ profiles migrated to the OPFS backend"],
+      "removalGate": "The legacy blob itself is no longer retained, so there is nothing left for the switch to return to.",
+      "targetRelease": null,
+      "recoveryPath": "Set persistence_legacy_override_v1 in device-local storage to serve chat history from the retained sql.js blob again; the migration stays skipped and records a skipped receipt while it is set."
     },
     {
       "id": "legacy-chat-blob-reader",

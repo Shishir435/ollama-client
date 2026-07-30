@@ -1,13 +1,25 @@
 import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { PERSISTENCE_MARKER } from "./protocol"
+import type {
+  IntegrityReport,
+  TableCountMismatch,
+  TableCounts
+} from "./durable-tables"
+import { PERSISTENCE_MARKER, type PersistenceStateScope } from "./protocol"
 
 // Which persistence backend this profile runs on. "legacy" is the historical
 // in-memory sql.js database persisted as one IndexedDB blob; "opfs" is the
 // single-owner sqlite-wasm database. The marker flips exactly once, after the
 // owner has physically imported and verified the legacy blob. The legacy blob
 // itself is never deleted by the migration — it is the rollback artifact.
+//
+// Two records sit beside the marker, both device-local:
+//   - the migration receipt, written on every attempt including failures, so
+//     an unmigrated profile can state why it is still on the blob;
+//   - the operator override, which pins this device to the blob regardless of
+//     the marker. That is the recovery path for a migration that passed
+//     verification and still produced the wrong data.
 
 export type PersistenceBackend = "legacy" | "opfs"
 
@@ -17,6 +29,32 @@ interface BackendMarker {
   sourceCounts?: { sessions: number; messages: number }
 }
 
+export type MigrationOutcome = "migrated" | "fresh" | "failed" | "skipped"
+
+export interface MigrationReceipt {
+  version: 1
+  outcome: MigrationOutcome
+  recordedAt: number
+  /** Extension version that performed the attempt. */
+  extensionVersion: string
+  /** How many attempts this profile has recorded, including this one. */
+  attempts: number
+  sourceSchemaVersion?: number
+  sourceBytes?: number
+  sourceCounts?: TableCounts
+  importedCounts?: TableCounts
+  sourceIntegrity?: IntegrityReport
+  importedIntegrity?: IntegrityReport
+  mismatches?: TableCountMismatch[]
+  failure?: string
+}
+
+const STORAGE_KEY_BY_SCOPE: Record<PersistenceStateScope, string> = {
+  backend: STORAGE_KEYS.PERSISTENCE.BACKEND,
+  receipt: STORAGE_KEYS.PERSISTENCE.MIGRATION_RECEIPT,
+  override: STORAGE_KEYS.PERSISTENCE.LEGACY_OVERRIDE
+}
+
 // Only "opfs" is cached permanently — it is the terminal state. "legacy" is
 // transitional (the owner may flip the marker at any moment), so it is
 // re-read on demand and the cache is invalidated live through
@@ -24,6 +62,7 @@ interface BackendMarker {
 // lifetime would keep it writing the rollback blob after migration —
 // split-brain history.
 let cachedBackend: PersistenceBackend | null = null
+let cachedOverride: boolean | null = null
 
 let watcherRegistered = false
 const registerMarkerWatcher = (): void => {
@@ -31,8 +70,10 @@ const registerMarkerWatcher = (): void => {
   watcherRegistered = true
   try {
     browser.storage?.onChanged?.addListener((changes, areaName) => {
-      if (areaName === "local" && STORAGE_KEYS.PERSISTENCE.BACKEND in changes) {
-        cachedBackend = null
+      if (areaName !== "local") return
+      if (STORAGE_KEYS.PERSISTENCE.BACKEND in changes) cachedBackend = null
+      if (STORAGE_KEYS.PERSISTENCE.LEGACY_OVERRIDE in changes) {
+        cachedOverride = null
       }
     })
   } catch {
@@ -42,7 +83,7 @@ const registerMarkerWatcher = (): void => {
 }
 
 // Offscreen documents expose runtime messaging but not storage; the background
-// answers marker reads/writes on their behalf.
+// answers these reads/writes on their behalf.
 //
 // Probed through `browser` — the promise-based polyfill — and not the `chrome`
 // alias. On Firefox `chrome` is callback-only, so `await chrome.storage.local
@@ -51,45 +92,80 @@ const registerMarkerWatcher = (): void => {
 // "legacy", and Firefox therefore never left the sql.js blob backend.
 const hasStorageApi = (): boolean => Boolean(browser.storage?.local)
 
-const readMarkerRaw = async (): Promise<BackendMarker | undefined> => {
+const readState = async <T>(
+  scope: PersistenceStateScope
+): Promise<T | undefined> => {
+  const key = STORAGE_KEY_BY_SCOPE[scope]
   if (hasStorageApi()) {
-    const stored = await browser.storage.local.get(
-      STORAGE_KEYS.PERSISTENCE.BACKEND
-    )
-    return stored[STORAGE_KEYS.PERSISTENCE.BACKEND] as BackendMarker | undefined
+    const stored = await browser.storage.local.get(key)
+    return stored[key] as T | undefined
   }
   const response = (await browser.runtime.sendMessage({
     type: PERSISTENCE_MARKER,
-    action: "get"
-  })) as { ok: boolean; marker?: BackendMarker; error?: string } | undefined
+    action: "get",
+    scope
+  })) as { ok: boolean; value?: unknown; error?: string } | undefined
   if (!response?.ok) {
-    throw new Error(response?.error ?? "Marker read message dropped")
+    throw new Error(response?.error ?? `${scope} read message dropped`)
   }
-  return response.marker
+  return response.value as T | undefined
 }
 
-const writeMarkerRaw = async (marker: BackendMarker): Promise<void> => {
+const writeState = async (
+  scope: PersistenceStateScope,
+  value: unknown
+): Promise<void> => {
   if (hasStorageApi()) {
-    await browser.storage.local.set({
-      [STORAGE_KEYS.PERSISTENCE.BACKEND]: marker
-    })
+    await browser.storage.local.set({ [STORAGE_KEY_BY_SCOPE[scope]]: value })
     return
   }
   const response = (await browser.runtime.sendMessage({
     type: PERSISTENCE_MARKER,
     action: "set",
-    marker
+    scope,
+    value
   })) as { ok: boolean; error?: string } | undefined
   if (!response?.ok) {
-    throw new Error(response?.error ?? "Marker write message dropped")
+    throw new Error(response?.error ?? `${scope} write message dropped`)
   }
+}
+
+/**
+ * Whether the operator switch pins this device to the legacy blob.
+ *
+ * A failed read answers false: absent is the normal state, and answering true
+ * on a transient storage error would send a migrated profile back to a stale
+ * blob — split-brain history from a glitch.
+ */
+export const readLegacyOverride = async (): Promise<boolean> => {
+  if (cachedOverride !== null) return cachedOverride
+  try {
+    cachedOverride = (await readState<boolean>("override")) === true
+    return cachedOverride
+  } catch (error) {
+    logger.warn("Failed to read persistence legacy override", "Persistence", {
+      error
+    })
+    return false
+  }
+}
+
+/** Operator recovery switch. Enabling it returns this device to the retained
+ * legacy blob; the migration stays skipped for as long as it is set. */
+export const setLegacyOverride = async (enabled: boolean): Promise<void> => {
+  await writeState("override", enabled)
+  cachedOverride = enabled
+  cachedBackend = null
 }
 
 export const readPersistenceBackend = async (): Promise<PersistenceBackend> => {
   registerMarkerWatcher()
+  // Checked before the "opfs" cache: the switch has to take effect in a
+  // context that already resolved the terminal state.
+  if (await readLegacyOverride()) return "legacy"
   if (cachedBackend === "opfs") return cachedBackend
   try {
-    const marker = await readMarkerRaw()
+    const marker = await readState<BackendMarker>("backend")
     cachedBackend = marker?.backend === "opfs" ? "opfs" : "legacy"
     return cachedBackend
   } catch (error) {
@@ -110,12 +186,65 @@ export const markOpfsBackend = async (details: {
     migratedAt: Date.now(),
     sourceCounts: details.sourceCounts
   }
-  await writeMarkerRaw(marker)
+  await writeState("backend", marker)
   cachedBackend = "opfs"
+}
+
+export const readMigrationReceipt =
+  async (): Promise<MigrationReceipt | null> => {
+    try {
+      return (await readState<MigrationReceipt>("receipt")) ?? null
+    } catch (error) {
+      logger.warn("Failed to read migration receipt", "Persistence", { error })
+      return null
+    }
+  }
+
+// Read through the `chrome` alias: getManifest is synchronous, so the
+// callback-vs-promise split that forces `browser` elsewhere does not apply, and
+// the polyfill did not answer it in the offscreen owner — every receipt written
+// there recorded the version as "unknown".
+const extensionVersion = (): string => {
+  try {
+    return chrome.runtime.getManifest().version
+  } catch {
+    try {
+      return browser.runtime.getManifest().version
+    } catch {
+      return "unknown"
+    }
+  }
+}
+
+/**
+ * Record a migration attempt. Never throws: a receipt is evidence, and losing
+ * it must not fail an otherwise good migration or mask the real failure of a
+ * bad one.
+ */
+export const writeMigrationReceipt = async (
+  details: Omit<
+    MigrationReceipt,
+    "version" | "recordedAt" | "extensionVersion" | "attempts"
+  >
+): Promise<void> => {
+  try {
+    const previous = await readMigrationReceipt()
+    const receipt: MigrationReceipt = {
+      ...details,
+      version: 1,
+      recordedAt: Date.now(),
+      extensionVersion: extensionVersion(),
+      attempts: (previous?.attempts ?? 0) + 1
+    }
+    await writeState("receipt", receipt)
+  } catch (error) {
+    logger.warn("Failed to write migration receipt", "Persistence", { error })
+  }
 }
 
 /** Test hook and backup-import hook: drop the in-context cache so the next
  * read hits storage again. */
 export const invalidateBackendCache = (): void => {
   cachedBackend = null
+  cachedOverride = null
 }
