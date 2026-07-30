@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { ensureIngestionRunsTable } from "../add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "../add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "../add-message-replay-artifact-column"
 import { ensurePromptTemplatesTable } from "../add-prompt-templates-table"
@@ -140,5 +141,18 @@ describe("ensureTurnRunsTable", () => {
     expect(statements[0]).toContain("contextReceipt TEXT")
     expect(statements[1]).toContain("idx_turn_runs_sessionId")
     expect(statements[2]).toContain("idx_turn_runs_status")
+  })
+})
+
+describe("ensureIngestionRunsTable", () => {
+  it("creates durable ingestion lifecycle state and status index", () => {
+    const db = { run: vi.fn() }
+    ensureIngestionRunsTable(db as never)
+    const statements = db.run.mock.calls.map(([sql]) => String(sql))
+
+    expect(statements[0]).toContain("CREATE TABLE IF NOT EXISTS ingestion_runs")
+    expect(statements[0]).toContain("phase TEXT NOT NULL")
+    expect(statements[0]).toContain("autoEmbed INTEGER NOT NULL")
+    expect(statements[1]).toContain("idx_ingestion_runs_status")
   })
 })

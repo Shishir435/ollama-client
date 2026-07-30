@@ -1,6 +1,7 @@
 import type { Database } from "sql.js"
 
 import { logger } from "@/lib/logger"
+import { ensureIngestionRunsTable } from "./add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
 import { ensureMessagesUpdatedAtColumn } from "./add-message-updated-at-column"
@@ -85,6 +86,11 @@ export const MIGRATIONS: Migration[] = [
     version: 10,
     name: "add-turn-runs-table",
     up: ensureTurnRunsTable
+  },
+  {
+    version: 11,
+    name: "add-ingestion-runs-table",
+    up: ensureIngestionRunsTable
   }
 ]
 
@@ -123,7 +129,7 @@ const getTableColumns = (db: Database, table: "messages" | "sessions") => {
 
 const hasTable = (
   db: Database,
-  table: "tool_loop_runs" | "prompt_templates" | "turn_runs"
+  table: "tool_loop_runs" | "prompt_templates" | "turn_runs" | "ingestion_runs"
 ) => {
   const stmt = db.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1"
@@ -184,6 +190,10 @@ export const repairSchemaDrift = (db: Database): number => {
     {
       missing: !hasTable(db, "turn_runs"),
       apply: () => ensureTurnRunsTable(db)
+    },
+    {
+      missing: !hasTable(db, "ingestion_runs"),
+      apply: () => ensureIngestionRunsTable(db)
     }
   ]
 

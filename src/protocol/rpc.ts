@@ -21,6 +21,9 @@ export enum RpcMethod {
   ModelsGetLibraryVariants = "models.getLibraryVariants",
   EmbeddingsCheckModel = "embeddings.checkModel",
   EmbeddingsPrepareModel = "embeddings.prepareModel",
+  IngestionSubmit = "ingestions.submit",
+  IngestionGet = "ingestions.get",
+  IngestionCancel = "ingestions.cancel",
   DiagnosticsRun = "diagnostics.run",
   DiagnosticsGetBundle = "diagnostics.getBundle",
   DiagnosticsClear = "diagnostics.clear"

@@ -110,6 +110,23 @@ CREATE TABLE IF NOT EXISTS turn_runs (
 CREATE INDEX IF NOT EXISTS idx_turn_runs_sessionId ON turn_runs(sessionId);
 CREATE INDEX IF NOT EXISTS idx_turn_runs_status ON turn_runs(status);
 
+-- Durable metadata for file ingestion. The resumable processed payload and
+-- vectors remain in IndexedDB; SQLite owns lifecycle state and recovery.
+CREATE TABLE IF NOT EXISTS ingestion_runs (
+  id TEXT PRIMARY KEY,
+  fileId TEXT NOT NULL,
+  knowledgeSetId TEXT NOT NULL,
+  fileName TEXT NOT NULL,
+  status TEXT NOT NULL,
+  phase TEXT NOT NULL,
+  autoEmbed INTEGER NOT NULL,
+  failure TEXT,
+  createdAt INTEGER NOT NULL,
+  updatedAt INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_runs_status ON ingestion_runs(status);
+
 -- Chunk feedback table for learning from user feedback
 CREATE TABLE IF NOT EXISTS chunk_feedback (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

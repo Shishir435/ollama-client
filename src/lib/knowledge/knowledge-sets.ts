@@ -146,6 +146,10 @@ export const markKnowledgeFileEmbedded = async (
   })
 }
 
+export const removeKnowledgeFile = async (fileId: string): Promise<void> => {
+  await knowledgeDb.knowledgeFiles.delete(fileId)
+}
+
 export const getKnowledgeSetFileIds = async (
   knowledgeSetId: string
 ): Promise<string[]> => {

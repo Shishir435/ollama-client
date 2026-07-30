@@ -1,5 +1,4 @@
 import type { z } from "zod"
-
 import {
   DiagnosticsClearRequestSchema,
   DiagnosticsClearResultSchema,
@@ -8,6 +7,14 @@ import {
   DiagnosticsRunRequestSchema,
   DiagnosticsRunResultSchema
 } from "./diagnostics-rpc"
+import {
+  IngestionCancelRequestSchema,
+  IngestionCancelResultSchema,
+  IngestionGetRequestSchema,
+  IngestionGetResultSchema,
+  IngestionSubmitRequestSchema,
+  IngestionSubmitResultSchema
+} from "./ingestion-rpc"
 
 import {
   EmbeddingsCheckModelRequestSchema,
@@ -163,6 +170,27 @@ export const RPC_METHOD_DEFINITIONS = {
     allowedSources: extensionPagesOnly,
     // Preparing can mean pulling the model.
     timeoutMs: 300_000,
+    operation: "command"
+  },
+  [RpcMethod.IngestionSubmit]: {
+    request: IngestionSubmitRequestSchema,
+    response: IngestionSubmitResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
+    operation: "command"
+  },
+  [RpcMethod.IngestionGet]: {
+    request: IngestionGetRequestSchema,
+    response: IngestionGetResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 5_000,
+    operation: "query"
+  },
+  [RpcMethod.IngestionCancel]: {
+    request: IngestionCancelRequestSchema,
+    response: IngestionCancelResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
     operation: "command"
   },
   [RpcMethod.DiagnosticsRun]: {
