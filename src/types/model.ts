@@ -201,8 +201,3 @@ export interface PullStreamMessage {
   done?: boolean
   error?: string | AppFailure
 }
-
-export interface ModelPullMessage {
-  payload: string | { model: string; providerId?: string }
-  cancel?: boolean
-}

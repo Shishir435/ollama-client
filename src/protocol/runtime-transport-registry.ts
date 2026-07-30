@@ -66,12 +66,6 @@ export const RUNTIME_TRANSPORT_DEFINITIONS = [
     allowedSources: extensionPage
   },
   {
-    type: MESSAGE_KEYS.PROVIDER.PULL_MODEL,
-    transport: "port",
-    operation: "stream",
-    allowedSources: extensionPage
-  },
-  {
     type: MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION,
     transport: "port",
     operation: "stream",
@@ -97,12 +91,6 @@ export const RUNTIME_TRANSPORT_DEFINITIONS = [
   },
   {
     type: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE,
-    transport: "port",
-    operation: "stream",
-    allowedSources: extensionPage
-  },
-  {
-    type: MESSAGE_KEYS.OLLAMA.PULL_MODEL,
     transport: "port",
     operation: "stream",
     allowedSources: extensionPage

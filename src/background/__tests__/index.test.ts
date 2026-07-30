@@ -77,9 +77,6 @@ vi.mock("@/background/handlers/handle-embedding-download", () => ({
 vi.mock("@/background/handlers/handle-get-models", () => ({
   handleGetModels: vi.fn()
 }))
-vi.mock("@/background/handlers/handle-model-pull", () => ({
-  handleModelPull: vi.fn()
-}))
 vi.mock("@/background/handlers/handle-start-turn", () => ({
   handleStartTurn: vi.fn()
 }))
@@ -106,7 +103,6 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
-import { handleModelPull } from "@/background/handlers/handle-model-pull"
 import { handleStartTurn } from "@/background/handlers/handle-start-turn"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import {
@@ -319,33 +315,6 @@ describe("Background Script Entry Point", () => {
 
       expect(handleStartTurn).toHaveBeenCalled()
       expect(abortAndClearController).not.toHaveBeenCalledWith("turn-1")
-    })
-
-    it("should route PULL_MODEL via named port", () => {
-      const onConnect = listeners.onConnect[0]
-      const port = {
-        name: MESSAGE_KEYS.PROVIDER.PULL_MODEL,
-        sender: extensionSender,
-        onMessage: { addListener: vi.fn() },
-        onDisconnect: { addListener: vi.fn() },
-        disconnect: vi.fn()
-      }
-
-      onConnect(port)
-
-      // For named ports, it registers a specific listener.
-      // Note: The generic listener is also registered first, so we want the last one.
-      const calls = port.onMessage.addListener.mock.calls
-      const portMessageListener = calls[calls.length - 1][0]
-
-      const msg = {
-        version: 1,
-        type: "model_pull_start",
-        payload: { model: "llama2" }
-      }
-      portMessageListener(msg)
-
-      expect(handleModelPull).toHaveBeenCalled()
     })
 
     it("no longer answers the retired provider message keys", () => {

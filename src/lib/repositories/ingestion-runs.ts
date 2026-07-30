@@ -9,6 +9,7 @@ export type IngestionRunStatus =
 
 export type IngestionPhase =
   | "queued"
+  | "parsing"
   | "registering"
   | "embedding"
   | "committing"

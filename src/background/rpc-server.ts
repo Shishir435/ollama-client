@@ -77,6 +77,24 @@ const handlers = {
     IngestionService.get(request.jobId),
   [RpcMethod.IngestionCancel]: async (request) =>
     IngestionService.cancel(request.jobId),
+  [RpcMethod.IngestionAck]: async (request) =>
+    IngestionService.acknowledge(request.jobId),
+  [RpcMethod.ModelPullSubmit]: async (request) => {
+    const { ModelPullService } = await import("@/background/model-pull-runtime")
+    return ModelPullService.submit(request)
+  },
+  [RpcMethod.ModelPullGet]: async (request) => {
+    const { ModelPullService } = await import("@/background/model-pull-runtime")
+    return ModelPullService.get(request.jobId)
+  },
+  [RpcMethod.ModelPullCancel]: async (request) => {
+    const { ModelPullService } = await import("@/background/model-pull-runtime")
+    return ModelPullService.cancel(request.jobId)
+  },
+  [RpcMethod.ModelPullListActive]: async () => {
+    const { ModelPullService } = await import("@/background/model-pull-runtime")
+    return ModelPullService.listActive()
+  },
   // `diagnostics.run` is only reachable from the user pressing "Run self-tests",
   // which means "measure now" — never answer it from the shared TTL result.
   [RpcMethod.DiagnosticsRun]: async (_request, signal) =>

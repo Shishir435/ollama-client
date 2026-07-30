@@ -24,6 +24,11 @@ export enum RpcMethod {
   IngestionSubmit = "ingestions.submit",
   IngestionGet = "ingestions.get",
   IngestionCancel = "ingestions.cancel",
+  IngestionAck = "ingestions.ack",
+  ModelPullSubmit = "models.submitPull",
+  ModelPullGet = "models.getPull",
+  ModelPullCancel = "models.cancelPull",
+  ModelPullListActive = "models.listActivePulls",
   DiagnosticsRun = "diagnostics.run",
   DiagnosticsGetBundle = "diagnostics.getBundle",
   DiagnosticsClear = "diagnostics.clear"

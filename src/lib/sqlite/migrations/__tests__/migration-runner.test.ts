@@ -63,6 +63,11 @@ vi.mock("../add-ingestion-runs-table", () => ({
   ensureIngestionRunsTable: (db: unknown) => ensureIngestionRunsTable(db)
 }))
 
+const ensureModelPullRunsTable = vi.fn()
+vi.mock("../add-model-pull-runs-table", () => ({
+  ensureModelPullRunsTable: (db: unknown) => ensureModelPullRunsTable(db)
+}))
+
 import {
   getSchemaVersion,
   LATEST_SCHEMA_VERSION,
@@ -96,7 +101,8 @@ const makeDb = (
       "tool_loop_runs",
       "prompt_templates",
       "turn_runs",
-      "ingestion_runs"
+      "ingestion_runs",
+      "model_pull_runs"
     ]
   )
   return {
@@ -152,6 +158,7 @@ beforeEach(() => {
   ensurePromptTemplatesTable.mockClear()
   ensureTurnRunsTable.mockClear()
   ensureIngestionRunsTable.mockClear()
+  ensureModelPullRunsTable.mockClear()
 })
 
 describe("migration-runner", () => {
@@ -194,6 +201,7 @@ describe("migration-runner", () => {
     expect(ensurePromptTemplatesTable).toHaveBeenCalledTimes(1)
     expect(ensureTurnRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureIngestionRunsTable).toHaveBeenCalledTimes(1)
+    expect(ensureModelPullRunsTable).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -212,6 +220,7 @@ describe("migration-runner", () => {
     expect(ensurePromptTemplatesTable).toHaveBeenCalledTimes(1)
     expect(ensureTurnRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureIngestionRunsTable).toHaveBeenCalledTimes(1)
+    expect(ensureModelPullRunsTable).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -240,7 +249,7 @@ describe("migration-runner", () => {
 
     const repaired = repairSchemaDrift(db as never)
 
-    expect(repaired).toBe(7)
+    expect(repaired).toBe(8)
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledWith(db)
     expect(ensureMessagesErrorColumn).toHaveBeenCalledWith(db)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledWith(db)
@@ -248,6 +257,7 @@ describe("migration-runner", () => {
     expect(ensurePromptTemplatesTable).toHaveBeenCalledWith(db)
     expect(ensureTurnRunsTable).toHaveBeenCalledWith(db)
     expect(ensureIngestionRunsTable).toHaveBeenCalledWith(db)
+    expect(ensureModelPullRunsTable).toHaveBeenCalledWith(db)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
@@ -265,5 +275,6 @@ describe("migration-runner", () => {
     expect(ensureToolLoopRunsTable).not.toHaveBeenCalled()
     expect(ensurePromptTemplatesTable).not.toHaveBeenCalled()
     expect(ensureIngestionRunsTable).not.toHaveBeenCalled()
+    expect(ensureModelPullRunsTable).not.toHaveBeenCalled()
   })
 })

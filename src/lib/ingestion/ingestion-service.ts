@@ -15,10 +15,13 @@ import {
   saveIngestionRun
 } from "@/lib/repositories/ingestion-runs"
 import type {
+  IngestionAckResult,
   IngestionJobResult,
   IngestionSubmitRequest
 } from "@/protocol/ingestion-rpc"
+import type { IngestionPayload } from "./ingestion-payload-db"
 import { ingestionPayloadDb } from "./ingestion-payload-db"
+import { processStagedIngestion } from "./ingestion-processor-protocol"
 
 interface ActiveIngestion {
   controller: AbortController
@@ -28,6 +31,18 @@ interface ActiveIngestion {
 const activeIngestions = new Map<string, ActiveIngestion>()
 const activeFileJobs = new Map<string, string>()
 
+const runFromPayload = (payload: IngestionPayload): IngestionRun => ({
+  id: payload.jobId,
+  fileId: payload.fileId,
+  knowledgeSetId: payload.knowledgeSetId,
+  fileName: payload.fileName,
+  status: "queued",
+  phase: "queued",
+  autoEmbed: payload.autoEmbed,
+  createdAt: payload.createdAt,
+  updatedAt: payload.createdAt
+})
+
 const resultFromRun = (run: IngestionRun): IngestionJobResult => ({
   jobId: run.id,
   fileId: run.fileId,
@@ -35,6 +50,26 @@ const resultFromRun = (run: IngestionRun): IngestionJobResult => ({
   phase: run.phase,
   ...(run.failure && { failure: run.failure })
 })
+
+// A processed payload that was never acknowledged (the page closed before the
+// result was consumed) is pruned on the next background boot.
+const UNACKED_PAYLOAD_RETENTION_MS = 24 * 60 * 60 * 1000
+
+const isTerminal = (run: IngestionRun): boolean =>
+  run.status === "completed" ||
+  run.status === "failed" ||
+  run.status === "cancelled"
+
+/** Completed runs carry the parse result until the caller acknowledges it. */
+const resultWithPayload = async (
+  run: IngestionRun
+): Promise<IngestionJobResult> => {
+  const result = resultFromRun(run)
+  if (run.status !== "completed") return result
+  const payload = await ingestionPayloadDb.payloads.get(run.id)
+  if (payload?.kind !== "processed") return result
+  return { ...result, processedFile: payload.processedFile }
+}
 
 const checkpoint = async (
   run: IngestionRun,
@@ -102,7 +137,7 @@ const execute = async (
       return
     }
 
-    const payload = await ingestionPayloadDb.payloads.get(run.id)
+    let payload = await ingestionPayloadDb.payloads.get(run.id)
     if (!payload) {
       throw createAppError("The durable ingestion payload is missing", {
         kind: "storage"
@@ -110,6 +145,18 @@ const execute = async (
     }
 
     signal.throwIfAborted()
+    if (payload.kind === "raw") {
+      run = await checkpoint(run, "running", "parsing")
+      await processStagedIngestion(run.id)
+      payload = await ingestionPayloadDb.payloads.get(run.id)
+      if (payload?.kind !== "processed") {
+        throw createAppError("File parsing did not produce a durable result", {
+          kind: "storage"
+        })
+      }
+      signal.throwIfAborted()
+    }
+
     run = await checkpoint(run, "running", "registering")
     const { processedFile, contentType } = payload
     await addFileToKnowledgeSet({
@@ -148,19 +195,7 @@ const execute = async (
     if (run.autoEmbed) {
       await markKnowledgeFileEmbedded(run.fileId)
     }
-    run = await checkpoint(run, "completed", "completed")
-    await ingestionPayloadDb.payloads.delete(run.id).catch((error) => {
-      // The durable receipt is authoritative. A stale payload is safe and can
-      // be pruned later; it must never roll back a committed ingestion.
-      logger.warn(
-        "Failed to prune completed ingestion payload",
-        "IngestionService",
-        {
-          jobId: run.id,
-          error
-        }
-      )
-    })
+    await checkpoint(run, "completed", "completed")
   } catch (error) {
     const cancelled = signal.aborted
     const failure = cancelled ? undefined : getErrorMessage(error)
@@ -212,33 +247,22 @@ const start = (run: IngestionRun): Promise<void> => {
 
 export const IngestionService = {
   async submit(request: IngestionSubmitRequest): Promise<IngestionJobResult> {
-    const { processedFile } = request
-    const fileId = processedFile.metadata.fileId
-    const knowledgeSetId = processedFile.metadata.knowledgeSetId
-    const now = Date.now()
-    const run: IngestionRun = {
-      id: crypto.randomUUID(),
-      fileId,
-      knowledgeSetId,
-      fileName: processedFile.metadata.fileName,
-      status: "queued",
-      phase: "queued",
-      autoEmbed: request.autoEmbed,
-      createdAt: now,
-      updatedAt: now
+    const existing = await getIngestionRun(request.jobId)
+    if (existing) {
+      if (existing.status === "queued" || existing.status === "running") {
+        void start(existing)
+      }
+      return resultWithPayload(existing)
     }
 
-    await ingestionPayloadDb.payloads.put({
-      jobId: run.id,
-      contentType: request.contentType,
-      processedFile
-    })
-    try {
-      await saveIngestionRun(run)
-    } catch (error) {
-      await ingestionPayloadDb.payloads.delete(run.id)
-      throw error
+    const payload = await ingestionPayloadDb.payloads.get(request.jobId)
+    if (!payload) {
+      throw createAppError("The staged ingestion payload is missing", {
+        kind: "storage"
+      })
     }
+    const run = runFromPayload(payload)
+    await saveIngestionRun(run)
     void start(run).catch((error) => {
       logger.error("Durable ingestion execution failed", "IngestionService", {
         jobId: run.id,
@@ -256,7 +280,21 @@ export const IngestionService = {
         status: 404
       })
     }
-    return resultFromRun(run)
+    return resultWithPayload(run)
+  },
+
+  /** Releases the staged result once the caller confirms it received it. */
+  async acknowledge(jobId: string): Promise<IngestionAckResult> {
+    const run = await getIngestionRun(jobId)
+    if (!run) {
+      throw createAppError("Ingestion job not found", {
+        kind: "validation",
+        status: 404
+      })
+    }
+    if (!isTerminal(run)) return { jobId, released: false }
+    await ingestionPayloadDb.payloads.delete(jobId)
+    return { jobId, released: true }
   },
 
   async cancel(jobId: string): Promise<IngestionJobResult> {
@@ -281,6 +319,21 @@ export const IngestionService = {
   },
 
   async resumeIncomplete(): Promise<void> {
+    const now = Date.now()
+    const payloads = await ingestionPayloadDb.payloads.toArray()
+    for (const payload of payloads) {
+      const existing = await getIngestionRun(payload.jobId)
+      if (!existing) {
+        await saveIngestionRun(runFromPayload(payload))
+        continue
+      }
+      if (
+        isTerminal(existing) &&
+        now - existing.updatedAt > UNACKED_PAYLOAD_RETENTION_MS
+      ) {
+        await ingestionPayloadDb.payloads.delete(payload.jobId)
+      }
+    }
     const runs = await listIncompleteIngestionRuns()
     await Promise.all(runs.map((run) => start(run)))
   }

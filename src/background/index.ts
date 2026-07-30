@@ -31,9 +31,19 @@ function registerPersistenceTopology() {
     return
   }
   if (__FIREFOX_BG_OWNER__) {
-    void import("@/lib/persistence/owner-host").then((module) =>
+    void import("@/lib/persistence/owner-host").then((module) => {
       module.registerPersistenceHost()
-    )
+      if (
+        typeof document !== "undefined" &&
+        !document.querySelector("#ingestion-processor-host")
+      ) {
+        const frame = document.createElement("iframe")
+        frame.id = "ingestion-processor-host"
+        frame.hidden = true
+        frame.src = chrome.runtime.getURL("ingestion-processor.html?host=1")
+        document.body.append(frame)
+      }
+    })
     return
   }
   void import("@/lib/persistence/chromium-owner").then((module) =>

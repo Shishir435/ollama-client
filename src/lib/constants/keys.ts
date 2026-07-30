@@ -14,7 +14,6 @@ export const PROVIDER_MESSAGE_KEYS = {
   STREAM_RESPONSE: "provider-stream-response",
   RECONNECT_STREAM: "stream-reconnect",
   STOP_GENERATION: "stop-generation",
-  PULL_MODEL: "PROVIDER.PULL_MODEL",
   START_SELECTION_ACTION: "start-selection-action",
   CANCEL_SELECTION_ACTION: "cancel-selection-action",
   CONFIRM_TOOL: "confirm-tool"
@@ -23,15 +22,15 @@ export const PROVIDER_MESSAGE_KEYS = {
 /**
  * Legacy Ollama-named message keys.
  *
- * Only the *port* names remain. Every legacy request/response twin was retired
+ * Only the chat stream port name remains. Every legacy request/response twin
+ * and the port-owned model pull were retired
  * with the RPC migration: a page old enough to send one is a page whose
  * extension context the browser already invalidated during the upgrade, so the
  * duplicate string bought compatibility with nothing while giving each action
  * two ways to behave differently.
  */
 export const LEGACY_OLLAMA_MESSAGE_KEYS = {
-  STREAM_RESPONSE: "ollama-stream-response",
-  PULL_MODEL: "OLLAMA.PULL_MODEL"
+  STREAM_RESPONSE: "ollama-stream-response"
 } as const
 
 export const MESSAGE_KEYS = {

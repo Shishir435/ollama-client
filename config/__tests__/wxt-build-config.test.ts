@@ -23,7 +23,8 @@ describe("devEntrypointsToStrip", () => {
       "spike-opfs",
       "spike-owner",
       "spike-owner-offscreen",
-      "persistence-verify"
+      "persistence-verify",
+      "ingestion-processor"
     ])
   })
 
@@ -31,6 +32,7 @@ describe("devEntrypointsToStrip", () => {
     const stripped = devEntrypointsToStrip(FIREFOX_STORE)
 
     expect(stripped).toContain("persistence-host")
+    expect(stripped).not.toContain("ingestion-processor")
     // Firefox hosts the owner in its persistent background page, so shipping
     // the offscreen document would be dead weight in the package.
     expect(stripped).toContain("spike-owner-offscreen")
@@ -42,7 +44,7 @@ describe("devEntrypointsToStrip", () => {
       benchmark: true
     })
 
-    expect(stripped).toEqual([])
+    expect(stripped).toEqual(["ingestion-processor"])
   })
 
   it("keeps them in a dev server run without any env var", () => {
@@ -52,7 +54,7 @@ describe("devEntrypointsToStrip", () => {
       benchmark: false
     })
 
-    expect(stripped).toEqual([])
+    expect(stripped).toEqual(["ingestion-processor"])
   })
 
   it("keeps the Firefox owner-client page while dropping only the offscreen one", () => {
@@ -63,6 +65,8 @@ describe("devEntrypointsToStrip", () => {
 
     expect(stripped).not.toContain("spike-owner")
     expect(stripped).toContain("spike-owner-offscreen")
+    expect(stripped).toContain("persistence-host")
+    expect(stripped).not.toContain("ingestion-processor")
   })
 })
 
@@ -158,6 +162,7 @@ describe("env wiring", () => {
       { name: "spike-owner-offscreen" },
       { name: "persistence-verify" },
       { name: "persistence-host" },
+      { name: "ingestion-processor" },
       { name: "background" }
     ]
     const before = entrypoints.map((entry) => entry.name)

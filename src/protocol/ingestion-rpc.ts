@@ -12,6 +12,7 @@ export const IngestionStatusSchema = z.enum([
 
 export const IngestionPhaseSchema = z.enum([
   "queued",
+  "parsing",
   "registering",
   "embedding",
   "committing",
@@ -19,7 +20,7 @@ export const IngestionPhaseSchema = z.enum([
   "compensating"
 ])
 
-const ProcessedFileSchema = z
+export const ProcessedFileSchema = z
   .object({
     text: z.string().max(20_000_000),
     chunks: z.array(z.string().max(2_000_000)).max(100_000).optional(),
@@ -51,9 +52,7 @@ const ProcessedFileSchema = z
 
 export const IngestionSubmitRequestSchema = z
   .object({
-    processedFile: ProcessedFileSchema,
-    contentType: z.string().max(500),
-    autoEmbed: z.boolean()
+    jobId: z.string().uuid()
   })
   .strict()
 
@@ -63,7 +62,8 @@ export const IngestionJobResultSchema = z
     fileId: z.string(),
     status: IngestionStatusSchema,
     phase: IngestionPhaseSchema,
-    failure: z.string().max(4000).optional()
+    failure: z.string().max(4000).optional(),
+    processedFile: ProcessedFileSchema.optional()
   })
   .strict()
 
@@ -74,12 +74,23 @@ export const IngestionGetRequestSchema = z
 export const IngestionGetResultSchema = IngestionJobResultSchema
 export const IngestionCancelRequestSchema = IngestionGetRequestSchema
 export const IngestionCancelResultSchema = IngestionJobResultSchema
+// The staged payload is the only copy of a completed parse result, so it is
+// released on an explicit acknowledgement rather than on read: a dropped
+// `ingestions.get` response must stay recoverable.
+export const IngestionAckRequestSchema = IngestionGetRequestSchema
+export const IngestionAckResultSchema = z
+  .object({
+    jobId: z.string().uuid(),
+    released: z.boolean()
+  })
+  .strict()
 
 export type IngestionSubmitRequest = z.infer<
   typeof IngestionSubmitRequestSchema
 >
 export type IngestionJobResult = z.infer<typeof IngestionJobResultSchema>
 export type IngestionGetRequest = z.infer<typeof IngestionGetRequestSchema>
+export type IngestionAckResult = z.infer<typeof IngestionAckResultSchema>
 
 declare module "./provider-rpc" {
   interface RpcMap {
@@ -94,6 +105,10 @@ declare module "./provider-rpc" {
     [RpcMethod.IngestionCancel]: RpcDefinition<
       IngestionGetRequest,
       IngestionJobResult
+    >
+    [RpcMethod.IngestionAck]: RpcDefinition<
+      IngestionGetRequest,
+      IngestionAckResult
     >
   }
 }
