@@ -41,6 +41,9 @@ import { asSqlJsDatabase } from "./sqljs-compat"
 // is atomic, which is what makes run's lastInsertRowid race-free.
 
 const DB_PATH = "/chat-history.sqlite"
+// Scratch path an incoming database is verified in before it is allowed to
+// replace DB_PATH. Never opened by anything but the verification probe.
+const PROBE_PATH = "/chat-history-import-probe.sqlite"
 
 interface WorkerRequest {
   id: number
@@ -186,6 +189,33 @@ const counts = (db: Database): CountsResult => {
   }
 }
 
+/**
+ * Import a candidate database to the scratch path and report its integrity.
+ *
+ * Any failure here — a truncated file, a payload that is not a database at all,
+ * no room in the pool — leaves the live database untouched, which is the whole
+ * point of doing this before the replacement rather than after.
+ */
+const verifyImportCandidate = async (
+  pool: SAHPoolUtil,
+  bytes: ArrayBuffer
+): Promise<IntegrityReport> => {
+  pool.unlink(PROBE_PATH)
+  if (pool.getCapacity() - pool.getFileCount() < 1) {
+    await pool.addCapacity(2)
+  }
+  await pool.importDb(PROBE_PATH, new Uint8Array(bytes))
+  const probe = new pool.OpfsSAHPoolDb(PROBE_PATH)
+  try {
+    // Read before any schema runner sees the file: migrations write, and
+    // writing into a corrupt database turns a rejectable import into a
+    // damaged one.
+    return integrity(probe)
+  } finally {
+    probe.close()
+  }
+}
+
 const integrity = (db: Database): IntegrityReport =>
   readIntegrityReport((sql) => {
     const rows: unknown[][] = []
@@ -287,37 +317,28 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
     }
     case "importDb": {
       // Backup restore and legacy migration: replace the database wholesale.
-      // The connection must be closed around the physical import, then
-      // verified, then reopened + migrated.
-      db.close()
-      contextPromise = null
-      let report: IntegrityReport
-      try {
-        await pool.importDb(DB_PATH, new Uint8Array(request.bytes))
-        // Checked on a raw handle, before the schema runner sees the file:
-        // migrations write, and writing into a corrupt database turns a
-        // recoverable import failure into a damaged one.
-        const probe = new pool.OpfsSAHPoolDb(DB_PATH)
-        try {
-          report = integrity(probe)
-        } finally {
-          probe.close()
-        }
-      } catch (error) {
-        void reopenContext(pool)
-        throw error
-      }
+      //
+      // The payload is imported to a scratch path and verified there FIRST.
+      // Verifying after replacing the live file cost the user their history
+      // whenever the payload turned out to be unusable: a rejected restore
+      // reported failure over an already-destroyed database. Nothing touches
+      // the live file until the incoming one is known to be sound.
+      const report = await verifyImportCandidate(pool, request.bytes)
       if (!isSoundDatabase(report)) {
-        // The physical import already replaced whatever was here, so the only
-        // clean state left is an empty database for the next attempt. The
-        // migration source blob is untouched either way.
-        pool.unlink(DB_PATH)
-        await reopenContext(pool)
+        pool.unlink(PROBE_PATH)
         throw new Error(
           `Imported database failed integrity_check: ${report.integrityCheck}`
         )
       }
-      void reopenContext(pool)
+
+      db.close()
+      contextPromise = null
+      try {
+        await pool.importDb(DB_PATH, new Uint8Array(request.bytes))
+      } finally {
+        pool.unlink(PROBE_PATH)
+        void reopenContext(pool)
+      }
       const { db: fresh } = await openContext()
       const result: ImportResult = { ...counts(fresh), integrity: report }
       return result

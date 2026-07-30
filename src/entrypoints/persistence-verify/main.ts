@@ -17,7 +17,11 @@ import {
   createFixture,
   type Scale
 } from "@/lib/sqlite/benchmark/persistence-benchmark-core"
-import { exportPersistedDatabaseBytes, query } from "@/lib/sqlite/db"
+import {
+  exportPersistedDatabaseBytes,
+  importDatabaseBytes,
+  query
+} from "@/lib/sqlite/db"
 import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
 
 // Dev-only verification surface for the production OPFS migration. Every
@@ -291,6 +295,20 @@ const verifyApi = {
       })
     }
     return lastId
+  },
+
+  /** Restore a payload that is not a usable database, through the production
+   * import path. The live database must survive a rejected restore. */
+  async importCorruptBackup(): Promise<{ error: string }> {
+    const bytes = new TextEncoder().encode(
+      "SQLite format 3 this is not a database".repeat(40)
+    )
+    try {
+      await importDatabaseBytes(bytes)
+      return { error: "" }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) }
+    }
   },
 
   async exportInfo(): Promise<{ byteLength: number; magic: string }> {

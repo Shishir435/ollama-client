@@ -20,7 +20,9 @@
 //   5. Operator override: with the device-local switch set, the profile serves
 //      chat history from the retained blob again and the migration stays
 //      skipped; clearing it migrates on the next boot.
-//   6. Backup export comes from the OPFS owner and is a valid SQLite file.
+//   6. A restore whose payload is not a usable database is rejected with the
+//      existing chat history still in place.
+//   7. Backup export comes from the OPFS owner and is a valid SQLite file.
 //
 // Usage: pnpm verify:opfs-migration [--headful]
 // Requires: pnpm benchmark:build (the verify page is dev-gated).
@@ -391,7 +393,19 @@ const runScenarios = async (visible: boolean): Promise<void> => {
       { restoredCounts }
     )
 
-    // ---- 6. Backup export served by the OPFS owner ----
+    // ---- 6. A rejected restore leaves the live database intact ----
+    const beforeRestore = (await call("counts")) as TableCounts
+    const rejected = (await call("importCorruptBackup")) as { error: string }
+    const afterRestore = (await call("counts")) as TableCounts
+    record(
+      "rejected-restore-preserves-database",
+      rejected.error.length > 0 &&
+        afterRestore.messages === beforeRestore.messages &&
+        afterRestore.sessions === beforeRestore.sessions,
+      { rejected, beforeRestore, afterRestore }
+    )
+
+    // ---- 7. Backup export served by the OPFS owner ----
     const exportInfo = (await call("exportInfo")) as {
       byteLength: number
       magic: string
