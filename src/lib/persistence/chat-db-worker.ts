@@ -364,6 +364,14 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
       const rollback = await stageRollbackCopy(pool, DB_PATH)
       try {
         await pool.importDb(DB_PATH, new Uint8Array(request.bytes))
+        // Held until the imported database is open, migrated by the schema
+        // runner, and counted. Reopening is where forward migrations and drift
+        // repair happen, and they write — a failure there is exactly the kind
+        // of restore that must still be undoable.
+        const { db: fresh } = await reopenContext(pool)
+        const result: ImportResult = { ...counts(fresh), integrity: report }
+        clearRollbackCopy(pool)
+        return result
       } catch (error) {
         if (rollback) {
           try {
@@ -376,16 +384,11 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
         } else {
           clearRollbackCopy(pool)
         }
-        pool.unlink(PROBE_PATH)
         void reopenContext(pool)
         throw error
+      } finally {
+        pool.unlink(PROBE_PATH)
       }
-      clearRollbackCopy(pool)
-      pool.unlink(PROBE_PATH)
-      void reopenContext(pool)
-      const { db: fresh } = await openContext()
-      const result: ImportResult = { ...counts(fresh), integrity: report }
-      return result
     }
     case "reset": {
       db.close()
