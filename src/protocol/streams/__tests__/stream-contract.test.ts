@@ -77,6 +77,95 @@ describe("stream protocol", () => {
     })
   })
 
+  it("carries activity label keys across the context stream", () => {
+    const parsed = parseChatStreamServerEvent({
+      version: 1,
+      type: "context_progress",
+      requestId: "turn-1",
+      events: [
+        {
+          id: "memory-recall",
+          kind: "searching_memory",
+          label: "Searching memory",
+          labelKey: "chat.reasoning.trace.searching_memory",
+          status: "running",
+          startedAt: 1
+        }
+      ]
+    })
+
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    // The stream keeps its own copy of this schema; a missed field here would
+    // strip the key before the sidepanel ever sees it.
+    expect(parsed.data).toMatchObject({
+      type: "context_progress",
+      events: [{ labelKey: "chat.reasoning.trace.searching_memory" }]
+    })
+  })
+
+  it("carries app-generated chunk title keys in the context result", () => {
+    const parsed = parseChatStreamServerEvent({
+      version: 1,
+      type: "context_result",
+      requestId: "turn-1",
+      result: {
+        contentWithRAG: "question\n\n<page>body</page>",
+        ragSources: null,
+        promptContextStats: {
+          promptInputLength: 8,
+          promptAugmentedLength: 30,
+          tabContextLength: 22,
+          ragContextLength: 0,
+          tabContextTruncated: false,
+          groundedOnlyMode: false,
+          insufficientContext: false,
+          usedContextChunks: [
+            {
+              id: "tab-fallback",
+              title: "Selected tab context",
+              titleKey: "chat.sources.tab_context",
+              excerpt: "body",
+              score: 0.5,
+              source: "tab"
+            }
+          ],
+          activityEvents: []
+        },
+        pageContextAdded: false
+      },
+      receipt: {
+        version: 1,
+        turnId: "turn-1",
+        mode: "new",
+        createdAt: 1,
+        query: "question",
+        model: { id: "qwen3" },
+        prompt: {
+          inputLength: 8,
+          augmentedLength: 30,
+          tabContextLength: 22,
+          ragContextLength: 0,
+          tabContextTruncated: false,
+          groundedOnlyMode: false,
+          insufficientContext: false
+        },
+        sources: []
+      }
+    })
+
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    expect(parsed.data).toMatchObject({
+      type: "context_result",
+      result: {
+        promptContextStats: {
+          usedContextChunks: [{ titleKey: "chat.sources.tab_context" }]
+        }
+      }
+    })
+  })
+
   it("rejects unknown versions and malformed events", () => {
     expect(
       ChatStreamServerEventSchema.safeParse({

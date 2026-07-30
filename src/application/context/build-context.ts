@@ -1,4 +1,9 @@
 import {
+  ACTIVITY_LABELS,
+  type ActivityLabel,
+  CONTEXT_CHUNK_LABELS
+} from "@/application/context/activity-labels"
+import {
   reformulateQuestion,
   retrieveContext,
   retrieveContextFromSources
@@ -143,7 +148,8 @@ const buildTabFallbackContext = (contextText: string, maxChars: number) => {
   const clampedFallback = clampContext(contextText, maxChars)
   const chunk: UsedContextChunk = {
     id: "tab-fallback",
-    title: "Selected tab context",
+    title: CONTEXT_CHUNK_LABELS.selectedTabContext.text,
+    titleKey: CONTEXT_CHUNK_LABELS.selectedTabContext.key,
     excerpt: clampedFallback.text.slice(0, 220),
     score: 0.5,
     sectionPath: "fallback-full-context",
@@ -247,13 +253,14 @@ export const buildRagContext = async (
   const startActivityEvent = (
     id: string,
     kind: ActivityEvent["kind"],
-    label: string,
+    label: ActivityLabel,
     inputPreview?: string
   ): ActivityEvent => {
     const event: ActivityEvent = {
       id,
       kind,
-      label,
+      label: label.text,
+      labelKey: label.key,
       status: "running",
       startedAt: Date.now(),
       inputPreview
@@ -363,7 +370,7 @@ export const buildRagContext = async (
           const rewriteEvent = startActivityEvent(
             "query-rewrite",
             "query_rewrite",
-            "Rewriting query",
+            ACTIVITY_LABELS.rewritingQuery,
             preview(rawInput || "summary")
           )
           const reformulated = await reformulateQuestion(
@@ -388,7 +395,7 @@ export const buildRagContext = async (
           const pageEvent = startActivityEvent(
             "page-context",
             "reading_page",
-            "Reading selected page context",
+            ACTIVITY_LABELS.readingPageContext,
             preview(queryForRag)
           )
           const pageContext = await retrieveContextFromSources(
@@ -447,7 +454,7 @@ export const buildRagContext = async (
             const searchEvent = startActivityEvent(
               "file-search",
               "searching_files",
-              "Searching files",
+              ACTIVITY_LABELS.searchingFiles,
               preview(queryForRag)
             )
             logger.verbose("RAG searching for context", "useChat", {
@@ -513,7 +520,7 @@ export const buildRagContext = async (
             const memoryEvent = startActivityEvent(
               "memory-recall",
               "searching_memory",
-              "Searching memory",
+              ACTIVITY_LABELS.searchingMemory,
               preview(queryForRag)
             )
             const memoryResults = await retrieveContextEnhanced(queryForRag, {
@@ -554,7 +561,8 @@ export const buildRagContext = async (
       upsertActivityEvent({
         id: "rag-error",
         kind: "searching_memory",
-        label: "Searching context",
+        label: ACTIVITY_LABELS.searchingContext.text,
+        labelKey: ACTIVITY_LABELS.searchingContext.key,
         status: "error",
         startedAt: Date.now(),
         finishedAt: Date.now(),

@@ -305,7 +305,13 @@
         "cancel_reminder": "Cancelling reminder",
         "save_artifact": "Saving file",
         "capture_screenshot": "Capturing screenshot",
-        "searches": "{{count}} searches"
+        "searches": "{{count}} searches",
+        "rewriting_query": "Rewriting query",
+        "page_context": "Reading selected page context",
+        "searching_memory": "Searching memory",
+        "searching_context": "Searching context",
+        "results_one": "{{count}} result",
+        "results_other": "{{count}} results"
       }
     },
     "feedback": {
@@ -326,6 +332,7 @@
       "used_context_aria": "Used context ({{count}})",
       "used_context_title": "Used Context ({{count}})",
       "tab_context_label": "Tab Context ({{count}})",
+      "tab_context": "Selected tab context",
       "rag_context_label": "RAG Context ({{count}})",
       "char_counts": "tab chars: {{tab}} | rag chars: {{rag}}",
       "trimmed": "trimmed",

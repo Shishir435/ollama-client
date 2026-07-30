@@ -286,6 +286,7 @@ describe("ChatMessageMetricsSchema", () => {
           id: "rewrite-1",
           kind: "query_rewrite",
           label: "Rewriting query",
+          labelKey: "chat.reasoning.trace.rewriting_query",
           status: "done",
           startedAt: 1,
           finishedAt: 2,
@@ -298,6 +299,35 @@ describe("ChatMessageMetricsSchema", () => {
     })
 
     expect(result.success).toBe(true)
+    // Strip mode drops anything the schema forgot, so a persisted turn would
+    // render its producing device's language forever.
+    if (result.success) {
+      expect(result.data.activityEvents?.[0].labelKey).toBe(
+        "chat.reasoning.trace.rewriting_query"
+      )
+    }
+  })
+
+  it("keeps the translatable title on an app-generated context chunk", () => {
+    const result = ChatMessageMetricsSchema.safeParse({
+      usedContextChunks: [
+        {
+          id: "tab-fallback",
+          title: "Selected tab context",
+          titleKey: "chat.sources.tab_context",
+          excerpt: "page body",
+          score: 0.5,
+          source: "tab"
+        }
+      ]
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.usedContextChunks?.[0].titleKey).toBe(
+        "chat.sources.tab_context"
+      )
+    }
   })
 
   it("strips unknown keys (default strip mode)", () => {
