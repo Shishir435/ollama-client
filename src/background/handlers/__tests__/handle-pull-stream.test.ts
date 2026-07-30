@@ -9,9 +9,8 @@ vi.mock("@/background/lib/abort-controller-registry", () => ({
 
 vi.mock("@/background/lib/utils", () => ({
   getPullAbortControllerKey: vi.fn().mockReturnValue("key"),
-  // safePostMessage is NOT mocked, so it uses the real implementation which calls port.postMessage
-  safePostMessage: vi.fn().mockImplementation(async (port, message) => {
-    console.log("safePostMessage called with:", message)
+  safePostModelPullEvent: vi.fn().mockImplementation(async (port, message) => {
+    console.log("safePostModelPullEvent called with:", message)
     try {
       port.postMessage(message)
     } catch (e) {
@@ -82,13 +81,21 @@ describe("Handle Pull Stream", () => {
     await handlePullStream(res, mockPort, isPortClosed, "llama2")
 
     expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_progress",
       status: "pulling manifest"
     })
     expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_progress",
       status: "Downloading: 10%",
       progress: 10
     })
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ done: true })
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_complete",
+      status: "success"
+    })
     expect(clearAbortController).toHaveBeenCalled()
   })
 
@@ -98,7 +105,11 @@ describe("Handle Pull Stream", () => {
 
     await handlePullStream(res, mockPort, isPortClosed, "llama2")
 
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ error: "Pull failed" })
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_error",
+      failure: { status: 0, message: "Pull failed" }
+    })
     expect(clearAbortController).toHaveBeenCalled()
   })
 
@@ -138,7 +149,11 @@ describe("Handle Pull Stream", () => {
 
     await handlePullStream(res, mockPort, isPortClosed, "llama2")
 
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ done: true })
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_complete",
+      status: "success"
+    })
   })
 
   it("should ignore empty lines", async () => {
@@ -149,7 +164,11 @@ describe("Handle Pull Stream", () => {
 
     await handlePullStream(res, mockPort, isPortClosed, "llama2")
 
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ done: true })
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_complete",
+      status: "success"
+    })
   })
 
   it("should handle invalid JSON gracefully", async () => {
@@ -162,6 +181,10 @@ describe("Handle Pull Stream", () => {
     await handlePullStream(res, mockPort, isPortClosed, "llama2")
 
     expect(consoleSpy).toHaveBeenCalled()
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ done: true })
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_complete",
+      status: "success"
+    })
   })
 })

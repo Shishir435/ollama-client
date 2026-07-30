@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next"
 import {
   makeStreamReducerState,
   reduceStreamEvent,
-  type StreamMessage,
   type StreamReducerState
 } from "@/application/turns/chat-stream-reducer"
 import type { DurableTurnStart } from "@/application/turns/turn-contract"
@@ -18,6 +17,10 @@ import { buildErrorReportUrl } from "@/lib/error-report"
 import { logger } from "@/lib/logger"
 import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
+import {
+  parseChatStreamServerEvent,
+  STREAM_PROTOCOL_VERSION
+} from "@/protocol/streams"
 import type { ChatMessage } from "@/types"
 
 interface StreamOptions {
@@ -129,6 +132,7 @@ export const useChatStream = ({
     }
     const requestMessage = durableTurn
       ? {
+          version: STREAM_PROTOCOL_VERSION,
           type: MESSAGE_KEYS.PROVIDER.START_TURN,
           payload: {
             start: {
@@ -139,6 +143,7 @@ export const useChatStream = ({
           }
         }
       : {
+          version: STREAM_PROTOCOL_VERSION,
           type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
           payload: requestPayload
         }
@@ -157,18 +162,16 @@ export const useChatStream = ({
 
     const listener = (rawMsg: unknown) => {
       if (streamSettled) return
-      const msg = rawMsg as StreamMessage
+      const parsed = parseChatStreamServerEvent(rawMsg)
+      if (!parsed.success) {
+        logger.warn("Dropped invalid chat stream event", "StreamProtocol", {
+          issues: parsed.error.issues.length
+        })
+        return
+      }
+      const msg = parsed.data
       if (msg.type === "context_warning") {
-        const warning = (
-          rawMsg as {
-            payload?: {
-              variant?: "default" | "destructive"
-              titleKey?: string
-              descriptionKey?: string
-              descriptionValues?: Record<string, string>
-            }
-          }
-        ).payload
+        const warning = msg.payload
         if (warning?.titleKey) {
           toast({
             variant: warning.variant,
@@ -181,13 +184,47 @@ export const useChatStream = ({
         return
       }
       if (msg.type === "context_progress") return
+      if (msg.type === "stream_snapshot") {
+        if (!msg.sequenceReset && msg.seq < state.lastSeq) return
+        if (msg.assistant) {
+          state = {
+            ...makeStreamReducerState(msg.assistant),
+            ...(msg.thinkingState ? { thinkingState: msg.thinkingState } : {}),
+            lastSeq: msg.seq,
+            started: Boolean(msg.assistant.content || msg.assistant.thinking)
+          }
+          renderAssistant(msg.assistant)
+        } else {
+          state = { ...state, lastSeq: msg.seq }
+        }
+        if (
+          msg.assistant?.done ||
+          msg.status === "completed" ||
+          msg.status === "failed" ||
+          msg.status === "cancelled"
+        ) {
+          setIsLoading(false)
+          setIsStreaming(false)
+          cleanupPort()
+        }
+        return
+      }
+      if (
+        msg.type === "context_result" ||
+        msg.type === "context_error" ||
+        msg.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_CHUNK ||
+        msg.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_DONE ||
+        msg.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR
+      ) {
+        return
+      }
 
       // Fold the chunk into turn state purely; the hook only performs effects.
       const result = reduceStreamEvent(state, msg)
       state = result.state
       if (result.dropped) return
 
-      if (DEBUG_THINKING_STREAM) {
+      if (DEBUG_THINKING_STREAM && msg.type === "chat_chunk") {
         logger.debug("Stream msg", "useChatStream", {
           type: msg.type,
           hasDelta: typeof msg.delta === "string" && msg.delta.length > 0,
@@ -358,7 +395,7 @@ export const useChatStream = ({
       if (
         !streamSettled &&
         !state.assistant.done &&
-        awaitingConfirmation &&
+        (durableTurn !== undefined || awaitingConfirmation) &&
         currentRequestIdRef.current === requestId &&
         resumeAttempts < 3
       ) {
@@ -371,15 +408,27 @@ export const useChatStream = ({
           ) {
             return
           }
-          // Restarted worker restarts its sequence at 0 — accept it afresh.
-          state = { ...state, lastSeq: -1 }
+          // Legacy tool-loop reconnects restart their sequence at 0. Durable
+          // turns request a snapshot and keep their last accepted sequence.
+          if (!durableTurn) state = { ...state, lastSeq: -1 }
           port = browser.runtime.connect({
             name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
           })
           portRef.current = port
           port.onMessage.addListener(listener)
           port.onDisconnect.addListener(handleDisconnect)
-          port.postMessage(requestMessage)
+          port.postMessage(
+            durableTurn
+              ? {
+                  version: STREAM_PROTOCOL_VERSION,
+                  type: MESSAGE_KEYS.PROVIDER.RECONNECT_STREAM,
+                  payload: {
+                    requestId,
+                    afterSeq: state.lastSeq
+                  }
+                }
+              : requestMessage
+          )
         }, 250)
         return
       }
@@ -434,6 +483,7 @@ export const useChatStream = ({
       finalizeCleanRef.current?.()
       currentRequestIdRef.current = null
       portRef.current.postMessage({
+        version: STREAM_PROTOCOL_VERSION,
         type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION,
         payload: requestId ? { requestId } : undefined
       })

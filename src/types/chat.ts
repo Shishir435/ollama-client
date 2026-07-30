@@ -1,4 +1,5 @@
 import type { ToolCall } from "@/lib/tools/types"
+import type { AppFailure } from "@/protocol/app-failure"
 import type { SelectedModelRef } from "@/types/model"
 
 export type Role = "user" | "assistant" | "system" | "tool"
@@ -128,22 +129,7 @@ export interface ChatMessage {
    * Terminal error for this assistant turn. Set when the stream ends in an
    * error so the UI can offer an inline retry for retryable failures.
    */
-  error?: {
-    status?: number
-    kind?: import("./errors").AppErrorKind
-    retryable?: boolean
-    retryAfterMs?: number
-    userMessage?: string
-    providerId?: string
-    providerName?: string
-    model?: string
-    baseUrl?: string
-    code?: import("./errors").AppErrorCode
-    phase?: import("./errors").AppErrorPhase
-    incidentId?: string
-    durationMs?: number
-    recoveryAction?: import("./errors").AppErrorRecoveryAction
-  }
+  error?: Partial<AppFailure>
   timestamp?: number
   metrics?: {
     total_duration?: number
@@ -283,25 +269,7 @@ export interface ChatStreamMessage {
    * trace updates live as tools run.
    */
   toolRuns?: ToolRun[]
-  error?: {
-    status: number
-    message: string
-    kind?: import("./errors").AppErrorKind
-    messageKey?: string
-    userMessage?: string
-    retryable?: boolean
-    retryAfterMs?: number
-    context?: string
-    providerId?: string
-    providerName?: string
-    model?: string
-    baseUrl?: string
-    code?: import("./errors").AppErrorCode
-    phase?: import("./errors").AppErrorPhase
-    incidentId?: string
-    durationMs?: number
-    recoveryAction?: import("./errors").AppErrorRecoveryAction
-  }
+  error?: AppFailure
   metrics?: {
     total_duration?: number
     load_duration?: number
@@ -316,6 +284,7 @@ export interface ChatStreamMessage {
 
 export interface ChatWithModelMessage {
   type: string
+  version?: 1
   payload: {
     model: string
     providerId?: string
@@ -340,6 +309,7 @@ export interface ChatWithModelMessage {
 
 export interface StartTurnMessage {
   type: string
+  version?: 1
   payload: {
     start: import("@/application/turns/turn-contract").DurableTurnStart
     assistantMessageId: number
@@ -381,6 +351,7 @@ export interface BuildContextRequestPayload {
 
 export interface BuildContextMessage {
   type: string
+  version?: 1
   payload: BuildContextRequestPayload
 }
 

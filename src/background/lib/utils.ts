@@ -3,6 +3,11 @@ import { logger } from "@/lib/logger"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderId } from "@/lib/providers/types"
+import {
+  ChatStreamServerEventSchema,
+  type ModelPullServerEvent,
+  ModelPullServerEventSchema
+} from "@/protocol/streams"
 import type {
   ChatStreamMessage,
   ChromeMessage,
@@ -41,6 +46,42 @@ export const safePostMessage = (
       })
     }
   }
+}
+
+export const safePostChatStreamEvent = (
+  port: ChromePort,
+  event: unknown
+): void => {
+  const parsed = ChatStreamServerEventSchema.safeParse(event)
+  if (!parsed.success) {
+    logger.error("Refused invalid chat stream event", "StreamProtocol", {
+      type:
+        event &&
+        typeof event === "object" &&
+        "type" in event &&
+        typeof event.type === "string"
+          ? event.type
+          : "invalid",
+      issues: parsed.error.issues.length
+    })
+    return
+  }
+  safePostMessage(port, parsed.data)
+}
+
+export const safePostModelPullEvent = (
+  port: ChromePort,
+  event: ModelPullServerEvent
+): void => {
+  const parsed = ModelPullServerEventSchema.safeParse(event)
+  if (!parsed.success) {
+    logger.error("Refused invalid model-pull event", "StreamProtocol", {
+      type: event.type,
+      issues: parsed.error.issues.length
+    })
+    return
+  }
+  safePostMessage(port, parsed.data)
 }
 
 /**

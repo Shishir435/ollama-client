@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { AppFailureSchema } from "@/protocol/app-failure"
 
 const optionalString = z.preprocess(
   (value) => (value === null ? undefined : value),
@@ -38,7 +39,7 @@ const UsedContextChunkSchema = z.object({
   chunkIndex: z.number().optional()
 })
 
-const ToolRunSchema = z.object({
+export const ToolRunSchema = z.object({
   toolId: z.string(),
   label: z.string(),
   displayNameKey: z.string().optional(),
@@ -54,8 +55,17 @@ const ToolRunSchema = z.object({
       "external"
     ])
     .optional(),
-  risk: z.enum(["low", "medium", "high"]).optional(),
-  status: z.enum(["pending", "running", "done", "error"]),
+  risk: z.enum(["low", "medium", "high", "critical"]).optional(),
+  taintGeneration: z.number().int().nonnegative().optional(),
+  origin: z.string().optional(),
+  status: z.enum([
+    "pending",
+    "running",
+    "done",
+    "error",
+    "awaiting-confirmation"
+  ]),
+  callId: z.string().optional(),
   startedAt: z.number(),
   completedAt: z.number().optional(),
   sources: z
@@ -214,7 +224,7 @@ export const ChatMessageMetricsSchema = z.object({
 
 // ---- FileAttachment ----
 
-const FileAttachmentSchema = z.object({
+export const FileAttachmentSchema = z.object({
   id: z.number().optional(),
   fileId: z.string(),
   fileName: z.string(),
@@ -229,7 +239,11 @@ const FileAttachmentSchema = z.object({
   // Accept both so one stray byte field can't fail validation and silently
   // skip the whole session on import.
   data: z
-    .union([z.array(z.number()), z.record(z.string(), z.number())])
+    .union([
+      z.instanceof(Uint8Array),
+      z.array(z.number()),
+      z.record(z.string(), z.number())
+    ])
     .optional()
 })
 
@@ -250,65 +264,7 @@ const ImageAttachmentSchema = z.object({
 
 // ---- ChatMessage ----
 
-export const ChatMessageErrorSchema = z.object({
-  status: z.number().optional(),
-  kind: z
-    .enum(["network", "provider", "storage", "validation", "abort", "unknown"])
-    .optional(),
-  retryable: z.boolean().optional(),
-  retryAfterMs: z.number().optional(),
-  userMessage: z.string().optional(),
-  providerId: z.string().optional(),
-  providerName: z.string().optional(),
-  model: z.string().optional(),
-  baseUrl: z.string().optional(),
-  code: z
-    .enum([
-      "OLC-PROVIDER-DISABLED",
-      "OLC-PROVIDER-UNREACHABLE",
-      "OLC-PROVIDER-HTTP",
-      "OLC-MODEL-NOT-FOUND",
-      "OLC-RESOURCE-NOT-FOUND",
-      "OLC-MODEL-NOT-LOADED",
-      "OLC-CORS-BLOCKED",
-      "OLC-AUTH-FAILED",
-      "OLC-PAYMENT-REQUIRED",
-      "OLC-CONTEXT-TOO-LARGE",
-      "OLC-INPUT-UNSUPPORTED",
-      "OLC-OUT-OF-MEMORY",
-      "OLC-MODEL-LOADING",
-      "OLC-RATE-LIMITED",
-      "OLC-PROVIDER-OVERLOADED",
-      "OLC-PROVIDER-TIMEOUT",
-      "OLC-STREAM-DROPPED",
-      "OLC-UNKNOWN"
-    ])
-    .optional(),
-  phase: z
-    .enum([
-      "configuration",
-      "connect",
-      "response",
-      "read-stream",
-      "tool",
-      "persistence",
-      "unknown"
-    ])
-    .optional(),
-  incidentId: z.string().optional(),
-  durationMs: z.number().nonnegative().optional(),
-  recoveryAction: z
-    .enum([
-      "retry",
-      "enable-provider",
-      "test-connection",
-      "choose-model",
-      "reduce-input",
-      "wait-retry",
-      "open-diagnostics"
-    ])
-    .optional()
-})
+export const ChatMessageErrorSchema = AppFailureSchema.partial()
 
 export const ChatMessageSchema = z.object({
   id: z.union([z.number(), z.string()]).optional(),

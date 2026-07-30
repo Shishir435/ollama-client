@@ -18,6 +18,8 @@ export interface DurableToolLoopState {
   imageMessages?: ChatMessage[]
   nonNativeResponseParts?: string[]
   lastMetrics?: ChatMessage["metrics"]
+  /** One recovery turn when a native model emits only reasoning and no call. */
+  emptyModelRetries?: number
 }
 
 export interface DurableToolLoopRun {

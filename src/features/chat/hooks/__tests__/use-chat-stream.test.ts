@@ -139,6 +139,7 @@ describe("useChatStream", () => {
     })
 
     expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
       type: PROVIDER_MESSAGE_KEYS.START_TURN,
       payload: {
         start: {
@@ -570,7 +571,7 @@ describe("useChatStream", () => {
         error: {
           status: 503,
           message: "connection refused",
-          kind: "provider-unavailable",
+          kind: "provider",
           retryable: true
         }
       })
@@ -777,6 +778,7 @@ describe("useChatStream", () => {
     })
 
     expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
       type: PROVIDER_MESSAGE_KEYS.STOP_GENERATION,
       payload: { requestId: expect.any(String) }
     })
@@ -836,10 +838,112 @@ describe("useChatStream", () => {
 
     const originalPayload = mockPort.postMessage.mock.calls[0][0].payload
     expect(resumedPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
       type: PROVIDER_MESSAGE_KEYS.CHAT_WITH_MODEL,
       payload: originalPayload
     })
     expect(setIsLoading).not.toHaveBeenLastCalledWith(false)
+    vi.useRealTimers()
+  })
+
+  it("reconnects durable turns with a snapshot cursor", () => {
+    vi.useFakeTimers()
+    const resumedPort = {
+      postMessage: vi.fn(),
+      onMessage: {
+        addListener: vi.fn(),
+        removeListener: vi.fn()
+      },
+      onDisconnect: {
+        addListener: vi.fn(),
+        removeListener: vi.fn()
+      },
+      disconnect: vi.fn()
+    } as any
+    vi.mocked(browser.runtime.connect)
+      .mockReturnValueOnce(mockPort)
+      .mockReturnValueOnce(resumedPort)
+
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    const durableTurn = {
+      submission: {
+        id: "turn-reconnect",
+        sessionId: "session-1",
+        mode: "new" as const,
+        model: "llama2",
+        request: {
+          version: 1 as const,
+          context: {
+            rawInput: "Hello",
+            messages: [],
+            hasTabContext: false,
+            contextText: "",
+            tabDocuments: [],
+            memoryEnabled: false,
+            maxTabContextChars: 1000,
+            maxRagContextChars: 1000,
+            groundedOnlyMode: false,
+            selectedModel: "llama2",
+            selectedModelRef: null
+          },
+          userMessage: { role: "user" as const, content: "Hello" }
+        },
+        createdAt: 1
+      },
+      userMessageId: 1,
+      assistantMessageId: 2
+    }
+
+    act(() => {
+      result.current.startStream({
+        model: "llama2",
+        messages: [{ role: "user", content: "Hello" }],
+        durableTurn
+      })
+    })
+    const streamListener = mockPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      streamListener({ seq: 3, delta: "partial" })
+      mockPort.onDisconnect.addListener.mock.calls[0][0]()
+      vi.advanceTimersByTime(250)
+    })
+
+    expect(resumedPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: PROVIDER_MESSAGE_KEYS.RECONNECT_STREAM,
+      payload: { requestId: "turn-reconnect", afterSeq: 3 }
+    })
+
+    const resumedListener = resumedPort.onMessage.addListener.mock.calls[0][0]
+    act(() => {
+      resumedListener({
+        version: 1,
+        type: "stream_snapshot",
+        requestId: "turn-reconnect",
+        seq: 3,
+        sequenceReset: false,
+        status: "generating",
+        assistant: {
+          role: "assistant",
+          content: "persisted ",
+          done: false
+        },
+        thinkingState: { inThinking: false, pending: "<thi" }
+      })
+      resumedListener({
+        version: 1,
+        type: "chat_chunk",
+        seq: 4,
+        delta: "nk>hidden</think>answer",
+        done: true
+      })
+    })
+    const lastMessages = (setMessages as any).mock.calls.at(-1)[0]
+    expect(lastMessages.at(-1).content).toBe("persisted answer")
+    expect(lastMessages.at(-1).thinking).toBe("hidden")
+    expect(setIsLoading).toHaveBeenLastCalledWith(false)
     vi.useRealTimers()
   })
 

@@ -1,9 +1,10 @@
 import { clearAbortController } from "@/background/lib/abort-controller-registry"
 import {
   getPullAbortControllerKey,
-  safePostMessage
+  safePostModelPullEvent
 } from "@/background/lib/utils"
 import { logger } from "@/lib/logger"
+import { toAppFailure } from "@/protocol/app-failure"
 import type {
   ChromePort,
   DefaultProviderPullResponse,
@@ -50,26 +51,40 @@ export const handlePullStream = async (
           const data: DefaultProviderPullResponse = JSON.parse(trimmedLine)
 
           if (data.status) {
-            safePostMessage(port, { status: data.status })
+            safePostModelPullEvent(port, {
+              version: 1,
+              type: "model_pull_progress",
+              status: data.status
+            })
 
             if (data.status === "success") {
-              safePostMessage(port, { done: true })
+              safePostModelPullEvent(port, {
+                version: 1,
+                type: "model_pull_complete",
+                status: data.status
+              })
               clearAbortController(controllerKey)
               return
             }
           }
 
           if (data.error) {
-            safePostMessage(port, { error: data.error })
+            safePostModelPullEvent(port, {
+              version: 1,
+              type: "model_pull_error",
+              failure: toAppFailure(data.error)
+            })
             clearAbortController(controllerKey)
             return
           }
 
           if (data.completed !== undefined && data.total !== undefined) {
             const progress = Math.round((data.completed / data.total) * 100)
-            safePostMessage(port, {
+            safePostModelPullEvent(port, {
+              version: 1,
+              type: "model_pull_progress",
               status: `Downloading: ${progress}%`,
-              progress: progress
+              progress
             })
           }
         } catch (parseError) {
@@ -85,7 +100,11 @@ export const handlePullStream = async (
       try {
         const data: DefaultProviderPullResponse = JSON.parse(buffer.trim())
         if (data.status === "success") {
-          safePostMessage(port, { done: true })
+          safePostModelPullEvent(port, {
+            version: 1,
+            type: "model_pull_complete",
+            status: data.status
+          })
         }
       } catch (parseError) {
         logger.warn("Failed to parse final buffer", "handlePullStream", {

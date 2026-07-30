@@ -4,7 +4,10 @@ import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { formatErrorForDisplay } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
-import type { PullStreamMessage } from "@/types"
+import {
+  parseModelPullServerEvent,
+  STREAM_PROTOCOL_VERSION
+} from "@/protocol/streams"
 
 export const useModelPull = () => {
   const [progress, setProgress] = useState<string | null>(null)
@@ -22,6 +25,8 @@ export const useModelPull = () => {
     portRef.current = port
 
     port.postMessage({
+      version: STREAM_PROTOCOL_VERSION,
+      type: "model_pull_start",
       payload: {
         model: modelName,
         providerId
@@ -29,15 +34,22 @@ export const useModelPull = () => {
     })
 
     port.onMessage.addListener((msg: unknown) => {
-      const message = msg as PullStreamMessage
-      if (message.status) setProgress(message.status)
-      if (message.done) {
+      const parsed = parseModelPullServerEvent(msg)
+      if (!parsed.success) {
+        logger.warn("Dropped invalid model-pull event", "StreamProtocol", {
+          issues: parsed.error.issues.length
+        })
+        return
+      }
+      const message = parsed.data
+      if (message.type === "model_pull_progress") setProgress(message.status)
+      if (message.type === "model_pull_complete") {
         setProgress("✅ Success")
         setPullingModel(null)
         port.disconnect()
       }
-      if (message.error) {
-        const errorMessage = formatErrorForDisplay(message.error).message
+      if (message.type === "model_pull_error") {
+        const errorMessage = formatErrorForDisplay(message.failure).message
         setProgress(`❌ Failed: ${errorMessage}`)
         setPullingModel(null)
         port.disconnect()
@@ -47,7 +59,11 @@ export const useModelPull = () => {
 
   const cancelPull = () => {
     if (pullingModel && portRef.current) {
-      portRef.current.postMessage({ cancel: true, payload: pullingModel })
+      portRef.current.postMessage({
+        version: STREAM_PROTOCOL_VERSION,
+        type: "model_pull_cancel",
+        payload: { model: pullingModel }
+      })
       setProgress("❌ Cancelled")
       setPullingModel(null)
       portRef.current.disconnect()

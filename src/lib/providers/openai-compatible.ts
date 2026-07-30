@@ -412,10 +412,12 @@ export class OpenAICompatibleProvider implements LLMProvider {
       })
     }
 
-    const processLine = (line: string) => {
+    type TerminalMarker = "finish-reason" | "done" | null
+    const processLine = (line: string): TerminalMarker => {
       const trimmed = line.trim()
-      if (!trimmed || trimmed === "data: [DONE]") return
-      if (!trimmed.startsWith("data: ")) return
+      if (!trimmed) return null
+      if (trimmed === "data: [DONE]") return "done"
+      if (!trimmed.startsWith("data: ")) return null
 
       let data: {
         error?: unknown
@@ -441,7 +443,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
           "OpenAICompatibleProvider",
           { error: e }
         )
-        return
+        return null
       }
 
       // Mid-stream provider error (HTTP 200 already sent — vLLM/LiteLLM/etc.).
@@ -531,7 +533,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
 
       // Most providers set finish_reason "tool_calls" before usage; some
       // omit it, so the stream-done path also flushes.
-      if (data.choices?.[0]?.finish_reason === "tool_calls") {
+      const finishReason = data.choices?.[0]?.finish_reason
+      if (finishReason === "tool_calls") {
         emitToolCalls()
       }
 
@@ -558,30 +561,82 @@ export class OpenAICompatibleProvider implements LLMProvider {
           metrics: latestMetrics
         })
       }
+      return typeof finishReason === "string" && finishReason.length > 0
+        ? "finish-reason"
+        : null
+    }
+
+    const finishStream = () => {
+      emitToolCalls()
+      const totalDurationNs = (Date.now() - startTime) * 1_000_000
+      onChunk({
+        done: true,
+        replayArtifact: replayArtifact(),
+        metrics: {
+          ...latestMetrics,
+          total_duration: totalDurationNs
+        }
+      })
+    }
+
+    const bufferedTerminalMarker = (): TerminalMarker => {
+      const trimmed = buffer.trim()
+      if (trimmed === "data: [DONE]") return "done"
+      if (!trimmed.startsWith("data: ")) return null
+      try {
+        const data = JSON.parse(trimmed.slice(6)) as {
+          choices?: Array<{ finish_reason?: unknown }>
+        }
+        const finishReason = data.choices?.[0]?.finish_reason
+        return typeof finishReason === "string" && finishReason.length > 0
+          ? "finish-reason"
+          : null
+      } catch {
+        // A fetch chunk may split one SSE JSON object at any byte. Keep
+        // buffering partial JSON without logging a parse warning.
+        return null
+      }
+    }
+
+    const TERMINAL_GRACE_MS = 250
+    let terminalMarker: TerminalMarker = null
+    let terminalDeadline = 0
+    const readNextChunk = async () => {
+      const read = readProviderStreamChunk(reader, {
+        providerId: this.id,
+        providerName: this.config.name,
+        model,
+        baseUrl: resolveProviderBaseUrl(this.config)
+      })
+      if (terminalMarker !== "finish-reason") {
+        return { timedOut: false as const, result: await read }
+      }
+      const remaining = Math.max(0, terminalDeadline - Date.now())
+      let timeoutId: ReturnType<typeof setTimeout> | undefined
+      const timed = await Promise.race([
+        read.then((result) => ({ timedOut: false as const, result })),
+        new Promise<{ timedOut: true }>((resolve) => {
+          timeoutId = setTimeout(() => resolve({ timedOut: true }), remaining)
+        })
+      ])
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      return timed
     }
 
     try {
       while (true) {
-        const { done, value } = await readProviderStreamChunk(reader, {
-          providerId: this.id,
-          providerName: this.config.name,
-          model,
-          baseUrl: resolveProviderBaseUrl(this.config)
-        })
+        const next = await readNextChunk()
+        if (next.timedOut) {
+          finishStream()
+          await reader.cancel()
+          break
+        }
+        const { done, value } = next.result
         if (done) {
           // Flush a final data line left without a trailing newline at EOF.
           if (buffer.trim()) processLine(buffer)
           buffer = ""
-          emitToolCalls()
-          const totalDurationNs = (Date.now() - startTime) * 1_000_000
-          onChunk({
-            done: true,
-            replayArtifact: replayArtifact(),
-            metrics: {
-              ...latestMetrics,
-              total_duration: totalDurationNs
-            }
-          })
+          finishStream()
           break
         }
 
@@ -589,7 +644,33 @@ export class OpenAICompatibleProvider implements LLMProvider {
         const lines = buffer.split("\n")
         buffer = lines.pop() || ""
 
-        for (const line of lines) processLine(line)
+        let chunkMarker: TerminalMarker = null
+        for (const line of lines) {
+          const marker = processLine(line)
+          if (marker === "done" || (marker && !chunkMarker)) {
+            chunkMarker = marker
+          }
+        }
+        // Some local servers flush the final SSE record but omit its trailing
+        // newline and keep the HTTP connection alive. Once the buffered JSON
+        // itself carries a finish reason, it is a complete protocol record.
+        const bufferedMarker = bufferedTerminalMarker()
+        if (!chunkMarker && bufferedMarker) {
+          chunkMarker = processLine(buffer)
+          buffer = ""
+        }
+        if (chunkMarker === "done") {
+          finishStream()
+          await reader.cancel()
+          break
+        }
+        if (chunkMarker === "finish-reason" && terminalMarker === null) {
+          // Preserve standard usage chunks that follow `finish_reason`, but
+          // bound the wait because several local servers never send [DONE] or
+          // close the socket.
+          terminalMarker = chunkMarker
+          terminalDeadline = Date.now() + TERMINAL_GRACE_MS
+        }
       }
     } finally {
       reader.releaseLock()

@@ -8,7 +8,7 @@ import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
-import { safePostMessage } from "@/background/lib/utils"
+import { safePostChatStreamEvent } from "@/background/lib/utils"
 import {
   DEFAULT_MAX_RAG_CONTEXT_CHARS,
   DEFAULT_MEMORY_ENABLED,
@@ -194,7 +194,8 @@ export const handleChatWithModel = withErrorContext(
           )
 
           try {
-            port.postMessage({
+            safePostChatStreamEvent(port, {
+              version: 1,
               type: "rag_sources",
               payload: { sources, query: lastUserMessage.content }
             })
@@ -261,7 +262,7 @@ export const handleChatWithModel = withErrorContext(
     // reducer can drop duplicates/out-of-order and resume from the last applied
     // sequence. Resets to 0 on a fresh SW instance (including after a restart),
     // so the UI resets its counter when it reconnects.
-    let nextSeq = 0
+    port.streamSequence = 0
     const onChunk = (chunk: ChatStreamMessage) => {
       if (isPortClosed()) return
 
@@ -279,7 +280,14 @@ export const handleChatWithModel = withErrorContext(
           error: chunk.error
         })
       }
-      safePostMessage(port, { ...chunk, seq: nextSeq++ })
+      const seq = port.streamSequence ?? 0
+      port.streamSequence = seq + 1
+      safePostChatStreamEvent(port, {
+        version: 1,
+        type: "chat_chunk",
+        ...chunk,
+        seq
+      })
     }
 
     try {

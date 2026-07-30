@@ -119,4 +119,54 @@ describe("turn-runs repository", () => {
     )
     expect(flushSave).toHaveBeenCalledTimes(1)
   })
+
+  it("persists structured failures and reads legacy failure text", async () => {
+    await updateTurnRun("turn-1", {
+      status: "failed",
+      failure: {
+        status: 503,
+        message: "Provider unavailable",
+        kind: "provider",
+        retryable: true
+      }
+    })
+    expect(run).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE turn_runs SET"),
+      expect.arrayContaining([
+        JSON.stringify({
+          status: 503,
+          message: "Provider unavailable",
+          kind: "provider",
+          retryable: true
+        })
+      ])
+    )
+
+    query.mockResolvedValueOnce([
+      {
+        id: "turn-legacy",
+        sessionId: "session-1",
+        mode: "new",
+        model: "llama3",
+        providerId: null,
+        status: "failed",
+        request: JSON.stringify(persistedRequest),
+        contextReceipt: null,
+        userMessageId: 1,
+        assistantMessageId: 2,
+        failure: "old failure text",
+        createdAt: 10,
+        updatedAt: 11
+      }
+    ])
+    await expect(getTurnRun("turn-legacy")).resolves.toEqual(
+      expect.objectContaining({
+        failure: {
+          status: 0,
+          message: "old failure text",
+          kind: "unknown"
+        }
+      })
+    )
+  })
 })

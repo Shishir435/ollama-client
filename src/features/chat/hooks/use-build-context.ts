@@ -1,12 +1,12 @@
 import { useCallback } from "react"
-import type { BuildRagContextResult } from "@/application/context/build-context"
 import type { ContextBuildOutput } from "@/application/context/context-service"
-import type {
-  ContextReceipt,
-  TurnToast
-} from "@/application/turns/turn-contract"
+import type { TurnToast } from "@/application/turns/turn-contract"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import {
+  parseChatStreamServerEvent,
+  STREAM_PROTOCOL_VERSION
+} from "@/protocol/streams"
 import type { ActivityEvent, BuildContextRequestPayload } from "@/types"
 
 interface BuildContextCallbacks {
@@ -18,17 +18,6 @@ interface BuildContextCallbacks {
    */
   toast?: (input: TurnToast) => void
 }
-
-type BuildContextPortMessage =
-  | { type: "context_progress"; requestId: string; events: ActivityEvent[] }
-  | { type: "context_warning"; requestId: string; payload: TurnToast }
-  | {
-      type: "context_result"
-      requestId: string
-      result: BuildRagContextResult
-      receipt: ContextReceipt
-    }
-  | { type: "context_error"; requestId: string; error: string }
 
 /**
  * Runs turn context building in the background over the provider stream port
@@ -64,8 +53,10 @@ export const useBuildContext = () => {
         }
 
         const listener = (raw: unknown) => {
-          const msg = raw as BuildContextPortMessage
-          if (!msg?.type || msg.requestId !== requestId) return
+          const parsed = parseChatStreamServerEvent(raw)
+          if (!parsed.success) return
+          const msg = parsed.data
+          if (!("requestId" in msg) || msg.requestId !== requestId) return
           switch (msg.type) {
             case "context_progress":
               callbacks?.onActivityEvent?.(msg.events)
@@ -79,7 +70,11 @@ export const useBuildContext = () => {
               )
               break
             case "context_error":
-              finish(() => reject(new Error(msg.error)))
+              finish(() =>
+                reject(
+                  new Error(msg.failure.userMessage || msg.failure.message)
+                )
+              )
               break
           }
         }
@@ -92,6 +87,7 @@ export const useBuildContext = () => {
         )
 
         port.postMessage({
+          version: STREAM_PROTOCOL_VERSION,
           type: MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT,
           payload: { ...request, requestId }
         })

@@ -8,6 +8,7 @@ import {
   type TurnSubmission
 } from "@/application/turns/turn-contract"
 import { flushSave, query, run } from "@/lib/sqlite/db"
+import { type AppFailure, AppFailureSchema } from "@/protocol/app-failure"
 
 interface TurnRunRow {
   id: string
@@ -33,6 +34,20 @@ const parseRow = (row: TurnRunRow): DurableTurnRun | null => {
       ? ContextReceiptSchema.parse(JSON.parse(row.contextReceipt))
       : undefined
 
+    const failure = row.failure
+      ? (() => {
+          try {
+            return AppFailureSchema.parse(JSON.parse(row.failure))
+          } catch {
+            return {
+              status: 0,
+              message: row.failure,
+              kind: "unknown" as const
+            }
+          }
+        })()
+      : undefined
+
     return {
       id: row.id,
       sessionId: row.sessionId,
@@ -44,7 +59,7 @@ const parseRow = (row: TurnRunRow): DurableTurnRun | null => {
       contextReceipt: receipt,
       userMessageId: row.userMessageId ?? undefined,
       assistantMessageId: row.assistantMessageId ?? undefined,
-      failure: row.failure ?? undefined,
+      failure,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt
     }
@@ -110,7 +125,7 @@ export const updateTurnRun = async (
     contextReceipt?: DurableTurnRun["contextReceipt"]
     userMessageId?: number
     assistantMessageId?: number
-    failure?: string | null
+    failure?: AppFailure | null
   }
 ): Promise<void> => {
   const fields: string[] = []
@@ -134,7 +149,9 @@ export const updateTurnRun = async (
   }
   if (updates.failure !== undefined) {
     fields.push("failure = ?")
-    values.push(updates.failure)
+    values.push(
+      updates.failure === null ? null : JSON.stringify(updates.failure)
+    )
   }
   if (fields.length === 0) return
 

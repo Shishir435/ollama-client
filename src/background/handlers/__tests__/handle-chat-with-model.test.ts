@@ -111,6 +111,9 @@ describe("handleChatWithModel", () => {
 
       expect(mockStreamChat).not.toHaveBeenCalled()
       expect(mockPort.postMessage).toHaveBeenCalledWith({
+        version: 1,
+        type: "chat_chunk",
+        seq: 0,
         error: expect.objectContaining({
           status: 409,
           kind: "validation",
@@ -574,6 +577,9 @@ describe("handleChatWithModel", () => {
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
       expect(mockPort.postMessage).toHaveBeenCalledWith({
+        version: 1,
+        type: "chat_chunk",
+        seq: 0,
         error: expect.objectContaining({
           status: 500,
           kind: "provider",

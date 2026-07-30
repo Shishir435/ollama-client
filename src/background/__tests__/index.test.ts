@@ -258,7 +258,11 @@ describe("Background Script Entry Point", () => {
       // Get the message listener registered on the port
       const portMessageListener = port.onMessage.addListener.mock.calls[0][0]
 
-      const msg = { type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL }
+      const msg = {
+        version: 1,
+        type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
+        payload: { model: "llama2", messages: [] }
+      }
       portMessageListener(msg)
 
       expect(handleChatWithModel).toHaveBeenCalled()
@@ -278,9 +282,36 @@ describe("Background Script Entry Point", () => {
       const portMessageListener = port.onMessage.addListener.mock.calls[0][0]
       const disconnectListener = port.onDisconnect.addListener.mock.calls[0][0]
       portMessageListener({
+        version: 1,
         type: MESSAGE_KEYS.PROVIDER.START_TURN,
         payload: {
-          start: { submission: { id: "turn-1" } },
+          start: {
+            submission: {
+              id: "turn-1",
+              sessionId: "session-1",
+              mode: "new",
+              model: "llama2",
+              request: {
+                version: 1,
+                context: {
+                  rawInput: "hello",
+                  messages: [],
+                  hasTabContext: false,
+                  contextText: "",
+                  tabDocuments: [],
+                  memoryEnabled: false,
+                  maxTabContextChars: 1,
+                  maxRagContextChars: 1,
+                  groundedOnlyMode: false,
+                  selectedModel: "llama2",
+                  selectedModelRef: null
+                },
+                userMessage: { role: "user", content: "hello" }
+              },
+              createdAt: 1
+            },
+            userMessageId: 1
+          },
           assistantMessageId: 2
         }
       })
@@ -307,7 +338,11 @@ describe("Background Script Entry Point", () => {
       const calls = port.onMessage.addListener.mock.calls
       const portMessageListener = calls[calls.length - 1][0]
 
-      const msg = { name: "llama2" }
+      const msg = {
+        version: 1,
+        type: "model_pull_start",
+        payload: { model: "llama2" }
+      }
       portMessageListener(msg)
 
       expect(handleModelPull).toHaveBeenCalled()

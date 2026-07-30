@@ -42,6 +42,10 @@ const DEFAULT_MAX_ITERATIONS = 5
 
 const TOOL_LIMIT_FALLBACK_MESSAGE =
   "I reached the tool-call limit while gathering context. Please try again with a narrower request."
+const EMPTY_NATIVE_RETRY_MESSAGE =
+  "Continue the previous turn. If current information is insufficient, call one of the provided tools now using the native tool-call interface. Otherwise, answer the user directly. Do not return reasoning without either a tool call or a visible answer."
+const EMPTY_NATIVE_FALLBACK_MESSAGE =
+  "The model finished without making the requested tool call or producing an answer. Please retry, or enable the non-native tool fallback for this model."
 
 interface ExecutedToolCall {
   /** The `tool`-role reply fed back for this call. */
@@ -112,6 +116,7 @@ export const streamChatWithTools = async ({
       let iterationContent = ""
       let finalMetrics: ChatStreamMessage["metrics"] | undefined
       let iterationReplayArtifact: ChatStreamMessage["replayArtifact"]
+      let sawThinking = false
       let stopped = false
 
       await provider.streamChat(
@@ -133,6 +138,12 @@ export const streamChatWithTools = async ({
             onChunk(chunk)
             return
           }
+          if (
+            typeof chunk.thinkingDelta === "string" &&
+            chunk.thinkingDelta.length > 0
+          ) {
+            sawThinking = true
+          }
           if (typeof chunk.delta === "string") {
             iterationContent += chunk.delta
           }
@@ -145,6 +156,22 @@ export const streamChatWithTools = async ({
       if (finalMetrics) lastFinalMetrics = finalMetrics
 
       if (pendingToolCalls.length === 0) {
+        if (
+          sawThinking &&
+          iterationContent.trim().length === 0 &&
+          (state.emptyModelRetries ?? 0) < 1
+        ) {
+          state.emptyModelRetries = (state.emptyModelRetries ?? 0) + 1
+          workingMessages.push({
+            role: "user",
+            content: EMPTY_NATIVE_RETRY_MESSAGE
+          })
+          if (onCheckpoint) await checkpoint()
+          continue
+        }
+        if (sawThinking && iterationContent.trim().length === 0) {
+          onChunk({ delta: EMPTY_NATIVE_FALLBACK_MESSAGE })
+        }
         onChunk({
           done: true,
           metrics: finalMetrics,

@@ -11,12 +11,13 @@ import {
 } from "@/background/lib/fetch-timeout"
 import {
   getPullAbortControllerKey,
-  safePostMessage
+  safePostModelPullEvent
 } from "@/background/lib/utils"
 import { isAbortError } from "@/lib/error-utils"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderId } from "@/lib/providers/types"
+import { toAppFailure } from "@/protocol/app-failure"
 import type {
   ChromePort,
   DefaultProviderPullRequest,
@@ -44,8 +45,10 @@ export const handleModelPull = async (
     providerId
   )
   if (!provider.capabilities.modelPull) {
-    safePostMessage(port, {
-      error: {
+    safePostModelPullEvent(port, {
+      version: 1,
+      type: "model_pull_error",
+      failure: {
         status: 400,
         message: "Model download is not supported by this provider"
       }
@@ -81,22 +84,29 @@ export const handleModelPull = async (
     connectTimeout.clear()
 
     if (!res.ok) {
-      safePostMessage(port, {
-        error: { status: res.status, message: res.statusText }
+      safePostModelPullEvent(port, {
+        version: 1,
+        type: "model_pull_error",
+        failure: { status: res.status, message: res.statusText }
       })
       return
     }
 
     if (isLmStudio) {
-      safePostMessage(port, {
-        status: "Download requested",
-        done: true
+      safePostModelPullEvent(port, {
+        version: 1,
+        type: "model_pull_complete",
+        status: "Download requested"
       })
       return
     }
 
     if (!res.body) {
-      safePostMessage(port, { error: "No response body received" })
+      safePostModelPullEvent(port, {
+        version: 1,
+        type: "model_pull_error",
+        failure: toAppFailure("No response body received")
+      })
       return
     }
 
@@ -104,8 +114,10 @@ export const handleModelPull = async (
   } catch (err) {
     connectTimeout.clear()
     if (connectTimeout.timedOut()) {
-      safePostMessage(port, {
-        error: {
+      safePostModelPullEvent(port, {
+        version: 1,
+        type: "model_pull_error",
+        failure: {
           status: 408,
           message: `Connection timed out after ${
             PULL_CONNECT_TIMEOUT_MS / 1000
@@ -113,10 +125,18 @@ export const handleModelPull = async (
         }
       })
     } else if (isAbortError(err)) {
-      safePostMessage(port, { error: "Download cancelled" })
+      safePostModelPullEvent(port, {
+        version: 1,
+        type: "model_pull_error",
+        failure: toAppFailure("Download cancelled", { status: 499 })
+      })
     } else {
-      safePostMessage(port, {
-        error: normalizeError(err, { fallbackMessage: "Failed to pull model" })
+      safePostModelPullEvent(port, {
+        version: 1,
+        type: "model_pull_error",
+        failure: normalizeError(err, {
+          fallbackMessage: "Failed to pull model"
+        })
       })
     }
     clearAbortController(controllerKey)

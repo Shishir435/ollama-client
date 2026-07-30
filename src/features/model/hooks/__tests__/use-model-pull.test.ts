@@ -46,6 +46,8 @@ describe("useModelPull", () => {
     expect(result.current.pullingModel).toBe("llama2")
     expect(result.current.progress).toBe("Starting...")
     expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_start",
       payload: { model: "llama2", providerId: undefined }
     })
   })

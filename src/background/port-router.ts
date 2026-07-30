@@ -1,4 +1,4 @@
-import type { SelectionActionMessage } from "@/application/selection-actions/types"
+import { reconnectDurableTurn } from "@/background/durable-turn-runtime"
 import { handleBuildContext } from "@/background/handlers/handle-build-context"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { handleModelPull } from "@/background/handlers/handle-model-pull"
@@ -17,15 +17,11 @@ import {
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import type {
-  BuildContextMessage,
-  ChatWithModelMessage,
-  ChromeMessage,
-  ChromePort,
-  ModelPullMessage,
-  PortStatusFunction,
-  StartTurnMessage
-} from "@/types"
+import {
+  parseChatStreamClientEvent,
+  parseModelPullClientEvent
+} from "@/protocol/streams"
+import type { ChromePort, PortStatusFunction } from "@/types"
 
 const extensionUrlPrefix = browser.runtime.getURL("")
 
@@ -81,8 +77,14 @@ export const registerPortRouter = () => {
     })
 
     port.onMessage.addListener(async (message) => {
-      const msg = message as ChromeMessage
-      const messageType = typeof msg?.type === "string" ? msg.type : ""
+      const parsed = parseChatStreamClientEvent(message)
+      const messageType =
+        message &&
+        typeof message === "object" &&
+        "type" in message &&
+        typeof message.type === "string"
+          ? message.type
+          : ""
       if (
         !isRuntimePortMessageAllowed(
           port.name,
@@ -110,36 +112,48 @@ export const registerPortRouter = () => {
         return
       }
 
+      if (!parsed.success) {
+        logger.warn("Blocked invalid runtime port message", "StreamProtocol", {
+          portName: port.name,
+          type: messageType || "invalid",
+          issues: parsed.error.issues.length
+        })
+        port.disconnect()
+        return
+      }
+
+      const msg = parsed.data
       if (msg.type === MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL) {
         abortCurrentOnDisconnect = true
-        currentAbortKey = (msg as ChatWithModelMessage).payload?.requestId
-        await handleChatWithModel(
-          msg as ChatWithModelMessage,
-          port,
-          getPortStatus
-        )
+        currentAbortKey = msg.payload.requestId
+        await handleChatWithModel(msg, port, getPortStatus)
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.START_TURN) {
-        const startMessage = msg as unknown as StartTurnMessage
-        currentAbortKey = startMessage.payload.start.submission.id
+        currentAbortKey = msg.payload.start.submission.id
         // The sidepanel is an observer after submission. Closing it must not
         // cancel background-owned context building or generation.
         abortCurrentOnDisconnect = false
-        await handleStartTurn(startMessage, port, getPortStatus)
+        await handleStartTurn(msg, port, getPortStatus)
+      }
+
+      if (msg.type === MESSAGE_KEYS.PROVIDER.RECONNECT_STREAM) {
+        currentAbortKey = msg.payload.requestId
+        abortCurrentOnDisconnect = false
+        await reconnectDurableTurn(
+          msg.payload.requestId,
+          msg.payload.afterSeq,
+          { port, isPortClosed: getPortStatus }
+        )
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT) {
-        await handleBuildContext(
-          msg as unknown as BuildContextMessage,
-          port,
-          getPortStatus
-        )
+        await handleBuildContext(msg, port, getPortStatus)
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.STOP_GENERATION) {
         logger.info("Stop generation requested", "BackgroundSW")
-        const requestedKey = (msg as ChatWithModelMessage).payload?.requestId
+        const requestedKey = msg.payload?.requestId
         abortAndClearController(
           requestedKey ?? currentAbortKey ?? port.abortScopeKey ?? port.name
         )
@@ -147,11 +161,7 @@ export const registerPortRouter = () => {
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION) {
-        await handleSelectionAction(
-          msg as unknown as SelectionActionMessage,
-          port,
-          getPortStatus
-        )
+        await handleSelectionAction(msg, port, getPortStatus)
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.CANCEL_SELECTION_ACTION) {
@@ -165,8 +175,14 @@ export const registerPortRouter = () => {
       port.name === MESSAGE_KEYS.OLLAMA.PULL_MODEL
     ) {
       port.onMessage.addListener(async (message) => {
-        const msg = message as ChromeMessage
-        const messageType = typeof msg?.type === "string" ? msg.type : ""
+        const parsed = parseModelPullClientEvent(message)
+        const messageType =
+          message &&
+          typeof message === "object" &&
+          "type" in message &&
+          typeof message.type === "string"
+            ? message.type
+            : ""
         if (
           !isRuntimePortMessageAllowed(
             port.name,
@@ -193,7 +209,23 @@ export const registerPortRouter = () => {
           port.disconnect()
           return
         }
-        await handleModelPull(msg as ModelPullMessage, port, getPortStatus)
+        if (!parsed.success) {
+          logger.warn("Blocked invalid model-pull message", "StreamProtocol", {
+            portName: port.name,
+            type: messageType || "invalid",
+            issues: parsed.error.issues.length
+          })
+          port.disconnect()
+          return
+        }
+        const event = parsed.data
+        await handleModelPull(
+          event.type === "model_pull_cancel"
+            ? { payload: event.payload.model, cancel: true }
+            : { payload: event.payload },
+          port,
+          getPortStatus
+        )
       })
     }
   })

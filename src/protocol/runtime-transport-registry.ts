@@ -60,6 +60,12 @@ export const RUNTIME_TRANSPORT_DEFINITIONS = [
     allowedSources: extensionPage
   },
   {
+    type: MESSAGE_KEYS.PROVIDER.RECONNECT_STREAM,
+    transport: "port-message",
+    operation: "command",
+    allowedSources: extensionPage
+  },
+  {
     type: MESSAGE_KEYS.PROVIDER.PULL_MODEL,
     transport: "port",
     operation: "stream",

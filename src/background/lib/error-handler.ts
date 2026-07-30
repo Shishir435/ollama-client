@@ -5,13 +5,14 @@ import {
   applyProviderErrorContext,
   type ProviderErrorContext
 } from "@/lib/providers/provider-errors"
+import { type AppFailure, toAppFailure } from "@/protocol/app-failure"
 import type {
   ChromePort,
   ChromeResponse,
   NetworkError,
   PortStatusFunction
 } from "@/types"
-import { safePostMessage } from "./utils"
+import { safePostChatStreamEvent } from "./utils"
 
 type HandlerFunction<T> = (
   msg: T,
@@ -30,8 +31,6 @@ interface ErrorContext<T> {
   resolveDiagnosticSessionId?: (msg: T) => string | undefined
 }
 
-type ErrorEnvelope = NonNullable<ChromeResponse["error"]>
-
 type ErrorEnvelopeOptions = {
   status?: number
   fallbackMessage?: string
@@ -42,51 +41,7 @@ type ErrorEnvelopeOptions = {
 export const normalizeError = (
   error: unknown,
   options: ErrorEnvelopeOptions = {}
-): ErrorEnvelope => {
-  const networkError =
-    error && typeof error === "object" ? (error as Partial<NetworkError>) : {}
-  const message =
-    isAppError(error) && error.userMessage
-      ? error.userMessage.trim()
-      : getErrorMessage(error, options.fallbackMessage).trim()
-
-  return {
-    status: options.status ?? networkError.status ?? 0,
-    message,
-    ...(isAppError(error) && { kind: error.kind }),
-    ...(isAppError(error) &&
-      error.messageKey && { messageKey: error.messageKey }),
-    ...(isAppError(error) &&
-      error.userMessage && { userMessage: error.userMessage }),
-    ...(isAppError(error) &&
-      error.retryable !== undefined && { retryable: error.retryable }),
-    ...(isAppError(error) &&
-      error.retryAfterMs !== undefined && { retryAfterMs: error.retryAfterMs }),
-    ...(options.context && { context: options.context }),
-    ...(!options.context &&
-      isAppError(error) &&
-      error.context && {
-        context: error.context
-      }),
-    ...(options.providerId && { providerId: options.providerId }),
-    ...(!options.providerId &&
-      isAppError(error) &&
-      error.providerId && {
-        providerId: error.providerId
-      }),
-    ...(isAppError(error) &&
-      error.providerName && { providerName: error.providerName }),
-    ...(isAppError(error) && error.model && { model: error.model }),
-    ...(isAppError(error) && error.baseUrl && { baseUrl: error.baseUrl }),
-    ...(isAppError(error) && { code: error.code }),
-    ...(isAppError(error) && { phase: error.phase }),
-    ...(isAppError(error) && { incidentId: error.incidentId }),
-    ...(isAppError(error) &&
-      error.durationMs !== undefined && { durationMs: error.durationMs }),
-    ...(isAppError(error) &&
-      error.recoveryAction && { recoveryAction: error.recoveryAction })
-  }
-}
+): AppFailure => toAppFailure(error, options)
 
 export const createErrorResponse = (
   error: unknown,
@@ -119,7 +74,13 @@ export const withErrorContext = <T>(
       // 3. Handle AbortError specifically
       if (isAbortError(err)) {
         if (!isPortClosed()) {
-          safePostMessage(port, { done: true, aborted: true })
+          safePostChatStreamEvent(port, {
+            version: 1,
+            type: "chat_chunk",
+            seq: port.streamSequence ?? 0,
+            done: true,
+            aborted: true
+          })
         }
         return
       }
@@ -197,7 +158,12 @@ export const withErrorContext = <T>(
             }
           }).catch(() => undefined)
         }
-        safePostMessage(port, { error: response.error })
+        safePostChatStreamEvent(port, {
+          version: 1,
+          type: "chat_chunk",
+          seq: port.streamSequence ?? 0,
+          error: response.error
+        })
       }
     }
   }
