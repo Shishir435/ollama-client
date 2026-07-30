@@ -189,6 +189,7 @@ export const useChatStream = ({
         if (msg.assistant) {
           state = {
             ...makeStreamReducerState(msg.assistant),
+            ...(msg.thinkingState ? { thinkingState: msg.thinkingState } : {}),
             lastSeq: msg.seq,
             started: Boolean(msg.assistant.content || msg.assistant.thinking)
           }

@@ -33,6 +33,7 @@ import {
   getTurnRun,
   updateTurnRun
 } from "@/lib/repositories/turn-runs"
+import type { ThinkingParserState } from "@/lib/thinking-parser"
 import {
   type ChatStreamServerEvent,
   parseChatStreamServerEvent
@@ -58,11 +59,14 @@ interface TurnObserver extends TurnOutput {
 
 interface TurnRuntimeSnapshot {
   assistant: ChatMessage
+  thinkingState: ThinkingParserState
   seq: number
 }
 
 const turnObservers = new Map<string, Set<TurnObserver>>()
 const turnRuntimeSnapshots = new Map<string, TurnRuntimeSnapshot>()
+const turnReconnectLeases = new Map<string, number>()
+const pendingRuntimeCleanup = new Set<string>()
 
 const removeObserver = (turnId: string, observer: TurnObserver): void => {
   const observers = turnObservers.get(turnId)
@@ -108,7 +112,26 @@ const cleanupTurnObservers = (turnId: string): void => {
 
 const cleanupTurnRuntimeState = (turnId: string): void => {
   cleanupTurnObservers(turnId)
+  if ((turnReconnectLeases.get(turnId) ?? 0) > 0) {
+    pendingRuntimeCleanup.add(turnId)
+    return
+  }
   turnRuntimeSnapshots.delete(turnId)
+}
+
+const retainTurnRuntimeSnapshot = (turnId: string): (() => void) => {
+  turnReconnectLeases.set(turnId, (turnReconnectLeases.get(turnId) ?? 0) + 1)
+  return () => {
+    const remaining = (turnReconnectLeases.get(turnId) ?? 1) - 1
+    if (remaining > 0) {
+      turnReconnectLeases.set(turnId, remaining)
+      return
+    }
+    turnReconnectLeases.delete(turnId)
+    if (pendingRuntimeCleanup.delete(turnId)) {
+      turnRuntimeSnapshots.delete(turnId)
+    }
+  }
 }
 
 const forwardTurn = (turnId: string, message: ChatStreamServerEvent): void => {
@@ -191,6 +214,7 @@ const makeGenerationOwner = (): TurnGenerationOwner => ({
       await persistAssistant(resolvedAssistantId, message)
       turnRuntimeSnapshots.set(submission.id, {
         assistant: message,
+        thinkingState: makeStreamReducerState(message).thinkingState,
         seq: 0
       })
       forwardTurn(submission.id, {
@@ -238,6 +262,7 @@ const makeGenerationOwner = (): TurnGenerationOwner => ({
       if (!reduction.dropped) {
         turnRuntimeSnapshots.set(submission.id, {
           assistant: state.assistant,
+          thinkingState: state.thinkingState,
           seq: state.lastSeq
         })
       }
@@ -395,83 +420,91 @@ export const reconnectDurableTurn = async (
   output: TurnOutput
 ): Promise<void> => {
   if (!output.port || output.isPortClosed?.()) return
-  // Buffer first, but do not expose live chunks until the snapshot has been
-  // sent. This closes the async persistence-read race without missing events.
-  const observer = attachDurableTurnObserver(turnId, output, false)
-  if (!observer) return
-  const turn = await getTurnRun(turnId).catch((error) => {
-    removeObserver(turnId, observer)
-    throw error
-  })
-  if (!turn) {
+  const releaseSnapshot = retainTurnRuntimeSnapshot(turnId)
+  try {
+    // Buffer first, but do not expose live chunks until the snapshot has been
+    // sent. This closes the async persistence-read race without missing events.
+    const observer = attachDurableTurnObserver(turnId, output, false)
+    if (!observer) return
+    const turn = await getTurnRun(turnId).catch((error) => {
+      removeObserver(turnId, observer)
+      throw error
+    })
+    if (!turn) {
+      safePostChatStreamEvent(output.port, {
+        version: 1,
+        type: "stream_snapshot",
+        requestId: turnId,
+        seq: -1,
+        sequenceReset: true,
+        status: "failed",
+        failure: {
+          status: 404,
+          message: "Durable turn not found",
+          kind: "storage"
+        }
+      })
+      cleanupTurnRuntimeState(turnId)
+      return
+    }
+
+    const persistedAssistant =
+      turn.assistantMessageId === undefined
+        ? null
+        : await getMessage(turn.assistantMessageId).catch((error) => {
+            removeObserver(turnId, observer)
+            throw error
+          })
+    if (!output.port || output.isPortClosed?.()) {
+      removeObserver(turnId, observer)
+      return
+    }
+    const runtimeSnapshot = turnRuntimeSnapshots.get(turnId)
+    const assistant = runtimeSnapshot?.assistant ?? persistedAssistant
+    const seq = runtimeSnapshot?.seq ?? -1
+    // A lower producer cursor means the worker restarted and began a fresh
+    // sequence epoch. The snapshot remains authoritative for accumulated text.
+    const sequenceReset = runtimeSnapshot === undefined || seq < afterSeq
     safePostChatStreamEvent(output.port, {
       version: 1,
       type: "stream_snapshot",
       requestId: turnId,
-      seq: -1,
-      sequenceReset: true,
-      status: "failed",
-      failure: {
-        status: 404,
-        message: "Durable turn not found",
-        kind: "storage"
-      }
+      seq,
+      sequenceReset,
+      status: turn.status,
+      ...(assistant ? { assistant } : {}),
+      ...(runtimeSnapshot
+        ? { thinkingState: runtimeSnapshot.thinkingState }
+        : {}),
+      ...(turn.failure
+        ? {
+            failure: turn.failure
+          }
+        : {})
     })
-    cleanupTurnRuntimeState(turnId)
-    return
-  }
-
-  const persistedAssistant =
-    turn.assistantMessageId === undefined
-      ? null
-      : await getMessage(turn.assistantMessageId).catch((error) => {
-          removeObserver(turnId, observer)
-          throw error
-        })
-  if (!output.port || output.isPortClosed?.()) {
-    removeObserver(turnId, observer)
-    return
-  }
-  const runtimeSnapshot = turnRuntimeSnapshots.get(turnId)
-  const assistant = runtimeSnapshot?.assistant ?? persistedAssistant
-  const seq = runtimeSnapshot?.seq ?? -1
-  // A lower producer cursor means the worker restarted and began a fresh
-  // sequence epoch. The snapshot remains authoritative for accumulated text.
-  const sequenceReset = runtimeSnapshot === undefined || seq < afterSeq
-  safePostChatStreamEvent(output.port, {
-    version: 1,
-    type: "stream_snapshot",
-    requestId: turnId,
-    seq,
-    sequenceReset,
-    status: turn.status,
-    ...(assistant ? { assistant } : {}),
-    ...(turn.failure
-      ? {
-          failure: turn.failure
-        }
-      : {})
-  })
-  observer.ready = true
-  const buffered = observer.pending.splice(0)
-  for (const message of buffered) {
-    if (
-      message.type === "chat_chunk" &&
-      message.seq !== undefined &&
-      message.seq <= seq
-    ) {
-      continue
+    observer.ready = true
+    const buffered = observer.pending.splice(0)
+    for (const message of buffered) {
+      if (
+        message.type === "chat_chunk" &&
+        message.seq !== undefined &&
+        message.seq <= seq
+      ) {
+        continue
+      }
+      safePostChatStreamEvent(output.port, message)
     }
-    safePostChatStreamEvent(output.port, message)
-  }
-  if (
-    assistant?.done ||
-    turn.status === "completed" ||
-    turn.status === "failed" ||
-    turn.status === "cancelled" ||
-    buffered.some(isTerminalEvent)
-  ) {
-    cleanupTurnObservers(turnId)
+    if (
+      assistant?.done ||
+      turn.status === "completed" ||
+      turn.status === "failed" ||
+      turn.status === "cancelled" ||
+      buffered.some(isTerminalEvent)
+    ) {
+      cleanupTurnObservers(turnId)
+    }
+  } finally {
+    releaseSnapshot()
   }
 }
 

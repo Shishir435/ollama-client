@@ -324,7 +324,8 @@ describe("durable turn runtime", () => {
       seq: 0,
       sequenceReset: true,
       status: "generating",
-      assistant: expect.objectContaining({ content: "new" })
+      assistant: expect.objectContaining({ content: "new" }),
+      thinkingState: { inThinking: false, pending: "" }
     })
     expect(port.postMessage).toHaveBeenCalledTimes(1)
 
@@ -391,11 +392,55 @@ describe("durable turn runtime", () => {
       seq: 1,
       sequenceReset: false,
       status: "generating",
-      assistant: expect.objectContaining({ content: "new", done: true })
+      assistant: expect.objectContaining({ content: "new", done: true }),
+      thinkingState: { inThinking: false, pending: "" }
     })
 
     terminalWrite.resolve(1)
     await generating
+  })
+
+  it("keeps the terminal snapshot while a reconnect reads stale persistence", async () => {
+    const assistantRead = deferred<any>()
+    mocks.getTurnRun.mockResolvedValue({
+      ...submission,
+      status: "generating",
+      assistantMessageId: 2,
+      updatedAt: 12
+    } satisfies DurableTurnRun)
+    mocks.getMessage.mockReturnValueOnce(assistantRead.promise)
+    mocks.handleChat.mockImplementationOnce(async (_message, port) => {
+      port.postMessage({ seq: 0, delta: "new" })
+      port.postMessage({ seq: 1, done: true })
+    })
+    const port = { postMessage: vi.fn() } as any
+
+    const reconnecting = reconnectDurableTurn("turn-1", 0, {
+      port,
+      isPortClosed: () => false
+    })
+    await vi.waitFor(() => expect(mocks.getMessage).toHaveBeenCalledOnce())
+
+    await startDurableTurn(submission, 1, 2, {})
+    assistantRead.resolve({
+      id: 2,
+      role: "assistant",
+      content: "old",
+      done: false
+    })
+    await reconnecting
+
+    expect(port.postMessage).toHaveBeenCalledTimes(1)
+    expect(port.postMessage.mock.calls[0][0]).toEqual({
+      version: 1,
+      type: "stream_snapshot",
+      requestId: "turn-1",
+      seq: 1,
+      sequenceReset: false,
+      status: "generating",
+      assistant: expect.objectContaining({ content: "new", done: true }),
+      thinkingState: { inThinking: false, pending: "" }
+    })
   })
 
   it("detaches a closed observer before later chunks", async () => {

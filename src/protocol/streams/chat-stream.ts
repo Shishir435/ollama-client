@@ -318,6 +318,12 @@ export const ChatStreamServerEventSchema = z.discriminatedUnion("type", [
       "cancelled"
     ]),
     assistant: RuntimeChatMessageSchema.optional(),
+    thinkingState: z
+      .object({
+        inThinking: z.boolean(),
+        pending: z.string()
+      })
+      .optional(),
     failure: AppFailureSchema.optional()
   }),
   ...SelectionStreamServerEventSchemas

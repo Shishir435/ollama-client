@@ -922,25 +922,27 @@ describe("useChatStream", () => {
         version: 1,
         type: "stream_snapshot",
         requestId: "turn-reconnect",
-        seq: -1,
-        sequenceReset: true,
+        seq: 3,
+        sequenceReset: false,
         status: "generating",
         assistant: {
           role: "assistant",
           content: "persisted ",
           done: false
-        }
+        },
+        thinkingState: { inThinking: false, pending: "<thi" }
       })
       resumedListener({
         version: 1,
         type: "chat_chunk",
-        seq: 0,
-        delta: "answer",
+        seq: 4,
+        delta: "nk>hidden</think>answer",
         done: true
       })
     })
     const lastMessages = (setMessages as any).mock.calls.at(-1)[0]
     expect(lastMessages.at(-1).content).toBe("persisted answer")
+    expect(lastMessages.at(-1).thinking).toBe("hidden")
     expect(setIsLoading).toHaveBeenLastCalledWith(false)
     vi.useRealTimers()
   })

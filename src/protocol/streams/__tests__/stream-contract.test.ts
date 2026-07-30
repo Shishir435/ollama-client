@@ -37,7 +37,8 @@ describe("stream protocol", () => {
           role: "assistant",
           content: "partial",
           done: false
-        }
+        },
+        thinkingState: { inThinking: true, pending: "</thi" }
       }).success
     ).toBe(true)
   })
