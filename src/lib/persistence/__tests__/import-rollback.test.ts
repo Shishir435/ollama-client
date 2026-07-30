@@ -3,6 +3,7 @@ import {
   clearRollbackCopy,
   ROLLBACK_PATH,
   type RollbackPool,
+  recoverFailedReplacement,
   recoverInterruptedImport,
   restoreRollbackCopy,
   stageRollbackCopy
@@ -117,6 +118,94 @@ describe("undoing a failed replacement", () => {
     // Startup recovery is the last chance to save this data; deleting the copy
     // here would spend it.
     expect(pool.files.has(ROLLBACK_PATH)).toBe(true)
+  })
+})
+
+describe("recovering from a failed replacement", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+  })
+
+  it("puts the pre-replacement database back and allows reopening", async () => {
+    const pool = createPool({ [DB_PATH]: bytes("half-written") })
+
+    await expect(
+      recoverFailedReplacement(pool, DB_PATH, bytes("live history"))
+    ).resolves.toBe(true)
+
+    expect(pool.files.get(DB_PATH)).toEqual(bytes("live history"))
+    expect(pool.files.has(ROLLBACK_PATH)).toBe(false)
+  })
+
+  it("allows reopening when there was nothing to protect", async () => {
+    const pool = createPool({ [DB_PATH]: bytes("imported") })
+
+    await expect(recoverFailedReplacement(pool, DB_PATH, null)).resolves.toBe(
+      true
+    )
+    expect(pool.files.get(DB_PATH)).toEqual(bytes("imported"))
+  })
+
+  it("falls back to the copy on disk when the in-memory restore fails", async () => {
+    const pool = createPool({
+      [DB_PATH]: bytes("half-written"),
+      [ROLLBACK_PATH]: bytes("live history")
+    })
+    let attempts = 0
+    const write = pool.importDb
+    pool.importDb = (path, value) => {
+      attempts += 1
+      // The restore from memory fails; reading the copy back off disk works.
+      if (attempts === 1) throw new Error("write failed")
+      write(path, value)
+    }
+
+    await expect(
+      recoverFailedReplacement(pool, DB_PATH, bytes("live history"))
+    ).resolves.toBe(true)
+
+    expect(pool.files.get(DB_PATH)).toEqual(bytes("live history"))
+    expect(pool.files.has(ROLLBACK_PATH)).toBe(false)
+  })
+
+  it("refuses reopening while an unrestored copy is still on disk", async () => {
+    // The dangerous case: the live file is the failed import and the copy that
+    // startup recovery will restore is still there. Serving that file would let
+    // writes land on a database the next boot discards.
+    const pool = createPool({
+      [DB_PATH]: bytes("half-written"),
+      [ROLLBACK_PATH]: bytes("live history")
+    })
+    pool.importDb = () => {
+      throw new Error("pool is out of slots")
+    }
+
+    await expect(
+      recoverFailedReplacement(pool, DB_PATH, bytes("live history"))
+    ).resolves.toBe(false)
+
+    expect(pool.files.get(ROLLBACK_PATH)).toEqual(bytes("live history"))
+  })
+
+  it("allows reopening once an unusable copy is discarded", async () => {
+    const pool = createPool({
+      [DB_PATH]: bytes("imported"),
+      [ROLLBACK_PATH]: new Uint8Array()
+    })
+    const write = pool.importDb
+    let attempts = 0
+    pool.importDb = (path, value) => {
+      attempts += 1
+      if (attempts === 1) throw new Error("write failed")
+      write(path, value)
+    }
+
+    await expect(
+      recoverFailedReplacement(pool, DB_PATH, bytes("live history"))
+    ).resolves.toBe(true)
+
+    expect(pool.files.has(ROLLBACK_PATH)).toBe(false)
+    expect(pool.files.get(DB_PATH)).toEqual(bytes("imported"))
   })
 })
 

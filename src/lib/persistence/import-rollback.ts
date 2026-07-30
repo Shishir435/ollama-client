@@ -95,6 +95,45 @@ export const clearRollbackCopy = (pool: RollbackPool): void => {
 }
 
 /**
+ * Decide what may be opened after a replacement failed, and put the database
+ * back in that state. Returns whether the file at `dbPath` is safe to open.
+ *
+ * A rollback copy still on disk outranks the file it was protecting, because
+ * startup recovery will restore it: opening the half-replaced database while
+ * the copy exists would let writes land on data the next boot discards. So the
+ * copy is put back first — from memory, then, failing that, from disk through
+ * the same recovery a boot would run. Only when no copy survives is the
+ * replaced file openable, and then only because it is the only database left.
+ */
+export const recoverFailedReplacement = async (
+  pool: RollbackPool,
+  dbPath: string,
+  rollback: Uint8Array | null
+): Promise<boolean> => {
+  if (!rollback) {
+    // Nothing existed to protect — a fresh profile — so whatever landed at
+    // dbPath is the only database there is.
+    clearRollbackCopy(pool)
+    return true
+  }
+  try {
+    await restoreRollbackCopy(pool, dbPath, rollback)
+    return true
+  } catch (error) {
+    log("rollback restore failed; retrying from the copy on disk", error)
+  }
+  try {
+    await recoverInterruptedImport(pool, dbPath)
+    // Either the pre-replacement database is back, or the copy turned out to be
+    // unusable and is gone. Both leave dbPath as the only database.
+    return true
+  } catch (error) {
+    log("rollback recovery failed; leaving the database closed", error)
+    return false
+  }
+}
+
+/**
  * Startup recovery. A rollback copy that outlived its replacement means the
  * replacement never finished, so the copy is the database to keep.
  *

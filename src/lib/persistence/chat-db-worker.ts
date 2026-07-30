@@ -21,8 +21,8 @@ import {
 } from "./durable-tables"
 import {
   clearRollbackCopy,
+  recoverFailedReplacement,
   recoverInterruptedImport,
-  restoreRollbackCopy,
   stageRollbackCopy
 } from "./import-rollback"
 import type {
@@ -373,18 +373,20 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
         clearRollbackCopy(pool)
         return result
       } catch (error) {
-        if (rollback) {
-          try {
-            await restoreRollbackCopy(pool, DB_PATH, rollback)
-          } catch (restoreError) {
-            // The copy stays on disk: startup recovery is the last chance to
-            // put this database back.
-            console.error("[chat-db] rollback restore failed", restoreError)
-          }
-        } else {
-          clearRollbackCopy(pool)
+        // Reopening is not unconditional. While a rollback copy is still on
+        // disk it outranks the half-replaced file — startup recovery restores
+        // it — so opening that file here would serve missing history and let
+        // writes land on a database the next boot discards. When the copy
+        // cannot be put back, the worker opens nothing: the next request
+        // re-enters openContext, which recovers before anything opens.
+        if (await recoverFailedReplacement(pool, DB_PATH, rollback)) {
+          await reopenContext(pool).catch((reopenError: unknown) => {
+            console.error(
+              "[chat-db] reopen after a failed import failed",
+              reopenError
+            )
+          })
         }
-        void reopenContext(pool)
         throw error
       } finally {
         pool.unlink(PROBE_PATH)
