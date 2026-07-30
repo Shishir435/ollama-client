@@ -6,6 +6,7 @@ import {
   type ProviderErrorContext
 } from "@/lib/providers/provider-errors"
 import { type AppFailure, toAppFailure } from "@/protocol/app-failure"
+import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 import type {
   ChromePort,
   ChromeResponse,
@@ -76,7 +77,7 @@ export const withErrorContext = <T>(
         if (!isPortClosed()) {
           safePostChatStreamEvent(port, {
             version: 1,
-            type: "chat_chunk",
+            type: CHAT_STREAM_EVENT_TYPES.CHUNK,
             seq: port.streamSequence ?? 0,
             done: true,
             aborted: true
@@ -160,7 +161,7 @@ export const withErrorContext = <T>(
         }
         safePostChatStreamEvent(port, {
           version: 1,
-          type: "chat_chunk",
+          type: CHAT_STREAM_EVENT_TYPES.CHUNK,
           seq: port.streamSequence ?? 0,
           error: response.error
         })

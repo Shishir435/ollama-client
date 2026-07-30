@@ -22,6 +22,7 @@ import {
   SELECTION_OVERLAY_REQUEST_ID_GLOBAL,
   type SelectionOverlayLoadResult
 } from "@/protocol/content-messages"
+import { getMessageType } from "@/protocol/message-type"
 import {
   RPC_CANCEL_MESSAGE_TYPE,
   RPC_REQUEST_MESSAGE_TYPE
@@ -232,20 +233,17 @@ export const registerMessageRouter = () => {
     const response = sendResponse as SendResponseFunction
     const message = rawMessage as ChromeMessage
 
+    const messageType = getMessageType(message)
     if (
-      typeof message?.type !== "string" ||
+      !messageType ||
       !isRuntimeMessageAllowed(
-        message.type,
+        messageType,
         sender,
         browser.runtime.id,
         extensionUrlPrefix
       )
     ) {
-      respondForbidden(
-        typeof message?.type === "string" ? message.type : "invalid",
-        sender,
-        response
-      )
+      respondForbidden(messageType ?? "invalid", sender, response)
       return true
     }
 

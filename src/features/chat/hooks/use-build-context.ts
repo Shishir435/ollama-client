@@ -4,6 +4,7 @@ import type { TurnToast } from "@/application/turns/turn-contract"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import {
+  CHAT_STREAM_EVENT_TYPES,
   parseChatStreamServerEvent,
   STREAM_PROTOCOL_VERSION
 } from "@/protocol/streams"
@@ -58,18 +59,18 @@ export const useBuildContext = () => {
           const msg = parsed.data
           if (!("requestId" in msg) || msg.requestId !== requestId) return
           switch (msg.type) {
-            case "context_progress":
+            case CHAT_STREAM_EVENT_TYPES.CONTEXT_PROGRESS:
               callbacks?.onActivityEvent?.(msg.events)
               break
-            case "context_warning":
+            case CHAT_STREAM_EVENT_TYPES.CONTEXT_WARNING:
               callbacks?.toast?.(msg.payload)
               break
-            case "context_result":
+            case CHAT_STREAM_EVENT_TYPES.CONTEXT_RESULT:
               finish(() =>
                 resolve({ result: msg.result, receipt: msg.receipt })
               )
               break
-            case "context_error":
+            case CHAT_STREAM_EVENT_TYPES.CONTEXT_ERROR:
               finish(() =>
                 reject(
                   new Error(msg.failure.userMessage || msg.failure.message)

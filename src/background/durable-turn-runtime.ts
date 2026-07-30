@@ -35,6 +35,7 @@ import {
 } from "@/lib/repositories/turn-runs"
 import type { ThinkingParserState } from "@/lib/thinking-parser"
 import {
+  CHAT_STREAM_EVENT_TYPES,
   type ChatStreamServerEvent,
   parseChatStreamServerEvent
 } from "@/protocol/streams"
@@ -95,7 +96,7 @@ export const attachDurableTurnObserver = (
 }
 
 const isTerminalEvent = (message: ChatStreamServerEvent): boolean =>
-  message.type === "chat_chunk" &&
+  message.type === CHAT_STREAM_EVENT_TYPES.CHUNK &&
   Boolean(message.done || message.error || message.aborted)
 
 const cleanupTurnObservers = (turnId: string): void => {
@@ -219,7 +220,7 @@ const makeGenerationOwner = (): TurnGenerationOwner => ({
       })
       forwardTurn(submission.id, {
         version: 1,
-        type: "chat_chunk",
+        type: CHAT_STREAM_EVENT_TYPES.CHUNK,
         seq: 0,
         delta: message.content,
         done: true
@@ -251,8 +252,8 @@ const makeGenerationOwner = (): TurnGenerationOwner => ({
       const parsed = parseChatStreamServerEvent(raw)
       if (
         !parsed.success ||
-        (parsed.data.type !== "chat_chunk" &&
-          parsed.data.type !== "rag_sources")
+        (parsed.data.type !== CHAT_STREAM_EVENT_TYPES.CHUNK &&
+          parsed.data.type !== CHAT_STREAM_EVENT_TYPES.RAG_SOURCES)
       ) {
         return
       }
@@ -284,7 +285,7 @@ const makeGenerationOwner = (): TurnGenerationOwner => ({
         })
       }
       if (reduction.terminal) completion.terminal = reduction.terminal
-      if (message.type === "chat_chunk" && message.aborted) {
+      if (message.type === CHAT_STREAM_EVENT_TYPES.CHUNK && message.aborted) {
         completion.aborted = true
       }
       forwardTurn(submission.id, message)
@@ -343,14 +344,14 @@ const withLiveCallbacks = (submission: TurnSubmission) => {
     onActivityEvent: (events: ActivityEvent[]) =>
       forwardTurn(submission.id, {
         version: 1,
-        type: "context_progress",
+        type: CHAT_STREAM_EVENT_TYPES.CONTEXT_PROGRESS,
         requestId: submission.id,
         events
       }),
     toast: (warning: TurnToast) =>
       forwardTurn(submission.id, {
         version: 1,
-        type: "context_warning",
+        type: CHAT_STREAM_EVENT_TYPES.CONTEXT_WARNING,
         requestId: submission.id,
         payload: warning
       })
@@ -433,7 +434,7 @@ export const reconnectDurableTurn = async (
     if (!turn) {
       safePostChatStreamEvent(output.port, {
         version: 1,
-        type: "stream_snapshot",
+        type: CHAT_STREAM_EVENT_TYPES.SNAPSHOT,
         requestId: turnId,
         seq: -1,
         sequenceReset: true,
@@ -467,7 +468,7 @@ export const reconnectDurableTurn = async (
     const sequenceReset = runtimeSnapshot === undefined || seq < afterSeq
     safePostChatStreamEvent(output.port, {
       version: 1,
-      type: "stream_snapshot",
+      type: CHAT_STREAM_EVENT_TYPES.SNAPSHOT,
       requestId: turnId,
       seq,
       sequenceReset,
@@ -486,7 +487,7 @@ export const reconnectDurableTurn = async (
     const buffered = observer.pending.splice(0)
     for (const message of buffered) {
       if (
-        message.type === "chat_chunk" &&
+        message.type === CHAT_STREAM_EVENT_TYPES.CHUNK &&
         message.seq !== undefined &&
         message.seq <= seq
       ) {
