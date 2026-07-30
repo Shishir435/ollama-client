@@ -3,19 +3,19 @@ import { describe, expect, it, vi } from "vitest"
 import { ReasoningTrace } from "@/features/chat/components/reasoning-trace"
 import type { ChatMessage } from "@/types"
 
-// Mirrors i18next plural + interpolation for the few counted keys the trace
-// uses, so a missing `_one`/`_other` pair fails here rather than shipping a raw
-// key into the UI.
-const translate = (key: string, options?: { count?: number }) => {
-  const resolved =
-    options?.count === undefined
-      ? key
-      : `${key}_${options.count === 1 ? "one" : "other"}`
+// Mirrors i18next's JSON v4 plural resolution: the suffix is whatever
+// `Intl.PluralRules` selects, not a one-vs-rest guess. Hard-coding `count === 1`
+// here would pass on a catalog that breaks Russian, where 2 selects `few`.
+const translate = (
+  key: string,
+  options?: { count?: number },
+  locale = "en"
+) => {
   const catalog: Record<string, string> = CATALOG
-  const value = catalog[resolved] ?? catalog[key] ?? key
-  return options?.count === undefined
-    ? value
-    : value.replace("{{count}}", String(options.count))
+  if (options?.count === undefined) return catalog[key] ?? key
+  const category = new Intl.PluralRules(locale).select(options.count)
+  const value = catalog[`${key}_${category}`] ?? catalog[key] ?? key
+  return value.replace("{{count}}", String(options.count))
 }
 
 vi.mock("react-i18next", () => ({

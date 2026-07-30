@@ -273,7 +273,9 @@
         "searching_memory": "Поиск в памяти",
         "searching_context": "Поиск контекста",
         "results_one": "{{count}} результат",
-        "results_other": "{{count}} результатов",
+        "results_few": "{{count}} результата",
+        "results_many": "{{count}} результатов",
+        "results_other": "{{count}} результата",
         "restoreSession": "Открываю закрытую вкладку",
         "list_reminders": "Список напоминаний",
         "cancel_reminder": "Отмена напоминания"
@@ -1122,7 +1124,9 @@
     "loaded_models": {
       "title": "Загруженные модели",
       "count_one": "{{count}} модель",
-      "count_other": "{{count}} моделей",
+      "count_few": "{{count}} модели",
+      "count_many": "{{count}} моделей",
+      "count_other": "{{count}} модели",
       "refresh_tooltip": "Обновить загруженные модели",
       "no_models_title": "В памяти сейчас нет загруженных моделей",
       "no_models_description": "Модели появятся здесь после загрузки.",
