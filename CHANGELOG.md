@@ -17,6 +17,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   into the prompt, and gains a select-all control scoped to whatever the search
   filter is showing — so a filtered selection never silently includes tabs you
   cannot see. Once every listed tab is selected, the same control clears them.
+- Upgrading from an older chat-history format now verifies every kind of stored
+  data — chats, messages, attachments, prompt templates, saved tool runs — and
+  checks the imported database for damage before it becomes the one in use.
+  Anything that does not arrive intact leaves your history on the previous
+  store, untouched, rather than switching over to an incomplete copy. A
+  half-finished upgrade interrupted by a browser restart is rolled back and
+  retried from the original on the next launch.
+- A support report from a device that went through that upgrade now says how it
+  went — whether it succeeded, which check failed, and how many attempts it
+  took. Row counts stay on your device; only the fact that a table arrived short
+  is included, and a device that never had an older store says nothing at all.
+  Nothing is sent anywhere unless you open a report yourself.
 
 ### Changed
 
