@@ -472,7 +472,12 @@ export const fromDocuments = async (
       timestamp?: number
     }
   }>,
-  fileId?: string
+  fileId?: string,
+  options: {
+    signal?: AbortSignal
+    strict?: boolean
+    onStored?: (stored: number, total: number) => void
+  } = {}
 ): Promise<number[]> => {
   const ids: number[] = []
 
@@ -480,7 +485,9 @@ export const fromDocuments = async (
   // and to avoid overwhelming the DB/Index
   for (const doc of documents) {
     try {
+      options.signal?.throwIfAborted()
       const embeddingResult = await generateEmbedding(doc.pageContent)
+      options.signal?.throwIfAborted()
 
       if ("error" in embeddingResult) {
         logger.error(
@@ -490,6 +497,9 @@ export const fromDocuments = async (
             error: embeddingResult.error
           }
         )
+        if (options.strict) {
+          throw createAppError(embeddingResult.error, { kind: "provider" })
+        }
         continue
       }
 
@@ -509,7 +519,9 @@ export const fromDocuments = async (
         metadata
       )
       ids.push(id)
+      options.onStored?.(ids.length, documents.length)
     } catch (error) {
+      if (options.signal?.aborted || options.strict) throw error
       logger.error("Failed to store document chunk", "fromDocuments", { error })
     }
   }

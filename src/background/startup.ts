@@ -13,6 +13,7 @@ import {
   EXTERNAL_URLS,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
@@ -246,6 +247,11 @@ export const initializeBackgroundStartup = () => {
     })
     void resumeIncompleteTurnRuns().catch((error) => {
       logger.error("Failed to resume durable turns", "BackgroundSW", { error })
+    })
+    void IngestionService.resumeIncomplete().catch((error) => {
+      logger.error("Failed to resume durable ingestion", "BackgroundSW", {
+        error
+      })
     })
   })
   // MV3 workers can start without a browser onStartup event (extension reload,

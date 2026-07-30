@@ -8,6 +8,7 @@ import { classifyRuntimeSender } from "@/background/runtime-sender-authorization
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { DiagnosticsService } from "@/lib/diagnostics/diagnostics-service"
 import { isAppError } from "@/lib/error-utils"
+import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
 import { ModelRpcService } from "@/lib/providers/model-rpc-service"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
@@ -70,6 +71,12 @@ const handlers = {
   },
   [RpcMethod.EmbeddingsPrepareModel]: async (request, signal) =>
     prepareEmbeddingModel(request, signal),
+  [RpcMethod.IngestionSubmit]: async (request) =>
+    IngestionService.submit(request),
+  [RpcMethod.IngestionGet]: async (request) =>
+    IngestionService.get(request.jobId),
+  [RpcMethod.IngestionCancel]: async (request) =>
+    IngestionService.cancel(request.jobId),
   // `diagnostics.run` is only reachable from the user pressing "Run self-tests",
   // which means "measure now" — never answer it from the shared TTL result.
   [RpcMethod.DiagnosticsRun]: async (_request, signal) =>
