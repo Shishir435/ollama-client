@@ -1,17 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { ImportResult } from "../protocol"
+import type { ImportResult, SurveyResult } from "../protocol"
 
 // Migration verification and its receipt. Each test re-imports owner-host,
 // because `ensureMigrated` memoizes the attempt for the life of the module —
 // the same reason a real owner runs it once per host.
 
 const legacyBlob = vi.hoisted(() => ({
-  readLegacyBlobBytes: vi.fn(),
-  countLegacyRows: vi.fn()
+  readLegacyBlobBytes: vi.fn()
 }))
 vi.mock("../legacy-blob-reader", () => legacyBlob)
 
 const importResults: ImportResult[] = []
+/** Queued `surveyDb` answers; falls back to a sound survey of the fixture. */
+const surveyResults: SurveyResult[] = []
 
 class StubWorker {
   onmessage: ((event: { data: unknown }) => void) | null = null
@@ -23,6 +24,16 @@ class StubWorker {
     const { id } = payload
     const op = payload.request?.op
     queueMicrotask(() => {
+      if (op === "surveyDb") {
+        this.onmessage?.({
+          data: {
+            id,
+            ok: true,
+            result: surveyResults.shift() ?? sourceSurvey
+          }
+        })
+        return
+      }
       if (op === "importDb") {
         const result = importResults.shift()
         this.onmessage?.({
@@ -73,12 +84,11 @@ describe("legacy-blob migration verification", () => {
   beforeEach(() => {
     store.clear()
     importResults.length = 0
+    surveyResults.length = 0
     legacyBlob.readLegacyBlobBytes.mockReset()
-    legacyBlob.countLegacyRows.mockReset()
     legacyBlob.readLegacyBlobBytes.mockResolvedValue(
       Uint8Array.from([1, 2, 3, 4])
     )
-    legacyBlob.countLegacyRows.mockResolvedValue(sourceSurvey)
     vi.mocked(chrome.storage.local.get as never as ReturnType<typeof vi.fn>)
       .mockReset()
       .mockImplementation(async (key: string) =>

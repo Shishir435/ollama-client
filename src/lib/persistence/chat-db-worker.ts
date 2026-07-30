@@ -31,7 +31,8 @@ import type {
   PersistenceOp,
   QueryRow,
   RunResult,
-  SqlValue
+  SqlValue,
+  SurveyResult
 } from "./protocol"
 import { asSqlJsDatabase } from "./sqljs-compat"
 
@@ -351,6 +352,29 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
         bytes.byteOffset,
         bytes.byteOffset + bytes.byteLength
       )
+    }
+    case "surveyDb": {
+      // Read-only measurement of a candidate database, on the same engine that
+      // will import it. The live database is not touched and the scratch file is
+      // unlinked before returning, so a survey that throws leaves nothing behind
+      // for the next one to trip over.
+      pool.unlink(PROBE_PATH)
+      await ensureFreeSlots(pool, 1)
+      await pool.importDb(PROBE_PATH, new Uint8Array(request.bytes))
+      const source = new pool.OpfsSAHPoolDb(PROBE_PATH)
+      try {
+        // Nothing writes to this handle — no schema runner, no migrations. A
+        // source blob is evidence, and evidence that has been written to is
+        // no longer the thing that was measured.
+        return {
+          ...counts(source),
+          schemaVersion: queryNumber(source, "PRAGMA user_version"),
+          integrity: integrity(source)
+        } satisfies SurveyResult
+      } finally {
+        source.close()
+        pool.unlink(PROBE_PATH)
+      }
     }
     case "importDb": {
       // Backup restore and legacy migration: replace the database wholesale.
