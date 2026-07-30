@@ -1,10 +1,10 @@
 import { browser, supportsDNR } from "@/lib/browser-api"
+import { getSafeClientEnvironment } from "@/lib/client-environment"
 import {
   localProviderOriginRuleMatches,
   readLocalProviderOriginRule
 } from "@/lib/dnr-rules"
 import { vectorDb } from "@/lib/embeddings/db"
-import { getSafeClientEnvironment } from "@/lib/error-report"
 import {
   type MigrationReceipt,
   readMigrationReceipt,
