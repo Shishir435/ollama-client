@@ -188,6 +188,73 @@ describe("provider contracts", () => {
     }
   })
 
+  it("shares terminal SSE handling across compatible provider classes", async () => {
+    const providers = [
+      new OpenAICompatibleProvider({
+        id: "custom:openai:test",
+        name: "Custom",
+        type: ProviderType.OPENAI,
+        enabled: true,
+        baseUrl: "http://custom.test/v1"
+      }),
+      new LMStudioProvider({
+        id: ProviderId.LM_STUDIO,
+        name: "LM Studio",
+        type: ProviderType.OPENAI,
+        enabled: true,
+        baseUrl: "http://lmstudio.test/v1"
+      }),
+      new LlamaCppProvider({
+        id: ProviderId.LLAMA_CPP,
+        name: "llama.cpp",
+        type: ProviderType.OPENAI,
+        enabled: true,
+        baseUrl: "http://llamacpp.test/v1"
+      }),
+      new VllmProvider({
+        id: ProviderId.VLLM,
+        name: "vLLM",
+        type: ProviderType.OPENAI,
+        enabled: true,
+        baseUrl: "http://vllm.test/v1"
+      }),
+      new LocalAIProvider({
+        id: ProviderId.LOCALAI,
+        name: "LocalAI",
+        type: ProviderType.OPENAI,
+        enabled: true,
+        baseUrl: "http://localai.test/v1"
+      }),
+      new KoboldCppProvider({
+        id: ProviderId.KOBOLDCPP,
+        name: "KoboldCPP",
+        type: ProviderType.OPENAI,
+        enabled: true,
+        baseUrl: "http://kobold.test/v1"
+      })
+    ]
+
+    for (const provider of providers) {
+      vi.mocked(fetch).mockResolvedValueOnce(
+        streamResponse([
+          'data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n',
+          "data: [DONE]\n"
+        ])
+      )
+      const chunks: unknown[] = []
+      await provider.streamChat(
+        { model: "chat-model", messages: [{ role: "user", content: "hi" }] },
+        (chunk) => chunks.push(chunk)
+      )
+      expect(chunks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ delta: "ok", done: false }),
+          expect.objectContaining({ done: true })
+        ])
+      )
+    }
+  })
+
   it("OpenAI surfaces useful model-list and chat errors", async () => {
     const provider = new OpenAICompatibleProvider({
       id: ProviderId.OPENAI,

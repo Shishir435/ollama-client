@@ -416,9 +416,9 @@ describe("provider tool calling — stream parsing", () => {
     ])
   })
 
-  it("finishes and cancels a persistent SSE stream at finish_reason", async () => {
+  it("flushes a final tool call without a newline on persistent SSE", async () => {
     const persistent = persistentStreamResponse(
-      'data: {"choices":[{"delta":{"reasoning":"I should call a tool."},"finish_reason":"stop"}]}\n'
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"get_weather","arguments":"{\\"city\\":\\"Paris\\"}"}}]},"finish_reason":"tool_calls"}]}'
     )
     vi.spyOn(globalThis, "fetch").mockResolvedValue(persistent.response)
 
@@ -428,9 +428,35 @@ describe("provider tool calling — stream parsing", () => {
       collect(chunks)
     )
 
-    expect(chunks.some((chunk) => chunk.thinkingDelta)).toBe(true)
+    expect(chunks.find((chunk) => chunk.toolCalls)?.toolCalls).toEqual([
+      { id: "c1", name: "get_weather", arguments: { city: "Paris" } }
+    ])
     expect(chunks.filter((chunk) => chunk.done)).toHaveLength(1)
     expect(persistent.wasCancelled()).toBe(true)
+  })
+
+  it("keeps usage sent after finish_reason before [DONE]", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      streamResponse([
+        'data: {"choices":[{"delta":{"content":"answer"},"finish_reason":"stop"}]}\n',
+        'data: {"choices":[],"usage":{"prompt_tokens":7,"completion_tokens":2}}\n',
+        "data: [DONE]\n"
+      ])
+    )
+
+    const chunks: ChatStreamMessage[] = []
+    await new OpenAICompatibleProvider(openaiConfig).streamChat(
+      baseRequest,
+      collect(chunks)
+    )
+
+    expect(chunks.find((chunk) => chunk.metrics?.eval_count)?.metrics).toEqual(
+      expect.objectContaining({
+        prompt_eval_count: 7,
+        eval_count: 2
+      })
+    )
+    expect(chunks.filter((chunk) => chunk.done)).toHaveLength(1)
   })
 
   it("preserves fragmented OpenRouter reasoning details across a tool turn", async () => {
