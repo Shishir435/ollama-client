@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastReviewed": "2026-07-29",
+  "lastReviewed": "2026-07-31",
   "entries": [
     {
       "id": "legacy-sqljs-live-fallback",
@@ -10,8 +10,8 @@
         "0.6.0-0.12.2 sql.js profiles",
         "unmarked sql.js profiles"
       ],
-      "removalGate": "Migration fixtures pass in packaged Chrome and Firefox with per-table verification, integrity checks, and host loss during migration; a migration receipt and the operator rollback switch exist (both shipped); CI retains the evidence; and the fallback has completed its evidence window.",
-      "targetRelease": "0.13.x",
+      "removalGate": "Migration fixtures pass in packaged Chrome and Firefox with per-table verification, integrity checks, destination-completeness, and host loss during migration; a migration receipt, its diagnostics summary, and the operator rollback switch exist (all shipped in 0.12.6); CI retains the evidence; and the fallback has completed its evidence window, which opened 2026-07-31 and runs 2-3 months.",
+      "targetRelease": "0.14.x",
       "recoveryPath": "Keep a lazy migration-only reader and the untouched source blob so supported skipped upgrades from 0.6.0 onward remain recoverable, plus the persistence_legacy_override_v1 switch to serve history from the blob again. Pre-0.6.0 Dexie-only chat history is outside the direct-upgrade contract."
     },
     {
@@ -20,7 +20,7 @@
       "introducedIn": "0.12.3",
       "sourceVersions": ["0.12.3+"],
       "removalGate": "Remove with legacy-sqljs-live-fallback; no production writer may retain the old import-generation concept.",
-      "targetRelease": "0.13.x",
+      "targetRelease": "0.14.x",
       "recoveryPath": "Migration receipts and the single OPFS owner replace the guard."
     },
     {

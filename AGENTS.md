@@ -157,6 +157,24 @@ Chat history is **SQLite-only** (SQLite-in-WASM). The Dexie chat-history fallbac
 - **Reasoning replay** — signed Anthropic thinking/redacted blocks and OpenRouter `reasoning_details` live in the versioned, size-capped `ChatMessage.replayArtifact`, separate from display-only `thinking`. Preserve block order and opaque values through SQLite and checkpoints, validate provider/model ownership before replay, and never render or log opaque contents.
 - **Sync vs local** — sync-safe settings use `chrome.storage.sync`; device-local keys are routed to `chrome.storage.local` by the wrapper.
 
+#### State ownership
+
+Four state systems hold live values. Each value has exactly one owner; the rest read it. Picking the wrong owner is how a value ends up written from two places with no rule for which wins.
+
+| System | Owns | Never holds |
+|---|---|---|
+| **SQLite** (`chat-history.ts` facade) | chats, sessions, messages, attachments, prompt templates, tool-loop checkpoints, durable job runs | anything a UI needs synchronously on first paint |
+| **Dexie / IndexedDB** (`lib/embeddings/`, `lib/knowledge/`) | vectors, HNSW and keyword indexes, knowledge sets, chunk feedback | anything SQLite already owns — chat rows never live in both |
+| **`chrome.storage`** via `plasmoGlobalStorage` | settings, provider config and mappings, capability overrides, approval grants, handoff flags, persistence markers and the migration receipt | bulk data, and anything large enough to matter against the sync quota |
+| **Zustand stores** | ephemeral UI state: selected tabs, input draft, stream progress, speech, search dialog | durable values, unless the store explicitly reads and writes through one of the systems above |
+
+Rules that follow from it:
+
+- **Every `chrome.storage` key needs a descriptor** in `src/lib/storage/storage-key-registry.ts` with its sync scope and a `reason`. `storage-key-registry.test.ts` asserts the registry and `STORAGE_KEYS` match exactly, so adding a key without one fails.
+- **Two stores are durable-backed and say so:** `stores/theme.ts` and `stores/shortcut-store.ts` read and write `plasmoGlobalStorage`. Every other store is ephemeral and its contents die with the page — do not add a durable value to one of them.
+- **`MESSAGE_KEYS` are not storage keys.** They name runtime ports and one-way events, hold nothing, and do not belong in the storage registry.
+- The background/application layer owns durable workflows; the UI submits intent. A durable value written directly from a component is a boundary violation even when it works.
+
 The persistence host (Chromium offscreen document / Firefox MV2 background page) owns the only chat-db worker. It reports worker `error` and `messageerror` events with their cause — keep it that way; a bare "worker crashed" hides the actual failure. Note that in dev the worker loads from the Vite dev server, which is why `worker-src` allows that origin during `serve` only (`config/__tests__/manifest-csp.test.ts` guards both halves).
 
 ### Feature modules (`src/features/`)
@@ -165,7 +183,7 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 
 | Feature | Contents |
 |---|---|
-| `chat/` | chat UI, `use-chat.ts`, RAG pipeline (`rag/`), speech store |
+| `chat/` | chat UI, `use-chat.ts`, speech store. **No `rag/`** — retrieval lives in `src/application/context/rag/` |
 | `sessions/` | session list + repository, `chat-session-store.ts` |
 | `model/` | model management UI, provider/embedding settings |
 | `file-upload/` | ingestion for RAG, per-format `processors/` |
@@ -180,7 +198,7 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 
 ### RAG / embeddings
 
-- Pipeline: `src/features/chat/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`).
+- Pipeline: `src/application/context/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`), driven by `src/application/context/build-context.ts`. It moved out of `src/features/chat/` when context building went to the background — a feature directory cannot own work the background performs.
 - **All** file, memory, and live-page splitting goes through `src/lib/embeddings/chunker.ts`. Do not build a parallel text splitter.
 - Plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `hnsw-index.ts`, `keyword-index.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
 - Embedding strategy chain: provider-native → shared model → Ollama fallback.
