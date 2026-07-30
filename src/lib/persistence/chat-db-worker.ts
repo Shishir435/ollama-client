@@ -19,6 +19,12 @@ import {
   readIntegrityReport,
   tableExistsSql
 } from "./durable-tables"
+import {
+  clearRollbackCopy,
+  recoverInterruptedImport,
+  restoreRollbackCopy,
+  stageRollbackCopy
+} from "./import-rollback"
 import type {
   CountsResult,
   ImportResult,
@@ -112,6 +118,14 @@ const openContext = (): NonNullable<typeof contextPromise> => {
           name: "chat-history-pool",
           initialCapacity: 6
         })
+        // Before anything opens the database: a rollback copy left behind by a
+        // replacement that never finished has to win over the half-written file
+        // it was protecting.
+        await recoverInterruptedImport(pool, DB_PATH).catch(
+          (error: unknown) => {
+            console.error("[chat-db] rollback recovery failed", error)
+          }
+        )
         const db = new pool.OpfsSAHPoolDb(DB_PATH)
         initializeSchema(db)
         return { db, pool }
@@ -189,6 +203,17 @@ const counts = (db: Database): CountsResult => {
   }
 }
 
+/** An import needs room for the verification probe and the rollback copy beside
+ * the live database. The pool does not grow on its own. */
+const ensureFreeSlots = async (
+  pool: SAHPoolUtil,
+  needed: number
+): Promise<void> => {
+  const free = pool.getCapacity() - pool.getFileCount()
+  if (free >= needed) return
+  await pool.addCapacity(needed - free + 1)
+}
+
 /**
  * Import a candidate database to the scratch path and report its integrity.
  *
@@ -201,9 +226,7 @@ const verifyImportCandidate = async (
   bytes: ArrayBuffer
 ): Promise<IntegrityReport> => {
   pool.unlink(PROBE_PATH)
-  if (pool.getCapacity() - pool.getFileCount() < 1) {
-    await pool.addCapacity(2)
-  }
+  await ensureFreeSlots(pool, 1)
   await pool.importDb(PROBE_PATH, new Uint8Array(bytes))
   const probe = new pool.OpfsSAHPoolDb(PROBE_PATH)
   try {
@@ -333,12 +356,33 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
 
       db.close()
       contextPromise = null
+      // The replacement itself can still fail or be interrupted, so the live
+      // database is copied aside until it completes. A replacement that cannot
+      // be protected does not happen: failing here leaves the database intact
+      // and the restore retryable.
+      await ensureFreeSlots(pool, 1)
+      const rollback = await stageRollbackCopy(pool, DB_PATH)
       try {
         await pool.importDb(DB_PATH, new Uint8Array(request.bytes))
-      } finally {
+      } catch (error) {
+        if (rollback) {
+          try {
+            await restoreRollbackCopy(pool, DB_PATH, rollback)
+          } catch (restoreError) {
+            // The copy stays on disk: startup recovery is the last chance to
+            // put this database back.
+            console.error("[chat-db] rollback restore failed", restoreError)
+          }
+        } else {
+          clearRollbackCopy(pool)
+        }
         pool.unlink(PROBE_PATH)
         void reopenContext(pool)
+        throw error
       }
+      clearRollbackCopy(pool)
+      pool.unlink(PROBE_PATH)
+      void reopenContext(pool)
       const { db: fresh } = await openContext()
       const result: ImportResult = { ...counts(fresh), integrity: report }
       return result
