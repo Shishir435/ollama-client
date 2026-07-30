@@ -88,13 +88,43 @@ export const findTableCountMismatches = (
   return mismatches
 }
 
+/**
+ * Durable tables the destination is missing after an import.
+ *
+ * Count comparison cannot catch these: a table absent from the source is
+ * skipped, because forward migrations are expected to create it empty. That
+ * expectation is only as good as the migration set — `chunk_feedback` was added
+ * to the schema in 0.10.0 with no migration behind it, so a database that
+ * predates it stayed without the table and verification called that success.
+ *
+ * Checked against the destination's own table list rather than the source's, so
+ * the next table added without a migration fails the migration instead of
+ * shipping a profile that raises "no such table" at the first write.
+ */
+export const findMissingDurableTables = (
+  imported: TableCounts
+): DurableTable[] =>
+  DURABLE_TABLES.filter((table) => imported[table] === undefined)
+
+/**
+ * Describe a failed verification as shortfalls, not as count pairs.
+ *
+ * This text becomes the thrown error, which is stored as the receipt's `failure`
+ * and can be carried into a support report. `messages 39199/39204` would put
+ * history volume in that report; `messages short by 5` diagnoses the same defect
+ * without it. The absolute counts stay in the receipt's structured
+ * `sourceCounts`/`importedCounts`, which never leave the device.
+ */
 export const describeMismatches = (
   mismatches: readonly TableCountMismatch[]
 ): string =>
   mismatches
-    .map(
-      (mismatch) => `${mismatch.table} ${mismatch.imported}/${mismatch.source}`
-    )
+    .map((mismatch) => {
+      const delta = mismatch.source - mismatch.imported
+      return delta > 0
+        ? `${mismatch.table} short by ${delta}`
+        : `${mismatch.table} over by ${-delta}`
+    })
     .join(", ")
 
 export const readIntegrityReport = (read: RowReader): IntegrityReport => {

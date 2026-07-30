@@ -89,7 +89,33 @@ export const DiagnosticsGetBundleResultSchema = z
         storage: z.object({
           backend: z.string(),
           messageCount: z.number().int().nonnegative(),
-          vectorCount: z.number().int().nonnegative()
+          vectorCount: z.number().int().nonnegative(),
+          /**
+           * Chat-history migration evidence, absent on a profile that never had
+           * a legacy blob. Counts and integrity verdicts only — no chat content,
+           * no table contents, nothing user-identifying. This is the only way
+           * receipt evidence leaves a device, and it leaves it because the
+           * reporter chose to send it.
+           */
+          migration: z
+            .object({
+              outcome: z.string(),
+              attempts: z.number().int().nonnegative(),
+              recordedAt: z.number().int().nonnegative(),
+              extensionVersion: z.string(),
+              sourceSchemaVersion: z.number().int().optional(),
+              sourceIntegrity: z.string().optional(),
+              importedIntegrity: z.string().optional(),
+              foreignKeyViolations: z.number().int().nonnegative().optional(),
+              /**
+               * One entry per table that did not arrive intact, as
+               * `table short by N`. A shortfall, never the row counts it was
+               * derived from — those describe how much history a person has.
+               */
+              mismatches: z.array(z.string()).optional(),
+              failure: z.string().optional()
+            })
+            .optional()
         }),
         events: z.array(DiagnosticEventSchema),
         selfTests: z.array(DiagnosticTestResultSchema)
@@ -118,6 +144,10 @@ export type DiagnosticsClearResult = z.infer<
   typeof DiagnosticsClearResultSchema
 >
 export type DiagnosticEvent = z.infer<typeof DiagnosticEventSchema>
+/** Migration evidence as it appears in a bundle — the schema is the contract. */
+export type DiagnosticStorageMigration = NonNullable<
+  DiagnosticsGetBundleResult["bundle"]
+>["storage"]["migration"]
 export type DiagnosticTestResult = z.infer<typeof DiagnosticTestResultSchema>
 
 declare module "./provider-rpc" {

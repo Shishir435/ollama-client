@@ -8,6 +8,7 @@ import {
 } from "./backend"
 import {
   describeMismatches,
+  findMissingDurableTables,
   findTableCountMismatches,
   isSoundDatabase,
   type TableCountMismatch
@@ -235,6 +236,17 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
     if (mismatches.length > 0) {
       throw new Error(
         `Migration verification failed: ${describeMismatches(mismatches)}`
+      )
+    }
+
+    // Row counts only prove that what the source had arrived. They say nothing
+    // about a durable table the destination is supposed to have and does not —
+    // that one is invisible to a comparison, because an absent source table is
+    // skipped on the assumption a forward migration creates it.
+    const missing = findMissingDurableTables(imported.tables)
+    if (missing.length > 0) {
+      throw new Error(
+        `Migration verification failed: imported database is missing ${missing.join(", ")}`
       )
     }
 

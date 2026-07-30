@@ -5,7 +5,11 @@ import {
 } from "@/lib/dnr-rules"
 import { vectorDb } from "@/lib/embeddings/db"
 import { getSafeClientEnvironment } from "@/lib/error-report"
-import { readPersistenceBackend } from "@/lib/persistence/backend"
+import {
+  type MigrationReceipt,
+  readMigrationReceipt,
+  readPersistenceBackend
+} from "@/lib/persistence/backend"
 import {
   rpcQuery,
   rpcRun,
@@ -18,6 +22,7 @@ import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
 import { ProviderId } from "@/lib/providers/types"
 import { countMessages } from "@/lib/repositories/chat-history"
 import type {
+  DiagnosticStorageMigration,
   DiagnosticsGetBundleResult,
   DiagnosticsRunResult,
   DiagnosticTestResult
@@ -118,6 +123,49 @@ const runMigrationTest = async (): Promise<DiagnosticTestResult> => {
     }
   }
   return result
+}
+
+/**
+ * Reduce a migration receipt to the evidence a maintainer needs and nothing
+ * more.
+ *
+ * Row counts stay on the device. `messages: 39204` describes how much someone
+ * has said, and a shortfall is diagnosable without it: `messages short by 5`
+ * says a table lost five rows, which is the actionable half. An absolute pair
+ * would have disclosed history volume out of a support report, which is the one
+ * thing this summary exists to avoid.
+ *
+ * `integrity_check` output can be long on a damaged file, so each verdict is
+ * clamped and the list of shortfalls is capped.
+ */
+const MAX_REPORTED_MISMATCHES = 10
+
+export const summarizeMigrationReceipt = (
+  receipt: MigrationReceipt | null
+): DiagnosticStorageMigration | undefined => {
+  if (!receipt) return undefined
+  const verdict = (value?: string) =>
+    value === undefined ? undefined : value.slice(0, 120)
+  const mismatches = receipt.mismatches
+    ?.slice(0, MAX_REPORTED_MISMATCHES)
+    .map((mismatch) => {
+      const delta = mismatch.source - mismatch.imported
+      return delta > 0
+        ? (`${mismatch.table} short by ${delta}` as const)
+        : (`${mismatch.table} over by ${-delta}` as const)
+    })
+  return {
+    outcome: receipt.outcome,
+    attempts: receipt.attempts,
+    recordedAt: receipt.recordedAt,
+    extensionVersion: receipt.extensionVersion,
+    sourceSchemaVersion: receipt.sourceSchemaVersion,
+    sourceIntegrity: verdict(receipt.sourceIntegrity?.integrityCheck),
+    importedIntegrity: verdict(receipt.importedIntegrity?.integrityCheck),
+    foreignKeyViolations: receipt.importedIntegrity?.foreignKeyViolations,
+    ...(mismatches && mismatches.length > 0 ? { mismatches } : {}),
+    failure: receipt.failure ? receipt.failure.slice(0, 200) : undefined
+  }
 }
 
 /**
@@ -513,6 +561,7 @@ export const DiagnosticsService = {
     ])
     signal?.throwIfAborted()
     const backend = await readPersistenceBackend()
+    const migration = summarizeMigrationReceipt(await readMigrationReceipt())
     const environment = getSafeClientEnvironment()
     return {
       bundle: {
@@ -528,7 +577,12 @@ export const DiagnosticsService = {
           wire: String(provider.type),
           enabled: provider.enabled
         })),
-        storage: { backend, messageCount, vectorCount },
+        storage: {
+          backend,
+          messageCount,
+          vectorCount,
+          ...(migration ? { migration } : {})
+        },
         events: sessionId
           ? events.filter((event) => event.sessionId === sessionId)
           : events,
