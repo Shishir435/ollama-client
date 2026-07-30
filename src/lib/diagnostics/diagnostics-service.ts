@@ -1,23 +1,29 @@
 import { browser, supportsDNR } from "@/lib/browser-api"
+import { getSafeClientEnvironment } from "@/lib/client-environment"
 import {
   localProviderOriginRuleMatches,
   readLocalProviderOriginRule
 } from "@/lib/dnr-rules"
 import { vectorDb } from "@/lib/embeddings/db"
-import { getSafeClientEnvironment } from "@/lib/error-report"
-import { readPersistenceBackend } from "@/lib/persistence/backend"
+import {
+  type MigrationReceipt,
+  readMigrationReceipt,
+  readPersistenceBackend
+} from "@/lib/persistence/backend"
 import {
   rpcQuery,
   rpcRun,
   rpcTxBegin,
   rpcTxRollback
 } from "@/lib/persistence/client"
+import { describeMismatch } from "@/lib/persistence/durable-tables"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
 import { ProviderId } from "@/lib/providers/types"
 import { countMessages } from "@/lib/repositories/chat-history"
 import type {
+  DiagnosticStorageMigration,
   DiagnosticsGetBundleResult,
   DiagnosticsRunResult,
   DiagnosticTestResult
@@ -118,6 +124,71 @@ const runMigrationTest = async (): Promise<DiagnosticTestResult> => {
     }
   }
   return result
+}
+
+/**
+ * Reduce a migration receipt to the evidence a maintainer needs and nothing
+ * more.
+ *
+ * Row counts stay on the device. `messages: 39204` describes how much someone
+ * has said, and a shortfall is diagnosable without it: `messages short by 5`
+ * says a table lost five rows, which is the actionable half.
+ *
+ * Structured fields are re-derived here rather than trusted. A receipt is
+ * written once per migration and then persists, so this function reads text
+ * produced by whichever version performed the attempt — including versions that
+ * formatted `messages 39199/39204`. Free-form text is therefore treated as
+ * untrusted input: count pairs and any large standalone number are stripped
+ * before it is forwarded.
+ *
+ * `integrity_check` output gets the same treatment on top of its length clamp:
+ * a damaged file makes SQLite print rowids, and a rowid is a lower bound on how
+ * many rows exist.
+ */
+const MAX_REPORTED_MISMATCHES = 10
+
+/** `39199/39204` and the like, in text an older release wrote. */
+const COUNT_PAIR_PATTERN = /\d+\s*\/\s*\d+/g
+/**
+ * A standalone number this large is a rowid, a page number, or a count — all of
+ * which put a lower bound on how much history exists. `integrity_check` prints
+ * them freely ("row 39204 missing from index"), and that text can be embedded in
+ * a failure message.
+ *
+ * Four digits is the cut so the numbers worth reading survive: shortfalls,
+ * attempt counts, schema versions. A shortfall in the thousands is redacted too,
+ * which loses a little precision on the rarest failures and is the right trade.
+ */
+const LARGE_NUMBER_PATTERN = /\d{4,}/g
+
+const withoutCounts = (text: string): string =>
+  text
+    .replace(COUNT_PAIR_PATTERN, "[counts removed]")
+    .replace(LARGE_NUMBER_PATTERN, "[n]")
+
+export const summarizeMigrationReceipt = (
+  receipt: MigrationReceipt | null
+): DiagnosticStorageMigration | undefined => {
+  if (!receipt) return undefined
+  const verdict = (value?: string) =>
+    value === undefined ? undefined : withoutCounts(value).slice(0, 120)
+  const mismatches = receipt.mismatches
+    ?.slice(0, MAX_REPORTED_MISMATCHES)
+    .map(describeMismatch)
+  return {
+    outcome: receipt.outcome,
+    attempts: receipt.attempts,
+    recordedAt: receipt.recordedAt,
+    extensionVersion: receipt.extensionVersion,
+    sourceSchemaVersion: receipt.sourceSchemaVersion,
+    sourceIntegrity: verdict(receipt.sourceIntegrity?.integrityCheck),
+    importedIntegrity: verdict(receipt.importedIntegrity?.integrityCheck),
+    foreignKeyViolations: receipt.importedIntegrity?.foreignKeyViolations,
+    ...(mismatches && mismatches.length > 0 ? { mismatches } : {}),
+    failure: receipt.failure
+      ? withoutCounts(receipt.failure).slice(0, 200)
+      : undefined
+  }
 }
 
 /**
@@ -513,6 +584,7 @@ export const DiagnosticsService = {
     ])
     signal?.throwIfAborted()
     const backend = await readPersistenceBackend()
+    const migration = summarizeMigrationReceipt(await readMigrationReceipt())
     const environment = getSafeClientEnvironment()
     return {
       bundle: {
@@ -528,7 +600,12 @@ export const DiagnosticsService = {
           wire: String(provider.type),
           enabled: provider.enabled
         })),
-        storage: { backend, messageCount, vectorCount },
+        storage: {
+          backend,
+          messageCount,
+          vectorCount,
+          ...(migration ? { migration } : {})
+        },
         events: sessionId
           ? events.filter((event) => event.sessionId === sessionId)
           : events,

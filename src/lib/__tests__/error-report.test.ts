@@ -191,6 +191,69 @@ describe("buildDiagnosticIssueUrl", () => {
     expect(body).toContain("**Privacy**")
   })
 
+  it("says nothing about migration when the profile never had a legacy blob", () => {
+    const body = bodyOf(buildDiagnosticIssueUrl(bundle))
+
+    expect(body).not.toContain("Chat migration")
+  })
+
+  it("reports a failed migration in the detail a maintainer needs", () => {
+    const body = bodyOf(
+      buildDiagnosticIssueUrl({
+        ...bundle,
+        storage: {
+          ...bundle.storage,
+          backend: "legacy",
+          migration: {
+            outcome: "verification-failed",
+            attempts: 3,
+            recordedAt: 1,
+            extensionVersion: "0.12.6",
+            sourceSchemaVersion: 11,
+            importedIntegrity: "ok",
+            foreignKeyViolations: 2,
+            mismatches: ["messages short by 5"],
+            failure: "Migration verification failed: messages short by 5"
+          }
+        }
+      })
+    )
+
+    expect(body).toContain("Chat migration: verification-failed (attempt 3")
+    expect(body).toContain("schema v11")
+    expect(body).toContain("messages short by 5")
+    expect(body).toContain("Migration orphan rows: 2")
+    // The shortfall is diagnosable; the row counts it came from are not in the
+    // draft a reporter would submit.
+    expect(body).not.toContain("39204")
+    expect(body).not.toContain("39199")
+  })
+
+  it("keeps a clean migration to a single line", () => {
+    const body = bodyOf(
+      buildDiagnosticIssueUrl({
+        ...bundle,
+        storage: {
+          ...bundle.storage,
+          migration: {
+            outcome: "migrated",
+            attempts: 1,
+            recordedAt: 1,
+            extensionVersion: "0.12.6",
+            sourceSchemaVersion: 11,
+            importedIntegrity: "ok",
+            foreignKeyViolations: 0
+          }
+        }
+      })
+    )
+
+    expect(body).toContain("Chat migration: migrated (attempt 1")
+    expect(body).not.toContain("Migration integrity")
+    expect(body).not.toContain("Migration orphan rows")
+    expect(body).not.toContain("Migration failure")
+  })
+
   it("stays inside the URL limit when every self-test fails", () => {
     const url = buildDiagnosticIssueUrl({
       ...bundle,

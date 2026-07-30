@@ -168,8 +168,21 @@ const initializeSchema = (db: Database): void => {
       db,
       "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'sessions'"
     ) > 0
+  // Every statement in SCHEMA_SQL is IF NOT EXISTS, so it runs on every open:
+  // on a fresh database it creates everything, and on an existing one it fills
+  // in whatever is absent.
+  //
+  // It used to run only when `sessions` was missing, which meant a table added
+  // to the schema without a paired migration never reached a profile that
+  // already had `sessions`. chunk_feedback arrived that way in 0.10.0, so
+  // profiles created on 0.6.0-0.9.x have been missing it since — the drift
+  // repair below only knows about tool_loop_runs and prompt_templates.
+  //
+  // The version stamp stays gated: only a database that did not exist a moment
+  // ago is at the latest schema by construction. Stamping an old one would skip
+  // the forward migrations it still needs.
+  db.exec(SCHEMA_SQL)
   if (!hasSessions) {
-    db.exec(SCHEMA_SQL)
     setSchemaVersion(compat, LATEST_SCHEMA_VERSION)
   }
   db.exec("PRAGMA foreign_keys=ON")

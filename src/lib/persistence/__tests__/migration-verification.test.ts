@@ -64,10 +64,25 @@ const sourceSurvey = {
   integrity: { integrityCheck: "ok", foreignKeyViolations: 0 }
 }
 
+/** Every durable table, since SCHEMA_SQL creates them all on open. Tables the
+ * source never had arrive empty, which is correct rather than data loss. */
+const importedTables = {
+  sessions: 2,
+  messages: 9,
+  prompt_templates: 7,
+  files: 0,
+  kv_store: 0,
+  tool_loop_runs: 0,
+  turn_runs: 0,
+  ingestion_runs: 0,
+  model_pull_runs: 0,
+  chunk_feedback: 0
+}
+
 const importResult = (overrides: Partial<ImportResult> = {}): ImportResult => ({
   sessions: 2,
   messages: 9,
-  tables: { sessions: 2, messages: 9, prompt_templates: 7, turn_runs: 0 },
+  tables: importedTables,
   integrity: { integrityCheck: "ok", foreignKeyViolations: 0 },
   ...overrides
 })
@@ -132,19 +147,19 @@ describe("legacy-blob migration verification", () => {
     // not see: chats look complete while the user's templates are gone.
     importResults.push(
       importResult({
-        tables: { sessions: 2, messages: 9, prompt_templates: 6 }
+        tables: { ...importedTables, prompt_templates: 6 }
       })
     )
     const { ensureMigrated } = await loadHost()
 
     await expect(ensureMigrated()).rejects.toThrow(
-      "Migration verification failed: prompt_templates 6/7"
+      "Migration verification failed: prompt_templates short by 1"
     )
 
     expect(store.has(BACKEND_KEY)).toBe(false)
     expect(receipt()).toMatchObject({
       outcome: "failed",
-      failure: expect.stringContaining("prompt_templates 6/7"),
+      failure: expect.stringContaining("prompt_templates short by 1"),
       mismatches: [{ table: "prompt_templates", source: 7, imported: 6 }]
     })
   })
@@ -164,7 +179,7 @@ describe("legacy-blob migration verification", () => {
 
   it("counts attempts across boots", async () => {
     importResults.push(
-      importResult({ tables: { sessions: 2, messages: 8 } }),
+      importResult({ tables: { ...importedTables, messages: 8 } }),
       importResult()
     )
 

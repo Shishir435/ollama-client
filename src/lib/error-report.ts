@@ -1,4 +1,5 @@
 import { runtime } from "@/lib/browser-api"
+import { getSafeClientEnvironment } from "@/lib/client-environment"
 import { EXTERNAL_URLS } from "@/lib/constants"
 import {
   sanitizeModelIdentifier,
@@ -7,16 +8,7 @@ import {
 import type { DiagnosticsGetBundleResult } from "@/protocol/diagnostics-rpc"
 import type { ChatMessage } from "@/types"
 
-type NavigatorWithBrands = Navigator & {
-  brave?: unknown
-  userAgentData?: {
-    brands?: Array<{ brand: string; version: string }>
-    platform?: string
-  }
-}
-
-const majorVersion = (userAgent: string, pattern: RegExp): string | undefined =>
-  userAgent.match(pattern)?.[1]
+export { getSafeClientEnvironment } from "@/lib/client-environment"
 
 const getExtensionVersion = (): string => {
   try {
@@ -24,56 +16,6 @@ const getExtensionVersion = (): string => {
   } catch {
     return "unknown"
   }
-}
-
-export const getSafeClientEnvironment = (): {
-  browser: string
-  os: string
-} => {
-  if (typeof navigator === "undefined") {
-    return { browser: "unknown", os: "unknown" }
-  }
-
-  const nav = navigator as NavigatorWithBrands
-  const userAgent = nav.userAgent || ""
-  const brands = nav.userAgentData?.brands ?? []
-  const chromiumVersion =
-    brands.find(({ brand }) => /Chromium/i.test(brand))?.version ||
-    majorVersion(userAgent, /(?:Chrome|CriOS)\/(\d+)/i)
-  const isBrave =
-    Boolean(nav.brave) || brands.some(({ brand }) => /Brave/i.test(brand))
-
-  const browser = /Firefox\/(\d+)/i.test(userAgent)
-    ? `Firefox ${majorVersion(userAgent, /Firefox\/(\d+)/i)}`
-    : /Edg(?:e|A|iOS)?\/(\d+)/i.test(userAgent)
-      ? `Edge ${majorVersion(userAgent, /Edg(?:e|A|iOS)?\/(\d+)/i)}`
-      : /OPR\/(\d+)/i.test(userAgent)
-        ? `Opera ${majorVersion(userAgent, /OPR\/(\d+)/i)}`
-        : isBrave
-          ? `Brave${chromiumVersion ? ` (Chromium ${chromiumVersion})` : ""}`
-          : /(?:Chrome|CriOS)\/(\d+)/i.test(userAgent)
-            ? `Chrome/Chromium ${majorVersion(userAgent, /(?:Chrome|CriOS)\/(\d+)/i)}`
-            : /Version\/(\d+).+Safari\//i.test(userAgent)
-              ? `Safari ${majorVersion(userAgent, /Version\/(\d+)/i)}`
-              : "unknown"
-
-  const platform = nav.userAgentData?.platform || nav.platform || ""
-  const osSource = `${userAgent} ${platform}`
-  const os = /Android/i.test(osSource)
-    ? "Android"
-    : /iPhone|iPad|iPod/i.test(osSource)
-      ? "iOS/iPadOS"
-      : /Windows/i.test(osSource)
-        ? "Windows"
-        : /CrOS/i.test(osSource)
-          ? "ChromeOS"
-          : /Mac OS|Macintosh|MacIntel/i.test(osSource)
-            ? "macOS"
-            : /Linux/i.test(osSource)
-              ? "Linux"
-              : "unknown"
-
-  return { browser, os }
 }
 
 /**
@@ -172,6 +114,40 @@ export const buildGenericIssueReportUrl = (
 }
 
 /**
+ * Chat-history migration evidence, when this profile has any. Omitted entirely
+ * for a profile that never held a legacy blob, so a normal report does not carry
+ * three lines about a migration that never happened.
+ *
+ * A clean result stays one line. Detail appears only when something went wrong,
+ * because that is the only case a maintainer needs to read.
+ */
+const migrationLines = (
+  migration: NonNullable<DiagnosticBundle>["storage"]["migration"]
+): string[] => {
+  if (!migration) return []
+  const lines = [
+    `- Chat migration: ${clampLine(migration.outcome, 40)} (attempt ${migration.attempts}, from schema v${migration.sourceSchemaVersion ?? "?"}, on ${clampLine(migration.extensionVersion, 20)})`
+  ]
+  if (migration.importedIntegrity && migration.importedIntegrity !== "ok") {
+    lines.push(
+      `- Migration integrity: ${clampLine(migration.importedIntegrity, 120)}`
+    )
+  }
+  if (migration.foreignKeyViolations) {
+    lines.push(`- Migration orphan rows: ${migration.foreignKeyViolations}`)
+  }
+  if (migration.mismatches?.length) {
+    lines.push(
+      `- Migration table mismatches: ${clampLine(migration.mismatches.join(", "), 200)}`
+    )
+  }
+  if (migration.failure) {
+    lines.push(`- Migration failure: ${clampLine(migration.failure, 200)}`)
+  }
+  return lines
+}
+
+/**
  * Draft opened from Settings → Help → Diagnostics & support, where the reporter
  * already has a bundle in hand. Shares the composer above, so this draft carries
  * the same paste block, privacy statement, and length guarantee as a chat-error
@@ -195,6 +171,7 @@ export const buildDiagnosticIssueUrl = (
       `- Browser: ${clampLine(bundle.browserFamily, 100)}`,
       `- OS: ${clampLine(bundle.osFamily, 100)}`,
       `- Storage backend: ${clampLine(bundle.storage.backend, 100)}`,
+      ...migrationLines(bundle.storage.migration),
       ...(failed.length > 0 ? failed : ["- Self-tests: passed"])
     ].join("\n")
   )
