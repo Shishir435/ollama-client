@@ -77,6 +77,8 @@ const handlers = {
     IngestionService.get(request.jobId),
   [RpcMethod.IngestionCancel]: async (request) =>
     IngestionService.cancel(request.jobId),
+  [RpcMethod.IngestionAck]: async (request) =>
+    IngestionService.acknowledge(request.jobId),
   [RpcMethod.ModelPullSubmit]: async (request) => {
     const { ModelPullService } = await import("@/background/model-pull-runtime")
     return ModelPullService.submit(request)

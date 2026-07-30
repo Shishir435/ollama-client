@@ -180,4 +180,107 @@ describe("useModelPull", () => {
       { jobId: job.jobId }
     )
   })
+
+  it("cancels a job whose submission was still in flight", async () => {
+    let resolveSubmit!: (value: unknown) => void
+    vi.mocked(extensionRpcClient.call).mockImplementation((method) => {
+      if (method === RpcMethod.ModelPullListActive) {
+        return Promise.resolve([]) as never
+      }
+      if (method === RpcMethod.ModelPullSubmit) {
+        return new Promise((resolve) => {
+          resolveSubmit = resolve
+        }) as never
+      }
+      if (method === RpcMethod.ModelPullCancel) {
+        return Promise.resolve({
+          ...job,
+          status: "cancelled",
+          statusText: "Cancelled"
+        }) as never
+      }
+      return new Promise(() => {}) as never
+    })
+
+    const { result } = renderHook(() => useModelPull())
+    act(() => {
+      result.current.pullModel("llama2")
+    })
+    act(() => {
+      result.current.cancelPull()
+    })
+
+    expect(result.current.progress).toBe("❌ Cancelled")
+    expect(extensionRpcClient.call).not.toHaveBeenCalledWith(
+      RpcMethod.ModelPullCancel,
+      expect.anything()
+    )
+
+    await act(async () => {
+      resolveSubmit(job)
+    })
+
+    expect(extensionRpcClient.call).toHaveBeenCalledWith(
+      RpcMethod.ModelPullCancel,
+      { jobId: job.jobId }
+    )
+    expect(result.current.pullingModel).toBeNull()
+    expect(extensionRpcClient.call).not.toHaveBeenCalledWith(
+      RpcMethod.ModelPullGet,
+      expect.anything()
+    )
+  })
+
+  it("cancels a late-resolving submission without disturbing a newer pull", async () => {
+    let resolveFirst!: (value: unknown) => void
+    const secondJob = { ...job, jobId: "00000000-0000-4000-8000-000000000002" }
+    vi.mocked(extensionRpcClient.call).mockImplementation((method, request) => {
+      if (method === RpcMethod.ModelPullListActive) {
+        return Promise.resolve([]) as never
+      }
+      if (method === RpcMethod.ModelPullSubmit) {
+        const model = (request as { model: string }).model
+        if (model === "llama2") {
+          return new Promise((resolve) => {
+            resolveFirst = resolve
+          }) as never
+        }
+        return Promise.resolve({ ...secondJob, model }) as never
+      }
+      if (method === RpcMethod.ModelPullCancel) {
+        return Promise.resolve({
+          ...job,
+          status: "cancelled",
+          statusText: "Cancelled"
+        }) as never
+      }
+      return new Promise(() => {}) as never
+    })
+
+    const { result } = renderHook(() => useModelPull())
+    act(() => {
+      result.current.pullModel("llama2")
+    })
+    act(() => {
+      result.current.cancelPull()
+    })
+    act(() => {
+      result.current.pullModel("mistral")
+    })
+
+    await act(async () => {
+      resolveFirst(job)
+    })
+
+    // The cancelled llama2 job is stopped, and its terminal result does not
+    // overwrite the mistral pull the user started after cancelling.
+    expect(extensionRpcClient.call).toHaveBeenCalledWith(
+      RpcMethod.ModelPullCancel,
+      { jobId: job.jobId }
+    )
+    await waitFor(() => {
+      expect(result.current.pullingModel).toBe("mistral")
+    })
+    expect(result.current.progress).not.toBe("❌ Cancelled")
+  })
 })

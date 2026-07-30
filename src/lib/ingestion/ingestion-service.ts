@@ -15,6 +15,7 @@ import {
   saveIngestionRun
 } from "@/lib/repositories/ingestion-runs"
 import type {
+  IngestionAckResult,
   IngestionJobResult,
   IngestionSubmitRequest
 } from "@/protocol/ingestion-rpc"
@@ -49,6 +50,26 @@ const resultFromRun = (run: IngestionRun): IngestionJobResult => ({
   phase: run.phase,
   ...(run.failure && { failure: run.failure })
 })
+
+// A processed payload that was never acknowledged (the page closed before the
+// result was consumed) is pruned on the next background boot.
+const UNACKED_PAYLOAD_RETENTION_MS = 24 * 60 * 60 * 1000
+
+const isTerminal = (run: IngestionRun): boolean =>
+  run.status === "completed" ||
+  run.status === "failed" ||
+  run.status === "cancelled"
+
+/** Completed runs carry the parse result until the caller acknowledges it. */
+const resultWithPayload = async (
+  run: IngestionRun
+): Promise<IngestionJobResult> => {
+  const result = resultFromRun(run)
+  if (run.status !== "completed") return result
+  const payload = await ingestionPayloadDb.payloads.get(run.id)
+  if (payload?.kind !== "processed") return result
+  return { ...result, processedFile: payload.processedFile }
+}
 
 const checkpoint = async (
   run: IngestionRun,
@@ -231,7 +252,7 @@ export const IngestionService = {
       if (existing.status === "queued" || existing.status === "running") {
         void start(existing)
       }
-      return resultFromRun(existing)
+      return resultWithPayload(existing)
     }
 
     const payload = await ingestionPayloadDb.payloads.get(request.jobId)
@@ -259,13 +280,21 @@ export const IngestionService = {
         status: 404
       })
     }
-    const result = resultFromRun(run)
-    if (run.status !== "completed") return result
+    return resultWithPayload(run)
+  },
 
-    const payload = await ingestionPayloadDb.payloads.get(jobId)
-    if (payload?.kind !== "processed") return result
+  /** Releases the staged result once the caller confirms it received it. */
+  async acknowledge(jobId: string): Promise<IngestionAckResult> {
+    const run = await getIngestionRun(jobId)
+    if (!run) {
+      throw createAppError("Ingestion job not found", {
+        kind: "validation",
+        status: 404
+      })
+    }
+    if (!isTerminal(run)) return { jobId, released: false }
     await ingestionPayloadDb.payloads.delete(jobId)
-    return { ...result, processedFile: payload.processedFile }
+    return { jobId, released: true }
   },
 
   async cancel(jobId: string): Promise<IngestionJobResult> {
@@ -290,11 +319,19 @@ export const IngestionService = {
   },
 
   async resumeIncomplete(): Promise<void> {
+    const now = Date.now()
     const payloads = await ingestionPayloadDb.payloads.toArray()
     for (const payload of payloads) {
       const existing = await getIngestionRun(payload.jobId)
       if (!existing) {
         await saveIngestionRun(runFromPayload(payload))
+        continue
+      }
+      if (
+        isTerminal(existing) &&
+        now - existing.updatedAt > UNACKED_PAYLOAD_RETENTION_MS
+      ) {
+        await ingestionPayloadDb.payloads.delete(payload.jobId)
       }
     }
     const runs = await listIncompleteIngestionRuns()

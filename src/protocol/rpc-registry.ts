@@ -8,6 +8,8 @@ import {
   DiagnosticsRunResultSchema
 } from "./diagnostics-rpc"
 import {
+  IngestionAckRequestSchema,
+  IngestionAckResultSchema,
   IngestionCancelRequestSchema,
   IngestionCancelResultSchema,
   IngestionGetRequestSchema,
@@ -201,6 +203,13 @@ export const RPC_METHOD_DEFINITIONS = {
     response: IngestionCancelResultSchema,
     allowedSources: extensionPagesOnly,
     timeoutMs: 10_000,
+    operation: "command"
+  },
+  [RpcMethod.IngestionAck]: {
+    request: IngestionAckRequestSchema,
+    response: IngestionAckResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 5_000,
     operation: "command"
   },
   [RpcMethod.ModelPullSubmit]: {

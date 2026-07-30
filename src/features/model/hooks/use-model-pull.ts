@@ -17,6 +17,12 @@ export const useModelPull = () => {
   const jobIdRef = useRef<string | null>(null)
   const observerRef = useRef(0)
   const mountedRef = useRef(true)
+  // Submissions cancelled before they resolved. A cancel that lands while
+  // `models.submitPull` is in flight has no job id yet, so the intent is kept
+  // here and honoured when the submission returns one — a later pull must not
+  // swallow it, or that download keeps running unobserved.
+  const submissionRef = useRef<number | null>(null)
+  const cancelledSubmissionsRef = useRef(new Set<number>())
 
   const applyJob = useCallback((job: ModelPullJobResult) => {
     if (!mountedRef.current) return
@@ -58,10 +64,36 @@ export const useModelPull = () => {
     [applyJob]
   )
 
+  /** `applyForObserver` is null for a job the UI has already moved past — the
+   * download still has to be stopped, but its result must not overwrite what
+   * the user is looking at now. */
+  const cancelJob = useCallback(
+    (jobId: string, applyForObserver: number | null) => {
+      void extensionRpcClient
+        .call(RpcMethod.ModelPullCancel, { jobId })
+        .then((job) => {
+          if (
+            applyForObserver === null ||
+            applyForObserver !== observerRef.current
+          ) {
+            return
+          }
+          applyJob(job)
+        })
+        .catch((error) => {
+          logger.error("Model pull cancellation failed", "useModelPull", {
+            error
+          })
+        })
+    },
+    [applyJob]
+  )
+
   const pullModel = useCallback(
     (modelName: string, providerId?: string) => {
       logger.verbose("Pull model requested", "useModelPull", { modelName })
       const submission = ++observerRef.current
+      submissionRef.current = submission
       setPullingModel(modelName)
       setProgress("Starting...")
 
@@ -71,12 +103,29 @@ export const useModelPull = () => {
           providerId
         })
         .then((job) => {
+          if (submissionRef.current === submission) {
+            submissionRef.current = null
+          }
+          // A cancel raced the submission: the job id only exists now, so stop
+          // the durable download here or it keeps running behind a UI that
+          // already reported it cancelled.
+          if (cancelledSubmissionsRef.current.delete(submission)) {
+            cancelJob(
+              job.jobId,
+              submission === observerRef.current ? submission : null
+            )
+            return
+          }
           if (submission !== observerRef.current || !mountedRef.current) {
             return
           }
           void observe(job)
         })
         .catch((error) => {
+          if (submissionRef.current === submission) {
+            submissionRef.current = null
+          }
+          cancelledSubmissionsRef.current.delete(submission)
           if (submission !== observerRef.current || !mountedRef.current) {
             return
           }
@@ -87,25 +136,22 @@ export const useModelPull = () => {
           setPullingModel(null)
         })
     },
-    [observe]
+    [cancelJob, observe]
   )
 
   const cancelPull = useCallback(() => {
     const jobId = jobIdRef.current
-    observerRef.current += 1
+    const observer = ++observerRef.current
     setProgress("❌ Cancelled")
     setPullingModel(null)
     jobIdRef.current = null
-    if (!jobId) return
-    void extensionRpcClient
-      .call(RpcMethod.ModelPullCancel, { jobId })
-      .then(applyJob)
-      .catch((error) => {
-        logger.error("Model pull cancellation failed", "useModelPull", {
-          error
-        })
-      })
-  }, [applyJob])
+    if (!jobId) {
+      const pending = submissionRef.current
+      if (pending !== null) cancelledSubmissionsRef.current.add(pending)
+      return
+    }
+    cancelJob(jobId, observer)
+  }, [cancelJob])
 
   useEffect(() => {
     mountedRef.current = true

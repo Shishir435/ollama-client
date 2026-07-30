@@ -81,5 +81,10 @@ describe("IngestionClient", () => {
         jobId: expect.any(String)
       })
     )
+    // The staged copy is released only after the result was received.
+    expect(extensionRpcClient.call).toHaveBeenLastCalledWith(
+      RpcMethod.IngestionAck,
+      expect.objectContaining({ jobId: expect.any(String) })
+    )
   })
 })

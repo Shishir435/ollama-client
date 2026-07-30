@@ -70,6 +70,11 @@ export const IngestionClient = {
     if (!terminal.processedFile) {
       throw new Error("Completed ingestion result is unavailable")
     }
+    // Release the staged copy only now that the result is in hand; a dropped
+    // response leaves it recoverable on the next poll instead of lost.
+    await extensionRpcClient
+      .call(RpcMethod.IngestionAck, { jobId: terminal.jobId })
+      .catch(() => undefined)
     return terminal.processedFile
   }
 }

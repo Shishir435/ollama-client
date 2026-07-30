@@ -51,7 +51,10 @@ const withTimeout = async <T>(work: Promise<T>, label: string): Promise<T> => {
   }
 }
 
-const ensureOwner = async (): Promise<void> => {
+/** Guarantees the owner host context exists (Chromium offscreen document /
+ * Firefox background page). Exported because other work hosted by that same
+ * document — durable file parsing — must not message a host that is not up. */
+export const ensurePersistenceHost = async (): Promise<void> => {
   if (globalThis.__persistenceHostCall) return
   if (globalThis.__persistenceEnsureOwner) {
     await globalThis.__persistenceEnsureOwner()
@@ -69,7 +72,7 @@ const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
   if (globalThis.__persistenceHostCall) {
     return globalThis.__persistenceHostCall(request)
   }
-  await ensureOwner()
+  await ensurePersistenceHost()
   const wire =
     request.op === "query" || request.op === "run"
       ? { ...request, bind: encodeBind(request.bind) }

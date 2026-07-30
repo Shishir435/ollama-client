@@ -170,7 +170,95 @@ describe("IngestionService", () => {
     expect(mocks.addFile).toHaveBeenCalledOnce()
     expect(mocks.deleteVectors).toHaveBeenCalledWith({ fileId: "file-1" })
     expect(mocks.markEmbedded).toHaveBeenCalledWith("file-1")
+    // The result survives reads until the caller acknowledges it.
+    expect(mocks.payloads.has(submitted.jobId)).toBe(true)
+  })
+
+  it("keeps a completed result readable until it is acknowledged", async () => {
+    const submitted = await IngestionService.submit(stageRequest())
+    await vi.waitFor(async () => {
+      await expect(
+        IngestionService.get(submitted.jobId)
+      ).resolves.toMatchObject({ status: "completed" })
+    })
+
+    // Simulates a dropped `ingestions.get` response: the caller re-reads and
+    // still gets the parse result.
+    await expect(IngestionService.get(submitted.jobId)).resolves.toMatchObject({
+      status: "completed",
+      processedFile: { text: "durable content" }
+    })
+
+    await expect(
+      IngestionService.acknowledge(submitted.jobId)
+    ).resolves.toEqual({
+      jobId: submitted.jobId,
+      released: true
+    })
     expect(mocks.payloads.has(submitted.jobId)).toBe(false)
+  })
+
+  it("refuses to release the payload of a job that is still running", async () => {
+    const run: IngestionRun = {
+      id: "2f2b2f0c-2a7a-4a1e-9d61-2b0d7a5f0c11",
+      fileId: "file-live",
+      knowledgeSetId: "default",
+      fileName: "live.txt",
+      status: "running",
+      phase: "embedding",
+      autoEmbed: false,
+      createdAt: 1,
+      updatedAt: 2
+    }
+    mocks.runs.set(run.id, run)
+    mocks.payloads.set(run.id, {
+      kind: "processed",
+      jobId: run.id,
+      fileId: run.fileId,
+      knowledgeSetId: run.knowledgeSetId,
+      fileName: run.fileName,
+      contentType: "text/plain",
+      autoEmbed: false,
+      createdAt: 1,
+      processedFile
+    })
+
+    await expect(IngestionService.acknowledge(run.id)).resolves.toEqual({
+      jobId: run.id,
+      released: false
+    })
+    expect(mocks.payloads.has(run.id)).toBe(true)
+  })
+
+  it("prunes a completed payload that was never acknowledged", async () => {
+    const jobId = "3a3b3f0c-2a7a-4a1e-9d61-2b0d7a5f0c22"
+    const run: IngestionRun = {
+      id: jobId,
+      fileId: "file-stale",
+      knowledgeSetId: "default",
+      fileName: "stale.txt",
+      status: "completed",
+      phase: "completed",
+      autoEmbed: false,
+      createdAt: 1,
+      updatedAt: Date.now() - 48 * 60 * 60 * 1000
+    }
+    mocks.runs.set(jobId, run)
+    mocks.payloads.set(jobId, {
+      kind: "processed",
+      jobId,
+      fileId: run.fileId,
+      knowledgeSetId: "default",
+      fileName: run.fileName,
+      contentType: "text/plain",
+      autoEmbed: false,
+      createdAt: run.createdAt,
+      processedFile
+    })
+
+    await IngestionService.resumeIncomplete()
+
+    expect(mocks.payloads.has(jobId)).toBe(false)
   })
 
   it("compensates metadata and partial vectors when embedding fails", async () => {
