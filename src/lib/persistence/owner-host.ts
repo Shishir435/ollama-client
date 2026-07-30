@@ -1,5 +1,18 @@
 import { logger } from "@/lib/logger"
-import { markOpfsBackend, readPersistenceBackend } from "./backend"
+import {
+  markOpfsBackend,
+  readLegacyOverride,
+  readMigrationReceipt,
+  readPersistenceBackend,
+  writeMigrationReceipt
+} from "./backend"
+import {
+  describeMismatches,
+  findTableCountMismatches,
+  isSoundDatabase,
+  type TableCountMismatch
+} from "./durable-tables"
+import type { ImportResult } from "./protocol"
 import {
   decodeBind,
   encodeRows,
@@ -152,6 +165,21 @@ export const callWorker = (request: PersistenceOp): Promise<unknown> => {
 let migrationPromise: Promise<void> | null = null
 
 const migrateLegacyBlobOnce = async (): Promise<void> => {
+  if (await readLegacyOverride()) {
+    logger.warn(
+      "Persistence legacy override is set; staying on the legacy blob",
+      "Persistence"
+    )
+    // Recorded once, not on every boot: the override is a standing operator
+    // decision, and an attempt counter climbing while nothing happens says
+    // nothing.
+    const previous = await readMigrationReceipt()
+    if (previous?.outcome !== "skipped") {
+      await writeMigrationReceipt({ outcome: "skipped" })
+    }
+    return
+  }
+
   const backend = await readPersistenceBackend()
   if (backend === "opfs") return
 
@@ -165,38 +193,89 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
     // Fresh profile: nothing to migrate; the worker creates an empty schema.
     await callWorker({ op: "ping" })
     await markOpfsBackend({})
+    await writeMigrationReceipt({ outcome: "fresh" })
     logger.info("No legacy blob; OPFS backend initialized fresh", "Persistence")
     return
   }
 
-  // Count the source rows BEFORE the physical import — this is the
-  // verification target. The source blob itself is never modified or
+  // Survey the source BEFORE the physical import — this is the verification
+  // target, and it covers every durable table the blob has, not just the two
+  // the chat list happens to read. The source blob itself is never modified or
   // deleted; it remains the rollback artifact.
-  const sourceCounts = await countLegacyRows(bytes)
+  const source = await countLegacyRows(bytes)
+  if (!isSoundDatabase(source.integrity)) {
+    logger.warn(
+      "Legacy blob failed integrity_check before import",
+      "Persistence",
+      {
+        integrityCheck: source.integrity.integrityCheck
+      }
+    )
+  }
   const buffer = bytes.buffer.slice(
     bytes.byteOffset,
     bytes.byteOffset + bytes.byteLength
   ) as ArrayBuffer
 
-  const imported = (await callWorker({
-    op: "importDb",
-    bytes: buffer
-  })) as { sessions: number; messages: number }
+  let imported: ImportResult | undefined
+  let mismatches: TableCountMismatch[] = []
+  try {
+    imported = (await callWorker({
+      op: "importDb",
+      bytes: buffer
+    })) as ImportResult
 
-  if (
-    imported.sessions !== sourceCounts.sessions ||
-    imported.messages !== sourceCounts.messages
-  ) {
-    throw new Error(
-      `Migration verification failed: sessions ${imported.sessions}/${sourceCounts.sessions}, messages ${imported.messages}/${sourceCounts.messages}`
+    mismatches = findTableCountMismatches(source.tables, imported.tables)
+    if (mismatches.length > 0) {
+      throw new Error(
+        `Migration verification failed: ${describeMismatches(mismatches)}`
+      )
+    }
+
+    if (imported.integrity.foreignKeyViolations > 0) {
+      // Recorded, not fatal. Orphan rows in a years-old blob are a data-quality
+      // fact about the source; refusing to migrate would strand that history on
+      // a backend that is being retired.
+      logger.warn(
+        "Migrated database has foreign-key violations",
+        "Persistence",
+        {
+          foreignKeyViolations: imported.integrity.foreignKeyViolations
+        }
+      )
+    }
+
+    await markOpfsBackend({
+      sourceCounts: { sessions: source.sessions, messages: source.messages }
+    })
+    await writeMigrationReceipt({
+      outcome: "migrated",
+      sourceSchemaVersion: source.schemaVersion,
+      sourceBytes: bytes.byteLength,
+      sourceCounts: source.tables,
+      importedCounts: imported.tables,
+      sourceIntegrity: source.integrity,
+      importedIntegrity: imported.integrity,
+      mismatches
+    })
+    logger.info(
+      `Legacy blob migrated and verified: ${source.sessions} sessions, ${source.messages} messages`,
+      "Persistence"
     )
+  } catch (error) {
+    await writeMigrationReceipt({
+      outcome: "failed",
+      sourceSchemaVersion: source.schemaVersion,
+      sourceBytes: bytes.byteLength,
+      sourceCounts: source.tables,
+      importedCounts: imported?.tables,
+      sourceIntegrity: source.integrity,
+      importedIntegrity: imported?.integrity,
+      mismatches,
+      failure: error instanceof Error ? error.message : String(error)
+    })
+    throw error
   }
-
-  await markOpfsBackend({ sourceCounts })
-  logger.info(
-    `Legacy blob migrated and verified: ${sourceCounts.sessions} sessions, ${sourceCounts.messages} messages`,
-    "Persistence"
-  )
 }
 
 /** Idempotent; safe to call on every host boot. A failed attempt clears the

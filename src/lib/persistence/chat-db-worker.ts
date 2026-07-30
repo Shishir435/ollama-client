@@ -11,8 +11,17 @@ import {
   setSchemaVersion
 } from "@/lib/sqlite/migrations/migration-runner"
 import { SCHEMA_SQL } from "@/lib/sqlite/schema"
+import {
+  countDurableTables,
+  type DurableTable,
+  type IntegrityReport,
+  isSoundDatabase,
+  readIntegrityReport,
+  tableExistsSql
+} from "./durable-tables"
 import type {
   CountsResult,
+  ImportResult,
   PersistenceOp,
   QueryRow,
   RunResult,
@@ -162,10 +171,32 @@ const runStatement = (
   }
 }
 
-const counts = (db: Database): CountsResult => ({
-  sessions: queryNumber(db, "SELECT COUNT(*) FROM sessions"),
-  messages: queryNumber(db, "SELECT COUNT(*) FROM messages")
-})
+const tableExists = (db: Database, table: DurableTable): boolean =>
+  queryNumber(db, tableExistsSql(table)) > 0
+
+const counts = (db: Database): CountsResult => {
+  const tables = countDurableTables(
+    (sql) => queryNumber(db, sql),
+    (table) => tableExists(db, table)
+  )
+  return {
+    sessions: tables.sessions ?? 0,
+    messages: tables.messages ?? 0,
+    tables
+  }
+}
+
+const integrity = (db: Database): IntegrityReport =>
+  readIntegrityReport((sql) => {
+    const rows: unknown[][] = []
+    db.exec({
+      sql,
+      callback: (row) => {
+        rows.push(row as unknown[])
+      }
+    })
+    return rows
+  })
 
 // ---------------------------------------------------------------------------
 // Transaction lease + serial scheduler
@@ -255,17 +286,41 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
       )
     }
     case "importDb": {
-      // Backup restore: replace the database wholesale. The connection must
-      // be closed around the physical import, then reopened + migrated.
+      // Backup restore and legacy migration: replace the database wholesale.
+      // The connection must be closed around the physical import, then
+      // verified, then reopened + migrated.
       db.close()
       contextPromise = null
+      let report: IntegrityReport
       try {
         await pool.importDb(DB_PATH, new Uint8Array(request.bytes))
-      } finally {
+        // Checked on a raw handle, before the schema runner sees the file:
+        // migrations write, and writing into a corrupt database turns a
+        // recoverable import failure into a damaged one.
+        const probe = new pool.OpfsSAHPoolDb(DB_PATH)
+        try {
+          report = integrity(probe)
+        } finally {
+          probe.close()
+        }
+      } catch (error) {
         void reopenContext(pool)
+        throw error
       }
+      if (!isSoundDatabase(report)) {
+        // The physical import already replaced whatever was here, so the only
+        // clean state left is an empty database for the next attempt. The
+        // migration source blob is untouched either way.
+        pool.unlink(DB_PATH)
+        await reopenContext(pool)
+        throw new Error(
+          `Imported database failed integrity_check: ${report.integrityCheck}`
+        )
+      }
+      void reopenContext(pool)
       const { db: fresh } = await openContext()
-      return counts(fresh)
+      const result: ImportResult = { ...counts(fresh), integrity: report }
+      return result
     }
     case "reset": {
       db.close()

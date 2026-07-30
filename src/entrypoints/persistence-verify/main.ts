@@ -7,6 +7,11 @@ import {
   SQLITE_DB_STORE,
   STORAGE_KEYS
 } from "@/lib/constants"
+import {
+  invalidateBackendCache,
+  readPersistenceBackend
+} from "@/lib/persistence/backend"
+import { DURABLE_TABLES } from "@/lib/persistence/durable-tables"
 import * as chatHistory from "@/lib/repositories/sqlite-chat-history"
 import {
   createFixture,
@@ -25,6 +30,11 @@ import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
 // the `chrome` namespace is callback-only, so `await chrome.storage.local.get`
 // resolves to undefined rather than the stored value. That made every hook
 // here silently unusable on the Firefox runner while working on Chromium.
+
+// Rows the fixture adds outside sessions/messages, so per-table migration
+// verification has something to verify.
+const PROMPT_TEMPLATE_SEED = 7
+const KV_SEED = 3
 
 const putLegacyBlob = async (bytes: Uint8Array): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -123,12 +133,47 @@ const verifyApi = {
     await browser.storage.local.remove(STORAGE_KEYS.PERSISTENCE.BACKEND)
   },
 
+  async migrationReceipt(): Promise<unknown> {
+    const stored = await browser.storage.local.get(
+      STORAGE_KEYS.PERSISTENCE.MIGRATION_RECEIPT
+    )
+    return stored[STORAGE_KEYS.PERSISTENCE.MIGRATION_RECEIPT] ?? null
+  },
+
+  async clearMigrationReceipt(): Promise<void> {
+    await browser.storage.local.remove(
+      STORAGE_KEYS.PERSISTENCE.MIGRATION_RECEIPT
+    )
+  },
+
+  /** Operator recovery switch, written the way an operator would: device-local
+   * storage only. Read back through the production backend resolver. */
+  async setLegacyOverride(enabled: boolean): Promise<void> {
+    if (enabled) {
+      await browser.storage.local.set({
+        [STORAGE_KEYS.PERSISTENCE.LEGACY_OVERRIDE]: true
+      })
+      return
+    }
+    await browser.storage.local.remove(STORAGE_KEYS.PERSISTENCE.LEGACY_OVERRIDE)
+  },
+
+  async activeBackend(): Promise<string> {
+    invalidateBackendCache()
+    return readPersistenceBackend()
+  },
+
   /** Reproduce an unmigrated profile: build a real sql.js database with the
    * section 9.8 fixture generator and persist it as the legacy blob. */
   async seedLegacyBlob(
     chats: number,
     messages: number
-  ): Promise<{ sessions: number; messages: number; blobBytes: number }> {
+  ): Promise<{
+    sessions: number
+    messages: number
+    blobBytes: number
+    tables: Record<string, number>
+  }> {
     const wasmUrl = browser.runtime.getURL("assets/sql-wasm.wasm")
     const wasmBinary = await (await fetch(wasmUrl)).arrayBuffer()
     const SQL = await (
@@ -145,9 +190,43 @@ const verifyApi = {
       // detect migration writes to the rollback blob instead of observing the
       // legacy backend's expected one-time schema-version stamp.
       fixture.run(`PRAGMA user_version = ${LATEST_SCHEMA_VERSION}`)
+      // Seed beyond sessions/messages so migration verification is exercised
+      // on tables the chat list never reads: a blob that only ever carries
+      // chats cannot prove per-table verification works.
+      for (let index = 0; index < PROMPT_TEMPLATE_SEED; index += 1) {
+        fixture.run(
+          `INSERT INTO prompt_templates
+             (id, title, userPrompt, createdAt, usageCount, sortOrder)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            `verify-template-${index}`,
+            `Template ${index}`,
+            "prompt",
+            1,
+            0,
+            index
+          ]
+        )
+      }
+      for (let index = 0; index < KV_SEED; index += 1) {
+        fixture.run("INSERT INTO kv_store (key, value) VALUES (?, ?)", [
+          `verify-key-${index}`,
+          `value-${index}`
+        ])
+      }
+      const tables: Record<string, number> = {}
+      for (const table of DURABLE_TABLES) {
+        const result = fixture.exec(`SELECT COUNT(*) FROM "${table}"`)
+        tables[table] = Number(result[0]?.values?.[0]?.[0] ?? 0)
+      }
       const bytes = fixture.export()
       await putLegacyBlob(bytes)
-      return { sessions: chats, messages, blobBytes: bytes.byteLength }
+      return {
+        sessions: chats,
+        messages,
+        blobBytes: bytes.byteLength,
+        tables
+      }
     } finally {
       fixture.close()
     }
@@ -157,12 +236,37 @@ const verifyApi = {
   readLegacyBlobDigest,
 
   /** Row counts through the production path (facade → RPC → owner). */
-  async counts(): Promise<{ sessions: number; messages: number }> {
-    const sessions = await query("SELECT COUNT(*) AS n FROM sessions")
-    const messages = await query("SELECT COUNT(*) AS n FROM messages")
+  async counts(): Promise<{
+    sessions: number
+    messages: number
+    tables: Record<string, number>
+  }> {
+    const tables: Record<string, number> = {}
+    for (const table of DURABLE_TABLES) {
+      const rows = await query(`SELECT COUNT(*) AS n FROM "${table}"`)
+      tables[table] = Number(rows[0]?.n ?? 0)
+    }
     return {
-      sessions: Number(sessions[0]?.n ?? 0),
-      messages: Number(messages[0]?.n ?? 0)
+      sessions: tables.sessions ?? 0,
+      messages: tables.messages ?? 0,
+      tables
+    }
+  },
+
+  /** Integrity of the live database, read through the production path. */
+  async integrityInfo(): Promise<{
+    integrityCheck: string
+    foreignKeyViolations: number
+  }> {
+    const integrityRows = await query("PRAGMA integrity_check")
+    const fkRows = await query("PRAGMA foreign_key_check")
+    return {
+      integrityCheck:
+        integrityRows
+          .map((row) => String(Object.values(row)[0] ?? ""))
+          .filter((line) => line.length > 0)
+          .join("; ") || "ok",
+      foreignKeyViolations: fkRows.length
     }
   },
 

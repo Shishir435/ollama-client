@@ -82,7 +82,20 @@ export const STORAGE_KEYS = {
      * profile runs on ("legacy" sql.js blob vs "opfs" single owner). Flips
      * exactly once, after the migration verifies row counts.
      */
-    BACKEND: "persistence_backend_v1"
+    BACKEND: "persistence_backend_v1",
+    /**
+     * Raw chrome.storage.local record of the last chat-history migration
+     * attempt: source schema version, per-table counts, integrity results,
+     * and outcome. Written on success and on failure, so a profile that never
+     * migrated can say why.
+     */
+    MIGRATION_RECEIPT: "persistence_migration_receipt_v1",
+    /**
+     * Raw chrome.storage.local operator switch: pin this device to the
+     * retained legacy sql.js blob regardless of the backend marker. Recovery
+     * path for a migration that verified but produced wrong data.
+     */
+    LEGACY_OVERRIDE: "persistence_legacy_override_v1"
   },
   APP_LIFECYCLE: {
     /**

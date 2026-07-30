@@ -1,6 +1,45 @@
 import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { PERSISTENCE_ENSURE, PERSISTENCE_MARKER } from "./protocol"
+import {
+  PERSISTENCE_ENSURE,
+  PERSISTENCE_MARKER,
+  type PersistenceStateRequest,
+  type PersistenceStateScope
+} from "./protocol"
+
+const STORAGE_KEY_BY_SCOPE: Record<PersistenceStateScope, string> = {
+  backend: STORAGE_KEYS.PERSISTENCE.BACKEND,
+  receipt: STORAGE_KEYS.PERSISTENCE.MIGRATION_RECEIPT,
+  override: STORAGE_KEYS.PERSISTENCE.LEGACY_OVERRIDE
+}
+
+/**
+ * Fill in the extension version on a receipt the offscreen owner wrote.
+ *
+ * `runtime.getManifest()` does not answer in the offscreen document — receipts
+ * written there recorded "unknown" through both the polyfill and the `chrome`
+ * alias. The service worker can read it, and it is already handling the write.
+ */
+const stampExtensionVersion = (
+  scope: PersistenceStateScope,
+  value: unknown
+): unknown => {
+  if (scope !== "receipt" || typeof value !== "object" || value === null) {
+    return value
+  }
+  const receipt = value as { extensionVersion?: string }
+  if (receipt.extensionVersion && receipt.extensionVersion !== "unknown") {
+    return value
+  }
+  try {
+    return {
+      ...receipt,
+      extensionVersion: chrome.runtime.getManifest().version
+    }
+  } catch {
+    return value
+  }
+}
 
 // Chromium control plane for the persistence owner. The background service
 // worker never opens the database itself: it guarantees that the offscreen
@@ -73,24 +112,24 @@ export const registerChromiumPersistenceControl = (): void => {
     }
     if (type === PERSISTENCE_MARKER) {
       // The offscreen owner has no chrome.storage; read/write the backend
-      // marker on its behalf.
-      const request = message as {
-        action: "get" | "set"
-        marker?: unknown
+      // marker, migration receipt, and operator override on its behalf.
+      const request = message as PersistenceStateRequest
+      const key = STORAGE_KEY_BY_SCOPE[request.scope]
+      if (!key) {
+        sendResponse({
+          ok: false,
+          error: `Unknown persistence state scope: ${String(request.scope)}`
+        })
+        return true
       }
       ;(async () => {
         if (request.action === "get") {
-          const stored = await chrome.storage.local.get(
-            STORAGE_KEYS.PERSISTENCE.BACKEND
-          )
-          sendResponse({
-            ok: true,
-            marker: stored[STORAGE_KEYS.PERSISTENCE.BACKEND]
-          })
+          const stored = await chrome.storage.local.get(key)
+          sendResponse({ ok: true, value: stored[key] })
           return
         }
         await chrome.storage.local.set({
-          [STORAGE_KEYS.PERSISTENCE.BACKEND]: request.marker
+          [key]: stampExtensionVersion(request.scope, request.value)
         })
         sendResponse({ ok: true })
       })().catch((error: unknown) =>
