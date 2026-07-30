@@ -12,9 +12,17 @@
 //      counts are exact (single-owner, no lost update).
 //   3. Real migration: seed a legacy sql.js blob (section 9.8 fixture),
 //      clear the backend marker, reload the extension; the owner migrates
-//      the blob, verifies row counts, flips the marker — and the blob stays
-//      untouched as the rollback artifact.
-//   4. Backup export comes from the OPFS owner and is a valid SQLite file.
+//      the blob, verifies every durable table, records a receipt, flips the
+//      marker — and the blob stays untouched as the rollback artifact.
+//   4. Host loss during migration: the browser (and with it the offscreen
+//      owner) is torn down while the migration is in flight. The next boot
+//      must complete it with exact per-table counts and a sound database.
+//   5. Operator override: with the device-local switch set, the profile serves
+//      chat history from the retained blob again and the migration stays
+//      skipped; clearing it migrates on the next boot.
+//   6. A restore whose payload is not a usable database is rejected with the
+//      existing chat history still in place.
+//   7. Backup export comes from the OPFS owner and is a valid SQLite file.
 //
 // Usage: pnpm verify:opfs-migration [--headful]
 // Requires: pnpm benchmark:build (the verify page is dev-gated).
@@ -153,6 +161,31 @@ const waitForOpfsMarker = async (
   }
 }
 
+interface TableCounts {
+  sessions: number
+  messages: number
+  tables: Record<string, number>
+}
+
+interface MigrationReceipt {
+  outcome?: string
+  attempts?: number
+  sourceSchemaVersion?: number
+  sourceCounts?: Record<string, number>
+  importedCounts?: Record<string, number>
+  importedIntegrity?: { integrityCheck?: string; foreignKeyViolations?: number }
+  failure?: string
+}
+
+/** Every table the source blob populated must arrive with the same count. */
+const tableCountsMatch = (
+  seeded: Record<string, number>,
+  migrated: Record<string, number>
+): boolean =>
+  Object.entries(seeded).every(
+    ([table, count]) => count === 0 || migrated[table] === count
+  )
+
 const runScenarios = async (visible: boolean): Promise<void> => {
   if (!existsSync(resolve(buildPath, "persistence-verify.html"))) {
     throw new Error(
@@ -178,14 +211,20 @@ const runScenarios = async (visible: boolean): Promise<void> => {
     // ---- 1. Fresh profile boots straight onto the OPFS backend ----
     let { page, call } = await openVerifyPage(context, extensionId)
     const freshMarker = await waitForOpfsMarker(call, 20000)
-    const freshCounts = (await call("counts")) as {
-      sessions: number
-      messages: number
-    }
+    const freshCounts = (await call("counts")) as TableCounts
+    const freshReceipt = (await call("migrationReceipt")) as MigrationReceipt
+    // A fresh profile can still have a legacy blob: whichever context reads the
+    // marker first sees "legacy" and stamps an empty sql.js database before the
+    // owner migrates. So the receipt is either "fresh" (no blob at all) or
+    // "migrated" with nothing in it — both mean the same thing here.
     record(
       "fresh-profile-opfs-init",
-      freshCounts.sessions === 0 && freshCounts.messages === 0,
-      { freshMarker, freshCounts }
+      freshCounts.sessions === 0 &&
+        freshCounts.messages === 0 &&
+        (freshReceipt?.outcome === "fresh" ||
+          (freshReceipt?.outcome === "migrated" &&
+            freshReceipt.sourceCounts?.sessions === 0)),
+      { freshMarker, freshCounts, freshReceipt }
     )
 
     // ---- 2. Concurrent facade writes from two pages, exact counts ----
@@ -195,10 +234,7 @@ const runScenarios = async (visible: boolean): Promise<void> => {
       call("appendViaFacade", "verify-a", APPENDS),
       second.call("appendViaFacade", "verify-b", APPENDS)
     ])
-    const afterWrites = (await call("counts")) as {
-      sessions: number
-      messages: number
-    }
+    const afterWrites = (await call("counts")) as TableCounts
     record(
       "concurrent-facade-writes",
       afterWrites.sessions === 2 && afterWrites.messages === APPENDS * 2,
@@ -211,9 +247,11 @@ const runScenarios = async (visible: boolean): Promise<void> => {
       sessions: number
       messages: number
       blobBytes: number
+      tables: Record<string, number>
     }
     const sourceDigest = (await call("readLegacyBlobDigest")) as string
     await call("clearMarker")
+    await call("clearMigrationReceipt")
     // Restart the whole browser with the same profile — runtime.reload() on
     // an unpacked extension leaves it blocked under Playwright, and a real
     // browser restart is the stronger claim anyway: the migration must run
@@ -227,9 +265,13 @@ const runScenarios = async (visible: boolean): Promise<void> => {
     const migratedMarker = (await waitForOpfsMarker(call, 30000)) as {
       sourceCounts?: { sessions: number; messages: number }
     }
-    const migratedCounts = (await call("counts")) as {
-      sessions: number
-      messages: number
+    const migratedCounts = (await call("counts")) as TableCounts
+    const migratedReceipt = (await call(
+      "migrationReceipt"
+    )) as MigrationReceipt
+    const migratedIntegrity = (await call("integrityInfo")) as {
+      integrityCheck: string
+      foreignKeyViolations: number
     }
     const blobAfter = (await call("readLegacyBlobLength")) as number
     const digestAfter = (await call("readLegacyBlobDigest")) as string
@@ -239,6 +281,25 @@ const runScenarios = async (visible: boolean): Promise<void> => {
         migratedCounts.messages === FIXTURE_MESSAGES &&
         migratedMarker.sourceCounts?.sessions === FIXTURE_SESSIONS,
       { seeded, migratedMarker, migratedCounts }
+    )
+    record(
+      "every-durable-table-migrated",
+      tableCountsMatch(seeded.tables, migratedCounts.tables),
+      { seeded: seeded.tables, migrated: migratedCounts.tables }
+    )
+    record(
+      "migrated-database-is-sound",
+      migratedIntegrity.integrityCheck === "ok" &&
+        migratedIntegrity.foreignKeyViolations === 0,
+      migratedIntegrity
+    )
+    record(
+      "migration-receipt-recorded",
+      migratedReceipt?.outcome === "migrated" &&
+        typeof migratedReceipt.sourceSchemaVersion === "number" &&
+        migratedReceipt.sourceCounts?.sessions === FIXTURE_SESSIONS &&
+        migratedReceipt.importedIntegrity?.integrityCheck === "ok",
+      migratedReceipt
     )
     record(
       "rollback-blob-untouched",
@@ -251,7 +312,100 @@ const runScenarios = async (visible: boolean): Promise<void> => {
       }
     )
 
-    // ---- 4. Backup export served by the OPFS owner ----
+    // ---- 4. The owner is destroyed mid-migration; the next boot finishes ----
+    // Tearing down the browser takes the offscreen host with it, which is the
+    // eviction case that matters: the migration is interrupted after the
+    // physical import has begun and before the marker flips.
+    const bigSeed = (await call(
+      "seedLegacyBlob",
+      FIXTURE_SESSIONS * 4,
+      FIXTURE_MESSAGES * 6
+    )) as { sessions: number; messages: number; tables: Record<string, number> }
+    await call("clearMarker")
+    await call("clearMigrationReceipt")
+    await page.close().catch(() => {})
+    await context.close()
+
+    // Boot far enough to start the migration, then kill the host. No page is
+    // opened: the background creates the owner eagerly at startup.
+    context = await launch()
+    await new Promise((resolvePause) => setTimeout(resolvePause, 400))
+    await context.close()
+
+    context = await launch()
+    await new Promise((resolvePause) => setTimeout(resolvePause, 1500))
+    ;({ page, call } = await openVerifyPage(context, extensionId))
+    await waitForOpfsMarker(call, 45000)
+    const resumedCounts = (await call("counts")) as TableCounts
+    const resumedIntegrity = (await call("integrityInfo")) as {
+      integrityCheck: string
+      foreignKeyViolations: number
+    }
+    const resumedReceipt = (await call("migrationReceipt")) as MigrationReceipt
+    record(
+      "interrupted-migration-resumes-exactly",
+      resumedCounts.sessions === bigSeed.sessions &&
+        resumedCounts.messages === bigSeed.messages &&
+        tableCountsMatch(bigSeed.tables, resumedCounts.tables) &&
+        resumedIntegrity.integrityCheck === "ok" &&
+        resumedReceipt?.outcome === "migrated",
+      { bigSeed, resumedCounts, resumedIntegrity, resumedReceipt }
+    )
+
+    // ---- 5. Operator override returns the profile to the retained blob ----
+    await call("setLegacyOverride", true)
+    const overriddenBackend = (await call("activeBackend")) as string
+    const overriddenCounts = (await call("counts")) as TableCounts
+    record(
+      "override-serves-legacy-blob",
+      overriddenBackend === "legacy" &&
+        overriddenCounts.sessions === bigSeed.sessions,
+      { overriddenBackend, overriddenCounts }
+    )
+
+    await call("clearMarker")
+    await call("clearMigrationReceipt")
+    await page.close().catch(() => {})
+    await context.close()
+    context = await launch()
+    await new Promise((resolvePause) => setTimeout(resolvePause, 2500))
+    ;({ page, call } = await openVerifyPage(context, extensionId))
+    const skippedBackend = (await call("activeBackend")) as string
+    const skippedReceipt = (await call("migrationReceipt")) as MigrationReceipt
+    record(
+      "override-skips-migration-on-boot",
+      skippedBackend === "legacy" && skippedReceipt?.outcome === "skipped",
+      { skippedBackend, skippedReceipt }
+    )
+
+    await call("setLegacyOverride", false)
+    await page.close().catch(() => {})
+    await context.close()
+    context = await launch()
+    await new Promise((resolvePause) => setTimeout(resolvePause, 1500))
+    ;({ page, call } = await openVerifyPage(context, extensionId))
+    await waitForOpfsMarker(call, 45000)
+    const restoredCounts = (await call("counts")) as TableCounts
+    record(
+      "cleared-override-migrates-again",
+      ((await call("activeBackend")) as string) === "opfs" &&
+        restoredCounts.messages === bigSeed.messages,
+      { restoredCounts }
+    )
+
+    // ---- 6. A rejected restore leaves the live database intact ----
+    const beforeRestore = (await call("counts")) as TableCounts
+    const rejected = (await call("importCorruptBackup")) as { error: string }
+    const afterRestore = (await call("counts")) as TableCounts
+    record(
+      "rejected-restore-preserves-database",
+      rejected.error.length > 0 &&
+        afterRestore.messages === beforeRestore.messages &&
+        afterRestore.sessions === beforeRestore.sessions,
+      { rejected, beforeRestore, afterRestore }
+    )
+
+    // ---- 7. Backup export served by the OPFS owner ----
     const exportInfo = (await call("exportInfo")) as {
       byteLength: number
       magic: string

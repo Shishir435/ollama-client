@@ -137,15 +137,15 @@ export const rpcExportDb = async (): Promise<Uint8Array> => {
 
 export const rpcImportDb = async (
   bytes: Uint8Array
-): Promise<{ sessions: number; messages: number }> => {
+): Promise<import("./protocol").ImportResult> => {
   const buffer = bytes.buffer.slice(
     bytes.byteOffset,
     bytes.byteOffset + bytes.byteLength
   ) as ArrayBuffer
-  return (await send({ op: "importDb", bytes: buffer })) as {
-    sessions: number
-    messages: number
-  }
+  return (await send({
+    op: "importDb",
+    bytes: buffer
+  })) as import("./protocol").ImportResult
 }
 
 export const rpcReset = (): Promise<unknown> => send({ op: "reset" })
