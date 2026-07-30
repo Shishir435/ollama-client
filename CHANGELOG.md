@@ -17,6 +17,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   into the prompt, and gains a select-all control scoped to whatever the search
   filter is showing — so a filtered selection never silently includes tabs you
   cannot see. Once every listed tab is selected, the same control clears them.
+- Upgrading from an older chat-history format now verifies every kind of stored
+  data — chats, messages, attachments, prompt templates, saved tool runs — and
+  checks the imported database for damage before it becomes the one in use.
+  Anything that does not arrive intact leaves your history on the previous
+  store, untouched, rather than switching over to an incomplete copy. A
+  half-finished upgrade interrupted by a browser restart is rolled back and
+  retried from the original on the next launch.
+- A support report from a device that went through that upgrade now says how it
+  went — whether it succeeded, which check failed, and how many attempts it
+  took. Row counts stay on your device; only how many rows a table came up short
+  is included, and a device that never had an older store says nothing at all.
+  Nothing is sent anywhere unless you open a report yourself.
 
 ### Changed
 
@@ -60,6 +72,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Fixed
 
+- Chat-history storage now fills in any table it is missing when it opens.
+  Profiles first created on 0.6.0–0.9.x never got the retrieval-feedback table
+  added in 0.10.0, because the schema was only applied to a database that had no
+  chats yet — so on those profiles anything writing to it failed silently.
 - A reply that finishes without any answer now says so and offers a retry.
   Providers report a model unloaded mid-turn — or a conversation with no room
   left to answer in — as a successful, empty response, which used to leave a

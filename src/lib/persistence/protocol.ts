@@ -10,6 +10,8 @@ export const PERSISTENCE_ENSURE = "persistence-ensure"
 // marker reads/writes to the background service worker with this message.
 export const PERSISTENCE_MARKER = "persistence-marker"
 
+import type { IntegrityReport, TableCounts } from "./durable-tables"
+
 export type SqlValue = string | number | null | Uint8Array
 export type QueryRow = Record<string, SqlValue>
 
@@ -33,11 +35,34 @@ export interface RunResult {
 export interface CountsResult {
   sessions: number
   messages: number
+  /** Every durable table present in the database. `sessions`/`messages` stay
+   * as named fields because callers log them, but migration verification
+   * compares the whole map. */
+  tables: TableCounts
+}
+
+export interface ImportResult extends CountsResult {
+  integrity: IntegrityReport
 }
 
 export interface PersistenceRpcRequest {
   type: typeof PERSISTENCE_RPC
   request: PersistenceOp
+}
+
+/**
+ * Device-local persistence state the offscreen owner cannot reach itself.
+ *
+ * `backend` is the backend marker, `receipt` the migration receipt, and
+ * `override` the operator switch that pins a profile to the legacy blob.
+ */
+export type PersistenceStateScope = "backend" | "receipt" | "override"
+
+export interface PersistenceStateRequest {
+  type: typeof PERSISTENCE_MARKER
+  action: "get" | "set"
+  scope: PersistenceStateScope
+  value?: unknown
 }
 
 export type PersistenceRpcResponse =

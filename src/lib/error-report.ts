@@ -172,6 +172,40 @@ export const buildGenericIssueReportUrl = (
 }
 
 /**
+ * Chat-history migration evidence, when this profile has any. Omitted entirely
+ * for a profile that never held a legacy blob, so a normal report does not carry
+ * three lines about a migration that never happened.
+ *
+ * A clean result stays one line. Detail appears only when something went wrong,
+ * because that is the only case a maintainer needs to read.
+ */
+const migrationLines = (
+  migration: NonNullable<DiagnosticBundle>["storage"]["migration"]
+): string[] => {
+  if (!migration) return []
+  const lines = [
+    `- Chat migration: ${clampLine(migration.outcome, 40)} (attempt ${migration.attempts}, from schema v${migration.sourceSchemaVersion ?? "?"}, on ${clampLine(migration.extensionVersion, 20)})`
+  ]
+  if (migration.importedIntegrity && migration.importedIntegrity !== "ok") {
+    lines.push(
+      `- Migration integrity: ${clampLine(migration.importedIntegrity, 120)}`
+    )
+  }
+  if (migration.foreignKeyViolations) {
+    lines.push(`- Migration orphan rows: ${migration.foreignKeyViolations}`)
+  }
+  if (migration.mismatches?.length) {
+    lines.push(
+      `- Migration table mismatches: ${clampLine(migration.mismatches.join(", "), 200)}`
+    )
+  }
+  if (migration.failure) {
+    lines.push(`- Migration failure: ${clampLine(migration.failure, 200)}`)
+  }
+  return lines
+}
+
+/**
  * Draft opened from Settings → Help → Diagnostics & support, where the reporter
  * already has a bundle in hand. Shares the composer above, so this draft carries
  * the same paste block, privacy statement, and length guarantee as a chat-error
@@ -195,6 +229,7 @@ export const buildDiagnosticIssueUrl = (
       `- Browser: ${clampLine(bundle.browserFamily, 100)}`,
       `- OS: ${clampLine(bundle.osFamily, 100)}`,
       `- Storage backend: ${clampLine(bundle.storage.backend, 100)}`,
+      ...migrationLines(bundle.storage.migration),
       ...(failed.length > 0 ? failed : ["- Self-tests: passed"])
     ].join("\n")
   )
