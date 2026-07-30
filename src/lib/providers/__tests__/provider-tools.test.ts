@@ -28,11 +28,41 @@ const streamResponse = (chunks: string[]) => {
             ? { done: false, value: encoder.encode(chunks[i++]) }
             : { done: true, value: undefined }
         ),
+        cancel: vi.fn(async () => undefined),
         releaseLock: vi.fn()
       })
     },
     text: async () => ""
   } as unknown as Response
+}
+
+/** A stream that sends one chunk and then never closes unless cancelled. */
+const persistentStreamResponse = (chunk: string) => {
+  let sent = false
+  let cancelled = false
+  return {
+    response: {
+      ok: true,
+      status: 200,
+      body: {
+        getReader: () => ({
+          read: vi.fn(async () => {
+            if (!sent) {
+              sent = true
+              return { done: false, value: encoder.encode(chunk) }
+            }
+            return await new Promise<never>(() => {})
+          }),
+          cancel: vi.fn(async () => {
+            cancelled = true
+          }),
+          releaseLock: vi.fn()
+        })
+      },
+      text: async () => ""
+    } as unknown as Response,
+    wasCancelled: () => cancelled
+  }
 }
 
 const bodyOf = (fetchMock: ReturnType<typeof vi.spyOn>) =>
@@ -384,6 +414,23 @@ describe("provider tool calling — stream parsing", () => {
     expect(toolChunk?.toolCalls).toEqual([
       { id: "c1", name: "get_weather", arguments: { city: "Paris" } }
     ])
+  })
+
+  it("finishes and cancels a persistent SSE stream at finish_reason", async () => {
+    const persistent = persistentStreamResponse(
+      'data: {"choices":[{"delta":{"reasoning":"I should call a tool."},"finish_reason":"stop"}]}\n'
+    )
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(persistent.response)
+
+    const chunks: ChatStreamMessage[] = []
+    await new OpenAICompatibleProvider(openaiConfig).streamChat(
+      baseRequest,
+      collect(chunks)
+    )
+
+    expect(chunks.some((chunk) => chunk.thinkingDelta)).toBe(true)
+    expect(chunks.filter((chunk) => chunk.done)).toHaveLength(1)
+    expect(persistent.wasCancelled()).toBe(true)
   })
 
   it("preserves fragmented OpenRouter reasoning details across a tool turn", async () => {

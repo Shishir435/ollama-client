@@ -42,6 +42,40 @@ describe("stream protocol", () => {
     ).toBe(true)
   })
 
+  it("preserves approval state in tool-run events", () => {
+    const parsed = parseChatStreamServerEvent({
+      version: 1,
+      type: "chat_chunk",
+      seq: 3,
+      toolRuns: [
+        {
+          toolId: "delete_item",
+          label: "Delete item",
+          risk: "critical",
+          taintGeneration: 2,
+          origin: "https://example.com",
+          status: "awaiting-confirmation",
+          callId: "call-7",
+          startedAt: 123
+        }
+      ]
+    })
+
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    expect(parsed.data).toMatchObject({
+      type: "chat_chunk",
+      toolRuns: [
+        {
+          risk: "critical",
+          taintGeneration: 2,
+          origin: "https://example.com",
+          callId: "call-7"
+        }
+      ]
+    })
+  })
+
   it("rejects unknown versions and malformed events", () => {
     expect(
       ChatStreamServerEventSchema.safeParse({

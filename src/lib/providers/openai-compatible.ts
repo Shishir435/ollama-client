@@ -412,10 +412,11 @@ export class OpenAICompatibleProvider implements LLMProvider {
       })
     }
 
-    const processLine = (line: string) => {
+    const processLine = (line: string): boolean => {
       const trimmed = line.trim()
-      if (!trimmed || trimmed === "data: [DONE]") return
-      if (!trimmed.startsWith("data: ")) return
+      if (!trimmed) return false
+      if (trimmed === "data: [DONE]") return true
+      if (!trimmed.startsWith("data: ")) return false
 
       let data: {
         error?: unknown
@@ -441,7 +442,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
           "OpenAICompatibleProvider",
           { error: e }
         )
-        return
+        return false
       }
 
       // Mid-stream provider error (HTTP 200 already sent — vLLM/LiteLLM/etc.).
@@ -531,7 +532,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
 
       // Most providers set finish_reason "tool_calls" before usage; some
       // omit it, so the stream-done path also flushes.
-      if (data.choices?.[0]?.finish_reason === "tool_calls") {
+      const finishReason = data.choices?.[0]?.finish_reason
+      if (finishReason === "tool_calls") {
         emitToolCalls()
       }
 
@@ -558,6 +560,20 @@ export class OpenAICompatibleProvider implements LLMProvider {
           metrics: latestMetrics
         })
       }
+      return typeof finishReason === "string" && finishReason.length > 0
+    }
+
+    const finishStream = () => {
+      emitToolCalls()
+      const totalDurationNs = (Date.now() - startTime) * 1_000_000
+      onChunk({
+        done: true,
+        replayArtifact: replayArtifact(),
+        metrics: {
+          ...latestMetrics,
+          total_duration: totalDurationNs
+        }
+      })
     }
 
     try {
@@ -572,16 +588,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
           // Flush a final data line left without a trailing newline at EOF.
           if (buffer.trim()) processLine(buffer)
           buffer = ""
-          emitToolCalls()
-          const totalDurationNs = (Date.now() - startTime) * 1_000_000
-          onChunk({
-            done: true,
-            replayArtifact: replayArtifact(),
-            metrics: {
-              ...latestMetrics,
-              total_duration: totalDurationNs
-            }
-          })
+          finishStream()
           break
         }
 
@@ -589,7 +596,18 @@ export class OpenAICompatibleProvider implements LLMProvider {
         const lines = buffer.split("\n")
         buffer = lines.pop() || ""
 
-        for (const line of lines) processLine(line)
+        let streamFinished = false
+        for (const line of lines) {
+          streamFinished = processLine(line) || streamFinished
+        }
+        if (streamFinished) {
+          // `finish_reason` and `[DONE]` are protocol terminals. Some local
+          // OpenAI-compatible servers keep the HTTP connection alive after
+          // either marker, so waiting for EOF strands the UI indefinitely.
+          finishStream()
+          await reader.cancel()
+          break
+        }
       }
     } finally {
       reader.releaseLock()

@@ -55,7 +55,9 @@ export const ToolRunSchema = z.object({
       "external"
     ])
     .optional(),
-  risk: z.enum(["low", "medium", "high"]).optional(),
+  risk: z.enum(["low", "medium", "high", "critical"]).optional(),
+  taintGeneration: z.number().int().nonnegative().optional(),
+  origin: z.string().optional(),
   status: z.enum([
     "pending",
     "running",
@@ -63,6 +65,7 @@ export const ToolRunSchema = z.object({
     "error",
     "awaiting-confirmation"
   ]),
+  callId: z.string().optional(),
   startedAt: z.number(),
   completedAt: z.number().optional(),
   sources: z
