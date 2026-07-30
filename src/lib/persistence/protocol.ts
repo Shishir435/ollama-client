@@ -23,6 +23,18 @@ export type PersistenceOp =
   | { op: "txRollback"; token: string }
   | { op: "exportDb" }
   | { op: "importDb"; bytes: ArrayBuffer }
+  /**
+   * Survey a candidate database without adopting it: row counts per durable
+   * table, `PRAGMA user_version`, and the integrity verdicts. Read-only, on a
+   * scratch file that is unlinked afterwards, so the live database and the
+   * source bytes are both untouched.
+   *
+   * This is how the legacy blob is measured before migration. It exists so the
+   * survey runs on the same engine as the import — sql.js read the blob for
+   * this, which meant carrying a second SQLite for a read that official
+   * sqlite-wasm performs natively.
+   */
+  | { op: "surveyDb"; bytes: ArrayBuffer }
   | { op: "counts" }
   | { op: "reset" }
   | { op: "ping" }
@@ -43,6 +55,12 @@ export interface CountsResult {
 
 export interface ImportResult extends CountsResult {
   integrity: IntegrityReport
+}
+
+/** What a source database says about itself before anything imports it. */
+export interface SurveyResult extends ImportResult {
+  /** `PRAGMA user_version` — which schema generation the data came from. */
+  schemaVersion: number
 }
 
 export interface PersistenceRpcRequest {

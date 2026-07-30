@@ -12,7 +12,7 @@ import {
   isSoundDatabase,
   type TableCountMismatch
 } from "./durable-tables"
-import type { ImportResult } from "./protocol"
+import type { ImportResult, SurveyResult } from "./protocol"
 import {
   decodeBind,
   encodeRows,
@@ -184,9 +184,7 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
   if (backend === "opfs") return
 
   logger.info("Starting legacy-blob → OPFS migration", "Persistence")
-  const { readLegacyBlobBytes, countLegacyRows } = await import(
-    "./legacy-blob-reader"
-  )
+  const { readLegacyBlobBytes } = await import("./legacy-blob-reader")
   const bytes = await readLegacyBlobBytes()
 
   if (!bytes || bytes.byteLength === 0) {
@@ -198,11 +196,24 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
     return
   }
 
+  const buffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  ) as ArrayBuffer
+
   // Survey the source BEFORE the physical import — this is the verification
   // target, and it covers every durable table the blob has, not just the two
   // the chat list happens to read. The source blob itself is never modified or
   // deleted; it remains the rollback artifact.
-  const source = await countLegacyRows(bytes)
+  //
+  // Measured by the worker, on the engine that will import it. A separate
+  // reader could disagree with the importer about what the file contains, and
+  // then verification would be comparing two engines rather than checking a
+  // migration. It also means the blob is read by one SQLite, not two.
+  const source = (await callWorker({
+    op: "surveyDb",
+    bytes: buffer
+  })) as SurveyResult
   if (!isSoundDatabase(source.integrity)) {
     logger.warn(
       "Legacy blob failed integrity_check before import",
@@ -212,11 +223,6 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
       }
     )
   }
-  const buffer = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
-  ) as ArrayBuffer
-
   let imported: ImportResult | undefined
   let mismatches: TableCountMismatch[] = []
   try {

@@ -72,6 +72,38 @@ describe("architecture import boundaries", () => {
     expect(rootStores).toEqual([])
   })
 
+  /**
+   * sql.js exists for one job: serving history to a profile still on the legacy
+   * blob backend. Everything else — surveying a source database, verifying an
+   * import, restoring a backup — runs on official sqlite-wasm, which reads the
+   * same file format.
+   *
+   * A new runtime import here is how the second engine comes back, and it comes
+   * back permanently: once two engines read the same file, verification is
+   * comparing engines instead of checking a migration.
+   *
+   * The three dev-only entrypoints are exempt because `config/wxt-hooks.ts`
+   * strips them from store builds. The migration-verification harness is the one
+   * place sql.js is still the right tool: its fixtures have to *write* blobs in
+   * the old topology, which is all sql.js was ever needed for. Type-only imports
+   * in the migration runner do not pull the runtime in.
+   */
+  it("keeps the sql.js runtime to the legacy fallback alone", () => {
+    const allowed = new Set([
+      "lib/sqlite/legacy-db.ts",
+      "entrypoints/benchmark/main.ts",
+      "entrypoints/spike-opfs/main.ts",
+      "entrypoints/persistence-verify/main.ts"
+    ])
+    const offenders = productionSources.filter((file) => {
+      if (allowed.has(file)) return false
+      const source = readFileSync(join(sourceRoot, file), "utf8")
+      return importsModule(source, /sql\.js\/dist\/sql-wasm\.js/)
+    })
+
+    expect(offenders).toEqual([])
+  })
+
   it("keeps application and infrastructure layers independent of features", () => {
     const lowerLayerRoots = ["application/", "background/", "lib/"]
     const offenders = productionSources.filter((file) => {
