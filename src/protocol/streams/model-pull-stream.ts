@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { AppFailureSchema } from "@/protocol/app-failure"
+import { MODEL_PULL_EVENT_TYPES } from "./event-types"
 import { STREAM_PROTOCOL_VERSION } from "./version"
 
 const version = z.literal(STREAM_PROTOCOL_VERSION)
@@ -7,7 +8,7 @@ const version = z.literal(STREAM_PROTOCOL_VERSION)
 export const ModelPullClientEventSchema = z.discriminatedUnion("type", [
   z.object({
     version,
-    type: z.literal("model_pull_start"),
+    type: z.literal(MODEL_PULL_EVENT_TYPES.START),
     payload: z.object({
       model: z.string().min(1),
       providerId: z.string().optional()
@@ -15,7 +16,7 @@ export const ModelPullClientEventSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     version,
-    type: z.literal("model_pull_cancel"),
+    type: z.literal(MODEL_PULL_EVENT_TYPES.CANCEL),
     payload: z.object({ model: z.string().min(1) })
   })
 ])
@@ -23,18 +24,18 @@ export const ModelPullClientEventSchema = z.discriminatedUnion("type", [
 export const ModelPullServerEventSchema = z.discriminatedUnion("type", [
   z.object({
     version,
-    type: z.literal("model_pull_progress"),
+    type: z.literal(MODEL_PULL_EVENT_TYPES.PROGRESS),
     status: z.string(),
     progress: z.number().optional()
   }),
   z.object({
     version,
-    type: z.literal("model_pull_complete"),
+    type: z.literal(MODEL_PULL_EVENT_TYPES.COMPLETE),
     status: z.string().optional()
   }),
   z.object({
     version,
-    type: z.literal("model_pull_error"),
+    type: z.literal(MODEL_PULL_EVENT_TYPES.ERROR),
     failure: AppFailureSchema
   })
 ])
@@ -45,30 +46,40 @@ export type ModelPullServerEvent = z.infer<typeof ModelPullServerEventSchema>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value)
 
+const legacyModelName = (payload: unknown): string => {
+  if (typeof payload === "string") return payload
+  if (isRecord(payload) && typeof payload.model === "string") {
+    return payload.model
+  }
+  return ""
+}
+
+const normalizeLegacyModelPullClientEvent = (
+  value: Record<string, unknown>
+): Record<string, unknown> => {
+  if (value.type !== undefined) return value
+
+  if (value.cancel) {
+    return {
+      version: STREAM_PROTOCOL_VERSION,
+      type: MODEL_PULL_EVENT_TYPES.CANCEL,
+      payload: { model: legacyModelName(value.payload) }
+    }
+  }
+
+  return {
+    version: STREAM_PROTOCOL_VERSION,
+    type: MODEL_PULL_EVENT_TYPES.START,
+    payload:
+      typeof value.payload === "string"
+        ? { model: value.payload }
+        : value.payload
+  }
+}
+
 export const parseModelPullClientEvent = (value: unknown) => {
   if (!isRecord(value)) return ModelPullClientEventSchema.safeParse(value)
-  const payload = value.payload
-  const normalized =
-    value.type !== undefined
-      ? value
-      : value.cancel
-        ? {
-            version: STREAM_PROTOCOL_VERSION,
-            type: "model_pull_cancel",
-            payload: {
-              model:
-                typeof payload === "string"
-                  ? payload
-                  : isRecord(payload) && typeof payload.model === "string"
-                    ? payload.model
-                    : ""
-            }
-          }
-        : {
-            version: STREAM_PROTOCOL_VERSION,
-            type: "model_pull_start",
-            payload: typeof payload === "string" ? { model: payload } : payload
-          }
+  const normalized = normalizeLegacyModelPullClientEvent(value)
   return ModelPullClientEventSchema.safeParse({
     ...normalized,
     version:
@@ -91,20 +102,20 @@ export const parseModelPullServerEvent = (value: unknown) => {
         : value.error
     return ModelPullServerEventSchema.safeParse({
       version,
-      type: "model_pull_error",
+      type: MODEL_PULL_EVENT_TYPES.ERROR,
       failure
     })
   }
   if (value.done === true) {
     return ModelPullServerEventSchema.safeParse({
       version,
-      type: "model_pull_complete",
+      type: MODEL_PULL_EVENT_TYPES.COMPLETE,
       ...(typeof value.status === "string" ? { status: value.status } : {})
     })
   }
   return ModelPullServerEventSchema.safeParse({
     ...value,
     version,
-    type: "model_pull_progress"
+    type: MODEL_PULL_EVENT_TYPES.PROGRESS
   })
 }

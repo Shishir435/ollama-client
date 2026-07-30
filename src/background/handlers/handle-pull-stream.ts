@@ -5,6 +5,7 @@ import {
 } from "@/background/lib/utils"
 import { logger } from "@/lib/logger"
 import { toAppFailure } from "@/protocol/app-failure"
+import { MODEL_PULL_EVENT_TYPES } from "@/protocol/streams"
 import type {
   ChromePort,
   DefaultProviderPullResponse,
@@ -53,14 +54,14 @@ export const handlePullStream = async (
           if (data.status) {
             safePostModelPullEvent(port, {
               version: 1,
-              type: "model_pull_progress",
+              type: MODEL_PULL_EVENT_TYPES.PROGRESS,
               status: data.status
             })
 
             if (data.status === "success") {
               safePostModelPullEvent(port, {
                 version: 1,
-                type: "model_pull_complete",
+                type: MODEL_PULL_EVENT_TYPES.COMPLETE,
                 status: data.status
               })
               clearAbortController(controllerKey)
@@ -71,7 +72,7 @@ export const handlePullStream = async (
           if (data.error) {
             safePostModelPullEvent(port, {
               version: 1,
-              type: "model_pull_error",
+              type: MODEL_PULL_EVENT_TYPES.ERROR,
               failure: toAppFailure(data.error)
             })
             clearAbortController(controllerKey)
@@ -82,7 +83,7 @@ export const handlePullStream = async (
             const progress = Math.round((data.completed / data.total) * 100)
             safePostModelPullEvent(port, {
               version: 1,
-              type: "model_pull_progress",
+              type: MODEL_PULL_EVENT_TYPES.PROGRESS,
               status: `Downloading: ${progress}%`,
               progress
             })
@@ -102,7 +103,7 @@ export const handlePullStream = async (
         if (data.status === "success") {
           safePostModelPullEvent(port, {
             version: 1,
-            type: "model_pull_complete",
+            type: MODEL_PULL_EVENT_TYPES.COMPLETE,
             status: data.status
           })
         }

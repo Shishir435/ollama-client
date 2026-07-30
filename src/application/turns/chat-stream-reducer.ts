@@ -3,6 +3,7 @@ import {
   splitThinkingDelta,
   type ThinkingParserState
 } from "@/lib/thinking-parser"
+import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 import type { ChatMessage, ProviderReplayArtifact, ToolRun } from "@/types"
 
 /**
@@ -162,7 +163,10 @@ export const reduceStreamEvent = (
 
   // `rag_sources` side channel: fold retrieval metadata into metrics silently
   // (no visible change, no token), matching the legacy early-return.
-  if (msg.type === "rag_sources" && msg.payload?.sources) {
+  if (
+    msg.type === CHAT_STREAM_EVENT_TYPES.RAG_SOURCES &&
+    msg.payload?.sources
+  ) {
     assistant = {
       ...assistant,
       metrics: {

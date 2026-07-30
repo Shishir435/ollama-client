@@ -18,6 +18,7 @@ import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderId } from "@/lib/providers/types"
 import { toAppFailure } from "@/protocol/app-failure"
+import { MODEL_PULL_EVENT_TYPES } from "@/protocol/streams"
 import type {
   ChromePort,
   DefaultProviderPullRequest,
@@ -47,7 +48,7 @@ export const handleModelPull = async (
   if (!provider.capabilities.modelPull) {
     safePostModelPullEvent(port, {
       version: 1,
-      type: "model_pull_error",
+      type: MODEL_PULL_EVENT_TYPES.ERROR,
       failure: {
         status: 400,
         message: "Model download is not supported by this provider"
@@ -86,7 +87,7 @@ export const handleModelPull = async (
     if (!res.ok) {
       safePostModelPullEvent(port, {
         version: 1,
-        type: "model_pull_error",
+        type: MODEL_PULL_EVENT_TYPES.ERROR,
         failure: { status: res.status, message: res.statusText }
       })
       return
@@ -95,7 +96,7 @@ export const handleModelPull = async (
     if (isLmStudio) {
       safePostModelPullEvent(port, {
         version: 1,
-        type: "model_pull_complete",
+        type: MODEL_PULL_EVENT_TYPES.COMPLETE,
         status: "Download requested"
       })
       return
@@ -104,7 +105,7 @@ export const handleModelPull = async (
     if (!res.body) {
       safePostModelPullEvent(port, {
         version: 1,
-        type: "model_pull_error",
+        type: MODEL_PULL_EVENT_TYPES.ERROR,
         failure: toAppFailure("No response body received")
       })
       return
@@ -116,7 +117,7 @@ export const handleModelPull = async (
     if (connectTimeout.timedOut()) {
       safePostModelPullEvent(port, {
         version: 1,
-        type: "model_pull_error",
+        type: MODEL_PULL_EVENT_TYPES.ERROR,
         failure: {
           status: 408,
           message: `Connection timed out after ${
@@ -127,13 +128,13 @@ export const handleModelPull = async (
     } else if (isAbortError(err)) {
       safePostModelPullEvent(port, {
         version: 1,
-        type: "model_pull_error",
+        type: MODEL_PULL_EVENT_TYPES.ERROR,
         failure: toAppFailure("Download cancelled", { status: 499 })
       })
     } else {
       safePostModelPullEvent(port, {
         version: 1,
-        type: "model_pull_error",
+        type: MODEL_PULL_EVENT_TYPES.ERROR,
         failure: normalizeError(err, {
           fallbackMessage: "Failed to pull model"
         })

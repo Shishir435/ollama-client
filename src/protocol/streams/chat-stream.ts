@@ -13,6 +13,7 @@ import {
   ProviderReplayArtifactSchema,
   ToolRunSchema
 } from "@/types/chat.schemas"
+import { CHAT_STREAM_EVENT_TYPES } from "./event-types"
 import {
   SelectionStreamClientEventSchemas,
   SelectionStreamServerEventSchemas
@@ -229,7 +230,7 @@ const BuildContextResultSchema = z.object({
 const ChatChunkSchema = z
   .object({
     version,
-    type: z.literal("chat_chunk"),
+    type: z.literal(CHAT_STREAM_EVENT_TYPES.CHUNK),
     seq: z.number().int().nonnegative().optional(),
     delta: z.string().optional(),
     thinkingDelta: z.string().optional(),
@@ -271,7 +272,7 @@ export const ChatStreamServerEventSchema = z.discriminatedUnion("type", [
   ChatChunkSchema,
   z.object({
     version,
-    type: z.literal("rag_sources"),
+    type: z.literal(CHAT_STREAM_EVENT_TYPES.RAG_SOURCES),
     seq: z.number().int().nonnegative().optional(),
     payload: z.object({
       sources: z.array(RagSourceSchema),
@@ -280,32 +281,32 @@ export const ChatStreamServerEventSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     version,
-    type: z.literal("context_progress"),
+    type: z.literal(CHAT_STREAM_EVENT_TYPES.CONTEXT_PROGRESS),
     requestId: z.string().min(1),
     events: z.array(ActivityEventSchema)
   }),
   z.object({
     version,
-    type: z.literal("context_warning"),
+    type: z.literal(CHAT_STREAM_EVENT_TYPES.CONTEXT_WARNING),
     requestId: z.string().min(1),
     payload: TurnToastSchema
   }),
   z.object({
     version,
-    type: z.literal("context_result"),
+    type: z.literal(CHAT_STREAM_EVENT_TYPES.CONTEXT_RESULT),
     requestId: z.string().min(1),
     result: BuildContextResultSchema,
     receipt: ContextReceiptSchema
   }),
   z.object({
     version,
-    type: z.literal("context_error"),
+    type: z.literal(CHAT_STREAM_EVENT_TYPES.CONTEXT_ERROR),
     requestId: z.string().min(1),
     failure: AppFailureSchema
   }),
   z.object({
     version,
-    type: z.literal("stream_snapshot"),
+    type: z.literal(CHAT_STREAM_EVENT_TYPES.SNAPSHOT),
     requestId: z.string().min(1),
     seq: z.number().int().min(-1),
     sequenceReset: z.boolean(),
@@ -359,10 +360,10 @@ const normalizeLegacyServerEvent = (value: unknown): unknown => {
       : value
 
   if (typeof versioned.type !== "string") {
-    return { ...versioned, type: "chat_chunk" }
+    return { ...versioned, type: CHAT_STREAM_EVENT_TYPES.CHUNK }
   }
   if (
-    versioned.type === "context_error" &&
+    versioned.type === CHAT_STREAM_EVENT_TYPES.CONTEXT_ERROR &&
     typeof versioned.error === "string"
   ) {
     const { error: message, ...rest } = versioned

@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderId } from "@/lib/providers/types"
+import { getMessageType } from "@/protocol/message-type"
 import {
   ChatStreamServerEventSchema,
   type ModelPullServerEvent,
@@ -55,13 +56,7 @@ export const safePostChatStreamEvent = (
   const parsed = ChatStreamServerEventSchema.safeParse(event)
   if (!parsed.success) {
     logger.error("Refused invalid chat stream event", "StreamProtocol", {
-      type:
-        event &&
-        typeof event === "object" &&
-        "type" in event &&
-        typeof event.type === "string"
-          ? event.type
-          : "invalid",
+      type: getMessageType(event) ?? "invalid",
       issues: parsed.error.issues.length
     })
     return

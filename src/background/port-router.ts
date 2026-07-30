@@ -17,7 +17,9 @@ import {
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { getMessageType } from "@/protocol/message-type"
 import {
+  MODEL_PULL_EVENT_TYPES,
   parseChatStreamClientEvent,
   parseModelPullClientEvent
 } from "@/protocol/streams"
@@ -78,13 +80,7 @@ export const registerPortRouter = () => {
 
     port.onMessage.addListener(async (message) => {
       const parsed = parseChatStreamClientEvent(message)
-      const messageType =
-        message &&
-        typeof message === "object" &&
-        "type" in message &&
-        typeof message.type === "string"
-          ? message.type
-          : ""
+      const messageType = getMessageType(message) ?? ""
       if (
         !isRuntimePortMessageAllowed(
           port.name,
@@ -176,13 +172,7 @@ export const registerPortRouter = () => {
     ) {
       port.onMessage.addListener(async (message) => {
         const parsed = parseModelPullClientEvent(message)
-        const messageType =
-          message &&
-          typeof message === "object" &&
-          "type" in message &&
-          typeof message.type === "string"
-            ? message.type
-            : ""
+        const messageType = getMessageType(message) ?? ""
         if (
           !isRuntimePortMessageAllowed(
             port.name,
@@ -220,7 +210,7 @@ export const registerPortRouter = () => {
         }
         const event = parsed.data
         await handleModelPull(
-          event.type === "model_pull_cancel"
+          event.type === MODEL_PULL_EVENT_TYPES.CANCEL
             ? { payload: event.payload.model, cancel: true }
             : { payload: event.payload },
           port,

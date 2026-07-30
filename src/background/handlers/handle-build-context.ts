@@ -5,7 +5,10 @@ import { safePostChatStreamEvent } from "@/background/lib/utils"
 import { logger } from "@/lib/logger"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { toAppFailure } from "@/protocol/app-failure"
-import type { ChatStreamServerEvent } from "@/protocol/streams"
+import {
+  CHAT_STREAM_EVENT_TYPES,
+  type ChatStreamServerEvent
+} from "@/protocol/streams"
 import type {
   ActivityEvent,
   BuildContextMessage,
@@ -97,14 +100,14 @@ export const handleBuildContext = async (
         onActivityEvent: (events: ActivityEvent[]) =>
           post({
             version: 1,
-            type: "context_progress",
+            type: CHAT_STREAM_EVENT_TYPES.CONTEXT_PROGRESS,
             requestId: p.requestId,
             events
           }),
         toast: (warning) =>
           post({
             version: 1,
-            type: "context_warning",
+            type: CHAT_STREAM_EVENT_TYPES.CONTEXT_WARNING,
             requestId: p.requestId,
             payload: warning
           })
@@ -113,7 +116,7 @@ export const handleBuildContext = async (
 
     post({
       version: 1,
-      type: "context_result",
+      type: CHAT_STREAM_EVENT_TYPES.CONTEXT_RESULT,
       requestId: p.requestId,
       result: output.result,
       receipt: output.receipt
@@ -122,7 +125,7 @@ export const handleBuildContext = async (
     logger.error("Failed to build context", "handleBuildContext", { error })
     post({
       version: 1,
-      type: "context_error",
+      type: CHAT_STREAM_EVENT_TYPES.CONTEXT_ERROR,
       requestId: p.requestId,
       failure: toAppFailure(error, {
         fallbackMessage: "Context build failed",

@@ -18,6 +18,7 @@ import { logger } from "@/lib/logger"
 import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import {
+  CHAT_STREAM_EVENT_TYPES,
   parseChatStreamServerEvent,
   STREAM_PROTOCOL_VERSION
 } from "@/protocol/streams"
@@ -170,7 +171,7 @@ export const useChatStream = ({
         return
       }
       const msg = parsed.data
-      if (msg.type === "context_warning") {
+      if (msg.type === CHAT_STREAM_EVENT_TYPES.CONTEXT_WARNING) {
         const warning = msg.payload
         if (warning?.titleKey) {
           toast({
@@ -183,8 +184,8 @@ export const useChatStream = ({
         }
         return
       }
-      if (msg.type === "context_progress") return
-      if (msg.type === "stream_snapshot") {
+      if (msg.type === CHAT_STREAM_EVENT_TYPES.CONTEXT_PROGRESS) return
+      if (msg.type === CHAT_STREAM_EVENT_TYPES.SNAPSHOT) {
         if (!msg.sequenceReset && msg.seq < state.lastSeq) return
         if (msg.assistant) {
           state = {
@@ -210,8 +211,8 @@ export const useChatStream = ({
         return
       }
       if (
-        msg.type === "context_result" ||
-        msg.type === "context_error" ||
+        msg.type === CHAT_STREAM_EVENT_TYPES.CONTEXT_RESULT ||
+        msg.type === CHAT_STREAM_EVENT_TYPES.CONTEXT_ERROR ||
         msg.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_CHUNK ||
         msg.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_DONE ||
         msg.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR
@@ -224,7 +225,7 @@ export const useChatStream = ({
       state = result.state
       if (result.dropped) return
 
-      if (DEBUG_THINKING_STREAM && msg.type === "chat_chunk") {
+      if (DEBUG_THINKING_STREAM && msg.type === CHAT_STREAM_EVENT_TYPES.CHUNK) {
         logger.debug("Stream msg", "useChatStream", {
           type: msg.type,
           hasDelta: typeof msg.delta === "string" && msg.delta.length > 0,

@@ -5,6 +5,7 @@ import { MESSAGE_KEYS } from "@/lib/constants"
 import { formatErrorForDisplay } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import {
+  MODEL_PULL_EVENT_TYPES,
   parseModelPullServerEvent,
   STREAM_PROTOCOL_VERSION
 } from "@/protocol/streams"
@@ -26,7 +27,7 @@ export const useModelPull = () => {
 
     port.postMessage({
       version: STREAM_PROTOCOL_VERSION,
-      type: "model_pull_start",
+      type: MODEL_PULL_EVENT_TYPES.START,
       payload: {
         model: modelName,
         providerId
@@ -42,13 +43,15 @@ export const useModelPull = () => {
         return
       }
       const message = parsed.data
-      if (message.type === "model_pull_progress") setProgress(message.status)
-      if (message.type === "model_pull_complete") {
+      if (message.type === MODEL_PULL_EVENT_TYPES.PROGRESS) {
+        setProgress(message.status)
+      }
+      if (message.type === MODEL_PULL_EVENT_TYPES.COMPLETE) {
         setProgress("✅ Success")
         setPullingModel(null)
         port.disconnect()
       }
-      if (message.type === "model_pull_error") {
+      if (message.type === MODEL_PULL_EVENT_TYPES.ERROR) {
         const errorMessage = formatErrorForDisplay(message.failure).message
         setProgress(`❌ Failed: ${errorMessage}`)
         setPullingModel(null)
@@ -61,7 +64,7 @@ export const useModelPull = () => {
     if (pullingModel && portRef.current) {
       portRef.current.postMessage({
         version: STREAM_PROTOCOL_VERSION,
-        type: "model_pull_cancel",
+        type: MODEL_PULL_EVENT_TYPES.CANCEL,
         payload: { model: pullingModel }
       })
       setProgress("❌ Cancelled")

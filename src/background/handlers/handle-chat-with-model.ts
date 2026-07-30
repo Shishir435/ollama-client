@@ -27,6 +27,7 @@ import {
   saveToolLoopRun,
   type ToolLoopMode
 } from "@/lib/repositories/tool-loop-runs"
+import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 import type {
   ChatMessage,
   ChatStreamMessage,
@@ -196,7 +197,7 @@ export const handleChatWithModel = withErrorContext(
           try {
             safePostChatStreamEvent(port, {
               version: 1,
-              type: "rag_sources",
+              type: CHAT_STREAM_EVENT_TYPES.RAG_SOURCES,
               payload: { sources, query: lastUserMessage.content }
             })
           } catch (e) {
@@ -284,7 +285,7 @@ export const handleChatWithModel = withErrorContext(
       port.streamSequence = seq + 1
       safePostChatStreamEvent(port, {
         version: 1,
-        type: "chat_chunk",
+        type: CHAT_STREAM_EVENT_TYPES.CHUNK,
         ...chunk,
         seq
       })
