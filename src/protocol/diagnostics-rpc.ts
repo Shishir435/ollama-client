@@ -107,7 +107,11 @@ export const DiagnosticsGetBundleResultSchema = z
               sourceIntegrity: z.string().optional(),
               importedIntegrity: z.string().optional(),
               foreignKeyViolations: z.number().int().nonnegative().optional(),
-              /** `table:source→imported` per short table, already clamped. */
+              /**
+               * One entry per table that did not arrive intact, as
+               * `table short by N`. A shortfall, never the row counts it was
+               * derived from — those describe how much history a person has.
+               */
               mismatches: z.array(z.string()).optional(),
               failure: z.string().optional()
             })

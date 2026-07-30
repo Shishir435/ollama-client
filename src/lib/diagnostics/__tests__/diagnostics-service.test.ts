@@ -430,7 +430,7 @@ describe("DiagnosticsService", () => {
       sourceIntegrity: { integrityCheck: "ok", foreignKeyViolations: 0 },
       importedIntegrity: { integrityCheck: "ok", foreignKeyViolations: 2 },
       mismatches: [{ table: "messages", source: 39_204, imported: 39_199 }],
-      failure: "imported message count short by 5"
+      failure: "Migration verification failed: messages short by 5"
     })
 
     const { bundle } = await DiagnosticsService.getBundle()
@@ -442,10 +442,16 @@ describe("DiagnosticsService", () => {
       attempts: 3,
       sourceSchemaVersion: 11,
       foreignKeyViolations: 2,
-      mismatches: ["messages:39204→39199"],
-      failure: "imported message count short by 5"
+      // The shortfall, which is the diagnosable half.
+      mismatches: ["messages short by 5"]
     })
-    expect(serialized).not.toContain("1482")
+    // Not one of the four row counts in that receipt, through any field. An
+    // earlier version of this summary formatted `table:source→imported`, and
+    // this assertion named only the sessions count — so it passed while both
+    // message counts travelled.
+    for (const count of ["1482", "39204", "39199"]) {
+      expect(serialized).not.toContain(count)
+    }
     expect(serialized).not.toContain("sourceCounts")
     expect(serialized).not.toContain("sourceBytes")
   })

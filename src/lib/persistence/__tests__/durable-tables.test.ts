@@ -5,6 +5,7 @@ import {
   countDurableTables,
   DURABLE_TABLES,
   describeMismatches,
+  findMissingDurableTables,
   findTableCountMismatches,
   isSoundDatabase,
   readIntegrityReport,
@@ -71,9 +72,32 @@ describe("table count verification", () => {
       { table: "messages", source: 9, imported: 8 },
       { table: "prompt_templates", source: 7, imported: 0 }
     ])
+    // Shortfalls, not count pairs: this text reaches the receipt's `failure`,
+    // which a support report can carry.
     expect(describeMismatches(mismatches)).toBe(
-      "messages 8/9, prompt_templates 0/7"
+      "messages short by 1, prompt_templates short by 7"
     )
+    expect(describeMismatches(mismatches)).not.toMatch(/\b9\b/)
+  })
+
+  it("names a durable table the destination does not have at all", () => {
+    // Absent from both sides, so no count can disagree — chunk_feedback reached
+    // the schema in 0.10.0 without a migration, and a database predating it
+    // passed verification while lacking the table.
+    expect(findMissingDurableTables({ sessions: 2, messages: 9 })).toContain(
+      "chunk_feedback"
+    )
+    expect(
+      findMissingDurableTables({
+        sessions: 0,
+        messages: 0,
+        files: 0,
+        kv_store: 0,
+        prompt_templates: 0,
+        tool_loop_runs: 0,
+        chunk_feedback: 0
+      })
+    ).toEqual([])
   })
 })
 

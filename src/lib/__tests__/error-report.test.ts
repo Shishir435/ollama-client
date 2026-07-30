@@ -212,8 +212,8 @@ describe("buildDiagnosticIssueUrl", () => {
             sourceSchemaVersion: 11,
             importedIntegrity: "ok",
             foreignKeyViolations: 2,
-            mismatches: ["messages:39204→39199"],
-            failure: "imported message count short by 5"
+            mismatches: ["messages short by 5"],
+            failure: "Migration verification failed: messages short by 5"
           }
         }
       })
@@ -221,9 +221,12 @@ describe("buildDiagnosticIssueUrl", () => {
 
     expect(body).toContain("Chat migration: verification-failed (attempt 3")
     expect(body).toContain("schema v11")
-    expect(body).toContain("messages:39204→39199")
-    expect(body).toContain("imported message count short by 5")
+    expect(body).toContain("messages short by 5")
     expect(body).toContain("Migration orphan rows: 2")
+    // The shortfall is diagnosable; the row counts it came from are not in the
+    // draft a reporter would submit.
+    expect(body).not.toContain("39204")
+    expect(body).not.toContain("39199")
   })
 
   it("keeps a clean migration to a single line", () => {

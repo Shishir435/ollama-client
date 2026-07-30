@@ -127,12 +127,16 @@ const runMigrationTest = async (): Promise<DiagnosticTestResult> => {
 
 /**
  * Reduce a migration receipt to the evidence a maintainer needs and nothing
- * more. Row counts per table are dropped: a mismatch is the fact worth
- * reporting, and `sessions: 1482` describes how much someone has said. Only
- * tables that arrived short survive, as `table:source→imported`.
+ * more.
+ *
+ * Row counts stay on the device. `messages: 39204` describes how much someone
+ * has said, and a shortfall is diagnosable without it: `messages short by 5`
+ * says a table lost five rows, which is the actionable half. An absolute pair
+ * would have disclosed history volume out of a support report, which is the one
+ * thing this summary exists to avoid.
  *
  * `integrity_check` output can be long on a damaged file, so each verdict is
- * clamped and the whole list is capped.
+ * clamped and the list of shortfalls is capped.
  */
 const MAX_REPORTED_MISMATCHES = 10
 
@@ -144,10 +148,12 @@ export const summarizeMigrationReceipt = (
     value === undefined ? undefined : value.slice(0, 120)
   const mismatches = receipt.mismatches
     ?.slice(0, MAX_REPORTED_MISMATCHES)
-    .map(
-      (mismatch) =>
-        `${mismatch.table}:${mismatch.source}→${mismatch.imported}` as const
-    )
+    .map((mismatch) => {
+      const delta = mismatch.source - mismatch.imported
+      return delta > 0
+        ? (`${mismatch.table} short by ${delta}` as const)
+        : (`${mismatch.table} over by ${-delta}` as const)
+    })
   return {
     outcome: receipt.outcome,
     attempts: receipt.attempts,
