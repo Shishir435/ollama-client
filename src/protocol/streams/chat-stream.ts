@@ -167,6 +167,7 @@ const ActivityEventSchema = z.object({
     "generating_answer"
   ]),
   label: z.string(),
+  labelKey: z.string().optional(),
   status: z.enum(["running", "done", "error"]),
   startedAt: z.number(),
   finishedAt: z.number().optional(),
@@ -198,6 +199,7 @@ const RagSourceSchema = z.object({
 const UsedContextChunkSchema = z.object({
   id: z.union([z.string(), z.number()]),
   title: z.string(),
+  titleKey: z.string().optional(),
   excerpt: z.string(),
   score: z.number(),
   sectionPath: z.string().optional(),

@@ -3,31 +3,49 @@ import { describe, expect, it, vi } from "vitest"
 import { ReasoningTrace } from "@/features/chat/components/reasoning-trace"
 import type { ChatMessage } from "@/types"
 
+// Mirrors i18next plural + interpolation for the few counted keys the trace
+// uses, so a missing `_one`/`_other` pair fails here rather than shipping a raw
+// key into the UI.
+const translate = (key: string, options?: { count?: number }) => {
+  const resolved =
+    options?.count === undefined
+      ? key
+      : `${key}_${options.count === 1 ? "one" : "other"}`
+  const catalog: Record<string, string> = CATALOG
+  const value = catalog[resolved] ?? catalog[key] ?? key
+  return options?.count === undefined
+    ? value
+    : value.replace("{{count}}", String(options.count))
+}
+
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) =>
-      ({
-        "chat.reasoning.aria_label": "Activity log",
-        "chat.reasoning.title": "Activity",
-        "chat.reasoning.debug": "Debug reasoning",
-        "chat.reasoning.trace.planning": "Planning",
-        "chat.reasoning.trace.preparing": "Preparing context",
-        "chat.reasoning.trace.thinking": "Thinking",
-        "chat.reasoning.trace.page": "Reading page",
-        "chat.reasoning.trace.files": "RAG",
-        "chat.reasoning.trace.web": "Searching web",
-        "chat.reasoning.trace.knowledge": "RAG search",
-        "chat.reasoning.trace.documents": "Reading files",
-        "chat.reasoning.trace.tab": "Reading tab",
-        "chat.reasoning.trace.tabs": "Listing tabs",
-        "chat.reasoning.trace.selection": "Reading selection",
-        "chat.reasoning.trace.trimmed": "result trimmed",
-        "chat.reasoning.trace.change_limit": "Change limit",
-        "chat.reasoning.trace.answering": "Answering",
-        "tool.custom": "Custom tool"
-      })[key] ?? key
-  })
+  useTranslation: () => ({ t: translate })
 }))
+
+const CATALOG: Record<string, string> = {
+  "chat.reasoning.aria_label": "Activity log",
+  "chat.reasoning.title": "Activity",
+  "chat.reasoning.debug": "Debug reasoning",
+  "chat.reasoning.trace.planning": "Planning",
+  "chat.reasoning.trace.preparing": "Preparing context",
+  "chat.reasoning.trace.thinking": "Thinking",
+  "chat.reasoning.trace.page": "Reading page",
+  "chat.reasoning.trace.files": "RAG",
+  "chat.reasoning.trace.web": "Searching web",
+  "chat.reasoning.trace.knowledge": "RAG search",
+  "chat.reasoning.trace.documents": "Reading files",
+  "chat.reasoning.trace.tab": "Reading tab",
+  "chat.reasoning.trace.tabs": "Listing tabs",
+  "chat.reasoning.trace.selection": "Reading selection",
+  "chat.reasoning.trace.trimmed": "result trimmed",
+  "chat.reasoning.trace.change_limit": "Change limit",
+  "chat.reasoning.trace.answering": "Answering",
+  "chat.reasoning.trace.rewriting_query": "Rewriting query",
+  "chat.reasoning.trace.searching_memory": "Searching memory",
+  "chat.reasoning.trace.results_one": "{{count}} result",
+  "chat.reasoning.trace.results_other": "{{count}} results",
+  "tool.custom": "Custom tool"
+}
 
 vi.mock("@/components/markdown-renderer", () => ({
   MarkdownRenderer: ({ content }: { content: string }) => <div>{content}</div>
@@ -160,6 +178,62 @@ describe("ReasoningTrace", () => {
     expect(screen.getByText("What about it?")).toBeInTheDocument()
     expect(screen.getByText("What about tool calling?")).toBeInTheDocument()
     expect(screen.getByText("PR notes, Tool docs")).toBeInTheDocument()
+  })
+
+  it("renders a persisted labelKey instead of the label it shipped with", () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "",
+          metrics: {
+            activityEvents: [
+              {
+                id: "rewrite",
+                kind: "query_rewrite",
+                // What the producing device wrote. A reader on another locale
+                // must not see it.
+                label: "Rewriting query",
+                labelKey: "chat.reasoning.trace.rewriting_query",
+                status: "running",
+                startedAt: 1
+              }
+            ]
+          }
+        }}
+        isLoading
+      />
+    )
+
+    expect(screen.getAllByText("Rewriting query").length).toBeGreaterThan(0)
+  })
+
+  it("falls back to the stored label when an old event has no labelKey", () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "",
+          metrics: {
+            activityEvents: [
+              {
+                id: "legacy",
+                kind: "searching_files",
+                label: "Searching files",
+                status: "done",
+                startedAt: 1,
+                finishedAt: 2,
+                resultCount: 1
+              }
+            ]
+          }
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /Activity/ }))
+    expect(screen.getAllByText("Searching files").length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/1 result$/).length).toBeGreaterThan(0)
   })
 
   it("links trimmed tool results to the exact context limit setting", () => {

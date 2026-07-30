@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { ACTIVITY_LABELS } from "@/application/context/activity-labels"
 import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import {
   buildUserMessage,
@@ -114,7 +115,8 @@ export const useChatTurnController = ({
     const preparingEvent: ActivityEvent = {
       id: "preparing-context",
       kind: "preparing_context",
-      label: "Preparing context",
+      label: ACTIVITY_LABELS.preparingContext.text,
+      labelKey: ACTIVITY_LABELS.preparingContext.key,
       status: "running",
       startedAt: Date.now(),
       inputPreview: rawInput || files?.[0]?.metadata.fileName

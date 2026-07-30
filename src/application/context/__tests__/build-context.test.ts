@@ -318,6 +318,28 @@ describe("page (tab) context", () => {
     expect(result.promptContextStats.usedContextChunks[0].id).toBe(
       "tab-fallback"
     )
+    // App-generated title, so it carries a key the UI translates.
+    expect(result.promptContextStats.usedContextChunks[0].titleKey).toBe(
+      "chat.sources.tab_context"
+    )
+  })
+
+  it("labels page-context activity with a translatable key", async () => {
+    ragsetOn()
+
+    const result = await buildRagContext(
+      defaults({
+        hasTabContext: true,
+        contextText: "Page body",
+        tabDocuments: [{ id: "doc-1", title: "The Page", content: "Page text" }]
+      })
+    )
+
+    const pageEvent = result.promptContextStats.activityEvents.find(
+      (event) => event.id === "page-context"
+    )
+    expect(pageEvent?.labelKey).toBe("chat.reasoning.trace.page_context")
+    expect(pageEvent?.label).toBe("Reading selected page context")
   })
 })
 

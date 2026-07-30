@@ -16,7 +16,8 @@ vi.mock("react-i18next", () => ({
         "chat.sources.char_counts": "counts",
         "chat.sources.trimmed": "trimmed",
         "chat.sources.web_unused_hint": "unused hint",
-        "chat.sources.web_no_snippet": "No preview"
+        "chat.sources.web_no_snippet": "No preview",
+        "chat.sources.tab_context": "Kontext des ausgewählten Tabs"
       })[key] ?? key
   })
 }))
@@ -96,5 +97,36 @@ describe("UnifiedSourcesButton", () => {
     expect(screen.getByText("Knowledge (1)")).toBeInTheDocument()
     expect(screen.getByText("Web (1)")).toBeInTheDocument()
     expect(screen.getByText("Also found (1)")).toBeInTheDocument()
+  })
+
+  it("translates app-generated chunk titles and leaves content titles alone", () => {
+    render(
+      <UnifiedSourcesButton
+        usedContextChunks={[
+          {
+            id: "tab-fallback",
+            title: "Selected tab context",
+            titleKey: "chat.sources.tab_context",
+            excerpt: "page body",
+            score: 0.5,
+            source: "tab"
+          },
+          {
+            id: "doc-1",
+            title: "Quarterly Report.pdf",
+            excerpt: "figures",
+            score: 0.7,
+            source: "rag"
+          }
+        ]}
+      />
+    )
+
+    expect(
+      screen.getByText("Kontext des ausgewählten Tabs")
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Selected tab context")).not.toBeInTheDocument()
+    // A title read from user content is not a translatable key.
+    expect(screen.getByText("Quarterly Report.pdf")).toBeInTheDocument()
   })
 })

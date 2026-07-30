@@ -50,6 +50,11 @@ export interface RagSource {
 export interface UsedContextChunk {
   id: string | number
   title: string
+  /**
+   * i18n key for a chunk title the app generated rather than read from user
+   * content. Presentation translates it; `title` stays as the safe fallback.
+   */
+  titleKey?: string
   excerpt: string
   score: number
   sectionPath?: string
@@ -73,6 +78,13 @@ export interface ActivityEvent {
     | "calling_tool"
     | "generating_answer"
   label: string
+  /**
+   * i18n key for `label`, persisted with the event so an old turn renders in
+   * the language the reader picked, not the one that produced it. Services set
+   * it; presentation translates it and falls back to `label`. Kept per event
+   * rather than derived from `kind` so one kind can carry distinct steps.
+   */
+  labelKey?: string
   status: "running" | "done" | "error"
   startedAt: number
   finishedAt?: number
