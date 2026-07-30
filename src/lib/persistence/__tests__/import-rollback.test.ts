@@ -61,6 +61,35 @@ describe("staging a rollback copy", () => {
 
     expect(pool.files.get(ROLLBACK_PATH)).toEqual(bytes("current"))
   })
+
+  it("refuses to continue when a database exists but cannot be read", async () => {
+    // The dangerous case: answering "nothing to protect" here would let the
+    // caller replace the only copy of data that does exist.
+    const pool = createPool({
+      [DB_PATH]: bytes("live history"),
+      [ROLLBACK_PATH]: bytes("older copy")
+    })
+    pool.exportFile = async () => {
+      throw new Error("read failed")
+    }
+
+    await expect(stageRollbackCopy(pool, DB_PATH)).rejects.toThrow(
+      "Cannot stage a rollback copy of the chat database: read failed"
+    )
+    // And the earlier copy is still there to recover from.
+    expect(pool.files.get(ROLLBACK_PATH)).toEqual(bytes("older copy"))
+    expect(pool.files.get(DB_PATH)).toEqual(bytes("live history"))
+  })
+
+  it("stages nothing when the live database is empty", async () => {
+    const pool = createPool({
+      [DB_PATH]: new Uint8Array(),
+      [ROLLBACK_PATH]: bytes("stale")
+    })
+
+    await expect(stageRollbackCopy(pool, DB_PATH)).resolves.toBeNull()
+    expect(pool.files.has(ROLLBACK_PATH)).toBe(false)
+  })
 })
 
 describe("undoing a failed replacement", () => {

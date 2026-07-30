@@ -35,22 +35,41 @@ const log = (message: string, detail?: unknown): void => {
  * Copy the live database aside before it is replaced.
  *
  * Returns the bytes so a failure in the same session can undo the replacement
- * without reading OPFS again, or null when there is nothing to protect — a
- * fresh profile has no database yet, and that is not an error.
+ * without reading OPFS again, or null when there is genuinely nothing to
+ * protect — a fresh profile has no database yet, and that is not an error.
+ *
+ * A database that exists but cannot be read is the dangerous case, and it
+ * throws: answering null there would report "nothing to protect" about data
+ * that does exist, and the caller would go on to replace the only copy of it.
+ * Nothing is deleted until the new copy is in hand, so a copy left by an
+ * earlier interrupted replacement also survives this failing.
  */
 export const stageRollbackCopy = async (
   pool: RollbackPool,
   dbPath: string
 ): Promise<Uint8Array | null> => {
-  pool.unlink(ROLLBACK_PATH)
   let bytes: Uint8Array
   try {
     bytes = await pool.exportFile(dbPath)
   } catch (error) {
-    log("no live database to stage for rollback", error)
+    if (!pool.getFileNames().includes(dbPath)) {
+      log("no live database to stage for rollback", error)
+      pool.unlink(ROLLBACK_PATH)
+      return null
+    }
+    throw new Error(
+      `Cannot stage a rollback copy of the chat database: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error }
+    )
+  }
+  if (bytes.byteLength === 0) {
+    pool.unlink(ROLLBACK_PATH)
     return null
   }
-  if (bytes.byteLength === 0) return null
+  // Overwrites any earlier copy in place, so the previous one is only lost once
+  // this one exists.
   await pool.importDb(ROLLBACK_PATH, bytes)
   return bytes
 }
