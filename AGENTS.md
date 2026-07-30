@@ -180,7 +180,7 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 
 ### RAG / embeddings
 
-- Pipeline: `src/features/chat/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`).
+- Pipeline: `src/application/context/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`), driven by `src/application/context/build-context.ts`. It moved out of `src/features/chat/` when context building went to the background — a feature directory cannot own work the background performs.
 - **All** file, memory, and live-page splitting goes through `src/lib/embeddings/chunker.ts`. Do not build a parallel text splitter.
 - Plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `hnsw-index.ts`, `keyword-index.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
 - Embedding strategy chain: provider-native → shared model → Ollama fallback.
