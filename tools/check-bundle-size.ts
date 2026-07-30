@@ -178,7 +178,7 @@ const budgets: Budget[] = [
   {
     metric: "background",
     field: "gzipBytes",
-    max: isFirefox ? 210_000 : 191_000
+    max: isFirefox ? 210_000 : 193_000
   }
 ]
 

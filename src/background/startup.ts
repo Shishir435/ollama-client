@@ -253,6 +253,13 @@ export const initializeBackgroundStartup = () => {
         error
       })
     })
+    void import("@/background/model-pull-runtime")
+      .then(({ ModelPullService }) => ModelPullService.resumeIncomplete())
+      .catch((error) => {
+        logger.error("Failed to resume durable model pulls", "BackgroundSW", {
+          error
+        })
+      })
   })
   // MV3 workers can start without a browser onStartup event (extension reload,
   // event wakeup). Reconcile the request-origin rule on every worker boot.

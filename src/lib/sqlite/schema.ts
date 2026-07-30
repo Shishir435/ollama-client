@@ -127,6 +127,22 @@ CREATE TABLE IF NOT EXISTS ingestion_runs (
 
 CREATE INDEX IF NOT EXISTS idx_ingestion_runs_status ON ingestion_runs(status);
 
+-- Durable lifecycle receipts for provider model downloads. Progress is
+-- observable after the initiating extension page closes or the worker restarts.
+CREATE TABLE IF NOT EXISTS model_pull_runs (
+  id TEXT PRIMARY KEY,
+  model TEXT NOT NULL,
+  providerId TEXT,
+  status TEXT NOT NULL,
+  statusText TEXT,
+  progress INTEGER,
+  failure TEXT,
+  createdAt INTEGER NOT NULL,
+  updatedAt INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_model_pull_runs_status ON model_pull_runs(status);
+
 -- Chunk feedback table for learning from user feedback
 CREATE TABLE IF NOT EXISTS chunk_feedback (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import { ensureIngestionRunsTable } from "../add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "../add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "../add-message-replay-artifact-column"
+import { ensureModelPullRunsTable } from "../add-model-pull-runs-table"
 import { ensurePromptTemplatesTable } from "../add-prompt-templates-table"
 import { ensureMessagesThinkingColumn } from "../add-thinking-column"
 import { ensureTurnRunsTable } from "../add-turn-runs-table"
@@ -154,5 +155,20 @@ describe("ensureIngestionRunsTable", () => {
     expect(statements[0]).toContain("phase TEXT NOT NULL")
     expect(statements[0]).toContain("autoEmbed INTEGER NOT NULL")
     expect(statements[1]).toContain("idx_ingestion_runs_status")
+  })
+})
+
+describe("ensureModelPullRunsTable", () => {
+  it("creates durable model-pull lifecycle state and status index", () => {
+    const db = { run: vi.fn() }
+    ensureModelPullRunsTable(db as never)
+    const statements = db.run.mock.calls.map(([sql]) => String(sql))
+
+    expect(statements[0]).toContain(
+      "CREATE TABLE IF NOT EXISTS model_pull_runs"
+    )
+    expect(statements[0]).toContain("progress INTEGER")
+    expect(statements[0]).toContain("failure TEXT")
+    expect(statements[1]).toContain("idx_model_pull_runs_status")
   })
 })

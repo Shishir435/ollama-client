@@ -72,14 +72,13 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         try {
           const result = await IngestionClient.submitFile(file, {
             autoEmbed: safeConfig.autoEmbedFiles,
-            onStatus: (_job, processedFile) => {
+            onStatus: () => {
               if (!safeConfig.showEmbeddingProgress) return
               setProcessingStates((prev) => {
                 const next = new Map(prev)
                 next.set(file, {
                   file,
-                  status: "processing",
-                  result: processedFile
+                  status: "processing"
                 })
                 return next
               })

@@ -1,5 +1,5 @@
-import { processFile } from "@/lib/file-processors"
 import type { ProcessedFile } from "@/lib/file-processors/types"
+import { ingestionPayloadDb } from "@/lib/ingestion/ingestion-payload-db"
 import { getActiveKnowledgeSetId } from "@/lib/knowledge/knowledge-sets"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import type { IngestionJobResult } from "@/protocol/ingestion-rpc"
@@ -9,6 +9,8 @@ const createFileId = (): string =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? `file-${crypto.randomUUID()}`
     : `file-${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+const createJobId = (): string => crypto.randomUUID()
 
 const waitForTerminalJob = async (
   initial: IngestionJobResult,
@@ -31,28 +33,32 @@ export const IngestionClient = {
     file: File,
     options: {
       autoEmbed: boolean
-      onStatus?: (job: IngestionJobResult, result: ProcessedFile) => void
+      onStatus?: (job: IngestionJobResult) => void
     }
   ): Promise<ProcessedFile> {
-    const processedFile = await processFile(file)
-    processedFile.metadata.fileId ||= createFileId()
-    processedFile.metadata.knowledgeSetId = await getActiveKnowledgeSetId()
+    const jobId = createJobId()
+    const fileId = createFileId()
+    const knowledgeSetId = await getActiveKnowledgeSetId()
+    const createdAt = Date.now()
+    const bytes = await file.arrayBuffer()
+
+    await ingestionPayloadDb.payloads.put({
+      kind: "raw",
+      jobId,
+      fileId,
+      knowledgeSetId,
+      fileName: file.name,
+      contentType: file.type || "text/plain",
+      autoEmbed: options.autoEmbed,
+      createdAt,
+      bytes,
+      lastModified: file.lastModified
+    })
 
     const submitted = await extensionRpcClient.call(RpcMethod.IngestionSubmit, {
-      processedFile: {
-        ...processedFile,
-        metadata: {
-          ...processedFile.metadata,
-          fileId: processedFile.metadata.fileId,
-          knowledgeSetId: processedFile.metadata.knowledgeSetId
-        }
-      },
-      contentType: file.type || "text/plain",
-      autoEmbed: options.autoEmbed
+      jobId
     })
-    const terminal = await waitForTerminalJob(submitted, (job) =>
-      options.onStatus?.(job, processedFile)
-    )
+    const terminal = await waitForTerminalJob(submitted, options.onStatus)
     if (terminal.status !== "completed") {
       throw new Error(
         terminal.failure ||
@@ -61,6 +67,9 @@ export const IngestionClient = {
             : "File ingestion failed")
       )
     }
-    return processedFile
+    if (!terminal.processedFile) {
+      throw new Error("Completed ingestion result is unavailable")
+    }
+    return terminal.processedFile
   }
 }

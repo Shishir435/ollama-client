@@ -1,83 +1,131 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
-import { browser } from "@/lib/browser-api"
-import { MESSAGE_KEYS } from "@/lib/constants"
 import { formatErrorForDisplay } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
-import {
-  MODEL_PULL_EVENT_TYPES,
-  parseModelPullServerEvent,
-  STREAM_PROTOCOL_VERSION
-} from "@/protocol/streams"
+import { extensionRpcClient } from "@/protocol/extension-client"
+import type { ModelPullJobResult } from "@/protocol/model-pull-rpc"
+import { RpcMethod } from "@/protocol/rpc"
+
+const POLL_INTERVAL_MS = 250
+
+const isActive = (job: ModelPullJobResult): boolean =>
+  job.status === "queued" || job.status === "running"
 
 export const useModelPull = () => {
   const [progress, setProgress] = useState<string | null>(null)
   const [pullingModel, setPullingModel] = useState<string | null>(null)
-  const portRef = useRef<browser.Runtime.Port | null>(null)
+  const jobIdRef = useRef<string | null>(null)
+  const observerRef = useRef(0)
+  const mountedRef = useRef(true)
 
-  const pullModel = (modelName: string, providerId?: string) => {
-    logger.verbose("Pull model requested", "useModelPull", { modelName })
-    setPullingModel(modelName)
-    setProgress("Starting...")
-
-    const port = browser.runtime.connect({
-      name: MESSAGE_KEYS.PROVIDER.PULL_MODEL
-    })
-    portRef.current = port
-
-    port.postMessage({
-      version: STREAM_PROTOCOL_VERSION,
-      type: MODEL_PULL_EVENT_TYPES.START,
-      payload: {
-        model: modelName,
-        providerId
-      }
-    })
-
-    port.onMessage.addListener((msg: unknown) => {
-      const parsed = parseModelPullServerEvent(msg)
-      if (!parsed.success) {
-        logger.warn("Dropped invalid model-pull event", "StreamProtocol", {
-          issues: parsed.error.issues.length
-        })
-        return
-      }
-      const message = parsed.data
-      if (message.type === MODEL_PULL_EVENT_TYPES.PROGRESS) {
-        setProgress(message.status)
-      }
-      if (message.type === MODEL_PULL_EVENT_TYPES.COMPLETE) {
-        setProgress("✅ Success")
-        setPullingModel(null)
-        port.disconnect()
-      }
-      if (message.type === MODEL_PULL_EVENT_TYPES.ERROR) {
-        const errorMessage = formatErrorForDisplay(message.failure).message
-        setProgress(`❌ Failed: ${errorMessage}`)
-        setPullingModel(null)
-        port.disconnect()
-      }
-    })
-  }
-
-  const cancelPull = () => {
-    if (pullingModel && portRef.current) {
-      portRef.current.postMessage({
-        version: STREAM_PROTOCOL_VERSION,
-        type: MODEL_PULL_EVENT_TYPES.CANCEL,
-        payload: { model: pullingModel }
-      })
-      setProgress("❌ Cancelled")
-      setPullingModel(null)
-      portRef.current.disconnect()
+  const applyJob = useCallback((job: ModelPullJobResult) => {
+    if (!mountedRef.current) return
+    if (isActive(job)) {
+      jobIdRef.current = job.jobId
+      setPullingModel(job.model)
+      setProgress(job.statusText || "Starting...")
+      return
     }
-  }
 
-  useEffect(() => {
-    return () => {
-      portRef.current?.disconnect()
+    jobIdRef.current = null
+    setPullingModel(null)
+    if (job.status === "completed") {
+      setProgress("✅ Success")
+    } else if (job.status === "cancelled") {
+      setProgress("❌ Cancelled")
+    } else {
+      const message = job.failure
+        ? formatErrorForDisplay(job.failure).message
+        : job.statusText || "Model download failed"
+      setProgress(`❌ Failed: ${message}`)
     }
   }, [])
+
+  const observe = useCallback(
+    async (initial: ModelPullJobResult) => {
+      const observer = ++observerRef.current
+      let job = initial
+      while (observer === observerRef.current && mountedRef.current) {
+        applyJob(job)
+        if (!isActive(job)) return
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+        if (observer !== observerRef.current || !mountedRef.current) return
+        job = await extensionRpcClient.call(RpcMethod.ModelPullGet, {
+          jobId: job.jobId
+        })
+      }
+    },
+    [applyJob]
+  )
+
+  const pullModel = useCallback(
+    (modelName: string, providerId?: string) => {
+      logger.verbose("Pull model requested", "useModelPull", { modelName })
+      const submission = ++observerRef.current
+      setPullingModel(modelName)
+      setProgress("Starting...")
+
+      void extensionRpcClient
+        .call(RpcMethod.ModelPullSubmit, {
+          model: modelName,
+          providerId
+        })
+        .then((job) => {
+          if (submission !== observerRef.current || !mountedRef.current) {
+            return
+          }
+          void observe(job)
+        })
+        .catch((error) => {
+          if (submission !== observerRef.current || !mountedRef.current) {
+            return
+          }
+          logger.error("Model pull submission failed", "useModelPull", {
+            error
+          })
+          setProgress(`❌ Failed: ${formatErrorForDisplay(error).message}`)
+          setPullingModel(null)
+        })
+    },
+    [observe]
+  )
+
+  const cancelPull = useCallback(() => {
+    const jobId = jobIdRef.current
+    observerRef.current += 1
+    setProgress("❌ Cancelled")
+    setPullingModel(null)
+    jobIdRef.current = null
+    if (!jobId) return
+    void extensionRpcClient
+      .call(RpcMethod.ModelPullCancel, { jobId })
+      .then(applyJob)
+      .catch((error) => {
+        logger.error("Model pull cancellation failed", "useModelPull", {
+          error
+        })
+      })
+  }, [applyJob])
+
+  useEffect(() => {
+    mountedRef.current = true
+    void extensionRpcClient
+      .call(RpcMethod.ModelPullListActive, {})
+      .then((jobs) => {
+        const active = jobs[0]
+        if (active) void observe(active)
+      })
+      .catch((error) => {
+        logger.warn("Failed to reconnect model pull", "useModelPull", {
+          error
+        })
+      })
+
+    return () => {
+      mountedRef.current = false
+      observerRef.current += 1
+    }
+  }, [observe])
 
   return { pullingModel, progress, pullModel, cancelPull }
 }

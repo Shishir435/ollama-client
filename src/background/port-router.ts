@@ -1,7 +1,6 @@
 import { reconnectDurableTurn } from "@/background/durable-turn-runtime"
 import { handleBuildContext } from "@/background/handlers/handle-build-context"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
-import { handleModelPull } from "@/background/handlers/handle-model-pull"
 import { handleSelectionAction } from "@/background/handlers/handle-selection-action"
 import { handleStartTurn } from "@/background/handlers/handle-start-turn"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
@@ -18,11 +17,7 @@ import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { getMessageType } from "@/protocol/message-type"
-import {
-  MODEL_PULL_EVENT_TYPES,
-  parseChatStreamClientEvent,
-  parseModelPullClientEvent
-} from "@/protocol/streams"
+import { parseChatStreamClientEvent } from "@/protocol/streams"
 import type { ChromePort, PortStatusFunction } from "@/types"
 
 const extensionUrlPrefix = browser.runtime.getURL("")
@@ -165,58 +160,5 @@ export const registerPortRouter = () => {
         abortAndClearController(port.abortScopeKey ?? port.name)
       }
     })
-
-    if (
-      port.name === MESSAGE_KEYS.PROVIDER.PULL_MODEL ||
-      port.name === MESSAGE_KEYS.OLLAMA.PULL_MODEL
-    ) {
-      port.onMessage.addListener(async (message) => {
-        const parsed = parseModelPullClientEvent(message)
-        const messageType = getMessageType(message) ?? ""
-        if (
-          !isRuntimePortMessageAllowed(
-            port.name,
-            messageType,
-            sender,
-            browser.runtime.id,
-            extensionUrlPrefix
-          )
-        ) {
-          logger.warn(
-            "Blocked unauthorized model-pull message",
-            "RuntimeAuthorization",
-            {
-              portName: port.name,
-              type: messageType || "invalid",
-              surface: classifyRuntimeSender(
-                sender,
-                browser.runtime.id,
-                extensionUrlPrefix
-              ),
-              tabId: sender.tab?.id
-            }
-          )
-          port.disconnect()
-          return
-        }
-        if (!parsed.success) {
-          logger.warn("Blocked invalid model-pull message", "StreamProtocol", {
-            portName: port.name,
-            type: messageType || "invalid",
-            issues: parsed.error.issues.length
-          })
-          port.disconnect()
-          return
-        }
-        const event = parsed.data
-        await handleModelPull(
-          event.type === MODEL_PULL_EVENT_TYPES.CANCEL
-            ? { payload: event.payload.model, cancel: true }
-            : { payload: event.payload },
-          port,
-          getPortStatus
-        )
-      })
-    }
   })
 }

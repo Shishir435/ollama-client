@@ -1,120 +1,120 @@
-import { clearAbortController } from "@/background/lib/abort-controller-registry"
-import {
-  getPullAbortControllerKey,
-  safePostModelPullEvent
-} from "@/background/lib/utils"
 import { logger } from "@/lib/logger"
 import { toAppFailure } from "@/protocol/app-failure"
-import { MODEL_PULL_EVENT_TYPES } from "@/protocol/streams"
-import type {
-  ChromePort,
-  DefaultProviderPullResponse,
-  PortStatusFunction
-} from "@/types"
+import {
+  MODEL_PULL_EVENT_TYPES,
+  type ModelPullServerEvent,
+  STREAM_PROTOCOL_VERSION
+} from "@/protocol/streams"
+import type { DefaultProviderPullResponse } from "@/types"
 
-export const handlePullStream = async (
+interface PullStreamOptions {
+  isCancelled: () => boolean
+  onEvent: (event: ModelPullServerEvent) => void | Promise<void>
+}
+
+const eventFromResponse = (
+  data: DefaultProviderPullResponse
+): ModelPullServerEvent[] => {
+  const events: ModelPullServerEvent[] = []
+  if (data.status) {
+    events.push({
+      version: STREAM_PROTOCOL_VERSION,
+      type: MODEL_PULL_EVENT_TYPES.PROGRESS,
+      status: data.status
+    })
+    if (data.status === "success") {
+      events.push({
+        version: STREAM_PROTOCOL_VERSION,
+        type: MODEL_PULL_EVENT_TYPES.COMPLETE,
+        status: data.status
+      })
+      return events
+    }
+  }
+  if (data.error) {
+    events.push({
+      version: STREAM_PROTOCOL_VERSION,
+      type: MODEL_PULL_EVENT_TYPES.ERROR,
+      failure: toAppFailure(data.error)
+    })
+    return events
+  }
+  if (data.completed !== undefined && data.total !== undefined) {
+    const progress = Math.round((data.completed / data.total) * 100)
+    events.push({
+      version: STREAM_PROTOCOL_VERSION,
+      type: MODEL_PULL_EVENT_TYPES.PROGRESS,
+      status: `Downloading: ${progress}%`,
+      progress
+    })
+  }
+  return events
+}
+
+const isTerminalEvent = (event: ModelPullServerEvent): boolean =>
+  event.type === MODEL_PULL_EVENT_TYPES.COMPLETE ||
+  event.type === MODEL_PULL_EVENT_TYPES.ERROR
+
+export const consumePullStream = async (
   res: Response,
-  port: ChromePort,
-  isPortClosed: PortStatusFunction,
-  modelName: string
+  options: PullStreamOptions
 ): Promise<void> => {
-  logger.info("Pull stream started", "handlePullStream", { modelName })
   if (!res.body) return
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder("utf-8")
   let buffer = ""
-  const controllerKey = getPullAbortControllerKey(port.name, modelName)
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
 
-      if (isPortClosed()) {
-        reader.cancel().catch((err) =>
-          logger.error("Failed to cancel reader", "handlePullStream", {
-            error: err
-          })
-        )
-        break
-      }
-
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split("\n")
-      buffer = lines.pop() || ""
-
-      for (const line of lines) {
-        const trimmedLine = line.trim()
-        if (!trimmedLine) continue
-
-        try {
-          const data: DefaultProviderPullResponse = JSON.parse(trimmedLine)
-
-          if (data.status) {
-            safePostModelPullEvent(port, {
-              version: 1,
-              type: MODEL_PULL_EVENT_TYPES.PROGRESS,
-              status: data.status
-            })
-
-            if (data.status === "success") {
-              safePostModelPullEvent(port, {
-                version: 1,
-                type: MODEL_PULL_EVENT_TYPES.COMPLETE,
-                status: data.status
-              })
-              clearAbortController(controllerKey)
-              return
-            }
-          }
-
-          if (data.error) {
-            safePostModelPullEvent(port, {
-              version: 1,
-              type: MODEL_PULL_EVENT_TYPES.ERROR,
-              failure: toAppFailure(data.error)
-            })
-            clearAbortController(controllerKey)
-            return
-          }
-
-          if (data.completed !== undefined && data.total !== undefined) {
-            const progress = Math.round((data.completed / data.total) * 100)
-            safePostModelPullEvent(port, {
-              version: 1,
-              type: MODEL_PULL_EVENT_TYPES.PROGRESS,
-              status: `Downloading: ${progress}%`,
-              progress
-            })
-          }
-        } catch (parseError) {
-          logger.warn("Failed to parse line", "handlePullStream", {
-            line: trimmedLine,
-            error: parseError
-          })
-        }
-      }
+    if (options.isCancelled()) {
+      await reader.cancel().catch((error) => {
+        logger.error("Failed to cancel reader", "handlePullStream", { error })
+      })
+      break
     }
 
-    if (buffer.trim() && !isPortClosed()) {
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split("\n")
+    buffer = lines.pop() || ""
+
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+      if (!trimmedLine) continue
+
       try {
-        const data: DefaultProviderPullResponse = JSON.parse(buffer.trim())
-        if (data.status === "success") {
-          safePostModelPullEvent(port, {
-            version: 1,
-            type: MODEL_PULL_EVENT_TYPES.COMPLETE,
-            status: data.status
-          })
+        const data: DefaultProviderPullResponse = JSON.parse(trimmedLine)
+        for (const event of eventFromResponse(data)) {
+          await options.onEvent(event)
+          if (isTerminalEvent(event)) {
+            return
+          }
         }
       } catch (parseError) {
-        logger.warn("Failed to parse final buffer", "handlePullStream", {
-          buffer,
+        logger.warn("Failed to parse line", "handlePullStream", {
+          line: trimmedLine,
           error: parseError
         })
       }
     }
-  } finally {
-    clearAbortController(controllerKey)
+  }
+
+  if (buffer.trim() && !options.isCancelled()) {
+    try {
+      const data: DefaultProviderPullResponse = JSON.parse(buffer.trim())
+      for (const event of eventFromResponse(data)) {
+        await options.onEvent(event)
+        if (isTerminalEvent(event)) {
+          return
+        }
+      }
+    } catch (parseError) {
+      logger.warn("Failed to parse final buffer", "handlePullStream", {
+        buffer,
+        error: parseError
+      })
+    }
   }
 }

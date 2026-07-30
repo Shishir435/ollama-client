@@ -96,9 +96,6 @@ describe("runtime sender authorization", () => {
         extensionPage
       )
     ).toBe(true)
-    expect(
-      portMessageAllowed(MESSAGE_KEYS.PROVIDER.PULL_MODEL, "", extensionPage)
-    ).toBe(true)
   })
 
   it("gives content scripts only the narrow message allowlist", () => {

@@ -5,6 +5,7 @@ import { ensureIngestionRunsTable } from "./add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
 import { ensureMessagesUpdatedAtColumn } from "./add-message-updated-at-column"
+import { ensureModelPullRunsTable } from "./add-model-pull-runs-table"
 import { ensurePromptTemplatesTable } from "./add-prompt-templates-table"
 import { ensureSessionsPinnedColumn } from "./add-session-pinned-column"
 import { ensureSessionsSystemPromptColumn } from "./add-session-system-prompt-column"
@@ -91,6 +92,11 @@ export const MIGRATIONS: Migration[] = [
     version: 11,
     name: "add-ingestion-runs-table",
     up: ensureIngestionRunsTable
+  },
+  {
+    version: 12,
+    name: "add-model-pull-runs-table",
+    up: ensureModelPullRunsTable
   }
 ]
 
@@ -129,7 +135,12 @@ const getTableColumns = (db: Database, table: "messages" | "sessions") => {
 
 const hasTable = (
   db: Database,
-  table: "tool_loop_runs" | "prompt_templates" | "turn_runs" | "ingestion_runs"
+  table:
+    | "tool_loop_runs"
+    | "prompt_templates"
+    | "turn_runs"
+    | "ingestion_runs"
+    | "model_pull_runs"
 ) => {
   const stmt = db.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1"
@@ -194,6 +205,10 @@ export const repairSchemaDrift = (db: Database): number => {
     {
       missing: !hasTable(db, "ingestion_runs"),
       apply: () => ensureIngestionRunsTable(db)
+    },
+    {
+      missing: !hasTable(db, "model_pull_runs"),
+      apply: () => ensureModelPullRunsTable(db)
     }
   ]
 

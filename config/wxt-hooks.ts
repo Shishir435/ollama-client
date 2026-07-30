@@ -51,11 +51,12 @@ export const devEntrypointsToStrip = (target: BuildTarget): string[] => {
       : []
     : [...DEV_ENTRYPOINTS]
 
-  // The production persistence owner document is Chromium-only, for the same
-  // reason: Firefox hosts the worker in its background page.
+  // Chromium uses the persistence offscreen document for ingestion parsing.
+  // Firefox needs a separate hidden page because loading file processors into
+  // its persistent background page would add several megabytes.
   return target.browser === "firefox"
     ? [...devOnly, "persistence-host"]
-    : devOnly
+    : [...devOnly, "ingestion-processor"]
 }
 
 /**

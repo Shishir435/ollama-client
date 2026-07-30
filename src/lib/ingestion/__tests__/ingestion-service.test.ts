@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => ({
   markEmbedded: vi.fn(),
   removeFile: vi.fn(),
   deleteVectors: vi.fn(),
-  processKnowledge: vi.fn()
+  processKnowledge: vi.fn(),
+  processFile: vi.fn(),
+  processStaged: vi.fn()
 }))
 
 vi.mock("@/lib/repositories/ingestion-runs", () => ({
@@ -30,6 +32,7 @@ vi.mock("@/lib/ingestion/ingestion-payload-db", () => ({
         mocks.payloads.set(payload.jobId, payload)
       }),
       get: vi.fn(async (id: string) => mocks.payloads.get(id)),
+      toArray: vi.fn(async () => [...mocks.payloads.values()]),
       delete: vi.fn(async (id: string) => {
         mocks.payloads.delete(id)
       })
@@ -51,26 +54,54 @@ vi.mock("@/lib/knowledge/knowledge-processor", () => ({
   processKnowledge: mocks.processKnowledge
 }))
 
+vi.mock("@/lib/file-processors", () => ({
+  processFile: mocks.processFile
+}))
+
+vi.mock("@/lib/ingestion/ingestion-processor-protocol", () => ({
+  processStagedIngestion: mocks.processStaged
+}))
+
 import { IngestionService } from "../ingestion-service"
 
-const request = {
-  processedFile: {
-    text: "durable content",
-    metadata: {
-      fileName: "notes.txt",
-      fileType: "text/plain",
-      fileSize: 15,
-      processedAt: 100,
-      fileId: "file-1",
-      knowledgeSetId: "default"
+const processedFile = {
+  text: "durable content",
+  metadata: {
+    fileName: "notes.txt",
+    fileType: "text/plain",
+    fileSize: 15,
+    processedAt: 100,
+    fileId: "file-1",
+    knowledgeSetId: "default"
+  }
+}
+
+let jobSequence = 0
+const stageRequest = (fileId = "file-1") => {
+  jobSequence += 1
+  const jobId = `00000000-0000-4000-8000-${jobSequence
+    .toString()
+    .padStart(12, "0")}`
+  mocks.payloads.set(jobId, {
+    kind: "processed",
+    jobId,
+    fileId,
+    knowledgeSetId: "default",
+    fileName: "notes.txt",
+    contentType: "text/plain",
+    autoEmbed: true,
+    createdAt: 100,
+    processedFile: {
+      ...processedFile,
+      metadata: { ...processedFile.metadata, fileId }
     }
-  },
-  contentType: "text/plain",
-  autoEmbed: true
+  })
+  return { jobId }
 }
 
 describe("IngestionService", () => {
   beforeEach(() => {
+    jobSequence = 0
     mocks.runs.clear()
     mocks.payloads.clear()
     vi.clearAllMocks()
@@ -83,10 +114,42 @@ describe("IngestionService", () => {
       vectorIds: [1],
       chunkCount: 1
     })
+    mocks.processFile.mockResolvedValue({
+      text: "parsed in background",
+      metadata: {
+        fileName: "raw.txt",
+        fileType: "text/plain",
+        fileSize: 16,
+        processedAt: 200
+      }
+    })
+    mocks.processStaged.mockImplementation(async (jobId: string) => {
+      const payload = mocks.payloads.get(jobId) as
+        | {
+            kind: "raw"
+            fileId: string
+            knowledgeSetId: string
+          }
+        | undefined
+      if (payload?.kind !== "raw") return
+      const parsed = await mocks.processFile()
+      mocks.payloads.set(jobId, {
+        ...payload,
+        kind: "processed",
+        processedFile: {
+          ...parsed,
+          metadata: {
+            ...parsed.metadata,
+            fileId: payload.fileId,
+            knowledgeSetId: payload.knowledgeSetId
+          }
+        }
+      })
+    })
   })
 
   it("checkpoints ownership before processing and completes the saga", async () => {
-    const submitted = await IngestionService.submit(request)
+    const submitted = await IngestionService.submit(stageRequest())
 
     expect(submitted).toMatchObject({
       fileId: "file-1",
@@ -118,7 +181,7 @@ describe("IngestionService", () => {
       error: "provider unavailable"
     })
 
-    const submitted = await IngestionService.submit(request)
+    const submitted = await IngestionService.submit(stageRequest())
     await vi.waitFor(async () => {
       await expect(
         IngestionService.get(submitted.jobId)
@@ -147,12 +210,18 @@ describe("IngestionService", () => {
     }
     mocks.runs.set(run.id, run)
     mocks.payloads.set(run.id, {
+      kind: "processed",
       jobId: run.id,
+      fileId: run.fileId,
+      knowledgeSetId: run.knowledgeSetId,
+      fileName: run.fileName,
       contentType: "text/plain",
+      autoEmbed: true,
+      createdAt: run.createdAt,
       processedFile: {
-        ...request.processedFile,
+        ...processedFile,
         metadata: {
-          ...request.processedFile.metadata,
+          ...processedFile.metadata,
           fileId: run.fileId,
           fileName: run.fileName
         }
@@ -171,6 +240,39 @@ describe("IngestionService", () => {
     })
   })
 
+  it("recovers and parses a staged raw file without a submitted receipt", async () => {
+    const jobId = "00000000-0000-4000-8000-000000000099"
+    mocks.payloads.set(jobId, {
+      kind: "raw",
+      jobId,
+      fileId: "file-raw",
+      knowledgeSetId: "default",
+      fileName: "raw.txt",
+      contentType: "text/plain",
+      autoEmbed: true,
+      createdAt: 100,
+      bytes: new TextEncoder().encode("parsed in background").buffer,
+      lastModified: 50
+    })
+
+    await IngestionService.resumeIncomplete()
+    await vi.waitFor(async () => {
+      await expect(IngestionService.get(jobId)).resolves.toMatchObject({
+        status: "completed",
+        phase: "completed",
+        processedFile: {
+          text: "parsed in background",
+          metadata: {
+            fileId: "file-raw",
+            knowledgeSetId: "default"
+          }
+        }
+      })
+    })
+
+    expect(mocks.processStaged).toHaveBeenCalledWith(jobId)
+  })
+
   it("cancels a sibling run before file-scoped cleanup can collide", async () => {
     let finishEmbedding!: () => void
     mocks.processKnowledge.mockImplementationOnce(
@@ -185,12 +287,12 @@ describe("IngestionService", () => {
         })
     )
 
-    const first = await IngestionService.submit(request)
+    const first = await IngestionService.submit(stageRequest())
     await vi.waitFor(() => {
       expect(mocks.processKnowledge).toHaveBeenCalledOnce()
     })
 
-    const sibling = await IngestionService.submit(request)
+    const sibling = await IngestionService.submit(stageRequest())
     await vi.waitFor(async () => {
       await expect(IngestionService.get(sibling.jobId)).resolves.toMatchObject({
         status: "cancelled",

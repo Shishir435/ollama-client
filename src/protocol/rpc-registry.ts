@@ -15,6 +15,16 @@ import {
   IngestionSubmitRequestSchema,
   IngestionSubmitResultSchema
 } from "./ingestion-rpc"
+import {
+  ModelPullCancelRequestSchema,
+  ModelPullCancelResultSchema,
+  ModelPullGetRequestSchema,
+  ModelPullGetResultSchema,
+  ModelPullListActiveRequestSchema,
+  ModelPullListActiveResultSchema,
+  ModelPullSubmitRequestSchema,
+  ModelPullSubmitResultSchema
+} from "./model-pull-rpc"
 
 import {
   EmbeddingsCheckModelRequestSchema,
@@ -192,6 +202,34 @@ export const RPC_METHOD_DEFINITIONS = {
     allowedSources: extensionPagesOnly,
     timeoutMs: 10_000,
     operation: "command"
+  },
+  [RpcMethod.ModelPullSubmit]: {
+    request: ModelPullSubmitRequestSchema,
+    response: ModelPullSubmitResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
+    operation: "command"
+  },
+  [RpcMethod.ModelPullGet]: {
+    request: ModelPullGetRequestSchema,
+    response: ModelPullGetResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 5_000,
+    operation: "query"
+  },
+  [RpcMethod.ModelPullCancel]: {
+    request: ModelPullCancelRequestSchema,
+    response: ModelPullCancelResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
+    operation: "command"
+  },
+  [RpcMethod.ModelPullListActive]: {
+    request: ModelPullListActiveRequestSchema,
+    response: ModelPullListActiveResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 5_000,
+    operation: "query"
   },
   [RpcMethod.DiagnosticsRun]: {
     request: DiagnosticsRunRequestSchema,

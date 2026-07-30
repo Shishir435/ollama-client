@@ -12,6 +12,7 @@ export const IngestionStatusSchema = z.enum([
 
 export const IngestionPhaseSchema = z.enum([
   "queued",
+  "parsing",
   "registering",
   "embedding",
   "committing",
@@ -19,7 +20,7 @@ export const IngestionPhaseSchema = z.enum([
   "compensating"
 ])
 
-const ProcessedFileSchema = z
+export const ProcessedFileSchema = z
   .object({
     text: z.string().max(20_000_000),
     chunks: z.array(z.string().max(2_000_000)).max(100_000).optional(),
@@ -51,9 +52,7 @@ const ProcessedFileSchema = z
 
 export const IngestionSubmitRequestSchema = z
   .object({
-    processedFile: ProcessedFileSchema,
-    contentType: z.string().max(500),
-    autoEmbed: z.boolean()
+    jobId: z.string().uuid()
   })
   .strict()
 
@@ -63,7 +62,8 @@ export const IngestionJobResultSchema = z
     fileId: z.string(),
     status: IngestionStatusSchema,
     phase: IngestionPhaseSchema,
-    failure: z.string().max(4000).optional()
+    failure: z.string().max(4000).optional(),
+    processedFile: ProcessedFileSchema.optional()
   })
   .strict()
 

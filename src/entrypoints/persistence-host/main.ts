@@ -1,3 +1,4 @@
+import { registerIngestionProcessorHost } from "@/lib/ingestion/ingestion-processor-host"
 import { registerPersistenceHost } from "@/lib/persistence/owner-host"
 
 // Chromium offscreen document: the production chat-database owner. Created
@@ -16,6 +17,7 @@ const isOffscreenDocument = !chrome.storage?.local
 
 if (isOffscreenDocument) {
   registerPersistenceHost()
+  registerIngestionProcessorHost()
 } else {
   document.body.textContent =
     "This is an internal page of the extension; it has no user-facing content."
