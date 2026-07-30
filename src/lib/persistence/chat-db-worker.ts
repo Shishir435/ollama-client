@@ -121,11 +121,25 @@ const openContext = (): NonNullable<typeof contextPromise> => {
         // Before anything opens the database: a rollback copy left behind by a
         // replacement that never finished has to win over the half-written file
         // it was protecting.
-        await recoverInterruptedImport(pool, DB_PATH).catch(
-          (error: unknown) => {
-            console.error("[chat-db] rollback recovery failed", error)
-          }
-        )
+        //
+        // A failure here is not survivable by opening the database anyway. The
+        // copy stays on disk, so a later boot will restore it — everything read
+        // in between would be incomplete history, and everything written would
+        // be discarded. So the open fails instead. The cached context is
+        // cleared on rejection, so the next request retries the recovery, and
+        // making room first handles the one transient cause worth retrying
+        // in-line: a pool with no free slot.
+        try {
+          await ensureFreeSlots(pool, 1)
+          await recoverInterruptedImport(pool, DB_PATH)
+        } catch (error) {
+          throw new Error(
+            `Cannot restore the chat database after an interrupted replacement: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            { cause: error }
+          )
+        }
         const db = new pool.OpfsSAHPoolDb(DB_PATH)
         initializeSchema(db)
         return { db, pool }

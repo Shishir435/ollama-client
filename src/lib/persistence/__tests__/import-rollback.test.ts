@@ -249,6 +249,24 @@ describe("startup recovery", () => {
     expect(pool.files.get(DB_PATH)).toEqual(bytes("live history"))
   })
 
+  it("rejects when a readable copy cannot be written back", async () => {
+    // The caller (worker startup) turns this into a failed open. Resolving here
+    // would let it open the half-replaced file while the copy that outranks it
+    // is still on disk.
+    const pool = createPool({
+      [DB_PATH]: bytes("half-written"),
+      [ROLLBACK_PATH]: bytes("live history")
+    })
+    pool.importDb = () => {
+      throw new Error("pool is out of slots")
+    }
+
+    await expect(recoverInterruptedImport(pool, DB_PATH)).rejects.toThrow(
+      "pool is out of slots"
+    )
+    expect(pool.files.get(ROLLBACK_PATH)).toEqual(bytes("live history"))
+  })
+
   it("discards an empty copy", async () => {
     const pool = createPool({
       [DB_PATH]: bytes("live history"),
