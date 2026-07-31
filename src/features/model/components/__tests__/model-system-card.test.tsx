@@ -3,7 +3,7 @@ import { FormProvider, useForm } from "react-hook-form"
 import { describe, expect, it, vi } from "vitest"
 
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
-import { ModelSystemSection } from "../model-system-section"
+import { ModelSystemCard } from "../model-system-card"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key })
@@ -29,7 +29,7 @@ const renderSection = ({
     return (
       <FormProvider {...methods}>
         <span data-testid="watched-system">{systemValue}</span>
-        <ModelSystemSection
+        <ModelSystemCard
           config={DEFAULT_MODEL_CONFIG}
           updateConfig={updateConfig}
           onSave={onSave}
@@ -44,7 +44,7 @@ const renderSection = ({
   return { updateConfig, onSave, onResetSystemPrompt }
 }
 
-describe("ModelSystemSection", () => {
+describe("ModelSystemCard", () => {
   it("propagates system prompt typing into form state", () => {
     renderSection()
 

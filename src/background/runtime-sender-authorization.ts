@@ -1,4 +1,4 @@
-import { MESSAGE_KEYS } from "@/lib/constants"
+import { isRuntimeTransportAllowed } from "@/protocol/runtime-transport-registry"
 
 export type RuntimeSenderSurface =
   | "extension-page"
@@ -11,21 +11,6 @@ export interface RuntimeSenderLike {
   tab?: { id?: number }
   url?: string
 }
-
-const CONTENT_SCRIPT_MESSAGE_ALLOWLIST = new Set<string>([
-  MESSAGE_KEYS.PROVIDER.GET_MODELS,
-  MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
-  MESSAGE_KEYS.BROWSER.LOAD_SELECTION_OVERLAY
-])
-
-const CONTENT_SCRIPT_PORT_ALLOWLIST = new Set<string>([
-  MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION
-])
-
-const CONTENT_SCRIPT_PORT_MESSAGE_ALLOWLIST = new Set<string>([
-  MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION,
-  MESSAGE_KEYS.PROVIDER.CANCEL_SELECTION_ACTION
-])
 
 export const classifyRuntimeSender = (
   sender: RuntimeSenderLike,
@@ -51,7 +36,7 @@ export const isRuntimeMessageAllowed = (
   const surface = classifyRuntimeSender(sender, extensionId, extensionUrlPrefix)
   if (surface === "extension-page") return true
   if (surface === "content-script")
-    return CONTENT_SCRIPT_MESSAGE_ALLOWLIST.has(type)
+    return isRuntimeTransportAllowed("message", type, surface)
   return false
 }
 
@@ -64,7 +49,7 @@ export const isRuntimePortAllowed = (
   const surface = classifyRuntimeSender(sender, extensionId, extensionUrlPrefix)
   if (surface === "extension-page") return true
   if (surface === "content-script")
-    return CONTENT_SCRIPT_PORT_ALLOWLIST.has(portName)
+    return isRuntimeTransportAllowed("port", portName, surface)
   return false
 }
 
@@ -79,7 +64,7 @@ export const isRuntimePortMessageAllowed = (
   if (surface === "extension-page") return true
   if (surface !== "content-script") return false
   return (
-    CONTENT_SCRIPT_PORT_ALLOWLIST.has(portName) &&
-    CONTENT_SCRIPT_PORT_MESSAGE_ALLOWLIST.has(messageType)
+    isRuntimeTransportAllowed("port", portName, surface) &&
+    isRuntimeTransportAllowed("port-message", messageType, surface)
   )
 }

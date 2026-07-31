@@ -1,4 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { BookOpen, Globe, Scissors, ShieldCheck, Upload } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
 import {
@@ -6,7 +7,7 @@ import {
   SettingsLevelGate,
   SettingsSwitch
 } from "@/components/settings"
-import { ChatBackfillPanel } from "@/features/chat/components"
+import { ChatBackfillCard } from "@/features/chat/components"
 import { GroundingModeSettings } from "@/features/context/components/grounding-mode-settings"
 import { PromptContextLimitsSettings } from "@/features/context/components/prompt-context-limits-settings"
 import { FileUploadSettings } from "@/features/file-upload/components/file-upload-settings"
@@ -17,13 +18,6 @@ import {
 import { MemorySettings } from "@/features/memory/components/memory-settings"
 import { WebSearchSettings } from "@/features/web-search/components/web-search-settings"
 import { STORAGE_KEYS } from "@/lib/constants"
-import {
-  BookOpen,
-  Globe,
-  Scissors,
-  ShieldCheck,
-  Upload
-} from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 const AutoScreenshotSettings = () => {
@@ -65,7 +59,7 @@ export const ContextSettings = () => {
       <TwoColumnGrid>
         <MemorySettings />
         <SettingsLevelGate settingId="backfill-embeddings">
-          <ChatBackfillPanel />
+          <ChatBackfillCard />
         </SettingsLevelGate>
       </TwoColumnGrid>
 

@@ -1,9 +1,3 @@
-import { useTranslation } from "react-i18next"
-
-import { TooltipActionButton } from "@/components/actions"
-import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
-import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
-import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
 import {
   Bot,
   ChevronLeft,
@@ -13,7 +7,12 @@ import {
   RefreshCcw,
   SquarePen,
   Trash2
-} from "@/lib/lucide-icon"
+} from "lucide-react"
+import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
+import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
+import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
+import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
 import { cn } from "@/lib/utils"
 import type { ChatMessage } from "@/types"
 import { CopyButton } from "./copy-button"

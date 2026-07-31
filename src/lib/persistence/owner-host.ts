@@ -1,5 +1,19 @@
 import { logger } from "@/lib/logger"
-import { markOpfsBackend, readPersistenceBackend } from "./backend"
+import {
+  markOpfsBackend,
+  readLegacyOverride,
+  readMigrationReceipt,
+  readPersistenceBackend,
+  writeMigrationReceipt
+} from "./backend"
+import {
+  describeMismatches,
+  findMissingDurableTables,
+  findTableCountMismatches,
+  isSoundDatabase,
+  type TableCountMismatch
+} from "./durable-tables"
+import type { ImportResult } from "./protocol"
 import {
   decodeBind,
   encodeRows,
@@ -29,6 +43,29 @@ const rejectAllPending = (reason: string): void => {
     pending.delete(id)
     entry.reject(new Error(reason))
   }
+}
+
+/**
+ * Turns a worker `error` event into something a bug report can act on.
+ *
+ * `ErrorEvent.error` is null for a worker that failed to load or parse at all —
+ * which is the common case here, and the case where `message` and the source
+ * location are the only evidence there is. Rejecting with a bare "worker
+ * crashed" discarded every one of those fields, so the log named the symptom and
+ * nothing else.
+ */
+export const describeWorkerError = (event: ErrorEvent | Event): string => {
+  if (!(event instanceof ErrorEvent)) {
+    return "Persistence worker crashed (no error detail available)"
+  }
+  const where = event.filename
+    ? ` at ${event.filename}:${event.lineno}:${event.colno}`
+    : ""
+  const message =
+    event.message ||
+    (event.error instanceof Error ? event.error.message : "") ||
+    "no message"
+  return `Persistence worker crashed: ${message}${where}`
 }
 
 let wasmBinaryPromise: Promise<ArrayBuffer> | null = null
@@ -72,11 +109,22 @@ const ensureWorker = (): Worker => {
       if (event.data.ok) entry.resolve(event.data.result)
       else entry.reject(new Error(event.data.error ?? "Unknown worker error"))
     }
-    worker.onerror = () => {
+    worker.onerror = (event) => {
+      const reason = describeWorkerError(event)
+      logger.error(reason, "Persistence", {
+        stack: event instanceof ErrorEvent ? event.error?.stack : undefined
+      })
       // Drop the dead worker so the next call spawns a fresh one; OPFS holds
       // the durable state, so recovery is a respawn away.
       worker = null
-      rejectAllPending("Persistence worker crashed")
+      rejectAllPending(reason)
+    }
+    // A message the worker could not structured-clone never reaches onmessage,
+    // so its request would hang in `pending` forever without this.
+    worker.onmessageerror = (event) => {
+      const reason = "Persistence worker could not deserialize a message"
+      logger.error(reason, "Persistence", { data: event.data })
+      rejectAllPending(reason)
     }
     const spawned = worker
     void getWasmBinary()
@@ -118,6 +166,21 @@ export const callWorker = (request: PersistenceOp): Promise<unknown> => {
 let migrationPromise: Promise<void> | null = null
 
 const migrateLegacyBlobOnce = async (): Promise<void> => {
+  if (await readLegacyOverride()) {
+    logger.warn(
+      "Persistence legacy override is set; staying on the legacy blob",
+      "Persistence"
+    )
+    // Recorded once, not on every boot: the override is a standing operator
+    // decision, and an attempt counter climbing while nothing happens says
+    // nothing.
+    const previous = await readMigrationReceipt()
+    if (previous?.outcome !== "skipped") {
+      await writeMigrationReceipt({ outcome: "skipped" })
+    }
+    return
+  }
+
   const backend = await readPersistenceBackend()
   if (backend === "opfs") return
 
@@ -131,38 +194,100 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
     // Fresh profile: nothing to migrate; the worker creates an empty schema.
     await callWorker({ op: "ping" })
     await markOpfsBackend({})
+    await writeMigrationReceipt({ outcome: "fresh" })
     logger.info("No legacy blob; OPFS backend initialized fresh", "Persistence")
     return
   }
 
-  // Count the source rows BEFORE the physical import — this is the
-  // verification target. The source blob itself is never modified or
+  // Survey the source BEFORE the physical import — this is the verification
+  // target, and it covers every durable table the blob has, not just the two
+  // the chat list happens to read. The source blob itself is never modified or
   // deleted; it remains the rollback artifact.
-  const sourceCounts = await countLegacyRows(bytes)
+  const source = await countLegacyRows(bytes)
+  if (!isSoundDatabase(source.integrity)) {
+    logger.warn(
+      "Legacy blob failed integrity_check before import",
+      "Persistence",
+      {
+        integrityCheck: source.integrity.integrityCheck
+      }
+    )
+  }
   const buffer = bytes.buffer.slice(
     bytes.byteOffset,
     bytes.byteOffset + bytes.byteLength
   ) as ArrayBuffer
 
-  const imported = (await callWorker({
-    op: "importDb",
-    bytes: buffer
-  })) as { sessions: number; messages: number }
+  let imported: ImportResult | undefined
+  let mismatches: TableCountMismatch[] = []
+  try {
+    imported = (await callWorker({
+      op: "importDb",
+      bytes: buffer
+    })) as ImportResult
 
-  if (
-    imported.sessions !== sourceCounts.sessions ||
-    imported.messages !== sourceCounts.messages
-  ) {
-    throw new Error(
-      `Migration verification failed: sessions ${imported.sessions}/${sourceCounts.sessions}, messages ${imported.messages}/${sourceCounts.messages}`
+    mismatches = findTableCountMismatches(source.tables, imported.tables)
+    if (mismatches.length > 0) {
+      throw new Error(
+        `Migration verification failed: ${describeMismatches(mismatches)}`
+      )
+    }
+
+    // Row counts only prove that what the source had arrived. They say nothing
+    // about a durable table the destination is supposed to have and does not —
+    // that one is invisible to a comparison, because an absent source table is
+    // skipped on the assumption a forward migration creates it.
+    const missing = findMissingDurableTables(imported.tables)
+    if (missing.length > 0) {
+      throw new Error(
+        `Migration verification failed: imported database is missing ${missing.join(", ")}`
+      )
+    }
+
+    if (imported.integrity.foreignKeyViolations > 0) {
+      // Recorded, not fatal. Orphan rows in a years-old blob are a data-quality
+      // fact about the source; refusing to migrate would strand that history on
+      // a backend that is being retired.
+      logger.warn(
+        "Migrated database has foreign-key violations",
+        "Persistence",
+        {
+          foreignKeyViolations: imported.integrity.foreignKeyViolations
+        }
+      )
+    }
+
+    await markOpfsBackend({
+      sourceCounts: { sessions: source.sessions, messages: source.messages }
+    })
+    await writeMigrationReceipt({
+      outcome: "migrated",
+      sourceSchemaVersion: source.schemaVersion,
+      sourceBytes: bytes.byteLength,
+      sourceCounts: source.tables,
+      importedCounts: imported.tables,
+      sourceIntegrity: source.integrity,
+      importedIntegrity: imported.integrity,
+      mismatches
+    })
+    logger.info(
+      `Legacy blob migrated and verified: ${source.sessions} sessions, ${source.messages} messages`,
+      "Persistence"
     )
+  } catch (error) {
+    await writeMigrationReceipt({
+      outcome: "failed",
+      sourceSchemaVersion: source.schemaVersion,
+      sourceBytes: bytes.byteLength,
+      sourceCounts: source.tables,
+      importedCounts: imported?.tables,
+      sourceIntegrity: source.integrity,
+      importedIntegrity: imported?.integrity,
+      mismatches,
+      failure: error instanceof Error ? error.message : String(error)
+    })
+    throw error
   }
-
-  await markOpfsBackend({ sourceCounts })
-  logger.info(
-    `Legacy blob migrated and verified: ${sourceCounts.sessions} sessions, ${sourceCounts.messages} messages`,
-    "Persistence"
-  )
 }
 
 /** Idempotent; safe to call on every host boot. A failed attempt clears the

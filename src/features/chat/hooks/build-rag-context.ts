@@ -1,3 +1,4 @@
+import type { TurnToast } from "@/features/chat/hooks/turn-preparation"
 import {
   reformulateQuestion,
   retrieveContext,
@@ -83,12 +84,12 @@ export interface BuildRagContextOptions {
   selectedModelRef: SelectedModelRef | null
   customModel?: string
   onActivityEvent?: (events: ActivityEvent[]) => void
-  /** Side-channel toast for user-facing warnings (e.g. RAG failure). */
-  toast: (input: {
-    variant?: "default" | "destructive"
-    title: string
-    description?: string
-  }) => void
+  /**
+   * Side-channel toast for user-facing warnings (e.g. RAG failure). Context
+   * building runs in the background, which has no `t`, so the warning names its
+   * copy by key and the extension page resolves it.
+   */
+  toast: (input: TurnToast) => void
 }
 
 export interface BuildRagContextResult {
@@ -581,9 +582,8 @@ export const buildRagContext = async (
       })
       toast({
         variant: "destructive",
-        title: "RAG Warning",
-        description:
-          "Failed to retrieve context from files. Continuing without RAG."
+        titleKey: "chat.errors.context_retrieval_warning_title",
+        descriptionKey: "chat.errors.context_retrieval_warning_description"
       })
     }
   }

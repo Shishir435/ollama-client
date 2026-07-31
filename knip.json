@@ -8,7 +8,7 @@
     "vitest.config.ts"
   ],
   "project": ["src/**/*.{ts,tsx}", "config/**/*.ts", "tools/**/*.ts"],
-  "ignore": ["docs/**", "src/i18n/resources.ts"],
+  "ignore": ["docs/**"],
   "ignoreExportsUsedInFile": true,
   "include": [
     "files",

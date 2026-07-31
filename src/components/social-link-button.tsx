@@ -1,4 +1,5 @@
 import type { VariantProps } from "class-variance-authority"
+import type { LucideIcon } from "lucide-react"
 import type { ComponentPropsWithoutRef } from "react"
 import { buttonVariants } from "@/components/ui/button"
 import {
@@ -6,7 +7,6 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>

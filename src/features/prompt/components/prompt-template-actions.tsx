@@ -1,3 +1,4 @@
+import { Download, MoreHorizontal, RotateCcw, Upload } from "lucide-react"
 import { useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"
@@ -12,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { logger } from "@/lib/logger"
-import { Download, MoreHorizontal, RotateCcw, Upload } from "@/lib/lucide-icon"
 import { safeJsonParse } from "@/lib/validation"
 
 export interface PromptTemplateActionsProps {

@@ -1,7 +1,6 @@
+import type { LucideIcon } from "lucide-react"
 import type React from "react"
-
 import { Card, CardContent } from "@/components/ui/card"
-import type { LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 interface MetricTileProps {

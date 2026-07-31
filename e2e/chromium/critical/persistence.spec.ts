@@ -7,6 +7,10 @@ import {
 interface Counts {
   sessions: number
   messages: number
+  /** Row counts for every durable table, which is what the migration verifies.
+   * Matched with toMatchObject so a new table does not fail these assertions on
+   * its way in. */
+  tables: Record<string, number>
 }
 
 test("@critical fresh OPFS profile survives a browser restart", async ({
@@ -14,13 +18,13 @@ test("@critical fresh OPFS profile survives a browser restart", async ({
 }) => {
   let { page, call } = await openPersistenceVerifyPage(extension)
   await waitForOpfsMarker(call)
-  expect((await call("counts")) as Counts).toEqual({
+  expect((await call("counts")) as Counts).toMatchObject({
     sessions: 0,
     messages: 0
   })
 
   await call("appendViaFacade", "fresh-profile", 2)
-  expect((await call("counts")) as Counts).toEqual({
+  expect((await call("counts")) as Counts).toMatchObject({
     sessions: 1,
     messages: 2
   })
@@ -29,7 +33,7 @@ test("@critical fresh OPFS profile survives a browser restart", async ({
   await extension.restart()
   ;({ page, call } = await openPersistenceVerifyPage(extension))
   await waitForOpfsMarker(call)
-  expect((await call("counts")) as Counts).toEqual({
+  expect((await call("counts")) as Counts).toMatchObject({
     sessions: 1,
     messages: 2
   })
@@ -53,6 +57,7 @@ test("@critical sql.js migration is durable, idempotent, and preserves source", 
     sessions: number
     messages: number
     blobBytes: number
+    tables: Record<string, number>
   }
   const sourceDigest = (await call("readLegacyBlobDigest")) as string
   await call("clearMarker")
@@ -66,10 +71,16 @@ test("@critical sql.js migration is durable, idempotent, and preserves source", 
     sessions: fixtureSessions,
     messages: fixtureMessages
   })
-  expect((await call("counts")) as Counts).toEqual({
+  const migratedCounts = (await call("counts")) as Counts
+  expect(migratedCounts).toMatchObject({
     sessions: fixtureSessions,
     messages: fixtureMessages
   })
+  // Every table the blob populated, not just the two the chat list reads.
+  expect(migratedCounts.tables).toMatchObject(seeded.tables)
+  expect(
+    (await call("migrationReceipt")) as { outcome?: string }
+  ).toMatchObject({ outcome: "migrated" })
   expect(await call("readLegacyBlobLength")).toBe(seeded.blobBytes)
   expect(await call("readLegacyBlobDigest")).toBe(sourceDigest)
 
@@ -77,7 +88,7 @@ test("@critical sql.js migration is durable, idempotent, and preserves source", 
   await extension.restart()
   ;({ page, call } = await openPersistenceVerifyPage(extension))
   await waitForOpfsMarker(call)
-  expect((await call("counts")) as Counts).toEqual({
+  expect((await call("counts")) as Counts).toMatchObject({
     sessions: fixtureSessions,
     messages: fixtureMessages
   })
@@ -86,7 +97,7 @@ test("@critical sql.js migration is durable, idempotent, and preserves source", 
   await page.close()
   await extension.restart()
   ;({ page, call } = await openPersistenceVerifyPage(extension))
-  expect((await call("counts")) as Counts).toEqual({
+  expect((await call("counts")) as Counts).toMatchObject({
     sessions: fixtureSessions + 1,
     messages: fixtureMessages + 2
   })

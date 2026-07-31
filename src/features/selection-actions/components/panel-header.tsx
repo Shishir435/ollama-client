@@ -1,45 +1,26 @@
-import type { PointerEvent as ReactPointerEvent } from "react"
+import { ArrowLeft, GripHorizontal, Pin, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   type ActionConfig,
   ActionGroup,
   TooltipActionButton
 } from "@/components/actions"
-import { ArrowLeft, GripHorizontal, Pin, X } from "@/lib/lucide-icon"
-import type { ProviderModel } from "@/types"
 import { SELECTION_ACTIONS } from "../actions"
+import { useSelectionOverlay } from "../selection-overlay-context"
 import type { SelectionActionId } from "../types"
 
-interface PanelHeaderProps {
-  currentAction: SelectionActionId
-  enabledActionIds: SelectionActionId[]
-  panelModel: string
-  availableModels: ProviderModel[]
-  isPinned: boolean
-  tooltipContainer: HTMLElement | ShadowRoot | null
-  onActionChange: (actionId: SelectionActionId) => void
-  onModelChange: (model: string, providerId?: string) => void
-  onTogglePin: () => void
-  onBack: () => void
-  onClose: () => void
-  onDragStart: (event: ReactPointerEvent<HTMLElement>) => void
-}
-
-export function PanelHeader({
-  currentAction,
-  enabledActionIds,
-  panelModel,
-  availableModels,
-  isPinned,
-  tooltipContainer,
-  onActionChange,
-  onModelChange,
-  onTogglePin,
-  onBack,
-  onClose,
-  onDragStart
-}: PanelHeaderProps) {
+export function PanelHeader() {
   const { t } = useTranslation()
+  const {
+    currentAction,
+    enabledActionIds,
+    panelModel,
+    availableModels,
+    isPinned,
+    tooltipContainer,
+    actions
+  } = useSelectionOverlay()
+
   const enabledActions = SELECTION_ACTIONS.filter((a) =>
     enabledActionIds.includes(a.id)
   )
@@ -49,7 +30,7 @@ export function PanelHeader({
       variant: "ghost",
       size: "icon-sm",
       label: t("selection_button.panel.back"),
-      onClick: onBack,
+      onClick: actions.back,
       icon: ArrowLeft
     }
   ]
@@ -61,7 +42,7 @@ export function PanelHeader({
       label: isPinned
         ? t("selection_button.panel.unpin")
         : t("selection_button.panel.pin"),
-      onClick: onTogglePin,
+      onClick: actions.togglePin,
       icon: Pin
     },
     {
@@ -69,7 +50,7 @@ export function PanelHeader({
       variant: "ghost",
       size: "icon-sm",
       label: t("selection_button.panel.close"),
-      onClick: onClose,
+      onClick: actions.close,
       icon: X
     }
   ]
@@ -81,7 +62,7 @@ export function PanelHeader({
         value={panelModel}
         onChange={(e) => {
           const m = availableModels.find((x) => x.model === e.target.value)
-          onModelChange(e.target.value, m?.providerId)
+          actions.changeModel(e.target.value, m?.providerId)
         }}>
         {panelModel && !availableModels.find((m) => m.model === panelModel) && (
           <option value={panelModel}>{panelModel}</option>
@@ -108,7 +89,9 @@ export function PanelHeader({
         <select
           className="sa-action-select"
           value={currentAction}
-          onChange={(e) => onActionChange(e.target.value as SelectionActionId)}>
+          onChange={(e) =>
+            actions.runAction(e.target.value as SelectionActionId)
+          }>
           {enabledActions.map((a) => (
             <option key={a.id} value={a.id}>
               {t(`selection_button.actions.${a.id}.label`, a.label)}
@@ -121,7 +104,7 @@ export function PanelHeader({
       <div className="sa-header-actions">
         <TooltipActionButton
           trigger={
-            <div className="sa-drag-handle" onPointerDown={onDragStart} />
+            <div className="sa-drag-handle" onPointerDown={actions.startDrag} />
           }
           icon={GripHorizontal}
           label={t("selection_button.panel.drag_panel")}

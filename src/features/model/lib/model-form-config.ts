@@ -1,7 +1,6 @@
 import type { TFunction } from "i18next"
+import { Eye, Hash, Layers, type LucideIcon, Thermometer } from "lucide-react"
 import type { NumberInputValidation } from "@/components/forms"
-import type { LucideIcon } from "@/lib/lucide-icon"
-import { Eye, Hash, Layers, Thermometer } from "@/lib/lucide-icon"
 
 export type FormValues = {
   system: string

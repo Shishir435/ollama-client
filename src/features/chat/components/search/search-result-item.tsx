@@ -1,7 +1,7 @@
+import { Clock, ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import type { ChatSearchResult } from "@/features/chat/hooks/use-semantic-chat-search"
-import { Clock, ExternalLink } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export interface SearchResultItemProps {

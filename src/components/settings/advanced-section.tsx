@@ -1,8 +1,7 @@
+import { ChevronDown, ChevronRight, type LucideIcon } from "lucide-react"
 import type React from "react"
 import { useEffect, useState } from "react"
-
 import { MiniBadge } from "@/components/ui/mini-badge"
-import { ChevronDown, ChevronRight, type LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 interface AdvancedSectionProps {

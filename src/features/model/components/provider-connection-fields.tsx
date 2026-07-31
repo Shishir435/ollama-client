@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { DEFAULT_PROVIDERS } from "@/lib/providers/manager"
 import type { ProviderConfig } from "@/lib/providers/types"
 
-interface ProviderConnectionPanelProps {
+interface ProviderConnectionFieldsProps {
   activeConfig: ProviderConfig
   cspCompatibilityHint: string | null
   isLocalProvider: boolean
@@ -16,7 +16,7 @@ interface ProviderConnectionPanelProps {
   updateConfig: (updates: Partial<ProviderConfig>) => void
 }
 
-export const ProviderConnectionPanel = ({
+export const ProviderConnectionFields = ({
   activeConfig,
   cspCompatibilityHint,
   isLocalProvider,
@@ -24,7 +24,7 @@ export const ProviderConnectionPanel = ({
   hasUnsavedChanges,
   onSave,
   updateConfig
-}: ProviderConnectionPanelProps) => {
+}: ProviderConnectionFieldsProps) => {
   const { t } = useTranslation()
   // Custom providers have no shipped default URL — omit the description.
   const defaultBaseUrl = DEFAULT_PROVIDERS.find(

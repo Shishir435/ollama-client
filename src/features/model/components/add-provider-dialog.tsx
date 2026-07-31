@@ -1,6 +1,6 @@
+import { Bot, Globe, Loader2, Server } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { ModelIdListEditor } from "@/features/model/components/model-id-list-editor"
-import { Bot, Globe, Loader2, Server } from "@/lib/lucide-icon"
 import { providerProfileRequiresApiKey } from "@/lib/providers/service-profile"
 import {
   type CustomProviderWire,

@@ -1,3 +1,4 @@
+import { Calendar, ChevronRight, Star, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
@@ -11,7 +12,6 @@ import {
 } from "@/components/ui/collapsible"
 import { Separator } from "@/components/ui/separator"
 import { CopyButton } from "@/features/chat/components"
-import { Calendar, ChevronRight, Star, Trash2 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { PromptTemplate } from "@/types"
 import { PromptTemplateForm } from "./prompt-template-form"

@@ -24,6 +24,8 @@ const CAPABILITY_TAGS_CACHE_TTL_MS = 60_000
 interface CapabilityTagsCacheEntry {
   tags: string[] | undefined
   modelType?: string
+  /** Model-level tags a catalog reports, e.g. LM Studio's ["tool_use"]. */
+  capabilityTags?: string[]
   contextLength?: number
   modalities?: string[]
   supportedParameters?: string[]
@@ -107,6 +109,7 @@ export const resolveModelTools = async (
           metadata = {
             tags: undefined,
             modelType: servedModel.capabilityHints?.modelType,
+            capabilityTags: servedModel.capabilityHints?.capabilityTags,
             contextLength: servedModel.capabilityHints?.contextLength,
             modalities: servedModel.capabilityHints?.modalities,
             supportedParameters:
@@ -139,6 +142,7 @@ export const resolveModelTools = async (
     providerId: resolvedProviderId,
     ollamaCapabilities: metadata.tags,
     lmStudioModelType: metadata.modelType,
+    capabilityTags: metadata.capabilityTags,
     contextLength: metadata.contextLength,
     modalities: metadata.modalities,
     supportedParameters: metadata.supportedParameters,

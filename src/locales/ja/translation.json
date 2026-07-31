@@ -173,8 +173,6 @@
       "chars": "文字",
       "enter_to_send": "送信",
       "enter_key": "Enter キー",
-      "rag_toggle_on": "スマートコンテキストがオン",
-      "rag_toggle_off": "スマートコンテキストがオフ",
       "rag_toggle_tooltip": "スマートコンテキスト (ベータ): ファイルとチャットのコンテキストを使用",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "ウェブ検索にはツール呼び出しが必要ですが、このモデルは対応していません。モデル設定でツールフォールバックを有効にしてください。",
@@ -413,6 +411,24 @@
       "issue_draft_notice": "ローカルで入力済みです。送信前に確認してください。",
       "preparing_issue": "安全なチェックを実行中…",
       "open_diagnostics": "診断を開く",
+      "empty_response": "モデルは回答を送信せずに終了しました。モデルがアンロードされたか、会話に回答の余地が残っていなかった可能性があります。もう一度試すか、新しいチャットを開始してください。",
+      "thinking_only_response": "モデルから最終的な回答を受け取れませんでした。もう一度お試しください。",
+      "provider_selection_required_title": "モデルのプロバイダー選択が必要です",
+      "provider_selection_required_description": "メッセージを送信する前に、モデルメニューで「{{model}}」のプロバイダーを選択してください。",
+      "no_model_selected_title": "モデルが選択されていません",
+      "no_model_selected_description": "メッセージを送信する前に、モデルメニューでモデルを選択してください。",
+      "chat_create_failed_title": "チャットを開始できませんでした",
+      "chat_create_failed_description": "チャットの作成に失敗しました。もう一度お試しください。",
+      "message_save_failed_title": "メッセージを送信できませんでした",
+      "message_save_failed_description": "メッセージの保存に失敗しました。もう一度お試しください。",
+      "context_preparation_failed": "このメッセージのコンテキストを準備できませんでした。もう一度お試しいただくか、繰り返し起きる場合は選択中のコンテキストやファイルを減らしてください。",
+      "context_preparation_failed_title": "コンテキストの準備に失敗しました",
+      "context_preparation_failed_description": "メッセージは保存されましたが、コンテキストの準備に失敗したためアシスタントを開始できませんでした。",
+      "insufficient_page_context": "ページコンテキストが不足しています。関連する抽出済みコンテンツのあるタブを1つ以上選択して、もう一度お試しください。\n\nこの動作を無効にするには、[{{settingsLabel}}]({{settingsLink}}) を開いてください。",
+      "context_trimmed_title": "コンテキストを短縮しました",
+      "context_trimmed_description": "抽出したタブのコンテキストが上限を超えたため、送信前に短縮しました。",
+      "context_retrieval_warning_title": "コンテキストの取得に失敗しました",
+      "context_retrieval_warning_description": "ファイルからコンテキストを取得できませんでした。コンテキストなしで続行します。",
       "interrupted": "応答が中断されました"
     },
     "composer": {
@@ -421,13 +437,17 @@
       "web": "Web"
     },
     "context": {
-      "preview_title": "モデルに渡す内容",
       "none": "追加コンテキストなし",
       "page": "ページ",
       "tabs": "{{count}} 個のタブ",
       "files": "{{count}} 個のファイル",
       "knowledge": "ナレッジ",
-      "web": "Web"
+      "web": "Web",
+      "rows": {
+        "tabs": "ページとタブのコンテキスト",
+        "knowledge": "アップロードしたファイルを検索",
+        "web": "ウェブ検索"
+      }
     },
     "artifacts": {
       "empty": "アーティファクトの内容がありません"
@@ -674,6 +694,7 @@
         "title": "モデルの機能",
         "subtitle": "{{model}} · {{provider}}",
         "note_manual": "{{provider}} はこのモデルの機能を報告できないため、自動検出できません。このモデルが対応している機能をオンにしてください。画像入力やツールなどの機能はこの設定を使用します。",
+        "note_partial": "{{provider}} はこのモデルの一部の機能のみ報告します。残りを検出するか、対応している機能を有効にしてください。",
         "note_self_report": "{{provider}} はこのモデルの機能を自動的に報告します。ここでの変更は検出結果を上書きします。",
         "reset": "検出値にリセット",
         "save": "保存",
@@ -683,6 +704,7 @@
         "probe_button": "検出",
         "probe_detected": "検出: {{capabilities}}。",
         "probe_none_detected": "ツール呼び出し、推論、ビジョンは検出されませんでした。手動で有効にすることもできます。",
+        "probe_incomplete": "確認を完了できませんでした: {{capabilities}}。もう一度検出を実行してください — 読み込み中だったモデルは 2 回目に応答することが多いです。",
         "probe_failed": "検出に失敗しました。プロバイダーの接続を確認して、もう一度お試しください。"
       },
       "flags": {
@@ -783,11 +805,9 @@
       "ready": "{{selected}}/{{total}} タブ準備完了",
       "updated": "更新済み",
       "view_content": "抽出されたコンテンツを表示",
-      "refresh_now": "コンテキストを今すぐ更新"
-    },
-    "toggle": {
-      "label_off": "タブ",
-      "label_on": "タブ+"
+      "refresh_now": "コンテキストを今すぐ更新",
+      "select_all": "すべて選択",
+      "clear_selection": "選択を解除"
     },
     "context": "コンテキスト",
     "inspector": {
@@ -1523,6 +1543,7 @@
           "vectorDb": "ベクトル埋め込み (Dexie)",
           "knowledgeDb": "ナレッジセット (Dexie)"
         },
+        "legacy_chat_backup": "このバックアップはバージョン 0.6.3 以前で作成され、拡張機能がもう読み取らない形式でチャットを保存しています。設定、埋め込み、ナレッジセットは復元されましたが、チャットは復元されていません。",
         "status": {
           "success": "成功",
           "failed": "失敗",

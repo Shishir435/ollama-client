@@ -173,8 +173,6 @@
       "chars": "Caractères",
       "enter_to_send": "Envoyer",
       "enter_key": "Entrée",
-      "rag_toggle_on": "Contexte intelligent activé",
-      "rag_toggle_off": "Contexte intelligent désactivé",
       "rag_toggle_tooltip": "Smart Context (Beta): Utiliser le contexte des fichiers et du chat",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "La recherche web nécessite l'appel d'outils, que ce modèle ne prend pas en charge. Activez le fallback d'outils dans les paramètres du modèle.",
@@ -413,6 +411,24 @@
       "issue_draft_notice": "Prérempli localement. Vérifiez avant l’envoi.",
       "preparing_issue": "Exécution des vérifications sûres…",
       "open_diagnostics": "Ouvrir le diagnostic",
+      "empty_response": "Le modèle a terminé sans envoyer de réponse. Il a peut-être été déchargé, ou la conversation n'a laissé aucune place pour répondre. Réessaie ou commence une nouvelle discussion.",
+      "thinking_only_response": "Je n'ai pas reçu de réponse finale du modèle. Réessaie, s'il te plaît.",
+      "provider_selection_required_title": "Sélection du fournisseur requise",
+      "provider_selection_required_description": "Sélectionne un fournisseur pour « {{model}} » dans le menu des modèles avant d'envoyer un message.",
+      "no_model_selected_title": "Aucun modèle sélectionné",
+      "no_model_selected_description": "Sélectionne un modèle dans le menu des modèles avant d'envoyer un message.",
+      "chat_create_failed_title": "Impossible de démarrer la discussion",
+      "chat_create_failed_description": "La création de la discussion a échoué. Réessaie, s'il te plaît.",
+      "message_save_failed_title": "Impossible d'envoyer le message",
+      "message_save_failed_description": "L'enregistrement du message a échoué. Réessaie, s'il te plaît.",
+      "context_preparation_failed": "Je n'ai pas pu préparer le contexte de ce message. Réessaie, ou réduis le contexte et les fichiers sélectionnés si cela persiste.",
+      "context_preparation_failed_title": "Échec de la préparation du contexte",
+      "context_preparation_failed_description": "Le message a été enregistré, mais l'assistant n'a pas pu démarrer car la préparation du contexte a échoué.",
+      "insufficient_page_context": "Contexte de page insuffisant. Sélectionne au moins un onglet dont le contenu extrait est pertinent, puis réessaie.\n\nPour désactiver ce comportement, ouvre [{{settingsLabel}}]({{settingsLink}}).",
+      "context_trimmed_title": "Contexte réduit",
+      "context_trimmed_description": "Le contexte extrait des onglets dépassait ta limite et a été réduit avant l'envoi.",
+      "context_retrieval_warning_title": "Échec de la récupération du contexte",
+      "context_retrieval_warning_description": "Impossible de récupérer le contexte depuis tes fichiers. La suite se fait sans lui.",
       "interrupted": "Réponse interrompue"
     },
     "composer": {
@@ -421,13 +437,17 @@
       "web": "Web"
     },
     "context": {
-      "preview_title": "Le modèle verra",
       "none": "Aucun contexte supplémentaire",
       "page": "Page",
       "tabs": "{{count}} onglets",
       "files": "{{count}} fichiers",
       "knowledge": "Connaissances",
-      "web": "Web"
+      "web": "Web",
+      "rows": {
+        "tabs": "Contexte de la page et des onglets",
+        "knowledge": "Rechercher dans les fichiers importés",
+        "web": "Recherche web"
+      }
     },
     "artifacts": {
       "empty": "Aucun contenu d'artefact"
@@ -674,6 +694,7 @@
         "title": "Capacités du modèle",
         "subtitle": "{{model}} · {{provider}}",
         "note_manual": "{{provider}} ne peut pas signaler les capacités de ce modèle, nous ne pouvons donc pas les détecter. Activez ce que ce modèle prend en charge — des fonctions comme l'entrée d'image et les outils utilisent ces paramètres.",
+        "note_partial": "{{provider}} ne signale qu'une partie des capacités de ce modèle. Détectez les autres ou activez celles que vous savez prises en charge.",
         "note_self_report": "{{provider}} signale automatiquement les capacités de ce modèle. Les modifications ici remplacent ce qui a été détecté.",
         "reset": "Réinitialiser aux valeurs détectées",
         "save": "Enregistrer",
@@ -683,6 +704,7 @@
         "probe_button": "Détecter",
         "probe_detected": "Détecté : {{capabilities}}.",
         "probe_none_detected": "Aucun appel d'outils, raisonnement ni vision détecté. Vous pouvez tout de même les activer manuellement.",
+        "probe_incomplete": "Vérification incomplète : {{capabilities}}. Relancez la détection — un modèle encore en cours de chargement répond souvent au second essai.",
         "probe_failed": "La détection a échoué. Vérifiez la connexion au fournisseur et réessayez."
       },
       "flags": {
@@ -783,11 +805,9 @@
       "ready": "{{selected}}/{{total}} onglets prêts",
       "updated": "Mis à jour",
       "view_content": "Voir le contenu extrait",
-      "refresh_now": "Actualiser le contexte maintenant"
-    },
-    "toggle": {
-      "label_off": "Onglets",
-      "label_on": "Onglet+"
+      "refresh_now": "Actualiser le contexte maintenant",
+      "select_all": "Tout sélectionner",
+      "clear_selection": "Effacer la sélection"
     },
     "context": "Contexte",
     "inspector": {
@@ -1523,6 +1543,7 @@
           "vectorDb": "Intégrations vectorielles (Dexie)",
           "knowledgeDb": "Bases de connaissances (Dexie)"
         },
+        "legacy_chat_backup": "Cette sauvegarde a été créée par la version 0.6.3 ou antérieure, qui stockait les discussions dans un format que l'extension ne lit plus. Ses réglages, embeddings et ensembles de connaissances ont été restaurés ; ses discussions non.",
         "status": {
           "success": "Succès",
           "failed": "Échoué",

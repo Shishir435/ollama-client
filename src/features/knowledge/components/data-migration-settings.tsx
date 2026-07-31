@@ -1,3 +1,11 @@
+import {
+  CheckCircle,
+  Download,
+  HardDriveDownload,
+  Loader2,
+  Upload,
+  XCircle
+} from "lucide-react"
 import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -23,14 +31,6 @@ import type { ImportResult } from "@/lib/backup-service"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { formatBackupFilenameTimestamp } from "@/lib/format-utils"
 import { logger } from "@/lib/logger"
-import {
-  CheckCircle,
-  Download,
-  HardDriveDownload,
-  Loader2,
-  Upload,
-  XCircle
-} from "@/lib/lucide-icon"
 
 export const DataMigrationSettings = () => {
   const { t } = useTranslation()
@@ -269,11 +269,14 @@ export const DataMigrationSettings = () => {
                         : t("settings.migration.import_result.status.failed")}
                     </Badge>
                   </div>
-                  {!item.result.ok && item.result.error && (
-                    <p className="text-xs text-destructive mt-1">
-                      {item.result.error}
-                    </p>
-                  )}
+                  {!item.result.ok &&
+                    (item.result.errorKey || item.result.error) && (
+                      <p className="text-xs text-destructive mt-1">
+                        {item.result.errorKey
+                          ? t(item.result.errorKey)
+                          : item.result.error}
+                      </p>
+                    )}
                 </div>
               ))}
           </div>

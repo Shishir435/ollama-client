@@ -11,8 +11,23 @@ import {
   setSchemaVersion
 } from "@/lib/sqlite/migrations/migration-runner"
 import { SCHEMA_SQL } from "@/lib/sqlite/schema"
+import {
+  countDurableTables,
+  type DurableTable,
+  type IntegrityReport,
+  isSoundDatabase,
+  readIntegrityReport,
+  tableExistsSql
+} from "./durable-tables"
+import {
+  clearRollbackCopy,
+  recoverFailedReplacement,
+  recoverInterruptedImport,
+  stageRollbackCopy
+} from "./import-rollback"
 import type {
   CountsResult,
+  ImportResult,
   PersistenceOp,
   QueryRow,
   RunResult,
@@ -32,6 +47,9 @@ import { asSqlJsDatabase } from "./sqljs-compat"
 // is atomic, which is what makes run's lastInsertRowid race-free.
 
 const DB_PATH = "/chat-history.sqlite"
+// Scratch path an incoming database is verified in before it is allowed to
+// replace DB_PATH. Never opened by anything but the verification probe.
+const PROBE_PATH = "/chat-history-import-probe.sqlite"
 
 interface WorkerRequest {
   id: number
@@ -100,6 +118,28 @@ const openContext = (): NonNullable<typeof contextPromise> => {
           name: "chat-history-pool",
           initialCapacity: 6
         })
+        // Before anything opens the database: a rollback copy left behind by a
+        // replacement that never finished has to win over the half-written file
+        // it was protecting.
+        //
+        // A failure here is not survivable by opening the database anyway. The
+        // copy stays on disk, so a later boot will restore it — everything read
+        // in between would be incomplete history, and everything written would
+        // be discarded. So the open fails instead. The cached context is
+        // cleared on rejection, so the next request retries the recovery, and
+        // making room first handles the one transient cause worth retrying
+        // in-line: a pool with no free slot.
+        try {
+          await ensureFreeSlots(pool, 1)
+          await recoverInterruptedImport(pool, DB_PATH)
+        } catch (error) {
+          throw new Error(
+            `Cannot restore the chat database after an interrupted replacement: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            { cause: error }
+          )
+        }
         const db = new pool.OpfsSAHPoolDb(DB_PATH)
         initializeSchema(db)
         return { db, pool }
@@ -127,8 +167,21 @@ const initializeSchema = (db: Database): void => {
       db,
       "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'sessions'"
     ) > 0
+  // Every statement in SCHEMA_SQL is IF NOT EXISTS, so it runs on every open:
+  // on a fresh database it creates everything, and on an existing one it fills
+  // in whatever is absent.
+  //
+  // It used to run only when `sessions` was missing, which meant a table added
+  // to the schema without a paired migration never reached a profile that
+  // already had `sessions`. chunk_feedback arrived that way in 0.10.0, so
+  // profiles created on 0.6.0-0.9.x have been missing it since — the drift
+  // repair below only knows about tool_loop_runs and prompt_templates.
+  //
+  // The version stamp stays gated: only a database that did not exist a moment
+  // ago is at the latest schema by construction. Stamping an old one would skip
+  // the forward migrations it still needs.
+  db.exec(SCHEMA_SQL)
   if (!hasSessions) {
-    db.exec(SCHEMA_SQL)
     setSchemaVersion(compat, LATEST_SCHEMA_VERSION)
   }
   db.exec("PRAGMA foreign_keys=ON")
@@ -162,10 +215,68 @@ const runStatement = (
   }
 }
 
-const counts = (db: Database): CountsResult => ({
-  sessions: queryNumber(db, "SELECT COUNT(*) FROM sessions"),
-  messages: queryNumber(db, "SELECT COUNT(*) FROM messages")
-})
+const tableExists = (db: Database, table: DurableTable): boolean =>
+  queryNumber(db, tableExistsSql(table)) > 0
+
+const counts = (db: Database): CountsResult => {
+  const tables = countDurableTables(
+    (sql) => queryNumber(db, sql),
+    (table) => tableExists(db, table)
+  )
+  return {
+    sessions: tables.sessions ?? 0,
+    messages: tables.messages ?? 0,
+    tables
+  }
+}
+
+/** An import needs room for the verification probe and the rollback copy beside
+ * the live database. The pool does not grow on its own. */
+const ensureFreeSlots = async (
+  pool: SAHPoolUtil,
+  needed: number
+): Promise<void> => {
+  const free = pool.getCapacity() - pool.getFileCount()
+  if (free >= needed) return
+  await pool.addCapacity(needed - free + 1)
+}
+
+/**
+ * Import a candidate database to the scratch path and report its integrity.
+ *
+ * Any failure here — a truncated file, a payload that is not a database at all,
+ * no room in the pool — leaves the live database untouched, which is the whole
+ * point of doing this before the replacement rather than after.
+ */
+const verifyImportCandidate = async (
+  pool: SAHPoolUtil,
+  bytes: ArrayBuffer
+): Promise<IntegrityReport> => {
+  pool.unlink(PROBE_PATH)
+  await ensureFreeSlots(pool, 1)
+  await pool.importDb(PROBE_PATH, new Uint8Array(bytes))
+  const probe = new pool.OpfsSAHPoolDb(PROBE_PATH)
+  try {
+    // Read before any schema runner sees the file: migrations write, and
+    // writing into a corrupt database turns a rejectable import into a
+    // damaged one.
+    return integrity(probe)
+  } finally {
+    probe.close()
+  }
+}
+
+const integrity = (db: Database): IntegrityReport =>
+  readIntegrityReport((sql) => {
+    const rows: unknown[][] = []
+    db.exec({
+      sql,
+      callback: (row) => {
+        rows.push(row as unknown[])
+      }
+    })
+    return rows
+  })
 
 // ---------------------------------------------------------------------------
 // Transaction lease + serial scheduler
@@ -255,17 +366,58 @@ const execute = async (request: PersistenceOp): Promise<unknown> => {
       )
     }
     case "importDb": {
-      // Backup restore: replace the database wholesale. The connection must
-      // be closed around the physical import, then reopened + migrated.
+      // Backup restore and legacy migration: replace the database wholesale.
+      //
+      // The payload is imported to a scratch path and verified there FIRST.
+      // Verifying after replacing the live file cost the user their history
+      // whenever the payload turned out to be unusable: a rejected restore
+      // reported failure over an already-destroyed database. Nothing touches
+      // the live file until the incoming one is known to be sound.
+      const report = await verifyImportCandidate(pool, request.bytes)
+      if (!isSoundDatabase(report)) {
+        pool.unlink(PROBE_PATH)
+        throw new Error(
+          `Imported database failed integrity_check: ${report.integrityCheck}`
+        )
+      }
+
       db.close()
       contextPromise = null
+      // The replacement itself can still fail or be interrupted, so the live
+      // database is copied aside until it completes. A replacement that cannot
+      // be protected does not happen: failing here leaves the database intact
+      // and the restore retryable.
+      await ensureFreeSlots(pool, 1)
+      const rollback = await stageRollbackCopy(pool, DB_PATH)
       try {
         await pool.importDb(DB_PATH, new Uint8Array(request.bytes))
+        // Held until the imported database is open, migrated by the schema
+        // runner, and counted. Reopening is where forward migrations and drift
+        // repair happen, and they write — a failure there is exactly the kind
+        // of restore that must still be undoable.
+        const { db: fresh } = await reopenContext(pool)
+        const result: ImportResult = { ...counts(fresh), integrity: report }
+        clearRollbackCopy(pool)
+        return result
+      } catch (error) {
+        // Reopening is not unconditional. While a rollback copy is still on
+        // disk it outranks the half-replaced file — startup recovery restores
+        // it — so opening that file here would serve missing history and let
+        // writes land on a database the next boot discards. When the copy
+        // cannot be put back, the worker opens nothing: the next request
+        // re-enters openContext, which recovers before anything opens.
+        if (await recoverFailedReplacement(pool, DB_PATH, rollback)) {
+          await reopenContext(pool).catch((reopenError: unknown) => {
+            console.error(
+              "[chat-db] reopen after a failed import failed",
+              reopenError
+            )
+          })
+        }
+        throw error
       } finally {
-        void reopenContext(pool)
+        pool.unlink(PROBE_PATH)
       }
-      const { db: fresh } = await openContext()
-      return counts(fresh)
     }
     case "reset": {
       db.close()

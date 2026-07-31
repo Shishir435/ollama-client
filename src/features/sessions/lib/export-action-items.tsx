@@ -1,7 +1,6 @@
 import type { TFunction } from "i18next"
-
+import { Code, FileDown } from "lucide-react"
 import type { ActionMenuItemConfig } from "@/components/actions"
-import { Code, FileDown } from "@/lib/lucide-icon"
 
 export interface ExportActionHandlers {
   onPdf: () => void

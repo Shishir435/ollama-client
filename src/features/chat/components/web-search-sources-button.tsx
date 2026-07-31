@@ -1,7 +1,7 @@
+import { Globe } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { runtime } from "@/lib/browser-api"
-import { Globe } from "@/lib/lucide-icon"
 import type { ToolRun } from "@/types"
 import { MessageSourcesSheet, type SourceItem } from "./message-sources-sheet"
 

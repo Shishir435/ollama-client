@@ -1,6 +1,5 @@
+import { Bot, Cpu, type LucideIcon, Server, Sparkles } from "lucide-react"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
-import type { LucideIcon } from "@/lib/lucide-icon"
-import { Bot, Cpu, Server, Sparkles } from "@/lib/lucide-icon"
 import { isCustomProviderId, ProviderId } from "./types"
 
 export type ProviderIcon =

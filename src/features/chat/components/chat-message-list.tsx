@@ -1,4 +1,5 @@
 import { useStorage } from "@plasmohq/storage/hook"
+import { ChevronDown } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
@@ -8,7 +9,6 @@ import {
   type EmbeddingConfig,
   STORAGE_KEYS
 } from "@/lib/constants"
-import { ChevronDown } from "@/lib/lucide-icon"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
 import type { ActivityEvent, ChatMessage } from "@/types"

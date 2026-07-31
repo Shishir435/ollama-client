@@ -1,3 +1,4 @@
+import { MessageSquare, RotateCcw, StopCircle } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ControlledTextarea } from "@/components/forms"
@@ -11,21 +12,20 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import type { ProviderModelConfig } from "@/features/model/hooks/use-model-config"
-import { MessageSquare, RotateCcw, StopCircle } from "@/lib/lucide-icon"
 
-export interface ModelSystemSectionProps {
+export interface ModelSystemCardProps {
   config: ProviderModelConfig
   updateConfig: (updates: Partial<ProviderModelConfig>) => void
   onSave: () => void
   onResetSystemPrompt: () => void
 }
 
-export const ModelSystemSection = ({
+export const ModelSystemCard = ({
   config,
   updateConfig,
   onSave,
   onResetSystemPrompt
-}: ModelSystemSectionProps) => {
+}: ModelSystemCardProps) => {
   const { t } = useTranslation()
   const [newStop, setNewStop] = useState("")
 

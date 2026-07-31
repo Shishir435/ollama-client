@@ -215,8 +215,6 @@
       "chars": "Characters",
       "enter_to_send": "Send",
       "enter_key": "Enter",
-      "rag_toggle_on": "RAG+",
-      "rag_toggle_off": "RAG",
       "rag_toggle_tooltip": "Smart Context (Beta): Use file & chat context",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "Web search needs tool calling, which this model doesn't support. Enable tool fallback in model settings to use it.",
@@ -447,6 +445,24 @@
       "retry_in": "Retry in {{seconds}}s",
       "diagnostics_copy_failed_title": "Could not copy diagnostics",
       "diagnostics_copy_failed_description": "Clipboard access was refused. Focus this panel and try again.",
+      "empty_response": "The model finished without sending an answer. It may have been unloaded, or the conversation may have left no room to reply. Try again, or start a new chat.",
+      "thinking_only_response": "I did not receive a final answer from the model. Please try again.",
+      "provider_selection_required_title": "Model provider selection required",
+      "provider_selection_required_description": "Select a provider for \"{{model}}\" in the model menu before sending a message.",
+      "no_model_selected_title": "No model selected",
+      "no_model_selected_description": "Select a model in the model menu before sending a message.",
+      "chat_create_failed_title": "Couldn't start chat",
+      "chat_create_failed_description": "Creating the chat failed. Please try again.",
+      "message_save_failed_title": "Couldn't send message",
+      "message_save_failed_description": "Saving the message failed. Please try again.",
+      "context_preparation_failed": "I couldn't prepare the context for this message. Please try again, or reduce the selected context/files if this keeps happening.",
+      "context_preparation_failed_title": "Context preparation failed",
+      "context_preparation_failed_description": "The message was saved, but the assistant could not start because context preparation failed.",
+      "insufficient_page_context": "Insufficient page context. Select at least one tab with relevant extracted content and try again.\n\nTo turn this off, open [{{settingsLabel}}]({{settingsLink}}).",
+      "context_trimmed_title": "Context trimmed",
+      "context_trimmed_description": "Extracted tab context exceeded your limit and was trimmed before sending.",
+      "context_retrieval_warning_title": "Context retrieval failed",
+      "context_retrieval_warning_description": "Couldn't retrieve context from your files. Continuing without it.",
       "interrupted": "Response interrupted"
     },
     "composer": {
@@ -455,13 +471,17 @@
       "web": "Web"
     },
     "context": {
-      "preview_title": "The model will see",
       "none": "No extra context",
       "page": "Page",
       "tabs": "{{count}} tabs",
       "files": "{{count}} files",
       "knowledge": "Knowledge",
-      "web": "Web"
+      "web": "Web",
+      "rows": {
+        "tabs": "Page & tab context",
+        "knowledge": "Search uploaded files",
+        "web": "Web search"
+      }
     },
     "artifacts": {
       "empty": "No artifact content"
@@ -522,6 +542,7 @@
         "title": "Model capabilities",
         "subtitle": "{{model}} · {{provider}}",
         "note_manual": "{{provider}} can't report this model's capabilities, so we can't detect them. Turn on what this model supports — features like image input and tools use these settings.",
+        "note_partial": "{{provider}} reports some of this model's capabilities. Detect the rest, or turn on what you know it supports.",
         "note_self_report": "{{provider}} reports this model's capabilities automatically. Changes here override what was detected.",
         "reset": "Reset to detected",
         "save": "Save",
@@ -531,6 +552,7 @@
         "probe_button": "Detect",
         "probe_detected": "Detected: {{capabilities}}.",
         "probe_none_detected": "No tool calling, reasoning, or vision detected. You can still enable them manually.",
+        "probe_incomplete": "Couldn't finish checking: {{capabilities}}. Run Detect again — a model that was still loading often answers the second time.",
         "probe_failed": "Detection failed. Check the provider connection and try again."
       },
       "flags": {
@@ -783,11 +805,9 @@
       "ready": "{{selected}}/{{total}} tabs ready",
       "updated": "Updated",
       "view_content": "View extracted content",
-      "refresh_now": "Refresh context now"
-    },
-    "toggle": {
-      "label_off": "Tabs",
-      "label_on": "Tab+"
+      "refresh_now": "Refresh context now",
+      "select_all": "Select all",
+      "clear_selection": "Clear selection"
     },
     "context": "Context",
     "inspector": {
@@ -1733,6 +1753,7 @@
           "vectorDb": "Vector Embeddings (Dexie)",
           "knowledgeDb": "Knowledge Sets (Dexie)"
         },
+        "legacy_chat_backup": "This backup was made by version 0.6.3 or earlier, which stored chats in a format the extension no longer reads. Its settings, embeddings, and knowledge sets were restored; its chats were not.",
         "status": {
           "success": "Success",
           "failed": "Failed",

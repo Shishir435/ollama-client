@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent } from "react"
+import { GripHorizontal, MessageSquare, MoreHorizontal, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
   type ActionConfig,
@@ -8,40 +8,20 @@ import {
 } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import {
-  GripHorizontal,
-  MessageSquare,
-  MoreHorizontal,
-  X
-} from "@/lib/lucide-icon"
 import { selectionActionCommand } from "../action-commands"
 import { SELECTION_ACTIONS } from "../actions"
-import type { SelectionActionId } from "../types"
+import { useSelectionOverlay } from "../selection-overlay-context"
 
-interface SelectionToolbarProps {
-  currentAction: SelectionActionId
-  enabledActionIds: SelectionActionId[]
-  isMoreMenuOpen: boolean
-  tooltipContainer: HTMLElement | ShadowRoot | null
-  onRunAction: (actionId: SelectionActionId) => void
-  onToggleMore: () => void
-  onOpenChat: () => void
-  onClose: () => void
-  onDragStart: (event: ReactPointerEvent<HTMLElement>) => void
-}
-
-export function SelectionToolbar({
-  currentAction,
-  enabledActionIds,
-  isMoreMenuOpen,
-  tooltipContainer,
-  onRunAction,
-  onToggleMore,
-  onOpenChat,
-  onClose,
-  onDragStart
-}: SelectionToolbarProps) {
+export function SelectionToolbar() {
   const { t } = useTranslation()
+  const {
+    currentAction,
+    enabledActionIds,
+    isMoreMenuOpen,
+    tooltipContainer,
+    actions: overlayActions
+  } = useSelectionOverlay()
+
   const actions = SELECTION_ACTIONS.filter((a) =>
     enabledActionIds.includes(a.id)
   )
@@ -61,7 +41,7 @@ export function SelectionToolbar({
       onPointerDown: (e) => {
         e.preventDefault()
         e.stopPropagation()
-        onRunAction(action.id)
+        overlayActions.runAction(action.id)
       },
       showLabel: true,
       labelClassName: "sa-label"
@@ -75,7 +55,7 @@ export function SelectionToolbar({
       onPointerDown: (e) => {
         e.preventDefault()
         e.stopPropagation()
-        onToggleMore()
+        overlayActions.toggleMore()
       },
       icon: MoreHorizontal,
       showLabel: true,
@@ -87,7 +67,7 @@ export function SelectionToolbar({
       onPointerDown: (e) => {
         e.preventDefault()
         e.stopPropagation()
-        onOpenChat()
+        overlayActions.openChat()
       },
       icon: MessageSquare,
       showLabel: true,
@@ -99,7 +79,7 @@ export function SelectionToolbar({
       onPointerDown: (e) => {
         e.preventDefault()
         e.stopPropagation()
-        onClose()
+        overlayActions.close()
       },
       icon: X
     }
@@ -113,7 +93,7 @@ export function SelectionToolbar({
             trigger={
               <div
                 className="sa-drag-handle sa-toolbar-drag"
-                onPointerDown={onDragStart}
+                onPointerDown={overlayActions.startDrag}
               />
             }
             icon={GripHorizontal}
@@ -150,7 +130,7 @@ export function SelectionToolbar({
                 onPointerDown={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  onRunAction(action.id)
+                  overlayActions.runAction(action.id)
                 }}>
                 {t(`selection_button.actions.${action.id}.label`, action.label)}
               </Button>

@@ -9,6 +9,152 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.12.6]
+
+### Added
+
+- The context sheet's tab list reports how many of the listed tabs are going
+  into the prompt, and gains a select-all control scoped to whatever the search
+  filter is showing — so a filtered selection never silently includes tabs you
+  cannot see. Once every listed tab is selected, the same control clears them.
+- Upgrading from an older chat-history format now verifies every kind of stored
+  data — chats, messages, attachments, prompt templates, saved tool runs — and
+  checks the imported database for damage before it becomes the one in use.
+  Anything that does not arrive intact leaves your history on the previous
+  store, untouched, rather than switching over to an incomplete copy. A
+  half-finished upgrade interrupted by a browser restart is rolled back and
+  retried from the original on the next launch.
+- A support report from a device that went through that upgrade now says how it
+  went — whether it succeeded, which check failed, and how many attempts it
+  took. Row counts stay on your device; only how many rows a table came up short
+  is included, and a device that never had an older store says nothing at all.
+  Nothing is sent anywhere unless you open a report yourself.
+
+### Changed
+
+- Model parameter sizes now come from whatever each server actually reports, and
+  are shown on one scale. LM Studio models read their size from the model id,
+  since no LM Studio endpoint reports a size of any kind; OpenAI-compatible
+  servers (vLLM, LocalAI, KoboldCPP, llama-swap) do the same, so a self-hosted
+  `Qwen3-8B` no longer shows a blank badge next to sizes from Ollama and
+  llama.cpp. Ids that do not state a size unambiguously stay blank rather than
+  having one guessed for them.
+- Ollama models stored as safetensors or MLX now show their family, size, and
+  quantization instead of blank fields. `/api/tags` omits those for non-GGUF
+  models, so they are filled in from `/api/show` for exactly the models missing
+  them, with the result cached per model file.
+- LM Studio models that report tool support in their catalog entry now have tool
+  calling detected from that report rather than inferred from a provider
+  default.
+- The capability sheet now describes what your provider reported for *this*
+  model — everything, some of it, or nothing — instead of a fixed claim about
+  the provider. **Detect** runs its checks one at a time, so a local server
+  loading a model no longer spends the other checks' timeouts waiting behind it,
+  and a check that could not finish is now named as unfinished instead of shown
+  as an unsupported capability.
+- Context sheet rows carry one stable label each ("Page & tab context", "Search
+  uploaded files", "Web search"); the checkmark alone shows whether a row is on.
+  Labels no longer change wording when you enable them.
+- The context summary moved under the sheet's title, where it stays visible in
+  every view, and screenshot capture joined the upload row — both stage an
+  attachment for the next message. Permissions & privacy and Attachments now
+  show a chevron, which is the sheet's only navigation affordance.
+- Dense side-panel rows across the model menu and context sheet share one
+  spacing scale. Leading edges had drifted to 8/16/18/26 pixels within a single
+  sheet, the model menu reserved about 33 pixels of unusable space on the right
+  of every row, and the tab list was capped at a height that clipped a row
+  mid-way while leaving the rest of the sheet empty.
+- Model icons are matched on name tokens. "dolphin-llama3" is no longer given
+  the Phi icon because its name contains "phi", "codellama" reaches the code
+  icon, and embedding models are recognized as embedding models before their
+  family is considered. Added icons for starcoder, mixtral, qwen, and deepseek.
+- Bumped package version to `0.12.6`.
+
+### Fixed
+
+- Chat-history storage now fills in any table it is missing when it opens.
+  Profiles first created on 0.6.0–0.9.x never got the retrieval-feedback table
+  added in 0.10.0, because the schema was only applied to a database that had no
+  chats yet — so on those profiles anything writing to it failed silently.
+- A reply that finishes without any answer now says so and offers a retry.
+  Providers report a model unloaded mid-turn — or a conversation with no room
+  left to answer in — as a successful, empty response, which used to leave a
+  blank assistant bubble with nothing to read and no way to retry.
+- Every message on the send path is now translated: the "no model selected" and
+  provider-selection warnings, the failures for creating a chat and saving a
+  message, the context-preparation failure, the grounded-only refusal, the
+  context-trimmed notice, and the retrieval warning. All of these previously
+  appeared in English regardless of the selected language.
+- YouTube transcripts now come from the video you are watching. YouTube changes
+  videos without reloading the page, so the transcript could be read from
+  whichever video the tab opened on, with nothing to indicate the mismatch.
+  Captions also prefer your browser's language when the video offers them, with
+  English as the fallback; timestamps are still included on every line.
+- A cancelled model-list request now reports the cancellation instead of
+  returning a partial catalog assembled from whatever finished first.
+- The capability sheet no longer credits a provider's catalog for a capability
+  that was actually taken from the provider default.
+- Reasoning support is no longer reported as definitively absent for LM Studio
+  models. Their catalog does not describe reasoning at all, so a reasoning model
+  could be marked as not supporting it; it is now left for a probe or your
+  override to settle.
+- Repeated model lists no longer re-request the same model details on every
+  refresh.
+- Staged images in the attachments view now fill the sheet's width instead of
+  sitting as small fixed tiles in an otherwise empty panel.
+- Restoring a backup made by version 0.6.3 or earlier now says that its chats are
+  in a format the extension no longer reads, instead of reporting the archive as
+  missing a database file. Its settings, embeddings, and knowledge sets still
+  restore.
+
+### Development
+
+- Chat-database worker failures now report their cause — message and source
+  location, including for a worker that fails to load — rather than "worker
+  crashed", and a message the worker cannot clone no longer leaves its caller
+  waiting forever. That reporting immediately identified a development-only
+  failure where the dev server's origin was missing from `worker-src`, so
+  durable chat history could never migrate to OPFS under `pnpm dev`. Packaged
+  builds are byte-identical, and a test asserts a dev origin cannot reach a
+  packaged manifest.
+- The selection overlay reads its state from a context instead of forwarding 32
+  props through five components, so adding a control is one edit rather than
+  four.
+- The chat context sheet is split by job: settings, tab-list reconciliation,
+  summary composition, and views each own a module, leaving the sheet itself at
+  about 205 lines.
+- Icons are imported from `lucide-react` directly; the re-export barrel bought
+  no bundle savings and enforced nothing, and it split the convention across 116
+  files.
+- Removed components with no caller outside their own layer, and fixed component
+  name suffixes to describe what each one renders.
+- Split the settings search/deep-link registry into one module per options tab
+  while preserving its existing public API and ordering.
+- Added a policy registry for retained runtime messages and ports, plus source
+  contracts that keep chat history behind its repository facade, SQLite
+  internals out of feature/UI code, and feature stores out of the root store
+  directory.
+- Extracted the tab-context picker from the chat context menu so tab browsing
+  and preview behavior can evolve independently from attachment and model
+  context controls.
+- Stopped generating the obsolete all-languages TypeScript catalog. App
+  translations remain source JSON files loaded as one lazy chunk per language;
+  generation now produces only extension metadata and the small selection
+  overlay catalogs.
+- Resource generation no longer runs on `pnpm install`. Every build script
+  already runs it, the committed extension locales do not depend on it, and CI
+  keeps its own generated-drift and translation gates.
+- Aligned local verification with CI's dead-code and translation-completeness
+  gates, and extended browser smoke checks to enforce lazy locale packaging for
+  both browser targets.
+
+### Documentation
+
+- `AGENTS.md` is organized around rules rather than history, and now documents
+  capability detection, the per-server differences in what a model list reports,
+  and the development-build facts that were previously only learned by
+  rediscovering them.
+
 ## [0.12.5] - 2026-07-29
 
 ### Added
@@ -620,7 +766,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.5...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.6...HEAD
+[0.12.6]: https://github.com/Shishir435/ollama-client/compare/0.12.5...0.12.6
 [0.12.5]: https://github.com/Shishir435/ollama-client/compare/0.12.4...0.12.5
 [0.12.4]: https://github.com/Shishir435/ollama-client/compare/0.12.3...0.12.4
 [0.12.3]: https://github.com/Shishir435/ollama-client/compare/0.11.27...0.12.3

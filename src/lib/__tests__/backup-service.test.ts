@@ -265,6 +265,50 @@ describe("backupService", () => {
       ).rejects.toThrow("Unsupported backup version: 99")
     })
 
+    it("names a pre-0.6.5 backup instead of reporting a missing file", async () => {
+      // Those backups carry chats as `chat-db.json`, a Dexie export. Nothing
+      // reads that format any more, and "Missing database.sqlite" reads as a
+      // corrupt archive rather than as an old one.
+      const zipInstance = {
+        file: vi.fn().mockImplementation((name) => {
+          if (name === "manifest.json")
+            return {
+              async: vi.fn().mockResolvedValue(JSON.stringify(mockManifest))
+            }
+          if (name === "chat-db.json")
+            return { async: vi.fn().mockResolvedValue(new Blob()) }
+          return null
+        })
+      }
+      vi.mocked(JSZip.loadAsync).mockResolvedValue(zipInstance as any)
+
+      const result = await backupService.importAll(new File([], "old.zip"))
+
+      expect(result.database.ok).toBe(false)
+      expect(result.database.errorKey).toBe(
+        "settings.migration.import_result.legacy_chat_backup"
+      )
+      expect(result.database.error).toBeUndefined()
+    })
+
+    it("still reports a missing database file when there is no legacy chat export", async () => {
+      const zipInstance = {
+        file: vi.fn().mockImplementation((name) =>
+          name === "manifest.json"
+            ? {
+                async: vi.fn().mockResolvedValue(JSON.stringify(mockManifest))
+              }
+            : null
+        )
+      }
+      vi.mocked(JSZip.loadAsync).mockResolvedValue(zipInstance as any)
+
+      const result = await backupService.importAll(new File([], "empty.zip"))
+
+      expect(result.database.error).toBe("Missing database.sqlite")
+      expect(result.database.errorKey).toBeUndefined()
+    })
+
     it("should import all components successfully", async () => {
       const mockFile = (content: string) => ({
         async: vi.fn().mockResolvedValue(content)

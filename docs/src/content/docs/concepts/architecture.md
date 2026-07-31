@@ -176,11 +176,13 @@ Token streaming uses runtime ports, but everything else that crosses the extensi
 |---|---|
 | `src/protocol/rpc.ts` | Protocol version, `RpcMethod` / `RpcErrorCode` enums, request and response envelopes |
 | `src/protocol/provider-rpc.ts` | Per-method request/result schemas and the typed `RpcMap` |
+| `src/protocol/model-rpc.ts` | Model lifecycle, catalog, and embedding method schemas |
 | `src/protocol/diagnostics-rpc.ts` | Diagnostics method schemas |
 | `src/protocol/rpc-registry.ts` | Per-method schema, sender policy, timeout, and operation metadata |
 | `src/protocol/extension-client.ts` | Validated client used by extension pages |
 | `src/background/rpc-server.ts` | Authorization, validation, dispatch, and safe error mapping |
 | `src/lib/providers/provider-rpc-service.ts` | Background-owned implementation of the provider operations |
+| `src/lib/providers/model-rpc-service.ts` | Background-owned implementation of model and embedding operations |
 
 Why a separate boundary instead of more message keys:
 
@@ -189,7 +191,17 @@ Why a separate boundary instead of more message keys:
 - **Queries have no write side effects.** Methods registered as queries must not persist anything, so a client timeout cannot commit stale state. Derived state is persisted only after the caller receives and accepts the result.
 - **Cancellation is end-to-end.** A client timeout sends `app-rpc-cancel`; the server aborts the matching request and the provider's model-discovery `fetch` receives that `AbortSignal`.
 
-Legacy `MESSAGE_KEYS` handlers may delegate to the RPC service during migration, but new provider request/response work is added here.
+The provider, model, embedding, and diagnostics request/response migration is
+complete. New request/response work is added as an `RpcMethod`; it must not add
+another runtime message key.
+
+Streaming ports, one-way browser/app events, and the content-script-reachable
+`PROVIDER.GET_MODELS` read intentionally remain outside RPC. RPC envelopes are
+extension-page-only, while the model read is needed by the selection overlay.
+Every retained runtime message and port is classified by transport, operation,
+and allowed source in `src/protocol/runtime-transport-registry.ts`. The two
+remaining `OLLAMA.*` values are compatibility port names, not duplicate
+request/response handlers.
 
 ## Model capabilities
 
@@ -350,7 +362,7 @@ Before replay, the artifact's `providerId` and `model` are checked against the c
 - **Chat / sessions / messages / files**: SQL WASM (`sql.js`) persisted to IndexedDB. The facade `src/lib/repositories/chat-history.ts` is the single entry point and now routes to SQLite only.
 - **Vectors / embeddings**: still on Dexie + IndexedDB via `src/lib/embeddings/storage.ts`. Not yet migrated to SQLite.
 - **Settings / provider config**: `@plasmohq/storage` via the `plasmoGlobalStorage` wrapper. Sync-safe settings use `chrome.storage.sync`; device-local keys use `chrome.storage.local`.
-- **Settings IA**: six intent tabs — General, Models, Knowledge, Browser, Privacy, and Help. Legacy deep links resolve through the settings registry.
+- **Settings IA**: six intent tabs — General, Models, Knowledge, Browser, Privacy, and Help. Each tab owns its registry entries under `src/features/settings/registry/`; the public registry preserves stable search ranking and legacy deep links.
 - **RAG splitting**: files, chat memory, and live page sources share `src/lib/embeddings/chunker.ts`; the retired parallel text-splitter tree must not be restored.
 - **Session organization**: tags are JSON stored in the SQLite `sessions.tags` column and exposed through the chat-session store. Pinned state and per-chat system prompts live on the same table.
 - **Tool-loop checkpoints**: the SQLite `tool_loop_runs` table, written at loop boundaries so an MV3 worker restart does not lose an in-flight turn.
@@ -430,7 +442,6 @@ There is no OCR pipeline, and no cross-encoder reranking. Retrieval precision co
 
 ## Known risks and technical debt
 
-- Legacy `ollama-*` keys retained for compatibility while provider naming becomes default, and some legacy `MESSAGE_KEYS` handlers still carry provider work that belongs on the RPC boundary.
 - Partial provider parity in model-management actions.
 - Two storage engines: chat history is SQLite-only, but vectors and knowledge sets are still Dexie. The Dexie *chat* fallback is retired — this is a split by domain, not a migration in progress.
 - `sql.js` ships in the production bundle. Replacing it is scoped work, not a permanent choice.
@@ -447,7 +458,5 @@ These are non-implementation notes for a hypothetical desktop port.
 
 ## Near-term priorities
 
-1. Move the remaining legacy `MESSAGE_KEYS` provider handlers onto the RPC boundary, and retire `ollama-*` naming where compatibility does not require it.
-2. Migrate vector storage and knowledge sets off Dexie when the SQLite path is ready.
-3. Expand provider parity for management actions.
-4. Improve retrieval observability and failure diagnostics.
+1. Expand provider parity for management actions.
+2. Improve retrieval observability and failure diagnostics.

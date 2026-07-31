@@ -9,19 +9,19 @@ interface DiagnosticsItem {
   value: React.ReactNode
 }
 
-interface SettingsDiagnosticsPanelProps {
+interface SettingsDiagnosticsCardProps {
   title: React.ReactNode
   items: DiagnosticsItem[]
   actions?: React.ReactNode
   className?: string
 }
 
-export const SettingsDiagnosticsPanel = ({
+export const SettingsDiagnosticsCard = ({
   title,
   items,
   actions,
   className
-}: SettingsDiagnosticsPanelProps) => (
+}: SettingsDiagnosticsCardProps) => (
   <Card size="sm" className={className}>
     <CardHeader className="pb-2">
       <div className="flex items-center justify-between gap-3">

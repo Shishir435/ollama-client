@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   providerConfig: vi.fn(),
   listModels: vi.fn(),
   backend: vi.fn(),
+  receipt: vi.fn(),
   txBegin: vi.fn(),
   txRollback: vi.fn(),
   query: vi.fn(),
@@ -42,7 +43,8 @@ vi.mock("@/lib/providers/provider-rpc-service", () => ({
   ProviderRpcService: { listModels: mocks.listModels }
 }))
 vi.mock("@/lib/persistence/backend", () => ({
-  readPersistenceBackend: mocks.backend
+  readPersistenceBackend: mocks.backend,
+  readMigrationReceipt: mocks.receipt
 }))
 vi.mock("@/lib/persistence/client", () => ({
   rpcTxBegin: mocks.txBegin,
@@ -109,6 +111,7 @@ beforeEach(() => {
     failures: []
   })
   mocks.backend.mockResolvedValue("opfs")
+  mocks.receipt.mockResolvedValue(null)
   mocks.txBegin.mockResolvedValue(undefined)
   mocks.txRollback.mockResolvedValue(undefined)
   mocks.run.mockResolvedValue({ changes: 1 })
@@ -402,5 +405,54 @@ describe("DiagnosticsService", () => {
       status: "action",
       code: "OLC-STORAGE-MIGRATION-001"
     })
+  })
+
+  it("omits migration evidence for a profile that never had a legacy blob", async () => {
+    mocks.receipt.mockResolvedValue(null)
+    const { bundle } = await DiagnosticsService.getBundle()
+
+    expect(bundle?.storage.migration).toBeUndefined()
+  })
+
+  it("reports migration failure evidence without any row counts", async () => {
+    mocks.backend.mockResolvedValue("legacy")
+    mocks.receipt.mockResolvedValue({
+      version: 1,
+      outcome: "verification-failed",
+      recordedAt: 1_700_000_000_000,
+      extensionVersion: "0.12.6",
+      attempts: 3,
+      sourceSchemaVersion: 11,
+      sourceBytes: 8_400_000,
+      // Counts describe how much a person has said. They must not leave.
+      sourceCounts: { sessions: 1482, messages: 39_204 },
+      importedCounts: { sessions: 1482, messages: 39_199 },
+      sourceIntegrity: { integrityCheck: "ok", foreignKeyViolations: 0 },
+      importedIntegrity: { integrityCheck: "ok", foreignKeyViolations: 2 },
+      mismatches: [{ table: "messages", source: 39_204, imported: 39_199 }],
+      failure: "Migration verification failed: messages short by 5"
+    })
+
+    const { bundle } = await DiagnosticsService.getBundle()
+    const migration = bundle?.storage.migration
+    const serialized = JSON.stringify(migration)
+
+    expect(migration).toMatchObject({
+      outcome: "verification-failed",
+      attempts: 3,
+      sourceSchemaVersion: 11,
+      foreignKeyViolations: 2,
+      // The shortfall, which is the diagnosable half.
+      mismatches: ["messages short by 5"]
+    })
+    // Not one of the four row counts in that receipt, through any field. An
+    // earlier version of this summary formatted `table:source→imported`, and
+    // this assertion named only the sessions count — so it passed while both
+    // message counts travelled.
+    for (const count of ["1482", "39204", "39199"]) {
+      expect(serialized).not.toContain(count)
+    }
+    expect(serialized).not.toContain("sourceCounts")
+    expect(serialized).not.toContain("sourceBytes")
   })
 })

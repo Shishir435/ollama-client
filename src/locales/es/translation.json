@@ -173,8 +173,6 @@
       "chars": "Caracteres",
       "enter_to_send": "Enviar",
       "enter_key": "Intro",
-      "rag_toggle_on": "Contexto inteligente activado",
-      "rag_toggle_off": "Contexto inteligente desactivado",
       "rag_toggle_tooltip": "Smart Context (Beta): Usar contexto de archivos y chat",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "La búsqueda web requiere llamadas a herramientas, que este modelo no admite. Activa el fallback de herramientas en la configuración del modelo.",
@@ -413,6 +411,24 @@
       "issue_draft_notice": "Rellenado localmente. Revísalo antes de enviarlo.",
       "preparing_issue": "Ejecutando comprobaciones seguras…",
       "open_diagnostics": "Abrir diagnósticos",
+      "empty_response": "El modelo terminó sin enviar ninguna respuesta. Puede que se haya descargado o que la conversación no haya dejado espacio para responder. Inténtalo de nuevo o empieza un chat nuevo.",
+      "thinking_only_response": "No recibí una respuesta final del modelo. Inténtalo de nuevo.",
+      "provider_selection_required_title": "Falta seleccionar el proveedor del modelo",
+      "provider_selection_required_description": "Selecciona un proveedor para \"{{model}}\" en el menú de modelos antes de enviar un mensaje.",
+      "no_model_selected_title": "Ningún modelo seleccionado",
+      "no_model_selected_description": "Selecciona un modelo en el menú de modelos antes de enviar un mensaje.",
+      "chat_create_failed_title": "No se pudo iniciar el chat",
+      "chat_create_failed_description": "No se pudo crear el chat. Inténtalo de nuevo.",
+      "message_save_failed_title": "No se pudo enviar el mensaje",
+      "message_save_failed_description": "No se pudo guardar el mensaje. Inténtalo de nuevo.",
+      "context_preparation_failed": "No pude preparar el contexto de este mensaje. Inténtalo de nuevo o reduce el contexto y los archivos seleccionados si sigue ocurriendo.",
+      "context_preparation_failed_title": "Falló la preparación del contexto",
+      "context_preparation_failed_description": "El mensaje se guardó, pero el asistente no pudo empezar porque falló la preparación del contexto.",
+      "insufficient_page_context": "Contexto de página insuficiente. Selecciona al menos una pestaña con contenido extraído relevante e inténtalo de nuevo.\n\nPara desactivarlo, abre [{{settingsLabel}}]({{settingsLink}}).",
+      "context_trimmed_title": "Contexto recortado",
+      "context_trimmed_description": "El contexto extraído de las pestañas superó tu límite y se recortó antes de enviarlo.",
+      "context_retrieval_warning_title": "Falló la recuperación de contexto",
+      "context_retrieval_warning_description": "No se pudo recuperar el contexto de tus archivos. Se continúa sin él.",
       "interrupted": "Respuesta interrumpida"
     },
     "composer": {
@@ -421,13 +437,17 @@
       "web": "Web"
     },
     "context": {
-      "preview_title": "El modelo verá",
       "none": "Sin contexto adicional",
       "page": "Página",
       "tabs": "{{count}} pestañas",
       "files": "{{count}} archivos",
       "knowledge": "Conocimiento",
-      "web": "Web"
+      "web": "Web",
+      "rows": {
+        "tabs": "Contexto de página y pestañas",
+        "knowledge": "Buscar en archivos subidos",
+        "web": "Búsqueda web"
+      }
     },
     "artifacts": {
       "empty": "Sin contenido de artefacto"
@@ -674,6 +694,7 @@
         "title": "Capacidades del modelo",
         "subtitle": "{{model}} · {{provider}}",
         "note_manual": "{{provider}} no puede informar las capacidades de este modelo, por lo que no podemos detectarlas. Activa lo que admite este modelo: funciones como la entrada de imágenes y las herramientas usan estos ajustes.",
+        "note_partial": "{{provider}} informa solo algunas capacidades de este modelo. Detecta las demás o activa las que sepas que admite.",
         "note_self_report": "{{provider}} informa automáticamente las capacidades de este modelo. Los cambios aquí anulan lo detectado.",
         "reset": "Restablecer a lo detectado",
         "save": "Guardar",
@@ -683,6 +704,7 @@
         "probe_button": "Detectar",
         "probe_detected": "Detectado: {{capabilities}}.",
         "probe_none_detected": "No se detectaron llamadas a herramientas, razonamiento ni visión. Aún puedes activarlos manualmente.",
+        "probe_incomplete": "No se pudo terminar de comprobar: {{capabilities}}. Vuelve a ejecutar la detección: un modelo que aún se estaba cargando suele responder al segundo intento.",
         "probe_failed": "La detección falló. Comprueba la conexión del proveedor e inténtalo de nuevo."
       },
       "flags": {
@@ -783,11 +805,9 @@
       "ready": "{{selected}}/{{total}} pestañas listas",
       "updated": "Actualizado",
       "view_content": "Ver contenido extraído",
-      "refresh_now": "Actualizar contexto ahora"
-    },
-    "toggle": {
-      "label_off": "Pestañas",
-      "label_on": "Pestaña+"
+      "refresh_now": "Actualizar contexto ahora",
+      "select_all": "Seleccionar todo",
+      "clear_selection": "Borrar selección"
     },
     "context": "Contexto",
     "inspector": {
@@ -1523,6 +1543,7 @@
           "vectorDb": "Incrustaciones vectoriales (Dexie)",
           "knowledgeDb": "Bases de conocimiento (Dexie)"
         },
+        "legacy_chat_backup": "Esta copia de seguridad se creó con la versión 0.6.3 o anterior, que guardaba los chats en un formato que la extensión ya no lee. Se restauraron sus ajustes, embeddings y conjuntos de conocimiento; sus chats no.",
         "status": {
           "success": "Éxito",
           "failed": "Fallido",

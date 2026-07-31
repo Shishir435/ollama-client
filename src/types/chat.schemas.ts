@@ -208,6 +208,7 @@ export const ChatMessageMetricsSchema = z.object({
   tabContextTruncated: z.boolean().optional(),
   contextBuildFailed: z.boolean().optional(),
   thinkingOnlyResponse: z.boolean().optional(),
+  emptyResponse: z.boolean().optional(),
   interrupted: z.boolean().optional()
 })
 

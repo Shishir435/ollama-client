@@ -1,6 +1,6 @@
+import { Loader2, MessageSquare } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,6 @@ import {
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useDebounce } from "@/hooks/use-debounce"
 import { logger } from "@/lib/logger"
-import { Loader2, MessageSquare } from "@/lib/lucide-icon"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
 
 import { SearchEmptyState } from "./search/search-empty-state"

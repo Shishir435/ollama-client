@@ -173,8 +173,6 @@
       "chars": "Caratteri",
       "enter_to_send": "Invia",
       "enter_key": "Invio",
-      "rag_toggle_on": "Contesto intelligente attivo",
-      "rag_toggle_off": "Contesto intelligente disattivato",
       "rag_toggle_tooltip": "Smart Context (Beta): Usa contesto file e chat",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "La ricerca web richiede le chiamate agli strumenti, che questo modello non supporta. Attiva il fallback degli strumenti nelle impostazioni del modello.",
@@ -413,6 +411,24 @@
       "issue_draft_notice": "Precompilata localmente. Controlla prima di inviare.",
       "preparing_issue": "Esecuzione dei controlli sicuri…",
       "open_diagnostics": "Apri diagnostica",
+      "empty_response": "Il modello ha terminato senza inviare una risposta. Potrebbe essere stato scaricato, o la conversazione potrebbe non aver lasciato spazio per rispondere. Riprova o avvia una nuova chat.",
+      "thinking_only_response": "Non ho ricevuto una risposta finale dal modello. Riprova.",
+      "provider_selection_required_title": "Selezione del provider richiesta",
+      "provider_selection_required_description": "Seleziona un provider per \"{{model}}\" nel menu dei modelli prima di inviare un messaggio.",
+      "no_model_selected_title": "Nessun modello selezionato",
+      "no_model_selected_description": "Seleziona un modello nel menu dei modelli prima di inviare un messaggio.",
+      "chat_create_failed_title": "Impossibile avviare la chat",
+      "chat_create_failed_description": "Creazione della chat non riuscita. Riprova.",
+      "message_save_failed_title": "Impossibile inviare il messaggio",
+      "message_save_failed_description": "Salvataggio del messaggio non riuscito. Riprova.",
+      "context_preparation_failed": "Non ho potuto preparare il contesto per questo messaggio. Riprova, oppure riduci il contesto e i file selezionati se continua a capitare.",
+      "context_preparation_failed_title": "Preparazione del contesto non riuscita",
+      "context_preparation_failed_description": "Il messaggio è stato salvato, ma l'assistente non è potuto partire perché la preparazione del contesto non è riuscita.",
+      "insufficient_page_context": "Contesto di pagina insufficiente. Seleziona almeno una scheda con contenuto estratto pertinente e riprova.\n\nPer disattivarlo, apri [{{settingsLabel}}]({{settingsLink}}).",
+      "context_trimmed_title": "Contesto ridotto",
+      "context_trimmed_description": "Il contesto estratto dalle schede superava il tuo limite ed è stato ridotto prima dell'invio.",
+      "context_retrieval_warning_title": "Recupero del contesto non riuscito",
+      "context_retrieval_warning_description": "Non è stato possibile recuperare il contesto dai tuoi file. Si continua senza.",
       "interrupted": "Risposta interrotta"
     },
     "composer": {
@@ -421,13 +437,17 @@
       "web": "Web"
     },
     "context": {
-      "preview_title": "Il modello vedrà",
       "none": "Nessun contesto aggiuntivo",
       "page": "Pagina",
       "tabs": "{{count}} schede",
       "files": "{{count}} file",
       "knowledge": "Conoscenza",
-      "web": "Web"
+      "web": "Web",
+      "rows": {
+        "tabs": "Contesto di pagina e schede",
+        "knowledge": "Cerca nei file caricati",
+        "web": "Ricerca web"
+      }
     },
     "artifacts": {
       "empty": "Nessun contenuto dell'artefatto"
@@ -674,6 +694,7 @@
         "title": "Capacità del modello",
         "subtitle": "{{model}} · {{provider}}",
         "note_manual": "{{provider}} non può segnalare le capacità di questo modello, quindi non possiamo rilevarle. Attiva ciò che questo modello supporta: funzioni come l'input di immagini e gli strumenti usano queste impostazioni.",
+        "note_partial": "{{provider}} segnala solo alcune capacità di questo modello. Rileva le altre o attiva quelle che sai supportate.",
         "note_self_report": "{{provider}} segnala automaticamente le capacità di questo modello. Le modifiche qui sovrascrivono ciò che è stato rilevato.",
         "reset": "Ripristina ai valori rilevati",
         "save": "Salva",
@@ -683,6 +704,7 @@
         "probe_button": "Rileva",
         "probe_detected": "Rilevate: {{capabilities}}.",
         "probe_none_detected": "Nessuna chiamata di strumenti, ragionamento o visione rilevati. Puoi comunque attivarli manualmente.",
+        "probe_incomplete": "Controllo non completato: {{capabilities}}. Esegui di nuovo il rilevamento: un modello ancora in caricamento risponde spesso al secondo tentativo.",
         "probe_failed": "Rilevamento non riuscito. Controlla la connessione al provider e riprova."
       },
       "flags": {
@@ -783,11 +805,9 @@
       "ready": "{{selected}}/{{total}} schede pronte",
       "updated": "Aggiornato",
       "view_content": "Visualizza contenuto estratto",
-      "refresh_now": "Aggiorna contesto ora"
-    },
-    "toggle": {
-      "label_off": "Schede",
-      "label_on": "Scheda+"
+      "refresh_now": "Aggiorna contesto ora",
+      "select_all": "Seleziona tutto",
+      "clear_selection": "Cancella selezione"
     },
     "context": "Contesto",
     "inspector": {
@@ -1523,6 +1543,7 @@
           "vectorDb": "Incorporamenti vettoriali (Dexie)",
           "knowledgeDb": "Set di conoscenze (Dexie)"
         },
+        "legacy_chat_backup": "Questo backup è stato creato dalla versione 0.6.3 o precedente, che salvava le chat in un formato che l'estensione non legge più. Impostazioni, embedding e raccolte di conoscenza sono stati ripristinati; le chat no.",
         "status": {
           "success": "Successo",
           "failed": "Fallito",

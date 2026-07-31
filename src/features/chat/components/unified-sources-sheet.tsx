@@ -1,10 +1,3 @@
-import { type ReactNode, useMemo, useState } from "react"
-import { useTranslation } from "react-i18next"
-
-import { TooltipActionButton } from "@/components/actions"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import {
   BookOpen,
   Bot,
@@ -17,7 +10,13 @@ import {
   Info,
   type LucideIcon,
   User
-} from "@/lib/lucide-icon"
+} from "lucide-react"
+import { type ReactNode, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { TooltipActionButton } from "@/components/actions"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { cn } from "@/lib/utils"
 import { ChunkFeedbackButton } from "./chunk-feedback-button"
 import { CopyButton } from "./copy-button"

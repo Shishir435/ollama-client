@@ -1,8 +1,8 @@
+import { Zap } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { Zap } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const StartChatButton = ({ className }: { className?: string }) => {

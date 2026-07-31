@@ -21,6 +21,10 @@ import {
   createSelectionOverlayState,
   reduceSelectionOverlayState
 } from "@/features/selection-actions/overlay-state"
+import {
+  type SelectionOverlayContextValue,
+  SelectionOverlayProvider
+} from "@/features/selection-actions/selection-overlay-context"
 import type { SelectionActionId } from "@/features/selection-actions/types"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { sendRuntimeMessage } from "@/lib/runtime-messages"
@@ -237,42 +241,51 @@ export function SelectionOverlayApp({
   // ── Render ───────────────────────────────────────────────────────────
   if (state.panelState === "idle" && state.mode !== "toolbar") return null
 
+  // The overlay tree reads this instead of receiving 32 forwarded props. Not
+  // memoized on purpose: `resultText` changes on every streamed token, so the
+  // tree re-renders regardless and a stable value would only hide that.
+  const overlay: SelectionOverlayContextValue = {
+    mode: state.mode,
+    panelState: state.panelState,
+    currentAction: state.currentAction,
+    enabledActionIds,
+    isMoreMenuOpen: state.isMoreMenuOpen,
+    resultText: state.resultText,
+    errorText: state.errorText,
+    isThinking: state.isThinking,
+    thinkingText: state.thinkingText,
+    availableModels,
+    panelModel: panelModelRef.current,
+    canReplace,
+    canInsert,
+    isPinned: state.isPinned,
+    customInstruction: state.customInstruction,
+    tooltipContainer,
+    actions: {
+      // Opening an action and switching the panel's action select are the same
+      // operation — both run the action — so this replaces the previous
+      // onRunAction / onActionChange pair that pointed at one function.
+      runAction,
+      changeModel: onModelChange,
+      toggleMore: () => dispatch({ type: "menu.toggle" }),
+      togglePin: () => dispatch({ type: "pin.toggle" }),
+      copy: handleCopy,
+      replace: handleReplace,
+      insertBelow: handleInsert,
+      openChat: handleOpenChat,
+      retry: handleRetry,
+      cancel: handleCancel,
+      back: handleBack,
+      close: onClose,
+      setCustomInstruction: (value) => dispatch({ type: "custom.set", value }),
+      runCustom: handleRunCustom,
+      startDrag: handleDragStart
+    }
+  }
+
   return (
-    <SelectionActionsOverlay
-      mode={state.mode}
-      panelState={state.panelState}
-      currentAction={state.currentAction}
-      enabledActionIds={enabledActionIds}
-      isMoreMenuOpen={state.isMoreMenuOpen}
-      resultText={state.resultText}
-      errorText={state.errorText}
-      isThinking={state.isThinking}
-      thinkingText={state.thinkingText}
-      availableModels={availableModels}
-      panelModel={panelModelRef.current}
-      onModelChange={onModelChange}
-      canReplace={canReplace}
-      canInsert={canInsert}
-      tooltipContainer={tooltipContainer}
-      isPinned={state.isPinned}
-      customInstruction={state.customInstruction}
-      onRunAction={runAction}
-      onActionChange={runAction}
-      onBack={handleBack}
-      onToggleMore={() => dispatch({ type: "menu.toggle" })}
-      onCopy={handleCopy}
-      onReplace={handleReplace}
-      onInsertBelow={handleInsert}
-      onOpenChat={handleOpenChat}
-      onRetry={handleRetry}
-      onCancel={handleCancel}
-      onClose={onClose}
-      onTogglePin={() => dispatch({ type: "pin.toggle" })}
-      onCustomInstructionChange={(value) =>
-        dispatch({ type: "custom.set", value })
-      }
-      onRunCustom={handleRunCustom}
-      onDragStart={handleDragStart}
-    />
+    <SelectionOverlayProvider value={overlay}>
+      <SelectionActionsOverlay />
+    </SelectionOverlayProvider>
   )
 }

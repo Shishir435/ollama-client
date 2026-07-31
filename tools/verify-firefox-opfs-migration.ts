@@ -393,9 +393,11 @@ const runScenarios = async (): Promise<void> => {
       sessions: number
       messages: number
       blobBytes: number
+      tables: Record<string, number>
     }>(driver, "seedLegacyBlob", FIXTURE_SESSIONS, FIXTURE_MESSAGES)
     const sourceDigest = await call<string>(driver, "readLegacyBlobDigest")
     await call<void>(driver, "clearMarker")
+    await call<void>(driver, "clearMigrationReceipt")
 
     // A full restart on the same profile, matching the Chromium runner's
     // choice: the migration has to run on a cold boot, not on a soft reload.
@@ -405,10 +407,21 @@ const runScenarios = async (): Promise<void> => {
     firstTab = await openVerifyTab(driver)
 
     const migratedMarker = await waitForOpfsMarker(driver, 60000)
-    const migratedCounts = await call<{ sessions: number; messages: number }>(
-      driver,
-      "counts"
-    )
+    const migratedCounts = await call<{
+      sessions: number
+      messages: number
+      tables: Record<string, number>
+    }>(driver, "counts")
+    const migratedIntegrity = await call<{
+      integrityCheck: string
+      foreignKeyViolations: number
+    }>(driver, "integrityInfo")
+    const migratedReceipt = await call<{
+      outcome?: string
+      sourceSchemaVersion?: number
+      sourceCounts?: Record<string, number>
+      importedIntegrity?: { integrityCheck?: string }
+    }>(driver, "migrationReceipt")
     const blobAfter = await call<number>(driver, "readLegacyBlobLength")
     const digestAfter = await call<string>(driver, "readLegacyBlobDigest")
     record(
@@ -419,6 +432,27 @@ const runScenarios = async (): Promise<void> => {
       { seeded, migratedMarker, migratedCounts }
     )
     record(
+      "every-durable-table-migrated",
+      Object.entries(seeded.tables).every(
+        ([table, count]) => count === 0 || migratedCounts.tables[table] === count
+      ),
+      { seeded: seeded.tables, migrated: migratedCounts.tables }
+    )
+    record(
+      "migrated-database-is-sound",
+      migratedIntegrity.integrityCheck === "ok" &&
+        migratedIntegrity.foreignKeyViolations === 0,
+      migratedIntegrity
+    )
+    record(
+      "migration-receipt-recorded",
+      migratedReceipt?.outcome === "migrated" &&
+        typeof migratedReceipt.sourceSchemaVersion === "number" &&
+        migratedReceipt.sourceCounts?.sessions === FIXTURE_SESSIONS &&
+        migratedReceipt.importedIntegrity?.integrityCheck === "ok",
+      migratedReceipt
+    )
+    record(
       "rollback-blob-untouched",
       blobAfter === seeded.blobBytes && digestAfter === sourceDigest,
       {
@@ -427,6 +461,20 @@ const runScenarios = async (): Promise<void> => {
         digestAfter,
         sourceDigest
       }
+    )
+
+    // ---- 3b. Operator override returns this profile to the retained blob ----
+    await call<void>(driver, "setLegacyOverride", true)
+    const overriddenBackend = await call<string>(driver, "activeBackend")
+    const overriddenCounts = await call<{ sessions: number }>(driver, "counts")
+    await call<void>(driver, "setLegacyOverride", false)
+    const restoredBackend = await call<string>(driver, "activeBackend")
+    record(
+      "override-serves-legacy-blob",
+      overriddenBackend === "legacy" &&
+        overriddenCounts.sessions === FIXTURE_SESSIONS &&
+        restoredBackend === "opfs",
+      { overriddenBackend, overriddenCounts, restoredBackend }
     )
 
     // ---- 4. Backup export served by the OPFS owner ----

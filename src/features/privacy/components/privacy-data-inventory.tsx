@@ -1,15 +1,10 @@
+import { Database, HardDrive, MessageSquare, ShieldCheck } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { getStorageStats } from "@/lib/embeddings/vector-store"
 import { knowledgeDb } from "@/lib/knowledge/knowledge-sets"
-import {
-  Database,
-  HardDrive,
-  MessageSquare,
-  ShieldCheck
-} from "@/lib/lucide-icon"
 import { countMessages, getAllSessions } from "@/lib/repositories/chat-history"
 
 interface InventoryCounts {

@@ -1,7 +1,7 @@
+import { TriangleAlert } from "lucide-react"
 import { memo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
-import { TriangleAlert } from "@/lib/lucide-icon"
 import type { ChatMessage } from "@/types"
 import { ChatErrorReportAction } from "./chat-error-report-action"
 import { ChatMessageContainer } from "./chat-message-container"
@@ -44,7 +44,11 @@ export const ChatMessageBubble = memo(
       !isLoading && !isStreaming && hasAssistantError(msg)
     const canRetry =
       !isUser &&
-      (Boolean(msg.error?.retryable) || Boolean(msg.metrics?.interrupted)) &&
+      // An empty answer is retryable for the same reason an interrupted one is:
+      // the turn ended without one, and asking again is the whole fix.
+      (Boolean(msg.error?.retryable) ||
+        Boolean(msg.metrics?.interrupted) ||
+        Boolean(msg.metrics?.emptyResponse)) &&
       Boolean(onRegenerate) &&
       !isLoading &&
       !isStreaming

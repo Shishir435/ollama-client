@@ -1,6 +1,6 @@
+import { Check, ChevronsUpDown, Loader2, Mic } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,7 +17,6 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import { Check, ChevronsUpDown, Loader2, Mic } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export interface VoiceSelectorProps {

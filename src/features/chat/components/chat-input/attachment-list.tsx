@@ -1,6 +1,8 @@
+import { CircleCheck, FileText, Loader2, X } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
+import { EmptyState } from "@/components/feedback"
 import {
   Collapsible,
   CollapsibleContent,
@@ -8,7 +10,6 @@ import {
 } from "@/components/ui/collapsible"
 import type { FileProcessingState } from "@/lib/file-processors/types"
 import { toDataUrl } from "@/lib/image-utils"
-import { CircleCheck, FileText, Loader2, X } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { ImageAttachment } from "@/types"
 import { CopyButton } from "../copy-button"
@@ -47,11 +48,16 @@ export function AttachmentList({
   return (
     <div className="space-y-2">
       {images.length > 0 && (
-        <div className="flex flex-wrap gap-2 pb-1">
+        // A responsive grid rather than fixed 64px tiles in a flex-wrap. In the
+        // Context sheet's attachments view the old thumbnails read as two stamps
+        // stranded in an otherwise empty full-height sheet; tiles that divide the
+        // available width fill it at any count, and `auto-fill` still packs a
+        // long list four to a row.
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-2 pb-1">
           {images.map((image) => (
             <div
               key={image.imageId}
-              className="group relative size-16 overflow-hidden rounded-panel border border-border/35 bg-background/35">
+              className="group relative aspect-square overflow-hidden rounded-panel border border-border/35 bg-background/35">
               <img
                 src={toDataUrl(image.mimeType, image.base64)}
                 alt={image.fileName}
@@ -75,9 +81,12 @@ export function AttachmentList({
         </div>
       )}
       {successfulStates.length === 0 && images.length === 0 && (
-        <p className="rounded-control border border-border/35 bg-background/35 p-3 text-xs text-muted-foreground">
-          {t("file_upload.area.files_ready", { count: 0 })}
-        </p>
+        <EmptyState
+          density="compact"
+          icon={FileText}
+          title={t("file_upload.area.files_ready", { count: 0 })}
+          className="rounded-control border border-border/35 bg-background/35"
+        />
       )}
       {successfulStates.map((state) => {
         const previewText = state.result?.text?.trim() ?? ""

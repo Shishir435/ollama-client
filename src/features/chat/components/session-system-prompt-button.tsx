@@ -1,6 +1,6 @@
+import { Bot } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,7 +14,6 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { Bot } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 /**

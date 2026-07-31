@@ -1,6 +1,6 @@
+import { Bug, Check, Copy, Loader2 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { Button } from "@/components/ui/button"
 import {
   type ErrorRecoveryAction,
@@ -16,7 +16,6 @@ import {
 } from "@/lib/error-report"
 import { sanitizeProviderBaseUrl } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { Bug, Check, Copy, Loader2 } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { DiagnosticsGetBundleResult } from "@/protocol/diagnostics-rpc"
 import { extensionRpcClient } from "@/protocol/extension-client"

@@ -1,6 +1,6 @@
+import { Info, type LucideIcon } from "lucide-react"
 import type React from "react"
 import { useTranslation } from "react-i18next"
-
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog"
 import type { SettingWrite } from "@/features/settings/apply-settings"
 import { getPresetFieldMeta } from "@/features/settings/preset-field-meta"
-import { Info, type LucideIcon } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 /** camelCase / kebab / snake → "Sentence case". */

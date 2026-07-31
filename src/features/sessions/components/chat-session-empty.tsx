@@ -1,5 +1,5 @@
+import { MessageSquare, Search } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { MessageSquare, Search } from "@/lib/lucide-icon"
 
 export const ChatSessionEmpty = ({
   variant = "sessions"

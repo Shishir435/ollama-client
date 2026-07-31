@@ -1,6 +1,6 @@
+import { Brain, ChevronDown, Loader2, RefreshCw, Trash } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -11,13 +11,6 @@ import {
 } from "@/components/ui/collapsible"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { logger } from "@/lib/logger"
-import {
-  Brain,
-  ChevronDown,
-  Loader2,
-  RefreshCw,
-  Trash
-} from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import type { LoadedModel } from "@/protocol/model-rpc"

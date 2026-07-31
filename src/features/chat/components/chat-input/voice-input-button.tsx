@@ -1,13 +1,12 @@
+import { Loader2, Mic } from "lucide-react"
 import { useCallback, useRef } from "react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { useSpeechRecognition } from "@/features/chat/hooks/use-speech-recognition"
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
 import { useToast } from "@/hooks/use-toast"
 import { browser } from "@/lib/browser-api"
 import { logger } from "@/lib/logger"
-import { Loader2, Mic } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export interface VoiceInputButtonProps {

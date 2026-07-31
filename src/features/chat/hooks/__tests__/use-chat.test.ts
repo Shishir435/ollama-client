@@ -363,7 +363,7 @@ describe("useChat", () => {
     expect(toastMock).toHaveBeenCalledWith(
       expect.objectContaining({
         variant: "destructive",
-        title: "Context preparation failed"
+        title: "chat.errors.context_preparation_failed_title"
       })
     )
   })
@@ -432,7 +432,7 @@ describe("useChat", () => {
     expect(toastMock).toHaveBeenCalledWith(
       expect.objectContaining({
         variant: "destructive",
-        title: "Context preparation failed"
+        title: "chat.errors.context_preparation_failed_title"
       })
     )
   })

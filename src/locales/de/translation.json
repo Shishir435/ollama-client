@@ -173,8 +173,6 @@
       "chars": "Zeichen",
       "enter_to_send": "Senden",
       "enter_key": "Eingabe",
-      "rag_toggle_on": "Intelligenter Kontext aktiviert",
-      "rag_toggle_off": "Intelligenter Kontext deaktiviert",
       "rag_toggle_tooltip": "Smart Context (Beta): Datei- & Chat-Kontext verwenden",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "Websuche benötigt Tool-Aufrufe, die dieses Modell nicht unterstützt. Aktiviere den Tool-Fallback in den Modelleinstellungen.",
@@ -413,6 +411,24 @@
       "issue_draft_notice": "Lokal vorausgefüllt. Vor dem Absenden prüfen.",
       "preparing_issue": "Sichere Prüfungen laufen…",
       "open_diagnostics": "Diagnose öffnen",
+      "empty_response": "Das Modell hat die Antwort beendet, ohne etwas zu senden. Möglicherweise wurde es entladen oder der Verlauf ließ keinen Platz für eine Antwort. Versuche es erneut oder starte einen neuen Chat.",
+      "thinking_only_response": "Ich habe keine endgültige Antwort vom Modell erhalten. Bitte versuche es erneut.",
+      "provider_selection_required_title": "Anbieterauswahl erforderlich",
+      "provider_selection_required_description": "Wähle im Modellmenü einen Anbieter für \"{{model}}\", bevor du eine Nachricht sendest.",
+      "no_model_selected_title": "Kein Modell ausgewählt",
+      "no_model_selected_description": "Wähle im Modellmenü ein Modell, bevor du eine Nachricht sendest.",
+      "chat_create_failed_title": "Chat konnte nicht gestartet werden",
+      "chat_create_failed_description": "Das Erstellen des Chats ist fehlgeschlagen. Bitte versuche es erneut.",
+      "message_save_failed_title": "Nachricht konnte nicht gesendet werden",
+      "message_save_failed_description": "Das Speichern der Nachricht ist fehlgeschlagen. Bitte versuche es erneut.",
+      "context_preparation_failed": "Ich konnte den Kontext für diese Nachricht nicht vorbereiten. Bitte versuche es erneut oder reduziere den ausgewählten Kontext bzw. die Dateien, wenn das weiterhin passiert.",
+      "context_preparation_failed_title": "Kontextvorbereitung fehlgeschlagen",
+      "context_preparation_failed_description": "Die Nachricht wurde gespeichert, aber der Assistent konnte nicht starten, weil die Kontextvorbereitung fehlgeschlagen ist.",
+      "insufficient_page_context": "Nicht genügend Seitenkontext. Wähle mindestens einen Tab mit relevantem extrahierten Inhalt und versuche es erneut.\n\nUm das abzuschalten, öffne [{{settingsLabel}}]({{settingsLink}}).",
+      "context_trimmed_title": "Kontext gekürzt",
+      "context_trimmed_description": "Der extrahierte Tab-Kontext hat dein Limit überschritten und wurde vor dem Senden gekürzt.",
+      "context_retrieval_warning_title": "Kontextabruf fehlgeschlagen",
+      "context_retrieval_warning_description": "Der Kontext aus deinen Dateien konnte nicht abgerufen werden. Es geht ohne ihn weiter.",
       "interrupted": "Antwort unterbrochen"
     },
     "composer": {
@@ -421,13 +437,17 @@
       "web": "Web"
     },
     "context": {
-      "preview_title": "Das Modell sieht",
       "none": "Kein zusätzlicher Kontext",
       "page": "Seite",
       "tabs": "{{count}} Tabs",
       "files": "{{count}} Dateien",
       "knowledge": "Wissen",
-      "web": "Web"
+      "web": "Web",
+      "rows": {
+        "tabs": "Seiten- und Tab-Kontext",
+        "knowledge": "Hochgeladene Dateien durchsuchen",
+        "web": "Websuche"
+      }
     },
     "artifacts": {
       "empty": "Kein Artefakt-Inhalt"
@@ -674,6 +694,7 @@
         "title": "Modellfähigkeiten",
         "subtitle": "{{model}} · {{provider}}",
         "note_manual": "{{provider}} kann die Fähigkeiten dieses Modells nicht melden, daher können wir sie nicht erkennen. Aktiviere, was dieses Modell unterstützt – Funktionen wie Bildeingabe und Tools verwenden diese Einstellungen.",
+        "note_partial": "{{provider}} meldet nur einen Teil der Fähigkeiten dieses Modells. Erkenne den Rest oder aktiviere, was das Modell unterstützt.",
         "note_self_report": "{{provider}} meldet die Fähigkeiten dieses Modells automatisch. Änderungen hier überschreiben die erkannten Werte.",
         "reset": "Auf erkannt zurücksetzen",
         "save": "Speichern",
@@ -683,6 +704,7 @@
         "probe_button": "Erkennen",
         "probe_detected": "Erkannt: {{capabilities}}.",
         "probe_none_detected": "Keine Tool-Aufrufe, Reasoning oder Vision erkannt. Du kannst sie weiterhin manuell aktivieren.",
+        "probe_incomplete": "Prüfung nicht abgeschlossen: {{capabilities}}. Führe die Erkennung erneut aus — ein Modell, das noch geladen wurde, antwortet meist beim zweiten Versuch.",
         "probe_failed": "Erkennung fehlgeschlagen. Prüfe die Verbindung zum Anbieter und versuche es erneut."
       },
       "flags": {
@@ -783,11 +805,9 @@
       "ready": "{{selected}}/{{total}} Tabs bereit",
       "updated": "Aktualisiert",
       "view_content": "Extrahierten Inhalt anzeigen",
-      "refresh_now": "Kontext jetzt aktualisieren"
-    },
-    "toggle": {
-      "label_off": "Aus",
-      "label_on": "Ein"
+      "refresh_now": "Kontext jetzt aktualisieren",
+      "select_all": "Alle auswählen",
+      "clear_selection": "Auswahl aufheben"
     },
     "context": "Kontext",
     "inspector": {
@@ -1523,6 +1543,7 @@
           "vectorDb": "Vektor-Embeddings (Dexie)",
           "knowledgeDb": "Wissensdatenbanken (Dexie)"
         },
+        "legacy_chat_backup": "Dieses Backup wurde mit Version 0.6.3 oder älter erstellt und speichert Chats in einem Format, das die Erweiterung nicht mehr liest. Einstellungen, Embeddings und Wissenssammlungen wurden wiederhergestellt, die Chats nicht.",
         "status": {
           "success": "Erfolg",
           "failed": "Fehlgeschlagen",

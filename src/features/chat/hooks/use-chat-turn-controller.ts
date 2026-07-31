@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import type { BuildRagContextResult } from "@/features/chat/hooks/build-rag-context"
 import {
   buildUserMessage,
@@ -18,7 +19,11 @@ import type {
   RagSources
 } from "@/types"
 
-type ToastFn = (input: TurnToast) => void
+type ToastFn = (input: {
+  variant?: "default" | "destructive"
+  title: string
+  description?: string
+}) => void
 
 interface UseChatTurnControllerOptions {
   config: ReturnType<typeof useChatConfig>
@@ -69,6 +74,23 @@ export const useChatTurnController = ({
     ActivityEvent[]
   >([])
   const { buildContext } = useBuildContext()
+  const { t } = useTranslation()
+
+  /** Resolves a pure module's key-named toast into displayable copy. */
+  const showTurnToast = (turnToast: TurnToast) => {
+    toast({
+      ...(turnToast.variant ? { variant: turnToast.variant } : {}),
+      title: t(turnToast.titleKey),
+      ...(turnToast.descriptionKey
+        ? {
+            description: t(
+              turnToast.descriptionKey,
+              turnToast.descriptionValues
+            )
+          }
+        : {})
+    })
+  }
 
   const sendMessage = async (
     customInput?: string,
@@ -94,7 +116,7 @@ export const useChatTurnController = ({
       resolvedModel
     })
     if (!verdict.proceed) {
-      if (verdict.toast) toast(verdict.toast)
+      if (verdict.toast) showTurnToast(verdict.toast)
       return false
     }
 
@@ -118,8 +140,8 @@ export const useChatTurnController = ({
       setIsLoading(false)
       toast({
         variant: "destructive",
-        title: "Couldn't start chat",
-        description: "Creating the chat failed. Please try again."
+        title: t("chat.errors.chat_create_failed_title"),
+        description: t("chat.errors.chat_create_failed_description")
       })
       return false
     }
@@ -148,8 +170,8 @@ export const useChatTurnController = ({
       setIsLoading(false)
       toast({
         variant: "destructive",
-        title: "Couldn't send message",
-        description: "Saving the message failed. Please try again."
+        title: t("chat.errors.message_save_failed_title"),
+        description: t("chat.errors.message_save_failed_description")
       })
       return false
     }
@@ -200,7 +222,7 @@ export const useChatTurnController = ({
               ...events
             ])
           },
-          toast
+          toast: showTurnToast
         }
       )
     } catch (error) {
@@ -213,8 +235,7 @@ export const useChatTurnController = ({
       try {
         await addMessage(sessionId, {
           role: "assistant",
-          content:
-            "I couldn't prepare the context for this message. Please try again, or reduce the selected context/files if this keeps happening.",
+          content: t("chat.errors.context_preparation_failed"),
           done: true,
           model: resolvedModel,
           metrics: {
@@ -231,9 +252,8 @@ export const useChatTurnController = ({
 
       toast({
         variant: "destructive",
-        title: "Context preparation failed",
-        description:
-          "The message was saved, but the assistant could not start because context preparation failed."
+        title: t("chat.errors.context_preparation_failed_title"),
+        description: t("chat.errors.context_preparation_failed_description")
       })
       return true
     }
@@ -257,7 +277,12 @@ export const useChatTurnController = ({
 
       await addMessage(sessionId, {
         role: "assistant",
-        content: `Insufficient page context. Select at least one tab with relevant extracted content and try again.\n\nIf you want to disable this behavior, go to [Settings > Context > Answer only from selected page context](${settingsDeepLink}).`,
+        // The link text is the setting's own label, so renaming the setting
+        // cannot leave this message naming something the user cannot find.
+        content: t("chat.errors.insufficient_page_context", {
+          settingsLabel: t("settings.grounding_mode.label"),
+          settingsLink: settingsDeepLink
+        }),
         done: true,
         model: resolvedModel,
         metrics: {
@@ -309,9 +334,8 @@ export const useChatTurnController = ({
 
     if (promptContextStats.tabContextTruncated) {
       toast({
-        title: "Context trimmed",
-        description:
-          "Extracted tab context exceeded your limit and was trimmed before sending."
+        title: t("chat.errors.context_trimmed_title"),
+        description: t("chat.errors.context_trimmed_description")
       })
     }
 

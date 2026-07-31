@@ -1,3 +1,4 @@
+import { Clock, Copy, Eye, Filter, Search, Star, Tag, Zap } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
@@ -11,16 +12,6 @@ import { usePromptTemplateResolution } from "@/features/prompt/hooks/use-prompt-
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
 import type { PromptTemplateVariableContext } from "@/features/prompt/lib/prompt-template-variables"
 import { logger } from "@/lib/logger"
-import {
-  Clock,
-  Copy,
-  Eye,
-  Filter,
-  Search,
-  Star,
-  Tag,
-  Zap
-} from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 import type { PromptTemplate } from "@/types"
 import { PromptTemplateVariableBadges } from "./prompt-template-variable-badges"

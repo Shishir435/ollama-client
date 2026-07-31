@@ -1,8 +1,7 @@
+import { MessageSquare } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { SettingsCard, SettingsSwitch } from "@/components/settings"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
-import { MessageSquare } from "@/lib/lucide-icon"
 
 export const ChatDisplaySettings = () => {
   const { t } = useTranslation()

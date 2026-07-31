@@ -2,7 +2,7 @@ import { MESSAGE_KEYS } from "@/lib/constants/keys"
 import { vectorDb } from "@/lib/embeddings/db"
 import { getErrorMessage } from "@/lib/error-utils"
 import { knowledgeDb } from "@/lib/knowledge/knowledge-sets"
-import { flushSave } from "@/lib/sqlite/db"
+import { flushChatHistory } from "@/lib/repositories/chat-history"
 
 type RuntimeMessage = { type?: string }
 
@@ -30,7 +30,7 @@ const reopenDexieHandles = (): void => {
 export const createSidepanelRuntimeMessageListener = (
   dependencies: SidepanelMessageDependencies = {}
 ) => {
-  const flush = dependencies.flush ?? flushSave
+  const flush = dependencies.flush ?? flushChatHistory
   const reload = dependencies.reload ?? (() => window.location.reload())
   const closeDexie = dependencies.closeDexie ?? closeDexieHandles
   const reopenDexie = dependencies.reopenDexie ?? reopenDexieHandles

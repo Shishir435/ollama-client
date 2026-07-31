@@ -1,9 +1,8 @@
+import { Mic, MicOff } from "lucide-react"
 import { useTranslation } from "react-i18next"
-
 import { TooltipActionButton } from "@/components/actions"
 import { useSpeechSynthesis } from "@/features/chat/hooks/use-speech-synthesis"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
-import { Mic, MicOff } from "@/lib/lucide-icon"
 
 export interface SpeakButtonProps {
   text: string

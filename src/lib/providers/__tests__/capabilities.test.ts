@@ -316,3 +316,96 @@ describe("getModelCapabilities", () => {
     })
   })
 })
+
+describe("LM Studio reported capability tags", () => {
+  const base = {
+    providerId: ProviderId.LM_STUDIO,
+    lmStudioModelType: "vlm",
+    contextLength: 262144
+  }
+
+  it("reads tool calling from the catalog instead of the provider default", () => {
+    const resolved = getModelCapabilities({
+      ...base,
+      capabilityTags: ["tool_use"]
+    })
+
+    expect(resolved.toolCalling).toBe(true)
+    expect(resolved.source).toBe("model-metadata")
+  })
+
+  it("treats a tag list without tool_use as a reported no", () => {
+    const resolved = getModelCapabilities({
+      ...base,
+      capabilityTags: ["something_else"]
+    })
+
+    expect(resolved.toolCalling).toBe(false)
+  })
+
+  it("falls back to the provider default when no tags arrive", () => {
+    const resolved = getModelCapabilities(base)
+
+    expect(resolved.confidence).toBe("medium")
+  })
+
+  it("treats an empty tag list as missing evidence, not a no", () => {
+    // Empty arrays are placeholders often enough that they must not read as a
+    // reported negative — the same rule modalities follow.
+    expect(
+      getModelCapabilities({ ...base, capabilityTags: [] }).confidence
+    ).toBe("medium")
+  })
+
+  it("keeps vision and embeddings coming from the model type", () => {
+    const vlm = getModelCapabilities({ ...base, capabilityTags: ["tool_use"] })
+    expect(vlm.vision).toBe(true)
+    expect(vlm.embeddings).toBe(false)
+
+    const embed = getModelCapabilities({
+      ...base,
+      lmStudioModelType: "embeddings",
+      capabilityTags: ["tool_use"]
+    })
+    expect(embed.embeddings).toBe(true)
+    expect(embed.text).toBe(false)
+  })
+
+  it("attributes tool calling to metadata in the per-flag states", () => {
+    const states = getModelCapabilityStates({
+      ...base,
+      capabilityTags: ["tool_use"]
+    })
+
+    // Detection and the capability sheet must not disagree about where the
+    // answer came from.
+    expect(states.toolCalling.source).toBe("model-metadata")
+    expect(states.toolCalling.status).toBe("supported")
+  })
+
+  it("does not claim the catalog for tags detection never reads", () => {
+    // Tags only settle tool calling inside the model-type branch. Without a
+    // type, detection falls through to the provider default, so the sheet has
+    // to say provider-default too.
+    const input = {
+      providerId: ProviderId.LM_STUDIO,
+      contextLength: 262144,
+      capabilityTags: ["tool_use"]
+    }
+
+    expect(getModelCapabilities(input).source).toBe("provider-default")
+    expect(getModelCapabilityStates(input).toolCalling.source).toBe(
+      "provider-default"
+    )
+  })
+
+  it("lets a user override still win over a reported tag", () => {
+    const resolved = getModelCapabilities({
+      ...base,
+      capabilityTags: ["tool_use"],
+      override: { toolCalling: false }
+    })
+
+    expect(resolved.toolCalling).toBe(false)
+  })
+})

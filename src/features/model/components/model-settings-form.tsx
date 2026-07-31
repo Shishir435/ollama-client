@@ -1,3 +1,4 @@
+import { Settings } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -8,9 +9,9 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { LoadedModelsInfo } from "@/features/model/components/loaded-models-info"
 import { ModelInfo } from "@/features/model/components/model-info"
 import { ModelMenu } from "@/features/model/components/model-menu"
-import { ModelParametersSection } from "@/features/model/components/model-parameters-section"
-import { ModelPerformanceSection } from "@/features/model/components/model-performance-section"
-import { ModelSystemSection } from "@/features/model/components/model-system-section"
+import { ModelParametersCard } from "@/features/model/components/model-parameters-card"
+import { ModelPerformanceCard } from "@/features/model/components/model-performance-card"
+import { ModelSystemCard } from "@/features/model/components/model-system-card"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
 import { ProviderVersion } from "@/features/model/components/provider-version"
@@ -22,7 +23,6 @@ import {
 } from "@/features/model/lib/model-form-config"
 import { useDebounce } from "@/hooks/use-debounce"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
-import { Settings } from "@/lib/lucide-icon"
 
 const MODEL_CONFIG_FORM_KEYS: (keyof FormValues)[] = [
   "system",
@@ -213,20 +213,17 @@ export const ModelSettingsForm = () => {
           />
           <LoadedModelsInfo />
         </SettingsCard>
-        <ModelSystemSection
+        <ModelSystemCard
           config={config}
           updateConfig={updateConfig}
           onSave={saveFormChanges}
           onResetSystemPrompt={handleResetSystemPrompt}
         />
         <SettingsLevelGate settingId="keep-alive">
-          <ModelPerformanceSection
-            config={config}
-            updateConfig={updateConfig}
-          />
+          <ModelPerformanceCard config={config} updateConfig={updateConfig} />
         </SettingsLevelGate>
         <SettingsLevelGate settingId="temperature">
-          <ModelParametersSection />
+          <ModelParametersCard />
         </SettingsLevelGate>
       </SectionStack>
     </FormProvider>

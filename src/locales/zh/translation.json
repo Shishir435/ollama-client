@@ -173,8 +173,6 @@
       "chars": "字符",
       "enter_to_send": "发送",
       "enter_key": "回车",
-      "rag_toggle_on": "智能上下文已开启",
-      "rag_toggle_off": "智能上下文已关闭",
       "rag_toggle_tooltip": "智能上下文 (Beta): 使用文件和聊天上下文",
       "web_search_toggle_tooltip": "Web search",
       "web_search_requires_tools": "网页搜索需要工具调用，而此模型不支持。请在模型设置中启用工具回退以使用该功能。",
@@ -413,6 +411,24 @@
       "issue_draft_notice": "已在本地预填。提交前请检查。",
       "preparing_issue": "正在运行安全检查…",
       "open_diagnostics": "打开诊断",
+      "empty_response": "模型结束了本轮，但没有发送任何回答。可能是模型已被卸载，或者对话没有留出回答的空间。请重试，或新建一个对话。",
+      "thinking_only_response": "没有收到模型的最终回答。请重试。",
+      "provider_selection_required_title": "需要选择模型提供商",
+      "provider_selection_required_description": "发送消息前，请在模型菜单中为“{{model}}”选择一个提供商。",
+      "no_model_selected_title": "未选择模型",
+      "no_model_selected_description": "发送消息前，请在模型菜单中选择一个模型。",
+      "chat_create_failed_title": "无法开始对话",
+      "chat_create_failed_description": "创建对话失败。请重试。",
+      "message_save_failed_title": "无法发送消息",
+      "message_save_failed_description": "保存消息失败。请重试。",
+      "context_preparation_failed": "无法为这条消息准备上下文。请重试；如果反复出现，请减少所选的上下文或文件。",
+      "context_preparation_failed_title": "上下文准备失败",
+      "context_preparation_failed_description": "消息已保存，但由于上下文准备失败，助手无法开始回答。",
+      "insufficient_page_context": "页面上下文不足。请至少选择一个含有相关提取内容的标签页，然后重试。\n\n如需关闭该行为，请打开 [{{settingsLabel}}]({{settingsLink}})。",
+      "context_trimmed_title": "上下文已裁剪",
+      "context_trimmed_description": "提取的标签页上下文超出了你的限制，已在发送前裁剪。",
+      "context_retrieval_warning_title": "上下文检索失败",
+      "context_retrieval_warning_description": "无法从你的文件中检索上下文，将不使用上下文继续。",
       "interrupted": "响应已中断"
     },
     "composer": {
@@ -421,13 +437,17 @@
       "web": "网页"
     },
     "context": {
-      "preview_title": "模型将看到",
       "none": "无额外上下文",
       "page": "页面",
       "tabs": "{{count}} 个标签页",
       "files": "{{count}} 个文件",
       "knowledge": "知识",
-      "web": "网页"
+      "web": "网页",
+      "rows": {
+        "tabs": "页面和标签页上下文",
+        "knowledge": "搜索已上传的文件",
+        "web": "网页搜索"
+      }
     },
     "artifacts": {
       "empty": "没有工件内容"
@@ -674,6 +694,7 @@
         "title": "模型能力",
         "subtitle": "{{model}} · {{provider}}",
         "note_manual": "{{provider}} 无法报告此模型的能力，因此我们无法自动检测。请开启此模型支持的能力——图像输入和工具等功能会使用这些设置。",
+        "note_partial": "{{provider}} 仅报告此模型的部分能力。检测其余能力，或手动开启你确认支持的功能。",
         "note_self_report": "{{provider}} 会自动报告此模型的能力。此处的更改将覆盖检测到的结果。",
         "reset": "重置为检测值",
         "save": "保存",
@@ -683,6 +704,7 @@
         "probe_button": "检测",
         "probe_detected": "已检测到：{{capabilities}}。",
         "probe_none_detected": "未检测到工具调用、推理或视觉。你仍然可以手动开启。",
+        "probe_incomplete": "未能完成检测：{{capabilities}}。请再次运行检测——仍在加载的模型通常第二次会响应。",
         "probe_failed": "检测失败。请检查提供商连接后重试。"
       },
       "flags": {
@@ -783,11 +805,9 @@
       "ready": "{{selected}}/{{total}} 个标签页就绪",
       "updated": "已更新",
       "view_content": "查看提取的内容",
-      "refresh_now": "立即刷新上下文"
-    },
-    "toggle": {
-      "label_off": "标签页",
-      "label_on": "标签页+"
+      "refresh_now": "立即刷新上下文",
+      "select_all": "全选",
+      "clear_selection": "清除选择"
     },
     "context": "上下文",
     "inspector": {
@@ -1523,6 +1543,7 @@
           "vectorDb": "向量嵌入 (Dexie)",
           "knowledgeDb": "知识库 (Dexie)"
         },
+        "legacy_chat_backup": "此备份由 0.6.3 或更早版本创建，其聊天记录使用扩展已不再读取的格式。备份中的设置、嵌入和知识集已恢复，聊天记录未恢复。",
         "status": {
           "success": "成功",
           "failed": "失败",

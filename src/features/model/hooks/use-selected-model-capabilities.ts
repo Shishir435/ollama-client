@@ -48,6 +48,7 @@ export const useSelectedModelCapabilities = (): SelectedModelCapabilities => {
     providerId,
     ollamaCapabilities,
     lmStudioModelType: model?.capabilityHints?.modelType,
+    capabilityTags: model?.capabilityHints?.capabilityTags,
     contextLength: model?.capabilityHints?.contextLength,
     modalities: model?.capabilityHints?.modalities,
     supportedParameters: model?.capabilityHints?.supportedParameters,

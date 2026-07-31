@@ -1,8 +1,8 @@
+import { ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { openExternalUrl } from "@/lib/browser-api"
 import { EXTERNAL_URLS } from "@/lib/constants/urls"
-import { ExternalLink } from "@/lib/lucide-icon"
 import { cn } from "@/lib/utils"
 
 export const SetupGuideLink = ({ className }: { className?: string }) => {
