@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - Chat mit lokalen LLM-Modellen",
+    "name": "Ollama Client - Lokaler KI-Chat mit Ollama, LM Studio, llama.cpp",
     "short_name": "Ollama Client",
-    "description": "Lokale Chrome-Erweiterung für private LLM-Chats mit Ollama, LM Studio und llama.cpp, einschließlich lokaler RAG-Workflows.",
+    "description": "Lokale Erweiterung für private LLM-Chats mit Ollama, LM Studio und llama.cpp, mit lokalem RAG, Websuche und Seitenkontext.",
     "action_default_title": "Ollama Client öffnen"
   },
   "selection_button": {
