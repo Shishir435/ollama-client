@@ -9,6 +9,20 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.12.7]
+
+### Changed
+
+- The store listing now names the three verified providers in its title, so
+  searching for LM Studio or llama.cpp can find the extension at all. The
+  summary drops "Chrome extension" — which the store already knew, and which
+  was wrong on Firefox, where the same text appears in the add-ons manager in
+  every language — and names local RAG, web search, and page context instead.
+- The README links the Firefox add-on. It has been published since 0.12.6 but
+  the repository only offered a Chrome Web Store link.
+
+No functional changes: this release is store metadata only.
+
 ## [0.12.6]
 
 ### Added
@@ -766,7 +780,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.6...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.7...HEAD
+[0.12.7]: https://github.com/Shishir435/ollama-client/compare/0.12.6...0.12.7
 [0.12.6]: https://github.com/Shishir435/ollama-client/compare/0.12.5...0.12.6
 [0.12.5]: https://github.com/Shishir435/ollama-client/compare/0.12.4...0.12.5
 [0.12.4]: https://github.com/Shishir435/ollama-client/compare/0.12.3...0.12.4
