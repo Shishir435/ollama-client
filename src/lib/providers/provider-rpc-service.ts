@@ -1,4 +1,4 @@
-import { createAppError, isAppError } from "@/lib/error-utils"
+import { createAppError, isAbortError, isAppError } from "@/lib/error-utils"
 import type {
   ProvidersListModelsRequest,
   ProvidersListModelsResult,
@@ -26,6 +26,7 @@ import {
 import { ProviderFactory } from "./factory"
 import { ProviderManager } from "./manager"
 import {
+  clearModelCatalogSupport,
   isCatalogAbsentStatus,
   recordModelCatalogSupport,
   shouldSkipModelCatalog
@@ -66,6 +67,102 @@ const customModel = (name: string, config: ProviderConfig): ProviderModel => ({
  */
 const isModelListAbsent = (error: unknown): boolean =>
   isAppError(error) && isCatalogAbsentStatus(error.status)
+
+/**
+ * Confirm a catalog-less endpoint by asking it to generate one token.
+ *
+ * A 404 from `/models` is ambiguous: it is what a chat-only gateway answers,
+ * and it is also what a mistyped base URL answers. Treating both as "reachable"
+ * would report a broken configuration as a working provider and then hide the
+ * mistake behind a remembered answer. The chat endpoint is the one the user
+ * actually needs, so that is what gets checked.
+ *
+ * Runs only on an explicit connection test, and only when the user has declared
+ * a model id to send — never on the background health check, which must not
+ * spend inference on someone's metered endpoint.
+ */
+const CHAT_PROBE_TIMEOUT_MS = 20_000
+
+const probeChatEndpoint = async (
+  provider: LLMProvider,
+  model: string,
+  signal?: AbortSignal
+): Promise<void> => {
+  const controller = new AbortController()
+  const abortFromCaller = () => controller.abort(signal?.reason)
+  if (signal?.aborted) abortFromCaller()
+  else signal?.addEventListener("abort", abortFromCaller, { once: true })
+  const timeout = setTimeout(() => controller.abort(), CHAT_PROBE_TIMEOUT_MS)
+
+  try {
+    await provider.streamChat(
+      {
+        model,
+        messages: [{ role: "user", content: "ping" }],
+        max_tokens: 1,
+        num_predict: 1,
+        think: false
+      },
+      // The first byte proves the route exists; nothing is gained by paying
+      // for the rest of the answer.
+      () => controller.abort(),
+      controller.signal
+    )
+  } catch (error) {
+    // The caller's cancellation is theirs; ours means the probe got what it
+    // came for.
+    if (signal?.aborted) throw error
+    if (isAbortError(error)) return
+    throw error
+  } finally {
+    clearTimeout(timeout)
+    signal?.removeEventListener("abort", abortFromCaller)
+  }
+}
+
+/**
+ * Run {@link probeChatEndpoint} and turn its verdict into the one thing the
+ * caller wants to know: is there a usable provider at this base URL?
+ *
+ * A chat route that is missing as well means the base URL is wrong, not that
+ * the provider is catalog-less — so it says so, and drops the remembered
+ * catalog answer that was recorded on the way here. Anything else (a refused
+ * key, a rate limit, a server error) is reported as itself.
+ */
+const confirmChatEndpoint = async (
+  provider: LLMProvider,
+  config: ProviderConfig | undefined,
+  model: string,
+  signal?: AbortSignal
+): Promise<boolean> => {
+  try {
+    await probeChatEndpoint(provider, model, signal)
+    return true
+  } catch (error) {
+    if (signal?.aborted) throw error
+    if (!isAppError(error) || !isCatalogAbsentStatus(error.status)) throw error
+    if (config) {
+      await clearModelCatalogSupport(String(config.id)).catch(() => undefined)
+    }
+    const endpoint = config?.baseUrl?.trim()
+    throw createAppError(
+      `Neither the model list nor the chat endpoint exists at ${endpoint ?? "the configured base URL"}`,
+      {
+        kind: "provider",
+        status: error.status,
+        providerId: String(provider.id),
+        providerName: config?.name,
+        baseUrl: endpoint,
+        code: "OLC-PROVIDER-UNREACHABLE",
+        recoveryAction: "test-connection",
+        userMessage: `Nothing answered at ${
+          endpoint ?? "the configured base URL"
+        }: neither a model list nor a chat endpoint is there. Check the base URL — hosted providers usually need the version suffix, such as /v1.`,
+        cause: error
+      }
+    )
+  }
+}
 
 /**
  * Ask a provider for its catalog, unless it has already answered that it has
@@ -171,15 +268,26 @@ export const ProviderRpcService = {
     if (catalog === "failed") throw error
 
     const merged = config ? mergeProviderModels(models, config) : models
+    /*
+     * Declared model ids count toward what this endpoint can be used with,
+     * exactly as they do in `listModels`. A hosted router that only implements
+     * `/chat/completions` is not broken — it just has nothing to discover.
+     *
+     * "Nothing to discover" is not the same as "works", though, and the
+     * catalog request cannot tell the difference: a mistyped base URL answers
+     * 404 exactly like a chat-only gateway does. So an explicit test confirms
+     * the endpoint the user actually needs before reporting it reachable, and
+     * a test that cannot confirm it does not claim to have.
+     */
+    const reachable =
+      catalog === "present" ||
+      (request.target === "draft" &&
+        merged.length > 0 &&
+        (await confirmChatEndpoint(provider, config, merged[0].name, signal)))
+
     return {
       providerId: String(provider.id),
-      reachable: true,
-      /*
-       * Declared model ids count toward what this endpoint can be used with,
-       * exactly as they do in `listModels`. A hosted router that only
-       * implements `/chat/completions` is not broken — it just has nothing to
-       * discover, and the test says so instead of reporting a dead provider.
-       */
+      reachable,
       modelCount: merged.length,
       modelListSupported: catalog === "present",
       latencyMs: Math.max(0, performance.now() - startedAt)

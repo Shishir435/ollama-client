@@ -51,7 +51,10 @@ vi.mock("../factory", () => ({
 }))
 
 import { createAppError } from "@/lib/error-utils"
-import { clearModelCatalogSupport } from "../model-catalog-support"
+import {
+  clearModelCatalogSupport,
+  getModelCatalogSupport
+} from "../model-catalog-support"
 import { ProviderRpcService } from "../provider-rpc-service"
 import { type ProviderConfig, ProviderType } from "../types"
 
@@ -157,12 +160,21 @@ describe("ProviderRpcService", () => {
     expect(result).not.toHaveProperty("apiKey")
   })
 
-  it("reports an endpoint without a model list as reachable, counting declared ids", async () => {
+  it("confirms a catalog-less endpoint against chat before calling it reachable", async () => {
+    const streamChat = vi.fn(
+      async (
+        _request: unknown,
+        onChunk: (chunk: { delta: string }) => void
+      ) => {
+        onChunk({ delta: "p" })
+      }
+    )
     mocks.getProviderWithConfig.mockResolvedValue({
       id: "ollama",
       getModels: async () => {
         throw catalogAbsent()
-      }
+      },
+      streamChat
     })
 
     await expect(
@@ -170,6 +182,60 @@ describe("ProviderRpcService", () => {
     ).resolves.toMatchObject({
       providerId: "ollama",
       reachable: true,
+      modelCount: 1,
+      modelListSupported: false
+    })
+    // Probed with the declared id, and cheaply: this runs against somebody's
+    // metered endpoint on a button press.
+    expect(streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "manual-model", max_tokens: 1 }),
+      expect.any(Function),
+      expect.any(AbortSignal)
+    )
+  })
+
+  it("reports a wrong base URL rather than a missing catalog when chat is missing too", async () => {
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw catalogAbsent()
+      },
+      streamChat: async () => {
+        throw catalogAbsent()
+      }
+    })
+
+    // A mistyped base URL 404s on the catalog exactly like a chat-only gateway
+    // does; only the chat endpoint tells them apart.
+    await expect(
+      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+    ).rejects.toMatchObject({
+      status: 404,
+      userMessage: expect.stringContaining("Check the base URL")
+    })
+    // And the answer recorded on the way in is dropped, so fixing the URL gets
+    // a clean probe instead of a day of silence.
+    expect(await getModelCatalogSupport(configs[0])).toBeNull()
+  })
+
+  it("does not claim reachability, or spend a chat request, on a background check", async () => {
+    const streamChat = vi.fn()
+    mocks.getProvider.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw catalogAbsent()
+      },
+      streamChat
+    })
+
+    const result = await ProviderRpcService.testConnection({
+      target: "stored",
+      providerId: "ollama"
+    })
+
+    expect(streamChat).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      reachable: false,
       modelCount: 1,
       modelListSupported: false
     })

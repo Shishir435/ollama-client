@@ -20,9 +20,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   it. The IDs are configuration, not discovery, and are now kept either way.
 - Testing a provider that only implements chat — many hosted OpenAI-compatible
   routers do — no longer reports "Connection Failed". A server that answers the
-  model-list request with "no such endpoint" is reachable, and the test now says
-  so, counts the model IDs you added, and tells you to add some when you have
-  not. A refused key, a rate limit, or a server error still fails as before.
+  model-list request with "no such endpoint" is checked against the chat
+  endpoint instead, using one of the model IDs you added and one token, and
+  reported as working when that answers. A refused key, a rate limit, or a
+  server error still fails as before.
+- A mistyped base URL is now told apart from a provider that simply publishes
+  no model list — both answer the same way — and reported as a base URL to
+  check rather than as a working provider.
 - A provider that returns HTTP 404 no longer reports "The provider
   configuration was not found", which described a different problem than the
   one you had. The provider's own message — which model or endpoint was missing,

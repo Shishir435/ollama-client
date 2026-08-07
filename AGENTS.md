@@ -98,6 +98,8 @@ Legacy vLLM/LocalAI/KoboldCPP subclasses are compatibility-only, not UI profiles
 
 A 404/405/501 from the catalog endpoint is recorded in `model-catalog-support.ts` (device-local, fingerprinted by wire + base URL + service profile, expiring after a day) and that provider is not asked again until the fingerprint changes, the entry ages out, or the user presses Test. Anything else — no answer, 401, 429, 5xx — is a real failure and is never recorded, because it says nothing about whether the endpoint exists. Adding a new discovery caller means going through `discoverModels`, not `provider.getModels` directly.
 
+**A missing catalog never proves reachability on its own** — a mistyped base URL answers identically. An explicit (`draft`) connection test confirms a catalog-less provider by streaming one token from `/chat/completions` with a declared model id; a chat route that is missing too is reported as a base-URL problem and clears the recorded answer. The background (`stored`) check never sends that request and never claims reachability it did not verify: it is a health poll, not a licence to spend inference on a metered endpoint.
+
 **Capability detection** resolves in this order, highest first: user override → empirical probe (`capability-probe.ts`) → model metadata → provider default. An unknown capability resolves to `false`; only an override may flip it on. Never enable vision or tool calling on a guess.
 
 Metadata evidence, strongest first:

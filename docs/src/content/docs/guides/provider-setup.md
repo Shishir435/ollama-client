@@ -68,6 +68,8 @@ Add the model IDs you want under **Model IDs** on the provider card (or in the A
 
 The answer is remembered per provider, so such an endpoint is asked once rather than on every refresh. It is re-checked after a day, whenever you change the base URL, wire, or preset, and whenever you press **Test**.
 
+A wrong base URL answers the model-list request exactly the way a chat-only gateway does, so **Test** settles it by asking the chat endpoint to generate a single token with the first model ID you added. If that answers, the provider is reported as working; if nothing is there either, the test tells you to check the base URL — hosted providers usually need the version suffix, such as `/v1`. That one-token request is only sent when you press Test, never by the background connection check.
+
 ## 5. Verify endpoints
 
 ```bash
