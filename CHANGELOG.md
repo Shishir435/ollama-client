@@ -47,6 +47,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   provider still re-checks it immediately.
 - A provider running on model IDs you declared is labelled as such rather than
   reported as a failed connection.
+- Editing a provider's base URL no longer runs a connection test on every
+  keystroke. Typing one URL fired one test per character, each against the
+  half-typed value — on a hosted provider, a real API call per keypress. Edits
+  now settle first, and a re-render that changes nothing about where a provider
+  points costs nothing at all.
+- A support report from a provider that publishes no model list no longer says
+  "Provider reachable: no". It is reachable; it just has nothing to discover,
+  and the old wording sent whoever read the report after the wrong thing.
 
 ## [0.12.7]
 

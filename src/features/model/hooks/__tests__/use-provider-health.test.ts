@@ -86,6 +86,28 @@ describe("useProviderHealth — initial check (real timers)", () => {
     expect(result.current[ProviderId.OLLAMA].success).toBe(false)
   })
 
+  it("does not re-check when a render changes nothing it depends on", async () => {
+    mockedCall.mockResolvedValue({ modelCount: 1 } as never)
+    const provider = mkProvider(ProviderId.OLLAMA, true)
+    const { rerender, result } = renderHook(
+      // A fresh array every render, which is exactly what the settings screen
+      // produces: `updateConfig` maps over state on each keystroke.
+      ({ name }) => useProviderHealth([{ ...provider, name }]),
+      { initialProps: { name: "Ollama" } }
+    )
+    await waitFor(() => expect(result.current[ProviderId.OLLAMA]).toBeDefined())
+    const afterMount = mockedCall.mock.calls.length
+
+    for (const name of ["O", "Ol", "Oll", "Olla", "Ollam", "Ollama!"]) {
+      rerender({ name })
+    }
+
+    // Renaming a provider cannot change whether it is reachable, and neither
+    // can a re-render on its own. Typing one base URL used to fire one
+    // connection test per character.
+    expect(mockedCall.mock.calls.length).toBe(afterMount)
+  })
+
   it("carries whether the provider publishes a catalog", async () => {
     mockedCall.mockResolvedValue({
       modelCount: 2,
@@ -183,6 +205,29 @@ describe("useProviderHealth — interval + cleanup (fake timers)", () => {
 
     await vi.advanceTimersByTimeAsync(30_000)
     expect(mockedCall.mock.calls.length).toBeGreaterThan(initialCalls)
+  })
+
+  it("collapses a burst of base-URL edits into one check", async () => {
+    mockedCall.mockResolvedValue({ modelCount: 1 } as never)
+    const provider = mkProvider(ProviderId.OLLAMA, true)
+    const { rerender } = renderHook(
+      ({ baseUrl }) => useProviderHealth([{ ...provider, baseUrl }]),
+      { initialProps: { baseUrl: "https" } }
+    )
+    await vi.advanceTimersByTimeAsync(0)
+    const afterMount = mockedCall.mock.calls.length
+
+    const url = "https://api.example.test/v1"
+    for (let end = 6; end <= url.length; end += 1) {
+      rerender({ baseUrl: url.slice(0, end) })
+      await vi.advanceTimersByTimeAsync(40)
+    }
+    // Mid-typing: every keystroke restarted the settle window, so nothing has
+    // been spent yet.
+    expect(mockedCall.mock.calls.length).toBe(afterMount)
+
+    await vi.advanceTimersByTimeAsync(700)
+    expect(mockedCall.mock.calls.length).toBe(afterMount + 1)
   })
 
   it("clears the interval on unmount", async () => {
