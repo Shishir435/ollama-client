@@ -533,7 +533,8 @@
       "refresh_aria_label": "Actualiser les modèles",
       "refresh_tooltip": "Actualiser les modèles",
       "search_placeholder": "Rechercher un modèle...",
-      "no_model_found": "Aucun modèle trouvé."
+      "no_model_found": "Aucun modèle trouvé.",
+      "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Vérifiez le fournisseur dans les paramètres ou ajoutez des identifiants de modèle manuellement."
     },
     "version": {
       "tooltip": "Version d'Provider : {{version}}"
@@ -1449,6 +1450,7 @@
       "inactive": "Inactif",
       "connected": "Connecté",
       "connection_failed": "Échec de la connexion",
+      "manual_models": "ID de modèle uniquement",
       "not_tested": "Non testé",
       "test": "Tester",
       "save": "Enregistrer",
@@ -1461,12 +1463,17 @@
       "test_connection": {
         "success_title": "Connexion réussie",
         "success_description": "Connexion réussie à {{name}} sur {{url}}. {{count}} modèle(s) trouvé(s).",
+        "success_description_manual": "Connexion réussie à {{name}} sur {{url}}. Aucune liste de modèles n’est publiée : les {{count}} identifiant(s) de modèle que vous avez ajoutés sont utilisés.",
         "failed_title": "Échec de la connexion",
         "failed_description": "Impossible de joindre {{url}}. {{error}}",
         "no_models_title": "Aucun modèle trouvé",
+        "no_model_list_title": "Aucune liste de modèles",
         "no_models_description": "{{url}} est joignable, mais aucun modèle n’a été renvoyé. Vérifiez que le fournisseur est en cours d’exécution, que l’URL de base est correcte et qu’au moins un modèle est installé ou chargé.",
+        "no_model_list_description": "{{url}} est joignable, mais ce point de terminaison ne publie pas de liste de modèles. Ajoutez les identifiants de modèle souhaités dans « ID de modèle », puis réessayez.",
         "inline_success": "Connecté à {{url}}. {{count}} modèle(s) trouvé(s).",
+        "inline_success_manual": "Connecté à {{url}}. Aucune liste de modèles n’est publiée : les {{count}} identifiant(s) de modèle que vous avez ajoutés sont utilisés.",
         "inline_no_models": "{{url}} est joignable, mais aucun modèle n’a été renvoyé. Vérifiez que le fournisseur fonctionne et que des modèles sont installés ou chargés.",
+        "inline_no_model_list": "{{url}} est joignable, mais ne publie pas de liste de modèles. Ajoutez les identifiants de modèle souhaités dans « ID de modèle ».",
         "inline_failed": "Impossible de joindre {{url}}. {{error}}",
         "default_url": "URL par défaut",
         "api_key_required_title": "Clé API requise",

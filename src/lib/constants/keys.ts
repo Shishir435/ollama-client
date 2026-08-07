@@ -128,7 +128,11 @@ export const STORAGE_KEYS = {
     // Empirical capability probe results (one-shot trivial tool-call request),
     // keyed `providerId::model`. Device-local: results are tied to whatever
     // server this device's base URL points at.
-    MODEL_CAPABILITY_PROBES: "provider-model-capability-probes"
+    MODEL_CAPABILITY_PROBES: "provider-model-capability-probes",
+    // Whether each provider publishes a model catalog, learned from the first
+    // request and fingerprinted by base URL. Keeps discovery from asking a
+    // chat-only endpoint for a model list it will never have.
+    MODEL_CATALOG_SUPPORT: "provider-model-catalog-support"
   },
   THEME: {
     PREFERENCE: "light-dark-theme"

@@ -70,6 +70,7 @@ beforeEach(() => {
     providerId: "ollama",
     reachable: true,
     modelCount: 1,
+    modelListSupported: true,
     latencyMs: 4
   })
   mocks.listModels.mockResolvedValue({ models: [], failures: [] })
@@ -313,6 +314,63 @@ describe("RPC server", () => {
     expect(serializedResponse).toContain("Authentication failed")
     expect(serializedResponse).not.toContain("private-value")
     expect(serializedLogs).not.toContain("private-value")
+  })
+
+  it("does not describe an upstream 404 as a missing provider configuration", async () => {
+    mocks.testConnection.mockRejectedValue(
+      createAppError("Model list failed (404)", {
+        kind: "provider",
+        status: 404,
+        providerId: "remote",
+        userMessage:
+          "Remote at https://example.test/v1 returned HTTP 404. Check the model name and the base URL."
+      })
+    )
+    const sendResponse = vi.fn()
+
+    await handleRpcRequest(
+      request(RpcMethod.ProvidersTestConnection, {
+        target: "stored",
+        providerId: "remote"
+      }),
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      sendResponse
+    )
+
+    const { error } = sendResponse.mock.calls[0][0]
+    expect(error.fallbackMessage).toContain("returned HTTP 404")
+    // The generic key would be shown in preference to the crafted message, and
+    // it describes a different problem than the one the user has.
+    expect(error.messageKey).toBeUndefined()
+  })
+
+  it("still carries a generic key when the failure has no crafted message", async () => {
+    mocks.testConnection.mockRejectedValue(
+      createAppError("Provider remote not found", {
+        kind: "provider",
+        status: 404,
+        providerId: "remote"
+      })
+    )
+    const sendResponse = vi.fn()
+
+    await handleRpcRequest(
+      request(RpcMethod.ProvidersTestConnection, {
+        target: "stored",
+        providerId: "remote"
+      }),
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      sendResponse
+    )
+
+    expect(sendResponse.mock.calls[0][0].error).toMatchObject({
+      code: RpcErrorCode.NotFound,
+      messageKey: "errors.rpc.not_found"
+    })
   })
 
   it("aborts an active provider request when the client cancels", async () => {

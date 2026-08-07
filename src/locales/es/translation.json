@@ -533,7 +533,8 @@
       "refresh_aria_label": "Actualizar modelos",
       "refresh_tooltip": "Actualizar modelos",
       "search_placeholder": "Buscar modelo...",
-      "no_model_found": "No se encontró ningún modelo."
+      "no_model_found": "No se encontró ningún modelo.",
+      "providers_unavailable": "{{names}} no devolvió modelos. Revisa el proveedor en la configuración o añade ID de modelo manualmente."
     },
     "version": {
       "tooltip": "Versión de Provider: {{version}}"
@@ -1449,6 +1450,7 @@
       "inactive": "Inactivo",
       "connected": "Conectado",
       "connection_failed": "Error de conexión",
+      "manual_models": "Solo ID de modelo",
       "not_tested": "No probado",
       "test": "Probar",
       "save": "Guardar",
@@ -1461,12 +1463,17 @@
       "test_connection": {
         "success_title": "Conexión exitosa",
         "success_description": "Conectado correctamente a {{name}} en {{url}}. Se encontraron {{count}} modelo(s).",
+        "success_description_manual": "Conectado correctamente a {{name}} en {{url}}. No publica una lista de modelos, así que se usan los {{count}} ID de modelo que añadiste.",
         "failed_title": "Error de conexión",
         "failed_description": "No se pudo acceder a {{url}}. {{error}}",
         "no_models_title": "No se encontraron modelos",
+        "no_model_list_title": "Sin lista de modelos",
         "no_models_description": "Se pudo acceder a {{url}}, pero no se devolvieron modelos. Asegúrate de que el proveedor esté en ejecución, que la URL base sea correcta y que haya al menos un modelo instalado o cargado.",
+        "no_model_list_description": "Se pudo acceder a {{url}}, pero este endpoint no publica una lista de modelos. Añade los ID de modelo que quieras usar en «ID de modelo» y vuelve a probar.",
         "inline_success": "Conectado a {{url}}. Se encontraron {{count}} modelo(s).",
+        "inline_success_manual": "Conectado a {{url}}. No publica una lista de modelos, así que se usan los {{count}} ID de modelo que añadiste.",
         "inline_no_models": "Se pudo acceder a {{url}}, pero no se devolvieron modelos. Comprueba que el proveedor esté en ejecución y tenga modelos instalados o cargados.",
+        "inline_no_model_list": "Se pudo acceder a {{url}}, pero no publica una lista de modelos. Añade los ID de modelo que quieras usar en «ID de modelo».",
         "inline_failed": "No se pudo acceder a {{url}}. {{error}}",
         "default_url": "URL predeterminada",
         "api_key_required_title": "Se requiere clave API",

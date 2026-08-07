@@ -533,7 +533,8 @@
       "refresh_aria_label": "刷新模型",
       "refresh_tooltip": "刷新模型",
       "search_placeholder": "搜索模型...",
-      "no_model_found": "未找到模型。"
+      "no_model_found": "未找到模型。",
+      "providers_unavailable": "{{names}} 未返回任何模型。请在设置中检查该提供商，或手动添加模型 ID。"
     },
     "version": {
       "tooltip": "Provider 版本: {{version}}"
@@ -1449,6 +1450,7 @@
       "inactive": "未激活",
       "connected": "已连接",
       "connection_failed": "连接失败",
+      "manual_models": "仅模型 ID",
       "not_tested": "未测试",
       "test": "测试",
       "save": "保存",
@@ -1461,12 +1463,17 @@
       "test_connection": {
         "success_title": "连接成功",
         "success_description": "已成功连接到 {{url}} 上的 {{name}}。找到 {{count}} 个模型。",
+        "success_description_manual": "已成功连接到 {{url}} 上的 {{name}}。它不提供模型列表，因此使用你添加的 {{count}} 个模型 ID。",
         "failed_title": "连接失败",
         "failed_description": "无法访问 {{url}}。{{error}}",
         "no_models_title": "未找到模型",
+        "no_model_list_title": "没有模型列表",
         "no_models_description": "已访问 {{url}}，但未返回任何模型。请确认提供商正在运行、基本 URL 正确，并且至少已安装或加载一个模型。",
+        "no_model_list_description": "已访问 {{url}}，但该端点不提供模型列表。请在“模型 ID”中添加要使用的模型 ID，然后重新测试。",
         "inline_success": "已连接到 {{url}}。找到 {{count}} 个模型。",
+        "inline_success_manual": "已连接到 {{url}}。它不提供模型列表，因此使用你添加的 {{count}} 个模型 ID。",
         "inline_no_models": "已访问 {{url}}，但未返回任何模型。请确认提供商正在运行，并且已安装或加载模型。",
+        "inline_no_model_list": "已访问 {{url}}，但它不提供模型列表。请在“模型 ID”中添加要使用的模型 ID。",
         "inline_failed": "无法访问 {{url}}。{{error}}",
         "default_url": "默认 URL",
         "api_key_required_title": "需要 API 密钥",

@@ -9,6 +9,45 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.12.8]
+
+### Fixed
+
+- Models you type in yourself now reach the model menu even when the provider
+  has no model list to discover. A custom provider whose `/models` request
+  failed had its manually added model IDs dropped along with the request, so the
+  provider was absent from the menu entirely and nothing could be selected from
+  it. The IDs are configuration, not discovery, and are now kept either way.
+- Testing a provider that only implements chat — many hosted OpenAI-compatible
+  routers do — no longer reports "Connection Failed". A server that answers the
+  model-list request with "no such endpoint" is checked against the chat
+  endpoint instead, using one of the model IDs you added and one token, and
+  reported as working when that answers. A refused key, a rate limit, or a
+  server error still fails as before.
+- A mistyped base URL is now told apart from a provider that simply publishes
+  no model list — both answer the same way — and reported as a base URL to
+  check rather than as a working provider.
+- A provider that returns HTTP 404 no longer reports "The provider
+  configuration was not found", which described a different problem than the
+  one you had. The provider's own message — which model or endpoint was missing,
+  and what to check — is shown instead.
+- The model menu now names providers that returned nothing, instead of leaving
+  them silently absent from the list.
+
+### Changed
+
+- A provider with no model list is asked for one once, not on every refresh. A
+  chat-only endpoint used to collect a failed request every few seconds — from
+  the model menu and from the background connection check — for an answer that
+  was never going to change. The answer is now remembered per provider on this
+  device, and re-checked after a day, whenever the base URL, wire, or preset
+  changes, and whenever you press Test.
+- The background connection check runs once a minute instead of every ten
+  seconds, and pauses while the settings page is in a hidden tab. Editing a
+  provider still re-checks it immediately.
+- A provider running on model IDs you declared is labelled as such rather than
+  reported as a failed connection.
+
 ## [0.12.7]
 
 ### Changed
@@ -780,7 +819,8 @@ No functional changes: this release is store metadata only.
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.7...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.8...HEAD
+[0.12.8]: https://github.com/Shishir435/ollama-client/compare/0.12.7...0.12.8
 [0.12.7]: https://github.com/Shishir435/ollama-client/compare/0.12.6...0.12.7
 [0.12.6]: https://github.com/Shishir435/ollama-client/compare/0.12.5...0.12.6
 [0.12.5]: https://github.com/Shishir435/ollama-client/compare/0.12.4...0.12.5

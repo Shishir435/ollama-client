@@ -232,6 +232,42 @@ describe("useProviderModels", () => {
       ])
     })
 
+    it("reports only the providers that contributed nothing", async () => {
+      vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
+        models: [{ ...mockModelList[0], providerId: ProviderId.OLLAMA }],
+        failures: [
+          {
+            providerId: "custom:openai:silent",
+            providerName: "Silent",
+            code: "request_failed"
+          },
+          {
+            providerId: "custom:openai:manual",
+            providerName: "Manual",
+            code: "discovery_unavailable"
+          }
+        ]
+      } as never)
+
+      const { result } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper()
+      })
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
+
+      // The provider whose declared ids carried the list has models on screen,
+      // so there is nothing to warn about.
+      expect(result.current.unavailableProviders).toEqual([
+        {
+          providerId: "custom:openai:silent",
+          providerName: "Silent",
+          code: "request_failed"
+        }
+      ])
+    })
+
     it("should handle empty models list", async () => {
       vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
         models: [],
