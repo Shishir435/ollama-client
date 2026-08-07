@@ -1,5 +1,3 @@
-import type { Database } from "sql.js"
-
 import { logger } from "@/lib/logger"
 import { ensureIngestionRunsTable } from "./add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
@@ -13,6 +11,7 @@ import { ensureSessionsTagsColumn } from "./add-session-tags-column"
 import { ensureMessagesThinkingColumn } from "./add-thinking-column"
 import { ensureToolLoopRunsTable } from "./add-tool-loop-runs-table"
 import { ensureTurnRunsTable } from "./add-turn-runs-table"
+import type { MigrationDatabase } from "./database"
 
 /**
  * A single forward-only schema migration. `up` must be idempotent-safe for the
@@ -23,7 +22,7 @@ import { ensureTurnRunsTable } from "./add-turn-runs-table"
 export interface Migration {
   version: number
   name: string
-  up: (db: Database) => void
+  up: (db: MigrationDatabase) => void
 }
 
 /**
@@ -107,7 +106,7 @@ export const LATEST_SCHEMA_VERSION = MIGRATIONS.reduce(
 )
 
 /** Read the database's recorded schema version (`PRAGMA user_version`). */
-export const getSchemaVersion = (db: Database): number => {
+export const getSchemaVersion = (db: MigrationDatabase): number => {
   const result = db.exec("PRAGMA user_version")
   const value = result[0]?.values?.[0]?.[0]
   return typeof value === "number" ? value : 0
@@ -118,11 +117,17 @@ export const getSchemaVersion = (db: Database): number => {
  * parameters, so the integer is interpolated; callers only ever pass our own
  * migration version numbers, never user input.
  */
-export const setSchemaVersion = (db: Database, version: number): void => {
+export const setSchemaVersion = (
+  db: MigrationDatabase,
+  version: number
+): void => {
   db.run(`PRAGMA user_version = ${Math.trunc(version)}`)
 }
 
-const getTableColumns = (db: Database, table: "messages" | "sessions") => {
+const getTableColumns = (
+  db: MigrationDatabase,
+  table: "messages" | "sessions"
+) => {
   const stmt = db.prepare(`PRAGMA table_info(${table})`)
   const columns = new Set<string>()
   while (stmt.step()) {
@@ -134,7 +139,7 @@ const getTableColumns = (db: Database, table: "messages" | "sessions") => {
 }
 
 const hasTable = (
-  db: Database,
+  db: MigrationDatabase,
   table:
     | "tool_loop_runs"
     | "prompt_templates"
@@ -153,12 +158,13 @@ const hasTable = (
 
 /**
  * Repair databases whose recorded version is newer than their physical
- * schema. This can happen when an older extension context persists a stale
- * sql.js snapshot after another context migrated it. Version-only migration
+ * schema. This can happen on the legacy blob backend, where an older extension
+ * context persists a stale full-database snapshot after another context
+ * migrated it — the OPFS owner has one writer and cannot. Version-only migration
  * checks cannot detect that state, and subsequent message inserts then fail on
  * missing columns.
  */
-export const repairSchemaDrift = (db: Database): number => {
+export const repairSchemaDrift = (db: MigrationDatabase): number => {
   const messageColumns = getTableColumns(db, "messages")
   const sessionColumns = getTableColumns(db, "sessions")
   const repairs: Array<{ missing: boolean; apply: () => void }> = [
@@ -234,7 +240,7 @@ export const repairSchemaDrift = (db: Database): number => {
  * the number of migrations applied so the caller can decide whether to persist
  * the upgraded database.
  */
-export const runMigrations = (db: Database): number => {
+export const runMigrations = (db: MigrationDatabase): number => {
   const current = getSchemaVersion(db)
   const pending = MIGRATIONS.filter((m) => m.version > current).sort(
     (a, b) => a.version - b.version

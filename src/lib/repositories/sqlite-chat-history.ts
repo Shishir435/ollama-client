@@ -489,8 +489,11 @@ export const addMessage = (
 
 /**
  * Atomically append a message, its files, and the session's active-leaf
- * pointer. A live session snapshot may be supplied to repair a session row
- * lost by a stale or competing sql.js context.
+ * pointer. A live session snapshot may be supplied to repair a missing session
+ * row — originally for rows lost to a stale or competing per-page database,
+ * which a single owner no longer produces. The repair stays because the caller
+ * can still reach here with a session the database has not seen: a UI that
+ * optimistically created one, or a restore that landed between the two writes.
  */
 export const appendMessage = async (
   message: Omit<StoredMessage, "id">,

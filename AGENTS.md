@@ -141,18 +141,22 @@ Adding a method:
 
 ### Storage
 
-Chat history is **SQLite-only** (SQLite-in-WASM). The Dexie chat-history fallback is retired; Dexie remains for vector embeddings and knowledge sets.
+Chat history is **SQLite-only**, on one engine and one writer: official sqlite-wasm, in a worker owned by the persistence host. sql.js is gone from the package as of 0.13.x — it is a devDependency now, used only by the measurement pages to *write* old-topology fixtures. The Dexie chat-history fallback is retired; Dexie remains for vector embeddings and knowledge sets.
+
+**No context outside the owner holds a database handle.** `src/lib/sqlite/db.ts` is an RPC client, `getDb()` no longer exists, and adding a second engine or a second writer is the change to argue for in review rather than make.
 
 | Data | Where |
 |---|---|
 | Chats, sessions, messages, files | `src/lib/repositories/chat-history.ts` — a facade over `sqlite-chat-history.ts`. Go through the facade. |
-| SQLite internals | `src/lib/sqlite/` (`db.ts`, `schema.ts`, `migrations/`) |
+| SQLite internals | `src/lib/sqlite/` (`db.ts` RPC facade, `schema.ts`, `migrations/`) |
+| The engine itself | `src/lib/persistence/chat-db-engine.ts`, wrapped by `chat-db-worker.ts` |
 | On-install embedding-dimension migration | `src/lib/migration/`, invoked from `src/background/index.ts` |
 | Vectors / embeddings | `src/lib/embeddings/` — still IndexedDB via `storage.ts`, not migrated to SQLite |
 | Settings, config, per-extension state | `@plasmohq/storage` via `src/lib/plasmo-global-storage.ts` |
 
 - **Session metadata** — pinned state, per-chat system prompts, user tags — lives on SQLite `sessions`. Add columns through forward-only migrations.
-- **Durability** — writes debounce 1s to IndexedDB. Page-unload and explicit reset/export paths force-flush via `flushSave()`.
+- **Durability depends on the backend.** On **opfs** — every profile that has migrated — a committed statement is already durable and `flushSave()` is a no-op. On the **legacy blob**, the owner debounces a full-image write to IndexedDB by 1s, and `flushSave()` forces it. Callers flush at unload, migration and export boundaries without knowing which answered.
+- **A damaged legacy image is served read-only.** A blob that fails `integrity_check` keeps its reads, its backup export and its diagnostics; writes throw, migrations do not run against it, and it is never written back. Do not "fix" that by letting writes through — the image is the rollback artifact.
 - **Tool-loop durability** — active native and non-native tool loops checkpoint to `tool_loop_runs` at model/tool/approval boundaries and force-flush before awaiting approval. The sidepanel reconnects with the same request id after an MV3 worker restart. Do not remove that checkpoint/reconnect contract.
 - **Reasoning replay** — signed Anthropic thinking/redacted blocks and OpenRouter `reasoning_details` live in the versioned, size-capped `ChatMessage.replayArtifact`, separate from display-only `thinking`. Preserve block order and opaque values through SQLite and checkpoints, validate provider/model ownership before replay, and never render or log opaque contents.
 - **Sync vs local** — sync-safe settings use `chrome.storage.sync`; device-local keys are routed to `chrome.storage.local` by the wrapper.
@@ -176,6 +180,10 @@ Rules that follow from it:
 - The background/application layer owns durable workflows; the UI submits intent. A durable value written directly from a component is a boundary violation even when it works.
 
 The persistence host (Chromium offscreen document / Firefox MV2 background page) owns the only chat-db worker. It reports worker `error` and `messageerror` events with their cause — keep it that way; a bare "worker crashed" hides the actual failure. Note that in dev the worker loads from the Vite dev server, which is why `worker-src` allows that origin during `serve` only (`config/__tests__/manifest-csp.test.ts` guards both halves).
+
+The host also decides which backend the owner serves, once per session, from the marker and the migration outcome — `setBackend` is host-only and the RPC listener rejects it from any sender. A migration that fails verification **resolves onto the legacy backend**; it does not reject. Only the owner failing to start rejects. That distinction is the whole reason `ensureMigrated` can be awaited before every request.
+
+Keep the engine reachable without a Worker. `chat-db-engine.ts` is split from `chat-db-worker.ts` so tests can drive it in-process — there is no Worker and no OPFS in vitest, so an engine only reachable through `postMessage` would be testable only through a browser harness. The legacy backend runs fully in vitest (`legacy-blob-backend.test.ts`); OPFS is covered by `pnpm verify:opfs-migration`.
 
 ### Feature modules (`src/features/`)
 
@@ -336,6 +344,8 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 | `lib/providers/__tests__/contract.test.ts` | provider list/stream parsing |
 | `config/__tests__/manifest-csp.test.ts` | no dev origin in a packaged CSP |
 | `lib/__tests__/browser-api-contract.test.ts` | guarded browser API access |
+| `lib/__tests__/architecture-boundaries.test.ts` | chat-history goes through the facade; SQLite internals stay out of UI; one SQLite engine ships |
+| `config/__tests__/wxt-build-config.test.ts` | which dev pages and WASM assets a store build carries |
 
 ### Lint and formatting
 

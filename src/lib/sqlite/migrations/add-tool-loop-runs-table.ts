@@ -1,7 +1,7 @@
-import type { Database } from "sql.js"
+import type { MigrationDatabase } from "./database"
 
 /** Add durable checkpoints for resumable tool-calling turns. */
-export const ensureToolLoopRunsTable = (db: Database): void => {
+export const ensureToolLoopRunsTable = (db: MigrationDatabase): void => {
   db.run(`
     CREATE TABLE IF NOT EXISTS tool_loop_runs (
       requestId TEXT PRIMARY KEY,

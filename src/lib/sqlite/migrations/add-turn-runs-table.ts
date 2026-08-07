@@ -1,7 +1,7 @@
-import type { Database } from "sql.js"
+import type { MigrationDatabase } from "./database"
 
 /** Add durable ownership rows for submitted chat turns. */
-export const ensureTurnRunsTable = (db: Database): void => {
+export const ensureTurnRunsTable = (db: MigrationDatabase): void => {
   db.run(`
     CREATE TABLE IF NOT EXISTS turn_runs (
       id TEXT PRIMARY KEY,

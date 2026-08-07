@@ -23,6 +23,16 @@ const importsModule = (source: string, modulePath: RegExp): boolean =>
     String.raw`(?:from\s+|import\s*\()\s*["']${modulePath.source}["']`
   ).test(source)
 
+/**
+ * Value imports only. `import type { Database } from "sql.js"` is erased at
+ * compile time and pulls no engine into the bundle, so counting it as a runtime
+ * dependency would flag modules that have none.
+ */
+const importsAtRuntime = (source: string, modulePath: RegExp): boolean =>
+  new RegExp(
+    String.raw`(?:import\s+(?!type\s)[^;]*?from\s*|import\s*\()\s*["']${modulePath.source}["']`
+  ).test(source)
+
 describe("architecture import boundaries", () => {
   it("routes chat-history callers through the public repository facade", () => {
     const allowed = new Set([
@@ -73,24 +83,24 @@ describe("architecture import boundaries", () => {
   })
 
   /**
-   * sql.js exists for one job: serving history to a profile still on the legacy
-   * blob backend. Everything else — surveying a source database, verifying an
-   * import, restoring a backup — runs on official sqlite-wasm, which reads the
-   * same file format.
+   * The extension ships one SQLite. Official sqlite-wasm reads the file format
+   * on every path there is: the OPFS owner, the survey, the import, the backup
+   * restore, and — since 0.13.x — the legacy blob fallback.
    *
    * A new runtime import here is how the second engine comes back, and it comes
    * back permanently: once two engines read the same file, verification is
-   * comparing engines instead of checking a migration.
+   * comparing engines instead of checking a migration. That is not hypothetical
+   * — the migration surveyed with sql.js and imported with sqlite-wasm until
+   * #230, and a disagreement between the two would have surfaced as a table-count
+   * mismatch indistinguishable from a real defect.
    *
-   * The three dev-only entrypoints are exempt because `config/wxt-hooks.ts`
-   * strips them from store builds. The migration-verification harness is the one
-   * place sql.js is still the right tool: its fixtures have to *write* blobs in
-   * the old topology, which is all sql.js was ever needed for. Type-only imports
-   * in the migration runner do not pull the runtime in.
+   * sql.js is a devDependency now, and the only allowed importers are the
+   * measurement pages `config/wxt-hooks.ts` strips from store builds. Their
+   * fixtures have to *write* blobs in the old topology, which is the one job
+   * sql.js was ever needed for.
    */
-  it("keeps the sql.js runtime to the legacy fallback alone", () => {
+  it("keeps the sql.js runtime out of everything that ships", () => {
     const allowed = new Set([
-      "lib/sqlite/legacy-db.ts",
       "entrypoints/benchmark/main.ts",
       "entrypoints/spike-opfs/main.ts",
       "entrypoints/persistence-verify/main.ts"
@@ -98,7 +108,7 @@ describe("architecture import boundaries", () => {
     const offenders = productionSources.filter((file) => {
       if (allowed.has(file)) return false
       const source = readFileSync(join(sourceRoot, file), "utf8")
-      return importsModule(source, /sql\.js\/dist\/sql-wasm\.js/)
+      return importsAtRuntime(source, /sql\.js(?:\/[^"']+)?/)
     })
 
     expect(offenders).toEqual([])

@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger"
-import { readPersistenceBackend } from "@/lib/persistence/backend"
 import {
   rpcExportDb,
+  rpcFlush,
   rpcImportDb,
   rpcPing,
   rpcQuery,
@@ -13,25 +13,25 @@ import {
 } from "@/lib/persistence/client"
 import type { RunResult } from "@/lib/persistence/protocol"
 
-// Chat-history database facade. Dispatches every operation to the profile's
-// active backend:
+// Chat-history database facade. Every operation goes to the single database
+// owner over persistence RPC — the Chromium offscreen document or the Firefox
+// MV2 background page, which hosts the only chat-db worker.
 //
-//   "opfs"   — the production single-owner topology: one sqlite-wasm database
-//              behind opfs-sahpool, hosted by the Chromium offscreen document
-//              or the Firefox MV2 background page, reached over persistence
-//              RPC. Durability is per-transaction; there is no debounced
-//              full-blob save and no stale-writer hazard.
-//   "legacy" — the historical in-memory sql.js database persisted as one
-//              IndexedDB blob. Only active until the owner's one-time
-//              migration verifies row counts and flips the backend marker.
+// The owner serves one of two backends, and this module does not care which:
 //
-// The legacy implementation is loaded lazily so sql.js and its WASM stay out
-// of every startup chunk on migrated profiles.
+//   "opfs"   — the production topology, one sqlite-wasm database behind
+//              opfs-sahpool. Durability is per-transaction.
+//   "legacy" — the historical blob in WASM memory, persisted to IndexedDB as
+//              one image, for a profile whose migration has not completed.
+//
+// Until 0.13.x this module dispatched on the backend marker and, for "legacy",
+// opened a database *in the calling context* on a second SQLite build. That is
+// what made a stale-writer guard necessary — every page was a writer — and it
+// is why the extension shipped two engines. Both are gone: one owner, one
+// engine, and clients that hold no database handle at all.
 
 type SqlValue = string | number | null | Uint8Array
 type QueryResult = Record<string, SqlValue>
-
-type LegacyDb = typeof import("./legacy-db")
 
 export interface SqlExecutor {
   query: (sql: string, bind?: SqlValue[]) => Promise<QueryResult[]>
@@ -39,24 +39,15 @@ export interface SqlExecutor {
   runWithMeta: (sql: string, bind?: SqlValue[]) => Promise<RunResult>
 }
 
-let legacyPromise: Promise<LegacyDb> | null = null
-const legacy = (): Promise<LegacyDb> => {
-  if (!legacyPromise) legacyPromise = import("./legacy-db")
-  return legacyPromise
-}
-
-const isOpfs = async (): Promise<boolean> =>
-  (await readPersistenceBackend()) === "opfs"
-
 // ---------------------------------------------------------------------------
 // Transaction scope. Every public statement and transaction acquires this
 // context-local mutex. Transaction callbacks receive a scoped executor that
-// bypasses the mutex and, for OPFS, carries the owner's lease token.
+// bypasses the mutex and carries the owner's lease token.
 //
 // Do not represent async transaction ownership with a process-global token:
 // unrelated work can run while a callback is awaiting and would accidentally
 // inherit that token. Explicit executors keep those operations outside the
-// transaction; the mutex parks them until commit/rollback on both backends.
+// transaction; the mutex parks them until commit/rollback.
 // ---------------------------------------------------------------------------
 
 let dbMutex: Promise<void> = Promise.resolve()
@@ -75,22 +66,7 @@ const withDbLock = async <T>(work: () => Promise<T>): Promise<T> => {
   }
 }
 
-const legacyExecutor = (legacyDb: LegacyDb): SqlExecutor => ({
-  query: (sql, bind = []) => legacyDb.query(sql, bind),
-  run: (sql, bind = []) => legacyDb.run(sql, bind),
-  runWithMeta: async (sql, bind = []) => {
-    await legacyDb.run(sql, bind)
-    const rows = await legacyDb.query(
-      "SELECT last_insert_rowid() AS id, changes() AS changed"
-    )
-    return {
-      lastInsertRowid: Number(rows[0]?.id ?? 0),
-      changes: Number(rows[0]?.changed ?? 0)
-    }
-  }
-})
-
-const opfsExecutor = (token?: string): SqlExecutor => ({
+const executor = (token?: string): SqlExecutor => ({
   query: async (sql, bind = []) =>
     (await rpcQuery(sql, bind, token)) as QueryResult[],
   run: async (sql, bind = []) => {
@@ -103,22 +79,8 @@ export const withTransaction = async (
   work: (transaction: SqlExecutor) => Promise<void>
 ): Promise<void> =>
   withDbLock(async () => {
-    if (!(await isOpfs())) {
-      const legacyDb = await legacy()
-      const transaction = legacyExecutor(legacyDb)
-      await legacyDb.run("BEGIN IMMEDIATE")
-      try {
-        await work(transaction)
-        await legacyDb.run("COMMIT")
-      } catch (error) {
-        await legacyDb.run("ROLLBACK")
-        throw error
-      }
-      return
-    }
-
     const token = crypto.randomUUID()
-    const transaction = opfsExecutor(token)
+    const transaction = executor(token)
     await rpcTxBegin(token)
     try {
       await work(transaction)
@@ -136,112 +98,68 @@ export const withTransaction = async (
   })
 
 // ---------------------------------------------------------------------------
-// Core statement API (signature-compatible with the legacy module)
+// Core statement API
 // ---------------------------------------------------------------------------
 
 export const query = async (
   sql: string,
   bind: SqlValue[] = []
-): Promise<QueryResult[]> =>
-  withDbLock(async () => {
-    if (await isOpfs()) return opfsExecutor().query(sql, bind)
-    return legacyExecutor(await legacy()).query(sql, bind)
-  })
+): Promise<QueryResult[]> => withDbLock(() => executor().query(sql, bind))
 
 export const run = async (sql: string, bind: SqlValue[] = []): Promise<void> =>
-  withDbLock(async () => {
-    if (await isOpfs()) return opfsExecutor().run(sql, bind)
-    return legacyExecutor(await legacy()).run(sql, bind)
-  })
+  withDbLock(() => executor().run(sql, bind))
 
 /**
  * Run a mutating statement and atomically report its lastInsertRowid and
- * change count. On the shared OPFS connection this is the only race-free way
- * to read last_insert_rowid(); the legacy per-context database reads it with
- * a follow-up query, which is safe there because nothing else shares the
- * connection.
+ * change count. On a shared connection this is the only race-free way to read
+ * last_insert_rowid(): the owner answers both from inside the same op.
  */
 export const runWithMeta = async (
   sql: string,
   bind: SqlValue[] = []
-): Promise<RunResult> =>
-  withDbLock(async () => {
-    if (await isOpfs()) return opfsExecutor().runWithMeta(sql, bind)
-    return legacyExecutor(await legacy()).runWithMeta(sql, bind)
-  })
+): Promise<RunResult> => withDbLock(() => executor().runWithMeta(sql, bind))
 
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
 
 export const initSQLite = async (): Promise<void> => {
-  if (await isOpfs()) {
-    await rpcPing()
-    return
-  }
-  await (await legacy()).initSQLite()
+  await rpcPing()
 }
 
 /**
- * Force-flush pending writes. On the OPFS backend every committed statement
- * is already durable, so this is a no-op kept for the callers that flush at
- * unload/migration boundaries; on the legacy backend it persists the blob.
+ * Force-flush pending writes. On the OPFS backend every committed statement is
+ * already durable and the owner no-ops this; on the legacy blob it writes the
+ * image. Kept for the callers that flush at unload, migration and export
+ * boundaries.
  */
 export const flushSave = async (): Promise<void> => {
-  if (await isOpfs()) return
-  await (await legacy()).flushSave()
+  await rpcFlush()
 }
 
 export const saveDatabase = flushSave
 
-export const exportDatabaseBytes = async (): Promise<Uint8Array> => {
-  if (await isOpfs()) return rpcExportDb()
-  return (await legacy()).exportDatabaseBytes()
-}
+export const exportDatabaseBytes = async (): Promise<Uint8Array> =>
+  rpcExportDb()
 
+/**
+ * Historically this read the durable copy rather than a live context's
+ * in-memory one, because any page could hold a different database. With a
+ * single owner there is only one copy to export.
+ */
 export const exportPersistedDatabaseBytes = async (): Promise<Uint8Array> => {
-  if (await isOpfs()) return rpcExportDb()
-  return (await legacy()).exportPersistedDatabaseBytes()
+  await flushSave()
+  return rpcExportDb()
 }
 
 export const importDatabaseBytes = async (bytes: Uint8Array): Promise<void> => {
-  if (await isOpfs()) {
-    const counts = await rpcImportDb(bytes)
-    logger.info(
-      `Backup imported into OPFS backend: ${counts.sessions} sessions, ${counts.messages} messages`,
-      "SQLite"
-    )
-    return
-  }
-  await (await legacy()).importDatabaseBytes(bytes)
+  const counts = await rpcImportDb(bytes)
+  logger.info(
+    `Backup imported: ${counts.sessions} sessions, ${counts.messages} messages`,
+    "SQLite"
+  )
 }
 
 export const resetSQLiteDatabase = async (): Promise<void> => {
-  if (await isOpfs()) {
-    await rpcReset()
-    // A user-initiated reset must also remove the legacy rollback blob —
-    // keeping it would resurrect deleted chats on a backend rollback.
-    try {
-      await (await legacy()).resetSQLiteDatabase()
-    } catch (error) {
-      logger.warn("Failed to clear legacy blob during reset", "SQLite", {
-        error
-      })
-    }
-    return
-  }
-  await (await legacy()).resetSQLiteDatabase()
-}
-
-/**
- * Raw legacy database handle. Exists for the durability test suite, which
- * tampers with schema state directly; production code must use query/run.
- * Unavailable on the OPFS backend — no context but the owner worker ever
- * holds the database handle there.
- */
-export const getDb = async () => {
-  if (await isOpfs()) {
-    throw new Error("getDb is unavailable on the OPFS persistence backend")
-  }
-  return (await legacy()).getDb()
+  await rpcReset()
 }

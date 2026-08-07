@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger"
 import {
   markOpfsBackend,
+  type PersistenceBackend,
   readLegacyOverride,
   readMigrationReceipt,
   readPersistenceBackend,
@@ -10,6 +11,7 @@ import {
   describeMismatches,
   findMissingDurableTables,
   findTableCountMismatches,
+  type IntegrityReport,
   isSoundDatabase,
   type TableCountMismatch
 } from "./durable-tables"
@@ -160,12 +162,24 @@ export const callWorker = (request: PersistenceOp): Promise<unknown> => {
 }
 
 // ---------------------------------------------------------------------------
-// One-time migration from the legacy sql.js IndexedDB blob
+// One-time migration from the legacy IndexedDB blob
 // ---------------------------------------------------------------------------
 
 let migrationPromise: Promise<void> | null = null
 
-const migrateLegacyBlobOnce = async (): Promise<void> => {
+/**
+ * Attempt the migration and report which backend the owner should serve from.
+ *
+ * A failure here is not fatal any more. It used to reject, every RPC with it,
+ * and each client then opened its own in-context sql.js database against the
+ * blob — which is how one profile ended up with as many writers as it had open
+ * pages. The owner now serves the blob itself, so a failed migration downgrades
+ * the topology instead of abandoning the request.
+ */
+const migrateLegacyBlobOnce = async (): Promise<{
+  backend: PersistenceBackend
+  integrity?: IntegrityReport
+}> => {
   if (await readLegacyOverride()) {
     logger.warn(
       "Persistence legacy override is set; staying on the legacy blob",
@@ -178,11 +192,11 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
     if (previous?.outcome !== "skipped") {
       await writeMigrationReceipt({ outcome: "skipped" })
     }
-    return
+    return { backend: "legacy" }
   }
 
   const backend = await readPersistenceBackend()
-  if (backend === "opfs") return
+  if (backend === "opfs") return { backend: "opfs" }
 
   logger.info("Starting legacy-blob → OPFS migration", "Persistence")
   const { readLegacyBlobBytes } = await import("./legacy-blob-reader")
@@ -194,7 +208,7 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
     await markOpfsBackend({})
     await writeMigrationReceipt({ outcome: "fresh" })
     logger.info("No legacy blob; OPFS backend initialized fresh", "Persistence")
-    return
+    return { backend: "opfs" }
   }
 
   const buffer = bytes.buffer.slice(
@@ -280,6 +294,7 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
       `Legacy blob migrated and verified: ${source.sessions} sessions, ${source.messages} messages`,
       "Persistence"
     )
+    return { backend: "opfs" }
   } catch (error) {
     await writeMigrationReceipt({
       outcome: "failed",
@@ -292,18 +307,41 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
       mismatches,
       failure: error instanceof Error ? error.message : String(error)
     })
-    throw error
+    logger.error("Legacy-blob migration failed", "Persistence", { error })
+    // The marker stays on "legacy" and the blob is untouched, so the owner can
+    // serve from it. The source survey already measured this exact image; its
+    // verdict is handed over so the legacy open does not rescan it.
+    return { backend: "legacy", integrity: source.integrity }
   }
 }
 
-/** Idempotent; safe to call on every host boot. A failed attempt clears the
- * cached promise so the next boot (or next call) retries; the backend marker
- * only flips after verification succeeds. */
+/**
+ * Attempt the migration once, then put the owner on whichever backend it
+ * settled on. Idempotent; safe to call on every host boot and before every RPC.
+ *
+ * A rejection here means the *owner* could not be brought up at all — the
+ * worker never answered, the marker could not be read. A migration that fails
+ * verification is not that: it resolves, on the legacy backend.
+ */
 export const ensureMigrated = (): Promise<void> => {
   if (!migrationPromise) {
-    migrationPromise = migrateLegacyBlobOnce().catch((error) => {
+    migrationPromise = (async () => {
+      const outcome = await migrateLegacyBlobOnce()
+      // Only the legacy direction is announced. "opfs" is the engine's default,
+      // and re-announcing it on every boot would close and reopen a context
+      // that is already correct.
+      if (outcome.backend === "legacy") {
+        await callWorker({
+          op: "setBackend",
+          backend: "legacy",
+          integrity: outcome.integrity
+        })
+      }
+    })().catch((error) => {
       migrationPromise = null
-      logger.error("Legacy-blob migration failed", "Persistence", { error })
+      logger.error("Persistence owner failed to start", "Persistence", {
+        error
+      })
       throw error
     })
   }
@@ -323,8 +361,9 @@ export const registerPersistenceHost = (): void => {
   }
 
   void ensureMigrated().catch(() => {
-    // Logged above; clients fall back to the legacy backend until a later
-    // boot migrates successfully.
+    // Logged above. This is the owner failing to start, not a migration failing
+    // verification — that resolves onto the legacy backend. Clients see their
+    // requests reject until a later boot brings the owner up.
   })
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -338,6 +377,14 @@ export const registerPersistenceHost = (): void => {
     if (rpc?.type !== PERSISTENCE_RPC) return false
     ;(async () => {
       try {
+        // Which topology a profile serves from is the host's decision, taken
+        // once from the marker and the migration outcome. Nothing that arrives
+        // over messaging gets to move a profile between backends — this
+        // listener answers any sender the browser hands it.
+        if (rpc.request?.op === "setBackend") {
+          sendResponse({ ok: false, error: "setBackend is host-only" })
+          return
+        }
         await ensureMigrated()
         // Runtime messages JSON-serialize on Chromium: decode blob-encoded
         // binds/bytes into real Uint8Arrays before the worker sees them,

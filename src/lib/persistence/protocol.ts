@@ -15,12 +15,35 @@ import type { IntegrityReport, TableCounts } from "./durable-tables"
 export type SqlValue = string | number | null | Uint8Array
 export type QueryRow = Record<string, SqlValue>
 
+/** Which topology the owner is serving from. Mirrors `PersistenceBackend` in
+ * backend.ts, kept here so the wire types do not depend on the marker module. */
+export type PersistenceBackendMode = "legacy" | "opfs"
+
 export type PersistenceOp =
   | { op: "query"; sql: string; bind?: SqlValue[]; tx?: string }
   | { op: "run"; sql: string; bind?: SqlValue[]; tx?: string }
   | { op: "txBegin"; token: string }
   | { op: "txCommit"; token: string }
   | { op: "txRollback"; token: string }
+  /**
+   * Point the owner at a backend. Sent by the host once per session, after it
+   * has decided whether this profile migrated — never by a database client,
+   * which has no standing to move a profile between topologies.
+   *
+   * `integrity` carries the verdict the migration already reached for the same
+   * blob, so a legacy open does not repeat a full scan the host just performed.
+   */
+  | {
+      op: "setBackend"
+      backend: PersistenceBackendMode
+      integrity?: IntegrityReport
+    }
+  /**
+   * Make committed writes durable. A no-op on OPFS, where every commit already
+   * is; on the legacy blob it forces the debounced image write. Clients call it
+   * at unload and export boundaries without knowing which backend answered.
+   */
+  | { op: "flush" }
   | { op: "exportDb" }
   | { op: "importDb"; bytes: ArrayBuffer }
   /**
@@ -94,7 +117,11 @@ export const RETRYABLE_OPS = new Set<PersistenceOp["op"]>([
   "query",
   "counts",
   "exportDb",
-  "ping"
+  "ping",
+  // Idempotent by construction: both re-assert a state the owner should already
+  // be in, and a respawned owner is exactly when they need re-asserting.
+  "flush",
+  "setBackend"
 ])
 
 // ---------------------------------------------------------------------------

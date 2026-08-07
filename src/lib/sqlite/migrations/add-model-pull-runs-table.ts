@@ -1,6 +1,6 @@
-import type { Database } from "sql.js"
+import type { MigrationDatabase } from "./database"
 
-export const ensureModelPullRunsTable = (db: Database): void => {
+export const ensureModelPullRunsTable = (db: MigrationDatabase): void => {
   db.run(`
     CREATE TABLE IF NOT EXISTS model_pull_runs (
       id TEXT PRIMARY KEY,

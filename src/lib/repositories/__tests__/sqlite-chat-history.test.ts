@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // Mock the db module so we can capture SQL strings + bindings without
-// booting sql.js for every test.
+// booting the SQLite engine for every test.
 vi.mock("@/lib/sqlite/db", () => {
   const query = vi.fn()
   const run = vi.fn()

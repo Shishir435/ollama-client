@@ -10,7 +10,7 @@
 // production path works, because it never goes through the repository facade
 // or the backend dispatcher. Chromium has had that stronger claim since
 // verify-opfs-migration.ts; Firefox has not, and section 17 makes this mirror
-// a prerequisite for removing the sql.js fallback — the legacy reader must not
+// a prerequisite for removing the legacy blob fallback — the reader must not
 // be deleted while one of two shipped browsers has no production-path
 // lifecycle evidence.
 //
@@ -20,7 +20,7 @@
 //      OPFS backend and flips the marker.
 //   2. Production writes: two tabs append through the facade concurrently;
 //      counts are exact (single-owner, no lost update).
-//   3. Real migration: seed a legacy sql.js blob (section 9.8 fixture), clear
+//   3. Real migration: seed a legacy blob (section 9.8 fixture), clear
 //      the backend marker, restart the browser on the same profile; the owner
 //      migrates the blob, verifies row counts, flips the marker — and the blob
 //      stays untouched as the rollback artifact.

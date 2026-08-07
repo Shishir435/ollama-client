@@ -77,7 +77,7 @@ import {
   setSchemaVersion
 } from "../migration-runner"
 
-// Minimal sql.js Database stub that models `PRAGMA user_version`.
+// Minimal MigrationDatabase stub that models `PRAGMA user_version`.
 const makeDb = (
   initialVersion = 0,
   schema: {

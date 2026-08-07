@@ -1,6 +1,5 @@
-import type { Database } from "sql.js"
-
 import { logger } from "@/lib/logger"
+import type { MigrationDatabase } from "./database"
 
 /**
  * Idempotent migration ensuring the `messages.updatedAt` column exists. It
@@ -13,7 +12,7 @@ import { logger } from "@/lib/logger"
  * here. Pre-existing rows keep a NULL `updatedAt`, which the sweep treats as
  * stale (safe: those rows predate the streaming-write bump).
  */
-export const ensureMessagesUpdatedAtColumn = (db: Database): void => {
+export const ensureMessagesUpdatedAtColumn = (db: MigrationDatabase): void => {
   const stmt = db.prepare("PRAGMA table_info(messages)")
   const columns: string[] = []
   while (stmt.step()) {

@@ -79,7 +79,7 @@ export const STORAGE_KEYS = {
   PERSISTENCE: {
     /**
      * Raw chrome.storage.local marker: which chat-history backend this
-     * profile runs on ("legacy" sql.js blob vs "opfs" single owner). Flips
+     * profile runs on ("legacy" IndexedDB blob vs "opfs" single owner). Flips
      * exactly once, after the migration verifies row counts.
      */
     BACKEND: "persistence_backend_v1",
@@ -92,7 +92,7 @@ export const STORAGE_KEYS = {
     MIGRATION_RECEIPT: "persistence_migration_receipt_v1",
     /**
      * Raw chrome.storage.local operator switch: pin this device to the
-     * retained legacy sql.js blob regardless of the backend marker. Recovery
+     * retained legacy IndexedDB blob regardless of the backend marker. Recovery
      * path for a migration that verified but produced wrong data.
      */
     LEGACY_OVERRIDE: "persistence_legacy_override_v1"

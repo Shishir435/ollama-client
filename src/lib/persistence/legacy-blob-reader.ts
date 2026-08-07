@@ -8,6 +8,24 @@ import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 // sqlite-wasm — the same engine that performs the import. Reading it here with
 // a second engine is what kept sql.js in the package for a read.
 
+/**
+ * Normalize whatever the structured clone handed back.
+ *
+ * Not `instanceof Uint8Array`: that is a per-realm test, and a clone can carry
+ * a view constructed elsewhere. It reads as "no blob" — which on this path
+ * means "fresh profile, nothing to migrate", the one wrong answer that loses
+ * history. `ArrayBuffer.isView` checks an internal slot instead, and rewrapping
+ * produces a view this realm's WASM glue will also accept.
+ */
+const asBytes = (value: unknown): Uint8Array | null => {
+  if (value instanceof Uint8Array) return value
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
+  }
+  if (value instanceof ArrayBuffer) return new Uint8Array(value)
+  return null
+}
+
 export const readLegacyBlobBytes = async (): Promise<Uint8Array | null> =>
   new Promise((resolve, reject) => {
     const request = indexedDB.open(SQLITE_DB_NAME, 1)
@@ -27,7 +45,7 @@ export const readLegacyBlobBytes = async (): Promise<Uint8Array | null> =>
           .get(SQLITE_DB_KEY)
         get.onsuccess = () => {
           database.close()
-          resolve(get.result instanceof Uint8Array ? get.result : null)
+          resolve(asBytes(get.result))
         }
         get.onerror = () => {
           database.close()

@@ -151,3 +151,13 @@ export const rpcImportDb = async (
 export const rpcReset = (): Promise<unknown> => send({ op: "reset" })
 
 export const rpcPing = (): Promise<unknown> => send({ op: "ping" })
+
+/**
+ * Make committed writes durable.
+ *
+ * Sent unconditionally rather than gated on the backend, because a client
+ * cannot know which topology answered without an extra round trip of its own —
+ * and the owner no-ops it on OPFS. It is called at unload, export and reset
+ * boundaries, never on a hot path.
+ */
+export const rpcFlush = (): Promise<unknown> => send({ op: "flush" })

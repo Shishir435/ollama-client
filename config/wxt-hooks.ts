@@ -35,8 +35,16 @@ export interface BuildTarget {
  * pages than it should is a shipping defect, and reading the answer off a
  * built bundle is a slow way to find out.
  */
+/**
+ * Whether this build keeps the dev-only measurement pages. Shared with the
+ * public-asset hook, because the one asset those pages need must appear on
+ * exactly the builds that keep them.
+ */
+export const includesDevEntrypoints = (target: BuildTarget): boolean =>
+  target.command === "serve" || target.benchmark
+
 export const devEntrypointsToStrip = (target: BuildTarget): string[] => {
-  const includeDev = target.command === "serve" || target.benchmark
+  const includeDev = includesDevEntrypoints(target)
 
   /*
    * The owner-topology spike needs chrome.offscreen and
@@ -84,22 +92,61 @@ export const stripDevEntrypoints = (
   }
 }
 
-export const hooks: WxtHooks = {
-  "build:publicAssets": (_wxt, files) => {
-    const promoIndex = files.findIndex(
-      (file) => file.relativeDest === "assets/icon-promo-light.png"
-    )
-    if (promoIndex !== -1) files.splice(promoIndex, 1)
-    // Ship the official sqlite3.wasm at a stable path: the persistence owner
-    // host fetches it and hands bytes to its worker. Bundler ?url imports are
-    // not portable here — Firefox MV2 iife output inlines the asset as a data:
-    // URL, which fetch() rejects.
-    files.push({
+export interface PublicAsset {
+  absoluteSrc: string
+  relativeDest: string
+}
+
+/**
+ * WASM assets copied in at a stable path rather than imported.
+ *
+ * Bundler `?url` imports are not portable here — Firefox MV2 iife output
+ * inlines the asset as a data: URL, which `fetch()` rejects.
+ *
+ * `sqlite3.wasm` ships on every build: the persistence owner host fetches it
+ * and hands the bytes to its worker, and the legacy blob backend inits from the
+ * same copy.
+ *
+ * `sql-wasm.wasm` ships on **no** store build. sql.js is a devDependency whose
+ * only remaining job is writing old-topology fixtures for the section 9.4/9.8
+ * measurement pages, so the asset follows those pages exactly: present when
+ * they are, absent when they are stripped. It used to sit in `public/assets/`,
+ * which meant every user downloaded 644KB for a page they could not open.
+ *
+ * Pure so the matrix can be asserted directly — see
+ * config/__tests__/wxt-build-config.test.ts.
+ */
+export const publicWasmAssets = (target: BuildTarget): PublicAsset[] => {
+  const assets: PublicAsset[] = [
+    {
       absoluteSrc: resolve(
         "node_modules/@sqlite.org/sqlite-wasm/dist/sqlite3.wasm"
       ),
       relativeDest: "assets/sqlite3.wasm"
+    }
+  ]
+  if (includesDevEntrypoints(target)) {
+    assets.push({
+      absoluteSrc: resolve("node_modules/sql.js/dist/sql-wasm.wasm"),
+      relativeDest: "assets/sql-wasm.wasm"
     })
+  }
+  return assets
+}
+
+export const hooks: WxtHooks = {
+  "build:publicAssets": (wxt, files) => {
+    const promoIndex = files.findIndex(
+      (file) => file.relativeDest === "assets/icon-promo-light.png"
+    )
+    if (promoIndex !== -1) files.splice(promoIndex, 1)
+    files.push(
+      ...publicWasmAssets({
+        command: wxt.config.command,
+        browser: wxt.config.browser,
+        benchmark: process.env.WXT_BENCHMARK === "1"
+      })
+    )
   },
 
   "entrypoints:resolved": (wxt, entrypoints) =>

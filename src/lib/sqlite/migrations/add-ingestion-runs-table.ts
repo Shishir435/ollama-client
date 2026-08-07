@@ -1,6 +1,6 @@
-import type { Database } from "sql.js"
+import type { MigrationDatabase } from "./database"
 
-export const ensureIngestionRunsTable = (db: Database): void => {
+export const ensureIngestionRunsTable = (db: MigrationDatabase): void => {
   db.run(`
     CREATE TABLE IF NOT EXISTS ingestion_runs (
       id TEXT PRIMARY KEY,

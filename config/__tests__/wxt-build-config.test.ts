@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest"
 
-import { devEntrypointsToStrip, stripDevEntrypoints } from "../wxt-hooks"
+import {
+  devEntrypointsToStrip,
+  publicWasmAssets,
+  stripDevEntrypoints
+} from "../wxt-hooks"
 import { persistenceDefines, vite } from "../wxt-vite"
 
 /*
@@ -67,6 +71,41 @@ describe("devEntrypointsToStrip", () => {
     expect(stripped).toContain("spike-owner-offscreen")
     expect(stripped).toContain("persistence-host")
     expect(stripped).not.toContain("ingestion-processor")
+  })
+})
+
+describe("publicWasmAssets", () => {
+  const destinations = (target: {
+    command: string
+    browser: string
+    benchmark: boolean
+  }) => publicWasmAssets(target).map((asset) => asset.relativeDest)
+
+  it("ships only the official sqlite3.wasm in a store build", () => {
+    for (const target of [CHROMIUM_STORE, FIREFOX_STORE]) {
+      expect(destinations(target)).toEqual(["assets/sqlite3.wasm"])
+    }
+  })
+
+  it("adds the sql.js binary to the builds that keep the measurement pages", () => {
+    for (const target of [
+      { ...CHROMIUM_STORE, benchmark: true },
+      { command: "serve", browser: "chrome", benchmark: false },
+      { command: "serve", browser: "firefox", benchmark: false }
+    ]) {
+      expect(destinations(target)).toEqual([
+        "assets/sqlite3.wasm",
+        "assets/sql-wasm.wasm"
+      ])
+    }
+  })
+
+  it("copies the sql.js binary from the devDependency, not a committed copy", () => {
+    const [, sqlJs] = publicWasmAssets({ ...CHROMIUM_STORE, benchmark: true })
+
+    expect(sqlJs.absoluteSrc).toMatch(
+      /node_modules[\\/]sql\.js[\\/]dist[\\/]sql-wasm\.wasm$/
+    )
   })
 })
 
