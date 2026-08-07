@@ -185,16 +185,29 @@ export const useProviderSettingsState = () => {
       })
 
       if (result.modelCount === 0) {
+        // A server without a catalog endpoint is reachable but has nothing to
+        // offer until the user names a model, so say that instead of repeating
+        // "no models were returned" at someone who cannot make it return any.
+        const noModelList = result.modelListSupported === false
         setConnectionStatus({
           success: false,
-          message: t("settings.providers.test_connection.inline_no_models", {
-            url: displayUrl
-          })
+          message: t(
+            noModelList
+              ? "settings.providers.test_connection.inline_no_model_list"
+              : "settings.providers.test_connection.inline_no_models",
+            { url: displayUrl }
+          )
         })
         toast({
-          title: t("settings.providers.test_connection.no_models_title"),
+          title: t(
+            noModelList
+              ? "settings.providers.test_connection.no_model_list_title"
+              : "settings.providers.test_connection.no_models_title"
+          ),
           description: t(
-            "settings.providers.test_connection.no_models_description",
+            noModelList
+              ? "settings.providers.test_connection.no_model_list_description"
+              : "settings.providers.test_connection.no_models_description",
             { url: displayUrl }
           ),
           variant: "destructive"
@@ -202,17 +215,22 @@ export const useProviderSettingsState = () => {
         return
       }
 
+      const manualOnly = result.modelListSupported === false
       setConnectionStatus({
         success: true,
-        message: t("settings.providers.test_connection.inline_success", {
-          url: displayUrl,
-          count: result.modelCount
-        })
+        message: t(
+          manualOnly
+            ? "settings.providers.test_connection.inline_success_manual"
+            : "settings.providers.test_connection.inline_success",
+          { url: displayUrl, count: result.modelCount }
+        )
       })
       toast({
         title: t("settings.providers.test_connection.success_title"),
         description: t(
-          "settings.providers.test_connection.success_description",
+          manualOnly
+            ? "settings.providers.test_connection.success_description_manual"
+            : "settings.providers.test_connection.success_description",
           {
             name: activeConfig.name,
             url: displayUrl,

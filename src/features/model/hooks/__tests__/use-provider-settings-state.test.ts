@@ -303,4 +303,72 @@ describe("useProviderSettingsState", () => {
         )
     ).toHaveLength(0)
   })
+
+  const testConnectionFor = async (providerId: string) => {
+    const hook = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(hook.result.current.providers).toHaveLength(2))
+    await act(async () => {
+      await hook.result.current.setSelectedId(providerId)
+    })
+    await act(async () => {
+      await hook.result.current.handleTestConnection()
+    })
+    return hook
+  }
+
+  it("reports an endpoint without a model list as usable when ids are declared", async () => {
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList) {
+        return { providers: [ollama, custom] } as never
+      }
+      if (method === RpcMethod.ProvidersTestConnection) {
+        return {
+          providerId: custom.id,
+          reachable: true,
+          modelCount: 2,
+          modelListSupported: false,
+          latencyMs: 3
+        } as never
+      }
+      throw new Error(`Unexpected method: ${method}`)
+    })
+
+    const hook = await testConnectionFor(custom.id)
+
+    expect(hook.result.current.connectionStatus).toEqual({
+      success: true,
+      message: "settings.providers.test_connection.inline_success_manual"
+    })
+  })
+
+  it("tells the user to declare model ids when the endpoint lists none", async () => {
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList) {
+        return { providers: [ollama, custom] } as never
+      }
+      if (method === RpcMethod.ProvidersTestConnection) {
+        return {
+          providerId: custom.id,
+          reachable: true,
+          modelCount: 0,
+          modelListSupported: false,
+          latencyMs: 3
+        } as never
+      }
+      throw new Error(`Unexpected method: ${method}`)
+    })
+
+    const hook = await testConnectionFor(custom.id)
+
+    expect(hook.result.current.connectionStatus).toEqual({
+      success: false,
+      message: "settings.providers.test_connection.inline_no_model_list"
+    })
+    expect(mocks.toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "settings.providers.test_connection.no_model_list_title",
+        variant: "destructive"
+      })
+    )
+  })
 })

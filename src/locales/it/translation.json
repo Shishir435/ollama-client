@@ -533,7 +533,8 @@
       "refresh_aria_label": "Aggiorna modelli",
       "refresh_tooltip": "Aggiorna modelli",
       "search_placeholder": "Cerca modello...",
-      "no_model_found": "Nessun modello trovato."
+      "no_model_found": "Nessun modello trovato.",
+      "providers_unavailable": "{{names}} non ha restituito modelli. Controlla il provider nelle impostazioni o aggiungi gli ID modello manualmente."
     },
     "version": {
       "tooltip": "Versione Provider: {{version}}"
@@ -1461,12 +1462,17 @@
       "test_connection": {
         "success_title": "Connessione riuscita",
         "success_description": "Connessione riuscita a {{name}} su {{url}}. Trovati {{count}} modello/i.",
+        "success_description_manual": "Connessione riuscita a {{name}} su {{url}}. Non pubblica un elenco di modelli, quindi vengono usati i {{count}} ID modello che hai aggiunto.",
         "failed_title": "Connessione fallita",
         "failed_description": "Impossibile raggiungere {{url}}. {{error}}",
         "no_models_title": "Nessun modello trovato",
+        "no_model_list_title": "Nessun elenco di modelli",
         "no_models_description": "{{url}} è raggiungibile, ma non sono stati restituiti modelli. Assicurati che il provider sia in esecuzione, che l’URL di base sia corretto e che almeno un modello sia installato o caricato.",
+        "no_model_list_description": "{{url}} è raggiungibile, ma questo endpoint non pubblica un elenco di modelli. Aggiungi gli ID dei modelli che vuoi usare in «ID modello», poi riprova.",
         "inline_success": "Connesso a {{url}}. Trovati {{count}} modello/i.",
+        "inline_success_manual": "Connesso a {{url}}. Non pubblica un elenco di modelli, quindi vengono usati i {{count}} ID modello che hai aggiunto.",
         "inline_no_models": "{{url}} è raggiungibile, ma non sono stati restituiti modelli. Verifica che il provider sia in esecuzione e abbia modelli installati o caricati.",
+        "inline_no_model_list": "{{url}} è raggiungibile, ma non pubblica un elenco di modelli. Aggiungi gli ID dei modelli che vuoi usare in «ID modello».",
         "inline_failed": "Impossibile raggiungere {{url}}. {{error}}",
         "default_url": "URL predefinito",
         "api_key_required_title": "Chiave API richiesta",

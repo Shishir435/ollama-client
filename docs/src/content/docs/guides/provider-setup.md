@@ -60,6 +60,12 @@ Need help with LAN or Firefox origin setup? See [`tools/ollama-env.sh`](https://
 4. Set the base URL and run a connection test.
 5. Pick a model from the chat model menu.
 
+### Endpoints that do not list models
+
+Some hosted gateways implement `/chat/completions` and nothing else. The connection test reports those as reached but without a model list, and no model can be discovered from them.
+
+Add the model IDs you want under **Model IDs** on the provider card (or in the Add provider dialog). Those IDs go into the chat model menu exactly like discovered ones, and they survive a failed or missing `/models` request — so a provider that publishes no catalog is still fully usable. Removing an ID only removes it from the menu; it never deletes anything on the server.
+
 ## 5. Verify endpoints
 
 ```bash

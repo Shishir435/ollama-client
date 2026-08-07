@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Local AI Chat for Ollama, LM Studio, llama.cpp",
-  "version": "0.12.7",
+  "version": "0.12.8",
   "description": "Local-first browser extension for private LLM chat with Ollama, LM Studio, llama.cpp, and other local or remote providers, with local RAG, web search, and page context.",
   "author": "Shishir Chaurasiya",
   "keywords": [

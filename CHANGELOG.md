@@ -9,6 +9,27 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.12.8]
+
+### Fixed
+
+- Models you type in yourself now reach the model menu even when the provider
+  has no model list to discover. A custom provider whose `/models` request
+  failed had its manually added model IDs dropped along with the request, so the
+  provider was absent from the menu entirely and nothing could be selected from
+  it. The IDs are configuration, not discovery, and are now kept either way.
+- Testing a provider that only implements chat — many hosted OpenAI-compatible
+  routers do — no longer reports "Connection Failed". A server that answers the
+  model-list request with "no such endpoint" is reachable, and the test now says
+  so, counts the model IDs you added, and tells you to add some when you have
+  not. A refused key, a rate limit, or a server error still fails as before.
+- A provider that returns HTTP 404 no longer reports "The provider
+  configuration was not found", which described a different problem than the
+  one you had. The provider's own message — which model or endpoint was missing,
+  and what to check — is shown instead.
+- The model menu now names providers that returned nothing, instead of leaving
+  them silently absent from the list.
+
 ## [0.12.7]
 
 ### Changed
@@ -780,7 +801,8 @@ No functional changes: this release is store metadata only.
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.7...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.8...HEAD
+[0.12.8]: https://github.com/Shishir435/ollama-client/compare/0.12.7...0.12.8
 [0.12.7]: https://github.com/Shishir435/ollama-client/compare/0.12.6...0.12.7
 [0.12.6]: https://github.com/Shishir435/ollama-client/compare/0.12.5...0.12.6
 [0.12.5]: https://github.com/Shishir435/ollama-client/compare/0.12.4...0.12.5

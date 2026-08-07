@@ -533,7 +533,8 @@
       "refresh_aria_label": "Refresh models",
       "refresh_tooltip": "Refresh models",
       "search_placeholder": "Search model...",
-      "no_model_found": "No model found."
+      "no_model_found": "No model found.",
+      "providers_unavailable": "{{names}} returned no models. Check the provider in settings, or add model IDs manually."
     },
     "capabilities": {
       "edit_tooltip": "Set capabilities",
@@ -1671,12 +1672,17 @@
       "test_connection": {
         "success_title": "Connection Successful",
         "success_description": "Successfully connected to {{name}} at {{url}}. Found {{count}} model(s).",
+        "success_description_manual": "Successfully connected to {{name}} at {{url}}. It publishes no model list, so the {{count}} model ID(s) you added are used.",
         "failed_title": "Connection Failed",
         "failed_description": "Could not reach {{url}}. {{error}}",
         "no_models_title": "No Models Found",
+        "no_model_list_title": "No Model List",
         "no_models_description": "Reached {{url}}, but no models were returned. Make sure the provider is running, the base URL is correct, and at least one model is installed or loaded.",
+        "no_model_list_description": "Reached {{url}}, but this endpoint does not publish a model list. Add the model IDs you want to use under Model IDs, then test again.",
         "inline_success": "Connected to {{url}}. Found {{count}} model(s).",
+        "inline_success_manual": "Connected to {{url}}. It publishes no model list, so the {{count}} model ID(s) you added are used.",
         "inline_no_models": "Reached {{url}}, but no models were returned. Check that the provider is running and has models installed or loaded.",
+        "inline_no_model_list": "Reached {{url}}, but it does not publish a model list. Add the model IDs you want to use under Model IDs.",
         "inline_failed": "Could not reach {{url}}. {{error}}",
         "default_url": "default URL",
         "api_key_required_title": "API key required",

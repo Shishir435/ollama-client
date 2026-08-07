@@ -1,4 +1,4 @@
-import { createAppError } from "@/lib/error-utils"
+import { createAppError, isAppError } from "@/lib/error-utils"
 import type {
   ProvidersListModelsRequest,
   ProvidersListModelsResult,
@@ -53,6 +53,19 @@ const customModel = (name: string, config: ProviderConfig): ProviderModel => ({
   }
 })
 
+/**
+ * Statuses that mean "this server has no model-list endpoint", as opposed to
+ * "this server is broken or refused you". Every other failure — no answer at
+ * all, 401, 429, 5xx — stays a failure and keeps its own message, because
+ * calling those "reachable" would hide a problem the user has to fix.
+ */
+const MODEL_LIST_ABSENT_STATUSES = new Set([404, 405, 501])
+
+const isModelListAbsent = (error: unknown): boolean =>
+  isAppError(error) &&
+  error.status !== undefined &&
+  MODEL_LIST_ABSENT_STATUSES.has(error.status)
+
 const mergeProviderModels = (
   models: ProviderModel[],
   config: ProviderConfig
@@ -79,7 +92,7 @@ export const ProviderRpcService = {
     signal?: AbortSignal
   ): Promise<ProviderTestConnectionResult> {
     const startedAt = performance.now()
-    const provider =
+    const resolved =
       request.target === "draft"
         ? await (async () => {
             const draft = request.config as ProviderConfig
@@ -87,20 +100,54 @@ export const ProviderRpcService = {
               draft.apiKey === undefined
                 ? await ProviderManager.getProviderConfig(String(draft.id))
                 : undefined
-            return ProviderFactory.getProviderWithConfig({
+            const config = {
               ...draft,
               ...(draft.apiKey === undefined && stored?.apiKey
                 ? { apiKey: stored.apiKey }
                 : {})
-            })
+            }
+            return {
+              config,
+              provider: await ProviderFactory.getProviderWithConfig(config)
+            }
           })()
-        : await ProviderFactory.getProvider(request.providerId)
-    const models = await provider.getModels(signal)
-    return {
-      providerId: String(provider.id),
-      reachable: true,
-      modelCount: models.length,
-      latencyMs: Math.max(0, performance.now() - startedAt)
+        : {
+            config: await ProviderManager.getProviderConfig(request.providerId),
+            provider: await ProviderFactory.getProvider(request.providerId)
+          }
+    const { config, provider } = resolved
+    const latencyMs = () => Math.max(0, performance.now() - startedAt)
+
+    try {
+      const models = await provider.getModels(signal)
+      return {
+        providerId: String(provider.id),
+        reachable: true,
+        // Declared model ids count toward what this endpoint can actually be
+        // used with, exactly as they do in `listModels`.
+        modelCount: config
+          ? mergeProviderModels(models, config).length
+          : models.length,
+        modelListSupported: true,
+        latencyMs: latencyMs()
+      }
+    } catch (error) {
+      if (signal?.aborted) throw error
+      if (!isModelListAbsent(error)) throw error
+      /*
+       * The server answered — it just has no catalog endpoint. Plenty of hosted
+       * OpenAI-compatible routers only implement `/chat/completions`, and
+       * reporting those as unreachable made the whole provider unusable: the
+       * test went red and its models never reached the model menu. Report the
+       * ids the user declared and let the UI say where the rest come from.
+       */
+      return {
+        providerId: String(provider.id),
+        reachable: true,
+        modelCount: config?.customModels?.length ?? 0,
+        modelListSupported: false,
+        latencyMs: latencyMs()
+      }
     }
   },
 
@@ -210,21 +257,39 @@ export const ProviderRpcService = {
     const failures: ProvidersListModelsResult["failures"] = []
     await Promise.all(
       selected.map(async (config) => {
+        let discovered: ProviderModel[] = []
+        let discoveryFailed = false
         try {
           const provider = await ProviderFactory.getProvider(String(config.id))
-          const discovered = await provider.getModels(signal)
-          models.push(...mergeProviderModels(discovered, config))
+          discovered = await provider.getModels(signal)
         } catch (error) {
           if (signal?.aborted) throw error
+          discoveryFailed = true
+        }
+        /*
+         * Declared model ids are configuration, not discovery. Merging them
+         * only on the success path meant a provider without a `/models`
+         * endpoint contributed nothing at all — its ids were typed in, stored,
+         * and then dropped on the floor, so the model menu never showed the
+         * provider and the user had no way to reach it.
+         */
+        const merged = mergeProviderModels(discovered, config)
+        models.push(...merged)
+        if (discoveryFailed) {
           failures.push({
             providerId: String(config.id),
-            code: "request_failed"
+            providerName: config.name,
+            code: merged.length > 0 ? "discovery_unavailable" : "request_failed"
           })
         }
       })
     )
 
-    if (selected.length > 0 && failures.length === selected.length) {
+    if (
+      models.length === 0 &&
+      selected.length > 0 &&
+      failures.length === selected.length
+    ) {
       throw createAppError(
         "Failed to fetch models from every selected provider",
         {

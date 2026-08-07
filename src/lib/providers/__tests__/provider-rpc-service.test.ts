@@ -38,6 +38,7 @@ vi.mock("../factory", () => ({
   }
 }))
 
+import { createAppError } from "@/lib/error-utils"
 import { ProviderRpcService } from "../provider-rpc-service"
 import { type ProviderConfig, ProviderType } from "../types"
 
@@ -127,9 +128,45 @@ describe("ProviderRpcService", () => {
     expect(result).toMatchObject({
       providerId: "ollama",
       reachable: true,
-      modelCount: 1
+      // One discovered plus the declared id — the same set the model menu gets.
+      modelCount: 2,
+      modelListSupported: true
     })
     expect(result).not.toHaveProperty("apiKey")
+  })
+
+  it("reports an endpoint without a model list as reachable, counting declared ids", async () => {
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw createAppError("Model list failed (404)", {
+          kind: "provider",
+          status: 404
+        })
+      }
+    })
+
+    await expect(
+      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+    ).resolves.toMatchObject({
+      providerId: "ollama",
+      reachable: true,
+      modelCount: 1,
+      modelListSupported: false
+    })
+  })
+
+  it("keeps a rejected credential a failure rather than a missing model list", async () => {
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw createAppError("Unauthorized", { kind: "provider", status: 401 })
+      }
+    })
+
+    await expect(
+      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+    ).rejects.toMatchObject({ status: 401 })
   })
 
   it("keeps a stored credential background-only when testing an edited draft", async () => {
@@ -174,11 +211,38 @@ describe("ProviderRpcService", () => {
       "manual-model"
     ])
     expect(result.failures).toEqual([
-      { providerId: "custom:openai:remote", code: "request_failed" }
+      {
+        providerId: "custom:openai:remote",
+        providerName: "Remote",
+        code: "request_failed"
+      }
     ])
   })
 
-  it("fails when every selected provider is unavailable", async () => {
+  it("keeps declared model ids when discovery fails outright", async () => {
+    mocks.getProvider.mockRejectedValue(new Error("offline"))
+
+    const result = await ProviderRpcService.listModels({ enabledOnly: true })
+
+    // The provider without declared ids contributes nothing and is reported;
+    // the one with them still reaches the menu, which is the whole point.
+    expect(result.models.map(({ name }) => name)).toEqual(["manual-model"])
+    expect(result.failures).toEqual([
+      {
+        providerId: "custom:openai:remote",
+        providerName: "Remote",
+        code: "request_failed"
+      },
+      {
+        providerId: "ollama",
+        providerName: "Ollama",
+        code: "discovery_unavailable"
+      }
+    ])
+  })
+
+  it("fails when every selected provider is unavailable and none declares a model", async () => {
+    mocks.getProviders.mockResolvedValue([{ ...configs[0], customModels: [] }])
     mocks.getProvider.mockRejectedValue(new Error("offline"))
 
     await expect(
