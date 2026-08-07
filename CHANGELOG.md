@@ -30,6 +30,20 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - The model menu now names providers that returned nothing, instead of leaving
   them silently absent from the list.
 
+### Changed
+
+- A provider with no model list is asked for one once, not on every refresh. A
+  chat-only endpoint used to collect a failed request every few seconds — from
+  the model menu and from the background connection check — for an answer that
+  was never going to change. The answer is now remembered per provider on this
+  device, and re-checked after a day, whenever the base URL, wire, or preset
+  changes, and whenever you press Test.
+- The background connection check runs once a minute instead of every ten
+  seconds, and pauses while the settings page is in a hidden tab. Editing a
+  provider still re-checks it immediately.
+- A provider running on model IDs you declared is labelled as such rather than
+  reported as a failed connection.
+
 ## [0.12.7]
 
 ### Changed

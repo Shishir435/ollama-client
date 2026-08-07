@@ -66,6 +66,8 @@ Some hosted gateways implement `/chat/completions` and nothing else. The connect
 
 Add the model IDs you want under **Model IDs** on the provider card (or in the Add provider dialog). Those IDs go into the chat model menu exactly like discovered ones, and they survive a failed or missing `/models` request — so a provider that publishes no catalog is still fully usable. Removing an ID only removes it from the menu; it never deletes anything on the server.
 
+The answer is remembered per provider, so such an endpoint is asked once rather than on every refresh. It is re-checked after a day, whenever you change the base URL, wire, or preset, and whenever you press **Test**.
+
 ## 5. Verify endpoints
 
 ```bash

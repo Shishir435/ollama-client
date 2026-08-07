@@ -1450,6 +1450,7 @@
       "inactive": "非アクティブ",
       "connected": "接続済み",
       "connection_failed": "接続失敗",
+      "manual_models": "モデルIDのみ",
       "not_tested": "未テスト",
       "test": "テスト",
       "save": "保存",

@@ -25,7 +25,12 @@ import {
 } from "./capability-probe"
 import { ProviderFactory } from "./factory"
 import { ProviderManager } from "./manager"
-import type { ProviderConfig } from "./types"
+import {
+  isCatalogAbsentStatus,
+  recordModelCatalogSupport,
+  shouldSkipModelCatalog
+} from "./model-catalog-support"
+import type { LLMProvider, ProviderConfig } from "./types"
 
 const toPublicConfig = (config: ProviderConfig): PublicProviderConfig => {
   const { apiKey, ...publicConfig } = config
@@ -54,17 +59,52 @@ const customModel = (name: string, config: ProviderConfig): ProviderModel => ({
 })
 
 /**
- * Statuses that mean "this server has no model-list endpoint", as opposed to
- * "this server is broken or refused you". Every other failure — no answer at
- * all, 401, 429, 5xx — stays a failure and keeps its own message, because
- * calling those "reachable" would hide a problem the user has to fix.
+ * "This server has no model-list endpoint", as opposed to "this server is
+ * broken or refused you". Every other failure — no answer at all, 401, 429,
+ * 5xx — stays a failure and keeps its own message, because calling those
+ * reachable would hide a problem the user has to fix.
  */
-const MODEL_LIST_ABSENT_STATUSES = new Set([404, 405, 501])
-
 const isModelListAbsent = (error: unknown): boolean =>
-  isAppError(error) &&
-  error.status !== undefined &&
-  MODEL_LIST_ABSENT_STATUSES.has(error.status)
+  isAppError(error) && isCatalogAbsentStatus(error.status)
+
+/**
+ * Ask a provider for its catalog, unless it has already answered that it has
+ * none. Returns the discovered models and what was learned, so callers do not
+ * each have to re-derive "was that a failure or just an absent endpoint".
+ */
+const discoverModels = async (
+  config: ProviderConfig | undefined,
+  resolveProvider: () => Promise<Pick<LLMProvider, "getModels">>,
+  signal?: AbortSignal,
+  options: { force?: boolean } = {}
+): Promise<{
+  models: ProviderModel[]
+  catalog: "present" | "absent" | "failed"
+  error?: unknown
+}> => {
+  const remember = (supported: boolean) =>
+    config ? recordModelCatalogSupport(config, supported) : Promise.resolve()
+  if (
+    config &&
+    !options.force &&
+    (await shouldSkipModelCatalog(config).catch(() => false))
+  ) {
+    return { models: [], catalog: "absent" }
+  }
+  try {
+    const provider = await resolveProvider()
+    const models = await provider.getModels(signal)
+    await remember(true).catch(() => undefined)
+    return { models, catalog: "present" }
+  } catch (error) {
+    if (signal?.aborted) throw error
+    if (!isModelListAbsent(error)) {
+      return { models: [], catalog: "failed", error }
+    }
+    await remember(false).catch(() => undefined)
+    return { models: [], catalog: "absent" }
+  }
+}
 
 const mergeProviderModels = (
   models: ProviderModel[],
@@ -116,38 +156,33 @@ export const ProviderRpcService = {
             provider: await ProviderFactory.getProvider(request.providerId)
           }
     const { config, provider } = resolved
-    const latencyMs = () => Math.max(0, performance.now() - startedAt)
+    /*
+     * A draft test is the user pressing Test, usually right after editing the
+     * config, so it always goes to the network. A stored test is the background
+     * health check, which honours the remembered answer — that is what stops a
+     * chat-only endpoint from collecting a 404 every few seconds forever.
+     */
+    const { models, catalog, error } = await discoverModels(
+      config,
+      async () => provider,
+      signal,
+      { force: request.target === "draft" }
+    )
+    if (catalog === "failed") throw error
 
-    try {
-      const models = await provider.getModels(signal)
-      return {
-        providerId: String(provider.id),
-        reachable: true,
-        // Declared model ids count toward what this endpoint can actually be
-        // used with, exactly as they do in `listModels`.
-        modelCount: config
-          ? mergeProviderModels(models, config).length
-          : models.length,
-        modelListSupported: true,
-        latencyMs: latencyMs()
-      }
-    } catch (error) {
-      if (signal?.aborted) throw error
-      if (!isModelListAbsent(error)) throw error
+    const merged = config ? mergeProviderModels(models, config) : models
+    return {
+      providerId: String(provider.id),
+      reachable: true,
       /*
-       * The server answered — it just has no catalog endpoint. Plenty of hosted
-       * OpenAI-compatible routers only implement `/chat/completions`, and
-       * reporting those as unreachable made the whole provider unusable: the
-       * test went red and its models never reached the model menu. Report the
-       * ids the user declared and let the UI say where the rest come from.
+       * Declared model ids count toward what this endpoint can be used with,
+       * exactly as they do in `listModels`. A hosted router that only
+       * implements `/chat/completions` is not broken — it just has nothing to
+       * discover, and the test says so instead of reporting a dead provider.
        */
-      return {
-        providerId: String(provider.id),
-        reachable: true,
-        modelCount: config?.customModels?.length ?? 0,
-        modelListSupported: false,
-        latencyMs: latencyMs()
-      }
+      modelCount: merged.length,
+      modelListSupported: catalog === "present",
+      latencyMs: Math.max(0, performance.now() - startedAt)
     }
   },
 
@@ -257,15 +292,11 @@ export const ProviderRpcService = {
     const failures: ProvidersListModelsResult["failures"] = []
     await Promise.all(
       selected.map(async (config) => {
-        let discovered: ProviderModel[] = []
-        let discoveryFailed = false
-        try {
-          const provider = await ProviderFactory.getProvider(String(config.id))
-          discovered = await provider.getModels(signal)
-        } catch (error) {
-          if (signal?.aborted) throw error
-          discoveryFailed = true
-        }
+        const { models: discovered, catalog } = await discoverModels(
+          config,
+          () => ProviderFactory.getProvider(String(config.id)),
+          signal
+        )
         /*
          * Declared model ids are configuration, not discovery. Merging them
          * only on the success path meant a provider without a `/models`
@@ -275,20 +306,38 @@ export const ProviderRpcService = {
          */
         const merged = mergeProviderModels(discovered, config)
         models.push(...merged)
-        if (discoveryFailed) {
+        const report = (code: string) =>
           failures.push({
             providerId: String(config.id),
             providerName: config.name,
-            code: merged.length > 0 ? "discovery_unavailable" : "request_failed"
+            code
           })
+        if (catalog === "failed") {
+          report(merged.length > 0 ? "discovery_unavailable" : "request_failed")
+          return
+        }
+        // A catalog-less provider carrying its own declared ids is a normal,
+        // working setup. It is only worth reporting when it has none, because
+        // then it contributes nothing and the user has to add some.
+        if (catalog === "absent" && merged.length === 0) {
+          report("model_list_unsupported")
         }
       })
     )
 
+    /*
+     * Only a set of providers that all genuinely failed is an error. An
+     * endpoint that simply publishes no catalog has not failed at anything —
+     * throwing there would replace "add model IDs for this provider" with a
+     * network error, which is neither true nor actionable.
+     */
+    const hardFailures = failures.filter(
+      ({ code }) => code !== "model_list_unsupported"
+    )
     if (
       models.length === 0 &&
       selected.length > 0 &&
-      failures.length === selected.length
+      hardFailures.length === selected.length
     ) {
       throw createAppError(
         "Failed to fetch models from every selected provider",

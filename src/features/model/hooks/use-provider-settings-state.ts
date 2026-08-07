@@ -518,6 +518,22 @@ export const useProviderSettingsState = () => {
       dot: "bg-status-success ring-status-success/30",
       label: "connected"
     },
+    /*
+     * An endpoint with no catalog is never asked for one after the first
+     * answer, so the background check reaches nothing and cannot claim a live
+     * connection. Say what is actually true — this provider runs on the model
+     * IDs you declared — rather than showing a red dot at a working provider.
+     */
+    {
+      test: () =>
+        Boolean(
+          activeConfig &&
+            connectionStatus === null &&
+            providerHealth[activeConfig.id]?.modelListSupported === false
+        ),
+      dot: "bg-status-warning ring-status-warning/30",
+      label: "manual_models"
+    },
     {
       test: () =>
         Boolean(

@@ -1450,6 +1450,7 @@
       "inactive": "Inaktiv",
       "connected": "Verbunden",
       "connection_failed": "Verbindung fehlgeschlagen",
+      "manual_models": "Nur Modell-IDs",
       "not_tested": "Nicht getestet",
       "test": "Testen",
       "save": "Speichern",

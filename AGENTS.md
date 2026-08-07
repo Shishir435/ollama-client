@@ -94,6 +94,10 @@ Dev-only entrypoints (`spike-*`, `benchmark`, `persistence-verify`) are stripped
 
 Legacy vLLM/LocalAI/KoboldCPP subclasses are compatibility-only, not UI profiles. **Default fallback is Ollama** when no explicit model→provider mapping exists.
 
+**Model discovery is not a requirement.** A provider's models are whatever `/models` returns *plus* the ids the user declared in `customModels`, and the merge happens whether or not discovery worked (`mergeProviderModels` in `provider-rpc-service.ts`). Hosted routers that implement only `/chat/completions` are normal, working providers — never gate a provider, a connection test, or the model menu on a catalog request succeeding.
+
+A 404/405/501 from the catalog endpoint is recorded in `model-catalog-support.ts` (device-local, fingerprinted by wire + base URL + service profile, expiring after a day) and that provider is not asked again until the fingerprint changes, the entry ages out, or the user presses Test. Anything else — no answer, 401, 429, 5xx — is a real failure and is never recorded, because it says nothing about whether the endpoint exists. Adding a new discovery caller means going through `discoverModels`, not `provider.getModels` directly.
+
 **Capability detection** resolves in this order, highest first: user override → empirical probe (`capability-probe.ts`) → model metadata → provider default. An unknown capability resolves to `false`; only an override may flip it on. Never enable vision or tool calling on a guess.
 
 Metadata evidence, strongest first:

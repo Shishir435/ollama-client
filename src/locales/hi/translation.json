@@ -1450,6 +1450,7 @@
       "inactive": "अक्रियाशील",
       "connected": "जुड़ा हुआ",
       "connection_failed": "कनेक्शन विफल",
+      "manual_models": "केवल मॉडल ID",
       "not_tested": "परीक्षण नहीं किया गया",
       "test": "परीक्षण",
       "save": "सहेजें",

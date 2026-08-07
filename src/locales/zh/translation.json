@@ -1450,6 +1450,7 @@
       "inactive": "未激活",
       "connected": "已连接",
       "connection_failed": "连接失败",
+      "manual_models": "仅模型 ID",
       "not_tested": "未测试",
       "test": "测试",
       "save": "保存",

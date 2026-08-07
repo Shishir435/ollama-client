@@ -143,7 +143,7 @@ export const useProviderModels = () => {
    * given.
    */
   const unavailableProviders = (modelList?.failures ?? EMPTY_FAILURES).filter(
-    (failure) => failure.code === "request_failed"
+    (failure) => failure.code !== "discovery_unavailable"
   )
 
   const selectedModelData = models.find((m) => m.name === selectedModel)

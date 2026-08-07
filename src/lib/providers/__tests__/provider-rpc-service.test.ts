@@ -1,5 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+// The catalog-support marker is exercised for real here — the whole point of
+// it is that a second discovery pass reads what the first one wrote — so this
+// file backs storage with a map instead of the suite-wide no-op stub.
+const storageBacking = vi.hoisted(() => new Map<string, unknown>())
+
+vi.mock("@/lib/plasmo-global-storage", () => ({
+  getPlasmoStoredValue: vi.fn(async (key: string) => storageBacking.get(key)),
+  setPlasmoStoredValue: vi.fn(async (key: string, value: unknown) => {
+    storageBacking.set(key, value)
+  })
+}))
+
 const mocks = vi.hoisted(() => ({
   getProviders: vi.fn(),
   getProviderConfig: vi.fn(),
@@ -39,8 +51,12 @@ vi.mock("../factory", () => ({
 }))
 
 import { createAppError } from "@/lib/error-utils"
+import { clearModelCatalogSupport } from "../model-catalog-support"
 import { ProviderRpcService } from "../provider-rpc-service"
 import { type ProviderConfig, ProviderType } from "../types"
+
+const catalogAbsent = () =>
+  createAppError("Model list failed (404)", { kind: "provider", status: 404 })
 
 const configs: ProviderConfig[] = [
   {
@@ -77,8 +93,14 @@ const model = (name: string) => ({
   }
 })
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks()
+  // The catalog-support marker is real storage, shared across tests in this
+  // file. Clear it so one test's learned answer cannot silence another's
+  // discovery call.
+  for (const config of configs) {
+    await clearModelCatalogSupport(String(config.id))
+  }
   mocks.getProviders.mockResolvedValue(configs)
   mocks.getProviderConfig.mockImplementation(async (id: string) =>
     configs.find((config) => config.id === id)
@@ -139,10 +161,7 @@ describe("ProviderRpcService", () => {
     mocks.getProviderWithConfig.mockResolvedValue({
       id: "ollama",
       getModels: async () => {
-        throw createAppError("Model list failed (404)", {
-          kind: "provider",
-          status: 404
-        })
+        throw catalogAbsent()
       }
     })
 
@@ -154,6 +173,78 @@ describe("ProviderRpcService", () => {
       modelCount: 1,
       modelListSupported: false
     })
+  })
+
+  it("stops asking an endpoint that already said it has no catalog", async () => {
+    const getModels = vi.fn(async () => {
+      throw catalogAbsent()
+    })
+    mocks.getProvider.mockImplementation(async (id: string) => ({
+      id,
+      getModels
+    }))
+    mocks.getProviders.mockResolvedValue([configs[0]])
+
+    const first = await ProviderRpcService.listModels({ enabledOnly: true })
+    const second = await ProviderRpcService.listModels({ enabledOnly: true })
+
+    // One request, ever. The second refresh is served from the declared ids.
+    expect(getModels).toHaveBeenCalledTimes(1)
+    expect(second.models.map(({ name }) => name)).toEqual(
+      first.models.map(({ name }) => name)
+    )
+    expect(second.models.map(({ name }) => name)).toEqual(["manual-model"])
+    // Nothing failed: the provider works, it just has nothing to discover.
+    expect(second.failures).toEqual([])
+  })
+
+  it("re-probes the catalog when the user tests the connection", async () => {
+    const listModelsProvider = vi.fn(async () => {
+      throw catalogAbsent()
+    })
+    mocks.getProvider.mockImplementation(async (id: string) => ({
+      id,
+      getModels: listModelsProvider
+    }))
+    mocks.getProviders.mockResolvedValue([configs[0]])
+    await ProviderRpcService.listModels({ enabledOnly: true })
+
+    const draftGetModels = vi.fn(async () => [model("now-listed")])
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: draftGetModels
+    })
+
+    const result = await ProviderRpcService.testConnection({
+      target: "draft",
+      config: configs[0]
+    })
+
+    // Pressing Test is a deliberate re-check: a server that gained the endpoint
+    // must not stay written off because of what it answered an hour ago.
+    expect(draftGetModels).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({ modelListSupported: true, modelCount: 2 })
+  })
+
+  it("reports a catalog-less provider that declares no models", async () => {
+    mocks.getProvider.mockImplementation(async (id: string) => ({
+      id,
+      getModels: async () => {
+        throw catalogAbsent()
+      }
+    }))
+    mocks.getProviders.mockResolvedValue([configs[1]])
+
+    const result = await ProviderRpcService.listModels({ enabledOnly: true })
+
+    expect(result.models).toEqual([])
+    expect(result.failures).toEqual([
+      {
+        providerId: "custom:openai:remote",
+        providerName: "Remote",
+        code: "model_list_unsupported"
+      }
+    ])
   })
 
   it("keeps a rejected credential a failure rather than a missing model list", async () => {
