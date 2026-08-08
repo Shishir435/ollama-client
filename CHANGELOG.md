@@ -48,10 +48,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - A provider running on model IDs you declared is labelled as such rather than
   reported as a failed connection.
 - Editing a provider's base URL no longer runs a connection test on every
-  keystroke. Typing one URL fired one test per character, each against the
-  half-typed value — on a hosted provider, a real API call per keypress. Edits
-  now settle first, and a re-render that changes nothing about where a provider
-  points costs nothing at all.
+  keystroke. Typing one URL fired one test per character — on a hosted
+  provider, a real API call per keypress — and none of them told you anything,
+  because the check reads saved configuration and you were still typing. The
+  check now runs when a change is saved, and the status you see after saving
+  describes the endpoint you just saved rather than the one before it.
 - A support report from a provider that publishes no model list no longer says
   "Provider reachable: no". It is reachable; it just has nothing to discover,
   and the old wording sent whoever read the report after the wrong thing.

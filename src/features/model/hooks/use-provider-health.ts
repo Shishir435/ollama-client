@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import type { ProviderConfig } from "@/lib/providers/types"
 import { extensionRpcClient } from "@/protocol/extension-client"
@@ -29,41 +29,30 @@ export type ProviderHealthMap = Record<string, ProviderHealthEntry>
  */
 const HEALTH_CHECK_INTERVAL_MS = 60_000
 
-/*
- * How long a config change is left to settle before it is checked.
+/**
+ * Which providers this check has anything to say about.
  *
- * Every keystroke in the base-URL field produces a new `providers` array, and
- * this effect used to key on that array's identity — so typing one URL fired
- * one connection test per character, each against whatever partial value was
- * in the box. On a hosted provider that is a real API call per keypress.
+ * Not where they point: the check tests *stored* config, so a base URL the
+ * user is still typing describes an endpoint it will not contact. Keying on
+ * the draft is what made typing one URL fire one connection test per
+ * character — and a debounce only hid that, because the check still ran
+ * against the old stored value and then never re-ran once the save landed.
+ * `savedRevision` is the signal for "the stored endpoint changed"; this is the
+ * signal for "the set of providers changed".
  */
-const CONFIG_SETTLE_MS = 700
-
-/**
- * Field separator inside a signature row. Deliberately a character no provider
- * id, URL, wire, or profile can contain, so splitting a row back apart cannot
- * be confused by a value that happens to hold the separator.
- */
-const FIELD = "\u001f"
-
-/**
- * What actually decides the answer: which providers exist, which are on, and
- * where they point. Everything else about a provider — its name, its declared
- * model ids, an API key being retyped — cannot change whether it is reachable,
- * so it must not cost a request.
- */
-const healthSignature = (providers: ProviderConfig[]): string =>
-  providers
-    .filter((provider) => provider.enabled)
-    .map((provider) =>
-      [
-        String(provider.id),
-        provider.baseUrl ?? "",
-        String(provider.type),
-        provider.serviceProfile ?? ""
-      ].join(FIELD)
-    )
-    .join("\n")
+const healthSignature = (
+  providers: ProviderConfig[],
+  savedRevision: number
+): string =>
+  [
+    // The revision rides along as the first row so a save rebuilds the list:
+    // the same providers now point somewhere else, and the answers already on
+    // screen describe the endpoint they used to have.
+    String(savedRevision),
+    ...providers
+      .filter((provider) => provider.enabled)
+      .map((provider) => String(provider.id))
+  ].join("\n")
 
 /**
  * Poll every enabled provider through the provider connection RPC. A provider
@@ -75,23 +64,15 @@ const healthSignature = (providers: ProviderConfig[]): string =>
  * a settings tab left open in a window nobody is looking at costs nothing.
  */
 export const useProviderHealth = (
-  providers: ProviderConfig[]
+  providers: ProviderConfig[],
+  savedRevision = 0
 ): ProviderHealthMap => {
   const [health, setHealth] = useState<ProviderHealthMap>({})
-  const signature = healthSignature(providers)
+  const signature = healthSignature(providers, savedRevision)
   // A stable list for as long as the signature is: the string is rebuilt on
   // every render but is equal across renders that changed nothing this hook
   // cares about, so the effect below does not restart on each keystroke.
-  const targets = useMemo(
-    () =>
-      signature
-        ? signature.split("\n").map((row) => row.split(FIELD)[0])
-        : ([] as string[]),
-    [signature]
-  )
-  // The first run is the settings screen opening and should not sit behind the
-  // settle delay; later runs are edits, and those should.
-  const hasRun = useRef(false)
+  const targets = useMemo(() => signature.split("\n").slice(1), [signature])
 
   useEffect(() => {
     let cancelled = false
@@ -124,15 +105,23 @@ export const useProviderHealth = (
       }
     }
 
+    // Returning to a visible page and the interval can land together; without
+    // this the same sweep runs twice, concurrently, against every provider.
+    let running = false
     const checkAll = async () => {
+      if (running) return
       if (typeof document !== "undefined" && document.hidden) return
-      for (const providerId of targets) {
-        await checkOne(providerId)
+      running = true
+      try {
+        for (const providerId of targets) {
+          await checkOne(providerId)
+        }
+      } finally {
+        running = false
       }
     }
 
-    const settle = setTimeout(checkAll, hasRun.current ? CONFIG_SETTLE_MS : 0)
-    hasRun.current = true
+    checkAll()
     const interval = setInterval(checkAll, HEALTH_CHECK_INTERVAL_MS)
     const onVisibilityChange = () => {
       if (!document.hidden) checkAll()
@@ -141,7 +130,6 @@ export const useProviderHealth = (
 
     return () => {
       cancelled = true
-      clearTimeout(settle)
       clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisibilityChange)
     }
