@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 
+import ts from "typescript"
 import { describe, expect, it } from "vitest"
 
 const sourceRoot = join(process.cwd(), "src")
@@ -18,10 +19,42 @@ const productionSources = walk(sourceRoot)
   .filter((path) => !path.includes("__tests__/"))
   .filter((path) => !path.startsWith("test/"))
 
-const importsModule = (source: string, modulePath: RegExp): boolean =>
-  new RegExp(
-    String.raw`(?:\bimport\s*\(\s*|\bimport\s+(?:type\s+)?(?:[^"'();]*?\s+from\s*)?|\bexport\s+(?:type\s+)?[^"'();]*?\s+from\s*)["']${modulePath.source}["']`
-  ).test(source)
+const referencedModules = (source: string): string[] => {
+  const sourceFile = ts.createSourceFile(
+    "architecture-boundary.ts",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  )
+  const modules: string[] = []
+  const visit = (node: ts.Node) => {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      modules.push(node.moduleSpecifier.text)
+    } else if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length === 1 &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      modules.push(node.arguments[0].text)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  return modules
+}
+
+const importsModule = (source: string, modulePath: RegExp): boolean => {
+  const exactModulePath = new RegExp(`^(?:${modulePath.source})$`)
+  return referencedModules(source).some((module) =>
+    exactModulePath.test(module)
+  )
+}
 
 /**
  * Value imports only. `import type { Database } from "sql.js"` is erased at
@@ -42,6 +75,12 @@ describe("architecture import boundaries", () => {
       'import type { Agent } from "@/features/agent/types"',
       'export { run } from "@/features/agent/runtime"',
       'export * from "@/features/agent/public"',
+      `import {
+        run
+      } from "@/features/agent/runtime"`,
+      `export {
+        run
+      } from "@/features/agent/runtime"`,
       'const runtime = import("@/features/agent/runtime")'
     ]
 
