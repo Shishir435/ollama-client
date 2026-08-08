@@ -29,7 +29,8 @@ Release work merges into `preview` for validation; only `preview` merges into
 
 Landed on `release/0.13.x`:
 
-- Durable turn ownership and MV3 restart recovery.
+- Durable turn orchestration and MV3 restart recovery; sole logical writer is
+  still an audit closure gate below.
 - Typed, validated streaming protocol with centralized event names.
 - Durable ingestion and model-pull jobs.
 - Per-table migration verification and retained rollback evidence.
@@ -45,6 +46,129 @@ Not on current release branch:
   never a branch to merge wholesale.
 - Package extraction. Existing `src/application/**` boundaries are useful prior
   art, but physical packages have not landed.
+
+## Architecture audit refresh — 2026-08-09
+
+Overall rating: **8/10**. Architecture has moved well past the concerns in the
+original audit brief: entrypoints are thin, request/response traffic is typed
+and validated, provider behavior is capability-driven, chat persistence has one
+engine and one physical owner, and durable turn/job recovery accounts for MV3
+worker suspension. Remaining work is boundary completion, not a rewrite.
+
+### Current dependency map
+
+```text
+React shells and feature UI
+  -> UI hooks/adapters
+     -> versioned stream contracts | typed extension RPC
+        -> background composition and authorization
+           -> turn/context/ingestion/model-pull application services
+              -> provider | browser | storage adapters
+                 -> provider endpoints | browser APIs | SQLite/Dexie/storage
+
+Persistence host
+  -> one chat-db worker
+     -> official sqlite-wasm
+        -> OPFS, or read-only/compatibility legacy blob path
+```
+
+This direction is partly realized. `TurnService`, stream reducers, RPC schemas,
+provider adapters, repository facades, and the persistence owner are strong
+seams to preserve. `build-context.ts`, reminder tools, settings access, and the
+UI streaming bridge still cross the intended direction in specific places.
+
+### Strongest areas to preserve
+
+- `src/protocol/` connects request and response types, validates both ends,
+  authorizes senders, distinguishes queries from commands, and propagates
+  cancellation. Do not replace it with ad-hoc messages or a generic event bus.
+- `src/application/turns/turn-service.ts` expresses orchestration through small
+  ports and has deterministic tests. Use this pattern for extracted runtime
+  kernels; do not add repository interfaces everywhere.
+- `src/background/durable-turn-runtime.ts`, durable job tables, and reconnecting
+  stream snapshots make worker restart a designed path rather than an error
+  case.
+- `src/lib/providers/` keeps chat behind `LLMProvider` while retaining explicit
+  capability and provider-specific management behavior. Preserve capability
+  evidence order; do not build a lowest-common-denominator superclass.
+- `src/lib/repositories/chat-history.ts`, the persistence host, and architecture
+  contract tests enforce one SQLite engine, one owner, and one public facade.
+- `storage-key-registry.ts`, provider-secret journaling, and sync quota guards
+  establish useful storage ownership and recovery rules even though typed
+  descriptor adoption is incomplete.
+
+### Findings and required direction
+
+| Severity | Evidence | Failure mode | Direction | Timing |
+| --- | --- | --- | --- | --- |
+| Critical | `use-chat-streaming.ts` debounces assistant-row writes while `durable-turn-runtime.ts` persists the same row | A delayed UI write can overwrite a newer background snapshot or terminal state; unmount does not clear the pending DB timer | Durable turns: background is sole durable writer. UI folds validated events into ephemeral state and reconciles from persisted snapshots. Keep a separately characterized compatibility path only if a non-durable caller remains | Before package moves, M |
+| Critical | `tool-loop-runs.ts` casts `JSON.parse(row.state)` to `DurableToolLoopState` | Corrupt or older checkpoint can crash restart recovery at the point durability is needed most | Add versioned Zod checkpoint schema, validate nested messages/tool calls, and convert invalid rows into a safe failed/exportable recovery result | Before package moves, S–M |
+| High | `build-context.ts` reads extension storage and constructs providers directly | Pure context tests still need extension/provider infrastructure; `runtime-core` extraction would move coupling instead of removing it | Inject settings, knowledge access, clock, and one-shot model invocation through `ContextService` composition; keep retrieval algorithms pure | Phase 2, M |
+| High | `use-chat-stream.ts` owns port lifecycle, reconnect policy, reducer effects, i18n/error presentation, issue-link browser effects, and stop finalization | Restart, error, or stop changes touch one high-branch hook and can regress unrelated behavior | Extract a framework-free stream transport/session client around existing schemas/reducer; leave React hook as presentation adapter | Phase 2, M |
+| High | About 35 production UI files still import deprecated `plasmoGlobalStorage`; only three use `useSetting` descriptors | Storage scope is guarded, but malformed persisted values and inconsistent defaults can still enter typed UI state | Migrate high-risk structured values first, attach runtime schemas, then move simple booleans opportunistically; no flag-day rewrite | `0.13.x` incremental, M total |
+| High | `schedule-reminder-tool.ts` imports `background/lib/reminders.ts` | Lower-level tool registry depends upward on background composition, blocking clean package rules and alternate runtimes | Move reminder domain/service contract below background; keep alarms/notification registration in background adapter | Before boundary freeze, S |
+| Medium | `ProviderManager` combines compatibility migration, validation, secret recovery, CRUD, and model mappings | Routine provider changes can disturb migration or credential recovery behavior | Preserve `ProviderManager` facade; extract private mapping and migration collaborators only with characterization tests | Later `0.13.x`, M |
+| Medium | `message-router.ts` remains a large authorized switch for retained one-way/content-script traffic | Adding a case can mix sender policy, browser effects, response shape, and dispatch | Keep narrow non-RPC transports, but move case bodies to named handlers and keep registry/source-policy contract tests | Opportunistic, S–M |
+| Medium | `use-file-upload.ts` clones captured `processingStates` before async work | Overlapping file submissions can replace another invocation's rows with stale state | Use functional state updates and move queue/registration coordination into the ingestion client/pipeline | `0.13.x` quick win, S |
+| Low | Audit found public docs describing shipped `sql.js`, UI-owned final persistence, old RAG paths, and obsolete message guidance | Contributors could follow retired boundaries and recreate removed architecture | Corrected in this audit; keep factual architecture in docs and active sequencing here, with drift checks where cheap | Corrected; guard later, S |
+
+No finding justifies a repository-wide rewrite. Existing runtime behavior should
+remain usable after every change.
+
+### Top stability risks
+
+1. Stale UI debounce overwrites background-owned durable assistant state.
+2. Invalid tool-loop checkpoint shape breaks recovery after worker restart.
+3. Provider config/journal values are read through TypeScript generics without
+   complete runtime schemas; malformed sync/import data can fail deep in CRUD.
+4. Stop/disconnect/reconnect behavior remains concentrated in one React hook,
+   making race fixes high-blast-radius.
+5. Context building constructs providers and reads mutable storage mid-run,
+   making replay less deterministic than its durable request suggests.
+6. Concurrent `processFiles()` calls can lose UI processing-state entries.
+7. Provider compatibility migration and ordinary CRUD share one manager path;
+   a normal edit can accidentally affect recovery behavior.
+8. Tool code importing background implementation hides runtime direction and
+   makes a future agent/runtime package browser-bound.
+9. Raw structured settings may admit stale shapes despite compile-time types.
+10. No automated drift guard covers contributor paths, so deleted RAG,
+    messaging, or persistence guidance can recur.
+
+### Target boundary
+
+```text
+React UI
+  -> presentation hooks
+     -> StreamClient | ExtensionRpcClient
+        -> background composition root
+           -> application services and pure state machines
+              -> explicit ports
+                 -> provider, browser, repository, and storage adapters
+```
+
+SQLite remains a separate persistence-owner process boundary. RPC and streaming
+stay separate transports because request/response and token delivery have
+different lifecycle needs; they share schemas, failures, request ids, and
+cancellation semantics rather than one universal abstraction.
+
+Do not abstract concrete provider wire formats, browser permission differences,
+SQLite/Dexie into one generic store, every browser API, or every one-implementation
+module. Do not move code into packages until imports prove the boundary.
+
+### Ranked quick wins
+
+| Rank | Change | Impact | Effort | Risk |
+| --- | --- | --- | --- | --- |
+| 1 | Stop UI DB writes for durable assistant streams | Very high | M | Medium |
+| 2 | Validate and version `DurableToolLoopState` | Very high | S–M | Low |
+| 3 | Add contract test banning `src/lib/** -> src/background/**` | High | S | Low |
+| 4 | Fix functional updates in `use-file-upload.ts` | High | S | Low |
+| 5 | Runtime-validate provider configs and persistence journals | High | M | Medium |
+| 6 | Move reminder service below background adapter | Medium | S | Low |
+| 7 | Extract stream error presentation from port lifecycle | Medium | S–M | Low |
+| 8 | Migrate highest-risk structured settings to descriptors | Medium | M | Low |
+| 9 | Add package-candidate import contract tests before moving files | Medium | S | Low |
+| 10 | Keep architecture/contributor docs synchronized with source contracts | Medium | S | Low |
 
 ## `0.13.0` phases
 
@@ -68,6 +192,22 @@ Both depend downward on stable contracts and pure runtime kernels. Browser,
 storage, provider, and UI adapters stay outside those kernels.
 
 Package only proven seams. Do not turn `0.13.0` into a whole-repository move.
+
+#### Audit closure gate — ownership before movement
+
+- Make background the only durable assistant-row writer for durable turns;
+  characterize any retained non-durable stream path separately.
+- Add a versioned runtime schema for tool-loop checkpoints and safe invalid-row
+  recovery.
+- Remove the `src/lib/tools/internal/` dependency on `src/background/` and add a
+  source-contract test preventing that reverse edge.
+- Fix overlapping file-upload state updates.
+- Update public architecture and contributor guidance to current paths before
+  package names become another documented surface.
+
+Exit gate: restart, reconnect, stop, and completion tests prove one logical
+durable writer; corrupted checkpoint tests fail safely; lower layers do not
+import background implementation.
 
 #### P0 — freeze dependency rules
 
