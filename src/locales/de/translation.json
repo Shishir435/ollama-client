@@ -540,7 +540,8 @@
       "refresh_aria_label": "Modelle aktualisieren",
       "refresh_tooltip": "Modelle aktualisieren",
       "search_placeholder": "Modell suchen...",
-      "no_model_found": "Kein Modell gefunden."
+      "no_model_found": "Kein Modell gefunden.",
+      "providers_unavailable": "{{names}} hat keine Modelle zurückgegeben. Prüfe den Anbieter in den Einstellungen oder füge Modell-IDs manuell hinzu."
     },
     "version": {
       "tooltip": "Provider-Version: {{version}}"
@@ -1456,6 +1457,7 @@
       "inactive": "Inaktiv",
       "connected": "Verbunden",
       "connection_failed": "Verbindung fehlgeschlagen",
+      "manual_models": "Nur Modell-IDs",
       "not_tested": "Nicht getestet",
       "test": "Testen",
       "save": "Speichern",
@@ -1468,12 +1470,17 @@
       "test_connection": {
         "success_title": "Verbindung erfolgreich",
         "success_description": "Erfolgreich mit {{name}} unter {{url}} verbunden. {{count}} Modell(e) gefunden.",
+        "success_description_manual": "Erfolgreich mit {{name}} unter {{url}} verbunden. Es wird keine Modellliste veröffentlicht, daher werden die {{count}} von dir hinzugefügten Modell-ID(s) verwendet.",
         "failed_title": "Verbindung fehlgeschlagen",
         "failed_description": "{{url}} konnte nicht erreicht werden. {{error}}",
         "no_models_title": "Keine Modelle gefunden",
+        "no_model_list_title": "Keine Modellliste",
         "no_models_description": "{{url}} wurde erreicht, aber es wurden keine Modelle zurückgegeben. Stelle sicher, dass der Anbieter läuft, die Basis-URL korrekt ist und mindestens ein Modell installiert oder geladen ist.",
+        "no_model_list_description": "{{url}} wurde erreicht, aber dieser Endpunkt veröffentlicht keine Modellliste. Füge die gewünschten Modell-IDs unter „Modell-IDs“ hinzu und teste erneut.",
         "inline_success": "Mit {{url}} verbunden. {{count}} Modell(e) gefunden.",
+        "inline_success_manual": "Mit {{url}} verbunden. Es wird keine Modellliste veröffentlicht, daher werden die {{count}} von dir hinzugefügten Modell-ID(s) verwendet.",
         "inline_no_models": "{{url}} wurde erreicht, aber es wurden keine Modelle zurückgegeben. Prüfe, ob der Anbieter läuft und Modelle installiert oder geladen sind.",
+        "inline_no_model_list": "{{url}} wurde erreicht, aber es wird keine Modellliste veröffentlicht. Füge die gewünschten Modell-IDs unter „Modell-IDs“ hinzu.",
         "inline_failed": "{{url}} konnte nicht erreicht werden. {{error}}",
         "default_url": "Standard-URL",
         "api_key_required_title": "API-Schlüssel erforderlich",

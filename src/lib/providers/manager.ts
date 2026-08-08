@@ -4,6 +4,7 @@ import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { clearCapabilityProbesForProvider } from "./capability-probe"
 import { clearModelCapabilityOverridesForProvider } from "./model-capability-overrides"
+import { clearModelCatalogSupport } from "./model-catalog-support"
 import {
   containsLegacySyncedSecrets,
   hydrateProviderSecrets,
@@ -613,6 +614,7 @@ export const ProviderManager = {
     await ProviderManager.removeModelMappingsForProvider(id)
     await clearCapabilityProbesForProvider(id).catch(() => undefined)
     await clearModelCapabilityOverridesForProvider(id).catch(() => undefined)
+    await clearModelCatalogSupport(id).catch(() => undefined)
   },
 
   async getEnabledProviders(): Promise<ProviderConfig[]> {

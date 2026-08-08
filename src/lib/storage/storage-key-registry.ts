@@ -104,6 +104,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "device-local",
     reason: "Probe results reflect the server this device's base URL points at."
   },
+  [STORAGE_KEYS.PROVIDER.MODEL_CATALOG_SUPPORT]: {
+    key: STORAGE_KEYS.PROVIDER.MODEL_CATALOG_SUPPORT,
+    scope: "device-local",
+    reason:
+      "Whether a provider publishes a model catalog describes the server this device's base URL reaches."
+  },
   [STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES]: {
     key: STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES,
     scope: "sync-safe",

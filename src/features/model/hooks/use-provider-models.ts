@@ -24,11 +24,17 @@ import {
 } from "@/lib/providers/types"
 import { queryKeys } from "@/lib/query-keys"
 import { extensionRpcClient } from "@/protocol/extension-client"
+import type { ProvidersListModelsResult } from "@/protocol/provider-rpc"
 import { RpcMethod } from "@/protocol/rpc"
-import type { ProviderModel, SelectedModelRef } from "@/types"
+import type { SelectedModelRef } from "@/types"
 import { isEmbeddingModel } from "../lib/model-utils"
 
-const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
+// Stable identities: a fresh literal on every render would restart the effects
+// and memos that take `models`.
+const EMPTY_MODELS: ProvidersListModelsResult["models"] = []
+const EMPTY_FAILURES: ProvidersListModelsResult["failures"] = []
+
+const fetchAllProviderModels = async (): Promise<ProvidersListModelsResult> => {
   const result = await extensionRpcClient.call(RpcMethod.ProvidersListModels, {
     enabledOnly: true
   })
@@ -43,7 +49,7 @@ const fetchAllProviderModels = async (): Promise<ProviderModel[]> => {
   if (pairs.length > 0) {
     await ProviderManager.saveModelMappings(pairs)
   }
-  return result.models
+  return result
 }
 
 const fetchProviderVersion = async (providerId: string): Promise<string> => {
@@ -118,7 +124,7 @@ export const useProviderModels = () => {
    * Model list query — refetches whenever providerConfig changes
    */
   const {
-    data: models = [],
+    data: modelList,
     isFetching: isLoading,
     error: modelsError,
     refetch: refetchModels
@@ -128,6 +134,17 @@ export const useProviderModels = () => {
     // 30-second stale time; the list rarely changes mid-session.
     staleTime: 1000 * 30
   })
+  const models = modelList?.models ?? EMPTY_MODELS
+  /*
+   * Providers that contributed nothing at all. A provider whose declared model
+   * ids carried the list is not in here — its models are on screen, so there is
+   * nothing to warn about — but one that returned neither discovery nor
+   * declarations would otherwise just be absent from the menu with no reason
+   * given.
+   */
+  const unavailableProviders = (modelList?.failures ?? EMPTY_FAILURES).filter(
+    (failure) => failure.code !== "discovery_unavailable"
+  )
 
   const selectedModelData = models.find((m) => m.name === selectedModel)
   const selectedRefMatchesModel =
@@ -327,6 +344,7 @@ export const useProviderModels = () => {
     versionError,
     deleteModel,
     selectedProviderId,
-    selectedProviderCapabilities
+    selectedProviderCapabilities,
+    unavailableProviders
   }
 }

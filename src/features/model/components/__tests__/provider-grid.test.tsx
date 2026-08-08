@@ -102,7 +102,13 @@ describe("ProviderGrid", () => {
       <ProviderGrid
         providers={providers}
         selectedId="ollama"
-        providerHealth={{ ollama: { success: false, lastChecked: 1 } }}
+        providerHealth={{
+          ollama: {
+            success: false,
+            modelListSupported: true,
+            lastChecked: 1
+          }
+        }}
         manualTestStatus={{ success: true, message: "manual ok" }}
         onSelect={vi.fn()}
         onAdd={vi.fn()}

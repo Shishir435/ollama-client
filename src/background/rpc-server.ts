@@ -151,7 +151,17 @@ const normalizeRpcError = (
       (code === RpcErrorCode.NotFound
         ? "Provider configuration was not found"
         : "The provider request failed"),
-    messageKey: error.messageKey ?? `errors.rpc.${code}`,
+    /*
+     * The generic key is a last resort, not an upgrade. An upstream HTTP 404
+     * carries `status: 404` too, so attaching `errors.rpc.not_found`
+     * unconditionally replaced "the provider could not find that model or
+     * endpoint — check the model name and base URL" with "the provider
+     * configuration was not found", which described a different problem
+     * entirely. A crafted message wins over a translated non-answer.
+     */
+    messageKey:
+      error.messageKey ??
+      (error.userMessage ? undefined : `errors.rpc.${code}`),
     messageParams: error.messageParams,
     retryable: error.retryable,
     retryAfterMs: error.retryAfterMs,

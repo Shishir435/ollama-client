@@ -204,6 +204,10 @@ export const ProviderTestConnectionResultSchema = z
     providerId: z.string(),
     reachable: z.boolean(),
     modelCount: z.number().int().nonnegative(),
+    // A server that answers the catalog request with "no such endpoint" is
+    // reachable and usable — it just does not publish a model list. Reported
+    // separately so the UI can say that instead of "connection failed".
+    modelListSupported: z.boolean(),
     latencyMs: z.number().nonnegative()
   })
   .strict()
@@ -221,6 +225,7 @@ export const ProvidersListModelsResultSchema = z
       z
         .object({
           providerId: z.string(),
+          providerName: z.string().optional(),
           code: z.string()
         })
         .strict()
