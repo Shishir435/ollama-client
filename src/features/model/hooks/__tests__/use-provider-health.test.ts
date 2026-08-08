@@ -86,6 +86,48 @@ describe("useProviderHealth — initial check (real timers)", () => {
     expect(result.current[ProviderId.OLLAMA].success).toBe(false)
   })
 
+  it("spends nothing while a provider's endpoint is being typed", async () => {
+    mockedCall.mockResolvedValue({ modelCount: 1 } as never)
+    const provider = mkProvider(ProviderId.OLLAMA, true)
+    const { rerender, result } = renderHook(
+      // A fresh array every render, which is exactly what the settings screen
+      // produces: `updateConfig` maps over state on each keystroke.
+      ({ baseUrl }) => useProviderHealth([{ ...provider, baseUrl }], 0),
+      { initialProps: { baseUrl: "h" } }
+    )
+    await waitFor(() => expect(result.current[ProviderId.OLLAMA]).toBeDefined())
+    const afterMount = mockedCall.mock.calls.length
+
+    const url = "https://api.example.test/v1"
+    for (let end = 1; end <= url.length; end += 1) {
+      rerender({ baseUrl: url.slice(0, end) })
+    }
+
+    // A draft URL is not the one this check contacts — it tests stored config —
+    // so typing describes an endpoint it would not reach either way. Every one
+    // of these keystrokes used to cost a connection test.
+    expect(mockedCall.mock.calls.length).toBe(afterMount)
+  })
+
+  it("re-checks as soon as the edited endpoint is saved", async () => {
+    mockedCall.mockResolvedValue({ modelCount: 1 } as never)
+    const providers = [mkProvider(ProviderId.OLLAMA, true)]
+    const { rerender, result } = renderHook(
+      ({ revision }) => useProviderHealth(providers, revision),
+      { initialProps: { revision: 0 } }
+    )
+    await waitFor(() => expect(result.current[ProviderId.OLLAMA]).toBeDefined())
+    const afterMount = mockedCall.mock.calls.length
+
+    // The save landed: whatever the previous answer described, it is not this
+    // endpoint any more.
+    rerender({ revision: 1 })
+
+    await waitFor(() =>
+      expect(mockedCall.mock.calls.length).toBe(afterMount + 1)
+    )
+  })
+
   it("carries whether the provider publishes a catalog", async () => {
     mockedCall.mockResolvedValue({
       modelCount: 2,

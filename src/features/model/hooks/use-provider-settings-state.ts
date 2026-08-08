@@ -82,8 +82,16 @@ export const useProviderSettingsState = () => {
   // Incremented synchronously for every local edit. An RPC response may update
   // local state only when the provider still has the revision it started with.
   const configRevisions = useRef(new Map<string, number>())
+  /*
+   * Bumped whenever stored provider config actually changes. The health check
+   * tests what is *stored*, so a draft the user is still typing tells it
+   * nothing — but the moment a save lands, the endpoint it would reach is a
+   * different one and the previous answer is about somewhere else.
+   */
+  const [savedRevision, setSavedRevision] = useState(0)
+  const markSaved = useCallback(() => setSavedRevision((n) => n + 1), [])
 
-  const providerHealth = useProviderHealth(providers)
+  const providerHealth = useProviderHealth(providers, savedRevision)
 
   const loadProviders = useCallback(async () => {
     setLoading(true)
@@ -314,6 +322,9 @@ export const useProviderSettingsState = () => {
           return next
         })
         setHasUnsavedChanges(false)
+        // The stored endpoint may now be somewhere else, so the health entry
+        // describing the previous one is out of date as of this line.
+        markSaved()
         if (showSuccessToast) {
           toast({
             title: t("settings.saved"),
@@ -339,7 +350,7 @@ export const useProviderSettingsState = () => {
         return false
       }
     },
-    [configForRpc, t]
+    [configForRpc, markSaved, t]
   )
 
   const setSelectedId = useCallback(
@@ -389,6 +400,7 @@ export const useProviderSettingsState = () => {
         toSettingsConfig(config)
       ])
       setSelectedIdState(String(config.id))
+      markSaved()
       toast({
         title: t("settings.providers.add.added_title"),
         description: t("settings.providers.add.added_description", {
@@ -425,6 +437,7 @@ export const useProviderSettingsState = () => {
         current.filter((provider) => String(provider.id) !== id)
       )
       if (selectedId === id) setSelectedIdState(DEFAULT_PROVIDER_ID)
+      markSaved()
       toast({
         title: t("settings.providers.add.removed_title"),
         description: t("settings.providers.add.removed_description", {
@@ -482,6 +495,7 @@ export const useProviderSettingsState = () => {
         target: "existing",
         config: configForRpc(updated)
       })
+      markSaved()
     } catch (error) {
       logger.error("Failed to auto-save toggle", "ProviderSettings", { error })
     }
