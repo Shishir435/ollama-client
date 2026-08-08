@@ -20,7 +20,7 @@ const productionSources = walk(sourceRoot)
 
 const importsModule = (source: string, modulePath: RegExp): boolean =>
   new RegExp(
-    String.raw`(?:from\s+|import\s*\()\s*["']${modulePath.source}["']`
+    String.raw`(?:\bimport\s*\(\s*|\bimport\s+(?:type\s+)?(?:[^"'();]*?\s+from\s*)?|\bexport\s+(?:type\s+)?[^"'();]*?\s+from\s*)["']${modulePath.source}["']`
   ).test(source)
 
 /**
@@ -34,6 +34,22 @@ const importsAtRuntime = (source: string, modulePath: RegExp): boolean =>
   ).test(source)
 
 describe("architecture import boundaries", () => {
+  it("recognizes every module dependency form used by source contracts", () => {
+    const forbidden = /@\/features\/agent\/[^"']+/
+    const references = [
+      'import "@/features/agent/register"',
+      'import { run } from "@/features/agent/runtime"',
+      'import type { Agent } from "@/features/agent/types"',
+      'export { run } from "@/features/agent/runtime"',
+      'export * from "@/features/agent/public"',
+      'const runtime = import("@/features/agent/runtime")'
+    ]
+
+    expect(references.every((source) => importsModule(source, forbidden))).toBe(
+      true
+    )
+  })
+
   it("routes chat-history callers through the public repository facade", () => {
     const allowed = new Set([
       "entrypoints/persistence-verify/main.ts",

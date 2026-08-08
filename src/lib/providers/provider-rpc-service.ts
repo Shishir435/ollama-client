@@ -36,10 +36,30 @@ import {
 import type { LLMProvider, ProviderConfig } from "./types"
 
 const toPublicConfig = (config: ProviderConfig): PublicProviderConfig => {
-  const { apiKey, ...publicConfig } = config
   return {
-    ...publicConfig,
-    hasApiKey: Boolean(apiKey?.trim())
+    id: String(config.id),
+    type: config.type,
+    enabled: config.enabled,
+    ...(config.baseUrl !== undefined && { baseUrl: config.baseUrl }),
+    ...(config.modelId !== undefined && { modelId: config.modelId }),
+    name: config.name,
+    ...(config.customModels !== undefined && {
+      customModels: config.customModels
+    }),
+    ...(config.serviceProfile !== undefined && {
+      serviceProfile: config.serviceProfile
+    }),
+    ...(config.compatibility !== undefined && {
+      compatibility: {
+        ...(config.compatibility.maxTokensField !== undefined && {
+          maxTokensField: config.compatibility.maxTokensField
+        }),
+        ...(config.compatibility.sendStreamOptions !== undefined && {
+          sendStreamOptions: config.compatibility.sendStreamOptions
+        })
+      }
+    }),
+    hasApiKey: Boolean(config.apiKey?.trim())
   }
 }
 

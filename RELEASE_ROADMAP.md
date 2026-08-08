@@ -212,7 +212,8 @@ import background implementation.
 
 #### P0 — freeze dependency rules
 
-Status: complete on `feature/prepackage-boundary-gates`, 2026-08-09.
+Status: implemented on `feature/prepackage-boundary-gates`; pending review and
+merge in PR #243, 2026-08-09.
 
 - Stored provider arrays validate required identity fields before runtime use,
   recover malformed optional fields independently, and preserve unknown fields
@@ -223,12 +224,33 @@ Status: complete on `feature/prepackage-boundary-gates`, 2026-08-09.
 - Source contracts keep chat and the future agent mutually independent and
   keep current contract/runtime candidates free of UI, browser, persistence,
   background, and concrete-provider adapters.
+- Forward-compatible provider fields remain preserved in storage while the
+  provider RPC boundary explicitly projects known public fields, so newer
+  fields cannot invalidate list responses or expose future credential fields.
+- Boundary matching covers bound imports, type imports, side-effect imports,
+  dynamic imports, and re-exports.
 
-- Extend architecture contract tests before moving files.
+Completed:
+
+- Architecture contracts are in place before files move.
 - `chat` cannot import `agent`; `agent` cannot import `chat`.
-- Contracts and runtime packages cannot import React, WXT, Chrome APIs, DOM,
-  SQLite/OPFS, feature UI, or concrete providers.
-- Composition happens in extension/background roots.
+- Current contract/runtime candidates cannot import React, WXT, browser and
+  persistence adapters, feature UI, background composition, or concrete
+  providers.
+- Current composition remains in extension/background roots.
+
+Remaining before P1:
+
+- Merge PR #243 after review and CI.
+- No additional P0 implementation is known.
+
+Remaining package work:
+
+- P1: create `packages/contracts` and move only the proven contract seams.
+- P2: create `packages/runtime-core` and inject environment dependencies behind
+  ports before moving deterministic runtime helpers.
+- P3: extract chat runtime only after P1/P2 prove stable; agent runtime remains
+  scheduled for `0.14.x`.
 
 #### P1 — `packages/contracts`
 
