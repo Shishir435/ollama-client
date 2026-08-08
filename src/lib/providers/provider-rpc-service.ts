@@ -16,6 +16,7 @@ import {
   type ProviderTestConnectionResult,
   type PublicProviderConfig
 } from "@/protocol/provider-rpc"
+import type { ChatStreamMessage } from "@/types/chat"
 import type { ProviderModel } from "@/types/model"
 
 import {
@@ -84,6 +85,27 @@ const isModelListAbsent = (error: unknown): boolean =>
  */
 const CHAT_PROBE_TIMEOUT_MS = 20_000
 
+/**
+ * Model output, as opposed to the stream's own bookkeeping. Every stream ends
+ * with a `done` chunk, including the one an HTTP 200 with an empty body
+ * produces — and a proxy or a login page answers 200 as readily as a chat
+ * route does. Only something the model generated says a completion happened
+ * here.
+ */
+const isModelOutput = (chunk: ChatStreamMessage): boolean =>
+  Boolean(chunk.delta || chunk.thinkingDelta || chunk.toolCalls?.length)
+
+const emptyChatResponse = (provider: LLMProvider) =>
+  createAppError("The chat endpoint answered without generating anything", {
+    kind: "provider",
+    status: 502,
+    providerId: String(provider.id),
+    code: "OLC-PROVIDER-UNREACHABLE",
+    recoveryAction: "test-connection",
+    userMessage:
+      "Something answered at that address, but it produced no output — so it is not a chat endpoint, or the model id is not one it serves. Check the base URL and the model IDs you added."
+  })
+
 const probeChatEndpoint = async (
   provider: LLMProvider,
   model: string,
@@ -93,7 +115,12 @@ const probeChatEndpoint = async (
   const abortFromCaller = () => controller.abort(signal?.reason)
   if (signal?.aborted) abortFromCaller()
   else signal?.addEventListener("abort", abortFromCaller, { once: true })
-  const timeout = setTimeout(() => controller.abort(), CHAT_PROBE_TIMEOUT_MS)
+  let answered = false
+  let timedOut = false
+  const timeout = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, CHAT_PROBE_TIMEOUT_MS)
 
   try {
     await provider.streamChat(
@@ -104,15 +131,44 @@ const probeChatEndpoint = async (
         num_predict: 1,
         think: false
       },
-      // The first byte proves the route exists; nothing is gained by paying
+      // The first token proves the route exists; nothing is gained by paying
       // for the rest of the answer.
-      () => controller.abort(),
+      (chunk) => {
+        if (!isModelOutput(chunk)) return
+        answered = true
+        controller.abort()
+      },
       controller.signal
     )
+    // A stream that ended without generating anything is not a confirmation.
+    // An endpoint that is not a chat route at all answers 200 and closes, and
+    // that arrives here looking exactly like a completed request.
+    if (!answered) throw emptyChatResponse(provider)
   } catch (error) {
-    // The caller's cancellation is theirs; ours means the probe got what it
-    // came for.
+    // The caller's cancellation is theirs. Ours means the probe got what it
+    // came for — but only the abort the first chunk fired. The timeout aborts
+    // an endpoint that never answered at all, and reporting that as a working
+    // provider is the mistake this probe exists to prevent.
     if (signal?.aborted) throw error
+    if (answered) return
+    if (timedOut) {
+      throw createAppError(
+        `No response from the chat endpoint within ${
+          CHAT_PROBE_TIMEOUT_MS / 1000
+        }s`,
+        {
+          kind: "provider",
+          status: 504,
+          providerId: String(provider.id),
+          code: "OLC-PROVIDER-TIMEOUT",
+          recoveryAction: "retry",
+          userMessage: `The chat endpoint accepted the request but sent nothing back within ${
+            CHAT_PROBE_TIMEOUT_MS / 1000
+          } seconds. The server may be loading the model, or the model id may not be one it serves.`,
+          cause: error
+        }
+      )
+    }
     if (isAbortError(error)) return
     throw error
   } finally {

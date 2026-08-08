@@ -19,7 +19,6 @@ import { logger } from "@/lib/logger"
 import { cn } from "@/lib/utils"
 import type { DiagnosticsGetBundleResult } from "@/protocol/diagnostics-rpc"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { MODEL_DISCOVERY_FAILURE } from "@/protocol/provider-rpc"
 import { RpcMethod } from "@/protocol/rpc"
 import type { ChatMessage } from "@/types"
 
@@ -171,14 +170,29 @@ export const ChatErrorReportAction = ({
             }
           )
           checks.latencyMs = Math.max(0, performance.now() - startedAt)
-          // An endpoint that publishes no model list is reachable — it just has
-          // nothing to discover. Counting that as unreachable puts "Provider
-          // reachable: no" in a report from a provider that answers chat fine,
-          // which sends whoever reads it after the wrong thing.
-          checks.providerReachable = result.failures.every(
-            ({ code }) =>
-              code === MODEL_DISCOVERY_FAILURE.MODEL_LIST_UNSUPPORTED
-          )
+          /*
+           * Reachability comes from the connection check, not from this list.
+           * A returned model list proves nothing on its own: the ids the user
+           * declared fill it whether or not anything answered, and a provider
+           * that already told us it has no catalog is not asked again, so the
+           * list can arrive without a single request leaving the browser.
+           *
+           * The stored check reports `reachable` only for a catalog that
+           * actually answered, and it never sends a chat request — this is a
+           * support report, not a licence to spend inference. When it comes
+           * back unreachable, all that says is "nothing was contacted", which
+           * a mistyped base URL and a working chat-only gateway produce alike,
+           * so the report says "not checked" instead of guessing.
+           */
+          try {
+            const connection = await extensionRpcClient.call(
+              RpcMethod.ProvidersTestConnection,
+              { target: "stored", providerId }
+            )
+            checks.providerReachable = connection.reachable ? true : undefined
+          } catch {
+            checks.providerReachable = false
+          }
           if (msg.error?.model) {
             checks.selectedModelFound = result.models.some(
               (model) =>

@@ -117,4 +117,54 @@ describe("ProviderGrid", () => {
 
     expect(container.querySelector(".bg-status-success")).toBeInTheDocument()
   })
+
+  it("marks a catalog-less provider as model IDs only, not connected", () => {
+    // Its model count comes from the ids the user declared, and the background
+    // check never contacted it. A green dot would claim a round trip nobody
+    // made — the settings header already says "model IDs only" here.
+    const { container } = render(
+      <ProviderGrid
+        providers={providers}
+        selectedId="openai"
+        providerHealth={{
+          ollama: {
+            success: true,
+            modelListSupported: false,
+            lastChecked: 1
+          }
+        }}
+        manualTestStatus={null}
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+      />
+    )
+
+    expect(
+      container.querySelector(".bg-status-success")
+    ).not.toBeInTheDocument()
+    expect(container.querySelector(".bg-status-warning")).toBeInTheDocument()
+  })
+
+  it("keeps an explicit test's verdict for a catalog-less provider", () => {
+    // The test reached the chat endpoint, which the background check never
+    // does, so it knows something the remembered catalog answer does not.
+    const { container } = render(
+      <ProviderGrid
+        providers={providers}
+        selectedId="ollama"
+        providerHealth={{
+          ollama: {
+            success: true,
+            modelListSupported: false,
+            lastChecked: 1
+          }
+        }}
+        manualTestStatus={{ success: true, message: "manual ok" }}
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+      />
+    )
+
+    expect(container.querySelector(".bg-status-success")).toBeInTheDocument()
+  })
 })

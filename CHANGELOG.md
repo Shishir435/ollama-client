@@ -22,8 +22,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   routers do — no longer reports "Connection Failed". A server that answers the
   model-list request with "no such endpoint" is checked against the chat
   endpoint instead, using one of the model IDs you added and one token, and
-  reported as working when that answers. A refused key, a rate limit, or a
-  server error still fails as before.
+  reported as working when a token comes back. A refused key, a rate limit, and
+  a server error still fail as before. So do the two ways an address can answer
+  without being a chat endpoint: one that takes the request and goes quiet is
+  reported after twenty seconds, and one that replies without generating
+  anything — what a proxy or a login page does — is reported as an address to
+  check rather than counted as a reply.
 - A mistyped base URL is now told apart from a provider that simply publishes
   no model list — both answer the same way — and reported as a base URL to
   check rather than as a working provider.
@@ -53,9 +57,17 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   because the check reads saved configuration and you were still typing. The
   check now runs when a change is saved, and the status you see after saving
   describes the endpoint you just saved rather than the one before it.
-- A support report from a provider that publishes no model list no longer says
-  "Provider reachable: no". It is reachable; it just has nothing to discover,
-  and the old wording sent whoever read the report after the wrong thing.
+- A support report no longer says "Provider reachable: no" for a provider that
+  publishes no model list, and no longer says "yes" on the strength of a model
+  list that the IDs you declared filled in on their own. It reports what was
+  actually confirmed, and "not checked" when nothing was — a mistyped base URL
+  and a working chat-only provider answer alike from there, and either guess
+  sends whoever reads the report after the wrong thing.
+- A provider that publishes no model list is marked "model IDs only" in both
+  the provider grid and the panel header. Each read the model count on its own
+  and showed a green connected dot for an endpoint the background check never
+  contacted; the count comes from the IDs you declared. Testing the connection
+  still reaches the endpoint and still reports what it found.
 
 ## [0.12.7]
 
