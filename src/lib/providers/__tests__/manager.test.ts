@@ -72,6 +72,77 @@ describe("ProviderManager", () => {
     ])
   })
 
+  it("drops malformed stored providers before runtime use", async () => {
+    const valid = {
+      id: "custom:openai:valid",
+      type: ProviderType.OPENAI,
+      name: "Valid",
+      enabled: true,
+      baseUrl: "https://example.com/v1"
+    }
+    syncBacking.set(ProviderStorageKey.CONFIG, [
+      valid,
+      { ...valid, id: "", enabled: "yes" }
+    ])
+
+    const providers = await ProviderManager.getProviders()
+
+    expect(providers).toContainEqual(valid)
+    expect(providers.filter((entry) => entry.id === "")).toEqual([])
+    expect(syncBacking.get(ProviderStorageKey.CONFIG)).not.toContainEqual(
+      expect.objectContaining({ id: "" })
+    )
+  })
+
+  it("discards malformed provider recovery journals safely", async () => {
+    syncBacking.set(ProviderStorageKey.CONFIG, DEFAULT_PROVIDERS)
+    localBacking.set(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL, {
+      version: 1,
+      previousSecrets: "broken",
+      nextSecrets: {},
+      nextPublicConfigs: DEFAULT_PROVIDERS
+    })
+
+    await expect(ProviderManager.getProviders()).resolves.toEqual(
+      DEFAULT_PROVIDERS
+    )
+    expect(localBacking.has(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)).toBe(
+      false
+    )
+  })
+
+  it("discards malformed provider reset journals safely", async () => {
+    syncBacking.set(ProviderStorageKey.CONFIG, DEFAULT_PROVIDERS)
+    localBacking.set(STORAGE_KEYS.PROVIDER.RESET_JOURNAL, {
+      version: 1,
+      keys: [42]
+    })
+
+    await expect(ProviderManager.getProviders()).resolves.toEqual(
+      DEFAULT_PROVIDERS
+    )
+    expect(localBacking.has(STORAGE_KEYS.PROVIDER.RESET_JOURNAL)).toBe(false)
+  })
+
+  it("ignores malformed secrets without losing valid credentials", async () => {
+    const provider = {
+      id: "custom:openai:secrets",
+      type: ProviderType.OPENAI,
+      name: "Secrets",
+      enabled: true,
+      baseUrl: "https://example.com/v1"
+    }
+    syncBacking.set(ProviderStorageKey.CONFIG, [...DEFAULT_PROVIDERS, provider])
+    localBacking.set(STORAGE_KEYS.PROVIDER.SECRETS, {
+      [provider.id]: "sk-valid",
+      broken: 42
+    })
+
+    await expect(
+      ProviderManager.getProviderConfig(provider.id)
+    ).resolves.toEqual({ ...provider, apiKey: "sk-valid" })
+  })
+
   it("stores provider API keys locally and keeps sync config secret-free", async () => {
     const providers = [
       ...DEFAULT_PROVIDERS,
