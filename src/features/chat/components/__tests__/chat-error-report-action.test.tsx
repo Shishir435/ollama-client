@@ -33,6 +33,15 @@ describe("ChatErrorReportAction", () => {
             failures: []
           }
         }
+        if (method === RpcMethod.ProvidersTestConnection) {
+          return {
+            providerId: "ollama",
+            reachable: true,
+            modelCount: 1,
+            modelListSupported: true,
+            latencyMs: 4
+          }
+        }
         return {
           bundle: {
             format: "ollama-client-support-v1",
@@ -347,6 +356,15 @@ describe("ChatErrorReportAction", () => {
         if (method === RpcMethod.ProvidersListModels) {
           return { models: [{ name: "qwen3" }], failures: [] }
         }
+        if (method === RpcMethod.ProvidersTestConnection) {
+          return {
+            providerId: "ollama",
+            reachable: true,
+            modelCount: 1,
+            modelListSupported: true,
+            latencyMs: 4
+          }
+        }
         return { bundle: undefined }
       }
     )
@@ -377,6 +395,97 @@ describe("ChatErrorReportAction", () => {
       ) || ""
     expect(body).toContain("- Provider enabled: no")
     expect(body).toContain("- Provider reachable: yes")
+  })
+
+  it("does not read a model list nothing contacted as either reachable or not", async () => {
+    // The declared ids fill the list whether or not anything answered, and a
+    // provider that already said it has no catalog is not asked again — so the
+    // list can arrive without a request leaving the browser. A chat-only
+    // gateway and a mistyped base URL are indistinguishable from here, and
+    // either verdict sends whoever reads the report after the wrong thing.
+    ;(extensionRpcClient.call as any).mockImplementation(
+      async (method: RpcMethod) => {
+        if (method === RpcMethod.ProvidersListModels) {
+          return { models: [{ name: "declared-model" }], failures: [] }
+        }
+        if (method === RpcMethod.ProvidersTestConnection) {
+          return {
+            providerId: "custom:openai:remote",
+            reachable: false,
+            modelCount: 1,
+            modelListSupported: false,
+            latencyMs: 2
+          }
+        }
+        return { bundle: undefined }
+      }
+    )
+
+    render(
+      <ChatErrorReportAction
+        msg={{
+          role: "assistant",
+          content: "Provider returned 404",
+          error: {
+            code: "OLC-PROVIDER-HTTP",
+            status: 404,
+            providerId: "custom:openai:remote",
+            model: "declared-model"
+          }
+        }}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.open_issue" })
+    )
+
+    await waitFor(() => expect(openExternalUrl).toHaveBeenCalledOnce())
+    const body =
+      new URL(vi.mocked(openExternalUrl).mock.calls[0][0]).searchParams.get(
+        "body"
+      ) || ""
+    expect(body).toContain("- Provider reachable: not checked")
+  })
+
+  it("reports a connection check that failed as unreachable", async () => {
+    ;(extensionRpcClient.call as any).mockImplementation(
+      async (method: RpcMethod) => {
+        if (method === RpcMethod.ProvidersListModels) {
+          return { models: [{ name: "qwen3" }], failures: [] }
+        }
+        if (method === RpcMethod.ProvidersTestConnection) {
+          throw new Error("Failed to fetch")
+        }
+        return { bundle: undefined }
+      }
+    )
+
+    render(
+      <ChatErrorReportAction
+        msg={{
+          role: "assistant",
+          content: "Ollama refused",
+          error: {
+            code: "OLC-PROVIDER-HTTP",
+            status: 500,
+            providerId: "ollama",
+            model: "qwen3"
+          }
+        }}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.open_issue" })
+    )
+
+    await waitFor(() => expect(openExternalUrl).toHaveBeenCalledOnce())
+    const body =
+      new URL(vi.mocked(openExternalUrl).mock.calls[0][0]).searchParams.get(
+        "body"
+      ) || ""
+    expect(body).toContain("- Provider reachable: no")
   })
 
   it("drops a config-mutating recovery action once the failure is stale", () => {

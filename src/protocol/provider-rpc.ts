@@ -204,9 +204,33 @@ export const ProviderTestConnectionResultSchema = z
     providerId: z.string(),
     reachable: z.boolean(),
     modelCount: z.number().int().nonnegative(),
+    // A server that answers the catalog request with "no such endpoint" is
+    // reachable and usable — it just does not publish a model list. Reported
+    // separately so the UI can say that instead of "connection failed".
+    modelListSupported: z.boolean(),
     latencyMs: z.number().nonnegative()
   })
   .strict()
+
+/**
+ * Why a provider contributed nothing to a model list. Three different things,
+ * and callers act on the difference: only the first two mean something went
+ * wrong, and only the first means the provider has no usable models at all.
+ *
+ * Named here rather than spelled out at each call site — they cross the RPC
+ * boundary, so a typo on one side is a silent behaviour change on the other.
+ */
+export const MODEL_DISCOVERY_FAILURE = {
+  /** Discovery failed and nothing covered for it. */
+  REQUEST_FAILED: "request_failed",
+  /** Discovery failed, but the provider's declared model ids carried the list. */
+  DISCOVERY_UNAVAILABLE: "discovery_unavailable",
+  /** The endpoint publishes no catalog and no model ids were declared. */
+  MODEL_LIST_UNSUPPORTED: "model_list_unsupported"
+} as const
+
+export type ModelDiscoveryFailureCode =
+  (typeof MODEL_DISCOVERY_FAILURE)[keyof typeof MODEL_DISCOVERY_FAILURE]
 
 export const ProvidersListModelsRequestSchema = z
   .object({
@@ -221,6 +245,7 @@ export const ProvidersListModelsResultSchema = z
       z
         .object({
           providerId: z.string(),
+          providerName: z.string().optional(),
           code: z.string()
         })
         .strict()

@@ -1,5 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+// The catalog-support marker is exercised for real here — the whole point of
+// it is that a second discovery pass reads what the first one wrote — so this
+// file backs storage with a map instead of the suite-wide no-op stub.
+const storageBacking = vi.hoisted(() => new Map<string, unknown>())
+
+vi.mock("@/lib/plasmo-global-storage", () => ({
+  getPlasmoStoredValue: vi.fn(async (key: string) => storageBacking.get(key)),
+  setPlasmoStoredValue: vi.fn(async (key: string, value: unknown) => {
+    storageBacking.set(key, value)
+  })
+}))
+
 const mocks = vi.hoisted(() => ({
   getProviders: vi.fn(),
   getProviderConfig: vi.fn(),
@@ -38,8 +50,16 @@ vi.mock("../factory", () => ({
   }
 }))
 
+import { createAppError } from "@/lib/error-utils"
+import {
+  clearModelCatalogSupport,
+  getModelCatalogSupport
+} from "../model-catalog-support"
 import { ProviderRpcService } from "../provider-rpc-service"
 import { type ProviderConfig, ProviderType } from "../types"
+
+const catalogAbsent = () =>
+  createAppError("Model list failed (404)", { kind: "provider", status: 404 })
 
 const configs: ProviderConfig[] = [
   {
@@ -76,8 +96,14 @@ const model = (name: string) => ({
   }
 })
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks()
+  // The catalog-support marker is real storage, shared across tests in this
+  // file. Clear it so one test's learned answer cannot silence another's
+  // discovery call.
+  for (const config of configs) {
+    await clearModelCatalogSupport(String(config.id))
+  }
   mocks.getProviders.mockResolvedValue(configs)
   mocks.getProviderConfig.mockImplementation(async (id: string) =>
     configs.find((config) => config.id === id)
@@ -127,9 +153,248 @@ describe("ProviderRpcService", () => {
     expect(result).toMatchObject({
       providerId: "ollama",
       reachable: true,
-      modelCount: 1
+      // One discovered plus the declared id — the same set the model menu gets.
+      modelCount: 2,
+      modelListSupported: true
     })
     expect(result).not.toHaveProperty("apiKey")
+  })
+
+  it("confirms a catalog-less endpoint against chat before calling it reachable", async () => {
+    const streamChat = vi.fn(
+      async (
+        _request: unknown,
+        onChunk: (chunk: { delta: string }) => void
+      ) => {
+        onChunk({ delta: "p" })
+      }
+    )
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw catalogAbsent()
+      },
+      streamChat
+    })
+
+    await expect(
+      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+    ).resolves.toMatchObject({
+      providerId: "ollama",
+      reachable: true,
+      modelCount: 1,
+      modelListSupported: false
+    })
+    // Probed with the declared id, and cheaply: this runs against somebody's
+    // metered endpoint on a button press.
+    expect(streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "manual-model", max_tokens: 1 }),
+      expect.any(Function),
+      expect.any(AbortSignal)
+    )
+  })
+
+  it("does not accept a completed stream that generated nothing", async () => {
+    // Every stream ends with a done chunk, including the one an HTTP 200 with
+    // an empty body produces — and a proxy or a login page answers 200 as
+    // readily as a chat route does.
+    const streamChat = vi.fn(
+      async (
+        _request: unknown,
+        onChunk: (chunk: { done: boolean }) => void
+      ) => {
+        onChunk({ done: true })
+      }
+    )
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw catalogAbsent()
+      },
+      streamChat
+    })
+
+    await expect(
+      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+    ).rejects.toMatchObject({
+      status: 502,
+      code: "OLC-PROVIDER-UNREACHABLE",
+      userMessage: expect.stringContaining("it produced no output")
+    })
+  })
+
+  it("does not call an endpoint that answers nothing reachable", async () => {
+    // The probe aborts its own request as soon as the first chunk lands, so
+    // "our abort" and "success" used to be the same thing. A server that
+    // accepts the connection and then says nothing hits the same abort from
+    // the timeout, and reporting that as a working provider is the mistake the
+    // probe exists to prevent.
+    vi.useFakeTimers()
+    try {
+      mocks.getProviderWithConfig.mockResolvedValue({
+        id: "ollama",
+        getModels: async () => {
+          throw catalogAbsent()
+        },
+        streamChat: (
+          _request: unknown,
+          _onChunk: unknown,
+          signal: AbortSignal
+        ) =>
+          new Promise((_resolve, reject) => {
+            signal.addEventListener("abort", () => {
+              const aborted = new Error("Aborted")
+              aborted.name = "AbortError"
+              reject(aborted)
+            })
+          })
+      })
+
+      const pending = ProviderRpcService.testConnection({
+        target: "draft",
+        config: configs[0]
+      })
+      const rejects = expect(pending).rejects.toMatchObject({
+        status: 504,
+        code: "OLC-PROVIDER-TIMEOUT"
+      })
+      await vi.advanceTimersByTimeAsync(20_000)
+      await rejects
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("reports a wrong base URL rather than a missing catalog when chat is missing too", async () => {
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw catalogAbsent()
+      },
+      streamChat: async () => {
+        throw catalogAbsent()
+      }
+    })
+
+    // A mistyped base URL 404s on the catalog exactly like a chat-only gateway
+    // does; only the chat endpoint tells them apart.
+    await expect(
+      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+    ).rejects.toMatchObject({
+      status: 404,
+      userMessage: expect.stringContaining("Check the base URL")
+    })
+    // And the answer recorded on the way in is dropped, so fixing the URL gets
+    // a clean probe instead of a day of silence.
+    expect(await getModelCatalogSupport(configs[0])).toBeNull()
+  })
+
+  it("does not claim reachability, or spend a chat request, on a background check", async () => {
+    const streamChat = vi.fn()
+    mocks.getProvider.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw catalogAbsent()
+      },
+      streamChat
+    })
+
+    const result = await ProviderRpcService.testConnection({
+      target: "stored",
+      providerId: "ollama"
+    })
+
+    expect(streamChat).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      reachable: false,
+      modelCount: 1,
+      modelListSupported: false
+    })
+  })
+
+  it("stops asking an endpoint that already said it has no catalog", async () => {
+    const getModels = vi.fn(async () => {
+      throw catalogAbsent()
+    })
+    mocks.getProvider.mockImplementation(async (id: string) => ({
+      id,
+      getModels
+    }))
+    mocks.getProviders.mockResolvedValue([configs[0]])
+
+    const first = await ProviderRpcService.listModels({ enabledOnly: true })
+    const second = await ProviderRpcService.listModels({ enabledOnly: true })
+
+    // One request, ever. The second refresh is served from the declared ids.
+    expect(getModels).toHaveBeenCalledTimes(1)
+    expect(second.models.map(({ name }) => name)).toEqual(
+      first.models.map(({ name }) => name)
+    )
+    expect(second.models.map(({ name }) => name)).toEqual(["manual-model"])
+    // Nothing failed: the provider works, it just has nothing to discover.
+    expect(second.failures).toEqual([])
+  })
+
+  it("re-probes the catalog when the user tests the connection", async () => {
+    const listModelsProvider = vi.fn(async () => {
+      throw catalogAbsent()
+    })
+    mocks.getProvider.mockImplementation(async (id: string) => ({
+      id,
+      getModels: listModelsProvider
+    }))
+    mocks.getProviders.mockResolvedValue([configs[0]])
+    await ProviderRpcService.listModels({ enabledOnly: true })
+
+    const draftGetModels = vi.fn(async () => [model("now-listed")])
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: draftGetModels
+    })
+
+    const result = await ProviderRpcService.testConnection({
+      target: "draft",
+      config: configs[0]
+    })
+
+    // Pressing Test is a deliberate re-check: a server that gained the endpoint
+    // must not stay written off because of what it answered an hour ago.
+    expect(draftGetModels).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({ modelListSupported: true, modelCount: 2 })
+  })
+
+  it("reports a catalog-less provider that declares no models", async () => {
+    mocks.getProvider.mockImplementation(async (id: string) => ({
+      id,
+      getModels: async () => {
+        throw catalogAbsent()
+      }
+    }))
+    mocks.getProviders.mockResolvedValue([configs[1]])
+
+    const result = await ProviderRpcService.listModels({ enabledOnly: true })
+
+    expect(result.models).toEqual([])
+    expect(result.failures).toEqual([
+      {
+        providerId: "custom:openai:remote",
+        providerName: "Remote",
+        code: "model_list_unsupported"
+      }
+    ])
+  })
+
+  it("keeps a rejected credential a failure rather than a missing model list", async () => {
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw createAppError("Unauthorized", { kind: "provider", status: 401 })
+      }
+    })
+
+    await expect(
+      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+    ).rejects.toMatchObject({ status: 401 })
   })
 
   it("keeps a stored credential background-only when testing an edited draft", async () => {
@@ -174,11 +439,38 @@ describe("ProviderRpcService", () => {
       "manual-model"
     ])
     expect(result.failures).toEqual([
-      { providerId: "custom:openai:remote", code: "request_failed" }
+      {
+        providerId: "custom:openai:remote",
+        providerName: "Remote",
+        code: "request_failed"
+      }
     ])
   })
 
-  it("fails when every selected provider is unavailable", async () => {
+  it("keeps declared model ids when discovery fails outright", async () => {
+    mocks.getProvider.mockRejectedValue(new Error("offline"))
+
+    const result = await ProviderRpcService.listModels({ enabledOnly: true })
+
+    // The provider without declared ids contributes nothing and is reported;
+    // the one with them still reaches the menu, which is the whole point.
+    expect(result.models.map(({ name }) => name)).toEqual(["manual-model"])
+    expect(result.failures).toEqual([
+      {
+        providerId: "custom:openai:remote",
+        providerName: "Remote",
+        code: "request_failed"
+      },
+      {
+        providerId: "ollama",
+        providerName: "Ollama",
+        code: "discovery_unavailable"
+      }
+    ])
+  })
+
+  it("fails when every selected provider is unavailable and none declares a model", async () => {
+    mocks.getProviders.mockResolvedValue([{ ...configs[0], customModels: [] }])
     mocks.getProvider.mockRejectedValue(new Error("offline"))
 
     await expect(

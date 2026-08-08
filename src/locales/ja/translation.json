@@ -533,7 +533,8 @@
       "refresh_aria_label": "モデルを更新",
       "refresh_tooltip": "モデルを更新",
       "search_placeholder": "モデルを検索...",
-      "no_model_found": "モデルが見つかりません。"
+      "no_model_found": "モデルが見つかりません。",
+      "providers_unavailable": "{{names}} はモデルを返しませんでした。設定でプロバイダーを確認するか、モデルIDを手動で追加してください。"
     },
     "version": {
       "tooltip": "Providerバージョン: {{version}}"
@@ -1449,6 +1450,7 @@
       "inactive": "非アクティブ",
       "connected": "接続済み",
       "connection_failed": "接続失敗",
+      "manual_models": "モデルIDのみ",
       "not_tested": "未テスト",
       "test": "テスト",
       "save": "保存",
@@ -1461,12 +1463,17 @@
       "test_connection": {
         "success_title": "接続成功",
         "success_description": "{{url}} の {{name}} に正常に接続しました。{{count}} 個のモデルが見つかりました。",
+        "success_description_manual": "{{url}} の {{name}} に正常に接続しました。モデル一覧は公開されていないため、追加した {{count}} 件のモデルIDを使用します。",
         "failed_title": "接続失敗",
         "failed_description": "{{url}} に接続できませんでした。{{error}}",
         "no_models_title": "モデルが見つかりません",
+        "no_model_list_title": "モデル一覧がありません",
         "no_models_description": "{{url}} には到達できましたが、モデルは返されませんでした。プロバイダーが実行中で、ベースURLが正しく、少なくとも1つのモデルがインストールまたはロードされていることを確認してください。",
+        "no_model_list_description": "{{url}} には到達できましたが、このエンドポイントはモデル一覧を公開していません。使用したいモデルIDを「モデルID」に追加してから、もう一度テストしてください。",
         "inline_success": "{{url}} に接続しました。{{count}} 個のモデルが見つかりました。",
+        "inline_success_manual": "{{url}} に接続しました。モデル一覧は公開されていないため、追加した {{count}} 件のモデルIDを使用します。",
         "inline_no_models": "{{url}} には到達できましたが、モデルは返されませんでした。プロバイダーが実行中で、モデルがインストールまたはロードされていることを確認してください。",
+        "inline_no_model_list": "{{url}} には到達できましたが、モデル一覧は公開されていません。使用したいモデルIDを「モデルID」に追加してください。",
         "inline_failed": "{{url}} に接続できませんでした。{{error}}",
         "default_url": "デフォルト URL",
         "api_key_required_title": "APIキーが必要です",

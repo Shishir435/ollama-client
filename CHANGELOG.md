@@ -9,6 +9,71 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.12.8]
+
+### Fixed
+
+- Models you type in yourself now reach the model menu even when the provider
+  has no model list to discover. A custom provider whose `/models` request
+  failed had its manually added model IDs dropped along with the request, so the
+  provider was absent from the menu entirely and nothing could be selected from
+  it. The IDs are configuration, not discovery, and are now kept either way.
+- Testing a provider that only implements chat — many hosted OpenAI-compatible
+  routers do — no longer reports "Connection Failed". A server that answers the
+  model-list request with "no such endpoint" is checked against the chat
+  endpoint instead, using one of the model IDs you added and one token, and
+  reported as working when a token comes back. A refused key, a rate limit, and
+  a server error still fail as before. So do the two ways an address can answer
+  without being a chat endpoint: one that takes the request and goes quiet is
+  reported after twenty seconds, and one that replies without generating
+  anything — what a proxy or a login page does — is reported as an address to
+  check rather than counted as a reply.
+- A mistyped base URL is now told apart from a provider that simply publishes
+  no model list — both answer the same way — and reported as a base URL to
+  check rather than as a working provider.
+- A provider that returns HTTP 404 no longer reports "The provider
+  configuration was not found", which described a different problem than the
+  one you had. The provider's own message — which model or endpoint was missing,
+  and what to check — is shown instead.
+- The model menu now names providers that returned nothing, instead of leaving
+  them silently absent from the list.
+- Switching the theme in Firefox no longer leaves the extension sluggish. The
+  saved preference was written back every time it arrived, and Firefox reports
+  a write as a change whether or not anything moved, so one switch kept
+  arriving and being rewritten for as long as the page stayed open. The
+  preference is now applied only when it differs.
+
+### Changed
+
+- A provider with no model list is asked for one once, not on every refresh. A
+  chat-only endpoint used to collect a failed request every few seconds — from
+  the model menu and from the background connection check — for an answer that
+  was never going to change. The answer is now remembered per provider on this
+  device, and re-checked after a day, whenever the base URL, wire, or preset
+  changes, and whenever you press Test.
+- The background connection check runs once a minute instead of every ten
+  seconds, and pauses while the settings page is in a hidden tab. Editing a
+  provider still re-checks it immediately.
+- A provider running on model IDs you declared is labelled as such rather than
+  reported as a failed connection.
+- Editing a provider's base URL no longer runs a connection test on every
+  keystroke. Typing one URL fired one test per character — on a hosted
+  provider, a real API call per keypress — and none of them told you anything,
+  because the check reads saved configuration and you were still typing. The
+  check now runs when a change is saved, and the status you see after saving
+  describes the endpoint you just saved rather than the one before it.
+- A support report no longer says "Provider reachable: no" for a provider that
+  publishes no model list, and no longer says "yes" on the strength of a model
+  list that the IDs you declared filled in on their own. It reports what was
+  actually confirmed, and "not checked" when nothing was — a mistyped base URL
+  and a working chat-only provider answer alike from there, and either guess
+  sends whoever reads the report after the wrong thing.
+- A provider that publishes no model list is marked "model IDs only" in both
+  the provider grid and the panel header. Each read the model count on its own
+  and showed a green connected dot for an endpoint the background check never
+  contacted; the count comes from the IDs you declared. Testing the connection
+  still reaches the endpoint and still reports what it found.
+
 ## [0.12.7]
 
 ### Changed
@@ -780,7 +845,8 @@ No functional changes: this release is store metadata only.
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.7...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.8...HEAD
+[0.12.8]: https://github.com/Shishir435/ollama-client/compare/0.12.7...0.12.8
 [0.12.7]: https://github.com/Shishir435/ollama-client/compare/0.12.6...0.12.7
 [0.12.6]: https://github.com/Shishir435/ollama-client/compare/0.12.5...0.12.6
 [0.12.5]: https://github.com/Shishir435/ollama-client/compare/0.12.4...0.12.5

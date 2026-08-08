@@ -82,8 +82,16 @@ export const useProviderSettingsState = () => {
   // Incremented synchronously for every local edit. An RPC response may update
   // local state only when the provider still has the revision it started with.
   const configRevisions = useRef(new Map<string, number>())
+  /*
+   * Bumped whenever stored provider config actually changes. The health check
+   * tests what is *stored*, so a draft the user is still typing tells it
+   * nothing — but the moment a save lands, the endpoint it would reach is a
+   * different one and the previous answer is about somewhere else.
+   */
+  const [savedRevision, setSavedRevision] = useState(0)
+  const markSaved = useCallback(() => setSavedRevision((n) => n + 1), [])
 
-  const providerHealth = useProviderHealth(providers)
+  const providerHealth = useProviderHealth(providers, savedRevision)
 
   const loadProviders = useCallback(async () => {
     setLoading(true)
@@ -185,16 +193,29 @@ export const useProviderSettingsState = () => {
       })
 
       if (result.modelCount === 0) {
+        // A server without a catalog endpoint is reachable but has nothing to
+        // offer until the user names a model, so say that instead of repeating
+        // "no models were returned" at someone who cannot make it return any.
+        const noModelList = result.modelListSupported === false
         setConnectionStatus({
           success: false,
-          message: t("settings.providers.test_connection.inline_no_models", {
-            url: displayUrl
-          })
+          message: t(
+            noModelList
+              ? "settings.providers.test_connection.inline_no_model_list"
+              : "settings.providers.test_connection.inline_no_models",
+            { url: displayUrl }
+          )
         })
         toast({
-          title: t("settings.providers.test_connection.no_models_title"),
+          title: t(
+            noModelList
+              ? "settings.providers.test_connection.no_model_list_title"
+              : "settings.providers.test_connection.no_models_title"
+          ),
           description: t(
-            "settings.providers.test_connection.no_models_description",
+            noModelList
+              ? "settings.providers.test_connection.no_model_list_description"
+              : "settings.providers.test_connection.no_models_description",
             { url: displayUrl }
           ),
           variant: "destructive"
@@ -202,17 +223,22 @@ export const useProviderSettingsState = () => {
         return
       }
 
+      const manualOnly = result.modelListSupported === false
       setConnectionStatus({
         success: true,
-        message: t("settings.providers.test_connection.inline_success", {
-          url: displayUrl,
-          count: result.modelCount
-        })
+        message: t(
+          manualOnly
+            ? "settings.providers.test_connection.inline_success_manual"
+            : "settings.providers.test_connection.inline_success",
+          { url: displayUrl, count: result.modelCount }
+        )
       })
       toast({
         title: t("settings.providers.test_connection.success_title"),
         description: t(
-          "settings.providers.test_connection.success_description",
+          manualOnly
+            ? "settings.providers.test_connection.success_description_manual"
+            : "settings.providers.test_connection.success_description",
           {
             name: activeConfig.name,
             url: displayUrl,
@@ -296,6 +322,9 @@ export const useProviderSettingsState = () => {
           return next
         })
         setHasUnsavedChanges(false)
+        // The stored endpoint may now be somewhere else, so the health entry
+        // describing the previous one is out of date as of this line.
+        markSaved()
         if (showSuccessToast) {
           toast({
             title: t("settings.saved"),
@@ -321,7 +350,7 @@ export const useProviderSettingsState = () => {
         return false
       }
     },
-    [configForRpc, t]
+    [configForRpc, markSaved, t]
   )
 
   const setSelectedId = useCallback(
@@ -371,6 +400,7 @@ export const useProviderSettingsState = () => {
         toSettingsConfig(config)
       ])
       setSelectedIdState(String(config.id))
+      markSaved()
       toast({
         title: t("settings.providers.add.added_title"),
         description: t("settings.providers.add.added_description", {
@@ -407,6 +437,7 @@ export const useProviderSettingsState = () => {
         current.filter((provider) => String(provider.id) !== id)
       )
       if (selectedId === id) setSelectedIdState(DEFAULT_PROVIDER_ID)
+      markSaved()
       toast({
         title: t("settings.providers.add.removed_title"),
         description: t("settings.providers.add.removed_description", {
@@ -464,6 +495,7 @@ export const useProviderSettingsState = () => {
         target: "existing",
         config: configForRpc(updated)
       })
+      markSaved()
     } catch (error) {
       logger.error("Failed to auto-save toggle", "ProviderSettings", { error })
     }
@@ -489,6 +521,28 @@ export const useProviderSettingsState = () => {
       test: () => !activeConfig?.enabled,
       dot: "bg-muted-foreground/40 ring-muted-foreground/20",
       label: "inactive"
+    },
+    /*
+     * An endpoint with no catalog is never asked for one after the first
+     * answer, so the background check reaches nothing and cannot claim a live
+     * connection. Say what is actually true — this provider runs on the model
+     * IDs you declared — rather than showing a red dot at a working provider,
+     * or a green one for a round trip nobody made.
+     *
+     * Ahead of "connected" on purpose: the background check reports a model
+     * count for the ids the user declared, and that count is what "connected"
+     * reads. An explicit test did reach the endpoint, so it still wins — this
+     * rule stands down as soon as there is one.
+     */
+    {
+      test: () =>
+        Boolean(
+          activeConfig &&
+            connectionStatus === null &&
+            providerHealth[activeConfig.id]?.modelListSupported === false
+        ),
+      dot: "bg-status-warning ring-status-warning/30",
+      label: "manual_models"
     },
     {
       test: () =>

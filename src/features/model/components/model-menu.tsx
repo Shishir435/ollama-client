@@ -63,7 +63,8 @@ export const ModelMenu = ({
     selectedModelRef,
     setSelectedModel,
     selectionConflictModel,
-    clearSelectionConflict
+    clearSelectionConflict,
+    unavailableProviders
   } = useProviderModels()
 
   const { resolve, getOverride, getProbe, setOverride, clearOverride } =
@@ -253,6 +254,19 @@ export const ModelMenu = ({
                 <div className="mb-2 rounded-control border border-status-warning/40 bg-status-warning/10 px-2 py-1.5 text-xs text-status-warning">
                   Provider selection required for{" "}
                   <strong>{selectionConflictModel}</strong>.
+                </div>
+              )}
+              {unavailableProviders.length > 0 && (
+                <div className="mb-2 rounded-control border border-status-warning/40 bg-status-warning/10 px-2 py-1.5 text-micro text-status-warning">
+                  {t("model.menu.providers_unavailable", {
+                    names: unavailableProviders
+                      .map(
+                        (failure) =>
+                          failure.providerName ||
+                          getProviderDisplayName(failure.providerId)
+                      )
+                      .join(", ")
+                  })}
                 </div>
               )}
               <div className="flex items-center justify-between px-2 py-1">

@@ -170,7 +170,29 @@ export const ChatErrorReportAction = ({
             }
           )
           checks.latencyMs = Math.max(0, performance.now() - startedAt)
-          checks.providerReachable = result.failures.length === 0
+          /*
+           * Reachability comes from the connection check, not from this list.
+           * A returned model list proves nothing on its own: the ids the user
+           * declared fill it whether or not anything answered, and a provider
+           * that already told us it has no catalog is not asked again, so the
+           * list can arrive without a single request leaving the browser.
+           *
+           * The stored check reports `reachable` only for a catalog that
+           * actually answered, and it never sends a chat request — this is a
+           * support report, not a licence to spend inference. When it comes
+           * back unreachable, all that says is "nothing was contacted", which
+           * a mistyped base URL and a working chat-only gateway produce alike,
+           * so the report says "not checked" instead of guessing.
+           */
+          try {
+            const connection = await extensionRpcClient.call(
+              RpcMethod.ProvidersTestConnection,
+              { target: "stored", providerId }
+            )
+            checks.providerReachable = connection.reachable ? true : undefined
+          } catch {
+            checks.providerReachable = false
+          }
           if (msg.error?.model) {
             checks.selectedModelFound = result.models.some(
               (model) =>

@@ -71,8 +71,19 @@ export const ProviderGrid = ({
         const status =
           manual || (autoHealth ? { success: autoHealth.success } : null)
 
-        const isConnected = status?.success === true
-        const hasFailed = status?.success === false
+        /*
+         * A provider with no catalog is never contacted by the background
+         * check — it answers from the remembered "nothing to discover", and
+         * its model count comes from the ids the user declared. That is not a
+         * live connection, so it gets the same amber "model IDs only" state
+         * the settings header shows, rather than a green dot for a round trip
+         * nobody made. An explicit test did reach the endpoint, so it wins.
+         */
+        const manualModelsOnly =
+          !manual && autoHealth?.modelListSupported === false
+
+        const isConnected = !manualModelsOnly && status?.success === true
+        const hasFailed = !manualModelsOnly && status?.success === false
 
         return (
           <Button
