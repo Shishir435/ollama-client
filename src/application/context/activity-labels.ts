@@ -44,3 +44,30 @@ export const CONTEXT_CHUNK_LABELS = {
     text: "Selected tab context"
   }
 } as const satisfies Record<string, ActivityLabel>
+
+export const ACTIVITY_TEXTS = {
+  noMatchingPageChunks: {
+    key: "chat.reasoning.trace.no_matching_page_chunks",
+    text: "No matching page chunks"
+  },
+  noMatchingFileChunks: {
+    key: "chat.reasoning.trace.no_matching_file_chunks",
+    text: "No matching file chunks"
+  },
+  recalledPastConversation: {
+    key: "chat.reasoning.trace.recalled_past_conversation",
+    text: "Recalled past conversation context"
+  },
+  noMatchingMemory: {
+    key: "chat.reasoning.trace.no_matching_memory",
+    text: "No matching memory"
+  },
+  previousConversation: {
+    key: "chat.reasoning.trace.previous_conversation",
+    text: "Previous conversation"
+  },
+  memory: {
+    key: "chat.reasoning.trace.memory",
+    text: "Memory"
+  }
+} as const satisfies Record<string, ActivityLabel>

@@ -29,7 +29,7 @@ const RagSourceSchema = z.object({
   type: z.string().optional()
 })
 
-const UsedContextChunkSchema = z.object({
+export const UsedContextChunkSchema = z.object({
   id: z.union([z.string(), z.number()]),
   title: z.string(),
   titleKey: z.string().optional(),
@@ -90,7 +90,12 @@ export const ToolRunSchema = z.object({
   resultPreview: z.string().optional()
 })
 
-const ActivityEventSchema = z.object({
+export const ActivityTextSchema = z.object({
+  text: z.string(),
+  textKey: z.string().optional()
+})
+
+export const ActivityEventSchema = z.object({
   id: z.string(),
   kind: z.enum([
     "preparing_context",
@@ -107,9 +112,9 @@ const ActivityEventSchema = z.object({
   startedAt: z.number(),
   finishedAt: z.number().optional(),
   inputPreview: z.string().optional(),
-  outputPreview: z.string().optional(),
+  outputPreview: z.union([z.string(), ActivityTextSchema]).optional(),
   resultCount: z.number().optional(),
-  sourceTitles: z.array(z.string()).optional(),
+  sourceTitles: z.array(z.union([z.string(), ActivityTextSchema])).optional(),
   error: z.string().optional()
 })
 

@@ -291,9 +291,18 @@ describe("ChatMessageMetricsSchema", () => {
           startedAt: 1,
           finishedAt: 2,
           inputPreview: "What about it?",
-          outputPreview: "What about the deployment?",
+          outputPreview: {
+            text: "Recalled past conversation context",
+            textKey: "chat.reasoning.trace.recalled_past_conversation"
+          },
           resultCount: 1,
-          sourceTitles: ["Deploy notes"]
+          sourceTitles: [
+            "Deploy notes",
+            {
+              text: "Previous conversation",
+              textKey: "chat.reasoning.trace.previous_conversation"
+            }
+          ]
         }
       ]
     })
@@ -305,6 +314,9 @@ describe("ChatMessageMetricsSchema", () => {
       expect(result.data.activityEvents?.[0].labelKey).toBe(
         "chat.reasoning.trace.rewriting_query"
       )
+      expect(result.data.activityEvents?.[0].outputPreview).toMatchObject({
+        textKey: "chat.reasoning.trace.recalled_past_conversation"
+      })
     }
   })
 

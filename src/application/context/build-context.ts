@@ -1,5 +1,6 @@
 import {
   ACTIVITY_LABELS,
+  ACTIVITY_TEXTS,
   type ActivityLabel,
   CONTEXT_CHUNK_LABELS
 } from "@/application/context/activity-labels"
@@ -440,7 +441,10 @@ export const buildRagContext = async (
             outputPreview:
               pageContext.documents.length > 0
                 ? preview(pageContext.formattedContext)
-                : "No matching page chunks"
+                : {
+                    text: ACTIVITY_TEXTS.noMatchingPageChunks.text,
+                    textKey: ACTIVITY_TEXTS.noMatchingPageChunks.key
+                  }
           })
         }
 
@@ -504,7 +508,10 @@ export const buildRagContext = async (
               outputPreview:
                 context.documents.length > 0
                   ? preview(context.formattedContext)
-                  : "No matching file chunks"
+                  : {
+                      text: ACTIVITY_TEXTS.noMatchingFileChunks.text,
+                      textKey: ACTIVITY_TEXTS.noMatchingFileChunks.key
+                    }
             })
           } else {
             logger.info(
@@ -541,17 +548,27 @@ export const buildRagContext = async (
             }
             finishActivityEvent(memoryEvent, {
               resultCount: memoryResults.length,
-              sourceTitles: memoryResults
-                .slice(0, 3)
-                .map((result) =>
-                  result.isMemory
-                    ? "Previous conversation"
-                    : result.document.metadata.title || "Memory"
-                ),
+              sourceTitles: memoryResults.slice(0, 3).map((result) =>
+                result.isMemory
+                  ? {
+                      text: ACTIVITY_TEXTS.previousConversation.text,
+                      textKey: ACTIVITY_TEXTS.previousConversation.key
+                    }
+                  : result.document.metadata.title || {
+                      text: ACTIVITY_TEXTS.memory.text,
+                      textKey: ACTIVITY_TEXTS.memory.key
+                    }
+              ),
               outputPreview:
                 memoryResults.length > 0
-                  ? "Recalled past conversation context"
-                  : "No matching memory"
+                  ? {
+                      text: ACTIVITY_TEXTS.recalledPastConversation.text,
+                      textKey: ACTIVITY_TEXTS.recalledPastConversation.key
+                    }
+                  : {
+                      text: ACTIVITY_TEXTS.noMatchingMemory.text,
+                      textKey: ACTIVITY_TEXTS.noMatchingMemory.key
+                    }
             })
           }
         }

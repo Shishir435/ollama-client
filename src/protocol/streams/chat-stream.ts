@@ -9,9 +9,11 @@ import { MESSAGE_KEYS } from "@/lib/constants"
 import { AppFailureSchema } from "@/protocol/app-failure"
 import type { ChatMessage, ProviderReplayArtifact, ToolRun } from "@/types"
 import {
+  ActivityEventSchema,
   ChatMessageSchema,
   ProviderReplayArtifactSchema,
-  ToolRunSchema
+  ToolRunSchema,
+  UsedContextChunkSchema
 } from "@/types/chat.schemas"
 import { CHAT_STREAM_EVENT_TYPES } from "./event-types"
 import {
@@ -155,29 +157,6 @@ export const ChatStreamClientEventSchema = z.discriminatedUnion("type", [
   ...SelectionStreamClientEventSchemas
 ])
 
-const ActivityEventSchema = z.object({
-  id: z.string(),
-  kind: z.enum([
-    "preparing_context",
-    "query_rewrite",
-    "searching_memory",
-    "searching_files",
-    "reading_page",
-    "calling_tool",
-    "generating_answer"
-  ]),
-  label: z.string(),
-  labelKey: z.string().optional(),
-  status: z.enum(["running", "done", "error"]),
-  startedAt: z.number(),
-  finishedAt: z.number().optional(),
-  inputPreview: z.string().optional(),
-  outputPreview: z.string().optional(),
-  resultCount: z.number().optional(),
-  sourceTitles: z.array(z.string()).optional(),
-  error: z.string().optional()
-})
-
 const TurnToastSchema = z.object({
   variant: z.enum(["default", "destructive"]).optional(),
   titleKey: z.string(),
@@ -194,17 +173,6 @@ const RagSourceSchema = z.object({
   chunkIndex: z.number().int().optional(),
   fileId: z.string().optional(),
   type: z.string().optional()
-})
-
-const UsedContextChunkSchema = z.object({
-  id: z.union([z.string(), z.number()]),
-  title: z.string(),
-  titleKey: z.string().optional(),
-  excerpt: z.string(),
-  score: z.number(),
-  sectionPath: z.string().optional(),
-  source: z.string().optional(),
-  chunkIndex: z.number().int().optional()
 })
 
 const BuildContextResultSchema = z.object({

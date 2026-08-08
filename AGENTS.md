@@ -363,6 +363,10 @@ Biome also rewrites some Tailwind arbitrary values to canonical form (`row-end-[
 
 ### Git hooks (`.husky`)
 
+Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
+release branch into `preview`, validate it there, then merge `preview` into
+`main`. Do not promote a release branch directly to `main`.
+
 - `pre-commit`: lint-staged (typecheck, `format:fix`, `lint:fix`, `test:related`) → `format:check` → `lint:check` → `typecheck`. **Does not run the full suite.**
 - `pre-push`: `pnpm test:run`.
 
@@ -402,7 +406,7 @@ What these files are *now*, so you neither go looking for a god-object that was 
 
 **Do not restructure incrementally:**
 
-- `src/features/chat/hooks/use-chat-turn-controller.ts` — owns turn lifecycle, streaming, abort, thinking, attachment handoff. Being redesigned wholesale in the from-scratch architecture rebuild (`FROM_SCRATCH_ARCHITECTURE_AUDIT.md`). Expect complexity; keep edits minimal and local. Keep `use-chat.ts` as wiring only.
+- `src/features/chat/hooks/use-chat-turn-controller.ts` — owns turn lifecycle, streaming, abort, thinking, attachment handoff. Its redesign is tracked in `RELEASE_ROADMAP.md`. Expect complexity; keep edits minimal and local. Keep `use-chat.ts` as wiring only.
 
 **Open for incremental work:**
 

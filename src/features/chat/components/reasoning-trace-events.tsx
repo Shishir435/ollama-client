@@ -2,7 +2,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { getToolDisplayMeta } from "@/lib/tools/tool-display"
 import { cn } from "@/lib/utils"
-import type { ActivityEvent, ToolRun } from "@/types"
+import type { ActivityEvent, ActivityText, ToolRun } from "@/types"
 
 export type TraceStatus = "running" | "done" | "error"
 
@@ -51,11 +51,21 @@ export const getActivityResultCountLabel = (
   t: (key: string, options?: { count?: number }) => string
 ): string => t("chat.reasoning.trace.results", { count })
 
+export const getActivityText = (
+  value: string | ActivityText,
+  t: (key: string) => string
+): string =>
+  typeof value === "string"
+    ? value
+    : value.textKey
+      ? t(value.textKey)
+      : value.text
+
 const getActivityResultPreview = (
   event: ActivityEvent,
   t: (key: string, options?: { count?: number }) => string
 ): string | undefined => {
-  if (event.outputPreview) return event.outputPreview
+  if (event.outputPreview) return getActivityText(event.outputPreview, t)
   if (event.resultCount !== undefined) {
     return getActivityResultCountLabel(event.resultCount, t)
   }
@@ -111,7 +121,9 @@ export const ActivityStepRow = ({
       )}
       {event.sourceTitles && event.sourceTitles.length > 0 && (
         <div className="mt-0.5 text-2xs text-muted-foreground/80">
-          {event.sourceTitles.join(", ")}
+          {event.sourceTitles
+            .map((title) => getActivityText(title, t))
+            .join(", ")}
         </div>
       )}
     </li>

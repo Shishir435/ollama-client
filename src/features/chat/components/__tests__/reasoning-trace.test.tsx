@@ -42,6 +42,8 @@ const CATALOG: Record<string, string> = {
   "chat.reasoning.trace.answering": "Answering",
   "chat.reasoning.trace.rewriting_query": "Rewriting query",
   "chat.reasoning.trace.searching_memory": "Searching memory",
+  "chat.reasoning.trace.recalled_past_conversation": "Past chat recalled",
+  "chat.reasoning.trace.previous_conversation": "Earlier chat",
   "chat.reasoning.trace.results_one": "{{count}} result",
   "chat.reasoning.trace.results_other": "{{count}} results",
   "tool.custom": "Custom tool"
@@ -178,6 +180,43 @@ describe("ReasoningTrace", () => {
     expect(screen.getByText("What about it?")).toBeInTheDocument()
     expect(screen.getByText("What about tool calling?")).toBeInTheDocument()
     expect(screen.getByText("PR notes, Tool docs")).toBeInTheDocument()
+  })
+
+  it("translates app-generated activity previews and source titles", () => {
+    render(
+      <ReasoningTrace
+        message={{
+          role: "assistant",
+          content: "",
+          metrics: {
+            activityEvents: [
+              {
+                id: "memory",
+                kind: "searching_memory",
+                label: "Searching memory",
+                status: "done",
+                startedAt: 1,
+                outputPreview: {
+                  text: "Recalled past conversation context",
+                  textKey: "chat.reasoning.trace.recalled_past_conversation"
+                },
+                sourceTitles: [
+                  {
+                    text: "Previous conversation",
+                    textKey: "chat.reasoning.trace.previous_conversation"
+                  },
+                  "User note"
+                ]
+              }
+            ]
+          }
+        }}
+        isLoading
+      />
+    )
+
+    expect(screen.getAllByText("Past chat recalled").length).toBeGreaterThan(0)
+    expect(screen.getByText("Earlier chat, User note")).toBeInTheDocument()
   })
 
   it("renders a persisted labelKey instead of the label it shipped with", () => {

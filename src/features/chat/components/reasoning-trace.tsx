@@ -25,6 +25,7 @@ import {
   getActivityEventLabel,
   getActivityEventStatus,
   getActivityResultCountLabel,
+  getActivityText,
   getToolRunLabel,
   getToolRunStatus,
   statusClass,
@@ -143,10 +144,10 @@ const getActivityCompactPreview = (
   t: (key: string, options?: { count?: number }) => string
 ): string | undefined => {
   if (event.error) return event.error
-  if (event.outputPreview) return event.outputPreview
+  if (event.outputPreview) return getActivityText(event.outputPreview, t)
   if (event.resultCount !== undefined) {
     const sources = event.sourceTitles?.length
-      ? `: ${event.sourceTitles.join(", ")}`
+      ? `: ${event.sourceTitles.map((title) => getActivityText(title, t)).join(", ")}`
       : ""
     return `${getActivityResultCountLabel(event.resultCount, t)}${sources}`
   }
