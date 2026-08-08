@@ -643,6 +643,12 @@ describe("messages", () => {
     const [sql, params] = mockedQuery.mock.calls[0]
     expect(sql).toContain("done = 0")
     expect(sql).toContain("updatedAt IS NULL OR updatedAt <")
+    // Background-owned durable turns resolve their own completion/recovery;
+    // the generic orphan sweep must never race their assistant row.
+    expect(sql).toContain("assistantMessageId FROM turn_runs")
+    expect(sql).toContain(
+      "status IN ('submitted', 'building-context', 'generating')"
+    )
     // Turns whose session has a live tool-loop checkpoint are excluded, so a
     // long tool-approval wait isn't finalized as interrupted.
     expect(sql).toContain("sessionId NOT IN")

@@ -124,4 +124,15 @@ describe("architecture import boundaries", () => {
 
     expect(offenders).toEqual([])
   })
+
+  it("keeps lower layers independent of background composition", () => {
+    const lowerLayerRoots = ["application/", "lib/", "protocol/"]
+    const offenders = productionSources.filter((file) => {
+      if (!lowerLayerRoots.some((root) => file.startsWith(root))) return false
+      const source = readFileSync(join(sourceRoot, file), "utf8")
+      return importsModule(source, /@\/background\/[^"']+/)
+    })
+
+    expect(offenders).toEqual([])
+  })
 })

@@ -76,7 +76,9 @@ Dev-only entrypoints (`spike-*`, `benchmark`, `persistence-verify`) are stripped
 1. UI opens a runtime port keyed by `MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE`.
 2. `src/background/index.ts` routes by message key to `src/background/handlers/`.
 3. `ProviderFactory.getProviderForModel(modelId)` resolves the provider via `registry.ts` and the user's saved mapping.
-4. The provider streams tokens back through the port; `use-chat.ts` updates state and persists.
+4. The provider streams tokens back through the port; the background durable
+   turn owner persists assistant state while `use-chat.ts` updates ephemeral UI
+   state.
 
 ### Providers (`src/lib/providers/`)
 

@@ -175,9 +175,9 @@ These are real, scoped, valuable for the project right now:
 - **`src/features/model/components/embedding-settings.tsx`** (665 LOC)
   could be split into focused sub-components, similar to the
   provider-settings split that already happened.
-- **Durable stream ownership** characterization around
-  `use-chat-streaming.ts` and `durable-turn-runtime.ts`.
-- **Runtime schemas** for persisted tool-loop checkpoints and provider config.
+- **Runtime schemas** for structured provider configuration and journals.
+- **Typed setting descriptors** for high-risk structured settings still using
+  the deprecated raw storage handle.
 - **Embedding-settings sub-component extraction** under
   `src/features/model/components/embedding-config/`.
 - **Error message consistency** across `src/background/handlers/*` —

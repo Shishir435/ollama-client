@@ -239,9 +239,8 @@ Models that cannot emit native tool calls are handled by a text protocol in `src
 
 Tool results are trimmed before they are fed back to the model. The durable turn
 owner persists the final assistant answer and trace metadata, not intermediate
-provider tool messages. The current UI streaming bridge still mirrors row
-updates for immediate rendering; removing that second logical write path is a
-pre-package gate in `RELEASE_ROADMAP.md`.
+provider tool messages. The UI folds validated events into ephemeral Zustand
+state; it does not persist durable stream rows.
 
 ### Internal tools
 
@@ -454,11 +453,11 @@ There is no OCR pipeline, and no cross-encoder reranking. Retrieval precision co
 
 - Partial provider parity in model-management actions.
 - Two storage engines: chat history is SQLite-only, but vectors and knowledge sets are still Dexie. The Dexie *chat* fallback is retired — this is a split by domain, not a migration in progress.
-- Durable assistant updates currently have one physical SQLite owner but two
-  logical callers (background turn owner and UI streaming bridge). Removing the
-  UI durable write path is the highest-priority audit item.
-- Tool-loop checkpoint JSON needs a versioned runtime schema before package
-  extraction.
+- Typed setting descriptors cover only part of structured extension storage;
+  high-risk config should gain runtime schemas incrementally.
+- Context building still constructs providers and reads settings directly;
+  package extraction must introduce explicit ports rather than move that
+  coupling unchanged.
 - Retrieval quality depends on chunking / threshold tuning and model quality.
 
 ## Desktop design notes
@@ -472,6 +471,6 @@ These are non-implementation notes for a hypothetical desktop port.
 
 ## Near-term priorities
 
-1. Close durable-writer and checkpoint-validation audit gates.
-2. Establish import boundaries before extracting packages.
+1. Freeze package-candidate import boundaries in source-contract tests.
+2. Introduce context-service ports before extracting runtime code.
 3. Improve retrieval observability and failure diagnostics.

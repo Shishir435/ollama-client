@@ -195,15 +195,16 @@ Package only proven seams. Do not turn `0.13.0` into a whole-repository move.
 
 #### Audit closure gate — ownership before movement
 
-- Make background the only durable assistant-row writer for durable turns;
-  characterize any retained non-durable stream path separately.
-- Add a versioned runtime schema for tool-loop checkpoints and safe invalid-row
-  recovery.
-- Remove the `src/lib/tools/internal/` dependency on `src/background/` and add a
-  source-contract test preventing that reverse edge.
-- Fix overlapping file-upload state updates.
-- Update public architecture and contributor guidance to current paths before
-  package names become another documented surface.
+Status: complete on `feature/prepackage-architecture-fixes`, 2026-08-09.
+
+- Background is now the only durable assistant-row writer for durable turns;
+  the characterized legacy stream path retains its UI debounce and heartbeat.
+- Tool-loop checkpoints use a versioned Zod envelope; legacy rows validate
+  through the same state schema, and malformed rows fail before replay.
+- Reminder domain operations moved below background composition, with a source
+  contract test preventing `application/lib/protocol -> background` imports.
+- Overlapping file-upload submissions merge state through functional updates.
+- Public architecture and contributor guidance match current runtime paths.
 
 Exit gate: restart, reconnect, stop, and completion tests prove one logical
 durable writer; corrupted checkpoint tests fail safely; lower layers do not

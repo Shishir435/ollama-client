@@ -127,4 +127,48 @@ describe("useFileUpload", () => {
       )
     })
   })
+
+  it("keeps state from overlapping submissions", async () => {
+    const first = new File(["one"], "one.txt", { type: "text/plain" })
+    const second = new File(["two"], "two.txt", { type: "text/plain" })
+    const resolvers = new Map<string, (value: ProcessedFile) => void>()
+    vi.mocked(IngestionClient.submitFile).mockImplementation(
+      (file) =>
+        new Promise((resolve) => {
+          resolvers.set(file.name, resolve)
+        })
+    )
+    const { result } = renderHook(() => useFileUpload())
+
+    let submissions: Promise<void>[] = []
+    act(() => {
+      submissions = [
+        result.current.processFiles([first]),
+        result.current.processFiles([second])
+      ]
+    })
+
+    await waitFor(() => {
+      expect(result.current.processingStates).toHaveLength(2)
+      expect(
+        result.current.processingStates.map((state) => state.file.name).sort()
+      ).toEqual(["one.txt", "two.txt"])
+    })
+
+    await act(async () => {
+      resolvers.get("one.txt")?.({
+        ...processedFile,
+        metadata: { ...processedFile.metadata, fileName: "one.txt" }
+      })
+      resolvers.get("two.txt")?.({
+        ...processedFile,
+        metadata: { ...processedFile.metadata, fileName: "two.txt" }
+      })
+      await Promise.all(submissions)
+    })
+
+    expect(
+      result.current.processingStates.map((state) => state.status)
+    ).toEqual(["success", "success"])
+  })
 })
