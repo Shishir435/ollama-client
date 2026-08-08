@@ -68,10 +68,11 @@ export const WebSearchProviderConfigSchema =
 
 export const getWebSearchConfig =
   async (): Promise<WebSearchProviderConfig> => {
-    const stored = await getPlasmoStoredValue<WebSearchProviderConfig>(
+    const stored = await getPlasmoStoredValue<unknown>(
       STORAGE_KEYS.WEB_SEARCH.CONFIG
     )
-    return normalizeWebSearchConfig(stored)
+    const parsed = WebSearchProviderConfigSchema.safeParse(stored)
+    return parsed.success ? parsed.data : DEFAULT_WEB_SEARCH_CONFIG
   }
 
 export const setWebSearchConfig = async (
