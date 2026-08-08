@@ -1,19 +1,20 @@
 import { createAppError, isAbortError, isAppError } from "@/lib/error-utils"
-import type {
-  ProvidersListModelsRequest,
-  ProvidersListModelsResult,
-  ProvidersListResult,
-  ProvidersProbeModelCapabilitiesRequest,
-  ProvidersProbeModelCapabilitiesResult,
-  ProvidersRemoveRequest,
-  ProvidersRemoveResult,
-  ProvidersSetEnabledRequest,
-  ProvidersSetEnabledResult,
-  ProvidersUpsertRequest,
-  ProvidersUpsertResult,
-  ProviderTestConnectionRequest,
-  ProviderTestConnectionResult,
-  PublicProviderConfig
+import {
+  MODEL_DISCOVERY_FAILURE,
+  type ProvidersListModelsRequest,
+  type ProvidersListModelsResult,
+  type ProvidersListResult,
+  type ProvidersProbeModelCapabilitiesRequest,
+  type ProvidersProbeModelCapabilitiesResult,
+  type ProvidersRemoveRequest,
+  type ProvidersRemoveResult,
+  type ProvidersSetEnabledRequest,
+  type ProvidersSetEnabledResult,
+  type ProvidersUpsertRequest,
+  type ProvidersUpsertResult,
+  type ProviderTestConnectionRequest,
+  type ProviderTestConnectionResult,
+  type PublicProviderConfig
 } from "@/protocol/provider-rpc"
 import type { ProviderModel } from "@/types/model"
 
@@ -421,14 +422,18 @@ export const ProviderRpcService = {
             code
           })
         if (catalog === "failed") {
-          report(merged.length > 0 ? "discovery_unavailable" : "request_failed")
+          report(
+            merged.length > 0
+              ? MODEL_DISCOVERY_FAILURE.DISCOVERY_UNAVAILABLE
+              : MODEL_DISCOVERY_FAILURE.REQUEST_FAILED
+          )
           return
         }
         // A catalog-less provider carrying its own declared ids is a normal,
         // working setup. It is only worth reporting when it has none, because
         // then it contributes nothing and the user has to add some.
         if (catalog === "absent" && merged.length === 0) {
-          report("model_list_unsupported")
+          report(MODEL_DISCOVERY_FAILURE.MODEL_LIST_UNSUPPORTED)
         }
       })
     )
@@ -440,7 +445,7 @@ export const ProviderRpcService = {
      * network error, which is neither true nor actionable.
      */
     const hardFailures = failures.filter(
-      ({ code }) => code !== "model_list_unsupported"
+      ({ code }) => code !== MODEL_DISCOVERY_FAILURE.MODEL_LIST_UNSUPPORTED
     )
     if (
       models.length === 0 &&

@@ -24,7 +24,10 @@ import {
 } from "@/lib/providers/types"
 import { queryKeys } from "@/lib/query-keys"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import type { ProvidersListModelsResult } from "@/protocol/provider-rpc"
+import {
+  MODEL_DISCOVERY_FAILURE,
+  type ProvidersListModelsResult
+} from "@/protocol/provider-rpc"
 import { RpcMethod } from "@/protocol/rpc"
 import type { SelectedModelRef } from "@/types"
 import { isEmbeddingModel } from "../lib/model-utils"
@@ -143,7 +146,7 @@ export const useProviderModels = () => {
    * given.
    */
   const unavailableProviders = (modelList?.failures ?? EMPTY_FAILURES).filter(
-    (failure) => failure.code !== "discovery_unavailable"
+    (failure) => failure.code !== MODEL_DISCOVERY_FAILURE.DISCOVERY_UNAVAILABLE
   )
 
   const selectedModelData = models.find((m) => m.name === selectedModel)

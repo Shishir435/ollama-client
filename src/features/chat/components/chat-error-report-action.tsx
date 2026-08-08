@@ -19,6 +19,7 @@ import { logger } from "@/lib/logger"
 import { cn } from "@/lib/utils"
 import type { DiagnosticsGetBundleResult } from "@/protocol/diagnostics-rpc"
 import { extensionRpcClient } from "@/protocol/extension-client"
+import { MODEL_DISCOVERY_FAILURE } from "@/protocol/provider-rpc"
 import { RpcMethod } from "@/protocol/rpc"
 import type { ChatMessage } from "@/types"
 
@@ -170,7 +171,14 @@ export const ChatErrorReportAction = ({
             }
           )
           checks.latencyMs = Math.max(0, performance.now() - startedAt)
-          checks.providerReachable = result.failures.length === 0
+          // An endpoint that publishes no model list is reachable — it just has
+          // nothing to discover. Counting that as unreachable puts "Provider
+          // reachable: no" in a report from a provider that answers chat fine,
+          // which sends whoever reads it after the wrong thing.
+          checks.providerReachable = result.failures.every(
+            ({ code }) =>
+              code === MODEL_DISCOVERY_FAILURE.MODEL_LIST_UNSUPPORTED
+          )
           if (msg.error?.model) {
             checks.selectedModelFound = result.models.some(
               (model) =>
