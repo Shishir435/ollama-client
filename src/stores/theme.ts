@@ -49,6 +49,15 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
         const themeResult = ThemeSchema.safeParse(parsed?.state?.theme)
         if (themeResult.success) {
+          /*
+           * Only when it actually differs. Persist writes on every state
+           * change, so applying a value this store already holds writes it
+           * straight back — and Firefox fires storage.onChanged for a write
+           * whether or not the value changed, which brings that write back
+           * here. One theme change then feeds itself in a loop, and the
+           * symptom is a UI that goes sluggish and stays that way.
+           */
+          if (themeResult.data === useThemeStore.getState().theme) return
           useThemeStore.setState({ theme: themeResult.data })
         } else {
           // Fallback to rehydrate if structure doesn't match
