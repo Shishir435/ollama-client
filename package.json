@@ -188,31 +188,8 @@
       "pnpm test:related"
     ]
   },
-  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
+  "packageManager": "pnpm@11.20.0+sha512.9a6f330a95b66446ea088faf1521405a8a01f07fde7124cc9958dfed52d4bb436737e65b08f85f37b46fcba375092558ac51262b816844b22f63406ed166bfee",
   "engines": {
     "node": ">=22.12.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "brace-expansion@>=3.0.0 <5.0.9": "5.0.9",
-      "form-data@<4.0.6": ">=4.0.6",
-      "immutable@>=5.0.0-beta.1 <5.1.8": "5.1.9",
-      "js-yaml@>=4.0.0 <4.3.1": "4.3.1",
-      "linkify-it@<5.0.2": "5.0.2",
-      "markdown-it@<14.2.0": "14.3.0",
-      "nanoid@<3.3.17": ">=3.3.17",
-      "sharp@<0.35.0": "0.35.3",
-      "svgo@>=4.0.0 <4.0.2": "4.0.2",
-      "vite@>=8.0.0 <8.0.16": ">=8.0.16"
-    },
-    "onlyBuiltDependencies": [
-      "geckodriver"
-    ],
-    "auditConfig": {
-      "ignoreGhsas": [
-        "GHSA-w3rx-r6r6-pgpr",
-        "GHSA-5p2g-fcmc-qvqq"
-      ]
-    }
   }
 }
