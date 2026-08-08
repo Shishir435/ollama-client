@@ -37,6 +37,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   and what to check — is shown instead.
 - The model menu now names providers that returned nothing, instead of leaving
   them silently absent from the list.
+- Switching the theme in Firefox no longer leaves the extension sluggish. The
+  saved preference was written back every time it arrived, and Firefox reports
+  a write as a change whether or not anything moved, so one switch kept
+  arriving and being rewritten for as long as the page stayed open. The
+  preference is now applied only when it differs.
 
 ### Changed
 
