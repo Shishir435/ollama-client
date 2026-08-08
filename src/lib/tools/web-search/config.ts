@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { STORAGE_KEYS } from "@/lib/constants"
 import {
   getPlasmoStoredValue,
@@ -42,6 +43,28 @@ export const normalizeWebSearchConfig = (
   normalized.searxngPages = clamp(normalized.searxngPages, 1, 3, 1)
   return normalized
 }
+
+const StoredWebSearchProviderConfigSchema = z.object({
+  provider: z.enum(["searxng", "brave", "tavily"]).optional().catch(undefined),
+  endpoint: z.string().optional().catch(undefined),
+  apiKey: z.string().optional().catch(undefined),
+  count: z.number().finite().optional().catch(undefined),
+  searxngPages: z.number().finite().optional().catch(undefined),
+  safeSearch: z.enum(["off", "moderate", "strict"]).optional().catch(undefined),
+  enabled: z.boolean().optional().catch(undefined)
+})
+
+/**
+ * Runtime parser for the persisted UI setting. Older partial objects remain
+ * readable; malformed fields are discarded before defaults and bounds apply.
+ */
+export const WebSearchProviderConfigSchema =
+  StoredWebSearchProviderConfigSchema.transform((stored) => {
+    const validFields = Object.fromEntries(
+      Object.entries(stored).filter(([, value]) => value !== undefined)
+    ) as Partial<WebSearchProviderConfig>
+    return normalizeWebSearchConfig(validFields)
+  })
 
 export const getWebSearchConfig =
   async (): Promise<WebSearchProviderConfig> => {
