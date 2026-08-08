@@ -98,9 +98,9 @@ code out of the initial options-page graph without delaying the first tab.
 Store icons are emitted at their requested 16, 32, 48, 64, and 128 pixel sizes
 instead of packaging one oversized source icon. PDF.js and its approximately
 1.3 MB worker remain intentional: PDF extraction still needs them, and the
-worker is already isolated from ordinary page startup. The legacy `sql.js`
-WASM also remains intentional until direct-upgrade and rollback compatibility
-can safely stop using the fallback reader.
+worker is already isolated from ordinary page startup. Official sqlite-wasm is
+the only SQLite engine in store builds. `sql.js` is a development-only fixture
+writer for measurement pages that are stripped from production builds.
 
 ## System responsibilities
 
@@ -140,7 +140,8 @@ can safely stop using the fallback reader.
 4. Provider starts streaming tokens back to the background.
 5. If the model requests a tool, the background runs the tool loop — gating on approval where the tool's risk requires it, checkpointing at each boundary — and continues the stream with the tool result appended.
 6. Background relays chunks to the UI through port messages.
-7. UI applies optimistic updates and persists completed messages in the local chat store.
+7. UI applies optimistic stream updates. The durable background turn owner
+   persists assistant state and sends snapshots for reconnect/reconciliation.
 8. Optional embedding pipelines index chat / file content for retrieval.
 
 ```mermaid
@@ -236,7 +237,10 @@ Tool calling is handled in the background worker, between provider streaming and
 
 Models that cannot emit native tool calls are handled by a text protocol in `src/lib/tools/non-native/`, which parses tool invocations out of the model's prose. The two loops (`stream-chat-with-tools.ts` and `stream-chat-with-non-native-tools.ts`) are separate implementations with the same lifecycle, approval, and checkpoint contract.
 
-Tool results are trimmed before they are fed back to the model. The UI persists the final assistant answer and trace metadata, not the intermediate tool messages.
+Tool results are trimmed before they are fed back to the model. The durable turn
+owner persists the final assistant answer and trace metadata, not intermediate
+provider tool messages. The UI folds validated events into ephemeral Zustand
+state; it does not persist durable stream rows.
 
 ### Internal tools
 
@@ -359,7 +363,9 @@ Before replay, the artifact's `providerId` and `model` are checked against the c
 
 ## Storage architecture
 
-- **Chat / sessions / messages / files**: SQL WASM (`sql.js`) persisted to IndexedDB. The facade `src/lib/repositories/chat-history.ts` is the single entry point and now routes to SQLite only.
+- **Chat / sessions / messages / files**: official sqlite-wasm behind one worker
+  owned by the persistence host. The facade
+  `src/lib/repositories/chat-history.ts` is the only application entry point.
 - **Vectors / embeddings**: still on Dexie + IndexedDB via `src/lib/embeddings/storage.ts`. Not yet migrated to SQLite.
 - **Settings / provider config**: `@plasmohq/storage` via the `plasmoGlobalStorage` wrapper. Sync-safe settings use `chrome.storage.sync`; device-local keys use `chrome.storage.local`.
 - **Settings IA**: six intent tabs — General, Models, Knowledge, Browser, Privacy, and Help. Each tab owns its registry entries under `src/features/settings/registry/`; the public registry preserves stable search ranking and legacy deep links.
@@ -373,7 +379,10 @@ Before replay, the artifact's `providerId` and `model` are checked against the c
 
 The facade exposes one chat-history API while the implementation stays SQLite-only. Three guarantees follow:
 
-1. **Durability**: SQLite writes are debounced 1s to IndexedDB, and explicit reset/export/unload paths force-flush via `flushSave()` where needed.
+1. **Durability**: on OPFS, a committed SQLite statement is already durable and
+   `flushSave()` is a no-op. The compatibility legacy-blob backend debounces a
+   full-image IndexedDB write by 1 second; reset, migration, export, and unload
+   boundaries force it through `flushSave()`.
 2. **Single source**: chat sessions, messages, branches, and file metadata read and write through one normalized SQLite schema.
 3. **Export path**: full-data export includes the SQLite database blob, so chat history remains restorable without any Dexie chat dump.
 
@@ -444,7 +453,11 @@ There is no OCR pipeline, and no cross-encoder reranking. Retrieval precision co
 
 - Partial provider parity in model-management actions.
 - Two storage engines: chat history is SQLite-only, but vectors and knowledge sets are still Dexie. The Dexie *chat* fallback is retired — this is a split by domain, not a migration in progress.
-- `sql.js` ships in the production bundle. Replacing it is scoped work, not a permanent choice.
+- Typed setting descriptors cover only part of structured extension storage;
+  high-risk config should gain runtime schemas incrementally.
+- Context building still constructs providers and reads settings directly;
+  package extraction must introduce explicit ports rather than move that
+  coupling unchanged.
 - Retrieval quality depends on chunking / threshold tuning and model quality.
 
 ## Desktop design notes
@@ -458,5 +471,6 @@ These are non-implementation notes for a hypothetical desktop port.
 
 ## Near-term priorities
 
-1. Expand provider parity for management actions.
-2. Improve retrieval observability and failure diagnostics.
+1. Freeze package-candidate import boundaries in source-contract tests.
+2. Introduce context-service ports before extracting runtime code.
+3. Improve retrieval observability and failure diagnostics.

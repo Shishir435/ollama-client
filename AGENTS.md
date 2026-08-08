@@ -76,7 +76,9 @@ Dev-only entrypoints (`spike-*`, `benchmark`, `persistence-verify`) are stripped
 1. UI opens a runtime port keyed by `MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE`.
 2. `src/background/index.ts` routes by message key to `src/background/handlers/`.
 3. `ProviderFactory.getProviderForModel(modelId)` resolves the provider via `registry.ts` and the user's saved mapping.
-4. The provider streams tokens back through the port; `use-chat.ts` updates state and persists.
+4. The provider streams tokens back through the port; the background durable
+   turn owner persists assistant state while `use-chat.ts` updates ephemeral UI
+   state.
 
 ### Providers (`src/lib/providers/`)
 
@@ -406,7 +408,15 @@ What these files are *now*, so you neither go looking for a god-object that was 
 
 **Do not restructure incrementally:**
 
-- `src/features/chat/hooks/use-chat-turn-controller.ts` — owns turn lifecycle, streaming, abort, thinking, attachment handoff. Its redesign is tracked in `RELEASE_ROADMAP.md`. Expect complexity; keep edits minimal and local. Keep `use-chat.ts` as wiring only.
+- `src/features/chat/hooks/use-chat-stream.ts` — owns port lifecycle, reconnect,
+  stop/finalization, stream presentation, and error UI. Its staged extraction is
+  tracked in `RELEASE_ROADMAP.md`; keep edits minimal and preserve the pure
+  `chat-stream-reducer.ts` seam.
+
+- `src/features/chat/hooks/use-chat-turn-controller.ts` — owns UI submission
+  preconditions, session/message preparation, and durable turn command
+  construction. Its boundary cleanup is tracked in `RELEASE_ROADMAP.md`. Keep
+  `use-chat.ts` as wiring only.
 
 **Open for incremental work:**
 

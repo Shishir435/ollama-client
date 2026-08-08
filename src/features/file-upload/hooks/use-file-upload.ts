@@ -40,13 +40,13 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   const processFiles = useCallback(
     async (files: FileList | File[]) => {
       const fileArray = Array.from(files)
-      const newStates = new Map(processingStates)
+      const submittedStates = new Map<File, FileProcessingState>()
 
       // Initialize processing states
       for (const file of fileArray) {
         const error = validateFileForUpload(file, maxFileSize)
         if (error) {
-          newStates.set(file, {
+          submittedStates.set(file, {
             file,
             status: "error",
             error: error.message
@@ -55,18 +55,22 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
           continue
         }
 
-        newStates.set(file, {
+        submittedStates.set(file, {
           file,
           status: "processing"
         })
       }
 
-      setProcessingStates(newStates)
+      setProcessingStates((previous) => {
+        const next = new Map(previous)
+        for (const [file, state] of submittedStates) next.set(file, state)
+        return next
+      })
 
       // Process each file
       for (const file of fileArray) {
         // Skip if already has error
-        const currentState = newStates.get(file)
+        const currentState = submittedStates.get(file)
         if (currentState?.status === "error") continue
 
         try {
@@ -121,7 +125,6 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
       maxFileSize,
       onFileProcessed,
       onError,
-      processingStates,
       safeConfig.autoEmbedFiles,
       safeConfig.showEmbeddingProgress
     ]

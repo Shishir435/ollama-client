@@ -1,6 +1,14 @@
+import { z } from "zod"
+import { createAppError } from "@/lib/error-utils"
 import { flushSave, query, run } from "@/lib/sqlite/db"
 import type { ToolCall } from "@/lib/tools"
 import type { ChatMessage, ToolRun } from "@/types"
+import {
+  ChatMessageMetricsSchema,
+  ChatMessageSchema,
+  ToolCallSchema,
+  ToolRunSchema
+} from "@/types/chat.schemas"
 
 export type ToolLoopMode = "native" | "native-user-results" | "non-native"
 export type ToolLoopRunStatus = "running" | "awaiting-confirmation"
@@ -21,6 +29,26 @@ export interface DurableToolLoopState {
   /** One recovery turn when a native model emits only reasoning and no call. */
   emptyModelRetries?: number
 }
+
+const DurableToolLoopStateSchema = z.object({
+  iteration: z.number().int().nonnegative(),
+  phase: z.enum(["model", "tools"]),
+  taintGeneration: z.number().int().nonnegative().optional(),
+  workingMessages: z.array(ChatMessageSchema),
+  toolRuns: z.array(ToolRunSchema),
+  pendingToolCalls: z.array(ToolCallSchema).optional(),
+  nextToolIndex: z.number().int().nonnegative().optional(),
+  toolResultMessages: z.array(ChatMessageSchema).optional(),
+  imageMessages: z.array(ChatMessageSchema).optional(),
+  nonNativeResponseParts: z.array(z.string()).optional(),
+  lastMetrics: ChatMessageMetricsSchema.optional(),
+  emptyModelRetries: z.number().int().nonnegative().optional()
+})
+
+const ToolLoopCheckpointEnvelopeSchema = z.object({
+  version: z.literal(1),
+  state: DurableToolLoopStateSchema
+})
 
 export interface DurableToolLoopRun {
   requestId: string
@@ -44,7 +72,7 @@ interface ToolLoopRunRow {
   updatedAt: number
 }
 
-const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun | null => {
+const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun => {
   try {
     if (
       (row.mode !== "native" &&
@@ -52,8 +80,15 @@ const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun | null => {
         row.mode !== "non-native") ||
       (row.status !== "running" && row.status !== "awaiting-confirmation")
     ) {
-      return null
+      throw new Error("Invalid tool-loop mode or status")
     }
+    const decoded: unknown = JSON.parse(row.state)
+    // Rows written before checkpoint versioning stored state directly. Keep
+    // that one compatibility shape, but validate it through the same schema.
+    const stateCandidate =
+      decoded && typeof decoded === "object" && "version" in decoded
+        ? ToolLoopCheckpointEnvelopeSchema.parse(decoded).state
+        : DurableToolLoopStateSchema.parse(decoded)
     return {
       requestId: row.requestId,
       sessionId: row.sessionId ?? undefined,
@@ -61,11 +96,19 @@ const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun | null => {
       providerId: row.providerId ?? undefined,
       mode: row.mode,
       status: row.status,
-      state: JSON.parse(row.state) as DurableToolLoopState,
+      state: stateCandidate as DurableToolLoopState,
       updatedAt: row.updatedAt
     }
-  } catch {
-    return null
+  } catch (cause) {
+    throw createAppError("Stored tool-loop checkpoint is invalid", {
+      kind: "storage",
+      phase: "persistence",
+      userMessage:
+        "This interrupted tool run could not be resumed safely. Retry the turn.",
+      retryable: true,
+      recoveryAction: "retry",
+      cause
+    })
   }
 }
 
@@ -105,7 +148,7 @@ export const saveToolLoopRun = async (
       value.providerId ?? null,
       value.mode,
       value.status,
-      JSON.stringify(value.state),
+      JSON.stringify({ version: 1, state: value.state }),
       value.updatedAt
     ]
   )

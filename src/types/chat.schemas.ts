@@ -118,7 +118,7 @@ export const ActivityEventSchema = z.object({
   error: z.string().optional()
 })
 
-const ToolCallSchema = z.object({
+export const ToolCallSchema = z.object({
   id: z.string(),
   name: z.string(),
   arguments: z.record(z.string(), z.unknown())

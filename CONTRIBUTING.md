@@ -12,8 +12,8 @@ project-specific conventions an agent needs to be useful.
 
 ### Prerequisites
 
-- Node.js **≥18**
-- `pnpm` (the lockfile and scripts assume pnpm; npm/yarn will not work)
+- Node.js **≥22.12**
+- pnpm **11** (the lockfile and scripts assume pnpm; npm/yarn will not work)
 - At least one provider running locally if you want to exercise the
   chat feature end-to-end. Ollama is the easiest:
   - <https://www.ollamaclient.in/guides/provider-setup/>
@@ -23,7 +23,7 @@ project-specific conventions an agent needs to be useful.
 ```bash
 git clone https://github.com/Shishir435/ollama-client.git
 cd ollama-client
-pnpm install                # also generates derived extension locale assets
+pnpm install
 pnpm dev                    # Chrome MV3, live reload
 pnpm dev:firefox            # Firefox MV2, live reload
 ```
@@ -45,7 +45,8 @@ Read [AGENTS.md](./AGENTS.md) for the full map. Quick orientation:
 | Feature folders (chat, sessions, model, file-upload, prompt, knowledge, memory, context, tabs) | `src/features/<feature>/` |
 | Provider abstraction + implementations | `src/lib/providers/` |
 | Chat-history persistence (SQLite-only) | `src/lib/repositories/chat-history.ts` (facade) |
-| Embeddings, RAG, vector store | `src/lib/embeddings/`, `src/features/chat/rag/` |
+| Context and RAG orchestration | `src/application/context/` |
+| Embedding and vector primitives | `src/lib/embeddings/` |
 | Shared UI primitives (shadcn) | `src/components/ui/` |
 | i18n source-of-truth | `src/locales/<lang>/translation.json` (loaded as one lazy chunk per language) |
 
@@ -61,21 +62,20 @@ Dexie remains only for vector embeddings and knowledge sets.
 - **New chat UX behavior** → `src/features/chat/components/`,
   `src/features/chat/hooks/`. State mutation lives in
   `src/features/sessions/stores/chat-session-store.ts`.
-- **A new provider** → add a file in `src/lib/providers/` that extends
-  `OpenAIProvider` for OpenAI-compatible servers, or implements
-  `LLMProvider` directly otherwise. Register it in
-  `OPENAI_COMPAT_CONSTRUCTORS` in `factory.ts` and in
-  `DEFAULT_PROVIDERS` in `manager.ts`. Add an icon entry in
-  `registry.ts`.
-- **Background message handler** → add `handle-<action>.ts` under
-  `src/background/handlers/` and wire it into the dispatcher in
-  `src/background/index.ts`. Use only `MESSAGE_KEYS.PROVIDER.*` for
-  new messages — the `OLLAMA.*` namespace is legacy and only kept for
-  the keys whose string values genuinely differ.
+- **A new built-in provider** → add a file in `src/lib/providers/` that extends
+  `OpenAICompatibleProvider` when the wire is compatible, or implements
+  `LLMProvider` when it is not. Register verified built-ins in
+  `OPENAI_COMPAT_CONSTRUCTORS`, `DEFAULT_PROVIDERS`, and `registry.ts`. Most
+  compatible servers should use the custom-provider flow instead. Add provider
+  contract tests either way.
+- **A new request/response background capability** → add an `RpcMethod`, its
+  request/result schemas and `RpcMap` entry, registry metadata, and a service
+  handler. Do not add an ad-hoc runtime message. Only streaming ports and
+  intentional one-way/content-script events belong in background handlers.
 - **RAG / retrieval changes** → pipeline orchestration in
-  `src/features/chat/rag/`, primitives (chunker, HNSW, keyword index,
-  storage) in `src/lib/embeddings/`. The RAG context builder is a
-  pure async function: `src/features/chat/hooks/build-rag-context.ts`.
+  `src/application/context/rag/`, context composition in
+  `src/application/context/build-context.ts`, and primitives (chunker, HNSW,
+  keyword index, storage) in `src/lib/embeddings/`.
 
 ## 4. Quality gates before opening a PR
 
@@ -96,7 +96,7 @@ Only when relevant:
 
 ```bash
 pnpm verify:browser-smoke    # manifest / CSP / permissions changed
-pnpm generate:resources      # locale strings changed (also runs on `pnpm install`)
+pnpm generate:resources      # locale strings changed
 pnpm docs:generate           # docs changelog/provider matrix source changed
 ```
 
@@ -175,9 +175,9 @@ These are real, scoped, valuable for the project right now:
 - **`src/features/model/components/embedding-settings.tsx`** (665 LOC)
   could be split into focused sub-components, similar to the
   provider-settings split that already happened.
-- **Unit tests** for `build-rag-context.ts`, `use-chat-streaming.ts`,
-  and `use-provider-health.ts` — each is a pure-ish module with no
-  direct test file yet.
+- **Runtime schemas** for structured provider configuration and journals.
+- **Typed setting descriptors** for high-risk structured settings still using
+  the deprecated raw storage handle.
 - **Embedding-settings sub-component extraction** under
   `src/features/model/components/embedding-config/`.
 - **Error message consistency** across `src/background/handlers/*` —

@@ -605,10 +605,12 @@ export const updateMessage = async (
  *
  * Ownership is enforced inside the query, so there is no separate liveness
  * check to race:
- *   - Staleness: a row is finalized only if it has not been written within
- *     `staleMs`. Streaming partial-content writes bump `updatedAt` ~every
- *     second, so a turn actively streaming in ANY window is never selected. A
- *     `NULL` `updatedAt` (rows predating the column) is treated as stale.
+ *   - Durable-turn ownership: an assistant row referenced by an incomplete
+ *     `turn_runs` row is background-owned and never finalized here. Restart
+ *     recovery resumes or fails that run explicitly.
+ *   - Legacy staleness: a row without a durable owner is finalized only if it
+ *     has not been written within `staleMs`. Its UI bridge refreshes
+ *     `updatedAt`; a `NULL` value (rows predating the column) is stale.
  *   - Tool-loop ownership: a turn awaiting tool approval can legitimately go
  *     minutes without a message write while its durable `tool_loop_runs`
  *     checkpoint is live. Excluding sessions that have any checkpoint row
@@ -625,6 +627,11 @@ export const finalizeInterruptedMessages = async (
     `SELECT id, metrics FROM messages
      WHERE role = 'assistant' AND done = 0
        AND (updatedAt IS NULL OR updatedAt < ?)
+       AND id NOT IN (
+         SELECT assistantMessageId FROM turn_runs
+         WHERE assistantMessageId IS NOT NULL
+           AND status IN ('submitted', 'building-context', 'generating')
+       )
        AND sessionId NOT IN (
          SELECT sessionId FROM tool_loop_runs WHERE sessionId IS NOT NULL
        )`,

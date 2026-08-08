@@ -2,7 +2,7 @@ import {
   cancelReminder,
   listReminders,
   scheduleReminder
-} from "@/background/lib/reminders"
+} from "@/lib/reminders"
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
 
 export const scheduleReminderDefinition: ToolDefinition = {
