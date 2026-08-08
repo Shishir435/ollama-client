@@ -522,21 +522,17 @@ export const useProviderSettingsState = () => {
       dot: "bg-muted-foreground/40 ring-muted-foreground/20",
       label: "inactive"
     },
-    {
-      test: () =>
-        Boolean(
-          activeConfig &&
-            (connectionStatus?.success ??
-              providerHealth[activeConfig.id]?.success)
-        ),
-      dot: "bg-status-success ring-status-success/30",
-      label: "connected"
-    },
     /*
      * An endpoint with no catalog is never asked for one after the first
      * answer, so the background check reaches nothing and cannot claim a live
      * connection. Say what is actually true — this provider runs on the model
-     * IDs you declared — rather than showing a red dot at a working provider.
+     * IDs you declared — rather than showing a red dot at a working provider,
+     * or a green one for a round trip nobody made.
+     *
+     * Ahead of "connected" on purpose: the background check reports a model
+     * count for the ids the user declared, and that count is what "connected"
+     * reads. An explicit test did reach the endpoint, so it still wins — this
+     * rule stands down as soon as there is one.
      */
     {
       test: () =>
@@ -547,6 +543,16 @@ export const useProviderSettingsState = () => {
         ),
       dot: "bg-status-warning ring-status-warning/30",
       label: "manual_models"
+    },
+    {
+      test: () =>
+        Boolean(
+          activeConfig &&
+            (connectionStatus?.success ??
+              providerHealth[activeConfig.id]?.success)
+        ),
+      dot: "bg-status-success ring-status-success/30",
+      label: "connected"
     },
     {
       test: () =>

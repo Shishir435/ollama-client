@@ -194,6 +194,77 @@ describe("ProviderRpcService", () => {
     )
   })
 
+  it("does not accept a completed stream that generated nothing", async () => {
+    // Every stream ends with a done chunk, including the one an HTTP 200 with
+    // an empty body produces — and a proxy or a login page answers 200 as
+    // readily as a chat route does.
+    const streamChat = vi.fn(
+      async (
+        _request: unknown,
+        onChunk: (chunk: { done: boolean }) => void
+      ) => {
+        onChunk({ done: true })
+      }
+    )
+    mocks.getProviderWithConfig.mockResolvedValue({
+      id: "ollama",
+      getModels: async () => {
+        throw catalogAbsent()
+      },
+      streamChat
+    })
+
+    await expect(
+      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+    ).rejects.toMatchObject({
+      status: 502,
+      code: "OLC-PROVIDER-UNREACHABLE",
+      userMessage: expect.stringContaining("it produced no output")
+    })
+  })
+
+  it("does not call an endpoint that answers nothing reachable", async () => {
+    // The probe aborts its own request as soon as the first chunk lands, so
+    // "our abort" and "success" used to be the same thing. A server that
+    // accepts the connection and then says nothing hits the same abort from
+    // the timeout, and reporting that as a working provider is the mistake the
+    // probe exists to prevent.
+    vi.useFakeTimers()
+    try {
+      mocks.getProviderWithConfig.mockResolvedValue({
+        id: "ollama",
+        getModels: async () => {
+          throw catalogAbsent()
+        },
+        streamChat: (
+          _request: unknown,
+          _onChunk: unknown,
+          signal: AbortSignal
+        ) =>
+          new Promise((_resolve, reject) => {
+            signal.addEventListener("abort", () => {
+              const aborted = new Error("Aborted")
+              aborted.name = "AbortError"
+              reject(aborted)
+            })
+          })
+      })
+
+      const pending = ProviderRpcService.testConnection({
+        target: "draft",
+        config: configs[0]
+      })
+      const rejects = expect(pending).rejects.toMatchObject({
+        status: 504,
+        code: "OLC-PROVIDER-TIMEOUT"
+      })
+      await vi.advanceTimersByTimeAsync(20_000)
+      await rejects
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("reports a wrong base URL rather than a missing catalog when chat is missing too", async () => {
     mocks.getProviderWithConfig.mockResolvedValue({
       id: "ollama",
