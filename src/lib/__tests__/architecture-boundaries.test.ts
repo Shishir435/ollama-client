@@ -135,4 +135,45 @@ describe("architecture import boundaries", () => {
 
     expect(offenders).toEqual([])
   })
+
+  it("keeps chat and future agent domains mutually independent", () => {
+    const chatRoots = ["application/turns/", "features/chat/"]
+    const agentRoots = ["application/agent/", "features/agent/"]
+    const offenders = productionSources.filter((file) => {
+      const source = readFileSync(join(sourceRoot, file), "utf8")
+      if (chatRoots.some((root) => file.startsWith(root))) {
+        return importsModule(
+          source,
+          /@\/(?:application|features)\/agent\/[^"']+/
+        )
+      }
+      if (agentRoots.some((root) => file.startsWith(root))) {
+        return importsModule(
+          source,
+          /@\/(?:application\/turns|features\/chat)\/[^"']+/
+        )
+      }
+      return false
+    })
+
+    expect(offenders).toEqual([])
+  })
+
+  it("keeps package candidates free of environment and UI adapters", () => {
+    const candidateFiles = productionSources.filter(
+      (file) =>
+        (file.startsWith("protocol/") &&
+          file !== "protocol/extension-client.ts") ||
+        file === "application/turns/chat-stream-reducer.ts" ||
+        file === "application/turns/turn-contract.ts"
+    )
+    const forbidden =
+      /(?:react(?:\/[^"']+)?|wxt(?:\/[^"']+)?|@\/background\/[^"']+|@\/features\/[^"']+|@\/lib\/(?:browser-api|sqlite\/[^"']+)|@\/lib\/providers\/(?:anthropic|factory|llama-cpp|lm-studio|ollama|openai-compatible))/
+    const offenders = candidateFiles.filter((file) => {
+      const source = readFileSync(join(sourceRoot, file), "utf8")
+      return importsModule(source, forbidden)
+    })
+
+    expect(offenders).toEqual([])
+  })
 })

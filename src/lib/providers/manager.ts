@@ -5,6 +5,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { clearCapabilityProbesForProvider } from "./capability-probe"
 import { clearModelCapabilityOverridesForProvider } from "./model-capability-overrides"
 import { clearModelCatalogSupport } from "./model-catalog-support"
+import { parseStoredProviderConfigs } from "./provider-config-schema"
 import {
   containsLegacySyncedSecrets,
   hydrateProviderSecrets,
@@ -285,10 +286,12 @@ const validateProviderBaseUrl = (baseUrl?: string): void => {
 const getProvidersUnlocked = async (): Promise<ProviderConfig[]> => {
   await recoverProviderResetUnlocked()
   await recoverProviderPersistenceUnlocked()
-  let stored = await plasmoGlobalStorage.get<ProviderConfig[]>(
+  const rawStored = await plasmoGlobalStorage.get<unknown>(
     ProviderStorageKey.CONFIG
   )
-  if (!stored || stored.length === 0) {
+  const parsedStored = parseStoredProviderConfigs(rawStored)
+  let stored = parsedStored.providers
+  if (stored.length === 0) {
     stored = [...DEFAULT_PROVIDERS]
     await persistProviderConfigsUnlocked(stored)
   }
@@ -306,6 +309,7 @@ const getProvidersUnlocked = async (): Promise<ProviderConfig[]> => {
   // on some *other* anomaly being present in the same read, which meant the
   // surviving entry depended on an unrelated condition.
   const sanitizationChanged =
+    parsedStored.normalized ||
     sanitized.removed.length > 0 ||
     sanitized.migrated.length > 0 ||
     sanitized.duplicates.length > 0
@@ -318,7 +322,8 @@ const getProvidersUnlocked = async (): Promise<ProviderConfig[]> => {
         migrated: sanitized.migrated,
         // Ids only. A duplicate is a config the user cannot see collapsing, so
         // it has to leave a trace, but provider names are user text.
-        duplicates: sanitized.duplicates
+        duplicates: sanitized.duplicates,
+        rejectedMalformedEntries: parsedStored.rejected
       }
     )
     stored = sanitized.providers

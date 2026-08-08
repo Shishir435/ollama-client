@@ -212,6 +212,18 @@ import background implementation.
 
 #### P0 — freeze dependency rules
 
+Status: complete on `feature/prepackage-boundary-gates`, 2026-08-09.
+
+- Stored provider arrays validate required identity fields before runtime use,
+  recover malformed optional fields independently, and preserve unknown fields
+  across downgrade/upgrade cycles.
+- Provider writes validate before journaling. Secret maps and both persistence
+  and reset journals validate on recovery; malformed journals are discarded
+  without applying partial cleanup or exposing stored values.
+- Source contracts keep chat and the future agent mutually independent and
+  keep current contract/runtime candidates free of UI, browser, persistence,
+  background, and concrete-provider adapters.
+
 - Extend architecture contract tests before moving files.
 - `chat` cannot import `agent`; `agent` cannot import `chat`.
 - Contracts and runtime packages cannot import React, WXT, Chrome APIs, DOM,

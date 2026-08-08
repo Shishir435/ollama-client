@@ -1,4 +1,6 @@
+import { z } from "zod"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import {
   plasmoDeviceStorage,
   plasmoGlobalStorage,
@@ -6,6 +8,10 @@ import {
 } from "@/lib/plasmo-global-storage"
 import { type ProviderConfig, ProviderStorageKey } from "@/lib/providers/types"
 import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
+import {
+  ProviderConfigSchema,
+  validateProviderConfigs
+} from "./provider-config-schema"
 
 type ProviderSecretMap = Record<string, string>
 type ProviderPersistenceSnapshot = {
@@ -23,12 +29,37 @@ type ProviderResetJournal = {
   keys: string[]
 }
 
+const ProviderSecretMapSchema = z
+  .record(z.string(), z.unknown())
+  .transform((stored): ProviderSecretMap => {
+    const secrets: ProviderSecretMap = {}
+    for (const [providerId, value] of Object.entries(stored)) {
+      if (typeof value === "string" && value.trim()) secrets[providerId] = value
+    }
+    return secrets
+  })
+
+const ProviderPersistenceJournalSchema = z.object({
+  version: z.literal(1),
+  previousSecrets: ProviderSecretMapSchema,
+  nextSecrets: ProviderSecretMapSchema,
+  nextPublicConfigs: z.array(ProviderConfigSchema)
+})
+
+const ProviderResetJournalSchema = z.object({
+  version: z.literal(1),
+  keys: z.array(z.string())
+})
+
 const PROVIDER_PERSISTENCE_LOCK = "ollama-client:provider-persistence"
 
-const configsMatch = (
-  left: ProviderConfig[] | undefined,
-  right: ProviderConfig[]
-): boolean => JSON.stringify(left) === JSON.stringify(right)
+const configsMatch = (left: unknown, right: ProviderConfig[]): boolean =>
+  JSON.stringify(left) === JSON.stringify(right)
+
+const parseSecretMap = (value: unknown): ProviderSecretMap => {
+  const parsed = ProviderSecretMapSchema.safeParse(value)
+  return parsed.success ? parsed.data : {}
+}
 
 const hasOwnApiKey = (provider: ProviderConfig): boolean =>
   Object.hasOwn(provider, "apiKey")
@@ -54,10 +85,9 @@ export const withProviderPersistenceLock = <T>(
 export const hydrateProviderSecrets = async (
   providers: ProviderConfig[]
 ): Promise<ProviderConfig[]> => {
-  const secrets =
-    (await plasmoDeviceStorage.get<ProviderSecretMap>(
-      STORAGE_KEYS.PROVIDER.SECRETS
-    )) ?? {}
+  const secrets = parseSecretMap(
+    await plasmoDeviceStorage.get<unknown>(STORAGE_KEYS.PROVIDER.SECRETS)
+  )
 
   return providers.map((provider) => {
     // During migration, legacy sync value wins. This also preserves an explicit
@@ -74,10 +104,20 @@ export const containsLegacySyncedSecrets = (
 
 /** Caller must hold the provider-persistence lock. */
 export const recoverProviderResetUnlocked = async (): Promise<void> => {
-  const journal = await plasmoDeviceStorage.get<ProviderResetJournal>(
+  const stored = await plasmoDeviceStorage.get<unknown>(
     STORAGE_KEYS.PROVIDER.RESET_JOURNAL
   )
-  if (!journal) return
+  if (!stored) return
+  const parsed = ProviderResetJournalSchema.safeParse(stored)
+  if (!parsed.success) {
+    logger.warn(
+      "Discarded invalid provider reset journal",
+      "ProviderSecretStore"
+    )
+    await plasmoDeviceStorage.remove(STORAGE_KEYS.PROVIDER.RESET_JOURNAL)
+    return
+  }
+  const journal: ProviderResetJournal = parsed.data
 
   for (const key of journal.keys) {
     await removePlasmoStoredValue(key)
@@ -112,12 +152,22 @@ export const resetProviderStorageUnlocked = async (
 
 /** Caller must hold the provider-persistence lock. */
 export const recoverProviderPersistenceUnlocked = async (): Promise<void> => {
-  const journal = await plasmoDeviceStorage.get<ProviderPersistenceJournal>(
+  const stored = await plasmoDeviceStorage.get<unknown>(
     STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL
   )
-  if (!journal) return
+  if (!stored) return
+  const parsed = ProviderPersistenceJournalSchema.safeParse(stored)
+  if (!parsed.success) {
+    logger.warn(
+      "Discarded invalid provider persistence journal",
+      "ProviderSecretStore"
+    )
+    await plasmoDeviceStorage.remove(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)
+    return
+  }
+  const journal: ProviderPersistenceJournal = parsed.data
 
-  const syncedConfig = await plasmoGlobalStorage.get<ProviderConfig[]>(
+  const syncedConfig = await plasmoGlobalStorage.get<unknown>(
     ProviderStorageKey.CONFIG
   )
   const recoveredSecrets = configsMatch(syncedConfig, journal.nextPublicConfigs)
@@ -135,14 +185,14 @@ export const recoverProviderPersistenceUnlocked = async (): Promise<void> => {
 export const persistProviderConfigsUnlocked = async (
   providers: ProviderConfig[]
 ): Promise<void> => {
+  providers = validateProviderConfigs(providers)
   const snapshot: ProviderPersistenceSnapshot = {
     secrets: extractSecrets(providers),
     publicConfigs: providers.map(stripSecrets)
   }
-  const previousSecrets =
-    (await plasmoDeviceStorage.get<ProviderSecretMap>(
-      STORAGE_KEYS.PROVIDER.SECRETS
-    )) ?? {}
+  const previousSecrets = parseSecretMap(
+    await plasmoDeviceStorage.get<unknown>(STORAGE_KEYS.PROVIDER.SECRETS)
+  )
   const journal: ProviderPersistenceJournal = {
     version: 1,
     previousSecrets,
