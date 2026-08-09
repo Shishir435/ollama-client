@@ -1,8 +1,10 @@
+/** Stateful boundary required to split reasoning tags across stream chunks. */
 export type ThinkingParserState = {
   inThinking: boolean
   pending: string
 }
 
+/** Create an empty parser state for a new stream. */
 export const makeThinkingParserState = (): ThinkingParserState => ({
   inThinking: false,
   pending: ""
@@ -40,6 +42,10 @@ const splitPartialTag = (text: string, tags: string[]) => {
   return { chunk: text, pending: "" }
 }
 
+/**
+ * Deterministically separate visible output from inline reasoning tags while
+ * preserving partial tags between chunks. Mutates only the supplied state.
+ */
 export const splitThinkingDelta = (
   delta: string,
   state: ThinkingParserState

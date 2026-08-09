@@ -43,22 +43,22 @@ export default defineConfig({
       },
       {
         test: {
-          name: "contracts",
+          name: "packages",
           environment: "node",
           maxWorkers: 6,
-          include: ["packages/contracts/src/**/*.test.ts"]
+          include: ["packages/*/src/**/*.test.ts"]
         }
       }
     ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
-      include: ["src/**/*.ts", "packages/contracts/src/**/*.ts"],
+      include: ["src/**/*.ts", "packages/*/src/**/*.ts"],
       exclude: [
         "src/**/*.{test,spec}.{ts,tsx}",
-        "packages/contracts/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/*/src/**/*.{test,spec}.{ts,tsx}",
         "src/**/*.d.ts",
-        "packages/contracts/src/**/*.d.ts"
+        "packages/*/src/**/*.d.ts"
       ]
     }
   },

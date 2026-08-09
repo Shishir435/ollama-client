@@ -2,6 +2,7 @@ import {
   RPC_CANCEL_MESSAGE_TYPE,
   RPC_REQUEST_MESSAGE_TYPE
 } from "@ollama-client/contracts/rpc"
+import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import type { Runtime } from "webextension-polyfill"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
 import { notifyJobComplete } from "@/background/lib/notify"
@@ -12,10 +13,7 @@ import {
   handleRpcCancellation,
   handleRpcRequest
 } from "@/background/rpc-server"
-import {
-  classifyRuntimeSender,
-  isRuntimeMessageAllowed
-} from "@/background/runtime-sender-authorization"
+import { isRuntimeMessageAllowed } from "@/background/runtime-sender-authorization"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"

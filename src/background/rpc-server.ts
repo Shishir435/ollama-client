@@ -8,12 +8,13 @@ import {
   RpcRequestEnvelopeSchema,
   type RpcResponseEnvelope
 } from "@ollama-client/contracts/rpc"
+import { CancellationRegistry } from "@ollama-client/runtime-core/cancellation"
+import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import type { Runtime } from "webextension-polyfill"
 import {
   checkEmbeddingModelExists,
   prepareEmbeddingModel
 } from "@/background/handlers/handle-embedding-download"
-import { classifyRuntimeSender } from "@/background/runtime-sender-authorization"
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { DiagnosticsService } from "@/lib/diagnostics/diagnostics-service"
 import { isAppError } from "@/lib/error-utils"
@@ -103,7 +104,7 @@ const handlers = {
   [RpcMethod.DiagnosticsClear]: async () => DiagnosticsService.clear()
 } satisfies RpcHandlers
 
-const activeRequests = new Map<string, AbortController>()
+const activeRequests = new CancellationRegistry<AbortController>()
 
 const supportCode = (code: RpcErrorCode, requestId: string): string =>
   `OLC-RPC-${code.replaceAll("_", "-").toUpperCase()}-${requestId.slice(0, 8).toUpperCase()}`
@@ -321,7 +322,7 @@ export const handleRpcRequest = async (
   } finally {
     clearTimeout(serverTimeoutId)
     if (activeRequests.get(requestId) === controller) {
-      activeRequests.delete(requestId)
+      activeRequests.clear(requestId)
     }
     logger.info("RPC request completed", "RpcServer", {
       requestId,

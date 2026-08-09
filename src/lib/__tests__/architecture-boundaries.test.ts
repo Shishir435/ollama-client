@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest"
 
 const sourceRoot = join(process.cwd(), "src")
 const contractsRoot = join(process.cwd(), "packages/contracts/src")
+const runtimeCoreRoot = join(process.cwd(), "packages/runtime-core/src")
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((entry) => {
@@ -243,6 +244,27 @@ describe("architecture import boundaries", () => {
         .filter((module) => module !== "zod" && !module.startsWith("."))
         .map((module) => ({
           file: relative(contractsRoot, file).replaceAll("\\", "/"),
+          module
+        }))
+    })
+
+    expect(offenders).toEqual([])
+  })
+
+  it("keeps runtime-core independent of extension and browser adapters", () => {
+    const runtimeSources = walk(runtimeCoreRoot)
+      .filter((file) => /\.ts$/.test(file))
+      .filter((file) => !file.endsWith(".test.ts"))
+    const offenders = runtimeSources.flatMap((file) => {
+      const source = readFileSync(file, "utf8")
+      return referencedModules(source)
+        .filter(
+          (module) =>
+            !module.startsWith(".") &&
+            !module.startsWith("@ollama-client/contracts")
+        )
+        .map((module) => ({
+          file: relative(runtimeCoreRoot, file).replaceAll("\\", "/"),
           module
         }))
     })

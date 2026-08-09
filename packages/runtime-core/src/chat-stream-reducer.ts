@@ -1,10 +1,29 @@
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
+import { CHAT_STREAM_EVENT_TYPES } from "@ollama-client/contracts/streams"
 import {
   makeThinkingParserState,
   splitThinkingDelta,
   type ThinkingParserState
-} from "@/lib/thinking-parser"
-import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
-import type { ChatMessage, ProviderReplayArtifact, ToolRun } from "@/types"
+} from "./thinking-stream"
+
+/** Metrics fields the reducer reads or writes; callers may carry more fields. */
+export interface StreamAssistantMetrics {
+  toolRuns?: unknown[]
+  ragQuery?: string
+  ragSources?: unknown[]
+  eval_count?: number
+  thinkingOnlyResponse?: boolean
+  emptyResponse?: boolean
+}
+
+/** Message fields required by the deterministic streaming reducer. */
+export interface StreamAssistantMessage {
+  content: string
+  thinking?: string
+  replayArtifact?: unknown
+  done?: boolean
+  metrics?: StreamAssistantMetrics
+}
 
 /**
  * A raw chunk received from the background turn owner. Deltas, thinking, tool
@@ -35,29 +54,10 @@ export interface StreamMessage {
   }
   delta?: string
   thinkingDelta?: string
-  replayArtifact?: ProviderReplayArtifact
-  toolRuns?: ToolRun[]
+  replayArtifact?: unknown
+  toolRuns?: unknown[]
   done?: boolean
-  error?: {
-    status: number
-    message: string
-    kind?: import("@/types/errors").AppErrorKind
-    messageKey?: string
-    userMessage?: string
-    retryable?: boolean
-    retryAfterMs?: number
-    context?: string
-    providerId?: string
-    providerName?: string
-    model?: string
-    baseUrl?: string
-    code?: import("@/types/errors").AppErrorCode
-    phase?: import("@/types/errors").AppErrorPhase
-    incidentId?: string
-    durationMs?: number
-    recoveryAction?: import("@/types/errors").AppErrorRecoveryAction
-    debug?: unknown
-  }
+  error?: AppFailure & { debug?: unknown }
   aborted?: boolean
   metrics?: Record<string, unknown>
 }
@@ -69,8 +69,10 @@ export interface StreamMessage {
  * whether any chunk has landed) lives here so the transition is a pure
  * function and can be restored after an MV3 worker restart.
  */
-export interface StreamReducerState {
-  assistant: ChatMessage
+export interface StreamReducerState<
+  TMessage extends StreamAssistantMessage = StreamAssistantMessage
+> {
+  assistant: TMessage
   thinkingState: ThinkingParserState
   /** Highest applied per-turn sequence; chunks at or below it are dropped. */
   lastSeq: number
@@ -90,10 +92,12 @@ export interface StreamReducerState {
  */
 export type StreamEmptyReason = "thinking-only" | "no-output"
 
-export type StreamTerminal =
+export type StreamTerminal<
+  TMessage extends StreamAssistantMessage = StreamAssistantMessage
+> =
   | {
       type: "success"
-      message: ChatMessage
+      message: TMessage
       /**
        * Set when the finished turn has no answer. The message's `content` is
        * empty in that case: the copy is the caller's, because it is UI text
@@ -105,11 +109,13 @@ export type StreamTerminal =
       type: "error"
       error: NonNullable<StreamMessage["error"]>
       /** Accumulated assistant message; the caller composes display copy. */
-      partial: ChatMessage
+      partial: TMessage
     }
 
-export interface StreamReduction {
-  state: StreamReducerState
+export interface StreamReduction<
+  TMessage extends StreamAssistantMessage = StreamAssistantMessage
+> {
+  state: StreamReducerState<TMessage>
   /** Duplicate/out-of-order chunk that was ignored (no state change). */
   dropped: boolean
   /** First accepted chunk this turn — caller flips to the streaming state. */
@@ -119,12 +125,12 @@ export interface StreamReduction {
   /** The visible message changed and should be re-rendered. */
   changed: boolean
   /** Set once the stream reaches a terminal state. */
-  terminal: StreamTerminal | null
+  terminal: StreamTerminal<TMessage> | null
 }
 
-export const makeStreamReducerState = (
-  assistant: ChatMessage
-): StreamReducerState => ({
+export const makeStreamReducerState = <TMessage extends StreamAssistantMessage>(
+  assistant: TMessage
+): StreamReducerState<TMessage> => ({
   assistant,
   thinkingState: makeThinkingParserState(),
   lastSeq: -1,
@@ -139,11 +145,11 @@ export const makeStreamReducerState = (
  * {@link StreamTerminal} rather than here so this stays testable and
  * replayable.
  */
-export const reduceStreamEvent = (
-  state: StreamReducerState,
+export const reduceStreamEvent = <TMessage extends StreamAssistantMessage>(
+  state: StreamReducerState<TMessage>,
   msg: StreamMessage
-): StreamReduction => {
-  const dropped: StreamReduction = {
+): StreamReduction<TMessage> => {
+  const dropped: StreamReduction<TMessage> = {
     state,
     dropped: true,
     justStarted: false,
@@ -174,7 +180,7 @@ export const reduceStreamEvent = (
         ragSources: msg.payload.sources,
         ragQuery: msg.payload.query
       }
-    }
+    } as TMessage
     return {
       state: { ...state, assistant, lastSeq, started: true },
       dropped: false,
@@ -227,15 +233,21 @@ export const reduceStreamEvent = (
     }
   }
 
-  assistant = { ...assistant, content, thinking, replayArtifact, metrics }
+  assistant = {
+    ...assistant,
+    content,
+    thinking,
+    replayArtifact,
+    metrics
+  } as TMessage
 
   const isTerminal = Boolean(msg.done || msg.error || msg.aborted)
-  let terminal: StreamTerminal | null = null
+  let terminal: StreamTerminal<TMessage> | null = null
 
   if (isTerminal) {
     if (msg.error) {
       terminal = { type: "error", error: msg.error, partial: assistant }
-      assistant = { ...assistant, done: true }
+      assistant = { ...assistant, done: true } as TMessage
     } else {
       const hasThinking = Boolean(assistant.thinking?.trim())
       const hasToolRuns = (assistant.metrics?.toolRuns?.length ?? 0) > 0
@@ -271,14 +283,14 @@ export const reduceStreamEvent = (
               metrics: { ...assistant.metrics, emptyResponse: true }
             }
           : assistant
-      const finalMessage: ChatMessage = {
+      const finalMessage = {
         ...base,
         metrics: {
           ...base.metrics,
-          ...(msg.metrics as ChatMessage["metrics"])
+          ...msg.metrics
         },
         done: true
-      }
+      } as TMessage
       terminal = {
         type: "success",
         message: finalMessage,

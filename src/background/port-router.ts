@@ -1,3 +1,4 @@
+import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import { reconnectDurableTurn } from "@/background/durable-turn-runtime"
 import { handleBuildContext } from "@/background/handlers/handle-build-context"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
@@ -9,7 +10,6 @@ import {
   unregisterSelectionBridgePort
 } from "@/background/lib/selection-bridge"
 import {
-  classifyRuntimeSender,
   isRuntimePortAllowed,
   isRuntimePortMessageAllowed
 } from "@/background/runtime-sender-authorization"

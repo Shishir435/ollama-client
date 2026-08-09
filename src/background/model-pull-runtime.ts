@@ -2,11 +2,10 @@ import type {
   ModelPullJobResult,
   ModelPullSubmitRequest
 } from "@ollama-client/contracts/model-pull-rpc"
+import { createAbortTimeout } from "@ollama-client/runtime-core/cancellation"
+import { writeCheckpoint } from "@ollama-client/runtime-core/checkpoint"
 import { consumePullStream } from "@/background/handlers/handle-pull-stream"
-import {
-  createAbortTimeout,
-  PULL_CONNECT_TIMEOUT_MS
-} from "@/background/lib/fetch-timeout"
+import { PULL_CONNECT_TIMEOUT_MS } from "@/background/lib/fetch-timeout"
 import { createAppError, isAbortError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
@@ -45,13 +44,9 @@ const checkpoint = async (
   patch: Partial<ModelPullRun>,
   options: { flush?: boolean } = {}
 ): Promise<ModelPullRun> => {
-  const updated = {
-    ...run,
-    ...patch,
-    updatedAt: Date.now()
-  }
-  await saveModelPullRun(updated, options)
-  return updated
+  return writeCheckpoint(run, patch, (updated) =>
+    saveModelPullRun(updated, options)
+  )
 }
 
 const execute = async (

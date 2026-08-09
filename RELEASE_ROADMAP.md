@@ -242,8 +242,8 @@ Remaining package work:
 
 - P1: complete on `feature/contracts-provider-rpc-schemas`; merge the proven
   contract seams into `release/0.13.x`.
-- P2: create `packages/runtime-core` and inject environment dependencies behind
-  ports before moving deterministic runtime helpers.
+- P2: complete on `feature/runtime-core-primitives`; merge deterministic
+  runtime helpers and their environment ports into `release/0.13.x`.
 - P3: extract chat runtime only after P1/P2 prove stable; agent runtime remains
   scheduled for `0.14.x`.
 
@@ -314,6 +314,33 @@ Exit gate: package has no environment imports and both current app and tests
 consume it through its public exports.
 
 #### P2 — `packages/runtime-core`
+
+Status: complete on `feature/runtime-core-primitives`, pending merge,
+2026-08-09.
+
+Completed:
+
+- Added the environment-independent `@ollama-client/runtime-core` workspace
+  package with its own no-DOM typecheck and clean-Node test project.
+- Moved the stateful streaming reasoning-tag parser into the package and
+  migrated both chat and selection stream consumers to its public export.
+- Moved the pure chat-stream reducer and its duplicate/out-of-order, thinking,
+  tool, replay, empty-output, and terminal transitions into the package.
+- Added keyed cancellation ownership and timeout lifecycle primitives; RPC,
+  chat, selection, model-pull, and embedding-download callers retain only
+  environment policy and adapters.
+- Moved sender-evidence classification into runtime-core while leaving the
+  message/port allowlist in the extension transport-policy registry.
+- Moved Retry-After parsing and transient provider-status classification into
+  the package while keeping provider-specific user messaging in `src/`.
+- Added an injectable clock and persistence-writer port around checkpoint
+  transitions, used by ingestion and model-pull durable jobs.
+- Added an architecture contract that permits only relative modules and
+  `@ollama-client/contracts` imports from runtime-core.
+
+Remaining in P2: none after this branch merges. Browser transport authorization
+remains extension policy; turn, context, and tool-loop
+orchestration remain domain-runtime work for P3.
 
 Candidate ownership:
 

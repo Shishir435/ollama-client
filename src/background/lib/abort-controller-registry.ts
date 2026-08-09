@@ -1,34 +1,32 @@
-const controllerMap = new Map<string, AbortController>()
+import { CancellationRegistry } from "@ollama-client/runtime-core/cancellation"
+
+const controllers = new CancellationRegistry<AbortController>()
 
 export const setAbortController = (
   key: string,
   controller: AbortController | null
 ) => {
   if (controller === null) {
-    controllerMap.delete(key)
+    controllers.clear(key)
   } else {
-    controllerMap.set(key, controller)
+    controllers.set(key, controller)
   }
 }
 
 export const getAbortController = (
   key: string
 ): AbortController | undefined => {
-  return controllerMap.get(key)
+  return controllers.get(key)
 }
 
 export const clearAbortController = (key: string) => {
-  controllerMap.delete(key)
+  controllers.clear(key)
 }
 
 export const abortAndClearController = (key: string) => {
-  const controller = controllerMap.get(key)
-  if (controller) {
-    controller.abort()
-    controllerMap.delete(key)
-  }
+  controllers.abortAndClear(key)
 }
 
 export const hasAbortController = (key: string): boolean => {
-  return controllerMap.has(key)
+  return controllers.has(key)
 }

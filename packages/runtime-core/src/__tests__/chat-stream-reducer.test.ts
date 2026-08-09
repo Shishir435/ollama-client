@@ -1,13 +1,13 @@
+import type { ChatMessageParsed } from "@ollama-client/contracts/chat"
 import { describe, expect, it } from "vitest"
 import {
   makeStreamReducerState,
   reduceStreamEvent,
   type StreamMessage,
   type StreamReducerState
-} from "@/application/turns/chat-stream-reducer"
-import type { ChatMessage } from "@/types"
+} from "../chat-stream-reducer"
 
-const shell = (): ChatMessage => ({
+const shell = (): ChatMessageParsed => ({
   role: "assistant",
   content: "",
   model: "m"
@@ -96,12 +96,12 @@ describe("reduceStreamEvent", () => {
   })
 
   it("replaces the tool-run snapshot and stores the replay artifact", () => {
-    const artifact = {
-      version: 1 as const,
-      wire: "anthropic" as const,
+    const artifact: NonNullable<ChatMessageParsed["replayArtifact"]> = {
+      version: 1,
+      wire: "anthropic",
       providerId: "anthropic",
       model: "m",
-      blocks: [{ type: "thinking" }]
+      blocks: [{ type: "thinking", thinking: "reasoning", signature: "sig" }]
     }
     const r = reduceStreamEvent(start(), {
       toolRuns: [

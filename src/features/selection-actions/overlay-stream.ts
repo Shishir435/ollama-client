@@ -1,9 +1,9 @@
-import { MESSAGE_KEYS } from "@/lib/constants"
 import {
   makeThinkingParserState,
   splitThinkingDelta,
   type ThinkingParserState
-} from "@/lib/thinking-parser"
+} from "@ollama-client/runtime-core/thinking-stream"
+import { MESSAGE_KEYS } from "@/lib/constants"
 import { parseSelectionStreamServerEvent } from "@/protocol/streams/selection-stream"
 import { STREAM_PROTOCOL_VERSION } from "@/protocol/streams/version"
 import type { SelectionActionRequest } from "./types"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { makeThinkingParserState, splitThinkingDelta } from "../thinking-parser"
+import { makeThinkingParserState, splitThinkingDelta } from "../thinking-stream"
 
 describe("makeThinkingParserState", () => {
   it("initializes with inThinking=false and empty pending", () => {

@@ -1,10 +1,10 @@
-import { useRef } from "react"
-import { useTranslation } from "react-i18next"
 import {
   makeStreamReducerState,
   reduceStreamEvent,
   type StreamReducerState
-} from "@/application/turns/chat-stream-reducer"
+} from "@ollama-client/runtime-core/chat-stream-reducer"
+import { useRef } from "react"
+import { useTranslation } from "react-i18next"
 import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import { useToast } from "@/hooks/use-toast"
 import { browser } from "@/lib/browser-api"
@@ -105,7 +105,8 @@ export const useChatStream = ({
     // All per-turn accumulation lives in the reducer state; the hook keeps
     // only the port-lifecycle flags. `state.lastSeq` resets to -1 on reconnect
     // because a restarted worker restarts its sequence counter at 0.
-    let state: StreamReducerState = makeStreamReducerState(assistantMessage)
+    let state: StreamReducerState<ChatMessage> =
+      makeStreamReducerState(assistantMessage)
     let streamSettled = false
     let resumeAttempts = 0
 
