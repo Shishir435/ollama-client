@@ -1,3 +1,4 @@
+import type { RuntimeSenderLike } from "@ollama-client/runtime-core/runtime-sender"
 import { logger } from "@/lib/logger"
 import {
   markOpfsBackend,
@@ -15,15 +16,18 @@ import {
   isSoundDatabase,
   type TableCountMismatch
 } from "./durable-tables"
+import { isTrustedPersistenceSender } from "./host-authorization"
 import type { ImportResult, SurveyResult } from "./protocol"
 import {
-  decodeBind,
+  decodePersistenceWireOp,
   encodeRows,
   encodeValue,
   PERSISTENCE_ENSURE,
   PERSISTENCE_RPC,
+  PersistenceEnsureRequestSchema,
   type PersistenceOp,
-  type PersistenceRpcRequest,
+  PersistenceOpSchema,
+  PersistenceRpcRequestSchema,
   type QueryRow
 } from "./protocol"
 
@@ -151,15 +155,16 @@ const ensureWorker = (): Worker => {
 }
 
 export const callWorker = (request: PersistenceOp): Promise<unknown> => {
+  const validated = PersistenceOpSchema.parse(request)
   requestId += 1
   const id = requestId
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject })
-    if (request.op === "importDb" && request.bytes instanceof ArrayBuffer) {
-      ensureWorker().postMessage({ id, request }, [request.bytes])
+    if (validated.op === "importDb" && validated.bytes instanceof ArrayBuffer) {
+      ensureWorker().postMessage({ id, request: validated }, [validated.bytes])
       return
     }
-    ensureWorker().postMessage({ id, request })
+    ensureWorker().postMessage({ id, request: validated })
   })
 }
 
@@ -350,6 +355,71 @@ export const ensureMigrated = (): Promise<void> => {
 
 /** RPC listener */
 
+export const handlePersistenceHostMessage = (
+  message: unknown,
+  sender: RuntimeSenderLike,
+  sendResponse: (response: unknown) => void
+): boolean => {
+  const extensionUrlPrefix = chrome.runtime.getURL("")
+  const type = (message as { type?: string } | undefined)?.type
+  if (type === PERSISTENCE_ENSURE) {
+    if (
+      !isTrustedPersistenceSender(
+        sender,
+        chrome.runtime.id,
+        extensionUrlPrefix
+      ) ||
+      !PersistenceEnsureRequestSchema.safeParse(message).success
+    ) {
+      sendResponse({ ok: false, error: "Persistence request forbidden" })
+      return true
+    }
+    // The host answering at all proves the owner exists.
+    sendResponse({ ok: true })
+    return true
+  }
+  if (type !== PERSISTENCE_RPC) return false
+  if (
+    !isTrustedPersistenceSender(sender, chrome.runtime.id, extensionUrlPrefix)
+  ) {
+    sendResponse({ ok: false, error: "Persistence request forbidden" })
+    return true
+  }
+  const parsed = PersistenceRpcRequestSchema.safeParse(message)
+  if (!parsed.success) {
+    sendResponse({ ok: false, error: "Invalid persistence request" })
+    return true
+  }
+  ;(async () => {
+    try {
+      await ensureMigrated()
+      // Runtime messages JSON-serialize on Chromium: decode blob-encoded
+      // binds/bytes into real Uint8Arrays before the worker sees them,
+      // and encode binary results before sendResponse.
+      const request = decodePersistenceWireOp(parsed.data.request)
+      const result = await callWorker(request)
+      if (request.op === "query") {
+        sendResponse({ ok: true, result: encodeRows(result as QueryRow[]) })
+        return
+      }
+      if (result instanceof ArrayBuffer) {
+        sendResponse({
+          ok: true,
+          result: encodeValue(new Uint8Array(result))
+        })
+        return
+      }
+      sendResponse({ ok: true, result })
+    } catch (error) {
+      sendResponse({
+        ok: false,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  })()
+  return true
+}
+
 export const registerPersistenceHost = (): void => {
   // In-process fast path for code running inside the host context itself
   // (the Firefox background page is both host and a heavy client).
@@ -364,60 +434,5 @@ export const registerPersistenceHost = (): void => {
     // requests reject until a later boot brings the owner up.
   })
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    const type = (message as { type?: string } | undefined)?.type
-    if (type === PERSISTENCE_ENSURE) {
-      // The host answering at all proves the owner exists.
-      sendResponse({ ok: true })
-      return true
-    }
-    const rpc = message as PersistenceRpcRequest | undefined
-    if (rpc?.type !== PERSISTENCE_RPC) return false
-    ;(async () => {
-      try {
-        // Which topology a profile serves from is the host's decision, taken
-        // once from the marker and the migration outcome. Nothing that arrives
-        // over messaging gets to move a profile between backends — this
-        // listener answers any sender the browser hands it.
-        if (rpc.request?.op === "setBackend") {
-          sendResponse({ ok: false, error: "setBackend is host-only" })
-          return
-        }
-        await ensureMigrated()
-        // Runtime messages JSON-serialize on Chromium: decode blob-encoded
-        // binds/bytes into real Uint8Arrays before the worker sees them,
-        // and encode binary results before sendResponse.
-        const request = { ...rpc.request } as PersistenceOp
-        if (request.op === "query" || request.op === "run") {
-          request.bind = decodeBind(request.bind as unknown[])
-        }
-        if (
-          request.op === "importDb" &&
-          Array.isArray(request.bytes as unknown)
-        ) {
-          request.bytes = Uint8Array.from(request.bytes as unknown as number[])
-            .buffer as ArrayBuffer
-        }
-        const result = await callWorker(request)
-        if (request.op === "query") {
-          sendResponse({ ok: true, result: encodeRows(result as QueryRow[]) })
-          return
-        }
-        if (result instanceof ArrayBuffer) {
-          sendResponse({
-            ok: true,
-            result: encodeValue(new Uint8Array(result))
-          })
-          return
-        }
-        sendResponse({ ok: true, result })
-      } catch (error) {
-        sendResponse({
-          ok: false,
-          error: error instanceof Error ? error.message : String(error)
-        })
-      }
-    })()
-    return true
-  })
+  chrome.runtime.onMessage.addListener(handlePersistenceHostMessage)
 }

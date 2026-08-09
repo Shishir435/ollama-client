@@ -41,6 +41,7 @@ import type {
   SqlValue,
   SurveyResult
 } from "./protocol"
+import { PersistenceOpSchema } from "./protocol"
 
 /**
  * The chat-history database engine. One instance exists per browser session,
@@ -88,7 +89,7 @@ export interface ChatDbEngineOptions {
 
 export interface ChatDbEngine {
   /** Run one op. Serialization and the transaction lease are handled inside. */
-  submit: (request: PersistenceOp) => Promise<unknown>
+  submit: (request: unknown) => Promise<unknown>
 }
 
 export const createChatDbEngine = (
@@ -733,10 +734,15 @@ export const createChatDbEngine = (
   }
 
   return {
-    submit: (request) =>
-      new Promise((resolve, reject) => {
-        queue.push({ request, resolve, reject })
+    submit: (request) => {
+      const parsed = PersistenceOpSchema.safeParse(request)
+      if (!parsed.success) {
+        return Promise.reject(new Error("Invalid persistence operation"))
+      }
+      return new Promise((resolve, reject) => {
+        queue.push({ request: parsed.data, resolve, reject })
         void pump()
       })
+    }
   }
 }

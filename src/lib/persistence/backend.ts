@@ -6,7 +6,11 @@ import type {
   TableCountMismatch,
   TableCounts
 } from "./durable-tables"
-import { PERSISTENCE_MARKER, type PersistenceStateScope } from "./protocol"
+import {
+  PERSISTENCE_MARKER,
+  PersistenceStateResponseSchema,
+  type PersistenceStateScope
+} from "./protocol"
 
 /**
  * Active chat persistence topology. `legacy` is the historical sql.js image;
@@ -96,15 +100,17 @@ const readState = async <T>(
     const stored = await browser.storage.local.get(key)
     return stored[key] as T | undefined
   }
-  const response = (await browser.runtime.sendMessage({
+  const rawResponse = await browser.runtime.sendMessage({
     type: PERSISTENCE_MARKER,
     action: "get",
     scope
-  })) as { ok: boolean; value?: unknown; error?: string } | undefined
-  if (!response?.ok) {
-    throw new Error(response?.error ?? `${scope} read message dropped`)
+  })
+  const response = PersistenceStateResponseSchema.safeParse(rawResponse)
+  if (!response.success) {
+    throw new Error(`${scope} read returned an invalid response`)
   }
-  return response.value as T | undefined
+  if (!response.data.ok) throw new Error(response.data.error)
+  return response.data.value as T | undefined
 }
 
 const writeState = async (
@@ -115,15 +121,17 @@ const writeState = async (
     await browser.storage.local.set({ [STORAGE_KEY_BY_SCOPE[scope]]: value })
     return
   }
-  const response = (await browser.runtime.sendMessage({
+  const rawResponse = await browser.runtime.sendMessage({
     type: PERSISTENCE_MARKER,
     action: "set",
     scope,
     value
-  })) as { ok: boolean; error?: string } | undefined
-  if (!response?.ok) {
-    throw new Error(response?.error ?? `${scope} write message dropped`)
+  })
+  const response = PersistenceStateResponseSchema.safeParse(rawResponse)
+  if (!response.success) {
+    throw new Error(`${scope} write returned an invalid response`)
   }
+  if (!response.data.ok) throw new Error(response.data.error)
 }
 
 /**

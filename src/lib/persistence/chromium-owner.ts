@@ -1,9 +1,15 @@
+import type { RuntimeSenderLike } from "@ollama-client/runtime-core/runtime-sender"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import {
+  isPersistenceOwnerSender,
+  isTrustedPersistenceSender
+} from "./host-authorization"
+import {
   PERSISTENCE_ENSURE,
   PERSISTENCE_MARKER,
-  type PersistenceStateRequest,
+  PersistenceEnsureRequestSchema,
+  PersistenceStateRequestSchema,
   type PersistenceStateScope
 } from "./protocol"
 
@@ -101,48 +107,76 @@ export const ensurePersistenceOwner = async (): Promise<void> => {
 /** Register on Chromium background startup: pages ask the service worker to
  * ensure the owner exists; the SW's own database calls use the globalThis
  * ensure hook (a service worker cannot runtime-message itself). */
+export const handleChromiumPersistenceControlMessage = (
+  message: unknown,
+  sender: RuntimeSenderLike,
+  sendResponse: (response: unknown) => void
+): boolean => {
+  const extensionUrlPrefix = chrome.runtime.getURL("")
+  const ownerUrl = chrome.runtime.getURL(OFFSCREEN_URL)
+  const type = (message as { type?: string } | undefined)?.type
+  if (type === PERSISTENCE_ENSURE) {
+    if (
+      !isTrustedPersistenceSender(
+        sender,
+        chrome.runtime.id,
+        extensionUrlPrefix
+      ) ||
+      !PersistenceEnsureRequestSchema.safeParse(message).success
+    ) {
+      sendResponse({ ok: false, error: "Persistence request forbidden" })
+      return true
+    }
+    ensurePersistenceOwner()
+      .then(() => sendResponse({ ok: true }))
+      .catch((error: unknown) =>
+        sendResponse({ ok: false, error: String(error) })
+      )
+    return true
+  }
+  if (type === PERSISTENCE_MARKER) {
+    if (
+      !isPersistenceOwnerSender(
+        sender,
+        chrome.runtime.id,
+        extensionUrlPrefix,
+        ownerUrl
+      )
+    ) {
+      sendResponse({ ok: false, error: "Persistence marker forbidden" })
+      return true
+    }
+    const parsed = PersistenceStateRequestSchema.safeParse(message)
+    if (!parsed.success) {
+      sendResponse({ ok: false, error: "Invalid persistence marker request" })
+      return true
+    }
+    // The offscreen owner has no chrome.storage; read/write the backend marker,
+    // migration receipt, and operator override on its behalf.
+    const request = parsed.data
+    const key = STORAGE_KEY_BY_SCOPE[request.scope]
+    ;(async () => {
+      if (request.action === "get") {
+        const stored = await chrome.storage.local.get(key)
+        sendResponse({ ok: true, value: stored[key] })
+        return
+      }
+      await chrome.storage.local.set({
+        [key]: stampExtensionVersion(request.scope, request.value)
+      })
+      sendResponse({ ok: true })
+    })().catch((error: unknown) =>
+      sendResponse({ ok: false, error: String(error) })
+    )
+    return true
+  }
+  return false
+}
+
 export const registerChromiumPersistenceControl = (): void => {
   globalThis.__persistenceEnsureOwner = ensurePersistenceOwner
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    const type = (message as { type?: string } | undefined)?.type
-    if (type === PERSISTENCE_ENSURE) {
-      ensurePersistenceOwner()
-        .then(() => sendResponse({ ok: true }))
-        .catch((error: unknown) =>
-          sendResponse({ ok: false, error: String(error) })
-        )
-      return true
-    }
-    if (type === PERSISTENCE_MARKER) {
-      // The offscreen owner has no chrome.storage; read/write the backend
-      // marker, migration receipt, and operator override on its behalf.
-      const request = message as PersistenceStateRequest
-      const key = STORAGE_KEY_BY_SCOPE[request.scope]
-      if (!key) {
-        sendResponse({
-          ok: false,
-          error: `Unknown persistence state scope: ${String(request.scope)}`
-        })
-        return true
-      }
-      ;(async () => {
-        if (request.action === "get") {
-          const stored = await chrome.storage.local.get(key)
-          sendResponse({ ok: true, value: stored[key] })
-          return
-        }
-        await chrome.storage.local.set({
-          [key]: stampExtensionVersion(request.scope, request.value)
-        })
-        sendResponse({ ok: true })
-      })().catch((error: unknown) =>
-        sendResponse({ ok: false, error: String(error) })
-      )
-      return true
-    }
-    return false
-  })
+  chrome.runtime.onMessage.addListener(handleChromiumPersistenceControlMessage)
 
   // Create the owner eagerly so the one-time legacy migration runs at boot,
   // not on the first user interaction.

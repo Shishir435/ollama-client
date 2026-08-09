@@ -129,6 +129,15 @@ describe("legacy blob backend", () => {
     ).rejects.toThrow(/missing_table/)
   })
 
+  it("rejects a malformed operation without stalling the scheduler", async () => {
+    const engine = await bootEngine()
+
+    await expect(
+      engine.submit({ op: "query", sql: 42, injected: true })
+    ).rejects.toThrow("Invalid persistence operation")
+    await expect(engine.submit({ op: "ping" })).resolves.toEqual({ ok: true })
+  })
+
   it("reports lastInsertRowid and changes from inside the same op", async () => {
     const engine = await bootEngine()
     await addSession(engine, "counted")
