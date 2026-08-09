@@ -15,8 +15,8 @@ Release work merges into `preview` for validation; only `preview` merges into
 
 | Version | Remaining work | Status |
 | --- | --- | --- |
-| `0.13.0` | Promote `release/0.13.x` through `preview` to `main` | Foundation and hardening complete |
-| `0.13.x` | Finish the focused architecture follow-ups below without delaying promotion | Incremental |
+| `0.13.0` | Close the architecture-audit release blockers, soak on `preview`, then promote to `main` | Hardening required |
+| `0.13.x` | Finish the focused non-blocking architecture follow-ups below | Incremental |
 | `0.14.x` | Build the supervised browser agent | Planned |
 | Later | Remove compatibility paths only when ledger evidence permits | Evidence-gated |
 
@@ -27,10 +27,368 @@ and UI adapters remain in `src/`. Architecture contracts, runtime schemas,
 restart tests, test-layout checks, and documentation-comment checks guard those
 boundaries automatically.
 
+## `0.13.0` architecture-audit closure
+
+The 2026-08-09 branch audit rated the architecture **7.5/10**. The target for
+`0.13.0` is **9+/10**, meaning the release has no known Critical or High
+architecture findings, privileged boundaries reject invalid callers and
+payloads by construction, durable lifecycle intent survives worker loss, and
+growth/recovery behavior is measured rather than assumed.
+
+This section is release-blocking. Complete it in the order below because later
+phases depend on the trust, startup, and lifecycle guarantees established by
+earlier ones. Each phase must merge independently with the application usable
+and all existing compatibility behavior preserved.
+
+### Pull-request sequence
+
+Use seven implementation pull requests plus one release-evidence pull request.
+Do not combine them into one architecture branch: each PR must leave the
+release usable and establish the tests required by its successor.
+
+1. **Persistence trust boundary (H0 + H1):** reproduce hostile/malformed
+   traffic, add wire schemas, authorize senders, revalidate at the worker, and
+   prove a rejected request cannot stall the engine.
+2. **Persistence readiness (H2):** add the shared startup promise and owner-ready
+   handshake after PR 1 makes that handshake a validated protocol operation.
+3. **Durable turn lifecycle (H3):** persist cancellation intent, guard state
+   transitions, make lifecycle commands idempotent, and preserve structured
+   failures.
+4. **Durable turn retention (H4):** compact terminal requests and migrate/prune
+   retained rows after PR 3 makes terminal transitions authoritative.
+5. **Provider discovery policy (H5):** extract the single discovery service.
+   This may run beside PRs 3–4 after PR 1 merges.
+6. **Durable turn composition (H6):** split observer, generation, and recovery
+   adapters only after lifecycle and retention behavior is stable.
+7. **Boundary type/error closure (H7):** decode durable rows, split contract
+   concepts, and finish typed persistence errors against the settled modules.
+8. **Release evidence (H8):** run full Chrome/Firefox gates, record `preview`
+   soak evidence, update release documentation, and promote only when the 9+/10
+   criteria pass.
+
+Critical path: **PR 1 → PR 2 → PR 3 → PR 4 → PR 6 → PR 7 → PR 8**. PR 5 may
+merge any time after PR 1, but must land before PR 8.
+
+### H0 — Freeze evidence and reproduce failures
+
+Scope: S. Behavior change: none. Dependencies: none.
+
+- Add failing tests for content-script persistence access, malformed
+  persistence operations, a DB call racing owner registration, worker loss
+  during stop, terminal turn compaction, and catalog-less tool capability
+  resolution.
+- Add one browser fixture for a cold Chromium owner and one Firefox MV2
+  in-process-owner fixture; unit mocks alone cannot prove extension-context
+  readiness.
+- Capture representative `turn_runs.request` byte sizes for short, long,
+  attachment-heavy, and page-context-heavy conversations before choosing the
+  compaction threshold.
+- Keep the audit findings traceable in pull-request checklists. Do not start
+  structural extraction until the failure behavior is reproduced.
+
+Exit gate:
+
+- Every Critical and High finding has a failing regression test or a written
+  reason why only a browser gate can reproduce it.
+
+### H1 — Secure and validate the persistence control plane
+
+Scope: M. Behavior change: unauthorized and malformed persistence traffic is
+rejected. Dependencies: H0.
+
+Affected modules:
+
+- `src/lib/persistence/protocol.ts`
+- `src/lib/persistence/owner-host.ts`
+- `src/lib/persistence/chromium-owner.ts`
+- `src/lib/persistence/client.ts`
+- `src/lib/persistence/chat-db-worker.ts`
+- `src/lib/persistence/chat-db-engine.ts`
+- `packages/runtime-core/src/runtime-sender.ts`
+
+Work:
+
+- Define Zod discriminated schemas for every persistence request, operation,
+  bind value, marker action, and response envelope. Set explicit limits for SQL
+  text, bind count/blob size, transaction tokens, and imported database bytes.
+- Classify sender evidence before handling `PERSISTENCE_ENSURE`,
+  `PERSISTENCE_RPC`, `PERSISTENCE_MARKER`, or ingestion-processor traffic.
+  Content scripts and untrusted senders must never receive raw SQL, export,
+  import, reset, transaction, backend-marker, receipt, or override capability.
+- Represent trusted owner/background traffic explicitly. Do not weaken the
+  existing extension-page RPC policy to make persistence fit.
+- Validate again at the worker boundary. A malformed in-process caller must not
+  enter the engine scheduler or leave queued promises unresolved.
+- Reject unknown operations deterministically with a typed, safe error. Ensure
+  one invalid request cannot stall later valid operations.
+- Add contract tests for every operation and negative sender/payload case,
+  including a transaction-lease denial-of-service attempt.
+
+Exit gate:
+
+- No privileged persistence mutation accepts a content-script or untrusted
+  sender.
+- No unchecked `PersistenceRpcRequest`/`PersistenceOp` cast remains on a wire
+  boundary.
+- Fuzzed malformed messages leave the worker responsive to a following `ping`.
+
+### H2 — Make persistence startup deterministic
+
+Scope: M. Behavior change: cold-start DB operations wait for a ready owner
+instead of failing. Dependencies: H1.
+
+Affected modules:
+
+- `src/background/index.ts`
+- `src/background/startup.ts`
+- `src/lib/persistence/chromium-owner.ts`
+- `src/lib/persistence/owner-host.ts`
+- `src/lib/persistence/client.ts`
+
+Work:
+
+- Replace the unawaited persistence-topology import with one shared readiness
+  promise owned by the background composition root.
+- Make DB-touching startup tasks await lifecycle recovery and persistence
+  readiness before running. Document ordering for backup recovery, provider
+  migration, schema migration, turn recovery, ingestion recovery, and model
+  pull recovery.
+- Add an owner-ready handshake that proves the host listener, worker, WASM, and
+  selected backend can answer `ping`; `createDocument()` completion alone is
+  not readiness.
+- Coalesce concurrent ensure calls and clear rejected readiness promises so a
+  later request can retry.
+- Preserve the no-retry rule for writes with uncertain commit outcome. A write
+  known not to have reached a ready owner may retry safely only when the
+  protocol can prove non-execution.
+- Bound startup recovery concurrency. Preserve deterministic order per durable
+  workflow while avoiding one long turn starving unrelated ingestion or model
+  pull recovery.
+
+Exit gate:
+
+- Cold Chromium and Firefox starts can immediately query and write without a
+  dropped ensure/RPC message.
+- Owner crash/recreation tests distinguish definitely-not-executed writes from
+  writes with unknown commit outcome.
+
+### H3 — Make turn cancellation and transitions durable
+
+Scope: M. Behavior change: a stopped turn cannot restart after worker loss.
+Dependencies: H2.
+
+Affected modules:
+
+- `packages/contracts/src/turns.ts`
+- `packages/chat-runtime/src/turn-runtime.ts`
+- `src/background/port-router.ts`
+- `src/background/durable-turn-runtime.ts`
+- `src/lib/repositories/turn-runs.ts`
+
+Work:
+
+- Add a durable `cancelling` state or equivalent cancellation-intent field.
+  Commit intent before aborting the in-memory controller.
+- Make recovery exclude cancellation-intent and cancelled rows. Startup may
+  finalize interrupted cancellation, but must never reissue provider work.
+- Encode allowed compare-and-set transitions in the repository: submitted →
+  building-context → generating → terminal, with cancellation permitted from
+  each live state. Terminal rows never regress.
+- Make duplicate start, resume, reconnect, stop, and terminal messages
+  idempotent by turn ID.
+- Preserve the original structured `AppFailure` from terminal stream event to
+  assistant row, turn row, reconnect snapshot, diagnostics, and UI. Do not
+  convert it to plain `Error` and reconstruct a weaker failure.
+- Quarantine or terminally fail malformed persisted turn rows with a safe
+  diagnostic. Do not silently omit the same incomplete row on every boot.
+- Test worker death before cancellation commit, after cancellation commit,
+  during provider abort, and before terminal snapshot delivery.
+
+Exit gate:
+
+- No test schedule can resurrect a stopped turn or regress a terminal state.
+- Duplicate lifecycle messages produce one provider generation and one
+  terminal assistant result.
+
+### H4 — Bound durable turn storage and privacy retention
+
+Scope: M–L. Behavior change: terminal runs retain a compact receipt instead of
+the complete resumable request. Dependencies: H3.
+
+Affected modules:
+
+- `packages/contracts/src/context.ts`
+- `packages/contracts/src/turns.ts`
+- `src/lib/repositories/turn-runs.ts`
+- `src/lib/sqlite/schema.ts`
+- `src/lib/sqlite/migrations/`
+- `src/lib/diagnostics/diagnostics-service.ts`
+
+Work:
+
+- Separate resumable live-turn input from terminal lifecycle receipt. Live rows
+  may retain data required to resume; terminal rows must clear or compact prior
+  messages, extracted file text, page context, and tab-document bodies.
+- Prefer canonical message/file IDs and bounded evidence over copied content
+  where restart correctness permits it. Do not make recovery depend on mutable
+  UI or Zustand state.
+- Define retention for completed, failed, cancelled, and quarantined runs.
+  Keep enough evidence for diagnostics and replay without permanent duplicate
+  conversation payloads.
+- Add a forward-only migration and backward-compatible parser. Preserve live
+  rows created by an older `0.13.0` prerelease until they reach a terminal state.
+- Add diagnostics for live/terminal run counts, total bytes, largest row, and
+  compaction failures without exposing message or page content.
+- Test long conversations, image/file attachments, full tab context, failed
+  turns, cancellation, backup export/import, and session cascade deletion.
+
+Exit gate:
+
+- Terminal turn storage grows O(turn count), not O(conversation length²).
+- Terminal rows contain no full copied page/file body unless a documented,
+  bounded recovery requirement proves it necessary.
+- Backup size and restore behavior remain within measured release budgets.
+
+### H5 — Centralize provider discovery policy
+
+Scope: S–M. Behavior change: tool capability resolution honors remembered
+catalog absence and real discovery failures. Dependencies: H1; may run beside
+H3/H4.
+
+Affected modules:
+
+- `src/lib/providers/provider-rpc-service.ts`
+- `src/lib/providers/model-catalog-support.ts`
+- `src/background/lib/resolve-model-tools.ts`
+- provider discovery/capability tests
+
+Work:
+
+- Extract `discoverModels` into a provider-domain service shared by RPC model
+  listing, connection tests, health checks, and tool capability resolution.
+- Keep catalog absence, endpoint reachability, and provider failure as distinct
+  verdicts. Only 404/405/501 record absence; never record auth, rate-limit,
+  network, or 5xx failures.
+- Preserve force-reprobe behavior for explicit Test and the no-inference rule
+  for stored health checks.
+- Remove production `provider.getModels()` callers that bypass discovery policy,
+  except provider contract tests and the discovery service itself.
+- Test TTL expiry, config fingerprint changes, concurrent discovery, custom
+  model merge, and catalog-less tool gating.
+
+Exit gate:
+
+- One production path owns model catalog policy.
+- A known catalog-less provider receives no background catalog request until
+  force, fingerprint change, or TTL expiry.
+
+### H6 — Split the durable-turn composition hub
+
+Scope: M. Behavior change: none. Dependencies: H3 and H4.
+
+Affected module: `src/background/durable-turn-runtime.ts`.
+
+- Extract an observer registry responsible only for attach, buffer, forward,
+  terminal cleanup, and reconnect snapshots.
+- Extract a generation adapter responsible for provider invocation, stream
+  reduction, and assistant persistence.
+- Extract a recovery coordinator responsible for incomplete-run claims and
+  restart ordering.
+- Replace the synthetic `ChromePort` cast with a narrow typed stream sink port.
+  Keep legacy handler adaptation at one explicit boundary while it remains.
+- Keep `TurnRuntime` environment-independent and leave browser/provider/SQLite
+  imports in `src/` composition.
+- Add dependency-boundary tests so background adapters cannot leak into
+  workspace packages.
+
+Exit gate:
+
+- No module owns both observer lifecycle and provider generation.
+- No `as unknown as ChromePort` remains in durable turn composition.
+- Characterization tests show identical stream, reconnect, persistence, and
+  failure behavior.
+
+### H7 — Close medium-risk type and error gaps
+
+Scope: M. Behavior change: invalid state/data fails explicitly. Dependencies:
+H3–H6.
+
+- Replace unchecked SQLite row-array assertions for durable job repositories
+  with shared row decoders or local Zod schemas at query boundaries.
+- Split `packages/contracts/src/chat.ts` by message, metrics/activity,
+  attachments, and replay concepts while preserving current public subpath
+  exports and wire shapes.
+- Define typed persistence errors with operation, retryability, and safe
+  fallback text. Preserve causes inside diagnostics; never expose SQL, secrets,
+  replay artifacts, or content bodies.
+- Add contract tests proving result schemas, repository row schemas, and error
+  envelopes remain aligned.
+
+Exit gate:
+
+- Durable storage and messaging boundaries parse untrusted/runtime data before
+  application use.
+- Errors retain actionable phase and recovery context across worker, host,
+  background, and UI boundaries.
+
+### H8 — Release verification and 9+/10 gate
+
+Scope: M. Behavior change: none. Dependencies: H0–H7.
+
+Required automated gates:
+
+```bash
+pnpm typecheck
+pnpm lint:check
+pnpm check:dead
+pnpm check:i18n
+pnpm test:run
+pnpm check:generated
+pnpm check:compatibility
+pnpm docs:build
+pnpm build
+pnpm build:firefox
+pnpm verify:opfs-migration
+pnpm verify:firefox-opfs-migration
+pnpm e2e:chromium:critical
+```
+
+Required soak evidence on `preview`:
+
+- Cold start, active-stream worker termination, stop during stream, stop during
+  tool loop, approval wait, owner recreation, backup import interruption, and
+  catalog-less provider scenarios pass on Chromium.
+- Firefox MV2 validates persistent-background ownership, migration fallback,
+  restart recovery, cancellation, and import/export.
+- No duplicate provider call, terminal-state regression, stuck transaction,
+  unbounded turn-row growth, raw sensitive logging, or unauthorized persistence
+  request appears during soak.
+- Diagnostics bundle records safe support evidence for owner startup,
+  migration, durable recovery, and compaction without recording chat/page/file
+  contents or credentials.
+
+`0.13.0` earns the **9+/10** architecture rating only when:
+
+1. All Critical and High audit findings are fixed and regression-guarded.
+2. Persistence and application RPC share equivalent sender, schema, timeout,
+   cancellation, and safe-error rigor even if their transports remain separate.
+3. Durable start, stop, resume, reconnect, and terminal transitions are
+   idempotent under worker loss.
+4. Terminal durable-state growth is bounded and measured.
+5. Provider discovery has one policy owner.
+6. Background composition exposes explicit readiness and dependency order.
+7. Workspace package boundaries remain environment-independent.
+8. Full Chrome/Firefox release gates and `preview` soak pass with recorded
+   evidence.
+
+The score does **not** require eliminating every Medium/Low cleanup item. It
+does require each remaining item to have one clear owner, bounded risk, a
+regression guard where practical, and an explicit later milestone below.
+
 ## Remaining foundation follow-ups
 
-These are bounded improvements, not release blockers and not authorization for
-a repository-wide rewrite.
+These are bounded improvements after H0–H8, not additional `0.13.0` release
+blockers and not authorization for a repository-wide rewrite.
 
 ### Chat stream presentation boundary
 

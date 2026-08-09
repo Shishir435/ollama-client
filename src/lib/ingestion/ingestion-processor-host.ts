@@ -1,4 +1,5 @@
 import { processFile } from "@/lib/file-processors"
+import { isTrustedPersistenceSender } from "@/lib/persistence/host-authorization"
 import { ingestionPayloadDb } from "./ingestion-payload-db"
 import {
   INGESTION_PROCESS_REQUEST,
@@ -38,12 +39,13 @@ export const processStagedIngestionPayload = async (
 export const registerIngestionProcessorHost = (): void => {
   if (registered) return
   registered = true
+  const extensionUrlPrefix = chrome.runtime.getURL("")
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const request = message as { type?: string; jobId?: unknown } | undefined
     if (
       request?.type !== INGESTION_PROCESS_REQUEST ||
       typeof request.jobId !== "string" ||
-      sender.id !== chrome.runtime.id
+      !isTrustedPersistenceSender(sender, chrome.runtime.id, extensionUrlPrefix)
     ) {
       return false
     }

@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import { type ChatDbEngine, createChatDbEngine } from "./chat-db-engine"
-import type { PersistenceOp } from "./protocol"
+import { PersistenceOpSchema } from "./protocol"
 
 /**
  * Message plumbing for the chat-history database owner. Exactly one instance
@@ -15,12 +15,7 @@ import type { PersistenceOp } from "./protocol"
 
 interface WorkerRequest {
   id: number
-  request: PersistenceOp
-}
-
-interface InitMessage {
-  init: true
-  wasmBinary: ArrayBuffer
+  request: unknown
 }
 
 let resolveWasmBinary: (binary: ArrayBuffer) => void
@@ -41,7 +36,9 @@ const getEngine = (): ChatDbEngine => {
 
 const respond = async (message: WorkerRequest): Promise<void> => {
   try {
-    const result = await getEngine().submit(message.request)
+    const parsed = PersistenceOpSchema.safeParse(message.request)
+    if (!parsed.success) throw new Error("Invalid persistence operation")
+    const result = await getEngine().submit(parsed.data)
     if (result instanceof ArrayBuffer) {
       self.postMessage({ id: message.id, ok: true, result }, [result])
     } else {
@@ -56,12 +53,32 @@ const respond = async (message: WorkerRequest): Promise<void> => {
   }
 }
 
-self.onmessage = (event: MessageEvent<WorkerRequest | InitMessage>) => {
-  if ("init" in event.data) {
-    resolveWasmBinary(event.data.wasmBinary)
+self.onmessage = (event: MessageEvent<unknown>) => {
+  const message = event.data
+  if (typeof message !== "object" || message === null) {
+    console.error("[chat-db] Invalid worker message")
+    return
+  }
+  if ("init" in message) {
+    if (
+      message.init !== true ||
+      !("wasmBinary" in message) ||
+      !(message.wasmBinary instanceof ArrayBuffer)
+    ) {
+      console.error("[chat-db] Invalid worker initialization message")
+      return
+    }
+    resolveWasmBinary(message.wasmBinary)
+    return
+  }
+  if (!("id" in message) || typeof message.id !== "number") {
+    console.error("[chat-db] Invalid worker request envelope")
     return
   }
   // The engine owns ordering and the transaction lease, so requests are handed
   // over as they arrive.
-  void respond(event.data)
+  void respond({
+    id: message.id,
+    request: "request" in message ? message.request : undefined
+  })
 }

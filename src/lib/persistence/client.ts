@@ -5,8 +5,9 @@ import {
   encodeBind,
   PERSISTENCE_ENSURE,
   PERSISTENCE_RPC,
+  PersistenceEnsureResponseSchema,
   type PersistenceOp,
-  type PersistenceRpcResponse,
+  PersistenceRpcResponseSchema,
   type QueryRow,
   RETRYABLE_OPS,
   type RunResult
@@ -62,12 +63,15 @@ export const ensurePersistenceHost = async (): Promise<void> => {
     await globalThis.__persistenceEnsureOwner()
     return
   }
-  const response = (await withTimeout(
+  const rawResponse = await withTimeout(
     browser.runtime.sendMessage({ type: PERSISTENCE_ENSURE }),
     "ensure"
-  )) as PersistenceRpcResponse | undefined
-  if (!response) throw new Error("Persistence ensure message dropped")
-  if (!response.ok) throw new Error(response.error)
+  )
+  const response = PersistenceEnsureResponseSchema.safeParse(rawResponse)
+  if (!response.success) {
+    throw new Error("Persistence ensure returned an invalid response")
+  }
+  if (!response.data.ok) throw new Error(response.data.error)
 }
 
 const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
@@ -81,13 +85,15 @@ const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
       : request.op === "importDb" && request.bytes instanceof ArrayBuffer
         ? { ...request, bytes: Array.from(new Uint8Array(request.bytes)) }
         : request
-  const response = (await withTimeout(
+  const rawResponse = await withTimeout(
     browser.runtime.sendMessage({ type: PERSISTENCE_RPC, request: wire }),
     request.op
-  )) as PersistenceRpcResponse | undefined
-  if (!response) throw new Error("Persistence RPC message dropped")
-  if (!response.ok) throw new Error(response.error)
-  return response.result
+  )
+  const response = PersistenceRpcResponseSchema.safeParse(rawResponse)
+  if (!response.success)
+    throw new Error("Persistence RPC returned invalid data")
+  if (!response.data.ok) throw new Error(response.data.error)
+  return response.data.result
 }
 
 const send = async (request: PersistenceOp): Promise<unknown> => {
