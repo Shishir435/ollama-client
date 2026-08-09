@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./context-runtime": "./src/context-runtime.ts",
+    "./tool-loop-runtime": "./src/tool-loop-runtime.ts",
     "./turn-runtime": "./src/turn-runtime.ts"
   },
   "dependencies": {

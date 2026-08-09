@@ -242,8 +242,9 @@ Remaining package work:
 
 - P1: complete in `release/0.13.x` via PRs #244–#246.
 - P2: complete in `release/0.13.x` via PR #247.
-- P3: in progress on `feature/chat-runtime-context-orchestration`; agent
-  runtime remains scheduled for `0.14.x`.
+- P3: complete on `feature/chat-runtime-tool-loop-orchestration`; merge the
+  shared tool-loop coordinator into `release/0.13.x`. Agent runtime remains
+  scheduled for `0.14.x`.
 
 #### P1 — `packages/contracts`
 
@@ -348,8 +349,8 @@ Exit gate: deterministic tests run without browser globals or extension setup.
 
 #### P3 — domain runtimes
 
-Status: in progress on `feature/chat-runtime-context-orchestration`,
-2026-08-09.
+Status: complete on `feature/chat-runtime-tool-loop-orchestration`, pending
+merge, 2026-08-09.
 
 Completed in the first turn-orchestration slice:
 
@@ -377,11 +378,26 @@ Completed in the context-orchestration slice:
   forward-compatible source normalization, and failed builds that mint no
   receipt.
 
-Remaining P3 slices:
+Merged in `release/0.13.x` via PR #249.
 
-- `packages/chat-runtime`: tool-loop coordination behind ports.
-- `packages/agent-runtime`: added in `0.14.x`; task compiler, policy, approval,
-  controller, verification, and recovery.
+Completed in the tool-loop orchestration slice:
+
+- Moved the versioned durable tool-loop state and checkpoint envelope schemas
+  behind `@ollama-client/contracts/tool-loop` while retaining legacy-row
+  decoding and SQLite failure conversion in the repository adapter.
+- Added a shared `@ollama-client/chat-runtime` coordinator for new/resumed
+  state, model/tool transitions, cursor checkpoints, approval boundaries,
+  taint advancement, trace reuse, and phase cleanup.
+- Converged native and non-native ordered parallel batches on the same runtime
+  executor; provider streaming, protocol formatting, tool execution, approval
+  policy, browser effects, and persistence remain extension ports.
+- Added clean-Node contract/runtime coverage and retained restart, approval,
+  corrupt-checkpoint, taint, replay, native, and non-native integration tests.
+
+Remaining P3 work: none after this branch merges.
+
+Deferred to `0.14.x`: `packages/agent-runtime` task compiler, policy, approval,
+controller, verification, and recovery.
 
 Keep in extension `src/`:
 
