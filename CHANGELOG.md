@@ -9,6 +9,64 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.13.0]
+
+### Added
+
+- Ingestion and model-pull jobs now recover from MV3 background-worker
+  suspension. Progress is checkpointed durably, interrupted work is reconciled
+  on startup, and the UI can reconnect to the same job instead of silently
+  losing it.
+- Durable turns now resume through one background-owned lifecycle covering
+  context building, generation, cancellation, completion, and failure. The UI
+  reconnects to persisted snapshots after a worker restart rather than becoming
+  a second writer of assistant state.
+
+### Changed
+
+- Native and prompt-based tool loops now share one checkpointed orchestration
+  path for model calls, ordered tool batches, approvals, replay, and recovery.
+  Approval boundaries are flushed before waiting, so a suspended worker can
+  continue without repeating an already recorded effect.
+- Chat history now ships with one SQLite implementation. The legacy database
+  fallback runs on official sqlite-wasm instead of bundling sql.js as a second
+  engine, while preserving the original migration source and read-only export
+  recovery for damaged databases.
+- Streaming events and durable tool-loop checkpoints are versioned and runtime
+  validated before use. Invalid persisted state fails safely instead of being
+  replayed as trusted data.
+- Activity and retrieved-context labels persist translation keys with safe
+  fallback text, so restored history follows the selected language instead of
+  freezing generated labels in the language active when they were created.
+
+### Fixed
+
+- Overlapping file submissions no longer replace each other's processing rows
+  with stale UI state.
+- Durable assistant messages can no longer be overwritten by a delayed UI
+  persistence timer after the background has recorded a newer snapshot or
+  terminal state. The separately characterized legacy stream path keeps its
+  existing compatibility behavior.
+- Malformed provider configuration, secret journals, and reset journals are
+  rejected or recovered field-by-field without applying partial cleanup,
+  exposing stored credentials, or discarding forward-compatible fields.
+
+### Development
+
+- Added environment-independent `@ollama-client/contracts`,
+  `@ollama-client/runtime-core`, and `@ollama-client/chat-runtime` workspace
+  packages. They own shared schemas, deterministic runtime primitives, and
+  port-driven turn/context/tool-loop orchestration while browser, provider,
+  persistence, and React adapters remain in the extension.
+- Added architecture contracts for package dependencies, the single SQLite
+  owner, repository access, background import direction, test placement, and
+  JSDoc documentation comments.
+- Release verification now covers independent package typechecks, 2,629 unit
+  and integration tests, Chrome MV3 and Firefox MV2 packages, bundle budgets,
+  generated resources, and packaged migration/restart fixtures.
+- Dependency installation uses pnpm 11 with a seven-day minimum release age for
+  newly selected packages.
+
 ## [0.12.8]
 
 ### Fixed
@@ -829,7 +887,8 @@ No functional changes: this release is store metadata only.
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.12.8...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.13.0...HEAD
+[0.13.0]: https://github.com/Shishir435/ollama-client/compare/0.12.8...0.13.0
 [0.12.8]: https://github.com/Shishir435/ollama-client/compare/0.12.7...0.12.8
 [0.12.7]: https://github.com/Shishir435/ollama-client/compare/0.12.6...0.12.7
 [0.12.6]: https://github.com/Shishir435/ollama-client/compare/0.12.5...0.12.6
