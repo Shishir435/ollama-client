@@ -5,6 +5,7 @@ import ts from "typescript"
 import { describe, expect, it } from "vitest"
 
 const sourceRoot = join(process.cwd(), "src")
+const chatRuntimeRoot = join(process.cwd(), "packages/chat-runtime/src")
 const contractsRoot = join(process.cwd(), "packages/contracts/src")
 const runtimeCoreRoot = join(process.cwd(), "packages/runtime-core/src")
 
@@ -265,6 +266,28 @@ describe("architecture import boundaries", () => {
         )
         .map((module) => ({
           file: relative(runtimeCoreRoot, file).replaceAll("\\", "/"),
+          module
+        }))
+    })
+
+    expect(offenders).toEqual([])
+  })
+
+  it("keeps chat-runtime behind contracts and relative ports", () => {
+    const runtimeSources = walk(chatRuntimeRoot)
+      .filter((file) => /\.ts$/.test(file))
+      .filter((file) => !file.endsWith(".test.ts"))
+    const offenders = runtimeSources.flatMap((file) => {
+      const source = readFileSync(file, "utf8")
+      return referencedModules(source)
+        .filter(
+          (module) =>
+            !module.startsWith(".") &&
+            !module.startsWith("@ollama-client/contracts") &&
+            !module.startsWith("@ollama-client/runtime-core")
+        )
+        .map((module) => ({
+          file: relative(chatRuntimeRoot, file).replaceAll("\\", "/"),
           module
         }))
     })

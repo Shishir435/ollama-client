@@ -26,6 +26,9 @@ importers:
       '@mozilla/readability':
         specifier: ^0.6.0
         version: 0.6.0
+      '@ollama-client/chat-runtime':
+        specifier: workspace:*
+        version: link:packages/chat-runtime
       '@ollama-client/contracts':
         specifier: workspace:*
         version: link:packages/contracts
@@ -346,6 +349,12 @@ importers:
       typescript:
         specifier: npm:@typescript/typescript6@6.0.2
         version: '@typescript/typescript6@6.0.2'
+
+  packages/chat-runtime:
+    dependencies:
+      '@ollama-client/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/contracts:
     dependencies:

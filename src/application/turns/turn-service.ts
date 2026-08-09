@@ -1,48 +1,39 @@
+import {
+  type TurnGenerationInput as RuntimeTurnGenerationInput,
+  type TurnGenerationOwner as RuntimeTurnGenerationOwner,
+  type TurnRunStore as RuntimeTurnRunStore,
+  TurnRuntime
+} from "@ollama-client/chat-runtime/turn-runtime"
 import type { TurnMode } from "@ollama-client/contracts/turns"
 import type { BuildRagContextOptions } from "@/application/context/build-context"
-import { parseDurableContextOptions } from "@/application/context/context-contract"
+import {
+  type DurableContextOptions,
+  parseDurableContextOptions
+} from "@/application/context/context-contract"
 import type {
   ContextBuildOutput,
   ContextService
 } from "@/application/context/context-service"
 import { toAppFailure } from "@/protocol/app-failure"
 import type { ChatMessage } from "@/types"
-import type { DurableTurnRun, TurnSubmission } from "./turn-contract"
+import type { DurableTurnRun } from "./turn-contract"
 
-export interface TurnRunStore {
-  create: (submission: TurnSubmission) => Promise<void>
-  update: (
-    id: string,
-    updates: Omit<
-      Partial<
-        Pick<
-          DurableTurnRun,
-          | "status"
-          | "contextReceipt"
-          | "userMessageId"
-          | "assistantMessageId"
-          | "failure"
-        >
-      >,
-      "failure"
-    > & { failure?: DurableTurnRun["failure"] | null }
-  ) => Promise<void>
-}
+export type TurnRunStore = RuntimeTurnRunStore<
+  DurableContextOptions,
+  ChatMessage
+>
 
-export interface TurnGenerationInput {
-  submission: TurnSubmission
-  context: ContextBuildOutput
-  userMessageId?: number
-  assistantMessageId?: number
-}
+export type TurnGenerationInput = RuntimeTurnGenerationInput<
+  DurableContextOptions,
+  ChatMessage,
+  ContextBuildOutput
+>
 
-export interface TurnGenerationOwner {
-  start: (input: TurnGenerationInput) => Promise<{
-    outcome?: "completed" | "cancelled"
-    userMessageId?: number
-    assistantMessageId?: number
-  }>
-}
+export type TurnGenerationOwner = RuntimeTurnGenerationOwner<
+  DurableContextOptions,
+  ChatMessage,
+  ContextBuildOutput
+>
 
 export interface StartTurnCommand {
   id: string
@@ -67,11 +58,32 @@ export interface StartTurnCommand {
  * closure can only hide progress; it cannot erase ownership of the turn.
  */
 export class TurnService {
+  private readonly runtime: TurnRuntime<
+    DurableContextOptions,
+    ChatMessage,
+    BuildRagContextOptions,
+    ContextBuildOutput
+  >
+
   constructor(
-    private readonly store: TurnRunStore,
-    private readonly contextService: ContextService,
-    private readonly generation: TurnGenerationOwner
-  ) {}
+    store: TurnRunStore,
+    contextService: ContextService,
+    generation: TurnGenerationOwner
+  ) {
+    this.runtime = new TurnRuntime(
+      store,
+      contextService,
+      generation,
+      {
+        toFailure: (error) =>
+          toAppFailure(error, {
+            fallbackMessage: "Turn failed",
+            context: "turn-run"
+          })
+      },
+      { now: Date.now }
+    )
+  }
 
   async start(command: StartTurnCommand): Promise<void> {
     const {
@@ -79,28 +91,20 @@ export class TurnService {
       toast: _toast,
       ...context
     } = command.contextOptions
-    const submission: TurnSubmission = {
+    await this.runtime.start({
       id: command.id,
       sessionId: command.sessionId,
       mode: command.mode,
       model: command.model,
       providerId: command.providerId,
-      request: {
-        version: 1,
-        context: parseDurableContextOptions(context),
-        userMessage: command.userMessage
-      },
-      createdAt: command.createdAt ?? Date.now()
-    }
-
-    await this.store.create(submission)
-    await this.run(
-      submission,
-      command.contextOptions,
-      command.userMessageId,
-      command.assistantMessageId,
-      command.prepareContextOptions
-    )
+      persistedContext: parseDurableContextOptions(context),
+      contextOptions: command.contextOptions,
+      userMessage: command.userMessage,
+      userMessageId: command.userMessageId,
+      assistantMessageId: command.assistantMessageId,
+      prepareContextOptions: command.prepareContextOptions,
+      createdAt: command.createdAt
+    })
   }
 
   async resume(
@@ -113,69 +117,10 @@ export class TurnService {
       ...turn.request.context,
       toast: () => undefined
     }
-    await this.run(
+    await this.runtime.resume({
       turn,
-      baseOptions,
-      turn.userMessageId,
-      turn.assistantMessageId,
+      contextOptions: baseOptions,
       prepareContextOptions
-    )
-  }
-
-  private async run(
-    submission: TurnSubmission,
-    contextOptions: BuildRagContextOptions,
-    userMessageId?: number,
-    assistantMessageId?: number,
-    prepareContextOptions?: (
-      options: BuildRagContextOptions
-    ) => Promise<BuildRagContextOptions>
-  ): Promise<void> {
-    try {
-      await this.store.update(submission.id, {
-        status: "building-context",
-        ...(userMessageId !== undefined ? { userMessageId } : {}),
-        ...(assistantMessageId !== undefined ? { assistantMessageId } : {})
-      })
-      const preparedContextOptions = prepareContextOptions
-        ? await prepareContextOptions(contextOptions)
-        : contextOptions
-      const context = await this.contextService.build({
-        turnId: submission.id,
-        mode: submission.mode,
-        model: submission.model,
-        providerId: submission.providerId,
-        options: preparedContextOptions
-      })
-      await this.store.update(submission.id, {
-        status: "generating",
-        contextReceipt: context.receipt
-      })
-      const result = await this.generation.start({
-        submission,
-        context,
-        userMessageId,
-        assistantMessageId
-      })
-      await this.store.update(submission.id, {
-        status: result.outcome === "cancelled" ? "cancelled" : "completed",
-        ...(result.outcome === "cancelled" ? { failure: null } : {}),
-        ...(result.userMessageId !== undefined
-          ? { userMessageId: result.userMessageId }
-          : {}),
-        ...(result.assistantMessageId !== undefined
-          ? { assistantMessageId: result.assistantMessageId }
-          : {})
-      })
-    } catch (error) {
-      await this.store.update(submission.id, {
-        status: "failed",
-        failure: toAppFailure(error, {
-          fallbackMessage: "Turn failed",
-          context: "turn-run"
-        })
-      })
-      throw error
-    }
+    })
   }
 }
