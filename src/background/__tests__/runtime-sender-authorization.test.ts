@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest"
 import {
   classifyRuntimeSender,
+  type RuntimeSenderLike
+} from "@ollama-client/runtime-core/runtime-sender"
+import { describe, expect, it } from "vitest"
+import {
   isRuntimeMessageAllowed,
   isRuntimePortAllowed,
-  isRuntimePortMessageAllowed,
-  type RuntimeSenderLike
+  isRuntimePortMessageAllowed
 } from "@/background/runtime-sender-authorization"
 import { MESSAGE_KEYS } from "@/lib/constants"
 

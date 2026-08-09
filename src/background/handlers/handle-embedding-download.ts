@@ -1,8 +1,8 @@
 import {
   type AbortTimeout,
-  createAbortTimeout,
-  EMBEDDING_DOWNLOAD_TIMEOUT_MS
-} from "@/background/lib/fetch-timeout"
+  createAbortTimeout
+} from "@ollama-client/runtime-core/cancellation"
+import { EMBEDDING_DOWNLOAD_TIMEOUT_MS } from "@/background/lib/fetch-timeout"
 import { notifyJobComplete } from "@/background/lib/notify"
 import { getBaseUrl } from "@/background/lib/utils"
 import {

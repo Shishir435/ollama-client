@@ -29,6 +29,9 @@ importers:
       '@ollama-client/contracts':
         specifier: workspace:*
         version: link:packages/contracts
+      '@ollama-client/runtime-core':
+        specifier: workspace:*
+        version: link:packages/runtime-core
       '@plasmohq/storage':
         specifier: ^1.15.0
         version: 1.15.0(react@19.2.6)
@@ -349,6 +352,12 @@ importers:
       zod:
         specifier: ^4.4.3
         version: 4.4.3
+
+  packages/runtime-core:
+    dependencies:
+      '@ollama-client/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
 packages:
 

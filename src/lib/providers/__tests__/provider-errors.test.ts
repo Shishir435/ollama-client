@@ -11,7 +11,6 @@ import { OpenAICompatibleProvider } from "../openai-compatible"
 import {
   classifyProviderError,
   isLocalProviderBaseUrl,
-  parseRetryAfter,
   providerErrorUserMessage
 } from "../provider-errors"
 import { type ProviderConfig, ProviderType } from "../types"
@@ -186,16 +185,6 @@ describe("providerErrorUserMessage", () => {
     expect(sanitizeModelIdentifier("C:\\Users\\Alice\\Models\\qwen.gguf")).toBe(
       "C:\\Users\\<redacted>\\Models\\qwen.gguf"
     )
-  })
-})
-
-describe("parseRetryAfter", () => {
-  it("parses seconds and HTTP dates", () => {
-    expect(parseRetryAfter("1.5")).toBe(1500)
-    expect(parseRetryAfter("Thu, 01 Jan 2026 00:00:02 GMT", 0)).toBe(
-      Date.parse("Thu, 01 Jan 2026 00:00:02 GMT")
-    )
-    expect(parseRetryAfter("invalid")).toBeUndefined()
   })
 })
 

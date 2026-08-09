@@ -1,12 +1,13 @@
 import type { TurnToast } from "@ollama-client/contracts/turns"
-import type { BuildRagContextOptions } from "@/application/context/build-context"
-import { ContextService } from "@/application/context/context-service"
 import {
   makeStreamReducerState,
   reduceStreamEvent,
   type StreamReducerState,
   type StreamTerminal
-} from "@/application/turns/chat-stream-reducer"
+} from "@ollama-client/runtime-core/chat-stream-reducer"
+import type { ThinkingParserState } from "@ollama-client/runtime-core/thinking-stream"
+import type { BuildRagContextOptions } from "@/application/context/build-context"
+import { ContextService } from "@/application/context/context-service"
 import type {
   DurableTurnRun,
   TurnSubmission
@@ -33,7 +34,6 @@ import {
   getTurnRun,
   updateTurnRun
 } from "@/lib/repositories/turn-runs"
-import type { ThinkingParserState } from "@/lib/thinking-parser"
 import {
   CHAT_STREAM_EVENT_TYPES,
   type ChatStreamServerEvent,
@@ -239,11 +239,14 @@ const makeGenerationOwner = (): TurnGenerationOwner => ({
         content: context.result.contentWithRAG
       }
     ]
-    let state: StreamReducerState = makeStreamReducerState({
+    let state: StreamReducerState<ChatMessage> = makeStreamReducerState({
       ...assistant,
       id: resolvedAssistantId
     })
-    const completion: { terminal?: StreamTerminal; aborted: boolean } = {
+    const completion: {
+      terminal?: StreamTerminal<ChatMessage>
+      aborted: boolean
+    } = {
       aborted: false
     }
     let persistence = Promise.resolve()

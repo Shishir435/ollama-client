@@ -3,6 +3,7 @@ import type {
   IngestionJobResult,
   IngestionSubmitRequest
 } from "@ollama-client/contracts/ingestion-rpc"
+import { writeCheckpoint } from "@ollama-client/runtime-core/checkpoint"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import { processKnowledge } from "@/lib/knowledge/knowledge-processor"
@@ -77,15 +78,7 @@ const checkpoint = async (
   phase: IngestionPhase,
   failure?: string
 ): Promise<IngestionRun> => {
-  const updated: IngestionRun = {
-    ...run,
-    status,
-    phase,
-    failure,
-    updatedAt: Date.now()
-  }
-  await saveIngestionRun(updated)
-  return updated
+  return writeCheckpoint(run, { status, phase, failure }, saveIngestionRun)
 }
 
 const compensate = async (run: IngestionRun): Promise<void> => {

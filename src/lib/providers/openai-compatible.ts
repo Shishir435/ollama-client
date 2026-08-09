@@ -1,10 +1,12 @@
+import {
+  isRetryableProviderStatus,
+  parseRetryAfter
+} from "@ollama-client/runtime-core/retry"
 import { createAppError } from "@/lib/error-utils"
 import { toDataUrl } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
 import {
   classifyProviderError,
-  isRetryableProviderStatus,
-  parseRetryAfter,
   providerErrorUserMessage,
   readProviderStreamChunk,
   throwProviderConnectionError,

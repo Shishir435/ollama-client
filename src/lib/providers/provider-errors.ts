@@ -1,3 +1,7 @@
+import {
+  isRetryableProviderStatus,
+  parseRetryAfter
+} from "@ollama-client/runtime-core/retry"
 import { EXTERNAL_URLS } from "@/lib/constants/urls"
 import {
   type AppError,
@@ -196,24 +200,6 @@ export const isLocalProviderBaseUrl = (baseUrl?: string): boolean => {
     return false
   }
 }
-
-export const parseRetryAfter = (
-  value: string | null,
-  now = Date.now()
-): number | undefined => {
-  if (!value) return undefined
-  const seconds = Number(value)
-  if (Number.isFinite(seconds) && seconds >= 0) {
-    return Math.round(seconds * 1000)
-  }
-
-  const retryAt = Date.parse(value)
-  if (Number.isNaN(retryAt)) return undefined
-  return Math.max(0, retryAt - now)
-}
-
-export const isRetryableProviderStatus = (status: number): boolean =>
-  status === 408 || status === 429 || status === 529 || status >= 500
 
 /**
  * Map a provider HTTP status to a clean, user-facing message. Keeps raw

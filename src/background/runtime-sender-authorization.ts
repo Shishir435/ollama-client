@@ -1,31 +1,8 @@
+import {
+  classifyRuntimeSender,
+  type RuntimeSenderLike
+} from "@ollama-client/runtime-core/runtime-sender"
 import { isRuntimeTransportAllowed } from "@/protocol/runtime-transport-registry"
-
-export type RuntimeSenderSurface =
-  | "extension-page"
-  | "content-script"
-  | "untrusted"
-
-export interface RuntimeSenderLike {
-  id?: string
-  origin?: string
-  tab?: { id?: number }
-  url?: string
-}
-
-export const classifyRuntimeSender = (
-  sender: RuntimeSenderLike,
-  extensionId: string,
-  extensionUrlPrefix: string
-): RuntimeSenderSurface => {
-  if (!extensionId || sender.id !== extensionId) return "untrusted"
-  if (
-    sender.url?.startsWith(extensionUrlPrefix) ||
-    (sender.origin && extensionUrlPrefix.startsWith(`${sender.origin}/`))
-  ) {
-    return "extension-page"
-  }
-  return sender.tab ? "content-script" : "extension-page"
-}
 
 export const isRuntimeMessageAllowed = (
   type: string,
