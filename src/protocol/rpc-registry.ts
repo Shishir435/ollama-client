@@ -112,16 +112,17 @@ export const RPC_METHOD_DEFINITIONS = {
     operation: "command"
   },
   /*
-   * A query, so it commits nothing a client timeout could strand: the fetched
-   * icon is written to the device-local cache by the lookup itself, which is
-   * idempotent and re-derivable from the endpoint at any time.
+   * A command despite reading like a getter: it fetches icons the device has
+   * not seen, writes them to the device-local cache, and empties that cache
+   * when the user has turned the lookup off. Queries promise none of that, and
+   * the label is the only thing that tells the next reader which promise holds.
    */
   [RpcMethod.ProvidersIcons]: {
     request: ProvidersIconsRequestSchema,
     response: ProvidersIconsResultSchema,
     allowedSources: extensionPagesOnly,
     timeoutMs: 15_000,
-    operation: "query"
+    operation: "command"
   },
   [RpcMethod.ModelsGetDetails]: {
     request: ModelsGetDetailsRequestSchema,

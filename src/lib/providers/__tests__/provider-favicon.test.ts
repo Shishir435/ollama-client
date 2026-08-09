@@ -37,6 +37,8 @@ const imageResponse = (
 ): Response =>
   ({
     ok: true,
+    status: 200,
+    type: "basic",
     headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
     arrayBuffer: async () => new Uint8Array(bytes).buffer
   }) as unknown as Response
@@ -281,6 +283,61 @@ describe("resolveProviderFavicon", () => {
     await resolveProviderFavicon(config("https://api.example.com:8443/v1"))
 
     expect(fetchMock.mock.calls[1][0]).toBe("https://example.com/favicon.ico")
+  })
+
+  /*
+   * The host we vetted is not necessarily the host that answers. A provider
+   * that redirects /favicon.ico picks the next address itself, and this fetch
+   * carries <all_urls> host permission — following one would let a public
+   * endpoint aim the extension at loopback or a LAN address.
+   */
+  it("refuses to follow redirects", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(imageResponse([...PNG_MAGIC, 0x07]))
+
+    await resolveProviderFavicon(config("https://api.example.com/v1"))
+
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: "manual" })
+  })
+
+  it("tries the parent site when the API host redirects", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 0,
+        type: "opaqueredirect"
+      } as Response)
+      .mockResolvedValueOnce(imageResponse([...PNG_MAGIC, 0x08]))
+
+    const dataUrl = await resolveProviderFavicon(
+      config("https://api.example.com/v1")
+    )
+
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      "https://api.example.com/favicon.ico",
+      "https://example.com/favicon.ico"
+    ])
+    expect(dataUrl).toMatch(/^data:image\/png;base64,/)
+  })
+
+  /*
+   * A cancelled fetch is indistinguishable from an endpoint with no icon, so
+   * recording it would hold the provider iconless for the whole miss window
+   * over a request nobody waited for.
+   */
+  it("writes nothing once the caller has given up", async () => {
+    const controller = new AbortController()
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      controller.abort()
+      throw new Error("aborted")
+    })
+
+    const provider = config("https://api.example.com/v1")
+    expect(await resolveProviderFavicon(provider, controller.signal)).toBeNull()
+
+    expect(await getProviderFaviconMap()).toEqual({})
   })
 
   it("treats a failed request as no icon", async () => {

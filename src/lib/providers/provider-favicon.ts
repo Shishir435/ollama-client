@@ -21,6 +21,10 @@ import type { ProviderConfig } from "./types"
  * answers, so the vendor's own site is asked once instead. A third-party favicon
  * service is never used: it would hand every configured provider URL to whoever
  * runs it, which is the opposite of what this is for.
+ *
+ * Every address reached is one this module chose and vetted. Redirects are
+ * refused rather than followed, because a followed one is chosen by the
+ * provider — and this request carries `<all_urls>` host permission.
  */
 export interface ProviderFaviconEntry {
   /** `data:` URI, or null when the host has no usable favicon. */
@@ -266,11 +270,27 @@ const fetchIcon = async (
   signal?.addEventListener("abort", onAbort, { once: true })
 
   try {
+    /*
+     * Redirects are refused, not followed. `isRemoteFaviconHost` vets the host
+     * we chose; a 302 lets the provider choose the next one, and this request
+     * carries `<all_urls>` host permission — so a public endpoint could point
+     * it at loopback or a LAN address and have the extension fetch what the
+     * page never could. `manual` returns an opaque redirect instead of
+     * following, which is also the only way to notice one: the filtered
+     * response exposes no `Location` to re-validate.
+     */
     const response = await fetch(url, {
       signal: timeout.signal,
       credentials: "omit",
-      redirect: "follow"
+      redirect: "manual"
     })
+
+    // Treated as absent rather than as a failure, so the parent site still
+    // gets its turn — an API host redirecting /favicon.ico has none of its own.
+    if (response.type === "opaqueredirect" || response.status === 0) {
+      return NO_ICON
+    }
+
     if (!response.ok) {
       return NO_ICON_STATUSES.includes(response.status)
         ? NO_ICON
@@ -350,6 +370,15 @@ export const resolveProviderFavicon = async (
   if (cached) return cached.dataUrl
 
   const dataUrl = await fetchProviderFavicon(config, signal)
+
+  /*
+   * Nothing is written once the caller has gone. An aborted fetch comes back
+   * indistinguishable from an endpoint with no icon, so recording it would
+   * remember a three-day miss for a request that was merely cancelled, and the
+   * provider would sit iconless until that entry aged out.
+   */
+  if (signal?.aborted) return dataUrl
+
   await recordProviderFavicon(config, dataUrl, now).catch(() => undefined)
   return dataUrl
 }
