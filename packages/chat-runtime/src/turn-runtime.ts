@@ -4,6 +4,7 @@ import type {
   TurnMode,
   TurnStatus
 } from "@ollama-client/contracts/turns"
+import type { ContextBuildCommand } from "./context-runtime"
 
 export interface PersistedTurnRequest<TContext, TMessage> {
   version: 1
@@ -44,17 +45,9 @@ export interface TurnRunStore<TContext, TMessage> {
   update: (id: string, updates: TurnRunUpdate) => Promise<void>
 }
 
-export interface TurnContextCommand<TContextOptions> {
-  turnId: string
-  mode: TurnMode
-  model: string
-  providerId?: string
-  options: TContextOptions
-}
-
 export interface TurnContextOwner<TContextOptions, TContextOutput> {
   build: (
-    command: TurnContextCommand<TContextOptions>
+    command: ContextBuildCommand<TContextOptions>
   ) => Promise<TContextOutput & { receipt: ContextReceipt }>
 }
 

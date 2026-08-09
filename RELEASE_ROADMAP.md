@@ -242,8 +242,8 @@ Remaining package work:
 
 - P1: complete in `release/0.13.x` via PRs #244–#246.
 - P2: complete in `release/0.13.x` via PR #247.
-- P3: in progress on `feature/chat-runtime-turn-orchestration`; agent runtime
-  remains scheduled for `0.14.x`.
+- P3: in progress on `feature/chat-runtime-context-orchestration`; agent
+  runtime remains scheduled for `0.14.x`.
 
 #### P1 — `packages/contracts`
 
@@ -348,7 +348,8 @@ Exit gate: deterministic tests run without browser globals or extension setup.
 
 #### P3 — domain runtimes
 
-Status: in progress on `feature/chat-runtime-turn-orchestration`, 2026-08-09.
+Status: in progress on `feature/chat-runtime-context-orchestration`,
+2026-08-09.
 
 Completed in the first turn-orchestration slice:
 
@@ -362,10 +363,23 @@ Completed in the first turn-orchestration slice:
 - Added a source contract allowing only relative modules plus contracts and
   runtime-core dependencies from chat-runtime.
 
+Merged in `release/0.13.x` via PR #248.
+
+Completed in the context-orchestration slice:
+
+- Moved context build command/output contracts, injected builder coordination,
+  clock ownership, receipt projection, and source normalization into
+  `@ollama-client/chat-runtime`.
+- Kept RAG retrieval, provider and storage access, browser-derived inputs,
+  activity callbacks, warnings, and prompt construction in the extension
+  adapter.
+- Added clean-Node tests for deterministic evidence, provider attribution,
+  forward-compatible source normalization, and failed builds that mint no
+  receipt.
+
 Remaining P3 slices:
 
-- `packages/chat-runtime`: turn orchestration, context contracts, and tool-loop
-  coordination behind ports.
+- `packages/chat-runtime`: tool-loop coordination behind ports.
 - `packages/agent-runtime`: added in `0.14.x`; task compiler, policy, approval,
   controller, verification, and recovery.
 
