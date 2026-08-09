@@ -1,10 +1,8 @@
-import type { AppFailure } from "@ollama-client/contracts/app-failure"
-import {
-  type ContextReceipt,
-  PersistedTurnRequestSchema,
-  type TurnMode,
-  type TurnStatus
-} from "@ollama-client/contracts/turns"
+import type {
+  DurableTurnRun as RuntimeDurableTurnRun,
+  TurnSubmission as RuntimeTurnSubmission
+} from "@ollama-client/chat-runtime/turn-runtime"
+import { PersistedTurnRequestSchema } from "@ollama-client/contracts/turns"
 import {
   type DurableContextOptions,
   parseDurableContextOptions
@@ -30,26 +28,17 @@ export const parsePersistedTurnRequest = (
   }
 }
 
-export interface TurnSubmission {
-  id: string
-  sessionId: string
-  mode: TurnMode
-  model: string
-  providerId?: string
-  request: PersistedTurnRequest
-  createdAt: number
-}
+export type TurnSubmission = RuntimeTurnSubmission<
+  DurableContextOptions,
+  ChatMessage
+>
 
 export interface DurableTurnStart {
   submission: TurnSubmission
   userMessageId: number
 }
 
-export interface DurableTurnRun extends TurnSubmission {
-  status: TurnStatus
-  contextReceipt?: ContextReceipt
-  userMessageId?: number
-  assistantMessageId?: number
-  failure?: AppFailure
-  updatedAt: number
-}
+export type DurableTurnRun = RuntimeDurableTurnRun<
+  DurableContextOptions,
+  ChatMessage
+>

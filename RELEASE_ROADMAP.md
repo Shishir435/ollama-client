@@ -240,17 +240,14 @@ Completed:
 
 Remaining package work:
 
-- P1: complete on `feature/contracts-provider-rpc-schemas`; merge the proven
-  contract seams into `release/0.13.x`.
-- P2: complete on `feature/runtime-core-primitives`; merge deterministic
-  runtime helpers and their environment ports into `release/0.13.x`.
-- P3: extract chat runtime only after P1/P2 prove stable; agent runtime remains
-  scheduled for `0.14.x`.
+- P1: complete in `release/0.13.x` via PRs #244–#246.
+- P2: complete in `release/0.13.x` via PR #247.
+- P3: in progress on `feature/chat-runtime-turn-orchestration`; agent runtime
+  remains scheduled for `0.14.x`.
 
 #### P1 — `packages/contracts`
 
-Status: complete on `feature/contracts-provider-rpc-schemas`, pending merge,
-2026-08-09.
+Status: complete in `release/0.13.x` via PRs #244–#246, 2026-08-09.
 
 Completed in the first extraction slice:
 
@@ -302,7 +299,7 @@ Completed in the final P1 slice:
   application normalization adapters; they convert errors or persisted legacy
   shapes and do not re-export package contracts.
 
-Remaining in P1: none after this branch merges.
+Remaining in P1: none.
 
 Candidate ownership:
 
@@ -315,8 +312,7 @@ consume it through its public exports.
 
 #### P2 — `packages/runtime-core`
 
-Status: complete on `feature/runtime-core-primitives`, pending merge,
-2026-08-09.
+Status: complete in `release/0.13.x` via PR #247, 2026-08-09.
 
 Completed:
 
@@ -338,8 +334,8 @@ Completed:
 - Added an architecture contract that permits only relative modules and
   `@ollama-client/contracts` imports from runtime-core.
 
-Remaining in P2: none after this branch merges. Browser transport authorization
-remains extension policy; turn, context, and tool-loop
+Remaining in P2: none. Browser transport authorization remains extension
+policy; turn, context, and tool-loop
 orchestration remain domain-runtime work for P3.
 
 Candidate ownership:
@@ -352,7 +348,21 @@ Exit gate: deterministic tests run without browser globals or extension setup.
 
 #### P3 — domain runtimes
 
-Extract only after P1/P2 prove useful:
+Status: in progress on `feature/chat-runtime-turn-orchestration`, 2026-08-09.
+
+Completed in the first turn-orchestration slice:
+
+- Added the environment-independent `@ollama-client/chat-runtime` workspace
+  package with a clean-Node test project and independent no-DOM typecheck.
+- Moved durable turn submission, context/generation transitions, resume,
+  completion/cancellation, and failure persistence into a port-driven runtime.
+- Kept persisted-shape normalization, context callbacks, failure conversion,
+  SQLite repositories, provider invocation, and browser streaming in extension
+  composition.
+- Added a source contract allowing only relative modules plus contracts and
+  runtime-core dependencies from chat-runtime.
+
+Remaining P3 slices:
 
 - `packages/chat-runtime`: turn orchestration, context contracts, and tool-loop
   coordination behind ports.
