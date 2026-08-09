@@ -4,7 +4,7 @@ export interface Abortable {
 }
 
 /** Owns keyed cancellation handles without knowing their transport or task. */
-export class CancellationRegistry<T extends Abortable = AbortController> {
+export class CancellationRegistry<T extends Abortable = Abortable> {
   readonly #entries = new Map<string, T>()
 
   set(key: string, controller: T | null): void {
@@ -41,18 +41,27 @@ export interface AbortTimeout {
   timedOut: () => boolean
 }
 
+/** Host timer capability used by timeout-driven cancellation. */
+export interface RuntimeTimer {
+  setTimeout: (callback: () => void, ms: number) => unknown
+  clearTimeout: (handle: unknown) => void
+}
+
+const hostTimer = globalThis as unknown as RuntimeTimer
+
 /** Arm a timeout without conflating external cancellation with expiry. */
 export const createAbortTimeout = (
   controller: Abortable,
-  ms: number
+  ms: number,
+  timer: RuntimeTimer = hostTimer
 ): AbortTimeout => {
   let didTimeout = false
-  const id = setTimeout(() => {
+  const id = timer.setTimeout(() => {
     didTimeout = true
     controller.abort()
   }, ms)
   return {
-    clear: () => clearTimeout(id),
+    clear: () => timer.clearTimeout(id),
     timedOut: () => didTimeout
   }
 }

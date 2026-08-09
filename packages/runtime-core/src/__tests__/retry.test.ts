@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isRetryableProviderStatus, parseRetryAfter } from "./retry"
+import { isRetryableProviderStatus, parseRetryAfter } from "../retry"
 
 describe("parseRetryAfter", () => {
   it("parses seconds and HTTP dates", () => {

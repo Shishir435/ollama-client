@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { classifyRuntimeSender } from "./runtime-sender"
+import { classifyRuntimeSender } from "../runtime-sender"
 
 const extensionId = "extension-id"
 const extensionUrlPrefix = "chrome-extension://extension-id/"

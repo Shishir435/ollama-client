@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { writeCheckpoint } from "./checkpoint"
+import { writeCheckpoint } from "../checkpoint"
 
 describe("writeCheckpoint", () => {
   it("persists and returns the same timestamped transition", async () => {

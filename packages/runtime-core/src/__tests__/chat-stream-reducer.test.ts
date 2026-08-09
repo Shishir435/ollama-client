@@ -5,7 +5,7 @@ import {
   reduceStreamEvent,
   type StreamMessage,
   type StreamReducerState
-} from "./chat-stream-reducer"
+} from "../chat-stream-reducer"
 
 const shell = (): ChatMessageParsed => ({
   role: "assistant",
