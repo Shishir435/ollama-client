@@ -395,6 +395,17 @@ const fetchProviderFavicon = async (
   const parent = parentFaviconUrl(baseUrl)
   if (!parent) return null
 
+  /*
+   * Unreachable today, and kept anyway. A parent inherits its base's suffixes,
+   * and it cannot be a private literal because a host whose last label is
+   * numeric but is not a valid quad — `sub.127.0.0.1` — fails to parse at all.
+   * Both of those live in the URL parser and the suffix list rather than here,
+   * so the guard states the invariant locally: every address this module
+   * fetches has passed the filter, without a reader having to rebuild that
+   * argument to be sure.
+   */
+  if (!isRemoteFaviconHost(parent)) return null
+
   logger.debug(
     "Falling back to the parent site for a provider icon",
     "ProviderFavicon",

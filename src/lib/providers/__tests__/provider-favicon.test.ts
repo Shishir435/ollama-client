@@ -103,6 +103,20 @@ describe("isRemoteFaviconHost", () => {
     expect(isRemoteFaviconHost(baseUrl)).toBe(true)
   })
 
+  /*
+   * The parent-site fallback strips a label, which could in principle turn an
+   * allowed host into a blocked address. It cannot in practice: a host whose
+   * last label is numeric but is not a valid quad fails to parse outright, so
+   * no base URL has a private literal for a parent. Asserted because the
+   * re-check in the fallback rests on it.
+   */
+  it.each([
+    "http://sub.127.0.0.1/v1",
+    "http://1.169.254.169.254/v1"
+  ])("cannot even express %s as a host", (baseUrl) => {
+    expect(isRemoteFaviconHost(baseUrl)).toBe(false)
+  })
+
   it("refuses a malformed base URL", () => {
     expect(isRemoteFaviconHost("not a url")).toBe(false)
     expect(isRemoteFaviconHost(undefined)).toBe(false)
