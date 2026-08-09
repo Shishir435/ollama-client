@@ -1,319 +1,34 @@
-import { AppFailureSchema } from "@ollama-client/contracts/app-failure"
-import { z } from "zod"
+import type { ChatMessageParsed } from "@ollama-client/contracts/chat"
+import type { ChatMessage } from "./chat"
 
-const optionalString = z.preprocess(
-  (value) => (value === null ? undefined : value),
-  z.string().optional()
-)
+export * from "@ollama-client/contracts/chat"
 
-const optionalNumber = z.preprocess(
-  (value) => (value === null ? undefined : value),
-  z.number().optional()
-)
-
-const optionalBoolean = z.preprocess(
-  (value) => (value === null ? undefined : value),
-  z.boolean().optional()
-)
-
-// ---- Metrics (used inside messages and for SQLite parseMetrics) ----
-
-const RagSourceSchema = z.object({
-  id: z.union([z.number(), z.string()]),
-  title: z.string(),
-  content: z.string(),
-  score: z.number(),
-  source: z.string().optional(),
-  chunkIndex: z.number().optional(),
-  fileId: z.string().optional(),
-  type: z.string().optional()
-})
-
-export const UsedContextChunkSchema = z.object({
-  id: z.union([z.string(), z.number()]),
-  title: z.string(),
-  titleKey: z.string().optional(),
-  excerpt: z.string(),
-  score: z.number(),
-  sectionPath: z.string().optional(),
-  source: z.string().optional(),
-  chunkIndex: z.number().optional()
-})
-
-export const ToolRunSchema = z.object({
-  toolId: z.string(),
-  label: z.string(),
-  displayNameKey: z.string().optional(),
-  iconKey: z.string().optional(),
-  category: z
-    .enum([
-      "browser",
-      "knowledge",
-      "files",
-      "selection",
-      "web",
-      "system",
-      "external"
-    ])
-    .optional(),
-  risk: z.enum(["low", "medium", "high", "critical"]).optional(),
-  taintGeneration: z.number().int().nonnegative().optional(),
-  origin: z.string().optional(),
-  status: z.enum([
-    "pending",
-    "running",
-    "done",
-    "error",
-    "awaiting-confirmation"
-  ]),
-  callId: z.string().optional(),
-  startedAt: z.number(),
-  completedAt: z.number().optional(),
-  sources: z
-    .array(
-      z.object({
-        id: z.union([z.string(), z.number()]).optional(),
-        title: z.string(),
-        url: optionalString,
-        excerpt: optionalString,
-        publishedAt: optionalString,
-        source: optionalString,
-        score: optionalNumber,
-        category: optionalString,
-        used: optionalBoolean
-      })
-    )
-    .optional(),
-  error: z.string().optional(),
-  truncated: z.boolean().optional(),
-  args: z.record(z.string(), z.unknown()).optional(),
-  resultPreview: z.string().optional()
-})
-
-export const ActivityTextSchema = z.object({
-  text: z.string(),
-  textKey: z.string().optional()
-})
-
-export const ActivityEventSchema = z.object({
-  id: z.string(),
-  kind: z.enum([
-    "preparing_context",
-    "query_rewrite",
-    "searching_memory",
-    "searching_files",
-    "reading_page",
-    "calling_tool",
-    "generating_answer"
-  ]),
-  label: z.string(),
-  labelKey: z.string().optional(),
-  status: z.enum(["running", "done", "error"]),
-  startedAt: z.number(),
-  finishedAt: z.number().optional(),
-  inputPreview: z.string().optional(),
-  outputPreview: z.union([z.string(), ActivityTextSchema]).optional(),
-  resultCount: z.number().optional(),
-  sourceTitles: z.array(z.union([z.string(), ActivityTextSchema])).optional(),
-  error: z.string().optional()
-})
-
-export const ToolCallSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  arguments: z.record(z.string(), z.unknown())
-})
-
-const MAX_REPLAY_ARTIFACT_BYTES = 1024 * 1024
-const MAX_REPLAY_BLOCKS = 256
-
-const AnthropicReplayBlockSchema = z.discriminatedUnion("type", [
-  z
-    .object({
-      type: z.literal("thinking"),
-      thinking: z.string(),
-      signature: z.string()
-    })
-    .passthrough(),
-  z
-    .object({
-      type: z.literal("redacted_thinking"),
-      data: z.string()
-    })
-    .passthrough(),
-  z.object({ type: z.literal("text"), text: z.string() }).passthrough(),
-  z
-    .object({
-      type: z.literal("tool_use"),
-      id: z.string(),
-      name: z.string(),
-      input: z.record(z.string(), z.unknown())
-    })
-    .passthrough()
-])
-
-const OpenAIReasoningCommonSchema = z.object({
-  id: z.string().nullish(),
-  format: z.string().nullish(),
-  index: z.number().int().nonnegative().optional()
-})
-
-const OpenAIReplayBlockSchema = z.discriminatedUnion("type", [
-  OpenAIReasoningCommonSchema.extend({
-    type: z.literal("reasoning.summary"),
-    summary: z.string()
-  }).passthrough(),
-  OpenAIReasoningCommonSchema.extend({
-    type: z.literal("reasoning.encrypted"),
-    data: z.string()
-  }).passthrough(),
-  OpenAIReasoningCommonSchema.extend({
-    type: z.literal("reasoning.text"),
-    text: z.string(),
-    signature: z.string().nullish()
-  }).passthrough()
-])
-
-const replayArtifactSize = (value: unknown): number => {
-  try {
-    return new TextEncoder().encode(JSON.stringify(value)).byteLength
-  } catch {
-    return Number.POSITIVE_INFINITY
+/** Convert persisted compatibility byte shapes into the app's runtime form. */
+export const toRuntimeChatMessage = (
+  message: ChatMessageParsed
+): ChatMessage => {
+  const { attachments, ...rest } = message
+  return {
+    ...rest,
+    ...(attachments
+      ? {
+          attachments: attachments.map((attachment) => {
+            const { data, ...attachmentRest } = attachment
+            return {
+              ...attachmentRest,
+              ...(data !== undefined
+                ? {
+                    data:
+                      data instanceof Uint8Array
+                        ? data
+                        : Uint8Array.from(
+                            Array.isArray(data) ? data : Object.values(data)
+                          )
+                  }
+                : {})
+            }
+          })
+        }
+      : {})
   }
 }
-
-export const ProviderReplayArtifactSchema = z
-  .discriminatedUnion("wire", [
-    z.object({
-      version: z.literal(1),
-      wire: z.literal("anthropic"),
-      providerId: z.string().min(1),
-      model: z.string().min(1),
-      blocks: z.array(AnthropicReplayBlockSchema).min(1).max(MAX_REPLAY_BLOCKS)
-    }),
-    z.object({
-      version: z.literal(1),
-      wire: z.literal("openai"),
-      providerId: z.string().min(1),
-      model: z.string().min(1),
-      blocks: z.array(OpenAIReplayBlockSchema).min(1).max(MAX_REPLAY_BLOCKS)
-    })
-  ])
-  .refine(
-    (artifact) => replayArtifactSize(artifact) <= MAX_REPLAY_ARTIFACT_BYTES,
-    "Provider replay artifact exceeds the storage limit"
-  )
-
-export const ChatMessageMetricsSchema = z.object({
-  total_duration: z.number().optional(),
-  load_duration: z.number().optional(),
-  prompt_eval_count: z.number().optional(),
-  prompt_eval_duration: z.number().optional(),
-  eval_count: z.number().optional(),
-  eval_duration: z.number().optional(),
-  ragQuery: z.string().optional(),
-  ragSources: z.array(RagSourceSchema).optional(),
-  usedContextChunks: z.array(UsedContextChunkSchema).optional(),
-  activityEvents: z.array(ActivityEventSchema).optional(),
-  toolRuns: z.array(ToolRunSchema).optional(),
-  groundedOnlyMode: z.boolean().optional(),
-  insufficientContext: z.boolean().optional(),
-  promptInputLength: z.number().optional(),
-  promptAugmentedLength: z.number().optional(),
-  tabContextLength: z.number().optional(),
-  ragContextLength: z.number().optional(),
-  tabContextTruncated: z.boolean().optional(),
-  contextBuildFailed: z.boolean().optional(),
-  thinkingOnlyResponse: z.boolean().optional(),
-  emptyResponse: z.boolean().optional(),
-  interrupted: z.boolean().optional()
-})
-
-// ---- FileAttachment ----
-
-export const FileAttachmentSchema = z.object({
-  id: z.number().optional(),
-  fileId: z.string(),
-  fileName: z.string(),
-  fileType: z.string(),
-  fileSize: z.number(),
-  textPreview: z.string().optional(),
-  processedAt: z.number(),
-  sessionId: z.string().optional(),
-  messageId: z.number().optional(),
-  // Bytes export as a JSON array, but a Uint8Array that slips through
-  // JSON.stringify serializes to an index-keyed object ({"0":..,"1":..}).
-  // Accept both so one stray byte field can't fail validation and silently
-  // skip the whole session on import.
-  data: z
-    .union([
-      z.instanceof(Uint8Array),
-      z.array(z.number()),
-      z.record(z.string(), z.number())
-    ])
-    .optional()
-})
-
-export type FileAttachmentParsed = z.infer<typeof FileAttachmentSchema>
-
-const ImageAttachmentSchema = z.object({
-  id: z.number().optional(),
-  imageId: z.string(),
-  fileName: z.string(),
-  mimeType: z.string(),
-  size: z.number(),
-  base64: z.string(),
-  width: z.number().optional(),
-  height: z.number().optional(),
-  sessionId: z.string().optional(),
-  messageId: z.number().optional()
-})
-
-// ---- ChatMessage ----
-
-export const ChatMessageErrorSchema = AppFailureSchema.partial()
-
-export const ChatMessageSchema = z.object({
-  id: z.union([z.number(), z.string()]).optional(),
-  role: z.enum(["user", "assistant", "system", "tool"]),
-  content: z.string(),
-  thinking: z.string().optional(),
-  replayArtifact: ProviderReplayArtifactSchema.optional(),
-  done: z.boolean().optional(),
-  model: z.string().optional(),
-  attachments: z.array(FileAttachmentSchema).optional(),
-  images: z.array(ImageAttachmentSchema).optional(),
-  toolCalls: z.array(ToolCallSchema).optional(),
-  toolName: z.string().optional(),
-  toolCallId: z.string().optional(),
-  toolIsError: z.boolean().optional(),
-  error: ChatMessageErrorSchema.optional(),
-  timestamp: z.number().optional(),
-  metrics: ChatMessageMetricsSchema.optional(),
-  parentId: z.union([z.number(), z.string()]).optional(),
-  childrenIds: z.array(z.union([z.number(), z.string()])).optional(),
-  siblingIds: z.array(z.union([z.number(), z.string()])).optional()
-})
-
-// ---- ChatSession ----
-
-export const ChatSessionSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  createdAt: z.number(),
-  updatedAt: z.number(),
-  modelId: z.string().optional(),
-  currentLeafId: z.union([z.number(), z.string()]).optional(),
-  messages: z.array(ChatMessageSchema).optional()
-})
-
-/** Strict variant for import — messages are required. */
-export const ChatSessionImportSchema = ChatSessionSchema.extend({
-  messages: z.array(ChatMessageSchema)
-})
-
-// -- Output type aliases for consumers that need typed results --
-
-export type ChatMessageParsed = z.infer<typeof ChatMessageSchema>
-export type ChatSessionParsed = z.infer<typeof ChatSessionSchema>
-export type ChatSessionImportParsed = z.infer<typeof ChatSessionImportSchema>

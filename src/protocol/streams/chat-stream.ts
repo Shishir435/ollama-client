@@ -1,24 +1,25 @@
 import { AppFailureSchema } from "@ollama-client/contracts/app-failure"
 import {
-  CHAT_STREAM_EVENT_TYPES,
-  STREAM_PROTOCOL_VERSION
-} from "@ollama-client/contracts/streams"
-import { z } from "zod"
-import {
-  ContextReceiptSchema,
-  type PersistedTurnRequest,
-  PersistedTurnRequestSchema,
-  TurnModeSchema
-} from "@/application/turns/turn-contract"
-import { MESSAGE_KEYS } from "@/lib/constants"
-import type { ChatMessage, ProviderReplayArtifact, ToolRun } from "@/types"
-import {
   ActivityEventSchema,
   ChatMessageSchema,
   ProviderReplayArtifactSchema,
   ToolRunSchema,
   UsedContextChunkSchema
-} from "@/types/chat.schemas"
+} from "@ollama-client/contracts/chat"
+import {
+  CHAT_STREAM_EVENT_TYPES,
+  STREAM_PROTOCOL_VERSION
+} from "@ollama-client/contracts/streams"
+import {
+  ContextReceiptSchema,
+  PersistedTurnRequestSchema,
+  TurnModeSchema
+} from "@ollama-client/contracts/turns"
+import { z } from "zod"
+import type { PersistedTurnRequest } from "@/application/turns/turn-contract"
+import { MESSAGE_KEYS } from "@/lib/constants"
+import type { ProviderReplayArtifact, ToolRun } from "@/types"
+import { toRuntimeChatMessage } from "@/types/chat.schemas"
 import {
   SelectionStreamClientEventSchemas,
   SelectionStreamServerEventSchemas
@@ -38,35 +39,6 @@ const ContextFileSchema = z.object({
     fileId: z.string().optional()
   })
 })
-
-const toRuntimeChatMessage = (
-  message: z.infer<typeof ChatMessageSchema>
-): ChatMessage => {
-  const { attachments, ...rest } = message
-  return {
-    ...rest,
-    ...(attachments
-      ? {
-          attachments: attachments.map((attachment) => {
-            const { data, ...attachmentRest } = attachment
-            return {
-              ...attachmentRest,
-              ...(data
-                ? {
-                    data:
-                      data instanceof Uint8Array
-                        ? data
-                        : Uint8Array.from(
-                            Array.isArray(data) ? data : Object.values(data)
-                          )
-                  }
-                : {})
-            }
-          })
-        }
-      : {})
-  }
-}
 
 const RuntimeChatMessageSchema =
   ChatMessageSchema.transform(toRuntimeChatMessage)

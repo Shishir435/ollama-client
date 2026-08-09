@@ -1,14 +1,14 @@
-import { z } from "zod"
-import { createAppError } from "@/lib/error-utils"
-import { flushSave, query, run } from "@/lib/sqlite/db"
-import type { ToolCall } from "@/lib/tools"
-import type { ChatMessage, ToolRun } from "@/types"
 import {
   ChatMessageMetricsSchema,
   ChatMessageSchema,
   ToolCallSchema,
   ToolRunSchema
-} from "@/types/chat.schemas"
+} from "@ollama-client/contracts/chat"
+import { z } from "zod"
+import { createAppError } from "@/lib/error-utils"
+import { flushSave, query, run } from "@/lib/sqlite/db"
+import type { ToolCall } from "@/lib/tools"
+import type { ChatMessage, ToolRun } from "@/types"
 
 export type ToolLoopMode = "native" | "native-user-results" | "non-native"
 export type ToolLoopRunStatus = "running" | "awaiting-confirmation"

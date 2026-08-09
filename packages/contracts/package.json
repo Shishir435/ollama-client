@@ -6,8 +6,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./app-failure": "./src/app-failure.ts",
+    "./chat": "./src/chat.ts",
+    "./context": "./src/context.ts",
     "./rpc": "./src/rpc.ts",
-    "./streams": "./src/streams.ts"
+    "./streams": "./src/streams.ts",
+    "./turns": "./src/turns.ts"
   },
   "dependencies": {
     "zod": "^4.4.3"

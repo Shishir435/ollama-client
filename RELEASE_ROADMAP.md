@@ -248,7 +248,8 @@ Remaining package work:
 
 #### P1 — `packages/contracts`
 
-Status: in progress on `feature/contracts-package`, 2026-08-09.
+Status: in progress; first slice merged, turn-schema slice active on
+`feature/contracts-turn-schemas`, 2026-08-09.
 
 Completed in the first extraction slice:
 
@@ -259,14 +260,23 @@ Completed in the first extraction slice:
 - Added package-only Node tests, an independent no-DOM typecheck, and a source
   contract that permits only relative imports and Zod.
 
+Completed in the turn-schema slice:
+
+- Moved shared chat, persisted context, and persisted turn Zod schemas into
+  package subpath exports.
+- Kept normalized application command types behind explicit compatibility
+  adapters because legacy attachment bytes and replay artifacts have broader
+  persisted shapes than runtime `ChatMessage`.
+- Migrated stream and persistence schema consumers to package APIs directly and
+  added clean-Node coverage for nested turn contracts and UTF-8 replay limits.
+
 Remaining in P1:
 
-- Decouple persisted turn/context schemas from app-owned `ChatMessage` and
-  context implementations before moving them.
 - Move stable per-method request/result schemas in small domain slices once
   both callers import the package API directly.
-- Remove temporary `src/protocol` compatibility re-exports after callers have
-  migrated.
+- Remove temporary `src/protocol`, `src/types`, and `src/application` contract
+  compatibility re-exports/adapters after callers have migrated and persisted
+  data is normalized at each boundary.
 
 Candidate ownership:
 

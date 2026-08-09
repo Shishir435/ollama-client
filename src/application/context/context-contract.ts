@@ -1,45 +1,13 @@
-import { z } from "zod"
+import {
+  type ContextFileInput,
+  DurableContextOptionsSchema
+} from "@ollama-client/contracts/context"
 import type { ChatMessage, SelectedModelRef } from "@/types"
-import { ChatMessageSchema } from "@/types/chat.schemas"
+import { toRuntimeChatMessage } from "@/types/chat.schemas"
 
-export const ContextFileInputSchema = z.object({
-  text: z.string(),
-  metadata: z.object({
-    fileName: z.string(),
-    fileId: z.string().optional()
-  })
-})
+export * from "@ollama-client/contracts/context"
 
-export type ContextFileInput = z.infer<typeof ContextFileInputSchema>
-
-export const DurableContextOptionsSchema = z.object({
-  rawInput: z.string(),
-  files: z.array(ContextFileInputSchema).optional(),
-  messages: z.array(ChatMessageSchema),
-  hasTabContext: z.boolean(),
-  contextText: z.string(),
-  tabDocuments: z.array(
-    z.object({
-      id: z.string(),
-      title: z.string(),
-      content: z.string()
-    })
-  ),
-  memoryEnabled: z.boolean(),
-  maxTabContextChars: z.number(),
-  maxRagContextChars: z.number(),
-  groundedOnlyMode: z.boolean(),
-  retrievalToolsActive: z.boolean().optional(),
-  selectedModel: z.string(),
-  selectedModelRef: z
-    .object({
-      providerId: z.string(),
-      modelId: z.string()
-    })
-    .nullable(),
-  customModel: z.string().optional()
-})
-
+/** Runtime-normalized context command used inside the application. */
 export interface DurableContextOptions {
   rawInput: string
   files?: ContextFileInput[]
@@ -59,5 +27,10 @@ export interface DurableContextOptions {
 
 export const parseDurableContextOptions = (
   value: unknown
-): DurableContextOptions =>
-  DurableContextOptionsSchema.parse(value) as DurableContextOptions
+): DurableContextOptions => {
+  const parsed = DurableContextOptionsSchema.parse(value)
+  return {
+    ...parsed,
+    messages: parsed.messages.map(toRuntimeChatMessage)
+  }
+}

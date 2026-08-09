@@ -3,7 +3,8 @@ import {
   ChatMessageMetricsSchema,
   ChatMessageSchema,
   ChatSessionImportSchema,
-  ChatSessionSchema
+  ChatSessionSchema,
+  toRuntimeChatMessage
 } from "../chat.schemas"
 import { PromptTemplateSchema, ThemeSchema } from "../ui-state.schemas"
 
@@ -14,6 +15,27 @@ describe("ChatMessageSchema", () => {
       content: "hello"
     })
     expect(result.success).toBe(true)
+  })
+
+  it("normalizes legacy attachment bytes at the application boundary", () => {
+    const parsed = ChatMessageSchema.parse({
+      role: "user",
+      content: "hello",
+      attachments: [
+        {
+          fileId: "file-1",
+          fileName: "notes.txt",
+          fileType: "text/plain",
+          fileSize: 2,
+          processedAt: 1,
+          data: { 0: 65, 1: 66 }
+        }
+      ]
+    })
+
+    expect(toRuntimeChatMessage(parsed).attachments?.[0].data).toEqual(
+      Uint8Array.from([65, 66])
+    )
   })
 
   it("accepts a full message with all optional fields", () => {
