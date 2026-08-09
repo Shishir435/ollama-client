@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { AppFailureSchema } from "./app-failure"
+import { ChatMessageSchema } from "./chat"
+import { DurableContextOptionsSchema } from "./context"
 import {
   createRpcResponseEnvelopeSchema,
   RPC_PROTOCOL_VERSION,
@@ -14,6 +16,7 @@ import {
   MODEL_PULL_EVENT_TYPES,
   STREAM_PROTOCOL_VERSION
 } from "./streams"
+import { PersistedTurnRequestSchema } from "./turns"
 
 describe("contracts package", () => {
   it("runs without application or browser test shims", () => {
@@ -55,5 +58,51 @@ describe("contracts package", () => {
     expect(STREAM_PROTOCOL_VERSION).toBe(1)
     expect(CHAT_STREAM_EVENT_TYPES.CHUNK).toBe("chat_chunk")
     expect(MODEL_PULL_EVENT_TYPES.COMPLETE).toBe("model_pull_complete")
+  })
+
+  it("validates persisted turn and context contracts in clean Node", () => {
+    const context = {
+      rawInput: "hello",
+      messages: [{ role: "user", content: "hello" }],
+      hasTabContext: false,
+      contextText: "",
+      tabDocuments: [],
+      memoryEnabled: false,
+      maxTabContextChars: 10_000,
+      maxRagContextChars: 10_000,
+      groundedOnlyMode: false,
+      selectedModel: "llama3",
+      selectedModelRef: { providerId: "ollama", modelId: "llama3" }
+    }
+
+    expect(DurableContextOptionsSchema.parse(context)).toMatchObject(context)
+    expect(
+      PersistedTurnRequestSchema.parse({
+        version: 1,
+        context,
+        userMessage: { role: "user", content: "hello" }
+      })
+    ).toMatchObject({ version: 1, context })
+  })
+
+  it("measures replay limits as UTF-8 without browser globals", () => {
+    const oversized = ChatMessageSchema.safeParse({
+      role: "assistant",
+      content: "response",
+      replayArtifact: {
+        version: 1,
+        wire: "openai",
+        providerId: "openrouter",
+        model: "remote-model",
+        blocks: [
+          {
+            type: "reasoning.encrypted",
+            data: "😀".repeat(270_000)
+          }
+        ]
+      }
+    })
+
+    expect(oversized.success).toBe(false)
   })
 })

@@ -1,10 +1,12 @@
 import {
   ContextReceiptSchema,
+  TurnModeSchema,
+  TurnStatusSchema
+} from "@ollama-client/contracts/turns"
+import {
   type DurableTurnRun,
   parsePersistedTurnRequest,
-  TurnModeSchema,
   type TurnStatus,
-  TurnStatusSchema,
   type TurnSubmission
 } from "@/application/turns/turn-contract"
 import { flushSave, query, run } from "@/lib/sqlite/db"
