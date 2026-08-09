@@ -5,7 +5,7 @@ import {
   type TurnGenerationOwner,
   type TurnRunStore,
   TurnRuntime
-} from "./turn-runtime"
+} from "../turn-runtime"
 
 type TestContext = { rawInput: string }
 type TestMessage = { role: "user"; content: string }
