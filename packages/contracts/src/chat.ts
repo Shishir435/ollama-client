@@ -29,6 +29,7 @@ const RagSourceSchema = z.object({
   type: z.string().optional()
 })
 
+/** Bounded source excerpt recorded with a generated answer. */
 export const UsedContextChunkSchema = z.object({
   id: z.union([z.string(), z.number()]),
   title: z.string(),
@@ -40,6 +41,7 @@ export const UsedContextChunkSchema = z.object({
   chunkIndex: z.number().optional()
 })
 
+/** Persistable, presentation-safe summary of one model tool execution. */
 export const ToolRunSchema = z.object({
   toolId: z.string(),
   label: z.string(),
@@ -95,6 +97,7 @@ export const ActivityTextSchema = z.object({
   textKey: z.string().optional()
 })
 
+/** Persistable progress event shown in a turn's reasoning trace. */
 export const ActivityEventSchema = z.object({
   id: z.string(),
   kind: z.enum([
@@ -118,6 +121,7 @@ export const ActivityEventSchema = z.object({
   error: z.string().optional()
 })
 
+/** Provider-neutral model-requested tool call. */
 export const ToolCallSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -201,6 +205,11 @@ const replayArtifactSize = (value: unknown): number => {
   }
 }
 
+/**
+ * Versioned, opaque provider continuation state. Blocks are validated only
+ * enough to preserve wire ownership and size limits; importers must never
+ * render or log their opaque contents.
+ */
 export const ProviderReplayArtifactSchema = z
   .discriminatedUnion("wire", [
     z.object({
@@ -223,6 +232,7 @@ export const ProviderReplayArtifactSchema = z
     "Provider replay artifact exceeds the storage limit"
   )
 
+/** Optional persisted generation, retrieval, and tool-execution measurements. */
 export const ChatMessageMetricsSchema = z.object({
   total_duration: z.number().optional(),
   load_duration: z.number().optional(),
@@ -248,8 +258,13 @@ export const ChatMessageMetricsSchema = z.object({
   interrupted: z.boolean().optional()
 })
 
-// ---- FileAttachment ----
-
+/**
+ * Persisted/imported RAG attachment contract.
+ *
+ * Attachment bytes accept the runtime `Uint8Array`, JSON arrays, and the
+ * index-keyed object produced when a typed array is stringified. Application
+ * adapters normalize all accepted forms back to `Uint8Array` after parsing.
+ */
 export const FileAttachmentSchema = z.object({
   id: z.number().optional(),
   fileId: z.string(),
@@ -260,10 +275,7 @@ export const FileAttachmentSchema = z.object({
   processedAt: z.number(),
   sessionId: z.string().optional(),
   messageId: z.number().optional(),
-  // Bytes export as a JSON array, but a Uint8Array that slips through
-  // JSON.stringify serializes to an index-keyed object ({"0":..,"1":..}).
-  // Accept both so one stray byte field can't fail validation and silently
-  // skip the whole session on import.
+  /** Compatibility byte shapes; normalize before application use. */
   data: z
     .union([
       z.instanceof(Uint8Array),
@@ -273,6 +285,7 @@ export const FileAttachmentSchema = z.object({
     .optional()
 })
 
+/** Persisted attachment shape; `data` is not yet runtime-normalized. */
 export type FileAttachmentParsed = z.infer<typeof FileAttachmentSchema>
 
 const ImageAttachmentSchema = z.object({
@@ -290,8 +303,13 @@ const ImageAttachmentSchema = z.object({
 
 // ---- ChatMessage ----
 
+/** Partial safe failure persisted on a terminal assistant message. */
 export const ChatMessageErrorSchema = AppFailureSchema.partial()
 
+/**
+ * Persisted and transported chat message contract. Attachment byte fields may
+ * retain compatibility shapes and require application normalization.
+ */
 export const ChatMessageSchema = z.object({
   id: z.union([z.number(), z.string()]).optional(),
   role: z.enum(["user", "assistant", "system", "tool"]),
@@ -316,6 +334,7 @@ export const ChatMessageSchema = z.object({
 
 // ---- ChatSession ----
 
+/** Version-independent persisted chat-session metadata and optional messages. */
 export const ChatSessionSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -333,6 +352,9 @@ export const ChatSessionImportSchema = ChatSessionSchema.extend({
 
 // -- Output type aliases for consumers that need typed results --
 
+/** Persisted message shape before application attachment normalization. */
 export type ChatMessageParsed = z.infer<typeof ChatMessageSchema>
+/** Persisted session with an optional message collection. */
 export type ChatSessionParsed = z.infer<typeof ChatSessionSchema>
+/** Import session shape requiring its complete message collection. */
 export type ChatSessionImportParsed = z.infer<typeof ChatSessionImportSchema>

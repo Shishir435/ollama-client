@@ -12,8 +12,6 @@ import {
 import type { ChatMessage } from "@/types"
 import { toRuntimeChatMessage } from "@/types/chat.schemas"
 
-export * from "@ollama-client/contracts/turns"
-
 /** Runtime-normalized request used after the persisted contract is decoded. */
 export interface PersistedTurnRequest {
   version: 1

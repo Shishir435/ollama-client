@@ -2,6 +2,7 @@ import { z } from "zod"
 import { ChatMessageSchema } from "./chat"
 import { DurableContextOptionsSchema } from "./context"
 
+/** Stable user intent recorded with a durable turn. */
 export const TURN_MODES = [
   "new",
   "retry",
@@ -13,6 +14,7 @@ export const TURN_MODES = [
 export const TurnModeSchema = z.enum(TURN_MODES)
 export type TurnMode = z.infer<typeof TurnModeSchema>
 
+/** Durable lifecycle states used for restart recovery. */
 export const TURN_STATUSES = [
   "submitted",
   "building-context",
@@ -32,6 +34,11 @@ export type TurnToast = {
   descriptionValues?: Record<string, string>
 }
 
+/**
+ * Versioned evidence of the context actually supplied to a model. It records
+ * lengths and source excerpts rather than environment-owned objects, allowing
+ * diagnostics and replay to explain a turn after restart.
+ */
 export const ContextReceiptSchema = z.object({
   version: z.literal(1),
   turnId: z.string().min(1),
@@ -64,18 +71,26 @@ export const ContextReceiptSchema = z.object({
   )
 })
 
+/** Versioned context-build evidence. @see ContextReceiptSchema */
 export type ContextReceipt = z.infer<typeof ContextReceiptSchema>
 
+/**
+ * Complete versioned input required to resume a submitted turn. Persisted chat
+ * messages retain compatibility byte shapes until an application adapter
+ * normalizes them.
+ */
 export const PersistedTurnRequestSchema = z.object({
   version: z.literal(1),
   context: DurableContextOptionsSchema,
   userMessage: ChatMessageSchema
 })
 
+/** Persisted turn input before application message normalization. */
 export type PersistedTurnRequestParsed = z.infer<
   typeof PersistedTurnRequestSchema
 >
 
+/** Parse a persisted turn request without application environment access. */
 export const parsePersistedTurnRequest = (
   value: unknown
 ): PersistedTurnRequestParsed => PersistedTurnRequestSchema.parse(value)

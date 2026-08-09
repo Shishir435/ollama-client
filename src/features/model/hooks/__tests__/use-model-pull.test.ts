@@ -1,7 +1,7 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 import { useModelPull } from "../use-model-pull"
 
 vi.mock("@/protocol/extension-client", () => ({

@@ -1,16 +1,19 @@
 import {
+  type AppFailure,
+  AppFailureSchema
+} from "@ollama-client/contracts/app-failure"
+import {
   ContextReceiptSchema,
   TurnModeSchema,
+  type TurnStatus,
   TurnStatusSchema
 } from "@ollama-client/contracts/turns"
 import {
   type DurableTurnRun,
   parsePersistedTurnRequest,
-  type TurnStatus,
   type TurnSubmission
 } from "@/application/turns/turn-contract"
 import { flushSave, query, run } from "@/lib/sqlite/db"
-import { type AppFailure, AppFailureSchema } from "@/protocol/app-failure"
 
 interface TurnRunRow {
   id: string

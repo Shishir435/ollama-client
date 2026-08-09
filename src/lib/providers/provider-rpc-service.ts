@@ -1,4 +1,3 @@
-import { createAppError, isAbortError, isAppError } from "@/lib/error-utils"
 import {
   MODEL_DISCOVERY_FAILURE,
   type ProvidersListModelsRequest,
@@ -15,7 +14,8 @@ import {
   type ProviderTestConnectionRequest,
   type ProviderTestConnectionResult,
   type PublicProviderConfig
-} from "@/protocol/provider-rpc"
+} from "@ollama-client/contracts/provider-rpc"
+import { createAppError, isAbortError, isAppError } from "@/lib/error-utils"
 import type { ChatStreamMessage } from "@/types/chat"
 import type { ProviderModel } from "@/types/model"
 

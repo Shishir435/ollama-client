@@ -1,3 +1,4 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useStorage } from "@plasmohq/storage/hook"
 import {
   AlertTriangle,
@@ -26,7 +27,6 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { STATUS_STYLES } from "@/lib/ui-status"
 import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 
 export const EmbeddingStatusIndicator = () => {
   const { t } = useTranslation()

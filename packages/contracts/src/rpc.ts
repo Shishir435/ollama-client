@@ -1,10 +1,12 @@
 import { z } from "zod"
 
+/** Version shared by request, response, and cancellation envelopes. */
 export const RPC_PROTOCOL_VERSION = 1 as const
 export const RPC_REQUEST_MESSAGE_TYPE = "app-rpc-request" as const
 export const RPC_RESPONSE_MESSAGE_TYPE = "app-rpc-response" as const
 export const RPC_CANCEL_MESSAGE_TYPE = "app-rpc-cancel" as const
 
+/** Stable RPC wire names; never duplicate these strings at call sites. */
 export enum RpcMethod {
   ProvidersList = "providers.list",
   ProvidersTestConnection = "providers.testConnection",
@@ -34,6 +36,7 @@ export enum RpcMethod {
   DiagnosticsClear = "diagnostics.clear"
 }
 
+/** Safe error categories exposed by the RPC server. */
 export enum RpcErrorCode {
   InvalidRequest = "invalid_request",
   Forbidden = "forbidden",
@@ -43,13 +46,16 @@ export enum RpcErrorCode {
   Internal = "internal"
 }
 
+/** Sender classifications used by runtime authorization policy. */
 export type RpcSource = "extension-page" | "content-script" | "untrusted"
 
+/** Compile-time request/result pair for one RPC method. */
 export interface RpcDefinition<Request, Response> {
   request: Request
   response: Response
 }
 
+/** Credential- and stack-free failure payload safe to return to a caller. */
 export interface RpcErrorPayload {
   code: RpcErrorCode
   status: number
@@ -62,6 +68,7 @@ export interface RpcErrorPayload {
   supportCode: string
 }
 
+/** Versioned, method-tagged request envelope before method-level validation. */
 export interface RpcRequestEnvelope<M extends RpcMethod = RpcMethod> {
   type: typeof RPC_REQUEST_MESSAGE_TYPE
   version: typeof RPC_PROTOCOL_VERSION
@@ -70,6 +77,7 @@ export interface RpcRequestEnvelope<M extends RpcMethod = RpcMethod> {
   request: unknown
 }
 
+/** Success or structured-failure response sharing the request correlation id. */
 export type RpcResponseEnvelope<Response = unknown> =
   | {
       type: typeof RPC_RESPONSE_MESSAGE_TYPE
@@ -86,6 +94,7 @@ export type RpcResponseEnvelope<Response = unknown> =
       error: RpcErrorPayload
     }
 
+/** Strict runtime validator for the method-agnostic request envelope. */
 export const RpcRequestEnvelopeSchema = z
   .object({
     type: z.literal(RPC_REQUEST_MESSAGE_TYPE),
@@ -96,6 +105,7 @@ export const RpcRequestEnvelopeSchema = z
   })
   .strict()
 
+/** Strict cancellation signal correlated by request id. */
 export const RpcCancellationEnvelopeSchema = z
   .object({
     type: z.literal(RPC_CANCEL_MESSAGE_TYPE),
@@ -104,6 +114,7 @@ export const RpcCancellationEnvelopeSchema = z
   })
   .strict()
 
+/** Runtime validator for safe RPC failures. */
 export const RpcErrorPayloadSchema = z
   .object({
     code: z.enum(RpcErrorCode),
@@ -120,6 +131,7 @@ export const RpcErrorPayloadSchema = z
   })
   .strict()
 
+/** Build a strict response validator around a method-specific result schema. */
 export const createRpcResponseEnvelopeSchema = <T extends z.ZodType>(
   result: T
 ) =>

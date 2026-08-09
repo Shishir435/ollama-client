@@ -1,6 +1,6 @@
+import type { TurnToast } from "@ollama-client/contracts/turns"
 import { useCallback } from "react"
 import type { ContextBuildOutput } from "@/application/context/context-service"
-import type { TurnToast } from "@/application/turns/turn-contract"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import {

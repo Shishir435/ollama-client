@@ -1,3 +1,7 @@
+import type {
+  ModelPullJobResult,
+  ModelPullSubmitRequest
+} from "@ollama-client/contracts/model-pull-rpc"
 import { consumePullStream } from "@/background/handlers/handle-pull-stream"
 import {
   createAbortTimeout,
@@ -16,10 +20,6 @@ import {
   saveModelPullRun
 } from "@/lib/repositories/model-pull-runs"
 import { toAppFailure } from "@/protocol/app-failure"
-import type {
-  ModelPullJobResult,
-  ModelPullSubmitRequest
-} from "@/protocol/model-pull-rpc"
 import { MODEL_PULL_EVENT_TYPES } from "@/protocol/streams"
 import type { DefaultProviderPullRequest } from "@/types"
 

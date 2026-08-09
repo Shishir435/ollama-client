@@ -1,9 +1,9 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 import type { ProviderModelDetails } from "@/types"
 
 /**

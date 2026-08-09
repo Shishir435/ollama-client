@@ -152,7 +152,7 @@ export const openOptionsInTab = async (
   await runtime.openOptionsPage()
 }
 
-// Type-safe browser runtime API
+/** Browser runtime adapter used instead of unguarded global access. */
 export const runtime = browser.runtime
 export const action = browser.action
 

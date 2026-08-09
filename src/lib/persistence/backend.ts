@@ -8,19 +8,11 @@ import type {
 } from "./durable-tables"
 import { PERSISTENCE_MARKER, type PersistenceStateScope } from "./protocol"
 
-// Which persistence backend this profile runs on. "legacy" is the historical
-// in-memory sql.js database persisted as one IndexedDB blob; "opfs" is the
-// single-owner sqlite-wasm database. The marker flips exactly once, after the
-// owner has physically imported and verified the legacy blob. The legacy blob
-// itself is never deleted by the migration — it is the rollback artifact.
-//
-// Two records sit beside the marker, both device-local:
-//   - the migration receipt, written on every attempt including failures, so
-//     an unmigrated profile can state why it is still on the blob;
-//   - the operator override, which pins this device to the blob regardless of
-//     the marker. That is the recovery path for a migration that passed
-//     verification and still produced the wrong data.
-
+/**
+ * Active chat persistence topology. `legacy` is the historical sql.js image;
+ * `opfs` is the single-owner sqlite-wasm database. Migration flips the marker
+ * only after verified import and retains the legacy blob as rollback evidence.
+ */
 export type PersistenceBackend = "legacy" | "opfs"
 
 interface BackendMarker {

@@ -1,8 +1,6 @@
 import type { ChatMessageParsed } from "@ollama-client/contracts/chat"
 import type { ChatMessage } from "./chat"
 
-export * from "@ollama-client/contracts/chat"
-
 /** Convert persisted compatibility byte shapes into the app's runtime form. */
 export const toRuntimeChatMessage = (
   message: ChatMessageParsed

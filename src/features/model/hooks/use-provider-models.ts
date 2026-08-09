@@ -1,8 +1,12 @@
+import {
+  MODEL_DISCOVERY_FAILURE,
+  type ProvidersListModelsResult
+} from "@ollama-client/contracts/provider-rpc"
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useStorage } from "@plasmohq/storage/hook"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect } from "react"
 import { useTranslation } from "react-i18next"
-
 import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
@@ -24,11 +28,6 @@ import {
 } from "@/lib/providers/types"
 import { queryKeys } from "@/lib/query-keys"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import {
-  MODEL_DISCOVERY_FAILURE,
-  type ProvidersListModelsResult
-} from "@/protocol/provider-rpc"
-import { RpcMethod } from "@/protocol/rpc"
 import type { SelectedModelRef } from "@/types"
 import { isEmbeddingModel } from "../lib/model-utils"
 

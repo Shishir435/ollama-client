@@ -1,11 +1,8 @@
-// Which tables the chat-history migration has to account for, and the
-// engine-agnostic verification helpers used on both sides of it.
-//
-// The list is explicit rather than derived at runtime, so a mismatch is a
-// review-time failure instead of a silent gap: a table that lands in
-// `schema.ts` without landing here would migrate unverified. That pairing is
-// enforced by `__tests__/durable-tables.test.ts`.
-
+/**
+ * Tables whose row counts and integrity must be verified during migration.
+ * The explicit list makes schema/migration drift a contract-test failure
+ * instead of allowing a new durable table to migrate silently unverified.
+ */
 export const DURABLE_TABLES = [
   "sessions",
   "messages",

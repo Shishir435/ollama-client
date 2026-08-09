@@ -1,3 +1,4 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { Brain, ChevronDown, Loader2, RefreshCw, Trash } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -13,8 +14,6 @@ import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { logger } from "@/lib/logger"
 import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import type { LoadedModel } from "@/protocol/model-rpc"
-import { RpcMethod } from "@/protocol/rpc"
 
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return "0 B"
@@ -234,3 +233,5 @@ export const LoadedModelsInfo = () => {
     </Card>
   )
 }
+
+import type { LoadedModel } from "@ollama-client/contracts/model-rpc"

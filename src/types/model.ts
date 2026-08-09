@@ -1,4 +1,4 @@
-import type { AppFailure } from "@/protocol/app-failure"
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import type { ChatMessage } from "./chat"
 import type { ChromeResponse } from "./messaging"
 
@@ -43,7 +43,7 @@ export interface SelectedModelRef {
   modelId: string
 }
 
-// Legacy alias for provider-agnostic model metadata
+/** @deprecated Use the provider-neutral `ProviderModel` name. */
 export type OllamaModel = ProviderModel
 
 export type ModelConfig = {
@@ -92,7 +92,7 @@ export interface OllamaChatRequest {
   }
 }
 
-// Provider-agnostic aliases for default provider payloads (currently Ollama).
+/** Default-provider request alias; currently backed by Ollama's wire shape. */
 export type DefaultProviderChatRequest = OllamaChatRequest
 
 export interface OllamaPullRequest {
@@ -101,6 +101,7 @@ export interface OllamaPullRequest {
   stream?: boolean
 }
 
+/** Default-provider pull alias; currently backed by Ollama's wire shape. */
 export type DefaultProviderPullRequest = OllamaPullRequest
 
 export interface OllamaShowRequest {

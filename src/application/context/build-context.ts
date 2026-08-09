@@ -1,3 +1,5 @@
+import type { ContextFileInput } from "@ollama-client/contracts/context"
+import type { TurnToast } from "@ollama-client/contracts/turns"
 import {
   ACTIVITY_LABELS,
   ACTIVITY_TEXTS,
@@ -14,7 +16,6 @@ import {
   formatEnhancedResults,
   retrieveContextEnhanced
 } from "@/application/context/rag/rag-pipeline"
-import type { TurnToast } from "@/application/turns/turn-contract"
 import { STORAGE_KEYS } from "@/lib/constants"
 import {
   DEFAULT_KNOWLEDGE_SET_ID,
@@ -33,10 +34,7 @@ import type {
   RagSources,
   UsedContextChunk
 } from "@/types"
-import type {
-  ContextFileInput,
-  DurableContextOptions
-} from "./context-contract"
+import type { DurableContextOptions } from "./context-contract"
 
 /**
  * The minimal file shape context building needs: the scope id and the raw text
@@ -44,7 +42,7 @@ import type {
  * structurally, and it is small enough to ship across the extension port when
  * context building runs in the background.
  */
-export type { ContextFileInput } from "./context-contract"
+export type { ContextFileInput } from "@ollama-client/contracts/context"
 export type { RagSource, RagSources, UsedContextChunk }
 
 export interface PromptContextStats {

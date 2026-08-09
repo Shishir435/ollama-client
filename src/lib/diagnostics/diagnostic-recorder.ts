@@ -1,3 +1,7 @@
+import {
+  type DiagnosticEvent,
+  DiagnosticEventSchema
+} from "@ollama-client/contracts/diagnostics-rpc"
 import { STORAGE_KEYS } from "@/lib/constants"
 import {
   getPlasmoStoredValue,
@@ -5,10 +9,6 @@ import {
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
-import {
-  type DiagnosticEvent,
-  DiagnosticEventSchema
-} from "@/protocol/diagnostics-rpc"
 
 const MAX_EVENTS = 200
 const MAX_SERIALIZED_CHARS = 128 * 1024

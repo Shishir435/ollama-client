@@ -1,23 +1,3 @@
-import { RpcMethod, type RpcSource } from "@ollama-client/contracts/rpc"
-import type { z } from "zod"
-import {
-  DiagnosticsClearRequestSchema,
-  DiagnosticsClearResultSchema,
-  DiagnosticsGetBundleRequestSchema,
-  DiagnosticsGetBundleResultSchema,
-  DiagnosticsRunRequestSchema,
-  DiagnosticsRunResultSchema
-} from "./diagnostics-rpc"
-import {
-  IngestionAckRequestSchema,
-  IngestionAckResultSchema,
-  IngestionCancelRequestSchema,
-  IngestionCancelResultSchema,
-  IngestionGetRequestSchema,
-  IngestionGetResultSchema,
-  IngestionSubmitRequestSchema,
-  IngestionSubmitResultSchema
-} from "./ingestion-rpc"
 import {
   ModelPullCancelRequestSchema,
   ModelPullCancelResultSchema,
@@ -27,8 +7,7 @@ import {
   ModelPullListActiveResultSchema,
   ModelPullSubmitRequestSchema,
   ModelPullSubmitResultSchema
-} from "./model-pull-rpc"
-
+} from "@ollama-client/contracts/model-pull-rpc"
 import {
   EmbeddingsCheckModelRequestSchema,
   EmbeddingsCheckModelResultSchema,
@@ -46,8 +25,7 @@ import {
   ModelsUnloadResultSchema,
   ModelsWarmupRequestSchema,
   ModelsWarmupResultSchema
-} from "./model-rpc"
-
+} from "@ollama-client/contracts/model-rpc"
 import {
   ProvidersListModelsRequestSchema,
   ProvidersListModelsResultSchema,
@@ -63,8 +41,9 @@ import {
   ProvidersUpsertResultSchema,
   ProviderTestConnectionRequestSchema,
   ProviderTestConnectionResultSchema
-} from "./provider-rpc"
-
+} from "@ollama-client/contracts/provider-rpc"
+import { RpcMethod, type RpcSource } from "@ollama-client/contracts/rpc"
+import type { z } from "zod"
 export interface RpcMethodDefinition {
   request: z.ZodType
   response: z.ZodType
@@ -75,6 +54,11 @@ export interface RpcMethodDefinition {
 
 const extensionPagesOnly = ["extension-page"] as const
 
+/**
+ * Runtime policy paired with every typed RPC contract. Timeouts reflect the
+ * operation rather than a global default: model warmup and embedding prepare
+ * may perform cold-start or pull work, while ordinary queries stay bounded.
+ */
 export const RPC_METHOD_DEFINITIONS = {
   [RpcMethod.ProvidersList]: {
     request: ProvidersListRequestSchema,
@@ -262,3 +246,22 @@ export const RPC_METHOD_DEFINITIONS = {
     operation: "command"
   }
 } as const satisfies Record<RpcMethod, RpcMethodDefinition>
+
+import {
+  DiagnosticsClearRequestSchema,
+  DiagnosticsClearResultSchema,
+  DiagnosticsGetBundleRequestSchema,
+  DiagnosticsGetBundleResultSchema,
+  DiagnosticsRunRequestSchema,
+  DiagnosticsRunResultSchema
+} from "@ollama-client/contracts/diagnostics-rpc"
+import {
+  IngestionAckRequestSchema,
+  IngestionAckResultSchema,
+  IngestionCancelRequestSchema,
+  IngestionCancelResultSchema,
+  IngestionGetRequestSchema,
+  IngestionGetResultSchema,
+  IngestionSubmitRequestSchema,
+  IngestionSubmitResultSchema
+} from "@ollama-client/contracts/ingestion-rpc"

@@ -5,18 +5,11 @@ import {
   SPIKE_OWNER_ENSURE
 } from "./owner-protocol"
 
-// Section 9.4 spike: Firefox MV2 owner host. Firefox has no chrome.offscreen,
-// but its MV2 background runs in a persistent background page that can host
-// the SQLite worker directly — the page IS the owner document. The wire
-// protocol is identical to the Chromium topology, so spike-owner.html and the
-// gate semantics work unchanged:
-//
-// - ENSURE is a no-op success: the persistent page always exists.
-// - CLOSE terminates the worker (Chromium's closeDocument analog); the next
-//   op respawns a fresh generation, which must recover from OPFS.
-// - Background-originated writes call the host in-process — a background
-//   page cannot runtime-message its own listeners, same rule as the SW.
-
+/**
+ * Register the experimental Firefox MV2 owner. Its persistent background page
+ * owns SQLite directly; close terminates the worker and the next operation
+ * respawns from OPFS using the same wire semantics as Chromium.
+ */
 export const registerSpikeOwnerHostMv2 = (): void => {
   const host = createOwnerHost()
   host.registerRpcListener()

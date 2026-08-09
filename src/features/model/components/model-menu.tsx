@@ -1,3 +1,4 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { Check, ChevronDown, RotateCcw, Settings } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -30,7 +31,6 @@ import { getModelCapabilities } from "@/lib/providers/capabilities"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 import {
   formatFileSize,
   formatParameterSize,

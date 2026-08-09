@@ -1,11 +1,10 @@
 import type { Database, SqlJsStatic } from "sql.js"
 import { SCHEMA_SQL } from "../schema"
 
-// Shared fixture + measurement protocol for the section 9.8 persistence
-// benchmarks. Runs unchanged in Node (tools/benchmark-sqlite-persistence.ts
-// with fake-indexeddb) and in packaged browsers (src/entrypoints/benchmark/).
-// Uses benchmark-only IndexedDB names; never opens the live chat database.
-
+/**
+ * Benchmark fixture scale shared by Node and packaged-browser measurements.
+ * Benchmark stores use isolated names and never open the live chat database.
+ */
 export type ScaleName = "small" | "medium" | "large" | "binary" | "tree"
 
 export interface AttachmentPlan {
@@ -328,9 +327,7 @@ const load = async (factory: IDBFactory, name: string): Promise<Uint8Array> => {
   }
 }
 
-// Resolves true when the database was deleted, false when deletion stayed
-// blocked by an open connection — callers must not report a blocked
-// deletion as success.
+/** False when an open connection blocked deletion; callers must not report it. */
 export const deleteBenchmarkStore = async (
   factory: IDBFactory,
   scaleName: ScaleName

@@ -1,4 +1,3 @@
-import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
 import { z } from "zod"
 
 export const IngestionStatusSchema = z.enum([
@@ -19,6 +18,11 @@ export const IngestionPhaseSchema = z.enum([
   "compensating"
 ])
 
+/**
+ * Staged parser output returned to the application before it acknowledges and
+ * releases the durable job. Bounds keep a malformed worker result from
+ * crossing the RPC boundary as unbounded content.
+ */
 export const ProcessedFileSchema = z
   .object({
     text: z.string().max(20_000_000),
@@ -55,6 +59,10 @@ export const IngestionSubmitRequestSchema = z
   })
   .strict()
 
+/**
+ * Recoverable ingestion snapshot shared by submit, get, and cancel. Status is
+ * durable job state; phase identifies the last safe resume/compensation seam.
+ */
 export const IngestionJobResultSchema = z
   .object({
     jobId: z.string().uuid(),
@@ -73,9 +81,11 @@ export const IngestionGetRequestSchema = z
 export const IngestionGetResultSchema = IngestionJobResultSchema
 export const IngestionCancelRequestSchema = IngestionGetRequestSchema
 export const IngestionCancelResultSchema = IngestionJobResultSchema
-// The staged payload is the only copy of a completed parse result, so it is
-// released on an explicit acknowledgement rather than on read: a dropped
-// `ingestions.get` response must stay recoverable.
+/**
+ * Explicitly releases a staged parse result after the caller has received it.
+ * Reading cannot release the only copy because a dropped `ingestions.get`
+ * response must remain recoverable.
+ */
 export const IngestionAckRequestSchema = IngestionGetRequestSchema
 export const IngestionAckResultSchema = z
   .object({
@@ -88,26 +98,12 @@ export type IngestionSubmitRequest = z.infer<
   typeof IngestionSubmitRequestSchema
 >
 export type IngestionJobResult = z.infer<typeof IngestionJobResultSchema>
+export type IngestionSubmitResult = z.infer<typeof IngestionSubmitResultSchema>
 export type IngestionGetRequest = z.infer<typeof IngestionGetRequestSchema>
+export type IngestionGetResult = z.infer<typeof IngestionGetResultSchema>
+export type IngestionCancelRequest = z.infer<
+  typeof IngestionCancelRequestSchema
+>
+export type IngestionCancelResult = z.infer<typeof IngestionCancelResultSchema>
+export type IngestionAckRequest = z.infer<typeof IngestionAckRequestSchema>
 export type IngestionAckResult = z.infer<typeof IngestionAckResultSchema>
-
-declare module "./provider-rpc" {
-  interface RpcMap {
-    [RpcMethod.IngestionSubmit]: RpcDefinition<
-      IngestionSubmitRequest,
-      IngestionJobResult
-    >
-    [RpcMethod.IngestionGet]: RpcDefinition<
-      IngestionGetRequest,
-      IngestionJobResult
-    >
-    [RpcMethod.IngestionCancel]: RpcDefinition<
-      IngestionGetRequest,
-      IngestionJobResult
-    >
-    [RpcMethod.IngestionAck]: RpcDefinition<
-      IngestionGetRequest,
-      IngestionAckResult
-    >
-  }
-}

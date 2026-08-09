@@ -1,4 +1,3 @@
-import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
 import { z } from "zod"
 
 /**
@@ -19,9 +18,6 @@ const ModelRefSchema = z
 
 const ModelDetailsSchema = z
   .object({
-    // Defaulted rather than optional per field: providers disagree about which
-    // of these they report, and the model card renders every one. Normalizing
-    // to "" here keeps a missing field from reaching the UI as `undefined`.
     details: z
       .object({
         parent_model: z.string().default(""),
@@ -32,15 +28,26 @@ const ModelDetailsSchema = z
         quantization_level: z.string().default("")
       })
       .optional(),
-    // Ollama `/api/show` model_info is an open key/value map whose keys are
-    // architecture-dependent. Validated as a bounded map rather than a fixed
-    // shape; consumers already treat unknown keys as opaque.
+    /**
+     * Opaque Ollama `/api/show` metadata. Keys vary by model architecture, so
+     * consumers must not assume a fixed shape.
+     */
     model_info: z.record(z.string(), z.unknown()).optional(),
     capabilities: z.array(z.string().max(100)).max(50).optional()
   })
   .strict()
 
 export const ModelsGetDetailsRequestSchema = ModelRefSchema
+
+/**
+ * Provider-neutral model details returned across the extension RPC boundary.
+ *
+ * Detail fields are defaulted instead of optional because providers report
+ * different subsets while model-card consumers render every field. Missing
+ * strings become `""` and missing families become `[]`, so importers do not
+ * need provider-specific `undefined` handling. `model_info` remains an opaque
+ * map because Ollama keys vary by model architecture.
+ */
 export const ModelsGetDetailsResultSchema = z
   .object({
     /** The provider the worker actually resolved the model to. */
@@ -69,6 +76,11 @@ const LoadedModelSchema = z
 export const ModelsListLoadedRequestSchema = z
   .object({ providerId: z.string().min(1).max(200).optional() })
   .strict()
+/**
+ * Normalized resident-model list shared by providers with incompatible native
+ * responses. Missing provider values are represented by empty strings or zero
+ * before this schema is reached, keeping provider branching out of importers.
+ */
 export const ModelsListLoadedResultSchema = z
   .object({ models: z.array(LoadedModelSchema).max(200) })
   .strict()
@@ -106,6 +118,11 @@ const LibraryHtmlSchema = z.string().max(4_000_000)
 export const ModelsSearchLibraryRequestSchema = z
   .object({ query: z.string().min(1).max(200) })
   .strict()
+/**
+ * Bounded remote library HTML for parsing in an extension page. HTML crosses
+ * the boundary because MV3 service workers have no `DOMParser`; callers must
+ * treat it as untrusted and extract only the supported model metadata.
+ */
 export const ModelsSearchLibraryResultSchema = z
   .object({ html: LibraryHtmlSchema })
   .strict()
@@ -113,6 +130,7 @@ export const ModelsSearchLibraryResultSchema = z
 export const ModelsGetLibraryVariantsRequestSchema = z
   .object({ name: z.string().min(1).max(200) })
   .strict()
+/** @see ModelsSearchLibraryResultSchema */
 export const ModelsGetLibraryVariantsResultSchema = z
   .object({ html: LibraryHtmlSchema })
   .strict()
@@ -151,15 +169,24 @@ export const EmbeddingsPrepareModelResultSchema = z
 export type ModelsGetDetailsRequest = z.input<
   typeof ModelsGetDetailsRequestSchema
 >
+/**
+ * Provider-neutral details with display fields normalized to empty values.
+ * @see ModelsGetDetailsResultSchema
+ */
 export type ModelsGetDetailsResult = z.infer<
   typeof ModelsGetDetailsResultSchema
 >
 export type ModelsListLoadedRequest = z.input<
   typeof ModelsListLoadedRequestSchema
 >
+/** Provider-neutral resident-model collection. */
 export type ModelsListLoadedResult = z.infer<
   typeof ModelsListLoadedResultSchema
 >
+/**
+ * One provider-neutral resident-model row; unavailable values use `""` or `0`.
+ * @see ModelsListLoadedResultSchema
+ */
 export type LoadedModel = z.infer<typeof LoadedModelSchema>
 export type ModelsUnloadRequest = z.input<typeof ModelsUnloadRequestSchema>
 export type ModelsUnloadResult = z.infer<typeof ModelsUnloadResultSchema>
@@ -168,12 +195,14 @@ export type ModelsWarmupResult = z.infer<typeof ModelsWarmupResultSchema>
 export type ModelsSearchLibraryRequest = z.input<
   typeof ModelsSearchLibraryRequestSchema
 >
+/** Bounded, untrusted HTML intended for extension-page parsing. */
 export type ModelsSearchLibraryResult = z.infer<
   typeof ModelsSearchLibraryResultSchema
 >
 export type ModelsGetLibraryVariantsRequest = z.input<
   typeof ModelsGetLibraryVariantsRequestSchema
 >
+/** Bounded, untrusted HTML intended for extension-page parsing. */
 export type ModelsGetLibraryVariantsResult = z.infer<
   typeof ModelsGetLibraryVariantsResultSchema
 >
@@ -189,40 +218,3 @@ export type EmbeddingsPrepareModelRequest = z.input<
 export type EmbeddingsPrepareModelResult = z.infer<
   typeof EmbeddingsPrepareModelResultSchema
 >
-
-declare module "./provider-rpc" {
-  interface RpcMap {
-    [RpcMethod.ModelsGetDetails]: RpcDefinition<
-      ModelsGetDetailsRequest,
-      ModelsGetDetailsResult
-    >
-    [RpcMethod.ModelsListLoaded]: RpcDefinition<
-      ModelsListLoadedRequest,
-      ModelsListLoadedResult
-    >
-    [RpcMethod.ModelsUnload]: RpcDefinition<
-      ModelsUnloadRequest,
-      ModelsUnloadResult
-    >
-    [RpcMethod.ModelsWarmup]: RpcDefinition<
-      ModelsWarmupRequest,
-      ModelsWarmupResult
-    >
-    [RpcMethod.ModelsSearchLibrary]: RpcDefinition<
-      ModelsSearchLibraryRequest,
-      ModelsSearchLibraryResult
-    >
-    [RpcMethod.ModelsGetLibraryVariants]: RpcDefinition<
-      ModelsGetLibraryVariantsRequest,
-      ModelsGetLibraryVariantsResult
-    >
-    [RpcMethod.EmbeddingsCheckModel]: RpcDefinition<
-      EmbeddingsCheckModelRequest,
-      EmbeddingsCheckModelResult
-    >
-    [RpcMethod.EmbeddingsPrepareModel]: RpcDefinition<
-      EmbeddingsPrepareModelRequest,
-      EmbeddingsPrepareModelResult
-    >
-  }
-}

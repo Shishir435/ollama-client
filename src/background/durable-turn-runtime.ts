@@ -1,3 +1,4 @@
+import type { TurnToast } from "@ollama-client/contracts/turns"
 import type { BuildRagContextOptions } from "@/application/context/build-context"
 import { ContextService } from "@/application/context/context-service"
 import {
@@ -8,8 +9,7 @@ import {
 } from "@/application/turns/chat-stream-reducer"
 import type {
   DurableTurnRun,
-  TurnSubmission,
-  TurnToast
+  TurnSubmission
 } from "@/application/turns/turn-contract"
 import {
   type TurnGenerationInput,

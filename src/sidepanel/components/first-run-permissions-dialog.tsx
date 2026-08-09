@@ -1,3 +1,4 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import {
   ArrowLeft,
   Bot,
@@ -44,11 +45,6 @@ import {
 } from "@/lib/onboarding/state"
 import { saveSelectedModelRef } from "@/lib/providers/selected-model"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import type {
-  ProvidersListModelsResult,
-  PublicProviderConfig
-} from "@/protocol/provider-rpc"
-import { RpcMethod } from "@/protocol/rpc"
 
 const STAGES: OnboardingStage[] = [
   "privacy",
@@ -462,3 +458,8 @@ export const FirstRunPermissionsDialog = () => {
     </>
   )
 }
+
+import type {
+  ProvidersListModelsResult,
+  PublicProviderConfig
+} from "@ollama-client/contracts/provider-rpc"

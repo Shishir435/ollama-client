@@ -1,4 +1,3 @@
-import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
 import { z } from "zod"
 
 const ProviderTypeSchema = z.enum(["ollama", "openai", "anthropic", "custom"])
@@ -31,12 +30,18 @@ export const ProviderConfigInputSchema = z
   })
   .strict()
 
+/**
+ * Credential-free provider configuration safe to return to extension pages.
+ * `hasApiKey` exposes only whether a secret exists; the secret never crosses
+ * the RPC boundary.
+ */
 export const PublicProviderConfigSchema = ProviderConfigInputSchema.omit({
   apiKey: true
 })
   .extend({ hasApiKey: z.boolean() })
   .strict()
 
+/** @see PublicProviderConfigSchema */
 export type PublicProviderConfig = z.infer<typeof PublicProviderConfigSchema>
 
 const ProviderModelSchema = z
@@ -202,9 +207,11 @@ export const ProviderTestConnectionResultSchema = z
     providerId: z.string(),
     reachable: z.boolean(),
     modelCount: z.number().int().nonnegative(),
-    // A server that answers the catalog request with "no such endpoint" is
-    // reachable and usable — it just does not publish a model list. Reported
-    // separately so the UI can say that instead of "connection failed".
+    /**
+     * False when a reachable, usable server has no model-list endpoint. This
+     * is distinct from connection failure so importers do not treat catalog
+     * support as proof of reachability.
+     */
     modelListSupported: z.boolean(),
     latencyMs: z.number().nonnegative()
   })
@@ -236,6 +243,11 @@ export const ProvidersListModelsRequestSchema = z
     enabledOnly: z.boolean().default(true)
   })
   .strict()
+/**
+ * Provider-neutral model discovery result. Sparse provider metadata is
+ * normalized to empty display values, while capability hints remain optional
+ * so absence continues to mean unknown rather than unsupported.
+ */
 export const ProvidersListModelsResultSchema = z
   .object({
     models: z.array(ProviderModelSchema),
@@ -299,6 +311,10 @@ export type ProviderTestConnectionResult = z.infer<
 export type ProvidersListModelsRequest = z.input<
   typeof ProvidersListModelsRequestSchema
 >
+/**
+ * Normalized provider model list plus per-provider discovery failure reasons.
+ * @see ProvidersListModelsResultSchema
+ */
 export type ProvidersListModelsResult = z.infer<
   typeof ProvidersListModelsResultSchema
 >
@@ -308,37 +324,3 @@ export type ProvidersProbeModelCapabilitiesRequest = z.input<
 export type ProvidersProbeModelCapabilitiesResult = z.infer<
   typeof ProvidersProbeModelCapabilitiesResultSchema
 >
-
-export interface RpcMap {
-  [RpcMethod.ProvidersList]: RpcDefinition<
-    ProvidersListRequest,
-    ProvidersListResult
-  >
-  [RpcMethod.ProvidersTestConnection]: RpcDefinition<
-    ProviderTestConnectionRequest,
-    ProviderTestConnectionResult
-  >
-  [RpcMethod.ProvidersListModels]: RpcDefinition<
-    ProvidersListModelsRequest,
-    ProvidersListModelsResult
-  >
-  [RpcMethod.ProvidersUpsert]: RpcDefinition<
-    ProvidersUpsertRequest,
-    ProvidersUpsertResult
-  >
-  [RpcMethod.ProvidersSetEnabled]: RpcDefinition<
-    ProvidersSetEnabledRequest,
-    ProvidersSetEnabledResult
-  >
-  [RpcMethod.ProvidersRemove]: RpcDefinition<
-    ProvidersRemoveRequest,
-    ProvidersRemoveResult
-  >
-  [RpcMethod.ProvidersProbeModelCapabilities]: RpcDefinition<
-    ProvidersProbeModelCapabilitiesRequest,
-    ProvidersProbeModelCapabilitiesResult
-  >
-}
-
-export type RpcRequest<M extends RpcMethod> = RpcMap[M]["request"]
-export type RpcResponse<M extends RpcMethod> = RpcMap[M]["response"]

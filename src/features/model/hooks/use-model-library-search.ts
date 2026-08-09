@@ -1,11 +1,10 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
-
 import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { queryKeys } from "@/lib/query-keys"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 
 interface ModelMeta {
   name: string

@@ -1,3 +1,9 @@
+import type {
+  DiagnosticStorageMigration,
+  DiagnosticsGetBundleResult,
+  DiagnosticsRunResult,
+  DiagnosticTestResult
+} from "@ollama-client/contracts/diagnostics-rpc"
 import { browser, supportsDNR } from "@/lib/browser-api"
 import { getSafeClientEnvironment } from "@/lib/client-environment"
 import {
@@ -22,12 +28,6 @@ import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
 import { ProviderId } from "@/lib/providers/types"
 import { countMessages } from "@/lib/repositories/chat-history"
-import type {
-  DiagnosticStorageMigration,
-  DiagnosticsGetBundleResult,
-  DiagnosticsRunResult,
-  DiagnosticTestResult
-} from "@/protocol/diagnostics-rpc"
 
 import {
   clearDiagnosticEvents,

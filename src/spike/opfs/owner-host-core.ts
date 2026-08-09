@@ -4,11 +4,10 @@ import {
   SPIKE_OWNER_RPC
 } from "./owner-protocol"
 
-// Section 9.4 spike: the host-side worker plumbing shared by both owner
-// hosts — the Chromium offscreen document and the Firefox MV2 persistent
-// background page. Exactly one host exists per browser session; it owns the
-// only SQLite worker and answers spike-owner-rpc runtime messages.
-
+/**
+ * Experimental single-owner host shared by Chromium offscreen and Firefox MV2
+ * spike adapters. Exactly one host owns the spike SQLite worker per session.
+ */
 export interface OwnerHost {
   /** Direct in-context call — for code living in the host context itself
    * (a background page cannot runtime-message its own listeners). */

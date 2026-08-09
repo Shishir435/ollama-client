@@ -1,4 +1,4 @@
-import type { TurnToast } from "@/application/turns/turn-contract"
+import type { TurnToast } from "@ollama-client/contracts/turns"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import type {
   ChatMessage,
@@ -12,7 +12,7 @@ import type {
  * text: this is a pure module with no `t`, and the copy is user-visible, so the
  * caller resolves it. Values are interpolation arguments for the description.
  */
-export type { TurnToast } from "@/application/turns/turn-contract"
+export type { TurnToast } from "@ollama-client/contracts/turns"
 
 /**
  * Pure pre-send gate. The turn controller (and, later, the agent loop) share
