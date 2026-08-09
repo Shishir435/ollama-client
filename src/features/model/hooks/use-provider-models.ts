@@ -39,21 +39,9 @@ const EMPTY_MODELS: ProvidersListModelsResult["models"] = []
 const EMPTY_FAILURES: ProvidersListModelsResult["failures"] = []
 
 const fetchAllProviderModels = async (): Promise<ProvidersListModelsResult> => {
-  const result = await extensionRpcClient.call(RpcMethod.ProvidersListModels, {
+  return extensionRpcClient.call(RpcMethod.ProvidersListModels, {
     enabledOnly: true
   })
-  const pairs = result.models
-    .filter(
-      (model) => model.providerId && model.providerId !== DEFAULT_PROVIDER_ID
-    )
-    .map((model) => ({
-      modelId: model.name,
-      providerId: model.providerId as string
-    }))
-  if (pairs.length > 0) {
-    await ProviderManager.saveModelMappings(pairs)
-  }
-  return result
 }
 
 const fetchProviderVersion = async (providerId: string): Promise<string> => {

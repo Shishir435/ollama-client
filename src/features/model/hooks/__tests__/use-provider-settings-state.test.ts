@@ -303,6 +303,100 @@ describe("useProviderSettingsState", () => {
     ).toHaveLength(0)
   })
 
+  it("persists manual model ids immediately for the model menu", async () => {
+    vi.mocked(extensionRpcClient.call).mockImplementation(
+      async (method, request) => {
+        if (method === RpcMethod.ProvidersList) {
+          return { providers: [ollama, custom] } as never
+        }
+        if (method === RpcMethod.ProvidersUpsert) {
+          const config = (request as { config: typeof custom }).config
+          return { provider: { ...config, hasApiKey: false } } as never
+        }
+        throw new Error(`Unexpected method: ${method}`)
+      }
+    )
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toHaveLength(2))
+    await act(async () => {
+      await result.current.setSelectedId(custom.id)
+    })
+    await act(async () => {
+      await result.current.setCustomModels(["trustedrouter/cheap"])
+    })
+
+    expect(extensionRpcClient.call).toHaveBeenCalledWith(
+      RpcMethod.ProvidersUpsert,
+      expect.objectContaining({
+        target: "existing",
+        config: expect.objectContaining({
+          id: custom.id,
+          customModels: ["trustedrouter/cheap"]
+        })
+      })
+    )
+    expect(result.current.activeConfig?.customModels).toEqual([
+      "trustedrouter/cheap"
+    ])
+    expect(result.current.hasUnsavedChanges).toBe(false)
+  })
+
+  it("flushes pending edits before enabling another provider", async () => {
+    const disabledCustom = { ...custom, enabled: false }
+    const calls: RpcMethod[] = []
+    vi.mocked(extensionRpcClient.call).mockImplementation(
+      async (method, request) => {
+        calls.push(method)
+        if (method === RpcMethod.ProvidersList) {
+          return { providers: [ollama, disabledCustom] } as never
+        }
+        if (method === RpcMethod.ProvidersUpsert) {
+          const config = (request as { config: typeof disabledCustom }).config
+          return { provider: { ...config, hasApiKey: false } } as never
+        }
+        if (method === RpcMethod.ProvidersSetEnabled) {
+          return {
+            provider: {
+              ...disabledCustom,
+              customModels: ["trustedrouter/cheap"],
+              enabled: true
+            }
+          } as never
+        }
+        throw new Error(`Unexpected method: ${method}`)
+      }
+    )
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toHaveLength(2))
+    await act(async () => {
+      await result.current.setSelectedId(disabledCustom.id)
+    })
+    act(() => {
+      result.current.updateConfig({
+        customModels: ["trustedrouter/cheap"]
+      })
+    })
+    await act(async () => {
+      await result.current.setProviderEnabled(true)
+    })
+
+    expect(calls).toEqual([
+      RpcMethod.ProvidersList,
+      RpcMethod.ProvidersUpsert,
+      RpcMethod.ProvidersSetEnabled
+    ])
+    expect(result.current.providers).toEqual([
+      ollama,
+      {
+        ...disabledCustom,
+        customModels: ["trustedrouter/cheap"],
+        enabled: true
+      }
+    ])
+  })
+
   const testConnectionFor = async (providerId: string) => {
     const hook = renderHook(() => useProviderSettingsState())
     await waitFor(() => expect(hook.result.current.providers).toHaveLength(2))

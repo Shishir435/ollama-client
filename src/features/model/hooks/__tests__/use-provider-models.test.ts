@@ -95,8 +95,7 @@ vi.mock("@/lib/providers/factory", () => ({
 vi.mock("@/lib/providers/manager", () => ({
   ProviderManager: {
     getProviders: vi.fn().mockResolvedValue([mockOllamaProvider.config]),
-    getProviderConfig: vi.fn().mockResolvedValue(mockOllamaProvider.config),
-    saveModelMappings: vi.fn().mockResolvedValue(undefined)
+    getProviderConfig: vi.fn().mockResolvedValue(mockOllamaProvider.config)
   }
 }))
 
@@ -162,7 +161,6 @@ describe("useProviderModels", () => {
     vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue(
       mockOllamaProvider.config as any
     )
-    vi.mocked(ProviderManager.saveModelMappings).mockResolvedValue(undefined)
     vi.mocked(extensionRpcClient.call).mockResolvedValue({
       models: mockModelList,
       failures: []
@@ -204,14 +202,18 @@ describe("useProviderModels", () => {
       )
     })
 
-    it("records only non-default mappings after discovery succeeds", async () => {
+    it("returns a large remote catalog without writing model mappings", async () => {
+      const remoteModels = Array.from({ length: 455 }, (_, index) => ({
+        name: `remote/model-${index}`,
+        model: `remote/model-${index}`,
+        size: 0,
+        providerId: "custom:openai:remote",
+        details: { family: "remote" }
+      }))
       vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
         models: [
           { ...mockModelList[0], providerId: ProviderId.OLLAMA },
-          {
-            ...mockModelList[1],
-            providerId: "custom:openai:remote"
-          }
+          ...remoteModels
         ],
         failures: []
       } as never)
@@ -224,12 +226,9 @@ describe("useProviderModels", () => {
         expect(result.current.isLoading).toBe(false)
       })
 
-      expect(ProviderManager.saveModelMappings).toHaveBeenCalledWith([
-        {
-          modelId: "mistral:latest",
-          providerId: "custom:openai:remote"
-        }
-      ])
+      expect(result.current.status).toBe("ready")
+      expect(result.current.models).toHaveLength(456)
+      expect(result.current.models.at(-1)?.name).toBe("remote/model-454")
     })
 
     it("reports only the providers that contributed nothing", async () => {
@@ -300,7 +299,6 @@ describe("useProviderModels", () => {
       })
 
       expect(result.current.status).toBe("error")
-      expect(ProviderManager.saveModelMappings).not.toHaveBeenCalled()
     })
 
     it("marks legacy selected model as a conflict when multiple providers expose it", async () => {

@@ -492,21 +492,6 @@ export const ProviderManager = {
     )
   },
 
-  /** Persist every (provider, model) pair — collisions are kept, not dropped. */
-  async saveModelMappings(
-    pairs: Array<{ modelId: string; providerId: string }>
-  ): Promise<void> {
-    if (pairs.length === 0) return
-    const mappings = await readScopedModelMappings()
-    for (const { modelId, providerId } of pairs) {
-      mappings[scopedModelKey(providerId, modelId)] = providerId
-    }
-    await plasmoGlobalStorage.set(
-      ProviderStorageKey.MODEL_MAPPINGS_V2,
-      mappings
-    )
-  },
-
   /** All providers known to serve `modelId` (for disambiguation UI). */
   async getModelProviders(modelId: string): Promise<string[]> {
     const mappings = await readScopedModelMappings()

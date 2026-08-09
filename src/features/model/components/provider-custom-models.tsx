@@ -6,12 +6,12 @@ import type { ProviderConfig } from "@/lib/providers/types"
 
 interface ProviderCustomModelsProps {
   activeConfig: ProviderConfig
-  updateConfig: (updates: Partial<ProviderConfig>) => void
+  onChange: (customModels: string[]) => void | Promise<void>
 }
 
 export const ProviderCustomModels = ({
   activeConfig,
-  updateConfig
+  onChange
 }: ProviderCustomModelsProps) => {
   const { t } = useTranslation()
 
@@ -22,7 +22,7 @@ export const ProviderCustomModels = ({
       description={t("settings.providers.custom_models_description")}>
       <ModelIdListEditor
         models={activeConfig.customModels ?? []}
-        onChange={(customModels) => updateConfig({ customModels })}
+        onChange={(customModels) => void onChange(customModels)}
         addLabel={t("settings.providers.models.add")}
         removeLabel={t("settings.providers.models.remove")}
         placeholder={t("settings.providers.models.placeholder")}

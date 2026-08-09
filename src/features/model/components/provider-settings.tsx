@@ -54,6 +54,7 @@ export const ProviderSettings = () => {
     handleTestConnection,
     handleSave,
     updateConfig,
+    setCustomModels,
     setProviderEnabled,
     addProvider,
     removeProvider
@@ -206,7 +207,7 @@ export const ProviderSettings = () => {
               {activeConfig.id !== ProviderId.OLLAMA && (
                 <ProviderCustomModels
                   activeConfig={activeConfig}
-                  updateConfig={updateConfig}
+                  onChange={setCustomModels}
                 />
               )}
             </FieldStack>
