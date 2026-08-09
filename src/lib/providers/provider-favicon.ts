@@ -73,18 +73,62 @@ const sniffImageType = (bytes: Uint8Array): string | undefined =>
     magic.every((byte, index) => bytes[index] === byte)
   )?.[0]
 
-const PRIVATE_HOST_PATTERNS = [
+const PRIVATE_HOST_SUFFIXES = [
   /^localhost$/,
   /\.local$/,
   /\.localhost$/,
-  /^127\./,
-  /^10\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^0\.0\.0\.0$/,
-  /^\[?::1\]?$/,
-  /^\[?fe80:/i
+  /\.internal$/,
+  /\.home\.arpa$/
 ]
+
+/**
+ * Address blocks this must never reach, as `[first, last]` pairs.
+ *
+ * Written as ranges rather than string prefixes because the prefixes were
+ * wrong in both directions: `169.254.0.0/16` was missing entirely — and with it
+ * `169.254.169.254`, the cloud metadata endpoint — while a check like `^10\.`
+ * says nothing about `100.64.0.0/10` next door. A number either falls in a
+ * block or it does not.
+ */
+const BLOCKED_IPV4_RANGES: ReadonlyArray<readonly [string, number]> = [
+  ["0.0.0.0", 8], // "this network"
+  ["10.0.0.0", 8], // private
+  ["100.64.0.0", 10], // carrier-grade NAT, and what Tailscale hands out
+  ["127.0.0.0", 8], // loopback
+  ["169.254.0.0", 16], // link-local, including cloud metadata
+  ["172.16.0.0", 12], // private
+  ["192.0.0.0", 24], // IETF protocol assignments
+  ["192.168.0.0", 16], // private
+  ["198.18.0.0", 15], // benchmarking
+  ["224.0.0.0", 4], // multicast
+  ["240.0.0.0", 4] // reserved, and 255.255.255.255 with it
+]
+
+const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/
+
+/**
+ * The address as a number, or undefined when the host is a name rather than a
+ * dotted quad. Shorthand and numeric forms — `127.1`, `0x7f.1`, `2130706433` —
+ * never arrive here: the URL parser normalizes them to dotted quads first.
+ */
+const ipv4ToNumber = (host: string): number | undefined => {
+  const match = IPV4.exec(host)
+  if (!match) return undefined
+  const octets = match.slice(1).map(Number)
+  if (octets.some((octet) => octet > 255)) return undefined
+  return octets.reduce((total, octet) => total * 256 + octet, 0)
+}
+
+const isBlockedIpv4 = (host: string): boolean => {
+  const address = ipv4ToNumber(host)
+  if (address === undefined) return false
+  return BLOCKED_IPV4_RANGES.some(([base, bits]) => {
+    const start = ipv4ToNumber(base)
+    if (start === undefined) return false
+    const size = 2 ** (32 - bits)
+    return address >= start && address < start + size
+  })
+}
 
 const hostnameOf = (baseUrl?: string): string | undefined => {
   const raw = baseUrl?.trim()
@@ -97,14 +141,21 @@ const hostnameOf = (baseUrl?: string): string | undefined => {
 }
 
 /**
- * Whether a base URL points somewhere worth asking. A LAN inference server has
- * no favicon to serve, so probing it spends a request on a certain miss, and a
- * bare hostname with no dot is a local machine name.
+ * Whether a base URL points somewhere worth asking — and, more importantly,
+ * somewhere this is allowed to ask. A LAN inference server has no favicon to
+ * serve, so probing it spends a request on a certain miss; a link-local or
+ * loopback address has something far worse than a miss to offer a request
+ * carrying `<all_urls>`.
+ *
+ * The requirement of a dot is doing real work: it rejects single-label intranet
+ * names, and every IPv6 literal with them, since the URL parser keeps those
+ * bracketed.
  */
 export const isRemoteFaviconHost = (baseUrl?: string): boolean => {
   const host = hostnameOf(baseUrl)
   if (!host) return false
-  if (PRIVATE_HOST_PATTERNS.some((pattern) => pattern.test(host))) return false
+  if (PRIVATE_HOST_SUFFIXES.some((pattern) => pattern.test(host))) return false
+  if (isBlockedIpv4(host)) return false
   return host.includes(".")
 }
 

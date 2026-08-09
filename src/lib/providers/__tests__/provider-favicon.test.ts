@@ -47,18 +47,58 @@ describe("isRemoteFaviconHost", () => {
   it.each([
     "http://localhost:11434",
     "http://127.0.0.1:1234/v1",
+    "http://127.5.5.5/v1",
     "http://192.168.1.10:8000/v1",
     "http://10.0.0.5/v1",
     "http://172.16.4.4/v1",
+    "http://172.31.255.254/v1",
+    "http://100.64.0.1/v1",
+    "http://0.0.0.0/v1",
+    "http://255.255.255.255/v1",
+    "http://224.0.0.1/v1",
     "http://my-box:8080/v1",
-    "http://server.local/v1"
+    "http://server.local/v1",
+    "http://vault.internal/v1",
+    "http://box.home.arpa/v1",
+    "http://[::1]:8080/v1",
+    "http://[fe80::1]/v1",
+    "http://[::ffff:127.0.0.1]/v1"
   ])("refuses to probe %s", (baseUrl) => {
+    expect(isRemoteFaviconHost(baseUrl)).toBe(false)
+  })
+
+  /*
+   * 169.254.169.254 is the cloud metadata endpoint. A request carrying
+   * <all_urls> reaches what the page cannot, so link-local is not merely a
+   * wasted probe.
+   */
+  it.each([
+    "http://169.254.169.254/latest/meta-data",
+    "http://169.254.0.1/v1"
+  ])("refuses link-local %s", (baseUrl) => {
+    expect(isRemoteFaviconHost(baseUrl)).toBe(false)
+  })
+
+  /*
+   * Shorthand, hex and integer forms all name the same address. The URL parser
+   * normalizes them to a dotted quad before the filter sees them, which is the
+   * only reason a numeric check is sufficient.
+   */
+  it.each([
+    "http://2130706433/v1",
+    "http://0x7f.1/v1",
+    "http://127.1/v1",
+    "http://0177.0.0.1/v1"
+  ])("refuses the loopback spelled as %s", (baseUrl) => {
     expect(isRemoteFaviconHost(baseUrl)).toBe(false)
   })
 
   it.each([
     "https://api.example.com/v1",
-    "https://llm.acme.io"
+    "https://llm.acme.io",
+    "http://11.0.0.5/v1",
+    "http://172.32.0.1/v1",
+    "http://100.63.255.255/v1"
   ])("probes %s", (baseUrl) => {
     expect(isRemoteFaviconHost(baseUrl)).toBe(true)
   })
