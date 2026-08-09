@@ -16,6 +16,12 @@ import {
 } from "./streams"
 
 describe("contracts package", () => {
+  it("runs without application or browser test shims", () => {
+    expect("chrome" in globalThis).toBe(false)
+    expect("indexedDB" in globalThis).toBe(false)
+    expect("document" in globalThis).toBe(false)
+  })
+
   it("validates strict RPC envelopes without extension globals", () => {
     const requestId = "11111111-1111-4111-8111-111111111111"
     expect(
