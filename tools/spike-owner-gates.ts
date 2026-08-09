@@ -1,34 +1,36 @@
 #!/usr/bin/env node
 
-// Section 9.4 spike phase 2: drives the single-owner topology gates in real
-// packaged Chromium (unpacked MV3 extension, real chrome-extension:// origin).
-//
-// Gates exercised (numbering from PRIVATE_ARCHITECTURE_REBUILD_PLAN.md 9.4):
-//   2. Two extension pages issue concurrent repository commands through the
-//      one owner with no lost update.
-//   3. Background durably writes and rereads a checkpoint while all visible
-//      extension pages are closed.
-//   4. Owner-document close and SQLite-worker termination recover on the next
-//      call without manual reload, preserving durable state.
-//   5. A worker terminated inside an open transaction rolls back to the
-//      pre-transaction state on the next worker generation.
-//   7. Export serializes a consistent, verifiable snapshot while another
-//      client keeps writing.
-//   8. Two writers keep writing (with client-side retry) across a deliberate
-//      owner-document recreation, with no lost or duplicated update.
-//   4c. Full browser restart (same profile relaunch) preserves durable rows
-//       and the owner topology recovers without manual intervention.
-//
-// Forced service-worker termination mid-write (gate 4d) is covered by a
-// separate runner, tools/spike-sw-termination.ts (pnpm spike:sw-termination):
-// Playwright pins any worker it attaches to, so that gate launches Chromium
-// itself and kills the worker over the DevTools HTTP endpoint. Also not
-// covered here: incognito/split mode (explicitly unsupported for the spike),
-// packaged Firefox (offscreen API is Chromium-only; MV2 uses a background
-// page host).
-//
-// Usage: pnpm spike:owner-gates [--headful]
-// Requires: pnpm spike:build
+/**
+ * Section 9.4 spike phase 2: drives the single-owner topology gates in real
+ * packaged Chromium (unpacked MV3 extension, real chrome-extension:// origin).
+ *
+ * Gates exercised (numbering from PRIVATE_ARCHITECTURE_REBUILD_PLAN.md 9.4):
+ *   2. Two extension pages issue concurrent repository commands through the
+ *      one owner with no lost update.
+ *   3. Background durably writes and rereads a checkpoint while all visible
+ *      extension pages are closed.
+ *   4. Owner-document close and SQLite-worker termination recover on the next
+ *      call without manual reload, preserving durable state.
+ *   5. A worker terminated inside an open transaction rolls back to the
+ *      pre-transaction state on the next worker generation.
+ *   7. Export serializes a consistent, verifiable snapshot while another
+ *      client keeps writing.
+ *   8. Two writers keep writing (with client-side retry) across a deliberate
+ *      owner-document recreation, with no lost or duplicated update.
+ *   4c. Full browser restart (same profile relaunch) preserves durable rows
+ *       and the owner topology recovers without manual intervention.
+ *
+ * Forced service-worker termination mid-write (gate 4d) is covered by a
+ * separate runner, tools/spike-sw-termination.ts (pnpm spike:sw-termination):
+ * Playwright pins any worker it attaches to, so that gate launches Chromium
+ * itself and kills the worker over the DevTools HTTP endpoint. Also not
+ * covered here: incognito/split mode (explicitly unsupported for the spike),
+ * packaged Firefox (offscreen API is Chromium-only; MV2 uses a background
+ * page host).
+ *
+ * Usage: pnpm spike:owner-gates [--headful]
+ * Requires: pnpm spike:build
+ */
 
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"

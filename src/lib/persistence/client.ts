@@ -12,16 +12,18 @@ import {
   type RunResult
 } from "./protocol"
 
-// Client side of the persistence RPC. Every context that is not the owner —
-// sidepanel, options, popup, and the Chromium background service worker —
-// talks to the database exclusively through this module.
-//
-// In-process fast path: the owner host context (Firefox MV2 background page,
-// Chromium offscreen document) registers globalThis hooks; calls made from
-// inside the host skip runtime messaging entirely. The Chromium service
-// worker registers an ensure hook so it can create its own offscreen
-// document without messaging itself (runtime messages are never delivered
-// back to the sending context).
+/**
+ * Client side of the persistence RPC. Every context that is not the owner —
+ * sidepanel, options, popup, and the Chromium background service worker —
+ * talks to the database exclusively through this module.
+ *
+ * In-process fast path: the owner host context (Firefox MV2 background page,
+ * Chromium offscreen document) registers globalThis hooks; calls made from
+ * inside the host skip runtime messaging entirely. The Chromium service
+ * worker registers an ensure hook so it can create its own offscreen
+ * document without messaging itself (runtime messages are never delivered
+ * back to the sending context).
+ */
 
 const RPC_TIMEOUT_MS = 30_000
 
@@ -99,9 +101,7 @@ const send = async (request: PersistenceOp): Promise<unknown> => {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Typed surface used by the db facade
-// ---------------------------------------------------------------------------
+/** Typed surface used by the db facade */
 
 export const rpcQuery = async (
   sql: string,

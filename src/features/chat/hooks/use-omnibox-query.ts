@@ -8,14 +8,18 @@ const pendingOmniboxStorage = getPlasmoStorageForKey(
   STORAGE_KEYS.BROWSER.PENDING_OMNIBOX_QUERY
 )
 
-// Drop duplicate deliveries of the same query within this window. The omnibox
-// fans a single query out across storage + runtime message, so it can arrive
-// more than once.
+/**
+ * Drop duplicate deliveries of the same query within this window. The omnibox
+ * fans a single query out across storage + runtime message, so it can arrive
+ * more than once.
+ */
 const DEDUPE_WINDOW_MS = 2000
 
-// Discard a persisted query older than this. A query stored while no model was
-// ready (and never consumed — e.g. the panel was closed) must not auto-send on
-// a much later side-panel open. Comfortably longer than model hydration.
+/**
+ * Discard a persisted query older than this. A query stored while no model was
+ * ready (and never consumed — e.g. the panel was closed) must not auto-send on
+ * a much later side-panel open. Comfortably longer than model hydration.
+ */
 const PENDING_QUERY_TTL_MS = 60_000
 
 interface UseOmniboxQueryOptions {

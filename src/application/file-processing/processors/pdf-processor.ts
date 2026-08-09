@@ -3,7 +3,7 @@ import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
 
-// Define necessary types from pdfjs-dist
+/** Define necessary types from pdfjs-dist */
 type PDFDocumentProxy =
   import("pdfjs-dist/types/src/display/api").PDFDocumentProxy
 type TextItem = import("pdfjs-dist/types/src/display/api").TextItem
@@ -103,7 +103,7 @@ export class PdfProcessor implements FileProcessor {
   }
 }
 
-// Helper: promise with timeout
+/** Helper: promise with timeout */
 function promiseTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     let settled = false

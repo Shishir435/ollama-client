@@ -2,14 +2,16 @@ import { sanitizeExportFragment } from "@/lib/exporters/export-sanitizer"
 import { consumePrintJob, purgeStalePrintJobs } from "@/lib/exporters/print-job"
 import { getPdfStyles } from "@/lib/exporters/styles"
 
-// The print payload arrives via localStorage, which any extension page can
-// write. Treat it as untrusted: re-sanitize with the same shared config the
-// exporter used, and — unless the user opted in to remote export images —
-// install a CSP meta before injecting so no remote resource (img, CSS url())
-// can load even if a crafted payload slipped past the DOM-level strip.
-//
-// Each print window consumes only its own job (`?job=<id>`), so concurrent
-// exports cannot overwrite or clear each other's documents.
+/**
+ * The print payload arrives via localStorage, which any extension page can
+ * write. Treat it as untrusted: re-sanitize with the same shared config the
+ * exporter used, and — unless the user opted in to remote export images —
+ * install a CSP meta before injecting so no remote resource (img, CSS url())
+ * can load even if a crafted payload slipped past the DOM-level strip.
+ *
+ * Each print window consumes only its own job (`?job=<id>`), so concurrent
+ * exports cannot overwrite or clear each other's documents.
+ */
 const BLOCK_REMOTE_CSP =
   "default-src 'none'; img-src 'self' data: blob:; style-src 'unsafe-inline'"
 

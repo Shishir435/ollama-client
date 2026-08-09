@@ -16,7 +16,7 @@ const optionalBoolean = z.preprocess(
   z.boolean().optional()
 )
 
-// ---- Metrics (used inside messages and for SQLite parseMetrics) ----
+/** ---- Metrics (used inside messages and for SQLite parseMetrics) ---- */
 
 const RagSourceSchema = z.object({
   id: z.union([z.number(), z.string()]),
@@ -301,8 +301,6 @@ const ImageAttachmentSchema = z.object({
   messageId: z.number().optional()
 })
 
-// ---- ChatMessage ----
-
 /** Partial safe failure persisted on a terminal assistant message. */
 export const ChatMessageErrorSchema = AppFailureSchema.partial()
 
@@ -332,8 +330,6 @@ export const ChatMessageSchema = z.object({
   siblingIds: z.array(z.union([z.number(), z.string()])).optional()
 })
 
-// ---- ChatSession ----
-
 /** Version-independent persisted chat-session metadata and optional messages. */
 export const ChatSessionSchema = z.object({
   id: z.string(),
@@ -349,8 +345,6 @@ export const ChatSessionSchema = z.object({
 export const ChatSessionImportSchema = ChatSessionSchema.extend({
   messages: z.array(ChatMessageSchema)
 })
-
-// -- Output type aliases for consumers that need typed results --
 
 /** Persisted message shape before application attachment normalization. */
 export type ChatMessageParsed = z.infer<typeof ChatMessageSchema>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { AppFailureSchema } from "./app-failure"
-import { ChatMessageSchema } from "./chat"
-import { DurableContextOptionsSchema } from "./context"
+import { AppFailureSchema } from "../app-failure"
+import { ChatMessageSchema } from "../chat"
+import { DurableContextOptionsSchema } from "../context"
 import {
   createRpcResponseEnvelopeSchema,
   RPC_PROTOCOL_VERSION,
@@ -10,13 +10,13 @@ import {
   RpcErrorCode,
   RpcMethod,
   RpcRequestEnvelopeSchema
-} from "./rpc"
+} from "../rpc"
 import {
   CHAT_STREAM_EVENT_TYPES,
   MODEL_PULL_EVENT_TYPES,
   STREAM_PROTOCOL_VERSION
-} from "./streams"
-import { PersistedTurnRequestSchema } from "./turns"
+} from "../streams"
+import { PersistedTurnRequestSchema } from "../turns"
 
 describe("contracts package", () => {
   it("runs without application or browser test shims", () => {

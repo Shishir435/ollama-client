@@ -52,8 +52,10 @@ const resultFromRun = (run: IngestionRun): IngestionJobResult => ({
   ...(run.failure && { failure: run.failure })
 })
 
-// A processed payload that was never acknowledged (the page closed before the
-// result was consumed) is pruned on the next background boot.
+/**
+ * A processed payload that was never acknowledged (the page closed before the
+ * result was consumed) is pruned on the next background boot.
+ */
 const UNACKED_PAYLOAD_RETENTION_MS = 24 * 60 * 60 * 1000
 
 const isTerminal = (run: IngestionRun): boolean =>

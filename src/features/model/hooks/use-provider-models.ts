@@ -31,8 +31,10 @@ import { extensionRpcClient } from "@/protocol/extension-client"
 import type { SelectedModelRef } from "@/types"
 import { isEmbeddingModel } from "../lib/model-utils"
 
-// Stable identities: a fresh literal on every render would restart the effects
-// and memos that take `models`.
+/**
+ * Stable identities: a fresh literal on every render would restart the effects
+ * and memos that take `models`.
+ */
 const EMPTY_MODELS: ProvidersListModelsResult["models"] = []
 const EMPTY_FAILURES: ProvidersListModelsResult["failures"] = []
 

@@ -69,9 +69,11 @@ const scoreKeywordMatch = (text: string, terms: string[]): number => {
   return uniqueMatches * 2 + totalMatches
 }
 
-// Extract sentences relevant to the query; keep ±1 neighbor for context flow.
-// Skips compression when content is too short, no terms match, or the content
-// contains structured markup (code fences, tables, lists) that sentence-splitting would corrupt.
+/**
+ * Extract sentences relevant to the query; keep ±1 neighbor for context flow.
+ * Skips compression when content is too short, no terms match, or the content
+ * contains structured markup (code fences, tables, lists) that sentence-splitting would corrupt.
+ */
 const STRUCTURED_CONTENT_RE = /```|~~~|^\s*\|.+\|/m
 const LIST_ITEM_RE = /^\s*[-*+]\s|^\s*\d+\.\s/m
 

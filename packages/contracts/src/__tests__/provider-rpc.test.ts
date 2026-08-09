@@ -3,7 +3,7 @@ import {
   ProvidersListModelsResultSchema,
   ProvidersListResultSchema,
   ProvidersUpsertRequestSchema
-} from "./provider-rpc"
+} from "../provider-rpc"
 
 describe("provider RPC contracts", () => {
   it("accepts complete provider commands and rejects unknown input", () => {

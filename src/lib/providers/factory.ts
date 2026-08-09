@@ -18,8 +18,10 @@ import { VllmProvider } from "./vllm"
 
 type ProviderConstructor = new (config: ProviderConfig) => LLMProvider
 
-// Subclasses of the shared OpenAI-compatible base, keyed by ProviderId.
-// Anything not in this map uses the plain OpenAI-compatible provider.
+/**
+ * Subclasses of the shared OpenAI-compatible base, keyed by ProviderId.
+ * Anything not in this map uses the plain OpenAI-compatible provider.
+ */
 const OPENAI_COMPAT_CONSTRUCTORS: Record<string, ProviderConstructor> = {
   [ProviderId.LM_STUDIO]: LMStudioProvider,
   [ProviderId.LLAMA_CPP]: LlamaCppProvider,

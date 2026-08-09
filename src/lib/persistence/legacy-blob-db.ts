@@ -15,29 +15,31 @@ import {
 } from "./durable-tables"
 import { readLegacyBlobBytes } from "./legacy-blob-reader"
 
-// The legacy blob backend: the whole database in WASM memory, persisted as one
-// IndexedDB value. Serves profiles whose migration to OPFS has not completed,
-// and profiles pinned to the blob by the operator override.
-//
-// It runs inside the chat-db worker, alongside the OPFS backend and on the same
-// engine. Two things follow from that, and both are the point:
-//
-//   - The extension ships one SQLite. This was sql.js until 0.13.x, in every
-//     context that touched history. Official sqlite-wasm reads the same file
-//     format, but its JS glue is an order of magnitude larger than sql.js's
-//     (578KB against 46KB) and pulls an emitted worker asset with it, so an
-//     in-page swap put ~1.4MB into the background bundle. In the worker the
-//     glue is already paid for.
-//   - There is exactly one writer. The per-context database this replaces
-//     needed an import-generation guard and a backend re-read before every save
-//     to keep a stale page from overwriting a newer image. A single owner
-//     cannot have a stale writer, so neither guard has anything left to defend.
-//
-// Durability keeps the old shape deliberately: a debounced full-image export,
-// not per-transaction writes. The IndexedDB blob stays the system of record and
-// the rollback artifact for a profile on this backend, and a file that is being
-// preserved as evidence should be written in whole images, the way it was
-// written before.
+/**
+ * The legacy blob backend: the whole database in WASM memory, persisted as one
+ * IndexedDB value. Serves profiles whose migration to OPFS has not completed,
+ * and profiles pinned to the blob by the operator override.
+ *
+ * It runs inside the chat-db worker, alongside the OPFS backend and on the same
+ * engine. Two things follow from that, and both are the point:
+ *
+ *   - The extension ships one SQLite. This was sql.js until 0.13.x, in every
+ *     context that touched history. Official sqlite-wasm reads the same file
+ *     format, but its JS glue is an order of magnitude larger than sql.js's
+ *     (578KB against 46KB) and pulls an emitted worker asset with it, so an
+ *     in-page swap put ~1.4MB into the background bundle. In the worker the
+ *     glue is already paid for.
+ *   - There is exactly one writer. The per-context database this replaces
+ *     needed an import-generation guard and a backend re-read before every save
+ *     to keep a stale page from overwriting a newer image. A single owner
+ *     cannot have a stale writer, so neither guard has anything left to defend.
+ *
+ * Durability keeps the old shape deliberately: a debounced full-image export,
+ * not per-transaction writes. The IndexedDB blob stays the system of record and
+ * the rollback artifact for a profile on this backend, and a file that is being
+ * preserved as evidence should be written in whole images, the way it was
+ * written before.
+ */
 
 const SAVE_DEBOUNCE_MS = 1000
 
@@ -59,10 +61,6 @@ export interface LegacyBlobDb {
   exportImage: () => Uint8Array
   close: () => void
 }
-
-// ---------------------------------------------------------------------------
-// IndexedDB
-// ---------------------------------------------------------------------------
 
 /**
  * Every helper closes the connection it opens. A lingering handle makes
@@ -121,10 +119,6 @@ export const deleteLegacyBlob = (): Promise<void> =>
     // closes. Resolving optimistically matches what the caller can act on.
     request.onblocked = () => resolve()
   })
-
-// ---------------------------------------------------------------------------
-// Engine
-// ---------------------------------------------------------------------------
 
 /**
  * The WASM glue admits a buffer only by `instanceof Uint8Array`, which is a

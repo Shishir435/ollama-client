@@ -25,7 +25,8 @@ The extension does **not** run first-party analytics, ad trackers, or telemetry 
 
 ## Where data is stored
 
-- Local browser storage backed by SQL WASM (`sql.js`).
+- Local browser storage backed by official sqlite-wasm. Migrated chat history
+  uses OPFS; retained legacy profiles use a compatibility blob in IndexedDB.
 - Optional ZIP backups stored locally when you export.
 - No default cloud sync from the extension itself.
 

@@ -25,10 +25,12 @@ import {
   ProviderId
 } from "./types"
 
-// Ceiling on the per-list `/api/show` fan-out that recovers metadata missing
-// from `/api/tags`. Sized above a normal library's count of non-GGUF models so
-// the cap never bites in practice, and low enough that a server reporting no
-// metadata at all cannot turn one list request into dozens.
+/**
+ * Ceiling on the per-list `/api/show` fan-out that recovers metadata missing
+ * from `/api/tags`. Sized above a normal library's count of non-GGUF models so
+ * the cap never bites in practice, and low enough that a server reporting no
+ * metadata at all cannot turn one list request into dozens.
+ */
 const OLLAMA_DETAIL_BACKFILL_LIMIT = 12
 
 /**

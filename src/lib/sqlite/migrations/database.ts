@@ -1,14 +1,16 @@
-// The database surface the forward-only migrations are written against.
-//
-// This used to be sql.js's `Database` type, which is why every migration
-// imported a type from an engine that no longer runs in the extension. The
-// shape is unchanged — these are the members the migrations actually call — so
-// the runner keeps working against both engines without a compatibility cast.
-//
-// Two implementations exist, both official sqlite-wasm underneath:
-//   - the OPFS owner worker (src/lib/persistence/chat-db-worker.ts)
-//   - the legacy in-memory blob fallback (src/lib/persistence/legacy-blob-db.ts)
-// Both obtain one through `asMigrationDatabase` below.
+/**
+ * The database surface the forward-only migrations are written against.
+ *
+ * This used to be sql.js's `Database` type, which is why every migration
+ * imported a type from an engine that no longer runs in the extension. The
+ * shape is unchanged — these are the members the migrations actually call — so
+ * the runner keeps working against both engines without a compatibility cast.
+ *
+ * Two implementations exist, both official sqlite-wasm underneath:
+ *   - the OPFS owner worker (src/lib/persistence/chat-db-worker.ts)
+ *   - the legacy in-memory blob fallback (src/lib/persistence/legacy-blob-db.ts)
+ * Both obtain one through `asMigrationDatabase` below.
+ */
 
 import type { Database as SqliteWasmDatabase } from "@sqlite.org/sqlite-wasm"
 

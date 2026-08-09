@@ -113,7 +113,7 @@ const fileFromRow = (row: Row): StoredFile => ({
   data: (row.data as Uint8Array | null) ?? undefined
 })
 
-// Build a `?, ?, ?` placeholder list for an IN clause.
+/** Build a `?, ?, ?` placeholder list for an IN clause. */
 const placeholders = (n: number) => Array(n).fill("?").join(", ")
 
 const normalizeFileData = (data: unknown): Uint8Array | undefined => {
@@ -181,7 +181,7 @@ const putSessionRow = async (
   )
 }
 
-// ----- Sessions ------------------------------------------------------------
+/** ----- Sessions ------------------------------------------------------------ */
 
 export const getAllSessionsOrderedByRecency = async (): Promise<
   ChatSession[]
@@ -372,7 +372,7 @@ export const deleteSessionRow = async (id: string): Promise<void> => {
   await run("DELETE FROM sessions WHERE id = ?", [id])
 }
 
-// ----- Messages ------------------------------------------------------------
+/** ----- Messages ------------------------------------------------------------ */
 
 export const getMessage = async (
   id: number | string
@@ -682,7 +682,7 @@ export const bulkDeleteMessages = async (ids: number[]): Promise<void> => {
   )
 }
 
-// ----- Files ---------------------------------------------------------------
+/** ----- Files --------------------------------------------------------------- */
 
 export const getFilesByMessageIds = async (
   messageIds: number[]
@@ -747,8 +747,6 @@ export const deleteFilesByMessageIds = async (
   )
   return (before[0]?.count as number) ?? 0
 }
-
-// ----- Database-level operations ------------------------------------------
 
 /**
  * Drop the SQLite-backed chat database. Used by the user-facing

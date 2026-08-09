@@ -22,9 +22,11 @@ import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import type { ChatMessage } from "@/types"
 
-// Compact chips: the sidepanel is ~400px wide, so the three actions only share
-// a row at this sizing. `min-w-0` lets the label truncate rather than push a
-// sibling out of the row.
+/**
+ * Compact chips: the sidepanel is ~400px wide, so the three actions only share
+ * a row at this sizing. `min-w-0` lets the label truncate rather than push a
+ * sibling out of the row.
+ */
 const errorChipCls =
   "h-6 min-w-0 gap-1 rounded-chip border px-2 text-micro shadow-none hover:border-border/50"
 const recoveryChipCls = cn(

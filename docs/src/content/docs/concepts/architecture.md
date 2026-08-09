@@ -455,9 +455,10 @@ There is no OCR pipeline, and no cross-encoder reranking. Retrieval precision co
 - Two storage engines: chat history is SQLite-only, but vectors and knowledge sets are still Dexie. The Dexie *chat* fallback is retired — this is a split by domain, not a migration in progress.
 - Typed setting descriptors cover only part of structured extension storage;
   high-risk config should gain runtime schemas incrementally.
-- Context building still constructs providers and reads settings directly;
-  package extraction must introduce explicit ports rather than move that
-  coupling unchanged.
+- The environment-independent context coordinator now lives in
+  `@ollama-client/chat-runtime`, but its extension adapter still owns provider,
+  retrieval, and storage access. Keep that environment coupling outside the
+  package boundary.
 - Retrieval quality depends on chunking / threshold tuning and model quality.
 
 ## Desktop design notes
@@ -471,6 +472,8 @@ These are non-implementation notes for a hypothetical desktop port.
 
 ## Near-term priorities
 
-1. Freeze package-candidate import boundaries in source-contract tests.
-2. Introduce context-service ports before extracting runtime code.
+1. Preserve the contracts, runtime-core, and chat-runtime source boundaries as
+   browser-agent work begins.
+2. Build agent task, policy, approval, verification, and recovery kernels on
+   those ports rather than importing extension adapters.
 3. Improve retrieval observability and failure diagnostics.

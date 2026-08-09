@@ -1,12 +1,14 @@
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 
-// Migration-time reader for the legacy IndexedDB blob. Loaded lazily so it
-// stays out of every startup chunk once a profile has migrated.
-//
-// This module holds no SQLite engine. The blob is a valid SQLite file, so the
-// database owner's worker surveys it through the `surveyDb` op on official
-// sqlite-wasm — the same engine that performs the import. Reading it here with
-// a second engine is what kept sql.js in the package for a read.
+/**
+ * Migration-time reader for the legacy IndexedDB blob. Loaded lazily so it
+ * stays out of every startup chunk once a profile has migrated.
+ *
+ * This module holds no SQLite engine. The blob is a valid SQLite file, so the
+ * database owner's worker surveys it through the `surveyDb` op on official
+ * sqlite-wasm — the same engine that performs the import. Reading it here with
+ * a second engine is what kept sql.js in the package for a read.
+ */
 
 /**
  * Normalize whatever the structured clone handed back.

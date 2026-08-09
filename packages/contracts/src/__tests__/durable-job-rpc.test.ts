@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { IngestionJobResultSchema } from "./ingestion-rpc"
+import { IngestionJobResultSchema } from "../ingestion-rpc"
 import {
   ModelPullJobResultSchema,
   ModelPullListActiveRequestSchema
-} from "./model-pull-rpc"
+} from "../model-pull-rpc"
 
 const jobId = "123e4567-e89b-12d3-a456-426614174000"
 

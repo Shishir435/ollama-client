@@ -187,7 +187,6 @@ export const DEFAULT_MEMORY_ENABLED = true
 export const MIN_EVAL_DURATION_FOR_SPEED_NS = 10_000_000
 export const MAX_REASONABLE_TOKENS_PER_SECOND = 2_000
 
-// ── Timeouts / Intervals ─────────────────────────────────────────
 /** How long (ms) to wait for first stream chunk before aborting */
 export const STREAM_FIRST_CHUNK_TIMEOUT_MS = 120000
 /** Max time (ms) for PDF.js to load a document */

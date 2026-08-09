@@ -7,7 +7,7 @@ import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type { FileProcessor, ProcessedFile } from "./types"
 
-// Processor priority order: specific formats first, then generic text
+/** Processor priority order: specific formats first, then generic text */
 const processors: FileProcessor[] = [
   new PdfProcessor(), // PDF has highest priority
   new DocxProcessor(), // DOCX second

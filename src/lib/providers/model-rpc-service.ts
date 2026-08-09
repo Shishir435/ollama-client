@@ -115,9 +115,7 @@ const normalizeLmStudioLoaded = (model: LmStudioModel): LoadedModel => ({
   quantizationLevel: model.quantization ?? ""
 })
 
-// ---------------------------------------------------------------------------
-// Warmup
-// ---------------------------------------------------------------------------
+/** Warmup */
 
 const warmupHistory = new Map<string, number>()
 

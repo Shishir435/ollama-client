@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   DiagnosticEventSchema,
   DiagnosticsGetBundleResultSchema
-} from "./diagnostics-rpc"
+} from "../diagnostics-rpc"
 
 describe("diagnostics RPC contracts", () => {
   it("accepts sanitized diagnostic events and rejects free-form fields", () => {

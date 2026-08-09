@@ -1,8 +1,8 @@
-import { expect, test } from "../fixtures/extension"
+import { expect, test } from "../../fixtures/extension"
 import {
   openPersistenceVerifyPage,
   waitForOpfsMarker
-} from "../fixtures/persistence"
+} from "../../fixtures/persistence"
 
 interface Counts {
   sessions: number

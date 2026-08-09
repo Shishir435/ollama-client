@@ -2,7 +2,6 @@ import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-// import logger to debug
 
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"

@@ -16,10 +16,12 @@ import type {
   SpikeWorkerResult
 } from "./protocol"
 
-// Section 9.4 spike: official sqlite-wasm with the opfs-sahpool VFS inside
-// one dedicated worker. This measures the candidate persistence topology's
-// physical import and incremental durable writes — the two properties the
-// current full-blob sql.js topology lacks.
+/**
+ * Section 9.4 spike: official sqlite-wasm with the opfs-sahpool VFS inside
+ * one dedicated worker. This measures the candidate persistence topology's
+ * physical import and incremental durable writes — the two properties the
+ * current full-blob sql.js topology lacks.
+ */
 
 const DB_PATH = "/spike-benchmark.sqlite"
 const CHECKPOINT_BATCH = 20
@@ -255,9 +257,11 @@ const processRequest = async (request: SpikeRequest): Promise<void> => {
   }
 }
 
-// Async handlers interleave at await points, so requests are serialized
-// through one chain: a cleanup arriving mid-run must not wipeFiles() under
-// the active database connection.
+/**
+ * Async handlers interleave at await points, so requests are serialized
+ * through one chain: a cleanup arriving mid-run must not wipeFiles() under
+ * the active database connection.
+ */
 let operationChain: Promise<void> = Promise.resolve()
 
 self.onmessage = (event: MessageEvent<SpikeRequest>) => {

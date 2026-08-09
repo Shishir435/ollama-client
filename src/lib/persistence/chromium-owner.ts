@@ -41,15 +41,19 @@ const stampExtensionVersion = (
   }
 }
 
-// Chromium control plane for the persistence owner. The background service
-// worker never opens the database itself: it guarantees that the offscreen
-// owner document exists (for its own calls and on behalf of extension pages,
-// which cannot create offscreen documents).
+/**
+ * Chromium control plane for the persistence owner. The background service
+ * worker never opens the database itself: it guarantees that the offscreen
+ * owner document exists (for its own calls and on behalf of extension pages,
+ * which cannot create offscreen documents).
+ */
 
 const OFFSCREEN_PATH = "persistence-host.html"
-// The owner=1 parameter is the host page's registration guard: only the
-// document the background creates carries it, so a user-opened tab of the
-// same page never becomes a second owner.
+/**
+ * The owner=1 parameter is the host page's registration guard: only the
+ * document the background creates carries it, so a user-opened tab of the
+ * same page never becomes a second owner.
+ */
 const OFFSCREEN_URL = `${OFFSCREEN_PATH}?owner=1`
 
 let creating: Promise<void> | null = null

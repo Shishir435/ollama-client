@@ -7,9 +7,11 @@ import {
   SPIKE_OWNER_RPC
 } from "@/spike/opfs/owner-protocol"
 
-// Section 9.4 spike phase 2: extension-page client of the single owner.
-// Exposes window.__spikeOwner / window.__spikeOwnerControl for the Playwright
-// gate runner; the buttons are for manual use.
+/**
+ * Section 9.4 spike phase 2: extension-page client of the single owner.
+ * Exposes window.__spikeOwner / window.__spikeOwnerControl for the Playwright
+ * gate runner; the buttons are for manual use.
+ */
 
 const statusLine = document.getElementById("status") as HTMLParagraphElement
 const output = document.getElementById("output") as HTMLPreElement

@@ -27,11 +27,13 @@ import {
   type QueryRow
 } from "./protocol"
 
-// Host side of the production persistence topology. Runs in exactly one
-// context per browser session: the Chromium offscreen document
-// (src/entrypoints/persistence-host/) or the Firefox MV2 persistent
-// background page. Owns the only chat-db worker, answers persistence-rpc
-// runtime messages, and performs the one-time legacy-blob migration.
+/**
+ * Host side of the production persistence topology. Runs in exactly one
+ * context per browser session: the Chromium offscreen document
+ * (src/entrypoints/persistence-host/) or the Firefox MV2 persistent
+ * background page. Owns the only chat-db worker, answers persistence-rpc
+ * runtime messages, and performs the one-time legacy-blob migration.
+ */
 
 let worker: Worker | null = null
 let requestId = 0
@@ -161,9 +163,7 @@ export const callWorker = (request: PersistenceOp): Promise<unknown> => {
   })
 }
 
-// ---------------------------------------------------------------------------
-// One-time migration from the legacy IndexedDB blob
-// ---------------------------------------------------------------------------
+/** One-time migration from the legacy IndexedDB blob */
 
 let migrationPromise: Promise<void> | null = null
 
@@ -348,9 +348,7 @@ export const ensureMigrated = (): Promise<void> => {
   return migrationPromise
 }
 
-// ---------------------------------------------------------------------------
-// RPC listener
-// ---------------------------------------------------------------------------
+/** RPC listener */
 
 export const registerPersistenceHost = (): void => {
   // In-process fast path for code running inside the host context itself

@@ -49,7 +49,10 @@ The RAG pipeline is browser-first and local-first:
 3. Hybrid retrieval combines keyword and dense search.
 4. Retrieved snippets are injected into the prompt context before generation.
 
-Chat/session/message/file history is SQLite-only through `sql.js`, persisted into IndexedDB. Vector embeddings still live in IndexedDB through the embeddings storage layer.
+Chat/session/message/file history is SQLite-only through official sqlite-wasm,
+owned by one persistence worker. Migrated profiles use OPFS; the retained legacy
+blob backend stays available for compatibility and rollback. Vector embeddings
+still live in IndexedDB through the embeddings storage layer.
 
 ## Browser Context, Images, and Tools
 
@@ -132,7 +135,7 @@ pnpm verify
 
 ## Architecture
 
-The extension is built with WXT, React 19, TypeScript 5.9, Tailwind v4, and Biome.
+The extension is built with WXT, React 19, TypeScript 6, Tailwind v4, and Biome.
 
 Key paths:
 
@@ -140,12 +143,17 @@ Key paths:
 - `src/sidepanel/` - main chat shell.
 - `src/options/` - settings and configuration shell.
 - `src/background/` - runtime message dispatcher and handlers.
-- `src/features/` - feature-owned UI, hooks, RAG, stores, and workflows.
+- `packages/contracts/` - environment-independent schemas and wire contracts.
+- `packages/runtime-core/` - deterministic streaming, cancellation, retry, and checkpoint primitives.
+- `packages/chat-runtime/` - port-driven turn, context, and tool-loop orchestration.
+- `src/application/context/` - background-owned context composition and RAG adapters.
+- `src/features/` - feature-owned UI, hooks, stores, and presentation workflows.
 - `src/components/forms/`, `src/components/layout/`, `src/components/settings/`, `src/components/feedback/`, `src/components/data-display/` - app-owned frontend primitives.
 - `src/components/ui/` - curated shadcn/Base UI primitives only.
 - `src/lib/providers/` - provider registry, factory, manager, and provider implementations.
 - `src/lib/repositories/chat-history.ts` - chat-history facade backed by SQLite.
-- `src/lib/sqlite/` - sql.js database, schema, and migrations.
+- `src/lib/persistence/` - the single sqlite-wasm owner, worker, and OPFS/legacy backends.
+- `src/lib/sqlite/` - the persistence RPC facade, schema, and forward-only migrations.
 - `src/lib/embeddings/` - chunking, embedding strategy, HNSW, keyword index, and vector storage.
 
 Runtime flow:
@@ -154,7 +162,8 @@ Runtime flow:
 2. Background dispatches to a provider handler.
 3. `ProviderFactory` resolves the selected model's provider.
 4. Provider streams tokens back through the port.
-5. UI state updates and chat history is persisted locally.
+5. The background durable runtime persists turn state while the UI folds stream
+   events into ephemeral presentation state.
 
 ## Documentation
 
