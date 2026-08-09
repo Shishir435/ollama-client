@@ -1,7 +1,9 @@
+import { AppFailureSchema } from "@ollama-client/contracts/app-failure"
+import {
+  MODEL_PULL_EVENT_TYPES,
+  STREAM_PROTOCOL_VERSION
+} from "@ollama-client/contracts/streams"
 import { z } from "zod"
-import { AppFailureSchema } from "@/protocol/app-failure"
-import { MODEL_PULL_EVENT_TYPES } from "./event-types"
-import { STREAM_PROTOCOL_VERSION } from "./version"
 
 const version = z.literal(STREAM_PROTOCOL_VERSION)
 

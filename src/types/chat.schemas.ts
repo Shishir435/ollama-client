@@ -1,5 +1,5 @@
+import { AppFailureSchema } from "@ollama-client/contracts/app-failure"
 import { z } from "zod"
-import { AppFailureSchema } from "@/protocol/app-failure"
 
 const optionalString = z.preprocess(
   (value) => (value === null ? undefined : value),

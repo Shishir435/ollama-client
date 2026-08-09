@@ -1,6 +1,5 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { describe, expect, it } from "vitest"
-
-import { RpcMethod } from "../rpc"
 import { RPC_METHOD_DEFINITIONS } from "../rpc-registry"
 
 /**

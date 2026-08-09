@@ -1,3 +1,4 @@
+import { RpcMethod, type RpcSource } from "@ollama-client/contracts/rpc"
 import type { z } from "zod"
 import {
   DiagnosticsClearRequestSchema,
@@ -63,7 +64,6 @@ import {
   ProviderTestConnectionRequestSchema,
   ProviderTestConnectionResultSchema
 } from "./provider-rpc"
-import { RpcMethod, type RpcSource } from "./rpc"
 
 export interface RpcMethodDefinition {
   request: z.ZodType

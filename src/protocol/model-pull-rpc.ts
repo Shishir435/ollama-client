@@ -1,7 +1,6 @@
+import { AppFailureSchema } from "@ollama-client/contracts/app-failure"
+import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
 import { z } from "zod"
-import { AppFailureSchema } from "./app-failure"
-import type { RpcDefinition } from "./rpc"
-import { RpcMethod } from "./rpc"
 
 export const ModelPullRunStatusSchema = z.enum([
   "queued",

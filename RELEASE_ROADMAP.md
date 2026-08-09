@@ -212,8 +212,7 @@ import background implementation.
 
 #### P0 — freeze dependency rules
 
-Status: implemented on `feature/prepackage-boundary-gates`; pending review and
-merge in PR #243, 2026-08-09.
+Status: complete on `release/0.13.x` via PR #243, 2026-08-09.
 
 - Stored provider arrays validate required identity fields before runtime use,
   recover malformed optional fields independently, and preserve unknown fields
@@ -239,11 +238,6 @@ Completed:
   providers.
 - Current composition remains in extension/background roots.
 
-Remaining before P1:
-
-- Merge PR #243 after review and CI.
-- No additional P0 implementation is known.
-
 Remaining package work:
 
 - P1: create `packages/contracts` and move only the proven contract seams.
@@ -253,6 +247,26 @@ Remaining package work:
   scheduled for `0.14.x`.
 
 #### P1 — `packages/contracts`
+
+Status: in progress on `feature/contracts-package`, 2026-08-09.
+
+Completed in the first extraction slice:
+
+- Added the `@ollama-client/contracts` workspace package.
+- Moved RPC envelope/version/method contracts, structured failure schemas, and
+  stream version/event identifiers behind its public exports.
+- Kept error conversion and browser/extension transport adapters in `src/`.
+- Added package-only Node tests, an independent no-DOM typecheck, and a source
+  contract that permits only relative imports and Zod.
+
+Remaining in P1:
+
+- Decouple persisted turn/context schemas from app-owned `ChatMessage` and
+  context implementations before moving them.
+- Move stable per-method request/result schemas in small domain slices once
+  both callers import the package API directly.
+- Remove temporary `src/protocol` compatibility re-exports after callers have
+  migrated.
 
 Candidate ownership:
 

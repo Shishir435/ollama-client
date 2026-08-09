@@ -78,7 +78,8 @@
     "format": "biome format .",
     "format:fix": "biome format --write .",
     "format:check": "biome format .",
-    "typecheck": "tsc6 -p tsconfig.json --noEmit",
+    "typecheck": "pnpm typecheck:contracts && tsc6 -p tsconfig.json --noEmit",
+    "typecheck:contracts": "tsc6 -p packages/contracts/tsconfig.json --noEmit",
     "check:dead": "knip --no-config-hints",
     "audit": "pnpm audit",
     "clean": "rm -rf build .plasmo .wxt .output node_modules",
@@ -89,6 +90,7 @@
     "check:compatibility": "node tools/check-compatibility-ledger.mjs"
   },
   "dependencies": {
+    "@ollama-client/contracts": "workspace:*",
     "@base-ui/react": "^1.5.0",
     "@mozilla/readability": "^0.6.0",
     "@plasmohq/storage": "^1.15.0",

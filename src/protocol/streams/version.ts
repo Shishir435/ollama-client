@@ -1,1 +1,1 @@
-export const STREAM_PROTOCOL_VERSION = 1 as const
+export { STREAM_PROTOCOL_VERSION } from "@ollama-client/contracts/streams"

@@ -5,6 +5,7 @@ import ts from "typescript"
 import { describe, expect, it } from "vitest"
 
 const sourceRoot = join(process.cwd(), "src")
+const contractsRoot = join(process.cwd(), "packages/contracts/src")
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((entry) => {
@@ -227,6 +228,23 @@ describe("architecture import boundaries", () => {
     const offenders = candidateFiles.filter((file) => {
       const source = readFileSync(join(sourceRoot, file), "utf8")
       return importsModule(source, forbidden)
+    })
+
+    expect(offenders).toEqual([])
+  })
+
+  it("keeps the contracts package independent of the extension environment", () => {
+    const contractSources = walk(contractsRoot)
+      .filter((file) => /\.ts$/.test(file))
+      .filter((file) => !file.endsWith(".test.ts"))
+    const offenders = contractSources.flatMap((file) => {
+      const source = readFileSync(file, "utf8")
+      return referencedModules(source)
+        .filter((module) => module !== "zod" && !module.startsWith("."))
+        .map((module) => ({
+          file: relative(contractsRoot, file).replaceAll("\\", "/"),
+          module
+        }))
     })
 
     expect(offenders).toEqual([])
