@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Virtuoso } from "react-virtuoso"
 import { TooltipActionButton } from "@/components/actions"
+import { ProviderIcon } from "@/components/icons"
 import { ListRow, ListRowTitleButton } from "@/components/layout/list-row"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,14 +26,12 @@ import {
   modelTagsKey,
   useModelCapabilityTags
 } from "@/features/model/hooks/use-model-capability-tags"
+import { useProviderIcons } from "@/features/model/hooks/use-provider-icons"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
-import {
-  getProviderDisplayName,
-  getProviderMeta
-} from "@/lib/providers/registry"
+import { getProviderDisplayName } from "@/lib/providers/registry"
 import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import {
@@ -76,6 +75,9 @@ export const ModelMenu = ({
   const { resolve, getOverride, getProbe, setOverride, clearOverride } =
     useModelCapabilityOverrides()
 
+  // Site icons for providers with no curated mark; empty for everyone else.
+  const providerIcons = useProviderIcons()
+
   // Per-model capability tags from providers that self-report (Ollama). Fetched
   // only while the menu is open; cached and shared with the model-detail panel.
   const capabilityTags = useModelCapabilityTags(models, open)
@@ -108,12 +110,19 @@ export const ModelMenu = ({
           const providerName =
             model.providerName || getProviderDisplayName(providerId)
           if (!groups[providerId]) {
-            groups[providerId] = { name: providerName, models: [] }
+            groups[providerId] = {
+              name: providerName,
+              brand: model.providerBrand,
+              models: []
+            }
           }
           groups[providerId].models.push(model)
           return groups
         },
-        {} as Record<string, { name: string; models: typeof models }>
+        {} as Record<
+          string,
+          { name: string; brand?: string; models: typeof models }
+        >
       ),
     [chatModels]
   )
@@ -323,7 +332,6 @@ export const ModelMenu = ({
               <div className="my-0.5 h-px w-7 bg-border/60" />
 
               {providerEntries.map(([providerId, group]) => {
-                const meta = getProviderMeta(providerId, group.name)
                 const isActive = activeProviderId === providerId
                 return (
                   <button
@@ -340,15 +348,13 @@ export const ModelMenu = ({
                       "relative flex size-9 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       isActive && "bg-muted text-foreground shadow-sm"
                     )}>
-                    {meta.icon.kind === "lucide" ? (
-                      <meta.icon.icon className="icon-md" />
-                    ) : (
-                      <img
-                        src={meta.icon.src}
-                        alt={meta.icon.alt}
-                        className="size-5 object-contain"
-                      />
-                    )}
+                    <ProviderIcon
+                      providerId={providerId}
+                      brand={group.brand}
+                      fallbackName={group.name}
+                      iconUrl={providerIcons[providerId]}
+                      className="icon-md"
+                    />
                     {providerId === selectedProviderId && (
                       <span className="absolute right-1 top-1 size-1.5 rounded-full bg-primary" />
                     )}
@@ -389,8 +395,9 @@ export const ModelMenu = ({
 
               {selectionConflictModel && (
                 <div className="mx-1 mb-1 rounded-control border border-status-warning/40 bg-status-warning/10 px-2 py-1.5 text-xs text-status-warning">
-                  Provider selection required for{" "}
-                  <strong>{selectionConflictModel}</strong>.
+                  {t("model.menu.selection_conflict", {
+                    model: selectionConflictModel
+                  })}
                 </div>
               )}
               {unavailableProviders.length > 0 && (
@@ -461,7 +468,24 @@ export const ModelMenu = ({
                             }
                             leading={
                               <div className="flex size-7 shrink-0 items-center justify-center">
-                                <ModelIcon className="icon-sm text-muted-foreground" />
+                                {/*
+                                 * In a single provider's view every row shares
+                                 * the same vendor, so the model-family glyph is
+                                 * what carries information. Across all models
+                                 * the provider is what tells two same-named
+                                 * models apart, so its mark takes the slot.
+                                 */}
+                                {activeProviderId === null ? (
+                                  <ProviderIcon
+                                    providerId={providerId}
+                                    brand={model.providerBrand}
+                                    fallbackName={model.providerName}
+                                    iconUrl={providerIcons[providerId]}
+                                    className="icon-sm text-muted-foreground"
+                                  />
+                                ) : (
+                                  <ModelIcon className="icon-sm text-muted-foreground" />
+                                )}
                               </div>
                             }
                             description={
@@ -519,13 +543,23 @@ export const ModelMenu = ({
                               <span className="truncate font-medium text-micro">
                                 {model.name}
                               </span>
-                              {duplicateModelNames.has(model.name) && (
-                                <Badge
-                                  variant="secondary"
-                                  className="h-4 shrink-0 px-1 text-micro">
-                                  Conflict
-                                </Badge>
-                              )}
+                              {/*
+                               * Only across all models, and only naming which
+                               * provider this row is. Two routers serving the
+                               * same upstream catalog share hundreds of ids, so
+                               * a "Conflict" badge on every one of them inside a
+                               * single provider's list flagged the normal case
+                               * and said nothing about which row to pick.
+                               */}
+                              {activeProviderId === null &&
+                                duplicateModelNames.has(model.name) && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="h-4 shrink-0 max-w-24 truncate px-1 text-micro">
+                                    {model.providerName ||
+                                      getProviderDisplayName(providerId)}
+                                  </Badge>
+                                )}
                               {model.size ? (
                                 <span className="shrink-0 whitespace-nowrap text-nano text-muted-foreground tabular-nums">
                                   {formatFileSize(model.size, t)}

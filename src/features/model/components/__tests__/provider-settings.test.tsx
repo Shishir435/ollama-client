@@ -19,6 +19,14 @@ vi.mock("@/features/model/hooks/use-provider-settings-state", () => ({
   useProviderSettingsState: state.useProviderSettingsState
 }))
 
+vi.mock("@/features/model/hooks/use-provider-icons", () => ({
+  useProviderIcons: () => ({})
+}))
+
+vi.mock("@plasmohq/storage/hook", () => ({
+  useStorage: (_key: unknown, fallback: unknown) => [fallback, vi.fn()]
+}))
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, unknown>) =>

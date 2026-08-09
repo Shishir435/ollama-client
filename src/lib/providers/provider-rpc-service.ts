@@ -1,5 +1,6 @@
 import {
   MODEL_DISCOVERY_FAILURE,
+  type ProvidersIconsResult,
   type ProvidersListModelsRequest,
   type ProvidersListModelsResult,
   type ProvidersListResult,
@@ -33,6 +34,13 @@ import {
   recordModelCatalogSupport,
   shouldSkipModelCatalog
 } from "./model-catalog-support"
+import { resolveProviderBrand } from "./provider-brand"
+import {
+  clearAllProviderFavicons,
+  clearProviderFavicon,
+  isFaviconLookupEnabled,
+  resolveProviderFavicon
+} from "./provider-favicon"
 import type { LLMProvider, ProviderConfig } from "./types"
 
 const toPublicConfig = (config: ProviderConfig): PublicProviderConfig => {
@@ -288,10 +296,23 @@ const mergeProviderModels = (
   for (const name of config.customModels ?? []) {
     if (!byName.has(name)) byName.set(name, customModel(name, config))
   }
+  /*
+   * The vendor mark is resolved here, not in the UI: it is read off the base
+   * URL and service profile, and neither crosses the RPC boundary with a model
+   * row. Every model a provider contributes therefore carries the brand its
+   * configuration implies.
+   */
+  const brand = resolveProviderBrand({
+    id: String(config.id),
+    baseUrl: config.baseUrl,
+    name: config.name,
+    serviceProfile: config.serviceProfile
+  })
   return [...byName.values()].map((model) => ({
     ...model,
     providerId: model.providerId || String(config.id),
-    providerName: model.providerName || config.name
+    providerName: model.providerName || config.name,
+    ...(brand && { providerBrand: brand })
   }))
 }
 
@@ -299,6 +320,52 @@ export const ProviderRpcService = {
   async list(): Promise<ProvidersListResult> {
     const providers = await ProviderManager.getProviders()
     return { providers: providers.map(toPublicConfig) }
+  },
+
+  /**
+   * Site icons for providers that have no curated mark. Only those are asked:
+   * a recognized vendor already has a better icon than its own favicon, and
+   * spending a request to fetch a worse one would be pure cost.
+   */
+  async icons(
+    _request: unknown,
+    signal?: AbortSignal
+  ): Promise<ProvidersIconsResult> {
+    /*
+     * Turning the lookup off drops what was already fetched, so the setting
+     * means "do not keep provider icons" rather than only "do not fetch more".
+     * The purge is idempotent and re-derivable, so it is safe in a query.
+     */
+    if (!(await isFaviconLookupEnabled())) {
+      await clearAllProviderFavicons().catch(() => undefined)
+      return { icons: [] }
+    }
+
+    const providers = await ProviderManager.getProviders()
+    const candidates = providers.filter(
+      (config) =>
+        config.enabled &&
+        !resolveProviderBrand({
+          id: String(config.id),
+          baseUrl: config.baseUrl,
+          name: config.name,
+          serviceProfile: config.serviceProfile
+        })
+    )
+
+    const resolved = await Promise.all(
+      candidates.map(async (config) => ({
+        providerId: String(config.id),
+        dataUrl: await resolveProviderFavicon(config, signal).catch(() => null)
+      }))
+    )
+
+    return {
+      icons: resolved.filter(
+        (icon): icon is { providerId: string; dataUrl: string } =>
+          typeof icon.dataUrl === "string"
+      )
+    }
   },
 
   async testConnection(
@@ -450,6 +517,9 @@ export const ProviderRpcService = {
     request: ProvidersRemoveRequest
   ): Promise<ProvidersRemoveResult> {
     await ProviderManager.removeCustomProvider(request.providerId)
+    // The cached icon outlives the provider otherwise, and a later provider
+    // reusing the id would inherit it.
+    await clearProviderFavicon(request.providerId).catch(() => undefined)
     return { removedProviderId: request.providerId }
   },
 

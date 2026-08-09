@@ -1,3 +1,4 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useStorage } from "@plasmohq/storage/hook"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
@@ -7,6 +8,7 @@ import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderId } from "@/lib/providers/types"
+import { queryKeys } from "@/lib/query-keys"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import { useProviderModels } from "../use-provider-models"
 
@@ -132,6 +134,21 @@ const createWrapper = (
     React.createElement(QueryClientProvider, { client: queryClient }, children)
 }
 
+/**
+ * The hook asks the background which providers exist, then asks for each
+ * provider's models separately, so a single blanket mock would answer both
+ * with the same shape.
+ */
+const mockRpc = (
+  modelsResult: unknown,
+  providers: unknown[] = [{ ...mockOllamaProvider.config, hasApiKey: false }]
+) => {
+  vi.mocked(extensionRpcClient.call).mockImplementation((async (
+    method: RpcMethod
+  ) =>
+    method === RpcMethod.ProvidersList ? { providers } : modelsResult) as never)
+}
+
 describe("useProviderModels", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -161,10 +178,7 @@ describe("useProviderModels", () => {
     vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue(
       mockOllamaProvider.config as any
     )
-    vi.mocked(extensionRpcClient.call).mockResolvedValue({
-      models: mockModelList,
-      failures: []
-    } as never)
+    mockRpc({ models: mockModelList, failures: [] })
     vi.mocked(fetch).mockImplementation(async (url) => {
       const urlStr = url.toString()
       if (urlStr.includes("/api/version")) {
@@ -210,13 +224,13 @@ describe("useProviderModels", () => {
         providerId: "custom:openai:remote",
         details: { family: "remote" }
       }))
-      vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
+      mockRpc({
         models: [
           { ...mockModelList[0], providerId: ProviderId.OLLAMA },
           ...remoteModels
         ],
         failures: []
-      } as never)
+      })
 
       const { result } = renderHook(() => useProviderModels(), {
         wrapper: createWrapper()
@@ -232,7 +246,7 @@ describe("useProviderModels", () => {
     })
 
     it("reports only the providers that contributed nothing", async () => {
-      vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
+      mockRpc({
         models: [{ ...mockModelList[0], providerId: ProviderId.OLLAMA }],
         failures: [
           {
@@ -246,7 +260,7 @@ describe("useProviderModels", () => {
             code: "discovery_unavailable"
           }
         ]
-      } as never)
+      })
 
       const { result } = renderHook(() => useProviderModels(), {
         wrapper: createWrapper()
@@ -268,10 +282,10 @@ describe("useProviderModels", () => {
     })
 
     it("should handle empty models list", async () => {
-      vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
+      mockRpc({
         models: [],
         failures: []
-      } as never)
+      })
 
       const { result } = renderHook(() => useProviderModels(), {
         wrapper: createWrapper()
@@ -283,6 +297,59 @@ describe("useProviderModels", () => {
 
       expect(result.current.models).toEqual([])
       expect(result.current.status).toBe("empty")
+    })
+
+    it("re-discovers only the provider whose configuration changed", async () => {
+      let providers: Record<string, unknown>[] = [
+        { ...mockOllamaProvider.config, hasApiKey: false },
+        {
+          id: "custom:openai:router",
+          type: "openai",
+          enabled: true,
+          name: "Router",
+          baseUrl: "https://router.example/v1",
+          customModels: ["a"],
+          hasApiKey: true
+        }
+      ]
+      const listModelsFor: string[] = []
+      vi.mocked(extensionRpcClient.call).mockImplementation((async (
+        method: RpcMethod,
+        request: { providerId?: string }
+      ) => {
+        if (method === RpcMethod.ProvidersList) return { providers }
+        listModelsFor.push(String(request.providerId))
+        return { models: [], failures: [] }
+      }) as never)
+
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } }
+      })
+      const { rerender } = renderHook(() => useProviderModels(), {
+        wrapper: createWrapper(queryClient)
+      })
+
+      await waitFor(() => {
+        expect(listModelsFor).toEqual(["ollama", "custom:openai:router"])
+      })
+
+      // The router gains a declared model id; Ollama's configuration is
+      // untouched, so its key still matches and it must answer from cache.
+      // A fresh array: mutating the one react-query already holds would make
+      // the "new" data deep-equal to the old and change nothing.
+      providers = [providers[0], { ...providers[1], customModels: ["a", "b"] }]
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.model.providerConfigs()
+      })
+      rerender()
+
+      await waitFor(() => {
+        expect(listModelsFor).toEqual([
+          "ollama",
+          "custom:openai:router",
+          "custom:openai:router"
+        ])
+      })
     })
 
     it("should handle fetch errors", async () => {
@@ -340,7 +407,7 @@ describe("useProviderModels", () => {
         ])
       )
 
-      vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
+      mockRpc({
         models: [...providerById.values()].flatMap((provider) =>
           provider.config.id === "ollama"
             ? [
@@ -363,7 +430,7 @@ describe("useProviderModels", () => {
               ]
         ),
         failures: []
-      } as never)
+      })
       vi.mocked(useStorage).mockImplementation(((
         config: any,
         initialValue: any
@@ -480,7 +547,7 @@ describe("useProviderModels", () => {
         expect(result.current.status).toBe("ready")
       })
 
-      vi.mocked(extensionRpcClient.call).mockResolvedValueOnce({
+      mockRpc({
         models: [
           {
             name: "new-model",
@@ -490,7 +557,7 @@ describe("useProviderModels", () => {
           }
         ],
         failures: []
-      } as never)
+      })
 
       await result.current.refresh()
 

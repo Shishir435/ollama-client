@@ -547,7 +547,8 @@
       "refresh_tooltip": "Refresh models",
       "search_placeholder": "Search model...",
       "no_model_found": "No model found.",
-      "providers_unavailable": "{{names}} returned no models. Check the provider in settings, or add model IDs manually."
+      "providers_unavailable": "{{names}} returned no models. Check the provider in settings, or add model IDs manually.",
+      "selection_conflict": "Pick a provider for {{model}} — more than one serves it."
     },
     "capabilities": {
       "edit_tooltip": "Set capabilities",
@@ -1742,6 +1743,10 @@
         "add": "Add",
         "remove": "Remove",
         "placeholder": "e.g. model-name-or-id"
+      },
+      "icon_lookup": {
+        "label": "Show provider site icons",
+        "description": "Ask an unrecognized provider for its icon, so it is easier to tell apart. Only that provider's own address is contacted — and its main site if the address itself has no icon — never a third-party icon service. Providers with a built-in logo are never asked."
       }
     },
     "migration": {

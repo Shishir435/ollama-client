@@ -1,10 +1,13 @@
 import { Info, Plus } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
+import { ProviderIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import type { ProviderHealthMap } from "@/features/model/hooks/use-provider-health"
+import { useProviderIcons } from "@/features/model/hooks/use-provider-icons"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
+import { resolveProviderBrand } from "@/lib/providers/provider-brand"
 import { isBetaProvider } from "@/lib/providers/registry"
 import { isCustomProviderId, type ProviderConfig } from "@/lib/providers/types"
 import { cn } from "@/lib/utils"
@@ -60,6 +63,7 @@ export const ProviderGrid = ({
   onAdd
 }: ProviderGridProps) => {
   const { t } = useTranslation()
+  const providerIcons = useProviderIcons()
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -102,6 +106,19 @@ export const ProviderGrid = ({
                   "inline-block size-2.5 shrink-0 rounded-full",
                   getStatusDotClass(provider.enabled, hasFailed, isConnected)
                 )}
+              />
+
+              <ProviderIcon
+                providerId={String(provider.id)}
+                brand={resolveProviderBrand({
+                  id: String(provider.id),
+                  baseUrl: provider.baseUrl,
+                  name: provider.name,
+                  serviceProfile: provider.serviceProfile
+                })}
+                fallbackName={provider.name}
+                iconUrl={providerIcons[String(provider.id)]}
+                className="icon-sm shrink-0 text-muted-foreground"
               />
 
               <span className="flex items-center gap-1.5 min-w-0">

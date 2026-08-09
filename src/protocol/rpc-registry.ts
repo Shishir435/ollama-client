@@ -27,6 +27,8 @@ import {
   ModelsWarmupResultSchema
 } from "@ollama-client/contracts/model-rpc"
 import {
+  ProvidersIconsRequestSchema,
+  ProvidersIconsResultSchema,
   ProvidersListModelsRequestSchema,
   ProvidersListModelsResultSchema,
   ProvidersListRequestSchema,
@@ -108,6 +110,18 @@ export const RPC_METHOD_DEFINITIONS = {
     allowedSources: extensionPagesOnly,
     timeoutMs: 35_000,
     operation: "command"
+  },
+  /*
+   * A query, so it commits nothing a client timeout could strand: the fetched
+   * icon is written to the device-local cache by the lookup itself, which is
+   * idempotent and re-derivable from the endpoint at any time.
+   */
+  [RpcMethod.ProvidersIcons]: {
+    request: ProvidersIconsRequestSchema,
+    response: ProvidersIconsResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
+    operation: "query"
   },
   [RpcMethod.ModelsGetDetails]: {
     request: ModelsGetDetailsRequestSchema,

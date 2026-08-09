@@ -10,6 +10,11 @@ export type ProviderModel = {
   digest: string
   providerId?: string
   providerName?: string
+  /**
+   * Vendor mark for the provider serving this model, resolved in the
+   * background where the provider's base URL lives. Display only.
+   */
+  providerBrand?: string
   details: {
     parent_model: string
     format: string

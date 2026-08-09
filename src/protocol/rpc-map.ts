@@ -45,6 +45,8 @@ import type {
   ModelsWarmupResult
 } from "@ollama-client/contracts/model-rpc"
 import type {
+  ProvidersIconsRequest,
+  ProvidersIconsResult,
   ProvidersListModelsRequest,
   ProvidersListModelsResult,
   ProvidersListRequest,
@@ -91,6 +93,10 @@ export interface RpcMap {
   [RpcMethod.ProvidersProbeModelCapabilities]: RpcDefinition<
     ProvidersProbeModelCapabilitiesRequest,
     ProvidersProbeModelCapabilitiesResult
+  >
+  [RpcMethod.ProvidersIcons]: RpcDefinition<
+    ProvidersIconsRequest,
+    ProvidersIconsResult
   >
   [RpcMethod.ModelsGetDetails]: RpcDefinition<
     ModelsGetDetailsRequest,

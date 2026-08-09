@@ -133,7 +133,14 @@ export const STORAGE_KEYS = {
     // Whether each provider publishes a model catalog, learned from the first
     // request and fingerprinted by base URL. Keeps discovery from asking a
     // chat-only endpoint for a model list it will never have.
-    MODEL_CATALOG_SUPPORT: "provider-model-catalog-support"
+    MODEL_CATALOG_SUPPORT: "provider-model-catalog-support",
+    // Whether an unrecognized remote provider may be asked for its favicon, so
+    // it shows its own icon instead of a generic glyph.
+    FAVICON_LOOKUP: "provider-favicon-lookup",
+    // Favicons already fetched, as data URIs, keyed by provider id and
+    // fingerprinted by base URL. Device-local: the base URL points at a
+    // different server per device.
+    FAVICON_CACHE: "provider-favicon-cache"
   },
   THEME: {
     PREFERENCE: "light-dark-theme"

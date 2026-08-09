@@ -46,6 +46,8 @@ const handlers = {
     ProviderRpcService.remove(request),
   [RpcMethod.ProvidersProbeModelCapabilities]: async (request, signal) =>
     ProviderRpcService.probeModelCapabilities(request, signal),
+  [RpcMethod.ProvidersIcons]: async (request, signal) =>
+    ProviderRpcService.icons(request, signal),
   [RpcMethod.ModelsGetDetails]: async (request) =>
     ModelRpcService.getDetails(request),
   [RpcMethod.ModelsListLoaded]: async (request, signal) =>

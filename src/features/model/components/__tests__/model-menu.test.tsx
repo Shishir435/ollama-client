@@ -50,6 +50,10 @@ vi.mock("@/features/model/hooks/use-provider-models", () => ({
   useProviderModels: useProviderModelsMock
 }))
 
+vi.mock("@/features/model/hooks/use-provider-icons", () => ({
+  useProviderIcons: () => ({})
+}))
+
 vi.mock("@/features/model/hooks/use-model-capability-overrides", () => ({
   useModelCapabilityOverrides: () => ({
     resolve: () => ({}),

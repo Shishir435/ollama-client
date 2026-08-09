@@ -547,7 +547,8 @@
       "refresh_tooltip": "刷新模型",
       "search_placeholder": "搜索模型...",
       "no_model_found": "未找到模型。",
-      "providers_unavailable": "{{names}} 未返回任何模型。请在设置中检查该提供商，或手动添加模型 ID。"
+      "providers_unavailable": "{{names}} 未返回任何模型。请在设置中检查该提供商，或手动添加模型 ID。",
+      "selection_conflict": "有多个提供方提供 {{model}}，请选择一个。"
     },
     "version": {
       "tooltip": "Provider 版本: {{version}}"
@@ -1532,6 +1533,10 @@
         "add": "添加",
         "remove": "移除",
         "placeholder": "例如模型名称或 ID"
+      },
+      "icon_lookup": {
+        "label": "显示提供方站点图标",
+        "description": "向未识别的提供方索取图标，便于区分。仅访问该提供方自己的地址，若该地址没有图标则访问其主站点，绝不使用第三方图标服务。已内置标识的提供方不会被访问。"
       }
     },
     "migration": {

@@ -196,6 +196,21 @@ export const MODELS_SETTINGS = [
     aliases: ["provider", "api key", "token", "secret", "remote"]
   },
   {
+    id: "provider-icon-lookup",
+    sectionId: "providers",
+    labelKey: "settings.providers.icon_lookup.label",
+    descriptionKey: "settings.providers.icon_lookup.description",
+    aliases: [
+      "provider",
+      "icon",
+      "icons",
+      "logo",
+      "favicon",
+      "avatar",
+      "branding"
+    ]
+  },
+  {
     id: "provider-custom-models",
     sectionId: "providers",
     labelKey: "settings.providers.custom_models",
