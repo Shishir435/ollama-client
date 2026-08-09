@@ -1,7 +1,7 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ingestionPayloadDb } from "@/lib/ingestion/ingestion-payload-db"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 
 vi.mock("@/lib/knowledge/knowledge-sets", () => ({
   getActiveKnowledgeSetId: vi.fn().mockResolvedValue("knowledge-default")

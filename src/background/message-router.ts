@@ -1,3 +1,7 @@
+import {
+  RPC_CANCEL_MESSAGE_TYPE,
+  RPC_REQUEST_MESSAGE_TYPE
+} from "@ollama-client/contracts/rpc"
 import type { Runtime } from "webextension-polyfill"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
 import { notifyJobComplete } from "@/background/lib/notify"
@@ -23,10 +27,6 @@ import {
   type SelectionOverlayLoadResult
 } from "@/protocol/content-messages"
 import { getMessageType } from "@/protocol/message-type"
-import {
-  RPC_CANCEL_MESSAGE_TYPE,
-  RPC_REQUEST_MESSAGE_TYPE
-} from "@/protocol/rpc"
 import type {
   ChromeMessage,
   ChromeSidePanel,

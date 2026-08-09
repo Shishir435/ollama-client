@@ -1,5 +1,14 @@
+import {
+  RPC_PROTOCOL_VERSION,
+  RPC_RESPONSE_MESSAGE_TYPE,
+  RpcCancellationEnvelopeSchema,
+  RpcErrorCode,
+  type RpcErrorPayload,
+  RpcMethod,
+  RpcRequestEnvelopeSchema,
+  type RpcResponseEnvelope
+} from "@ollama-client/contracts/rpc"
 import type { Runtime } from "webextension-polyfill"
-
 import {
   checkEmbeddingModelExists,
   prepareEmbeddingModel
@@ -12,17 +21,7 @@ import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
 import { ModelRpcService } from "@/lib/providers/model-rpc-service"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
-import type { RpcMap, RpcRequest, RpcResponse } from "@/protocol/provider-rpc"
-import {
-  RPC_PROTOCOL_VERSION,
-  RPC_RESPONSE_MESSAGE_TYPE,
-  RpcCancellationEnvelopeSchema,
-  RpcErrorCode,
-  type RpcErrorPayload,
-  RpcMethod,
-  RpcRequestEnvelopeSchema,
-  type RpcResponseEnvelope
-} from "@/protocol/rpc"
+import type { RpcMap, RpcRequest, RpcResponse } from "@/protocol/rpc-map"
 import { RPC_METHOD_DEFINITIONS } from "@/protocol/rpc-registry"
 
 type RpcHandlers = {

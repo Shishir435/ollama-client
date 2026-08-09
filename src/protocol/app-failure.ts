@@ -1,10 +1,5 @@
-import {
-  type AppFailure,
-  AppFailureSchema
-} from "@ollama-client/contracts/app-failure"
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import { getErrorMessage, isAbortError, isAppError } from "@/lib/error-utils"
-
-export { type AppFailure, AppFailureSchema }
 
 interface ToAppFailureOptions {
   status?: number

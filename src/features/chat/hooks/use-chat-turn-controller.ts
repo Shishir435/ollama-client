@@ -40,7 +40,7 @@ interface UseChatTurnControllerOptions {
     options?: {
       contextPrepared?: boolean
       durableTurn?: DurableTurnStart
-      mode?: import("@/application/turns/turn-contract").TurnMode
+      mode?: import("@ollama-client/contracts/turns").TurnMode
     }
   ) => Promise<void>
   toast: ToastFn

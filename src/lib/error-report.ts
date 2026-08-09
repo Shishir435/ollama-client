@@ -1,3 +1,4 @@
+import type { DiagnosticsGetBundleResult } from "@ollama-client/contracts/diagnostics-rpc"
 import { runtime } from "@/lib/browser-api"
 import { getSafeClientEnvironment } from "@/lib/client-environment"
 import { EXTERNAL_URLS } from "@/lib/constants"
@@ -5,7 +6,6 @@ import {
   sanitizeModelIdentifier,
   sanitizeProviderBaseUrl
 } from "@/lib/error-utils"
-import type { DiagnosticsGetBundleResult } from "@/protocol/diagnostics-rpc"
 import type { ChatMessage } from "@/types"
 
 export { getSafeClientEnvironment } from "@/lib/client-environment"

@@ -240,7 +240,8 @@ Completed:
 
 Remaining package work:
 
-- P1: create `packages/contracts` and move only the proven contract seams.
+- P1: complete on `feature/contracts-provider-rpc-schemas`; merge the proven
+  contract seams into `release/0.13.x`.
 - P2: create `packages/runtime-core` and inject environment dependencies behind
   ports before moving deterministic runtime helpers.
 - P3: extract chat runtime only after P1/P2 prove stable; agent runtime remains
@@ -248,8 +249,8 @@ Remaining package work:
 
 #### P1 — `packages/contracts`
 
-Status: in progress; provider-RPC schema slice active on
-`feature/contracts-provider-rpc-schemas`, 2026-08-09.
+Status: complete on `feature/contracts-provider-rpc-schemas`, pending merge,
+2026-08-09.
 
 Completed in the first extraction slice:
 
@@ -286,13 +287,22 @@ Completed in the provider/model RPC schema slice:
 - Added clean-Node coverage for model-detail defaults, bounded library inputs,
   loaded-model validation, and embedding error limits.
 
-Remaining in P1:
+Completed in the final P1 slice:
 
-- Move diagnostics and durable-job request/result schemas in small domain
-  slices once both callers import the package API directly.
-- Remove temporary `src/protocol`, `src/types`, and `src/application` contract
-  compatibility re-exports/adapters after callers have migrated and persisted
-  data is normalized at each boundary.
+- Moved diagnostics, ingestion-job, and model-pull-job request/result schemas
+  behind package subpath exports and migrated their registry, service, runtime,
+  UI, and test consumers directly.
+- Added clean-Node tests for privacy-bounded support bundles, durable ingestion
+  snapshots, model-pull progress, and sanitized failures.
+- Removed temporary `src/protocol`, `src/types`, and `src/application` schema
+  re-exports. `src/protocol/rpc-map.ts` now contains only application-wide
+  method composition.
+- Retained `toAppFailure`, `toRuntimeChatMessage`,
+  `parseDurableContextOptions`, and `parsePersistedTurnRequest` as real
+  application normalization adapters; they convert errors or persisted legacy
+  shapes and do not re-export package contracts.
+
+Remaining in P1: none after this branch merges.
 
 Candidate ownership:
 

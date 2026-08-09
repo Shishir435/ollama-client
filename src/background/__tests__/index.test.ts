@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
-import { MESSAGE_KEYS } from "@/lib/constants"
 import {
   RPC_CANCEL_MESSAGE_TYPE,
   RPC_REQUEST_MESSAGE_TYPE
-} from "@/protocol/rpc"
+} from "@ollama-client/contracts/rpc"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { MESSAGE_KEYS } from "@/lib/constants"
 
 // Mock browser API
 const listeners = {

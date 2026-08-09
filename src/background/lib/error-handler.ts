@@ -1,3 +1,4 @@
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { getErrorMessage, isAbortError, isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
@@ -5,7 +6,7 @@ import {
   applyProviderErrorContext,
   type ProviderErrorContext
 } from "@/lib/providers/provider-errors"
-import { type AppFailure, toAppFailure } from "@/protocol/app-failure"
+import { toAppFailure } from "@/protocol/app-failure"
 import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 import type {
   ChromePort,

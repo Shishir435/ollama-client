@@ -1,5 +1,5 @@
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import type browser from "webextension-polyfill"
-import type { AppFailure } from "@/protocol/app-failure"
 
 export interface EmbeddingStatusMessage {
   status: string

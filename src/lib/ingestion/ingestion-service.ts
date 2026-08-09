@@ -1,3 +1,8 @@
+import type {
+  IngestionAckResult,
+  IngestionJobResult,
+  IngestionSubmitRequest
+} from "@ollama-client/contracts/ingestion-rpc"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import { processKnowledge } from "@/lib/knowledge/knowledge-processor"
@@ -14,11 +19,6 @@ import {
   listIncompleteIngestionRuns,
   saveIngestionRun
 } from "@/lib/repositories/ingestion-runs"
-import type {
-  IngestionAckResult,
-  IngestionJobResult,
-  IngestionSubmitRequest
-} from "@/protocol/ingestion-rpc"
 import type { IngestionPayload } from "./ingestion-payload-db"
 import { ingestionPayloadDb } from "./ingestion-payload-db"
 import { processStagedIngestion } from "./ingestion-processor-protocol"

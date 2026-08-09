@@ -1,6 +1,6 @@
+import { RPC_REQUEST_MESSAGE_TYPE } from "@ollama-client/contracts/rpc"
 import { describe, expect, it, vi } from "vitest"
 import { MESSAGE_KEYS } from "@/lib/constants/keys"
-import { RPC_REQUEST_MESSAGE_TYPE } from "@/protocol/rpc"
 
 import { createSidepanelRuntimeMessageListener } from "../runtime-message-listener"
 

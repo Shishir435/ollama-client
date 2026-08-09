@@ -5,8 +5,6 @@ import {
 import type { ChatMessage, SelectedModelRef } from "@/types"
 import { toRuntimeChatMessage } from "@/types/chat.schemas"
 
-export * from "@ollama-client/contracts/context"
-
 /** Runtime-normalized context command used inside the application. */
 export interface DurableContextOptions {
   rawInput: string

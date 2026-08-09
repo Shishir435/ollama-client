@@ -1,4 +1,3 @@
-import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
 import { z } from "zod"
 
 export const DiagnosticTestResultSchema = z
@@ -16,6 +15,11 @@ export const DiagnosticTestResultSchema = z
   })
   .strict()
 
+/**
+ * Privacy-bounded operational evidence safe to persist and include in a
+ * support bundle. Free-form errors, prompts, URLs, and credentials are not
+ * fields in this shape; callers must reduce them to stable codes/metadata.
+ */
 export const DiagnosticEventSchema = z
   .object({
     id: z.string().uuid(),
@@ -66,6 +70,10 @@ export const DiagnosticsGetBundleRequestSchema = z
       .optional()
   })
   .strict()
+/**
+ * Explicit support-export boundary. The strict, bounded shape contains only
+ * environment summaries, test outcomes, and sanitized operational evidence.
+ */
 export const DiagnosticsGetBundleResultSchema = z
   .object({
     bundle: z
@@ -147,20 +155,3 @@ export type DiagnosticStorageMigration = NonNullable<
   DiagnosticsGetBundleResult["bundle"]
 >["storage"]["migration"]
 export type DiagnosticTestResult = z.infer<typeof DiagnosticTestResultSchema>
-
-declare module "./provider-rpc" {
-  interface RpcMap {
-    [RpcMethod.DiagnosticsRun]: RpcDefinition<
-      DiagnosticsRunRequest,
-      DiagnosticsRunResult
-    >
-    [RpcMethod.DiagnosticsGetBundle]: RpcDefinition<
-      DiagnosticsGetBundleRequest,
-      DiagnosticsGetBundleResult
-    >
-    [RpcMethod.DiagnosticsClear]: RpcDefinition<
-      DiagnosticsClearRequest,
-      DiagnosticsClearResult
-    >
-  }
-}

@@ -1,4 +1,4 @@
-import type { AppFailure } from "@/protocol/app-failure"
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import type { ChatMessage } from "./chat"
 import type { ChromeResponse } from "./messaging"
 

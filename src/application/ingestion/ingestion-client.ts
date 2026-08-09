@@ -1,9 +1,9 @@
+import type { IngestionJobResult } from "@ollama-client/contracts/ingestion-rpc"
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { ingestionPayloadDb } from "@/lib/ingestion/ingestion-payload-db"
 import { getActiveKnowledgeSetId } from "@/lib/knowledge/knowledge-sets"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import type { IngestionJobResult } from "@/protocol/ingestion-rpc"
-import { RpcMethod } from "@/protocol/rpc"
 
 const createFileId = (): string =>
   typeof crypto !== "undefined" && "randomUUID" in crypto

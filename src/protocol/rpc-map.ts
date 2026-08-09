@@ -1,4 +1,32 @@
 import type {
+  DiagnosticsClearRequest,
+  DiagnosticsClearResult,
+  DiagnosticsGetBundleRequest,
+  DiagnosticsGetBundleResult,
+  DiagnosticsRunRequest,
+  DiagnosticsRunResult
+} from "@ollama-client/contracts/diagnostics-rpc"
+import type {
+  IngestionAckRequest,
+  IngestionAckResult,
+  IngestionCancelRequest,
+  IngestionCancelResult,
+  IngestionGetRequest,
+  IngestionGetResult,
+  IngestionSubmitRequest,
+  IngestionSubmitResult
+} from "@ollama-client/contracts/ingestion-rpc"
+import type {
+  ModelPullCancelRequest,
+  ModelPullCancelResult,
+  ModelPullGetRequest,
+  ModelPullGetResult,
+  ModelPullListActiveRequest,
+  ModelPullListActiveResult,
+  ModelPullSubmitRequest,
+  ModelPullSubmitResult
+} from "@ollama-client/contracts/model-pull-rpc"
+import type {
   EmbeddingsCheckModelRequest,
   EmbeddingsCheckModelResult,
   EmbeddingsPrepareModelRequest,
@@ -34,9 +62,7 @@ import type {
 } from "@ollama-client/contracts/provider-rpc"
 import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
 
-export * from "@ollama-client/contracts/provider-rpc"
-
-/** Application-wide RPC map; other protocol domains augment this interface. */
+/** Application-wide composition of package-owned RPC method contracts. */
 export interface RpcMap {
   [RpcMethod.ProvidersList]: RpcDefinition<
     ProvidersListRequest,
@@ -97,6 +123,50 @@ export interface RpcMap {
   [RpcMethod.EmbeddingsPrepareModel]: RpcDefinition<
     EmbeddingsPrepareModelRequest,
     EmbeddingsPrepareModelResult
+  >
+  [RpcMethod.IngestionSubmit]: RpcDefinition<
+    IngestionSubmitRequest,
+    IngestionSubmitResult
+  >
+  [RpcMethod.IngestionGet]: RpcDefinition<
+    IngestionGetRequest,
+    IngestionGetResult
+  >
+  [RpcMethod.IngestionCancel]: RpcDefinition<
+    IngestionCancelRequest,
+    IngestionCancelResult
+  >
+  [RpcMethod.IngestionAck]: RpcDefinition<
+    IngestionAckRequest,
+    IngestionAckResult
+  >
+  [RpcMethod.ModelPullSubmit]: RpcDefinition<
+    ModelPullSubmitRequest,
+    ModelPullSubmitResult
+  >
+  [RpcMethod.ModelPullGet]: RpcDefinition<
+    ModelPullGetRequest,
+    ModelPullGetResult
+  >
+  [RpcMethod.ModelPullCancel]: RpcDefinition<
+    ModelPullCancelRequest,
+    ModelPullCancelResult
+  >
+  [RpcMethod.ModelPullListActive]: RpcDefinition<
+    ModelPullListActiveRequest,
+    ModelPullListActiveResult
+  >
+  [RpcMethod.DiagnosticsRun]: RpcDefinition<
+    DiagnosticsRunRequest,
+    DiagnosticsRunResult
+  >
+  [RpcMethod.DiagnosticsGetBundle]: RpcDefinition<
+    DiagnosticsGetBundleRequest,
+    DiagnosticsGetBundleResult
+  >
+  [RpcMethod.DiagnosticsClear]: RpcDefinition<
+    DiagnosticsClearRequest,
+    DiagnosticsClearResult
   >
 }
 

@@ -1,3 +1,7 @@
+import {
+  ChatMessageErrorSchema,
+  ChatMessageMetricsSchema
+} from "@ollama-client/contracts/chat"
 import { imageToStoredFile } from "@/lib/image-utils"
 import {
   parseStoredReplayArtifact,
@@ -13,10 +17,6 @@ import {
   withTransaction
 } from "@/lib/sqlite/db"
 import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
-import {
-  ChatMessageErrorSchema,
-  ChatMessageMetricsSchema
-} from "@/types/chat.schemas"
 
 /**
  * SQLite-backed implementation of the chat-history persistence surface.

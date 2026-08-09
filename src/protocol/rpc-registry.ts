@@ -1,4 +1,14 @@
 import {
+  ModelPullCancelRequestSchema,
+  ModelPullCancelResultSchema,
+  ModelPullGetRequestSchema,
+  ModelPullGetResultSchema,
+  ModelPullListActiveRequestSchema,
+  ModelPullListActiveResultSchema,
+  ModelPullSubmitRequestSchema,
+  ModelPullSubmitResultSchema
+} from "@ollama-client/contracts/model-pull-rpc"
+import {
   EmbeddingsCheckModelRequestSchema,
   EmbeddingsCheckModelResultSchema,
   EmbeddingsPrepareModelRequestSchema,
@@ -34,35 +44,6 @@ import {
 } from "@ollama-client/contracts/provider-rpc"
 import { RpcMethod, type RpcSource } from "@ollama-client/contracts/rpc"
 import type { z } from "zod"
-import {
-  DiagnosticsClearRequestSchema,
-  DiagnosticsClearResultSchema,
-  DiagnosticsGetBundleRequestSchema,
-  DiagnosticsGetBundleResultSchema,
-  DiagnosticsRunRequestSchema,
-  DiagnosticsRunResultSchema
-} from "./diagnostics-rpc"
-import {
-  IngestionAckRequestSchema,
-  IngestionAckResultSchema,
-  IngestionCancelRequestSchema,
-  IngestionCancelResultSchema,
-  IngestionGetRequestSchema,
-  IngestionGetResultSchema,
-  IngestionSubmitRequestSchema,
-  IngestionSubmitResultSchema
-} from "./ingestion-rpc"
-import {
-  ModelPullCancelRequestSchema,
-  ModelPullCancelResultSchema,
-  ModelPullGetRequestSchema,
-  ModelPullGetResultSchema,
-  ModelPullListActiveRequestSchema,
-  ModelPullListActiveResultSchema,
-  ModelPullSubmitRequestSchema,
-  ModelPullSubmitResultSchema
-} from "./model-pull-rpc"
-
 export interface RpcMethodDefinition {
   request: z.ZodType
   response: z.ZodType
@@ -265,3 +246,22 @@ export const RPC_METHOD_DEFINITIONS = {
     operation: "command"
   }
 } as const satisfies Record<RpcMethod, RpcMethodDefinition>
+
+import {
+  DiagnosticsClearRequestSchema,
+  DiagnosticsClearResultSchema,
+  DiagnosticsGetBundleRequestSchema,
+  DiagnosticsGetBundleResultSchema,
+  DiagnosticsRunRequestSchema,
+  DiagnosticsRunResultSchema
+} from "@ollama-client/contracts/diagnostics-rpc"
+import {
+  IngestionAckRequestSchema,
+  IngestionAckResultSchema,
+  IngestionCancelRequestSchema,
+  IngestionCancelResultSchema,
+  IngestionGetRequestSchema,
+  IngestionGetResultSchema,
+  IngestionSubmitRequestSchema,
+  IngestionSubmitResultSchema
+} from "@ollama-client/contracts/ingestion-rpc"

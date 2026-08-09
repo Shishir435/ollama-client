@@ -1,12 +1,10 @@
+import type { TurnMode } from "@ollama-client/contracts/turns"
 import { useRef } from "react"
 import type {
   PromptContextStats,
   RagSources
 } from "@/application/context/build-context"
-import type {
-  DurableTurnStart,
-  TurnMode
-} from "@/application/turns/turn-contract"
+import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import type { ChatMessage } from "@/types"
 

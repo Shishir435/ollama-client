@@ -1,5 +1,8 @@
+import {
+  type AppFailure,
+  AppFailureSchema
+} from "@ollama-client/contracts/app-failure"
 import { flushSave, query, run } from "@/lib/sqlite/db"
-import { type AppFailure, AppFailureSchema } from "@/protocol/app-failure"
 
 export type ModelPullRunStatus =
   | "queued"

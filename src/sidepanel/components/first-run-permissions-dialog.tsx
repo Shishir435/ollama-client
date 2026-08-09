@@ -1,3 +1,4 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import {
   ArrowLeft,
   Bot,
@@ -44,7 +45,6 @@ import {
 } from "@/lib/onboarding/state"
 import { saveSelectedModelRef } from "@/lib/providers/selected-model"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 
 const STAGES: OnboardingStage[] = [
   "privacy",

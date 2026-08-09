@@ -9,7 +9,7 @@ import {
 } from "@ollama-client/contracts/rpc"
 import { browser } from "@/lib/browser-api"
 import { createAppError, isAppError } from "@/lib/error-utils"
-import type { RpcRequest, RpcResponse } from "./provider-rpc"
+import type { RpcRequest, RpcResponse } from "./rpc-map"
 import { RPC_METHOD_DEFINITIONS } from "./rpc-registry"
 
 const timeoutError = (method: RpcMethod) =>

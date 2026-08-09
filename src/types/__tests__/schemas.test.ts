@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest"
 import {
   ChatMessageMetricsSchema,
   ChatMessageSchema,
   ChatSessionImportSchema,
-  ChatSessionSchema,
-  toRuntimeChatMessage
-} from "../chat.schemas"
+  ChatSessionSchema
+} from "@ollama-client/contracts/chat"
+import { describe, expect, it } from "vitest"
+import { toRuntimeChatMessage } from "../chat.schemas"
 import { PromptTemplateSchema, ThemeSchema } from "../ui-state.schemas"
 
 describe("ChatMessageSchema", () => {

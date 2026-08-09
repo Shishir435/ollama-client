@@ -1,3 +1,4 @@
+import type { TurnMode } from "@ollama-client/contracts/turns"
 import type { BuildRagContextOptions } from "@/application/context/build-context"
 import { parseDurableContextOptions } from "@/application/context/context-contract"
 import type {
@@ -6,7 +7,7 @@ import type {
 } from "@/application/context/context-service"
 import { toAppFailure } from "@/protocol/app-failure"
 import type { ChatMessage } from "@/types"
-import type { DurableTurnRun, TurnMode, TurnSubmission } from "./turn-contract"
+import type { DurableTurnRun, TurnSubmission } from "./turn-contract"
 
 export interface TurnRunStore {
   create: (submission: TurnSubmission) => Promise<void>

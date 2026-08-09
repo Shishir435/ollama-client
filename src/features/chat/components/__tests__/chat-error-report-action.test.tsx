@@ -1,10 +1,9 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-
 import { ChatErrorReportAction } from "@/features/chat/components/chat-error-report-action"
 import { openExternalUrl, openOptionsInTab } from "@/lib/browser-api"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key })

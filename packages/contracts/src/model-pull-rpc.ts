@@ -1,6 +1,5 @@
-import { AppFailureSchema } from "@ollama-client/contracts/app-failure"
-import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
 import { z } from "zod"
+import { AppFailureSchema } from "./app-failure"
 
 export const ModelPullRunStatusSchema = z.enum([
   "queued",
@@ -10,6 +9,10 @@ export const ModelPullRunStatusSchema = z.enum([
   "cancelled"
 ])
 
+/**
+ * Recoverable model-pull snapshot. Failures use the shared sanitized failure
+ * envelope so raw provider responses never become RPC results.
+ */
 export const ModelPullJobResultSchema = z
   .object({
     jobId: z.string().uuid(),
@@ -44,24 +47,16 @@ export type ModelPullJobResult = z.infer<typeof ModelPullJobResultSchema>
 export type ModelPullSubmitRequest = z.infer<
   typeof ModelPullSubmitRequestSchema
 >
-
-declare module "./provider-rpc" {
-  interface RpcMap {
-    [RpcMethod.ModelPullSubmit]: RpcDefinition<
-      ModelPullSubmitRequest,
-      ModelPullJobResult
-    >
-    [RpcMethod.ModelPullGet]: RpcDefinition<
-      { jobId: string },
-      ModelPullJobResult
-    >
-    [RpcMethod.ModelPullCancel]: RpcDefinition<
-      { jobId: string },
-      ModelPullJobResult
-    >
-    [RpcMethod.ModelPullListActive]: RpcDefinition<
-      Record<string, never>,
-      ModelPullJobResult[]
-    >
-  }
-}
+export type ModelPullSubmitResult = z.infer<typeof ModelPullSubmitResultSchema>
+export type ModelPullGetRequest = z.infer<typeof ModelPullGetRequestSchema>
+export type ModelPullGetResult = z.infer<typeof ModelPullGetResultSchema>
+export type ModelPullCancelRequest = z.infer<
+  typeof ModelPullCancelRequestSchema
+>
+export type ModelPullCancelResult = z.infer<typeof ModelPullCancelResultSchema>
+export type ModelPullListActiveRequest = z.infer<
+  typeof ModelPullListActiveRequestSchema
+>
+export type ModelPullListActiveResult = z.infer<
+  typeof ModelPullListActiveResultSchema
+>

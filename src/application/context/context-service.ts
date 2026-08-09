@@ -1,7 +1,4 @@
-import type {
-  ContextReceipt,
-  TurnMode
-} from "@/application/turns/turn-contract"
+import type { ContextReceipt, TurnMode } from "@ollama-client/contracts/turns"
 import {
   type BuildRagContextOptions,
   type BuildRagContextResult,

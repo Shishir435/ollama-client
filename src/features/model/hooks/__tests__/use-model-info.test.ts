@@ -1,10 +1,10 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, renderHook, waitFor } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 import { useModelInfo } from "../use-model-info"
 
 vi.mock("@/protocol/extension-client", () => ({

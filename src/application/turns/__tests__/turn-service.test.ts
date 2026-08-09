@@ -1,6 +1,6 @@
+import type { ContextReceipt } from "@ollama-client/contracts/turns"
 import { describe, expect, it, vi } from "vitest"
 import type { ContextService } from "@/application/context/context-service"
-import type { ContextReceipt } from "../turn-contract"
 import { parsePersistedTurnRequest } from "../turn-contract"
 import {
   type TurnGenerationOwner,

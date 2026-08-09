@@ -1,3 +1,4 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useEffect, useRef, useState } from "react"
 import {
   DEFAULT_EMBEDDING_MODEL,
@@ -10,7 +11,6 @@ import {
 } from "@/lib/embeddings/model-name-filter"
 import { logger } from "@/lib/logger"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 import type { ProviderModel } from "@/types"
 
 const POLL_INTERVAL_MS = 5_000

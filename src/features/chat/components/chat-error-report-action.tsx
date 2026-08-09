@@ -1,3 +1,5 @@
+import type { DiagnosticsGetBundleResult } from "@ollama-client/contracts/diagnostics-rpc"
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { Bug, Check, Copy, Loader2 } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -17,9 +19,7 @@ import {
 import { sanitizeProviderBaseUrl } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { cn } from "@/lib/utils"
-import type { DiagnosticsGetBundleResult } from "@/protocol/diagnostics-rpc"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 import type { ChatMessage } from "@/types"
 
 // Compact chips: the sidepanel is ~400px wide, so the three actions only share

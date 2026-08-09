@@ -1,5 +1,5 @@
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import type { ToolCall } from "@/lib/tools/types"
-import type { AppFailure } from "@/protocol/app-failure"
 import type { SelectedModelRef } from "@/types/model"
 
 export type Role = "user" | "assistant" | "system" | "tool"
@@ -347,7 +347,7 @@ export interface BuildContextRequestPayload {
   /** Durable turn identity; distinct from this short-lived port request. */
   turnId?: string
   /** Turn behavior is data; every path uses the same context service. */
-  mode?: import("@/application/turns/turn-contract").TurnMode
+  mode?: import("@ollama-client/contracts/turns").TurnMode
   rawInput: string
   /** Prior conversation, for query classification / reformulation. */
   messages: ChatMessage[]

@@ -1,10 +1,9 @@
+import type { ModelPullJobResult } from "@ollama-client/contracts/model-pull-rpc"
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useCallback, useEffect, useRef, useState } from "react"
-
 import { formatErrorForDisplay } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import type { ModelPullJobResult } from "@/protocol/model-pull-rpc"
-import { RpcMethod } from "@/protocol/rpc"
 
 const POLL_INTERVAL_MS = 250
 
