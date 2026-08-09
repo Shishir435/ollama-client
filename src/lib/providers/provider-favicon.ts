@@ -25,6 +25,21 @@ import type { ProviderConfig } from "./types"
  * Every address reached is one this module chose and vetted. Redirects are
  * refused rather than followed, because a followed one is chosen by the
  * provider — and this request carries `<all_urls>` host permission.
+ *
+ * **What the host filter cannot do.** It reads hostnames, so a public name that
+ * resolves to a private address still passes. Nothing in an extension closes
+ * that: `chrome.dns` is dev-channel only and cannot ship, and resolving before
+ * fetching would not help anyway — `fetch` performs its own lookup, so the
+ * check and the request can be answered differently, which is the whole trick.
+ *
+ * What bounds it instead is that the response goes nowhere. It is stored
+ * device-local and drawn, never returned to the provider, so there is no
+ * channel to read an internal service through. `credentials: "omit"` means
+ * nothing authenticates, the byte sniff means a JSON metadata reply is
+ * discarded rather than cached, and reaching any of it at all requires a
+ * provider the user configured, enabled, and is already sending prompts to.
+ * What remains is one blind, unauthenticated GET, which is the cost of the
+ * feature and the reason it can be switched off.
  */
 export interface ProviderFaviconEntry {
   /** `data:` URI, or null when the host has no usable favicon. */
