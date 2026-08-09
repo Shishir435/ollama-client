@@ -27,6 +27,8 @@ import {
   ModelsWarmupResultSchema
 } from "@ollama-client/contracts/model-rpc"
 import {
+  ProvidersIconsRequestSchema,
+  ProvidersIconsResultSchema,
   ProvidersListModelsRequestSchema,
   ProvidersListModelsResultSchema,
   ProvidersListRequestSchema,
@@ -107,6 +109,19 @@ export const RPC_METHOD_DEFINITIONS = {
     response: ProvidersProbeModelCapabilitiesResultSchema,
     allowedSources: extensionPagesOnly,
     timeoutMs: 35_000,
+    operation: "command"
+  },
+  /*
+   * A command despite reading like a getter: it fetches icons the device has
+   * not seen, writes them to the device-local cache, and empties that cache
+   * when the user has turned the lookup off. Queries promise none of that, and
+   * the label is the only thing that tells the next reader which promise holds.
+   */
+  [RpcMethod.ProvidersIcons]: {
+    request: ProvidersIconsRequestSchema,
+    response: ProvidersIconsResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
     operation: "command"
   },
   [RpcMethod.ModelsGetDetails]: {

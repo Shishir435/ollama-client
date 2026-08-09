@@ -547,7 +547,8 @@
       "refresh_tooltip": "Aggiorna modelli",
       "search_placeholder": "Cerca modello...",
       "no_model_found": "Nessun modello trovato.",
-      "providers_unavailable": "{{names}} non ha restituito modelli. Controlla il provider nelle impostazioni o aggiungi gli ID modello manualmente."
+      "providers_unavailable": "{{names}} non ha restituito modelli. Controlla il provider nelle impostazioni o aggiungi gli ID modello manualmente.",
+      "selection_conflict": "Scegli un provider per {{model}}: più di uno lo offre."
     },
     "version": {
       "tooltip": "Versione Provider: {{version}}"
@@ -1532,6 +1533,10 @@
         "add": "Aggiungi",
         "remove": "Rimuovi",
         "placeholder": "es. nome o ID del modello"
+      },
+      "icon_lookup": {
+        "label": "Mostra le icone del sito dei provider",
+        "description": "Chiede l'icona a un provider non riconosciuto, così è più facile distinguerlo. Viene contattato solo l'indirizzo del provider — e il suo sito principale se quell'indirizzo non ha un'icona — mai un servizio di icone di terze parti. Ai provider con un logo integrato non viene mai chiesto."
       }
     },
     "migration": {

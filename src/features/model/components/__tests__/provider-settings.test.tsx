@@ -19,6 +19,14 @@ vi.mock("@/features/model/hooks/use-provider-settings-state", () => ({
   useProviderSettingsState: state.useProviderSettingsState
 }))
 
+vi.mock("@/features/model/hooks/use-provider-icons", () => ({
+  useProviderIcons: () => ({})
+}))
+
+vi.mock("@plasmohq/storage/hook", () => ({
+  useStorage: (_key: unknown, fallback: unknown) => [fallback, vi.fn()]
+}))
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, unknown>) =>
@@ -57,6 +65,7 @@ const mockProviderState = (
   const handleTestConnection = vi.fn()
   const handleSave = vi.fn()
   const updateConfig = vi.fn()
+  const setCustomModels = vi.fn()
   const setProviderEnabled = vi.fn()
   const setSelectedId = vi.fn()
   const addProvider = vi.fn()
@@ -79,6 +88,7 @@ const mockProviderState = (
     handleTestConnection,
     handleSave,
     updateConfig,
+    setCustomModels,
     setProviderEnabled,
     addProvider,
     removeProvider,
@@ -89,6 +99,7 @@ const mockProviderState = (
     handleTestConnection,
     handleSave,
     updateConfig,
+    setCustomModels,
     setProviderEnabled,
     setSelectedId,
     addProvider,
@@ -245,9 +256,10 @@ describe("ProviderSettings", () => {
     )
     fireEvent.change(customModelInput, { target: { value: "new-model" } })
     fireEvent.keyDown(customModelInput, { key: "Enter" })
-    expect(actions.updateConfig).toHaveBeenCalledWith({
-      customModels: ["remote-model", "new-model"]
-    })
+    expect(actions.setCustomModels).toHaveBeenCalledWith([
+      "remote-model",
+      "new-model"
+    ])
 
     const modelChip = screen.getByText("remote-model").parentElement
     expect(modelChip).not.toBeNull()
@@ -256,6 +268,6 @@ describe("ProviderSettings", () => {
         name: "settings.providers.models.remove remote-model"
       })
     )
-    expect(actions.updateConfig).toHaveBeenCalledWith({ customModels: [] })
+    expect(actions.setCustomModels).toHaveBeenCalledWith([])
   })
 })

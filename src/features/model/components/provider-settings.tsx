@@ -1,9 +1,11 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { CheckCircle2, Info, Loader2, Trash2, XCircle, Zap } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { StatusCallout } from "@/components/feedback"
 import { FieldStack, InlineActions, SectionStack } from "@/components/layout"
+import { SettingsSwitch } from "@/components/settings"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +32,8 @@ import { ProviderConnectionFields } from "@/features/model/components/provider-c
 import { ProviderCustomModels } from "@/features/model/components/provider-custom-models"
 import { ProviderGrid } from "@/features/model/components/provider-grid"
 import { useProviderSettingsState } from "@/features/model/hooks/use-provider-settings-state"
+import { STORAGE_KEYS } from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { isBetaProvider } from "@/lib/providers/registry"
 import { ProviderId } from "@/lib/providers/types"
 import { cn } from "@/lib/utils"
@@ -54,11 +58,19 @@ export const ProviderSettings = () => {
     handleTestConnection,
     handleSave,
     updateConfig,
+    setCustomModels,
     setProviderEnabled,
     addProvider,
     removeProvider
   } = useProviderSettingsState()
   const [addOpen, setAddOpen] = useState(false)
+  const [iconLookup, setIconLookup] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.PROVIDER.FAVICON_LOOKUP,
+      instance: plasmoGlobalStorage
+    },
+    true
+  )
   const [pendingRemoval, setPendingRemoval] = useState<{
     id: string
     name: string
@@ -84,6 +96,14 @@ export const ProviderSettings = () => {
           onAdd={() => setAddOpen(true)}
         />
       </div>
+
+      <SettingsSwitch
+        id="provider-icon-lookup"
+        label={t("settings.providers.icon_lookup.label")}
+        description={t("settings.providers.icon_lookup.description")}
+        checked={iconLookup}
+        onCheckedChange={setIconLookup}
+      />
 
       <AddProviderDialog
         open={addOpen}
@@ -206,7 +226,7 @@ export const ProviderSettings = () => {
               {activeConfig.id !== ProviderId.OLLAMA && (
                 <ProviderCustomModels
                   activeConfig={activeConfig}
-                  updateConfig={updateConfig}
+                  onChange={setCustomModels}
                 />
               )}
             </FieldStack>

@@ -547,7 +547,8 @@
       "refresh_tooltip": "Modelle aktualisieren",
       "search_placeholder": "Modell suchen...",
       "no_model_found": "Kein Modell gefunden.",
-      "providers_unavailable": "{{names}} hat keine Modelle zurückgegeben. Prüfe den Anbieter in den Einstellungen oder füge Modell-IDs manuell hinzu."
+      "providers_unavailable": "{{names}} hat keine Modelle zurückgegeben. Prüfe den Anbieter in den Einstellungen oder füge Modell-IDs manuell hinzu.",
+      "selection_conflict": "Wähle einen Anbieter für {{model}} — mehrere stellen es bereit."
     },
     "version": {
       "tooltip": "Provider-Version: {{version}}"
@@ -1532,6 +1533,10 @@
         "add": "Hinzufügen",
         "remove": "Entfernen",
         "placeholder": "z. B. Modellname oder ID"
+      },
+      "icon_lookup": {
+        "label": "Website-Symbole der Anbieter anzeigen",
+        "description": "Fragt einen unbekannten Anbieter nach seinem Symbol, damit er leichter zu unterscheiden ist. Kontaktiert wird nur die Adresse des Anbieters — und dessen Hauptseite, falls die Adresse selbst kein Symbol hat — niemals ein fremder Symboldienst. Anbieter mit eingebautem Logo werden nie gefragt."
       }
     },
     "migration": {

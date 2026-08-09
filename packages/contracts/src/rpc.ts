@@ -15,6 +15,7 @@ export enum RpcMethod {
   ProvidersSetEnabled = "providers.setEnabled",
   ProvidersRemove = "providers.remove",
   ProvidersProbeModelCapabilities = "providers.probeModelCapabilities",
+  ProvidersIcons = "providers.icons",
   ModelsGetDetails = "models.getDetails",
   ModelsListLoaded = "models.listLoaded",
   ModelsUnload = "models.unload",

@@ -547,7 +547,8 @@
       "refresh_tooltip": "モデルを更新",
       "search_placeholder": "モデルを検索...",
       "no_model_found": "モデルが見つかりません。",
-      "providers_unavailable": "{{names}} はモデルを返しませんでした。設定でプロバイダーを確認するか、モデルIDを手動で追加してください。"
+      "providers_unavailable": "{{names}} はモデルを返しませんでした。設定でプロバイダーを確認するか、モデルIDを手動で追加してください。",
+      "selection_conflict": "{{model}} を提供するプロバイダーが複数あります。1つ選んでください。"
     },
     "version": {
       "tooltip": "Providerバージョン: {{version}}"
@@ -1532,6 +1533,10 @@
         "add": "追加",
         "remove": "削除",
         "placeholder": "例：モデル名またはID"
+      },
+      "icon_lookup": {
+        "label": "プロバイダーのサイトアイコンを表示",
+        "description": "認識できないプロバイダーにアイコンを問い合わせ、見分けやすくします。接続先はそのプロバイダーのアドレスのみで、そこにアイコンがない場合は本体サイトまで。第三者のアイコンサービスは使いません。組み込みのロゴがあるプロバイダーには問い合わせません。"
       }
     },
     "migration": {

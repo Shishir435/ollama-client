@@ -53,6 +53,7 @@ const ProviderModelSchema = z
     digest: z.string().nullish(),
     providerId: z.string().nullish(),
     providerName: z.string().nullish(),
+    providerBrand: z.string().max(64).nullish(),
     family: z.string().nullish(),
     details: z
       .object({
@@ -81,6 +82,7 @@ const ProviderModelSchema = z
       capabilityHints,
       providerId,
       providerName,
+      providerBrand,
       ...model
     }) => {
       const resolvedFamily = details?.family ?? family ?? ""
@@ -120,6 +122,7 @@ const ProviderModelSchema = z
         },
         ...(providerId && { providerId }),
         ...(providerName && { providerName }),
+        ...(providerBrand && { providerBrand }),
         ...(normalizedCapabilityHints &&
           Object.keys(normalizedCapabilityHints).length > 0 && {
             capabilityHints: normalizedCapabilityHints
@@ -285,6 +288,31 @@ export const ProvidersProbeModelCapabilitiesResultSchema = z
     probedAt: z.number().int().nonnegative()
   })
   .strict()
+
+export const ProvidersIconsRequestSchema = z.object({}).strict()
+/**
+ * Icons fetched from providers we have no curated mark for, as `data:` URIs so
+ * the page makes no network request of its own. Kept off the model rows: one
+ * icon can outweigh every model a provider serves, and it belongs to the
+ * provider, not to each model.
+ */
+export const ProvidersIconsResultSchema = z
+  .object({
+    icons: z
+      .array(
+        z
+          .object({
+            providerId: z.string().min(1).max(200),
+            dataUrl: z.string().startsWith("data:image/").max(65_536)
+          })
+          .strict()
+      )
+      .max(200)
+  })
+  .strict()
+
+export type ProvidersIconsRequest = z.input<typeof ProvidersIconsRequestSchema>
+export type ProvidersIconsResult = z.infer<typeof ProvidersIconsResultSchema>
 
 export type ProvidersListRequest = z.input<typeof ProvidersListRequestSchema>
 export type ProvidersListResult = z.infer<typeof ProvidersListResultSchema>

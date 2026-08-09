@@ -7,6 +7,10 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key })
 }))
 
+vi.mock("@/features/model/hooks/use-provider-icons", () => ({
+  useProviderIcons: () => ({})
+}))
+
 describe("ProviderGrid", () => {
   const providers: ProviderConfig[] = [
     {
