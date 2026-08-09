@@ -1,54 +1,24 @@
+import type { ToolLoopState } from "@ollama-client/chat-runtime/tool-loop-runtime"
 import {
-  ChatMessageMetricsSchema,
-  ChatMessageSchema,
-  ToolCallSchema,
-  ToolRunSchema
-} from "@ollama-client/contracts/chat"
-import { z } from "zod"
+  type ToolLoopMode as ContractToolLoopMode,
+  type ToolLoopRunStatus as ContractToolLoopRunStatus,
+  DurableToolLoopStateSchema,
+  ToolLoopCheckpointEnvelopeSchema
+} from "@ollama-client/contracts/tool-loop"
 import { createAppError } from "@/lib/error-utils"
 import { flushSave, query, run } from "@/lib/sqlite/db"
 import type { ToolCall } from "@/lib/tools"
 import type { ChatMessage, ToolRun } from "@/types"
 
-export type ToolLoopMode = "native" | "native-user-results" | "non-native"
-export type ToolLoopRunStatus = "running" | "awaiting-confirmation"
+export type ToolLoopMode = ContractToolLoopMode
+export type ToolLoopRunStatus = ContractToolLoopRunStatus
 
-export interface DurableToolLoopState {
-  iteration: number
-  phase: "model" | "tools"
-  /** Advances whenever web/page/document-derived tool output enters context. */
-  taintGeneration?: number
-  workingMessages: ChatMessage[]
-  toolRuns: ToolRun[]
-  pendingToolCalls?: ToolCall[]
-  nextToolIndex?: number
-  toolResultMessages?: ChatMessage[]
-  imageMessages?: ChatMessage[]
-  nonNativeResponseParts?: string[]
-  lastMetrics?: ChatMessage["metrics"]
-  /** One recovery turn when a native model emits only reasoning and no call. */
-  emptyModelRetries?: number
-}
-
-const DurableToolLoopStateSchema = z.object({
-  iteration: z.number().int().nonnegative(),
-  phase: z.enum(["model", "tools"]),
-  taintGeneration: z.number().int().nonnegative().optional(),
-  workingMessages: z.array(ChatMessageSchema),
-  toolRuns: z.array(ToolRunSchema),
-  pendingToolCalls: z.array(ToolCallSchema).optional(),
-  nextToolIndex: z.number().int().nonnegative().optional(),
-  toolResultMessages: z.array(ChatMessageSchema).optional(),
-  imageMessages: z.array(ChatMessageSchema).optional(),
-  nonNativeResponseParts: z.array(z.string()).optional(),
-  lastMetrics: ChatMessageMetricsSchema.optional(),
-  emptyModelRetries: z.number().int().nonnegative().optional()
-})
-
-const ToolLoopCheckpointEnvelopeSchema = z.object({
-  version: z.literal(1),
-  state: DurableToolLoopStateSchema
-})
+export type DurableToolLoopState = ToolLoopState<
+  ChatMessage,
+  ToolRun,
+  ToolCall,
+  ChatMessage["metrics"]
+>
 
 export interface DurableToolLoopRun {
   requestId: string

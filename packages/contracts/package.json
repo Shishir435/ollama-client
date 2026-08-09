@@ -15,6 +15,7 @@
     "./provider-rpc": "./src/provider-rpc.ts",
     "./rpc": "./src/rpc.ts",
     "./streams": "./src/streams.ts",
+    "./tool-loop": "./src/tool-loop.ts",
     "./turns": "./src/turns.ts"
   },
   "dependencies": {
