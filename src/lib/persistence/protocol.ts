@@ -121,13 +121,13 @@ export const RETRYABLE_OPS = new Set<PersistenceOp["op"]>([
   "setBackend"
 ])
 
-// ---------------------------------------------------------------------------
-// Blob codec. chrome.runtime messages are JSON-serialized on Chromium, so a
-// Uint8Array (file attachment BLOBs) silently becomes {}. Binds and result
-// rows are therefore encoded before crossing the messaging boundary and
-// decoded on the other side. Worker<->host postMessage uses structured clone
-// and keeps real Uint8Arrays.
-// ---------------------------------------------------------------------------
+/**
+ * Blob codec. chrome.runtime messages are JSON-serialized on Chromium, so a
+ * Uint8Array (file attachment BLOBs) silently becomes {}. Binds and result
+ * rows are therefore encoded before crossing the messaging boundary and
+ * decoded on the other side. Worker<->host postMessage uses structured clone
+ * and keeps real Uint8Arrays.
+ */
 
 interface EncodedBlob {
   __persistenceBlob: true

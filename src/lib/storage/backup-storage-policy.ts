@@ -79,10 +79,12 @@ const sanitizePortableValue = (value: unknown): unknown => {
   return sanitized
 }
 
-// @plasmohq/storage JSON-stringifies every value it persists, so raw
-// chrome.storage reads return encoded strings. Sanitization cannot strip
-// secrets it cannot see inside a string, so encoded values are decoded
-// before sanitizing and re-encoded after to preserve the stored format.
+/**
+ * @plasmohq/storage JSON-stringifies every value it persists, so raw
+ * chrome.storage reads return encoded strings. Sanitization cannot strip
+ * secrets it cannot see inside a string, so encoded values are decoded
+ * before sanitizing and re-encoded after to preserve the stored format.
+ */
 const decodePlasmoValue = (
   value: unknown
 ): { decoded: unknown; wasEncoded: boolean } => {

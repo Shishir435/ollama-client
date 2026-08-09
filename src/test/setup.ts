@@ -23,7 +23,7 @@ Object.defineProperty(globalThis.navigator, "locks", {
   value: { request: requestTestWebLock }
 })
 
-// Mock chrome extension APIs
+/** Shared Chrome extension API mock for unit tests. */
 global.chrome = {
   runtime: {
     id: "test-extension-id",
@@ -50,7 +50,7 @@ global.chrome = {
   }
 } as unknown as typeof chrome
 
-/*
+/**
  * Production code reaches extension APIs through `browser`
  * (webextension-polyfill), never the `chrome` alias — see the contract test in
  * src/lib/__tests__/browser-api-contract.test.ts for why. Point the global at
@@ -93,12 +93,12 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   }
 }))
 
-// Reset mocks after each test
+/** Prevent mock state from leaking between tests. */
 afterEach(() => {
   vi.clearAllMocks()
 })
 
-// Setup fake-indexeddb
+/** Reset per-test IndexedDB state supplied by fake-indexeddb. */
 beforeEach(() => {
   // fake-indexeddb is already set up globally
   // No additional setup needed

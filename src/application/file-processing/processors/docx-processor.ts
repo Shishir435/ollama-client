@@ -1,7 +1,7 @@
 import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import type { FileProcessor, ProcessedFile } from "@/lib/file-processors/types"
 
-// Lazy load mammoth to reduce initial bundle size
+/** Lazy load mammoth to reduce initial bundle size */
 let mammothLib: typeof import("mammoth") | null = null
 
 async function getMammothLib() {

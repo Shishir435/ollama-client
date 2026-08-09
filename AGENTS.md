@@ -71,6 +71,18 @@ Manifest — permissions, CSP, host permissions, `browser_specific_settings` —
 
 Dev-only entrypoints (`spike-*`, `benchmark`, `persistence-verify`) are stripped from store builds by `config/wxt-hooks.ts`, and their code is dead-code-eliminated via the `__SPIKE_OPFS_OWNER__` flags in `config/wxt-vite.ts`. `src/spike/` is therefore fine to leave where it is.
 
+### Workspace packages
+
+| Package | Owns |
+|---|---|
+| `@ollama-client/contracts` | environment-independent Zod schemas, RPC/stream envelopes, durable turn/context/tool-loop contracts |
+| `@ollama-client/runtime-core` | deterministic stream reduction, thinking parsing, cancellation, retry, checkpoint, and sender-evidence primitives |
+| `@ollama-client/chat-runtime` | port-driven durable turn, context-build, and tool-loop orchestration |
+
+Packages never import React, WXT, browser APIs, persistence adapters, feature
+UI, background composition, or concrete providers. Those remain in `src/` and
+connect through package ports.
+
 ### Chat round-trip
 
 1. UI opens a runtime port keyed by `MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE`.
@@ -337,7 +349,9 @@ The set is `ControlledTextarea`, `ControlledNumberInput`, `ControlledSlider` —
 ### Testing
 
 - Vitest with `happy-dom` and `fake-indexeddb`. `src/test/setup.ts` mocks chrome APIs and IndexedDB.
-- Tests live in `src/**/__tests__/*.{test,spec}.{ts,tsx}` and `config/**/*.test.ts`.
+- Tests live in the nearest `__tests__` directory under `src/`, `packages/`,
+  `config/`, or `e2e/`. Do not place `*.test.*` or `*.spec.*` beside production
+  modules.
 - Single file: `pnpm test src/path/to/module.test.ts`.
 - Coverage excludes only test files and `.d.ts`. UI components, type modules, and barrels are included.
 - `@testing-library/user-event` is **not** a dependency — use `fireEvent`.
@@ -351,6 +365,8 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 | `components/forms/__tests__/react-hook-form-contract.test.ts` | no spread-`register` |
 | `lib/providers/__tests__/contract.test.ts` | provider list/stream parsing |
 | `config/__tests__/manifest-csp.test.ts` | no dev origin in a packaged CSP |
+| `config/__tests__/test-layout.test.ts` | every test/spec stays in a `__tests__` directory |
+| `config/__tests__/documentation-comments.test.ts` | module/declaration prose uses JSDoc instead of `//` blocks |
 | `lib/__tests__/browser-api-contract.test.ts` | guarded browser API access |
 | `lib/__tests__/architecture-boundaries.test.ts` | chat-history goes through the facade; SQLite internals stay out of UI; one SQLite engine ships |
 | `config/__tests__/wxt-build-config.test.ts` | which dev pages and WASM assets a store build carries |

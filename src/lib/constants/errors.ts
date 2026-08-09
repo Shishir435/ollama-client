@@ -1,5 +1,7 @@
-// Shared script content from tools/ollama-env.sh
-// This ensures both error messages have the same script content
+/**
+ * Shared script content from tools/ollama-env.sh
+ * This ensures both error messages have the same script content
+ */
 import { EXTERNAL_URLS } from "@/lib/constants/urls"
 
 const OLLAMA_ENV_SCRIPT_CONTENT = `#!/bin/bash

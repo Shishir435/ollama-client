@@ -146,12 +146,14 @@ const registerInstallHandlers = () => {
   browser.runtime.onStartup.addListener(() => updateDNRRules())
 }
 
-// Point the browser's post-uninstall tab at the docs feedback page. Runs on
-// both Chromium and Firefox (both implement setUninstallURL), so it is NOT
-// gated behind isChromiumBased(). Set on every worker boot so the version
-// param tracks upgrades. Only anonymous context is attached — extension
-// version and UI locale — so a churn spike can be traced to a release without
-// identifying the user.
+/**
+ * Point the browser's post-uninstall tab at the docs feedback page. Runs on
+ * both Chromium and Firefox (both implement setUninstallURL), so it is NOT
+ * gated behind isChromiumBased(). Set on every worker boot so the version
+ * param tracks upgrades. Only anonymous context is attached — extension
+ * version and UI locale — so a churn spike can be traced to a release without
+ * identifying the user.
+ */
 const setUninstallFeedbackURL = () => {
   if (!browser.runtime?.setUninstallURL) return
 
@@ -191,9 +193,11 @@ const registerToolRegistryInvalidation = () => {
   })
 }
 
-// Resolves true when lifecycle flags were read and handled (or none exist);
-// false when even a retry could not resolve them — in that case a pending
-// destructive reset may still be queued, so database startup must not run.
+/**
+ * Resolves true when lifecycle flags were read and handled (or none exist);
+ * false when even a retry could not resolve them — in that case a pending
+ * destructive reset may still be queued, so database startup must not run.
+ */
 const resumeLifecycleWithRetry = async (): Promise<boolean> => {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {

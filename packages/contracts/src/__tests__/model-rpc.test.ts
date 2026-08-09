@@ -4,7 +4,7 @@ import {
   ModelsGetDetailsResultSchema,
   ModelsListLoadedResultSchema,
   ModelsSearchLibraryRequestSchema
-} from "./model-rpc"
+} from "../model-rpc"
 
 describe("model RPC contracts", () => {
   it("normalizes optional model detail fields", () => {

@@ -133,7 +133,7 @@ const createLinearMessages = (database: Database, scale: Scale): void => {
   }
 }
 
-// Explicit message ids so parentId wiring and currentLeafId stay deterministic.
+/** Explicit message ids so parentId wiring and currentLeafId stay deterministic. */
 const createTreeMessages = (database: Database, scale: Scale): void => {
   const plan = scale.tree
   if (!plan) throw new Error("Tree scale requires a tree plan")

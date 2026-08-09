@@ -47,6 +47,9 @@ Read [AGENTS.md](./AGENTS.md) for the full map. Quick orientation:
 | Chat-history persistence (SQLite-only) | `src/lib/repositories/chat-history.ts` (facade) |
 | Context and RAG orchestration | `src/application/context/` |
 | Embedding and vector primitives | `src/lib/embeddings/` |
+| Shared schemas and wire contracts | `packages/contracts/` |
+| Deterministic runtime primitives | `packages/runtime-core/` |
+| Turn, context, and tool-loop orchestration | `packages/chat-runtime/` |
 | Shared UI primitives (shadcn) | `src/components/ui/` |
 | i18n source-of-truth | `src/locales/<lang>/translation.json` (loaded as one lazy chunk per language) |
 
@@ -56,6 +59,10 @@ Read [AGENTS.md](./AGENTS.md) for the full map. Quick orientation:
 sessions, messages, files, and tool-loop checkpoints. **Always import from the
 facade, never from `sqlite-chat-history.ts` or `src/lib/sqlite/` directly.**
 Dexie remains only for vector embeddings and knowledge sets.
+
+Tests belong in the nearest `__tests__` directory. This applies to app,
+package, configuration, and browser tests; do not place `*.test.*` or
+`*.spec.*` beside production modules.
 
 ## 3. Where to add things
 

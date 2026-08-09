@@ -58,8 +58,10 @@ if (dirty) {
   )
 }
 
-// `git worktree add` refuses a path that already exists, so mkdtemp only
-// provides the parent and git creates the leaf itself.
+/**
+ * `git worktree add` refuses a path that already exists, so mkdtemp only
+ * provides the parent and git creates the leaf itself.
+ */
 const scratch = mkdtempSync(join(tmpdir(), "ollama-client-ci-parity-"))
 const worktree = join(scratch, "repo")
 let failed: string | undefined

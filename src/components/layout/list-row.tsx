@@ -67,9 +67,11 @@ const SURFACE: Record<ListRowSurface, string> = {
   outline: "border border-border/40"
 }
 
-// Four static templates rather than one interpolated string so Tailwind can see
-// every class it has to emit. Empty `auto` tracks would still take a column gap,
-// which is the phantom-gutter bug this primitive exists to prevent.
+/**
+ * Four static templates rather than one interpolated string so Tailwind can see
+ * every class it has to emit. Empty `auto` tracks would still take a column gap,
+ * which is the phantom-gutter bug this primitive exists to prevent.
+ */
 const TEMPLATE = {
   both: "grid-cols-[auto_minmax(0,1fr)_auto]",
   leading: "grid-cols-[auto_minmax(0,1fr)]",

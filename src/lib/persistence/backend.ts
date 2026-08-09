@@ -47,12 +47,14 @@ const STORAGE_KEY_BY_SCOPE: Record<PersistenceStateScope, string> = {
   override: STORAGE_KEYS.PERSISTENCE.LEGACY_OVERRIDE
 }
 
-// Only "opfs" is cached permanently — it is the terminal state. "legacy" is
-// transitional (the owner may flip the marker at any moment), so it is
-// re-read on demand and the cache is invalidated live through
-// storage.onChanged where the API exists. Pinning "legacy" for a page's
-// lifetime would keep it writing the rollback blob after migration —
-// split-brain history.
+/**
+ * Only "opfs" is cached permanently — it is the terminal state. "legacy" is
+ * transitional (the owner may flip the marker at any moment), so it is
+ * re-read on demand and the cache is invalidated live through
+ * storage.onChanged where the API exists. Pinning "legacy" for a page's
+ * lifetime would keep it writing the rollback blob after migration —
+ * split-brain history.
+ */
 let cachedBackend: PersistenceBackend | null = null
 let cachedOverride: boolean | null = null
 
@@ -74,14 +76,16 @@ const registerMarkerWatcher = (): void => {
   }
 }
 
-// Offscreen documents expose runtime messaging but not storage; the background
-// answers these reads/writes on their behalf.
-//
-// Probed through `browser` — the promise-based polyfill — and not the `chrome`
-// alias. On Firefox `chrome` is callback-only, so `await chrome.storage.local
-// .get(key)` resolves to undefined and the property read below throws. That
-// threw on every marker read, readPersistenceBackend swallowed it and answered
-// "legacy", and Firefox therefore never left the sql.js blob backend.
+/**
+ * Offscreen documents expose runtime messaging but not storage; the background
+ * answers these reads/writes on their behalf.
+ *
+ * Probed through `browser` — the promise-based polyfill — and not the `chrome`
+ * alias. On Firefox `chrome` is callback-only, so `await chrome.storage.local
+ * .get(key)` resolves to undefined and the property read below throws. That
+ * threw on every marker read, readPersistenceBackend swallowed it and answered
+ * "legacy", and Firefox therefore never left the sql.js blob backend.
+ */
 const hasStorageApi = (): boolean => Boolean(browser.storage?.local)
 
 const readState = async <T>(
@@ -192,10 +196,12 @@ export const readMigrationReceipt =
     }
   }
 
-// Read through the `chrome` alias: getManifest is synchronous, so the
-// callback-vs-promise split that forces `browser` elsewhere does not apply, and
-// the polyfill did not answer it in the offscreen owner — every receipt written
-// there recorded the version as "unknown".
+/**
+ * Read through the `chrome` alias: getManifest is synchronous, so the
+ * callback-vs-promise split that forces `browser` elsewhere does not apply, and
+ * the polyfill did not answer it in the offscreen owner — every receipt written
+ * there recorded the version as "unknown".
+ */
 const extensionVersion = (): string => {
   try {
     return chrome.runtime.getManifest().version

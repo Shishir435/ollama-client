@@ -8,11 +8,13 @@ export type IngestionProcessResponse =
   | { ok: true }
   | { ok: false; error: string }
 
-// A cold host answers nothing: on Chromium the offscreen document may not
-// exist yet, on Firefox the hidden processor frame may still be loading, and
-// Chrome rejects a sendMessage with no receiver outright. Neither is a parsing
-// failure, so back off across a real startup budget (~12s) before giving up —
-// a permanent failure here compensates and destroys a valid staged job.
+/**
+ * A cold host answers nothing: on Chromium the offscreen document may not
+ * exist yet, on Firefox the hidden processor frame may still be loading, and
+ * Chrome rejects a sendMessage with no receiver outright. Neither is a parsing
+ * failure, so back off across a real startup budget (~12s) before giving up —
+ * a permanent failure here compensates and destroys a valid staged job.
+ */
 const READY_RETRY_DELAYS_MS = [50, 100, 200, 400, 800, 1600, 3200, 3200, 3200]
 
 const requestOnce = async (

@@ -44,8 +44,16 @@ Not on current release branch:
 
 - Browser-agent runtime. Old agent branch is design and selective-port source,
   never a branch to merge wholesale.
-- Package extraction. Existing `src/application/**` boundaries are useful prior
-  art, but physical packages have not landed.
+
+Package boundaries now on the release branch:
+
+- `@ollama-client/contracts` owns environment-independent schemas and wire
+  contracts.
+- `@ollama-client/runtime-core` owns deterministic stream, cancellation, retry,
+  checkpoint, and sender-evidence primitives.
+- `@ollama-client/chat-runtime` owns port-driven turn, context-build, and
+  tool-loop orchestration. Browser, provider, persistence, and UI adapters stay
+  in `src/`.
 
 ## Architecture audit refresh — 2026-08-09
 
@@ -349,8 +357,7 @@ Exit gate: deterministic tests run without browser globals or extension setup.
 
 #### P3 — domain runtimes
 
-Status: complete on `feature/chat-runtime-tool-loop-orchestration`, pending
-merge, 2026-08-09.
+Status: complete in `release/0.13.x` via PRs #248–#250, 2026-08-09.
 
 Completed in the first turn-orchestration slice:
 
@@ -394,7 +401,9 @@ Completed in the tool-loop orchestration slice:
 - Added clean-Node contract/runtime coverage and retained restart, approval,
   corrupt-checkpoint, taint, replay, native, and non-native integration tests.
 
-Remaining P3 work: none after this branch merges.
+Merged in `release/0.13.x` via PR #250.
+
+Remaining P3 work: none.
 
 Deferred to `0.14.x`: `packages/agent-runtime` task compiler, policy, approval,
 controller, verification, and recovery.
@@ -417,15 +426,23 @@ Keep in extension `src/`:
 
 ### Phase 3 — release hardening
 
-- Run `pnpm typecheck`, `pnpm lint:check`, and `pnpm test:run`.
-- Run Chrome and Firefox production builds and packages.
-- Run docs/resource generation when touched.
-- Pass packaged-browser migration fixtures and preserve byte-level rollback
-  evidence.
-- Confirm one chat database writer and no second persistence engine.
-- Confirm dependency-age policy, lockfile integrity, and bundle budgets.
-- Soak provider connection, model discovery, chat recovery, ingestion recovery,
-  and Firefox theme behavior.
+Status: automated gates complete on `feature/test-docs-cleanup`, 2026-08-09.
+
+- `pnpm verify` passes package/app typecheck, lint, dead-code, i18n, 2,629
+  tests, generated-resource, and compatibility-ledger checks.
+- Chrome MV3 and Firefox MV2 production builds and release packages complete;
+  packaged manifest, entrypoint, locale, CSP, and permission smoke checks pass.
+- The critical Chromium install, restart, and migration browser suite passes.
+- Packaged Chrome and Firefox migration verifiers pass every durable-table,
+  integrity, rollback-blob digest, override, and export gate.
+- Docs and generated resource builds complete after the architecture audit.
+- Architecture contracts continue to enforce one chat database owner and no
+  second shipped persistence engine.
+
+Manual pre-promotion soak remains: provider connection, model discovery, chat
+and ingestion recovery, and Firefox theme behavior against representative live
+profiles.
+
 - Release only after package-boundary work is mechanically boring and behavior
   remains unchanged.
 

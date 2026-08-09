@@ -42,31 +42,35 @@ import type {
   SurveyResult
 } from "./protocol"
 
-// The chat-history database engine. One instance exists per browser session,
-// inside the worker the persistence host owns
-// (src/lib/persistence/chat-db-worker.ts) — this module is the engine itself,
-// split out so it can be driven in-process by tests, where no Worker and no
-// OPFS exist.
-//
-// Two backends, one engine, one writer:
-//
-//   "opfs"   — production. One database behind the opfs-sahpool VFS. All writes
-//              are incremental page writes; no full-database export on any hot
-//              path.
-//   "legacy" — the historical blob, in WASM memory and persisted to IndexedDB
-//              as one image (see legacy-blob-db.ts). Only reached by a profile
-//              whose migration has not completed, or one pinned there by the
-//              operator override.
-//
-// Concurrency model: ops execute strictly serially. A transaction lease
-// (txBegin/txCommit/txRollback with a client token) parks every op that does
-// not carry the active token, so one client's multi-statement transaction can
-// never interleave with another client's statements. Within one op the engine
-// is atomic, which is what makes run's lastInsertRowid race-free.
+/**
+ * The chat-history database engine. One instance exists per browser session,
+ * inside the worker the persistence host owns
+ * (src/lib/persistence/chat-db-worker.ts) — this module is the engine itself,
+ * split out so it can be driven in-process by tests, where no Worker and no
+ * OPFS exist.
+ *
+ * Two backends, one engine, one writer:
+ *
+ *   "opfs"   — production. One database behind the opfs-sahpool VFS. All writes
+ *              are incremental page writes; no full-database export on any hot
+ *              path.
+ *   "legacy" — the historical blob, in WASM memory and persisted to IndexedDB
+ *              as one image (see legacy-blob-db.ts). Only reached by a profile
+ *              whose migration has not completed, or one pinned there by the
+ *              operator override.
+ *
+ * Concurrency model: ops execute strictly serially. A transaction lease
+ * (txBegin/txCommit/txRollback with a client token) parks every op that does
+ * not carry the active token, so one client's multi-statement transaction can
+ * never interleave with another client's statements. Within one op the engine
+ * is atomic, which is what makes run's lastInsertRowid race-free.
+ */
 
 const DB_PATH = "/chat-history.sqlite"
-// Scratch path an incoming database is verified in before it is allowed to
-// replace DB_PATH. Never opened by anything but the verification probe.
+/**
+ * Scratch path an incoming database is verified in before it is allowed to
+ * replace DB_PATH. Never opened by anything but the verification probe.
+ */
 const PROBE_PATH = "/chat-history-import-probe.sqlite"
 
 const TX_LEASE_TIMEOUT_MS = 15_000

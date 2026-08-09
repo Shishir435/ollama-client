@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
-import { expect, test } from "../fixtures/extension"
+import { expect, test } from "../../fixtures/extension"
 
 test("@critical production extension installs and boots", async ({
   extension

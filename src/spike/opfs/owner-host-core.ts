@@ -16,10 +16,12 @@ export interface OwnerHost {
   registerRpcListener: () => void
 }
 
-// Fetched once per host; each worker generation gets a structured-clone
-// copy. Benchmark builds copy sqlite3.wasm to this stable path (see the
-// build:publicAssets hook) because bundler ?url imports get inlined as
-// data: URLs in Firefox MV2 iife output, which fetch() rejects.
+/**
+ * Fetched once per host; each worker generation gets a structured-clone
+ * copy. Benchmark builds copy sqlite3.wasm to this stable path (see the
+ * build:publicAssets hook) because bundler ?url imports get inlined as
+ * data: URLs in Firefox MV2 iife output, which fetch() rejects.
+ */
 let wasmBinaryPromise: Promise<ArrayBuffer> | null = null
 const getWasmBinary = (): Promise<ArrayBuffer> => {
   if (!wasmBinaryPromise) {

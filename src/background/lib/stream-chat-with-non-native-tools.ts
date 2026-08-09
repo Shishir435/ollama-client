@@ -46,10 +46,12 @@ interface StreamChatWithNonNativeToolsOptions {
 
 const DEFAULT_MAX_ITERATIONS = 5
 
-// Parser call ids restart at `<name>_0` on every parse. A per-invocation stream
-// sequence keeps callIds unique across turns and concurrent streams — the
-// confirmation registry and the UI's answered-set are both keyed by callId, so
-// a repeat would silently suppress the second confirmation prompt.
+/**
+ * Parser call ids restart at `<name>_0` on every parse. A per-invocation stream
+ * sequence keeps callIds unique across turns and concurrent streams — the
+ * confirmation registry and the UI's answered-set are both keyed by callId, so
+ * a repeat would silently suppress the second confirmation prompt.
+ */
 let streamSeq = 0
 
 const TOOL_LIMIT_FALLBACK_MESSAGE =

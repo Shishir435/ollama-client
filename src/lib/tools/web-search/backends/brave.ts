@@ -29,7 +29,7 @@ const safeSearchMap = {
   strict: "strict"
 } as const
 
-// Brave expresses recency via `freshness`: pd/pw/pm/py = past day/week/month/year.
+/** Brave expresses recency via `freshness`: pd/pw/pm/py = past day/week/month/year. */
 const freshnessMap = {
   day: "pd",
   week: "pw",

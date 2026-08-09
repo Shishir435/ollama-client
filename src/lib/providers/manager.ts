@@ -76,8 +76,10 @@ const REMOVED_BETA_DEFAULTS: Record<
   }
 }
 
-// Built-in ids and user-added `custom:` ids survive; anything else is stale
-// data from an old version and gets dropped.
+/**
+ * Built-in ids and user-added `custom:` ids survive; anything else is stale
+ * data from an old version and gets dropped.
+ */
 const isKnownProviderId = (id: string): boolean =>
   DEFAULT_PROVIDER_IDS.has(id as ProviderId) || isCustomProviderId(id)
 

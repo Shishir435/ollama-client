@@ -13,22 +13,24 @@ import {
 } from "@/lib/persistence/client"
 import type { RunResult } from "@/lib/persistence/protocol"
 
-// Chat-history database facade. Every operation goes to the single database
-// owner over persistence RPC — the Chromium offscreen document or the Firefox
-// MV2 background page, which hosts the only chat-db worker.
-//
-// The owner serves one of two backends, and this module does not care which:
-//
-//   "opfs"   — the production topology, one sqlite-wasm database behind
-//              opfs-sahpool. Durability is per-transaction.
-//   "legacy" — the historical blob in WASM memory, persisted to IndexedDB as
-//              one image, for a profile whose migration has not completed.
-//
-// Until 0.13.x this module dispatched on the backend marker and, for "legacy",
-// opened a database *in the calling context* on a second SQLite build. That is
-// what made a stale-writer guard necessary — every page was a writer — and it
-// is why the extension shipped two engines. Both are gone: one owner, one
-// engine, and clients that hold no database handle at all.
+/**
+ * Chat-history database facade. Every operation goes to the single database
+ * owner over persistence RPC — the Chromium offscreen document or the Firefox
+ * MV2 background page, which hosts the only chat-db worker.
+ *
+ * The owner serves one of two backends, and this module does not care which:
+ *
+ *   "opfs"   — the production topology, one sqlite-wasm database behind
+ *              opfs-sahpool. Durability is per-transaction.
+ *   "legacy" — the historical blob in WASM memory, persisted to IndexedDB as
+ *              one image, for a profile whose migration has not completed.
+ *
+ * Until 0.13.x this module dispatched on the backend marker and, for "legacy",
+ * opened a database *in the calling context* on a second SQLite build. That is
+ * what made a stale-writer guard necessary — every page was a writer — and it
+ * is why the extension shipped two engines. Both are gone: one owner, one
+ * engine, and clients that hold no database handle at all.
+ */
 
 type SqlValue = string | number | null | Uint8Array
 type QueryResult = Record<string, SqlValue>
@@ -39,16 +41,16 @@ export interface SqlExecutor {
   runWithMeta: (sql: string, bind?: SqlValue[]) => Promise<RunResult>
 }
 
-// ---------------------------------------------------------------------------
-// Transaction scope. Every public statement and transaction acquires this
-// context-local mutex. Transaction callbacks receive a scoped executor that
-// bypasses the mutex and carries the owner's lease token.
-//
-// Do not represent async transaction ownership with a process-global token:
-// unrelated work can run while a callback is awaiting and would accidentally
-// inherit that token. Explicit executors keep those operations outside the
-// transaction; the mutex parks them until commit/rollback.
-// ---------------------------------------------------------------------------
+/**
+ * Transaction scope. Every public statement and transaction acquires this
+ * context-local mutex. Transaction callbacks receive a scoped executor that
+ * bypasses the mutex and carries the owner's lease token.
+ *
+ * Do not represent async transaction ownership with a process-global token:
+ * unrelated work can run while a callback is awaiting and would accidentally
+ * inherit that token. Explicit executors keep those operations outside the
+ * transaction; the mutex parks them until commit/rollback.
+ */
 
 let dbMutex: Promise<void> = Promise.resolve()
 
@@ -97,9 +99,7 @@ export const withTransaction = async (
     }
   })
 
-// ---------------------------------------------------------------------------
-// Core statement API
-// ---------------------------------------------------------------------------
+/** Core statement API */
 
 export const query = async (
   sql: string,
@@ -119,9 +119,7 @@ export const runWithMeta = async (
   bind: SqlValue[] = []
 ): Promise<RunResult> => withDbLock(() => executor().runWithMeta(sql, bind))
 
-// ---------------------------------------------------------------------------
-// Lifecycle
-// ---------------------------------------------------------------------------
+/** Lifecycle */
 
 export const initSQLite = async (): Promise<void> => {
   await rpcPing()

@@ -5,11 +5,13 @@ import {
   SPIKE_OWNER_RPC
 } from "./owner-protocol"
 
-// Section 9.4 spike phase 2: background side of the single-owner topology.
-// The service worker never opens the database; it only guarantees that the
-// offscreen owner document exists and can issue writes through it while all
-// visible extension pages are closed (gate 3). Registered from
-// src/background/index.ts behind a dev-only build flag.
+/**
+ * Section 9.4 spike phase 2: background side of the single-owner topology.
+ * The service worker never opens the database; it only guarantees that the
+ * offscreen owner document exists and can issue writes through it while all
+ * visible extension pages are closed (gate 3). Registered from
+ * src/background/index.ts behind a dev-only build flag.
+ */
 
 const OFFSCREEN_URL = "spike-owner-offscreen.html"
 
@@ -58,11 +60,13 @@ const ensureOwner = async (): Promise<void> => {
   await creating
 }
 
-// Gate 3: a durable write initiated by background code itself while no
-// extension page is open. This is a direct function (also exposed on
-// globalThis for the gate runner) because chrome.runtime.sendMessage never
-// delivers to the sender's own context — background code cannot message
-// itself, it calls the owner client directly.
+/**
+ * Gate 3: a durable write initiated by background code itself while no
+ * extension page is open. This is a direct function (also exposed on
+ * globalThis for the gate runner) because chrome.runtime.sendMessage never
+ * delivers to the sender's own context — background code cannot message
+ * itself, it calls the owner client directly.
+ */
 const backgroundWrite = async (payload: unknown): Promise<unknown> => {
   await ensureOwner()
   return chrome.runtime.sendMessage({

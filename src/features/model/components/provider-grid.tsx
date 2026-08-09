@@ -9,7 +9,7 @@ import { isBetaProvider } from "@/lib/providers/registry"
 import { isCustomProviderId, type ProviderConfig } from "@/lib/providers/types"
 import { cn } from "@/lib/utils"
 
-// Status dot color is picked by the first rule that matches.
+/** Status dot color is picked by the first rule that matches. */
 const dotStatusRules = [
   { test: (enabled: boolean) => !enabled, cls: "bg-muted-foreground/40" },
   {
