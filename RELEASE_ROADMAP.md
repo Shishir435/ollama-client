@@ -21,7 +21,7 @@ Release work merges into `preview` for validation; only `preview` merges into
 | --- | --- | --- |
 | `0.12.6` | Migration evidence, release provenance, provider and transcript correctness | Released |
 | `0.12.7`–`0.12.8` | Fast provider, reachability, and Firefox theme fixes | Released; fixes forward-ported |
-| `0.13.0` | Solidify runtime, isolate domains, introduce first package boundaries | Active |
+| `0.13.0` | Solidify runtime, isolate domains, introduce first package boundaries | Release candidate; hardening complete |
 | `0.14.x` | Browser agent, built on isolated contracts and runtime kernels | Planned |
 | Later | Remove compatibility paths only when ledger evidence permits | Evidence-gated |
 
@@ -250,8 +250,7 @@ Remaining package work:
 
 - P1: complete in `release/0.13.x` via PRs #244–#246.
 - P2: complete in `release/0.13.x` via PR #247.
-- P3: complete on `feature/chat-runtime-tool-loop-orchestration`; merge the
-  shared tool-loop coordinator into `release/0.13.x`. Agent runtime remains
+- P3: complete in `release/0.13.x` via PRs #248–#250. Agent runtime remains
   scheduled for `0.14.x`.
 
 #### P1 — `packages/contracts`
@@ -401,8 +400,6 @@ Completed in the tool-loop orchestration slice:
 - Added clean-Node contract/runtime coverage and retained restart, approval,
   corrupt-checkpoint, taint, replay, native, and non-native integration tests.
 
-Merged in `release/0.13.x` via PR #250.
-
 Remaining P3 work: none.
 
 Deferred to `0.14.x`: `packages/agent-runtime` task compiler, policy, approval,
@@ -426,25 +423,39 @@ Keep in extension `src/`:
 
 ### Phase 3 — release hardening
 
-Status: automated gates complete on `feature/test-docs-cleanup`, 2026-08-09.
+Status: complete in `release/0.13.x` via PR #251, 2026-08-09.
 
-- `pnpm verify` passes package/app typecheck, lint, dead-code, i18n, 2,629
-  tests, generated-resource, and compatibility-ledger checks.
-- Chrome MV3 and Firefox MV2 production builds and release packages complete;
-  packaged manifest, entrypoint, locale, CSP, and permission smoke checks pass.
-- The critical Chromium install, restart, and migration browser suite passes.
-- Packaged Chrome and Firefox migration verifiers pass every durable-table,
-  integrity, rollback-blob digest, override, and export gate.
-- Docs and generated resource builds complete after the architecture audit.
-- Architecture contracts continue to enforce one chat database owner and no
-  second shipped persistence engine.
+Completed evidence:
 
-Manual pre-promotion soak remains: provider connection, model discovery, chat
-and ingestion recovery, and Firefox theme behavior against representative live
-profiles.
+- `pnpm verify` passed package and app typechecks, Biome, knip, strict i18n,
+  generated-resource drift, the compatibility ledger, and 2,629 tests across
+  323 files. A frozen-lockfile install was already up to date.
+- Chrome MV3 and Firefox MV2 production builds and ZIP packages passed manifest,
+  CSP, permissions, lazy-locale, and bundle-budget checks. No duplicate shipped
+  assets were present; package sizes remained below their release budgets.
+- Packaged Chrome and Firefox migration fixtures passed fresh-profile startup,
+  concurrent facade writes, every-table legacy import, integrity and foreign-key
+  verification, migration receipts, legacy override, and OPFS export.
+- Chrome additionally passed interrupted-migration resume, rejected-restore
+  safety, and the critical install/restart/migration Playwright gates.
+- Both browsers preserved the 3,457,024-byte rollback source byte-for-byte with
+  SHA-256 `8c39ee7d447ed19837295a6f0bbf2f302cebef151a8857b0ed8dfb7e516a1fdf`.
+- The production build contains one persistence-host worker and official
+  sqlite-wasm engine. sql.js remains confined to benchmark fixture generation.
+- A focused 79-test soak passed provider connection, model catalog/RPC,
+  durable-turn recovery, interrupted-turn recovery, ingestion recovery, and
+  theme persistence behavior.
 
-- Release only after package-boundary work is mechanically boring and behavior
-  remains unchanged.
+Audit observation, not a shipped release blocker: `pnpm audit --prod` includes
+the docs workspace and reported nine advisories (two already ignored by policy).
+The only direct extension dependency reported was DOMPurify; the affected
+`IN_PLACE` hook mode is not used. Its patched release and Mermaid's docs-only
+patch are still younger than the strict seven-day dependency-age window, so the
+lockfile was not forced past policy. Re-evaluate them after they age in rather
+than adding a security-patch exception during release hardening.
+
+Remaining Phase 3 work: none. Promote only through
+`release/0.13.x` → `preview` → `main`.
 
 ## `0.14.x` browser-agent phases
 
