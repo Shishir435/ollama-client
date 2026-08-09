@@ -248,8 +248,8 @@ Remaining package work:
 
 #### P1 — `packages/contracts`
 
-Status: in progress; first slice merged, turn-schema slice active on
-`feature/contracts-turn-schemas`, 2026-08-09.
+Status: in progress; provider-RPC schema slice active on
+`feature/contracts-provider-rpc-schemas`, 2026-08-09.
 
 Completed in the first extraction slice:
 
@@ -270,10 +270,26 @@ Completed in the turn-schema slice:
 - Migrated stream and persistence schema consumers to package APIs directly and
   added clean-Node coverage for nested turn contracts and UTF-8 replay limits.
 
+Completed in the provider/model RPC schema slice:
+
+- Moved provider configuration, discovery, capability-probe, and connection
+  request/result schemas behind the `@ollama-client/contracts/provider-rpc`
+  export.
+- Migrated the registry, provider service, and UI consumers to the package API;
+  kept only application-wide `RpcMap` assembly in `src/protocol`.
+- Added clean-Node tests for strict provider commands, credential-free public
+  results, and provider-model normalization. Test tooling remains owned by the
+  root workspace, not the runtime contracts package.
+- Moved model lifecycle, library lookup, and embedding preparation/check
+  request/result schemas into `@ollama-client/contracts/model-rpc`, with direct
+  registry, service, and UI consumers.
+- Added clean-Node coverage for model-detail defaults, bounded library inputs,
+  loaded-model validation, and embedding error limits.
+
 Remaining in P1:
 
-- Move stable per-method request/result schemas in small domain slices once
-  both callers import the package API directly.
+- Move diagnostics and durable-job request/result schemas in small domain
+  slices once both callers import the package API directly.
 - Remove temporary `src/protocol`, `src/types`, and `src/application` contract
   compatibility re-exports/adapters after callers have migrated and persisted
   data is normalized at each boundary.

@@ -1,5 +1,10 @@
 import { z } from "zod"
 
+/**
+ * Structured, serializable failure safe to persist or cross an RPC/stream
+ * boundary. It carries recovery metadata without requiring importers to
+ * deserialize concrete application error classes.
+ */
 export const AppFailureSchema = z.object({
   status: z.number().int().nonnegative(),
   message: z.string(),
@@ -63,4 +68,5 @@ export const AppFailureSchema = z.object({
     .optional()
 })
 
+/** Serializable application failure. @see AppFailureSchema */
 export type AppFailure = z.infer<typeof AppFailureSchema>

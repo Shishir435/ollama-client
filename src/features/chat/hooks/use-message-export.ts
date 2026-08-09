@@ -3,8 +3,11 @@ import { toast } from "@/hooks/use-toast"
 import { logger } from "@/lib/logger"
 import type { ChatMessage } from "@/types"
 
-// Exporters pull in heavy deps (markdown-it + highlight.js, jsPDF, jszip).
-// Load them on demand so they stay out of the eager side-panel bundle.
+/**
+ * Lazy message-export actions. Export implementations carry heavy formatting
+ * and archive dependencies, so importers get callbacks without adding those
+ * modules to the eager side-panel bundle.
+ */
 export const useMessageExport = () => {
   const { t } = useTranslation()
 

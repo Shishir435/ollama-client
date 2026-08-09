@@ -21,7 +21,7 @@ export interface SocialLink {
   icon: LucideIcon
 }
 
-// Configuration for timeout input fields (UI only - without icons)
+/** UI-only timeout field definitions without component icon dependencies. */
 export const TIMEOUT_FIELDS_CONFIG = [
   {
     id: "scroll-delay",
@@ -57,7 +57,7 @@ export const TIMEOUT_FIELDS_CONFIG = [
   }
 ] as const
 
-// Scroll strategy options with short labels (for site-specific overrides)
+/** Compact labels for site-specific scroll-strategy overrides. */
 export const SCROLL_STRATEGY_OPTIONS_SHORT = [
   { value: "none" as ScrollStrategy, label: "None" },
   { value: "instant" as ScrollStrategy, label: "Instant" },
@@ -65,7 +65,7 @@ export const SCROLL_STRATEGY_OPTIONS_SHORT = [
   { value: "smart" as ScrollStrategy, label: "Smart" }
 ] as const
 
-// Scroll strategy options with descriptive labels (for global settings)
+/** Descriptive labels for global scroll-strategy settings. */
 export const SCROLL_STRATEGY_OPTIONS = [
   { value: "none" as ScrollStrategy, label: "None - No scrolling" },
   { value: "instant" as ScrollStrategy, label: "Instant - Quick scroll" },
@@ -73,7 +73,7 @@ export const SCROLL_STRATEGY_OPTIONS = [
   { value: "smart" as ScrollStrategy, label: "Smart - Intelligent detection" }
 ] as const
 
-// Content scraper options
+/** User-selectable page content extraction strategies. */
 export const CONTENT_SCRAPER_OPTIONS = [
   {
     value: "auto" as ContentScraper,

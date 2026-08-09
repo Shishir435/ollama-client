@@ -170,23 +170,19 @@ export const DEFAULT_FILE_UPLOAD_CONFIG: FileUploadConfig = {
 export const CHAT_PAGINATION_LIMIT = 50
 export const DEFAULT_MAX_TAB_CONTEXT_CHARS = 12000
 export const DEFAULT_MAX_RAG_CONTEXT_CHARS = 16000
-// Per tool-call result cap. Tool output (page text, transcripts, RAG dumps) is
-// fed back to the model as a new turn, so an unbounded result balloons the
-// prompt and slows generation. Kept modest for laptop use; user-configurable.
+/**
+ * Per-call tool-output cap. Tool results re-enter the model prompt, so bounding
+ * them prevents page text, transcripts, or RAG dumps from ballooning a turn.
+ */
 export const DEFAULT_MAX_TOOL_RESULT_CHARS = 10000
-// Max tabs `restore_session` reopens in one call. Bounds how many tabs a single
-// model action can spawn; user-configurable in Privacy & permissions.
+/** Maximum tabs one `restore_session` model action may reopen. */
 export const DEFAULT_MAX_RESTORE_SESSIONS = 10
 export const MIN_MAX_RESTORE_SESSIONS = 1
 export const MAX_MAX_RESTORE_SESSIONS = 25
-// Answering-mode + tab-context refresh defaults. Centralized here (instead of
-// inline `false` at each useStorage call site) so the section-defaults manifest
-// has a single source to import.
+/** Central default used by storage descriptors and the section manifest. */
 export const DEFAULT_GROUNDED_ONLY_MODE = false
 export const DEFAULT_AUTO_REFRESH_TAB_CONTEXT = false
-// Chat memory (auto-embedding past messages for recall) ships on: it is the
-// feature reviewers expect from "memory", stays fully local, and users can
-// still switch it off in Settings → Knowledge.
+/** Local chat-memory indexing ships enabled and remains user-disableable. */
 export const DEFAULT_MEMORY_ENABLED = true
 export const MIN_EVAL_DURATION_FOR_SPEED_NS = 10_000_000
 export const MAX_REASONABLE_TOKENS_PER_SECOND = 2_000

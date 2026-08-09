@@ -1,8 +1,4 @@
-// Section 9.4 spike phase 2: wire types for the single-owner topology.
-// Clients (extension pages, background) send runtime messages; the offscreen
-// document owns the only SQLite worker and answers spike-owner-rpc messages.
-// Throwaway spike code: keep it isolated from production modules.
-
+/** Experimental ensure message for the isolated single-owner OPFS spike. */
 export const SPIKE_OWNER_ENSURE = "spike-owner-ensure"
 export const SPIKE_OWNER_CLOSE = "spike-owner-close"
 export const SPIKE_OWNER_BG_WRITE = "spike-owner-bg-write"

@@ -1,5 +1,7 @@
+/** Version shared by every typed streaming envelope. */
 export const STREAM_PROTOCOL_VERSION = 1 as const
 
+/** Stable server event identifiers for chat and context streams. */
 export const CHAT_STREAM_EVENT_TYPES = {
   CHUNK: "chat_chunk",
   RAG_SOURCES: "rag_sources",
@@ -10,6 +12,7 @@ export const CHAT_STREAM_EVENT_TYPES = {
   SNAPSHOT: "stream_snapshot"
 } as const
 
+/** Stable client/server event identifiers for model-pull streams. */
 export const MODEL_PULL_EVENT_TYPES = {
   START: "model_pull_start",
   CANCEL: "model_pull_cancel",

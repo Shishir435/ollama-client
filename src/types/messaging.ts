@@ -32,9 +32,11 @@ export interface ChromeMessage {
   failure?: AppFailure
 }
 
-// Omit the members we deliberately narrow: the base `postMessage`/`onMessage`
-// are typed with `unknown`/`any` payloads, so re-declaring them with our
-// message union would otherwise be an incompatible override (TS2430).
+/**
+ * Browser runtime port narrowed to application message unions. The base port's
+ * `postMessage` and `onMessage` members are omitted first because overriding
+ * their `unknown`/`any` payloads directly is incompatible under TS2430.
+ */
 export interface ChromePort
   extends Omit<browser.Runtime.Port, "postMessage" | "onMessage"> {
   postMessage(message: ChromeMessage | EmbeddingStatusMessage): void

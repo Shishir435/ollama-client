@@ -1,3 +1,4 @@
+import type { PublicProviderConfig } from "@ollama-client/contracts/provider-rpc"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "@/hooks/use-toast"
@@ -17,7 +18,6 @@ import {
   type ProviderServiceProfile
 } from "@/lib/providers/types"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import type { PublicProviderConfig } from "@/protocol/provider-rpc"
 import { RpcMethod } from "@/protocol/rpc"
 import { useProviderHealth } from "./use-provider-health"
 

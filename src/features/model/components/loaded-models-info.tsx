@@ -13,7 +13,6 @@ import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { logger } from "@/lib/logger"
 import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import type { LoadedModel } from "@/protocol/model-rpc"
 import { RpcMethod } from "@/protocol/rpc"
 
 const formatBytes = (bytes: number): string => {
@@ -234,3 +233,5 @@ export const LoadedModelsInfo = () => {
     </Card>
   )
 }
+
+import type { LoadedModel } from "@ollama-client/contracts/model-rpc"

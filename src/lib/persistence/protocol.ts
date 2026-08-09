@@ -1,13 +1,10 @@
-// Production persistence RPC: wire types between database clients (sidepanel,
-// options, background) and the single database owner (Chromium offscreen
-// document / Firefox MV2 background page). Section 9.4 decision record:
-// official sqlite-wasm behind the opfs-sahpool VFS, one owner per browser
-// session, every other context a stateless RPC client.
-
+/**
+ * Production wire key between stateless database clients and the session's
+ * single SQLite owner (Chromium offscreen document or Firefox background page).
+ */
 export const PERSISTENCE_RPC = "persistence-rpc"
 export const PERSISTENCE_ENSURE = "persistence-ensure"
-// Offscreen documents have no chrome.storage; the owner proxies backend-
-// marker reads/writes to the background service worker with this message.
+/** Storage-marker proxy key used because offscreen documents lack storage. */
 export const PERSISTENCE_MARKER = "persistence-marker"
 
 import type { IntegrityReport, TableCounts } from "./durable-tables"

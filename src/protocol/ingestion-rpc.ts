@@ -73,9 +73,11 @@ export const IngestionGetRequestSchema = z
 export const IngestionGetResultSchema = IngestionJobResultSchema
 export const IngestionCancelRequestSchema = IngestionGetRequestSchema
 export const IngestionCancelResultSchema = IngestionJobResultSchema
-// The staged payload is the only copy of a completed parse result, so it is
-// released on an explicit acknowledgement rather than on read: a dropped
-// `ingestions.get` response must stay recoverable.
+/**
+ * Explicitly releases a staged parse result after the caller has received it.
+ * Reading cannot release the only copy because a dropped `ingestions.get`
+ * response must remain recoverable.
+ */
 export const IngestionAckRequestSchema = IngestionGetRequestSchema
 export const IngestionAckResultSchema = z
   .object({

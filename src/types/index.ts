@@ -1,7 +1,7 @@
-// Re-export domain types. New code should prefer importing from
-// the specific domain file (e.g. `@/types/chat`) rather than this barrel.
-
-// Re-export embedding config types from constants for convenience.
+/**
+ * Convenience re-export for embedding configuration. New code should prefer
+ * its specific domain module instead of expanding this compatibility barrel.
+ */
 export type { ChunkingStrategy, EmbeddingConfig } from "@/lib/constants"
 export * from "./chat"
 export * from "./content-extraction"

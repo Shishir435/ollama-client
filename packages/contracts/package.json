@@ -8,6 +8,8 @@
     "./app-failure": "./src/app-failure.ts",
     "./chat": "./src/chat.ts",
     "./context": "./src/context.ts",
+    "./model-rpc": "./src/model-rpc.ts",
+    "./provider-rpc": "./src/provider-rpc.ts",
     "./rpc": "./src/rpc.ts",
     "./streams": "./src/streams.ts",
     "./turns": "./src/turns.ts"

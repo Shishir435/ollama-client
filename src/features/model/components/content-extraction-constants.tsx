@@ -1,7 +1,7 @@
 import { Clock, Globe, RefreshCw } from "lucide-react"
 import { TIMEOUT_FIELDS_CONFIG } from "@/lib/constants-ui"
 
-// Icon mapping for timeout fields
+/** Component icon mapping kept outside the UI-independent field definitions. */
 export const TIMEOUT_FIELD_ICONS = {
   "scroll-delay": Clock,
   "mutation-timeout": RefreshCw,
@@ -9,7 +9,7 @@ export const TIMEOUT_FIELD_ICONS = {
   "max-wait": Clock
 } as const
 
-// Create TIMEOUT_FIELDS with icons
+/** Timeout field definitions enriched for direct component rendering. */
 export const TIMEOUT_FIELDS = TIMEOUT_FIELDS_CONFIG.map((field) => ({
   ...field,
   icon: TIMEOUT_FIELD_ICONS[field.id]

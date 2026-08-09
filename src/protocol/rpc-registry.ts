@@ -1,3 +1,37 @@
+import {
+  EmbeddingsCheckModelRequestSchema,
+  EmbeddingsCheckModelResultSchema,
+  EmbeddingsPrepareModelRequestSchema,
+  EmbeddingsPrepareModelResultSchema,
+  ModelsGetDetailsRequestSchema,
+  ModelsGetDetailsResultSchema,
+  ModelsGetLibraryVariantsRequestSchema,
+  ModelsGetLibraryVariantsResultSchema,
+  ModelsListLoadedRequestSchema,
+  ModelsListLoadedResultSchema,
+  ModelsSearchLibraryRequestSchema,
+  ModelsSearchLibraryResultSchema,
+  ModelsUnloadRequestSchema,
+  ModelsUnloadResultSchema,
+  ModelsWarmupRequestSchema,
+  ModelsWarmupResultSchema
+} from "@ollama-client/contracts/model-rpc"
+import {
+  ProvidersListModelsRequestSchema,
+  ProvidersListModelsResultSchema,
+  ProvidersListRequestSchema,
+  ProvidersListResultSchema,
+  ProvidersProbeModelCapabilitiesRequestSchema,
+  ProvidersProbeModelCapabilitiesResultSchema,
+  ProvidersRemoveRequestSchema,
+  ProvidersRemoveResultSchema,
+  ProvidersSetEnabledRequestSchema,
+  ProvidersSetEnabledResultSchema,
+  ProvidersUpsertRequestSchema,
+  ProvidersUpsertResultSchema,
+  ProviderTestConnectionRequestSchema,
+  ProviderTestConnectionResultSchema
+} from "@ollama-client/contracts/provider-rpc"
 import { RpcMethod, type RpcSource } from "@ollama-client/contracts/rpc"
 import type { z } from "zod"
 import {
@@ -29,42 +63,6 @@ import {
   ModelPullSubmitResultSchema
 } from "./model-pull-rpc"
 
-import {
-  EmbeddingsCheckModelRequestSchema,
-  EmbeddingsCheckModelResultSchema,
-  EmbeddingsPrepareModelRequestSchema,
-  EmbeddingsPrepareModelResultSchema,
-  ModelsGetDetailsRequestSchema,
-  ModelsGetDetailsResultSchema,
-  ModelsGetLibraryVariantsRequestSchema,
-  ModelsGetLibraryVariantsResultSchema,
-  ModelsListLoadedRequestSchema,
-  ModelsListLoadedResultSchema,
-  ModelsSearchLibraryRequestSchema,
-  ModelsSearchLibraryResultSchema,
-  ModelsUnloadRequestSchema,
-  ModelsUnloadResultSchema,
-  ModelsWarmupRequestSchema,
-  ModelsWarmupResultSchema
-} from "./model-rpc"
-
-import {
-  ProvidersListModelsRequestSchema,
-  ProvidersListModelsResultSchema,
-  ProvidersListRequestSchema,
-  ProvidersListResultSchema,
-  ProvidersProbeModelCapabilitiesRequestSchema,
-  ProvidersProbeModelCapabilitiesResultSchema,
-  ProvidersRemoveRequestSchema,
-  ProvidersRemoveResultSchema,
-  ProvidersSetEnabledRequestSchema,
-  ProvidersSetEnabledResultSchema,
-  ProvidersUpsertRequestSchema,
-  ProvidersUpsertResultSchema,
-  ProviderTestConnectionRequestSchema,
-  ProviderTestConnectionResultSchema
-} from "./provider-rpc"
-
 export interface RpcMethodDefinition {
   request: z.ZodType
   response: z.ZodType
@@ -75,6 +73,11 @@ export interface RpcMethodDefinition {
 
 const extensionPagesOnly = ["extension-page"] as const
 
+/**
+ * Runtime policy paired with every typed RPC contract. Timeouts reflect the
+ * operation rather than a global default: model warmup and embedding prepare
+ * may perform cold-start or pull work, while ordinary queries stay bounded.
+ */
 export const RPC_METHOD_DEFINITIONS = {
   [RpcMethod.ProvidersList]: {
     request: ProvidersListRequestSchema,

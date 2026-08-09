@@ -50,8 +50,8 @@ vi.mock("../factory", () => ({
   }
 }))
 
+import { ProvidersListResultSchema } from "@ollama-client/contracts/provider-rpc"
 import { createAppError } from "@/lib/error-utils"
-import { ProvidersListResultSchema } from "@/protocol/provider-rpc"
 import {
   clearModelCatalogSupport,
   getModelCatalogSupport
