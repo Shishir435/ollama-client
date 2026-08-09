@@ -21,7 +21,7 @@ Release work merges into `preview` for validation; only `preview` merges into
 | --- | --- | --- |
 | `0.12.6` | Migration evidence, release provenance, provider and transcript correctness | Released |
 | `0.12.7`–`0.12.8` | Fast provider, reachability, and Firefox theme fixes | Released; fixes forward-ported |
-| `0.13.0` | Solidify runtime, isolate domains, introduce first package boundaries | Active |
+| `0.13.0` | Solidify runtime, isolate domains, introduce first package boundaries | Release candidate; hardening complete |
 | `0.14.x` | Browser agent, built on isolated contracts and runtime kernels | Planned |
 | Later | Remove compatibility paths only when ledger evidence permits | Evidence-gated |
 
@@ -44,8 +44,10 @@ Not on current release branch:
 
 - Browser-agent runtime. Old agent branch is design and selective-port source,
   never a branch to merge wholesale.
-- Package extraction. Existing `src/application/**` boundaries are useful prior
-  art, but physical packages have not landed.
+
+Package extraction is complete on `release/0.13.x`: contracts, runtime-core,
+and chat-runtime own the environment-independent schemas, primitives, and turn,
+context, and tool-loop orchestration described below.
 
 ## Architecture audit refresh — 2026-08-09
 
@@ -242,8 +244,7 @@ Remaining package work:
 
 - P1: complete in `release/0.13.x` via PRs #244–#246.
 - P2: complete in `release/0.13.x` via PR #247.
-- P3: complete on `feature/chat-runtime-tool-loop-orchestration`; merge the
-  shared tool-loop coordinator into `release/0.13.x`. Agent runtime remains
+- P3: complete in `release/0.13.x` via PRs #248–#250. Agent runtime remains
   scheduled for `0.14.x`.
 
 #### P1 — `packages/contracts`
@@ -349,8 +350,7 @@ Exit gate: deterministic tests run without browser globals or extension setup.
 
 #### P3 — domain runtimes
 
-Status: complete on `feature/chat-runtime-tool-loop-orchestration`, pending
-merge, 2026-08-09.
+Status: complete in `release/0.13.x` via PRs #248–#250, 2026-08-09.
 
 Completed in the first turn-orchestration slice:
 
@@ -394,7 +394,7 @@ Completed in the tool-loop orchestration slice:
 - Added clean-Node contract/runtime coverage and retained restart, approval,
   corrupt-checkpoint, taint, replay, native, and non-native integration tests.
 
-Remaining P3 work: none after this branch merges.
+Remaining P3 work: none.
 
 Deferred to `0.14.x`: `packages/agent-runtime` task compiler, policy, approval,
 controller, verification, and recovery.
@@ -417,17 +417,39 @@ Keep in extension `src/`:
 
 ### Phase 3 — release hardening
 
-- Run `pnpm typecheck`, `pnpm lint:check`, and `pnpm test:run`.
-- Run Chrome and Firefox production builds and packages.
-- Run docs/resource generation when touched.
-- Pass packaged-browser migration fixtures and preserve byte-level rollback
-  evidence.
-- Confirm one chat database writer and no second persistence engine.
-- Confirm dependency-age policy, lockfile integrity, and bundle budgets.
-- Soak provider connection, model discovery, chat recovery, ingestion recovery,
-  and Firefox theme behavior.
-- Release only after package-boundary work is mechanically boring and behavior
-  remains unchanged.
+Status: complete on `feature/release-0.13-hardening`, pending merge, 2026-08-09.
+
+Completed evidence:
+
+- `pnpm verify` passed package and app typechecks, Biome, knip, strict i18n,
+  generated-resource drift, the compatibility ledger, and 2,627 tests across
+  321 files. A frozen-lockfile install was already up to date.
+- Chrome MV3 and Firefox MV2 production builds and ZIP packages passed manifest,
+  CSP, permissions, lazy-locale, and bundle-budget checks. No duplicate shipped
+  assets were present; package sizes remained below their release budgets.
+- Packaged Chrome and Firefox migration fixtures passed fresh-profile startup,
+  concurrent facade writes, every-table legacy import, integrity and foreign-key
+  verification, migration receipts, legacy override, and OPFS export.
+- Chrome additionally passed interrupted-migration resume, rejected-restore
+  safety, and the critical install/restart/migration Playwright gates.
+- Both browsers preserved the 3,457,024-byte rollback source byte-for-byte with
+  SHA-256 `8c39ee7d447ed19837295a6f0bbf2f302cebef151a8857b0ed8dfb7e516a1fdf`.
+- The production build contains one persistence-host worker and official
+  sqlite-wasm engine. sql.js remains confined to benchmark fixture generation.
+- A focused 79-test soak passed provider connection, model catalog/RPC,
+  durable-turn recovery, interrupted-turn recovery, ingestion recovery, and
+  theme persistence behavior.
+
+Audit observation, not a shipped release blocker: `pnpm audit --prod` includes
+the docs workspace and reported nine advisories (two already ignored by policy).
+The only direct extension dependency reported was DOMPurify; the affected
+`IN_PLACE` hook mode is not used. Its patched release and Mermaid's docs-only
+patch are still younger than the strict seven-day dependency-age window, so the
+lockfile was not forced past policy. Re-evaluate them after they age in rather
+than adding a security-patch exception during release hardening.
+
+Remaining Phase 3 work: none after this branch merges. Promote only through
+`release/0.13.x` → `preview` → `main`.
 
 ## `0.14.x` browser-agent phases
 
