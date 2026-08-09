@@ -40,12 +40,22 @@ export default defineConfig({
           maxWorkers: 6,
           include: THREAD_TEST_PATTERNS
         }
+      },
+      {
+        extends: true,
+        test: {
+          name: "contracts",
+          environment: "node",
+          setupFiles: [],
+          maxWorkers: 6,
+          include: ["packages/contracts/src/**/*.test.ts"]
+        }
       }
     ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
-      include: ["src/**/*.ts"],
+      include: ["src/**/*.ts", "packages/contracts/src/**/*.ts"],
       exclude: ["src/**/*.{test,spec}.{ts,tsx}", "src/**/*.d.ts"]
     }
   },

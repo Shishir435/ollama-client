@@ -1,3 +1,8 @@
+import { AppFailureSchema } from "@ollama-client/contracts/app-failure"
+import {
+  CHAT_STREAM_EVENT_TYPES,
+  STREAM_PROTOCOL_VERSION
+} from "@ollama-client/contracts/streams"
 import { z } from "zod"
 import {
   ContextReceiptSchema,
@@ -6,7 +11,6 @@ import {
   TurnModeSchema
 } from "@/application/turns/turn-contract"
 import { MESSAGE_KEYS } from "@/lib/constants"
-import { AppFailureSchema } from "@/protocol/app-failure"
 import type { ChatMessage, ProviderReplayArtifact, ToolRun } from "@/types"
 import {
   ActivityEventSchema,
@@ -15,12 +19,10 @@ import {
   ToolRunSchema,
   UsedContextChunkSchema
 } from "@/types/chat.schemas"
-import { CHAT_STREAM_EVENT_TYPES } from "./event-types"
 import {
   SelectionStreamClientEventSchemas,
   SelectionStreamServerEventSchemas
 } from "./selection-stream"
-import { STREAM_PROTOCOL_VERSION } from "./version"
 
 const version = z.literal(STREAM_PROTOCOL_VERSION)
 

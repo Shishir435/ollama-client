@@ -1,7 +1,7 @@
+import { AppFailureSchema } from "@ollama-client/contracts/app-failure"
+import { STREAM_PROTOCOL_VERSION } from "@ollama-client/contracts/streams"
 import { z } from "zod"
 import { MESSAGE_KEYS } from "@/lib/constants"
-import { AppFailureSchema } from "@/protocol/app-failure"
-import { STREAM_PROTOCOL_VERSION } from "./version"
 
 const version = z.literal(STREAM_PROTOCOL_VERSION)
 

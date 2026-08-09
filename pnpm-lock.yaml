@@ -26,6 +26,9 @@ importers:
       '@mozilla/readability':
         specifier: ^0.6.0
         version: 0.6.0
+      '@ollama-client/contracts':
+        specifier: workspace:*
+        version: link:packages/contracts
       '@plasmohq/storage':
         specifier: ^1.15.0
         version: 1.15.0(react@19.2.6)
@@ -340,6 +343,12 @@ importers:
       typescript:
         specifier: npm:@typescript/typescript6@6.0.2
         version: '@typescript/typescript6@6.0.2'
+
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
 packages:
 

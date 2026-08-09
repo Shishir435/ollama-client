@@ -1,7 +1,5 @@
+import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
 import { z } from "zod"
-
-import type { RpcDefinition } from "./rpc"
-import { RpcMethod } from "./rpc"
 
 /**
  * Model lifecycle and catalog methods.

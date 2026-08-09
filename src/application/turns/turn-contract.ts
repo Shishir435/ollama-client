@@ -1,9 +1,9 @@
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import { z } from "zod"
 import {
   type DurableContextOptions,
   DurableContextOptionsSchema
 } from "@/application/context/context-contract"
-import type { AppFailure } from "@/protocol/app-failure"
 import type { ChatMessage } from "@/types"
 import { ChatMessageSchema } from "@/types/chat.schemas"
 

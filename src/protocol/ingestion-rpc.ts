@@ -1,6 +1,5 @@
+import { type RpcDefinition, RpcMethod } from "@ollama-client/contracts/rpc"
 import { z } from "zod"
-import type { RpcDefinition } from "./rpc"
-import { RpcMethod } from "./rpc"
 
 export const IngestionStatusSchema = z.enum([
   "queued",

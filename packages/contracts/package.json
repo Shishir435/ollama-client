@@ -1,0 +1,15 @@
+{
+  "name": "@ollama-client/contracts",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./app-failure": "./src/app-failure.ts",
+    "./rpc": "./src/rpc.ts",
+    "./streams": "./src/streams.ts"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
+}
