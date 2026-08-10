@@ -54,6 +54,26 @@ const withTimeout = async <T>(work: Promise<T>, label: string): Promise<T> => {
   }
 }
 
+/**
+ * A request that provably never reached the owner.
+ *
+ * The distinction matters for retries: an operation that failed while the
+ * owner was being brought up did not execute, so repeating it cannot double a
+ * write. An operation that failed after it was handed over has an unknown
+ * commit outcome and is only retried when it is idempotent by construction.
+ */
+export class PersistenceNotDeliveredError extends Error {
+  constructor(cause: unknown) {
+    super(
+      `Persistence owner unavailable: ${
+        cause instanceof Error ? cause.message : String(cause)
+      }`
+    )
+    this.name = "PersistenceNotDeliveredError"
+    this.cause = cause
+  }
+}
+
 /** Guarantees the owner host context exists (Chromium offscreen document /
  * Firefox background page). Exported because other work hosted by that same
  * document — durable file parsing — must not message a host that is not up. */
@@ -78,7 +98,13 @@ const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
   if (globalThis.__persistenceHostCall) {
     return globalThis.__persistenceHostCall(request)
   }
-  await ensurePersistenceHost()
+  try {
+    await ensurePersistenceHost()
+  } catch (error) {
+    // Nothing was sent, so nothing ran — say so, rather than letting a caller
+    // treat a cold owner like a write of unknown outcome.
+    throw new PersistenceNotDeliveredError(error)
+  }
   const wire =
     request.op === "query" || request.op === "run"
       ? { ...request, bind: encodeBind(request.bind) }
@@ -100,9 +126,16 @@ const send = async (request: PersistenceOp): Promise<unknown> => {
   try {
     return await sendOnce(request)
   } catch (error) {
-    // Retry exactly once, and only for ops that are safe to repeat: the
-    // owner may have just been recreated (worker crash, offscreen churn).
-    if (!RETRYABLE_OPS.has(request.op)) throw error
+    // Retry exactly once. Safe for ops that are idempotent by construction —
+    // the owner may have just been recreated (worker crash, offscreen churn) —
+    // and for any op the owner provably never received, because a request that
+    // did not execute cannot be executed twice by repeating it.
+    if (
+      !RETRYABLE_OPS.has(request.op) &&
+      !(error instanceof PersistenceNotDeliveredError)
+    ) {
+      throw error
+    }
     return sendOnce(request)
   }
 }

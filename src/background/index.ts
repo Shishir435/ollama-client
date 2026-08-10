@@ -1,62 +1,22 @@
 import "webextension-polyfill"
 
 import { registerMessageRouter } from "@/background/message-router"
+import { startPersistenceTopology } from "@/background/persistence-readiness"
 import { registerPortRouter } from "@/background/port-router"
 import { initializeBackgroundStartup } from "@/background/startup"
 
 /**
- * Production persistence topology. Chromium: the service worker guarantees
- * the offscreen owner document exists (for itself and for extension pages).
- * Firefox: the persistent background page IS the owner and hosts the SQLite
- * worker directly.
- *
- * The branch is resolved at build time via __FIREFOX_BG_OWNER__ (not a runtime
- * browser check) so the bundler dead-code eliminates the unused arm. On
- * Chromium that drops owner-host and its ~1.4 MB SQLite worker chunk from the
- * background entry entirely — the offscreen document (persistence-host) is the
- * only Chromium worker host.
+ * The persistence topology starts first and hands its readiness to startup,
+ * because every durable recovery task startup runs needs an owner that can
+ * answer. Routing registers after and is not gated on it: an incoming request
+ * waits on the same promise inside the persistence client, not on the order
+ * these lines happen to run in.
  */
-function registerPersistenceTopology() {
-  // Test environments mock a minimal chrome; the topology only registers
-  // where runtime messaging actually exists.
-  if (!chrome?.runtime?.onMessage?.addListener) return
-  // Benchmark builds carry a section 9.4 spike owner that claims the one
-  // offscreen-document slot Chromium allows per extension. Registering the
-  // production topology too would race for that slot and, when the spike's
-  // createDocument loses, silently drop the spike's owner RPC. The spike is
-  // dev-only, so stand down here and let it own the slot.
-  if (
-    (typeof __SPIKE_OPFS_OWNER__ !== "undefined" && __SPIKE_OPFS_OWNER__) ||
-    (typeof __SPIKE_OPFS_OWNER_MV2__ !== "undefined" &&
-      __SPIKE_OPFS_OWNER_MV2__)
-  ) {
-    return
-  }
-  if (__FIREFOX_BG_OWNER__) {
-    void import("@/lib/persistence/owner-host").then((module) => {
-      module.registerPersistenceHost()
-      if (
-        typeof document !== "undefined" &&
-        !document.querySelector("#ingestion-processor-host")
-      ) {
-        const frame = document.createElement("iframe")
-        frame.id = "ingestion-processor-host"
-        frame.hidden = true
-        frame.src = chrome.runtime.getURL("ingestion-processor.html?host=1")
-        document.body.append(frame)
-      }
-    })
-    return
-  }
-  void import("@/lib/persistence/chromium-owner").then((module) =>
-    module.registerChromiumPersistenceControl()
-  )
-}
+const persistenceReady = startPersistenceTopology()
 
-initializeBackgroundStartup()
+initializeBackgroundStartup(persistenceReady)
 registerPortRouter()
 registerMessageRouter()
-registerPersistenceTopology()
 
 /**
  * Dev-only section 9.4 spike host (offscreen OPFS owner). The flag is false
