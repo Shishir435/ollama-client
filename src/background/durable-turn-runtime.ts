@@ -32,8 +32,9 @@ import {
 } from "@/lib/repositories/chat-history"
 import {
   createTurnRun,
-  finalizeInterruptedCancellations,
+  finalizeCancelledTurn,
   getIncompleteTurnRuns,
+  getInterruptedCancellations,
   getTurnRun,
   markTurnCancelling,
   updateTurnRun
@@ -569,37 +570,53 @@ export const requestDurableTurnStop = async (
   }
 }
 
-export const resumeIncompleteTurnRuns = async (): Promise<void> => {
-  // Cancellations whose worker died mid-stop are finished here, not resumed:
-  // the user already said stop, so this settles the rows and issues nothing.
-  const finalized = await finalizeInterruptedCancellations().catch((error) => {
-    logger.error(
-      "Failed to finalize interrupted cancellations",
-      "BackgroundSW",
-      {
-        error
-      }
-    )
+/**
+ * Finish cancellations whose worker died mid-stop, without reissuing anything.
+ *
+ * Assistant row first, turn row second, one turn at a time. The two writes
+ * belong to different repositories and cannot share a transaction, so the order
+ * carries the guarantee instead: a worker that exits between them leaves the
+ * turn at `cancelling`, and the next boot finds it and repeats an assistant
+ * write that is idempotent. Settling the turn first would close that door with
+ * the assistant still unfinished, and the stale-message sweep would then offer
+ * a retry for a response the user deliberately stopped.
+ *
+ * A turn whose assistant cannot be finished is left `cancelling` for the same
+ * reason, and retried on the next boot rather than settled over.
+ */
+const finishInterruptedCancellations = async (): Promise<void> => {
+  const interrupted = await getInterruptedCancellations().catch((error) => {
+    logger.error("Failed to read interrupted cancellations", "BackgroundSW", {
+      error
+    })
     return []
   })
-  for (const cancelled of finalized) {
-    if (cancelled.assistantMessageId === undefined) continue
-    // Settling the turn row is only half of it. The assistant is still
-    // `done = 0`, which reads as interrupted rather than stopped — the stale
-    // message sweep would then offer a retry for a response the user cancelled.
-    await updateMessage(cancelled.assistantMessageId, { done: true }).catch(
-      (error) =>
+  let settled = 0
+  for (const cancelled of interrupted) {
+    if (cancelled.assistantMessageId !== undefined) {
+      try {
+        await updateMessage(cancelled.assistantMessageId, { done: true })
+      } catch (error) {
         logger.error("Failed to finish a cancelled assistant", "BackgroundSW", {
           turnId: cancelled.id,
           error
         })
-    )
+        continue
+      }
+    }
+    if (await finalizeCancelledTurn(cancelled.id).catch(() => false)) {
+      settled += 1
+    }
   }
-  if (finalized.length > 0) {
+  if (settled > 0) {
     logger.info("Finalized interrupted turn cancellations", "BackgroundSW", {
-      count: finalized.length
+      count: settled
     })
   }
+}
+
+export const resumeIncompleteTurnRuns = async (): Promise<void> => {
+  await finishInterruptedCancellations()
   const turns = await getIncompleteTurnRuns()
   for (const turn of turns) {
     try {

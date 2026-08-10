@@ -14,8 +14,9 @@ vi.mock("@/lib/logger", () => ({
 
 import {
   createTurnRun,
-  finalizeInterruptedCancellations,
+  finalizeCancelledTurn,
   getIncompleteTurnRuns,
+  getInterruptedCancellations,
   getTurnRun,
   markTurnCancelling,
   updateTurnRun
@@ -228,30 +229,39 @@ describe("turn cancellation intent", () => {
     expect(flushSave).not.toHaveBeenCalled()
   })
 
-  it("finishes cancellations whose worker died mid-stop", async () => {
+  it("reads interrupted cancellations without settling them", async () => {
     query.mockResolvedValue([
       { id: "turn-1", assistantMessageId: 7 },
       { id: "turn-2", assistantMessageId: null }
     ])
 
-    // The assistant rows come back with it: settling only the turn leaves a
-    // stopped response looking interrupted.
-    await expect(finalizeInterruptedCancellations()).resolves.toEqual([
+    // Read-only on purpose: the assistant row has to be finished first, and
+    // while the turn still reads `cancelling` the next boot can find it again.
+    await expect(getInterruptedCancellations()).resolves.toEqual([
       { id: "turn-1", assistantMessageId: 7 },
       { id: "turn-2", assistantMessageId: undefined }
     ])
+    expect(run).not.toHaveBeenCalled()
+    expect(runWithMeta).not.toHaveBeenCalled()
+    expect(flushSave).not.toHaveBeenCalled()
+  })
 
-    const [sql] = run.mock.calls[0]
+  it("settles one cancellation, and only while it is still cancelling", async () => {
+    runWithMeta.mockResolvedValue({ changes: 1, lastInsertRowid: 0 })
+
+    await expect(finalizeCancelledTurn("turn-1")).resolves.toBe(true)
+
+    const [sql, bind] = runWithMeta.mock.calls[0]
     expect(sql).toContain("status = 'cancelled'")
-    expect(sql).toContain("WHERE status = 'cancelling'")
+    expect(sql).toContain("WHERE id = ? AND status = 'cancelling'")
+    expect(bind).toContain("turn-1")
     expect(flushSave).toHaveBeenCalledTimes(1)
   })
 
-  it("writes nothing when no cancellation was interrupted", async () => {
-    query.mockResolvedValue([])
+  it("settles nothing for a turn that already moved on", async () => {
+    runWithMeta.mockResolvedValue({ changes: 0, lastInsertRowid: 0 })
 
-    await expect(finalizeInterruptedCancellations()).resolves.toEqual([])
-    expect(run).not.toHaveBeenCalled()
+    await expect(finalizeCancelledTurn("turn-1")).resolves.toBe(false)
     expect(flushSave).not.toHaveBeenCalled()
   })
 })

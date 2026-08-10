@@ -195,35 +195,42 @@ export interface CancelledTurnRecord {
 }
 
 /**
- * Settle cancellations whose worker died before they finished.
+ * Cancellations whose worker died before they finished.
  *
- * Startup may finish what the stop started, but it must never reissue provider
- * work to do it — the user already said stop.
- *
- * Returns what it settled, because settling the turn row is only half of it:
- * the assistant row is still `done = 0`, and a stopped response left unfinished
- * reads as interrupted to the stale-message sweep, which then offers a retry
- * for something the user deliberately cancelled.
+ * Read-only. Startup may finish what the stop started, but it must never
+ * reissue provider work to do it — the user already said stop.
  */
-export const finalizeInterruptedCancellations = async (): Promise<
+export const getInterruptedCancellations = async (): Promise<
   CancelledTurnRecord[]
 > => {
-  // Read first: the caller has to finish each assistant row too, and after the
-  // update there is nothing left to identify them by.
   const rows = (await query(
     "SELECT id, assistantMessageId FROM turn_runs WHERE status = 'cancelling'"
   )) as unknown as Array<{ id: string; assistantMessageId: number | null }>
-  if (rows.length === 0) return []
-  await run(
-    `UPDATE turn_runs SET status = 'cancelled', updatedAt = ?
-      WHERE status = 'cancelling'`,
-    [Date.now()]
-  )
-  await flushSave()
   return rows.map((row) => ({
     id: row.id,
     assistantMessageId: row.assistantMessageId ?? undefined
   }))
+}
+
+/**
+ * Settle one cancellation, last.
+ *
+ * Deliberately per-turn and deliberately after its assistant row is finished.
+ * The two writes cannot share a transaction — they belong to different
+ * repositories — so the order is the safety property: while the turn still
+ * reads `cancelling`, the next boot finds it again and repeats work that is
+ * idempotent. Settling the turn first would close that door with the assistant
+ * still unfinished, and stale-message recovery would offer a retry for a
+ * response the user deliberately stopped.
+ */
+export const finalizeCancelledTurn = async (id: string): Promise<boolean> => {
+  const result = await runWithMeta(
+    `UPDATE turn_runs SET status = 'cancelled', updatedAt = ?
+      WHERE id = ? AND status = 'cancelling'`,
+    [Date.now(), id]
+  )
+  if (result.changes > 0) await flushSave()
+  return result.changes > 0
 }
 
 /**

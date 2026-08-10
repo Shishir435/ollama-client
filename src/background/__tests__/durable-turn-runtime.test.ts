@@ -14,7 +14,8 @@ const mocks = vi.hoisted(() => ({
   getTurnRun: vi.fn(),
   updateTurnRun: vi.fn(),
   markTurnCancelling: vi.fn(),
-  finalizeInterruptedCancellations: vi.fn()
+  getInterruptedCancellations: vi.fn(),
+  finalizeCancelledTurn: vi.fn()
 }))
 
 vi.mock("@/application/context/context-service", () => ({
@@ -44,7 +45,8 @@ vi.mock("@/lib/repositories/turn-runs", () => ({
   getTurnRun: mocks.getTurnRun,
   updateTurnRun: mocks.updateTurnRun,
   markTurnCancelling: mocks.markTurnCancelling,
-  finalizeInterruptedCancellations: mocks.finalizeInterruptedCancellations
+  getInterruptedCancellations: mocks.getInterruptedCancellations,
+  finalizeCancelledTurn: mocks.finalizeCancelledTurn
 }))
 
 vi.mock("@/lib/logger", () => ({
@@ -124,7 +126,8 @@ beforeEach(() => {
     return true
   })
   mocks.markTurnCancelling.mockResolvedValue(true)
-  mocks.finalizeInterruptedCancellations.mockResolvedValue([])
+  mocks.getInterruptedCancellations.mockResolvedValue([])
+  mocks.finalizeCancelledTurn.mockResolvedValue(true)
   mocks.contextBuild.mockImplementation(async () => {
     mocks.order.push("context")
     return {
@@ -519,7 +522,7 @@ describe("durable turn cancellation", () => {
 
   it("settles interrupted cancellations before resuming anything", async () => {
     const order: string[] = []
-    mocks.finalizeInterruptedCancellations.mockImplementation(async () => {
+    mocks.getInterruptedCancellations.mockImplementation(async () => {
       order.push("finalize")
       return []
     })
@@ -538,11 +541,20 @@ describe("durable turn cancellation", () => {
 })
 
 describe("interrupted cancellation recovery", () => {
-  it("finishes the assistant of a turn it settles", async () => {
-    mocks.finalizeInterruptedCancellations.mockResolvedValue([
+  it("finishes the assistant before settling its turn", async () => {
+    const order: string[] = []
+    mocks.getInterruptedCancellations.mockResolvedValue([
       { id: "turn-1", assistantMessageId: 7 },
       { id: "turn-2", assistantMessageId: undefined }
     ])
+    mocks.updateMessage.mockImplementation(async () => {
+      order.push("assistant")
+      return 7
+    })
+    mocks.finalizeCancelledTurn.mockImplementation(async () => {
+      order.push("turn")
+      return true
+    })
     mocks.getIncompleteTurnRuns.mockResolvedValue([])
     const { resumeIncompleteTurnRuns } = await import(
       "@/background/durable-turn-runtime"
@@ -554,10 +566,13 @@ describe("interrupted cancellation recovery", () => {
     // sweep offers a retry for something the user cancelled.
     expect(mocks.updateMessage).toHaveBeenCalledWith(7, { done: true })
     expect(mocks.updateMessage).toHaveBeenCalledTimes(1)
+    // Order is the guarantee: the two writes cannot share a transaction, so a
+    // worker that exits between them must leave the turn re-findable.
+    expect(order).toEqual(["assistant", "turn", "turn"])
   })
 
-  it("still resumes live turns when finishing an assistant fails", async () => {
-    mocks.finalizeInterruptedCancellations.mockResolvedValue([
+  it("leaves a turn cancelling when its assistant cannot be finished", async () => {
+    mocks.getInterruptedCancellations.mockResolvedValue([
       { id: "turn-1", assistantMessageId: 7 }
     ])
     mocks.updateMessage.mockRejectedValueOnce(new Error("db gone"))
@@ -567,5 +582,8 @@ describe("interrupted cancellation recovery", () => {
     )
 
     await expect(resumeIncompleteTurnRuns()).resolves.toBeUndefined()
+    // Settling it here would strand an unfinished assistant no later boot can
+    // find. Left as-is, the next boot retries.
+    expect(mocks.finalizeCancelledTurn).not.toHaveBeenCalled()
   })
 })
