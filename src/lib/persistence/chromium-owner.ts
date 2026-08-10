@@ -75,6 +75,20 @@ const OWNER_READY_TIMEOUT_MS = 15_000
 const OWNER_PING_FIRST_DELAY_MS = 25
 const OWNER_PING_MAX_DELAY_MS = 400
 
+/**
+ * Cap on one accepted-but-unanswered ping.
+ *
+ * The retry deadline above only bounds attempts that *fail*. A host whose
+ * listener accepted the message and never called `sendResponse` — a worker that
+ * died between spawn and first message, a migration wedged on a lock — leaves
+ * the send pending forever, and readiness with it, taking every database
+ * startup task with it. Same 30s the persistence client applies to every other
+ * request: a host that cannot answer a ping inside it cannot serve a query
+ * either. Failing here is recoverable — the rejection is not cached, so the
+ * next caller re-pings and a migration that has since finished answers.
+ */
+const OWNER_PING_TIMEOUT_MS = 30_000
+
 let creating: Promise<void> | null = null
 let ownerReady: Promise<void> | null = null
 let ownerProven = false
@@ -129,15 +143,41 @@ const ensureOwnerDocument = async (): Promise<boolean> => {
 }
 
 /**
+ * One ping, bounded. Resolves with whatever the host answered; rejects when the
+ * send fails or when an accepted send never settles.
+ */
+const pingOnce = async (): Promise<unknown> => {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      chrome.runtime.sendMessage({
+        type: PERSISTENCE_RPC,
+        request: { op: "ping" }
+      }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(new Error("owner accepted the ping and never answered it")),
+          OWNER_PING_TIMEOUT_MS
+        )
+      })
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
  * Ask the owner to answer one `ping`, retrying until it does or the deadline
  * passes.
  *
  * The retry loop exists for the gap between `createDocument()` resolving and
  * the host page evaluating its script: until the listener is registered,
- * `sendMessage` rejects with "receiving end does not exist". Once a listener
- * does exist the send stays pending until the host actually responds, so a
- * long first-boot migration produces one slow attempt rather than a retry
- * storm — the deadline bounds retries after a failure, not the owner's work.
+ * `sendMessage` rejects with "receiving end does not exist". That is a normal
+ * cold start, not a failure. A host that *accepts* the message keeps the send
+ * pending while it works, so one slow first-boot migration is one slow attempt
+ * rather than a retry storm — but only up to `OWNER_PING_TIMEOUT_MS`, because
+ * a send that never settles would otherwise outlive this deadline entirely.
  */
 const pingOwner = async (): Promise<void> => {
   const deadline = Date.now() + OWNER_READY_TIMEOUT_MS
@@ -145,12 +185,7 @@ const pingOwner = async (): Promise<void> => {
   let lastError = "no response"
   for (;;) {
     try {
-      const parsed = PersistenceRpcResponseSchema.safeParse(
-        await chrome.runtime.sendMessage({
-          type: PERSISTENCE_RPC,
-          request: { op: "ping" }
-        })
-      )
+      const parsed = PersistenceRpcResponseSchema.safeParse(await pingOnce())
       if (!parsed.success) {
         lastError = "owner returned an invalid response"
       } else if (parsed.data.ok) {

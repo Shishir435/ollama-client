@@ -138,6 +138,23 @@ describe("persistence owner readiness", () => {
     expect(sendMessage).toHaveBeenCalledTimes(2)
   })
 
+  it("gives up on a ping the owner accepted and never answered", async () => {
+    vi.useFakeTimers()
+    // The listener took the message — no rejection to retry on — and then the
+    // worker died. Without a per-attempt cap this send stays pending forever
+    // and readiness never settles, blocking every database startup task with
+    // it.
+    sendMessage.mockReturnValue(new Promise(() => undefined))
+
+    const { ensurePersistenceOwnerReady } = await loadOwner()
+    const ready = ensurePersistenceOwnerReady()
+    const rejection = expect(ready).rejects.toThrow(/never answered it/)
+    await vi.advanceTimersByTimeAsync(60_000)
+    await rejection
+
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+  })
+
   it("reports an owner that answers with a failure", async () => {
     vi.useFakeTimers()
     sendMessage.mockResolvedValue({ ok: false, error: "worker never started" })
