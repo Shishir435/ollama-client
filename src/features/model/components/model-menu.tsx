@@ -311,7 +311,7 @@ export const ModelMenu = ({
           <div className="flex h-96 min-h-0 overflow-hidden rounded-xl bg-popover text-popover-foreground">
             <nav
               aria-label={t("settings.tabs.providers")}
-              className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-border/50 bg-muted/15 p-1.5">
+              className="flex w-12 shrink-0 flex-col items-center gap-1 overflow-hidden border-r border-border/50 bg-muted/15 p-1.5">
               <button
                 type="button"
                 aria-label={t("model.menu.models_label")}
@@ -322,45 +322,49 @@ export const ModelMenu = ({
                   setSearchQuery("")
                 }}
                 className={cn(
-                  "flex size-9 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   activeProviderId === null &&
                     "bg-muted text-foreground shadow-sm"
                 )}>
                 <Layers3 className="icon-md" />
               </button>
 
-              <div className="my-0.5 h-px w-7 bg-border/60" />
+              <div className="my-0.5 h-px w-7 shrink-0 bg-border/60" />
 
-              {providerEntries.map(([providerId, group]) => {
-                const isActive = activeProviderId === providerId
-                return (
-                  <button
-                    key={providerId}
-                    type="button"
-                    aria-label={group.name}
-                    title={`${group.name} · ${group.models.length}`}
-                    aria-pressed={isActive}
-                    onClick={() => {
-                      setActiveProviderId(providerId)
-                      setSearchQuery("")
-                    }}
-                    className={cn(
-                      "relative flex size-9 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      isActive && "bg-muted text-foreground shadow-sm"
-                    )}>
-                    <ProviderIcon
-                      providerId={providerId}
-                      brand={group.brand}
-                      fallbackName={group.name}
-                      iconUrl={providerIcons[providerId]}
-                      className="icon-md"
-                    />
-                    {providerId === selectedProviderId && (
-                      <span className="absolute right-1 top-1 size-1.5 rounded-full bg-primary" />
-                    )}
-                  </button>
-                )
-              })}
+              <div
+                data-testid="provider-rail-scroll"
+                className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto scrollbar-none">
+                {providerEntries.map(([providerId, group]) => {
+                  const isActive = activeProviderId === providerId
+                  return (
+                    <button
+                      key={providerId}
+                      type="button"
+                      aria-label={group.name}
+                      title={`${group.name} · ${group.models.length}`}
+                      aria-pressed={isActive}
+                      onClick={() => {
+                        setActiveProviderId(providerId)
+                        setSearchQuery("")
+                      }}
+                      className={cn(
+                        "relative flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        isActive && "bg-muted text-foreground shadow-sm"
+                      )}>
+                      <ProviderIcon
+                        providerId={providerId}
+                        brand={group.brand}
+                        fallbackName={group.name}
+                        iconUrl={providerIcons[providerId]}
+                        className="icon-md"
+                      />
+                      {providerId === selectedProviderId && (
+                        <span className="absolute right-1 top-1 size-1.5 rounded-full bg-primary" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             </nav>
 
             <div className="flex min-w-0 flex-1 flex-col p-1">

@@ -149,4 +149,29 @@ describe("ModelMenu", () => {
     )
     expect(screen.getByText("trustedrouter/cheap")).toBeInTheDocument()
   })
+
+  it("scrolls the provider rail without a visible thumb and keeps all-models pinned", () => {
+    render(
+      <ModelMenu
+        trigger={<button type="button">Choose model</button>}
+        tooltipTextContent="Choose model"
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose model" }))
+
+    const rail = screen.getByTestId("provider-rail-scroll")
+    expect(rail.className).toContain("overflow-y-auto")
+    expect(rail.className).toContain("scrollbar-none")
+
+    expect(rail).toContainElement(
+      screen.getByRole("button", { name: "Trusted Router" })
+    )
+    expect(rail).toContainElement(
+      screen.getByRole("button", { name: "Ollama" })
+    )
+    expect(rail).not.toContainElement(
+      screen.getByRole("button", { name: "model.menu.models_label" })
+    )
+  })
 })
