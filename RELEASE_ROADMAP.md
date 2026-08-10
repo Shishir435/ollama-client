@@ -47,7 +47,7 @@ Do not combine them into one architecture branch: each PR must leave the
 release usable and establish the tests required by its successor.
 
 1. ~~**Persistence trust boundary (H0 + H1)**~~ — landed in #253.
-2. ~~**Persistence readiness (H2)**~~ — landed.
+2. ~~**Persistence readiness (H2)**~~ — landed in #255.
 3. **Durable turn lifecycle (H3):** persist cancellation intent, guard state
    transitions, make lifecycle commands idempotent, and preserve structured
    failures.
