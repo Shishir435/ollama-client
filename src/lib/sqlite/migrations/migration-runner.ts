@@ -11,6 +11,7 @@ import { ensureSessionsTagsColumn } from "./add-session-tags-column"
 import { ensureMessagesThinkingColumn } from "./add-thinking-column"
 import { ensureToolLoopRunsTable } from "./add-tool-loop-runs-table"
 import { ensureTurnRunsTable } from "./add-turn-runs-table"
+import { compactTerminalTurnRequests } from "./compact-terminal-turn-requests"
 import type { MigrationDatabase } from "./database"
 import { renameBuildingContextStatus } from "./rename-building-context-status"
 
@@ -102,6 +103,11 @@ export const MIGRATIONS: Migration[] = [
     version: 13,
     name: "rename-building-context-status",
     up: renameBuildingContextStatus
+  },
+  {
+    version: 14,
+    name: "compact-terminal-turn-requests",
+    up: compactTerminalTurnRequests
   }
 ]
 

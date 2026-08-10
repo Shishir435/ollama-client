@@ -74,43 +74,42 @@ describe("turn-runs repository", () => {
     expect(flushSave).toHaveBeenCalledTimes(1)
   })
 
-  it("parses a valid durable row and rejects invalid lifecycle data", async () => {
+  it("reads lifecycle state without the request and rejects an unknown status", async () => {
     query.mockResolvedValueOnce([
       {
         id: "turn-1",
         sessionId: "session-1",
-        mode: "new",
         model: "llama3",
         providerId: null,
-        status: "submitted",
-        request: JSON.stringify(persistedRequest),
+        status: "completed",
         contextReceipt: null,
-        userMessageId: null,
-        assistantMessageId: null,
+        userMessageId: 1,
+        assistantMessageId: 2,
         failure: null,
         createdAt: 10,
-        updatedAt: 10
+        updatedAt: 11
       }
     ])
 
-    await expect(getTurnRun("turn-1")).resolves.toEqual(
-      expect.objectContaining({
-        id: "turn-1",
-        mode: "new",
-        status: "submitted",
-        request: persistedRequest
-      })
-    )
+    const record = await getTurnRun("turn-1")
+    expect(record).toMatchObject({
+      id: "turn-1",
+      status: "completed",
+      assistantMessageId: 2
+    })
+    // A settled row has no request to return, so the reader never asks for one.
+    expect(record).not.toHaveProperty("request")
+    expect(query).toHaveBeenCalledWith(expect.not.stringContaining("request"), [
+      "turn-1"
+    ])
 
     query.mockResolvedValueOnce([
       {
         id: "turn-2",
         sessionId: "session-1",
-        mode: "unknown",
         model: "llama3",
         providerId: null,
-        status: "submitted",
-        request: "{}",
+        status: "not-a-status",
         contextReceipt: null,
         userMessageId: null,
         assistantMessageId: null,

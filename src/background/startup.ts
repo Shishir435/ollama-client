@@ -20,6 +20,7 @@ import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { clearOllamaDetailBackfillCache } from "@/lib/providers/ollama"
 import { ProviderStorageKey } from "@/lib/providers/types"
 import { pruneStaleToolLoopRuns } from "@/lib/repositories/tool-loop-runs"
+import { pruneTerminalTurnRuns } from "@/lib/repositories/turn-runs"
 import { recoverBackupImport } from "@/lib/storage/backup-import-transaction"
 import { migrateLegacyProviderStorage } from "@/lib/storage/provider-migration"
 import { getToolRegistry } from "@/lib/tools/build-tool-registry"
@@ -248,6 +249,10 @@ const SCHEMA_STARTUP_TASKS: StartupTask[] = [
 const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
   { name: "stale tool-loop checkpoints", run: () => pruneStaleToolLoopRuns() },
   { name: "durable turns", run: () => resumeIncompleteTurnRuns() },
+  // Ordered after turn recovery in the same list rather than before it: the
+  // prune only touches settled rows, so it cannot race resumption, and a boot
+  // should reissue interrupted work before it does housekeeping.
+  { name: "expired turn receipts", run: () => pruneTerminalTurnRuns() },
   { name: "durable ingestion", run: () => IngestionService.resumeIncomplete() },
   {
     name: "durable model pulls",

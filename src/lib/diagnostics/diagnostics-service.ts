@@ -28,6 +28,7 @@ import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
 import { ProviderId } from "@/lib/providers/types"
 import { countMessages } from "@/lib/repositories/chat-history"
+import { getTurnStorageStats } from "@/lib/repositories/turn-runs"
 
 import {
   clearDiagnosticEvents,
@@ -370,6 +371,31 @@ const runTurnCheckpointTest = async (): Promise<DiagnosticTestResult> =>
     }
   })
 
+/**
+ * Report what durable turns cost on disk, and whether compaction is keeping up.
+ *
+ * Reads counts and byte lengths only — never a request, a receipt or a message
+ * — so the result is safe to paste into a bug report. It fails when a settled
+ * row still carries its resumable input, because that is the one condition the
+ * compaction path cannot correct on its own: nothing updates a terminal row
+ * again, so a row the migration missed stays missed.
+ */
+const runTurnRetentionTest = async (): Promise<DiagnosticTestResult> =>
+  runTest("turn_retention", async () => {
+    const stats = await getTurnStorageStats()
+    if (stats.uncompactedTerminalRuns > 0) {
+      throw new Error(
+        `${stats.uncompactedTerminalRuns} settled turn(s) still hold resumable input`
+      )
+    }
+    return {
+      liveRuns: stats.liveRuns,
+      terminalRuns: stats.terminalRuns,
+      totalRequestBytes: stats.totalRequestBytes,
+      largestRequestBytes: stats.largestRequestBytes
+    }
+  })
+
 const executeSelfTests = async (
   signal?: AbortSignal
 ): Promise<DiagnosticTestResult[]> => {
@@ -416,7 +442,8 @@ const executeSelfTests = async (
     }),
     runMigrationTest(),
     runDnrTest(),
-    runTurnCheckpointTest()
+    runTurnCheckpointTest(),
+    runTurnRetentionTest()
   ])
   signal?.throwIfAborted()
   // Recorded once per real execution, never on a shared/cached result, so
