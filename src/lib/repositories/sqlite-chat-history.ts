@@ -630,7 +630,7 @@ export const finalizeInterruptedMessages = async (
        AND id NOT IN (
          SELECT assistantMessageId FROM turn_runs
          WHERE assistantMessageId IS NOT NULL
-           AND status IN ('submitted', 'building-context', 'generating')
+           AND status IN ('submitted', 'building_context', 'generating')
        )
        AND sessionId NOT IN (
          SELECT sessionId FROM tool_loop_runs WHERE sessionId IS NOT NULL

@@ -12,6 +12,7 @@ import { ensureMessagesThinkingColumn } from "./add-thinking-column"
 import { ensureToolLoopRunsTable } from "./add-tool-loop-runs-table"
 import { ensureTurnRunsTable } from "./add-turn-runs-table"
 import type { MigrationDatabase } from "./database"
+import { renameBuildingContextStatus } from "./rename-building-context-status"
 
 /**
  * A single forward-only schema migration. `up` must be idempotent-safe for the
@@ -96,6 +97,11 @@ export const MIGRATIONS: Migration[] = [
     version: 12,
     name: "add-model-pull-runs-table",
     up: ensureModelPullRunsTable
+  },
+  {
+    version: 13,
+    name: "rename-building-context-status",
+    up: renameBuildingContextStatus
   }
 ]
 

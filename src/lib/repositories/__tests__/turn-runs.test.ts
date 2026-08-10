@@ -1,14 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { query, run, flushSave } = vi.hoisted(() => ({
+const { query, run, runWithMeta, flushSave } = vi.hoisted(() => ({
   query: vi.fn(),
   run: vi.fn(),
+  runWithMeta: vi.fn(),
   flushSave: vi.fn()
 }))
 
-vi.mock("@/lib/sqlite/db", () => ({ query, run, flushSave }))
+vi.mock("@/lib/sqlite/db", () => ({ query, run, runWithMeta, flushSave }))
+vi.mock("@/lib/logger", () => ({
+  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() }
+}))
 
-import { createTurnRun, getTurnRun, updateTurnRun } from "../turn-runs"
+import {
+  createTurnRun,
+  finalizeInterruptedCancellations,
+  getIncompleteTurnRuns,
+  getTurnRun,
+  markTurnCancelling,
+  updateTurnRun
+} from "../turn-runs"
 
 const persistedRequest = {
   version: 1 as const,
@@ -30,6 +41,9 @@ const persistedRequest = {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  // Guarded status writes go through runWithMeta; default to "the transition
+  // applied" so tests that are not about the state machine read as before.
+  runWithMeta.mockResolvedValue({ changes: 1, lastInsertRowid: 0 })
 })
 
 describe("turn-runs repository", () => {
@@ -108,16 +122,37 @@ describe("turn-runs repository", () => {
   })
 
   it("force-flushes lifecycle and receipt updates", async () => {
-    await updateTurnRun("turn-1", {
-      status: "generating",
-      assistantMessageId: 2
-    })
+    await expect(
+      updateTurnRun("turn-1", {
+        status: "generating",
+        assistantMessageId: 2
+      })
+    ).resolves.toBe(true)
 
-    expect(run).toHaveBeenCalledWith(
-      expect.stringContaining("UPDATE turn_runs SET"),
-      expect.arrayContaining(["generating", 2, "turn-1"])
+    // A status write is a compare-and-set: the allowed predecessors travel with
+    // it so the database refuses an illegal transition.
+    expect(runWithMeta).toHaveBeenCalledWith(
+      expect.stringContaining("WHERE id = ? AND status IN"),
+      expect.arrayContaining([
+        "generating",
+        2,
+        "turn-1",
+        "building_context",
+        "generating"
+      ])
     )
     expect(flushSave).toHaveBeenCalledTimes(1)
+  })
+
+  it("refuses a transition the row has already moved past", async () => {
+    runWithMeta.mockResolvedValue({ changes: 0, lastInsertRowid: 0 })
+
+    await expect(
+      updateTurnRun("turn-1", { status: "generating" })
+    ).resolves.toBe(false)
+    // Nothing is flushed, because nothing changed — a late generation cannot
+    // pull a cancelled or failed row back into flight.
+    expect(flushSave).not.toHaveBeenCalled()
   })
 
   it("persists structured failures and reads legacy failure text", async () => {
@@ -130,7 +165,7 @@ describe("turn-runs repository", () => {
         retryable: true
       }
     })
-    expect(run).toHaveBeenCalledWith(
+    expect(runWithMeta).toHaveBeenCalledWith(
       expect.stringContaining("UPDATE turn_runs SET"),
       expect.arrayContaining([
         JSON.stringify({
@@ -168,5 +203,78 @@ describe("turn-runs repository", () => {
         }
       })
     )
+  })
+})
+
+describe("turn cancellation intent", () => {
+  it("commits intent only for a turn that is still live", async () => {
+    runWithMeta.mockResolvedValue({ changes: 1, lastInsertRowid: 0 })
+
+    await expect(markTurnCancelling("turn-1")).resolves.toBe(true)
+
+    const [sql, bind] = runWithMeta.mock.calls[0]
+    expect(sql).toContain("status = 'cancelling'")
+    expect(sql).toContain("'submitted', 'building_context', 'generating'")
+    expect(bind).toContain("turn-1")
+    expect(flushSave).toHaveBeenCalledTimes(1)
+  })
+
+  it("makes a repeated stop a no-op", async () => {
+    // The second stop matches no live row, so it writes nothing — which is what
+    // keeps a double-click from producing two lifecycle writes.
+    runWithMeta.mockResolvedValue({ changes: 0, lastInsertRowid: 0 })
+
+    await expect(markTurnCancelling("turn-1")).resolves.toBe(false)
+    expect(flushSave).not.toHaveBeenCalled()
+  })
+
+  it("finishes cancellations whose worker died mid-stop", async () => {
+    runWithMeta.mockResolvedValue({ changes: 2, lastInsertRowid: 0 })
+
+    await expect(finalizeInterruptedCancellations()).resolves.toBe(2)
+
+    const [sql] = runWithMeta.mock.calls[0]
+    expect(sql).toContain("status = 'cancelled'")
+    expect(sql).toContain("WHERE status = 'cancelling'")
+  })
+})
+
+describe("turn recovery", () => {
+  it("never offers cancellation intent back to recovery", async () => {
+    query.mockResolvedValue([])
+
+    await getIncompleteTurnRuns()
+
+    const [sql] = query.mock.calls[0]
+    expect(sql).toContain("'submitted', 'building_context', 'generating'")
+    expect(sql).not.toContain("cancelling")
+  })
+
+  it("quarantines a row it cannot read instead of skipping it forever", async () => {
+    query.mockResolvedValue([
+      {
+        id: "turn-broken",
+        sessionId: "session-1",
+        mode: "new",
+        model: "llama3",
+        providerId: null,
+        status: "generating",
+        request: "{not json",
+        contextReceipt: null,
+        userMessageId: null,
+        assistantMessageId: null,
+        failure: null,
+        createdAt: 1,
+        updatedAt: 1
+      }
+    ])
+
+    await expect(getIncompleteTurnRuns()).resolves.toEqual([])
+
+    const [sql, bind] = run.mock.calls[0]
+    expect(sql).toContain("status = 'failed'")
+    expect(bind).toContain("turn-broken")
+    // The diagnostic names the record, never its content.
+    expect(String(bind[0])).not.toContain("not json")
   })
 })

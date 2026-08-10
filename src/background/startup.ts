@@ -260,9 +260,42 @@ const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
 
 const WORKFLOW_STARTUP_CONCURRENCY = 2
 
+/**
+ * Nothing at startup may wait forever.
+ *
+ * Data-shape recovery runs in series because each step rewrites what the next
+ * one reads, which also means a step that never settles takes every later step
+ * and all four workflow recoveries with it. A deadline turns that into one
+ * logged failure. Generous on purpose: these are one-shot boot tasks, and a
+ * large migration is slow, not stuck.
+ */
+const STARTUP_TASK_TIMEOUT_MS = 120_000
+
+const withStartupDeadline = async (task: StartupTask): Promise<void> => {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    await Promise.race([
+      task.run(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `Startup task exceeded ${STARTUP_TASK_TIMEOUT_MS}ms: ${task.name}`
+              )
+            ),
+          STARTUP_TASK_TIMEOUT_MS
+        )
+      })
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 const runStartupTask = async (task: StartupTask): Promise<void> => {
   try {
-    await task.run()
+    await withStartupDeadline(task)
   } catch (error) {
     // One failed recovery never cancels the others: they own unrelated durable
     // state, and a boot that recovers three of four beats a boot that recovers

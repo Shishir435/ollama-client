@@ -14,11 +14,19 @@ export const TURN_MODES = [
 export const TurnModeSchema = z.enum(TURN_MODES)
 export type TurnMode = z.infer<typeof TurnModeSchema>
 
-/** Durable lifecycle states used for restart recovery. */
+/**
+ * Durable lifecycle states used for restart recovery.
+ *
+ * `cancelling` is committed intent, not an observation: it is written before
+ * the in-memory controller is aborted, so a worker that dies between the two
+ * still restarts knowing the user asked for a stop. Without it a stopped turn
+ * came back as `generating` and recovery reissued the provider request.
+ */
 export const TURN_STATUSES = [
   "submitted",
-  "building-context",
+  "building_context",
   "generating",
+  "cancelling",
   "completed",
   "failed",
   "cancelled"
@@ -26,6 +34,54 @@ export const TURN_STATUSES = [
 
 export const TurnStatusSchema = z.enum(TURN_STATUSES)
 export type TurnStatus = z.infer<typeof TurnStatusSchema>
+
+/** States a restart may resume. Cancellation intent is deliberately absent. */
+export const RESUMABLE_TURN_STATUSES = [
+  "submitted",
+  "building_context",
+  "generating"
+] as const satisfies readonly TurnStatus[]
+
+/** States nothing may leave. */
+export const TERMINAL_TURN_STATUSES = [
+  "completed",
+  "failed",
+  "cancelled"
+] as const satisfies readonly TurnStatus[]
+
+export const isTerminalTurnStatus = (status: TurnStatus): boolean =>
+  (TERMINAL_TURN_STATUSES as readonly TurnStatus[]).includes(status)
+
+/**
+ * Every transition the lifecycle allows, as predecessors per target state.
+ *
+ * Read this way round because it is how the repository uses it: a status write
+ * is a compare-and-set against the states that may precede it, so a message
+ * that arrives late — a duplicate stop, a terminal write from a generation the
+ * worker already gave up on — cannot move a settled row.
+ *
+ * `cancelling` accepts every terminal because the abort races the work it
+ * aborts: a generation that finished before the signal landed still reports
+ * completion, and refusing it would strand the row in an intent that will never
+ * be acted on again.
+ */
+export const TURN_STATUS_PREDECESSORS: Record<
+  TurnStatus,
+  readonly TurnStatus[]
+> = {
+  submitted: [],
+  building_context: ["submitted", "building_context"],
+  generating: ["building_context", "generating"],
+  cancelling: ["submitted", "building_context", "generating"],
+  completed: ["building_context", "generating", "cancelling"],
+  failed: ["submitted", "building_context", "generating", "cancelling"],
+  cancelled: ["submitted", "building_context", "generating", "cancelling"]
+}
+
+export const canTransitionTurnStatus = (
+  from: TurnStatus,
+  to: TurnStatus
+): boolean => TURN_STATUS_PREDECESSORS[to].includes(from)
 
 export type TurnToast = {
   variant?: "default" | "destructive"

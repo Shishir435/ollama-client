@@ -256,7 +256,7 @@ export const ChatStreamServerEventSchema = z.discriminatedUnion("type", [
     sequenceReset: z.boolean(),
     status: z.enum([
       "submitted",
-      "building-context",
+      "building_context",
       "generating",
       "completed",
       "failed",
