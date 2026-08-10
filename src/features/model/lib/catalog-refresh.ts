@@ -15,26 +15,42 @@ export const CATALOG_REFRESH_OFF = 0
 export const DEFAULT_CATALOG_REFRESH_MS = 60_000
 
 /**
- * Never let a stored value poll faster than this. The setting is sync-safe, so
- * it can arrive from another device — and from an older build with a different
- * idea of a reasonable interval.
+ * Never poll faster than this. The setting is sync-safe, so a value can arrive
+ * from another device — and from an older build with a different idea of a
+ * reasonable interval.
  */
 export const MIN_CATALOG_REFRESH_MS = 30_000
 
 export const CATALOG_REFRESH_CHOICES_MS = [
   CATALOG_REFRESH_OFF,
-  30_000,
+  MIN_CATALOG_REFRESH_MS,
   60_000,
   120_000,
   300_000
 ] as const
 
+const POLLING_CHOICES_MS = CATALOG_REFRESH_CHOICES_MS.filter(
+  (choice) => choice > CATALOG_REFRESH_OFF
+)
+
+/**
+ * Resolve a stored value to one of the offered choices.
+ *
+ * Snapping rather than clamping, because this is an enum wearing a number: the
+ * select binds the same normalized value it polls on, so a stored 45s cannot
+ * poll at one interval while the control claims another — or, worse, match no
+ * option and render a blank trigger. Ties go to the slower choice; the point of
+ * the setting is fewer requests.
+ */
 export const normalizeCatalogRefreshMs = (value: unknown): number => {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return DEFAULT_CATALOG_REFRESH_MS
   }
   if (value <= CATALOG_REFRESH_OFF) return CATALOG_REFRESH_OFF
-  return Math.max(MIN_CATALOG_REFRESH_MS, Math.round(value))
+  // `<=` and an ascending list is what sends a tie to the slower choice.
+  return POLLING_CHOICES_MS.reduce((best, choice) =>
+    Math.abs(choice - value) <= Math.abs(best - value) ? choice : best
+  )
 }
 
 /**

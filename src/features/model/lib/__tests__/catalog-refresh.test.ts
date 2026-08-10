@@ -26,6 +26,24 @@ describe("catalog refresh interval", () => {
     expect(normalizeCatalogRefreshMs(10_000)).toBe(MIN_CATALOG_REFRESH_MS)
   })
 
+  it("snaps an off-menu value onto a real choice", () => {
+    // Anything else leaves the select with no matching item — a blank trigger
+    // over an interval the queries are really using.
+    expect(CATALOG_REFRESH_CHOICES_MS).toContain(
+      normalizeCatalogRefreshMs(45_000)
+    )
+    expect(CATALOG_REFRESH_CHOICES_MS).toContain(
+      normalizeCatalogRefreshMs(3_600_000)
+    )
+    expect(normalizeCatalogRefreshMs(59_000)).toBe(60_000)
+    expect(normalizeCatalogRefreshMs(3_600_000)).toBe(300_000)
+  })
+
+  it("sends a tie to the slower choice", () => {
+    // Halfway between 30s and 60s. Fewer requests is the point of the setting.
+    expect(normalizeCatalogRefreshMs(45_000)).toBe(60_000)
+  })
+
   it("keeps every offered choice unchanged", () => {
     for (const choice of CATALOG_REFRESH_CHOICES_MS) {
       expect(normalizeCatalogRefreshMs(choice)).toBe(choice)

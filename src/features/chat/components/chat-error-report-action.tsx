@@ -42,6 +42,35 @@ const settingsTabForFocusId = (focusId: string): string | undefined =>
   SETTINGS_REGISTRY.find((entry) => entry.id === focusId)?.tab
 
 /**
+ * Copy text that is still being produced.
+ *
+ * `clipboard.writeText` needs the click's transient activation, which expires
+ * while a slow diagnostic collection is still running — the exact case a
+ * hover-started prefetch does not cover, because a fast click can land before
+ * it resolves. `clipboard.write` takes a *promise* of the data instead, so the
+ * write is claimed inside the click and settled whenever the bundle arrives.
+ *
+ * `writeText` remains the fallback for engines without `ClipboardItem`, where
+ * the old race is still the best available behavior and a lost activation
+ * surfaces as the copy-failed toast rather than a silent no-op.
+ */
+const writeDiagnosticsToClipboard = async (
+  text: Promise<string>
+): Promise<void> => {
+  if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/plain": text.then(
+          (value) => new Blob([value], { type: "text/plain" })
+        )
+      })
+    ])
+    return
+  }
+  await navigator.clipboard.writeText(await text)
+}
+
+/**
  * Countdown until a cooled-down recovery action becomes usable. Anchored to the
  * message timestamp, not to mount, so remounting the bubble (the message list is
  * virtualized) cannot restart a provider's back-off window.
@@ -274,9 +303,12 @@ export const ChatErrorReportAction = ({
   const copyDiagnostics = async () => {
     setDiagnosticsPreparing(true)
     try {
-      const bundle = await loadDiagnostics()
-      if (!bundle) throw new Error("Diagnostic bundle unavailable")
-      await navigator.clipboard.writeText(JSON.stringify(bundle, null, 2))
+      await writeDiagnosticsToClipboard(
+        loadDiagnostics().then((bundle) => {
+          if (!bundle) throw new Error("Diagnostic bundle unavailable")
+          return JSON.stringify(bundle, null, 2)
+        })
+      )
       setCopied(true)
       if (copiedTimer.current) clearTimeout(copiedTimer.current)
       copiedTimer.current = setTimeout(() => setCopied(false), 1500)

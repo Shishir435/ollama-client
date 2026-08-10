@@ -123,7 +123,10 @@ export const ProviderSettings = () => {
         focusId="provider-catalog-refresh"
         label={t("settings.providers.catalog_refresh.label")}
         description={t("settings.providers.catalog_refresh.description")}
-        value={String(catalogRefreshMs)}
+        // The same normalization the queries poll on, so a value synced from
+        // another device cannot leave the trigger blank or disagree with the
+        // interval actually in force.
+        value={String(normalizeCatalogRefreshMs(catalogRefreshMs))}
         onValueChange={(next) =>
           setCatalogRefreshMs(normalizeCatalogRefreshMs(Number(next)))
         }>
