@@ -1753,6 +1753,8 @@
         "description": "How often an open panel re-asks your providers for their model lists. Pulling, deleting or editing a provider refreshes it immediately regardless, so this only catches a provider that comes up or goes away while you watch. Lower values mean more requests to remote providers.",
         "options": {
           "0": "Off",
+          "10000": "Every 10 seconds",
+          "20000": "Every 20 seconds",
           "30000": "Every 30 seconds",
           "60000": "Every minute",
           "120000": "Every 2 minutes",

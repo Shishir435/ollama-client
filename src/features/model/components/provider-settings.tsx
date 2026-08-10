@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { StatusCallout } from "@/components/feedback"
 import { FieldStack, InlineActions, SectionStack } from "@/components/layout"
-import { SettingsSelectField, SettingsSwitch } from "@/components/settings"
+import { SettingsControlCard, SettingsSwitch } from "@/components/settings"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +26,13 @@ import {
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
-import { SelectItem } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { AddProviderDialog } from "@/features/model/components/add-provider-dialog"
 import { ProviderConnectionFields } from "@/features/model/components/provider-connection-fields"
@@ -118,24 +124,40 @@ export const ProviderSettings = () => {
         onCheckedChange={setIconLookup}
       />
 
-      <SettingsSelectField
+      <SettingsControlCard
         id="provider-catalog-refresh"
-        focusId="provider-catalog-refresh"
         label={t("settings.providers.catalog_refresh.label")}
         description={t("settings.providers.catalog_refresh.description")}
-        // The same normalization the queries poll on, so a value synced from
-        // another device cannot leave the trigger blank or disagree with the
-        // interval actually in force.
-        value={String(normalizeCatalogRefreshMs(catalogRefreshMs))}
-        onValueChange={(next) =>
-          setCatalogRefreshMs(normalizeCatalogRefreshMs(Number(next)))
-        }>
-        {CATALOG_REFRESH_CHOICES_MS.map((option) => (
-          <SelectItem key={option} value={String(option)}>
-            {t(`settings.providers.catalog_refresh.options.${option}`)}
-          </SelectItem>
-        ))}
-      </SettingsSelectField>
+        control={
+          <Select
+            // The same normalization the queries poll on, so a value synced
+            // from another device cannot leave the trigger blank or disagree
+            // with the interval actually in force.
+            value={String(normalizeCatalogRefreshMs(catalogRefreshMs))}
+            onValueChange={(next) => {
+              if (next !== null) {
+                setCatalogRefreshMs(normalizeCatalogRefreshMs(Number(next)))
+              }
+            }}>
+            <SelectTrigger id="provider-catalog-refresh" className="w-48">
+              <SelectValue>
+                {() =>
+                  t(
+                    `settings.providers.catalog_refresh.options.${normalizeCatalogRefreshMs(catalogRefreshMs)}`
+                  )
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {CATALOG_REFRESH_CHOICES_MS.map((option) => (
+                <SelectItem key={option} value={String(option)}>
+                  {t(`settings.providers.catalog_refresh.options.${option}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+      />
 
       <AddProviderDialog
         open={addOpen}
