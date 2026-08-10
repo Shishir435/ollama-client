@@ -4,6 +4,7 @@ import {
   isTerminalTurnStatus,
   RESUMABLE_TURN_STATUSES,
   TERMINAL_TURN_STATUSES,
+  TURN_OWNED_ASSISTANT_STATUSES,
   TURN_STATUS_PREDECESSORS,
   TURN_STATUSES,
   type TurnStatus
@@ -23,6 +24,19 @@ describe("turn lifecycle states", () => {
     // treat it as settled either.
     expect(RESUMABLE_TURN_STATUSES).not.toContain("cancelling")
     expect(isTerminalTurnStatus("cancelling")).toBe(false)
+  })
+
+  it("keeps owning the assistant of a turn that is still settling", () => {
+    // Wider than recovery on purpose: nothing may reissue a `cancelling` turn,
+    // but its assistant is not abandoned either. Sweeping it would mark a
+    // response the user stopped as interrupted and offer a retry.
+    expect(TURN_OWNED_ASSISTANT_STATUSES).toContain("cancelling")
+    for (const live of RESUMABLE_TURN_STATUSES) {
+      expect(TURN_OWNED_ASSISTANT_STATUSES).toContain(live)
+    }
+    for (const terminal of TERMINAL_TURN_STATUSES) {
+      expect(TURN_OWNED_ASSISTANT_STATUSES).not.toContain(terminal)
+    }
   })
 
   it("accepts a stop from every live state", () => {

@@ -42,6 +42,20 @@ export const RESUMABLE_TURN_STATUSES = [
   "generating"
 ] as const satisfies readonly TurnStatus[]
 
+/**
+ * States in which a durable turn still owns its assistant row.
+ *
+ * Deliberately wider than `RESUMABLE_TURN_STATUSES`: recovery must skip
+ * `cancelling` — the user asked for a stop, so nothing may reissue it — while
+ * ownership must include it, because the assistant of a turn that is still
+ * settling has not been abandoned. Sweeping it would mark a response the user
+ * deliberately stopped as interrupted and offer a retry for it.
+ */
+export const TURN_OWNED_ASSISTANT_STATUSES = [
+  ...RESUMABLE_TURN_STATUSES,
+  "cancelling"
+] as const satisfies readonly TurnStatus[]
+
 /** States nothing may leave. */
 export const TERMINAL_TURN_STATUSES = [
   "completed",

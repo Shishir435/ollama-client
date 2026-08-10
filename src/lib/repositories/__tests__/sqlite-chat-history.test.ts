@@ -647,7 +647,7 @@ describe("messages", () => {
     // the generic orphan sweep must never race their assistant row.
     expect(sql).toContain("assistantMessageId FROM turn_runs")
     expect(sql).toContain(
-      "status IN ('submitted', 'building_context', 'generating')"
+      "status IN ('submitted', 'building_context', 'generating', 'cancelling')"
     )
     // Turns whose session has a live tool-loop checkpoint are excluded, so a
     // long tool-approval wait isn't finalized as interrupted.
