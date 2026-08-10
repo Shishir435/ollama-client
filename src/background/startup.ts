@@ -213,58 +213,131 @@ const resumeLifecycleWithRetry = async (): Promise<boolean> => {
   return false
 }
 
-export const initializeBackgroundStartup = () => {
+interface StartupTask {
+  name: string
+  run: () => Promise<unknown>
+}
+
+/**
+ * Data-shape recovery, in order and alone.
+ *
+ * Backup import recovery can replace the whole database, and both migrations
+ * rewrite rows other recovery reads. Running them beside workflow recovery —
+ * which is what every one of these being `void`ed used to do — let a resumed
+ * turn read a database that was mid-replacement.
+ */
+const SCHEMA_STARTUP_TASKS: StartupTask[] = [
+  {
+    name: "interrupted settings import",
+    run: async () => {
+      await recoverBackupImport()
+      await migrateLegacyProviderStorage()
+    }
+  },
+  {
+    name: "embedding dimension migration",
+    run: () => runEmbeddingDimensionMigration()
+  }
+]
+
+/**
+ * Durable workflow recovery. Independent of each other, so they overlap — but
+ * with a cap, because a conversation long enough to make turn recovery slow
+ * should not hold up an ingestion job the user is waiting on.
+ */
+const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
+  { name: "stale tool-loop checkpoints", run: () => pruneStaleToolLoopRuns() },
+  { name: "durable turns", run: () => resumeIncompleteTurnRuns() },
+  { name: "durable ingestion", run: () => IngestionService.resumeIncomplete() },
+  {
+    name: "durable model pulls",
+    run: () =>
+      import("@/background/model-pull-runtime").then(({ ModelPullService }) =>
+        ModelPullService.resumeIncomplete()
+      )
+  }
+]
+
+const WORKFLOW_STARTUP_CONCURRENCY = 2
+
+const runStartupTask = async (task: StartupTask): Promise<void> => {
+  try {
+    await task.run()
+  } catch (error) {
+    // One failed recovery never cancels the others: they own unrelated durable
+    // state, and a boot that recovers three of four beats a boot that recovers
+    // none.
+    logger.error(`Startup recovery failed: ${task.name}`, "BackgroundSW", {
+      error
+    })
+  }
+}
+
+const runStartupTasks = async (
+  tasks: StartupTask[],
+  concurrency: number
+): Promise<void> => {
+  let next = 0
+  const workers = Array.from(
+    { length: Math.min(concurrency, tasks.length) },
+    async () => {
+      while (next < tasks.length) {
+        const task = tasks[next]
+        next += 1
+        await runStartupTask(task)
+      }
+    }
+  )
+  await Promise.all(workers)
+}
+
+/**
+ * Everything that touches the chat database, in dependency order:
+ * lifecycle flags → persistence owner → schema/data recovery → durable
+ * workflow recovery.
+ */
+const runDatabaseStartup = async (
+  lifecycleReady: Promise<boolean>,
+  persistenceReady: Promise<void>
+): Promise<void> => {
+  // Observed before the lifecycle branch can return early: an owner failure
+  // nobody awaited is an unhandled rejection in the worker.
+  const persistenceFailure = persistenceReady.then(
+    () => undefined,
+    (error: unknown) => error ?? new Error("Persistence owner failed to start")
+  )
+  if (!(await lifecycleReady)) {
+    // A queued reset may still exist; opening the database now could block
+    // its delete on the next boot. Skip DB-touching startup for this boot —
+    // the flags are retried on the next worker start.
+    logger.error(
+      "Skipping database startup tasks: lifecycle state unresolved",
+      "BackgroundSW"
+    )
+    return
+  }
+  const error = await persistenceFailure
+  if (error) {
+    // Every task below would otherwise wait out a 30s client timeout each and
+    // fail anyway. The owner is retried on the next worker start.
+    logger.error(
+      "Skipping database startup tasks: persistence owner unavailable",
+      "BackgroundSW",
+      { error }
+    )
+    return
+  }
+  await runStartupTasks(SCHEMA_STARTUP_TASKS, 1)
+  await runStartupTasks(WORKFLOW_STARTUP_TASKS, WORKFLOW_STARTUP_CONCURRENCY)
+}
+
+export const initializeBackgroundStartup = (
+  persistenceReady: Promise<void> = Promise.resolve()
+) => {
   // A scheduled destructive reset must complete before any other startup
   // task opens the chat database — an open handle would block the delete.
   const lifecycleReady = resumeLifecycleWithRetry()
-  void lifecycleReady.then((lifecycleResolved) => {
-    if (!lifecycleResolved) {
-      // A queued reset may still exist; opening the database now could block
-      // its delete on the next boot. Skip DB-touching startup for this boot —
-      // the flags are retried on the next worker start.
-      logger.error(
-        "Skipping database startup tasks: lifecycle state unresolved",
-        "BackgroundSW"
-      )
-      return
-    }
-    void recoverBackupImport()
-      .then(() => migrateLegacyProviderStorage())
-      .catch((error) => {
-        logger.error(
-          "Failed to recover interrupted settings import",
-          "Backup",
-          {
-            error
-          }
-        )
-      })
-    void runEmbeddingDimensionMigration()
-    void pruneStaleToolLoopRuns().catch((error) => {
-      logger.warn(
-        "Failed to prune stale tool-loop checkpoints",
-        "BackgroundSW",
-        {
-          error
-        }
-      )
-    })
-    void resumeIncompleteTurnRuns().catch((error) => {
-      logger.error("Failed to resume durable turns", "BackgroundSW", { error })
-    })
-    void IngestionService.resumeIncomplete().catch((error) => {
-      logger.error("Failed to resume durable ingestion", "BackgroundSW", {
-        error
-      })
-    })
-    void import("@/background/model-pull-runtime")
-      .then(({ ModelPullService }) => ModelPullService.resumeIncomplete())
-      .catch((error) => {
-        logger.error("Failed to resume durable model pulls", "BackgroundSW", {
-          error
-        })
-      })
-  })
+  void runDatabaseStartup(lifecycleReady, persistenceReady)
   // MV3 workers can start without a browser onStartup event (extension reload,
   // event wakeup). Reconcile the request-origin rule on every worker boot.
   void updateDNRRules()

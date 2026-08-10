@@ -1,6 +1,6 @@
 # Release Roadmap
 
-Last reviewed: 2026-08-09
+Last reviewed: 2026-08-10
 
 This file tracks unfinished release and product work. Completed implementation
 history belongs in the changelog and merged pull requests, while durable
@@ -46,18 +46,15 @@ Use seven implementation pull requests plus one release-evidence pull request.
 Do not combine them into one architecture branch: each PR must leave the
 release usable and establish the tests required by its successor.
 
-1. **Persistence trust boundary (H0 + H1):** reproduce hostile/malformed
-   traffic, add wire schemas, authorize senders, revalidate at the worker, and
-   prove a rejected request cannot stall the engine.
-2. **Persistence readiness (H2):** add the shared startup promise and owner-ready
-   handshake after PR 1 makes that handshake a validated protocol operation.
+1. ~~**Persistence trust boundary (H0 + H1)**~~ — landed in #253.
+2. ~~**Persistence readiness (H2)**~~ — landed.
 3. **Durable turn lifecycle (H3):** persist cancellation intent, guard state
    transitions, make lifecycle commands idempotent, and preserve structured
    failures.
 4. **Durable turn retention (H4):** compact terminal requests and migrate/prune
    retained rows after PR 3 makes terminal transitions authoritative.
 5. **Provider discovery policy (H5):** extract the single discovery service.
-   This may run beside PRs 3–4 after PR 1 merges.
+   This may run beside PRs 3–4.
 6. **Durable turn composition (H6):** split observer, generation, and recovery
    adapters only after lifecycle and retention behavior is stable.
 7. **Boundary type/error closure (H7):** decode durable rows, split contract
@@ -66,116 +63,13 @@ release usable and establish the tests required by its successor.
    soak evidence, update release documentation, and promote only when the 9+/10
    criteria pass.
 
-Critical path: **PR 1 → PR 2 → PR 3 → PR 4 → PR 6 → PR 7 → PR 8**. PR 5 may
-merge any time after PR 1, but must land before PR 8.
-
-### H0 — Freeze evidence and reproduce failures
-
-Scope: S. Behavior change: none. Dependencies: none.
-
-- Add failing tests for content-script persistence access, malformed
-  persistence operations, a DB call racing owner registration, worker loss
-  during stop, terminal turn compaction, and catalog-less tool capability
-  resolution.
-- Add one browser fixture for a cold Chromium owner and one Firefox MV2
-  in-process-owner fixture; unit mocks alone cannot prove extension-context
-  readiness.
-- Capture representative `turn_runs.request` byte sizes for short, long,
-  attachment-heavy, and page-context-heavy conversations before choosing the
-  compaction threshold.
-- Keep the audit findings traceable in pull-request checklists. Do not start
-  structural extraction until the failure behavior is reproduced.
-
-Exit gate:
-
-- Every Critical and High finding has a failing regression test or a written
-  reason why only a browser gate can reproduce it.
-
-### H1 — Secure and validate the persistence control plane
-
-Scope: M. Behavior change: unauthorized and malformed persistence traffic is
-rejected. Dependencies: H0.
-
-Affected modules:
-
-- `src/lib/persistence/protocol.ts`
-- `src/lib/persistence/owner-host.ts`
-- `src/lib/persistence/chromium-owner.ts`
-- `src/lib/persistence/client.ts`
-- `src/lib/persistence/chat-db-worker.ts`
-- `src/lib/persistence/chat-db-engine.ts`
-- `packages/runtime-core/src/runtime-sender.ts`
-
-Work:
-
-- Define Zod discriminated schemas for every persistence request, operation,
-  bind value, marker action, and response envelope. Set explicit limits for SQL
-  text, bind count/blob size, transaction tokens, and imported database bytes.
-- Classify sender evidence before handling `PERSISTENCE_ENSURE`,
-  `PERSISTENCE_RPC`, `PERSISTENCE_MARKER`, or ingestion-processor traffic.
-  Content scripts and untrusted senders must never receive raw SQL, export,
-  import, reset, transaction, backend-marker, receipt, or override capability.
-- Represent trusted owner/background traffic explicitly. Do not weaken the
-  existing extension-page RPC policy to make persistence fit.
-- Validate again at the worker boundary. A malformed in-process caller must not
-  enter the engine scheduler or leave queued promises unresolved.
-- Reject unknown operations deterministically with a typed, safe error. Ensure
-  one invalid request cannot stall later valid operations.
-- Add contract tests for every operation and negative sender/payload case,
-  including a transaction-lease denial-of-service attempt.
-
-Exit gate:
-
-- No privileged persistence mutation accepts a content-script or untrusted
-  sender.
-- No unchecked `PersistenceRpcRequest`/`PersistenceOp` cast remains on a wire
-  boundary.
-- Fuzzed malformed messages leave the worker responsive to a following `ping`.
-
-### H2 — Make persistence startup deterministic
-
-Scope: M. Behavior change: cold-start DB operations wait for a ready owner
-instead of failing. Dependencies: H1.
-
-Affected modules:
-
-- `src/background/index.ts`
-- `src/background/startup.ts`
-- `src/lib/persistence/chromium-owner.ts`
-- `src/lib/persistence/owner-host.ts`
-- `src/lib/persistence/client.ts`
-
-Work:
-
-- Replace the unawaited persistence-topology import with one shared readiness
-  promise owned by the background composition root.
-- Make DB-touching startup tasks await lifecycle recovery and persistence
-  readiness before running. Document ordering for backup recovery, provider
-  migration, schema migration, turn recovery, ingestion recovery, and model
-  pull recovery.
-- Add an owner-ready handshake that proves the host listener, worker, WASM, and
-  selected backend can answer `ping`; `createDocument()` completion alone is
-  not readiness.
-- Coalesce concurrent ensure calls and clear rejected readiness promises so a
-  later request can retry.
-- Preserve the no-retry rule for writes with uncertain commit outcome. A write
-  known not to have reached a ready owner may retry safely only when the
-  protocol can prove non-execution.
-- Bound startup recovery concurrency. Preserve deterministic order per durable
-  workflow while avoiding one long turn starving unrelated ingestion or model
-  pull recovery.
-
-Exit gate:
-
-- Cold Chromium and Firefox starts can immediately query and write without a
-  dropped ensure/RPC message.
-- Owner crash/recreation tests distinguish definitely-not-executed writes from
-  writes with unknown commit outcome.
+Critical path: **PR 3 → PR 4 → PR 6 → PR 7 → PR 8**. PR 5 may merge at any
+time, but must land before PR 8.
 
 ### H3 — Make turn cancellation and transitions durable
 
 Scope: M. Behavior change: a stopped turn cannot restart after worker loss.
-Dependencies: H2.
+Dependencies: none outstanding.
 
 Affected modules:
 
@@ -252,8 +146,8 @@ Exit gate:
 ### H5 — Centralize provider discovery policy
 
 Scope: S–M. Behavior change: tool capability resolution honors remembered
-catalog absence and real discovery failures. Dependencies: H1; may run beside
-H3/H4.
+catalog absence and real discovery failures. Dependencies: none outstanding;
+may run beside H3/H4.
 
 Affected modules:
 
@@ -333,7 +227,7 @@ Exit gate:
 
 ### H8 — Release verification and 9+/10 gate
 
-Scope: M. Behavior change: none. Dependencies: H0–H7.
+Scope: M. Behavior change: none. Dependencies: H3–H7.
 
 Required automated gates:
 
@@ -387,7 +281,7 @@ regression guard where practical, and an explicit later milestone below.
 
 ## Remaining foundation follow-ups
 
-These are bounded improvements after H0–H8, not additional `0.13.0` release
+These are bounded improvements after H3–H8, not additional `0.13.0` release
 blockers and not authorization for a repository-wide rewrite.
 
 ### Chat stream presentation boundary

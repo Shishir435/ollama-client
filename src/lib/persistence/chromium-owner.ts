@@ -1,6 +1,5 @@
 import type { RuntimeSenderLike } from "@ollama-client/runtime-core/runtime-sender"
 import { STORAGE_KEYS } from "@/lib/constants"
-import { logger } from "@/lib/logger"
 import {
   isPersistenceOwnerSender,
   isTrustedPersistenceSender
@@ -8,7 +7,9 @@ import {
 import {
   PERSISTENCE_ENSURE,
   PERSISTENCE_MARKER,
+  PERSISTENCE_RPC,
   PersistenceEnsureRequestSchema,
+  PersistenceRpcResponseSchema,
   PersistenceStateRequestSchema,
   type PersistenceStateScope
 } from "./protocol"
@@ -62,7 +63,24 @@ const OFFSCREEN_PATH = "persistence-host.html"
  */
 const OFFSCREEN_URL = `${OFFSCREEN_PATH}?owner=1`
 
+/**
+ * How long a caller waits for a freshly created owner to answer, and how the
+ * wait is spaced. `createDocument()` resolves before the host page has
+ * evaluated its script, so the first pings land on a document with no
+ * listener and reject with "receiving end does not exist". That is a normal
+ * cold start, not a failure, and the only way to tell the two apart is to
+ * keep asking until the deadline.
+ */
+const OWNER_READY_TIMEOUT_MS = 15_000
+const OWNER_PING_FIRST_DELAY_MS = 25
+const OWNER_PING_MAX_DELAY_MS = 400
+
 let creating: Promise<void> | null = null
+let ownerReady: Promise<void> | null = null
+let ownerProven = false
+
+const delay = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms))
 
 const hasOwnerDocument = async (): Promise<boolean> => {
   const contexts = await chrome.runtime.getContexts({
@@ -83,8 +101,13 @@ const hasOwnerDocument = async (): Promise<boolean> => {
   return ownerExists
 }
 
-export const ensurePersistenceOwner = async (): Promise<void> => {
-  if (await hasOwnerDocument()) return
+/**
+ * Guarantee the owner document exists. Resolves true when this call — or the
+ * concurrent call it coalesced with — had to create it, which tells the caller
+ * it is looking at a fresh owner instance whose readiness nobody has proven.
+ */
+const ensureOwnerDocument = async (): Promise<boolean> => {
+  if (await hasOwnerDocument()) return false
   if (!creating) {
     creating = chrome.offscreen
       .createDocument({
@@ -102,6 +125,83 @@ export const ensurePersistenceOwner = async (): Promise<void> => {
       })
   }
   await creating
+  return true
+}
+
+/**
+ * Ask the owner to answer one `ping`, retrying until it does or the deadline
+ * passes.
+ *
+ * The retry loop exists for the gap between `createDocument()` resolving and
+ * the host page evaluating its script: until the listener is registered,
+ * `sendMessage` rejects with "receiving end does not exist". Once a listener
+ * does exist the send stays pending until the host actually responds, so a
+ * long first-boot migration produces one slow attempt rather than a retry
+ * storm — the deadline bounds retries after a failure, not the owner's work.
+ */
+const pingOwner = async (): Promise<void> => {
+  const deadline = Date.now() + OWNER_READY_TIMEOUT_MS
+  let wait = OWNER_PING_FIRST_DELAY_MS
+  let lastError = "no response"
+  for (;;) {
+    try {
+      const parsed = PersistenceRpcResponseSchema.safeParse(
+        await chrome.runtime.sendMessage({
+          type: PERSISTENCE_RPC,
+          request: { op: "ping" }
+        })
+      )
+      if (!parsed.success) {
+        lastError = "owner returned an invalid response"
+      } else if (parsed.data.ok) {
+        return
+      } else {
+        lastError = parsed.data.error
+      }
+    } catch (error: unknown) {
+      lastError = error instanceof Error ? error.message : String(error)
+    }
+    if (Date.now() >= deadline) break
+    await delay(wait)
+    wait = Math.min(wait * 2, OWNER_PING_MAX_DELAY_MS)
+  }
+  throw new Error(`Persistence owner is not ready: ${lastError}`)
+}
+
+/**
+ * Guarantee an owner that can actually serve a request.
+ *
+ * `createDocument()` completing is not readiness: it says a document exists,
+ * not that its listener, its worker, the SQLite WASM binary, or the backend
+ * choice are up. Callers that skipped the handshake raced a cold owner and
+ * saw their first query reject on a page that was about to work.
+ *
+ * The proof is cached, so this costs one extra round trip per owner instance
+ * and nothing afterwards. A rejection is not cached — a later caller retries
+ * rather than inheriting a failure from a boot that has since been fixed.
+ */
+export const ensurePersistenceOwnerReady = async (): Promise<void> => {
+  const provenBy = ownerReady
+  if (ownerProven) {
+    // The offscreen document can be torn down under us, and a proof of the
+    // instance that is gone says nothing about the one that replaces it.
+    if (await hasOwnerDocument()) return
+    if (ownerReady === provenBy) {
+      ownerProven = false
+      ownerReady = null
+    }
+  }
+  if (!ownerReady) {
+    ownerReady = (async () => {
+      await ensureOwnerDocument()
+      await pingOwner()
+      ownerProven = true
+    })().catch((error: unknown) => {
+      ownerReady = null
+      throw error
+    })
+  }
+  await ownerReady
 }
 
 /** Register on Chromium background startup: pages ask the service worker to
@@ -127,7 +227,10 @@ export const handleChromiumPersistenceControlMessage = (
       sendResponse({ ok: false, error: "Persistence request forbidden" })
       return true
     }
-    ensurePersistenceOwner()
+    // Extension pages cannot create the offscreen document, so this is where
+    // their cold start waits — answering before the owner can serve would just
+    // move the failure into their first query.
+    ensurePersistenceOwnerReady()
       .then(() => sendResponse({ ok: true }))
       .catch((error: unknown) =>
         sendResponse({ ok: false, error: String(error) })
@@ -173,14 +276,14 @@ export const handleChromiumPersistenceControlMessage = (
   return false
 }
 
+/**
+ * Register the control plane. Bringing the owner up is deliberately not done
+ * here: the background composition root owns that promise, because startup
+ * tasks have to await the same readiness this registration would otherwise
+ * kick off and forget.
+ */
 export const registerChromiumPersistenceControl = (): void => {
-  globalThis.__persistenceEnsureOwner = ensurePersistenceOwner
+  globalThis.__persistenceEnsureOwner = ensurePersistenceOwnerReady
 
   chrome.runtime.onMessage.addListener(handleChromiumPersistenceControlMessage)
-
-  // Create the owner eagerly so the one-time legacy migration runs at boot,
-  // not on the first user interaction.
-  void ensurePersistenceOwner().catch((error) => {
-    logger.error("Failed to start persistence owner", "Persistence", { error })
-  })
 }
