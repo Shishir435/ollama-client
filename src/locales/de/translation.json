@@ -1537,6 +1537,17 @@
       "icon_lookup": {
         "label": "Website-Symbole der Anbieter anzeigen",
         "description": "Fragt einen unbekannten Anbieter nach seinem Symbol, damit er leichter zu unterscheiden ist. Kontaktiert wird nur die Adresse des Anbieters — und dessen Hauptseite, falls die Adresse selbst kein Symbol hat — niemals ein fremder Symboldienst. Anbieter mit eingebautem Logo werden nie gefragt."
+      },
+      "catalog_refresh": {
+        "label": "Aktualisierung der Modellliste",
+        "description": "Wie oft ein geöffnetes Panel die Modelllisten der Anbieter erneut abruft. Beim Herunterladen, Löschen oder Bearbeiten eines Anbieters wird ohnehin sofort aktualisiert; dies erfasst nur einen Anbieter, der während des Zusehens auftaucht oder verschwindet. Niedrigere Werte bedeuten mehr Anfragen an entfernte Anbieter.",
+        "options": {
+          "0": "Aus",
+          "30000": "Alle 30 Sekunden",
+          "60000": "Jede Minute",
+          "120000": "Alle 2 Minuten",
+          "300000": "Alle 5 Minuten"
+        }
       }
     },
     "migration": {

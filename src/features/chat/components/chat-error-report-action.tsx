@@ -42,6 +42,35 @@ const settingsTabForFocusId = (focusId: string): string | undefined =>
   SETTINGS_REGISTRY.find((entry) => entry.id === focusId)?.tab
 
 /**
+ * Copy text that is still being produced.
+ *
+ * `clipboard.writeText` needs the click's transient activation, which expires
+ * while a slow diagnostic collection is still running — the exact case a
+ * hover-started prefetch does not cover, because a fast click can land before
+ * it resolves. `clipboard.write` takes a *promise* of the data instead, so the
+ * write is claimed inside the click and settled whenever the bundle arrives.
+ *
+ * `writeText` remains the fallback for engines without `ClipboardItem`, where
+ * the old race is still the best available behavior and a lost activation
+ * surfaces as the copy-failed toast rather than a silent no-op.
+ */
+const writeDiagnosticsToClipboard = async (
+  text: Promise<string>
+): Promise<void> => {
+  if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/plain": text.then(
+          (value) => new Blob([value], { type: "text/plain" })
+        )
+      })
+    ])
+    return
+  }
+  await navigator.clipboard.writeText(await text)
+}
+
+/**
  * Countdown until a cooled-down recovery action becomes usable. Anchored to the
  * message timestamp, not to mount, so remounting the bubble (the message list is
  * virtualized) cannot restart a provider's back-off window.
@@ -90,7 +119,7 @@ export const ChatErrorReportAction = ({
   const { t } = useTranslation()
   const { toast } = useToast()
   const [preparing, setPreparing] = useState(false)
-  const [diagnosticsPreparing, setDiagnosticsPreparing] = useState(true)
+  const [diagnosticsPreparing, setDiagnosticsPreparing] = useState(false)
   const [copied, setCopied] = useState(false)
   const [recoveryBusy, setRecoveryBusy] = useState(false)
   const diagnosticsPromise = useRef<
@@ -107,6 +136,16 @@ export const ChatErrorReportAction = ({
     []
   )
 
+  /**
+   * Collect the support bundle once per mounted error bubble.
+   *
+   * Deliberately not started on mount. The bundle runs the whole diagnostic
+   * suite behind it — a storage write probe, a SQLite transaction, message and
+   * vector counts, and a provider catalog request — and this component mounts
+   * for every failed message, on every sidepanel open and on every pass of the
+   * virtualized list. That is a lot of work, some of it over the network, for a
+   * button most sessions never press.
+   */
   const loadDiagnostics = useCallback(() => {
     diagnosticsPromise.current ??= extensionRpcClient
       .call(RpcMethod.DiagnosticsGetBundle, { sessionId })
@@ -115,14 +154,15 @@ export const ChatErrorReportAction = ({
     return diagnosticsPromise.current
   }, [sessionId])
 
-  useEffect(() => {
-    let mounted = true
-    void loadDiagnostics().finally(() => {
-      if (mounted) setDiagnosticsPreparing(false)
-    })
-    return () => {
-      mounted = false
-    }
+  /**
+   * Start collecting when the pointer or focus arrives, so the click itself
+   * usually has the bundle already. `clipboard.writeText` needs the click's
+   * transient activation, which a slow collection started on click could
+   * outlive.
+   */
+  const prefetchDiagnostics = useCallback(() => {
+    if (diagnosticsPromise.current) return
+    void loadDiagnostics()
   }, [loadDiagnostics])
 
   /**
@@ -261,10 +301,14 @@ export const ChatErrorReportAction = ({
   }
 
   const copyDiagnostics = async () => {
+    setDiagnosticsPreparing(true)
     try {
-      const bundle = await loadDiagnostics()
-      if (!bundle) throw new Error("Diagnostic bundle unavailable")
-      await navigator.clipboard.writeText(JSON.stringify(bundle, null, 2))
+      await writeDiagnosticsToClipboard(
+        loadDiagnostics().then((bundle) => {
+          if (!bundle) throw new Error("Diagnostic bundle unavailable")
+          return JSON.stringify(bundle, null, 2)
+        })
+      )
       setCopied(true)
       if (copiedTimer.current) clearTimeout(copiedTimer.current)
       copiedTimer.current = setTimeout(() => setCopied(false), 1500)
@@ -279,6 +323,8 @@ export const ChatErrorReportAction = ({
         title: t("chat.errors.diagnostics_copy_failed_title"),
         description: t("chat.errors.diagnostics_copy_failed_description")
       })
+    } finally {
+      setDiagnosticsPreparing(false)
     }
   }
 
@@ -317,6 +363,8 @@ export const ChatErrorReportAction = ({
           size="sm"
           className={supportChipCls}
           disabled={diagnosticsPreparing}
+          onPointerEnter={prefetchDiagnostics}
+          onFocus={prefetchDiagnostics}
           onClick={() => void copyDiagnostics()}>
           {diagnosticsPreparing ? (
             <Loader2 className="icon-xs shrink-0 animate-spin" />
@@ -339,6 +387,8 @@ export const ChatErrorReportAction = ({
             "border-border/25 bg-transparent text-muted-foreground hover:bg-muted/35 hover:text-foreground"
           )}
           disabled={preparing}
+          onPointerEnter={prefetchDiagnostics}
+          onFocus={prefetchDiagnostics}
           onClick={() => void openIssue()}>
           {preparing ? (
             <Loader2 className="icon-xs shrink-0 animate-spin" />

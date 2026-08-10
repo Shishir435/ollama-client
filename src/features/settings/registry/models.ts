@@ -211,6 +211,22 @@ export const MODELS_SETTINGS = [
     ]
   },
   {
+    id: "provider-catalog-refresh",
+    sectionId: "providers",
+    labelKey: "settings.providers.catalog_refresh.label",
+    descriptionKey: "settings.providers.catalog_refresh.description",
+    aliases: [
+      "provider",
+      "refresh",
+      "poll",
+      "polling",
+      "interval",
+      "model list",
+      "catalog",
+      "network"
+    ]
+  },
+  {
     id: "provider-custom-models",
     sectionId: "providers",
     labelKey: "settings.providers.custom_models",

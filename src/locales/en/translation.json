@@ -1747,6 +1747,17 @@
       "icon_lookup": {
         "label": "Show provider site icons",
         "description": "Ask an unrecognized provider for its icon, so it is easier to tell apart. Only that provider's own address is contacted — and its main site if the address itself has no icon — never a third-party icon service. Providers with a built-in logo are never asked."
+      },
+      "catalog_refresh": {
+        "label": "Model list refresh",
+        "description": "How often an open panel re-asks your providers for their model lists. Pulling, deleting or editing a provider refreshes it immediately regardless, so this only catches a provider that comes up or goes away while you watch. Lower values mean more requests to remote providers.",
+        "options": {
+          "0": "Off",
+          "30000": "Every 30 seconds",
+          "60000": "Every minute",
+          "120000": "Every 2 minutes",
+          "300000": "Every 5 minutes"
+        }
       }
     },
     "migration": {

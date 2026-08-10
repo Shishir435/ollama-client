@@ -1537,6 +1537,17 @@
       "icon_lookup": {
         "label": "Mostrar los iconos del sitio del proveedor",
         "description": "Pide su icono a un proveedor no reconocido, para distinguirlo mejor. Solo se contacta con la dirección del propio proveedor —y con su sitio principal si esa dirección no tiene icono—, nunca con un servicio de iconos de terceros. A los proveedores con logotipo integrado nunca se les pregunta."
+      },
+      "catalog_refresh": {
+        "label": "Actualización de la lista de modelos",
+        "description": "Con qué frecuencia un panel abierto vuelve a pedir a los proveedores sus listas de modelos. Descargar, eliminar o editar un proveedor la actualiza al instante de todos modos, así que esto solo detecta un proveedor que aparece o desaparece mientras miras. Valores más bajos suponen más peticiones a proveedores remotos.",
+        "options": {
+          "0": "Desactivado",
+          "30000": "Cada 30 segundos",
+          "60000": "Cada minuto",
+          "120000": "Cada 2 minutos",
+          "300000": "Cada 5 minutos"
+        }
       }
     },
     "migration": {

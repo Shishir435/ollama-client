@@ -164,6 +164,22 @@ describe("ProviderSettings", () => {
     ).not.toBeInTheDocument()
   })
 
+  it("mounts the catalog refresh control the settings registry deep-links to", () => {
+    mockProviderState()
+
+    const { container } = renderProviderSettings()
+
+    const field = container.querySelector(
+      '[data-settings-focus-id="provider-catalog-refresh"]'
+    )
+    expect(field).toBeInTheDocument()
+    // The stored value is what the queries poll on, so the trigger has to show
+    // a real choice rather than an empty label.
+    expect(
+      within(field as HTMLElement).getByRole("combobox")
+    ).toHaveTextContent("settings.providers.catalog_refresh.options.60000")
+  })
+
   it("offers removal only for custom providers", () => {
     const customProvider = {
       ...remoteProvider,
