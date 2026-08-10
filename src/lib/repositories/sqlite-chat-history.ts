@@ -2,6 +2,7 @@ import {
   ChatMessageErrorSchema,
   ChatMessageMetricsSchema
 } from "@ollama-client/contracts/chat"
+import { TURN_OWNED_ASSISTANT_STATUSES } from "@ollama-client/contracts/turns"
 import { imageToStoredFile } from "@/lib/image-utils"
 import {
   parseStoredReplayArtifact,
@@ -619,6 +620,15 @@ export const updateMessage = async (
  *
  * Returns the count fixed.
  */
+/**
+ * Statuses whose turn still owns its assistant row. Interpolated from the
+ * contract rather than spelled out, because a status added there and missed
+ * here is invisible: the sweep just starts finalizing rows it does not own.
+ */
+const OWNED_ASSISTANT_STATUS_LIST = TURN_OWNED_ASSISTANT_STATUSES.map(
+  (status) => `'${status}'`
+).join(", ")
+
 export const finalizeInterruptedMessages = async (
   staleMs = 20_000
 ): Promise<number> => {
@@ -630,7 +640,7 @@ export const finalizeInterruptedMessages = async (
        AND id NOT IN (
          SELECT assistantMessageId FROM turn_runs
          WHERE assistantMessageId IS NOT NULL
-           AND status IN ('submitted', 'building-context', 'generating')
+           AND status IN (${OWNED_ASSISTANT_STATUS_LIST})
        )
        AND sessionId NOT IN (
          SELECT sessionId FROM tool_loop_runs WHERE sessionId IS NOT NULL

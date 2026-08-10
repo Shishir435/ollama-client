@@ -1,5 +1,8 @@
 import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
-import { reconnectDurableTurn } from "@/background/durable-turn-runtime"
+import {
+  reconnectDurableTurn,
+  requestDurableTurnStop
+} from "@/background/durable-turn-runtime"
 import { handleBuildContext } from "@/background/handlers/handle-build-context"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { handleSelectionAction } from "@/background/handlers/handle-selection-action"
@@ -145,9 +148,15 @@ export const registerPortRouter = () => {
       if (msg.type === MESSAGE_KEYS.PROVIDER.STOP_GENERATION) {
         logger.info("Stop generation requested", "BackgroundSW")
         const requestedKey = msg.payload?.requestId
-        abortAndClearController(
+        const abortKey =
           requestedKey ?? currentAbortKey ?? port.abortScopeKey ?? port.name
-        )
+        // Intent first, abort second. The two are not interchangeable: a worker
+        // that dies after the abort but before the write restarts with a row
+        // still reading `generating`, and recovery hands it back to the
+        // provider as if the stop never happened. A key that names no live turn
+        // — a selection-action scope — writes nothing and costs one query.
+        await requestDurableTurnStop(abortKey)
+        abortAndClearController(abortKey)
         abortCurrentOnDisconnect = true
       }
 

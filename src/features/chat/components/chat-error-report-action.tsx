@@ -58,14 +58,20 @@ const writeDiagnosticsToClipboard = async (
   text: Promise<string>
 ): Promise<void> => {
   if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        "text/plain": text.then(
-          (value) => new Blob([value], { type: "text/plain" })
-        )
-      })
-    ])
-    return
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": text.then(
+            (value) => new Blob([value], { type: "text/plain" })
+          )
+        })
+      ])
+      return
+    } catch {
+      // Feature-detecting `ClipboardItem` does not prove the engine honors a
+      // promise as item data. Where it refuses, the old race is still better
+      // than a button that reports failure for a bundle we are holding.
+    }
   }
   await navigator.clipboard.writeText(await text)
 }

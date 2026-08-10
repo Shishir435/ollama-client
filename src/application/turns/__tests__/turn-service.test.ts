@@ -76,6 +76,7 @@ describe("TurnService", () => {
       }),
       update: vi.fn(async (_id, update) => {
         order.push(`update:${update.status}`)
+        return true
       })
     }
     const context = {
@@ -95,7 +96,7 @@ describe("TurnService", () => {
 
     expect(order).toEqual([
       "create",
-      "update:building-context",
+      "update:building_context",
       "context",
       "update:generating",
       "generation",
@@ -129,7 +130,7 @@ describe("TurnService", () => {
   it("persists explicit failure after durable submission", async () => {
     const store: TurnRunStore = {
       create: vi.fn().mockResolvedValue(undefined),
-      update: vi.fn().mockResolvedValue(undefined)
+      update: vi.fn().mockResolvedValue(true)
     }
     const context = {
       build: vi.fn().mockRejectedValue(new Error("context unavailable"))

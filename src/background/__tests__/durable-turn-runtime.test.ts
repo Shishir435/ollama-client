@@ -12,7 +12,10 @@ const mocks = vi.hoisted(() => ({
   createTurnRun: vi.fn(),
   getIncompleteTurnRuns: vi.fn(),
   getTurnRun: vi.fn(),
-  updateTurnRun: vi.fn()
+  updateTurnRun: vi.fn(),
+  markTurnCancelling: vi.fn(),
+  getInterruptedCancellations: vi.fn(),
+  finalizeCancelledTurn: vi.fn()
 }))
 
 vi.mock("@/application/context/context-service", () => ({
@@ -40,11 +43,14 @@ vi.mock("@/lib/repositories/turn-runs", () => ({
   createTurnRun: mocks.createTurnRun,
   getIncompleteTurnRuns: mocks.getIncompleteTurnRuns,
   getTurnRun: mocks.getTurnRun,
-  updateTurnRun: mocks.updateTurnRun
+  updateTurnRun: mocks.updateTurnRun,
+  markTurnCancelling: mocks.markTurnCancelling,
+  getInterruptedCancellations: mocks.getInterruptedCancellations,
+  finalizeCancelledTurn: mocks.finalizeCancelledTurn
 }))
 
 vi.mock("@/lib/logger", () => ({
-  logger: { error: vi.fn() }
+  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() }
 }))
 
 import type {
@@ -117,7 +123,11 @@ beforeEach(() => {
   })
   mocks.updateTurnRun.mockImplementation(async (_id, update) => {
     mocks.order.push(`status:${update.status ?? "message-id"}`)
+    return true
   })
+  mocks.markTurnCancelling.mockResolvedValue(true)
+  mocks.getInterruptedCancellations.mockResolvedValue([])
+  mocks.finalizeCancelledTurn.mockResolvedValue(true)
   mocks.contextBuild.mockImplementation(async () => {
     mocks.order.push("context")
     return {
@@ -157,7 +167,7 @@ describe("durable turn runtime", () => {
 
     expect(mocks.order).toEqual([
       "create",
-      "status:building-context",
+      "status:building_context",
       "context",
       "status:generating",
       "generation",
@@ -474,5 +484,106 @@ describe("durable turn runtime", () => {
     await generating
 
     expect(port.postMessage).not.toHaveBeenCalled()
+  })
+})
+
+describe("durable turn cancellation", () => {
+  it("commits the stop before anything acts on it", async () => {
+    const { requestDurableTurnStop } = await import(
+      "@/background/durable-turn-runtime"
+    )
+
+    await expect(requestDurableTurnStop("turn-1")).resolves.toBe(true)
+    expect(mocks.markTurnCancelling).toHaveBeenCalledWith("turn-1")
+  })
+
+  it("answers false for a key that names no live turn", async () => {
+    // Selection-action scope keys travel the same stop path.
+    mocks.markTurnCancelling.mockResolvedValue(false)
+    const { requestDurableTurnStop } = await import(
+      "@/background/durable-turn-runtime"
+    )
+
+    await expect(
+      requestDurableTurnStop("provider-stream-response#3")
+    ).resolves.toBe(false)
+  })
+
+  it("never blocks the abort on a persistence failure", async () => {
+    // Losing the intent costs one reissued turn on the next boot; refusing to
+    // stop is worse.
+    mocks.markTurnCancelling.mockRejectedValue(new Error("db gone"))
+    const { requestDurableTurnStop } = await import(
+      "@/background/durable-turn-runtime"
+    )
+
+    await expect(requestDurableTurnStop("turn-1")).resolves.toBe(false)
+  })
+
+  it("settles interrupted cancellations before resuming anything", async () => {
+    const order: string[] = []
+    mocks.getInterruptedCancellations.mockImplementation(async () => {
+      order.push("finalize")
+      return []
+    })
+    mocks.getIncompleteTurnRuns.mockImplementation(async () => {
+      order.push("read-resumable")
+      return []
+    })
+    const { resumeIncompleteTurnRuns } = await import(
+      "@/background/durable-turn-runtime"
+    )
+
+    await resumeIncompleteTurnRuns()
+
+    expect(order).toEqual(["finalize", "read-resumable"])
+  })
+})
+
+describe("interrupted cancellation recovery", () => {
+  it("finishes the assistant before settling its turn", async () => {
+    const order: string[] = []
+    mocks.getInterruptedCancellations.mockResolvedValue([
+      { id: "turn-1", assistantMessageId: 7 },
+      { id: "turn-2", assistantMessageId: undefined }
+    ])
+    mocks.updateMessage.mockImplementation(async () => {
+      order.push("assistant")
+      return 7
+    })
+    mocks.finalizeCancelledTurn.mockImplementation(async () => {
+      order.push("turn")
+      return true
+    })
+    mocks.getIncompleteTurnRuns.mockResolvedValue([])
+    const { resumeIncompleteTurnRuns } = await import(
+      "@/background/durable-turn-runtime"
+    )
+
+    await resumeIncompleteTurnRuns()
+
+    // Otherwise the stopped response stays done = 0 and the stale-message
+    // sweep offers a retry for something the user cancelled.
+    expect(mocks.updateMessage).toHaveBeenCalledWith(7, { done: true })
+    expect(mocks.updateMessage).toHaveBeenCalledTimes(1)
+    // Order is the guarantee: the two writes cannot share a transaction, so a
+    // worker that exits between them must leave the turn re-findable.
+    expect(order).toEqual(["assistant", "turn", "turn"])
+  })
+
+  it("leaves a turn cancelling when its assistant cannot be finished", async () => {
+    mocks.getInterruptedCancellations.mockResolvedValue([
+      { id: "turn-1", assistantMessageId: 7 }
+    ])
+    mocks.updateMessage.mockRejectedValueOnce(new Error("db gone"))
+    mocks.getIncompleteTurnRuns.mockResolvedValue([])
+    const { resumeIncompleteTurnRuns } = await import(
+      "@/background/durable-turn-runtime"
+    )
+
+    await expect(resumeIncompleteTurnRuns()).resolves.toBeUndefined()
+    // Settling it here would strand an unfinished assistant no later boot can
+    // find. Left as-is, the next boot retries.
+    expect(mocks.finalizeCancelledTurn).not.toHaveBeenCalled()
   })
 })

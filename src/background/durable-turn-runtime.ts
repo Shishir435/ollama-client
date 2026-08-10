@@ -8,9 +8,11 @@ import {
 import type { ThinkingParserState } from "@ollama-client/runtime-core/thinking-stream"
 import type { BuildRagContextOptions } from "@/application/context/build-context"
 import { ContextService } from "@/application/context/context-service"
-import type {
-  DurableTurnRun,
-  TurnSubmission
+import {
+  DurableTurnGenerationError,
+  type DurableTurnRun,
+  failureForTurn,
+  type TurnSubmission
 } from "@/application/turns/turn-contract"
 import {
   type TurnGenerationInput,
@@ -30,8 +32,11 @@ import {
 } from "@/lib/repositories/chat-history"
 import {
   createTurnRun,
+  finalizeCancelledTurn,
   getIncompleteTurnRuns,
+  getInterruptedCancellations,
   getTurnRun,
+  markTurnCancelling,
   updateTurnRun
 } from "@/lib/repositories/turn-runs"
 import {
@@ -168,6 +173,30 @@ const persistAssistant = (
     done: assistant.done,
     error: assistant.error
   })
+
+/**
+ * Record a failed turn on its assistant row.
+ *
+ * The structured failure is used whenever generation produced one; the generic
+ * text is the last resort for a turn that died before the stream said anything
+ * — a context build that threw, a worker lost mid-claim.
+ */
+const persistTurnFailure = async (
+  assistantMessageId: number | undefined,
+  model: string,
+  error: unknown
+): Promise<void> => {
+  if (assistantMessageId === undefined) return
+  const failure = failureForTurn(error)
+  const fallback = "Turn failed before completion."
+  await persistAssistant(assistantMessageId, {
+    role: "assistant",
+    content: failure?.userMessage || failure?.message || fallback,
+    done: true,
+    model,
+    error: failure ?? { status: 0, userMessage: fallback }
+  }).catch(() => undefined)
+}
 
 const makeGenerationOwner = (): TurnGenerationOwner => ({
   start: async ({
@@ -319,11 +348,11 @@ const makeGenerationOwner = (): TurnGenerationOwner => ({
       throw new Error("Generation ended without a terminal result")
     }
     if (completion.terminal.type === "error") {
-      throw new Error(
-        completion.terminal.error.userMessage ||
-          completion.terminal.error.message ||
-          "Generation failed"
-      )
+      // The stream already produced a structured failure with a status, kind,
+      // message key and incident id. Rebuilding an Error from its text threw
+      // all of that away, which is why a provider 500 reached the bubble as a
+      // bare "Turn failed before completion."
+      throw new DurableTurnGenerationError(completion.terminal.error)
     }
     return {
       outcome: completion.aborted ? "cancelled" : "completed",
@@ -402,16 +431,7 @@ export const startDurableTurn = async (
       createdAt: submission.createdAt
     })
   } catch (error) {
-    await persistAssistant(assistantMessageId, {
-      role: "assistant",
-      content: "Turn failed before completion.",
-      done: true,
-      model: submission.model,
-      error: {
-        status: 0,
-        userMessage: "Turn failed before completion."
-      }
-    }).catch(() => undefined)
+    await persistTurnFailure(assistantMessageId, submission.model, error)
     throw error
   } finally {
     cleanupTurnRuntimeState(submission.id)
@@ -523,24 +543,86 @@ const resumeTurn = async (turn: DurableTurnRun): Promise<void> => {
   }
 }
 
+/**
+ * Record that the user asked this turn to stop, before anything acts on it.
+ *
+ * Called on the stop path ahead of the abort, so the order is: intent commits,
+ * then the controller is aborted. A worker that dies between the two restarts
+ * into `cancelling`, which recovery skips — where a row still reading
+ * `generating` was handed straight back to the provider.
+ *
+ * Resolves false when the id names no live turn, which is the normal answer for
+ * a selection-action scope key or a stop that arrives twice.
+ */
+export const requestDurableTurnStop = async (
+  turnId: string
+): Promise<boolean> => {
+  try {
+    return await markTurnCancelling(turnId)
+  } catch (error) {
+    // Never block the abort on persistence. Losing the intent costs one
+    // reissued turn on the next boot; refusing to stop is worse.
+    logger.error("Failed to record turn cancellation intent", "BackgroundSW", {
+      turnId,
+      error
+    })
+    return false
+  }
+}
+
+/**
+ * Finish cancellations whose worker died mid-stop, without reissuing anything.
+ *
+ * Assistant row first, turn row second, one turn at a time. The two writes
+ * belong to different repositories and cannot share a transaction, so the order
+ * carries the guarantee instead: a worker that exits between them leaves the
+ * turn at `cancelling`, and the next boot finds it and repeats an assistant
+ * write that is idempotent. Settling the turn first would close that door with
+ * the assistant still unfinished, and the stale-message sweep would then offer
+ * a retry for a response the user deliberately stopped.
+ *
+ * A turn whose assistant cannot be finished is left `cancelling` for the same
+ * reason, and retried on the next boot rather than settled over.
+ */
+const finishInterruptedCancellations = async (): Promise<void> => {
+  const interrupted = await getInterruptedCancellations().catch((error) => {
+    logger.error("Failed to read interrupted cancellations", "BackgroundSW", {
+      error
+    })
+    return []
+  })
+  let settled = 0
+  for (const cancelled of interrupted) {
+    if (cancelled.assistantMessageId !== undefined) {
+      try {
+        await updateMessage(cancelled.assistantMessageId, { done: true })
+      } catch (error) {
+        logger.error("Failed to finish a cancelled assistant", "BackgroundSW", {
+          turnId: cancelled.id,
+          error
+        })
+        continue
+      }
+    }
+    if (await finalizeCancelledTurn(cancelled.id).catch(() => false)) {
+      settled += 1
+    }
+  }
+  if (settled > 0) {
+    logger.info("Finalized interrupted turn cancellations", "BackgroundSW", {
+      count: settled
+    })
+  }
+}
+
 export const resumeIncompleteTurnRuns = async (): Promise<void> => {
+  await finishInterruptedCancellations()
   const turns = await getIncompleteTurnRuns()
   for (const turn of turns) {
     try {
       await resumeTurn(turn)
     } catch (error) {
-      if (turn.assistantMessageId !== undefined) {
-        await persistAssistant(turn.assistantMessageId, {
-          role: "assistant",
-          content: "Turn failed before completion.",
-          done: true,
-          model: turn.model,
-          error: {
-            status: 0,
-            userMessage: "Turn failed before completion."
-          }
-        }).catch(() => undefined)
-      }
+      await persistTurnFailure(turn.assistantMessageId, turn.model, error)
       logger.error("Failed to resume durable turn", "BackgroundSW", {
         turnId: turn.id,
         error

@@ -16,7 +16,7 @@ import type {
 } from "@/application/context/context-service"
 import { toAppFailure } from "@/protocol/app-failure"
 import type { ChatMessage } from "@/types"
-import type { DurableTurnRun } from "./turn-contract"
+import { type DurableTurnRun, failureForTurn } from "./turn-contract"
 
 export type TurnRunStore = RuntimeTurnRunStore<
   DurableContextOptions,
@@ -75,7 +75,12 @@ export class TurnService {
       contextService,
       generation,
       {
+        // A failure generation already produced is recorded as it stands. Only
+        // an error from somewhere else — a context build, a lost worker — is
+        // mapped, because mapping one that is already structured would flatten
+        // its status, kind, message key and incident id back into text.
         toFailure: (error) =>
+          failureForTurn(error) ??
           toAppFailure(error, {
             fallbackMessage: "Turn failed",
             context: "turn-run"

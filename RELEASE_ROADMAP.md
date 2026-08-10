@@ -48,9 +48,7 @@ release usable and establish the tests required by its successor.
 
 1. ~~**Persistence trust boundary (H0 + H1)**~~ — landed in #253.
 2. ~~**Persistence readiness (H2)**~~ — landed in #255.
-3. **Durable turn lifecycle (H3):** persist cancellation intent, guard state
-   transitions, make lifecycle commands idempotent, and preserve structured
-   failures.
+3. ~~**Durable turn lifecycle (H3)**~~ — landed.
 4. **Durable turn retention (H4):** compact terminal requests and migrate/prune
    retained rows after PR 3 makes terminal transitions authoritative.
 5. **Provider discovery policy (H5):** extract the single discovery service.
@@ -63,51 +61,13 @@ release usable and establish the tests required by its successor.
    soak evidence, update release documentation, and promote only when the 9+/10
    criteria pass.
 
-Critical path: **PR 3 → PR 4 → PR 6 → PR 7 → PR 8**. PR 5 may merge at any
-time, but must land before PR 8.
-
-### H3 — Make turn cancellation and transitions durable
-
-Scope: M. Behavior change: a stopped turn cannot restart after worker loss.
-Dependencies: none outstanding.
-
-Affected modules:
-
-- `packages/contracts/src/turns.ts`
-- `packages/chat-runtime/src/turn-runtime.ts`
-- `src/background/port-router.ts`
-- `src/background/durable-turn-runtime.ts`
-- `src/lib/repositories/turn-runs.ts`
-
-Work:
-
-- Add a durable `cancelling` state or equivalent cancellation-intent field.
-  Commit intent before aborting the in-memory controller.
-- Make recovery exclude cancellation-intent and cancelled rows. Startup may
-  finalize interrupted cancellation, but must never reissue provider work.
-- Encode allowed compare-and-set transitions in the repository: submitted →
-  building-context → generating → terminal, with cancellation permitted from
-  each live state. Terminal rows never regress.
-- Make duplicate start, resume, reconnect, stop, and terminal messages
-  idempotent by turn ID.
-- Preserve the original structured `AppFailure` from terminal stream event to
-  assistant row, turn row, reconnect snapshot, diagnostics, and UI. Do not
-  convert it to plain `Error` and reconstruct a weaker failure.
-- Quarantine or terminally fail malformed persisted turn rows with a safe
-  diagnostic. Do not silently omit the same incomplete row on every boot.
-- Test worker death before cancellation commit, after cancellation commit,
-  during provider abort, and before terminal snapshot delivery.
-
-Exit gate:
-
-- No test schedule can resurrect a stopped turn or regress a terminal state.
-- Duplicate lifecycle messages produce one provider generation and one
-  terminal assistant result.
+Critical path: **PR 4 → PR 6 → PR 7 → PR 8**. PR 5 may merge at any time, but
+must land before PR 8.
 
 ### H4 — Bound durable turn storage and privacy retention
 
 Scope: M–L. Behavior change: terminal runs retain a compact receipt instead of
-the complete resumable request. Dependencies: H3.
+the complete resumable request. Dependencies: none outstanding.
 
 Affected modules:
 
@@ -178,7 +138,7 @@ Exit gate:
 
 ### H6 — Split the durable-turn composition hub
 
-Scope: M. Behavior change: none. Dependencies: H3 and H4.
+Scope: M. Behavior change: none. Dependencies: H4.
 
 Affected module: `src/background/durable-turn-runtime.ts`.
 
@@ -205,7 +165,7 @@ Exit gate:
 ### H7 — Close medium-risk type and error gaps
 
 Scope: M. Behavior change: invalid state/data fails explicitly. Dependencies:
-H3–H6.
+H4–H6.
 
 - Replace unchecked SQLite row-array assertions for durable job repositories
   with shared row decoders or local Zod schemas at query boundaries.
@@ -227,7 +187,7 @@ Exit gate:
 
 ### H8 — Release verification and 9+/10 gate
 
-Scope: M. Behavior change: none. Dependencies: H3–H7.
+Scope: M. Behavior change: none. Dependencies: H4–H7.
 
 Required automated gates:
 
@@ -281,7 +241,7 @@ regression guard where practical, and an explicit later milestone below.
 
 ## Remaining foundation follow-ups
 
-These are bounded improvements after H3–H8, not additional `0.13.0` release
+These are bounded improvements after H4–H8, not additional `0.13.0` release
 blockers and not authorization for a repository-wide rewrite.
 
 ### Chat stream presentation boundary
@@ -307,6 +267,16 @@ presentation, and durable command construction.
   behind a tested application boundary.
 - Keep React state and translated toast presentation in the hook.
 - Keep `use-chat.ts` as composition and wiring only.
+
+### Cancellable startup recovery
+
+Startup recovery tasks carry a deadline, but none of them accepts an
+`AbortSignal`, so a timed-out task is abandoned rather than stopped and keeps
+running beside the work that follows it.
+
+- Thread cancellation through backup-import recovery, provider migration, the
+  embedding-dimension migration, and durable workflow recovery.
+- Keep the deadline as the outer bound; make it cancel rather than abandon.
 
 ### Structured settings validation
 

@@ -4,6 +4,8 @@ import {
 } from "@ollama-client/contracts/app-failure"
 import {
   ContextReceiptSchema,
+  RESUMABLE_TURN_STATUSES,
+  TURN_STATUS_PREDECESSORS,
   TurnModeSchema,
   type TurnStatus,
   TurnStatusSchema
@@ -13,7 +15,8 @@ import {
   parsePersistedTurnRequest,
   type TurnSubmission
 } from "@/application/turns/turn-contract"
-import { flushSave, query, run } from "@/lib/sqlite/db"
+import { logger } from "@/lib/logger"
+import { flushSave, query, run, runWithMeta } from "@/lib/sqlite/db"
 
 interface TurnRunRow {
   id: string
@@ -108,21 +111,141 @@ export const getTurnRun = async (
   return rows[0] ? parseRow(rows[0]) : null
 }
 
+const RESUMABLE_STATUS_LIST = RESUMABLE_TURN_STATUSES.map(
+  (status) => `'${status}'`
+).join(", ")
+
+/**
+ * Fail a row nothing can read.
+ *
+ * A row whose request, mode or status will not parse was previously skipped by
+ * recovery, silently, on every boot forever. It is terminally failed instead,
+ * with a diagnostic that names no content, so the user sees a turn that ended
+ * rather than one that quietly never existed.
+ */
+const quarantineTurnRun = async (id: string, reason: string): Promise<void> => {
+  logger.error("Quarantined an unreadable durable turn", "TurnRuns", {
+    turnId: id,
+    reason
+  })
+  await run(
+    `UPDATE turn_runs SET status = 'failed', failure = ?, updatedAt = ?
+      WHERE id = ? AND status IN (${RESUMABLE_STATUS_LIST}, 'cancelling')`,
+    [
+      JSON.stringify({
+        status: 0,
+        kind: "storage",
+        message: `Durable turn record could not be read: ${reason}`
+      }),
+      Date.now(),
+      id
+    ]
+  )
+  await flushSave()
+}
+
 export const getIncompleteTurnRuns = async (): Promise<DurableTurnRun[]> => {
   const rows = (await query(
     `SELECT id, sessionId, mode, model, providerId, status, request,
             contextReceipt, userMessageId, assistantMessageId, failure,
             createdAt, updatedAt
        FROM turn_runs
-      WHERE status IN ('submitted', 'building-context', 'generating')
+      WHERE status IN (${RESUMABLE_STATUS_LIST})
       ORDER BY createdAt ASC`
   )) as unknown as TurnRunRow[]
-  return rows.flatMap((row) => {
+  const resumable: DurableTurnRun[] = []
+  for (const row of rows) {
     const parsed = parseRow(row)
-    return parsed ? [parsed] : []
-  })
+    if (parsed) {
+      resumable.push(parsed)
+      continue
+    }
+    await quarantineTurnRun(row.id, "unreadable turn record").catch(
+      () => undefined
+    )
+  }
+  return resumable
 }
 
+/**
+ * Commit the user's stop before anything acts on it.
+ *
+ * Ordering is the whole point: intent lands durably, then the in-memory
+ * controller is aborted. A worker that dies in between restarts into
+ * `cancelling`, which recovery does not resume — where a row left at
+ * `generating` was reissued to the provider as if nothing had been asked.
+ *
+ * Resolves false when there was no live turn to stop, which is what makes a
+ * duplicate stop a no-op rather than a second write.
+ */
+export const markTurnCancelling = async (id: string): Promise<boolean> => {
+  const result = await runWithMeta(
+    `UPDATE turn_runs SET status = 'cancelling', updatedAt = ?
+      WHERE id = ? AND status IN (${RESUMABLE_STATUS_LIST})`,
+    [Date.now(), id]
+  )
+  if (result.changes > 0) await flushSave()
+  return result.changes > 0
+}
+
+/** A turn settled by startup, and the assistant row still waiting on it. */
+export interface CancelledTurnRecord {
+  id: string
+  assistantMessageId?: number
+}
+
+/**
+ * Cancellations whose worker died before they finished.
+ *
+ * Read-only. Startup may finish what the stop started, but it must never
+ * reissue provider work to do it — the user already said stop.
+ */
+export const getInterruptedCancellations = async (): Promise<
+  CancelledTurnRecord[]
+> => {
+  const rows = (await query(
+    "SELECT id, assistantMessageId FROM turn_runs WHERE status = 'cancelling'"
+  )) as unknown as Array<{ id: string; assistantMessageId: number | null }>
+  return rows.map((row) => ({
+    id: row.id,
+    assistantMessageId: row.assistantMessageId ?? undefined
+  }))
+}
+
+/**
+ * Settle one cancellation, last.
+ *
+ * Deliberately per-turn and deliberately after its assistant row is finished.
+ * The two writes cannot share a transaction — they belong to different
+ * repositories — so the order is the safety property: while the turn still
+ * reads `cancelling`, the next boot finds it again and repeats work that is
+ * idempotent. Settling the turn first would close that door with the assistant
+ * still unfinished, and stale-message recovery would offer a retry for a
+ * response the user deliberately stopped.
+ */
+export const finalizeCancelledTurn = async (id: string): Promise<boolean> => {
+  const result = await runWithMeta(
+    `UPDATE turn_runs SET status = 'cancelled', updatedAt = ?
+      WHERE id = ? AND status = 'cancelling'`,
+    [Date.now(), id]
+  )
+  if (result.changes > 0) await flushSave()
+  return result.changes > 0
+}
+
+/**
+ * Apply a turn update, guarding any status change as a compare-and-set.
+ *
+ * The write carries the target state's allowed predecessors, so the database
+ * decides whether the transition is legal rather than the caller. That is what
+ * stops a terminal row regressing when a late message arrives — a duplicate
+ * stop, or a generation reporting completion for a turn already recorded as
+ * failed — and it holds without an application-level lock across the two
+ * workers that can be mid-flight after a restart.
+ *
+ * Resolves false when a status change was refused. Updates with no status
+ * always apply.
+ */
 export const updateTurnRun = async (
   id: string,
   updates: {
@@ -132,7 +255,7 @@ export const updateTurnRun = async (
     assistantMessageId?: number
     failure?: AppFailure | null
   }
-): Promise<void> => {
+): Promise<boolean> => {
   const fields: string[] = []
   const values: Array<string | number | null> = []
 
@@ -158,10 +281,32 @@ export const updateTurnRun = async (
       updates.failure === null ? null : JSON.stringify(updates.failure)
     )
   }
-  if (fields.length === 0) return
+  if (fields.length === 0) return true
 
   fields.push("updatedAt = ?")
   values.push(Date.now(), id)
-  await run(`UPDATE turn_runs SET ${fields.join(", ")} WHERE id = ?`, values)
+
+  if (!updates.status) {
+    await run(`UPDATE turn_runs SET ${fields.join(", ")} WHERE id = ?`, values)
+    await flushSave()
+    return true
+  }
+
+  const predecessors = TURN_STATUS_PREDECESSORS[updates.status]
+  if (predecessors.length === 0) return false
+  const placeholders = predecessors.map(() => "?").join(", ")
+  const result = await runWithMeta(
+    `UPDATE turn_runs SET ${fields.join(", ")}
+      WHERE id = ? AND status IN (${placeholders})`,
+    [...values, ...predecessors]
+  )
+  if (result.changes === 0) {
+    logger.warn("Refused an illegal durable turn transition", "TurnRuns", {
+      turnId: id,
+      target: updates.status
+    })
+    return false
+  }
   await flushSave()
+  return true
 }

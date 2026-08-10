@@ -67,6 +67,7 @@ describe("TurnRuntime", () => {
       }),
       update: vi.fn(async (_id, update) => {
         order.push(`update:${update.status}`)
+        return true
       })
     }
     const context: TurnContextOwner<TestContext, TestOutput> = {
@@ -90,7 +91,7 @@ describe("TurnRuntime", () => {
 
     expect(order).toEqual([
       "create",
-      "update:building-context",
+      "update:building_context",
       "context",
       "update:generating",
       "generation",
@@ -111,7 +112,7 @@ describe("TurnRuntime", () => {
   it("maps and persists failures before rethrowing", async () => {
     const store: TurnRunStore<TestContext, TestMessage> = {
       create: vi.fn().mockResolvedValue(undefined),
-      update: vi.fn().mockResolvedValue(undefined)
+      update: vi.fn().mockResolvedValue(true)
     }
     const context: TurnContextOwner<TestContext, TestOutput> = {
       build: vi.fn().mockRejectedValue(new Error("context unavailable"))
@@ -135,7 +136,7 @@ describe("TurnRuntime", () => {
   it("resumes without creating a second durable intent", async () => {
     const store: TurnRunStore<TestContext, TestMessage> = {
       create: vi.fn(),
-      update: vi.fn().mockResolvedValue(undefined)
+      update: vi.fn().mockResolvedValue(true)
     }
     const context: TurnContextOwner<TestContext, TestOutput> = {
       build: vi.fn().mockResolvedValue({ prompt: "hello", receipt })
@@ -167,5 +168,49 @@ describe("TurnRuntime", () => {
       status: "cancelled",
       failure: null
     })
+  })
+})
+
+describe("TurnRuntime lifecycle claims", () => {
+  it("does no provider work when the claim is refused", async () => {
+    // A refusal means the row is already cancelling or terminal — a duplicate
+    // start, or a stop that landed while this call was in flight.
+    const store: TurnRunStore<TestContext, TestMessage> = {
+      create: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockResolvedValue(false)
+    }
+    const context: TurnContextOwner<TestContext, TestOutput> = {
+      build: vi.fn()
+    }
+    const generation: TurnGenerationOwner<
+      TestContext,
+      TestMessage,
+      TestOutput
+    > = { start: vi.fn() }
+
+    await makeRuntime(store, context, generation).start(command)
+
+    expect(context.build).not.toHaveBeenCalled()
+    expect(generation.start).not.toHaveBeenCalled()
+  })
+
+  it("does not generate for a turn stopped while context was building", async () => {
+    const store: TurnRunStore<TestContext, TestMessage> = {
+      create: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockResolvedValueOnce(true).mockResolvedValue(false)
+    }
+    const context: TurnContextOwner<TestContext, TestOutput> = {
+      build: vi.fn().mockResolvedValue({ prompt: "hello", receipt })
+    }
+    const generation: TurnGenerationOwner<
+      TestContext,
+      TestMessage,
+      TestOutput
+    > = { start: vi.fn() }
+
+    await makeRuntime(store, context, generation).start(command)
+
+    expect(context.build).toHaveBeenCalledTimes(1)
+    expect(generation.start).not.toHaveBeenCalled()
   })
 })

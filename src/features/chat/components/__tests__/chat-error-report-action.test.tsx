@@ -188,6 +188,48 @@ describe("ChatErrorReportAction", () => {
     expect(copied).not.toContain("**What happened**")
   })
 
+  it("falls back to writeText when the engine refuses a promised item", async () => {
+    ;(extensionRpcClient.call as any).mockResolvedValue({
+      bundle: {
+        format: "ollama-client-support-v1",
+        createdAt: 1,
+        appVersion: "0.12.4",
+        browserFamily: "gecko",
+        osFamily: "linux",
+        capabilities: {},
+        permissions: {},
+        providers: [],
+        storage: { backend: "sqlite", messageCount: 0, vectorCount: 0 },
+        selfTests: [],
+        events: []
+      }
+    })
+    // ClipboardItem exists, so the feature check passes — and the write still
+    // rejects, which is the case detection cannot see.
+    vi.spyOn(navigator.clipboard, "write").mockRejectedValue(
+      new Error("promise data unsupported")
+    )
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockResolvedValue(undefined)
+
+    render(
+      <ChatErrorReportAction
+        sessionId="session-123"
+        msg={{ role: "assistant", content: "failed", error: {} }}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.copy_diagnostics" })
+    )
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledOnce())
+    expect(JSON.parse(writeText.mock.calls[0][0]).format).toBe(
+      "ollama-client-support-v1"
+    )
+  })
+
   it("falls back to writeText where ClipboardItem does not exist", async () => {
     ;(extensionRpcClient.call as any).mockResolvedValue({
       bundle: {

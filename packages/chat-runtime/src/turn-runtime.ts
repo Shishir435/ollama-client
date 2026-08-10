@@ -42,7 +42,14 @@ export type TurnRunUpdate = {
 
 export interface TurnRunStore<TContext, TMessage> {
   create: (submission: TurnSubmission<TContext, TMessage>) => Promise<void>
-  update: (id: string, updates: TurnRunUpdate) => Promise<void>
+  /**
+   * Apply an update, resolving false when a status change was refused because
+   * the row had already moved somewhere the transition does not allow. The
+   * runtime treats a refusal as "someone else owns this turn now" and stops,
+   * which is what keeps a duplicated or late lifecycle message from starting a
+   * second generation.
+   */
+  update: (id: string, updates: TurnRunUpdate) => Promise<boolean>
 }
 
 export interface TurnContextOwner<TContextOptions, TContextOutput> {
@@ -166,11 +173,16 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
     ) => Promise<TContextOptions>
   ): Promise<void> {
     try {
-      await this.store.update(submission.id, {
-        status: "building-context",
+      // The first status write is also the claim on this turn. A refusal means
+      // the row is already cancelling or terminal — a duplicate start, or a
+      // stop that landed while this call was in flight — and the only correct
+      // response is to do no provider work at all.
+      const claimed = await this.store.update(submission.id, {
+        status: "building_context",
         ...(userMessageId !== undefined ? { userMessageId } : {}),
         ...(assistantMessageId !== undefined ? { assistantMessageId } : {})
       })
+      if (!claimed) return
       const preparedOptions = prepareContextOptions
         ? await prepareContextOptions(contextOptions)
         : contextOptions
@@ -181,10 +193,13 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
         providerId: submission.providerId,
         options: preparedOptions
       })
-      await this.store.update(submission.id, {
+      // Same rule at the provider boundary: a stop committed while context was
+      // building must not be overtaken by the generation it was meant to stop.
+      const generating = await this.store.update(submission.id, {
         status: "generating",
         contextReceipt: context.receipt
       })
+      if (!generating) return
       const result = await this.generation.start({
         submission,
         context,
