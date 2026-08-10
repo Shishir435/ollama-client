@@ -18,12 +18,20 @@ export const DEFAULT_CATALOG_REFRESH_MS = 60_000
  * Never poll faster than this. The setting is sync-safe, so a value can arrive
  * from another device — and from an older build with a different idea of a
  * reasonable interval.
+ *
+ * Ten seconds is what the old hard-coded poll did, and it is offered again as a
+ * deliberate choice rather than a default: chosen, it refetches one query per
+ * provider, pauses while the surface is hidden, and stops when the panel
+ * closes. The behavior that was removed forced a full cache invalidation on
+ * every enabled provider whether or not anyone was looking.
  */
-export const MIN_CATALOG_REFRESH_MS = 30_000
+export const MIN_CATALOG_REFRESH_MS = 10_000
 
 export const CATALOG_REFRESH_CHOICES_MS = [
   CATALOG_REFRESH_OFF,
   MIN_CATALOG_REFRESH_MS,
+  20_000,
+  30_000,
   60_000,
   120_000,
   300_000
@@ -54,9 +62,13 @@ export const normalizeCatalogRefreshMs = (value: unknown): number => {
 }
 
 /**
- * How long a fetched catalog stays fresh. Tied to the poll so a surface that
- * polls slowly does not refetch on every mount instead, and floored so turning
- * the poll off does not mean re-asking every provider on every open.
+ * How long a fetched catalog stays fresh.
+ *
+ * The chosen interval *is* the answer to "how old is too old", so it governs
+ * refetch-on-open too — otherwise someone who picked 10 seconds would open the
+ * panel to a minute-old list and wait for the first tick to correct it. With
+ * the poll off there is no chosen interval, so it falls back to the default
+ * rather than re-asking every provider on every open.
  */
 export const catalogStaleTimeMs = (refreshMs: number): number =>
-  Math.max(DEFAULT_CATALOG_REFRESH_MS, refreshMs)
+  refreshMs > CATALOG_REFRESH_OFF ? refreshMs : DEFAULT_CATALOG_REFRESH_MS

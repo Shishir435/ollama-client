@@ -50,9 +50,12 @@ describe("catalog refresh interval", () => {
     }
   })
 
-  it("never lets a slow or disabled poll refetch on every mount", () => {
-    expect(catalogStaleTimeMs(0)).toBe(DEFAULT_CATALOG_REFRESH_MS)
-    expect(catalogStaleTimeMs(30_000)).toBe(DEFAULT_CATALOG_REFRESH_MS)
+  it("treats the chosen interval as the freshness window", () => {
+    // Someone who picked 10 seconds should not open the panel to a
+    // minute-old list and wait for the first tick to correct it.
+    expect(catalogStaleTimeMs(10_000)).toBe(10_000)
     expect(catalogStaleTimeMs(300_000)).toBe(300_000)
+    // No chosen interval, so opening does not re-ask every provider.
+    expect(catalogStaleTimeMs(0)).toBe(DEFAULT_CATALOG_REFRESH_MS)
   })
 })

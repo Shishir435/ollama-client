@@ -1543,6 +1543,8 @@
         "description": "Wie oft ein geöffnetes Panel die Modelllisten der Anbieter erneut abruft. Beim Herunterladen, Löschen oder Bearbeiten eines Anbieters wird ohnehin sofort aktualisiert; dies erfasst nur einen Anbieter, der während des Zusehens auftaucht oder verschwindet. Niedrigere Werte bedeuten mehr Anfragen an entfernte Anbieter.",
         "options": {
           "0": "Aus",
+          "10000": "Alle 10 Sekunden",
+          "20000": "Alle 20 Sekunden",
           "30000": "Alle 30 Sekunden",
           "60000": "Jede Minute",
           "120000": "Alle 2 Minuten",

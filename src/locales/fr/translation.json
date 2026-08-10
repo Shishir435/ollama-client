@@ -1543,6 +1543,8 @@
         "description": "À quelle fréquence un panneau ouvert redemande leurs listes de modèles aux fournisseurs. Télécharger, supprimer ou modifier un fournisseur l'actualise immédiatement de toute façon ; ceci ne capte qu'un fournisseur qui apparaît ou disparaît sous vos yeux. Des valeurs plus faibles signifient plus de requêtes vers les fournisseurs distants.",
         "options": {
           "0": "Désactivé",
+          "10000": "Toutes les 10 secondes",
+          "20000": "Toutes les 20 secondes",
           "30000": "Toutes les 30 secondes",
           "60000": "Chaque minute",
           "120000": "Toutes les 2 minutes",
