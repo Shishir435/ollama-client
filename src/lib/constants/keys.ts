@@ -140,7 +140,10 @@ export const STORAGE_KEYS = {
     // Favicons already fetched, as data URIs, keyed by provider id and
     // fingerprinted by base URL. Device-local: the base URL points at a
     // different server per device.
-    FAVICON_CACHE: "provider-favicon-cache"
+    FAVICON_CACHE: "provider-favicon-cache",
+    // How often, in milliseconds, an open surface re-asks its providers for
+    // their model catalogs. 0 turns the poll off.
+    CATALOG_REFRESH_MS: "provider-catalog-refresh-ms"
   },
   THEME: {
     PREFERENCE: "light-dark-theme"

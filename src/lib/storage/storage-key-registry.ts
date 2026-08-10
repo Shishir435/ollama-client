@@ -120,6 +120,11 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     scope: "device-local",
     reason: "Device-scoped icons, too large for the sync quota."
   },
+  [STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS]: {
+    key: STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS,
+    scope: "sync-safe",
+    reason: "Network-frequency preference; should follow the user."
+  },
   [STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES]: {
     key: STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES,
     scope: "sync-safe",

@@ -1537,6 +1537,17 @@
       "icon_lookup": {
         "label": "Afficher les icônes de site des fournisseurs",
         "description": "Demande son icône à un fournisseur non reconnu, pour mieux le distinguer. Seule l'adresse du fournisseur est contactée — ainsi que son site principal si cette adresse n'a pas d'icône — jamais un service d'icônes tiers. Les fournisseurs dotés d'un logo intégré ne sont jamais sollicités."
+      },
+      "catalog_refresh": {
+        "label": "Actualisation de la liste des modèles",
+        "description": "À quelle fréquence un panneau ouvert redemande leurs listes de modèles aux fournisseurs. Télécharger, supprimer ou modifier un fournisseur l'actualise immédiatement de toute façon ; ceci ne capte qu'un fournisseur qui apparaît ou disparaît sous vos yeux. Des valeurs plus faibles signifient plus de requêtes vers les fournisseurs distants.",
+        "options": {
+          "0": "Désactivé",
+          "30000": "Toutes les 30 secondes",
+          "60000": "Chaque minute",
+          "120000": "Toutes les 2 minutes",
+          "300000": "Toutes les 5 minutes"
+        }
       }
     },
     "migration": {

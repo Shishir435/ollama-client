@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { StatusCallout } from "@/components/feedback"
 import { FieldStack, InlineActions, SectionStack } from "@/components/layout"
-import { SettingsSwitch } from "@/components/settings"
+import { SettingsSelectField, SettingsSwitch } from "@/components/settings"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,12 +26,18 @@ import {
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
+import { SelectItem } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { AddProviderDialog } from "@/features/model/components/add-provider-dialog"
 import { ProviderConnectionFields } from "@/features/model/components/provider-connection-fields"
 import { ProviderCustomModels } from "@/features/model/components/provider-custom-models"
 import { ProviderGrid } from "@/features/model/components/provider-grid"
 import { useProviderSettingsState } from "@/features/model/hooks/use-provider-settings-state"
+import {
+  CATALOG_REFRESH_CHOICES_MS,
+  DEFAULT_CATALOG_REFRESH_MS,
+  normalizeCatalogRefreshMs
+} from "@/features/model/lib/catalog-refresh"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { isBetaProvider } from "@/lib/providers/registry"
@@ -71,6 +77,13 @@ export const ProviderSettings = () => {
     },
     true
   )
+  const [catalogRefreshMs, setCatalogRefreshMs] = useStorage<number>(
+    {
+      key: STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_CATALOG_REFRESH_MS
+  )
   const [pendingRemoval, setPendingRemoval] = useState<{
     id: string
     name: string
@@ -104,6 +117,22 @@ export const ProviderSettings = () => {
         checked={iconLookup}
         onCheckedChange={setIconLookup}
       />
+
+      <SettingsSelectField
+        id="provider-catalog-refresh"
+        focusId="provider-catalog-refresh"
+        label={t("settings.providers.catalog_refresh.label")}
+        description={t("settings.providers.catalog_refresh.description")}
+        value={String(catalogRefreshMs)}
+        onValueChange={(next) =>
+          setCatalogRefreshMs(normalizeCatalogRefreshMs(Number(next)))
+        }>
+        {CATALOG_REFRESH_CHOICES_MS.map((option) => (
+          <SelectItem key={option} value={String(option)}>
+            {t(`settings.providers.catalog_refresh.options.${option}`)}
+          </SelectItem>
+        ))}
+      </SettingsSelectField>
 
       <AddProviderDialog
         open={addOpen}

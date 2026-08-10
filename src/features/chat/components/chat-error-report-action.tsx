@@ -90,7 +90,7 @@ export const ChatErrorReportAction = ({
   const { t } = useTranslation()
   const { toast } = useToast()
   const [preparing, setPreparing] = useState(false)
-  const [diagnosticsPreparing, setDiagnosticsPreparing] = useState(true)
+  const [diagnosticsPreparing, setDiagnosticsPreparing] = useState(false)
   const [copied, setCopied] = useState(false)
   const [recoveryBusy, setRecoveryBusy] = useState(false)
   const diagnosticsPromise = useRef<
@@ -107,6 +107,16 @@ export const ChatErrorReportAction = ({
     []
   )
 
+  /**
+   * Collect the support bundle once per mounted error bubble.
+   *
+   * Deliberately not started on mount. The bundle runs the whole diagnostic
+   * suite behind it — a storage write probe, a SQLite transaction, message and
+   * vector counts, and a provider catalog request — and this component mounts
+   * for every failed message, on every sidepanel open and on every pass of the
+   * virtualized list. That is a lot of work, some of it over the network, for a
+   * button most sessions never press.
+   */
   const loadDiagnostics = useCallback(() => {
     diagnosticsPromise.current ??= extensionRpcClient
       .call(RpcMethod.DiagnosticsGetBundle, { sessionId })
@@ -115,14 +125,15 @@ export const ChatErrorReportAction = ({
     return diagnosticsPromise.current
   }, [sessionId])
 
-  useEffect(() => {
-    let mounted = true
-    void loadDiagnostics().finally(() => {
-      if (mounted) setDiagnosticsPreparing(false)
-    })
-    return () => {
-      mounted = false
-    }
+  /**
+   * Start collecting when the pointer or focus arrives, so the click itself
+   * usually has the bundle already. `clipboard.writeText` needs the click's
+   * transient activation, which a slow collection started on click could
+   * outlive.
+   */
+  const prefetchDiagnostics = useCallback(() => {
+    if (diagnosticsPromise.current) return
+    void loadDiagnostics()
   }, [loadDiagnostics])
 
   /**
@@ -261,6 +272,7 @@ export const ChatErrorReportAction = ({
   }
 
   const copyDiagnostics = async () => {
+    setDiagnosticsPreparing(true)
     try {
       const bundle = await loadDiagnostics()
       if (!bundle) throw new Error("Diagnostic bundle unavailable")
@@ -279,6 +291,8 @@ export const ChatErrorReportAction = ({
         title: t("chat.errors.diagnostics_copy_failed_title"),
         description: t("chat.errors.diagnostics_copy_failed_description")
       })
+    } finally {
+      setDiagnosticsPreparing(false)
     }
   }
 
@@ -317,6 +331,8 @@ export const ChatErrorReportAction = ({
           size="sm"
           className={supportChipCls}
           disabled={diagnosticsPreparing}
+          onPointerEnter={prefetchDiagnostics}
+          onFocus={prefetchDiagnostics}
           onClick={() => void copyDiagnostics()}>
           {diagnosticsPreparing ? (
             <Loader2 className="icon-xs shrink-0 animate-spin" />
@@ -339,6 +355,8 @@ export const ChatErrorReportAction = ({
             "border-border/25 bg-transparent text-muted-foreground hover:bg-muted/35 hover:text-foreground"
           )}
           disabled={preparing}
+          onPointerEnter={prefetchDiagnostics}
+          onFocus={prefetchDiagnostics}
           onClick={() => void openIssue()}>
           {preparing ? (
             <Loader2 className="icon-xs shrink-0 animate-spin" />

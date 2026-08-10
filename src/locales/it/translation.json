@@ -1537,6 +1537,17 @@
       "icon_lookup": {
         "label": "Mostra le icone del sito dei provider",
         "description": "Chiede l'icona a un provider non riconosciuto, così è più facile distinguerlo. Viene contattato solo l'indirizzo del provider — e il suo sito principale se quell'indirizzo non ha un'icona — mai un servizio di icone di terze parti. Ai provider con un logo integrato non viene mai chiesto."
+      },
+      "catalog_refresh": {
+        "label": "Aggiornamento dell'elenco dei modelli",
+        "description": "Con quale frequenza un pannello aperto richiede ai provider i loro elenchi di modelli. Scaricare, eliminare o modificare un provider lo aggiorna comunque subito, quindi questo intercetta solo un provider che compare o sparisce mentre guardi. Valori più bassi significano più richieste ai provider remoti.",
+        "options": {
+          "0": "Disattivato",
+          "30000": "Ogni 30 secondi",
+          "60000": "Ogni minuto",
+          "120000": "Ogni 2 minuti",
+          "300000": "Ogni 5 minuti"
+        }
       }
     },
     "migration": {

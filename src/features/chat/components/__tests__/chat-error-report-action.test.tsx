@@ -23,7 +23,7 @@ vi.mock("@/protocol/extension-client", () => ({
 }))
 
 describe("ChatErrorReportAction", () => {
-  it("runs safe diagnostics automatically and includes incident data", async () => {
+  it("collects safe diagnostics only when asked, and includes incident data", async () => {
     ;(extensionRpcClient.call as any).mockImplementation(
       async (method: RpcMethod) => {
         if (method === RpcMethod.ProvidersListModels) {
@@ -93,14 +93,19 @@ describe("ChatErrorReportAction", () => {
       />
     )
 
+    // The bundle runs the whole diagnostic suite, so mounting a failed message
+    // must not start it.
+    expect(extensionRpcClient.call).not.toHaveBeenCalled()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.open_issue" })
+    )
+
     await waitFor(() =>
       expect(extensionRpcClient.call).toHaveBeenCalledWith(
         RpcMethod.DiagnosticsGetBundle,
         { sessionId: "session-123" }
       )
-    )
-    fireEvent.click(
-      screen.getByRole("button", { name: "chat.errors.open_issue" })
     )
 
     await waitFor(() => expect(openExternalUrl).toHaveBeenCalledOnce())

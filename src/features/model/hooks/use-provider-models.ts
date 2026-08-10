@@ -34,6 +34,11 @@ import {
 import { queryKeys } from "@/lib/query-keys"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import type { SelectedModelRef } from "@/types"
+import {
+  catalogStaleTimeMs,
+  DEFAULT_CATALOG_REFRESH_MS,
+  normalizeCatalogRefreshMs
+} from "../lib/catalog-refresh"
 import { isEmbeddingModel } from "../lib/model-utils"
 
 /**
@@ -146,6 +151,14 @@ export const useProviderModels = () => {
     { key: ProviderStorageKey.CONFIG, instance: plasmoGlobalStorage },
     []
   )
+  const [storedCatalogRefreshMs] = useStorage<number>(
+    {
+      key: STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_CATALOG_REFRESH_MS
+  )
+  const catalogRefreshMs = normalizeCatalogRefreshMs(storedCatalogRefreshMs)
 
   /*
    * Who to ask, from the background rather than from `providerConfig` directly:
@@ -190,8 +203,16 @@ export const useProviderModels = () => {
         extensionRpcClient.call(RpcMethod.ProvidersListModels, {
           providerId: provider.id
         }),
-      // 30-second stale time; the list rarely changes mid-session.
-      staleTime: 1000 * 30
+      /*
+       * The catalog rarely changes mid-session, and the changes that matter —
+       * a pull, a delete, a configuration edit — invalidate this query
+       * directly. The poll is only here to notice a provider that came up or
+       * went away while a surface is open, so it runs on the user's interval
+       * and, unlike the interval it replaces, not while the surface is hidden.
+       */
+      staleTime: catalogStaleTimeMs(catalogRefreshMs),
+      refetchInterval:
+        catalogRefreshMs > 0 ? catalogRefreshMs : (false as const)
     })),
     combine: combineProviderModels
   })
