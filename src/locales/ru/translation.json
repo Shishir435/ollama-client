@@ -1943,7 +1943,8 @@
       "provider_discovery": "Provider and model discovery",
       "migration": "Persistence migration",
       "dnr_rules": "Local provider CORS rule",
-      "turn_checkpoint": "Turn recovery checkpoints"
+      "turn_checkpoint": "Turn recovery checkpoints",
+      "turn_retention": "Durable turn retention"
     }
   },
   "onboarding": {

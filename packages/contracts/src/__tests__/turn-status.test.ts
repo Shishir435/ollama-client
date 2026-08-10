@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
   canTransitionTurnStatus,
+  compactedTurnRequest,
+  isCompactedTurnRequest,
   isTerminalTurnStatus,
   RESUMABLE_TURN_STATUSES,
   TERMINAL_TURN_STATUSES,
@@ -74,5 +76,35 @@ describe("turn lifecycle states", () => {
     for (const from of TURN_STATUSES as readonly TurnStatus[]) {
       expect(canTransitionTurnStatus(from, "submitted")).toBe(false)
     }
+  })
+})
+
+describe("compacted turn request", () => {
+  it("round-trips its own marker and rejects a resumable request", () => {
+    const marker = compactedTurnRequest(1_700_000_000_000)
+    expect(isCompactedTurnRequest(marker)).toBe(true)
+    expect(isCompactedTurnRequest(JSON.parse(JSON.stringify(marker)))).toBe(
+      true
+    )
+
+    // The shape it replaces must never be mistaken for the replacement, or a
+    // live turn would be treated as already settled.
+    expect(
+      isCompactedTurnRequest({
+        version: 1,
+        context: { rawInput: "hi" },
+        userMessage: { role: "user", content: "hi" }
+      })
+    ).toBe(false)
+    expect(isCompactedTurnRequest(undefined)).toBe(false)
+    expect(isCompactedTurnRequest({ version: 1, compacted: false })).toBe(false)
+  })
+
+  it("serializes with the prefix the storage statistic matches on", () => {
+    // `turn-runs.ts` counts uncompacted settled rows with a LIKE against these
+    // exact leading bytes; a reordered key would silently zero that statistic.
+    expect(JSON.stringify(compactedTurnRequest(7))).toBe(
+      '{"version":1,"compacted":true,"compactedAt":7}'
+    )
   })
 })

@@ -1,6 +1,6 @@
 # Release Roadmap
 
-Last reviewed: 2026-08-10
+Last reviewed: 2026-08-11
 
 This file tracks unfinished release and product work. Completed implementation
 history belongs in the changelog and merged pull requests, while durable
@@ -49,10 +49,9 @@ release usable and establish the tests required by its successor.
 1. ~~**Persistence trust boundary (H0 + H1)**~~ — landed in #253.
 2. ~~**Persistence readiness (H2)**~~ — landed in #255.
 3. ~~**Durable turn lifecycle (H3)**~~ — landed.
-4. **Durable turn retention (H4):** compact terminal requests and migrate/prune
-   retained rows after PR 3 makes terminal transitions authoritative.
+4. ~~**Durable turn retention (H4)**~~ — landed.
 5. **Provider discovery policy (H5):** extract the single discovery service.
-   This may run beside PRs 3–4.
+   This may run at any point before PR 8.
 6. **Durable turn composition (H6):** split observer, generation, and recovery
    adapters only after lifecycle and retention behavior is stable.
 7. **Boundary type/error closure (H7):** decode durable rows, split contract
@@ -61,53 +60,13 @@ release usable and establish the tests required by its successor.
    soak evidence, update release documentation, and promote only when the 9+/10
    criteria pass.
 
-Critical path: **PR 4 → PR 6 → PR 7 → PR 8**. PR 5 may merge at any time, but
-must land before PR 8.
-
-### H4 — Bound durable turn storage and privacy retention
-
-Scope: M–L. Behavior change: terminal runs retain a compact receipt instead of
-the complete resumable request. Dependencies: none outstanding.
-
-Affected modules:
-
-- `packages/contracts/src/context.ts`
-- `packages/contracts/src/turns.ts`
-- `src/lib/repositories/turn-runs.ts`
-- `src/lib/sqlite/schema.ts`
-- `src/lib/sqlite/migrations/`
-- `src/lib/diagnostics/diagnostics-service.ts`
-
-Work:
-
-- Separate resumable live-turn input from terminal lifecycle receipt. Live rows
-  may retain data required to resume; terminal rows must clear or compact prior
-  messages, extracted file text, page context, and tab-document bodies.
-- Prefer canonical message/file IDs and bounded evidence over copied content
-  where restart correctness permits it. Do not make recovery depend on mutable
-  UI or Zustand state.
-- Define retention for completed, failed, cancelled, and quarantined runs.
-  Keep enough evidence for diagnostics and replay without permanent duplicate
-  conversation payloads.
-- Add a forward-only migration and backward-compatible parser. Preserve live
-  rows created by an older `0.13.0` prerelease until they reach a terminal state.
-- Add diagnostics for live/terminal run counts, total bytes, largest row, and
-  compaction failures without exposing message or page content.
-- Test long conversations, image/file attachments, full tab context, failed
-  turns, cancellation, backup export/import, and session cascade deletion.
-
-Exit gate:
-
-- Terminal turn storage grows O(turn count), not O(conversation length²).
-- Terminal rows contain no full copied page/file body unless a documented,
-  bounded recovery requirement proves it necessary.
-- Backup size and restore behavior remain within measured release budgets.
+Critical path: **PR 6 → PR 7 → PR 8**. PR 5 may merge at any time, but must
+land before PR 8.
 
 ### H5 — Centralize provider discovery policy
 
 Scope: S–M. Behavior change: tool capability resolution honors remembered
-catalog absence and real discovery failures. Dependencies: none outstanding;
-may run beside H3/H4.
+catalog absence and real discovery failures. Dependencies: none outstanding.
 
 Affected modules:
 
@@ -138,7 +97,7 @@ Exit gate:
 
 ### H6 — Split the durable-turn composition hub
 
-Scope: M. Behavior change: none. Dependencies: H4.
+Scope: M. Behavior change: none. Dependencies: none outstanding.
 
 Affected module: `src/background/durable-turn-runtime.ts`.
 
@@ -165,7 +124,7 @@ Exit gate:
 ### H7 — Close medium-risk type and error gaps
 
 Scope: M. Behavior change: invalid state/data fails explicitly. Dependencies:
-H4–H6.
+H5–H6.
 
 - Replace unchecked SQLite row-array assertions for durable job repositories
   with shared row decoders or local Zod schemas at query boundaries.
@@ -187,7 +146,7 @@ Exit gate:
 
 ### H8 — Release verification and 9+/10 gate
 
-Scope: M. Behavior change: none. Dependencies: H4–H7.
+Scope: M. Behavior change: none. Dependencies: H5–H7.
 
 Required automated gates:
 

@@ -164,3 +164,50 @@ export type PersistedTurnRequestParsed = z.infer<
 export const parsePersistedTurnRequest = (
   value: unknown
 ): PersistedTurnRequestParsed => PersistedTurnRequestSchema.parse(value)
+
+/**
+ * What a settled turn keeps where its resumable input used to be.
+ *
+ * A live turn stores everything a restart needs to reissue it: the whole prior
+ * conversation, extracted file text, and captured page bodies. That is correct
+ * while the turn can still be resumed and indefensible once it cannot — every
+ * turn would otherwise leave a permanent second copy of the conversation as it
+ * stood at that moment, so a chat of n turns costs O(n²) bytes and keeps page
+ * and file text long after the feature that captured it finished with it.
+ *
+ * Nothing replaces it, because nothing needs to. A terminal row's evidence is
+ * the bounded `contextReceipt` beside it, the canonical message rows it points
+ * at, and its recorded failure. This marker exists only so the column stays
+ * non-null and a reader can tell a compacted row from a corrupt one.
+ */
+export const CompactedTurnRequestSchema = z.object({
+  version: z.literal(1),
+  compacted: z.literal(true),
+  compactedAt: z.number().int().nonnegative()
+})
+
+/** A terminal turn's request placeholder. @see CompactedTurnRequestSchema */
+export type CompactedTurnRequest = z.infer<typeof CompactedTurnRequestSchema>
+
+/** Build the placeholder written when a turn reaches a terminal state. */
+export const compactedTurnRequest = (
+  compactedAt: number
+): CompactedTurnRequest => ({
+  version: 1,
+  compacted: true,
+  compactedAt
+})
+
+/**
+ * Whether a stored request has been compacted rather than corrupted.
+ *
+ * The distinction matters to recovery: an unreadable resumable row is
+ * quarantined, while a compacted one is simply a turn that already ended. By
+ * construction the two never overlap — compaction happens in the same write
+ * that moves the row to a terminal state — so a resumable row carrying this
+ * marker is a real inconsistency and is treated as unreadable.
+ */
+export const isCompactedTurnRequest = (
+  value: unknown
+): value is CompactedTurnRequest =>
+  CompactedTurnRequestSchema.safeParse(value).success

@@ -3,8 +3,13 @@ import {
   AppFailureSchema
 } from "@ollama-client/contracts/app-failure"
 import {
+  type ContextReceipt,
   ContextReceiptSchema,
+  compactedTurnRequest,
+  isCompactedTurnRequest,
+  isTerminalTurnStatus,
   RESUMABLE_TURN_STATUSES,
+  TERMINAL_TURN_STATUSES,
   TURN_STATUS_PREDECESSORS,
   TurnModeSchema,
   type TurnStatus,
@@ -34,6 +39,23 @@ interface TurnRunRow {
   updatedAt: number
 }
 
+const safeJson = (value: string): unknown => {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return undefined
+  }
+}
+
+const parseFailure = (value: string | null): AppFailure | undefined => {
+  if (!value) return undefined
+  try {
+    return AppFailureSchema.parse(JSON.parse(value))
+  } catch {
+    return { status: 0, message: value, kind: "unknown" as const }
+  }
+}
+
 const parseRow = (row: TurnRunRow): DurableTurnRun | null => {
   try {
     const mode = TurnModeSchema.parse(row.mode)
@@ -42,19 +64,7 @@ const parseRow = (row: TurnRunRow): DurableTurnRun | null => {
       ? ContextReceiptSchema.parse(JSON.parse(row.contextReceipt))
       : undefined
 
-    const failure = row.failure
-      ? (() => {
-          try {
-            return AppFailureSchema.parse(JSON.parse(row.failure))
-          } catch {
-            return {
-              status: 0,
-              message: row.failure,
-              kind: "unknown" as const
-            }
-          }
-        })()
-      : undefined
+    const failure = parseFailure(row.failure)
 
     return {
       id: row.id,
@@ -97,23 +107,97 @@ export const createTurnRun = async (
   await flushSave()
 }
 
+/**
+ * A turn's lifecycle state without the input that produced it.
+ *
+ * Readers that only need to know how a turn ended — the reconnect snapshot,
+ * diagnostics — get this. A terminal row no longer stores its request at all,
+ * so a shape that demanded one would report every settled turn as missing.
+ */
+export interface TurnLifecycleRecord {
+  id: string
+  sessionId: string
+  status: TurnStatus
+  model: string
+  providerId?: string
+  userMessageId?: number
+  assistantMessageId?: number
+  contextReceipt?: ContextReceipt
+  failure?: AppFailure
+  createdAt: number
+  updatedAt: number
+}
+
 export const getTurnRun = async (
   id: string
-): Promise<DurableTurnRun | null> => {
+): Promise<TurnLifecycleRecord | null> => {
   const rows = (await query(
-    `SELECT id, sessionId, mode, model, providerId, status, request,
-            contextReceipt, userMessageId, assistantMessageId, failure,
-            createdAt, updatedAt
+    `SELECT id, sessionId, model, providerId, status, contextReceipt,
+            userMessageId, assistantMessageId, failure, createdAt, updatedAt
        FROM turn_runs
       WHERE id = ?`,
     [id]
-  )) as unknown as TurnRunRow[]
-  return rows[0] ? parseRow(rows[0]) : null
+  )) as unknown as Array<Omit<TurnRunRow, "mode" | "request">>
+  const row = rows[0]
+  if (!row) return null
+
+  const status = TurnStatusSchema.safeParse(row.status)
+  if (!status.success) return null
+
+  let receipt: ContextReceipt | undefined
+  try {
+    receipt = row.contextReceipt
+      ? ContextReceiptSchema.parse(JSON.parse(row.contextReceipt))
+      : undefined
+  } catch {
+    // A receipt is evidence, not state. Losing it must not hide the status the
+    // reconnecting panel is waiting for.
+    receipt = undefined
+  }
+
+  return {
+    id: row.id,
+    sessionId: row.sessionId,
+    status: status.data,
+    model: row.model,
+    providerId: row.providerId ?? undefined,
+    userMessageId: row.userMessageId ?? undefined,
+    assistantMessageId: row.assistantMessageId ?? undefined,
+    contextReceipt: receipt,
+    failure: parseFailure(row.failure),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  }
 }
 
 const RESUMABLE_STATUS_LIST = RESUMABLE_TURN_STATUSES.map(
   (status) => `'${status}'`
 ).join(", ")
+
+const TERMINAL_STATUS_LIST = TERMINAL_TURN_STATUSES.map(
+  (status) => `'${status}'`
+).join(", ")
+
+/**
+ * The request column's value once a turn can no longer be resumed.
+ *
+ * Always written in the same statement as the terminal status, never after it.
+ * A separate compaction pass would be a second write that a dying worker can
+ * skip, and the row it skipped is exactly the one nothing updates again.
+ */
+const compactedRequestValue = (): string =>
+  JSON.stringify(compactedTurnRequest(Date.now()))
+
+/**
+ * Matches a compacted request by its exact leading bytes.
+ *
+ * A substring search for `"compacted":true` would also match a conversation
+ * that happened to contain that text, and the whole point of the statistic is
+ * to catch rows the compaction path missed. Both writers — this module and the
+ * migration — emit these keys in this order, so the prefix is exact, while a
+ * resumable request begins `{"version":1,"context":`.
+ */
+const COMPACTED_REQUEST_PREFIX = '{"version":1,"compacted":true,%'
 
 /**
  * Fail a row nothing can read.
@@ -129,7 +213,8 @@ const quarantineTurnRun = async (id: string, reason: string): Promise<void> => {
     reason
   })
   await run(
-    `UPDATE turn_runs SET status = 'failed', failure = ?, updatedAt = ?
+    `UPDATE turn_runs
+        SET status = 'failed', failure = ?, request = ?, updatedAt = ?
       WHERE id = ? AND status IN (${RESUMABLE_STATUS_LIST}, 'cancelling')`,
     [
       JSON.stringify({
@@ -137,6 +222,7 @@ const quarantineTurnRun = async (id: string, reason: string): Promise<void> => {
         kind: "storage",
         message: `Durable turn record could not be read: ${reason}`
       }),
+      compactedRequestValue(),
       Date.now(),
       id
     ]
@@ -160,9 +246,14 @@ export const getIncompleteTurnRuns = async (): Promise<DurableTurnRun[]> => {
       resumable.push(parsed)
       continue
     }
-    await quarantineTurnRun(row.id, "unreadable turn record").catch(
-      () => undefined
-    )
+    // A resumable row whose request is already compacted is an inconsistency,
+    // not corruption — compaction only ever accompanies a terminal write — but
+    // it is just as unresumable, so it settles the same way with a reason that
+    // does not misreport the cause.
+    const reason = isCompactedTurnRequest(safeJson(row.request))
+      ? "resumable turn record was already compacted"
+      : "unreadable turn record"
+    await quarantineTurnRun(row.id, reason).catch(() => undefined)
   }
   return resumable
 }
@@ -225,9 +316,9 @@ export const getInterruptedCancellations = async (): Promise<
  */
 export const finalizeCancelledTurn = async (id: string): Promise<boolean> => {
   const result = await runWithMeta(
-    `UPDATE turn_runs SET status = 'cancelled', updatedAt = ?
+    `UPDATE turn_runs SET status = 'cancelled', request = ?, updatedAt = ?
       WHERE id = ? AND status = 'cancelling'`,
-    [Date.now(), id]
+    [compactedRequestValue(), Date.now(), id]
   )
   if (result.changes > 0) await flushSave()
   return result.changes > 0
@@ -262,6 +353,12 @@ export const updateTurnRun = async (
   if (updates.status) {
     fields.push("status = ?")
     values.push(updates.status)
+    // Compacted in the transition itself, so the row that stops being
+    // resumable stops carrying resumable data at the same instant.
+    if (isTerminalTurnStatus(updates.status)) {
+      fields.push("request = ?")
+      values.push(compactedRequestValue())
+    }
   }
   if (updates.contextReceipt) {
     fields.push("contextReceipt = ?")
@@ -309,4 +406,99 @@ export const updateTurnRun = async (
   }
   await flushSave()
   return true
+}
+
+/** Default retention for settled turns: a month of lifecycle receipts. */
+export const TERMINAL_TURN_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
+
+/**
+ * Drop lifecycle receipts nobody can still act on.
+ *
+ * Compaction bounds what a settled turn costs; this bounds how many of them
+ * accumulate. Deleting a receipt removes no conversation — the messages it
+ * points at are their own rows and outlive it — so the only thing lost is the
+ * ability to explain a turn that ended a month ago.
+ *
+ * Live rows are excluded by status rather than by age: a turn interrupted by a
+ * browser that stayed closed for five weeks is still resumable, and recovery,
+ * not a retention sweep, decides what becomes of it.
+ */
+export const pruneTerminalTurnRuns = async (
+  olderThan = Date.now() - TERMINAL_TURN_RETENTION_MS
+): Promise<number> => {
+  const result = await runWithMeta(
+    `DELETE FROM turn_runs
+      WHERE status IN (${TERMINAL_STATUS_LIST}) AND updatedAt < ?`,
+    [olderThan]
+  )
+  if (result.changes > 0) {
+    logger.info("Pruned settled durable turn receipts", "TurnRuns", {
+      count: result.changes
+    })
+    await flushSave()
+  }
+  return result.changes
+}
+
+/** Size and lifecycle counts for `turn_runs`, naming no stored content. */
+export interface TurnStorageStats {
+  liveRuns: number
+  terminalRuns: number
+  /** Terminal rows still holding a pre-compaction request payload. */
+  uncompactedTerminalRuns: number
+  totalRequestBytes: number
+  largestRequestBytes: number
+}
+
+/**
+ * Measure what durable turns cost, without reading what they contain.
+ *
+ * Every value is a count or a byte length. `uncompactedTerminalRuns` is the
+ * number that matters after an upgrade: it should be zero, and a non-zero one
+ * means the migration did not reach rows the compaction path also never
+ * revisits.
+ */
+export const getTurnStorageStats = async (): Promise<TurnStorageStats> => {
+  const rows = (await query(
+    `SELECT status,
+            COUNT(*) AS runs,
+            SUM(LENGTH(CAST(request AS BLOB))) AS totalBytes,
+            MAX(LENGTH(CAST(request AS BLOB))) AS largestBytes,
+            SUM(CASE WHEN request LIKE ? THEN 0 ELSE 1 END) AS uncompacted
+       FROM turn_runs
+      GROUP BY status`,
+    [COMPACTED_REQUEST_PREFIX]
+  )) as unknown as Array<{
+    status: string
+    runs: number | null
+    totalBytes: number | null
+    largestBytes: number | null
+    uncompacted: number | null
+  }>
+
+  const stats: TurnStorageStats = {
+    liveRuns: 0,
+    terminalRuns: 0,
+    uncompactedTerminalRuns: 0,
+    totalRequestBytes: 0,
+    largestRequestBytes: 0
+  }
+
+  for (const row of rows) {
+    const runs = Number(row.runs ?? 0)
+    stats.totalRequestBytes += Number(row.totalBytes ?? 0)
+    stats.largestRequestBytes = Math.max(
+      stats.largestRequestBytes,
+      Number(row.largestBytes ?? 0)
+    )
+    const parsed = TurnStatusSchema.safeParse(row.status)
+    if (parsed.success && isTerminalTurnStatus(parsed.data)) {
+      stats.terminalRuns += runs
+      stats.uncompactedTerminalRuns += Number(row.uncompacted ?? 0)
+      continue
+    }
+    stats.liveRuns += runs
+  }
+
+  return stats
 }
