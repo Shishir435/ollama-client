@@ -261,13 +261,19 @@ const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
 const WORKFLOW_STARTUP_CONCURRENCY = 2
 
 /**
- * Nothing at startup may wait forever.
+ * Nothing at startup may block the boot forever.
  *
  * Data-shape recovery runs in series because each step rewrites what the next
  * one reads, which also means a step that never settles takes every later step
- * and all four workflow recoveries with it. A deadline turns that into one
- * logged failure. Generous on purpose: these are one-shot boot tasks, and a
- * large migration is slow, not stuck.
+ * and all four workflow recoveries with it. The deadline unblocks the sequence.
+ * Generous on purpose: these are one-shot boot tasks, and a large migration is
+ * slow rather than stuck.
+ *
+ * It **abandons** the task; it does not cancel it. None of these operations
+ * accepts an `AbortSignal` today, so a timed-out migration keeps running
+ * alongside whatever starts next. That is still better than a boot where
+ * nothing after it runs at all, but it is a stopgap: threading cancellation
+ * through the startup tasks is tracked in `RELEASE_ROADMAP.md`.
  */
 const STARTUP_TASK_TIMEOUT_MS = 120_000
 
@@ -281,7 +287,7 @@ const withStartupDeadline = async (task: StartupTask): Promise<void> => {
           () =>
             reject(
               new Error(
-                `Startup task exceeded ${STARTUP_TASK_TIMEOUT_MS}ms: ${task.name}`
+                `Startup task abandoned after ${STARTUP_TASK_TIMEOUT_MS}ms and may still be running: ${task.name}`
               )
             ),
           STARTUP_TASK_TIMEOUT_MS

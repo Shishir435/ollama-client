@@ -229,13 +229,30 @@ describe("turn cancellation intent", () => {
   })
 
   it("finishes cancellations whose worker died mid-stop", async () => {
-    runWithMeta.mockResolvedValue({ changes: 2, lastInsertRowid: 0 })
+    query.mockResolvedValue([
+      { id: "turn-1", assistantMessageId: 7 },
+      { id: "turn-2", assistantMessageId: null }
+    ])
 
-    await expect(finalizeInterruptedCancellations()).resolves.toBe(2)
+    // The assistant rows come back with it: settling only the turn leaves a
+    // stopped response looking interrupted.
+    await expect(finalizeInterruptedCancellations()).resolves.toEqual([
+      { id: "turn-1", assistantMessageId: 7 },
+      { id: "turn-2", assistantMessageId: undefined }
+    ])
 
-    const [sql] = runWithMeta.mock.calls[0]
+    const [sql] = run.mock.calls[0]
     expect(sql).toContain("status = 'cancelled'")
     expect(sql).toContain("WHERE status = 'cancelling'")
+    expect(flushSave).toHaveBeenCalledTimes(1)
+  })
+
+  it("writes nothing when no cancellation was interrupted", async () => {
+    query.mockResolvedValue([])
+
+    await expect(finalizeInterruptedCancellations()).resolves.toEqual([])
+    expect(run).not.toHaveBeenCalled()
+    expect(flushSave).not.toHaveBeenCalled()
   })
 })
 

@@ -188,20 +188,42 @@ export const markTurnCancelling = async (id: string): Promise<boolean> => {
   return result.changes > 0
 }
 
+/** A turn settled by startup, and the assistant row still waiting on it. */
+export interface CancelledTurnRecord {
+  id: string
+  assistantMessageId?: number
+}
+
 /**
  * Settle cancellations whose worker died before they finished.
  *
  * Startup may finish what the stop started, but it must never reissue provider
  * work to do it — the user already said stop.
+ *
+ * Returns what it settled, because settling the turn row is only half of it:
+ * the assistant row is still `done = 0`, and a stopped response left unfinished
+ * reads as interrupted to the stale-message sweep, which then offers a retry
+ * for something the user deliberately cancelled.
  */
-export const finalizeInterruptedCancellations = async (): Promise<number> => {
-  const result = await runWithMeta(
+export const finalizeInterruptedCancellations = async (): Promise<
+  CancelledTurnRecord[]
+> => {
+  // Read first: the caller has to finish each assistant row too, and after the
+  // update there is nothing left to identify them by.
+  const rows = (await query(
+    "SELECT id, assistantMessageId FROM turn_runs WHERE status = 'cancelling'"
+  )) as unknown as Array<{ id: string; assistantMessageId: number | null }>
+  if (rows.length === 0) return []
+  await run(
     `UPDATE turn_runs SET status = 'cancelled', updatedAt = ?
       WHERE status = 'cancelling'`,
     [Date.now()]
   )
-  if (result.changes > 0) await flushSave()
-  return result.changes
+  await flushSave()
+  return rows.map((row) => ({
+    id: row.id,
+    assistantMessageId: row.assistantMessageId ?? undefined
+  }))
 }
 
 /**

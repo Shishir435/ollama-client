@@ -268,6 +268,16 @@ presentation, and durable command construction.
 - Keep React state and translated toast presentation in the hook.
 - Keep `use-chat.ts` as composition and wiring only.
 
+### Cancellable startup recovery
+
+Startup recovery tasks carry a deadline, but none of them accepts an
+`AbortSignal`, so a timed-out task is abandoned rather than stopped and keeps
+running beside the work that follows it.
+
+- Thread cancellation through backup-import recovery, provider migration, the
+  embedding-dimension migration, and durable workflow recovery.
+- Keep the deadline as the outer bound; make it cancel rather than abandon.
+
 ### Structured settings validation
 
 Raw `plasmoGlobalStorage` access remains widespread, while schema-backed

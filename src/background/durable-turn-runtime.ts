@@ -571,7 +571,7 @@ export const requestDurableTurnStop = async (
 
 export const resumeIncompleteTurnRuns = async (): Promise<void> => {
   // Cancellations whose worker died mid-stop are finished here, not resumed:
-  // the user already said stop, so this settles the row and issues nothing.
+  // the user already said stop, so this settles the rows and issues nothing.
   const finalized = await finalizeInterruptedCancellations().catch((error) => {
     logger.error(
       "Failed to finalize interrupted cancellations",
@@ -580,11 +580,24 @@ export const resumeIncompleteTurnRuns = async (): Promise<void> => {
         error
       }
     )
-    return 0
+    return []
   })
-  if (finalized > 0) {
+  for (const cancelled of finalized) {
+    if (cancelled.assistantMessageId === undefined) continue
+    // Settling the turn row is only half of it. The assistant is still
+    // `done = 0`, which reads as interrupted rather than stopped — the stale
+    // message sweep would then offer a retry for a response the user cancelled.
+    await updateMessage(cancelled.assistantMessageId, { done: true }).catch(
+      (error) =>
+        logger.error("Failed to finish a cancelled assistant", "BackgroundSW", {
+          turnId: cancelled.id,
+          error
+        })
+    )
+  }
+  if (finalized.length > 0) {
     logger.info("Finalized interrupted turn cancellations", "BackgroundSW", {
-      count: finalized
+      count: finalized.length
     })
   }
   const turns = await getIncompleteTurnRuns()

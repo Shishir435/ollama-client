@@ -124,7 +124,7 @@ beforeEach(() => {
     return true
   })
   mocks.markTurnCancelling.mockResolvedValue(true)
-  mocks.finalizeInterruptedCancellations.mockResolvedValue(0)
+  mocks.finalizeInterruptedCancellations.mockResolvedValue([])
   mocks.contextBuild.mockImplementation(async () => {
     mocks.order.push("context")
     return {
@@ -521,7 +521,7 @@ describe("durable turn cancellation", () => {
     const order: string[] = []
     mocks.finalizeInterruptedCancellations.mockImplementation(async () => {
       order.push("finalize")
-      return 1
+      return []
     })
     mocks.getIncompleteTurnRuns.mockImplementation(async () => {
       order.push("read-resumable")
@@ -534,5 +534,38 @@ describe("durable turn cancellation", () => {
     await resumeIncompleteTurnRuns()
 
     expect(order).toEqual(["finalize", "read-resumable"])
+  })
+})
+
+describe("interrupted cancellation recovery", () => {
+  it("finishes the assistant of a turn it settles", async () => {
+    mocks.finalizeInterruptedCancellations.mockResolvedValue([
+      { id: "turn-1", assistantMessageId: 7 },
+      { id: "turn-2", assistantMessageId: undefined }
+    ])
+    mocks.getIncompleteTurnRuns.mockResolvedValue([])
+    const { resumeIncompleteTurnRuns } = await import(
+      "@/background/durable-turn-runtime"
+    )
+
+    await resumeIncompleteTurnRuns()
+
+    // Otherwise the stopped response stays done = 0 and the stale-message
+    // sweep offers a retry for something the user cancelled.
+    expect(mocks.updateMessage).toHaveBeenCalledWith(7, { done: true })
+    expect(mocks.updateMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it("still resumes live turns when finishing an assistant fails", async () => {
+    mocks.finalizeInterruptedCancellations.mockResolvedValue([
+      { id: "turn-1", assistantMessageId: 7 }
+    ])
+    mocks.updateMessage.mockRejectedValueOnce(new Error("db gone"))
+    mocks.getIncompleteTurnRuns.mockResolvedValue([])
+    const { resumeIncompleteTurnRuns } = await import(
+      "@/background/durable-turn-runtime"
+    )
+
+    await expect(resumeIncompleteTurnRuns()).resolves.toBeUndefined()
   })
 })
