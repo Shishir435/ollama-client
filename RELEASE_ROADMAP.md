@@ -95,6 +95,28 @@ Required soak evidence on `preview`:
   migration, durable recovery, and compaction without recording chat/page/file
   contents or credentials.
 
+Firefox carries a small fraction of installs, so its manual pass is a spot
+check on top of `verify:firefox-opfs-migration`, which already drives the
+production path in real packaged Firefox. Two setup facts, because both fail
+silently rather than loudly and a soak that hits either records a pass for a
+scenario it never ran:
+
+- **A temporary add-on does not survive a browser restart.** Installing through
+  `about:debugging` is fine until a restart uninstalls it, and the restart
+  scenarios then exercise an absent extension. Use `web-ext run --source-dir
+  build/firefox-mv2-prod --firefox-profile <dir> --keep-profile-changes`.
+- **The origin has to stay stable.** OPFS and IndexedDB are keyed to
+  `moz-extension://<uuid>`, and Firefox mints a fresh UUID per install. A new
+  UUID gives an empty profile, which reads as "recovery found nothing" rather
+  than as a failure. Pin it with `extensions.webextensions.uuids`.
+
+`tools/verify-firefox-opfs-migration.ts` solves both and is the reference. The
+owner is the persistent background page — nothing to create, nothing to keep
+alive; inspect it at `about:debugging#/runtime/this-firefox`. To exercise the
+blob fallback by hand, set `persistence_legacy_override_v1` in device-local
+storage and reload; forcing a genuine verification failure means corrupting a
+blob, which is the automated runner's job, not a manual step.
+
 `0.13.0` earns the **9+/10** architecture rating only when:
 
 1. All Critical and High audit findings are fixed and regression-guarded.
