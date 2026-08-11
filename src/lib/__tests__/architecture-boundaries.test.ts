@@ -304,13 +304,20 @@ describe("architecture import boundaries", () => {
    * it gets none of that, which is how tool gating and the embedding check both
    * ended up re-asking a catalog-less gateway to 404 on a loop.
    *
-   * Provider implementations under `lib/providers/` are exempt: `super.getModels`
-   * is how a subclass falls back to its base wire format, not a policy bypass.
+   * Only two things are exempt, and neither is a directory: the policy owner
+   * itself, and `super.getModels` — a subclass falling back to its base wire
+   * format, which is one implementation delegating to another rather than a
+   * caller skipping the policy. Exempting all of `lib/providers/` would let a
+   * future provider-domain service reacquire the bypass unnoticed, which is the
+   * same shape as the two callers this rule was written for.
    */
   it("routes model discovery through the shared policy service", () => {
     const offenders = productionSources.filter((file) => {
-      if (file.startsWith("lib/providers/")) return false
-      const source = readFileSync(join(sourceRoot, file), "utf8")
+      if (file === "lib/providers/model-discovery.ts") return false
+      const source = readFileSync(join(sourceRoot, file), "utf8").replaceAll(
+        /\bsuper\.getModels\s*\(/g,
+        ""
+      )
       return /\.getModels\s*\(/.test(source)
     })
 

@@ -123,11 +123,13 @@ describe("useSemanticChatSearch", () => {
     // Start search without awaiting
     const searchPromise = result.current.search("test")
 
-    // Small delay to let state update
-    await new Promise((resolve) => setTimeout(resolve, 10))
-
-    // Now check if searching
-    expect(result.current.isSearching).toBe(true)
+    // Poll for the state change rather than sleeping a fixed 10ms: the flag is
+    // set by a React render, and a loaded CI runner can take longer than that
+    // to flush one. The embedding promise is still pending, so nothing can
+    // clear the flag before it is observed.
+    await waitFor(() => {
+      expect(result.current.isSearching).toBe(true)
+    })
 
     // Resolve the embedding
     resolveEmbedding({
