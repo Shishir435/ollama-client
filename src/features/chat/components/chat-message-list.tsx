@@ -181,6 +181,7 @@ export const ChatMessageList = ({
                 <ChatMessageBubble
                   msg={msg}
                   sessionId={sessionId}
+                  isBusy={isLoading || isStreaming}
                   isLoading={isLoading && isLastAssistantMessage}
                   isStreaming={isStreaming && isLastAssistantMessage}
                   showRetrievedChunks={showRetrievedChunks}

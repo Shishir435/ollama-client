@@ -188,6 +188,23 @@ describe("provider contracts", () => {
     }
   })
 
+  it("OpenAI-compatible providers reject malformed model catalogs", async () => {
+    const provider = new OpenAICompatibleProvider({
+      id: ProviderId.OPENAI,
+      name: "OpenAI",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "http://openai.test/v1"
+    })
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ data: [{ id: 42 }] }))
+
+    await expect(provider.getModels()).rejects.toMatchObject({
+      message: "Provider returned an invalid model catalog",
+      kind: "provider",
+      phase: "response"
+    })
+  })
+
   it("shares terminal SSE handling across compatible provider classes", async () => {
     const providers = [
       new OpenAICompatibleProvider({

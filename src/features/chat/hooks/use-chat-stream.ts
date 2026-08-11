@@ -35,6 +35,8 @@ interface StreamOptions {
   durableTurn?: DurableTurnStart & { assistantMessageId: number }
 }
 
+export type ChatStreamClaim = symbol
+
 export interface UseChatStreamProps {
   setMessages: (messages: ChatMessage[]) => void | Promise<void>
   setIsLoading: (v: boolean) => void
@@ -54,6 +56,7 @@ export const useChatStream = ({
   const { t } = useTranslation()
   const { toast } = useToast()
   const portRef = useRef<browser.Runtime.Port | null>(null)
+  const streamClaimRef = useRef<ChatStreamClaim | null>(null)
   const currentMessagesRef = useRef<ChatMessage[]>([])
   const currentRequestIdRef = useRef<string | null>(null)
   // The request id of a turn the user explicitly stopped. Lets the disconnect
@@ -67,15 +70,44 @@ export const useChatStream = ({
   // never runs on a manual stop and the row would otherwise stay `done=0`.
   const finalizeCleanRef = useRef<(() => void) | null>(null)
 
-  const startStream = ({
-    model,
-    providerId,
-    messages,
-    sessionId,
-    generatedMessage,
-    clientContextPrepared,
-    durableTurn
-  }: StreamOptions) => {
+  const claimStream = (): ChatStreamClaim | null => {
+    if (portRef.current || streamClaimRef.current) return null
+    const claim = Symbol("chat-stream-claim")
+    streamClaimRef.current = claim
+    return claim
+  }
+
+  const releaseStreamClaim = (claim: ChatStreamClaim) => {
+    if (streamClaimRef.current === claim) streamClaimRef.current = null
+  }
+
+  const startStream = (
+    {
+      model,
+      providerId,
+      messages,
+      sessionId,
+      generatedMessage,
+      clientContextPrepared,
+      durableTurn
+    }: StreamOptions,
+    claim?: ChatStreamClaim
+  ): boolean => {
+    if (portRef.current) {
+      logger.warn(
+        "Ignored stream start while another request is active",
+        "useChatStream",
+        { requestId: currentRequestIdRef.current }
+      )
+      if (claim) releaseStreamClaim(claim)
+      return false
+    }
+    const streamClaim = claim ?? claimStream()
+    if (!streamClaim || streamClaimRef.current !== streamClaim) {
+      logger.warn("Ignored stream start without ownership", "useChatStream")
+      return false
+    }
+    streamClaimRef.current = null
     // Create port synchronously BEFORE any async operations
     let port = browser.runtime.connect({
       name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
@@ -462,6 +494,7 @@ export const useChatStream = ({
     port.onMessage.addListener(listener)
     port.onDisconnect.addListener(handleDisconnect)
     port.postMessage(requestMessage)
+    return true
   }
 
   const stopStream = () => {
@@ -502,6 +535,8 @@ export const useChatStream = ({
 
   return {
     startStream,
-    stopStream
+    stopStream,
+    claimStream,
+    releaseStreamClaim
   }
 }

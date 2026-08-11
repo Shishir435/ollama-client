@@ -16,6 +16,7 @@ export const ChatMessageBubble = memo(
     msg,
     sessionId,
     onRegenerate,
+    isBusy,
     isLoading,
     isStreaming,
     showRetrievedChunks,
@@ -28,6 +29,7 @@ export const ChatMessageBubble = memo(
     msg: ChatMessage
     sessionId?: string
     onRegenerate?: (model?: string) => void
+    isBusy?: boolean
     isLoading?: boolean
     isStreaming?: boolean
     showRetrievedChunks?: boolean
@@ -127,7 +129,9 @@ export const ChatMessageBubble = memo(
               onRegenerate={onRegenerate}
               canRetry={canRetry}
               onEdit={() => setEditorMode("edit")}
-              onFork={isUser ? () => setEditorMode("fork") : undefined}
+              onFork={
+                isUser && !isBusy ? () => setEditorMode("fork") : undefined
+              }
               onDelete={onDelete}
               onExport={handleExport}
               onNavigate={onNavigate}
@@ -141,6 +145,7 @@ export const ChatMessageBubble = memo(
     return (
       prev.msg === next.msg &&
       prev.sessionId === next.sessionId &&
+      prev.isBusy === next.isBusy &&
       prev.isLoading === next.isLoading &&
       prev.isStreaming === next.isStreaming &&
       prev.showRetrievedChunks === next.showRetrievedChunks &&

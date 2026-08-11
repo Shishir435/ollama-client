@@ -161,8 +161,8 @@ flowchart TD
     T -->|yes| U["Tool loop: approval gate, execute, checkpoint"]
     U --> C
     T -->|no| I["UI Stream State Update"]
-    I --> J["SQLite Chat Store"]
-    I --> K["Optional RAG Pipeline"]
+    C --> J["SQLite Chat Store (durable turn owner)"]
+    C --> K["Optional RAG Pipeline"]
     K --> L["Embedding Strategy Chain"]
     L --> M["Vector store"]
 ```
@@ -171,14 +171,14 @@ Configuration traffic does not use this path — see [Provider RPC boundary](#pr
 
 ## Provider RPC boundary
 
-Token streaming uses runtime ports, but everything else that crosses the extension-page ↔ background boundary — reading provider configuration, testing a connection, listing models, running diagnostics — goes through a versioned request/response contract in `src/protocol/` rather than ad-hoc message keys.
+Token streaming uses runtime ports, but everything else that crosses the extension-page ↔ background boundary — reading provider configuration, testing a connection, listing models, running diagnostics — goes through versioned request/response contracts in `packages/contracts/src/` rather than ad-hoc message keys.
 
 | File | Role |
 |---|---|
-| `src/protocol/rpc.ts` | Protocol version, `RpcMethod` / `RpcErrorCode` enums, request and response envelopes |
-| `src/protocol/provider-rpc.ts` | Per-method request/result schemas and the typed `RpcMap` |
-| `src/protocol/model-rpc.ts` | Model lifecycle, catalog, and embedding method schemas |
-| `src/protocol/diagnostics-rpc.ts` | Diagnostics method schemas |
+| `packages/contracts/src/rpc.ts` | Protocol version, `RpcMethod` / `RpcErrorCode` enums, request and response envelopes |
+| `packages/contracts/src/provider-rpc.ts` | Provider request/result schemas and the provider entries in the typed `RpcMap` |
+| `packages/contracts/src/model-rpc.ts` | Model lifecycle, catalog, and embedding method schemas |
+| `packages/contracts/src/diagnostics-rpc.ts` | Diagnostics method schemas |
 | `src/protocol/rpc-registry.ts` | Per-method schema, sender policy, timeout, and operation metadata |
 | `src/protocol/extension-client.ts` | Validated client used by extension pages |
 | `src/background/rpc-server.ts` | Authorization, validation, dispatch, and safe error mapping |

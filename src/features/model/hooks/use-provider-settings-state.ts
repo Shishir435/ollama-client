@@ -16,7 +16,8 @@ import {
   isCustomProviderId,
   type ProviderConfig,
   ProviderId,
-  type ProviderServiceProfile
+  ProviderServiceProfile,
+  ProviderType
 } from "@/lib/providers/types"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import { useProviderHealth } from "./use-provider-health"
@@ -33,7 +34,40 @@ type ProviderSettingsConfig = ProviderConfig & {
 
 const toSettingsConfig = (
   provider: PublicProviderConfig
-): ProviderSettingsConfig => provider as unknown as ProviderSettingsConfig
+): ProviderSettingsConfig => ({
+  id: provider.id,
+  type:
+    provider.type === "ollama"
+      ? ProviderType.OLLAMA
+      : provider.type === "openai"
+        ? ProviderType.OPENAI
+        : provider.type === "anthropic"
+          ? ProviderType.ANTHROPIC
+          : ProviderType.CUSTOM,
+  enabled: provider.enabled,
+  name: provider.name,
+  hasApiKey: provider.hasApiKey,
+  ...(provider.baseUrl !== undefined ? { baseUrl: provider.baseUrl } : {}),
+  ...(provider.modelId !== undefined ? { modelId: provider.modelId } : {}),
+  ...(provider.customModels !== undefined
+    ? { customModels: provider.customModels }
+    : {}),
+  ...(provider.serviceProfile !== undefined
+    ? {
+        serviceProfile:
+          provider.serviceProfile === "openai"
+            ? ProviderServiceProfile.OPENAI
+            : provider.serviceProfile === "anthropic"
+              ? ProviderServiceProfile.ANTHROPIC
+              : provider.serviceProfile === "openrouter"
+                ? ProviderServiceProfile.OPENROUTER
+                : ProviderServiceProfile.GENERIC
+      }
+    : {}),
+  ...(provider.compatibility !== undefined
+    ? { compatibility: provider.compatibility }
+    : {})
+})
 
 const isLocalhostEndpoint = (baseUrl?: string) => {
   const url = baseUrl?.trim()

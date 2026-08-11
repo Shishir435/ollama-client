@@ -218,6 +218,59 @@ const handleSelectionMessage = (
   return true
 }
 
+const handleKeepToolLoopAlive = (
+  sendResponse: SendResponseFunction
+): undefined => {
+  // A visible approval prompt sends this periodically. Runtime messages reset
+  // Chromium's MV3 idle timer; SQLite recovery remains the restart fallback.
+  safeSendResponse(sendResponse, { success: true })
+}
+
+const handleJobCompleteNotification = (
+  message: ChromeMessage,
+  sendResponse: SendResponseFunction
+): true => {
+  const payload = message.payload as
+    | { id?: string; title?: unknown; message?: unknown }
+    | undefined
+  if (
+    !payload ||
+    typeof payload.title !== "string" ||
+    typeof payload.message !== "string"
+  ) {
+    safeSendResponse(sendResponse, {
+      success: false,
+      error: { status: 400, message: "Invalid message payload" }
+    })
+    return true
+  }
+
+  notifyJobComplete({
+    id: typeof payload.id === "string" ? payload.id : undefined,
+    title: payload.title,
+    message: payload.message
+  })
+    .then((result) => {
+      safeSendResponse(sendResponse, {
+        success: result.sent,
+        data: result,
+        error: result.sent
+          ? undefined
+          : { status: 0, message: result.reason || "Notification skipped" }
+      })
+    })
+    .catch((error) => {
+      safeSendResponse(sendResponse, {
+        success: false,
+        error: {
+          status: 0,
+          message: error instanceof Error ? error.message : String(error)
+        }
+      })
+    })
+  return true
+}
+
 export const registerMessageRouter = () => {
   // The polyfill types the sync listener as returning literal `true`, but we use
   // the Chrome idiom of returning `true` only for handled async responses and
@@ -308,56 +361,11 @@ export const registerMessageRouter = () => {
       }
 
       case MESSAGE_KEYS.APP.KEEP_TOOL_LOOP_ALIVE: {
-        // A visible approval prompt sends this periodically. Runtime messages
-        // reset Chromium's MV3 idle timer without adding a standing `alarms`
-        // permission; SQLite recovery remains the crash/restart fallback.
-        safeSendResponse(response, { success: true })
-        return
+        return handleKeepToolLoopAlive(response)
       }
 
       case MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE: {
-        const payload = message.payload as
-          | { id?: string; title?: unknown; message?: unknown }
-          | undefined
-        if (
-          !payload ||
-          typeof payload.title !== "string" ||
-          typeof payload.message !== "string"
-        ) {
-          safeSendResponse(response, {
-            success: false,
-            error: { status: 400, message: "Invalid message payload" }
-          })
-          return true
-        }
-
-        notifyJobComplete({
-          id: typeof payload.id === "string" ? payload.id : undefined,
-          title: payload.title,
-          message: payload.message
-        })
-          .then((result) => {
-            safeSendResponse(response, {
-              success: result.sent,
-              data: result,
-              error: result.sent
-                ? undefined
-                : {
-                    status: 0,
-                    message: result.reason || "Notification skipped"
-                  }
-            })
-          })
-          .catch((error) => {
-            safeSendResponse(response, {
-              success: false,
-              error: {
-                status: 0,
-                message: error instanceof Error ? error.message : String(error)
-              }
-            })
-          })
-        return true
+        return handleJobCompleteNotification(message, response)
       }
 
       case MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT: {

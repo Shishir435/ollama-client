@@ -2,6 +2,7 @@ import {
   isRetryableProviderStatus,
   parseRetryAfter
 } from "@ollama-client/runtime-core/retry"
+import { z } from "zod"
 import { createAppError } from "@/lib/error-utils"
 import { toDataUrl } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
@@ -33,6 +34,26 @@ import {
   ProviderId,
   ProviderServiceProfile
 } from "./types"
+
+const OpenAIModelCatalogSchema = z
+  .object({
+    data: z.array(
+      z
+        .object({
+          id: z.string().min(1),
+          context_length: z.number().positive().nullish(),
+          architecture: z
+            .object({
+              input_modalities: z.array(z.string()).nullish()
+            })
+            .passthrough()
+            .nullish(),
+          supported_parameters: z.array(z.string()).nullish()
+        })
+        .passthrough()
+    )
+  })
+  .passthrough()
 
 /** Normalized tool → OpenAI `tools` entry. */
 const toOpenAITool = (tool: ToolDefinition) => ({
@@ -239,53 +260,52 @@ export class OpenAICompatibleProvider implements LLMProvider {
       if (!response.ok) {
         await this.responseError(response, "Model list failed", baseUrl)
       }
-      const data = await response.json()
-      return (
-        (
-          data.data as Array<{
-            id: string
-            context_length?: number
-            architecture?: {
-              input_modalities?: string[]
-            }
-            supported_parameters?: string[]
-          }>
-        )?.map((m) => ({
-          name: m.id,
-          model: m.id,
-          modified_at: new Date().toISOString(),
-          size: 0,
-          digest: "",
-          details: {
-            parent_model: "",
-            format: "",
-            family: "openai",
-            families: [],
-            // `/v1/models` reports no size: the OpenAI schema has no field for
-            // one, and neither vLLM, LocalAI, KoboldCPP, nor an LM Studio
-            // fallback list adds one. So a self-hosted "Qwen3-8B" showed a
-            // blank badge beside genuine sizes from Ollama and llama.cpp. The
-            // id is the only source, and the parser refuses ambiguous ids
-            // rather than guessing, so hosted catalogs naming no size (gpt-4o)
-            // stay blank instead of inventing one.
-            parameter_size: parameterSizeFromModelId(m.id),
-            quantization_level: ""
-          },
-          ...((m.context_length ||
-            m.architecture?.input_modalities ||
-            m.supported_parameters) && {
-            capabilityHints: {
-              ...(m.context_length ? { contextLength: m.context_length } : {}),
-              ...(m.architecture?.input_modalities && {
-                modalities: [...new Set(m.architecture.input_modalities)]
-              }),
-              ...(m.supported_parameters && {
-                supportedParameters: m.supported_parameters
-              })
-            }
-          })
-        })) || []
-      )
+      const parsed = OpenAIModelCatalogSchema.safeParse(await response.json())
+      if (!parsed.success) {
+        throw createAppError("Provider returned an invalid model catalog", {
+          kind: "provider",
+          phase: "response",
+          providerId: this.id,
+          providerName: this.config.name,
+          baseUrl,
+          userMessage: "The provider returned an invalid model list."
+        })
+      }
+      return parsed.data.data.map((m) => ({
+        name: m.id,
+        model: m.id,
+        modified_at: new Date().toISOString(),
+        size: 0,
+        digest: "",
+        details: {
+          parent_model: "",
+          format: "",
+          family: "openai",
+          families: [],
+          // `/v1/models` reports no size: the OpenAI schema has no field for
+          // one, and neither vLLM, LocalAI, KoboldCPP, nor an LM Studio
+          // fallback list adds one. So a self-hosted "Qwen3-8B" showed a
+          // blank badge beside genuine sizes from Ollama and llama.cpp. The
+          // id is the only source, and the parser refuses ambiguous ids
+          // rather than guessing, so hosted catalogs naming no size (gpt-4o)
+          // stay blank instead of inventing one.
+          parameter_size: parameterSizeFromModelId(m.id),
+          quantization_level: ""
+        },
+        ...((m.context_length ||
+          m.architecture?.input_modalities ||
+          m.supported_parameters) && {
+          capabilityHints: {
+            ...(m.context_length ? { contextLength: m.context_length } : {}),
+            ...(m.architecture?.input_modalities && {
+              modalities: [...new Set(m.architecture.input_modalities)]
+            }),
+            ...(m.supported_parameters && {
+              supportedParameters: m.supported_parameters
+            })
+          }
+        })
+      }))
     } catch (e) {
       if (!signal?.aborted) {
         logger.error("Failed to fetch models", "OpenAICompatibleProvider", {

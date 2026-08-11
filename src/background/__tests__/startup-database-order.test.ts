@@ -214,6 +214,39 @@ describe("background database startup", () => {
     expect(peakInFlight).toBe(2)
   })
 
+  it("records the known successor overlap after a startup deadline", async () => {
+    vi.useFakeTimers()
+    try {
+      const { initializeBackgroundStartup } = await loadStartup()
+      initializeBackgroundStartup(Promise.resolve())
+      await settle()
+
+      tasks["backup-import"].release()
+      await settle()
+      expect(started).toEqual(["backup-import", "provider-migration"])
+
+      await vi.advanceTimersByTimeAsync(120_000)
+      await settle()
+
+      // The deadline currently abandons rather than cancels the migration.
+      // Preserve explicit evidence of that overlap until cancellable startup
+      // recovery replaces this expectation.
+      expect(started).toEqual([
+        "backup-import",
+        "provider-migration",
+        "embedding-migration"
+      ])
+      expect(finished).not.toContain("provider-migration")
+      expect(inFlight).toBe(2)
+
+      releaseAll()
+      await vi.runAllTimersAsync()
+      await settle()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("skips database startup when the owner never came up", async () => {
     const { initializeBackgroundStartup } = await loadStartup()
     initializeBackgroundStartup(Promise.reject(new Error("no offscreen slot")))
