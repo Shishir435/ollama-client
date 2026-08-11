@@ -6,7 +6,7 @@ vi.mock("@/lib/logger", () => ({
   logger: { warn, error: vi.fn(), info: vi.fn(), debug: vi.fn() }
 }))
 
-import { decodeRow, decodeRows } from "../row-decoder"
+import { decodeRow, decodeRows, type RowDecodeContext } from "../row-decoder"
 
 const RowSchema = z.object({
   id: z.string(),
@@ -15,7 +15,12 @@ const RowSchema = z.object({
   updatedAt: z.number()
 })
 
-const context = { table: "example_runs", operation: "read" }
+// A real table from `DURABLE_TABLES`: the context type is the shared union,
+// so an invented name no longer typechecks.
+const context: RowDecodeContext = {
+  table: "ingestion_runs",
+  operation: "read"
+}
 
 const row = (overrides: Record<string, unknown> = {}) => ({
   id: "run-1",
@@ -55,7 +60,7 @@ describe("row decoder", () => {
     expect(serialized).not.toContain("a private message body")
     // The row id is ours, so it stays: without it a dropped row is untraceable.
     expect(meta).toMatchObject({
-      table: "example_runs",
+      table: "ingestion_runs",
       operation: "read",
       rowId: "run-1",
       issues: ["status:invalid_value"]

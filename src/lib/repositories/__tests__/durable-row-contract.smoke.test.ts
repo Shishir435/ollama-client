@@ -265,7 +265,7 @@ describe("durable job rows decode as their writers wrote them", () => {
       // on every boot forever.
       const rows = (await db.query(
         "SELECT status FROM turn_runs WHERE id = 't-bad'"
-      )) as unknown as Array<{ status: string }>
+      )) as Array<{ status: string }>
       expect(rows[0]?.status).toBe("failed")
     },
     TIMEOUT

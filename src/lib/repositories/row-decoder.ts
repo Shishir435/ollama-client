@@ -1,5 +1,6 @@
 import type { z } from "zod"
 import { logger } from "@/lib/logger"
+import type { DurableTable } from "@/lib/persistence/durable-tables"
 
 /**
  * Where a decode failure happened, for a log line that names no content.
@@ -8,9 +9,15 @@ import { logger } from "@/lib/logger"
  * repository-generated identifier rather than user data. Nothing else from the
  * row is ever recorded — a `messages` row carries the conversation, and a
  * `turn_runs` row used to carry the whole thing twice.
+ *
+ * `table` is the shared `DurableTable` union rather than a free string, so a
+ * renamed or mistyped table is a typecheck failure instead of a log line that
+ * quietly points at nothing. `DURABLE_TABLES` is already the one list every
+ * migration verification walks; there is no reason for a second spelling of it
+ * to exist here.
  */
 export interface RowDecodeContext {
-  table: string
+  table: DurableTable
   operation: string
 }
 
@@ -39,13 +46,16 @@ const rowId = (value: unknown): string | undefined => {
  * Decode one queried row, or resolve `null` when the stored shape is not what
  * the repository expects.
  *
- * `query` resolves `QueryResult[]` — a bag of `SqlValue`s the driver knows
- * nothing about — and every durable repository used to assert its row type onto
- * that with `as unknown as Row[]`. The assertion is unconditionally true and
- * unconditionally unchecked: a column dropped by a half-applied migration, a
- * status string from a newer version, or a JSON blob written by a build that
- * has since changed shape all arrive as a well-typed object that is wrong, and
- * the first thing to notice is whatever reads a field several layers up.
+ * `query` resolves `Record<string, SqlValue>[]` — a bag of values the driver
+ * knows nothing about — and every durable repository used to assert its row
+ * type onto that with `as unknown as Row[]`. The assertion is unconditionally
+ * true and unconditionally unchecked: a column dropped by a half-applied
+ * migration, a status string from a newer version, or a JSON blob written by a
+ * build that has since changed shape all arrive as a well-typed object that is
+ * wrong, and the first thing to notice is whatever reads a field several layers
+ * up. It was not even load-bearing — a query result flows into this parameter
+ * with no cast at all, which is what makes the guard in
+ * `architecture-boundaries.test.ts` cost nothing to keep.
  */
 export const decodeRow = <T>(
   schema: z.ZodType<T>,

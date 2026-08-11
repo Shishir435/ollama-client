@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { flushSave, query, run } from "@/lib/sqlite/db"
-import { decodeRow, decodeRows } from "./row-decoder"
+import { decodeRow, decodeRows, type RowDecodeContext } from "./row-decoder"
 
 const INGESTION_RUN_STATUSES = [
   "queued",
@@ -58,7 +58,7 @@ const IngestionRunRowSchema = z.object({
 
 type IngestionRunRow = z.infer<typeof IngestionRunRowSchema>
 
-const TABLE = { table: "ingestion_runs", operation: "read" } as const
+const TABLE: RowDecodeContext = { table: "ingestion_runs", operation: "read" }
 
 const parseRun = (row: IngestionRunRow): IngestionRun => ({
   ...row,
@@ -95,12 +95,12 @@ export const saveIngestionRun = async (value: IngestionRun): Promise<void> => {
 export const getIngestionRun = async (
   id: string
 ): Promise<IngestionRun | null> => {
-  const rows = (await query(
+  const rows = await query(
     `SELECT id, fileId, knowledgeSetId, fileName, status, phase,
       autoEmbed, failure, createdAt, updatedAt
      FROM ingestion_runs WHERE id = ?`,
     [id]
-  )) as unknown[]
+  )
   const row = rows[0]
     ? decodeRow(IngestionRunRowSchema, rows[0], TABLE)
     : undefined
@@ -110,12 +110,12 @@ export const getIngestionRun = async (
 export const listIncompleteIngestionRuns = async (): Promise<
   IngestionRun[]
 > => {
-  const rows = (await query(
+  const rows = await query(
     `SELECT id, fileId, knowledgeSetId, fileName, status, phase,
       autoEmbed, failure, createdAt, updatedAt
      FROM ingestion_runs
      WHERE status IN ('queued', 'running')
      ORDER BY createdAt ASC`
-  )) as unknown[]
+  )
   return decodeRows(IngestionRunRowSchema, rows, TABLE).map(parseRun)
 }

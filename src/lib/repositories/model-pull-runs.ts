@@ -4,7 +4,7 @@ import {
 } from "@ollama-client/contracts/app-failure"
 import { z } from "zod"
 import { flushSave, query, run } from "@/lib/sqlite/db"
-import { decodeRow, decodeRows } from "./row-decoder"
+import { decodeRow, decodeRows, type RowDecodeContext } from "./row-decoder"
 
 const MODEL_PULL_RUN_STATUSES = [
   "queued",
@@ -43,7 +43,7 @@ const ModelPullRunRowSchema = z.object({
 
 type ModelPullRunRow = z.infer<typeof ModelPullRunRowSchema>
 
-const TABLE = { table: "model_pull_runs", operation: "read" } as const
+const TABLE: RowDecodeContext = { table: "model_pull_runs", operation: "read" }
 
 const parseFailure = (value: string | null): AppFailure | undefined => {
   if (!value) return undefined
@@ -100,10 +100,10 @@ const selectColumns = `id, model, providerId, status, statusText, progress,
 export const getModelPullRun = async (
   id: string
 ): Promise<ModelPullRun | null> => {
-  const rows = (await query(
+  const rows = await query(
     `SELECT ${selectColumns} FROM model_pull_runs WHERE id = ?`,
     [id]
-  )) as unknown[]
+  )
   const row = rows[0]
     ? decodeRow(ModelPullRunRowSchema, rows[0], TABLE)
     : undefined
@@ -111,11 +111,11 @@ export const getModelPullRun = async (
 }
 
 export const listActiveModelPullRuns = async (): Promise<ModelPullRun[]> => {
-  const rows = (await query(
+  const rows = await query(
     `SELECT ${selectColumns} FROM model_pull_runs
      WHERE status IN ('queued', 'running')
      ORDER BY createdAt ASC`
-  )) as unknown[]
+  )
   return decodeRows(ModelPullRunRowSchema, rows, TABLE).map(parseRun)
 }
 
@@ -123,7 +123,7 @@ export const findActiveModelPullRun = async (
   model: string,
   providerId?: string
 ): Promise<ModelPullRun | null> => {
-  const rows = (await query(
+  const rows = await query(
     `SELECT ${selectColumns} FROM model_pull_runs
      WHERE model = ?
        AND COALESCE(providerId, '') = COALESCE(?, '')
@@ -131,7 +131,7 @@ export const findActiveModelPullRun = async (
      ORDER BY createdAt ASC
      LIMIT 1`,
     [model, providerId ?? null]
-  )) as unknown[]
+  )
   const row = rows[0]
     ? decodeRow(ModelPullRunRowSchema, rows[0], TABLE)
     : undefined

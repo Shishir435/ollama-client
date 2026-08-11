@@ -52,6 +52,10 @@ const referencedModules = (source: string): string[] => {
   return modules
 }
 
+/** Source with block and line comments removed, for rules that read code. */
+const withoutComments = (source: string): string =>
+  source.replaceAll(/\/\*[\s\S]*?\*\//g, "").replaceAll(/\/\/[^\n]*/g, "")
+
 const importsModule = (source: string, modulePath: RegExp): boolean => {
   const exactModulePath = new RegExp(`^(?:${modulePath.source})$`)
   return referencedModules(source).some((module) =>
@@ -290,6 +294,28 @@ describe("architecture import boundaries", () => {
           file: relative(chatRuntimeRoot, file).replaceAll("\\", "/"),
           module
         }))
+    })
+
+    expect(offenders).toEqual([])
+  })
+
+  /**
+   * Durable rows are decoded, not asserted.
+   *
+   * `query` resolves `Record<string, SqlValue>[]`, which flows into a decoder
+   * with no cast at all. Every `as unknown as Row[]` that used to sit at these
+   * boundaries was therefore not even load-bearing — just an unchecked claim
+   * about data a half-applied migration or a newer build can shape differently.
+   */
+  it("keeps unchecked row assertions out of the durable repositories", () => {
+    const offenders = productionSources.filter((file) => {
+      if (!file.startsWith("lib/repositories/")) return false
+      // Comments stripped first, so the rule can be *described* where it is
+      // implemented without the description tripping it.
+      const source = withoutComments(
+        readFileSync(join(sourceRoot, file), "utf8")
+      )
+      return /\bas\s+unknown\s+as\b/.test(source)
     })
 
     expect(offenders).toEqual([])

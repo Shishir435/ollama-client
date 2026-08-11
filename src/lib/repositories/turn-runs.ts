@@ -23,7 +23,7 @@ import {
 } from "@/application/turns/turn-contract"
 import { logger } from "@/lib/logger"
 import { flushSave, query, run, runWithMeta } from "@/lib/sqlite/db"
-import { decodeRow, decodeRows } from "./row-decoder"
+import { decodeRow, decodeRows, type RowDecodeContext } from "./row-decoder"
 
 /**
  * The lifecycle columns, as SQLite hands them back.
@@ -80,7 +80,7 @@ const TurnStorageStatsRowSchema = z.object({
   uncompacted: z.number().nullable()
 })
 
-const TABLE = { table: "turn_runs", operation: "read" } as const
+const TABLE: RowDecodeContext = { table: "turn_runs", operation: "read" }
 
 const safeJson = (value: string): unknown => {
   try {
@@ -174,13 +174,13 @@ export interface TurnLifecycleRecord {
 export const getTurnRun = async (
   id: string
 ): Promise<TurnLifecycleRecord | null> => {
-  const rows = (await query(
+  const rows = await query(
     `SELECT id, sessionId, model, providerId, status, contextReceipt,
             userMessageId, assistantMessageId, failure, createdAt, updatedAt
        FROM turn_runs
       WHERE id = ?`,
     [id]
-  )) as unknown[]
+  )
   if (!rows[0]) return null
   const row = decodeRow(TurnRunLifecycleRowSchema, rows[0], TABLE)
   if (!row) return null
@@ -275,14 +275,14 @@ const quarantineTurnRun = async (id: string, reason: string): Promise<void> => {
 }
 
 export const getIncompleteTurnRuns = async (): Promise<DurableTurnRun[]> => {
-  const rows = (await query(
+  const rows = await query(
     `SELECT id, sessionId, mode, model, providerId, status, request,
             contextReceipt, userMessageId, assistantMessageId, failure,
             createdAt, updatedAt
        FROM turn_runs
       WHERE status IN (${RESUMABLE_STATUS_LIST})
       ORDER BY createdAt ASC`
-  )) as unknown[]
+  )
   const resumable: DurableTurnRun[] = []
   for (const value of rows) {
     const row = decodeRow(TurnRunRowSchema, value, TABLE)
@@ -346,9 +346,9 @@ export interface CancelledTurnRecord {
 export const getInterruptedCancellations = async (): Promise<
   CancelledTurnRecord[]
 > => {
-  const rows = (await query(
+  const rows = await query(
     "SELECT id, assistantMessageId FROM turn_runs WHERE status = 'cancelling'"
-  )) as unknown[]
+  )
   return decodeRows(CancellingRowSchema, rows, TABLE).map((row) => ({
     id: row.id,
     assistantMessageId: row.assistantMessageId ?? undefined
@@ -511,7 +511,7 @@ export interface TurnStorageStats {
  * revisits.
  */
 export const getTurnStorageStats = async (): Promise<TurnStorageStats> => {
-  const rows = (await query(
+  const rows = await query(
     `SELECT status,
             COUNT(*) AS runs,
             SUM(LENGTH(CAST(request AS BLOB))) AS totalBytes,
@@ -520,7 +520,7 @@ export const getTurnStorageStats = async (): Promise<TurnStorageStats> => {
        FROM turn_runs
       GROUP BY status`,
     [COMPACTED_REQUEST_PREFIX]
-  )) as unknown[]
+  )
   const grouped = decodeRows(TurnStorageStatsRowSchema, rows, TABLE)
 
   const stats: TurnStorageStats = {

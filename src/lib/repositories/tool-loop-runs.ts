@@ -10,7 +10,7 @@ import { createAppError } from "@/lib/error-utils"
 import { flushSave, query, run } from "@/lib/sqlite/db"
 import type { ToolCall } from "@/lib/tools"
 import type { ChatMessage, ToolRun } from "@/types"
-import { decodeRow } from "./row-decoder"
+import { decodeRow, type RowDecodeContext } from "./row-decoder"
 
 export type ToolLoopMode = ContractToolLoopMode
 export type ToolLoopRunStatus = ContractToolLoopRunStatus
@@ -31,6 +31,11 @@ export interface DurableToolLoopRun {
   status: ToolLoopRunStatus
   state: DurableToolLoopState
   updatedAt: number
+}
+
+const TABLE: RowDecodeContext = {
+  table: "tool_loop_runs",
+  operation: "read"
 }
 
 const invalidCheckpoint = (cause: unknown) =>
@@ -89,15 +94,12 @@ const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun => {
 export const getToolLoopRun = async (
   requestId: string
 ): Promise<DurableToolLoopRun | null> => {
-  const rows = (await query(
+  const rows = await query(
     "SELECT requestId, sessionId, model, providerId, mode, status, state, updatedAt FROM tool_loop_runs WHERE requestId = ?",
     [requestId]
-  )) as unknown[]
+  )
   if (!rows[0]) return null
-  const row = decodeRow(ToolLoopRunRowSchema, rows[0], {
-    table: "tool_loop_runs",
-    operation: "read"
-  })
+  const row = decodeRow(ToolLoopRunRowSchema, rows[0], TABLE)
   // A checkpoint that will not decode is reported, not skipped: the caller is
   // mid-resume and has to be told the turn cannot be continued safely.
   if (!row) throw invalidCheckpoint(new Error("Stored row shape is invalid"))
