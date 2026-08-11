@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { createAppError } from "@/lib/error-utils"
 import {
   plasmoGlobalStorage,
   setPlasmoStoredValue
@@ -92,6 +93,39 @@ describe("Handle Embedding Download", () => {
 
       const result = await checkEmbeddingModelExists("nomic-embed-text")
       expect(result.exists).toBe(false)
+    })
+
+    it("does not re-ask the same server after a settled absent catalog", async () => {
+      // A model name that is neither the default nor tied to a provider skips
+      // the direct `/api/tags` fast path and goes through discovery. When that
+      // answers "no catalog here", the legacy fallback would have asked the
+      // identical endpoint again — the request the policy exists to suppress.
+      mockGetModels.mockRejectedValue(
+        createAppError("no catalog", { status: 404 })
+      )
+
+      const result = await checkEmbeddingModelExists("custom-embed-model")
+
+      expect(result.exists).toBe(false)
+      expect(mockGetModels).toHaveBeenCalledTimes(1)
+      expect(fetch).not.toHaveBeenCalled()
+    })
+
+    it("still falls back when discovery never produced a verdict", async () => {
+      // Provider resolution failing leaves no verdict, and that is exactly the
+      // case the legacy direct check exists for.
+      const { ProviderFactory } = await import("@/lib/providers/factory")
+      vi.mocked(ProviderFactory.getProviderForModel).mockRejectedValueOnce(
+        new Error("provider unavailable")
+      )
+      vi.mocked(fetch).mockResolvedValue(
+        createMockResponse({ models: [{ name: "custom-embed-model" }] })
+      )
+
+      const result = await checkEmbeddingModelExists("custom-embed-model")
+
+      expect(result.exists).toBe(true)
+      expect(fetch).toHaveBeenCalled()
     })
 
     it("should return false on API error", async () => {
