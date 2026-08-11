@@ -51,6 +51,11 @@ describe("tool-loop run repository", () => {
       ])
     )
     expect(db.flushSave).toHaveBeenCalledTimes(1)
+    const checkpoint = JSON.parse(String(db.run.mock.calls[0][1]?.[6]))
+    expect(checkpoint).toMatchObject({
+      version: 1,
+      state: { iteration: 0, phase: "tools" }
+    })
   })
 
   it("parses a saved checkpoint", async () => {
@@ -102,6 +107,35 @@ describe("tool-loop run repository", () => {
     await expect(getToolLoopRun("request-gemma")).resolves.toMatchObject({
       mode: "native-user-results",
       model: "gemma"
+    })
+  })
+
+  it("rejects malformed checkpoint state instead of replaying it", async () => {
+    db.query.mockResolvedValue([
+      {
+        requestId: "request-bad",
+        sessionId: "session-1",
+        model: "qwen",
+        providerId: "ollama",
+        mode: "native",
+        status: "awaiting-confirmation",
+        state: JSON.stringify({
+          version: 1,
+          state: {
+            iteration: 1,
+            phase: "tools",
+            workingMessages: "not-an-array",
+            toolRuns: []
+          }
+        }),
+        updatedAt: 456
+      }
+    ])
+
+    await expect(getToolLoopRun("request-bad")).rejects.toMatchObject({
+      kind: "storage",
+      phase: "persistence",
+      retryable: true
     })
   })
 

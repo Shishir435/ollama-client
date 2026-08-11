@@ -1,29 +1,27 @@
+import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
+import {
+  reconnectDurableTurn,
+  requestDurableTurnStop
+} from "@/background/durable-turn-runtime"
 import { handleBuildContext } from "@/background/handlers/handle-build-context"
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
-import { handleModelPull } from "@/background/handlers/handle-model-pull"
 import { handleSelectionAction } from "@/background/handlers/handle-selection-action"
+import { handleStartTurn } from "@/background/handlers/handle-start-turn"
 import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import {
   registerSelectionBridgePort,
   unregisterSelectionBridgePort
 } from "@/background/lib/selection-bridge"
 import {
-  classifyRuntimeSender,
   isRuntimePortAllowed,
   isRuntimePortMessageAllowed
 } from "@/background/runtime-sender-authorization"
-import type { SelectionActionMessage } from "@/features/selection-actions/types"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import type {
-  BuildContextMessage,
-  ChatWithModelMessage,
-  ChromeMessage,
-  ChromePort,
-  ModelPullMessage,
-  PortStatusFunction
-} from "@/types"
+import { getMessageType } from "@/protocol/message-type"
+import { parseChatStreamClientEvent } from "@/protocol/streams"
+import type { ChromePort, PortStatusFunction } from "@/types"
 
 const extensionUrlPrefix = browser.runtime.getURL("")
 
@@ -57,6 +55,7 @@ export const registerPortRouter = () => {
 
     let isPortClosed = false
     let currentAbortKey: string | undefined
+    let abortCurrentOnDisconnect = true
     // Port names are shared constants; give each live connection its own
     // abort key so same-named ports (e.g. two windows) never collide.
     port.abortScopeKey = `${port.name}#${++portConnectionSeq}`
@@ -71,13 +70,15 @@ export const registerPortRouter = () => {
       }
       // Abort whatever this connection may have registered: a chat stream
       // (keyed by requestId) and/or a selection action (keyed by scope key).
-      if (currentAbortKey) abortAndClearController(currentAbortKey)
+      if (currentAbortKey && abortCurrentOnDisconnect) {
+        abortAndClearController(currentAbortKey)
+      }
       if (port.abortScopeKey) abortAndClearController(port.abortScopeKey)
     })
 
     port.onMessage.addListener(async (message) => {
-      const msg = message as ChromeMessage
-      const messageType = typeof msg?.type === "string" ? msg.type : ""
+      const parsed = parseChatStreamClientEvent(message)
+      const messageType = getMessageType(message) ?? ""
       if (
         !isRuntimePortMessageAllowed(
           port.name,
@@ -105,37 +106,62 @@ export const registerPortRouter = () => {
         return
       }
 
+      if (!parsed.success) {
+        logger.warn("Blocked invalid runtime port message", "StreamProtocol", {
+          portName: port.name,
+          type: messageType || "invalid",
+          issues: parsed.error.issues.length
+        })
+        port.disconnect()
+        return
+      }
+
+      const msg = parsed.data
       if (msg.type === MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL) {
-        currentAbortKey = (msg as ChatWithModelMessage).payload?.requestId
-        await handleChatWithModel(
-          msg as ChatWithModelMessage,
-          port,
-          getPortStatus
+        abortCurrentOnDisconnect = true
+        currentAbortKey = msg.payload.requestId
+        await handleChatWithModel(msg, port, getPortStatus)
+      }
+
+      if (msg.type === MESSAGE_KEYS.PROVIDER.START_TURN) {
+        currentAbortKey = msg.payload.start.submission.id
+        // The sidepanel is an observer after submission. Closing it must not
+        // cancel background-owned context building or generation.
+        abortCurrentOnDisconnect = false
+        await handleStartTurn(msg, port, getPortStatus)
+      }
+
+      if (msg.type === MESSAGE_KEYS.PROVIDER.RECONNECT_STREAM) {
+        currentAbortKey = msg.payload.requestId
+        abortCurrentOnDisconnect = false
+        await reconnectDurableTurn(
+          msg.payload.requestId,
+          msg.payload.afterSeq,
+          { port, isPortClosed: getPortStatus }
         )
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT) {
-        await handleBuildContext(
-          msg as unknown as BuildContextMessage,
-          port,
-          getPortStatus
-        )
+        await handleBuildContext(msg, port, getPortStatus)
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.STOP_GENERATION) {
         logger.info("Stop generation requested", "BackgroundSW")
-        const requestedKey = (msg as ChatWithModelMessage).payload?.requestId
-        abortAndClearController(
+        const requestedKey = msg.payload?.requestId
+        const abortKey =
           requestedKey ?? currentAbortKey ?? port.abortScopeKey ?? port.name
-        )
+        // Intent first, abort second. The two are not interchangeable: a worker
+        // that dies after the abort but before the write restarts with a row
+        // still reading `generating`, and recovery hands it back to the
+        // provider as if the stop never happened. A key that names no live turn
+        // — a selection-action scope — writes nothing and costs one query.
+        await requestDurableTurnStop(abortKey)
+        abortAndClearController(abortKey)
+        abortCurrentOnDisconnect = true
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION) {
-        await handleSelectionAction(
-          msg as unknown as SelectionActionMessage,
-          port,
-          getPortStatus
-        )
+        await handleSelectionAction(msg, port, getPortStatus)
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.CANCEL_SELECTION_ACTION) {
@@ -143,42 +169,5 @@ export const registerPortRouter = () => {
         abortAndClearController(port.abortScopeKey ?? port.name)
       }
     })
-
-    if (
-      port.name === MESSAGE_KEYS.PROVIDER.PULL_MODEL ||
-      port.name === MESSAGE_KEYS.OLLAMA.PULL_MODEL
-    ) {
-      port.onMessage.addListener(async (message) => {
-        const msg = message as ChromeMessage
-        const messageType = typeof msg?.type === "string" ? msg.type : ""
-        if (
-          !isRuntimePortMessageAllowed(
-            port.name,
-            messageType,
-            sender,
-            browser.runtime.id,
-            extensionUrlPrefix
-          )
-        ) {
-          logger.warn(
-            "Blocked unauthorized model-pull message",
-            "RuntimeAuthorization",
-            {
-              portName: port.name,
-              type: messageType || "invalid",
-              surface: classifyRuntimeSender(
-                sender,
-                browser.runtime.id,
-                extensionUrlPrefix
-              ),
-              tabId: sender.tab?.id
-            }
-          )
-          port.disconnect()
-          return
-        }
-        await handleModelPull(msg as ModelPullMessage, port, getPortStatus)
-      })
-    }
   })
 }

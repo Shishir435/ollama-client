@@ -1,5 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+// The global setup stubs every stored value to `undefined`, which would make a
+// remembered catalog answer unreadable and hide the very behavior being tested.
+const storageBacking = vi.hoisted(() => new Map<string, unknown>())
+vi.mock("@/lib/plasmo-global-storage", () => ({
+  getPlasmoStoredValue: vi.fn(async (key: string) => storageBacking.get(key)),
+  setPlasmoStoredValue: vi.fn(async (key: string, value: unknown) => {
+    storageBacking.set(key, value)
+  })
+}))
+
+import { createAppError } from "@/lib/error-utils"
+import { clearModelCatalogSupport } from "@/lib/providers/model-catalog-support"
 import type { LLMProvider } from "@/lib/providers/types"
 import type { ToolDefinition } from "@/lib/tools"
 import {
@@ -292,5 +304,35 @@ describe("resolveModelTools", () => {
     await expect(
       resolveModelTools("qwen", "ollama", toolModel())
     ).resolves.toBeUndefined()
+  })
+
+  it("asks a catalog-less provider once, not on every turn", async () => {
+    // Tool gating runs per turn and a catalog-less provider never resolves
+    // metadata, so nothing here caches. Without the shared discovery policy the
+    // 404 was re-requested every time — against a hosted endpoint's rate limit,
+    // for an answer that cannot change.
+    await clearModelCatalogSupport("custom:openai:chat-only")
+    const getModels = vi
+      .fn()
+      .mockRejectedValue(createAppError("no catalog", { status: 404 }))
+    const provider: LLMProvider = {
+      ...providerWithDetails(vi.fn(async () => null)),
+      id: "custom:openai:chat-only",
+      config: {
+        id: "custom:openai:chat-only",
+        type: "openai" as never,
+        name: "Chat only",
+        enabled: true,
+        baseUrl: "https://gateway.test/v1"
+      },
+      capabilities: { modelDiscovery: true } as LLMProvider["capabilities"],
+      getModels
+    }
+
+    await resolveModelTools("router-model", provider.id, provider)
+    await resolveModelTools("router-model", provider.id, provider)
+
+    expect(getModels).toHaveBeenCalledTimes(1)
+    await clearModelCatalogSupport(provider.id)
   })
 })

@@ -61,7 +61,19 @@ const deleteBlobDatabase = async (): Promise<void> =>
     request.onblocked = () => reject(new Error("SQLite test database blocked"))
   })
 
-describe("sql.js concurrent writer topology", () => {
+/**
+ * A reproduction of the topology this codebase left behind, not a description
+ * of how it behaves now.
+ *
+ * Two contexts each holding their own whole-blob database is what production
+ * did until 0.13.x, and this is the data loss it produced. It is kept as the
+ * standing argument for the single owner: anything that reintroduces a second
+ * writer — a page opening its own engine, a "just for this one read" handle —
+ * reintroduces exactly this. sql.js is the stand-in writer here because it is
+ * the devDependency the fixture already needs; the defect is the topology, not
+ * the engine.
+ */
+describe("retired whole-blob concurrent writer topology", () => {
   beforeEach(deleteBlobDatabase)
   afterEach(deleteBlobDatabase)
 

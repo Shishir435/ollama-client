@@ -61,8 +61,7 @@ export interface PreparedToolCall {
   resultProvenance: ToolResultProvenance
 }
 
-// The reasoning-trace component translates known tool ids (rag_search, etc.);
-// the raw name is the fallback label for any tool it doesn't special-case.
+/** Raw fallback label when the reasoning trace has no translated tool id. */
 export const labelForTool = (name: string): string => name
 
 /**

@@ -1,0 +1,24 @@
+{
+  "name": "@ollama-client/contracts",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./app-failure": "./src/app-failure.ts",
+    "./chat": "./src/chat.ts",
+    "./context": "./src/context.ts",
+    "./diagnostics-rpc": "./src/diagnostics-rpc.ts",
+    "./ingestion-rpc": "./src/ingestion-rpc.ts",
+    "./model-rpc": "./src/model-rpc.ts",
+    "./model-pull-rpc": "./src/model-pull-rpc.ts",
+    "./provider-rpc": "./src/provider-rpc.ts",
+    "./rpc": "./src/rpc.ts",
+    "./streams": "./src/streams.ts",
+    "./tool-loop": "./src/tool-loop.ts",
+    "./turns": "./src/turns.ts"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
+}

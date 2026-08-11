@@ -22,7 +22,10 @@ import { cn } from "@/lib/utils"
 import type { ActivityEvent, ChatMessage, ToolRun } from "@/types"
 import {
   ActivityStepRow,
+  getActivityEventLabel,
   getActivityEventStatus,
+  getActivityResultCountLabel,
+  getActivityText,
   getToolRunLabel,
   getToolRunStatus,
   statusClass,
@@ -39,8 +42,6 @@ interface TraceStep {
   detail?: string
   preview?: string
 }
-
-const getDisplayLabel = (label: string) => label
 
 const TOOL_ICONS: Record<
   string,
@@ -139,26 +140,30 @@ const buildCompactToolTraceSteps = (
 }
 
 const getActivityCompactPreview = (
-  event: ActivityEvent
+  event: ActivityEvent,
+  t: (key: string, options?: { count?: number }) => string
 ): string | undefined => {
   if (event.error) return event.error
-  if (event.outputPreview) return event.outputPreview
+  if (event.outputPreview) return getActivityText(event.outputPreview, t)
   if (event.resultCount !== undefined) {
     const sources = event.sourceTitles?.length
-      ? `: ${event.sourceTitles.join(", ")}`
+      ? `: ${event.sourceTitles.map((title) => getActivityText(title, t)).join(", ")}`
       : ""
-    return `${event.resultCount} result${event.resultCount === 1 ? "" : "s"}${sources}`
+    return `${getActivityResultCountLabel(event.resultCount, t)}${sources}`
   }
   return event.inputPreview
 }
 
-const buildActivityTraceStep = (event: ActivityEvent): TraceStep => ({
+const buildActivityTraceStep = (
+  event: ActivityEvent,
+  t: (key: string, options?: { count?: number }) => string
+): TraceStep => ({
   key: `activity-${event.id}`,
-  label: event.label,
+  label: getActivityEventLabel(event, t),
   status: getActivityEventStatus(event),
   icon: ACTIVITY_ICONS[event.kind] ?? Circle,
   detail: event.error,
-  preview: getActivityCompactPreview(event)
+  preview: getActivityCompactPreview(event, t)
 })
 
 export interface ReasoningTraceProps {
@@ -288,7 +293,7 @@ export const ReasoningTrace = ({
   }
 
   const steps: TraceStep[] = [
-    ...activityEvents.map(buildActivityTraceStep),
+    ...activityEvents.map((event) => buildActivityTraceStep(event, t)),
     isBusy && !hasVisibleContent && activityEvents.length === 0
       ? {
           key: "thinking",
@@ -332,8 +337,8 @@ export const ReasoningTrace = ({
     ? activeStep.status === "error" && activeStep.detail
       ? `${activeStep.label}: ${activeStep.detail}`
       : activeStep.preview
-        ? `${getDisplayLabel(activeStep.label)}: ${activeStep.preview}`
-        : getDisplayLabel(activeStep.label)
+        ? `${activeStep.label}: ${activeStep.preview}`
+        : activeStep.label
     : undefined
 
   const reasoningLabel = t("chat.reasoning.title")
@@ -345,7 +350,7 @@ export const ReasoningTrace = ({
           <span className="sr-only">{t("chat.reasoning.aria_label")}</span>
           {steps.map((step) => {
             const Icon = step.icon ?? Circle
-            const label = getDisplayLabel(step.label)
+            const label = step.label
             const tooltip = step.detail ? `${label}: ${step.detail}` : label
             return (
               <TooltipActionButton
@@ -413,7 +418,7 @@ export const ReasoningTrace = ({
           {activityEvents.length > 0 && (
             <ol className="flex flex-col gap-1.5">
               {activityEvents.map((event) => (
-                <ActivityStepRow key={event.id} event={event} />
+                <ActivityStepRow key={event.id} event={event} t={t} />
               ))}
             </ol>
           )}

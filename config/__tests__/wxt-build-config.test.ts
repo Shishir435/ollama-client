@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest"
 
-import { devEntrypointsToStrip, stripDevEntrypoints } from "../wxt-hooks"
+import {
+  devEntrypointsToStrip,
+  publicWasmAssets,
+  stripDevEntrypoints
+} from "../wxt-hooks"
 import { persistenceDefines, vite } from "../wxt-vite"
 
 /*
@@ -23,7 +27,8 @@ describe("devEntrypointsToStrip", () => {
       "spike-opfs",
       "spike-owner",
       "spike-owner-offscreen",
-      "persistence-verify"
+      "persistence-verify",
+      "ingestion-processor"
     ])
   })
 
@@ -31,6 +36,7 @@ describe("devEntrypointsToStrip", () => {
     const stripped = devEntrypointsToStrip(FIREFOX_STORE)
 
     expect(stripped).toContain("persistence-host")
+    expect(stripped).not.toContain("ingestion-processor")
     // Firefox hosts the owner in its persistent background page, so shipping
     // the offscreen document would be dead weight in the package.
     expect(stripped).toContain("spike-owner-offscreen")
@@ -42,7 +48,7 @@ describe("devEntrypointsToStrip", () => {
       benchmark: true
     })
 
-    expect(stripped).toEqual([])
+    expect(stripped).toEqual(["ingestion-processor"])
   })
 
   it("keeps them in a dev server run without any env var", () => {
@@ -52,7 +58,7 @@ describe("devEntrypointsToStrip", () => {
       benchmark: false
     })
 
-    expect(stripped).toEqual([])
+    expect(stripped).toEqual(["ingestion-processor"])
   })
 
   it("keeps the Firefox owner-client page while dropping only the offscreen one", () => {
@@ -63,6 +69,43 @@ describe("devEntrypointsToStrip", () => {
 
     expect(stripped).not.toContain("spike-owner")
     expect(stripped).toContain("spike-owner-offscreen")
+    expect(stripped).toContain("persistence-host")
+    expect(stripped).not.toContain("ingestion-processor")
+  })
+})
+
+describe("publicWasmAssets", () => {
+  const destinations = (target: {
+    command: string
+    browser: string
+    benchmark: boolean
+  }) => publicWasmAssets(target).map((asset) => asset.relativeDest)
+
+  it("ships only the official sqlite3.wasm in a store build", () => {
+    for (const target of [CHROMIUM_STORE, FIREFOX_STORE]) {
+      expect(destinations(target)).toEqual(["assets/sqlite3.wasm"])
+    }
+  })
+
+  it("adds the sql.js binary to the builds that keep the measurement pages", () => {
+    for (const target of [
+      { ...CHROMIUM_STORE, benchmark: true },
+      { command: "serve", browser: "chrome", benchmark: false },
+      { command: "serve", browser: "firefox", benchmark: false }
+    ]) {
+      expect(destinations(target)).toEqual([
+        "assets/sqlite3.wasm",
+        "assets/sql-wasm.wasm"
+      ])
+    }
+  })
+
+  it("copies the sql.js binary from the devDependency, not a committed copy", () => {
+    const [, sqlJs] = publicWasmAssets({ ...CHROMIUM_STORE, benchmark: true })
+
+    expect(sqlJs.absoluteSrc).toMatch(
+      /node_modules[\\/]sql\.js[\\/]dist[\\/]sql-wasm\.wasm$/
+    )
   })
 })
 
@@ -158,6 +201,7 @@ describe("env wiring", () => {
       { name: "spike-owner-offscreen" },
       { name: "persistence-verify" },
       { name: "persistence-host" },
+      { name: "ingestion-processor" },
       { name: "background" }
     ]
     const before = entrypoints.map((entry) => entry.name)
@@ -204,5 +248,20 @@ describe("env wiring", () => {
     expect(strippedFor("chrome")).toContain("persistence-verify")
     expect(definesFor("chrome").__SPIKE_OPFS_OWNER__).toBe("false")
     expect(definesFor("firefox").__SPIKE_OPFS_OWNER_MV2__).toBe("false")
+  })
+})
+
+describe("module preloading", () => {
+  it("emits no preload hints for either browser", () => {
+    // Extension chunks are on local disk, so a preload hint starts nothing
+    // early — and Chrome charges for each unused one twice, as "preloaded but
+    // not used" and as a cross-world resource mismatch. That was 46 console
+    // warnings on one page load, burying the extension's own logs.
+    for (const browser of ["chrome", "firefox"]) {
+      const config = vite({ browser } as Parameters<typeof vite>[0]) as {
+        build?: { modulePreload?: unknown }
+      }
+      expect(config.build?.modulePreload).toBe(false)
+    }
   })
 })

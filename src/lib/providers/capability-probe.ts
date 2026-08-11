@@ -5,7 +5,7 @@ import {
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
-import type { ToolCall } from "@/lib/tools"
+import { runToolCallingProbe } from "./tool-calling-probe"
 import type { LLMProvider } from "./types"
 
 /**
@@ -178,20 +178,6 @@ export const clearCapabilityProbesForProvider = (
     if (changed) await setPlasmoStoredValue(STORAGE_KEY, all)
   })
 
-/** The trivial tool offered during a probe. */
-const PROBE_TOOL = {
-  name: "ping",
-  description:
-    "Test tool. When asked to verify tool support, call this with value set to 'pong'.",
-  parameters: {
-    type: "object" as const,
-    properties: {
-      value: { type: "string", description: "Echo value" }
-    },
-    required: ["value"]
-  }
-}
-
 /**
  * Send a minimal tool call and then return its result to the model. Prefer the
  * standard `tool` role. Some llama.cpp templates can emit native calls but only
@@ -203,151 +189,8 @@ export const probeToolCalling = async (
   provider: LLMProvider,
   modelName: string,
   externalSignal?: AbortSignal
-): Promise<CapabilityProbeResult> => {
-  const scope = createProbeAbortScope(externalSignal)
-
-  const probePrompt =
-    "Call the ping tool with value 'pong' to verify tool support. Do not answer in text."
-  let probeCall: ToolCall | undefined
-  let streamError: string | undefined
-  let standardFollowUpFailed = false
-  streamError = undefined
-  try {
-    await provider.streamChat(
-      {
-        model: modelName,
-        messages: [{ role: "user", content: probePrompt }],
-        tools: [PROBE_TOOL],
-        think: false,
-        num_predict: 256
-      },
-      (chunk) => {
-        if (chunk.error) {
-          streamError = chunk.error.message || "Probe request failed"
-        }
-        if (!probeCall && chunk.toolCalls && chunk.toolCalls.length > 0) {
-          probeCall = chunk.toolCalls[0]
-        }
-      },
-      scope.signal
-    )
-  } catch (error) {
-    logger.debug("Tool-calling probe request failed", "capabilityProbe", {
-      model: modelName,
-      error
-    })
-    scope.cleanup()
-    throw error
-  }
-
-  // A failed request proves nothing about the model — surface it instead of
-  // recording a misleading `toolCalling: false`.
-  if (streamError) {
-    scope.cleanup()
-    throw new Error(streamError)
-  }
-  if (!probeCall) {
-    scope.cleanup()
-    return { toolCalling: false, probedAt: Date.now() }
-  }
-
-  try {
-    await provider.streamChat(
-      {
-        model: modelName,
-        messages: [
-          { role: "user", content: probePrompt },
-          { role: "assistant", content: "", toolCalls: [probeCall] },
-          {
-            role: "tool",
-            content: '{"value":"pong"}',
-            toolName: probeCall.name,
-            toolCallId: probeCall.id
-          }
-        ],
-        tools: [PROBE_TOOL],
-        tool_choice: "none",
-        think: false,
-        num_predict: 32
-      },
-      (chunk) => {
-        if (chunk.error) {
-          streamError = chunk.error.message || "Probe follow-up failed"
-        }
-      },
-      scope.signal
-    )
-  } catch (error) {
-    logger.debug(
-      "Tool-calling probe follow-up is incompatible",
-      "capabilityProbe",
-      { model: modelName, error }
-    )
-    standardFollowUpFailed = true
-  }
-
-  if (!standardFollowUpFailed && !streamError) {
-    scope.cleanup()
-    return {
-      toolCalling: true,
-      toolCallingMode: "native",
-      probedAt: Date.now()
-    }
-  }
-
-  if (scope.signal.aborted) {
-    scope.cleanup()
-    scope.signal.throwIfAborted()
-  }
-
-  streamError = undefined
-  try {
-    await provider.streamChat(
-      {
-        model: modelName,
-        messages: [
-          { role: "user", content: probePrompt },
-          { role: "assistant", content: "", toolCalls: [probeCall] },
-          {
-            role: "user",
-            content:
-              "Tool result for ping (call id: " +
-              `${probeCall.id}):\n{"value":"pong"}\n` +
-              "Use this result to finish the original request."
-          }
-        ],
-        tools: [PROBE_TOOL],
-        tool_choice: "none",
-        think: false,
-        num_predict: 32
-      },
-      (chunk) => {
-        if (chunk.error) {
-          streamError = chunk.error.message || "Probe follow-up failed"
-        }
-      },
-      scope.signal
-    )
-  } catch (error) {
-    if (scope.signal.aborted) scope.signal.throwIfAborted()
-    logger.debug(
-      "Tool-calling alternating-role follow-up is incompatible",
-      "capabilityProbe",
-      { model: modelName, error }
-    )
-    return { toolCalling: false, probedAt: Date.now() }
-  } finally {
-    scope.cleanup()
-  }
-
-  return streamError
-    ? { toolCalling: false, probedAt: Date.now() }
-    : {
-        toolCalling: true,
-        toolCallingMode: "native-user-results",
-        probedAt: Date.now()
-      }
-}
+): Promise<CapabilityProbeResult> =>
+  runToolCallingProbe(provider, modelName, externalSignal)
 
 /** Matches the error Ollama returns when `think` is sent to a non-thinking model. */
 const THINKING_UNSUPPORTED = /does not support think/i

@@ -1,17 +1,3 @@
-import type { Runtime } from "webextension-polyfill"
-
-import {
-  checkEmbeddingModelExists,
-  prepareEmbeddingModel
-} from "@/background/handlers/handle-embedding-download"
-import { classifyRuntimeSender } from "@/background/runtime-sender-authorization"
-import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
-import { DiagnosticsService } from "@/lib/diagnostics/diagnostics-service"
-import { isAppError } from "@/lib/error-utils"
-import { logger } from "@/lib/logger"
-import { ModelRpcService } from "@/lib/providers/model-rpc-service"
-import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
-import type { RpcMap, RpcRequest, RpcResponse } from "@/protocol/provider-rpc"
 import {
   RPC_PROTOCOL_VERSION,
   RPC_RESPONSE_MESSAGE_TYPE,
@@ -21,7 +7,22 @@ import {
   RpcMethod,
   RpcRequestEnvelopeSchema,
   type RpcResponseEnvelope
-} from "@/protocol/rpc"
+} from "@ollama-client/contracts/rpc"
+import { CancellationRegistry } from "@ollama-client/runtime-core/cancellation"
+import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
+import type { Runtime } from "webextension-polyfill"
+import {
+  checkEmbeddingModelExists,
+  prepareEmbeddingModel
+} from "@/background/handlers/handle-embedding-download"
+import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
+import { DiagnosticsService } from "@/lib/diagnostics/diagnostics-service"
+import { isAppError } from "@/lib/error-utils"
+import { IngestionService } from "@/lib/ingestion/ingestion-service"
+import { logger } from "@/lib/logger"
+import { ModelRpcService } from "@/lib/providers/model-rpc-service"
+import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
+import type { RpcMap, RpcRequest, RpcResponse } from "@/protocol/rpc-map"
 import { RPC_METHOD_DEFINITIONS } from "@/protocol/rpc-registry"
 
 type RpcHandlers = {
@@ -45,6 +46,8 @@ const handlers = {
     ProviderRpcService.remove(request),
   [RpcMethod.ProvidersProbeModelCapabilities]: async (request, signal) =>
     ProviderRpcService.probeModelCapabilities(request, signal),
+  [RpcMethod.ProvidersIcons]: async (request, signal) =>
+    ProviderRpcService.icons(request, signal),
   [RpcMethod.ModelsGetDetails]: async (request) =>
     ModelRpcService.getDetails(request),
   [RpcMethod.ModelsListLoaded]: async (request, signal) =>
@@ -70,6 +73,30 @@ const handlers = {
   },
   [RpcMethod.EmbeddingsPrepareModel]: async (request, signal) =>
     prepareEmbeddingModel(request, signal),
+  [RpcMethod.IngestionSubmit]: async (request) =>
+    IngestionService.submit(request),
+  [RpcMethod.IngestionGet]: async (request) =>
+    IngestionService.get(request.jobId),
+  [RpcMethod.IngestionCancel]: async (request) =>
+    IngestionService.cancel(request.jobId),
+  [RpcMethod.IngestionAck]: async (request) =>
+    IngestionService.acknowledge(request.jobId),
+  [RpcMethod.ModelPullSubmit]: async (request) => {
+    const { ModelPullService } = await import("@/background/model-pull-runtime")
+    return ModelPullService.submit(request)
+  },
+  [RpcMethod.ModelPullGet]: async (request) => {
+    const { ModelPullService } = await import("@/background/model-pull-runtime")
+    return ModelPullService.get(request.jobId)
+  },
+  [RpcMethod.ModelPullCancel]: async (request) => {
+    const { ModelPullService } = await import("@/background/model-pull-runtime")
+    return ModelPullService.cancel(request.jobId)
+  },
+  [RpcMethod.ModelPullListActive]: async () => {
+    const { ModelPullService } = await import("@/background/model-pull-runtime")
+    return ModelPullService.listActive()
+  },
   // `diagnostics.run` is only reachable from the user pressing "Run self-tests",
   // which means "measure now" — never answer it from the shared TTL result.
   [RpcMethod.DiagnosticsRun]: async (_request, signal) =>
@@ -79,7 +106,7 @@ const handlers = {
   [RpcMethod.DiagnosticsClear]: async () => DiagnosticsService.clear()
 } satisfies RpcHandlers
 
-const activeRequests = new Map<string, AbortController>()
+const activeRequests = new CancellationRegistry<AbortController>()
 
 const supportCode = (code: RpcErrorCode, requestId: string): string =>
   `OLC-RPC-${code.replaceAll("_", "-").toUpperCase()}-${requestId.slice(0, 8).toUpperCase()}`
@@ -297,7 +324,7 @@ export const handleRpcRequest = async (
   } finally {
     clearTimeout(serverTimeoutId)
     if (activeRequests.get(requestId) === controller) {
-      activeRequests.delete(requestId)
+      activeRequests.clear(requestId)
     }
     logger.info("RPC request completed", "RpcServer", {
       requestId,

@@ -1,14 +1,13 @@
-import type { z } from "zod"
-
 import {
-  DiagnosticsClearRequestSchema,
-  DiagnosticsClearResultSchema,
-  DiagnosticsGetBundleRequestSchema,
-  DiagnosticsGetBundleResultSchema,
-  DiagnosticsRunRequestSchema,
-  DiagnosticsRunResultSchema
-} from "./diagnostics-rpc"
-
+  ModelPullCancelRequestSchema,
+  ModelPullCancelResultSchema,
+  ModelPullGetRequestSchema,
+  ModelPullGetResultSchema,
+  ModelPullListActiveRequestSchema,
+  ModelPullListActiveResultSchema,
+  ModelPullSubmitRequestSchema,
+  ModelPullSubmitResultSchema
+} from "@ollama-client/contracts/model-pull-rpc"
 import {
   EmbeddingsCheckModelRequestSchema,
   EmbeddingsCheckModelResultSchema,
@@ -26,9 +25,10 @@ import {
   ModelsUnloadResultSchema,
   ModelsWarmupRequestSchema,
   ModelsWarmupResultSchema
-} from "./model-rpc"
-
+} from "@ollama-client/contracts/model-rpc"
 import {
+  ProvidersIconsRequestSchema,
+  ProvidersIconsResultSchema,
   ProvidersListModelsRequestSchema,
   ProvidersListModelsResultSchema,
   ProvidersListRequestSchema,
@@ -43,9 +43,9 @@ import {
   ProvidersUpsertResultSchema,
   ProviderTestConnectionRequestSchema,
   ProviderTestConnectionResultSchema
-} from "./provider-rpc"
-import { RpcMethod, type RpcSource } from "./rpc"
-
+} from "@ollama-client/contracts/provider-rpc"
+import { RpcMethod, type RpcSource } from "@ollama-client/contracts/rpc"
+import type { z } from "zod"
 export interface RpcMethodDefinition {
   request: z.ZodType
   response: z.ZodType
@@ -56,6 +56,11 @@ export interface RpcMethodDefinition {
 
 const extensionPagesOnly = ["extension-page"] as const
 
+/**
+ * Runtime policy paired with every typed RPC contract. Timeouts reflect the
+ * operation rather than a global default: model warmup and embedding prepare
+ * may perform cold-start or pull work, while ordinary queries stay bounded.
+ */
 export const RPC_METHOD_DEFINITIONS = {
   [RpcMethod.ProvidersList]: {
     request: ProvidersListRequestSchema,
@@ -104,6 +109,19 @@ export const RPC_METHOD_DEFINITIONS = {
     response: ProvidersProbeModelCapabilitiesResultSchema,
     allowedSources: extensionPagesOnly,
     timeoutMs: 35_000,
+    operation: "command"
+  },
+  /*
+   * A command despite reading like a getter: it fetches icons the device has
+   * not seen, writes them to the device-local cache, and empties that cache
+   * when the user has turned the lookup off. Queries promise none of that, and
+   * the label is the only thing that tells the next reader which promise holds.
+   */
+  [RpcMethod.ProvidersIcons]: {
+    request: ProvidersIconsRequestSchema,
+    response: ProvidersIconsResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
     operation: "command"
   },
   [RpcMethod.ModelsGetDetails]: {
@@ -165,6 +183,62 @@ export const RPC_METHOD_DEFINITIONS = {
     timeoutMs: 300_000,
     operation: "command"
   },
+  [RpcMethod.IngestionSubmit]: {
+    request: IngestionSubmitRequestSchema,
+    response: IngestionSubmitResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
+    operation: "command"
+  },
+  [RpcMethod.IngestionGet]: {
+    request: IngestionGetRequestSchema,
+    response: IngestionGetResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 5_000,
+    operation: "query"
+  },
+  [RpcMethod.IngestionCancel]: {
+    request: IngestionCancelRequestSchema,
+    response: IngestionCancelResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
+    operation: "command"
+  },
+  [RpcMethod.IngestionAck]: {
+    request: IngestionAckRequestSchema,
+    response: IngestionAckResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 5_000,
+    operation: "command"
+  },
+  [RpcMethod.ModelPullSubmit]: {
+    request: ModelPullSubmitRequestSchema,
+    response: ModelPullSubmitResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 15_000,
+    operation: "command"
+  },
+  [RpcMethod.ModelPullGet]: {
+    request: ModelPullGetRequestSchema,
+    response: ModelPullGetResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 5_000,
+    operation: "query"
+  },
+  [RpcMethod.ModelPullCancel]: {
+    request: ModelPullCancelRequestSchema,
+    response: ModelPullCancelResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 10_000,
+    operation: "command"
+  },
+  [RpcMethod.ModelPullListActive]: {
+    request: ModelPullListActiveRequestSchema,
+    response: ModelPullListActiveResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 5_000,
+    operation: "query"
+  },
   [RpcMethod.DiagnosticsRun]: {
     request: DiagnosticsRunRequestSchema,
     response: DiagnosticsRunResultSchema,
@@ -187,3 +261,22 @@ export const RPC_METHOD_DEFINITIONS = {
     operation: "command"
   }
 } as const satisfies Record<RpcMethod, RpcMethodDefinition>
+
+import {
+  DiagnosticsClearRequestSchema,
+  DiagnosticsClearResultSchema,
+  DiagnosticsGetBundleRequestSchema,
+  DiagnosticsGetBundleResultSchema,
+  DiagnosticsRunRequestSchema,
+  DiagnosticsRunResultSchema
+} from "@ollama-client/contracts/diagnostics-rpc"
+import {
+  IngestionAckRequestSchema,
+  IngestionAckResultSchema,
+  IngestionCancelRequestSchema,
+  IngestionCancelResultSchema,
+  IngestionGetRequestSchema,
+  IngestionGetResultSchema,
+  IngestionSubmitRequestSchema,
+  IngestionSubmitResultSchema
+} from "@ollama-client/contracts/ingestion-rpc"

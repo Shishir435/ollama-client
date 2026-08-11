@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { SelectionActionMessage } from "@/features/selection-actions/types"
+import type { SelectionActionMessage } from "@/application/selection-actions/types"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { handleSelectionAction } from "../handle-selection-action"
 import {
@@ -99,10 +99,12 @@ describe("handleSelectionAction", () => {
       expect.any(AbortSignal)
     )
     expect(port.postMessage).toHaveBeenCalledWith({
+      version: 1,
       type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_CHUNK,
       payload: { delta: "Clean text", thinkingDelta: "" }
     })
     expect(port.postMessage).toHaveBeenCalledWith({
+      version: 1,
       type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_DONE
     })
   })
@@ -161,8 +163,9 @@ describe("handleSelectionAction", () => {
     await handleSelectionAction(message, port, createMockIsPortClosed(false))
 
     expect(port.postMessage).toHaveBeenCalledWith({
+      version: 1,
       type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR,
-      error: {
+      failure: {
         status: 400,
         message: "Select a model before running Selection Actions"
       }
@@ -184,8 +187,9 @@ describe("handleSelectionAction", () => {
 
     expect(mockStreamChat).not.toHaveBeenCalled()
     expect(port.postMessage).toHaveBeenCalledWith({
+      version: 1,
       type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR,
-      error: expect.objectContaining({
+      failure: expect.objectContaining({
         status: 409,
         kind: "validation",
         message:

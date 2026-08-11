@@ -50,6 +50,7 @@ vi.mock("../factory", () => ({
   }
 }))
 
+import { ProvidersListResultSchema } from "@ollama-client/contracts/provider-rpc"
 import { createAppError } from "@/lib/error-utils"
 import {
   clearModelCatalogSupport,
@@ -141,6 +142,31 @@ describe("ProviderRpcService", () => {
     })
     expect(result.providers[0]).not.toHaveProperty("apiKey")
     expect(JSON.stringify(result)).not.toContain("private-key")
+  })
+
+  it("keeps future stored fields from invalidating public provider results", async () => {
+    mocks.getProviders.mockResolvedValue([
+      {
+        ...configs[0],
+        futureProviderField: "preserved-in-storage",
+        compatibility: {
+          maxTokensField: "max_tokens",
+          futureCompatibilityField: "preserved-in-storage"
+        }
+      }
+    ])
+
+    const result = await ProviderRpcService.list()
+
+    expect(() => ProvidersListResultSchema.parse(result)).not.toThrow()
+    expect(result.providers[0]).toMatchObject({
+      compatibility: { maxTokensField: "max_tokens" },
+      hasApiKey: true
+    })
+    expect(result.providers[0]).not.toHaveProperty("futureProviderField")
+    expect(result.providers[0].compatibility).not.toHaveProperty(
+      "futureCompatibilityField"
+    )
   })
 
   it("tests an unsaved draft without returning its credential", async () => {

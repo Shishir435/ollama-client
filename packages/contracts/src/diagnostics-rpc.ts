@@ -1,0 +1,157 @@
+import { z } from "zod"
+
+export const DiagnosticTestResultSchema = z
+  .object({
+    id: z.string(),
+    status: z.enum(["pass", "fail", "action", "unsupported"]),
+    durationMs: z.number().nonnegative(),
+    code: z.string().optional(),
+    metadata: z
+      .record(
+        z.string(),
+        z.union([z.string(), z.number(), z.boolean(), z.null()])
+      )
+      .optional()
+  })
+  .strict()
+
+/**
+ * Privacy-bounded operational evidence safe to persist and include in a
+ * support bundle. Free-form errors, prompts, URLs, and credentials are not
+ * fields in this shape; callers must reduce them to stable codes/metadata.
+ */
+export const DiagnosticEventSchema = z
+  .object({
+    id: z.string().uuid(),
+    at: z.number().int().nonnegative(),
+    level: z.enum(["info", "warn", "error"]),
+    code: z.string().regex(/^[A-Z0-9_-]{1,100}$/),
+    operation: z.string().regex(/^[a-zA-Z0-9_.:-]{1,100}$/),
+    surface: z.enum(["sidepanel", "options", "background", "content"]),
+    requestId: z.string().uuid().optional(),
+    sessionId: z
+      .string()
+      .regex(/^[a-zA-Z0-9_.:-]{1,120}$/)
+      .optional(),
+    providerProfile: z
+      .string()
+      .regex(/^[a-zA-Z0-9_.:-]{1,100}$/)
+      .optional(),
+    wireProtocol: z
+      .string()
+      .regex(/^[a-zA-Z0-9_.:-]{1,100}$/)
+      .optional(),
+    status: z.number().int().optional(),
+    durationMs: z.number().nonnegative().optional(),
+    retryable: z.boolean().optional(),
+    supportCode: z
+      .string()
+      .regex(/^[A-Z0-9_-]{1,120}$/)
+      .optional(),
+    metadata: z
+      .record(
+        z.string(),
+        z.union([z.string(), z.number(), z.boolean(), z.null()])
+      )
+      .optional()
+  })
+  .strict()
+
+export const DiagnosticsRunRequestSchema = z.object({}).strict()
+export const DiagnosticsRunResultSchema = z
+  .object({ tests: z.array(DiagnosticTestResultSchema).max(30) })
+  .strict()
+
+export const DiagnosticsGetBundleRequestSchema = z
+  .object({
+    sessionId: z
+      .string()
+      .regex(/^[a-zA-Z0-9_.:-]{1,120}$/)
+      .optional()
+  })
+  .strict()
+/**
+ * Explicit support-export boundary. The strict, bounded shape contains only
+ * environment summaries, test outcomes, and sanitized operational evidence.
+ */
+export const DiagnosticsGetBundleResultSchema = z
+  .object({
+    bundle: z
+      .object({
+        format: z.literal("ollama-client-support-v1"),
+        createdAt: z.number().int().nonnegative(),
+        appVersion: z.string(),
+        browserFamily: z.string(),
+        osFamily: z.string(),
+        capabilities: z.record(z.string(), z.boolean()),
+        permissions: z.record(z.string(), z.boolean()),
+        providers: z.array(
+          z.object({
+            profile: z.string(),
+            wire: z.string(),
+            enabled: z.boolean()
+          })
+        ),
+        storage: z.object({
+          backend: z.string(),
+          messageCount: z.number().int().nonnegative(),
+          vectorCount: z.number().int().nonnegative(),
+          /**
+           * Chat-history migration evidence, absent on a profile that never had
+           * a legacy blob. Counts and integrity verdicts only — no chat content,
+           * no table contents, nothing user-identifying. This is the only way
+           * receipt evidence leaves a device, and it leaves it because the
+           * reporter chose to send it.
+           */
+          migration: z
+            .object({
+              outcome: z.string(),
+              attempts: z.number().int().nonnegative(),
+              recordedAt: z.number().int().nonnegative(),
+              extensionVersion: z.string(),
+              sourceSchemaVersion: z.number().int().optional(),
+              sourceIntegrity: z.string().optional(),
+              importedIntegrity: z.string().optional(),
+              foreignKeyViolations: z.number().int().nonnegative().optional(),
+              /**
+               * One entry per table that did not arrive intact, as
+               * `table short by N`. A shortfall, never the row counts it was
+               * derived from — those describe how much history a person has.
+               */
+              mismatches: z.array(z.string()).optional(),
+              failure: z.string().optional()
+            })
+            .optional()
+        }),
+        events: z.array(DiagnosticEventSchema),
+        selfTests: z.array(DiagnosticTestResultSchema)
+      })
+      .strict()
+  })
+  .strict()
+
+export const DiagnosticsClearRequestSchema = z.object({}).strict()
+export const DiagnosticsClearResultSchema = z
+  .object({ cleared: z.literal(true) })
+  .strict()
+
+export type DiagnosticsRunRequest = z.infer<typeof DiagnosticsRunRequestSchema>
+export type DiagnosticsRunResult = z.infer<typeof DiagnosticsRunResultSchema>
+export type DiagnosticsGetBundleRequest = z.infer<
+  typeof DiagnosticsGetBundleRequestSchema
+>
+export type DiagnosticsGetBundleResult = z.infer<
+  typeof DiagnosticsGetBundleResultSchema
+>
+export type DiagnosticsClearRequest = z.infer<
+  typeof DiagnosticsClearRequestSchema
+>
+export type DiagnosticsClearResult = z.infer<
+  typeof DiagnosticsClearResultSchema
+>
+export type DiagnosticEvent = z.infer<typeof DiagnosticEventSchema>
+/** Migration evidence as it appears in a bundle — the schema is the contract. */
+export type DiagnosticStorageMigration = NonNullable<
+  DiagnosticsGetBundleResult["bundle"]
+>["storage"]["migration"]
+export type DiagnosticTestResult = z.infer<typeof DiagnosticTestResultSchema>

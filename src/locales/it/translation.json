@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - Chat IA locale con Ollama, LM Studio, llama.cpp",
+    "name": "Ollama Client - Chat con modelli LLM locali",
     "short_name": "Ollama Client",
-    "description": "Chat private con LLM tramite Ollama, LM Studio e llama.cpp, con RAG locale, ricerca web e contesto di pagina.",
+    "description": "Estensione Chrome local-first per chat private con LLM tramite Ollama, LM Studio e llama.cpp, inclusi flussi RAG locali.",
     "action_default_title": "Apri Ollama Client"
   },
   "selection_button": {
@@ -268,6 +268,18 @@
         "save_artifact": "Salvataggio file",
         "capture_screenshot": "Acquisizione screenshot",
         "searches": "{{count}} ricerche",
+        "rewriting_query": "Riformulazione della query",
+        "page_context": "Lettura del contesto della pagina selezionata",
+        "searching_memory": "Ricerca nella memoria",
+        "searching_context": "Ricerca del contesto",
+        "no_matching_page_chunks": "Nessun frammento di pagina corrispondente",
+        "no_matching_file_chunks": "Nessun frammento di file corrispondente",
+        "recalled_past_conversation": "Recuperato il contesto delle conversazioni precedenti",
+        "no_matching_memory": "Nessun ricordo corrispondente",
+        "previous_conversation": "Conversazione precedente",
+        "memory": "Memoria",
+        "results_one": "{{count}} risultato",
+        "results_other": "{{count}} risultati",
         "restoreSession": "Riapertura di una scheda chiusa",
         "list_reminders": "Elenco promemoria",
         "cancel_reminder": "Annullamento promemoria"
@@ -282,16 +294,17 @@
       "was_this_helpful": "È stato utile?",
       "helpful_aria": "Utile",
       "not_helpful_aria": "Non utile",
-      "rag_source": "{{count}} fonte RAG",
-      "rag_source_plural": "{{count}} fonti RAG",
-      "view_retrieved": "Vedi {{count}} fonte recuperata",
-      "view_retrieved_plural": "Vedi {{count}} fonti recuperate",
+      "rag_source_one": "{{count}} fonte RAG",
+      "rag_source_other": "{{count}} fonti RAG",
+      "view_retrieved_one": "Vedi {{count}} fonte recuperata",
+      "view_retrieved_other": "Vedi {{count}} fonti recuperate",
       "retrieved_title": "Fonti Recuperate ({{count}})",
       "source_default": "Fonte",
       "used_context_tooltip": "Contesto utilizzato",
       "used_context_aria": "Contesto utilizzato ({{count}})",
       "used_context_title": "Contesto Utilizzato ({{count}})",
       "tab_context_label": "Contesto scheda ({{count}})",
+      "tab_context": "Contesto della scheda selezionata",
       "rag_context_label": "Contesto RAG ({{count}})",
       "char_counts": "caratt. scheda: {{tab}} | caratt. RAG: {{rag}}",
       "trimmed": "troncato",
@@ -534,7 +547,8 @@
       "refresh_tooltip": "Aggiorna modelli",
       "search_placeholder": "Cerca modello...",
       "no_model_found": "Nessun modello trovato.",
-      "providers_unavailable": "{{names}} non ha restituito modelli. Controlla il provider nelle impostazioni o aggiungi gli ID modello manualmente."
+      "providers_unavailable": "{{names}} non ha restituito modelli. Controlla il provider nelle impostazioni o aggiungi gli ID modello manualmente.",
+      "selection_conflict": "Scegli un provider per {{model}}: più di uno lo offre."
     },
     "version": {
       "tooltip": "Versione Provider: {{version}}"
@@ -1519,6 +1533,23 @@
         "add": "Aggiungi",
         "remove": "Rimuovi",
         "placeholder": "es. nome o ID del modello"
+      },
+      "icon_lookup": {
+        "label": "Mostra le icone del sito dei provider",
+        "description": "Chiede l'icona a un provider non riconosciuto, così è più facile distinguerlo. Viene contattato solo l'indirizzo del provider — e il suo sito principale se quell'indirizzo non ha un'icona — mai un servizio di icone di terze parti. Ai provider con un logo integrato non viene mai chiesto."
+      },
+      "catalog_refresh": {
+        "label": "Aggiornamento dell'elenco dei modelli",
+        "description": "Con quale frequenza un pannello aperto richiede ai provider i loro elenchi di modelli. Scaricare, eliminare o modificare un provider lo aggiorna comunque subito, quindi questo intercetta solo un provider che compare o sparisce mentre guardi. Valori più bassi significano più richieste ai provider remoti.",
+        "options": {
+          "0": "Disattivato",
+          "10000": "Ogni 10 secondi",
+          "20000": "Ogni 20 secondi",
+          "30000": "Ogni 30 secondi",
+          "60000": "Ogni minuto",
+          "120000": "Ogni 2 minuti",
+          "300000": "Ogni 5 minuti"
+        }
       }
     },
     "migration": {
@@ -1904,7 +1935,8 @@
       "provider_discovery": "Provider and model discovery",
       "migration": "Persistence migration",
       "dnr_rules": "Local provider CORS rule",
-      "turn_checkpoint": "Turn recovery checkpoints"
+      "turn_checkpoint": "Turn recovery checkpoints",
+      "turn_retention": "Durable turn retention"
     }
   },
   "onboarding": {

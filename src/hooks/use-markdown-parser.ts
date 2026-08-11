@@ -10,9 +10,11 @@ import sup from "markdown-it-sup"
 import taskLists from "markdown-it-task-lists"
 import { useEffect, useMemo, useState } from "react"
 
-// highlight.js (core + ~20 languages) is heavy; keep it out of the eager
-// side-panel bundle. Load it on demand the first time a code fence appears,
-// then re-render to colorise. Until then code blocks render escaped + plain.
+/**
+ * highlight.js (core + ~20 languages) is heavy; keep it out of the eager
+ * side-panel bundle. Load it on demand the first time a code fence appears,
+ * then re-render to colorise. Until then code blocks render escaped + plain.
+ */
 let hljsModule: typeof import("@/lib/hljs") | null = null
 let hljsLoading: Promise<void> | null = null
 const ensureHljs = (): Promise<void> => {

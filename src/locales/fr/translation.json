@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - Chat IA local avec Ollama, LM Studio, llama.cpp",
+    "name": "Ollama Client - Chat avec des modèles LLM locaux",
     "short_name": "Ollama Client",
-    "description": "Chat privé avec des LLM via Ollama, LM Studio et llama.cpp, avec RAG local, recherche web et contexte de page.",
+    "description": "Extension Chrome locale d'abord pour discuter en privé avec des LLM via Ollama, LM Studio et llama.cpp, avec des flux RAG locaux.",
     "action_default_title": "Ouvrir Ollama Client"
   },
   "selection_button": {
@@ -268,6 +268,18 @@
         "save_artifact": "Enregistrement du fichier",
         "capture_screenshot": "Capture d'écran",
         "searches": "{{count}} recherches",
+        "rewriting_query": "Reformulation de la requête",
+        "page_context": "Lecture du contexte de la page sélectionnée",
+        "searching_memory": "Recherche dans la mémoire",
+        "searching_context": "Recherche du contexte",
+        "no_matching_page_chunks": "Aucun extrait de page correspondant",
+        "no_matching_file_chunks": "Aucun extrait de fichier correspondant",
+        "recalled_past_conversation": "Contexte de conversations précédentes retrouvé",
+        "no_matching_memory": "Aucun souvenir correspondant",
+        "previous_conversation": "Conversation précédente",
+        "memory": "Mémoire",
+        "results_one": "{{count}} résultat",
+        "results_other": "{{count}} résultats",
         "restoreSession": "Réouverture d’un onglet fermé",
         "list_reminders": "Liste des rappels",
         "cancel_reminder": "Annulation du rappel"
@@ -282,16 +294,17 @@
       "was_this_helpful": "C'était utile ?",
       "helpful_aria": "Utile",
       "not_helpful_aria": "Pas utile",
-      "rag_source": "{{count}} source RAG",
-      "rag_source_plural": "{{count}} sources RAG",
-      "view_retrieved": "Voir {{count}} source récupérée",
-      "view_retrieved_plural": "Voir {{count}} sources récupérées",
+      "rag_source_one": "{{count}} source RAG",
+      "rag_source_other": "{{count}} sources RAG",
+      "view_retrieved_one": "Voir {{count}} source récupérée",
+      "view_retrieved_other": "Voir {{count}} sources récupérées",
       "retrieved_title": "Sources Récupérées ({{count}})",
       "source_default": "Source",
       "used_context_tooltip": "Contexte utilisé",
       "used_context_aria": "Contexte utilisé ({{count}})",
       "used_context_title": "Contexte Utilisé ({{count}})",
       "tab_context_label": "Contexte d'onglet ({{count}})",
+      "tab_context": "Contexte de l’onglet sélectionné",
       "rag_context_label": "Contexte RAG ({{count}})",
       "char_counts": "car. onglet : {{tab}} | car. RAG : {{rag}}",
       "trimmed": "tronqué",
@@ -534,7 +547,8 @@
       "refresh_tooltip": "Actualiser les modèles",
       "search_placeholder": "Rechercher un modèle...",
       "no_model_found": "Aucun modèle trouvé.",
-      "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Vérifiez le fournisseur dans les paramètres ou ajoutez des identifiants de modèle manuellement."
+      "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Vérifiez le fournisseur dans les paramètres ou ajoutez des identifiants de modèle manuellement.",
+      "selection_conflict": "Choisissez un fournisseur pour {{model}} — plusieurs le proposent."
     },
     "version": {
       "tooltip": "Version d'Provider : {{version}}"
@@ -1519,6 +1533,23 @@
         "add": "Ajouter",
         "remove": "Supprimer",
         "placeholder": "ex. nom ou ID du modèle"
+      },
+      "icon_lookup": {
+        "label": "Afficher les icônes de site des fournisseurs",
+        "description": "Demande son icône à un fournisseur non reconnu, pour mieux le distinguer. Seule l'adresse du fournisseur est contactée — ainsi que son site principal si cette adresse n'a pas d'icône — jamais un service d'icônes tiers. Les fournisseurs dotés d'un logo intégré ne sont jamais sollicités."
+      },
+      "catalog_refresh": {
+        "label": "Actualisation de la liste des modèles",
+        "description": "À quelle fréquence un panneau ouvert redemande leurs listes de modèles aux fournisseurs. Télécharger, supprimer ou modifier un fournisseur l'actualise immédiatement de toute façon ; ceci ne capte qu'un fournisseur qui apparaît ou disparaît sous vos yeux. Des valeurs plus faibles signifient plus de requêtes vers les fournisseurs distants.",
+        "options": {
+          "0": "Désactivé",
+          "10000": "Toutes les 10 secondes",
+          "20000": "Toutes les 20 secondes",
+          "30000": "Toutes les 30 secondes",
+          "60000": "Chaque minute",
+          "120000": "Toutes les 2 minutes",
+          "300000": "Toutes les 5 minutes"
+        }
       }
     },
     "migration": {
@@ -1904,7 +1935,8 @@
       "provider_discovery": "Provider and model discovery",
       "migration": "Persistence migration",
       "dnr_rules": "Local provider CORS rule",
-      "turn_checkpoint": "Turn recovery checkpoints"
+      "turn_checkpoint": "Turn recovery checkpoints",
+      "turn_retention": "Durable turn retention"
     }
   },
   "onboarding": {

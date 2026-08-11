@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
-import { MESSAGE_KEYS } from "@/lib/constants"
 import {
   RPC_CANCEL_MESSAGE_TYPE,
   RPC_REQUEST_MESSAGE_TYPE
-} from "@/protocol/rpc"
+} from "@ollama-client/contracts/rpc"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { MESSAGE_KEYS } from "@/lib/constants"
 
 // Mock browser API
 const listeners = {
@@ -77,8 +77,11 @@ vi.mock("@/background/handlers/handle-embedding-download", () => ({
 vi.mock("@/background/handlers/handle-get-models", () => ({
   handleGetModels: vi.fn()
 }))
-vi.mock("@/background/handlers/handle-model-pull", () => ({
-  handleModelPull: vi.fn()
+vi.mock("@/background/handlers/handle-start-turn", () => ({
+  handleStartTurn: vi.fn()
+}))
+vi.mock("@/background/lib/abort-controller-registry", () => ({
+  abortAndClearController: vi.fn()
 }))
 vi.mock("@/background/rpc-server", () => ({
   handleRpcCancellation: vi.fn(),
@@ -100,7 +103,8 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 import { handleChatWithModel } from "@/background/handlers/handle-chat-with-model"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
-import { handleModelPull } from "@/background/handlers/handle-model-pull"
+import { handleStartTurn } from "@/background/handlers/handle-start-turn"
+import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import {
   handleRpcCancellation,
   handleRpcRequest
@@ -250,16 +254,20 @@ describe("Background Script Entry Point", () => {
       // Get the message listener registered on the port
       const portMessageListener = port.onMessage.addListener.mock.calls[0][0]
 
-      const msg = { type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL }
+      const msg = {
+        version: 1,
+        type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
+        payload: { model: "llama2", messages: [] }
+      }
       portMessageListener(msg)
 
       expect(handleChatWithModel).toHaveBeenCalled()
     })
 
-    it("should route PULL_MODEL via named port", () => {
+    it("does not abort a durable turn when its observing panel closes", () => {
       const onConnect = listeners.onConnect[0]
       const port = {
-        name: MESSAGE_KEYS.PROVIDER.PULL_MODEL,
+        name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE,
         sender: extensionSender,
         onMessage: { addListener: vi.fn() },
         onDisconnect: { addListener: vi.fn() },
@@ -267,16 +275,46 @@ describe("Background Script Entry Point", () => {
       }
 
       onConnect(port)
+      const portMessageListener = port.onMessage.addListener.mock.calls[0][0]
+      const disconnectListener = port.onDisconnect.addListener.mock.calls[0][0]
+      portMessageListener({
+        version: 1,
+        type: MESSAGE_KEYS.PROVIDER.START_TURN,
+        payload: {
+          start: {
+            submission: {
+              id: "turn-1",
+              sessionId: "session-1",
+              mode: "new",
+              model: "llama2",
+              request: {
+                version: 1,
+                context: {
+                  rawInput: "hello",
+                  messages: [],
+                  hasTabContext: false,
+                  contextText: "",
+                  tabDocuments: [],
+                  memoryEnabled: false,
+                  maxTabContextChars: 1,
+                  maxRagContextChars: 1,
+                  groundedOnlyMode: false,
+                  selectedModel: "llama2",
+                  selectedModelRef: null
+                },
+                userMessage: { role: "user", content: "hello" }
+              },
+              createdAt: 1
+            },
+            userMessageId: 1
+          },
+          assistantMessageId: 2
+        }
+      })
+      disconnectListener()
 
-      // For named ports, it registers a specific listener.
-      // Note: The generic listener is also registered first, so we want the last one.
-      const calls = port.onMessage.addListener.mock.calls
-      const portMessageListener = calls[calls.length - 1][0]
-
-      const msg = { name: "llama2" }
-      portMessageListener(msg)
-
-      expect(handleModelPull).toHaveBeenCalled()
+      expect(handleStartTurn).toHaveBeenCalled()
+      expect(abortAndClearController).not.toHaveBeenCalledWith("turn-1")
     })
 
     it("no longer answers the retired provider message keys", () => {

@@ -1,7 +1,7 @@
-import type { Database } from "sql.js"
 import { logger } from "@/lib/logger"
+import type { MigrationDatabase } from "./database"
 
-export const ensureSessionsTagsColumn = (db: Database): void => {
+export const ensureSessionsTagsColumn = (db: MigrationDatabase): void => {
   const stmt = db.prepare("PRAGMA table_info(sessions)")
   const columns: string[] = []
   while (stmt.step()) {

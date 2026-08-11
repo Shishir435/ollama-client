@@ -1,3 +1,8 @@
+import {
+  RPC_CANCEL_MESSAGE_TYPE,
+  RPC_REQUEST_MESSAGE_TYPE
+} from "@ollama-client/contracts/rpc"
+import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import type { Runtime } from "webextension-polyfill"
 import { handleGetModels } from "@/background/handlers/handle-get-models"
 import { notifyJobComplete } from "@/background/lib/notify"
@@ -8,10 +13,7 @@ import {
   handleRpcCancellation,
   handleRpcRequest
 } from "@/background/rpc-server"
-import {
-  classifyRuntimeSender,
-  isRuntimeMessageAllowed
-} from "@/background/runtime-sender-authorization"
+import { isRuntimeMessageAllowed } from "@/background/runtime-sender-authorization"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
@@ -22,10 +24,7 @@ import {
   SELECTION_OVERLAY_REQUEST_ID_GLOBAL,
   type SelectionOverlayLoadResult
 } from "@/protocol/content-messages"
-import {
-  RPC_CANCEL_MESSAGE_TYPE,
-  RPC_REQUEST_MESSAGE_TYPE
-} from "@/protocol/rpc"
+import { getMessageType } from "@/protocol/message-type"
 import type {
   ChromeMessage,
   ChromeSidePanel,
@@ -232,20 +231,17 @@ export const registerMessageRouter = () => {
     const response = sendResponse as SendResponseFunction
     const message = rawMessage as ChromeMessage
 
+    const messageType = getMessageType(message)
     if (
-      typeof message?.type !== "string" ||
+      !messageType ||
       !isRuntimeMessageAllowed(
-        message.type,
+        messageType,
         sender,
         browser.runtime.id,
         extensionUrlPrefix
       )
     ) {
-      respondForbidden(
-        typeof message?.type === "string" ? message.type : "invalid",
-        sender,
-        response
-      )
+      respondForbidden(messageType ?? "invalid", sender, response)
       return true
     }
 

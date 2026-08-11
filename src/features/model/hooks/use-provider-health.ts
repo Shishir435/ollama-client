@@ -1,8 +1,7 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useEffect, useMemo, useState } from "react"
-
 import type { ProviderConfig } from "@/lib/providers/types"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 
 export interface ProviderHealthEntry {
   success: boolean

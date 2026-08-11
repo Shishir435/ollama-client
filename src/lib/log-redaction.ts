@@ -144,18 +144,48 @@ const redactPrivateContainer = (value: unknown): unknown => {
   }
 }
 
+/**
+ * Lets an error declare which of its own properties are diagnostics-only.
+ *
+ * Redaction here is keyed on property *names* — `apiKey`, `content` — which
+ * works for values whose sensitivity the name predicts. It does not work for a
+ * property whose sensitivity comes from where the value was obtained: an error
+ * wrapping a message from another process knows its text is untrusted, and no
+ * list of key names can. So the error says so, and it says so under a symbol,
+ * which `Object.keys` does not report and `JSON.stringify` does not serialize.
+ *
+ * `cause` is covered too, because `redactError` reads it by name rather than by
+ * enumeration, so making it non-enumerable would not have been enough.
+ */
+export const PRIVATE_ERROR_KEYS: unique symbol = Symbol.for(
+  "ollama-client.private-error-keys"
+)
+
+const privateErrorKeys = (error: Error): ReadonlySet<string> => {
+  const declared = (error as { [PRIVATE_ERROR_KEYS]?: readonly string[] })[
+    PRIVATE_ERROR_KEYS
+  ]
+  return new Set(Array.isArray(declared) ? declared : [])
+}
+
 const redactError = (error: Error, seen: WeakSet<object>): unknown => {
   const result: Record<string, unknown> = {
     name: redactLogText(error.name),
     message: redactLogText(error.message)
   }
   if (error.stack) result.stack = redactLogText(error.stack)
-  if (error.cause !== undefined)
-    result.cause = redactLogValue(error.cause, seen)
+  const privateKeys = privateErrorKeys(error)
+  if (error.cause !== undefined) {
+    result.cause = privateKeys.has("cause")
+      ? REDACTED_LOG_VALUE
+      : redactLogValue(error.cause, seen)
+  }
 
   for (const key of Object.keys(error)) {
     if (key in result) continue
-    result[key] = redactProperty(key, error[key as keyof Error], seen)
+    result[key] = privateKeys.has(key)
+      ? REDACTED_LOG_VALUE
+      : redactProperty(key, error[key as keyof Error], seen)
   }
   return result
 }

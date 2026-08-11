@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - Ollama、LM Studio、llama.cpp 本地 AI 聊天",
+    "name": "Ollama Client - 与本地 LLM 模型聊天",
     "short_name": "Ollama Client",
-    "description": "通过 Ollama、LM Studio 和 llama.cpp 进行私密 LLM 聊天，支持本地 RAG、网页搜索和页面上下文。",
+    "description": "面向本地优先体验的 Chrome 扩展，可通过 Ollama、LM Studio 和 llama.cpp 进行私密 LLM 聊天，并支持本地 RAG 工作流。",
     "action_default_title": "打开 Ollama Client"
   },
   "selection_button": {
@@ -268,6 +268,18 @@
         "save_artifact": "正在保存文件",
         "capture_screenshot": "正在截屏",
         "searches": "{{count}} 次搜索",
+        "rewriting_query": "重写查询",
+        "page_context": "读取所选页面上下文",
+        "searching_memory": "搜索记忆",
+        "searching_context": "搜索上下文",
+        "no_matching_page_chunks": "没有匹配的页面片段",
+        "no_matching_file_chunks": "没有匹配的文件片段",
+        "recalled_past_conversation": "已找回过去的对话上下文",
+        "no_matching_memory": "没有匹配的记忆",
+        "previous_conversation": "之前的对话",
+        "memory": "记忆",
+        "results_one": "{{count}} 条结果",
+        "results_other": "{{count}} 条结果",
         "restoreSession": "重新打开已关闭的标签页",
         "list_reminders": "列出提醒",
         "cancel_reminder": "正在取消提醒"
@@ -282,16 +294,17 @@
       "was_this_helpful": "这有帮助吗？",
       "helpful_aria": "有帮助",
       "not_helpful_aria": "没有帮助",
-      "rag_source": "{{count}}个RAG来源",
-      "rag_source_plural": "{{count}}个RAG来源",
-      "view_retrieved": "查看{{count}}个检索来源",
-      "view_retrieved_plural": "查看{{count}}个检索来源",
+      "rag_source_one": "{{count}}个RAG来源",
+      "rag_source_other": "{{count}}个RAG来源",
+      "view_retrieved_one": "查看{{count}}个检索来源",
+      "view_retrieved_other": "查看{{count}}个检索来源",
       "retrieved_title": "检索来源 ({{count}})",
       "source_default": "来源",
       "used_context_tooltip": "使用的上下文",
       "used_context_aria": "使用的上下文 ({{count}})",
       "used_context_title": "使用的上下文 ({{count}})",
       "tab_context_label": "标签页上下文 ({{count}})",
+      "tab_context": "所选标签页上下文",
       "rag_context_label": "RAG上下文 ({{count}})",
       "char_counts": "标签字符: {{tab}} | RAG字符: {{rag}}",
       "trimmed": "已截断",
@@ -534,7 +547,8 @@
       "refresh_tooltip": "刷新模型",
       "search_placeholder": "搜索模型...",
       "no_model_found": "未找到模型。",
-      "providers_unavailable": "{{names}} 未返回任何模型。请在设置中检查该提供商，或手动添加模型 ID。"
+      "providers_unavailable": "{{names}} 未返回任何模型。请在设置中检查该提供商，或手动添加模型 ID。",
+      "selection_conflict": "有多个提供方提供 {{model}}，请选择一个。"
     },
     "version": {
       "tooltip": "Provider 版本: {{version}}"
@@ -1519,6 +1533,23 @@
         "add": "添加",
         "remove": "移除",
         "placeholder": "例如模型名称或 ID"
+      },
+      "icon_lookup": {
+        "label": "显示提供方站点图标",
+        "description": "向未识别的提供方索取图标，便于区分。仅访问该提供方自己的地址，若该地址没有图标则访问其主站点，绝不使用第三方图标服务。已内置标识的提供方不会被访问。"
+      },
+      "catalog_refresh": {
+        "label": "模型列表刷新",
+        "description": "已打开的面板多久向提供方重新索取一次模型列表。拉取、删除模型或修改提供方都会立即刷新，因此这只用于发现在你查看期间上线或掉线的提供方。数值越小，向远程提供方发出的请求越多。",
+        "options": {
+          "0": "关闭",
+          "10000": "每 10 秒",
+          "20000": "每 20 秒",
+          "30000": "每 30 秒",
+          "60000": "每分钟",
+          "120000": "每 2 分钟",
+          "300000": "每 5 分钟"
+        }
       }
     },
     "migration": {
@@ -1904,7 +1935,8 @@
       "provider_discovery": "Provider and model discovery",
       "migration": "Persistence migration",
       "dnr_rules": "Local provider CORS rule",
-      "turn_checkpoint": "Turn recovery checkpoints"
+      "turn_checkpoint": "Turn recovery checkpoints",
+      "turn_retention": "Durable turn retention"
     }
   },
   "onboarding": {

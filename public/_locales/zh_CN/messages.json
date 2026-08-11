@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "Ollama Client - Ollama、LM Studio、llama.cpp 本地 AI 聊天",
+    "message": "Ollama Client - 与本地 LLM 模型聊天",
     "description": "Extension name shown by Chrome and Chrome Web Store"
   },
   "extShortName": {
@@ -8,7 +8,7 @@
     "description": "Short extension name"
   },
   "extDescription": {
-    "message": "通过 Ollama、LM Studio 和 llama.cpp 进行私密 LLM 聊天，支持本地 RAG、网页搜索和页面上下文。",
+    "message": "面向本地优先体验的 Chrome 扩展，可通过 Ollama、LM Studio 和 llama.cpp 进行私密 LLM 聊天，并支持本地 RAG 工作流。",
     "description": "Extension description shown by Chrome and Chrome Web Store"
   },
   "actionDefaultTitle": {

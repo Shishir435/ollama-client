@@ -24,19 +24,23 @@ import {
 } from "@/lib/sqlite/db"
 import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
 
-// Dev-only verification surface for the production OPFS migration. Every
-// call below exercises the REAL production path: the repository facade, the
-// backend dispatcher, the persistence RPC, and the owner worker. Only the
-// legacy-blob seeding writes directly, because it must reproduce what an
-// unmigrated 0.11.x profile leaves behind.
-//
-// Extension APIs go through `browser`, never the `chrome` alias: on Firefox
-// the `chrome` namespace is callback-only, so `await chrome.storage.local.get`
-// resolves to undefined rather than the stored value. That made every hook
-// here silently unusable on the Firefox runner while working on Chromium.
+/**
+ * Dev-only verification surface for the production OPFS migration. Every
+ * call below exercises the REAL production path: the repository facade, the
+ * backend dispatcher, the persistence RPC, and the owner worker. Only the
+ * legacy-blob seeding writes directly, because it must reproduce what an
+ * unmigrated 0.11.x profile leaves behind.
+ *
+ * Extension APIs go through `browser`, never the `chrome` alias: on Firefox
+ * the `chrome` namespace is callback-only, so `await chrome.storage.local.get`
+ * resolves to undefined rather than the stored value. That made every hook
+ * here silently unusable on the Firefox runner while working on Chromium.
+ */
 
-// Rows the fixture adds outside sessions/messages, so per-table migration
-// verification has something to verify.
+/**
+ * Rows the fixture adds outside sessions/messages, so per-table migration
+ * verification has something to verify.
+ */
 const PROMPT_TEMPLATE_SEED = 7
 const KV_SEED = 3
 

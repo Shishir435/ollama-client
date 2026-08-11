@@ -1,35 +1,37 @@
 #!/usr/bin/env node
 
-// Section 9.4 gate 4d: forced service-worker termination mid-write.
-//
-// This is the one lifecycle gate spike-owner-gates.ts could not cover. It runs
-// in its own runner because Playwright globally auto-attaches to every service
-// worker it discovers, and an attached (inspected) MV3 worker is pinned alive —
-// Chromium will not terminate it, so no kill primitive fires. Confirmed dead
-// ends under Playwright: ServiceWorker.stopAllWorkers (page and browser CDP
-// session), Target.closeTarget, Runtime.terminateExecution, and idle timeout.
-//
-// The working approach: launch Chromium ourselves with --remote-debugging-port
-// so NOTHING attaches a debugger to the worker, drive the spike-owner page over
-// raw CDP (attaching to a page target does not pin the worker), and terminate
-// the background worker with the DevTools HTTP endpoint /json/close/<targetId>.
-// On this topology the SQLite owner lives in the offscreen document, a context
-// the service worker's death does not touch — so gate 4d certifies the
-// partial-topology failure that gate 4c (full browser restart) does not:
-// the worker dies mid-write, the offscreen owner survives, and a fresh worker
-// generation resumes serving.
-//
-// Two writes bracket the kill so both properties are proven: a committed write
-// (awaited) that MUST survive — durability — and a burst of unawaited writes
-// still crossing the SW -> offscreen boundary when it dies — atomicity. The
-// crash window counts as exercised only when the kill SPLITS the burst (some
-// writes commit, some are dropped: 0 < landed < total); an unsplit outcome is
-// retried, not accepted. Every surviving row must carry its exact state, never
-// partial/duplicated. Owner continuity (same ownerId and workerGeneration
-// across the kill) proves the offscreen owner was not replaced.
-//
-// Usage: pnpm spike:sw-termination
-// Requires: pnpm spike:build
+/**
+ * Section 9.4 gate 4d: forced service-worker termination mid-write.
+ *
+ * This is the one lifecycle gate spike-owner-gates.ts could not cover. It runs
+ * in its own runner because Playwright globally auto-attaches to every service
+ * worker it discovers, and an attached (inspected) MV3 worker is pinned alive —
+ * Chromium will not terminate it, so no kill primitive fires. Confirmed dead
+ * ends under Playwright: ServiceWorker.stopAllWorkers (page and browser CDP
+ * session), Target.closeTarget, Runtime.terminateExecution, and idle timeout.
+ *
+ * The working approach: launch Chromium ourselves with --remote-debugging-port
+ * so NOTHING attaches a debugger to the worker, drive the spike-owner page over
+ * raw CDP (attaching to a page target does not pin the worker), and terminate
+ * the background worker with the DevTools HTTP endpoint /json/close/<targetId>.
+ * On this topology the SQLite owner lives in the offscreen document, a context
+ * the service worker's death does not touch — so gate 4d certifies the
+ * partial-topology failure that gate 4c (full browser restart) does not:
+ * the worker dies mid-write, the offscreen owner survives, and a fresh worker
+ * generation resumes serving.
+ *
+ * Two writes bracket the kill so both properties are proven: a committed write
+ * (awaited) that MUST survive — durability — and a burst of unawaited writes
+ * still crossing the SW -> offscreen boundary when it dies — atomicity. The
+ * crash window counts as exercised only when the kill SPLITS the burst (some
+ * writes commit, some are dropped: 0 < landed < total); an unsplit outcome is
+ * retried, not accepted. Every surviving row must carry its exact state, never
+ * partial/duplicated. Owner continuity (same ownerId and workerGeneration
+ * across the kill) proves the offscreen owner was not replaced.
+ *
+ * Usage: pnpm spike:sw-termination
+ * Requires: pnpm spike:build
+ */
 
 import { spawn } from "node:child_process"
 import {
@@ -46,9 +48,11 @@ import { chromium } from "playwright"
 const chromeBuildPath = resolve("build/chrome-mv3-spike")
 const artifactDir = resolve("artifacts/persistence-benchmark")
 
-// Chromium picks a free port when launched with --remote-debugging-port=0 and
-// writes it to DevToolsActivePort in the profile dir. Resolving it per run
-// keeps concurrent runners (and a busy 9333) from colliding on a shared port.
+/**
+ * Chromium picks a free port when launched with --remote-debugging-port=0 and
+ * writes it to DevToolsActivePort in the profile dir. Resolving it per run
+ * keeps concurrent runners (and a busy 9333) from colliding on a shared port.
+ */
 let debugPort = 0
 
 interface GateResult {
@@ -94,17 +98,21 @@ const listTargets = async (): Promise<CdpTarget[]> => {
   return Array.isArray(list) ? (list as CdpTarget[]) : []
 }
 
-// Our extension's worker registers at background.js; Chromium's built-in
-// component extensions use other script names (e.g. thunk.js), so this filter
-// selects our worker uniquely without hardcoding an id.
+/**
+ * Our extension's worker registers at background.js; Chromium's built-in
+ * component extensions use other script names (e.g. thunk.js), so this filter
+ * selects our worker uniquely without hardcoding an id.
+ */
 const findServiceWorker = (targets: CdpTarget[]): CdpTarget | undefined =>
   targets.find(
     (target) =>
       target.type === "service_worker" && target.url.endsWith("/background.js")
   )
 
-// Minimal CDP-over-WebSocket client. Only what this gate needs: attach to a
-// page target (flat protocol) and evaluate expressions in it.
+/**
+ * Minimal CDP-over-WebSocket client. Only what this gate needs: attach to a
+ * page target (flat protocol) and evaluate expressions in it.
+ */
 class PageSession {
   private ws: WebSocket
   private nextId = 1
@@ -199,7 +207,7 @@ class PageSession {
   }
 }
 
-// A page-context call into window.__spikeOwner, serialized as an expression.
+/** A page-context call into window.__spikeOwner, serialized as an expression. */
 const ownerCall = (op: string, payload?: unknown): string =>
   `window.__spikeOwner(${JSON.stringify(op)}${
     payload === undefined ? "" : `, ${JSON.stringify(payload)}`

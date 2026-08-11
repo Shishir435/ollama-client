@@ -36,6 +36,12 @@ export const RUNTIME_TRANSPORT_DEFINITIONS = [
     allowedSources: extensionPage
   },
   {
+    type: MESSAGE_KEYS.PROVIDER.START_TURN,
+    transport: "port-message",
+    operation: "stream",
+    allowedSources: extensionPage
+  },
+  {
     type: MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT,
     transport: "port-message",
     operation: "stream",
@@ -54,9 +60,9 @@ export const RUNTIME_TRANSPORT_DEFINITIONS = [
     allowedSources: extensionPage
   },
   {
-    type: MESSAGE_KEYS.PROVIDER.PULL_MODEL,
-    transport: "port",
-    operation: "stream",
+    type: MESSAGE_KEYS.PROVIDER.RECONNECT_STREAM,
+    transport: "port-message",
+    operation: "command",
     allowedSources: extensionPage
   },
   {
@@ -85,12 +91,6 @@ export const RUNTIME_TRANSPORT_DEFINITIONS = [
   },
   {
     type: MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE,
-    transport: "port",
-    operation: "stream",
-    allowedSources: extensionPage
-  },
-  {
-    type: MESSAGE_KEYS.OLLAMA.PULL_MODEL,
     transport: "port",
     operation: "stream",
     allowedSources: extensionPage

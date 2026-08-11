@@ -102,16 +102,15 @@ export const useChat = () => {
     renameSessionTitle
   })
 
-  const { generateResponse, setNextResponseMetrics, clearNextResponseMetrics } =
-    useChatResponse({
-      config,
-      currentSessionId,
-      messages,
-      addMessage,
-      startStream,
-      currentStreamingMessageIdRef,
-      currentStreamingSessionIdRef
-    })
+  const { generateResponse } = useChatResponse({
+    config,
+    currentSessionId,
+    messages,
+    addMessage,
+    startStream,
+    currentStreamingMessageIdRef,
+    currentStreamingSessionIdRef
+  })
 
   const effectiveConfig = useMemo(() => {
     const selectedUrls = selectedTabIds
@@ -140,8 +139,6 @@ export const useChat = () => {
     ensureSessionId,
     autoRenameSession,
     addMessage,
-    setNextResponseMetrics,
-    clearNextResponseMetrics,
     generateResponse,
     toast
   })

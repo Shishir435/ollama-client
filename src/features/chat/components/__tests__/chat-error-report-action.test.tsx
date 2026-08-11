@@ -1,10 +1,9 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-
 import { ChatErrorReportAction } from "@/features/chat/components/chat-error-report-action"
 import { openExternalUrl, openOptionsInTab } from "@/lib/browser-api"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key })
@@ -24,7 +23,7 @@ vi.mock("@/protocol/extension-client", () => ({
 }))
 
 describe("ChatErrorReportAction", () => {
-  it("runs safe diagnostics automatically and includes incident data", async () => {
+  it("collects safe diagnostics only when asked, and includes incident data", async () => {
     ;(extensionRpcClient.call as any).mockImplementation(
       async (method: RpcMethod) => {
         if (method === RpcMethod.ProvidersListModels) {
@@ -94,14 +93,19 @@ describe("ChatErrorReportAction", () => {
       />
     )
 
+    // The bundle runs the whole diagnostic suite, so mounting a failed message
+    // must not start it.
+    expect(extensionRpcClient.call).not.toHaveBeenCalled()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.open_issue" })
+    )
+
     await waitFor(() =>
       expect(extensionRpcClient.call).toHaveBeenCalledWith(
         RpcMethod.DiagnosticsGetBundle,
         { sessionId: "session-123" }
       )
-    )
-    fireEvent.click(
-      screen.getByRole("button", { name: "chat.errors.open_issue" })
     )
 
     await waitFor(() => expect(openExternalUrl).toHaveBeenCalledOnce())
@@ -143,8 +147,10 @@ describe("ChatErrorReportAction", () => {
         ]
       }
     })
-    const writeText = vi
-      .spyOn(navigator.clipboard, "writeText")
+    // The bundle is claimed inside the click as a promise, so a collection
+    // still in flight cannot outlive the click's transient activation.
+    const write = vi
+      .spyOn(navigator.clipboard, "write")
       .mockResolvedValue(undefined)
 
     render(
@@ -168,8 +174,10 @@ describe("ChatErrorReportAction", () => {
     await waitFor(() => expect(copyButton).toBeEnabled())
     fireEvent.click(copyButton)
 
-    await waitFor(() => expect(writeText).toHaveBeenCalledOnce())
-    const copiedBundle = JSON.parse(writeText.mock.calls[0][0])
+    await waitFor(() => expect(write).toHaveBeenCalledOnce())
+    const item = write.mock.calls[0][0][0]
+    const copied = await (await item.getType("text/plain")).text()
+    const copiedBundle = JSON.parse(copied)
     expect(copiedBundle.format).toBe("ollama-client-support-v1")
     expect(copiedBundle.events).toEqual([
       expect.objectContaining({
@@ -177,7 +185,93 @@ describe("ChatErrorReportAction", () => {
         supportCode: "INC-ABC12345"
       })
     ])
-    expect(writeText.mock.calls[0][0]).not.toContain("**What happened**")
+    expect(copied).not.toContain("**What happened**")
+  })
+
+  it("falls back to writeText when the engine refuses a promised item", async () => {
+    ;(extensionRpcClient.call as any).mockResolvedValue({
+      bundle: {
+        format: "ollama-client-support-v1",
+        createdAt: 1,
+        appVersion: "0.12.4",
+        browserFamily: "gecko",
+        osFamily: "linux",
+        capabilities: {},
+        permissions: {},
+        providers: [],
+        storage: { backend: "sqlite", messageCount: 0, vectorCount: 0 },
+        selfTests: [],
+        events: []
+      }
+    })
+    // ClipboardItem exists, so the feature check passes — and the write still
+    // rejects, which is the case detection cannot see.
+    vi.spyOn(navigator.clipboard, "write").mockRejectedValue(
+      new Error("promise data unsupported")
+    )
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockResolvedValue(undefined)
+
+    render(
+      <ChatErrorReportAction
+        sessionId="session-123"
+        msg={{ role: "assistant", content: "failed", error: {} }}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "chat.errors.copy_diagnostics" })
+    )
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledOnce())
+    expect(JSON.parse(writeText.mock.calls[0][0]).format).toBe(
+      "ollama-client-support-v1"
+    )
+  })
+
+  it("falls back to writeText where ClipboardItem does not exist", async () => {
+    ;(extensionRpcClient.call as any).mockResolvedValue({
+      bundle: {
+        format: "ollama-client-support-v1",
+        createdAt: 1,
+        appVersion: "0.12.4",
+        browserFamily: "gecko",
+        osFamily: "linux",
+        capabilities: {},
+        permissions: {},
+        providers: [],
+        storage: { backend: "sqlite", messageCount: 0, vectorCount: 0 },
+        selfTests: [],
+        events: []
+      }
+    })
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockResolvedValue(undefined)
+    const clipboardItem = globalThis.ClipboardItem
+    // @ts-expect-error deleting a DOM global to model an engine without it
+    delete globalThis.ClipboardItem
+
+    try {
+      render(
+        <ChatErrorReportAction
+          sessionId="session-123"
+          msg={{ role: "assistant", content: "failed", error: {} }}
+        />
+      )
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "chat.errors.copy_diagnostics" })
+      )
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledOnce())
+      expect(JSON.parse(writeText.mock.calls[0][0]).format).toBe(
+        "ollama-client-support-v1"
+      )
+    } finally {
+      globalThis.ClipboardItem = clipboardItem
+    }
   })
 
   it("enables a disabled provider in place and re-runs the turn", async () => {

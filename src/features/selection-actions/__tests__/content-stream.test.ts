@@ -207,7 +207,7 @@ describe("startSelectionActionStream", () => {
 
     port._emit({
       type: MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR,
-      error: { message: "Model not loaded" }
+      error: { status: 0, message: "Model not loaded" }
     })
 
     expect(dispatch).toHaveBeenCalledWith({
@@ -245,6 +245,7 @@ describe("stopSelectionStream", () => {
     stopSelectionStream(port as unknown as chrome.runtime.Port)
 
     expect(port.postMessage).toHaveBeenCalledWith({
+      version: 1,
       type: MESSAGE_KEYS.PROVIDER.CANCEL_SELECTION_ACTION
     })
     expect(port.disconnect).toHaveBeenCalledOnce()

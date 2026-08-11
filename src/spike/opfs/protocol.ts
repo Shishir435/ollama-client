@@ -4,10 +4,10 @@ import type {
   TreePlan
 } from "@/lib/sqlite/benchmark/persistence-benchmark-core"
 
-// Section 9.4 spike wire types between the spike page and the dedicated
-// sqlite-wasm opfs-sahpool worker. Throwaway spike code: keep it isolated
-// from production modules.
-
+/**
+ * Experimental wire request between the spike page and its dedicated
+ * sqlite-wasm worker. This protocol must remain isolated from production APIs.
+ */
 export interface SpikeRunRequest {
   id: number
   type: "run"

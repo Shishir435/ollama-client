@@ -1,5 +1,7 @@
-// This file is now a facade exporting from smaller modules
-// This ensures backward compatibility while the codebase is running
+/**
+ * This file is now a facade exporting from smaller modules
+ * This ensures backward compatibility while the codebase is running
+ */
 
 export * from "./cache"
 export * from "./config"

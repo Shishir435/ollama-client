@@ -5,12 +5,14 @@ import { logger } from "@/lib/logger"
 import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import type { PendingOmniboxQuery } from "@/types/messaging"
 
-// Cache of the active tab, kept fresh so the omnibox `onInputEntered` listener
-// can open the side panel SYNCHRONOUSLY. `chrome.sidePanel.open()` requires an
-// active user gesture, which Chrome consumes at the first `await`. Querying the
-// tab inside the listener (an async call) would discard the gesture and make
-// `open()` throw, falling back to a popup window. So we resolve the window ahead
-// of time and refresh it on tab/window focus changes.
+/**
+ * Cache of the active tab, kept fresh so the omnibox `onInputEntered` listener
+ * can open the side panel SYNCHRONOUSLY. `chrome.sidePanel.open()` requires an
+ * active user gesture, which Chrome consumes at the first `await`. Querying the
+ * tab inside the listener (an async call) would discard the gesture and make
+ * `open()` throw, falling back to a popup window. So we resolve the window ahead
+ * of time and refresh it on tab/window focus changes.
+ */
 let cachedTab: { id?: number; windowId?: number } | undefined
 
 const queryActiveTab = async (): Promise<Tabs.Tab | undefined> => {

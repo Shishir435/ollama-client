@@ -9,10 +9,11 @@
 export const PROVIDER_MESSAGE_KEYS = {
   GET_MODELS: "get-provider-models",
   CHAT_WITH_MODEL: "chat-with-model",
+  START_TURN: "start-turn",
   BUILD_CONTEXT: "build-context",
   STREAM_RESPONSE: "provider-stream-response",
+  RECONNECT_STREAM: "stream-reconnect",
   STOP_GENERATION: "stop-generation",
-  PULL_MODEL: "PROVIDER.PULL_MODEL",
   START_SELECTION_ACTION: "start-selection-action",
   CANCEL_SELECTION_ACTION: "cancel-selection-action",
   CONFIRM_TOOL: "confirm-tool"
@@ -21,15 +22,15 @@ export const PROVIDER_MESSAGE_KEYS = {
 /**
  * Legacy Ollama-named message keys.
  *
- * Only the *port* names remain. Every legacy request/response twin was retired
+ * Only the chat stream port name remains. Every legacy request/response twin
+ * and the port-owned model pull were retired
  * with the RPC migration: a page old enough to send one is a page whose
  * extension context the browser already invalidated during the upgrade, so the
  * duplicate string bought compatibility with nothing while giving each action
  * two ways to behave differently.
  */
 export const LEGACY_OLLAMA_MESSAGE_KEYS = {
-  STREAM_RESPONSE: "ollama-stream-response",
-  PULL_MODEL: "OLLAMA.PULL_MODEL"
+  STREAM_RESPONSE: "ollama-stream-response"
 } as const
 
 export const MESSAGE_KEYS = {
@@ -78,7 +79,7 @@ export const STORAGE_KEYS = {
   PERSISTENCE: {
     /**
      * Raw chrome.storage.local marker: which chat-history backend this
-     * profile runs on ("legacy" sql.js blob vs "opfs" single owner). Flips
+     * profile runs on ("legacy" IndexedDB blob vs "opfs" single owner). Flips
      * exactly once, after the migration verifies row counts.
      */
     BACKEND: "persistence_backend_v1",
@@ -91,7 +92,7 @@ export const STORAGE_KEYS = {
     MIGRATION_RECEIPT: "persistence_migration_receipt_v1",
     /**
      * Raw chrome.storage.local operator switch: pin this device to the
-     * retained legacy sql.js blob regardless of the backend marker. Recovery
+     * retained legacy IndexedDB blob regardless of the backend marker. Recovery
      * path for a migration that verified but produced wrong data.
      */
     LEGACY_OVERRIDE: "persistence_legacy_override_v1"
@@ -132,7 +133,17 @@ export const STORAGE_KEYS = {
     // Whether each provider publishes a model catalog, learned from the first
     // request and fingerprinted by base URL. Keeps discovery from asking a
     // chat-only endpoint for a model list it will never have.
-    MODEL_CATALOG_SUPPORT: "provider-model-catalog-support"
+    MODEL_CATALOG_SUPPORT: "provider-model-catalog-support",
+    // Whether an unrecognized remote provider may be asked for its favicon, so
+    // it shows its own icon instead of a generic glyph.
+    FAVICON_LOOKUP: "provider-favicon-lookup",
+    // Favicons already fetched, as data URIs, keyed by provider id and
+    // fingerprinted by base URL. Device-local: the base URL points at a
+    // different server per device.
+    FAVICON_CACHE: "provider-favicon-cache",
+    // How often, in milliseconds, an open surface re-asks its providers for
+    // their model catalogs. 0 turns the poll off.
+    CATALOG_REFRESH_MS: "provider-catalog-refresh-ms"
   },
   THEME: {
     PREFERENCE: "light-dark-theme"

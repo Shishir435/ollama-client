@@ -1,11 +1,14 @@
+import type { TurnToast } from "@ollama-client/contracts/turns"
 import { useCallback } from "react"
-
+import type { ContextBuildOutput } from "@/application/context/context-service"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import {
+  CHAT_STREAM_EVENT_TYPES,
+  parseChatStreamServerEvent,
+  STREAM_PROTOCOL_VERSION
+} from "@/protocol/streams"
 import type { ActivityEvent, BuildContextRequestPayload } from "@/types"
-
-import type { BuildRagContextResult } from "./build-rag-context"
-import type { TurnToast } from "./turn-preparation"
 
 interface BuildContextCallbacks {
   /** Live activity trace, streamed from the background as retrieval progresses. */
@@ -16,12 +19,6 @@ interface BuildContextCallbacks {
    */
   toast?: (input: TurnToast) => void
 }
-
-type BuildContextPortMessage =
-  | { type: "context_progress"; requestId: string; events: ActivityEvent[] }
-  | { type: "context_warning"; requestId: string; payload: TurnToast }
-  | { type: "context_result"; requestId: string; result: BuildRagContextResult }
-  | { type: "context_error"; requestId: string; error: string }
 
 /**
  * Runs turn context building in the background over the provider stream port
@@ -35,8 +32,8 @@ export const useBuildContext = () => {
     (
       request: Omit<BuildContextRequestPayload, "requestId">,
       callbacks?: BuildContextCallbacks
-    ): Promise<BuildRagContextResult> =>
-      new Promise<BuildRagContextResult>((resolve, reject) => {
+    ): Promise<ContextBuildOutput> =>
+      new Promise<ContextBuildOutput>((resolve, reject) => {
         const requestId =
           globalThis.crypto?.randomUUID?.() ??
           `ctx-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -57,20 +54,28 @@ export const useBuildContext = () => {
         }
 
         const listener = (raw: unknown) => {
-          const msg = raw as BuildContextPortMessage
-          if (!msg?.type || msg.requestId !== requestId) return
+          const parsed = parseChatStreamServerEvent(raw)
+          if (!parsed.success) return
+          const msg = parsed.data
+          if (!("requestId" in msg) || msg.requestId !== requestId) return
           switch (msg.type) {
-            case "context_progress":
+            case CHAT_STREAM_EVENT_TYPES.CONTEXT_PROGRESS:
               callbacks?.onActivityEvent?.(msg.events)
               break
-            case "context_warning":
+            case CHAT_STREAM_EVENT_TYPES.CONTEXT_WARNING:
               callbacks?.toast?.(msg.payload)
               break
-            case "context_result":
-              finish(() => resolve(msg.result))
+            case CHAT_STREAM_EVENT_TYPES.CONTEXT_RESULT:
+              finish(() =>
+                resolve({ result: msg.result, receipt: msg.receipt })
+              )
               break
-            case "context_error":
-              finish(() => reject(new Error(msg.error)))
+            case CHAT_STREAM_EVENT_TYPES.CONTEXT_ERROR:
+              finish(() =>
+                reject(
+                  new Error(msg.failure.userMessage || msg.failure.message)
+                )
+              )
               break
           }
         }
@@ -83,6 +88,7 @@ export const useBuildContext = () => {
         )
 
         port.postMessage({
+          version: STREAM_PROTOCOL_VERSION,
           type: MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT,
           payload: { ...request, requestId }
         })

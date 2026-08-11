@@ -1,6 +1,7 @@
 import { useStorage } from "@plasmohq/storage/hook"
 import { BookOpen, Code, FileText, Sparkles, Target, Zap } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { SELECTION_ACTIONS } from "@/application/selection-actions/actions"
 import { FormGrid, SectionStack } from "@/components/layout"
 import {
   AdvancedSection,
@@ -20,7 +21,6 @@ import {
 } from "@/features/model/components/content-extraction-fields"
 import { ExcludedUrls } from "@/features/model/components/exclude-urls"
 import { SiteSpecificOverrides } from "@/features/model/components/site-specific-overrides"
-import { SELECTION_ACTIONS } from "@/features/selection-actions/actions"
 import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   STORAGE_KEYS

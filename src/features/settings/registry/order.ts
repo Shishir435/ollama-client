@@ -30,6 +30,8 @@ export const SETTINGS_REGISTRY_ORDER = [
   "provider-test-connection",
   "provider-base-url",
   "provider-api-key",
+  "provider-icon-lookup",
+  "provider-catalog-refresh",
   "provider-custom-models",
   "memory-enabled",
   "clear-memory",

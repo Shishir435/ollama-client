@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest"
 import {
   ChatMessageMetricsSchema,
   ChatMessageSchema,
   ChatSessionImportSchema,
   ChatSessionSchema
-} from "../chat.schemas"
+} from "@ollama-client/contracts/chat"
+import { describe, expect, it } from "vitest"
+import { toRuntimeChatMessage } from "../chat.schemas"
 import { PromptTemplateSchema, ThemeSchema } from "../ui-state.schemas"
 
 describe("ChatMessageSchema", () => {
@@ -14,6 +15,27 @@ describe("ChatMessageSchema", () => {
       content: "hello"
     })
     expect(result.success).toBe(true)
+  })
+
+  it("normalizes legacy attachment bytes at the application boundary", () => {
+    const parsed = ChatMessageSchema.parse({
+      role: "user",
+      content: "hello",
+      attachments: [
+        {
+          fileId: "file-1",
+          fileName: "notes.txt",
+          fileType: "text/plain",
+          fileSize: 2,
+          processedAt: 1,
+          data: { 0: 65, 1: 66 }
+        }
+      ]
+    })
+
+    expect(toRuntimeChatMessage(parsed).attachments?.[0].data).toEqual(
+      Uint8Array.from([65, 66])
+    )
   })
 
   it("accepts a full message with all optional fields", () => {
@@ -286,18 +308,60 @@ describe("ChatMessageMetricsSchema", () => {
           id: "rewrite-1",
           kind: "query_rewrite",
           label: "Rewriting query",
+          labelKey: "chat.reasoning.trace.rewriting_query",
           status: "done",
           startedAt: 1,
           finishedAt: 2,
           inputPreview: "What about it?",
-          outputPreview: "What about the deployment?",
+          outputPreview: {
+            text: "Recalled past conversation context",
+            textKey: "chat.reasoning.trace.recalled_past_conversation"
+          },
           resultCount: 1,
-          sourceTitles: ["Deploy notes"]
+          sourceTitles: [
+            "Deploy notes",
+            {
+              text: "Previous conversation",
+              textKey: "chat.reasoning.trace.previous_conversation"
+            }
+          ]
         }
       ]
     })
 
     expect(result.success).toBe(true)
+    // Strip mode drops anything the schema forgot, so a persisted turn would
+    // render its producing device's language forever.
+    if (result.success) {
+      expect(result.data.activityEvents?.[0].labelKey).toBe(
+        "chat.reasoning.trace.rewriting_query"
+      )
+      expect(result.data.activityEvents?.[0].outputPreview).toMatchObject({
+        textKey: "chat.reasoning.trace.recalled_past_conversation"
+      })
+    }
+  })
+
+  it("keeps the translatable title on an app-generated context chunk", () => {
+    const result = ChatMessageMetricsSchema.safeParse({
+      usedContextChunks: [
+        {
+          id: "tab-fallback",
+          title: "Selected tab context",
+          titleKey: "chat.sources.tab_context",
+          excerpt: "page body",
+          score: 0.5,
+          source: "tab"
+        }
+      ]
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.usedContextChunks?.[0].titleKey).toBe(
+        "chat.sources.tab_context"
+      )
+    }
   })
 
   it("strips unknown keys (default strip mode)", () => {

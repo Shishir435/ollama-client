@@ -1,3 +1,4 @@
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import type browser from "webextension-polyfill"
 
 export interface EmbeddingStatusMessage {
@@ -20,36 +21,46 @@ export interface PendingOmniboxQuery {
 
 export interface ChromeMessage {
   type: string
+  version?: number
   payload?: unknown
   disposition?: string
   query?: string
   name?: string
   cancel?: boolean
   fromBackground?: boolean
-  error?: {
-    status: number
-    message: string
-    kind?: import("./errors").AppErrorKind
-    messageKey?: string
-    userMessage?: string
-    retryable?: boolean
-    retryAfterMs?: number
-    context?: string
-    providerId?: string
-    providerName?: string
-    model?: string
-    baseUrl?: string
-    code?: import("./errors").AppErrorCode
-    phase?: import("./errors").AppErrorPhase
-    incidentId?: string
-    durationMs?: number
-    recoveryAction?: import("./errors").AppErrorRecoveryAction
-  }
+  error?: AppFailure
+  failure?: AppFailure
 }
 
-// Omit the members we deliberately narrow: the base `postMessage`/`onMessage`
-// are typed with `unknown`/`any` payloads, so re-declaring them with our
-// message union would otherwise be an incompatible override (TS2430).
+/**
+ * What a stream producer needs from its destination, and nothing else.
+ *
+ * The chat handler writes events, reads and advances a sequence counter, and
+ * names an abort scope. It never connects, disconnects, or listens — so a
+ * background-owned consumer of the same stream (the durable turn runtime, which
+ * reduces events instead of shipping them to a panel) can satisfy this while
+ * being nothing like a real port. It used to satisfy `ChromePort` by cast
+ * instead, which asserted `onMessage`, `onDisconnect`, `sender` and
+ * `disconnect()` that did not exist; any handler that reached for one would
+ * have failed at runtime with the type system claiming otherwise.
+ *
+ * `ChromePort` satisfies this structurally, so a real port is still accepted
+ * everywhere this is asked for.
+ */
+export interface ChatStreamSink {
+  name: string
+  postMessage(message: ChromeMessage | EmbeddingStatusMessage): void
+  /** @see ChromePort.abortScopeKey */
+  abortScopeKey?: string
+  /** @see ChromePort.streamSequence */
+  streamSequence?: number
+}
+
+/**
+ * Browser runtime port narrowed to application message unions. The base port's
+ * `postMessage` and `onMessage` members are omitted first because overriding
+ * their `unknown`/`any` payloads directly is incompatible under TS2430.
+ */
 export interface ChromePort
   extends Omit<browser.Runtime.Port, "postMessage" | "onMessage"> {
   postMessage(message: ChromeMessage | EmbeddingStatusMessage): void
@@ -64,6 +75,8 @@ export interface ChromePort
    * if keyed by name alone.
    */
   abortScopeKey?: string
+  /** Next monotonic event sequence for the active chat stream. */
+  streamSequence?: number
 }
 
 export interface ChromeSidePanel {
@@ -76,25 +89,7 @@ export interface ChromeSidePanel {
 export interface ChromeResponse {
   success: boolean
   data?: unknown
-  error?: {
-    status: number
-    message: string
-    kind?: import("./errors").AppErrorKind
-    messageKey?: string
-    userMessage?: string
-    retryable?: boolean
-    retryAfterMs?: number
-    context?: string
-    providerId?: string
-    providerName?: string
-    model?: string
-    baseUrl?: string
-    code?: import("./errors").AppErrorCode
-    phase?: import("./errors").AppErrorPhase
-    incidentId?: string
-    durationMs?: number
-    recoveryAction?: import("./errors").AppErrorRecoveryAction
-  }
+  error?: AppFailure
   tabs?: browser.Tabs.Tab[]
   html?: string
   title?: string

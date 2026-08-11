@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 
-// Section 9.4 spike: packaged-Firefox verification of the MV2 owner host.
-// Installs build/firefox-mv2-benchmark as a temporary add-on in real Firefox
-// via geckodriver, opens spike-owner.html on the real moz-extension:// origin
-// (fixed internal UUID via the extensions.webextensions.uuids pref), and
-// drives the owner RPC end to end: durable appends, checkpoint roundtrip,
-// worker-termination recovery, verified export, and transaction rollback.
-//
-// Usage: pnpm spike:firefox-owner-gates [--headful]
-// Requires: pnpm spike:build:firefox and a local Firefox install
-// (override the binary with FIREFOX_BIN).
+/**
+ * Section 9.4 spike: packaged-Firefox verification of the MV2 owner host.
+ * Installs build/firefox-mv2-benchmark as a temporary add-on in real Firefox
+ * via geckodriver, opens spike-owner.html on the real moz-extension:// origin
+ * (fixed internal UUID via the extensions.webextensions.uuids pref), and
+ * drives the owner RPC end to end: durable appends, checkpoint roundtrip,
+ * worker-termination recovery, verified export, and transaction rollback.
+ *
+ * Usage: pnpm spike:firefox-owner-gates [--headful]
+ * Requires: pnpm spike:build:firefox and a local Firefox install
+ * (override the binary with FIREFOX_BIN).
+ */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
@@ -24,8 +26,10 @@ const firefoxBin =
 const headful = process.argv.includes("--headful")
 
 const GECKO_ID = "shishirchaurasiya435@gmail.com"
-// Any fixed UUID works; pinning it makes the moz-extension origin knowable
-// before install.
+/**
+ * Any fixed UUID works; pinning it makes the moz-extension origin knowable
+ * before install.
+ */
 const UUID = "6c1c1f9e-2f5f-4c9a-9c11-000000abcdef"
 
 interface CheckResult {

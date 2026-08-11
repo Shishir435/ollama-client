@@ -3,8 +3,15 @@ import { logger } from "@/lib/logger"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderId } from "@/lib/providers/types"
+import { getMessageType } from "@/protocol/message-type"
+import {
+  ChatStreamServerEventSchema,
+  type ModelPullServerEvent,
+  ModelPullServerEventSchema
+} from "@/protocol/streams"
 import type {
   ChatStreamMessage,
+  ChatStreamSink,
   ChromeMessage,
   ChromePort,
   ChromeResponse,
@@ -17,7 +24,7 @@ import type {
  * is closed or disconnected (e.g., when tabs are in back/forward cache).
  */
 export const safePostMessage = (
-  port: ChromePort,
+  port: ChatStreamSink,
   message: ChatStreamMessage | PullStreamMessage | ChromeMessage
 ): void => {
   try {
@@ -41,6 +48,36 @@ export const safePostMessage = (
       })
     }
   }
+}
+
+export const safePostChatStreamEvent = (
+  port: ChatStreamSink,
+  event: unknown
+): void => {
+  const parsed = ChatStreamServerEventSchema.safeParse(event)
+  if (!parsed.success) {
+    logger.error("Refused invalid chat stream event", "StreamProtocol", {
+      type: getMessageType(event) ?? "invalid",
+      issues: parsed.error.issues.length
+    })
+    return
+  }
+  safePostMessage(port, parsed.data)
+}
+
+export const safePostModelPullEvent = (
+  port: ChromePort,
+  event: ModelPullServerEvent
+): void => {
+  const parsed = ModelPullServerEventSchema.safeParse(event)
+  if (!parsed.success) {
+    logger.error("Refused invalid model-pull event", "StreamProtocol", {
+      type: event.type,
+      issues: parsed.error.issues.length
+    })
+    return
+  }
+  safePostMessage(port, parsed.data)
 }
 
 /**

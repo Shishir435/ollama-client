@@ -1,18 +1,8 @@
-// Rollback for the one operation that replaces the whole chat database:
-// backup restore and the legacy-blob migration both go through `importDb`.
-//
-// Verifying the incoming file first (see chat-db-worker) rules out a bad
-// payload, but the physical replacement can still fail or be interrupted — the
-// offscreen host can be evicted, the worker can die, the write can fail
-// halfway. Without a retained copy the user is left with a half-written
-// database and an error message.
-//
-// So the live database is copied aside first. The copy is deleted only after
-// the replacement completes, which makes its presence at startup mean exactly
-// one thing: a replacement began and never finished, and the pre-replacement
-// database is the one to keep. Restoring is the conservative outcome — the user
-// keeps the history they had and can retry the restore.
-
+/**
+ * Pre-replacement database copy retained until an import completes. Its
+ * presence at startup proves replacement was interrupted, so recovery restores
+ * the known pre-import database before allowing another attempt.
+ */
 export const ROLLBACK_PATH = "/chat-history-rollback.sqlite"
 
 /** The slice of the opfs-sahpool utility this needs. */

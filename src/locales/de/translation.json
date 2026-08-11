@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - Lokaler KI-Chat mit Ollama, LM Studio, llama.cpp",
+    "name": "Ollama Client - Chat mit lokalen LLM-Modellen",
     "short_name": "Ollama Client",
-    "description": "Lokale Erweiterung für private LLM-Chats mit Ollama, LM Studio und llama.cpp, mit lokalem RAG, Websuche und Seitenkontext.",
+    "description": "Lokale Chrome-Erweiterung für private LLM-Chats mit Ollama, LM Studio und llama.cpp, einschließlich lokaler RAG-Workflows.",
     "action_default_title": "Ollama Client öffnen"
   },
   "selection_button": {
@@ -268,6 +268,18 @@
         "save_artifact": "Datei speichern",
         "capture_screenshot": "Screenshot wird aufgenommen",
         "searches": "{{count}} Suchen",
+        "rewriting_query": "Anfrage umformulieren",
+        "page_context": "Kontext der ausgewählten Seite lesen",
+        "searching_memory": "Gedächtnis durchsuchen",
+        "searching_context": "Kontext durchsuchen",
+        "no_matching_page_chunks": "Keine passenden Seitenabschnitte",
+        "no_matching_file_chunks": "Keine passenden Dateiabschnitte",
+        "recalled_past_conversation": "Kontext aus früheren Unterhaltungen abgerufen",
+        "no_matching_memory": "Keine passende Erinnerung",
+        "previous_conversation": "Frühere Unterhaltung",
+        "memory": "Erinnerung",
+        "results_one": "{{count}} Ergebnis",
+        "results_other": "{{count}} Ergebnisse",
         "restoreSession": "Geschlossenen Tab wieder öffnen",
         "list_reminders": "Erinnerungen auflisten",
         "cancel_reminder": "Erinnerung wird abgebrochen"
@@ -282,16 +294,17 @@
       "was_this_helpful": "War das hilfreich?",
       "helpful_aria": "Hilfreich",
       "not_helpful_aria": "Nicht hilfreich",
-      "rag_source": "{{count}} RAG-Quelle",
-      "rag_source_plural": "{{count}} RAG-Quellen",
-      "view_retrieved": "{{count}} abgerufene Quelle anzeigen",
-      "view_retrieved_plural": "{{count}} abgerufene Quellen anzeigen",
+      "rag_source_one": "{{count}} RAG-Quelle",
+      "rag_source_other": "{{count}} RAG-Quellen",
+      "view_retrieved_one": "{{count}} abgerufene Quelle anzeigen",
+      "view_retrieved_other": "{{count}} abgerufene Quellen anzeigen",
       "retrieved_title": "Abgerufene Quellen ({{count}})",
       "source_default": "Quelle",
       "used_context_tooltip": "Verwendeter Kontext",
       "used_context_aria": "Verwendeter Kontext ({{count}})",
       "used_context_title": "Verwendeter Kontext ({{count}})",
       "tab_context_label": "Tab-Kontext ({{count}})",
+      "tab_context": "Kontext des ausgewählten Tabs",
       "rag_context_label": "RAG-Kontext ({{count}})",
       "char_counts": "Tab-Zeichen: {{tab}} | RAG-Zeichen: {{rag}}",
       "trimmed": "gekürzt",
@@ -534,7 +547,8 @@
       "refresh_tooltip": "Modelle aktualisieren",
       "search_placeholder": "Modell suchen...",
       "no_model_found": "Kein Modell gefunden.",
-      "providers_unavailable": "{{names}} hat keine Modelle zurückgegeben. Prüfe den Anbieter in den Einstellungen oder füge Modell-IDs manuell hinzu."
+      "providers_unavailable": "{{names}} hat keine Modelle zurückgegeben. Prüfe den Anbieter in den Einstellungen oder füge Modell-IDs manuell hinzu.",
+      "selection_conflict": "Wähle einen Anbieter für {{model}} — mehrere stellen es bereit."
     },
     "version": {
       "tooltip": "Provider-Version: {{version}}"
@@ -1519,6 +1533,23 @@
         "add": "Hinzufügen",
         "remove": "Entfernen",
         "placeholder": "z. B. Modellname oder ID"
+      },
+      "icon_lookup": {
+        "label": "Website-Symbole der Anbieter anzeigen",
+        "description": "Fragt einen unbekannten Anbieter nach seinem Symbol, damit er leichter zu unterscheiden ist. Kontaktiert wird nur die Adresse des Anbieters — und dessen Hauptseite, falls die Adresse selbst kein Symbol hat — niemals ein fremder Symboldienst. Anbieter mit eingebautem Logo werden nie gefragt."
+      },
+      "catalog_refresh": {
+        "label": "Aktualisierung der Modellliste",
+        "description": "Wie oft ein geöffnetes Panel die Modelllisten der Anbieter erneut abruft. Beim Herunterladen, Löschen oder Bearbeiten eines Anbieters wird ohnehin sofort aktualisiert; dies erfasst nur einen Anbieter, der während des Zusehens auftaucht oder verschwindet. Niedrigere Werte bedeuten mehr Anfragen an entfernte Anbieter.",
+        "options": {
+          "0": "Aus",
+          "10000": "Alle 10 Sekunden",
+          "20000": "Alle 20 Sekunden",
+          "30000": "Alle 30 Sekunden",
+          "60000": "Jede Minute",
+          "120000": "Alle 2 Minuten",
+          "300000": "Alle 5 Minuten"
+        }
       }
     },
     "migration": {
@@ -1904,7 +1935,8 @@
       "provider_discovery": "Provider and model discovery",
       "migration": "Persistence migration",
       "dnr_rules": "Local provider CORS rule",
-      "turn_checkpoint": "Turn recovery checkpoints"
+      "turn_checkpoint": "Turn recovery checkpoints",
+      "turn_retention": "Durable turn retention"
     }
   },
   "onboarding": {

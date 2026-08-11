@@ -1,3 +1,7 @@
+import {
+  resolveToolLoopState,
+  ToolLoopCoordinator
+} from "@ollama-client/chat-runtime/tool-loop-runtime"
 import { logger } from "@/lib/logger"
 import type { ChatRequest, LLMProvider } from "@/lib/providers/types"
 import type { DurableToolLoopState } from "@/lib/repositories/tool-loop-runs"
@@ -42,10 +46,12 @@ interface StreamChatWithNonNativeToolsOptions {
 
 const DEFAULT_MAX_ITERATIONS = 5
 
-// Parser call ids restart at `<name>_0` on every parse. A per-invocation stream
-// sequence keeps callIds unique across turns and concurrent streams — the
-// confirmation registry and the UI's answered-set are both keyed by callId, so
-// a repeat would silently suppress the second confirmation prompt.
+/**
+ * Parser call ids restart at `<name>_0` on every parse. A per-invocation stream
+ * sequence keeps callIds unique across turns and concurrent streams — the
+ * confirmation registry and the UI's answered-set are both keyed by callId, so
+ * a repeat would silently suppress the second confirmation prompt.
+ */
 let streamSeq = 0
 
 const TOOL_LIMIT_FALLBACK_MESSAGE =
@@ -150,31 +156,26 @@ export const streamChatWithNonNativeTools = async ({
   initialState,
   onCheckpoint
 }: StreamChatWithNonNativeToolsOptions): Promise<void> => {
-  const state: DurableToolLoopState =
-    initialState?.phase === "model" || initialState?.phase === "tools"
-      ? initialState
-      : {
-          iteration: 0,
-          phase: "model",
-          taintGeneration: 0,
-          workingMessages: injectToolPrompt(
-            request.messages,
-            buildNonNativeToolPrompt(tools)
-          ),
-          toolRuns: []
-        }
+  const state: DurableToolLoopState = resolveToolLoopState(
+    initialState,
+    () => ({
+      iteration: 0,
+      phase: "model",
+      taintGeneration: 0,
+      workingMessages: injectToolPrompt(
+        request.messages,
+        buildNonNativeToolPrompt(tools)
+      ),
+      toolRuns: []
+    })
+  )
+  const coordinator = new ToolLoopCoordinator(state, onCheckpoint)
   const workingMessages = state.workingMessages
   // Never forward a `tools` array to the provider on this path — the model
   // doesn't support native calls and some endpoints 400 on an unusable field.
   const baseRequest: ChatRequest = { ...request, tools: undefined }
   const toolRuns = state.toolRuns
-  let lastMetrics = state.lastMetrics
   const streamId = ++streamSeq
-
-  const checkpoint = async (awaitingConfirmation = false) => {
-    state.lastMetrics = lastMetrics
-    await onCheckpoint?.(state, awaitingConfirmation)
-  }
 
   if (initialState) onChunk({ toolRuns: [...toolRuns] })
 
@@ -214,7 +215,7 @@ export const streamChatWithNonNativeTools = async ({
       )
 
       if (stopped) return
-      if (metrics) lastMetrics = metrics
+      coordinator.setMetrics(metrics)
 
       const { toolCalls: parsedCalls } = parseNonNativeToolCalls(gate.text)
       const toolCalls = parsedCalls.map((call) => ({
@@ -238,26 +239,13 @@ export const streamChatWithNonNativeTools = async ({
         content: gate.text,
         replayArtifact
       })
-      state.phase = "tools"
-      state.pendingToolCalls = toolCalls
-      state.nextToolIndex = 0
-      state.nonNativeResponseParts = []
-      if (onCheckpoint) await checkpoint()
+      await coordinator.enterTools(toolCalls, "non-native")
     }
 
-    const toolCalls = state.pendingToolCalls ?? []
     const responseParts = state.nonNativeResponseParts ?? []
 
     const startToolRun = (item: PreparedToolCall) => {
-      const existing = toolRuns.find((run) => run.callId === item.call.id)
-      if (existing) {
-        item.run = existing
-        item.run.status = "running"
-        item.run.completedAt = undefined
-        item.run.error = undefined
-      } else {
-        toolRuns.push(item.run)
-      }
+      item.run = coordinator.reuseOrAddToolRun(item.run)
       onChunk({ toolRuns: [...toolRuns] })
     }
 
@@ -270,7 +258,9 @@ export const streamChatWithNonNativeTools = async ({
         ctx,
         signal,
         () => onChunk({ toolRuns: [...toolRuns] }),
-        onCheckpoint ? () => checkpoint(true) : undefined
+        coordinator.hasCheckpointWriter
+          ? () => coordinator.checkpoint(true)
+          : undefined
       )
       onChunk({ toolRuns: [...toolRuns] })
       return {
@@ -284,63 +274,36 @@ export const streamChatWithNonNativeTools = async ({
       provenance: ToolResultProvenance
     }) => {
       responseParts.push(result.content)
-      if (result.provenance === "web-untrusted") {
-        state.taintGeneration = (state.taintGeneration ?? 0) + 1
-      }
     }
 
-    const prepareAtCurrentGeneration = (call: ToolCall) =>
+    const prepareAtCurrentGeneration = (
+      call: ToolCall,
+      taintGeneration: number
+    ) =>
       prepareToolCall(registry, call, toolResultMaxChars, {
         ...ctx,
-        taintGeneration: state.taintGeneration ?? 0
+        taintGeneration
       })
 
-    for (let index = state.nextToolIndex ?? 0; index < toolCalls.length; ) {
-      const item = await prepareAtCurrentGeneration(toolCalls[index])
-      if (item.policy.parallelizable && !item.authorizationSensitive) {
-        // Keep concurrent execution for low-risk calls only. Any later call
-        // that can consume a grant is prepared after these results update the
-        // durable taint generation.
-        const group: PreparedToolCall[] = [item]
-        index++
-        while (index < toolCalls.length) {
-          const candidateCall = toolCalls[index]
-          if (
-            !(await isAuthorizationIndependentParallelCall(
-              registry,
-              candidateCall,
-              toolResultMaxChars
-            ))
-          ) {
-            break
-          }
-          group.push(await prepareAtCurrentGeneration(candidateCall))
-          index++
-        }
-        for (const g of group) startToolRun(g)
-        const groupResults = await Promise.all(group.map(runAndFormat))
-        for (const result of groupResults) collect(result)
-        state.nextToolIndex = index
-        if (onCheckpoint) await checkpoint()
-        continue
-      }
-      startToolRun(item)
-      collect(await runAndFormat(item))
-      index++
-      state.nextToolIndex = index
-      if (onCheckpoint) await checkpoint()
-    }
-
-    workingMessages.push({
-      role: "user",
-      content: responseParts.join("\n")
+    await coordinator.executePendingTools({
+      prepare: prepareAtCurrentGeneration,
+      canJoinParallelGroup: (call) =>
+        isAuthorizationIndependentParallelCall(
+          registry,
+          call,
+          toolResultMaxChars
+        ),
+      start: startToolRun,
+      execute: runAndFormat,
+      collect
     })
-    state.iteration += 1
-    state.phase = "model"
-    state.pendingToolCalls = undefined
-    state.nextToolIndex = undefined
-    state.nonNativeResponseParts = undefined
-    if (onCheckpoint) await checkpoint()
+
+    await coordinator.completeToolPhase(() => {
+      workingMessages.push({
+        role: "user",
+        content: responseParts.join("\n")
+      })
+    })
   }
 
   // Iteration cap: one final plain pass so the user gets an answer.
@@ -355,7 +318,7 @@ export const streamChatWithNonNativeTools = async ({
   }
 
   const finalGate = new ToolCallStreamGate((text) => onChunk({ delta: text }))
-  let synthesisMetrics = lastMetrics
+  let synthesisMetrics = state.lastMetrics
   let synthesisStopped = false
   let synthesisReplayArtifact: ChatStreamMessage["replayArtifact"]
 

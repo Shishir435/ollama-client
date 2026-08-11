@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger"
+import { getYouTubeVideoId, isYouTubeVideoPage } from "@/lib/youtube-url"
 
 type YouTubeCaptionTrack = {
   baseUrl?: string
@@ -72,8 +73,8 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
   logger.debug("Starting transcript panel automation", "TranscriptExtractor")
   logger.debug(`Current URL: ${window.location.href}`, "TranscriptExtractor")
 
-  if (!window.location.href.includes("youtube.com/watch")) {
-    logger.debug("Not a YouTube watch page, skipping", "TranscriptExtractor")
+  if (!isYouTubeVideoPage(window.location.href)) {
+    logger.debug("Not a YouTube video page, skipping", "TranscriptExtractor")
     return false
   }
 
@@ -480,13 +481,9 @@ const getYouTubePlayerResponse = (): YouTubePlayerResponse | null => {
   return null
 }
 
-/** The video the address bar currently points at, or "" off a watch URL. */
+/** The video the address bar currently points at, or "" off a video URL. */
 const currentYouTubeVideoId = (): string => {
-  try {
-    return new URL(window.location.href).searchParams.get("v") || ""
-  } catch {
-    return ""
-  }
+  return getYouTubeVideoId(window.location.href)
 }
 
 /**
@@ -863,8 +860,8 @@ const extractYouTubePanelTranscript = (): string | null => {
 }
 
 const extractYouTubeTranscript = async (): Promise<string | null> => {
-  if (!window.location.href.includes("youtube.com/watch")) {
-    logger.debug("Not a YouTube watch page", "TranscriptExtractor")
+  if (!isYouTubeVideoPage(window.location.href)) {
+    logger.debug("Not a YouTube video page", "TranscriptExtractor")
     return null
   }
 

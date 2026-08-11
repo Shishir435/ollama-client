@@ -1,5 +1,6 @@
-import { Bot, Cpu, type LucideIcon, Server, Sparkles } from "lucide-react"
+import { Cpu, type LucideIcon, Server } from "lucide-react"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
+import type { ProviderBrandId } from "./provider-brand"
 import { isCustomProviderId, ProviderId } from "./types"
 
 export type ProviderIcon =
@@ -10,6 +11,12 @@ export interface ProviderMeta {
   id: string
   displayName: string
   icon: ProviderIcon
+  /**
+   * Vendor mark to draw instead of `icon` when one exists. Built-ins carry
+   * theirs here; custom providers get one resolved from their configuration by
+   * `resolveProviderBrand`, since the registry knows nothing about them.
+   */
+  brand?: ProviderBrandId
   isBeta?: boolean
 }
 
@@ -29,17 +36,20 @@ export const PROVIDER_REGISTRY: Record<string, ProviderMeta> = {
   [ProviderId.OLLAMA]: {
     id: ProviderId.OLLAMA,
     displayName: "Ollama",
-    icon: { kind: "lucide", icon: Sparkles }
+    icon: { kind: "lucide", icon: Server },
+    brand: "ollama"
   },
   [ProviderId.LM_STUDIO]: {
     id: ProviderId.LM_STUDIO,
     displayName: "LM Studio",
-    icon: { kind: "lucide", icon: Cpu }
+    icon: { kind: "lucide", icon: Server },
+    brand: "lm-studio"
   },
+  /** llama.cpp has no distributed mark; a CPU glyph names what it is. */
   [ProviderId.LLAMA_CPP]: {
     id: ProviderId.LLAMA_CPP,
     displayName: "llama.cpp",
-    icon: { kind: "lucide", icon: Bot }
+    icon: { kind: "lucide", icon: Cpu }
   }
 }
 

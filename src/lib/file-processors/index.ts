@@ -1,13 +1,13 @@
-import { CsvProcessor } from "@/features/file-upload/processors/csv-processor"
-import { DocxProcessor } from "@/features/file-upload/processors/docx-processor"
-import { HtmlProcessor } from "@/features/file-upload/processors/html-processor"
-import { PdfProcessor } from "@/features/file-upload/processors/pdf-processor"
-import { TextProcessor } from "@/features/file-upload/processors/text-processor"
+import { CsvProcessor } from "@/application/file-processing/processors/csv-processor"
+import { DocxProcessor } from "@/application/file-processing/processors/docx-processor"
+import { HtmlProcessor } from "@/application/file-processing/processors/html-processor"
+import { PdfProcessor } from "@/application/file-processing/processors/pdf-processor"
+import { TextProcessor } from "@/application/file-processing/processors/text-processor"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import type { FileProcessor, ProcessedFile } from "./types"
 
-// Processor priority order: specific formats first, then generic text
+/** Processor priority order: specific formats first, then generic text */
 const processors: FileProcessor[] = [
   new PdfProcessor(), // PDF has highest priority
   new DocxProcessor(), // DOCX second

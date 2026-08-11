@@ -28,11 +28,41 @@ const streamResponse = (chunks: string[]) => {
             ? { done: false, value: encoder.encode(chunks[i++]) }
             : { done: true, value: undefined }
         ),
+        cancel: vi.fn(async () => undefined),
         releaseLock: vi.fn()
       })
     },
     text: async () => ""
   } as unknown as Response
+}
+
+/** A stream that sends one chunk and then never closes unless cancelled. */
+const persistentStreamResponse = (chunk: string) => {
+  let sent = false
+  let cancelled = false
+  return {
+    response: {
+      ok: true,
+      status: 200,
+      body: {
+        getReader: () => ({
+          read: vi.fn(async () => {
+            if (!sent) {
+              sent = true
+              return { done: false, value: encoder.encode(chunk) }
+            }
+            return await new Promise<never>(() => {})
+          }),
+          cancel: vi.fn(async () => {
+            cancelled = true
+          }),
+          releaseLock: vi.fn()
+        })
+      },
+      text: async () => ""
+    } as unknown as Response,
+    wasCancelled: () => cancelled
+  }
 }
 
 const bodyOf = (fetchMock: ReturnType<typeof vi.spyOn>) =>
@@ -384,6 +414,49 @@ describe("provider tool calling — stream parsing", () => {
     expect(toolChunk?.toolCalls).toEqual([
       { id: "c1", name: "get_weather", arguments: { city: "Paris" } }
     ])
+  })
+
+  it("flushes a final tool call without a newline on persistent SSE", async () => {
+    const persistent = persistentStreamResponse(
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"get_weather","arguments":"{\\"city\\":\\"Paris\\"}"}}]},"finish_reason":"tool_calls"}]}'
+    )
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(persistent.response)
+
+    const chunks: ChatStreamMessage[] = []
+    await new OpenAICompatibleProvider(openaiConfig).streamChat(
+      baseRequest,
+      collect(chunks)
+    )
+
+    expect(chunks.find((chunk) => chunk.toolCalls)?.toolCalls).toEqual([
+      { id: "c1", name: "get_weather", arguments: { city: "Paris" } }
+    ])
+    expect(chunks.filter((chunk) => chunk.done)).toHaveLength(1)
+    expect(persistent.wasCancelled()).toBe(true)
+  })
+
+  it("keeps usage sent after finish_reason before [DONE]", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      streamResponse([
+        'data: {"choices":[{"delta":{"content":"answer"},"finish_reason":"stop"}]}\n',
+        'data: {"choices":[],"usage":{"prompt_tokens":7,"completion_tokens":2}}\n',
+        "data: [DONE]\n"
+      ])
+    )
+
+    const chunks: ChatStreamMessage[] = []
+    await new OpenAICompatibleProvider(openaiConfig).streamChat(
+      baseRequest,
+      collect(chunks)
+    )
+
+    expect(chunks.find((chunk) => chunk.metrics?.eval_count)?.metrics).toEqual(
+      expect.objectContaining({
+        prompt_eval_count: 7,
+        eval_count: 2
+      })
+    )
+    expect(chunks.filter((chunk) => chunk.done)).toHaveLength(1)
   })
 
   it("preserves fragmented OpenRouter reasoning details across a tool turn", async () => {

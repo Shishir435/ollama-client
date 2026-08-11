@@ -37,17 +37,17 @@ vi.mock("@/background/handlers/handle-embedding-download", () => ({
 }))
 
 import {
-  handleRpcCancellation,
-  handleRpcRequest
-} from "@/background/rpc-server"
-import { createAppError } from "@/lib/error-utils"
-import {
   RPC_CANCEL_MESSAGE_TYPE,
   RPC_PROTOCOL_VERSION,
   RPC_REQUEST_MESSAGE_TYPE,
   RpcErrorCode,
   RpcMethod
-} from "@/protocol/rpc"
+} from "@ollama-client/contracts/rpc"
+import {
+  handleRpcCancellation,
+  handleRpcRequest
+} from "@/background/rpc-server"
+import { createAppError } from "@/lib/error-utils"
 
 const extensionId = "test-extension-id"
 const extensionPrefix = "chrome-extension://test-extension-id/"

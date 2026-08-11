@@ -1,14 +1,13 @@
-import type { Database } from "sql.js"
-
 import { logger } from "@/lib/logger"
+import type { MigrationDatabase } from "./database"
 
 /**
  * Idempotent migration ensuring the `sessions.pinned` column exists. New
  * databases get it from SCHEMA_SQL; databases created before session pinning get
  * the ALTER here. Mirrors the `thinking` column migration: introspect
- * `PRAGMA table_info` rather than relying on sql.js to reject a duplicate ALTER.
+ * `PRAGMA table_info` rather than relying on a duplicate ALTER being rejected.
  */
-export const ensureSessionsPinnedColumn = (db: Database): void => {
+export const ensureSessionsPinnedColumn = (db: MigrationDatabase): void => {
   const stmt = db.prepare("PRAGMA table_info(sessions)")
   const columns: string[] = []
   while (stmt.step()) {

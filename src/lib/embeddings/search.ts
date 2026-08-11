@@ -202,44 +202,34 @@ export const searchSimilarVectors = async (
   }
 
   const queryDimension = options.embeddingDimension ?? queryEmbedding.length
-  const normalizedEmbeddingModel = options.embeddingModel
-    ? normalizeEmbeddingModelName(options.embeddingModel)
-    : null
+  const normalizedEmbeddingModel = normalizeEmbeddingModelName(
+    options.embeddingModel || DEFAULT_EMBEDDING_MODEL
+  )
   const embeddingProviderId = options.embeddingProviderId || null
-  const allowHNSW = !normalizedEmbeddingModel && !embeddingProviderId
+  const allowHNSW = !options.embeddingModel && !embeddingProviderId
 
-  if (
-    normalizedEmbeddingModel ||
-    embeddingProviderId ||
-    options.embeddingDimension
-  ) {
-    vectorQuery = vectorQuery.filter((doc) => {
-      const docDimension = doc.metadata.embeddingDim ?? doc.embedding.length
-      if (docDimension !== queryDimension) return false
+  // A cosine comparison across dimensions is invalid. Keep this filter even
+  // for low-level callers that omit the model identity.
+  vectorQuery = vectorQuery.filter((doc) => {
+    const docDimension = doc.metadata.embeddingDim ?? doc.embedding.length
+    if (docDimension !== queryDimension) return false
 
-      const docProviderId = doc.metadata.embeddingProviderId
-      const docModel = normalizeEmbeddingModelName(
-        doc.metadata.embeddingModel || DEFAULT_EMBEDDING_MODEL
-      )
+    const docProviderId = doc.metadata.embeddingProviderId
+    const docModel = normalizeEmbeddingModelName(
+      doc.metadata.embeddingModel || DEFAULT_EMBEDDING_MODEL
+    )
+    if (docModel !== normalizedEmbeddingModel) return false
 
-      if (embeddingProviderId) {
-        if (docProviderId && docProviderId !== embeddingProviderId) {
-          return false
-        }
-
-        if (!docProviderId && normalizedEmbeddingModel) {
-          // Backward compatibility: allow legacy vectors without providerId
-          if (docModel !== normalizedEmbeddingModel) return false
-        }
-      }
-
-      if (normalizedEmbeddingModel && docModel !== normalizedEmbeddingModel) {
+    if (embeddingProviderId) {
+      if (docProviderId && docProviderId !== embeddingProviderId) {
         return false
       }
-
-      return true
-    })
-  }
+    } else if (docProviderId) {
+      // An unidentified query belongs to the legacy provider-less partition.
+      return false
+    }
+    return true
+  })
 
   const vectorCount = await vectorQuery.count()
 
@@ -380,25 +370,49 @@ export const searchHybrid = async (
     combineWith: "OR"
   })
   const filteredKeywordResults = keywordResults.filter((result) => {
+    const document = result.document
+    const queryDimension =
+      searchOptions.embeddingDimension ?? queryEmbedding.length
+    const documentDimension =
+      document.metadata.embeddingDim ?? document.embedding.length
+    if (documentDimension !== queryDimension) return false
+
+    const requestedModel = normalizeEmbeddingModelName(
+      searchOptions.embeddingModel || DEFAULT_EMBEDDING_MODEL
+    )
+    const documentModel = normalizeEmbeddingModelName(
+      document.metadata.embeddingModel || DEFAULT_EMBEDDING_MODEL
+    )
+    if (documentModel !== requestedModel) return false
+
+    const requestedProvider = searchOptions.embeddingProviderId
+    const documentProvider = document.metadata.embeddingProviderId
+    if (
+      requestedProvider &&
+      documentProvider &&
+      requestedProvider !== documentProvider
+    ) {
+      return false
+    }
+    if (!requestedProvider && documentProvider) return false
+
     if (
       searchOptions.type &&
-      !matchesVectorType(result.document.metadata.type, searchOptions.type)
+      !matchesVectorType(document.metadata.type, searchOptions.type)
     ) {
       return false
     }
     if (
       searchOptions.sessionId &&
-      result.document.metadata.sessionId !== searchOptions.sessionId
+      document.metadata.sessionId !== searchOptions.sessionId
     ) {
       return false
     }
     if (searchOptions.fileId) {
       if (Array.isArray(searchOptions.fileId)) {
-        return searchOptions.fileId.includes(
-          result.document.metadata.fileId || ""
-        )
+        return searchOptions.fileId.includes(document.metadata.fileId || "")
       }
-      return result.document.metadata.fileId === searchOptions.fileId
+      return document.metadata.fileId === searchOptions.fileId
     }
     return true
   })
@@ -513,7 +527,10 @@ export const retrieveContext = async (
 
   const results = await searchSimilarVectors(embeddingResult.embedding, {
     fileId: fileIds,
-    ...options
+    ...options,
+    embeddingModel: embeddingResult.model,
+    embeddingProviderId: embeddingResult.providerId,
+    embeddingDimension: embeddingResult.embedding.length
   })
 
   // Format results

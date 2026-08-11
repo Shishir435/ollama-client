@@ -11,7 +11,7 @@ overrides:
   js-yaml@>=4.0.0 <4.3.1: 4.3.1
   linkify-it@<5.0.2: 5.0.2
   markdown-it@<14.2.0: 14.3.0
-  nanoid@<3.3.17: '>=3.3.17'
+  nanoid@: 3.3.17
   sharp@<0.35.0: 0.35.3
   svgo@>=4.0.0 <4.0.2: 4.0.2
   vite@>=8.0.0 <8.0.16: '>=8.0.16'
@@ -26,6 +26,15 @@ importers:
       '@mozilla/readability':
         specifier: ^0.6.0
         version: 0.6.0
+      '@ollama-client/chat-runtime':
+        specifier: workspace:*
+        version: link:packages/chat-runtime
+      '@ollama-client/contracts':
+        specifier: workspace:*
+        version: link:packages/contracts
+      '@ollama-client/runtime-core':
+        specifier: workspace:*
+        version: link:packages/runtime-core
       '@plasmohq/storage':
         specifier: ^1.15.0
         version: 1.15.0(react@19.2.6)
@@ -134,9 +143,6 @@ importers:
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      sql.js:
-        specifier: ^1.14.1
-        version: 1.14.1
       tailwind-merge:
         specifier: 3.6.0
         version: 3.6.0
@@ -264,6 +270,9 @@ importers:
       shadcn:
         specifier: ^4.12.0
         version: 4.12.0(@typescript/typescript6@6.0.2)
+      sql.js:
+        specifier: ^1.14.1
+        version: 1.14.1
       tailwindcss:
         specifier: 4.3.0
         version: 4.3.0
@@ -340,6 +349,24 @@ importers:
       typescript:
         specifier: npm:@typescript/typescript6@6.0.2
         version: '@typescript/typescript6@6.0.2'
+
+  packages/chat-runtime:
+    dependencies:
+      '@ollama-client/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
+  packages/runtime-core:
+    dependencies:
+      '@ollama-client/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
 packages:
 
@@ -5356,9 +5383,9 @@ packages:
     resolution: {integrity: sha512-yTW+2okrElHiH4fsiz/+/zc0EDo9BDDoC3iKk8dpv1GeRc9nUWzUZHx6TofMWErchhUQR8hY9/Eu1Uja9x1nqA==}
     engines: {node: '>=20.17'}
 
-  nanoid@6.0.1:
-    resolution: {integrity: sha512-3wVS3i51pE2pi1k5FFL/95BGfVS0kSsvDVuGXHOtxox/TywUmtgq+3qiTOTbs9J7KfHaXPiN171k/A6dBnaXFw==}
-    engines: {node: ^22 || ^24 || >=26}
+  nanoid@3.3.17:
+    resolution: {integrity: sha512-xQLf0A3HOMlgHq0n247/LRuAOYmB7dXJ/DvAxGvsSBij45XtBSmQycu+F8ODbHwns/XyFZagyL1+J0Offw1E0g==}
+    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
   nanospinner@1.2.2:
@@ -12366,7 +12393,7 @@ snapshots:
 
   nano-spawn@2.1.0: {}
 
-  nanoid@6.0.1: {}
+  nanoid@3.3.17: {}
 
   nanospinner@1.2.2:
     dependencies:
@@ -12748,7 +12775,7 @@ snapshots:
 
   postcss@8.5.18:
     dependencies:
-      nanoid: 6.0.1
+      nanoid: 3.3.17
       picocolors: 1.1.1
       source-map-js: 1.2.1
 

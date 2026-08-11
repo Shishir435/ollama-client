@@ -6,21 +6,17 @@ import type {
   TableCountMismatch,
   TableCounts
 } from "./durable-tables"
-import { PERSISTENCE_MARKER, type PersistenceStateScope } from "./protocol"
+import {
+  PERSISTENCE_MARKER,
+  PersistenceStateResponseSchema,
+  type PersistenceStateScope
+} from "./protocol"
 
-// Which persistence backend this profile runs on. "legacy" is the historical
-// in-memory sql.js database persisted as one IndexedDB blob; "opfs" is the
-// single-owner sqlite-wasm database. The marker flips exactly once, after the
-// owner has physically imported and verified the legacy blob. The legacy blob
-// itself is never deleted by the migration — it is the rollback artifact.
-//
-// Two records sit beside the marker, both device-local:
-//   - the migration receipt, written on every attempt including failures, so
-//     an unmigrated profile can state why it is still on the blob;
-//   - the operator override, which pins this device to the blob regardless of
-//     the marker. That is the recovery path for a migration that passed
-//     verification and still produced the wrong data.
-
+/**
+ * Active chat persistence topology. `legacy` is the historical sql.js image;
+ * `opfs` is the single-owner sqlite-wasm database. Migration flips the marker
+ * only after verified import and retains the legacy blob as rollback evidence.
+ */
 export type PersistenceBackend = "legacy" | "opfs"
 
 interface BackendMarker {
@@ -55,12 +51,14 @@ const STORAGE_KEY_BY_SCOPE: Record<PersistenceStateScope, string> = {
   override: STORAGE_KEYS.PERSISTENCE.LEGACY_OVERRIDE
 }
 
-// Only "opfs" is cached permanently — it is the terminal state. "legacy" is
-// transitional (the owner may flip the marker at any moment), so it is
-// re-read on demand and the cache is invalidated live through
-// storage.onChanged where the API exists. Pinning "legacy" for a page's
-// lifetime would keep it writing the rollback blob after migration —
-// split-brain history.
+/**
+ * Only "opfs" is cached permanently — it is the terminal state. "legacy" is
+ * transitional (the owner may flip the marker at any moment), so it is
+ * re-read on demand and the cache is invalidated live through
+ * storage.onChanged where the API exists. Pinning "legacy" for a page's
+ * lifetime would keep it writing the rollback blob after migration —
+ * split-brain history.
+ */
 let cachedBackend: PersistenceBackend | null = null
 let cachedOverride: boolean | null = null
 
@@ -82,14 +80,16 @@ const registerMarkerWatcher = (): void => {
   }
 }
 
-// Offscreen documents expose runtime messaging but not storage; the background
-// answers these reads/writes on their behalf.
-//
-// Probed through `browser` — the promise-based polyfill — and not the `chrome`
-// alias. On Firefox `chrome` is callback-only, so `await chrome.storage.local
-// .get(key)` resolves to undefined and the property read below throws. That
-// threw on every marker read, readPersistenceBackend swallowed it and answered
-// "legacy", and Firefox therefore never left the sql.js blob backend.
+/**
+ * Offscreen documents expose runtime messaging but not storage; the background
+ * answers these reads/writes on their behalf.
+ *
+ * Probed through `browser` — the promise-based polyfill — and not the `chrome`
+ * alias. On Firefox `chrome` is callback-only, so `await chrome.storage.local
+ * .get(key)` resolves to undefined and the property read below throws. That
+ * threw on every marker read, readPersistenceBackend swallowed it and answered
+ * "legacy", and Firefox therefore never left the sql.js blob backend.
+ */
 const hasStorageApi = (): boolean => Boolean(browser.storage?.local)
 
 const readState = async <T>(
@@ -100,15 +100,17 @@ const readState = async <T>(
     const stored = await browser.storage.local.get(key)
     return stored[key] as T | undefined
   }
-  const response = (await browser.runtime.sendMessage({
+  const rawResponse = await browser.runtime.sendMessage({
     type: PERSISTENCE_MARKER,
     action: "get",
     scope
-  })) as { ok: boolean; value?: unknown; error?: string } | undefined
-  if (!response?.ok) {
-    throw new Error(response?.error ?? `${scope} read message dropped`)
+  })
+  const response = PersistenceStateResponseSchema.safeParse(rawResponse)
+  if (!response.success) {
+    throw new Error(`${scope} read returned an invalid response`)
   }
-  return response.value as T | undefined
+  if (!response.data.ok) throw new Error(response.data.error)
+  return response.data.value as T | undefined
 }
 
 const writeState = async (
@@ -119,15 +121,17 @@ const writeState = async (
     await browser.storage.local.set({ [STORAGE_KEY_BY_SCOPE[scope]]: value })
     return
   }
-  const response = (await browser.runtime.sendMessage({
+  const rawResponse = await browser.runtime.sendMessage({
     type: PERSISTENCE_MARKER,
     action: "set",
     scope,
     value
-  })) as { ok: boolean; error?: string } | undefined
-  if (!response?.ok) {
-    throw new Error(response?.error ?? `${scope} write message dropped`)
+  })
+  const response = PersistenceStateResponseSchema.safeParse(rawResponse)
+  if (!response.success) {
+    throw new Error(`${scope} write returned an invalid response`)
   }
+  if (!response.data.ok) throw new Error(response.data.error)
 }
 
 /**
@@ -200,10 +204,12 @@ export const readMigrationReceipt =
     }
   }
 
-// Read through the `chrome` alias: getManifest is synchronous, so the
-// callback-vs-promise split that forces `browser` elsewhere does not apply, and
-// the polyfill did not answer it in the offscreen owner — every receipt written
-// there recorded the version as "unknown".
+/**
+ * Read through the `chrome` alias: getManifest is synchronous, so the
+ * callback-vs-promise split that forces `browser` elsewhere does not apply, and
+ * the polyfill did not answer it in the offscreen owner — every receipt written
+ * there recorded the version as "unknown".
+ */
 const extensionVersion = (): string => {
   try {
     return chrome.runtime.getManifest().version

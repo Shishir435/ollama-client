@@ -5,7 +5,6 @@ import {
   Server,
   XCircle
 } from "lucide-react"
-import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
@@ -37,14 +36,13 @@ export const ProviderStatusIndicator = () => {
     ready: t("model.provider_status.ready")
   })
 
-  useEffect(() => {
-    // Auto-refresh every 10 seconds
-    const interval = setInterval(() => {
-      refresh()
-    }, 10_000)
-
-    return () => clearInterval(interval)
-  }, [refresh])
+  /*
+   * No poll of its own. This used to force a full refresh every 10 seconds,
+   * which bypassed the query cache and re-ran discovery against every enabled
+   * provider — hosted routers included — whether or not the panel was even
+   * visible. The catalog queries now carry the user's refresh interval, and the
+   * button below still refreshes on demand.
+   */
 
   return (
     <TooltipActionButton

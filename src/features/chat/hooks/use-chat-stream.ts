@@ -1,7 +1,12 @@
+import {
+  makeStreamReducerState,
+  reduceStreamEvent,
+  type StreamReducerState
+} from "@ollama-client/runtime-core/chat-stream-reducer"
 import { useRef } from "react"
 import { useTranslation } from "react-i18next"
+import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import { useToast } from "@/hooks/use-toast"
-
 import { browser } from "@/lib/browser-api"
 import { ERROR_MESSAGES, MESSAGE_KEYS } from "@/lib/constants"
 import {
@@ -12,13 +17,12 @@ import { buildErrorReportUrl } from "@/lib/error-report"
 import { logger } from "@/lib/logger"
 import { providerErrorUserMessage } from "@/lib/providers/provider-errors"
 import { getProviderDisplayName } from "@/lib/providers/registry"
-import type { ChatMessage } from "@/types"
 import {
-  makeStreamReducerState,
-  reduceStreamEvent,
-  type StreamMessage,
-  type StreamReducerState
-} from "./chat-stream-reducer"
+  CHAT_STREAM_EVENT_TYPES,
+  parseChatStreamServerEvent,
+  STREAM_PROTOCOL_VERSION
+} from "@/protocol/streams"
+import type { ChatMessage } from "@/types"
 
 interface StreamOptions {
   model: string
@@ -28,6 +32,7 @@ interface StreamOptions {
   generatedMessage?: ChatMessage
   /** See {@link ChatWithModelMessage} `clientContextPrepared`. */
   clientContextPrepared?: boolean
+  durableTurn?: DurableTurnStart & { assistantMessageId: number }
 }
 
 export interface UseChatStreamProps {
@@ -68,7 +73,8 @@ export const useChatStream = ({
     messages,
     sessionId,
     generatedMessage,
-    clientContextPrepared
+    clientContextPrepared,
+    durableTurn
   }: StreamOptions) => {
     // Create port synchronously BEFORE any async operations
     let port = browser.runtime.connect({
@@ -76,6 +82,7 @@ export const useChatStream = ({
     })
     portRef.current = port
     const requestId =
+      durableTurn?.submission.id ||
       globalThis.crypto?.randomUUID?.() ||
       `chat-stream-${Date.now()}-${Math.random().toString(36).slice(2)}`
     currentRequestIdRef.current = requestId
@@ -98,14 +105,15 @@ export const useChatStream = ({
     // All per-turn accumulation lives in the reducer state; the hook keeps
     // only the port-lifecycle flags. `state.lastSeq` resets to -1 on reconnect
     // because a restarted worker restarts its sequence counter at 0.
-    let state: StreamReducerState = makeStreamReducerState(assistantMessage)
+    let state: StreamReducerState<ChatMessage> =
+      makeStreamReducerState(assistantMessage)
     let streamSettled = false
     let resumeAttempts = 0
 
     const renderAssistant = (assistant: ChatMessage) => {
       const updated = [...messages, assistant]
       currentMessagesRef.current = updated
-      setMessages(updated)
+      return setMessages(updated)
     }
 
     // Persist a clean completion for the current partial answer. Used by a
@@ -124,6 +132,23 @@ export const useChatStream = ({
       requestId,
       clientContextPrepared
     }
+    const requestMessage = durableTurn
+      ? {
+          version: STREAM_PROTOCOL_VERSION,
+          type: MESSAGE_KEYS.PROVIDER.START_TURN,
+          payload: {
+            start: {
+              submission: durableTurn.submission,
+              userMessageId: durableTurn.userMessageId
+            },
+            assistantMessageId: durableTurn.assistantMessageId
+          }
+        }
+      : {
+          version: STREAM_PROTOCOL_VERSION,
+          type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
+          payload: requestPayload
+        }
 
     const cleanupPort = () => {
       streamSettled = true
@@ -139,14 +164,69 @@ export const useChatStream = ({
 
     const listener = (rawMsg: unknown) => {
       if (streamSettled) return
-      const msg = rawMsg as StreamMessage
+      const parsed = parseChatStreamServerEvent(rawMsg)
+      if (!parsed.success) {
+        logger.warn("Dropped invalid chat stream event", "StreamProtocol", {
+          issues: parsed.error.issues.length
+        })
+        return
+      }
+      const msg = parsed.data
+      if (msg.type === CHAT_STREAM_EVENT_TYPES.CONTEXT_WARNING) {
+        const warning = msg.payload
+        if (warning?.titleKey) {
+          toast({
+            variant: warning.variant,
+            title: t(warning.titleKey),
+            description: warning.descriptionKey
+              ? t(warning.descriptionKey, warning.descriptionValues)
+              : undefined
+          })
+        }
+        return
+      }
+      if (msg.type === CHAT_STREAM_EVENT_TYPES.CONTEXT_PROGRESS) return
+      if (msg.type === CHAT_STREAM_EVENT_TYPES.SNAPSHOT) {
+        if (!msg.sequenceReset && msg.seq < state.lastSeq) return
+        if (msg.assistant) {
+          state = {
+            ...makeStreamReducerState(msg.assistant),
+            ...(msg.thinkingState ? { thinkingState: msg.thinkingState } : {}),
+            lastSeq: msg.seq,
+            started: Boolean(msg.assistant.content || msg.assistant.thinking)
+          }
+          renderAssistant(msg.assistant)
+        } else {
+          state = { ...state, lastSeq: msg.seq }
+        }
+        if (
+          msg.assistant?.done ||
+          msg.status === "completed" ||
+          msg.status === "failed" ||
+          msg.status === "cancelled"
+        ) {
+          setIsLoading(false)
+          setIsStreaming(false)
+          cleanupPort()
+        }
+        return
+      }
+      if (
+        msg.type === CHAT_STREAM_EVENT_TYPES.CONTEXT_RESULT ||
+        msg.type === CHAT_STREAM_EVENT_TYPES.CONTEXT_ERROR ||
+        msg.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_CHUNK ||
+        msg.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_DONE ||
+        msg.type === MESSAGE_KEYS.BROWSER.SELECTION_ACTION_ERROR
+      ) {
+        return
+      }
 
       // Fold the chunk into turn state purely; the hook only performs effects.
       const result = reduceStreamEvent(state, msg)
       state = result.state
       if (result.dropped) return
 
-      if (DEBUG_THINKING_STREAM) {
+      if (DEBUG_THINKING_STREAM && msg.type === CHAT_STREAM_EVENT_TYPES.CHUNK) {
         logger.debug("Stream msg", "useChatStream", {
           type: msg.type,
           hasDelta: typeof msg.delta === "string" && msg.delta.length > 0,
@@ -281,10 +361,12 @@ export const useChatStream = ({
               }
             : result.terminal.message
           Promise.resolve(renderAssistant(message))
-            .then(() => onSuccessfulResponse?.(message))
+            .then(async () => {
+              await onSuccessfulResponse?.(message)
+            })
             .catch((error) => {
               logger.debug(
-                "Successful response post-persistence callback failed",
+                "Successful response persistence finalization failed",
                 "useChatStream",
                 { error }
               )
@@ -315,7 +397,7 @@ export const useChatStream = ({
       if (
         !streamSettled &&
         !state.assistant.done &&
-        awaitingConfirmation &&
+        (durableTurn !== undefined || awaitingConfirmation) &&
         currentRequestIdRef.current === requestId &&
         resumeAttempts < 3
       ) {
@@ -328,18 +410,27 @@ export const useChatStream = ({
           ) {
             return
           }
-          // Restarted worker restarts its sequence at 0 — accept it afresh.
-          state = { ...state, lastSeq: -1 }
+          // Legacy tool-loop reconnects restart their sequence at 0. Durable
+          // turns request a snapshot and keep their last accepted sequence.
+          if (!durableTurn) state = { ...state, lastSeq: -1 }
           port = browser.runtime.connect({
             name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
           })
           portRef.current = port
           port.onMessage.addListener(listener)
           port.onDisconnect.addListener(handleDisconnect)
-          port.postMessage({
-            type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
-            payload: requestPayload
-          })
+          port.postMessage(
+            durableTurn
+              ? {
+                  version: STREAM_PROTOCOL_VERSION,
+                  type: MESSAGE_KEYS.PROVIDER.RECONNECT_STREAM,
+                  payload: {
+                    requestId,
+                    afterSeq: state.lastSeq
+                  }
+                }
+              : requestMessage
+          )
         }, 250)
         return
       }
@@ -370,10 +461,7 @@ export const useChatStream = ({
 
     port.onMessage.addListener(listener)
     port.onDisconnect.addListener(handleDisconnect)
-    port.postMessage({
-      type: MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL,
-      payload: requestPayload
-    })
+    port.postMessage(requestMessage)
   }
 
   const stopStream = () => {
@@ -397,6 +485,7 @@ export const useChatStream = ({
       finalizeCleanRef.current?.()
       currentRequestIdRef.current = null
       portRef.current.postMessage({
+        version: STREAM_PROTOCOL_VERSION,
         type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION,
         payload: requestId ? { requestId } : undefined
       })

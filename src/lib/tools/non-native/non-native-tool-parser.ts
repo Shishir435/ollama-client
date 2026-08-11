@@ -11,9 +11,11 @@
  */
 import type { ToolCall } from "../types"
 
-// Non-greedy so adjacent blocks don't merge; `[\s\S]` to span newlines.
-// Built fresh per use: a shared `g`-flagged regex carries mutable `lastIndex`
-// state across calls, which is easy to break when extending these functions.
+/**
+ * Non-greedy so adjacent blocks don't merge; `[\s\S]` to span newlines.
+ * Built fresh per use: a shared `g`-flagged regex carries mutable `lastIndex`
+ * state across calls, which is easy to break when extending these functions.
+ */
 const toolCallPattern = () => /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/g
 const CODE_FENCE_PATTERN = /^```(?:json)?\s*([\s\S]*?)\s*```$/
 

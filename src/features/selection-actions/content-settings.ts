@@ -68,10 +68,12 @@ export async function loadAvailablePanelModels(): Promise<ProviderModel[]> {
   )
 }
 
-// The theme preference is written by the zustand persist store through
-// @plasmohq/storage, so the raw chrome.storage value is JSON-encoded twice
-// and shaped like {"state":{"theme":"dark"},"version":0}. Unwrap defensively;
-// a bare legacy "dark"/"light" string is also accepted.
+/**
+ * The theme preference is written by the zustand persist store through
+ * @plasmohq/storage, so the raw chrome.storage value is JSON-encoded twice
+ * and shaped like {"state":{"theme":"dark"},"version":0}. Unwrap defensively;
+ * a bare legacy "dark"/"light" string is also accepted.
+ */
 function parseStoredTheme(raw: unknown): string | null {
   let value: unknown = raw
   for (let depth = 0; typeof value === "string" && depth < 2; depth += 1) {

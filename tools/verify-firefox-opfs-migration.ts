@@ -1,56 +1,58 @@
 #!/usr/bin/env node
 
-// Firefox MV2 mirror of tools/verify-opfs-migration.ts: end-to-end
-// verification of the PRODUCTION OPFS persistence backend in real, packaged
-// Firefox.
-//
-// Why this exists separately from spike-firefox-owner-gates.ts: that spike
-// drives spike-owner.html, a purpose-built page that talks to the owner
-// directly. It proves the MV2 owner topology works. It does not prove the
-// production path works, because it never goes through the repository facade
-// or the backend dispatcher. Chromium has had that stronger claim since
-// verify-opfs-migration.ts; Firefox has not, and section 17 makes this mirror
-// a prerequisite for removing the sql.js fallback — the legacy reader must not
-// be deleted while one of two shipped browsers has no production-path
-// lifecycle evidence.
-//
-// Scenarios are deliberately the same four as the Chromium runner, with the
-// same check names, so the two reports diff directly:
-//   1. Fresh profile: the owner boots, finds no legacy blob, initializes the
-//      OPFS backend and flips the marker.
-//   2. Production writes: two tabs append through the facade concurrently;
-//      counts are exact (single-owner, no lost update).
-//   3. Real migration: seed a legacy sql.js blob (section 9.8 fixture), clear
-//      the backend marker, restart the browser on the same profile; the owner
-//      migrates the blob, verifies row counts, flips the marker — and the blob
-//      stays untouched as the rollback artifact.
-//   4. Backup export comes from the OPFS owner and is a valid SQLite file.
-//
-// Firefox-specific mechanics, none of which the Chromium runner needs:
-//   - The owner is the MV2 persistent background page, not an offscreen
-//     document, so there is nothing to create and nothing to keep alive.
-//   - The extension UUID is pinned through the extensions.webextensions.uuids
-//     pref, because the moz-extension:// origin has to be knowable before
-//     install and stable across the restart in scenario 3. OPFS and IndexedDB
-//     are keyed to that origin; a fresh UUID would silently produce an empty
-//     profile and a scenario 3 that passes for the wrong reason.
-//   - The profile directory is passed with `-profile` so geckodriver reuses it
-//     instead of minting a temporary one. Without this the restart starts from
-//     a blank profile and there is no legacy blob left to migrate.
-//   - A temporary add-on does not survive a browser restart, so it is
-//     reinstalled after relaunch. With the UUID pinned, the origin — and
-//     therefore the stored data — is the same one.
-//   - Firefox 153 refuses `WebDriver:Navigate` to a moz-extension:// URL
-//     ("Navigation ... is not allowed in this context"), and a content page
-//     cannot reach one either without web_accessible_resources. The page is
-//     therefore opened from Firefox's own chrome context with a system
-//     principal, which requires geckodriver's `--allow-system-access`. This is
-//     also why tools/spike-firefox-owner-gates.ts no longer runs as written;
-//     see the note at the bottom of this file.
-//
-// Usage: pnpm verify:firefox-opfs-migration [--headful]
-// Requires: pnpm benchmark:build:firefox (the verify page is dev-gated) and a
-// local Firefox install (override the binary with FIREFOX_BIN).
+/**
+ * Firefox MV2 mirror of tools/verify-opfs-migration.ts: end-to-end
+ * verification of the PRODUCTION OPFS persistence backend in real, packaged
+ * Firefox.
+ *
+ * Why this exists separately from spike-firefox-owner-gates.ts: that spike
+ * drives spike-owner.html, a purpose-built page that talks to the owner
+ * directly. It proves the MV2 owner topology works. It does not prove the
+ * production path works, because it never goes through the repository facade
+ * or the backend dispatcher. Chromium has had that stronger claim since
+ * verify-opfs-migration.ts; Firefox has not, and section 17 makes this mirror
+ * a prerequisite for removing the legacy blob fallback — the reader must not
+ * be deleted while one of two shipped browsers has no production-path
+ * lifecycle evidence.
+ *
+ * Scenarios are deliberately the same four as the Chromium runner, with the
+ * same check names, so the two reports diff directly:
+ *   1. Fresh profile: the owner boots, finds no legacy blob, initializes the
+ *      OPFS backend and flips the marker.
+ *   2. Production writes: two tabs append through the facade concurrently;
+ *      counts are exact (single-owner, no lost update).
+ *   3. Real migration: seed a legacy blob (section 9.8 fixture), clear
+ *      the backend marker, restart the browser on the same profile; the owner
+ *      migrates the blob, verifies row counts, flips the marker — and the blob
+ *      stays untouched as the rollback artifact.
+ *   4. Backup export comes from the OPFS owner and is a valid SQLite file.
+ *
+ * Firefox-specific mechanics, none of which the Chromium runner needs:
+ *   - The owner is the MV2 persistent background page, not an offscreen
+ *     document, so there is nothing to create and nothing to keep alive.
+ *   - The extension UUID is pinned through the extensions.webextensions.uuids
+ *     pref, because the moz-extension:// origin has to be knowable before
+ *     install and stable across the restart in scenario 3. OPFS and IndexedDB
+ *     are keyed to that origin; a fresh UUID would silently produce an empty
+ *     profile and a scenario 3 that passes for the wrong reason.
+ *   - The profile directory is passed with `-profile` so geckodriver reuses it
+ *     instead of minting a temporary one. Without this the restart starts from
+ *     a blank profile and there is no legacy blob left to migrate.
+ *   - A temporary add-on does not survive a browser restart, so it is
+ *     reinstalled after relaunch. With the UUID pinned, the origin — and
+ *     therefore the stored data — is the same one.
+ *   - Firefox 153 refuses `WebDriver:Navigate` to a moz-extension:// URL
+ *     ("Navigation ... is not allowed in this context"), and a content page
+ *     cannot reach one either without web_accessible_resources. The page is
+ *     therefore opened from Firefox's own chrome context with a system
+ *     principal, which requires geckodriver's `--allow-system-access`. This is
+ *     also why tools/spike-firefox-owner-gates.ts no longer runs as written;
+ *     see the note at the bottom of this file.
+ *
+ * Usage: pnpm verify:firefox-opfs-migration [--headful]
+ * Requires: pnpm benchmark:build:firefox (the verify page is dev-gated) and a
+ * local Firefox install (override the binary with FIREFOX_BIN).
+ */
 
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -65,10 +67,12 @@ const firefoxBin =
   process.env.FIREFOX_BIN ?? "/Applications/Firefox.app/Contents/MacOS/firefox"
 const headful = process.argv.includes("--headful")
 
-// Must match browser_specific_settings.gecko.id in the built manifest.
+/** Must match browser_specific_settings.gecko.id in the built manifest. */
 const GECKO_ID = "shishirchaurasiya435@gmail.com"
-// Any fixed UUID works; pinning it makes the moz-extension origin knowable
-// before install and identical after the scenario 3 restart.
+/**
+ * Any fixed UUID works; pinning it makes the moz-extension origin knowable
+ * before install and identical after the scenario 3 restart.
+ */
 const UUID = "6c1c1f9e-2f5f-4c9a-9c11-000000abcdef"
 const VERIFY_URL = `moz-extension://${UUID}/persistence-verify.html`
 

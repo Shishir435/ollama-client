@@ -19,6 +19,7 @@ export interface KnowledgeProcessorOptions {
   content: string
   pages?: Array<{ pageNumber: number; text: string }>
   contentType: string
+  signal?: AbortSignal
   onProgress?: (progress: ProcessingProgress) => void
 }
 
@@ -34,9 +35,11 @@ export async function processKnowledge(
   chunkCount: number
   error?: string
 }> {
-  const { fileId, fileName, content, pages, contentType, onProgress } = options
+  const { fileId, fileName, content, pages, contentType, signal, onProgress } =
+    options
 
   try {
+    signal?.throwIfAborted()
     // Report initial status
     onProgress?.({
       fileId,
@@ -88,6 +91,7 @@ export async function processKnowledge(
       chunkOverlap: embeddingConfig.chunkOverlap,
       strategy: embeddingConfig.chunkingStrategy
     })
+    signal?.throwIfAborted()
     logger.verbose("Created chunks from document", "processKnowledge", {
       fileName,
       chunkCount: chunks.length
@@ -119,7 +123,19 @@ export async function processKnowledge(
           type: "file" as const
         }
       })),
-      fileId
+      fileId,
+      {
+        signal,
+        strict: true,
+        onStored: (processedChunks, totalChunks) =>
+          onProgress?.({
+            fileId,
+            fileName,
+            status: "processing",
+            processedChunks,
+            totalChunks
+          })
+      }
     )
 
     // Report completion

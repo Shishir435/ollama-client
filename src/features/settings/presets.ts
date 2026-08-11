@@ -24,8 +24,10 @@ export interface SettingsPreset {
 
 const { CHAT, EMBEDDINGS, BROWSER, WEB_SEARCH } = STORAGE_KEYS
 
-// Balanced = the recommended defaults for the tunable sections. Sourced from
-// the F2 manifest so it tracks any future default change automatically.
+/**
+ * Balanced = the recommended defaults for the tunable sections. Sourced from
+ * the F2 manifest so it tracks any future default change automatically.
+ */
 const BALANCED_WRITES: SettingWrite[] = [
   ...getSectionDefaults("prompt-budget"),
   ...getSectionDefaults("grounding"),

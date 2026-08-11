@@ -1,3 +1,4 @@
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import type { ChatMessage } from "./chat"
 import type { ChromeResponse } from "./messaging"
 
@@ -9,6 +10,11 @@ export type ProviderModel = {
   digest: string
   providerId?: string
   providerName?: string
+  /**
+   * Vendor mark for the provider serving this model, resolved in the
+   * background where the provider's base URL lives. Display only.
+   */
+  providerBrand?: string
   details: {
     parent_model: string
     format: string
@@ -42,7 +48,7 @@ export interface SelectedModelRef {
   modelId: string
 }
 
-// Legacy alias for provider-agnostic model metadata
+/** @deprecated Use the provider-neutral `ProviderModel` name. */
 export type OllamaModel = ProviderModel
 
 export type ModelConfig = {
@@ -91,7 +97,7 @@ export interface OllamaChatRequest {
   }
 }
 
-// Provider-agnostic aliases for default provider payloads (currently Ollama).
+/** Default-provider request alias; currently backed by Ollama's wire shape. */
 export type DefaultProviderChatRequest = OllamaChatRequest
 
 export interface OllamaPullRequest {
@@ -100,6 +106,7 @@ export interface OllamaPullRequest {
   stream?: boolean
 }
 
+/** Default-provider pull alias; currently backed by Ollama's wire shape. */
 export type DefaultProviderPullRequest = OllamaPullRequest
 
 export interface OllamaShowRequest {
@@ -198,22 +205,5 @@ export interface PullStreamMessage {
   status?: string
   progress?: number
   done?: boolean
-  error?:
-    | string
-    | {
-        status: number
-        message: string
-        kind?: import("./errors").AppErrorKind
-        messageKey?: string
-        userMessage?: string
-        retryable?: boolean
-        retryAfterMs?: number
-        context?: string
-        providerId?: string
-      }
-}
-
-export interface ModelPullMessage {
-  payload: string | { model: string; providerId?: string }
-  cancel?: boolean
+  error?: string | AppFailure
 }
