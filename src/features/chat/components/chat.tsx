@@ -24,6 +24,8 @@ export const Chat = () => {
     pendingActivityEvents,
     sendMessage,
     generateResponse,
+    claimResponseStream,
+    releaseResponseStreamClaim,
     stopGeneration,
     isModelReady,
     hasMore,
@@ -112,27 +114,37 @@ export const Chat = () => {
     }
 
     if (prevUserIndex !== -1 && currentSessionId) {
-      const prevUserMsg = messages[prevUserIndex]
+      const streamClaim = claimResponseStream()
+      if (!streamClaim) return
+      let submitted = false
+      try {
+        const prevUserMsg = messages[prevUserIndex]
 
-      /*
-       * 1. Navigate to that user message (this sets it as the current leaf)
-       * This is crucial: if we are regenerating an old message deep in history,
-       * we must "rewind" the tip to the user message so the new assistant response is attached as a sibling of the old assistant response.
-       */
-      if (prevUserMsg.id) {
-        // Pass true for 'exact' to ensure we stop AT the user message and don't forward to its old children.
-        await navigateToNode(currentSessionId, prevUserMsg.id, true)
+        /*
+         * 1. Navigate to that user message (this sets it as the current leaf)
+         * This is crucial: if we are regenerating an old message deep in history,
+         * we must "rewind" the tip to the user message so the new assistant response is attached as a sibling of the old assistant response.
+         */
+        if (prevUserMsg.id) {
+          // Pass true for 'exact' to ensure we stop AT the user message and don't forward to its old children.
+          await navigateToNode(currentSessionId, prevUserMsg.id, true)
+        }
+
+        // 2. Prepare context (messages up to and including the user message)
+        const contextMessages = messages.slice(0, prevUserIndex + 1)
+
+        // 3. Trigger generation
+        // If model is provided, use it (switching model for this specific branch)
+        // Note: generateResponse will call addMessage, which automatically parents to currentLeafId (our user message)
+        submitted = await generateResponse(
+          model,
+          currentSessionId,
+          contextMessages,
+          { mode: "regenerate", streamClaim }
+        )
+      } finally {
+        if (!submitted) releaseResponseStreamClaim(streamClaim)
       }
-
-      // 2. Prepare context (messages up to and including the user message)
-      const contextMessages = messages.slice(0, prevUserIndex + 1)
-
-      // 3. Trigger generation
-      // If model is provided, use it (switching model for this specific branch)
-      // Note: generateResponse will call addMessage, which automatically parents to currentLeafId (our user message)
-      await generateResponse(model, currentSessionId, contextMessages, {
-        mode: "regenerate"
-      })
     }
   }
 
@@ -158,17 +170,24 @@ export const Chat = () => {
       return
     }
 
-    const newLeafId = await forkMessage(currentSessionId, message.id, content)
-    const messageIndex = messages.findIndex((item) => item.id === message.id)
-    if (messageIndex !== -1 && newLeafId) {
-      const newMessage = { ...message, id: newLeafId, content }
-      await embedMessage(newMessage, currentSessionId)
-      await generateResponse(
-        undefined,
-        currentSessionId,
-        [...messages.slice(0, messageIndex), newMessage],
-        { mode: "fork" }
-      )
+    const streamClaim = claimResponseStream()
+    if (!streamClaim) return
+    let submitted = false
+    try {
+      const newLeafId = await forkMessage(currentSessionId, message.id, content)
+      const messageIndex = messages.findIndex((item) => item.id === message.id)
+      if (messageIndex !== -1 && newLeafId) {
+        const newMessage = { ...message, id: newLeafId, content }
+        await embedMessage(newMessage, currentSessionId)
+        submitted = await generateResponse(
+          undefined,
+          currentSessionId,
+          [...messages.slice(0, messageIndex), newMessage],
+          { mode: "fork", streamClaim }
+        )
+      }
+    } finally {
+      if (!submitted) releaseResponseStreamClaim(streamClaim)
     }
   }
 

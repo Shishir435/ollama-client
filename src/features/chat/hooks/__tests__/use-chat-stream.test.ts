@@ -117,6 +117,31 @@ describe("useChatStream", () => {
     )
   })
 
+  it("reserves ownership before asynchronous submission work", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    const messages = [{ role: "user" as const, content: "Hello" }]
+
+    const firstClaim = result.current.claimStream()
+    const concurrentClaim = result.current.claimStream()
+
+    expect(firstClaim).not.toBeNull()
+    expect(concurrentClaim).toBeNull()
+
+    let started = false
+    act(() => {
+      started = result.current.startStream(
+        { model: "llama2", messages },
+        firstClaim ?? undefined
+      )
+    })
+
+    expect(started).toBe(true)
+    expect(browser.runtime.connect).toHaveBeenCalledOnce()
+    expect(mockPort.postMessage).toHaveBeenCalledOnce()
+  })
+
   it("submits durable turns as one background-owned command", () => {
     const { result } = renderHook(() =>
       useChatStream({ setMessages, setIsLoading, setIsStreaming })

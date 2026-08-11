@@ -71,6 +71,8 @@ export const useChat = () => {
   const {
     startStream,
     stopStream,
+    claimStream,
+    releaseStreamClaim,
     currentStreamingMessageIdRef,
     currentStreamingSessionIdRef
   } = useChatStreaming({
@@ -110,6 +112,8 @@ export const useChat = () => {
     messages,
     addMessage,
     startStream,
+    claimStream,
+    releaseStreamClaim,
     currentStreamingMessageIdRef,
     currentStreamingSessionIdRef
   })
@@ -157,6 +161,8 @@ export const useChat = () => {
     isModelReady,
     sendMessage,
     generateResponse,
+    claimResponseStream: claimStream,
+    releaseResponseStreamClaim: releaseStreamClaim,
     stopGeneration: stopStream,
     scrollRef,
     hasMore: hasMoreMessages,
