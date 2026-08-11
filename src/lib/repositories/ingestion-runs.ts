@@ -1,20 +1,28 @@
+import { z } from "zod"
 import { flushSave, query, run } from "@/lib/sqlite/db"
+import { decodeRow, decodeRows } from "./row-decoder"
 
-export type IngestionRunStatus =
-  | "queued"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled"
+const INGESTION_RUN_STATUSES = [
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "cancelled"
+] as const
 
-export type IngestionPhase =
-  | "queued"
-  | "parsing"
-  | "registering"
-  | "embedding"
-  | "committing"
-  | "completed"
-  | "compensating"
+export type IngestionRunStatus = (typeof INGESTION_RUN_STATUSES)[number]
+
+const INGESTION_PHASES = [
+  "queued",
+  "parsing",
+  "registering",
+  "embedding",
+  "committing",
+  "completed",
+  "compensating"
+] as const
+
+export type IngestionPhase = (typeof INGESTION_PHASES)[number]
 
 export interface IngestionRun {
   id: string
@@ -29,10 +37,28 @@ export interface IngestionRun {
   updatedAt: number
 }
 
-interface IngestionRunRow extends Omit<IngestionRun, "autoEmbed" | "failure"> {
-  autoEmbed: number
-  failure: string | null
-}
+/**
+ * The stored row, as SQLite hands it back rather than as the application wants
+ * it: booleans are integers, absent values are null, and both enums are plain
+ * text that a half-applied migration or a newer build could fill with something
+ * this version has never heard of.
+ */
+const IngestionRunRowSchema = z.object({
+  id: z.string(),
+  fileId: z.string(),
+  knowledgeSetId: z.string(),
+  fileName: z.string(),
+  status: z.enum(INGESTION_RUN_STATUSES),
+  phase: z.enum(INGESTION_PHASES),
+  autoEmbed: z.number(),
+  failure: z.string().nullable(),
+  createdAt: z.number(),
+  updatedAt: z.number()
+})
+
+type IngestionRunRow = z.infer<typeof IngestionRunRowSchema>
+
+const TABLE = { table: "ingestion_runs", operation: "read" } as const
 
 const parseRun = (row: IngestionRunRow): IngestionRun => ({
   ...row,
@@ -74,8 +100,11 @@ export const getIngestionRun = async (
       autoEmbed, failure, createdAt, updatedAt
      FROM ingestion_runs WHERE id = ?`,
     [id]
-  )) as unknown as IngestionRunRow[]
-  return rows[0] ? parseRun(rows[0]) : null
+  )) as unknown[]
+  const row = rows[0]
+    ? decodeRow(IngestionRunRowSchema, rows[0], TABLE)
+    : undefined
+  return row ? parseRun(row) : null
 }
 
 export const listIncompleteIngestionRuns = async (): Promise<
@@ -87,6 +116,6 @@ export const listIncompleteIngestionRuns = async (): Promise<
      FROM ingestion_runs
      WHERE status IN ('queued', 'running')
      ORDER BY createdAt ASC`
-  )) as unknown as IngestionRunRow[]
-  return rows.map(parseRun)
+  )) as unknown[]
+  return decodeRows(IngestionRunRowSchema, rows, TABLE).map(parseRun)
 }

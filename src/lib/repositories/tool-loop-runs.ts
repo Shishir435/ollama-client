@@ -5,10 +5,12 @@ import {
   DurableToolLoopStateSchema,
   ToolLoopCheckpointEnvelopeSchema
 } from "@ollama-client/contracts/tool-loop"
+import { z } from "zod"
 import { createAppError } from "@/lib/error-utils"
 import { flushSave, query, run } from "@/lib/sqlite/db"
 import type { ToolCall } from "@/lib/tools"
 import type { ChatMessage, ToolRun } from "@/types"
+import { decodeRow } from "./row-decoder"
 
 export type ToolLoopMode = ContractToolLoopMode
 export type ToolLoopRunStatus = ContractToolLoopRunStatus
@@ -31,27 +33,37 @@ export interface DurableToolLoopRun {
   updatedAt: number
 }
 
-interface ToolLoopRunRow {
-  requestId: string
-  sessionId: string | null
-  model: string
-  providerId: string | null
-  mode: string
-  status: string
-  state: string
-  updatedAt: number
-}
+const invalidCheckpoint = (cause: unknown) =>
+  createAppError("Stored tool-loop checkpoint is invalid", {
+    kind: "storage",
+    phase: "persistence",
+    userMessage:
+      "This interrupted tool run could not be resumed safely. Retry the turn.",
+    retryable: true,
+    recoveryAction: "retry",
+    cause
+  })
+
+/**
+ * The stored row. Mode and status are validated here rather than by a hand
+ * written chain of inequalities in `parseRow` — same rejection, one place, and
+ * the enum members stay next to the columns they describe.
+ */
+const ToolLoopRunRowSchema = z.object({
+  requestId: z.string(),
+  sessionId: z.string().nullable(),
+  model: z.string(),
+  providerId: z.string().nullable(),
+  mode: z.enum(["native", "native-user-results", "non-native"]),
+  status: z.enum(["running", "awaiting-confirmation"]),
+  state: z.string(),
+  updatedAt: z.number()
+})
+
+type ToolLoopRunRow = z.infer<typeof ToolLoopRunRowSchema>
 
 const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun => {
   try {
-    if (
-      (row.mode !== "native" &&
-        row.mode !== "native-user-results" &&
-        row.mode !== "non-native") ||
-      (row.status !== "running" && row.status !== "awaiting-confirmation")
-    ) {
-      throw new Error("Invalid tool-loop mode or status")
-    }
     const decoded: unknown = JSON.parse(row.state)
     // Rows written before checkpoint versioning stored state directly. Keep
     // that one compatibility shape, but validate it through the same schema.
@@ -70,15 +82,7 @@ const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun => {
       updatedAt: row.updatedAt
     }
   } catch (cause) {
-    throw createAppError("Stored tool-loop checkpoint is invalid", {
-      kind: "storage",
-      phase: "persistence",
-      userMessage:
-        "This interrupted tool run could not be resumed safely. Retry the turn.",
-      retryable: true,
-      recoveryAction: "retry",
-      cause
-    })
+    throw invalidCheckpoint(cause)
   }
 }
 
@@ -88,8 +92,16 @@ export const getToolLoopRun = async (
   const rows = (await query(
     "SELECT requestId, sessionId, model, providerId, mode, status, state, updatedAt FROM tool_loop_runs WHERE requestId = ?",
     [requestId]
-  )) as unknown as ToolLoopRunRow[]
-  return rows[0] ? parseRow(rows[0]) : null
+  )) as unknown[]
+  if (!rows[0]) return null
+  const row = decodeRow(ToolLoopRunRowSchema, rows[0], {
+    table: "tool_loop_runs",
+    operation: "read"
+  })
+  // A checkpoint that will not decode is reported, not skipped: the caller is
+  // mid-resume and has to be told the turn cannot be continued safely.
+  if (!row) throw invalidCheckpoint(new Error("Stored row shape is invalid"))
+  return parseRow(row)
 }
 
 /**

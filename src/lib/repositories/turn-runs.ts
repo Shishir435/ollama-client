@@ -15,6 +15,7 @@ import {
   type TurnStatus,
   TurnStatusSchema
 } from "@ollama-client/contracts/turns"
+import { z } from "zod"
 import {
   type DurableTurnRun,
   parsePersistedTurnRequest,
@@ -22,22 +23,64 @@ import {
 } from "@/application/turns/turn-contract"
 import { logger } from "@/lib/logger"
 import { flushSave, query, run, runWithMeta } from "@/lib/sqlite/db"
+import { decodeRow, decodeRows } from "./row-decoder"
 
-interface TurnRunRow {
-  id: string
-  sessionId: string
-  mode: string
-  model: string
-  providerId: string | null
-  status: string
-  request: string
-  contextReceipt: string | null
-  userMessageId: number | null
-  assistantMessageId: number | null
-  failure: string | null
-  createdAt: number
-  updatedAt: number
-}
+/**
+ * The lifecycle columns, as SQLite hands them back.
+ *
+ * `mode` and `status` stay untyped text here on purpose: they are validated by
+ * their own contract schemas a line later, and letting this schema reject them
+ * first would turn a row carrying a status from a newer build into "shape is
+ * wrong" instead of the specific answer each reader wants — quarantine for
+ * recovery, `null` for the reconnect snapshot.
+ */
+const TurnRunLifecycleRowSchema = z.object({
+  id: z.string(),
+  sessionId: z.string(),
+  model: z.string(),
+  providerId: z.string().nullable(),
+  status: z.string(),
+  contextReceipt: z.string().nullable(),
+  userMessageId: z.number().nullable(),
+  assistantMessageId: z.number().nullable(),
+  failure: z.string().nullable(),
+  createdAt: z.number(),
+  updatedAt: z.number()
+})
+
+/** The lifecycle columns plus the two a resumable row is rebuilt from. */
+const TurnRunRowSchema = TurnRunLifecycleRowSchema.extend({
+  mode: z.string(),
+  request: z.string()
+})
+
+type TurnRunRow = z.infer<typeof TurnRunRowSchema>
+
+/** Last resort: enough of a row to settle it when nothing else decoded. */
+const TurnRunIdRowSchema = z.object({ id: z.string() })
+
+/** The read behind `getInterruptedCancellations`. */
+const CancellingRowSchema = z.object({
+  id: z.string(),
+  assistantMessageId: z.number().nullable()
+})
+
+/**
+ * The aggregate behind `getTurnStorageStats`.
+ *
+ * Every column but `status` is nullable because SQL aggregates say so: `SUM`
+ * and `MAX` over an empty group are NULL, and a group with no rows is what an
+ * empty table produces.
+ */
+const TurnStorageStatsRowSchema = z.object({
+  status: z.string(),
+  runs: z.number().nullable(),
+  totalBytes: z.number().nullable(),
+  largestBytes: z.number().nullable(),
+  uncompacted: z.number().nullable()
+})
+
+const TABLE = { table: "turn_runs", operation: "read" } as const
 
 const safeJson = (value: string): unknown => {
   try {
@@ -137,8 +180,9 @@ export const getTurnRun = async (
        FROM turn_runs
       WHERE id = ?`,
     [id]
-  )) as unknown as Array<Omit<TurnRunRow, "mode" | "request">>
-  const row = rows[0]
+  )) as unknown[]
+  if (!rows[0]) return null
+  const row = decodeRow(TurnRunLifecycleRowSchema, rows[0], TABLE)
   if (!row) return null
 
   const status = TurnStatusSchema.safeParse(row.status)
@@ -238,10 +282,11 @@ export const getIncompleteTurnRuns = async (): Promise<DurableTurnRun[]> => {
        FROM turn_runs
       WHERE status IN (${RESUMABLE_STATUS_LIST})
       ORDER BY createdAt ASC`
-  )) as unknown as TurnRunRow[]
+  )) as unknown[]
   const resumable: DurableTurnRun[] = []
-  for (const row of rows) {
-    const parsed = parseRow(row)
+  for (const value of rows) {
+    const row = decodeRow(TurnRunRowSchema, value, TABLE)
+    const parsed = row ? parseRow(row) : null
     if (parsed) {
       resumable.push(parsed)
       continue
@@ -250,10 +295,17 @@ export const getIncompleteTurnRuns = async (): Promise<DurableTurnRun[]> => {
     // not corruption — compaction only ever accompanies a terminal write — but
     // it is just as unresumable, so it settles the same way with a reason that
     // does not misreport the cause.
-    const reason = isCompactedTurnRequest(safeJson(row.request))
-      ? "resumable turn record was already compacted"
-      : "unreadable turn record"
-    await quarantineTurnRun(row.id, reason).catch(() => undefined)
+    const reason = !row
+      ? "turn record columns did not decode"
+      : isCompactedTurnRequest(safeJson(row.request))
+        ? "resumable turn record was already compacted"
+        : "unreadable turn record"
+    // A row whose columns did not decode may still have a usable id, and
+    // without one there is nothing to quarantine — it would be re-read and
+    // re-rejected on every boot, which is the failure quarantining exists to
+    // end. The id-only read is the last thing that can still identify it.
+    const id = row?.id ?? decodeRow(TurnRunIdRowSchema, value, TABLE)?.id
+    if (id) await quarantineTurnRun(id, reason).catch(() => undefined)
   }
   return resumable
 }
@@ -296,8 +348,8 @@ export const getInterruptedCancellations = async (): Promise<
 > => {
   const rows = (await query(
     "SELECT id, assistantMessageId FROM turn_runs WHERE status = 'cancelling'"
-  )) as unknown as Array<{ id: string; assistantMessageId: number | null }>
-  return rows.map((row) => ({
+  )) as unknown[]
+  return decodeRows(CancellingRowSchema, rows, TABLE).map((row) => ({
     id: row.id,
     assistantMessageId: row.assistantMessageId ?? undefined
   }))
@@ -468,13 +520,8 @@ export const getTurnStorageStats = async (): Promise<TurnStorageStats> => {
        FROM turn_runs
       GROUP BY status`,
     [COMPACTED_REQUEST_PREFIX]
-  )) as unknown as Array<{
-    status: string
-    runs: number | null
-    totalBytes: number | null
-    largestBytes: number | null
-    uncompacted: number | null
-  }>
+  )) as unknown[]
+  const grouped = decodeRows(TurnStorageStatsRowSchema, rows, TABLE)
 
   const stats: TurnStorageStats = {
     liveRuns: 0,
@@ -484,7 +531,7 @@ export const getTurnStorageStats = async (): Promise<TurnStorageStats> => {
     largestRequestBytes: 0
   }
 
-  for (const row of rows) {
+  for (const row of grouped) {
     const runs = Number(row.runs ?? 0)
     stats.totalRequestBytes += Number(row.totalBytes ?? 0)
     stats.largestRequestBytes = Math.max(
