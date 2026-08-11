@@ -16,6 +16,7 @@ import {
   isSoundDatabase,
   type TableCountMismatch
 } from "./durable-tables"
+import { PersistenceNotDeliveredError } from "./errors"
 import { isTrustedPersistenceSender } from "./host-authorization"
 import type { ImportResult, SurveyResult } from "./protocol"
 import {
@@ -424,7 +425,20 @@ export const registerPersistenceHost = (): void => {
   // In-process fast path for code running inside the host context itself
   // (the Firefox background page is both host and a heavy client).
   globalThis.__persistenceHostCall = async (request: PersistenceOp) => {
-    await ensureMigrated()
+    // Labelled here because this is the only place that knows which stage
+    // failed. A client sees one promise; the owner sees two, and the first one
+    // is the provable case: if startup rejects, nothing was posted to the
+    // worker, so repeating the request cannot double a write. `ensureMigrated`
+    // clears its memo on failure, so the retry genuinely re-attempts rather
+    // than replaying a settled rejection.
+    try {
+      await ensureMigrated()
+    } catch (error) {
+      throw new PersistenceNotDeliveredError(request.op, error)
+    }
+    // Past this point the worker has the request and the outcome is unknown,
+    // which is `owner-error` — including a worker that dies mid-statement,
+    // where the write may well have committed.
     return callWorker(request)
   }
 

@@ -130,3 +130,40 @@ describe("in-process owner failures", () => {
     await expect(rpcQuery("SELECT 1")).rejects.toBe(original)
   })
 })
+
+describe("owner-host stage labelling", () => {
+  afterEach(() => {
+    globalThis.__persistenceHostCall = undefined
+    vi.resetModules()
+    vi.restoreAllMocks()
+  })
+
+  it("marks a startup failure as never delivered, so a write may be repeated", async () => {
+    // The owner is the only place that knows which stage failed: startup
+    // rejects before anything is posted to the worker, and `ensureMigrated`
+    // clears its memo on failure, so the retry genuinely re-attempts.
+    vi.doMock("../backend", async () => ({
+      ...(await vi.importActual<object>("../backend")),
+      readLegacyOverride: vi.fn().mockRejectedValue(new Error("storage down"))
+    }))
+    const { registerPersistenceHost } = await import("../owner-host")
+    const { PersistenceNotDeliveredError: Live } = await import("../errors")
+    vi.stubGlobal("chrome", {
+      runtime: {
+        id: "test",
+        getURL: () => "chrome-extension://test/",
+        onMessage: { addListener: () => {} }
+      }
+    })
+
+    registerPersistenceHost()
+    const error = await globalThis
+      .__persistenceHostCall?.({ op: "run", sql: "UPDATE messages SET x = 1" })
+      .catch((thrown: unknown) => thrown)
+
+    expect(error).toBeInstanceOf(Live)
+    expect((error as InstanceType<typeof Live>).retryable).toBe(true)
+    // The owner's text stays out of the message, exactly as on the RPC path.
+    expect((error as Error).message).not.toContain("storage down")
+  })
+})
