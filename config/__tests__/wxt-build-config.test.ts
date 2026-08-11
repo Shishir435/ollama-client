@@ -250,3 +250,18 @@ describe("env wiring", () => {
     expect(definesFor("firefox").__SPIKE_OPFS_OWNER_MV2__).toBe("false")
   })
 })
+
+describe("module preloading", () => {
+  it("emits no preload hints for either browser", () => {
+    // Extension chunks are on local disk, so a preload hint starts nothing
+    // early — and Chrome charges for each unused one twice, as "preloaded but
+    // not used" and as a cross-world resource mismatch. That was 46 console
+    // warnings on one page load, burying the extension's own logs.
+    for (const browser of ["chrome", "firefox"]) {
+      const config = vite({ browser } as Parameters<typeof vite>[0]) as {
+        build?: { modulePreload?: unknown }
+      }
+      expect(config.build?.modulePreload).toBe(false)
+    }
+  })
+})
