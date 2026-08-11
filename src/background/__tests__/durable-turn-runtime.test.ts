@@ -211,6 +211,11 @@ describe("durable turn runtime", () => {
     await resumeIncompleteTurnRuns()
 
     expect(mocks.createTurnRun).not.toHaveBeenCalled()
+    expect(mocks.updateTurnRun).toHaveBeenNthCalledWith(1, "turn-1", {
+      status: "generating",
+      userMessageId: 1,
+      assistantMessageId: 2
+    })
     expect(mocks.contextBuild).toHaveBeenCalledOnce()
     expect(mocks.handleChat).toHaveBeenCalledOnce()
     expect(mocks.updateTurnRun).toHaveBeenLastCalledWith(

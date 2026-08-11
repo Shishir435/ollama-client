@@ -164,6 +164,9 @@ describe("TurnRuntime", () => {
     })
 
     expect(store.create).not.toHaveBeenCalled()
+    expect(store.update).toHaveBeenNthCalledWith(1, "turn-1", {
+      status: "generating"
+    })
     expect(store.update).toHaveBeenLastCalledWith("turn-1", {
       status: "cancelled",
       failure: null

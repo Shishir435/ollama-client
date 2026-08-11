@@ -145,6 +145,7 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
     await this.run(
       submission,
       command.contextOptions,
+      "building_context",
       command.userMessageId,
       command.assistantMessageId,
       command.prepareContextOptions
@@ -157,6 +158,7 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
     await this.run(
       command.turn,
       command.contextOptions,
+      command.turn.status === "generating" ? "generating" : "building_context",
       command.turn.userMessageId,
       command.turn.assistantMessageId,
       command.prepareContextOptions
@@ -166,6 +168,7 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
   private async run(
     submission: TurnSubmission<TContext, TMessage>,
     contextOptions: TContextOptions,
+    claimStatus: "building_context" | "generating",
     userMessageId?: number,
     assistantMessageId?: number,
     prepareContextOptions?: (
@@ -173,12 +176,14 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
     ) => Promise<TContextOptions>
   ): Promise<void> {
     try {
-      // The first status write is also the claim on this turn. A refusal means
-      // the row is already cancelling or terminal — a duplicate start, or a
-      // stop that landed while this call was in flight — and the only correct
-      // response is to do no provider work at all.
+      // The first status write is also the claim on this turn. Recovery keeps a
+      // persisted generating row in generating: walking it backwards to
+      // building_context is illegal, while the repeated in-flight write still
+      // lets the repository reject a row that moved to cancelling or terminal.
+      // A refusal therefore means someone else owns the turn now, and the only
+      // correct response is to do no provider work at all.
       const claimed = await this.store.update(submission.id, {
-        status: "building_context",
+        status: claimStatus,
         ...(userMessageId !== undefined ? { userMessageId } : {}),
         ...(assistantMessageId !== undefined ? { assistantMessageId } : {})
       })
