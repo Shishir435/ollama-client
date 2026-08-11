@@ -52,6 +52,10 @@ const referencedModules = (source: string): string[] => {
   return modules
 }
 
+/** Source with block and line comments removed, for rules that read code. */
+const withoutComments = (source: string): string =>
+  source.replaceAll(/\/\*[\s\S]*?\*\//g, "").replaceAll(/\/\/[^\n]*/g, "")
+
 const importsModule = (source: string, modulePath: RegExp): boolean => {
   const exactModulePath = new RegExp(`^(?:${modulePath.source})$`)
   return referencedModules(source).some((module) =>
@@ -290,6 +294,36 @@ describe("architecture import boundaries", () => {
           file: relative(chatRuntimeRoot, file).replaceAll("\\", "/"),
           module
         }))
+    })
+
+    expect(offenders).toEqual([])
+  })
+
+  /**
+   * Durable rows are decoded, not asserted.
+   *
+   * `query` resolves `Record<string, SqlValue>[]`, which flows into a decoder
+   * with no cast at all. Every `as unknown as Row[]` that used to sit at these
+   * boundaries was therefore not even load-bearing — just an unchecked claim
+   * about data a half-applied migration or a newer build can shape differently.
+   */
+  it("keeps unchecked row assertions out of every module that reads SQL", () => {
+    // Scoped by what a module *does*, not where it lives. A directory rule
+    // covered the repositories and missed `lib/embeddings/feedback-service.ts`,
+    // which read `chunk_feedback` with the identical assertion.
+    const offenders = productionSources.filter((file) => {
+      // Comments stripped first, so the rule can be *described* where it is
+      // implemented without the description tripping it.
+      const source = withoutComments(
+        readFileSync(join(sourceRoot, file), "utf8")
+      )
+      if (!importsModule(source, /@\/lib\/sqlite\/db/)) return false
+      // Row *collections* only: `X[]`, `[X]`, `Array<X>`. An under-typed
+      // browser or library API asserted to an object or function type is a
+      // different thing entirely, and these modules legitimately have those.
+      return /\bas\s+unknown\s+as\s+(?:readonly\s+)?(?:\[|Array<|[A-Za-z_$][\w$.]*\s*\[\])/.test(
+        source
+      )
     })
 
     expect(offenders).toEqual([])

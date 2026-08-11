@@ -52,40 +52,16 @@ release usable and establish the tests required by its successor.
 4. ~~**Durable turn retention (H4)**~~ — landed.
 5. ~~**Provider discovery policy (H5)**~~ — landed.
 6. ~~**Durable turn composition (H6)**~~ — landed.
-7. **Boundary type/error closure (H7):** decode durable rows, split contract
-   concepts, and finish typed persistence errors against the settled modules.
+7. ~~**Boundary type/error closure (H7)**~~ — landed.
 8. **Release evidence (H8):** run full Chrome/Firefox gates, record `preview`
    soak evidence, update release documentation, and promote only when the 9+/10
    criteria pass.
 
-Critical path: **PR 7 → PR 8**.
-
-### H7 — Close medium-risk type and error gaps
-
-Scope: M. Behavior change: invalid state/data fails explicitly. Dependencies:
-none outstanding.
-
-- Replace unchecked SQLite row-array assertions for durable job repositories
-  with shared row decoders or local Zod schemas at query boundaries.
-- Split `packages/contracts/src/chat.ts` by message, metrics/activity,
-  attachments, and replay concepts while preserving current public subpath
-  exports and wire shapes.
-- Define typed persistence errors with operation, retryability, and safe
-  fallback text. Preserve causes inside diagnostics; never expose SQL, secrets,
-  replay artifacts, or content bodies.
-- Add contract tests proving result schemas, repository row schemas, and error
-  envelopes remain aligned.
-
-Exit gate:
-
-- Durable storage and messaging boundaries parse untrusted/runtime data before
-  application use.
-- Errors retain actionable phase and recovery context across worker, host,
-  background, and UI boundaries.
+Critical path: **PR 8**, which is release evidence rather than code.
 
 ### H8 — Release verification and 9+/10 gate
 
-Scope: M. Behavior change: none. Dependencies: H7.
+Scope: M. Behavior change: none. Dependencies: none outstanding.
 
 Required automated gates:
 

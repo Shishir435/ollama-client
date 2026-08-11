@@ -1,4 +1,5 @@
 import { browser } from "@/lib/browser-api"
+import { PersistenceError, PersistenceNotDeliveredError } from "./errors"
 import {
   decodeRows,
   decodeValue,
@@ -37,14 +38,17 @@ declare global {
   var __persistenceEnsureOwner: (() => Promise<void>) | undefined
 }
 
-const withTimeout = async <T>(work: Promise<T>, label: string): Promise<T> => {
+const withTimeout = async <T>(
+  work: Promise<T>,
+  op: PersistenceOp["op"]
+): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     return await Promise.race([
       work,
       new Promise<never>((_, reject) => {
         timer = setTimeout(
-          () => reject(new Error(`Persistence RPC timed out: ${label}`)),
+          () => reject(new PersistenceError({ op, reason: "timeout" })),
           RPC_TIMEOUT_MS
         )
       })
@@ -55,24 +59,31 @@ const withTimeout = async <T>(work: Promise<T>, label: string): Promise<T> => {
 }
 
 /**
- * A request that provably never reached the owner.
+ * Give a failure from the in-process owner the same shape as a messaged one.
  *
- * The distinction matters for retries: an operation that failed while the
- * owner was being brought up did not execute, so repeating it cannot double a
- * write. An operation that failed after it was handed over has an unknown
- * commit outcome and is only retried when it is idempotent by construction.
+ * The host fast path reaches the worker directly, so it used to reject with the
+ * worker's own Error — SQLite's text as the message, and none of the op, reason
+ * or retryability a caller needs. That path is not the rare one: on Firefox MV2
+ * the background page is both the owner and the heaviest client, so the context
+ * doing the most persistence work was the one getting untyped failures.
+ *
+ * Mapped to `owner-error` rather than `not-delivered` even though some of these
+ * fail before the worker is posted to. The two are indistinguishable from here,
+ * and claiming non-execution we cannot prove is the one mistake that turns a
+ * lost write into a duplicated one.
  */
-export class PersistenceNotDeliveredError extends Error {
-  constructor(cause: unknown) {
-    super(
-      `Persistence owner unavailable: ${
-        cause instanceof Error ? cause.message : String(cause)
-      }`
-    )
-    this.name = "PersistenceNotDeliveredError"
-    this.cause = cause
-  }
-}
+const asPersistenceError = (
+  op: PersistenceOp["op"],
+  error: unknown
+): PersistenceError =>
+  error instanceof PersistenceError
+    ? error
+    : new PersistenceError({
+        op,
+        reason: "owner-error",
+        detail: error instanceof Error ? error.message : String(error),
+        cause: error
+      })
 
 /** Guarantees the owner host context exists (Chromium offscreen document /
  * Firefox background page). Exported because other work hosted by that same
@@ -80,30 +91,47 @@ export class PersistenceNotDeliveredError extends Error {
 export const ensurePersistenceHost = async (): Promise<void> => {
   if (globalThis.__persistenceHostCall) return
   if (globalThis.__persistenceEnsureOwner) {
-    await globalThis.__persistenceEnsureOwner()
+    // `sendOnce` would wrap this, but this function is also called directly by
+    // other work the owner hosts, and a raw owner failure must not escape there
+    // either.
+    try {
+      await globalThis.__persistenceEnsureOwner()
+    } catch (error) {
+      throw asPersistenceError("ping", error)
+    }
     return
   }
   const rawResponse = await withTimeout(
     browser.runtime.sendMessage({ type: PERSISTENCE_ENSURE }),
-    "ensure"
+    "ping"
   )
   const response = PersistenceEnsureResponseSchema.safeParse(rawResponse)
   if (!response.success) {
-    throw new Error("Persistence ensure returned an invalid response")
+    throw new PersistenceError({ op: "ping", reason: "invalid-response" })
   }
-  if (!response.data.ok) throw new Error(response.data.error)
+  if (!response.data.ok) {
+    throw new PersistenceError({
+      op: "ping",
+      reason: "owner-error",
+      detail: response.data.error
+    })
+  }
 }
 
 const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
   if (globalThis.__persistenceHostCall) {
-    return globalThis.__persistenceHostCall(request)
+    try {
+      return await globalThis.__persistenceHostCall(request)
+    } catch (error) {
+      throw asPersistenceError(request.op, error)
+    }
   }
   try {
     await ensurePersistenceHost()
   } catch (error) {
     // Nothing was sent, so nothing ran — say so, rather than letting a caller
     // treat a cold owner like a write of unknown outcome.
-    throw new PersistenceNotDeliveredError(error)
+    throw new PersistenceNotDeliveredError(request.op, error)
   }
   const wire =
     request.op === "query" || request.op === "run"
@@ -116,9 +144,22 @@ const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
     request.op
   )
   const response = PersistenceRpcResponseSchema.safeParse(rawResponse)
-  if (!response.success)
-    throw new Error("Persistence RPC returned invalid data")
-  if (!response.data.ok) throw new Error(response.data.error)
+  if (!response.success) {
+    throw new PersistenceError({
+      op: request.op,
+      reason: "invalid-response"
+    })
+  }
+  if (!response.data.ok) {
+    // The owner forwards SQLite's own message, which can name tables, columns
+    // and statement fragments. It travels as `detail` for diagnostics rather
+    // than as the error text every generic log line and error bubble prints.
+    throw new PersistenceError({
+      op: request.op,
+      reason: "owner-error",
+      detail: response.data.error
+    })
+  }
   return response.data.result
 }
 
@@ -171,7 +212,7 @@ export const rpcExportDb = async (): Promise<Uint8Array> => {
   if (result instanceof ArrayBuffer) return new Uint8Array(result)
   const decoded = decodeValue(result)
   if (decoded instanceof Uint8Array) return decoded
-  throw new Error("exportDb returned an unexpected shape")
+  throw new PersistenceError({ op: "exportDb", reason: "invalid-response" })
 }
 
 export const rpcImportDb = async (
@@ -200,3 +241,9 @@ export const rpcPing = (): Promise<unknown> => send({ op: "ping" })
  * boundaries, never on a hot path.
  */
 export const rpcFlush = (): Promise<unknown> => send({ op: "flush" })
+
+export {
+  PersistenceError,
+  type PersistenceFailureReason,
+  PersistenceNotDeliveredError
+} from "./errors"

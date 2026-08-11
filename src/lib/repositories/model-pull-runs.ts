@@ -2,14 +2,19 @@ import {
   type AppFailure,
   AppFailureSchema
 } from "@ollama-client/contracts/app-failure"
+import { z } from "zod"
 import { flushSave, query, run } from "@/lib/sqlite/db"
+import { decodeRow, decodeRows, type RowDecodeContext } from "./row-decoder"
 
-export type ModelPullRunStatus =
-  | "queued"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled"
+const MODEL_PULL_RUN_STATUSES = [
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "cancelled"
+] as const
+
+export type ModelPullRunStatus = (typeof MODEL_PULL_RUN_STATUSES)[number]
 
 export interface ModelPullRun {
   id: string
@@ -23,16 +28,22 @@ export interface ModelPullRun {
   updatedAt: number
 }
 
-interface ModelPullRunRow
-  extends Omit<
-    ModelPullRun,
-    "providerId" | "statusText" | "progress" | "failure"
-  > {
-  providerId: string | null
-  statusText: string | null
-  progress: number | null
-  failure: string | null
-}
+/** @see IngestionRunRowSchema for why the stored shape is described, not asserted. */
+const ModelPullRunRowSchema = z.object({
+  id: z.string(),
+  model: z.string(),
+  providerId: z.string().nullable(),
+  status: z.enum(MODEL_PULL_RUN_STATUSES),
+  statusText: z.string().nullable(),
+  progress: z.number().nullable(),
+  failure: z.string().nullable(),
+  createdAt: z.number(),
+  updatedAt: z.number()
+})
+
+type ModelPullRunRow = z.infer<typeof ModelPullRunRowSchema>
+
+const TABLE: RowDecodeContext = { table: "model_pull_runs", operation: "read" }
 
 const parseFailure = (value: string | null): AppFailure | undefined => {
   if (!value) return undefined
@@ -89,27 +100,30 @@ const selectColumns = `id, model, providerId, status, statusText, progress,
 export const getModelPullRun = async (
   id: string
 ): Promise<ModelPullRun | null> => {
-  const rows = (await query(
+  const rows = await query(
     `SELECT ${selectColumns} FROM model_pull_runs WHERE id = ?`,
     [id]
-  )) as unknown as ModelPullRunRow[]
-  return rows[0] ? parseRun(rows[0]) : null
+  )
+  const row = rows[0]
+    ? decodeRow(ModelPullRunRowSchema, rows[0], TABLE)
+    : undefined
+  return row ? parseRun(row) : null
 }
 
 export const listActiveModelPullRuns = async (): Promise<ModelPullRun[]> => {
-  const rows = (await query(
+  const rows = await query(
     `SELECT ${selectColumns} FROM model_pull_runs
      WHERE status IN ('queued', 'running')
      ORDER BY createdAt ASC`
-  )) as unknown as ModelPullRunRow[]
-  return rows.map(parseRun)
+  )
+  return decodeRows(ModelPullRunRowSchema, rows, TABLE).map(parseRun)
 }
 
 export const findActiveModelPullRun = async (
   model: string,
   providerId?: string
 ): Promise<ModelPullRun | null> => {
-  const rows = (await query(
+  const rows = await query(
     `SELECT ${selectColumns} FROM model_pull_runs
      WHERE model = ?
        AND COALESCE(providerId, '') = COALESCE(?, '')
@@ -117,6 +131,9 @@ export const findActiveModelPullRun = async (
      ORDER BY createdAt ASC
      LIMIT 1`,
     [model, providerId ?? null]
-  )) as unknown as ModelPullRunRow[]
-  return rows[0] ? parseRun(rows[0]) : null
+  )
+  const row = rows[0]
+    ? decodeRow(ModelPullRunRowSchema, rows[0], TABLE)
+    : undefined
+  return row ? parseRun(row) : null
 }
