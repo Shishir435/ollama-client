@@ -149,6 +149,8 @@ export const Chat = () => {
 
   const handleForkMessage = async (message: ChatMessage, content: string) => {
     if (
+      isLoading ||
+      isStreaming ||
       message.role !== "user" ||
       typeof message.id !== "number" ||
       !currentSessionId
