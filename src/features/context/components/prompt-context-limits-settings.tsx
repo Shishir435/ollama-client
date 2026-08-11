@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 import { FormGrid } from "@/components/layout"
 import {
@@ -8,14 +7,13 @@ import {
   SettingsSwitch
 } from "@/components/settings"
 import { Input } from "@/components/ui/input"
+import { useSetting } from "@/hooks/use-setting"
 import {
-  DEFAULT_AUTO_REFRESH_TAB_CONTEXT,
   DEFAULT_MAX_RAG_CONTEXT_CHARS,
   DEFAULT_MAX_TAB_CONTEXT_CHARS,
-  DEFAULT_MAX_TOOL_RESULT_CHARS,
-  STORAGE_KEYS
+  DEFAULT_MAX_TOOL_RESULT_CHARS
 } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 const MIN_LIMIT = 2000
 const MAX_LIMIT = 120000
@@ -27,33 +25,17 @@ const normalizeLimit = (value: number, fallback: number) => {
 
 export const PromptContextLimitsSettings = () => {
   const { t } = useTranslation()
-  const [maxTabContextChars, setMaxTabContextChars] = useStorage<number>(
-    {
-      key: STORAGE_KEYS.CHAT.MAX_TAB_CONTEXT_CHARS,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_MAX_TAB_CONTEXT_CHARS
+  const [maxTabContextChars, setMaxTabContextChars] = useSetting(
+    SETTINGS.MAX_TAB_CONTEXT_CHARS
   )
-  const [maxRagContextChars, setMaxRagContextChars] = useStorage<number>(
-    {
-      key: STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_MAX_RAG_CONTEXT_CHARS
+  const [maxRagContextChars, setMaxRagContextChars] = useSetting(
+    SETTINGS.MAX_RAG_CONTEXT_CHARS
   )
-  const [maxToolResultChars, setMaxToolResultChars] = useStorage<number>(
-    {
-      key: STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_MAX_TOOL_RESULT_CHARS
+  const [maxToolResultChars, setMaxToolResultChars] = useSetting(
+    SETTINGS.MAX_TOOL_RESULT_CHARS
   )
-  const [autoRefreshTabContext, setAutoRefreshTabContext] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.CHAT.AUTO_REFRESH_TAB_CONTEXT,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_AUTO_REFRESH_TAB_CONTEXT
+  const [autoRefreshTabContext, setAutoRefreshTabContext] = useSetting(
+    SETTINGS.AUTO_REFRESH_TAB_CONTEXT
   )
 
   return (

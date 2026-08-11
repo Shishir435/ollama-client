@@ -1,8 +1,15 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
+import { readdirSync, readFileSync, statSync } from "node:fs"
+import { join, relative } from "node:path"
 import { describe, expect, it } from "vitest"
 
 const ROOT = process.cwd()
+const SOURCE_ROOT = join(ROOT, "src")
+
+const walk = (directory: string): string[] =>
+  readdirSync(directory).flatMap((entry) => {
+    const path = join(directory, entry)
+    return statSync(path).isDirectory() ? walk(path) : [path]
+  })
 
 const SCOPE_AWARE_UI = [
   "src/features/chat/hooks/use-speech-settings.ts",
@@ -12,6 +19,26 @@ const SCOPE_AWARE_UI = [
 ]
 
 describe("storage API boundary", () => {
+  it("limits raw React storage to legacy provider-config observers", () => {
+    const offenders = walk(SOURCE_ROOT)
+      .filter(
+        (file) =>
+          /\.tsx?$/.test(file) &&
+          !file.includes("/__tests__/") &&
+          !/\.(test|spec)\.[^.]+$/.test(file)
+      )
+      .filter((file) =>
+        readFileSync(file, "utf8").includes("@plasmohq/storage/hook")
+      )
+      .map((file) => relative(ROOT, file))
+      .sort()
+
+    expect(offenders).toEqual([
+      "src/features/model/hooks/use-provider-icons.ts",
+      "src/features/model/hooks/use-provider-models.ts"
+    ])
+  })
+
   it("keeps migrated settings UI behind useSetting descriptors", () => {
     for (const file of SCOPE_AWARE_UI) {
       const source = readFileSync(join(ROOT, file), "utf8")

@@ -1,20 +1,16 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useMemo } from "react"
-import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
+import { useSetting } from "@/hooks/use-setting"
+import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
 import {
   normalizeStoredModelConfig,
-  parseStoredModelConfigMap,
-  type StoredModelConfigMap
+  parseStoredModelConfigMap
 } from "@/lib/model-config-utils"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export type ProviderModelConfig = typeof DEFAULT_MODEL_CONFIG
 
 export const useModelConfig = (modelName: string) => {
-  const [modelConfigs, setModelConfigs] = useStorage<StoredModelConfigMap>(
-    { key: STORAGE_KEYS.PROVIDER.MODEL_CONFIGS, instance: plasmoGlobalStorage },
-    {}
-  )
+  const [modelConfigs, setModelConfigs] = useSetting(SETTINGS.MODEL_CONFIGS)
 
   const config = useMemo(() => {
     const stored = normalizeStoredModelConfig(

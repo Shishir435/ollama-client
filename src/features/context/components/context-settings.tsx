@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { BookOpen, Globe, Scissors, ShieldCheck, Upload } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SectionStack, TwoColumnGrid } from "@/components/layout"
@@ -17,19 +16,14 @@ import {
 } from "@/features/knowledge/components"
 import { MemorySettings } from "@/features/memory/components/memory-settings"
 import { WebSearchSettings } from "@/features/web-search/components/web-search-settings"
-import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { useSetting } from "@/hooks/use-setting"
+import { SETTINGS } from "@/lib/storage/settings"
 
 const AutoScreenshotSettings = () => {
   const { t } = useTranslation()
-  const [autoScreenshotOnVision, setAutoScreenshotOnVision] =
-    useStorage<boolean>(
-      {
-        key: STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION,
-        instance: plasmoGlobalStorage
-      },
-      false
-    )
+  const [autoScreenshotOnVision, setAutoScreenshotOnVision] = useSetting(
+    SETTINGS.AUTO_SCREENSHOT_ON_VISION
+  )
 
   return (
     <SettingsSwitch

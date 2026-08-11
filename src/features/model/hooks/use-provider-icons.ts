@@ -2,10 +2,11 @@ import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useStorage } from "@plasmohq/storage/hook"
 import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
-import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { useSetting } from "@/hooks/use-setting"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { type ProviderConfig, ProviderStorageKey } from "@/lib/providers/types"
 import { queryKeys } from "@/lib/query-keys"
+import { SETTINGS } from "@/lib/storage/settings"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
 const EMPTY_ICONS: Record<string, string> = {}
@@ -20,13 +21,7 @@ const EMPTY_ICONS: Record<string, string> = {}
  * every provider being recognized already.
  */
 export const useProviderIcons = (): Record<string, string> => {
-  const [enabled] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.PROVIDER.FAVICON_LOOKUP,
-      instance: plasmoGlobalStorage
-    },
-    true
-  )
+  const [enabled] = useSetting(SETTINGS.PROVIDER_FAVICON_LOOKUP)
 
   /*
    * Keyed on the stored provider configuration: a newly added provider must be
@@ -34,7 +29,7 @@ export const useProviderIcons = (): Record<string, string> => {
    * computed before it existed.
    */
   const [providerConfig] = useStorage<ProviderConfig[]>(
-    { key: ProviderStorageKey.CONFIG, instance: plasmoGlobalStorage },
+    { key: ProviderStorageKey.CONFIG, instance: plasmoSyncStorage },
     []
   )
 

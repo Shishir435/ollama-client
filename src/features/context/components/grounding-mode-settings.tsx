@@ -1,17 +1,12 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 import { SettingsSwitch } from "@/components/settings"
-import { DEFAULT_GROUNDED_ONLY_MODE, STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { useSetting } from "@/hooks/use-setting"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export const GroundingModeSettings = () => {
   const { t } = useTranslation()
-  const [groundedOnlyMode, setGroundedOnlyMode] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.CHAT.GROUNDED_ONLY_MODE,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_GROUNDED_ONLY_MODE
+  const [groundedOnlyMode, setGroundedOnlyMode] = useSetting(
+    SETTINGS.GROUNDED_ONLY_MODE
   )
 
   return (
