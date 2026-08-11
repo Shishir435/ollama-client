@@ -1,4 +1,19 @@
+import { PRIVATE_ERROR_KEYS } from "@/lib/log-redaction"
 import { type PersistenceOp, RETRYABLE_OPS } from "./protocol"
+
+/** Attach a value readable by name but invisible to enumeration. */
+const defineDiagnostic = (
+  target: object,
+  key: string,
+  value: unknown
+): void => {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: false,
+    writable: true,
+    configurable: true
+  })
+}
 
 /**
  * Why a persistence call failed, in the only terms a caller can act on.
@@ -55,14 +70,30 @@ export class PersistenceError extends Error {
   /** @see PersistenceErrorOptions.detail */
   readonly detail?: string
 
+  /**
+   * Named for the redaction layer: neither of these may reach a log.
+   *
+   * Both hold text produced by the owner process — SQLite's own message — and
+   * "keep it out of `message`" was only half the boundary. Structured logging
+   * copies an error's own enumerable properties and follows its `cause`, so
+   * without this the detail arrived in the console and the diagnostics bundle
+   * by the back door.
+   */
+  readonly [PRIVATE_ERROR_KEYS] = ["detail", "cause"] as const
+
   constructor(options: PersistenceErrorOptions) {
     super(`Persistence "${options.op}" failed: ${options.reason}`)
     this.name = "PersistenceError"
     this.op = options.op
     this.reason = options.reason
     this.userMessage = SAFE_TEXT[options.reason]
-    this.detail = options.detail
-    if (options.cause !== undefined) this.cause = options.cause
+    // Non-enumerable as well as declared private: a logger that does not know
+    // the convention — `console.log(error)`, `JSON.stringify`, a spread — must
+    // not pick these up either. Reading `error.detail` by name still works,
+    // which is the only way they were ever meant to be read.
+    defineDiagnostic(this, "detail", options.detail)
+    if (options.cause !== undefined)
+      defineDiagnostic(this, "cause", options.cause)
   }
 
   /**

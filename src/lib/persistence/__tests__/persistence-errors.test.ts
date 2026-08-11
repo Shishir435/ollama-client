@@ -167,3 +167,51 @@ describe("owner-host stage labelling", () => {
     expect((error as Error).message).not.toContain("storage down")
   })
 })
+
+describe("structured logging never carries owner text", () => {
+  const SQL_TEXT = "SQLITE_ERROR: no such column: messages.content"
+
+  it("redacts both the detail and the cause chain", async () => {
+    const { redactLogValue } = await import("@/lib/log-redaction")
+    const error = new PersistenceNotDeliveredError("run", new Error(SQL_TEXT))
+
+    const logged = JSON.stringify(redactLogValue(error))
+
+    // Two separate doors: `detail` is an own property the redactor enumerates,
+    // and `cause` is read by name, so making it non-enumerable alone would not
+    // have closed it.
+    expect(logged).not.toContain(SQL_TEXT)
+    expect(logged).not.toContain("messages")
+    expect(logged).toContain("PersistenceNotDeliveredError")
+    expect(logged).toContain("not-delivered")
+  })
+
+  it("stays hidden from loggers that do not know the convention", () => {
+    const error = new PersistenceError({
+      op: "run",
+      reason: "owner-error",
+      detail: SQL_TEXT,
+      cause: new Error(SQL_TEXT)
+    })
+
+    // `JSON.stringify`, a spread, or `Object.keys` in some other logger.
+    expect(JSON.stringify(error)).not.toContain(SQL_TEXT)
+    expect(JSON.stringify({ ...error })).not.toContain(SQL_TEXT)
+    expect(Object.keys(error)).not.toContain("detail")
+    expect(Object.keys(error)).not.toContain("cause")
+    // Still readable by name, which is the only intended access.
+    expect(error.detail).toBe(SQL_TEXT)
+  })
+
+  it("leaves an ordinary error's cause and properties alone", async () => {
+    const { redactLogValue } = await import("@/lib/log-redaction")
+    const ordinary = Object.assign(new Error("outer"), { hint: "useful" })
+    ordinary.cause = new Error("inner detail")
+
+    const logged = JSON.stringify(redactLogValue(ordinary))
+
+    // The marker is opt-in; nothing else loses diagnostics because of it.
+    expect(logged).toContain("useful")
+    expect(logged).toContain("inner detail")
+  })
+})
