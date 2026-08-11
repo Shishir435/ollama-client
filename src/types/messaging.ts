@@ -33,6 +33,30 @@ export interface ChromeMessage {
 }
 
 /**
+ * What a stream producer needs from its destination, and nothing else.
+ *
+ * The chat handler writes events, reads and advances a sequence counter, and
+ * names an abort scope. It never connects, disconnects, or listens — so a
+ * background-owned consumer of the same stream (the durable turn runtime, which
+ * reduces events instead of shipping them to a panel) can satisfy this while
+ * being nothing like a real port. It used to satisfy `ChromePort` by cast
+ * instead, which asserted `onMessage`, `onDisconnect`, `sender` and
+ * `disconnect()` that did not exist; any handler that reached for one would
+ * have failed at runtime with the type system claiming otherwise.
+ *
+ * `ChromePort` satisfies this structurally, so a real port is still accepted
+ * everywhere this is asked for.
+ */
+export interface ChatStreamSink {
+  name: string
+  postMessage(message: ChromeMessage | EmbeddingStatusMessage): void
+  /** @see ChromePort.abortScopeKey */
+  abortScopeKey?: string
+  /** @see ChromePort.streamSequence */
+  streamSequence?: number
+}
+
+/**
  * Browser runtime port narrowed to application message unions. The base port's
  * `postMessage` and `onMessage` members are omitted first because overriding
  * their `unknown`/`any` payloads directly is incompatible under TS2430.

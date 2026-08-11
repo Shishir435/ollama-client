@@ -11,6 +11,7 @@ import {
 } from "@/protocol/streams"
 import type {
   ChatStreamMessage,
+  ChatStreamSink,
   ChromeMessage,
   ChromePort,
   ChromeResponse,
@@ -23,7 +24,7 @@ import type {
  * is closed or disconnected (e.g., when tabs are in back/forward cache).
  */
 export const safePostMessage = (
-  port: ChromePort,
+  port: ChatStreamSink,
   message: ChatStreamMessage | PullStreamMessage | ChromeMessage
 ): void => {
   try {
@@ -50,7 +51,7 @@ export const safePostMessage = (
 }
 
 export const safePostChatStreamEvent = (
-  port: ChromePort,
+  port: ChatStreamSink,
   event: unknown
 ): void => {
   const parsed = ChatStreamServerEventSchema.safeParse(event)

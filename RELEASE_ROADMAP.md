@@ -52,15 +52,14 @@ release usable and establish the tests required by its successor.
 4. ~~**Durable turn retention (H4)**~~ — landed.
 5. **Provider discovery policy (H5):** extract the single discovery service.
    This may run at any point before PR 8.
-6. **Durable turn composition (H6):** split observer, generation, and recovery
-   adapters only after lifecycle and retention behavior is stable.
+6. ~~**Durable turn composition (H6)**~~ — landed.
 7. **Boundary type/error closure (H7):** decode durable rows, split contract
    concepts, and finish typed persistence errors against the settled modules.
 8. **Release evidence (H8):** run full Chrome/Firefox gates, record `preview`
    soak evidence, update release documentation, and promote only when the 9+/10
    criteria pass.
 
-Critical path: **PR 6 → PR 7 → PR 8**. PR 5 may merge at any time, but must
+Critical path: **PR 7 → PR 8**. PR 5 may merge at any time, but must
 land before PR 8.
 
 ### H5 — Centralize provider discovery policy
@@ -95,36 +94,10 @@ Exit gate:
 - A known catalog-less provider receives no background catalog request until
   force, fingerprint change, or TTL expiry.
 
-### H6 — Split the durable-turn composition hub
-
-Scope: M. Behavior change: none. Dependencies: none outstanding.
-
-Affected module: `src/background/durable-turn-runtime.ts`.
-
-- Extract an observer registry responsible only for attach, buffer, forward,
-  terminal cleanup, and reconnect snapshots.
-- Extract a generation adapter responsible for provider invocation, stream
-  reduction, and assistant persistence.
-- Extract a recovery coordinator responsible for incomplete-run claims and
-  restart ordering.
-- Replace the synthetic `ChromePort` cast with a narrow typed stream sink port.
-  Keep legacy handler adaptation at one explicit boundary while it remains.
-- Keep `TurnRuntime` environment-independent and leave browser/provider/SQLite
-  imports in `src/` composition.
-- Add dependency-boundary tests so background adapters cannot leak into
-  workspace packages.
-
-Exit gate:
-
-- No module owns both observer lifecycle and provider generation.
-- No `as unknown as ChromePort` remains in durable turn composition.
-- Characterization tests show identical stream, reconnect, persistence, and
-  failure behavior.
-
 ### H7 — Close medium-risk type and error gaps
 
 Scope: M. Behavior change: invalid state/data fails explicitly. Dependencies:
-H5–H6.
+none outstanding.
 
 - Replace unchecked SQLite row-array assertions for durable job repositories
   with shared row decoders or local Zod schemas at query boundaries.
@@ -146,7 +119,7 @@ Exit gate:
 
 ### H8 — Release verification and 9+/10 gate
 
-Scope: M. Behavior change: none. Dependencies: H5–H7.
+Scope: M. Behavior change: none. Dependencies: H5, H7.
 
 Required automated gates:
 
