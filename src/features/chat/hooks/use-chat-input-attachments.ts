@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -8,11 +7,12 @@ import {
 import { captureVisibleTabImage } from "@/features/chat/lib/capture-screenshot"
 import { useFileUpload } from "@/features/file-upload/hooks/use-file-upload"
 import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
+import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
-import { DEFAULT_MAX_IMAGE_SIZE_MB, STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_MAX_IMAGE_SIZE_MB } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ImageAttachment } from "@/types"
 
 export const useChatInputAttachments = () => {
@@ -40,13 +40,7 @@ export const useChatInputAttachments = () => {
   const visionSupported = capabilities?.vision ?? false
   const visionUnsupported = !visionSupported && !capabilitiesResolving
 
-  const [maxImageSizeMb] = useStorage<number>(
-    {
-      key: STORAGE_KEYS.IMAGES.MAX_SIZE_MB,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_MAX_IMAGE_SIZE_MB
-  )
+  const [maxImageSizeMb] = useSetting(SETTINGS.MAX_IMAGE_SIZE_MB)
 
   const handleImageReject = useCallback(
     (reason: ImageRejectReason, file: File) => {

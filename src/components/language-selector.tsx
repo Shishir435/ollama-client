@@ -1,18 +1,15 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { Globe } from "lucide-react"
 import { Trans, useTranslation } from "react-i18next"
 import { SettingsCard, SettingsSelectField } from "@/components/settings"
 import { SelectItem } from "@/components/ui/select"
+import { useSetting } from "@/hooks/use-setting"
 import { LANGUAGES } from "@/i18n/languages"
-import { EXTERNAL_URLS, STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { EXTERNAL_URLS } from "@/lib/constants"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export const LanguageSelector = () => {
   const { t, i18n } = useTranslation()
-  const [_, setStoredLanguage] = useStorage({
-    key: STORAGE_KEYS.LANGUAGE,
-    instance: plasmoGlobalStorage
-  })
+  const [_, setStoredLanguage] = useSetting(SETTINGS.LANGUAGE)
 
   return (
     <SettingsCard

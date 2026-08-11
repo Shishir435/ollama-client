@@ -22,6 +22,22 @@ vi.mock("@plasmohq/storage/hook", () => ({
   })
 }))
 
+vi.mock("@/hooks/use-setting", () => ({
+  useSetting: vi.fn((descriptor) => {
+    if (descriptor.key === "provider-selected-model") {
+      return ["llama3:latest", vi.fn(), { isLoading: false }]
+    }
+    if (descriptor.key === "provider-selected-model-ref") {
+      return [
+        { providerId: "ollama", modelId: "llama3:latest" },
+        vi.fn(),
+        { isLoading: false }
+      ]
+    }
+    return [descriptor.defaultValue, vi.fn(), { isLoading: false }]
+  })
+}))
+
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: toastMock })
 }))
@@ -110,7 +126,14 @@ vi.mock("@/lib/knowledge/knowledge-sets", () => ({
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
     get: vi.fn()
-  }
+  },
+  getPlasmoStorageForKey: vi.fn(() => ({
+    get: vi.fn(),
+    set: vi.fn(),
+    remove: vi.fn(),
+    watch: vi.fn(),
+    unwatch: vi.fn()
+  }))
 }))
 
 vi.mock("@/features/chat/hooks/use-auto-embed-messages", () => ({

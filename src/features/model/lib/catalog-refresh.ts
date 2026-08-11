@@ -12,7 +12,7 @@
 /** Turns the poll off; the catalog then refreshes on open and on demand. */
 export const CATALOG_REFRESH_OFF = 0
 
-export const DEFAULT_CATALOG_REFRESH_MS = 60_000
+export const DEFAULT_CATALOG_REFRESH_MS = DEFAULT_PROVIDER_CATALOG_REFRESH_MS
 
 /**
  * Never poll faster than this. The setting is sync-safe, so a value can arrive
@@ -72,3 +72,5 @@ export const normalizeCatalogRefreshMs = (value: unknown): number => {
  */
 export const catalogStaleTimeMs = (refreshMs: number): number =>
   refreshMs > CATALOG_REFRESH_OFF ? refreshMs : DEFAULT_CATALOG_REFRESH_MS
+
+import { DEFAULT_PROVIDER_CATALOG_REFRESH_MS } from "@/lib/constants"

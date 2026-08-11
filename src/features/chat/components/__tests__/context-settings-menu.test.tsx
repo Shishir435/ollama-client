@@ -17,21 +17,21 @@ const mocks = vi.hoisted(() => ({
   perSiteProfiles: { profiles: [] as unknown[] }
 }))
 
-vi.mock("@plasmohq/storage/hook", () => ({
-  useStorage: vi.fn((config: { key: string }) => {
-    if (config.key === "embeddings-use-rag") {
+vi.mock("@/hooks/use-setting", () => ({
+  useSetting: vi.fn((descriptor: { key: string; defaultValue: unknown }) => {
+    if (descriptor.key === "embeddings-use-rag") {
       return [true, mocks.setUseRag]
     }
-    if (config.key === "browser-tab-access") {
+    if (descriptor.key === "browser-tab-access") {
       return [true, mocks.setTabAccess]
     }
-    if (config.key === "chat-grounded-only-mode") {
+    if (descriptor.key === "chat-grounded-only-mode") {
       return [false, mocks.setGroundedOnlyMode]
     }
-    if (config.key === "browser-per-site-profiles") {
+    if (descriptor.key === "browser-per-site-profiles") {
       return [mocks.perSiteProfiles, vi.fn()]
     }
-    return [undefined, vi.fn()]
+    return [descriptor.defaultValue, vi.fn()]
   })
 }))
 

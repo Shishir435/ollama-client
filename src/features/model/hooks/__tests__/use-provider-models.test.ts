@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
 import React from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { useSetting } from "@/hooks/use-setting"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
@@ -80,12 +81,20 @@ vi.mock("@plasmohq/storage/hook", () => ({
 
 // Mock dependencies
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
+  plasmoSyncStorage: {
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue(undefined),
     remove: vi.fn().mockResolvedValue(undefined),
     watch: vi.fn().mockReturnValue(() => {})
   }
+}))
+
+vi.mock("@/hooks/use-setting", () => ({
+  useSetting: vi.fn((descriptor) => [
+    descriptor.defaultValue,
+    vi.fn().mockResolvedValue(undefined),
+    { isLoading: false }
+  ])
 }))
 
 vi.mock("@/lib/providers/factory", () => ({
@@ -152,6 +161,13 @@ const mockRpc = (
 describe("useProviderModels", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(useSetting).mockImplementation(((descriptor: {
+      defaultValue: unknown
+    }) => [
+      descriptor.defaultValue,
+      vi.fn().mockResolvedValue(undefined),
+      { isLoading: false }
+    ]) as never)
     vi.mocked(useStorage).mockImplementation(((
       config: any,
       initialValue: any
@@ -444,21 +460,27 @@ describe("useProviderModels", () => {
             }
           ]
         }
-        if (config.key === "provider-selected-model") {
-          return ["shared-model", setSelectedModel, { isLoading: false }]
-        }
-        if (config.key === "provider-selected-model-ref") {
-          return [null, setSelectedModelRef, { isLoading: false }]
-        }
-        if (config.key === "provider-selection-conflict-model") {
-          return [null, setSelectionConflictModel, { isLoading: false }]
-        }
         return [
           initialValue,
           vi.fn().mockResolvedValue(undefined),
           { isLoading: false }
         ]
       }) as any)
+      vi.mocked(useSetting).mockImplementation(((descriptor: {
+        key: string
+        defaultValue: unknown
+      }) => {
+        if (descriptor.key === "provider-selected-model") {
+          return ["shared-model", setSelectedModel, { isLoading: false }]
+        }
+        if (descriptor.key === "provider-selected-model-ref") {
+          return [null, setSelectedModelRef, { isLoading: false }]
+        }
+        if (descriptor.key === "provider-selection-conflict-model") {
+          return [null, setSelectionConflictModel, { isLoading: false }]
+        }
+        return [descriptor.defaultValue, vi.fn(), { isLoading: false }]
+      }) as never)
 
       const { result } = renderHook(() => useProviderModels(), {
         wrapper: createWrapper()

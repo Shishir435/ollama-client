@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { CheckCircle2, Info, Loader2, Trash2, XCircle, Zap } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -41,13 +40,12 @@ import { ProviderGrid } from "@/features/model/components/provider-grid"
 import { useProviderSettingsState } from "@/features/model/hooks/use-provider-settings-state"
 import {
   CATALOG_REFRESH_CHOICES_MS,
-  DEFAULT_CATALOG_REFRESH_MS,
   normalizeCatalogRefreshMs
 } from "@/features/model/lib/catalog-refresh"
-import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { useSetting } from "@/hooks/use-setting"
 import { isBetaProvider } from "@/lib/providers/registry"
 import { ProviderId } from "@/lib/providers/types"
+import { SETTINGS } from "@/lib/storage/settings"
 import { cn } from "@/lib/utils"
 
 export const ProviderSettings = () => {
@@ -76,19 +74,11 @@ export const ProviderSettings = () => {
     removeProvider
   } = useProviderSettingsState()
   const [addOpen, setAddOpen] = useState(false)
-  const [iconLookup, setIconLookup] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.PROVIDER.FAVICON_LOOKUP,
-      instance: plasmoGlobalStorage
-    },
-    true
+  const [iconLookup, setIconLookup] = useSetting(
+    SETTINGS.PROVIDER_FAVICON_LOOKUP
   )
-  const [catalogRefreshMs, setCatalogRefreshMs] = useStorage<number>(
-    {
-      key: STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_CATALOG_REFRESH_MS
+  const [catalogRefreshMs, setCatalogRefreshMs] = useSetting(
+    SETTINGS.PROVIDER_CATALOG_REFRESH_MS
   )
   const [pendingRemoval, setPendingRemoval] = useState<{
     id: string

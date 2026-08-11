@@ -1,14 +1,13 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useState } from "react"
 import { IngestionClient } from "@/application/ingestion/ingestion-client"
-import { DEFAULT_FILE_UPLOAD_CONFIG, STORAGE_KEYS } from "@/lib/constants"
+import { useSetting } from "@/hooks/use-setting"
+import { DEFAULT_FILE_UPLOAD_CONFIG } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import type {
   FileProcessingState,
   ProcessedFile
 } from "@/lib/file-processors/types"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import type { FileUploadConfig } from "@/types"
+import { SETTINGS } from "@/lib/storage/settings"
 import { validateFileForUpload } from "./file-upload-pipeline"
 
 export interface UseFileUploadOptions {
@@ -18,13 +17,7 @@ export interface UseFileUploadOptions {
 }
 
 export function useFileUpload(options: UseFileUploadOptions = {}) {
-  const [config] = useStorage<FileUploadConfig>(
-    {
-      key: STORAGE_KEYS.FILE_UPLOAD.CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_FILE_UPLOAD_CONFIG
-  )
+  const [config] = useSetting(SETTINGS.FILE_UPLOAD_CONFIG)
 
   const safeConfig = config || DEFAULT_FILE_UPLOAD_CONFIG
   const {

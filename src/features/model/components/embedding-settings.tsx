@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { AlertTriangle, RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -10,14 +9,12 @@ import { useEmbeddingModelCheck } from "@/features/model/hooks/use-embedding-mod
 import { useEmbeddingRebuild } from "@/features/model/hooks/use-embedding-rebuild"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
+import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
 import {
   DEFAULT_EMBEDDING_CONFIG,
-  DEFAULT_EMBEDDING_MODEL,
-  DEFAULT_MEMORY_ENABLED,
   DEFAULT_PROVIDER_ID,
-  type EmbeddingConfig,
-  STORAGE_KEYS
+  type EmbeddingConfig
 } from "@/lib/constants"
 import { getCacheStats } from "@/lib/embeddings/embedding-client"
 import {
@@ -30,7 +27,7 @@ import {
   removeDuplicateVectors
 } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 import { DatabaseManagementCard } from "./embedding-config/database-management-card"
 import { EmbeddingGenerationConfig } from "./embedding-config/embedding-generation-config"
@@ -61,27 +58,11 @@ export const EmbeddingSettings = () => {
   const { t } = useTranslation()
   const { toast } = useToast()
 
-  const [selectedModel, setSelectedModel] = useStorage<string>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_EMBEDDING_MODEL
+  const [selectedModel, setSelectedModel] = useSetting(
+    SETTINGS.EMBEDDING_SELECTED_MODEL
   )
-  const [config, setConfig] = useStorage<EmbeddingConfig>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_EMBEDDING_CONFIG
-  )
-  const [memoryEnabled] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.MEMORY.ENABLED,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_MEMORY_ENABLED
-  )
+  const [config, setConfig] = useSetting(SETTINGS.EMBEDDING_CONFIG)
+  const [memoryEnabled] = useSetting(SETTINGS.MEMORY_ENABLED)
 
   const { models } = useProviderModels()
 

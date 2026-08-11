@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { BookOpen, Code, FileText, Sparkles, Target, Zap } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SELECTION_ACTIONS } from "@/application/selection-actions/actions"
@@ -21,19 +20,16 @@ import {
 } from "@/features/model/components/content-extraction-fields"
 import { ExcludedUrls } from "@/features/model/components/exclude-urls"
 import { SiteSpecificOverrides } from "@/features/model/components/site-specific-overrides"
-import {
-  DEFAULT_CONTENT_EXTRACTION_CONFIG,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { useSetting } from "@/hooks/use-setting"
+import { DEFAULT_CONTENT_EXTRACTION_CONFIG } from "@/lib/constants"
 import { CONTENT_SCRAPER_OPTIONS } from "@/lib/constants-ui"
 import {
   createPerSiteProfile,
   DEFAULT_PER_SITE_PROFILE_SETTINGS,
   type PerSiteProfile,
-  type PerSiteProfileSettings,
   parsePerSiteProfileSettings
 } from "@/lib/per-site-profiles"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig, ContentScraper } from "@/types"
 import { TIMEOUT_FIELDS } from "./content-extraction-constants"
@@ -44,21 +40,10 @@ export interface ContentExtractionSettingsFormProps {
 }
 
 export const ContentExtractionSettings = () => {
-  const [config, setConfig] = useStorage<ContentExtractionConfig>(
-    {
-      key: STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_CONTENT_EXTRACTION_CONFIG
+  const [config, setConfig] = useSetting(SETTINGS.CONTENT_EXTRACTION_CONFIG)
+  const [perSiteProfileSettings, setPerSiteProfileSettings] = useSetting(
+    SETTINGS.PER_SITE_PROFILES
   )
-  const [perSiteProfileSettings, setPerSiteProfileSettings] =
-    useStorage<PerSiteProfileSettings>(
-      {
-        key: STORAGE_KEYS.BROWSER.PER_SITE_PROFILES,
-        instance: plasmoGlobalStorage
-      },
-      DEFAULT_PER_SITE_PROFILE_SETTINGS
-    )
 
   if (!config) {
     return null

@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { Brain, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -10,22 +9,16 @@ import {
 } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
+import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
-import { DEFAULT_MEMORY_ENABLED, STORAGE_KEYS } from "@/lib/constants"
 import { clearAllVectors, getStorageStats } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export const MemorySettings = () => {
   const { t } = useTranslation()
   const { toast } = useToast()
-  const [isEnabled, setIsEnabled] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.MEMORY.ENABLED,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_MEMORY_ENABLED
-  )
+  const [isEnabled, setIsEnabled] = useSetting(SETTINGS.MEMORY_ENABLED)
   const [isClearing, setIsClearing] = useState(false)
   const clearDialog = useConfirmAction()
   const [stats, setStats] = useState<{

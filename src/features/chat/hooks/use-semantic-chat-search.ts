@@ -1,7 +1,5 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useState } from "react"
-import type { EmbeddingConfig } from "@/lib/constants"
-import { DEFAULT_EMBEDDING_CONFIG, STORAGE_KEYS } from "@/lib/constants"
+import { useSetting } from "@/hooks/use-setting"
 import { ensureKeywordIndexBuilt } from "@/lib/embeddings/auto-index"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
@@ -9,7 +7,7 @@ import { searchHybrid } from "@/lib/embeddings/vector-store"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export interface ChatSearchResult {
   result: SearchResult
@@ -29,13 +27,7 @@ export interface UseSemanticChatSearchOptions {
 export const useSemanticChatSearch = () => {
   const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [embeddingConfig] = useStorage<EmbeddingConfig>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_EMBEDDING_CONFIG
-  )
+  const [embeddingConfig] = useSetting(SETTINGS.EMBEDDING_CONFIG)
 
   const search = useCallback(
     async (

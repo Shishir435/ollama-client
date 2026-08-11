@@ -1,17 +1,11 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
-
-import { STORAGE_KEYS } from "@/lib/constants"
-
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { useSetting } from "@/hooks/use-setting"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export const useLanguageSync = () => {
   const { i18n } = useTranslation()
-  const [storedLanguage] = useStorage<string>({
-    key: STORAGE_KEYS.LANGUAGE,
-    instance: plasmoGlobalStorage
-  })
+  const [storedLanguage] = useSetting(SETTINGS.LANGUAGE)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: i18n.changeLanguage is a stable function reference
   useEffect(() => {

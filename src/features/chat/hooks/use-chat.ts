@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useMemo, useRef } from "react"
 import { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import { useChatResponse } from "@/features/chat/hooks/use-chat-response"
@@ -11,15 +10,14 @@ import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useTabContent } from "@/features/tabs/stores/tab-content-store"
+import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
-import { DEFAULT_TABS_ACCESS, STORAGE_KEYS } from "@/lib/constants"
 import {
-  DEFAULT_PER_SITE_PROFILE_SETTINGS,
   type PerSiteProfileSettings,
   parsePerSiteProfileSettings,
   resolveGroundedOnlyModeForUrls
 } from "@/lib/per-site-profiles"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 const EMPTY_PROFILE_LIST: PerSiteProfileSettings["profiles"] = []
 
@@ -30,20 +28,8 @@ export const useChat = () => {
   const { input, setInput } = useChatInput()
   const { selectedTabIds, setSelectedTabIds } = useSelectedTabs()
   const { builtContent: contextText, documents: tabDocuments } = useTabContent()
-  const [tabAccess] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_TABS_ACCESS
-  )
-  const [perSiteProfiles] = useStorage<PerSiteProfileSettings>(
-    {
-      key: STORAGE_KEYS.BROWSER.PER_SITE_PROFILES,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_PER_SITE_PROFILE_SETTINGS
-  )
+  const [tabAccess] = useSetting(SETTINGS.TABS_ACCESS)
+  const [perSiteProfiles] = useSetting(SETTINGS.PER_SITE_PROFILES)
   const { tabs: openTabs } = useOpenTabs(Boolean(tabAccess))
   const perSiteProfileList =
     parsePerSiteProfileSettings(perSiteProfiles).profiles ?? EMPTY_PROFILE_LIST
