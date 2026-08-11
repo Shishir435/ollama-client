@@ -294,4 +294,57 @@ describe("architecture import boundaries", () => {
 
     expect(offenders).toEqual([])
   })
+
+  /**
+   * The observer registry is in-memory delivery state and nothing else.
+   *
+   * It used to share a module with provider generation, which is how a change
+   * to how a turn streams became a change to who is listening. Persistence,
+   * providers, and the chat handler are the dependencies that would pull the
+   * two back together, so they are the ones named here.
+   */
+  it("keeps durable turn observers free of persistence and generation", () => {
+    const source = readFileSync(
+      join(sourceRoot, "background/turns/turn-observers.ts"),
+      "utf8"
+    )
+    const offenders = referencedModules(source).filter((module) =>
+      /^@\/(?:lib\/repositories|lib\/providers|application|background\/handlers)\//.test(
+        module
+      )
+    )
+
+    expect(offenders).toEqual([])
+  })
+
+  /** One module owns the registry's mutable state; the rest go through it. */
+  it("keeps durable turn observer state in a single module", () => {
+    const offenders = productionSources.filter((file) => {
+      if (file === "background/turns/turn-observers.ts") return false
+      const source = readFileSync(join(sourceRoot, file), "utf8")
+      return /\bturnObservers\b|\bturnRuntimeSnapshots\b|\bturnReconnectLeases\b/.test(
+        source
+      )
+    })
+
+    expect(offenders).toEqual([])
+  })
+
+  /**
+   * A background-owned stream consumer declares `ChatStreamSink`, not a port.
+   *
+   * The durable turn runtime used to cast a three-property object to
+   * `ChromePort`, asserting `onMessage`, `onDisconnect`, `sender` and
+   * `disconnect()` that did not exist. `port-router.ts` keeps the one real
+   * adaptation, where an actual `browser.Runtime.Port` is narrowed.
+   */
+  it("keeps the synthetic port cast out of stream producers", () => {
+    const offenders = productionSources.filter((file) => {
+      if (file === "background/port-router.ts") return false
+      const source = readFileSync(join(sourceRoot, file), "utf8")
+      return /as\s+unknown\s+as\s+ChromePort\b/.test(source)
+    })
+
+    expect(offenders).toEqual([])
+  })
 })

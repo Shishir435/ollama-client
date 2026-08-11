@@ -9,6 +9,7 @@ import {
 import { toAppFailure } from "@/protocol/app-failure"
 import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 import type {
+  ChatStreamSink,
   ChromePort,
   ChromeResponse,
   NetworkError,
@@ -16,9 +17,9 @@ import type {
 } from "@/types"
 import { safePostChatStreamEvent } from "./utils"
 
-type HandlerFunction<T> = (
+type HandlerFunction<T, TPort extends ChatStreamSink> = (
   msg: T,
-  port: ChromePort,
+  port: TPort,
   isPortClosed: PortStatusFunction
 ) => Promise<void>
 
@@ -64,11 +65,11 @@ export const createErrorResponse = (
  * wrapper doesn't know the handler's abort key, and clearing by `port.name`
  * used to delete the wrong entry while leaking the real one.
  */
-export const withErrorContext = <T>(
-  handler: HandlerFunction<T>,
+export const withErrorContext = <T, TPort extends ChatStreamSink = ChromePort>(
+  handler: HandlerFunction<T, TPort>,
   context: ErrorContext<T>
 ) => {
-  return async (msg: T, port: ChromePort, isPortClosed: PortStatusFunction) => {
+  return async (msg: T, port: TPort, isPortClosed: PortStatusFunction) => {
     const startedAt = performance.now()
     try {
       await handler(msg, port, isPortClosed)

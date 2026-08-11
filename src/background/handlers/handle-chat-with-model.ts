@@ -31,8 +31,10 @@ import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 import type {
   ChatMessage,
   ChatStreamMessage,
+  ChatStreamSink,
   ChatWithModelMessage,
-  ModelConfigMap
+  ModelConfigMap,
+  PortStatusFunction
 } from "@/types"
 
 /**
@@ -67,7 +69,11 @@ const limitMessagesForModel = (
  * 4. Cross-origin safe message streaming via browser ports.
  */
 export const handleChatWithModel = withErrorContext(
-  async (msg: ChatWithModelMessage, port, isPortClosed) => {
+  async (
+    msg: ChatWithModelMessage,
+    port: ChatStreamSink,
+    isPortClosed: PortStatusFunction
+  ) => {
     const { model, providerId, messages } = msg.payload
     const abortKey = msg.payload.requestId || port.abortScopeKey || port.name
 
