@@ -58,13 +58,47 @@ const withTimeout = async <T>(
   }
 }
 
+/**
+ * Give a failure from the in-process owner the same shape as a messaged one.
+ *
+ * The host fast path reaches the worker directly, so it used to reject with the
+ * worker's own Error — SQLite's text as the message, and none of the op, reason
+ * or retryability a caller needs. That path is not the rare one: on Firefox MV2
+ * the background page is both the owner and the heaviest client, so the context
+ * doing the most persistence work was the one getting untyped failures.
+ *
+ * Mapped to `owner-error` rather than `not-delivered` even though some of these
+ * fail before the worker is posted to. The two are indistinguishable from here,
+ * and claiming non-execution we cannot prove is the one mistake that turns a
+ * lost write into a duplicated one.
+ */
+const asPersistenceError = (
+  op: PersistenceOp["op"],
+  error: unknown
+): PersistenceError =>
+  error instanceof PersistenceError
+    ? error
+    : new PersistenceError({
+        op,
+        reason: "owner-error",
+        detail: error instanceof Error ? error.message : String(error),
+        cause: error
+      })
+
 /** Guarantees the owner host context exists (Chromium offscreen document /
  * Firefox background page). Exported because other work hosted by that same
  * document — durable file parsing — must not message a host that is not up. */
 export const ensurePersistenceHost = async (): Promise<void> => {
   if (globalThis.__persistenceHostCall) return
   if (globalThis.__persistenceEnsureOwner) {
-    await globalThis.__persistenceEnsureOwner()
+    // `sendOnce` would wrap this, but this function is also called directly by
+    // other work the owner hosts, and a raw owner failure must not escape there
+    // either.
+    try {
+      await globalThis.__persistenceEnsureOwner()
+    } catch (error) {
+      throw asPersistenceError("ping", error)
+    }
     return
   }
   const rawResponse = await withTimeout(
@@ -86,7 +120,11 @@ export const ensurePersistenceHost = async (): Promise<void> => {
 
 const sendOnce = async (request: PersistenceOp): Promise<unknown> => {
   if (globalThis.__persistenceHostCall) {
-    return globalThis.__persistenceHostCall(request)
+    try {
+      return await globalThis.__persistenceHostCall(request)
+    } catch (error) {
+      throw asPersistenceError(request.op, error)
+    }
   }
   try {
     await ensurePersistenceHost()

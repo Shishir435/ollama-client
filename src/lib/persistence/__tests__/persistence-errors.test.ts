@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { PersistenceError, PersistenceNotDeliveredError } from "../errors"
 import { RETRYABLE_OPS } from "../protocol"
 
@@ -69,5 +69,64 @@ describe("persistence errors", () => {
     expect(error.cause).toBe(cause)
     expect(error.detail).toBe("offscreen document closed")
     expect(error.message).not.toContain("offscreen document closed")
+  })
+})
+
+describe("in-process owner failures", () => {
+  const SQL_TEXT = "SQLITE_ERROR: no such column: messages.foo"
+
+  afterEach(() => {
+    globalThis.__persistenceHostCall = undefined
+    globalThis.__persistenceEnsureOwner = undefined
+    vi.resetModules()
+  })
+
+  it("types a host-call rejection instead of forwarding the worker's Error", async () => {
+    // Firefox MV2 runs the owner in the background page, so the context doing
+    // the most persistence work is the one taking this branch. It used to
+    // reject with the worker's own Error — SQLite's text as the message.
+    globalThis.__persistenceHostCall = () => Promise.reject(new Error(SQL_TEXT))
+    const { rpcRun, PersistenceError } = await import("../client")
+
+    const error = await rpcRun("UPDATE messages SET foo = 1").catch(
+      (thrown: unknown) => thrown
+    )
+
+    expect(error).toBeInstanceOf(PersistenceError)
+    const typed = error as InstanceType<typeof PersistenceError>
+    expect(typed.op).toBe("run")
+    expect(typed.reason).toBe("owner-error")
+    expect(typed.message).not.toContain(SQL_TEXT)
+    expect(typed.detail).toBe(SQL_TEXT)
+    // A write whose outcome is unknown is never repeated.
+    expect(typed.retryable).toBe(false)
+  })
+
+  it("types an ensure-hook rejection for callers that ensure directly", async () => {
+    globalThis.__persistenceEnsureOwner = () =>
+      Promise.reject(new Error("offscreen creation blocked"))
+    const { ensurePersistenceHost, PersistenceError } = await import(
+      "../client"
+    )
+
+    const error = await ensurePersistenceHost().catch(
+      (thrown: unknown) => thrown
+    )
+
+    expect(error).toBeInstanceOf(PersistenceError)
+    expect((error as Error).message).not.toContain("offscreen creation blocked")
+  })
+
+  it("does not re-wrap an error that is already typed", async () => {
+    // Imported from the same module instance the client uses: `resetModules`
+    // gives the statically imported class a different identity, and comparing
+    // across the two would test module wiring rather than behavior.
+    const { rpcQuery, PersistenceError: Live } = await import("../client")
+    const original = new Live({ op: "query", reason: "timeout" })
+    globalThis.__persistenceHostCall = () => Promise.reject(original)
+
+    // Re-wrapping would relabel a timeout as an owner error, and with it the
+    // retryability the caller reads.
+    await expect(rpcQuery("SELECT 1")).rejects.toBe(original)
   })
 })
