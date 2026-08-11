@@ -146,6 +146,8 @@ export const useChat = () => {
     autoRenameSession,
     addMessage,
     generateResponse,
+    claimResponseStream: claimStream,
+    releaseResponseStreamClaim: releaseStreamClaim,
     toast
   })
 
