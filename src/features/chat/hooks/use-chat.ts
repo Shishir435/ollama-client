@@ -16,6 +16,7 @@ import { DEFAULT_TABS_ACCESS, STORAGE_KEYS } from "@/lib/constants"
 import {
   DEFAULT_PER_SITE_PROFILE_SETTINGS,
   type PerSiteProfileSettings,
+  parsePerSiteProfileSettings,
   resolveGroundedOnlyModeForUrls
 } from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
@@ -44,7 +45,8 @@ export const useChat = () => {
     DEFAULT_PER_SITE_PROFILE_SETTINGS
   )
   const { tabs: openTabs } = useOpenTabs(Boolean(tabAccess))
-  const perSiteProfileList = perSiteProfiles?.profiles ?? EMPTY_PROFILE_LIST
+  const perSiteProfileList =
+    parsePerSiteProfileSettings(perSiteProfiles).profiles ?? EMPTY_PROFILE_LIST
   const { isLoading, setIsLoading, isStreaming, setIsStreaming } =
     useLoadStream()
 

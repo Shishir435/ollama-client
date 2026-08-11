@@ -15,7 +15,10 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { resolveModelConfig } from "@/lib/model-config-utils"
+import {
+  parseStoredModelConfigMap,
+  resolveModelConfig
+} from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
@@ -33,7 +36,6 @@ import type {
   ChatStreamMessage,
   ChatStreamSink,
   ChatWithModelMessage,
-  ModelConfigMap,
   PortStatusFunction
 } from "@/types"
 
@@ -80,10 +82,11 @@ export const handleChatWithModel = withErrorContext(
     const ac = new AbortController()
     setAbortController(abortKey, ac)
 
-    const modelConfigMap =
-      (await plasmoGlobalStorage.get<ModelConfigMap>(
+    const modelConfigMap = parseStoredModelConfigMap(
+      await plasmoGlobalStorage.get<unknown>(
         STORAGE_KEYS.PROVIDER.MODEL_CONFIGS
-      )) ?? {}
+      )
+    )
     const modelParams = resolveModelConfig(modelConfigMap[model])
 
     const limitedMessages = limitMessagesForModel(model, messages)

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
-import { resolveModelConfig } from "@/lib/model-config-utils"
+import {
+  parseStoredModelConfigMap,
+  resolveModelConfig
+} from "@/lib/model-config-utils"
 
 describe("resolveModelConfig", () => {
   it("uses 64k context when no stored config exists", () => {
@@ -15,5 +18,19 @@ describe("resolveModelConfig", () => {
 
   it("preserves custom context size", () => {
     expect(resolveModelConfig({ num_ctx: 32768 }).num_ctx).toBe(32768)
+  })
+})
+
+describe("parseStoredModelConfigMap", () => {
+  it("rejects malformed stored settings", () => {
+    expect(
+      parseStoredModelConfigMap({ model: { temperature: "hot" } })
+    ).toEqual({})
+  })
+
+  it("accepts partial model settings", () => {
+    expect(parseStoredModelConfigMap({ model: { temperature: 0.25 } })).toEqual(
+      { model: { temperature: 0.25 } }
+    )
   })
 })

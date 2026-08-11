@@ -17,6 +17,7 @@ import type { ChatMessage, ChatSessionState } from "@/types"
 import type { ChatSessionGet, ChatSessionSet } from "./chat-session-store-types"
 
 let loadSessionMessagesRequestId = 0
+let loadMoreMessagesRequestId = 0
 
 export const createChatSessionMessageActions = (
   set: ChatSessionSet,
@@ -96,6 +97,10 @@ export const createChatSessionMessageActions = (
   loadMoreMessages: async () => {
     const { currentSessionId, sessions } = get()
     if (!currentSessionId) return
+    const requestId = ++loadMoreMessagesRequestId
+    const isStaleLoad = () =>
+      requestId !== loadMoreMessagesRequestId ||
+      get().currentSessionId !== currentSessionId
 
     const currentSession = sessions.find((s) => s.id === currentSessionId)
     if (!currentSession?.messages?.length) return
@@ -112,12 +117,14 @@ export const createChatSessionMessageActions = (
       CHAT_PAGINATION_LIMIT,
       (id) => repo.getMessage(id)
     )
+    if (isStaleLoad()) return
 
     const messageIds = path
       .map((m) => m.id)
       .filter((id): id is number => typeof id === "number")
     const files =
       messageIds.length > 0 ? await repo.getFilesByMessageIds(messageIds) : []
+    if (isStaleLoad()) return
     const filesByMessageId = groupFilesByMessageId(files)
 
     const parentIds = path
@@ -126,10 +133,12 @@ export const createChatSessionMessageActions = (
     let siblingCandidates: ChatMessage[] = []
     if (parentIds.length > 0) {
       siblingCandidates = await repo.getMessagesByParents(parentIds)
+      if (isStaleLoad()) return
     }
     if (path.some((m) => !m.parentId)) {
       const rootSiblings =
         await repo.getRootMessagesForSession(currentSessionId)
+      if (isStaleLoad()) return
       siblingCandidates = [...siblingCandidates, ...rootSiblings]
     }
     const siblingsMap = buildSiblingsMap(siblingCandidates)
@@ -375,6 +384,16 @@ export const createChatSessionMessageActions = (
       )
     }))
 
-    get().loadSessionMessages(sessionId)
+    try {
+      await get().loadSessionMessages(sessionId)
+    } catch (error) {
+      // The delete and local state update already succeeded. Keep that state
+      // usable and report only the failed read-back.
+      logger.error(
+        "Failed to refresh messages after delete",
+        "chatSessionStore",
+        { error, sessionId, messageId }
+      )
+    }
   }
 })

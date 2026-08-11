@@ -30,7 +30,8 @@ import {
   createPerSiteProfile,
   DEFAULT_PER_SITE_PROFILE_SETTINGS,
   type PerSiteProfile,
-  type PerSiteProfileSettings
+  type PerSiteProfileSettings,
+  parsePerSiteProfileSettings
 } from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { cn } from "@/lib/utils"
@@ -83,7 +84,7 @@ export const ContentExtractionSettings = () => {
       }
     })
     setPerSiteProfileSettings((prev) => {
-      const profiles = prev?.profiles ?? []
+      const profiles = parsePerSiteProfileSettings(prev).profiles
       if (profiles.some((profile) => profile.pattern === pattern))
         return prev ?? DEFAULT_PER_SITE_PROFILE_SETTINGS
       return {
@@ -106,7 +107,7 @@ export const ContentExtractionSettings = () => {
       return { ...base, siteOverrides: remaining }
     })
     setPerSiteProfileSettings((prev) => ({
-      profiles: (prev?.profiles ?? []).filter(
+      profiles: parsePerSiteProfileSettings(prev).profiles.filter(
         (profile) => profile.pattern !== pattern
       )
     }))
@@ -137,7 +138,7 @@ export const ContentExtractionSettings = () => {
     updates: Partial<Pick<PerSiteProfile, "tabContext" | "groundedOnly">>
   ) => {
     setPerSiteProfileSettings((prev) => {
-      const profiles = prev?.profiles ?? []
+      const profiles = parsePerSiteProfileSettings(prev).profiles
       const existing = profiles.find((profile) => profile.pattern === pattern)
       const nextProfile = existing
         ? { ...existing, ...updates }
@@ -187,7 +188,9 @@ export const ContentExtractionSettings = () => {
       <SettingsLevelGate settingId="site-overrides">
         <SiteSpecificOverrides
           config={config}
-          perSiteProfiles={perSiteProfileSettings?.profiles ?? []}
+          perSiteProfiles={
+            parsePerSiteProfileSettings(perSiteProfileSettings).profiles
+          }
           onAddSiteOverride={handleAddSiteOverride}
           onRemoveSiteOverride={handleRemoveSiteOverride}
           onUpdateSiteOverride={handleUpdateSiteOverride}

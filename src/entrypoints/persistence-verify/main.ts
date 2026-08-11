@@ -12,7 +12,14 @@ import {
   readPersistenceBackend
 } from "@/lib/persistence/backend"
 import { DURABLE_TABLES } from "@/lib/persistence/durable-tables"
+import { ProviderManager } from "@/lib/providers/manager"
+import { ProviderId } from "@/lib/providers/types"
 import * as chatHistory from "@/lib/repositories/sqlite-chat-history"
+import {
+  createTurnRun,
+  getTurnRun,
+  updateTurnRun
+} from "@/lib/repositories/turn-runs"
 import {
   createFixture,
   type Scale
@@ -299,6 +306,94 @@ const verifyApi = {
       })
     }
     return lastId
+  },
+
+  async configureFakeOllama(baseUrl: string): Promise<void> {
+    await ProviderManager.updateProviderConfig(ProviderId.OLLAMA, {
+      enabled: true,
+      baseUrl,
+      customModels: ["verify-model"]
+    })
+  },
+
+  /** Seed exactly what an interrupted worker leaves behind: canonical message
+   * rows plus a generating turn carrying the resumable request. */
+  async seedGeneratingTurn(turnId: string): Promise<number> {
+    const now = Date.now()
+    const sessionId = `session-${turnId}`
+    await chatHistory.addSession({
+      id: sessionId,
+      title: "durable restart verification",
+      modelId: "verify-model",
+      createdAt: now,
+      updatedAt: now,
+      messages: []
+    })
+    const userMessageId = await chatHistory.appendMessage({
+      sessionId,
+      role: "user",
+      content: "resume after restart",
+      timestamp: now
+    })
+    const assistantMessageId = await chatHistory.appendMessage({
+      sessionId,
+      role: "assistant",
+      content: "",
+      model: "verify-model",
+      parentId: userMessageId,
+      done: false,
+      timestamp: now + 1
+    })
+    await createTurnRun({
+      id: turnId,
+      sessionId,
+      mode: "new",
+      model: "verify-model",
+      providerId: ProviderId.OLLAMA,
+      createdAt: now,
+      request: {
+        version: 1,
+        context: {
+          rawInput: "resume after restart",
+          messages: [],
+          hasTabContext: false,
+          contextText: "",
+          tabDocuments: [],
+          memoryEnabled: false,
+          maxTabContextChars: 1_000,
+          maxRagContextChars: 1_000,
+          groundedOnlyMode: false,
+          selectedModel: "verify-model",
+          selectedModelRef: {
+            providerId: ProviderId.OLLAMA,
+            modelId: "verify-model"
+          }
+        },
+        userMessage: { role: "user", content: "resume after restart" }
+      }
+    })
+    await updateTurnRun(turnId, {
+      status: "building_context",
+      userMessageId,
+      assistantMessageId
+    })
+    await updateTurnRun(turnId, { status: "generating" })
+    return assistantMessageId
+  },
+
+  async durableTurnResult(
+    turnId: string,
+    assistantMessageId: number
+  ): Promise<{ status?: string; content?: string; done?: boolean }> {
+    const [turn, assistant] = await Promise.all([
+      getTurnRun(turnId),
+      chatHistory.getMessage(assistantMessageId)
+    ])
+    return {
+      status: turn?.status,
+      content: assistant?.content,
+      done: assistant?.done
+    }
   },
 
   /** Restore a payload that is not a usable database, through the production

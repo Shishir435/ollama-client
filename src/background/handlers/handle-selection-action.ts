@@ -5,12 +5,15 @@ import { normalizeError } from "@/background/lib/error-handler"
 import { safePostChatStreamEvent } from "@/background/lib/utils"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { resolveModelConfig } from "@/lib/model-config-utils"
+import {
+  parseStoredModelConfigMap,
+  resolveModelConfig
+} from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { isSelectedModelRef } from "@/lib/providers/selected-model"
-import type { ChromePort, ModelConfigMap, PortStatusFunction } from "@/types"
+import type { ChromePort, PortStatusFunction } from "@/types"
 
 export const handleSelectionAction = async (
   msg: SelectionActionMessage,
@@ -50,10 +53,11 @@ export const handleSelectionAction = async (
   setAbortController(abortKey, ac)
 
   try {
-    const modelConfigMap =
-      (await plasmoGlobalStorage.get<ModelConfigMap>(
+    const modelConfigMap = parseStoredModelConfigMap(
+      await plasmoGlobalStorage.get<unknown>(
         STORAGE_KEYS.PROVIDER.MODEL_CONFIGS
-      )) ?? {}
+      )
+    )
     const modelParams = resolveModelConfig(modelConfigMap[model])
     const provider = await ProviderFactory.getProviderForModel(
       model,

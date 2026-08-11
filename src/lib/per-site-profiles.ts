@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { STORAGE_KEYS } from "@/lib/constants"
 import {
   getPlasmoStoredValue,
@@ -20,19 +21,42 @@ export interface PerSiteProfileSettings {
   profiles: PerSiteProfile[]
 }
 
+const PerSiteRuleModeSchema = z.enum(["inherit", "always", "never"])
+
+export const PerSiteProfileSettingsSchema = z
+  .object({
+    profiles: z.array(
+      z
+        .object({
+          id: z.string().min(1),
+          name: z.string(),
+          pattern: z.string(),
+          enabled: z.boolean(),
+          tabContext: PerSiteRuleModeSchema,
+          groundedOnly: PerSiteRuleModeSchema
+        })
+        .strict()
+    )
+  })
+  .strict()
+
 export const DEFAULT_PER_SITE_PROFILE_SETTINGS: PerSiteProfileSettings = {
   profiles: []
 }
 
+export const parsePerSiteProfileSettings = (
+  value: unknown
+): PerSiteProfileSettings => {
+  const parsed = PerSiteProfileSettingsSchema.safeParse(value)
+  return parsed.success ? parsed.data : DEFAULT_PER_SITE_PROFILE_SETTINGS
+}
+
 export const getPerSiteProfileSettings =
   async (): Promise<PerSiteProfileSettings> => {
-    const stored = await getPlasmoStoredValue<Partial<PerSiteProfileSettings>>(
+    const stored = await getPlasmoStoredValue<unknown>(
       STORAGE_KEYS.BROWSER.PER_SITE_PROFILES
     )
-
-    return {
-      profiles: Array.isArray(stored?.profiles) ? stored.profiles : []
-    }
+    return parsePerSiteProfileSettings(stored)
   }
 
 export const setPerSiteProfileSettings = async (

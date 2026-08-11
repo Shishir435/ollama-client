@@ -76,6 +76,14 @@ export const useChatStream = ({
     clientContextPrepared,
     durableTurn
   }: StreamOptions) => {
+    if (portRef.current) {
+      logger.warn(
+        "Ignored stream start while another request is active",
+        "useChatStream",
+        { requestId: currentRequestIdRef.current }
+      )
+      return
+    }
     // Create port synchronously BEFORE any async operations
     let port = browser.runtime.connect({
       name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE

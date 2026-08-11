@@ -22,7 +22,8 @@ import {
 } from "@/lib/constants"
 import {
   DEFAULT_PER_SITE_PROFILE_SETTINGS,
-  type PerSiteProfileSettings
+  type PerSiteProfileSettings,
+  parsePerSiteProfileSettings
 } from "@/lib/per-site-profiles"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import type { ContentExtractionConfig } from "@/types"
@@ -165,6 +166,8 @@ export const useContextSettings = () => {
     toggleActions,
     excludedPatterns:
       config?.excludedUrlPatterns || oldPatterns || DEFAULT_EXCLUDE_URLS,
-    perSiteProfileList: perSiteProfiles?.profiles ?? EMPTY_PROFILE_LIST
+    perSiteProfileList:
+      parsePerSiteProfileSettings(perSiteProfiles).profiles ??
+      EMPTY_PROFILE_LIST
   }
 }

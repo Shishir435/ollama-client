@@ -16,14 +16,17 @@ import type {
 import { DEFAULT_MODEL_LIBRARY_BASE_URL, STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { resolveModelConfig } from "@/lib/model-config-utils"
+import {
+  parseStoredModelConfigMap,
+  resolveModelConfig
+} from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { ProviderId } from "@/lib/providers/types"
-import type { ModelConfigMap, ProviderModelDetails } from "@/types"
+import type { ProviderModelDetails } from "@/types"
 
 /**
  * Background-owned model lifecycle and catalog operations behind the RPC
@@ -141,10 +144,9 @@ const parseKeepAliveMs = (value?: string | number): number | undefined => {
 }
 
 const getModelConfig = async (model: string) => {
-  const configs =
-    (await plasmoGlobalStorage.get<ModelConfigMap>(
-      STORAGE_KEYS.PROVIDER.MODEL_CONFIGS
-    )) ?? {}
+  const configs = parseStoredModelConfigMap(
+    await plasmoGlobalStorage.get<unknown>(STORAGE_KEYS.PROVIDER.MODEL_CONFIGS)
+  )
   return resolveModelConfig(configs[model])
 }
 
