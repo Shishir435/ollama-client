@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, preview]
   pull_request:
   # Lets the browser gates be re-run against any branch on demand — before
   # tagging a release, or after a flake — without opening a pull request.
