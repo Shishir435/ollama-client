@@ -69,8 +69,25 @@ const dropRedundantSqliteWasm = {
   }
 }
 
+/**
+ * No `<link rel="modulepreload">` in extension pages.
+ *
+ * Preload hints exist to start a network fetch before the import graph asks
+ * for it. Extension chunks are already on local disk, so the hint buys nothing
+ * measurable — and Chrome charges for it twice in the console: once per chunk
+ * that is not evaluated within a few seconds of load (the offscreen host
+ * evaluates almost nothing itself; its work is in a Worker), and once per
+ * "cross-world extension resource mismatch", because a preload issued in one
+ * extension world does not satisfy a fetch from another. That was 46 warnings
+ * on a single page load, drowning the extension's own logs.
+ *
+ * `false` disables the preload links and the polyfill together. Chunks still
+ * load, on demand through the module graph, which is what was happening
+ * anyway.
+ */
 export const vite: WxtViteFactory = (env) =>
   ({
+    build: { modulePreload: false },
     define: persistenceDefines({
       browser: env.browser,
       spikeOwner: process.env.WXT_SPIKE_OWNER === "1"
