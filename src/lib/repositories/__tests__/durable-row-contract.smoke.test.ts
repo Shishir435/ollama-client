@@ -208,6 +208,50 @@ describe("durable job rows decode as their writers wrote them", () => {
   )
 
   it(
+    "restores checkpoint attachment bytes as a real typed array",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/tool-loop-runs")
+      const attachment = {
+        fileId: "f-1",
+        fileName: "notes.txt",
+        fileType: "text/plain",
+        fileSize: 3,
+        processedAt: 1,
+        data: Uint8Array.from([7, 8, 9])
+      }
+
+      await repo.saveToolLoopRun({
+        requestId: "req-bytes",
+        sessionId: "s-rows",
+        model: "llama3",
+        mode: "native",
+        status: "running",
+        state: {
+          iteration: 1,
+          phase: "model",
+          workingMessages: [
+            { role: "user", content: "see attached", attachments: [attachment] }
+          ],
+          toolRuns: []
+        },
+        updatedAt: 50
+      } as never)
+
+      const restored = await repo.getToolLoopRun("req-bytes")
+      const data = restored?.state.workingMessages[0]?.attachments?.[0]?.data
+
+      // A checkpoint is stored with JSON.stringify, which turns a Uint8Array
+      // into `{"0":7,"1":8,"2":9}`. The old cast asserted it was still a typed
+      // array, so a resumed loop handed a plain object to everything reading
+      // `.byteLength` or building a Blob from it.
+      expect(data).toBeInstanceOf(Uint8Array)
+      expect(Array.from(data as Uint8Array)).toEqual([7, 8, 9])
+    },
+    TIMEOUT
+  )
+
+  it(
     "reports a checkpoint whose stored shape is wrong instead of losing it",
     async () => {
       await boot()

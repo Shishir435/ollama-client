@@ -1,4 +1,10 @@
+import { z } from "zod"
 import { logger } from "@/lib/logger"
+import {
+  decodeRow,
+  decodeRows,
+  type RowDecodeContext
+} from "@/lib/repositories/row-decoder"
 import { query as dbQuery, run as dbRun, saveDatabase } from "@/lib/sqlite/db"
 
 /**
@@ -24,20 +30,31 @@ export interface AggregatedScore {
   avgScore: number
 }
 
-interface FeedbackRow {
-  id: number
-  chunk_vector_id: string
-  query_hash: string
-  was_helpful: number
-  timestamp: number
-  session_id: string | null
-}
+/** The stored row, decoded rather than asserted. @see row-decoder.ts */
+const FeedbackRowSchema = z.object({
+  id: z.number(),
+  chunk_vector_id: z.string(),
+  query_hash: z.string(),
+  was_helpful: z.number(),
+  timestamp: z.number(),
+  session_id: z.string().nullable()
+})
 
-interface FeedbackStatsRow {
-  total: number
-  helpful: number
-  unique_chunks: number
-  unique_queries: number
+/**
+ * The aggregate. Every column is nullable because SQL says so: `SUM` over an
+ * empty table is NULL, and `chunk_feedback` is empty until a user rates a
+ * retrieved chunk — which is the common case, not an edge one.
+ */
+const FeedbackStatsRowSchema = z.object({
+  total: z.number().nullable(),
+  helpful: z.number().nullable(),
+  unique_chunks: z.number().nullable(),
+  unique_queries: z.number().nullable()
+})
+
+const TABLE: RowDecodeContext = {
+  table: "chunk_feedback",
+  operation: "read"
 }
 
 class FeedbackService {
@@ -162,14 +179,14 @@ class FeedbackService {
    */
   async exportFeedback(): Promise<ChunkFeedback[]> {
     try {
-      const rows = (await dbQuery(
+      const rows = await dbQuery(
         `SELECT id, chunk_vector_id, query_hash, was_helpful, timestamp, session_id
          FROM chunk_feedback
          ORDER BY timestamp DESC`,
         []
-      )) as unknown as FeedbackRow[]
+      )
 
-      return rows.map((row) => ({
+      return decodeRows(FeedbackRowSchema, rows, TABLE).map((row) => ({
         id: row.id,
         chunkVectorId: row.chunk_vector_id,
         queryHash: row.query_hash,
@@ -239,7 +256,7 @@ class FeedbackService {
     uniqueQueries: number
   }> {
     try {
-      const [stats] = (await dbQuery(
+      const rows = await dbQuery(
         `SELECT
           COUNT(*) as total,
           SUM(was_helpful) as helpful,
@@ -247,14 +264,20 @@ class FeedbackService {
           COUNT(DISTINCT query_hash) as unique_queries
          FROM chunk_feedback`,
         []
-      )) as unknown as [FeedbackStatsRow]
+      )
+      // The tuple assertion this replaces promised a first element; an
+      // aggregate that returned no row would have thrown on `stats.total`.
+      const stats = rows[0]
+        ? decodeRow(FeedbackStatsRowSchema, rows[0], TABLE)
+        : null
+      const total = stats?.total ?? 0
 
       return {
-        totalFeedback: stats.total || 0,
+        totalFeedback: total,
         helpfulPercentage:
-          stats.total > 0 ? (stats.helpful / stats.total) * 100 : 0,
-        uniqueChunks: stats.unique_chunks || 0,
-        uniqueQueries: stats.unique_queries || 0
+          total > 0 ? ((stats?.helpful ?? 0) / total) * 100 : 0,
+        uniqueChunks: stats?.unique_chunks ?? 0,
+        uniqueQueries: stats?.unique_queries ?? 0
       }
     } catch (error) {
       logger.error("Failed to get statistics", "FeedbackService", { error })

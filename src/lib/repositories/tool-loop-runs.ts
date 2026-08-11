@@ -2,6 +2,7 @@ import type { ToolLoopState } from "@ollama-client/chat-runtime/tool-loop-runtim
 import {
   type ToolLoopMode as ContractToolLoopMode,
   type ToolLoopRunStatus as ContractToolLoopRunStatus,
+  type DurableToolLoopStateParsed,
   DurableToolLoopStateSchema,
   ToolLoopCheckpointEnvelopeSchema
 } from "@ollama-client/contracts/tool-loop"
@@ -10,6 +11,7 @@ import { createAppError } from "@/lib/error-utils"
 import { flushSave, query, run } from "@/lib/sqlite/db"
 import type { ToolCall } from "@/lib/tools"
 import type { ChatMessage, ToolRun } from "@/types"
+import { toRuntimeChatMessage } from "@/types/chat.schemas"
 import { decodeRow, type RowDecodeContext } from "./row-decoder"
 
 export type ToolLoopMode = ContractToolLoopMode
@@ -67,15 +69,49 @@ const ToolLoopRunRowSchema = z.object({
 
 type ToolLoopRunRow = z.infer<typeof ToolLoopRunRowSchema>
 
+/**
+ * Normalize a parsed checkpoint into the shape the runtime actually uses.
+ *
+ * The gap is attachment bytes, and it is not hypothetical: a checkpoint is
+ * stored with `JSON.stringify`, and that turns a `Uint8Array` into an
+ * index-keyed object (`{"0":1,"1":2}`). The schema accepts that — it has to,
+ * or a restored checkpoint would not validate — while `ChatMessage` requires a
+ * real `Uint8Array`. Casting across the two said the bytes were already a typed
+ * array, so a resumed tool loop carrying an attachment handed everything
+ * downstream a plain object wearing a `Uint8Array` type.
+ *
+ * `toRuntimeChatMessage` is the same adapter the durable turn request uses for
+ * exactly this reason.
+ */
+const toRuntimeToolLoopState = (
+  state: DurableToolLoopStateParsed
+): DurableToolLoopState => {
+  // Destructured rather than spread-and-override: a spread of the parsed state
+  // keeps contributing the parsed message types, and the override would union
+  // with them instead of replacing them.
+  const { workingMessages, toolResultMessages, imageMessages, ...rest } = state
+  return {
+    ...rest,
+    workingMessages: workingMessages.map(toRuntimeChatMessage),
+    ...(toolResultMessages
+      ? { toolResultMessages: toolResultMessages.map(toRuntimeChatMessage) }
+      : {}),
+    ...(imageMessages
+      ? { imageMessages: imageMessages.map(toRuntimeChatMessage) }
+      : {})
+  }
+}
+
 const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun => {
   try {
     const decoded: unknown = JSON.parse(row.state)
     // Rows written before checkpoint versioning stored state directly. Keep
     // that one compatibility shape, but validate it through the same schema.
-    const stateCandidate =
+    const parsed =
       decoded && typeof decoded === "object" && "version" in decoded
         ? ToolLoopCheckpointEnvelopeSchema.parse(decoded).state
         : DurableToolLoopStateSchema.parse(decoded)
+    const stateCandidate = toRuntimeToolLoopState(parsed)
     return {
       requestId: row.requestId,
       sessionId: row.sessionId ?? undefined,
@@ -83,7 +119,7 @@ const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun => {
       providerId: row.providerId ?? undefined,
       mode: row.mode,
       status: row.status,
-      state: stateCandidate as DurableToolLoopState,
+      state: stateCandidate,
       updatedAt: row.updatedAt
     }
   } catch (cause) {
