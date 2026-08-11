@@ -18,6 +18,7 @@ import {
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
+import { discoverProviderModels } from "@/lib/providers/model-discovery"
 import type { DefaultProviderPullRequest } from "@/types"
 
 const abortError = (signal: AbortSignal): Error =>
@@ -249,10 +250,20 @@ export const checkEmbeddingModelExists = async (
     if (provider) {
       resolvedProviderId = provider.id
       providerBaseUrl = resolveProviderBaseUrl(provider.config)
-      const models = await withTimeout(
-        (operationSignal) => provider.getModels(operationSignal),
-        "Provider model list"
-      )
+      // Through the discovery service so a catalog-less provider is asked once
+      // rather than on every embedding check. An absent catalog yields no
+      // models — the same "cannot confirm it is installed" answer its 404
+      // produced before, minus the re-asking. A real failure is still raised,
+      // because reporting the model missing because the server broke would send
+      // the user to re-download something they already have.
+      const { models } = await withTimeout(async (operationSignal) => {
+        const discovery = await discoverProviderModels(
+          provider,
+          operationSignal
+        )
+        if (discovery.catalog === "failed") throw discovery.error
+        return discovery
+      }, "Provider model list")
       const modelNames = models
         .map((model: unknown) => {
           if (typeof model === "string") return model

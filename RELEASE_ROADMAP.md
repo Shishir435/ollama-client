@@ -50,8 +50,7 @@ release usable and establish the tests required by its successor.
 2. ~~**Persistence readiness (H2)**~~ — landed in #255.
 3. ~~**Durable turn lifecycle (H3)**~~ — landed.
 4. ~~**Durable turn retention (H4)**~~ — landed.
-5. **Provider discovery policy (H5):** extract the single discovery service.
-   This may run at any point before PR 8.
+5. ~~**Provider discovery policy (H5)**~~ — landed.
 6. ~~**Durable turn composition (H6)**~~ — landed.
 7. **Boundary type/error closure (H7):** decode durable rows, split contract
    concepts, and finish typed persistence errors against the settled modules.
@@ -59,40 +58,7 @@ release usable and establish the tests required by its successor.
    soak evidence, update release documentation, and promote only when the 9+/10
    criteria pass.
 
-Critical path: **PR 7 → PR 8**. PR 5 may merge at any time, but must
-land before PR 8.
-
-### H5 — Centralize provider discovery policy
-
-Scope: S–M. Behavior change: tool capability resolution honors remembered
-catalog absence and real discovery failures. Dependencies: none outstanding.
-
-Affected modules:
-
-- `src/lib/providers/provider-rpc-service.ts`
-- `src/lib/providers/model-catalog-support.ts`
-- `src/background/lib/resolve-model-tools.ts`
-- provider discovery/capability tests
-
-Work:
-
-- Extract `discoverModels` into a provider-domain service shared by RPC model
-  listing, connection tests, health checks, and tool capability resolution.
-- Keep catalog absence, endpoint reachability, and provider failure as distinct
-  verdicts. Only 404/405/501 record absence; never record auth, rate-limit,
-  network, or 5xx failures.
-- Preserve force-reprobe behavior for explicit Test and the no-inference rule
-  for stored health checks.
-- Remove production `provider.getModels()` callers that bypass discovery policy,
-  except provider contract tests and the discovery service itself.
-- Test TTL expiry, config fingerprint changes, concurrent discovery, custom
-  model merge, and catalog-less tool gating.
-
-Exit gate:
-
-- One production path owns model catalog policy.
-- A known catalog-less provider receives no background catalog request until
-  force, fingerprint change, or TTL expiry.
+Critical path: **PR 7 → PR 8**.
 
 ### H7 — Close medium-risk type and error gaps
 
@@ -119,7 +85,7 @@ Exit gate:
 
 ### H8 — Release verification and 9+/10 gate
 
-Scope: M. Behavior change: none. Dependencies: H5, H7.
+Scope: M. Behavior change: none. Dependencies: H7.
 
 Required automated gates:
 

@@ -296,6 +296,28 @@ describe("architecture import boundaries", () => {
   })
 
   /**
+   * One production path owns model catalog policy.
+   *
+   * `provider.getModels` is the wire call; `model-discovery.ts` is the policy
+   * around it — honour a remembered absence, keep absence distinct from
+   * failure, return the verdict instead of throwing. A caller that reaches past
+   * it gets none of that, which is how tool gating and the embedding check both
+   * ended up re-asking a catalog-less gateway to 404 on a loop.
+   *
+   * Provider implementations under `lib/providers/` are exempt: `super.getModels`
+   * is how a subclass falls back to its base wire format, not a policy bypass.
+   */
+  it("routes model discovery through the shared policy service", () => {
+    const offenders = productionSources.filter((file) => {
+      if (file.startsWith("lib/providers/")) return false
+      const source = readFileSync(join(sourceRoot, file), "utf8")
+      return /\.getModels\s*\(/.test(source)
+    })
+
+    expect(offenders).toEqual([])
+  })
+
+  /**
    * The observer registry is in-memory delivery state and nothing else.
    *
    * It used to share a module with provider generation, which is how a change
