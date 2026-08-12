@@ -1,6 +1,7 @@
 import { isNeverReadUrl } from "@/lib/per-site-profiles"
+import { EXCLUDE_URL_PATTERNS_SETTING } from "@/lib/storage/content-policy-settings"
+import { CONTENT_SETTINGS } from "@/lib/storage/content-settings"
 import { readSetting, readStoredSetting } from "@/lib/storage/setting-access"
-import { SETTINGS } from "@/lib/storage/settings"
 import { matchesUserPattern } from "@/lib/url-pattern"
 
 /**
@@ -13,17 +14,18 @@ import { matchesUserPattern } from "@/lib/url-pattern"
  */
 export const resolveExcludedUrlPatterns = async (): Promise<string[]> => {
   const storedConfig = await readStoredSetting(
-    SETTINGS.CONTENT_EXTRACTION_CONFIG
+    CONTENT_SETTINGS.CONTENT_EXTRACTION_CONFIG
   )
 
   if (storedConfig?.excludedUrlPatterns?.length) {
     return storedConfig.excludedUrlPatterns
   }
 
-  const legacy = await readSetting(SETTINGS.EXCLUDE_URL_PATTERNS)
+  const legacy = await readSetting(EXCLUDE_URL_PATTERNS_SETTING)
   if (legacy?.length) return legacy
 
-  return SETTINGS.CONTENT_EXTRACTION_CONFIG.defaultValue.excludedUrlPatterns
+  return CONTENT_SETTINGS.CONTENT_EXTRACTION_CONFIG.defaultValue
+    .excludedUrlPatterns
 }
 
 /**

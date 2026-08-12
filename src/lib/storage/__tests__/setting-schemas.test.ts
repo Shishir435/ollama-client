@@ -7,6 +7,12 @@ import {
 import { ModelConfigMapSchema } from "@/lib/model-config-utils"
 import { PerSiteProfileSettingsSchema } from "@/lib/per-site-profile-settings"
 import {
+  ApprovalGrantMapSchema,
+  CapabilityProbeMapSchema,
+  ModelCapabilityOverrideMapSchema,
+  ToolModelOverrideMapSchema
+} from "../policy-setting-schemas"
+import {
   ContentExtractionConfigSchema,
   EmbeddingConfigSchema,
   FileUploadConfigSchema,
@@ -126,6 +132,68 @@ describe("structured setting schemas", () => {
     expect(
       PerSiteProfileSettingsSchema.safeParse({
         profiles: [{ id: "bad", pattern: 42 }]
+      }).success
+    ).toBe(false)
+  })
+
+  it("validates capability overrides and probe evidence", () => {
+    expect(
+      ModelCapabilityOverrideMapSchema.safeParse({
+        "ollama::qwen": { vision: true, contextLength: 8192 }
+      }).success
+    ).toBe(true)
+    expect(
+      ModelCapabilityOverrideMapSchema.safeParse({
+        "ollama::qwen": { vision: "yes" }
+      }).success
+    ).toBe(false)
+    expect(
+      CapabilityProbeMapSchema.safeParse({
+        "ollama::qwen": { toolCalling: true, probedAt: Date.now() }
+      }).success
+    ).toBe(true)
+    expect(
+      CapabilityProbeMapSchema.safeParse({
+        "ollama::qwen": { toolCalling: true, probedAt: "today" }
+      }).success
+    ).toBe(false)
+  })
+
+  it("rejects malformed or mismatched approval grants", () => {
+    expect(
+      ApprovalGrantMapSchema.safeParse({
+        "save_artifact::*": {
+          toolName: "save_artifact",
+          origin: "*",
+          grantedAt: Date.now()
+        }
+      }).success
+    ).toBe(true)
+    expect(
+      ApprovalGrantMapSchema.safeParse({
+        "different::*": {
+          toolName: "save_artifact",
+          origin: "*",
+          grantedAt: Date.now()
+        }
+      }).success
+    ).toBe(false)
+  })
+
+  it("rejects unknown or malformed tool-family overrides", () => {
+    expect(
+      ToolModelOverrideMapSchema.safeParse({
+        "ollama::qwen": { families: { browser: false } }
+      }).success
+    ).toBe(true)
+    expect(
+      ToolModelOverrideMapSchema.safeParse({
+        "ollama::qwen": { families: { browser: "no" } }
+      }).success
+    ).toBe(false)
+    expect(
+      ToolModelOverrideMapSchema.safeParse({
+        "ollama::qwen": { families: { unknown: true } }
       }).success
     ).toBe(false)
   })

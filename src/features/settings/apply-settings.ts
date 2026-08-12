@@ -19,7 +19,7 @@ import {
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
-import { getSettingDescriptor } from "@/lib/storage/settings"
+import { getSettingDescriptor } from "@/lib/storage/setting-registry"
 
 export interface SettingWrite {
   /** The storage key to write. */

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { useSetting } from "@/hooks/use-setting"
-import { SETTINGS } from "@/lib/storage/settings"
+import { POLICY_SETTINGS } from "@/lib/storage/policy-settings"
 import {
   clearAllApprovalGrants,
   revokeApprovalGrant
@@ -18,7 +18,7 @@ import { getToolDisplayMeta } from "@/lib/tools/tool-display"
  */
 export const ApprovalsCard = () => {
   const { t, i18n } = useTranslation()
-  const [grants] = useSetting(SETTINGS.APPROVAL_GRANTS)
+  const [grants] = useSetting(POLICY_SETTINGS.APPROVAL_GRANTS)
 
   const entries = Object.entries(grants ?? {}).sort(
     ([, a], [, b]) => b.grantedAt - a.grantedAt

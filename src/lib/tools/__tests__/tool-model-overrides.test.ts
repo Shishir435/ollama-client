@@ -8,6 +8,10 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
     set: async (key: string, value: unknown) => {
       store.set(key, value)
     }
+  },
+  getPlasmoStoredValue: async (key: string) => store.get(key),
+  setPlasmoStoredValue: async (key: string, value: unknown) => {
+    store.set(key, value)
   }
 }))
 
@@ -47,6 +51,12 @@ describe("tool-model-overrides", () => {
   it("returns global settings when a model has no override", async () => {
     const effective = await getEffectiveToolFamilySettings("ollama", "qwen")
     expect(effective).toEqual(globalSettings)
+  })
+
+  it("fails closed when a persisted family value is malformed", async () => {
+    store.set(KEY, { "ollama::qwen": { families: { browser: "yes" } } })
+
+    await expect(getToolModelOverride("ollama", "qwen")).resolves.toBeNull()
   })
 
   it("layers a partial override over global, per field", async () => {

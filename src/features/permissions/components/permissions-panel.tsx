@@ -10,24 +10,21 @@ import {
 import { Button } from "@/components/ui/button"
 import { ApprovalsCard } from "@/features/permissions/components/approvals-card"
 import { ModelToolsCard } from "@/features/permissions/components/model-tools-card"
+import { useSetting } from "@/hooks/use-setting"
 import { browser, supportsSessions, supportsTabGroups } from "@/lib/browser-api"
-import {
-  DEFAULT_TABS_ACCESS,
-  MESSAGE_KEYS,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { MESSAGE_KEYS } from "@/lib/constants"
 import {
   hasPermission,
   type OptionalApiPermission,
   removePermission,
   requestPermission
 } from "@/lib/permissions"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import {
   getScheduledJobSettings,
   type ScheduledJobId,
   setScheduledJobEnabled
 } from "@/lib/scheduled-jobs"
+import { SETTINGS } from "@/lib/storage/settings"
 
 /**
  * Shared privacy / permissions surface. Reused in the Options "Permissions"
@@ -81,35 +78,14 @@ const SCHEDULED_JOB_LABELS: Record<
 
 const TabAccessSettings = () => {
   const { t } = useTranslation()
-  const [tabAccess, setTabAccess] = useState(DEFAULT_TABS_ACCESS)
-
-  useEffect(() => {
-    let active = true
-    plasmoGlobalStorage
-      .get<boolean>(STORAGE_KEYS.BROWSER.TABS_ACCESS)
-      .then((stored) => {
-        if (active) setTabAccess(stored ?? DEFAULT_TABS_ACCESS)
-      })
-      .catch(() => {
-        // Fall back to the default on a storage read error rather than
-        // leaving an unhandled rejection.
-      })
-    return () => {
-      active = false
-    }
-  }, [])
-
-  const onCheckedChange = async (next: boolean) => {
-    setTabAccess(next)
-    await plasmoGlobalStorage.set(STORAGE_KEYS.BROWSER.TABS_ACCESS, next)
-  }
+  const [tabAccess, setTabAccess] = useSetting(SETTINGS.TABS_ACCESS)
 
   return (
     <SettingsSwitch
       id="browser-tab-access"
       label={t("settings.presets.fields.tab_access")}
       checked={tabAccess}
-      onCheckedChange={onCheckedChange}
+      onCheckedChange={setTabAccess}
     />
   )
 }

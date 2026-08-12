@@ -6,8 +6,8 @@ import {
   type PerSiteRuleMode,
   parsePerSiteProfileSettings
 } from "@/lib/per-site-profile-settings"
+import { PER_SITE_PROFILE_SETTING } from "@/lib/storage/per-site-profile-setting"
 import { readSetting, writeSetting } from "@/lib/storage/setting-access"
-import { SETTINGS } from "@/lib/storage/settings"
 import { compileSafePattern } from "@/lib/url-pattern"
 
 export type { PerSiteProfile, PerSiteProfileSettings, PerSiteRuleMode }
@@ -19,13 +19,13 @@ export {
 
 export const getPerSiteProfileSettings =
   async (): Promise<PerSiteProfileSettings> => {
-    return readSetting(SETTINGS.PER_SITE_PROFILES)
+    return readSetting(PER_SITE_PROFILE_SETTING)
   }
 
 export const setPerSiteProfileSettings = async (
   settings: PerSiteProfileSettings
 ): Promise<void> => {
-  await writeSetting(SETTINGS.PER_SITE_PROFILES, {
+  await writeSetting(PER_SITE_PROFILE_SETTING, {
     profiles: normalizePerSiteProfiles(settings.profiles)
   })
 }

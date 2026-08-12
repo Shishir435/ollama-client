@@ -16,6 +16,8 @@ import {
   DEFAULT_PROVIDER_CATALOG_REFRESH_MS,
   DEFAULT_TABS_ACCESS,
   type EmbeddingConfig,
+  MAX_MAX_RESTORE_SESSIONS,
+  MIN_MAX_RESTORE_SESSIONS,
   STORAGE_KEYS
 } from "@/lib/constants"
 import {
@@ -27,9 +29,6 @@ import {
   type PerSiteProfileSettings,
   PerSiteProfileSettingsSchema
 } from "@/lib/per-site-profile-settings"
-import type { CapabilityProbeMap } from "@/lib/providers/capability-probe"
-import type { ModelCapabilityOverrideMap } from "@/lib/providers/model-capability-overrides"
-import type { ApprovalGrantMap } from "@/lib/tools/approval/approval-grants"
 import {
   DEFAULT_WEB_SEARCH_CONFIG,
   type WebSearchProviderConfig,
@@ -40,7 +39,6 @@ import type {
   FileUploadConfig,
   SelectedModelRef
 } from "@/types"
-import type { SettingDescriptor } from "./setting-descriptor"
 import { defineSetting } from "./setting-descriptor"
 import {
   ContentExtractionConfigSchema,
@@ -77,7 +75,8 @@ export const SETTINGS = {
     { defaultValue: DEFAULT_PROVIDER_CATALOG_REFRESH_MS }
   ),
   TABS_ACCESS: defineSetting<boolean>(STORAGE_KEYS.BROWSER.TABS_ACCESS, {
-    defaultValue: DEFAULT_TABS_ACCESS
+    defaultValue: DEFAULT_TABS_ACCESS,
+    parser: z.boolean()
   }),
   CONTENT_EXTRACTION_CONFIG: defineSetting<ContentExtractionConfig>(
     STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG,
@@ -99,7 +98,18 @@ export const SETTINGS = {
   ),
   MAX_RESTORE_SESSIONS: defineSetting<number>(
     STORAGE_KEYS.BROWSER.MAX_RESTORE_SESSIONS,
-    { defaultValue: DEFAULT_MAX_RESTORE_SESSIONS }
+    {
+      defaultValue: DEFAULT_MAX_RESTORE_SESSIONS,
+      parser: z
+        .number()
+        .finite()
+        .transform((value) =>
+          Math.max(
+            MIN_MAX_RESTORE_SESSIONS,
+            Math.min(MAX_MAX_RESTORE_SESSIONS, Math.floor(value))
+          )
+        )
+    }
   ),
   EMBEDDING_SELECTED_MODEL: defineSetting<string>(
     STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
@@ -110,10 +120,12 @@ export const SETTINGS = {
     { defaultValue: DEFAULT_EMBEDDING_CONFIG, parser: EmbeddingConfigSchema }
   ),
   USE_RAG: defineSetting<boolean>(STORAGE_KEYS.EMBEDDINGS.USE_RAG, {
-    defaultValue: true
+    defaultValue: true,
+    parser: z.boolean()
   }),
   MEMORY_ENABLED: defineSetting<boolean>(STORAGE_KEYS.MEMORY.ENABLED, {
-    defaultValue: DEFAULT_MEMORY_ENABLED
+    defaultValue: DEFAULT_MEMORY_ENABLED,
+    parser: z.boolean()
   }),
   FILE_UPLOAD_CONFIG: defineSetting<FileUploadConfig>(
     STORAGE_KEYS.FILE_UPLOAD.CONFIG,
@@ -161,17 +173,12 @@ export const SETTINGS = {
   TTS_VOICE_URI: defineSetting<string>(STORAGE_KEYS.TTS.VOICE_URI, {
     defaultValue: ""
   }),
-  MODEL_CAPABILITY_OVERRIDES: defineSetting<ModelCapabilityOverrideMap>(
-    STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES,
-    { defaultValue: {} }
-  ),
-  MODEL_CAPABILITY_PROBES: defineSetting<CapabilityProbeMap>(
-    STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES,
-    { defaultValue: {} }
-  ),
-  APPROVAL_GRANTS: defineSetting<ApprovalGrantMap>(
-    STORAGE_KEYS.TOOLS.APPROVAL_GRANTS,
-    { defaultValue: {} }
+  SETTINGS_LEVEL: defineSetting<"basic" | "power" | "advanced">(
+    STORAGE_KEYS.UI.SETTINGS_LEVEL,
+    {
+      defaultValue: "basic",
+      parser: z.enum(["basic", "power", "advanced"])
+    }
   ),
   WEB_SEARCH_ACTIVE: defineSetting<boolean>(STORAGE_KEYS.WEB_SEARCH.ACTIVE, {
     defaultValue: true,
@@ -185,15 +192,3 @@ export const SETTINGS = {
     }
   )
 }
-
-const SETTINGS_BY_KEY = new Map<string, SettingDescriptor<unknown>>(
-  Object.values(SETTINGS).map((descriptor) => [
-    descriptor.key,
-    descriptor as SettingDescriptor<unknown>
-  ])
-)
-
-/** Descriptor lookup for generic settings workflows such as presets/reset. */
-export const getSettingDescriptor = (
-  key: string
-): SettingDescriptor<unknown> | undefined => SETTINGS_BY_KEY.get(key)

@@ -3,12 +3,12 @@ import { setSelectionLanguage } from "@/i18n/selection-config"
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { sendRuntimeMessage } from "@/lib/runtime-messages"
+import { SELECTION_ACTION_SETTINGS } from "@/lib/storage/selection-action-settings"
 import { readSetting } from "@/lib/storage/setting-access"
-import { SETTINGS } from "@/lib/storage/settings"
 import type { ProviderModel } from "@/types"
 
 export async function syncSelectionLanguage() {
-  const stored = await readSetting(SETTINGS.LANGUAGE)
+  const stored = await readSetting(SELECTION_ACTION_SETTINGS.LANGUAGE)
   const browserLanguage =
     chrome.i18n?.getUILanguage?.() ?? globalThis.navigator?.language
   try {
@@ -21,7 +21,7 @@ export async function syncSelectionLanguage() {
 }
 
 export async function loadSelectionConfig() {
-  return readSetting(SETTINGS.CONTENT_EXTRACTION_CONFIG)
+  return readSetting(SELECTION_ACTION_SETTINGS.CONTENT_EXTRACTION_CONFIG)
 }
 
 export async function loadSelectedPanelModel(currentModel: string): Promise<{
@@ -30,8 +30,8 @@ export async function loadSelectedPanelModel(currentModel: string): Promise<{
 }> {
   if (currentModel) return { model: currentModel }
 
-  const ref = await readSetting(SETTINGS.SELECTED_MODEL_REF)
-  const fallback = await readSetting(SETTINGS.SELECTED_MODEL)
+  const ref = await readSetting(SELECTION_ACTION_SETTINGS.SELECTED_MODEL_REF)
+  const fallback = await readSetting(SELECTION_ACTION_SETTINGS.SELECTED_MODEL)
 
   if (ref) {
     return { model: ref.modelId, providerId: ref.providerId }

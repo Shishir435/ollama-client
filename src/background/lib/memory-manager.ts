@@ -1,7 +1,7 @@
-import { DEFAULT_MEMORY_ENABLED, STORAGE_KEYS } from "@/lib/constants"
 import { storeChatMessage } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export interface ChatMemoryPayload {
   userMessage: string
@@ -22,9 +22,7 @@ export const memoryManager = {
     const { userMessage, aiResponse, sessionId, chatId } = payload
 
     // Check if memory is enabled
-    const isMemoryEnabled =
-      (await plasmoGlobalStorage.get<boolean>(STORAGE_KEYS.MEMORY.ENABLED)) ??
-      DEFAULT_MEMORY_ENABLED
+    const isMemoryEnabled = await readSetting(SETTINGS.MEMORY_ENABLED)
     if (!isMemoryEnabled) {
       return
     }

@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import { describe, expect, it } from "vitest"
+import { POLICY_SETTINGS } from "@/lib/storage/policy-settings"
 import { SETTINGS } from "@/lib/storage/settings"
 
 const ROOT = process.cwd()
@@ -31,7 +32,11 @@ const VALIDATED_STRUCTURED_CONSUMERS = [
   "src/lib/embeddings/embedding-strategy.ts",
   "src/lib/per-site-profiles.ts",
   "src/lib/providers/model-rpc-service.ts",
-  "src/lib/providers/selected-model.ts"
+  "src/lib/providers/selected-model.ts",
+  "src/lib/providers/capability-probe.ts",
+  "src/lib/providers/model-capability-overrides.ts",
+  "src/lib/tools/approval/approval-grants.ts",
+  "src/lib/tools/tool-model-overrides.ts"
 ]
 
 describe("storage API boundary", () => {
@@ -72,7 +77,11 @@ describe("storage API boundary", () => {
       SETTINGS.CONTENT_EXTRACTION_CONFIG,
       SETTINGS.PER_SITE_PROFILES,
       SETTINGS.EMBEDDING_CONFIG,
-      SETTINGS.FILE_UPLOAD_CONFIG
+      SETTINGS.FILE_UPLOAD_CONFIG,
+      POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES,
+      POLICY_SETTINGS.MODEL_CAPABILITY_PROBES,
+      POLICY_SETTINGS.APPROVAL_GRANTS,
+      POLICY_SETTINGS.TOOL_MODEL_OVERRIDES
     ]) {
       expect(descriptor.parser, descriptor.key).toBeDefined()
     }
