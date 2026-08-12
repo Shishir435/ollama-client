@@ -759,6 +759,14 @@ export const deleteMessageSubtree = async (
       )
     }
     const batches = idBatches(messageIds)
+    const createdAt = Date.now()
+    for (const id of messageIds) {
+      await transaction.run(
+        `INSERT OR IGNORE INTO vector_cleanup_receipts (messageId, createdAt)
+         VALUES (?, ?)`,
+        [id, createdAt]
+      )
+    }
     for (const batch of batches) {
       await transaction.run(
         `DELETE FROM files WHERE messageId IN (${placeholders(batch.length)})`,

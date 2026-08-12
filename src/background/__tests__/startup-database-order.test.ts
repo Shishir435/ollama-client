@@ -80,6 +80,9 @@ vi.mock("@/lib/migration/embedding-dimension-migration", () => ({
   runEmbeddingDimensionMigration: (signal?: AbortSignal) =>
     tasks["embedding-migration"].run(signal)
 }))
+vi.mock("@/lib/embeddings/vector-cleanup-receipts", () => ({
+  sweepVectorCleanupReceipts: vi.fn().mockResolvedValue(0)
+}))
 vi.mock("@/lib/repositories/tool-loop-runs", () => ({
   pruneStaleToolLoopRuns: (_olderThan: unknown, signal?: AbortSignal) =>
     tasks["prune-tool-loops"].run(signal)

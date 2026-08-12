@@ -7,6 +7,9 @@ vi.mock("@/lib/repositories/chat-history")
 vi.mock("@/lib/embeddings/vector-store", () => ({
   deleteVectors: vi.fn().mockResolvedValue(0)
 }))
+vi.mock("@/lib/embeddings/vector-cleanup-receipts", () => ({
+  sweepVectorCleanupReceipts: vi.fn().mockResolvedValue(0)
+}))
 vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() }
 }))

@@ -642,6 +642,9 @@ describe("messages", () => {
     expect(mockedRun.mock.calls).toEqual([
       ["BEGIN IMMEDIATE"],
       ["UPDATE sessions SET currentLeafId = ? WHERE id = ?", [9, "s1"]],
+      [expect.stringContaining("INSERT OR IGNORE"), [10, expect.any(Number)]],
+      [expect.stringContaining("INSERT OR IGNORE"), [11, expect.any(Number)]],
+      [expect.stringContaining("INSERT OR IGNORE"), [12, expect.any(Number)]],
       ["DELETE FROM files WHERE messageId IN (?, ?, ?)", [10, 11, 12]],
       ["DELETE FROM messages WHERE id IN (?, ?, ?)", [10, 11, 12]],
       ["COMMIT"]
@@ -663,6 +666,8 @@ describe("messages", () => {
     })
     expect(mockedRun.mock.calls).toEqual([
       ["BEGIN IMMEDIATE"],
+      [expect.stringContaining("INSERT OR IGNORE"), [10, expect.any(Number)]],
+      [expect.stringContaining("INSERT OR IGNORE"), [11, expect.any(Number)]],
       ["DELETE FROM files WHERE messageId IN (?, ?)", [10, 11]],
       ["DELETE FROM messages WHERE id IN (?, ?)", [10, 11]],
       ["COMMIT"]

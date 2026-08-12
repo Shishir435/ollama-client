@@ -14,6 +14,7 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
+import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
@@ -254,6 +255,11 @@ const SCHEMA_STARTUP_TASKS: StartupTask[] = [
  * should not hold up an ingestion job the user is waiting on.
  */
 const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
+  {
+    id: "vector-cleanup-receipts",
+    name: "pending vector cleanup receipts",
+    run: (signal) => sweepVectorCleanupReceipts(signal)
+  },
   {
     id: "tool-loop-prune",
     name: "stale tool-loop checkpoints",

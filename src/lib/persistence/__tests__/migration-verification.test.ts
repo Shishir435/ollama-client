@@ -83,6 +83,7 @@ const importedTables = {
   turn_runs: 0,
   ingestion_runs: 0,
   model_pull_runs: 0,
+  vector_cleanup_receipts: 0,
   chunk_feedback: 0
 }
 

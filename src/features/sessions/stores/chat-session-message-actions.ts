@@ -7,6 +7,7 @@ import {
   traversePathFromLeafWithFetcher
 } from "@/features/sessions/lib/message-tree"
 import { CHAT_PAGINATION_LIMIT } from "@/lib/constants"
+import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { imageToStoredFile } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
@@ -346,15 +347,11 @@ export const createChatSessionMessageActions = (
     } = deleted
     const toDeleteIds = new Set(idsToDelete)
 
-    for (const id of idsToDelete) {
-      deleteVectors({ messageId: id }).catch((error) => {
-        logger.error(
-          "Failed to delete message embeddings",
-          "chatSessionStore",
-          { error, messageId: id }
-        )
+    sweepVectorCleanupReceipts().catch((error) => {
+      logger.error("Failed to sweep message embeddings", "chatSessionStore", {
+        error
       })
-    }
+    })
 
     set((state) => ({
       sessions: state.sessions.map((s) =>
