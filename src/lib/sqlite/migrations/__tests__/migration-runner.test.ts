@@ -68,6 +68,12 @@ vi.mock("../add-model-pull-runs-table", () => ({
   ensureModelPullRunsTable: (db: unknown) => ensureModelPullRunsTable(db)
 }))
 
+const ensureVectorCleanupReceiptsTable = vi.fn()
+vi.mock("../add-vector-cleanup-receipts-table", () => ({
+  ensureVectorCleanupReceiptsTable: (db: unknown) =>
+    ensureVectorCleanupReceiptsTable(db)
+}))
+
 import {
   getSchemaVersion,
   LATEST_SCHEMA_VERSION,
@@ -102,7 +108,8 @@ const makeDb = (
       "prompt_templates",
       "turn_runs",
       "ingestion_runs",
-      "model_pull_runs"
+      "model_pull_runs",
+      "vector_cleanup_receipts"
     ]
   )
   return {
@@ -249,7 +256,7 @@ describe("migration-runner", () => {
 
     const repaired = repairSchemaDrift(db as never)
 
-    expect(repaired).toBe(8)
+    expect(repaired).toBe(9)
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledWith(db)
     expect(ensureMessagesErrorColumn).toHaveBeenCalledWith(db)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledWith(db)
@@ -258,6 +265,7 @@ describe("migration-runner", () => {
     expect(ensureTurnRunsTable).toHaveBeenCalledWith(db)
     expect(ensureIngestionRunsTable).toHaveBeenCalledWith(db)
     expect(ensureModelPullRunsTable).toHaveBeenCalledWith(db)
+    expect(ensureVectorCleanupReceiptsTable).toHaveBeenCalledWith(db)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
@@ -276,5 +284,6 @@ describe("migration-runner", () => {
     expect(ensurePromptTemplatesTable).not.toHaveBeenCalled()
     expect(ensureIngestionRunsTable).not.toHaveBeenCalled()
     expect(ensureModelPullRunsTable).not.toHaveBeenCalled()
+    expect(ensureVectorCleanupReceiptsTable).not.toHaveBeenCalled()
   })
 })
