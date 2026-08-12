@@ -143,6 +143,7 @@ describe("ChatStreamSession", () => {
     }
     session.start({ ...startOptions, durableTurn })
     const firstPort = ports[0]
+    const queuedFirstPortListener = [...firstPort.messageListeners][0]
     firstPort.emit({ seq: 3, delta: "partial" })
     firstPort.drop()
 
@@ -154,13 +155,96 @@ describe("ChatStreamSession", () => {
     })
     expect(firstPort.messageListeners.size).toBe(0)
 
-    firstPort.emit({ seq: 4, delta: " stale" })
+    // A browser event can already be queued when the disconnect callback
+    // detaches its listener. Source-port identity, not listener removal alone,
+    // keeps that old event out of the reconnected stream.
+    queuedFirstPortListener({ seq: 4, delta: " stale" })
     ports[1].emit({ seq: 4, delta: " resumed", done: true })
     expect(callbacks.onTerminal).toHaveBeenCalledWith(
       expect.objectContaining({
         message: expect.objectContaining({ content: "partial resumed" })
       }),
       expect.anything()
+    )
+  })
+
+  it("cancels while a reconnect is scheduled without reopening a port", () => {
+    const scheduled: Array<() => void> = []
+    const session = new ChatStreamSession(
+      {
+        connectPort: () => {
+          const port = new FakePort()
+          ports.push(port)
+          return port
+        },
+        schedule: (callback) => scheduled.push(callback),
+        createRequestId: () => "request-1"
+      },
+      callbacks
+    )
+    const durableTurn = {
+      submission: {
+        id: "turn-cancel-reconnect",
+        sessionId: "session-1",
+        mode: "new" as const,
+        model: "llama3",
+        request: {
+          version: 1 as const,
+          context: {
+            rawInput: "Hello",
+            messages: [],
+            hasTabContext: false,
+            contextText: "",
+            tabDocuments: [],
+            memoryEnabled: false,
+            maxTabContextChars: 1000,
+            maxRagContextChars: 1000,
+            groundedOnlyMode: false,
+            selectedModel: "llama3",
+            selectedModelRef: null
+          },
+          userMessage: { role: "user" as const, content: "Hello" }
+        },
+        createdAt: 1
+      },
+      userMessageId: 1,
+      assistantMessageId: 2
+    }
+
+    session.start({ ...startOptions, durableTurn })
+    ports[0].emit({ delta: "partial" })
+    ports[0].drop()
+    expect(scheduled).toHaveLength(1)
+
+    expect(session.stop()).toBe(true)
+    scheduled[0]()
+
+    expect(ports).toHaveLength(1)
+    expect(rendered.at(-1)).toMatchObject({
+      content: "partial",
+      done: true
+    })
+    expect(rendered.at(-1)?.metrics?.interrupted).toBeUndefined()
+  })
+
+  it("admits a replacement only after the previous stream settles", () => {
+    const session = createSession()
+    expect(session.start(startOptions)).toBe(true)
+    const firstPort = ports[0]
+    const queuedFirstPortListener = [...firstPort.messageListeners][0]
+
+    firstPort.emit({ delta: "first", done: true })
+    expect(session.start({ ...startOptions, model: "replacement" })).toBe(true)
+    expect(ports).toHaveLength(2)
+
+    queuedFirstPortListener({ delta: " stale", done: true })
+    ports[1].emit({ delta: "second", done: true })
+
+    expect(callbacks.onTerminal).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        message: expect.objectContaining({ content: "second" })
+      }),
+      expect.objectContaining({ model: "replacement" })
     )
   })
 
