@@ -43,6 +43,7 @@ vi.mock("@/lib/sqlite/db", () => {
   }
 })
 
+import { PERSISTENCE_LIMITS } from "@/lib/persistence/protocol"
 import { query, resetSQLiteDatabase, run } from "@/lib/sqlite/db"
 
 import * as repo from "../sqlite-chat-history"
@@ -666,6 +667,36 @@ describe("messages", () => {
       ["DELETE FROM messages WHERE id IN (?, ?)", [10, 11]],
       ["COMMIT"]
     ])
+  })
+
+  it("batches oversized subtree deletes inside the same transaction", async () => {
+    const messageIds = Array.from(
+      { length: PERSISTENCE_LIMITS.bindValues + 1 },
+      (_, index) => index + 1
+    )
+    mockedQuery
+      .mockResolvedValueOnce([{ sessionId: "s1", parentId: null }])
+      .mockResolvedValueOnce(messageIds.map((id) => ({ id })))
+      .mockResolvedValueOnce([{ currentLeafId: null }])
+
+    await repo.deleteMessageSubtree(1)
+
+    const calls = mockedRun.mock.calls
+    expect(calls[0]).toEqual(["BEGIN IMMEDIATE"])
+    expect(calls.at(-1)).toEqual(["COMMIT"])
+    const deleteCalls = calls.filter(([sql]) => sql.startsWith("DELETE FROM"))
+    expect(deleteCalls).toHaveLength(4)
+    expect(deleteCalls.map(([, bind]) => bind?.length)).toEqual([
+      PERSISTENCE_LIMITS.bindValues,
+      1,
+      PERSISTENCE_LIMITS.bindValues,
+      1
+    ])
+    expect(
+      deleteCalls.every(
+        ([, bind]) => (bind?.length ?? 0) <= PERSISTENCE_LIMITS.bindValues
+      )
+    ).toBe(true)
   })
 
   it("rolls back the whole subtree delete when a statement fails", async () => {

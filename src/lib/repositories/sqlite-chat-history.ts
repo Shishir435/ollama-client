@@ -4,6 +4,7 @@ import {
 } from "@ollama-client/contracts/chat"
 import { TURN_OWNED_ASSISTANT_STATUSES } from "@ollama-client/contracts/turns"
 import { imageToStoredFile } from "@/lib/image-utils"
+import { PERSISTENCE_LIMITS } from "@/lib/persistence/protocol"
 import {
   parseStoredReplayArtifact,
   serializeReplayArtifact
@@ -116,6 +117,18 @@ const fileFromRow = (row: Row): StoredFile => ({
 
 /** Build a `?, ?, ?` placeholder list for an IN clause. */
 const placeholders = (n: number) => Array(n).fill("?").join(", ")
+
+const idBatches = (ids: number[]): number[][] => {
+  const batches: number[][] = []
+  for (
+    let offset = 0;
+    offset < ids.length;
+    offset += PERSISTENCE_LIMITS.bindValues
+  ) {
+    batches.push(ids.slice(offset, offset + PERSISTENCE_LIMITS.bindValues))
+  }
+  return batches
+}
 
 const normalizeFileData = (data: unknown): Uint8Array | undefined => {
   if (data instanceof Uint8Array) return data
@@ -745,14 +758,19 @@ export const deleteMessageSubtree = async (
         [replacementLeafId ?? null, sessionId]
       )
     }
-    await transaction.run(
-      `DELETE FROM files WHERE messageId IN (${placeholders(messageIds.length)})`,
-      messageIds
-    )
-    await transaction.run(
-      `DELETE FROM messages WHERE id IN (${placeholders(messageIds.length)})`,
-      messageIds
-    )
+    const batches = idBatches(messageIds)
+    for (const batch of batches) {
+      await transaction.run(
+        `DELETE FROM files WHERE messageId IN (${placeholders(batch.length)})`,
+        batch
+      )
+    }
+    for (const batch of batches) {
+      await transaction.run(
+        `DELETE FROM messages WHERE id IN (${placeholders(batch.length)})`,
+        batch
+      )
+    }
 
     deleted = {
       sessionId,
