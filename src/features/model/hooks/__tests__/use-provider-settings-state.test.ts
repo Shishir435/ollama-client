@@ -30,7 +30,8 @@ const ollama = {
   type: ProviderType.OLLAMA,
   enabled: true,
   baseUrl: "http://localhost:11434",
-  hasApiKey: false
+  hasApiKey: false,
+  apiKey: { state: "unchanged" as const }
 }
 
 const custom = {
@@ -39,7 +40,8 @@ const custom = {
   type: ProviderType.OPENAI,
   enabled: true,
   baseUrl: "https://example.test/v1",
-  hasApiKey: false
+  hasApiKey: false,
+  apiKey: { state: "unchanged" as const }
 }
 
 const getMutationTarget = (request: unknown) =>
@@ -340,6 +342,48 @@ describe("useProviderSettingsState", () => {
       "trustedrouter/cheap"
     ])
     expect(result.current.hasUnsavedChanges).toBe(false)
+  })
+
+  it("sends explicit replace and clear intents for API-key edits", async () => {
+    vi.mocked(extensionRpcClient.call).mockImplementation(
+      async (method, request) => {
+        if (method === RpcMethod.ProvidersList) {
+          return { providers: [custom] } as never
+        }
+        if (method === RpcMethod.ProvidersUpsert) {
+          const config = request as { config: { apiKey: { state: string } } }
+          return {
+            provider: {
+              ...custom,
+              hasApiKey: config.config.apiKey.state !== "cleared"
+            }
+          } as never
+        }
+        throw new Error(`Unexpected method: ${method}`)
+      }
+    )
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toHaveLength(1))
+    await act(async () => result.current.setSelectedId(custom.id))
+
+    act(() => result.current.updateConfig({ apiKey: "replacement" }))
+    const replacementDraft = result.current.activeConfig
+    if (!replacementDraft) throw new Error("Expected an active provider")
+    await act(async () => result.current.handleSave(replacementDraft))
+    act(() => result.current.updateConfig({ apiKey: "" }))
+    const clearedDraft = result.current.activeConfig
+    if (!clearedDraft) throw new Error("Expected an active provider")
+    await act(async () => result.current.handleSave(clearedDraft))
+
+    const configs = vi
+      .mocked(extensionRpcClient.call)
+      .mock.calls.filter(([method]) => method === RpcMethod.ProvidersUpsert)
+      .map(([, request]) => (request as { config: { apiKey: unknown } }).config)
+    expect(configs.map(({ apiKey }) => apiKey)).toEqual([
+      { state: "replaced", value: "replacement" },
+      { state: "cleared" }
+    ])
   })
 
   it("flushes pending edits before enabling another provider", async () => {

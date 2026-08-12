@@ -1,4 +1,4 @@
-import type { PublicProviderConfig } from "@ollama-client/contracts/provider-rpc"
+import type { ProviderDraftInput } from "@ollama-client/contracts/provider-rpc"
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -14,12 +14,16 @@ import {
 import {
   type CustomProviderWire,
   isCustomProviderId,
-  type ProviderConfig,
   ProviderId,
-  ProviderServiceProfile,
-  ProviderType
+  type ProviderServiceProfile
 } from "@/lib/providers/types"
 import { extensionRpcClient } from "@/protocol/extension-client"
+import {
+  type ProviderDraft,
+  type ProviderDraftUpdate,
+  providerDraftFromPublic,
+  providerDraftHasUsableApiKey
+} from "../types/provider-draft"
 import { useProviderHealth } from "./use-provider-health"
 
 const LOCAL_PROVIDER_IDS = [
@@ -27,47 +31,6 @@ const LOCAL_PROVIDER_IDS = [
   ProviderId.LM_STUDIO,
   ProviderId.LLAMA_CPP
 ]
-
-type ProviderSettingsConfig = ProviderConfig & {
-  hasApiKey?: boolean
-}
-
-const toSettingsConfig = (
-  provider: PublicProviderConfig
-): ProviderSettingsConfig => ({
-  id: provider.id,
-  type:
-    provider.type === "ollama"
-      ? ProviderType.OLLAMA
-      : provider.type === "openai"
-        ? ProviderType.OPENAI
-        : provider.type === "anthropic"
-          ? ProviderType.ANTHROPIC
-          : ProviderType.CUSTOM,
-  enabled: provider.enabled,
-  name: provider.name,
-  hasApiKey: provider.hasApiKey,
-  ...(provider.baseUrl !== undefined ? { baseUrl: provider.baseUrl } : {}),
-  ...(provider.modelId !== undefined ? { modelId: provider.modelId } : {}),
-  ...(provider.customModels !== undefined
-    ? { customModels: provider.customModels }
-    : {}),
-  ...(provider.serviceProfile !== undefined
-    ? {
-        serviceProfile:
-          provider.serviceProfile === "openai"
-            ? ProviderServiceProfile.OPENAI
-            : provider.serviceProfile === "anthropic"
-              ? ProviderServiceProfile.ANTHROPIC
-              : provider.serviceProfile === "openrouter"
-                ? ProviderServiceProfile.OPENROUTER
-                : ProviderServiceProfile.GENERIC
-      }
-    : {}),
-  ...(provider.compatibility !== undefined
-    ? { compatibility: provider.compatibility }
-    : {})
-})
 
 const isLocalhostEndpoint = (baseUrl?: string) => {
   const url = baseUrl?.trim()
@@ -101,7 +64,7 @@ const getCspCompatibilityHint = (baseUrl?: string) => {
 
 export const useProviderSettingsState = () => {
   const { t } = useTranslation()
-  const [providers, setProviders] = useState<ProviderSettingsConfig[]>([])
+  const [providers, setProviders] = useState<ProviderDraft[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedIdState] = useState<string>(DEFAULT_PROVIDER_ID)
   const [testingConnection, setTestingConnection] = useState(false)
@@ -110,9 +73,6 @@ export const useProviderSettingsState = () => {
     message: string
   } | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [apiKeyEditedProviderIds, setApiKeyEditedProviderIds] = useState<
-    Set<string>
-  >(new Set())
   // Incremented synchronously for every local edit. An RPC response may update
   // local state only when the provider still has the revision it started with.
   const configRevisions = useRef(new Map<string, number>())
@@ -134,7 +94,7 @@ export const useProviderSettingsState = () => {
         RpcMethod.ProvidersList,
         {}
       )
-      setProviders(data.map(toSettingsConfig))
+      setProviders(data.map(providerDraftFromPublic))
     } catch (error) {
       logger.error("Failed to load providers", "ProviderSettings", { error })
     } finally {
@@ -165,20 +125,26 @@ export const useProviderSettingsState = () => {
   const isRemoteEndpoint =
     Boolean(activeConfig?.baseUrl?.trim()) &&
     !isLocalhostEndpoint(activeConfig?.baseUrl)
-  const apiKeyWasEdited = activeConfig
-    ? apiKeyEditedProviderIds.has(String(activeConfig.id))
-    : false
-
   const configForRpc = useCallback(
-    (config: ProviderSettingsConfig): ProviderConfig => {
-      const { hasApiKey: _hasApiKey, ...withoutPublicMarker } = config
-      if (apiKeyEditedProviderIds.has(String(config.id))) {
-        return withoutPublicMarker
-      }
-      const { apiKey: _apiKey, ...publicConfig } = withoutPublicMarker
-      return publicConfig as ProviderConfig
-    },
-    [apiKeyEditedProviderIds]
+    (config: ProviderDraft): ProviderDraftInput => ({
+      id: String(config.id),
+      type: config.type,
+      enabled: config.enabled,
+      name: config.name,
+      apiKey: config.apiKey,
+      ...(config.baseUrl !== undefined ? { baseUrl: config.baseUrl } : {}),
+      ...(config.modelId !== undefined ? { modelId: config.modelId } : {}),
+      ...(config.customModels !== undefined
+        ? { customModels: config.customModels }
+        : {}),
+      ...(config.serviceProfile !== undefined
+        ? { serviceProfile: config.serviceProfile }
+        : {}),
+      ...(config.compatibility !== undefined
+        ? { compatibility: config.compatibility }
+        : {})
+    }),
+    []
   )
 
   const handleTestConnection = async () => {
@@ -200,8 +166,7 @@ export const useProviderSettingsState = () => {
       providerProfileRequiresApiKey(
         resolveProviderServiceProfile(activeConfig)
       ) &&
-      !activeConfig.apiKey?.trim() &&
-      (!activeConfig.hasApiKey || apiKeyWasEdited)
+      !providerDraftHasUsableApiKey(activeConfig)
     ) {
       const message = t("settings.providers.test_connection.api_key_required", {
         name: activeConfig.name
@@ -321,7 +286,7 @@ export const useProviderSettingsState = () => {
 
   const persistConfig = useCallback(
     async (
-      config: ProviderSettingsConfig,
+      config: ProviderDraft,
       showSuccessToast = true,
       showErrorToast = true
     ): Promise<boolean> => {
@@ -347,14 +312,11 @@ export const useProviderSettingsState = () => {
         }
         setProviders((prev) =>
           prev.map((provider) =>
-            provider.id === config.id ? toSettingsConfig(saved) : provider
+            provider.id === config.id
+              ? providerDraftFromPublic(saved)
+              : provider
           )
         )
-        setApiKeyEditedProviderIds((previous) => {
-          const next = new Set(previous)
-          next.delete(providerId)
-          return next
-        })
         setHasUnsavedChanges(false)
         // The stored endpoint may now be somewhere else, so the health entry
         // describing the previous one is out of date as of this line.
@@ -402,7 +364,7 @@ export const useProviderSettingsState = () => {
     [activeConfig, hasUnsavedChanges, persistConfig, selectedId]
   )
 
-  const handleSave = async (config: ProviderConfig) => {
+  const handleSave = async (config: ProviderDraft) => {
     await persistConfig(config, true)
   }
 
@@ -431,7 +393,7 @@ export const useProviderSettingsState = () => {
       // that may have started before another pending save completed.
       setProviders((current) => [
         ...current.filter((provider) => provider.id !== config.id),
-        toSettingsConfig(config)
+        providerDraftFromPublic(config)
       ])
       setSelectedIdState(String(config.id))
       markSaved()
@@ -493,19 +455,25 @@ export const useProviderSettingsState = () => {
     }
   }
 
-  const updateConfig = (updates: Partial<ProviderConfig>) => {
+  const updateConfig = (updates: ProviderDraftUpdate) => {
     if (!activeConfig) return
     const providerId = String(activeConfig.id)
     configRevisions.current.set(
       providerId,
       (configRevisions.current.get(providerId) ?? 0) + 1
     )
-    if (Object.hasOwn(updates, "apiKey")) {
-      setApiKeyEditedProviderIds((previous) =>
-        new Set(previous).add(String(activeConfig.id))
-      )
+    const { apiKey, ...configUpdates } = updates
+    const updated: ProviderDraft = {
+      ...activeConfig,
+      ...configUpdates,
+      ...(Object.hasOwn(updates, "apiKey")
+        ? {
+            apiKey: apiKey
+              ? { state: "replaced", value: apiKey }
+              : { state: "cleared" }
+          }
+        : {})
     }
-    const updated = { ...activeConfig, ...updates }
     setProviders((prev) =>
       prev.map((p) => (p.id === activeConfig.id ? updated : p))
     )
@@ -553,7 +521,7 @@ export const useProviderSettingsState = () => {
       setProviders((prev) =>
         prev.map((provider) =>
           String(provider.id) === providerId
-            ? toSettingsConfig(saved)
+            ? providerDraftFromPublic(saved)
             : provider
         )
       )

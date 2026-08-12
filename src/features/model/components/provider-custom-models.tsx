@@ -2,10 +2,10 @@ import { useTranslation } from "react-i18next"
 
 import { SettingsFormField } from "@/components/settings"
 import { ModelIdListEditor } from "@/features/model/components/model-id-list-editor"
-import type { ProviderConfig } from "@/lib/providers/types"
+import type { ProviderDraft } from "@/features/model/types/provider-draft"
 
 interface ProviderCustomModelsProps {
-  activeConfig: ProviderConfig
+  activeConfig: ProviderDraft
   onChange: (customModels: string[]) => void | Promise<void>
 }
 

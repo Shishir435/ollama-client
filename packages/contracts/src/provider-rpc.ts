@@ -44,6 +44,31 @@ export const PublicProviderConfigSchema = ProviderConfigInputSchema.omit({
 /** @see PublicProviderConfigSchema */
 export type PublicProviderConfig = z.infer<typeof PublicProviderConfigSchema>
 
+const ProviderApiKeyDraftSchema = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("unchanged") }).strict(),
+  z
+    .object({
+      state: z.literal("replaced"),
+      value: z.string().max(32_768)
+    })
+    .strict(),
+  z.object({ state: z.literal("cleared") }).strict()
+])
+
+/**
+ * Editable provider shape used by extension pages. Credentials are represented
+ * as an explicit mutation intent; a public config is never widened into the
+ * secret-bearing stored shape.
+ */
+export const ProviderDraftInputSchema = ProviderConfigInputSchema.omit({
+  apiKey: true
+})
+  .extend({ apiKey: ProviderApiKeyDraftSchema })
+  .strict()
+
+/** @see ProviderDraftInputSchema */
+export type ProviderDraftInput = z.infer<typeof ProviderDraftInputSchema>
+
 const ProviderModelSchema = z
   .object({
     name: z.string().min(1),
@@ -151,7 +176,7 @@ export const ProvidersUpsertRequestSchema = z.discriminatedUnion("target", [
   z
     .object({
       target: z.literal("existing"),
-      config: ProviderConfigInputSchema
+      config: ProviderDraftInputSchema
     })
     .strict(),
   z
@@ -200,7 +225,7 @@ export const ProviderTestConnectionRequestSchema = z.discriminatedUnion(
     z
       .object({
         target: z.literal("draft"),
-        config: ProviderConfigInputSchema
+        config: ProviderDraftInputSchema
       })
       .strict()
   ]

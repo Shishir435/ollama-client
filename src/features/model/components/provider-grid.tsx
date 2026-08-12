@@ -38,7 +38,7 @@ const getStatusDotClass = (
   "bg-status-warning"
 
 export interface ProviderGridProps {
-  providers: ProviderConfig[]
+  providers: Array<Omit<ProviderConfig, "apiKey">>
   selectedId: string
   providerHealth: ProviderHealthMap
   manualTestStatus: { success: boolean; message: string } | null

@@ -14,7 +14,7 @@ describe("provider RPC contracts", () => {
         type: "openai",
         enabled: true,
         baseUrl: "https://example.test/v1",
-        apiKey: "secret",
+        apiKey: { state: "replaced", value: "secret" },
         name: "Example",
         customModels: ["model-a"],
         serviceProfile: "openrouter",
