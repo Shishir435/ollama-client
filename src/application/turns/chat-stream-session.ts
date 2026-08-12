@@ -223,8 +223,12 @@ export class ChatStreamSession {
     }
   }
 
-  private readonly handleMessage = (active: ActiveStream, raw: unknown) => {
-    if (!this.isCurrent(active)) return
+  private readonly handleMessage = (
+    active: ActiveStream,
+    sourcePort: ChatStreamPort,
+    raw: unknown
+  ) => {
+    if (!this.isCurrent(active) || active.port !== sourcePort) return
     const parsed = parseChatStreamServerEvent(raw)
     if (!parsed.success) {
       this.callbacks.onInvalidEvent?.(parsed.error.issues.length)
@@ -346,7 +350,7 @@ export class ChatStreamSession {
 
   private attach(active: ActiveStream, port: ChatStreamPort) {
     const messageListener = (message: unknown) =>
-      this.handleMessage(active, message)
+      this.handleMessage(active, port, message)
     active.messageListener = messageListener
     port.addMessageListener(messageListener)
     const disconnectListener = () => this.handleDisconnect(active, port)
