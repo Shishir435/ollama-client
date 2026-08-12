@@ -27,6 +27,7 @@ import {
   selectPortableStorageData
 } from "./storage/backup-storage-policy"
 import { KNOWLEDGE_SETTINGS } from "./storage/knowledge-settings"
+import { LegacyPromptTemplatesSchema } from "./storage/legacy-prompt-templates"
 import { getSettingDescriptor } from "./storage/setting-registry"
 import { safeJsonParse } from "./validation"
 
@@ -79,7 +80,7 @@ const ZustandShortcutsSchema = z.object({
 })
 const LegacySettingSchemas = new Map<string, z.ZodType>([
   ["selected-ollama-model", z.string().min(1)],
-  ["ollama-prompt-templates", z.array(PromptTemplateSchema)],
+  ["ollama-prompt-templates", LegacyPromptTemplatesSchema],
   ["ollama-model-config", ModelConfigMapSchema],
   ["ollama-base-url", z.string().min(1)]
 ])

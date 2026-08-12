@@ -4,8 +4,8 @@ import { logger } from "@/lib/logger"
 import { ModelConfigMapSchema } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderStorageKey } from "@/lib/providers/types"
+import { LegacyPromptTemplatesSchema } from "@/lib/storage/legacy-prompt-templates"
 import { SelectedModelRefSchema } from "@/lib/storage/setting-schemas"
-import { PromptTemplateSchema } from "@/types/ui-state.schemas"
 
 type StorageLike = typeof plasmoGlobalStorage
 
@@ -18,7 +18,7 @@ const LEGACY_PROVIDER_MAPPINGS = [
   {
     legacyKey: LEGACY_STORAGE_KEYS.OLLAMA.PROMPT_TEMPLATES,
     newKey: STORAGE_KEYS.PROVIDER.PROMPT_TEMPLATES,
-    schema: z.array(PromptTemplateSchema)
+    schema: LegacyPromptTemplatesSchema
   },
   {
     legacyKey: LEGACY_STORAGE_KEYS.OLLAMA.MODEL_CONFIGS,
