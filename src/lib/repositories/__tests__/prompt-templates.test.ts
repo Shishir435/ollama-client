@@ -156,6 +156,31 @@ describe("prompt template migration", () => {
     expect(insertedTitles()).toEqual(["Template old"])
   })
 
+  it("converts name-only templates before committing the SQLite marker", async () => {
+    mocks.syncGet.mockImplementation(async (key: string) =>
+      key === LEGACY_PROMPT_KEY ? [{ name: "Legacy" }] : undefined
+    )
+    const { ensurePromptTemplatesMigrated } = await load()
+
+    await ensurePromptTemplatesMigrated()
+
+    const insertCall = mocks.run.mock.calls.find(([sql]) =>
+      String(sql).includes("INSERT OR REPLACE INTO prompt_templates")
+    )
+    expect(insertCall?.[1]).toEqual(
+      expect.arrayContaining(["legacy-prompt-1-legacy", "Legacy", "Legacy"])
+    )
+    const insertedAt = mocks.run.mock.invocationCallOrder.find((_, index) =>
+      String(mocks.run.mock.calls[index]?.[0]).includes(
+        "INSERT OR REPLACE INTO prompt_templates"
+      )
+    )
+    const markerAt = mocks.run.mock.invocationCallOrder.find((_, index) =>
+      String(mocks.run.mock.calls[index]?.[0]).includes("INTO kv_store")
+    )
+    expect(insertedAt).toBeLessThan(markerAt as number)
+  })
+
   it("runs once across concurrent callers", async () => {
     mocks.syncGet.mockResolvedValueOnce([legacyTemplate("a")])
     const { ensurePromptTemplatesMigrated } = await load()

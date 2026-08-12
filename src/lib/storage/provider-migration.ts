@@ -4,7 +4,6 @@ import { logger } from "@/lib/logger"
 import { ModelConfigMapSchema } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderStorageKey } from "@/lib/providers/types"
-import { LegacyPromptTemplatesSchema } from "@/lib/storage/legacy-prompt-templates"
 import { SelectedModelRefSchema } from "@/lib/storage/setting-schemas"
 
 type StorageLike = typeof plasmoGlobalStorage
@@ -16,16 +15,17 @@ const LEGACY_PROVIDER_MAPPINGS = [
     schema: z.string().min(1)
   },
   {
-    legacyKey: LEGACY_STORAGE_KEYS.OLLAMA.PROMPT_TEMPLATES,
-    newKey: STORAGE_KEYS.PROVIDER.PROMPT_TEMPLATES,
-    schema: LegacyPromptTemplatesSchema
-  },
-  {
     legacyKey: LEGACY_STORAGE_KEYS.OLLAMA.MODEL_CONFIGS,
     newKey: STORAGE_KEYS.PROVIDER.MODEL_CONFIGS,
     schema: ModelConfigMapSchema
   }
 ]
+
+/**
+ * Prompt templates are intentionally absent here. Their SQLite repository
+ * owns legacy decoding and the one-shot migration marker in one ordered path;
+ * an asynchronous UI migration could otherwise write after that marker.
+ */
 
 const ProviderMappingsSchema = z.record(z.string().min(1), z.string().min(1))
 
