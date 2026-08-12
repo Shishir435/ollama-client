@@ -454,11 +454,6 @@ What these files are *now*, so you neither go looking for a god-object that was 
 
 **Do not restructure incrementally:**
 
-- `src/features/chat/hooks/use-chat-stream.ts` — owns port lifecycle, reconnect,
-  stop/finalization, stream presentation, and error UI. Its staged extraction is
-  tracked in `RELEASE_ROADMAP.md`; keep edits minimal and preserve the pure
-  `chat-stream-reducer.ts` seam.
-
 - `src/features/chat/hooks/use-chat-turn-controller.ts` — owns UI submission
   preconditions, session/message preparation, and durable turn command
   construction. Its boundary cleanup is tracked in `RELEASE_ROADMAP.md`. Keep
@@ -470,6 +465,7 @@ What these files are *now*, so you neither go looking for a god-object that was 
 
 **Already restructured — match the existing shape rather than reverting to props or god-objects:**
 
+- `src/features/chat/hooks/use-chat-stream.ts` is the React, i18n and browser-effects adapter over `src/application/turns/chat-stream-session.ts`. `ChatStreamSession` owns single-flight admission, the active request and port, schema parsing, reducer transitions, reconnects, snapshots and cancellation; keep those lifecycle concerns out of the hook. Keep translated errors, issue navigation and React state in the hook, and preserve the pure `chat-stream-reducer.ts` seam.
 - `src/features/selection-actions/` reads view state from `selection-overlay-context.tsx`, not props. `SelectionOverlayApp` alone knows about the reducer, the capture, and the content script's refs; `SelectionActionsOverlay`, `SelectionPanel`, `SelectionToolbar`, `PanelHeader`, `PanelFooter` take no props. Add a control to the context value and read it where it renders. `PanelMarkdown` and `PanelThinking` stay prop-driven — leaf presentational, own tests.
 - `src/features/chat/components/chat-input/context-settings-menu.tsx` is the sheet shell and view switch (~205 LOC). Settings in `hooks/use-context-settings.ts`, tab list and its reconciliation effects in `hooks/use-context-tab-options.ts`, summary in `context-summary.ts`, views in `context-main-view.tsx` / `context-sub-view.tsx`. New context controls go in the hook and the main view, not the shell.
 - `src/features/sessions/stores/chat-session-store.ts` is a ~19-LOC barrel over extracted slices; persistence reads via `chat-history.ts`. The old ~485-LOC store is gone.
