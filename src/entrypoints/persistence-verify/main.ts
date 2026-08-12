@@ -1,7 +1,13 @@
+import {
+  RPC_PROTOCOL_VERSION,
+  RPC_REQUEST_MESSAGE_TYPE,
+  RpcMethod
+} from "@ollama-client/contracts/rpc"
 import type { SqlJsStatic } from "sql.js"
 import initSqlJs from "sql.js/dist/sql-wasm.js"
 import { browser } from "@/lib/browser-api"
 import {
+  MESSAGE_KEYS,
   SQLITE_DB_KEY,
   SQLITE_DB_NAME,
   SQLITE_DB_STORE,
@@ -15,6 +21,7 @@ import { DURABLE_TABLES } from "@/lib/persistence/durable-tables"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderId } from "@/lib/providers/types"
 import * as chatHistory from "@/lib/repositories/sqlite-chat-history"
+import { getToolLoopRun } from "@/lib/repositories/tool-loop-runs"
 import {
   createTurnRun,
   getTurnRun,
@@ -30,6 +37,7 @@ import {
   query
 } from "@/lib/sqlite/db"
 import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
+import { STREAM_PROTOCOL_VERSION } from "@/protocol/streams"
 
 /**
  * Dev-only verification surface for the production OPFS migration. Every
@@ -50,6 +58,52 @@ import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
  */
 const PROMPT_TEMPLATE_SEED = 7
 const KV_SEED = 3
+
+interface VerifyStream {
+  events: unknown[]
+  port: ReturnType<typeof browser.runtime.connect>
+}
+
+const verifyStreams = new Map<string, VerifyStream>()
+
+const connectTurn = (turnId: string, afterSeq?: number): VerifyStream => {
+  const port = browser.runtime.connect({
+    name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
+  })
+  const stream: VerifyStream = { events: [], port }
+  port.onMessage.addListener((event) => stream.events.push(event))
+  verifyStreams.get(turnId)?.port.disconnect()
+  verifyStreams.set(turnId, stream)
+  if (afterSeq !== undefined) {
+    port.postMessage({
+      version: STREAM_PROTOCOL_VERSION,
+      type: MESSAGE_KEYS.PROVIDER.RECONNECT_STREAM,
+      payload: { requestId: turnId, afterSeq }
+    })
+  }
+  return stream
+}
+
+const makeTurnRequest = (prompt: string) => ({
+  version: 1 as const,
+  context: {
+    rawInput: prompt,
+    messages: [],
+    hasTabContext: false,
+    contextText: "",
+    tabDocuments: [],
+    memoryEnabled: false,
+    maxTabContextChars: 1_000,
+    maxRagContextChars: 1_000,
+    groundedOnlyMode: false,
+    selectedModel: "verify-model",
+    selectedModelRef: {
+      providerId: ProviderId.OLLAMA,
+      modelId: "verify-model"
+    }
+  },
+  userMessage: { role: "user" as const, content: prompt }
+})
 
 const putLegacyBlob = async (bytes: Uint8Array): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -316,6 +370,148 @@ const verifyApi = {
     })
   },
 
+  /** Submit through the real durable port contract. Only row creation mirrors
+   * the UI; lifecycle ownership begins when START_TURN reaches background. */
+  async startDurableTurn(turnId: string, prompt: string): Promise<number> {
+    const now = Date.now()
+    const sessionId = `session-${turnId}`
+    const request = makeTurnRequest(prompt)
+    await chatHistory.addSession({
+      id: sessionId,
+      title: `verify ${turnId}`,
+      modelId: "verify-model",
+      createdAt: now,
+      updatedAt: now,
+      messages: []
+    })
+    const userMessageId = await chatHistory.appendMessage({
+      sessionId,
+      role: "user",
+      content: prompt,
+      timestamp: now
+    })
+    const assistantMessageId = await chatHistory.appendMessage({
+      sessionId,
+      role: "assistant",
+      content: "",
+      model: "verify-model",
+      parentId: userMessageId,
+      done: false,
+      timestamp: now + 1
+    })
+    const stream = connectTurn(turnId)
+    stream.port.postMessage({
+      version: STREAM_PROTOCOL_VERSION,
+      type: MESSAGE_KEYS.PROVIDER.START_TURN,
+      payload: {
+        start: {
+          submission: {
+            id: turnId,
+            sessionId,
+            mode: "new",
+            model: "verify-model",
+            providerId: ProviderId.OLLAMA,
+            request,
+            createdAt: now
+          },
+          userMessageId
+        },
+        assistantMessageId
+      }
+    })
+    return assistantMessageId
+  },
+
+  async reconnectTurn(turnId: string): Promise<void> {
+    const prior = verifyStreams.get(turnId)
+    const lastSeq =
+      prior?.events.reduce<number>((highest, event) => {
+        if (!event || typeof event !== "object" || !("seq" in event)) {
+          return highest
+        }
+        const seq = Reflect.get(event, "seq")
+        return typeof seq === "number" ? Math.max(highest, seq) : highest
+      }, -1) ?? -1
+    prior?.port.disconnect()
+    connectTurn(turnId, lastSeq)
+  },
+
+  async turnEventTypes(turnId: string): Promise<string[]> {
+    return (verifyStreams.get(turnId)?.events ?? []).flatMap((event) => {
+      if (!event || typeof event !== "object" || !("type" in event)) return []
+      const type = Reflect.get(event, "type")
+      return typeof type === "string" ? [type] : []
+    })
+  },
+
+  async stopTurn(turnId: string): Promise<void> {
+    const stream = verifyStreams.get(turnId) ?? connectTurn(turnId, -1)
+    stream.port.postMessage({
+      version: STREAM_PROTOCOL_VERSION,
+      type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION,
+      payload: { requestId: turnId }
+    })
+  },
+
+  async toolLoopResult(requestId: string): Promise<unknown> {
+    const run = await getToolLoopRun(requestId)
+    return run
+      ? {
+          status: run.status,
+          callId: run.state.toolRuns.find(
+            (toolRun) => toolRun.status === "awaiting-confirmation"
+          )?.callId
+        }
+      : null
+  },
+
+  async confirmTool(callId: string, approved: boolean): Promise<unknown> {
+    return browser.runtime.sendMessage({
+      type: MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL,
+      payload: { callId, approved }
+    })
+  },
+
+  /** Raw wire call bypasses client-side validation so browser evidence covers
+   * the background schema boundary itself. */
+  async malformedSettingsRpc(): Promise<unknown> {
+    return browser.runtime.sendMessage({
+      type: RPC_REQUEST_MESSAGE_TYPE,
+      version: RPC_PROTOCOL_VERSION,
+      requestId: crypto.randomUUID(),
+      method: RpcMethod.ProvidersSetEnabled,
+      request: { providerId: ProviderId.OLLAMA, enabled: "yes" }
+    })
+  },
+
+  /** Execute in a normal tab's isolated world. Sender evidence therefore has
+   * a tab and a web URL: exactly the content-script classification. */
+  async contentScriptSettingsRpc(url: string): Promise<unknown> {
+    const tab = await browser.tabs.create({ url, active: false })
+    if (typeof tab.id !== "number") throw new Error("Created tab has no id")
+    try {
+      const results = await browser.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: async (messageType, version, method) =>
+          chrome.runtime.sendMessage({
+            type: messageType,
+            version,
+            requestId: crypto.randomUUID(),
+            method,
+            request: {}
+          }),
+        args: [
+          RPC_REQUEST_MESSAGE_TYPE,
+          RPC_PROTOCOL_VERSION,
+          RpcMethod.ProvidersList
+        ]
+      })
+      return results[0]?.result
+    } finally {
+      await browser.tabs.remove(tab.id)
+    }
+  },
+
   /** Seed exactly what an interrupted worker leaves behind: canonical message
    * rows plus a generating turn carrying the resumable request. */
   async seedGeneratingTurn(turnId: string): Promise<number> {
@@ -351,26 +547,7 @@ const verifyApi = {
       model: "verify-model",
       providerId: ProviderId.OLLAMA,
       createdAt: now,
-      request: {
-        version: 1,
-        context: {
-          rawInput: "resume after restart",
-          messages: [],
-          hasTabContext: false,
-          contextText: "",
-          tabDocuments: [],
-          memoryEnabled: false,
-          maxTabContextChars: 1_000,
-          maxRagContextChars: 1_000,
-          groundedOnlyMode: false,
-          selectedModel: "verify-model",
-          selectedModelRef: {
-            providerId: ProviderId.OLLAMA,
-            modelId: "verify-model"
-          }
-        },
-        userMessage: { role: "user", content: "resume after restart" }
-      }
+      request: makeTurnRequest("resume after restart")
     })
     await updateTurnRun(turnId, {
       status: "building_context",
