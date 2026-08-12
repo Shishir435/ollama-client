@@ -328,6 +328,57 @@ describe("IngestionService", () => {
     })
   })
 
+  it("stops startup recovery without terminally cancelling the durable job", async () => {
+    const run: IngestionRun = {
+      id: "1a0c83a6-e6df-4cd3-9168-709ee9759940",
+      fileId: "file-interrupted",
+      knowledgeSetId: "default",
+      fileName: "interrupted.txt",
+      status: "running",
+      phase: "embedding",
+      autoEmbed: true,
+      createdAt: 1,
+      updatedAt: 2
+    }
+    mocks.runs.set(run.id, run)
+    mocks.payloads.set(run.id, {
+      kind: "processed",
+      jobId: run.id,
+      fileId: run.fileId,
+      knowledgeSetId: run.knowledgeSetId,
+      fileName: run.fileName,
+      contentType: "text/plain",
+      autoEmbed: true,
+      createdAt: run.createdAt,
+      processedFile
+    })
+    mocks.processKnowledge.mockImplementationOnce(
+      async ({ signal }: { signal: AbortSignal }) =>
+        new Promise((_, reject) => {
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Stopped", "AbortError")),
+            { once: true }
+          )
+        })
+    )
+    const controller = new AbortController()
+
+    const recovery = IngestionService.resumeIncomplete(controller.signal)
+    await vi.waitFor(() =>
+      expect(mocks.processKnowledge).toHaveBeenCalledOnce()
+    )
+    controller.abort()
+    await expect(recovery).rejects.toMatchObject({ name: "AbortError" })
+
+    expect(mocks.runs.get(run.id)).toMatchObject({
+      status: "running",
+      phase: "embedding"
+    })
+    expect(mocks.removeFile).not.toHaveBeenCalled()
+    expect(mocks.payloads.has(run.id)).toBe(true)
+  })
+
   it("recovers and parses a staged raw file without a submitted receipt", async () => {
     const jobId = "00000000-0000-4000-8000-000000000099"
     mocks.payloads.set(jobId, {

@@ -132,6 +132,32 @@ writer for measurement pages that are stripped from production builds.
 - Selected-text capture
 - Page extraction entrypoints for browser-context workflows
 
+### Startup recovery supervision
+
+Database startup has an explicit dependency chain: application lifecycle flags
+→ persistence-owner readiness → data-shape recovery → durable workflow
+recovery. Owner readiness includes interrupted whole-database replacement, so
+provider and embedding migration cannot start beside it. Portable backup-import
+recovery, provider-storage migration, and embedding dimension migration then run
+one at a time because each can rewrite state consumed by its successor. Only
+after all three settle does workflow recovery begin, with a concurrency cap of
+two for independent durable jobs.
+
+Every startup task receives an `AbortSignal` and has a 120-second deadline. A
+deadline aborts the task, but the supervisor does not start that worker's next
+task until the aborted promise settles. Settlement is the cancellation
+acknowledgment: an already-issued storage write may finish, but no successor can
+read or mutate the same state beside it. Backup and migration loops check the
+signal between mutation boundaries; active turn, ingestion, and model-pull
+recovery also stop their provider/embedding work. Supervisor expiry leaves a
+durable user job resumable on the next worker boot rather than recording a user
+cancellation.
+
+Timeout request and cancellation acknowledgment are recorded as bounded,
+content-free diagnostic events (`STARTUP_RECOVERY_TIMEOUT` and
+`STARTUP_RECOVERY_CANCELLED`). Task identifiers and elapsed time are included;
+stored data, provider URLs, and errors are not.
+
 ## Data flow
 
 1. User sends a prompt in the sidepanel.

@@ -21,12 +21,15 @@ const LEGACY_PROVIDER_MAPPINGS = [
 ]
 
 export const migrateLegacyProviderStorage = async (
-  storage: StorageLike = plasmoGlobalStorage
+  storage: StorageLike = plasmoGlobalStorage,
+  signal?: AbortSignal
 ): Promise<{ migrated: boolean; migratedKeys: string[] }> => {
   const migratedKeys: string[] = []
 
   for (const mapping of LEGACY_PROVIDER_MAPPINGS) {
+    signal?.throwIfAborted()
     const currentValue = await storage.get(mapping.newKey)
+    signal?.throwIfAborted()
     if (
       currentValue !== undefined &&
       currentValue !== null &&
@@ -36,6 +39,7 @@ export const migrateLegacyProviderStorage = async (
     }
 
     const legacyValue = await storage.get(mapping.legacyKey)
+    signal?.throwIfAborted()
     if (legacyValue !== undefined && legacyValue !== null) {
       await storage.set(mapping.newKey, legacyValue)
       migratedKeys.push(mapping.newKey)
@@ -50,21 +54,26 @@ export const migrateLegacyProviderStorage = async (
 
   // Best-effort migration for selected model reference:
   // If we have legacy string selection + model mapping, create canonical ref.
+  signal?.throwIfAborted()
   const selectedModelRef = await storage.get(
     STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF
   )
+  signal?.throwIfAborted()
   if (!selectedModelRef) {
     const selectedModel = await storage.get<string>(
       STORAGE_KEYS.PROVIDER.SELECTED_MODEL
     )
+    signal?.throwIfAborted()
     const modelMappings = await storage.get<Record<string, string>>(
       ProviderStorageKey.MODEL_MAPPINGS
     )
+    signal?.throwIfAborted()
     // The flat map may already have been migrated to scoped keys
     // (`providerId::modelName`) — check both shapes.
     const scopedMappings = await storage.get<Record<string, string>>(
       ProviderStorageKey.MODEL_MAPPINGS_V2
     )
+    signal?.throwIfAborted()
     // Parse the provider id out of the key itself (`providerId::modelName`)
     // rather than reconstructing the key from the entry's value — the two are
     // equivalent for well-formed rows, but key-parsing still resolves if a
@@ -86,6 +95,7 @@ export const migrateLegacyProviderStorage = async (
         providerId: mappedProviderId,
         modelId: selectedModel
       })
+      signal?.throwIfAborted()
       await storage.remove(STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL)
       migratedKeys.push(STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF)
     }

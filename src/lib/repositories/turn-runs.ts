@@ -476,8 +476,10 @@ export const TERMINAL_TURN_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
  * not a retention sweep, decides what becomes of it.
  */
 export const pruneTerminalTurnRuns = async (
-  olderThan = Date.now() - TERMINAL_TURN_RETENTION_MS
+  olderThan = Date.now() - TERMINAL_TURN_RETENTION_MS,
+  signal?: AbortSignal
 ): Promise<number> => {
+  signal?.throwIfAborted()
   const result = await runWithMeta(
     `DELETE FROM turn_runs
       WHERE status IN (${TERMINAL_STATUS_LIST}) AND updatedAt < ?`,
@@ -489,6 +491,7 @@ export const pruneTerminalTurnRuns = async (
     })
     await flushSave()
   }
+  signal?.throwIfAborted()
   return result.changes
 }
 

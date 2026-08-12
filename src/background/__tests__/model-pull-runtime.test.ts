@@ -119,6 +119,32 @@ describe("ModelPullService", () => {
     })
   })
 
+  it("interrupts startup recovery without recording a user cancellation", async () => {
+    const run = activeRun()
+    mocks.runs.set(run.id, run)
+    vi.mocked(fetch).mockImplementationOnce(
+      async (_input, init) =>
+        new Promise((_, reject) => {
+          const signal = init?.signal
+          signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("Stopped", "AbortError")),
+            { once: true }
+          )
+        })
+    )
+    const controller = new AbortController()
+
+    const recovery = ModelPullService.resumeIncomplete(controller.signal)
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+    controller.abort()
+    await expect(recovery).rejects.toMatchObject({ name: "AbortError" })
+
+    await expect(ModelPullService.get(run.id)).resolves.toMatchObject({
+      status: "running"
+    })
+  })
+
   it("deduplicates active downloads for the same provider and model", async () => {
     mocks.consume.mockImplementation(
       async (_response, options) =>

@@ -70,4 +70,29 @@ describe("0.10.3 provider storage upgrade", () => {
     expect(first.migrated).toBe(true)
     expect(second.migrated).toBe(false)
   })
+
+  it("stops before the next mutation when cancellation arrives during a read", async () => {
+    let releaseLegacyRead: () => void = () => undefined
+    const legacyRead = new Promise<unknown>((resolve) => {
+      releaseLegacyRead = () => resolve("qwen3")
+    })
+    const { storage } = createStorage({})
+    storage.get
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(async () => legacyRead)
+    const controller = new AbortController()
+
+    const migration = migrateLegacyProviderStorage(
+      storage as never,
+      controller.signal
+    )
+    await Promise.resolve()
+    await Promise.resolve()
+    controller.abort()
+    releaseLegacyRead()
+
+    await expect(migration).rejects.toMatchObject({ name: "AbortError" })
+    expect(storage.set).not.toHaveBeenCalled()
+    expect(storage.remove).not.toHaveBeenCalled()
+  })
 })
