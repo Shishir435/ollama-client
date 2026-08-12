@@ -172,4 +172,20 @@ describe("portable storage import transaction", () => {
       true
     )
   })
+
+  it("discards a malformed journal without applying its rollback payload", async () => {
+    storageState.local.set(STORAGE_KEYS.BACKUP.IMPORT_JOURNAL, {
+      version: 1,
+      phase: "prepared",
+      previousSync: "not-an-object"
+    })
+
+    await recoverBackupImport()
+
+    expect(chrome.storage.sync.set).not.toHaveBeenCalled()
+    expect(chrome.storage.sync.remove).not.toHaveBeenCalled()
+    expect(storageState.local.has(STORAGE_KEYS.BACKUP.IMPORT_JOURNAL)).toBe(
+      false
+    )
+  })
 })

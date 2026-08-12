@@ -1,32 +1,41 @@
 import Dexie, { type Table } from "dexie"
+import { z } from "zod"
 import { KNOWLEDGE_DEFAULTS } from "@/lib/config/knowledge-config"
-import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { KNOWLEDGE_SETTINGS } from "@/lib/storage/knowledge-settings"
+import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 
-export interface KnowledgeSetRecord {
-  id: string
-  name: string
-  description?: string
-  createdAt: number
-  updatedAt: number
-  ragPrompt?: string
-  questionPrompt?: string
-  retrieval?: {
-    topK?: number
-    minSimilarity?: number
-    minRerankScore?: number
-  }
-}
+const storedTimestamp = z.number().finite().nonnegative()
 
-export interface KnowledgeFileRecord {
-  id: string
-  knowledgeSetId: string
-  fileName: string
-  fileType: string
-  fileSize: number
-  createdAt: number
-  lastEmbeddedAt?: number
-}
+export const KnowledgeSetRecordSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  createdAt: storedTimestamp,
+  updatedAt: storedTimestamp,
+  ragPrompt: z.string().optional(),
+  questionPrompt: z.string().optional(),
+  retrieval: z
+    .object({
+      topK: z.number().int().positive().optional(),
+      minSimilarity: z.number().finite().optional(),
+      minRerankScore: z.number().finite().optional()
+    })
+    .optional()
+})
+
+export type KnowledgeSetRecord = z.infer<typeof KnowledgeSetRecordSchema>
+
+export const KnowledgeFileRecordSchema = z.object({
+  id: z.string().min(1),
+  knowledgeSetId: z.string().min(1),
+  fileName: z.string().min(1),
+  fileType: z.string(),
+  fileSize: z.number().finite().nonnegative(),
+  createdAt: storedTimestamp,
+  lastEmbeddedAt: storedTimestamp.optional()
+})
+
+export type KnowledgeFileRecord = z.infer<typeof KnowledgeFileRecordSchema>
 
 class KnowledgeDatabase extends Dexie {
   knowledgeSets!: Table<KnowledgeSetRecord, string>
@@ -131,7 +140,7 @@ export const deleteKnowledgeSet = async (id: string): Promise<void> => {
 export const addFileToKnowledgeSet = async (
   file: KnowledgeFileRecord
 ): Promise<void> => {
-  await knowledgeDb.knowledgeFiles.put(file)
+  await knowledgeDb.knowledgeFiles.put(KnowledgeFileRecordSchema.parse(file))
 }
 
 export const markKnowledgeFileEmbedded = async (
@@ -161,22 +170,17 @@ export const getKnowledgeSetFileIds = async (
 }
 
 export const getActiveKnowledgeSetId = async (): Promise<string> => {
-  const stored = await plasmoGlobalStorage.get<string>(
-    STORAGE_KEYS.KNOWLEDGE.ACTIVE_SET
-  )
+  const stored = await readSetting(KNOWLEDGE_SETTINGS.ACTIVE_SET)
 
   if (stored) return stored
 
   await ensureDefaultKnowledgeSet()
-  await plasmoGlobalStorage.set(
-    STORAGE_KEYS.KNOWLEDGE.ACTIVE_SET,
-    DEFAULT_KNOWLEDGE_SET_ID
-  )
+  await writeSetting(KNOWLEDGE_SETTINGS.ACTIVE_SET, DEFAULT_KNOWLEDGE_SET_ID)
   return DEFAULT_KNOWLEDGE_SET_ID
 }
 
 export const setActiveKnowledgeSetId = async (id: string): Promise<void> => {
-  await plasmoGlobalStorage.set(STORAGE_KEYS.KNOWLEDGE.ACTIVE_SET, id)
+  await writeSetting(KNOWLEDGE_SETTINGS.ACTIVE_SET, id)
 }
 
 export const getActiveKnowledgeSet = async (): Promise<

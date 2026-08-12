@@ -23,7 +23,6 @@ describe("0.10.3 provider storage upgrade", () => {
   it("migrates legacy provider values and creates a qualified model ref", async () => {
     const { storage, values } = createStorage({
       [LEGACY_STORAGE_KEYS.OLLAMA.SELECTED_MODEL]: "qwen3",
-      [LEGACY_STORAGE_KEYS.OLLAMA.PROMPT_TEMPLATES]: [{ name: "Legacy" }],
       [LEGACY_STORAGE_KEYS.OLLAMA.MODEL_CONFIGS]: {
         qwen3: { temperature: 0.2 }
       },
@@ -69,6 +68,21 @@ describe("0.10.3 provider storage upgrade", () => {
 
     expect(first.migrated).toBe(true)
     expect(second.migrated).toBe(false)
+  })
+
+  it("does not copy malformed legacy structures", async () => {
+    const { storage, values } = createStorage({
+      [LEGACY_STORAGE_KEYS.OLLAMA.MODEL_CONFIGS]: {
+        qwen3: { temperature: "hot" }
+      },
+      [ProviderStorageKey.MODEL_MAPPINGS]: { qwen3: 7 }
+    })
+
+    const result = await migrateLegacyProviderStorage(storage as never)
+
+    expect(result.migrated).toBe(false)
+    expect(values.has(STORAGE_KEYS.PROVIDER.MODEL_CONFIGS)).toBe(false)
+    expect(values.has(STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF)).toBe(false)
   })
 
   it("stops before the next mutation when cancellation arrives during a read", async () => {

@@ -9,6 +9,7 @@ import {
   run,
   withTransaction
 } from "@/lib/sqlite/db"
+import { parseLegacyPromptTemplate } from "@/lib/storage/legacy-prompt-templates"
 import type { PromptTemplate } from "@/types/ui-state"
 import { PromptTemplateSchema } from "@/types/ui-state.schemas"
 
@@ -101,7 +102,7 @@ const readLegacyTemplates = async (): Promise<LegacyTemplates | null> => {
   const raw = current ?? legacy
   if (!Array.isArray(raw)) return null
   const templates = raw
-    .map(normalize)
+    .map(parseLegacyPromptTemplate)
     .filter((template): template is PromptTemplate => template !== null)
   return { templates, dropped: raw.length - templates.length }
 }
