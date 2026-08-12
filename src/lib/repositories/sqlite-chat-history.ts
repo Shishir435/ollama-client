@@ -684,12 +684,85 @@ export const deleteMessagesBySession = async (
   return (before[0]?.count as number) ?? 0
 }
 
-export const bulkDeleteMessages = async (ids: number[]): Promise<void> => {
-  if (ids.length === 0) return
-  await run(
-    `DELETE FROM messages WHERE id IN (${placeholders(ids.length)})`,
-    ids
-  )
+export interface DeletedMessageSubtree {
+  sessionId: string
+  messageIds: number[]
+  repairedLeaf: boolean
+  replacementLeafId?: number
+}
+
+/**
+ * Delete one message and every descendant as a single SQLite commit.
+ *
+ * Descendant discovery belongs inside the transaction: computing the tree in
+ * the UI before opening the transaction lets a concurrent append escape the
+ * delete. Files have no message foreign key, so they must be removed in the
+ * same transaction rather than relying on cascade behavior.
+ */
+export const deleteMessageSubtree = async (
+  messageId: number
+): Promise<DeletedMessageSubtree | undefined> => {
+  let deleted: DeletedMessageSubtree | undefined
+
+  await withTransaction(async (transaction) => {
+    const targetRows = await transaction.query(
+      "SELECT sessionId, parentId FROM messages WHERE id = ?",
+      [messageId]
+    )
+    const target = targetRows[0]
+    if (!target || typeof target.sessionId !== "string") return
+
+    const sessionId = target.sessionId
+    const replacementLeafId =
+      typeof target.parentId === "number" ? target.parentId : undefined
+    const descendantRows = await transaction.query(
+      `WITH RECURSIVE descendants(id) AS (
+         SELECT id FROM messages WHERE id = ? AND sessionId = ?
+         UNION
+         SELECT child.id FROM messages child
+         JOIN descendants parent ON child.parentId = parent.id
+         WHERE child.sessionId = ?
+       )
+       SELECT id FROM descendants ORDER BY id`,
+      [messageId, sessionId, sessionId]
+    )
+    const messageIds = descendantRows.flatMap((row) =>
+      typeof row.id === "number" ? [row.id] : []
+    )
+    if (messageIds.length === 0) return
+
+    const sessionRows = await transaction.query(
+      "SELECT currentLeafId FROM sessions WHERE id = ?",
+      [sessionId]
+    )
+    const currentLeafId = sessionRows[0]?.currentLeafId
+    const repairedLeaf =
+      typeof currentLeafId === "number" && messageIds.includes(currentLeafId)
+
+    if (repairedLeaf) {
+      await transaction.run(
+        "UPDATE sessions SET currentLeafId = ? WHERE id = ?",
+        [replacementLeafId ?? null, sessionId]
+      )
+    }
+    await transaction.run(
+      `DELETE FROM files WHERE messageId IN (${placeholders(messageIds.length)})`,
+      messageIds
+    )
+    await transaction.run(
+      `DELETE FROM messages WHERE id IN (${placeholders(messageIds.length)})`,
+      messageIds
+    )
+
+    deleted = {
+      sessionId,
+      messageIds,
+      repairedLeaf,
+      ...(replacementLeafId === undefined ? {} : { replacementLeafId })
+    }
+  })
+
+  return deleted
 }
 
 /** ----- Files --------------------------------------------------------------- */
@@ -740,21 +813,6 @@ export const deleteFilesBySession = async (
     [sessionId]
   )
   await run("DELETE FROM files WHERE sessionId = ?", [sessionId])
-  return (before[0]?.count as number) ?? 0
-}
-
-export const deleteFilesByMessageIds = async (
-  messageIds: number[]
-): Promise<number> => {
-  if (messageIds.length === 0) return 0
-  const before = await query(
-    `SELECT COUNT(*) AS count FROM files WHERE messageId IN (${placeholders(messageIds.length)})`,
-    messageIds
-  )
-  await run(
-    `DELETE FROM files WHERE messageId IN (${placeholders(messageIds.length)})`,
-    messageIds
-  )
   return (before[0]?.count as number) ?? 0
 }
 

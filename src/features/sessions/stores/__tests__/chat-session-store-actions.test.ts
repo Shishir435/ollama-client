@@ -371,21 +371,12 @@ describe("updateMessage", () => {
 
 describe("deleteMessage", () => {
   it("contains a failed post-delete refresh", async () => {
-    mockRepo.getMessage.mockResolvedValue({
-      id: 11,
+    mockRepo.deleteMessageSubtree.mockResolvedValue({
       sessionId: SESSION_ID,
-      role: "user",
-      content: "delete me"
-    } as any)
-    mockRepo.getMessagesBySession.mockResolvedValue([
-      { id: 11, sessionId: SESSION_ID }
-    ] as any)
-    mockRepo.getSession
-      .mockResolvedValueOnce({ id: SESSION_ID, currentLeafId: 11 } as any)
-      .mockRejectedValueOnce(new Error("read-back failed"))
-    mockRepo.updateSession.mockResolvedValue(undefined as any)
-    mockRepo.bulkDeleteMessages.mockResolvedValue(undefined as any)
-    mockRepo.deleteFilesByMessageIds.mockResolvedValue(undefined as any)
+      messageIds: [11],
+      repairedLeaf: true
+    })
+    mockRepo.getSession.mockRejectedValueOnce(new Error("read-back failed"))
 
     chatSessionStore.setState({
       sessions: [

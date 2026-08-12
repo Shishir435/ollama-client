@@ -616,17 +616,79 @@ describe("messages", () => {
     expect(mockedRun).not.toHaveBeenCalled()
   })
 
-  it("bulkDeleteMessages noops on empty input", async () => {
-    await repo.bulkDeleteMessages([])
-    expect(mockedRun).not.toHaveBeenCalled()
+  it("deletes a message subtree, its files, and an affected leaf in one transaction", async () => {
+    mockedQuery
+      .mockResolvedValueOnce([{ sessionId: "s1", parentId: 9 }])
+      .mockResolvedValueOnce([{ id: 10 }, { id: 11 }, { id: 12 }])
+      .mockResolvedValueOnce([{ currentLeafId: 12 }])
+
+    const result = await repo.deleteMessageSubtree(10)
+
+    expect(result).toEqual({
+      sessionId: "s1",
+      messageIds: [10, 11, 12],
+      repairedLeaf: true,
+      replacementLeafId: 9
+    })
+    expect(mockedQuery.mock.calls[0]).toEqual([
+      "SELECT sessionId, parentId FROM messages WHERE id = ?",
+      [10]
+    ])
+    expect(mockedQuery.mock.calls[1]?.[0]).toContain(
+      "WITH RECURSIVE descendants"
+    )
+    expect(mockedQuery.mock.calls[1]?.[1]).toEqual([10, "s1", "s1"])
+    expect(mockedRun.mock.calls).toEqual([
+      ["BEGIN IMMEDIATE"],
+      ["UPDATE sessions SET currentLeafId = ? WHERE id = ?", [9, "s1"]],
+      ["DELETE FROM files WHERE messageId IN (?, ?, ?)", [10, 11, 12]],
+      ["DELETE FROM messages WHERE id IN (?, ?, ?)", [10, 11, 12]],
+      ["COMMIT"]
+    ])
   })
 
-  it("bulkDeleteMessages builds an IN clause", async () => {
-    mockedRun.mockResolvedValueOnce(undefined)
-    await repo.bulkDeleteMessages([10, 20, 30])
-    const [sql, params] = mockedRun.mock.calls[0]
-    expect(sql).toBe("DELETE FROM messages WHERE id IN (?, ?, ?)")
-    expect(params).toEqual([10, 20, 30])
+  it("leaves the session leaf unchanged when deleting an inactive branch", async () => {
+    mockedQuery
+      .mockResolvedValueOnce([{ sessionId: "s1", parentId: null }])
+      .mockResolvedValueOnce([{ id: 10 }, { id: 11 }])
+      .mockResolvedValueOnce([{ currentLeafId: 20 }])
+
+    const result = await repo.deleteMessageSubtree(10)
+
+    expect(result).toEqual({
+      sessionId: "s1",
+      messageIds: [10, 11],
+      repairedLeaf: false
+    })
+    expect(mockedRun.mock.calls).toEqual([
+      ["BEGIN IMMEDIATE"],
+      ["DELETE FROM files WHERE messageId IN (?, ?)", [10, 11]],
+      ["DELETE FROM messages WHERE id IN (?, ?)", [10, 11]],
+      ["COMMIT"]
+    ])
+  })
+
+  it("rolls back the whole subtree delete when a statement fails", async () => {
+    mockedQuery
+      .mockResolvedValueOnce([{ sessionId: "s1", parentId: 9 }])
+      .mockResolvedValueOnce([{ id: 10 }, { id: 11 }])
+      .mockResolvedValueOnce([{ currentLeafId: 11 }])
+    mockedRun.mockImplementation(async (sql) => {
+      if (sql.startsWith("DELETE FROM messages")) {
+        throw new Error("delete failed")
+      }
+    })
+
+    await expect(repo.deleteMessageSubtree(10)).rejects.toThrow("delete failed")
+    expect(mockedRun.mock.calls.at(-1)).toEqual(["ROLLBACK"])
+    expect(mockedRun).not.toHaveBeenCalledWith("COMMIT")
+  })
+
+  it("commits a no-op when the subtree root no longer exists", async () => {
+    mockedQuery.mockResolvedValueOnce([])
+
+    await expect(repo.deleteMessageSubtree(10)).resolves.toBeUndefined()
+    expect(mockedRun.mock.calls).toEqual([["BEGIN IMMEDIATE"], ["COMMIT"]])
   })
 
   it("finalizeInterruptedMessages returns 0 and runs no UPDATE when none are in-flight", async () => {
