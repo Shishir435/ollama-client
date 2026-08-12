@@ -379,6 +379,44 @@ describe("IngestionService", () => {
     expect(mocks.payloads.has(run.id)).toBe(true)
   })
 
+  it("does not let recovery cancel an ingestion already owned by submit", async () => {
+    let finishEmbedding: () => void = () => undefined
+    mocks.processKnowledge.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishEmbedding = () =>
+            resolve({
+              success: true,
+              vectorIds: [1],
+              chunkCount: 1
+            })
+        })
+    )
+    const submitted = await IngestionService.submit(stageRequest())
+    await vi.waitFor(() =>
+      expect(mocks.processKnowledge).toHaveBeenCalledOnce()
+    )
+    const controller = new AbortController()
+
+    const recovery = IngestionService.resumeIncomplete(controller.signal)
+    controller.abort()
+    await Promise.resolve()
+
+    await expect(IngestionService.get(submitted.jobId)).resolves.toMatchObject({
+      status: "running",
+      phase: "embedding"
+    })
+    expect(mocks.removeFile).not.toHaveBeenCalled()
+    expect(mocks.payloads.has(submitted.jobId)).toBe(true)
+
+    finishEmbedding()
+    await expect(recovery).rejects.toMatchObject({ name: "AbortError" })
+    await expect(IngestionService.get(submitted.jobId)).resolves.toMatchObject({
+      status: "completed",
+      phase: "completed"
+    })
+  })
+
   it("recovers and parses a staged raw file without a submitted receipt", async () => {
     const jobId = "00000000-0000-4000-8000-000000000099"
     mocks.payloads.set(jobId, {

@@ -249,10 +249,10 @@ const start = (
   recoverySignal?: AbortSignal
 ): Promise<void> => {
   const active = activeIngestions.get(run.id)
-  if (active) {
-    const stopForwarding = forwardAbort(recoverySignal, active.controller)
-    return active.promise.finally(stopForwarding)
-  }
+  // An existing execution was created by submit/retry and owns its controller.
+  // Recovery may join that work, but its deadline must not gain cancellation
+  // authority over a user-owned attempt or turn timeout into terminal intent.
+  if (active) return active.promise
 
   const controller = new AbortController()
   const stopForwarding = forwardAbort(recoverySignal, controller)

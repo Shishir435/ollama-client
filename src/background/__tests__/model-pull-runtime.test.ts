@@ -145,6 +145,47 @@ describe("ModelPullService", () => {
     })
   })
 
+  it("does not let recovery cancel a pull already owned by submit", async () => {
+    let finishPull: () => Promise<void> = async () => undefined
+    let isCancelled: () => boolean = () => true
+    mocks.consume.mockImplementationOnce(
+      async (_response, options) =>
+        new Promise<void>((resolve) => {
+          isCancelled = options.isCancelled
+          finishPull = async () => {
+            await options.onEvent({
+              version: 1,
+              type: "model_pull_complete",
+              status: "success"
+            })
+            resolve()
+          }
+        })
+    )
+    const submitted = await ModelPullService.submit({
+      model: "llama3",
+      providerId: "ollama"
+    })
+    await vi.waitFor(() => expect(mocks.consume).toHaveBeenCalledOnce())
+    const controller = new AbortController()
+
+    const recovery = ModelPullService.resumeIncomplete(controller.signal)
+    controller.abort()
+    await Promise.resolve()
+
+    expect(isCancelled()).toBe(false)
+    await expect(ModelPullService.get(submitted.jobId)).resolves.toMatchObject({
+      status: "running"
+    })
+
+    await finishPull()
+    await expect(recovery).rejects.toMatchObject({ name: "AbortError" })
+    await expect(ModelPullService.get(submitted.jobId)).resolves.toMatchObject({
+      status: "completed",
+      progress: 100
+    })
+  })
+
   it("deduplicates active downloads for the same provider and model", async () => {
     mocks.consume.mockImplementation(
       async (_response, options) =>

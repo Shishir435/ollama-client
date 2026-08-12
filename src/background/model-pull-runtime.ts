@@ -206,10 +206,10 @@ const start = (
   recoverySignal?: AbortSignal
 ): Promise<void> => {
   const active = activePulls.get(run.id)
-  if (active) {
-    const stopForwarding = forwardAbort(recoverySignal, active.controller)
-    return active.promise.finally(stopForwarding)
-  }
+  // A pull already started through submit owns its controller. Startup may
+  // await it, but cannot borrow cancellation authority and reinterpret a
+  // recovery timeout as the user's request to cancel the download.
+  if (active) return active.promise
   const controller = new AbortController()
   const stopForwarding = forwardAbort(recoverySignal, controller)
   const promise = execute(run, controller, recoverySignal).finally(() => {
