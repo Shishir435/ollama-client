@@ -334,11 +334,16 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "Per-model tool-family overrides are portable preferences keyed by provider+model."
   },
-  [STORAGE_KEYS.KNOWLEDGE.ACTIVE_SET]: {
-    key: STORAGE_KEYS.KNOWLEDGE.ACTIVE_SET,
-    scope: "sync-safe",
-    reason: "Active knowledge-set preference."
-  },
+  ...Object.fromEntries(
+    Object.values(STORAGE_KEYS.KNOWLEDGE).map((key) => [
+      key,
+      {
+        key,
+        scope: "sync-safe" as const,
+        reason: "User preference for knowledge configuration."
+      }
+    ])
+  ),
   [STORAGE_KEYS.BACKGROUND.SCHEDULED_JOBS]: {
     key: STORAGE_KEYS.BACKGROUND.SCHEDULED_JOBS,
     scope: "device-local",

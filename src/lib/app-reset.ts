@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
@@ -14,7 +15,32 @@ import {
 } from "@/lib/providers/provider-secret-store"
 import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
-export type ResetKey = keyof ReturnType<typeof getAllResetKeys> | "all"
+export type ResetKey =
+  | Extract<keyof ReturnType<typeof getAllResetKeys>, string>
+  | "all"
+
+const ResetKeySchema = z
+  .string()
+  .refine(
+    (value): value is ResetKey =>
+      value === "all" || Object.hasOwn(getAllResetKeys(), value),
+    "Unknown reset key"
+  )
+const SidePanelWindowIdsSchema = z.array(z.number().int().nonnegative())
+const PendingResetSchema = z.object({
+  key: ResetKeySchema,
+  reopenUrl: z.string().min(1).optional(),
+  sidePanelWindowIds: SidePanelWindowIdsSchema.optional()
+})
+const ReopenOptionsSchema = z.object({
+  url: z.string().min(1),
+  sidePanelWindowIds: SidePanelWindowIdsSchema.optional()
+})
+const ResetFailureRecordSchema = z.object({
+  key: ResetKeySchema,
+  error: z.string(),
+  at: z.number().finite().nonnegative()
+})
 
 /**
  * Destructive resets (chat database, full wipe) must not run while extension
@@ -67,6 +93,9 @@ const getOpenSidePanelWindowIds = async (): Promise<number[]> => {
  * "CHAT_SESSIONS") should go through scheduleDestructiveReset() instead.
  */
 export const performAppReset = async (key: ResetKey): Promise<void> => {
+  const parsedKey = ResetKeySchema.safeParse(key)
+  if (!parsedKey.success) throw new Error(`Invalid reset key: ${String(key)}`)
+  key = parsedKey.data
   const allKeys = getAllResetKeys()
 
   if (key === "all" || key === "CHAT_SESSIONS") {
@@ -110,11 +139,11 @@ export const scheduleDestructiveReset = async (
   key: ResetKey,
   reopenUrl?: string
 ): Promise<void> => {
-  const pending: PendingReset = {
+  const pending: PendingReset = PendingResetSchema.parse({
     key,
     reopenUrl,
     sidePanelWindowIds: await getOpenSidePanelWindowIds()
-  }
+  })
   await browser.storage.local.set({
     [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: pending
   })
@@ -127,10 +156,10 @@ export const scheduleDestructiveReset = async (
  * context and need a clean restart without looking like a crash.
  */
 export const scheduleReloadWithReopen = async (url: string): Promise<void> => {
-  const reopen: ReopenOptions = {
+  const reopen: ReopenOptions = ReopenOptionsSchema.parse({
     url,
     sidePanelWindowIds: await getOpenSidePanelWindowIds()
-  }
+  })
   await browser.storage.local.set({
     [STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS]: reopen
   })
@@ -198,19 +227,25 @@ export const resumePendingAppLifecycle = async (): Promise<void> => {
     STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS
   ])
 
-  const pending = stored[STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET] as
-    | PendingReset
-    | undefined
-  const reopen = stored[STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS] as
-    | ReopenOptions
-    | undefined
+  const rawPending = stored[STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]
+  const rawReopen = stored[STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS]
+  const parsedPending = PendingResetSchema.safeParse(rawPending)
+  const parsedReopen = ReopenOptionsSchema.safeParse(rawReopen)
+  const pending = parsedPending.success ? parsedPending.data : undefined
+  const reopen = parsedReopen.success ? parsedReopen.data : undefined
 
   // Clear flags first so a crash mid-reset cannot loop the worker.
-  if (pending || reopen) {
+  if (rawPending !== undefined || rawReopen !== undefined) {
     await browser.storage.local.remove([
       STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET,
       STORAGE_KEYS.APP_LIFECYCLE.REOPEN_OPTIONS
     ])
+  }
+  if (rawPending !== undefined && !parsedPending.success) {
+    logger.warn("Discarding invalid pending reset", "AppReset")
+  }
+  if (rawReopen !== undefined && !parsedReopen.success) {
+    logger.warn("Discarding invalid reopen request", "AppReset")
   }
 
   if (pending) {
@@ -259,10 +294,13 @@ export const readAndClearResetFailure =
     const stored = await browser.storage.local.get(
       STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE
     )
-    const record = stored[STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE] as
-      | ResetFailureRecord
-      | undefined
-    if (!record) return null
+    const rawRecord = stored[STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE]
+    if (rawRecord === undefined) return null
     await browser.storage.local.remove(STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE)
-    return record
+    const parsedRecord = ResetFailureRecordSchema.safeParse(rawRecord)
+    if (!parsedRecord.success) {
+      logger.warn("Discarding invalid reset failure record", "AppReset")
+      return null
+    }
+    return parsedRecord.data
   }

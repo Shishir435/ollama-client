@@ -1,9 +1,12 @@
+import { z } from "zod"
 import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import {
   plasmoDeviceStorage,
   plasmoGlobalStorage
 } from "@/lib/plasmo-global-storage"
+import { ProviderConfigSchema } from "@/lib/providers/provider-config-schema"
 import {
   persistProviderConfigsUnlocked,
   recoverProviderPersistenceUnlocked,
@@ -21,6 +24,15 @@ type BackupImportJournal = {
   previousSync: Record<string, unknown>
   nextProviderConfigs?: ProviderConfig[]
 }
+
+const BackupImportJournalSchema = z.object({
+  version: z.literal(1),
+  phase: z.enum(["prepared", "settings-applied", "committed"]),
+  previousSync: z.record(z.string(), z.unknown()),
+  nextProviderConfigs: z.array(ProviderConfigSchema).optional()
+})
+
+const ProviderSecretsSchema = z.record(z.string().min(1), z.string())
 
 const getSyncSnapshot = async (): Promise<Record<string, unknown>> =>
   (await browser.storage.sync.get(getImportResetStorageKeys())) as Record<
@@ -66,18 +78,22 @@ const providerCommitMatches = async (
 ): Promise<boolean> => {
   signal?.throwIfAborted()
   const [publicConfigs, secrets] = await Promise.all([
-    plasmoGlobalStorage.get<ProviderConfig[]>(ProviderStorageKey.CONFIG),
-    plasmoDeviceStorage.get<Record<string, string>>(
-      STORAGE_KEYS.PROVIDER.SECRETS
-    )
+    plasmoGlobalStorage.get<unknown>(ProviderStorageKey.CONFIG),
+    plasmoDeviceStorage.get<unknown>(STORAGE_KEYS.PROVIDER.SECRETS)
   ])
   signal?.throwIfAborted()
+  const parsedPublicConfigs = z
+    .array(ProviderConfigSchema)
+    .safeParse(publicConfigs)
+  const parsedSecrets = ProviderSecretsSchema.safeParse(secrets ?? {})
+  if (!parsedPublicConfigs.success || !parsedSecrets.success) return false
   const expectedPublicConfigs = nextProviderConfigs.map(
     ({ apiKey: _apiKey, ...provider }) => provider
   )
   return (
-    JSON.stringify(publicConfigs) === JSON.stringify(expectedPublicConfigs) &&
-    Object.keys(secrets ?? {}).length === 0
+    JSON.stringify(parsedPublicConfigs.data) ===
+      JSON.stringify(expectedPublicConfigs) &&
+    Object.keys(parsedSecrets.data).length === 0
   )
 }
 
@@ -86,11 +102,18 @@ export const recoverBackupImportUnlocked = async (
   signal?: AbortSignal
 ): Promise<void> => {
   signal?.throwIfAborted()
-  const journal = await plasmoDeviceStorage.get<BackupImportJournal>(
+  const storedJournal = await plasmoDeviceStorage.get<unknown>(
     STORAGE_KEYS.BACKUP.IMPORT_JOURNAL
   )
   signal?.throwIfAborted()
-  if (!journal) return
+  if (storedJournal === undefined || storedJournal === null) return
+  const parsedJournal = BackupImportJournalSchema.safeParse(storedJournal)
+  if (!parsedJournal.success) {
+    logger.warn("Discarding invalid backup import journal", "Backup")
+    await plasmoDeviceStorage.remove(STORAGE_KEYS.BACKUP.IMPORT_JOURNAL)
+    return
+  }
+  const journal: BackupImportJournal = parsedJournal.data
 
   const canFinalize =
     journal.phase === "committed" ||
