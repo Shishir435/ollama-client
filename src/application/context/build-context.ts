@@ -16,7 +16,6 @@ import {
   formatEnhancedResults,
   retrieveContextEnhanced
 } from "@/application/context/rag/rag-pipeline"
-import { STORAGE_KEYS } from "@/lib/constants"
 import {
   DEFAULT_KNOWLEDGE_SET_ID,
   DEFAULT_RAG_PROMPT,
@@ -25,9 +24,10 @@ import {
   type KnowledgeSetRecord
 } from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type {
   ActivityEvent,
   RagSource,
@@ -280,9 +280,7 @@ export const buildRagContext = async (
     })
   }
 
-  const useRag =
-    (await plasmoGlobalStorage.get<boolean>(STORAGE_KEYS.EMBEDDINGS.USE_RAG)) ??
-    true
+  const useRag = await readSetting(SETTINGS.USE_RAG)
 
   let ragInstruction = DEFAULT_RAG_PROMPT
   let ragInstructionAdded = false

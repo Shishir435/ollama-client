@@ -3,16 +3,13 @@ import type { SelectionActionMessage } from "@/application/selection-actions/typ
 import { setAbortController } from "@/background/lib/abort-controller-registry"
 import { normalizeError } from "@/background/lib/error-handler"
 import { safePostChatStreamEvent } from "@/background/lib/utils"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
+import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import {
-  parseStoredModelConfigMap,
-  resolveModelConfig
-} from "@/lib/model-config-utils"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { resolveModelConfig } from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
-import { isSelectedModelRef } from "@/lib/providers/selected-model"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ChromePort, PortStatusFunction } from "@/types"
 
 export const handleSelectionAction = async (
@@ -20,19 +17,13 @@ export const handleSelectionAction = async (
   port: ChromePort,
   isPortClosed: PortStatusFunction
 ) => {
-  const selectedRef = await plasmoGlobalStorage.get<unknown>(
-    STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF
-  )
-  const fallbackModel = await plasmoGlobalStorage.get<string>(
-    STORAGE_KEYS.PROVIDER.SELECTED_MODEL
-  )
+  const selectedRef = await readSetting(SETTINGS.SELECTED_MODEL_REF)
+  const fallbackModel = await readSetting(SETTINGS.SELECTED_MODEL)
 
   const model =
-    msg.payload.model ||
-    (isSelectedModelRef(selectedRef) ? selectedRef.modelId : fallbackModel)
+    msg.payload.model || (selectedRef ? selectedRef.modelId : fallbackModel)
   const providerId =
-    msg.payload.providerId ||
-    (isSelectedModelRef(selectedRef) ? selectedRef.providerId : undefined)
+    msg.payload.providerId || (selectedRef ? selectedRef.providerId : undefined)
 
   if (!model) {
     safePostChatStreamEvent(port, {
@@ -53,11 +44,7 @@ export const handleSelectionAction = async (
   setAbortController(abortKey, ac)
 
   try {
-    const modelConfigMap = parseStoredModelConfigMap(
-      await plasmoGlobalStorage.get<unknown>(
-        STORAGE_KEYS.PROVIDER.MODEL_CONFIGS
-      )
-    )
+    const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
     const modelParams = resolveModelConfig(modelConfigMap[model])
     const provider = await ProviderFactory.getProviderForModel(
       model,

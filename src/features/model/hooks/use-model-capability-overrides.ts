@@ -16,7 +16,7 @@ import {
   modelCapabilityOverrideKey,
   setModelCapabilityOverride
 } from "@/lib/providers/model-capability-overrides"
-import { SETTINGS } from "@/lib/storage/settings"
+import { POLICY_SETTINGS } from "@/lib/storage/policy-settings"
 import type { ProviderModel } from "@/types"
 
 /**
@@ -26,8 +26,8 @@ import type { ProviderModel } from "@/types"
  * so the prune/merge rules stay in one place.
  */
 export const useModelCapabilityOverrides = () => {
-  const [overrides] = useSetting(SETTINGS.MODEL_CAPABILITY_OVERRIDES)
-  const [probes] = useSetting(SETTINGS.MODEL_CAPABILITY_PROBES)
+  const [overrides] = useSetting(POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES)
+  const [probes] = useSetting(POLICY_SETTINGS.MODEL_CAPABILITY_PROBES)
 
   const getOverride = useCallback(
     (providerId: string, modelName: string): ModelCapabilityOverride | null =>

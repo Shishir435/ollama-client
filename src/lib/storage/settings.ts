@@ -16,16 +16,19 @@ import {
   DEFAULT_PROVIDER_CATALOG_REFRESH_MS,
   DEFAULT_TABS_ACCESS,
   type EmbeddingConfig,
+  MAX_MAX_RESTORE_SESSIONS,
+  MIN_MAX_RESTORE_SESSIONS,
   STORAGE_KEYS
 } from "@/lib/constants"
-import type { StoredModelConfigMap } from "@/lib/model-config-utils"
+import {
+  ModelConfigMapSchema,
+  type StoredModelConfigMap
+} from "@/lib/model-config-utils"
 import {
   DEFAULT_PER_SITE_PROFILE_SETTINGS,
-  type PerSiteProfileSettings
-} from "@/lib/per-site-profiles"
-import type { CapabilityProbeMap } from "@/lib/providers/capability-probe"
-import type { ModelCapabilityOverrideMap } from "@/lib/providers/model-capability-overrides"
-import type { ApprovalGrantMap } from "@/lib/tools/approval/approval-grants"
+  type PerSiteProfileSettings,
+  PerSiteProfileSettingsSchema
+} from "@/lib/per-site-profile-settings"
 import {
   DEFAULT_WEB_SEARCH_CONFIG,
   type WebSearchProviderConfig,
@@ -37,6 +40,12 @@ import type {
   SelectedModelRef
 } from "@/types"
 import { defineSetting } from "./setting-descriptor"
+import {
+  ContentExtractionConfigSchema,
+  EmbeddingConfigSchema,
+  FileUploadConfigSchema,
+  SelectedModelRefSchema
+} from "./setting-schemas"
 
 export const SETTINGS = {
   LANGUAGE: defineSetting<string>(STORAGE_KEYS.LANGUAGE, {
@@ -47,7 +56,7 @@ export const SETTINGS = {
   }),
   SELECTED_MODEL_REF: defineSetting<SelectedModelRef | null>(
     STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF,
-    { defaultValue: null }
+    { defaultValue: null, parser: SelectedModelRefSchema }
   ),
   SELECTION_CONFLICT_MODEL: defineSetting<string | null>(
     STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL,
@@ -55,7 +64,7 @@ export const SETTINGS = {
   ),
   MODEL_CONFIGS: defineSetting<StoredModelConfigMap>(
     STORAGE_KEYS.PROVIDER.MODEL_CONFIGS,
-    { defaultValue: {} }
+    { defaultValue: {}, parser: ModelConfigMapSchema }
   ),
   PROVIDER_FAVICON_LOOKUP: defineSetting<boolean>(
     STORAGE_KEYS.PROVIDER.FAVICON_LOOKUP,
@@ -66,11 +75,15 @@ export const SETTINGS = {
     { defaultValue: DEFAULT_PROVIDER_CATALOG_REFRESH_MS }
   ),
   TABS_ACCESS: defineSetting<boolean>(STORAGE_KEYS.BROWSER.TABS_ACCESS, {
-    defaultValue: DEFAULT_TABS_ACCESS
+    defaultValue: DEFAULT_TABS_ACCESS,
+    parser: z.boolean()
   }),
   CONTENT_EXTRACTION_CONFIG: defineSetting<ContentExtractionConfig>(
     STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG,
-    { defaultValue: DEFAULT_CONTENT_EXTRACTION_CONFIG }
+    {
+      defaultValue: DEFAULT_CONTENT_EXTRACTION_CONFIG,
+      parser: ContentExtractionConfigSchema
+    }
   ),
   EXCLUDE_URL_PATTERNS: defineSetting<string[]>(
     STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS,
@@ -78,11 +91,25 @@ export const SETTINGS = {
   ),
   PER_SITE_PROFILES: defineSetting<PerSiteProfileSettings>(
     STORAGE_KEYS.BROWSER.PER_SITE_PROFILES,
-    { defaultValue: DEFAULT_PER_SITE_PROFILE_SETTINGS }
+    {
+      defaultValue: DEFAULT_PER_SITE_PROFILE_SETTINGS,
+      parser: PerSiteProfileSettingsSchema
+    }
   ),
   MAX_RESTORE_SESSIONS: defineSetting<number>(
     STORAGE_KEYS.BROWSER.MAX_RESTORE_SESSIONS,
-    { defaultValue: DEFAULT_MAX_RESTORE_SESSIONS }
+    {
+      defaultValue: DEFAULT_MAX_RESTORE_SESSIONS,
+      parser: z
+        .number()
+        .finite()
+        .transform((value) =>
+          Math.max(
+            MIN_MAX_RESTORE_SESSIONS,
+            Math.min(MAX_MAX_RESTORE_SESSIONS, Math.floor(value))
+          )
+        )
+    }
   ),
   EMBEDDING_SELECTED_MODEL: defineSetting<string>(
     STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
@@ -90,17 +117,19 @@ export const SETTINGS = {
   ),
   EMBEDDING_CONFIG: defineSetting<EmbeddingConfig>(
     STORAGE_KEYS.EMBEDDINGS.CONFIG,
-    { defaultValue: DEFAULT_EMBEDDING_CONFIG }
+    { defaultValue: DEFAULT_EMBEDDING_CONFIG, parser: EmbeddingConfigSchema }
   ),
   USE_RAG: defineSetting<boolean>(STORAGE_KEYS.EMBEDDINGS.USE_RAG, {
-    defaultValue: true
+    defaultValue: true,
+    parser: z.boolean()
   }),
   MEMORY_ENABLED: defineSetting<boolean>(STORAGE_KEYS.MEMORY.ENABLED, {
-    defaultValue: DEFAULT_MEMORY_ENABLED
+    defaultValue: DEFAULT_MEMORY_ENABLED,
+    parser: z.boolean()
   }),
   FILE_UPLOAD_CONFIG: defineSetting<FileUploadConfig>(
     STORAGE_KEYS.FILE_UPLOAD.CONFIG,
-    { defaultValue: DEFAULT_FILE_UPLOAD_CONFIG }
+    { defaultValue: DEFAULT_FILE_UPLOAD_CONFIG, parser: FileUploadConfigSchema }
   ),
   MAX_IMAGE_SIZE_MB: defineSetting<number>(STORAGE_KEYS.IMAGES.MAX_SIZE_MB, {
     defaultValue: DEFAULT_MAX_IMAGE_SIZE_MB
@@ -144,17 +173,12 @@ export const SETTINGS = {
   TTS_VOICE_URI: defineSetting<string>(STORAGE_KEYS.TTS.VOICE_URI, {
     defaultValue: ""
   }),
-  MODEL_CAPABILITY_OVERRIDES: defineSetting<ModelCapabilityOverrideMap>(
-    STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES,
-    { defaultValue: {} }
-  ),
-  MODEL_CAPABILITY_PROBES: defineSetting<CapabilityProbeMap>(
-    STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES,
-    { defaultValue: {} }
-  ),
-  APPROVAL_GRANTS: defineSetting<ApprovalGrantMap>(
-    STORAGE_KEYS.TOOLS.APPROVAL_GRANTS,
-    { defaultValue: {} }
+  SETTINGS_LEVEL: defineSetting<"basic" | "power" | "advanced">(
+    STORAGE_KEYS.UI.SETTINGS_LEVEL,
+    {
+      defaultValue: "basic",
+      parser: z.enum(["basic", "power", "advanced"])
+    }
   ),
   WEB_SEARCH_ACTIVE: defineSetting<boolean>(STORAGE_KEYS.WEB_SEARCH.ACTIVE, {
     defaultValue: true,

@@ -9,17 +9,8 @@ import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
 import { safePostChatStreamEvent } from "@/background/lib/utils"
-import {
-  DEFAULT_MAX_RAG_CONTEXT_CHARS,
-  DEFAULT_MEMORY_ENABLED,
-  STORAGE_KEYS
-} from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import {
-  parseStoredModelConfigMap,
-  resolveModelConfig
-} from "@/lib/model-config-utils"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { resolveModelConfig } from "@/lib/model-config-utils"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
@@ -30,6 +21,8 @@ import {
   saveToolLoopRun,
   type ToolLoopMode
 } from "@/lib/repositories/tool-loop-runs"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 import type {
   ChatMessage,
@@ -82,20 +75,14 @@ export const handleChatWithModel = withErrorContext(
     const ac = new AbortController()
     setAbortController(abortKey, ac)
 
-    const modelConfigMap = parseStoredModelConfigMap(
-      await plasmoGlobalStorage.get<unknown>(
-        STORAGE_KEYS.PROVIDER.MODEL_CONFIGS
-      )
-    )
+    const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
     const modelParams = resolveModelConfig(modelConfigMap[model])
 
     const limitedMessages = limitMessagesForModel(model, messages)
     const preparedMessages = [...limitedMessages]
 
     // --- System Prompt & Context Injection ---
-    const isMemoryEnabled =
-      (await plasmoGlobalStorage.get<boolean>(STORAGE_KEYS.MEMORY.ENABLED)) ??
-      DEFAULT_MEMORY_ENABLED
+    const isMemoryEnabled = await readSetting(SETTINGS.MEMORY_ENABLED)
     // A per-chat system prompt override, when set, replaces the model's
     // configured prompt for this session only. Empty/whitespace is ignored, and
     // a failed read degrades to the model default rather than breaking the turn.
@@ -181,10 +168,7 @@ export const handleChatWithModel = withErrorContext(
           // Enforce the prompt-budget ceiling (same setting the client RAG path
           // uses) so a large set of recalled memories can't blow the model's
           // context window. `<= 0` means unlimited.
-          const maxRagChars =
-            (await plasmoGlobalStorage.get<number>(
-              STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS
-            )) ?? DEFAULT_MAX_RAG_CONTEXT_CHARS
+          const maxRagChars = await readSetting(SETTINGS.MAX_RAG_CONTEXT_CHARS)
           const truncationMarker = "\n\n[Context truncated due to length]"
           const cappedContext =
             maxRagChars > 0 && formattedContext.length > maxRagChars
@@ -303,10 +287,9 @@ export const handleChatWithModel = withErrorContext(
     try {
       if (resolvedTools && resolvedTools.tools.length > 0) {
         const { getToolRegistry } = await import("@/lib/tools")
-        const toolResultMaxChars =
-          (await plasmoGlobalStorage.get<number>(
-            STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS
-          )) ?? undefined
+        const toolResultMaxChars = await readSetting(
+          SETTINGS.MAX_TOOL_RESULT_CHARS
+        )
         const ctx = {
           signal: ac.signal,
           sessionId: msg.payload.sessionId,

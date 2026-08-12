@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
-import {
-  plasmoGlobalStorage,
-  setPlasmoStoredValue
-} from "@/lib/plasmo-global-storage"
+import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
   checkEmbeddingModelExists,
   downloadEmbeddingModelSilently
@@ -21,10 +18,6 @@ vi.mock("@/background/lib/utils", () => ({
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
-    set: vi.fn(),
-    get: vi.fn()
-  },
   setPlasmoStoredValue: vi.fn()
 }))
 
@@ -212,7 +205,7 @@ describe("Handle Embedding Download", () => {
         STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED,
         true
       )
-      expect(plasmoGlobalStorage.set).toHaveBeenCalledWith(
+      expect(setPlasmoStoredValue).toHaveBeenCalledWith(
         STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
         "nomic-embed-text"
       )
@@ -279,10 +272,10 @@ describe("Handle Embedding Download", () => {
         .mockResolvedValueOnce(createMockResponse(null))
 
       let finishSelectedModelWrite: (() => void) | undefined
-      vi.mocked(plasmoGlobalStorage.set).mockImplementationOnce(
+      vi.mocked(setPlasmoStoredValue).mockImplementationOnce(
         () =>
-          new Promise<null>((resolve) => {
-            finishSelectedModelWrite = () => resolve(null)
+          new Promise<void>((resolve) => {
+            finishSelectedModelWrite = () => resolve()
           })
       )
 
@@ -293,7 +286,7 @@ describe("Handle Embedding Download", () => {
       )
 
       await vi.waitFor(() =>
-        expect(plasmoGlobalStorage.set).toHaveBeenCalledWith(
+        expect(setPlasmoStoredValue).toHaveBeenCalledWith(
           STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
           "nomic-embed-text"
         )
@@ -307,9 +300,9 @@ describe("Handle Embedding Download", () => {
         true
       )
       expect(
-        vi.mocked(plasmoGlobalStorage.set).mock.invocationCallOrder[0]
+        vi.mocked(setPlasmoStoredValue).mock.invocationCallOrder[0]
       ).toBeLessThan(
-        vi.mocked(setPlasmoStoredValue).mock.invocationCallOrder[0] as number
+        vi.mocked(setPlasmoStoredValue).mock.invocationCallOrder[1] as number
       )
     })
   })

@@ -18,7 +18,7 @@ vi.mock("@/lib/providers/manager", () => ({
   ProviderManager: { getProviderConfig: mocks.getProviderConfig }
 }))
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: { get: mocks.storageGet }
+  getPlasmoStoredValue: mocks.storageGet
 }))
 vi.mock("@/lib/providers/provider-policy", () => ({
   assertProviderEnabled: mocks.assertProviderEnabled

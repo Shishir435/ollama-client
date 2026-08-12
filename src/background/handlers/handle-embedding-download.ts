@@ -13,15 +13,14 @@ import {
 } from "@/lib/constants"
 import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import {
-  plasmoGlobalStorage,
-  setPlasmoStoredValue
-} from "@/lib/plasmo-global-storage"
+import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import {
   discoverProviderModels,
   type ModelCatalogVerdict
 } from "@/lib/providers/model-discovery"
+import { writeSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { DefaultProviderPullRequest } from "@/types"
 
 const abortError = (signal: AbortSignal): Error =>
@@ -54,10 +53,7 @@ const commitDownloadedEmbeddingModel = async (
   // abortable, so once this pair starts it must finish without observing
   // cancellation between writes. If the second write fails, the model may be
   // selected but the preparation is not falsely recorded as complete.
-  await plasmoGlobalStorage.set(
-    STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
-    modelName
-  )
+  await writeSetting(SETTINGS.EMBEDDING_SELECTED_MODEL, modelName)
   await setPlasmoStoredValue(STORAGE_KEYS.EMBEDDINGS.AUTO_DOWNLOADED, true)
 
   // Preserve cancellation semantics for the RPC caller after state is

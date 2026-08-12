@@ -1,8 +1,5 @@
-import { STORAGE_KEYS } from "@/lib/constants"
-import {
-  getPlasmoStoredValue,
-  setPlasmoStoredValue
-} from "@/lib/plasmo-global-storage"
+import { POLICY_SETTINGS } from "@/lib/storage/policy-settings"
+import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { approvalGrantKey } from "./approval-policy"
 
 /**
@@ -20,11 +17,8 @@ export interface ApprovalGrant {
 
 export type ApprovalGrantMap = Record<string, ApprovalGrant>
 
-const STORAGE_KEY = STORAGE_KEYS.TOOLS.APPROVAL_GRANTS
-
 export const getAllApprovalGrants = async (): Promise<ApprovalGrantMap> => {
-  const stored = await getPlasmoStoredValue<ApprovalGrantMap>(STORAGE_KEY)
-  return stored ?? {}
+  return { ...(await readSetting(POLICY_SETTINGS.APPROVAL_GRANTS)) }
 }
 
 export const hasAlwaysGrant = async (
@@ -46,17 +40,17 @@ export const addAlwaysGrant = async (
     origin: origin || "*",
     grantedAt: Date.now()
   }
-  await setPlasmoStoredValue(STORAGE_KEY, all)
+  await writeSetting(POLICY_SETTINGS.APPROVAL_GRANTS, all)
 }
 
 export const revokeApprovalGrant = async (key: string): Promise<void> => {
   const all = await getAllApprovalGrants()
   if (key in all) {
     delete all[key]
-    await setPlasmoStoredValue(STORAGE_KEY, all)
+    await writeSetting(POLICY_SETTINGS.APPROVAL_GRANTS, all)
   }
 }
 
 export const clearAllApprovalGrants = async (): Promise<void> => {
-  await setPlasmoStoredValue(STORAGE_KEY, {})
+  await writeSetting(POLICY_SETTINGS.APPROVAL_GRANTS, {})
 }
