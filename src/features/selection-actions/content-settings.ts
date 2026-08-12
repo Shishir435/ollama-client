@@ -7,6 +7,24 @@ import { SELECTION_ACTION_SETTINGS } from "@/lib/storage/selection-action-settin
 import { readSetting } from "@/lib/storage/setting-access"
 import type { ProviderModel } from "@/types"
 
+/** Apply only the newest completed async refresh; older reads become no-ops. */
+export const createLatestSelectionConfigRefresh = <T>(
+  load: () => Promise<T>,
+  apply: (value: T) => void
+) => {
+  let generation = 0
+  return {
+    run: async (): Promise<void> => {
+      const current = ++generation
+      const value = await load()
+      if (current === generation) apply(value)
+    },
+    invalidate: () => {
+      generation++
+    }
+  }
+}
+
 export async function syncSelectionLanguage() {
   const stored = await readSetting(SELECTION_ACTION_SETTINGS.LANGUAGE)
   const browserLanguage =

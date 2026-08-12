@@ -3,6 +3,7 @@ import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root"
 import { defineContentScript } from "wxt/utils/define-content-script"
 import {
   applyStoredTheme,
+  createLatestSelectionConfigRefresh,
   loadSelectedPanelModel,
   loadSelectionConfig,
   syncSelectionLanguage
@@ -95,9 +96,13 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
       })
 
       // ── Config / model helpers ───────────────────────────────────────
-      const updateConfig = async () => {
-        configRef.current = await loadSelectionConfig()
-      }
+      const configRefresh = createLatestSelectionConfigRefresh(
+        loadSelectionConfig,
+        (config) => {
+          configRef.current = config
+          if (!config.selectionActionsEnabled) hide()
+        }
+      )
       const syncPanelModel = async () => {
         const selected = await loadSelectedPanelModel(panelModelRef.current)
         panelModelRef.current = selected.model
@@ -184,7 +189,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
 
       // ── Bootstrap ────────────────────────────────────────────────────
       await Promise.all([
-        updateConfig(),
+        configRefresh.run(),
         syncPanelModel(),
         syncSelectionLanguage()
       ])
@@ -210,10 +215,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
           }
         },
         [STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG]: () => {
-          void loadSelectionConfig().then((config) => {
-            configRef.current = config
-            if (!config.selectionActionsEnabled) hide()
-          })
+          void configRefresh.run()
         },
         [STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF]: () => {
           panelModelRef.current = ""
@@ -235,6 +237,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
       queueSelectionCheck()
 
       ctx.onInvalidated(() => {
+        configRefresh.invalidate()
         document.removeEventListener(
           "selectionchange",
           queueSelectionCheck,
