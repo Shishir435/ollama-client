@@ -102,6 +102,7 @@ connect through package ports.
 | `manager.ts` | config + model mappings via `ProviderStorageKey` |
 | `selected-model.ts` | active model state |
 | `capabilities.ts` | capability detection and per-flag attribution |
+| `model-lifecycle.ts` | shared lifecycle result normalization and safe provider errors |
 | `ollama.ts`, `lm-studio.ts`, `llama-cpp.ts` | verified built-ins |
 | `openai-compatible.ts` | custom OpenAI-compatible endpoints |
 | `anthropic.ts` | native Claude Messages API |
@@ -125,6 +126,8 @@ The default provider's embedding check is the one remaining direct `/api/tags` f
 The filter reads hostnames, so a public name resolving to a private address still passes, and no extension API closes that — `chrome.dns` is dev-channel only, and resolving before fetching is TOCTOU because `fetch` looks up again. What bounds it is that the response never leaves the device: no credentials are sent, non-image bytes are discarded, and it takes a provider the user already trusts with their prompts. Do not "fix" it by adding a resolve step; the honest mitigation is the off switch. Users can turn the lookup off; doing so also drops what was already fetched.
 
 **Capability detection** resolves in this order, highest first: user override → empirical probe (`capability-probe.ts`) → model metadata → provider default. An unknown capability resolves to `false`; only an override may flip it on. Never enable vision or tool calling on a guess.
+
+**Model lifecycle wires stay in provider adapters.** `LLMProvider.modelLifecycle` is an optional port for loaded-model listing, unload, and warmup. `ModelRpcService` owns RPC policy and warmup cooldowns, but never constructs vendor lifecycle URLs or branches on provider ids. A capability flag and its optional operation must agree; providers without an operation return an unsupported/no-op result rather than receiving an Ollama-shaped request.
 
 Metadata evidence, strongest first:
 
