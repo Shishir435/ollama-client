@@ -32,6 +32,17 @@ interface ActiveIngestion {
 const activeIngestions = new Map<string, ActiveIngestion>()
 const activeFileJobs = new Map<string, string>()
 
+const forwardAbort = (
+  signal: AbortSignal | undefined,
+  controller: AbortController
+): (() => void) => {
+  if (!signal) return () => undefined
+  const abort = () => controller.abort(signal.reason)
+  if (signal.aborted) abort()
+  else signal.addEventListener("abort", abort, { once: true })
+  return () => signal.removeEventListener("abort", abort)
+}
+
 const runFromPayload = (payload: IngestionPayload): IngestionRun => ({
   id: payload.jobId,
   fileId: payload.fileId,
@@ -83,9 +94,15 @@ const checkpoint = async (
   return writeCheckpoint(run, { status, phase, failure }, saveIngestionRun)
 }
 
-const compensate = async (run: IngestionRun): Promise<void> => {
+const compensate = async (
+  run: IngestionRun,
+  signal?: AbortSignal
+): Promise<void> => {
+  signal?.throwIfAborted()
   await deleteVectors({ fileId: run.fileId })
+  signal?.throwIfAborted()
   await removeKnowledgeFile(run.fileId)
+  signal?.throwIfAborted()
 }
 
 const cancelSiblingRun = async (
@@ -116,13 +133,16 @@ const cancelSiblingRun = async (
 
 const execute = async (
   initialRun: IngestionRun,
-  signal: AbortSignal
+  signal: AbortSignal,
+  recoverySignal?: AbortSignal
 ): Promise<void> => {
   let run = initialRun
   try {
     if (run.phase === "compensating") {
-      await compensate(run)
+      await compensate(run, recoverySignal)
+      recoverySignal?.throwIfAborted()
       await ingestionPayloadDb.payloads.delete(run.id)
+      recoverySignal?.throwIfAborted()
       await checkpoint(
         run,
         run.failure ? "failed" : "cancelled",
@@ -142,7 +162,9 @@ const execute = async (
     signal.throwIfAborted()
     if (payload.kind === "raw") {
       run = await checkpoint(run, "running", "parsing")
+      recoverySignal?.throwIfAborted()
       await processStagedIngestion(run.id)
+      recoverySignal?.throwIfAborted()
       payload = await ingestionPayloadDb.payloads.get(run.id)
       if (payload?.kind !== "processed") {
         throw createAppError("File parsing did not produce a durable result", {
@@ -153,6 +175,7 @@ const execute = async (
     }
 
     run = await checkpoint(run, "running", "registering")
+    recoverySignal?.throwIfAborted()
     const { processedFile, contentType } = payload
     await addFileToKnowledgeSet({
       id: run.fileId,
@@ -162,6 +185,7 @@ const execute = async (
       fileSize: processedFile.metadata.fileSize,
       createdAt: processedFile.metadata.processedAt || Date.now()
     })
+    recoverySignal?.throwIfAborted()
 
     if (run.autoEmbed) {
       signal.throwIfAborted()
@@ -169,6 +193,7 @@ const execute = async (
 
       // Recovery and retry always start from a clean vector side of the saga.
       await deleteVectors({ fileId: run.fileId })
+      recoverySignal?.throwIfAborted()
       const embedded = await processKnowledge({
         fileId: run.fileId,
         fileName: processedFile.metadata.fileName,
@@ -187,11 +212,15 @@ const execute = async (
 
     signal.throwIfAborted()
     run = await checkpoint(run, "running", "committing")
+    recoverySignal?.throwIfAborted()
     if (run.autoEmbed) {
       await markKnowledgeFileEmbedded(run.fileId)
     }
     await checkpoint(run, "completed", "completed")
   } catch (error) {
+    // A startup deadline interrupts recovery; it does not cancel the user's
+    // durable job. Leave the last checkpoint resumable for the next worker.
+    if (recoverySignal?.aborted) return
     const cancelled = signal.aborted
     const failure = cancelled ? undefined : getErrorMessage(error)
     try {
@@ -215,14 +244,22 @@ const execute = async (
   }
 }
 
-const start = (run: IngestionRun): Promise<void> => {
+const start = (
+  run: IngestionRun,
+  recoverySignal?: AbortSignal
+): Promise<void> => {
   const active = activeIngestions.get(run.id)
+  // An existing execution was created by submit/retry and owns its controller.
+  // Recovery may join that work, but its deadline must not gain cancellation
+  // authority over a user-owned attempt or turn timeout into terminal intent.
   if (active) return active.promise
 
   const controller = new AbortController()
+  const stopForwarding = forwardAbort(recoverySignal, controller)
   const activeJobId = activeFileJobs.get(run.fileId)
   if (activeJobId && activeJobId !== run.id) {
     const promise = cancelSiblingRun(run, activeJobId).finally(() => {
+      stopForwarding()
       activeIngestions.delete(run.id)
     })
     activeIngestions.set(run.id, { controller, promise })
@@ -230,12 +267,15 @@ const start = (run: IngestionRun): Promise<void> => {
   }
 
   activeFileJobs.set(run.fileId, run.id)
-  const promise = execute(run, controller.signal).finally(() => {
-    activeIngestions.delete(run.id)
-    if (activeFileJobs.get(run.fileId) === run.id) {
-      activeFileJobs.delete(run.fileId)
+  const promise = execute(run, controller.signal, recoverySignal).finally(
+    () => {
+      stopForwarding()
+      activeIngestions.delete(run.id)
+      if (activeFileJobs.get(run.fileId) === run.id) {
+        activeFileJobs.delete(run.fileId)
+      }
     }
-  })
+  )
   activeIngestions.set(run.id, { controller, promise })
   return promise
 }
@@ -313,11 +353,14 @@ export const IngestionService = {
     return resultFromRun(run)
   },
 
-  async resumeIncomplete(): Promise<void> {
+  async resumeIncomplete(signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
     const now = Date.now()
     const payloads = await ingestionPayloadDb.payloads.toArray()
     for (const payload of payloads) {
+      signal?.throwIfAborted()
       const existing = await getIngestionRun(payload.jobId)
+      signal?.throwIfAborted()
       if (!existing) {
         await saveIngestionRun(runFromPayload(payload))
         continue
@@ -329,7 +372,10 @@ export const IngestionService = {
         await ingestionPayloadDb.payloads.delete(payload.jobId)
       }
     }
+    signal?.throwIfAborted()
     const runs = await listIncompleteIngestionRuns()
-    await Promise.all(runs.map((run) => start(run)))
+    signal?.throwIfAborted()
+    await Promise.all(runs.map((run) => start(run, signal)))
+    signal?.throwIfAborted()
   }
 }

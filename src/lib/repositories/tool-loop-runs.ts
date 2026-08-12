@@ -182,8 +182,11 @@ export const deleteToolLoopRun = async (requestId: string): Promise<void> => {
 
 /** Remove abandoned checkpoints whose owning sidepanel can no longer resume. */
 export const pruneStaleToolLoopRuns = async (
-  olderThan = Date.now() - 24 * 60 * 60 * 1000
+  olderThan = Date.now() - 24 * 60 * 60 * 1000,
+  signal?: AbortSignal
 ): Promise<void> => {
+  signal?.throwIfAborted()
   await run("DELETE FROM tool_loop_runs WHERE updatedAt < ?", [olderThan])
   await flushSave()
+  signal?.throwIfAborted()
 }

@@ -119,6 +119,73 @@ describe("ModelPullService", () => {
     })
   })
 
+  it("interrupts startup recovery without recording a user cancellation", async () => {
+    const run = activeRun()
+    mocks.runs.set(run.id, run)
+    vi.mocked(fetch).mockImplementationOnce(
+      async (_input, init) =>
+        new Promise((_, reject) => {
+          const signal = init?.signal
+          signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("Stopped", "AbortError")),
+            { once: true }
+          )
+        })
+    )
+    const controller = new AbortController()
+
+    const recovery = ModelPullService.resumeIncomplete(controller.signal)
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+    controller.abort()
+    await expect(recovery).rejects.toMatchObject({ name: "AbortError" })
+
+    await expect(ModelPullService.get(run.id)).resolves.toMatchObject({
+      status: "running"
+    })
+  })
+
+  it("does not let recovery cancel a pull already owned by submit", async () => {
+    let finishPull: () => Promise<void> = async () => undefined
+    let isCancelled: () => boolean = () => true
+    mocks.consume.mockImplementationOnce(
+      async (_response, options) =>
+        new Promise<void>((resolve) => {
+          isCancelled = options.isCancelled
+          finishPull = async () => {
+            await options.onEvent({
+              version: 1,
+              type: "model_pull_complete",
+              status: "success"
+            })
+            resolve()
+          }
+        })
+    )
+    const submitted = await ModelPullService.submit({
+      model: "llama3",
+      providerId: "ollama"
+    })
+    await vi.waitFor(() => expect(mocks.consume).toHaveBeenCalledOnce())
+    const controller = new AbortController()
+
+    const recovery = ModelPullService.resumeIncomplete(controller.signal)
+    controller.abort()
+    await Promise.resolve()
+
+    expect(isCancelled()).toBe(false)
+    await expect(ModelPullService.get(submitted.jobId)).resolves.toMatchObject({
+      status: "running"
+    })
+
+    await finishPull()
+    await expect(recovery).rejects.toMatchObject({ name: "AbortError" })
+    await expect(ModelPullService.get(submitted.jobId)).resolves.toMatchObject({
+      status: "completed",
+      progress: 100
+    })
+  })
+
   it("deduplicates active downloads for the same provider and model", async () => {
     mocks.consume.mockImplementation(
       async (_response, options) =>

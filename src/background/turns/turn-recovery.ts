@@ -1,4 +1,5 @@
 import type { DurableTurnRun } from "@/application/turns/turn-contract"
+import { abortAndClearController } from "@/background/lib/abort-controller-registry"
 import { persistTurnFailure } from "@/background/turns/turn-generation"
 import { cleanupTurnRuntimeState } from "@/background/turns/turn-observers"
 import {
@@ -14,13 +15,22 @@ import {
   markTurnCancelling
 } from "@/lib/repositories/turn-runs"
 
-const resumeTurn = async (turn: DurableTurnRun): Promise<void> => {
+const resumeTurn = async (
+  turn: DurableTurnRun,
+  signal?: AbortSignal
+): Promise<void> => {
+  const abort = () => abortAndClearController(turn.id)
+  if (signal?.aborted) signal.throwIfAborted()
+  signal?.addEventListener("abort", abort, { once: true })
   try {
     const service = createTurnService()
-    await service.resume(turn, (options) =>
-      withRetrievalToolState(turn, options)
+    await service.resume(
+      turn,
+      (options) => withRetrievalToolState(turn, options),
+      signal
     )
   } finally {
+    signal?.removeEventListener("abort", abort)
     cleanupTurnRuntimeState(turn.id)
   }
 }
@@ -66,7 +76,10 @@ export const requestDurableTurnStop = async (
  * A turn whose assistant cannot be finished is left `cancelling` for the same
  * reason, and retried on the next boot rather than settled over.
  */
-const finishInterruptedCancellations = async (): Promise<void> => {
+const finishInterruptedCancellations = async (
+  signal?: AbortSignal
+): Promise<void> => {
+  signal?.throwIfAborted()
   const interrupted = await getInterruptedCancellations().catch((error) => {
     logger.error("Failed to read interrupted cancellations", "BackgroundSW", {
       error
@@ -75,6 +88,7 @@ const finishInterruptedCancellations = async (): Promise<void> => {
   })
   let settled = 0
   for (const cancelled of interrupted) {
+    signal?.throwIfAborted()
     if (cancelled.assistantMessageId !== undefined) {
       try {
         await updateMessage(cancelled.assistantMessageId, { done: true })
@@ -106,13 +120,19 @@ const finishInterruptedCancellations = async (): Promise<void> => {
  * request and a boot that reissues them all at once is a thundering herd against
  * whatever endpoint the user was talking to.
  */
-export const resumeIncompleteTurnRuns = async (): Promise<void> => {
-  await finishInterruptedCancellations()
+export const resumeIncompleteTurnRuns = async (
+  signal?: AbortSignal
+): Promise<void> => {
+  signal?.throwIfAborted()
+  await finishInterruptedCancellations(signal)
+  signal?.throwIfAborted()
   const turns = await getIncompleteTurnRuns()
   for (const turn of turns) {
+    signal?.throwIfAborted()
     try {
-      await resumeTurn(turn)
+      await resumeTurn(turn, signal)
     } catch (error) {
+      if (signal?.aborted) throw error
       await persistTurnFailure(turn.assistantMessageId, turn.model, error)
       logger.error("Failed to resume durable turn", "BackgroundSW", {
         turnId: turn.id,
