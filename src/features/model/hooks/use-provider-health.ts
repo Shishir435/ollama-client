@@ -40,7 +40,7 @@ const HEALTH_CHECK_INTERVAL_MS = 60_000
  * signal for "the set of providers changed".
  */
 const healthSignature = (
-  providers: ProviderConfig[],
+  providers: Array<Omit<ProviderConfig, "apiKey">>,
   savedRevision: number
 ): string =>
   [
@@ -63,7 +63,7 @@ const healthSignature = (
  * a settings tab left open in a window nobody is looking at costs nothing.
  */
 export const useProviderHealth = (
-  providers: ProviderConfig[],
+  providers: Array<Omit<ProviderConfig, "apiKey">>,
   savedRevision = 0
 ): ProviderHealthMap => {
   const [health, setHealth] = useState<ProviderHealthMap>({})

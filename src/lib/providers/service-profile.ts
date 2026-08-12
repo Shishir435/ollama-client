@@ -26,7 +26,7 @@ const STREAM_USAGE_PROVIDER_IDS = new Set<string>([
 ])
 
 export const resolveProviderServiceProfile = (
-  config: ProviderConfig
+  config: Pick<ProviderConfig, "baseUrl" | "serviceProfile" | "type">
 ): ProviderServiceProfile => {
   if (config.serviceProfile) return config.serviceProfile
 

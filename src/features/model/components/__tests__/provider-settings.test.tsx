@@ -48,7 +48,7 @@ const remoteProvider = {
   type: ProviderType.OPENAI,
   enabled: true,
   baseUrl: "https://api.example.com/v1",
-  apiKey: "secret",
+  apiKey: { state: "replaced", value: "secret" },
   customModels: ["remote-model"]
 }
 
