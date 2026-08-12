@@ -18,6 +18,10 @@ import type {
 import { resolveProviderBaseUrl } from "./base-url"
 import { PROVIDER_CAPABILITIES } from "./capabilities"
 import {
+  lifecycleRequestFailed,
+  normalizeOllamaLoadedModel
+} from "./model-lifecycle"
+import {
   type ChatRequest,
   type EmbeddingSupport,
   type LLMProvider,
@@ -90,6 +94,54 @@ export class OllamaProvider implements LLMProvider {
   capabilities = { ...PROVIDER_CAPABILITIES[ProviderId.OLLAMA] }
 
   constructor(public config: ProviderConfig) {}
+
+  modelLifecycle = {
+    listLoadedModels: async (signal?: AbortSignal) => {
+      const response = await fetch(
+        `${resolveProviderBaseUrl(this.config)}/api/ps`,
+        signal ? { signal } : undefined
+      )
+      if (!response.ok) {
+        throw lifecycleRequestFailed("loaded model list", response, this.id)
+      }
+      const data = await response.json()
+      const models = Array.isArray(data?.models) ? data.models : []
+      return models.map(normalizeOllamaLoadedModel)
+    },
+    unloadModel: async (model: string, signal?: AbortSignal) => {
+      const response = await fetch(
+        `${resolveProviderBaseUrl(this.config)}/api/chat`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model, messages: [], keep_alive: 0 }),
+          signal
+        }
+      )
+      if (!response.ok) {
+        throw lifecycleRequestFailed("unload", response, this.id)
+      }
+      const data = await response.json()
+      return data?.done_reason === "unload"
+    },
+    warmModel: async (
+      model: string,
+      keepAlive?: string | number,
+      signal?: AbortSignal
+    ) => {
+      await fetch(`${resolveProviderBaseUrl(this.config)}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          prompt: "",
+          stream: false,
+          keep_alive: keepAlive
+        }),
+        signal
+      })
+    }
+  }
 
   async getModels(signal?: AbortSignal): Promise<ProviderModel[]> {
     try {

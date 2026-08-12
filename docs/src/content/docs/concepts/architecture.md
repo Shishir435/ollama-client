@@ -222,6 +222,13 @@ The provider, model, embedding, and diagnostics request/response migration is
 complete. New request/response work is added as an `RpcMethod`; it must not add
 another runtime message key.
 
+Model lifecycle RPC coordinates policy through an optional provider-owned
+`modelLifecycle` port. Ollama owns `/api/ps`, keep-alive eviction, and no-op
+generation warmup; LM Studio owns its loaded-model and unload routes. The RPC
+service applies warmup settings and cooldowns but does not branch on provider
+ids or construct vendor URLs. Providers without the corresponding operation
+return an unsupported/no-op result instead of receiving an Ollama-shaped call.
+
 Streaming ports, one-way browser/app events, and the content-script-reachable
 `PROVIDER.GET_MODELS` read intentionally remain outside RPC. RPC envelopes are
 extension-page-only, while the model read is needed by the selection overlay.

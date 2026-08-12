@@ -29,14 +29,23 @@ import { ModelRpcService } from "../model-rpc-service"
 const ollama = {
   id: "ollama",
   config: { id: "ollama", baseUrl: "http://localhost:11434" },
-  capabilities: { modelDetails: true },
-  getModelDetails: vi.fn()
+  capabilities: { modelDetails: true, modelUnload: true },
+  getModelDetails: vi.fn(),
+  modelLifecycle: {
+    listLoadedModels: vi.fn(),
+    unloadModel: vi.fn(),
+    warmModel: vi.fn()
+  }
 }
 
 const lmStudio = {
   id: "lm studio",
   config: { id: "lm studio", baseUrl: "http://localhost:1234/v1" },
-  capabilities: { modelDetails: false }
+  capabilities: { modelDetails: false, modelUnload: true },
+  modelLifecycle: {
+    listLoadedModels: vi.fn(),
+    unloadModel: vi.fn()
+  }
 }
 
 const jsonResponse = (body: unknown, ok = true, status = 200) =>
@@ -51,6 +60,11 @@ const jsonResponse = (body: unknown, ok = true, status = 200) =>
 beforeEach(() => {
   vi.clearAllMocks()
   ollama.getModelDetails = vi.fn()
+  ollama.modelLifecycle.listLoadedModels.mockResolvedValue([])
+  ollama.modelLifecycle.unloadModel.mockResolvedValue(true)
+  ollama.modelLifecycle.warmModel.mockResolvedValue(undefined)
+  lmStudio.modelLifecycle.listLoadedModels.mockResolvedValue([])
+  lmStudio.modelLifecycle.unloadModel.mockResolvedValue(true)
   mocks.getProvider.mockResolvedValue(ollama)
   mocks.getProviderForModel.mockResolvedValue(ollama)
   mocks.getProviderConfig.mockResolvedValue(ollama.config)
@@ -91,22 +105,16 @@ describe("ModelRpcService.getDetails", () => {
 })
 
 describe("ModelRpcService.listLoaded", () => {
-  it("normalizes Ollama's /api/ps shape", async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      jsonResponse({
-        models: [
-          {
-            name: "llama3:8b",
-            size: 1024,
-            details: {
-              family: "llama",
-              parameter_size: "8B",
-              quantization_level: "Q4_0"
-            }
-          }
-        ]
-      })
-    )
+  it("delegates loaded-model listing to the provider lifecycle port", async () => {
+    ollama.modelLifecycle.listLoadedModels.mockResolvedValue([
+      {
+        name: "llama3:8b",
+        sizeBytes: 1024,
+        family: "llama",
+        parameterSize: "8B",
+        quantizationLevel: "Q4_0"
+      }
+    ])
 
     await expect(ModelRpcService.listLoaded({})).resolves.toEqual({
       models: [
@@ -119,17 +127,20 @@ describe("ModelRpcService.listLoaded", () => {
         }
       ]
     })
+    expect(ollama.modelLifecycle.listLoadedModels).toHaveBeenCalledOnce()
   })
 
-  it("normalizes LM Studio's differently named fields", async () => {
-    // The old handler passed LM Studio's entries through untouched, so the card
-    // rendered `undefined` for family, size, and quantization.
+  it("uses the requested provider's lifecycle port", async () => {
     mocks.getProvider.mockResolvedValue(lmStudio)
-    vi.mocked(fetch).mockResolvedValue(
-      jsonResponse({
-        data: [{ id: "qwen3-8b", arch: "qwen3", quantization: "Q4_K_M" }]
-      })
-    )
+    lmStudio.modelLifecycle.listLoadedModels.mockResolvedValue([
+      {
+        name: "qwen3-8b",
+        sizeBytes: 0,
+        family: "qwen3",
+        parameterSize: "",
+        quantizationLevel: "Q4_K_M"
+      }
+    ])
 
     await expect(
       ModelRpcService.listLoaded({ providerId: "lm studio" })
@@ -144,32 +155,35 @@ describe("ModelRpcService.listLoaded", () => {
         }
       ]
     })
-    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
-      "http://localhost:1234/api/v1/models"
-    )
+    expect(lmStudio.modelLifecycle.listLoadedModels).toHaveBeenCalledOnce()
   })
 
-  it("throws an AppError the RPC server can classify", async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse({}, false, 503))
+  it("returns an empty list when the provider has no lifecycle port", async () => {
+    mocks.getProvider.mockResolvedValue({
+      ...lmStudio,
+      modelLifecycle: undefined
+    })
 
-    await expect(ModelRpcService.listLoaded({})).rejects.toMatchObject({
-      status: 503,
-      retryable: true
+    await expect(ModelRpcService.listLoaded({})).resolves.toEqual({
+      models: []
     })
   })
 })
 
 describe("ModelRpcService.unload", () => {
-  it("reports whether the keep-alive eviction actually took", async () => {
-    vi.mocked(fetch).mockResolvedValue(jsonResponse({ done_reason: "unload" }))
+  it("delegates unload and preserves the provider's result", async () => {
     await expect(ModelRpcService.unload({ model: "llama3" })).resolves.toEqual({
       unloaded: true
     })
 
-    vi.mocked(fetch).mockResolvedValue(jsonResponse({ done_reason: "stop" }))
+    ollama.modelLifecycle.unloadModel.mockResolvedValue(false)
     await expect(ModelRpcService.unload({ model: "llama3" })).resolves.toEqual({
       unloaded: false
     })
+    expect(ollama.modelLifecycle.unloadModel).toHaveBeenCalledWith(
+      "llama3",
+      undefined
+    )
   })
 })
 
@@ -181,21 +195,19 @@ describe("ModelRpcService.warmup", () => {
       warmed: false,
       unloadedPrevious: false
     })
-    expect(fetch).not.toHaveBeenCalled()
+    expect(ollama.modelLifecycle.warmModel).not.toHaveBeenCalled()
   })
 
   it("warms once and then respects the cooldown", async () => {
     mocks.storageGet.mockResolvedValue({
       "cooldown-model": { warm_on_select: true, keep_alive: "10m" }
     })
-    vi.mocked(fetch).mockResolvedValue(jsonResponse({}))
-
     const first = await ModelRpcService.warmup({ model: "cooldown-model" })
     const second = await ModelRpcService.warmup({ model: "cooldown-model" })
 
     expect(first.warmed).toBe(true)
     expect(second.warmed).toBe(false)
-    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(ollama.modelLifecycle.warmModel).toHaveBeenCalledTimes(1)
   })
 
   it("releases the previous model when it is configured to unload on switch", async () => {
@@ -203,16 +215,15 @@ describe("ModelRpcService.warmup", () => {
       "new-model": { warm_on_select: false },
       "old-model": { unload_on_switch: true }
     })
-    vi.mocked(fetch).mockResolvedValue(jsonResponse({}))
-
     const result = await ModelRpcService.warmup({
       model: "new-model",
       previousModel: "old-model"
     })
 
     expect(result).toEqual({ warmed: false, unloadedPrevious: true })
-    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
-      "http://localhost:11434/api/chat"
+    expect(ollama.modelLifecycle.unloadModel).toHaveBeenCalledWith(
+      "old-model",
+      undefined
     )
   })
 
@@ -227,7 +238,7 @@ describe("ModelRpcService.warmup", () => {
     await expect(
       ModelRpcService.warmup({ model: "blocked-model" })
     ).rejects.toThrow("provider disabled")
-    expect(fetch).not.toHaveBeenCalled()
+    expect(ollama.modelLifecycle.warmModel).not.toHaveBeenCalled()
   })
 })
 

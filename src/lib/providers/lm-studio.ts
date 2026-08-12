@@ -2,6 +2,11 @@ import { logger } from "@/lib/logger"
 import type { ProviderModel } from "@/types"
 import { resolveProviderBaseUrl } from "./base-url"
 import { parameterSizeFromModelId } from "./model-id-metadata"
+import {
+  lifecycleRequestFailed,
+  lmStudioApiRoot,
+  normalizeLmStudioLoadedModel
+} from "./model-lifecycle"
 import { OpenAICompatibleProvider } from "./openai-compatible"
 import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
 
@@ -19,6 +24,36 @@ export class LMStudioProvider extends OpenAICompatibleProvider {
       modelUnload: true,
       providerVersion: false,
       toolCalling: true
+    }
+  }
+
+  modelLifecycle = {
+    listLoadedModels: async (signal?: AbortSignal) => {
+      const response = await fetch(
+        `${lmStudioApiRoot(resolveProviderBaseUrl(this.config))}/api/v1/models`,
+        signal ? { signal } : undefined
+      )
+      if (!response.ok) {
+        throw lifecycleRequestFailed("loaded model list", response, this.id)
+      }
+      const data = await response.json()
+      const models = Array.isArray(data?.data) ? data.data : []
+      return models.map(normalizeLmStudioLoadedModel)
+    },
+    unloadModel: async (model: string, signal?: AbortSignal) => {
+      const response = await fetch(
+        `${lmStudioApiRoot(resolveProviderBaseUrl(this.config))}/api/v1/models/unload`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model }),
+          signal
+        }
+      )
+      if (!response.ok) {
+        throw lifecycleRequestFailed("unload", response, this.id)
+      }
+      return true
     }
   }
 
