@@ -1,6 +1,5 @@
 import {
   buildSiblingsMap,
-  collectDescendantIds,
   enrichPathWithSiblingsAndAttachments,
   findLatestLeafDescendant,
   groupFilesByMessageId,
@@ -336,25 +335,16 @@ export const createChatSessionMessageActions = (
   },
 
   deleteMessage: async (messageId: number) => {
-    const targetMsg = await repo.getMessage(messageId)
-    if (!targetMsg?.sessionId) return
+    const deleted = await repo.deleteMessageSubtree(messageId)
+    if (!deleted) return
 
-    const { sessionId, parentId: targetParentId } = targetMsg
-
-    const allMessages = await repo.getMessagesBySession(sessionId)
-    const toDeleteIds = collectDescendantIds(allMessages, messageId)
-    const idsToDelete = Array.from(toDeleteIds)
-
-    const session = await repo.getSession(sessionId)
-    if (
-      typeof session?.currentLeafId === "number" &&
-      toDeleteIds.has(session.currentLeafId)
-    ) {
-      await repo.updateSession(sessionId, { currentLeafId: targetParentId })
-    }
-
-    await repo.bulkDeleteMessages(idsToDelete)
-    await repo.deleteFilesByMessageIds(idsToDelete)
+    const {
+      sessionId,
+      messageIds: idsToDelete,
+      repairedLeaf,
+      replacementLeafId
+    } = deleted
+    const toDeleteIds = new Set(idsToDelete)
 
     for (const id of idsToDelete) {
       deleteVectors({ messageId: id }).catch((error) => {
@@ -374,11 +364,7 @@ export const createChatSessionMessageActions = (
               messages: s.messages?.filter(
                 (m) => !(typeof m.id === "number" && toDeleteIds.has(m.id))
               ),
-              currentLeafId:
-                typeof s.currentLeafId === "number" &&
-                toDeleteIds.has(s.currentLeafId)
-                  ? targetParentId
-                  : s.currentLeafId
+              currentLeafId: repairedLeaf ? replacementLeafId : s.currentLeafId
             }
           : s
       )

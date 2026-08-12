@@ -1,5 +1,4 @@
 import type {
-  LoadedModel,
   ModelsGetDetailsRequest,
   ModelsGetDetailsResult,
   ModelsGetLibraryVariantsRequest,
@@ -17,9 +16,7 @@ import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
-import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
-import { ProviderManager } from "@/lib/providers/manager"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { ProviderId } from "@/lib/providers/types"
 import { readSetting } from "@/lib/storage/setting-access"
@@ -50,17 +47,6 @@ const providerRequestFailed = (
     retryable: status >= 500
   })
 
-const resolveDefaultBaseUrl = async (): Promise<string> => {
-  const config = await ProviderManager.getProviderConfig(ProviderId.OLLAMA)
-  if (!config) {
-    throw createAppError("Built-in Ollama provider configuration is missing", {
-      kind: "validation",
-      providerId: ProviderId.OLLAMA
-    })
-  }
-  return resolveProviderBaseUrl(config)
-}
-
 /**
  * `/api/show` may include large license, tensor, template, and Modelfile
  * fields. Only these three are consumed; keeping the rest out keeps the RPC
@@ -76,45 +62,6 @@ const compactModelDetails = (
     ...(data.capabilities && { capabilities: data.capabilities })
   }
 }
-
-const lmStudioRoot = (baseUrl: string) => baseUrl.replace(/\/v1\/?$/, "")
-
-/** Ollama `/api/ps` entry. */
-interface OllamaPsModel {
-  name?: string
-  model?: string
-  size?: number
-  details?: {
-    family?: string
-    parameter_size?: string
-    quantization_level?: string
-  }
-}
-
-/** LM Studio model-list entry; field names differ from Ollama's. */
-interface LmStudioModel {
-  id?: string
-  arch?: string
-  quantization?: string
-  state?: string
-}
-
-const normalizeOllamaLoaded = (model: OllamaPsModel): LoadedModel => ({
-  name: model.name ?? model.model ?? "",
-  sizeBytes: model.size ?? 0,
-  family: model.details?.family ?? "",
-  parameterSize: model.details?.parameter_size ?? "",
-  quantizationLevel: model.details?.quantization_level ?? ""
-})
-
-const normalizeLmStudioLoaded = (model: LmStudioModel): LoadedModel => ({
-  name: model.id ?? "",
-  // LM Studio's list does not report resident bytes.
-  sizeBytes: 0,
-  family: model.arch ?? "",
-  parameterSize: "",
-  quantizationLevel: model.quantization ?? ""
-})
 
 /** Warmup */
 
@@ -157,22 +104,6 @@ const shouldWarmup = (historyKey: string, keepAliveMs?: number) => {
   return Date.now() - last > windowMs / 2
 }
 
-/**
- * Keep-alive 0 evicts the model. Used both to warm the newly selected model and
- * to release the one being switched away from.
- */
-const unloadViaKeepAlive = async (
-  baseUrl: string,
-  model: string,
-  signal?: AbortSignal
-) =>
-  fetch(`${baseUrl}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages: [], keep_alive: 0 }),
-    signal
-  })
-
 export const ModelRpcService = {
   async getDetails(
     request: ModelsGetDetailsRequest
@@ -204,34 +135,8 @@ export const ModelRpcService = {
     const provider = await ProviderFactory.getProvider(
       request.providerId ?? ProviderId.OLLAMA
     )
-    const baseUrl = request.providerId
-      ? resolveProviderBaseUrl(provider.config)
-      : await resolveDefaultBaseUrl()
-
-    const isLmStudio = provider.id === ProviderId.LM_STUDIO
-    const endpoint = isLmStudio
-      ? `${lmStudioRoot(baseUrl)}/api/v1/models`
-      : `${baseUrl}/api/ps`
-
-    const res = await fetch(endpoint, { signal })
-    if (!res.ok) {
-      throw providerRequestFailed(
-        "loaded model list",
-        res.status,
-        res.statusText,
-        provider.id
-      )
-    }
-
-    const data = await res.json()
-    if (isLmStudio) {
-      const models: LmStudioModel[] = Array.isArray(data?.data) ? data.data : []
-      return { models: models.map(normalizeLmStudioLoaded) }
-    }
-    const models: OllamaPsModel[] = Array.isArray(data?.models)
-      ? data.models
-      : []
-    return { models: models.map(normalizeOllamaLoaded) }
+    const listLoadedModels = provider.modelLifecycle?.listLoadedModels
+    return { models: listLoadedModels ? await listLoadedModels(signal) : [] }
   },
 
   async unload(
@@ -242,37 +147,11 @@ export const ModelRpcService = {
       request.model,
       request.providerId
     )
-    const baseUrl = resolveProviderBaseUrl(provider.config)
-
-    if (provider.id === ProviderId.LM_STUDIO) {
-      const res = await fetch(`${lmStudioRoot(baseUrl)}/api/v1/models/unload`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: request.model }),
-        signal
-      })
-      if (!res.ok) {
-        throw providerRequestFailed(
-          "unload",
-          res.status,
-          res.statusText,
-          provider.id
-        )
-      }
-      return { unloaded: true }
+    const unloadModel = provider.modelLifecycle?.unloadModel
+    if (!provider.capabilities.modelUnload || !unloadModel) {
+      return { unloaded: false }
     }
-
-    const res = await unloadViaKeepAlive(baseUrl, request.model, signal)
-    if (!res.ok) {
-      throw providerRequestFailed(
-        "unload",
-        res.status,
-        res.statusText,
-        provider.id
-      )
-    }
-    const data = await res.json()
-    return { unloaded: data?.done_reason === "unload" }
+    return { unloaded: await unloadModel(request.model, signal) }
   },
 
   async warmup(
@@ -290,19 +169,9 @@ export const ModelRpcService = {
         request.providerId
       )
       assertProviderEnabled(provider, request.model)
-      // Only Ollama exposes a no-op generate that parks a model in memory.
-      if (provider.id === ProviderId.OLLAMA) {
-        await fetch(`${resolveProviderBaseUrl(provider.config)}/api/generate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: request.model,
-            prompt: "",
-            stream: false,
-            keep_alive: config.keep_alive
-          }),
-          signal
-        })
+      const warmModel = provider.modelLifecycle?.warmModel
+      if (warmModel) {
+        await warmModel(request.model, config.keep_alive, signal)
         warmupHistory.set(warmupKey, Date.now())
         warmed = true
         logger.info("Model warmup triggered", "ModelRpcService", {
@@ -319,13 +188,9 @@ export const ModelRpcService = {
           request.previousModel,
           request.previousProviderId
         )
-        if (previous.id === ProviderId.OLLAMA) {
-          await unloadViaKeepAlive(
-            resolveProviderBaseUrl(previous.config),
-            request.previousModel,
-            signal
-          )
-          unloadedPrevious = true
+        const unloadModel = previous.modelLifecycle?.unloadModel
+        if (previous.capabilities.modelUnload && unloadModel) {
+          unloadedPrevious = await unloadModel(request.previousModel, signal)
           logger.info("Model unloaded on switch", "ModelRpcService", {
             model: request.previousModel
           })

@@ -162,3 +162,60 @@ describe("LMStudioProvider.getModels", () => {
     )
   })
 })
+
+describe("LMStudioProvider.modelLifecycle", () => {
+  it("normalizes the loaded-model endpoint inside the adapter", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [{ id: "qwen3-8b", arch: "qwen3", quantization: "Q4_K_M" }]
+      })
+    } as Response)
+
+    await expect(
+      makeProvider().modelLifecycle.listLoadedModels()
+    ).resolves.toEqual([
+      {
+        name: "qwen3-8b",
+        sizeBytes: 0,
+        family: "qwen3",
+        parameterSize: "",
+        quantizationLevel: "Q4_K_M"
+      }
+    ])
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
+      "http://localhost:1234/api/v1/models"
+    )
+  })
+
+  it("owns the LM Studio unload wire format", async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true } as Response)
+
+    await expect(
+      makeProvider().modelLifecycle.unloadModel("qwen3-8b")
+    ).resolves.toBe(true)
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      "http://localhost:1234/api/v1/models/unload",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ model: "qwen3-8b" })
+      })
+    )
+  })
+
+  it("classifies lifecycle request failures inside the adapter", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: "Unavailable"
+    } as Response)
+
+    await expect(
+      makeProvider().modelLifecycle.listLoadedModels()
+    ).rejects.toMatchObject({
+      status: 503,
+      providerId: ProviderId.LM_STUDIO,
+      retryable: true
+    })
+  })
+})

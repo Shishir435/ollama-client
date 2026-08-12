@@ -158,6 +158,19 @@ content-free diagnostic events (`STARTUP_RECOVERY_TIMEOUT` and
 `STARTUP_RECOVERY_CANCELLED`). Task identifiers and elapsed time are included;
 stored data, provider URLs, and errors are not.
 
+### Message-subtree deletion
+
+Deleting a message branch is one SQLite transaction. The repository discovers
+all descendants while holding the transaction lease, repairs the session's
+active-leaf pointer when needed, deletes attachment rows, and then deletes the
+messages. A worker loss therefore cannot commit only part of the SQLite state,
+and a concurrent append cannot escape descendant discovery.
+
+Embedding vectors remain in Dexie and cannot participate in the SQLite commit.
+The transaction returns the deleted message ids so the caller can perform that
+derived-data cleanup afterward; vector deletion is idempotent and does not
+change the canonical chat state.
+
 ## Data flow
 
 1. User sends a prompt in the sidepanel.
@@ -221,6 +234,13 @@ Why a separate boundary instead of more message keys:
 The provider, model, embedding, and diagnostics request/response migration is
 complete. New request/response work is added as an `RpcMethod`; it must not add
 another runtime message key.
+
+Model lifecycle RPC coordinates policy through an optional provider-owned
+`modelLifecycle` port. Ollama owns `/api/ps`, keep-alive eviction, and no-op
+generation warmup; LM Studio owns its loaded-model and unload routes. The RPC
+service applies warmup settings and cooldowns but does not branch on provider
+ids or construct vendor URLs. Providers without the corresponding operation
+return an unsupported/no-op result instead of receiving an Ollama-shaped call.
 
 Streaming ports, one-way browser/app events, and the content-script-reachable
 `PROVIDER.GET_MODELS` read intentionally remain outside RPC. RPC envelopes are

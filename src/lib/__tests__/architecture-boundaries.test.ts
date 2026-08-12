@@ -377,6 +377,18 @@ describe("architecture import boundaries", () => {
     )
   })
 
+  it("keeps provider lifecycle wires inside provider adapters", () => {
+    const source = withoutComments(
+      readFileSync(
+        join(sourceRoot, "lib/providers/model-rpc-service.ts"),
+        "utf8"
+      )
+    )
+
+    expect(source).not.toMatch(/provider\.id\s*===\s*ProviderId\./)
+    expect(source).not.toMatch(/\/api\/(?:ps|generate|chat|v1\/models)/)
+  })
+
   /**
    * The observer registry is in-memory delivery state and nothing else.
    *

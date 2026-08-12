@@ -105,6 +105,7 @@ connect through package ports.
 | `provider-compat-migration.ts` | removed-beta remapping, sanitization, and duplicate retention |
 | `selected-model.ts` | active model state |
 | `capabilities.ts` | capability detection and per-flag attribution |
+| `model-lifecycle.ts` | shared lifecycle result normalization and safe provider errors |
 | `ollama.ts`, `lm-studio.ts`, `llama-cpp.ts` | verified built-ins |
 | `openai-compatible.ts` | custom OpenAI-compatible endpoints |
 | `anthropic.ts` | native Claude Messages API |
@@ -128,6 +129,8 @@ The default provider's embedding check is the one remaining direct `/api/tags` f
 The filter reads hostnames, so a public name resolving to a private address still passes, and no extension API closes that — `chrome.dns` is dev-channel only, and resolving before fetching is TOCTOU because `fetch` looks up again. What bounds it is that the response never leaves the device: no credentials are sent, non-image bytes are discarded, and it takes a provider the user already trusts with their prompts. Do not "fix" it by adding a resolve step; the honest mitigation is the off switch. Users can turn the lookup off; doing so also drops what was already fetched.
 
 **Capability detection** resolves in this order, highest first: user override → empirical probe (`capability-probe.ts`) → model metadata → provider default. An unknown capability resolves to `false`; only an override may flip it on. Never enable vision or tool calling on a guess.
+
+**Model lifecycle wires stay in provider adapters.** `LLMProvider.modelLifecycle` is an optional port for loaded-model listing, unload, and warmup. `ModelRpcService` owns RPC policy and warmup cooldowns, but never constructs vendor lifecycle URLs or branches on provider ids. A capability flag and its optional operation must agree; providers without an operation return an unsupported/no-op result rather than receiving an Ollama-shaped request.
 
 Metadata evidence, strongest first:
 
@@ -188,6 +191,7 @@ Chat history is **SQLite-only**, on one engine and one writer: official sqlite-w
 | Settings, config, per-extension state | `@plasmohq/storage` via `src/lib/plasmo-global-storage.ts` |
 
 - **Session metadata** — pinned state, per-chat system prompts, user tags — lives on SQLite `sessions`. Add columns through forward-only migrations.
+- **Message-subtree deletion is atomic in SQLite.** `deleteMessageSubtree` discovers descendants, repairs `sessions.currentLeafId`, and deletes message/file rows inside one transaction. Dexie vectors cannot join that commit; callers clean them up afterward by the returned message ids, and that cleanup must stay idempotent.
 - **Durability depends on the backend.** On **opfs** — every profile that has migrated — a committed statement is already durable and `flushSave()` is a no-op. On the **legacy blob**, the owner debounces a full-image write to IndexedDB by 1s, and `flushSave()` forces it. Callers flush at unload, migration and export boundaries without knowing which answered.
 - **A damaged legacy image is served read-only.** A blob that fails `integrity_check` keeps its reads, its backup export and its diagnostics; writes throw, migrations do not run against it, and it is never written back. Do not "fix" that by letting writes through — the image is the rollback artifact.
 - **Turn lifecycle is a state machine, enforced in SQL.** `TURN_STATUS_PREDECESSORS` in `packages/contracts/src/turns.ts` is the whole truth; every status write is a compare-and-set against the target's allowed predecessors, so a late or duplicated message cannot move a settled row and a terminal row never regresses. `updateTurnRun` resolves false when a transition is refused, and `TurnRuntime` treats that as "someone else owns this turn" and does no provider work. A stop commits `cancelling` **before** aborting the controller — a worker lost between the two restarts into an intent recovery skips, where a row left at `generating` was handed straight back to the provider. Startup finalizes interrupted cancellations without reissuing anything, and a turn row that will not parse is terminally failed with a content-free diagnostic rather than silently skipped on every boot forever.
