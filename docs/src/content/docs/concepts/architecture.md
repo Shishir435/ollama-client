@@ -158,6 +158,19 @@ content-free diagnostic events (`STARTUP_RECOVERY_TIMEOUT` and
 `STARTUP_RECOVERY_CANCELLED`). Task identifiers and elapsed time are included;
 stored data, provider URLs, and errors are not.
 
+### Message-subtree deletion
+
+Deleting a message branch is one SQLite transaction. The repository discovers
+all descendants while holding the transaction lease, repairs the session's
+active-leaf pointer when needed, deletes attachment rows, and then deletes the
+messages. A worker loss therefore cannot commit only part of the SQLite state,
+and a concurrent append cannot escape descendant discovery.
+
+Embedding vectors remain in Dexie and cannot participate in the SQLite commit.
+The transaction returns the deleted message ids so the caller can perform that
+derived-data cleanup afterward; vector deletion is idempotent and does not
+change the canonical chat state.
+
 ## Data flow
 
 1. User sends a prompt in the sidepanel.

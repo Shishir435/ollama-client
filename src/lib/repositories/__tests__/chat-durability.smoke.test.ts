@@ -273,6 +273,88 @@ describe("S1 — chat-history survives a service-worker restart", () => {
     },
     TIMEOUT
   )
+
+  it(
+    "atomically deletes one message branch, its files, and its active leaf",
+    async () => {
+      const first = await bootFreshContext()
+      const session = makeSession("s-subtree-delete")
+      await first.facade.addSession(session)
+      const rootId = await first.facade.appendMessage({
+        sessionId: session.id,
+        role: "user",
+        content: "root",
+        timestamp: 1_700_000_000_010
+      })
+      const doomedId = await first.facade.appendMessage(
+        {
+          sessionId: session.id,
+          role: "assistant",
+          content: "doomed branch",
+          parentId: rootId,
+          timestamp: 1_700_000_000_011
+        },
+        [
+          {
+            fileId: "doomed-file",
+            sessionId: session.id,
+            fileType: "text/plain",
+            fileName: "doomed.txt",
+            fileSize: 6,
+            processedAt: 1_700_000_000_011,
+            data: new Uint8Array([1, 2, 3])
+          }
+        ]
+      )
+      const doomedLeafId = await first.facade.appendMessage({
+        sessionId: session.id,
+        role: "user",
+        content: "doomed leaf",
+        parentId: doomedId,
+        timestamp: 1_700_000_000_012
+      })
+      const survivingId = await first.facade.appendMessage({
+        sessionId: session.id,
+        role: "assistant",
+        content: "surviving branch",
+        parentId: rootId,
+        timestamp: 1_700_000_000_013
+      })
+      await first.facade.updateSession(session.id, {
+        currentLeafId: doomedLeafId
+      })
+
+      await expect(
+        first.facade.deleteMessageSubtree(doomedId)
+      ).resolves.toEqual({
+        sessionId: session.id,
+        messageIds: [doomedId, doomedLeafId],
+        repairedLeaf: true,
+        replacementLeafId: rootId
+      })
+      await first.db.flushSave()
+
+      const second = await bootFreshContext()
+      await expect(second.facade.getSession(session.id)).resolves.toMatchObject(
+        {
+          currentLeafId: rootId
+        }
+      )
+      await expect(
+        second.facade.getMessagesBySession(session.id)
+      ).resolves.toEqual([
+        expect.objectContaining({ id: rootId, content: "root" }),
+        expect.objectContaining({
+          id: survivingId,
+          content: "surviving branch"
+        })
+      ])
+      await expect(
+        second.facade.getFilesByMessageIds([doomedId, doomedLeafId])
+      ).resolves.toEqual([])
+    },
+    TIMEOUT
+  )
 })
 
 describe("S2 — reset actually wipes data", () => {
