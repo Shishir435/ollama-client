@@ -164,16 +164,17 @@ descriptors cover only part of the settings surface.
 - Preserve sync-versus-local ownership from `storage-key-registry.ts`.
 - Move simple values opportunistically; do not use a flag-day migration.
 
-### Provider manager decomposition
+### Provider manager decomposition — landed
 
-`src/lib/providers/manager.ts` still combines compatibility migration,
-validation, secret recovery, provider CRUD, and model mappings.
+`src/lib/providers/manager.ts` remains the public CRUD/routing facade while
+config recovery, mapping persistence, and compatibility migration live in
+private collaborators.
 
-- Preserve the public `ProviderManager` facade.
-- Extract private mapping and migration collaborators only behind existing
-  characterization coverage.
-- Keep unknown-field preservation, journal recovery, and secret handling
-  behavior unchanged.
+- Existing characterization coverage still drives the facade end to end.
+- An architecture guard prevents raw storage and compatibility-key logic from
+  returning to the manager.
+- Unknown-field preservation, journal recovery, and secret handling remain
+  unchanged.
 
 ### Message router decomposition
 
