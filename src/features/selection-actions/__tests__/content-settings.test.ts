@@ -10,9 +10,7 @@ vi.mock("@/i18n/selection-config", () => ({
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
-    get: mocks.getStoredValue
-  }
+  getPlasmoStoredValue: mocks.getStoredValue
 }))
 
 import { syncSelectionLanguage } from "@/features/selection-actions/content-settings"

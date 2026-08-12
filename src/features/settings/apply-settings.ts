@@ -18,6 +18,8 @@ import {
   getPlasmoStoredValue,
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
+import { readSetting, writeSetting } from "@/lib/storage/setting-access"
+import { getSettingDescriptor } from "@/lib/storage/settings"
 
 export interface SettingWrite {
   /** The storage key to write. */
@@ -50,20 +52,31 @@ export const applyStorageWrites = async (
 
   await Promise.all(
     Array.from(byKey.entries()).map(async ([key, group]) => {
+      const descriptor = getSettingDescriptor(key)
       const fieldWrites = group.filter((w) => w.field)
       // Scalar key: a single fieldless write replaces the whole value.
       if (fieldWrites.length === 0) {
-        await setPlasmoStoredValue(key, group[group.length - 1].value)
+        const value = group[group.length - 1].value
+        if (descriptor) await writeSetting(descriptor, value)
+        else await setPlasmoStoredValue(key, value)
         return
       }
       // Config-object key: merge all field updates into the current object.
       const current =
-        (await getPlasmoStoredValue<Record<string, unknown>>(key)) ?? {}
+        (descriptor
+          ? await readSetting(descriptor)
+          : await getPlasmoStoredValue<Record<string, unknown>>(key)) ?? {}
+      if (typeof current !== "object" || Array.isArray(current)) {
+        throw new Error(
+          `Cannot apply field settings to non-object key "${key}"`
+        )
+      }
       const next: Record<string, unknown> = { ...current }
       for (const write of fieldWrites) {
         if (write.field) next[write.field] = write.value
       }
-      await setPlasmoStoredValue(key, next)
+      if (descriptor) await writeSetting(descriptor, next)
+      else await setPlasmoStoredValue(key, next)
     })
   )
 }

@@ -1,10 +1,7 @@
-import {
-  DEFAULT_EMBEDDING_CONFIG,
-  type EmbeddingConfig,
-  STORAGE_KEYS
-} from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
+import { getEmbeddingConfig } from "./config"
 import {
   type EmbeddingStrategyCapabilities,
   type EmbeddingStrategyReadiness,
@@ -74,19 +71,6 @@ const cleanExpiredCache = (): void => {
   }
 }
 
-/**
- * Gets embedding configuration with defaults
- */
-const getEmbeddingConfig = async (): Promise<EmbeddingConfig> => {
-  const stored = await plasmoGlobalStorage.get<EmbeddingConfig>(
-    STORAGE_KEYS.EMBEDDINGS.CONFIG
-  )
-  return {
-    ...DEFAULT_EMBEDDING_CONFIG,
-    ...stored
-  }
-}
-
 const getCacheModelKey = async (modelName?: string): Promise<string> => {
   const config = await getEmbeddingConfig()
   const providerId = config.sharedEmbeddingProviderId || "default"
@@ -95,9 +79,7 @@ const getCacheModelKey = async (modelName?: string): Promise<string> => {
     return `${providerId}:${modelName}`
   }
 
-  const stored = await plasmoGlobalStorage.get<string>(
-    STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL
-  )
+  const stored = await readSetting(SETTINGS.EMBEDDING_SELECTED_MODEL)
   return `${providerId}:${stored || "default"}`
 }
 

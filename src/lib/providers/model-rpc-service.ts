@@ -13,19 +13,17 @@ import type {
   ModelsWarmupRequest,
   ModelsWarmupResult
 } from "@ollama-client/contracts/model-rpc"
-import { DEFAULT_MODEL_LIBRARY_BASE_URL, STORAGE_KEYS } from "@/lib/constants"
+import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import {
-  parseStoredModelConfigMap,
-  resolveModelConfig
-} from "@/lib/model-config-utils"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { resolveModelConfig } from "@/lib/model-config-utils"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { ProviderId } from "@/lib/providers/types"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ProviderModelDetails } from "@/types"
 
 /**
@@ -144,9 +142,7 @@ const parseKeepAliveMs = (value?: string | number): number | undefined => {
 }
 
 const getModelConfig = async (model: string) => {
-  const configs = parseStoredModelConfigMap(
-    await plasmoGlobalStorage.get<unknown>(STORAGE_KEYS.PROVIDER.MODEL_CONFIGS)
-  )
+  const configs = await readSetting(SETTINGS.MODEL_CONFIGS)
   return resolveModelConfig(configs[model])
 }
 

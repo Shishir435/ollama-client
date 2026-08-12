@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { DEFAULT_CONTENT_EXTRACTION_CONFIG } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 
 import {
   isExcludedUrl,
@@ -9,7 +9,7 @@ import {
   urlMatchesAny
 } from "../url-filter"
 
-const mockedGet = vi.mocked(plasmoGlobalStorage.get)
+const mockedGet = vi.mocked(getPlasmoStoredValue)
 const profileNeverRead = vi.hoisted(() => vi.fn())
 
 vi.mock("@/lib/per-site-profiles", () => ({

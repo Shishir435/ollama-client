@@ -1,20 +1,22 @@
-import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { removeSetting, writeSetting } from "@/lib/storage/setting-access"
+import { SelectedModelRefSchema } from "@/lib/storage/setting-schemas"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ProviderModel, SelectedModelRef } from "@/types"
 
-export const isSelectedModelRef = (value: unknown): value is SelectedModelRef =>
-  !!value &&
-  typeof value === "object" &&
-  typeof (value as SelectedModelRef).providerId === "string" &&
-  typeof (value as SelectedModelRef).modelId === "string"
+export const isSelectedModelRef = (
+  value: unknown
+): value is SelectedModelRef => {
+  const parsed = SelectedModelRefSchema.safeParse(value)
+  return parsed.success && parsed.data !== null
+}
 
 export const saveSelectedModelRef = async (
   ref: SelectedModelRef
 ): Promise<void> => {
   await Promise.all([
-    plasmoGlobalStorage.set(STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF, ref),
-    plasmoGlobalStorage.set(STORAGE_KEYS.PROVIDER.SELECTED_MODEL, ref.modelId),
-    plasmoGlobalStorage.remove(STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL)
+    writeSetting(SETTINGS.SELECTED_MODEL_REF, ref),
+    writeSetting(SETTINGS.SELECTED_MODEL, ref.modelId),
+    removeSetting(SETTINGS.SELECTION_CONFLICT_MODEL)
   ])
 }
 

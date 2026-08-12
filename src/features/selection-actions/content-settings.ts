@@ -1,18 +1,14 @@
 import { isEmbeddingModel } from "@/features/model/lib/model-utils"
 import { setSelectionLanguage } from "@/i18n/selection-config"
 import { browser } from "@/lib/browser-api"
-import {
-  DEFAULT_CONTENT_EXTRACTION_CONFIG,
-  MESSAGE_KEYS,
-  STORAGE_KEYS
-} from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { isSelectedModelRef } from "@/lib/providers/selected-model"
+import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { sendRuntimeMessage } from "@/lib/runtime-messages"
-import type { ContentExtractionConfig, ProviderModel } from "@/types"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
+import type { ProviderModel } from "@/types"
 
 export async function syncSelectionLanguage() {
-  const stored = await plasmoGlobalStorage.get<string>(STORAGE_KEYS.LANGUAGE)
+  const stored = await readSetting(SETTINGS.LANGUAGE)
   const browserLanguage =
     chrome.i18n?.getUILanguage?.() ?? globalThis.navigator?.language
   try {
@@ -25,10 +21,7 @@ export async function syncSelectionLanguage() {
 }
 
 export async function loadSelectionConfig() {
-  const stored = await plasmoGlobalStorage.get<ContentExtractionConfig>(
-    STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG
-  )
-  return { ...DEFAULT_CONTENT_EXTRACTION_CONFIG, ...(stored ?? {}) }
+  return readSetting(SETTINGS.CONTENT_EXTRACTION_CONFIG)
 }
 
 export async function loadSelectedPanelModel(currentModel: string): Promise<{
@@ -37,14 +30,10 @@ export async function loadSelectedPanelModel(currentModel: string): Promise<{
 }> {
   if (currentModel) return { model: currentModel }
 
-  const ref = await plasmoGlobalStorage.get<unknown>(
-    STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF
-  )
-  const fallback = await plasmoGlobalStorage.get<string>(
-    STORAGE_KEYS.PROVIDER.SELECTED_MODEL
-  )
+  const ref = await readSetting(SETTINGS.SELECTED_MODEL_REF)
+  const fallback = await readSetting(SETTINGS.SELECTED_MODEL)
 
-  if (isSelectedModelRef(ref)) {
+  if (ref) {
     return { model: ref.modelId, providerId: ref.providerId }
   }
 

@@ -18,11 +18,15 @@ import {
   type EmbeddingConfig,
   STORAGE_KEYS
 } from "@/lib/constants"
-import type { StoredModelConfigMap } from "@/lib/model-config-utils"
+import {
+  ModelConfigMapSchema,
+  type StoredModelConfigMap
+} from "@/lib/model-config-utils"
 import {
   DEFAULT_PER_SITE_PROFILE_SETTINGS,
-  type PerSiteProfileSettings
-} from "@/lib/per-site-profiles"
+  type PerSiteProfileSettings,
+  PerSiteProfileSettingsSchema
+} from "@/lib/per-site-profile-settings"
 import type { CapabilityProbeMap } from "@/lib/providers/capability-probe"
 import type { ModelCapabilityOverrideMap } from "@/lib/providers/model-capability-overrides"
 import type { ApprovalGrantMap } from "@/lib/tools/approval/approval-grants"
@@ -36,7 +40,14 @@ import type {
   FileUploadConfig,
   SelectedModelRef
 } from "@/types"
+import type { SettingDescriptor } from "./setting-descriptor"
 import { defineSetting } from "./setting-descriptor"
+import {
+  ContentExtractionConfigSchema,
+  EmbeddingConfigSchema,
+  FileUploadConfigSchema,
+  SelectedModelRefSchema
+} from "./setting-schemas"
 
 export const SETTINGS = {
   LANGUAGE: defineSetting<string>(STORAGE_KEYS.LANGUAGE, {
@@ -47,7 +58,7 @@ export const SETTINGS = {
   }),
   SELECTED_MODEL_REF: defineSetting<SelectedModelRef | null>(
     STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF,
-    { defaultValue: null }
+    { defaultValue: null, parser: SelectedModelRefSchema }
   ),
   SELECTION_CONFLICT_MODEL: defineSetting<string | null>(
     STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL,
@@ -55,7 +66,7 @@ export const SETTINGS = {
   ),
   MODEL_CONFIGS: defineSetting<StoredModelConfigMap>(
     STORAGE_KEYS.PROVIDER.MODEL_CONFIGS,
-    { defaultValue: {} }
+    { defaultValue: {}, parser: ModelConfigMapSchema }
   ),
   PROVIDER_FAVICON_LOOKUP: defineSetting<boolean>(
     STORAGE_KEYS.PROVIDER.FAVICON_LOOKUP,
@@ -70,7 +81,10 @@ export const SETTINGS = {
   }),
   CONTENT_EXTRACTION_CONFIG: defineSetting<ContentExtractionConfig>(
     STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG,
-    { defaultValue: DEFAULT_CONTENT_EXTRACTION_CONFIG }
+    {
+      defaultValue: DEFAULT_CONTENT_EXTRACTION_CONFIG,
+      parser: ContentExtractionConfigSchema
+    }
   ),
   EXCLUDE_URL_PATTERNS: defineSetting<string[]>(
     STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS,
@@ -78,7 +92,10 @@ export const SETTINGS = {
   ),
   PER_SITE_PROFILES: defineSetting<PerSiteProfileSettings>(
     STORAGE_KEYS.BROWSER.PER_SITE_PROFILES,
-    { defaultValue: DEFAULT_PER_SITE_PROFILE_SETTINGS }
+    {
+      defaultValue: DEFAULT_PER_SITE_PROFILE_SETTINGS,
+      parser: PerSiteProfileSettingsSchema
+    }
   ),
   MAX_RESTORE_SESSIONS: defineSetting<number>(
     STORAGE_KEYS.BROWSER.MAX_RESTORE_SESSIONS,
@@ -90,7 +107,7 @@ export const SETTINGS = {
   ),
   EMBEDDING_CONFIG: defineSetting<EmbeddingConfig>(
     STORAGE_KEYS.EMBEDDINGS.CONFIG,
-    { defaultValue: DEFAULT_EMBEDDING_CONFIG }
+    { defaultValue: DEFAULT_EMBEDDING_CONFIG, parser: EmbeddingConfigSchema }
   ),
   USE_RAG: defineSetting<boolean>(STORAGE_KEYS.EMBEDDINGS.USE_RAG, {
     defaultValue: true
@@ -100,7 +117,7 @@ export const SETTINGS = {
   }),
   FILE_UPLOAD_CONFIG: defineSetting<FileUploadConfig>(
     STORAGE_KEYS.FILE_UPLOAD.CONFIG,
-    { defaultValue: DEFAULT_FILE_UPLOAD_CONFIG }
+    { defaultValue: DEFAULT_FILE_UPLOAD_CONFIG, parser: FileUploadConfigSchema }
   ),
   MAX_IMAGE_SIZE_MB: defineSetting<number>(STORAGE_KEYS.IMAGES.MAX_SIZE_MB, {
     defaultValue: DEFAULT_MAX_IMAGE_SIZE_MB
@@ -168,3 +185,15 @@ export const SETTINGS = {
     }
   )
 }
+
+const SETTINGS_BY_KEY = new Map<string, SettingDescriptor<unknown>>(
+  Object.values(SETTINGS).map((descriptor) => [
+    descriptor.key,
+    descriptor as SettingDescriptor<unknown>
+  ])
+)
+
+/** Descriptor lookup for generic settings workflows such as presets/reset. */
+export const getSettingDescriptor = (
+  key: string
+): SettingDescriptor<unknown> | undefined => SETTINGS_BY_KEY.get(key)

@@ -3,15 +3,15 @@ import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
-  normalizeEmbeddingModelName,
-  STORAGE_KEYS
+  normalizeEmbeddingModelName
 } from "@/lib/constants"
 import { createAppError, getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import type { LLMProvider } from "@/lib/providers/types"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import { getEmbeddingConfig } from "./config"
 
@@ -74,10 +74,7 @@ const normalizeModelForProvider = (
 
 const getActiveProvider = async (): Promise<LLMProvider | null> => {
   try {
-    const selectedModelRef = await plasmoGlobalStorage.get<{
-      providerId?: string
-      modelId?: string
-    }>(STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF)
+    const selectedModelRef = await readSetting(SETTINGS.SELECTED_MODEL_REF)
     if (selectedModelRef?.modelId) {
       return await ProviderFactory.getProviderForModel(
         selectedModelRef.modelId,
@@ -85,9 +82,7 @@ const getActiveProvider = async (): Promise<LLMProvider | null> => {
       )
     }
 
-    const selectedChatModel = await plasmoGlobalStorage.get<string>(
-      STORAGE_KEYS.PROVIDER.SELECTED_MODEL
-    )
+    const selectedChatModel = await readSetting(SETTINGS.SELECTED_MODEL)
 
     if (!selectedChatModel) {
       return null
@@ -104,9 +99,7 @@ const getActiveProvider = async (): Promise<LLMProvider | null> => {
 
 const getStoredEmbeddingModel = async (): Promise<string> => {
   const config = await getEmbeddingConfig()
-  const stored = await plasmoGlobalStorage.get<string>(
-    STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL
-  )
+  const stored = await readSetting(SETTINGS.EMBEDDING_SELECTED_MODEL)
   const configModel = config.sharedEmbeddingModel
 
   if (

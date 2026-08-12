@@ -1,9 +1,7 @@
-import {
-  DEFAULT_CONTENT_EXTRACTION_CONFIG,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { DEFAULT_CONTENT_EXTRACTION_CONFIG } from "@/lib/constants"
 import { getEffectiveConfig } from "@/lib/content-extractor"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { readSetting, readStoredSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ContentExtractionConfig } from "@/types"
 
 export const resolveActiveConfig = async (
@@ -12,22 +10,16 @@ export const resolveActiveConfig = async (
   effectiveConfig: ContentExtractionConfig
   hasSiteOverride: boolean
 }> => {
-  const stored = await plasmoGlobalStorage.get<ContentExtractionConfig>(
-    STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG
-  )
+  const stored = await readStoredSetting(SETTINGS.CONTENT_EXTRACTION_CONFIG)
 
   let excludedUrlPatterns = stored?.excludedUrlPatterns
   if (!excludedUrlPatterns || excludedUrlPatterns.length === 0) {
-    const oldPatterns = await plasmoGlobalStorage.get<string[]>(
-      STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS
-    )
-    excludedUrlPatterns =
-      oldPatterns || DEFAULT_CONTENT_EXTRACTION_CONFIG.excludedUrlPatterns
+    const oldPatterns = await readSetting(SETTINGS.EXCLUDE_URL_PATTERNS)
+    excludedUrlPatterns = oldPatterns
   }
 
   const globalConfig: ContentExtractionConfig = stored
     ? {
-        ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
         ...stored,
         excludedUrlPatterns,
         siteOverrides: stored.siteOverrides || {}

@@ -1,8 +1,5 @@
-import {
-  DEFAULT_EMBEDDING_CONFIG,
-  type EmbeddingConfig,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { DEFAULT_EMBEDDING_CONFIG } from "@/lib/constants"
+import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export const KNOWLEDGE_CONFIG_KEYS = {
@@ -103,9 +100,7 @@ export class KnowledgeConfig {
   }
 
   async getMinSimilarity(): Promise<number> {
-    const config = await plasmoGlobalStorage.get<EmbeddingConfig>(
-      STORAGE_KEYS.EMBEDDINGS.CONFIG
-    )
+    const config = await getEmbeddingConfig()
     return (
       config?.defaultMinSimilarity ??
       DEFAULT_EMBEDDING_CONFIG.defaultMinSimilarity
