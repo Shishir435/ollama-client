@@ -355,7 +355,11 @@ Images reuse the existing file metadata path for local persistence and preview d
 
 - The selected model key is persisted under the provider key path (`STORAGE_KEYS.PROVIDER.SELECTED_MODEL`) with legacy reads.
 - The model list is built by querying all enabled providers in `useProviderModels`.
-- Provider configs are persisted via `ProviderManager` (`ProviderStorageKey.CONFIG`).
+- Provider CRUD and routing stay behind the stable `ProviderManager` facade.
+  Locked configuration recovery, hydration, defaults, and legacy URL adoption
+  live in `provider-config-repository.ts`; scoped model mappings live in
+  `provider-mapping-repository.ts`; removed-beta remapping and duplicate
+  retention live in `provider-compat-migration.ts`.
 - Built-in profiles: Ollama, LM Studio, and llama.cpp. User-added configs keep wire protocol separate from service profile, so OpenRouter uses the OpenAI-compatible wire without being identified as OpenAI, and generic Anthropic-compatible endpoints avoid Anthropic-hosted credential/header assumptions.
 - Per-model provider routing is stored via `ProviderStorageKey.MODEL_MAPPINGS`.
 - Background routing is performed by `ProviderFactory.getProviderForModel(modelId)`.

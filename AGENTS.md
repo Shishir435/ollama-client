@@ -99,7 +99,10 @@ connect through package ports.
 | `types.ts` | `LLMProvider`, `ProviderConfig`, `ProviderType`/`ProviderId` enums |
 | `registry.ts` | static metadata for built-in providers |
 | `factory.ts` | `ProviderFactory.getProviderForModel()` |
-| `manager.ts` | config + model mappings via `ProviderStorageKey` |
+| `manager.ts` | stable provider CRUD/routing facade |
+| `provider-config-repository.ts` | locked config recovery, hydration, defaults, and legacy URL adoption |
+| `provider-mapping-repository.ts` | scoped model mapping migration and CRUD |
+| `provider-compat-migration.ts` | removed-beta remapping, sanitization, and duplicate retention |
 | `selected-model.ts` | active model state |
 | `capabilities.ts` | capability detection and per-flag attribution |
 | `ollama.ts`, `lm-studio.ts`, `llama-cpp.ts` | verified built-ins |
