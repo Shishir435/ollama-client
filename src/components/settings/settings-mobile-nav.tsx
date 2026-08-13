@@ -1,5 +1,5 @@
 import { MiniBadge } from "@/components/ui/mini-badge"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 import type { NavItem } from "./settings-sidebar"
 
 interface SettingsMobileNavProps {

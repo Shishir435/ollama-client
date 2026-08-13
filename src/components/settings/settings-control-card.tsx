@@ -2,7 +2,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 interface SettingsControlCardProps {
   label: React.ReactNode

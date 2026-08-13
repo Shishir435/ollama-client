@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/sheet"
 import { ProviderSettings } from "@/features/model/components/provider-settings"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 export const StatusCard = () => {
   const { status, refresh } = useProviderModels()

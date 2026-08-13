@@ -5,7 +5,7 @@ import {
 import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import type { Runtime } from "webextension-polyfill"
 import { dispatchRetainedMessage } from "@/background/handlers/retained-message-handlers"
-import { safeSendResponse } from "@/background/lib/utils"
+import { safeSendResponse } from "@/background/lib/runtime-delivery"
 import {
   handleRpcCancellation,
   handleRpcRequest

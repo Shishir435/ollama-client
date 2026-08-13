@@ -17,7 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 export interface VoiceSelectorProps {
   voices: SpeechSynthesisVoice[]

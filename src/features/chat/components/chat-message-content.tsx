@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 
 import { MarkdownRenderer } from "@/components/markdown-renderer"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 import type { ChatMessage } from "@/types"
 import { ChatMessageLoadingIndicator } from "./chat-message-loading-indicator"
 import { FileAttachmentDisplay } from "./file-attachment-display"

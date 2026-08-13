@@ -1,8 +1,8 @@
 import type { LucideIcon } from "lucide-react"
 import type React from "react"
 import { Card } from "@/components/ui/card"
+import { cn } from "@/lib/class-names"
 import { STATUS_STYLES } from "@/lib/ui-status"
-import { cn } from "@/lib/utils"
 
 export type StatusCalloutVariant =
   | "default"

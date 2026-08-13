@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react"
 import type React from "react"
 import { MiniBadge } from "@/components/ui/mini-badge"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 interface SettingsSectionProps
   extends Omit<React.ComponentProps<"section">, "title"> {

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import type { SettingWrite } from "@/features/settings/apply-settings"
 import { getPresetFieldMeta } from "@/features/settings/preset-field-meta"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 /** camelCase / kebab / snake → "Sentence case". */
 const humanize = (raw: string): string => {

@@ -1,6 +1,6 @@
 import type { Runtime } from "webextension-polyfill"
+import { safeSendResponse } from "@/background/lib/runtime-delivery"
 import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
-import { safeSendResponse } from "@/background/lib/utils"
 import { browser, isChromiumBased } from "@/lib/browser-api"
 import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"

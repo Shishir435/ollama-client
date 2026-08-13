@@ -1,10 +1,10 @@
 import { lazy, Suspense } from "react"
+import { cn } from "@/lib/class-names"
 import {
   isProviderBrandId,
   type ProviderBrandId
 } from "@/lib/providers/provider-brand"
 import { getProviderMeta } from "@/lib/providers/registry"
-import { cn } from "@/lib/utils"
 import { useIconMask } from "./use-icon-mask"
 
 /**

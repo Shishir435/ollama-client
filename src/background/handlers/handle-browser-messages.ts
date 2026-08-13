@@ -1,4 +1,4 @@
-import { safeSendResponse } from "@/background/lib/utils"
+import { safeSendResponse } from "@/background/lib/runtime-delivery"
 import { browser } from "@/lib/browser-api"
 import { logger } from "@/lib/logger"
 import type { SendResponseFunction } from "@/types"

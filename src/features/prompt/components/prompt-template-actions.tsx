@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { logger } from "@/lib/logger"
-import { safeJsonParse } from "@/lib/validation"
+import { safeJsonParse } from "@/lib/safe-json-parse"
 
 export interface PromptTemplateActionsProps {
   onExport: () => void

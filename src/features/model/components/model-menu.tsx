@@ -28,11 +28,11 @@ import {
 } from "@/features/model/hooks/use-model-capability-tags"
 import { useProviderIcons } from "@/features/model/hooks/use-provider-icons"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { cn } from "@/lib/class-names"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
 import { getProviderDisplayName } from "@/lib/providers/registry"
-import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import {
   formatFileSize,

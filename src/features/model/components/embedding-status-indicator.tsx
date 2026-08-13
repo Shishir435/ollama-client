@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { useModelPull } from "@/features/model/hooks/use-model-pull"
 import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/class-names"
 import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
@@ -22,7 +23,6 @@ import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
 import { SETTINGS } from "@/lib/storage/settings"
 import { STATUS_STYLES } from "@/lib/ui-status"
-import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
 export const EmbeddingStatusIndicator = () => {

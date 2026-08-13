@@ -7,9 +7,9 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { Progress } from "@/components/ui/progress"
+import { cn } from "@/lib/class-names"
 import { FILE_UPLOAD } from "@/lib/constants"
 import type { FileProcessingState } from "@/lib/file-processors/types"
-import { cn } from "@/lib/utils"
 
 export interface FilePreviewProps {
   processingState: FileProcessingState
