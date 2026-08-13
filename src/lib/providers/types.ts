@@ -18,6 +18,8 @@ export enum ProviderId {
   OLLAMA = "ollama",
   LM_STUDIO = "lm studio",
   LLAMA_CPP = "llamacpp",
+  // Stored-data compatibility only. Removal is gated by the
+  // compatibility-provider-ids entry in compatibility-ledger.json.
   VLLM = "vllm",
   LOCALAI = "localai",
   KOBOLDCPP = "koboldcpp",
