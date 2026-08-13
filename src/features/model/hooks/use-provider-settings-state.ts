@@ -1,69 +1,31 @@
-import type { ProviderDraftInput } from "@ollama-client/contracts/provider-rpc"
-import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useCallback, useEffect, useReducer, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "@/hooks/use-toast"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import {
-  providerProfileRequiresApiKey,
-  resolveProviderServiceProfile
-} from "@/lib/providers/service-profile"
-import {
-  type CustomProviderWire,
-  isCustomProviderId,
-  ProviderId,
-  type ProviderServiceProfile
+import type {
+  CustomProviderWire,
+  ProviderServiceProfile
 } from "@/lib/providers/types"
-import { extensionRpcClient } from "@/protocol/extension-client"
-import {
-  type ProviderDraft,
-  type ProviderDraftUpdate,
-  providerDraftFromPublic,
-  providerDraftHasUsableApiKey
+import type {
+  ProviderDraft,
+  ProviderDraftUpdate
 } from "../types/provider-draft"
 import {
   initialProviderDraftState,
   providerDraftReducer
 } from "./provider-draft-reducer"
+import {
+  addProviderDraft,
+  loadProviderDrafts,
+  removeProviderDraft,
+  saveProviderDraft,
+  testProviderConnection,
+  updateProviderEnabled
+} from "./provider-settings-commands"
+import { deriveProviderSettingsView } from "./provider-settings-view"
 import { useProviderHealth } from "./use-provider-health"
-
-const LOCAL_PROVIDER_IDS = [
-  ProviderId.OLLAMA,
-  ProviderId.LM_STUDIO,
-  ProviderId.LLAMA_CPP
-]
-
-const isLocalhostEndpoint = (baseUrl?: string) => {
-  const url = baseUrl?.trim()
-  if (!url) return false
-
-  try {
-    const parsed = new URL(url)
-    return ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname)
-  } catch {
-    return false
-  }
-}
-
-const getCspCompatibilityHint = (baseUrl?: string) => {
-  const trimmedUrl = baseUrl?.trim()
-  if (!trimmedUrl) return null
-
-  try {
-    const parsed = new URL(trimmedUrl)
-    const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(
-      parsed.hostname
-    )
-
-    if (isLocalhost) return null
-
-    return 'If you are on an older extension build and see "Failed to fetch" with Content Security Policy errors, update/reload the extension to apply LAN endpoint support.'
-  } catch {
-    return null
-  }
-}
 
 export const useProviderSettingsState = () => {
   const { t } = useTranslation()
@@ -93,11 +55,7 @@ export const useProviderSettingsState = () => {
   const loadProviders = useCallback(async () => {
     dispatch({ type: "load-started" })
     try {
-      const { providers: data } = await extensionRpcClient.call(
-        RpcMethod.ProvidersList,
-        {}
-      )
-      const drafts = data.map(providerDraftFromPublic)
+      const drafts = await loadProviderDrafts()
       for (const provider of drafts) {
         storedEnabled.current.set(String(provider.id), provider.enabled)
       }
@@ -116,40 +74,21 @@ export const useProviderSettingsState = () => {
     loadProviders()
   }, [loadProviders])
 
-  const activeConfig = providers.find((p) => p.id === selectedId)
-  const cspCompatibilityHint = getCspCompatibilityHint(activeConfig?.baseUrl)
-  const displayUrl =
-    activeConfig?.baseUrl || t("settings.providers.test_connection.default_url")
-  const isCustomProvider = activeConfig
-    ? isCustomProviderId(String(activeConfig.id))
-    : false
-  const isLocalProvider = LOCAL_PROVIDER_IDS.includes(
-    activeConfig?.id as ProviderId
-  )
-  const isRemoteEndpoint =
-    Boolean(activeConfig?.baseUrl?.trim()) &&
-    !isLocalhostEndpoint(activeConfig?.baseUrl)
-  const configForRpc = useCallback(
-    (config: ProviderDraft): ProviderDraftInput => ({
-      id: String(config.id),
-      type: config.type,
-      enabled: config.enabled,
-      name: config.name,
-      apiKey: config.apiKey,
-      ...(config.baseUrl !== undefined ? { baseUrl: config.baseUrl } : {}),
-      ...(config.modelId !== undefined ? { modelId: config.modelId } : {}),
-      ...(config.customModels !== undefined
-        ? { customModels: config.customModels }
-        : {}),
-      ...(config.serviceProfile !== undefined
-        ? { serviceProfile: config.serviceProfile }
-        : {}),
-      ...(config.compatibility !== undefined
-        ? { compatibility: config.compatibility }
-        : {})
-    }),
-    []
-  )
+  const {
+    activeConfig,
+    cspCompatibilityHint,
+    displayUrl,
+    isCustomProvider,
+    isLocalProvider,
+    isRemoteEndpoint,
+    headerStatus
+  } = deriveProviderSettingsView({
+    providers,
+    selectedId,
+    connectionStatus,
+    providerHealth,
+    defaultUrl: t("settings.providers.test_connection.default_url")
+  })
 
   const handleTestConnection = async () => {
     if (!activeConfig) return
@@ -163,36 +102,25 @@ export const useProviderSettingsState = () => {
 
     dispatch({ type: "connection-test-started" })
 
-    // Custom endpoints may be keyless local/LAN servers — never require a key
-    // for them; a real 401 from the test surfaces its own error.
-    if (
-      providerProfileRequiresApiKey(
-        resolveProviderServiceProfile(activeConfig)
-      ) &&
-      !providerDraftHasUsableApiKey(activeConfig)
-    ) {
-      const message = t("settings.providers.test_connection.api_key_required", {
-        name: activeConfig.name
-      })
-
-      dispatch({
-        type: "connection-status-set",
-        status: { success: false, message }
-      })
-      toast({
-        title: t("settings.providers.test_connection.api_key_required_title"),
-        description: message,
-        variant: "destructive"
-      })
-      dispatch({ type: "connection-test-finished" })
-      return
-    }
-
     try {
-      const result = await extensionRpcClient.call(
-        RpcMethod.ProvidersTestConnection,
-        { target: "draft", config: configForRpc(activeConfig) }
-      )
+      const command = await testProviderConnection(activeConfig)
+      if (command.kind === "api-key-required") {
+        const message = t(
+          "settings.providers.test_connection.api_key_required",
+          { name: activeConfig.name }
+        )
+        dispatch({
+          type: "connection-status-set",
+          status: { success: false, message }
+        })
+        toast({
+          title: t("settings.providers.test_connection.api_key_required_title"),
+          description: message,
+          variant: "destructive"
+        })
+        return
+      }
+      const { result } = command
       logger.debug("Provider connection RPC succeeded", "ProviderSettings", {
         count: result.modelCount
       })
@@ -308,13 +236,7 @@ export const useProviderSettingsState = () => {
       const providerId = String(config.id)
       const startedRevision = configRevisions.current.get(providerId) ?? 0
       try {
-        const { provider: saved } = await extensionRpcClient.call(
-          RpcMethod.ProvidersUpsert,
-          {
-            target: "existing",
-            config: configForRpc(config)
-          }
-        )
+        const savedDraft = await saveProviderDraft(config)
         if (
           (configRevisions.current.get(providerId) ?? 0) !== startedRevision
         ) {
@@ -325,7 +247,6 @@ export const useProviderSettingsState = () => {
           )
           return false
         }
-        const savedDraft = providerDraftFromPublic(saved)
         storedEnabled.current.set(providerId, savedDraft.enabled)
         dispatch({
           type: "provider-saved",
@@ -356,7 +277,7 @@ export const useProviderSettingsState = () => {
         return false
       }
     },
-    [configForRpc, t]
+    [t]
   )
 
   const setSelectedId = useCallback(
@@ -394,14 +315,10 @@ export const useProviderSettingsState = () => {
       return false
     }
     try {
-      const { provider: config } = await extensionRpcClient.call(
-        RpcMethod.ProvidersUpsert,
-        { target: "new", provider: input }
-      )
+      const addedDraft = await addProviderDraft(input)
       // The mutation response is authoritative. Merge it into the current
       // client state instead of replacing every provider with a list snapshot
       // that may have started before another pending save completed.
-      const addedDraft = providerDraftFromPublic(config)
       storedEnabled.current.set(String(addedDraft.id), addedDraft.enabled)
       dispatch({
         type: "provider-added",
@@ -410,7 +327,7 @@ export const useProviderSettingsState = () => {
       toast({
         title: t("settings.providers.add.added_title"),
         description: t("settings.providers.add.added_description", {
-          name: config.name
+          name: addedDraft.name
         })
       })
       return true
@@ -433,9 +350,7 @@ export const useProviderSettingsState = () => {
       (provider) => String(provider.id) === id
     )?.name
     try {
-      await extensionRpcClient.call(RpcMethod.ProvidersRemove, {
-        providerId: id
-      })
+      await removeProviderDraft(id)
       // The mutation result is authoritative. Do not follow it with a full
       // list refresh: an older snapshot could overwrite concurrent edits or
       // reintroduce the removed provider locally.
@@ -506,14 +421,7 @@ export const useProviderSettingsState = () => {
       .catch(() => undefined)
       .then(async () => {
         try {
-          const { provider: saved } = await extensionRpcClient.call(
-            RpcMethod.ProvidersSetEnabled,
-            {
-              providerId,
-              enabled
-            }
-          )
-          const savedDraft = providerDraftFromPublic(saved)
+          const savedDraft = await updateProviderEnabled(providerId, enabled)
           storedEnabled.current.set(providerId, savedDraft.enabled)
           if (
             (configRevisions.current.get(providerId) ?? 0) !== toggleRevision
@@ -578,60 +486,6 @@ export const useProviderSettingsState = () => {
 
     return () => clearTimeout(timeoutId)
   }, [activeConfig, hasUnsavedChanges, persistConfig])
-
-  const headerStatusConfigs = [
-    {
-      test: () => !activeConfig?.enabled,
-      dot: "bg-muted-foreground/40 ring-muted-foreground/20",
-      label: "inactive"
-    },
-    /*
-     * An endpoint with no catalog is never asked for one after the first
-     * answer, so the background check reaches nothing and cannot claim a live
-     * connection. Say what is actually true — this provider runs on the model
-     * IDs you declared — rather than showing a red dot at a working provider,
-     * or a green one for a round trip nobody made.
-     *
-     * Ahead of "connected" on purpose: the background check reports a model
-     * count for the ids the user declared, and that count is what "connected"
-     * reads. An explicit test did reach the endpoint, so it still wins — this
-     * rule stands down as soon as there is one.
-     */
-    {
-      test: () =>
-        Boolean(
-          activeConfig &&
-            connectionStatus === null &&
-            providerHealth[activeConfig.id]?.modelListSupported === false
-        ),
-      dot: "bg-status-warning ring-status-warning/30",
-      label: "manual_models"
-    },
-    {
-      test: () =>
-        Boolean(
-          activeConfig &&
-            (connectionStatus?.success ??
-              providerHealth[activeConfig.id]?.success)
-        ),
-      dot: "bg-status-success ring-status-success/30",
-      label: "connected"
-    },
-    {
-      test: () =>
-        Boolean(
-          activeConfig &&
-            (connectionStatus?.success === false ||
-              providerHealth[activeConfig.id]?.success === false)
-        ),
-      dot: "bg-status-danger ring-status-danger/30",
-      label: "connection_failed"
-    }
-  ] as const
-  const headerStatus = headerStatusConfigs.find((c) => c.test()) ?? {
-    dot: "bg-status-warning ring-status-warning/30",
-    label: "not_tested"
-  }
 
   return {
     providers,

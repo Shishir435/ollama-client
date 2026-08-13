@@ -2,9 +2,7 @@ import type { ContextFileInput } from "@ollama-client/contracts/context"
 import type { TurnToast } from "@ollama-client/contracts/turns"
 import {
   ACTIVITY_LABELS,
-  ACTIVITY_TEXTS,
-  type ActivityLabel,
-  CONTEXT_CHUNK_LABELS
+  ACTIVITY_TEXTS
 } from "@/application/context/activity-labels"
 import {
   reformulateQuestion,
@@ -34,8 +32,9 @@ import type {
   RagSources,
   UsedContextChunk
 } from "@/types"
+import { ContextAssembly, type PromptContextStats } from "./context-assembly"
 import type { DurableContextOptions } from "./context-contract"
-import { createContextPlan, remainingRagBudget } from "./context-plan"
+import { createContextPlan } from "./context-plan"
 
 /**
  * The minimal file shape context building needs: the scope id and the raw text
@@ -44,19 +43,8 @@ import { createContextPlan, remainingRagBudget } from "./context-plan"
  * context building runs in the background.
  */
 export type { ContextFileInput } from "@ollama-client/contracts/context"
+export type { PromptContextStats } from "./context-assembly"
 export type { RagSource, RagSources, UsedContextChunk }
-
-export interface PromptContextStats {
-  promptInputLength: number
-  promptAugmentedLength: number
-  tabContextLength: number
-  ragContextLength: number
-  tabContextTruncated: boolean
-  groundedOnlyMode: boolean
-  insufficientContext: boolean
-  usedContextChunks: UsedContextChunk[]
-  activityEvents: ActivityEvent[]
-}
 
 export interface BuildRagContextOptions extends DurableContextOptions {
   /**
@@ -88,41 +76,6 @@ export interface BuildRagContextResult {
   pageContextAdded: boolean
 }
 
-const clampContext = (value: string, maxChars: number) => {
-  if (value.length <= maxChars) return { text: value, truncated: false }
-  return {
-    text: `${value.slice(0, maxChars)}\n\n[Context truncated due to length]`,
-    truncated: true
-  }
-}
-
-const mergeRagSources = (
-  current: RagSources | null,
-  sources: RagSource[],
-  query: string
-): RagSources => ({
-  sources: [...(current?.sources || []), ...sources],
-  query
-})
-
-const addUsedContextChunks = (
-  usedContextChunks: UsedContextChunk[],
-  sources: RagSource[],
-  sourceFor: (source: RagSource) => UsedContextChunk["source"]
-) => {
-  sources.forEach((source) => {
-    usedContextChunks.push({
-      id: source.id,
-      title: source.title,
-      excerpt: source.content.slice(0, 220),
-      score: source.score,
-      sectionPath: source.source || source.type,
-      source: sourceFor(source),
-      chunkIndex: source.chunkIndex
-    })
-  })
-}
-
 const resolveFileRagScope = async (
   files: ContextFileInput[] | undefined,
   activeKnowledgeSet: KnowledgeSetRecord | undefined
@@ -143,31 +96,6 @@ const resolveFileRagScope = async (
   const setFileIds = await getKnowledgeSetFileIds(activeKnowledgeSet.id)
   return setFileIds.length > 0 ? setFileIds : undefined
 }
-
-const buildTabFallbackContext = (contextText: string, maxChars: number) => {
-  const clampedFallback = clampContext(contextText, maxChars)
-  const chunk: UsedContextChunk = {
-    id: "tab-fallback",
-    title: CONTEXT_CHUNK_LABELS.selectedTabContext.text,
-    titleKey: CONTEXT_CHUNK_LABELS.selectedTabContext.key,
-    excerpt: clampedFallback.text.slice(0, 220),
-    score: 0.5,
-    sectionPath: "fallback-full-context",
-    source: "tab"
-  }
-
-  return { clampedFallback, chunk }
-}
-
-const buildFileFullTextFallback = (files: ContextFileInput[]) =>
-  files
-    .map(
-      (file) =>
-        `[File: ${file.metadata.fileName}]\n${file.text.slice(0, 10000)}${
-          file.text.length > 10000 ? "\n... (truncated)" : ""
-        }`
-    )
-    .join("\n\n---\n\n")
 
 const REFORMULATION_TIMEOUT_MS = 8000
 const PREVIEW_LIMIT = 180
@@ -231,64 +159,14 @@ export const buildRagContext = async (
     groundedOnlyMode,
     retrievalToolsActive
   })
-  const userContent = plan.userContent
-  let contentWithRAG = userContent
-  let tabContextLength = 0
-  let ragContextLength = 0
-  let tabContextTruncated = false
-
-  // Stored file context and conversation-memory context share ONE budget: the
-  // configured RAG cap is the ceiling for their combined length, not a per-step
-  // limit. Otherwise a turn with both could inject nearly twice the budget and
-  // crowd out recent messages / the answer. `<= 0` means unlimited.
-  const getRemainingRagBudget = () => remainingRagBudget(plan, ragContextLength)
-  const usedContextChunks: UsedContextChunk[] = []
-  const activityEvents: ActivityEvent[] = []
-  let ragSources: RagSources | null = null
-  let pageContextAdded = false
-
-  const upsertActivityEvent = (event: ActivityEvent) => {
-    const index = activityEvents.findIndex((item) => item.id === event.id)
-    if (index >= 0) activityEvents[index] = event
-    else activityEvents.push(event)
-    onActivityEvent?.([...activityEvents])
-  }
-
-  const startActivityEvent = (
-    id: string,
-    kind: ActivityEvent["kind"],
-    label: ActivityLabel,
-    inputPreview?: string
-  ): ActivityEvent => {
-    const event: ActivityEvent = {
-      id,
-      kind,
-      label: label.text,
-      labelKey: label.key,
-      status: "running",
-      startedAt: Date.now(),
-      inputPreview
-    }
-    upsertActivityEvent(event)
-    return event
-  }
-
-  const finishActivityEvent = (
-    event: ActivityEvent,
-    updates: Partial<ActivityEvent> = {}
-  ) => {
-    upsertActivityEvent({
-      ...event,
-      ...updates,
-      status: updates.status ?? "done",
-      finishedAt: Date.now()
-    })
-  }
+  const assembly = new ContextAssembly(
+    plan,
+    groundedOnlyMode,
+    onActivityEvent,
+    DEFAULT_RAG_PROMPT
+  )
 
   const useRag = await readSetting(SETTINGS.USE_RAG)
-
-  let ragInstruction = DEFAULT_RAG_PROMPT
-  let ragInstructionAdded = false
 
   const invokeModelOnce = async (prompt: string): Promise<string> => {
     try {
@@ -326,15 +204,6 @@ export const buildRagContext = async (
     }
   }
 
-  const appendRagContext = (current: string, context: string) => {
-    const block =
-      !ragInstructionAdded && ragInstruction
-        ? `${ragInstruction}\n\n${context}`
-        : context
-    ragInstructionAdded = true
-    return current ? `${current}\n\n---\n\n${block}` : block
-  }
-
   let queryForRag = plan.initialRetrievalQuery
 
   if (useRag) {
@@ -360,7 +229,7 @@ export const buildRagContext = async (
       } else {
         const activeKnowledgeSet = await getActiveKnowledgeSet()
         if (activeKnowledgeSet?.ragPrompt?.trim()) {
-          ragInstruction = activeKnowledgeSet.ragPrompt.trim()
+          assembly.setRagInstruction(activeKnowledgeSet.ragPrompt.trim())
         }
 
         const retrievalOverrides = activeKnowledgeSet?.retrieval
@@ -369,7 +238,7 @@ export const buildRagContext = async (
           activeKnowledgeSet?.questionPrompt?.trim() &&
           recentHistory.length >= 2
         ) {
-          const rewriteEvent = startActivityEvent(
+          const rewriteEvent = assembly.startActivity(
             "query-rewrite",
             "query_rewrite",
             ACTIVITY_LABELS.rewritingQuery,
@@ -381,7 +250,7 @@ export const buildRagContext = async (
             invokeModelOnce,
             activeKnowledgeSet.questionPrompt
           )
-          finishActivityEvent(rewriteEvent, {
+          assembly.finishActivity(rewriteEvent, {
             outputPreview: preview(reformulated || rawInput || "summary")
           })
           if (reformulated) {
@@ -394,7 +263,7 @@ export const buildRagContext = async (
 
         // Page-only context (ephemeral, not persisted).
         if (hasTabContext) {
-          const pageEvent = startActivityEvent(
+          const pageEvent = assembly.startActivity(
             "page-context",
             "reading_page",
             ACTIVITY_LABELS.readingPageContext,
@@ -415,26 +284,14 @@ export const buildRagContext = async (
           )
 
           if (pageContext.documents.length > 0) {
-            const clamped = clampContext(
+            assembly.appendPageContext(
               pageContext.formattedContext,
+              pageContext.sources,
+              rawInput || "summary",
               maxTabContextChars
             )
-            contentWithRAG = appendRagContext(contentWithRAG, clamped.text)
-            tabContextLength += clamped.text.length
-            tabContextTruncated = tabContextTruncated || clamped.truncated
-            ragSources = mergeRagSources(
-              ragSources,
-              pageContext.sources,
-              rawInput || "summary"
-            )
-            addUsedContextChunks(
-              usedContextChunks,
-              pageContext.sources,
-              () => "tab"
-            )
-            pageContextAdded = true
           }
-          finishActivityEvent(pageEvent, {
+          assembly.finishActivity(pageEvent, {
             resultCount: pageContext.documents.length,
             sourceTitles: pageContext.sources
               .slice(0, 3)
@@ -456,7 +313,7 @@ export const buildRagContext = async (
           const fileIds = await resolveFileRagScope(files, activeKnowledgeSet)
 
           if (fileIds && fileIds.length > 0) {
-            const searchEvent = startActivityEvent(
+            const searchEvent = assembly.startActivity(
               "file-search",
               "searching_files",
               ACTIVITY_LABELS.searchingFiles,
@@ -484,24 +341,14 @@ export const buildRagContext = async (
               logger.info("RAG found relevant chunks", "useChat", {
                 chunkCount: context.documents.length
               })
-              const clamped = clampContext(
+              assembly.appendStoredContext(
                 context.formattedContext,
-                getRemainingRagBudget()
-              )
-              ragSources = mergeRagSources(
-                ragSources,
                 context.sources,
-                queryForRag
-              )
-              addUsedContextChunks(
-                usedContextChunks,
-                context.sources,
+                queryForRag,
                 (source) => source.source
               )
-              contentWithRAG = appendRagContext(contentWithRAG, clamped.text)
-              ragContextLength += clamped.text.length
             }
-            finishActivityEvent(searchEvent, {
+            assembly.finishActivity(searchEvent, {
               resultCount: context.documents.length,
               sourceTitles: context.sources
                 .slice(0, 3)
@@ -525,7 +372,7 @@ export const buildRagContext = async (
           // path that answers "based on our past conversation …": it runs
           // whenever memory is enabled, with or without selected files.
           if (memoryEnabled) {
-            const memoryEvent = startActivityEvent(
+            const memoryEvent = assembly.startActivity(
               "memory-recall",
               "searching_memory",
               ACTIVITY_LABELS.searchingMemory,
@@ -537,17 +384,18 @@ export const buildRagContext = async (
             })
             // Memory shares the RAG budget with file context above; only append
             // what fits in the remainder so the two together stay within cap.
-            const memoryBudget = getRemainingRagBudget()
+            const memoryBudget = assembly.remainingRagBudget
             if (memoryResults.length > 0 && memoryBudget > 0) {
               const { formattedContext, sources } =
                 formatEnhancedResults(memoryResults)
-              const clamped = clampContext(formattedContext, memoryBudget)
-              contentWithRAG = appendRagContext(contentWithRAG, clamped.text)
-              ragContextLength += clamped.text.length
-              ragSources = mergeRagSources(ragSources, sources, queryForRag)
-              addUsedContextChunks(usedContextChunks, sources, () => "memory")
+              assembly.appendStoredContext(
+                formattedContext,
+                sources,
+                queryForRag,
+                () => "memory"
+              )
             }
-            finishActivityEvent(memoryEvent, {
+            assembly.finishActivity(memoryEvent, {
               resultCount: memoryResults.length,
               sourceTitles: memoryResults.slice(0, 3).map((result) =>
                 result.isMemory
@@ -576,16 +424,7 @@ export const buildRagContext = async (
       }
     } catch (e) {
       logger.error("RAG error", "useChat", { error: e })
-      upsertActivityEvent({
-        id: "rag-error",
-        kind: "searching_memory",
-        label: ACTIVITY_LABELS.searchingContext.text,
-        labelKey: ACTIVITY_LABELS.searchingContext.key,
-        status: "error",
-        startedAt: Date.now(),
-        finishedAt: Date.now(),
-        error: e instanceof Error ? e.message : "Context search failed"
-      })
+      assembly.recordError(e)
       toast?.({
         variant: "destructive",
         titleKey: "chat.errors.context_retrieval_warning_title",
@@ -595,48 +434,12 @@ export const buildRagContext = async (
   }
 
   // Tab fallback: full extracted page text when RAG didn't add page context.
-  if (!pageContextAdded && hasTabContext) {
-    const { clampedFallback, chunk } = buildTabFallbackContext(
-      options.contextText,
-      maxTabContextChars
-    )
-    contentWithRAG = contentWithRAG
-      ? `${contentWithRAG}\n\n---\n\n${clampedFallback.text}`
-      : clampedFallback.text
-    tabContextLength += clampedFallback.text.length
-    tabContextTruncated = tabContextTruncated || clampedFallback.truncated
-    usedContextChunks.push(chunk)
+  if (hasTabContext) {
+    assembly.appendTabFallback(options.contextText, maxTabContextChars)
   }
 
   // File full-text fallback: only when specific files attached and RAG added nothing.
-  if (contentWithRAG === userContent && files && files.length > 0) {
-    const fullTextContext = buildFileFullTextFallback(files)
-    contentWithRAG = `${contentWithRAG}\n\n---\n\n${fullTextContext}`
-  }
+  assembly.appendFileFallback(files)
 
-  const insufficientContext = groundedOnlyMode && tabContextLength === 0
-  if (groundedOnlyMode && !insufficientContext) {
-    const strictGroundingInstruction =
-      'You must answer only from the supplied selected-page context. If context is insufficient, respond with: "Insufficient page context."'
-    contentWithRAG = `${strictGroundingInstruction}\n\n${contentWithRAG}`
-  }
-
-  const promptContextStats: PromptContextStats = {
-    promptInputLength: userContent.length,
-    promptAugmentedLength: contentWithRAG.length,
-    tabContextLength,
-    ragContextLength,
-    tabContextTruncated,
-    groundedOnlyMode,
-    insufficientContext,
-    usedContextChunks,
-    activityEvents
-  }
-
-  return {
-    contentWithRAG,
-    ragSources,
-    promptContextStats,
-    pageContextAdded
-  }
+  return assembly.finish()
 }
