@@ -84,6 +84,41 @@ const connectTurn = (turnId: string, afterSeq?: number): VerifyStream => {
   return stream
 }
 
+/**
+ * Resolve once the tab has committed its requested document. onUpdated is
+ * attached before the first get() so a status change between the two is not
+ * lost, and a settled tab short-circuits without waiting for an event that
+ * has already fired.
+ */
+const waitForTabComplete = (tabId: number): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup()
+      reject(new Error(`Tab ${tabId} did not finish loading`))
+    }, 10_000)
+    const cleanup = () => {
+      clearTimeout(timer)
+      browser.tabs.onUpdated.removeListener(onUpdated)
+    }
+    const onUpdated = (updatedTabId: number, change: { status?: string }) => {
+      if (updatedTabId !== tabId || change.status !== "complete") return
+      cleanup()
+      resolve()
+    }
+    browser.tabs.onUpdated.addListener(onUpdated)
+    browser.tabs
+      .get(tabId)
+      .then((tab) => {
+        if (tab.status !== "complete") return
+        cleanup()
+        resolve()
+      })
+      .catch((error) => {
+        cleanup()
+        reject(error)
+      })
+  })
+
 const makeTurnRequest = (prompt: string) => ({
   version: 1 as const,
   context: {
@@ -490,6 +525,9 @@ const verifyApi = {
     const tab = await browser.tabs.create({ url, active: false })
     if (typeof tab.id !== "number") throw new Error("Created tab has no id")
     try {
+      // Injecting mid-navigation either targets the transient about:blank or
+      // rejects outright, so the 403 has to be earned from the settled page.
+      await waitForTabComplete(tab.id)
       const results = await browser.scripting.executeScript({
         target: { tabId: tab.id },
         func: async (messageType, version, method) =>

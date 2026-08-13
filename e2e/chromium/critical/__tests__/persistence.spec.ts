@@ -27,6 +27,19 @@ const startFakeOllama = async () => {
       request.on("end", () => resolve(body))
     })
   const line = (value: unknown) => `${JSON.stringify(value)}\n`
+  /** A hung branch schedules a response the test never waits for. Tracked so
+   * close() drops the handle instead of holding the event loop for 30s. */
+  const pending = new Set<ReturnType<typeof setTimeout>>()
+  const stallThenEnd = (
+    response: import("node:http").ServerResponse,
+    tail: string
+  ) => {
+    const timer = setTimeout(() => {
+      pending.delete(timer)
+      if (!response.destroyed) response.end(tail)
+    }, 30_000)
+    pending.add(timer)
+  }
   const server = createServer(async (request, response) => {
     response.setHeader("Access-Control-Allow-Origin", "*")
     response.setHeader("Content-Type", "application/json")
@@ -110,21 +123,19 @@ const startFakeOllama = async () => {
         response.write(
           line({ message: { content: "before-restart " }, done: false })
         )
-        setTimeout(() => {
-          if (!response.destroyed) {
-            response.end(line({ message: { content: "stale" }, done: true }))
-          }
-        }, 30_000)
+        stallThenEnd(
+          response,
+          line({ message: { content: "stale" }, done: true })
+        )
         return
       }
 
       if (userPrompt.includes("stop e2e")) {
         response.write(line({ message: { content: "partial" }, done: false }))
-        setTimeout(() => {
-          if (!response.destroyed) {
-            response.end(line({ message: { content: "late" }, done: true }))
-          }
-        }, 30_000)
+        stallThenEnd(
+          response,
+          line({ message: { content: "late" }, done: true })
+        )
         return
       }
 
@@ -147,6 +158,8 @@ const startFakeOllama = async () => {
     callsFor: (prompt: string) => promptCalls.get(prompt) ?? 0,
     close: () =>
       new Promise<void>((resolve) => {
+        for (const timer of pending) clearTimeout(timer)
+        pending.clear()
         server.close(() => resolve())
         server.closeAllConnections()
       })
