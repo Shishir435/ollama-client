@@ -297,27 +297,55 @@ const run = async (): Promise<void> => {
     "--no-first-run",
     "--no-default-browser-check"
   ]
+  if (process.platform === "linux") {
+    chromiumArgs.push("--disable-dev-shm-usage")
+  }
+  if (process.env.CI) chromiumArgs.push("--no-sandbox")
   if (process.env.E2E_HEADFUL !== "1") chromiumArgs.push("--headless=new")
   const child = spawn(chromium.executablePath(), chromiumArgs, {
-    stdio: "ignore"
+    stdio: ["ignore", "ignore", "pipe"]
+  })
+  let browserFailure = ""
+  let browserStderr = ""
+  child.stderr.setEncoding("utf8")
+  child.stderr.on("data", (chunk: string) => {
+    browserStderr = `${browserStderr}${chunk}`.slice(-4_000)
+  })
+  child.once("error", (error) => {
+    browserFailure = `spawn error: ${error.message}`
+  })
+  child.once("exit", (code, signal) => {
+    browserFailure = `exited code=${String(code)} signal=${String(signal)}`
   })
   let page: PageSession | undefined
 
   try {
     const activePortFile = resolve(userDataDir, "DevToolsActivePort")
-    await poll(
+    const launchState = await poll(
       async () => {
+        if (browserFailure) {
+          return { port: 0, failure: browserFailure }
+        }
         try {
-          return Number.parseInt(readFileSync(activePortFile, "utf8"), 10)
+          return {
+            port: Number.parseInt(readFileSync(activePortFile, "utf8"), 10),
+            failure: ""
+          }
         } catch {
-          return 0
+          return { port: 0, failure: "" }
         }
       },
-      (port) => Number.isInteger(port) && port > 0,
+      (state) =>
+        Boolean(state.failure) ||
+        (Number.isInteger(state.port) && state.port > 0),
       "Chromium debugging port"
-    ).then((port) => {
-      debugPort = port
-    })
+    )
+    if (launchState.failure) {
+      throw new Error(
+        `Chromium failed before reporting its debugging port: ${launchState.failure}\n${browserStderr}`
+      )
+    }
+    debugPort = launchState.port
 
     const browserWsUrl = await poll(
       async () => {
@@ -412,16 +440,20 @@ const run = async (): Promise<void> => {
         result.done === true,
       "durable turn recovery"
     )
-    const eventTypes = await page.evaluate<string[]>(
-      verifyCall("turnEventTypes", turnId)
-    )
+    const eventSummary = await page.evaluate<{
+      eventTypes: string[]
+      snapshots: number
+      terminalChunks: number
+    }>(verifyCall("turnEventSummary", turnId))
     record(
       "isolated-sw-turn-recovered-once",
-      fakeOllama.calls() === 2 && eventTypes.includes("stream_snapshot"),
+      fakeOllama.calls() === 2 &&
+        eventSummary.snapshots >= 1 &&
+        eventSummary.terminalChunks === 1,
       {
         calls: fakeOllama.calls(),
         completed,
-        eventTypes,
+        eventSummary,
         originalWorkerId: originalWorker.id,
         replacementWorkerId: replacementWorker.id
       }

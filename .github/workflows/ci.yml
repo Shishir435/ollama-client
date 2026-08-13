@@ -281,7 +281,7 @@ jobs:
         run: pnpm e2e:chromium:critical
 
       - name: Verify isolated service-worker turn recovery
-        run: pnpm verify:sw-turn-recovery
+        run: E2E_HEADFUL=1 xvfb-run --auto-servernum pnpm verify:sw-turn-recovery
 
       # Traces, videos, and the HTML report are only worth minutes and storage
       # when something failed.
