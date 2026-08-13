@@ -487,6 +487,53 @@ describe("useProviderSettingsState", () => {
     expect(result.current.hasUnsavedChanges).toBe(true)
   })
 
+  it("does not let an older toggle failure roll back a newer toggle", async () => {
+    let rejectFirst: ((reason?: unknown) => void) | undefined
+    let resolveSecond:
+      | ((value: { provider: typeof ollama }) => void)
+      | undefined
+    const firstToggle = new Promise<never>((_resolve, reject) => {
+      rejectFirst = reject
+    })
+    const secondToggle = new Promise<{ provider: typeof ollama }>((resolve) => {
+      resolveSecond = resolve
+    })
+    let toggleCalls = 0
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList) {
+        return { providers: [ollama] } as never
+      }
+      if (method === RpcMethod.ProvidersSetEnabled) {
+        toggleCalls += 1
+        return (await (toggleCalls === 1 ? firstToggle : secondToggle)) as never
+      }
+      throw new Error(`Unexpected method: ${method}`)
+    })
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toEqual([ollama]))
+
+    let olderPromise: Promise<void>
+    let newerPromise: Promise<void>
+    act(() => {
+      olderPromise = result.current.setProviderEnabled(false)
+      newerPromise = result.current.setProviderEnabled(false)
+    })
+    await waitFor(() => expect(toggleCalls).toBe(2))
+    await act(async () => {
+      rejectFirst?.(new Error("older toggle failed"))
+      await olderPromise
+    })
+
+    expect(result.current.activeConfig?.enabled).toBe(false)
+
+    await act(async () => {
+      resolveSecond?.({ provider: { ...ollama, enabled: false } })
+      await newerPromise
+    })
+    expect(result.current.activeConfig?.enabled).toBe(false)
+  })
+
   const testConnectionFor = async (providerId: string) => {
     const hook = renderHook(() => useProviderSettingsState())
     await waitFor(() => expect(hook.result.current.providers).toHaveLength(2))

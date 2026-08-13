@@ -511,6 +511,14 @@ export const useProviderSettingsState = () => {
         provider: providerDraftFromPublic(saved)
       })
     } catch (error) {
+      if ((configRevisions.current.get(providerId) ?? 0) !== toggleRevision) {
+        logger.debug(
+          "Ignored stale provider toggle failure",
+          "ProviderSettings",
+          { providerId }
+        )
+        return
+      }
       dispatch({
         type: "provider-enabled-reverted",
         providerId,
