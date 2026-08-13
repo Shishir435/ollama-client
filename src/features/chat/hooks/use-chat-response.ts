@@ -4,6 +4,7 @@ import type {
   PromptContextStats,
   RagSources
 } from "@/application/context/build-context"
+import { prepareTurnSubmission } from "@/application/turns/prepare-turn-submission"
 import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
@@ -65,7 +66,7 @@ export const useChatResponse = ({
     options?: {
       contextPrepared?: boolean
       durableTurn?: DurableTurnStart
-      mode?: TurnMode
+      mode?: Exclude<TurnMode, "new">
       streamClaim?: ChatStreamClaim
     }
   ): Promise<boolean> => {
@@ -110,48 +111,23 @@ export const useChatResponse = ({
 
       let durableTurn = options?.durableTurn
       if (!durableTurn && contextMessages) {
-        let userMessageIndex = -1
-        for (let index = contextMessages.length - 1; index >= 0; index -= 1) {
-          if (contextMessages[index].role === "user") {
-            userMessageIndex = index
-            break
-          }
-        }
-        const userMessage = contextMessages[userMessageIndex]
-        if (userMessage && typeof userMessage.id === "number") {
-          const turnId =
-            globalThis.crypto?.randomUUID?.() ??
-            `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
-          durableTurn = {
-            submission: {
-              id: turnId,
-              sessionId,
-              mode: options?.mode ?? "regenerate",
-              model: modelForRequest,
-              providerId: config.selectedModelRef?.providerId,
-              request: {
-                version: 1,
-                context: {
-                  rawInput: userMessage.content,
-                  messages: contextMessages.slice(0, userMessageIndex),
-                  hasTabContext: false,
-                  contextText: "",
-                  tabDocuments: [],
-                  memoryEnabled: config.memoryEnabled,
-                  maxTabContextChars: config.maxTabContextChars,
-                  maxRagContextChars: config.maxRagContextChars,
-                  groundedOnlyMode: false,
-                  selectedModel: config.selectedModel,
-                  selectedModelRef: config.selectedModelRef,
-                  customModel
-                },
-                userMessage
-              },
-              createdAt: Date.now()
-            },
-            userMessageId: userMessage.id
-          }
-        }
+        const turnId =
+          globalThis.crypto?.randomUUID?.() ??
+          `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        durableTurn = prepareTurnSubmission({
+          id: turnId,
+          sessionId,
+          mode: options?.mode ?? "regenerate",
+          model: modelForRequest,
+          selectedModel: config.selectedModel,
+          selectedModelRef: config.selectedModelRef,
+          customModel,
+          memoryEnabled: config.memoryEnabled,
+          maxTabContextChars: config.maxTabContextChars,
+          maxRagContextChars: config.maxRagContextChars,
+          createdAt: Date.now(),
+          contextMessages
+        })
       }
 
       const started = startStream(
