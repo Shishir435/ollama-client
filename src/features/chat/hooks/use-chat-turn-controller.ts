@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ACTIVITY_LABELS } from "@/application/context/activity-labels"
+import { prepareTurnSubmission } from "@/application/turns/prepare-turn-submission"
 import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import {
   buildUserMessage,
@@ -41,7 +42,7 @@ interface UseChatTurnControllerOptions {
     options?: {
       contextPrepared?: boolean
       durableTurn?: DurableTurnStart
-      mode?: import("@ollama-client/contracts/turns").TurnMode
+      mode?: Exclude<import("@ollama-client/contracts/turns").TurnMode, "new">
       streamClaim?: ChatStreamClaim
     }
   ) => Promise<boolean>
@@ -196,7 +197,21 @@ export const useChatTurnController = ({
     const turnId =
       globalThis.crypto?.randomUUID?.() ??
       `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const contextRequest = {
+    const durableTurn = prepareTurnSubmission({
+      id: turnId,
+      sessionId,
+      mode: "new",
+      model: resolvedModel,
+      selectedModel: config.selectedModel,
+      selectedModelRef: config.selectedModelRef,
+      customModel,
+      memoryEnabled: config.memoryEnabled,
+      maxTabContextChars: config.maxTabContextChars,
+      maxRagContextChars: config.maxRagContextChars,
+      createdAt: Date.now(),
+      userMessage,
+      userMessageId,
+      priorMessages: messages,
       rawInput: userContent,
       files: files?.map((file) => ({
         text: file.text,
@@ -205,31 +220,11 @@ export const useChatTurnController = ({
           fileId: file.metadata.fileId
         }
       })),
-      messages,
       hasTabContext,
       contextText: contextText || "",
       tabDocuments,
-      memoryEnabled: config.memoryEnabled,
-      maxTabContextChars: config.maxTabContextChars,
-      maxRagContextChars: config.maxRagContextChars,
-      groundedOnlyMode: config.groundedOnlyMode,
-      selectedModel: config.selectedModel,
-      selectedModelRef: config.selectedModelRef,
-      customModel
-    }
-
-    const durableTurn: DurableTurnStart = {
-      submission: {
-        id: turnId,
-        sessionId,
-        mode: "new",
-        model: resolvedModel,
-        providerId: config.selectedModelRef?.providerId,
-        request: { version: 1, context: contextRequest, userMessage },
-        createdAt: Date.now()
-      },
-      userMessageId
-    }
+      groundedOnlyMode: config.groundedOnlyMode
+    })
 
     try {
       const submitted = await generateResponse(
