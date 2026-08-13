@@ -54,6 +54,21 @@ describe("providerDraftReducer", () => {
     expect(saved.savedRevision).toBe(1)
   })
 
+  it("records a stored mutation without disturbing a newer draft", () => {
+    const state = {
+      ...initialProviderDraftState,
+      providers: [{ ...ollama, name: "Newer draft" }],
+      hasUnsavedChanges: true
+    }
+    const changed = providerDraftReducer(state, {
+      type: "stored-provider-changed"
+    })
+
+    expect(changed.providers).toBe(state.providers)
+    expect(changed.hasUnsavedChanges).toBe(true)
+    expect(changed.savedRevision).toBe(1)
+  })
+
   it("preserves another provider's draft when adding or removing", () => {
     const custom = {
       ...ollama,

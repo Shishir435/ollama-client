@@ -441,6 +441,52 @@ describe("useProviderSettingsState", () => {
     ])
   })
 
+  it("keeps edits made while an enable toggle is pending", async () => {
+    let resolveToggle:
+      | ((value: { provider: typeof ollama }) => void)
+      | undefined
+    const pendingToggle = new Promise<{ provider: typeof ollama }>(
+      (resolve) => {
+        resolveToggle = resolve
+      }
+    )
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList) {
+        return { providers: [ollama] } as never
+      }
+      if (method === RpcMethod.ProvidersSetEnabled) {
+        return (await pendingToggle) as never
+      }
+      throw new Error(`Unexpected method: ${method}`)
+    })
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toEqual([ollama]))
+
+    let togglePromise: Promise<void>
+    act(() => {
+      togglePromise = result.current.setProviderEnabled(false)
+    })
+    await waitFor(() =>
+      expect(extensionRpcClient.call).toHaveBeenCalledWith(
+        RpcMethod.ProvidersSetEnabled,
+        { providerId: ProviderId.OLLAMA, enabled: false }
+      )
+    )
+    act(() => {
+      result.current.updateConfig({ name: "Edited while toggling" })
+    })
+    await act(async () => {
+      resolveToggle?.({ provider: { ...ollama, enabled: false } })
+      await togglePromise
+    })
+
+    expect(result.current.providers).toEqual([
+      { ...ollama, name: "Edited while toggling", enabled: false }
+    ])
+    expect(result.current.hasUnsavedChanges).toBe(true)
+  })
+
   const testConnectionFor = async (providerId: string) => {
     const hook = renderHook(() => useProviderSettingsState())
     await waitFor(() => expect(hook.result.current.providers).toHaveLength(2))

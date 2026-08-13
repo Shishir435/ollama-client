@@ -52,6 +52,7 @@ export type ProviderDraftAction =
       providerId: string
       enabled: boolean
     }
+  | { type: "stored-provider-changed" }
   | { type: "connection-test-started" }
   | { type: "connection-test-finished" }
   | { type: "connection-status-set"; status: ProviderConnectionStatus | null }
@@ -158,6 +159,8 @@ export const providerDraftReducer = (
           (provider) => ({ ...provider, enabled: action.enabled })
         )
       }
+    case "stored-provider-changed":
+      return { ...state, savedRevision: state.savedRevision + 1 }
     case "connection-test-started":
       return { ...state, testingConnection: true, connectionStatus: null }
     case "connection-test-finished":

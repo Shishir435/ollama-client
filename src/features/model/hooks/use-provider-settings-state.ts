@@ -480,10 +480,8 @@ export const useProviderSettingsState = () => {
     }
 
     const providerId = String(activeConfig.id)
-    configRevisions.current.set(
-      providerId,
-      (configRevisions.current.get(providerId) ?? 0) + 1
-    )
+    const toggleRevision = (configRevisions.current.get(providerId) ?? 0) + 1
+    configRevisions.current.set(providerId, toggleRevision)
     dispatch({
       type: "provider-enabled-optimistically",
       providerId,
@@ -497,6 +495,17 @@ export const useProviderSettingsState = () => {
           enabled
         }
       )
+      if ((configRevisions.current.get(providerId) ?? 0) !== toggleRevision) {
+        // The toggle reached storage, but a newer form edit owns the local
+        // draft. Keep that draft and its dirty flag so auto-save can persist it.
+        dispatch({ type: "stored-provider-changed" })
+        logger.debug(
+          "Ignored stale provider toggle response",
+          "ProviderSettings",
+          { providerId }
+        )
+        return
+      }
       dispatch({
         type: "provider-saved",
         provider: providerDraftFromPublic(saved)
