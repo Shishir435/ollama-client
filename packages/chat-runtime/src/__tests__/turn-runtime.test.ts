@@ -172,6 +172,66 @@ describe("TurnRuntime", () => {
       failure: null
     })
   })
+
+  it("leaves a recovery turn resumable when cancellation arrives during context build", async () => {
+    let finishContext: () => void = () => undefined
+    const contextGate = new Promise<void>((resolve) => {
+      finishContext = resolve
+    })
+    const store: TurnRunStore<TestContext, TestMessage> = {
+      create: vi.fn(),
+      update: vi.fn().mockResolvedValue(true)
+    }
+    const context: TurnContextOwner<TestContext, TestOutput> = {
+      build: vi.fn(async () => {
+        await contextGate
+        return { prompt: "hello", receipt }
+      })
+    }
+    const generation: TurnGenerationOwner<
+      TestContext,
+      TestMessage,
+      TestOutput
+    > = { start: vi.fn() }
+    let aborted = false
+    const signal = {
+      get aborted() {
+        return aborted
+      },
+      throwIfAborted: () => {
+        if (aborted) {
+          throw Object.assign(new Error("Stopped"), { name: "AbortError" })
+        }
+      }
+    }
+    const recovery = makeRuntime(store, context, generation).resume({
+      turn: {
+        ...command,
+        request: {
+          version: 1,
+          context: command.persistedContext,
+          userMessage: command.userMessage
+        },
+        createdAt: 10,
+        updatedAt: 12,
+        status: "building_context"
+      },
+      contextOptions: command.contextOptions,
+      signal
+    })
+
+    await vi.waitFor(() => expect(context.build).toHaveBeenCalledOnce())
+    aborted = true
+    finishContext()
+
+    await expect(recovery).rejects.toMatchObject({ name: "AbortError" })
+    expect(generation.start).not.toHaveBeenCalled()
+    expect(store.update).toHaveBeenCalledTimes(1)
+    expect(store.update).not.toHaveBeenCalledWith(
+      "turn-1",
+      expect.objectContaining({ status: "failed" })
+    )
+  })
 })
 
 describe("TurnRuntime lifecycle claims", () => {

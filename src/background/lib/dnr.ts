@@ -1,7 +1,7 @@
 import { isChromiumBased } from "@/lib/browser-api"
 import { applyLocalProviderOriginRule } from "@/lib/dnr-rules"
 import { logger } from "@/lib/logger"
-import { getBaseUrl } from "./utils"
+import { getOllamaBaseUrl } from "./ollama-base-url"
 
 export const updateDNRRules = async (): Promise<void> => {
   if (!isChromiumBased()) {
@@ -13,7 +13,7 @@ export const updateDNRRules = async (): Promise<void> => {
   }
 
   try {
-    const baseUrl = await getBaseUrl()
+    const baseUrl = await getOllamaBaseUrl()
     await applyLocalProviderOriginRule(new URL(baseUrl).origin)
   } catch (error) {
     // Don't throw - allow extension to continue without DNR

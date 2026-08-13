@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -27,12 +26,9 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
+import { useSetting } from "@/hooks/use-setting"
 import { knowledgeConfig } from "@/lib/config/knowledge-config"
-import {
-  DEFAULT_EMBEDDING_CONFIG,
-  type EmbeddingConfig,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { DEFAULT_EMBEDDING_CONFIG } from "@/lib/constants"
 import {
   createKnowledgeSet,
   DEFAULT_KNOWLEDGE_SET_ID,
@@ -43,18 +39,12 @@ import {
   setActiveKnowledgeSetId,
   updateKnowledgeSet
 } from "@/lib/knowledge/knowledge-sets"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export const RAGSettings = () => {
   const { t } = useTranslation()
 
-  const [config, setConfig] = useStorage<EmbeddingConfig>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_EMBEDDING_CONFIG
-  )
+  const [config, setConfig] = useSetting(SETTINGS.EMBEDDING_CONFIG)
 
   const [topK, setTopK] = useState(
     config.defaultSearchLimit ?? DEFAULT_EMBEDDING_CONFIG.defaultSearchLimit
@@ -207,16 +197,10 @@ export const RAGSettings = () => {
   }
 
   const handleRAGToggle = async (checked: boolean) => {
-    await plasmoGlobalStorage.set(STORAGE_KEYS.EMBEDDINGS.USE_RAG, checked)
+    setUseRAG(checked)
   }
 
-  const [useRAG] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.USE_RAG,
-      instance: plasmoGlobalStorage
-    },
-    true
-  )
+  const [useRAG, setUseRAG] = useSetting(SETTINGS.USE_RAG)
 
   return (
     <div className="space-y-6">

@@ -1,5 +1,5 @@
 import type { ThinkingParserState } from "@ollama-client/runtime-core/thinking-stream"
-import { safePostChatStreamEvent } from "@/background/lib/utils"
+import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import {
   CHAT_STREAM_EVENT_TYPES,
   type ChatStreamServerEvent

@@ -7,7 +7,10 @@ import {
 } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import {
+  getPlasmoStoredValue,
+  setPlasmoStoredValue
+} from "@/lib/plasmo-global-storage"
 import { SettingsPage } from "../settings-page"
 
 vi.mock("react-i18next", () => ({
@@ -174,7 +177,7 @@ describe("SettingsPage", () => {
 
   it("does not let a late storage read undo a user selection", async () => {
     let resolveStoredLevel: (value: "basic") => void = () => undefined
-    vi.mocked(plasmoGlobalStorage.get).mockReturnValueOnce(
+    vi.mocked(getPlasmoStoredValue).mockReturnValueOnce(
       new Promise((resolve) => {
         resolveStoredLevel = resolve
       })
@@ -195,7 +198,7 @@ describe("SettingsPage", () => {
 
   it("does not let deep-link promotion downgrade a stored level", async () => {
     let resolveStoredLevel: (value: "advanced") => void = () => undefined
-    vi.mocked(plasmoGlobalStorage.get).mockReturnValueOnce(
+    vi.mocked(getPlasmoStoredValue).mockReturnValueOnce(
       new Promise((resolve) => {
         resolveStoredLevel = resolve
       })
@@ -219,7 +222,7 @@ describe("SettingsPage", () => {
         })
       ).toHaveAttribute("aria-selected", "true")
     })
-    expect(plasmoGlobalStorage.set).not.toHaveBeenCalledWith(
+    expect(setPlasmoStoredValue).not.toHaveBeenCalledWith(
       STORAGE_KEYS.UI.SETTINGS_LEVEL,
       "power"
     )

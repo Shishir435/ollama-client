@@ -1,9 +1,12 @@
+import { z } from "zod"
 import { browser } from "@/lib/browser-api"
 import { STORAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
 import {
   plasmoDeviceStorage,
   plasmoGlobalStorage
 } from "@/lib/plasmo-global-storage"
+import { ProviderConfigSchema } from "@/lib/providers/provider-config-schema"
 import {
   persistProviderConfigsUnlocked,
   recoverProviderPersistenceUnlocked,
@@ -21,6 +24,15 @@ type BackupImportJournal = {
   previousSync: Record<string, unknown>
   nextProviderConfigs?: ProviderConfig[]
 }
+
+const BackupImportJournalSchema = z.object({
+  version: z.literal(1),
+  phase: z.enum(["prepared", "settings-applied", "committed"]),
+  previousSync: z.record(z.string(), z.unknown()),
+  nextProviderConfigs: z.array(ProviderConfigSchema).optional()
+})
+
+const ProviderSecretsSchema = z.record(z.string().min(1), z.string())
 
 const getSyncSnapshot = async (): Promise<Record<string, unknown>> =>
   (await browser.storage.sync.get(getImportResetStorageKeys())) as Record<
@@ -44,61 +56,88 @@ const replacePortableSyncState = async (
 }
 
 const restorePreviousSyncState = async (
-  previousSync: Record<string, unknown>
+  previousSync: Record<string, unknown>,
+  signal?: AbortSignal
 ): Promise<void> => {
+  signal?.throwIfAborted()
   const keysToRemove = getImportResetStorageKeys().filter(
     (key) => !Object.hasOwn(previousSync, key)
   )
   if (keysToRemove.length > 0) {
     await browser.storage.sync.remove(keysToRemove)
   }
+  signal?.throwIfAborted()
   if (Object.keys(previousSync).length > 0) {
     await browser.storage.sync.set(previousSync)
   }
 }
 
 const providerCommitMatches = async (
-  nextProviderConfigs: ProviderConfig[]
+  nextProviderConfigs: ProviderConfig[],
+  signal?: AbortSignal
 ): Promise<boolean> => {
+  signal?.throwIfAborted()
   const [publicConfigs, secrets] = await Promise.all([
-    plasmoGlobalStorage.get<ProviderConfig[]>(ProviderStorageKey.CONFIG),
-    plasmoDeviceStorage.get<Record<string, string>>(
-      STORAGE_KEYS.PROVIDER.SECRETS
-    )
+    plasmoGlobalStorage.get<unknown>(ProviderStorageKey.CONFIG),
+    plasmoDeviceStorage.get<unknown>(STORAGE_KEYS.PROVIDER.SECRETS)
   ])
+  signal?.throwIfAborted()
+  const parsedPublicConfigs = z
+    .array(ProviderConfigSchema)
+    .safeParse(publicConfigs)
+  const parsedSecrets = ProviderSecretsSchema.safeParse(secrets ?? {})
+  if (!parsedPublicConfigs.success || !parsedSecrets.success) return false
   const expectedPublicConfigs = nextProviderConfigs.map(
     ({ apiKey: _apiKey, ...provider }) => provider
   )
   return (
-    JSON.stringify(publicConfigs) === JSON.stringify(expectedPublicConfigs) &&
-    Object.keys(secrets ?? {}).length === 0
+    JSON.stringify(parsedPublicConfigs.data) ===
+      JSON.stringify(expectedPublicConfigs) &&
+    Object.keys(parsedSecrets.data).length === 0
   )
 }
 
 /** Caller must hold the provider-persistence lock. */
-export const recoverBackupImportUnlocked = async (): Promise<void> => {
-  const journal = await plasmoDeviceStorage.get<BackupImportJournal>(
+export const recoverBackupImportUnlocked = async (
+  signal?: AbortSignal
+): Promise<void> => {
+  signal?.throwIfAborted()
+  const storedJournal = await plasmoDeviceStorage.get<unknown>(
     STORAGE_KEYS.BACKUP.IMPORT_JOURNAL
   )
-  if (!journal) return
+  signal?.throwIfAborted()
+  if (storedJournal === undefined || storedJournal === null) return
+  const parsedJournal = BackupImportJournalSchema.safeParse(storedJournal)
+  if (!parsedJournal.success) {
+    logger.warn("Discarding invalid backup import journal", "Backup")
+    await plasmoDeviceStorage.remove(STORAGE_KEYS.BACKUP.IMPORT_JOURNAL)
+    return
+  }
+  const journal: BackupImportJournal = parsedJournal.data
 
   const canFinalize =
     journal.phase === "committed" ||
     (journal.phase === "settings-applied" &&
       (journal.nextProviderConfigs === undefined ||
-        (await providerCommitMatches(journal.nextProviderConfigs))))
+        (await providerCommitMatches(journal.nextProviderConfigs, signal))))
 
   if (!canFinalize) {
-    await restorePreviousSyncState(journal.previousSync)
+    await restorePreviousSyncState(journal.previousSync, signal)
   }
+  signal?.throwIfAborted()
   await plasmoDeviceStorage.remove(STORAGE_KEYS.BACKUP.IMPORT_JOURNAL)
 }
 
-export const recoverBackupImport = async (): Promise<void> =>
+export const recoverBackupImport = async (
+  signal?: AbortSignal
+): Promise<void> =>
   withProviderPersistenceLock(async () => {
-    await recoverProviderResetUnlocked()
-    await recoverProviderPersistenceUnlocked()
-    await recoverBackupImportUnlocked()
+    signal?.throwIfAborted()
+    await recoverProviderResetUnlocked(signal)
+    signal?.throwIfAborted()
+    await recoverProviderPersistenceUnlocked(signal)
+    signal?.throwIfAborted()
+    await recoverBackupImportUnlocked(signal)
   })
 
 export const importPortableStorageTransaction = async (

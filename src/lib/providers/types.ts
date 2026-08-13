@@ -1,3 +1,4 @@
+import type { LoadedModel } from "@ollama-client/contracts/model-rpc"
 import type { ToolDefinition } from "@/lib/tools/types"
 import type {
   ChatMessage,
@@ -17,6 +18,8 @@ export enum ProviderId {
   OLLAMA = "ollama",
   LM_STUDIO = "lm studio",
   LLAMA_CPP = "llamacpp",
+  // Stored-data compatibility only. Removal is gated by the
+  // compatibility-provider-ids entry in compatibility-ledger.json.
   VLLM = "vllm",
   LOCALAI = "localai",
   KOBOLDCPP = "koboldcpp",
@@ -149,10 +152,21 @@ export interface ProviderCapabilities {
   toolCalling: boolean
 }
 
+export interface ProviderModelLifecycle {
+  listLoadedModels?(signal?: AbortSignal): Promise<LoadedModel[]>
+  unloadModel?(model: string, signal?: AbortSignal): Promise<boolean>
+  warmModel?(
+    model: string,
+    keepAlive?: string | number,
+    signal?: AbortSignal
+  ): Promise<void>
+}
+
 export interface LLMProvider {
   id: string
   config: ProviderConfig
   capabilities: ProviderCapabilities
+  modelLifecycle?: ProviderModelLifecycle
 
   streamChat(
     request: ChatRequest,

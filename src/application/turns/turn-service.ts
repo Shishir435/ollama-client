@@ -116,7 +116,8 @@ export class TurnService {
     turn: DurableTurnRun,
     prepareContextOptions?: (
       options: BuildRagContextOptions
-    ) => Promise<BuildRagContextOptions>
+    ) => Promise<BuildRagContextOptions>,
+    signal?: AbortSignal
   ): Promise<void> {
     const baseOptions: BuildRagContextOptions = {
       ...turn.request.context,
@@ -125,7 +126,8 @@ export class TurnService {
     await this.runtime.resume({
       turn,
       contextOptions: baseOptions,
-      prepareContextOptions
+      prepareContextOptions,
+      signal
     })
   }
 }

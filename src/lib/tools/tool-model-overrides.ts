@@ -1,5 +1,5 @@
-import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { POLICY_SETTINGS } from "@/lib/storage/policy-settings"
+import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { TOOL_FAMILIES, type ToolFamily } from "./tool-families"
 import { getToolFamilySettings, type ToolFamilySettings } from "./tool-settings"
 
@@ -26,19 +26,15 @@ export interface ToolFamilyOverride {
 
 export type ToolModelOverrideMap = Record<string, ToolFamilyOverride>
 
-const STORAGE_KEY = STORAGE_KEYS.TOOLS.MODEL_OVERRIDES
-
 export const toolModelOverrideKey = (
   providerId: string,
   modelName: string
 ): string => `${providerId}::${modelName}`
 
 export const getAllToolModelOverrides =
-  async (): Promise<ToolModelOverrideMap> => {
-    const stored =
-      await plasmoGlobalStorage.get<ToolModelOverrideMap>(STORAGE_KEY)
-    return stored ?? {}
-  }
+  async (): Promise<ToolModelOverrideMap> => ({
+    ...(await readSetting(POLICY_SETTINGS.TOOL_MODEL_OVERRIDES))
+  })
 
 export const getToolModelOverride = async (
   providerId: string,
@@ -130,7 +126,7 @@ export const setToolModelOverride = (
     } else {
       delete all[key]
     }
-    await plasmoGlobalStorage.set(STORAGE_KEY, all)
+    await writeSetting(POLICY_SETTINGS.TOOL_MODEL_OVERRIDES, all)
   })
 
 /**
@@ -164,7 +160,7 @@ export const patchToolModelOverride = (
     } else {
       delete all[key]
     }
-    await plasmoGlobalStorage.set(STORAGE_KEY, all)
+    await writeSetting(POLICY_SETTINGS.TOOL_MODEL_OVERRIDES, all)
   })
 
 export const clearToolModelOverride = (
@@ -176,6 +172,6 @@ export const clearToolModelOverride = (
     const key = toolModelOverrideKey(providerId, modelName)
     if (key in all) {
       delete all[key]
-      await plasmoGlobalStorage.set(STORAGE_KEY, all)
+      await writeSetting(POLICY_SETTINGS.TOOL_MODEL_OVERRIDES, all)
     }
   })

@@ -100,6 +100,41 @@ describe("AnthropicProvider", () => {
     expect(headers["anthropic-version"]).toBe("2023-06-01")
   })
 
+  it("rejects malformed model catalogs with a safe response error", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ data: [{ id: 42 }] }), { status: 200 })
+    )
+
+    await expect(
+      new AnthropicProvider(config).getModels()
+    ).rejects.toMatchObject({
+      message: "Provider returned an invalid model catalog",
+      kind: "provider",
+      phase: "response",
+      userMessage: "Anthropic returned an invalid model list."
+    })
+  })
+
+  it("ignores malformed stream events without crashing the stream", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      streamResponse([
+        "data: null\n\n",
+        'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}\n\n'
+      ])
+    )
+    const chunks: ChatStreamMessage[] = []
+
+    await new AnthropicProvider(config).streamChat(
+      {
+        model: "claude-sonnet",
+        messages: [{ role: "user", content: "hi" }]
+      },
+      (chunk) => chunks.push(chunk)
+    )
+
+    expect(chunks).toContainEqual(expect.objectContaining({ delta: "ok" }))
+  })
+
   it("maps system, tools, and tool results to native content blocks", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

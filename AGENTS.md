@@ -99,9 +99,13 @@ connect through package ports.
 | `types.ts` | `LLMProvider`, `ProviderConfig`, `ProviderType`/`ProviderId` enums |
 | `registry.ts` | static metadata for built-in providers |
 | `factory.ts` | `ProviderFactory.getProviderForModel()` |
-| `manager.ts` | config + model mappings via `ProviderStorageKey` |
+| `manager.ts` | stable provider CRUD/routing facade |
+| `provider-config-repository.ts` | locked config recovery, hydration, defaults, and legacy URL adoption |
+| `provider-mapping-repository.ts` | scoped model mapping migration and CRUD |
+| `provider-compat-migration.ts` | removed-beta remapping, sanitization, and duplicate retention |
 | `selected-model.ts` | active model state |
 | `capabilities.ts` | capability detection and per-flag attribution |
+| `model-lifecycle.ts` | shared lifecycle result normalization and safe provider errors |
 | `ollama.ts`, `lm-studio.ts`, `llama-cpp.ts` | verified built-ins |
 | `openai-compatible.ts` | custom OpenAI-compatible endpoints |
 | `anthropic.ts` | native Claude Messages API |
@@ -125,6 +129,8 @@ The default provider's embedding check is the one remaining direct `/api/tags` f
 The filter reads hostnames, so a public name resolving to a private address still passes, and no extension API closes that — `chrome.dns` is dev-channel only, and resolving before fetching is TOCTOU because `fetch` looks up again. What bounds it is that the response never leaves the device: no credentials are sent, non-image bytes are discarded, and it takes a provider the user already trusts with their prompts. Do not "fix" it by adding a resolve step; the honest mitigation is the off switch. Users can turn the lookup off; doing so also drops what was already fetched.
 
 **Capability detection** resolves in this order, highest first: user override → empirical probe (`capability-probe.ts`) → model metadata → provider default. An unknown capability resolves to `false`; only an override may flip it on. Never enable vision or tool calling on a guess.
+
+**Model lifecycle wires stay in provider adapters.** `LLMProvider.modelLifecycle` is an optional port for loaded-model listing, unload, and warmup. `ModelRpcService` owns RPC policy and warmup cooldowns, but never constructs vendor lifecycle URLs or branches on provider ids. A capability flag and its optional operation must agree; providers without an operation return an unsupported/no-op result rather than receiving an Ollama-shaped request.
 
 Metadata evidence, strongest first:
 
@@ -185,6 +191,7 @@ Chat history is **SQLite-only**, on one engine and one writer: official sqlite-w
 | Settings, config, per-extension state | `@plasmohq/storage` via `src/lib/plasmo-global-storage.ts` |
 
 - **Session metadata** — pinned state, per-chat system prompts, user tags — lives on SQLite `sessions`. Add columns through forward-only migrations.
+- **Message-subtree deletion is atomic in SQLite.** `deleteMessageSubtree` discovers descendants, repairs `sessions.currentLeafId`, and deletes message/file rows inside one transaction. Dexie vectors cannot join that commit; callers clean them up afterward by the returned message ids, and that cleanup must stay idempotent.
 - **Durability depends on the backend.** On **opfs** — every profile that has migrated — a committed statement is already durable and `flushSave()` is a no-op. On the **legacy blob**, the owner debounces a full-image write to IndexedDB by 1s, and `flushSave()` forces it. Callers flush at unload, migration and export boundaries without knowing which answered.
 - **A damaged legacy image is served read-only.** A blob that fails `integrity_check` keeps its reads, its backup export and its diagnostics; writes throw, migrations do not run against it, and it is never written back. Do not "fix" that by letting writes through — the image is the rollback artifact.
 - **Turn lifecycle is a state machine, enforced in SQL.** `TURN_STATUS_PREDECESSORS` in `packages/contracts/src/turns.ts` is the whole truth; every status write is a compare-and-set against the target's allowed predecessors, so a late or duplicated message cannot move a settled row and a terminal row never regresses. `updateTurnRun` resolves false when a transition is refused, and `TurnRuntime` treats that as "someone else owns this turn" and does no provider work. A stop commits `cancelling` **before** aborting the controller — a worker lost between the two restarts into an intent recovery skips, where a row left at `generating` was handed straight back to the provider. Startup finalizes interrupted cancellations without reissuing anything, and a turn row that will not parse is terminally failed with a content-free diagnostic rather than silently skipped on every boot forever.
@@ -216,7 +223,7 @@ The persistence host (Chromium offscreen document / Firefox MV2 background page)
 
 The host also decides which backend the owner serves, once per session, from the marker and the migration outcome — `setBackend` is host-only and the RPC listener rejects it from any sender. A migration that fails verification **resolves onto the legacy backend**; it does not reject. Only the owner failing to start rejects. That distinction is the whole reason `ensureMigrated` can be awaited before every request.
 
-**An owner is ready when it answers, not when it exists.** `chrome.offscreen.createDocument()` resolves before the host page has evaluated its script, so a document can exist with no listener, no worker, no WASM and no chosen backend. `ensurePersistenceOwnerReady()` proves the whole chain with one `ping` and caches the proof per owner instance — never the failure, so a later caller retries. The ping carries its own 30s cap, because a host that accepts the message and never answers would otherwise hold readiness open forever; the retry deadline only bounds attempts that fail. The background composition root starts the topology and hands that one promise to `initializeBackgroundStartup`; DB-touching startup work awaits it and is skipped for the boot when it rejects, rather than each task waiting out its own 30s client timeout. Startup order is lifecycle flags → owner → data-shape recovery (backup import, provider migration, embedding-dimension migration; sequential, because they rewrite what follows reads) → durable workflow recovery (bounded concurrency). Adding a DB-touching startup task means adding it to one of those lists, not `void`-ing it beside them.
+**An owner is ready when it answers, not when it exists.** `chrome.offscreen.createDocument()` resolves before the host page has evaluated its script, so a document can exist with no listener, no worker, no WASM and no chosen backend. `ensurePersistenceOwnerReady()` proves the whole chain with one `ping` and caches the proof per owner instance — never the failure, so a later caller retries. The ping carries its own 30s cap, because a host that accepts the message and never answers would otherwise hold readiness open forever; the retry deadline only bounds attempts that fail. The background composition root starts the topology and hands that one promise to `initializeBackgroundStartup`; DB-touching startup work awaits it and is skipped for the boot when it rejects, rather than each task waiting out its own 30s client timeout. Startup order is lifecycle flags → owner → data-shape recovery (backup import, provider migration, embedding-dimension migration; sequential, because they rewrite what follows reads) → durable workflow recovery (bounded concurrency). Every task receives an `AbortSignal`; its deadline requests cancellation, and its worker does not start a successor until the task settles and thereby acknowledges that no more mutations remain in flight. A supervisor abort leaves durable user work resumable rather than recording a user cancellation. Adding a DB-touching startup task means adding it to one of those lists, threading the signal through every mutation boundary, and proving deferred cancellation cannot overlap its successor — not `void`-ing it beside them.
 
 Retrying a persistence write needs evidence, not optimism. `RETRYABLE_OPS` names the ops that are idempotent by construction; anything else is retried only when the client throws `PersistenceNotDeliveredError`, which is raised before a byte is sent and therefore proves non-execution. Do not widen either rule to make a flaky boot look better.
 
@@ -447,11 +454,6 @@ What these files are *now*, so you neither go looking for a god-object that was 
 
 **Do not restructure incrementally:**
 
-- `src/features/chat/hooks/use-chat-stream.ts` — owns port lifecycle, reconnect,
-  stop/finalization, stream presentation, and error UI. Its staged extraction is
-  tracked in `RELEASE_ROADMAP.md`; keep edits minimal and preserve the pure
-  `chat-stream-reducer.ts` seam.
-
 - `src/features/chat/hooks/use-chat-turn-controller.ts` — owns UI submission
   preconditions, session/message preparation, and durable turn command
   construction. Its boundary cleanup is tracked in `RELEASE_ROADMAP.md`. Keep
@@ -463,6 +465,7 @@ What these files are *now*, so you neither go looking for a god-object that was 
 
 **Already restructured — match the existing shape rather than reverting to props or god-objects:**
 
+- `src/features/chat/hooks/use-chat-stream.ts` is the React, i18n and browser-effects adapter over `src/application/turns/chat-stream-session.ts`. `ChatStreamSession` owns single-flight admission, the active request and port, schema parsing, reducer transitions, reconnects, snapshots and cancellation; keep those lifecycle concerns out of the hook. Keep translated errors, issue navigation and React state in the hook, and preserve the pure `chat-stream-reducer.ts` seam.
 - `src/features/selection-actions/` reads view state from `selection-overlay-context.tsx`, not props. `SelectionOverlayApp` alone knows about the reducer, the capture, and the content script's refs; `SelectionActionsOverlay`, `SelectionPanel`, `SelectionToolbar`, `PanelHeader`, `PanelFooter` take no props. Add a control to the context value and read it where it renders. `PanelMarkdown` and `PanelThinking` stay prop-driven — leaf presentational, own tests.
 - `src/features/chat/components/chat-input/context-settings-menu.tsx` is the sheet shell and view switch (~205 LOC). Settings in `hooks/use-context-settings.ts`, tab list and its reconciliation effects in `hooks/use-context-tab-options.ts`, summary in `context-summary.ts`, views in `context-main-view.tsx` / `context-sub-view.tsx`. New context controls go in the hook and the main view, not the shell.
 - `src/features/sessions/stores/chat-session-store.ts` is a ~19-LOC barrel over extracted slices; persistence reads via `chat-history.ts`. The old ~485-LOC store is gone.

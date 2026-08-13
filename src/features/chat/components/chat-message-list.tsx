@@ -1,16 +1,12 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { ChevronDown } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { TooltipActionButton } from "@/components/actions"
-import {
-  DEFAULT_EMBEDDING_CONFIG,
-  type EmbeddingConfig,
-  STORAGE_KEYS
-} from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { cn } from "@/lib/utils"
+import { useSetting } from "@/hooks/use-setting"
+import { cn } from "@/lib/class-names"
+import { DEFAULT_EMBEDDING_CONFIG } from "@/lib/constants"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ActivityEvent, ChatMessage } from "@/types"
 import { ChatMessageBubble } from "./chat-message-bubble"
 
@@ -56,13 +52,7 @@ export const ChatMessageList = ({
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
   const [userDetachedFromBottom, setUserDetachedFromBottom] = useState(false)
-  const [embeddingConfig] = useStorage<EmbeddingConfig>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_EMBEDDING_CONFIG
-  )
+  const [embeddingConfig] = useSetting(SETTINGS.EMBEDDING_CONFIG)
   const filteredMessages = useMemo(
     () => messages.filter((msg) => msg.role !== "system"),
     [messages]
@@ -181,6 +171,7 @@ export const ChatMessageList = ({
                 <ChatMessageBubble
                   msg={msg}
                   sessionId={sessionId}
+                  isBusy={isLoading || isStreaming}
                   isLoading={isLoading && isLastAssistantMessage}
                   isStreaming={isStreaming && isLastAssistantMessage}
                   showRetrievedChunks={showRetrievedChunks}

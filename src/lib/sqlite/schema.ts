@@ -88,6 +88,16 @@ CREATE INDEX IF NOT EXISTS idx_files_sessionId ON files(sessionId);
 CREATE INDEX IF NOT EXISTS idx_files_messageId ON files(messageId);
 CREATE INDEX IF NOT EXISTS idx_tool_loop_runs_sessionId ON tool_loop_runs(sessionId);
 
+-- Cross-store handoff for derived chat vectors. A row is committed with the
+-- SQLite message deletion and acknowledged only after idempotent Dexie cleanup.
+CREATE TABLE IF NOT EXISTS vector_cleanup_receipts (
+  messageId INTEGER PRIMARY KEY,
+  createdAt INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_vector_cleanup_receipts_createdAt
+ON vector_cleanup_receipts(createdAt);
+
 -- Durable owner for every submitted turn. Unlike tool_loop_runs, these rows
 -- begin before context building and remain as lifecycle receipts.
 CREATE TABLE IF NOT EXISTS turn_runs (

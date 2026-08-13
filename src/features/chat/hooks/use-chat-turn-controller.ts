@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ACTIVITY_LABELS } from "@/application/context/activity-labels"
+import { prepareTurnSubmission } from "@/application/turns/prepare-turn-submission"
 import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import {
   buildUserMessage,
@@ -9,6 +10,7 @@ import {
   type TurnToast
 } from "@/features/chat/hooks/turn-preparation"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
+import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
@@ -40,9 +42,12 @@ interface UseChatTurnControllerOptions {
     options?: {
       contextPrepared?: boolean
       durableTurn?: DurableTurnStart
-      mode?: import("@ollama-client/contracts/turns").TurnMode
+      mode?: Exclude<import("@ollama-client/contracts/turns").TurnMode, "new">
+      streamClaim?: ChatStreamClaim
     }
-  ) => Promise<void>
+  ) => Promise<boolean>
+  claimResponseStream: () => ChatStreamClaim | null
+  releaseResponseStreamClaim: (claim: ChatStreamClaim) => void
   toast: ToastFn
 }
 
@@ -60,6 +65,8 @@ export const useChatTurnController = ({
   autoRenameSession,
   addMessage,
   generateResponse,
+  claimResponseStream,
+  releaseResponseStreamClaim,
   toast
 }: UseChatTurnControllerOptions) => {
   const [pendingActivityEvents, setPendingActivityEvents] = useState<
@@ -111,6 +118,12 @@ export const useChatTurnController = ({
       return false
     }
 
+    // Reserve response ownership before creating a session or persisting the
+    // user turn. Fork and regenerate use the same claim, so none of these
+    // actions can overtake an ordinary send while its durable work is pending.
+    const streamClaim = claimResponseStream()
+    if (!streamClaim) return false
+
     setIsLoading(true)
     const preparingEvent: ActivityEvent = {
       id: "preparing-context",
@@ -130,6 +143,7 @@ export const useChatTurnController = ({
       logger.error("Failed to create chat session", "useChat", { error })
       setPendingActivityEvents([])
       setIsLoading(false)
+      releaseResponseStreamClaim(streamClaim)
       toast({
         variant: "destructive",
         title: t("chat.errors.chat_create_failed_title"),
@@ -140,6 +154,7 @@ export const useChatTurnController = ({
     if (!sessionId) {
       setPendingActivityEvents([])
       setIsLoading(false)
+      releaseResponseStreamClaim(streamClaim)
       return false
     }
 
@@ -161,6 +176,7 @@ export const useChatTurnController = ({
       logger.error("Failed to persist user message", "useChat", { error })
       setPendingActivityEvents([])
       setIsLoading(false)
+      releaseResponseStreamClaim(streamClaim)
       toast({
         variant: "destructive",
         title: t("chat.errors.message_save_failed_title"),
@@ -181,7 +197,21 @@ export const useChatTurnController = ({
     const turnId =
       globalThis.crypto?.randomUUID?.() ??
       `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const contextRequest = {
+    const durableTurn = prepareTurnSubmission({
+      id: turnId,
+      sessionId,
+      mode: "new",
+      model: resolvedModel,
+      selectedModel: config.selectedModel,
+      selectedModelRef: config.selectedModelRef,
+      customModel,
+      memoryEnabled: config.memoryEnabled,
+      maxTabContextChars: config.maxTabContextChars,
+      maxRagContextChars: config.maxRagContextChars,
+      createdAt: Date.now(),
+      userMessage,
+      userMessageId,
+      priorMessages: messages,
       rawInput: userContent,
       files: files?.map((file) => ({
         text: file.text,
@@ -190,43 +220,33 @@ export const useChatTurnController = ({
           fileId: file.metadata.fileId
         }
       })),
-      messages,
       hasTabContext,
       contextText: contextText || "",
       tabDocuments,
-      memoryEnabled: config.memoryEnabled,
-      maxTabContextChars: config.maxTabContextChars,
-      maxRagContextChars: config.maxRagContextChars,
-      groundedOnlyMode: config.groundedOnlyMode,
-      selectedModel: config.selectedModel,
-      selectedModelRef: config.selectedModelRef,
-      customModel
-    }
-
-    const durableTurn: DurableTurnStart = {
-      submission: {
-        id: turnId,
-        sessionId,
-        mode: "new",
-        model: resolvedModel,
-        providerId: config.selectedModelRef?.providerId,
-        request: { version: 1, context: contextRequest, userMessage },
-        createdAt: Date.now()
-      },
-      userMessageId
-    }
+      groundedOnlyMode: config.groundedOnlyMode
+    })
 
     try {
-      await generateResponse(
+      const submitted = await generateResponse(
         customModel,
         sessionId,
         [...messages, userMessage],
         {
-          durableTurn
+          durableTurn,
+          streamClaim
         }
       )
+      if (!submitted) {
+        releaseResponseStreamClaim(streamClaim)
+        setPendingActivityEvents([])
+        setIsLoading(false)
+        setIsStreaming(false)
+        return false
+      }
     } catch (error) {
       logger.error("Failed to submit durable turn", "useChat", { error })
+      releaseResponseStreamClaim(streamClaim)
+      setPendingActivityEvents([])
       setIsLoading(false)
       setIsStreaming(false)
       toast({

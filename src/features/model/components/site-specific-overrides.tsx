@@ -46,8 +46,8 @@ import {
   ScrollStrategyField,
   TimeoutInputField
 } from "@/features/model/components/content-extraction-fields"
+import { cn } from "@/lib/class-names"
 import type { PerSiteProfile, PerSiteRuleMode } from "@/lib/per-site-profiles"
-import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig } from "@/types"
 import { TIMEOUT_FIELDS } from "./content-extraction-constants"
 

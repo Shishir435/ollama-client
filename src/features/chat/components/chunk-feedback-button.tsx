@@ -2,9 +2,9 @@ import { ThumbsDown, ThumbsUp } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
+import { cn } from "@/lib/class-names"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { logger } from "@/lib/logger"
-import { cn } from "@/lib/utils"
 
 interface ChunkFeedbackButtonProps {
   chunkId: string

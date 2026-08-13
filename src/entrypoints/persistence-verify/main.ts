@@ -1,7 +1,13 @@
+import {
+  RPC_PROTOCOL_VERSION,
+  RPC_REQUEST_MESSAGE_TYPE,
+  RpcMethod
+} from "@ollama-client/contracts/rpc"
 import type { SqlJsStatic } from "sql.js"
 import initSqlJs from "sql.js/dist/sql-wasm.js"
 import { browser } from "@/lib/browser-api"
 import {
+  MESSAGE_KEYS,
   SQLITE_DB_KEY,
   SQLITE_DB_NAME,
   SQLITE_DB_STORE,
@@ -12,7 +18,15 @@ import {
   readPersistenceBackend
 } from "@/lib/persistence/backend"
 import { DURABLE_TABLES } from "@/lib/persistence/durable-tables"
+import { ProviderManager } from "@/lib/providers/manager"
+import { ProviderId } from "@/lib/providers/types"
 import * as chatHistory from "@/lib/repositories/sqlite-chat-history"
+import { getToolLoopRun } from "@/lib/repositories/tool-loop-runs"
+import {
+  createTurnRun,
+  getTurnRun,
+  updateTurnRun
+} from "@/lib/repositories/turn-runs"
 import {
   createFixture,
   type Scale
@@ -23,6 +37,10 @@ import {
   query
 } from "@/lib/sqlite/db"
 import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
+import {
+  CHAT_STREAM_EVENT_TYPES,
+  STREAM_PROTOCOL_VERSION
+} from "@/protocol/streams"
 
 /**
  * Dev-only verification surface for the production OPFS migration. Every
@@ -43,6 +61,87 @@ import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
  */
 const PROMPT_TEMPLATE_SEED = 7
 const KV_SEED = 3
+
+interface VerifyStream {
+  events: unknown[]
+  port: ReturnType<typeof browser.runtime.connect>
+}
+
+const verifyStreams = new Map<string, VerifyStream>()
+
+const connectTurn = (turnId: string, afterSeq?: number): VerifyStream => {
+  const port = browser.runtime.connect({
+    name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
+  })
+  const stream: VerifyStream = { events: [], port }
+  port.onMessage.addListener((event) => stream.events.push(event))
+  verifyStreams.get(turnId)?.port.disconnect()
+  verifyStreams.set(turnId, stream)
+  if (afterSeq !== undefined) {
+    port.postMessage({
+      version: STREAM_PROTOCOL_VERSION,
+      type: MESSAGE_KEYS.PROVIDER.RECONNECT_STREAM,
+      payload: { requestId: turnId, afterSeq }
+    })
+  }
+  return stream
+}
+
+/**
+ * Resolve once the tab has committed its requested document. onUpdated is
+ * attached before the first get() so a status change between the two is not
+ * lost, and a settled tab short-circuits without waiting for an event that
+ * has already fired.
+ */
+const waitForTabComplete = (tabId: number): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup()
+      reject(new Error(`Tab ${tabId} did not finish loading`))
+    }, 10_000)
+    const cleanup = () => {
+      clearTimeout(timer)
+      browser.tabs.onUpdated.removeListener(onUpdated)
+    }
+    const onUpdated = (updatedTabId: number, change: { status?: string }) => {
+      if (updatedTabId !== tabId || change.status !== "complete") return
+      cleanup()
+      resolve()
+    }
+    browser.tabs.onUpdated.addListener(onUpdated)
+    browser.tabs
+      .get(tabId)
+      .then((tab) => {
+        if (tab.status !== "complete") return
+        cleanup()
+        resolve()
+      })
+      .catch((error) => {
+        cleanup()
+        reject(error)
+      })
+  })
+
+const makeTurnRequest = (prompt: string) => ({
+  version: 1 as const,
+  context: {
+    rawInput: prompt,
+    messages: [],
+    hasTabContext: false,
+    contextText: "",
+    tabDocuments: [],
+    memoryEnabled: false,
+    maxTabContextChars: 1_000,
+    maxRagContextChars: 1_000,
+    groundedOnlyMode: false,
+    selectedModel: "verify-model",
+    selectedModelRef: {
+      providerId: ProviderId.OLLAMA,
+      modelId: "verify-model"
+    }
+  },
+  userMessage: { role: "user" as const, content: prompt }
+})
 
 const putLegacyBlob = async (bytes: Uint8Array): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -299,6 +398,252 @@ const verifyApi = {
       })
     }
     return lastId
+  },
+
+  async configureFakeOllama(baseUrl: string): Promise<void> {
+    await ProviderManager.updateProviderConfig(ProviderId.OLLAMA, {
+      enabled: true,
+      baseUrl,
+      customModels: ["verify-model"]
+    })
+  },
+
+  /** Submit through the real durable port contract. Only row creation mirrors
+   * the UI; lifecycle ownership begins when START_TURN reaches background. */
+  async startDurableTurn(turnId: string, prompt: string): Promise<number> {
+    const now = Date.now()
+    const sessionId = `session-${turnId}`
+    const request = makeTurnRequest(prompt)
+    await chatHistory.addSession({
+      id: sessionId,
+      title: `verify ${turnId}`,
+      modelId: "verify-model",
+      createdAt: now,
+      updatedAt: now,
+      messages: []
+    })
+    const userMessageId = await chatHistory.appendMessage({
+      sessionId,
+      role: "user",
+      content: prompt,
+      timestamp: now
+    })
+    const assistantMessageId = await chatHistory.appendMessage({
+      sessionId,
+      role: "assistant",
+      content: "",
+      model: "verify-model",
+      parentId: userMessageId,
+      done: false,
+      timestamp: now + 1
+    })
+    const stream = connectTurn(turnId)
+    stream.port.postMessage({
+      version: STREAM_PROTOCOL_VERSION,
+      type: MESSAGE_KEYS.PROVIDER.START_TURN,
+      payload: {
+        start: {
+          submission: {
+            id: turnId,
+            sessionId,
+            mode: "new",
+            model: "verify-model",
+            providerId: ProviderId.OLLAMA,
+            request,
+            createdAt: now
+          },
+          userMessageId
+        },
+        assistantMessageId
+      }
+    })
+    return assistantMessageId
+  },
+
+  async reconnectTurn(turnId: string): Promise<void> {
+    const prior = verifyStreams.get(turnId)
+    const lastSeq =
+      prior?.events.reduce<number>((highest, event) => {
+        if (!event || typeof event !== "object" || !("seq" in event)) {
+          return highest
+        }
+        const seq = Reflect.get(event, "seq")
+        return typeof seq === "number" ? Math.max(highest, seq) : highest
+      }, -1) ?? -1
+    prior?.port.disconnect()
+    connectTurn(turnId, lastSeq)
+  },
+
+  async turnEventTypes(turnId: string): Promise<string[]> {
+    return (verifyStreams.get(turnId)?.events ?? []).flatMap((event) => {
+      if (!event || typeof event !== "object" || !("type" in event)) return []
+      const type = Reflect.get(event, "type")
+      return typeof type === "string" ? [type] : []
+    })
+  },
+
+  async turnEventSummary(turnId: string): Promise<{
+    completedSnapshots: number
+    eventTypes: string[]
+    snapshots: number
+    terminalChunks: number
+  }> {
+    const eventTypes: string[] = []
+    let completedSnapshots = 0
+    let snapshots = 0
+    let terminalChunks = 0
+    for (const event of verifyStreams.get(turnId)?.events ?? []) {
+      if (!event || typeof event !== "object") continue
+      const type = Reflect.get(event, "type")
+      if (typeof type === "string") eventTypes.push(type)
+      if (type === CHAT_STREAM_EVENT_TYPES.SNAPSHOT) {
+        snapshots += 1
+        if (Reflect.get(event, "status") === "completed") {
+          completedSnapshots += 1
+        }
+      }
+      if (
+        type === CHAT_STREAM_EVENT_TYPES.CHUNK &&
+        (Reflect.get(event, "done") === true ||
+          Reflect.get(event, "aborted") === true ||
+          Reflect.get(event, "error") !== undefined)
+      ) {
+        terminalChunks += 1
+      }
+    }
+    return { completedSnapshots, eventTypes, snapshots, terminalChunks }
+  },
+
+  async stopTurn(turnId: string): Promise<void> {
+    const stream = verifyStreams.get(turnId) ?? connectTurn(turnId, -1)
+    stream.port.postMessage({
+      version: STREAM_PROTOCOL_VERSION,
+      type: MESSAGE_KEYS.PROVIDER.STOP_GENERATION,
+      payload: { requestId: turnId }
+    })
+  },
+
+  async toolLoopResult(requestId: string): Promise<unknown> {
+    const run = await getToolLoopRun(requestId)
+    return run
+      ? {
+          status: run.status,
+          callId: run.state.toolRuns.find(
+            (toolRun) => toolRun.status === "awaiting-confirmation"
+          )?.callId
+        }
+      : null
+  },
+
+  async confirmTool(callId: string, approved: boolean): Promise<unknown> {
+    return browser.runtime.sendMessage({
+      type: MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL,
+      payload: { callId, approved }
+    })
+  },
+
+  /** Raw wire call bypasses client-side validation so browser evidence covers
+   * the background schema boundary itself. */
+  async malformedSettingsRpc(): Promise<unknown> {
+    return browser.runtime.sendMessage({
+      type: RPC_REQUEST_MESSAGE_TYPE,
+      version: RPC_PROTOCOL_VERSION,
+      requestId: crypto.randomUUID(),
+      method: RpcMethod.ProvidersSetEnabled,
+      request: { providerId: ProviderId.OLLAMA, enabled: "yes" }
+    })
+  },
+
+  /** Execute in a normal tab's isolated world. Sender evidence therefore has
+   * a tab and a web URL: exactly the content-script classification. */
+  async contentScriptSettingsRpc(url: string): Promise<unknown> {
+    const tab = await browser.tabs.create({ url, active: false })
+    if (typeof tab.id !== "number") throw new Error("Created tab has no id")
+    try {
+      // Injecting mid-navigation either targets the transient about:blank or
+      // rejects outright, so the 403 has to be earned from the settled page.
+      await waitForTabComplete(tab.id)
+      const results = await browser.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: async (messageType, version, method) =>
+          chrome.runtime.sendMessage({
+            type: messageType,
+            version,
+            requestId: crypto.randomUUID(),
+            method,
+            request: {}
+          }),
+        args: [
+          RPC_REQUEST_MESSAGE_TYPE,
+          RPC_PROTOCOL_VERSION,
+          RpcMethod.ProvidersList
+        ]
+      })
+      return results[0]?.result
+    } finally {
+      await browser.tabs.remove(tab.id)
+    }
+  },
+
+  /** Seed exactly what an interrupted worker leaves behind: canonical message
+   * rows plus a generating turn carrying the resumable request. */
+  async seedGeneratingTurn(turnId: string): Promise<number> {
+    const now = Date.now()
+    const sessionId = `session-${turnId}`
+    await chatHistory.addSession({
+      id: sessionId,
+      title: "durable restart verification",
+      modelId: "verify-model",
+      createdAt: now,
+      updatedAt: now,
+      messages: []
+    })
+    const userMessageId = await chatHistory.appendMessage({
+      sessionId,
+      role: "user",
+      content: "resume after restart",
+      timestamp: now
+    })
+    const assistantMessageId = await chatHistory.appendMessage({
+      sessionId,
+      role: "assistant",
+      content: "",
+      model: "verify-model",
+      parentId: userMessageId,
+      done: false,
+      timestamp: now + 1
+    })
+    await createTurnRun({
+      id: turnId,
+      sessionId,
+      mode: "new",
+      model: "verify-model",
+      providerId: ProviderId.OLLAMA,
+      createdAt: now,
+      request: makeTurnRequest("resume after restart")
+    })
+    await updateTurnRun(turnId, {
+      status: "building_context",
+      userMessageId,
+      assistantMessageId
+    })
+    await updateTurnRun(turnId, { status: "generating" })
+    return assistantMessageId
+  },
+
+  async durableTurnResult(
+    turnId: string,
+    assistantMessageId: number
+  ): Promise<{ status?: string; content?: string; done?: boolean }> {
+    const [turn, assistant] = await Promise.all([
+      getTurnRun(turnId),
+      chatHistory.getMessage(assistantMessageId)
+    ])
+    return {
+      status: turn?.status,
+      content: assistant?.content,
+      done: assistant?.done
+    }
   },
 
   /** Restore a payload that is not a usable database, through the production

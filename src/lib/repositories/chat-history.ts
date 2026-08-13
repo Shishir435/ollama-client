@@ -36,12 +36,11 @@ export const finalizeInterruptedMessages =
   sqliteRepo.finalizeInterruptedMessages
 export const touchMessageActivity = sqliteRepo.touchMessageActivity
 export const deleteMessagesBySession = sqliteRepo.deleteMessagesBySession
-export const bulkDeleteMessages = sqliteRepo.bulkDeleteMessages
+export const deleteMessageSubtree = sqliteRepo.deleteMessageSubtree
 
 export const getFilesByMessageIds = sqliteRepo.getFilesByMessageIds
 export const bulkAddFiles = sqliteRepo.bulkAddFiles
 export const deleteFilesBySession = sqliteRepo.deleteFilesBySession
-export const deleteFilesByMessageIds = sqliteRepo.deleteFilesByMessageIds
 
 export const flushChatHistory = sqliteRepo.flushChatHistory
 export const dropDatabase = sqliteRepo.dropDatabase

@@ -4,7 +4,7 @@ import { getStorageKeyMetadata } from "./storage-key-registry"
 export interface ValueParser<T> {
   safeParse: (
     value: unknown
-  ) => { success: true; data: T } | { success: false; error: unknown }
+  ) => { success: true; data: T } | { success: false; error?: unknown }
 }
 
 export interface SettingDescriptor<T> {

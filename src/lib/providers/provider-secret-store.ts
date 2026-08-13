@@ -103,10 +103,14 @@ export const containsLegacySyncedSecrets = (
 ): boolean => providers.some(hasOwnApiKey)
 
 /** Caller must hold the provider-persistence lock. */
-export const recoverProviderResetUnlocked = async (): Promise<void> => {
+export const recoverProviderResetUnlocked = async (
+  signal?: AbortSignal
+): Promise<void> => {
+  signal?.throwIfAborted()
   const stored = await plasmoDeviceStorage.get<unknown>(
     STORAGE_KEYS.PROVIDER.RESET_JOURNAL
   )
+  signal?.throwIfAborted()
   if (!stored) return
   const parsed = ProviderResetJournalSchema.safeParse(stored)
   if (!parsed.success) {
@@ -114,14 +118,17 @@ export const recoverProviderResetUnlocked = async (): Promise<void> => {
       "Discarded invalid provider reset journal",
       "ProviderSecretStore"
     )
+    signal?.throwIfAborted()
     await plasmoDeviceStorage.remove(STORAGE_KEYS.PROVIDER.RESET_JOURNAL)
     return
   }
   const journal: ProviderResetJournal = parsed.data
 
   for (const key of journal.keys) {
+    signal?.throwIfAborted()
     await removePlasmoStoredValue(key)
   }
+  signal?.throwIfAborted()
   await plasmoDeviceStorage.remove(STORAGE_KEYS.PROVIDER.RESET_JOURNAL)
 }
 
@@ -151,10 +158,14 @@ export const resetProviderStorageUnlocked = async (
 }
 
 /** Caller must hold the provider-persistence lock. */
-export const recoverProviderPersistenceUnlocked = async (): Promise<void> => {
+export const recoverProviderPersistenceUnlocked = async (
+  signal?: AbortSignal
+): Promise<void> => {
+  signal?.throwIfAborted()
   const stored = await plasmoDeviceStorage.get<unknown>(
     STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL
   )
+  signal?.throwIfAborted()
   if (!stored) return
   const parsed = ProviderPersistenceJournalSchema.safeParse(stored)
   if (!parsed.success) {
@@ -162,6 +173,7 @@ export const recoverProviderPersistenceUnlocked = async (): Promise<void> => {
       "Discarded invalid provider persistence journal",
       "ProviderSecretStore"
     )
+    signal?.throwIfAborted()
     await plasmoDeviceStorage.remove(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)
     return
   }
@@ -170,11 +182,13 @@ export const recoverProviderPersistenceUnlocked = async (): Promise<void> => {
   const syncedConfig = await plasmoGlobalStorage.get<unknown>(
     ProviderStorageKey.CONFIG
   )
+  signal?.throwIfAborted()
   const recoveredSecrets = configsMatch(syncedConfig, journal.nextPublicConfigs)
     ? journal.nextSecrets
     : journal.previousSecrets
 
   await plasmoDeviceStorage.set(STORAGE_KEYS.PROVIDER.SECRETS, recoveredSecrets)
+  signal?.throwIfAborted()
   await plasmoDeviceStorage.remove(STORAGE_KEYS.PROVIDER.PERSISTENCE_JOURNAL)
 }
 

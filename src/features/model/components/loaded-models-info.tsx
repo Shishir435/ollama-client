@@ -11,8 +11,8 @@ import {
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { cn } from "@/lib/class-names"
 import { logger } from "@/lib/logger"
-import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
 const formatBytes = (bytes: number): string => {

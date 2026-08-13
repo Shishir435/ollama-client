@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import {
   fireEvent,
   render,
@@ -7,6 +6,7 @@ import {
   within
 } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_EMBEDDING_CONFIG, type EmbeddingConfig } from "@/lib/constants"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { FeedbackSettings } from "../feedback-settings"
@@ -16,8 +16,8 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key })
 }))
 
-vi.mock("@plasmohq/storage/hook", () => ({
-  useStorage: vi.fn()
+vi.mock("@/hooks/use-setting", () => ({
+  useSetting: vi.fn()
 }))
 
 vi.mock("@/components/settings", () => ({
@@ -129,7 +129,7 @@ const storageControls = {
 }
 
 const mockStorage = (config: EmbeddingConfig, setter = vi.fn()) => {
-  vi.mocked(useStorage).mockReturnValue([config, setter, storageControls])
+  vi.mocked(useSetting).mockReturnValue([config, setter, storageControls])
   return setter
 }
 

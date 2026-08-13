@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Textarea } from "@/components/ui/textarea"
@@ -15,18 +14,13 @@ import { useTabContents } from "@/features/tabs/hooks/use-tab-contents"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
-import {
-  DEFAULT_TABS_ACCESS,
-  MESSAGE_KEYS,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { cn } from "@/lib/class-names"
+import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import type { ProcessedFile } from "@/lib/file-processors/types"
-import {
-  getPlasmoStorageForKey,
-  plasmoGlobalStorage
-} from "@/lib/plasmo-global-storage"
-import { cn } from "@/lib/utils"
+import { getPlasmoStorageForKey } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ChromeMessage, ImageAttachment } from "@/types"
 import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "./chat-input/chat-input-toolbar"
@@ -87,29 +81,13 @@ export const ChatInputBox = ({
     clearImages
   } = useChatInputAttachments()
 
-  const [autoScreenshotOnVision] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION,
-      instance: plasmoGlobalStorage
-    },
-    false
+  const [autoScreenshotOnVision] = useSetting(
+    SETTINGS.AUTO_SCREENSHOT_ON_VISION
   )
 
-  const [useRAG, setUseRAG] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.USE_RAG,
-      instance: plasmoGlobalStorage
-    },
-    true
-  )
+  const [useRAG, setUseRAG] = useSetting(SETTINGS.USE_RAG)
 
-  const [tabAccess, setTabAccess] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_TABS_ACCESS
-  )
+  const [tabAccess, setTabAccess] = useSetting(SETTINGS.TABS_ACCESS)
 
   useKeyboardShortcuts({
     focusInput: (e) => {

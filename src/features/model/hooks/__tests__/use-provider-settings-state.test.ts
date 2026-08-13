@@ -30,7 +30,8 @@ const ollama = {
   type: ProviderType.OLLAMA,
   enabled: true,
   baseUrl: "http://localhost:11434",
-  hasApiKey: false
+  hasApiKey: false,
+  apiKey: { state: "unchanged" as const }
 }
 
 const custom = {
@@ -39,7 +40,8 @@ const custom = {
   type: ProviderType.OPENAI,
   enabled: true,
   baseUrl: "https://example.test/v1",
-  hasApiKey: false
+  hasApiKey: false,
+  apiKey: { state: "unchanged" as const }
 }
 
 const getMutationTarget = (request: unknown) =>
@@ -342,6 +344,48 @@ describe("useProviderSettingsState", () => {
     expect(result.current.hasUnsavedChanges).toBe(false)
   })
 
+  it("sends explicit replace and clear intents for API-key edits", async () => {
+    vi.mocked(extensionRpcClient.call).mockImplementation(
+      async (method, request) => {
+        if (method === RpcMethod.ProvidersList) {
+          return { providers: [custom] } as never
+        }
+        if (method === RpcMethod.ProvidersUpsert) {
+          const config = request as { config: { apiKey: { state: string } } }
+          return {
+            provider: {
+              ...custom,
+              hasApiKey: config.config.apiKey.state !== "cleared"
+            }
+          } as never
+        }
+        throw new Error(`Unexpected method: ${method}`)
+      }
+    )
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toHaveLength(1))
+    await act(async () => result.current.setSelectedId(custom.id))
+
+    act(() => result.current.updateConfig({ apiKey: "replacement" }))
+    const replacementDraft = result.current.activeConfig
+    if (!replacementDraft) throw new Error("Expected an active provider")
+    await act(async () => result.current.handleSave(replacementDraft))
+    act(() => result.current.updateConfig({ apiKey: "" }))
+    const clearedDraft = result.current.activeConfig
+    if (!clearedDraft) throw new Error("Expected an active provider")
+    await act(async () => result.current.handleSave(clearedDraft))
+
+    const configs = vi
+      .mocked(extensionRpcClient.call)
+      .mock.calls.filter(([method]) => method === RpcMethod.ProvidersUpsert)
+      .map(([, request]) => (request as { config: { apiKey: unknown } }).config)
+    expect(configs.map(({ apiKey }) => apiKey)).toEqual([
+      { state: "replaced", value: "replacement" },
+      { state: "cleared" }
+    ])
+  })
+
   it("flushes pending edits before enabling another provider", async () => {
     const disabledCustom = { ...custom, enabled: false }
     const calls: RpcMethod[] = []
@@ -395,6 +439,147 @@ describe("useProviderSettingsState", () => {
         enabled: true
       }
     ])
+  })
+
+  it("keeps edits made while an enable toggle is pending", async () => {
+    let resolveToggle:
+      | ((value: { provider: typeof ollama }) => void)
+      | undefined
+    const pendingToggle = new Promise<{ provider: typeof ollama }>(
+      (resolve) => {
+        resolveToggle = resolve
+      }
+    )
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList) {
+        return { providers: [ollama] } as never
+      }
+      if (method === RpcMethod.ProvidersSetEnabled) {
+        return (await pendingToggle) as never
+      }
+      throw new Error(`Unexpected method: ${method}`)
+    })
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toEqual([ollama]))
+
+    let togglePromise: Promise<void>
+    act(() => {
+      togglePromise = result.current.setProviderEnabled(false)
+    })
+    await waitFor(() =>
+      expect(extensionRpcClient.call).toHaveBeenCalledWith(
+        RpcMethod.ProvidersSetEnabled,
+        { providerId: ProviderId.OLLAMA, enabled: false }
+      )
+    )
+    act(() => {
+      result.current.updateConfig({ name: "Edited while toggling" })
+    })
+    await act(async () => {
+      resolveToggle?.({ provider: { ...ollama, enabled: false } })
+      await togglePromise
+    })
+
+    expect(result.current.providers).toEqual([
+      { ...ollama, name: "Edited while toggling", enabled: false }
+    ])
+    expect(result.current.hasUnsavedChanges).toBe(true)
+  })
+
+  it("does not let an older toggle failure roll back a newer toggle", async () => {
+    let rejectFirst: ((reason?: unknown) => void) | undefined
+    let resolveSecond:
+      | ((value: { provider: typeof ollama }) => void)
+      | undefined
+    const firstToggle = new Promise<never>((_resolve, reject) => {
+      rejectFirst = reject
+    })
+    const secondToggle = new Promise<{ provider: typeof ollama }>((resolve) => {
+      resolveSecond = resolve
+    })
+    let toggleCalls = 0
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList) {
+        return { providers: [ollama] } as never
+      }
+      if (method === RpcMethod.ProvidersSetEnabled) {
+        toggleCalls += 1
+        return (await (toggleCalls === 1 ? firstToggle : secondToggle)) as never
+      }
+      throw new Error(`Unexpected method: ${method}`)
+    })
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toEqual([ollama]))
+
+    let olderPromise: Promise<void>
+    let newerPromise: Promise<void>
+    act(() => {
+      olderPromise = result.current.setProviderEnabled(false)
+      newerPromise = result.current.setProviderEnabled(false)
+    })
+    await waitFor(() => expect(toggleCalls).toBe(1))
+    await act(async () => {
+      rejectFirst?.(new Error("older toggle failed"))
+      await olderPromise
+    })
+
+    expect(result.current.activeConfig?.enabled).toBe(false)
+    await waitFor(() => expect(toggleCalls).toBe(2))
+
+    await act(async () => {
+      resolveSecond?.({ provider: { ...ollama, enabled: false } })
+      await newerPromise
+    })
+    expect(result.current.activeConfig?.enabled).toBe(false)
+  })
+
+  it("restores stored state when serialized overlapping toggles fail", async () => {
+    const rejectToggles: Array<(reason?: unknown) => void> = []
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList) {
+        return { providers: [ollama] } as never
+      }
+      if (method === RpcMethod.ProvidersSetEnabled) {
+        return (await new Promise<never>((_resolve, reject) => {
+          rejectToggles.push(reject)
+        })) as never
+      }
+      throw new Error(`Unexpected method: ${method}`)
+    })
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toEqual([ollama]))
+
+    let disablePromise: Promise<void>
+    act(() => {
+      disablePromise = result.current.setProviderEnabled(false)
+    })
+    await waitFor(() => expect(rejectToggles).toHaveLength(1))
+    await waitFor(() =>
+      expect(result.current.activeConfig?.enabled).toBe(false)
+    )
+
+    let enablePromise: Promise<void>
+    act(() => {
+      enablePromise = result.current.setProviderEnabled(true)
+    })
+    expect(result.current.activeConfig?.enabled).toBe(true)
+    expect(rejectToggles).toHaveLength(1)
+
+    await act(async () => {
+      rejectToggles[0]?.(new Error("disable failed"))
+      await disablePromise
+    })
+    await waitFor(() => expect(rejectToggles).toHaveLength(2))
+    await act(async () => {
+      rejectToggles[1]?.(new Error("enable failed"))
+      await enablePromise
+    })
+
+    expect(result.current.activeConfig?.enabled).toBe(true)
+    expect(result.current.hasUnsavedChanges).toBe(false)
   })
 
   const testConnectionFor = async (providerId: string) => {

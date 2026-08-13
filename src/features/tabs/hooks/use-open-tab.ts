@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import type { Tabs } from "webextension-polyfill"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { sendRuntimeMessage } from "@/lib/runtime-messages"
+import { sendRuntimeMessage } from "@/lib/retained-runtime-messages"
 
 export const useOpenTabs = (enabled: boolean) => {
   const [tabs, setTabs] = useState<Tabs.Tab[]>([])

@@ -1,7 +1,7 @@
 import { ContextService } from "@/application/context/context-service"
 import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
-import { safePostChatStreamEvent } from "@/background/lib/utils"
+import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { logger } from "@/lib/logger"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { toAppFailure } from "@/protocol/app-failure"

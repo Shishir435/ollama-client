@@ -12,10 +12,11 @@ import {
 } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
+import { useSetting } from "@/hooks/use-setting"
+import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { getProviderCapabilities } from "@/lib/providers/capabilities"
 import { ProviderFactory } from "@/lib/providers/factory"
@@ -32,11 +33,10 @@ import {
   ProviderStorageKey
 } from "@/lib/providers/types"
 import { queryKeys } from "@/lib/query-keys"
+import { SETTINGS } from "@/lib/storage/settings"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import type { SelectedModelRef } from "@/types"
 import {
   catalogStaleTimeMs,
-  DEFAULT_CATALOG_REFRESH_MS,
   normalizeCatalogRefreshMs
 } from "../lib/catalog-refresh"
 import { isEmbeddingModel } from "../lib/model-utils"
@@ -123,40 +123,19 @@ export const useProviderModels = () => {
   const queryClientInstance = useQueryClient()
 
   const [selectedModel, setSelectedModel, { isLoading: isStorageLoading }] =
-    useStorage<string>(
-      {
-        key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
-        instance: plasmoGlobalStorage
-      },
-      ""
-    )
-  const [selectedModelRef, setSelectedModelRef] =
-    useStorage<SelectedModelRef | null>(
-      {
-        key: STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF,
-        instance: plasmoGlobalStorage
-      },
-      null
-    )
-  const [selectionConflictModel, setSelectionConflictModel] = useStorage<
-    string | null
-  >(
-    {
-      key: STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL,
-      instance: plasmoGlobalStorage
-    },
-    null
+    useSetting(SETTINGS.SELECTED_MODEL)
+  const [selectedModelRef, setSelectedModelRef] = useSetting(
+    SETTINGS.SELECTED_MODEL_REF
+  )
+  const [selectionConflictModel, setSelectionConflictModel] = useSetting(
+    SETTINGS.SELECTION_CONFLICT_MODEL
   )
   const [providerConfig] = useStorage<ProviderConfig[]>(
-    { key: ProviderStorageKey.CONFIG, instance: plasmoGlobalStorage },
+    { key: ProviderStorageKey.CONFIG, instance: plasmoSyncStorage },
     []
   )
-  const [storedCatalogRefreshMs] = useStorage<number>(
-    {
-      key: STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_CATALOG_REFRESH_MS
+  const [storedCatalogRefreshMs] = useSetting(
+    SETTINGS.PROVIDER_CATALOG_REFRESH_MS
   )
   const catalogRefreshMs = normalizeCatalogRefreshMs(storedCatalogRefreshMs)
 

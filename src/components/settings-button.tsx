@@ -2,7 +2,7 @@ import { Settings } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { openOptionsInTab } from "@/lib/browser-api"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 export const SettingsButton = ({
   showText = true,

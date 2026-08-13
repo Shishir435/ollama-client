@@ -6,8 +6,8 @@ import { useSpeechRecognition } from "@/features/chat/hooks/use-speech-recogniti
 import { chatInputStore } from "@/features/chat/stores/chat-input-store"
 import { useToast } from "@/hooks/use-toast"
 import { browser } from "@/lib/browser-api"
+import { cn } from "@/lib/class-names"
 import { logger } from "@/lib/logger"
-import { cn } from "@/lib/utils"
 
 export interface VoiceInputButtonProps {
   disabled?: boolean

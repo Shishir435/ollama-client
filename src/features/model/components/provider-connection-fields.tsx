@@ -3,17 +3,21 @@ import { useTranslation } from "react-i18next"
 import { SettingsActionRow, SettingsFormField } from "@/components/settings"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  type ProviderDraft,
+  type ProviderDraftUpdate,
+  providerDraftApiKeyValue
+} from "@/features/model/types/provider-draft"
 import { DEFAULT_PROVIDERS } from "@/lib/providers/manager"
-import type { ProviderConfig } from "@/lib/providers/types"
 
 interface ProviderConnectionFieldsProps {
-  activeConfig: ProviderConfig
+  activeConfig: ProviderDraft
   cspCompatibilityHint: string | null
   isLocalProvider: boolean
   isRemoteEndpoint: boolean
   hasUnsavedChanges: boolean
-  onSave: (config: ProviderConfig) => void
-  updateConfig: (updates: Partial<ProviderConfig>) => void
+  onSave: (config: ProviderDraft) => void
+  updateConfig: (updates: ProviderDraftUpdate) => void
 }
 
 export const ProviderConnectionFields = ({
@@ -75,7 +79,7 @@ export const ProviderConnectionFields = ({
           label={t("settings.providers.api_key")}>
           <Input
             type="password"
-            value={activeConfig.apiKey || ""}
+            value={providerDraftApiKeyValue(activeConfig)}
             onChange={(e) => updateConfig({ apiKey: e.target.value })}
             placeholder="sk-..."
           />

@@ -2,8 +2,8 @@ import { ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { openExternalUrl } from "@/lib/browser-api"
+import { cn } from "@/lib/class-names"
 import { EXTERNAL_URLS } from "@/lib/constants/urls"
-import { cn } from "@/lib/utils"
 
 export const SetupGuideLink = ({ className }: { className?: string }) => {
   const { t } = useTranslation()

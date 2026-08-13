@@ -32,10 +32,7 @@ const { mockProvider, mockStreamChat } = vi.hoisted(() => {
 })
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
-    get: vi.fn(),
-    set: vi.fn()
-  }
+  getPlasmoStoredValue: vi.fn()
 }))
 
 vi.mock("@/background/lib/abort-controller-registry", () => ({
@@ -64,17 +61,19 @@ const message: SelectionActionMessage = {
 }
 
 describe("handleSelectionAction", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     clearHandlerMocks()
     setupHandlerMocks()
     vi.clearAllMocks()
     mockProvider.config.enabled = true
+    const storage = await import("@/lib/plasmo-global-storage")
+    vi.mocked(storage.getPlasmoStoredValue).mockResolvedValue(undefined)
   })
 
   it("streams selection action chunks through selected provider", async () => {
     const { ProviderFactory } = await import("@/lib/providers/factory")
-    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+    const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
       if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {
         return { modelId: "llama3:latest", providerId: "ollama" }
       }
@@ -110,8 +109,8 @@ describe("handleSelectionAction", () => {
   })
 
   it("passes the configured model system prompt into the selection action", async () => {
-    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+    const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
       if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {
         return { modelId: "llama3:latest", providerId: "ollama" }
       }
@@ -136,8 +135,8 @@ describe("handleSelectionAction", () => {
   })
 
   it("does not inject the default model system prompt when none is configured", async () => {
-    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+    const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
       if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {
         return { modelId: "llama3:latest", providerId: "ollama" }
       }
@@ -156,8 +155,8 @@ describe("handleSelectionAction", () => {
   })
 
   it("returns friendly error when no model is selected", async () => {
-    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-    vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(undefined)
+    const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue(undefined)
 
     const port = createMockPort(MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION)
     await handleSelectionAction(message, port, createMockIsPortClosed(false))
@@ -173,8 +172,8 @@ describe("handleSelectionAction", () => {
   })
 
   it("preserves disabled-provider recovery details", async () => {
-    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+    const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
       if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {
         return { modelId: "llama3:latest", providerId: "ollama" }
       }
@@ -208,8 +207,8 @@ describe("handleSelectionAction", () => {
     const { setAbortController } = await import(
       "@/background/lib/abort-controller-registry"
     )
-    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
-    vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+    const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
+    vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
       if (key === STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF) {
         return { modelId: "llama3:latest", providerId: "ollama" }
       }

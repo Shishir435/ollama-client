@@ -1,111 +1,66 @@
+import { DEFAULT_EMBEDDING_CONFIG } from "@/lib/constants"
+import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import {
-  DEFAULT_EMBEDDING_CONFIG,
-  type EmbeddingConfig,
-  STORAGE_KEYS
-} from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+  KNOWLEDGE_DEFAULTS,
+  KNOWLEDGE_SETTINGS
+} from "@/lib/storage/knowledge-settings"
+import {
+  readSetting,
+  removeSetting,
+  writeSetting
+} from "@/lib/storage/setting-access"
 
-export const KNOWLEDGE_CONFIG_KEYS = {
-  CHUNK_SIZE: "knowledge.chunkSize",
-  CHUNK_OVERLAP: "knowledge.chunkOverlap",
-  SPLITTING_STRATEGY: "knowledge.splittingStrategy",
-  CHARACTER_SEPARATOR: "knowledge.characterSeparator",
-  RETRIEVAL_TOP_K: "knowledge.retrievalTopK",
-  EMBEDDING_MODEL: "knowledge.embeddingModel",
-  SYSTEM_PROMPT: "knowledge.systemPrompt",
-  QUESTION_PROMPT: "knowledge.questionPrompt",
-  MAX_CONTEXT_SIZE: "knowledge.maxContextSize"
-} as const
-
-export const KNOWLEDGE_DEFAULTS = {
-  chunkSize: 1000,
-  chunkOverlap: 200,
-  splittingStrategy: "recursive" as "recursive" | "character",
-  characterSeparator: "\\n\\n",
-  retrievalTopK: 4,
-  maxContextSize: 20000,
-  systemPrompt: `You are a helpful AI assistant. Answer the question using ONLY the context in <doc> and <memory> blocks. If the answer is not in the context, say you don't know. Do not make up an answer.
-
-Each <doc> has attributes: id, source, page (if available), chunk (if available), score.
-<memory> blocks contain relevant conversation history or user-specific context.
-When you use information from a doc, cite it using [doc:id] or [doc:id p:page]. If multiple docs are used, cite each.
-
-Context:
-{context}
-
-Question: {question}
-Answer:`,
-  questionPrompt: `Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
-
-Chat History: {chat_history}
-Follow Up Input: {question}
-Standalone question:`
-} as const
+export { KNOWLEDGE_DEFAULTS }
+export const KNOWLEDGE_CONFIG_KEYS = Object.fromEntries(
+  Object.entries(KNOWLEDGE_SETTINGS).map(([name, descriptor]) => [
+    name,
+    descriptor.key
+  ])
+) as {
+  [K in keyof typeof KNOWLEDGE_SETTINGS]: (typeof KNOWLEDGE_SETTINGS)[K]["key"]
+}
 
 export class KnowledgeConfig {
   async getChunkSize(): Promise<number> {
-    const value = await plasmoGlobalStorage.get<number>(
-      KNOWLEDGE_CONFIG_KEYS.CHUNK_SIZE
-    )
-    return value ?? KNOWLEDGE_DEFAULTS.chunkSize
+    return readSetting(KNOWLEDGE_SETTINGS.CHUNK_SIZE)
   }
 
   async setChunkSize(size: number): Promise<void> {
-    await plasmoGlobalStorage.set(KNOWLEDGE_CONFIG_KEYS.CHUNK_SIZE, size)
+    await writeSetting(KNOWLEDGE_SETTINGS.CHUNK_SIZE, size)
   }
 
   async getChunkOverlap(): Promise<number> {
-    const value = await plasmoGlobalStorage.get<number>(
-      KNOWLEDGE_CONFIG_KEYS.CHUNK_OVERLAP
-    )
-    return value ?? KNOWLEDGE_DEFAULTS.chunkOverlap
+    return readSetting(KNOWLEDGE_SETTINGS.CHUNK_OVERLAP)
   }
 
   async setChunkOverlap(overlap: number): Promise<void> {
-    await plasmoGlobalStorage.set(KNOWLEDGE_CONFIG_KEYS.CHUNK_OVERLAP, overlap)
+    await writeSetting(KNOWLEDGE_SETTINGS.CHUNK_OVERLAP, overlap)
   }
 
   async getSplittingStrategy(): Promise<"recursive" | "character"> {
-    const value = await plasmoGlobalStorage.get<"recursive" | "character">(
-      KNOWLEDGE_CONFIG_KEYS.SPLITTING_STRATEGY
-    )
-    return value ?? KNOWLEDGE_DEFAULTS.splittingStrategy
+    return readSetting(KNOWLEDGE_SETTINGS.SPLITTING_STRATEGY)
   }
 
   async setSplittingStrategy(
     strategy: "recursive" | "character"
   ): Promise<void> {
-    await plasmoGlobalStorage.set(
-      KNOWLEDGE_CONFIG_KEYS.SPLITTING_STRATEGY,
-      strategy
-    )
+    await writeSetting(KNOWLEDGE_SETTINGS.SPLITTING_STRATEGY, strategy)
   }
 
   async getCharacterSeparator(): Promise<string> {
-    const value = await plasmoGlobalStorage.get<string>(
-      KNOWLEDGE_CONFIG_KEYS.CHARACTER_SEPARATOR
-    )
-    return value ?? KNOWLEDGE_DEFAULTS.characterSeparator
+    return readSetting(KNOWLEDGE_SETTINGS.CHARACTER_SEPARATOR)
   }
 
   async setCharacterSeparator(separator: string): Promise<void> {
-    await plasmoGlobalStorage.set(
-      KNOWLEDGE_CONFIG_KEYS.CHARACTER_SEPARATOR,
-      separator
-    )
+    await writeSetting(KNOWLEDGE_SETTINGS.CHARACTER_SEPARATOR, separator)
   }
 
   async getRetrievalTopK(): Promise<number> {
-    const value = await plasmoGlobalStorage.get<number>(
-      KNOWLEDGE_CONFIG_KEYS.RETRIEVAL_TOP_K
-    )
-    return value ?? KNOWLEDGE_DEFAULTS.retrievalTopK
+    return readSetting(KNOWLEDGE_SETTINGS.RETRIEVAL_TOP_K)
   }
 
   async getMinSimilarity(): Promise<number> {
-    const config = await plasmoGlobalStorage.get<EmbeddingConfig>(
-      STORAGE_KEYS.EMBEDDINGS.CONFIG
-    )
+    const config = await getEmbeddingConfig()
     return (
       config?.defaultMinSimilarity ??
       DEFAULT_EMBEDDING_CONFIG.defaultMinSimilarity
@@ -113,58 +68,43 @@ export class KnowledgeConfig {
   }
 
   async setRetrievalTopK(k: number): Promise<void> {
-    await plasmoGlobalStorage.set(KNOWLEDGE_CONFIG_KEYS.RETRIEVAL_TOP_K, k)
+    await writeSetting(KNOWLEDGE_SETTINGS.RETRIEVAL_TOP_K, k)
   }
 
   async getEmbeddingModel(): Promise<string | null> {
-    const value = await plasmoGlobalStorage.get<string>(
-      KNOWLEDGE_CONFIG_KEYS.EMBEDDING_MODEL
-    )
-    return value ?? null
+    return readSetting(KNOWLEDGE_SETTINGS.EMBEDDING_MODEL)
   }
 
   async setEmbeddingModel(model: string | null): Promise<void> {
     if (model === null) {
-      await plasmoGlobalStorage.remove(KNOWLEDGE_CONFIG_KEYS.EMBEDDING_MODEL)
+      await removeSetting(KNOWLEDGE_SETTINGS.EMBEDDING_MODEL)
     } else {
-      await plasmoGlobalStorage.set(
-        KNOWLEDGE_CONFIG_KEYS.EMBEDDING_MODEL,
-        model
-      )
+      await writeSetting(KNOWLEDGE_SETTINGS.EMBEDDING_MODEL, model)
     }
   }
 
   async getSystemPrompt(): Promise<string> {
-    const value = await plasmoGlobalStorage.get<string>(
-      KNOWLEDGE_CONFIG_KEYS.SYSTEM_PROMPT
-    )
-    return value ?? KNOWLEDGE_DEFAULTS.systemPrompt
+    return readSetting(KNOWLEDGE_SETTINGS.SYSTEM_PROMPT)
   }
 
   async setSystemPrompt(prompt: string): Promise<void> {
-    await plasmoGlobalStorage.set(KNOWLEDGE_CONFIG_KEYS.SYSTEM_PROMPT, prompt)
+    await writeSetting(KNOWLEDGE_SETTINGS.SYSTEM_PROMPT, prompt)
   }
 
   async getQuestionPrompt(): Promise<string> {
-    const value = await plasmoGlobalStorage.get<string>(
-      KNOWLEDGE_CONFIG_KEYS.QUESTION_PROMPT
-    )
-    return value ?? KNOWLEDGE_DEFAULTS.questionPrompt
+    return readSetting(KNOWLEDGE_SETTINGS.QUESTION_PROMPT)
   }
 
   async setQuestionPrompt(prompt: string): Promise<void> {
-    await plasmoGlobalStorage.set(KNOWLEDGE_CONFIG_KEYS.QUESTION_PROMPT, prompt)
+    await writeSetting(KNOWLEDGE_SETTINGS.QUESTION_PROMPT, prompt)
   }
 
   async getMaxContextSize(): Promise<number> {
-    const value = await plasmoGlobalStorage.get<number>(
-      KNOWLEDGE_CONFIG_KEYS.MAX_CONTEXT_SIZE
-    )
-    return value ?? KNOWLEDGE_DEFAULTS.maxContextSize
+    return readSetting(KNOWLEDGE_SETTINGS.MAX_CONTEXT_SIZE)
   }
 
   async setMaxContextSize(size: number): Promise<void> {
-    await plasmoGlobalStorage.set(KNOWLEDGE_CONFIG_KEYS.MAX_CONTEXT_SIZE, size)
+    await writeSetting(KNOWLEDGE_SETTINGS.MAX_CONTEXT_SIZE, size)
   }
 }
 

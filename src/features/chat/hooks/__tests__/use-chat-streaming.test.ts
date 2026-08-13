@@ -41,8 +41,10 @@ vi.mock("@/features/chat/hooks/use-chat-stream", () => ({
       capturedSetMessages = config.setMessages
       capturedOnSuccessfulResponse = config.onSuccessfulResponse ?? null
       return {
-        startStream: vi.fn(),
-        stopStream: vi.fn()
+        startStream: vi.fn(() => true),
+        stopStream: vi.fn(),
+        claimStream: vi.fn(() => Symbol("claim")),
+        releaseStreamClaim: vi.fn()
       }
     }
   )
@@ -86,11 +88,13 @@ afterEach(() => {
 })
 
 describe("useChatStreaming", () => {
-  it("exposes startStream, stopStream, and the streaming-id ref", () => {
+  it("exposes stream ownership, controls, and the streaming-id ref", () => {
     const { options } = mkOptions()
     const { result } = renderHook(() => useChatStreaming(options))
     expect(typeof result.current.startStream).toBe("function")
     expect(typeof result.current.stopStream).toBe("function")
+    expect(typeof result.current.claimStream).toBe("function")
+    expect(typeof result.current.releaseStreamClaim).toBe("function")
     expect(result.current.currentStreamingMessageIdRef.current).toBeNull()
   })
 

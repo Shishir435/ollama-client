@@ -1,5 +1,4 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
-import { useStorage } from "@plasmohq/storage/hook"
 import {
   AlertTriangle,
   Brain,
@@ -12,38 +11,24 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
 import { useModelPull } from "@/features/model/hooks/use-model-pull"
+import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
-import type { EmbeddingConfig } from "@/lib/constants"
+import { cn } from "@/lib/class-names"
 import {
-  DEFAULT_EMBEDDING_CONFIG,
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
-  normalizeEmbeddingModelName,
-  STORAGE_KEYS
+  normalizeEmbeddingModelName
 } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 import { STATUS_STYLES } from "@/lib/ui-status"
-import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
 export const EmbeddingStatusIndicator = () => {
   const { t } = useTranslation()
-  const [selectedModel] = useStorage<string>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_EMBEDDING_MODEL
-  )
-  const [config] = useStorage<EmbeddingConfig>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_EMBEDDING_CONFIG
-  )
+  const [selectedModel] = useSetting(SETTINGS.EMBEDDING_SELECTED_MODEL)
+  const [config] = useSetting(SETTINGS.EMBEDDING_CONFIG)
 
   const modelName = normalizeEmbeddingModelName(
     config?.sharedEmbeddingModel || selectedModel || DEFAULT_EMBEDDING_MODEL

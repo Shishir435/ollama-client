@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
   searchHybrid,
   searchSimilarVectors,
@@ -39,10 +39,7 @@ vi.mock("@/lib/embeddings/hnsw-index", () => ({
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
-    get: vi.fn(),
-    set: vi.fn()
-  }
+  getPlasmoStoredValue: vi.fn()
 }))
 
 describe("Vector Store - Advanced Tests", () => {
@@ -51,7 +48,7 @@ describe("Vector Store - Advanced Tests", () => {
     vi.clearAllMocks()
 
     // Default config mock
-    vi.mocked(plasmoGlobalStorage.get).mockResolvedValue({})
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({})
   })
 
   describe("searchHybrid", () => {
@@ -132,7 +129,7 @@ describe("Vector Store - Advanced Tests", () => {
   describe("Storage Limits & Cleanup", () => {
     it("should enforce maxEmbeddingsPerFile", async () => {
       // Mock config with limit
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue({
+      vi.mocked(getPlasmoStoredValue).mockResolvedValue({
         maxEmbeddingsPerFile: 2
       })
 
@@ -164,7 +161,7 @@ describe("Vector Store - Advanced Tests", () => {
 
     it("should auto-cleanup old vectors", async () => {
       // Mock config for cleanup
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue({
+      vi.mocked(getPlasmoStoredValue).mockResolvedValue({
         autoCleanup: true,
         cleanupDaysOld: 7
       })
@@ -214,7 +211,7 @@ describe("Vector Store - Advanced Tests", () => {
   describe("Internal Logic & Edge Cases", () => {
     it("should enforce maxStorageSize", async () => {
       // Mock config with very small storage limit (1KB)
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue({
+      vi.mocked(getPlasmoStoredValue).mockResolvedValue({
         maxStorageSize: 0.001 // 1KB approx
       })
 
@@ -410,7 +407,7 @@ describe("Vector Store - Advanced Tests", () => {
 
     it("should handle large cleanup batches with yielding", async () => {
       // Mock config to force cleanup
-      vi.mocked(plasmoGlobalStorage.get).mockResolvedValue({
+      vi.mocked(getPlasmoStoredValue).mockResolvedValue({
         maxStorageSize: 0.001 // 1KB
       })
 

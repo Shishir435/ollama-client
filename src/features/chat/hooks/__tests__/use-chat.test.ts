@@ -22,6 +22,22 @@ vi.mock("@plasmohq/storage/hook", () => ({
   })
 }))
 
+vi.mock("@/hooks/use-setting", () => ({
+  useSetting: vi.fn((descriptor) => {
+    if (descriptor.key === "provider-selected-model") {
+      return ["llama3:latest", vi.fn(), { isLoading: false }]
+    }
+    if (descriptor.key === "provider-selected-model-ref") {
+      return [
+        { providerId: "ollama", modelId: "llama3:latest" },
+        vi.fn(),
+        { isLoading: false }
+      ]
+    }
+    return [descriptor.defaultValue, vi.fn(), { isLoading: false }]
+  })
+}))
+
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: toastMock })
 }))
@@ -110,7 +126,14 @@ vi.mock("@/lib/knowledge/knowledge-sets", () => ({
 vi.mock("@/lib/plasmo-global-storage", () => ({
   plasmoGlobalStorage: {
     get: vi.fn()
-  }
+  },
+  getPlasmoStorageForKey: vi.fn(() => ({
+    get: vi.fn(),
+    set: vi.fn(),
+    remove: vi.fn(),
+    watch: vi.fn(),
+    unwatch: vi.fn()
+  }))
 }))
 
 vi.mock("@/features/chat/hooks/use-auto-embed-messages", () => ({
@@ -121,8 +144,10 @@ vi.mock("@/features/chat/hooks/use-auto-embed-messages", () => ({
 
 vi.mock("@/features/chat/hooks/use-chat-stream", () => ({
   useChatStream: vi.fn(() => ({
-    startStream: vi.fn(),
-    stopStream: vi.fn()
+    startStream: vi.fn(() => true),
+    stopStream: vi.fn(),
+    claimStream: vi.fn(() => Symbol("stream-claim")),
+    releaseStreamClaim: vi.fn()
   }))
 }))
 
@@ -213,10 +238,12 @@ describe("useChat", () => {
     const { useChatStream } = await import(
       "@/features/chat/hooks/use-chat-stream"
     )
-    const startStream = vi.fn()
+    const startStream = vi.fn(() => true)
     vi.mocked(useChatStream).mockReturnValue({
       startStream,
-      stopStream: vi.fn()
+      stopStream: vi.fn(),
+      claimStream: vi.fn(() => Symbol("stream-claim")),
+      releaseStreamClaim: vi.fn()
     })
 
     const { result } = renderHook(() => useChat())
@@ -235,10 +262,12 @@ describe("useChat", () => {
     const { useChatSessions } = await import(
       "@/features/sessions/stores/chat-session-store"
     )
-    const startStream = vi.fn()
+    const startStream = vi.fn(() => true)
     vi.mocked(useChatStream).mockReturnValue({
       startStream,
-      stopStream: vi.fn()
+      stopStream: vi.fn(),
+      claimStream: vi.fn(() => Symbol("stream-claim")),
+      releaseStreamClaim: vi.fn()
     })
     vi.mocked(useChatSessions).mockReturnValue({
       currentSessionId: "session-1",
@@ -291,7 +320,8 @@ describe("useChat", () => {
             content: "Hello"
           })
         ])
-      })
+      }),
+      expect.any(Symbol)
     )
   })
 
@@ -306,7 +336,7 @@ describe("useChat", () => {
       "@/features/sessions/stores/chat-session-store"
     )
     const addMessage = vi.fn().mockResolvedValue(123)
-    const startStream = vi.fn()
+    const startStream = vi.fn(() => true)
     const setIsLoading = vi.fn()
     const setIsStreaming = vi.fn()
 
@@ -321,7 +351,9 @@ describe("useChat", () => {
     })
     vi.mocked(useChatStream).mockReturnValue({
       startStream,
-      stopStream: vi.fn()
+      stopStream: vi.fn(),
+      claimStream: vi.fn(() => Symbol("stream-claim")),
+      releaseStreamClaim: vi.fn()
     })
     vi.mocked(useChatSessions).mockReturnValue({
       currentSessionId: "session-1",
@@ -394,14 +426,16 @@ describe("useChat", () => {
       .fn()
       .mockResolvedValueOnce(123)
       .mockRejectedValueOnce(new Error("assistant save failed"))
-    const startStream = vi.fn()
+    const startStream = vi.fn(() => true)
 
     vi.mocked(plasmoGlobalStorage.get).mockRejectedValueOnce(
       new Error("storage unavailable")
     )
     vi.mocked(useChatStream).mockReturnValue({
       startStream,
-      stopStream: vi.fn()
+      stopStream: vi.fn(),
+      claimStream: vi.fn(() => Symbol("stream-claim")),
+      releaseStreamClaim: vi.fn()
     })
     vi.mocked(useChatSessions).mockReturnValue({
       currentSessionId: "session-1",
@@ -607,10 +641,12 @@ describe("useChat", () => {
       "@/features/chat/stores/chat-input-store"
     )
 
-    const startStream = vi.fn()
+    const startStream = vi.fn(() => true)
     vi.mocked(useChatStream).mockReturnValue({
       startStream,
-      stopStream: vi.fn()
+      stopStream: vi.fn(),
+      claimStream: vi.fn(() => Symbol("stream-claim")),
+      releaseStreamClaim: vi.fn()
     })
 
     vi.mocked(useSelectedTabs).mockReturnValue({
@@ -649,7 +685,8 @@ describe("useChat", () => {
             })
           })
         })
-      })
+      }),
+      expect.any(Symbol)
     )
   })
 
@@ -664,10 +701,12 @@ describe("useChat", () => {
       "@/features/chat/hooks/use-chat-stream"
     )
 
-    const startStream = vi.fn()
+    const startStream = vi.fn(() => true)
     vi.mocked(useChatStream).mockReturnValue({
       startStream,
-      stopStream: vi.fn()
+      stopStream: vi.fn(),
+      claimStream: vi.fn(() => Symbol("stream-claim")),
+      releaseStreamClaim: vi.fn()
     })
 
     vi.mocked(useSelectedTabs).mockReturnValue({
@@ -699,7 +738,8 @@ describe("useChat", () => {
             })
           })
         })
-      })
+      }),
+      expect.any(Symbol)
     )
   })
 
@@ -730,8 +770,10 @@ describe("useChat", () => {
     vi.mocked(useChatStream).mockImplementation((config: any) => {
       setMessagesCallback = config.setMessages
       return {
-        startStream: vi.fn(),
-        stopStream: vi.fn()
+        startStream: vi.fn(() => true),
+        stopStream: vi.fn(),
+        claimStream: vi.fn(() => Symbol("stream-claim")),
+        releaseStreamClaim: vi.fn()
       }
     })
 
@@ -803,10 +845,12 @@ describe("useChat", () => {
       const { useChatStream } = await import(
         "@/features/chat/hooks/use-chat-stream"
       )
-      const startStream = vi.fn()
+      const startStream = vi.fn(() => true)
       vi.mocked(useChatStream).mockReturnValue({
         startStream,
-        stopStream: vi.fn()
+        stopStream: vi.fn(),
+        claimStream: vi.fn(() => Symbol("stream-claim")),
+        releaseStreamClaim: vi.fn()
       })
 
       const { result } = renderHook(() => useChat())
@@ -836,10 +880,12 @@ describe("useChat", () => {
       const { useChatStream } = await import(
         "@/features/chat/hooks/use-chat-stream"
       )
-      const startStream = vi.fn()
+      const startStream = vi.fn(() => true)
       vi.mocked(useChatStream).mockReturnValue({
         startStream,
-        stopStream: vi.fn()
+        stopStream: vi.fn(),
+        claimStream: vi.fn(() => Symbol("stream-claim")),
+        releaseStreamClaim: vi.fn()
       })
 
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true) // RAG enabled
@@ -904,7 +950,8 @@ describe("useChat", () => {
               })
             })
           })
-        })
+        }),
+        expect.any(Symbol)
       )
     })
 
@@ -921,10 +968,12 @@ describe("useChat", () => {
       const { useChatStream } = await import(
         "@/features/chat/hooks/use-chat-stream"
       )
-      const startStream = vi.fn()
+      const startStream = vi.fn(() => true)
       vi.mocked(useChatStream).mockReturnValue({
         startStream,
-        stopStream: vi.fn()
+        stopStream: vi.fn(),
+        claimStream: vi.fn(() => Symbol("stream-claim")),
+        releaseStreamClaim: vi.fn()
       })
 
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true)
@@ -971,7 +1020,8 @@ describe("useChat", () => {
               })
             })
           })
-        })
+        }),
+        expect.any(Symbol)
       )
     })
 
@@ -988,10 +1038,12 @@ describe("useChat", () => {
       const { useChatStream } = await import(
         "@/features/chat/hooks/use-chat-stream"
       )
-      const startStream = vi.fn()
+      const startStream = vi.fn(() => true)
       vi.mocked(useChatStream).mockReturnValue({
         startStream,
-        stopStream: vi.fn()
+        stopStream: vi.fn(),
+        claimStream: vi.fn(() => Symbol("stream-claim")),
+        releaseStreamClaim: vi.fn()
       })
 
       vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(true)
@@ -1041,7 +1093,8 @@ describe("useChat", () => {
               })
             })
           })
-        })
+        }),
+        expect.any(Symbol)
       )
     })
   })

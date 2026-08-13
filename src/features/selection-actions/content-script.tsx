@@ -3,6 +3,7 @@ import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root"
 import { defineContentScript } from "wxt/utils/define-content-script"
 import {
   applyStoredTheme,
+  createLatestSelectionConfigRefresh,
   loadSelectedPanelModel,
   loadSelectionConfig,
   syncSelectionLanguage
@@ -17,13 +18,13 @@ import {
   DEFAULT_CONTENT_EXTRACTION_CONFIG,
   STORAGE_KEYS
 } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import {
   SELECTION_OVERLAY_READY_EVENT,
   SELECTION_OVERLAY_REQUEST_ID_GLOBAL,
   type SelectionOverlayReadyDetail
 } from "@/protocol/content-messages"
-import type { ContentExtractionConfig, ProviderModel } from "@/types"
+import type { ProviderModel } from "@/types"
 
 export const createSelectionActionsContentScript = (appStyles: string) =>
   defineContentScript({
@@ -95,9 +96,13 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
       })
 
       // ── Config / model helpers ───────────────────────────────────────
-      const updateConfig = async () => {
-        configRef.current = await loadSelectionConfig()
-      }
+      const configRefresh = createLatestSelectionConfigRefresh(
+        loadSelectionConfig,
+        (config) => {
+          configRef.current = config
+          if (!config.selectionActionsEnabled) hide()
+        }
+      )
       const syncPanelModel = async () => {
         const selected = await loadSelectedPanelModel(panelModelRef.current)
         panelModelRef.current = selected.model
@@ -184,7 +189,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
 
       // ── Bootstrap ────────────────────────────────────────────────────
       await Promise.all([
-        updateConfig(),
+        configRefresh.run(),
         syncPanelModel(),
         syncSelectionLanguage()
       ])
@@ -209,14 +214,8 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
             )
           }
         },
-        [STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG]: (change: {
-          newValue?: unknown
-        }) => {
-          configRef.current = {
-            ...DEFAULT_CONTENT_EXTRACTION_CONFIG,
-            ...((change.newValue as Partial<ContentExtractionConfig>) ?? {})
-          }
-          if (!configRef.current.selectionActionsEnabled) hide()
+        [STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG]: () => {
+          void configRefresh.run()
         },
         [STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF]: () => {
           panelModelRef.current = ""
@@ -227,7 +226,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
           void syncPanelModel()
         }
       }
-      plasmoGlobalStorage.watch(storageWatchCallbacks)
+      plasmoSyncStorage.watch(storageWatchCallbacks)
 
       // ── DOM event listeners ──────────────────────────────────────────
       document.addEventListener("selectionchange", queueSelectionCheck, true)
@@ -238,6 +237,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
       queueSelectionCheck()
 
       ctx.onInvalidated(() => {
+        configRefresh.invalidate()
         document.removeEventListener(
           "selectionchange",
           queueSelectionCheck,
@@ -248,7 +248,7 @@ export const createSelectionActionsContentScript = (appStyles: string) =>
         document.removeEventListener("keyup", queueSelectionCheck, true)
         document.removeEventListener("keydown", handleEscape, true)
         chrome.storage.onChanged.removeListener(handleThemeChange)
-        plasmoGlobalStorage.unwatch(storageWatchCallbacks)
+        plasmoSyncStorage.unwatch(storageWatchCallbacks)
         root?.unmount()
         ui.remove()
       })

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 export interface SearchScopeTabsProps {
   value: "all" | "current"

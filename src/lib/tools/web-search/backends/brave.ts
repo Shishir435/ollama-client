@@ -1,27 +1,46 @@
+import { z } from "zod"
 import { BRAVE_SEARCH_ENDPOINT } from "../config"
 import type { WebSearchBackend } from "../types"
 import {
   assertOkResponse,
   clampSearchCount,
+  decodeSearchJson,
   normalizeResult,
   requireApiKey
 } from "./shared"
 
-interface BraveWebResult {
-  title?: string
-  url?: string
-  description?: string
-  extra_snippets?: string[]
-  meta_url?: { hostname?: string }
-  profile?: { name?: string }
-  age?: string
-}
-
-interface BraveResponse {
-  web?: {
-    results?: BraveWebResult[]
-  }
-}
+const OptionalString = z.string().optional().catch(undefined)
+const BraveResponseSchema = z
+  .object({
+    web: z
+      .object({
+        results: z.array(
+          z
+            .object({
+              title: OptionalString,
+              url: OptionalString,
+              description: OptionalString,
+              extra_snippets: z.array(z.string()).optional().catch(undefined),
+              meta_url: z
+                .object({ hostname: OptionalString })
+                .passthrough()
+                .optional()
+                .catch(undefined),
+              profile: z
+                .object({ name: OptionalString })
+                .passthrough()
+                .optional()
+                .catch(undefined),
+              age: OptionalString
+            })
+            .passthrough()
+        )
+      })
+      .passthrough()
+      .nullable()
+      .optional()
+  })
+  .passthrough()
 
 const safeSearchMap = {
   off: "off",
@@ -63,7 +82,7 @@ export const braveBackend: WebSearchBackend = {
       }
     })
     await assertOkResponse(response, "Brave")
-    const data = (await response.json()) as BraveResponse
+    const data = await decodeSearchJson(response, BraveResponseSchema, "Brave")
     return (data.web?.results ?? [])
       .slice(0, count)
       .map((item) =>

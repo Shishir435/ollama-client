@@ -15,7 +15,7 @@ import type {
   NetworkError,
   PortStatusFunction
 } from "@/types"
-import { safePostChatStreamEvent } from "./utils"
+import { safePostChatStreamEvent } from "./runtime-delivery"
 
 type HandlerFunction<T, TPort extends ChatStreamSink> = (
   msg: T,

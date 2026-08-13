@@ -14,12 +14,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { ModelIdListEditor } from "@/features/model/components/model-id-list-editor"
+import { cn } from "@/lib/class-names"
 import { providerProfileRequiresApiKey } from "@/lib/providers/service-profile"
 import {
   type CustomProviderWire,
   ProviderServiceProfile
 } from "@/lib/providers/types"
-import { cn } from "@/lib/utils"
 
 export interface AddProviderDialogProps {
   open: boolean

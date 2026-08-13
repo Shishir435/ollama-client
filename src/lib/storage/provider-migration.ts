@@ -1,43 +1,53 @@
+import { z } from "zod"
 import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { ModelConfigMapSchema } from "@/lib/model-config-utils"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { ProviderStorageKey } from "@/lib/providers/types"
+import { SelectedModelRefSchema } from "@/lib/storage/setting-schemas"
 
 type StorageLike = typeof plasmoGlobalStorage
 
 const LEGACY_PROVIDER_MAPPINGS = [
   {
     legacyKey: LEGACY_STORAGE_KEYS.OLLAMA.SELECTED_MODEL,
-    newKey: STORAGE_KEYS.PROVIDER.SELECTED_MODEL
-  },
-  {
-    legacyKey: LEGACY_STORAGE_KEYS.OLLAMA.PROMPT_TEMPLATES,
-    newKey: STORAGE_KEYS.PROVIDER.PROMPT_TEMPLATES
+    newKey: STORAGE_KEYS.PROVIDER.SELECTED_MODEL,
+    schema: z.string().min(1)
   },
   {
     legacyKey: LEGACY_STORAGE_KEYS.OLLAMA.MODEL_CONFIGS,
-    newKey: STORAGE_KEYS.PROVIDER.MODEL_CONFIGS
+    newKey: STORAGE_KEYS.PROVIDER.MODEL_CONFIGS,
+    schema: ModelConfigMapSchema
   }
 ]
 
+/**
+ * Prompt templates are intentionally absent here. Their SQLite repository
+ * owns legacy decoding and the one-shot migration marker in one ordered path;
+ * an asynchronous UI migration could otherwise write after that marker.
+ */
+
+const ProviderMappingsSchema = z.record(z.string().min(1), z.string().min(1))
+
 export const migrateLegacyProviderStorage = async (
-  storage: StorageLike = plasmoGlobalStorage
+  storage: StorageLike = plasmoGlobalStorage,
+  signal?: AbortSignal
 ): Promise<{ migrated: boolean; migratedKeys: string[] }> => {
   const migratedKeys: string[] = []
 
   for (const mapping of LEGACY_PROVIDER_MAPPINGS) {
+    signal?.throwIfAborted()
     const currentValue = await storage.get(mapping.newKey)
-    if (
-      currentValue !== undefined &&
-      currentValue !== null &&
-      currentValue !== ""
-    ) {
+    signal?.throwIfAborted()
+    if (mapping.schema.safeParse(currentValue).success) {
       continue
     }
 
     const legacyValue = await storage.get(mapping.legacyKey)
-    if (legacyValue !== undefined && legacyValue !== null) {
-      await storage.set(mapping.newKey, legacyValue)
+    signal?.throwIfAborted()
+    const parsedLegacyValue = mapping.schema.safeParse(legacyValue)
+    if (parsedLegacyValue.success) {
+      await storage.set(mapping.newKey, parsedLegacyValue.data)
       migratedKeys.push(mapping.newKey)
     }
   }
@@ -50,21 +60,42 @@ export const migrateLegacyProviderStorage = async (
 
   // Best-effort migration for selected model reference:
   // If we have legacy string selection + model mapping, create canonical ref.
+  signal?.throwIfAborted()
   const selectedModelRef = await storage.get(
     STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF
   )
-  if (!selectedModelRef) {
-    const selectedModel = await storage.get<string>(
+  signal?.throwIfAborted()
+  const selectedModelRefResult =
+    SelectedModelRefSchema.safeParse(selectedModelRef)
+  if (!selectedModelRefResult.success || selectedModelRefResult.data === null) {
+    const selectedModelValue = await storage.get<unknown>(
       STORAGE_KEYS.PROVIDER.SELECTED_MODEL
     )
-    const modelMappings = await storage.get<Record<string, string>>(
+    const selectedModelResult = z.string().min(1).safeParse(selectedModelValue)
+    const selectedModel = selectedModelResult.success
+      ? selectedModelResult.data
+      : undefined
+    signal?.throwIfAborted()
+    const modelMappingsValue = await storage.get<unknown>(
       ProviderStorageKey.MODEL_MAPPINGS
     )
+    const modelMappingsResult =
+      ProviderMappingsSchema.safeParse(modelMappingsValue)
+    const modelMappings = modelMappingsResult.success
+      ? modelMappingsResult.data
+      : undefined
+    signal?.throwIfAborted()
     // The flat map may already have been migrated to scoped keys
     // (`providerId::modelName`) — check both shapes.
-    const scopedMappings = await storage.get<Record<string, string>>(
+    const scopedMappingsValue = await storage.get<unknown>(
       ProviderStorageKey.MODEL_MAPPINGS_V2
     )
+    const scopedMappingsResult =
+      ProviderMappingsSchema.safeParse(scopedMappingsValue)
+    const scopedMappings = scopedMappingsResult.success
+      ? scopedMappingsResult.data
+      : undefined
+    signal?.throwIfAborted()
     // Parse the provider id out of the key itself (`providerId::modelName`)
     // rather than reconstructing the key from the entry's value — the two are
     // equivalent for well-formed rows, but key-parsing still resolves if a
@@ -86,6 +117,7 @@ export const migrateLegacyProviderStorage = async (
         providerId: mappedProviderId,
         modelId: selectedModel
       })
+      signal?.throwIfAborted()
       await storage.remove(STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL)
       migratedKeys.push(STORAGE_KEYS.PROVIDER.SELECTED_MODEL_REF)
     }

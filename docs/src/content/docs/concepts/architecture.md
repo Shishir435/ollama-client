@@ -132,6 +132,45 @@ writer for measurement pages that are stripped from production builds.
 - Selected-text capture
 - Page extraction entrypoints for browser-context workflows
 
+### Startup recovery supervision
+
+Database startup has an explicit dependency chain: application lifecycle flags
+→ persistence-owner readiness → data-shape recovery → durable workflow
+recovery. Owner readiness includes interrupted whole-database replacement, so
+provider and embedding migration cannot start beside it. Portable backup-import
+recovery, provider-storage migration, and embedding dimension migration then run
+one at a time because each can rewrite state consumed by its successor. Only
+after all three settle does workflow recovery begin, with a concurrency cap of
+two for independent durable jobs.
+
+Every startup task receives an `AbortSignal` and has a 120-second deadline. A
+deadline aborts the task, but the supervisor does not start that worker's next
+task until the aborted promise settles. Settlement is the cancellation
+acknowledgment: an already-issued storage write may finish, but no successor can
+read or mutate the same state beside it. Backup and migration loops check the
+signal between mutation boundaries; active turn, ingestion, and model-pull
+recovery also stop their provider/embedding work. Supervisor expiry leaves a
+durable user job resumable on the next worker boot rather than recording a user
+cancellation.
+
+Timeout request and cancellation acknowledgment are recorded as bounded,
+content-free diagnostic events (`STARTUP_RECOVERY_TIMEOUT` and
+`STARTUP_RECOVERY_CANCELLED`). Task identifiers and elapsed time are included;
+stored data, provider URLs, and errors are not.
+
+### Message-subtree deletion
+
+Deleting a message branch is one SQLite transaction. The repository discovers
+all descendants while holding the transaction lease, repairs the session's
+active-leaf pointer when needed, deletes attachment rows, and then deletes the
+messages. A worker loss therefore cannot commit only part of the SQLite state,
+and a concurrent append cannot escape descendant discovery.
+
+Embedding vectors remain in Dexie and cannot participate in the SQLite commit.
+The transaction returns the deleted message ids so the caller can perform that
+derived-data cleanup afterward; vector deletion is idempotent and does not
+change the canonical chat state.
+
 ## Data flow
 
 1. User sends a prompt in the sidepanel.
@@ -161,8 +200,8 @@ flowchart TD
     T -->|yes| U["Tool loop: approval gate, execute, checkpoint"]
     U --> C
     T -->|no| I["UI Stream State Update"]
-    I --> J["SQLite Chat Store"]
-    I --> K["Optional RAG Pipeline"]
+    C --> J["SQLite Chat Store (durable turn owner)"]
+    C --> K["Optional RAG Pipeline"]
     K --> L["Embedding Strategy Chain"]
     L --> M["Vector store"]
 ```
@@ -171,14 +210,14 @@ Configuration traffic does not use this path — see [Provider RPC boundary](#pr
 
 ## Provider RPC boundary
 
-Token streaming uses runtime ports, but everything else that crosses the extension-page ↔ background boundary — reading provider configuration, testing a connection, listing models, running diagnostics — goes through a versioned request/response contract in `src/protocol/` rather than ad-hoc message keys.
+Token streaming uses runtime ports, but everything else that crosses the extension-page ↔ background boundary — reading provider configuration, testing a connection, listing models, running diagnostics — goes through versioned request/response contracts in `packages/contracts/src/` rather than ad-hoc message keys.
 
 | File | Role |
 |---|---|
-| `src/protocol/rpc.ts` | Protocol version, `RpcMethod` / `RpcErrorCode` enums, request and response envelopes |
-| `src/protocol/provider-rpc.ts` | Per-method request/result schemas and the typed `RpcMap` |
-| `src/protocol/model-rpc.ts` | Model lifecycle, catalog, and embedding method schemas |
-| `src/protocol/diagnostics-rpc.ts` | Diagnostics method schemas |
+| `packages/contracts/src/rpc.ts` | Protocol version, `RpcMethod` / `RpcErrorCode` enums, request and response envelopes |
+| `packages/contracts/src/provider-rpc.ts` | Provider request/result schemas and the provider entries in the typed `RpcMap` |
+| `packages/contracts/src/model-rpc.ts` | Model lifecycle, catalog, and embedding method schemas |
+| `packages/contracts/src/diagnostics-rpc.ts` | Diagnostics method schemas |
 | `src/protocol/rpc-registry.ts` | Per-method schema, sender policy, timeout, and operation metadata |
 | `src/protocol/extension-client.ts` | Validated client used by extension pages |
 | `src/background/rpc-server.ts` | Authorization, validation, dispatch, and safe error mapping |
@@ -195,6 +234,13 @@ Why a separate boundary instead of more message keys:
 The provider, model, embedding, and diagnostics request/response migration is
 complete. New request/response work is added as an `RpcMethod`; it must not add
 another runtime message key.
+
+Model lifecycle RPC coordinates policy through an optional provider-owned
+`modelLifecycle` port. Ollama owns `/api/ps`, keep-alive eviction, and no-op
+generation warmup; LM Studio owns its loaded-model and unload routes. The RPC
+service applies warmup settings and cooldowns but does not branch on provider
+ids or construct vendor URLs. Providers without the corresponding operation
+return an unsupported/no-op result instead of receiving an Ollama-shaped call.
 
 Streaming ports, one-way browser/app events, and the content-script-reachable
 `PROVIDER.GET_MODELS` read intentionally remain outside RPC. RPC envelopes are
@@ -329,7 +375,11 @@ Images reuse the existing file metadata path for local persistence and preview d
 
 - The selected model key is persisted under the provider key path (`STORAGE_KEYS.PROVIDER.SELECTED_MODEL`) with legacy reads.
 - The model list is built by querying all enabled providers in `useProviderModels`.
-- Provider configs are persisted via `ProviderManager` (`ProviderStorageKey.CONFIG`).
+- Provider CRUD and routing stay behind the stable `ProviderManager` facade.
+  Locked configuration recovery, hydration, defaults, and legacy URL adoption
+  live in `provider-config-repository.ts`; scoped model mappings live in
+  `provider-mapping-repository.ts`; removed-beta remapping and duplicate
+  retention live in `provider-compat-migration.ts`.
 - Built-in profiles: Ollama, LM Studio, and llama.cpp. User-added configs keep wire protocol separate from service profile, so OpenRouter uses the OpenAI-compatible wire without being identified as OpenAI, and generic Anthropic-compatible endpoints avoid Anthropic-hosted credential/header assumptions.
 - Per-model provider routing is stored via `ProviderStorageKey.MODEL_MAPPINGS`.
 - Background routing is performed by `ProviderFactory.getProviderForModel(modelId)`.

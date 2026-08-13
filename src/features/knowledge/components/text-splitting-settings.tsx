@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsFormField, SettingsSliderField } from "@/components/settings"
@@ -9,22 +8,15 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { useSetting } from "@/hooks/use-setting"
 import {
   type ChunkingStrategy,
-  DEFAULT_EMBEDDING_CONFIG,
-  type EmbeddingConfig,
-  STORAGE_KEYS
+  DEFAULT_EMBEDDING_CONFIG
 } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export const TextSplittingSettings = () => {
-  const [config, setConfig] = useStorage<EmbeddingConfig>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_EMBEDDING_CONFIG
-  )
+  const [config, setConfig] = useSetting(SETTINGS.EMBEDDING_CONFIG)
 
   const { t } = useTranslation()
   const safeChunkSize = config.chunkSize ?? DEFAULT_EMBEDDING_CONFIG.chunkSize

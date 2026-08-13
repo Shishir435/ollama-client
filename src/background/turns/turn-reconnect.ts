@@ -1,4 +1,4 @@
-import { safePostChatStreamEvent } from "@/background/lib/utils"
+import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import {
   attachDurableTurnObserver,
   cleanupTurnObservers,

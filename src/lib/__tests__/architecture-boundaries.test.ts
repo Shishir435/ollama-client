@@ -358,6 +358,37 @@ describe("architecture import boundaries", () => {
     expect(offenders).toEqual([])
   })
 
+  it("keeps ProviderManager as a facade over config and mapping storage", () => {
+    const source = readFileSync(
+      join(sourceRoot, "lib/providers/manager.ts"),
+      "utf8"
+    )
+    const forbidden = referencedModules(source).filter((module) =>
+      [
+        "@/lib/plasmo-global-storage",
+        "@/lib/constants",
+        "./provider-config-schema"
+      ].includes(module)
+    )
+
+    expect(forbidden).toEqual([])
+    expect(withoutComments(source)).not.toMatch(
+      /ProviderStorageKey|LEGACY_STORAGE_KEYS|MODEL_MAPPINGS/
+    )
+  })
+
+  it("keeps provider lifecycle wires inside provider adapters", () => {
+    const source = withoutComments(
+      readFileSync(
+        join(sourceRoot, "lib/providers/model-rpc-service.ts"),
+        "utf8"
+      )
+    )
+
+    expect(source).not.toMatch(/provider\.id\s*===\s*ProviderId\./)
+    expect(source).not.toMatch(/\/api\/(?:ps|generate|chat|v1\/models)/)
+  })
+
   /**
    * The observer registry is in-memory delivery state and nothing else.
    *

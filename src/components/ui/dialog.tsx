@@ -5,7 +5,7 @@ import { XIcon } from "lucide-react"
 import type * as React from "react"
 import { TooltipActionButton } from "@/components/actions"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />

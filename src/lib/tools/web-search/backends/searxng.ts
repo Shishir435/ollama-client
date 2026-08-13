@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type {
   WebSearchBackend,
   WebSearchProviderConfig,
@@ -7,23 +8,28 @@ import {
   assertOkResponse,
   clampSearchCount,
   clampSearchPages,
+  decodeSearchJson,
   normalizeResult,
   requireEndpoint
 } from "./shared"
 
-interface SearxngResult {
-  title?: string
-  url?: string
-  content?: string
-  publishedDate?: string
-  engine?: string
-  score?: number
-  category?: string
-}
+const OptionalString = z.string().optional().catch(undefined)
+const SearxngResultSchema = z
+  .object({
+    title: OptionalString,
+    url: OptionalString,
+    content: OptionalString,
+    publishedDate: OptionalString,
+    engine: OptionalString,
+    score: z.number().optional().catch(undefined),
+    category: OptionalString
+  })
+  .passthrough()
+type SearxngResult = z.infer<typeof SearxngResultSchema>
 
-interface SearxngResponse {
-  results?: SearxngResult[]
-}
+const SearxngResponseSchema = z
+  .object({ results: z.array(SearxngResultSchema) })
+  .passthrough()
 
 const safeSearchMap = {
   off: "0",
@@ -86,8 +92,12 @@ export const searxngBackend: WebSearchBackend = {
           headers: { Accept: "application/json" }
         })
         await assertOkResponse(response, "SearXNG")
-        const data = (await response.json()) as SearxngResponse
-        return data.results ?? []
+        const data = await decodeSearchJson(
+          response,
+          SearxngResponseSchema,
+          "SearXNG"
+        )
+        return data.results
       })
     )
     const results: SearxngResult[] = pageResults.flat()

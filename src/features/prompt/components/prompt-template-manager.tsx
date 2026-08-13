@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { usePromptTemplates } from "@/features/prompt/hooks/use-prompt-templates"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 import type { PromptTemplate } from "@/types"
 import { PromptTemplateActions } from "./prompt-template-actions"
 import { PromptTemplateForm } from "./prompt-template-form"

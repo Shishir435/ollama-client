@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 export const StartChatButton = ({ className }: { className?: string }) => {
   const { status } = useProviderModels()

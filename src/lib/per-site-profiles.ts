@@ -1,44 +1,31 @@
-import { STORAGE_KEYS } from "@/lib/constants"
 import {
-  getPlasmoStoredValue,
-  setPlasmoStoredValue
-} from "@/lib/plasmo-global-storage"
+  DEFAULT_PER_SITE_PROFILE_SETTINGS,
+  type PerSiteProfile,
+  type PerSiteProfileSettings,
+  PerSiteProfileSettingsSchema,
+  type PerSiteRuleMode,
+  parsePerSiteProfileSettings
+} from "@/lib/per-site-profile-settings"
+import { PER_SITE_PROFILE_SETTING } from "@/lib/storage/per-site-profile-setting"
+import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { compileSafePattern } from "@/lib/url-pattern"
 
-export type PerSiteRuleMode = "inherit" | "always" | "never"
-
-export interface PerSiteProfile {
-  id: string
-  name: string
-  pattern: string
-  enabled: boolean
-  tabContext: PerSiteRuleMode
-  groundedOnly: PerSiteRuleMode
-}
-
-export interface PerSiteProfileSettings {
-  profiles: PerSiteProfile[]
-}
-
-export const DEFAULT_PER_SITE_PROFILE_SETTINGS: PerSiteProfileSettings = {
-  profiles: []
+export type { PerSiteProfile, PerSiteProfileSettings, PerSiteRuleMode }
+export {
+  DEFAULT_PER_SITE_PROFILE_SETTINGS,
+  PerSiteProfileSettingsSchema,
+  parsePerSiteProfileSettings
 }
 
 export const getPerSiteProfileSettings =
   async (): Promise<PerSiteProfileSettings> => {
-    const stored = await getPlasmoStoredValue<Partial<PerSiteProfileSettings>>(
-      STORAGE_KEYS.BROWSER.PER_SITE_PROFILES
-    )
-
-    return {
-      profiles: Array.isArray(stored?.profiles) ? stored.profiles : []
-    }
+    return readSetting(PER_SITE_PROFILE_SETTING)
   }
 
 export const setPerSiteProfileSettings = async (
   settings: PerSiteProfileSettings
 ): Promise<void> => {
-  await setPlasmoStoredValue(STORAGE_KEYS.BROWSER.PER_SITE_PROFILES, {
+  await writeSetting(PER_SITE_PROFILE_SETTING, {
     profiles: normalizePerSiteProfiles(settings.profiles)
   })
 }

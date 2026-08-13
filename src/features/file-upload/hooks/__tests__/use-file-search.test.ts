@@ -12,19 +12,17 @@ vi.mock("@/lib/embeddings/vector-store", () => ({
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
-    get: vi.fn()
-  }
+  getPlasmoStoredValue: vi.fn()
 }))
 
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 
 describe("useFileSearch", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(plasmoGlobalStorage.get).mockResolvedValue({
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue({
       defaultSearchLimit: 10,
       defaultMinSimilarity: 0.5
     })

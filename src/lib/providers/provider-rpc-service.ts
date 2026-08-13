@@ -1,5 +1,6 @@
 import {
   MODEL_DISCOVERY_FAILURE,
+  type ProviderDraftInput,
   type ProvidersIconsResult,
   type ProvidersListModelsRequest,
   type ProvidersListModelsResult,
@@ -40,7 +41,72 @@ import {
   isFaviconLookupEnabled,
   resolveProviderFavicon
 } from "./provider-favicon"
-import type { LLMProvider, ProviderConfig } from "./types"
+import {
+  type LLMProvider,
+  type ProviderConfig,
+  ProviderServiceProfile,
+  ProviderType
+} from "./types"
+
+const providerTypeFromDraft = (
+  type: ProviderDraftInput["type"]
+): ProviderType => {
+  switch (type) {
+    case "ollama":
+      return ProviderType.OLLAMA
+    case "openai":
+      return ProviderType.OPENAI
+    case "anthropic":
+      return ProviderType.ANTHROPIC
+    case "custom":
+      return ProviderType.CUSTOM
+  }
+}
+
+const serviceProfileFromDraft = (
+  profile: ProviderDraftInput["serviceProfile"]
+): ProviderServiceProfile | undefined => {
+  switch (profile) {
+    case "generic":
+      return ProviderServiceProfile.GENERIC
+    case "openai":
+      return ProviderServiceProfile.OPENAI
+    case "anthropic":
+      return ProviderServiceProfile.ANTHROPIC
+    case "openrouter":
+      return ProviderServiceProfile.OPENROUTER
+    case undefined:
+      return undefined
+  }
+}
+
+const providerConfigFromDraft = (
+  draft: ProviderDraftInput,
+  stored?: ProviderConfig
+): ProviderConfig => ({
+  id: draft.id,
+  type: providerTypeFromDraft(draft.type),
+  enabled: draft.enabled,
+  name: draft.name,
+  ...(draft.baseUrl !== undefined ? { baseUrl: draft.baseUrl } : {}),
+  ...(draft.modelId !== undefined ? { modelId: draft.modelId } : {}),
+  ...(draft.customModels !== undefined
+    ? { customModels: draft.customModels }
+    : {}),
+  ...(serviceProfileFromDraft(draft.serviceProfile) !== undefined
+    ? { serviceProfile: serviceProfileFromDraft(draft.serviceProfile) }
+    : {}),
+  ...(draft.compatibility !== undefined
+    ? { compatibility: draft.compatibility }
+    : {}),
+  ...(draft.apiKey.state === "replaced"
+    ? { apiKey: draft.apiKey.value }
+    : draft.apiKey.state === "cleared"
+      ? { apiKey: "" }
+      : stored?.apiKey !== undefined
+        ? { apiKey: stored.apiKey }
+        : {})
+})
 
 const toPublicConfig = (config: ProviderConfig): PublicProviderConfig => {
   return {
@@ -327,17 +393,11 @@ export const ProviderRpcService = {
     const resolved =
       request.target === "draft"
         ? await (async () => {
-            const draft = request.config as ProviderConfig
             const stored =
-              draft.apiKey === undefined
-                ? await ProviderManager.getProviderConfig(String(draft.id))
+              request.config.apiKey.state === "unchanged"
+                ? await ProviderManager.getProviderConfig(request.config.id)
                 : undefined
-            const config = {
-              ...draft,
-              ...(draft.apiKey === undefined && stored?.apiKey
-                ? { apiKey: stored.apiKey }
-                : {})
-            }
+            const config = providerConfigFromDraft(request.config, stored)
             return {
               config,
               provider: await ProviderFactory.getProviderWithConfig(config)
@@ -422,7 +482,7 @@ export const ProviderRpcService = {
     }
     await ProviderManager.updateProviderConfig(
       id,
-      request.config as ProviderConfig
+      providerConfigFromDraft(request.config, existing)
     )
     const saved = await ProviderManager.getProviderConfig(id)
     if (!saved) {

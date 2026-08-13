@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { BookOpen, Code, FileText, Sparkles, Target, Zap } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { SELECTION_ACTIONS } from "@/application/selection-actions/actions"
@@ -21,19 +20,17 @@ import {
 } from "@/features/model/components/content-extraction-fields"
 import { ExcludedUrls } from "@/features/model/components/exclude-urls"
 import { SiteSpecificOverrides } from "@/features/model/components/site-specific-overrides"
-import {
-  DEFAULT_CONTENT_EXTRACTION_CONFIG,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { useSetting } from "@/hooks/use-setting"
+import { cn } from "@/lib/class-names"
+import { DEFAULT_CONTENT_EXTRACTION_CONFIG } from "@/lib/constants"
 import { CONTENT_SCRAPER_OPTIONS } from "@/lib/constants-ui"
 import {
   createPerSiteProfile,
   DEFAULT_PER_SITE_PROFILE_SETTINGS,
   type PerSiteProfile,
-  type PerSiteProfileSettings
+  parsePerSiteProfileSettings
 } from "@/lib/per-site-profiles"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { cn } from "@/lib/utils"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ContentExtractionConfig, ContentScraper } from "@/types"
 import { TIMEOUT_FIELDS } from "./content-extraction-constants"
 
@@ -43,21 +40,10 @@ export interface ContentExtractionSettingsFormProps {
 }
 
 export const ContentExtractionSettings = () => {
-  const [config, setConfig] = useStorage<ContentExtractionConfig>(
-    {
-      key: STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_CONTENT_EXTRACTION_CONFIG
+  const [config, setConfig] = useSetting(SETTINGS.CONTENT_EXTRACTION_CONFIG)
+  const [perSiteProfileSettings, setPerSiteProfileSettings] = useSetting(
+    SETTINGS.PER_SITE_PROFILES
   )
-  const [perSiteProfileSettings, setPerSiteProfileSettings] =
-    useStorage<PerSiteProfileSettings>(
-      {
-        key: STORAGE_KEYS.BROWSER.PER_SITE_PROFILES,
-        instance: plasmoGlobalStorage
-      },
-      DEFAULT_PER_SITE_PROFILE_SETTINGS
-    )
 
   if (!config) {
     return null
@@ -83,7 +69,7 @@ export const ContentExtractionSettings = () => {
       }
     })
     setPerSiteProfileSettings((prev) => {
-      const profiles = prev?.profiles ?? []
+      const profiles = parsePerSiteProfileSettings(prev).profiles
       if (profiles.some((profile) => profile.pattern === pattern))
         return prev ?? DEFAULT_PER_SITE_PROFILE_SETTINGS
       return {
@@ -106,7 +92,7 @@ export const ContentExtractionSettings = () => {
       return { ...base, siteOverrides: remaining }
     })
     setPerSiteProfileSettings((prev) => ({
-      profiles: (prev?.profiles ?? []).filter(
+      profiles: parsePerSiteProfileSettings(prev).profiles.filter(
         (profile) => profile.pattern !== pattern
       )
     }))
@@ -137,7 +123,7 @@ export const ContentExtractionSettings = () => {
     updates: Partial<Pick<PerSiteProfile, "tabContext" | "groundedOnly">>
   ) => {
     setPerSiteProfileSettings((prev) => {
-      const profiles = prev?.profiles ?? []
+      const profiles = parsePerSiteProfileSettings(prev).profiles
       const existing = profiles.find((profile) => profile.pattern === pattern)
       const nextProfile = existing
         ? { ...existing, ...updates }
@@ -187,7 +173,9 @@ export const ContentExtractionSettings = () => {
       <SettingsLevelGate settingId="site-overrides">
         <SiteSpecificOverrides
           config={config}
-          perSiteProfiles={perSiteProfileSettings?.profiles ?? []}
+          perSiteProfiles={
+            parsePerSiteProfileSettings(perSiteProfileSettings).profiles
+          }
           onAddSiteOverride={handleAddSiteOverride}
           onRemoveSiteOverride={handleRemoveSiteOverride}
           onUpdateSiteOverride={handleUpdateSiteOverride}

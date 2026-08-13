@@ -1,9 +1,8 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 
 import { SettingsSwitch } from "@/components/settings"
-import { STORAGE_KEYS } from "@/lib/constants/keys"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { useSetting } from "@/hooks/use-setting"
+import { SETTINGS } from "@/lib/storage/settings"
 
 /**
  * Export privacy controls. Remote images in a print/PDF export fire network
@@ -13,12 +12,8 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
  */
 export const ExportPrivacySettings = () => {
   const { t } = useTranslation()
-  const [allowRemoteImages, setAllowRemoteImages] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES,
-      instance: plasmoGlobalStorage
-    },
-    false
+  const [allowRemoteImages, setAllowRemoteImages] = useSetting(
+    SETTINGS.EXPORT_ALLOW_REMOTE_IMAGES
   )
 
   return (

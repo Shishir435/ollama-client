@@ -8,6 +8,7 @@ vi.mock("@/lib/embeddings/vector-store", () => ({
 
 const mockGet = vi.fn()
 vi.mock("@/lib/plasmo-global-storage", () => ({
+  getPlasmoStoredValue: mockGet,
   plasmoGlobalStorage: { get: mockGet }
 }))
 

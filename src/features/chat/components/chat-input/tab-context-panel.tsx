@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/feedback"
 import { ListRow, ListRowTitleButton } from "@/components/layout"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 const trimPreview = (text: string, max = 140) => {
   const compact = text.replace(/\s+/g, " ").trim()

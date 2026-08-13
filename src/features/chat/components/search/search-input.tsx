@@ -1,7 +1,7 @@
 import { Loader2, Search } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 export interface SearchInputProps {
   value: string

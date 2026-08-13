@@ -2,11 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
-    get: vi.fn().mockResolvedValue(undefined),
-    set: vi.fn().mockResolvedValue(undefined),
-    remove: vi.fn().mockResolvedValue(undefined)
-  }
+  ...(() => {
+    const get = vi.fn().mockResolvedValue(undefined)
+    const set = vi.fn().mockResolvedValue(undefined)
+    const remove = vi.fn().mockResolvedValue(undefined)
+    return {
+      plasmoGlobalStorage: { get, set, remove },
+      getPlasmoStoredValue: get,
+      setPlasmoStoredValue: set,
+      removePlasmoStoredValue: remove
+    }
+  })()
 }))
 
 import {

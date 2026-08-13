@@ -97,6 +97,51 @@ describe("useChatStream", () => {
     expect(setIsStreaming).toHaveBeenCalledWith(false)
   })
 
+  it("keeps one active stream when start is called twice", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    const messages = [{ role: "user" as const, content: "Hello" }]
+
+    act(() => {
+      result.current.startStream({ model: "llama2", messages })
+      result.current.startStream({ model: "llama3", messages })
+    })
+
+    expect(browser.runtime.connect).toHaveBeenCalledOnce()
+    expect(mockPort.postMessage).toHaveBeenCalledOnce()
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Ignored stream start while another request is active",
+      "useChatStream",
+      expect.objectContaining({ requestId: expect.any(String) })
+    )
+  })
+
+  it("reserves ownership before asynchronous submission work", () => {
+    const { result } = renderHook(() =>
+      useChatStream({ setMessages, setIsLoading, setIsStreaming })
+    )
+    const messages = [{ role: "user" as const, content: "Hello" }]
+
+    const firstClaim = result.current.claimStream()
+    const concurrentClaim = result.current.claimStream()
+
+    expect(firstClaim).not.toBeNull()
+    expect(concurrentClaim).toBeNull()
+
+    let started = false
+    act(() => {
+      started = result.current.startStream(
+        { model: "llama2", messages },
+        firstClaim ?? undefined
+      )
+    })
+
+    expect(started).toBe(true)
+    expect(browser.runtime.connect).toHaveBeenCalledOnce()
+    expect(mockPort.postMessage).toHaveBeenCalledOnce()
+  })
+
   it("submits durable turns as one background-owned command", () => {
     const { result } = renderHook(() =>
       useChatStream({ setMessages, setIsLoading, setIsStreaming })

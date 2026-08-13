@@ -1,5 +1,5 @@
-import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { POLICY_SETTINGS } from "@/lib/storage/policy-settings"
+import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
 import type { ModelCapabilityOverride } from "./capabilities"
 
@@ -11,8 +11,6 @@ import type { ModelCapabilityOverride } from "./capabilities"
  * for how an override is layered on top of detection.
  */
 export type ModelCapabilityOverrideMap = Record<string, ModelCapabilityOverride>
-
-const STORAGE_KEY = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_OVERRIDES
 
 /**
  * Web Locks name serializing read-modify-write on the override map across every
@@ -35,11 +33,9 @@ export const modelCapabilityOverrideKey = (
 ): string => `${providerId}::${modelName}`
 
 export const getAllModelCapabilityOverrides =
-  async (): Promise<ModelCapabilityOverrideMap> => {
-    const stored =
-      await plasmoGlobalStorage.get<ModelCapabilityOverrideMap>(STORAGE_KEY)
-    return stored ?? {}
-  }
+  async (): Promise<ModelCapabilityOverrideMap> => ({
+    ...(await readSetting(POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES))
+  })
 
 export const getModelCapabilityOverride = async (
   providerId: string,
@@ -70,7 +66,7 @@ export const setModelCapabilityOverride = (
       delete all[key]
     }
 
-    await plasmoGlobalStorage.set(STORAGE_KEY, all)
+    await writeSetting(POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES, all)
   })
 
 export const clearModelCapabilityOverride = (
@@ -82,7 +78,7 @@ export const clearModelCapabilityOverride = (
     const key = modelCapabilityOverrideKey(providerId, modelName)
     if (key in all) {
       delete all[key]
-      await plasmoGlobalStorage.set(STORAGE_KEY, all)
+      await writeSetting(POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES, all)
     }
   })
 
@@ -100,7 +96,8 @@ export const clearModelCapabilityOverridesForProvider = (
         changed = true
       }
     }
-    if (changed) await plasmoGlobalStorage.set(STORAGE_KEY, all)
+    if (changed)
+      await writeSetting(POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES, all)
   })
 
 /** Drop undefined fields; return null if nothing meaningful remains. */

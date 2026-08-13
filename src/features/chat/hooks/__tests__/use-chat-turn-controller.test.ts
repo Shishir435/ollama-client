@@ -15,6 +15,9 @@ const baseConfig = {
 }
 
 describe("useChatTurnController", () => {
+  const claimResponseStream = vi.fn(() => Symbol("stream-claim"))
+  const releaseResponseStreamClaim = vi.fn()
+
   beforeEach(() => {
     vi.clearAllMocks()
     loadStreamStore.setState({ isLoading: false, isStreaming: false })
@@ -23,7 +26,7 @@ describe("useChatTurnController", () => {
   it("persists the user message and submits one background-owned turn", async () => {
     const addMessage = vi.fn().mockResolvedValue(1)
     const autoRenameSession = vi.fn().mockResolvedValue(undefined)
-    const generateResponse = vi.fn().mockResolvedValue(undefined)
+    const generateResponse = vi.fn().mockResolvedValue(true)
 
     const { result } = renderHook(() =>
       useChatTurnController({
@@ -40,6 +43,8 @@ describe("useChatTurnController", () => {
         autoRenameSession,
         addMessage,
         generateResponse,
+        claimResponseStream,
+        releaseResponseStreamClaim,
         toast: vi.fn()
       })
     )
@@ -63,7 +68,7 @@ describe("useChatTurnController", () => {
           content: "question"
         })
       ],
-      {
+      expect.objectContaining({
         durableTurn: {
           submission: expect.objectContaining({
             id: expect.any(String),
@@ -74,13 +79,14 @@ describe("useChatTurnController", () => {
             })
           }),
           userMessageId: 1
-        }
-      }
+        },
+        streamClaim: expect.any(Symbol)
+      })
     )
   })
 
   it("continues the turn when automatic title rename fails", async () => {
-    const generateResponse = vi.fn().mockResolvedValue(undefined)
+    const generateResponse = vi.fn().mockResolvedValue(true)
     const toast = vi.fn()
     const { result } = renderHook(() =>
       useChatTurnController({
@@ -99,6 +105,8 @@ describe("useChatTurnController", () => {
           .mockRejectedValue(new Error("rename failed")),
         addMessage: vi.fn().mockResolvedValue(1),
         generateResponse,
+        claimResponseStream,
+        releaseResponseStreamClaim,
         toast
       })
     )
@@ -131,6 +139,8 @@ describe("useChatTurnController", () => {
         autoRenameSession: vi.fn(),
         addMessage,
         generateResponse: vi.fn(),
+        claimResponseStream,
+        releaseResponseStreamClaim,
         toast
       })
     )
@@ -165,6 +175,8 @@ describe("useChatTurnController", () => {
         autoRenameSession: vi.fn(),
         addMessage,
         generateResponse: vi.fn(),
+        claimResponseStream,
+        releaseResponseStreamClaim,
         toast: vi.fn()
       })
     )
@@ -176,5 +188,92 @@ describe("useChatTurnController", () => {
 
     expect(accepted).toBe(false)
     expect(addMessage).not.toHaveBeenCalled()
+  })
+
+  it("claims the response stream before persisting the user message", async () => {
+    let activeClaim: symbol | null = null
+    const claim = vi.fn(() => {
+      if (activeClaim) return null
+      activeClaim = Symbol("stream-claim")
+      return activeClaim
+    })
+    let resolveMessage!: (id: number) => void
+    const addMessage = vi.fn(
+      () => new Promise<number>((resolve) => (resolveMessage = resolve))
+    )
+    const generateResponse = vi.fn().mockResolvedValue(true)
+    const { result } = renderHook(() =>
+      useChatTurnController({
+        config: baseConfig as any,
+        input: "question",
+        setInput: vi.fn(),
+        selectedTabIds: [],
+        contextText: "",
+        tabDocuments: [],
+        messages: [],
+        setIsLoading: vi.fn(),
+        setIsStreaming: vi.fn(),
+        ensureSessionId: vi.fn().mockResolvedValue("session-1"),
+        autoRenameSession: vi.fn().mockResolvedValue(undefined),
+        addMessage,
+        generateResponse,
+        claimResponseStream: claim,
+        releaseResponseStreamClaim: vi.fn((ownedClaim) => {
+          if (activeClaim === ownedClaim) activeClaim = null
+        }),
+        toast: vi.fn()
+      })
+    )
+
+    let sendPromise!: Promise<boolean>
+    await act(async () => {
+      sendPromise = result.current.sendMessage()
+      await vi.waitFor(() => expect(addMessage).toHaveBeenCalledOnce())
+    })
+
+    expect(claim()).toBeNull()
+
+    await act(async () => {
+      resolveMessage(1)
+      expect(await sendPromise).toBe(true)
+    })
+    expect(generateResponse).toHaveBeenCalledWith(
+      undefined,
+      "session-1",
+      expect.any(Array),
+      expect.objectContaining({ streamClaim: activeClaim })
+    )
+  })
+
+  it("does not report success when response submission is rejected", async () => {
+    const releaseClaim = vi.fn()
+    const { result } = renderHook(() =>
+      useChatTurnController({
+        config: baseConfig as any,
+        input: "question",
+        setInput: vi.fn(),
+        selectedTabIds: [],
+        contextText: "",
+        tabDocuments: [],
+        messages: [],
+        setIsLoading: vi.fn(),
+        setIsStreaming: vi.fn(),
+        ensureSessionId: vi.fn().mockResolvedValue("session-1"),
+        autoRenameSession: vi.fn().mockResolvedValue(undefined),
+        addMessage: vi.fn().mockResolvedValue(1),
+        generateResponse: vi.fn().mockResolvedValue(false),
+        claimResponseStream,
+        releaseResponseStreamClaim: releaseClaim,
+        toast: vi.fn()
+      })
+    )
+
+    let accepted = true
+    await act(async () => {
+      accepted = await result.current.sendMessage()
+    })
+
+    expect(accepted).toBe(false)
+    expect(releaseClaim).toHaveBeenCalledWith(expect.any(Symbol))
   })
 })

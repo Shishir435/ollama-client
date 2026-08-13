@@ -17,15 +17,23 @@ const deferredTask = (name: string) => {
   const gate = new Promise<void>((resolve) => {
     release = resolve
   })
-  const run = vi.fn(async () => {
+  let receivedSignal: AbortSignal | undefined
+  const run = vi.fn(async (signal?: AbortSignal) => {
+    receivedSignal = signal
     started.push(name)
     inFlight += 1
     peakInFlight = Math.max(peakInFlight, inFlight)
     await gate
     inFlight -= 1
     finished.push(name)
+    signal?.throwIfAborted()
   })
-  return { name, run, release: () => release() }
+  return {
+    name,
+    run,
+    release: () => release(),
+    signal: () => receivedSignal
+  }
 }
 
 type DeferredTask = ReturnType<typeof deferredTask>
@@ -54,36 +62,55 @@ const releaseAll = () => {
 
 const resumePendingAppLifecycle = vi.fn(async () => undefined)
 const loggerError = vi.fn()
+const loggerWarn = vi.fn()
+const recordDiagnosticEvent = vi.fn().mockResolvedValue(undefined)
 
 vi.mock("@/lib/app-reset", () => ({
   resumePendingAppLifecycle: () => resumePendingAppLifecycle()
 }))
 vi.mock("@/lib/storage/backup-import-transaction", () => ({
-  recoverBackupImport: () => tasks["backup-import"].run()
+  recoverBackupImport: (signal?: AbortSignal) =>
+    tasks["backup-import"].run(signal)
 }))
 vi.mock("@/lib/storage/provider-migration", () => ({
-  migrateLegacyProviderStorage: () => tasks["provider-migration"].run()
+  migrateLegacyProviderStorage: (_storage: unknown, signal?: AbortSignal) =>
+    tasks["provider-migration"].run(signal)
 }))
 vi.mock("@/lib/migration/embedding-dimension-migration", () => ({
-  runEmbeddingDimensionMigration: () => tasks["embedding-migration"].run()
+  runEmbeddingDimensionMigration: (signal?: AbortSignal) =>
+    tasks["embedding-migration"].run(signal)
+}))
+vi.mock("@/lib/embeddings/vector-cleanup-receipts", () => ({
+  sweepVectorCleanupReceipts: vi.fn().mockResolvedValue(0)
 }))
 vi.mock("@/lib/repositories/tool-loop-runs", () => ({
-  pruneStaleToolLoopRuns: () => tasks["prune-tool-loops"].run()
+  pruneStaleToolLoopRuns: (_olderThan: unknown, signal?: AbortSignal) =>
+    tasks["prune-tool-loops"].run(signal)
 }))
 vi.mock("@/background/durable-turn-runtime", () => ({
-  resumeIncompleteTurnRuns: () => tasks["resume-turns"].run()
+  resumeIncompleteTurnRuns: (signal?: AbortSignal) =>
+    tasks["resume-turns"].run(signal)
 }))
 vi.mock("@/lib/ingestion/ingestion-service", () => ({
-  IngestionService: { resumeIncomplete: () => tasks["resume-ingestion"].run() }
+  IngestionService: {
+    resumeIncomplete: (signal?: AbortSignal) =>
+      tasks["resume-ingestion"].run(signal)
+  }
 }))
 vi.mock("@/background/model-pull-runtime", () => ({
-  ModelPullService: { resumeIncomplete: () => tasks["resume-pulls"].run() }
+  ModelPullService: {
+    resumeIncomplete: (signal?: AbortSignal) =>
+      tasks["resume-pulls"].run(signal)
+  }
+}))
+vi.mock("@/lib/diagnostics/diagnostic-recorder", () => ({
+  recordDiagnosticEvent: (...args: unknown[]) => recordDiagnosticEvent(...args)
 }))
 
 vi.mock("@/lib/logger", () => ({
   logger: {
     error: (...args: unknown[]) => loggerError(...args),
-    warn: vi.fn(),
+    warn: (...args: unknown[]) => loggerWarn(...args),
     info: vi.fn(),
     debug: vi.fn()
   }
@@ -212,6 +239,97 @@ describe("background database startup", () => {
 
     expect(finished).toHaveLength(TASK_NAMES.length)
     expect(peakInFlight).toBe(2)
+  })
+
+  it("aborts a timed-out schema task and waits for acknowledgment before its successor", async () => {
+    vi.useFakeTimers()
+    try {
+      const { initializeBackgroundStartup } = await loadStartup()
+      initializeBackgroundStartup(Promise.resolve())
+      await settle()
+
+      tasks["backup-import"].release()
+      await settle()
+      expect(started).toEqual(["backup-import", "provider-migration"])
+
+      await vi.advanceTimersByTimeAsync(120_000)
+      await settle()
+
+      expect(tasks["provider-migration"].signal()?.aborted).toBe(true)
+      expect(started).toEqual(["backup-import", "provider-migration"])
+      expect(finished).not.toContain("provider-migration")
+      expect(inFlight).toBe(1)
+
+      tasks["provider-migration"].release()
+      await settle()
+
+      expect(finished).toContain("provider-migration")
+      expect(started).toEqual([
+        "backup-import",
+        "provider-migration",
+        "embedding-migration"
+      ])
+      expect(inFlight).toBe(1)
+      expect(loggerWarn).toHaveBeenCalledWith(
+        "Startup recovery timed out: provider storage migration",
+        "BackgroundSW",
+        expect.objectContaining({ durationMs: expect.any(Number) })
+      )
+      expect(recordDiagnosticEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: "STARTUP_RECOVERY_TIMEOUT",
+          operation: "startup.recovery.provider-migration",
+          metadata: expect.objectContaining({
+            status: "cancellation-requested"
+          })
+        })
+      )
+      expect(recordDiagnosticEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: "STARTUP_RECOVERY_CANCELLED",
+          operation: "startup.recovery.provider-migration",
+          metadata: expect.objectContaining({
+            status: "cancellation-acknowledged"
+          })
+        })
+      )
+
+      releaseAll()
+      await vi.runAllTimersAsync()
+      await settle()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("never starts provider migration while timed-out backup recovery still mutates", async () => {
+    vi.useFakeTimers()
+    try {
+      const { initializeBackgroundStartup } = await loadStartup()
+      initializeBackgroundStartup(Promise.resolve())
+      await settle()
+      expect(started).toEqual(["backup-import"])
+
+      await vi.advanceTimersByTimeAsync(120_000)
+      await settle()
+
+      expect(tasks["backup-import"].signal()?.aborted).toBe(true)
+      expect(started).toEqual(["backup-import"])
+      expect(inFlight).toBe(1)
+
+      tasks["backup-import"].release()
+      await settle()
+
+      expect(finished).toContain("backup-import")
+      expect(started).toEqual(["backup-import", "provider-migration"])
+      expect(inFlight).toBe(1)
+
+      releaseAll()
+      await vi.runAllTimersAsync()
+      await settle()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("skips database startup when the owner never came up", async () => {

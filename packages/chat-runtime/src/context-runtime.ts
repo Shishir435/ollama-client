@@ -54,6 +54,36 @@ const normalizeSource = (
     ? source
     : "unknown"
 
+/** Project a completed context build into bounded, durable turn evidence. */
+export const createContextReceipt = <TOptions extends { rawInput: string }>(
+  command: ContextBuildCommand<TOptions>,
+  stats: ContextPromptStats,
+  createdAt: number
+): ContextReceipt => ({
+  version: 1,
+  turnId: command.turnId,
+  mode: command.mode,
+  createdAt,
+  query: command.options.rawInput,
+  model: {
+    id: command.model,
+    ...(command.providerId ? { providerId: command.providerId } : {})
+  },
+  prompt: {
+    inputLength: stats.promptInputLength,
+    augmentedLength: stats.promptAugmentedLength,
+    tabContextLength: stats.tabContextLength,
+    ragContextLength: stats.ragContextLength,
+    tabContextTruncated: stats.tabContextTruncated,
+    groundedOnlyMode: stats.groundedOnlyMode,
+    insufficientContext: stats.insufficientContext
+  },
+  sources: stats.usedContextChunks.map((source) => ({
+    ...source,
+    source: normalizeSource(source.source)
+  }))
+})
+
 /**
  * Couples environment-owned context construction with its durable evidence.
  *
@@ -78,30 +108,7 @@ export class ContextRuntime<
 
     return {
       result,
-      receipt: {
-        version: 1,
-        turnId: command.turnId,
-        mode: command.mode,
-        createdAt: this.clock.now(),
-        query: command.options.rawInput,
-        model: {
-          id: command.model,
-          ...(command.providerId ? { providerId: command.providerId } : {})
-        },
-        prompt: {
-          inputLength: stats.promptInputLength,
-          augmentedLength: stats.promptAugmentedLength,
-          tabContextLength: stats.tabContextLength,
-          ragContextLength: stats.ragContextLength,
-          tabContextTruncated: stats.tabContextTruncated,
-          groundedOnlyMode: stats.groundedOnlyMode,
-          insufficientContext: stats.insufficientContext
-        },
-        sources: stats.usedContextChunks.map((source) => ({
-          ...source,
-          source: normalizeSource(source.source)
-        }))
-      }
+      receipt: createContextReceipt(command, stats, this.clock.now())
     }
   }
 }

@@ -1,19 +1,15 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useEffect } from "react"
 import { create } from "zustand"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
 import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
+import { useSetting } from "@/hooks/use-setting"
 import {
   blockedTabAccessMessage,
   isContentScriptReadableUrl
 } from "@/lib/browser-tab-access"
-import {
-  DEFAULT_TABS_ACCESS,
-  STORAGE_KEYS,
-  TAB_CONTENT_REFRESH_INTERVAL_MS
-} from "@/lib/constants"
+import { TAB_CONTENT_REFRESH_INTERVAL_MS } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 import { requestPageContentWithRecovery } from "@/lib/tools/internal/tab-utils"
 import type { ChromeResponse } from "@/types"
 
@@ -194,13 +190,7 @@ export const useTabContents = () => {
     cleanupRemovedTabs
   } = useTabFetchingStore()
 
-  const [tabAccess] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_TABS_ACCESS
-  )
+  const [tabAccess] = useSetting(SETTINGS.TABS_ACCESS)
 
   const { tabs: openTabs } = useOpenTabs(tabAccess)
 
@@ -233,13 +223,7 @@ export const useTabContents = () => {
     })
   }, [selectedTabIds, getTabTitle, getTabUrl, fetchTabContent, setErrors])
 
-  const [autoRefreshTabContext] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.CHAT.AUTO_REFRESH_TAB_CONTEXT,
-      instance: plasmoGlobalStorage
-    },
-    false
-  )
+  const [autoRefreshTabContext] = useSetting(SETTINGS.AUTO_REFRESH_TAB_CONTEXT)
 
   useEffect(() => {
     if (!autoRefreshTabContext || selectedTabIds.length === 0) return

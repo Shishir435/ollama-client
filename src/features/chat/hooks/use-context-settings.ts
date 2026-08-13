@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import {
   AppWindow,
   BrainCircuit,
@@ -14,18 +13,13 @@ import {
   useWebSearchActive,
   useWebSearchConfig
 } from "@/features/web-search/stores/web-search-config-store"
+import { useSetting } from "@/hooks/use-setting"
+import { DEFAULT_EXCLUDE_URLS } from "@/lib/constants"
 import {
-  DEFAULT_CONTENT_EXTRACTION_CONFIG,
-  DEFAULT_EXCLUDE_URLS,
-  DEFAULT_TABS_ACCESS,
-  STORAGE_KEYS
-} from "@/lib/constants"
-import {
-  DEFAULT_PER_SITE_PROFILE_SETTINGS,
-  type PerSiteProfileSettings
+  type PerSiteProfileSettings,
+  parsePerSiteProfileSettings
 } from "@/lib/per-site-profiles"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import type { ContentExtractionConfig } from "@/types"
+import { SETTINGS } from "@/lib/storage/settings"
 
 const EMPTY_PROFILE_LIST: PerSiteProfileSettings["profiles"] = []
 
@@ -50,50 +44,17 @@ export interface ContextToggleAction {
 export const useContextSettings = () => {
   const { t } = useTranslation()
 
-  const [useRAG, setUseRAG] = useStorage<boolean>(
-    { key: STORAGE_KEYS.EMBEDDINGS.USE_RAG, instance: plasmoGlobalStorage },
-    true
+  const [useRAG, setUseRAG] = useSetting(SETTINGS.USE_RAG)
+  const [tabAccess, setTabAccess] = useSetting(SETTINGS.TABS_ACCESS)
+  const [groundedOnlyMode, setGroundedOnlyMode] = useSetting(
+    SETTINGS.GROUNDED_ONLY_MODE
   )
-  const [tabAccess, setTabAccess] = useStorage<boolean>(
-    { key: STORAGE_KEYS.BROWSER.TABS_ACCESS, instance: plasmoGlobalStorage },
-    DEFAULT_TABS_ACCESS
+  const [autoScreenshotOnVision, setAutoScreenshotOnVision] = useSetting(
+    SETTINGS.AUTO_SCREENSHOT_ON_VISION
   )
-  const [groundedOnlyMode, setGroundedOnlyMode] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.CHAT.GROUNDED_ONLY_MODE,
-      instance: plasmoGlobalStorage
-    },
-    false
-  )
-  const [autoScreenshotOnVision, setAutoScreenshotOnVision] =
-    useStorage<boolean>(
-      {
-        key: STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION,
-        instance: plasmoGlobalStorage
-      },
-      false
-    )
-  const [config] = useStorage<ContentExtractionConfig>(
-    {
-      key: STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_CONTENT_EXTRACTION_CONFIG
-  )
-  const [oldPatterns] = useStorage<string[]>(
-    {
-      key: STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_EXCLUDE_URLS
-  )
-  const [perSiteProfiles] = useStorage<PerSiteProfileSettings>(
-    {
-      key: STORAGE_KEYS.BROWSER.PER_SITE_PROFILES,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_PER_SITE_PROFILE_SETTINGS
-  )
+  const [config] = useSetting(SETTINGS.CONTENT_EXTRACTION_CONFIG)
+  const [oldPatterns] = useSetting(SETTINGS.EXCLUDE_URL_PATTERNS)
+  const [perSiteProfiles] = useSetting(SETTINGS.PER_SITE_PROFILES)
 
   const { capabilities, isResolving } = useSelectedModelCapabilities()
   const { config: webSearchConfig } = useWebSearchConfig()
@@ -165,6 +126,8 @@ export const useContextSettings = () => {
     toggleActions,
     excludedPatterns:
       config?.excludedUrlPatterns || oldPatterns || DEFAULT_EXCLUDE_URLS,
-    perSiteProfileList: perSiteProfiles?.profiles ?? EMPTY_PROFILE_LIST
+    perSiteProfileList:
+      parsePerSiteProfileSettings(perSiteProfiles).profiles ??
+      EMPTY_PROFILE_LIST
   }
 }

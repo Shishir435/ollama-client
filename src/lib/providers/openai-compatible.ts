@@ -2,6 +2,7 @@ import {
   isRetryableProviderStatus,
   parseRetryAfter
 } from "@ollama-client/runtime-core/retry"
+import { z } from "zod"
 import { createAppError } from "@/lib/error-utils"
 import { toDataUrl } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
@@ -21,6 +22,7 @@ import {
   createProviderReplayArtifact,
   getProviderReplayBlocks
 } from "./provider-replay"
+import { decodeProviderJson } from "./response-decoding"
 import {
   getOpenAIServiceCompatibility,
   resolveProviderServiceProfile
@@ -33,6 +35,26 @@ import {
   ProviderId,
   ProviderServiceProfile
 } from "./types"
+
+const OpenAIModelCatalogSchema = z
+  .object({
+    data: z.array(
+      z
+        .object({
+          id: z.string().min(1),
+          context_length: z.number().positive().nullish(),
+          architecture: z
+            .object({
+              input_modalities: z.array(z.string()).nullish()
+            })
+            .passthrough()
+            .nullish(),
+          supported_parameters: z.array(z.string()).nullish()
+        })
+        .passthrough()
+    )
+  })
+  .passthrough()
 
 /** Normalized tool → OpenAI `tools` entry. */
 const toOpenAITool = (tool: ToolDefinition) => ({
@@ -239,53 +261,52 @@ export class OpenAICompatibleProvider implements LLMProvider {
       if (!response.ok) {
         await this.responseError(response, "Model list failed", baseUrl)
       }
-      const data = await response.json()
-      return (
-        (
-          data.data as Array<{
-            id: string
-            context_length?: number
-            architecture?: {
-              input_modalities?: string[]
-            }
-            supported_parameters?: string[]
-          }>
-        )?.map((m) => ({
-          name: m.id,
-          model: m.id,
-          modified_at: new Date().toISOString(),
-          size: 0,
-          digest: "",
-          details: {
-            parent_model: "",
-            format: "",
-            family: "openai",
-            families: [],
-            // `/v1/models` reports no size: the OpenAI schema has no field for
-            // one, and neither vLLM, LocalAI, KoboldCPP, nor an LM Studio
-            // fallback list adds one. So a self-hosted "Qwen3-8B" showed a
-            // blank badge beside genuine sizes from Ollama and llama.cpp. The
-            // id is the only source, and the parser refuses ambiguous ids
-            // rather than guessing, so hosted catalogs naming no size (gpt-4o)
-            // stay blank instead of inventing one.
-            parameter_size: parameterSizeFromModelId(m.id),
-            quantization_level: ""
-          },
-          ...((m.context_length ||
-            m.architecture?.input_modalities ||
-            m.supported_parameters) && {
-            capabilityHints: {
-              ...(m.context_length ? { contextLength: m.context_length } : {}),
-              ...(m.architecture?.input_modalities && {
-                modalities: [...new Set(m.architecture.input_modalities)]
-              }),
-              ...(m.supported_parameters && {
-                supportedParameters: m.supported_parameters
-              })
-            }
-          })
-        })) || []
+      const catalog = await decodeProviderJson(
+        response,
+        OpenAIModelCatalogSchema,
+        {
+          providerId: this.id,
+          providerName: this.config.name,
+          baseUrl,
+          label: "model catalog",
+          userMessage: "The provider returned an invalid model list."
+        }
       )
+      return catalog.data.map((m) => ({
+        name: m.id,
+        model: m.id,
+        modified_at: new Date().toISOString(),
+        size: 0,
+        digest: "",
+        details: {
+          parent_model: "",
+          format: "",
+          family: "openai",
+          families: [],
+          // `/v1/models` reports no size: the OpenAI schema has no field for
+          // one, and neither vLLM, LocalAI, KoboldCPP, nor an LM Studio
+          // fallback list adds one. So a self-hosted "Qwen3-8B" showed a
+          // blank badge beside genuine sizes from Ollama and llama.cpp. The
+          // id is the only source, and the parser refuses ambiguous ids
+          // rather than guessing, so hosted catalogs naming no size (gpt-4o)
+          // stay blank instead of inventing one.
+          parameter_size: parameterSizeFromModelId(m.id),
+          quantization_level: ""
+        },
+        ...((m.context_length ||
+          m.architecture?.input_modalities ||
+          m.supported_parameters) && {
+          capabilityHints: {
+            ...(m.context_length ? { contextLength: m.context_length } : {}),
+            ...(m.architecture?.input_modalities && {
+              modalities: [...new Set(m.architecture.input_modalities)]
+            }),
+            ...(m.supported_parameters && {
+              supportedParameters: m.supported_parameters
+            })
+          }
+        })
+      }))
     } catch (e) {
       if (!signal?.aborted) {
         logger.error("Failed to fetch models", "OpenAICompatibleProvider", {
@@ -438,7 +459,15 @@ export class OpenAICompatibleProvider implements LLMProvider {
         usage?: { prompt_tokens?: number; completion_tokens?: number }
       }
       try {
-        data = JSON.parse(trimmed.slice(6))
+        const parsed = asRecord(JSON.parse(trimmed.slice(6)))
+        if (!parsed) {
+          logger.warn(
+            "Ignored invalid SSE data event",
+            "OpenAICompatibleProvider"
+          )
+          return null
+        }
+        data = parsed
       } catch (e) {
         logger.warn(
           "Failed to parse SSE data line",
@@ -530,7 +559,15 @@ export class OpenAICompatibleProvider implements LLMProvider {
       }
 
       if (Array.isArray(delta?.tool_calls)) {
-        toolCalls.add(delta.tool_calls as ToolCallFragment[])
+        const fragments = delta.tool_calls.filter(
+          (fragment): fragment is ToolCallFragment =>
+            Boolean(
+              asRecord(fragment) &&
+                Number.isInteger(asRecord(fragment)?.index) &&
+                Number(asRecord(fragment)?.index) >= 0
+            )
+        )
+        toolCalls.add(fragments)
       }
 
       // Most providers set finish_reason "tool_calls" before usage; some
@@ -586,10 +623,9 @@ export class OpenAICompatibleProvider implements LLMProvider {
       if (trimmed === "data: [DONE]") return "done"
       if (!trimmed.startsWith("data: ")) return null
       try {
-        const data = JSON.parse(trimmed.slice(6)) as {
-          choices?: Array<{ finish_reason?: unknown }>
-        }
-        const finishReason = data.choices?.[0]?.finish_reason
+        const data = asRecord(JSON.parse(trimmed.slice(6)))
+        const choices = Array.isArray(data?.choices) ? data.choices : []
+        const finishReason = asRecord(choices[0])?.finish_reason
         return typeof finishReason === "string" && finishReason.length > 0
           ? "finish-reason"
           : null

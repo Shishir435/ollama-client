@@ -26,6 +26,17 @@ describe("per-site profiles", () => {
     })
   })
 
+  it("rejects malformed stored profile settings", async () => {
+    const { getPerSiteProfileSettings } = await import(
+      "@/lib/per-site-profiles"
+    )
+    mocks.getPlasmoStoredValue.mockResolvedValue({
+      profiles: [{ id: "broken", pattern: 42 }]
+    })
+
+    await expect(getPerSiteProfileSettings()).resolves.toEqual({ profiles: [] })
+  })
+
   it("matches enabled profiles by URL pattern", async () => {
     const { getMatchingPerSiteProfile } = await import(
       "@/lib/per-site-profiles"
