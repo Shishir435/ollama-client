@@ -280,6 +280,9 @@ jobs:
       - name: Run critical browser gates
         run: pnpm e2e:chromium:critical
 
+      - name: Verify isolated service-worker turn recovery
+        run: pnpm verify:sw-turn-recovery
+
       # Traces, videos, and the HTML report are only worth minutes and storage
       # when something failed.
       - name: Upload failure artifacts
