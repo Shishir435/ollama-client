@@ -83,6 +83,11 @@ export const useProviderSettingsState = () => {
   // Incremented synchronously for every local edit. An RPC response may update
   // local state only when the provider still has the revision it started with.
   const configRevisions = useRef(new Map<string, number>())
+  // Toggle writes are serialized per provider. This map records the last
+  // response proven authoritative, so a failed optimistic toggle never rolls
+  // back to a value captured from another optimistic render.
+  const storedEnabled = useRef(new Map<string, boolean>())
+  const toggleQueues = useRef(new Map<string, Promise<void>>())
   const providerHealth = useProviderHealth(providers, savedRevision)
 
   const loadProviders = useCallback(async () => {
@@ -92,9 +97,13 @@ export const useProviderSettingsState = () => {
         RpcMethod.ProvidersList,
         {}
       )
+      const drafts = data.map(providerDraftFromPublic)
+      for (const provider of drafts) {
+        storedEnabled.current.set(String(provider.id), provider.enabled)
+      }
       dispatch({
         type: "load-succeeded",
-        providers: data.map(providerDraftFromPublic)
+        providers: drafts
       })
     } catch (error) {
       logger.error("Failed to load providers", "ProviderSettings", { error })
@@ -316,9 +325,11 @@ export const useProviderSettingsState = () => {
           )
           return false
         }
+        const savedDraft = providerDraftFromPublic(saved)
+        storedEnabled.current.set(providerId, savedDraft.enabled)
         dispatch({
           type: "provider-saved",
-          provider: providerDraftFromPublic(saved)
+          provider: savedDraft
         })
         if (showSuccessToast) {
           toast({
@@ -390,9 +401,11 @@ export const useProviderSettingsState = () => {
       // The mutation response is authoritative. Merge it into the current
       // client state instead of replacing every provider with a list snapshot
       // that may have started before another pending save completed.
+      const addedDraft = providerDraftFromPublic(config)
+      storedEnabled.current.set(String(addedDraft.id), addedDraft.enabled)
       dispatch({
         type: "provider-added",
-        provider: providerDraftFromPublic(config)
+        provider: addedDraft
       })
       toast({
         title: t("settings.providers.add.added_title"),
@@ -426,6 +439,7 @@ export const useProviderSettingsState = () => {
       // The mutation result is authoritative. Do not follow it with a full
       // list refresh: an older snapshot could overwrite concurrent edits or
       // reintroduce the removed provider locally.
+      storedEnabled.current.delete(id)
       dispatch({ type: "provider-removed", providerId: id })
       toast({
         title: t("settings.providers.add.removed_title"),
@@ -487,49 +501,66 @@ export const useProviderSettingsState = () => {
       providerId,
       enabled
     })
-    try {
-      const { provider: saved } = await extensionRpcClient.call(
-        RpcMethod.ProvidersSetEnabled,
-        {
-          providerId,
-          enabled
+    const previousToggle = toggleQueues.current.get(providerId)
+    const toggleOperation = (previousToggle ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(async () => {
+        try {
+          const { provider: saved } = await extensionRpcClient.call(
+            RpcMethod.ProvidersSetEnabled,
+            {
+              providerId,
+              enabled
+            }
+          )
+          const savedDraft = providerDraftFromPublic(saved)
+          storedEnabled.current.set(providerId, savedDraft.enabled)
+          if (
+            (configRevisions.current.get(providerId) ?? 0) !== toggleRevision
+          ) {
+            // Storage advanced, but a newer local intent owns the draft.
+            dispatch({ type: "stored-provider-changed" })
+            logger.debug(
+              "Ignored stale provider toggle response",
+              "ProviderSettings",
+              { providerId }
+            )
+            return
+          }
+          dispatch({ type: "provider-saved", provider: savedDraft })
+        } catch (error) {
+          if (
+            (configRevisions.current.get(providerId) ?? 0) !== toggleRevision
+          ) {
+            logger.debug(
+              "Ignored stale provider toggle failure",
+              "ProviderSettings",
+              { providerId }
+            )
+            return
+          }
+          const authoritativeEnabled = storedEnabled.current.get(providerId)
+          if (authoritativeEnabled !== undefined) {
+            dispatch({
+              type: "provider-enabled-reverted",
+              providerId,
+              enabled: authoritativeEnabled
+            })
+          }
+          logger.error("Failed to auto-save toggle", "ProviderSettings", {
+            error
+          })
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to update provider state."
+          })
         }
-      )
-      if ((configRevisions.current.get(providerId) ?? 0) !== toggleRevision) {
-        // The toggle reached storage, but a newer form edit owns the local
-        // draft. Keep that draft and its dirty flag so auto-save can persist it.
-        dispatch({ type: "stored-provider-changed" })
-        logger.debug(
-          "Ignored stale provider toggle response",
-          "ProviderSettings",
-          { providerId }
-        )
-        return
-      }
-      dispatch({
-        type: "provider-saved",
-        provider: providerDraftFromPublic(saved)
       })
-    } catch (error) {
-      if ((configRevisions.current.get(providerId) ?? 0) !== toggleRevision) {
-        logger.debug(
-          "Ignored stale provider toggle failure",
-          "ProviderSettings",
-          { providerId }
-        )
-        return
-      }
-      dispatch({
-        type: "provider-enabled-reverted",
-        providerId,
-        enabled: activeConfig.enabled
-      })
-      logger.error("Failed to auto-save toggle", "ProviderSettings", { error })
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update provider state."
-      })
+    toggleQueues.current.set(providerId, toggleOperation)
+    await toggleOperation
+    if (toggleQueues.current.get(providerId) === toggleOperation) {
+      toggleQueues.current.delete(providerId)
     }
   }
 

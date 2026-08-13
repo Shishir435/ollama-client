@@ -519,19 +519,67 @@ describe("useProviderSettingsState", () => {
       olderPromise = result.current.setProviderEnabled(false)
       newerPromise = result.current.setProviderEnabled(false)
     })
-    await waitFor(() => expect(toggleCalls).toBe(2))
+    await waitFor(() => expect(toggleCalls).toBe(1))
     await act(async () => {
       rejectFirst?.(new Error("older toggle failed"))
       await olderPromise
     })
 
     expect(result.current.activeConfig?.enabled).toBe(false)
+    await waitFor(() => expect(toggleCalls).toBe(2))
 
     await act(async () => {
       resolveSecond?.({ provider: { ...ollama, enabled: false } })
       await newerPromise
     })
     expect(result.current.activeConfig?.enabled).toBe(false)
+  })
+
+  it("restores stored state when serialized overlapping toggles fail", async () => {
+    const rejectToggles: Array<(reason?: unknown) => void> = []
+    vi.mocked(extensionRpcClient.call).mockImplementation(async (method) => {
+      if (method === RpcMethod.ProvidersList) {
+        return { providers: [ollama] } as never
+      }
+      if (method === RpcMethod.ProvidersSetEnabled) {
+        return (await new Promise<never>((_resolve, reject) => {
+          rejectToggles.push(reject)
+        })) as never
+      }
+      throw new Error(`Unexpected method: ${method}`)
+    })
+
+    const { result } = renderHook(() => useProviderSettingsState())
+    await waitFor(() => expect(result.current.providers).toEqual([ollama]))
+
+    let disablePromise: Promise<void>
+    act(() => {
+      disablePromise = result.current.setProviderEnabled(false)
+    })
+    await waitFor(() => expect(rejectToggles).toHaveLength(1))
+    await waitFor(() =>
+      expect(result.current.activeConfig?.enabled).toBe(false)
+    )
+
+    let enablePromise: Promise<void>
+    act(() => {
+      enablePromise = result.current.setProviderEnabled(true)
+    })
+    expect(result.current.activeConfig?.enabled).toBe(true)
+    expect(rejectToggles).toHaveLength(1)
+
+    await act(async () => {
+      rejectToggles[0]?.(new Error("disable failed"))
+      await disablePromise
+    })
+    await waitFor(() => expect(rejectToggles).toHaveLength(2))
+    await act(async () => {
+      rejectToggles[1]?.(new Error("enable failed"))
+      await enablePromise
+    })
+
+    expect(result.current.activeConfig?.enabled).toBe(true)
+    expect(result.current.hasUnsavedChanges).toBe(false)
   })
 
   const testConnectionFor = async (providerId: string) => {
