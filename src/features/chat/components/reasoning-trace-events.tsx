@@ -1,7 +1,7 @@
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
+import { cn } from "@/lib/class-names"
 import { getToolDisplayMeta } from "@/lib/tools/tool-display"
-import { cn } from "@/lib/utils"
 import type { ActivityEvent, ActivityText, ToolRun } from "@/types"
 
 export type TraceStatus = "running" | "done" | "error"

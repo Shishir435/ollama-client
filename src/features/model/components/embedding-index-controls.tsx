@@ -3,9 +3,9 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/class-names"
 import { buildKeywordIndexFromExisting } from "@/lib/embeddings/auto-index"
 import { logger } from "@/lib/logger"
-import { cn } from "@/lib/utils"
 
 export const EmbeddingIndexControls = () => {
   const { t } = useTranslation()

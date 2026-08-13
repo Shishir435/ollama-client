@@ -13,8 +13,8 @@ vi.mock("@/background/lib/notify", () => ({
 }))
 
 // Mock dependencies
-vi.mock("@/background/lib/utils", () => ({
-  getBaseUrl: vi.fn().mockResolvedValue("http://localhost:11434")
+vi.mock("@/background/lib/ollama-base-url", () => ({
+  getOllamaBaseUrl: vi.fn().mockResolvedValue("http://localhost:11434")
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({

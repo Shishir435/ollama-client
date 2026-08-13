@@ -1,8 +1,5 @@
 import { browser } from "@/lib/browser-api"
 import { logger } from "@/lib/logger"
-import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
-import { ProviderManager } from "@/lib/providers/manager"
-import { ProviderId } from "@/lib/providers/types"
 import { getMessageType } from "@/protocol/message-type"
 import {
   ChatStreamServerEventSchema,
@@ -103,19 +100,4 @@ export const safeSendResponse = (
       logger.debug("Could not send response", "BackgroundUtils", { error })
     }
   }
-}
-
-export const getBaseUrl = async (): Promise<string> => {
-  const config = await ProviderManager.getProviderConfig(ProviderId.OLLAMA)
-  if (!config) {
-    throw new Error("Built-in Ollama provider configuration is missing")
-  }
-  return resolveProviderBaseUrl(config)
-}
-
-export const getPullAbortControllerKey = (
-  portName: string,
-  modelName: string
-) => {
-  return `${portName}:${modelName}`
 }

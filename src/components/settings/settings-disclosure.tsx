@@ -9,7 +9,7 @@ import {
   type SettingsLevel,
   settingsLevelIncludes
 } from "@/features/settings/settings-registry"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 interface SettingsDisclosureContextValue {
   level: SettingsLevel

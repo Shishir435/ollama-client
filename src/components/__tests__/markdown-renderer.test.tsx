@@ -24,10 +24,13 @@ describe("MarkdownRenderer", () => {
       />
     )
 
-    expect(
-      await screen.findByRole("button", { name: "Copy" })
-    ).toBeInTheDocument()
-    const preview = await screen.findByRole("button", {
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument()
+      expect(
+        screen.getByRole("button", { name: "Preview HTML artifact 1" })
+      ).toBeInTheDocument()
+    })
+    const preview = screen.getByRole("button", {
       name: "Preview HTML artifact 1"
     })
 
@@ -55,9 +58,11 @@ describe("MarkdownRenderer", () => {
   it("adds a download control to code artifacts (no preview required)", async () => {
     render(<MarkdownRenderer content={"```ts\nconst a = 1\n```"} />)
 
-    expect(
-      await screen.findByRole("button", { name: /Download/ })
-    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /Download/ })
+      ).toBeInTheDocument()
+    })
     expect(
       screen.queryByRole("button", { name: /Preview/ })
     ).not.toBeInTheDocument()
@@ -70,8 +75,10 @@ describe("MarkdownRenderer", () => {
       />
     )
 
-    expect(
-      await screen.findByRole("button", { name: "Preview HTML artifact 1" })
-    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Preview HTML artifact 1" })
+      ).toBeInTheDocument()
+    })
   })
 })

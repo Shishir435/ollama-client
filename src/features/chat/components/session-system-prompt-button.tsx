@@ -14,7 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 /**
  * Header control for the per-chat system prompt override. When set, a dot marks

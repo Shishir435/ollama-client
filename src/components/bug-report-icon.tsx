@@ -3,10 +3,10 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { buttonVariants } from "@/components/ui/button"
 import { useSetting } from "@/hooks/use-setting"
+import { cn } from "@/lib/class-names"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
 import { buildGenericIssueReportUrl } from "@/lib/error-report"
 import { SETTINGS } from "@/lib/storage/settings"
-import { cn } from "@/lib/utils"
 
 export const BugReportIcon = ({ showText = true }: { showText?: boolean }) => {
   const { t } = useTranslation()

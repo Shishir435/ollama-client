@@ -43,10 +43,10 @@ import {
   normalizeCatalogRefreshMs
 } from "@/features/model/lib/catalog-refresh"
 import { useSetting } from "@/hooks/use-setting"
+import { cn } from "@/lib/class-names"
 import { isBetaProvider } from "@/lib/providers/registry"
 import { ProviderId } from "@/lib/providers/types"
 import { SETTINGS } from "@/lib/storage/settings"
-import { cn } from "@/lib/utils"
 
 export const ProviderSettings = () => {
   const { t } = useTranslation()

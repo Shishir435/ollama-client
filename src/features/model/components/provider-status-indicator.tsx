@@ -8,8 +8,8 @@ import {
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { cn } from "@/lib/class-names"
 import { STATUS_STYLES } from "@/lib/ui-status"
-import { cn } from "@/lib/utils"
 
 const iconMap = {
   loading: (

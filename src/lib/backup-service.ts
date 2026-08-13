@@ -15,6 +15,7 @@ import { logger } from "./logger"
 import { ModelConfigMapSchema } from "./model-config-utils"
 import { validateProviderConfigs } from "./providers/provider-config-schema"
 import { type ProviderConfig, ProviderStorageKey } from "./providers/types"
+import { safeJsonParse } from "./safe-json-parse"
 import {
   exportPersistedDatabaseBytes,
   flushSave,
@@ -29,7 +30,6 @@ import {
 import { KNOWLEDGE_SETTINGS } from "./storage/knowledge-settings"
 import { LegacyPromptTemplatesSchema } from "./storage/legacy-prompt-templates"
 import { getSettingDescriptor } from "./storage/setting-registry"
-import { safeJsonParse } from "./validation"
 
 const BackupManifestSchema = z.object({
   version: z.number().int().positive(),

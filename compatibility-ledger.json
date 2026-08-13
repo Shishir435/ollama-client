@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastReviewed": "2026-08-06",
+  "lastReviewed": "2026-08-14",
   "entries": [
     {
       "id": "legacy-blob-live-fallback",
@@ -50,6 +50,20 @@
       "removalGate": "Direct upgrades from every affected store version are no longer supported.",
       "targetRelease": null,
       "recoveryPath": "Copy secrets to device-local storage before purging the synchronized copy."
+    },
+    {
+      "id": "compatibility-provider-ids",
+      "owner": "src/lib/providers/types.ts",
+      "introducedIn": "pre-0.13.0",
+      "sourceVersions": [
+        "profiles storing the vllm, localai, or koboldcpp built-in ids",
+        "profiles storing the openai compatibility id",
+        "model mappings targeting those ids"
+      ],
+      "removalGate": "Every supported direct-upgrade path has normalized configured compatibility providers and their scoped model mappings to custom-provider ids; packaged Chrome and Firefox migration fixtures prove base URL, API key, custom model, enablement, and mapping preservation; no production lookup still constructs a compatibility subclass or reads a compatibility capability default; and the migration has completed its documented evidence window.",
+      "targetRelease": null,
+      "recoveryPath": "Retain the enum members, compatibility adapters, factory entries, defaults, and capability branches. When the removal gate is met, migrate configured profiles to custom OpenAI-compatible ids before deleting those symbols; never silently fall back their model mappings to Ollama.",
+      "notes": "These ids are accepted for stored-data compatibility only. The provider UI creates OpenAI-compatible custom providers instead."
     },
     {
       "id": "legacy-onboarding-seen-flag",

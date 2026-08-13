@@ -1,5 +1,5 @@
 import { notifyJobComplete } from "@/background/lib/notify"
-import { safeSendResponse } from "@/background/lib/utils"
+import { safeSendResponse } from "@/background/lib/runtime-delivery"
 import type { ChromeMessage, SendResponseFunction } from "@/types"
 
 export const handleKeepToolLoopAlive = (

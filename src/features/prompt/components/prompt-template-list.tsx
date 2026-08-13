@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/collapsible"
 import { Separator } from "@/components/ui/separator"
 import { CopyButton } from "@/features/chat/components"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 import type { PromptTemplate } from "@/types"
 import { PromptTemplateForm } from "./prompt-template-form"
 

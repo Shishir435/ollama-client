@@ -1,5 +1,5 @@
+import { safeSendResponse } from "@/background/lib/runtime-delivery"
 import { resolveToolConfirmation } from "@/background/lib/tool-confirmation-registry"
-import { safeSendResponse } from "@/background/lib/utils"
 import type { ChromeMessage, SendResponseFunction } from "@/types"
 
 export const handleToolConfirmation = (

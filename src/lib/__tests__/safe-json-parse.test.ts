@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { z } from "zod"
-import { safeJsonParse } from "../validation"
+import { safeJsonParse } from "../safe-json-parse"
 
 describe("safeJsonParse", () => {
   const TestSchema = z.object({

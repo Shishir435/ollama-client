@@ -1,5 +1,5 @@
 import { createErrorResponse } from "@/background/lib/error-handler"
-import { safeSendResponse } from "@/background/lib/utils"
+import { safeSendResponse } from "@/background/lib/runtime-delivery"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
 import type { SendResponseFunction } from "@/types"

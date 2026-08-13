@@ -5,7 +5,7 @@ import {
   SheetHeader,
   SheetTitle
 } from "@/components/ui/sheet"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 interface PreviewSheetProps {
   open: boolean

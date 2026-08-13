@@ -37,7 +37,7 @@ vi.mock("../content-result-actions", () => ({
   openSelectionResultInChat: vi.fn().mockResolvedValue(false)
 }))
 
-vi.mock("@/lib/runtime-messages", () => ({
+vi.mock("@/lib/retained-runtime-messages", () => ({
   sendRuntimeMessage: vi.fn().mockResolvedValue(undefined)
 }))
 

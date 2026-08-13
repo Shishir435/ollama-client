@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react"
 import type React from "react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 /**
  * How much room the state claims.

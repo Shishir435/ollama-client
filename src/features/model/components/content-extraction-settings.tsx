@@ -21,6 +21,7 @@ import {
 import { ExcludedUrls } from "@/features/model/components/exclude-urls"
 import { SiteSpecificOverrides } from "@/features/model/components/site-specific-overrides"
 import { useSetting } from "@/hooks/use-setting"
+import { cn } from "@/lib/class-names"
 import { DEFAULT_CONTENT_EXTRACTION_CONFIG } from "@/lib/constants"
 import { CONTENT_SCRAPER_OPTIONS } from "@/lib/constants-ui"
 import {
@@ -30,7 +31,6 @@ import {
   parsePerSiteProfileSettings
 } from "@/lib/per-site-profiles"
 import { SETTINGS } from "@/lib/storage/settings"
-import { cn } from "@/lib/utils"
 import type { ContentExtractionConfig, ContentScraper } from "@/types"
 import { TIMEOUT_FIELDS } from "./content-extraction-constants"
 

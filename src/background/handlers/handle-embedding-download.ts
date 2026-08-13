@@ -4,7 +4,7 @@ import {
 } from "@ollama-client/runtime-core/cancellation"
 import { EMBEDDING_DOWNLOAD_TIMEOUT_MS } from "@/background/lib/fetch-timeout"
 import { notifyJobComplete } from "@/background/lib/notify"
-import { getBaseUrl } from "@/background/lib/utils"
+import { getOllamaBaseUrl } from "@/background/lib/ollama-base-url"
 import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_PROVIDER_ID,
@@ -132,7 +132,7 @@ export const checkEmbeddingModelExists = async (
     debug: object
   } | null> => {
     try {
-      const baseUrl = providerBaseUrl || (await getBaseUrl())
+      const baseUrl = providerBaseUrl || (await getOllamaBaseUrl())
       const res = await withTimeout(
         (operationSignal) =>
           fetch(`${baseUrl}/api/tags`, { signal: operationSignal }),
@@ -445,7 +445,7 @@ export const downloadEmbeddingModelSilently = async (
       return { success: true }
     }
 
-    const baseUrl = await getBaseUrl()
+    const baseUrl = await getOllamaBaseUrl()
     const requestBody: DefaultProviderPullRequest = {
       name: normalizedModelName,
       stream: false // Don't stream for silent download

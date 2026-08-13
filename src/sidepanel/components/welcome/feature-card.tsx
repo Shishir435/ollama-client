@@ -1,6 +1,6 @@
 import type React from "react"
 import { Card } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 export type FeatureColor = "green" | "blue" | "purple" | "indigo"
 

@@ -8,9 +8,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
+import { cn } from "@/lib/class-names"
 import type { FileProcessingState } from "@/lib/file-processors/types"
 import { toDataUrl } from "@/lib/image-utils"
-import { cn } from "@/lib/utils"
 import type { ImageAttachment } from "@/types"
 import { CopyButton } from "../copy-button"
 import { PreviewTextBlock } from "../preview-sheet"

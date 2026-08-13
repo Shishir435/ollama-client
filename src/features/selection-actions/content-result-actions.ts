@@ -6,7 +6,7 @@ import {
   type SelectionCapture
 } from "@/features/selection-actions/dom"
 import { MESSAGE_KEYS } from "@/lib/constants"
-import { sendRuntimeMessage } from "@/lib/runtime-messages"
+import { sendRuntimeMessage } from "@/lib/retained-runtime-messages"
 
 export async function openSelectionResultInChat(
   resultText: string,

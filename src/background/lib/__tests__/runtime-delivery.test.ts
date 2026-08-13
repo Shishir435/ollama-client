@@ -2,14 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { createMockPort } from "@/background/handlers/__tests__/test-utils"
 import { browser } from "@/lib/browser-api"
 import { logger } from "@/lib/logger"
-import { ProviderManager } from "@/lib/providers/manager"
 import type { ChatStreamMessage } from "@/types"
-import {
-  getBaseUrl,
-  getPullAbortControllerKey,
-  safePostMessage,
-  safeSendResponse
-} from "../utils"
+import { safePostMessage, safeSendResponse } from "../runtime-delivery"
 
 // Mock dependencies
 vi.mock("@/lib/browser-api", () => ({
@@ -29,13 +23,7 @@ vi.mock("@/lib/logger", () => ({
   }
 }))
 
-vi.mock("@/lib/providers/manager", () => ({
-  ProviderManager: {
-    getProviderConfig: vi.fn()
-  }
-}))
-
-describe("Background Utils", () => {
+describe("runtime delivery", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Reset browser.runtime.lastError
@@ -108,49 +96,6 @@ describe("Background Utils", () => {
         "BackgroundUtils",
         { error: "Channel closed" }
       )
-    })
-  })
-
-  describe("getBaseUrl", () => {
-    it("should return stored URL", async () => {
-      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
-        id: "ollama",
-        name: "Ollama",
-        type: "ollama",
-        enabled: true,
-        baseUrl: "http://custom:11434/"
-      } as never)
-
-      const url = await getBaseUrl()
-
-      expect(url).toBe("http://custom:11434")
-    })
-
-    it("should return default URL if not stored", async () => {
-      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue({
-        id: "ollama",
-        name: "Ollama",
-        type: "ollama",
-        enabled: true,
-        baseUrl: ""
-      } as never)
-
-      const url = await getBaseUrl()
-
-      expect(url).toBe("http://localhost:11434")
-    })
-
-    it("rejects a missing canonical provider config", async () => {
-      vi.mocked(ProviderManager.getProviderConfig).mockResolvedValue(undefined)
-      await expect(getBaseUrl()).rejects.toThrow(
-        "Ollama provider configuration is missing"
-      )
-    })
-  })
-
-  describe("getPullAbortControllerKey", () => {
-    it("should generate correct key", () => {
-      expect(getPullAbortControllerKey("port1", "llama2")).toBe("port1:llama2")
     })
   })
 })

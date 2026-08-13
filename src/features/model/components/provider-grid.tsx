@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import type { ProviderHealthMap } from "@/features/model/hooks/use-provider-health"
 import { useProviderIcons } from "@/features/model/hooks/use-provider-icons"
+import { cn } from "@/lib/class-names"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { resolveProviderBrand } from "@/lib/providers/provider-brand"
 import { isBetaProvider } from "@/lib/providers/registry"
 import { isCustomProviderId, type ProviderConfig } from "@/lib/providers/types"
-import { cn } from "@/lib/utils"
 
 /** Status dot color is picked by the first rule that matches. */
 const dotStatusRules = [

@@ -2,7 +2,7 @@ import { buildSelectionActionPrompt } from "@/application/selection-actions/prom
 import type { SelectionActionMessage } from "@/application/selection-actions/types"
 import { setAbortController } from "@/background/lib/abort-controller-registry"
 import { normalizeError } from "@/background/lib/error-handler"
-import { safePostChatStreamEvent } from "@/background/lib/utils"
+import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"

@@ -5,9 +5,9 @@ import { SettingsCard } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { cn } from "@/lib/class-names"
 import { GUIDES } from "@/lib/constants-ui"
 import { buildGenericIssueReportUrl } from "@/lib/error-report"
-import { cn } from "@/lib/utils"
 
 const guideFocusId = (labelKey: string) =>
   `guide-${labelKey.split(".")[labelKey.split(".").length - 2] ?? "item"}`
