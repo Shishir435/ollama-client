@@ -1,3 +1,8 @@
+import type {
+  DiagnosticsGetBundleResult,
+  DiagnosticTestResult
+} from "@ollama-client/contracts/diagnostics-rpc"
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { Activity, Copy, Download, Github, Loader2, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -8,12 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { openExternalUrl } from "@/lib/browser-api"
 import { buildDiagnosticIssueUrl } from "@/lib/error-report"
-import type {
-  DiagnosticsGetBundleResult,
-  DiagnosticTestResult
-} from "@/protocol/diagnostics-rpc"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 
 export const DiagnosticsSettings = () => {
   const { t } = useTranslation()

@@ -24,7 +24,7 @@ export interface EmbeddingError {
   code?: string
 }
 
-// Cache for embeddings with timestamp for TTL (content hash -> { embedding, timestamp })
+/** Cache for embeddings with timestamp for TTL (content hash -> { embedding, timestamp }) */
 interface CacheEntry {
   embedding: number[]
   timestamp: number

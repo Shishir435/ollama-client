@@ -153,6 +153,27 @@ describe("Transcript Extractor", () => {
         expect(result).toBe("0:00 Hello world\n0:07 Next line")
       })
 
+      it.each([
+        ["https://www.youtube.com/live/live-video", "live-video"],
+        ["https://www.youtube.com/shorts/short-video", "short-video"]
+      ])("extracts captions from %s", async (url, videoId) => {
+        mockLocation(url)
+        mountPlayerResponse(videoId)
+        vi.stubGlobal(
+          "fetch",
+          vi.fn().mockResolvedValue({
+            ok: true,
+            text: vi.fn().mockResolvedValue(
+              JSON.stringify({
+                events: [{ tStartMs: 0, segs: [{ utf8: "Path works" }] }]
+              })
+            )
+          })
+        )
+
+        expect(await getTranscript()).toBe("0:00 Path works")
+      })
+
       it("should keep timestamps from XML caption tracks", async () => {
         const script = document.createElement("script")
         script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify({

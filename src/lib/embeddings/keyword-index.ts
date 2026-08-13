@@ -181,5 +181,5 @@ class KeywordIndexManager {
   }
 }
 
-// Export singleton instance
+/** Export singleton instance */
 export const keywordIndexManager = new KeywordIndexManager()

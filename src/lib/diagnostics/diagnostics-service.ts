@@ -1,10 +1,16 @@
+import type {
+  DiagnosticStorageMigration,
+  DiagnosticsGetBundleResult,
+  DiagnosticsRunResult,
+  DiagnosticTestResult
+} from "@ollama-client/contracts/diagnostics-rpc"
 import { browser, supportsDNR } from "@/lib/browser-api"
+import { getSafeClientEnvironment } from "@/lib/client-environment"
 import {
   localProviderOriginRuleMatches,
   readLocalProviderOriginRule
 } from "@/lib/dnr-rules"
 import { vectorDb } from "@/lib/embeddings/db"
-import { getSafeClientEnvironment } from "@/lib/error-report"
 import {
   type MigrationReceipt,
   readMigrationReceipt,
@@ -16,17 +22,13 @@ import {
   rpcTxBegin,
   rpcTxRollback
 } from "@/lib/persistence/client"
+import { describeMismatch } from "@/lib/persistence/durable-tables"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderManager } from "@/lib/providers/manager"
 import { ProviderRpcService } from "@/lib/providers/provider-rpc-service"
 import { ProviderId } from "@/lib/providers/types"
 import { countMessages } from "@/lib/repositories/chat-history"
-import type {
-  DiagnosticStorageMigration,
-  DiagnosticsGetBundleResult,
-  DiagnosticsRunResult,
-  DiagnosticTestResult
-} from "@/protocol/diagnostics-rpc"
+import { getTurnStorageStats } from "@/lib/repositories/turn-runs"
 
 import {
   clearDiagnosticEvents,
@@ -131,29 +133,49 @@ const runMigrationTest = async (): Promise<DiagnosticTestResult> => {
  *
  * Row counts stay on the device. `messages: 39204` describes how much someone
  * has said, and a shortfall is diagnosable without it: `messages short by 5`
- * says a table lost five rows, which is the actionable half. An absolute pair
- * would have disclosed history volume out of a support report, which is the one
- * thing this summary exists to avoid.
+ * says a table lost five rows, which is the actionable half.
  *
- * `integrity_check` output can be long on a damaged file, so each verdict is
- * clamped and the list of shortfalls is capped.
+ * Structured fields are re-derived here rather than trusted. A receipt is
+ * written once per migration and then persists, so this function reads text
+ * produced by whichever version performed the attempt — including versions that
+ * formatted `messages 39199/39204`. Free-form text is therefore treated as
+ * untrusted input: count pairs and any large standalone number are stripped
+ * before it is forwarded.
+ *
+ * `integrity_check` output gets the same treatment on top of its length clamp:
+ * a damaged file makes SQLite print rowids, and a rowid is a lower bound on how
+ * many rows exist.
  */
 const MAX_REPORTED_MISMATCHES = 10
+
+/** `39199/39204` and the like, in text an older release wrote. */
+const COUNT_PAIR_PATTERN = /\d+\s*\/\s*\d+/g
+/**
+ * A standalone number this large is a rowid, a page number, or a count — all of
+ * which put a lower bound on how much history exists. `integrity_check` prints
+ * them freely ("row 39204 missing from index"), and that text can be embedded in
+ * a failure message.
+ *
+ * Four digits is the cut so the numbers worth reading survive: shortfalls,
+ * attempt counts, schema versions. A shortfall in the thousands is redacted too,
+ * which loses a little precision on the rarest failures and is the right trade.
+ */
+const LARGE_NUMBER_PATTERN = /\d{4,}/g
+
+const withoutCounts = (text: string): string =>
+  text
+    .replace(COUNT_PAIR_PATTERN, "[counts removed]")
+    .replace(LARGE_NUMBER_PATTERN, "[n]")
 
 export const summarizeMigrationReceipt = (
   receipt: MigrationReceipt | null
 ): DiagnosticStorageMigration | undefined => {
   if (!receipt) return undefined
   const verdict = (value?: string) =>
-    value === undefined ? undefined : value.slice(0, 120)
+    value === undefined ? undefined : withoutCounts(value).slice(0, 120)
   const mismatches = receipt.mismatches
     ?.slice(0, MAX_REPORTED_MISMATCHES)
-    .map((mismatch) => {
-      const delta = mismatch.source - mismatch.imported
-      return delta > 0
-        ? (`${mismatch.table} short by ${delta}` as const)
-        : (`${mismatch.table} over by ${-delta}` as const)
-    })
+    .map(describeMismatch)
   return {
     outcome: receipt.outcome,
     attempts: receipt.attempts,
@@ -164,7 +186,9 @@ export const summarizeMigrationReceipt = (
     importedIntegrity: verdict(receipt.importedIntegrity?.integrityCheck),
     foreignKeyViolations: receipt.importedIntegrity?.foreignKeyViolations,
     ...(mismatches && mismatches.length > 0 ? { mismatches } : {}),
-    failure: receipt.failure ? receipt.failure.slice(0, 200) : undefined
+    failure: receipt.failure
+      ? withoutCounts(receipt.failure).slice(0, 200)
+      : undefined
   }
 }
 
@@ -347,6 +371,31 @@ const runTurnCheckpointTest = async (): Promise<DiagnosticTestResult> =>
     }
   })
 
+/**
+ * Report what durable turns cost on disk, and whether compaction is keeping up.
+ *
+ * Reads counts and byte lengths only — never a request, a receipt or a message
+ * — so the result is safe to paste into a bug report. It fails when a settled
+ * row still carries its resumable input, because that is the one condition the
+ * compaction path cannot correct on its own: nothing updates a terminal row
+ * again, so a row the migration missed stays missed.
+ */
+const runTurnRetentionTest = async (): Promise<DiagnosticTestResult> =>
+  runTest("turn_retention", async () => {
+    const stats = await getTurnStorageStats()
+    if (stats.uncompactedTerminalRuns > 0) {
+      throw new Error(
+        `${stats.uncompactedTerminalRuns} settled turn(s) still hold resumable input`
+      )
+    }
+    return {
+      liveRuns: stats.liveRuns,
+      terminalRuns: stats.terminalRuns,
+      totalRequestBytes: stats.totalRequestBytes,
+      largestRequestBytes: stats.largestRequestBytes
+    }
+  })
+
 const executeSelfTests = async (
   signal?: AbortSignal
 ): Promise<DiagnosticTestResult[]> => {
@@ -393,7 +442,8 @@ const executeSelfTests = async (
     }),
     runMigrationTest(),
     runDnrTest(),
-    runTurnCheckpointTest()
+    runTurnCheckpointTest(),
+    runTurnRetentionTest()
   ])
   signal?.throwIfAborted()
   // Recorded once per real execution, never on a shared/cached result, so

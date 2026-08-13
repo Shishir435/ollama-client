@@ -55,6 +55,32 @@ const registryWithTools = (
 }
 
 describe("streamChatWithTools", () => {
+  it("retries once when a model emits only reasoning, then runs its tool", async () => {
+    const provider = scriptedProvider([
+      [{ thinkingDelta: "I should call echo." }, { done: true }],
+      [
+        { toolCalls: [{ id: "c1", name: "echo", arguments: { x: 1 } }] },
+        { done: true }
+      ],
+      [{ delta: "final answer" }, { done: true }]
+    ])
+    const registry = registryWith(async () => ({ content: "tool result" }))
+    const chunks: ChatStreamMessage[] = []
+
+    await streamChatWithTools({
+      provider,
+      request: { model: "m", messages: [{ role: "user", content: "hi" }] },
+      registry,
+      onChunk: (chunk) => chunks.push(chunk),
+      ctx: {}
+    })
+
+    expect(provider.streamChat).toHaveBeenCalledTimes(3)
+    expect(chunks.some((chunk) => chunk.toolRuns?.length)).toBe(true)
+    expect(chunks.find((chunk) => chunk.delta === "final answer")).toBeTruthy()
+    expect(chunks.filter((chunk) => chunk.done)).toHaveLength(1)
+  })
+
   it("runs a tool, re-streams, and finalizes with the answer + trace", async () => {
     const provider = scriptedProvider([
       [

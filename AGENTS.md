@@ -71,12 +71,26 @@ Manifest — permissions, CSP, host permissions, `browser_specific_settings` —
 
 Dev-only entrypoints (`spike-*`, `benchmark`, `persistence-verify`) are stripped from store builds by `config/wxt-hooks.ts`, and their code is dead-code-eliminated via the `__SPIKE_OPFS_OWNER__` flags in `config/wxt-vite.ts`. `src/spike/` is therefore fine to leave where it is.
 
+### Workspace packages
+
+| Package | Owns |
+|---|---|
+| `@ollama-client/contracts` | environment-independent Zod schemas, RPC/stream envelopes, durable turn/context/tool-loop contracts |
+| `@ollama-client/runtime-core` | deterministic stream reduction, thinking parsing, cancellation, retry, checkpoint, and sender-evidence primitives |
+| `@ollama-client/chat-runtime` | port-driven durable turn, context-build, and tool-loop orchestration |
+
+Packages never import React, WXT, browser APIs, persistence adapters, feature
+UI, background composition, or concrete providers. Those remain in `src/` and
+connect through package ports.
+
 ### Chat round-trip
 
 1. UI opens a runtime port keyed by `MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE`.
 2. `src/background/index.ts` routes by message key to `src/background/handlers/`.
 3. `ProviderFactory.getProviderForModel(modelId)` resolves the provider via `registry.ts` and the user's saved mapping.
-4. The provider streams tokens back through the port; `use-chat.ts` updates state and persists.
+4. The provider streams tokens back through the port; the background durable
+   turn owner persists assistant state while `use-chat.ts` updates ephemeral UI
+   state.
 
 ### Providers (`src/lib/providers/`)
 
@@ -98,7 +112,17 @@ Legacy vLLM/LocalAI/KoboldCPP subclasses are compatibility-only, not UI profiles
 
 A 404/405/501 from the catalog endpoint is recorded in `model-catalog-support.ts` (device-local, fingerprinted by wire + base URL + service profile, expiring after a day) and that provider is not asked again until the fingerprint changes, the entry ages out, or the user presses Test. Anything else — no answer, 401, 429, 5xx — is a real failure and is never recorded, because it says nothing about whether the endpoint exists. Adding a new discovery caller means going through `discoverModels`, not `provider.getModels` directly.
 
+That policy lives in **`src/lib/providers/model-discovery.ts`** and is the only production path that asks for a catalog — RPC model listing, connection tests, background health checks, tool capability resolution and the embedding-model check all enter through it. `discoverProviderModels(provider)` is the shape for callers holding a live provider; the config it keys on comes off the provider, so there is no way to key an answer to the wrong endpoint. A failure is **returned as `catalog: "failed"`, not thrown**, because whether a missing catalog is fatal depends on the caller — normal for the model menu, disqualifying for a connection test. `architecture-boundaries.test.ts` fails on any `.getModels(` outside `model-discovery.ts` itself, with one exemption — `super.getModels`, a subclass delegating to its base wire format rather than a caller skipping the policy. The exemption is deliberately not directory-wide: a provider-domain service is exactly where the next bypass would appear.
+
+The default provider's embedding check is the one remaining direct `/api/tags` fetch, and it stays direct on purpose — it skips provider resolution, and the remembered-absence policy is there to stop repeat requests against remote endpoints that charge for them, not against the user's own Ollama on loopback, whose catalog endpoint is not optional. Do not copy that shape for a configured remote provider.
+
 **A missing catalog never proves reachability on its own** — a mistyped base URL answers identically. An explicit (`draft`) connection test confirms a catalog-less provider by streaming one token from `/chat/completions` with a declared model id; a chat route that is missing too is reported as a base-URL problem and clears the recorded answer. The background (`stored`) check never sends that request and never claims reachability it did not verify: it is a health poll, not a licence to spend inference on a metered endpoint.
+
+**Vendor marks** are display-only. `provider-brand.ts` resolves a `ProviderBrandId` from a provider's configuration — built-in id, then base-URL host, then service profile, then display name — and `mergeProviderModels` stamps it onto every model row as `providerBrand`. Host beats profile: DeepSeek, Groq and the rest are all reached through an OpenAI-compatible profile, so a profile-first order would put OpenAI's mark on all of them. An unrecognized provider gets no brand and falls back to the registry glyph; never guess one, and never derive routing or capabilities from it. The marks themselves are inline monochrome SVG in `src/components/icons/provider-brand-icons.tsx` (from MIT-licensed `@lobehub/icons`) — rendered through `<ProviderIcon>`, not imported directly.
+
+**Favicons are the tier below that**, for unrecognized *remote* providers only (`provider-favicon.ts`, served by `providers.icons`). The configured base URL is always asked first; its parent site is asked **only** when that host gave a settled "nothing here" (401/403/404/410, or a 200 carrying something that is not an image — an API gateway guards `/favicon.ico` behind its key exactly like every other path). A timeout or a 5xx is never chased, exactly one label is stripped (`api.acme.com` → `acme.com`, never down to a public suffix), and a third-party favicon service is never used, since that would hand every configured provider URL to whoever runs it. Loopback, private, CGNAT and link-local hosts are refused — `169.254.169.254` is the cloud metadata endpoint, and this fetch reaches what a page cannot — and **redirects are refused, not followed** — the host check vets the address we picked, while a 302 would let the provider pick the next one for a request holding `<all_urls>`. The response is sniffed from its leading bytes rather than trusted from `Content-Type`, capped at 32KB, and both hits and misses are remembered device-local so an endpoint is asked once; nothing is recorded once the caller has aborted.
+
+The filter reads hostnames, so a public name resolving to a private address still passes, and no extension API closes that — `chrome.dns` is dev-channel only, and resolving before fetching is TOCTOU because `fetch` looks up again. What bounds it is that the response never leaves the device: no credentials are sent, non-image bytes are discarded, and it takes a provider the user already trusts with their prompts. Do not "fix" it by adding a resolve step; the honest mitigation is the off switch. Users can turn the lookup off; doing so also drops what was already fetched.
 
 **Capability detection** resolves in this order, highest first: user override → empirical probe (`capability-probe.ts`) → model metadata → provider default. An unknown capability resolves to `false`; only an override may flip it on. Never enable vision or tool calling on a guess.
 
@@ -147,23 +171,60 @@ Adding a method:
 
 ### Storage
 
-Chat history is **SQLite-only** (SQLite-in-WASM). The Dexie chat-history fallback is retired; Dexie remains for vector embeddings and knowledge sets.
+Chat history is **SQLite-only**, on one engine and one writer: official sqlite-wasm, in a worker owned by the persistence host. sql.js is gone from the package as of 0.13.x — it is a devDependency now, used only by the measurement pages to *write* old-topology fixtures. The Dexie chat-history fallback is retired; Dexie remains for vector embeddings and knowledge sets.
+
+**No context outside the owner holds a database handle.** `src/lib/sqlite/db.ts` is an RPC client, `getDb()` no longer exists, and adding a second engine or a second writer is the change to argue for in review rather than make.
 
 | Data | Where |
 |---|---|
 | Chats, sessions, messages, files | `src/lib/repositories/chat-history.ts` — a facade over `sqlite-chat-history.ts`. Go through the facade. |
-| SQLite internals | `src/lib/sqlite/` (`db.ts`, `schema.ts`, `migrations/`) |
+| SQLite internals | `src/lib/sqlite/` (`db.ts` RPC facade, `schema.ts`, `migrations/`) |
+| The engine itself | `src/lib/persistence/chat-db-engine.ts`, wrapped by `chat-db-worker.ts` |
 | On-install embedding-dimension migration | `src/lib/migration/`, invoked from `src/background/index.ts` |
 | Vectors / embeddings | `src/lib/embeddings/` — still IndexedDB via `storage.ts`, not migrated to SQLite |
 | Settings, config, per-extension state | `@plasmohq/storage` via `src/lib/plasmo-global-storage.ts` |
 
 - **Session metadata** — pinned state, per-chat system prompts, user tags — lives on SQLite `sessions`. Add columns through forward-only migrations.
-- **Durability** — writes debounce 1s to IndexedDB. Page-unload and explicit reset/export paths force-flush via `flushSave()`.
+- **Durability depends on the backend.** On **opfs** — every profile that has migrated — a committed statement is already durable and `flushSave()` is a no-op. On the **legacy blob**, the owner debounces a full-image write to IndexedDB by 1s, and `flushSave()` forces it. Callers flush at unload, migration and export boundaries without knowing which answered.
+- **A damaged legacy image is served read-only.** A blob that fails `integrity_check` keeps its reads, its backup export and its diagnostics; writes throw, migrations do not run against it, and it is never written back. Do not "fix" that by letting writes through — the image is the rollback artifact.
+- **Turn lifecycle is a state machine, enforced in SQL.** `TURN_STATUS_PREDECESSORS` in `packages/contracts/src/turns.ts` is the whole truth; every status write is a compare-and-set against the target's allowed predecessors, so a late or duplicated message cannot move a settled row and a terminal row never regresses. `updateTurnRun` resolves false when a transition is refused, and `TurnRuntime` treats that as "someone else owns this turn" and does no provider work. A stop commits `cancelling` **before** aborting the controller — a worker lost between the two restarts into an intent recovery skips, where a row left at `generating` was handed straight back to the provider. Startup finalizes interrupted cancellations without reissuing anything, and a turn row that will not parse is terminally failed with a content-free diagnostic rather than silently skipped on every boot forever.
+- **A settled turn keeps no resumable input.** A live `turn_runs.request` holds everything a restart needs — the whole prior conversation, extracted file text, captured page bodies, base64 images — which is correct while the turn can be resumed and indefensible once it cannot: n turns would each leave a permanent copy of the conversation as it stood, so a chat costs O(n²) bytes and page text outlives the feature that captured it. The request is therefore replaced by `compactedTurnRequest(...)` **in the same statement that writes the terminal status**, never in a later pass — nothing updates a settled row again, so a second write is one a dying worker can skip forever. That covers `updateTurnRun`, `finalizeCancelledTurn` and `quarantineTurnRun`; migration 14 clears the backlog. What remains as evidence is the bounded `contextReceipt`, the canonical message rows the receipt points at, and the recorded failure. `getTurnRun` returns a `TurnLifecycleRecord` with no request at all, because a reader that demanded one would report every settled turn as missing; only `getIncompleteTurnRuns` parses the full shape, and a resumable row that is somehow already compacted is quarantined like any other unreadable one. `pruneTerminalTurnRuns` then bounds how many receipts accumulate, by status and never by age alone — a browser closed for six weeks still owes the user its interrupted turns. The `turn_retention` diagnostic reports counts and byte lengths only; a non-zero `uncompactedTerminalRuns` is the one condition nothing self-corrects.
+- **A failure generation produced is recorded as it stands.** `DurableTurnGenerationError` carries the structured `AppFailure` from the terminal stream event through the turn row, the assistant row, the reconnect snapshot and the bubble. Rebuilding an `Error` from its text is what turned a provider 500 into a bare "Turn failed before completion."
 - **Tool-loop durability** — active native and non-native tool loops checkpoint to `tool_loop_runs` at model/tool/approval boundaries and force-flush before awaiting approval. The sidepanel reconnects with the same request id after an MV3 worker restart. Do not remove that checkpoint/reconnect contract.
 - **Reasoning replay** — signed Anthropic thinking/redacted blocks and OpenRouter `reasoning_details` live in the versioned, size-capped `ChatMessage.replayArtifact`, separate from display-only `thinking`. Preserve block order and opaque values through SQLite and checkpoints, validate provider/model ownership before replay, and never render or log opaque contents.
 - **Sync vs local** — sync-safe settings use `chrome.storage.sync`; device-local keys are routed to `chrome.storage.local` by the wrapper.
 
+#### State ownership
+
+Four state systems hold live values. Each value has exactly one owner; the rest read it. Picking the wrong owner is how a value ends up written from two places with no rule for which wins.
+
+| System | Owns | Never holds |
+|---|---|---|
+| **SQLite** (`chat-history.ts` facade) | chats, sessions, messages, attachments, prompt templates, tool-loop checkpoints, durable job runs | anything a UI needs synchronously on first paint |
+| **Dexie / IndexedDB** (`lib/embeddings/`, `lib/knowledge/`) | vectors, HNSW and keyword indexes, knowledge sets, chunk feedback | anything SQLite already owns — chat rows never live in both |
+| **`chrome.storage`** via `plasmoGlobalStorage` | settings, provider config and mappings, capability overrides, approval grants, handoff flags, persistence markers and the migration receipt | bulk data, and anything large enough to matter against the sync quota |
+| **Zustand stores** | ephemeral UI state: selected tabs, input draft, stream progress, speech, search dialog | durable values, unless the store explicitly reads and writes through one of the systems above |
+
+Rules that follow from it:
+
+- **Every `chrome.storage` key needs a descriptor** in `src/lib/storage/storage-key-registry.ts` with its sync scope and a `reason`. `storage-key-registry.test.ts` asserts the registry and `STORAGE_KEYS` match exactly, so adding a key without one fails.
+- **Two stores are durable-backed and say so:** `stores/theme.ts` and `stores/shortcut-store.ts` read and write `plasmoGlobalStorage`. Every other store is ephemeral and its contents die with the page — do not add a durable value to one of them.
+- **`MESSAGE_KEYS` are not storage keys.** They name runtime ports and one-way events, hold nothing, and do not belong in the storage registry.
+- The background/application layer owns durable workflows; the UI submits intent. A durable value written directly from a component is a boundary violation even when it works.
+
 The persistence host (Chromium offscreen document / Firefox MV2 background page) owns the only chat-db worker. It reports worker `error` and `messageerror` events with their cause — keep it that way; a bare "worker crashed" hides the actual failure. Note that in dev the worker loads from the Vite dev server, which is why `worker-src` allows that origin during `serve` only (`config/__tests__/manifest-csp.test.ts` guards both halves).
+
+The host also decides which backend the owner serves, once per session, from the marker and the migration outcome — `setBackend` is host-only and the RPC listener rejects it from any sender. A migration that fails verification **resolves onto the legacy backend**; it does not reject. Only the owner failing to start rejects. That distinction is the whole reason `ensureMigrated` can be awaited before every request.
+
+**An owner is ready when it answers, not when it exists.** `chrome.offscreen.createDocument()` resolves before the host page has evaluated its script, so a document can exist with no listener, no worker, no WASM and no chosen backend. `ensurePersistenceOwnerReady()` proves the whole chain with one `ping` and caches the proof per owner instance — never the failure, so a later caller retries. The ping carries its own 30s cap, because a host that accepts the message and never answers would otherwise hold readiness open forever; the retry deadline only bounds attempts that fail. The background composition root starts the topology and hands that one promise to `initializeBackgroundStartup`; DB-touching startup work awaits it and is skipped for the boot when it rejects, rather than each task waiting out its own 30s client timeout. Startup order is lifecycle flags → owner → data-shape recovery (backup import, provider migration, embedding-dimension migration; sequential, because they rewrite what follows reads) → durable workflow recovery (bounded concurrency). Adding a DB-touching startup task means adding it to one of those lists, not `void`-ing it beside them.
+
+Retrying a persistence write needs evidence, not optimism. `RETRYABLE_OPS` names the ops that are idempotent by construction; anything else is retried only when the client throws `PersistenceNotDeliveredError`, which is raised before a byte is sent and therefore proves non-execution. Do not widen either rule to make a flaky boot look better.
+
+Persistence failures are typed (`src/lib/persistence/errors.ts`). `PersistenceError` carries the `op`, a `reason` (`not-delivered` / `timeout` / `owner-error` / `invalid-response`), a `retryable` getter applying the rule above, and safe `userMessage` text. **The owner's own message never becomes the error text** — it forwards SQLite verbatim, which names tables, columns and statement fragments, so it travels as `detail` for diagnostics while `message` stays a safe summary. `detail` and `cause` are also declared under `PRIVATE_ERROR_KEYS` (`src/lib/log-redaction.ts`) and defined non-enumerable: structured logging copies an error's own enumerable properties **and** follows `cause` by name, so keeping the text out of `message` alone left two back doors into the console and the diagnostics bundle. Redaction is otherwise keyed on property names, which cannot work for a value whose sensitivity comes from where it was obtained rather than what it is called — that is what the symbol is for, and it is opt-in, so no other error loses diagnostics. That holds on **both** paths: the in-process fast path reaches the worker directly and used to reject with its raw Error, which mattered most on Firefox MV2, where the background page is owner and heaviest client at once. The client cannot tell the two in-process stages apart, so the **owner** labels them: `registerPersistenceHost` wraps startup failure in `PersistenceNotDeliveredError` — nothing has been posted to the worker at that point, and `ensureMigrated` clears its memo on failure so the retry really re-attempts — while anything from `callWorker` onward stays `owner-error`, including a worker that dies mid-statement, where the write may well have committed. Everything the client wraps on its own takes `owner-error`, because claiming non-execution it cannot prove is what turns a lost write into a duplicated one. Bound parameters, where chat and page content live, are not echoed by SQLite today, but that is not a property to build a disclosure boundary on.
+
+**Durable rows are decoded, not asserted.** `query` resolves a bag of `SqlValue`s, and `as unknown as Row[]` is an unconditionally-true, unconditionally-unchecked claim about it — a column dropped by a half-applied migration or a status written by a newer build arrives as a well-typed object that is wrong. It was never load-bearing either: a query result flows into a decoder with no cast at all, and `architecture-boundaries.test.ts` fails on a row-collection assertion (`as unknown as X[]`, `[X]`, `Array<X>`) in **any** module importing `@/lib/sqlite/db`. Scoped by what a module does rather than where it lives, because a directory rule covered the repositories and missed `lib/embeddings/feedback-service.ts`, which read `chunk_feedback` with the identical assertion. Object- and function-typed shims for under-typed browser APIs are a different thing and stay allowed. Every durable job repository declares a Zod row schema and goes through `decodeRow`/`decodeRows` in `row-decoder.ts`, which logs the failing paths and codes (never Zod's messages — an enum mismatch embeds the stored value) plus the row id, and nothing else from the row. The decode context's `table` is the shared `DurableTable` union from `persistence/durable-tables.ts`, so table names have one spelling and a typo is a typecheck failure. The failure policy is per-repository and deliberate: `turn_runs` quarantines, falling back to an id-only read so an undecodable row can still be settled rather than re-rejected on every boot; `tool_loop_runs` raises, because its caller is mid-resume; ingestion and model-pull drop and log, because one bad row must not deny recovery to the rest of the list. `durable-row-contract.smoke.test.ts` drives the real engine to prove each writer and its schema still agree.
+
+Keep the engine reachable without a Worker. `chat-db-engine.ts` is split from `chat-db-worker.ts` so tests can drive it in-process — there is no Worker and no OPFS in vitest, so an engine only reachable through `postMessage` would be testable only through a browser harness. The legacy backend runs fully in vitest (`legacy-blob-backend.test.ts`); OPFS is covered by `pnpm verify:opfs-migration`.
 
 ### Feature modules (`src/features/`)
 
@@ -171,7 +232,7 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 
 | Feature | Contents |
 |---|---|
-| `chat/` | chat UI, `use-chat.ts`, RAG pipeline (`rag/`), speech store |
+| `chat/` | chat UI, `use-chat.ts`, speech store. **No `rag/`** — retrieval lives in `src/application/context/rag/` |
 | `sessions/` | session list + repository, `chat-session-store.ts` |
 | `model/` | model management UI, provider/embedding settings |
 | `file-upload/` | ingestion for RAG, per-format `processors/` |
@@ -186,7 +247,7 @@ Each feature owns its UI, hooks, and — if needed — its Zustand store.
 
 ### RAG / embeddings
 
-- Pipeline: `src/features/chat/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`).
+- Pipeline: `src/application/context/rag/` (`rag-pipeline.ts`, `rag-retriever.ts`, `rag-prompt-builder.ts`, `query-classifier.ts`), driven by `src/application/context/build-context.ts`. It moved out of `src/features/chat/` when context building went to the background — a feature directory cannot own work the background performs.
 - **All** file, memory, and live-page splitting goes through `src/lib/embeddings/chunker.ts`. Do not build a parallel text splitter.
 - Plumbing: `src/lib/embeddings/` (`embedding-strategy.ts`, `embedder-factory.ts`, `hnsw-index.ts`, `keyword-index.ts`, `storage.ts`, `chunker.ts`, `search.ts`).
 - Embedding strategy chain: provider-native → shared model → Ollama fallback.
@@ -232,6 +293,8 @@ Model-callable tools live in `src/lib/tools/internal/`, registered in `internal-
 ### Background handlers
 
 `src/background/handlers/handle-{action}.ts`, registered in `src/background/index.ts`. Only streaming/port work belongs here (chat, context build, pull, selection actions, embedding download). Request/response provider and model operations live in `ProviderRpcService` / `ModelRpcService`. Keep handlers thin — adapt the port protocol to `src/lib/` and stream back.
+
+A handler that only *writes* a stream takes `ChatStreamSink`, not `ChromePort`. The sink is `name` + `postMessage` + the optional `abortScopeKey`/`streamSequence`, which is the whole surface a producer uses; a real port satisfies it structurally, so nothing at the port boundary changes. It exists because the durable turn runtime consumes the same stream in-process — it reduces events into durable state rather than shipping them to a panel — and used to reach `handleChatWithModel` by casting a three-property object to `ChromePort`, asserting an `onMessage`, `onDisconnect`, `sender` and `disconnect()` that did not exist. `withErrorContext` is generic over the port type and still defaults to `ChromePort`, so handlers that genuinely need a connection keep it. The one remaining `as unknown as ChromePort` is in `port-router.ts`, adapting a real `browser.Runtime.Port`, and a boundary test keeps it the only one.
 
 ### Component layers
 
@@ -309,7 +372,9 @@ The set is `ControlledTextarea`, `ControlledNumberInput`, `ControlledSlider` —
 ### Testing
 
 - Vitest with `happy-dom` and `fake-indexeddb`. `src/test/setup.ts` mocks chrome APIs and IndexedDB.
-- Tests live in `src/**/__tests__/*.{test,spec}.{ts,tsx}` and `config/**/*.test.ts`.
+- Tests live in the nearest `__tests__` directory under `src/`, `packages/`,
+  `config/`, or `e2e/`. Do not place `*.test.*` or `*.spec.*` beside production
+  modules.
 - Single file: `pnpm test src/path/to/module.test.ts`.
 - Coverage excludes only test files and `.d.ts`. UI components, type modules, and barrels are included.
 - `@testing-library/user-event` is **not** a dependency — use `fireEvent`.
@@ -323,7 +388,11 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 | `components/forms/__tests__/react-hook-form-contract.test.ts` | no spread-`register` |
 | `lib/providers/__tests__/contract.test.ts` | provider list/stream parsing |
 | `config/__tests__/manifest-csp.test.ts` | no dev origin in a packaged CSP |
+| `config/__tests__/test-layout.test.ts` | every test/spec stays in a `__tests__` directory |
+| `config/__tests__/documentation-comments.test.ts` | module/declaration prose uses JSDoc instead of `//` blocks |
 | `lib/__tests__/browser-api-contract.test.ts` | guarded browser API access |
+| `lib/__tests__/architecture-boundaries.test.ts` | chat-history goes through the facade; SQLite internals stay out of UI; one SQLite engine ships |
+| `config/__tests__/wxt-build-config.test.ts` | which dev pages and WASM assets a store build carries |
 
 ### Lint and formatting
 
@@ -334,6 +403,10 @@ Biome, not ESLint/Prettier: 2-space indent, LF, double quotes, no semicolons (ex
 Biome also rewrites some Tailwind arbitrary values to canonical form (`row-end-[-1]` → `-row-end-1`) and enforces exhaustive hook dependencies, so a `deps.join()` trick will fail — memoize instead.
 
 ### Git hooks (`.husky`)
+
+Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
+release branch into `preview`, validate it there, then merge `preview` into
+`main`. Do not promote a release branch directly to `main`.
 
 - `pre-commit`: lint-staged (typecheck, `format:fix`, `lint:fix`, `test:related`) → `format:check` → `lint:check` → `typecheck`. **Does not run the full suite.**
 - `pre-push`: `pnpm test:run`.
@@ -374,7 +447,15 @@ What these files are *now*, so you neither go looking for a god-object that was 
 
 **Do not restructure incrementally:**
 
-- `src/features/chat/hooks/use-chat-turn-controller.ts` — owns turn lifecycle, streaming, abort, thinking, attachment handoff. Being redesigned wholesale in the from-scratch architecture rebuild (`FROM_SCRATCH_ARCHITECTURE_AUDIT.md`). Expect complexity; keep edits minimal and local. Keep `use-chat.ts` as wiring only.
+- `src/features/chat/hooks/use-chat-stream.ts` — owns port lifecycle, reconnect,
+  stop/finalization, stream presentation, and error UI. Its staged extraction is
+  tracked in `RELEASE_ROADMAP.md`; keep edits minimal and preserve the pure
+  `chat-stream-reducer.ts` seam.
+
+- `src/features/chat/hooks/use-chat-turn-controller.ts` — owns UI submission
+  preconditions, session/message preparation, and durable turn command
+  construction. Its boundary cleanup is tracked in `RELEASE_ROADMAP.md`. Keep
+  `use-chat.ts` as wiring only.
 
 **Open for incremental work:**
 
@@ -387,5 +468,7 @@ What these files are *now*, so you neither go looking for a god-object that was 
 - `src/features/sessions/stores/chat-session-store.ts` is a ~19-LOC barrel over extracted slices; persistence reads via `chat-history.ts`. The old ~485-LOC store is gone.
 - `src/features/model/components/provider-settings.tsx` delegates connection details and custom model editing to small components. Keep new slices similarly scoped and covered by component tests.
 - `src/contents/index.ts` is a ~38-LOC entry; selection-capture, dom-observer, and messaging are siblings.
+- `src/background/durable-turn-runtime.ts` is a ~82-LOC composition entry — `startDurableTurn`, the live-only context callbacks, and re-exports that keep its import path stable. The pieces live in `src/background/turns/`: `turn-observers.ts` (delivery state — attach, buffer, forward, snapshots, reconnect leases, and nothing else), `turn-generation.ts` (provider invocation, stream reduction, assistant persistence), `turn-reconnect.ts` (snapshot assembly for a returning panel), `turn-recovery.ts` (stop intent, interrupted cancellations, restart resumption), `turn-service-factory.ts` (adapter binding, split out so recovery can build a service without importing the entry that re-exports it). `architecture-boundaries.test.ts` enforces the split: the registry imports no repository, provider, application or handler module, and its maps exist in exactly one file. Put a new control in the piece that owns it, not back in the entry.
 - `src/types/index.ts` is a re-export barrel (~11 LOC) over `chat`, `model`, `messaging`, `errors`, `content-extraction`, `ui-state`. Prefer the per-domain path (`@/types/chat`).
+- `packages/contracts/src/chat.ts` is a ~31-LOC barrel over `chat-activity.ts` (retrieval sources, tool runs, activity events, metrics), `chat-attachments.ts`, `chat-replay.ts` and `chat-message.ts`. The `./chat` subpath export and the exported names are unchanged, so every consumer still imports from `@ollama-client/contracts/chat`; inside the package, import the part. Add a new schema to the part that owns the concept, and export it from the barrel only if it is public.
 - Dexie chat-history paths are retired. Vectors and knowledge sets still use Dexie; chat history is SQLite-only through the facade.

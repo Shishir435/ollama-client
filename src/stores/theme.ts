@@ -36,7 +36,7 @@ export const useThemeStore = create<ThemeState>()(
   )
 )
 
-// Listen for changes from other contexts (e.g. sidebar changing theme should update options page)
+/** Listen for changes from other contexts (e.g. sidebar changing theme should update options page) */
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "sync" && changes[STORAGE_KEYS.THEME.PREFERENCE]) {
     const newValue = changes[STORAGE_KEYS.THEME.PREFERENCE].newValue

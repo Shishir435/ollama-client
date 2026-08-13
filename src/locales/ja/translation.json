@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - Ollama、LM Studio、llama.cpp のローカル AI チャット",
+    "name": "Ollama Client - ローカル LLM モデルとチャット",
     "short_name": "Ollama Client",
-    "description": "Ollama、LM Studio、llama.cpp によるプライベートな LLM チャット。ローカル RAG、ウェブ検索、ページコンテキストに対応。",
+    "description": "Ollama、LM Studio、llama.cpp を使ったプライベートな LLM チャットとローカル RAG ワークフローのためのローカル優先 Chrome 拡張機能です。",
     "action_default_title": "Ollama Client を開く"
   },
   "selection_button": {
@@ -268,6 +268,18 @@
         "save_artifact": "ファイルを保存中",
         "capture_screenshot": "スクリーンショットを撮影中",
         "searches": "{{count}} 件の検索",
+        "rewriting_query": "クエリを書き換え中",
+        "page_context": "選択したページのコンテキストを読取中",
+        "searching_memory": "メモリを検索中",
+        "searching_context": "コンテキストを検索中",
+        "no_matching_page_chunks": "一致するページのチャンクはありません",
+        "no_matching_file_chunks": "一致するファイルのチャンクはありません",
+        "recalled_past_conversation": "過去の会話コンテキストを呼び出しました",
+        "no_matching_memory": "一致するメモリはありません",
+        "previous_conversation": "以前の会話",
+        "memory": "メモリ",
+        "results_one": "{{count}} 件の結果",
+        "results_other": "{{count}} 件の結果",
         "restoreSession": "閉じたタブを再度開いています",
         "list_reminders": "リマインダーを一覧表示",
         "cancel_reminder": "リマインダーをキャンセル中"
@@ -282,16 +294,17 @@
       "was_this_helpful": "役に立ちましたか？",
       "helpful_aria": "役に立った",
       "not_helpful_aria": "役に立たなかった",
-      "rag_source": "{{count}}件のRAGソース",
-      "rag_source_plural": "{{count}}件のRAGソース",
-      "view_retrieved": "{{count}}件の取得ソースを表示",
-      "view_retrieved_plural": "{{count}}件の取得ソースを表示",
+      "rag_source_one": "{{count}}件のRAGソース",
+      "rag_source_other": "{{count}}件のRAGソース",
+      "view_retrieved_one": "{{count}}件の取得ソースを表示",
+      "view_retrieved_other": "{{count}}件の取得ソースを表示",
       "retrieved_title": "取得ソース ({{count}})",
       "source_default": "ソース",
       "used_context_tooltip": "使用されたコンテキスト",
       "used_context_aria": "使用されたコンテキスト ({{count}})",
       "used_context_title": "使用されたコンテキスト ({{count}})",
       "tab_context_label": "タブコンテキスト ({{count}})",
+      "tab_context": "選択したタブのコンテキスト",
       "rag_context_label": "RAGコンテキスト ({{count}})",
       "char_counts": "タブ文字数: {{tab}} | RAG文字数: {{rag}}",
       "trimmed": "切り詰め済み",
@@ -534,7 +547,8 @@
       "refresh_tooltip": "モデルを更新",
       "search_placeholder": "モデルを検索...",
       "no_model_found": "モデルが見つかりません。",
-      "providers_unavailable": "{{names}} はモデルを返しませんでした。設定でプロバイダーを確認するか、モデルIDを手動で追加してください。"
+      "providers_unavailable": "{{names}} はモデルを返しませんでした。設定でプロバイダーを確認するか、モデルIDを手動で追加してください。",
+      "selection_conflict": "{{model}} を提供するプロバイダーが複数あります。1つ選んでください。"
     },
     "version": {
       "tooltip": "Providerバージョン: {{version}}"
@@ -1519,6 +1533,23 @@
         "add": "追加",
         "remove": "削除",
         "placeholder": "例：モデル名またはID"
+      },
+      "icon_lookup": {
+        "label": "プロバイダーのサイトアイコンを表示",
+        "description": "認識できないプロバイダーにアイコンを問い合わせ、見分けやすくします。接続先はそのプロバイダーのアドレスのみで、そこにアイコンがない場合は本体サイトまで。第三者のアイコンサービスは使いません。組み込みのロゴがあるプロバイダーには問い合わせません。"
+      },
+      "catalog_refresh": {
+        "label": "モデル一覧の更新",
+        "description": "開いているパネルがプロバイダーにモデル一覧を問い合わせる間隔です。モデルの取得・削除やプロバイダーの編集では即座に更新されるため、これは見ている間に立ち上がった／落ちたプロバイダーを捉えるためだけのものです。短くするほどリモートプロバイダーへの要求が増えます。",
+        "options": {
+          "0": "オフ",
+          "10000": "10 秒ごと",
+          "20000": "20 秒ごと",
+          "30000": "30 秒ごと",
+          "60000": "1 分ごと",
+          "120000": "2 分ごと",
+          "300000": "5 分ごと"
+        }
       }
     },
     "migration": {
@@ -1904,7 +1935,8 @@
       "provider_discovery": "Provider and model discovery",
       "migration": "Persistence migration",
       "dnr_rules": "Local provider CORS rule",
-      "turn_checkpoint": "Turn recovery checkpoints"
+      "turn_checkpoint": "Turn recovery checkpoints",
+      "turn_retention": "Durable turn retention"
     }
   },
   "onboarding": {

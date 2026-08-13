@@ -1,13 +1,3 @@
-import { DEFAULT_MODEL_LIBRARY_BASE_URL, STORAGE_KEYS } from "@/lib/constants"
-import { createAppError } from "@/lib/error-utils"
-import { logger } from "@/lib/logger"
-import { resolveModelConfig } from "@/lib/model-config-utils"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
-import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
-import { ProviderFactory } from "@/lib/providers/factory"
-import { ProviderManager } from "@/lib/providers/manager"
-import { assertProviderEnabled } from "@/lib/providers/provider-policy"
-import { ProviderId } from "@/lib/providers/types"
 import type {
   LoadedModel,
   ModelsGetDetailsRequest,
@@ -22,7 +12,17 @@ import type {
   ModelsUnloadResult,
   ModelsWarmupRequest,
   ModelsWarmupResult
-} from "@/protocol/model-rpc"
+} from "@ollama-client/contracts/model-rpc"
+import { DEFAULT_MODEL_LIBRARY_BASE_URL, STORAGE_KEYS } from "@/lib/constants"
+import { createAppError } from "@/lib/error-utils"
+import { logger } from "@/lib/logger"
+import { resolveModelConfig } from "@/lib/model-config-utils"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
+import { ProviderFactory } from "@/lib/providers/factory"
+import { ProviderManager } from "@/lib/providers/manager"
+import { assertProviderEnabled } from "@/lib/providers/provider-policy"
+import { ProviderId } from "@/lib/providers/types"
 import type { ModelConfigMap, ProviderModelDetails } from "@/types"
 
 /**
@@ -115,9 +115,7 @@ const normalizeLmStudioLoaded = (model: LmStudioModel): LoadedModel => ({
   quantizationLevel: model.quantization ?? ""
 })
 
-// ---------------------------------------------------------------------------
-// Warmup
-// ---------------------------------------------------------------------------
+/** Warmup */
 
 const warmupHistory = new Map<string, number>()
 

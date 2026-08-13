@@ -1,9 +1,11 @@
+import { useStorage } from "@plasmohq/storage/hook"
 import { CheckCircle2, Info, Loader2, Trash2, XCircle, Zap } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { StatusCallout } from "@/components/feedback"
 import { FieldStack, InlineActions, SectionStack } from "@/components/layout"
+import { SettingsControlCard, SettingsSwitch } from "@/components/settings"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,12 +26,26 @@ import {
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { MiniBadge } from "@/components/ui/mini-badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { AddProviderDialog } from "@/features/model/components/add-provider-dialog"
 import { ProviderConnectionFields } from "@/features/model/components/provider-connection-fields"
 import { ProviderCustomModels } from "@/features/model/components/provider-custom-models"
 import { ProviderGrid } from "@/features/model/components/provider-grid"
 import { useProviderSettingsState } from "@/features/model/hooks/use-provider-settings-state"
+import {
+  CATALOG_REFRESH_CHOICES_MS,
+  DEFAULT_CATALOG_REFRESH_MS,
+  normalizeCatalogRefreshMs
+} from "@/features/model/lib/catalog-refresh"
+import { STORAGE_KEYS } from "@/lib/constants"
+import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { isBetaProvider } from "@/lib/providers/registry"
 import { ProviderId } from "@/lib/providers/types"
 import { cn } from "@/lib/utils"
@@ -54,11 +70,26 @@ export const ProviderSettings = () => {
     handleTestConnection,
     handleSave,
     updateConfig,
+    setCustomModels,
     setProviderEnabled,
     addProvider,
     removeProvider
   } = useProviderSettingsState()
   const [addOpen, setAddOpen] = useState(false)
+  const [iconLookup, setIconLookup] = useStorage<boolean>(
+    {
+      key: STORAGE_KEYS.PROVIDER.FAVICON_LOOKUP,
+      instance: plasmoGlobalStorage
+    },
+    true
+  )
+  const [catalogRefreshMs, setCatalogRefreshMs] = useStorage<number>(
+    {
+      key: STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_CATALOG_REFRESH_MS
+  )
   const [pendingRemoval, setPendingRemoval] = useState<{
     id: string
     name: string
@@ -84,6 +115,49 @@ export const ProviderSettings = () => {
           onAdd={() => setAddOpen(true)}
         />
       </div>
+
+      <SettingsSwitch
+        id="provider-icon-lookup"
+        label={t("settings.providers.icon_lookup.label")}
+        description={t("settings.providers.icon_lookup.description")}
+        checked={iconLookup}
+        onCheckedChange={setIconLookup}
+      />
+
+      <SettingsControlCard
+        id="provider-catalog-refresh"
+        label={t("settings.providers.catalog_refresh.label")}
+        description={t("settings.providers.catalog_refresh.description")}
+        control={
+          <Select
+            // The same normalization the queries poll on, so a value synced
+            // from another device cannot leave the trigger blank or disagree
+            // with the interval actually in force.
+            value={String(normalizeCatalogRefreshMs(catalogRefreshMs))}
+            onValueChange={(next) => {
+              if (next !== null) {
+                setCatalogRefreshMs(normalizeCatalogRefreshMs(Number(next)))
+              }
+            }}>
+            <SelectTrigger id="provider-catalog-refresh" className="w-48">
+              <SelectValue>
+                {() =>
+                  t(
+                    `settings.providers.catalog_refresh.options.${normalizeCatalogRefreshMs(catalogRefreshMs)}`
+                  )
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {CATALOG_REFRESH_CHOICES_MS.map((option) => (
+                <SelectItem key={option} value={String(option)}>
+                  {t(`settings.providers.catalog_refresh.options.${option}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+      />
 
       <AddProviderDialog
         open={addOpen}
@@ -206,7 +280,7 @@ export const ProviderSettings = () => {
               {activeConfig.id !== ProviderId.OLLAMA && (
                 <ProviderCustomModels
                   activeConfig={activeConfig}
-                  updateConfig={updateConfig}
+                  onChange={setCustomModels}
                 />
               )}
             </FieldStack>

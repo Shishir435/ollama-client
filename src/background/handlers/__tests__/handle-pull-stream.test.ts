@@ -1,24 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { clearAbortController } from "@/background/lib/abort-controller-registry"
-import { handlePullStream } from "../handle-pull-stream"
-
-// Mock dependencies
-vi.mock("@/background/lib/abort-controller-registry", () => ({
-  clearAbortController: vi.fn()
-}))
-
-vi.mock("@/background/lib/utils", () => ({
-  getPullAbortControllerKey: vi.fn().mockReturnValue("key"),
-  // safePostMessage is NOT mocked, so it uses the real implementation which calls port.postMessage
-  safePostMessage: vi.fn().mockImplementation(async (port, message) => {
-    console.log("safePostMessage called with:", message)
-    try {
-      port.postMessage(message)
-    } catch (e) {
-      console.log("safePostMessage error:", e)
-    }
-  })
-}))
+import { consumePullStream } from "../handle-pull-stream"
 
 describe("Handle Pull Stream", () => {
   const mockPort = {
@@ -32,6 +13,12 @@ describe("Handle Pull Stream", () => {
     vi.clearAllMocks()
     isPortClosed.mockReturnValue(false)
   })
+
+  const consume = (response: Response) =>
+    consumePullStream(response, {
+      isCancelled: isPortClosed,
+      onEvent: (event) => mockPort.postMessage(event)
+    })
 
   const createMockResponseWithReader = (chunks: string[]) => {
     console.log("Creating mock response with chunks:", chunks)
@@ -79,27 +66,37 @@ describe("Handle Pull Stream", () => {
     ]
     const res = createMockResponseWithReader(chunks)
 
-    await handlePullStream(res, mockPort, isPortClosed, "llama2")
+    await consume(res)
 
     expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_progress",
       status: "pulling manifest"
     })
     expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_progress",
       status: "Downloading: 10%",
       progress: 10
     })
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ done: true })
-    expect(clearAbortController).toHaveBeenCalled()
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_complete",
+      status: "success"
+    })
   })
 
   it("should handle stream errors", async () => {
     const chunks = [`${JSON.stringify({ error: "Pull failed" })}\n`]
     const res = createMockResponseWithReader(chunks)
 
-    await handlePullStream(res, mockPort, isPortClosed, "llama2")
+    await consume(res)
 
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ error: "Pull failed" })
-    expect(clearAbortController).toHaveBeenCalled()
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_error",
+      failure: { status: 0, message: "Pull failed" }
+    })
   })
 
   it("should handle port closed during stream", async () => {
@@ -124,7 +121,7 @@ describe("Handle Pull Stream", () => {
       }
     } as unknown as Response
 
-    await handlePullStream(res, mockPort, isPortClosed, "llama2")
+    await consume(res)
 
     expect(reader.cancel).toHaveBeenCalled()
   })
@@ -136,9 +133,13 @@ describe("Handle Pull Stream", () => {
 
     const res = createMockResponseWithReader([part1, part2])
 
-    await handlePullStream(res, mockPort, isPortClosed, "llama2")
+    await consume(res)
 
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ done: true })
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_complete",
+      status: "success"
+    })
   })
 
   it("should ignore empty lines", async () => {
@@ -147,9 +148,13 @@ describe("Handle Pull Stream", () => {
       `${JSON.stringify({ status: "success" })}\n`
     ])
 
-    await handlePullStream(res, mockPort, isPortClosed, "llama2")
+    await consume(res)
 
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ done: true })
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_complete",
+      status: "success"
+    })
   })
 
   it("should handle invalid JSON gracefully", async () => {
@@ -159,9 +164,13 @@ describe("Handle Pull Stream", () => {
     ])
     const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
 
-    await handlePullStream(res, mockPort, isPortClosed, "llama2")
+    await consume(res)
 
     expect(consoleSpy).toHaveBeenCalled()
-    expect(mockPort.postMessage).toHaveBeenCalledWith({ done: true })
+    expect(mockPort.postMessage).toHaveBeenCalledWith({
+      version: 1,
+      type: "model_pull_complete",
+      status: "success"
+    })
   })
 })

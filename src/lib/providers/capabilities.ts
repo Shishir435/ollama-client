@@ -106,21 +106,23 @@ export interface ModelCapabilityInput {
   } | null
 }
 
-// LM Studio /api/v0/models model `type` values.
+/** LM Studio /api/v0/models model `type` values. */
 const LM_STUDIO_TYPE_VLM = "vlm"
 const LM_STUDIO_TYPE_EMBEDDINGS = "embeddings"
 
-// LM Studio /api/v0/models `capabilities[]` tag.
-//
-// "tool_use" is the only value a live server was observed to emit, and the
-// vocabulary demonstrably does not cover reasoning: `qwen3-4b-thinking-2507`
-// reports exactly ["tool_use"] while streaming `reasoning_content`, as does
-// `gemma-4-12b`. So this list is evidence about tool calling only — the absence
-// of a tag says nothing about any other capability, and reasoning must stay
-// unknown here so a probe or override can settle it.
+/**
+ * LM Studio /api/v0/models `capabilities[]` tag.
+ *
+ * "tool_use" is the only value a live server was observed to emit, and the
+ * vocabulary demonstrably does not cover reasoning: `qwen3-4b-thinking-2507`
+ * reports exactly ["tool_use"] while streaming `reasoning_content`, as does
+ * `gemma-4-12b`. So this list is evidence about tool calling only — the absence
+ * of a tag says nothing about any other capability, and reasoning must stay
+ * unknown here so a probe or override can settle it.
+ */
 const LM_STUDIO_CAP_TOOL_USE = "tool_use"
 
-// Ollama /api/show capability tag → normalized capability.
+/** Ollama /api/show capability tag → normalized capability. */
 const OLLAMA_CAP_COMPLETION = "completion"
 const OLLAMA_CAP_INSERT = "insert"
 const OLLAMA_CAP_VISION = "vision"

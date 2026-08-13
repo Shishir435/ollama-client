@@ -1,28 +1,46 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { ImportResult } from "../protocol"
+import type { ImportResult, SurveyResult } from "../protocol"
 
 // Migration verification and its receipt. Each test re-imports owner-host,
 // because `ensureMigrated` memoizes the attempt for the life of the module —
 // the same reason a real owner runs it once per host.
 
 const legacyBlob = vi.hoisted(() => ({
-  readLegacyBlobBytes: vi.fn(),
-  countLegacyRows: vi.fn()
+  readLegacyBlobBytes: vi.fn()
 }))
 vi.mock("../legacy-blob-reader", () => legacyBlob)
 
 const importResults: ImportResult[] = []
+/** Queued `surveyDb` answers; falls back to a sound survey of the fixture. */
+const surveyResults: SurveyResult[] = []
+
+/** Every op the host sent the worker, in order. */
+const workerOps: { op?: string; backend?: string }[] = []
 
 class StubWorker {
   onmessage: ((event: { data: unknown }) => void) | null = null
   onerror: ((event: unknown) => void) | null = null
   onmessageerror: ((event: unknown) => void) | null = null
 
-  postMessage(payload: { id?: number; request?: { op?: string } }) {
+  postMessage(payload: {
+    id?: number
+    request?: { op?: string; backend?: string }
+  }) {
     if (typeof payload.id !== "number") return
     const { id } = payload
     const op = payload.request?.op
+    if (payload.request) workerOps.push(payload.request)
     queueMicrotask(() => {
+      if (op === "surveyDb") {
+        this.onmessage?.({
+          data: {
+            id,
+            ok: true,
+            result: surveyResults.shift() ?? sourceSurvey
+          }
+        })
+        return
+      }
       if (op === "importDb") {
         const result = importResults.shift()
         this.onmessage?.({
@@ -62,6 +80,9 @@ const importedTables = {
   files: 0,
   kv_store: 0,
   tool_loop_runs: 0,
+  turn_runs: 0,
+  ingestion_runs: 0,
+  model_pull_runs: 0,
   chunk_feedback: 0
 }
 
@@ -85,12 +106,12 @@ describe("legacy-blob migration verification", () => {
   beforeEach(() => {
     store.clear()
     importResults.length = 0
+    surveyResults.length = 0
+    workerOps.length = 0
     legacyBlob.readLegacyBlobBytes.mockReset()
-    legacyBlob.countLegacyRows.mockReset()
     legacyBlob.readLegacyBlobBytes.mockResolvedValue(
       Uint8Array.from([1, 2, 3, 4])
     )
-    legacyBlob.countLegacyRows.mockResolvedValue(sourceSurvey)
     vi.mocked(chrome.storage.local.get as never as ReturnType<typeof vi.fn>)
       .mockReset()
       .mockImplementation(async (key: string) =>
@@ -139,11 +160,17 @@ describe("legacy-blob migration verification", () => {
     )
     const { ensureMigrated } = await loadHost()
 
-    await expect(ensureMigrated()).rejects.toThrow(
-      "Migration verification failed: prompt_templates short by 1"
-    )
+    // Resolves rather than rejects. A verification failure is not the owner
+    // failing to start: the marker stays on "legacy", the blob is untouched,
+    // and the owner is told to serve from it. It used to reject and take every
+    // RPC with it, which left each client to open its own database against the
+    // same blob.
+    await expect(ensureMigrated()).resolves.toBeUndefined()
 
     expect(store.has(BACKEND_KEY)).toBe(false)
+    expect(workerOps).toContainEqual(
+      expect.objectContaining({ op: "setBackend", backend: "legacy" })
+    )
     expect(receipt()).toMatchObject({
       outcome: "failed",
       failure: expect.stringContaining("prompt_templates short by 1"),
@@ -151,10 +178,36 @@ describe("legacy-blob migration verification", () => {
     })
   })
 
+  it("hands the source's integrity verdict to the legacy open", async () => {
+    // The survey already scanned this exact image. Passing the verdict along is
+    // what stops the legacy open repeating a full scan on the same boot.
+    surveyResults.push({
+      ...sourceSurvey,
+      integrity: {
+        integrityCheck: "Page 4 is never used",
+        foreignKeyViolations: 0
+      }
+    })
+    const { ensureMigrated } = await loadHost()
+
+    await expect(ensureMigrated()).resolves.toBeUndefined()
+
+    expect(workerOps).toContainEqual(
+      expect.objectContaining({
+        op: "setBackend",
+        backend: "legacy",
+        integrity: {
+          integrityCheck: "Page 4 is never used",
+          foreignKeyViolations: 0
+        }
+      })
+    )
+  })
+
   it("records an import failure the worker reported", async () => {
     const { ensureMigrated } = await loadHost()
 
-    await expect(ensureMigrated()).rejects.toThrow("no stubbed import result")
+    await expect(ensureMigrated()).resolves.toBeUndefined()
 
     expect(store.has(BACKEND_KEY)).toBe(false)
     expect(receipt()).toMatchObject({
@@ -171,7 +224,7 @@ describe("legacy-blob migration verification", () => {
     )
 
     const first = await loadHost()
-    await expect(first.ensureMigrated()).rejects.toThrow()
+    await expect(first.ensureMigrated()).resolves.toBeUndefined()
     expect(receipt()).toMatchObject({ outcome: "failed", attempts: 1 })
 
     const second = await loadHost()

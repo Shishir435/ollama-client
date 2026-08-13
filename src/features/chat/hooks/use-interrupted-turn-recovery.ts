@@ -18,11 +18,9 @@ const STALE_MS = 20_000
  * (persisted as `done=0`), marking them done + interrupted so the UI offers a
  * retry.
  *
- * Ownership is enforced entirely by the finalize query's staleness filter — a
- * row is only finalized if it has not been written within `STALE_MS`, and
- * streaming writes bump every row's `updatedAt` ~every second. So a turn that
- * is actively streaming in ANOTHER window is never touched (its row is fresh),
- * and there is no separate liveness check to race against the finalize.
+ * Ownership is enforced by the finalize query. Rows owned by incomplete
+ * durable turn/checkpoint records are excluded; legacy streams rely on the
+ * staleness window and their UI liveness beat.
  *
  * Runs at mount and once more after `STALE_MS`: the second pass recovers a
  * turn that was still streaming at mount (so too fresh to finalize then) but

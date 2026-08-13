@@ -110,6 +110,21 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "Whether a provider publishes a model catalog describes the server this device's base URL reaches."
   },
+  [STORAGE_KEYS.PROVIDER.FAVICON_LOOKUP]: {
+    key: STORAGE_KEYS.PROVIDER.FAVICON_LOOKUP,
+    scope: "sync-safe",
+    reason: "Network-privacy preference; should follow the user."
+  },
+  [STORAGE_KEYS.PROVIDER.FAVICON_CACHE]: {
+    key: STORAGE_KEYS.PROVIDER.FAVICON_CACHE,
+    scope: "device-local",
+    reason: "Device-scoped icons, too large for the sync quota."
+  },
+  [STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS]: {
+    key: STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS,
+    scope: "sync-safe",
+    reason: "Network-frequency preference; should follow the user."
+  },
   [STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES]: {
     key: STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES,
     scope: "sync-safe",

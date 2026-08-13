@@ -1,6 +1,6 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { type LucideIcon, Power, RefreshCcw, Settings } from "lucide-react"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import { RpcMethod } from "@/protocol/rpc"
 import type { ChatMessage } from "@/types"
 import type { AppErrorRecoveryAction } from "@/types/errors"
 

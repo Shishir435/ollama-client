@@ -82,11 +82,13 @@ const requestLiveSqliteFlush = async (): Promise<void> => {
   }
 }
 
-// Deleting a Dexie database while another context (an open sidepanel) holds a
-// connection blocks the delete and surfaces "Another connection wants to
-// delete database" warnings on the extensions page. Ask every context —
-// including this one — to close its handles first; the post-import
-// runtime.reload() reopens everything fresh.
+/**
+ * Deleting a Dexie database while another context (an open sidepanel) holds a
+ * connection blocks the delete and surfaces "Another connection wants to
+ * delete database" warnings on the extensions page. Ask every context —
+ * including this one — to close its handles first; the post-import
+ * runtime.reload() reopens everything fresh.
+ */
 const reopenDexieConnectionsEverywhere = async (): Promise<void> => {
   try {
     await browser.runtime.sendMessage({ type: MESSAGE_KEYS.APP.REOPEN_DEXIE })

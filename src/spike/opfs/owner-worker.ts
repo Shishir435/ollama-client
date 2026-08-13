@@ -11,10 +11,12 @@ import type {
   OwnerOp
 } from "./owner-protocol"
 
-// Section 9.4 spike phase 2: the single database-owner worker. Hosted by the
-// offscreen document only — no other context may open this database. The
-// database handle stays open for the worker's lifetime; a terminated worker
-// mid-transaction must roll back via the journal on the next open (gate 5).
+/**
+ * Section 9.4 spike phase 2: the single database-owner worker. Hosted by the
+ * offscreen document only — no other context may open this database. The
+ * database handle stays open for the worker's lifetime; a terminated worker
+ * mid-transaction must roll back via the journal on the next open (gate 5).
+ */
 
 const DB_PATH = "/spike-owner.sqlite"
 
@@ -40,10 +42,12 @@ interface WorkerRequest {
   payload?: unknown
 }
 
-// The host fetches the wasm and hands the bytes over before the first op.
-// Fetching inside the worker is not portable: Firefox MV2 worker chunks get
-// the ?url asset inlined as a giant data: URL, which Emscripten's streaming
-// fetch rejects with NetworkError.
+/**
+ * The host fetches the wasm and hands the bytes over before the first op.
+ * Fetching inside the worker is not portable: Firefox MV2 worker chunks get
+ * the ?url asset inlined as a giant data: URL, which Emscripten's streaming
+ * fetch rejects with NetworkError.
+ */
 interface InitMessage {
   op: "init"
   wasmBinary: ArrayBuffer
@@ -237,9 +241,11 @@ const processRequest = async (request: WorkerRequest): Promise<void> => {
   }
 }
 
-// The owner serializes all database operations through one chain — async
-// handlers would otherwise interleave at await points and break the
-// single-writer ordering the topology exists to guarantee.
+/**
+ * The owner serializes all database operations through one chain — async
+ * handlers would otherwise interleave at await points and break the
+ * single-writer ordering the topology exists to guarantee.
+ */
 let operationChain: Promise<void> = Promise.resolve()
 
 self.onmessage = (event: MessageEvent<WorkerRequest | InitMessage>) => {

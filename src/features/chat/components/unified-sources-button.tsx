@@ -9,6 +9,7 @@ import {
 type UsedChunk = {
   id: string | number
   title: string
+  titleKey?: string
   excerpt: string
   score: number
   sectionPath?: string
@@ -39,11 +40,17 @@ export function UnifiedSourcesButton({
   feedbackEnabled = true
 }: UnifiedSourcesButtonProps) {
   const { t } = useTranslation()
+  /**
+   * App-generated chunk titles (the tab fallback) persist a `titleKey`; titles
+   * read from user content have none and render as stored.
+   */
+  const chunkTitle = (chunk: UsedChunk) =>
+    chunk.titleKey ? t(chunk.titleKey) : chunk.title
   const pageItems: SourceItem[] = usedContextChunks
     .filter((chunk) => chunk.source !== "rag")
     .map((chunk) => ({
       id: `page-${chunk.id}-${chunk.chunkIndex ?? 0}`,
-      title: chunk.title,
+      title: chunkTitle(chunk),
       content: chunk.excerpt,
       score: chunk.score,
       sectionPath: chunk.sectionPath,
@@ -65,7 +72,7 @@ export function UnifiedSourcesButton({
           .map((chunk) => ({
             id: `knowledge-${chunk.id}-${chunk.chunkIndex ?? 0}`,
             chunkId: chunk.id,
-            title: chunk.title,
+            title: chunkTitle(chunk),
             content: chunk.excerpt,
             score: chunk.score,
             sectionPath: chunk.sectionPath,

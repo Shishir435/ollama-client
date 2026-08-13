@@ -1,24 +1,28 @@
+import type { ToolLoopState } from "@ollama-client/chat-runtime/tool-loop-runtime"
+import {
+  type ToolLoopMode as ContractToolLoopMode,
+  type ToolLoopRunStatus as ContractToolLoopRunStatus,
+  type DurableToolLoopStateParsed,
+  DurableToolLoopStateSchema,
+  ToolLoopCheckpointEnvelopeSchema
+} from "@ollama-client/contracts/tool-loop"
+import { z } from "zod"
+import { createAppError } from "@/lib/error-utils"
 import { flushSave, query, run } from "@/lib/sqlite/db"
 import type { ToolCall } from "@/lib/tools"
 import type { ChatMessage, ToolRun } from "@/types"
+import { toRuntimeChatMessage } from "@/types/chat.schemas"
+import { decodeRow, type RowDecodeContext } from "./row-decoder"
 
-export type ToolLoopMode = "native" | "native-user-results" | "non-native"
-export type ToolLoopRunStatus = "running" | "awaiting-confirmation"
+export type ToolLoopMode = ContractToolLoopMode
+export type ToolLoopRunStatus = ContractToolLoopRunStatus
 
-export interface DurableToolLoopState {
-  iteration: number
-  phase: "model" | "tools"
-  /** Advances whenever web/page/document-derived tool output enters context. */
-  taintGeneration?: number
-  workingMessages: ChatMessage[]
-  toolRuns: ToolRun[]
-  pendingToolCalls?: ToolCall[]
-  nextToolIndex?: number
-  toolResultMessages?: ChatMessage[]
-  imageMessages?: ChatMessage[]
-  nonNativeResponseParts?: string[]
-  lastMetrics?: ChatMessage["metrics"]
-}
+export type DurableToolLoopState = ToolLoopState<
+  ChatMessage,
+  ToolRun,
+  ToolCall,
+  ChatMessage["metrics"]
+>
 
 export interface DurableToolLoopRun {
   requestId: string
@@ -31,27 +35,83 @@ export interface DurableToolLoopRun {
   updatedAt: number
 }
 
-interface ToolLoopRunRow {
-  requestId: string
-  sessionId: string | null
-  model: string
-  providerId: string | null
-  mode: string
-  status: string
-  state: string
-  updatedAt: number
+const TABLE: RowDecodeContext = {
+  table: "tool_loop_runs",
+  operation: "read"
 }
 
-const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun | null => {
+const invalidCheckpoint = (cause: unknown) =>
+  createAppError("Stored tool-loop checkpoint is invalid", {
+    kind: "storage",
+    phase: "persistence",
+    userMessage:
+      "This interrupted tool run could not be resumed safely. Retry the turn.",
+    retryable: true,
+    recoveryAction: "retry",
+    cause
+  })
+
+/**
+ * The stored row. Mode and status are validated here rather than by a hand
+ * written chain of inequalities in `parseRow` — same rejection, one place, and
+ * the enum members stay next to the columns they describe.
+ */
+const ToolLoopRunRowSchema = z.object({
+  requestId: z.string(),
+  sessionId: z.string().nullable(),
+  model: z.string(),
+  providerId: z.string().nullable(),
+  mode: z.enum(["native", "native-user-results", "non-native"]),
+  status: z.enum(["running", "awaiting-confirmation"]),
+  state: z.string(),
+  updatedAt: z.number()
+})
+
+type ToolLoopRunRow = z.infer<typeof ToolLoopRunRowSchema>
+
+/**
+ * Normalize a parsed checkpoint into the shape the runtime actually uses.
+ *
+ * The gap is attachment bytes, and it is not hypothetical: a checkpoint is
+ * stored with `JSON.stringify`, and that turns a `Uint8Array` into an
+ * index-keyed object (`{"0":1,"1":2}`). The schema accepts that — it has to,
+ * or a restored checkpoint would not validate — while `ChatMessage` requires a
+ * real `Uint8Array`. Casting across the two said the bytes were already a typed
+ * array, so a resumed tool loop carrying an attachment handed everything
+ * downstream a plain object wearing a `Uint8Array` type.
+ *
+ * `toRuntimeChatMessage` is the same adapter the durable turn request uses for
+ * exactly this reason.
+ */
+const toRuntimeToolLoopState = (
+  state: DurableToolLoopStateParsed
+): DurableToolLoopState => {
+  // Destructured rather than spread-and-override: a spread of the parsed state
+  // keeps contributing the parsed message types, and the override would union
+  // with them instead of replacing them.
+  const { workingMessages, toolResultMessages, imageMessages, ...rest } = state
+  return {
+    ...rest,
+    workingMessages: workingMessages.map(toRuntimeChatMessage),
+    ...(toolResultMessages
+      ? { toolResultMessages: toolResultMessages.map(toRuntimeChatMessage) }
+      : {}),
+    ...(imageMessages
+      ? { imageMessages: imageMessages.map(toRuntimeChatMessage) }
+      : {})
+  }
+}
+
+const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun => {
   try {
-    if (
-      (row.mode !== "native" &&
-        row.mode !== "native-user-results" &&
-        row.mode !== "non-native") ||
-      (row.status !== "running" && row.status !== "awaiting-confirmation")
-    ) {
-      return null
-    }
+    const decoded: unknown = JSON.parse(row.state)
+    // Rows written before checkpoint versioning stored state directly. Keep
+    // that one compatibility shape, but validate it through the same schema.
+    const parsed =
+      decoded && typeof decoded === "object" && "version" in decoded
+        ? ToolLoopCheckpointEnvelopeSchema.parse(decoded).state
+        : DurableToolLoopStateSchema.parse(decoded)
+    const stateCandidate = toRuntimeToolLoopState(parsed)
     return {
       requestId: row.requestId,
       sessionId: row.sessionId ?? undefined,
@@ -59,22 +119,27 @@ const parseRow = (row: ToolLoopRunRow): DurableToolLoopRun | null => {
       providerId: row.providerId ?? undefined,
       mode: row.mode,
       status: row.status,
-      state: JSON.parse(row.state) as DurableToolLoopState,
+      state: stateCandidate,
       updatedAt: row.updatedAt
     }
-  } catch {
-    return null
+  } catch (cause) {
+    throw invalidCheckpoint(cause)
   }
 }
 
 export const getToolLoopRun = async (
   requestId: string
 ): Promise<DurableToolLoopRun | null> => {
-  const rows = (await query(
+  const rows = await query(
     "SELECT requestId, sessionId, model, providerId, mode, status, state, updatedAt FROM tool_loop_runs WHERE requestId = ?",
     [requestId]
-  )) as unknown as ToolLoopRunRow[]
-  return rows[0] ? parseRow(rows[0]) : null
+  )
+  if (!rows[0]) return null
+  const row = decodeRow(ToolLoopRunRowSchema, rows[0], TABLE)
+  // A checkpoint that will not decode is reported, not skipped: the caller is
+  // mid-resume and has to be told the turn cannot be continued safely.
+  if (!row) throw invalidCheckpoint(new Error("Stored row shape is invalid"))
+  return parseRow(row)
 }
 
 /**
@@ -103,7 +168,7 @@ export const saveToolLoopRun = async (
       value.providerId ?? null,
       value.mode,
       value.status,
-      JSON.stringify(value.state),
+      JSON.stringify({ version: 1, state: value.state }),
       value.updatedAt
     ]
   )

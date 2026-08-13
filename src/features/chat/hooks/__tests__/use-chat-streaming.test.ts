@@ -157,6 +157,37 @@ describe("useChatStreaming", () => {
     )
   })
 
+  it("keeps durable stream persistence background-owned", async () => {
+    const { options, spies } = mkOptions()
+    const { result } = renderHook(() => useChatStreaming(options))
+    result.current.currentStreamingMessageIdRef.current = 31
+    result.current.startStream({
+      durableTurn: {}
+    } as Parameters<typeof result.current.startStream>[0])
+
+    await capturedSetMessages?.([{ id: 31, content: "partial", done: false }])
+    await vi.advanceTimersByTimeAsync(16_000)
+
+    expect(spies.updateMessage).toHaveBeenCalledTimes(1)
+    expect(spies.updateMessage).toHaveBeenCalledWith(
+      31,
+      expect.objectContaining({ content: "partial", done: false }),
+      true
+    )
+    expect(touchMessageActivity).not.toHaveBeenCalled()
+
+    await capturedSetMessages?.([{ id: 31, content: "complete", done: true }])
+    expect(spies.updateMessage).toHaveBeenCalledTimes(2)
+    expect(
+      spies.updateMessage.mock.calls.filter((call) => call[2] === false)
+    ).toHaveLength(0)
+    expect(embedMessages).toHaveBeenCalledWith(
+      [{ id: 31, content: "complete", done: true }],
+      "s1",
+      false
+    )
+  })
+
   it("beats liveness on a timer while streaming and stops when done", async () => {
     const { options } = mkOptions()
     const { result } = renderHook(() => useChatStreaming(options))

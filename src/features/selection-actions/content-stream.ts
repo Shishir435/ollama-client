@@ -1,4 +1,5 @@
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { STREAM_PROTOCOL_VERSION } from "@/protocol/streams/version"
 import { type SelectionCapture, toSelectionPayload } from "./dom"
 import type {
   SelectionOverlayEvent,
@@ -11,6 +12,7 @@ export function stopSelectionStream(port: chrome.runtime.Port | null) {
   if (!port) return null
 
   port.postMessage({
+    version: STREAM_PROTOCOL_VERSION,
     type: MESSAGE_KEYS.PROVIDER.CANCEL_SELECTION_ACTION
   })
   port.disconnect()

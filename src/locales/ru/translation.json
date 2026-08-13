@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - локальный AI-чат с Ollama, LM Studio, llama.cpp",
+    "name": "Ollama Client - чат с локальными LLM-моделями",
     "short_name": "Ollama Client",
-    "description": "Приватный чат с LLM через Ollama, LM Studio и llama.cpp: локальный RAG, веб-поиск и контекст страницы.",
+    "description": "Локальное расширение Chrome для приватного чата с LLM через Ollama, LM Studio и llama.cpp, включая локальные RAG-процессы.",
     "action_default_title": "Открыть Ollama Client"
   },
   "selection_button": {
@@ -268,6 +268,20 @@
         "save_artifact": "Сохранение файла",
         "capture_screenshot": "Создание снимка экрана",
         "searches": "{{count}} запросов",
+        "rewriting_query": "Переформулирование запроса",
+        "page_context": "Чтение контекста выбранной страницы",
+        "searching_memory": "Поиск в памяти",
+        "searching_context": "Поиск контекста",
+        "no_matching_page_chunks": "Подходящие фрагменты страницы не найдены",
+        "no_matching_file_chunks": "Подходящие фрагменты файлов не найдены",
+        "recalled_past_conversation": "Найден контекст прошлых разговоров",
+        "no_matching_memory": "Подходящие воспоминания не найдены",
+        "previous_conversation": "Предыдущий разговор",
+        "memory": "Память",
+        "results_one": "{{count}} результат",
+        "results_few": "{{count}} результата",
+        "results_many": "{{count}} результатов",
+        "results_other": "{{count}} результата",
         "restoreSession": "Открываю закрытую вкладку",
         "list_reminders": "Список напоминаний",
         "cancel_reminder": "Отмена напоминания"
@@ -282,16 +296,21 @@
       "was_this_helpful": "Это было полезно?",
       "helpful_aria": "Полезно",
       "not_helpful_aria": "Не полезно",
-      "rag_source": "{{count}} источник RAG",
-      "rag_source_plural": "{{count}} источников RAG",
-      "view_retrieved": "Просмотреть {{count}} полученный источник",
-      "view_retrieved_plural": "Просмотреть {{count}} полученных источников",
+      "rag_source_one": "{{count}} источник RAG",
+      "rag_source_few": "{{count}} источника RAG",
+      "rag_source_many": "{{count}} источников RAG",
+      "rag_source_other": "{{count}} источника RAG",
+      "view_retrieved_one": "Просмотреть {{count}} полученный источник",
+      "view_retrieved_few": "Просмотреть {{count}} полученных источника",
+      "view_retrieved_many": "Просмотреть {{count}} полученных источников",
+      "view_retrieved_other": "Просмотреть {{count}} полученных источника",
       "retrieved_title": "Полученные источники ({{count}})",
       "source_default": "Источник",
       "used_context_tooltip": "Использованный контекст",
       "used_context_aria": "Использованный контекст ({{count}})",
       "used_context_title": "Использованный контекст ({{count}})",
       "tab_context_label": "Контекст вкладки ({{count}})",
+      "tab_context": "Контекст выбранной вкладки",
       "rag_context_label": "Контекст RAG ({{count}})",
       "char_counts": "симв. вкладки: {{tab}} | симв. RAG: {{rag}}",
       "trimmed": "обрезано",
@@ -534,7 +553,8 @@
       "refresh_tooltip": "Обновить модели",
       "search_placeholder": "Поиск модели...",
       "no_model_found": "Модель не найдена.",
-      "providers_unavailable": "{{names}} не вернул моделей. Проверьте провайдера в настройках или добавьте идентификаторы моделей вручную."
+      "providers_unavailable": "{{names}} не вернул моделей. Проверьте провайдера в настройках или добавьте идентификаторы моделей вручную.",
+      "selection_conflict": "Выберите провайдера для {{model}} — её предоставляют несколько."
     },
     "version": {
       "tooltip": "Версия Provider: {{version}}"
@@ -1116,7 +1136,9 @@
     "loaded_models": {
       "title": "Загруженные модели",
       "count_one": "{{count}} модель",
-      "count_other": "{{count}} моделей",
+      "count_few": "{{count}} модели",
+      "count_many": "{{count}} моделей",
+      "count_other": "{{count}} модели",
       "refresh_tooltip": "Обновить загруженные модели",
       "no_models_title": "В памяти сейчас нет загруженных моделей",
       "no_models_description": "Модели появятся здесь после загрузки.",
@@ -1519,6 +1541,23 @@
         "add": "Добавить",
         "remove": "Удалить",
         "placeholder": "например, имя или ID модели"
+      },
+      "icon_lookup": {
+        "label": "Показывать значки сайтов провайдеров",
+        "description": "Запрашивает значок у нераспознанного провайдера, чтобы их было легче различать. Запрос идёт только на адрес самого провайдера — и на его основной сайт, если по адресу значка нет, — и никогда на сторонний сервис значков. Провайдеров со встроенным логотипом не запрашивают."
+      },
+      "catalog_refresh": {
+        "label": "Обновление списка моделей",
+        "description": "Как часто открытая панель заново запрашивает у провайдеров списки моделей. Загрузка, удаление или изменение провайдера обновляет список сразу же, так что это ловит лишь провайдера, который поднялся или отключился у вас на глазах. Меньшие значения — больше запросов к удалённым провайдерам.",
+        "options": {
+          "0": "Выключено",
+          "10000": "Каждые 10 секунд",
+          "20000": "Каждые 20 секунд",
+          "30000": "Каждые 30 секунд",
+          "60000": "Каждую минуту",
+          "120000": "Каждые 2 минуты",
+          "300000": "Каждые 5 минут"
+        }
       }
     },
     "migration": {
@@ -1904,7 +1943,8 @@
       "provider_discovery": "Provider and model discovery",
       "migration": "Persistence migration",
       "dnr_rules": "Local provider CORS rule",
-      "turn_checkpoint": "Turn recovery checkpoints"
+      "turn_checkpoint": "Turn recovery checkpoints",
+      "turn_retention": "Durable turn retention"
     }
   },
   "onboarding": {

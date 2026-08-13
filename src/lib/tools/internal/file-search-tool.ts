@@ -41,7 +41,7 @@ export const runFileSearch = async (
   }
 
   const { retrieveContextEnhanced, formatEnhancedResults } = await import(
-    "@/features/chat/rag/rag-pipeline"
+    "@/application/context/rag/rag-pipeline"
   )
 
   const results = await retrieveContextEnhanced(query, { type: "file" })

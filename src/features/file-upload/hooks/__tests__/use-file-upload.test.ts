@@ -7,28 +7,14 @@ vi.mock("@plasmohq/storage/hook", () => ({
   useStorage: vi.fn()
 }))
 
-vi.mock("@/lib/browser-api", () => ({
-  browser: {
-    runtime: {
-      connect: vi.fn(),
-      sendMessage: vi.fn()
-    }
+vi.mock("@/application/ingestion/ingestion-client", () => ({
+  IngestionClient: {
+    submitFile: vi.fn()
   }
 }))
 
 vi.mock("@/lib/file-processors", () => ({
-  isFileTypeSupported: vi.fn(),
-  processFile: vi.fn()
-}))
-
-vi.mock("@/lib/knowledge", () => ({
-  processKnowledge: vi.fn()
-}))
-
-vi.mock("@/lib/knowledge/knowledge-sets", () => ({
-  addFileToKnowledgeSet: vi.fn().mockResolvedValue(undefined),
-  getActiveKnowledgeSetId: vi.fn().mockResolvedValue("knowledge-default"),
-  markKnowledgeFileEmbedded: vi.fn().mockResolvedValue(undefined)
+  isFileTypeSupported: vi.fn()
 }))
 
 vi.mock("@/lib/logger", () => ({
@@ -40,9 +26,8 @@ vi.mock("@/lib/logger", () => ({
 }))
 
 import { useStorage } from "@plasmohq/storage/hook"
-import { browser } from "@/lib/browser-api"
-import { isFileTypeSupported, processFile } from "@/lib/file-processors"
-import { processKnowledge } from "@/lib/knowledge"
+import { IngestionClient } from "@/application/ingestion/ingestion-client"
+import { isFileTypeSupported } from "@/lib/file-processors"
 
 const fileUploadConfig = {
   maxFileSize: 10 * 1024 * 1024,
@@ -87,18 +72,14 @@ describe("useFileUpload", () => {
     }) as any)
 
     vi.mocked(isFileTypeSupported).mockReturnValue(true)
-    vi.mocked(processFile).mockResolvedValue({
+    vi.mocked(IngestionClient.submitFile).mockResolvedValue({
       ...processedFile,
-      metadata: { ...processedFile.metadata }
+      metadata: {
+        ...processedFile.metadata,
+        fileId: "file-123",
+        knowledgeSetId: "knowledge-default"
+      }
     })
-    vi.mocked(processKnowledge).mockResolvedValue({
-      success: true,
-      chunkCount: 2,
-      vectorIds: [1, 2]
-    })
-    vi.mocked(browser.runtime.sendMessage).mockResolvedValue({
-      success: true
-    } as never)
   })
 
   it("calls onFileProcessed once when embeddings are disabled", async () => {
@@ -131,14 +112,11 @@ describe("useFileUpload", () => {
       await result.current.processFiles([createFile()])
     })
 
-    expect(processKnowledge).toHaveBeenCalledWith(
-      expect.objectContaining({
-        fileName: "notes.txt",
-        content: "hello world"
-      })
+    expect(IngestionClient.submitFile).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "notes.txt" }),
+      expect.objectContaining({ autoEmbed: true })
     )
     expect(onFileProcessed).toHaveBeenCalledTimes(1)
-    expect(browser.runtime.connect).not.toHaveBeenCalled()
 
     await waitFor(() => {
       expect(result.current.processingStates[0]).toEqual(
@@ -148,5 +126,49 @@ describe("useFileUpload", () => {
         })
       )
     })
+  })
+
+  it("keeps state from overlapping submissions", async () => {
+    const first = new File(["one"], "one.txt", { type: "text/plain" })
+    const second = new File(["two"], "two.txt", { type: "text/plain" })
+    const resolvers = new Map<string, (value: ProcessedFile) => void>()
+    vi.mocked(IngestionClient.submitFile).mockImplementation(
+      (file) =>
+        new Promise((resolve) => {
+          resolvers.set(file.name, resolve)
+        })
+    )
+    const { result } = renderHook(() => useFileUpload())
+
+    let submissions: Promise<void>[] = []
+    act(() => {
+      submissions = [
+        result.current.processFiles([first]),
+        result.current.processFiles([second])
+      ]
+    })
+
+    await waitFor(() => {
+      expect(result.current.processingStates).toHaveLength(2)
+      expect(
+        result.current.processingStates.map((state) => state.file.name).sort()
+      ).toEqual(["one.txt", "two.txt"])
+    })
+
+    await act(async () => {
+      resolvers.get("one.txt")?.({
+        ...processedFile,
+        metadata: { ...processedFile.metadata, fileName: "one.txt" }
+      })
+      resolvers.get("two.txt")?.({
+        ...processedFile,
+        metadata: { ...processedFile.metadata, fileName: "two.txt" }
+      })
+      await Promise.all(submissions)
+    })
+
+    expect(
+      result.current.processingStates.map((state) => state.status)
+    ).toEqual(["success", "success"])
   })
 })

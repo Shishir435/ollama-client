@@ -3,6 +3,7 @@ import { extractContentWithLoading } from "@/lib/content-extractor"
 import { logger } from "@/lib/logger"
 import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { getTranscript } from "@/lib/transcript-extractor"
+import { getYouTubeVideoId } from "@/lib/youtube-url"
 import { resolveActiveConfig } from "./content-config"
 import { contentDebugLog } from "./content-debug"
 import { extractReadableContent, resolvePageTitle } from "./content-extraction"
@@ -11,7 +12,7 @@ import {
   sendTranscriptOnlyResponse
 } from "./extraction-debug"
 import { safeSendResponse } from "./message-response"
-import { isUdemyLecturePage, isYouTubeWatchPage } from "./page-platforms"
+import { isUdemyLecturePage, isYouTubeVideoPage } from "./page-platforms"
 import { isExcludedUrl } from "./url-filter"
 
 const normalizeText = (value: string | null | undefined): string =>
@@ -39,8 +40,7 @@ const firstAttribute = (selectors: string[], attribute: string): string => {
 
 const canonicalVideoUrl = (url: string): string => {
   try {
-    const parsed = new URL(url)
-    const videoId = parsed.searchParams.get("v")
+    const videoId = getYouTubeVideoId(url)
     return videoId ? `https://www.youtube.com/watch?v=${videoId}` : url
   } catch {
     return url
@@ -110,7 +110,7 @@ export const handleGetPageContent = async (
 
   const currentUrl = window.location.href
   contentDebugLog(`[Content Script] Processing URL: ${currentUrl}`)
-  const youtubeWatchPage = isYouTubeWatchPage(currentUrl)
+  const youtubeVideoPage = isYouTubeVideoPage(currentUrl)
   const udemyLecturePage = isUdemyLecturePage(currentUrl)
 
   if (await isExcludedUrl(currentUrl)) {
@@ -133,9 +133,9 @@ export const handleGetPageContent = async (
     site: hasSiteOverride ? "Custom site config" : "Global config"
   })
 
-  if (youtubeWatchPage) {
+  if (youtubeVideoPage) {
     logger.info(
-      "YouTube watch page detected; extracting title and transcript only",
+      "YouTube video page detected; extracting title and transcript only",
       "ContentScript",
       { url: currentUrl }
     )

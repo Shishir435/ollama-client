@@ -1,20 +1,22 @@
 #!/usr/bin/env node
 
-// Drives the dev-only benchmark.html page (src/entrypoints/benchmark/) in
-// real browsers and collects the section 9.8 measurements as JSON.
-//
-// Chromium: loads the packaged benchmark build as a real unpacked MV3
-// extension (same technique as verify-browser-automation-local.ts), so the
-// numbers come from the actual chrome-extension:// origin.
-// Firefox: Playwright cannot install extensions, so the Firefox MV2 benchmark
-// build is served over local HTTP and measured at engine level. Quota and
-// origin policy of a packaged moz-extension:// install are not covered.
-//
-// Usage:
-//   pnpm benchmark:browser [--browser=chromium|firefox|all]
-//     [--scales=small,medium,binary,tree] [--iterations=3] [--headful]
-//
-// Requires: pnpm benchmark:build (and benchmark:build:firefox for Firefox).
+/**
+ * Drives the dev-only benchmark.html page (src/entrypoints/benchmark/) in
+ * real browsers and collects the section 9.8 measurements as JSON.
+ *
+ * Chromium: loads the packaged benchmark build as a real unpacked MV3
+ * extension (same technique as verify-browser-automation-local.ts), so the
+ * numbers come from the actual chrome-extension:// origin.
+ * Firefox: Playwright cannot install extensions, so the Firefox MV2 benchmark
+ * build is served over local HTTP and measured at engine level. Quota and
+ * origin policy of a packaged moz-extension:// install are not covered.
+ *
+ * Usage:
+ *   pnpm benchmark:browser [--browser=chromium|firefox|all]
+ *     [--scales=small,medium,binary,tree] [--iterations=3] [--headful]
+ *
+ * Requires: pnpm benchmark:build (and benchmark:build:firefox for Firefox).
+ */
 
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"

@@ -1,3 +1,5 @@
+import type { PublicProviderConfig } from "@ollama-client/contracts/provider-rpc"
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "@/hooks/use-toast"
@@ -17,8 +19,6 @@ import {
   type ProviderServiceProfile
 } from "@/lib/providers/types"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import type { PublicProviderConfig } from "@/protocol/provider-rpc"
-import { RpcMethod } from "@/protocol/rpc"
 import { useProviderHealth } from "./use-provider-health"
 
 const LOCAL_PROVIDER_IDS = [
@@ -479,25 +479,65 @@ export const useProviderSettingsState = () => {
     setConnectionStatus(null)
   }
 
+  const setCustomModels = async (customModels: string[]): Promise<void> => {
+    if (!activeConfig) return
+
+    const updated = { ...activeConfig, customModels }
+    updateConfig({ customModels })
+
+    // Manual ids are part of model discovery input. Persist them immediately
+    // so another extension page opening the model menu cannot race the generic
+    // form debounce and observe an enabled provider with no usable models.
+    await persistConfig(updated, false, false)
+  }
+
   const setProviderEnabled = async (enabled: boolean) => {
     if (!activeConfig) return
+    if (
+      hasUnsavedChanges &&
+      !(await persistConfig(activeConfig, false, false))
+    ) {
+      return
+    }
+
     const providerId = String(activeConfig.id)
     configRevisions.current.set(
       providerId,
       (configRevisions.current.get(providerId) ?? 0) + 1
     )
-    const updated = { ...activeConfig, enabled }
     setProviders((prev) =>
-      prev.map((p) => (p.id === activeConfig.id ? updated : p))
+      prev.map((p) => (String(p.id) === providerId ? { ...p, enabled } : p))
     )
     try {
-      await extensionRpcClient.call(RpcMethod.ProvidersUpsert, {
-        target: "existing",
-        config: configForRpc(updated)
-      })
+      const { provider: saved } = await extensionRpcClient.call(
+        RpcMethod.ProvidersSetEnabled,
+        {
+          providerId,
+          enabled
+        }
+      )
+      setProviders((prev) =>
+        prev.map((provider) =>
+          String(provider.id) === providerId
+            ? toSettingsConfig(saved)
+            : provider
+        )
+      )
       markSaved()
     } catch (error) {
+      setProviders((prev) =>
+        prev.map((provider) =>
+          String(provider.id) === providerId
+            ? { ...provider, enabled: activeConfig.enabled }
+            : provider
+        )
+      )
       logger.error("Failed to auto-save toggle", "ProviderSettings", { error })
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update provider state."
+      })
     }
   }
 
@@ -588,6 +628,7 @@ export const useProviderSettingsState = () => {
     handleTestConnection,
     handleSave,
     updateConfig,
+    setCustomModels,
     setProviderEnabled,
     addProvider,
     removeProvider

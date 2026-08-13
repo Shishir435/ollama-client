@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { TextProcessor } from "@/features/file-upload/processors/text-processor"
+import { TextProcessor } from "@/application/file-processing/processors/text-processor"
 import {
   getProcessor,
   getSupportedExtensions,
@@ -8,7 +8,7 @@ import {
 } from "../index"
 
 // Mock the processors
-vi.mock("@/features/file-upload/processors/text-processor", () => ({
+vi.mock("@/application/file-processing/processors/text-processor", () => ({
   TextProcessor: class {
     canProcess = vi.fn().mockImplementation((file: File) => {
       const type = file.type
@@ -45,7 +45,7 @@ vi.mock("@/features/file-upload/processors/text-processor", () => ({
     }))
   }
 }))
-vi.mock("@/features/file-upload/processors/pdf-processor", () => ({
+vi.mock("@/application/file-processing/processors/pdf-processor", () => ({
   PdfProcessor: class {
     canProcess = vi
       .fn()
@@ -60,7 +60,7 @@ vi.mock("@/features/file-upload/processors/pdf-processor", () => ({
   }
 }))
 
-vi.mock("@/features/file-upload/processors/docx-processor", () => ({
+vi.mock("@/application/file-processing/processors/docx-processor", () => ({
   DocxProcessor: class {
     canProcess = vi
       .fn()

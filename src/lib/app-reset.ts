@@ -16,13 +16,15 @@ import { resetSQLiteDatabase } from "@/lib/sqlite/db"
 
 export type ResetKey = keyof ReturnType<typeof getAllResetKeys> | "all"
 
-// Destructive resets (chat database, full wipe) must not run while extension
-// pages hold IndexedDB handles: deleteDatabase blocks on open connections and
-// re-initialization then fails mid-delete. The flow is therefore: persist a
-// pending-reset flag, runtime.reload() the whole extension (closing every
-// page), and execute the reset from the fresh background worker before
-// anything else touches the database. The options page is reopened afterward
-// so the reload does not look like a crash.
+/**
+ * Destructive resets (chat database, full wipe) must not run while extension
+ * pages hold IndexedDB handles: deleteDatabase blocks on open connections and
+ * re-initialization then fails mid-delete. The flow is therefore: persist a
+ * pending-reset flag, runtime.reload() the whole extension (closing every
+ * page), and execute the reset from the fresh background worker before
+ * anything else touches the database. The options page is reopened afterward
+ * so the reload does not look like a crash.
+ */
 
 interface PendingReset {
   key: ResetKey
@@ -35,9 +37,11 @@ interface ReopenOptions {
   sidePanelWindowIds?: number[]
 }
 
-// Which browser windows had the side panel open when the reload was
-// scheduled. chrome.runtime.getContexts is Chromium 116+; elsewhere (or on
-// failure) reopening is simply skipped.
+/**
+ * Which browser windows had the side panel open when the reload was
+ * scheduled. chrome.runtime.getContexts is Chromium 116+; elsewhere (or on
+ * failure) reopening is simply skipped.
+ */
 const getOpenSidePanelWindowIds = async (): Promise<number[]> => {
   try {
     const getContexts = (
@@ -133,11 +137,13 @@ export const scheduleReloadWithReopen = async (url: string): Promise<void> => {
   browser.runtime.reload()
 }
 
-// Restore the chat surface after a self-reload. chrome.sidePanel.open()
-// requires a user gesture (verified empirically: it rejects from a fresh
-// worker), so the native panel is attempted first for the day Chrome relaxes
-// this, and the extension's existing popup-window chat surface is the
-// fallback. One popup at most, however many windows had panels.
+/**
+ * Restore the chat surface after a self-reload. chrome.sidePanel.open()
+ * requires a user gesture (verified empirically: it rejects from a fresh
+ * worker), so the native panel is attempted first for the day Chrome relaxes
+ * this, and the extension's existing popup-window chat surface is the
+ * fallback. One popup at most, however many windows had panels.
+ */
 const reopenChatSurface = async (windowIds: number[]): Promise<void> => {
   if (windowIds.length === 0) return
   const sidePanel = (

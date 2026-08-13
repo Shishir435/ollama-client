@@ -1,8 +1,8 @@
 import {
   type AbortTimeout,
-  createAbortTimeout,
-  EMBEDDING_DOWNLOAD_TIMEOUT_MS
-} from "@/background/lib/fetch-timeout"
+  createAbortTimeout
+} from "@ollama-client/runtime-core/cancellation"
+import { EMBEDDING_DOWNLOAD_TIMEOUT_MS } from "@/background/lib/fetch-timeout"
 import { notifyJobComplete } from "@/background/lib/notify"
 import { getBaseUrl } from "@/background/lib/utils"
 import {
@@ -18,6 +18,10 @@ import {
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
+import {
+  discoverProviderModels,
+  type ModelCatalogVerdict
+} from "@/lib/providers/model-discovery"
 import type { DefaultProviderPullRequest } from "@/types"
 
 const abortError = (signal: AbortSignal): Error =>
@@ -74,6 +78,7 @@ export const checkEmbeddingModelExists = async (
   let providerDebug: object | null = null
   let providerBaseUrl: string | undefined
   let resolvedProviderId = providerId
+  let catalogVerdict: ModelCatalogVerdict | undefined
   const startTime = Date.now()
   const CHECK_TIMEOUT_MS = 4000
 
@@ -227,7 +232,15 @@ export const checkEmbeddingModelExists = async (
     }
   }
 
-  // For default provider, prefer direct tag check to avoid slow provider resolution.
+  /*
+   * The default provider is checked by asking `/api/tags` directly rather than
+   * through the discovery service, and deliberately so: it skips provider
+   * resolution, and the remembered-absence policy exists to stop repeated
+   * requests against remote endpoints that charge for them. This one is the
+   * user's own Ollama on loopback, and its catalog endpoint is not optional —
+   * a recorded absence for it would mean the server is not Ollama at all.
+   * Do not generalize this to a configured remote provider.
+   */
   if (
     (resolvedProviderId && resolvedProviderId === DEFAULT_PROVIDER_ID) ||
     normalizedModelName === DEFAULT_EMBEDDING_MODEL
@@ -249,10 +262,21 @@ export const checkEmbeddingModelExists = async (
     if (provider) {
       resolvedProviderId = provider.id
       providerBaseUrl = resolveProviderBaseUrl(provider.config)
-      const models = await withTimeout(
-        (operationSignal) => provider.getModels(operationSignal),
-        "Provider model list"
-      )
+      // Through the discovery service so a catalog-less provider is asked once
+      // rather than on every embedding check. An absent catalog yields no
+      // models — the same "cannot confirm it is installed" answer its 404
+      // produced before, minus the re-asking. A real failure is still raised,
+      // because reporting the model missing because the server broke would send
+      // the user to re-download something they already have.
+      const { models, catalog } = await withTimeout(async (operationSignal) => {
+        const discovery = await discoverProviderModels(
+          provider,
+          operationSignal
+        )
+        if (discovery.catalog === "failed") throw discovery.error
+        return discovery
+      }, "Provider model list")
+      catalogVerdict = catalog
       const modelNames = models
         .map((model: unknown) => {
           if (typeof model === "string") return model
@@ -342,6 +366,29 @@ export const checkEmbeddingModelExists = async (
           fallback: {
             method: "fallback-skipped",
             providerId: resolvedProviderId
+          }
+        }
+      }
+    }
+
+    /*
+     * Discovery already reached this same server and got a settled answer, so
+     * the fallback would ask the identical endpoint a second time and learn
+     * nothing: it only runs for the default provider, whose catalog request is
+     * the `/api/tags` call it is about to repeat. It is worth running when
+     * discovery never produced a verdict — a provider that failed to resolve
+     * leaves `catalogVerdict` unset, and that is the case the fallback exists
+     * for.
+     */
+    if (catalogVerdict === "absent") {
+      return {
+        exists: false,
+        debug: {
+          ...providerDebug,
+          fallback: {
+            method: "fallback-skipped",
+            reason: "catalog-absent",
+            providerId: resolvedProviderId ?? DEFAULT_PROVIDER_ID
           }
         }
       }

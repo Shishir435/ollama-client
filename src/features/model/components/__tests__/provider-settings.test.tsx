@@ -19,6 +19,14 @@ vi.mock("@/features/model/hooks/use-provider-settings-state", () => ({
   useProviderSettingsState: state.useProviderSettingsState
 }))
 
+vi.mock("@/features/model/hooks/use-provider-icons", () => ({
+  useProviderIcons: () => ({})
+}))
+
+vi.mock("@plasmohq/storage/hook", () => ({
+  useStorage: (_key: unknown, fallback: unknown) => [fallback, vi.fn()]
+}))
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, unknown>) =>
@@ -57,6 +65,7 @@ const mockProviderState = (
   const handleTestConnection = vi.fn()
   const handleSave = vi.fn()
   const updateConfig = vi.fn()
+  const setCustomModels = vi.fn()
   const setProviderEnabled = vi.fn()
   const setSelectedId = vi.fn()
   const addProvider = vi.fn()
@@ -79,6 +88,7 @@ const mockProviderState = (
     handleTestConnection,
     handleSave,
     updateConfig,
+    setCustomModels,
     setProviderEnabled,
     addProvider,
     removeProvider,
@@ -89,6 +99,7 @@ const mockProviderState = (
     handleTestConnection,
     handleSave,
     updateConfig,
+    setCustomModels,
     setProviderEnabled,
     setSelectedId,
     addProvider,
@@ -151,6 +162,22 @@ describe("ProviderSettings", () => {
     expect(
       screen.queryByRole("button", { name: "settings.providers.add.remove" })
     ).not.toBeInTheDocument()
+  })
+
+  it("mounts the catalog refresh control the settings registry deep-links to", () => {
+    mockProviderState()
+
+    const { container } = renderProviderSettings()
+
+    const field = container.querySelector(
+      '[data-settings-focus-id="provider-catalog-refresh"]'
+    )
+    expect(field).toBeInTheDocument()
+    // The stored value is what the queries poll on, so the trigger has to show
+    // a real choice rather than an empty label.
+    expect(
+      within(field as HTMLElement).getByRole("combobox")
+    ).toHaveTextContent("settings.providers.catalog_refresh.options.60000")
   })
 
   it("offers removal only for custom providers", () => {
@@ -245,9 +272,10 @@ describe("ProviderSettings", () => {
     )
     fireEvent.change(customModelInput, { target: { value: "new-model" } })
     fireEvent.keyDown(customModelInput, { key: "Enter" })
-    expect(actions.updateConfig).toHaveBeenCalledWith({
-      customModels: ["remote-model", "new-model"]
-    })
+    expect(actions.setCustomModels).toHaveBeenCalledWith([
+      "remote-model",
+      "new-model"
+    ])
 
     const modelChip = screen.getByText("remote-model").parentElement
     expect(modelChip).not.toBeNull()
@@ -256,6 +284,6 @@ describe("ProviderSettings", () => {
         name: "settings.providers.models.remove remote-model"
       })
     )
-    expect(actions.updateConfig).toHaveBeenCalledWith({ customModels: [] })
+    expect(actions.setCustomModels).toHaveBeenCalledWith([])
   })
 })

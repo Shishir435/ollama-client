@@ -1,6 +1,6 @@
 import type { ModelConfig } from "@/types"
 
-// Default embedding model - local-friendly default
+/** Local-friendly default embedding model. */
 export const DEFAULT_EMBEDDING_MODEL = "all-minilm:latest"
 export const EMBEDDING_MODEL_ALIASES: Record<string, string> = {
   "all-minilm": DEFAULT_EMBEDDING_MODEL,
@@ -21,14 +21,13 @@ export const normalizeEmbeddingModelName = (modelName?: string): string => {
 export const DEFAULT_PROVIDER_ID = "ollama"
 export const DEFAULT_SHARED_EMBEDDING_PROVIDER_ID = DEFAULT_PROVIDER_ID
 
-// OpenAI-compatible providers fall back to a LOCAL endpoint, never a cloud API.
-// A privacy-first, local-first extension must not silently egress to a frontier
-// provider when a base URL is left blank. Users pointing at their own remote
-// open-weight server (e.g. a remote Ollama/llama.cpp host) set the base URL
-// explicitly in provider settings. This matches Ollama's OpenAI-compatible
-// endpoint, which is the default provider.
+/**
+ * Local-only fallback for OpenAI-compatible providers. A missing base URL must
+ * never silently send data to a cloud API; remote endpoints require explicit
+ * user configuration.
+ */
 export const DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "http://localhost:11434/v1"
-// Default provider model catalog (Ollama public library).
+/** Default provider model catalog: Ollama's public library. */
 export const DEFAULT_MODEL_LIBRARY_BASE_URL = "https://ollama.com"
 
 export const RECOMMENDED_EMBEDDING_MODELS = [DEFAULT_EMBEDDING_MODEL] as const
@@ -75,26 +74,22 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   unload_on_switch: false
 }
 
-// Browser tab access (reading page content for chat context and tab tools).
-// Defaults on so the tab features work out of the box; users can turn it off
-// from the context settings or options page (STORAGE_KEYS.BROWSER.TABS_ACCESS).
+/** Default for user-disableable browser-tab context and tool access. */
 export const DEFAULT_TABS_ACCESS = true
 
-// Image input (vision models). Max size is the default; users can override it
-// on the options page via STORAGE_KEYS.IMAGES.MAX_SIZE_MB.
+/** Default user-overridable image input limit in MiB. */
 export const DEFAULT_MAX_IMAGE_SIZE_MB = 10
-// Formats that local vision backends decode reliably. GIF/BMP were dropped
-// because many backends can't decode them; HEIC/HEIF can't be decoded in the
-// browser at all (see SUPPORTED_IMAGE_EXTENSIONS / the HEIC warning path).
+/**
+ * Image formats reliably decoded by supported local vision backends. GIF/BMP
+ * are inconsistent and browsers cannot decode HEIC/HEIF for this pipeline.
+ */
 export const SUPPORTED_IMAGE_MIME_TYPES = [
   "image/png",
   "image/jpeg",
   "image/webp"
 ] as const
 
-// Apple HEIC/HEIF: detected so we can show a specific "export as JPEG/PNG"
-// message instead of a generic rejection. These files often report an empty
-// MIME type, so detection also checks the extension.
+/** HEIC/HEIF MIME values used for a specific conversion-required error. */
 export const HEIC_MIME_TYPES = ["image/heic", "image/heif"] as const
 export const HEIC_EXTENSION_PATTERN = /\.(heic|heif)$/i
 

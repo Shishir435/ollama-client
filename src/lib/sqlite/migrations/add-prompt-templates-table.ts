@@ -1,7 +1,7 @@
-import type { Database } from "sql.js"
+import type { MigrationDatabase } from "./database"
 
 /** Move prompt-template persistence out of storage.sync-sized JSON arrays. */
-export const ensurePromptTemplatesTable = (db: Database): void => {
+export const ensurePromptTemplatesTable = (db: MigrationDatabase): void => {
   db.run(`
     CREATE TABLE IF NOT EXISTS prompt_templates (
       id TEXT PRIMARY KEY,

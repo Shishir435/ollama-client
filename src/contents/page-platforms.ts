@@ -1,16 +1,4 @@
-export const isYouTubeWatchPage = (url: string): boolean => {
-  try {
-    const parsed = new URL(url)
-    return (
-      (parsed.hostname === "youtube.com" ||
-        parsed.hostname.endsWith(".youtube.com")) &&
-      parsed.pathname === "/watch" &&
-      parsed.searchParams.has("v")
-    )
-  } catch {
-    return url.includes("youtube.com/watch?v=")
-  }
-}
+export { isYouTubeVideoPage } from "@/lib/youtube-url"
 
 export const isUdemyLecturePage = (url: string): boolean => {
   try {

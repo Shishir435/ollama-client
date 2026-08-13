@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Local AI Chat for Ollama, LM Studio, llama.cpp",
-  "version": "0.12.8",
+  "version": "0.13.0",
   "description": "Local-first browser extension for private LLM chat with Ollama, LM Studio, llama.cpp, and other local or remote providers, with local RAG, web search, and page context.",
   "author": "Shishir Chaurasiya",
   "keywords": [
@@ -78,7 +78,11 @@
     "format": "biome format .",
     "format:fix": "biome format --write .",
     "format:check": "biome format .",
-    "typecheck": "tsc6 -p tsconfig.json --noEmit",
+    "typecheck": "pnpm typecheck:packages && tsc6 -p tsconfig.json --noEmit",
+    "typecheck:packages": "pnpm typecheck:contracts && pnpm typecheck:runtime-core && pnpm typecheck:chat-runtime",
+    "typecheck:contracts": "tsc6 -p packages/contracts/tsconfig.json --noEmit",
+    "typecheck:runtime-core": "tsc6 -p packages/runtime-core/tsconfig.json --noEmit",
+    "typecheck:chat-runtime": "tsc6 -p packages/chat-runtime/tsconfig.json --noEmit",
     "check:dead": "knip --no-config-hints",
     "audit": "pnpm audit",
     "clean": "rm -rf build .plasmo .wxt .output node_modules",
@@ -89,6 +93,9 @@
     "check:compatibility": "node tools/check-compatibility-ledger.mjs"
   },
   "dependencies": {
+    "@ollama-client/chat-runtime": "workspace:*",
+    "@ollama-client/contracts": "workspace:*",
+    "@ollama-client/runtime-core": "workspace:*",
     "@base-ui/react": "^1.5.0",
     "@mozilla/readability": "^0.6.0",
     "@plasmohq/storage": "^1.15.0",
@@ -127,7 +134,6 @@
     "react-i18next": "^17.0.8",
     "react-virtuoso": "^4.18.7",
     "sonner": "^2.0.7",
-    "sql.js": "^1.14.1",
     "tailwind-merge": "3.6.0",
     "tailwind-scrollbar": "^4.0.2",
     "turndown": "^7.2.4",
@@ -172,6 +178,7 @@
     "rollup-plugin-visualizer": "^6.0.11",
     "selenium-webdriver": "^4.27.0",
     "shadcn": "^4.12.0",
+    "sql.js": "^1.14.1",
     "tailwindcss": "4.3.0",
     "tsx": "^4.23.1",
     "tw-animate-css": "^1.4.0",
@@ -188,31 +195,8 @@
       "pnpm test:related"
     ]
   },
-  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
+  "packageManager": "pnpm@11.20.0+sha512.9a6f330a95b66446ea088faf1521405a8a01f07fde7124cc9958dfed52d4bb436737e65b08f85f37b46fcba375092558ac51262b816844b22f63406ed166bfee",
   "engines": {
     "node": ">=22.12.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "brace-expansion@>=3.0.0 <5.0.9": "5.0.9",
-      "form-data@<4.0.6": ">=4.0.6",
-      "immutable@>=5.0.0-beta.1 <5.1.8": "5.1.9",
-      "js-yaml@>=4.0.0 <4.3.1": "4.3.1",
-      "linkify-it@<5.0.2": "5.0.2",
-      "markdown-it@<14.2.0": "14.3.0",
-      "nanoid@<3.3.17": ">=3.3.17",
-      "sharp@<0.35.0": "0.35.3",
-      "svgo@>=4.0.0 <4.0.2": "4.0.2",
-      "vite@>=8.0.0 <8.0.16": ">=8.0.16"
-    },
-    "onlyBuiltDependencies": [
-      "geckodriver"
-    ],
-    "auditConfig": {
-      "ignoreGhsas": [
-        "GHSA-w3rx-r6r6-pgpr",
-        "GHSA-5p2g-fcmc-qvqq"
-      ]
-    }
   }
 }

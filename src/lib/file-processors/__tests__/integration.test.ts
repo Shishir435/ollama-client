@@ -1,8 +1,8 @@
 import fs from "node:fs"
 import path from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { DocxProcessor } from "@/features/file-upload/processors/docx-processor"
-import { PdfProcessor } from "@/features/file-upload/processors/pdf-processor"
+import { DocxProcessor } from "@/application/file-processing/processors/docx-processor"
+import { PdfProcessor } from "@/application/file-processing/processors/pdf-processor"
 
 // Mock pdfjs-dist
 vi.mock("pdfjs-dist", () => ({

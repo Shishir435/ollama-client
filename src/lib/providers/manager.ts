@@ -5,6 +5,7 @@ import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { clearCapabilityProbesForProvider } from "./capability-probe"
 import { clearModelCapabilityOverridesForProvider } from "./model-capability-overrides"
 import { clearModelCatalogSupport } from "./model-catalog-support"
+import { parseStoredProviderConfigs } from "./provider-config-schema"
 import {
   containsLegacySyncedSecrets,
   hydrateProviderSecrets,
@@ -75,8 +76,10 @@ const REMOVED_BETA_DEFAULTS: Record<
   }
 }
 
-// Built-in ids and user-added `custom:` ids survive; anything else is stale
-// data from an old version and gets dropped.
+/**
+ * Built-in ids and user-added `custom:` ids survive; anything else is stale
+ * data from an old version and gets dropped.
+ */
 const isKnownProviderId = (id: string): boolean =>
   DEFAULT_PROVIDER_IDS.has(id as ProviderId) || isCustomProviderId(id)
 
@@ -285,10 +288,12 @@ const validateProviderBaseUrl = (baseUrl?: string): void => {
 const getProvidersUnlocked = async (): Promise<ProviderConfig[]> => {
   await recoverProviderResetUnlocked()
   await recoverProviderPersistenceUnlocked()
-  let stored = await plasmoGlobalStorage.get<ProviderConfig[]>(
+  const rawStored = await plasmoGlobalStorage.get<unknown>(
     ProviderStorageKey.CONFIG
   )
-  if (!stored || stored.length === 0) {
+  const parsedStored = parseStoredProviderConfigs(rawStored)
+  let stored = parsedStored.providers
+  if (stored.length === 0) {
     stored = [...DEFAULT_PROVIDERS]
     await persistProviderConfigsUnlocked(stored)
   }
@@ -306,6 +311,7 @@ const getProvidersUnlocked = async (): Promise<ProviderConfig[]> => {
   // on some *other* anomaly being present in the same read, which meant the
   // surviving entry depended on an unrelated condition.
   const sanitizationChanged =
+    parsedStored.normalized ||
     sanitized.removed.length > 0 ||
     sanitized.migrated.length > 0 ||
     sanitized.duplicates.length > 0
@@ -318,7 +324,8 @@ const getProvidersUnlocked = async (): Promise<ProviderConfig[]> => {
         migrated: sanitized.migrated,
         // Ids only. A duplicate is a config the user cannot see collapsing, so
         // it has to leave a trace, but provider names are user text.
-        duplicates: sanitized.duplicates
+        duplicates: sanitized.duplicates,
+        rejectedMalformedEntries: parsedStored.rejected
       }
     )
     stored = sanitized.providers
@@ -479,21 +486,6 @@ export const ProviderManager = {
   async setModelMapping(modelId: string, providerId: string): Promise<void> {
     const mappings = await readScopedModelMappings()
     mappings[scopedModelKey(providerId, modelId)] = providerId
-    await plasmoGlobalStorage.set(
-      ProviderStorageKey.MODEL_MAPPINGS_V2,
-      mappings
-    )
-  },
-
-  /** Persist every (provider, model) pair — collisions are kept, not dropped. */
-  async saveModelMappings(
-    pairs: Array<{ modelId: string; providerId: string }>
-  ): Promise<void> {
-    if (pairs.length === 0) return
-    const mappings = await readScopedModelMappings()
-    for (const { modelId, providerId } of pairs) {
-      mappings[scopedModelKey(providerId, modelId)] = providerId
-    }
     await plasmoGlobalStorage.set(
       ProviderStorageKey.MODEL_MAPPINGS_V2,
       mappings

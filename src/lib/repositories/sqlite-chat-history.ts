@@ -1,3 +1,8 @@
+import {
+  ChatMessageErrorSchema,
+  ChatMessageMetricsSchema
+} from "@ollama-client/contracts/chat"
+import { TURN_OWNED_ASSISTANT_STATUSES } from "@ollama-client/contracts/turns"
 import { imageToStoredFile } from "@/lib/image-utils"
 import {
   parseStoredReplayArtifact,
@@ -13,10 +18,6 @@ import {
   withTransaction
 } from "@/lib/sqlite/db"
 import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
-import {
-  ChatMessageErrorSchema,
-  ChatMessageMetricsSchema
-} from "@/types/chat.schemas"
 
 /**
  * SQLite-backed implementation of the chat-history persistence surface.
@@ -113,7 +114,7 @@ const fileFromRow = (row: Row): StoredFile => ({
   data: (row.data as Uint8Array | null) ?? undefined
 })
 
-// Build a `?, ?, ?` placeholder list for an IN clause.
+/** Build a `?, ?, ?` placeholder list for an IN clause. */
 const placeholders = (n: number) => Array(n).fill("?").join(", ")
 
 const normalizeFileData = (data: unknown): Uint8Array | undefined => {
@@ -181,7 +182,7 @@ const putSessionRow = async (
   )
 }
 
-// ----- Sessions ------------------------------------------------------------
+/** ----- Sessions ------------------------------------------------------------ */
 
 export const getAllSessionsOrderedByRecency = async (): Promise<
   ChatSession[]
@@ -372,7 +373,7 @@ export const deleteSessionRow = async (id: string): Promise<void> => {
   await run("DELETE FROM sessions WHERE id = ?", [id])
 }
 
-// ----- Messages ------------------------------------------------------------
+/** ----- Messages ------------------------------------------------------------ */
 
 export const getMessage = async (
   id: number | string
@@ -489,8 +490,11 @@ export const addMessage = (
 
 /**
  * Atomically append a message, its files, and the session's active-leaf
- * pointer. A live session snapshot may be supplied to repair a session row
- * lost by a stale or competing sql.js context.
+ * pointer. A live session snapshot may be supplied to repair a missing session
+ * row — originally for rows lost to a stale or competing per-page database,
+ * which a single owner no longer produces. The repair stays because the caller
+ * can still reach here with a session the database has not seen: a UI that
+ * optimistically created one, or a restore that landed between the two writes.
  */
 export const appendMessage = async (
   message: Omit<StoredMessage, "id">,
@@ -602,10 +606,12 @@ export const updateMessage = async (
  *
  * Ownership is enforced inside the query, so there is no separate liveness
  * check to race:
- *   - Staleness: a row is finalized only if it has not been written within
- *     `staleMs`. Streaming partial-content writes bump `updatedAt` ~every
- *     second, so a turn actively streaming in ANY window is never selected. A
- *     `NULL` `updatedAt` (rows predating the column) is treated as stale.
+ *   - Durable-turn ownership: an assistant row referenced by an incomplete
+ *     `turn_runs` row is background-owned and never finalized here. Restart
+ *     recovery resumes or fails that run explicitly.
+ *   - Legacy staleness: a row without a durable owner is finalized only if it
+ *     has not been written within `staleMs`. Its UI bridge refreshes
+ *     `updatedAt`; a `NULL` value (rows predating the column) is stale.
  *   - Tool-loop ownership: a turn awaiting tool approval can legitimately go
  *     minutes without a message write while its durable `tool_loop_runs`
  *     checkpoint is live. Excluding sessions that have any checkpoint row
@@ -614,6 +620,15 @@ export const updateMessage = async (
  *
  * Returns the count fixed.
  */
+/**
+ * Statuses whose turn still owns its assistant row. Interpolated from the
+ * contract rather than spelled out, because a status added there and missed
+ * here is invisible: the sweep just starts finalizing rows it does not own.
+ */
+const OWNED_ASSISTANT_STATUS_LIST = TURN_OWNED_ASSISTANT_STATUSES.map(
+  (status) => `'${status}'`
+).join(", ")
+
 export const finalizeInterruptedMessages = async (
   staleMs = 20_000
 ): Promise<number> => {
@@ -622,6 +637,11 @@ export const finalizeInterruptedMessages = async (
     `SELECT id, metrics FROM messages
      WHERE role = 'assistant' AND done = 0
        AND (updatedAt IS NULL OR updatedAt < ?)
+       AND id NOT IN (
+         SELECT assistantMessageId FROM turn_runs
+         WHERE assistantMessageId IS NOT NULL
+           AND status IN (${OWNED_ASSISTANT_STATUS_LIST})
+       )
        AND sessionId NOT IN (
          SELECT sessionId FROM tool_loop_runs WHERE sessionId IS NOT NULL
        )`,
@@ -672,7 +692,7 @@ export const bulkDeleteMessages = async (ids: number[]): Promise<void> => {
   )
 }
 
-// ----- Files ---------------------------------------------------------------
+/** ----- Files --------------------------------------------------------------- */
 
 export const getFilesByMessageIds = async (
   messageIds: number[]
@@ -737,8 +757,6 @@ export const deleteFilesByMessageIds = async (
   )
   return (before[0]?.count as number) ?? 0
 }
-
-// ----- Database-level operations ------------------------------------------
 
 /**
  * Drop the SQLite-backed chat database. Used by the user-facing

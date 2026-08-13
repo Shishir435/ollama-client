@@ -42,7 +42,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: vi.fn()
 }))
 
-vi.mock("@/features/chat/rag/rag-pipeline", () => ({
+vi.mock("@/application/context/rag/rag-pipeline", () => ({
   retrieveContextEnhanced: vi.fn(),
   formatEnhancedResults: vi.fn()
 }))
@@ -56,7 +56,7 @@ vi.mock("@/contents/url-filter", () => ({
 import {
   formatEnhancedResults,
   retrieveContextEnhanced
-} from "@/features/chat/rag/rag-pipeline"
+} from "@/application/context/rag/rag-pipeline"
 import { browser, supportsTabGroups } from "@/lib/browser-api"
 import {
   getTabGroupsAvailability,

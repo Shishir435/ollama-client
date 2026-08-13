@@ -40,13 +40,26 @@ export default defineConfig({
           maxWorkers: 6,
           include: THREAD_TEST_PATTERNS
         }
+      },
+      {
+        test: {
+          name: "packages",
+          environment: "node",
+          maxWorkers: 6,
+          include: ["packages/*/src/**/*.test.ts"]
+        }
       }
     ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
-      include: ["src/**/*.ts"],
-      exclude: ["src/**/*.{test,spec}.{ts,tsx}", "src/**/*.d.ts"]
+      include: ["src/**/*.ts", "packages/*/src/**/*.ts"],
+      exclude: [
+        "src/**/*.{test,spec}.{ts,tsx}",
+        "packages/*/src/**/*.{test,spec}.{ts,tsx}",
+        "src/**/*.d.ts",
+        "packages/*/src/**/*.d.ts"
+      ]
     }
   },
   resolve: {

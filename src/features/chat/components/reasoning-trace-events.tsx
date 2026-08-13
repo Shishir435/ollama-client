@@ -2,7 +2,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { getToolDisplayMeta } from "@/lib/tools/tool-display"
 import { cn } from "@/lib/utils"
-import type { ActivityEvent, ToolRun } from "@/types"
+import type { ActivityEvent, ActivityText, ToolRun } from "@/types"
 
 export type TraceStatus = "running" | "done" | "error"
 
@@ -36,10 +36,38 @@ export const getToolRunLabel = (
   return key ? t(key) : run.label
 }
 
-const getActivityResultPreview = (event: ActivityEvent): string | undefined => {
-  if (event.outputPreview) return event.outputPreview
+/**
+ * Activity labels persist a `labelKey`, so an old turn renders in the reader's
+ * current language. `label` is the fallback for events written before the key
+ * existed.
+ */
+export const getActivityEventLabel = (
+  event: ActivityEvent,
+  t: (key: string) => string
+): string => (event.labelKey ? t(event.labelKey) : event.label)
+
+export const getActivityResultCountLabel = (
+  count: number,
+  t: (key: string, options?: { count?: number }) => string
+): string => t("chat.reasoning.trace.results", { count })
+
+export const getActivityText = (
+  value: string | ActivityText,
+  t: (key: string) => string
+): string =>
+  typeof value === "string"
+    ? value
+    : value.textKey
+      ? t(value.textKey)
+      : value.text
+
+const getActivityResultPreview = (
+  event: ActivityEvent,
+  t: (key: string, options?: { count?: number }) => string
+): string | undefined => {
+  if (event.outputPreview) return getActivityText(event.outputPreview, t)
   if (event.resultCount !== undefined) {
-    return `${event.resultCount} result${event.resultCount === 1 ? "" : "s"}`
+    return getActivityResultCountLabel(event.resultCount, t)
   }
   return undefined
 }
@@ -52,9 +80,15 @@ const openToolResultLimitSettings = () => {
 }
 
 /** One inspectable app event. User-facing work only, never raw reasoning. */
-export const ActivityStepRow = ({ event }: { event: ActivityEvent }) => {
+export const ActivityStepRow = ({
+  event,
+  t
+}: {
+  event: ActivityEvent
+  t: (key: string, options?: { count?: number }) => string
+}) => {
   const status = getActivityEventStatus(event)
-  const resultPreview = getActivityResultPreview(event)
+  const resultPreview = getActivityResultPreview(event, t)
   return (
     <li className="rounded-control border border-border/20 bg-background/45 px-2.5 py-2">
       <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
@@ -63,11 +97,11 @@ export const ActivityStepRow = ({ event }: { event: ActivityEvent }) => {
             "shrink-0 whitespace-nowrap font-medium",
             statusClass(status)
           )}>
-          {event.label}
+          {getActivityEventLabel(event, t)}
         </span>
         {event.resultCount !== undefined && (
           <span className="text-micro text-muted-foreground/70">
-            · {event.resultCount} result{event.resultCount === 1 ? "" : "s"}
+            · {getActivityResultCountLabel(event.resultCount, t)}
           </span>
         )}
       </div>
@@ -87,7 +121,9 @@ export const ActivityStepRow = ({ event }: { event: ActivityEvent }) => {
       )}
       {event.sourceTitles && event.sourceTitles.length > 0 && (
         <div className="mt-0.5 text-2xs text-muted-foreground/80">
-          {event.sourceTitles.join(", ")}
+          {event.sourceTitles
+            .map((title) => getActivityText(title, t))
+            .join(", ")}
         </div>
       )}
     </li>

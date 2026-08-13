@@ -1,11 +1,8 @@
-// Which tables the chat-history migration has to account for, and the
-// engine-agnostic verification helpers used on both sides of it.
-//
-// The list is explicit rather than derived at runtime, so a mismatch is a
-// review-time failure instead of a silent gap: a table that lands in
-// `schema.ts` without landing here would migrate unverified. That pairing is
-// enforced by `__tests__/durable-tables.test.ts`.
-
+/**
+ * Tables whose row counts and integrity must be verified during migration.
+ * The explicit list makes schema/migration drift a contract-test failure
+ * instead of allowing a new durable table to migrate silently unverified.
+ */
 export const DURABLE_TABLES = [
   "sessions",
   "messages",
@@ -13,6 +10,9 @@ export const DURABLE_TABLES = [
   "kv_store",
   "prompt_templates",
   "tool_loop_runs",
+  "turn_runs",
+  "ingestion_runs",
+  "model_pull_runs",
   "chunk_feedback"
 ] as const
 
@@ -112,17 +112,22 @@ export const findMissingDurableTables = (
  * without it. The absolute counts stay in the receipt's structured
  * `sourceCounts`/`importedCounts`, which never leave the device.
  */
+export const describeMismatch = (mismatch: TableCountMismatch): string => {
+  // A table that arrived empty has a shortfall equal to its source count, so
+  // "short by 39204" would be the absolute number this wording exists to avoid.
+  // Naming the state instead says more and discloses less.
+  if (mismatch.imported === 0 && mismatch.source > 0) {
+    return `${mismatch.table} arrived empty`
+  }
+  const delta = mismatch.source - mismatch.imported
+  return delta > 0
+    ? `${mismatch.table} short by ${delta}`
+    : `${mismatch.table} over by ${-delta}`
+}
+
 export const describeMismatches = (
   mismatches: readonly TableCountMismatch[]
-): string =>
-  mismatches
-    .map((mismatch) => {
-      const delta = mismatch.source - mismatch.imported
-      return delta > 0
-        ? `${mismatch.table} short by ${delta}`
-        : `${mismatch.table} over by ${-delta}`
-    })
-    .join(", ")
+): string => mismatches.map(describeMismatch).join(", ")
 
 export const readIntegrityReport = (read: RowReader): IntegrityReport => {
   const integrityRows = read("PRAGMA integrity_check")

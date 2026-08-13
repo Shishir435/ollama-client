@@ -1,3 +1,4 @@
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { getErrorMessage, isAbortError, isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
@@ -5,17 +6,20 @@ import {
   applyProviderErrorContext,
   type ProviderErrorContext
 } from "@/lib/providers/provider-errors"
+import { toAppFailure } from "@/protocol/app-failure"
+import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 import type {
+  ChatStreamSink,
   ChromePort,
   ChromeResponse,
   NetworkError,
   PortStatusFunction
 } from "@/types"
-import { safePostMessage } from "./utils"
+import { safePostChatStreamEvent } from "./utils"
 
-type HandlerFunction<T> = (
+type HandlerFunction<T, TPort extends ChatStreamSink> = (
   msg: T,
-  port: ChromePort,
+  port: TPort,
   isPortClosed: PortStatusFunction
 ) => Promise<void>
 
@@ -30,8 +34,6 @@ interface ErrorContext<T> {
   resolveDiagnosticSessionId?: (msg: T) => string | undefined
 }
 
-type ErrorEnvelope = NonNullable<ChromeResponse["error"]>
-
 type ErrorEnvelopeOptions = {
   status?: number
   fallbackMessage?: string
@@ -42,51 +44,7 @@ type ErrorEnvelopeOptions = {
 export const normalizeError = (
   error: unknown,
   options: ErrorEnvelopeOptions = {}
-): ErrorEnvelope => {
-  const networkError =
-    error && typeof error === "object" ? (error as Partial<NetworkError>) : {}
-  const message =
-    isAppError(error) && error.userMessage
-      ? error.userMessage.trim()
-      : getErrorMessage(error, options.fallbackMessage).trim()
-
-  return {
-    status: options.status ?? networkError.status ?? 0,
-    message,
-    ...(isAppError(error) && { kind: error.kind }),
-    ...(isAppError(error) &&
-      error.messageKey && { messageKey: error.messageKey }),
-    ...(isAppError(error) &&
-      error.userMessage && { userMessage: error.userMessage }),
-    ...(isAppError(error) &&
-      error.retryable !== undefined && { retryable: error.retryable }),
-    ...(isAppError(error) &&
-      error.retryAfterMs !== undefined && { retryAfterMs: error.retryAfterMs }),
-    ...(options.context && { context: options.context }),
-    ...(!options.context &&
-      isAppError(error) &&
-      error.context && {
-        context: error.context
-      }),
-    ...(options.providerId && { providerId: options.providerId }),
-    ...(!options.providerId &&
-      isAppError(error) &&
-      error.providerId && {
-        providerId: error.providerId
-      }),
-    ...(isAppError(error) &&
-      error.providerName && { providerName: error.providerName }),
-    ...(isAppError(error) && error.model && { model: error.model }),
-    ...(isAppError(error) && error.baseUrl && { baseUrl: error.baseUrl }),
-    ...(isAppError(error) && { code: error.code }),
-    ...(isAppError(error) && { phase: error.phase }),
-    ...(isAppError(error) && { incidentId: error.incidentId }),
-    ...(isAppError(error) &&
-      error.durationMs !== undefined && { durationMs: error.durationMs }),
-    ...(isAppError(error) &&
-      error.recoveryAction && { recoveryAction: error.recoveryAction })
-  }
-}
+): AppFailure => toAppFailure(error, options)
 
 export const createErrorResponse = (
   error: unknown,
@@ -107,11 +65,11 @@ export const createErrorResponse = (
  * wrapper doesn't know the handler's abort key, and clearing by `port.name`
  * used to delete the wrong entry while leaking the real one.
  */
-export const withErrorContext = <T>(
-  handler: HandlerFunction<T>,
+export const withErrorContext = <T, TPort extends ChatStreamSink = ChromePort>(
+  handler: HandlerFunction<T, TPort>,
   context: ErrorContext<T>
 ) => {
-  return async (msg: T, port: ChromePort, isPortClosed: PortStatusFunction) => {
+  return async (msg: T, port: TPort, isPortClosed: PortStatusFunction) => {
     const startedAt = performance.now()
     try {
       await handler(msg, port, isPortClosed)
@@ -119,7 +77,13 @@ export const withErrorContext = <T>(
       // 3. Handle AbortError specifically
       if (isAbortError(err)) {
         if (!isPortClosed()) {
-          safePostMessage(port, { done: true, aborted: true })
+          safePostChatStreamEvent(port, {
+            version: 1,
+            type: CHAT_STREAM_EVENT_TYPES.CHUNK,
+            seq: port.streamSequence ?? 0,
+            done: true,
+            aborted: true
+          })
         }
         return
       }
@@ -197,7 +161,12 @@ export const withErrorContext = <T>(
             }
           }).catch(() => undefined)
         }
-        safePostMessage(port, { error: response.error })
+        safePostChatStreamEvent(port, {
+          version: 1,
+          type: CHAT_STREAM_EVENT_TYPES.CHUNK,
+          seq: port.streamSequence ?? 0,
+          error: response.error
+        })
       }
     }
   }

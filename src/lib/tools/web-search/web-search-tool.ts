@@ -11,8 +11,10 @@ import type { WebSearchResult } from "./types"
 
 const PER_SNIPPET_CHAR_LIMIT = 500
 const TOOL_OUTPUT_CHAR_LIMIT = 6000
-// The UI shows the full snippet (search snippets are short); this is just a
-// guard against a pathologically long one bloating persisted message metrics.
+/**
+ * The UI shows the full snippet (search snippets are short); this is just a
+ * guard against a pathologically long one bloating persisted message metrics.
+ */
 const SOURCE_EXCERPT_CHAR_LIMIT = 1200
 const TRACKING_PARAMS = new Set([
   "fbclid",

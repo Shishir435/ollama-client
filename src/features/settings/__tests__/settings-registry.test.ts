@@ -157,6 +157,18 @@ describe("settings-registry", () => {
       )
     })
 
+    it("matches the catalog refresh interval by what a user would call it", () => {
+      for (const query of [
+        "model list refresh",
+        "polling interval",
+        "network requests"
+      ]) {
+        expect(searchSettings(query).map((entry) => entry.id)).toContain(
+          "provider-catalog-refresh"
+        )
+      }
+    })
+
     it("matches embedding search internals on the embeddings tab", () => {
       expect(searchSettings("semantic search").map((e) => e.id)).toContain(
         "embeddings-test-search"

@@ -1,16 +1,17 @@
+import { ContextService } from "@/application/context/context-service"
 import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
-import { safePostMessage } from "@/background/lib/utils"
-import {
-  type BuildRagContextResult,
-  buildRagContext
-} from "@/features/chat/hooks/build-rag-context"
+import { safePostChatStreamEvent } from "@/background/lib/utils"
 import { logger } from "@/lib/logger"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { toAppFailure } from "@/protocol/app-failure"
+import {
+  CHAT_STREAM_EVENT_TYPES,
+  type ChatStreamServerEvent
+} from "@/protocol/streams"
 import type {
   ActivityEvent,
   BuildContextMessage,
-  ChromeMessage,
   ChromePort,
   PortStatusFunction
 } from "@/types"
@@ -20,7 +21,7 @@ import type {
  * through the same governance/capability path the chat turn uses. Failures
  * default to false so context is auto-injected (safe fallback).
  */
-const resolveRetrievalToolsActive = async (
+export const resolveRetrievalToolsActive = async (
   modelId: string,
   providerId: string | undefined,
   latestUserText: string
@@ -62,9 +63,9 @@ export const handleBuildContext = async (
   isPortClosed: PortStatusFunction
 ): Promise<void> => {
   const p = msg.payload
-  const post = (message: Record<string, unknown>): void => {
+  const post = (message: ChatStreamServerEvent): void => {
     if (isPortClosed()) return
-    safePostMessage(port, message as unknown as ChromeMessage)
+    safePostChatStreamEvent(port, message)
   }
 
   try {
@@ -76,42 +77,60 @@ export const handleBuildContext = async (
       p.rawInput
     )
 
-    const result: BuildRagContextResult = await buildRagContext({
-      rawInput: p.rawInput,
-      files: p.files,
-      messages: p.messages,
-      hasTabContext: p.hasTabContext,
-      contextText: p.contextText,
-      tabDocuments: p.tabDocuments,
-      memoryEnabled: p.memoryEnabled,
-      maxTabContextChars: p.maxTabContextChars,
-      maxRagContextChars: p.maxRagContextChars,
-      groundedOnlyMode: p.groundedOnlyMode,
-      retrievalToolsActive,
-      selectedModel: p.selectedModel,
-      selectedModelRef: p.selectedModelRef,
-      customModel: p.customModel,
-      onActivityEvent: (events: ActivityEvent[]) =>
-        post({
-          type: "context_progress",
-          requestId: p.requestId,
-          events
-        }),
-      toast: (warning) =>
-        post({
-          type: "context_warning",
-          requestId: p.requestId,
-          payload: warning
-        })
+    const output = await new ContextService().build({
+      turnId: p.turnId ?? p.requestId,
+      mode: p.mode ?? "new",
+      model: modelId,
+      providerId: p.selectedModelRef?.providerId,
+      options: {
+        rawInput: p.rawInput,
+        files: p.files,
+        messages: p.messages,
+        hasTabContext: p.hasTabContext,
+        contextText: p.contextText,
+        tabDocuments: p.tabDocuments,
+        memoryEnabled: p.memoryEnabled,
+        maxTabContextChars: p.maxTabContextChars,
+        maxRagContextChars: p.maxRagContextChars,
+        groundedOnlyMode: p.groundedOnlyMode,
+        retrievalToolsActive,
+        selectedModel: p.selectedModel,
+        selectedModelRef: p.selectedModelRef,
+        customModel: p.customModel,
+        onActivityEvent: (events: ActivityEvent[]) =>
+          post({
+            version: 1,
+            type: CHAT_STREAM_EVENT_TYPES.CONTEXT_PROGRESS,
+            requestId: p.requestId,
+            events
+          }),
+        toast: (warning) =>
+          post({
+            version: 1,
+            type: CHAT_STREAM_EVENT_TYPES.CONTEXT_WARNING,
+            requestId: p.requestId,
+            payload: warning
+          })
+      }
     })
 
-    post({ type: "context_result", requestId: p.requestId, result })
+    post({
+      version: 1,
+      type: CHAT_STREAM_EVENT_TYPES.CONTEXT_RESULT,
+      requestId: p.requestId,
+      result: output.result,
+      receipt: output.receipt
+    })
   } catch (error) {
     logger.error("Failed to build context", "handleBuildContext", { error })
     post({
-      type: "context_error",
+      version: 1,
+      type: CHAT_STREAM_EVENT_TYPES.CONTEXT_ERROR,
       requestId: p.requestId,
-      error: error instanceof Error ? error.message : "Context build failed"
+      failure: toAppFailure(error, {
+        fallbackMessage: "Context build failed",
+        context: "context-build"
+      })
     })
   }
 }

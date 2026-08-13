@@ -1,7 +1,6 @@
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
-import { RpcMethod } from "@/protocol/rpc"
 import { FirstRunPermissionsDialog } from "../first-run-permissions-dialog"
 
 const onboarding = vi.hoisted(() => ({

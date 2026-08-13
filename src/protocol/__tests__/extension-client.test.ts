@@ -6,14 +6,14 @@ vi.mock("@/lib/browser-api", () => ({
   browser: { runtime: { sendMessage } }
 }))
 
-import { extensionRpcClient } from "../extension-client"
 import {
   RPC_CANCEL_MESSAGE_TYPE,
   RPC_PROTOCOL_VERSION,
   RPC_RESPONSE_MESSAGE_TYPE,
   RpcErrorCode,
   RpcMethod
-} from "../rpc"
+} from "@ollama-client/contracts/rpc"
+import { extensionRpcClient } from "../extension-client"
 
 beforeEach(() => {
   sendMessage.mockReset()

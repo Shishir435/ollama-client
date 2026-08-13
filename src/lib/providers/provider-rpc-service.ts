@@ -1,6 +1,6 @@
-import { createAppError, isAbortError, isAppError } from "@/lib/error-utils"
 import {
   MODEL_DISCOVERY_FAILURE,
+  type ProvidersIconsResult,
   type ProvidersListModelsRequest,
   type ProvidersListModelsResult,
   type ProvidersListResult,
@@ -15,7 +15,8 @@ import {
   type ProviderTestConnectionRequest,
   type ProviderTestConnectionResult,
   type PublicProviderConfig
-} from "@/protocol/provider-rpc"
+} from "@ollama-client/contracts/provider-rpc"
+import { createAppError, isAbortError, isAppError } from "@/lib/error-utils"
 import type { ChatStreamMessage } from "@/types/chat"
 import type { ProviderModel } from "@/types/model"
 
@@ -29,17 +30,43 @@ import { ProviderFactory } from "./factory"
 import { ProviderManager } from "./manager"
 import {
   clearModelCatalogSupport,
-  isCatalogAbsentStatus,
-  recordModelCatalogSupport,
-  shouldSkipModelCatalog
+  isCatalogAbsentStatus
 } from "./model-catalog-support"
+import { discoverModels } from "./model-discovery"
+import { resolveProviderBrand } from "./provider-brand"
+import {
+  clearAllProviderFavicons,
+  clearProviderFavicon,
+  isFaviconLookupEnabled,
+  resolveProviderFavicon
+} from "./provider-favicon"
 import type { LLMProvider, ProviderConfig } from "./types"
 
 const toPublicConfig = (config: ProviderConfig): PublicProviderConfig => {
-  const { apiKey, ...publicConfig } = config
   return {
-    ...publicConfig,
-    hasApiKey: Boolean(apiKey?.trim())
+    id: String(config.id),
+    type: config.type,
+    enabled: config.enabled,
+    ...(config.baseUrl !== undefined && { baseUrl: config.baseUrl }),
+    ...(config.modelId !== undefined && { modelId: config.modelId }),
+    name: config.name,
+    ...(config.customModels !== undefined && {
+      customModels: config.customModels
+    }),
+    ...(config.serviceProfile !== undefined && {
+      serviceProfile: config.serviceProfile
+    }),
+    ...(config.compatibility !== undefined && {
+      compatibility: {
+        ...(config.compatibility.maxTokensField !== undefined && {
+          maxTokensField: config.compatibility.maxTokensField
+        }),
+        ...(config.compatibility.sendStreamOptions !== undefined && {
+          sendStreamOptions: config.compatibility.sendStreamOptions
+        })
+      }
+    }),
+    hasApiKey: Boolean(config.apiKey?.trim())
   }
 }
 
@@ -60,15 +87,6 @@ const customModel = (name: string, config: ProviderConfig): ProviderModel => ({
     quantization_level: ""
   }
 })
-
-/**
- * "This server has no model-list endpoint", as opposed to "this server is
- * broken or refused you". Every other failure — no answer at all, 401, 429,
- * 5xx — stays a failure and keeps its own message, because calling those
- * reachable would hide a problem the user has to fix.
- */
-const isModelListAbsent = (error: unknown): boolean =>
-  isAppError(error) && isCatalogAbsentStatus(error.status)
 
 /**
  * Confirm a catalog-less endpoint by asking it to generate one token.
@@ -221,45 +239,6 @@ const confirmChatEndpoint = async (
   }
 }
 
-/**
- * Ask a provider for its catalog, unless it has already answered that it has
- * none. Returns the discovered models and what was learned, so callers do not
- * each have to re-derive "was that a failure or just an absent endpoint".
- */
-const discoverModels = async (
-  config: ProviderConfig | undefined,
-  resolveProvider: () => Promise<Pick<LLMProvider, "getModels">>,
-  signal?: AbortSignal,
-  options: { force?: boolean } = {}
-): Promise<{
-  models: ProviderModel[]
-  catalog: "present" | "absent" | "failed"
-  error?: unknown
-}> => {
-  const remember = (supported: boolean) =>
-    config ? recordModelCatalogSupport(config, supported) : Promise.resolve()
-  if (
-    config &&
-    !options.force &&
-    (await shouldSkipModelCatalog(config).catch(() => false))
-  ) {
-    return { models: [], catalog: "absent" }
-  }
-  try {
-    const provider = await resolveProvider()
-    const models = await provider.getModels(signal)
-    await remember(true).catch(() => undefined)
-    return { models, catalog: "present" }
-  } catch (error) {
-    if (signal?.aborted) throw error
-    if (!isModelListAbsent(error)) {
-      return { models: [], catalog: "failed", error }
-    }
-    await remember(false).catch(() => undefined)
-    return { models: [], catalog: "absent" }
-  }
-}
-
 const mergeProviderModels = (
   models: ProviderModel[],
   config: ProviderConfig
@@ -268,10 +247,23 @@ const mergeProviderModels = (
   for (const name of config.customModels ?? []) {
     if (!byName.has(name)) byName.set(name, customModel(name, config))
   }
+  /*
+   * The vendor mark is resolved here, not in the UI: it is read off the base
+   * URL and service profile, and neither crosses the RPC boundary with a model
+   * row. Every model a provider contributes therefore carries the brand its
+   * configuration implies.
+   */
+  const brand = resolveProviderBrand({
+    id: String(config.id),
+    baseUrl: config.baseUrl,
+    name: config.name,
+    serviceProfile: config.serviceProfile
+  })
   return [...byName.values()].map((model) => ({
     ...model,
     providerId: model.providerId || String(config.id),
-    providerName: model.providerName || config.name
+    providerName: model.providerName || config.name,
+    ...(brand && { providerBrand: brand })
   }))
 }
 
@@ -279,6 +271,52 @@ export const ProviderRpcService = {
   async list(): Promise<ProvidersListResult> {
     const providers = await ProviderManager.getProviders()
     return { providers: providers.map(toPublicConfig) }
+  },
+
+  /**
+   * Site icons for providers that have no curated mark. Only those are asked:
+   * a recognized vendor already has a better icon than its own favicon, and
+   * spending a request to fetch a worse one would be pure cost.
+   */
+  async icons(
+    _request: unknown,
+    signal?: AbortSignal
+  ): Promise<ProvidersIconsResult> {
+    /*
+     * Turning the lookup off drops what was already fetched, so the setting
+     * means "do not keep provider icons" rather than only "do not fetch more".
+     * The purge is idempotent and re-derivable, so it is safe in a query.
+     */
+    if (!(await isFaviconLookupEnabled())) {
+      await clearAllProviderFavicons().catch(() => undefined)
+      return { icons: [] }
+    }
+
+    const providers = await ProviderManager.getProviders()
+    const candidates = providers.filter(
+      (config) =>
+        config.enabled &&
+        !resolveProviderBrand({
+          id: String(config.id),
+          baseUrl: config.baseUrl,
+          name: config.name,
+          serviceProfile: config.serviceProfile
+        })
+    )
+
+    const resolved = await Promise.all(
+      candidates.map(async (config) => ({
+        providerId: String(config.id),
+        dataUrl: await resolveProviderFavicon(config, signal).catch(() => null)
+      }))
+    )
+
+    return {
+      icons: resolved.filter(
+        (icon): icon is { providerId: string; dataUrl: string } =>
+          typeof icon.dataUrl === "string"
+      )
+    }
   },
 
   async testConnection(
@@ -430,6 +468,9 @@ export const ProviderRpcService = {
     request: ProvidersRemoveRequest
   ): Promise<ProvidersRemoveResult> {
     await ProviderManager.removeCustomProvider(request.providerId)
+    // The cached icon outlives the provider otherwise, and a later provider
+    // reusing the id would inherit it.
+    await clearProviderFavicon(request.providerId).catch(() => undefined)
     return { removedProviderId: request.providerId }
   },
 

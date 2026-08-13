@@ -1,11 +1,10 @@
+import type { DiagnosticsGetBundleResult } from "@ollama-client/contracts/diagnostics-rpc"
 import { describe, expect, it } from "vitest"
-
 import {
   buildChatMessageErrorReportUrl,
   buildDiagnosticIssueUrl,
   buildGenericIssueReportUrl
 } from "@/lib/error-report"
-import type { DiagnosticsGetBundleResult } from "@/protocol/diagnostics-rpc"
 
 const bodyOf = (url: string) => new URL(url).searchParams.get("body") ?? ""
 

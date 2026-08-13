@@ -1,5 +1,7 @@
-// No remote @import here: the export stylesheet must not fetch third-party
-// resources (fonts included) — printing a chat should leave no network trace.
+/**
+ * Self-contained print stylesheet with no remote imports. Exporting or printing
+ * a chat must not fetch third-party resources, including fonts.
+ */
 export const getPdfStyles = () => `
   * {
     box-sizing: border-box;

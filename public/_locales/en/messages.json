@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "Ollama Client - Local AI Chat for Ollama, LM Studio, llama.cpp",
+    "message": "Ollama Client - Chat with Local LLM Models",
     "description": "Extension name shown by Chrome and Chrome Web Store"
   },
   "extShortName": {
@@ -8,7 +8,7 @@
     "description": "Short extension name"
   },
   "extDescription": {
-    "message": "Local-first private LLM chat with Ollama, LM Studio, and llama.cpp, with local RAG, web search, and page context.",
+    "message": "Local-first Chrome extension for private LLM chat with Ollama, LM Studio, and llama.cpp, including local RAG workflows.",
     "description": "Extension description shown by Chrome and Chrome Web Store"
   },
   "actionDefaultTitle": {

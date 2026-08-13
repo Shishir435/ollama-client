@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   scheduleReminder: vi.fn()
 }))
 
-vi.mock("@/background/lib/reminders", () => ({
+vi.mock("@/lib/reminders", () => ({
   scheduleReminder: mocks.scheduleReminder
 }))
 

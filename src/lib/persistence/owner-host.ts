@@ -1,6 +1,8 @@
+import type { RuntimeSenderLike } from "@ollama-client/runtime-core/runtime-sender"
 import { logger } from "@/lib/logger"
 import {
   markOpfsBackend,
+  type PersistenceBackend,
   readLegacyOverride,
   readMigrationReceipt,
   readPersistenceBackend,
@@ -10,26 +12,33 @@ import {
   describeMismatches,
   findMissingDurableTables,
   findTableCountMismatches,
+  type IntegrityReport,
   isSoundDatabase,
   type TableCountMismatch
 } from "./durable-tables"
-import type { ImportResult } from "./protocol"
+import { PersistenceNotDeliveredError } from "./errors"
+import { isTrustedPersistenceSender } from "./host-authorization"
+import type { ImportResult, SurveyResult } from "./protocol"
 import {
-  decodeBind,
+  decodePersistenceWireOp,
   encodeRows,
   encodeValue,
   PERSISTENCE_ENSURE,
   PERSISTENCE_RPC,
+  PersistenceEnsureRequestSchema,
   type PersistenceOp,
-  type PersistenceRpcRequest,
+  PersistenceOpSchema,
+  PersistenceRpcRequestSchema,
   type QueryRow
 } from "./protocol"
 
-// Host side of the production persistence topology. Runs in exactly one
-// context per browser session: the Chromium offscreen document
-// (src/entrypoints/persistence-host/) or the Firefox MV2 persistent
-// background page. Owns the only chat-db worker, answers persistence-rpc
-// runtime messages, and performs the one-time legacy-blob migration.
+/**
+ * Host side of the production persistence topology. Runs in exactly one
+ * context per browser session: the Chromium offscreen document
+ * (src/entrypoints/persistence-host/) or the Firefox MV2 persistent
+ * background page. Owns the only chat-db worker, answers persistence-rpc
+ * runtime messages, and performs the one-time legacy-blob migration.
+ */
 
 let worker: Worker | null = null
 let requestId = 0
@@ -147,25 +156,36 @@ const ensureWorker = (): Worker => {
 }
 
 export const callWorker = (request: PersistenceOp): Promise<unknown> => {
+  const validated = PersistenceOpSchema.parse(request)
   requestId += 1
   const id = requestId
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject })
-    if (request.op === "importDb" && request.bytes instanceof ArrayBuffer) {
-      ensureWorker().postMessage({ id, request }, [request.bytes])
+    if (validated.op === "importDb" && validated.bytes instanceof ArrayBuffer) {
+      ensureWorker().postMessage({ id, request: validated }, [validated.bytes])
       return
     }
-    ensureWorker().postMessage({ id, request })
+    ensureWorker().postMessage({ id, request: validated })
   })
 }
 
-// ---------------------------------------------------------------------------
-// One-time migration from the legacy sql.js IndexedDB blob
-// ---------------------------------------------------------------------------
+/** One-time migration from the legacy IndexedDB blob */
 
 let migrationPromise: Promise<void> | null = null
 
-const migrateLegacyBlobOnce = async (): Promise<void> => {
+/**
+ * Attempt the migration and report which backend the owner should serve from.
+ *
+ * A failure here is not fatal any more. It used to reject, every RPC with it,
+ * and each client then opened its own in-context sql.js database against the
+ * blob — which is how one profile ended up with as many writers as it had open
+ * pages. The owner now serves the blob itself, so a failed migration downgrades
+ * the topology instead of abandoning the request.
+ */
+const migrateLegacyBlobOnce = async (): Promise<{
+  backend: PersistenceBackend
+  integrity?: IntegrityReport
+}> => {
   if (await readLegacyOverride()) {
     logger.warn(
       "Persistence legacy override is set; staying on the legacy blob",
@@ -178,16 +198,14 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
     if (previous?.outcome !== "skipped") {
       await writeMigrationReceipt({ outcome: "skipped" })
     }
-    return
+    return { backend: "legacy" }
   }
 
   const backend = await readPersistenceBackend()
-  if (backend === "opfs") return
+  if (backend === "opfs") return { backend: "opfs" }
 
   logger.info("Starting legacy-blob → OPFS migration", "Persistence")
-  const { readLegacyBlobBytes, countLegacyRows } = await import(
-    "./legacy-blob-reader"
-  )
+  const { readLegacyBlobBytes } = await import("./legacy-blob-reader")
   const bytes = await readLegacyBlobBytes()
 
   if (!bytes || bytes.byteLength === 0) {
@@ -196,14 +214,27 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
     await markOpfsBackend({})
     await writeMigrationReceipt({ outcome: "fresh" })
     logger.info("No legacy blob; OPFS backend initialized fresh", "Persistence")
-    return
+    return { backend: "opfs" }
   }
+
+  const buffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  ) as ArrayBuffer
 
   // Survey the source BEFORE the physical import — this is the verification
   // target, and it covers every durable table the blob has, not just the two
   // the chat list happens to read. The source blob itself is never modified or
   // deleted; it remains the rollback artifact.
-  const source = await countLegacyRows(bytes)
+  //
+  // Measured by the worker, on the engine that will import it. A separate
+  // reader could disagree with the importer about what the file contains, and
+  // then verification would be comparing two engines rather than checking a
+  // migration. It also means the blob is read by one SQLite, not two.
+  const source = (await callWorker({
+    op: "surveyDb",
+    bytes: buffer
+  })) as SurveyResult
   if (!isSoundDatabase(source.integrity)) {
     logger.warn(
       "Legacy blob failed integrity_check before import",
@@ -213,11 +244,6 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
       }
     )
   }
-  const buffer = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
-  ) as ArrayBuffer
-
   let imported: ImportResult | undefined
   let mismatches: TableCountMismatch[] = []
   try {
@@ -274,6 +300,7 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
       `Legacy blob migrated and verified: ${source.sessions} sessions, ${source.messages} messages`,
       "Persistence"
     )
+    return { backend: "opfs" }
   } catch (error) {
     await writeMigrationReceipt({
       outcome: "failed",
@@ -286,87 +313,140 @@ const migrateLegacyBlobOnce = async (): Promise<void> => {
       mismatches,
       failure: error instanceof Error ? error.message : String(error)
     })
-    throw error
+    logger.error("Legacy-blob migration failed", "Persistence", { error })
+    // The marker stays on "legacy" and the blob is untouched, so the owner can
+    // serve from it. The source survey already measured this exact image; its
+    // verdict is handed over so the legacy open does not rescan it.
+    return { backend: "legacy", integrity: source.integrity }
   }
 }
 
-/** Idempotent; safe to call on every host boot. A failed attempt clears the
- * cached promise so the next boot (or next call) retries; the backend marker
- * only flips after verification succeeds. */
+/**
+ * Attempt the migration once, then put the owner on whichever backend it
+ * settled on. Idempotent; safe to call on every host boot and before every RPC.
+ *
+ * A rejection here means the *owner* could not be brought up at all — the
+ * worker never answered, the marker could not be read. A migration that fails
+ * verification is not that: it resolves, on the legacy backend.
+ */
 export const ensureMigrated = (): Promise<void> => {
   if (!migrationPromise) {
-    migrationPromise = migrateLegacyBlobOnce().catch((error) => {
+    migrationPromise = (async () => {
+      const outcome = await migrateLegacyBlobOnce()
+      // Only the legacy direction is announced. "opfs" is the engine's default,
+      // and re-announcing it on every boot would close and reopen a context
+      // that is already correct.
+      if (outcome.backend === "legacy") {
+        await callWorker({
+          op: "setBackend",
+          backend: "legacy",
+          integrity: outcome.integrity
+        })
+      }
+    })().catch((error) => {
       migrationPromise = null
-      logger.error("Legacy-blob migration failed", "Persistence", { error })
+      logger.error("Persistence owner failed to start", "Persistence", {
+        error
+      })
       throw error
     })
   }
   return migrationPromise
 }
 
-// ---------------------------------------------------------------------------
-// RPC listener
-// ---------------------------------------------------------------------------
+/** RPC listener */
+
+export const handlePersistenceHostMessage = (
+  message: unknown,
+  sender: RuntimeSenderLike,
+  sendResponse: (response: unknown) => void
+): boolean => {
+  const extensionUrlPrefix = chrome.runtime.getURL("")
+  const type = (message as { type?: string } | undefined)?.type
+  if (type === PERSISTENCE_ENSURE) {
+    if (
+      !isTrustedPersistenceSender(
+        sender,
+        chrome.runtime.id,
+        extensionUrlPrefix
+      ) ||
+      !PersistenceEnsureRequestSchema.safeParse(message).success
+    ) {
+      sendResponse({ ok: false, error: "Persistence request forbidden" })
+      return true
+    }
+    // The host answering at all proves the owner exists.
+    sendResponse({ ok: true })
+    return true
+  }
+  if (type !== PERSISTENCE_RPC) return false
+  if (
+    !isTrustedPersistenceSender(sender, chrome.runtime.id, extensionUrlPrefix)
+  ) {
+    sendResponse({ ok: false, error: "Persistence request forbidden" })
+    return true
+  }
+  const parsed = PersistenceRpcRequestSchema.safeParse(message)
+  if (!parsed.success) {
+    sendResponse({ ok: false, error: "Invalid persistence request" })
+    return true
+  }
+  ;(async () => {
+    try {
+      await ensureMigrated()
+      // Runtime messages JSON-serialize on Chromium: decode blob-encoded
+      // binds/bytes into real Uint8Arrays before the worker sees them,
+      // and encode binary results before sendResponse.
+      const request = decodePersistenceWireOp(parsed.data.request)
+      const result = await callWorker(request)
+      if (request.op === "query") {
+        sendResponse({ ok: true, result: encodeRows(result as QueryRow[]) })
+        return
+      }
+      if (result instanceof ArrayBuffer) {
+        sendResponse({
+          ok: true,
+          result: encodeValue(new Uint8Array(result))
+        })
+        return
+      }
+      sendResponse({ ok: true, result })
+    } catch (error) {
+      sendResponse({
+        ok: false,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  })()
+  return true
+}
 
 export const registerPersistenceHost = (): void => {
   // In-process fast path for code running inside the host context itself
   // (the Firefox background page is both host and a heavy client).
   globalThis.__persistenceHostCall = async (request: PersistenceOp) => {
-    await ensureMigrated()
+    // Labelled here because this is the only place that knows which stage
+    // failed. A client sees one promise; the owner sees two, and the first one
+    // is the provable case: if startup rejects, nothing was posted to the
+    // worker, so repeating the request cannot double a write. `ensureMigrated`
+    // clears its memo on failure, so the retry genuinely re-attempts rather
+    // than replaying a settled rejection.
+    try {
+      await ensureMigrated()
+    } catch (error) {
+      throw new PersistenceNotDeliveredError(request.op, error)
+    }
+    // Past this point the worker has the request and the outcome is unknown,
+    // which is `owner-error` — including a worker that dies mid-statement,
+    // where the write may well have committed.
     return callWorker(request)
   }
 
   void ensureMigrated().catch(() => {
-    // Logged above; clients fall back to the legacy backend until a later
-    // boot migrates successfully.
+    // Logged above. This is the owner failing to start, not a migration failing
+    // verification — that resolves onto the legacy backend. Clients see their
+    // requests reject until a later boot brings the owner up.
   })
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    const type = (message as { type?: string } | undefined)?.type
-    if (type === PERSISTENCE_ENSURE) {
-      // The host answering at all proves the owner exists.
-      sendResponse({ ok: true })
-      return true
-    }
-    const rpc = message as PersistenceRpcRequest | undefined
-    if (rpc?.type !== PERSISTENCE_RPC) return false
-    ;(async () => {
-      try {
-        await ensureMigrated()
-        // Runtime messages JSON-serialize on Chromium: decode blob-encoded
-        // binds/bytes into real Uint8Arrays before the worker sees them,
-        // and encode binary results before sendResponse.
-        const request = { ...rpc.request } as PersistenceOp
-        if (request.op === "query" || request.op === "run") {
-          request.bind = decodeBind(request.bind as unknown[])
-        }
-        if (
-          request.op === "importDb" &&
-          Array.isArray(request.bytes as unknown)
-        ) {
-          request.bytes = Uint8Array.from(request.bytes as unknown as number[])
-            .buffer as ArrayBuffer
-        }
-        const result = await callWorker(request)
-        if (request.op === "query") {
-          sendResponse({ ok: true, result: encodeRows(result as QueryRow[]) })
-          return
-        }
-        if (result instanceof ArrayBuffer) {
-          sendResponse({
-            ok: true,
-            result: encodeValue(new Uint8Array(result))
-          })
-          return
-        }
-        sendResponse({ ok: true, result })
-      } catch (error) {
-        sendResponse({
-          ok: false,
-          error: error instanceof Error ? error.message : String(error)
-        })
-      }
-    })()
-    return true
-  })
+  chrome.runtime.onMessage.addListener(handlePersistenceHostMessage)
 }

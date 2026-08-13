@@ -7,7 +7,8 @@ const ROOT = process.cwd()
 const SCOPE_AWARE_UI = [
   "src/features/chat/hooks/use-speech-settings.ts",
   "src/features/model/hooks/use-model-capability-overrides.ts",
-  "src/features/permissions/components/approvals-card.tsx"
+  "src/features/permissions/components/approvals-card.tsx",
+  "src/features/web-search/stores/web-search-config-store.ts"
 ]
 
 describe("storage API boundary", () => {

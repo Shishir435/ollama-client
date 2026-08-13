@@ -1,6 +1,6 @@
+import { ProviderReplayArtifactSchema } from "@ollama-client/contracts/chat"
 import { createAppError } from "@/lib/error-utils"
 import type { ProviderReplayArtifact } from "@/types/chat"
-import { ProviderReplayArtifactSchema } from "@/types/chat.schemas"
 
 const REPLAY_ARTIFACT_VERSION = 1 as const
 

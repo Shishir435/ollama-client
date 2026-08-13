@@ -1,8 +1,17 @@
+import {
+  MODEL_DISCOVERY_FAILURE,
+  type ProvidersListModelsResult
+} from "@ollama-client/contracts/provider-rpc"
+import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { useStorage } from "@plasmohq/storage/hook"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useCallback, useEffect } from "react"
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient
+} from "@tanstack/react-query"
+import { useCallback, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-
 import { DEFAULT_PROVIDER_ID, STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
@@ -24,35 +33,55 @@ import {
 } from "@/lib/providers/types"
 import { queryKeys } from "@/lib/query-keys"
 import { extensionRpcClient } from "@/protocol/extension-client"
-import {
-  MODEL_DISCOVERY_FAILURE,
-  type ProvidersListModelsResult
-} from "@/protocol/provider-rpc"
-import { RpcMethod } from "@/protocol/rpc"
 import type { SelectedModelRef } from "@/types"
+import {
+  catalogStaleTimeMs,
+  DEFAULT_CATALOG_REFRESH_MS,
+  normalizeCatalogRefreshMs
+} from "../lib/catalog-refresh"
 import { isEmbeddingModel } from "../lib/model-utils"
 
-// Stable identities: a fresh literal on every render would restart the effects
-// and memos that take `models`.
+/**
+ * Stable identities: a fresh literal on every render would restart the effects
+ * and memos that take `models`.
+ */
 const EMPTY_MODELS: ProvidersListModelsResult["models"] = []
 const EMPTY_FAILURES: ProvidersListModelsResult["failures"] = []
 
-const fetchAllProviderModels = async (): Promise<ProvidersListModelsResult> => {
-  const result = await extensionRpcClient.call(RpcMethod.ProvidersListModels, {
-    enabledOnly: true
-  })
-  const pairs = result.models
-    .filter(
-      (model) => model.providerId && model.providerId !== DEFAULT_PROVIDER_ID
-    )
-    .map((model) => ({
-      modelId: model.name,
-      providerId: model.providerId as string
-    }))
-  if (pairs.length > 0) {
-    await ProviderManager.saveModelMappings(pairs)
+/**
+ * Merge the per-provider queries into the one list the UI consumes.
+ *
+ * Declared at module scope so its identity is stable: `useQueries` re-runs
+ * `combine` whenever the function changes, and an inline closure would rebuild
+ * the model array on every render, restarting every effect that takes it.
+ */
+const combineProviderModels = (
+  results: ReadonlyArray<{
+    data?: ProvidersListModelsResult
+    isFetching: boolean
+    error: unknown
+  }>
+) => {
+  const models: ProvidersListModelsResult["models"] = []
+  const failures: ProvidersListModelsResult["failures"] = []
+  let isFetching = false
+  let error: unknown = null
+
+  for (const result of results) {
+    if (result.data) {
+      models.push(...result.data.models)
+      failures.push(...result.data.failures)
+    }
+    if (result.isFetching) isFetching = true
+    if (!error && result.error) error = result.error
   }
-  return result
+
+  return {
+    models: models.length > 0 ? models : EMPTY_MODELS,
+    failures: failures.length > 0 ? failures : EMPTY_FAILURES,
+    isFetching,
+    error
+  }
 }
 
 const fetchProviderVersion = async (providerId: string): Promise<string> => {
@@ -122,22 +151,80 @@ export const useProviderModels = () => {
     { key: ProviderStorageKey.CONFIG, instance: plasmoGlobalStorage },
     []
   )
+  const [storedCatalogRefreshMs] = useStorage<number>(
+    {
+      key: STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS,
+      instance: plasmoGlobalStorage
+    },
+    DEFAULT_CATALOG_REFRESH_MS
+  )
+  const catalogRefreshMs = normalizeCatalogRefreshMs(storedCatalogRefreshMs)
 
-  /**
-   * Model list query — refetches whenever providerConfig changes
+  /*
+   * Who to ask, from the background rather than from `providerConfig` directly:
+   * `getProviders` merges the built-ins into stored configuration, so a profile
+   * whose storage has not been written yet would otherwise fan out to nobody.
+   * The stored array stays in the key as the change signal — a storage-only
+   * read, so re-running it costs nothing.
    */
   const {
-    data: modelList,
-    isFetching: isLoading,
-    error: modelsError,
-    refetch: refetchModels
+    data: providerList,
+    isFetching: isLoadingProviders,
+    error: providersError
   } = useQuery({
-    queryKey: [...queryKeys.model.providerList(), providerConfig],
-    queryFn: fetchAllProviderModels,
-    // 30-second stale time; the list rarely changes mid-session.
+    queryKey: [...queryKeys.model.providerConfigs(), providerConfig],
+    queryFn: () => extensionRpcClient.call(RpcMethod.ProvidersList, {}),
     staleTime: 1000 * 30
   })
-  const models = modelList?.models ?? EMPTY_MODELS
+
+  const enabledProviders = useMemo(
+    () =>
+      (providerList?.providers ?? []).filter((provider) => provider.enabled),
+    [providerList]
+  )
+
+  /*
+   * One query per provider, keyed by that provider's own configuration. Editing
+   * one provider therefore re-discovers that provider only: everyone else's key
+   * is unchanged and answers from cache. A single list keyed by the whole config
+   * array meant adding one model id to one provider re-ran discovery against
+   * every endpoint, which for a hosted router is a real request against someone
+   * else's rate limit.
+   */
+  const {
+    models,
+    failures,
+    isFetching: isLoadingModels,
+    error: modelQueryError
+  } = useQueries({
+    queries: enabledProviders.map((provider) => ({
+      queryKey: [...queryKeys.model.providerModels(provider.id), provider],
+      queryFn: () =>
+        extensionRpcClient.call(RpcMethod.ProvidersListModels, {
+          providerId: provider.id
+        }),
+      /*
+       * The catalog rarely changes mid-session, and the changes that matter —
+       * a pull, a delete, a configuration edit — invalidate this query
+       * directly. The poll is only here to notice a provider that came up or
+       * went away while a surface is open, so it runs on the user's interval
+       * and, unlike the interval it replaces, not while the surface is hidden.
+       */
+      staleTime: catalogStaleTimeMs(catalogRefreshMs),
+      refetchInterval:
+        catalogRefreshMs > 0 ? catalogRefreshMs : (false as const)
+    })),
+    combine: combineProviderModels
+  })
+
+  const isLoading = isLoadingProviders || isLoadingModels
+  /*
+   * A failed provider list is a failed model list: without it there is nobody to
+   * ask, and reporting that as an empty catalog would send the user looking for
+   * missing models instead of the error that hid them.
+   */
+  const modelsError = providersError ?? modelQueryError
+
   /*
    * Providers that contributed nothing at all. A provider whose declared model
    * ids carried the list is not in here — its models are on screen, so there is
@@ -145,8 +232,13 @@ export const useProviderModels = () => {
    * declarations would otherwise just be absent from the menu with no reason
    * given.
    */
-  const unavailableProviders = (modelList?.failures ?? EMPTY_FAILURES).filter(
-    (failure) => failure.code !== MODEL_DISCOVERY_FAILURE.DISCOVERY_UNAVAILABLE
+  const unavailableProviders = useMemo(
+    () =>
+      failures.filter(
+        (failure) =>
+          failure.code !== MODEL_DISCOVERY_FAILURE.DISCOVERY_UNAVAILABLE
+      ),
+    [failures]
   )
 
   const selectedModelData = models.find((m) => m.name === selectedModel)
@@ -253,13 +345,21 @@ export const useProviderModels = () => {
     retry: false
   })
 
+  /**
+   * The explicit refresh button: everyone, unconditionally. Per-provider keys
+   * are nested under the list prefix, so one invalidation still covers them all.
+   */
   const refresh = useCallback(async () => {
-    const result = await refetchModels()
+    await queryClientInstance.invalidateQueries({
+      queryKey: queryKeys.model.providerConfigs()
+    })
+    await queryClientInstance.refetchQueries({
+      queryKey: queryKeys.model.providerList()
+    })
     await queryClientInstance.invalidateQueries({
       queryKey: queryKeys.model.infoAll()
     })
-    return result
-  }, [queryClientInstance, refetchModels])
+  }, [queryClientInstance])
 
   /**
    * Delete mutation — invalidates the model list on success

@@ -251,6 +251,81 @@ describe("searchHybrid — title boost", () => {
 })
 
 describe("searchHybrid — edge cases", () => {
+  it("never fuses keyword hits from another model or dimension partition", async () => {
+    const partitioned = [
+      {
+        ...docA,
+        id: 101,
+        metadata: {
+          ...docA.metadata,
+          embeddingModel: "model-a",
+          embeddingProviderId: "provider-a",
+          embeddingDim: 2
+        }
+      },
+      {
+        ...docA,
+        id: 102,
+        metadata: {
+          ...docA.metadata,
+          embeddingModel: "model-b",
+          embeddingProviderId: "provider-a",
+          embeddingDim: 2
+        }
+      },
+      {
+        ...docA,
+        id: 103,
+        embedding: [1, 0, 0],
+        metadata: {
+          ...docA.metadata,
+          embeddingModel: "model-a",
+          embeddingProviderId: "provider-a",
+          embeddingDim: 3
+        }
+      }
+    ]
+    await vectorDb.vectors.bulkAdd(partitioned as any)
+    vi.mocked(keywordIndexManager.search).mockReturnValue(
+      partitioned.map((document) => ({
+        id: document.id,
+        score: 10,
+        document: document as any,
+        terms: ["typescript"]
+      }))
+    )
+
+    const results = await searchHybrid("typescript", [1, 0], {
+      embeddingModel: "model-a",
+      embeddingProviderId: "provider-a",
+      embeddingDimension: 2
+    })
+
+    expect(results.map((result) => result.document.id)).toEqual([101])
+  })
+
+  it("keeps unidentified low-level searches in the legacy partition", async () => {
+    const modern = {
+      ...docA,
+      id: 104,
+      metadata: {
+        ...docA.metadata,
+        embeddingModel: "modern-model",
+        embeddingProviderId: "modern-provider",
+        embeddingDim: 2
+      }
+    }
+    await vectorDb.vectors.bulkAdd([docA, modern] as any)
+    vi.mocked(keywordIndexManager.search).mockReturnValue([
+      { id: 1, score: 10, document: docA as any, terms: ["typescript"] },
+      { id: 104, score: 20, document: modern as any, terms: ["typescript"] }
+    ])
+
+    const results = await searchHybrid("typescript", [1, 0])
+
+    expect(results.map((result) => result.document.id)).toEqual([1])
+  })
+
   it("returns empty array when DB and keyword index are both empty", async () => {
     noKeywordResults()
     const results = await searchHybrid("anything", [1, 0], {})

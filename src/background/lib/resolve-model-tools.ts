@@ -4,6 +4,7 @@ import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
 import { getCapabilityProbe } from "@/lib/providers/capability-probe"
 import { getModelCapabilityOverride } from "@/lib/providers/model-capability-overrides"
+import { discoverProviderModels } from "@/lib/providers/model-discovery"
 import type { LLMProvider } from "@/lib/providers/types"
 import type { ToolDefinition } from "@/lib/tools"
 import { getToolRegistry } from "@/lib/tools"
@@ -96,15 +97,13 @@ export const resolveModelTools = async (
 
     // OpenAI-compatible providers expose a null-returning detail method. A
     // missing detail verdict must fall through to their richer model catalog.
-    if (
-      !resolvedMetadata &&
-      provider.capabilities?.modelDiscovery &&
-      provider.getModels
-    ) {
+    if (!resolvedMetadata && provider.capabilities?.modelDiscovery) {
       try {
-        const servedModel = (await provider.getModels()).find(
-          (candidate) => candidate.name === model
-        )
+        // Through the discovery service, not `getModels` directly: tool gating
+        // runs on every turn whose capability cache has expired, and a
+        // catalog-less provider was being asked to 404 again each time.
+        const { models } = await discoverProviderModels(provider)
+        const servedModel = models.find((candidate) => candidate.name === model)
         if (servedModel) {
           metadata = {
             tags: undefined,

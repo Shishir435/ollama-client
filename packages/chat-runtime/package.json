@@ -1,0 +1,15 @@
+{
+  "name": "@ollama-client/chat-runtime",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./context-runtime": "./src/context-runtime.ts",
+    "./tool-loop-runtime": "./src/tool-loop-runtime.ts",
+    "./turn-runtime": "./src/turn-runtime.ts"
+  },
+  "dependencies": {
+    "@ollama-client/contracts": "workspace:*"
+  }
+}

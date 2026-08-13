@@ -15,6 +15,7 @@ import {
   SQLITE_DB_STORE,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { createChatDbEngine } from "@/lib/persistence/chat-db-engine"
 import { OpenAICompatibleProvider } from "@/lib/providers/openai-compatible"
 import {
   ProviderId,
@@ -26,10 +27,9 @@ import {
  * Functional durability smoke (PROJECT_PLAN S1/S2).
  *
  * Unlike the rest of the repository tests — which mock `@/lib/sqlite/db`
- * to capture SQL strings — this suite boots the REAL sql.js engine against
- * the real `fake-indexeddb` global and drives the public chat-history
- * facade. It is the regression net for the data-durability fires the
- * 0.11.x line fixed:
+ * to capture SQL strings — this suite boots the REAL engine against the real
+ * `fake-indexeddb` global and drives the public chat-history facade. It is the
+ * regression net for the data-durability fires the 0.11.x line fixed:
  *
  *   S1 — write -> flush -> "service-worker restart" -> data still readable.
  *   S2 — reset drops the chat DB, and the reset map targets API keys.
@@ -52,7 +52,7 @@ import {
 const TIMEOUT = 25_000
 
 const require = createRequire(import.meta.url)
-const wasmPath = require.resolve("sql.js/dist/sql-wasm.wasm")
+const wasmPath = require.resolve("@sqlite.org/sqlite-wasm/sqlite3.wasm")
 let wasmBuffer: ArrayBuffer
 
 beforeAll(() => {
@@ -63,16 +63,24 @@ beforeAll(() => {
   )
 })
 
-const stubWasmFetch = () => {
-  // db.ts fetches the wasm via chrome.runtime.getURL(...) then .arrayBuffer().
-  // Serve the real binary so the engine boots without a network/extension host.
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => ({
-      ok: true,
-      arrayBuffer: async () => wasmBuffer
-    }))
-  )
+/**
+ * Stand in for the database owner.
+ *
+ * In production the engine lives in a worker owned by the offscreen document,
+ * and every client reaches it over runtime messaging. There is no Worker and no
+ * offscreen document here, so the same in-process hook the Firefox background
+ * page uses is installed instead: `client.ts` calls it directly and the whole
+ * client-side path above it — facade, `db.ts` mutex, transaction tokens — is
+ * the real one. The engine is the real one too, on the legacy backend, which is
+ * the only backend that runs without OPFS.
+ */
+const installOwner = () => {
+  const engine = createChatDbEngine({ wasmBinary: Promise.resolve(wasmBuffer) })
+  const ready = engine.submit({ op: "setBackend", backend: "legacy" })
+  globalThis.__persistenceHostCall = async (request) => {
+    await ready
+    return engine.submit(request)
+  }
 }
 
 const streamResponse = (chunks: string[]) =>
@@ -127,14 +135,20 @@ const clearSqliteStore = (): Promise<void> =>
 
 beforeEach(async () => {
   await clearSqliteStore()
-  stubWasmFetch()
 }, TIMEOUT)
 
-// Re-import the facade + db module fresh. After `vi.resetModules()` this
-// returns a brand-new module graph whose `db` singleton is null, forcing a
-// reload from the persisted IndexedDB blob — i.e. a simulated SW cold start.
+afterEach(() => {
+  globalThis.__persistenceHostCall = undefined
+})
+
+// Re-import the facade fresh and stand up a new owner. The owner is what a
+// restart actually restarts: the engine's in-memory database goes with it while
+// the persisted blob lives on in the process-global `fake-indexeddb`, so the
+// next boot reloads from storage — exactly the cold-start path a suspended
+// service worker takes.
 const bootFreshContext = async () => {
   vi.resetModules()
+  installOwner()
   const facade = await import("@/lib/repositories/chat-history")
   const db = await import("@/lib/sqlite/db")
   return { facade, db }
@@ -238,9 +252,11 @@ describe("S1 — chat-history survives a service-worker restart", () => {
     "repairs a latest-version database missing a required message column",
     async () => {
       const first = await bootFreshContext()
-      const liveDb = await first.db.getDb()
-      liveDb.run("ALTER TABLE messages DROP COLUMN replayArtifact")
-      liveDb.run("PRAGMA user_version = 6")
+      // Tamper through the public statement API. There is no raw handle to
+      // reach for any more: the database lives in the owner, and no client
+      // holds one.
+      await first.db.run("ALTER TABLE messages DROP COLUMN replayArtifact")
+      await first.db.run("PRAGMA user_version = 6")
       await first.db.flushSave()
 
       const second = await bootFreshContext()

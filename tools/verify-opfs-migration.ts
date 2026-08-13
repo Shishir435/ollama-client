@@ -1,31 +1,33 @@
 #!/usr/bin/env node
 
-// End-to-end verification of the production OPFS persistence backend in
-// packaged Chromium. Drives the dev-only persistence-verify.html page, whose
-// hooks call the REAL repository facade → backend dispatcher → persistence
-// RPC → offscreen owner worker.
-//
-// Scenarios:
-//   1. Fresh profile: the owner boots, finds no legacy blob, initializes the
-//      OPFS backend and flips the marker.
-//   2. Production writes: two pages append through the facade concurrently;
-//      counts are exact (single-owner, no lost update).
-//   3. Real migration: seed a legacy sql.js blob (section 9.8 fixture),
-//      clear the backend marker, reload the extension; the owner migrates
-//      the blob, verifies every durable table, records a receipt, flips the
-//      marker — and the blob stays untouched as the rollback artifact.
-//   4. Host loss during migration: the browser (and with it the offscreen
-//      owner) is torn down while the migration is in flight. The next boot
-//      must complete it with exact per-table counts and a sound database.
-//   5. Operator override: with the device-local switch set, the profile serves
-//      chat history from the retained blob again and the migration stays
-//      skipped; clearing it migrates on the next boot.
-//   6. A restore whose payload is not a usable database is rejected with the
-//      existing chat history still in place.
-//   7. Backup export comes from the OPFS owner and is a valid SQLite file.
-//
-// Usage: pnpm verify:opfs-migration [--headful]
-// Requires: pnpm benchmark:build (the verify page is dev-gated).
+/**
+ * End-to-end verification of the production OPFS persistence backend in
+ * packaged Chromium. Drives the dev-only persistence-verify.html page, whose
+ * hooks call the REAL repository facade → backend dispatcher → persistence
+ * RPC → offscreen owner worker.
+ *
+ * Scenarios:
+ *   1. Fresh profile: the owner boots, finds no legacy blob, initializes the
+ *      OPFS backend and flips the marker.
+ *   2. Production writes: two pages append through the facade concurrently;
+ *      counts are exact (single-owner, no lost update).
+ *   3. Real migration: seed a legacy blob (section 9.8 fixture),
+ *      clear the backend marker, reload the extension; the owner migrates
+ *      the blob, verifies every durable table, records a receipt, flips the
+ *      marker — and the blob stays untouched as the rollback artifact.
+ *   4. Host loss during migration: the browser (and with it the offscreen
+ *      owner) is torn down while the migration is in flight. The next boot
+ *      must complete it with exact per-table counts and a sound database.
+ *   5. Operator override: with the device-local switch set, the profile serves
+ *      chat history from the retained blob again and the migration stays
+ *      skipped; clearing it migrates on the next boot.
+ *   6. A restore whose payload is not a usable database is rejected with the
+ *      existing chat history still in place.
+ *   7. Backup export comes from the OPFS owner and is a valid SQLite file.
+ *
+ * Usage: pnpm verify:opfs-migration [--headful]
+ * Requires: pnpm benchmark:build (the verify page is dev-gated).
+ */
 
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -213,10 +215,13 @@ const runScenarios = async (visible: boolean): Promise<void> => {
     const freshMarker = await waitForOpfsMarker(call, 20000)
     const freshCounts = (await call("counts")) as TableCounts
     const freshReceipt = (await call("migrationReceipt")) as MigrationReceipt
-    // A fresh profile can still have a legacy blob: whichever context reads the
-    // marker first sees "legacy" and stamps an empty sql.js database before the
-    // owner migrates. So the receipt is either "fresh" (no blob at all) or
-    // "migrated" with nothing in it — both mean the same thing here.
+    // Historically a fresh profile could still end up with a legacy blob:
+    // whichever context read the marker first saw "legacy" and stamped an empty
+    // database of its own before the owner migrated. Clients hold no engine
+    // since 0.13.x, so only the owner can create one and only after it has
+    // chosen a backend. The receipt should now always be "fresh"; the
+    // "migrated with nothing in it" branch is kept because a profile carried
+    // over from an older build can still present that way.
     record(
       "fresh-profile-opfs-init",
       freshCounts.sessions === 0 &&

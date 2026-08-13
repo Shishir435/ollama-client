@@ -1,7 +1,7 @@
 import { z } from "zod"
 import type { PromptTemplate, Theme } from "./ui-state"
 
-// ---- PromptTemplate ----
+/** ---- PromptTemplate ---- */
 
 export const PromptTemplateSchema = z.object({
   id: z.string(),
@@ -27,11 +27,11 @@ export const PromptTemplateSchema = z.object({
   usageCount: z.number().min(0).optional().default(0)
 })
 
-// ---- Theme ----
+/** ---- Theme ---- */
 
 export const ThemeSchema = z.enum(["dark", "light", "system"])
 
-// ---- Zustand persisted state wrapper (minimal) ----
+/** ---- Zustand persisted state wrapper (minimal) ---- */
 
 export const ZustandPersistedStateSchema = z
   .object({
@@ -39,8 +39,7 @@ export const ZustandPersistedStateSchema = z
   })
   .passthrough()
 
-// ---- Compile-time conformance checks ----
-
+/** Compile-time checks that schemas still satisfy their application types. */
 void (0 as unknown as z.infer<
   typeof PromptTemplateSchema
 > satisfies PromptTemplate)

@@ -8,7 +8,7 @@ import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
-import { safePostMessage } from "@/background/lib/utils"
+import { safePostChatStreamEvent } from "@/background/lib/utils"
 import {
   DEFAULT_MAX_RAG_CONTEXT_CHARS,
   DEFAULT_MEMORY_ENABLED,
@@ -27,11 +27,14 @@ import {
   saveToolLoopRun,
   type ToolLoopMode
 } from "@/lib/repositories/tool-loop-runs"
+import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 import type {
   ChatMessage,
   ChatStreamMessage,
+  ChatStreamSink,
   ChatWithModelMessage,
-  ModelConfigMap
+  ModelConfigMap,
+  PortStatusFunction
 } from "@/types"
 
 /**
@@ -66,7 +69,11 @@ const limitMessagesForModel = (
  * 4. Cross-origin safe message streaming via browser ports.
  */
 export const handleChatWithModel = withErrorContext(
-  async (msg: ChatWithModelMessage, port, isPortClosed) => {
+  async (
+    msg: ChatWithModelMessage,
+    port: ChatStreamSink,
+    isPortClosed: PortStatusFunction
+  ) => {
     const { model, providerId, messages } = msg.payload
     const abortKey = msg.payload.requestId || port.abortScopeKey || port.name
 
@@ -157,7 +164,7 @@ export const handleChatWithModel = withErrorContext(
       if (lastUserMessage.role === "user") {
         // Dynamic import to reduce bundle size
         const { retrieveContextEnhanced, formatEnhancedResults } = await import(
-          "@/features/chat/rag/rag-pipeline"
+          "@/application/context/rag/rag-pipeline"
         )
 
         const enhancedResults = await retrieveContextEnhanced(
@@ -194,8 +201,9 @@ export const handleChatWithModel = withErrorContext(
           )
 
           try {
-            port.postMessage({
-              type: "rag_sources",
+            safePostChatStreamEvent(port, {
+              version: 1,
+              type: CHAT_STREAM_EVENT_TYPES.RAG_SOURCES,
               payload: { sources, query: lastUserMessage.content }
             })
           } catch (e) {
@@ -261,7 +269,7 @@ export const handleChatWithModel = withErrorContext(
     // reducer can drop duplicates/out-of-order and resume from the last applied
     // sequence. Resets to 0 on a fresh SW instance (including after a restart),
     // so the UI resets its counter when it reconnects.
-    let nextSeq = 0
+    port.streamSequence = 0
     const onChunk = (chunk: ChatStreamMessage) => {
       if (isPortClosed()) return
 
@@ -279,7 +287,14 @@ export const handleChatWithModel = withErrorContext(
           error: chunk.error
         })
       }
-      safePostMessage(port, { ...chunk, seq: nextSeq++ })
+      const seq = port.streamSequence ?? 0
+      port.streamSequence = seq + 1
+      safePostChatStreamEvent(port, {
+        version: 1,
+        type: CHAT_STREAM_EVENT_TYPES.CHUNK,
+        ...chunk,
+        seq
+      })
     }
 
     try {

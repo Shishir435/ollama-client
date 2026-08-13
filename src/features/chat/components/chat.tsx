@@ -130,7 +130,9 @@ export const Chat = () => {
       // 3. Trigger generation
       // If model is provided, use it (switching model for this specific branch)
       // Note: generateResponse will call addMessage, which automatically parents to currentLeafId (our user message)
-      await generateResponse(model, currentSessionId, contextMessages)
+      await generateResponse(model, currentSessionId, contextMessages, {
+        mode: "regenerate"
+      })
     }
   }
 
@@ -159,10 +161,12 @@ export const Chat = () => {
     if (messageIndex !== -1 && newLeafId) {
       const newMessage = { ...message, id: newLeafId, content }
       await embedMessage(newMessage, currentSessionId)
-      await generateResponse(undefined, currentSessionId, [
-        ...messages.slice(0, messageIndex),
-        newMessage
-      ])
+      await generateResponse(
+        undefined,
+        currentSessionId,
+        [...messages.slice(0, messageIndex), newMessage],
+        { mode: "fork" }
+      )
     }
   }
 

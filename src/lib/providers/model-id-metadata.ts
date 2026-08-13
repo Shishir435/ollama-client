@@ -12,9 +12,11 @@
  * deliberately narrow and refuses to guess.
  */
 
-// A whole token that is a number followed by "b": "12b", "0.6b", "8b".
-// Requiring the token to *be* this — not merely contain it — is what keeps
-// "4k" (a context window) and "2507" (a date) out.
+/**
+ * A whole token that is a number followed by "b": "12b", "0.6b", "8b".
+ * Requiring the token to *be* this — not merely contain it — is what keeps
+ * "4k" (a context window) and "2507" (a date) out.
+ */
 const PARAMETER_TOKEN = /^(\d+(?:\.\d+)?)b$/
 
 /**
