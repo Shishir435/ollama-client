@@ -441,6 +441,7 @@ const run = async (): Promise<void> => {
       "durable turn recovery"
     )
     const eventSummary = await page.evaluate<{
+      completedSnapshots: number
       eventTypes: string[]
       snapshots: number
       terminalChunks: number
@@ -448,8 +449,9 @@ const run = async (): Promise<void> => {
     record(
       "isolated-sw-turn-recovered-once",
       fakeOllama.calls() === 2 &&
-        eventSummary.snapshots >= 1 &&
-        eventSummary.terminalChunks === 1,
+        eventSummary.snapshots === 1 &&
+        eventSummary.terminalChunks <= 1 &&
+        eventSummary.completedSnapshots + eventSummary.terminalChunks >= 1,
       {
         calls: fakeOllama.calls(),
         completed,

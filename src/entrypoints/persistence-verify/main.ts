@@ -483,18 +483,25 @@ const verifyApi = {
   },
 
   async turnEventSummary(turnId: string): Promise<{
+    completedSnapshots: number
     eventTypes: string[]
     snapshots: number
     terminalChunks: number
   }> {
     const eventTypes: string[] = []
+    let completedSnapshots = 0
     let snapshots = 0
     let terminalChunks = 0
     for (const event of verifyStreams.get(turnId)?.events ?? []) {
       if (!event || typeof event !== "object") continue
       const type = Reflect.get(event, "type")
       if (typeof type === "string") eventTypes.push(type)
-      if (type === CHAT_STREAM_EVENT_TYPES.SNAPSHOT) snapshots += 1
+      if (type === CHAT_STREAM_EVENT_TYPES.SNAPSHOT) {
+        snapshots += 1
+        if (Reflect.get(event, "status") === "completed") {
+          completedSnapshots += 1
+        }
+      }
       if (
         type === CHAT_STREAM_EVENT_TYPES.CHUNK &&
         (Reflect.get(event, "done") === true ||
@@ -504,7 +511,7 @@ const verifyApi = {
         terminalChunks += 1
       }
     }
-    return { eventTypes, snapshots, terminalChunks }
+    return { completedSnapshots, eventTypes, snapshots, terminalChunks }
   },
 
   async stopTurn(turnId: string): Promise<void> {
