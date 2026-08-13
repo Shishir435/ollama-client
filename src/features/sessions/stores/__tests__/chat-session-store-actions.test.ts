@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
 import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
 import { chatSessionStore } from "../chat-session-store"
@@ -373,6 +374,76 @@ describe("updateMessage", () => {
 })
 
 describe("deleteMessage", () => {
+  it("waits for the immediate vector-cleanup attempt", async () => {
+    let finishSweep: () => void = () => undefined
+    vi.mocked(sweepVectorCleanupReceipts).mockImplementationOnce(
+      () =>
+        new Promise<number>((resolve) => {
+          finishSweep = () => resolve(1)
+        })
+    )
+    mockRepo.deleteMessageSubtree.mockResolvedValue({
+      sessionId: SESSION_ID,
+      messageIds: [11],
+      repairedLeaf: false
+    })
+    setupLoadSessionMessagesMocks()
+
+    let resolved = false
+    const deletion = chatSessionStore
+      .getState()
+      .deleteMessage(11)
+      .then(() => {
+        resolved = true
+      })
+
+    await vi.waitFor(() => {
+      expect(sweepVectorCleanupReceipts).toHaveBeenCalledOnce()
+    })
+    expect(resolved).toBe(false)
+
+    finishSweep()
+    await deletion
+    expect(resolved).toBe(true)
+  })
+
+  it("keeps committed deletion state when immediate vector cleanup fails", async () => {
+    const cleanupError = new Error("Dexie unavailable")
+    vi.mocked(sweepVectorCleanupReceipts).mockRejectedValueOnce(cleanupError)
+    mockRepo.deleteMessageSubtree.mockResolvedValue({
+      sessionId: SESSION_ID,
+      messageIds: [11],
+      repairedLeaf: false
+    })
+    setupLoadSessionMessagesMocks([], {
+      id: SESSION_ID,
+      title: "T",
+      currentLeafId: undefined
+    })
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: SESSION_ID,
+          title: "T",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: [{ id: 11, role: "user", content: "delete me" }]
+        }
+      ],
+      currentSessionId: SESSION_ID
+    })
+
+    await expect(
+      chatSessionStore.getState().deleteMessage(11)
+    ).resolves.toBeUndefined()
+    expect(chatSessionStore.getState().sessions[0].messages).toEqual([])
+    expect(logger.error).toHaveBeenCalledWith(
+      "Failed to sweep message embeddings",
+      "chatSessionStore",
+      { error: cleanupError }
+    )
+  })
+
   it("contains a failed post-delete refresh", async () => {
     mockRepo.deleteMessageSubtree.mockResolvedValue({
       sessionId: SESSION_ID,

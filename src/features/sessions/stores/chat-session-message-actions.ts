@@ -347,11 +347,16 @@ export const createChatSessionMessageActions = (
     } = deleted
     const toDeleteIds = new Set(idsToDelete)
 
-    sweepVectorCleanupReceipts().catch((error) => {
+    try {
+      await sweepVectorCleanupReceipts()
+    } catch (error) {
+      // SQLite deletion and its cleanup receipt are already committed. Keep
+      // the UI consistent with that durable result; startup will retry the
+      // idempotent vector cleanup from the retained receipt.
       logger.error("Failed to sweep message embeddings", "chatSessionStore", {
         error
       })
-    })
+    }
 
     set((state) => ({
       sessions: state.sessions.map((s) =>
