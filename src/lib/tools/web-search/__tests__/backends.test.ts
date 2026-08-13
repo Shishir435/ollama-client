@@ -270,6 +270,20 @@ describe("web search backends", () => {
   })
 
   it.each([
+    {},
+    { web: null }
+  ])("treats a missing Brave web section as an empty search", async (payload) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(payload)))
+
+    await expect(
+      braveBackend.search(
+        { query: "no matches" },
+        { provider: "brave", enabled: true, apiKey: "key" }
+      )
+    ).resolves.toEqual([])
+  })
+
+  it.each([
     [
       "Brave",
       braveBackend,

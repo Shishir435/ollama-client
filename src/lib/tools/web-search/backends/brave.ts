@@ -37,6 +37,8 @@ const BraveResponseSchema = z
         )
       })
       .passthrough()
+      .nullable()
+      .optional()
   })
   .passthrough()
 
