@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest"
-import { type ContextResultEvidence, ContextRuntime } from "../context-runtime"
+import {
+  type ContextResultEvidence,
+  ContextRuntime,
+  createContextReceipt
+} from "../context-runtime"
 
 interface TestResult extends ContextResultEvidence {
   content: string
@@ -45,6 +49,21 @@ const command = {
 }
 
 describe("ContextRuntime", () => {
+  it("projects receipt evidence without invoking an environment adapter", () => {
+    expect(
+      createContextReceipt(command, result.promptContextStats, 42)
+    ).toMatchObject({
+      turnId: "turn-1",
+      createdAt: 42,
+      query: "hello",
+      model: { id: "llama3", providerId: "ollama" },
+      sources: [
+        { id: "file-1", source: "file" },
+        { id: "external-1", source: "unknown" }
+      ]
+    })
+  })
+
   it("builds context and durable evidence as one operation", async () => {
     const builder = { build: vi.fn().mockResolvedValue(result) }
     const runtime = new ContextRuntime(builder, { now: () => 42 })

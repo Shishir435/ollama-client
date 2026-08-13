@@ -35,6 +35,7 @@ import type {
   UsedContextChunk
 } from "@/types"
 import type { DurableContextOptions } from "./context-contract"
+import { createContextPlan, remainingRagBudget } from "./context-plan"
 
 /**
  * The minimal file shape context building needs: the scope id and the raw text
@@ -224,7 +225,13 @@ export const buildRagContext = async (
     toast
   } = options
 
-  const userContent = rawInput
+  const plan = createContextPlan({
+    rawInput,
+    maxRagContextChars,
+    groundedOnlyMode,
+    retrievalToolsActive
+  })
+  const userContent = plan.userContent
   let contentWithRAG = userContent
   let tabContextLength = 0
   let ragContextLength = 0
@@ -234,9 +241,7 @@ export const buildRagContext = async (
   // configured RAG cap is the ceiling for their combined length, not a per-step
   // limit. Otherwise a turn with both could inject nearly twice the budget and
   // crowd out recent messages / the answer. `<= 0` means unlimited.
-  const ragBudget =
-    maxRagContextChars > 0 ? maxRagContextChars : Number.POSITIVE_INFINITY
-  const remainingRagBudget = () => Math.max(0, ragBudget - ragContextLength)
+  const getRemainingRagBudget = () => remainingRagBudget(plan, ragContextLength)
   const usedContextChunks: UsedContextChunk[] = []
   const activityEvents: ActivityEvent[] = []
   let ragSources: RagSources | null = null
@@ -330,7 +335,7 @@ export const buildRagContext = async (
     return current ? `${current}\n\n---\n\n${block}` : block
   }
 
-  let queryForRag = rawInput || "summary"
+  let queryForRag = plan.initialRetrievalQuery
 
   if (useRag) {
     try {
@@ -447,7 +452,7 @@ export const buildRagContext = async (
         // Skip pre-injecting stored file/memory context when the model has its
         // own retrieval tools this turn — it pulls on demand instead, so the
         // prompt stays clean and the same store isn't retrieved twice.
-        if (!groundedOnlyMode && !retrievalToolsActive) {
+        if (plan.injectStoredContext) {
           const fileIds = await resolveFileRagScope(files, activeKnowledgeSet)
 
           if (fileIds && fileIds.length > 0) {
@@ -481,7 +486,7 @@ export const buildRagContext = async (
               })
               const clamped = clampContext(
                 context.formattedContext,
-                remainingRagBudget()
+                getRemainingRagBudget()
               )
               ragSources = mergeRagSources(
                 ragSources,
@@ -532,7 +537,7 @@ export const buildRagContext = async (
             })
             // Memory shares the RAG budget with file context above; only append
             // what fits in the remainder so the two together stay within cap.
-            const memoryBudget = remainingRagBudget()
+            const memoryBudget = getRemainingRagBudget()
             if (memoryResults.length > 0 && memoryBudget > 0) {
               const { formattedContext, sources } =
                 formatEnhancedResults(memoryResults)
