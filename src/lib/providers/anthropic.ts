@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
@@ -13,6 +14,7 @@ import {
   createProviderReplayArtifact,
   getProviderReplayBlocks
 } from "./provider-replay"
+import { decodeProviderJson } from "./response-decoding"
 import { resolveProviderServiceProfile } from "./service-profile"
 import type {
   ChatRequest,
@@ -136,32 +138,71 @@ const mapTool = (tool: ToolDefinition) => ({
   input_schema: tool.parameters
 })
 
-interface AnthropicStreamEvent {
-  type?: string
-  index?: number
-  content_block?: {
-    type?: string
-    id?: string
-    name?: string
-    text?: string
-    thinking?: string
-    signature?: string
-    data?: string
-    input?: Record<string, unknown>
-  }
-  delta?: {
-    type?: string
-    text?: string
-    thinking?: string
-    signature?: string
-    partial_json?: string
-  }
-  message?: {
-    usage?: { input_tokens?: number; output_tokens?: number }
-  }
-  usage?: { input_tokens?: number; output_tokens?: number }
-  error?: { message?: string; type?: string }
-}
+const OptionalString = z.string().optional().catch(undefined)
+const UsageSchema = z
+  .object({
+    input_tokens: z.number().optional().catch(undefined),
+    output_tokens: z.number().optional().catch(undefined)
+  })
+  .passthrough()
+
+const AnthropicStreamEventSchema = z
+  .object({
+    type: z.string().min(1),
+    index: z.number().int().nonnegative().optional().catch(undefined),
+    content_block: z
+      .object({
+        type: OptionalString,
+        id: OptionalString,
+        name: OptionalString,
+        text: OptionalString,
+        thinking: OptionalString,
+        signature: OptionalString,
+        data: OptionalString,
+        input: z.record(z.string(), z.unknown()).optional().catch(undefined)
+      })
+      .passthrough()
+      .optional()
+      .catch(undefined),
+    delta: z
+      .object({
+        type: OptionalString,
+        text: OptionalString,
+        thinking: OptionalString,
+        signature: OptionalString,
+        partial_json: OptionalString
+      })
+      .passthrough()
+      .optional()
+      .catch(undefined),
+    message: z
+      .object({ usage: UsageSchema.optional().catch(undefined) })
+      .passthrough()
+      .optional()
+      .catch(undefined),
+    usage: UsageSchema.optional().catch(undefined),
+    error: z
+      .object({ message: OptionalString, type: OptionalString })
+      .passthrough()
+      .optional()
+      .catch(undefined)
+  })
+  .passthrough()
+type AnthropicStreamEvent = z.infer<typeof AnthropicStreamEventSchema>
+
+const AnthropicModelCatalogSchema = z
+  .object({
+    data: z.array(
+      z
+        .object({
+          id: z.string().min(1),
+          display_name: OptionalString,
+          created_at: OptionalString
+        })
+        .passthrough()
+    )
+  })
+  .passthrough()
 
 export class AnthropicProvider implements LLMProvider {
   id: string
@@ -211,28 +252,32 @@ export class AnthropicProvider implements LLMProvider {
       await this.responseError(response)
     }
 
-    const payload = (await response.json()) as {
-      data?: Array<{ id?: string; display_name?: string; created_at?: string }>
-    }
-    return (payload.data ?? [])
-      .filter((model): model is typeof model & { id: string } =>
-        Boolean(model.id)
-      )
-      .map((model) => ({
-        name: model.id,
-        model: model.id,
-        modified_at: model.created_at || new Date().toISOString(),
-        size: 0,
-        digest: model.id,
-        details: {
-          parent_model: "",
-          format: "anthropic",
-          family: "anthropic",
-          families: ["anthropic"],
-          parameter_size: "",
-          quantization_level: ""
-        }
-      }))
+    const payload = await decodeProviderJson(
+      response,
+      AnthropicModelCatalogSchema,
+      {
+        providerId: this.id,
+        providerName: this.config.name,
+        baseUrl: this.baseUrl,
+        label: "model catalog",
+        userMessage: "Anthropic returned an invalid model list."
+      }
+    )
+    return payload.data.map((model) => ({
+      name: model.id,
+      model: model.id,
+      modified_at: model.created_at || new Date().toISOString(),
+      size: 0,
+      digest: model.id,
+      details: {
+        parent_model: "",
+        format: "anthropic",
+        family: "anthropic",
+        families: ["anthropic"],
+        parameter_size: "",
+        quantization_level: ""
+      }
+    }))
   }
 
   async streamChat(
@@ -429,7 +474,17 @@ export class AnthropicProvider implements LLMProvider {
       if (!trimmed.startsWith("data: ")) return
       let event: AnthropicStreamEvent
       try {
-        event = JSON.parse(trimmed.slice(6)) as AnthropicStreamEvent
+        const parsed = AnthropicStreamEventSchema.safeParse(
+          JSON.parse(trimmed.slice(6))
+        )
+        if (!parsed.success) {
+          logger.warn(
+            "Ignored invalid Anthropic SSE event",
+            "AnthropicProvider"
+          )
+          return
+        }
+        event = parsed.data
       } catch (error) {
         logger.warn(
           "Failed to parse Anthropic SSE event",

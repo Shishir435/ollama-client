@@ -1,3 +1,4 @@
+import type { z } from "zod"
 import type {
   WebSearchConfigValidation,
   WebSearchProviderConfig,
@@ -104,4 +105,24 @@ export const assertOkResponse = async (
   if (response.ok) return
   const message = `${provider} search failed with HTTP ${response.status}`
   throw new Error(message)
+}
+
+/** Decode a search backend response at the network boundary. */
+export const decodeSearchJson = async <T>(
+  response: Response,
+  schema: z.ZodType<T>,
+  provider: string
+): Promise<T> => {
+  let payload: unknown
+  try {
+    payload = await response.json()
+  } catch {
+    throw new Error(`${provider} search returned invalid JSON`)
+  }
+
+  const parsed = schema.safeParse(payload)
+  if (!parsed.success) {
+    throw new Error(`${provider} search returned an invalid response`)
+  }
+  return parsed.data
 }
