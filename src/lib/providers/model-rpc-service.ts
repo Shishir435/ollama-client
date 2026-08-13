@@ -17,6 +17,7 @@ import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { resolveModelConfig } from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
+import { ModelWarmupCache } from "@/lib/providers/model-warmup-cache"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { ProviderId } from "@/lib/providers/types"
 import { readSetting } from "@/lib/storage/setting-access"
@@ -65,9 +66,7 @@ const compactModelDetails = (
 
 /** Warmup */
 
-const warmupHistory = new Map<string, number>()
-
-const DEFAULT_WARMUP_COOLDOWN_MS = 5 * 60 * 1000
+const warmupCache = new ModelWarmupCache()
 
 const parseKeepAliveMs = (value?: string | number): number | undefined => {
   if (value === undefined || value === null) return undefined
@@ -95,14 +94,6 @@ const getModelConfig = async (model: string) => {
 
 const buildWarmupKey = (model: string, providerId?: string) =>
   `${providerId || ProviderId.OLLAMA}:${model}`
-
-const shouldWarmup = (historyKey: string, keepAliveMs?: number) => {
-  if (keepAliveMs === 0) return false
-  const last = warmupHistory.get(historyKey)
-  if (!last) return true
-  const windowMs = keepAliveMs ?? DEFAULT_WARMUP_COOLDOWN_MS
-  return Date.now() - last > windowMs / 2
-}
 
 export const ModelRpcService = {
   async getDetails(
@@ -163,7 +154,10 @@ export const ModelRpcService = {
     const warmupKey = buildWarmupKey(request.model, request.providerId)
 
     let warmed = false
-    if (config.warm_on_select && shouldWarmup(warmupKey, keepAliveMs)) {
+    if (
+      config.warm_on_select &&
+      warmupCache.shouldWarmup(warmupKey, keepAliveMs)
+    ) {
       const provider = await ProviderFactory.getProviderForModel(
         request.model,
         request.providerId
@@ -172,7 +166,7 @@ export const ModelRpcService = {
       const warmModel = provider.modelLifecycle?.warmModel
       if (warmModel) {
         await warmModel(request.model, config.keep_alive, signal)
-        warmupHistory.set(warmupKey, Date.now())
+        warmupCache.record(warmupKey, keepAliveMs)
         warmed = true
         logger.info("Model warmup triggered", "ModelRpcService", {
           model: request.model
