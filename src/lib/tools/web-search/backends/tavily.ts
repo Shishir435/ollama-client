@@ -1,29 +1,30 @@
+import { z } from "zod"
 import { TAVILY_SEARCH_ENDPOINT } from "../config"
 import type { WebSearchBackend } from "../types"
 import {
   assertOkResponse,
   clampSearchCount,
+  decodeSearchJson,
   normalizeResult,
   requireApiKey
 } from "./shared"
 
-interface TavilyResult {
-  title?: string
-  url?: string
-  content?: string
-  raw_content?: string | null
-  published_date?: string
-  score?: number
-}
-
-interface TavilyResponse {
-  query?: string
-  answer?: string
-  images?: unknown[]
-  results?: TavilyResult[]
-  response_time?: number
-  request_id?: string
-}
+const OptionalString = z.string().optional().catch(undefined)
+const TavilyResponseSchema = z
+  .object({
+    results: z.array(
+      z
+        .object({
+          title: OptionalString,
+          url: OptionalString,
+          content: OptionalString,
+          published_date: OptionalString,
+          score: z.number().optional().catch(undefined)
+        })
+        .passthrough()
+    )
+  })
+  .passthrough()
 
 export const tavilyBackend: WebSearchBackend = {
   id: "tavily",
@@ -51,7 +52,11 @@ export const tavilyBackend: WebSearchBackend = {
       })
     })
     await assertOkResponse(response, "Tavily")
-    const data = (await response.json()) as TavilyResponse
+    const data = await decodeSearchJson(
+      response,
+      TavilyResponseSchema,
+      "Tavily"
+    )
     return (data.results ?? [])
       .slice(0, count)
       .map((item) =>

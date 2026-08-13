@@ -22,6 +22,7 @@ import {
   createProviderReplayArtifact,
   getProviderReplayBlocks
 } from "./provider-replay"
+import { decodeProviderJson } from "./response-decoding"
 import {
   getOpenAIServiceCompatibility,
   resolveProviderServiceProfile
@@ -260,18 +261,18 @@ export class OpenAICompatibleProvider implements LLMProvider {
       if (!response.ok) {
         await this.responseError(response, "Model list failed", baseUrl)
       }
-      const parsed = OpenAIModelCatalogSchema.safeParse(await response.json())
-      if (!parsed.success) {
-        throw createAppError("Provider returned an invalid model catalog", {
-          kind: "provider",
-          phase: "response",
+      const catalog = await decodeProviderJson(
+        response,
+        OpenAIModelCatalogSchema,
+        {
           providerId: this.id,
           providerName: this.config.name,
           baseUrl,
+          label: "model catalog",
           userMessage: "The provider returned an invalid model list."
-        })
-      }
-      return parsed.data.data.map((m) => ({
+        }
+      )
+      return catalog.data.map((m) => ({
         name: m.id,
         model: m.id,
         modified_at: new Date().toISOString(),
@@ -458,7 +459,15 @@ export class OpenAICompatibleProvider implements LLMProvider {
         usage?: { prompt_tokens?: number; completion_tokens?: number }
       }
       try {
-        data = JSON.parse(trimmed.slice(6))
+        const parsed = asRecord(JSON.parse(trimmed.slice(6)))
+        if (!parsed) {
+          logger.warn(
+            "Ignored invalid SSE data event",
+            "OpenAICompatibleProvider"
+          )
+          return null
+        }
+        data = parsed
       } catch (e) {
         logger.warn(
           "Failed to parse SSE data line",
@@ -550,7 +559,15 @@ export class OpenAICompatibleProvider implements LLMProvider {
       }
 
       if (Array.isArray(delta?.tool_calls)) {
-        toolCalls.add(delta.tool_calls as ToolCallFragment[])
+        const fragments = delta.tool_calls.filter(
+          (fragment): fragment is ToolCallFragment =>
+            Boolean(
+              asRecord(fragment) &&
+                Number.isInteger(asRecord(fragment)?.index) &&
+                Number(asRecord(fragment)?.index) >= 0
+            )
+        )
+        toolCalls.add(fragments)
       }
 
       // Most providers set finish_reason "tool_calls" before usage; some
@@ -606,10 +623,9 @@ export class OpenAICompatibleProvider implements LLMProvider {
       if (trimmed === "data: [DONE]") return "done"
       if (!trimmed.startsWith("data: ")) return null
       try {
-        const data = JSON.parse(trimmed.slice(6)) as {
-          choices?: Array<{ finish_reason?: unknown }>
-        }
-        const finishReason = data.choices?.[0]?.finish_reason
+        const data = asRecord(JSON.parse(trimmed.slice(6)))
+        const choices = Array.isArray(data?.choices) ? data.choices : []
+        const finishReason = asRecord(choices[0])?.finish_reason
         return typeof finishReason === "string" && finishReason.length > 0
           ? "finish-reason"
           : null

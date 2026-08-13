@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { logger } from "@/lib/logger"
 import type { ProviderModel } from "@/types"
 import { resolveProviderBaseUrl } from "./base-url"
@@ -8,7 +9,26 @@ import {
   normalizeLmStudioLoadedModel
 } from "./model-lifecycle"
 import { OpenAICompatibleProvider } from "./openai-compatible"
+import { decodeProviderJson } from "./response-decoding"
 import { type EmbeddingSupport, type ProviderConfig, ProviderId } from "./types"
+
+const OptionalString = z.string().optional().catch(undefined)
+const LMStudioModelCatalogSchema = z
+  .object({
+    data: z.array(
+      z
+        .object({
+          id: z.string().min(1),
+          type: OptionalString,
+          arch: OptionalString,
+          quantization: OptionalString,
+          max_context_length: z.number().positive().optional().catch(undefined),
+          capabilities: z.array(z.string()).optional().catch(undefined)
+        })
+        .passthrough()
+    )
+  })
+  .passthrough()
 
 /**
  * Specialized provider for LM Studio specific metadata.
@@ -78,18 +98,17 @@ export class LMStudioProvider extends OpenAICompatibleProvider {
 
       if (!response.ok) return super.getModels(signal)
 
-      const json = await response.json()
-      const data = json.data as Array<{
-        id: string
-        object: string
-        type: string
-        publisher: string
-        arch: string
-        quantization?: string
-        max_context_length?: number
-        /** e.g. ["tool_use"]. Absent on older LM Studio builds. */
-        capabilities?: string[]
-      }>
+      const { data } = await decodeProviderJson(
+        response,
+        LMStudioModelCatalogSchema,
+        {
+          providerId: this.id,
+          providerName: this.config.name,
+          baseUrl: apiBase,
+          label: "LM Studio model catalog",
+          userMessage: "LM Studio returned an invalid model list."
+        }
+      )
 
       return data.map((m) => ({
         name: m.id,

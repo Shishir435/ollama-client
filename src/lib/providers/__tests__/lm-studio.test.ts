@@ -161,6 +161,23 @@ describe("LMStudioProvider.getModels", () => {
       "http://localhost:1234/api/v0/models"
     )
   })
+
+  it("falls back when the LM Studio catalog envelope is malformed", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 42 }] })
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: "fallback-7b" }] })
+      } as Response)
+
+    await expect(makeProvider().getModels()).resolves.toEqual([
+      expect.objectContaining({ name: "fallback-7b" })
+    ])
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe("LMStudioProvider.modelLifecycle", () => {

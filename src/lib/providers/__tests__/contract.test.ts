@@ -61,6 +61,7 @@ describe("provider contracts", () => {
       )
       .mockResolvedValueOnce(
         streamResponse([
+          "null\n",
           `${JSON.stringify({ message: { content: "hel" }, done: false })}\n`,
           `${JSON.stringify({
             message: { content: "lo" },
@@ -114,6 +115,24 @@ describe("provider contracts", () => {
     await expect(provider.getModels()).rejects.toThrow("offline")
   })
 
+  it("Ollama rejects malformed model catalogs with a safe response error", async () => {
+    const provider = new OllamaProvider({
+      id: ProviderId.OLLAMA,
+      name: "Ollama",
+      type: ProviderType.OLLAMA,
+      enabled: true,
+      baseUrl: "http://ollama.test"
+    })
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ models: null }))
+
+    await expect(provider.getModels()).rejects.toMatchObject({
+      message: "Provider returned an invalid model catalog",
+      kind: "provider",
+      phase: "response",
+      userMessage: "Ollama returned an invalid model list."
+    })
+  })
+
   it("OpenAI-compatible providers parse model lists and SSE chunks", async () => {
     const providers = [
       new OpenAICompatibleProvider({
@@ -152,6 +171,7 @@ describe("provider contracts", () => {
         .mockResolvedValueOnce(jsonResponse({ data: [{ id: "chat-model" }] }))
         .mockResolvedValueOnce(
           streamResponse([
+            "data: null\n\n",
             `data: ${JSON.stringify({
               choices: [{ delta: { content: "ok" } }]
             })}\n\n`,
