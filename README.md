@@ -6,12 +6,15 @@ Local-first browser sidepanel for chatting with local and remote LLM providers, 
   <a href="https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl">
     <img alt="Chrome Web Store" src="https://img.shields.io/chrome-web-store/v/bfaoaaogfcgomkjfbmfepbiijmciinjl?label=Chrome%20Web%20Store&style=for-the-badge&logo=googlechrome" />
   </a>
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/ollama-client/">
+    <img alt="Firefox Add-on" src="https://img.shields.io/amo/v/ollama-client?label=Firefox%20Add-on&style=for-the-badge&logo=firefoxbrowser" />
+  </a>
   <img alt="Local-first" src="https://img.shields.io/badge/Local--First-Yes-0f766e?style=for-the-badge" />
   <img alt="Providers" src="https://img.shields.io/badge/Providers-3%20built--in%20%2B%20custom-1d4ed8?style=for-the-badge" />
   <img alt="License" src="https://img.shields.io/badge/License-MIT-111827?style=for-the-badge" />
 </p>
 
-**Quick links:** [Install](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl) · [Docs](https://www.ollamaclient.in/) · [Provider setup](https://www.ollamaclient.in/guides/provider-setup/) · [Architecture](https://www.ollamaclient.in/concepts/architecture/) · [Privacy](https://www.ollamaclient.in/legal/privacy-policy/) · [Issues](https://github.com/Shishir435/ollama-client/issues)
+**Quick links:** [Chrome](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl) · [Firefox](https://addons.mozilla.org/en-US/firefox/addon/ollama-client/) · [Docs](https://www.ollamaclient.in/) · [Provider setup](https://www.ollamaclient.in/guides/provider-setup/) · [Architecture](https://www.ollamaclient.in/concepts/architecture/) · [Privacy](https://www.ollamaclient.in/legal/privacy-policy/) · [Issues](https://github.com/Shishir435/ollama-client/issues)
 
 ## What It Does
 
@@ -87,9 +90,9 @@ Image input is available only when the selected model resolves to vision-capable
 
 ## Install
 
-### Chrome Web Store
+### Browser stores
 
-1. Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl).
+1. Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client/bfaoaaogfcgomkjfbmfepbiijmciinjl) (Chrome, Edge, Brave) or [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ollama-client/).
 2. Start at least one provider server.
 3. Open extension settings, configure the provider URL, and select a model.
 4. Start chatting from the sidepanel.
