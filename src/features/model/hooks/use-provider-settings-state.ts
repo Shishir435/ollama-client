@@ -1,9 +1,8 @@
 import type { ProviderDraftInput } from "@ollama-client/contracts/provider-rpc"
 import { RpcMethod } from "@ollama-client/contracts/rpc"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useReducer, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "@/hooks/use-toast"
-import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { isAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
@@ -24,6 +23,10 @@ import {
   providerDraftFromPublic,
   providerDraftHasUsableApiKey
 } from "../types/provider-draft"
+import {
+  initialProviderDraftState,
+  providerDraftReducer
+} from "./provider-draft-reducer"
 import { useProviderHealth } from "./use-provider-health"
 
 const LOCAL_PROVIDER_IDS = [
@@ -64,53 +67,54 @@ const getCspCompatibilityHint = (baseUrl?: string) => {
 
 export const useProviderSettingsState = () => {
   const { t } = useTranslation()
-  const [providers, setProviders] = useState<ProviderDraft[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedId, setSelectedIdState] = useState<string>(DEFAULT_PROVIDER_ID)
-  const [testingConnection, setTestingConnection] = useState(false)
-  const [connectionStatus, setConnectionStatus] = useState<{
-    success: boolean
-    message: string
-  } | null>(null)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [state, dispatch] = useReducer(
+    providerDraftReducer,
+    initialProviderDraftState
+  )
+  const {
+    providers,
+    loading,
+    selectedId,
+    testingConnection,
+    connectionStatus,
+    hasUnsavedChanges,
+    savedRevision
+  } = state
   // Incremented synchronously for every local edit. An RPC response may update
   // local state only when the provider still has the revision it started with.
   const configRevisions = useRef(new Map<string, number>())
-  /*
-   * Bumped whenever stored provider config actually changes. The health check
-   * tests what is *stored*, so a draft the user is still typing tells it
-   * nothing — but the moment a save lands, the endpoint it would reach is a
-   * different one and the previous answer is about somewhere else.
-   */
-  const [savedRevision, setSavedRevision] = useState(0)
-  const markSaved = useCallback(() => setSavedRevision((n) => n + 1), [])
-
+  // Toggle writes are serialized per provider. This map records the last
+  // response proven authoritative, so a failed optimistic toggle never rolls
+  // back to a value captured from another optimistic render.
+  const storedEnabled = useRef(new Map<string, boolean>())
+  const toggleQueues = useRef(new Map<string, Promise<void>>())
   const providerHealth = useProviderHealth(providers, savedRevision)
 
   const loadProviders = useCallback(async () => {
-    setLoading(true)
+    dispatch({ type: "load-started" })
     try {
       const { providers: data } = await extensionRpcClient.call(
         RpcMethod.ProvidersList,
         {}
       )
-      setProviders(data.map(providerDraftFromPublic))
+      const drafts = data.map(providerDraftFromPublic)
+      for (const provider of drafts) {
+        storedEnabled.current.set(String(provider.id), provider.enabled)
+      }
+      dispatch({
+        type: "load-succeeded",
+        providers: drafts
+      })
     } catch (error) {
       logger.error("Failed to load providers", "ProviderSettings", { error })
     } finally {
-      setLoading(false)
+      dispatch({ type: "load-finished" })
     }
   }, [])
 
   useEffect(() => {
     loadProviders()
   }, [loadProviders])
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Reset provider-specific status whenever the selected provider changes.
-  useEffect(() => {
-    setConnectionStatus(null)
-    setHasUnsavedChanges(false)
-  }, [selectedId])
 
   const activeConfig = providers.find((p) => p.id === selectedId)
   const cspCompatibilityHint = getCspCompatibilityHint(activeConfig?.baseUrl)
@@ -157,8 +161,7 @@ export const useProviderSettingsState = () => {
       enabled: activeConfig.enabled
     })
 
-    setTestingConnection(true)
-    setConnectionStatus(null)
+    dispatch({ type: "connection-test-started" })
 
     // Custom endpoints may be keyless local/LAN servers — never require a key
     // for them; a real 401 from the test surfaces its own error.
@@ -172,13 +175,16 @@ export const useProviderSettingsState = () => {
         name: activeConfig.name
       })
 
-      setConnectionStatus({ success: false, message })
+      dispatch({
+        type: "connection-status-set",
+        status: { success: false, message }
+      })
       toast({
         title: t("settings.providers.test_connection.api_key_required_title"),
         description: message,
         variant: "destructive"
       })
-      setTestingConnection(false)
+      dispatch({ type: "connection-test-finished" })
       return
     }
 
@@ -196,14 +202,17 @@ export const useProviderSettingsState = () => {
         // offer until the user names a model, so say that instead of repeating
         // "no models were returned" at someone who cannot make it return any.
         const noModelList = result.modelListSupported === false
-        setConnectionStatus({
-          success: false,
-          message: t(
-            noModelList
-              ? "settings.providers.test_connection.inline_no_model_list"
-              : "settings.providers.test_connection.inline_no_models",
-            { url: displayUrl }
-          )
+        dispatch({
+          type: "connection-status-set",
+          status: {
+            success: false,
+            message: t(
+              noModelList
+                ? "settings.providers.test_connection.inline_no_model_list"
+                : "settings.providers.test_connection.inline_no_models",
+              { url: displayUrl }
+            )
+          }
         })
         toast({
           title: t(
@@ -223,14 +232,17 @@ export const useProviderSettingsState = () => {
       }
 
       const manualOnly = result.modelListSupported === false
-      setConnectionStatus({
-        success: true,
-        message: t(
-          manualOnly
-            ? "settings.providers.test_connection.inline_success_manual"
-            : "settings.providers.test_connection.inline_success",
-          { url: displayUrl, count: result.modelCount }
-        )
+      dispatch({
+        type: "connection-status-set",
+        status: {
+          success: true,
+          message: t(
+            manualOnly
+              ? "settings.providers.test_connection.inline_success_manual"
+              : "settings.providers.test_connection.inline_success",
+            { url: displayUrl, count: result.modelCount }
+          )
+        }
       })
       toast({
         title: t("settings.providers.test_connection.success_title"),
@@ -265,7 +277,10 @@ export const useProviderSettingsState = () => {
         }
       )
 
-      setConnectionStatus({ success: false, message: failureMessage })
+      dispatch({
+        type: "connection-status-set",
+        status: { success: false, message: failureMessage }
+      })
       toast({
         title: t("settings.providers.test_connection.failed_title"),
         description: t(
@@ -280,7 +295,7 @@ export const useProviderSettingsState = () => {
         variant: "destructive"
       })
     } finally {
-      setTestingConnection(false)
+      dispatch({ type: "connection-test-finished" })
     }
   }
 
@@ -310,17 +325,12 @@ export const useProviderSettingsState = () => {
           )
           return false
         }
-        setProviders((prev) =>
-          prev.map((provider) =>
-            provider.id === config.id
-              ? providerDraftFromPublic(saved)
-              : provider
-          )
-        )
-        setHasUnsavedChanges(false)
-        // The stored endpoint may now be somewhere else, so the health entry
-        // describing the previous one is out of date as of this line.
-        markSaved()
+        const savedDraft = providerDraftFromPublic(saved)
+        storedEnabled.current.set(providerId, savedDraft.enabled)
+        dispatch({
+          type: "provider-saved",
+          provider: savedDraft
+        })
         if (showSuccessToast) {
           toast({
             title: t("settings.saved"),
@@ -346,7 +356,7 @@ export const useProviderSettingsState = () => {
         return false
       }
     },
-    [configForRpc, markSaved, t]
+    [configForRpc, t]
   )
 
   const setSelectedId = useCallback(
@@ -359,7 +369,7 @@ export const useProviderSettingsState = () => {
       ) {
         return
       }
-      setSelectedIdState(nextId)
+      dispatch({ type: "provider-selected", providerId: nextId })
     },
     [activeConfig, hasUnsavedChanges, persistConfig, selectedId]
   )
@@ -391,12 +401,12 @@ export const useProviderSettingsState = () => {
       // The mutation response is authoritative. Merge it into the current
       // client state instead of replacing every provider with a list snapshot
       // that may have started before another pending save completed.
-      setProviders((current) => [
-        ...current.filter((provider) => provider.id !== config.id),
-        providerDraftFromPublic(config)
-      ])
-      setSelectedIdState(String(config.id))
-      markSaved()
+      const addedDraft = providerDraftFromPublic(config)
+      storedEnabled.current.set(String(addedDraft.id), addedDraft.enabled)
+      dispatch({
+        type: "provider-added",
+        provider: addedDraft
+      })
       toast({
         title: t("settings.providers.add.added_title"),
         description: t("settings.providers.add.added_description", {
@@ -429,11 +439,8 @@ export const useProviderSettingsState = () => {
       // The mutation result is authoritative. Do not follow it with a full
       // list refresh: an older snapshot could overwrite concurrent edits or
       // reintroduce the removed provider locally.
-      setProviders((current) =>
-        current.filter((provider) => String(provider.id) !== id)
-      )
-      if (selectedId === id) setSelectedIdState(DEFAULT_PROVIDER_ID)
-      markSaved()
+      storedEnabled.current.delete(id)
+      dispatch({ type: "provider-removed", providerId: id })
       toast({
         title: t("settings.providers.add.removed_title"),
         description: t("settings.providers.add.removed_description", {
@@ -462,23 +469,7 @@ export const useProviderSettingsState = () => {
       providerId,
       (configRevisions.current.get(providerId) ?? 0) + 1
     )
-    const { apiKey, ...configUpdates } = updates
-    const updated: ProviderDraft = {
-      ...activeConfig,
-      ...configUpdates,
-      ...(Object.hasOwn(updates, "apiKey")
-        ? {
-            apiKey: apiKey
-              ? { state: "replaced", value: apiKey }
-              : { state: "cleared" }
-          }
-        : {})
-    }
-    setProviders((prev) =>
-      prev.map((p) => (p.id === activeConfig.id ? updated : p))
-    )
-    setHasUnsavedChanges(true)
-    setConnectionStatus(null)
+    dispatch({ type: "draft-updated", providerId, updates })
   }
 
   const setCustomModels = async (customModels: string[]): Promise<void> => {
@@ -503,43 +494,73 @@ export const useProviderSettingsState = () => {
     }
 
     const providerId = String(activeConfig.id)
-    configRevisions.current.set(
+    const toggleRevision = (configRevisions.current.get(providerId) ?? 0) + 1
+    configRevisions.current.set(providerId, toggleRevision)
+    dispatch({
+      type: "provider-enabled-optimistically",
       providerId,
-      (configRevisions.current.get(providerId) ?? 0) + 1
-    )
-    setProviders((prev) =>
-      prev.map((p) => (String(p.id) === providerId ? { ...p, enabled } : p))
-    )
-    try {
-      const { provider: saved } = await extensionRpcClient.call(
-        RpcMethod.ProvidersSetEnabled,
-        {
-          providerId,
-          enabled
+      enabled
+    })
+    const previousToggle = toggleQueues.current.get(providerId)
+    const toggleOperation = (previousToggle ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(async () => {
+        try {
+          const { provider: saved } = await extensionRpcClient.call(
+            RpcMethod.ProvidersSetEnabled,
+            {
+              providerId,
+              enabled
+            }
+          )
+          const savedDraft = providerDraftFromPublic(saved)
+          storedEnabled.current.set(providerId, savedDraft.enabled)
+          if (
+            (configRevisions.current.get(providerId) ?? 0) !== toggleRevision
+          ) {
+            // Storage advanced, but a newer local intent owns the draft.
+            dispatch({ type: "stored-provider-changed" })
+            logger.debug(
+              "Ignored stale provider toggle response",
+              "ProviderSettings",
+              { providerId }
+            )
+            return
+          }
+          dispatch({ type: "provider-saved", provider: savedDraft })
+        } catch (error) {
+          if (
+            (configRevisions.current.get(providerId) ?? 0) !== toggleRevision
+          ) {
+            logger.debug(
+              "Ignored stale provider toggle failure",
+              "ProviderSettings",
+              { providerId }
+            )
+            return
+          }
+          const authoritativeEnabled = storedEnabled.current.get(providerId)
+          if (authoritativeEnabled !== undefined) {
+            dispatch({
+              type: "provider-enabled-reverted",
+              providerId,
+              enabled: authoritativeEnabled
+            })
+          }
+          logger.error("Failed to auto-save toggle", "ProviderSettings", {
+            error
+          })
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to update provider state."
+          })
         }
-      )
-      setProviders((prev) =>
-        prev.map((provider) =>
-          String(provider.id) === providerId
-            ? providerDraftFromPublic(saved)
-            : provider
-        )
-      )
-      markSaved()
-    } catch (error) {
-      setProviders((prev) =>
-        prev.map((provider) =>
-          String(provider.id) === providerId
-            ? { ...provider, enabled: activeConfig.enabled }
-            : provider
-        )
-      )
-      logger.error("Failed to auto-save toggle", "ProviderSettings", { error })
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update provider state."
       })
+    toggleQueues.current.set(providerId, toggleOperation)
+    await toggleOperation
+    if (toggleQueues.current.get(providerId) === toggleOperation) {
+      toggleQueues.current.delete(providerId)
     }
   }
 
