@@ -1,6 +1,12 @@
 import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
+import { logger } from "@/lib/logger"
 import type { OptionalApiPermission } from "@/lib/permissions"
 import type { ChatMessage } from "@/types"
+
+export type PermissionResumeResult =
+  | "started"
+  | "permission-denied"
+  | "resume-failed"
 
 interface ResumePermissionTurnOptions {
   message: ChatMessage
@@ -23,7 +29,7 @@ interface ResumePermissionTurnOptions {
   ) => Promise<boolean>
 }
 
-/** Grant optional access, remove the app notice, and resume its original turn. */
+/** Grant optional access and resume the original turn without losing recovery. */
 export const resumePermissionTurn = async ({
   message,
   messages,
@@ -34,16 +40,21 @@ export const resumePermissionTurn = async ({
   deleteMessage,
   navigateToNode,
   generateResponse
-}: ResumePermissionTurnOptions): Promise<boolean> => {
+}: ResumePermissionTurnOptions): Promise<PermissionResumeResult> => {
   const notice = message.metrics?.permissionNotice
-  if (!notice || typeof message.id !== "number" || !sessionId) return false
+  if (!notice || typeof message.id !== "number" || !sessionId) {
+    return "resume-failed"
+  }
+  const noticeMessageId = message.id
 
   // This must remain the first async browser operation: callers invoke this
   // directly from a button click, preserving the browser's user gesture.
-  if (!(await requestPermissions(notice.missingPermissions))) return false
+  if (!(await requestPermissions(notice.missingPermissions))) {
+    return "permission-denied"
+  }
 
-  const messageIndex = messages.findIndex((item) => item.id === message.id)
-  if (messageIndex === -1) return false
+  const messageIndex = messages.findIndex((item) => item.id === noticeMessageId)
+  if (messageIndex === -1) return "resume-failed"
 
   let prevUserIndex = -1
   for (let index = messageIndex - 1; index >= 0; index -= 1) {
@@ -52,14 +63,26 @@ export const resumePermissionTurn = async ({
       break
     }
   }
-  if (prevUserIndex === -1) return false
+  if (prevUserIndex === -1) return "resume-failed"
 
   const streamClaim = claimStream()
-  if (!streamClaim) return false
+  if (!streamClaim) return "resume-failed"
   let submitted = false
+  const restoreNotice = async () => {
+    try {
+      await navigateToNode(sessionId, noticeMessageId, true)
+    } catch (error) {
+      // The notice remains durable even if refreshing the visible branch fails.
+      logger.error("Failed to restore permission notice branch", "Chat", {
+        error,
+        sessionId,
+        messageId: noticeMessageId
+      })
+    }
+  }
+
   try {
     const userMessage = messages[prevUserIndex]
-    await deleteMessage(message.id)
     if (userMessage.id) await navigateToNode(sessionId, userMessage.id, true)
     submitted = await generateResponse(
       message.model,
@@ -67,7 +90,33 @@ export const resumePermissionTurn = async ({
       messages.slice(0, prevUserIndex + 1),
       { mode: "regenerate", streamClaim }
     )
-    return submitted
+    if (!submitted) {
+      await restoreNotice()
+      return "resume-failed"
+    }
+
+    // A response row and stream now exist. The recovery action is no longer
+    // needed and can be removed without risking an unanswered dead end.
+    try {
+      await deleteMessage(noticeMessageId)
+    } catch (error) {
+      // Generation already owns the active branch. A stale notice sibling is
+      // preferable to disrupting the started response.
+      logger.error("Failed to remove resumed permission notice", "Chat", {
+        error,
+        sessionId,
+        messageId: noticeMessageId
+      })
+    }
+    return "started"
+  } catch (error) {
+    logger.error("Failed to resume permission-blocked turn", "Chat", {
+      error,
+      sessionId,
+      messageId: noticeMessageId
+    })
+    await restoreNotice()
+    return "resume-failed"
   } finally {
     if (!submitted) releaseStreamClaim(streamClaim)
   }

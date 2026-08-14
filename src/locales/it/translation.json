@@ -411,6 +411,7 @@
       "enabling": "Abilitazione…",
       "manage": "Gestisci autorizzazioni",
       "not_granted": "L’autorizzazione non è stata concessa. Riprova o gestiscila nelle Impostazioni.",
+      "resume_failed": "Impossibile continuare la richiesta. Riprova.",
       "reminders": "Promemoria"
     },
     "errors": {

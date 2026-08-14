@@ -445,6 +445,7 @@
       "enabling": "Enabling…",
       "manage": "Manage permissions",
       "not_granted": "Permission was not granted. You can try again or manage it in Settings.",
+      "resume_failed": "Couldn’t continue the request. Try again.",
       "reminders": "Reminders"
     },
     "errors": {

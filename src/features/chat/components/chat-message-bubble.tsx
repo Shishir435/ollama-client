@@ -2,6 +2,7 @@ import { TriangleAlert } from "lucide-react"
 import { memo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMessageExport } from "@/features/chat/hooks/use-message-export"
+import type { PermissionResumeResult } from "@/features/chat/lib/resume-permission-turn"
 import type { ChatMessage } from "@/types"
 import { ChatErrorReportAction } from "./chat-error-report-action"
 import { ChatMessageContainer } from "./chat-message-container"
@@ -40,7 +41,7 @@ export const ChatMessageBubble = memo(
     onFork?: (content: string) => void
     onDelete?: () => void
     onNavigate?: (nodeId: number | string) => void
-    onResolvePermission?: () => Promise<boolean>
+    onResolvePermission?: () => Promise<PermissionResumeResult>
   }) => {
     const { t } = useTranslation()
     const [editorMode, setEditorMode] = useState<"edit" | "fork" | null>(null)

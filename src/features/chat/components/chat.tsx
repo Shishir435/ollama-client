@@ -5,7 +5,10 @@ import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messa
 import { useChat } from "@/features/chat/hooks/use-chat"
 import { useChatKeyboardShortcuts } from "@/features/chat/hooks/use-chat-keyboard-shortcuts"
 import { useOmniboxQuery } from "@/features/chat/hooks/use-omnibox-query"
-import { resumePermissionTurn } from "@/features/chat/lib/resume-permission-turn"
+import {
+  type PermissionResumeResult,
+  resumePermissionTurn
+} from "@/features/chat/lib/resume-permission-turn"
 import { usePendingChatSend } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
@@ -163,7 +166,7 @@ export const Chat = () => {
 
   const handleResolvePermission = async (
     message: ChatMessage
-  ): Promise<boolean> =>
+  ): Promise<PermissionResumeResult> =>
     resumePermissionTurn({
       message,
       messages,

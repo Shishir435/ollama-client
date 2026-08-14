@@ -411,6 +411,7 @@
       "enabling": "正在启用…",
       "manage": "管理权限",
       "not_granted": "未授予权限。你可以重试，或在设置中进行管理。",
+      "resume_failed": "无法继续该请求。请重试。",
       "reminders": "提醒"
     },
     "errors": {

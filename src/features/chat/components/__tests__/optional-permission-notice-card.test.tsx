@@ -28,7 +28,7 @@ const notice = {
 
 describe("OptionalPermissionNoticeCard", () => {
   it("enables access from the inline recovery action", async () => {
-    const onEnable = vi.fn().mockResolvedValue(true)
+    const onEnable = vi.fn().mockResolvedValue("started")
     render(<OptionalPermissionNoticeCard notice={notice} onEnable={onEnable} />)
 
     fireEvent.click(
@@ -44,7 +44,7 @@ describe("OptionalPermissionNoticeCard", () => {
     render(
       <OptionalPermissionNoticeCard
         notice={notice}
-        onEnable={vi.fn().mockResolvedValue(false)}
+        onEnable={vi.fn().mockResolvedValue("permission-denied")}
       />
     )
 
@@ -61,5 +61,22 @@ describe("OptionalPermissionNoticeCard", () => {
     expect(browserMocks.openOptionsInTab).toHaveBeenCalledWith(
       "chrome-extension://test/options.html?tab=privacy&focus=permission-bookmarks"
     )
+  })
+
+  it("distinguishes a failed resume from denied permission", async () => {
+    render(
+      <OptionalPermissionNoticeCard
+        notice={notice}
+        onEnable={vi.fn().mockResolvedValue("resume-failed")}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /chat.permissions.enable/ })
+    )
+
+    expect(
+      await screen.findByText("chat.permissions.resume_failed")
+    ).toBeInTheDocument()
   })
 })

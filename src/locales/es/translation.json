@@ -411,6 +411,7 @@
       "enabling": "Activando…",
       "manage": "Administrar permisos",
       "not_granted": "No se concedió el permiso. Puedes intentarlo de nuevo o administrarlo en Ajustes.",
+      "resume_failed": "No se pudo continuar la solicitud. Inténtalo de nuevo.",
       "reminders": "Recordatorios"
     },
     "errors": {

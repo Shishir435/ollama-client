@@ -2,6 +2,7 @@ import { LockKeyhole, Settings } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import type { PermissionResumeResult } from "@/features/chat/lib/resume-permission-turn"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import type { PermissionNotice } from "@/types"
 
@@ -10,18 +11,23 @@ export const OptionalPermissionNoticeCard = ({
   onEnable
 }: {
   notice: PermissionNotice
-  onEnable: () => Promise<boolean>
+  onEnable: () => Promise<PermissionResumeResult>
 }) => {
   const { t } = useTranslation()
   const [enabling, setEnabling] = useState(false)
-  const [denied, setDenied] = useState(false)
+  const [failure, setFailure] = useState<
+    "permission-denied" | "resume-failed" | null
+  >(null)
   const feature = t(notice.labelKey)
 
   const enable = async () => {
     setEnabling(true)
-    setDenied(false)
+    setFailure(null)
     try {
-      if (!(await onEnable())) setDenied(true)
+      const result = await onEnable()
+      if (result !== "started") setFailure(result)
+    } catch {
+      setFailure("resume-failed")
     } finally {
       setEnabling(false)
     }
@@ -48,9 +54,13 @@ export const OptionalPermissionNoticeCard = ({
           <p className="mt-0.5 text-xs text-muted-foreground">
             {t("chat.permissions.enable_description")}
           </p>
-          {denied && (
+          {failure && (
             <p className="mt-1 text-xs text-status-danger">
-              {t("chat.permissions.not_granted")}
+              {t(
+                failure === "permission-denied"
+                  ? "chat.permissions.not_granted"
+                  : "chat.permissions.resume_failed"
+              )}
             </p>
           )}
           <div className="mt-2 flex flex-wrap gap-1.5">

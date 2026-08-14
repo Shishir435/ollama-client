@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso"
 import { TooltipActionButton } from "@/components/actions"
+import type { PermissionResumeResult } from "@/features/chat/lib/resume-permission-turn"
 import { useSetting } from "@/hooks/use-setting"
 import { cn } from "@/lib/class-names"
 import { DEFAULT_EMBEDDING_CONFIG } from "@/lib/constants"
@@ -21,7 +22,7 @@ export interface ChatMessageListProps {
   onUpdateMessage: (message: ChatMessage, content: string) => void
   onForkMessage: (message: ChatMessage, content: string) => void
   onDeleteMessage: (message: ChatMessage) => void
-  onResolvePermission: (message: ChatMessage) => Promise<boolean>
+  onResolvePermission: (message: ChatMessage) => Promise<PermissionResumeResult>
   onNavigate?: (nodeId: number | string) => void
   hasMore: boolean
   onLoadMore: () => void

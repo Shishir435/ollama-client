@@ -411,6 +411,7 @@
       "enabling": "Wird aktiviert…",
       "manage": "Berechtigungen verwalten",
       "not_granted": "Die Berechtigung wurde nicht erteilt. Versuche es erneut oder verwalte sie in den Einstellungen.",
+      "resume_failed": "Die Anfrage konnte nicht fortgesetzt werden. Versuche es erneut.",
       "reminders": "Erinnerungen"
     },
     "errors": {

@@ -32,10 +32,10 @@ const setup = () => ({
 })
 
 describe("resumePermissionTurn", () => {
-  it("removes the notice and resumes the original request after permission", async () => {
+  it("removes the notice only after replacement generation starts", async () => {
     const options = setup()
 
-    await expect(resumePermissionTurn(options)).resolves.toBe(true)
+    await expect(resumePermissionTurn(options)).resolves.toBe("started")
 
     expect(options.requestPermissions).toHaveBeenCalledWith(["bookmarks"])
     expect(options.deleteMessage).toHaveBeenCalledWith(2)
@@ -46,23 +46,48 @@ describe("resumePermissionTurn", () => {
       [user],
       expect.objectContaining({ mode: "regenerate" })
     )
+    expect(options.generateResponse.mock.invocationCallOrder[0]).toBeLessThan(
+      options.deleteMessage.mock.invocationCallOrder[0]
+    )
   })
 
   it("keeps the notice when permission is denied", async () => {
     const options = setup()
     options.requestPermissions.mockResolvedValue(false)
 
-    await expect(resumePermissionTurn(options)).resolves.toBe(false)
+    await expect(resumePermissionTurn(options)).resolves.toBe(
+      "permission-denied"
+    )
     expect(options.claimStream).not.toHaveBeenCalled()
     expect(options.deleteMessage).not.toHaveBeenCalled()
     expect(options.generateResponse).not.toHaveBeenCalled()
   })
 
-  it("releases stream ownership when resume is rejected", async () => {
+  it("restores the notice when resume is rejected", async () => {
     const options = setup()
     options.generateResponse.mockResolvedValue(false)
 
-    await expect(resumePermissionTurn(options)).resolves.toBe(false)
+    await expect(resumePermissionTurn(options)).resolves.toBe("resume-failed")
+    expect(options.deleteMessage).not.toHaveBeenCalled()
+    expect(options.navigateToNode).toHaveBeenLastCalledWith(
+      "session-1",
+      2,
+      true
+    )
+    expect(options.releaseStreamClaim).toHaveBeenCalledWith(expect.any(Symbol))
+  })
+
+  it("restores the notice when replacement generation throws", async () => {
+    const options = setup()
+    options.generateResponse.mockRejectedValue(new Error("stream failed"))
+
+    await expect(resumePermissionTurn(options)).resolves.toBe("resume-failed")
+    expect(options.deleteMessage).not.toHaveBeenCalled()
+    expect(options.navigateToNode).toHaveBeenLastCalledWith(
+      "session-1",
+      2,
+      true
+    )
     expect(options.releaseStreamClaim).toHaveBeenCalledWith(expect.any(Symbol))
   })
 })
