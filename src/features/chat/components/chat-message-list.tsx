@@ -57,7 +57,12 @@ export const ChatMessageList = ({
   const [userDetachedFromBottom, setUserDetachedFromBottom] = useState(false)
   const [embeddingConfig] = useSetting(SETTINGS.EMBEDDING_CONFIG)
   const filteredMessages = useMemo(
-    () => messages.filter((msg) => msg.role !== "system"),
+    () =>
+      messages.filter(
+        (msg) =>
+          msg.role !== "system" &&
+          msg.metrics?.permissionNotice?.resolvedAt === undefined
+      ),
     [messages]
   )
   // While context is being built (loading, before the stream shell exists),

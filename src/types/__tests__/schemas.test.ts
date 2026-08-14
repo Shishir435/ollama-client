@@ -27,14 +27,53 @@ describe("ChatMessageSchema", () => {
           capabilityId: "bookmarks",
           focusId: "permission-bookmarks",
           labelKey: "settings.permissions.items.bookmarks.label",
-          missingPermissions: ["bookmarks"]
+          missingPermissions: ["bookmarks"],
+          resume: {
+            version: 1,
+            turnId: "turn-1",
+            model: "llama3",
+            providerId: "ollama",
+            createdAt: 1,
+            context: {
+              files: [
+                {
+                  text: "file body",
+                  metadata: { fileName: "notes.txt", fileId: "file-1" }
+                }
+              ],
+              hasTabContext: true,
+              contextText: "page body",
+              tabDocuments: [
+                { id: "tab-1", title: "Page", content: "page body" }
+              ],
+              memoryEnabled: true,
+              maxTabContextChars: 4000,
+              maxRagContextChars: 4000,
+              groundedOnlyMode: false,
+              selectedModel: "llama3",
+              selectedModelRef: {
+                providerId: "ollama",
+                modelId: "llama3"
+              }
+            }
+          },
+          resolvedAt: 2
         }
       }
     })
 
     expect(parsed.metrics?.permissionNotice).toMatchObject({
       capabilityId: "bookmarks",
-      missingPermissions: ["bookmarks"]
+      missingPermissions: ["bookmarks"],
+      resume: {
+        turnId: "turn-1",
+        context: {
+          files: [{ text: "file body" }],
+          hasTabContext: true,
+          contextText: "page body"
+        }
+      },
+      resolvedAt: 2
     })
   })
 

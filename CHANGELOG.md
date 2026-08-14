@@ -9,6 +9,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Fixed
+
+- OpenAI-compatible model discovery now accepts both standard `{ data: [] }`
+  catalogs and documented bare-array variants, normalizes common hosted
+  context/capability fields, and keeps valid models when unrelated entries or
+  optional metadata are malformed.
+
 ## [0.13.0]
 
 ### Added

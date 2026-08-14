@@ -48,9 +48,11 @@ describe("useChatTurnController", () => {
         config: baseConfig as any,
         input: "Search my bookmarks",
         setInput,
-        selectedTabIds: [],
-        contextText: "",
-        tabDocuments: [],
+        selectedTabIds: ["tab-1"],
+        contextText: "selected page body",
+        tabDocuments: [
+          { id: "tab-1", title: "Selected page", content: "page body" }
+        ],
         messages: [],
         setIsLoading: vi.fn(),
         setIsStreaming: vi.fn(),
@@ -66,7 +68,18 @@ describe("useChatTurnController", () => {
 
     let accepted = true
     await act(async () => {
-      accepted = await result.current.sendMessage()
+      accepted = await result.current.sendMessage(undefined, undefined, [
+        {
+          text: "file body",
+          metadata: {
+            fileName: "notes.txt",
+            fileType: "text/plain",
+            fileSize: 9,
+            processedAt: 1,
+            fileId: "file-1"
+          }
+        }
+      ])
     })
 
     expect(accepted).toBe(true)
@@ -85,7 +98,29 @@ describe("useChatTurnController", () => {
         metrics: {
           permissionNotice: expect.objectContaining({
             capabilityId: "bookmarks",
-            missingPermissions: ["bookmarks"]
+            missingPermissions: ["bookmarks"],
+            resume: expect.objectContaining({
+              version: 1,
+              model: "llama3",
+              providerId: "ollama",
+              context: expect.objectContaining({
+                files: [
+                  {
+                    text: "file body",
+                    metadata: { fileName: "notes.txt", fileId: "file-1" }
+                  }
+                ],
+                hasTabContext: true,
+                contextText: "selected page body",
+                tabDocuments: [
+                  {
+                    id: "tab-1",
+                    title: "Selected page",
+                    content: "page body"
+                  }
+                ]
+              })
+            })
           })
         }
       })

@@ -7,8 +7,10 @@ import { z } from "zod"
  * inside `ChatMessageMetrics`, which is why they live together: they are
  * written by the same turn, read by the same panels, and versioned as one.
  *
- * Everything here is presentation-safe by construction — excerpts and previews,
- * never whole documents or raw tool output.
+ * Everything here is presentation-safe by construction except the explicitly
+ * app-owned permission resume snapshot. That snapshot is never rendered or
+ * sent to a model; it temporarily retains user-selected context until the
+ * blocked request starts and the recovery notice is deleted.
  */
 
 const optionalString = z.preprocess(
@@ -138,6 +140,57 @@ export const ToolCallSchema = z.object({
   arguments: z.record(z.string(), z.unknown())
 })
 
+/**
+ * Context that exists only at send time but is required to resume a turn after
+ * optional access is granted. Conversation messages and the user message stay
+ * in their canonical rows and are deliberately not duplicated here.
+ */
+export const PermissionResumeSnapshotSchema = z.object({
+  version: z.literal(1),
+  turnId: z.string().min(1),
+  model: z.string().min(1),
+  providerId: z.string().min(1).optional(),
+  createdAt: z.number().int().nonnegative(),
+  context: z.object({
+    files: z
+      .array(
+        z.object({
+          text: z.string(),
+          metadata: z.object({
+            fileName: z.string(),
+            fileId: z.string().optional()
+          })
+        })
+      )
+      .optional(),
+    hasTabContext: z.boolean(),
+    contextText: z.string(),
+    tabDocuments: z.array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        content: z.string()
+      })
+    ),
+    memoryEnabled: z.boolean(),
+    maxTabContextChars: z.number(),
+    maxRagContextChars: z.number(),
+    groundedOnlyMode: z.boolean(),
+    selectedModel: z.string(),
+    selectedModelRef: z
+      .object({
+        providerId: z.string(),
+        modelId: z.string()
+      })
+      .nullable(),
+    customModel: z.string().optional()
+  })
+})
+
+export type PermissionResumeSnapshot = z.infer<
+  typeof PermissionResumeSnapshotSchema
+>
+
 /** App-owned recovery notice for a capability blocked by optional access. */
 export const PermissionNoticeSchema = z.object({
   capabilityId: z.enum([
@@ -160,7 +213,12 @@ export const PermissionNoticeSchema = z.object({
       "alarms",
       "sessions"
     ])
-  )
+  ),
+  // Optional so notices written by 0.13.0 remain readable. New notices always
+  // include it; a legacy notice falls back to context-free regeneration.
+  resume: PermissionResumeSnapshotSchema.optional(),
+  /** Successful resume marker; resolved notices remain as tree anchors. */
+  resolvedAt: z.number().int().nonnegative().optional()
 })
 
 /** ---- Metrics ---- */
