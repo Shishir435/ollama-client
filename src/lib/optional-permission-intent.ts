@@ -7,7 +7,7 @@ export type OptionalPermissionCapabilityId =
   | "reminders"
 
 const HISTORY_INTENT = [
-  /\b(?:my|browser|browsing|web|recent)\b.{0,40}\bhistory\b/i,
+  /\b(?:my|our|browser|browsing|web)\b.{0,40}\bhistory\b/i,
   /\bhistory\b.{0,40}\b(?:browser|browsing|web|visited|sites?|pages?)\b/i,
   /\b(?:recently|last)\s+(?:visited|opened|viewed)\b/i,
   /\bwhat\s+(?:did\s+)?(?:i|we)\s+(?:recently\s+)?(?:visit|open|view)\b/i,
@@ -17,13 +17,15 @@ const HISTORY_INTENT = [
 ]
 
 const BOOKMARK_INTENT = [
-  /\bbookmarks?\b/i,
-  /\b(?:saved|bookmarked)\s+(?:pages?|sites?|websites?|links?|urls?)\b/i
+  /\b(?:my|our)\b.{0,30}\bbookmarks?\b/i,
+  /\b(?:search|find|show|list|access|read|check|look\s+(?:in|through))\b.{0,30}\bbookmarks?\b/i,
+  /\b(?:search|find|show|list|access|read|check)\b.{0,30}\b(?:my|our)\s+(?:saved|bookmarked)\s+(?:pages?|sites?|websites?|links?|urls?)\b/i
 ]
 
 const RECENT_SESSION_INTENT = [
-  /\brecently\s+closed\b/i,
-  /\bclosed\s+(?:tabs?|windows?|pages?)\b/i,
+  /\b(?:my|our)\b.{0,30}\brecently\s+closed\b/i,
+  /\b(?:show|list|find|access|reopen|restore)\b.{0,30}\brecently\s+closed\b/i,
+  /\b(?:show|list|find|access|reopen|restore)\b.{0,30}\bclosed\s+(?:tabs?|windows?|pages?)\b/i,
   /\b(?:reopen|restore)\b.{0,30}\b(?:tabs?|windows?|pages?|session)\b/i
 ]
 
@@ -34,14 +36,16 @@ const SYNCED_SESSION_INTENT = [
 ]
 
 const TAB_GROUP_INTENT = [
-  /\btab\s+groups?\b/i,
-  /\bgrouped\s+tabs?\b/i,
-  /\b(?:summarize|compare|read|list|show)\b.{0,30}\bgroups?\b.{0,20}\btabs?\b/i
+  /\b(?:my|our)\b.{0,30}\btab\s+groups?\b/i,
+  /\b(?:summarize|compare|read|list|show|access|check)\b.{0,30}\btab\s+groups?\b/i,
+  /\b(?:summarize|compare|read|list|show|access|check)\b.{0,30}\bgrouped\s+tabs?\b/i,
+  /\b(?:summarize|compare|read|list|show|access|check)\b.{0,30}\bgroups?\b.{0,20}\btabs?\b/i
 ]
 
 const DOWNLOAD_INTENT = [
   /\b(?:save|download|export)\s+(?:this|it|that)\b/i,
-  /\b(?:save|download|export)\b.{0,50}\b(?:files?|code|answers?|responses?|reports?|documents?|markdown|html|svg|json|diagrams?)\b/i
+  /\b(?:save|download|export)\b.{0,30}\b(?:your|the)\s+(?:answer|response|output)\b/i,
+  /\b(?:save|download|export)\b.{0,30}\b(?:this|that)\s+(?:file|code|answer|response|report|document|markdown|html|svg|json|diagram)\b/i
 ]
 
 const REMINDER_INTENT = [

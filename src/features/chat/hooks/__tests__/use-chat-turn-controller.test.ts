@@ -5,23 +5,12 @@ import type { ChatMessage } from "@/types"
 import { useChatTurnController } from "../use-chat-turn-controller"
 
 const permissionMocks = vi.hoisted(() => ({
-  findOptionalPermissionNotice: vi.fn(),
-  openOptionsInTab: vi.fn(),
-  getUrl: vi.fn((path: string) => `chrome-extension://test/${path}`)
+  findOptionalPermissionNotice: vi.fn()
 }))
 
 vi.mock("@/features/chat/lib/optional-permission-notice", () => ({
   findOptionalPermissionNotice: permissionMocks.findOptionalPermissionNotice
 }))
-
-vi.mock("@/lib/browser-api", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/browser-api")>()
-  return {
-    ...actual,
-    openOptionsInTab: permissionMocks.openOptionsInTab,
-    runtime: { ...actual.runtime, getURL: permissionMocks.getUrl }
-  }
-})
 
 const baseConfig = {
   selectedModel: "llama3",
@@ -43,29 +32,30 @@ describe("useChatTurnController", () => {
     loadStreamStore.setState({ isLoading: false, isStreaming: false })
   })
 
-  it("blocks a doomed turn and links to its disabled permission", async () => {
+  it("persists an inline notice instead of submitting a doomed turn", async () => {
     permissionMocks.findOptionalPermissionNotice.mockResolvedValue({
       capabilityId: "bookmarks",
       focusId: "permission-bookmarks",
       labelKey: "settings.permissions.items.bookmarks.label",
       missingPermissions: ["bookmarks"]
     })
-    const addMessage = vi.fn()
+    const addMessage = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(2)
     const generateResponse = vi.fn()
     const toast = vi.fn()
+    const setInput = vi.fn()
     const { result } = renderHook(() =>
       useChatTurnController({
         config: baseConfig as any,
         input: "Search my bookmarks",
-        setInput: vi.fn(),
+        setInput,
         selectedTabIds: [],
         contextText: "",
         tabDocuments: [],
         messages: [],
         setIsLoading: vi.fn(),
         setIsStreaming: vi.fn(),
-        ensureSessionId: vi.fn(),
-        autoRenameSession: vi.fn(),
+        ensureSessionId: vi.fn().mockResolvedValue("session-1"),
+        autoRenameSession: vi.fn().mockResolvedValue(undefined),
         addMessage,
         generateResponse,
         claimResponseStream,
@@ -79,21 +69,31 @@ describe("useChatTurnController", () => {
       accepted = await result.current.sendMessage()
     })
 
-    expect(accepted).toBe(false)
-    expect(claimResponseStream).not.toHaveBeenCalled()
-    expect(addMessage).not.toHaveBeenCalled()
-    expect(generateResponse).not.toHaveBeenCalled()
-    expect(toast).toHaveBeenCalledWith(
+    expect(accepted).toBe(true)
+    expect(claimResponseStream).toHaveBeenCalledOnce()
+    expect(addMessage).toHaveBeenNthCalledWith(
+      1,
+      "session-1",
+      expect.objectContaining({ role: "user", content: "Search my bookmarks" })
+    )
+    expect(addMessage).toHaveBeenNthCalledWith(
+      2,
+      "session-1",
       expect.objectContaining({
-        action: expect.objectContaining({ label: expect.any(String) }),
-        duration: Number.POSITIVE_INFINITY
+        role: "assistant",
+        done: true,
+        metrics: {
+          permissionNotice: expect.objectContaining({
+            capabilityId: "bookmarks",
+            missingPermissions: ["bookmarks"]
+          })
+        }
       })
     )
-
-    toast.mock.calls[0][0].action.onClick()
-    expect(permissionMocks.openOptionsInTab).toHaveBeenCalledWith(
-      "chrome-extension://test/options.html?tab=privacy&focus=permission-bookmarks"
-    )
+    expect(generateResponse).not.toHaveBeenCalled()
+    expect(releaseResponseStreamClaim).toHaveBeenCalledWith(expect.any(Symbol))
+    expect(setInput).toHaveBeenCalledWith("")
+    expect(toast).not.toHaveBeenCalled()
   })
 
   it("persists the user message and submits one background-owned turn", async () => {

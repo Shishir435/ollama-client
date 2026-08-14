@@ -17,6 +17,27 @@ describe("ChatMessageSchema", () => {
     expect(result.success).toBe(true)
   })
 
+  it("preserves durable optional-permission recovery notices", () => {
+    const parsed = ChatMessageSchema.parse({
+      role: "assistant",
+      content: "Bookmarks access is disabled.",
+      done: true,
+      metrics: {
+        permissionNotice: {
+          capabilityId: "bookmarks",
+          focusId: "permission-bookmarks",
+          labelKey: "settings.permissions.items.bookmarks.label",
+          missingPermissions: ["bookmarks"]
+        }
+      }
+    })
+
+    expect(parsed.metrics?.permissionNotice).toMatchObject({
+      capabilityId: "bookmarks",
+      missingPermissions: ["bookmarks"]
+    })
+  })
+
   it("normalizes legacy attachment bytes at the application boundary", () => {
     const parsed = ChatMessageSchema.parse({
       role: "user",

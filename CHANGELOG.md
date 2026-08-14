@@ -41,11 +41,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Fixed
 
-- Requests that need disabled optional browser access now stop before model
-  generation and show a persistent, localized action for the exact permission.
+- Requests that need disabled optional browser access now show a durable,
+  localized recovery card in the conversation before model generation.
   Bookmarks, history, downloads, tab groups, browser sessions, and reminders
-  deep-link to their highlighted Privacy & permissions control without granting
-  access silently.
+  can be enabled from the card and resume the original request automatically,
+  or deep-link to their highlighted Privacy & permissions control. General
+  discussion of topics such as world history does not trigger the prompt.
 - Overlapping file submissions no longer replace each other's processing rows
   with stale UI state.
 - Durable assistant messages can no longer be overwritten by a delayed UI

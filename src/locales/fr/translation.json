@@ -406,8 +406,11 @@
     },
     "permissions": {
       "disabled_notice": "L’accès à {{feature}} est disponible, mais actuellement désactivé.",
-      "enable_description": "Activez-le dans Confidentialité et autorisations, puis renvoyez votre demande.",
+      "enable_description": "Activez-le pour poursuivre cette demande. L’accès reste facultatif et révocable.",
       "enable": "Activer {{feature}}",
+      "enabling": "Activation…",
+      "manage": "Gérer les autorisations",
+      "not_granted": "L’autorisation n’a pas été accordée. Réessayez ou gérez-la dans les paramètres.",
       "reminders": "Rappels"
     },
     "errors": {

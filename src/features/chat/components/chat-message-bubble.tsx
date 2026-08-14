@@ -8,6 +8,7 @@ import { ChatMessageContainer } from "./chat-message-container"
 import { ChatMessageContent } from "./chat-message-content"
 import { ChatMessageEditor } from "./chat-message-editor"
 import { ChatMessageFooter } from "./chat-message-footer"
+import { OptionalPermissionNoticeCard } from "./optional-permission-notice-card"
 
 const hasAssistantError = (message: ChatMessage) => Boolean(message.error)
 
@@ -24,7 +25,8 @@ export const ChatMessageBubble = memo(
     onUpdate,
     onFork,
     onDelete,
-    onNavigate
+    onNavigate,
+    onResolvePermission
   }: {
     msg: ChatMessage
     sessionId?: string
@@ -38,10 +40,12 @@ export const ChatMessageBubble = memo(
     onFork?: (content: string) => void
     onDelete?: () => void
     onNavigate?: (nodeId: number | string) => void
+    onResolvePermission?: () => Promise<boolean>
   }) => {
     const { t } = useTranslation()
     const [editorMode, setEditorMode] = useState<"edit" | "fork" | null>(null)
     const isUser = msg.role === "user"
+    const permissionNotice = msg.metrics?.permissionNotice
     const showErrorTreatment =
       !isLoading && !isStreaming && hasAssistantError(msg)
     const canRetry =
@@ -74,6 +78,17 @@ export const ChatMessageBubble = memo(
           exportMessageAsPdf(msg)
           break
       }
+    }
+
+    if (permissionNotice && onResolvePermission) {
+      return (
+        <ChatMessageContainer isUser={false}>
+          <OptionalPermissionNoticeCard
+            notice={permissionNotice}
+            onEnable={onResolvePermission}
+          />
+        </ChatMessageContainer>
+      )
     }
 
     return (
@@ -149,7 +164,8 @@ export const ChatMessageBubble = memo(
       prev.isLoading === next.isLoading &&
       prev.isStreaming === next.isStreaming &&
       prev.showRetrievedChunks === next.showRetrievedChunks &&
-      prev.feedbackEnabled === next.feedbackEnabled
+      prev.feedbackEnabled === next.feedbackEnabled &&
+      prev.onResolvePermission === next.onResolvePermission
     )
   }
 )

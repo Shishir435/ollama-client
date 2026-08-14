@@ -4,13 +4,7 @@ import {
   type OptionalPermissionCapabilityId
 } from "@/lib/optional-permission-intent"
 import { hasPermission, type OptionalApiPermission } from "@/lib/permissions"
-
-export interface OptionalPermissionNotice {
-  capabilityId: OptionalPermissionCapabilityId
-  focusId: string
-  labelKey: string
-  missingPermissions: OptionalApiPermission[]
-}
+import type { PermissionNotice } from "@/types"
 
 interface OptionalPermissionCapability {
   id: OptionalPermissionCapabilityId
@@ -75,7 +69,7 @@ const OPTIONAL_PERMISSION_CAPABILITIES: OptionalPermissionCapability[] = [
  */
 export const findOptionalPermissionNotice = async (
   text: string
-): Promise<OptionalPermissionNotice | undefined> => {
+): Promise<PermissionNotice | undefined> => {
   const normalized = text.trim()
   if (!normalized) return undefined
 

@@ -21,6 +21,7 @@ export interface ChatMessageListProps {
   onUpdateMessage: (message: ChatMessage, content: string) => void
   onForkMessage: (message: ChatMessage, content: string) => void
   onDeleteMessage: (message: ChatMessage) => void
+  onResolvePermission: (message: ChatMessage) => Promise<boolean>
   onNavigate?: (nodeId: number | string) => void
   hasMore: boolean
   onLoadMore: () => void
@@ -45,6 +46,7 @@ export const ChatMessageList = ({
   onUpdateMessage,
   onForkMessage,
   onDeleteMessage,
+  onResolvePermission,
   onNavigate
 }: ChatMessageListProps) => {
   const { t } = useTranslation()
@@ -187,6 +189,11 @@ export const ChatMessageList = ({
                   onUpdate={(content) => onUpdateMessage(msg, content)}
                   onFork={(content) => onForkMessage(msg, content)}
                   onDelete={() => onDeleteMessage(msg)}
+                  onResolvePermission={
+                    msg.metrics?.permissionNotice
+                      ? () => onResolvePermission(msg)
+                      : undefined
+                  }
                   onNavigate={onNavigate}
                 />
               </div>

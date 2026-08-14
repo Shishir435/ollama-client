@@ -78,7 +78,13 @@ export const handleChatWithModel = withErrorContext(
     const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
     const modelParams = resolveModelConfig(modelConfigMap[model])
 
-    const limitedMessages = limitMessagesForModel(model, messages)
+    // App-owned permission cards are durable UI recovery state, never model
+    // output or prompt context. Filter defensively even though the client does
+    // the same before submission.
+    const conversationMessages = messages.filter(
+      (message) => !message.metrics?.permissionNotice
+    )
+    const limitedMessages = limitMessagesForModel(model, conversationMessages)
     const preparedMessages = [...limitedMessages]
 
     // --- System Prompt & Context Injection ---
@@ -117,7 +123,7 @@ export const handleChatWithModel = withErrorContext(
     // everything else gets no tools and the old context-injection path as-is.
     // Resolved up here (before memory injection) so the regenerate/fork path can
     // gate auto-injection on retrieval-tool availability too.
-    const latestUserText = [...messages]
+    const latestUserText = [...conversationMessages]
       .reverse()
       .find((message) => message.role === "user")?.content
     const resolvedTools = await resolveModelTools(
@@ -148,9 +154,10 @@ export const handleChatWithModel = withErrorContext(
       isMemoryEnabled &&
       !msg.payload.clientContextPrepared &&
       !retrievalToolsActive &&
-      messages.length > 0
+      conversationMessages.length > 0
     ) {
-      const lastUserMessage = messages[messages.length - 1]
+      const lastUserMessage =
+        conversationMessages[conversationMessages.length - 1]
       if (lastUserMessage.role === "user") {
         // Dynamic import to reduce bundle size
         const { retrieveContextEnhanced, formatEnhancedResults } = await import(

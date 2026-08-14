@@ -406,8 +406,11 @@
     },
     "permissions": {
       "disabled_notice": "Der Zugriff auf {{feature}} ist verfügbar, aber derzeit deaktiviert.",
-      "enable_description": "Aktiviere ihn unter Datenschutz & Berechtigungen und sende deine Anfrage erneut.",
+      "enable_description": "Aktiviere den Zugriff, um diese Anfrage fortzusetzen. Er bleibt optional und kann widerrufen werden.",
       "enable": "{{feature}} aktivieren",
+      "enabling": "Wird aktiviert…",
+      "manage": "Berechtigungen verwalten",
+      "not_granted": "Die Berechtigung wurde nicht erteilt. Versuche es erneut oder verwalte sie in den Einstellungen.",
       "reminders": "Erinnerungen"
     },
     "errors": {

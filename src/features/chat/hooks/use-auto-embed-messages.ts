@@ -63,6 +63,9 @@ export const useAutoEmbedMessages = () => {
       // Skip system messages
       if (message.role === "system") return
 
+      // Permission recovery copy is app UI, not conversation content.
+      if (message.metrics?.permissionNotice) return
+
       // Skip if message is empty or too short
       const content = message.content?.trim()
       if (!content || content.length < 10) return
@@ -187,6 +190,8 @@ export const useAutoEmbedMessages = () => {
       const messagesToProcess = messages.filter((msg) => {
         // Skip system messages
         if (msg.role === "system") return false
+
+        if (msg.metrics?.permissionNotice) return false
 
         // Skip incomplete messages
         if (msg.role === "assistant" && msg.done !== true) return false

@@ -11,6 +11,7 @@ export {
   ActivityEventSchema,
   ActivityTextSchema,
   ChatMessageMetricsSchema,
+  PermissionNoticeSchema,
   ToolCallSchema,
   ToolRunSchema,
   UsedContextChunkSchema

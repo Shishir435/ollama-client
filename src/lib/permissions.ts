@@ -30,8 +30,8 @@ export type OptionalApiPermission =
  * permission, so the permission-API arg types reject it. This wraps the cast in
  * one place — the underlying runtime call is valid.
  */
-const permissionArg = (perm: OptionalApiPermission) =>
-  ({ permissions: [perm] }) as unknown as Parameters<
+const permissionArg = (permissions: OptionalApiPermission[]) =>
+  ({ permissions }) as unknown as Parameters<
     typeof browser.permissions.request
   >[0]
 
@@ -40,7 +40,7 @@ export const hasPermission = async (
   perm: OptionalApiPermission
 ): Promise<boolean> => {
   try {
-    return await browser.permissions.contains(permissionArg(perm))
+    return await browser.permissions.contains(permissionArg([perm]))
   } catch {
     return false
   }
@@ -52,9 +52,14 @@ export const hasPermission = async (
  */
 export const requestPermission = async (
   perm: OptionalApiPermission
+): Promise<boolean> => requestPermissions([perm])
+
+/** Request several related optional permissions from one user gesture. */
+export const requestPermissions = async (
+  permissions: OptionalApiPermission[]
 ): Promise<boolean> => {
   try {
-    return await browser.permissions.request(permissionArg(perm))
+    return await browser.permissions.request(permissionArg(permissions))
   } catch {
     return false
   }
@@ -65,7 +70,7 @@ export const removePermission = async (
   perm: OptionalApiPermission
 ): Promise<boolean> => {
   try {
-    return await browser.permissions.remove(permissionArg(perm))
+    return await browser.permissions.remove(permissionArg([perm]))
   } catch {
     return false
   }

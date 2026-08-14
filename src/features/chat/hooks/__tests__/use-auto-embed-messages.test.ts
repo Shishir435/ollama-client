@@ -83,6 +83,32 @@ describe("useAutoEmbedMessages", () => {
     expect(generateEmbedding).not.toHaveBeenCalled()
   })
 
+  it("should skip app-owned permission notices", async () => {
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
+    const { result } = renderHook(() => useAutoEmbedMessages())
+
+    await result.current.embedMessage(
+      {
+        role: "assistant",
+        content: "Bookmarks access is available but currently disabled.",
+        done: true,
+        metrics: {
+          permissionNotice: {
+            capabilityId: "bookmarks",
+            focusId: "permission-bookmarks",
+            labelKey: "settings.permissions.items.bookmarks.label",
+            missingPermissions: ["bookmarks"]
+          }
+        }
+      },
+      "session-1"
+    )
+
+    expect(generateEmbedding).not.toHaveBeenCalled()
+  })
+
   it("should skip short messages", async () => {
     const { generateEmbedding } = await import(
       "@/lib/embeddings/embedding-client"

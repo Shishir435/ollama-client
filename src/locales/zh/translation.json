@@ -406,8 +406,11 @@
     },
     "permissions": {
       "disabled_notice": "{{feature}}访问功能可用，但目前未启用。",
-      "enable_description": "请在“隐私和权限”中启用，然后重新发送请求。",
+      "enable_description": "请启用它以继续此请求。此访问权限仍为可选，并可随时撤销。",
       "enable": "启用{{feature}}",
+      "enabling": "正在启用…",
+      "manage": "管理权限",
+      "not_granted": "未授予权限。你可以重试，或在设置中进行管理。",
       "reminders": "提醒"
     },
     "errors": {

@@ -440,8 +440,11 @@
     },
     "permissions": {
       "disabled_notice": "{{feature}} access is available but currently disabled.",
-      "enable_description": "Enable it in Privacy & permissions, then send your request again.",
+      "enable_description": "Enable it to continue this request. Access remains optional and revocable.",
       "enable": "Enable {{feature}}",
+      "enabling": "Enabling…",
+      "manage": "Manage permissions",
+      "not_granted": "Permission was not granted. You can try again or manage it in Settings.",
       "reminders": "Reminders"
     },
     "errors": {

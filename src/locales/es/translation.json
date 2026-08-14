@@ -406,8 +406,11 @@
     },
     "permissions": {
       "disabled_notice": "El acceso a {{feature}} está disponible, pero está desactivado.",
-      "enable_description": "Actívalo en Privacidad y permisos y vuelve a enviar tu solicitud.",
+      "enable_description": "Actívalo para continuar esta solicitud. El acceso seguirá siendo opcional y revocable.",
       "enable": "Activar {{feature}}",
+      "enabling": "Activando…",
+      "manage": "Administrar permisos",
+      "not_granted": "No se concedió el permiso. Puedes intentarlo de nuevo o administrarlo en Ajustes.",
       "reminders": "Recordatorios"
     },
     "errors": {
