@@ -404,6 +404,12 @@
         "view": "Afficher {{name}}"
       }
     },
+    "permissions": {
+      "disabled_notice": "L’accès à {{feature}} est disponible, mais actuellement désactivé.",
+      "enable_description": "Activez-le dans Confidentialité et autorisations, puis renvoyez votre demande.",
+      "enable": "Activer {{feature}}",
+      "reminders": "Rappels"
+    },
     "errors": {
       "unknown_error": "❌ Erreur inconnue : {{message}}",
       "no_message": "Aucun message",

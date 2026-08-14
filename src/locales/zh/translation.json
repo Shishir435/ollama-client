@@ -404,6 +404,12 @@
         "view": "查看 {{name}}"
       }
     },
+    "permissions": {
+      "disabled_notice": "{{feature}}访问功能可用，但目前未启用。",
+      "enable_description": "请在“隐私和权限”中启用，然后重新发送请求。",
+      "enable": "启用{{feature}}",
+      "reminders": "提醒"
+    },
     "errors": {
       "unknown_error": "❌ 未知错误: {{message}}",
       "no_message": "无消息",

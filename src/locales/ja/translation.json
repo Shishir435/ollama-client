@@ -404,6 +404,12 @@
         "view": "{{name}} を表示"
       }
     },
+    "permissions": {
+      "disabled_notice": "{{feature}}へのアクセスは利用できますが、現在無効です。",
+      "enable_description": "「プライバシーと権限」で有効にしてから、リクエストをもう一度送信してください。",
+      "enable": "{{feature}}を有効にする",
+      "reminders": "リマインダー"
+    },
     "errors": {
       "unknown_error": "❌ 不明なエラー: {{message}}",
       "no_message": "メッセージなし",

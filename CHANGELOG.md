@@ -41,6 +41,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Fixed
 
+- Requests that need disabled optional browser access now stop before model
+  generation and show a persistent, localized action for the exact permission.
+  Bookmarks, history, downloads, tab groups, browser sessions, and reminders
+  deep-link to their highlighted Privacy & permissions control without granting
+  access silently.
 - Overlapping file submissions no longer replace each other's processing rows
   with stale UI state.
 - Durable assistant messages can no longer be overwritten by a delayed UI

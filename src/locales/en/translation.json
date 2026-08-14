@@ -438,6 +438,12 @@
         "view": "View {{name}}"
       }
     },
+    "permissions": {
+      "disabled_notice": "{{feature}} access is available but currently disabled.",
+      "enable_description": "Enable it in Privacy & permissions, then send your request again.",
+      "enable": "Enable {{feature}}",
+      "reminders": "Reminders"
+    },
     "errors": {
       "unknown_error": "❌ Unknown error: {{message}}",
       "no_message": "No message",

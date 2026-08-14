@@ -404,6 +404,12 @@
         "view": "Visualizza {{name}}"
       }
     },
+    "permissions": {
+      "disabled_notice": "L’accesso a {{feature}} è disponibile, ma attualmente disabilitato.",
+      "enable_description": "Abilitalo in Privacy e autorizzazioni, quindi invia di nuovo la richiesta.",
+      "enable": "Abilita {{feature}}",
+      "reminders": "Promemoria"
+    },
     "errors": {
       "unknown_error": "❌ Errore sconosciuto: {{message}}",
       "no_message": "Nessun messaggio",

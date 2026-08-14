@@ -4,6 +4,25 @@ import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
 import type { ChatMessage } from "@/types"
 import { useChatTurnController } from "../use-chat-turn-controller"
 
+const permissionMocks = vi.hoisted(() => ({
+  findOptionalPermissionNotice: vi.fn(),
+  openOptionsInTab: vi.fn(),
+  getUrl: vi.fn((path: string) => `chrome-extension://test/${path}`)
+}))
+
+vi.mock("@/features/chat/lib/optional-permission-notice", () => ({
+  findOptionalPermissionNotice: permissionMocks.findOptionalPermissionNotice
+}))
+
+vi.mock("@/lib/browser-api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/browser-api")>()
+  return {
+    ...actual,
+    openOptionsInTab: permissionMocks.openOptionsInTab,
+    runtime: { ...actual.runtime, getURL: permissionMocks.getUrl }
+  }
+})
+
 const baseConfig = {
   selectedModel: "llama3",
   selectedModelRef: { providerId: "ollama", modelId: "llama3" },
@@ -20,7 +39,61 @@ describe("useChatTurnController", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    permissionMocks.findOptionalPermissionNotice.mockResolvedValue(undefined)
     loadStreamStore.setState({ isLoading: false, isStreaming: false })
+  })
+
+  it("blocks a doomed turn and links to its disabled permission", async () => {
+    permissionMocks.findOptionalPermissionNotice.mockResolvedValue({
+      capabilityId: "bookmarks",
+      focusId: "permission-bookmarks",
+      labelKey: "settings.permissions.items.bookmarks.label",
+      missingPermissions: ["bookmarks"]
+    })
+    const addMessage = vi.fn()
+    const generateResponse = vi.fn()
+    const toast = vi.fn()
+    const { result } = renderHook(() =>
+      useChatTurnController({
+        config: baseConfig as any,
+        input: "Search my bookmarks",
+        setInput: vi.fn(),
+        selectedTabIds: [],
+        contextText: "",
+        tabDocuments: [],
+        messages: [],
+        setIsLoading: vi.fn(),
+        setIsStreaming: vi.fn(),
+        ensureSessionId: vi.fn(),
+        autoRenameSession: vi.fn(),
+        addMessage,
+        generateResponse,
+        claimResponseStream,
+        releaseResponseStreamClaim,
+        toast
+      })
+    )
+
+    let accepted = true
+    await act(async () => {
+      accepted = await result.current.sendMessage()
+    })
+
+    expect(accepted).toBe(false)
+    expect(claimResponseStream).not.toHaveBeenCalled()
+    expect(addMessage).not.toHaveBeenCalled()
+    expect(generateResponse).not.toHaveBeenCalled()
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: expect.objectContaining({ label: expect.any(String) }),
+        duration: Number.POSITIVE_INFINITY
+      })
+    )
+
+    toast.mock.calls[0][0].action.onClick()
+    expect(permissionMocks.openOptionsInTab).toHaveBeenCalledWith(
+      "chrome-extension://test/options.html?tab=privacy&focus=permission-bookmarks"
+    )
   })
 
   it("persists the user message and submits one background-owned turn", async () => {

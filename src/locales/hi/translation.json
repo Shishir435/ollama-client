@@ -404,6 +404,12 @@
         "view": "{{name}} देखें"
       }
     },
+    "permissions": {
+      "disabled_notice": "{{feature}} की सुविधा उपलब्ध है, लेकिन अभी बंद है।",
+      "enable_description": "इसे गोपनीयता और अनुमतियाँ में चालू करें, फिर अपना अनुरोध दोबारा भेजें।",
+      "enable": "{{feature}} चालू करें",
+      "reminders": "रिमाइंडर"
+    },
     "errors": {
       "unknown_error": "❌ अज्ञात त्रुटि: {{message}}",
       "no_message": "कोई संदेश नहीं",

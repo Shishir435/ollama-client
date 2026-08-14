@@ -11,7 +11,9 @@ import {
 } from "@/features/chat/hooks/turn-preparation"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
+import { findOptionalPermissionNotice } from "@/features/chat/lib/optional-permission-notice"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
+import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
 import type { ActivityEvent, ChatMessage, ImageAttachment } from "@/types"
@@ -20,6 +22,8 @@ type ToastFn = (input: {
   variant?: "default" | "destructive"
   title: string
   description?: string
+  action?: { label: string; onClick: () => void }
+  duration?: number
 }) => void
 
 interface UseChatTurnControllerOptions {
@@ -115,6 +119,31 @@ export const useChatTurnController = ({
     })
     if (!verdict.proceed) {
       if (verdict.toast) showTurnToast(verdict.toast)
+      return false
+    }
+
+    const permissionNotice = await findOptionalPermissionNotice(rawInput)
+    if (permissionNotice) {
+      const feature = t(permissionNotice.labelKey)
+      const needsMultiplePermissions =
+        permissionNotice.missingPermissions.length > 1
+      toast({
+        title: t("chat.permissions.disabled_notice", { feature }),
+        description: t("chat.permissions.enable_description"),
+        action: {
+          label: needsMultiplePermissions
+            ? t("onboarding.permissions.open")
+            : t("chat.permissions.enable", { feature }),
+          onClick: () => {
+            void openOptionsInTab(
+              runtime.getURL(
+                `options.html?tab=privacy&focus=${permissionNotice.focusId}`
+              )
+            )
+          }
+        },
+        duration: Number.POSITIVE_INFINITY
+      })
       return false
     }
 
