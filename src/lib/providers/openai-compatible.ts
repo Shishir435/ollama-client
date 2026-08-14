@@ -42,7 +42,10 @@ const OpenAIModelCatalogSchema = z
       z
         .object({
           id: z.string().min(1),
-          context_length: z.number().positive().nullish(),
+          // Some OpenAI-compatible catalogs use 0 as an unknown sentinel.
+          // Accept it so one legacy alias cannot invalidate the full catalog;
+          // capability normalization below deliberately omits falsy zero.
+          context_length: z.number().nonnegative().nullish(),
           architecture: z
             .object({
               input_modalities: z.array(z.string()).nullish()

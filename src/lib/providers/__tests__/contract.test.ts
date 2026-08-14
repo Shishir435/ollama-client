@@ -352,6 +352,30 @@ describe("provider contracts", () => {
     ])
   })
 
+  it("treats a zero hosted context length as unknown", async () => {
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:openai:trustedrouter",
+      name: "TrustedRouter",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "https://trustedrouter.test/v1"
+    })
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        data: [
+          { id: "trustedrouter/auto", context_length: 200000 },
+          { id: "openai/chat-latest", context_length: 0 }
+        ]
+      })
+    )
+
+    const models = await provider.getModels()
+
+    expect(models).toHaveLength(2)
+    expect(models[0].capabilityHints?.contextLength).toBe(200000)
+    expect(models[1].capabilityHints?.contextLength).toBeUndefined()
+  })
+
   it("recovers a parameter size from self-hosted model ids and leaves ambiguous ones blank", async () => {
     // `/v1/models` has no size field, so a locally served "Qwen3-8B" rendered a
     // blank badge next to real sizes from Ollama and llama.cpp.
