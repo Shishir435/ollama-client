@@ -659,5 +659,42 @@ describe("handleChatWithModel", () => {
 
       expect(mockStreamChat).toHaveBeenCalled()
     })
+
+    it("never sends app-owned permission notices to the provider", async () => {
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [
+            { role: "user", content: "Search my bookmarks" },
+            {
+              role: "assistant",
+              content: "Bookmarks access is disabled.",
+              done: true,
+              metrics: {
+                permissionNotice: {
+                  capabilityId: "bookmarks",
+                  focusId: "permission-bookmarks",
+                  labelKey: "settings.permissions.items.bookmarks.label",
+                  missingPermissions: ["bookmarks"]
+                }
+              }
+            },
+            { role: "user", content: "Let's discuss something else" }
+          ]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      const request = mockStreamChat.mock.calls[0][0]
+      expect(request.messages).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            content: "Bookmarks access is disabled."
+          })
+        ])
+      )
+    })
   })
 })

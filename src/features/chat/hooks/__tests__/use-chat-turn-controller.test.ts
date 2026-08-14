@@ -4,6 +4,14 @@ import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
 import type { ChatMessage } from "@/types"
 import { useChatTurnController } from "../use-chat-turn-controller"
 
+const permissionMocks = vi.hoisted(() => ({
+  findOptionalPermissionNotice: vi.fn()
+}))
+
+vi.mock("@/features/chat/lib/optional-permission-notice", () => ({
+  findOptionalPermissionNotice: permissionMocks.findOptionalPermissionNotice
+}))
+
 const baseConfig = {
   selectedModel: "llama3",
   selectedModelRef: { providerId: "ollama", modelId: "llama3" },
@@ -20,7 +28,72 @@ describe("useChatTurnController", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    permissionMocks.findOptionalPermissionNotice.mockResolvedValue(undefined)
     loadStreamStore.setState({ isLoading: false, isStreaming: false })
+  })
+
+  it("persists an inline notice instead of submitting a doomed turn", async () => {
+    permissionMocks.findOptionalPermissionNotice.mockResolvedValue({
+      capabilityId: "bookmarks",
+      focusId: "permission-bookmarks",
+      labelKey: "settings.permissions.items.bookmarks.label",
+      missingPermissions: ["bookmarks"]
+    })
+    const addMessage = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(2)
+    const generateResponse = vi.fn()
+    const toast = vi.fn()
+    const setInput = vi.fn()
+    const { result } = renderHook(() =>
+      useChatTurnController({
+        config: baseConfig as any,
+        input: "Search my bookmarks",
+        setInput,
+        selectedTabIds: [],
+        contextText: "",
+        tabDocuments: [],
+        messages: [],
+        setIsLoading: vi.fn(),
+        setIsStreaming: vi.fn(),
+        ensureSessionId: vi.fn().mockResolvedValue("session-1"),
+        autoRenameSession: vi.fn().mockResolvedValue(undefined),
+        addMessage,
+        generateResponse,
+        claimResponseStream,
+        releaseResponseStreamClaim,
+        toast
+      })
+    )
+
+    let accepted = true
+    await act(async () => {
+      accepted = await result.current.sendMessage()
+    })
+
+    expect(accepted).toBe(true)
+    expect(claimResponseStream).toHaveBeenCalledOnce()
+    expect(addMessage).toHaveBeenNthCalledWith(
+      1,
+      "session-1",
+      expect.objectContaining({ role: "user", content: "Search my bookmarks" })
+    )
+    expect(addMessage).toHaveBeenNthCalledWith(
+      2,
+      "session-1",
+      expect.objectContaining({
+        role: "assistant",
+        done: true,
+        metrics: {
+          permissionNotice: expect.objectContaining({
+            capabilityId: "bookmarks",
+            missingPermissions: ["bookmarks"]
+          })
+        }
+      })
+    )
+    expect(generateResponse).not.toHaveBeenCalled()
+    expect(releaseResponseStreamClaim).toHaveBeenCalledWith(expect.any(Symbol))
+    expect(setInput).toHaveBeenCalledWith("")
+    expect(toast).not.toHaveBeenCalled()
   })
 
   it("persists the user message and submits one background-owned turn", async () => {

@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   hasPermission,
   removePermission,
-  requestPermission
+  requestPermission,
+  requestPermissions
 } from "@/lib/permissions"
 
 const contains = vi.fn()
@@ -34,6 +35,16 @@ describe("permissions helper", () => {
     request.mockResolvedValue(true)
     await expect(requestPermission("notifications")).resolves.toBe(true)
     expect(request).toHaveBeenCalledWith({ permissions: ["notifications"] })
+  })
+
+  it("requests related permissions in one user gesture", async () => {
+    request.mockResolvedValue(true)
+    await expect(requestPermissions(["alarms", "notifications"])).resolves.toBe(
+      true
+    )
+    expect(request).toHaveBeenCalledWith({
+      permissions: ["alarms", "notifications"]
+    })
   })
 
   it("removePermission returns the removal result", async () => {

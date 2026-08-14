@@ -404,6 +404,16 @@
         "view": "{{name}} を表示"
       }
     },
+    "permissions": {
+      "disabled_notice": "{{feature}}へのアクセスは利用できますが、現在無効です。",
+      "enable_description": "このリクエストを続行するには有効にしてください。アクセスは任意で、いつでも取り消せます。",
+      "enable": "{{feature}}を有効にする",
+      "enabling": "有効化中…",
+      "manage": "権限を管理",
+      "not_granted": "権限が許可されませんでした。もう一度試すか、設定で管理してください。",
+      "resume_failed": "リクエストを続行できませんでした。もう一度お試しください。",
+      "reminders": "リマインダー"
+    },
     "errors": {
       "unknown_error": "❌ 不明なエラー: {{message}}",
       "no_message": "メッセージなし",

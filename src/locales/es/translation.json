@@ -404,6 +404,16 @@
         "view": "Ver {{name}}"
       }
     },
+    "permissions": {
+      "disabled_notice": "El acceso a {{feature}} está disponible, pero está desactivado.",
+      "enable_description": "Actívalo para continuar esta solicitud. El acceso seguirá siendo opcional y revocable.",
+      "enable": "Activar {{feature}}",
+      "enabling": "Activando…",
+      "manage": "Administrar permisos",
+      "not_granted": "No se concedió el permiso. Puedes intentarlo de nuevo o administrarlo en Ajustes.",
+      "resume_failed": "No se pudo continuar la solicitud. Inténtalo de nuevo.",
+      "reminders": "Recordatorios"
+    },
     "errors": {
       "unknown_error": "❌ Error desconocido: {{message}}",
       "no_message": "Sin mensaje",

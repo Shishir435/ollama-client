@@ -11,6 +11,7 @@ import {
 } from "@/features/chat/hooks/turn-preparation"
 import type { useChatConfig } from "@/features/chat/hooks/use-chat-config"
 import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
+import { findOptionalPermissionNotice } from "@/features/chat/lib/optional-permission-notice"
 import { loadStreamStore } from "@/features/chat/stores/load-stream-store"
 import type { ProcessedFile } from "@/lib/file-processors/types"
 import { logger } from "@/lib/logger"
@@ -98,6 +99,9 @@ export const useChatTurnController = ({
   ) => {
     const live = loadStreamStore.getState()
     const rawInput = customInput?.trim() ?? input.trim()
+    const conversationMessages = messages.filter(
+      (message) => !message.metrics?.permissionNotice
+    )
     const hasImages = !!images && images.length > 0
     const resolvedModel = resolveTurnModel(
       customModel,
@@ -117,6 +121,8 @@ export const useChatTurnController = ({
       if (verdict.toast) showTurnToast(verdict.toast)
       return false
     }
+
+    const permissionNotice = await findOptionalPermissionNotice(rawInput)
 
     // Reserve response ownership before creating a session or persisting the
     // user turn. Fork and regenerate use the same claim, so none of these
@@ -194,6 +200,37 @@ export const useChatTurnController = ({
       logger.error("Failed to rename chat session", "useChat", { error })
     }
 
+    if (permissionNotice) {
+      const feature = t(permissionNotice.labelKey)
+      try {
+        await addMessage(sessionId, {
+          role: "assistant",
+          content: t("chat.permissions.disabled_notice", { feature }),
+          done: true,
+          model: resolvedModel,
+          metrics: { permissionNotice }
+        })
+      } catch (error) {
+        logger.error("Failed to persist permission notice", "useChat", {
+          error
+        })
+        toast({
+          variant: "destructive",
+          title: t("chat.errors.message_save_failed_title"),
+          description: t("chat.errors.message_save_failed_description")
+        })
+        setPendingActivityEvents([])
+        setIsLoading(false)
+        releaseResponseStreamClaim(streamClaim)
+        return false
+      }
+
+      setPendingActivityEvents([])
+      setIsLoading(false)
+      releaseResponseStreamClaim(streamClaim)
+      return true
+    }
+
     const turnId =
       globalThis.crypto?.randomUUID?.() ??
       `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -211,7 +248,7 @@ export const useChatTurnController = ({
       createdAt: Date.now(),
       userMessage,
       userMessageId,
-      priorMessages: messages,
+      priorMessages: conversationMessages,
       rawInput: userContent,
       files: files?.map((file) => ({
         text: file.text,
@@ -230,7 +267,7 @@ export const useChatTurnController = ({
       const submitted = await generateResponse(
         customModel,
         sessionId,
-        [...messages, userMessage],
+        [...conversationMessages, userMessage],
         {
           durableTurn,
           streamClaim
