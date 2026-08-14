@@ -139,4 +139,53 @@ describe("portable storage import transaction", () => {
       false
     )
   })
+
+  it("acknowledges cancellation after an in-flight restore write and stops mutating", async () => {
+    let releaseRemove: () => void = () => undefined
+    const removeGate = new Promise<void>((resolve) => {
+      releaseRemove = resolve
+    })
+    storageState.local.set(STORAGE_KEYS.BACKUP.IMPORT_JOURNAL, {
+      version: 1,
+      phase: "prepared",
+      previousSync: {
+        [STORAGE_KEYS.THEME.PREFERENCE]: "light"
+      }
+    })
+    vi.mocked(chrome.storage.sync.remove).mockImplementationOnce(
+      async () => removeGate
+    )
+    const controller = new AbortController()
+
+    const recovery = recoverBackupImport(controller.signal)
+    for (let tick = 0; tick < 10; tick += 1) await Promise.resolve()
+    expect(chrome.storage.sync.remove).toHaveBeenCalledOnce()
+
+    controller.abort()
+    await Promise.resolve()
+    expect(chrome.storage.sync.set).not.toHaveBeenCalled()
+
+    releaseRemove()
+    await expect(recovery).rejects.toMatchObject({ name: "AbortError" })
+    expect(chrome.storage.sync.set).not.toHaveBeenCalled()
+    expect(storageState.local.has(STORAGE_KEYS.BACKUP.IMPORT_JOURNAL)).toBe(
+      true
+    )
+  })
+
+  it("discards a malformed journal without applying its rollback payload", async () => {
+    storageState.local.set(STORAGE_KEYS.BACKUP.IMPORT_JOURNAL, {
+      version: 1,
+      phase: "prepared",
+      previousSync: "not-an-object"
+    })
+
+    await recoverBackupImport()
+
+    expect(chrome.storage.sync.set).not.toHaveBeenCalled()
+    expect(chrome.storage.sync.remove).not.toHaveBeenCalled()
+    expect(storageState.local.has(STORAGE_KEYS.BACKUP.IMPORT_JOURNAL)).toBe(
+      false
+    )
+  })
 })

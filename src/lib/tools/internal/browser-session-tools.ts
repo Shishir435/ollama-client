@@ -5,28 +5,13 @@ import {
   type ReadableBrowserSession,
   restoreBrowserSession
 } from "@/lib/browser-sessions"
-import {
-  DEFAULT_MAX_RESTORE_SESSIONS,
-  MAX_MAX_RESTORE_SESSIONS,
-  MIN_MAX_RESTORE_SESSIONS
-} from "@/lib/constants/config"
-import { STORAGE_KEYS } from "@/lib/constants/keys"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { readSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ToolContext, ToolDefinition, ToolResult } from "../types"
 
 /** Read the user-configured cap on how many tabs restore_session reopens. */
-const getMaxRestoreSessions = async (): Promise<number> => {
-  const stored = await plasmoGlobalStorage.get<number>(
-    STORAGE_KEYS.BROWSER.MAX_RESTORE_SESSIONS
-  )
-  if (typeof stored !== "number" || !Number.isFinite(stored)) {
-    return DEFAULT_MAX_RESTORE_SESSIONS
-  }
-  return Math.max(
-    MIN_MAX_RESTORE_SESSIONS,
-    Math.min(MAX_MAX_RESTORE_SESSIONS, Math.floor(stored))
-  )
-}
+const getMaxRestoreSessions = async (): Promise<number> =>
+  readSetting(SETTINGS.MAX_RESTORE_SESSIONS)
 
 const clampLimit = (value: unknown, fallback = 10): number => {
   const parsed = typeof value === "number" ? value : Number(value)

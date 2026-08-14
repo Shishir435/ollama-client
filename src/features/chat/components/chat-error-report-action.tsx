@@ -12,13 +12,13 @@ import {
 import { SETTINGS_REGISTRY } from "@/features/settings/settings-registry"
 import { useToast } from "@/hooks/use-toast"
 import { openExternalUrl, openOptionsInTab, runtime } from "@/lib/browser-api"
+import { cn } from "@/lib/class-names"
 import {
   buildChatMessageErrorReportUrl,
   type SafeErrorChecks
 } from "@/lib/error-report"
 import { sanitizeProviderBaseUrl } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { cn } from "@/lib/utils"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import type { ChatMessage } from "@/types"
 

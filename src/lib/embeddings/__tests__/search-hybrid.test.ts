@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { searchHybrid, vectorDb } from "../vector-store"
 
 vi.mock("@/lib/embeddings/keyword-index", () => ({
@@ -33,10 +33,7 @@ vi.mock("@/lib/embeddings/hnsw-index", () => ({
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
-    get: vi.fn(),
-    set: vi.fn()
-  }
+  getPlasmoStoredValue: vi.fn()
 }))
 
 // Disable search cache so each test sees the current DB state
@@ -92,7 +89,7 @@ const noKeywordResults = () =>
 beforeEach(async () => {
   await vectorDb.vectors.clear()
   vi.clearAllMocks()
-  vi.mocked(plasmoGlobalStorage.get).mockResolvedValue({})
+  vi.mocked(getPlasmoStoredValue).mockResolvedValue({})
 })
 
 describe("searchHybrid — RRF fusion", () => {

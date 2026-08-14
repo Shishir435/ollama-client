@@ -404,6 +404,16 @@
         "view": "Visualizza {{name}}"
       }
     },
+    "permissions": {
+      "disabled_notice": "L’accesso a {{feature}} è disponibile, ma attualmente disabilitato.",
+      "enable_description": "Abilitalo per continuare questa richiesta. L’accesso resta facoltativo e revocabile.",
+      "enable": "Abilita {{feature}}",
+      "enabling": "Abilitazione…",
+      "manage": "Gestisci autorizzazioni",
+      "not_granted": "L’autorizzazione non è stata concessa. Riprova o gestiscila nelle Impostazioni.",
+      "resume_failed": "Impossibile continuare la richiesta. Riprova.",
+      "reminders": "Promemoria"
+    },
     "errors": {
       "unknown_error": "❌ Errore sconosciuto: {{message}}",
       "no_message": "Nessun messaggio",

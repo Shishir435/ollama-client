@@ -50,7 +50,10 @@ vi.mock("../factory", () => ({
   }
 }))
 
-import { ProvidersListResultSchema } from "@ollama-client/contracts/provider-rpc"
+import {
+  type ProviderDraftInput,
+  ProvidersListResultSchema
+} from "@ollama-client/contracts/provider-rpc"
 import { createAppError } from "@/lib/error-utils"
 import {
   clearModelCatalogSupport,
@@ -80,6 +83,14 @@ const configs: ProviderConfig[] = [
     name: "Remote"
   }
 ]
+
+const draft = (
+  config: ProviderConfig,
+  apiKey: ProviderDraftInput["apiKey"] = { state: "unchanged" }
+): ProviderDraftInput => {
+  const { apiKey: _storedSecret, ...publicConfig } = config
+  return { ...publicConfig, apiKey }
+}
 
 const model = (name: string) => ({
   name,
@@ -172,7 +183,7 @@ describe("ProviderRpcService", () => {
   it("tests an unsaved draft without returning its credential", async () => {
     const result = await ProviderRpcService.testConnection({
       target: "draft",
-      config: configs[0]
+      config: draft(configs[0])
     })
 
     expect(mocks.getProviderWithConfig).toHaveBeenCalledWith(configs[0])
@@ -204,7 +215,10 @@ describe("ProviderRpcService", () => {
     })
 
     await expect(
-      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+      ProviderRpcService.testConnection({
+        target: "draft",
+        config: draft(configs[0])
+      })
     ).resolves.toMatchObject({
       providerId: "ollama",
       reachable: true,
@@ -241,7 +255,10 @@ describe("ProviderRpcService", () => {
     })
 
     await expect(
-      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+      ProviderRpcService.testConnection({
+        target: "draft",
+        config: draft(configs[0])
+      })
     ).rejects.toMatchObject({
       status: 502,
       code: "OLC-PROVIDER-UNREACHABLE",
@@ -278,7 +295,7 @@ describe("ProviderRpcService", () => {
 
       const pending = ProviderRpcService.testConnection({
         target: "draft",
-        config: configs[0]
+        config: draft(configs[0])
       })
       const rejects = expect(pending).rejects.toMatchObject({
         status: 504,
@@ -305,7 +322,10 @@ describe("ProviderRpcService", () => {
     // A mistyped base URL 404s on the catalog exactly like a chat-only gateway
     // does; only the chat endpoint tells them apart.
     await expect(
-      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+      ProviderRpcService.testConnection({
+        target: "draft",
+        config: draft(configs[0])
+      })
     ).rejects.toMatchObject({
       status: 404,
       userMessage: expect.stringContaining("Check the base URL")
@@ -380,7 +400,7 @@ describe("ProviderRpcService", () => {
 
     const result = await ProviderRpcService.testConnection({
       target: "draft",
-      config: configs[0]
+      config: draft(configs[0])
     })
 
     // Pressing Test is a deliberate re-check: a server that gained the endpoint
@@ -419,18 +439,20 @@ describe("ProviderRpcService", () => {
     })
 
     await expect(
-      ProviderRpcService.testConnection({ target: "draft", config: configs[0] })
+      ProviderRpcService.testConnection({
+        target: "draft",
+        config: draft(configs[0])
+      })
     ).rejects.toMatchObject({ status: 401 })
   })
 
   it("keeps a stored credential background-only when testing an edited draft", async () => {
     await ProviderRpcService.testConnection({
       target: "draft",
-      config: {
-        ...configs[0],
-        apiKey: undefined,
-        baseUrl: "https://edited.example.test/v1"
-      }
+      config: draft(
+        { ...configs[0], baseUrl: "https://edited.example.test/v1" },
+        { state: "unchanged" }
+      )
     })
 
     expect(mocks.getProviderWithConfig).toHaveBeenCalledWith(
@@ -444,7 +466,7 @@ describe("ProviderRpcService", () => {
   it("does not restore a stored credential after the user explicitly clears it", async () => {
     await ProviderRpcService.testConnection({
       target: "draft",
-      config: { ...configs[0], apiKey: "" }
+      config: draft(configs[0], { state: "cleared" })
     })
 
     expect(mocks.getProviderWithConfig).toHaveBeenCalledWith(
@@ -552,6 +574,27 @@ describe("ProviderRpcService", () => {
       ProviderRpcService.remove({ providerId: "custom:openai:new" })
     ).resolves.toEqual({ removedProviderId: "custom:openai:new" })
     expect(mocks.removeCustomProvider).toHaveBeenCalledWith("custom:openai:new")
+  })
+
+  it("applies explicit credential intent when updating a provider", async () => {
+    await ProviderRpcService.upsert({
+      target: "existing",
+      config: draft(configs[0])
+    })
+    await ProviderRpcService.upsert({
+      target: "existing",
+      config: draft(configs[0], { state: "replaced", value: "new-key" })
+    })
+    await ProviderRpcService.upsert({
+      target: "existing",
+      config: draft(configs[0], { state: "cleared" })
+    })
+
+    expect(mocks.updateProviderConfig.mock.calls).toEqual([
+      ["ollama", expect.objectContaining({ apiKey: "private-key" })],
+      ["ollama", expect.objectContaining({ apiKey: "new-key" })],
+      ["ollama", expect.objectContaining({ apiKey: "" })]
+    ])
   })
 
   it("toggles enabled with a partial update so stored credentials survive", async () => {

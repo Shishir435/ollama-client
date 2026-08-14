@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
+import { logger } from "@/lib/logger"
 import * as repo from "@/lib/repositories/chat-history"
 import { chatSessionStore } from "../chat-session-store"
 
 vi.mock("@/lib/repositories/chat-history")
 vi.mock("@/lib/embeddings/vector-store", () => ({
   deleteVectors: vi.fn().mockResolvedValue(0)
+}))
+vi.mock("@/lib/embeddings/vector-cleanup-receipts", () => ({
+  sweepVectorCleanupReceipts: vi.fn().mockResolvedValue(0)
 }))
 vi.mock("@/lib/logger", () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() }
@@ -43,6 +48,63 @@ function resetStore() {
 beforeEach(() => {
   resetStore()
   vi.clearAllMocks()
+})
+
+describe("loadMoreMessages", () => {
+  it("does not publish pagination state after the active session changes", async () => {
+    let resolveParent: (value: unknown) => void = () => undefined
+    mockRepo.getMessage.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveParent = resolve
+        }) as any
+    )
+
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: SESSION_ID,
+          title: "Old",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: [
+            {
+              id: 2,
+              parentId: 1,
+              role: "assistant" as const,
+              content: "latest"
+            }
+          ]
+        },
+        {
+          id: "session-new",
+          title: "New",
+          createdAt: 2,
+          updatedAt: 2,
+          messages: []
+        }
+      ],
+      currentSessionId: SESSION_ID,
+      hasMoreMessages: true
+    })
+
+    const pending = chatSessionStore.getState().loadMoreMessages()
+    chatSessionStore.setState({
+      currentSessionId: "session-new",
+      hasMoreMessages: false
+    })
+    resolveParent({
+      id: 1,
+      sessionId: SESSION_ID,
+      role: "user",
+      content: "older"
+    })
+    await pending
+
+    expect(chatSessionStore.getState().hasMoreMessages).toBe(false)
+    expect(chatSessionStore.getState().sessions[0].messages).toHaveLength(1)
+    expect(mockRepo.getFilesByMessageIds).not.toHaveBeenCalled()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -308,6 +370,115 @@ describe("updateMessage", () => {
     // deleteVectors is called asynchronously — flush microtasks
     await Promise.resolve()
     expect(deleteVectors).toHaveBeenCalledWith({ messageId: 11 })
+  })
+})
+
+describe("deleteMessage", () => {
+  it("waits for the immediate vector-cleanup attempt", async () => {
+    let finishSweep: () => void = () => undefined
+    vi.mocked(sweepVectorCleanupReceipts).mockImplementationOnce(
+      () =>
+        new Promise<number>((resolve) => {
+          finishSweep = () => resolve(1)
+        })
+    )
+    mockRepo.deleteMessageSubtree.mockResolvedValue({
+      sessionId: SESSION_ID,
+      messageIds: [11],
+      repairedLeaf: false
+    })
+    setupLoadSessionMessagesMocks()
+
+    let resolved = false
+    const deletion = chatSessionStore
+      .getState()
+      .deleteMessage(11)
+      .then(() => {
+        resolved = true
+      })
+
+    await vi.waitFor(() => {
+      expect(sweepVectorCleanupReceipts).toHaveBeenCalledOnce()
+    })
+    expect(resolved).toBe(false)
+
+    finishSweep()
+    await deletion
+    expect(resolved).toBe(true)
+  })
+
+  it("keeps committed deletion state when immediate vector cleanup fails", async () => {
+    const cleanupError = new Error("Dexie unavailable")
+    vi.mocked(sweepVectorCleanupReceipts).mockRejectedValueOnce(cleanupError)
+    mockRepo.deleteMessageSubtree.mockResolvedValue({
+      sessionId: SESSION_ID,
+      messageIds: [11],
+      repairedLeaf: false
+    })
+    setupLoadSessionMessagesMocks([], {
+      id: SESSION_ID,
+      title: "T",
+      currentLeafId: undefined
+    })
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: SESSION_ID,
+          title: "T",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: [{ id: 11, role: "user", content: "delete me" }]
+        }
+      ],
+      currentSessionId: SESSION_ID
+    })
+
+    await expect(
+      chatSessionStore.getState().deleteMessage(11)
+    ).resolves.toBeUndefined()
+    expect(chatSessionStore.getState().sessions[0].messages).toEqual([])
+    expect(logger.error).toHaveBeenCalledWith(
+      "Failed to sweep message embeddings",
+      "chatSessionStore",
+      { error: cleanupError }
+    )
+  })
+
+  it("contains a failed post-delete refresh", async () => {
+    mockRepo.deleteMessageSubtree.mockResolvedValue({
+      sessionId: SESSION_ID,
+      messageIds: [11],
+      repairedLeaf: true
+    })
+    mockRepo.getSession.mockRejectedValueOnce(new Error("read-back failed"))
+
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: SESSION_ID,
+          title: "T",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: [{ id: 11, role: "user", content: "delete me" }],
+          currentLeafId: 11
+        }
+      ],
+      currentSessionId: SESSION_ID
+    })
+
+    await expect(
+      chatSessionStore.getState().deleteMessage(11)
+    ).resolves.toBeUndefined()
+    expect(chatSessionStore.getState().sessions[0].messages).toEqual([])
+    expect(logger.error).toHaveBeenCalledWith(
+      "Failed to refresh messages after delete",
+      "chatSessionStore",
+      expect.objectContaining({
+        error: expect.any(Error),
+        sessionId: SESSION_ID,
+        messageId: 11
+      })
+    )
   })
 })
 

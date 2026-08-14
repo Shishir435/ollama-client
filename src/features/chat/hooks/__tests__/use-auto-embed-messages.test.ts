@@ -1,10 +1,11 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { useSetting } from "@/hooks/use-setting"
 import { useAutoEmbedMessages } from "../use-auto-embed-messages"
 
 // Mock dependencies
-vi.mock("@plasmohq/storage/hook", () => ({
-  useStorage: vi.fn()
+vi.mock("@/hooks/use-setting", () => ({
+  useSetting: vi.fn()
 }))
 
 vi.mock("@/lib/embeddings/embedding-client", () => ({
@@ -31,17 +32,7 @@ describe("useAutoEmbedMessages", () => {
     vi.clearAllMocks()
 
     // Reset to default enabled state
-    const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([
-      true,
-      vi.fn(),
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
-    ])
+    vi.mocked(useSetting).mockReturnValue([true, vi.fn(), { isLoading: false }])
   })
 
   it("should initialize with default state", () => {
@@ -86,6 +77,32 @@ describe("useAutoEmbedMessages", () => {
 
     await result.current.embedMessage(
       { role: "system", content: "System message" },
+      "session-1"
+    )
+
+    expect(generateEmbedding).not.toHaveBeenCalled()
+  })
+
+  it("should skip app-owned permission notices", async () => {
+    const { generateEmbedding } = await import(
+      "@/lib/embeddings/embedding-client"
+    )
+    const { result } = renderHook(() => useAutoEmbedMessages())
+
+    await result.current.embedMessage(
+      {
+        role: "assistant",
+        content: "Bookmarks access is available but currently disabled.",
+        done: true,
+        metrics: {
+          permissionNotice: {
+            capabilityId: "bookmarks",
+            focusId: "permission-bookmarks",
+            labelKey: "settings.permissions.items.bookmarks.label",
+            missingPermissions: ["bookmarks"]
+          }
+        }
+      },
       "session-1"
     )
 
@@ -173,16 +190,10 @@ describe("useAutoEmbedMessages", () => {
   })
 
   it("should skip messages when auto-embed is disabled", async () => {
-    const { useStorage } = await import("@plasmohq/storage/hook")
-    vi.mocked(useStorage).mockReturnValue([
+    vi.mocked(useSetting).mockReturnValue([
       false,
       vi.fn(),
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn(),
-        remove: vi.fn(),
-        isLoading: false
-      }
+      { isLoading: false }
     ])
 
     const { generateEmbedding } = await import(

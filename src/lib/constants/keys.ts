@@ -230,7 +230,16 @@ export const STORAGE_KEYS = {
     AUTO_SCREENSHOT_ON_VISION: "chat-auto-screenshot-on-vision"
   },
   KNOWLEDGE: {
-    ACTIVE_SET: "knowledge-active-set"
+    ACTIVE_SET: "knowledge-active-set",
+    CHUNK_SIZE: "knowledge.chunkSize",
+    CHUNK_OVERLAP: "knowledge.chunkOverlap",
+    SPLITTING_STRATEGY: "knowledge.splittingStrategy",
+    CHARACTER_SEPARATOR: "knowledge.characterSeparator",
+    RETRIEVAL_TOP_K: "knowledge.retrievalTopK",
+    EMBEDDING_MODEL: "knowledge.embeddingModel",
+    SYSTEM_PROMPT: "knowledge.systemPrompt",
+    QUESTION_PROMPT: "knowledge.questionPrompt",
+    MAX_CONTEXT_SIZE: "knowledge.maxContextSize"
   },
   BACKGROUND: {
     SCHEDULED_JOBS: "background-scheduled-jobs",

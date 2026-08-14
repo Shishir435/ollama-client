@@ -1,7 +1,7 @@
-import { DEFAULT_TABS_ACCESS, STORAGE_KEYS } from "@/lib/constants"
 import { extractContentWithLoading } from "@/lib/content-extractor"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { TAB_ACCESS_SETTING } from "@/lib/storage/content-policy-settings"
+import { readSetting } from "@/lib/storage/setting-access"
 import { getTranscript } from "@/lib/transcript-extractor"
 import { getYouTubeVideoId } from "@/lib/youtube-url"
 import { resolveActiveConfig } from "./content-config"
@@ -93,10 +93,7 @@ const extractYouTubeMetadata = (currentUrl: string, pageTitle: string) => {
 export const handleGetPageContent = async (
   sendResponse: (response: unknown) => void
 ): Promise<void> => {
-  const storedTabAccess = await plasmoGlobalStorage.get<boolean>(
-    STORAGE_KEYS.BROWSER.TABS_ACCESS
-  )
-  const tabAccessEnabled = storedTabAccess ?? DEFAULT_TABS_ACCESS
+  const tabAccessEnabled = await readSetting(TAB_ACCESS_SETTING)
 
   if (!tabAccessEnabled) {
     contentDebugLog("[Content Script] Tab access is disabled")

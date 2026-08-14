@@ -11,6 +11,19 @@ import { RPC_METHOD_DEFINITIONS } from "../rpc-registry"
  */
 describe("RPC method registry", () => {
   const methods = Object.values(RpcMethod)
+  const reviewedQueryMethods = [
+    RpcMethod.ProvidersList,
+    RpcMethod.ProvidersListModels,
+    RpcMethod.ModelsGetDetails,
+    RpcMethod.ModelsListLoaded,
+    RpcMethod.ModelsSearchLibrary,
+    RpcMethod.ModelsGetLibraryVariants,
+    RpcMethod.EmbeddingsCheckModel,
+    RpcMethod.IngestionGet,
+    RpcMethod.ModelPullGet,
+    RpcMethod.ModelPullListActive,
+    RpcMethod.DiagnosticsGetBundle
+  ] satisfies readonly RpcMethod[]
 
   it("registers every method exactly once", () => {
     expect(Object.keys(RPC_METHOD_DEFINITIONS).sort()).toEqual(
@@ -37,6 +50,17 @@ describe("RPC method registry", () => {
         "extension-page"
       ])
     }
+  })
+
+  it("requires explicit review before classifying a method as a query", () => {
+    // Metadata cannot prove an implementation is side-effect free. Keeping the
+    // complete query set here makes adding or relabelling one a deliberate
+    // contract-test change where its read-only behavior must be reviewed.
+    const actualQueries = methods.filter(
+      (method) => RPC_METHOD_DEFINITIONS[method].operation === "query"
+    )
+
+    expect(actualQueries.sort()).toEqual([...reviewedQueryMethods].sort())
   })
 
   it("names methods as domain.verb with a plural domain", () => {

@@ -1,8 +1,17 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
+import { readdirSync, readFileSync, statSync } from "node:fs"
+import { join, relative } from "node:path"
 import { describe, expect, it } from "vitest"
+import { POLICY_SETTINGS } from "@/lib/storage/policy-settings"
+import { SETTINGS } from "@/lib/storage/settings"
 
 const ROOT = process.cwd()
+const SOURCE_ROOT = join(ROOT, "src")
+
+const walk = (directory: string): string[] =>
+  readdirSync(directory).flatMap((entry) => {
+    const path = join(directory, entry)
+    return statSync(path).isDirectory() ? walk(path) : [path]
+  })
 
 const SCOPE_AWARE_UI = [
   "src/features/chat/hooks/use-speech-settings.ts",
@@ -11,7 +20,46 @@ const SCOPE_AWARE_UI = [
   "src/features/web-search/stores/web-search-config-store.ts"
 ]
 
+const VALIDATED_STRUCTURED_CONSUMERS = [
+  "src/background/handlers/handle-chat-with-model.ts",
+  "src/background/handlers/handle-selection-action.ts",
+  "src/contents/content-config.ts",
+  "src/contents/url-filter.ts",
+  "src/features/file-upload/hooks/use-file-search.ts",
+  "src/features/selection-actions/content-settings.ts",
+  "src/lib/embeddings/config.ts",
+  "src/lib/embeddings/embedding-client.ts",
+  "src/lib/embeddings/embedding-strategy.ts",
+  "src/lib/per-site-profiles.ts",
+  "src/lib/providers/model-rpc-service.ts",
+  "src/lib/providers/selected-model.ts",
+  "src/lib/providers/capability-probe.ts",
+  "src/lib/providers/model-capability-overrides.ts",
+  "src/lib/tools/approval/approval-grants.ts",
+  "src/lib/tools/tool-model-overrides.ts"
+]
+
 describe("storage API boundary", () => {
+  it("limits raw React storage to legacy provider-config observers", () => {
+    const offenders = walk(SOURCE_ROOT)
+      .filter(
+        (file) =>
+          /\.tsx?$/.test(file) &&
+          !file.includes("/__tests__/") &&
+          !/\.(test|spec)\.[^.]+$/.test(file)
+      )
+      .filter((file) =>
+        readFileSync(file, "utf8").includes("@plasmohq/storage/hook")
+      )
+      .map((file) => relative(ROOT, file))
+      .sort()
+
+    expect(offenders).toEqual([
+      "src/features/model/hooks/use-provider-icons.ts",
+      "src/features/model/hooks/use-provider-models.ts"
+    ])
+  })
+
   it("keeps migrated settings UI behind useSetting descriptors", () => {
     for (const file of SCOPE_AWARE_UI) {
       const source = readFileSync(join(ROOT, file), "utf8")
@@ -19,6 +67,30 @@ describe("storage API boundary", () => {
       expect(source, file).not.toContain("@plasmohq/storage/hook")
       expect(source, file).not.toContain("plasmoGlobalStorage")
       expect(source, file).not.toContain("getPlasmoStorageForKey")
+    }
+  })
+
+  it("gives high-risk structured settings runtime parsers", () => {
+    for (const descriptor of [
+      SETTINGS.SELECTED_MODEL_REF,
+      SETTINGS.MODEL_CONFIGS,
+      SETTINGS.CONTENT_EXTRACTION_CONFIG,
+      SETTINGS.PER_SITE_PROFILES,
+      SETTINGS.EMBEDDING_CONFIG,
+      SETTINGS.FILE_UPLOAD_CONFIG,
+      POLICY_SETTINGS.MODEL_CAPABILITY_OVERRIDES,
+      POLICY_SETTINGS.MODEL_CAPABILITY_PROBES,
+      POLICY_SETTINGS.APPROVAL_GRANTS,
+      POLICY_SETTINGS.TOOL_MODEL_OVERRIDES
+    ]) {
+      expect(descriptor.parser, descriptor.key).toBeDefined()
+    }
+  })
+
+  it("keeps migrated structured consumers off the deprecated sync alias", () => {
+    for (const file of VALIDATED_STRUCTURED_CONSUMERS) {
+      const source = readFileSync(join(ROOT, file), "utf8")
+      expect(source, file).not.toContain("plasmoGlobalStorage")
     }
   })
 

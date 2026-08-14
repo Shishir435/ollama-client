@@ -9,7 +9,7 @@ import {
   rankSettingsSearchRecords,
   type SettingsSearchRecord
 } from "@/features/settings/settings-search-index"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 /** Registry tab key → the i18n key for that tab's nav label. */
 const TAB_LABEL_KEYS: Record<string, string> = {

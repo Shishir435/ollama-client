@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { hnswIndexManager } from "../hnsw-index"
 import { keywordIndexManager } from "../keyword-index"
 import {
@@ -16,7 +16,7 @@ describe("Vector Store - Baseline Tests", () => {
   beforeEach(async () => {
     // Clear database before each test
     await clearAllVectors()
-    vi.mocked(plasmoGlobalStorage.get).mockResolvedValue(undefined)
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue(undefined)
   })
 
   describe("storeVector", () => {
@@ -644,11 +644,11 @@ describe("Vector Store - Baseline Tests", () => {
 
 describe("Advanced Features", () => {
   it("should respect storage limits", async () => {
-    const { plasmoGlobalStorage } = await import("@/lib/plasmo-global-storage")
+    const { getPlasmoStoredValue } = await import("@/lib/plasmo-global-storage")
     const { STORAGE_KEYS } = await import("@/lib/constants")
 
     // Mock config with small storage limit (e.g., 0.001 MB = 1KB)
-    vi.spyOn(plasmoGlobalStorage, "get").mockImplementation(async (key) => {
+    vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
       if (key === STORAGE_KEYS.EMBEDDINGS.CONFIG) {
         return { maxStorageSize: 0.001, autoCleanup: true }
       }

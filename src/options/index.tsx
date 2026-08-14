@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { useEffect } from "react"
 import { browser } from "wxt/browser"
@@ -6,12 +5,8 @@ import { DevThemePane } from "@/components/dev-theme-pane"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import {
-  DEFAULT_TABS_ACCESS,
-  MESSAGE_KEYS,
-  STORAGE_KEYS
-} from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { MESSAGE_KEYS } from "@/lib/constants"
+import { SETTINGS } from "@/lib/storage/settings"
 import { SettingsPage } from "@/options/components/settings-page"
 import "../extension-fonts.css"
 import "../globals.css"
@@ -21,6 +16,7 @@ import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-m
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useLanguageSync } from "@/hooks/use-language-sync"
 import { useProviderStorageMigration } from "@/hooks/use-provider-storage-migration"
+import { useSetting } from "@/hooks/use-setting"
 import { useThemeWatcher } from "@/hooks/use-theme-watcher"
 import { queryClient } from "@/lib/query-client"
 import { useThemeStore } from "@/stores/theme"
@@ -43,21 +39,9 @@ export const OptionsIndex = () => {
   const [showSessionMetrics, setShowSessionMetrics] =
     useSessionMetricsPreference()
 
-  const [useRAG, setUseRAG] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.USE_RAG,
-      instance: plasmoGlobalStorage
-    },
-    true
-  )
+  const [useRAG, setUseRAG] = useSetting(SETTINGS.USE_RAG)
 
-  const [tabAccess, setTabAccess] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.BROWSER.TABS_ACCESS,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_TABS_ACCESS
-  )
+  const [tabAccess, setTabAccess] = useSetting(SETTINGS.TABS_ACCESS)
 
   useKeyboardShortcuts({
     toggleTheme: (e) => {

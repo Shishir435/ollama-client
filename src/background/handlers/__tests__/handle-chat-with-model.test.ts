@@ -84,6 +84,8 @@ describe("handleChatWithModel", () => {
     mockIsPortClosed = createMockIsPortClosed(false)
     vi.clearAllMocks()
     mockProvider.config.enabled = true
+    const storage = await import("@/lib/plasmo-global-storage")
+    vi.mocked(storage.getPlasmoStoredValue).mockResolvedValue(undefined)
 
     // clearAllMocks resets calls but not implementations, so restore the RAG
     // mock defaults here. This makes every test start with empty memory and
@@ -192,10 +194,10 @@ describe("handleChatWithModel", () => {
     })
 
     it("should inject system prompt from model config", async () => {
-      const { plasmoGlobalStorage } = await import(
+      const { getPlasmoStoredValue } = await import(
         "@/lib/plasmo-global-storage"
       )
-      vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
             "llama3:latest": {
@@ -233,10 +235,10 @@ describe("handleChatWithModel", () => {
     })
 
     it("should not inject system prompt if one already exists", async () => {
-      const { plasmoGlobalStorage } = await import(
+      const { getPlasmoStoredValue } = await import(
         "@/lib/plasmo-global-storage"
       )
-      vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
             "llama3:latest": {
@@ -272,10 +274,10 @@ describe("handleChatWithModel", () => {
     })
 
     it("caps injected memory context to the RAG char budget", async () => {
-      const { plasmoGlobalStorage } = await import(
+      const { getPlasmoStoredValue } = await import(
         "@/lib/plasmo-global-storage"
       )
-      vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.MEMORY.ENABLED) return true
         if (key === STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS) return 20
         return undefined
@@ -310,10 +312,10 @@ describe("handleChatWithModel", () => {
     })
 
     it("should include keep_alive and runtime options from model config", async () => {
-      const { plasmoGlobalStorage } = await import(
+      const { getPlasmoStoredValue } = await import(
         "@/lib/plasmo-global-storage"
       )
-      vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
             "llama3:latest": {
@@ -356,10 +358,10 @@ describe("handleChatWithModel", () => {
     })
 
     it("should upgrade legacy default context before streaming", async () => {
-      const { plasmoGlobalStorage } = await import(
+      const { getPlasmoStoredValue } = await import(
         "@/lib/plasmo-global-storage"
       )
-      vi.mocked(plasmoGlobalStorage.get).mockImplementation(async (key) => {
+      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
         if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
           return {
             "llama3:latest": {
@@ -656,6 +658,43 @@ describe("handleChatWithModel", () => {
       await handleChatWithModel(message, mockPort, mockIsPortClosed)
 
       expect(mockStreamChat).toHaveBeenCalled()
+    })
+
+    it("never sends app-owned permission notices to the provider", async () => {
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "llama3:latest",
+          messages: [
+            { role: "user", content: "Search my bookmarks" },
+            {
+              role: "assistant",
+              content: "Bookmarks access is disabled.",
+              done: true,
+              metrics: {
+                permissionNotice: {
+                  capabilityId: "bookmarks",
+                  focusId: "permission-bookmarks",
+                  labelKey: "settings.permissions.items.bookmarks.label",
+                  missingPermissions: ["bookmarks"]
+                }
+              }
+            },
+            { role: "user", content: "Let's discuss something else" }
+          ]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      const request = mockStreamChat.mock.calls[0][0]
+      expect(request.messages).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            content: "Bookmarks access is disabled."
+          })
+        ])
+      )
     })
   })
 })

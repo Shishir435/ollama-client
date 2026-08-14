@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Kbd } from "@/components/ui/kbd"
 import { useToast } from "@/hooks/use-toast"
 import { isChromiumBased } from "@/lib/browser-api"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 import {
   DEFAULT_SHORTCUTS,
   type Shortcut,

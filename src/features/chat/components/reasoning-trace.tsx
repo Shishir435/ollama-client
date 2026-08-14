@@ -17,8 +17,8 @@ import {
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
+import { cn } from "@/lib/class-names"
 import { getToolDisplayMeta } from "@/lib/tools/tool-display"
-import { cn } from "@/lib/utils"
 import type { ActivityEvent, ChatMessage, ToolRun } from "@/types"
 import {
   ActivityStepRow,

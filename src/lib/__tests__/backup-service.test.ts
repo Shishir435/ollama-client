@@ -3,6 +3,7 @@ import JSZip from "jszip"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { backupService } from "../backup-service"
 import { STORAGE_KEYS } from "../constants/keys"
+import { knowledgeDb } from "../knowledge/knowledge-sets"
 import {
   plasmoDeviceStorage,
   plasmoGlobalStorage
@@ -27,7 +28,16 @@ vi.mock("jszip", () => {
 
 vi.mock("dexie-export-import", () => ({
   exportDB: vi.fn().mockResolvedValue(new Blob(["test-dexie"])),
-  importInto: vi.fn().mockResolvedValue(undefined)
+  importInto: vi.fn().mockResolvedValue(undefined),
+  peakImportFile: vi.fn().mockResolvedValue({
+    formatName: "dexie",
+    formatVersion: 1,
+    data: {
+      databaseName: "VectorDatabase",
+      databaseVersion: 2,
+      tables: []
+    }
+  })
 }))
 
 vi.mock("../sqlite/db", () => ({
@@ -47,12 +57,49 @@ vi.mock("../embeddings/db", () => ({
 }))
 
 vi.mock("../knowledge/knowledge-sets", () => ({
+  KnowledgeSetRecordSchema: {
+    safeParse: vi.fn((value: unknown) => ({
+      success:
+        typeof value === "object" &&
+        value !== null &&
+        "name" in value &&
+        "createdAt" in value &&
+        "updatedAt" in value
+    }))
+  },
+  KnowledgeFileRecordSchema: {
+    safeParse: vi.fn((value: unknown) => ({
+      success:
+        typeof value === "object" &&
+        value !== null &&
+        "knowledgeSetId" in value &&
+        "fileName" in value
+    }))
+  },
   knowledgeDb: {
     delete: vi.fn().mockResolvedValue(undefined),
     open: vi.fn().mockResolvedValue(undefined)
   },
   listKnowledgeSets: vi.fn()
 }))
+
+const dexieBackupBlob = (databaseName: string, tableNames: string[]) =>
+  new Blob([
+    JSON.stringify({
+      formatName: "dexie",
+      formatVersion: 1,
+      data: {
+        databaseName,
+        databaseVersion: 1,
+        tables: tableNames.map((name) => ({ name, schema: "id", rowCount: 0 })),
+        data: tableNames.map((tableName) => ({
+          tableName,
+          inbound: true,
+          rows: []
+        }))
+      }
+    })
+  ])
 
 describe("backupService", () => {
   const mockManifest = {
@@ -327,9 +374,24 @@ describe("backupService", () => {
           if (name === "database.sqlite")
             return { async: vi.fn().mockResolvedValue(new Uint8Array([1])) }
           if (name === "vector-db.json")
-            return { async: vi.fn().mockResolvedValue(new Blob()) }
+            return {
+              async: vi
+                .fn()
+                .mockResolvedValue(
+                  dexieBackupBlob("VectorDatabase", ["vectors"])
+                )
+            }
           if (name === "knowledge-db.json")
-            return { async: vi.fn().mockResolvedValue(new Blob()) }
+            return {
+              async: vi
+                .fn()
+                .mockResolvedValue(
+                  dexieBackupBlob("KnowledgeDatabase", [
+                    "knowledgeSets",
+                    "knowledgeFiles"
+                  ])
+                )
+            }
           return null
         })
       }
@@ -571,6 +633,76 @@ describe("backupService", () => {
       expect(result.syncStorage.error).toContain(
         "Invalid provider configuration"
       )
+    })
+
+    it("rejects malformed knowledge settings before mutating sync storage", async () => {
+      const mockFile = (content: string) => ({
+        async: vi.fn().mockResolvedValue(content)
+      })
+      vi.mocked(JSZip.loadAsync).mockResolvedValue({
+        file: vi.fn().mockImplementation((name) => {
+          if (name === "manifest.json")
+            return mockFile(JSON.stringify({ ...mockManifest, version: 2 }))
+          if (name === "sync-storage.json")
+            return mockFile(
+              JSON.stringify({
+                [STORAGE_KEYS.KNOWLEDGE.CHUNK_SIZE]: JSON.stringify(-1)
+              })
+            )
+          if (name === "local-storage.json") return mockFile("{}")
+          return null
+        })
+      } as any)
+
+      const result = await backupService.importAll(
+        new File([], "invalid-knowledge.zip")
+      )
+
+      expect(result.syncStorage.ok).toBe(false)
+      expect(result.syncStorage.error).toContain(
+        STORAGE_KEYS.KNOWLEDGE.CHUNK_SIZE
+      )
+      expect(chrome.storage.sync.set).not.toHaveBeenCalled()
+    })
+
+    it("rejects malformed knowledge rows before touching the current database", async () => {
+      const malformedKnowledge = new Blob([
+        JSON.stringify({
+          formatName: "dexie",
+          formatVersion: 1,
+          data: {
+            databaseName: "KnowledgeDatabase",
+            databaseVersion: 1,
+            tables: [{ name: "knowledgeSets", schema: "id", rowCount: 1 }],
+            data: [
+              {
+                tableName: "knowledgeSets",
+                inbound: true,
+                rows: [{ id: "missing-required-fields" }]
+              }
+            ]
+          }
+        })
+      ])
+      vi.mocked(JSZip.loadAsync).mockResolvedValue({
+        file: vi.fn().mockImplementation((name) => {
+          if (name === "manifest.json")
+            return {
+              async: vi.fn().mockResolvedValue(JSON.stringify(mockManifest))
+            }
+          if (name === "knowledge-db.json")
+            return { async: vi.fn().mockResolvedValue(malformedKnowledge) }
+          return null
+        })
+      } as any)
+
+      const result = await backupService.importAll(
+        new File([], "invalid-knowledge-db.zip")
+      )
+
+      expect(result.dexie.knowledgeDb.ok).toBe(false)
+      expect(knowledgeDb.delete).not.toHaveBeenCalled()
+      expect(importInto).not.toHaveBeenCalled()
     })
 
     it("should report failures for individual components", async () => {

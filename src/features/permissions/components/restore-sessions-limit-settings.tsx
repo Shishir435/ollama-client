@@ -1,15 +1,14 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useTranslation } from "react-i18next"
 
 import { SettingsCard, SettingsFormField } from "@/components/settings"
 import { Input } from "@/components/ui/input"
+import { useSetting } from "@/hooks/use-setting"
 import {
   DEFAULT_MAX_RESTORE_SESSIONS,
   MAX_MAX_RESTORE_SESSIONS,
   MIN_MAX_RESTORE_SESSIONS
 } from "@/lib/constants/config"
-import { STORAGE_KEYS } from "@/lib/constants/keys"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 const normalize = (value: number): number => {
   if (!Number.isFinite(value)) return DEFAULT_MAX_RESTORE_SESSIONS
@@ -25,13 +24,7 @@ const normalize = (value: number): number => {
  */
 export const RestoreSessionsLimitSettings = () => {
   const { t } = useTranslation()
-  const [maxRestore, setMaxRestore] = useStorage<number>(
-    {
-      key: STORAGE_KEYS.BROWSER.MAX_RESTORE_SESSIONS,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_MAX_RESTORE_SESSIONS
-  )
+  const [maxRestore, setMaxRestore] = useSetting(SETTINGS.MAX_RESTORE_SESSIONS)
 
   return (
     <SettingsCard

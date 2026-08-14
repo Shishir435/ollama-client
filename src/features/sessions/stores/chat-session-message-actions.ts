@@ -1,6 +1,5 @@
 import {
   buildSiblingsMap,
-  collectDescendantIds,
   enrichPathWithSiblingsAndAttachments,
   findLatestLeafDescendant,
   groupFilesByMessageId,
@@ -8,6 +7,7 @@ import {
   traversePathFromLeafWithFetcher
 } from "@/features/sessions/lib/message-tree"
 import { CHAT_PAGINATION_LIMIT } from "@/lib/constants"
+import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
 import { deleteVectors } from "@/lib/embeddings/vector-store"
 import { imageToStoredFile } from "@/lib/image-utils"
 import { logger } from "@/lib/logger"
@@ -17,6 +17,7 @@ import type { ChatMessage, ChatSessionState } from "@/types"
 import type { ChatSessionGet, ChatSessionSet } from "./chat-session-store-types"
 
 let loadSessionMessagesRequestId = 0
+let loadMoreMessagesRequestId = 0
 
 export const createChatSessionMessageActions = (
   set: ChatSessionSet,
@@ -96,6 +97,10 @@ export const createChatSessionMessageActions = (
   loadMoreMessages: async () => {
     const { currentSessionId, sessions } = get()
     if (!currentSessionId) return
+    const requestId = ++loadMoreMessagesRequestId
+    const isStaleLoad = () =>
+      requestId !== loadMoreMessagesRequestId ||
+      get().currentSessionId !== currentSessionId
 
     const currentSession = sessions.find((s) => s.id === currentSessionId)
     if (!currentSession?.messages?.length) return
@@ -112,12 +117,14 @@ export const createChatSessionMessageActions = (
       CHAT_PAGINATION_LIMIT,
       (id) => repo.getMessage(id)
     )
+    if (isStaleLoad()) return
 
     const messageIds = path
       .map((m) => m.id)
       .filter((id): id is number => typeof id === "number")
     const files =
       messageIds.length > 0 ? await repo.getFilesByMessageIds(messageIds) : []
+    if (isStaleLoad()) return
     const filesByMessageId = groupFilesByMessageId(files)
 
     const parentIds = path
@@ -126,10 +133,12 @@ export const createChatSessionMessageActions = (
     let siblingCandidates: ChatMessage[] = []
     if (parentIds.length > 0) {
       siblingCandidates = await repo.getMessagesByParents(parentIds)
+      if (isStaleLoad()) return
     }
     if (path.some((m) => !m.parentId)) {
       const rootSiblings =
         await repo.getRootMessagesForSession(currentSessionId)
+      if (isStaleLoad()) return
       siblingCandidates = [...siblingCandidates, ...rootSiblings]
     }
     const siblingsMap = buildSiblingsMap(siblingCandidates)
@@ -327,33 +336,25 @@ export const createChatSessionMessageActions = (
   },
 
   deleteMessage: async (messageId: number) => {
-    const targetMsg = await repo.getMessage(messageId)
-    if (!targetMsg?.sessionId) return
+    const deleted = await repo.deleteMessageSubtree(messageId)
+    if (!deleted) return
 
-    const { sessionId, parentId: targetParentId } = targetMsg
+    const {
+      sessionId,
+      messageIds: idsToDelete,
+      repairedLeaf,
+      replacementLeafId
+    } = deleted
+    const toDeleteIds = new Set(idsToDelete)
 
-    const allMessages = await repo.getMessagesBySession(sessionId)
-    const toDeleteIds = collectDescendantIds(allMessages, messageId)
-    const idsToDelete = Array.from(toDeleteIds)
-
-    const session = await repo.getSession(sessionId)
-    if (
-      typeof session?.currentLeafId === "number" &&
-      toDeleteIds.has(session.currentLeafId)
-    ) {
-      await repo.updateSession(sessionId, { currentLeafId: targetParentId })
-    }
-
-    await repo.bulkDeleteMessages(idsToDelete)
-    await repo.deleteFilesByMessageIds(idsToDelete)
-
-    for (const id of idsToDelete) {
-      deleteVectors({ messageId: id }).catch((error) => {
-        logger.error(
-          "Failed to delete message embeddings",
-          "chatSessionStore",
-          { error, messageId: id }
-        )
+    try {
+      await sweepVectorCleanupReceipts()
+    } catch (error) {
+      // SQLite deletion and its cleanup receipt are already committed. Keep
+      // the UI consistent with that durable result; startup will retry the
+      // idempotent vector cleanup from the retained receipt.
+      logger.error("Failed to sweep message embeddings", "chatSessionStore", {
+        error
       })
     }
 
@@ -365,16 +366,22 @@ export const createChatSessionMessageActions = (
               messages: s.messages?.filter(
                 (m) => !(typeof m.id === "number" && toDeleteIds.has(m.id))
               ),
-              currentLeafId:
-                typeof s.currentLeafId === "number" &&
-                toDeleteIds.has(s.currentLeafId)
-                  ? targetParentId
-                  : s.currentLeafId
+              currentLeafId: repairedLeaf ? replacementLeafId : s.currentLeafId
             }
           : s
       )
     }))
 
-    get().loadSessionMessages(sessionId)
+    try {
+      await get().loadSessionMessages(sessionId)
+    } catch (error) {
+      // The delete and local state update already succeeded. Keep that state
+      // usable and report only the failed read-back.
+      logger.error(
+        "Failed to refresh messages after delete",
+        "chatSessionStore",
+        { error, sessionId, messageId }
+      )
+    }
   }
 })

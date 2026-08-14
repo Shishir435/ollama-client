@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { AlertCircle, Loader2, Sparkles } from "lucide-react"
 import { useCallback, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -8,20 +7,14 @@ import { Progress } from "@/components/ui/progress"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
-import { DEFAULT_MEMORY_ENABLED, STORAGE_KEYS } from "@/lib/constants"
+import { useSetting } from "@/hooks/use-setting"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export const ChatBackfillCard = () => {
   const { t } = useTranslation()
-  const [memoryEnabled] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.MEMORY.ENABLED,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_MEMORY_ENABLED
-  )
+  const [memoryEnabled] = useSetting(SETTINGS.MEMORY_ENABLED)
   const [isRunning, setIsRunning] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [error, setError] = useState<string | null>(null)

@@ -1,4 +1,3 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { Download, RotateCcw, ThumbsUp, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -11,26 +10,17 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
+import { useSetting } from "@/hooks/use-setting"
 import { useToast } from "@/hooks/use-toast"
-import {
-  DEFAULT_EMBEDDING_CONFIG,
-  type EmbeddingConfig,
-  STORAGE_KEYS
-} from "@/lib/constants"
+import { DEFAULT_EMBEDDING_CONFIG, type EmbeddingConfig } from "@/lib/constants"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export function FeedbackSettings() {
   const { t } = useTranslation()
   const { toast } = useToast()
-  const [config, setConfig] = useStorage<EmbeddingConfig>(
-    {
-      key: STORAGE_KEYS.EMBEDDINGS.CONFIG,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_EMBEDDING_CONFIG
-  )
+  const [config, setConfig] = useSetting(SETTINGS.EMBEDDING_CONFIG)
   const [isExporting, setIsExporting] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const clearDialog = useConfirmAction()

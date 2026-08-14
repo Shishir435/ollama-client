@@ -97,106 +97,112 @@ export const useChatStreaming = ({
     }, 1000)
   }
 
-  const { startStream: baseStartStream, stopStream: baseStopStream } =
-    useChatStream({
-      setMessages: async (newMessages) => {
-        if (!currentStreamingMessageIdRef.current || newMessages.length === 0) {
-          return
-        }
-
-        const streamedMsg =
-          newMessages.find(
-            (m) => m.id === currentStreamingMessageIdRef.current
-          ) || newMessages[newMessages.length - 1]
-        if (!streamedMsg) return
-
-        // Fast path: update local state only, skipping the DB write.
-        updateMessage(
-          currentStreamingMessageIdRef.current,
-          {
-            content: streamedMsg.content,
-            thinking: streamedMsg.thinking,
-            replayArtifact: streamedMsg.replayArtifact,
-            metrics: streamedMsg.metrics,
-            done: streamedMsg.done,
-            error: streamedMsg.error
-          },
-          true
-        )
-
-        // START_TURN is persisted by DurableTurnRuntime. Writing the same row
-        // from this UI debounce lets an older token snapshot land after the
-        // background has persisted a newer or terminal snapshot. Keep Zustand
-        // immediate, but leave SQLite exclusively to the durable owner.
-        if (backgroundOwnsPersistenceRef.current) {
-          if (streamedMsg.done) {
-            if (currentSessionId) {
-              embedMessages(newMessages, currentSessionId, false).catch(
-                (err) => {
-                  logger.error("Failed to embed messages", "useChat", {
-                    error: err
-                  })
-                }
-              )
-            }
-            backgroundOwnsPersistenceRef.current = false
-          }
-          return
-        }
-
-        if (!streamedMsg.done) {
-          // Ensure the token-independent liveness beat is running for this turn.
-          startLivenessBeat(currentStreamingMessageIdRef.current)
-          debouncedDbUpdate(
-            currentStreamingMessageIdRef.current,
-            streamedMsg.content,
-            streamedMsg.thinking
-          )
-          return
-        }
-
-        // Final chunk: stop the liveness beat, flush DB immediately, embed.
-        stopLivenessBeat()
-        if (dbUpdateTimeoutRef.current) {
-          clearTimeout(dbUpdateTimeoutRef.current)
-        }
-        await updateMessage(
-          currentStreamingMessageIdRef.current,
-          {
-            content: streamedMsg.content,
-            thinking: streamedMsg.thinking,
-            replayArtifact: streamedMsg.replayArtifact,
-            metrics: streamedMsg.metrics,
-            done: true,
-            error: streamedMsg.error
-          },
-          false
-        )
-        if (currentSessionId) {
-          embedMessages(newMessages, currentSessionId, false).catch((err) => {
-            logger.error("Failed to embed messages", "useChat", { error: err })
-          })
-        }
-      },
-      setIsLoading,
-      setIsStreaming,
-      onSuccessfulResponse: async (message) => {
-        if (!message.content.trim()) return
-        try {
-          await completeOnboardingAfterFirstResponse(
-            currentStreamingSessionIdRef.current
-          )
-        } catch (error) {
-          logger.debug("Failed to complete onboarding", "useChatStreaming", {
-            error
-          })
-        }
+  const chatStream = useChatStream({
+    setMessages: async (newMessages) => {
+      if (!currentStreamingMessageIdRef.current || newMessages.length === 0) {
+        return
       }
-    })
 
-  const startStream: typeof baseStartStream = (options) => {
-    backgroundOwnsPersistenceRef.current = Boolean(options.durableTurn)
-    baseStartStream(options)
+      const streamedMsg =
+        newMessages.find(
+          (m) => m.id === currentStreamingMessageIdRef.current
+        ) || newMessages[newMessages.length - 1]
+      if (!streamedMsg) return
+
+      // Fast path: update local state only, skipping the DB write.
+      updateMessage(
+        currentStreamingMessageIdRef.current,
+        {
+          content: streamedMsg.content,
+          thinking: streamedMsg.thinking,
+          replayArtifact: streamedMsg.replayArtifact,
+          metrics: streamedMsg.metrics,
+          done: streamedMsg.done,
+          error: streamedMsg.error
+        },
+        true
+      )
+
+      // START_TURN is persisted by DurableTurnRuntime. Writing the same row
+      // from this UI debounce lets an older token snapshot land after the
+      // background has persisted a newer or terminal snapshot. Keep Zustand
+      // immediate, but leave SQLite exclusively to the durable owner.
+      if (backgroundOwnsPersistenceRef.current) {
+        if (streamedMsg.done) {
+          if (currentSessionId) {
+            embedMessages(newMessages, currentSessionId, false).catch((err) => {
+              logger.error("Failed to embed messages", "useChat", {
+                error: err
+              })
+            })
+          }
+          backgroundOwnsPersistenceRef.current = false
+        }
+        return
+      }
+
+      if (!streamedMsg.done) {
+        // Ensure the token-independent liveness beat is running for this turn.
+        startLivenessBeat(currentStreamingMessageIdRef.current)
+        debouncedDbUpdate(
+          currentStreamingMessageIdRef.current,
+          streamedMsg.content,
+          streamedMsg.thinking
+        )
+        return
+      }
+
+      // Final chunk: stop the liveness beat, flush DB immediately, embed.
+      stopLivenessBeat()
+      if (dbUpdateTimeoutRef.current) {
+        clearTimeout(dbUpdateTimeoutRef.current)
+      }
+      await updateMessage(
+        currentStreamingMessageIdRef.current,
+        {
+          content: streamedMsg.content,
+          thinking: streamedMsg.thinking,
+          replayArtifact: streamedMsg.replayArtifact,
+          metrics: streamedMsg.metrics,
+          done: true,
+          error: streamedMsg.error
+        },
+        false
+      )
+      if (currentSessionId) {
+        embedMessages(newMessages, currentSessionId, false).catch((err) => {
+          logger.error("Failed to embed messages", "useChat", { error: err })
+        })
+      }
+    },
+    setIsLoading,
+    setIsStreaming,
+    onSuccessfulResponse: async (message) => {
+      if (!message.content.trim()) return
+      try {
+        await completeOnboardingAfterFirstResponse(
+          currentStreamingSessionIdRef.current
+        )
+      } catch (error) {
+        logger.debug("Failed to complete onboarding", "useChatStreaming", {
+          error
+        })
+      }
+    }
+  })
+  const {
+    startStream: baseStartStream,
+    stopStream: baseStopStream,
+    claimStream,
+    releaseStreamClaim
+  } = chatStream
+
+  const startStream: typeof baseStartStream = (options, claim) => {
+    const started = baseStartStream(options, claim)
+    if (started) {
+      backgroundOwnsPersistenceRef.current = Boolean(options.durableTurn)
+    }
+    return started
   }
 
   const stopStream = () => {
@@ -208,6 +214,8 @@ export const useChatStreaming = ({
   return {
     startStream,
     stopStream,
+    claimStream,
+    releaseStreamClaim,
     currentStreamingMessageIdRef,
     currentStreamingSessionIdRef
   }

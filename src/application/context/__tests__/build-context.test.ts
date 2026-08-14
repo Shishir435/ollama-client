@@ -28,6 +28,7 @@ vi.mock("@/lib/knowledge/knowledge-sets", () => ({
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
+  getPlasmoStoredValue: vi.fn(),
   plasmoGlobalStorage: {
     get: vi.fn(),
     set: vi.fn(),
@@ -57,7 +58,7 @@ import {
   getActiveKnowledgeSet,
   getKnowledgeSetFileIds
 } from "@/lib/knowledge/knowledge-sets"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { ProviderFactory } from "@/lib/providers/factory"
 import type { ChatMessage } from "@/types"
 
@@ -69,7 +70,7 @@ const mockedRetrieveFromSources = vi.mocked(retrieveContextFromSources)
 const mockedReformulate = vi.mocked(reformulateQuestion)
 const mockedGetActiveKnowledgeSet = vi.mocked(getActiveKnowledgeSet)
 const mockedGetKnowledgeSetFileIds = vi.mocked(getKnowledgeSetFileIds)
-const mockedStorageGet = vi.mocked(plasmoGlobalStorage.get)
+const mockedStorageGet = vi.mocked(getPlasmoStoredValue)
 const mockedGetProvider = vi.mocked(ProviderFactory.getProviderForModel)
 const mockedRetrieveEnhanced = vi.mocked(retrieveContextEnhanced)
 const mockedFormatEnhanced = vi.mocked(formatEnhancedResults)

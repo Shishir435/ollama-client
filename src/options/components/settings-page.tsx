@@ -41,9 +41,10 @@ import {
   settingsLevelIncludes
 } from "@/features/settings/settings-registry"
 import type { SettingsSearchRecord } from "@/features/settings/settings-search-index"
-import { HIGHLIGHT_FOCUS_DELAY_MS, STORAGE_KEYS } from "@/lib/constants"
+import { HIGHLIGHT_FOCUS_DELAY_MS } from "@/lib/constants"
 import { SOCIAL_LINKS } from "@/lib/constants-ui"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { readSetting, writeSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import GeneralSettingsTab from "@/options/components/tabs/general-settings-tab"
 
 const ModelsSettingsTab = lazy(
@@ -89,8 +90,7 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     let active = true
-    plasmoGlobalStorage
-      .get<SettingsLevel>(STORAGE_KEYS.UI.SETTINGS_LEVEL)
+    readSetting(SETTINGS.SETTINGS_LEVEL)
       .then((stored) => {
         if (!active) return
         hydratedLevelRef.current = true
@@ -103,10 +103,7 @@ export const SettingsPage = () => {
         )
         setSettingsLevel(reconciledLevel)
         if (reconciledLevel !== storedLevel) {
-          void plasmoGlobalStorage.set(
-            STORAGE_KEYS.UI.SETTINGS_LEVEL,
-            reconciledLevel
-          )
+          void writeSetting(SETTINGS.SETTINGS_LEVEL, reconciledLevel)
         }
       })
       .catch(() => {
@@ -120,7 +117,7 @@ export const SettingsPage = () => {
   const updateSettingsLevel = useCallback((next: SettingsLevel) => {
     userSelectedLevelRef.current = true
     setSettingsLevel(next)
-    void plasmoGlobalStorage.set(STORAGE_KEYS.UI.SETTINGS_LEVEL, next)
+    void writeSetting(SETTINGS.SETTINGS_LEVEL, next)
   }, [])
 
   const revealSetting = useCallback(
@@ -134,7 +131,7 @@ export const SettingsPage = () => {
         )
         setSettingsLevel(promoted)
         if (hydratedLevelRef.current) {
-          void plasmoGlobalStorage.set(STORAGE_KEYS.UI.SETTINGS_LEVEL, promoted)
+          void writeSetting(SETTINGS.SETTINGS_LEVEL, promoted)
         }
       }
     },

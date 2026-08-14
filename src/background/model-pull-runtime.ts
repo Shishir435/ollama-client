@@ -29,6 +29,17 @@ interface ActivePull {
 
 const activePulls = new Map<string, ActivePull>()
 
+const forwardAbort = (
+  signal: AbortSignal | undefined,
+  controller: AbortController
+): (() => void) => {
+  if (!signal) return () => undefined
+  const abort = () => controller.abort(signal.reason)
+  if (signal.aborted) abort()
+  else signal.addEventListener("abort", abort, { once: true })
+  return () => signal.removeEventListener("abort", abort)
+}
+
 const resultFromRun = (run: ModelPullRun): ModelPullJobResult => ({
   jobId: run.id,
   model: run.model,
@@ -51,7 +62,8 @@ const checkpoint = async (
 
 const execute = async (
   initialRun: ModelPullRun,
-  controller: AbortController
+  controller: AbortController,
+  recoverySignal?: AbortSignal
 ): Promise<void> => {
   let run = initialRun
   const connectTimeout = createAbortTimeout(controller, PULL_CONNECT_TIMEOUT_MS)
@@ -167,6 +179,10 @@ const execute = async (
   } catch (error) {
     connectTimeout.clear()
     if (run.status === "completed" || run.status === "failed") return
+    // Supervisor expiry stops this attempt without converting the user's
+    // durable download into a user-requested cancellation. Its active row is
+    // eligible for recovery on the next worker boot.
+    if (recoverySignal?.aborted) return
     const cancelled = isAbortError(error) && !connectTimeout.timedOut()
     const failure = cancelled
       ? undefined
@@ -185,11 +201,19 @@ const execute = async (
   }
 }
 
-const start = (run: ModelPullRun): Promise<void> => {
+const start = (
+  run: ModelPullRun,
+  recoverySignal?: AbortSignal
+): Promise<void> => {
   const active = activePulls.get(run.id)
+  // A pull already started through submit owns its controller. Startup may
+  // await it, but cannot borrow cancellation authority and reinterpret a
+  // recovery timeout as the user's request to cancel the download.
   if (active) return active.promise
   const controller = new AbortController()
-  const promise = execute(run, controller).finally(() => {
+  const stopForwarding = forwardAbort(recoverySignal, controller)
+  const promise = execute(run, controller, recoverySignal).finally(() => {
+    stopForwarding()
     activePulls.delete(run.id)
   })
   activePulls.set(run.id, { controller, promise })
@@ -265,8 +289,11 @@ export const ModelPullService = {
     return resultFromRun(run)
   },
 
-  async resumeIncomplete(): Promise<void> {
+  async resumeIncomplete(signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
     const runs = await listActiveModelPullRuns()
-    await Promise.all(runs.map(start))
+    signal?.throwIfAborted()
+    await Promise.all(runs.map((run) => start(run, signal)))
+    signal?.throwIfAborted()
   }
 }

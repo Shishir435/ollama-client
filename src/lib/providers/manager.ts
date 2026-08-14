@@ -1,18 +1,17 @@
-import { LEGACY_STORAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 import { clearCapabilityProbesForProvider } from "./capability-probe"
 import { clearModelCapabilityOverridesForProvider } from "./model-capability-overrides"
 import { clearModelCatalogSupport } from "./model-catalog-support"
-import { parseStoredProviderConfigs } from "./provider-config-schema"
+import { getProviderConfigsUnlocked } from "./provider-config-repository"
 import {
-  containsLegacySyncedSecrets,
-  hydrateProviderSecrets,
+  removeModelMappingsForProvider as deleteModelMappingsForProvider,
+  getMappedProviderIds,
+  setModelMapping as persistModelMapping
+} from "./provider-mapping-repository"
+import {
   persistProviderConfigs,
   persistProviderConfigsUnlocked,
-  recoverProviderPersistenceUnlocked,
-  recoverProviderResetUnlocked,
   withProviderPersistenceLock
 } from "./provider-secret-store"
 import {
@@ -24,64 +23,12 @@ import {
   isCustomProviderId,
   makeCustomProviderId,
   type ProviderConfig,
-  ProviderId,
   ProviderServiceProfile,
-  ProviderStorageKey,
   ProviderType
 } from "./types"
 
-export const DEFAULT_PROVIDERS: ProviderConfig[] = [
-  {
-    id: ProviderId.OLLAMA,
-    type: ProviderType.OLLAMA,
-    name: "Ollama",
-    enabled: true,
-    baseUrl: "http://localhost:11434"
-  },
-  {
-    id: ProviderId.LM_STUDIO,
-    type: ProviderType.OPENAI,
-    name: "LM Studio",
-    enabled: false,
-    baseUrl: "http://localhost:1234/v1"
-  },
-  {
-    id: ProviderId.LLAMA_CPP,
-    type: ProviderType.OPENAI,
-    name: "llama.cpp",
-    enabled: false,
-    baseUrl: "http://localhost:8000/v1"
-  }
-]
-
-const DEFAULT_PROVIDER_IDS = new Set(DEFAULT_PROVIDERS.map((p) => p.id))
-const REMOVED_BETA_DEFAULTS: Record<
-  string,
-  { baseUrl: string; name: string; customId: string }
-> = {
-  [ProviderId.VLLM]: {
-    baseUrl: "http://localhost:8001/v1",
-    name: "vLLM",
-    customId: "custom:openai:legacy-vllm"
-  },
-  [ProviderId.LOCALAI]: {
-    baseUrl: "http://localhost:8080/v1",
-    name: "LocalAI",
-    customId: "custom:openai:legacy-localai"
-  },
-  [ProviderId.KOBOLDCPP]: {
-    baseUrl: "http://localhost:5001/v1",
-    name: "KoboldCpp",
-    customId: "custom:openai:legacy-koboldcpp"
-  }
-}
-
-/**
- * Built-in ids and user-added `custom:` ids survive; anything else is stale
- * data from an old version and gets dropped.
- */
-const isKnownProviderId = (id: string): boolean =>
-  DEFAULT_PROVIDER_IDS.has(id as ProviderId) || isCustomProviderId(id)
+export { DEFAULT_PROVIDERS } from "./provider-defaults"
+export { scopedModelKey } from "./provider-mapping-repository"
 
 const validateHostedProfileConfig = (config: ProviderConfig): void => {
   const profile = resolveProviderServiceProfile(config)
@@ -111,155 +58,6 @@ const validateHostedProfileConfig = (config: ProviderConfig): void => {
   }
 }
 
-/**
- * Which of two configs sharing an id survives.
- *
- * Array order is not a reason. The entry carrying credentials or user-added
- * models is the one whose loss the user would actually notice, so rank by what
- * is expensive to retype and break ties toward the earlier entry — the one a
- * lookup would already have been returning.
- */
-const duplicateRetentionScore = (config: ProviderConfig): number =>
-  (config.apiKey?.trim() ? 4 : 0) +
-  ((config.customModels?.length ?? 0) > 0 ? 2 : 0) +
-  (config.enabled ? 1 : 0)
-
-const sanitizeStoredProviders = (
-  providers: ProviderConfig[]
-): {
-  providers: ProviderConfig[]
-  removed: ProviderConfig[]
-  migrated: Array<{ from: string; to: string }>
-  duplicates: string[]
-} => {
-  const kept: ProviderConfig[] = []
-  const removed: ProviderConfig[] = []
-  const migrated: Array<{ from: string; to: string }> = []
-
-  for (const provider of providers) {
-    const id = String(provider.id)
-    if (isKnownProviderId(id)) {
-      kept.push(provider)
-      continue
-    }
-
-    const legacy = REMOVED_BETA_DEFAULTS[id]
-    const wasConfigured =
-      legacy &&
-      (provider.enabled ||
-        Boolean(provider.apiKey?.trim()) ||
-        Boolean(provider.customModels?.length) ||
-        provider.baseUrl !== legacy.baseUrl ||
-        provider.name !== legacy.name)
-    if (legacy && wasConfigured) {
-      kept.push({
-        ...provider,
-        id: legacy.customId,
-        type: ProviderType.OPENAI
-      })
-      migrated.push({ from: id, to: legacy.customId })
-      continue
-    }
-
-    removed.push(provider)
-  }
-
-  /*
-   * Two entries can end up sharing an id: a backup import (the backup schema
-   * validates shape, not uniqueness), a legacy beta migration onto a fixed
-   * `custom:openai:legacy-*` id that is already present, or — vanishingly
-   * rarely — a random suffix collision. Duplicates used to be reported as "no
-   * change", so both survived and `getProviderConfig`'s `find` silently
-   * shadowed the second: it stayed in the provider grid and in model discovery
-   * while being unreachable by id.
-   */
-  const byId = new Map<string, ProviderConfig>()
-  const duplicates: string[] = []
-  for (const provider of kept) {
-    const id = String(provider.id)
-    const incumbent = byId.get(id)
-    if (!incumbent) {
-      byId.set(id, provider)
-      continue
-    }
-    duplicates.push(id)
-    if (
-      duplicateRetentionScore(provider) > duplicateRetentionScore(incumbent)
-    ) {
-      byId.set(id, provider)
-    }
-  }
-
-  return {
-    providers: [...byId.values()],
-    removed,
-    migrated,
-    duplicates
-  }
-}
-
-export const scopedModelKey = (providerId: string, modelId: string): string =>
-  `${providerId}::${modelId}`
-
-/**
- * Read the scoped model→provider map, lazily migrating the legacy flat map
- * (`modelName → providerId`, collision-lossy) into scoped keys on first read.
- * The legacy key is deleted after migration so this branch runs once.
- */
-const readScopedModelMappings = async (): Promise<Record<string, string>> => {
-  const v2 = await plasmoGlobalStorage.get<Record<string, string>>(
-    ProviderStorageKey.MODEL_MAPPINGS_V2
-  )
-  if (v2) {
-    const normalized: Record<string, string> = {}
-    let changed = false
-    for (const [key, providerId] of Object.entries(v2)) {
-      const targetProviderId =
-        REMOVED_BETA_DEFAULTS[providerId]?.customId ?? providerId
-      const separator = key.indexOf("::")
-      const modelId = separator >= 0 ? key.slice(separator + 2) : key
-      const targetKey = scopedModelKey(targetProviderId, modelId)
-      normalized[targetKey] = targetProviderId
-      if (targetKey !== key || targetProviderId !== providerId) changed = true
-    }
-    if (changed) {
-      await plasmoGlobalStorage.set(
-        ProviderStorageKey.MODEL_MAPPINGS_V2,
-        normalized
-      )
-    }
-    return normalized
-  }
-
-  const legacy = await plasmoGlobalStorage.get<Record<string, string>>(
-    ProviderStorageKey.MODEL_MAPPINGS
-  )
-  const migrated: Record<string, string> = {}
-  if (legacy) {
-    for (const [modelId, providerId] of Object.entries(legacy)) {
-      if (typeof providerId === "string" && providerId) {
-        const targetProviderId =
-          REMOVED_BETA_DEFAULTS[providerId]?.customId ?? providerId
-        migrated[scopedModelKey(targetProviderId, modelId)] = targetProviderId
-      }
-    }
-    await plasmoGlobalStorage.set(
-      ProviderStorageKey.MODEL_MAPPINGS_V2,
-      migrated
-    )
-    await plasmoGlobalStorage.remove(ProviderStorageKey.MODEL_MAPPINGS)
-    logger.info("Migrated model mappings to scoped keys", "ProviderManager", {
-      count: Object.keys(migrated).length
-    })
-  } else {
-    await plasmoGlobalStorage.set(
-      ProviderStorageKey.MODEL_MAPPINGS_V2,
-      migrated
-    )
-  }
-  return migrated
-}
-
 const validateProviderBaseUrl = (baseUrl?: string): void => {
   if (!baseUrl) return
   let parsed: URL
@@ -284,127 +82,12 @@ const validateProviderBaseUrl = (baseUrl?: string): void => {
   }
 }
 
-/** Caller must hold the provider-persistence lock. */
-const getProvidersUnlocked = async (): Promise<ProviderConfig[]> => {
-  await recoverProviderResetUnlocked()
-  await recoverProviderPersistenceUnlocked()
-  const rawStored = await plasmoGlobalStorage.get<unknown>(
-    ProviderStorageKey.CONFIG
-  )
-  const parsedStored = parseStoredProviderConfigs(rawStored)
-  let stored = parsedStored.providers
-  if (stored.length === 0) {
-    stored = [...DEFAULT_PROVIDERS]
-    await persistProviderConfigsUnlocked(stored)
-  }
-
-  const containsLegacySecrets = containsLegacySyncedSecrets(stored)
-  stored = await hydrateProviderSecrets(stored)
-  if (containsLegacySecrets) {
-    // Idempotent migration: local credentials are written first, then the
-    // legacy secret-bearing sync payload is replaced with public config.
-    await persistProviderConfigsUnlocked(stored)
-  }
-
-  const sanitized = sanitizeStoredProviders(stored)
-  // Deliberately includes `duplicates`: collapsing them used to be conditional
-  // on some *other* anomaly being present in the same read, which meant the
-  // surviving entry depended on an unrelated condition.
-  const sanitizationChanged =
-    parsedStored.normalized ||
-    sanitized.removed.length > 0 ||
-    sanitized.migrated.length > 0 ||
-    sanitized.duplicates.length > 0
-  if (sanitizationChanged) {
-    logger.info(
-      "Sanitized provider configs not present in the built-in provider UI",
-      "ProviderManager",
-      {
-        removed: sanitized.removed.map((provider) => provider.id),
-        migrated: sanitized.migrated,
-        // Ids only. A duplicate is a config the user cannot see collapsing, so
-        // it has to leave a trace, but provider names are user text.
-        duplicates: sanitized.duplicates,
-        rejectedMalformedEntries: parsedStored.rejected
-      }
-    )
-    stored = sanitized.providers
-  }
-
-  // Merge new defaults if they are missing from stored config
-  const currentStored = stored ?? []
-  const missing = DEFAULT_PROVIDERS.filter(
-    (d) => !currentStored.find((s) => s.id === d.id)
-  )
-
-  // One-time migration of the pre-provider-config Ollama base URL: adopt
-  // it into the stored config, persist, and delete the legacy key so this
-  // read stops happening on every getProviders call.
-  try {
-    const legacyStoredUrl = await plasmoGlobalStorage.get<string>(
-      LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL
-    )
-    const globalStoredUrl = await plasmoGlobalStorage.get<string>(
-      STORAGE_KEYS.PROVIDER.BASE_URL
-    )
-    const legacyUrl = legacyStoredUrl?.trim()
-      ? legacyStoredUrl
-      : globalStoredUrl?.trim()
-        ? globalStoredUrl
-        : undefined
-
-    if (legacyUrl) {
-      const defaultProviderIndex = stored.findIndex(
-        (p) => p.id === ProviderId.OLLAMA
-      )
-      const currentBaseUrl = stored[defaultProviderIndex]?.baseUrl
-      const defaultBaseUrl = DEFAULT_PROVIDERS.find(
-        (provider) => provider.id === ProviderId.OLLAMA
-      )?.baseUrl
-      if (
-        defaultProviderIndex !== -1 &&
-        legacyUrl !== currentBaseUrl &&
-        (!currentBaseUrl || currentBaseUrl === defaultBaseUrl)
-      ) {
-        stored = [...stored]
-        stored[defaultProviderIndex] = {
-          ...stored[defaultProviderIndex],
-          baseUrl: legacyUrl
-        }
-        await persistProviderConfigsUnlocked(stored)
-      }
-    }
-    if (legacyStoredUrl !== undefined || globalStoredUrl !== undefined) {
-      await plasmoGlobalStorage.remove(LEGACY_STORAGE_KEYS.OLLAMA.BASE_URL)
-      await plasmoGlobalStorage.remove(STORAGE_KEYS.PROVIDER.BASE_URL)
-    }
-  } catch (e) {
-    logger.warn(
-      "Failed to migrate legacy provider URL in getProviders",
-      "ProviderManager",
-      { error: e }
-    )
-  }
-
-  if (missing.length > 0) {
-    const merged = [...stored, ...missing]
-    await persistProviderConfigsUnlocked(merged)
-    return merged
-  }
-
-  if (sanitizationChanged) {
-    await persistProviderConfigsUnlocked(stored)
-  }
-
-  return stored
-}
-
 /**
  * Manages persistence and retrieval of provider configurations.
  */
 export const ProviderManager = {
   async getProviders(): Promise<ProviderConfig[]> {
-    return withProviderPersistenceLock(getProvidersUnlocked)
+    return withProviderPersistenceLock(getProviderConfigsUnlocked)
   },
 
   async getProviderConfig(id: string): Promise<ProviderConfig | undefined> {
@@ -430,7 +113,7 @@ export const ProviderManager = {
     let updated = false
 
     await withProviderPersistenceLock(async () => {
-      const providers = await getProvidersUnlocked()
+      const providers = await getProviderConfigsUnlocked()
       const index = providers.findIndex((p) => p.id === id)
       if (index === -1) return
 
@@ -467,12 +150,7 @@ export const ProviderManager = {
   async getModelMapping(
     modelId: string
   ): Promise<{ providerId: string } | null> {
-    const mappings = await readScopedModelMappings()
-    const candidates = Object.entries(mappings)
-      .filter(
-        ([key, providerId]) => key === scopedModelKey(providerId, modelId)
-      )
-      .map(([, providerId]) => providerId)
+    const candidates = await getMappedProviderIds(modelId)
     if (candidates.length === 0) return null
     if (candidates.length === 1) return { providerId: candidates[0] }
 
@@ -484,40 +162,17 @@ export const ProviderManager = {
   },
 
   async setModelMapping(modelId: string, providerId: string): Promise<void> {
-    const mappings = await readScopedModelMappings()
-    mappings[scopedModelKey(providerId, modelId)] = providerId
-    await plasmoGlobalStorage.set(
-      ProviderStorageKey.MODEL_MAPPINGS_V2,
-      mappings
-    )
+    await persistModelMapping(modelId, providerId)
   },
 
   /** All providers known to serve `modelId` (for disambiguation UI). */
   async getModelProviders(modelId: string): Promise<string[]> {
-    const mappings = await readScopedModelMappings()
-    return Object.entries(mappings)
-      .filter(
-        ([key, providerId]) => key === scopedModelKey(providerId, modelId)
-      )
-      .map(([, providerId]) => providerId)
+    return getMappedProviderIds(modelId)
   },
 
   /** Drop all mappings pointing at `providerId` (provider removed). */
   async removeModelMappingsForProvider(providerId: string): Promise<void> {
-    const mappings = await readScopedModelMappings()
-    let changed = false
-    for (const [key, value] of Object.entries(mappings)) {
-      if (value === providerId) {
-        delete mappings[key]
-        changed = true
-      }
-    }
-    if (changed) {
-      await plasmoGlobalStorage.set(
-        ProviderStorageKey.MODEL_MAPPINGS_V2,
-        mappings
-      )
-    }
+    await deleteModelMappingsForProvider(providerId)
   },
 
   /**
@@ -566,7 +221,7 @@ export const ProviderManager = {
     validateHostedProfileConfig(config)
 
     await withProviderPersistenceLock(async () => {
-      const providers = await getProvidersUnlocked()
+      const providers = await getProviderConfigsUnlocked()
       /*
        * The suffix carries 32 bits, so a collision is vanishingly unlikely —
        * but unlikely is not a guarantee, and the failure mode is bad out of
@@ -598,7 +253,7 @@ export const ProviderManager = {
       })
     }
     await withProviderPersistenceLock(async () => {
-      const providers = await getProvidersUnlocked()
+      const providers = await getProviderConfigsUnlocked()
       await persistProviderConfigsUnlocked(
         providers.filter((p) => String(p.id) !== id)
       )

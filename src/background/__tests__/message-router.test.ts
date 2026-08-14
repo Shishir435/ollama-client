@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Runtime } from "webextension-polyfill"
-import { handleLoadSelectionOverlay } from "@/background/message-router"
+import { handleLoadSelectionOverlay } from "@/background/handlers/handle-selection-messages"
 import { browser } from "@/lib/browser-api"
 import {
   CONTENT_MESSAGE_PROTOCOL_VERSION,

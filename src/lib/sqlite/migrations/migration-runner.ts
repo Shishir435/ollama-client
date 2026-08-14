@@ -11,6 +11,7 @@ import { ensureSessionsTagsColumn } from "./add-session-tags-column"
 import { ensureMessagesThinkingColumn } from "./add-thinking-column"
 import { ensureToolLoopRunsTable } from "./add-tool-loop-runs-table"
 import { ensureTurnRunsTable } from "./add-turn-runs-table"
+import { ensureVectorCleanupReceiptsTable } from "./add-vector-cleanup-receipts-table"
 import { compactTerminalTurnRequests } from "./compact-terminal-turn-requests"
 import type { MigrationDatabase } from "./database"
 import { renameBuildingContextStatus } from "./rename-building-context-status"
@@ -108,6 +109,11 @@ export const MIGRATIONS: Migration[] = [
     version: 14,
     name: "compact-terminal-turn-requests",
     up: compactTerminalTurnRequests
+  },
+  {
+    version: 15,
+    name: "add-vector-cleanup-receipts-table",
+    up: ensureVectorCleanupReceiptsTable
   }
 ]
 
@@ -158,6 +164,7 @@ const hasTable = (
     | "turn_runs"
     | "ingestion_runs"
     | "model_pull_runs"
+    | "vector_cleanup_receipts"
 ) => {
   const stmt = db.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1"
@@ -227,6 +234,10 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
     {
       missing: !hasTable(db, "model_pull_runs"),
       apply: () => ensureModelPullRunsTable(db)
+    },
+    {
+      missing: !hasTable(db, "vector_cleanup_receipts"),
+      apply: () => ensureVectorCleanupReceiptsTable(db)
     }
   ]
 

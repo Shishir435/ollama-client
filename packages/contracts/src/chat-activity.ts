@@ -138,6 +138,31 @@ export const ToolCallSchema = z.object({
   arguments: z.record(z.string(), z.unknown())
 })
 
+/** App-owned recovery notice for a capability blocked by optional access. */
+export const PermissionNoticeSchema = z.object({
+  capabilityId: z.enum([
+    "bookmarks",
+    "history",
+    "downloads",
+    "tabGroups",
+    "sessions",
+    "reminders"
+  ]),
+  focusId: z.string(),
+  labelKey: z.string(),
+  missingPermissions: z.array(
+    z.enum([
+      "bookmarks",
+      "history",
+      "notifications",
+      "downloads",
+      "tabGroups",
+      "alarms",
+      "sessions"
+    ])
+  )
+})
+
 /** ---- Metrics ---- */
 /** Optional persisted generation, retrieval, and tool-execution measurements. */
 export const ChatMessageMetricsSchema = z.object({
@@ -162,5 +187,6 @@ export const ChatMessageMetricsSchema = z.object({
   contextBuildFailed: z.boolean().optional(),
   thinkingOnlyResponse: z.boolean().optional(),
   emptyResponse: z.boolean().optional(),
-  interrupted: z.boolean().optional()
+  interrupted: z.boolean().optional(),
+  permissionNotice: PermissionNoticeSchema.optional()
 })

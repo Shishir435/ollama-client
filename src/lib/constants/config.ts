@@ -179,6 +179,7 @@ export const DEFAULT_MAX_TOOL_RESULT_CHARS = 10000
 export const DEFAULT_MAX_RESTORE_SESSIONS = 10
 export const MIN_MAX_RESTORE_SESSIONS = 1
 export const MAX_MAX_RESTORE_SESSIONS = 25
+export const DEFAULT_PROVIDER_CATALOG_REFRESH_MS = 60_000
 /** Central default used by storage descriptors and the section manifest. */
 export const DEFAULT_GROUNDED_ONLY_MODE = false
 export const DEFAULT_AUTO_REFRESH_TAB_CONTEXT = false

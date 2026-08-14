@@ -3,22 +3,41 @@ import {
   removePlasmoStoredValue,
   setPlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
-import type { SettingDescriptor } from "./setting-descriptor"
+import type {
+  RequiredSettingDescriptor,
+  SettingDescriptor
+} from "./setting-descriptor"
 
-const parse = <T>(
+const parseStored = <T>(
   descriptor: SettingDescriptor<T>,
   value: unknown
 ): T | undefined => {
-  if (value === undefined || value === null) return descriptor.defaultValue
+  if (value === undefined || value === null) return undefined
   if (!descriptor.parser) return value as T
   const parsed = descriptor.parser.safeParse(value)
-  return parsed.success ? parsed.data : descriptor.defaultValue
+  return parsed.success ? parsed.data : undefined
 }
 
-export const readSetting = async <T>(
+/**
+ * Read and validate only a persisted value. Migration callers use this when
+ * absence must remain distinguishable from a descriptor default.
+ */
+export const readStoredSetting = async <T>(
   descriptor: SettingDescriptor<T>
 ): Promise<T | undefined> =>
-  parse(descriptor, await getPlasmoStoredValue<unknown>(descriptor.key))
+  parseStored(descriptor, await getPlasmoStoredValue<unknown>(descriptor.key))
+
+export function readSetting<T>(
+  descriptor: RequiredSettingDescriptor<T>
+): Promise<T>
+export function readSetting<T>(
+  descriptor: SettingDescriptor<T>
+): Promise<T | undefined>
+export async function readSetting<T>(
+  descriptor: SettingDescriptor<T>
+): Promise<T | undefined> {
+  return (await readStoredSetting(descriptor)) ?? descriptor.defaultValue
+}
 
 export const writeSetting = async <T>(
   descriptor: SettingDescriptor<T>,

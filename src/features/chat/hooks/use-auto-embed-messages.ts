@@ -1,14 +1,12 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useRef } from "react"
-
-import { DEFAULT_MEMORY_ENABLED, STORAGE_KEYS } from "@/lib/constants"
+import { useSetting } from "@/hooks/use-setting"
 import { chunkTextAsync } from "@/lib/embeddings/chunker"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { assessContentQuality } from "@/lib/embeddings/content-quality-filter"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { SETTINGS } from "@/lib/storage/settings"
 import type { ChatMessage } from "@/types"
 
 /**
@@ -51,13 +49,7 @@ const checkDuplicateEmbedding = async (
  * NOW WITH QUALITY FILTERING: Filters out low-quality content before embedding
  */
 export const useAutoEmbedMessages = () => {
-  const [memoryEnabled] = useStorage<boolean>(
-    {
-      key: STORAGE_KEYS.MEMORY.ENABLED,
-      instance: plasmoGlobalStorage
-    },
-    DEFAULT_MEMORY_ENABLED
-  )
+  const [memoryEnabled] = useSetting(SETTINGS.MEMORY_ENABLED)
 
   // Track messages currently being processed to avoid concurrent duplicates
   // Using ref to persist across renders without causing re-renders
@@ -70,6 +62,9 @@ export const useAutoEmbedMessages = () => {
 
       // Skip system messages
       if (message.role === "system") return
+
+      // Permission recovery copy is app UI, not conversation content.
+      if (message.metrics?.permissionNotice) return
 
       // Skip if message is empty or too short
       const content = message.content?.trim()
@@ -195,6 +190,8 @@ export const useAutoEmbedMessages = () => {
       const messagesToProcess = messages.filter((msg) => {
         // Skip system messages
         if (msg.role === "system") return false
+
+        if (msg.metrics?.permissionNotice) return false
 
         // Skip incomplete messages
         if (msg.role === "assistant" && msg.done !== true) return false

@@ -4,114 +4,19 @@ import {
 } from "@ollama-client/contracts/rpc"
 import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import type { Runtime } from "webextension-polyfill"
-import { handleGetModels } from "@/background/handlers/handle-get-models"
-import { notifyJobComplete } from "@/background/lib/notify"
-import { postSelectionToSidePanels } from "@/background/lib/selection-bridge"
-import { resolveToolConfirmation } from "@/background/lib/tool-confirmation-registry"
-import { safeSendResponse } from "@/background/lib/utils"
+import { dispatchRetainedMessage } from "@/background/handlers/retained-message-handlers"
+import { safeSendResponse } from "@/background/lib/runtime-delivery"
 import {
   handleRpcCancellation,
   handleRpcRequest
 } from "@/background/rpc-server"
 import { isRuntimeMessageAllowed } from "@/background/runtime-sender-authorization"
-import { browser, isChromiumBased } from "@/lib/browser-api"
-import { MESSAGE_KEYS, STORAGE_KEYS } from "@/lib/constants"
-import { getErrorMessage } from "@/lib/error-utils"
+import { browser } from "@/lib/browser-api"
 import { logger } from "@/lib/logger"
-import { setPlasmoStoredValue } from "@/lib/plasmo-global-storage"
-import {
-  isSelectionOverlayLoadRequest,
-  SELECTION_OVERLAY_REQUEST_ID_GLOBAL,
-  type SelectionOverlayLoadResult
-} from "@/protocol/content-messages"
 import { getMessageType } from "@/protocol/message-type"
-import type {
-  ChromeMessage,
-  ChromeSidePanel,
-  SendResponseFunction
-} from "@/types"
+import type { ChromeMessage, SendResponseFunction } from "@/types"
 
 const extensionUrlPrefix = browser.runtime.getURL("")
-const SELECTION_OVERLAY_FILE = "content-scripts/selection-overlay.js"
-
-const setSelectionOverlayRequestId = (key: string, requestId: string) => {
-  Reflect.set(globalThis, key, requestId)
-}
-
-export const handleLoadSelectionOverlay = (
-  payload: unknown,
-  sender: Runtime.MessageSender,
-  sendResponse: SendResponseFunction
-): true => {
-  if (!isSelectionOverlayLoadRequest(payload)) {
-    safeSendResponse(sendResponse, {
-      success: false,
-      error: {
-        status: 400,
-        message: "Invalid selection overlay request"
-      }
-    })
-    return true
-  }
-
-  const tabId = sender.tab?.id
-  if (typeof tabId !== "number") {
-    safeSendResponse(sendResponse, {
-      success: false,
-      error: {
-        status: 400,
-        message: "Selection overlay requires a source tab"
-      }
-    })
-    return true
-  }
-
-  const frameId = sender.frameId
-  const target = {
-    tabId,
-    ...(typeof frameId === "number" ? { frameIds: [frameId] } : {})
-  }
-  browser.scripting
-    .executeScript({
-      target,
-      func: setSelectionOverlayRequestId,
-      args: [SELECTION_OVERLAY_REQUEST_ID_GLOBAL, payload.requestId]
-    })
-    .then(() =>
-      browser.scripting.executeScript({
-        target,
-        files: [SELECTION_OVERLAY_FILE]
-      })
-    )
-    .then(() => {
-      const senderWithDocument = sender as Runtime.MessageSender & {
-        documentId?: string
-      }
-      const result: SelectionOverlayLoadResult = {
-        requestId: payload.requestId,
-        tabId,
-        frameId: sender.frameId ?? 0,
-        ...(senderWithDocument.documentId
-          ? { documentId: senderWithDocument.documentId }
-          : {})
-      }
-      safeSendResponse(sendResponse, { success: true, data: result })
-    })
-    .catch((error: unknown) => {
-      logger.debug("Could not inject selection overlay", "SelectionOverlay", {
-        error
-      })
-      safeSendResponse(sendResponse, {
-        success: false,
-        error: {
-          status: 0,
-          message: error instanceof Error ? error.message : String(error)
-        }
-      })
-    })
-
-  return true
-}
 
 const respondForbidden = (
   type: string,
@@ -131,91 +36,6 @@ const respondForbidden = (
     success: false,
     error: { status: 403, message: "Message not allowed from this context" }
   })
-}
-
-const openSidePanelForSelection = (tab?: {
-  windowId?: number
-  id?: number
-}) => {
-  if (!isChromiumBased() || !("sidePanel" in browser)) return
-
-  const sidePanel = (browser as unknown as { sidePanel: ChromeSidePanel })
-    .sidePanel
-  const windowId = tab?.windowId
-  const tabId = tab?.id
-  if (!windowId || !sidePanel.open) return
-
-  sidePanel.open({ windowId, tabId }).catch((err: unknown) => {
-    logger.error("Failed to open sidepanel", "BackgroundSW", {
-      error: err instanceof Error ? err.message : String(err)
-    })
-  })
-}
-
-const handleSelectionMessage = (
-  message: ChromeMessage,
-  tab: { windowId?: number; id?: number } | undefined,
-  sendResponse: SendResponseFunction
-): true => {
-  if (message.fromBackground) {
-    safeSendResponse(sendResponse, { success: true })
-    return true
-  }
-
-  const selectionText =
-    typeof message.payload === "string" ? message.payload.trim() : ""
-
-  if (!selectionText) {
-    safeSendResponse(sendResponse, {
-      success: false,
-      error: {
-        status: 400,
-        message: "Selection text is required"
-      }
-    })
-    return true
-  }
-
-  const pendingSelectionWrite = setPlasmoStoredValue(
-    STORAGE_KEYS.BROWSER.PENDING_SELECTION_TEXT,
-    selectionText
-  )
-
-  openSidePanelForSelection(tab)
-
-  pendingSelectionWrite
-    .then(() => {
-      safeSendResponse(sendResponse, { success: true })
-      postSelectionToSidePanels(selectionText)
-
-      setTimeout(() => {
-        postSelectionToSidePanels(selectionText)
-        browser.runtime
-          .sendMessage({
-            type: MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT,
-            payload: selectionText,
-            fromBackground: true
-          })
-          .catch((err) => {
-            logger.debug(
-              "Could not forward selection to chat (sidepanel might be closed)",
-              "BackgroundSW",
-              { error: err }
-            )
-          })
-      }, 500)
-    })
-    .catch((error) => {
-      safeSendResponse(sendResponse, {
-        success: false,
-        error: {
-          status: 0,
-          message: getErrorMessage(error)
-        }
-      })
-    })
-
-  return true
 }
 
 export const registerMessageRouter = () => {
@@ -245,151 +65,28 @@ export const registerMessageRouter = () => {
       return true
     }
 
-    switch (message.type) {
-      case RPC_CANCEL_MESSAGE_TYPE: {
-        handleRpcCancellation(
-          rawMessage,
-          sender,
-          browser.runtime.id,
-          extensionUrlPrefix,
-          sendResponse
-        )
-        return true
-      }
-
-      case RPC_REQUEST_MESSAGE_TYPE: {
-        handleRpcRequest(
-          rawMessage,
-          sender,
-          browser.runtime.id,
-          extensionUrlPrefix,
-          sendResponse
-        )
-        return true
-      }
-
-      /*
-       * The last provider-domain runtime message, kept because its only caller
-       * is the selection overlay's content script. The RPC envelope is
-       * deliberately extension-page-only (plan section 4.13: never trust a
-       * content script), so this narrow, allowlisted read stays a plain
-       * message rather than opening the protocol to page contexts.
-       */
-      case MESSAGE_KEYS.PROVIDER.GET_MODELS: {
-        handleGetModels(response)
-        return true
-      }
-
-      case MESSAGE_KEYS.BROWSER.OPEN_TAB: {
-        browser.tabs
-          .query({})
-          .then((tabs) => {
-            logger.info("Queried browser tabs", "BackgroundSW", {
-              tabCount: tabs.length
-            })
-            safeSendResponse(response, { success: true, tabs })
-          })
-          .catch((error: unknown) => {
-            logger.error("Failed to query browser tabs", "BackgroundSW", {
-              error
-            })
-            safeSendResponse(response, {
-              success: false,
-              error: {
-                status: 0,
-                message:
-                  error instanceof Error
-                    ? error.message
-                    : "Failed to query tabs"
-              }
-            })
-          })
-        return true
-      }
-
-      case MESSAGE_KEYS.APP.KEEP_TOOL_LOOP_ALIVE: {
-        // A visible approval prompt sends this periodically. Runtime messages
-        // reset Chromium's MV3 idle timer without adding a standing `alarms`
-        // permission; SQLite recovery remains the crash/restart fallback.
-        safeSendResponse(response, { success: true })
-        return
-      }
-
-      case MESSAGE_KEYS.APP.NOTIFY_JOB_COMPLETE: {
-        const payload = message.payload as
-          | { id?: string; title?: unknown; message?: unknown }
-          | undefined
-        if (
-          !payload ||
-          typeof payload.title !== "string" ||
-          typeof payload.message !== "string"
-        ) {
-          safeSendResponse(response, {
-            success: false,
-            error: { status: 400, message: "Invalid message payload" }
-          })
-          return true
-        }
-
-        notifyJobComplete({
-          id: typeof payload.id === "string" ? payload.id : undefined,
-          title: payload.title,
-          message: payload.message
-        })
-          .then((result) => {
-            safeSendResponse(response, {
-              success: result.sent,
-              data: result,
-              error: result.sent
-                ? undefined
-                : {
-                    status: 0,
-                    message: result.reason || "Notification skipped"
-                  }
-            })
-          })
-          .catch((error) => {
-            safeSendResponse(response, {
-              success: false,
-              error: {
-                status: 0,
-                message: error instanceof Error ? error.message : String(error)
-              }
-            })
-          })
-        return true
-      }
-
-      case MESSAGE_KEYS.BROWSER.ADD_SELECTION_TO_CHAT: {
-        return handleSelectionMessage(message, sender.tab, response)
-      }
-
-      case MESSAGE_KEYS.BROWSER.LOAD_SELECTION_OVERLAY: {
-        return handleLoadSelectionOverlay(message.payload, sender, response)
-      }
-
-      case MESSAGE_KEYS.PROVIDER.CONFIRM_TOOL: {
-        const payload = message.payload as
-          | { callId?: unknown; approved?: unknown; scope?: unknown }
-          | undefined
-        const valid = typeof payload?.callId === "string"
-        if (valid) {
-          const scope =
-            payload?.scope === "session" || payload?.scope === "always"
-              ? payload.scope
-              : undefined
-          resolveToolConfirmation(
-            payload.callId as string,
-            payload?.approved === true,
-            scope
-          )
-        }
-        // Respond synchronously — returning true without ever calling
-        // sendResponse makes the sender's promise reject with "The message
-        // port closed before a response was received."
-        safeSendResponse(response, { success: valid })
-        return
-      }
+    if (message.type === RPC_CANCEL_MESSAGE_TYPE) {
+      handleRpcCancellation(
+        rawMessage,
+        sender,
+        browser.runtime.id,
+        extensionUrlPrefix,
+        sendResponse
+      )
+      return true
     }
+
+    if (message.type === RPC_REQUEST_MESSAGE_TYPE) {
+      handleRpcRequest(
+        rawMessage,
+        sender,
+        browser.runtime.id,
+        extensionUrlPrefix,
+        sendResponse
+      )
+      return true
+    }
+
+    return dispatchRetainedMessage(message, sender, response)
   }) as Runtime.OnMessageListener)
 }

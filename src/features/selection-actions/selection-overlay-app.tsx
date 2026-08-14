@@ -27,7 +27,7 @@ import {
   SelectionOverlayProvider
 } from "@/features/selection-actions/selection-overlay-context"
 import { MESSAGE_KEYS } from "@/lib/constants"
-import { sendRuntimeMessage } from "@/lib/runtime-messages"
+import { sendRuntimeMessage } from "@/lib/retained-runtime-messages"
 import type { ContentExtractionConfig, ProviderModel } from "@/types"
 
 interface OverlayAppProps {

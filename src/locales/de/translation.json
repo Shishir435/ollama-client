@@ -404,6 +404,16 @@
         "view": "{{name}} anzeigen"
       }
     },
+    "permissions": {
+      "disabled_notice": "Der Zugriff auf {{feature}} ist verfügbar, aber derzeit deaktiviert.",
+      "enable_description": "Aktiviere den Zugriff, um diese Anfrage fortzusetzen. Er bleibt optional und kann widerrufen werden.",
+      "enable": "{{feature}} aktivieren",
+      "enabling": "Wird aktiviert…",
+      "manage": "Berechtigungen verwalten",
+      "not_granted": "Die Berechtigung wurde nicht erteilt. Versuche es erneut oder verwalte sie in den Einstellungen.",
+      "resume_failed": "Die Anfrage konnte nicht fortgesetzt werden. Versuche es erneut.",
+      "reminders": "Erinnerungen"
+    },
     "errors": {
       "unknown_error": "❌ Unbekannter Fehler: {{message}}",
       "no_message": "Keine Nachricht",

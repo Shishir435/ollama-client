@@ -83,6 +83,12 @@ export interface TurnClock {
   now: () => number
 }
 
+/** Environment-neutral subset implemented by the host's AbortSignal. */
+export interface TurnCancellationSignal {
+  readonly aborted: boolean
+  throwIfAborted: () => void
+}
+
 export interface StartTurnCommand<TContext, TMessage, TContextOptions> {
   id: string
   sessionId: string
@@ -102,6 +108,7 @@ export interface ResumeTurnCommand<TContext, TMessage, TContextOptions> {
   turn: DurableTurnRun<TContext, TMessage>
   contextOptions: TContextOptions
   prepareContextOptions?: (options: TContextOptions) => Promise<TContextOptions>
+  signal?: TurnCancellationSignal
 }
 
 /**
@@ -161,7 +168,8 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
       command.turn.status === "generating" ? "generating" : "building_context",
       command.turn.userMessageId,
       command.turn.assistantMessageId,
-      command.prepareContextOptions
+      command.prepareContextOptions,
+      command.signal
     )
   }
 
@@ -173,9 +181,11 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
     assistantMessageId?: number,
     prepareContextOptions?: (
       options: TContextOptions
-    ) => Promise<TContextOptions>
+    ) => Promise<TContextOptions>,
+    signal?: TurnCancellationSignal
   ): Promise<void> {
     try {
+      signal?.throwIfAborted()
       // The first status write is also the claim on this turn. Recovery keeps a
       // persisted generating row in generating: walking it backwards to
       // building_context is illegal, while the repeated in-flight write still
@@ -188,9 +198,11 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
         ...(assistantMessageId !== undefined ? { assistantMessageId } : {})
       })
       if (!claimed) return
+      signal?.throwIfAborted()
       const preparedOptions = prepareContextOptions
         ? await prepareContextOptions(contextOptions)
         : contextOptions
+      signal?.throwIfAborted()
       const context = await this.context.build({
         turnId: submission.id,
         mode: submission.mode,
@@ -198,6 +210,7 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
         providerId: submission.providerId,
         options: preparedOptions
       })
+      signal?.throwIfAborted()
       // Same rule at the provider boundary: a stop committed while context was
       // building must not be overtaken by the generation it was meant to stop.
       const generating = await this.store.update(submission.id, {
@@ -205,12 +218,14 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
         contextReceipt: context.receipt
       })
       if (!generating) return
+      signal?.throwIfAborted()
       const result = await this.generation.start({
         submission,
         context,
         userMessageId,
         assistantMessageId
       })
+      signal?.throwIfAborted()
       await this.store.update(submission.id, {
         status: result.outcome === "cancelled" ? "cancelled" : "completed",
         ...(result.outcome === "cancelled" ? { failure: null } : {}),
@@ -222,6 +237,10 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
           : {})
       })
     } catch (error) {
+      // Supervisor cancellation interrupts this recovery attempt; the durable
+      // row remains live so a later worker can resume it. It is not a turn
+      // failure and must not consume the user's retry path.
+      if (signal?.aborted) throw error
       await this.store.update(submission.id, {
         status: "failed",
         failure: this.failures.toFailure(error)

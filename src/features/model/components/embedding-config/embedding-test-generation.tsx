@@ -3,9 +3,9 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard } from "@/components/settings"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/class-names"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { getDisplayErrorMessage } from "@/lib/error-display"
-import { cn } from "@/lib/utils"
 
 export interface EmbeddingTestGenerationProps {
   modelExists: boolean

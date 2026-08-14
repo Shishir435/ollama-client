@@ -4,7 +4,7 @@ import {
   TooltipActionButton,
   type TooltipActionButtonProps
 } from "@/components/actions/tooltip-action-button"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 export interface ActionConfig extends Omit<TooltipActionButtonProps, "key"> {
   key: React.Key

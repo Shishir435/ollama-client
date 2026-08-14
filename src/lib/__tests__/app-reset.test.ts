@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   performAppReset,
+  readAndClearResetFailure,
   resumePendingAppLifecycle,
   scheduleDestructiveReset
 } from "@/lib/app-reset"
@@ -168,6 +169,42 @@ describe("app-reset", () => {
     expect(chrome.storage.local.remove).not.toHaveBeenCalled()
     expect(resetSQLiteDatabase).not.toHaveBeenCalled()
     expect(browser.tabs.create).not.toHaveBeenCalled()
+  })
+
+  it("clears an invalid pending reset without executing it", async () => {
+    ;(chrome.storage.local.get as any).mockResolvedValue({
+      [STORAGE_KEYS.APP_LIFECYCLE.PENDING_RESET]: {
+        key: "NOT_A_REAL_RESET",
+        reopenUrl: "https://attacker.invalid"
+      }
+    })
+
+    await resumePendingAppLifecycle()
+
+    expect(chrome.storage.local.remove).toHaveBeenCalled()
+    expect(resetSQLiteDatabase).not.toHaveBeenCalled()
+    expect(browser.tabs.create).not.toHaveBeenCalled()
+  })
+
+  it("rejects an unknown reset key at the immediate boundary", async () => {
+    await expect(performAppReset("UNKNOWN" as never)).rejects.toThrow(
+      "Invalid reset key"
+    )
+  })
+
+  it("clears and ignores an invalid reset failure record", async () => {
+    ;(chrome.storage.local.get as any).mockResolvedValue({
+      [STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE]: {
+        key: "UNKNOWN",
+        error: 42,
+        at: "yesterday"
+      }
+    })
+
+    await expect(readAndClearResetFailure()).resolves.toBeNull()
+    expect(chrome.storage.local.remove).toHaveBeenCalledWith(
+      STORAGE_KEYS.APP_LIFECYCLE.RESET_FAILURE
+    )
   })
 
   it("resumePendingAppLifecycle still reopens options when the reset fails", async () => {

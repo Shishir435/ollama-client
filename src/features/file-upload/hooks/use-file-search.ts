@@ -1,14 +1,11 @@
 import { useCallback, useState } from "react"
-
-import type { EmbeddingConfig } from "@/lib/constants"
-import { STORAGE_KEYS } from "@/lib/constants"
+import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
 import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
 
 export interface FileSearchResult {
   result: SearchResult
@@ -46,9 +43,7 @@ export const useFileSearch = () => {
 
       try {
         // Get embedding config
-        const embeddingConfig = await plasmoGlobalStorage.get<EmbeddingConfig>(
-          STORAGE_KEYS.EMBEDDINGS.CONFIG
-        )
+        const embeddingConfig = await getEmbeddingConfig()
 
         // Generate embedding for query
         const embeddingResult = await generateEmbedding(query.trim())

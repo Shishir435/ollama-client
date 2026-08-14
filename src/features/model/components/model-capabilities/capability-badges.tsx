@@ -7,8 +7,8 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { cn } from "@/lib/class-names"
 import type { ModelCapabilities } from "@/lib/providers/capabilities"
-import { cn } from "@/lib/utils"
 
 import { BADGE_FLAGS, CAPABILITY_META } from "./capability-meta"
 

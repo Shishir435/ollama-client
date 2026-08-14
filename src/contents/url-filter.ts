@@ -1,11 +1,8 @@
-import {
-  DEFAULT_CONTENT_EXTRACTION_CONFIG,
-  STORAGE_KEYS
-} from "@/lib/constants"
 import { isNeverReadUrl } from "@/lib/per-site-profiles"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { EXCLUDE_URL_PATTERNS_SETTING } from "@/lib/storage/content-policy-settings"
+import { CONTENT_SETTINGS } from "@/lib/storage/content-settings"
+import { readSetting, readStoredSetting } from "@/lib/storage/setting-access"
 import { matchesUserPattern } from "@/lib/url-pattern"
-import type { ContentExtractionConfig } from "@/types"
 
 /**
  * Resolve the active list of excluded URL patterns.
@@ -16,20 +13,19 @@ import type { ContentExtractionConfig } from "@/types"
  *   3. Defaults from DEFAULT_CONTENT_EXTRACTION_CONFIG
  */
 export const resolveExcludedUrlPatterns = async (): Promise<string[]> => {
-  const storedConfig = await plasmoGlobalStorage.get<ContentExtractionConfig>(
-    STORAGE_KEYS.BROWSER.CONTENT_EXTRACTION_CONFIG
+  const storedConfig = await readStoredSetting(
+    CONTENT_SETTINGS.CONTENT_EXTRACTION_CONFIG
   )
 
   if (storedConfig?.excludedUrlPatterns?.length) {
     return storedConfig.excludedUrlPatterns
   }
 
-  const legacy = await plasmoGlobalStorage.get<string[]>(
-    STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS
-  )
+  const legacy = await readSetting(EXCLUDE_URL_PATTERNS_SETTING)
   if (legacy?.length) return legacy
 
-  return DEFAULT_CONTENT_EXTRACTION_CONFIG.excludedUrlPatterns
+  return CONTENT_SETTINGS.CONTENT_EXTRACTION_CONFIG.defaultValue
+    .excludedUrlPatterns
 }
 
 /**

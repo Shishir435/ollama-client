@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Toggle } from "@/components/ui/toggle"
 import { useSelectedModelCapabilities } from "@/features/model/hooks/use-selected-model-capabilities"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 import {
   useWebSearchActive,
   useWebSearchConfig

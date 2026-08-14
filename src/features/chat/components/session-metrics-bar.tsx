@@ -17,7 +17,7 @@ import {
   formatSessionDuration
 } from "@/features/chat/lib/session-metrics-utils"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 import type { ChatMessage } from "@/types"
 
 interface MetricItem {

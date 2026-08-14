@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
@@ -18,6 +19,11 @@ import type {
 import { resolveProviderBaseUrl } from "./base-url"
 import { PROVIDER_CAPABILITIES } from "./capabilities"
 import {
+  lifecycleRequestFailed,
+  normalizeOllamaLoadedModel
+} from "./model-lifecycle"
+import { decodeProviderJson } from "./response-decoding"
+import {
   type ChatRequest,
   type EmbeddingSupport,
   type LLMProvider,
@@ -32,6 +38,52 @@ import {
  * metadata at all cannot turn one list request into dozens.
  */
 const OLLAMA_DETAIL_BACKFILL_LIMIT = 12
+
+const OptionalString = z.string().optional().catch(undefined)
+const OllamaModelCatalogSchema = z
+  .object({
+    models: z.array(
+      z
+        .object({
+          name: z.string().min(1),
+          model: OptionalString,
+          modified_at: OptionalString,
+          size: z.number().nonnegative().optional().catch(undefined),
+          digest: OptionalString,
+          details: z
+            .object({
+              parent_model: OptionalString,
+              format: OptionalString,
+              family: OptionalString,
+              families: z.array(z.string()).optional().catch(undefined),
+              parameter_size: OptionalString,
+              quantization_level: OptionalString
+            })
+            .passthrough()
+            .optional()
+            .catch(undefined)
+        })
+        .passthrough()
+        .transform(
+          (model): ProviderModel => ({
+            ...model,
+            model: model.model ?? model.name,
+            modified_at: model.modified_at ?? "",
+            size: model.size ?? 0,
+            digest: model.digest ?? "",
+            details: {
+              parent_model: model.details?.parent_model ?? "",
+              format: model.details?.format ?? "",
+              family: model.details?.family ?? "",
+              families: model.details?.families ?? [],
+              parameter_size: model.details?.parameter_size ?? "",
+              quantization_level: model.details?.quantization_level ?? ""
+            }
+          })
+        )
+    )
+  })
+  .passthrough()
 
 /**
  * Remembers backfilled details so a repeated model list costs no extra requests.
@@ -91,6 +143,54 @@ export class OllamaProvider implements LLMProvider {
 
   constructor(public config: ProviderConfig) {}
 
+  modelLifecycle = {
+    listLoadedModels: async (signal?: AbortSignal) => {
+      const response = await fetch(
+        `${resolveProviderBaseUrl(this.config)}/api/ps`,
+        signal ? { signal } : undefined
+      )
+      if (!response.ok) {
+        throw lifecycleRequestFailed("loaded model list", response, this.id)
+      }
+      const data = await response.json()
+      const models = Array.isArray(data?.models) ? data.models : []
+      return models.map(normalizeOllamaLoadedModel)
+    },
+    unloadModel: async (model: string, signal?: AbortSignal) => {
+      const response = await fetch(
+        `${resolveProviderBaseUrl(this.config)}/api/chat`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model, messages: [], keep_alive: 0 }),
+          signal
+        }
+      )
+      if (!response.ok) {
+        throw lifecycleRequestFailed("unload", response, this.id)
+      }
+      const data = await response.json()
+      return data?.done_reason === "unload"
+    },
+    warmModel: async (
+      model: string,
+      keepAlive?: string | number,
+      signal?: AbortSignal
+    ) => {
+      await fetch(`${resolveProviderBaseUrl(this.config)}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          prompt: "",
+          stream: false,
+          keep_alive: keepAlive
+        }),
+        signal
+      })
+    }
+  }
+
   async getModels(signal?: AbortSignal): Promise<ProviderModel[]> {
     try {
       const baseUrl = resolveProviderBaseUrl(this.config)
@@ -110,8 +210,17 @@ export class OllamaProvider implements LLMProvider {
           }
         )
       }
-      const data = await response.json()
-      const models = (data.models as ProviderModel[]) || []
+      const { models } = await decodeProviderJson(
+        response,
+        OllamaModelCatalogSchema,
+        {
+          providerId: this.id,
+          providerName: this.config.name,
+          baseUrl,
+          label: "model catalog",
+          userMessage: "Ollama returned an invalid model list."
+        }
+      )
       return await this.backfillMissingDetails(models, signal)
     } catch (e) {
       if (!signal?.aborted) {
@@ -373,7 +482,12 @@ export class OllamaProvider implements LLMProvider {
         eval_duration?: number
       }
       try {
-        data = JSON.parse(line)
+        const parsed = JSON.parse(line)
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          logger.warn("Ignored invalid stream chunk", "OllamaProvider")
+          return
+        }
+        data = parsed
       } catch (error) {
         logger.warn("Failed to parse chunk", "OllamaProvider", { error })
         return

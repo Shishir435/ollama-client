@@ -1,6 +1,6 @@
 import type React from "react"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 export const SettingsActionRow = ({
   className,

@@ -1,6 +1,6 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { useSetting } from "@/hooks/use-setting"
 import { clearAllVectors, getStorageStats } from "@/lib/embeddings/vector-store"
 import { MemorySettings } from "../memory-settings"
 
@@ -11,8 +11,8 @@ vi.mock("react-i18next", () => ({
   })
 }))
 
-vi.mock("@plasmohq/storage/hook", () => ({
-  useStorage: vi.fn()
+vi.mock("@/hooks/use-setting", () => ({
+  useSetting: vi.fn()
 }))
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -29,15 +29,10 @@ describe("MemorySettings", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(useStorage).mockReturnValue([
+    vi.mocked(useSetting).mockReturnValue([
       true,
       setMemoryEnabled,
-      {
-        setRenderValue: vi.fn(),
-        setStoreValue: vi.fn().mockResolvedValue(null),
-        remove: vi.fn(),
-        isLoading: false
-      }
+      { isLoading: false }
     ])
     vi.mocked(getStorageStats).mockResolvedValue({
       totalVectors: 4,

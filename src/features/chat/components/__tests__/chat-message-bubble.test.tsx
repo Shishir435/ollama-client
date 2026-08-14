@@ -34,10 +34,32 @@ vi.mock("@/features/chat/components/chat-message-editor", () => ({
 }))
 
 vi.mock("@/features/chat/components/chat-message-footer", () => ({
-  ChatMessageFooter: () => <div>footer</div>
+  ChatMessageFooter: ({ onFork }: { onFork?: () => void }) => (
+    <div>
+      {onFork && (
+        <button type="button" onClick={onFork}>
+          fork
+        </button>
+      )}
+    </div>
+  )
 }))
 
 describe("ChatMessageBubble", () => {
+  it("hides fork while another turn is busy", () => {
+    render(
+      <ChatMessageBubble
+        msg={{ role: "user", content: "question", timestamp: 1 }}
+        isBusy
+        onFork={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.queryByRole("button", { name: "fork" })
+    ).not.toBeInTheDocument()
+  })
+
   it("does not treat normal assistant prose as a reportable app error", () => {
     render(
       <ChatMessageBubble

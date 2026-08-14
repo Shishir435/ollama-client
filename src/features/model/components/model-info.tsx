@@ -23,9 +23,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { useModelCapabilityOverrides } from "@/features/model/hooks/use-model-capability-overrides"
 import { useModelInfo } from "@/features/model/hooks/use-model-info"
+import { cn } from "@/lib/class-names"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
-import { cn } from "@/lib/utils"
 
 import { ModelCapabilityBadges } from "./model-capabilities/capability-badges"
 

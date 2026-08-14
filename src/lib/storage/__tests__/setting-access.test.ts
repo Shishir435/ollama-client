@@ -14,7 +14,12 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   removePlasmoStoredValue: storage.remove
 }))
 
-import { readSetting, removeSetting, writeSetting } from "../setting-access"
+import {
+  readSetting,
+  readStoredSetting,
+  removeSetting,
+  writeSetting
+} from "../setting-access"
 import { defineSetting } from "../setting-descriptor"
 
 /** Trims and rejects blanks, so parse is observable in both directions. */
@@ -98,6 +103,29 @@ describe("readSetting", () => {
     storage.get.mockResolvedValue("  spaced  ")
 
     await expect(readSetting(descriptor)).resolves.toBe("  spaced  ")
+  })
+})
+
+describe("readStoredSetting", () => {
+  it("preserves absence for compatibility migrations", async () => {
+    const descriptor = defineSetting<string>(SYNC_KEY, {
+      defaultValue: "default"
+    })
+
+    storage.get.mockResolvedValue(undefined)
+    await expect(readStoredSetting(descriptor)).resolves.toBeUndefined()
+  })
+
+  it("validates stored data without substituting the default", async () => {
+    const descriptor = defineSetting<string>(SYNC_KEY, {
+      defaultValue: "default",
+      parser: trimmedString
+    })
+
+    storage.get.mockResolvedValue({ bad: true })
+    await expect(readStoredSetting(descriptor)).resolves.toBeUndefined()
+    storage.get.mockResolvedValue("  stored  ")
+    await expect(readStoredSetting(descriptor)).resolves.toBe("stored")
   })
 })
 

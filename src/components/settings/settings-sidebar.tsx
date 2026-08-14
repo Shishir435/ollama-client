@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react"
 import { MiniBadge } from "@/components/ui/mini-badge"
 import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/class-names"
 
 export interface NavItem {
   key: string

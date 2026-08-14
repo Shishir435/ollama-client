@@ -178,11 +178,14 @@ jobs:
 
   persistence-migration-firefox:
     name: Persistence migration gates (firefox)
-    # Opt-in: the Firefox runner drives geckodriver against a temporary add-on
-    # and a pinned extension UUID, which is slower and more fragile than the
-    # Chromium path. Dispatch it before a release, or when persistence changes.
+    # Production-path Firefox MV2 owner smoke plus concurrent-write, migration,
+    # restart, and export evidence. This is a release gate, not an opt-in soak:
+    # persistent-background owner is a different topology from Chromium.
     needs: [checks, build]
-    if: github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.draft == false &&
+       !contains(github.event.pull_request.labels.*.name, 'skip-e2e'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -276,6 +279,9 @@ jobs:
 
       - name: Run critical browser gates
         run: pnpm e2e:chromium:critical
+
+      - name: Verify isolated service-worker turn recovery
+        run: E2E_HEADFUL=1 xvfb-run --auto-servernum pnpm verify:sw-turn-recovery
 
       # Traces, videos, and the HTML report are only worth minutes and storage
       # when something failed.

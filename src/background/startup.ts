@@ -13,6 +13,8 @@ import {
   EXTERNAL_URLS,
   STORAGE_KEYS
 } from "@/lib/constants"
+import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
+import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
@@ -215,29 +217,35 @@ const resumeLifecycleWithRetry = async (): Promise<boolean> => {
 }
 
 interface StartupTask {
+  id: string
   name: string
-  run: () => Promise<unknown>
+  run: (signal: AbortSignal) => Promise<unknown>
 }
 
 /**
  * Data-shape recovery, in order and alone.
  *
- * Backup import recovery can replace the whole database, and both migrations
- * rewrite rows other recovery reads. Running them beside workflow recovery —
- * which is what every one of these being `void`ed used to do — let a resumed
- * turn read a database that was mid-replacement.
+ * Persistence readiness has already finished any interrupted whole-database
+ * replacement. Portable backup recovery and both migrations then rewrite
+ * settings or rows that later recovery reads. Running them beside workflow
+ * recovery — which is what every one of these being `void`ed used to do — let
+ * a resumed job observe a partially migrated state.
  */
 const SCHEMA_STARTUP_TASKS: StartupTask[] = [
   {
+    id: "backup-import",
     name: "interrupted settings import",
-    run: async () => {
-      await recoverBackupImport()
-      await migrateLegacyProviderStorage()
-    }
+    run: (signal) => recoverBackupImport(signal)
   },
   {
+    id: "provider-migration",
+    name: "provider storage migration",
+    run: (signal) => migrateLegacyProviderStorage(undefined, signal)
+  },
+  {
+    id: "embedding-migration",
     name: "embedding dimension migration",
-    run: () => runEmbeddingDimensionMigration()
+    run: (signal) => runEmbeddingDimensionMigration(signal)
   }
 ]
 
@@ -247,18 +255,40 @@ const SCHEMA_STARTUP_TASKS: StartupTask[] = [
  * should not hold up an ingestion job the user is waiting on.
  */
 const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
-  { name: "stale tool-loop checkpoints", run: () => pruneStaleToolLoopRuns() },
-  { name: "durable turns", run: () => resumeIncompleteTurnRuns() },
+  {
+    id: "vector-cleanup-receipts",
+    name: "pending vector cleanup receipts",
+    run: (signal) => sweepVectorCleanupReceipts(signal)
+  },
+  {
+    id: "tool-loop-prune",
+    name: "stale tool-loop checkpoints",
+    run: (signal) => pruneStaleToolLoopRuns(undefined, signal)
+  },
+  {
+    id: "durable-turns",
+    name: "durable turns",
+    run: (signal) => resumeIncompleteTurnRuns(signal)
+  },
   // Ordered after turn recovery in the same list rather than before it: the
   // prune only touches settled rows, so it cannot race resumption, and a boot
   // should reissue interrupted work before it does housekeeping.
-  { name: "expired turn receipts", run: () => pruneTerminalTurnRuns() },
-  { name: "durable ingestion", run: () => IngestionService.resumeIncomplete() },
   {
+    id: "turn-receipt-prune",
+    name: "expired turn receipts",
+    run: (signal) => pruneTerminalTurnRuns(undefined, signal)
+  },
+  {
+    id: "durable-ingestion",
+    name: "durable ingestion",
+    run: (signal) => IngestionService.resumeIncomplete(signal)
+  },
+  {
+    id: "durable-model-pulls",
     name: "durable model pulls",
-    run: () =>
+    run: (signal) =>
       import("@/background/model-pull-runtime").then(({ ModelPullService }) =>
-        ModelPullService.resumeIncomplete()
+        ModelPullService.resumeIncomplete(signal)
       )
   }
 ]
@@ -274,31 +304,92 @@ const WORKFLOW_STARTUP_CONCURRENCY = 2
  * Generous on purpose: these are one-shot boot tasks, and a large migration is
  * slow rather than stuck.
  *
- * It **abandons** the task; it does not cancel it. None of these operations
- * accepts an `AbortSignal` today, so a timed-out migration keeps running
- * alongside whatever starts next. That is still better than a boot where
- * nothing after it runs at all, but it is a stopgap: threading cancellation
- * through the startup tasks is tracked in `RELEASE_ROADMAP.md`.
+ * Expiry requests cancellation. The successor does not start until the task
+ * settles in response, because aborting a promise is only a request: the task
+ * may still be finishing an already-issued storage write. Waiting for that
+ * acknowledgment is what makes the sequence non-overlapping.
  */
 const STARTUP_TASK_TIMEOUT_MS = 120_000
 
+class StartupTaskTimeoutError extends Error {
+  constructor(
+    readonly task: StartupTask,
+    readonly durationMs: number,
+    options?: ErrorOptions
+  ) {
+    super(
+      `Startup task cancelled after ${STARTUP_TASK_TIMEOUT_MS}ms: ${task.name}`,
+      options
+    )
+    this.name = "StartupTaskTimeoutError"
+  }
+}
+
+const recordStartupDiagnostic = (
+  task: StartupTask,
+  code: "STARTUP_RECOVERY_TIMEOUT" | "STARTUP_RECOVERY_CANCELLED",
+  level: "warn" | "info",
+  durationMs: number,
+  status: "cancellation-requested" | "cancellation-acknowledged"
+) => {
+  void recordDiagnosticEvent({
+    level,
+    code,
+    operation: `startup.recovery.${task.id}`,
+    surface: "background",
+    durationMs,
+    metadata: {
+      phase: task.id,
+      result: "timeout",
+      status
+    }
+  }).catch(() => undefined)
+}
+
 const withStartupDeadline = async (task: StartupTask): Promise<void> => {
+  const controller = new AbortController()
+  const startedAt = performance.now()
+  let timedOut = false
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    await Promise.race([
-      task.run(),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () =>
-            reject(
-              new Error(
-                `Startup task abandoned after ${STARTUP_TASK_TIMEOUT_MS}ms and may still be running: ${task.name}`
-              )
-            ),
-          STARTUP_TASK_TIMEOUT_MS
-        )
+    timer = setTimeout(() => {
+      timedOut = true
+      const durationMs = Math.max(0, performance.now() - startedAt)
+      logger.warn(`Startup recovery timed out: ${task.name}`, "BackgroundSW", {
+        durationMs
       })
-    ])
+      recordStartupDiagnostic(
+        task,
+        "STARTUP_RECOVERY_TIMEOUT",
+        "warn",
+        durationMs,
+        "cancellation-requested"
+      )
+      controller.abort(
+        new DOMException(
+          `Startup recovery timed out: ${task.name}`,
+          "AbortError"
+        )
+      )
+    }, STARTUP_TASK_TIMEOUT_MS)
+
+    try {
+      await task.run(controller.signal)
+    } catch (error) {
+      if (!timedOut) throw error
+      throw new StartupTaskTimeoutError(
+        task,
+        Math.max(0, performance.now() - startedAt),
+        { cause: error }
+      )
+    }
+
+    if (timedOut) {
+      throw new StartupTaskTimeoutError(
+        task,
+        Math.max(0, performance.now() - startedAt)
+      )
+    }
   } finally {
     clearTimeout(timer)
   }
@@ -308,6 +399,20 @@ const runStartupTask = async (task: StartupTask): Promise<void> => {
   try {
     await withStartupDeadline(task)
   } catch (error) {
+    if (error instanceof StartupTaskTimeoutError) {
+      logger.warn(
+        `Startup recovery acknowledged cancellation: ${task.name}`,
+        "BackgroundSW",
+        { durationMs: error.durationMs }
+      )
+      recordStartupDiagnostic(
+        task,
+        "STARTUP_RECOVERY_CANCELLED",
+        "info",
+        error.durationMs,
+        "cancellation-acknowledged"
+      )
+    }
     // One failed recovery never cancels the others: they own unrelated durable
     // state, and a boot that recovers three of four beats a boot that recovers
     // none.

@@ -17,13 +17,34 @@ interface MigrationProgress {
   updated: number
 }
 
-export async function runEmbeddingDimensionMigration(): Promise<void> {
+const abortableDelay = (ms: number, signal?: AbortSignal): Promise<void> => {
+  if (!signal) return new Promise((resolve) => setTimeout(resolve, ms))
+  signal.throwIfAborted()
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(signal.reason)
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort)
+      resolve()
+    }, ms)
+    signal.addEventListener("abort", onAbort, { once: true })
+  })
+}
+
+export async function runEmbeddingDimensionMigration(
+  signal?: AbortSignal
+): Promise<void> {
+  signal?.throwIfAborted()
   const completed = await getPlasmoStoredValue<boolean>(MIGRATION_KEY)
+  signal?.throwIfAborted()
   if (completed) {
     return
   }
 
   const total = await vectorDb.vectors.count()
+  signal?.throwIfAborted()
   const progress: MigrationProgress =
     (await getPlasmoStoredValue<MigrationProgress>(MIGRATION_PROGRESS_KEY)) || {
       processed: 0,
@@ -38,17 +59,20 @@ export async function runEmbeddingDimensionMigration(): Promise<void> {
   )
 
   for (let offset = progress.processed; offset < total; offset += BATCH_SIZE) {
+    signal?.throwIfAborted()
     const batch = await vectorDb.vectors
       .orderBy("id")
       .offset(offset)
       .limit(BATCH_SIZE)
       .toArray()
+    signal?.throwIfAborted()
 
     if (batch.length === 0) {
       break
     }
 
     for (const doc of batch) {
+      signal?.throwIfAborted()
       if (!doc.id) continue
       if (doc.metadata?.embeddingDim) continue
 
@@ -72,11 +96,13 @@ export async function runEmbeddingDimensionMigration(): Promise<void> {
     progress.processed = Math.min(offset + batch.length, total)
     await setPlasmoStoredValue(MIGRATION_PROGRESS_KEY, progress)
 
-    await new Promise((resolve) => setTimeout(resolve, DELAY_MS))
+    await abortableDelay(DELAY_MS, signal)
   }
 
+  signal?.throwIfAborted()
   await setPlasmoStoredValue(MIGRATION_KEY, true)
   await removePlasmoStoredValue(MIGRATION_PROGRESS_KEY)
+  signal?.throwIfAborted()
 
   logger.info(
     "Embedding dimension migration completed",

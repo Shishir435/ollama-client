@@ -1,17 +1,21 @@
-import { exportDB, importInto } from "dexie-export-import"
+import { exportDB, importInto, peakImportFile } from "dexie-export-import"
 import JSZip from "jszip"
 import { z } from "zod"
 import { browser } from "@/lib/browser-api"
-import { MESSAGE_KEYS } from "./constants"
+import { PromptTemplateSchema, ThemeSchema } from "@/types/ui-state.schemas"
+import { MESSAGE_KEYS, STORAGE_KEYS } from "./constants"
 import { vectorDb } from "./embeddings/db"
 import { createAppError, getErrorMessage } from "./error-utils"
-import { knowledgeDb } from "./knowledge/knowledge-sets"
-import { logger } from "./logger"
 import {
-  type ProviderConfig,
-  ProviderStorageKey,
-  ProviderType
-} from "./providers/types"
+  KnowledgeFileRecordSchema,
+  KnowledgeSetRecordSchema,
+  knowledgeDb
+} from "./knowledge/knowledge-sets"
+import { logger } from "./logger"
+import { ModelConfigMapSchema } from "./model-config-utils"
+import { validateProviderConfigs } from "./providers/provider-config-schema"
+import { type ProviderConfig, ProviderStorageKey } from "./providers/types"
+import { safeJsonParse } from "./safe-json-parse"
 import {
   exportPersistedDatabaseBytes,
   flushSave,
@@ -23,27 +27,179 @@ import {
   SUPPORTED_BACKUP_MANIFEST_VERSIONS,
   selectPortableStorageData
 } from "./storage/backup-storage-policy"
-import { safeJsonParse } from "./validation"
+import { KNOWLEDGE_SETTINGS } from "./storage/knowledge-settings"
+import { LegacyPromptTemplatesSchema } from "./storage/legacy-prompt-templates"
+import { getSettingDescriptor } from "./storage/setting-registry"
 
 const BackupManifestSchema = z.object({
-  version: z.number(),
+  version: z.number().int().positive(),
   timestamp: z.string().optional(),
   appVersion: z.string().optional()
 })
 
 const StorageObjectSchema = z.record(z.string(), z.unknown())
-const ProviderConfigBackupSchema = z
+const DexieTableDataSchema = z.object({
+  tableName: z.string().min(1),
+  inbound: z.boolean(),
+  rows: z.array(z.unknown())
+})
+const DexieExportSchema = z.object({
+  formatName: z.literal("dexie"),
+  formatVersion: z.literal(1),
+  data: z.object({
+    databaseName: z.string().min(1),
+    databaseVersion: z.number().positive().finite(),
+    tables: z.array(
+      z.object({
+        name: z.string().min(1),
+        schema: z.string(),
+        rowCount: z.number().int().nonnegative()
+      })
+    ),
+    data: z.array(DexieTableDataSchema)
+  })
+})
+const ProviderMappingsSchema = z.record(z.string().min(1), z.string().min(1))
+const ZustandThemeSchema = z.object({
+  state: z.object({ theme: ThemeSchema }).passthrough()
+})
+const ShortcutSchema = z
   .object({
-    id: z.string(),
-    type: z.nativeEnum(ProviderType),
-    enabled: z.boolean(),
-    baseUrl: z.string().optional(),
-    modelId: z.string().optional(),
-    name: z.string(),
-    customModels: z.array(z.string()).optional()
+    id: z.string().min(1),
+    label: z.string(),
+    description: z.string(),
+    category: z.enum(["navigation", "actions", "toggles"]),
+    defaultKey: z.string(),
+    key: z.string()
   })
   .passthrough()
-const ProviderConfigsBackupSchema = z.array(ProviderConfigBackupSchema)
+const ZustandShortcutsSchema = z.object({
+  state: z
+    .object({ shortcuts: z.record(z.string().min(1), ShortcutSchema) })
+    .passthrough()
+})
+const LegacySettingSchemas = new Map<string, z.ZodType>([
+  ["selected-ollama-model", z.string().min(1)],
+  ["ollama-prompt-templates", LegacyPromptTemplatesSchema],
+  ["ollama-model-config", ModelConfigMapSchema],
+  ["ollama-base-url", z.string().min(1)]
+])
+const PortableSettingSchemas = new Map<string, z.ZodType>([
+  [STORAGE_KEYS.PROVIDER.BASE_URL, z.string()],
+  [STORAGE_KEYS.LANGUAGE, z.string().min(1)],
+  [STORAGE_KEYS.PROVIDER.SELECTED_MODEL, z.string()],
+  [STORAGE_KEYS.PROVIDER.SELECTION_CONFLICT_MODEL, z.string().nullable()],
+  [STORAGE_KEYS.PROVIDER.PROMPT_TEMPLATES, z.array(PromptTemplateSchema)],
+  [STORAGE_KEYS.PROVIDER.FAVICON_LOOKUP, z.boolean()],
+  [STORAGE_KEYS.PROVIDER.CATALOG_REFRESH_MS, z.number().finite().nonnegative()],
+  [STORAGE_KEYS.THEME.PREFERENCE, z.union([ThemeSchema, ZustandThemeSchema])],
+  [STORAGE_KEYS.SHORTCUTS, ZustandShortcutsSchema],
+  [STORAGE_KEYS.BROWSER.EXCLUDE_URL_PATTERNS, z.array(z.string())],
+  [STORAGE_KEYS.TTS.AUTO_PLAY, z.boolean()],
+  [STORAGE_KEYS.TTS.RATE, z.number().finite()],
+  [STORAGE_KEYS.TTS.PITCH, z.number().finite()],
+  [STORAGE_KEYS.TTS.VOICE_URI, z.string()],
+  [STORAGE_KEYS.EMBEDDINGS.SELECTED_MODEL, z.string().min(1)],
+  [STORAGE_KEYS.EMBEDDINGS.GLOBAL_AUTO_EMBED, z.boolean()],
+  [STORAGE_KEYS.EMBEDDINGS.AUTO_EMBED_CHAT, z.boolean()],
+  [STORAGE_KEYS.IMAGES.MAX_SIZE_MB, z.number().finite().positive()],
+  [STORAGE_KEYS.CHAT.SHOW_SESSION_METRICS, z.boolean()],
+  [STORAGE_KEYS.CHAT.MAX_TAB_CONTEXT_CHARS, z.number().int().positive()],
+  [STORAGE_KEYS.CHAT.MAX_RAG_CONTEXT_CHARS, z.number().int().positive()],
+  [STORAGE_KEYS.CHAT.MAX_TOOL_RESULT_CHARS, z.number().int().positive()],
+  [STORAGE_KEYS.CHAT.GROUNDED_ONLY_MODE, z.boolean()],
+  [STORAGE_KEYS.CHAT.AUTO_REFRESH_TAB_CONTEXT, z.boolean()],
+  [STORAGE_KEYS.CHAT.AUTO_SCREENSHOT_ON_VISION, z.boolean()],
+  [STORAGE_KEYS.EXPORT.ALLOW_REMOTE_IMAGES, z.boolean()],
+  [
+    STORAGE_KEYS.TOOLS.FAMILIES,
+    z.object({
+      enabled: z.boolean(),
+      families: z.record(z.string().min(1), z.boolean())
+    })
+  ]
+])
+const KnowledgeSettingSchemas = new Map(
+  Object.values(KNOWLEDGE_SETTINGS).flatMap((descriptor) =>
+    descriptor.parser ? [[descriptor.key, descriptor.parser]] : []
+  )
+)
+
+const decodeStoredValue = (
+  value: unknown
+): { decoded: unknown; encoded: boolean } => {
+  if (typeof value !== "string") return { decoded: value, encoded: false }
+  try {
+    return { decoded: JSON.parse(value), encoded: true }
+  } catch {
+    return { decoded: value, encoded: false }
+  }
+}
+
+const validateDexieExport = async (
+  blob: Blob,
+  databaseName: string,
+  rowSchemas?: Record<string, z.ZodType>
+): Promise<void> => {
+  let value: unknown
+  try {
+    value = JSON.parse(await blob.text())
+  } catch {
+    throw createAppError(`Invalid ${databaseName} backup`, {
+      kind: "validation"
+    })
+  }
+  const parsed = DexieExportSchema.safeParse(value)
+  if (!parsed.success || parsed.data.data.databaseName !== databaseName) {
+    throw createAppError(`Invalid ${databaseName} backup`, {
+      kind: "validation"
+    })
+  }
+  if (!rowSchemas) return
+  for (const table of parsed.data.data.data) {
+    const rowSchema = rowSchemas[table.tableName]
+    if (
+      !rowSchema ||
+      table.rows.some((row) => !rowSchema.safeParse(row).success)
+    ) {
+      throw createAppError(`Invalid ${databaseName} backup rows`, {
+        kind: "validation"
+      })
+    }
+  }
+}
+
+const validateDexieMetadata = async (
+  blob: Blob,
+  databaseName: string
+): Promise<void> => {
+  const metadata = await peakImportFile(blob)
+  if (metadata.data.databaseName !== databaseName) {
+    throw createAppError(`Invalid ${databaseName} backup`, {
+      kind: "validation"
+    })
+  }
+}
+
+const validatePortableSetting = (key: string, value: unknown): unknown => {
+  const { decoded, encoded } = decodeStoredValue(value)
+  const parser =
+    getSettingDescriptor(key)?.parser ??
+    KnowledgeSettingSchemas.get(key) ??
+    PortableSettingSchemas.get(key) ??
+    (key === ProviderStorageKey.MODEL_MAPPINGS ||
+    key === ProviderStorageKey.MODEL_MAPPINGS_V2
+      ? ProviderMappingsSchema
+      : LegacySettingSchemas.get(key))
+  if (!parser) return value
+  const parsed = parser.safeParse(decoded)
+  if (!parsed.success) {
+    throw createAppError(`Invalid persisted value for backup key ${key}`, {
+      kind: "validation"
+    })
+  }
+  return encoded ? JSON.stringify(parsed.data) : parsed.data
+}
 
 /**
  * One restored section's outcome. `error` carries technical detail from an
@@ -84,10 +240,10 @@ const requestLiveSqliteFlush = async (): Promise<void> => {
 
 /**
  * Deleting a Dexie database while another context (an open sidepanel) holds a
- * connection blocks the delete and surfaces "Another connection wants to
- * delete database" warnings on the extensions page. Ask every context —
+ * connection can block a clear-before-import transaction. Ask every context —
  * including this one — to close its handles first; the post-import
- * runtime.reload() reopens everything fresh.
+ * runtime.reload() reopens everything fresh. `importInto` owns the transaction,
+ * so a malformed or interrupted import preserves the previous database.
  */
 const reopenDexieConnectionsEverywhere = async (): Promise<void> => {
   try {
@@ -130,6 +286,9 @@ const preparePortableStorageImport = (
   const settings = { ...data }
   let providerConfigValue = settings[ProviderStorageKey.CONFIG]
   delete settings[ProviderStorageKey.CONFIG]
+  for (const [key, value] of Object.entries(settings)) {
+    settings[key] = validatePortableSetting(key, value)
+  }
   if (providerConfigValue === undefined) return { settings }
 
   // Backups written from raw chrome.storage reads carry the value in
@@ -145,16 +304,15 @@ const preparePortableStorageImport = (
     }
   }
 
-  const parsedProviderConfigs =
-    ProviderConfigsBackupSchema.safeParse(providerConfigValue)
-  if (!parsedProviderConfigs.success) {
+  try {
+    return {
+      settings,
+      providerConfigs: validateProviderConfigs(providerConfigValue)
+    }
+  } catch {
     throw createAppError("Invalid provider configuration in backup", {
       kind: "validation"
     })
-  }
-  return {
-    settings,
-    providerConfigs: parsedProviderConfigs.data as ProviderConfig[]
   }
 }
 
@@ -378,7 +536,7 @@ export const backupService = {
         const vectorDbFile = zip.file("vector-db.json")
         if (vectorDbFile) {
           const vectorDbBlob = await vectorDbFile.async("blob")
-          await vectorDb.delete()
+          await validateDexieMetadata(vectorDbBlob, "VectorDatabase")
           await vectorDb.open()
           await importInto(vectorDb, vectorDbBlob, {
             overwriteValues: true,
@@ -397,7 +555,10 @@ export const backupService = {
         const knowledgeDbFile = zip.file("knowledge-db.json")
         if (knowledgeDbFile) {
           const knowledgeDbBlob = await knowledgeDbFile.async("blob")
-          await knowledgeDb.delete()
+          await validateDexieExport(knowledgeDbBlob, "KnowledgeDatabase", {
+            knowledgeSets: KnowledgeSetRecordSchema,
+            knowledgeFiles: KnowledgeFileRecordSchema
+          })
           await knowledgeDb.open()
           await importInto(knowledgeDb, knowledgeDbBlob, {
             overwriteValues: true,

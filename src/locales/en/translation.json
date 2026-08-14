@@ -438,6 +438,16 @@
         "view": "View {{name}}"
       }
     },
+    "permissions": {
+      "disabled_notice": "{{feature}} access is available but currently disabled.",
+      "enable_description": "Enable it to continue this request. Access remains optional and revocable.",
+      "enable": "Enable {{feature}}",
+      "enabling": "Enabling…",
+      "manage": "Manage permissions",
+      "not_granted": "Permission was not granted. You can try again or manage it in Settings.",
+      "resume_failed": "Couldn’t continue the request. Try again.",
+      "reminders": "Reminders"
+    },
     "errors": {
       "unknown_error": "❌ Unknown error: {{message}}",
       "no_message": "No message",

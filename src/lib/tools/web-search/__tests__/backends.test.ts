@@ -268,4 +268,65 @@ describe("web search backends", () => {
       )
     ).rejects.toThrow("Brave search failed with HTTP 500")
   })
+
+  it.each([
+    {},
+    { web: null }
+  ])("treats a missing Brave web section as an empty search", async (payload) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(payload)))
+
+    await expect(
+      braveBackend.search(
+        { query: "no matches" },
+        { provider: "brave", enabled: true, apiKey: "key" }
+      )
+    ).resolves.toEqual([])
+  })
+
+  it.each([
+    [
+      "Brave",
+      braveBackend,
+      { provider: "brave" as const, enabled: true, apiKey: "key" }
+    ],
+    [
+      "Tavily",
+      tavilyBackend,
+      { provider: "tavily" as const, enabled: true, apiKey: "key" }
+    ],
+    [
+      "SearXNG",
+      searxngBackend,
+      {
+        provider: "searxng" as const,
+        enabled: true,
+        endpoint: "http://localhost:8080"
+      }
+    ]
+  ])("rejects malformed %s result envelopes", async (name, backend, config) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(null)))
+
+    await expect(backend.search({ query: "test" }, config)).rejects.toThrow(
+      `${name} search returned an invalid response`
+    )
+  })
+
+  it("reports invalid search JSON without exposing response text", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("<html>upstream failure</html>", {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      )
+    )
+
+    await expect(
+      braveBackend.search(
+        { query: "test" },
+        { provider: "brave", enabled: true, apiKey: "key" }
+      )
+    ).rejects.toThrow("Brave search returned invalid JSON")
+  })
 })

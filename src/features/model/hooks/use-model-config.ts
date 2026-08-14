@@ -1,21 +1,21 @@
-import { useStorage } from "@plasmohq/storage/hook"
 import { useCallback, useMemo } from "react"
-import { DEFAULT_MODEL_CONFIG, STORAGE_KEYS } from "@/lib/constants"
-import { normalizeStoredModelConfig } from "@/lib/model-config-utils"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { useSetting } from "@/hooks/use-setting"
+import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
+import {
+  normalizeStoredModelConfig,
+  parseStoredModelConfigMap
+} from "@/lib/model-config-utils"
+import { SETTINGS } from "@/lib/storage/settings"
 
 export type ProviderModelConfig = typeof DEFAULT_MODEL_CONFIG
 
 export const useModelConfig = (modelName: string) => {
-  const [modelConfigs, setModelConfigs] = useStorage<
-    Record<string, typeof DEFAULT_MODEL_CONFIG>
-  >(
-    { key: STORAGE_KEYS.PROVIDER.MODEL_CONFIGS, instance: plasmoGlobalStorage },
-    {}
-  )
+  const [modelConfigs, setModelConfigs] = useSetting(SETTINGS.MODEL_CONFIGS)
 
   const config = useMemo(() => {
-    const stored = normalizeStoredModelConfig(modelConfigs?.[modelName])
+    const stored = normalizeStoredModelConfig(
+      parseStoredModelConfigMap(modelConfigs)[modelName]
+    )
     return {
       ...DEFAULT_MODEL_CONFIG,
       ...(stored ?? {})
@@ -25,9 +25,10 @@ export const useModelConfig = (modelName: string) => {
   const update = useCallback(
     (newConfig: Partial<typeof DEFAULT_MODEL_CONFIG>) => {
       setModelConfigs((prev) => {
-        const prevConfig = normalizeStoredModelConfig(prev?.[modelName]) ?? {}
+        const parsed = parseStoredModelConfigMap(prev)
+        const prevConfig = normalizeStoredModelConfig(parsed[modelName]) ?? {}
         return {
-          ...prev,
+          ...parsed,
           [modelName]: {
             ...DEFAULT_MODEL_CONFIG,
             ...prevConfig,

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { getEmbeddingConfig } from "../config"
 
 describe("getEmbeddingConfig", () => {
   it("normalizes legacy backend values", async () => {
-    vi.mocked(plasmoGlobalStorage.get).mockResolvedValueOnce({
+    vi.mocked(getPlasmoStoredValue).mockResolvedValueOnce({
       annBackend: "wasm-hnsw",
       rerankerBackend: "transformers-js",
       useReranking: true
@@ -17,7 +17,7 @@ describe("getEmbeddingConfig", () => {
   })
 
   it("forces cosine when reranking is enabled", async () => {
-    vi.mocked(plasmoGlobalStorage.get).mockResolvedValueOnce({
+    vi.mocked(getPlasmoStoredValue).mockResolvedValueOnce({
       rerankerBackend: "none",
       useReranking: true
     } as unknown)

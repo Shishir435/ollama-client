@@ -1,9 +1,6 @@
-import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import {
-  getPlasmoStoredValue,
-  setPlasmoStoredValue
-} from "@/lib/plasmo-global-storage"
+import { POLICY_SETTINGS } from "@/lib/storage/policy-settings"
+import { readSetting, writeSetting } from "@/lib/storage/setting-access"
 import { withStorageWriteLock } from "@/lib/storage/storage-write-lock"
 import { runToolCallingProbe } from "./tool-calling-probe"
 import type { LLMProvider } from "./types"
@@ -50,8 +47,6 @@ export interface CapabilityProbeResult {
 
 export type CapabilityProbeMap = Record<string, CapabilityProbeResult>
 
-const STORAGE_KEY = STORAGE_KEYS.PROVIDER.MODEL_CAPABILITY_PROBES
-
 const PROBE_TIMEOUT_MS = 30_000
 export const TOOL_CALLING_PROBE_VERSION = 3
 
@@ -90,8 +85,7 @@ export const capabilityProbeKey = (
 ): string => `${providerId}::${modelName}`
 
 export const getAllCapabilityProbes = async (): Promise<CapabilityProbeMap> => {
-  const stored = await getPlasmoStoredValue<CapabilityProbeMap>(STORAGE_KEY)
-  return stored ?? {}
+  return { ...(await readSetting(POLICY_SETTINGS.MODEL_CAPABILITY_PROBES)) }
 }
 
 export const getCapabilityProbe = async (
@@ -142,7 +136,7 @@ export const setCapabilityProbe = (
             toolCallingProbeVersion: TOOL_CALLING_PROBE_VERSION
           }
     all[key] = { ...all[key], ...versionedResult }
-    await setPlasmoStoredValue(STORAGE_KEY, all)
+    await writeSetting(POLICY_SETTINGS.MODEL_CAPABILITY_PROBES, all)
   })
 
 export const clearCapabilityProbe = (
@@ -154,7 +148,7 @@ export const clearCapabilityProbe = (
     const key = capabilityProbeKey(providerId, modelName)
     if (key in all) {
       delete all[key]
-      await setPlasmoStoredValue(STORAGE_KEY, all)
+      await writeSetting(POLICY_SETTINGS.MODEL_CAPABILITY_PROBES, all)
     }
   })
 
@@ -175,7 +169,8 @@ export const clearCapabilityProbesForProvider = (
         changed = true
       }
     }
-    if (changed) await setPlasmoStoredValue(STORAGE_KEY, all)
+    if (changed)
+      await writeSetting(POLICY_SETTINGS.MODEL_CAPABILITY_PROBES, all)
   })
 
 /**

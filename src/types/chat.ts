@@ -1,4 +1,5 @@
 import type { AppFailure } from "@ollama-client/contracts/app-failure"
+import type { OptionalApiPermission } from "@/lib/permissions"
 import type { ToolCall } from "@/lib/tools/types"
 import type { SelectedModelRef } from "@/types/model"
 
@@ -72,6 +73,19 @@ export interface UsedContextChunk {
 export interface RagSources {
   sources: RagSource[]
   query: string
+}
+
+export interface PermissionNotice {
+  capabilityId:
+    | "bookmarks"
+    | "history"
+    | "downloads"
+    | "tabGroups"
+    | "sessions"
+    | "reminders"
+  focusId: string
+  labelKey: string
+  missingPermissions: OptionalApiPermission[]
 }
 
 export interface ActivityEvent {
@@ -185,6 +199,8 @@ export interface ChatMessage {
      * the transient, non-persisted {@link ChatMessage.error}.
      */
     interrupted?: boolean
+    /** App-owned recovery card; never model output or model context. */
+    permissionNotice?: PermissionNotice
   }
   parentId?: number | string
   childrenIds?: Array<number | string>
