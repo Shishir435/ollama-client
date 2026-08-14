@@ -1,6 +1,6 @@
 # Release Roadmap
 
-Last reviewed: 2026-08-11
+Last reviewed: 2026-08-14
 
 This file tracks unfinished release and product work. Completed implementation
 history belongs in the changelog and merged pull requests, while durable
@@ -15,8 +15,9 @@ Release work merges into `preview` for validation; only `preview` merges into
 
 | Version | Remaining work | Status |
 | --- | --- | --- |
-| `0.13.0` | Close the architecture-audit release blockers, soak on `preview`, then promote to `main` | Hardening required |
-| `0.13.x` | Finish the focused non-blocking architecture follow-ups below | Incremental |
+| `0.13.0` | Promote the verified `preview` release to `main` and publish the final artifacts | Release-ready |
+| `0.13.1` | Make the extension more context-aware and intelligent while preserving supervised, local-first behavior | Next product phase |
+| `0.13.x` | Maintain the completed runtime foundation and address only evidence-backed regressions | Maintenance |
 | `0.14.x` | Build the supervised browser agent | Planned |
 | Later | Remove compatibility paths only when ledger evidence permits | Evidence-gated |
 
@@ -29,39 +30,18 @@ boundaries automatically.
 
 ## `0.13.0` architecture-audit closure
 
-The 2026-08-09 branch audit rated the architecture **7.5/10**. The target for
-`0.13.0` is **9+/10**, meaning the release has no known Critical or High
-architecture findings, privileged boundaries reject invalid callers and
-payloads by construction, durable lifecycle intent survives worker loss, and
-growth/recovery behavior is measured rather than assumed.
+The architecture-audit release work is substantially complete. The `0.13.0`
+gate requires no known Critical or High architecture findings, privileged
+boundaries that reject invalid callers and payloads by construction, durable
+lifecycle intent that survives worker loss, and measured growth/recovery
+behavior rather than assumptions.
 
-This section is release-blocking. Complete it in the order below because later
-phases depend on the trust, startup, and lifecycle guarantees established by
-earlier ones. Each phase must merge independently with the application usable
-and all existing compatibility behavior preserved.
+The implementation sequence and non-blocking follow-ups are complete. Their
+history belongs in `CHANGELOG.md` and the merged pull requests rather than this
+active roadmap. The only remaining `0.13.0` work is release promotion and
+evidence on the exact commit that will be tagged.
 
-### Pull-request sequence
-
-Use seven implementation pull requests plus one release-evidence pull request.
-Do not combine them into one architecture branch: each PR must leave the
-release usable and establish the tests required by its successor.
-
-1. ~~**Persistence trust boundary (H0 + H1)**~~ — landed in #253.
-2. ~~**Persistence readiness (H2)**~~ — landed in #255.
-3. ~~**Durable turn lifecycle (H3)**~~ — landed.
-4. ~~**Durable turn retention (H4)**~~ — landed.
-5. ~~**Provider discovery policy (H5)**~~ — landed.
-6. ~~**Durable turn composition (H6)**~~ — landed.
-7. ~~**Boundary type/error closure (H7)**~~ — landed.
-8. **Release evidence (H8):** run full Chrome/Firefox gates, record `preview`
-   soak evidence, update release documentation, and promote only when the 9+/10
-   criteria pass.
-
-Critical path: **PR 8**, which is release evidence rather than code.
-
-### H8 — Release verification and 9+/10 gate
-
-Scope: M. Behavior change: none. Dependencies: none outstanding.
+### Release verification gate
 
 Required automated gates:
 
@@ -95,7 +75,7 @@ Required soak evidence on `preview`:
   migration, durable recovery, and compaction without recording chat/page/file
   contents or credentials.
 
-`0.13.0` earns the **9+/10** architecture rating only when:
+`0.13.0` may be promoted only when:
 
 1. All Critical and High audit findings are fixed and regression-guarded.
 2. Persistence and application RPC share equivalent sender, schema, timeout,
@@ -109,81 +89,62 @@ Required soak evidence on `preview`:
 8. Full Chrome/Firefox release gates and `preview` soak pass with recorded
    evidence.
 
-The score does **not** require eliminating every Medium/Low cleanup item. It
-does require each remaining item to have one clear owner, bounded risk, a
-regression guard where practical, and an explicit later milestone below.
+The gate does **not** require eliminating every cleanup opportunity. Remaining
+items need one clear owner, bounded risk, and regression protection where
+practical; they are not release blockers without concrete failure evidence.
 
-## Remaining foundation follow-ups
+## `0.13.1` awareness and intelligence
 
-These are bounded improvements after H4–H8, not additional `0.13.0` release
-blockers and not authorization for a repository-wide rewrite.
+With the runtime, persistence, provider, and recovery foundation established,
+`0.13.1` shifts from architecture hardening to product intelligence. The goal
+is an assistant that understands the user's intent and available context more
+reliably without becoming silently autonomous.
 
-### Chat stream presentation boundary
+### Context awareness
 
-`src/features/chat/hooks/use-chat-stream.ts` still combines port lifecycle,
-reconnect and stop behavior, reducer effects, error presentation, and browser
-side effects.
+- Select relevant page, tab, file, knowledge, and conversation context with
+  explicit source attribution.
+- Avoid injecting unrelated context merely because it is available.
+- Detect stale, missing, conflicting, or insufficient context and explain the
+  limitation instead of guessing.
+- Preserve local-first processing and existing privacy controls.
 
-- Extract a framework-independent stream transport/session client around the
-  existing schemas and pure reducer.
-- Leave React state, translated errors, issue links, and other presentation
-  effects in a thin hook adapter.
-- Preserve restart, reconnect, stop, completion, and legacy-stream behavior with
-  characterization tests throughout the extraction.
+### Intelligent retrieval and memory
 
-### Turn submission boundary
+- Improve query classification, reformulation, retrieval routing, and fallback
+  decisions using measurable evidence.
+- Use memory only when it is relevant to the current intent, and keep the user
+  in control of what is remembered or retrieved.
+- Preserve provider/model/dimension identity through embedding and retrieval
+  so intelligent routing cannot mix incompatible evidence.
+- Surface why a source was selected when that explanation helps the user judge
+  the answer.
 
-`src/features/chat/hooks/use-chat-turn-controller.ts` still combines UI
-preconditions, session and user-message preparation, persistence error
-presentation, and durable command construction.
+### Capability-aware behavior
 
-- Move deterministic submission preparation and durable command construction
-  behind a tested application boundary.
-- Keep React state and translated toast presentation in the hook.
-- Keep `use-chat.ts` as composition and wiring only.
+- Adapt prompts, tools, reasoning, vision, embeddings, and context budgets to
+  verified model and provider capabilities.
+- Prefer empirical evidence and user overrides over provider-name guesses.
+- Degrade gracefully when a provider lacks model discovery, tools, vision, or
+  embeddings.
+- Keep external effects behind the existing policy and approval boundaries.
 
-### Cancellable startup recovery — landed
+### Quality gates
 
-Startup recovery tasks now carry an `AbortSignal`. A deadline requests
-cancellation, and the supervisor waits for the task to acknowledge it before
-the same worker advances, so schema replacement and migration cannot overlap a
-successor.
+- Measure retrieval relevance, context precision, grounded-answer quality,
+  fallback frequency, latency, and local-model behavior.
+- Add regression fixtures for context selection, memory relevance, conflicting
+  sources, malformed embedding responses, and cancellation during retrieval.
+- Treat intelligent behavior as a tested application policy, not additional
+  logic embedded in React components or browser message handlers.
 
-- Cancellation is threaded through backup-import recovery, provider migration,
-  the embedding-dimension migration, and durable workflow recovery.
-- Timeout and cancellation acknowledgment produce privacy-bounded diagnostics;
-  supervisor interruption leaves durable user jobs resumable.
+Non-goals for `0.13.1`:
 
-### Structured settings validation
-
-Raw `plasmoGlobalStorage` access remains widespread, while schema-backed
-descriptors cover only part of the settings surface.
-
-- Migrate high-risk structured values first and validate persisted/imported
-  shapes at runtime.
-- Preserve sync-versus-local ownership from `storage-key-registry.ts`.
-- Move simple values opportunistically; do not use a flag-day migration.
-
-### Provider manager decomposition — landed
-
-`src/lib/providers/manager.ts` remains the public CRUD/routing facade while
-config recovery, mapping persistence, and compatibility migration live in
-private collaborators.
-
-- Existing characterization coverage still drives the facade end to end.
-- An architecture guard prevents raw storage and compatibility-key logic from
-  returning to the manager.
-- Unknown-field preservation, journal recovery, and secret handling remain
-  unchanged.
-
-### Message router decomposition
-
-`src/background/message-router.ts` remains the authorized switch for retained
-one-way and content-script traffic.
-
-- Keep request/response provider and model operations on typed extension RPC.
-- Move retained case bodies to named handlers without widening sender policy.
-- Preserve registry and source-policy contract tests.
+- Hidden autonomous browsing or side effects.
+- Unbounded background memory or prompt accumulation.
+- Persisting hidden chain of thought.
+- Provider-specific guesses presented as verified capability.
+- A new agent framework before the supervised `0.14.x` phases.
 
 ## `0.14.x` browser-agent phases
 
