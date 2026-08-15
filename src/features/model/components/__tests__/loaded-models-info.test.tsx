@@ -122,4 +122,47 @@ describe("LoadedModelsInfo concurrent fetches", () => {
       expect(screen.queryByText("gone-model")).not.toBeInTheDocument()
     })
   })
+
+  /**
+   * The invalidated request is still the newest one in flight, so it has to
+   * clear the progress flags it set. Nothing newer exists to do it for them.
+   */
+  it("clears the loading state when an unload invalidates the in-flight fetch", async () => {
+    const inFlight = deferred<{ models: ReturnType<typeof model>[] }>()
+
+    mockedCall.mockReturnValueOnce({
+      models: [model("gone-model")]
+    } as never)
+
+    const { container } = render(<LoadedModelsInfo />)
+    expandPanel()
+    await waitFor(() => {
+      expect(screen.getByText("gone-model")).toBeInTheDocument()
+    })
+
+    mockedCall.mockReturnValueOnce(inFlight.promise as never)
+    document.dispatchEvent(new Event("visibilitychange"))
+    await waitFor(() => {
+      expect(
+        container.querySelectorAll(".animate-spin").length
+      ).toBeGreaterThan(0)
+    })
+
+    mockedCall.mockResolvedValueOnce({ unloaded: true } as never)
+    fireEvent.click(
+      screen.getByLabelText("settings.loaded_models.unload_tooltip")
+    )
+    await waitFor(() => {
+      expect(mockedCall).toHaveBeenCalledWith(
+        RpcMethod.ModelsUnload,
+        expect.objectContaining({ model: "gone-model" })
+      )
+    })
+
+    inFlight.resolve({ models: [model("gone-model")] })
+
+    await waitFor(() => {
+      expect(container.querySelectorAll(".animate-spin")).toHaveLength(0)
+    })
+  })
 })
