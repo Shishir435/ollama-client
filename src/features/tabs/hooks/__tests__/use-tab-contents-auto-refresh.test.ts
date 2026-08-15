@@ -189,4 +189,55 @@ describe("useTabContents auto refresh", () => {
 
     unmount()
   })
+
+  /**
+   * The transcript fetch has no timeout, so an extraction can stay pending
+   * indefinitely. A sweep-wide in-flight flag turned that into a permanent
+   * stall for every selected tab; the guard has to be per tab.
+   *
+   * The hang has to begin inside a sweep to matter: an extraction already
+   * running when the sweep starts is skipped by the per-tab guard, so the
+   * sweep would settle normally.
+   */
+  it("keeps refreshing other tabs when a sweep extraction never settles", async () => {
+    const stuckTabId = freshTabId()
+    const healthyTabId = freshTabId()
+    useSelectedTabsStore.setState({
+      selectedTabIds: [String(stuckTabId), String(healthyTabId)],
+      errors: {}
+    })
+
+    let stuckCalls = 0
+    sendMessage.mockImplementation((tabId: number) => {
+      if (tabId !== stuckTabId) {
+        return Promise.resolve({ html: "<p>ok</p>", title: "OK" })
+      }
+      stuckCalls += 1
+      // The mount read completes; the first sweep read never does.
+      if (stuckCalls === 1) {
+        return Promise.resolve({ html: "<p>s</p>", title: "S" })
+      }
+      return new Promise(() => {})
+    })
+
+    const { unmount } = renderHook(() => useTabContents())
+    await flush()
+
+    const healthyCalls = () =>
+      sendMessage.mock.calls.filter(([tabId]) => tabId === healthyTabId).length
+
+    // First sweep: the stuck tab starts an extraction that never settles.
+    await tick()
+    const afterFirstSweep = healthyCalls()
+    expect(stuckCalls).toBeGreaterThan(1)
+
+    // Later sweeps must still reach the healthy tab. A sweep-wide flag would
+    // have been left set by the first sweep and skipped everything from here.
+    await tick()
+    expect(healthyCalls()).toBeGreaterThan(afterFirstSweep)
+
+    await tick()
+    expect(healthyCalls()).toBeGreaterThan(afterFirstSweep + 1)
+    unmount()
+  })
 })

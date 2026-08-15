@@ -207,7 +207,6 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
  */
 let autoRefreshSubscribers = 0
 let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
-let autoRefreshInFlight = false
 
 /**
  * Latest known title/url per tab. Every consumer reads the same `useOpenTabs`
@@ -216,31 +215,31 @@ let autoRefreshInFlight = false
  */
 let knownTabs: Record<number, { title?: string; url?: string }> = {}
 
+/**
+ * Overrun is guarded per tab, not per sweep.
+ *
+ * `fetchTabContent` already returns early while a tab has an extraction in
+ * flight, and `force` cannot bypass that — which is the whole of what stacking
+ * protection needs, since each tab's extraction is independent.
+ *
+ * A single global in-flight flag looked equivalent and was not: one tab whose
+ * extraction never settles (the transcript fetch has no timeout) would hold the
+ * flag forever, and every later sweep would skip *every* selected tab until the
+ * extension context reloaded. Scoped to the tab, a hung extraction blocks only
+ * the tab it belongs to.
+ */
 const runAutoRefreshSweep = () => {
-  // A sweep that overruns the interval must not stack another one on top.
-  if (autoRefreshInFlight) return
   if (typeof document !== "undefined" && document.hidden) return
 
   const { selectedTabIds, setErrors } = useSelectedTabsStore.getState()
   if (selectedTabIds.length === 0) return
 
   const { fetchTabContent } = useTabFetchingStore.getState()
-  autoRefreshInFlight = true
-  void Promise.all(
-    selectedTabIds.map((id) => {
-      const tabId = parseInt(id, 10)
-      const known = knownTabs[tabId]
-      return fetchTabContent(
-        tabId,
-        known?.title || "",
-        known?.url,
-        setErrors,
-        true
-      )
-    })
-  ).finally(() => {
-    autoRefreshInFlight = false
-  })
+  for (const id of selectedTabIds) {
+    const tabId = parseInt(id, 10)
+    const known = knownTabs[tabId]
+    void fetchTabContent(tabId, known?.title || "", known?.url, setErrors, true)
+  }
 }
 
 const handleAutoRefreshVisibility = () => {
