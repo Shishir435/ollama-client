@@ -1,3 +1,7 @@
+import {
+  PROVIDER_MODEL_CLOUD_DESCRIPTION_MAX_LENGTH,
+  PROVIDER_MODEL_CLOUD_PLAN_MAX_LENGTH
+} from "@ollama-client/contracts/provider-rpc"
 import { z } from "zod"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
@@ -43,6 +47,16 @@ const OLLAMA_CLOUD_RECOMMENDATIONS_TIMEOUT_MS = 1_500
 const OLLAMA_CLOUD_RECOMMENDATIONS_RETRY_TTL_MS = 30_000
 
 const OptionalString = z.string().optional().catch(undefined)
+const OptionalCloudDescription = z
+  .string()
+  .max(PROVIDER_MODEL_CLOUD_DESCRIPTION_MAX_LENGTH)
+  .optional()
+  .catch(undefined)
+const OptionalCloudPlan = z
+  .string()
+  .max(PROVIDER_MODEL_CLOUD_PLAN_MAX_LENGTH)
+  .optional()
+  .catch(undefined)
 const OllamaModelCatalogSchema = z
   .object({
     models: z.array(
@@ -94,7 +108,10 @@ const OllamaCloudRecommendationsSchema = z
       z
         .object({
           model: z.string().min(1),
-          description: OptionalString,
+          // Match the provider RPC boundary exactly. Supplemental metadata
+          // that is malformed or oversized is dropped here so it can never
+          // invalidate the successfully discovered local catalog later.
+          description: OptionalCloudDescription,
           context_length: z
             .number()
             .int()
@@ -107,7 +124,7 @@ const OllamaCloudRecommendationsSchema = z
             .positive()
             .optional()
             .catch(undefined),
-          required_plan: OptionalString
+          required_plan: OptionalCloudPlan
         })
         .passthrough()
     )

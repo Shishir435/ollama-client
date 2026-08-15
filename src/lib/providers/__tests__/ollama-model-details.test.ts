@@ -1,5 +1,5 @@
+import { ProvidersListModelsResultSchema } from "@ollama-client/contracts/provider-rpc"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import { clearOllamaDetailBackfillCache, OllamaProvider } from "../ollama"
 import { ProviderId, ProviderType } from "../types"
 
@@ -301,6 +301,39 @@ describe("OllamaProvider.getModels cloud recommendations", () => {
     const models = await makeProvider().getModels()
 
     expect(models.map(({ name }) => name)).toEqual(["gemma4:12b"])
+  })
+
+  it("drops oversized metadata before the provider RPC boundary", async () => {
+    vi.mocked(fetch).mockImplementation((url) => {
+      if (String(url).endsWith("/api/tags")) {
+        return Promise.resolve(
+          jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
+        )
+      }
+      if (String(url).endsWith("/api/experimental/model-recommendations")) {
+        return Promise.resolve(
+          jsonOk({
+            recommendations: [
+              {
+                model: "minimax-m3:cloud",
+                description: "d".repeat(2_001),
+                required_plan: "p".repeat(65),
+                max_output_tokens: 131072
+              }
+            ]
+          })
+        )
+      }
+      return Promise.resolve({ ok: false, status: 404 } as Response)
+    })
+
+    const models = await makeProvider().getModels()
+
+    expect(models).toHaveLength(2)
+    expect(models[1].cloud).toEqual({ maxOutputTokens: 131072 })
+    expect(() =>
+      ProvidersListModelsResultSchema.parse({ models, failures: [] })
+    ).not.toThrow()
   })
 
   it("never rewrites a model already returned by local discovery", async () => {

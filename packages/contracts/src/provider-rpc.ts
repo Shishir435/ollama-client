@@ -69,6 +69,9 @@ export const ProviderDraftInputSchema = ProviderConfigInputSchema.omit({
 /** @see ProviderDraftInputSchema */
 export type ProviderDraftInput = z.infer<typeof ProviderDraftInputSchema>
 
+export const PROVIDER_MODEL_CLOUD_DESCRIPTION_MAX_LENGTH = 2_000
+export const PROVIDER_MODEL_CLOUD_PLAN_MAX_LENGTH = 64
+
 const ProviderModelSchema = z
   .object({
     name: z.string().min(1),
@@ -81,8 +84,14 @@ const ProviderModelSchema = z
     providerBrand: z.string().max(64).nullish(),
     cloud: z
       .object({
-        description: z.string().max(2_000).nullish(),
-        requiredPlan: z.string().max(64).nullish(),
+        description: z
+          .string()
+          .max(PROVIDER_MODEL_CLOUD_DESCRIPTION_MAX_LENGTH)
+          .nullish(),
+        requiredPlan: z
+          .string()
+          .max(PROVIDER_MODEL_CLOUD_PLAN_MAX_LENGTH)
+          .nullish(),
         maxOutputTokens: z.number().int().positive().nullish()
       })
       .nullish(),
