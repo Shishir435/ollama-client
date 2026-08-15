@@ -1,7 +1,10 @@
 import { useCallback, useEffect } from "react"
 import { create } from "zustand"
 import { useOpenTabs } from "@/features/tabs/hooks/use-open-tab"
-import { useSelectedTabs } from "@/features/tabs/stores/selected-tabs-store"
+import {
+  useSelectedTabs,
+  useSelectedTabsStore
+} from "@/features/tabs/stores/selected-tabs-store"
 import { useSetting } from "@/hooks/use-setting"
 import {
   blockedTabAccessMessage,
@@ -57,13 +60,12 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
     force = false
   ) => {
     const state = get()
-    // Deduplicate: if already fetched or in-flight across ANY hook instance, abort.
-    if (
-      !force &&
-      (state.fetchedIds.includes(tabId) || state.loadingIds[tabId])
-    ) {
-      return
-    }
+    // An in-flight extraction is not a cache, so `force` does not override it:
+    // it means "ignore the cached signature", never "scroll and re-read a page
+    // that is already being scrolled and read".
+    if (state.loadingIds[tabId]) return
+    // Deduplicate: if already fetched across ANY hook instance, abort.
+    if (!force && state.fetchedIds.includes(tabId)) return
 
     if (tabUrl && !isContentScriptReadableUrl(tabUrl)) {
       setErrors((prev) => ({
@@ -74,7 +76,9 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
     }
 
     set((s) => ({
-      fetchedIds: [...s.fetchedIds, tabId],
+      fetchedIds: s.fetchedIds.includes(tabId)
+        ? s.fetchedIds
+        : [...s.fetchedIds, tabId],
       loadingIds: { ...s.loadingIds, [tabId]: true }
     }))
 
@@ -85,9 +89,23 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
 
       const html = response?.html || ""
       const title = response?.title || fallbackTitle || "Untitled"
-      const prevHash = state.tabContents[tabId]?.extractionDebug?.contentHash
+      const previous = get().tabContents[tabId]
+      const prevHash = previous?.extractionDebug?.contentHash
       const nextHash = response?.extractionDebug?.contentHash
       const didChange = !!prevHash && !!nextHash && prevHash !== nextHash
+
+      // Same hash, same title: the page did not change, so keep the entry we
+      // already hold. Rewriting it would hand every consumer a new object and
+      // rebuild the whole tab context for content that is byte-identical.
+      if (
+        previous &&
+        prevHash &&
+        prevHash === nextHash &&
+        previous.title === title
+      ) {
+        set((s) => ({ loadingIds: { ...s.loadingIds, [tabId]: false } }))
+        return
+      }
 
       set((s) => ({
         tabContents: {
@@ -179,6 +197,87 @@ const useTabFetchingStore = create<TabFetchingState>((set, get) => ({
   }
 }))
 
+/**
+ * Auto-refresh runs on ONE module-level timer, not one per mounted hook.
+ *
+ * `useTabContents` has several simultaneous consumers, and a timer in the hook
+ * body meant N of them scheduled N sweeps — each of which scrolls the host page
+ * and holds a document-wide MutationObserver. Subscribers are reference
+ * counted: the timer starts with the first and stops with the last.
+ */
+let autoRefreshSubscribers = 0
+let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
+let autoRefreshInFlight = false
+
+/**
+ * Latest known title/url per tab. Every consumer reads the same `useOpenTabs`
+ * data, so the sweep can take it from here instead of from whichever hook
+ * instance happened to register the timer.
+ */
+let knownTabs: Record<number, { title?: string; url?: string }> = {}
+
+const runAutoRefreshSweep = () => {
+  // A sweep that overruns the interval must not stack another one on top.
+  if (autoRefreshInFlight) return
+  if (typeof document !== "undefined" && document.hidden) return
+
+  const { selectedTabIds, setErrors } = useSelectedTabsStore.getState()
+  if (selectedTabIds.length === 0) return
+
+  const { fetchTabContent } = useTabFetchingStore.getState()
+  autoRefreshInFlight = true
+  void Promise.all(
+    selectedTabIds.map((id) => {
+      const tabId = parseInt(id, 10)
+      const known = knownTabs[tabId]
+      return fetchTabContent(
+        tabId,
+        known?.title || "",
+        known?.url,
+        setErrors,
+        true
+      )
+    })
+  ).finally(() => {
+    autoRefreshInFlight = false
+  })
+}
+
+const handleAutoRefreshVisibility = () => {
+  if (!document.hidden) runAutoRefreshSweep()
+}
+
+const subscribeAutoRefresh = (): (() => void) => {
+  autoRefreshSubscribers += 1
+  if (autoRefreshSubscribers === 1) {
+    autoRefreshTimer = setInterval(
+      runAutoRefreshSweep,
+      TAB_CONTENT_REFRESH_INTERVAL_MS
+    )
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleAutoRefreshVisibility)
+    }
+  }
+
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+    autoRefreshSubscribers = Math.max(0, autoRefreshSubscribers - 1)
+    if (autoRefreshSubscribers > 0) return
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer)
+      autoRefreshTimer = null
+    }
+    if (typeof document !== "undefined") {
+      document.removeEventListener(
+        "visibilitychange",
+        handleAutoRefreshVisibility
+      )
+    }
+  }
+}
+
 export const useTabContents = () => {
   const { selectedTabIds, errors, setErrors } = useSelectedTabs()
   const {
@@ -226,30 +325,23 @@ export const useTabContents = () => {
   const [autoRefreshTabContext] = useSetting(SETTINGS.AUTO_REFRESH_TAB_CONTEXT)
 
   useEffect(() => {
-    if (!autoRefreshTabContext || selectedTabIds.length === 0) return
-    const interval = setInterval(() => {
-      selectedTabIds
-        .map((id) => parseInt(id, 10))
-        .forEach((tabId) => {
-          fetchTabContent(
-            tabId,
-            getTabTitle(tabId),
-            getTabUrl(tabId),
-            setErrors,
-            true
-          )
-        })
-    }, TAB_CONTENT_REFRESH_INTERVAL_MS)
+    const next: Record<number, { title?: string; url?: string }> = {}
+    for (const tab of openTabs) {
+      if (tab.id === undefined) continue
+      next[tab.id] = { title: tab.title, url: tab.url }
+    }
+    knownTabs = next
+  }, [openTabs])
 
-    return () => clearInterval(interval)
-  }, [
-    autoRefreshTabContext,
-    selectedTabIds,
-    fetchTabContent,
-    getTabTitle,
-    getTabUrl,
-    setErrors
-  ])
+  /*
+   * Deliberately keyed on the setting alone. The sweep reads the current
+   * selection and the current tab titles from module state, so a selection
+   * change must not tear the shared timer down and restart its interval.
+   */
+  useEffect(() => {
+    if (!autoRefreshTabContext) return
+    return subscribeAutoRefresh()
+  }, [autoRefreshTabContext])
 
   const refreshSelectedTabContents = async () => {
     await Promise.all(

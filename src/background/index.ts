@@ -4,6 +4,7 @@ import { registerMessageRouter } from "@/background/message-router"
 import { startPersistenceTopology } from "@/background/persistence-readiness"
 import { registerPortRouter } from "@/background/port-router"
 import { initializeBackgroundStartup } from "@/background/startup"
+import { registerTabLifecycle } from "@/background/tab-lifecycle"
 
 /**
  * The persistence topology starts first and hands its readiness to startup,
@@ -17,6 +18,7 @@ const persistenceReady = startPersistenceTopology()
 initializeBackgroundStartup(persistenceReady)
 registerPortRouter()
 registerMessageRouter()
+registerTabLifecycle()
 
 /**
  * Dev-only section 9.4 spike host (offscreen OPFS owner). The flag is false
