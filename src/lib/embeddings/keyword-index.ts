@@ -3,14 +3,47 @@ import { logger } from "@/lib/logger"
 import type { VectorDocument } from "./vector-store"
 
 /**
- * Keyword search result
+ * What the index retains per document.
+ *
+ * Deliberately not a `VectorDocument`: the full row carries `embedding` and
+ * `normalizedEmbedding`, two float arrays that a BM25 index never reads. The
+ * index held both for every document in the corpus, in JS `number[]` (float64,
+ * twice the width of the Float32Array copy the ANN backend already keeps), on
+ * top of MiniSearch's own stored content — the largest resident allocation in
+ * the extension, for data that is already in IndexedDB.
+ *
+ * `embeddingDim` is captured at add time because candidate filtering needs the
+ * dimension and `metadata.embeddingDim` is absent on older rows, where the
+ * fallback was `document.embedding.length`. Keeping it here is what lets
+ * filtering stay synchronous after the arrays are dropped.
+ */
+export interface KeywordIndexDocument {
+  id?: number
+  content: string
+  embeddingDim: number
+  metadata: VectorDocument["metadata"]
+}
+
+/**
+ * Keyword search result.
+ *
+ * `document` is the retained projection, not the stored row. Callers that need
+ * the vectors — reranking, fusion output — must rehydrate the surviving
+ * candidates from IndexedDB; see `hydrateKeywordCandidates` in `search.ts`.
  */
 export interface KeywordSearchResult {
   id: number
   score: number
-  document: VectorDocument
+  document: KeywordIndexDocument
   terms: string[] // Matched keywords
 }
+
+const toIndexDocument = (document: VectorDocument): KeywordIndexDocument => ({
+  id: document.id,
+  content: document.content,
+  embeddingDim: document.metadata.embeddingDim ?? document.embedding.length,
+  metadata: document.metadata
+})
 
 /**
  * Keyword Index for full-text search using BM25 algorithm
@@ -18,7 +51,9 @@ export interface KeywordSearchResult {
  */
 class KeywordIndexManager {
   private index: MiniSearch<{ id: number; content: string; timestamp: number }>
-  private documents: Map<number, VectorDocument> = new Map()
+  private documents: Map<number, KeywordIndexDocument> = new Map()
+  /** Running total of retained content, so stats never walk the corpus. */
+  private retainedContentChars = 0
 
   constructor() {
     this.index = new MiniSearch({
@@ -44,7 +79,9 @@ class KeywordIndexManager {
         this.removeDocument(id)
       }
 
-      this.documents.set(id, document)
+      const projected = toIndexDocument(document)
+      this.documents.set(id, projected)
+      this.retainedContentChars += projected.content.length
       this.index.add({
         id,
         content: content.toLowerCase(), // Normalize for better matching
@@ -101,13 +138,15 @@ class KeywordIndexManager {
    */
   removeDocument(id: number): void {
     try {
-      if (this.documents.has(id)) {
+      const existing = this.documents.get(id)
+      if (existing) {
         this.index.remove({ id } as {
           id: number
           content: string
           timestamp: number
         })
         this.documents.delete(id)
+        this.retainedContentChars -= existing.content.length
       }
     } catch (error) {
       logger.error(
@@ -124,19 +163,25 @@ class KeywordIndexManager {
   clear(): void {
     this.index.removeAll()
     this.documents.clear()
+    this.retainedContentChars = 0
     logger.verbose("Keyword index cleared", "KeywordIndex")
   }
 
   /**
-   * Get index statistics
+   * Get index statistics.
+   *
+   * `memorySizeMB` is estimated from a running character count. It used to
+   * `JSON.stringify` every retained document — including both embedding arrays,
+   * rendered as decimal text — which allocated a string several times the size
+   * of the corpus purely to produce a diagnostic number, on a path reached from
+   * search warm-up.
    */
   getStats() {
     return {
       documentCount: this.index.documentCount,
       termCount: this.documents.size,
       memorySizeMB:
-        (JSON.stringify(Array.from(this.documents.values())).length +
-          this.index.documentCount * 100) /
+        (this.retainedContentChars * 2 + this.index.documentCount * 100) /
         (1024 * 1024)
     }
   }

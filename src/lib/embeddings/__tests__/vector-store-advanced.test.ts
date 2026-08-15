@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { KeywordIndexDocument } from "@/lib/embeddings/keyword-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
+import type { VectorDocument } from "@/lib/embeddings/vector-store"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import {
   searchHybrid,
@@ -42,6 +44,19 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: vi.fn()
 }))
 
+/**
+ * Mirrors the projection the real index retains: content + metadata + the
+ * dimension captured at add time, and deliberately no vectors. Keeping the
+ * fixture in this shape is what makes these mocks exercise the rehydration
+ * path instead of handing `searchHybrid` a row it no longer receives.
+ */
+const keywordDoc = (doc: VectorDocument): KeywordIndexDocument => ({
+  id: doc.id,
+  content: doc.content,
+  embeddingDim: doc.metadata.embeddingDim ?? doc.embedding.length,
+  metadata: doc.metadata
+})
+
 describe("Vector Store - Advanced Tests", () => {
   beforeEach(async () => {
     await vectorDb.vectors.clear()
@@ -71,7 +86,12 @@ describe("Vector Store - Advanced Tests", () => {
 
       // Mock keyword search results
       vi.mocked(keywordIndexManager.search).mockReturnValue([
-        { id: 1, score: 10, document: doc1 as any, terms: ["apple"] }
+        {
+          id: 1,
+          score: 10,
+          document: keywordDoc(doc1 as never),
+          terms: ["apple"]
+        }
       ])
 
       // Perform hybrid search
@@ -105,7 +125,12 @@ describe("Vector Store - Advanced Tests", () => {
 
       // Keyword search finds doc1
       vi.mocked(keywordIndexManager.search).mockReturnValue([
-        { id: 1, score: 10, document: doc1 as any, terms: ["keyword"] }
+        {
+          id: 1,
+          score: 10,
+          document: keywordDoc(doc1 as never),
+          terms: ["keyword"]
+        }
       ])
 
       // Semantic search (via internal searchSimilarVectors) will find doc2 for embedding [1, 0]
