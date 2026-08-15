@@ -1,3 +1,4 @@
+import type { PermissionResumeSnapshot } from "@ollama-client/contracts/chat"
 import type { TurnMode } from "@ollama-client/contracts/turns"
 import type { DurableContextOptions } from "@/application/context/context-contract"
 import type { DurableTurnStart } from "@/application/turns/turn-contract"
@@ -38,6 +39,30 @@ export type PrepareTurnSubmissionInput =
   | PrepareNewTurnSubmissionInput
   | PrepareReplayTurnSubmissionInput
 
+/**
+ * Keep only send-time context that cannot be recovered from canonical message
+ * rows. The permission notice owns this snapshot until generation starts.
+ */
+export const capturePermissionResumeSnapshot = (
+  turn: DurableTurnStart
+): PermissionResumeSnapshot => {
+  const {
+    messages: _messages,
+    rawInput: _rawInput,
+    ...context
+  } = turn.submission.request.context
+  return {
+    version: 1,
+    turnId: turn.submission.id,
+    model: turn.submission.model,
+    ...(turn.submission.providerId
+      ? { providerId: turn.submission.providerId }
+      : {}),
+    createdAt: turn.submission.createdAt,
+    context
+  }
+}
+
 const replaySource = (
   messages: ChatMessage[]
 ):
@@ -53,6 +78,39 @@ const replaySource = (
     }
   }
   return undefined
+}
+
+/** Rebuild the original new turn after its optional permission is granted. */
+export const preparePermissionResumeSubmission = (input: {
+  snapshot: PermissionResumeSnapshot
+  sessionId: string
+  contextMessages: ChatMessage[]
+}): DurableTurnStart | undefined => {
+  const replay = replaySource(input.contextMessages)
+  if (!replay) return undefined
+
+  return {
+    submission: {
+      id: input.snapshot.turnId,
+      sessionId: input.sessionId,
+      mode: "new",
+      model: input.snapshot.model,
+      ...(input.snapshot.providerId
+        ? { providerId: input.snapshot.providerId }
+        : {}),
+      request: {
+        version: 1,
+        context: {
+          rawInput: replay.userMessage.content,
+          messages: replay.priorMessages,
+          ...input.snapshot.context
+        },
+        userMessage: replay.userMessage
+      },
+      createdAt: input.snapshot.createdAt
+    },
+    userMessageId: replay.userMessage.id
+  }
 }
 
 export function prepareTurnSubmission(

@@ -1,4 +1,5 @@
 import type { AppFailure } from "@ollama-client/contracts/app-failure"
+import type { PermissionResumeSnapshot } from "@ollama-client/contracts/chat"
 import type { OptionalApiPermission } from "@/lib/permissions"
 import type { ToolCall } from "@/lib/tools/types"
 import type { SelectedModelRef } from "@/types/model"
@@ -86,6 +87,10 @@ export interface PermissionNotice {
   focusId: string
   labelKey: string
   missingPermissions: OptionalApiPermission[]
+  /** Send-time context needed to resume after optional access is granted. */
+  resume?: PermissionResumeSnapshot
+  /** Successful resume marker; resolved notices remain as tree anchors. */
+  resolvedAt?: number
 }
 
 export interface ActivityEvent {

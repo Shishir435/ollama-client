@@ -1,7 +1,10 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ACTIVITY_LABELS } from "@/application/context/activity-labels"
-import { prepareTurnSubmission } from "@/application/turns/prepare-turn-submission"
+import {
+  capturePermissionResumeSnapshot,
+  prepareTurnSubmission
+} from "@/application/turns/prepare-turn-submission"
 import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import {
   buildUserMessage,
@@ -200,37 +203,6 @@ export const useChatTurnController = ({
       logger.error("Failed to rename chat session", "useChat", { error })
     }
 
-    if (permissionNotice) {
-      const feature = t(permissionNotice.labelKey)
-      try {
-        await addMessage(sessionId, {
-          role: "assistant",
-          content: t("chat.permissions.disabled_notice", { feature }),
-          done: true,
-          model: resolvedModel,
-          metrics: { permissionNotice }
-        })
-      } catch (error) {
-        logger.error("Failed to persist permission notice", "useChat", {
-          error
-        })
-        toast({
-          variant: "destructive",
-          title: t("chat.errors.message_save_failed_title"),
-          description: t("chat.errors.message_save_failed_description")
-        })
-        setPendingActivityEvents([])
-        setIsLoading(false)
-        releaseResponseStreamClaim(streamClaim)
-        return false
-      }
-
-      setPendingActivityEvents([])
-      setIsLoading(false)
-      releaseResponseStreamClaim(streamClaim)
-      return true
-    }
-
     const turnId =
       globalThis.crypto?.randomUUID?.() ??
       `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -262,6 +234,42 @@ export const useChatTurnController = ({
       tabDocuments,
       groundedOnlyMode: config.groundedOnlyMode
     })
+
+    if (permissionNotice) {
+      const feature = t(permissionNotice.labelKey)
+      try {
+        await addMessage(sessionId, {
+          role: "assistant",
+          content: t("chat.permissions.disabled_notice", { feature }),
+          done: true,
+          model: resolvedModel,
+          metrics: {
+            permissionNotice: {
+              ...permissionNotice,
+              resume: capturePermissionResumeSnapshot(durableTurn)
+            }
+          }
+        })
+      } catch (error) {
+        logger.error("Failed to persist permission notice", "useChat", {
+          error
+        })
+        toast({
+          variant: "destructive",
+          title: t("chat.errors.message_save_failed_title"),
+          description: t("chat.errors.message_save_failed_description")
+        })
+        setPendingActivityEvents([])
+        setIsLoading(false)
+        releaseResponseStreamClaim(streamClaim)
+        return false
+      }
+
+      setPendingActivityEvents([])
+      setIsLoading(false)
+      releaseResponseStreamClaim(streamClaim)
+      return true
+    }
 
     try {
       const submitted = await generateResponse(
