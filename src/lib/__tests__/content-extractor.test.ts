@@ -142,6 +142,56 @@ describe("Content Extractor", () => {
       expect(window.fetch).toBe(originalFetch)
       expect(XMLHttpRequest.prototype.open).toBe(originalOpen)
     })
+
+    it("installs the patch once for concurrent waiters", async () => {
+      const originalFetch = window.fetch
+      const originalOpen = XMLHttpRequest.prototype.open
+
+      const first = waitForNetworkIdle(1000, 5000)
+      const patchedFetch = window.fetch
+      const patchedOpen = XMLHttpRequest.prototype.open
+      expect(patchedFetch).not.toBe(originalFetch)
+
+      const second = waitForNetworkIdle(300, 5000)
+      // The second waiter must not adopt the first waiter's wrapper as its
+      // "original" — that is what left a permanent wrapper chain behind.
+      expect(window.fetch).toBe(patchedFetch)
+      expect(XMLHttpRequest.prototype.open).toBe(patchedOpen)
+
+      await vi.advanceTimersByTimeAsync(300)
+      await second
+
+      // Out-of-order settle: the earlier waiter still needs instrumentation.
+      expect(window.fetch).toBe(patchedFetch)
+
+      await vi.advanceTimersByTimeAsync(700)
+      await first
+
+      expect(window.fetch).toBe(originalFetch)
+      expect(XMLHttpRequest.prototype.open).toBe(originalOpen)
+    })
+
+    it("resets every waiter's idle timer from the single patch", async () => {
+      const settled: string[] = []
+      const first = waitForNetworkIdle(10_000, 200).then(() =>
+        settled.push("first")
+      )
+      const second = waitForNetworkIdle(10_000, 200).then(() =>
+        settled.push("second")
+      )
+
+      await vi.advanceTimersByTimeAsync(150)
+      new XMLHttpRequest().open("GET", "https://example.com/")
+
+      // One request, two waiters: both idle timers restart, so neither settles
+      // at the deadline it had before the request.
+      await vi.advanceTimersByTimeAsync(100)
+      expect(settled).toEqual([])
+
+      await vi.advanceTimersByTimeAsync(150)
+      await Promise.all([first, second])
+      expect(settled).toHaveLength(2)
+    })
   })
 
   describe("extractContentWithLoading", () => {

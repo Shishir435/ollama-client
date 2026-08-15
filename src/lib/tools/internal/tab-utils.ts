@@ -24,9 +24,52 @@ interface TabContentCacheEntry {
   response: PageContentResponse
   url?: string
   title?: string
+  bytes: number
 }
 
+/**
+ * Bounds on the page-content cache.
+ *
+ * Entries hold whole extracted pages, keyed by tab id, in a background context
+ * that on Firefox MV2 never unloads. `browser.tabs.onRemoved` releases a closed
+ * tab's entry, but a long session with many tabs still needs a ceiling, and one
+ * enormous page must not be allowed to occupy the whole budget by itself.
+ */
+const MAX_TAB_CONTENT_CACHE_ENTRIES = 16
+const MAX_CACHED_HTML_BYTES = 1_000_000
+const MAX_TAB_CONTENT_CACHE_BYTES = 4_000_000
+
+/** Insertion order is the LRU order: a hit re-inserts, eviction takes the head. */
 const tabContentCache = new Map<number, TabContentCacheEntry>()
+let tabContentCacheBytes = 0
+
+const entryBytes = (response: PageContentResponse): number =>
+  (response.html?.length ?? 0) + (response.title?.length ?? 0)
+
+const dropCacheEntry = (tabId: number): void => {
+  const existing = tabContentCache.get(tabId)
+  if (!existing) return
+  tabContentCacheBytes -= existing.bytes
+  tabContentCache.delete(tabId)
+}
+
+const evictUntilWithinBounds = (): void => {
+  for (const tabId of [...tabContentCache.keys()]) {
+    if (
+      tabContentCache.size <= MAX_TAB_CONTENT_CACHE_ENTRIES &&
+      tabContentCacheBytes <= MAX_TAB_CONTENT_CACHE_BYTES
+    ) {
+      return
+    }
+    dropCacheEntry(tabId)
+  }
+}
+
+/** Move an entry to the LRU tail so the next eviction takes a colder one. */
+const touchCacheEntry = (tabId: number, entry: TabContentCacheEntry): void => {
+  tabContentCache.delete(tabId)
+  tabContentCache.set(tabId, entry)
+}
 
 const requestPageContent = (tabId: number): Promise<PageContentResponse> =>
   browser.tabs.sendMessage(tabId, {
@@ -82,8 +125,12 @@ const cacheMatches = (
 }
 
 export const clearTabContentCache = (tabId?: number) => {
-  if (tabId === undefined) tabContentCache.clear()
-  else tabContentCache.delete(tabId)
+  if (tabId === undefined) {
+    tabContentCache.clear()
+    tabContentCacheBytes = 0
+    return
+  }
+  dropCacheEntry(tabId)
 }
 
 /**
@@ -99,22 +146,34 @@ export const readTabContent = async (
   const signature = await getCurrentTabSignature(tabId)
   const cached = tabContentCache.get(tabId)
   if (!force && cached && cacheMatches(cached, signature)) {
+    touchCacheEntry(tabId, cached)
     return cached.response
   }
 
   // A forced refetch must not leave a stale entry behind if the new read fails.
-  if (force) tabContentCache.delete(tabId)
+  if (force) dropCacheEntry(tabId)
 
   const cacheAndReturn = (response: PageContentResponse) => {
     // Don't cache disabled/excluded/parse-failure placeholders — they carry an
     // explanatory string in `html` with `success: false`, and caching them
     // would pin that non-content message for the tab's lifetime.
     if (response.success === false) return response
+    const bytes = entryBytes(response)
+    // An oversized page is still returned in full; it is only denied a cache
+    // slot, so it can't evict every other tab to hold one document.
+    if (bytes > MAX_CACHED_HTML_BYTES) {
+      dropCacheEntry(tabId)
+      return response
+    }
+    dropCacheEntry(tabId)
     tabContentCache.set(tabId, {
       response,
       url: signature.url,
-      title: response.title || signature.title
+      title: response.title || signature.title,
+      bytes
     })
+    tabContentCacheBytes += bytes
+    evictUntilWithinBounds()
     return response
   }
 
