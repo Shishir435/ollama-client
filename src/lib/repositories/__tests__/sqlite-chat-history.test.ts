@@ -470,32 +470,40 @@ describe("messages", () => {
     ])
   })
 
-  it("getMessageTreeBySession drops a row whose tree columns do not decode", async () => {
+  it("getMessageTreeBySession raises when a tree row does not decode", async () => {
     mockedQuery.mockResolvedValueOnce([
       { id: 1, parentId: null, timestamp: 10 },
-      // A half-applied migration or a foreign writer can leave this shape. It
-      // is the ancestry, so asserting over it detaches a subtree silently.
+      // A half-applied migration or a foreign writer can leave this shape.
+      // Returning the rest would be a wrong tree, not a smaller one.
       { id: null, parentId: 1, timestamp: 20 },
       { id: 3, parentId: 1, timestamp: 30 }
     ])
 
-    const nodes = await repo.getMessageTreeBySession("s1")
-
-    expect(nodes).toEqual([
-      { id: 1, parentId: undefined, timestamp: 10 },
-      { id: 3, parentId: 1, timestamp: 30 }
-    ])
+    await expect(repo.getMessageTreeBySession("s1")).rejects.toThrow(
+      /did not decode/
+    )
   })
 
-  it("getMessageTreeBySession rejects a non-numeric timestamp", async () => {
+  it("getMessageTreeBySession raises on a non-numeric timestamp", async () => {
     mockedQuery.mockResolvedValueOnce([
       { id: 1, parentId: null, timestamp: "10" },
       { id: 2, parentId: 1, timestamp: 20 }
     ])
 
-    const nodes = await repo.getMessageTreeBySession("s1")
+    await expect(repo.getMessageTreeBySession("s1")).rejects.toThrow(
+      /did not decode/
+    )
+  })
 
-    expect(nodes).toEqual([{ id: 2, parentId: 1, timestamp: 20 }])
+  it("getMessageTreeBySession reports the unreadable count without row content", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      { id: 1, parentId: null, timestamp: 10 },
+      { id: null, parentId: 1, timestamp: 20 }
+    ])
+
+    await expect(repo.getMessageTreeBySession("s1")).rejects.toThrow(
+      "Message tree for a session did not decode: 1 of 2 rows unreadable"
+    )
   })
 
   it("getMessagesByIds returns [] for empty ids without hitting the db", async () => {

@@ -135,44 +135,57 @@ describe("loadSessionMessages", () => {
     expect(state.hasMoreMessages).toBe(false)
   })
 
-  it("still loads the branch when an ancestor is missing from the tree", async () => {
+  /**
+   * The store's `currentLeafId` becomes the next message's `parentId` and is
+   * persisted, so publishing a leaf guessed from an incomplete tree would
+   * durably re-parent whatever the user sends next.
+   */
+  it("leaves the session untouched when the tree fails to decode", async () => {
     const messages = chain(5)
-    mockRepo.getSession.mockResolvedValue({
+    setupLoadSessionMessagesMocks(messages, {
       id: SESSION_ID,
       title: "T",
       currentLeafId: 5
-    } as never)
-    // Row 3 failed to decode and was dropped, detaching 4 and 5 from the root.
-    mockRepo.getMessageTreeBySession.mockResolvedValue(
-      messages
-        .filter((m) => m.id !== 3)
-        .map((m) => ({
-          id: m.id,
-          parentId: m.parentId,
-          timestamp: m.timestamp
-        })) as never
-    )
-    mockRepo.getMessagesByIds.mockImplementation(async (ids: any) =>
-      messages.filter((m) =>
-        ids.some((id: unknown) => String(id) === String(m.id))
-      )
-    )
-    mockRepo.getFilesByMessageIds.mockResolvedValue([] as never)
+    })
     chatSessionStore.setState({
       sessions: [
-        { id: SESSION_ID, title: "T", createdAt: 1, updatedAt: 1, messages: [] }
+        {
+          id: SESSION_ID,
+          title: "T",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: [{ id: 5, role: "user", content: "existing" } as never],
+          currentLeafId: 5
+        }
       ],
       currentSessionId: SESSION_ID
     })
+    mockRepo.getMessageTreeBySession.mockRejectedValueOnce(
+      new Error(
+        "Message tree for a session did not decode: 1 of 5 rows unreadable"
+      )
+    )
 
     await chatSessionStore.getState().loadSessionMessages(SESSION_ID)
 
-    const state = chatSessionStore.getState()
-    const loaded = state.sessions[0].messages ?? []
-    // Truncated at the gap rather than empty, and pagination stays open so the
-    // full-row load-more path can walk past it.
-    expect(loaded.map((m) => m.id)).toEqual([4, 5])
-    expect(state.hasMoreMessages).toBe(true)
+    const session = chatSessionStore.getState().sessions[0]
+    // Crucially the leaf is not replaced by a guess, so the next send still
+    // parents to the real branch.
+    expect(session.currentLeafId).toBe(5)
+    expect(session.messages).toHaveLength(1)
+    expect(mockRepo.getMessagesByIds).not.toHaveBeenCalled()
+  })
+
+  it("does not persist a branch move when navigateToNode cannot read the tree", async () => {
+    mockRepo.getMessageTreeBySession.mockRejectedValueOnce(
+      new Error(
+        "Message tree for a session did not decode: 1 of 5 rows unreadable"
+      )
+    )
+
+    await chatSessionStore.getState().navigateToNode(SESSION_ID, 3)
+
+    expect(mockRepo.updateSession).not.toHaveBeenCalled()
   })
 
   it("keeps sibling ids for forked branches off the narrow tree", async () => {

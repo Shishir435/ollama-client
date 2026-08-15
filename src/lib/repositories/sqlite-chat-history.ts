@@ -463,14 +463,32 @@ export const getMessageTreeBySession = async (
     "SELECT id, parentId, timestamp FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
     [sessionId]
   )
-  // Drop-and-log rather than raise: one unreadable row must not deny the user
-  // the rest of the conversation. Its descendants lose their ancestor and fall
-  // out of the walked path, which is a bounded, logged loss instead of a tree
-  // built on a NaN id.
-  return decodeRows(MessageTreeRowSchema, rows, {
+  const decoded = decodeRows(MessageTreeRowSchema, rows, {
     table: "messages",
     operation: "getMessageTreeBySession"
   })
+
+  /**
+   * Raises rather than dropping, unlike the ingestion and model-pull
+   * repositories.
+   *
+   * Their rows are independent — one unreadable job denies recovery to itself
+   * and nothing else. These rows are a single interdependent structure, and a
+   * partial tree is not a smaller tree, it is a wrong one: the walk stops at
+   * the first missing id, so losing one node silently truncates or empties the
+   * branch beneath it, and the leaf the caller then settles on becomes the
+   * parent of the next message the user sends. Returning a subset asks every
+   * caller to detect an incompleteness the repository already knows about.
+   *
+   * `decodeRows` has logged each offending row's paths and codes by now, so
+   * this carries only the count.
+   */
+  if (decoded.length !== rows.length) {
+    throw new Error(
+      `Message tree for a session did not decode: ${rows.length - decoded.length} of ${rows.length} rows unreadable`
+    )
+  }
+  return decoded
 }
 
 export const getMessagesByIds = async (

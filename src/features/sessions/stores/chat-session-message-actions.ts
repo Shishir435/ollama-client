@@ -43,7 +43,26 @@ export const createChatSessionMessageActions = (
     if (isStaleLoad()) return
     if (!session) return
 
-    const treeNodes = await repo.getMessageTreeBySession(sessionId)
+    /**
+     * A tree that did not fully decode is not published at all.
+     *
+     * Leaving the session's existing state alone keeps the store's
+     * `currentLeafId` as it was, which matters more than the render: `addMessage`
+     * takes that value as the new message's `parentId` and persists it, so a
+     * leaf guessed from an incomplete tree would durably re-parent the next
+     * thing the user sends.
+     */
+    let treeNodes: repo.MessageTreeRow[]
+    try {
+      treeNodes = await repo.getMessageTreeBySession(sessionId)
+    } catch (error) {
+      logger.error(
+        "Failed to read the message tree; leaving the session unchanged",
+        "chatSessionStore",
+        { error, sessionId }
+      )
+      return
+    }
     if (isStaleLoad()) return
 
     if (treeNodes.length === 0) {
@@ -66,17 +85,17 @@ export const createChatSessionMessageActions = (
      * The walk starts from a node the tree actually contains.
      *
      * `traversePathFromLeaf` stops the moment an id is missing, so a leaf that
-     * is not in the tree produces an empty path — which renders as an empty
-     * conversation, with a load-more affordance, while every row is still
-     * sitting in SQLite. That is reachable whenever the stored pointer and the
-     * tree disagree: a row dropped by the projection decoder, or a stale
-     * `currentLeafId` left by anything that removed messages without repairing
-     * it.
+     * is not in the tree produces an empty path — an empty conversation, with a
+     * load-more affordance, while every row is still sitting in SQLite.
      *
-     * The fallback is the newest node, which is what a session with no stored
-     * leaf already uses. Not written back — a read must not repair durable
-     * state, or a transient decode failure would permanently move the user's
-     * branch.
+     * Reaching here means the tree decoded completely, so this is a stale
+     * pointer rather than missing data: something removed messages without
+     * repairing `sessions.currentLeafId`. The newest node is then a real leaf,
+     * which is what a session with no stored leaf already falls back to, and is
+     * safe to hand `addMessage` as the next parent. The decode-failure case
+     * cannot arrive here at all — it returned above rather than guess.
+     *
+     * Still not written back: a read does not repair durable state.
      */
     const leafId = treeNodes.some(
       (node) => String(node.id) === String(storedLeafId)
@@ -366,8 +385,20 @@ export const createChatSessionMessageActions = (
   ) => {
     let leafId = nodeId
     if (!exact) {
-      const treeNodes = await repo.getMessageTreeBySession(sessionId)
-      leafId = findLatestLeafDescendant(treeNodes, nodeId)
+      // This branch resolves a leaf and then *persists* it, so an incomplete
+      // tree would durably move the user's conversation to whatever descendant
+      // survived. Abort the navigation instead.
+      try {
+        const treeNodes = await repo.getMessageTreeBySession(sessionId)
+        leafId = findLatestLeafDescendant(treeNodes, nodeId)
+      } catch (error) {
+        logger.error(
+          "Failed to read the message tree; leaving the branch unchanged",
+          "chatSessionStore",
+          { error, sessionId }
+        )
+        return
+      }
     }
 
     await repo.updateSession(sessionId, { currentLeafId: leafId })
