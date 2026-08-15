@@ -339,6 +339,27 @@ export const searchSimilarVectors = async (
  * It uses Reciprocal Rank Fusion (implicit) by weighted scoring:
  * Final Score = (keywordWeight * normalizedBM25) + (semanticWeight * cosineSimilarity)
  */
+/**
+ * Reads stored rows for keyword candidates that survived filtering.
+ *
+ * Keyed by id via `bulkGet`, so the cost is proportional to the candidate
+ * count rather than the corpus. Missing ids are skipped: a vector deleted
+ * between indexing and this read is simply no longer a candidate.
+ */
+const hydrateKeywordCandidates = async (
+  ids: number[]
+): Promise<Map<number, VectorDocument>> => {
+  const hydrated = new Map<number, VectorDocument>()
+  if (ids.length === 0) return hydrated
+
+  const rows = await vectorDb.vectors.bulkGet(ids)
+  for (const row of rows) {
+    if (row?.id === undefined) continue
+    hydrated.set(row.id, row)
+  }
+  return hydrated
+}
+
 export const searchHybrid = async (
   queryText: string,
   queryEmbedding: number[],
@@ -374,7 +395,7 @@ export const searchHybrid = async (
     const queryDimension =
       searchOptions.embeddingDimension ?? queryEmbedding.length
     const documentDimension =
-      document.metadata.embeddingDim ?? document.embedding.length
+      document.metadata.embeddingDim ?? document.embeddingDim
     if (documentDimension !== queryDimension) return false
 
     const requestedModel = normalizeEmbeddingModelName(
@@ -430,13 +451,25 @@ export const searchHybrid = async (
   const scoreMap = new Map<number, number>()
   const docMap = new Map<number, VectorDocument>()
 
+  // The keyword index retains a projection with no vectors, so the surviving
+  // candidates are read back before fusion — reranking scores on
+  // `document.embedding`, and a document without one is silently given a
+  // neutral score rather than failing. Bounded by `limit * 3`, so this is a
+  // keyed lookup, not a table scan.
+  const hydratedKeywordDocs = await hydrateKeywordCandidates(
+    filteredKeywordResults.map((result) => result.id)
+  )
+
   for (let rank = 0; rank < filteredKeywordResults.length; rank++) {
     const result = filteredKeywordResults[rank]
+    const hydrated = hydratedKeywordDocs.get(result.id)
+    // A row deleted between indexing and this read has nothing to score.
+    if (!hydrated) continue
     scoreMap.set(
       result.id,
       (scoreMap.get(result.id) ?? 0) + keywordWeight / (RRF_K + rank + 1)
     )
-    docMap.set(result.id, result.document)
+    docMap.set(result.id, hydrated)
   }
 
   for (let rank = 0; rank < semanticResults.length; rank++) {
