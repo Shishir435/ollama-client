@@ -32,6 +32,13 @@ import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
 type StoredMessage = ChatMessage & { sessionId: string; id?: number }
 type StoredFile = FileAttachment & { sessionId: string; id?: number }
 
+/** Narrow message projection: the columns the message tree is built from. */
+export type MessageTreeRow = {
+  id: number
+  parentId?: number
+  timestamp: number
+}
+
 type RowValue = string | number | null | Uint8Array
 type Row = Record<string, RowValue>
 
@@ -422,6 +429,39 @@ export const getMessagesBySessionOrderedByTimestamp = async (
   const rows = await query(
     "SELECT * FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
     [sessionId]
+  )
+  return rows.map(messageFromRow)
+}
+
+/**
+ * The `id`/`parentId`/`timestamp` triple every message in a session
+ * contributes to the tree: enough to build the siblings map and walk the
+ * active path, and nothing else. Reading whole rows to do that shipped every
+ * message body, attachment blob and inlined image across the persistence
+ * worker's structured clone on each session switch, to keep fifty.
+ */
+export const getMessageTreeBySession = async (
+  sessionId: string
+): Promise<MessageTreeRow[]> => {
+  const rows = await query(
+    "SELECT id, parentId, timestamp FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
+    [sessionId]
+  )
+  return rows.map((row) => ({
+    id: row.id as number,
+    parentId: (row.parentId as number | null) ?? undefined,
+    timestamp: row.timestamp as number
+  }))
+}
+
+export const getMessagesByIds = async (
+  ids: Array<number | string>
+): Promise<StoredMessage[]> => {
+  if (ids.length === 0) return []
+  const numericIds = ids.map((id) => Number(id))
+  const rows = await query(
+    `SELECT * FROM messages WHERE id IN (${placeholders(numericIds.length)})`,
+    numericIds
   )
   return rows.map(messageFromRow)
 }

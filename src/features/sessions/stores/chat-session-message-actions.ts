@@ -43,11 +43,10 @@ export const createChatSessionMessageActions = (
     if (isStaleLoad()) return
     if (!session) return
 
-    const allMessages =
-      await repo.getMessagesBySessionOrderedByTimestamp(sessionId)
+    const treeNodes = await repo.getMessageTreeBySession(sessionId)
     if (isStaleLoad()) return
 
-    if (allMessages.length === 0) {
+    if (treeNodes.length === 0) {
       set((state) => ({
         sessions: state.sessions.map((s) =>
           s.id === sessionId
@@ -59,23 +58,34 @@ export const createChatSessionMessageActions = (
       return
     }
 
-    const leafId =
-      session.currentLeafId ?? allMessages[allMessages.length - 1].id
+    const leafId = session.currentLeafId ?? treeNodes[treeNodes.length - 1].id
     if (leafId === undefined) return
 
-    const siblingsMap = buildSiblingsMap(allMessages)
-    const { path, hasMore } = traversePathFromLeaf(
-      allMessages,
+    const siblingsMap = buildSiblingsMap(treeNodes)
+    const { path: pathNodes, hasMore } = traversePathFromLeaf(
+      treeNodes,
       leafId,
       CHAT_PAGINATION_LIMIT
     )
 
-    const messageIds = path
+    const messageIds = pathNodes
       .map((m) => m.id)
       .filter((id): id is number => typeof id === "number")
-    const files =
-      messageIds.length > 0 ? await repo.getFilesByMessageIds(messageIds) : []
+
+    // Whole rows are read only for the <=CHAT_PAGINATION_LIMIT ids on the
+    // resolved path; the rest of the tree never leaves the worker.
+    const [pathMessages, files] = await Promise.all([
+      messageIds.length > 0 ? repo.getMessagesByIds(messageIds) : [],
+      messageIds.length > 0 ? repo.getFilesByMessageIds(messageIds) : []
+    ])
     if (isStaleLoad()) return
+
+    const messagesById = new Map(
+      pathMessages.map((message) => [String(message.id), message] as const)
+    )
+    const path = messageIds
+      .map((id) => messagesById.get(String(id)))
+      .filter((message) => message !== undefined)
     const filesByMessageId = groupFilesByMessageId(files)
 
     const messagesWithData = enrichPathWithSiblingsAndAttachments(
@@ -326,9 +336,8 @@ export const createChatSessionMessageActions = (
   ) => {
     let leafId = nodeId
     if (!exact) {
-      const allMessages =
-        await repo.getMessagesBySessionOrderedByTimestamp(sessionId)
-      leafId = findLatestLeafDescendant(allMessages, nodeId)
+      const treeNodes = await repo.getMessageTreeBySession(sessionId)
+      leafId = findLatestLeafDescendant(treeNodes, nodeId)
     }
 
     await repo.updateSession(sessionId, { currentLeafId: leafId })

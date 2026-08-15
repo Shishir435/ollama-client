@@ -453,6 +453,36 @@ describe("messages", () => {
     expect(params).toEqual([1, 2, 3])
   })
 
+  it("getMessageTreeBySession selects only the tree columns", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      { id: 1, parentId: null, timestamp: 10 },
+      { id: 2, parentId: 1, timestamp: 20 }
+    ])
+    const nodes = await repo.getMessageTreeBySession("s1")
+    const [sql, params] = mockedQuery.mock.calls[0]
+    expect(sql).toBe(
+      "SELECT id, parentId, timestamp FROM messages WHERE sessionId = ? ORDER BY timestamp ASC"
+    )
+    expect(params).toEqual(["s1"])
+    expect(nodes).toEqual([
+      { id: 1, parentId: undefined, timestamp: 10 },
+      { id: 2, parentId: 1, timestamp: 20 }
+    ])
+  })
+
+  it("getMessagesByIds returns [] for empty ids without hitting the db", async () => {
+    expect(await repo.getMessagesByIds([])).toEqual([])
+    expect(mockedQuery).not.toHaveBeenCalled()
+  })
+
+  it("getMessagesByIds builds an IN clause sized to the input", async () => {
+    mockedQuery.mockResolvedValueOnce([])
+    await repo.getMessagesByIds([3, "4"])
+    const [sql, params] = mockedQuery.mock.calls[0]
+    expect(sql).toBe("SELECT * FROM messages WHERE id IN (?, ?)")
+    expect(params).toEqual([3, 4])
+  })
+
   it("getRootMessagesForSession filters parentId IS NULL", async () => {
     mockedQuery.mockResolvedValueOnce([])
     await repo.getRootMessagesForSession("s1")
