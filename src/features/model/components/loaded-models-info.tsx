@@ -1,6 +1,6 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { Brain, ChevronDown, Loader2, RefreshCw, Trash } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Badge } from "@/components/ui/badge"
@@ -34,9 +34,18 @@ export const LoadedModelsInfo = () => {
   const [unloading, setUnloading] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  /**
+   * Interval tick, visibility change and manual refresh each issue their own
+   * request, so two can be in flight at once and settle out of order. Only the
+   * newest is allowed to write state — otherwise a slow earlier response
+   * overwrites the current list, which shows up as a model reappearing right
+   * after the user unloaded it.
+   */
+  const latestFetchRef = useRef(0)
 
   const fetchModels = useCallback(
     async (isRefresh = false) => {
+      const fetchId = ++latestFetchRef.current
       if (isRefresh) {
         setRefreshing(true)
       } else {
@@ -48,15 +57,19 @@ export const LoadedModelsInfo = () => {
           RpcMethod.ModelsListLoaded,
           selectedProviderId ? { providerId: selectedProviderId } : {}
         )
+        if (fetchId !== latestFetchRef.current) return
         setModels(models)
       } catch (error) {
         logger.error("Failed to fetch loaded models", "LoadedModelsInfo", {
           error
         })
+        if (fetchId !== latestFetchRef.current) return
         setModels([])
       } finally {
-        setLoading(false)
-        setRefreshing(false)
+        if (fetchId === latestFetchRef.current) {
+          setLoading(false)
+          setRefreshing(false)
+        }
       }
     },
     [selectedProviderId]
@@ -73,6 +86,9 @@ export const LoadedModelsInfo = () => {
         }
       )
       if (unloaded) {
+        // Invalidate any fetch started before the unload; it would still list
+        // the model we just removed.
+        latestFetchRef.current += 1
         setModels((prev) => prev.filter((m) => m.name !== modelName))
       } else {
         logger.error("Unload did not take effect", "LoadedModelsInfo", {
