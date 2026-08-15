@@ -5,6 +5,8 @@ import { PdfProcessor } from "../pdf-processor"
 const mockGetPage = vi.fn()
 const mockGetTextContent = vi.fn()
 const mockGetDocument = vi.fn()
+const mockDestroyDocument = vi.fn().mockResolvedValue(undefined)
+const mockDestroyLoadingTask = vi.fn().mockResolvedValue(undefined)
 
 vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: { workerSrc: "" },
@@ -19,6 +21,8 @@ describe("PdfProcessor", () => {
   beforeEach(() => {
     processor = new PdfProcessor()
     vi.clearAllMocks()
+    mockDestroyDocument.mockResolvedValue(undefined)
+    mockDestroyLoadingTask.mockResolvedValue(undefined)
   })
 
   it("should identify PDF files", () => {
@@ -34,11 +38,13 @@ describe("PdfProcessor", () => {
   it("should process valid PDF file", async () => {
     const mockPdf = {
       numPages: 1,
-      getPage: mockGetPage
+      getPage: mockGetPage,
+      destroy: mockDestroyDocument
     }
 
     mockGetDocument.mockReturnValue({
-      promise: Promise.resolve(mockPdf)
+      promise: Promise.resolve(mockPdf),
+      destroy: mockDestroyLoadingTask
     })
 
     mockGetPage.mockResolvedValue({
@@ -55,47 +61,35 @@ describe("PdfProcessor", () => {
     expect(result.text).toContain("Page content")
     expect(result.pages).toEqual([{ pageNumber: 1, text: "Page content" }])
     expect(result.metadata.pageCount).toBe(1)
+    expect(mockDestroyDocument).toHaveBeenCalledOnce()
+    expect(mockDestroyLoadingTask).not.toHaveBeenCalled()
   })
 
-  it("should handle worker failure and retry", async () => {
-    const mockPdf = {
-      numPages: 1,
-      getPage: mockGetPage
-    }
-
-    // First attempt fails
+  it("should release a failed loading task without retrying", async () => {
     mockGetDocument.mockReturnValueOnce({
-      promise: Promise.reject(new Error("Worker failed"))
-    })
-
-    // Second attempt succeeds
-    mockGetDocument.mockReturnValueOnce({
-      promise: Promise.resolve(mockPdf)
-    })
-
-    mockGetPage.mockResolvedValue({
-      getTextContent: mockGetTextContent
-    })
-
-    mockGetTextContent.mockResolvedValue({
-      items: [{ str: "Retry content" }]
+      promise: Promise.reject(new Error("Worker failed")),
+      destroy: mockDestroyLoadingTask
     })
 
     const file = new File(["content"], "test.pdf", { type: "application/pdf" })
-    const result = await processor.process(file)
 
-    expect(result.text).toContain("Retry content")
-    expect(mockGetDocument).toHaveBeenCalledTimes(2)
+    await expect(processor.process(file)).rejects.toThrow(
+      "Failed to process PDF"
+    )
+    expect(mockGetDocument).toHaveBeenCalledOnce()
+    expect(mockDestroyLoadingTask).toHaveBeenCalledOnce()
   })
 
   it("should handle empty PDF", async () => {
     const mockPdf = {
       numPages: 1,
-      getPage: mockGetPage
+      getPage: mockGetPage,
+      destroy: mockDestroyDocument
     }
 
     mockGetDocument.mockReturnValue({
-      promise: Promise.resolve(mockPdf)
+      promise: Promise.resolve(mockPdf),
+      destroy: mockDestroyLoadingTask
     })
 
     mockGetPage.mockResolvedValue({
@@ -114,7 +108,8 @@ describe("PdfProcessor", () => {
 
   it("should handle processing errors", async () => {
     mockGetDocument.mockReturnValue({
-      promise: Promise.reject(new Error("Corrupt PDF"))
+      promise: Promise.reject(new Error("Corrupt PDF")),
+      destroy: mockDestroyLoadingTask
     })
 
     const file = new File(["content"], "test.pdf", { type: "application/pdf" })
@@ -122,5 +117,6 @@ describe("PdfProcessor", () => {
     await expect(processor.process(file)).rejects.toThrow(
       "Failed to process PDF"
     )
+    expect(mockDestroyLoadingTask).toHaveBeenCalledOnce()
   })
 })
