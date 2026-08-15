@@ -1,3 +1,4 @@
+import type { EmbeddingConfig } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
 import { readSetting } from "@/lib/storage/setting-access"
 import { SETTINGS } from "@/lib/storage/settings"
@@ -34,29 +35,25 @@ const CACHE_MAX_SIZE = 100
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
 /**
- * Simple hash function for content caching
- * Optimized for performance
+ * Content hash for the embedding cache.
+ *
+ * Covers the whole input. The previous sampled variant bounded its loop by the
+ * sample count rather than the text length, so for anything over 1000
+ * characters it read only positions inside the first 1000 — a 100 KB chunk was
+ * identified by ten characters ending at index 900. Two chunks sharing an
+ * opening then collided and the cache returned the wrong vector, with no error
+ * path and no way to notice beyond degraded retrieval. A full pass over a
+ * ~500-token chunk is negligible next to the embedding request it guards.
+ *
+ * The length is mixed in so inputs that differ only by a suffix the character
+ * loop happens to cancel out cannot collide on the digest alone.
  */
 const hashContent = (text: string): string => {
-  // Use a faster hash for short strings, more robust for long strings
-  if (text.length < 100) {
-    // Simple hash for short strings
-    let hash = 0
-    for (let i = 0; i < text.length; i++) {
-      hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0
-    }
-    return hash.toString()
-  }
-
-  // For longer strings, use a more efficient approach
-  // Take samples instead of processing entire string
-  const sampleSize = Math.min(1000, text.length)
-  const step = Math.floor(text.length / sampleSize)
   let hash = 0
-  for (let i = 0; i < sampleSize; i += step) {
+  for (let i = 0; i < text.length; i++) {
     hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0
   }
-  return hash.toString()
+  return `${hash.toString(36)}:${text.length.toString(36)}`
 }
 
 /**
@@ -71,8 +68,14 @@ const cleanExpiredCache = (): void => {
   }
 }
 
-const getCacheModelKey = async (modelName?: string): Promise<string> => {
-  const config = await getEmbeddingConfig()
+/**
+ * Takes the already-resolved config rather than reading it again: this runs
+ * once per chunk, and the caller has just resolved the same value.
+ */
+const getCacheModelKey = async (
+  config: EmbeddingConfig,
+  modelName?: string
+): Promise<string> => {
   const providerId = config.sharedEmbeddingProviderId || "default"
 
   if (modelName) {
@@ -86,16 +89,20 @@ const getCacheModelKey = async (modelName?: string): Promise<string> => {
 /**
  * Generates embeddings for text using the browser-safe embedding strategy chain.
  * Optimized with caching and batch processing support.
+ *
+ * `config` lets a batch caller resolve the snapshot once and reuse it for every
+ * item instead of re-resolving per chunk.
  */
 export const generateEmbedding = async (
   text: string,
-  modelName?: string
+  modelName?: string,
+  config?: EmbeddingConfig
 ): Promise<EmbeddingResult | EmbeddingError> => {
-  const config = await getEmbeddingConfig()
-  const modelKey = await getCacheModelKey(modelName)
+  const resolvedConfig = config ?? (await getEmbeddingConfig())
+  const modelKey = await getCacheModelKey(resolvedConfig, modelName)
 
   // Check cache if enabled
-  if (config.enableCaching) {
+  if (resolvedConfig.enableCaching) {
     const contentHash = `${hashContent(text)}:${modelKey}`
     const cached = embeddingCache.get(contentHash)
     if (cached) {
@@ -121,7 +128,7 @@ export const generateEmbedding = async (
     const embedding = resolved.embedding
 
     // Cache if enabled
-    if (config.enableCaching) {
+    if (resolvedConfig.enableCaching) {
       const contentHash = `${hashContent(text)}:${modelKey}`
       const now = Date.now()
 
@@ -186,7 +193,7 @@ export const generateEmbeddingsBatch = async (
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize)
     const batchResults = await Promise.all(
-      batch.map((text) => generateEmbedding(text, modelName))
+      batch.map((text) => generateEmbedding(text, modelName, config))
     )
     results.push(...batchResults)
 
