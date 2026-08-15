@@ -557,6 +557,7 @@
       "refresh_tooltip": "Refresh models",
       "search_placeholder": "Search model...",
       "no_model_found": "No model found.",
+      "cloud_badge": "Cloud{{plan}}",
       "providers_unavailable": "{{names}} returned no models. Check the provider in settings, or add model IDs manually.",
       "selection_conflict": "Pick a provider for {{model}} — more than one serves it."
     },
@@ -1081,6 +1082,7 @@
         },
         "num_predict": {
           "label": "Maximum Tokens",
+          "auto": "Auto (recommended)",
           "validation_min": "Must be at least {{min}}."
         },
         "repeat_penalty": {

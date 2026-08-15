@@ -557,6 +557,7 @@
       "refresh_tooltip": "मॉडल रिफ्रेश करें",
       "search_placeholder": "मॉडल खोजें...",
       "no_model_found": "कोई मॉडल नहीं मिला।",
+      "cloud_badge": "क्लाउड{{plan}}",
       "providers_unavailable": "{{names}} ने कोई मॉडल नहीं लौटाया। सेटिंग्स में प्रदाता जांचें, या मॉडल ID मैन्युअल रूप से जोड़ें।",
       "selection_conflict": "{{model}} के लिए एक प्रदाता चुनें — इसे एक से अधिक प्रदाता देते हैं।"
     },
@@ -1075,6 +1076,7 @@
         },
         "num_predict": {
           "label": "अधिकतम टोकन",
+          "auto": "ऑटो (अनुशंसित)",
           "validation_min": "कम से कम {{min}} होना चाहिए।"
         },
         "repeat_penalty": {

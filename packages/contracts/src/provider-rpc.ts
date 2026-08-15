@@ -79,6 +79,13 @@ const ProviderModelSchema = z
     providerId: z.string().nullish(),
     providerName: z.string().nullish(),
     providerBrand: z.string().max(64).nullish(),
+    cloud: z
+      .object({
+        description: z.string().max(2_000).nullish(),
+        requiredPlan: z.string().max(64).nullish(),
+        maxOutputTokens: z.number().int().positive().nullish()
+      })
+      .nullish(),
     family: z.string().nullish(),
     details: z
       .object({
@@ -108,6 +115,7 @@ const ProviderModelSchema = z
       providerId,
       providerName,
       providerBrand,
+      cloud,
       ...model
     }) => {
       const resolvedFamily = details?.family ?? family ?? ""
@@ -148,6 +156,15 @@ const ProviderModelSchema = z
         ...(providerId && { providerId }),
         ...(providerName && { providerName }),
         ...(providerBrand && { providerBrand }),
+        ...(cloud && {
+          cloud: {
+            ...(cloud.description && { description: cloud.description }),
+            ...(cloud.requiredPlan && { requiredPlan: cloud.requiredPlan }),
+            ...(cloud.maxOutputTokens != null && {
+              maxOutputTokens: cloud.maxOutputTokens
+            })
+          }
+        }),
         ...(normalizedCapabilityHints &&
           Object.keys(normalizedCapabilityHints).length > 0 && {
             capabilityHints: normalizedCapabilityHints

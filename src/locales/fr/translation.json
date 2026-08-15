@@ -557,6 +557,7 @@
       "refresh_tooltip": "Actualiser les modèles",
       "search_placeholder": "Rechercher un modèle...",
       "no_model_found": "Aucun modèle trouvé.",
+      "cloud_badge": "Cloud{{plan}}",
       "providers_unavailable": "{{names}} n’a renvoyé aucun modèle. Vérifiez le fournisseur dans les paramètres ou ajoutez des identifiants de modèle manuellement.",
       "selection_conflict": "Choisissez un fournisseur pour {{model}} — plusieurs le proposent."
     },
@@ -1075,6 +1076,7 @@
         },
         "num_predict": {
           "label": "Tokens Maximum",
+          "auto": "Automatique (recommandé)",
           "validation_min": "Doit être au moins {{min}}."
         },
         "repeat_penalty": {

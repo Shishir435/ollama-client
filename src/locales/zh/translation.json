@@ -557,6 +557,7 @@
       "refresh_tooltip": "刷新模型",
       "search_placeholder": "搜索模型...",
       "no_model_found": "未找到模型。",
+      "cloud_badge": "云端{{plan}}",
       "providers_unavailable": "{{names}} 未返回任何模型。请在设置中检查该提供商，或手动添加模型 ID。",
       "selection_conflict": "有多个提供方提供 {{model}}，请选择一个。"
     },
@@ -1075,6 +1076,7 @@
         },
         "num_predict": {
           "label": "最大 Token 数",
+          "auto": "自动（推荐）",
           "validation_min": "必须至少为 {{min}}。"
         },
         "repeat_penalty": {

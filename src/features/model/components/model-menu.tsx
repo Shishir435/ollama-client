@@ -503,6 +503,18 @@ export const ModelMenu = ({
                                     )}
                                   </Badge>
                                 )}
+                                {model.cloud && (
+                                  <Badge
+                                    variant="outline"
+                                    title={model.cloud.description}
+                                    className="h-4 shrink-0 border px-1 text-nano capitalize text-muted-foreground border-border/50">
+                                    {t("model.menu.cloud_badge", {
+                                      plan: model.cloud.requiredPlan
+                                        ? ` · ${model.cloud.requiredPlan}`
+                                        : ""
+                                    })}
+                                  </Badge>
+                                )}
                                 {model.details?.quantization_level && (
                                   <Badge
                                     variant="outline"
