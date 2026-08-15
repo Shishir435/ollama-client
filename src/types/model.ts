@@ -15,6 +15,12 @@ export type ProviderModel = {
    * background where the provider's base URL lives. Display only.
    */
   providerBrand?: string
+  /** Supplemental metadata reported by Ollama for a hosted `:cloud` model. */
+  cloud?: {
+    description?: string
+    requiredPlan?: string
+    maxOutputTokens?: number
+  }
   details: {
     parent_model: string
     format: string

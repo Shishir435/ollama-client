@@ -59,6 +59,7 @@ describe("provider contracts", () => {
           ]
         })
       )
+      .mockResolvedValueOnce(textResponse("not supported", { status: 404 }))
       .mockResolvedValueOnce(
         streamResponse([
           "null\n",
@@ -85,7 +86,7 @@ describe("provider contracts", () => {
     )
 
     expect(fetch).toHaveBeenNthCalledWith(
-      2,
+      3,
       "http://ollama.test/api/chat",
       expect.objectContaining({ method: "POST" })
     )

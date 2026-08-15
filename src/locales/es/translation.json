@@ -557,6 +557,7 @@
       "refresh_tooltip": "Actualizar modelos",
       "search_placeholder": "Buscar modelo...",
       "no_model_found": "No se encontró ningún modelo.",
+      "cloud_badge": "Nube{{plan}}",
       "providers_unavailable": "{{names}} no devolvió modelos. Revisa el proveedor en la configuración o añade ID de modelo manualmente.",
       "selection_conflict": "Elige un proveedor para {{model}}: más de uno lo ofrece."
     },
@@ -1075,6 +1076,7 @@
         },
         "num_predict": {
           "label": "Tokens Máximos",
+          "auto": "Automático (recomendado)",
           "validation_min": "Debe ser al menos {{min}}."
         },
         "repeat_penalty": {

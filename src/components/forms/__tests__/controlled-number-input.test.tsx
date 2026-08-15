@@ -68,6 +68,29 @@ describe("ControlledNumberInput", () => {
     expect(screen.getByTestId("watched-value")).toHaveTextContent("<undef>")
   })
 
+  it("renders an automatic sentinel as a friendly empty value", () => {
+    render(
+      <NumberInputWrapper defaultValue={-1}>
+        <ControlledNumberInput
+          name="limit"
+          aria-label="Limit"
+          autoValue={-1}
+          autoLabel="Auto (recommended)"
+        />
+      </NumberInputWrapper>
+    )
+
+    const input = screen.getByLabelText("Limit")
+    expect(input).toHaveValue(null)
+    expect(input).toHaveAttribute("placeholder", "Auto (recommended)")
+
+    fireEvent.change(input, { target: { value: "4096" } })
+    expect(screen.getByTestId("watched-value")).toHaveTextContent("4096")
+
+    fireEvent.change(input, { target: { value: "" } })
+    expect(screen.getByTestId("watched-value")).toHaveTextContent("-1")
+  })
+
   it("keeps consumer blur handlers attached while notifying the form", () => {
     const onBlur = vi.fn()
 

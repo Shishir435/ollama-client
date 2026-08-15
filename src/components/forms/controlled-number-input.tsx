@@ -31,6 +31,9 @@ export interface ControlledNumberInputProps
   label?: string
   icon?: LucideIcon
   focusId?: string
+  /** Render this stored sentinel as an empty input with `autoLabel`. */
+  autoValue?: number
+  autoLabel?: string
 }
 
 /**
@@ -50,6 +53,8 @@ export const ControlledNumberInput = ({
   label,
   icon: Icon,
   focusId,
+  autoValue,
+  autoLabel,
   ...props
 }: ControlledNumberInputProps) => {
   const { control, getFieldState } = useFormContext()
@@ -65,13 +70,15 @@ export const ControlledNumberInput = ({
   const [draftValue, setDraftValue] = useState<string | null>(null)
   const renderedValue =
     draftValue ??
-    (field.value === undefined || field.value === null
+    (field.value === autoValue
       ? ""
-      : String(field.value))
+      : field.value === undefined || field.value === null
+        ? ""
+        : String(field.value))
 
   const commitValue = (raw: string) => {
     if (raw === "") {
-      field.onChange(undefined)
+      field.onChange(autoValue)
       return
     }
     const parsed = Number(raw)
@@ -85,6 +92,7 @@ export const ControlledNumberInput = ({
       name={field.name}
       ref={field.ref}
       type="number"
+      placeholder={autoLabel ?? props.placeholder}
       value={renderedValue}
       aria-invalid={fieldState.invalid || props["aria-invalid"]}
       className={cn("control-h-sm", className ?? "text-center")}
