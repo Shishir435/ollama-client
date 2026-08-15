@@ -418,4 +418,82 @@ describe("Keyword Index Manager", () => {
       expect(stats.documentCount).toBe(0)
     })
   })
+
+  describe("retention", () => {
+    const withVectors = (id: number, content: string): VectorDocument => ({
+      id,
+      content,
+      embedding: [0.1, 0.2, 0.3, 0.4],
+      normalizedEmbedding: [0.1, 0.2, 0.3, 0.4],
+      norm: 1,
+      metadata: {
+        source: "",
+        type: "chat",
+        timestamp: Date.now()
+      }
+    })
+
+    it("retains no embedding arrays", () => {
+      const document = withVectors(1, "retention check")
+      keywordIndexManager.addDocument(1, document.content, document)
+
+      const [result] = keywordIndexManager.search("retention")
+
+      expect(result).toBeDefined()
+      expect(result.document.content).toBe("retention check")
+      expect(result.document).not.toHaveProperty("embedding")
+      expect(result.document).not.toHaveProperty("normalizedEmbedding")
+      expect(result.document).not.toHaveProperty("norm")
+    })
+
+    it("captures the embedding dimension so filtering stays synchronous", () => {
+      const document = withVectors(2, "dimension check")
+      keywordIndexManager.addDocument(2, document.content, document)
+
+      const [result] = keywordIndexManager.search("dimension")
+
+      expect(result.document.embeddingDim).toBe(4)
+    })
+
+    it("prefers a recorded metadata dimension over the array length", () => {
+      const document = withVectors(3, "recorded dimension")
+      document.metadata.embeddingDim = 768
+      keywordIndexManager.addDocument(3, document.content, document)
+
+      const [result] = keywordIndexManager.search("recorded")
+
+      expect(result.document.embeddingDim).toBe(768)
+    })
+
+    it("estimates size without serializing the corpus", () => {
+      keywordIndexManager.addDocument(4, "a".repeat(1000), {
+        ...withVectors(4, "a".repeat(1000))
+      })
+      const grown = keywordIndexManager.getStats().memorySizeMB
+
+      keywordIndexManager.removeDocument(4)
+      const shrunk = keywordIndexManager.getStats().memorySizeMB
+
+      expect(grown).toBeGreaterThan(shrunk)
+      expect(shrunk).toBe(0)
+    })
+
+    it("keeps the size estimate correct when a document is replaced", () => {
+      keywordIndexManager.addDocument(5, "short", withVectors(5, "short"))
+      const afterShort = keywordIndexManager.getStats().memorySizeMB
+
+      keywordIndexManager.addDocument(
+        5,
+        "a".repeat(5000),
+        withVectors(5, "a".repeat(5000))
+      )
+      const afterLong = keywordIndexManager.getStats().memorySizeMB
+
+      keywordIndexManager.addDocument(5, "short", withVectors(5, "short"))
+      const backToShort = keywordIndexManager.getStats().memorySizeMB
+
+      expect(afterLong).toBeGreaterThan(afterShort)
+      expect(backToShort).toBeCloseTo(afterShort, 10)
+    })
+  })
 })

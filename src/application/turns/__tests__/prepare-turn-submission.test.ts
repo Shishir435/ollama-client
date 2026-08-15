@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 import type { ChatMessage } from "@/types"
-import { prepareTurnSubmission } from "../prepare-turn-submission"
+import {
+  capturePermissionResumeSnapshot,
+  preparePermissionResumeSubmission,
+  prepareTurnSubmission
+} from "../prepare-turn-submission"
 
 const policy = {
   id: "turn-1",
@@ -89,6 +93,66 @@ describe("prepareTurnSubmission", () => {
           userMessage
         },
         createdAt: 123
+      },
+      userMessageId: 3
+    })
+  })
+
+  it("rebuilds a permission-blocked turn with its captured context", () => {
+    const userMessage: ChatMessage = {
+      id: 3,
+      role: "user",
+      content: "Search my bookmarks using this file and tab"
+    }
+    const original = prepareTurnSubmission({
+      ...policy,
+      mode: "new",
+      userMessage,
+      userMessageId: 3,
+      priorMessages: [{ id: 1, role: "user", content: "earlier" }],
+      rawInput: userMessage.content,
+      files: [
+        {
+          text: "file body",
+          metadata: { fileName: "notes.txt", fileId: "file-1" }
+        }
+      ],
+      hasTabContext: true,
+      contextText: "selected page body",
+      tabDocuments: [
+        { id: "tab-1", title: "Selected page", content: "page body" }
+      ],
+      groundedOnlyMode: true
+    })
+
+    const snapshot = capturePermissionResumeSnapshot(original)
+    const resumed = preparePermissionResumeSubmission({
+      snapshot,
+      sessionId: "session-1",
+      contextMessages: [
+        { id: 1, role: "user", content: "earlier" },
+        userMessage
+      ]
+    })
+
+    expect(snapshot).not.toHaveProperty("context.messages")
+    expect(resumed).toMatchObject({
+      submission: {
+        id: "turn-1",
+        mode: "new",
+        model: "llama3",
+        providerId: "ollama",
+        request: {
+          context: {
+            rawInput: userMessage.content,
+            files: [{ text: "file body" }],
+            messages: [{ id: 1, role: "user", content: "earlier" }],
+            hasTabContext: true,
+            contextText: "selected page body",
+            tabDocuments: [{ id: "tab-1", content: "page body" }]
+          },
+          userMessage
+        }
       },
       userMessageId: 3
     })

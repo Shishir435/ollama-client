@@ -25,6 +25,8 @@ export type NumberInputConfig = {
   step?: number
   validation?: NumberInputValidation
   group?: "sampling" | "context-row1" | "context-row2" | "context-row3"
+  autoValue?: number
+  autoLabel?: string
 }
 
 export type SliderConfig = {
@@ -155,6 +157,8 @@ export const getNumberInputConfigs = (t: TFunction): NumberInputConfig[] => [
     name: "num_predict",
     focusId: "num-predict",
     label: t("settings.model.parameters.num_predict.label"),
+    autoValue: -1,
+    autoLabel: t("settings.model.parameters.num_predict.auto"),
     group: "context-row2",
     validation: {
       min: {

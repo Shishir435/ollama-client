@@ -1,3 +1,7 @@
+import {
+  PROVIDER_MODEL_CLOUD_DESCRIPTION_MAX_LENGTH,
+  PROVIDER_MODEL_CLOUD_PLAN_MAX_LENGTH
+} from "@ollama-client/contracts/provider-rpc"
 import { z } from "zod"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
@@ -38,8 +42,21 @@ import {
  * metadata at all cannot turn one list request into dozens.
  */
 const OLLAMA_DETAIL_BACKFILL_LIMIT = 12
+const OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS = 5 * 60 * 1000
+const OLLAMA_CLOUD_RECOMMENDATIONS_TIMEOUT_MS = 1_500
+const OLLAMA_CLOUD_RECOMMENDATIONS_RETRY_TTL_MS = 30_000
 
 const OptionalString = z.string().optional().catch(undefined)
+const OptionalCloudDescription = z
+  .string()
+  .max(PROVIDER_MODEL_CLOUD_DESCRIPTION_MAX_LENGTH)
+  .optional()
+  .catch(undefined)
+const OptionalCloudPlan = z
+  .string()
+  .max(PROVIDER_MODEL_CLOUD_PLAN_MAX_LENGTH)
+  .optional()
+  .catch(undefined)
 const OllamaModelCatalogSchema = z
   .object({
     models: z.array(
@@ -85,6 +102,35 @@ const OllamaModelCatalogSchema = z
   })
   .passthrough()
 
+const OllamaCloudRecommendationsSchema = z
+  .object({
+    recommendations: z.array(
+      z
+        .object({
+          model: z.string().min(1),
+          // Match the provider RPC boundary exactly. Supplemental metadata
+          // that is malformed or oversized is dropped here so it can never
+          // invalidate the successfully discovered local catalog later.
+          description: OptionalCloudDescription,
+          context_length: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .catch(undefined),
+          max_output_tokens: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .catch(undefined),
+          required_plan: OptionalCloudPlan
+        })
+        .passthrough()
+    )
+  })
+  .passthrough()
+
 /**
  * Remembers backfilled details so a repeated model list costs no extra requests.
  *
@@ -95,6 +141,10 @@ const OllamaModelCatalogSchema = z
  * cannot go stale rather than expiring on a guessed timer.
  */
 const detailBackfillCache = new Map<string, ProviderModel["details"]>()
+const cloudRecommendationCache = new Map<
+  string,
+  { expiresAt: number; models: ProviderModel[] }
+>()
 
 const backfillCacheKey = (baseUrl: string, model: ProviderModel): string =>
   `${baseUrl}::${model.model}::${model.digest}`
@@ -105,6 +155,7 @@ const backfillCacheKey = (baseUrl: string, model: ProviderModel): string =>
  */
 export const clearOllamaDetailBackfillCache = (): void => {
   detailBackfillCache.clear()
+  cloudRecommendationCache.clear()
 }
 
 /** Normalized tool → Ollama `/api/chat` `tools` entry (OpenAI-style). */
@@ -221,12 +272,130 @@ export class OllamaProvider implements LLMProvider {
           userMessage: "Ollama returned an invalid model list."
         }
       )
-      return await this.backfillMissingDetails(models, signal)
+      const localModels = await this.backfillMissingDetails(models, signal)
+      const cloudModels = await this.getCloudRecommendations(baseUrl, signal)
+      if (cloudModels.length === 0) return localModels
+
+      // `/api/tags` stays authoritative and byte-for-byte untouched. Cloud
+      // recommendations are supplemental rows only: append successful,
+      // previously unseen `:cloud` entries and never rewrite a local result.
+      const localNames = new Set(localModels.map((model) => model.name))
+      return [
+        ...localModels,
+        ...cloudModels.filter((model) => !localNames.has(model.name))
+      ]
     } catch (e) {
       if (!signal?.aborted) {
         logger.error("Failed to fetch models", "OllamaProvider", { error: e })
       }
       throw e
+    }
+  }
+
+  /**
+   * Adds the same hosted-model recommendations the Ollama desktop app exposes.
+   *
+   * This endpoint is intentionally supplemental: it is experimental and older
+   * daemons do not implement it. A missing or malformed response therefore
+   * leaves the ordinary `/api/tags` catalog untouched. Only `:cloud` entries
+   * are merged; local download recommendations still belong to model pulling.
+   */
+  private async getCloudRecommendations(
+    baseUrl: string,
+    signal?: AbortSignal
+  ): Promise<ProviderModel[]> {
+    const cached = cloudRecommendationCache.get(baseUrl)
+    if (cached && cached.expiresAt > Date.now()) return cached.models
+
+    const controller = new AbortController()
+    const abortFromCaller = () => controller.abort(signal?.reason)
+    if (signal?.aborted) abortFromCaller()
+    else signal?.addEventListener("abort", abortFromCaller, { once: true })
+    const timeout = setTimeout(
+      () => controller.abort(),
+      OLLAMA_CLOUD_RECOMMENDATIONS_TIMEOUT_MS
+    )
+
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/experimental/model-recommendations`,
+        { signal: controller.signal }
+      )
+      if (!response.ok) {
+        if ([404, 405, 501].includes(response.status)) {
+          cloudRecommendationCache.set(baseUrl, {
+            expiresAt: Date.now() + OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS,
+            models: []
+          })
+        }
+        return []
+      }
+
+      const data = await decodeProviderJson(
+        response,
+        OllamaCloudRecommendationsSchema,
+        {
+          providerId: this.id,
+          providerName: this.config.name,
+          baseUrl,
+          label: "cloud recommendations",
+          userMessage: "Ollama returned invalid cloud recommendations."
+        }
+      )
+      const models = data.recommendations
+        .filter(({ model }) => model.endsWith(":cloud"))
+        .map(
+          (recommendation): ProviderModel => ({
+            name: recommendation.model,
+            model: recommendation.model,
+            modified_at: "",
+            size: 0,
+            digest: `ollama-cloud:${recommendation.model}`,
+            details: {
+              parent_model: "",
+              format: "cloud",
+              family: "",
+              families: [],
+              parameter_size: "",
+              quantization_level: ""
+            },
+            ...(recommendation.context_length != null && {
+              capabilityHints: {
+                contextLength: recommendation.context_length
+              }
+            }),
+            cloud: {
+              ...(recommendation.description && {
+                description: recommendation.description
+              }),
+              ...(recommendation.required_plan && {
+                requiredPlan: recommendation.required_plan
+              }),
+              ...(recommendation.max_output_tokens != null && {
+                maxOutputTokens: recommendation.max_output_tokens
+              })
+            }
+          })
+        )
+      cloudRecommendationCache.set(baseUrl, {
+        expiresAt: Date.now() + OLLAMA_CLOUD_RECOMMENDATIONS_TTL_MS,
+        models
+      })
+      return models
+    } catch (error) {
+      if (signal?.aborted) throw error
+      cloudRecommendationCache.set(baseUrl, {
+        expiresAt: Date.now() + OLLAMA_CLOUD_RECOMMENDATIONS_RETRY_TTL_MS,
+        models: []
+      })
+      logger.debug(
+        "Ollama cloud recommendations are unavailable; using local models only",
+        "OllamaProvider"
+      )
+      return []
+    } finally {
+      clearTimeout(timeout)
+      signal?.removeEventListener("abort", abortFromCaller)
     }
   }
 
@@ -343,7 +512,11 @@ export class OllamaProvider implements LLMProvider {
       repeat_last_n,
       seed,
       num_ctx,
-      num_predict,
+      // `-1` is the app's Auto sentinel. Local Ollama accepts it, but hosted
+      // Ollama models reject it with HTTP 400. Omitting the option lets the
+      // daemon choose its local or cloud-safe default in both cases. Preserve
+      // every other value so existing local-model behavior does not change.
+      num_predict: num_predict === -1 ? undefined : num_predict,
       min_p,
       stop,
       num_thread,

@@ -13,6 +13,12 @@ import { logger } from "@/lib/logger"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import type { ProviderModel } from "@/types"
 
+/**
+ * Only the "model is missing" state needs re-checking on a timer — the user is
+ * expected to be pulling it right now. Once the model is present nothing polls,
+ * because every tick wakes the MV3 service worker and issues a provider
+ * request; a settings tab left open used to do that forever.
+ */
 const POLL_INTERVAL_MS = 5_000
 
 export interface UseEmbeddingModelCheckOptions {
@@ -69,7 +75,7 @@ export const useEmbeddingModelCheck = ({
       lastCheckedModelRef.current = selectedModel
     }
 
-    const checkModel = async () => {
+    const checkModel = async (): Promise<boolean> => {
       try {
         const currentModel = selectedModel || DEFAULT_EMBEDDING_MODEL
         const looksLikeEmbedding = isLikelyEmbeddingModelName(currentModel)
@@ -93,10 +99,10 @@ export const useEmbeddingModelCheck = ({
         const exists = looksLikeEmbedding && response.exists
 
         setModelExists(exists)
-        if (exists) return
+        if (exists) return true
 
         // Auto-switch only once per selectedModel cycle.
-        if (autoSwitchedRef.current) return
+        if (autoSwitchedRef.current) return false
 
         const providerModels = embeddingModels.filter(
           (m) => m.providerId === DEFAULT_PROVIDER_ID
@@ -117,6 +123,7 @@ export const useEmbeddingModelCheck = ({
           autoSwitchedRef.current = true
           applyModelChange(nextModel, resolveProviderForModel(nextModel))
         }
+        return false
       } catch (error) {
         logger.error(
           "Error checking embedding model",
@@ -124,12 +131,49 @@ export const useEmbeddingModelCheck = ({
           { error }
         )
         setModelExists(false)
+        return false
       }
     }
 
-    checkModel()
-    const interval = setInterval(checkModel, POLL_INTERVAL_MS)
-    return () => clearInterval(interval)
+    let cancelled = false
+    let running = false
+    let interval: ReturnType<typeof setInterval> | null = null
+
+    const stopPolling = () => {
+      if (!interval) return
+      clearInterval(interval)
+      interval = null
+    }
+
+    // A visibility change and an interval tick can land together; without the
+    // in-flight guard the same RPC runs twice, concurrently.
+    const runCheck = async () => {
+      if (cancelled || running) return
+      if (typeof document !== "undefined" && document.hidden) return
+      running = true
+      try {
+        const exists = await checkModel()
+        // Nothing left to watch for once the model is present. A later change
+        // to `selectedModel` re-runs this effect and re-arms the timer.
+        if (exists) stopPolling()
+      } finally {
+        running = false
+      }
+    }
+
+    runCheck()
+    interval = setInterval(runCheck, POLL_INTERVAL_MS)
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) runCheck()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+
+    return () => {
+      cancelled = true
+      stopPolling()
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
   }, [
     applyModelChange,
     embeddingModels,

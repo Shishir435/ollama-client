@@ -38,6 +38,8 @@ Pull at least one chat model:
 ollama pull qwen2.5:3b
 ```
 
+To use hosted `:cloud` models through the same local Ollama provider, see [Use Ollama Cloud models](/guides/ollama-cloud/). Recent Ollama versions let Ollama Client add recommended cloud models to the normal model menu automatically.
+
 For tool calling and image input, choose a model that actually supports those capabilities. The extension detects reported capabilities where providers expose them, and lets you override them from the model menu when a provider cannot report them.
 
 Pull one embeddings model for RAG:
@@ -136,5 +138,6 @@ On Firefox or strict environments, you may need to set `OLLAMA_ORIGINS` to allow
 
 - [Architecture](/concepts/architecture/)
 - [Context, Images, and Tools](/guides/context-and-tools/)
+- [Ollama Cloud models](/guides/ollama-cloud/)
 - [Privacy policy](/legal/privacy-policy/)
 - [GitHub repository](https://github.com/Shishir435/ollama-client)

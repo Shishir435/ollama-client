@@ -24,12 +24,21 @@ const SESSION_ID = "session-abc"
 
 /** Minimal helpers to avoid repeating loadSessionMessages dependencies */
 function setupLoadSessionMessagesMocks(
-  messages: unknown[] = [],
+  messages: any[] = [],
   session: unknown = { id: SESSION_ID, title: "Test", currentLeafId: undefined }
 ) {
   mockRepo.getSession.mockResolvedValue(session as any)
-  mockRepo.getMessagesBySessionOrderedByTimestamp.mockResolvedValue(
-    messages as any
+  mockRepo.getMessageTreeBySession.mockResolvedValue(
+    messages.map((m) => ({
+      id: m.id,
+      parentId: m.parentId,
+      timestamp: m.timestamp
+    })) as any
+  )
+  mockRepo.getMessagesByIds.mockImplementation(async (ids: any) =>
+    messages.filter((m) =>
+      ids.some((id: unknown) => String(id) === String(m.id))
+    )
   )
   mockRepo.getFilesByMessageIds.mockResolvedValue([])
 }
@@ -48,6 +57,200 @@ function resetStore() {
 beforeEach(() => {
   resetStore()
   vi.clearAllMocks()
+})
+
+describe("loadSessionMessages", () => {
+  const chain = (length: number) =>
+    Array.from({ length }, (_unused, index) => ({
+      id: index + 1,
+      role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+      content: `message ${index + 1}`,
+      sessionId: SESSION_ID,
+      parentId: index === 0 ? undefined : index,
+      timestamp: index + 1
+    }))
+
+  it("reads the tree narrowly and full rows only for the paginated path", async () => {
+    const messages = chain(120)
+    setupLoadSessionMessagesMocks(messages, {
+      id: SESSION_ID,
+      title: "T",
+      currentLeafId: 120
+    })
+    chatSessionStore.setState({
+      sessions: [
+        { id: SESSION_ID, title: "T", createdAt: 1, updatedAt: 1, messages: [] }
+      ],
+      currentSessionId: SESSION_ID
+    })
+
+    await chatSessionStore.getState().loadSessionMessages(SESSION_ID)
+
+    expect(mockRepo.getMessageTreeBySession).toHaveBeenCalledWith(SESSION_ID)
+    expect(
+      mockRepo.getMessagesBySessionOrderedByTimestamp
+    ).not.toHaveBeenCalled()
+
+    const pathIds = mockRepo.getMessagesByIds.mock.calls[0][0]
+    expect(pathIds).toHaveLength(50)
+    expect(pathIds[0]).toBe(71)
+    expect(pathIds[49]).toBe(120)
+    expect(mockRepo.getFilesByMessageIds).toHaveBeenCalledWith(pathIds)
+
+    const state = chatSessionStore.getState()
+    expect(state.hasMoreMessages).toBe(true)
+    const loaded = state.sessions[0].messages ?? []
+    expect(loaded).toHaveLength(50)
+    expect(loaded[0].content).toBe("message 71")
+    expect(loaded[49].content).toBe("message 120")
+  })
+
+  /**
+   * The projection decoder drops rows it cannot read, and anything that
+   * removed messages without repairing `sessions.currentLeafId` leaves the same
+   * disagreement. Walking from an id the tree does not contain returns an empty
+   * path, which renders as an empty conversation while the rows are intact.
+   */
+  it("loads from the newest node when the stored leaf is missing from the tree", async () => {
+    const messages = chain(5)
+    setupLoadSessionMessagesMocks(messages, {
+      id: SESSION_ID,
+      title: "T",
+      // Never present in the tree — e.g. its row failed to decode.
+      currentLeafId: 9999
+    })
+    chatSessionStore.setState({
+      sessions: [
+        { id: SESSION_ID, title: "T", createdAt: 1, updatedAt: 1, messages: [] }
+      ],
+      currentSessionId: SESSION_ID
+    })
+
+    await chatSessionStore.getState().loadSessionMessages(SESSION_ID)
+
+    const state = chatSessionStore.getState()
+    const loaded = state.sessions[0].messages ?? []
+    expect(loaded.map((m) => m.id)).toEqual([1, 2, 3, 4, 5])
+    expect(state.sessions[0].currentLeafId).toBe(5)
+    expect(state.hasMoreMessages).toBe(false)
+  })
+
+  /**
+   * The store's `currentLeafId` becomes the next message's `parentId` and is
+   * persisted, so publishing a leaf guessed from an incomplete tree would
+   * durably re-parent whatever the user sends next.
+   */
+  it("leaves the session untouched when the tree fails to decode", async () => {
+    const messages = chain(5)
+    setupLoadSessionMessagesMocks(messages, {
+      id: SESSION_ID,
+      title: "T",
+      currentLeafId: 5
+    })
+    chatSessionStore.setState({
+      sessions: [
+        {
+          id: SESSION_ID,
+          title: "T",
+          createdAt: 1,
+          updatedAt: 1,
+          messages: [{ id: 5, role: "user", content: "existing" } as never],
+          currentLeafId: 5
+        }
+      ],
+      currentSessionId: SESSION_ID
+    })
+    mockRepo.getMessageTreeBySession.mockRejectedValueOnce(
+      new Error(
+        "Message tree for a session did not decode: 1 of 5 rows unreadable"
+      )
+    )
+
+    await chatSessionStore.getState().loadSessionMessages(SESSION_ID)
+
+    const session = chatSessionStore.getState().sessions[0]
+    // Crucially the leaf is not replaced by a guess, so the next send still
+    // parents to the real branch.
+    expect(session.currentLeafId).toBe(5)
+    expect(session.messages).toHaveLength(1)
+    expect(mockRepo.getMessagesByIds).not.toHaveBeenCalled()
+  })
+
+  it("does not persist a branch move when navigateToNode cannot read the tree", async () => {
+    mockRepo.getMessageTreeBySession.mockRejectedValueOnce(
+      new Error(
+        "Message tree for a session did not decode: 1 of 5 rows unreadable"
+      )
+    )
+
+    await chatSessionStore.getState().navigateToNode(SESSION_ID, 3)
+
+    expect(mockRepo.updateSession).not.toHaveBeenCalled()
+  })
+
+  it("keeps sibling ids for forked branches off the narrow tree", async () => {
+    const messages = [
+      {
+        id: 1,
+        role: "user" as const,
+        content: "root",
+        sessionId: SESSION_ID,
+        timestamp: 1
+      },
+      {
+        id: 2,
+        role: "assistant" as const,
+        content: "branch a",
+        sessionId: SESSION_ID,
+        parentId: 1,
+        timestamp: 2
+      },
+      {
+        id: 3,
+        role: "assistant" as const,
+        content: "branch b",
+        sessionId: SESSION_ID,
+        parentId: 1,
+        timestamp: 3
+      }
+    ]
+    setupLoadSessionMessagesMocks(messages, {
+      id: SESSION_ID,
+      title: "T",
+      currentLeafId: 3
+    })
+    chatSessionStore.setState({
+      sessions: [
+        { id: SESSION_ID, title: "T", createdAt: 1, updatedAt: 1, messages: [] }
+      ],
+      currentSessionId: SESSION_ID
+    })
+
+    await chatSessionStore.getState().loadSessionMessages(SESSION_ID)
+
+    const state = chatSessionStore.getState()
+    expect(state.hasMoreMessages).toBe(false)
+    expect(state.sessions[0].currentLeafId).toBe(3)
+    const loaded = state.sessions[0].messages ?? []
+    expect(loaded.map((m) => m.id)).toEqual([1, 3])
+    expect(loaded[1].siblingIds).toEqual([2, 3])
+    expect(loaded[0].siblingIds).toBeUndefined()
+  })
+
+  it("falls back to the newest tree node when the session has no leaf", async () => {
+    const messages = chain(3)
+    setupLoadSessionMessagesMocks(messages)
+    chatSessionStore.setState({
+      sessions: [
+        { id: SESSION_ID, title: "T", createdAt: 1, updatedAt: 1, messages: [] }
+      ],
+      currentSessionId: SESSION_ID
+    })
+
+    await chatSessionStore.getState().loadSessionMessages(SESSION_ID)
+
+    expect(chatSessionStore.getState().sessions[0].currentLeafId).toBe(3)
+  })
 })
 
 describe("loadMoreMessages", () => {
@@ -679,40 +882,37 @@ describe("navigateToNode", () => {
     })
   })
 
-  it("calls repo.getMessagesBySessionOrderedByTimestamp when exact=false", async () => {
-    mockRepo.getMessagesBySessionOrderedByTimestamp.mockResolvedValue([
+  it("resolves the leaf from the narrow message tree when exact=false", async () => {
+    setupLoadSessionMessagesMocks([
+      { id: 30, role: "user", content: "msg", timestamp: 1 },
       {
-        id: 30,
-        role: "user",
-        content: "msg",
-        sessionId: SESSION_ID,
-        parentId: undefined
+        id: 31,
+        role: "assistant",
+        content: "reply",
+        parentId: 30,
+        timestamp: 2
       }
-    ] as any)
+    ])
 
     await chatSessionStore.getState().navigateToNode(SESSION_ID, 30, false)
 
+    expect(mockRepo.getMessageTreeBySession).toHaveBeenCalledWith(SESSION_ID)
     expect(
       mockRepo.getMessagesBySessionOrderedByTimestamp
-    ).toHaveBeenCalledWith(SESSION_ID)
+    ).not.toHaveBeenCalled()
+    expect(mockRepo.updateSession).toHaveBeenCalledWith(SESSION_ID, {
+      currentLeafId: 31
+    })
   })
 
   it("default (no exact arg) behaves like exact=false and fetches messages", async () => {
-    mockRepo.getMessagesBySessionOrderedByTimestamp.mockResolvedValue([
-      {
-        id: 30,
-        role: "user",
-        content: "msg",
-        sessionId: SESSION_ID,
-        parentId: undefined
-      }
-    ] as any)
+    setupLoadSessionMessagesMocks([
+      { id: 30, role: "user", content: "msg", timestamp: 1 }
+    ])
 
     await chatSessionStore.getState().navigateToNode(SESSION_ID, 30)
 
-    expect(
-      mockRepo.getMessagesBySessionOrderedByTimestamp
-    ).toHaveBeenCalledWith(SESSION_ID)
+    expect(mockRepo.getMessageTreeBySession).toHaveBeenCalledWith(SESSION_ID)
   })
 })
 

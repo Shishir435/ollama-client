@@ -59,6 +59,7 @@ describe("provider contracts", () => {
           ]
         })
       )
+      .mockResolvedValueOnce(textResponse("not supported", { status: 404 }))
       .mockResolvedValueOnce(
         streamResponse([
           "null\n",
@@ -85,7 +86,7 @@ describe("provider contracts", () => {
     )
 
     expect(fetch).toHaveBeenNthCalledWith(
-      2,
+      3,
       "http://ollama.test/api/chat",
       expect.objectContaining({ method: "POST" })
     )
@@ -346,6 +347,103 @@ describe("provider contracts", () => {
         capabilityHints: {
           contextLength: 131072,
           modalities: ["text", "image"],
+          supportedParameters: ["tools", "reasoning"]
+        }
+      })
+    ])
+  })
+
+  it("treats a zero hosted context length as unknown", async () => {
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:openai:trustedrouter",
+      name: "TrustedRouter",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "https://trustedrouter.test/v1"
+    })
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        data: [
+          { id: "trustedrouter/auto", context_length: 200000 },
+          { id: "openai/chat-latest", context_length: 0 }
+        ]
+      })
+    )
+
+    const models = await provider.getModels()
+
+    expect(models).toHaveLength(2)
+    expect(models[0].capabilityHints?.contextLength).toBe(200000)
+    expect(models[1].capabilityHints?.contextLength).toBeUndefined()
+  })
+
+  it("normalizes bare catalogs and documented vendor metadata aliases", async () => {
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:openai:hosted",
+      name: "Hosted gateway",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "https://hosted.test/v1"
+    })
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse([
+        { id: "groq-model", context_window: 131072 },
+        {
+          id: "mistral-model",
+          max_context_length: 32768,
+          capabilities: { function_calling: true, vision: true }
+        },
+        {
+          id: "fireworks-style-model",
+          contextLength: "65536",
+          supportsImageInput: true,
+          supportsTools: true
+        },
+        { name: "missing-id" }
+      ])
+    )
+
+    const models = await provider.getModels()
+
+    expect(models).toHaveLength(3)
+    expect(models[0].capabilityHints).toEqual({ contextLength: 131072 })
+    expect(models[1].capabilityHints).toEqual({
+      contextLength: 32768,
+      modalities: ["text", "image"],
+      supportedParameters: ["tools"]
+    })
+    expect(models[2].capabilityHints).toEqual({
+      contextLength: 65536,
+      modalities: ["text", "image"],
+      supportedParameters: ["tools"]
+    })
+  })
+
+  it("keeps valid model ids when optional metadata is malformed", async () => {
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:openai:tolerant",
+      name: "Tolerant gateway",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "https://tolerant.test/v1"
+    })
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        data: [
+          {
+            id: "usable-model",
+            context_length: "unknown",
+            architecture: "not-an-object",
+            supported_parameters: ["tools", 42, "reasoning"]
+          }
+        ]
+      })
+    )
+
+    await expect(provider.getModels()).resolves.toEqual([
+      expect.objectContaining({
+        name: "usable-model",
+        capabilityHints: {
           supportedParameters: ["tools", "reasoning"]
         }
       })

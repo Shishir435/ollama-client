@@ -174,7 +174,7 @@ export const Chat = () => {
       requestPermissions,
       claimStream: claimResponseStream,
       releaseStreamClaim: releaseResponseStreamClaim,
-      deleteMessage,
+      updateMessage,
       navigateToNode,
       generateResponse
     })

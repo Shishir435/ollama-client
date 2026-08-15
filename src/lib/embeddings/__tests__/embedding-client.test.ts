@@ -251,5 +251,37 @@ describe("Embedding Client", () => {
       await generateEmbedding(longText)
       expect(mockEmbed).toHaveBeenCalledTimes(1)
     })
+
+    /**
+     * The previous sampled hash bounded its loop by the sample count rather
+     * than the text length, so it only ever read positions inside the first
+     * 1000 characters. Two long chunks sharing an opening collided and the
+     * second silently received the first's vector.
+     */
+    it("distinguishes long texts that differ only after the first 1000 chars", async () => {
+      const shared = "a".repeat(1000)
+      mockEmbed.mockReset()
+      mockEmbed.mockResolvedValueOnce([0.1, 0.2, 0.3])
+      mockEmbed.mockResolvedValueOnce([0.9, 0.8, 0.7])
+
+      const first = await generateEmbedding(`${shared}${"b".repeat(1000)}`)
+      const second = await generateEmbedding(`${shared}${"c".repeat(1000)}`)
+
+      expect(mockEmbed).toHaveBeenCalledTimes(2)
+      expect(getCacheSize()).toBe(2)
+      expect(first).toMatchObject({ embedding: [0.1, 0.2, 0.3] })
+      expect(second).toMatchObject({ embedding: [0.9, 0.8, 0.7] })
+    })
+
+    it("distinguishes texts differing only in trailing length", async () => {
+      mockEmbed.mockReset()
+      mockEmbed.mockResolvedValue([0.1, 0.2, 0.3])
+
+      await generateEmbedding("a".repeat(1500))
+      await generateEmbedding("a".repeat(1501))
+
+      expect(mockEmbed).toHaveBeenCalledTimes(2)
+      expect(getCacheSize()).toBe(2)
+    })
   })
 })

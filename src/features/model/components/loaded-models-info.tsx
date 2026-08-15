@@ -1,6 +1,6 @@
 import { RpcMethod } from "@ollama-client/contracts/rpc"
 import { Brain, ChevronDown, Loader2, RefreshCw, Trash } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +14,8 @@ import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { cn } from "@/lib/class-names"
 import { logger } from "@/lib/logger"
 import { extensionRpcClient } from "@/protocol/extension-client"
+
+const LOADED_MODELS_POLL_INTERVAL_MS = 10_000
 
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return "0 B"
@@ -32,29 +34,56 @@ export const LoadedModelsInfo = () => {
   const [unloading, setUnloading] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  /**
+   * Interval tick, visibility change and manual refresh each issue their own
+   * request, so two can be in flight at once and settle out of order. Only the
+   * newest may write the list.
+   */
+  const latestFetchRef = useRef(0)
+  /**
+   * Results from requests started before this point describe the pre-unload
+   * server state, so they must not be written even when they are the newest
+   * request in flight.
+   *
+   * Deliberately a second counter. Folding this into `latestFetchRef` made an
+   * unload strand the spinner: the in-flight request was no longer "newest", so
+   * it skipped its own cleanup, and nothing newer existed to take it over.
+   * Whether a result is usable and whether a request owns the progress flags
+   * are different questions.
+   */
+  const staleBeforeRef = useRef(0)
 
   const fetchModels = useCallback(
     async (isRefresh = false) => {
+      const fetchId = ++latestFetchRef.current
       if (isRefresh) {
         setRefreshing(true)
       } else {
         setLoading(true)
       }
 
+      const isUsable = () =>
+        fetchId === latestFetchRef.current && fetchId >= staleBeforeRef.current
+
       try {
         const { models } = await extensionRpcClient.call(
           RpcMethod.ModelsListLoaded,
           selectedProviderId ? { providerId: selectedProviderId } : {}
         )
-        setModels(models)
+        if (isUsable()) setModels(models)
       } catch (error) {
         logger.error("Failed to fetch loaded models", "LoadedModelsInfo", {
           error
         })
-        setModels([])
+        if (isUsable()) setModels([])
       } finally {
-        setLoading(false)
-        setRefreshing(false)
+        // Cleared by whichever request is newest, regardless of whether its
+        // result was usable — an older request bowing out must never leave the
+        // panel showing progress that nothing will finish.
+        if (fetchId === latestFetchRef.current) {
+          setLoading(false)
+          setRefreshing(false)
+        }
       }
     },
     [selectedProviderId]
@@ -71,6 +100,10 @@ export const LoadedModelsInfo = () => {
         }
       )
       if (unloaded) {
+        // Every request already in flight predates the unload, so its result
+        // would reintroduce the model. Marking them stale does not disturb
+        // their ownership of the progress flags.
+        staleBeforeRef.current = latestFetchRef.current + 1
         setModels((prev) => prev.filter((m) => m.name !== modelName))
       } else {
         logger.error("Unload did not take effect", "LoadedModelsInfo", {
@@ -90,9 +123,25 @@ export const LoadedModelsInfo = () => {
 
   useEffect(() => {
     if (!selectedProviderCapabilities?.modelUnload) return
-    fetchModels()
-    const interval = setInterval(() => fetchModels(), 10000)
-    return () => clearInterval(interval)
+
+    // Skipped while hidden: this is a background options tab most of the time,
+    // and each tick wakes the worker to ask the provider what is loaded.
+    const poll = () => {
+      if (typeof document !== "undefined" && document.hidden) return
+      fetchModels()
+    }
+
+    poll()
+    const interval = setInterval(poll, LOADED_MODELS_POLL_INTERVAL_MS)
+    const onVisibilityChange = () => {
+      if (!document.hidden) poll()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
   }, [fetchModels, selectedProviderCapabilities?.modelUnload])
 
   if (!selectedProviderCapabilities?.modelUnload) {

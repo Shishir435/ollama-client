@@ -1,5 +1,5 @@
+import { ProvidersListModelsResultSchema } from "@ollama-client/contracts/provider-rpc"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import { clearOllamaDetailBackfillCache, OllamaProvider } from "../ollama"
 import { ProviderId, ProviderType } from "../types"
 
@@ -68,6 +68,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
@@ -240,5 +241,151 @@ describe("OllamaProvider.getModels metadata backfill", () => {
       .mock.calls.filter(([url]) => String(url).endsWith("/api/show"))
     expect(asked.length).toBeLessThanOrEqual(12)
     expect(asked.length).toBeGreaterThan(0)
+  })
+})
+
+describe("OllamaProvider.getModels cloud recommendations", () => {
+  it("merges hosted recommendations into the normal model list", async () => {
+    vi.mocked(fetch).mockImplementation((url) => {
+      if (String(url).endsWith("/api/tags")) {
+        return Promise.resolve(
+          jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
+        )
+      }
+      if (String(url).endsWith("/api/experimental/model-recommendations")) {
+        return Promise.resolve(
+          jsonOk({
+            recommendations: [
+              {
+                model: "minimax-m3:cloud",
+                description: "Hosted coding model",
+                context_length: 524288,
+                max_output_tokens: 131072,
+                required_plan: "free"
+              },
+              { model: "gemma4:26b", vram_bytes: 19_000_000_000 }
+            ]
+          })
+        )
+      }
+      return Promise.resolve({ ok: false, status: 404 } as Response)
+    })
+
+    const models = await makeProvider().getModels()
+
+    expect(models.map(({ name }) => name)).toEqual([
+      "gemma4:12b",
+      "minimax-m3:cloud"
+    ])
+    expect(models[1]).toMatchObject({
+      details: { format: "cloud" },
+      capabilityHints: { contextLength: 524288 },
+      cloud: {
+        description: "Hosted coding model",
+        maxOutputTokens: 131072,
+        requiredPlan: "free"
+      }
+    })
+  })
+
+  it("keeps local models when an older daemon has no recommendation route", async () => {
+    vi.mocked(fetch).mockImplementation((url) => {
+      if (String(url).endsWith("/api/tags")) {
+        return Promise.resolve(
+          jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
+        )
+      }
+      return Promise.resolve({ ok: false, status: 404 } as Response)
+    })
+
+    const models = await makeProvider().getModels()
+
+    expect(models.map(({ name }) => name)).toEqual(["gemma4:12b"])
+  })
+
+  it("drops oversized metadata before the provider RPC boundary", async () => {
+    vi.mocked(fetch).mockImplementation((url) => {
+      if (String(url).endsWith("/api/tags")) {
+        return Promise.resolve(
+          jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
+        )
+      }
+      if (String(url).endsWith("/api/experimental/model-recommendations")) {
+        return Promise.resolve(
+          jsonOk({
+            recommendations: [
+              {
+                model: "minimax-m3:cloud",
+                description: "d".repeat(2_001),
+                required_plan: "p".repeat(65),
+                max_output_tokens: 131072
+              }
+            ]
+          })
+        )
+      }
+      return Promise.resolve({ ok: false, status: 404 } as Response)
+    })
+
+    const models = await makeProvider().getModels()
+
+    expect(models).toHaveLength(2)
+    expect(models[1].cloud).toEqual({ maxOutputTokens: 131072 })
+    expect(() =>
+      ProvidersListModelsResultSchema.parse({ models, failures: [] })
+    ).not.toThrow()
+  })
+
+  it("never rewrites a model already returned by local discovery", async () => {
+    const localCloudModel = tagsModel("minimax-m3:cloud", "local-metadata")
+    vi.mocked(fetch).mockImplementation((url) => {
+      if (String(url).endsWith("/api/tags")) {
+        return Promise.resolve(jsonOk({ models: [localCloudModel] }))
+      }
+      if (String(url).endsWith("/api/experimental/model-recommendations")) {
+        return Promise.resolve(
+          jsonOk({
+            recommendations: [
+              {
+                model: "minimax-m3:cloud",
+                description: "Supplemental metadata"
+              }
+            ]
+          })
+        )
+      }
+      return Promise.resolve({ ok: false, status: 404 } as Response)
+    })
+
+    const models = await makeProvider().getModels()
+
+    expect(models).toHaveLength(1)
+    expect(models[0]).toEqual(expect.objectContaining(localCloudModel))
+    expect(models[0].cloud).toBeUndefined()
+  })
+
+  it("does not let a hanging recommendation route block local discovery", async () => {
+    vi.useFakeTimers()
+    vi.mocked(fetch).mockImplementation((url, init) => {
+      if (String(url).endsWith("/api/tags")) {
+        return Promise.resolve(
+          jsonOk({ models: [tagsModel("gemma4:12b", "11.9B")] })
+        )
+      }
+      return new Promise((_resolve, reject) => {
+        ;(init as RequestInit | undefined)?.signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Aborted", "AbortError")),
+          { once: true }
+        )
+      })
+    })
+
+    const modelsPromise = makeProvider().getModels()
+    await vi.advanceTimersByTimeAsync(1_500)
+
+    await expect(modelsPromise).resolves.toEqual([
+      expect.objectContaining({ name: "gemma4:12b" })
+    ])
   })
 })

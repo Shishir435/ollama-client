@@ -9,6 +9,52 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.13.1]
+
+### Added
+
+- Ollama cloud models are now discoverable. Local `/api/tags` discovery stays
+  authoritative and hosted recommendations are appended only after a successful
+  supplemental lookup, so malformed cloud metadata cannot invalidate the local
+  catalog.
+
+### Fixed
+
+- The store listing name and description are restored. Both are generated from
+  `src/locales/*/translation.json`, and the 0.12.7 store metadata was lost when
+  0.13.0 reconciled its release ancestry — 0.13.0 shipped the pre-0.12.7 title
+  in all nine locales.
+- OpenAI-compatible model discovery now accepts both standard `{ data: [] }`
+  catalogs and documented bare-array variants, normalizes common hosted
+  context/capability fields, and keeps valid models when unrelated entries or
+  optional metadata are malformed. A provider reporting an unknown context size
+  is no longer rejected.
+- Turns blocked by a disabled optional permission now surface the missing
+  permission and resume after it is granted, instead of leaving the model to
+  infer a capability it was never offered.
+- Content hashing for embeddings sampled only the first 1000 characters of long
+  text, so chunks sharing an opening collided and the cache returned another
+  chunk's vector.
+- A session whose stored leaf is absent from the message tree now falls back to
+  the newest node instead of rendering an empty conversation over intact rows.
+  An undecodable message tree raises rather than persisting a guessed parent.
+- Loaded-model listing ignores stale responses, and an unload during an
+  in-flight refresh no longer leaves the panel on a permanent spinner.
+
+### Changed
+
+- The BM25 keyword index no longer retains full embedding vectors, which
+  duplicated what Dexie and the ANN backend already hold; hybrid search reads
+  surviving candidates back by id before fusion.
+- Markdown is parsed on a throttle during streaming instead of re-parsing the
+  whole message per token, the parser is shared across bubbles, and session load
+  reads a narrow projection rather than every message row.
+- Page extraction runs on one refcounted sweep that pauses while the document is
+  hidden, replacing one timer per mounted consumer and the concurrent
+  extractions that came with it. The tab content cache is now bounded.
+- Embedding configuration is memoized until `storage.onChanged` fires rather
+  than re-read per chunk and per vector operation.
+
 ## [0.13.0]
 
 ### Added
