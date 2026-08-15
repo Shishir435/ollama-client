@@ -3,6 +3,7 @@ import {
   ChatMessageMetricsSchema
 } from "@ollama-client/contracts/chat"
 import { TURN_OWNED_ASSISTANT_STATUSES } from "@ollama-client/contracts/turns"
+import { z } from "zod"
 import { imageToStoredFile } from "@/lib/image-utils"
 import { PERSISTENCE_LIMITS } from "@/lib/persistence/protocol"
 import {
@@ -19,6 +20,7 @@ import {
   withTransaction
 } from "@/lib/sqlite/db"
 import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
+import { decodeRows } from "./row-decoder"
 
 /**
  * SQLite-backed implementation of the chat-history persistence surface.
@@ -31,6 +33,27 @@ import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
 
 type StoredMessage = ChatMessage & { sessionId: string; id?: number }
 type StoredFile = FileAttachment & { sessionId: string; id?: number }
+
+/**
+ * Narrow message projection: the columns the message tree is built from.
+ *
+ * Decoded rather than asserted, unlike the whole-row mappers below. These three
+ * values *are* the ancestry — a null id or a timestamp that is not a number
+ * does not surface as a rendering glitch, it reorders siblings or detaches a
+ * subtree, and the visible branch silently ends early with nothing to point at.
+ * A per-field `as` on a bag of `SqlValue`s is unconditionally true and
+ * unconditionally unchecked, so the first thing to notice would be the user.
+ */
+const MessageTreeRowSchema = z.object({
+  id: z.number(),
+  parentId: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  timestamp: z.number()
+})
+
+export type MessageTreeRow = z.infer<typeof MessageTreeRowSchema>
 
 type RowValue = string | number | null | Uint8Array
 type Row = Record<string, RowValue>
@@ -422,6 +445,60 @@ export const getMessagesBySessionOrderedByTimestamp = async (
   const rows = await query(
     "SELECT * FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
     [sessionId]
+  )
+  return rows.map(messageFromRow)
+}
+
+/**
+ * The `id`/`parentId`/`timestamp` triple every message in a session
+ * contributes to the tree: enough to build the siblings map and walk the
+ * active path, and nothing else. Reading whole rows to do that shipped every
+ * message body, attachment blob and inlined image across the persistence
+ * worker's structured clone on each session switch, to keep fifty.
+ */
+export const getMessageTreeBySession = async (
+  sessionId: string
+): Promise<MessageTreeRow[]> => {
+  const rows = await query(
+    "SELECT id, parentId, timestamp FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
+    [sessionId]
+  )
+  const decoded = decodeRows(MessageTreeRowSchema, rows, {
+    table: "messages",
+    operation: "getMessageTreeBySession"
+  })
+
+  /**
+   * Raises rather than dropping, unlike the ingestion and model-pull
+   * repositories.
+   *
+   * Their rows are independent — one unreadable job denies recovery to itself
+   * and nothing else. These rows are a single interdependent structure, and a
+   * partial tree is not a smaller tree, it is a wrong one: the walk stops at
+   * the first missing id, so losing one node silently truncates or empties the
+   * branch beneath it, and the leaf the caller then settles on becomes the
+   * parent of the next message the user sends. Returning a subset asks every
+   * caller to detect an incompleteness the repository already knows about.
+   *
+   * `decodeRows` has logged each offending row's paths and codes by now, so
+   * this carries only the count.
+   */
+  if (decoded.length !== rows.length) {
+    throw new Error(
+      `Message tree for a session did not decode: ${rows.length - decoded.length} of ${rows.length} rows unreadable`
+    )
+  }
+  return decoded
+}
+
+export const getMessagesByIds = async (
+  ids: Array<number | string>
+): Promise<StoredMessage[]> => {
+  if (ids.length === 0) return []
+  const numericIds = ids.map((id) => Number(id))
+  const rows = await query(
+    `SELECT * FROM messages WHERE id IN (${placeholders(numericIds.length)})`,
+    numericIds
   )
   return rows.map(messageFromRow)
 }

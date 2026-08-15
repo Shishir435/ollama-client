@@ -446,4 +446,28 @@ describe("MarkdownRenderer", () => {
       }
     })
   })
+
+  describe("streamed content", () => {
+    it("settles on the final content instead of an intermediate parse", () => {
+      vi.useFakeTimers()
+      try {
+        const { container, rerender } = render(
+          <MarkdownRenderer content={"Streaming"} />
+        )
+
+        rerender(<MarkdownRenderer content={"Streaming ans"} />)
+        rerender(<MarkdownRenderer content={"Streaming answ"} />)
+        rerender(<MarkdownRenderer content={"Streaming **answer**."} />)
+        act(() => {
+          vi.advanceTimersByTime(500)
+        })
+
+        const surface = container.querySelector(".markdown-container")
+        expect(surface).toHaveTextContent("Streaming answer.")
+        expect(surface?.querySelector("strong")).toHaveTextContent("answer")
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
 })
