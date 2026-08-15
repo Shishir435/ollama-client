@@ -15,6 +15,8 @@ import { cn } from "@/lib/class-names"
 import { logger } from "@/lib/logger"
 import { extensionRpcClient } from "@/protocol/extension-client"
 
+const LOADED_MODELS_POLL_INTERVAL_MS = 10_000
+
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return "0 B"
   const k = 1024
@@ -90,9 +92,25 @@ export const LoadedModelsInfo = () => {
 
   useEffect(() => {
     if (!selectedProviderCapabilities?.modelUnload) return
-    fetchModels()
-    const interval = setInterval(() => fetchModels(), 10000)
-    return () => clearInterval(interval)
+
+    // Skipped while hidden: this is a background options tab most of the time,
+    // and each tick wakes the worker to ask the provider what is loaded.
+    const poll = () => {
+      if (typeof document !== "undefined" && document.hidden) return
+      fetchModels()
+    }
+
+    poll()
+    const interval = setInterval(poll, LOADED_MODELS_POLL_INTERVAL_MS)
+    const onVisibilityChange = () => {
+      if (!document.hidden) poll()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
   }, [fetchModels, selectedProviderCapabilities?.modelUnload])
 
   if (!selectedProviderCapabilities?.modelUnload) {
