@@ -361,6 +361,27 @@
     text-decoration: none;
   }
 
+  /*
+   * Applied for a moment after an in-page fragment link scrolls to its target,
+   * so the reader can see which footnote they landed on. Colour only, no
+   * layout: the element is already in view and must not shift under the eye.
+   */
+  .typeset :where(.fragment-target) {
+    animation: typeset-fragment-flash 1.8s ease-out;
+    border-radius: 0.25rem;
+  }
+
+  @keyframes typeset-fragment-flash {
+    from {
+      background: color-mix(in oklab, var(--ring) 40%, transparent);
+      box-shadow: 0 0 0 0.3rem color-mix(in oklab, var(--ring) 40%, transparent);
+    }
+    to {
+      background: transparent;
+      box-shadow: 0 0 0 0.3rem transparent;
+    }
+  }
+
   .typeset :where(.not-typeset, [data-not-typeset]) {
     font: initial;
   }
