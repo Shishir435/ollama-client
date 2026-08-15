@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - ローカル LLM モデルとチャット",
+    "name": "Ollama Client - Ollama、LM Studio、llama.cpp のローカル AI チャット",
     "short_name": "Ollama Client",
-    "description": "Ollama、LM Studio、llama.cpp を使ったプライベートな LLM チャットとローカル RAG ワークフローのためのローカル優先 Chrome 拡張機能です。",
+    "description": "Ollama、LM Studio、llama.cpp によるプライベートな LLM チャット。ローカル RAG、ウェブ検索、ページコンテキストに対応。",
     "action_default_title": "Ollama Client を開く"
   },
   "selection_button": {

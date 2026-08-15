@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - 与本地 LLM 模型聊天",
+    "name": "Ollama Client - Ollama、LM Studio、llama.cpp 本地 AI 聊天",
     "short_name": "Ollama Client",
-    "description": "面向本地优先体验的 Chrome 扩展，可通过 Ollama、LM Studio 和 llama.cpp 进行私密 LLM 聊天，并支持本地 RAG 工作流。",
+    "description": "通过 Ollama、LM Studio 和 llama.cpp 进行私密 LLM 聊天，支持本地 RAG、网页搜索和页面上下文。",
     "action_default_title": "打开 Ollama Client"
   },
   "selection_button": {
