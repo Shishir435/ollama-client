@@ -105,6 +105,76 @@ describe("loadSessionMessages", () => {
     expect(loaded[49].content).toBe("message 120")
   })
 
+  /**
+   * The projection decoder drops rows it cannot read, and anything that
+   * removed messages without repairing `sessions.currentLeafId` leaves the same
+   * disagreement. Walking from an id the tree does not contain returns an empty
+   * path, which renders as an empty conversation while the rows are intact.
+   */
+  it("loads from the newest node when the stored leaf is missing from the tree", async () => {
+    const messages = chain(5)
+    setupLoadSessionMessagesMocks(messages, {
+      id: SESSION_ID,
+      title: "T",
+      // Never present in the tree — e.g. its row failed to decode.
+      currentLeafId: 9999
+    })
+    chatSessionStore.setState({
+      sessions: [
+        { id: SESSION_ID, title: "T", createdAt: 1, updatedAt: 1, messages: [] }
+      ],
+      currentSessionId: SESSION_ID
+    })
+
+    await chatSessionStore.getState().loadSessionMessages(SESSION_ID)
+
+    const state = chatSessionStore.getState()
+    const loaded = state.sessions[0].messages ?? []
+    expect(loaded.map((m) => m.id)).toEqual([1, 2, 3, 4, 5])
+    expect(state.sessions[0].currentLeafId).toBe(5)
+    expect(state.hasMoreMessages).toBe(false)
+  })
+
+  it("still loads the branch when an ancestor is missing from the tree", async () => {
+    const messages = chain(5)
+    mockRepo.getSession.mockResolvedValue({
+      id: SESSION_ID,
+      title: "T",
+      currentLeafId: 5
+    } as never)
+    // Row 3 failed to decode and was dropped, detaching 4 and 5 from the root.
+    mockRepo.getMessageTreeBySession.mockResolvedValue(
+      messages
+        .filter((m) => m.id !== 3)
+        .map((m) => ({
+          id: m.id,
+          parentId: m.parentId,
+          timestamp: m.timestamp
+        })) as never
+    )
+    mockRepo.getMessagesByIds.mockImplementation(async (ids: any) =>
+      messages.filter((m) =>
+        ids.some((id: unknown) => String(id) === String(m.id))
+      )
+    )
+    mockRepo.getFilesByMessageIds.mockResolvedValue([] as never)
+    chatSessionStore.setState({
+      sessions: [
+        { id: SESSION_ID, title: "T", createdAt: 1, updatedAt: 1, messages: [] }
+      ],
+      currentSessionId: SESSION_ID
+    })
+
+    await chatSessionStore.getState().loadSessionMessages(SESSION_ID)
+
+    const state = chatSessionStore.getState()
+    const loaded = state.sessions[0].messages ?? []
+    // Truncated at the gap rather than empty, and pagination stays open so the
+    // full-row load-more path can walk past it.
+    expect(loaded.map((m) => m.id)).toEqual([4, 5])
+    expect(state.hasMoreMessages).toBe(true)
+  })
+
   it("keeps sibling ids for forked branches off the narrow tree", async () => {
     const messages = [
       {

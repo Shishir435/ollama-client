@@ -58,8 +58,38 @@ export const createChatSessionMessageActions = (
       return
     }
 
-    const leafId = session.currentLeafId ?? treeNodes[treeNodes.length - 1].id
-    if (leafId === undefined) return
+    const storedLeafId =
+      session.currentLeafId ?? treeNodes[treeNodes.length - 1].id
+    if (storedLeafId === undefined) return
+
+    /**
+     * The walk starts from a node the tree actually contains.
+     *
+     * `traversePathFromLeaf` stops the moment an id is missing, so a leaf that
+     * is not in the tree produces an empty path — which renders as an empty
+     * conversation, with a load-more affordance, while every row is still
+     * sitting in SQLite. That is reachable whenever the stored pointer and the
+     * tree disagree: a row dropped by the projection decoder, or a stale
+     * `currentLeafId` left by anything that removed messages without repairing
+     * it.
+     *
+     * The fallback is the newest node, which is what a session with no stored
+     * leaf already uses. Not written back — a read must not repair durable
+     * state, or a transient decode failure would permanently move the user's
+     * branch.
+     */
+    const leafId = treeNodes.some(
+      (node) => String(node.id) === String(storedLeafId)
+    )
+      ? storedLeafId
+      : treeNodes[treeNodes.length - 1].id
+    if (leafId !== storedLeafId) {
+      logger.warn(
+        "Stored leaf is not in the message tree; falling back to the newest node",
+        "chatSessionStore",
+        { sessionId, treeSize: treeNodes.length }
+      )
+    }
 
     const siblingsMap = buildSiblingsMap(treeNodes)
     const { path: pathNodes, hasMore } = traversePathFromLeaf(
