@@ -12,8 +12,23 @@ import type { ChatMessage, FileAttachment, ImageAttachment } from "@/types"
  * without touching the database.
  */
 
+/**
+ * The columns tree traversal actually reads. Every helper below is generic
+ * over this so the active path can be resolved from a narrow projection —
+ * `getMessageTreeBySession` — without loading message bodies for rows that
+ * pagination is about to discard.
+ */
+export interface MessageTreeNode {
+  id?: number | string
+  parentId?: number | string
+  timestamp?: number
+}
+
 /** Stable ordering for sibling lists. */
-export const compareMessages = (a: ChatMessage, b: ChatMessage): number => {
+export const compareMessages = (
+  a: MessageTreeNode,
+  b: MessageTreeNode
+): number => {
   const tsA = a.timestamp ?? 0
   const tsB = b.timestamp ?? 0
   if (tsA !== tsB) return tsA - tsB
@@ -25,10 +40,10 @@ export const compareMessages = (a: ChatMessage, b: ChatMessage): number => {
  * messages. Root-level messages live under the key `"root"`. Sibling
  * lists are sorted by `compareMessages`.
  */
-export const buildSiblingsMap = (
-  messages: ChatMessage[]
-): Map<number | string, ChatMessage[]> => {
-  const map = new Map<number | string, ChatMessage[]>()
+export const buildSiblingsMap = <T extends MessageTreeNode>(
+  messages: T[]
+): Map<number | string, T[]> => {
+  const map = new Map<number | string, T[]>()
   for (const msg of messages) {
     const key = msg.parentId ?? "root"
     const list = map.get(key) || []
@@ -40,16 +55,16 @@ export const buildSiblingsMap = (
 }
 
 /** Build an id -> message lookup for messages that have an id. */
-const buildMessageMap = (messages: ChatMessage[]) =>
+const buildMessageMap = <T extends MessageTreeNode>(messages: T[]) =>
   new Map(
     messages
       .filter((m) => m.id !== undefined)
       .map((m) => [String(m.id), m] as const)
   )
 
-export interface PathResult {
+export interface PathResult<T extends MessageTreeNode = ChatMessage> {
   /** Active path from earliest ancestor we visited to the leaf. */
-  path: ChatMessage[]
+  path: T[]
   /** True if the traversal stopped before hitting a root message. */
   hasMore: boolean
 }
@@ -60,13 +75,13 @@ export interface PathResult {
  * root-to-leaf order plus a `hasMore` flag if there are earlier
  * messages we did not include.
  */
-export const traversePathFromLeaf = (
-  messages: ChatMessage[],
+export const traversePathFromLeaf = <T extends MessageTreeNode>(
+  messages: T[],
   leafId: number | string,
   limit: number
-): PathResult => {
+): PathResult<T> => {
   const msgMap = buildMessageMap(messages)
-  const path: ChatMessage[] = []
+  const path: T[] = []
   let currentId: number | string | undefined = leafId
   let iterations = 0
 
@@ -111,7 +126,7 @@ export const traversePathFromLeafWithFetcher = async (
  * cascading delete to find every descendant id below a target message.
  */
 export const collectDescendantIds = (
-  messages: ChatMessage[],
+  messages: MessageTreeNode[],
   rootId: number
 ): Set<number> => {
   const childrenMap = new Map<number, number[]>()
@@ -145,7 +160,7 @@ export const collectDescendantIds = (
  */
 export const enrichPathWithSiblingsAndAttachments = (
   path: ChatMessage[],
-  siblingsMap: Map<number | string, ChatMessage[]>,
+  siblingsMap: Map<number | string, MessageTreeNode[]>,
   filesByMessageId: Map<number, FileAttachment[]>
 ): ChatMessage[] =>
   path.map((msg) => {
@@ -188,11 +203,11 @@ export const splitStoredFiles = (
  * Find the latest leaf descending from `nodeId`, picking the
  * timestamp-latest child at each step.
  */
-export const findLatestLeafDescendant = (
-  messages: ChatMessage[],
+export const findLatestLeafDescendant = <T extends MessageTreeNode>(
+  messages: T[],
   nodeId: number | string
 ): number | string => {
-  const childrenByParent = new Map<string, ChatMessage[]>()
+  const childrenByParent = new Map<string, T[]>()
   for (const msg of messages) {
     if (msg.id === undefined || msg.parentId === undefined) continue
     const key = String(msg.parentId)

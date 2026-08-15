@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - чат с локальными LLM-моделями",
+    "name": "Ollama Client - локальный AI-чат с Ollama, LM Studio, llama.cpp",
     "short_name": "Ollama Client",
-    "description": "Локальное расширение Chrome для приватного чата с LLM через Ollama, LM Studio и llama.cpp, включая локальные RAG-процессы.",
+    "description": "Приватный чат с LLM через Ollama, LM Studio и llama.cpp: локальный RAG, веб-поиск и контекст страницы.",
     "action_default_title": "Открыть Ollama Client"
   },
   "selection_button": {
@@ -563,6 +563,7 @@
       "refresh_tooltip": "Обновить модели",
       "search_placeholder": "Поиск модели...",
       "no_model_found": "Модель не найдена.",
+      "cloud_badge": "Облако{{plan}}",
       "providers_unavailable": "{{names}} не вернул моделей. Проверьте провайдера в настройках или добавьте идентификаторы моделей вручную.",
       "selection_conflict": "Выберите провайдера для {{model}} — её предоставляют несколько."
     },
@@ -1081,6 +1082,7 @@
         },
         "num_predict": {
           "label": "Максимум токенов",
+          "auto": "Авто (рекомендуется)",
           "validation_min": "Должно быть не менее {{min}}."
         },
         "repeat_penalty": {

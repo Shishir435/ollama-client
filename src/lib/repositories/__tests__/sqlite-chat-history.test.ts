@@ -453,6 +453,72 @@ describe("messages", () => {
     expect(params).toEqual([1, 2, 3])
   })
 
+  it("getMessageTreeBySession selects only the tree columns", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      { id: 1, parentId: null, timestamp: 10 },
+      { id: 2, parentId: 1, timestamp: 20 }
+    ])
+    const nodes = await repo.getMessageTreeBySession("s1")
+    const [sql, params] = mockedQuery.mock.calls[0]
+    expect(sql).toBe(
+      "SELECT id, parentId, timestamp FROM messages WHERE sessionId = ? ORDER BY timestamp ASC"
+    )
+    expect(params).toEqual(["s1"])
+    expect(nodes).toEqual([
+      { id: 1, parentId: undefined, timestamp: 10 },
+      { id: 2, parentId: 1, timestamp: 20 }
+    ])
+  })
+
+  it("getMessageTreeBySession raises when a tree row does not decode", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      { id: 1, parentId: null, timestamp: 10 },
+      // A half-applied migration or a foreign writer can leave this shape.
+      // Returning the rest would be a wrong tree, not a smaller one.
+      { id: null, parentId: 1, timestamp: 20 },
+      { id: 3, parentId: 1, timestamp: 30 }
+    ])
+
+    await expect(repo.getMessageTreeBySession("s1")).rejects.toThrow(
+      /did not decode/
+    )
+  })
+
+  it("getMessageTreeBySession raises on a non-numeric timestamp", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      { id: 1, parentId: null, timestamp: "10" },
+      { id: 2, parentId: 1, timestamp: 20 }
+    ])
+
+    await expect(repo.getMessageTreeBySession("s1")).rejects.toThrow(
+      /did not decode/
+    )
+  })
+
+  it("getMessageTreeBySession reports the unreadable count without row content", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      { id: 1, parentId: null, timestamp: 10 },
+      { id: null, parentId: 1, timestamp: 20 }
+    ])
+
+    await expect(repo.getMessageTreeBySession("s1")).rejects.toThrow(
+      "Message tree for a session did not decode: 1 of 2 rows unreadable"
+    )
+  })
+
+  it("getMessagesByIds returns [] for empty ids without hitting the db", async () => {
+    expect(await repo.getMessagesByIds([])).toEqual([])
+    expect(mockedQuery).not.toHaveBeenCalled()
+  })
+
+  it("getMessagesByIds builds an IN clause sized to the input", async () => {
+    mockedQuery.mockResolvedValueOnce([])
+    await repo.getMessagesByIds([3, "4"])
+    const [sql, params] = mockedQuery.mock.calls[0]
+    expect(sql).toBe("SELECT * FROM messages WHERE id IN (?, ?)")
+    expect(params).toEqual([3, 4])
+  })
+
   it("getRootMessagesForSession filters parentId IS NULL", async () => {
     mockedQuery.mockResolvedValueOnce([])
     await repo.getRootMessagesForSession("s1")

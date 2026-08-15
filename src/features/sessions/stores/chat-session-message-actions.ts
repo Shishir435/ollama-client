@@ -43,11 +43,29 @@ export const createChatSessionMessageActions = (
     if (isStaleLoad()) return
     if (!session) return
 
-    const allMessages =
-      await repo.getMessagesBySessionOrderedByTimestamp(sessionId)
+    /**
+     * A tree that did not fully decode is not published at all.
+     *
+     * Leaving the session's existing state alone keeps the store's
+     * `currentLeafId` as it was, which matters more than the render: `addMessage`
+     * takes that value as the new message's `parentId` and persists it, so a
+     * leaf guessed from an incomplete tree would durably re-parent the next
+     * thing the user sends.
+     */
+    let treeNodes: repo.MessageTreeRow[]
+    try {
+      treeNodes = await repo.getMessageTreeBySession(sessionId)
+    } catch (error) {
+      logger.error(
+        "Failed to read the message tree; leaving the session unchanged",
+        "chatSessionStore",
+        { error, sessionId }
+      )
+      return
+    }
     if (isStaleLoad()) return
 
-    if (allMessages.length === 0) {
+    if (treeNodes.length === 0) {
       set((state) => ({
         sessions: state.sessions.map((s) =>
           s.id === sessionId
@@ -59,23 +77,64 @@ export const createChatSessionMessageActions = (
       return
     }
 
-    const leafId =
-      session.currentLeafId ?? allMessages[allMessages.length - 1].id
-    if (leafId === undefined) return
+    const storedLeafId =
+      session.currentLeafId ?? treeNodes[treeNodes.length - 1].id
+    if (storedLeafId === undefined) return
 
-    const siblingsMap = buildSiblingsMap(allMessages)
-    const { path, hasMore } = traversePathFromLeaf(
-      allMessages,
+    /**
+     * The walk starts from a node the tree actually contains.
+     *
+     * `traversePathFromLeaf` stops the moment an id is missing, so a leaf that
+     * is not in the tree produces an empty path — an empty conversation, with a
+     * load-more affordance, while every row is still sitting in SQLite.
+     *
+     * Reaching here means the tree decoded completely, so this is a stale
+     * pointer rather than missing data: something removed messages without
+     * repairing `sessions.currentLeafId`. The newest node is then a real leaf,
+     * which is what a session with no stored leaf already falls back to, and is
+     * safe to hand `addMessage` as the next parent. The decode-failure case
+     * cannot arrive here at all — it returned above rather than guess.
+     *
+     * Still not written back: a read does not repair durable state.
+     */
+    const leafId = treeNodes.some(
+      (node) => String(node.id) === String(storedLeafId)
+    )
+      ? storedLeafId
+      : treeNodes[treeNodes.length - 1].id
+    if (leafId !== storedLeafId) {
+      logger.warn(
+        "Stored leaf is not in the message tree; falling back to the newest node",
+        "chatSessionStore",
+        { sessionId, treeSize: treeNodes.length }
+      )
+    }
+
+    const siblingsMap = buildSiblingsMap(treeNodes)
+    const { path: pathNodes, hasMore } = traversePathFromLeaf(
+      treeNodes,
       leafId,
       CHAT_PAGINATION_LIMIT
     )
 
-    const messageIds = path
+    const messageIds = pathNodes
       .map((m) => m.id)
       .filter((id): id is number => typeof id === "number")
-    const files =
-      messageIds.length > 0 ? await repo.getFilesByMessageIds(messageIds) : []
+
+    // Whole rows are read only for the <=CHAT_PAGINATION_LIMIT ids on the
+    // resolved path; the rest of the tree never leaves the worker.
+    const [pathMessages, files] = await Promise.all([
+      messageIds.length > 0 ? repo.getMessagesByIds(messageIds) : [],
+      messageIds.length > 0 ? repo.getFilesByMessageIds(messageIds) : []
+    ])
     if (isStaleLoad()) return
+
+    const messagesById = new Map(
+      pathMessages.map((message) => [String(message.id), message] as const)
+    )
+    const path = messageIds
+      .map((id) => messagesById.get(String(id)))
+      .filter((message) => message !== undefined)
     const filesByMessageId = groupFilesByMessageId(files)
 
     const messagesWithData = enrichPathWithSiblingsAndAttachments(
@@ -326,9 +385,20 @@ export const createChatSessionMessageActions = (
   ) => {
     let leafId = nodeId
     if (!exact) {
-      const allMessages =
-        await repo.getMessagesBySessionOrderedByTimestamp(sessionId)
-      leafId = findLatestLeafDescendant(allMessages, nodeId)
+      // This branch resolves a leaf and then *persists* it, so an incomplete
+      // tree would durably move the user's conversation to whatever descendant
+      // survived. Abort the navigation instead.
+      try {
+        const treeNodes = await repo.getMessageTreeBySession(sessionId)
+        leafId = findLatestLeafDescendant(treeNodes, nodeId)
+      } catch (error) {
+        logger.error(
+          "Failed to read the message tree; leaving the branch unchanged",
+          "chatSessionStore",
+          { error, sessionId }
+        )
+        return
+      }
     }
 
     await repo.updateSession(sessionId, { currentLeafId: leafId })

@@ -165,6 +165,40 @@ describe("provider tool calling — request mapping", () => {
     })
   })
 
+  it("omits the Auto num_predict sentinel from Ollama requests", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new OllamaProvider(ollamaConfig).streamChat(
+      {
+        model: "minimax-m3:cloud",
+        messages: [{ role: "user", content: "hi" }],
+        num_predict: -1
+      },
+      () => {}
+    )
+
+    expect(bodyOf(fetchMock).options?.num_predict).toBeUndefined()
+  })
+
+  it("preserves an explicit zero num_predict for existing local behavior", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new OllamaProvider(ollamaConfig).streamChat(
+      {
+        model: "local-model",
+        messages: [{ role: "user", content: "hi" }],
+        num_predict: 0
+      },
+      () => {}
+    )
+
+    expect(bodyOf(fetchMock).options?.num_predict).toBe(0)
+  })
+
   it("Ollama maps assistant tool calls and tool results back to the wire", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

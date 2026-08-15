@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { KeywordIndexDocument } from "@/lib/embeddings/keyword-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
+import type { VectorDocument } from "@/lib/embeddings/vector-store"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
 import { searchHybrid, vectorDb } from "../vector-store"
 
@@ -92,13 +94,31 @@ beforeEach(async () => {
   vi.mocked(getPlasmoStoredValue).mockResolvedValue({})
 })
 
+/**
+ * Mirrors the projection the real index retains: content + metadata + the
+ * dimension captured at add time, and deliberately no vectors. Keeping the
+ * fixture in this shape is what makes these mocks exercise the rehydration
+ * path instead of handing `searchHybrid` a row it no longer receives.
+ */
+const keywordDoc = (doc: VectorDocument): KeywordIndexDocument => ({
+  id: doc.id,
+  content: doc.content,
+  embeddingDim: doc.metadata.embeddingDim ?? doc.embedding.length,
+  metadata: doc.metadata
+})
+
 describe("searchHybrid — RRF fusion", () => {
   it("doc in both lists scores higher than doc in only one list", async () => {
     await vectorDb.vectors.bulkAdd([docA, docB] as any)
 
     // keyword: only docA (rank 0)
     vi.mocked(keywordIndexManager.search).mockReturnValue([
-      { id: 1, score: 10, document: docA as any, terms: ["typescript"] }
+      {
+        id: 1,
+        score: 10,
+        document: keywordDoc(docA as never),
+        terms: ["typescript"]
+      }
     ])
 
     // semantic: docA rank 0 (similarity 1.0), docB rank 1 (similarity 0.0)
@@ -118,8 +138,18 @@ describe("searchHybrid — RRF fusion", () => {
 
     // keyword: docB rank 0, docC rank 1 — docA absent
     vi.mocked(keywordIndexManager.search).mockReturnValue([
-      { id: 2, score: 20, document: docB as any, terms: ["python"] },
-      { id: 3, score: 10, document: docC as any, terms: ["script"] }
+      {
+        id: 2,
+        score: 20,
+        document: keywordDoc(docB as never),
+        terms: ["python"]
+      },
+      {
+        id: 3,
+        score: 10,
+        document: keywordDoc(docC as never),
+        terms: ["script"]
+      }
     ])
 
     // semantic: query [1,0] → docA rank 0, docC rank 1, docB rank 2 (approx)
@@ -140,8 +170,18 @@ describe("searchHybrid — RRF fusion", () => {
     await vectorDb.vectors.bulkAdd([docA, docB, docC] as any)
 
     vi.mocked(keywordIndexManager.search).mockReturnValue([
-      { id: 1, score: 100, document: docA as any, terms: ["typescript"] },
-      { id: 2, score: 50, document: docB as any, terms: ["python"] }
+      {
+        id: 1,
+        score: 100,
+        document: keywordDoc(docA as never),
+        terms: ["typescript"]
+      },
+      {
+        id: 2,
+        score: 50,
+        document: keywordDoc(docB as never),
+        terms: ["python"]
+      }
     ])
 
     const results = await searchHybrid("typescript", [1, 0], {
@@ -158,7 +198,12 @@ describe("searchHybrid — RRF fusion", () => {
     await vectorDb.vectors.bulkAdd([docA, docB] as any)
 
     vi.mocked(keywordIndexManager.search).mockReturnValue([
-      { id: 1, score: 10, document: docA as any, terms: ["typescript"] }
+      {
+        id: 1,
+        score: 10,
+        document: keywordDoc(docA as never),
+        terms: ["typescript"]
+      }
     ])
 
     const results = await searchHybrid("typescript", [1, 0], {
@@ -172,9 +217,9 @@ describe("searchHybrid — RRF fusion", () => {
     await vectorDb.vectors.bulkAdd([docA, docB, docC] as any)
 
     vi.mocked(keywordIndexManager.search).mockReturnValue([
-      { id: 1, score: 30, document: docA as any, terms: ["a"] },
-      { id: 2, score: 20, document: docB as any, terms: ["b"] },
-      { id: 3, score: 10, document: docC as any, terms: ["c"] }
+      { id: 1, score: 30, document: keywordDoc(docA as never), terms: ["a"] },
+      { id: 2, score: 20, document: keywordDoc(docB as never), terms: ["b"] },
+      { id: 3, score: 10, document: keywordDoc(docC as never), terms: ["c"] }
     ])
 
     const results = await searchHybrid("query", [1, 0], {
@@ -287,7 +332,7 @@ describe("searchHybrid — edge cases", () => {
       partitioned.map((document) => ({
         id: document.id,
         score: 10,
-        document: document as any,
+        document: keywordDoc(document as never),
         terms: ["typescript"]
       }))
     )
@@ -314,8 +359,18 @@ describe("searchHybrid — edge cases", () => {
     }
     await vectorDb.vectors.bulkAdd([docA, modern] as any)
     vi.mocked(keywordIndexManager.search).mockReturnValue([
-      { id: 1, score: 10, document: docA as any, terms: ["typescript"] },
-      { id: 104, score: 20, document: modern as any, terms: ["typescript"] }
+      {
+        id: 1,
+        score: 10,
+        document: keywordDoc(docA as never),
+        terms: ["typescript"]
+      },
+      {
+        id: 104,
+        score: 20,
+        document: keywordDoc(modern as never),
+        terms: ["typescript"]
+      }
     ])
 
     const results = await searchHybrid("typescript", [1, 0])
@@ -345,7 +400,12 @@ describe("searchHybrid — edge cases", () => {
     await vectorDb.vectors.bulkAdd([lowSimDoc] as any)
 
     vi.mocked(keywordIndexManager.search).mockReturnValue([
-      { id: 5, score: 10, document: lowSimDoc as any, terms: ["content"] }
+      {
+        id: 5,
+        score: 10,
+        document: keywordDoc(lowSimDoc as never),
+        terms: ["content"]
+      }
     ])
 
     const results = await searchHybrid("content", [1, 0], {
@@ -371,8 +431,8 @@ describe("searchHybrid — edge cases", () => {
     await vectorDb.vectors.bulkAdd([docA, docB, docC] as any)
 
     vi.mocked(keywordIndexManager.search).mockReturnValue([
-      { id: 1, score: 30, document: docA as any, terms: ["a"] },
-      { id: 2, score: 10, document: docB as any, terms: ["b"] }
+      { id: 1, score: 30, document: keywordDoc(docA as never), terms: ["a"] },
+      { id: 2, score: 10, document: keywordDoc(docB as never), terms: ["b"] }
     ])
 
     const results = await searchHybrid("query", [1, 0], {
@@ -384,5 +444,99 @@ describe("searchHybrid — edge cases", () => {
         results[i].similarity
       )
     }
+  })
+})
+
+describe("searchHybrid — keyword candidate rehydration", () => {
+  /**
+   * The keyword index retains no vectors. If a keyword-only hit reached the
+   * caller straight from the index it would arrive without an embedding, and
+   * the reranker scores a document with no embedding as neutral rather than
+   * failing — so the regression would be silent.
+   */
+  it("returns keyword-only hits with their stored vectors", async () => {
+    const stored = {
+      id: 42,
+      content: "keyword only hit",
+      embedding: [0, 1],
+      normalizedEmbedding: [0, 1],
+      metadata: {
+        source: "s",
+        type: "file" as const,
+        timestamp: 1
+      }
+    }
+    await vectorDb.vectors.bulkAdd([stored] as never)
+
+    vi.mocked(keywordIndexManager.search).mockReturnValue([
+      {
+        id: 42,
+        score: 10,
+        document: keywordDoc(stored as never),
+        terms: ["keyword"]
+      }
+    ])
+
+    const results = await searchHybrid("keyword", [1, 0], {
+      minSimilarity: 0.99
+    })
+
+    expect(results).toHaveLength(1)
+    expect(results[0].document.id).toBe(42)
+    expect(results[0].document.embedding).toEqual([0, 1])
+    expect(results[0].document.normalizedEmbedding).toEqual([0, 1])
+  })
+
+  it("drops a keyword hit whose row was deleted after indexing", async () => {
+    const orphan = {
+      id: 99,
+      content: "orphaned entry",
+      embedding: [0, 1],
+      metadata: {
+        source: "s",
+        type: "file" as const,
+        timestamp: 1
+      }
+    }
+    // Deliberately not added to the store.
+    vi.mocked(keywordIndexManager.search).mockReturnValue([
+      {
+        id: 99,
+        score: 10,
+        document: keywordDoc(orphan as never),
+        terms: ["orphaned"]
+      }
+    ])
+
+    const results = await searchHybrid("orphaned", [1, 0], {
+      minSimilarity: 0.99
+    })
+
+    expect(results).toHaveLength(0)
+  })
+
+  it("reads candidates by id rather than scanning the table", async () => {
+    const rows = Array.from({ length: 40 }, (_, index) => ({
+      id: index + 1,
+      content: `row ${index + 1}`,
+      embedding: [0, 1],
+      metadata: { source: "s", type: "file" as const, timestamp: index }
+    }))
+    await vectorDb.vectors.bulkAdd(rows as never)
+
+    const bulkGet = vi.spyOn(vectorDb.vectors, "bulkGet")
+    vi.mocked(keywordIndexManager.search).mockReturnValue([
+      {
+        id: 3,
+        score: 10,
+        document: keywordDoc(rows[2] as never),
+        terms: ["row"]
+      }
+    ])
+
+    await searchHybrid("row", [1, 0], { minSimilarity: 0.99 })
+
+    expect(bulkGet).toHaveBeenCalledWith([3])
+    bulkGet.mockRestore()
   })
 })

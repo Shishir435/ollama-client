@@ -6,6 +6,8 @@ import { logger } from "@/lib/logger"
 /** Define necessary types from pdfjs-dist */
 type PDFDocumentProxy =
   import("pdfjs-dist/types/src/display/api").PDFDocumentProxy
+type PDFDocumentLoadingTask =
+  import("pdfjs-dist/types/src/display/api").PDFDocumentLoadingTask
 type TextItem = import("pdfjs-dist/types/src/display/api").TextItem
 
 export class PdfProcessor implements FileProcessor {
@@ -15,6 +17,9 @@ export class PdfProcessor implements FileProcessor {
   }
 
   async process(file: File): Promise<ProcessedFile> {
+    let loadingTask: PDFDocumentLoadingTask | undefined
+    let pdf: PDFDocumentProxy | undefined
+
     try {
       // Lazy load pdfjs-dist
       const pdfjsLib = await import("pdfjs-dist")
@@ -30,25 +35,11 @@ export class PdfProcessor implements FileProcessor {
 
       const arrayBuffer = await file.arrayBuffer()
 
-      // Try loading PDF with worker first; if worker fails (CSP/packaging), fallback to disableWorker
-      let pdf: PDFDocumentProxy
-
-      try {
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
-        // Give the worker-backed load 2/3 of the full budget; the fallback gets the full timeout
-        pdf = await promiseTimeout(
-          loadingTask.promise,
-          Math.floor(PDF_LOAD_TIMEOUT_MS * (2 / 3))
-        )
-      } catch (_firstErr) {
-        // First attempt failed or timed out; retry without worker
-        logger.warn(
-          "PDF worker load failed or timed out, retrying without worker",
-          "PdfProcessor"
-        )
-        const loadingTask2 = pdfjsLib.getDocument({ data: arrayBuffer })
-        pdf = await promiseTimeout(loadingTask2.promise, PDF_LOAD_TIMEOUT_MS)
-      }
+      // PDF.js falls back to its fake-worker implementation when constructing
+      // the configured worker fails. A second getDocument call would only
+      // repeat the same request and leave the first loading task alive.
+      loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
+      pdf = await promiseTimeout(loadingTask.promise, PDF_LOAD_TIMEOUT_MS)
 
       const numPages = pdf.numPages
 
@@ -94,6 +85,18 @@ export class PdfProcessor implements FileProcessor {
         kind: "validation",
         cause: error
       })
+    } finally {
+      try {
+        if (pdf) {
+          await pdf.destroy()
+        } else if (loadingTask) {
+          await loadingTask.destroy()
+        }
+      } catch (error) {
+        logger.warn("Failed to release PDF resources", "PdfProcessor", {
+          error
+        })
+      }
     }
   }
 

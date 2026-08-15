@@ -22,7 +22,6 @@
   "ignoreDependencies": [
     "tailwindcss",
     "tw-animate-css",
-    "@tailwindcss/typography",
     "tailwind-scrollbar",
     "babel-plugin-react-compiler",
     "geckodriver",

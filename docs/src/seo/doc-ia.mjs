@@ -27,6 +27,7 @@ export const DOC_SECTIONS = [
     items: [
       { label: "Quick Start", slug: "guides/quick-start" },
       { label: "Provider Setup", slug: "guides/provider-setup" },
+      { label: "Ollama Cloud models", slug: "guides/ollama-cloud" },
       {
         label: "Context, Images, and Tools",
         slug: "guides/context-and-tools"

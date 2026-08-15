@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - Chat con modelli LLM locali",
+    "name": "Ollama Client - Chat IA locale con Ollama, LM Studio, llama.cpp",
     "short_name": "Ollama Client",
-    "description": "Estensione Chrome local-first per chat private con LLM tramite Ollama, LM Studio e llama.cpp, inclusi flussi RAG locali.",
+    "description": "Chat private con LLM tramite Ollama, LM Studio e llama.cpp, con RAG locale, ricerca web e contesto di pagina.",
     "action_default_title": "Apri Ollama Client"
   },
   "selection_button": {
@@ -557,6 +557,7 @@
       "refresh_tooltip": "Aggiorna modelli",
       "search_placeholder": "Cerca modello...",
       "no_model_found": "Nessun modello trovato.",
+      "cloud_badge": "Cloud{{plan}}",
       "providers_unavailable": "{{names}} non ha restituito modelli. Controlla il provider nelle impostazioni o aggiungi gli ID modello manualmente.",
       "selection_conflict": "Scegli un provider per {{model}}: più di uno lo offre."
     },
@@ -1075,6 +1076,7 @@
         },
         "num_predict": {
           "label": "Token Massimi",
+          "auto": "Automatico (consigliato)",
           "validation_min": "Deve essere almeno {{min}}."
         },
         "repeat_penalty": {

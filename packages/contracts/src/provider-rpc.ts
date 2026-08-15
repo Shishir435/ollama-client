@@ -69,6 +69,9 @@ export const ProviderDraftInputSchema = ProviderConfigInputSchema.omit({
 /** @see ProviderDraftInputSchema */
 export type ProviderDraftInput = z.infer<typeof ProviderDraftInputSchema>
 
+export const PROVIDER_MODEL_CLOUD_DESCRIPTION_MAX_LENGTH = 2_000
+export const PROVIDER_MODEL_CLOUD_PLAN_MAX_LENGTH = 64
+
 const ProviderModelSchema = z
   .object({
     name: z.string().min(1),
@@ -79,6 +82,19 @@ const ProviderModelSchema = z
     providerId: z.string().nullish(),
     providerName: z.string().nullish(),
     providerBrand: z.string().max(64).nullish(),
+    cloud: z
+      .object({
+        description: z
+          .string()
+          .max(PROVIDER_MODEL_CLOUD_DESCRIPTION_MAX_LENGTH)
+          .nullish(),
+        requiredPlan: z
+          .string()
+          .max(PROVIDER_MODEL_CLOUD_PLAN_MAX_LENGTH)
+          .nullish(),
+        maxOutputTokens: z.number().int().positive().nullish()
+      })
+      .nullish(),
     family: z.string().nullish(),
     details: z
       .object({
@@ -108,6 +124,7 @@ const ProviderModelSchema = z
       providerId,
       providerName,
       providerBrand,
+      cloud,
       ...model
     }) => {
       const resolvedFamily = details?.family ?? family ?? ""
@@ -148,6 +165,15 @@ const ProviderModelSchema = z
         ...(providerId && { providerId }),
         ...(providerName && { providerName }),
         ...(providerBrand && { providerBrand }),
+        ...(cloud && {
+          cloud: {
+            ...(cloud.description && { description: cloud.description }),
+            ...(cloud.requiredPlan && { requiredPlan: cloud.requiredPlan }),
+            ...(cloud.maxOutputTokens != null && {
+              maxOutputTokens: cloud.maxOutputTokens
+            })
+          }
+        }),
         ...(normalizedCapabilityHints &&
           Object.keys(normalizedCapabilityHints).length > 0 && {
             capabilityHints: normalizedCapabilityHints

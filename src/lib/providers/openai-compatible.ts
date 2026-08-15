@@ -36,25 +36,139 @@ import {
   ProviderServiceProfile
 } from "./types"
 
-const OpenAIModelCatalogSchema = z
-  .object({
-    data: z.array(
-      z
-        .object({
-          id: z.string().min(1),
-          context_length: z.number().positive().nullish(),
-          architecture: z
-            .object({
-              input_modalities: z.array(z.string()).nullish()
-            })
-            .passthrough()
-            .nullish(),
-          supported_parameters: z.array(z.string()).nullish()
-        })
-        .passthrough()
+const isCatalogRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+
+const normalizeCatalogNumber = (value: unknown): number | undefined => {
+  const candidate =
+    typeof value === "string" && /^\d+$/.test(value.trim())
+      ? Number(value)
+      : value
+  return typeof candidate === "number" &&
+    Number.isFinite(candidate) &&
+    candidate >= 0
+    ? candidate
+    : undefined
+}
+
+const normalizeCatalogStrings = (
+  value: unknown,
+  maxItems = 100
+): string[] | undefined => {
+  if (!Array.isArray(value)) return undefined
+  const strings = [
+    ...new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
     )
+  ].slice(0, maxItems)
+  return strings.length > 0 ? strings : undefined
+}
+
+const CatalogNumberSchema = z
+  .unknown()
+  .transform((value) => normalizeCatalogNumber(value))
+const CatalogStringsSchema = z
+  .unknown()
+  .transform((value) => normalizeCatalogStrings(value))
+const CatalogModalitiesSchema = z
+  .unknown()
+  .transform((value) => normalizeCatalogStrings(value, 50))
+
+const OpenAIModelCatalogItemSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    // Catalogs use several names for the same context-window fact. Zero is a
+    // common unknown sentinel and remains omitted from normalized hints.
+    context_length: CatalogNumberSchema.optional(),
+    context_window: CatalogNumberSchema.optional(),
+    max_context_length: CatalogNumberSchema.optional(),
+    contextLength: CatalogNumberSchema.optional(),
+    max_model_len: CatalogNumberSchema.optional(),
+    architecture: z.unknown().optional(),
+    input_modalities: CatalogModalitiesSchema.optional(),
+    supported_parameters: CatalogStringsSchema.optional(),
+    supported_sampling_parameters: CatalogStringsSchema.optional(),
+    capabilities: z.unknown().optional(),
+    supportsImageInput: z.unknown().optional(),
+    supportsTools: z.unknown().optional()
   })
   .passthrough()
+  .transform((model) => {
+    const architecture = isCatalogRecord(model.architecture)
+      ? model.architecture
+      : undefined
+    const capabilities = isCatalogRecord(model.capabilities)
+      ? model.capabilities
+      : undefined
+    const contextLength = [
+      model.context_length,
+      model.context_window,
+      model.max_context_length,
+      model.contextLength,
+      model.max_model_len
+    ].find((value) => typeof value === "number" && value > 0)
+    const reportedModalities =
+      model.input_modalities ??
+      normalizeCatalogStrings(architecture?.input_modalities, 50)
+    const reportsVision =
+      capabilities?.vision === true || model.supportsImageInput === true
+    const modalities = reportedModalities
+      ? [
+          ...new Set([
+            ...reportedModalities,
+            ...(reportsVision ? ["image"] : [])
+          ])
+        ]
+      : reportsVision
+        ? ["text", "image"]
+        : undefined
+    const reportedParameters =
+      model.supported_parameters ?? model.supported_sampling_parameters
+    const reportsTools =
+      capabilities?.function_calling === true || model.supportsTools === true
+    const supportedParameters = reportedParameters
+      ? [
+          ...new Set([
+            ...reportedParameters,
+            ...(reportsTools ? ["tools"] : [])
+          ])
+        ]
+      : reportsTools
+        ? ["tools"]
+        : undefined
+
+    return { ...model, contextLength, modalities, supportedParameters }
+  })
+
+const OpenAIModelCatalogSchema = z
+  .union([
+    z
+      .object({ data: z.array(z.unknown()) })
+      .passthrough()
+      .transform(({ data }) => data),
+    z.array(z.unknown())
+  ])
+  .transform((items, context) => {
+    const data: Array<z.infer<typeof OpenAIModelCatalogItemSchema>> = []
+    let rejectedCount = 0
+    for (const item of items) {
+      const parsed = OpenAIModelCatalogItemSchema.safeParse(item)
+      if (parsed.success) data.push(parsed.data)
+      else rejectedCount += 1
+    }
+
+    if (items.length > 0 && data.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Model catalog contains no valid model identifiers"
+      })
+      return z.NEVER
+    }
+    return { data, rejectedCount }
+  })
 
 /** Normalized tool → OpenAI `tools` entry. */
 const toOpenAITool = (tool: ToolDefinition) => ({
@@ -272,6 +386,17 @@ export class OpenAICompatibleProvider implements LLMProvider {
           userMessage: "The provider returned an invalid model list."
         }
       )
+      if (catalog.rejectedCount > 0) {
+        logger.warn(
+          "Ignored malformed entries in provider model catalog",
+          "OpenAICompatibleProvider",
+          {
+            providerId: this.id,
+            rejectedCount: catalog.rejectedCount,
+            acceptedCount: catalog.data.length
+          }
+        )
+      }
       return catalog.data.map((m) => ({
         name: m.id,
         model: m.id,
@@ -293,16 +418,14 @@ export class OpenAICompatibleProvider implements LLMProvider {
           parameter_size: parameterSizeFromModelId(m.id),
           quantization_level: ""
         },
-        ...((m.context_length ||
-          m.architecture?.input_modalities ||
-          m.supported_parameters) && {
+        ...((m.contextLength || m.modalities || m.supportedParameters) && {
           capabilityHints: {
-            ...(m.context_length ? { contextLength: m.context_length } : {}),
-            ...(m.architecture?.input_modalities && {
-              modalities: [...new Set(m.architecture.input_modalities)]
+            ...(m.contextLength ? { contextLength: m.contextLength } : {}),
+            ...(m.modalities && {
+              modalities: m.modalities
             }),
-            ...(m.supported_parameters && {
-              supportedParameters: m.supported_parameters
+            ...(m.supportedParameters && {
+              supportedParameters: m.supportedParameters
             })
           }
         })

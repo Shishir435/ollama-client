@@ -1,5 +1,7 @@
 import * as sqliteRepo from "./sqlite-chat-history"
 
+export type { MessageTreeRow } from "./sqlite-chat-history"
+
 /**
  * SQLite-only chat-history facade.
  *
@@ -24,6 +26,8 @@ export const getAllMessages = sqliteRepo.getAllMessages
 export const getMessagesPaginated = sqliteRepo.getMessagesPaginated
 export const getMessagesBySessionOrderedByTimestamp =
   sqliteRepo.getMessagesBySessionOrderedByTimestamp
+export const getMessageTreeBySession = sqliteRepo.getMessageTreeBySession
+export const getMessagesByIds = sqliteRepo.getMessagesByIds
 export const getMessagesBySession = sqliteRepo.getMessagesBySession
 export const getMessagesBySessionAtTimestamp =
   sqliteRepo.getMessagesBySessionAtTimestamp

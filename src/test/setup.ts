@@ -98,6 +98,29 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+/**
+ * Drop module-level caches that outlive a test.
+ *
+ * The embedding config is memoized until `storage.onChanged` fires. Tests
+ * reconfigure it by swapping the `getPlasmoStoredValue` mock, which bypasses
+ * storage and so emits no event — the memo would then serve the previous
+ * test's value. Production has the event; only the test double does not.
+ *
+ * Guarded because a handful of suites replace this module with `vi.mock`;
+ * reading a name their factory does not define throws rather than yielding
+ * undefined. Those suites stub the config outright and need no reset.
+ */
+beforeEach(async () => {
+  try {
+    const embeddingConfig = (await import("@/lib/embeddings/config")) as {
+      resetEmbeddingConfigCache?: () => void
+    }
+    embeddingConfig.resetEmbeddingConfigCache?.()
+  } catch {
+    // Module is mocked without the reset export.
+  }
+})
+
 /** Reset per-test IndexedDB state supplied by fake-indexeddb. */
 beforeEach(() => {
   // fake-indexeddb is already set up globally

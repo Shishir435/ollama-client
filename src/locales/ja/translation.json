@@ -46,9 +46,9 @@
     }
   },
   "extension": {
-    "name": "Ollama Client - ローカル LLM モデルとチャット",
+    "name": "Ollama Client - Ollama、LM Studio、llama.cpp のローカル AI チャット",
     "short_name": "Ollama Client",
-    "description": "Ollama、LM Studio、llama.cpp を使ったプライベートな LLM チャットとローカル RAG ワークフローのためのローカル優先 Chrome 拡張機能です。",
+    "description": "Ollama、LM Studio、llama.cpp によるプライベートな LLM チャット。ローカル RAG、ウェブ検索、ページコンテキストに対応。",
     "action_default_title": "Ollama Client を開く"
   },
   "selection_button": {
@@ -557,6 +557,7 @@
       "refresh_tooltip": "モデルを更新",
       "search_placeholder": "モデルを検索...",
       "no_model_found": "モデルが見つかりません。",
+      "cloud_badge": "クラウド{{plan}}",
       "providers_unavailable": "{{names}} はモデルを返しませんでした。設定でプロバイダーを確認するか、モデルIDを手動で追加してください。",
       "selection_conflict": "{{model}} を提供するプロバイダーが複数あります。1つ選んでください。"
     },
@@ -1075,6 +1076,7 @@
         },
         "num_predict": {
           "label": "最大トークン数",
+          "auto": "自動（推奨）",
           "validation_min": "少なくとも {{min}} である必要があります。"
         },
         "repeat_penalty": {

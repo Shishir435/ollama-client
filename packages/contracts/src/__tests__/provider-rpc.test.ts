@@ -62,6 +62,11 @@ describe("provider RPC contracts", () => {
             capabilityHints: {
               modelType: "llm",
               modalities: ["text"]
+            },
+            cloud: {
+              description: "Hosted model",
+              requiredPlan: "pro",
+              maxOutputTokens: 131072
             }
           }
         ],
@@ -86,6 +91,11 @@ describe("provider RPC contracts", () => {
           capabilityHints: {
             modelType: "llm",
             modalities: ["text"]
+          },
+          cloud: {
+            description: "Hosted model",
+            requiredPlan: "pro",
+            maxOutputTokens: 131072
           }
         }
       ],

@@ -134,6 +134,84 @@ export const detectPagePatterns = (): string[] => {
 }
 
 /**
+ * Network instrumentation, installed once for however many extractions are
+ * waiting on it.
+ *
+ * Each waiter used to patch `window.fetch` itself and save the value it found
+ * as "the original". Two concurrent extractions therefore made the second
+ * waiter adopt the first one's wrapper, and restoring out of order left a
+ * wrapper installed forever — a retained closure plus dead instrumentation on
+ * every later request in this content-script world. A refcount is what makes
+ * install/uninstall independent of settle order.
+ */
+type NetworkActivityListener = () => void
+
+const networkActivityListeners = new Set<NetworkActivityListener>()
+let originalFetch: typeof window.fetch | null = null
+let originalXhrOpen: typeof XMLHttpRequest.prototype.open | null = null
+let patchedFetch: typeof window.fetch | null = null
+let patchedXhrOpen: typeof XMLHttpRequest.prototype.open | null = null
+
+const notifyNetworkActivity = (): void => {
+  for (const listener of [...networkActivityListeners]) listener()
+}
+
+const installNetworkInstrumentation = (): void => {
+  if (patchedFetch) return
+
+  const capturedFetch = window.fetch
+  const capturedOpen = XMLHttpRequest.prototype.open
+  originalFetch = capturedFetch
+  originalXhrOpen = capturedOpen
+
+  patchedFetch = ((...args: Parameters<typeof window.fetch>) => {
+    notifyNetworkActivity()
+    return capturedFetch.apply(window, args)
+  }) as typeof window.fetch
+
+  patchedXhrOpen = function (
+    this: XMLHttpRequest,
+    ...args: Parameters<typeof XMLHttpRequest.prototype.open>
+  ) {
+    notifyNetworkActivity()
+    return capturedOpen.apply(this, args)
+  } as typeof XMLHttpRequest.prototype.open
+
+  window.fetch = patchedFetch
+  XMLHttpRequest.prototype.open = patchedXhrOpen
+}
+
+const uninstallNetworkInstrumentation = (): void => {
+  // Only restore what is still ours. If the page patched over us, putting the
+  // captured value back would silently uninstall the page's own wrapper.
+  if (originalFetch && window.fetch === patchedFetch) {
+    window.fetch = originalFetch
+  }
+  if (originalXhrOpen && XMLHttpRequest.prototype.open === patchedXhrOpen) {
+    XMLHttpRequest.prototype.open = originalXhrOpen
+  }
+  originalFetch = null
+  originalXhrOpen = null
+  patchedFetch = null
+  patchedXhrOpen = null
+}
+
+const addNetworkActivityListener = (
+  listener: NetworkActivityListener
+): (() => void) => {
+  networkActivityListeners.add(listener)
+  if (networkActivityListeners.size === 1) installNetworkInstrumentation()
+
+  let removed = false
+  return () => {
+    if (removed) return
+    removed = true
+    networkActivityListeners.delete(listener)
+    if (networkActivityListeners.size === 0) uninstallNetworkInstrumentation()
+  }
+}
+
+/**
  * Wait for network idle
  */
 export const waitForNetworkIdle = (
@@ -143,47 +221,31 @@ export const waitForNetworkIdle = (
   return new Promise((resolve) => {
     let idleTimer: ReturnType<typeof setTimeout> | null = null
     let timeoutTimer: ReturnType<typeof setTimeout> | null = null
-    let startTime = Date.now()
+    let lastActivity = Date.now()
     let settled = false
-
-    const originalFetch = window.fetch
-    const originalOpen = XMLHttpRequest.prototype.open
+    let removeActivityListener: (() => void) | null = null
 
     const cleanupAndResolve = () => {
       if (settled) return
       settled = true
       if (idleTimer) clearTimeout(idleTimer)
       if (timeoutTimer) clearTimeout(timeoutTimer)
-      window.fetch = originalFetch
-      XMLHttpRequest.prototype.open = originalOpen
+      removeActivityListener?.()
       resolve()
     }
 
     const resetIdleTimer = () => {
+      if (settled) return
       if (idleTimer) clearTimeout(idleTimer)
-      startTime = Date.now()
+      lastActivity = Date.now()
       idleTimer = setTimeout(() => {
-        const idleDuration = Date.now() - startTime
-        if (idleDuration >= minIdleTime) {
+        if (Date.now() - lastActivity >= minIdleTime) {
           cleanupAndResolve()
         }
       }, minIdleTime)
     }
 
-    // Monitor fetch requests
-    window.fetch = (...args) => {
-      resetIdleTimer()
-      return originalFetch.apply(window, args)
-    }
-
-    // Monitor XMLHttpRequest
-    XMLHttpRequest.prototype.open = function (
-      this: XMLHttpRequest,
-      ...args: Parameters<typeof XMLHttpRequest.prototype.open>
-    ) {
-      resetIdleTimer()
-      return originalOpen.apply(this, args)
-    } as typeof XMLHttpRequest.prototype.open
+    removeActivityListener = addNetworkActivityListener(resetIdleTimer)
 
     // Start idle timer
     resetIdleTimer()

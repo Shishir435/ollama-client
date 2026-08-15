@@ -12,6 +12,8 @@ export {
   ActivityTextSchema,
   ChatMessageMetricsSchema,
   PermissionNoticeSchema,
+  type PermissionResumeSnapshot,
+  PermissionResumeSnapshotSchema,
   ToolCallSchema,
   ToolRunSchema,
   UsedContextChunkSchema

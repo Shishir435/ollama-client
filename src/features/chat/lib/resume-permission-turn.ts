@@ -1,3 +1,5 @@
+import { preparePermissionResumeSubmission } from "@/application/turns/prepare-turn-submission"
+import type { DurableTurnStart } from "@/application/turns/turn-contract"
 import type { ChatStreamClaim } from "@/features/chat/hooks/use-chat-stream"
 import { logger } from "@/lib/logger"
 import type { OptionalApiPermission } from "@/lib/permissions"
@@ -15,7 +17,10 @@ interface ResumePermissionTurnOptions {
   requestPermissions: (permissions: OptionalApiPermission[]) => Promise<boolean>
   claimStream: () => ChatStreamClaim | null
   releaseStreamClaim: (claim: ChatStreamClaim) => void
-  deleteMessage: (messageId: number) => Promise<void>
+  updateMessage: (
+    messageId: number,
+    updates: Partial<ChatMessage>
+  ) => Promise<void>
   navigateToNode: (
     sessionId: string,
     nodeId: number | string,
@@ -25,7 +30,11 @@ interface ResumePermissionTurnOptions {
     model: string | undefined,
     sessionId: string,
     messages: ChatMessage[],
-    options: { mode: "regenerate"; streamClaim: ChatStreamClaim }
+    options: {
+      mode: "regenerate"
+      streamClaim: ChatStreamClaim
+      durableTurn?: DurableTurnStart
+    }
   ) => Promise<boolean>
 }
 
@@ -37,7 +46,7 @@ export const resumePermissionTurn = async ({
   requestPermissions,
   claimStream,
   releaseStreamClaim,
-  deleteMessage,
+  updateMessage,
   navigateToNode,
   generateResponse
 }: ResumePermissionTurnOptions): Promise<PermissionResumeResult> => {
@@ -84,25 +93,53 @@ export const resumePermissionTurn = async ({
   try {
     const userMessage = messages[prevUserIndex]
     if (userMessage.id) await navigateToNode(sessionId, userMessage.id, true)
+    const contextMessages = messages
+      .slice(0, prevUserIndex + 1)
+      .filter((item) => !item.metrics?.permissionNotice)
+    const durableTurn = notice.resume
+      ? preparePermissionResumeSubmission({
+          snapshot: notice.resume,
+          sessionId,
+          contextMessages
+        })
+      : undefined
+    if (notice.resume && !durableTurn) {
+      await restoreNotice()
+      return "resume-failed"
+    }
     submitted = await generateResponse(
-      message.model,
+      notice.resume?.model ?? message.model,
       sessionId,
-      messages.slice(0, prevUserIndex + 1),
-      { mode: "regenerate", streamClaim }
+      contextMessages,
+      {
+        mode: "regenerate",
+        streamClaim,
+        ...(durableTurn ? { durableTurn } : {})
+      }
     )
     if (!submitted) {
       await restoreNotice()
       return "resume-failed"
     }
 
-    // A response row and stream now exist. The recovery action is no longer
-    // needed and can be removed without risking an unanswered dead end.
+    // A response row and stream now exist. Keep the notice as a message-tree
+    // anchor: deleting it would also delete every later descendant. Clear the
+    // retained context and mark it resolved so presentation can hide the card.
     try {
-      await deleteMessage(noticeMessageId)
+      await updateMessage(noticeMessageId, {
+        metrics: {
+          ...message.metrics,
+          permissionNotice: {
+            ...notice,
+            resume: undefined,
+            resolvedAt: Date.now()
+          }
+        }
+      })
     } catch (error) {
-      // Generation already owns the active branch. A stale notice sibling is
-      // preferable to disrupting the started response.
-      logger.error("Failed to remove resumed permission notice", "Chat", {
+      // Generation already owns the active branch. A stale recovery card is
+      // preferable to mutating or deleting any part of the conversation tree.
+      logger.error("Failed to resolve permission notice", "Chat", {
         error,
         sessionId,
         messageId: noticeMessageId
