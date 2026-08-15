@@ -3,6 +3,7 @@ import {
   ChatMessageMetricsSchema
 } from "@ollama-client/contracts/chat"
 import { TURN_OWNED_ASSISTANT_STATUSES } from "@ollama-client/contracts/turns"
+import { z } from "zod"
 import { imageToStoredFile } from "@/lib/image-utils"
 import { PERSISTENCE_LIMITS } from "@/lib/persistence/protocol"
 import {
@@ -19,6 +20,7 @@ import {
   withTransaction
 } from "@/lib/sqlite/db"
 import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
+import { decodeRows } from "./row-decoder"
 
 /**
  * SQLite-backed implementation of the chat-history persistence surface.
@@ -32,12 +34,26 @@ import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
 type StoredMessage = ChatMessage & { sessionId: string; id?: number }
 type StoredFile = FileAttachment & { sessionId: string; id?: number }
 
-/** Narrow message projection: the columns the message tree is built from. */
-export type MessageTreeRow = {
-  id: number
-  parentId?: number
-  timestamp: number
-}
+/**
+ * Narrow message projection: the columns the message tree is built from.
+ *
+ * Decoded rather than asserted, unlike the whole-row mappers below. These three
+ * values *are* the ancestry — a null id or a timestamp that is not a number
+ * does not surface as a rendering glitch, it reorders siblings or detaches a
+ * subtree, and the visible branch silently ends early with nothing to point at.
+ * A per-field `as` on a bag of `SqlValue`s is unconditionally true and
+ * unconditionally unchecked, so the first thing to notice would be the user.
+ */
+const MessageTreeRowSchema = z.object({
+  id: z.number(),
+  parentId: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  timestamp: z.number()
+})
+
+export type MessageTreeRow = z.infer<typeof MessageTreeRowSchema>
 
 type RowValue = string | number | null | Uint8Array
 type Row = Record<string, RowValue>
@@ -447,11 +463,14 @@ export const getMessageTreeBySession = async (
     "SELECT id, parentId, timestamp FROM messages WHERE sessionId = ? ORDER BY timestamp ASC",
     [sessionId]
   )
-  return rows.map((row) => ({
-    id: row.id as number,
-    parentId: (row.parentId as number | null) ?? undefined,
-    timestamp: row.timestamp as number
-  }))
+  // Drop-and-log rather than raise: one unreadable row must not deny the user
+  // the rest of the conversation. Its descendants lose their ancestor and fall
+  // out of the walked path, which is a bounded, logged loss instead of a tree
+  // built on a NaN id.
+  return decodeRows(MessageTreeRowSchema, rows, {
+    table: "messages",
+    operation: "getMessageTreeBySession"
+  })
 }
 
 export const getMessagesByIds = async (

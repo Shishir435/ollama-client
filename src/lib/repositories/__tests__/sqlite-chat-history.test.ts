@@ -470,6 +470,34 @@ describe("messages", () => {
     ])
   })
 
+  it("getMessageTreeBySession drops a row whose tree columns do not decode", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      { id: 1, parentId: null, timestamp: 10 },
+      // A half-applied migration or a foreign writer can leave this shape. It
+      // is the ancestry, so asserting over it detaches a subtree silently.
+      { id: null, parentId: 1, timestamp: 20 },
+      { id: 3, parentId: 1, timestamp: 30 }
+    ])
+
+    const nodes = await repo.getMessageTreeBySession("s1")
+
+    expect(nodes).toEqual([
+      { id: 1, parentId: undefined, timestamp: 10 },
+      { id: 3, parentId: 1, timestamp: 30 }
+    ])
+  })
+
+  it("getMessageTreeBySession rejects a non-numeric timestamp", async () => {
+    mockedQuery.mockResolvedValueOnce([
+      { id: 1, parentId: null, timestamp: "10" },
+      { id: 2, parentId: 1, timestamp: 20 }
+    ])
+
+    const nodes = await repo.getMessageTreeBySession("s1")
+
+    expect(nodes).toEqual([{ id: 2, parentId: 1, timestamp: 20 }])
+  })
+
   it("getMessagesByIds returns [] for empty ids without hitting the db", async () => {
     expect(await repo.getMessagesByIds([])).toEqual([])
     expect(mockedQuery).not.toHaveBeenCalled()
