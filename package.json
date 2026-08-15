@@ -147,7 +147,6 @@
     "@playwright/test": "1.60.0",
     "@sqlite.org/sqlite-wasm": "3.53.0-build1",
     "@tailwindcss/postcss": "^4.3.0",
-    "@tailwindcss/typography": "^0.5.19",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/chrome": "0.0.258",

@@ -77,7 +77,7 @@ export const MarkdownCodeBlockActions = ({
 
       const toolbar = document.createElement("div")
       toolbar.className =
-        "not-prose absolute right-1 top-1 z-10 flex items-center gap-1 opacity-80 transition-opacity group-hover/code:opacity-100"
+        "not-typeset absolute right-1 top-1 z-10 flex items-center gap-1 opacity-80 transition-opacity group-hover/code:opacity-100"
 
       const copyLabel = t("chat.actions.copy")
       const copyButton = createIconButton(ICON_PATHS.copy, copyLabel)

@@ -1,0 +1,367 @@
+/*
+ * Streaming-safe Markdown typography based on shadcn/ui Typeset.
+ * This file is app-owned: Markdown-it provides semantic HTML and Typeset
+ * provides presentation without a runtime dependency or generated prose CSS.
+ */
+@layer components {
+  .typeset {
+    --typeset-size: 1em;
+    --typeset-leading: 1.65;
+    --typeset-flow: 0.9em;
+    --typeset-heading-flow: 1.35em;
+    --typeset-code-background: color-mix(
+      in oklab,
+      var(--muted) 82%,
+      transparent
+    );
+
+    min-width: 0;
+    color: color-mix(in oklab, var(--foreground) 92%, transparent);
+    font-family: var(--font-sans);
+    font-size: var(--typeset-size);
+    line-height: var(--typeset-leading);
+    overflow-wrap: anywhere;
+  }
+
+  .typeset-chat {
+    --typeset-size: 0.875rem;
+    --typeset-leading: 1.6;
+    --typeset-flow: 0.8em;
+  }
+
+  .typeset :where(*) {
+    box-sizing: border-box;
+  }
+
+  .typeset
+    :where(
+      p,
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6,
+      ul,
+      ol,
+      pre,
+      blockquote,
+      table,
+      hr,
+      dl,
+      figure,
+      details,
+      .info,
+      .warning,
+      .footnotes
+    ) {
+    margin: 0;
+  }
+
+  .typeset
+    :where(
+      p,
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6,
+      ul,
+      ol,
+      pre,
+      blockquote,
+      table,
+      hr,
+      dl,
+      figure,
+      details,
+      .info,
+      .warning,
+      .footnotes
+    )
+    + :where(
+      p,
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6,
+      ul,
+      ol,
+      pre,
+      blockquote,
+      table,
+      hr,
+      dl,
+      figure,
+      details,
+      .info,
+      .warning,
+      .footnotes
+    ) {
+    margin-block-start: var(--typeset-flow);
+  }
+
+  .typeset :where(h1, h2, h3, h4, h5, h6) + :where(h1, h2, h3, h4, h5, h6) {
+    margin-block-start: calc(var(--typeset-flow) * 0.55);
+  }
+
+  .typeset
+    :where(p, ul, ol, pre, blockquote, table, dl, figure, details)
+    + :where(h1, h2, h3, h4, h5, h6) {
+    margin-block-start: var(--typeset-heading-flow);
+  }
+
+  .typeset :where(h1, h2, h3, h4, h5, h6) {
+    color: var(--foreground);
+    font-family: var(--font-heading);
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+  }
+
+  .typeset :where(h1) {
+    font-size: 1.65em;
+  }
+
+  .typeset :where(h2) {
+    font-size: 1.4em;
+  }
+
+  .typeset :where(h3) {
+    font-size: 1.2em;
+  }
+
+  .typeset :where(h4, h5, h6) {
+    font-size: 1em;
+  }
+
+  .typeset :where(p, li, dd) {
+    color: inherit;
+  }
+
+  .typeset :where(strong) {
+    color: var(--foreground);
+    font-weight: 650;
+  }
+
+  .typeset :where(a) {
+    color: var(--primary);
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklab, var(--primary) 45%, transparent);
+    text-underline-offset: 0.18em;
+  }
+
+  .typeset :where(a:hover) {
+    text-decoration-color: currentColor;
+  }
+
+  .typeset :where(del) {
+    color: var(--muted-foreground);
+  }
+
+  .typeset :where(mark) {
+    border-radius: calc(var(--radius) - 2px);
+    background: color-mix(in oklab, var(--status-warning) 35%, transparent);
+    color: var(--foreground);
+    padding-inline: 0.14em;
+  }
+
+  .typeset :where(code) {
+    border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+    border-radius: calc(var(--radius) - 2px);
+    background: var(--typeset-code-background);
+    color: var(--foreground);
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      monospace;
+    font-size: 0.88em;
+    font-weight: 550;
+    overflow-wrap: anywhere;
+    padding: 0.12em 0.34em;
+    white-space: break-spaces;
+  }
+
+  .typeset :where(pre) {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--muted);
+    padding: 0.85em 1em;
+    font-size: 0.82em;
+    line-height: 1.55;
+    tab-size: 2;
+  }
+
+  .typeset :where(pre code) {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--foreground);
+    font-size: inherit;
+    font-weight: inherit;
+    overflow-wrap: normal;
+    padding: 0;
+    white-space: pre;
+  }
+
+  .typeset :where(kbd) {
+    border: 1px solid var(--border-strong);
+    border-block-end-width: 2px;
+    border-radius: calc(var(--radius) - 2px);
+    background: var(--background);
+    color: var(--foreground);
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      monospace;
+    font-size: 0.82em;
+    padding: 0.1em 0.38em;
+  }
+
+  .typeset :where(blockquote) {
+    border-inline-start: 0.22em solid var(--border-strong);
+    color: var(--muted-foreground);
+    padding-inline-start: 1em;
+  }
+
+  .typeset :where(ul, ol) {
+    padding-inline-start: 1.55em;
+  }
+
+  .typeset :where(ul) {
+    list-style: disc;
+  }
+
+  .typeset :where(ol) {
+    list-style: decimal;
+  }
+
+  .typeset :where(li + li) {
+    margin-block-start: 0.3em;
+  }
+
+  .typeset :where(li > ul, li > ol) {
+    margin-block-start: 0.3em;
+  }
+
+  .typeset :where(.contains-task-list) {
+    list-style: none;
+    padding-inline-start: 0.25em;
+  }
+
+  .typeset :where(.task-list-item) {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5em;
+  }
+
+  .typeset :where(.task-list-item-checkbox) {
+    accent-color: var(--primary);
+    translate: 0 0.08em;
+  }
+
+  .typeset :where(hr) {
+    border: 0;
+    border-block-start: 1px solid var(--border);
+  }
+
+  .typeset :where(table) {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: 0.92em;
+    white-space: nowrap;
+  }
+
+  .typeset :where(th, td) {
+    border: 1px solid var(--border);
+    padding: 0.5em 0.7em;
+    text-align: start;
+  }
+
+  .typeset :where(th) {
+    background: var(--muted);
+    color: var(--foreground);
+    font-weight: 650;
+  }
+
+  .typeset :where(img, video) {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+  }
+
+  .typeset :where(details) {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.65em 0.8em;
+  }
+
+  .typeset :where(summary) {
+    color: var(--foreground);
+    cursor: pointer;
+    font-weight: 650;
+  }
+
+  .typeset :where(summary + *) {
+    margin-block-start: 0.6em;
+  }
+
+  .typeset :where(dl) {
+    display: grid;
+    gap: 0.35em;
+  }
+
+  .typeset :where(dt) {
+    color: var(--foreground);
+    font-weight: 650;
+  }
+
+  .typeset :where(dd) {
+    margin-inline-start: 1em;
+  }
+
+  .typeset :where(sub, sup) {
+    font-size: 0.75em;
+    line-height: 0;
+  }
+
+  .typeset :where(.info, .warning) {
+    border: 1px solid var(--border);
+    border-inline-start-width: 0.28em;
+    border-radius: var(--radius);
+    padding: 0.75em 0.9em;
+  }
+
+  .typeset :where(.info) {
+    border-inline-start-color: var(--status-info);
+    background: color-mix(in oklab, var(--status-info) 8%, transparent);
+  }
+
+  .typeset :where(.warning) {
+    border-inline-start-color: var(--status-warning);
+    background: color-mix(in oklab, var(--status-warning) 9%, transparent);
+  }
+
+  .typeset :where(.footnotes) {
+    border-block-start: 1px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: 0.86em;
+    padding-block-start: 0.75em;
+  }
+
+  .typeset :where(.footnote-ref, .footnote-backref) {
+    font-size: 0.8em;
+    text-decoration: none;
+  }
+
+  .typeset :where(.not-typeset, [data-not-typeset]) {
+    font: initial;
+  }
+}
