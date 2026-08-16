@@ -860,3 +860,89 @@ describe("retrieval-tool gating", () => {
     expect(result.contentWithRAG).toContain("PAGE CONTENT")
   })
 })
+
+/*
+ * Cancellation used to stop only between stages: the turn runtime checked its
+ * signal before and after `build()`, so a stop during a slow retrieval or a
+ * hosted embedding request left that work running and billing until it
+ * finished, and the build then reported success for a turn nobody was waiting
+ * for.
+ */
+describe("cancellation", () => {
+  it("hands the caller's signal to retrieval", async () => {
+    ragsetOn()
+    const controller = new AbortController()
+
+    await buildRagContext(
+      defaults({
+        rawInput: "what does the file say",
+        files: [
+          { metadata: { fileId: "f1", fileName: "f.txt" }, text: "contents" }
+        ] as never,
+        signal: controller.signal
+      })
+    )
+
+    expect(mockedRetrieve).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.anything(),
+      expect.objectContaining({ signal: controller.signal })
+    )
+  })
+
+  it("hands the signal to page-context retrieval", async () => {
+    ragsetOn()
+    const controller = new AbortController()
+
+    await buildRagContext(
+      defaults({
+        hasTabContext: true,
+        tabDocuments: [{ id: "t1", title: "Tab", content: "PAGE" }],
+        signal: controller.signal
+      })
+    )
+
+    expect(mockedRetrieveFromSources).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.anything(),
+      expect.objectContaining({ signal: controller.signal })
+    )
+  })
+
+  it("refuses to start once the signal is already aborted", async () => {
+    ragsetOn()
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(
+      buildRagContext(defaults({ signal: controller.signal }))
+    ).rejects.toBeDefined()
+    expect(mockedClassify).not.toHaveBeenCalled()
+  })
+
+  /*
+   * The retrieval catch turns failures into a warning toast and continues with
+   * no context. A cancellation must not take that path: it would report a
+   * stopped build as a completed one and warn the user about a retrieval they
+   * themselves interrupted.
+   */
+  it("propagates a mid-retrieval abort instead of degrading to empty context", async () => {
+    ragsetOn()
+    const controller = new AbortController()
+    mockedRetrieveFromSources.mockImplementation(() => {
+      controller.abort()
+      return Promise.reject(controller.signal.reason)
+    })
+
+    await expect(
+      buildRagContext(
+        defaults({
+          hasTabContext: true,
+          tabDocuments: [{ id: "t1", title: "Tab", content: "PAGE" }],
+          signal: controller.signal
+        })
+      )
+    ).rejects.toBeDefined()
+    expect(toastSpy).not.toHaveBeenCalled()
+  })
+})

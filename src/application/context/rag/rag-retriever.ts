@@ -118,6 +118,7 @@ export async function retrieveContext(
     minRerankScore?: number
     includeMemory?: boolean
     memoryTopK?: number
+    signal?: AbortSignal
   } = {}
 ): Promise<RetrievedContext> {
   const {
@@ -127,7 +128,8 @@ export async function retrieveContext(
     minSimilarity,
     minRerankScore,
     includeMemory,
-    memoryTopK
+    memoryTopK,
+    signal
   } = options
 
   let results: EnhancedSearchResult[] = []
@@ -173,7 +175,8 @@ export async function retrieveContext(
         minSimilarity ?? (await knowledgeConfig.getMinSimilarity()),
       minRerankScore,
       includeMemory,
-      memoryTopK
+      memoryTopK,
+      ...(signal ? { signal } : {})
     })
   }
 
@@ -224,6 +227,7 @@ export async function retrieveContextFromSources(
     topK?: number
     maxTokens?: number
     minSimilarity?: number
+    signal?: AbortSignal
   } = {}
 ): Promise<RetrievedContext> {
   if (sources.length === 0) {
@@ -250,7 +254,9 @@ export async function retrieveContextFromSources(
   })
   const texts = chunks.map((chunk) => chunk.pageContent)
 
-  const queryEmbedding = await generateEmbedding(query)
+  const queryEmbedding = await generateEmbedding(query, undefined, undefined, {
+    ...(options.signal ? { signal: options.signal } : {})
+  })
   if ("error" in queryEmbedding) {
     logger.warn(
       "Failed to generate query embedding for in-memory sources, using keyword fallback",
@@ -262,7 +268,12 @@ export async function retrieveContextFromSources(
     return buildKeywordFallbackContext(query, chunks, options, timestamp)
   }
 
-  const embeddings = await generateEmbeddingsBatch(texts)
+  const embeddings = await generateEmbeddingsBatch(
+    texts,
+    undefined,
+    undefined,
+    options.signal
+  )
 
   const results: EnhancedSearchResult[] = []
   const allCandidates: EnhancedSearchResult[] = []
