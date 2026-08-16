@@ -1,14 +1,17 @@
+import type { AppFailure } from "@ollama-client/contracts/app-failure"
+import { abortableDelay } from "@/lib/abortable-delay"
 import type { EmbeddingConfig } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/error-utils"
-import { readSetting } from "@/lib/storage/setting-access"
-import { SETTINGS } from "@/lib/storage/settings"
+import { toAppFailure } from "@/protocol/app-failure"
 import { getEmbeddingConfig } from "./config"
 import {
+  type EmbeddingPlan,
   type EmbeddingStrategyCapabilities,
   type EmbeddingStrategyReadiness,
   ensureEmbeddingStrategyReady,
   generateEmbeddingWithStrategy,
-  getEmbeddingCapabilities
+  getEmbeddingCapabilities,
+  resolveEmbeddingPlan
 } from "./embedding-strategy"
 
 export interface EmbeddingResult {
@@ -20,13 +23,32 @@ export interface EmbeddingResult {
 export interface EmbeddingError {
   error: string
   code?: string
+  /**
+   * The structured failure behind `error`.
+   *
+   * `error`/`code` stay for existing callers, but they flattened every cause to
+   * one string and `NETWORK_ERROR`: an abort, a bad API key, a missing model
+   * and a malformed response all arrived identically, so no caller could decide
+   * whether to retry and no diagnostic could say what happened. The failure
+   * carries kind, code, phase, provider and retryability through unchanged.
+   */
+  failure?: AppFailure
 }
 
-/** Cache for embeddings with timestamp for TTL (content hash -> { embedding, timestamp }) */
+/**
+ * A cached vector, tagged with the route that produced it.
+ *
+ * `routeFingerprint` is the plan the vector came from and is part of the key.
+ * The resolved provider and model are recorded separately because the plan
+ * describes the routes that were available while these name the one that
+ * actually answered — a fallback reports itself, rather than the head of the
+ * plan, to whoever reads the hit.
+ */
 interface CacheEntry {
   embedding: number[]
   timestamp: number
-  modelKey: string
+  routeFingerprint: string
+  model: string
   providerId: string
 }
 
@@ -69,67 +91,53 @@ const cleanExpiredCache = (): void => {
 }
 
 /**
- * Takes the already-resolved config rather than reading it again: this runs
- * once per chunk, and the caller has just resolved the same value.
- */
-const getCacheModelKey = async (
-  config: EmbeddingConfig,
-  modelName?: string
-): Promise<string> => {
-  const providerId = config.sharedEmbeddingProviderId || "default"
-
-  if (modelName) {
-    return `${providerId}:${modelName}`
-  }
-
-  const stored = await readSetting(SETTINGS.EMBEDDING_SELECTED_MODEL)
-  return `${providerId}:${stored || "default"}`
-}
-
-/**
  * Generates embeddings for text using the browser-safe embedding strategy chain.
  * Optimized with caching and batch processing support.
  *
- * `config` lets a batch caller resolve the snapshot once and reuse it for every
- * item instead of re-resolving per chunk.
+ * `config` and `plan` let a batch caller resolve those snapshots once and reuse
+ * them for every item instead of re-resolving per chunk.
  */
 export const generateEmbedding = async (
   text: string,
   modelName?: string,
-  config?: EmbeddingConfig
+  config?: EmbeddingConfig,
+  options: { plan?: EmbeddingPlan; signal?: AbortSignal } = {}
 ): Promise<EmbeddingResult | EmbeddingError> => {
   const resolvedConfig = config ?? (await getEmbeddingConfig())
-  const modelKey = await getCacheModelKey(resolvedConfig, modelName)
+  // The plan is resolved before the cache is consulted, not after: its
+  // fingerprint is the key's route half, so a lookup that skipped it would be
+  // asking "any vector for this text" — which is what returned another
+  // provider's vector after a routing change.
+  const plan = options.plan ?? (await resolveEmbeddingPlan(modelName))
+  const cacheKey = `${hashContent(text)}:${plan.fingerprint}`
 
   // Check cache if enabled
   if (resolvedConfig.enableCaching) {
-    const contentHash = `${hashContent(text)}:${modelKey}`
-    const cached = embeddingCache.get(contentHash)
+    const cached = embeddingCache.get(cacheKey)
     if (cached) {
       // Check if cache entry is still valid (not expired)
       const now = Date.now()
-      if (
-        now - cached.timestamp < CACHE_TTL_MS &&
-        cached.modelKey === modelKey
-      ) {
+      if (now - cached.timestamp < CACHE_TTL_MS) {
         return {
           embedding: cached.embedding,
-          model: modelName || modelKey.split(":").slice(1).join(":"),
+          model: cached.model,
           providerId: cached.providerId
         }
       } else {
         // Remove expired entry
-        embeddingCache.delete(contentHash)
+        embeddingCache.delete(cacheKey)
       }
     }
   }
   try {
-    const resolved = await generateEmbeddingWithStrategy(text, modelName)
+    const resolved = await generateEmbeddingWithStrategy(text, modelName, {
+      plan,
+      ...(options.signal ? { signal: options.signal } : {})
+    })
     const embedding = resolved.embedding
 
     // Cache if enabled
     if (resolvedConfig.enableCaching) {
-      const contentHash = `${hashContent(text)}:${modelKey}`
       const now = Date.now()
 
       // Clean expired entries periodically (every 10th insertion)
@@ -155,10 +163,11 @@ export const generateEmbedding = async (
         }
       }
 
-      embeddingCache.set(contentHash, {
+      embeddingCache.set(cacheKey, {
         embedding,
         timestamp: now,
-        modelKey,
+        routeFingerprint: plan.fingerprint,
+        model: resolved.model,
         providerId: resolved.providerId
       })
     }
@@ -169,10 +178,14 @@ export const generateEmbedding = async (
       providerId: resolved.providerId
     }
   } catch (error) {
-    const errorMessage = getErrorMessage(error)
+    const failure = toAppFailure(error, {
+      context: "embedding",
+      fallbackMessage: "Error generating embedding"
+    })
     return {
-      error: `Error generating embedding: ${errorMessage}`,
-      code: "NETWORK_ERROR"
+      error: `Error generating embedding: ${getErrorMessage(error)}`,
+      code: failure.code ?? (failure.kind === "abort" ? "ABORTED" : undefined),
+      failure
     }
   }
 }
@@ -184,16 +197,24 @@ export const generateEmbedding = async (
 export const generateEmbeddingsBatch = async (
   texts: string[],
   modelName?: string,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  signal?: AbortSignal
 ): Promise<(EmbeddingResult | EmbeddingError)[]> => {
   const config = await getEmbeddingConfig()
+  const plan = await resolveEmbeddingPlan(modelName)
   const batchSize = config.batchSize || 5
   const results: (EmbeddingResult | EmbeddingError)[] = []
 
   for (let i = 0; i < texts.length; i += batchSize) {
+    signal?.throwIfAborted()
     const batch = texts.slice(i, i + batchSize)
     const batchResults = await Promise.all(
-      batch.map((text) => generateEmbedding(text, modelName, config))
+      batch.map((text) =>
+        generateEmbedding(text, modelName, config, {
+          plan,
+          ...(signal ? { signal } : {})
+        })
+      )
     )
     results.push(...batchResults)
 
@@ -204,7 +225,7 @@ export const generateEmbeddingsBatch = async (
 
     // Small delay between batches to prevent overwhelming the server
     if (i + batchSize < texts.length) {
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await abortableDelay(100, signal)
     }
   }
 

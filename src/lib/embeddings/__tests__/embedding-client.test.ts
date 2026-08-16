@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { createAppError } from "@/lib/error-utils"
 import {
   clearEmbeddingCache,
   cosineSimilarity,
@@ -9,8 +10,10 @@ import {
 } from "../embedding-client"
 
 // Use vi.hoisted to ensure mockEmbed is defined before vi.mock runs
-const { mockEmbed } = vi.hoisted(() => ({
-  mockEmbed: vi.fn()
+const { mockEmbed, route } = vi.hoisted(() => ({
+  mockEmbed: vi.fn(),
+  /** Mutable stand-in for the resolved route, so a test can re-point it. */
+  route: { id: "ollama", baseUrl: "http://localhost:11434" }
 }))
 
 // Mock plasmo storage
@@ -23,27 +26,27 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
 }))
 
 // Mock the provider factory with the hoisted mockEmbed
-vi.mock("@/lib/providers/factory", () => ({
-  ProviderFactory: {
-    getProviderForModel: vi.fn(() =>
-      Promise.resolve({
-        id: "ollama",
-        embed: (...args: unknown[]) => mockEmbed(...args)
-      })
-    ),
-    getProvider: vi.fn(() =>
-      Promise.resolve({
-        id: "ollama",
-        embed: (...args: unknown[]) => mockEmbed(...args)
-      })
-    )
+vi.mock("@/lib/providers/factory", () => {
+  const build = () => ({
+    id: route.id,
+    config: { id: route.id, baseUrl: route.baseUrl },
+    embed: (...args: unknown[]) => mockEmbed(...args)
+  })
+
+  return {
+    ProviderFactory: {
+      getProviderForModel: vi.fn(() => Promise.resolve(build())),
+      getProvider: vi.fn(() => Promise.resolve(build()))
+    }
   }
-}))
+})
 
 describe("Embedding Client", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     clearEmbeddingCache()
+    route.id = "ollama"
+    route.baseUrl = "http://localhost:11434"
 
     // Default successful response
     mockEmbed.mockReset()
@@ -67,7 +70,7 @@ describe("Embedding Client", () => {
       const result = await generateEmbedding("test", "custom-model")
 
       // mockEmbed should have been called with the text and model
-      expect(mockEmbed).toHaveBeenCalledWith("test", "custom-model")
+      expect(mockEmbed).toHaveBeenCalledWith("test", "custom-model", undefined)
       if ("model" in result) {
         expect(result.model).toBe("custom-model")
         expect(result.providerId).toBe("ollama")
@@ -121,6 +124,53 @@ describe("Embedding Client", () => {
       if ("error" in result) {
         expect(result.error).toContain("Provider error")
       }
+    })
+
+    /**
+     * Every cause used to arrive as one string with code NETWORK_ERROR, so a
+     * caller could not tell an abort from an unreachable provider and no
+     * diagnostic could report which it was.
+     */
+    it("preserves the structured failure behind the message", async () => {
+      mockEmbed.mockRejectedValue(
+        createAppError("model not found", {
+          kind: "provider",
+          code: "OLC-MODEL-NOT-FOUND",
+          phase: "response",
+          retryable: false
+        })
+      )
+
+      const result = await generateEmbedding("test")
+
+      expect(result).toMatchObject({
+        code: "OLC-MODEL-NOT-FOUND",
+        failure: {
+          kind: "provider",
+          code: "OLC-MODEL-NOT-FOUND",
+          phase: "response",
+          retryable: false
+        }
+      })
+    })
+
+    it("reports a cancelled request as an abort, not a network failure", async () => {
+      const controller = new AbortController()
+      mockEmbed.mockImplementation(() => {
+        controller.abort()
+        return Promise.reject(controller.signal.reason)
+      })
+
+      const result = await generateEmbedding("test", undefined, undefined, {
+        signal: controller.signal
+      })
+
+      expect(result).toMatchObject({
+        code: "ABORTED",
+        failure: { kind: "abort" }
+      })
+      // A cancelled route must not fall through to the next provider.
+      expect(mockEmbed).toHaveBeenCalledTimes(1)
     })
 
     it("should recover using fallback route when first attempt fails", async () => {
@@ -271,6 +321,40 @@ describe("Embedding Client", () => {
       expect(getCacheSize()).toBe(2)
       expect(first).toMatchObject({ embedding: [0.1, 0.2, 0.3] })
       expect(second).toMatchObject({ embedding: [0.9, 0.8, 0.7] })
+    })
+
+    /**
+     * The key used to describe configured intent — shared provider id and
+     * stored model — while the vector could come from any route in the plan.
+     * Switching provider then returned the previous provider's vector for the
+     * same text, at whatever dimension that provider used.
+     */
+    it("misses the cache when the resolved provider changes", async () => {
+      mockEmbed.mockReset()
+      mockEmbed.mockResolvedValueOnce([0.1, 0.2, 0.3])
+      mockEmbed.mockResolvedValueOnce([0.9, 0.8, 0.7, 0.6])
+
+      const first = await generateEmbedding("same text")
+      route.id = "lm studio"
+      const second = await generateEmbedding("same text")
+
+      expect(mockEmbed).toHaveBeenCalledTimes(2)
+      expect(first).toMatchObject({ embedding: [0.1, 0.2, 0.3] })
+      expect(second).toMatchObject({ embedding: [0.9, 0.8, 0.7, 0.6] })
+    })
+
+    it("misses the cache when the same provider is re-pointed at another endpoint", async () => {
+      mockEmbed.mockReset()
+      mockEmbed.mockResolvedValueOnce([0.1, 0.2, 0.3])
+      mockEmbed.mockResolvedValueOnce([0.4, 0.5, 0.6])
+
+      const first = await generateEmbedding("same text")
+      route.baseUrl = "http://192.168.1.10:11434"
+      const second = await generateEmbedding("same text")
+
+      expect(mockEmbed).toHaveBeenCalledTimes(2)
+      expect(first).toMatchObject({ embedding: [0.1, 0.2, 0.3] })
+      expect(second).toMatchObject({ embedding: [0.4, 0.5, 0.6] })
     })
 
     it("distinguishes texts differing only in trailing length", async () => {

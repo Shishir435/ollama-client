@@ -17,6 +17,10 @@ import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
 import { resolveProviderBaseUrl } from "./base-url"
 import { OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES } from "./capabilities"
+import {
+  decodeOpenAIEmbedding,
+  decodeOpenAIEmbeddingBatch
+} from "./embedding-response"
 import { parameterSizeFromModelId } from "./model-id-metadata"
 import {
   createProviderReplayArtifact,
@@ -363,6 +367,15 @@ export class OpenAICompatibleProvider implements LLMProvider {
       providerName: this.config.name,
       model
     })
+  }
+
+  private embeddingContext(baseUrl: string) {
+    return {
+      providerId: this.id,
+      providerName: this.config.name,
+      baseUrl,
+      userMessage: "The provider returned an invalid embedding response."
+    }
   }
 
   async getModels(signal?: AbortSignal): Promise<ProviderModel[]> {
@@ -850,37 +863,49 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }
   }
 
-  async embed(text: string, model?: string): Promise<number[]> {
+  async embed(
+    text: string,
+    model?: string,
+    signal?: AbortSignal
+  ): Promise<number[]> {
     const baseUrl = resolveProviderBaseUrl(this.config)
     const targetModel = model || this.config.modelId || "text-embedding-3-small"
     const response = await fetch(`${baseUrl}/embeddings`, {
       method: "POST",
       headers: this.headers(),
-      body: JSON.stringify({ model: targetModel, input: text })
+      body: JSON.stringify({ model: targetModel, input: text }),
+      ...(signal ? { signal } : {})
     })
 
     if (!response.ok) {
       await this.responseError(response, "OpenAI Embedding Error", baseUrl)
     }
 
-    const data = await response.json()
-    return data.data[0].embedding
+    return decodeOpenAIEmbedding(response, this.embeddingContext(baseUrl))
   }
 
-  async embedBatch(texts: string[], model?: string): Promise<number[][]> {
+  async embedBatch(
+    texts: string[],
+    model?: string,
+    signal?: AbortSignal
+  ): Promise<number[][]> {
     const baseUrl = resolveProviderBaseUrl(this.config)
     const targetModel = model || this.config.modelId || "text-embedding-3-small"
     const response = await fetch(`${baseUrl}/embeddings`, {
       method: "POST",
       headers: this.headers(),
-      body: JSON.stringify({ model: targetModel, input: texts })
+      body: JSON.stringify({ model: targetModel, input: texts }),
+      ...(signal ? { signal } : {})
     })
 
     if (!response.ok) {
       await this.responseError(response, "OpenAI Embedding Error", baseUrl)
     }
 
-    const data = await response.json()
-    return data.data.map((item: { embedding: number[] }) => item.embedding)
+    return decodeOpenAIEmbeddingBatch(
+      response,
+      texts.length,
+      this.embeddingContext(baseUrl)
+    )
   }
 }

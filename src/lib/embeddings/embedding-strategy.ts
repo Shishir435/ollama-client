@@ -5,7 +5,12 @@ import {
   DEFAULT_SHARED_EMBEDDING_PROVIDER_ID,
   normalizeEmbeddingModelName
 } from "@/lib/constants"
-import { createAppError, getErrorMessage } from "@/lib/error-utils"
+import {
+  createAppError,
+  getErrorMessage,
+  isAbortError,
+  isAppError
+} from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
@@ -48,7 +53,42 @@ interface EmbedAttempt {
   providerId: string
   route: EmbeddingRoute
   model: string
+  /**
+   * Resolved once during planning so the fingerprint can name the endpoint a
+   * vector would actually come from, and so `tryEmbed` does not re-resolve the
+   * same provider for every chunk of a batch. Null when the provider could not
+   * be constructed; the attempt is then skipped exactly as an absent `embed`
+   * would skip it.
+   */
+  provider: LLMProvider | null
+  baseUrl?: string
 }
+
+/**
+ * A resolved embedding route plan plus the identity of the routes it will try.
+ *
+ * The cache key has to describe where a vector came from, not what the settings
+ * asked for: `provider-native` and `default-provider-fallback` produce vectors
+ * from different models under identical configuration, and re-pointing a
+ * provider's base URL at another server changes the weights behind an unchanged
+ * provider id and model name. Resolving the plan once and keying on it means a
+ * routing change misses the cache instead of returning the previous route's
+ * vector, which is the failure that has no error path — a wrong vector ranks
+ * silently.
+ */
+export interface EmbeddingPlan {
+  attempts: EmbedAttempt[]
+  sharedAttempt?: EmbedAttempt
+  /** Stable identity of the whole ordered route plan. */
+  fingerprint: string
+  maxChars: number
+}
+
+/**
+ * Bump when route selection or truncation semantics change, so vectors cached
+ * by an earlier build are not reused under the new meaning of the same plan.
+ */
+const STRATEGY_REVISION = "v1"
 
 const WARMUP_COOLDOWN_MS = 5 * 60 * 1000
 const warmupThrottle = new Map<string, number>()
@@ -162,11 +202,12 @@ const buildTruncationPlan = (maxChars: number): number[] => {
 const tryEmbed = async (
   text: string,
   attempt: EmbedAttempt,
-  maxChars: number
+  maxChars: number,
+  signal?: AbortSignal
 ): Promise<EmbeddingStrategyResult | null> => {
-  const provider = await ProviderFactory.getProvider(attempt.providerId)
+  const provider = attempt.provider
 
-  if (!provider.embed) {
+  if (!provider?.embed) {
     return null
   }
 
@@ -178,8 +219,10 @@ const tryEmbed = async (
     const truncatedText =
       text.length > limit ? `${text.slice(0, limit)}...` : text
 
+    signal?.throwIfAborted()
+
     try {
-      const vector = await provider.embed(truncatedText, attempt.model)
+      const vector = await provider.embed(truncatedText, attempt.model, signal)
       if (!Array.isArray(vector) || vector.length === 0) {
         return null
       }
@@ -247,6 +290,68 @@ const scheduleSharedModelWarmup = async (
 }
 
 /**
+ * Attaches an already-constructed provider, recording the endpoint it points
+ * at so the plan fingerprint changes when a provider is re-pointed.
+ */
+const withProvider = (
+  attempt: EmbedAttempt,
+  provider: LLMProvider | null
+): EmbedAttempt => ({
+  ...attempt,
+  provider,
+  ...(provider?.config.baseUrl ? { baseUrl: provider.config.baseUrl } : {})
+})
+
+/**
+ * Constructs the attempt's provider. A provider that cannot be constructed —
+ * removed, or never configured — leaves the attempt in the plan with a null
+ * provider so route order and fingerprint stay stable; `tryEmbed` skips it the
+ * same way it skips a provider without `embed`.
+ */
+const resolveAttemptProvider = async (
+  attempt: EmbedAttempt
+): Promise<EmbedAttempt> => {
+  try {
+    return withProvider(
+      attempt,
+      await ProviderFactory.getProvider(attempt.providerId)
+    )
+  } catch (error) {
+    logger.debug("Failed to resolve embedding provider", "EmbeddingStrategy", {
+      error,
+      providerId: attempt.providerId,
+      route: attempt.route
+    })
+    return withProvider(attempt, null)
+  }
+}
+
+/**
+ * Identity of an ordered route plan.
+ *
+ * Every field that can change which weights answer a request is present:
+ * route, provider id, model, and endpoint. The whole ordered list is included
+ * rather than only the first attempt, because a fallback that becomes reachable
+ * changes which route answers without changing the head of the list.
+ */
+const planFingerprint = (attempts: EmbedAttempt[]): string =>
+  [
+    STRATEGY_REVISION,
+    ...attempts.map((attempt) =>
+      [
+        attempt.route,
+        // The provider that answers, not the one that was asked for: a
+        // configured id is resolved through mappings and defaults, and it is
+        // the resolved endpoint that produced the vector.
+        attempt.provider?.id ?? attempt.providerId,
+        attempt.model,
+        attempt.baseUrl ?? "-",
+        attempt.provider?.embed ? "embed" : "no-embed"
+      ].join(":")
+    )
+  ].join("|")
+
+/**
  * Resolves the sequence of embedding attempts based on the user's configured strategy.
  * Possible routes include provider-native (LLM's matching model), shared-model
  * (a secondary dedicated embedding provider like Ollama), and default-provider (last-resort).
@@ -306,22 +411,28 @@ const buildAttempts = async (
     (activeProvider.id === DEFAULT_PROVIDER_ID ||
       config.embeddingStrategy === "provider-native")
   const providerNativeAttempt = allowProviderNative
-    ? {
-        providerId: activeProvider.id,
-        route: "provider-native" as const,
-        model: providerNativeModel
-      }
+    ? withProvider(
+        {
+          providerId: activeProvider.id,
+          route: "provider-native" as const,
+          model: providerNativeModel,
+          provider: null
+        },
+        activeProvider
+      )
     : undefined
-  const sharedAttempt: EmbedAttempt = {
+  const sharedAttempt = await resolveAttemptProvider({
     providerId: sharedProviderId,
     route: "shared-model",
-    model: sharedModelResolved
-  }
-  const defaultProviderAttempt: EmbedAttempt = {
+    model: sharedModelResolved,
+    provider: null
+  })
+  const defaultProviderAttempt = await resolveAttemptProvider({
     providerId: DEFAULT_PROVIDER_ID,
     route: "default-provider-fallback",
-    model: defaultProviderFallbackModel
-  }
+    model: defaultProviderFallbackModel,
+    provider: null
+  })
 
   switch (config.embeddingStrategy) {
     case "provider-native":
@@ -348,6 +459,27 @@ const buildAttempts = async (
   return {
     attempts: baseAttempts,
     sharedAttempt
+  }
+}
+
+/**
+ * Resolves the full route plan once.
+ *
+ * A batch caller resolves this for the whole batch rather than per chunk: the
+ * plan reads settings, the model mapping and up to three provider
+ * configurations, which is the same work `buildAttempts` did per call before.
+ */
+export const resolveEmbeddingPlan = async (
+  requestedModel?: string
+): Promise<EmbeddingPlan> => {
+  const config = await getEmbeddingConfig()
+  const { attempts, sharedAttempt } = await buildAttempts(requestedModel)
+
+  return {
+    attempts,
+    sharedAttempt,
+    fingerprint: planFingerprint(attempts),
+    maxChars: Math.max(256, Math.floor(config.chunkSize * 4))
   }
 }
 
@@ -386,26 +518,35 @@ export const getEmbeddingCapabilities =
  */
 export const generateEmbeddingWithStrategy = async (
   text: string,
-  requestedModel?: string
+  requestedModel?: string,
+  options: { plan?: EmbeddingPlan; signal?: AbortSignal } = {}
 ): Promise<EmbeddingStrategyResult> => {
-  const config = await getEmbeddingConfig()
-  const maxChars = Math.max(256, Math.floor(config.chunkSize * 4))
-  const { attempts, sharedAttempt } = await buildAttempts(requestedModel)
+  const { attempts, sharedAttempt, maxChars } =
+    options.plan ?? (await resolveEmbeddingPlan(requestedModel))
   const attemptedRoutes: EmbeddingRoute[] = []
   const routeErrors: string[] = []
+  const routeFailures: unknown[] = []
 
   for (const attempt of attempts) {
+    options.signal?.throwIfAborted()
     attemptedRoutes.push(attempt.route)
 
     try {
-      const result = await tryEmbed(text, attempt, maxChars)
+      const result = await tryEmbed(text, attempt, maxChars, options.signal)
       if (result) {
         result.attemptedRoutes = [...attemptedRoutes]
         return result
       }
     } catch (error) {
+      // A cancelled request is not a failed route: falling through to the next
+      // provider would start the network work the caller just asked to stop.
+      if (isAbortError(error)) {
+        throw error
+      }
+
       const errorMessage = getErrorMessage(error)
       routeErrors.push(`${attempt.route}: ${errorMessage}`)
+      routeFailures.push(error)
       logger.warn(
         `Embedding route failed: ${attempt.route}`,
         "EmbeddingStrategy",
@@ -430,13 +571,31 @@ export const generateEmbeddingWithStrategy = async (
     }
   }
 
+  // The aggregate adopts the last route's classification when it had one.
+  // Reporting every exhausted plan as a generic retryable provider error told
+  // the caller nothing: a missing model, a rejected key and an unreachable host
+  // all arrived as the same retryable failure, so the UI offered "try again"
+  // for causes retrying cannot fix.
+  const lastError = routeFailures[routeFailures.length - 1]
   throw createAppError(
     `All embedding routes failed. Attempted: ${attemptedRoutes.join(" -> ")}. Last error: ${
       routeErrors[routeErrors.length - 1] || "unknown"
     }`,
     {
-      kind: "provider",
-      retryable: true,
+      kind: isAppError(lastError) ? lastError.kind : "provider",
+      retryable: isAppError(lastError) ? lastError.retryable : true,
+      ...(isAppError(lastError) && {
+        code: lastError.code,
+        phase: lastError.phase,
+        ...(lastError.status !== undefined && { status: lastError.status }),
+        ...(lastError.providerId && { providerId: lastError.providerId }),
+        ...(lastError.model && { model: lastError.model }),
+        ...(lastError.userMessage && { userMessage: lastError.userMessage }),
+        ...(lastError.recoveryAction && {
+          recoveryAction: lastError.recoveryAction
+        })
+      }),
+      cause: lastError,
       debug: { attemptedRoutes, routeErrors }
     }
   )
