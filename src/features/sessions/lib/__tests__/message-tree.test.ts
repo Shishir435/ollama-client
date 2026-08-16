@@ -8,6 +8,7 @@ import {
   compareMessages,
   enrichPathWithSiblingsAndAttachments,
   findLatestLeafDescendant,
+  findNewestStructuralLeaf,
   groupFilesByMessageId,
   traversePathFromLeaf,
   traversePathFromLeafWithFetcher
@@ -231,5 +232,52 @@ describe("findLatestLeafDescendant", () => {
   it("returns the node itself when it has no children", () => {
     const messages: ChatMessage[] = [msg({ id: 1 })]
     expect(findLatestLeafDescendant(messages, 1)).toBe(1)
+  })
+})
+
+describe("findNewestStructuralLeaf", () => {
+  it("returns the newest node when timestamps rise with depth", () => {
+    const messages: ChatMessage[] = [
+      msg({ id: 1, timestamp: 1 }),
+      msg({ id: 2, parentId: 1, timestamp: 2 }),
+      msg({ id: 3, parentId: 2, timestamp: 3 })
+    ]
+    expect(findNewestStructuralLeaf(messages)).toBe(3)
+  })
+
+  /*
+   * An imported session keeps its original timestamps, and a clock adjustment
+   * can reorder them mid-conversation. Taking the newest row then lands on an
+   * internal node: the path renders truncated, and the next message is durably
+   * parented onto it, forking a branch the user never asked for.
+   */
+  it("skips the newest node when it still has a child", () => {
+    const messages: ChatMessage[] = [
+      msg({ id: 1, timestamp: 10 }),
+      msg({ id: 2, parentId: 1, timestamp: 90 }),
+      msg({ id: 3, parentId: 2, timestamp: 20 })
+    ]
+    expect(findNewestStructuralLeaf(messages)).toBe(3)
+  })
+
+  it("prefers the newest of several leaves", () => {
+    const messages: ChatMessage[] = [
+      msg({ id: 1, timestamp: 1 }),
+      msg({ id: 2, parentId: 1, timestamp: 5 }),
+      msg({ id: 3, parentId: 1, timestamp: 9 })
+    ]
+    expect(findNewestStructuralLeaf(messages)).toBe(3)
+  })
+
+  it("returns undefined for an empty tree", () => {
+    expect(findNewestStructuralLeaf([])).toBeUndefined()
+  })
+
+  it("falls back to the newest node when a cycle leaves no leaf", () => {
+    const messages: ChatMessage[] = [
+      msg({ id: 1, parentId: 2, timestamp: 1 }),
+      msg({ id: 2, parentId: 1, timestamp: 2 })
+    ]
+    expect(findNewestStructuralLeaf(messages)).toBe(2)
   })
 })
