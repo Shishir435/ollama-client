@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+# Launcher for a cloned checkout: runs the bundled CLI, or the TypeScript sources
+# when no bundle has been built yet.
+set -eu
+
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+root=$(dirname "$here")
+
+if [ -f "$root/dist/olc.mjs" ]; then
+  exec node "$root/dist/olc.mjs" "$@"
+fi
+
+if [ -f "$root/dist/cli.js" ]; then
+  exec node "$root/dist/cli.js" "$@"
+fi
+
+if [ -d "$root/node_modules/tsx" ] || command -v tsx >/dev/null 2>&1; then
+  echo "olc: no build found, running from source. Build one with: pnpm --filter @ollama-client/olc bundle" >&2
+  exec npx tsx "$root/src/cli.ts" "$@"
+fi
+
+echo "olc: no build found. Run: pnpm --filter @ollama-client/olc bundle" >&2
+exit 1
