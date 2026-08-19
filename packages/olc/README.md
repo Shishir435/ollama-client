@@ -222,8 +222,10 @@ new adapter's expectations.
   refused with `400 StaleToolResults` rather than folded into a new turn. A turn
   whose resume request is queued is not reaped while it waits, and the
   correlation is re-checked inside the queue slot.
-- **Text tool results.** A tool that returns images has its text forwarded; the
-  images are not attached to the runtime's turn.
+- **Images ride along as file parts.** `image_url` and `input_image` content parts
+  become OpenCode file parts, data URL and all, so a vision model sees them. What
+  the model does with them is the model's business: a text-only model is sent the
+  attachment and ignores it.
 - **The OpenCode plugin needs OpenCode's plugin runtime.** olc links it next to
   the generated plugin; if it cannot be found, tools are dropped from the request
   and a warning names them. Point `OPENCODE_PLUGIN_RUNTIME_DIR` at the

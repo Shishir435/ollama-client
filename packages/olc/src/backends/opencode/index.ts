@@ -15,7 +15,11 @@
 
 import { createOpencodeClient } from "@opencode-ai/sdk"
 import { type Router, sendJson } from "../../core/http.js"
-import { buildPromptParts, buildToolFlags } from "../../core/openai-wire.js"
+import {
+  buildPromptParts,
+  buildToolFlags,
+  type PromptPart
+} from "../../core/openai-wire.js"
 import type { ToolResultMessage } from "../../types.js"
 import { isRecord } from "../../util.js"
 import type {
@@ -42,7 +46,7 @@ interface PromptBody {
   system?: string
   agent?: string
   tools: Record<string, boolean>
-  parts: { type: "text"; text: string }[]
+  parts: PromptPart[]
 }
 
 export const createOpencodeBackend = (

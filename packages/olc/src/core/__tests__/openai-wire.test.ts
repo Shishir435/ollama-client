@@ -3,8 +3,10 @@ import type { PendingToolCall } from "../../types.js"
 import {
   buildPromptParts,
   buildToolFlags,
+  extractImageParts,
   extractTrailingToolResults,
   finishChunk,
+  imageMimeFromUrl,
   normalizeMessageContent,
   toolCallsChunk
 } from "../openai-wire.js"
@@ -42,11 +44,9 @@ describe("buildPromptParts", () => {
 
     expect(system).toBe("be terse")
     expect(lastUserMsg).toBe("second")
-    expect(parts.map((part: { text: string }) => part.text)).toEqual([
-      "USER: first",
-      "ASSISTANT: answer",
-      "USER: second"
-    ])
+    expect(
+      parts.map((part) => (part.type === "text" ? part.text : part.mime))
+    ).toEqual(["USER: first", "ASSISTANT: answer", "USER: second"])
   })
 
   it("renders a replayed tool exchange instead of dropping it", () => {
@@ -67,7 +67,9 @@ describe("buildPromptParts", () => {
       { role: "user", content: "thanks" }
     ])
 
-    expect(parts.map((part: { text: string }) => part.text)).toEqual([
+    expect(
+      parts.map((part) => (part.type === "text" ? part.text : part.mime))
+    ).toEqual([
       "USER: which tabs?",
       'ASSISTANT: [called tools] list_tabs({"limit":2})',
       'TOOL RESULT (list_tabs): {"tabs":[]}',
@@ -172,5 +174,85 @@ describe("chunk builders", () => {
       finishChunk("chatcmpl-1", "opencode/model", "tool_calls").choices[0]
         ?.finish_reason
     ).toBe("tool_calls")
+  })
+})
+
+describe("image parts", () => {
+  const dataUrl = "data:image/webp;base64,AAAA"
+
+  it("carries an attached image through as a file part", () => {
+    const { parts } = buildPromptParts([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "what are these bro?" },
+          { type: "image_url", image_url: { url: dataUrl } }
+        ]
+      }
+    ])
+
+    expect(parts).toEqual([
+      { type: "text", text: "USER: what are these bro?" },
+      {
+        type: "file",
+        mime: "image/webp",
+        filename: "image-1.webp",
+        url: dataUrl
+      }
+    ])
+  })
+
+  it("keeps an image-only message instead of dropping it", () => {
+    const { parts } = buildPromptParts([
+      { role: "user", content: [{ type: "image_url", image_url: dataUrl }] }
+    ])
+
+    expect(parts).toHaveLength(1)
+    expect(parts[0]).toMatchObject({ type: "file", mime: "image/webp" })
+  })
+
+  it("numbers several images and names them by media type", () => {
+    const { parts } = buildPromptParts([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "compare" },
+          { type: "image_url", image_url: { url: "data:image/png;base64,A" } },
+          {
+            type: "input_image",
+            image_url: { url: "data:image/jpeg;base64,B" }
+          }
+        ]
+      }
+    ])
+
+    expect(parts.filter((part) => part.type === "file")).toEqual([
+      {
+        type: "file",
+        mime: "image/png",
+        filename: "image-1.png",
+        url: "data:image/png;base64,A"
+      },
+      {
+        type: "file",
+        mime: "image/jpeg",
+        filename: "image-2.jpg",
+        url: "data:image/jpeg;base64,B"
+      }
+    ])
+  })
+
+  it("reads a remote image's type from its extension, defaulting to png", () => {
+    expect(imageMimeFromUrl("https://example.test/a.JPG?v=2")).toBe(
+      "image/jpeg"
+    )
+    expect(imageMimeFromUrl("https://example.test/render")).toBe("image/png")
+  })
+
+  it("ignores a part with no usable url", () => {
+    expect(extractImageParts([{ type: "image_url", image_url: {} }])).toEqual(
+      []
+    )
+    expect(extractImageParts("plain text")).toEqual([])
   })
 })

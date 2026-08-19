@@ -16,10 +16,26 @@ import type {
 } from "../types.js"
 import { isRecord } from "../util.js"
 
-export interface PromptPart {
+export interface TextPromptPart {
   type: "text"
   text: string
 }
+
+/**
+ * An image the client attached, in the shape OpenCode takes an attachment.
+ *
+ * Images cannot ride along as text: an `image_url` content part has no `text`, so
+ * flattening the message would silently drop it and leave the model answering a
+ * question about pictures it was never shown.
+ */
+export interface FilePromptPart {
+  type: "file"
+  mime: string
+  filename: string
+  url: string
+}
+
+export type PromptPart = TextPromptPart | FilePromptPart
 
 /** Collapse the several shapes an OpenAI `content` field takes into text. */
 export const normalizeMessageContent = (content: unknown): string => {
@@ -38,6 +54,76 @@ export const normalizeMessageContent = (content: unknown): string => {
     return String(content)
   }
   return ""
+}
+
+const DATA_URL_MIME = /^data:([^;,]+)[;,]/
+const URL_EXTENSION = /\.([a-z0-9]+)(?:[?#]|$)/i
+
+const MIME_BY_EXTENSION: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  bmp: "image/bmp",
+  svg: "image/svg+xml"
+}
+
+/** The several shapes an OpenAI image part puts its URL in. */
+const imageUrlOf = (part: Record<string, unknown>): string => {
+  const value = part.image_url ?? part.imageUrl ?? part.url
+  if (typeof value === "string") return value
+  if (isRecord(value) && typeof value.url === "string") return value.url
+  return ""
+}
+
+/**
+ * The image's media type.
+ *
+ * A data URL states it, and the client that built one knows what it encoded. For a
+ * remote URL the extension is the only hint, and the caller already declared the
+ * part an image, so an unrecognized suffix falls back to PNG rather than to a
+ * generic type the model provider would refuse.
+ */
+export const imageMimeFromUrl = (url: string): string => {
+  const dataUrl = DATA_URL_MIME.exec(url)
+  if (dataUrl?.[1]) return dataUrl[1]
+  const extension = URL_EXTENSION.exec(url)?.[1]?.toLowerCase()
+  return (extension && MIME_BY_EXTENSION[extension]) || "image/png"
+}
+
+const filenameForMime = (mime: string, index: number): string => {
+  const subtype = mime.split("/")[1]?.split("+")[0] || "png"
+  return `image-${index}.${subtype === "jpeg" ? "jpg" : subtype}`
+}
+
+/**
+ * The images in one message's content, in order.
+ *
+ * `image_url` is what an OpenAI-compatible client sends; `input_image` is the same
+ * thing under the Responses API name, and both arrive here from clients that pick
+ * either.
+ */
+export const extractImageParts = (content: unknown): FilePromptPart[] => {
+  if (!Array.isArray(content)) return []
+  const images: FilePromptPart[] = []
+  for (const part of content) {
+    if (!isRecord(part)) continue
+    const type = String(part.type ?? "")
+    if (type !== "image_url" && type !== "input_image" && type !== "image") {
+      continue
+    }
+    const url = imageUrlOf(part)
+    if (!url) continue
+    const mime = imageMimeFromUrl(url)
+    images.push({
+      type: "file",
+      mime,
+      filename: filenameForMime(mime, images.length + 1),
+      url
+    })
+  }
+  return images
 }
 
 const describeToolCall = (call: OpenAIToolCall): string => {
@@ -71,6 +157,7 @@ export const buildPromptParts = (
   for (const message of list) {
     const role = String(message?.role || "user").toLowerCase()
     const content = normalizeMessageContent(message?.content)
+    const images = extractImageParts(message?.content)
 
     if (role === "system") {
       if (content) systemChunks.push(content)
@@ -98,16 +185,21 @@ export const buildPromptParts = (
       const name =
         (message.tool_call_id && toolNames.get(message.tool_call_id)) || "tool"
       parts.push({ type: "text", text: `TOOL RESULT (${name}): ${content}` })
+      parts.push(...images)
       continue
     }
 
-    if (!content) continue
-    if (role === "user") userContents.push(content)
-    const nameSuffix = message?.name ? `(${message.name})` : ""
-    parts.push({
-      type: "text",
-      text: `${role.toUpperCase()}${nameSuffix}: ${content}`
-    })
+    if (!content && images.length === 0) continue
+    if (content) {
+      if (role === "user") userContents.push(content)
+      const nameSuffix = message?.name ? `(${message.name})` : ""
+      parts.push({
+        type: "text",
+        text: `${role.toUpperCase()}${nameSuffix}: ${content}`
+      })
+    }
+    // After the text, so the model reads the question and then what it is about.
+    parts.push(...images)
   }
 
   return {
