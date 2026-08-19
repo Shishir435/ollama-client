@@ -93,6 +93,7 @@ Command line wins, then the environment, then `config.json`, then the default.
 | `PORT` | `--port` | `OLC_PORT` | `8083` |
 | `BIND_HOST` | `--host` | `OLC_BIND_HOST` | `127.0.0.1` |
 | `API_KEY` | `--api-key` | `OLC_API_KEY` | none (no auth) |
+| `ALLOWED_ORIGINS` | `--allowed-origins` | `OLC_ALLOWED_ORIGINS` | the extension schemes |
 | `BACKEND` | `--backend` | `OLC_BACKEND` | `opencode` |
 | `SYSTEM_PROMPT` | `--system-prompt` | `OLC_SYSTEM_PROMPT` | the client's |
 | `BRIDGE_ENABLED` | `--no-bridge` to disable | `OLC_BRIDGE_ENABLED` | `true` |
@@ -101,6 +102,24 @@ Command line wins, then the environment, then `config.json`, then the default.
 `REQUEST_TIMEOUT_MS`, `BRIDGE_CALL_TIMEOUT_MS`, `BRIDGE_BATCH_MS` and
 `SUSPENDED_TURN_TTL_MS` follow the same precedence with `OLC_`-prefixed
 environment variables.
+
+#### Who may call it
+
+The proxy listens on loopback and runs an agent, so a page in the user's browser
+must not be able to drive it. A request carrying a browser `Origin` is refused
+with `403` unless that origin is allowed; a request with no `Origin` — a CLI, a
+script, an extension's own background fetch — is not affected.
+
+The default allows `chrome-extension://*`, `moz-extension://*` and
+`safari-web-extension://*`, which is what the extension this proxy serves sends.
+Add a web client explicitly:
+
+```bash
+olc --allowed-origins http://localhost:3000
+```
+
+`--allowed-origins "*"` restores the old wildcard. Do not combine it with a
+missing `API_KEY` unless nothing untrusted can reach the port.
 
 ### OpenCode backend
 
@@ -193,9 +212,16 @@ new adapter's expectations.
 ## Known limits
 
 - **One turn at a time.** Requests are serialized, because a single OpenCode
-  instance runs one agent loop.
+  instance runs one agent loop. A request that outlives `REQUEST_TIMEOUT_MS` is
+  cancelled, not merely failed, and the next request waits for it to unwind. A
+  cancelled turn that does not stop is never overtaken: after ten seconds the
+  queue refuses requests with `503` and names it, until it stops.
 - **A turn per user message.** Conversation history is replayed from the client's
-  messages; only a tool exchange reuses its turn.
+  messages; only a tool exchange reuses its turn. Trailing tool results whose turn
+  the proxy no longer holds — expired, cancelled, or from an earlier run — are
+  refused with `400 StaleToolResults` rather than folded into a new turn. A turn
+  whose resume request is queued is not reaped while it waits, and the
+  correlation is re-checked inside the queue slot.
 - **Text tool results.** A tool that returns images has its text forwarded; the
   images are not attached to the runtime's turn.
 - **The OpenCode plugin needs OpenCode's plugin runtime.** olc links it next to

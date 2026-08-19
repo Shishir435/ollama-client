@@ -10,6 +10,10 @@
  * Note: the bridge token defaults to a fresh random value per run and is only handed
  * to the backend runtime, so nothing else on the loopback interface can post tool
  * results into a live turn.
+ *
+ * `ALLOWED_ORIGINS` defaults to the extension schemes rather than to everything: the
+ * clients this proxy exists for are browser extensions, and an ordinary web page
+ * reaching a loopback agent is the thing the default has to refuse.
  */
 import { randomBytes } from "node:crypto"
 import type { ProxyConfig } from "./types.js"
@@ -19,6 +23,11 @@ export const DEFAULTS = {
   PORT: 8083,
   BIND_HOST: "127.0.0.1",
   BACKEND: "opencode",
+  ALLOWED_ORIGINS: [
+    "chrome-extension://*",
+    "moz-extension://*",
+    "safari-web-extension://*"
+  ],
   REQUEST_TIMEOUT_MS: 1_800_000,
   BRIDGE_PATH: "/bridge/call",
   BRIDGE_CALL_TIMEOUT_MS: 300_000,
@@ -98,6 +107,11 @@ export const resolveConfig = (
     fileOptions.BIND_HOST,
     DEFAULTS.BIND_HOST
   )
+  const allowedOrigins = listOption([
+    options.ALLOWED_ORIGINS,
+    env.OLC_ALLOWED_ORIGINS,
+    fileOptions.ALLOWED_ORIGINS
+  ])
   const bridgePath = stringOption(
     options.BRIDGE_PATH,
     fileOptions.BRIDGE_PATH,
@@ -124,6 +138,10 @@ export const resolveConfig = (
       fileOptions.BACKEND,
       DEFAULTS.BACKEND
     ),
+    ALLOWED_ORIGINS:
+      allowedOrigins.length > 0
+        ? allowedOrigins
+        : [...DEFAULTS.ALLOWED_ORIGINS],
     REQUEST_TIMEOUT_MS: numberOption(
       options.REQUEST_TIMEOUT_MS,
       env.OLC_REQUEST_TIMEOUT_MS,

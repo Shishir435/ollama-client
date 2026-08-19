@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest"
-import { matchRoute } from "../http.js"
+import { createServer, type Server } from "node:http"
+import type { AddressInfo } from "node:net"
+import { afterEach, describe, expect, it } from "vitest"
+import { createRouter, isOriginAllowed, matchRoute, sendJson } from "../http.js"
 
 describe("matchRoute", () => {
   it("matches fixed paths exactly", () => {
@@ -25,5 +27,101 @@ describe("matchRoute", () => {
 
   it("ignores trailing slashes", () => {
     expect(matchRoute("/health", "/health/")).toEqual({})
+  })
+})
+
+describe("isOriginAllowed", () => {
+  it("matches an exact origin", () => {
+    expect(
+      isOriginAllowed("http://localhost:3000", ["http://localhost:3000"])
+    ).toBe(true)
+    expect(
+      isOriginAllowed("http://localhost:3001", ["http://localhost:3000"])
+    ).toBe(false)
+  })
+
+  it("matches a whole scheme, because an extension id differs per install", () => {
+    const allowed = ["chrome-extension://*"]
+    expect(isOriginAllowed("chrome-extension://abcdef", allowed)).toBe(true)
+    expect(isOriginAllowed("moz-extension://abcdef", allowed)).toBe(false)
+    expect(isOriginAllowed("https://evil.example", allowed)).toBe(false)
+  })
+
+  it("allows everything only when explicitly configured", () => {
+    expect(isOriginAllowed("https://evil.example", ["*"])).toBe(true)
+    expect(isOriginAllowed("https://evil.example", [])).toBe(false)
+  })
+})
+
+describe("router origin policy", () => {
+  let server: Server | null = null
+
+  const startServer = async (allowedOrigins: string[]) => {
+    const router = createRouter({ allowedOrigins })
+    router.post("/v1/chat/completions", (_request, response) =>
+      sendJson(response, 200, { ok: true })
+    )
+    server = createServer((request, response) => {
+      void router.handle(request, response)
+    })
+    await new Promise<void>((resolve) =>
+      server?.listen(0, "127.0.0.1", resolve)
+    )
+    const { port } = server.address() as AddressInfo
+    return `http://127.0.0.1:${port}`
+  }
+
+  const post = (url: string, headers: Record<string, string> = {}) =>
+    fetch(`${url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: "{}"
+    })
+
+  afterEach(async () => {
+    if (server) {
+      await new Promise<void>((resolve) => server?.close(() => resolve()))
+      server = null
+    }
+  })
+
+  it("refuses a page origin before the route runs", async () => {
+    const url = await startServer(["chrome-extension://*"])
+    const response = await post(url, { Origin: "https://evil.example" })
+
+    expect(response.status).toBe(403)
+    expect(response.headers.get("access-control-allow-origin")).toBeNull()
+  })
+
+  it("refuses the preflight the same way", async () => {
+    const url = await startServer(["chrome-extension://*"])
+    const response = await fetch(`${url}/v1/chat/completions`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://evil.example",
+        "Access-Control-Request-Method": "POST"
+      }
+    })
+
+    expect(response.status).toBe(403)
+  })
+
+  it("echoes an allowed origin instead of a wildcard", async () => {
+    const url = await startServer(["chrome-extension://*"])
+    const response = await post(url, { Origin: "chrome-extension://abcdef" })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("access-control-allow-origin")).toBe(
+      "chrome-extension://abcdef"
+    )
+    expect(response.headers.get("vary")).toBe("Origin")
+  })
+
+  it("leaves a request without an origin alone", async () => {
+    const url = await startServer([])
+    const response = await post(url)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("access-control-allow-origin")).toBeNull()
   })
 })

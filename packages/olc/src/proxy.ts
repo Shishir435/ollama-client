@@ -57,6 +57,7 @@ export const createProxy = ({
 
   const router = createRouter({
     allowedHeaders: ["Content-Type", "Authorization", "X-OLC-Token"],
+    allowedOrigins: config.ALLOWED_ORIGINS,
     onRequest: (request, response) => {
       if (!config.DEBUG) return
       const startedAt = Date.now()

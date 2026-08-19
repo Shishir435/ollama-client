@@ -6,6 +6,11 @@
  * the server in the standard library means the published package has exactly one
  * runtime dependency, and it keeps control of socket timeouts — which a long SSE
  * turn and a parked tool call both depend on — in one place.
+ *
+ * Cross-origin policy: the proxy listens on loopback and runs an agent, so a page in
+ * the user's browser must not be able to drive it. An `Origin` this server does not
+ * know is refused before the route runs — a wildcard would let any site spend a turn
+ * with a simple request, which no missing response header prevents.
  */
 import type { IncomingMessage, ServerResponse } from "node:http"
 
@@ -83,6 +88,26 @@ export const matchRoute = (
   return params
 }
 
+/**
+ * Whether a browser origin may talk to this proxy.
+ *
+ * Entries are exact origins, `<scheme>://*` for a whole scheme, or `*` for everything.
+ * The scheme form is what makes the default workable: an extension's origin carries
+ * its own id, which differs per install and per browser.
+ */
+export const isOriginAllowed = (
+  origin: string,
+  allowedOrigins: string[]
+): boolean => {
+  for (const entry of allowedOrigins) {
+    if (entry === "*" || entry === origin) return true
+    if (entry.endsWith("://*") && origin.startsWith(entry.slice(0, -1))) {
+      return true
+    }
+  }
+  return false
+}
+
 const readJsonBody = (request: IncomingMessage): Promise<unknown> =>
   new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
@@ -112,10 +137,13 @@ const readJsonBody = (request: IncomingMessage): Promise<unknown> =>
 
 export const createRouter = ({
   allowedHeaders = ["Content-Type", "Authorization"],
+  allowedOrigins = [],
   onRequest,
   authorize
 }: {
   allowedHeaders?: string[]
+  /** Browser origins allowed to call this server. Empty means none. */
+  allowedOrigins?: string[]
   onRequest?: (request: RouteRequest, response: ServerResponse) => void
   authorize?: (request: RouteRequest) => boolean
 } = {}) => {
@@ -139,7 +167,23 @@ export const createRouter = ({
     const url = new URL(request.url ?? "/", "http://localhost")
     const method = (request.method ?? "GET").toUpperCase()
 
-    response.setHeader("Access-Control-Allow-Origin", "*")
+    // A request without an `Origin` is not from a page: a CLI, a script, or the
+    // extension's own background fetch. Only a browser origin is gated here.
+    const origin = request.headers.origin
+    if (typeof origin === "string" && origin !== "") {
+      if (!isOriginAllowed(origin, allowedOrigins)) {
+        sendJson(response, 403, {
+          error: {
+            message: `Origin ${origin} is not allowed to use this proxy`,
+            type: "Forbidden"
+          }
+        })
+        return
+      }
+      response.setHeader("Access-Control-Allow-Origin", origin)
+      response.setHeader("Vary", "Origin")
+    }
+
     if (method === "OPTIONS") {
       response.writeHead(204, {
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

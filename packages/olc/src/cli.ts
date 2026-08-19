@@ -23,6 +23,9 @@ Core options:
   --port <number>          Port to listen on (default 8083)
   --host <address>         Address to bind (default 127.0.0.1)
   --api-key <key>          Require this bearer token on API routes
+  --allowed-origins <list> Browser origins allowed to call the API
+                           (default chrome-extension://*, moz-extension://*,
+                           safari-web-extension://*; "*" allows any page)
   --backend <name>         Runtime adapter to serve (default opencode)
   --system-prompt <text>   Override the system prompt the client sends
   --no-bridge              Do not expose the client's tools to the runtime
@@ -44,6 +47,7 @@ const FLAG_TO_OPTION: Record<string, string> = {
   "--port": "PORT",
   "--host": "BIND_HOST",
   "--api-key": "API_KEY",
+  "--allowed-origins": "ALLOWED_ORIGINS",
   "--backend": "BACKEND",
   "--system-prompt": "SYSTEM_PROMPT",
   "--opencode-url": "OPENCODE_SERVER_URL",
@@ -148,6 +152,7 @@ const main = () => {
   console.log(
     `  - API key: ${config.API_KEY ? "configured" : "not configured (no auth)"}`
   )
+  console.log(`  - Allowed origins: ${config.ALLOWED_ORIGINS.join(", ")}`)
   console.log(
     `  - Client tool bridge: ${config.BRIDGE_ENABLED ? "enabled" : "disabled"}`
   )

@@ -67,6 +67,8 @@ export interface ProxyConfig {
   SYSTEM_PROMPT: string
   /** Which backend adapter serves requests. */
   BACKEND: string
+  /** Browser origins allowed to call the API. Exact, `<scheme>://*`, or `*`. */
+  ALLOWED_ORIGINS: string[]
   REQUEST_TIMEOUT_MS: number
   BRIDGE_ENABLED: boolean
   BRIDGE_PATH: string

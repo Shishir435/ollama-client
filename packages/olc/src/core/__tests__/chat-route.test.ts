@@ -30,6 +30,10 @@ interface FakeBackendOptions {
   answer?: string
 }
 
+/** A prompt that makes the fake backend hold the queue for a while. */
+const SLOW_TURN_MARKER = "please-be-slow"
+const SLOW_TURN_MS = 300
+
 const MODEL: CatalogModel = {
   id: "fake/model-a",
   object: "model",
@@ -51,18 +55,31 @@ const createFakeBackend = (
 
   class FakeTurn implements BackendTurn {
     readonly id: string
+    readonly slow: boolean
     private toolPromise: Promise<string> | null = null
     private toolOutput = ""
     private streamed = ""
 
-    constructor(id: string) {
+    constructor(id: string, slow = false) {
       this.id = id
+      this.slow = slow
     }
 
     async run(
       handlers: TurnStreamHandlers,
       signals: TurnRunSignals
     ): Promise<TurnResult> {
+      if (this.slow) {
+        await new Promise((resolve) => setTimeout(resolve, SLOW_TURN_MS))
+        this.emit(handlers, "took a while")
+        return {
+          status: "completed",
+          content: this.streamed,
+          reasoning: "",
+          finish: "stop"
+        }
+      }
+
       if (options.mode === "fail") {
         return {
           status: "failed",
@@ -151,10 +168,13 @@ const createFakeBackend = (
       requested === "fake/model-a"
         ? { providerId: "fake", modelId: "model-a" }
         : { error: `Model '${String(requested)}' is not in the catalog.` },
-    startTurn: async () => {
+    startTurn: async (input) => {
       calls.startTurn += 1
       nextId += 1
-      const turn = new FakeTurn(`turn_${nextId}`)
+      const turn = new FakeTurn(
+        `turn_${nextId}`,
+        JSON.stringify(input.messages).includes(SLOW_TURN_MARKER)
+      )
       turns.set(turn.id, turn)
       return turn
     },
@@ -169,6 +189,7 @@ interface Harness {
   url: string
   server: Server
   calls: { startTurn: number; dispose: number; abort: number }
+  pending: PendingToolCalls
 }
 
 const startHarness = async (
@@ -214,7 +235,7 @@ const startHarness = async (
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
   const { port } = server.address() as AddressInfo
 
-  return { url: `http://127.0.0.1:${port}`, server, calls }
+  return { url: `http://127.0.0.1:${port}`, server, calls, pending }
 }
 
 interface StreamedTurn {
@@ -399,6 +420,160 @@ describe("chat completions", () => {
     })
     expect(noMessages.status).toBe(400)
     expect(harness.calls.startTurn).toBe(0)
+  })
+
+  it("releases only the resumed turn's own tool results", async () => {
+    harness = await startHarness({ mode: "tool" })
+    const askForTools = (messages: unknown[]) =>
+      streamTurn(harness?.url as string, {
+        model: "fake/model-a",
+        stream: true,
+        messages,
+        tools: [{ type: "function", function: { name: "list_tabs" } }]
+      })
+
+    const firstTurn = await askForTools(askedForTabs)
+    const secondTurn = await askForTools([
+      { role: "user", content: "and now?" }
+    ])
+    const firstCall = firstTurn.toolCalls[0]
+    const secondCall = secondTurn.toolCalls[0]
+    expect(firstCall?.id).toBeDefined()
+    expect(secondCall?.id).toBeDefined()
+    expect(harness.calls.startTurn).toBe(2)
+
+    // One request carrying results for both parked turns. Only the turn it
+    // resumes may be released; the other one's call stays parked for the request
+    // that actually resumes it.
+    const resumed = await askForTools([
+      ...askedForTabs,
+      {
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          { id: firstCall?.id, type: "function", function: firstCall?.function }
+        ]
+      },
+      { role: "tool", tool_call_id: firstCall?.id, content: "tabs for one" },
+      { role: "tool", tool_call_id: secondCall?.id, content: "tabs for two" }
+    ])
+
+    expect(resumed.finishReason).toBe("stop")
+    expect(resumed.content).toContain("saw tabs for one")
+    expect(resumed.content).not.toContain("tabs for two")
+    expect(harness.calls.startTurn).toBe(2)
+    expect(harness.pending.turnOf(secondCall?.id as string)).toBeDefined()
+  })
+
+  it("refuses a tool result no live turn is waiting for", async () => {
+    harness = await startHarness({ mode: "answer" })
+    const response = await fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: true,
+        messages: [
+          ...askedForTabs,
+          { role: "tool", tool_call_id: "call_gone", content: "two tabs" }
+        ]
+      })
+    })
+    const body = (await response.json()) as {
+      error: { message: string; type: string }
+    }
+
+    expect(response.status).toBe(400)
+    expect(body.error.type).toBe("StaleToolResults")
+    expect(body.error.message).toContain("call_gone")
+    // The result must not be laundered into a fresh turn the model would answer
+    // as if the tool had never run.
+    expect(harness.calls.startTurn).toBe(0)
+  })
+
+  it("refuses a tool result once its parked turn has expired", async () => {
+    harness = await startHarness(
+      { mode: "tool" },
+      { SUSPENDED_TURN_TTL_MS: 20 }
+    )
+    const first = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs,
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    const call = first.toolCalls[0]
+    expect(call?.id).toBeDefined()
+
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    expect(harness.pending.turnOf(call?.id as string)).toBeUndefined()
+
+    const late = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [
+        ...askedForTabs,
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            { id: call?.id, type: "function", function: call?.function }
+          ]
+        },
+        { role: "tool", tool_call_id: call?.id, content: "two tabs" }
+      ],
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+
+    expect(late.status).toBe(400)
+    expect(late.content).toContain("StaleToolResults")
+    expect(harness.calls.startTurn).toBe(1)
+  })
+
+  it("keeps a parked turn alive while its own resume waits in the queue", async () => {
+    harness = await startHarness(
+      { mode: "tool" },
+      { SUSPENDED_TURN_TTL_MS: 100 }
+    )
+    const first = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs,
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    const call = first.toolCalls[0]
+    expect(call?.id).toBeDefined()
+
+    // Occupy the single-flight slot for longer than the parked turn's deadline, so
+    // the resume behind it can only succeed if arriving cancelled that deadline.
+    const slow = streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [{ role: "user", content: SLOW_TURN_MARKER }]
+    })
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    const resumed = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [
+        ...askedForTabs,
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            { id: call?.id, type: "function", function: call?.function }
+          ]
+        },
+        { role: "tool", tool_call_id: call?.id, content: "two tabs" }
+      ],
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    await slow
+
+    expect(resumed.status).toBe(200)
+    expect(resumed.finishReason).toBe("stop")
+    expect(resumed.content).toContain("saw two tabs")
   })
 
   it("requires the configured bearer token", async () => {

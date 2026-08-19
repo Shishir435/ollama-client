@@ -54,6 +54,23 @@ describe("resolveConfig", () => {
     ).toBe("http://127.0.0.1:8100/bridge/call")
   })
 
+  it("allows only extension origins until told otherwise", () => {
+    expect(resolveConfig().ALLOWED_ORIGINS).toEqual([
+      "chrome-extension://*",
+      "moz-extension://*",
+      "safari-web-extension://*"
+    ])
+    expect(
+      resolveConfig({ ALLOWED_ORIGINS: "http://localhost:3000" })
+        .ALLOWED_ORIGINS
+    ).toEqual(["http://localhost:3000"])
+    process.env.OLC_ALLOWED_ORIGINS = "https://a.example,https://b.example"
+    expect(resolveConfig().ALLOWED_ORIGINS).toEqual([
+      "https://a.example",
+      "https://b.example"
+    ])
+  })
+
   it("keeps backend-specific options out of the core config", () => {
     const config = resolveConfig({ OPENCODE_SERVER_URL: "http://127.0.0.1:1" })
     expect(config).not.toHaveProperty("OPENCODE_SERVER_URL")

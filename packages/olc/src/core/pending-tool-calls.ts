@@ -135,6 +135,26 @@ export class PendingToolCalls {
     return true
   }
 
+  /**
+   * Resolve a call only when it belongs to `turnId`.
+   *
+   * The registry is process-wide, but a client's follow-up request can carry result
+   * ids from more than one parked turn. Releasing by id alone would then hand a turn
+   * the output that was produced for a different one, so ownership is checked here
+   * rather than trusted from the request that resumed a turn.
+   */
+  resolveForTurn(
+    turnId: string,
+    callId: string,
+    output: unknown
+  ): "released" | "foreign" | "unknown" {
+    const call = this.calls.get(callId)
+    if (!call) return "unknown"
+    if (call.turnId !== turnId) return "foreign"
+    this.resolve(callId, output)
+    return "released"
+  }
+
   fail(callId: string, message: string): boolean {
     const call = this.calls.get(callId)
     if (!call) return false
