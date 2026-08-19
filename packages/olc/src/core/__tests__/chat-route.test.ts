@@ -200,7 +200,9 @@ const startHarness = async (
     ...resolveConfig({ BRIDGE_BATCH_MS: 0 }),
     ...configOverrides
   }
-  const pending = new PendingToolCalls({ timeoutMs: 5000 })
+  const pending = new PendingToolCalls({
+    timeoutMs: config.BRIDGE_CALL_TIMEOUT_MS
+  })
   const context = {
     config,
     options: {},
@@ -546,6 +548,53 @@ describe("chat completions", () => {
 
     // Occupy the single-flight slot for longer than the parked turn's deadline, so
     // the resume behind it can only succeed if arriving cancelled that deadline.
+    const slow = streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [{ role: "user", content: SLOW_TURN_MARKER }]
+    })
+    await new Promise((resolve) => setTimeout(resolve, 30))
+
+    const resumed = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [
+        ...askedForTabs,
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            { id: call?.id, type: "function", function: call?.function }
+          ]
+        },
+        { role: "tool", tool_call_id: call?.id, content: "two tabs" }
+      ],
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    await slow
+
+    expect(resumed.status).toBe(200)
+    expect(resumed.finishReason).toBe("stop")
+    expect(resumed.content).toContain("saw two tabs")
+  })
+
+  it("keeps a parked call alive while its own resume waits in the queue", async () => {
+    // The call's deadline is shorter than the turn's, and shorter than the turn
+    // ahead of it in the queue — which is the ordering that loses a result the
+    // client already produced.
+    harness = await startHarness(
+      { mode: "tool" },
+      { BRIDGE_CALL_TIMEOUT_MS: 80, SUSPENDED_TURN_TTL_MS: 100 }
+    )
+    const first = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs,
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    const call = first.toolCalls[0]
+    expect(call?.id).toBeDefined()
+
     const slow = streamTurn(harness.url, {
       model: "fake/model-a",
       stream: true,

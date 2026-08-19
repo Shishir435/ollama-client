@@ -32,6 +32,43 @@ describe("PendingToolCalls", () => {
     await expect(promise).rejects.toThrow("client went away")
   })
 
+  it("does not expire a call while the request carrying its result is queued", async () => {
+    vi.useFakeTimers()
+    const pending = new PendingToolCalls({ timeoutMs: 1000 })
+    const { callId, promise } = pending.register({
+      turnId: "ses_1",
+      tool: "read_tab"
+    })
+
+    // A request carrying this result exists but is waiting behind a turn that is
+    // allowed to run far longer than the call's own deadline.
+    pending.holdTurn("ses_1")
+    await vi.advanceTimersByTimeAsync(5000)
+
+    expect(pending.turnOf(callId)).toBe("ses_1")
+    expect(pending.resolve(callId, '{"ok":true}')).toBe(true)
+    await expect(promise).resolves.toBe('{"ok":true}')
+  })
+
+  it("re-arms a held call once the request that held it is gone", async () => {
+    vi.useFakeTimers()
+    const pending = new PendingToolCalls({ timeoutMs: 1000 })
+    const { promise } = pending.register({ turnId: "ses_1", tool: "read_tab" })
+    const assertion = expect(promise).rejects.toThrow("did not return a result")
+
+    pending.holdTurn("ses_1")
+    await vi.advanceTimersByTimeAsync(5000)
+    // The request went away without resolving anything, so the deadline is the
+    // question again — asked from the start, not from where it was suspended.
+    pending.releaseTurn("ses_1")
+
+    await vi.advanceTimersByTimeAsync(999)
+    expect(pending.size).toBe(1)
+    await vi.advanceTimersByTimeAsync(2)
+    await assertion
+    expect(pending.size).toBe(0)
+  })
+
   it("times a call out rather than blocking an OpenCode turn forever", async () => {
     vi.useFakeTimers()
     const pending = new PendingToolCalls({ timeoutMs: 1000 })

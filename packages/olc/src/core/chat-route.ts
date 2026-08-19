@@ -284,6 +284,10 @@ export const registerChatRoutes = (
 
   const holdTurn = (turnId: string) => {
     clearParked(turnId)
+    // The turn's parked calls carry their own, shorter deadline, and a request that
+    // waits out that deadline arrives to find the result it is carrying already
+    // rejected. Both deadlines ask the same question, so both are suspended here.
+    pending.holdTurn(turnId)
     resumeHolds.set(turnId, (resumeHolds.get(turnId) ?? 0) + 1)
   }
 
@@ -294,8 +298,13 @@ export const registerChatRoutes = (
       return
     }
     resumeHolds.delete(turn.id)
-    // Re-arm the deadline only for a turn that is still live and still waiting on a
-    // client tool result; a resumed or discarded turn has nothing left to reap.
+    // Unconditionally, and before the liveness check: a call left parked by a turn
+    // that was discarded still needs its deadline back, or it waits forever on a
+    // client that is no longer coming. It is a no-op when nothing is parked.
+    pending.releaseTurn(turn.id)
+    // The turn-level deadline is re-armed only for a turn that is still live and
+    // still waiting on a client tool result; a resumed or discarded turn has nothing
+    // left to reap.
     if (backend.findTurn(turn.id) && pending.hasPending(turn.id)) parkTurn(turn)
   }
 

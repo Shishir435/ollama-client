@@ -15,7 +15,8 @@ const DEFAULT_TIMEOUT_MS = 300_000
 interface ParkedCall extends PendingToolCall {
   resolve: (output: string) => void
   reject: (error: Error) => void
-  timer: NodeJS.Timeout
+  /** Null while a request carrying this call's result holds it — see `holdTurn`. */
+  timer: NodeJS.Timeout | null
 }
 
 const createCallId = () =>
@@ -61,15 +62,7 @@ export class PendingToolCalls {
       reject = rejectPromise
     })
 
-    const timer = setTimeout(() => {
-      this.fail(
-        callId,
-        `Client did not return a result for ${tool} within ${this.timeoutMs}ms`
-      )
-    }, this.timeoutMs)
-    if (typeof timer.unref === "function") timer.unref()
-
-    this.calls.set(callId, {
+    const call: ParkedCall = {
       callId,
       turnId,
       tool,
@@ -78,8 +71,10 @@ export class PendingToolCalls {
       createdAt: Date.now(),
       resolve,
       reject,
-      timer
-    })
+      timer: null
+    }
+    call.timer = this.arm(call)
+    this.calls.set(callId, call)
     this.log("Parked a client tool call", { turnId, tool, callId })
 
     for (const watcher of this.watchers.get(turnId) ?? []) watcher(callId)
@@ -155,6 +150,38 @@ export class PendingToolCalls {
     return "released"
   }
 
+  /**
+   * Suspend the deadlines of a turn's parked calls.
+   *
+   * The per-call deadline answers "did the client ever come back with this result".
+   * Once a request carrying it exists the answer is yes, and that request can sit in
+   * the single-flight queue for as long as another turn is allowed to run — far
+   * longer than a call's own timeout. Expiring then would reject a result the client
+   * had already produced, and the follow-up would arrive to find nothing to resume.
+   *
+   * The turn-level deadline is suspended for the same reason and by the same caller.
+   */
+  holdTurn(turnId: string): void {
+    for (const call of this.calls.values()) {
+      if (call.turnId !== turnId || !call.timer) continue
+      clearTimeout(call.timer)
+      call.timer = null
+    }
+  }
+
+  /**
+   * Re-arm what `holdTurn` suspended, for whatever is still parked.
+   *
+   * A fresh full deadline rather than the remainder of the old one: the client did
+   * come back, so the question the deadline asks has been answered once already.
+   */
+  releaseTurn(turnId: string): void {
+    for (const call of this.calls.values()) {
+      if (call.turnId !== turnId || call.timer) continue
+      call.timer = this.arm(call)
+    }
+  }
+
   fail(callId: string, message: string): boolean {
     const call = this.calls.get(callId)
     if (!call) return false
@@ -180,8 +207,19 @@ export class PendingToolCalls {
     }
   }
 
+  private arm(call: ParkedCall): NodeJS.Timeout {
+    const timer = setTimeout(() => {
+      this.fail(
+        call.callId,
+        `Client did not return a result for ${call.tool} within ${this.timeoutMs}ms`
+      )
+    }, this.timeoutMs)
+    if (typeof timer.unref === "function") timer.unref()
+    return timer
+  }
+
   private discard(call: ParkedCall): void {
-    clearTimeout(call.timer)
+    if (call.timer) clearTimeout(call.timer)
     this.calls.delete(call.callId)
   }
 }
