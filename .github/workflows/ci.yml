@@ -116,6 +116,64 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  olc-package:
+    name: olc distribution (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build registry-free bundle
+        run: pnpm proxy:bundle
+
+      - name: Package portable archives
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p release/olc/bin release/olc/dist
+          cp packages/olc/bin/olc packages/olc/bin/olc.cmd release/olc/bin/
+          cp packages/olc/dist/olc.mjs release/olc/dist/
+          cp -R packages/olc/dist/backends release/olc/dist/
+          cp packages/olc/README.md release/olc/
+          chmod +x release/olc/bin/olc release/olc/dist/olc.mjs
+          tar -C release -czf olc.tar.gz olc
+          (cd release && zip -qr ../olc.zip olc)
+          sha256sum olc.tar.gz > olc.tar.gz.sha256
+          sha256sum olc.zip > olc.zip.sha256
+          node packages/olc/dist/olc.mjs --help
+
+      - name: Verify Windows launcher and installer syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & .\packages\olc\bin\olc.cmd --help
+          [scriptblock]::Create((Get-Content -Raw docs\public\olc.ps1)) | Out-Null
+
+      - name: Upload olc release package
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-package-olc
+          path: |
+            olc.tar.gz
+            olc.tar.gz.sha256
+            olc.zip
+            olc.zip.sha256
+          retention-days: 14
+          if-no-files-found: error
+
   persistence-migration:
     name: Persistence migration gates (chrome)
     # The evidence gate for retiring the legacy sql.js backend: a packaged

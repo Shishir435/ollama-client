@@ -5,10 +5,12 @@
  * `src/core/` changes. The name is what `--backend` and `OLC_BACKEND` select.
  */
 
+import { createCodexBackend } from "./codex/index.js"
 import { createOpencodeBackend } from "./opencode/index.js"
 import type { BackendContext, BackendFactory } from "./types.js"
 
 const BACKENDS: Record<string, BackendFactory> = {
+  codex: createCodexBackend,
   opencode: createOpencodeBackend
 }
 

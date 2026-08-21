@@ -11,14 +11,20 @@ describe("parseArgs", () => {
       "--opencode-url",
       "http://127.0.0.1:4444",
       "--allow-opencode-tools",
-      "websearch"
+      "websearch",
+      "--codex",
+      "/opt/codex",
+      "--codex-project-dir",
+      "/tmp/codex-empty"
     ])
 
     expect(options).toEqual({
       PORT: "9001",
       BIND_HOST: "0.0.0.0",
       OPENCODE_SERVER_URL: "http://127.0.0.1:4444",
-      ALLOW_OPENCODE_TOOLS: "websearch"
+      ALLOW_OPENCODE_TOOLS: "websearch",
+      CODEX_PATH: "/opt/codex",
+      CODEX_PROJECT_DIR: "/tmp/codex-empty"
     })
   })
 

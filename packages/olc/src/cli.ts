@@ -41,6 +41,11 @@ OpenCode backend options:
   --allow-opencode-tools <ids>
                            Comma-separated OpenCode tools to leave enabled
   --plugin-dir <path>      Where to generate the bridge plugin
+
+Codex backend options:
+  --codex <path>           Path to the Codex CLI binary
+  --codex-project-dir <path>
+                           Empty workspace used for Codex turns
 `
 
 const FLAG_TO_OPTION: Record<string, string> = {
@@ -55,7 +60,9 @@ const FLAG_TO_OPTION: Record<string, string> = {
   "--agent": "OPENCODE_AGENT",
   "--project-dir": "PROJECT_DIR",
   "--allow-opencode-tools": "ALLOW_OPENCODE_TOOLS",
-  "--plugin-dir": "PLUGIN_DIR"
+  "--plugin-dir": "PLUGIN_DIR",
+  "--codex": "CODEX_PATH",
+  "--codex-project-dir": "CODEX_PROJECT_DIR"
 }
 
 /** Parse argv into proxy options. Unknown flags are an error, not a silent no-op. */

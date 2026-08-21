@@ -2,7 +2,8 @@
 
 An OpenAI-compatible HTTP front end for a local agent runtime, with a **tool
 bridge** so an OpenAI-compatible client can run its own tools inside the
-runtime's turn. The bundled backend serves [OpenCode](https://opencode.ai).
+runtime's turn. Bundled backends serve [OpenCode](https://opencode.ai) and the
+official [Codex CLI](https://developers.openai.com/codex/cli).
 
 Any client that already speaks `/v1/chat/completions` — Ollama Client's
 OpenAI-compatible provider, an SDK, `curl` — can use those models, tool calling
@@ -38,9 +39,28 @@ side channel, no client-side special cases.
 ## Install and run
 
 Requires Node ≥ 22.12. The OpenCode backend also needs the `opencode` binary on
-`PATH` (or `--opencode`).
+`PATH` (or `--opencode`). The Codex backend needs the `codex` binary on `PATH`
+(or `--codex`) and an existing `codex login`; olc never reads, stores, or proxies
+the user's OpenAI credentials.
 
-Nothing is published to a registry: clone the repository and run it.
+Nothing is published to a registry. Release bundles can be installed directly:
+
+```powershell
+# Windows PowerShell
+irm https://ollamaclient.in/olc.ps1 | iex
+```
+
+```bash
+# macOS / Linux
+curl -fsSL https://ollamaclient.in/olc.sh | sh
+```
+
+Both installers download a checksum-verified archive from the project's GitHub
+release. Set `OLC_VERSION` to install a specific tag, or `OLC_INSTALL_DIR` to
+change the destination. Node remains an explicit prerequisite; olc itself and
+its runtime dependency are bundled, so npm is not involved.
+
+To run from a clone instead:
 
 ```bash
 pnpm install
@@ -69,6 +89,18 @@ time. Publishing to npm later needs no changes: `package.json` already points
 
 If nothing is listening on the configured OpenCode URL, olc starts one itself in
 a temporary workspace and stops it on exit.
+
+To serve Codex instead:
+
+```bash
+codex login
+olc --backend codex
+```
+
+The adapter starts `codex app-server` over stdio, creates ephemeral read-only
+threads, and maps its streamed messages, reasoning, model catalog, and dynamic
+tool calls onto the same OpenAI-compatible API. Codex account entitlements and
+usage limits still apply.
 
 ### Versioning
 
@@ -154,6 +186,19 @@ inventory and its own approval flow; an agent quietly reaching for `bash` or
 `write` instead is neither visible nor wanted there. Opt individual tools back in
 by id, for example `--allow-opencode-tools websearch,webfetch`.
 
+### Codex backend
+
+| Option | Flag | Environment | Default |
+| --- | --- | --- | --- |
+| `CODEX_PATH` | `--codex` | `OLC_CODEX_PATH` (or `CODEX_PATH`) | `codex` |
+| `CODEX_PROJECT_DIR` | `--codex-project-dir` | `OLC_CODEX_PROJECT_DIR` | isolated temporary workspace |
+
+Codex runs with `approvalPolicy: never`, a read-only sandbox, and an ephemeral
+thread rooted in the dedicated workspace. The client-provided tools are exposed
+through App Server dynamic tools; every tool result still returns through the
+existing OLC/OpenAI tool-call round trip, so Ollama Client remains the approval
+and execution boundary. `--no-bridge` disables those dynamic tools.
+
 ## Endpoints
 
 | Route | Purpose |
@@ -182,6 +227,7 @@ The core is runtime-agnostic; everything OpenCode-specific lives in its backend.
 | `src/backends/registry.ts` | name → backend factory |
 | `src/backends/opencode/` | the OpenCode adapter: server supervision, catalog, plugin manifest, turn reading |
 | `src/backends/opencode/plugin/` | the plugin OpenCode loads; TypeScript, copied at run time and executed by OpenCode's runtime |
+| `src/backends/codex/` | the Codex App Server process, JSONL protocol, model and dynamic-tool mappings |
 
 ## Adding a backend
 
