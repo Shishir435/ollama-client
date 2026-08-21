@@ -9,5 +9,6 @@ export const OLC_PUBLIC_ROUTES = {
   health: "/health",
   models: "/v1/models",
   model: "/v1/models/:modelId",
-  chatCompletions: "/v1/chat/completions"
+  chatCompletions: "/v1/chat/completions",
+  imageGenerations: "/v1/images/generations"
 } as const

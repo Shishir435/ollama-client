@@ -33,6 +33,10 @@ const ROUTE_OPERATIONS = {
   chatCompletions: {
     method: "post",
     operationId: "createChatCompletion"
+  },
+  imageGenerations: {
+    method: "post",
+    operationId: "createImageGeneration"
   }
 } as const satisfies Record<
   keyof typeof OLC_PUBLIC_ROUTES,

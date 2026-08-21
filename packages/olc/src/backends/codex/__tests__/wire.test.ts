@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  mapCodexImageGenerationModel,
   mapCodexModel,
   normalizeCodexTools,
   resolveCodexReasoningEffort,
@@ -24,15 +25,31 @@ describe("Codex wire mappings", () => {
       id: "codex/gpt-5-codex",
       owned_by: "codex",
       input_modalities: ["text", "image"],
+      output_modalities: ["text"],
       supported_parameters: ["tools", "reasoning"],
       capabilities: {
         function_calling: true,
         vision: true,
-        reasoning: true
+        reasoning: true,
+        image_generation: false
       },
       reasoning: {
         supported_efforts: ["low", "medium"],
         default_effort: "medium"
+      }
+    })
+  })
+
+  it("publishes provider image generation as a dedicated model", () => {
+    expect(mapCodexImageGenerationModel()).toMatchObject({
+      id: "codex/image-generation",
+      input_modalities: ["text"],
+      output_modalities: ["image"],
+      capabilities: {
+        function_calling: false,
+        vision: false,
+        reasoning: false,
+        image_generation: true
       }
     })
   })

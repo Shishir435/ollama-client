@@ -24,6 +24,7 @@ import {
   type AgentBackend,
   BackendInputError,
   type BackendTurn,
+  type GeneratedImage,
   type TurnResult,
   type TurnStreamHandlers
 } from "../backends/types.js"
@@ -42,6 +43,7 @@ import {
   contentChunk,
   extractTrailingToolResults,
   finishChunk,
+  imageChunk,
   patchChunk,
   reasoningChunk,
   roleChunk,
@@ -137,11 +139,13 @@ interface TurnEmitter {
   readonly streamMode: boolean
   start: () => void
   delta: (text: string, isReasoning: boolean) => void
+  image: (image: GeneratedImage) => void
   auxiliary: (payload: unknown) => void
   toolCalls: (calls: PendingToolCall[]) => void
   finish: (reason: string) => void
   readonly content: string
   readonly reasoning: string
+  readonly images: readonly GeneratedImage[]
 }
 
 const createStreamEmitter = (
@@ -151,6 +155,7 @@ const createStreamEmitter = (
 ): TurnEmitter => {
   let streamedContent = ""
   let streamedReasoning = ""
+  const streamedImages: GeneratedImage[] = []
   const write = (payload: unknown) => {
     if (response.writableEnded) return
     response.write(`data: ${JSON.stringify(payload)}\n\n`)
@@ -173,6 +178,15 @@ const createStreamEmitter = (
       streamedContent += text
       write(contentChunk(id, model, text))
     },
+    image(generatedImage) {
+      if (
+        streamedImages.some((image) => image.b64Json === generatedImage.b64Json)
+      ) {
+        return
+      }
+      streamedImages.push(generatedImage)
+      write(imageChunk(id, model, generatedImage))
+    },
     auxiliary(payload) {
       if (!payload) return
       write(patchChunk(id, model, [payload]))
@@ -192,6 +206,9 @@ const createStreamEmitter = (
     },
     get reasoning() {
       return streamedReasoning
+    },
+    get images() {
+      return streamedImages
     }
   }
 }
@@ -203,6 +220,7 @@ const createBufferEmitter = (
 ): TurnEmitter => {
   let content = ""
   let reasoning = ""
+  const images: GeneratedImage[] = []
   const envelope = (
     message: Record<string, unknown>,
     finishReason: string
@@ -222,6 +240,11 @@ const createBufferEmitter = (
       if (!text) return
       if (isReasoning) reasoning += text
       else content += text
+    },
+    image(generatedImage) {
+      if (images.some((image) => image.b64Json === generatedImage.b64Json))
+        return
+      images.push(generatedImage)
     },
     auxiliary() {},
     toolCalls(calls) {
@@ -248,7 +271,21 @@ const createBufferEmitter = (
         envelope(
           {
             role: "assistant",
-            content,
+            content:
+              images.length > 0
+                ? [
+                    ...(content
+                      ? [{ type: "output_text", text: content }]
+                      : []),
+                    ...images.map((image) => ({
+                      type: "output_image",
+                      b64_json: image.b64Json,
+                      ...(image.revisedPrompt
+                        ? { revised_prompt: image.revisedPrompt }
+                        : {})
+                    }))
+                  ]
+                : content,
             reasoning_content: reasoning || null
           },
           "stop"
@@ -260,6 +297,9 @@ const createBufferEmitter = (
     },
     get reasoning() {
       return reasoning
+    },
+    get images() {
+      return images
     }
   }
 }
@@ -550,6 +590,7 @@ export const registerChatRoutes = (
       const handlers: TurnStreamHandlers = {
         onText: (text) => emitter.delta(text, false),
         onReasoning: (text) => emitter.delta(text, true),
+        onImage: (image) => emitter.image(image),
         onAuxiliary: (payload) => emitter.auxiliary(payload)
       }
 
@@ -615,7 +656,9 @@ export const registerChatRoutes = (
       const tailContent = unsentTail(outcome.content, emitter.content)
       if (tailContent) {
         emitter.delta(tailContent, false)
-      } else if (!emitter.content && !outcome.content) {
+      }
+      for (const image of outcome.images ?? []) emitter.image(image)
+      if (!emitter.content && !outcome.content && emitter.images.length === 0) {
         emitter.delta(buildFallbackAnswerText(outcome.finish), false)
       }
 

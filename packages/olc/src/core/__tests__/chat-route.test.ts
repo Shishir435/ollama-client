@@ -30,7 +30,7 @@ import { createRequestQueue } from "../queue.js"
  * runtime can be checked against the same expectations.
  */
 interface FakeBackendOptions {
-  mode: "answer" | "tool" | "fail"
+  mode: "answer" | "tool" | "fail" | "image"
   answer?: string
 }
 
@@ -93,6 +93,18 @@ const createFakeBackend = (
         return {
           status: "failed",
           error: { message: "upstream exploded", type: "FakeError" }
+        }
+      }
+
+      if (options.mode === "image") {
+        const image = { b64Json: "AAAA", revisedPrompt: "A red square" }
+        handlers.onImage?.(image)
+        return {
+          status: "completed",
+          content: "",
+          reasoning: "",
+          images: [image],
+          finish: "stop"
         }
       }
 
@@ -263,6 +275,7 @@ interface StreamedTurn {
     id: string
     function: { name: string; arguments: string }
   }[]
+  images: string[]
 }
 
 const streamTurn = async (
@@ -280,7 +293,8 @@ const streamTurn = async (
       status: response.status,
       content: await response.text(),
       finishReason: null,
-      toolCalls: []
+      toolCalls: [],
+      images: []
     }
   }
 
@@ -289,14 +303,24 @@ const streamTurn = async (
     status: response.status,
     content: "",
     finishReason: null,
-    toolCalls: []
+    toolCalls: [],
+    images: []
   }
   for (const line of text.split("\n")) {
     if (!line.startsWith("data: ")) continue
     const payload = line.slice(6).trim()
     if (payload === "[DONE]") continue
     const choice = JSON.parse(payload).choices?.[0]
-    if (choice?.delta?.content) result.content += choice.delta.content
+    if (typeof choice?.delta?.content === "string") {
+      result.content += choice.delta.content
+    }
+    if (Array.isArray(choice?.delta?.content)) {
+      for (const part of choice.delta.content) {
+        if (typeof part?.b64_json === "string") {
+          result.images.push(part.b64_json)
+        }
+      }
+    }
     if (Array.isArray(choice?.delta?.tool_calls)) {
       result.toolCalls.push(...choice.delta.tool_calls)
     }
@@ -335,6 +359,19 @@ describe("chat completions", () => {
     expect(turn.content).toBe("working. all good")
     expect(turn.finishReason).toBe("stop")
     expect(harness.calls.dispose).toBe(1)
+  })
+
+  it("streams generated image parts without inventing fallback text", async () => {
+    harness = await startHarness({ mode: "image" })
+    const turn = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs
+    })
+
+    expect(turn.content).toBe("")
+    expect(turn.images).toEqual(["AAAA"])
+    expect(turn.finishReason).toBe("stop")
   })
 
   it("normalizes flat and nested reasoning effort for the backend", async () => {

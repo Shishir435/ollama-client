@@ -42,11 +42,14 @@ export interface CatalogModel {
   context_length?: number
   max_tokens?: number
   input_modalities: string[]
+  /** Output modalities the backend can return through its public API. */
+  output_modalities?: string[]
   supported_parameters: string[]
   capabilities: {
     function_calling: boolean
     vision: boolean
     reasoning: boolean
+    image_generation?: boolean
   }
   reasoning?: {
     supported_efforts: ReasoningEffort[]
@@ -78,6 +81,8 @@ export interface BackendContext {
 export interface TurnStreamHandlers {
   onText: (delta: string) => void
   onReasoning: (delta: string) => void
+  /** A complete base64 image produced by the runtime. */
+  onImage?: (image: GeneratedImage) => void
   /** Backend-specific extras a client may ignore, such as OpenCode patches. */
   onAuxiliary?: (payload: unknown) => void
 }
@@ -96,6 +101,7 @@ export type TurnResult =
       status: "completed"
       content: string
       reasoning: string
+      images?: GeneratedImage[]
       finish?: string | null
     }
   | { status: "suspended" }
@@ -126,6 +132,19 @@ export interface StartTurnInput {
   reasoningEffort?: ReasoningEffort
 }
 
+export interface GeneratedImage {
+  /** Raw base64 bytes, without a data-URL prefix. */
+  b64Json: string
+  revisedPrompt?: string
+}
+
+export interface GenerateImageInput {
+  requestId: string
+  model: { providerId: string; modelId: string }
+  prompt: string
+  signal?: AbortSignal
+}
+
 /** A caller-controlled option was valid JSON but invalid for this backend. */
 export class BackendInputError extends Error {
   constructor(message: string) {
@@ -146,6 +165,8 @@ export interface AgentBackend {
   /** Turn a client-supplied model id into a routable provider and model. */
   resolveModel: (requested: unknown) => Promise<ResolvedModel>
   startTurn: (input: StartTurnInput) => Promise<BackendTurn>
+  /** Generate images through a runtime-native image operation, when available. */
+  generateImage?: (input: GenerateImageInput) => Promise<GeneratedImage[]>
   /** The live turn with this id, if the backend still holds it. */
   findTurn: (turnId: string) => BackendTurn | undefined
   /** Routes only this backend needs, such as a callback its runtime posts to. */

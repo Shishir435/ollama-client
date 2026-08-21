@@ -61,11 +61,22 @@ describe("Codex backend", () => {
           capabilities: {
             function_calling: true,
             vision: true,
-            reasoning: true
-          }
+            reasoning: true,
+            image_generation: false
+          },
+          output_modalities: ["text"]
+        },
+        {
+          id: "codex/image-generation",
+          output_modalities: ["image"],
+          capabilities: { image_generation: true }
         }
       ])
       expect(await backend.resolveModel(undefined)).toEqual({
+        providerId: "codex",
+        modelId: "fake-codex"
+      })
+      expect(await backend.resolveModel("codex/image-generation")).toEqual({
         providerId: "codex",
         modelId: "fake-codex"
       })
@@ -139,6 +150,19 @@ describe("Codex backend", () => {
       expect(text).toEqual(["Result: 42"])
       expect(reasoning).toEqual(["Checked. "])
       await turn.dispose()
+
+      await expect(
+        backend.generateImage?.({
+          requestId: "image-request-1",
+          model: { providerId: "codex", modelId: "fake-codex" },
+          prompt: "A tiny red square"
+        })
+      ).resolves.toEqual([
+        expect.objectContaining({
+          revisedPrompt: "A tiny red square",
+          b64Json: expect.stringMatching(/^iVBOR/)
+        })
+      ])
     } finally {
       await backend.shutdown()
     }

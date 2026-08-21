@@ -197,7 +197,11 @@ Codex runs with `approvalPolicy: never`, a read-only sandbox, and an ephemeral
 thread rooted in the dedicated workspace. The client-provided tools are exposed
 through App Server dynamic tools; every tool result still returns through the
 existing OLC/OpenAI tool-call round trip, so Ollama Client remains the approval
-and execution boundary. `--no-bridge` disables those dynamic tools.
+and execution boundary. `--no-bridge` disables those dynamic tools. When App
+Server reports native image generation, olc publishes a dedicated
+`codex/image-generation` model and exposes its result through the
+OpenAI-compatible Images endpoint. Ordinary Codex models remain text-output models;
+older Codex builds simply omit the image-generation model.
 
 ## Endpoints
 
@@ -206,6 +210,7 @@ and execution boundary. `--no-bridge` disables those dynamic tools.
 | `GET /health`, `GET /` | liveness and which backend is serving |
 | `GET /v1/models`, `GET /v1/models/:id` | the backend's catalog with capability metadata |
 | `POST /v1/chat/completions` | streaming and non-streaming completions, tool calls included |
+| `POST /v1/images/generations` | one native generated image as `b64_json` when the backend advertises image output |
 | `POST /bridge/call` | registered by the OpenCode backend; loopback-only, requires the per-run bridge token |
 
 ## Layout
@@ -223,6 +228,7 @@ The core is runtime-agnostic; everything OpenCode-specific lives in its backend.
 | `src/core/client-tools.ts` | the `callClientTool` port handed to a backend |
 | `src/core/openai-wire.ts` | OpenAI ⇄ prompt translation and chunk shapes |
 | `src/core/models-route.ts` | `/v1/models` over whatever the backend reports |
+| `src/core/image-route.ts` | validated OpenAI-compatible image generations |
 | `src/backends/types.ts` | the backend port and its contract |
 | `src/backends/registry.ts` | name → backend factory |
 | `src/backends/opencode/` | the OpenCode adapter: server supervision, catalog, plugin manifest, turn reading |

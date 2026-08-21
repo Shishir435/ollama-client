@@ -8,6 +8,7 @@ import type {
   BackendContext,
   BackendTurn,
   CatalogModel,
+  GeneratedImage,
   StartTurnInput,
   TurnResult,
   TurnRunSignals,
@@ -21,6 +22,7 @@ import {
 import { resolveCodexConfig } from "./config.js"
 import {
   type CodexModel,
+  mapCodexImageGenerationModel,
   mapCodexModel,
   resolveCodexReasoningEffort,
   toDynamicTools
@@ -37,6 +39,10 @@ interface TurnStartResponse {
 interface ModelListResponse {
   data?: CodexModel[]
   nextCursor?: string | null
+}
+
+interface ModelProviderCapabilities {
+  imageGeneration?: boolean
 }
 
 type QueueResult =
@@ -91,6 +97,10 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
   })
   const turns = new Map<string, CodexTurn>()
   let catalogCache: { expiresAt: number; raw: CodexModel[] } | null = null
+  let providerCapabilitiesCache: {
+    expiresAt: number
+    imageGeneration: boolean
+  } | null = null
 
   const unsubscribe = client.onNotification((message) => {
     const params = isRecord(message.params) ? message.params : {}
@@ -170,6 +180,37 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     return models
   }
 
+  const loadProviderCapabilities = async (): Promise<{
+    imageGeneration: boolean
+  }> => {
+    if (
+      providerCapabilitiesCache &&
+      providerCapabilitiesCache.expiresAt > Date.now()
+    ) {
+      return providerCapabilitiesCache
+    }
+    await client.start()
+    let imageGeneration = false
+    try {
+      const capabilities = await client.request<ModelProviderCapabilities>(
+        "modelProvider/capabilities/read",
+        {}
+      )
+      imageGeneration = capabilities?.imageGeneration === true
+    } catch (error) {
+      // Older App Server builds do not expose provider capabilities. Absence is
+      // treated conservatively: accept image input, but advertise no image output.
+      log("Codex image-generation capability is unavailable", {
+        message: (error as Error).message
+      })
+    }
+    providerCapabilitiesCache = {
+      imageGeneration,
+      expiresAt: Date.now() + 30_000
+    }
+    return providerCapabilitiesCache
+  }
+
   class CodexTurn implements BackendTurn {
     readonly id: string
     readonly signal: AbortSignal
@@ -180,6 +221,8 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     private started = false
     private content = ""
     private reasoning = ""
+    private readonly images: GeneratedImage[] = []
+    private readonly imageItemIds = new Set<string>()
     private lastError: string | null = null
 
     constructor(threadId: string, input: StartTurnInput) {
@@ -284,6 +327,25 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
           ) {
             this.content = params.item.text
           }
+          if (
+            params.item.type === "imageGeneration" &&
+            typeof params.item.result === "string"
+          ) {
+            const itemId =
+              typeof params.item.id === "string" ? params.item.id : undefined
+            if (!itemId || !this.imageItemIds.has(itemId)) {
+              if (itemId) this.imageItemIds.add(itemId)
+              const image: GeneratedImage = {
+                b64Json: params.item.result,
+                ...(typeof params.item.revisedPrompt === "string" &&
+                params.item.revisedPrompt
+                  ? { revisedPrompt: params.item.revisedPrompt }
+                  : {})
+              }
+              this.images.push(image)
+              handlers.onImage?.(image)
+            }
+          }
           continue
         }
         if (method === "error") {
@@ -308,6 +370,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
             status: "completed",
             content: this.content,
             reasoning: this.reasoning,
+            ...(this.images.length > 0 ? { images: [...this.images] } : {}),
             finish: "stop"
           }
         }
@@ -329,14 +392,33 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
   return {
     id: "codex",
     ensureReady: () => client.start(),
-    listModels: async (): Promise<CatalogModel[]> =>
-      (await loadRawModels()).map((model) =>
-        mapCodexModel(model, config.BRIDGE_ENABLED)
-      ),
+    listModels: async (): Promise<CatalogModel[]> => {
+      const [models, capabilities] = await Promise.all([
+        loadRawModels(),
+        loadProviderCapabilities()
+      ])
+      return [
+        ...models.map((model) => mapCodexModel(model, config.BRIDGE_ENABLED)),
+        ...(capabilities.imageGeneration
+          ? [mapCodexImageGenerationModel()]
+          : [])
+      ]
+    },
     resolveModel: async (requested) => {
       const models = await loadRawModels()
       const raw = typeof requested === "string" ? requested.trim() : ""
       const wanted = raw.startsWith("codex/") ? raw.slice("codex/".length) : raw
+      if (wanted === "image-generation") {
+        const capabilities = await loadProviderCapabilities()
+        const imageModel = models.find((model) => model.isDefault) ?? models[0]
+        return capabilities.imageGeneration && imageModel
+          ? { providerId: "codex", modelId: imageModel.id }
+          : {
+              error: capabilities.imageGeneration
+                ? "Codex returned no model that can drive image generation"
+                : "The active Codex model provider does not support image generation"
+            }
+      }
       const match = wanted
         ? models.find((model) => model.id === wanted || model.model === wanted)
         : (models.find((model) => model.isDefault) ?? models[0])
@@ -380,6 +462,75 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       const turn = new CodexTurn(threadId, input)
       turns.set(threadId, turn)
       return turn
+    },
+    generateImage: async (input) => {
+      await client.start()
+      const capabilities = await loadProviderCapabilities()
+      if (!capabilities.imageGeneration) {
+        throw new BackendInputError(
+          "The active Codex model provider does not support image generation."
+        )
+      }
+      const imageInstructions = [
+        config.SYSTEM_PROMPT,
+        "Generate an image that fulfills the user's request. You must use the built-in image generation tool. Do not answer with only text."
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+      const response = await client.request<ThreadStartResponse>(
+        "thread/start",
+        {
+          model: input.model.modelId,
+          cwd: codex.PROJECT_DIR,
+          approvalPolicy: "never",
+          sandbox: "read-only",
+          ephemeral: true,
+          serviceName: "ollama_client_olc",
+          developerInstructions: imageInstructions
+        }
+      )
+      const threadId = response?.thread?.id
+      if (!threadId) throw new Error("Codex did not return an image thread id")
+      const turn = new CodexTurn(threadId, {
+        requestId: input.requestId,
+        model: input.model,
+        messages: [{ role: "user", content: input.prompt }],
+        tools: []
+      })
+      turns.set(threadId, turn)
+      let abortPromise: Promise<void> | null = null
+      const abort = () => {
+        abortPromise ??= turn.abort()
+      }
+      input.signal?.addEventListener("abort", abort, { once: true })
+      try {
+        if (input.signal?.aborted) {
+          abort()
+          await abortPromise
+          throw new Error("Image generation was cancelled")
+        }
+        const outcome = await turn.run(
+          { onText: () => {}, onReasoning: () => {} },
+          {
+            suspended: new Promise(() => {}),
+            hasUnannouncedToolCalls: () => false
+          }
+        )
+        if (outcome.status === "failed") {
+          throw new Error(outcome.error.message)
+        }
+        if (outcome.status === "suspended") {
+          throw new Error("Codex suspended image generation unexpectedly")
+        }
+        if (!outcome.images?.length) {
+          throw new Error("Codex completed without generating an image")
+        }
+        return outcome.images
+      } finally {
+        input.signal?.removeEventListener("abort", abort)
+        if (abortPromise) await abortPromise
+        await turn.dispose()
+      }
     },
     findTurn: (turnId) => turns.get(turnId),
     shutdown: async () => {

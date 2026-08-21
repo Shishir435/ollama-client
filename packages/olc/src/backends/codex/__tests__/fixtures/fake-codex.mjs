@@ -3,6 +3,9 @@ import readline from "node:readline"
 
 const lines = readline.createInterface({ input: process.stdin })
 const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`)
+const imageThreads = new Set()
+const ONE_PIXEL_PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nXsAAAAASUVORK5CYII="
 
 lines.on("line", (line) => {
   const message = JSON.parse(line)
@@ -29,7 +32,22 @@ lines.on("line", (line) => {
     })
     return
   }
+  if (message.method === "modelProvider/capabilities/read") {
+    send({
+      id: message.id,
+      result: { namespaceTools: true, imageGeneration: true, webSearch: true }
+    })
+    return
+  }
   if (message.method === "thread/start") {
+    const isImage = message.params?.developerInstructions?.includes(
+      "built-in image generation tool"
+    )
+    if (isImage) {
+      imageThreads.add("thread-image")
+      send({ id: message.id, result: { thread: { id: "thread-image" } } })
+      return
+    }
     const valid =
       message.params?.approvalPolicy === "never" &&
       message.params?.sandbox === "read-only" &&
@@ -47,6 +65,31 @@ lines.on("line", (line) => {
     return
   }
   if (message.method === "turn/start") {
+    if (imageThreads.has(message.params?.threadId)) {
+      send({ id: message.id, result: { turn: { id: "turn-image" } } })
+      send({
+        method: "item/completed",
+        params: {
+          threadId: "thread-image",
+          turnId: "turn-image",
+          item: {
+            type: "imageGeneration",
+            id: "image-1",
+            status: "completed",
+            revisedPrompt: "A tiny red square",
+            result: ONE_PIXEL_PNG
+          }
+        }
+      })
+      send({
+        method: "turn/completed",
+        params: {
+          threadId: "thread-image",
+          turn: { id: "turn-image", status: "completed", error: null }
+        }
+      })
+      return
+    }
     if (message.params?.effort !== "medium") {
       send({
         id: message.id,

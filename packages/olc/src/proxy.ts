@@ -12,6 +12,7 @@ import { type ProxyOptions, resolveConfig } from "./config.js"
 import { registerChatRoutes } from "./core/chat-route.js"
 import { createClientToolInvoker } from "./core/client-tools.js"
 import { createRouter, sendJson } from "./core/http.js"
+import { registerImageRoutes } from "./core/image-route.js"
 import { registerModelRoutes } from "./core/models-route.js"
 import { PendingToolCalls } from "./core/pending-tool-calls.js"
 import { OLC_PUBLIC_ROUTES } from "./core/public-api-contract.js"
@@ -94,6 +95,7 @@ export const createProxy = ({
   )
 
   registerModelRoutes(router, { backend, log })
+  registerImageRoutes(router, { backend, config, lock, log })
   const chat = registerChatRoutes(router, {
     backend,
     config,
