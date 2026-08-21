@@ -16,7 +16,7 @@
       "destination": "/llms.txt"
     },
     {
-      "source": "/:path((?!.*\\.).*)",
+      "source": "/:path((?!reference(?:/|$))(?!.*\\.).*)",
       "has": [
         {
           "type": "header",

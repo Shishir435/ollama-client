@@ -98,7 +98,8 @@ describe("agent-facing documentation", () => {
     }
     const markdownRewrite = config.rewrites.find(
       ({ source, destination }) =>
-        source === "/:path((?!.*\\.).*)" && destination === "/:path*.md"
+        source === "/:path((?!reference(?:/|$))(?!.*\\.).*)" &&
+        destination === "/:path*.md"
     )
     const vary = config.headers
       .flatMap(({ headers }) => headers)
@@ -109,6 +110,14 @@ describe("agent-facing documentation", () => {
       key: "Accept",
       value: ".*text/markdown.*"
     })
+    const routePattern = markdownRewrite?.source.match(/^\/:path\((.*)\)$/)?.[1]
+    expect(routePattern).toBeDefined()
+    const negotiatedPath = new RegExp(`^${routePattern}$`)
+    expect(negotiatedPath.test("developers")).toBe(true)
+    expect(negotiatedPath.test("guides/provider-setup")).toBe(true)
+    expect(negotiatedPath.test("reference")).toBe(false)
+    expect(negotiatedPath.test("reference/lib/providers")).toBe(false)
+    expect(negotiatedPath.test("openapi.json")).toBe(false)
     expect(vary?.value).toContain("Accept")
     expect(vary?.value).toContain("Accept-Encoding")
   })
