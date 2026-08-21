@@ -124,13 +124,16 @@ jobs:
             verified-release-artifacts/*-chrome.zip
             verified-release-artifacts/*-firefox.zip
             verified-release-artifacts/*-sources.zip
+            verified-release-artifacts/olc.tar.gz
+            verified-release-artifacts/olc.tar.gz.sha256
+            verified-release-artifacts/olc.zip
+            verified-release-artifacts/olc.zip.sha256
           )
 
-          # CI publishes one Chrome ZIP, one Firefox ZIP, and Firefox's required
-          # source ZIP. Refuse an incomplete or ambiguous set before touching a
-          # release.
-          if [ ${#ASSETS[@]} -ne 3 ]; then
-            echo "Expected exactly three verified release assets; found ${#ASSETS[@]}."
+          # CI publishes three extension packages plus two olc archives and their
+          # checksums. Refuse an incomplete or ambiguous set before touching a release.
+          if [ ${#ASSETS[@]} -ne 7 ]; then
+            echo "Expected exactly seven verified release assets; found ${#ASSETS[@]}."
             exit 1
           fi
           for asset in "${ASSETS[@]}"; do

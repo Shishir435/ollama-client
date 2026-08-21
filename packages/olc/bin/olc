@@ -3,7 +3,16 @@
 # when no bundle has been built yet.
 set -eu
 
-here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+script=$0
+while [ -h "$script" ]; do
+  link_dir=$(CDPATH='' cd -- "$(dirname -- "$script")" && pwd)
+  link_target=$(readlink "$script")
+  case "$link_target" in
+    /*) script=$link_target ;;
+    *) script=$link_dir/$link_target ;;
+  esac
+done
+here=$(CDPATH='' cd -- "$(dirname -- "$script")" && pwd)
 root=$(dirname "$here")
 
 if [ -f "$root/dist/olc.mjs" ]; then
