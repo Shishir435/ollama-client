@@ -40,8 +40,21 @@ describe("provider-scoped model configs", () => {
     })
   })
 
-  it("falls back to legacy bare model keys", () => {
-    expect(getStoredModelConfig(configs, "shared", "provider-c")).toEqual({
+  it("inherits only provider-neutral settings from legacy bare model keys", () => {
+    const legacyConfigs = {
+      ...configs,
+      shared: { temperature: 0.25, reasoning_effort: "medium" as const }
+    }
+
+    expect(getStoredModelConfig(legacyConfigs, "shared", "provider-c")).toEqual(
+      {
+        temperature: 0.25
+      }
+    )
+  })
+
+  it("preserves reasoning effort for unscoped legacy callers", () => {
+    expect(getStoredModelConfig(configs, "shared")).toEqual({
       reasoning_effort: "medium"
     })
   })

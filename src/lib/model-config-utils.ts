@@ -50,14 +50,25 @@ export const modelConfigKey = (model: string, providerId?: string): string =>
 
 /**
  * Prefer the provider-scoped entry. Bare model keys remain a read fallback for
- * settings written before model configs became collision-safe.
+ * provider-neutral settings written before model configs became
+ * collision-safe. Reasoning effort is provider-specific and must never cross
+ * that boundary.
  */
 export const getStoredModelConfig = (
   configs: StoredModelConfigMap,
   model: string,
   providerId?: string
-): Partial<ModelConfig> | undefined =>
-  configs[modelConfigKey(model, providerId)] ?? configs[model]
+): Partial<ModelConfig> | undefined => {
+  const scoped = configs[modelConfigKey(model, providerId)]
+  if (scoped || !providerId) return scoped
+
+  const legacy = configs[model]
+  if (!legacy || legacy.reasoning_effort === undefined) return legacy
+
+  const safeLegacy = { ...legacy }
+  delete safeLegacy.reasoning_effort
+  return safeLegacy
+}
 
 export const parseStoredModelConfigMap = (
   value: unknown

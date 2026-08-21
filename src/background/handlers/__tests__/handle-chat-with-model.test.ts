@@ -392,6 +392,42 @@ describe("handleChatWithModel", () => {
       )
     })
 
+    it("does not inherit reasoning effort from a legacy bare config", async () => {
+      const { getPlasmoStoredValue } = await import(
+        "@/lib/plasmo-global-storage"
+      )
+      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
+        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
+          return {
+            shared: { temperature: 0.25, reasoning_effort: "max" }
+          }
+        }
+        return undefined
+      })
+
+      await handleChatWithModel(
+        {
+          type: "CHAT_WITH_MODEL",
+          payload: {
+            model: "shared",
+            providerId: "provider-b",
+            messages: [{ role: "user", content: "Hello" }]
+          }
+        },
+        mockPort,
+        mockIsPortClosed
+      )
+
+      expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          temperature: 0.25,
+          reasoningEffort: "auto"
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+    })
+
     it("should upgrade legacy default context before streaming", async () => {
       const { getPlasmoStoredValue } = await import(
         "@/lib/plasmo-global-storage"
