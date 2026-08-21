@@ -353,6 +353,7 @@ describe("provider contracts", () => {
         capabilityHints: {
           contextLength: 131072,
           modalities: ["text", "image"],
+          outputModalities: ["text"],
           supportedParameters: ["tools", "reasoning"],
           reasoning: {
             supportedEfforts: ["high", "low"],

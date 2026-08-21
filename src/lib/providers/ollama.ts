@@ -22,6 +22,7 @@ import type {
 } from "@/types"
 import { resolveProviderBaseUrl } from "./base-url"
 import { PROVIDER_CAPABILITIES } from "./capabilities"
+import { generatedImageFromBase64 } from "./generated-image"
 import {
   lifecycleRequestFailed,
   normalizeOllamaLoadedModel
@@ -31,6 +32,7 @@ import { decodeProviderJson } from "./response-decoding"
 import {
   type ChatRequest,
   type EmbeddingSupport,
+  type ImageGenerationRequest,
   type LLMProvider,
   type ProviderConfig,
   ProviderId
@@ -641,6 +643,7 @@ export class OllamaProvider implements LLMProvider {
         error?: unknown
         message?: {
           content?: string
+          images?: unknown[]
           thinking?: string
           reasoning?: string
           reasoning_content?: string
@@ -712,6 +715,21 @@ export class OllamaProvider implements LLMProvider {
         })
       }
 
+      const generatedImages = (data.message?.images ?? []).flatMap(
+        (value, index) => {
+          if (typeof value !== "string") return []
+          const image = generatedImageFromBase64(
+            value,
+            { providerId: this.id, model },
+            index
+          )
+          return image ? [image] : []
+        }
+      )
+      if (generatedImages.length > 0) {
+        onChunk({ generatedImages, done: false })
+      }
+
       onChunk({
         delta: data.message?.content || "",
         done: data.done,
@@ -746,6 +764,117 @@ export class OllamaProvider implements LLMProvider {
           break
         }
 
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+        for (const line of lines) processLine(line)
+      }
+    } finally {
+      reader.releaseLock()
+    }
+  }
+
+  async generateImage(
+    request: ImageGenerationRequest,
+    onChunk: (chunk: ChatStreamMessage) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const baseUrl = resolveProviderBaseUrl(this.config)
+    const response = await fetch(`${baseUrl}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: request.model,
+        prompt: request.prompt,
+        stream: true,
+        ...(request.images?.length
+          ? { images: request.images.map((image) => image.base64) }
+          : {})
+      }),
+      signal
+    }).catch((error) =>
+      throwProviderConnectionError(error, {
+        providerId: this.id,
+        providerName: this.config.name,
+        model: request.model,
+        baseUrl
+      })
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw createAppError(`Ollama Error (${response.status}): ${errorText}`, {
+        kind: "provider",
+        status: response.status,
+        providerId: this.id,
+        providerName: this.config.name,
+        model: request.model,
+        baseUrl,
+        phase: "response",
+        userMessage: providerErrorUserMessage(response.status, {
+          providerName: this.config.name,
+          model: request.model
+        }),
+        debug: errorText
+      })
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw createAppError("Response body is null", {
+        kind: "provider",
+        providerId: this.id
+      })
+    }
+
+    const decoder = new TextDecoder()
+    let buffer = ""
+    let emitted = false
+    const processLine = (line: string) => {
+      if (!line.trim()) return
+      const data = JSON.parse(line) as {
+        image?: string
+        completed?: number
+        total?: number
+        done?: boolean
+      }
+      if (!data.image) return
+      const image = generatedImageFromBase64(data.image, {
+        providerId: this.id,
+        model: request.model
+      })
+      if (!image) {
+        throw createAppError("Ollama returned invalid generated image data", {
+          kind: "provider",
+          providerId: this.id,
+          model: request.model,
+          phase: "read-stream"
+        })
+      }
+      emitted = true
+      onChunk({ generatedImages: [image], done: data.done === true })
+    }
+
+    try {
+      while (true) {
+        const { done, value } = await readProviderStreamChunk(reader, {
+          providerId: this.id,
+          providerName: this.config.name,
+          model: request.model,
+          baseUrl
+        })
+        if (done) {
+          if (buffer.trim()) processLine(buffer)
+          if (!emitted) {
+            throw createAppError("Ollama returned no generated image", {
+              kind: "provider",
+              providerId: this.id,
+              model: request.model,
+              phase: "read-stream"
+            })
+          }
+          break
+        }
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split("\n")
         buffer = lines.pop() ?? ""

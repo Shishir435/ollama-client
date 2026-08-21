@@ -590,6 +590,10 @@
           "label": "Vision",
           "desc": "Accepts image input alongside text."
         },
+        "imageOutput": {
+          "label": "Image generation",
+          "desc": "Generates images as a response in chat."
+        },
         "toolCalling": {
           "label": "Tool calling",
           "desc": "Can call tools/functions during a response."

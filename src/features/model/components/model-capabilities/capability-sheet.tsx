@@ -57,6 +57,7 @@ type Draft = Record<CapabilityFlag, boolean>
 const toDraft = (caps: ModelCapabilities): Draft => ({
   text: caps.text,
   vision: caps.vision,
+  imageOutput: caps.imageOutput,
   toolCalling: caps.toolCalling,
   reasoning: caps.reasoning,
   embeddings: caps.embeddings
@@ -65,6 +66,7 @@ const toDraft = (caps: ModelCapabilities): Draft => ({
 const CAPABILITY_FLAGS = [
   "text",
   "vision",
+  "imageOutput",
   "toolCalling",
   "reasoning",
   "embeddings"

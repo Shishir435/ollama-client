@@ -4,7 +4,10 @@ import {
 } from "@/background/lib/abort-controller-registry"
 import { buildToolSystemGuidance } from "@/background/lib/build-tool-system-guidance"
 import { withErrorContext } from "@/background/lib/error-handler"
-import { resolveModelTools } from "@/background/lib/resolve-model-tools"
+import {
+  resolveModelCapabilities,
+  resolveModelTools
+} from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
@@ -131,12 +134,24 @@ export const handleChatWithModel = withErrorContext(
     const latestUserText = [...conversationMessages]
       .reverse()
       .find((message) => message.role === "user")?.content
-    const resolvedTools = await resolveModelTools(
+    const resolvedCapabilities = await resolveModelCapabilities(
       model,
       providerId,
-      provider,
-      latestUserText
+      provider
     )
+    const { capabilities } = resolvedCapabilities
+    // Image-generation models use a provider-specific generation operation,
+    // normalized into the ordinary chat stream. They do not participate in a
+    // text tool loop: the user's latest message is their generation prompt.
+    const resolvedTools = capabilities.imageOutput
+      ? null
+      : await resolveModelTools(
+          model,
+          providerId,
+          provider,
+          latestUserText,
+          resolvedCapabilities
+        )
     // Only the native path sends a tools array + the native system guidance; the
     // non-native path injects its own protocol prompt inside its streamer.
     const nativeTools =
@@ -298,7 +313,20 @@ export const handleChatWithModel = withErrorContext(
     }
 
     try {
-      if (resolvedTools && resolvedTools.tools.length > 0) {
+      if (capabilities.imageOutput && provider.generateImage) {
+        const latestUserMessage = [...conversationMessages]
+          .reverse()
+          .find((message) => message.role === "user")
+        await provider.generateImage(
+          {
+            model,
+            prompt: latestUserMessage?.content ?? "",
+            images: latestUserMessage?.images
+          },
+          onChunk,
+          ac.signal
+        )
+      } else if (resolvedTools && resolvedTools.tools.length > 0) {
         const { getToolRegistry } = await import("@/lib/tools")
         const toolResultMaxChars = await readSetting(
           SETTINGS.MAX_TOOL_RESULT_CHARS

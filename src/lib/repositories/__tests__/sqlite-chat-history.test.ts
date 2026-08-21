@@ -683,6 +683,33 @@ describe("messages", () => {
     expect(mockedRun).not.toHaveBeenCalled()
   })
 
+  it("updates an assistant snapshot and replaces only its image rows atomically", async () => {
+    mockedQuery.mockResolvedValueOnce([{ sessionId: "s1" }])
+
+    await repo.updateMessageWithImages(5, { content: "", done: true }, [
+      {
+        imageId: "generated-1",
+        fileName: "generated-image-1.png",
+        mimeType: "image/png",
+        size: 6,
+        base64: "iVBORw0K",
+        origin: "model-generated"
+      }
+    ])
+
+    expect(mockedRun.mock.calls[0]?.[0]).toBe("BEGIN IMMEDIATE")
+    expect(mockedRun.mock.calls[1]?.[0]).toContain("UPDATE messages SET")
+    expect(mockedRun.mock.calls[2]).toEqual([
+      "DELETE FROM files WHERE messageId = ? AND fileType LIKE 'image/%'",
+      [5]
+    ])
+    expect(mockedRun.mock.calls[3]?.[0]).toContain("INSERT INTO files")
+    expect(mockedRun.mock.calls[3]?.[1]).toEqual(
+      expect.arrayContaining(["generated-1", "s1", 5, "image/png"])
+    )
+    expect(mockedRun.mock.calls[4]?.[0]).toBe("COMMIT")
+  })
+
   it("deletes a message subtree, its files, and an affected leaf in one transaction", async () => {
     mockedQuery
       .mockResolvedValueOnce([{ sessionId: "s1", parentId: 9 }])

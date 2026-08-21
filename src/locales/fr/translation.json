@@ -742,6 +742,10 @@
           "label": "Vision",
           "desc": "Accepte les images en plus du texte."
         },
+        "imageOutput": {
+          "label": "Génération d’images",
+          "desc": "Génère des images en réponse dans le chat."
+        },
         "toolCalling": {
           "label": "Appel d'outils",
           "desc": "Peut appeler des outils/fonctions pendant une réponse."

@@ -10,12 +10,15 @@ import {
   setupHandlerMocks
 } from "./test-utils"
 
-const { mockProvider, mockStreamChat } = vi.hoisted(() => {
+const { mockGenerateImage, mockProvider, mockStreamChat } = vi.hoisted(() => {
   const streamChat = vi.fn().mockImplementation(async (_req, onChunk) => {
     onChunk({ delta: "Hello", done: false })
     onChunk({ done: true })
   })
   return {
+    mockGenerateImage: vi.fn().mockImplementation(async (_req, onChunk) => {
+      onChunk({ done: true })
+    }),
     mockStreamChat: streamChat,
     mockProvider: {
       id: "ollama", // string for simpler mock, or use ProviderId.OLLAMA if imported inside
@@ -26,7 +29,11 @@ const { mockProvider, mockStreamChat } = vi.hoisted(() => {
         baseUrl: "http://localhost:11434",
         name: "Ollama"
       },
+      generateImage: vi.fn().mockImplementation(async (_req, onChunk) => {
+        onChunk({ done: true })
+      }),
       streamChat: streamChat,
+      getModelDetails: vi.fn().mockResolvedValue(null),
       getModels: vi.fn().mockResolvedValue(["llama3:latest"])
     }
   }
@@ -84,6 +91,8 @@ describe("handleChatWithModel", () => {
     mockIsPortClosed = createMockIsPortClosed(false)
     vi.clearAllMocks()
     mockProvider.config.enabled = true
+    mockProvider.generateImage = mockGenerateImage
+    mockProvider.getModelDetails.mockResolvedValue(null)
     const storage = await import("@/lib/plasmo-global-storage")
     vi.mocked(storage.getPlasmoStoredValue).mockResolvedValue(undefined)
 
@@ -717,6 +726,32 @@ describe("handleChatWithModel", () => {
   })
 
   describe("stream handling", () => {
+    it("routes an image-output model through the provider-neutral image operation", async () => {
+      mockProvider.getModelDetails.mockResolvedValueOnce({
+        capabilities: ["image"]
+      })
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "image-model-for-dispatch-test",
+          messages: [{ role: "user", content: "a fox in the snow" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockGenerateImage).toHaveBeenCalledWith(
+        {
+          model: "image-model-for-dispatch-test",
+          prompt: "a fox in the snow",
+          images: undefined
+        },
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+      expect(mockStreamChat).not.toHaveBeenCalled()
+    })
+
     it("should call streamChat on provider", async () => {
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",

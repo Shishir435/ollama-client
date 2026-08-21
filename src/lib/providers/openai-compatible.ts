@@ -17,6 +17,7 @@ import type { ToolCall, ToolDefinition } from "@/lib/tools/types"
 import type { ChatMessage, ChatStreamMessage, ProviderModel } from "@/types"
 import { resolveProviderBaseUrl } from "./base-url"
 import { OPENAI_COMPATIBLE_PROVIDER_CAPABILITIES } from "./capabilities"
+import { generatedImageFromBase64 } from "./generated-image"
 import { parameterSizeFromModelId } from "./model-id-metadata"
 import {
   createProviderReplayArtifact,
@@ -36,6 +37,7 @@ import {
 import {
   type ChatRequest,
   type EmbeddingSupport,
+  type ImageGenerationRequest,
   type LLMProvider,
   type ProviderConfig,
   ProviderId,
@@ -44,6 +46,57 @@ import {
 
 const isCatalogRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
+
+const extractOpenAIOutputParts = (
+  content: unknown,
+  images: unknown
+): { text: string; imageData: string[] } => {
+  const text: string[] = []
+  const imageData: string[] = []
+  const visit = (value: unknown) => {
+    if (typeof value === "string") {
+      text.push(value)
+      return
+    }
+    const record = asRecord(value)
+    if (!record) return
+    if (typeof record.text === "string") text.push(record.text)
+    const imageUrl = asRecord(record.image_url)?.url
+    const inlineData = asRecord(record.inline_data)?.data
+    const candidate =
+      (typeof record.b64_json === "string" && record.b64_json) ||
+      (typeof record.image_base64 === "string" && record.image_base64) ||
+      (typeof inlineData === "string" && inlineData) ||
+      (typeof imageUrl === "string" && imageUrl.startsWith("data:image/")
+        ? imageUrl
+        : undefined)
+    if (candidate) imageData.push(candidate)
+  }
+  if (Array.isArray(content)) content.forEach(visit)
+  else visit(content)
+  if (Array.isArray(images)) {
+    for (const image of images) {
+      if (typeof image === "string") imageData.push(image)
+      else visit(image)
+    }
+  }
+  return { text: text.join(""), imageData }
+}
+
+const OpenAIImageGenerationResponseSchema = z
+  .object({
+    data: z
+      .array(
+        z
+          .object({
+            b64_json: z.string().optional(),
+            url: z.string().optional()
+          })
+          .passthrough()
+      )
+      .max(8)
+  })
+  .passthrough()
 
 const normalizeCatalogNumber = (value: unknown): number | undefined => {
   const candidate =
@@ -118,6 +171,7 @@ const OpenAIModelCatalogItemSchema = z
     max_model_len: CatalogNumberSchema.optional(),
     architecture: z.unknown().optional(),
     input_modalities: CatalogModalitiesSchema.optional(),
+    output_modalities: CatalogModalitiesSchema.optional(),
     supported_parameters: CatalogStringsSchema.optional(),
     supported_sampling_parameters: CatalogStringsSchema.optional(),
     capabilities: z.unknown().optional(),
@@ -143,6 +197,9 @@ const OpenAIModelCatalogItemSchema = z
     const reportedModalities =
       model.input_modalities ??
       normalizeCatalogStrings(architecture?.input_modalities, 50)
+    const outputModalities =
+      model.output_modalities ??
+      normalizeCatalogStrings(architecture?.output_modalities, 50)
     const reportsVision =
       capabilities?.vision === true || model.supportsImageInput === true
     const modalities = reportedModalities
@@ -170,7 +227,13 @@ const OpenAIModelCatalogItemSchema = z
         ? ["tools"]
         : undefined
 
-    return { ...model, contextLength, modalities, supportedParameters }
+    return {
+      ...model,
+      contextLength,
+      modalities,
+      outputModalities,
+      supportedParameters
+    }
   })
 
 const OpenAIModelCatalogSchema = z
@@ -469,12 +532,16 @@ export class OpenAICompatibleProvider implements LLMProvider {
           },
           ...((m.contextLength ||
             m.modalities ||
+            m.outputModalities ||
             m.supportedParameters ||
             reasoning) && {
             capabilityHints: {
               ...(m.contextLength ? { contextLength: m.contextLength } : {}),
               ...(m.modalities && {
                 modalities: m.modalities
+              }),
+              ...(m.outputModalities && {
+                outputModalities: m.outputModalities
               }),
               ...(m.supportedParameters && {
                 supportedParameters: m.supportedParameters
@@ -492,6 +559,98 @@ export class OpenAICompatibleProvider implements LLMProvider {
       }
       throw e
     }
+  }
+
+  async generateImage(
+    request: ImageGenerationRequest,
+    onChunk: (chunk: ChatStreamMessage) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const baseUrl = resolveProviderBaseUrl(this.config)
+    const response = await fetch(`${baseUrl}/images/generations`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({
+        model: request.model,
+        prompt: request.prompt,
+        response_format: "b64_json"
+      }),
+      signal
+    }).catch((error) =>
+      throwProviderConnectionError(error, {
+        providerId: this.id,
+        providerName: this.config.name,
+        model: request.model,
+        baseUrl
+      })
+    )
+
+    if ([404, 405, 501].includes(response.status)) {
+      // Some OpenAI-compatible servers generate images as multimodal chat
+      // output instead of implementing the Images endpoint. Reuse the normal
+      // stream adapter so inline image parts still reach the shared contract.
+      await this.streamChat(
+        {
+          model: request.model,
+          messages: [
+            {
+              role: "user",
+              content: request.prompt,
+              images: request.images
+            }
+          ]
+        },
+        onChunk,
+        signal
+      )
+      return
+    }
+    if (!response.ok) {
+      await this.responseError(
+        response,
+        "Image generation error",
+        baseUrl,
+        request.model
+      )
+    }
+
+    const result = await decodeProviderJson(
+      response,
+      OpenAIImageGenerationResponseSchema,
+      {
+        providerId: this.id,
+        providerName: this.config.name,
+        baseUrl,
+        label: "image generation response",
+        userMessage:
+          "The provider returned an invalid image generation response."
+      }
+    )
+    const generatedImages = result.data.flatMap((item, index) => {
+      if (!item.b64_json) return []
+      const image = generatedImageFromBase64(
+        item.b64_json,
+        { providerId: this.id, model: request.model },
+        index
+      )
+      return image ? [image] : []
+    })
+    if (generatedImages.length === 0) {
+      throw createAppError(
+        result.data.some((item) => item.url)
+          ? "The provider returned image URLs after base64 output was requested."
+          : "The provider returned no valid generated images.",
+        {
+          kind: "provider",
+          providerId: this.id,
+          model: request.model,
+          phase: "response",
+          userMessage:
+            "The provider completed image generation but returned no image data the extension can store."
+        }
+      )
+    }
+    onChunk({ generatedImages, done: true })
   }
 
   async streamChat(
@@ -629,7 +788,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
         error?: unknown
         choices?: Array<{
           delta?: {
-            content?: string
+            content?: unknown
+            images?: unknown
             reasoning?: string
             reasoning_content?: string
             thinking?: string
@@ -734,11 +894,24 @@ export class OpenAICompatibleProvider implements LLMProvider {
         onChunk({ thinkingDelta, done: false })
       }
 
-      if (delta?.content) {
+      const output = extractOpenAIOutputParts(delta?.content, delta?.images)
+      if (output.text) {
         if (!firstTokenTime) {
           firstTokenTime = Date.now()
         }
-        onChunk({ delta: delta.content, done: false })
+        onChunk({ delta: output.text, done: false })
+      }
+
+      const generatedImages = output.imageData.flatMap((value, index) => {
+        const image = generatedImageFromBase64(
+          value,
+          { providerId: this.id, model },
+          index
+        )
+        return image ? [image] : []
+      })
+      if (generatedImages.length > 0) {
+        onChunk({ generatedImages, done: false })
       }
 
       if (Array.isArray(delta?.tool_calls)) {

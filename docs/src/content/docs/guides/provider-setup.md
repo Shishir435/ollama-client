@@ -72,6 +72,14 @@ The answer is remembered per provider, so such an endpoint is asked once rather 
 
 A wrong base URL answers the model-list request exactly the way a chat-only gateway does, so **Test** settles it by asking the chat endpoint to generate a single token with the first model ID you added. If that answers, the provider is reported as working; if nothing is there either, the test tells you to check the base URL — hosted providers usually need the version suffix, such as `/v1`. That one-token request is only sent when you press Test, never by the background connection check.
 
+### Image-generation models
+
+Generated images use the same chat history and preview UI regardless of provider. Ollama image models use the Ollama generation stream. OpenAI-compatible providers use their Images endpoint, with a fallback for compatible servers that return inline image parts from Chat Completions.
+
+When a model catalog reports image output, the extension enables it automatically. For providers whose catalog does not report output modalities, open the model's capability sheet and enable **Image generation**. This flag is separate from **Vision**: vision accepts an image as input, while image generation produces an image as the assistant response.
+
+Provider output is normalized to validated PNG, JPEG, or WebP data and saved with the assistant message. The extension requests base64 image data and does not follow provider-returned image URLs.
+
 ## 5. Verify endpoints
 
 ```bash
@@ -89,6 +97,7 @@ curl http://localhost:8000/v1/models
 
 - Chat generation is fully provider-agnostic.
 - Image input is model-dependent. If the selected model is not vision-capable, the composer blocks image attach instead of sending unsupported input.
+- Image output is provider- and model-dependent. It is routed through a shared generated-image stream rather than inferred from the provider's brand.
 - Tool calling is model-dependent. Ollama and LM Studio both expose tool-calling APIs, but the selected model still needs tool-use support. Tool-capable models can inspect browser context through local extension tools; non-tool models keep the old plain chat path.
 - Web search is off by default and model-visible only as `web_search`. Backend choice is a user setting, not a model prompt detail.
 - Model-management actions depend on provider capabilities. Ollama has the fullest support; LM Studio adds pull/unload support.
