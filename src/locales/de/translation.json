@@ -742,6 +742,10 @@
           "label": "Bild",
           "desc": "Akzeptiert Bildeingaben zusätzlich zu Text."
         },
+        "imageOutput": {
+          "label": "Bilderzeugung",
+          "desc": "Erzeugt Bilder als Antwort im Chat."
+        },
         "toolCalling": {
           "label": "Tool-Aufrufe",
           "desc": "Kann während einer Antwort Tools/Funktionen aufrufen."

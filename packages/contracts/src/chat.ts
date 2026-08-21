@@ -20,7 +20,8 @@ export {
 } from "./chat-activity"
 export {
   type FileAttachmentParsed,
-  FileAttachmentSchema
+  FileAttachmentSchema,
+  ImageAttachmentSchema
 } from "./chat-attachments"
 export {
   ChatMessageErrorSchema,

@@ -62,8 +62,10 @@ export type ProviderModel = {
      * Studio's `["tool_use"]`. Reported support, not inferred.
      */
     capabilityTags?: string[]
-    /** Input/output modalities reported by hosted model catalogs. */
+    /** Input modalities reported by hosted model catalogs. */
     modalities?: string[]
+    /** Output modalities reported by hosted model catalogs. */
+    outputModalities?: string[]
     /** Request parameters explicitly supported by the served model. */
     supportedParameters?: string[]
     /** Exact reasoning controls reported or conservatively resolved. */

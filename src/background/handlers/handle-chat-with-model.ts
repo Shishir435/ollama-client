@@ -4,11 +4,15 @@ import {
 } from "@/background/lib/abort-controller-registry"
 import { buildToolSystemGuidance } from "@/background/lib/build-tool-system-guidance"
 import { withErrorContext } from "@/background/lib/error-handler"
-import { resolveModelTools } from "@/background/lib/resolve-model-tools"
+import {
+  resolveModelCapabilities,
+  resolveModelTools
+} from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
   getStoredModelConfig,
@@ -131,12 +135,40 @@ export const handleChatWithModel = withErrorContext(
     const latestUserText = [...conversationMessages]
       .reverse()
       .find((message) => message.role === "user")?.content
-    const resolvedTools = await resolveModelTools(
+    const resolvedCapabilities = await resolveModelCapabilities(
       model,
       providerId,
-      provider,
-      latestUserText
+      provider
     )
+    const { capabilities } = resolvedCapabilities
+    const imageGenerator = capabilities.imageOutput
+      ? provider.generateImage
+      : undefined
+    if (capabilities.imageOutput && !imageGenerator) {
+      throw createAppError("Provider does not support image generation.", {
+        kind: "validation",
+        status: 400,
+        code: "OLC-INPUT-UNSUPPORTED",
+        phase: "configuration",
+        providerId: provider.id,
+        providerName: provider.config.name,
+        model,
+        userMessage:
+          "This provider cannot generate images. Disable the image-output override or choose another provider."
+      })
+    }
+    // Image-generation models use a provider-specific generation operation,
+    // normalized into the ordinary chat stream. They do not participate in a
+    // text tool loop: the user's latest message is their generation prompt.
+    const resolvedTools = imageGenerator
+      ? null
+      : await resolveModelTools(
+          model,
+          providerId,
+          provider,
+          latestUserText,
+          resolvedCapabilities
+        )
     // Only the native path sends a tools array + the native system guidance; the
     // non-native path injects its own protocol prompt inside its streamer.
     const nativeTools =
@@ -298,7 +330,21 @@ export const handleChatWithModel = withErrorContext(
     }
 
     try {
-      if (resolvedTools && resolvedTools.tools.length > 0) {
+      if (imageGenerator) {
+        const latestUserMessage = [...conversationMessages]
+          .reverse()
+          .find((message) => message.role === "user")
+        await imageGenerator.call(
+          provider,
+          {
+            model,
+            prompt: latestUserMessage?.content ?? "",
+            images: latestUserMessage?.images
+          },
+          onChunk,
+          ac.signal
+        )
+      } else if (resolvedTools && resolvedTools.tools.length > 0) {
         const { getToolRegistry } = await import("@/lib/tools")
         const toolResultMaxChars = await readSetting(
           SETTINGS.MAX_TOOL_RESULT_CHARS

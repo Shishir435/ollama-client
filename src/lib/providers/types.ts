@@ -137,6 +137,13 @@ export interface ChatRequest {
   tool_choice?: "auto" | "none" | "required"
 }
 
+export interface ImageGenerationRequest {
+  model: string
+  prompt: string
+  /** Optional reference images for providers that support editing. */
+  images?: ChatMessage["images"]
+}
+
 export interface EmbeddingSupport {
   supported: boolean
   mode: "native" | "openai-compatible" | "none"
@@ -173,6 +180,13 @@ export interface LLMProvider {
 
   streamChat(
     request: ChatRequest,
+    onChunk: (chunk: ChatStreamMessage) => void,
+    signal?: AbortSignal
+  ): Promise<void>
+
+  /** Optional provider-native image generation operation. */
+  generateImage?(
+    request: ImageGenerationRequest,
     onChunk: (chunk: ChatStreamMessage) => void,
     signal?: AbortSignal
   ): Promise<void>

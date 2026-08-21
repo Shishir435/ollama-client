@@ -112,6 +112,7 @@ const ProviderModelSchema = z
         contextLength: z.number().nullish(),
         capabilityTags: z.array(z.string()).max(50).nullish(),
         modalities: z.array(z.string()).max(50).nullish(),
+        outputModalities: z.array(z.string()).max(50).nullish(),
         supportedParameters: z.array(z.string()).max(100).nullish(),
         reasoning: z
           .object({
@@ -167,6 +168,9 @@ const ProviderModelSchema = z
             }),
             ...(capabilityHints.modalities && {
               modalities: capabilityHints.modalities
+            }),
+            ...(capabilityHints.outputModalities && {
+              outputModalities: capabilityHints.outputModalities
             }),
             ...(capabilityHints.supportedParameters && {
               supportedParameters: capabilityHints.supportedParameters

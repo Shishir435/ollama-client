@@ -65,6 +65,23 @@ describe("getModelCapabilities", () => {
     })
   })
 
+  it("detects image output independently from vision input", () => {
+    const ollama = getModelCapabilities({
+      providerId: ProviderId.OLLAMA,
+      ollamaCapabilities: ["image"]
+    })
+    const compatible = getModelCapabilities({
+      providerId: "custom",
+      modalities: ["text", "image"],
+      outputModalities: ["image"]
+    })
+
+    expect(ollama.imageOutput).toBe(true)
+    expect(ollama.vision).toBe(false)
+    expect(compatible.imageOutput).toBe(true)
+    expect(compatible.vision).toBe(true)
+  })
+
   it("treats an embedding-only Ollama model as non-chat", () => {
     const caps = getModelCapabilities({
       providerId: ProviderId.OLLAMA,

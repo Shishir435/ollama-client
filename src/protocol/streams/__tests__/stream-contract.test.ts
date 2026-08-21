@@ -184,6 +184,37 @@ describe("stream protocol", () => {
     ).toBe(false)
   })
 
+  it("carries provider-generated images in ordinary chat chunks", () => {
+    const parsed = parseChatStreamServerEvent({
+      version: 1,
+      type: "chat_chunk",
+      seq: 0,
+      generatedImages: [
+        {
+          imageId: "generated-1",
+          fileName: "generated-image-1.png",
+          mimeType: "image/png",
+          size: 8,
+          base64: "iVBORw0K",
+          origin: "model-generated",
+          generatedBy: { providerId: "custom", model: "image-model" }
+        }
+      ],
+      done: true
+    })
+
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    expect(parsed.data).toMatchObject({
+      generatedImages: [
+        {
+          origin: "model-generated",
+          generatedBy: { providerId: "custom", model: "image-model" }
+        }
+      ]
+    })
+  })
+
   it("normalizes one legacy boundary event into v1", () => {
     const parsed = parseChatStreamServerEvent({ seq: 2, delta: "hello" })
     expect(parsed.success).toBe(true)

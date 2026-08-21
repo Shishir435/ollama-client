@@ -20,6 +20,7 @@ export interface StreamAssistantMetrics {
 export interface StreamAssistantMessage {
   content: string
   thinking?: string
+  images?: Array<{ imageId?: string }>
   replayArtifact?: unknown
   done?: boolean
   metrics?: StreamAssistantMetrics
@@ -54,6 +55,7 @@ export interface StreamMessage {
   }
   delta?: string
   thinkingDelta?: string
+  generatedImages?: Array<{ imageId?: string }>
   replayArtifact?: unknown
   toolRuns?: unknown[]
   done?: boolean
@@ -195,9 +197,22 @@ export const reduceStreamEvent = <TMessage extends StreamAssistantMessage>(
   const tokens: string[] = []
   let content = assistant.content
   let thinking = assistant.thinking
+  let images = assistant.images
   let replayArtifact = assistant.replayArtifact
   let metrics = assistant.metrics
   let changed = false
+
+  if (msg.generatedImages?.length) {
+    const merged = [...(images ?? [])]
+    const seen = new Set(merged.map((image) => image.imageId).filter(Boolean))
+    for (const image of msg.generatedImages) {
+      if (image.imageId && seen.has(image.imageId)) continue
+      merged.push(image)
+      if (image.imageId) seen.add(image.imageId)
+    }
+    images = merged
+    changed = true
+  }
 
   if (msg.toolRuns) {
     metrics = { ...metrics, toolRuns: msg.toolRuns }
@@ -237,6 +252,7 @@ export const reduceStreamEvent = <TMessage extends StreamAssistantMessage>(
     ...assistant,
     content,
     thinking,
+    images,
     replayArtifact,
     metrics
   } as TMessage
@@ -251,7 +267,9 @@ export const reduceStreamEvent = <TMessage extends StreamAssistantMessage>(
     } else {
       const hasThinking = Boolean(assistant.thinking?.trim())
       const hasToolRuns = (assistant.metrics?.toolRuns?.length ?? 0) > 0
-      const thinkingOnlyResponse = !assistant.content.trim() && hasThinking
+      const hasImages = (assistant.images?.length ?? 0) > 0
+      const thinkingOnlyResponse =
+        !assistant.content.trim() && !hasImages && hasThinking
       // A tool-backed turn's reasoning is the answer often enough to show it,
       // and this is content promotion rather than copy, so it stays here.
       const toolBackedThinkingOnlyResponse = thinkingOnlyResponse && hasToolRuns
@@ -263,6 +281,7 @@ export const reduceStreamEvent = <TMessage extends StreamAssistantMessage>(
             !assistant.content.trim() &&
               !hasThinking &&
               !hasToolRuns &&
+              !hasImages &&
               !msg.aborted
             ? "no-output"
             : undefined

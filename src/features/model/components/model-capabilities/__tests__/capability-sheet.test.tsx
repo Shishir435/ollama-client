@@ -19,6 +19,7 @@ vi.mock("@/features/model/hooks/use-model-config", () => ({
 const allFalse: ModelCapabilities = {
   text: false,
   vision: false,
+  imageOutput: false,
   embeddings: false,
   toolCalling: false,
   reasoning: false,
@@ -62,6 +63,7 @@ describe("ModelCapabilitySheet", () => {
     expect(onSave).toHaveBeenCalledWith({
       text: true,
       vision: true,
+      imageOutput: false,
       toolCalling: false,
       reasoning: false,
       embeddings: false
@@ -83,7 +85,7 @@ describe("ModelCapabilitySheet", () => {
 
     const switches = screen.getAllByRole("switch")
     expect(switches[1]).toBeChecked() // vision (detected)
-    expect(switches[2]).toBeChecked() // tool calling (from override)
+    expect(switches[3]).toBeChecked() // tool calling (from override)
   })
 
   it("shows the manual-entry guidance when the provider cannot self-report", () => {
