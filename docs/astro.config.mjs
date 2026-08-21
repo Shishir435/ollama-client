@@ -75,6 +75,9 @@ export default defineConfig({
   },
   integrations: [
     starlight({
+      // The site owns a recovery-focused 404 page with stable agent entrypoints.
+      // Disable Starlight's generated route so Astro emits exactly one 404.html.
+      disable404Route: true,
       components: {
         Head: "./src/components/starlight/Head.astro",
         ThemeSelect: "./src/components/starlight/ThemeSelect.astro"

@@ -14,6 +14,7 @@ import { createClientToolInvoker } from "./core/client-tools.js"
 import { createRouter, sendJson } from "./core/http.js"
 import { registerModelRoutes } from "./core/models-route.js"
 import { PendingToolCalls } from "./core/pending-tool-calls.js"
+import { OLC_PUBLIC_ROUTES } from "./core/public-api-contract.js"
 import { createRequestQueue } from "./core/queue.js"
 import type { ProxyConfig, ProxyLogger } from "./types.js"
 import { createRetryAsync } from "./util.js"
@@ -81,14 +82,14 @@ export const createProxy = ({
     }
   })
 
-  router.get("/", (_request, response) =>
+  router.get(OLC_PUBLIC_ROUTES.serviceInfo, (_request, response) =>
     sendJson(response, 200, {
       service: "olc",
       backend: backend.id,
       toolBridge: config.BRIDGE_ENABLED ? "enabled" : "disabled"
     })
   )
-  router.get("/health", (_request, response) =>
+  router.get(OLC_PUBLIC_ROUTES.health, (_request, response) =>
     sendJson(response, 200, { status: "ok", backend: backend.id })
   )
 
