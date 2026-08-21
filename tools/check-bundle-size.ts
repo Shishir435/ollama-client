@@ -186,7 +186,9 @@ const budgets: Budget[] = [
   {
     metric: "background",
     field: "gzipBytes",
-    max: isFirefox ? 210_000 : 196_000
+    // Generated-image responses add provider capability resolution, validated
+    // image normalization, and two wire adapters to the background owner.
+    max: isFirefox ? 210_000 : 198_000
   }
 ]
 
