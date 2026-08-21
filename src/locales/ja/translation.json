@@ -1047,6 +1047,24 @@
         "unload_on_switch_description": "切り替え時に最後のモデルをアンロードしてメモリを解放します。"
       },
       "parameters": {
+        "reasoning_effort": {
+          "label": "推論の強度",
+          "description_reported": "このモデルのプロバイダーが報告したレベルです。",
+          "description_profile": "このプロバイダーとモデルファミリーで確認済みのレベルです。",
+          "description_unknown": "このプロバイダーは信頼できる推論制御を公開していません。",
+          "options": {
+            "auto": "自動（プロバイダーの既定値）",
+            "auto_short": "自動",
+            "enabled": "オン",
+            "none": "オフ",
+            "minimal": "最小",
+            "low": "低",
+            "medium": "中",
+            "high": "高",
+            "xhigh": "最高",
+            "max": "最大"
+          }
+        },
         "temperature": {
           "label": "温度 (Temperature)",
           "conservative": "保守的",

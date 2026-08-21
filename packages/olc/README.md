@@ -82,6 +82,17 @@ Add a **custom OpenAI-compatible provider** with base URL
 and reasoning are advertised per model from the backend's own metadata, so the
 client enables them the same way it does for any other provider — no overrides.
 
+Reasoning effort follows OpenCode's model variants. `GET /v1/models` reports
+only the canonical levels that the selected OpenCode model actually exposes.
+The proxy merges OpenCode's v2 model list with its legacy provider metadata,
+because some OpenCode releases omit variants from `/api/model` while still
+reporting them through `/config/providers`.
+`POST /v1/chat/completions` accepts either `reasoning_effort` or
+`reasoning.effort`; an explicit level is forwarded as OpenCode's `variant`.
+Omitting it (or sending `auto`) leaves the variant unset so OpenCode chooses its
+default. A level the model does not report is rejected with `400` rather than
+silently changed to a nearby level.
+
 ## Options
 
 Command line wins, then the environment, then `config.json`, then the default.

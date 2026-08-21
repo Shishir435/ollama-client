@@ -23,7 +23,20 @@ export const ModelConfigSchema = z
     num_batch: z.number().optional(),
     keep_alive: z.union([z.string(), z.number()]).optional(),
     warm_on_select: z.boolean().optional(),
-    unload_on_switch: z.boolean().optional()
+    unload_on_switch: z.boolean().optional(),
+    reasoning_effort: z
+      .enum([
+        "auto",
+        "enabled",
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ])
+      .optional()
   })
   .partial()
   .passthrough()

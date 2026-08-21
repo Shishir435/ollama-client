@@ -26,6 +26,7 @@ import {
   lifecycleRequestFailed,
   normalizeOllamaLoadedModel
 } from "./model-lifecycle"
+import { toOllamaThink } from "./reasoning-effort"
 import { decodeProviderJson } from "./response-decoding"
 import {
   type ChatRequest,
@@ -499,6 +500,7 @@ export class OllamaProvider implements LLMProvider {
       num_batch,
       keep_alive,
       think,
+      reasoningEffort,
       tools,
       tool_choice
     } = request
@@ -562,7 +564,7 @@ export class OllamaProvider implements LLMProvider {
       model,
       messages: ollamaMessages,
       stream: true,
-      think,
+      think: think ?? toOllamaThink(reasoningEffort),
       keep_alive,
       // Ollama has no `tool_choice` param; express "none" by omitting tools.
       // It accepts tool-call history without a tools array, so this is safe and

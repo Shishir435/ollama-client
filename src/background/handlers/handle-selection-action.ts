@@ -79,7 +79,8 @@ export const handleSelectionAction = async (
         num_thread: modelParams.num_thread,
         num_gpu: modelParams.num_gpu,
         num_batch: modelParams.num_batch,
-        keep_alive: modelParams.keep_alive
+        keep_alive: modelParams.keep_alive,
+        reasoningEffort: modelParams.reasoning_effort
       },
       (chunk) => {
         if (isPortClosed()) return

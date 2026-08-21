@@ -11,6 +11,7 @@ import {
   SheetTitle
 } from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
+import { useModelConfig } from "@/features/model/hooks/use-model-config"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/logger"
 import type {
@@ -19,7 +20,8 @@ import type {
 } from "@/lib/providers/capabilities"
 import type { CapabilityProbeResult } from "@/lib/providers/capability-probe"
 import { getProviderDisplayName } from "@/lib/providers/registry"
-
+import type { ReasoningEffortSupport } from "@/types/model"
+import { ReasoningEffortField } from "../reasoning-effort-field"
 import { CAPABILITY_META, type CapabilityFlag } from "./capability-meta"
 
 interface ModelCapabilitySheetProps {
@@ -38,6 +40,8 @@ interface ModelCapabilitySheetProps {
   detected: ModelCapabilities
   /** Whether a saved override already exists for this model. */
   hasOverride: boolean
+  /** Exact reported or documented effort controls for this model. */
+  reasoningSupport?: ReasoningEffortSupport
   onSave: (override: ModelCapabilityOverride) => void | Promise<void>
   onReset: () => void | Promise<void>
   /**
@@ -84,12 +88,14 @@ export const ModelCapabilitySheet = ({
   current,
   detected,
   hasOverride,
+  reasoningSupport,
   onSave,
   onReset,
   onProbe
 }: ModelCapabilitySheetProps) => {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const [modelConfig, updateModelConfig] = useModelConfig(modelName)
   /*
    * Which note to show, from what detection produced for *this* model rather
    * than a static provider flag. `modelDetails` was the old signal, so LM Studio
@@ -271,6 +277,18 @@ export const ModelCapabilitySheet = ({
                 )}
                 {t("model.capabilities.sheet.probe_button")}
               </Button>
+            </div>
+          )}
+
+          {reasoningSupport && (
+            <div className="mb-2 rounded-control border border-border px-3 py-2.5">
+              <ReasoningEffortField
+                value={modelConfig.reasoning_effort}
+                support={reasoningSupport}
+                onChange={(reasoning_effort) =>
+                  updateModelConfig({ reasoning_effort })
+                }
+              />
             </div>
           )}
 

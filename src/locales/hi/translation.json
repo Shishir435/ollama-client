@@ -1047,6 +1047,24 @@
         "unload_on_switch_description": "मॉडल स्विच करते समय अंतिम मॉडल अनलोड करके मेमोरी मुक्त करें।"
       },
       "parameters": {
+        "reasoning_effort": {
+          "label": "रीज़निंग प्रयास",
+          "description_reported": "इस मॉडल के प्रदाता द्वारा बताए गए स्तर।",
+          "description_profile": "इस प्रदाता और मॉडल परिवार के लिए सत्यापित स्तर।",
+          "description_unknown": "यह प्रदाता विश्वसनीय रीज़निंग नियंत्रण नहीं बताता।",
+          "options": {
+            "auto": "स्वचालित (प्रदाता डिफ़ॉल्ट)",
+            "auto_short": "स्वचालित",
+            "enabled": "चालू",
+            "none": "बंद",
+            "minimal": "न्यूनतम",
+            "low": "कम",
+            "medium": "मध्यम",
+            "high": "उच्च",
+            "xhigh": "बहुत उच्च",
+            "max": "अधिकतम"
+          }
+        },
         "temperature": {
           "label": "तापमान",
           "conservative": "रूढ़िवादी",

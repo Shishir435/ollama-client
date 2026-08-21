@@ -33,4 +33,13 @@ describe("parseStoredModelConfigMap", () => {
       { model: { temperature: 0.25 } }
     )
   })
+
+  it("accepts known reasoning efforts and rejects unknown values", () => {
+    expect(
+      parseStoredModelConfigMap({ model: { reasoning_effort: "xhigh" } })
+    ).toEqual({ model: { reasoning_effort: "xhigh" } })
+    expect(
+      parseStoredModelConfigMap({ model: { reasoning_effort: "extreme" } })
+    ).toEqual({})
+  })
 })

@@ -254,6 +254,7 @@ export const handleChatWithModel = withErrorContext(
       num_gpu: modelParams.num_gpu,
       num_batch: modelParams.num_batch,
       keep_alive: modelParams.keep_alive,
+      reasoningEffort: modelParams.reasoning_effort,
       tools: nativeTools
       // provider handles system prompt if needed, but we already injected it into messages
       // so we pass the prepared messages

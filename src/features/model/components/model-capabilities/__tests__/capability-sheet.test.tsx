@@ -4,8 +4,16 @@ import { describe, expect, it, vi } from "vitest"
 import type { ModelCapabilities } from "@/lib/providers/capabilities"
 import { ModelCapabilitySheet } from "../capability-sheet"
 
+const { updateModelConfigMock } = vi.hoisted(() => ({
+  updateModelConfigMock: vi.fn()
+}))
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key })
+}))
+
+vi.mock("@/features/model/hooks/use-model-config", () => ({
+  useModelConfig: () => [{ reasoning_effort: "auto" }, updateModelConfigMock]
 }))
 
 const allFalse: ModelCapabilities = {
@@ -85,6 +93,31 @@ describe("ModelCapabilitySheet", () => {
 
     expect(
       screen.getByText("model.capabilities.sheet.note_manual")
+    ).toBeInTheDocument()
+  })
+
+  it("shows detected per-model reasoning controls in the capability sheet", () => {
+    render(
+      <ModelCapabilitySheet
+        {...baseProps}
+        reasoningSupport={{
+          supportedEfforts: ["low", "medium", "high", "max"],
+          canEnable: false,
+          canDisable: true,
+          source: "provider-profile"
+        }}
+        onSave={vi.fn()}
+        onReset={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.getByText("settings.model.parameters.reasoning_effort.label")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "settings.model.parameters.reasoning_effort.description_profile"
+      )
     ).toBeInTheDocument()
   })
 

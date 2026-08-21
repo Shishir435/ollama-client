@@ -27,6 +27,7 @@ import type {
   OpenAIMessage,
   ProxyConfig,
   ProxyLogger,
+  ReasoningEffort,
   RetryAsync,
   ToolResultMessage
 } from "../types.js"
@@ -46,6 +47,10 @@ export interface CatalogModel {
     function_calling: boolean
     vision: boolean
     reasoning: boolean
+  }
+  reasoning?: {
+    supported_efforts: ReasoningEffort[]
+    default_effort?: ReasoningEffort
   }
   status?: string
 }
@@ -117,6 +122,16 @@ export interface StartTurnInput {
   messages: OpenAIMessage[]
   /** The request's OpenAI `tools` array, unmodified. */
   tools: unknown
+  /** Canonical explicit effort. Undefined means use the runtime default. */
+  reasoningEffort?: ReasoningEffort
+}
+
+/** A caller-controlled option was valid JSON but invalid for this backend. */
+export class BackendInputError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "BackendInputError"
+  }
 }
 
 export type ResolvedModel =
