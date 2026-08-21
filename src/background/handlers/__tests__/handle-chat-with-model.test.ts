@@ -752,6 +752,33 @@ describe("handleChatWithModel", () => {
       expect(mockStreamChat).not.toHaveBeenCalled()
     })
 
+    it("rejects image output when the provider has no generation operation", async () => {
+      mockProvider.getModelDetails.mockResolvedValueOnce({
+        capabilities: ["image"]
+      })
+      mockProvider.generateImage = undefined as never
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "unsupported-image-model",
+          messages: [{ role: "user", content: "a fox in the snow" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockStreamChat).not.toHaveBeenCalled()
+      expect(mockPort.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            status: 400,
+            code: "OLC-INPUT-UNSUPPORTED",
+            userMessage: expect.stringContaining("cannot generate images")
+          })
+        })
+      )
+    })
+
     it("should call streamChat on provider", async () => {
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",
