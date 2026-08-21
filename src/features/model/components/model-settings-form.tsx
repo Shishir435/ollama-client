@@ -41,7 +41,10 @@ export const ModelSettingsForm = () => {
   const { t } = useTranslation()
   const { models = [], selectedModel, selectedProviderId } = useProviderModels()
 
-  const [config, updateConfig] = useModelConfig(selectedModel)
+  const [config, updateConfig] = useModelConfig(
+    selectedModel,
+    selectedProviderId
+  )
   const selectedModelInfo = models.find(
     (model) =>
       model.model === selectedModel && model.providerId === selectedProviderId

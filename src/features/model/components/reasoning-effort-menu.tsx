@@ -36,18 +36,26 @@ export const ReasoningEffortMenu = () => {
 
   if (!selectedModel || !support) return null
 
-  return <ReasoningEffortSelect modelName={selectedModel} support={support} />
+  return (
+    <ReasoningEffortSelect
+      modelName={selectedModel}
+      providerId={selectedProviderId}
+      support={support}
+    />
+  )
 }
 
 const ReasoningEffortSelect = ({
   modelName,
+  providerId,
   support
 }: {
   modelName: string
+  providerId: string
   support: ReasoningEffortSupport
 }) => {
   const { t } = useTranslation()
-  const [config, updateConfig] = useModelConfig(modelName)
+  const [config, updateConfig] = useModelConfig(modelName, providerId)
   const options = getReasoningEffortOptions(support)
   const value = isReasoningEffortAllowed(config.reasoning_effort, support)
     ? config.reasoning_effort

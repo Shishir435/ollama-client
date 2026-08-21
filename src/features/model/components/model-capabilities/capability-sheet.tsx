@@ -95,7 +95,7 @@ export const ModelCapabilitySheet = ({
 }: ModelCapabilitySheetProps) => {
   const { t } = useTranslation()
   const { toast } = useToast()
-  const [modelConfig, updateModelConfig] = useModelConfig(modelName)
+  const [modelConfig, updateModelConfig] = useModelConfig(modelName, providerId)
   /*
    * Which note to show, from what detection produced for *this* model rather
    * than a static provider flag. `modelDetails` was the old signal, so LM Studio

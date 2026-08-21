@@ -54,7 +54,7 @@ describe("ReasoningEffortMenu", () => {
     const effortSelect = screen.getByRole("combobox", {
       name: "settings.model.parameters.reasoning_effort.label"
     })
-    expect(useModelConfigMock).toHaveBeenCalledWith("gpt-5.6-sol")
+    expect(useModelConfigMock).toHaveBeenCalledWith("gpt-5.6-sol", "openai")
 
     fireEvent.click(effortSelect)
     const highOption = await screen.findByRole("option", {

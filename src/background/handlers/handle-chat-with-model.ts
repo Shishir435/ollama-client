@@ -10,7 +10,10 @@ import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
 import { logger } from "@/lib/logger"
-import { resolveModelConfig } from "@/lib/model-config-utils"
+import {
+  getStoredModelConfig,
+  resolveModelConfig
+} from "@/lib/model-config-utils"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
@@ -76,7 +79,9 @@ export const handleChatWithModel = withErrorContext(
     setAbortController(abortKey, ac)
 
     const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
-    const modelParams = resolveModelConfig(modelConfigMap[model])
+    const modelParams = resolveModelConfig(
+      getStoredModelConfig(modelConfigMap, model, providerId)
+    )
 
     // App-owned permission cards are durable UI recovery state, never model
     // output or prompt context. Filter defensively even though the client does

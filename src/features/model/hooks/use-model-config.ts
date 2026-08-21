@@ -2,6 +2,8 @@ import { useCallback, useMemo } from "react"
 import { useSetting } from "@/hooks/use-setting"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
 import {
+  getStoredModelConfig,
+  modelConfigKey,
   normalizeStoredModelConfig,
   parseStoredModelConfigMap
 } from "@/lib/model-config-utils"
@@ -9,27 +11,35 @@ import { SETTINGS } from "@/lib/storage/settings"
 
 export type ProviderModelConfig = typeof DEFAULT_MODEL_CONFIG
 
-export const useModelConfig = (modelName: string) => {
+export const useModelConfig = (modelName: string, providerId?: string) => {
   const [modelConfigs, setModelConfigs] = useSetting(SETTINGS.MODEL_CONFIGS)
 
   const config = useMemo(() => {
     const stored = normalizeStoredModelConfig(
-      parseStoredModelConfigMap(modelConfigs)[modelName]
+      getStoredModelConfig(
+        parseStoredModelConfigMap(modelConfigs),
+        modelName,
+        providerId
+      )
     )
     return {
       ...DEFAULT_MODEL_CONFIG,
       ...(stored ?? {})
     }
-  }, [modelName, modelConfigs])
+  }, [modelName, providerId, modelConfigs])
 
   const update = useCallback(
     (newConfig: Partial<typeof DEFAULT_MODEL_CONFIG>) => {
       setModelConfigs((prev) => {
         const parsed = parseStoredModelConfigMap(prev)
-        const prevConfig = normalizeStoredModelConfig(parsed[modelName]) ?? {}
+        const key = modelConfigKey(modelName, providerId)
+        const prevConfig =
+          normalizeStoredModelConfig(
+            getStoredModelConfig(parsed, modelName, providerId)
+          ) ?? {}
         return {
           ...parsed,
-          [modelName]: {
+          [key]: {
             ...DEFAULT_MODEL_CONFIG,
             ...prevConfig,
             ...newConfig
@@ -37,7 +47,7 @@ export const useModelConfig = (modelName: string) => {
         }
       })
     },
-    [modelName, setModelConfigs]
+    [modelName, providerId, setModelConfigs]
   )
 
   return [config, update] as const

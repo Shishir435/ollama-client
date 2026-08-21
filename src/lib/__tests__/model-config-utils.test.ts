@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { DEFAULT_MODEL_CONFIG } from "@/lib/constants"
 import {
+  getStoredModelConfig,
+  modelConfigKey,
   parseStoredModelConfigMap,
   resolveModelConfig
 } from "@/lib/model-config-utils"
@@ -18,6 +20,30 @@ describe("resolveModelConfig", () => {
 
   it("preserves custom context size", () => {
     expect(resolveModelConfig({ num_ctx: 32768 }).num_ctx).toBe(32768)
+  })
+})
+
+describe("provider-scoped model configs", () => {
+  const configs = {
+    shared: { reasoning_effort: "medium" as const },
+    "provider-a::shared": { reasoning_effort: "low" as const },
+    "provider-b::shared": { reasoning_effort: "high" as const }
+  }
+
+  it("uses collision-safe keys and prefers the matching provider", () => {
+    expect(modelConfigKey("shared", "provider-a")).toBe("provider-a::shared")
+    expect(getStoredModelConfig(configs, "shared", "provider-a")).toEqual({
+      reasoning_effort: "low"
+    })
+    expect(getStoredModelConfig(configs, "shared", "provider-b")).toEqual({
+      reasoning_effort: "high"
+    })
+  })
+
+  it("falls back to legacy bare model keys", () => {
+    expect(getStoredModelConfig(configs, "shared", "provider-c")).toEqual({
+      reasoning_effort: "medium"
+    })
   })
 })
 

@@ -45,6 +45,20 @@ export const ModelConfigMapSchema = z.record(z.string(), ModelConfigSchema)
 
 export type StoredModelConfigMap = Record<string, Partial<ModelConfig>>
 
+export const modelConfigKey = (model: string, providerId?: string): string =>
+  providerId ? `${providerId}::${model}` : model
+
+/**
+ * Prefer the provider-scoped entry. Bare model keys remain a read fallback for
+ * settings written before model configs became collision-safe.
+ */
+export const getStoredModelConfig = (
+  configs: StoredModelConfigMap,
+  model: string,
+  providerId?: string
+): Partial<ModelConfig> | undefined =>
+  configs[modelConfigKey(model, providerId)] ?? configs[model]
+
 export const parseStoredModelConfigMap = (
   value: unknown
 ): StoredModelConfigMap => {

@@ -151,6 +151,31 @@ describe("useModelConfig", () => {
     expect(result2.current[0].temperature).toBe(0.6)
   })
 
+  it("isolates same-named models by provider", () => {
+    const configs = {
+      "provider-a::shared": { reasoning_effort: "low" },
+      "provider-b::shared": { reasoning_effort: "high" }
+    }
+    vi.mocked(useSetting).mockReturnValue([configs, mockSetModelConfigs] as any)
+
+    const { result: providerA } = renderHook(() =>
+      useModelConfig("shared", "provider-a")
+    )
+    const { result: providerB } = renderHook(() =>
+      useModelConfig("shared", "provider-b")
+    )
+
+    expect(providerA.current[0].reasoning_effort).toBe("low")
+    expect(providerB.current[0].reasoning_effort).toBe("high")
+
+    providerA.current[1]({ reasoning_effort: "medium" })
+    const updater = mockSetModelConfigs.mock.calls[0][0]
+    expect(updater(configs)).toMatchObject({
+      "provider-a::shared": { reasoning_effort: "medium" },
+      "provider-b::shared": { reasoning_effort: "high" }
+    })
+  })
+
   it("should handle undefined stored config", async () => {
     vi.mocked(useSetting).mockReturnValue([
       undefined,
