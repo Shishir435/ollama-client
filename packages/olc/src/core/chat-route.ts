@@ -46,6 +46,7 @@ import {
   toToolCallPayload
 } from "./openai-wire.js"
 import type { PendingToolCalls } from "./pending-tool-calls.js"
+import { OLC_PUBLIC_ROUTES } from "./public-api-contract.js"
 import { QueueStalledError, type RequestQueue } from "./queue.js"
 
 const createRequestId = () =>
@@ -598,7 +599,7 @@ export const registerChatRoutes = (
     }
   }
 
-  router.post("/v1/chat/completions", async (request, response) => {
+  router.post(OLC_PUBLIC_ROUTES.chatCompletions, async (request, response) => {
     const requestId = createRequestId()
     const body = (
       isRecord(request.body) ? request.body : {}

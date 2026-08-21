@@ -8,6 +8,7 @@
 import type { AgentBackend, CatalogModel } from "../backends/types.js"
 import type { ProxyLogger } from "../types.js"
 import { type Router, sendJson } from "./http.js"
+import { OLC_PUBLIC_ROUTES } from "./public-api-contract.js"
 
 const catalogError = (error: unknown) => ({
   error: {
@@ -20,7 +21,7 @@ export const registerModelRoutes = (
   router: Router,
   { backend, log = () => {} }: { backend: AgentBackend; log?: ProxyLogger }
 ): void => {
-  router.get("/v1/models", async (_request, response) => {
+  router.get(OLC_PUBLIC_ROUTES.models, async (_request, response) => {
     try {
       const models = await backend.listModels()
       log("GET /v1/models ok", { count: models.length })
@@ -31,7 +32,7 @@ export const registerModelRoutes = (
     }
   })
 
-  router.get("/v1/models/:modelId", async (request, response) => {
+  router.get(OLC_PUBLIC_ROUTES.model, async (request, response) => {
     try {
       const models: CatalogModel[] = await backend.listModels()
       const requested = request.params.modelId ?? ""

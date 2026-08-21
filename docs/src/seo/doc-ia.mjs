@@ -72,6 +72,15 @@ export const DOC_SECTIONS = [
     ]
   },
   {
+    label: "Developers",
+    items: [
+      {
+        label: "Developer portal",
+        slug: "developers"
+      }
+    ]
+  },
+  {
     label: "Internal",
     items: [
       {
@@ -87,6 +96,8 @@ export const DOC_SECTIONS = [
   {
     label: "About",
     items: [
+      { label: "About Ollama Client", slug: "about" },
+      { label: "Contact", slug: "contact" },
       { label: "FAQ", slug: "about/faq" },
       { label: "Changelog", slug: "about/changelog", generated: true },
       { label: "Keyboard Shortcuts", slug: "about/keyboard-shortcuts" }
