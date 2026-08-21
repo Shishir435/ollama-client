@@ -1,9 +1,17 @@
-import { chmodSync, copyFileSync, mkdtempSync, rmSync } from "node:fs"
+import {
+  chmodSync,
+  copyFileSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync
+} from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { resolveConfig } from "../../../config.js"
+import { BackendInputError } from "../../types.js"
+import { CodexAppServerClient } from "../app-server-client.js"
 import { createCodexBackend } from "../index.js"
 
 const temporaryDirectories: string[] = []
@@ -62,6 +70,18 @@ describe("Codex backend", () => {
         modelId: "fake-codex"
       })
 
+      const unsupportedTurn = backend.startTurn({
+        requestId: "request-invalid-effort",
+        model: { providerId: "codex", modelId: "fake-codex" },
+        messages: [{ role: "user", content: "Think hard" }],
+        tools: [],
+        reasoningEffort: "high"
+      })
+      await expect(unsupportedTurn).rejects.toBeInstanceOf(BackendInputError)
+      await expect(unsupportedTurn).rejects.toThrow(
+        "Model 'codex/fake-codex' does not support reasoning effort 'high'. Supported efforts: medium."
+      )
+
       const turn = await backend.startTurn({
         requestId: "request-1",
         model: { providerId: "codex", modelId: "fake-codex" },
@@ -78,7 +98,8 @@ describe("Codex backend", () => {
               parameters: { type: "object" }
             }
           }
-        ]
+        ],
+        reasoningEffort: "medium"
       })
       const suspended = new Promise<void>((resolve) => {
         suspend = resolve
@@ -120,6 +141,46 @@ describe("Codex backend", () => {
       await turn.dispose()
     } finally {
       await backend.shutdown()
+    }
+  })
+
+  it("terminates a child whose initialization fails before retrying", async () => {
+    const directory = mkdtempSync(
+      path.join(os.tmpdir(), "olc-codex-leak-test-")
+    )
+    temporaryDirectories.push(directory)
+    const executable = path.join(directory, "codex")
+    const pidFile = path.join(directory, "pids")
+    copyFileSync(
+      fileURLToPath(new URL("./fixtures/fake-codex-hang.mjs", import.meta.url)),
+      executable
+    )
+    chmodSync(executable, 0o755)
+
+    const client = new CodexAppServerClient({
+      executable,
+      cwd: directory,
+      log: vi.fn(),
+      requestTimeoutMs: 500
+    })
+
+    try {
+      await expect(client.start()).rejects.toThrow(
+        "Codex app-server request 'initialize' timed out"
+      )
+      await expect(client.start()).rejects.toThrow(
+        "Codex app-server request 'initialize' timed out"
+      )
+      const pids = readFileSync(pidFile, "utf8").trim().split("\n").map(Number)
+      expect(pids).toHaveLength(2)
+      expect(new Set(pids).size).toBe(2)
+      for (const pid of pids) {
+        expect(() => process.kill(pid, 0)).toThrow(
+          expect.objectContaining({ code: "ESRCH" })
+        )
+      }
+    } finally {
+      await client.shutdown()
     }
   })
 })

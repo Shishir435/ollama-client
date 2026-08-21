@@ -13,12 +13,18 @@ import type {
   TurnRunSignals,
   TurnStreamHandlers
 } from "../types.js"
+import { BackendInputError } from "../types.js"
 import {
   type AppServerMessage,
   CodexAppServerClient
 } from "./app-server-client.js"
 import { resolveCodexConfig } from "./config.js"
-import { type CodexModel, mapCodexModel, toDynamicTools } from "./wire.js"
+import {
+  type CodexModel,
+  mapCodexModel,
+  resolveCodexReasoningEffort,
+  toDynamicTools
+} from "./wire.js"
 
 interface ThreadStartResponse {
   thread?: { id?: string }
@@ -344,6 +350,14 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     },
     startTurn: async (input) => {
       await client.start()
+      if (input.reasoningEffort) {
+        const resolved = resolveCodexReasoningEffort(
+          await loadRawModels(),
+          input.model.modelId,
+          input.reasoningEffort
+        )
+        if ("error" in resolved) throw new BackendInputError(resolved.error)
+      }
       const prompt = buildPromptParts(input.messages)
       const tools = config.BRIDGE_ENABLED ? toDynamicTools(input.tools) : []
       const response = await client.request<ThreadStartResponse>(

@@ -26,13 +26,35 @@ export interface CodexModel {
 const isReasoningEffort = (value: string): value is ReasoningEffort =>
   REASONING_EFFORTS.includes(value as ReasoningEffort)
 
+export const codexReasoningEfforts = (model: CodexModel): ReasoningEffort[] =>
+  (model.supportedReasoningEfforts ?? [])
+    .map((option) => option.reasoningEffort ?? "")
+    .filter(isReasoningEffort)
+
+export const resolveCodexReasoningEffort = (
+  models: CodexModel[],
+  modelId: string,
+  effort: ReasoningEffort
+): { effort: ReasoningEffort } | { error: string } => {
+  const model = models.find(
+    (candidate) => candidate.id === modelId || candidate.model === modelId
+  )
+  const supported = model ? codexReasoningEfforts(model) : []
+  if (supported.includes(effort)) return { effort }
+  const id = `codex/${modelId}`
+  return {
+    error:
+      supported.length > 0
+        ? `Model '${id}' does not support reasoning effort '${effort}'. Supported efforts: ${supported.join(", ")}.`
+        : `Model '${id}' does not report any selectable reasoning-effort variants.`
+  }
+}
+
 export const mapCodexModel = (
   model: CodexModel,
   supportsTools = true
 ): CatalogModel => {
-  const efforts = (model.supportedReasoningEfforts ?? [])
-    .map((option) => option.reasoningEffort ?? "")
-    .filter(isReasoningEffort)
+  const efforts = codexReasoningEfforts(model)
   const defaultEffort = model.defaultReasoningEffort
   const modalities = model.inputModalities?.length
     ? model.inputModalities

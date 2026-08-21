@@ -47,6 +47,13 @@ lines.on("line", (line) => {
     return
   }
   if (message.method === "turn/start") {
+    if (message.params?.effort !== "medium") {
+      send({
+        id: message.id,
+        error: { code: -32602, message: "invalid reasoning effort" }
+      })
+      return
+    }
     send({ id: message.id, result: { turn: { id: "turn-1" } } })
     send({
       id: "dynamic-tool-1",

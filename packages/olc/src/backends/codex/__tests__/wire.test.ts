@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { mapCodexModel, normalizeCodexTools, toDynamicTools } from "../wire.js"
+import {
+  mapCodexModel,
+  normalizeCodexTools,
+  resolveCodexReasoningEffort,
+  toDynamicTools
+} from "../wire.js"
 
 describe("Codex wire mappings", () => {
   it("publishes model modalities and canonical reasoning efforts", () => {
@@ -36,6 +41,25 @@ describe("Codex wire mappings", () => {
     const mapped = mapCodexModel({ id: "codex-mini" }, false)
     expect(mapped.supported_parameters).not.toContain("tools")
     expect(mapped.capabilities.function_calling).toBe(false)
+  })
+
+  it("resolves only an exact model-advertised effort", () => {
+    const models = [
+      {
+        id: "gpt-5-codex",
+        supportedReasoningEfforts: [
+          { reasoningEffort: "low" },
+          { reasoningEffort: "medium" }
+        ]
+      }
+    ]
+    expect(
+      resolveCodexReasoningEffort(models, "gpt-5-codex", "medium")
+    ).toEqual({ effort: "medium" })
+    expect(resolveCodexReasoningEffort(models, "gpt-5-codex", "high")).toEqual({
+      error:
+        "Model 'codex/gpt-5-codex' does not support reasoning effort 'high'. Supported efforts: low, medium."
+    })
   })
 
   it("turns unique OpenAI function tools into App Server dynamic tools", () => {

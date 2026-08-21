@@ -33,8 +33,9 @@ export class CodexAppServerClient {
   private nextId = 1
   private readonly pending = new Map<string, PendingRequest>()
   private readonly listeners = new Set<NotificationListener>()
+  private readonly intentionalStops =
+    new WeakSet<ChildProcessWithoutNullStreams>()
   private serverRequestHandler: ServerRequestHandler | null = null
-  private stopping = false
 
   constructor({
     executable,
@@ -63,7 +64,6 @@ export class CodexAppServerClient {
   }
 
   private async startInner(): Promise<void> {
-    this.stopping = false
     const child = spawn(this.executable, ["app-server", "--stdio"], {
       cwd: this.cwd,
       // npm exposes command-line packages as `.cmd` shims on Windows. Node cannot
@@ -78,15 +78,20 @@ export class CodexAppServerClient {
     const stderr = readline.createInterface({ input: child.stderr })
     stderr.on("line", (line) => this.log("Codex app-server stderr", { line }))
 
-    child.once("error", (error) => this.failAll(error))
+    child.once("error", (error) => {
+      if (this.process === child) this.failAll(error)
+    })
     child.once("exit", (code, signal) => {
       const error = new Error(
         `Codex app-server exited${code === null ? "" : ` with code ${code}`}${signal ? ` (${signal})` : ""}`
       )
+      // A failed attempt may finish exiting after a retry has already spawned.
+      // Never let that stale child clear or fail the new child's state.
+      if (this.process !== child) return
       this.process = null
       this.startPromise = null
       this.failAll(error)
-      if (!this.stopping) {
+      if (!this.intentionalStops.has(child)) {
         this.emit({
           method: "olc/appServerExited",
           params: { message: error.message }
@@ -94,18 +99,28 @@ export class CodexAppServerClient {
       }
     })
 
-    await this.request("initialize", {
-      clientInfo: {
-        name: "ollama_client_olc",
-        title: "Ollama Client OLC",
-        version: "1.0.0"
-      },
-      capabilities: {
-        experimentalApi: true,
-        requestAttestation: false
-      }
-    })
-    this.notify("initialized", {})
+    try {
+      await this.request("initialize", {
+        clientInfo: {
+          name: "ollama_client_olc",
+          title: "Ollama Client OLC",
+          version: "1.0.0"
+        },
+        capabilities: {
+          experimentalApi: true,
+          requestAttestation: false
+        }
+      })
+      this.notify("initialized", {})
+    } catch (error) {
+      await this.terminateChild(
+        child,
+        error instanceof Error
+          ? error
+          : new Error("Codex app-server initialization failed")
+      )
+      throw error
+    }
   }
 
   onNotification(listener: NotificationListener): () => void {
@@ -148,14 +163,65 @@ export class CodexAppServerClient {
   }
 
   async shutdown(): Promise<void> {
-    this.stopping = true
     const child = this.process
-    this.process = null
-    this.startPromise = null
     if (!child) return
-    this.failAll(new Error("Codex app-server is shutting down"))
-    child.stdin.end()
-    child.kill("SIGTERM")
+    await this.terminateChild(
+      child,
+      new Error("Codex app-server is shutting down")
+    )
+  }
+
+  private async terminateChild(
+    child: ChildProcessWithoutNullStreams,
+    reason: Error
+  ): Promise<void> {
+    this.intentionalStops.add(child)
+    if (this.process === child) {
+      this.process = null
+      this.startPromise = null
+      this.failAll(reason)
+    }
+    if (!child.stdin.destroyed) child.stdin.destroy()
+    if (child.exitCode !== null || child.signalCode !== null) return
+
+    const exitedAfterTerm = this.waitForExit(child, 1_000)
+    try {
+      child.kill("SIGTERM")
+    } catch {
+      return
+    }
+    if (await exitedAfterTerm) return
+
+    const exitedAfterKill = this.waitForExit(child, 1_000)
+    try {
+      child.kill("SIGKILL")
+    } catch {
+      return
+    }
+    await exitedAfterKill
+  }
+
+  private waitForExit(
+    child: ChildProcessWithoutNullStreams,
+    timeoutMs: number
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      let settled = false
+      const finish = (exited: boolean) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        child.off("exit", onExit)
+        child.off("close", onExit)
+        resolve(exited)
+      }
+      const onExit = () => finish(true)
+      const timer = setTimeout(() => finish(false), timeoutMs)
+      if (typeof timer.unref === "function") timer.unref()
+      child.once("exit", onExit)
+      child.once("close", onExit)
+      if (child.exitCode !== null || child.signalCode !== null) finish(true)
+    })
   }
 
   private write(message: AppServerMessage): void {
