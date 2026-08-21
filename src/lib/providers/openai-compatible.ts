@@ -22,6 +22,12 @@ import {
   createProviderReplayArtifact,
   getProviderReplayBlocks
 } from "./provider-replay"
+import {
+  buildOpenAIReasoningFields,
+  hasAuthoritativeReasoningCatalog,
+  isReasoningEffortActive,
+  resolveReasoningEffortSupport
+} from "./reasoning-effort"
 import { decodeProviderJson } from "./response-decoding"
 import {
   getOpenAIServiceCompatibility,
@@ -77,6 +83,29 @@ const CatalogModalitiesSchema = z
   .unknown()
   .transform((value) => normalizeCatalogStrings(value, 50))
 
+const ReasoningEffortLevelSchema = z.enum([
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max"
+])
+
+const OpenRouterReasoningSchema = z
+  .object({
+    supported_efforts: z
+      .union([z.array(ReasoningEffortLevelSchema).max(10), z.null()])
+      .optional(),
+    default_effort: z
+      .union([ReasoningEffortLevelSchema, z.literal("none")])
+      .optional(),
+    default_enabled: z.boolean().optional(),
+    mandatory: z.boolean().optional()
+  })
+  .passthrough()
+
 const OpenAIModelCatalogItemSchema = z
   .object({
     id: z.string().trim().min(1),
@@ -93,7 +122,8 @@ const OpenAIModelCatalogItemSchema = z
     supported_sampling_parameters: CatalogStringsSchema.optional(),
     capabilities: z.unknown().optional(),
     supportsImageInput: z.unknown().optional(),
-    supportsTools: z.unknown().optional()
+    supportsTools: z.unknown().optional(),
+    reasoning: OpenRouterReasoningSchema.optional()
   })
   .passthrough()
   .transform((model) => {
@@ -397,39 +427,63 @@ export class OpenAICompatibleProvider implements LLMProvider {
           }
         )
       }
-      return catalog.data.map((m) => ({
-        name: m.id,
-        model: m.id,
-        modified_at: new Date().toISOString(),
-        size: 0,
-        digest: "",
-        details: {
-          parent_model: "",
-          format: "",
-          family: "openai",
-          families: [],
-          // `/v1/models` reports no size: the OpenAI schema has no field for
-          // one, and neither vLLM, LocalAI, KoboldCPP, nor an LM Studio
-          // fallback list adds one. So a self-hosted "Qwen3-8B" showed a
-          // blank badge beside genuine sizes from Ollama and llama.cpp. The
-          // id is the only source, and the parser refuses ambiguous ids
-          // rather than guessing, so hosted catalogs naming no size (gpt-4o)
-          // stay blank instead of inventing one.
-          parameter_size: parameterSizeFromModelId(m.id),
-          quantization_level: ""
-        },
-        ...((m.contextLength || m.modalities || m.supportedParameters) && {
-          capabilityHints: {
-            ...(m.contextLength ? { contextLength: m.contextLength } : {}),
-            ...(m.modalities && {
-              modalities: m.modalities
-            }),
-            ...(m.supportedParameters && {
-              supportedParameters: m.supportedParameters
+      return catalog.data.map((m) => {
+        const reasoning = m.reasoning
+          ? resolveReasoningEffortSupport(this.config, m.id, {
+              ...(m.reasoning.supported_efforts !== undefined
+                ? { supportedEfforts: m.reasoning.supported_efforts }
+                : {}),
+              ...(m.reasoning.default_effort
+                ? { defaultEffort: m.reasoning.default_effort }
+                : {}),
+              ...(m.reasoning.default_enabled !== undefined
+                ? { defaultEnabled: m.reasoning.default_enabled }
+                : {}),
+              ...(m.reasoning.mandatory !== undefined
+                ? { mandatory: m.reasoning.mandatory }
+                : {})
             })
-          }
-        })
-      }))
+          : hasAuthoritativeReasoningCatalog(this.config)
+            ? undefined
+            : resolveReasoningEffortSupport(this.config, m.id)
+        return {
+          name: m.id,
+          model: m.id,
+          modified_at: new Date().toISOString(),
+          size: 0,
+          digest: "",
+          details: {
+            parent_model: "",
+            format: "",
+            family: "openai",
+            families: [],
+            // `/v1/models` reports no size: the OpenAI schema has no field for
+            // one, and neither vLLM, LocalAI, KoboldCPP, nor an LM Studio
+            // fallback list adds one. So a self-hosted "Qwen3-8B" showed a
+            // blank badge beside genuine sizes from Ollama and llama.cpp. The
+            // id is the only source, and the parser refuses ambiguous ids
+            // rather than guessing, so hosted catalogs naming no size (gpt-4o)
+            // stay blank instead of inventing one.
+            parameter_size: parameterSizeFromModelId(m.id),
+            quantization_level: ""
+          },
+          ...((m.contextLength ||
+            m.modalities ||
+            m.supportedParameters ||
+            reasoning) && {
+            capabilityHints: {
+              ...(m.contextLength ? { contextLength: m.contextLength } : {}),
+              ...(m.modalities && {
+                modalities: m.modalities
+              }),
+              ...(m.supportedParameters && {
+                supportedParameters: m.supportedParameters
+              }),
+              ...(reasoning && { reasoning })
+            }
+          })
+        }
+      })
     } catch (e) {
       if (!signal?.aborted) {
         logger.error("Failed to fetch models", "OpenAICompatibleProvider", {
@@ -452,6 +506,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
       max_tokens,
       num_predict,
       top_p,
+      reasoningEffort,
       tools,
       tool_choice
     } = request
@@ -481,11 +536,16 @@ export class OpenAICompatibleProvider implements LLMProvider {
       stream_options: compatibility.sendStreamOptions
         ? { include_usage: true }
         : undefined,
-      temperature,
-      top_p,
+      temperature: isReasoningEffortActive(reasoningEffort, this.config, model)
+        ? undefined
+        : temperature,
+      top_p: isReasoningEffortActive(reasoningEffort, this.config, model)
+        ? undefined
+        : top_p,
       tools: hasTools ? tools.map(toOpenAITool) : undefined,
       // tool_choice is only valid alongside a tools array; omit it otherwise.
-      tool_choice: hasTools ? tool_choice : undefined
+      tool_choice: hasTools ? tool_choice : undefined,
+      ...buildOpenAIReasoningFields(this.config, reasoningEffort)
     }
     if (outputTokens !== undefined) {
       body[compatibility.maxTokensField] = outputTokens

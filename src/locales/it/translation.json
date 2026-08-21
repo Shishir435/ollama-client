@@ -1047,6 +1047,24 @@
         "unload_on_switch_description": "Libera memoria scaricando l'ultimo modello quando lo cambi."
       },
       "parameters": {
+        "reasoning_effort": {
+          "label": "Impegno di ragionamento",
+          "description_reported": "Livelli dichiarati dal fornitore di questo modello.",
+          "description_profile": "Livelli verificati per questo fornitore e questa famiglia di modelli.",
+          "description_unknown": "Questo fornitore non dichiara un controllo affidabile del ragionamento.",
+          "options": {
+            "auto": "Automatico (predefinito del fornitore)",
+            "auto_short": "Automatico",
+            "enabled": "Attivo",
+            "none": "Disattivo",
+            "minimal": "Minimal",
+            "low": "Basso",
+            "medium": "Medio",
+            "high": "Alto",
+            "xhigh": "Molto alto",
+            "max": "Massimo"
+          }
+        },
         "temperature": {
           "label": "Temperatura",
           "conservative": "Conservativa",

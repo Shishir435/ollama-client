@@ -20,18 +20,21 @@
  * this proxy or of which backend is behind it.
  */
 import type { ServerResponse } from "node:http"
-import type {
-  AgentBackend,
-  BackendTurn,
-  TurnResult,
-  TurnStreamHandlers
+import {
+  type AgentBackend,
+  BackendInputError,
+  type BackendTurn,
+  type TurnResult,
+  type TurnStreamHandlers
 } from "../backends/types.js"
-import type {
-  ChatCompletionRequest,
-  PendingToolCall,
-  ProxyConfig,
-  ProxyLogger,
-  ToolResultMessage
+import {
+  type ChatCompletionRequest,
+  type PendingToolCall,
+  type ProxyConfig,
+  type ProxyLogger,
+  REASONING_EFFORTS,
+  type ReasoningEffort,
+  type ToolResultMessage
 } from "../types.js"
 import { isRecord, sleep } from "../util.js"
 import { type Router, sendJson, startEventStream } from "./http.js"
@@ -51,6 +54,41 @@ import { QueueStalledError, type RequestQueue } from "./queue.js"
 
 const createRequestId = () =>
   `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+
+const parseReasoningEffort = (
+  body: ChatCompletionRequest
+): { value?: ReasoningEffort; error?: string } => {
+  const nested = isRecord(body.reasoning) ? body.reasoning.effort : undefined
+  const candidates = [body.reasoning_effort, nested].filter(
+    (value) => value !== undefined
+  )
+  if (candidates.length === 0) return {}
+
+  const normalized = candidates.map((value) =>
+    value === "auto" ? undefined : value
+  )
+  const invalid = normalized.find(
+    (value) =>
+      value !== undefined &&
+      !REASONING_EFFORTS.includes(value as ReasoningEffort)
+  )
+  if (invalid !== undefined) {
+    return {
+      error: `Unsupported reasoning effort '${String(invalid)}'. Expected one of: auto, ${REASONING_EFFORTS.join(", ")}.`
+    }
+  }
+
+  const explicit = normalized.filter(
+    (value): value is ReasoningEffort => value !== undefined
+  )
+  if (new Set(explicit).size > 1) {
+    return {
+      error:
+        "reasoning_effort and reasoning.effort must not specify different values."
+    }
+  }
+  return explicit[0] ? { value: explicit[0] } : {}
+}
 
 interface SuspensionSignal {
   promise: Promise<void>
@@ -446,6 +484,14 @@ export const registerChatRoutes = (
       return
     }
 
+    const reasoningEffort = parseReasoningEffort(body)
+    if (reasoningEffort.error) {
+      sendJson(response, 400, {
+        error: { message: reasoningEffort.error, type: "BadRequest" }
+      })
+      return
+    }
+
     const target = await backend.resolveModel(requestedModel)
     if ("error" in target) {
       sendJson(response, 400, {
@@ -484,7 +530,10 @@ export const registerChatRoutes = (
           requestId,
           model: target,
           messages,
-          tools
+          tools,
+          ...(reasoningEffort.value
+            ? { reasoningEffort: reasoningEffort.value }
+            : {})
         })
       } else {
         clearParked(turn.id)
@@ -593,9 +642,17 @@ export const registerChatRoutes = (
         emitter.finish("stop")
         return
       }
-      sendJson(response, /Request timeout/.test(message) ? 504 : 500, {
-        error: { message, type: "ProxyError" }
-      })
+      const inputError = error instanceof BackendInputError
+      sendJson(
+        response,
+        inputError ? 400 : /Request timeout/.test(message) ? 504 : 500,
+        {
+          error: {
+            message,
+            type: inputError ? "BadRequest" : "ProxyError"
+          }
+        }
+      )
     }
   }
 

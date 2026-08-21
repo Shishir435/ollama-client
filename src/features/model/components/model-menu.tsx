@@ -605,6 +605,7 @@ export const ModelMenu = ({
           modelName={capabilityTarget.model}
           current={targetCurrent}
           detected={targetDetected}
+          reasoningSupport={targetModelData?.capabilityHints?.reasoning}
           hasOverride={Boolean(
             getOverride(capabilityTarget.providerId, capabilityTarget.model)
           )}

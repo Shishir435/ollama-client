@@ -4,7 +4,8 @@ import type {
   ChatMessage,
   ChatStreamMessage,
   ProviderModel,
-  ProviderModelDetails
+  ProviderModelDetails,
+  ReasoningEffort
 } from "@/types"
 
 export enum ProviderType {
@@ -116,7 +117,9 @@ export interface ChatRequest {
    * Ollama thinking toggle. Used for short internal utility calls where hidden
    * reasoning would waste time and never be shown to the user.
    */
-  think?: boolean
+  think?: boolean | "low" | "medium" | "high" | "max"
+  /** Provider-neutral user-selected reasoning control. `auto` is omitted. */
+  reasoningEffort?: ReasoningEffort
   /**
    * Tool definitions offered to the model. Only set for tool-capable models
    * (gated on resolved `toolCalling`); when absent the request is identical to

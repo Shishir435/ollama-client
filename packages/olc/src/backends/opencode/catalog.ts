@@ -11,6 +11,7 @@
  * a model in the client's menu that no request can ever reach.
  */
 
+import { REASONING_EFFORTS, type ReasoningEffort } from "../../types.js"
 import { isRecord } from "../../util.js"
 import type { CatalogModel } from "../types.js"
 
@@ -34,6 +35,37 @@ const modalitiesOf = (input: unknown): string[] => {
   return modalities.length > 0 ? modalities : ["text"]
 }
 
+const reasoningEffortsOf = (input: unknown): ReasoningEffort[] => {
+  const ids = new Set<string>()
+  if (Array.isArray(input)) {
+    for (const entry of input) {
+      if (typeof entry === "string") ids.add(entry)
+      else if (isRecord(entry) && typeof entry.id === "string")
+        ids.add(entry.id)
+    }
+  } else if (isRecord(input)) {
+    for (const id of Object.keys(input)) ids.add(id)
+  }
+  return REASONING_EFFORTS.filter((effort) => ids.has(effort))
+}
+
+const reasoningMetadata = (
+  variants: unknown,
+  defaultVariant?: unknown
+): CatalogModel["reasoning"] => {
+  const supportedEfforts = reasoningEffortsOf(variants)
+  if (supportedEfforts.length === 0) return undefined
+  const defaultEffort =
+    typeof defaultVariant === "string" &&
+    supportedEfforts.includes(defaultVariant as ReasoningEffort)
+      ? (defaultVariant as ReasoningEffort)
+      : undefined
+  return {
+    supported_efforts: supportedEfforts,
+    ...(defaultEffort ? { default_effort: defaultEffort } : {})
+  }
+}
+
 /** Map one OpenCode model into an OpenAI-compatible catalog entry. */
 export const mapModel = (
   providerId: string,
@@ -44,10 +76,13 @@ export const mapModel = (
   const capabilities = isRecord(model.capabilities) ? model.capabilities : {}
   const limit = isRecord(model.limit) ? model.limit : {}
   const modalities = modalitiesOf(capabilities.input)
+  const reasoning = reasoningMetadata(model.variants, model.variant)
 
   const supportedParameters: string[] = []
   if (capabilities.toolcall === true) supportedParameters.push("tools")
-  if (capabilities.reasoning === true) supportedParameters.push("reasoning")
+  if (capabilities.reasoning === true || reasoning) {
+    supportedParameters.push("reasoning")
+  }
   if (capabilities.temperature === true) supportedParameters.push("temperature")
 
   const contextLength =
@@ -72,9 +107,104 @@ export const mapModel = (
     capabilities: {
       function_calling: capabilities.toolcall === true,
       vision: modalities.includes("image"),
-      reasoning: capabilities.reasoning === true
+      reasoning: capabilities.reasoning === true || Boolean(reasoning)
     },
+    ...(reasoning ? { reasoning } : {}),
     ...(typeof model.status === "string" ? { status: model.status } : {})
+  }
+}
+
+/** Map one OpenCode v2 `/api/model` entry, including exact variants. */
+export const mapV2Model = (info: unknown): CatalogModel | null => {
+  if (!isRecord(info)) return null
+  const providerId =
+    typeof info.providerID === "string" ? info.providerID.trim() : ""
+  const modelId = typeof info.id === "string" ? info.id.trim() : ""
+  if (!providerId || !modelId) return null
+
+  const capabilities = isRecord(info.capabilities) ? info.capabilities : {}
+  const limit = isRecord(info.limit) ? info.limit : {}
+  const request = isRecord(info.request) ? info.request : {}
+  const modalities = Array.isArray(capabilities.input)
+    ? capabilities.input.filter(
+        (value): value is string => typeof value === "string"
+      )
+    : ["text"]
+  const reasoning = reasoningMetadata(info.variants, request.variant)
+  const supportedParameters: string[] = []
+  if (capabilities.tools === true) supportedParameters.push("tools")
+  if (reasoning) supportedParameters.push("reasoning")
+
+  return {
+    id: `${providerId}/${modelId}`,
+    object: "model",
+    created: Math.floor(Date.now() / 1000),
+    owned_by: providerId,
+    name: typeof info.name === "string" && info.name ? info.name : modelId,
+    ...(typeof limit.context === "number" && limit.context > 0
+      ? { context_length: limit.context }
+      : {}),
+    ...(typeof limit.output === "number" && limit.output > 0
+      ? { max_tokens: limit.output }
+      : {}),
+    input_modalities: modalities.length > 0 ? modalities : ["text"],
+    supported_parameters: supportedParameters,
+    capabilities: {
+      function_calling: capabilities.tools === true,
+      vision: modalities.includes("image"),
+      reasoning: Boolean(reasoning)
+    },
+    ...(reasoning ? { reasoning } : {}),
+    ...(typeof info.status === "string" ? { status: info.status } : {})
+  }
+}
+
+export const collectV2Models = (raw: unknown): CatalogModel[] =>
+  Array.isArray(raw)
+    ? raw
+        .map((model) => mapV2Model(model))
+        .filter((model): model is CatalogModel => model !== null)
+    : []
+
+/**
+ * OpenCode 1.18 can return a complete v2 model list while omitting variants
+ * that remain present in its legacy provider catalog. Keep v2 as the model
+ * authority and use the legacy catalog only to restore exact reasoning facts.
+ */
+export const mergeReasoningMetadata = (
+  models: CatalogModel[],
+  legacyModels: CatalogModel[]
+): CatalogModel[] => {
+  const legacyById = new Map(legacyModels.map((model) => [model.id, model]))
+  return models.map((model) => {
+    if (model.reasoning) return model
+    const reasoning = legacyById.get(model.id)?.reasoning
+    if (!reasoning) return model
+    return {
+      ...model,
+      supported_parameters: Array.from(
+        new Set([...model.supported_parameters, "reasoning"])
+      ),
+      capabilities: { ...model.capabilities, reasoning: true },
+      reasoning
+    }
+  })
+}
+
+export const resolveReasoningVariant = (
+  models: CatalogModel[],
+  target: { providerId: string; modelId: string },
+  effort: ReasoningEffort
+): { variant: ReasoningEffort } | { error: string } => {
+  const id = `${target.providerId}/${target.modelId}`
+  const model = models.find((candidate) => candidate.id === id)
+  const supported = model?.reasoning?.supported_efforts ?? []
+  if (supported.includes(effort)) return { variant: effort }
+  return {
+    error:
+      supported.length > 0
+        ? `Model '${id}' does not support reasoning effort '${effort}'. Supported efforts: ${supported.join(", ")}.`
+        : `Model '${id}' does not report any selectable reasoning-effort variants.`
   }
 }
 

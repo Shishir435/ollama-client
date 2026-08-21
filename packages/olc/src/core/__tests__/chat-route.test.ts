@@ -11,7 +11,11 @@ import type {
   TurnStreamHandlers
 } from "../../backends/types.js"
 import { resolveConfig } from "../../config.js"
-import type { ProxyConfig, ToolResultMessage } from "../../types.js"
+import type {
+  ProxyConfig,
+  ReasoningEffort,
+  ToolResultMessage
+} from "../../types.js"
 import { registerChatRoutes } from "../chat-route.js"
 import { createClientToolInvoker } from "../client-tools.js"
 import { createRouter, sendJson } from "../http.js"
@@ -50,7 +54,12 @@ const createFakeBackend = (
   options: FakeBackendOptions
 ) => {
   const turns = new Map<string, FakeTurn>()
-  const calls = { startTurn: 0, dispose: 0, abort: 0 }
+  const calls: {
+    startTurn: number
+    dispose: number
+    abort: number
+    reasoningEfforts: Array<ReasoningEffort | undefined>
+  } = { startTurn: 0, dispose: 0, abort: 0, reasoningEfforts: [] }
   let nextId = 0
 
   class FakeTurn implements BackendTurn {
@@ -170,6 +179,7 @@ const createFakeBackend = (
         : { error: `Model '${String(requested)}' is not in the catalog.` },
     startTurn: async (input) => {
       calls.startTurn += 1
+      calls.reasoningEfforts.push(input.reasoningEffort)
       nextId += 1
       const turn = new FakeTurn(
         `turn_${nextId}`,
@@ -188,7 +198,12 @@ const createFakeBackend = (
 interface Harness {
   url: string
   server: Server
-  calls: { startTurn: number; dispose: number; abort: number }
+  calls: {
+    startTurn: number
+    dispose: number
+    abort: number
+    reasoningEfforts: Array<ReasoningEffort | undefined>
+  }
   pending: PendingToolCalls
 }
 
@@ -320,6 +335,47 @@ describe("chat completions", () => {
     expect(turn.content).toBe("working. all good")
     expect(turn.finishReason).toBe("stop")
     expect(harness.calls.dispose).toBe(1)
+  })
+
+  it("normalizes flat and nested reasoning effort for the backend", async () => {
+    harness = await startHarness({ mode: "answer" })
+
+    await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      reasoning_effort: "high",
+      messages: askedForTabs
+    })
+    await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      reasoning: { effort: "low" },
+      messages: askedForTabs
+    })
+
+    expect(harness.calls.reasoningEfforts).toEqual(["high", "low"])
+  })
+
+  it("rejects invalid or conflicting reasoning effort before starting a turn", async () => {
+    harness = await startHarness({ mode: "answer" })
+
+    const invalid = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      reasoning_effort: "ultra",
+      messages: askedForTabs
+    })
+    const conflicting = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      reasoning_effort: "high",
+      reasoning: { effort: "low" },
+      messages: askedForTabs
+    })
+
+    expect(invalid.status).toBe(400)
+    expect(conflicting.status).toBe(400)
+    expect(harness.calls.startTurn).toBe(0)
   })
 
   it("hands a parked tool call to the client, then resumes the same turn", async () => {

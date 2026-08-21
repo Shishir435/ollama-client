@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { collectModels, mapModel, normalizeProviders } from "../catalog.js"
+import {
+  collectModels,
+  collectV2Models,
+  mapModel,
+  mergeReasoningMetadata,
+  normalizeProviders,
+  resolveReasoningVariant
+} from "../catalog.js"
 
 const opencodeModel = {
   id: "laguna-s-2.1-free",
@@ -11,6 +18,12 @@ const opencodeModel = {
     attachment: false,
     toolcall: true,
     input: { text: true, image: false, audio: false, video: false, pdf: false }
+  },
+  variants: {
+    low: { reasoningEffort: "low" },
+    high: { reasoningEffort: "high" },
+    max: { reasoningEffort: "max" },
+    fast: { serviceTier: "priority" }
   },
   limit: { context: 256_000, output: 32_000 }
 }
@@ -31,6 +44,9 @@ describe("mapModel", () => {
         function_calling: true,
         vision: false,
         reasoning: true
+      },
+      reasoning: {
+        supported_efforts: ["low", "high", "max"]
       },
       status: "active"
     })
@@ -88,5 +104,96 @@ describe("collectModels", () => {
 
   it("reports an empty catalog as empty", () => {
     expect(collectModels(undefined)).toEqual([])
+  })
+})
+
+describe("OpenCode v2 reasoning variants", () => {
+  const models = collectV2Models([
+    {
+      id: "gpt-5.6-sol",
+      providerID: "openai",
+      name: "GPT-5.6 Sol",
+      capabilities: { tools: true, input: ["text", "image"] },
+      request: { variant: "medium" },
+      variants: [
+        { id: "low", headers: {}, body: {} },
+        { id: "medium", headers: {}, body: {} },
+        { id: "high", headers: {}, body: {} },
+        { id: "xhigh", headers: {}, body: {} },
+        { id: "max", headers: {}, body: {} },
+        { id: "priority", headers: {}, body: {} }
+      ],
+      limit: { context: 1_000_000, output: 128_000 },
+      status: "active"
+    }
+  ])
+
+  it("publishes only canonical effort variants and their default", () => {
+    expect(models[0]).toMatchObject({
+      id: "openai/gpt-5.6-sol",
+      supported_parameters: ["tools", "reasoning"],
+      reasoning: {
+        supported_efforts: ["low", "medium", "high", "xhigh", "max"],
+        default_effort: "medium"
+      },
+      capabilities: { reasoning: true, vision: true }
+    })
+  })
+
+  it("restores exact variants omitted by v2 from the legacy catalog", () => {
+    const v2 = collectV2Models([
+      {
+        id: "x-preview-f-free",
+        providerID: "opencode",
+        name: "Ox Alpha Free",
+        capabilities: { tools: true, input: ["text", "image"] },
+        request: { headers: {}, body: {} },
+        variants: [],
+        limit: { context: 1_000_000, output: 131_072 },
+        status: "active"
+      }
+    ])
+    const legacy = collectModels([
+      {
+        id: "opencode",
+        models: {
+          "x-preview-f-free": {
+            id: "x-preview-f-free",
+            capabilities: { reasoning: true, toolcall: true },
+            variants: {
+              low: { reasoningEffort: "low" },
+              high: { reasoningEffort: "high" },
+              max: { reasoningEffort: "max" }
+            }
+          }
+        }
+      }
+    ])
+
+    expect(mergeReasoningMetadata(v2, legacy)[0]).toMatchObject({
+      supported_parameters: ["tools", "reasoning"],
+      capabilities: { reasoning: true },
+      reasoning: { supported_efforts: ["low", "high", "max"] }
+    })
+  })
+
+  it("resolves only an exact model-advertised effort", () => {
+    expect(
+      resolveReasoningVariant(
+        models,
+        { providerId: "openai", modelId: "gpt-5.6-sol" },
+        "high"
+      )
+    ).toEqual({ variant: "high" })
+    expect(
+      resolveReasoningVariant(
+        models,
+        { providerId: "openai", modelId: "gpt-5.6-sol" },
+        "minimal"
+      )
+    ).toEqual({
+      error:
+        "Model 'openai/gpt-5.6-sol' does not support reasoning effort 'minimal'. Supported efforts: low, medium, high, xhigh, max."
+    })
   })
 })

@@ -2,6 +2,26 @@ import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import type { ChatMessage } from "./chat"
 import type { ChromeResponse } from "./messaging"
 
+export type ReasoningEffortLevel =
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max"
+
+export type ReasoningEffort = "auto" | "enabled" | "none" | ReasoningEffortLevel
+
+export interface ReasoningEffortSupport {
+  supportedEfforts: ReasoningEffortLevel[]
+  canEnable: boolean
+  canDisable: boolean
+  mandatory?: boolean
+  defaultEffort?: ReasoningEffortLevel | "none"
+  defaultEnabled?: boolean
+  source: "model-metadata" | "provider-profile"
+}
+
 export type ProviderModel = {
   name: string
   model: string
@@ -46,6 +66,8 @@ export type ProviderModel = {
     modalities?: string[]
     /** Request parameters explicitly supported by the served model. */
     supportedParameters?: string[]
+    /** Exact reasoning controls reported or conservatively resolved. */
+    reasoning?: ReasoningEffortSupport
   }
 }
 
@@ -75,6 +97,7 @@ export type ModelConfig = {
   keep_alive?: string | number
   warm_on_select?: boolean
   unload_on_switch?: boolean
+  reasoning_effort: ReasoningEffort
 }
 
 export type ModelConfigMap = Record<string, ModelConfig>
@@ -83,7 +106,7 @@ export interface OllamaChatRequest {
   model: string
   messages: ChatMessage[]
   stream?: boolean
-  think?: boolean
+  think?: boolean | "low" | "medium" | "high" | "max"
   format?: string
   keep_alive?: string | number
   options?: {

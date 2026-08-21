@@ -71,7 +71,8 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   num_batch: undefined,
   keep_alive: undefined,
   warm_on_select: false,
-  unload_on_switch: false
+  unload_on_switch: false,
+  reasoning_effort: "auto"
 }
 
 /** Default for user-disableable browser-tab context and tool access. */

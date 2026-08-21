@@ -14,6 +14,7 @@
  */
 
 import { createOpencodeClient } from "@opencode-ai/sdk"
+import { createOpencodeClient as createOpencodeV2Client } from "@opencode-ai/sdk/v2"
 import { type Router, sendJson } from "../../core/http.js"
 import {
   buildPromptParts,
@@ -22,17 +23,24 @@ import {
 } from "../../core/openai-wire.js"
 import type { ToolResultMessage } from "../../types.js"
 import { isRecord } from "../../util.js"
-import type {
-  AgentBackend,
-  BackendContext,
-  BackendTurn,
-  CatalogModel,
-  StartTurnInput,
-  TurnResult,
-  TurnRunSignals,
-  TurnStreamHandlers
+import {
+  type AgentBackend,
+  type BackendContext,
+  BackendInputError,
+  type BackendTurn,
+  type CatalogModel,
+  type StartTurnInput,
+  type TurnResult,
+  type TurnRunSignals,
+  type TurnStreamHandlers
 } from "../types.js"
-import { collectModels, resolveModelId } from "./catalog.js"
+import {
+  collectModels,
+  collectV2Models,
+  mergeReasoningMetadata,
+  resolveModelId,
+  resolveReasoningVariant
+} from "./catalog.js"
 import { resolveOpencodeConfig } from "./config.js"
 import { createBackendSupervisor } from "./server.js"
 import { ToolManifest } from "./tool-manifest.js"
@@ -45,6 +53,7 @@ interface PromptBody {
   model: { providerID: string; modelID: string }
   system?: string
   agent?: string
+  variant?: string
   tools: Record<string, boolean>
   parts: PromptPart[]
 }
@@ -59,6 +68,9 @@ export const createOpencodeBackend = (
     port: config.PORT
   })
   const client = createOpencodeClient({
+    baseUrl: opencode.OPENCODE_SERVER_URL
+  })
+  const v2Client = createOpencodeV2Client({
     baseUrl: opencode.OPENCODE_SERVER_URL
   })
   const turnReader = createTurnReader({ client, log, retryAsync })
@@ -85,12 +97,40 @@ export const createOpencodeBackend = (
     if (!force && catalogCache && catalogCache.expiresAt > Date.now()) {
       return catalogCache.models
     }
-    const response = await retryAsync(() => client.config.providers(), {
-      label: "config.providers"
-    })
-    const providers = (response as { data?: { providers?: unknown } })?.data
-      ?.providers
-    const models = collectModels(providers)
+    let models: CatalogModel[] | null = null
+    try {
+      const response = await retryAsync(() => v2Client.v2.model.list(), {
+        label: "v2.model.list"
+      })
+      const data = (response as { data?: { data?: unknown } })?.data?.data
+      if (Array.isArray(data)) models = collectV2Models(data)
+    } catch (error) {
+      log("OpenCode v2 model catalog unavailable; using legacy catalog", {
+        message: (error as Error).message
+      })
+    }
+
+    if (models === null) {
+      const response = await retryAsync(() => client.config.providers(), {
+        label: "config.providers"
+      })
+      const providers = (response as { data?: { providers?: unknown } })?.data
+        ?.providers
+      models = collectModels(providers)
+    } else {
+      try {
+        const response = await retryAsync(() => client.config.providers(), {
+          label: "config.providers.reasoning"
+        })
+        const providers = (response as { data?: { providers?: unknown } })?.data
+          ?.providers
+        models = mergeReasoningMetadata(models, collectModels(providers))
+      } catch (error) {
+        log("OpenCode legacy reasoning metadata unavailable", {
+          message: (error as Error).message
+        })
+      }
+    }
     catalogCache = {
       models,
       expiresAt: Date.now() + MODEL_CATALOG_CACHE_TTL_MS
@@ -178,9 +218,9 @@ export const createOpencodeBackend = (
         this.prompted = true
         await retryAsync(
           () =>
-            client.session.promptAsync({
-              path: { id: this.id },
-              body: this.promptBody
+            v2Client.session.promptAsync({
+              sessionID: this.id,
+              ...this.promptBody
             }),
           { label: "session.promptAsync" }
         )
@@ -338,6 +378,17 @@ export const createOpencodeBackend = (
         allowedNativeTools: opencode.ALLOW_OPENCODE_TOOLS
       })
 
+      let variant: string | undefined
+      if (input.reasoningEffort) {
+        const resolved = resolveReasoningVariant(
+          await loadModels(),
+          input.model,
+          input.reasoningEffort
+        )
+        if ("error" in resolved) throw new BackendInputError(resolved.error)
+        variant = resolved.variant
+      }
+
       const created = await retryAsync(() => client.session.create(), {
         label: "session.create"
       })
@@ -351,6 +402,7 @@ export const createOpencodeBackend = (
         },
         system: config.SYSTEM_PROMPT || system || undefined,
         agent: opencode.OPENCODE_AGENT || undefined,
+        ...(variant ? { variant } : {}),
         tools: flags,
         parts
       })
