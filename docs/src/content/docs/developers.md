@@ -9,17 +9,24 @@ The project does include **olc**, a local command-line proxy that exposes an age
 
 ## Quickstart
 
-olc currently runs from a repository checkout and requires Node.js 22.12 or newer plus OpenCode on `PATH`.
+olc currently runs from a repository checkout and requires Node.js 22.12 or
+newer plus the selected runtime on `PATH`: OpenCode, or Codex CLI with an
+existing `codex login`.
 
 ```bash
 git clone https://github.com/Shishir435/ollama-client.git
 cd ollama-client
 pnpm install
-pnpm proxy:bundle
-packages/olc/bin/olc --api-key "replace-with-a-long-random-token"
+pnpm proxy:opencode --api-key "replace-with-a-long-random-token"
+# or, after `codex login`:
+pnpm proxy:codex --api-key "replace-with-a-long-random-token"
 ```
 
 The default address is `http://127.0.0.1:8083`. Configure Ollama Client with a custom OpenAI-compatible provider whose base URL is `http://127.0.0.1:8083/v1`, then select a model returned by the catalog.
+
+Use `pnpm proxy:opencode:debug` or `pnpm proxy:codex:debug` for verbose proxy
+logging. The existing `pnpm proxy` and `pnpm proxy:debug` commands remain
+OpenCode aliases.
 
 The CLI is part of the source distribution but is not yet published to npm, PyPI, or Homebrew. Do not tell users to install an `olc` package from a public registry unless an official release announcement links it.
 

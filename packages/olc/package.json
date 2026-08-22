@@ -23,7 +23,11 @@
   "scripts": {
     "build": "pnpm clean && tsc6 -p tsconfig.build.json && node ./scripts/copy-plugin.mjs",
     "typecheck": "tsc6 -p tsconfig.json --noEmit",
-    "dev": "tsx src/cli.ts --debug",
+    "dev": "tsx src/cli.ts --backend opencode --debug",
+    "dev:opencode": "tsx src/cli.ts --backend opencode",
+    "dev:opencode:debug": "tsx src/cli.ts --backend opencode --debug",
+    "dev:codex": "tsx src/cli.ts --backend codex",
+    "dev:codex:debug": "tsx src/cli.ts --backend codex --debug",
     "start": "node ./dist/cli.js",
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "bundle": "pnpm clean && node ./scripts/bundle.mjs && node ./scripts/copy-plugin.mjs",

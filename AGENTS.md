@@ -46,7 +46,10 @@ pnpm typecheck              # tsc --noEmit, extension and packages
 pnpm docs:dev               # Astro dev for the docs site (docs/)
 pnpm docs:build             # Astro build → docs/dist/
 
-pnpm proxy                  # Run the olc proxy CLI from source
+pnpm proxy:opencode         # Run the olc proxy with OpenCode
+pnpm proxy:opencode:debug   # Run OpenCode with verbose proxy logging
+pnpm proxy:codex            # Run the olc proxy with Codex
+pnpm proxy:codex:debug      # Run Codex with verbose proxy logging
 pnpm proxy:bundle           # Bundle it to packages/olc/dist/olc.mjs
 
 pnpm generate:resources     # Validate locales, regenerate derived extension assets
