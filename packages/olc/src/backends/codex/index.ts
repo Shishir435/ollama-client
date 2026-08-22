@@ -215,9 +215,11 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     readonly id: string
     readonly signal: AbortSignal
     private readonly abortController = new AbortController()
+    private readonly aborted: Promise<void>
     private readonly queue = new MessageQueue()
     private readonly input: StartTurnInput
     private codexTurnId: string | null = null
+    private interruptPromise: Promise<void> | null = null
     private started = false
     private content = ""
     private reasoning = ""
@@ -229,6 +231,9 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       this.id = threadId
       this.input = input
       this.signal = this.abortController.signal
+      this.aborted = new Promise((resolve) => {
+        this.signal.addEventListener("abort", () => resolve(), { once: true })
+      })
     }
 
     push(message: AppServerMessage): void {
@@ -256,6 +261,10 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
         const turnId = response?.turn?.id
         if (!turnId) throw new Error("Codex did not return a turn id")
         this.codexTurnId = turnId
+        if (this.signal.aborted) {
+          await this.interruptStartedTurn()
+          return this.interruptedResult()
+        }
       }
       return await this.readLeg(handlers, signals)
     }
@@ -271,18 +280,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
 
     async abort(): Promise<void> {
       this.abortController.abort()
-      if (!this.codexTurnId) return
-      try {
-        await client.request("turn/interrupt", {
-          threadId: this.id,
-          turnId: this.codexTurnId
-        })
-      } catch (error) {
-        log("Codex turn interrupt failed", {
-          threadId: this.id,
-          message: (error as Error).message
-        })
-      }
+      await this.interruptStartedTurn()
     }
 
     async dispose(): Promise<void> {
@@ -302,8 +300,14 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       signals: TurnRunSignals
     ): Promise<TurnResult> {
       while (true) {
-        const next = await this.queue.next(signals.suspended)
-        if (next.type === "suspended") return { status: "suspended" }
+        const next = await this.queue.next(
+          Promise.race([signals.suspended, this.aborted])
+        )
+        if (next.type === "suspended") {
+          return this.signal.aborted
+            ? this.interruptedResult()
+            : { status: "suspended" }
+        }
         const { method } = next.message
         const params = isRecord(next.message.params) ? next.message.params : {}
 
@@ -384,6 +388,34 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
               this.lastError ||
               `Codex turn ended with status '${status}'`
           }
+        }
+      }
+    }
+
+    private interruptStartedTurn(): Promise<void> {
+      if (!this.codexTurnId) return Promise.resolve()
+      if (this.interruptPromise) return this.interruptPromise
+      const interrupt = client
+        .request<void>("turn/interrupt", {
+          threadId: this.id,
+          turnId: this.codexTurnId
+        })
+        .catch((error) => {
+          log("Codex turn interrupt failed", {
+            threadId: this.id,
+            message: (error as Error).message
+          })
+        })
+      this.interruptPromise = interrupt
+      return interrupt
+    }
+
+    private interruptedResult(): TurnResult {
+      return {
+        status: "failed",
+        error: {
+          type: "CodexInterrupted",
+          message: "Codex turn was cancelled"
         }
       }
     }
