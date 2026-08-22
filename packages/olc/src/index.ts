@@ -7,6 +7,8 @@ export type {
   BackendFactory,
   BackendTurn,
   CatalogModel,
+  GeneratedImage,
+  GenerateImageInput,
   StartTurnInput,
   TurnResult,
   TurnRunSignals,

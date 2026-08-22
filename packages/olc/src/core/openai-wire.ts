@@ -8,6 +8,7 @@
  * so it is rendered as transcript text — dropping it would hide the fact that a
  * tool ran at all.
  */
+import type { GeneratedImage } from "../backends/types.js"
 import type {
   OpenAIMessage,
   OpenAIToolCall,
@@ -289,6 +290,17 @@ export const roleChunk = (id: string, model: string) =>
 
 export const contentChunk = (id: string, model: string, content: string) =>
   chunk(id, model, { content })
+
+export const imageChunk = (id: string, model: string, image: GeneratedImage) =>
+  chunk(id, model, {
+    content: [
+      {
+        type: "output_image",
+        b64_json: image.b64Json,
+        ...(image.revisedPrompt ? { revised_prompt: image.revisedPrompt } : {})
+      }
+    ]
+  })
 
 export const reasoningChunk = (id: string, model: string, reasoning: string) =>
   chunk(id, model, { reasoning_content: reasoning })

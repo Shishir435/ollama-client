@@ -33,6 +33,13 @@ export interface ChatCompletionRequest {
   reasoning?: unknown
 }
 
+export interface ImageGenerationRequest {
+  model?: unknown
+  prompt?: unknown
+  n?: unknown
+  response_format?: unknown
+}
+
 export const REASONING_EFFORTS = [
   "none",
   "minimal",

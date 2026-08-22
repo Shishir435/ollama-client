@@ -38,6 +38,7 @@ Browser origins are checked separately. The defaults allow Chrome, Firefox, and 
 | `GET /v1/models` | `listModels` | List backend models and capability metadata. |
 | `GET /v1/models/{modelId}` | `getModel` | Read one model by full or unambiguous suffix id. |
 | `POST /v1/chat/completions` | `createChatCompletion` | Generate a buffered JSON completion or an SSE stream. |
+| `POST /v1/images/generations` | `createImageGeneration` | Generate one image through a capable backend. |
 
 `POST /bridge/call` is an internal, per-run callback used by the OpenCode adapter. It is not a public integration endpoint and is intentionally excluded from the public OpenAPI surface.
 
@@ -55,6 +56,23 @@ curl http://127.0.0.1:8083/v1/chat/completions \
 ```
 
 Discover model ids through `GET /v1/models`; do not invent one. Model rows also report input modalities, supported parameters, and function-calling, vision, and reasoning capabilities.
+
+## Image generation
+
+When the active Codex provider reports native image generation, olc publishes a dedicated `codex/image-generation` model with `"image"` in `output_modalities`. Generate one image with the standard Images request:
+
+```bash
+curl http://127.0.0.1:8083/v1/images/generations \
+  -H 'Authorization: Bearer replace-with-a-long-random-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "codex/image-generation",
+    "prompt": "A watercolor fox reading beside a window",
+    "response_format": "b64_json"
+  }'
+```
+
+The current contract produces one base64 image (`n=1`). A backend that does not advertise native image output returns `501`; olc never invents image capability from a model name.
 
 ## Function calling
 

@@ -41,6 +41,10 @@
     {
       "name": "Chat",
       "description": "OpenAI-compatible chat completions and client-owned function calls"
+    },
+    {
+      "name": "Images",
+      "description": "OpenAI-compatible image generation"
     }
   ],
   "paths": {
@@ -274,6 +278,66 @@
           }
         }
       }
+    },
+    "/v1/images/generations": {
+      "post": {
+        "operationId": "createImageGeneration",
+        "summary": "Generate an image",
+        "description": "Asks a runtime with native image-generation support to produce one image and returns its bytes as OpenAI-compatible base64 JSON.",
+        "tags": ["Images"],
+        "security": [{"bearerAuth": []}, {}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageGenerationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One generated image encoded as base64.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGenerationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The prompt, model, count, or response format is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenOrigin"
+          },
+          "501": {
+            "description": "The selected runtime has no image-generation operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "$ref": "#/components/responses/BackendFailure"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -412,6 +476,12 @@
               "type": "string"
             }
           },
+          "output_modalities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "supported_parameters": {
             "type": "array",
             "items": {
@@ -429,6 +499,9 @@
                 "type": "boolean"
               },
               "reasoning": {
+                "type": "boolean"
+              },
+              "image_generation": {
                 "type": "boolean"
               }
             },
@@ -475,6 +548,59 @@
           }
         },
         "additionalProperties": true
+      },
+      "ImageGenerationRequest": {
+        "type": "object",
+        "required": ["model", "prompt"],
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exact image-capable id from GET /v1/models."
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100000
+          },
+          "n": {
+            "const": 1,
+            "default": 1
+          },
+          "response_format": {
+            "const": "b64_json",
+            "default": "b64_json"
+          }
+        },
+        "additionalProperties": true
+      },
+      "ImageGenerationResponse": {
+        "type": "object",
+        "required": ["created", "data"],
+        "properties": {
+          "created": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["b64_json"],
+              "properties": {
+                "b64_json": {
+                  "type": "string",
+                  "contentEncoding": "base64"
+                },
+                "revised_prompt": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
       },
       "ChatMessage": {
         "type": "object",

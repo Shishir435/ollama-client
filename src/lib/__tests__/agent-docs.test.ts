@@ -47,7 +47,8 @@ describe("agent-facing documentation", () => {
       OLC_PUBLIC_ROUTES.health,
       OLC_PUBLIC_ROUTES.models,
       OLC_PUBLIC_ROUTES.model.replace(":modelId", "{modelId}"),
-      OLC_PUBLIC_ROUTES.chatCompletions
+      OLC_PUBLIC_ROUTES.chatCompletions,
+      OLC_PUBLIC_ROUTES.imageGenerations
     ])
     expect(openApi.servers).not.toHaveLength(0)
     expect(

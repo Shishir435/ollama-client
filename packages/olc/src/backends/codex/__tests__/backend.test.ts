@@ -1,6 +1,7 @@
 import {
   chmodSync,
   copyFileSync,
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync
@@ -61,11 +62,22 @@ describe("Codex backend", () => {
           capabilities: {
             function_calling: true,
             vision: true,
-            reasoning: true
-          }
+            reasoning: true,
+            image_generation: false
+          },
+          output_modalities: ["text"]
+        },
+        {
+          id: "codex/image-generation",
+          output_modalities: ["image"],
+          capabilities: { image_generation: true }
         }
       ])
       expect(await backend.resolveModel(undefined)).toEqual({
+        providerId: "codex",
+        modelId: "fake-codex"
+      })
+      expect(await backend.resolveModel("codex/image-generation")).toEqual({
         providerId: "codex",
         modelId: "fake-codex"
       })
@@ -139,6 +151,19 @@ describe("Codex backend", () => {
       expect(text).toEqual(["Result: 42"])
       expect(reasoning).toEqual(["Checked. "])
       await turn.dispose()
+
+      await expect(
+        backend.generateImage?.({
+          requestId: "image-request-1",
+          model: { providerId: "codex", modelId: "fake-codex" },
+          prompt: "A tiny red square"
+        })
+      ).resolves.toEqual([
+        expect.objectContaining({
+          revisedPrompt: "A tiny red square",
+          b64Json: expect.stringMatching(/^iVBOR/)
+        })
+      ])
     } finally {
       await backend.shutdown()
     }
@@ -181,6 +206,52 @@ describe("Codex backend", () => {
       }
     } finally {
       await client.shutdown()
+    }
+  })
+
+  it("interrupts an image turn cancelled while turn/start is pending", async () => {
+    const directory = mkdtempSync(
+      path.join(os.tmpdir(), "olc-codex-abort-test-")
+    )
+    temporaryDirectories.push(directory)
+    const executable = path.join(directory, "codex")
+    const workspace = path.join(directory, "workspace")
+    copyFileSync(
+      fileURLToPath(new URL("./fixtures/fake-codex.mjs", import.meta.url)),
+      executable
+    )
+    chmodSync(executable, 0o755)
+
+    const backend = createCodexBackend({
+      config: resolveConfig({ REQUEST_TIMEOUT_MS: 2_000 }),
+      options: { CODEX_PATH: executable, CODEX_PROJECT_DIR: workspace },
+      fileOptions: {},
+      log: vi.fn(),
+      retryAsync: (operation) => operation(),
+      callClientTool: vi.fn(async () => "")
+    })
+    const controller = new AbortController()
+
+    try {
+      const generation = backend.generateImage?.({
+        requestId: "image-request-aborted",
+        model: { providerId: "codex", modelId: "fake-codex-delayed" },
+        prompt: "A delayed image",
+        signal: controller.signal
+      })
+      await vi.waitFor(() => {
+        expect(existsSync(path.join(workspace, "turn-start-pending"))).toBe(
+          true
+        )
+      })
+      controller.abort()
+
+      await expect(generation).rejects.toThrow("Codex turn was cancelled")
+      expect(readFileSync(path.join(workspace, "interrupts"), "utf8")).toBe(
+        "turn-delayed\n"
+      )
+    } finally {
+      await backend.shutdown()
     }
   })
 })

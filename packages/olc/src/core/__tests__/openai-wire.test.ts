@@ -6,6 +6,7 @@ import {
   extractImageParts,
   extractTrailingToolResults,
   finishChunk,
+  imageChunk,
   imageMimeFromUrl,
   normalizeMessageContent,
   toolCallsChunk
@@ -254,5 +255,22 @@ describe("image parts", () => {
       []
     )
     expect(extractImageParts("plain text")).toEqual([])
+  })
+
+  it("emits generated images as inline output parts", () => {
+    expect(
+      imageChunk("chatcmpl-1", "codex/image-generation", {
+        b64Json: "AAAA",
+        revisedPrompt: "A red square"
+      }).choices[0]?.delta
+    ).toEqual({
+      content: [
+        {
+          type: "output_image",
+          b64_json: "AAAA",
+          revised_prompt: "A red square"
+        }
+      ]
+    })
   })
 })

@@ -66,6 +66,7 @@ export const mapCodexModel = (
     owned_by: "codex",
     name: model.displayName || model.id,
     input_modalities: modalities,
+    output_modalities: ["text"],
     supported_parameters: [
       ...(supportsTools ? ["tools"] : []),
       ...(efforts.length > 0 ? ["reasoning"] : [])
@@ -73,7 +74,8 @@ export const mapCodexModel = (
     capabilities: {
       function_calling: supportsTools,
       vision: modalities.includes("image"),
-      reasoning: efforts.length > 0
+      reasoning: efforts.length > 0,
+      image_generation: false
     },
     ...(efforts.length > 0
       ? {
@@ -87,6 +89,31 @@ export const mapCodexModel = (
       : {})
   }
 }
+
+/**
+ * A dedicated catalog row for App Server's provider-level image tool.
+ *
+ * Provider capability is not model output modality: marking every Codex model as
+ * image-output would make clients route ordinary text prompts through the Images
+ * endpoint. The synthetic row keeps text/chat models text-first while making the
+ * native image operation independently selectable.
+ */
+export const mapCodexImageGenerationModel = (): CatalogModel => ({
+  id: "codex/image-generation",
+  object: "model",
+  created: 0,
+  owned_by: "codex",
+  name: "Codex Image Generation",
+  input_modalities: ["text"],
+  output_modalities: ["image"],
+  supported_parameters: [],
+  capabilities: {
+    function_calling: false,
+    vision: false,
+    reasoning: false,
+    image_generation: true
+  }
+})
 
 export const normalizeCodexTools = (tools: unknown): BridgeToolDefinition[] => {
   if (!Array.isArray(tools)) return []
