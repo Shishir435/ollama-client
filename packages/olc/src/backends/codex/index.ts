@@ -505,7 +505,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       }
       const imageInstructions = [
         config.SYSTEM_PROMPT,
-        "Generate an image that fulfills the user's request. You must use the built-in image generation tool. Do not answer with only text."
+        "Use the $imagegen skill to generate an image that fulfills the user's request. Invoke the built-in image_gen tool and wait for its result. Do not merely announce, describe, or promise image generation, and do not complete the turn without an image result."
       ]
         .filter(Boolean)
         .join("\n\n")

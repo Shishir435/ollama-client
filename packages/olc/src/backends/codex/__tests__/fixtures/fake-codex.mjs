@@ -42,9 +42,11 @@ lines.on("line", (line) => {
     return
   }
   if (message.method === "thread/start") {
-    const isImage = message.params?.developerInstructions?.includes(
-      "built-in image generation tool"
-    )
+    const imageInstructions = message.params?.developerInstructions
+    const isImage =
+      imageInstructions?.includes("$imagegen") &&
+      imageInstructions?.includes("image_gen") &&
+      imageInstructions?.includes("do not complete the turn without an image")
     if (isImage) {
       const threadId =
         message.params?.model === "fake-codex-delayed"
