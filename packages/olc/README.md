@@ -77,8 +77,12 @@ so it works in a fresh checkout either way. On Windows, run
 Other entry points, from the repository root:
 
 ```bash
-pnpm proxy                 # run from source (tsx), no build step
-pnpm proxy:debug           # same, verbose
+pnpm proxy:opencode        # run OpenCode from source
+pnpm proxy:opencode:debug  # run OpenCode with verbose logging
+pnpm proxy:codex           # run Codex from source
+pnpm proxy:codex:debug     # run Codex with verbose logging
+pnpm proxy                 # compatibility alias for OpenCode
+pnpm proxy:debug           # compatibility alias for verbose OpenCode
 pnpm proxy:build           # per-file build with type declarations, for embedding
 ```
 
