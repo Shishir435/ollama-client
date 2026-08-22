@@ -192,6 +192,33 @@ describe("useChatStreaming", () => {
     )
   })
 
+  it("publishes generated images to the live assistant message", async () => {
+    const { options, spies } = mkOptions()
+    const { result } = renderHook(() => useChatStreaming(options))
+    result.current.currentStreamingMessageIdRef.current = 32
+    result.current.startStream({
+      durableTurn: {}
+    } as Parameters<typeof result.current.startStream>[0])
+    const images = [
+      {
+        imageId: "generated-1",
+        fileName: "generated-image.png",
+        mimeType: "image/png",
+        size: 3,
+        base64: "AQID",
+        origin: "model-generated" as const
+      }
+    ]
+
+    await capturedSetMessages?.([{ id: 32, content: "", images, done: true }])
+
+    expect(spies.updateMessage).toHaveBeenCalledWith(
+      32,
+      expect.objectContaining({ images, done: true }),
+      true
+    )
+  })
+
   it("beats liveness on a timer while streaming and stops when done", async () => {
     const { options } = mkOptions()
     const { result } = renderHook(() => useChatStreaming(options))

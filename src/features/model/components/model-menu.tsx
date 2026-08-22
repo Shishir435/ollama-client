@@ -222,6 +222,7 @@ export const ModelMenu = ({
         capabilityTags: targetModelData?.capabilityHints?.capabilityTags,
         contextLength: targetModelData?.capabilityHints?.contextLength,
         modalities: targetModelData?.capabilityHints?.modalities,
+        outputModalities: targetModelData?.capabilityHints?.outputModalities,
         supportedParameters:
           targetModelData?.capabilityHints?.supportedParameters,
         probed: getProbe(capabilityTarget.providerId, capabilityTarget.model)
@@ -237,6 +238,7 @@ export const ModelMenu = ({
         capabilityTags: targetModelData?.capabilityHints?.capabilityTags,
         contextLength: targetModelData?.capabilityHints?.contextLength,
         modalities: targetModelData?.capabilityHints?.modalities,
+        outputModalities: targetModelData?.capabilityHints?.outputModalities,
         supportedParameters:
           targetModelData?.capabilityHints?.supportedParameters,
         override: getOverride(
