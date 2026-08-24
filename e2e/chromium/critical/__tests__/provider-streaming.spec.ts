@@ -309,10 +309,9 @@ test("@provider-full HTTP and connection failures reach the durable result", asy
       PROVIDERS.lmStudio.id
     )) as number
     await expect
-      .poll(
-        () => call("durableTurnResult", "http-failure", httpAssistantId),
-        { timeout: 30_000 }
-      )
+      .poll(() => call("durableTurnResult", "http-failure", httpAssistantId), {
+        timeout: 30_000
+      })
       .toMatchObject({ status: "failed", done: true })
 
     const closedBaseUrl = mock.baseUrl("/closed-provider/v1")
