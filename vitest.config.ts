@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
 
 const COVERAGE_MODE = process.argv.includes("--coverage")
+const COVERAGE_SHARD = process.env.VITEST_COVERAGE_SHARD === "true"
 const COVERAGE_TEST_TIMEOUT_MS = 30_000
 
 const THREAD_TEST_PATTERNS = [
@@ -63,6 +64,8 @@ export default defineConfig({
       exclude: [
         "src/**/*.{test,spec}.{ts,tsx}",
         "packages/*/src/**/*.{test,spec}.{ts,tsx}",
+        "src/**/__tests__/**",
+        "packages/*/src/**/__tests__/**",
         "src/**/*.d.ts",
         "packages/*/src/**/*.d.ts",
         // Browser composition roots are executed only inside packaged
@@ -74,12 +77,17 @@ export default defineConfig({
         "src/lib/persistence/chat-db-worker.ts",
         "src/spike/**"
       ],
-      thresholds: {
-        branches: 67,
-        functions: 75,
-        lines: 80,
-        statements: 78
-      }
+      // A shard cannot satisfy global thresholds alone. Its V8 data is stored
+      // in the blob report, then the merge job applies these floors to the
+      // complete cross-shard coverage map.
+      thresholds: COVERAGE_SHARD
+        ? undefined
+        : {
+            branches: 67,
+            functions: 75,
+            lines: 80,
+            statements: 78
+          }
     }
   },
   resolve: {
