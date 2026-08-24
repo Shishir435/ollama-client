@@ -50,6 +50,7 @@ import {
  */
 
 const TIMEOUT = 25_000
+const owners: ReturnType<typeof createChatDbEngine>[] = []
 
 const require = createRequire(import.meta.url)
 const wasmPath = require.resolve("@sqlite.org/sqlite-wasm/sqlite3.wasm")
@@ -76,6 +77,7 @@ beforeAll(() => {
  */
 const installOwner = () => {
   const engine = createChatDbEngine({ wasmBinary: Promise.resolve(wasmBuffer) })
+  owners.push(engine)
   const ready = engine.submit({ op: "setBackend", backend: "legacy" })
   globalThis.__persistenceHostCall = async (request) => {
     await ready
@@ -137,9 +139,18 @@ beforeEach(async () => {
   await clearSqliteStore()
 }, TIMEOUT)
 
-afterEach(() => {
+afterEach(async () => {
+  // A test that ends after a mutation can otherwise leave the legacy
+  // backend's one-second save timer alive. Under coverage instrumentation that
+  // timer may fire after the next test has cleared IndexedDB and overwrite its
+  // fixture with the previous test's image.
+  await Promise.all(
+    owners
+      .splice(0)
+      .map((engine) => engine.submit({ op: "flush" }).catch(() => undefined))
+  )
   globalThis.__persistenceHostCall = undefined
-})
+}, TIMEOUT)
 
 // Re-import the facade fresh and stand up a new owner. The owner is what a
 // restart actually restarts: the engine's in-memory database goes with it while

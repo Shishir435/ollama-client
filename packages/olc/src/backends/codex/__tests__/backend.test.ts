@@ -186,14 +186,24 @@ describe("Codex backend", () => {
       executable,
       cwd: directory,
       log: vi.fn(),
-      requestTimeoutMs: 500
+      // Leave enough room for the child process to be scheduled under the full
+      // parallel suite before testing the initialize-response timeout itself.
+      requestTimeoutMs: 2_000
     })
 
     try {
-      await expect(client.start()).rejects.toThrow(
+      const firstStart = client.start()
+      await vi.waitFor(() => {
+        expect(readFileSync(pidFile, "utf8").trim().split("\n")).toHaveLength(1)
+      })
+      await expect(firstStart).rejects.toThrow(
         "Codex app-server request 'initialize' timed out"
       )
-      await expect(client.start()).rejects.toThrow(
+      const secondStart = client.start()
+      await vi.waitFor(() => {
+        expect(readFileSync(pidFile, "utf8").trim().split("\n")).toHaveLength(2)
+      })
+      await expect(secondStart).rejects.toThrow(
         "Codex app-server request 'initialize' timed out"
       )
       const pids = readFileSync(pidFile, "utf8").trim().split("\n").map(Number)
@@ -207,7 +217,7 @@ describe("Codex backend", () => {
     } finally {
       await client.shutdown()
     }
-  })
+  }, 15_000)
 
   it("interrupts an image turn cancelled while turn/start is pending", async () => {
     const directory = mkdtempSync(

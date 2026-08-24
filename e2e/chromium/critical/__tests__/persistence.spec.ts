@@ -17,6 +17,14 @@ interface Counts {
 
 const startFakeOllama = async () => {
   const promptCalls = new Map<string, number>()
+  const runtimeSignatures: Array<{
+    keepAlive?: string | number
+    model: string
+    numBatch?: number
+    numCtx?: number
+    numGpu?: number
+    numThread?: number
+  }> = []
   const readBody = (request: import("node:http").IncomingMessage) =>
     new Promise<string>((resolve) => {
       let body = ""
@@ -76,8 +84,24 @@ const startFakeOllama = async () => {
     }
     if (request.url === "/api/chat") {
       const body = JSON.parse(await readBody(request)) as {
+        keep_alive?: string | number
+        model?: string
         messages?: Array<{ role?: string; content?: string }>
+        options?: {
+          num_batch?: number
+          num_ctx?: number
+          num_gpu?: number
+          num_thread?: number
+        }
       }
+      runtimeSignatures.push({
+        model: body.model ?? "",
+        keepAlive: body.keep_alive,
+        numCtx: body.options?.num_ctx,
+        numThread: body.options?.num_thread,
+        numGpu: body.options?.num_gpu,
+        numBatch: body.options?.num_batch
+      })
       const userPrompt =
         [...(body.messages ?? [])]
           .reverse()
@@ -156,6 +180,8 @@ const startFakeOllama = async () => {
   return {
     baseUrl: `http://127.0.0.1:${port}`,
     callsFor: (prompt: string) => promptCalls.get(prompt) ?? 0,
+    runtimeSignaturesFor: (model: string) =>
+      runtimeSignatures.filter((signature) => signature.model === model),
     close: () =>
       new Promise<void>((resolve) => {
         for (const timer of pending) clearTimeout(timer)
@@ -191,6 +217,61 @@ test("@critical fresh OPFS profile survives a browser restart", async ({
     messages: 2
   })
   await page.close()
+})
+
+test("@critical RAG rewrite preserves Ollama runtime options before chat", async ({
+  extension
+}) => {
+  test.setTimeout(120_000)
+  const fakeOllama = await startFakeOllama()
+  try {
+    const { page, call } = await openPersistenceVerifyPage(extension)
+    await waitForOpfsMarker(call)
+    await call("configureFakeOllama", fakeOllama.baseUrl)
+    await call("buildConfiguredRagContext", "verify-runtime-config")
+
+    const assistantMessageId = (await call(
+      "startDurableTurn",
+      "verify-runtime-config-turn",
+      "runtime consistency e2e"
+    )) as number
+    await expect
+      .poll(
+        () =>
+          call(
+            "durableTurnResult",
+            "verify-runtime-config-turn",
+            assistantMessageId
+          ),
+        { timeout: 30_000 }
+      )
+      .toEqual({ status: "completed", content: "recovered", done: true })
+
+    await expect
+      .poll(() => fakeOllama.runtimeSignaturesFor("verify-model"))
+      .toHaveLength(2)
+    expect(fakeOllama.runtimeSignaturesFor("verify-model")).toEqual([
+      {
+        model: "verify-model",
+        keepAlive: "15m",
+        numCtx: 8192,
+        numThread: 8,
+        numGpu: 20,
+        numBatch: 256
+      },
+      {
+        model: "verify-model",
+        keepAlive: "15m",
+        numCtx: 8192,
+        numThread: 8,
+        numGpu: 20,
+        numBatch: 256
+      }
+    ])
+    await page.close()
+  } finally {
+    await fakeOllama.close()
+  }
 })
 
 test("@critical a generating turn completes after browser restart", async ({

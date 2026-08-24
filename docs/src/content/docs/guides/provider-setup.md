@@ -1,6 +1,6 @@
 ---
 title: Provider Setup
-description: Configure Ollama, LM Studio, llama.cpp, OpenAI, OpenRouter, Anthropic, or compatible servers.
+description: Configure Ollama, LM Studio, llama.cpp, OpenAI, OpenRouter, Anthropic, Chinese frontier APIs, or compatible servers.
 ---
 
 Verified built-ins are Ollama, LM Studio, and llama.cpp. Add vLLM, LocalAI, KoboldCPP, or another compatible endpoint through **Add provider**. The OpenRouter preset uses its OpenAI-compatible Chat Completions API. Anthropic uses the native Messages API, while the generic Anthropic-compatible option also supports keyless local or LAN endpoints.
@@ -23,6 +23,29 @@ Install [Ollama Client](https://chromewebstore.google.com/detail/ollama-client-c
 | Anthropic | `https://api.anthropic.com/v1` | Remote Claude Messages API; API key required. |
 | Anthropic-compatible | User configured | Native Messages wire; API key is optional for compatible self-hosted endpoints. |
 | OpenRouter | `https://openrouter.ai/api/v1` | OpenAI-compatible hosted gateway; API key required. Model IDs keep their provider prefix. |
+
+### Contract-tested hosted compatibility endpoints
+
+The following hosted providers use **OpenAI-compatible** in the Add provider
+dialog. The listed URLs are editable examples, not client-side restrictions;
+regional endpoints, enterprise gateways, and reverse proxies are supported.
+Their request and streaming-response shapes are covered by fixture-based
+contract tests sourced from the vendors' current API documentation. These tests
+do not spend API credits or assert that every model supports every capability;
+they protect endpoint joining, Bearer authentication, model IDs, streamed text
+and reasoning, usage, and standard function tool calls from client regressions.
+
+| Provider | Base URL | Wire contract |
+|---|---|---|
+| DeepSeek | `https://api.deepseek.com` | OpenAI Chat Completions, including `reasoning_content` and tools. |
+| Qwen / Alibaba Model Studio | `https://dashscope.aliyuncs.com/compatible-mode/v1` | DashScope's OpenAI-compatible Chat Completions endpoint. Use the endpoint for your account region when it differs. |
+| Kimi / Moonshot | `https://api.moonshot.ai/v1` | OpenAI-compatible Chat Completions, including streamed tool-call fragments. |
+| Z.AI / GLM | `https://api.z.ai/api/paas/v4` | OpenAI-compatible Chat Completions. China accounts may use the BigModel endpoint instead. |
+
+The provider's own model documentation remains authoritative for vision,
+reasoning, tools, context limits, and regional availability. A passing client
+contract test means Ollama Client preserves the documented wire shape; it is
+not a live service-health check.
 
 ## 3. Start Ollama (primary path)
 
