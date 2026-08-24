@@ -1,0 +1,48 @@
+{
+  "name": "@ollama-client/olc",
+  "version": "0.13.2",
+  "description": "OpenAI-compatible proxy for a local agent runtime, with a tool bridge that lets OpenAI-compatible clients run their own tools",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "olc": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "config.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "pnpm clean && tsc6 -p tsconfig.build.json && node ./scripts/copy-plugin.mjs",
+    "typecheck": "tsc6 -p tsconfig.json --noEmit",
+    "dev": "tsx src/cli.ts --backend opencode --debug",
+    "dev:opencode": "tsx src/cli.ts --backend opencode",
+    "dev:opencode:debug": "tsx src/cli.ts --backend opencode --debug",
+    "dev:codex": "tsx src/cli.ts --backend codex",
+    "dev:codex:debug": "tsx src/cli.ts --backend codex --debug",
+    "start": "node ./dist/cli.js",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "bundle": "pnpm clean && node ./scripts/bundle.mjs && node ./scripts/copy-plugin.mjs",
+    "start:bundle": "node ./dist/olc.mjs"
+  },
+  "dependencies": {
+    "@opencode-ai/sdk": "1.18.16"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "vitest": "^4.1.7",
+    "zod": "^4.4.3",
+    "esbuild": "^0.27.7"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

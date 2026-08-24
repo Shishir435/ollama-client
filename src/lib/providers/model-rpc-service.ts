@@ -15,7 +15,10 @@ import type {
 import { DEFAULT_MODEL_LIBRARY_BASE_URL } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { resolveModelConfig } from "@/lib/model-config-utils"
+import {
+  getStoredModelConfig,
+  resolveModelConfig
+} from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ModelWarmupCache } from "@/lib/providers/model-warmup-cache"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
@@ -87,9 +90,9 @@ const parseKeepAliveMs = (value?: string | number): number | undefined => {
   return amount * 60 * 60 * 1000
 }
 
-const getModelConfig = async (model: string) => {
+const getModelConfig = async (model: string, providerId?: string) => {
   const configs = await readSetting(SETTINGS.MODEL_CONFIGS)
-  return resolveModelConfig(configs[model])
+  return resolveModelConfig(getStoredModelConfig(configs, model, providerId))
 }
 
 const buildWarmupKey = (model: string, providerId?: string) =>
@@ -149,7 +152,7 @@ export const ModelRpcService = {
     request: ModelsWarmupRequest,
     signal?: AbortSignal
   ): Promise<ModelsWarmupResult> {
-    const config = await getModelConfig(request.model)
+    const config = await getModelConfig(request.model, request.providerId)
     const keepAliveMs = parseKeepAliveMs(config.keep_alive)
     const warmupKey = buildWarmupKey(request.model, request.providerId)
 
@@ -176,7 +179,10 @@ export const ModelRpcService = {
 
     let unloadedPrevious = false
     if (request.previousModel && request.previousModel !== request.model) {
-      const previousConfig = await getModelConfig(request.previousModel)
+      const previousConfig = await getModelConfig(
+        request.previousModel,
+        request.previousProviderId
+      )
       if (previousConfig.unload_on_switch) {
         const previous = await ProviderFactory.getProviderForModel(
           request.previousModel,

@@ -9,7 +9,11 @@ import {
   retainTurnRuntimeSnapshot,
   type TurnOutput
 } from "@/background/turns/turn-observers"
-import { getMessage } from "@/lib/repositories/chat-history"
+import { isImageFile, storedFileToImage } from "@/lib/image-utils"
+import {
+  getFilesByMessageIds,
+  getMessage
+} from "@/lib/repositories/chat-history"
 import { getTurnRun } from "@/lib/repositories/turn-runs"
 import { CHAT_STREAM_EVENT_TYPES } from "@/protocol/streams"
 
@@ -54,13 +58,21 @@ export const reconnectDurableTurn = async (
       return
     }
 
-    const persistedAssistant =
-      turn.assistantMessageId === undefined
-        ? null
-        : await getMessage(turn.assistantMessageId).catch((error) => {
-            removeObserver(turnId, observer)
-            throw error
-          })
+    const persistedAssistant = await (async () => {
+      if (turn.assistantMessageId === undefined) return null
+      try {
+        const [assistant, files] = await Promise.all([
+          getMessage(turn.assistantMessageId),
+          getFilesByMessageIds([turn.assistantMessageId])
+        ])
+        if (!assistant) return null
+        const images = files.filter(isImageFile).map(storedFileToImage)
+        return images.length > 0 ? { ...assistant, images } : assistant
+      } catch (error) {
+        removeObserver(turnId, observer)
+        throw error
+      }
+    })()
     if (!output.port || output.isPortClosed?.()) {
       removeObserver(turnId, observer)
       return

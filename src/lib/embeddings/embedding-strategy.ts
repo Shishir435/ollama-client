@@ -31,6 +31,7 @@ export interface EmbeddingStrategyResult {
   model: string
   providerId: string
   route: EmbeddingRoute
+  routeFingerprint: string
   attemptedRoutes: EmbeddingRoute[]
 }
 
@@ -81,6 +82,8 @@ export interface EmbeddingPlan {
   sharedAttempt?: EmbedAttempt
   /** Stable identity of the whole ordered route plan. */
   fingerprint: string
+  /** Identity of the first route that can currently produce a vector. */
+  cacheFingerprint?: string
   maxChars: number
 }
 
@@ -232,6 +235,7 @@ const tryEmbed = async (
         model: attempt.model,
         providerId: provider.id,
         route: attempt.route,
+        routeFingerprint: attemptFingerprint(attempt),
         attemptedRoutes: [attempt.route]
       }
     } catch (error) {
@@ -334,22 +338,21 @@ const resolveAttemptProvider = async (
  * rather than only the first attempt, because a fallback that becomes reachable
  * changes which route answers without changing the head of the list.
  */
-const planFingerprint = (attempts: EmbedAttempt[]): string =>
+const attemptFingerprint = (attempt: EmbedAttempt): string =>
   [
     STRATEGY_REVISION,
-    ...attempts.map((attempt) =>
-      [
-        attempt.route,
-        // The provider that answers, not the one that was asked for: a
-        // configured id is resolved through mappings and defaults, and it is
-        // the resolved endpoint that produced the vector.
-        attempt.provider?.id ?? attempt.providerId,
-        attempt.model,
-        attempt.baseUrl ?? "-",
-        attempt.provider?.embed ? "embed" : "no-embed"
-      ].join(":")
-    )
-  ].join("|")
+    attempt.route,
+    // The provider that answers, not the one that was asked for: a configured
+    // id is resolved through mappings and defaults, and it is the resolved
+    // endpoint that produced the vector.
+    attempt.provider?.id ?? attempt.providerId,
+    attempt.model,
+    attempt.baseUrl ?? "-",
+    attempt.provider?.embed ? "embed" : "no-embed"
+  ].join(":")
+
+const planFingerprint = (attempts: EmbedAttempt[]): string =>
+  attempts.map(attemptFingerprint).join("|")
 
 /**
  * Resolves the sequence of embedding attempts based on the user's configured strategy.
@@ -474,11 +477,15 @@ export const resolveEmbeddingPlan = async (
 ): Promise<EmbeddingPlan> => {
   const config = await getEmbeddingConfig()
   const { attempts, sharedAttempt } = await buildAttempts(requestedModel)
+  const primaryAttempt = attempts.find((attempt) => attempt.provider?.embed)
 
   return {
     attempts,
     sharedAttempt,
     fingerprint: planFingerprint(attempts),
+    ...(primaryAttempt
+      ? { cacheFingerprint: attemptFingerprint(primaryAttempt) }
+      : {}),
     maxChars: Math.max(256, Math.floor(config.chunkSize * 4))
   }
 }

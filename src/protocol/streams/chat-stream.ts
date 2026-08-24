@@ -2,6 +2,7 @@ import { AppFailureSchema } from "@ollama-client/contracts/app-failure"
 import {
   ActivityEventSchema,
   ChatMessageSchema,
+  ImageAttachmentSchema,
   ProviderReplayArtifactSchema,
   ToolRunSchema,
   UsedContextChunkSchema
@@ -178,6 +179,7 @@ const ChatChunkSchema = z
     seq: z.number().int().nonnegative().optional(),
     delta: z.string().optional(),
     thinkingDelta: z.string().optional(),
+    generatedImages: z.array(ImageAttachmentSchema).min(1).max(8).optional(),
     replayArtifact: ProviderReplayArtifactSchema.transform(
       (artifact) => artifact as ProviderReplayArtifact
     ).optional(),
@@ -202,6 +204,7 @@ const ChatChunkSchema = z
     (event) =>
       event.delta !== undefined ||
       event.thinkingDelta !== undefined ||
+      event.generatedImages !== undefined ||
       event.replayArtifact !== undefined ||
       event.toolRuns !== undefined ||
       event.done === true ||

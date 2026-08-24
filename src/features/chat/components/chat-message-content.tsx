@@ -34,9 +34,9 @@ export const ChatMessageContent = ({
           ? "ml-auto w-fit max-w-[88vw] rounded-message border border-border/20 bg-surface-message/85 px-3 py-2.5 text-foreground shadow-xs sm:max-w-[min(46rem,74%)] sm:px-4"
           : "w-full max-w-[90vw] py-1 text-foreground sm:max-w-2xl"
       )}>
-      {/* Attached images (vision input) */}
+      {/* User vision inputs and provider-generated assistant images. */}
       {msg.images && msg.images.length > 0 && (
-        <MessageImageDisplay images={msg.images} />
+        <MessageImageDisplay images={msg.images} generated={!isUser} />
       )}
       {/* File Attachments */}
       {msg.attachments && msg.attachments.length > 0 && (

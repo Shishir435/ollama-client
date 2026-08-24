@@ -323,7 +323,11 @@ export const createChatSessionMessageActions = (
     skipDb = false
   ) => {
     if (!skipDb) {
-      await repo.updateMessage(messageId, updates)
+      if (updates.images !== undefined) {
+        await repo.updateMessageWithImages(messageId, updates, updates.images)
+      } else {
+        await repo.updateMessage(messageId, updates)
+      }
       if (updates.content) {
         try {
           await deleteVectors({ messageId })

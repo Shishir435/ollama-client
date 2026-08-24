@@ -646,6 +646,17 @@ describe("prompt stats", () => {
 describe("query reformulation provider call", () => {
   it("invokeModelOnce is wired with the streaming provider when reformulation runs", async () => {
     ragsetOn()
+    mockedStorageGet
+      .mockResolvedValueOnce(true as never)
+      .mockResolvedValueOnce({
+        "ollama::llama3": {
+          num_ctx: 8192,
+          num_thread: 8,
+          num_gpu: 20,
+          num_batch: 256,
+          keep_alive: "15m"
+        }
+      } as never)
     mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
       id: "ks-1",
       name: "K",
@@ -699,13 +710,162 @@ describe("query reformulation provider call", () => {
         temperature: 0.2,
         num_predict: 64,
         stop: ["\n"],
-        think: false
+        think: false,
+        num_ctx: 8192,
+        num_thread: 8,
+        num_gpu: 20,
+        num_batch: 256,
+        keep_alive: "15m"
       }),
       expect.any(Function),
       expect.any(AbortSignal)
     )
     // The reformulated value ("pong") should be the query sent to retrieve.
     expect(mockedRetrieve.mock.calls[0]?.[0]).toBe("pong")
+  })
+
+  it("preserves legacy bare runtime config during query reformulation", async () => {
+    ragsetOn()
+    mockedStorageGet
+      .mockResolvedValueOnce(true as never)
+      .mockResolvedValueOnce({
+        llama3: {
+          num_ctx: 32768,
+          num_thread: 4,
+          num_gpu: 0,
+          num_batch: 128,
+          keep_alive: 0
+        }
+      } as never)
+    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+      id: "ks-1",
+      name: "K",
+      questionPrompt: "QP"
+    } as never)
+    mockedReformulate.mockImplementationOnce(async (_q, _hist, invoke) =>
+      invoke("ping")
+    )
+
+    const fakeProvider = {
+      id: "ollama",
+      config: {
+        id: "ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: "http://localhost:11434",
+        name: "Ollama"
+      },
+      streamChat: vi.fn(async (_req, onChunk) => {
+        onChunk({ delta: "pong" })
+      })
+    }
+    mockedGetProvider.mockResolvedValueOnce(fakeProvider as never)
+
+    await buildRagContext(
+      defaults({
+        messages: [
+          { role: "user", content: "x" },
+          { role: "assistant", content: "y", done: true }
+        ]
+      })
+    )
+
+    expect(fakeProvider.streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "llama3",
+        num_ctx: 32768,
+        num_thread: 4,
+        num_gpu: 0,
+        num_batch: 128,
+        keep_alive: 0
+      }),
+      expect.any(Function),
+      expect.any(AbortSignal)
+    )
+  })
+
+  it("falls back to the original query when reformulation reaches its deadline", async () => {
+    vi.useFakeTimers()
+    try {
+      ragsetOn()
+      mockedStorageGet
+        .mockResolvedValueOnce(true as never)
+        .mockResolvedValueOnce({} as never)
+      mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+        id: "ks-1",
+        name: "K",
+        questionPrompt: "QP"
+      } as never)
+      mockedReformulate.mockImplementationOnce(async (_q, _hist, invoke) =>
+        invoke("ping")
+      )
+      mockedGetProvider.mockResolvedValueOnce({
+        id: "ollama",
+        config: {
+          id: "ollama",
+          type: "ollama",
+          enabled: true,
+          baseUrl: "http://localhost:11434",
+          name: "Ollama"
+        },
+        streamChat: vi.fn(
+          async (_request, _onChunk, signal: AbortSignal) =>
+            new Promise((_resolve, reject) => {
+              signal.addEventListener("abort", () => reject(signal.reason), {
+                once: true
+              })
+            })
+        )
+      } as never)
+
+      const pending = buildRagContext(
+        defaults({
+          rawInput: "original query",
+          messages: [
+            { role: "user", content: "x" },
+            { role: "assistant", content: "y", done: true }
+          ],
+          files: [
+            { metadata: { fileId: "f1", fileName: "f.txt" }, text: "doc" }
+          ] as never
+        })
+      )
+
+      await vi.advanceTimersByTimeAsync(8000)
+      await pending
+
+      expect(mockedRetrieve.mock.calls[0]?.[0]).toBe("original query")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("bounds the history sent to query reformulation", async () => {
+    ragsetOn()
+    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+      id: "ks-1",
+      name: "K",
+      questionPrompt: "QP"
+    } as never)
+    mockedReformulate.mockResolvedValueOnce("bounded query")
+
+    await buildRagContext(
+      defaults({
+        messages: [
+          { role: "user", content: "a".repeat(4000) },
+          { role: "assistant", content: "b".repeat(4000), done: true },
+          { role: "user", content: "c".repeat(4000) },
+          { role: "assistant", content: "d".repeat(4000), done: true },
+          { role: "user", content: "e".repeat(4000) }
+        ]
+      })
+    )
+
+    const history = mockedReformulate.mock.calls[0]?.[1] ?? []
+    expect(
+      history.reduce((total, message) => total + message.content.length, 0)
+    ).toBe(8000)
+    expect(history.at(-1)?.content).toBe("e".repeat(4000))
   })
 })
 
@@ -869,6 +1029,56 @@ describe("retrieval-tool gating", () => {
  * for.
  */
 describe("cancellation", () => {
+  it("propagates caller cancellation during query reformulation", async () => {
+    ragsetOn()
+    const controller = new AbortController()
+    const streamStarted = vi.fn()
+    mockedStorageGet
+      .mockResolvedValueOnce(true as never)
+      .mockResolvedValueOnce({} as never)
+    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+      id: "ks-1",
+      name: "K",
+      questionPrompt: "QP"
+    } as never)
+    mockedReformulate.mockImplementationOnce(async (_q, _history, invoke) =>
+      invoke("ping")
+    )
+    mockedGetProvider.mockResolvedValueOnce({
+      id: "ollama",
+      config: {
+        id: "ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: "http://localhost:11434",
+        name: "Ollama"
+      },
+      streamChat: vi.fn(
+        async (_request, _onChunk, signal: AbortSignal) =>
+          new Promise((_resolve, reject) => {
+            streamStarted()
+            signal.addEventListener("abort", () => reject(signal.reason), {
+              once: true
+            })
+          })
+      )
+    } as never)
+
+    const pending = buildRagContext(
+      defaults({
+        messages: [
+          { role: "user", content: "x" },
+          { role: "assistant", content: "y", done: true }
+        ],
+        signal: controller.signal
+      })
+    )
+    await vi.waitFor(() => expect(streamStarted).toHaveBeenCalledOnce())
+    controller.abort()
+
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" })
+  })
+
   it("hands the caller's signal to retrieval", async () => {
     ragsetOn()
     const controller = new AbortController()

@@ -110,16 +110,22 @@ afterEach(() => {
  * reading a name their factory does not define throws rather than yielding
  * undefined. Those suites stub the config outright and need no reset.
  */
-beforeEach(async () => {
-  try {
-    const embeddingConfig = (await import("@/lib/embeddings/config")) as {
-      resetEmbeddingConfigCache?: () => void
+beforeEach(
+  async () => {
+    try {
+      const embeddingConfig = (await import("@/lib/embeddings/config")) as {
+        resetEmbeddingConfigCache?: () => void
+      }
+      embeddingConfig.resetEmbeddingConfigCache?.()
+    } catch {
+      // Module is mocked without the reset export.
     }
-    embeddingConfig.resetEmbeddingConfigCache?.()
-  } catch {
-    // Module is mocked without the reset export.
-  }
-})
+  },
+  // vmThreads can pause a worker while recycling another memory-limited VM.
+  // Keep the shared cache-reset hook from turning that scheduler delay into a
+  // random suite failure; individual tests retain Vitest's normal timeout.
+  25_000
+)
 
 /** Reset per-test IndexedDB state supplied by fake-indexeddb. */
 beforeEach(() => {

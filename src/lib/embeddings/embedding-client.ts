@@ -1,7 +1,7 @@
 import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import { abortableDelay } from "@/lib/abortable-delay"
 import type { EmbeddingConfig } from "@/lib/constants"
-import { getErrorMessage } from "@/lib/error-utils"
+import { getErrorMessage, isAbortError } from "@/lib/error-utils"
 import { toAppFailure } from "@/protocol/app-failure"
 import { getEmbeddingConfig } from "./config"
 import {
@@ -38,11 +38,10 @@ export interface EmbeddingError {
 /**
  * A cached vector, tagged with the route that produced it.
  *
- * `routeFingerprint` is the plan the vector came from and is part of the key.
- * The resolved provider and model are recorded separately because the plan
- * describes the routes that were available while these name the one that
- * actually answered — a fallback reports itself, rather than the head of the
- * plan, to whoever reads the hit.
+ * `routeFingerprint` names the concrete route that produced the vector and is
+ * part of the key. A fallback result is deliberately not cached under the
+ * primary route: a transient primary failure must be retried after recovery
+ * rather than pinning the fallback vector for the cache TTL.
  */
 interface CacheEntry {
   embedding: number[]
@@ -109,10 +108,12 @@ export const generateEmbedding = async (
   // asking "any vector for this text" — which is what returned another
   // provider's vector after a routing change.
   const plan = options.plan ?? (await resolveEmbeddingPlan(modelName))
-  const cacheKey = `${hashContent(text)}:${plan.fingerprint}`
+  const cacheKey = plan.cacheFingerprint
+    ? `${hashContent(text)}:${plan.cacheFingerprint}`
+    : undefined
 
   // Check cache if enabled
-  if (resolvedConfig.enableCaching) {
+  if (resolvedConfig.enableCaching && cacheKey) {
     const cached = embeddingCache.get(cacheKey)
     if (cached) {
       // Check if cache entry is still valid (not expired)
@@ -137,7 +138,11 @@ export const generateEmbedding = async (
     const embedding = resolved.embedding
 
     // Cache if enabled
-    if (resolvedConfig.enableCaching) {
+    if (
+      resolvedConfig.enableCaching &&
+      cacheKey &&
+      resolved.routeFingerprint === plan.cacheFingerprint
+    ) {
       const now = Date.now()
 
       // Clean expired entries periodically (every 10th insertion)
@@ -166,7 +171,7 @@ export const generateEmbedding = async (
       embeddingCache.set(cacheKey, {
         embedding,
         timestamp: now,
-        routeFingerprint: plan.fingerprint,
+        routeFingerprint: resolved.routeFingerprint,
         model: resolved.model,
         providerId: resolved.providerId
       })
@@ -178,6 +183,11 @@ export const generateEmbedding = async (
       providerId: resolved.providerId
     }
   } catch (error) {
+    // Cancellation is control flow, not an embedding failure. Returning it as
+    // data lets retrieval enter keyword/full-text fallback and continue the
+    // turn after the caller explicitly stopped it.
+    if (isAbortError(error)) throw error
+
     const failure = toAppFailure(error, {
       context: "embedding",
       fallbackMessage: "Error generating embedding"

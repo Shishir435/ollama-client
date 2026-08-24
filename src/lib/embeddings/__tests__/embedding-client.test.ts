@@ -154,21 +154,18 @@ describe("Embedding Client", () => {
       })
     })
 
-    it("reports a cancelled request as an abort, not a network failure", async () => {
+    it("propagates cancellation instead of entering retrieval fallback", async () => {
       const controller = new AbortController()
       mockEmbed.mockImplementation(() => {
         controller.abort()
         return Promise.reject(controller.signal.reason)
       })
 
-      const result = await generateEmbedding("test", undefined, undefined, {
-        signal: controller.signal
-      })
-
-      expect(result).toMatchObject({
-        code: "ABORTED",
-        failure: { kind: "abort" }
-      })
+      await expect(
+        generateEmbedding("test", undefined, undefined, {
+          signal: controller.signal
+        })
+      ).rejects.toMatchObject({ name: "AbortError" })
       // A cancelled route must not fall through to the next provider.
       expect(mockEmbed).toHaveBeenCalledTimes(1)
     })
@@ -182,6 +179,20 @@ describe("Embedding Client", () => {
 
       expect(mockEmbed).toHaveBeenCalledTimes(2)
       expect("embedding" in result).toBe(true)
+    })
+
+    it("does not pin a transient fallback result in the primary cache", async () => {
+      mockEmbed
+        .mockRejectedValueOnce(new Error("primary temporarily unavailable"))
+        .mockResolvedValueOnce([0.2, 0.3, 0.4])
+        .mockResolvedValueOnce([0.9, 0.8, 0.7])
+
+      const fallback = await generateEmbedding("route-recovery")
+      const recovered = await generateEmbedding("route-recovery")
+
+      expect(mockEmbed).toHaveBeenCalledTimes(3)
+      expect(fallback).toMatchObject({ embedding: [0.2, 0.3, 0.4] })
+      expect(recovered).toMatchObject({ embedding: [0.9, 0.8, 0.7] })
     })
   })
 

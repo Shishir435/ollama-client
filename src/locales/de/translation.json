@@ -742,6 +742,10 @@
           "label": "Bild",
           "desc": "Akzeptiert Bildeingaben zusätzlich zu Text."
         },
+        "imageOutput": {
+          "label": "Bilderzeugung",
+          "desc": "Erzeugt Bilder als Antwort im Chat."
+        },
         "toolCalling": {
           "label": "Tool-Aufrufe",
           "desc": "Kann während einer Antwort Tools/Funktionen aufrufen."
@@ -1047,6 +1051,24 @@
         "unload_on_switch_description": "Speicher durch Entladen des vorherigen Modells beim Wechseln freigeben."
       },
       "parameters": {
+        "reasoning_effort": {
+          "label": "Denkaufwand",
+          "description_reported": "Vom Anbieter dieses Modells gemeldete Stufen.",
+          "description_profile": "Für diesen Anbieter und diese Modellfamilie verifizierte Stufen.",
+          "description_unknown": "Dieser Anbieter weist keine verlässliche Steuerung des Denkaufwands aus.",
+          "options": {
+            "auto": "Automatisch (Anbieterstandard)",
+            "auto_short": "Automatisch",
+            "enabled": "Ein",
+            "none": "Aus",
+            "minimal": "Minimal",
+            "low": "Niedrig",
+            "medium": "Mittel",
+            "high": "Hoch",
+            "xhigh": "Sehr hoch",
+            "max": "Maximum"
+          }
+        },
         "temperature": {
           "label": "Temperatur",
           "conservative": "Konservativ",

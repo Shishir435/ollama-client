@@ -7,8 +7,18 @@ import {
   getNumberInputConfigs,
   getSliderConfigs
 } from "@/features/model/lib/model-form-config"
+import type { ReasoningEffort, ReasoningEffortSupport } from "@/types/model"
+import { ReasoningEffortField } from "./reasoning-effort-field"
 
-export const ModelParametersCard = () => {
+export const ModelParametersCard = ({
+  reasoningEffort,
+  reasoningSupport,
+  onReasoningEffortChange
+}: {
+  reasoningEffort: ReasoningEffort
+  reasoningSupport?: ReasoningEffortSupport
+  onReasoningEffortChange: (value: ReasoningEffort) => void
+}) => {
   const { t } = useTranslation()
 
   const sliderConfigs = getSliderConfigs(t)
@@ -34,6 +44,13 @@ export const ModelParametersCard = () => {
         description={t("settings.model.sampling.description")}
         icon={Target}>
         <SectionStack>
+          {reasoningSupport && (
+            <ReasoningEffortField
+              value={reasoningEffort}
+              support={reasoningSupport}
+              onChange={onReasoningEffortChange}
+            />
+          )}
           {sliderConfigs.map((slider) => (
             <ControlledSlider {...slider} key={slider.name} />
           ))}

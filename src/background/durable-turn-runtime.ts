@@ -1,5 +1,6 @@
 import type { TurnToast } from "@ollama-client/contracts/turns"
 import type { TurnSubmission } from "@/application/turns/turn-contract"
+import { clearAbortController } from "@/background/lib/abort-controller-registry"
 import { persistTurnFailure } from "@/background/turns/turn-generation"
 import {
   attachDurableTurnObserver,
@@ -77,6 +78,7 @@ export const startDurableTurn = async (
     await persistTurnFailure(assistantMessageId, submission.model, error)
     throw error
   } finally {
+    clearAbortController(submission.id)
     cleanupTurnRuntimeState(submission.id)
   }
 }

@@ -60,7 +60,11 @@ import {
   getModelCatalogSupport
 } from "../model-catalog-support"
 import { ProviderRpcService } from "../provider-rpc-service"
-import { type ProviderConfig, ProviderType } from "../types"
+import {
+  type ProviderConfig,
+  ProviderServiceProfile,
+  ProviderType
+} from "../types"
 
 const catalogAbsent = () =>
   createAppError("Model list failed (404)", { kind: "provider", status: 404 })
@@ -379,6 +383,33 @@ describe("ProviderRpcService", () => {
     expect(second.models.map(({ name }) => name)).toEqual(["manual-model"])
     // Nothing failed: the provider works, it just has nothing to discover.
     expect(second.failures).toEqual([])
+  })
+
+  it("adds documented OpenAI reasoning levels to catalog rows", async () => {
+    const openAIConfig: ProviderConfig = {
+      id: "custom:openai:official",
+      type: ProviderType.OPENAI,
+      enabled: true,
+      baseUrl: "https://api.openai.com/v1",
+      name: "OpenAI",
+      serviceProfile: ProviderServiceProfile.OPENAI
+    }
+    mocks.getProviders.mockResolvedValue([openAIConfig])
+    mocks.getProvider.mockResolvedValue({
+      id: openAIConfig.id,
+      getModels: async () => [model("gpt-5.6-sol")]
+    })
+
+    const result = await ProviderRpcService.listModels({
+      providerId: String(openAIConfig.id)
+    })
+
+    expect(result.models[0]?.capabilityHints?.reasoning).toMatchObject({
+      supportedEfforts: ["low", "medium", "high", "xhigh", "max"],
+      canDisable: true,
+      defaultEffort: "medium",
+      source: "provider-profile"
+    })
   })
 
   it("re-probes the catalog when the user tests the connection", async () => {

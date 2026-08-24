@@ -453,8 +453,8 @@ export async function reformulateQuestion(
   const reformulated = await modelInvokeFn(prompt)
 
   if (!reformulated) {
-    logger.warn(
-      "[RAG Retriever] Failed to reformulate question",
+    logger.info(
+      "[RAG Retriever] Question reformulation returned no result; using the original query",
       "RAGRetriever"
     )
     return question

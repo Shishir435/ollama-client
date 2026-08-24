@@ -39,9 +39,16 @@ const MODEL_CONFIG_FORM_KEYS: (keyof FormValues)[] = [
 
 export const ModelSettingsForm = () => {
   const { t } = useTranslation()
-  const { selectedModel, selectedProviderId } = useProviderModels()
+  const { models = [], selectedModel, selectedProviderId } = useProviderModels()
 
-  const [config, updateConfig] = useModelConfig(selectedModel)
+  const [config, updateConfig] = useModelConfig(
+    selectedModel,
+    selectedProviderId
+  )
+  const selectedModelInfo = models.find(
+    (model) =>
+      model.model === selectedModel && model.providerId === selectedProviderId
+  )
 
   const methods = useForm<FormValues>({
     defaultValues: {
@@ -223,7 +230,13 @@ export const ModelSettingsForm = () => {
           <ModelPerformanceCard config={config} updateConfig={updateConfig} />
         </SettingsLevelGate>
         <SettingsLevelGate settingId="temperature">
-          <ModelParametersCard />
+          <ModelParametersCard
+            reasoningEffort={config.reasoning_effort}
+            reasoningSupport={selectedModelInfo?.capabilityHints?.reasoning}
+            onReasoningEffortChange={(reasoning_effort) =>
+              updateConfig({ reasoning_effort })
+            }
+          />
         </SettingsLevelGate>
       </SectionStack>
     </FormProvider>

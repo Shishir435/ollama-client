@@ -1,5 +1,8 @@
 import type { DurableTurnRun } from "@/application/turns/turn-contract"
-import { abortAndClearController } from "@/background/lib/abort-controller-registry"
+import {
+  abortAndClearController,
+  clearAbortController
+} from "@/background/lib/abort-controller-registry"
 import { persistTurnFailure } from "@/background/turns/turn-generation"
 import { cleanupTurnRuntimeState } from "@/background/turns/turn-observers"
 import {
@@ -31,6 +34,7 @@ const resumeTurn = async (
     )
   } finally {
     signal?.removeEventListener("abort", abort)
+    clearAbortController(turn.id)
     cleanupTurnRuntimeState(turn.id)
   }
 }

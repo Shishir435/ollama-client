@@ -362,6 +362,58 @@ describe("provider tool calling — request mapping", () => {
     expect(bodyOf(fetchMock).max_tokens).toBeUndefined()
   })
 
+  it("sends direct OpenAI reasoning_effort and removes incompatible sampling", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new OpenAICompatibleProvider({
+      ...openaiConfig,
+      baseUrl: "https://api.openai.com/v1"
+    }).streamChat(
+      {
+        model: "gpt-5.6-terra",
+        messages: [],
+        reasoningEffort: "xhigh",
+        temperature: 0.7,
+        top_p: 0.9
+      },
+      () => {}
+    )
+
+    expect(bodyOf(fetchMock)).toMatchObject({ reasoning_effort: "xhigh" })
+    expect(bodyOf(fetchMock).temperature).toBeUndefined()
+    expect(bodyOf(fetchMock).top_p).toBeUndefined()
+  })
+
+  it("sends nested reasoning to OpenRouter and DeepSeek-specific controls", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new OpenAICompatibleProvider({
+      ...openaiConfig,
+      baseUrl: "https://openrouter.ai/api/v1"
+    }).streamChat(
+      { model: "openai/gpt-5.6", messages: [], reasoningEffort: "max" },
+      () => {}
+    )
+    expect(bodyOf(fetchMock).reasoning).toEqual({ effort: "max" })
+
+    fetchMock.mockClear()
+    await new OpenAICompatibleProvider({
+      ...openaiConfig,
+      baseUrl: "https://api.deepseek.com"
+    }).streamChat(
+      { model: "deepseek-v4-pro", messages: [], reasoningEffort: "high" },
+      () => {}
+    )
+    expect(bodyOf(fetchMock)).toMatchObject({
+      reasoning_effort: "high",
+      thinking: { type: "enabled" }
+    })
+  })
+
   it("omits stream_options for generic compatible endpoints", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

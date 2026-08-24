@@ -23,6 +23,10 @@ import {
   type KnowledgeSetRecord
 } from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
+import {
+  getStoredModelConfig,
+  resolveModelConfig
+} from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { readSetting } from "@/lib/storage/setting-access"
@@ -109,10 +113,35 @@ const resolveFileRagScope = async (
 }
 
 const REFORMULATION_TIMEOUT_MS = 8000
+const REFORMULATION_HISTORY_MAX_CHARS = 8000
 const PREVIEW_LIMIT = 180
 
 const preview = (value: string, limit = PREVIEW_LIMIT) =>
   value.length > limit ? `${value.slice(0, limit)}...` : value
+
+class ReformulationTimeoutError extends Error {
+  override name = "ReformulationTimeoutError"
+}
+
+const boundedReformulationHistory = (
+  messages: BuildRagContextOptions["messages"]
+): Array<{ role: "user" | "assistant"; content: string }> => {
+  const recent = messages
+    .filter((message) => message.role !== "system")
+    .slice(-5)
+  const bounded: Array<{ role: "user" | "assistant"; content: string }> = []
+  let remaining = REFORMULATION_HISTORY_MAX_CHARS
+
+  for (let index = recent.length - 1; index >= 0 && remaining > 0; index--) {
+    const message = recent[index]
+    if (message.role !== "user" && message.role !== "assistant") continue
+    const content = message.content.slice(-remaining)
+    bounded.push({ role: message.role, content })
+    remaining -= content.length
+  }
+
+  return bounded.reverse()
+}
 
 /**
  * Runs `fn` under a timeout that the caller's cancellation can also trigger.
@@ -128,12 +157,23 @@ const withTimeoutSignal = async <T>(
   parentSignal?: AbortSignal
 ): Promise<T> => {
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  let timedOut = false
+  const timeoutId = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
   const onParentAbort = () => controller.abort(parentSignal?.reason)
   parentSignal?.throwIfAborted()
   parentSignal?.addEventListener("abort", onParentAbort, { once: true })
   try {
     return await fn(controller.signal)
+  } catch (error) {
+    if (timedOut && !parentSignal?.aborted && isAbortError(error)) {
+      throw new ReformulationTimeoutError(
+        `Query reformulation exceeded ${timeoutMs}ms`
+      )
+    }
+    throw error
   } finally {
     clearTimeout(timeoutId)
     parentSignal?.removeEventListener("abort", onParentAbort)
@@ -204,6 +244,14 @@ export const buildRagContext = async (
         selectedModelRef?.providerId
       )
       assertProviderEnabled(provider, modelId)
+      const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
+      const modelParams = resolveModelConfig(
+        getStoredModelConfig(
+          modelConfigMap,
+          modelId,
+          selectedModelRef?.providerId
+        )
+      )
       let response = ""
       await withTimeoutSignal(
         (requestSignal) =>
@@ -214,7 +262,12 @@ export const buildRagContext = async (
               temperature: 0.2,
               num_predict: 64,
               stop: ["\n"],
-              think: false
+              think: false,
+              num_ctx: modelParams.num_ctx,
+              num_thread: modelParams.num_thread,
+              num_gpu: modelParams.num_gpu,
+              num_batch: modelParams.num_batch,
+              keep_alive: modelParams.keep_alive
             },
             (chunk) => {
               if (chunk.delta) response += chunk.delta
@@ -226,6 +279,14 @@ export const buildRagContext = async (
       )
       return response.trim()
     } catch (err) {
+      if (err instanceof ReformulationTimeoutError) {
+        logger.info(
+          "Query reformulation timed out; using the original query",
+          "useChat",
+          { timeoutMs: REFORMULATION_TIMEOUT_MS }
+        )
+        return ""
+      }
       // Reformulation is best-effort and degrades to the raw query, but a
       // cancelled build must not be degraded into a successful one: the caller
       // asked for the whole turn to stop, not for a worse retrieval query.
@@ -239,13 +300,7 @@ export const buildRagContext = async (
 
   if (useRag) {
     try {
-      const recentHistory = messages
-        .filter((m) => m.role !== "system")
-        .slice(-5)
-        .map((m) => ({ role: m.role, content: m.content })) as Array<{
-        role: "user" | "assistant"
-        content: string
-      }>
+      const recentHistory = boundedReformulationHistory(messages)
 
       const queryClassification = classifyQuery(rawInput || "", recentHistory)
 

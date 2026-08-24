@@ -4,7 +4,8 @@ import type {
   ChatMessage,
   ChatStreamMessage,
   ProviderModel,
-  ProviderModelDetails
+  ProviderModelDetails,
+  ReasoningEffort
 } from "@/types"
 
 export enum ProviderType {
@@ -116,7 +117,9 @@ export interface ChatRequest {
    * Ollama thinking toggle. Used for short internal utility calls where hidden
    * reasoning would waste time and never be shown to the user.
    */
-  think?: boolean
+  think?: boolean | "low" | "medium" | "high" | "max"
+  /** Provider-neutral user-selected reasoning control. `auto` is omitted. */
+  reasoningEffort?: ReasoningEffort
   /**
    * Tool definitions offered to the model. Only set for tool-capable models
    * (gated on resolved `toolCalling`); when absent the request is identical to
@@ -132,6 +135,13 @@ export interface ChatRequest {
    * history without them).
    */
   tool_choice?: "auto" | "none" | "required"
+}
+
+export interface ImageGenerationRequest {
+  model: string
+  prompt: string
+  /** Optional reference images for providers that support editing. */
+  images?: ChatMessage["images"]
 }
 
 export interface EmbeddingSupport {
@@ -170,6 +180,13 @@ export interface LLMProvider {
 
   streamChat(
     request: ChatRequest,
+    onChunk: (chunk: ChatStreamMessage) => void,
+    signal?: AbortSignal
+  ): Promise<void>
+
+  /** Optional provider-native image generation operation. */
+  generateImage?(
+    request: ImageGenerationRequest,
     onChunk: (chunk: ChatStreamMessage) => void,
     signal?: AbortSignal
   ): Promise<void>

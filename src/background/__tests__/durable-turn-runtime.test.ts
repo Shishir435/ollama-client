@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   handleChat: vi.fn(),
   resolveRetrievalToolsActive: vi.fn(),
   appendMessage: vi.fn(),
+  getFilesByMessageIds: vi.fn(),
   getMessage: vi.fn(),
   getSession: vi.fn(),
   updateMessage: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock("@/background/handlers/handle-build-context", () => ({
 
 vi.mock("@/lib/repositories/chat-history", () => ({
   appendMessage: mocks.appendMessage,
+  getFilesByMessageIds: mocks.getFilesByMessageIds,
   getMessage: mocks.getMessage,
   getSession: mocks.getSession,
   updateMessage: mocks.updateMessage
@@ -62,6 +64,7 @@ import {
   resumeIncompleteTurnRuns,
   startDurableTurn
 } from "@/background/durable-turn-runtime"
+import { hasAbortController } from "@/background/lib/abort-controller-registry"
 
 const deferred = <T>() => {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -128,6 +131,7 @@ beforeEach(() => {
   mocks.markTurnCancelling.mockResolvedValue(true)
   mocks.getInterruptedCancellations.mockResolvedValue([])
   mocks.finalizeCancelledTurn.mockResolvedValue(true)
+  mocks.getFilesByMessageIds.mockResolvedValue([])
   mocks.contextBuild.mockImplementation(async () => {
     mocks.order.push("context")
     return {
@@ -195,6 +199,7 @@ describe("durable turn runtime", () => {
       2,
       expect.objectContaining({ content: "answer", done: true })
     )
+    expect(hasAbortController("turn-1")).toBe(false)
   })
 
   it("resumes persisted in-flight turns on background startup", async () => {
@@ -264,6 +269,7 @@ describe("durable turn runtime", () => {
         done: true
       })
     )
+    expect(hasAbortController("turn-1")).toBe(false)
   })
 
   it("reattaches an observer with a persisted snapshot", async () => {
@@ -295,6 +301,55 @@ describe("durable turn runtime", () => {
       status: "generating",
       assistant: expect.objectContaining({ content: "partial" })
     })
+  })
+
+  it("reattaches persisted generated images after a worker restart", async () => {
+    mocks.getTurnRun.mockResolvedValue({
+      ...submission,
+      status: "completed",
+      assistantMessageId: 2,
+      updatedAt: 12
+    } satisfies DurableTurnRun)
+    mocks.getMessage.mockResolvedValue({
+      id: 2,
+      role: "assistant",
+      content: "",
+      done: true
+    })
+    mocks.getFilesByMessageIds.mockResolvedValue([
+      {
+        id: 3,
+        fileId: "generated-1",
+        fileName: "generated.png",
+        fileType: "image/png",
+        fileSize: 3,
+        processedAt: 11,
+        sessionId: "session-1",
+        messageId: 2,
+        data: new Uint8Array([1, 2, 3])
+      }
+    ])
+    const port = { postMessage: vi.fn() } as any
+
+    await reconnectDurableTurn("turn-1", 0, {
+      port,
+      isPortClosed: () => false
+    })
+
+    expect(port.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "stream_snapshot",
+        assistant: expect.objectContaining({
+          images: [
+            expect.objectContaining({
+              imageId: "generated-1",
+              mimeType: "image/png",
+              base64: "AQID"
+            })
+          ]
+        })
+      })
+    )
   })
 
   it("buffers live chunks until a coherent snapshot is sent", async () => {
