@@ -146,6 +146,67 @@ describe("handleGetPageContent", () => {
     expect(mocks.extractReadableContent).not.toHaveBeenCalled()
   })
 
+  it("returns a useful YouTube response even when no transcript exists", async () => {
+    mocks.isYouTubeVideoPage.mockReturnValueOnce(true)
+    mocks.getYouTubeVideoId.mockReturnValueOnce("video-404")
+    const sendResponse = vi.fn()
+
+    await handleGetPageContent(sendResponse)
+
+    const response = sendResponse.mock.calls[0]?.[0] as { html: string }
+    expect(response.html).toContain(
+      "No transcript found for this YouTube video."
+    )
+    expect(response.html).toContain("Transcript:")
+    expect(mocks.extractReadableContent).not.toHaveBeenCalled()
+  })
+
+  it("returns a Udemy transcript without regular page extraction", async () => {
+    mocks.isUdemyLecturePage.mockReturnValueOnce(true)
+    mocks.getTranscript.mockResolvedValueOnce("Lecture transcript")
+    const sendResponse = vi.fn()
+
+    await handleGetPageContent(sendResponse)
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        html: "Lecture transcript",
+        title: "Resolved title"
+      })
+    )
+    expect(mocks.extractContentWithLoading).not.toHaveBeenCalled()
+    expect(mocks.extractReadableContent).not.toHaveBeenCalled()
+  })
+
+  it("falls back to page extraction when a Udemy transcript is missing", async () => {
+    mocks.isUdemyLecturePage.mockReturnValueOnce(true)
+    const sendResponse = vi.fn()
+
+    await handleGetPageContent(sendResponse)
+
+    expect(mocks.extractContentWithLoading).toHaveBeenCalled()
+    expect(mocks.extractReadableContent).toHaveBeenCalled()
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ success: true })
+    )
+  })
+
+  it("skips enhanced extraction when it is disabled by configuration", async () => {
+    mocks.resolveActiveConfig.mockResolvedValueOnce({
+      effectiveConfig: { ...extractionConfig, enabled: false },
+      hasSiteOverride: true
+    })
+    const sendResponse = vi.fn()
+
+    await handleGetPageContent(sendResponse)
+
+    expect(mocks.extractContentWithLoading).not.toHaveBeenCalled()
+    expect(mocks.extractReadableContent).toHaveBeenCalledWith(document, "auto")
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ success: true })
+    )
+  })
+
   it("falls back to readable extraction when enhanced extraction fails", async () => {
     mocks.extractContentWithLoading.mockRejectedValueOnce(
       new Error("provider unavailable")
