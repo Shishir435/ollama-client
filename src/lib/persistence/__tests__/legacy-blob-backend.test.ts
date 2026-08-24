@@ -1,6 +1,14 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest"
 import { type ChatDbEngine, createChatDbEngine } from "../chat-db-engine"
 import type { IntegrityReport } from "../durable-tables"
 import {
@@ -37,6 +45,7 @@ beforeAll(() => {
 })
 
 const errors: string[] = []
+const engines: ChatDbEngine[] = []
 
 /** A fresh owner. Creating one models a browser session starting. */
 const bootEngine = async (
@@ -46,6 +55,7 @@ const bootEngine = async (
     wasmBinary: Promise.resolve(wasmBinary),
     onError: (message) => errors.push(message)
   })
+  engines.push(engine)
   await engine.submit({ op: "setBackend", backend: "legacy", integrity })
   return engine
 }
@@ -82,6 +92,17 @@ const afterDebounce = (): Promise<void> =>
 beforeEach(async () => {
   errors.length = 0
   await deleteLegacyBlob()
+})
+
+afterEach(async () => {
+  // Cancel every backend's pending debounce before the next test clears the
+  // shared fake IndexedDB store. Without this, an earlier engine can wake a
+  // second later and overwrite the next fixture, especially under coverage.
+  await Promise.all(
+    engines
+      .splice(0)
+      .map((engine) => engine.submit({ op: "flush" }).catch(() => undefined))
+  )
 })
 
 describe("legacy blob backend", () => {
