@@ -14,6 +14,10 @@ import {
   STORAGE_KEYS
 } from "@/lib/constants"
 import {
+  ensureDefaultKnowledgeSet,
+  updateKnowledgeSet
+} from "@/lib/knowledge/knowledge-sets"
+import {
   invalidateBackendCache,
   readPersistenceBackend
 } from "@/lib/persistence/backend"
@@ -37,6 +41,8 @@ import {
   query
 } from "@/lib/sqlite/db"
 import { LATEST_SCHEMA_VERSION } from "@/lib/sqlite/migrations/migration-runner"
+import { writeSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import {
   CHAT_STREAM_EVENT_TYPES,
   STREAM_PROTOCOL_VERSION
@@ -86,6 +92,76 @@ const connectTurn = (turnId: string, afterSeq?: number): VerifyStream => {
   }
   return stream
 }
+
+const buildContextThroughRuntime = (requestId: string): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const port = browser.runtime.connect({
+      name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE
+    })
+    const timer = setTimeout(() => {
+      cleanup()
+      reject(new Error("Context build did not settle"))
+    }, 30_000)
+    const cleanup = () => {
+      clearTimeout(timer)
+      port.onMessage.removeListener(onMessage)
+      port.disconnect()
+    }
+    const onMessage = (event: unknown) => {
+      if (!event || typeof event !== "object") return
+      if (Reflect.get(event, "requestId") !== requestId) return
+      const type = Reflect.get(event, "type")
+      if (type === CHAT_STREAM_EVENT_TYPES.CONTEXT_RESULT) {
+        cleanup()
+        resolve()
+        return
+      }
+      if (type !== CHAT_STREAM_EVENT_TYPES.CONTEXT_ERROR) return
+      const failure = Reflect.get(event, "failure")
+      cleanup()
+      reject(
+        new Error(
+          failure && typeof failure === "object"
+            ? String(
+                Reflect.get(failure, "userMessage") ??
+                  Reflect.get(failure, "message") ??
+                  "Context build failed"
+              )
+            : "Context build failed"
+        )
+      )
+    }
+    port.onMessage.addListener(onMessage)
+    port.postMessage({
+      version: STREAM_PROTOCOL_VERSION,
+      type: MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT,
+      payload: {
+        requestId,
+        turnId: requestId,
+        rawInput: "What does the document say about model loading?",
+        messages: [
+          { role: "user", content: "Remember the runtime settings." },
+          {
+            role: "assistant",
+            content: "I will preserve them.",
+            done: true
+          }
+        ],
+        hasTabContext: false,
+        contextText: "",
+        tabDocuments: [],
+        memoryEnabled: false,
+        maxTabContextChars: 1_000,
+        maxRagContextChars: 1_000,
+        groundedOnlyMode: false,
+        selectedModel: "verify-model",
+        selectedModelRef: {
+          providerId: ProviderId.OLLAMA,
+          modelId: "verify-model"
+        }
+      }
+    })
+  })
 
 /**
  * Resolve once the tab has committed its requested document. onUpdated is
@@ -406,6 +482,29 @@ const verifyApi = {
       baseUrl,
       customModels: ["verify-model"]
     })
+  },
+
+  /** Reproduce the #315 sequence through the packaged background: RAG query
+   * rewriting calls the selected model before the durable chat call. Both
+   * requests must carry the same model-loading options or Ollama unloads and
+   * reloads the model between them. */
+  async buildConfiguredRagContext(requestId: string): Promise<void> {
+    await writeSetting(SETTINGS.USE_RAG, true)
+    await writeSetting(SETTINGS.MODEL_CONFIGS, {
+      [`${ProviderId.OLLAMA}::verify-model`]: {
+        num_ctx: 8192,
+        num_thread: 8,
+        num_gpu: 20,
+        num_batch: 256,
+        keep_alive: "15m"
+      }
+    })
+    const knowledgeSet = await ensureDefaultKnowledgeSet()
+    await updateKnowledgeSet(knowledgeSet.id, {
+      questionPrompt:
+        "Rewrite the question as one standalone search query: {question}"
+    })
+    await buildContextThroughRuntime(requestId)
   },
 
   /** Submit through the real durable port contract. Only row creation mirrors

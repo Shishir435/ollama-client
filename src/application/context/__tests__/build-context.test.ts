@@ -723,6 +723,66 @@ describe("query reformulation provider call", () => {
     // The reformulated value ("pong") should be the query sent to retrieve.
     expect(mockedRetrieve.mock.calls[0]?.[0]).toBe("pong")
   })
+
+  it("preserves legacy bare runtime config during query reformulation", async () => {
+    ragsetOn()
+    mockedStorageGet
+      .mockResolvedValueOnce(true as never)
+      .mockResolvedValueOnce({
+        llama3: {
+          num_ctx: 32768,
+          num_thread: 4,
+          num_gpu: 0,
+          num_batch: 128,
+          keep_alive: 0
+        }
+      } as never)
+    mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
+      id: "ks-1",
+      name: "K",
+      questionPrompt: "QP"
+    } as never)
+    mockedReformulate.mockImplementationOnce(async (_q, _hist, invoke) =>
+      invoke("ping")
+    )
+
+    const fakeProvider = {
+      id: "ollama",
+      config: {
+        id: "ollama",
+        type: "ollama",
+        enabled: true,
+        baseUrl: "http://localhost:11434",
+        name: "Ollama"
+      },
+      streamChat: vi.fn(async (_req, onChunk) => {
+        onChunk({ delta: "pong" })
+      })
+    }
+    mockedGetProvider.mockResolvedValueOnce(fakeProvider as never)
+
+    await buildRagContext(
+      defaults({
+        messages: [
+          { role: "user", content: "x" },
+          { role: "assistant", content: "y", done: true }
+        ]
+      })
+    )
+
+    expect(fakeProvider.streamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "llama3",
+        num_ctx: 32768,
+        num_thread: 4,
+        num_gpu: 0,
+        num_batch: 128,
+        keep_alive: 0
+      }),
+      expect.any(Function),
+      expect.any(AbortSignal)
+    )
+  })
 })
 
 describe("conversation-memory recall (file-independent)", () => {
