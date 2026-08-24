@@ -516,6 +516,11 @@ const runScenarios = async (): Promise<void> => {
       await reloadServer.close()
     }
 
+    const providerRegressionCounts = await call<{
+      sessions: number
+      messages: number
+    }>(driver, "counts")
+
     // ---- 2. Concurrent facade writes from two tabs, exact counts ----
     const secondTab = await openVerifyTab(driver)
 
@@ -533,8 +538,14 @@ const runScenarios = async (): Promise<void> => {
     )
     record(
       "concurrent-facade-writes",
-      afterWrites.sessions === 2 && afterWrites.messages === APPENDS * 2,
-      { expected: APPENDS * 2, ...afterWrites }
+      afterWrites.sessions === providerRegressionCounts.sessions + 2 &&
+        afterWrites.messages ===
+          providerRegressionCounts.messages + APPENDS * 2,
+      {
+        baseline: providerRegressionCounts,
+        expectedAppendedMessages: APPENDS * 2,
+        ...afterWrites
+      }
     )
 
     await driver.switchTo().window(secondTab)
