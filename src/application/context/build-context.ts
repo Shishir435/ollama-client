@@ -22,6 +22,10 @@ import {
   type KnowledgeSetRecord
 } from "@/lib/knowledge/knowledge-sets"
 import { logger } from "@/lib/logger"
+import {
+  getStoredModelConfig,
+  resolveModelConfig
+} from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { readSetting } from "@/lib/storage/setting-access"
@@ -178,6 +182,14 @@ export const buildRagContext = async (
         selectedModelRef?.providerId
       )
       assertProviderEnabled(provider, modelId)
+      const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
+      const modelParams = resolveModelConfig(
+        getStoredModelConfig(
+          modelConfigMap,
+          modelId,
+          selectedModelRef?.providerId
+        )
+      )
       let response = ""
       await withTimeoutSignal(
         (signal) =>
@@ -188,7 +200,12 @@ export const buildRagContext = async (
               temperature: 0.2,
               num_predict: 64,
               stop: ["\n"],
-              think: false
+              think: false,
+              num_ctx: modelParams.num_ctx,
+              num_thread: modelParams.num_thread,
+              num_gpu: modelParams.num_gpu,
+              num_batch: modelParams.num_batch,
+              keep_alive: modelParams.keep_alive
             },
             (chunk) => {
               if (chunk.delta) response += chunk.delta

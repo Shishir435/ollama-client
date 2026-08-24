@@ -646,6 +646,17 @@ describe("prompt stats", () => {
 describe("query reformulation provider call", () => {
   it("invokeModelOnce is wired with the streaming provider when reformulation runs", async () => {
     ragsetOn()
+    mockedStorageGet
+      .mockResolvedValueOnce(true as never)
+      .mockResolvedValueOnce({
+        "ollama::llama3": {
+          num_ctx: 8192,
+          num_thread: 8,
+          num_gpu: 20,
+          num_batch: 256,
+          keep_alive: "15m"
+        }
+      } as never)
     mockedGetActiveKnowledgeSet.mockResolvedValueOnce({
       id: "ks-1",
       name: "K",
@@ -699,7 +710,12 @@ describe("query reformulation provider call", () => {
         temperature: 0.2,
         num_predict: 64,
         stop: ["\n"],
-        think: false
+        think: false,
+        num_ctx: 8192,
+        num_thread: 8,
+        num_gpu: 20,
+        num_batch: 256,
+        keep_alive: "15m"
       }),
       expect.any(Function),
       expect.any(AbortSignal)
