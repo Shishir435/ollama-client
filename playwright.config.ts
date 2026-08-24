@@ -38,6 +38,11 @@ export default defineConfig({
       "chromium-persistence",
       "**/persistence.spec.ts",
       "build/chrome-mv3-benchmark"
+    ),
+    chromiumProject(
+      "chromium-provider-streaming",
+      "**/provider-streaming.spec.ts",
+      "build/chrome-mv3-benchmark"
     )
   ]
 })
