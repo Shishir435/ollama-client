@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
-import { beforeAll, beforeEach, describe, expect, it } from "vitest"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { type ChatDbEngine, createChatDbEngine } from "../chat-db-engine"
 import type { IntegrityReport } from "../durable-tables"
 import {
@@ -85,6 +85,46 @@ beforeEach(async () => {
 })
 
 describe("legacy blob backend", () => {
+  it("resolves a blob write only after its transaction commits", async () => {
+    const putRequest = {} as IDBRequest
+    const transaction = {
+      error: null,
+      objectStore: vi.fn(() => ({ put: vi.fn(() => putRequest) })),
+      onabort: null,
+      oncomplete: null,
+      onerror: null
+    } as unknown as IDBTransaction
+    const database = {
+      close: vi.fn(),
+      transaction: vi.fn(() => transaction)
+    } as unknown as IDBDatabase
+    const openRequest = {
+      result: database,
+      onerror: null,
+      onupgradeneeded: null,
+      onsuccess: null
+    } as unknown as IDBOpenDBRequest
+    const open = vi.spyOn(indexedDB, "open").mockReturnValue(openRequest)
+
+    try {
+      let resolved = false
+      const write = writeLegacyBlob(new Uint8Array([1, 2, 3])).then(() => {
+        resolved = true
+      })
+
+      openRequest.onsuccess?.(new Event("success"))
+      await Promise.resolve()
+      expect(resolved).toBe(false)
+
+      transaction.oncomplete?.(new Event("complete"))
+      await write
+      expect(resolved).toBe(true)
+      expect(database.close).toHaveBeenCalledOnce()
+    } finally {
+      open.mockRestore()
+    }
+  })
+
   it("creates the full schema when IndexedDB holds no database", async () => {
     const engine = await bootEngine()
 
