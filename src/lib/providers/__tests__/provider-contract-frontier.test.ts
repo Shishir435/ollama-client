@@ -37,7 +37,15 @@ describe("frontier provider wire contracts", () => {
           {
             role: "user",
             content: "What is shown?",
-            images: [{ mimeType: "image/png", base64: "aW1hZ2U=" }]
+            images: [
+              {
+                imageId: "vision-fixture",
+                fileName: "fixture.png",
+                mimeType: "image/png",
+                size: 5,
+                base64: "aW1hZ2U="
+              }
+            ]
           }
         ],
         num_predict: 256,
