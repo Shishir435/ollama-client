@@ -198,7 +198,10 @@ const waitForTabComplete = (tabId: number): Promise<void> =>
       })
   })
 
-const makeTurnRequest = (prompt: string) => ({
+const makeTurnRequest = (
+  prompt: string,
+  providerId: string = ProviderId.OLLAMA
+) => ({
   version: 1 as const,
   context: {
     rawInput: prompt,
@@ -212,7 +215,7 @@ const makeTurnRequest = (prompt: string) => ({
     groundedOnlyMode: false,
     selectedModel: "verify-model",
     selectedModelRef: {
-      providerId: ProviderId.OLLAMA,
+      providerId,
       modelId: "verify-model"
     }
   },
@@ -477,7 +480,14 @@ const verifyApi = {
   },
 
   async configureFakeOllama(baseUrl: string): Promise<void> {
-    await ProviderManager.updateProviderConfig(ProviderId.OLLAMA, {
+    await this.configureFakeProvider(ProviderId.OLLAMA, baseUrl)
+  },
+
+  async configureFakeProvider(
+    providerId: string,
+    baseUrl: string
+  ): Promise<void> {
+    await ProviderManager.updateProviderConfig(providerId, {
       enabled: true,
       baseUrl,
       customModels: ["verify-model"]
@@ -509,10 +519,14 @@ const verifyApi = {
 
   /** Submit through the real durable port contract. Only row creation mirrors
    * the UI; lifecycle ownership begins when START_TURN reaches background. */
-  async startDurableTurn(turnId: string, prompt: string): Promise<number> {
+  async startDurableTurn(
+    turnId: string,
+    prompt: string,
+    providerId: string = ProviderId.OLLAMA
+  ): Promise<number> {
     const now = Date.now()
     const sessionId = `session-${turnId}`
-    const request = makeTurnRequest(prompt)
+    const request = makeTurnRequest(prompt, providerId)
     await chatHistory.addSession({
       id: sessionId,
       title: `verify ${turnId}`,
@@ -547,7 +561,7 @@ const verifyApi = {
             sessionId,
             mode: "new",
             model: "verify-model",
-            providerId: ProviderId.OLLAMA,
+            providerId,
             request,
             createdAt: now
           },
