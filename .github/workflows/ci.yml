@@ -60,8 +60,8 @@ jobs:
       - name: Compatibility ledger
         run: pnpm check:compatibility
 
-      - name: Tests
-        run: pnpm test:run
+      - name: Tests and coverage thresholds
+        run: pnpm test:coverage
 
   build:
     name: Build (${{ matrix.target }})
