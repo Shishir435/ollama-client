@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, preview, "release/**"]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   # Lets the browser gates be re-run against any branch on demand — before
   # tagging a release, or after a flake — without opening a pull request.
   # Dispatch only becomes available once this file is on the default branch.
