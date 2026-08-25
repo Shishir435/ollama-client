@@ -64,6 +64,7 @@ import {
   resumeIncompleteTurnRuns,
   startDurableTurn
 } from "@/background/durable-turn-runtime"
+import { hasAbortController } from "@/background/lib/abort-controller-registry"
 
 const deferred = <T>() => {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -198,6 +199,7 @@ describe("durable turn runtime", () => {
       2,
       expect.objectContaining({ content: "answer", done: true })
     )
+    expect(hasAbortController("turn-1")).toBe(false)
   })
 
   it("resumes persisted in-flight turns on background startup", async () => {
@@ -267,6 +269,7 @@ describe("durable turn runtime", () => {
         done: true
       })
     )
+    expect(hasAbortController("turn-1")).toBe(false)
   })
 
   it("reattaches an observer with a persisted snapshot", async () => {

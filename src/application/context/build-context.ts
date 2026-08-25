@@ -14,6 +14,7 @@ import {
   formatEnhancedResults,
   retrieveContextEnhanced
 } from "@/application/context/rag/rag-pipeline"
+import { isAbortError } from "@/lib/error-utils"
 import {
   DEFAULT_KNOWLEDGE_SET_ID,
   DEFAULT_RAG_PROMPT,
@@ -67,6 +68,16 @@ export interface BuildRagContextOptions extends DurableContextOptions {
    * copy by key and the extension page resolves it.
    */
   toast?: (input: TurnToast) => void
+  /**
+   * Cancellation for this build.
+   *
+   * Runtime-only and never persisted: the durable turn request is written
+   * before the build starts, and the background attaches the signal in its
+   * `prepareContextOptions` pass, which runs after that write. A stop reaches
+   * the query reformulation, retrieval and embedding fetches through it — the
+   * turn's status transitions alone only stopped work at stage boundaries.
+   */
+  signal?: AbortSignal
 }
 
 export interface BuildRagContextResult {
@@ -102,21 +113,70 @@ const resolveFileRagScope = async (
 }
 
 const REFORMULATION_TIMEOUT_MS = 8000
+const REFORMULATION_HISTORY_MAX_CHARS = 8000
 const PREVIEW_LIMIT = 180
 
 const preview = (value: string, limit = PREVIEW_LIMIT) =>
   value.length > limit ? `${value.slice(0, limit)}...` : value
 
+class ReformulationTimeoutError extends Error {
+  override name = "ReformulationTimeoutError"
+}
+
+const boundedReformulationHistory = (
+  messages: BuildRagContextOptions["messages"]
+): Array<{ role: "user" | "assistant"; content: string }> => {
+  const recent = messages
+    .filter((message) => message.role !== "system")
+    .slice(-5)
+  const bounded: Array<{ role: "user" | "assistant"; content: string }> = []
+  let remaining = REFORMULATION_HISTORY_MAX_CHARS
+
+  for (let index = recent.length - 1; index >= 0 && remaining > 0; index--) {
+    const message = recent[index]
+    if (message.role !== "user" && message.role !== "assistant") continue
+    const content = message.content.slice(-remaining)
+    bounded.push({ role: message.role, content })
+    remaining -= content.length
+  }
+
+  return bounded.reverse()
+}
+
+/**
+ * Runs `fn` under a timeout that the caller's cancellation can also trigger.
+ *
+ * Without the parent link, a stop during query reformulation left the request
+ * running for the rest of its eight seconds against a provider that may bill
+ * for it. `AbortSignal.any` would express this in one line but is newer than
+ * the browsers this extension supports.
+ */
 const withTimeoutSignal = async <T>(
   fn: (signal: AbortSignal) => Promise<T>,
-  timeoutMs: number
+  timeoutMs: number,
+  parentSignal?: AbortSignal
 ): Promise<T> => {
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  let timedOut = false
+  const timeoutId = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
+  const onParentAbort = () => controller.abort(parentSignal?.reason)
+  parentSignal?.throwIfAborted()
+  parentSignal?.addEventListener("abort", onParentAbort, { once: true })
   try {
     return await fn(controller.signal)
+  } catch (error) {
+    if (timedOut && !parentSignal?.aborted && isAbortError(error)) {
+      throw new ReformulationTimeoutError(
+        `Query reformulation exceeded ${timeoutMs}ms`
+      )
+    }
+    throw error
   } finally {
     clearTimeout(timeoutId)
+    parentSignal?.removeEventListener("abort", onParentAbort)
   }
 }
 
@@ -154,7 +214,8 @@ export const buildRagContext = async (
     selectedModelRef,
     customModel,
     onActivityEvent,
-    toast
+    toast,
+    signal
   } = options
 
   const plan = createContextPlan({
@@ -170,6 +231,7 @@ export const buildRagContext = async (
     DEFAULT_RAG_PROMPT
   )
 
+  signal?.throwIfAborted()
   const useRag = await readSetting(SETTINGS.USE_RAG)
 
   const invokeModelOnce = async (prompt: string): Promise<string> => {
@@ -192,7 +254,7 @@ export const buildRagContext = async (
       )
       let response = ""
       await withTimeoutSignal(
-        (signal) =>
+        (requestSignal) =>
           provider.streamChat(
             {
               model: modelId,
@@ -210,12 +272,25 @@ export const buildRagContext = async (
             (chunk) => {
               if (chunk.delta) response += chunk.delta
             },
-            signal
+            requestSignal
           ),
-        REFORMULATION_TIMEOUT_MS
+        REFORMULATION_TIMEOUT_MS,
+        signal
       )
       return response.trim()
     } catch (err) {
+      if (err instanceof ReformulationTimeoutError) {
+        logger.info(
+          "Query reformulation timed out; using the original query",
+          "useChat",
+          { timeoutMs: REFORMULATION_TIMEOUT_MS }
+        )
+        return ""
+      }
+      // Reformulation is best-effort and degrades to the raw query, but a
+      // cancelled build must not be degraded into a successful one: the caller
+      // asked for the whole turn to stop, not for a worse retrieval query.
+      if (isAbortError(err)) throw err
       logger.warn("Failed to reformulate question", "useChat", { error: err })
       return ""
     }
@@ -225,13 +300,7 @@ export const buildRagContext = async (
 
   if (useRag) {
     try {
-      const recentHistory = messages
-        .filter((m) => m.role !== "system")
-        .slice(-5)
-        .map((m) => ({ role: m.role, content: m.content })) as Array<{
-        role: "user" | "assistant"
-        content: string
-      }>
+      const recentHistory = boundedReformulationHistory(messages)
 
       const queryClassification = classifyQuery(rawInput || "", recentHistory)
 
@@ -296,7 +365,8 @@ export const buildRagContext = async (
                 4
               ),
               maxTokens: maxTabContextChars,
-              minSimilarity: retrievalOverrides?.minSimilarity
+              minSimilarity: retrievalOverrides?.minSimilarity,
+              ...(signal ? { signal } : {})
             }
           )
 
@@ -351,7 +421,8 @@ export const buildRagContext = async (
                 retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
               minSimilarity: retrievalOverrides?.minSimilarity,
               minRerankScore: retrievalOverrides?.minRerankScore,
-              includeMemory: false
+              includeMemory: false,
+              ...(signal ? { signal } : {})
             })
 
             if (context.documents.length > 0) {
@@ -397,7 +468,8 @@ export const buildRagContext = async (
             )
             const memoryResults = await retrieveContextEnhanced(queryForRag, {
               type: "chat",
-              topK: 4
+              topK: 4,
+              ...(signal ? { signal } : {})
             })
             // Memory shares the RAG budget with file context above; only append
             // what fits in the remainder so the two together stay within cap.
@@ -440,6 +512,11 @@ export const buildRagContext = async (
         }
       }
     } catch (e) {
+      // Retrieval failing is a warning the turn continues past. Cancellation is
+      // not: swallowing it here would report a stopped build as a completed one
+      // with no context, and toast a retrieval warning for something the user
+      // asked to stop.
+      if (isAbortError(e)) throw e
       logger.error("RAG error", "useChat", { error: e })
       assembly.recordError(e)
       toast?.({

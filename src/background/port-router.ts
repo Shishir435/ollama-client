@@ -142,6 +142,10 @@ export const registerPortRouter = () => {
       }
 
       if (msg.type === MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT) {
+        // Non-durable and panel-owned, unlike START_TURN: nothing can deliver
+        // this result after the port closes, so a disconnect cancels it.
+        currentAbortKey = msg.payload.requestId
+        abortCurrentOnDisconnect = true
         await handleBuildContext(msg, port, getPortStatus)
       }
 

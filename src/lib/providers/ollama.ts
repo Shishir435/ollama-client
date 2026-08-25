@@ -3,7 +3,7 @@ import {
   PROVIDER_MODEL_CLOUD_PLAN_MAX_LENGTH
 } from "@ollama-client/contracts/provider-rpc"
 import { z } from "zod"
-import { createAppError } from "@/lib/error-utils"
+import { createAppError, isAbortError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import {
   classifyProviderError,
@@ -22,6 +22,7 @@ import type {
 } from "@/types"
 import { resolveProviderBaseUrl } from "./base-url"
 import { PROVIDER_CAPABILITIES } from "./capabilities"
+import { decodeOllamaEmbedding } from "./embedding-response"
 import { generatedImageFromBase64 } from "./generated-image"
 import {
   lifecycleRequestFailed,
@@ -928,7 +929,20 @@ export class OllamaProvider implements LLMProvider {
     }
   }
 
-  async embed(text: string, model?: string): Promise<number[]> {
+  private embeddingContext(baseUrl: string) {
+    return {
+      providerId: ProviderId.OLLAMA,
+      providerName: this.config.name,
+      baseUrl,
+      userMessage: "Ollama returned an invalid embedding response."
+    }
+  }
+
+  async embed(
+    text: string,
+    model?: string,
+    signal?: AbortSignal
+  ): Promise<number[]> {
     const baseUrl = resolveProviderBaseUrl(this.config)
     const targetModel = model || this.config.modelId || "nomic-embed-text"
 
@@ -938,26 +952,27 @@ export class OllamaProvider implements LLMProvider {
       const response = await fetch(`${baseUrl}/api/embed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        ...(signal ? { signal } : {})
       })
 
       if (response.ok) {
-        const data = await response.json()
-        const vector = Array.isArray(data.embeddings)
-          ? data.embeddings[0]
-          : data.embedding
-
-        if (Array.isArray(vector) && vector.length > 0) {
-          return vector
-        }
+        return await decodeOllamaEmbedding(
+          response,
+          this.embeddingContext(baseUrl)
+        )
       } else {
         const errorText = await response.text()
         logger.warn(`/api/embed failed: ${response.status}`, "OllamaProvider", {
           error: errorText
         })
       }
-    } catch (_error) {
-      // Continue to legacy fallback.
+    } catch (error) {
+      // Continue to legacy fallback — unless the caller cancelled, in which
+      // case a second request is exactly the work it asked to stop.
+      if (isAbortError(error)) {
+        throw error
+      }
     }
 
     try {
@@ -965,7 +980,8 @@ export class OllamaProvider implements LLMProvider {
       const legacyResponse = await fetch(`${baseUrl}/api/embeddings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(legacyBody)
+        body: JSON.stringify(legacyBody),
+        ...(signal ? { signal } : {})
       })
 
       if (!legacyResponse.ok) {
@@ -987,26 +1003,23 @@ export class OllamaProvider implements LLMProvider {
         })
       }
 
-      const legacyData = await legacyResponse.json()
-      if (!Array.isArray(legacyData.embedding)) {
-        throw createAppError(
-          "Ollama Embedding Error: invalid embedding response",
-          {
-            kind: "provider",
-            providerId: ProviderId.OLLAMA
-          }
-        )
-      }
-      return legacyData.embedding
+      return await decodeOllamaEmbedding(
+        legacyResponse,
+        this.embeddingContext(baseUrl)
+      )
     } catch (error) {
       logger.error("Both embed endpoints failed", "OllamaProvider", { error })
       throw error
     }
   }
 
-  async embedBatch(texts: string[], model?: string): Promise<number[][]> {
+  async embedBatch(
+    texts: string[],
+    model?: string,
+    signal?: AbortSignal
+  ): Promise<number[][]> {
     // Ollama doesn't have a native batch embed endpoint that takes multiple prompts in one call (it usually takes one)
     // So we parallelize here
-    return Promise.all(texts.map((t) => this.embed(t, model)))
+    return Promise.all(texts.map((t) => this.embed(t, model, signal)))
   }
 }
