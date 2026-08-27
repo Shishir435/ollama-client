@@ -1,8 +1,10 @@
 /** OpenAI-compatible image generations over a runtime-native image backend. */
+import type { ServerResponse } from "node:http"
 import {
   type AgentBackend,
   BackendInputError,
-  type GeneratedImage
+  type GeneratedImage,
+  type ResolvedModel
 } from "../backends/types.js"
 import type {
   ImageGenerationRequest,
@@ -10,13 +12,15 @@ import type {
   ProxyLogger
 } from "../types.js"
 import { isRecord } from "../util.js"
-import { type Router, sendJson } from "./http.js"
+import { type RouteRequest, type Router, sendJson } from "./http.js"
 import { OLC_PUBLIC_ROUTES } from "./public-api-contract.js"
 import { QueueStalledError, type RequestQueue } from "./queue.js"
 
 const MAX_PROMPT_CHARS = 100_000
 const MAX_IMAGE_BASE64_CHARS = 50 * 1024 * 1024
 const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/
+
+type ResolvedModelTarget = Exclude<ResolvedModel, { error: string }>
 
 const badRequest = (message: string) => ({
   error: { message, type: "BadRequest" }
@@ -41,6 +45,114 @@ const normalizeImage = (image: GeneratedImage): GeneratedImage | null => {
   }
 }
 
+const parseImageRequest = (
+  rawBody: unknown
+): { body: ImageGenerationRequest; prompt: string; error?: string } => {
+  const body: ImageGenerationRequest = isRecord(rawBody) ? rawBody : {}
+  const prompt = typeof body.prompt === "string" ? body.prompt.trim() : ""
+  if (!prompt) return { body, prompt, error: "prompt is required" }
+  if (prompt.length > MAX_PROMPT_CHARS) {
+    return {
+      body,
+      prompt,
+      error: `prompt must be at most ${MAX_PROMPT_CHARS} characters`
+    }
+  }
+  if (body.n !== undefined && body.n !== 1) {
+    return { body, prompt, error: "only n=1 is supported" }
+  }
+  if (
+    body.response_format !== undefined &&
+    body.response_format !== "b64_json"
+  ) {
+    return {
+      body,
+      prompt,
+      error: "only response_format='b64_json' is supported"
+    }
+  }
+  return { body, prompt }
+}
+
+const bindRequestAbort = (
+  request: RouteRequest,
+  response: ServerResponse
+): AbortController => {
+  const abortController = new AbortController()
+  request.raw.once("aborted", () => abortController.abort())
+  response.once("close", () => {
+    if (!response.writableEnded) abortController.abort()
+  })
+  return abortController
+}
+
+const generateImages = async ({
+  backend,
+  config,
+  lock,
+  target,
+  prompt,
+  abortController
+}: {
+  backend: AgentBackend & {
+    generateImage: NonNullable<AgentBackend["generateImage"]>
+  }
+  config: ProxyConfig
+  lock: RequestQueue
+  target: ResolvedModelTarget
+  prompt: string
+  abortController: AbortController
+}): Promise<GeneratedImage[]> => {
+  const images = await lock(
+    async (queueSignal) => {
+      const abortFromQueue = () => abortController.abort(queueSignal.reason)
+      queueSignal.addEventListener("abort", abortFromQueue, { once: true })
+      try {
+        await backend.ensureReady()
+        return await backend.generateImage({
+          requestId: `img_${Date.now().toString(36)}`,
+          model: target,
+          prompt,
+          signal: abortController.signal
+        })
+      } finally {
+        queueSignal.removeEventListener("abort", abortFromQueue)
+      }
+    },
+    config.REQUEST_TIMEOUT_MS + 60_000,
+    `image-generation:${target.providerId}/${target.modelId}`
+  )
+
+  return images
+    .map(normalizeImage)
+    .filter((image): image is GeneratedImage => image !== null)
+}
+
+const classifyImageFailure = (
+  error: unknown,
+  aborted: boolean
+): { status: number; message: string; type: string } => {
+  const message = (error as Error).message
+  const timedOut = aborted && /Request timeout/.test(message)
+  if (error instanceof QueueStalledError) {
+    return { status: 503, message, type: "ServiceUnavailable" }
+  }
+  if (timedOut) {
+    return { status: 504, message: "Image generation timed out", type: "Timeout" }
+  }
+  if (aborted) {
+    return {
+      status: 499,
+      message: "Image generation was cancelled",
+      type: "Cancelled"
+    }
+  }
+  if (error instanceof BackendInputError) {
+    return { status: 400, message, type: "BadRequest" }
+  }
+  return { status: 502, message, type: "ImageGenerationError" }
+}
+
 export const registerImageRoutes = (
   router: Router,
   {
@@ -56,35 +168,9 @@ export const registerImageRoutes = (
   }
 ): void => {
   router.post(OLC_PUBLIC_ROUTES.imageGenerations, async (request, response) => {
-    const body: ImageGenerationRequest = isRecord(request.body)
-      ? request.body
-      : {}
-    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : ""
-    if (!prompt) {
-      sendJson(response, 400, badRequest("prompt is required"))
-      return
-    }
-    if (prompt.length > MAX_PROMPT_CHARS) {
-      sendJson(
-        response,
-        400,
-        badRequest(`prompt must be at most ${MAX_PROMPT_CHARS} characters`)
-      )
-      return
-    }
-    if (body.n !== undefined && body.n !== 1) {
-      sendJson(response, 400, badRequest("only n=1 is supported"))
-      return
-    }
-    if (
-      body.response_format !== undefined &&
-      body.response_format !== "b64_json"
-    ) {
-      sendJson(
-        response,
-        400,
-        badRequest("only response_format='b64_json' is supported")
-      )
+    const parsed = parseImageRequest(request.body)
+    if (parsed.error) {
+      sendJson(response, 400, badRequest(parsed.error))
       return
     }
     if (!backend.generateImage) {
@@ -96,51 +182,31 @@ export const registerImageRoutes = (
       })
       return
     }
-    const generateImage = backend.generateImage
 
-    const target = await backend.resolveModel(body.model)
+    const target = await backend.resolveModel(parsed.body.model)
     if ("error" in target) {
       sendJson(response, 400, badRequest(target.error))
       return
     }
 
-    const abortController = new AbortController()
-    request.raw.once("aborted", () => abortController.abort())
-    response.once("close", () => {
-      if (!response.writableEnded) abortController.abort()
-    })
+    const abortController = bindRequestAbort(request, response)
+    const imageBackend = backend as AgentBackend & {
+      generateImage: NonNullable<AgentBackend["generateImage"]>
+    }
 
     try {
-      const images = (
-        await lock(
-          async (queueSignal) => {
-            const abortFromQueue = () =>
-              abortController.abort(queueSignal.reason)
-            queueSignal.addEventListener("abort", abortFromQueue, {
-              once: true
-            })
-            try {
-              await backend.ensureReady()
-              return await generateImage({
-                requestId: `img_${Date.now().toString(36)}`,
-                model: target,
-                prompt,
-                signal: abortController.signal
-              })
-            } finally {
-              queueSignal.removeEventListener("abort", abortFromQueue)
-            }
-          },
-          config.REQUEST_TIMEOUT_MS + 60_000,
-          `image-generation:${target.providerId}/${target.modelId}`
-        )
-      )
-        .map(normalizeImage)
-        .filter((image): image is GeneratedImage => image !== null)
-
+      const images = await generateImages({
+        backend: imageBackend,
+        config,
+        lock,
+        target,
+        prompt: parsed.prompt,
+        abortController
+      })
       if (images.length === 0) {
         throw new Error("The backend completed without returning image data")
       }
+
       log("POST /v1/images/generations ok", {
         model: `${target.providerId}/${target.modelId}`,
         count: images.length
@@ -155,42 +221,14 @@ export const registerImageRoutes = (
         }))
       })
     } catch (error) {
-      const message = (error as Error).message
-      const inputError = error instanceof BackendInputError
-      const stalled = error instanceof QueueStalledError
-      const aborted = abortController.signal.aborted
-      const timedOut = aborted && /Request timeout/.test(message)
-      if (aborted && response.writableEnded) return
-      sendJson(
-        response,
-        stalled
-          ? 503
-          : aborted
-            ? timedOut
-              ? 504
-              : 499
-            : inputError
-              ? 400
-              : 502,
-        {
-          error: {
-            message: timedOut
-              ? "Image generation timed out"
-              : aborted
-                ? "Image generation was cancelled"
-                : message,
-            type: stalled
-              ? "ServiceUnavailable"
-              : timedOut
-                ? "Timeout"
-                : aborted
-                  ? "Cancelled"
-                  : inputError
-                    ? "BadRequest"
-                    : "ImageGenerationError"
-          }
-        }
+      if (abortController.signal.aborted && response.writableEnded) return
+      const failure = classifyImageFailure(
+        error,
+        abortController.signal.aborted
       )
+      sendJson(response, failure.status, {
+        error: { message: failure.message, type: failure.type }
+      })
     }
   })
 }

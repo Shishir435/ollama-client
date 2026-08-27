@@ -1,4 +1,5 @@
 import { createServer } from "node:http"
+import type { IncomingMessage, ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
 import { expect, test } from "../../fixtures/extension"
 import {
@@ -18,7 +19,7 @@ interface ProviderRequest {
   path: string
 }
 
-const readBody = (request: import("node:http").IncomingMessage) =>
+const readBody = (request: IncomingMessage) =>
   new Promise<Record<string, unknown>>((resolve, reject) => {
     let body = ""
     request.setEncoding("utf8")
@@ -45,131 +46,162 @@ const latestUserText = (body: Record<string, unknown>): string => {
   return ""
 }
 
+const sendJson = (response: ServerResponse, payload: unknown): void => {
+  response.setHeader("Content-Type", "application/json")
+  response.end(JSON.stringify(payload))
+}
+
+const handleModelRequest = (path: string, response: ServerResponse): boolean => {
+  if (path.endsWith("/api/tags")) {
+    sendJson(response, {
+      models: [
+        {
+          name: "verify-model",
+          model: "verify-model",
+          modified_at: new Date(0).toISOString(),
+          size: 1,
+          digest: "verify",
+          details: { family: "verify", families: ["verify"] }
+        }
+      ]
+    })
+    return true
+  }
+  if (path.endsWith("/api/show")) {
+    sendJson(response, {
+      capabilities: ["completion"],
+      details: { family: "verify" }
+    })
+    return true
+  }
+  if (path.endsWith("/api/v0/models")) {
+    sendJson(response, {
+      data: [
+        {
+          id: "verify-model",
+          type: "llm",
+          arch: "verify",
+          capabilities: []
+        }
+      ]
+    })
+    return true
+  }
+  if (path.endsWith("/v1/models")) {
+    sendJson(response, {
+      data: [{ id: "verify-model", meta: { n_params: 1_000_000_000 } }]
+    })
+    return true
+  }
+  return false
+}
+
+const handleHttpFailure = (
+  prompt: string,
+  response: ServerResponse,
+  payload: unknown
+): boolean => {
+  if (!prompt.includes("http failure")) return false
+  response.statusCode = 503
+  sendJson(response, payload)
+  return true
+}
+
+const handleOllamaChat = async (
+  request: IncomingMessage,
+  response: ServerResponse,
+  path: string,
+  requests: ProviderRequest[]
+): Promise<void> => {
+  const body = await readBody(request)
+  requests.push({ body, path })
+  const prompt = latestUserText(body)
+  if (handleHttpFailure(prompt, response, { error: "mock unavailable" })) return
+
+  response.setHeader("Content-Type", "application/x-ndjson")
+  response.write(
+    `${JSON.stringify({ message: { content: "custom " }, done: false })}\n`
+  )
+  response.end(
+    `${JSON.stringify({ message: { content: "ollama" }, done: false })}\n${JSON.stringify({ message: { content: "" }, done: true })}\n`
+  )
+}
+
+const sendFragmentedSse = async (response: ServerResponse): Promise<void> => {
+  response.write("data: {malformed-json}\n\n")
+  response.write('data: {"choices":[{"delta":{"content":"frag')
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  response.write('mented "},"finish_reason":null}]}\n\n')
+  response.write('data: {"choices":[{"delta":{"content":"stream"}')
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  response.end(',"finish_reason":"stop"}]}')
+}
+
+const handleOpenAiChat = async (
+  request: IncomingMessage,
+  response: ServerResponse,
+  path: string,
+  requests: ProviderRequest[]
+): Promise<void> => {
+  const body = await readBody(request)
+  requests.push({ body, path })
+  const prompt = latestUserText(body)
+  if (
+    handleHttpFailure(prompt, response, {
+      error: { message: "mock unavailable" }
+    })
+  ) {
+    return
+  }
+
+  response.setHeader("Content-Type", "text/event-stream")
+  if (prompt.includes("fragmented sse")) {
+    await sendFragmentedSse(response)
+    return
+  }
+
+  const providerText = path.includes("lm-studio") ? "lm studio" : "llama.cpp"
+  response.write(
+    `data: ${JSON.stringify({ choices: [{ delta: { content: "custom " }, finish_reason: null }] })}\n\n`
+  )
+  response.end(
+    `data: ${JSON.stringify({ choices: [{ delta: { content: providerText }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`
+  )
+}
+
+const handleMockRequest = async (
+  request: IncomingMessage,
+  response: ServerResponse,
+  requests: ProviderRequest[]
+): Promise<void> => {
+  response.setHeader("Access-Control-Allow-Origin", "*")
+  response.setHeader("Access-Control-Allow-Headers", "*")
+  if (request.method === "OPTIONS") {
+    response.statusCode = 204
+    response.end()
+    return
+  }
+
+  const path = request.url ?? ""
+  if (handleModelRequest(path, response)) return
+  if (path.endsWith("/api/chat")) {
+    await handleOllamaChat(request, response, path, requests)
+    return
+  }
+  if (path.endsWith("/chat/completions")) {
+    await handleOpenAiChat(request, response, path, requests)
+    return
+  }
+
+  response.statusCode = 404
+  sendJson(response, { error: "not found" })
+}
+
 const startMockProvider = async () => {
   const requests: ProviderRequest[] = []
-  const server = createServer(async (request, response) => {
-    response.setHeader("Access-Control-Allow-Origin", "*")
-    response.setHeader("Access-Control-Allow-Headers", "*")
-    if (request.method === "OPTIONS") {
-      response.statusCode = 204
-      response.end()
-      return
-    }
-
-    const path = request.url ?? ""
-    if (path.endsWith("/api/tags")) {
-      response.setHeader("Content-Type", "application/json")
-      response.end(
-        JSON.stringify({
-          models: [
-            {
-              name: "verify-model",
-              model: "verify-model",
-              modified_at: new Date(0).toISOString(),
-              size: 1,
-              digest: "verify",
-              details: { family: "verify", families: ["verify"] }
-            }
-          ]
-        })
-      )
-      return
-    }
-    if (path.endsWith("/api/show")) {
-      response.setHeader("Content-Type", "application/json")
-      response.end(
-        JSON.stringify({
-          capabilities: ["completion"],
-          details: { family: "verify" }
-        })
-      )
-      return
-    }
-    if (path.endsWith("/api/v0/models")) {
-      response.setHeader("Content-Type", "application/json")
-      response.end(
-        JSON.stringify({
-          data: [
-            {
-              id: "verify-model",
-              type: "llm",
-              arch: "verify",
-              capabilities: []
-            }
-          ]
-        })
-      )
-      return
-    }
-    if (path.endsWith("/v1/models")) {
-      response.setHeader("Content-Type", "application/json")
-      response.end(
-        JSON.stringify({
-          data: [{ id: "verify-model", meta: { n_params: 1_000_000_000 } }]
-        })
-      )
-      return
-    }
-
-    if (path.endsWith("/api/chat")) {
-      const body = await readBody(request)
-      requests.push({ body, path })
-      const prompt = latestUserText(body)
-      if (prompt.includes("http failure")) {
-        response.statusCode = 503
-        response.setHeader("Content-Type", "application/json")
-        response.end(JSON.stringify({ error: "mock unavailable" }))
-        return
-      }
-      response.setHeader("Content-Type", "application/x-ndjson")
-      response.write(
-        `${JSON.stringify({ message: { content: "custom " }, done: false })}\n`
-      )
-      response.end(
-        `${JSON.stringify({ message: { content: "ollama" }, done: false })}\n${JSON.stringify({ message: { content: "" }, done: true })}\n`
-      )
-      return
-    }
-
-    if (path.endsWith("/chat/completions")) {
-      const body = await readBody(request)
-      requests.push({ body, path })
-      const prompt = latestUserText(body)
-      if (prompt.includes("http failure")) {
-        response.statusCode = 503
-        response.setHeader("Content-Type", "application/json")
-        response.end(JSON.stringify({ error: { message: "mock unavailable" } }))
-        return
-      }
-
-      response.setHeader("Content-Type", "text/event-stream")
-      if (prompt.includes("fragmented sse")) {
-        response.write("data: {malformed-json}\n\n")
-        response.write('data: {"choices":[{"delta":{"content":"frag')
-        await new Promise<void>((resolve) => setImmediate(resolve))
-        response.write('mented "},"finish_reason":null}]}\n\n')
-        response.write('data: {"choices":[{"delta":{"content":"stream"}')
-        await new Promise<void>((resolve) => setImmediate(resolve))
-        response.end(',"finish_reason":"stop"}]}')
-        return
-      }
-
-      const providerText = path.includes("lm-studio")
-        ? "lm studio"
-        : "llama.cpp"
-      response.write(
-        `data: ${JSON.stringify({ choices: [{ delta: { content: "custom " }, finish_reason: null }] })}\n\n`
-      )
-      response.end(
-        `data: ${JSON.stringify({ choices: [{ delta: { content: providerText }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`
-      )
-      return
-    }
-
-    response.statusCode = 404
-    response.setHeader("Content-Type", "application/json")
-    response.end(JSON.stringify({ error: "not found" }))
-  })
+  const server = createServer((request, response) =>
+    handleMockRequest(request, response, requests)
+  )
 
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject)

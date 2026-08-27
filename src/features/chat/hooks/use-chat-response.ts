@@ -33,6 +33,68 @@ interface ChatResponseOptions {
   currentStreamingSessionIdRef: { current: string | null }
 }
 
+type GenerateOptions = {
+  contextPrepared?: boolean
+  durableTurn?: DurableTurnStart
+  mode?: Exclude<TurnMode, "new">
+  streamClaim?: ChatStreamClaim
+}
+
+const buildAssistantMessage = (
+  model: string,
+  ragSources: RagSources | null,
+  promptContextStats: PromptContextStats | null
+): ChatMessage => ({
+  role: "assistant",
+  content: "",
+  done: false,
+  model,
+  metrics: ragSources
+    ? {
+        ragSources: ragSources.sources,
+        ragQuery: ragSources.query,
+        ...(promptContextStats || {})
+      }
+    : promptContextStats || undefined
+})
+
+const buildDurableTurn = ({
+  existing,
+  contextMessages,
+  sessionId,
+  model,
+  customModel,
+  mode,
+  config
+}: {
+  existing?: DurableTurnStart
+  contextMessages?: ChatMessage[]
+  sessionId: string
+  model: string
+  customModel?: string
+  mode?: Exclude<TurnMode, "new">
+  config: ReturnType<typeof useChatConfig>
+}): DurableTurnStart | undefined => {
+  if (existing || !contextMessages) return existing
+  const turnId =
+    globalThis.crypto?.randomUUID?.() ??
+    `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return prepareTurnSubmission({
+    id: turnId,
+    sessionId,
+    mode: mode ?? "regenerate",
+    model,
+    selectedModel: config.selectedModel,
+    selectedModelRef: config.selectedModelRef,
+    customModel,
+    memoryEnabled: config.memoryEnabled,
+    maxTabContextChars: config.maxTabContextChars,
+    maxRagContextChars: config.maxRagContextChars,
+    createdAt: Date.now(),
+    contextMessages
+  })
+}
+
 export const useChatResponse = ({
   config,
   currentSessionId,
@@ -59,76 +121,47 @@ export const useChatResponse = ({
     setNextResponseMetrics(null, null)
   }
 
+  const rejectBeforeClaim = (claim?: ChatStreamClaim): false => {
+    if (claim) releaseStreamClaim(claim)
+    return false
+  }
+
   const generateResponse = async (
     customModel?: string,
     sessionIdParam?: string,
     contextMessages?: ChatMessage[],
-    options?: {
-      contextPrepared?: boolean
-      durableTurn?: DurableTurnStart
-      mode?: Exclude<TurnMode, "new">
-      streamClaim?: ChatStreamClaim
-    }
+    options?: GenerateOptions
   ): Promise<boolean> => {
     const sessionId = sessionIdParam || currentSessionId
-    if (!sessionId) {
-      if (options?.streamClaim) releaseStreamClaim(options.streamClaim)
-      return false
-    }
+    if (!sessionId) return rejectBeforeClaim(options?.streamClaim)
 
     const modelForRequest =
       customModel || config.selectedModelRef?.modelId || config.selectedModel
-    if (!modelForRequest) {
-      if (options?.streamClaim) releaseStreamClaim(options.streamClaim)
-      return false
-    }
+    if (!modelForRequest) return rejectBeforeClaim(options?.streamClaim)
 
     const streamClaim = options?.streamClaim ?? claimStream()
     if (!streamClaim) return false
 
     try {
-      const assistantMessage: ChatMessage = {
-        role: "assistant",
-        content: "",
-        // Persist the in-flight turn as not-done so a worker/sidepanel death
-        // mid-stream leaves a `done=0` row. Startup recovery finalizes any such
-        // orphan (marking it interrupted); a normal completion flips it to done.
-        done: false,
-        model: modelForRequest,
-        metrics: ragSourcesRef.current
-          ? {
-              ragSources: ragSourcesRef.current.sources,
-              ragQuery: ragSourcesRef.current.query,
-              ...(promptContextStatsRef.current || {})
-            }
-          : promptContextStatsRef.current || undefined
-      }
+      const assistantMessage = buildAssistantMessage(
+        modelForRequest,
+        ragSourcesRef.current,
+        promptContextStatsRef.current
+      )
       clearNextResponseMetrics()
 
       const assistantId = await addMessage(sessionId, assistantMessage)
       currentStreamingMessageIdRef.current = assistantId
       currentStreamingSessionIdRef.current = sessionId
-
-      let durableTurn = options?.durableTurn
-      if (!durableTurn && contextMessages) {
-        const turnId =
-          globalThis.crypto?.randomUUID?.() ??
-          `turn-${Date.now()}-${Math.random().toString(36).slice(2)}`
-        durableTurn = prepareTurnSubmission({
-          id: turnId,
-          sessionId,
-          mode: options?.mode ?? "regenerate",
-          model: modelForRequest,
-          selectedModel: config.selectedModel,
-          selectedModelRef: config.selectedModelRef,
-          customModel,
-          memoryEnabled: config.memoryEnabled,
-          maxTabContextChars: config.maxTabContextChars,
-          maxRagContextChars: config.maxRagContextChars,
-          createdAt: Date.now(),
-          contextMessages
-        })
-      }
+      const durableTurn = buildDurableTurn({
+        existing: options?.durableTurn,
+        contextMessages,
+        sessionId,
+        model: modelForRequest,
+        customModel,
+        mode: options?.mode,
+        config
+      })
 
       const started = startStream(
         {
@@ -144,9 +177,7 @@ export const useChatResponse = ({
         },
         streamClaim
       )
-      if (!started) {
-        throw new Error("Reserved chat stream could not start")
-      }
+      if (!started) throw new Error("Reserved chat stream could not start")
       return true
     } catch (error) {
       releaseStreamClaim(streamClaim)

@@ -55,6 +55,19 @@ interface UseChatTurnControllerOptions {
   toast: ToastFn
 }
 
+const preparingActivity = (
+  rawInput: string,
+  files?: ProcessedFile[]
+): ActivityEvent => ({
+  id: "preparing-context",
+  kind: "preparing_context",
+  label: ACTIVITY_LABELS.preparingContext.text,
+  labelKey: ACTIVITY_LABELS.preparingContext.key,
+  status: "running",
+  startedAt: Date.now(),
+  inputPreview: rawInput || files?.[0]?.metadata.fileName
+})
+
 export const useChatTurnController = ({
   config,
   input,
@@ -78,7 +91,6 @@ export const useChatTurnController = ({
   >([])
   const { t } = useTranslation()
 
-  /** Resolves a pure module's key-named toast into displayable copy. */
   const showTurnToast = (turnToast: TurnToast) => {
     toast({
       ...(turnToast.variant ? { variant: turnToast.variant } : {}),
@@ -94,6 +106,153 @@ export const useChatTurnController = ({
     })
   }
 
+  const releasePreparation = (
+    streamClaim: ChatStreamClaim,
+    stopStreaming = false
+  ) => {
+    setPendingActivityEvents([])
+    setIsLoading(false)
+    if (stopStreaming) setIsStreaming(false)
+    releaseResponseStreamClaim(streamClaim)
+  }
+
+  const createSession = async (
+    streamClaim: ChatStreamClaim
+  ): Promise<string | null> => {
+    try {
+      const sessionId = await ensureSessionId()
+      if (!sessionId) releasePreparation(streamClaim)
+      return sessionId
+    } catch (error) {
+      logger.error("Failed to create chat session", "useChat", { error })
+      releasePreparation(streamClaim)
+      toast({
+        variant: "destructive",
+        title: t("chat.errors.chat_create_failed_title"),
+        description: t("chat.errors.chat_create_failed_description")
+      })
+      return null
+    }
+  }
+
+  const persistUserMessage = async ({
+    sessionId,
+    userMessage,
+    customInput,
+    streamClaim
+  }: {
+    sessionId: string
+    userMessage: ChatMessage
+    customInput?: string
+    streamClaim: ChatStreamClaim
+  }): Promise<number | null> => {
+    try {
+      const messageId = await addMessage(sessionId, userMessage)
+      if (!customInput) setInput("")
+      return messageId
+    } catch (error) {
+      logger.error("Failed to persist user message", "useChat", { error })
+      releasePreparation(streamClaim)
+      toast({
+        variant: "destructive",
+        title: t("chat.errors.message_save_failed_title"),
+        description: t("chat.errors.message_save_failed_description")
+      })
+      return null
+    }
+  }
+
+  const renameSession = async (sessionId: string, titleContent: string) => {
+    try {
+      await autoRenameSession(sessionId, titleContent)
+    } catch (error) {
+      logger.error("Failed to rename chat session", "useChat", { error })
+    }
+  }
+
+  const persistPermissionNotice = async ({
+    sessionId,
+    resolvedModel,
+    durableTurn,
+    permissionNotice,
+    streamClaim
+  }: {
+    sessionId: string
+    resolvedModel: string
+    durableTurn: DurableTurnStart
+    permissionNotice: NonNullable<
+      Awaited<ReturnType<typeof findOptionalPermissionNotice>>
+    >
+    streamClaim: ChatStreamClaim
+  }): Promise<boolean> => {
+    const feature = t(permissionNotice.labelKey)
+    try {
+      await addMessage(sessionId, {
+        role: "assistant",
+        content: t("chat.permissions.disabled_notice", { feature }),
+        done: true,
+        model: resolvedModel,
+        metrics: {
+          permissionNotice: {
+            ...permissionNotice,
+            resume: capturePermissionResumeSnapshot(durableTurn)
+          }
+        }
+      })
+      releasePreparation(streamClaim)
+      return true
+    } catch (error) {
+      logger.error("Failed to persist permission notice", "useChat", { error })
+      toast({
+        variant: "destructive",
+        title: t("chat.errors.message_save_failed_title"),
+        description: t("chat.errors.message_save_failed_description")
+      })
+      releasePreparation(streamClaim)
+      return false
+    }
+  }
+
+  const submitResponse = async ({
+    customModel,
+    sessionId,
+    conversationMessages,
+    userMessage,
+    durableTurn,
+    streamClaim
+  }: {
+    customModel?: string
+    sessionId: string
+    conversationMessages: ChatMessage[]
+    userMessage: ChatMessage
+    durableTurn: DurableTurnStart
+    streamClaim: ChatStreamClaim
+  }): Promise<boolean> => {
+    try {
+      const submitted = await generateResponse(
+        customModel,
+        sessionId,
+        [...conversationMessages, userMessage],
+        { durableTurn, streamClaim }
+      )
+      if (submitted) {
+        setPendingActivityEvents([])
+        return true
+      }
+      releasePreparation(streamClaim, true)
+      return false
+    } catch (error) {
+      logger.error("Failed to submit durable turn", "useChat", { error })
+      releasePreparation(streamClaim, true)
+      toast({
+        variant: "destructive",
+        title: t("chat.errors.response_failed_title"),
+        description: t("chat.errors.unknown_error_description")
+      })
+      return false
+    }
+  }
+
   const sendMessage = async (
     customInput?: string,
     customModel?: string,
@@ -105,19 +264,17 @@ export const useChatTurnController = ({
     const conversationMessages = messages.filter(
       (message) => !message.metrics?.permissionNotice
     )
-    const hasImages = !!images && images.length > 0
     const resolvedModel = resolveTurnModel(
       customModel,
       config.selectedModelRef,
       config.selectedModel
     )
-
     const verdict = evaluateSendPreconditions({
       isBusy: live.isLoading || live.isStreaming,
       selectionConflictModel: config.selectionConflictModel,
       rawInput,
-      hasFiles: !!files && files.length > 0,
-      hasImages,
+      hasFiles: Boolean(files?.length),
+      hasImages: Boolean(images?.length),
       resolvedModel
     })
     if (!verdict.proceed) {
@@ -126,82 +283,30 @@ export const useChatTurnController = ({
     }
 
     const permissionNotice = await findOptionalPermissionNotice(rawInput)
-
-    // Reserve response ownership before creating a session or persisting the
-    // user turn. Fork and regenerate use the same claim, so none of these
-    // actions can overtake an ordinary send while its durable work is pending.
     const streamClaim = claimResponseStream()
     if (!streamClaim) return false
 
     setIsLoading(true)
-    const preparingEvent: ActivityEvent = {
-      id: "preparing-context",
-      kind: "preparing_context",
-      label: ACTIVITY_LABELS.preparingContext.text,
-      labelKey: ACTIVITY_LABELS.preparingContext.key,
-      status: "running",
-      startedAt: Date.now(),
-      inputPreview: rawInput || files?.[0]?.metadata.fileName
-    }
-    setPendingActivityEvents([preparingEvent])
+    setPendingActivityEvents([preparingActivity(rawInput, files)])
+    const sessionId = await createSession(streamClaim)
+    if (!sessionId) return false
 
-    let sessionId: string | null
-    try {
-      sessionId = await ensureSessionId()
-    } catch (error) {
-      logger.error("Failed to create chat session", "useChat", { error })
-      setPendingActivityEvents([])
-      setIsLoading(false)
-      releaseResponseStreamClaim(streamClaim)
-      toast({
-        variant: "destructive",
-        title: t("chat.errors.chat_create_failed_title"),
-        description: t("chat.errors.chat_create_failed_description")
-      })
-      return false
-    }
-    if (!sessionId) {
-      setPendingActivityEvents([])
-      setIsLoading(false)
-      releaseResponseStreamClaim(streamClaim)
-      return false
-    }
-
-    const includeContext = selectedTabIds.length > 0 && !!contextText?.trim()
     const userContent = rawInput || ""
+    const includeContext = selectedTabIds.length > 0 && Boolean(contextText?.trim())
     const hasTabContext = includeContext && tabDocuments.length > 0
-    const userMessage = buildUserMessage({
-      content: userContent,
-      files,
-      images
+    const userMessage = buildUserMessage({ content: userContent, files, images })
+    const userMessageId = await persistUserMessage({
+      sessionId,
+      userMessage,
+      customInput,
+      streamClaim
     })
+    if (userMessageId === null) return false
 
-    let userMessageId: number
-    try {
-      userMessageId = await addMessage(sessionId, userMessage)
-
-      if (!customInput) setInput("")
-    } catch (error) {
-      logger.error("Failed to persist user message", "useChat", { error })
-      setPendingActivityEvents([])
-      setIsLoading(false)
-      releaseResponseStreamClaim(streamClaim)
-      toast({
-        variant: "destructive",
-        title: t("chat.errors.message_save_failed_title"),
-        description: t("chat.errors.message_save_failed_description")
-      })
-      return false
-    }
-
-    const titleContent = rawInput || files?.[0]?.metadata.fileName || ""
-    try {
-      await autoRenameSession(sessionId, titleContent)
-    } catch (error) {
-      // Title generation is cosmetic. The message is durable and should still
-      // proceed to context building and model generation.
-      logger.error("Failed to rename chat session", "useChat", { error })
-    }
+    await renameSession(
+      sessionId,
+      rawInput || files?.[0]?.metadata.fileName || ""
+    )
 
     const turnId =
       globalThis.crypto?.randomUUID?.() ??
@@ -236,73 +341,22 @@ export const useChatTurnController = ({
     })
 
     if (permissionNotice) {
-      const feature = t(permissionNotice.labelKey)
-      try {
-        await addMessage(sessionId, {
-          role: "assistant",
-          content: t("chat.permissions.disabled_notice", { feature }),
-          done: true,
-          model: resolvedModel,
-          metrics: {
-            permissionNotice: {
-              ...permissionNotice,
-              resume: capturePermissionResumeSnapshot(durableTurn)
-            }
-          }
-        })
-      } catch (error) {
-        logger.error("Failed to persist permission notice", "useChat", {
-          error
-        })
-        toast({
-          variant: "destructive",
-          title: t("chat.errors.message_save_failed_title"),
-          description: t("chat.errors.message_save_failed_description")
-        })
-        setPendingActivityEvents([])
-        setIsLoading(false)
-        releaseResponseStreamClaim(streamClaim)
-        return false
-      }
-
-      setPendingActivityEvents([])
-      setIsLoading(false)
-      releaseResponseStreamClaim(streamClaim)
-      return true
-    }
-
-    try {
-      const submitted = await generateResponse(
-        customModel,
+      return persistPermissionNotice({
         sessionId,
-        [...conversationMessages, userMessage],
-        {
-          durableTurn,
-          streamClaim
-        }
-      )
-      if (!submitted) {
-        releaseResponseStreamClaim(streamClaim)
-        setPendingActivityEvents([])
-        setIsLoading(false)
-        setIsStreaming(false)
-        return false
-      }
-    } catch (error) {
-      logger.error("Failed to submit durable turn", "useChat", { error })
-      releaseResponseStreamClaim(streamClaim)
-      setPendingActivityEvents([])
-      setIsLoading(false)
-      setIsStreaming(false)
-      toast({
-        variant: "destructive",
-        title: t("chat.errors.response_failed_title"),
-        description: t("chat.errors.unknown_error_description")
+        resolvedModel,
+        durableTurn,
+        permissionNotice,
+        streamClaim
       })
-      return false
     }
-    setPendingActivityEvents([])
-    return true
+    return submitResponse({
+      customModel,
+      sessionId,
+      conversationMessages,
+      userMessage,
+      durableTurn,
+      streamClaim
+    })
   }
 
   return { pendingActivityEvents, sendMessage }

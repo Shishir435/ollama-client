@@ -27,6 +27,88 @@ const location = (path: string, source: ts.SourceFile, position: number) => {
   return `${relative(repoRoot, path)}:${line + 1}`
 }
 
+const collectImportedIcons = (source: ts.SourceFile): Set<string> => {
+  const importedIcons = new Set(["Icon"])
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement)) continue
+    if (!ts.isStringLiteral(statement.moduleSpecifier)) continue
+    if (statement.moduleSpecifier.text !== "lucide-react") continue
+    const bindings = statement.importClause?.namedBindings
+    if (!bindings || !ts.isNamedImports(bindings)) continue
+    for (const element of bindings.elements) importedIcons.add(element.name.text)
+  }
+  return importedIcons
+}
+
+const jsxClassName = (
+  node: ts.JsxOpeningElement | ts.JsxSelfClosingElement,
+  source: ts.SourceFile
+): ts.JsxAttribute | undefined =>
+  node.attributes.properties.find(
+    (attribute): attribute is ts.JsxAttribute =>
+      ts.isJsxAttribute(attribute) &&
+      attribute.name.getText(source) === "className"
+  )
+
+const isIconTag = (tag: string, importedIcons: Set<string>): boolean =>
+  importedIcons.has(tag) ||
+  tag === "Icon" ||
+  tag.endsWith("Icon") ||
+  tag.endsWith(".icon")
+
+const collectRawIconSizes = (
+  path: string,
+  source: ts.SourceFile,
+  rawIconSize: RegExp,
+  offenders: string[]
+): void => {
+  const importedIcons = collectImportedIcons(source)
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tag = node.tagName.getText(source)
+      const className = isIconTag(tag, importedIcons)
+        ? jsxClassName(node, source)
+        : undefined
+      if (className && rawIconSize.test(className.getText(source))) {
+        offenders.push(location(path, source, className.getStart(source)))
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+}
+
+const isIconButton = (
+  node: ts.JsxOpeningElement | ts.JsxSelfClosingElement,
+  source: ts.SourceFile
+): boolean => {
+  if (node.tagName.getText(source) !== "Button") return false
+  const size = node.attributes.properties.find(
+    (attribute) =>
+      ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "size"
+  )
+  return Boolean(
+    size &&
+      ts.isJsxAttribute(size) &&
+      size.initializer &&
+      ts.isStringLiteral(size.initializer) &&
+      size.initializer.text.startsWith("icon")
+  )
+}
+
+const isTooltipWrapper = (node: ts.Node, source: ts.SourceFile): boolean =>
+  (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+  ["TooltipActionButton", "ModelMenu"].includes(node.tagName.getText(source))
+
+const isWrappedIconButton = (node: ts.Node, source: ts.SourceFile): boolean => {
+  let parent = node.parent
+  while (parent) {
+    if (isTooltipWrapper(parent, source)) return true
+    parent = parent.parent
+  }
+  return false
+}
+
 describe("design-system source contracts", () => {
   it("uses named typography and radius tokens", () => {
     const offenders = sourceFiles.flatMap((path) => {
@@ -56,46 +138,7 @@ describe("design-system source contracts", () => {
         true,
         ts.ScriptKind.TSX
       )
-      const importedIcons = new Set(["Icon"])
-
-      for (const statement of source.statements) {
-        if (
-          !ts.isImportDeclaration(statement) ||
-          !ts.isStringLiteral(statement.moduleSpecifier) ||
-          statement.moduleSpecifier.text !== "lucide-react"
-        ) {
-          continue
-        }
-        const bindings = statement.importClause?.namedBindings
-        if (bindings && ts.isNamedImports(bindings)) {
-          for (const element of bindings.elements) {
-            importedIcons.add(element.name.text)
-          }
-        }
-      }
-
-      const visit = (node: ts.Node) => {
-        if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-          const tag = node.tagName.getText(source)
-          const isIcon =
-            importedIcons.has(tag) ||
-            tag === "Icon" ||
-            tag.endsWith("Icon") ||
-            tag.endsWith(".icon")
-          if (isIcon) {
-            const className = node.attributes.properties.find(
-              (attribute) =>
-                ts.isJsxAttribute(attribute) &&
-                attribute.name.getText(source) === "className"
-            )
-            if (className && rawIconSize.test(className.getText(source))) {
-              offenders.push(location(path, source, className.getStart(source)))
-            }
-          }
-        }
-        ts.forEachChild(node, visit)
-      }
-      visit(source)
+      collectRawIconSizes(path, source, rawIconSize, offenders)
     }
 
     expect(offenders).toEqual([])
@@ -129,43 +172,13 @@ describe("design-system source contracts", () => {
         ts.ScriptKind.TSX
       )
 
-      const visit = (node: ts.Node) => {
+      const visit = (node: ts.Node): void => {
         if (
           (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
-          node.tagName.getText(source) === "Button"
+          isIconButton(node, source) &&
+          !isWrappedIconButton(node, source)
         ) {
-          const size = node.attributes.properties.find(
-            (attribute) =>
-              ts.isJsxAttribute(attribute) &&
-              attribute.name.getText(source) === "size"
-          )
-          const isIconButton =
-            size &&
-            ts.isJsxAttribute(size) &&
-            size.initializer &&
-            ts.isStringLiteral(size.initializer) &&
-            size.initializer.text.startsWith("icon")
-
-          if (isIconButton) {
-            let parent: ts.Node | undefined = node.parent
-            let wrapped = false
-            while (parent) {
-              if (
-                (ts.isJsxOpeningElement(parent) ||
-                  ts.isJsxSelfClosingElement(parent)) &&
-                ["TooltipActionButton", "ModelMenu"].includes(
-                  parent.tagName.getText(source)
-                )
-              ) {
-                wrapped = true
-                break
-              }
-              parent = parent.parent
-            }
-            if (!wrapped) {
-              offenders.push(location(path, source, node.getStart(source)))
-            }
-          }
+          offenders.push(location(path, source, node.getStart(source)))
         }
         ts.forEachChild(node, visit)
       }

@@ -55,6 +55,45 @@ const isTerminalEvent = (event: ModelPullServerEvent): boolean =>
   event.type === MODEL_PULL_EVENT_TYPES.COMPLETE ||
   event.type === MODEL_PULL_EVENT_TYPES.ERROR
 
+const emitResponseEvents = async (
+  data: DefaultProviderPullResponse,
+  onEvent: PullStreamOptions["onEvent"]
+): Promise<boolean> => {
+  for (const event of eventFromResponse(data)) {
+    await onEvent(event)
+    if (isTerminalEvent(event)) return true
+  }
+  return false
+}
+
+const consumeJsonLine = async (
+  line: string,
+  options: PullStreamOptions,
+  context: "line" | "final buffer"
+): Promise<boolean> => {
+  const trimmed = line.trim()
+  if (!trimmed) return false
+
+  try {
+    const data: DefaultProviderPullResponse = JSON.parse(trimmed)
+    return await emitResponseEvents(data, options.onEvent)
+  } catch (parseError) {
+    logger.warn(`Failed to parse ${context}`, "handlePullStream", {
+      ...(context === "line" ? { line: trimmed } : { buffer: line }),
+      error: parseError
+    })
+    return false
+  }
+}
+
+const cancelReader = async (
+  reader: ReadableStreamDefaultReader<Uint8Array>
+): Promise<void> => {
+  await reader.cancel().catch((error) => {
+    logger.error("Failed to cancel reader", "handlePullStream", { error })
+  })
+}
+
 export const consumePullStream = async (
   res: Response,
   options: PullStreamOptions
@@ -70,9 +109,7 @@ export const consumePullStream = async (
     if (done) break
 
     if (options.isCancelled()) {
-      await reader.cancel().catch((error) => {
-        logger.error("Failed to cancel reader", "handlePullStream", { error })
-      })
+      await cancelReader(reader)
       break
     }
 
@@ -81,40 +118,11 @@ export const consumePullStream = async (
     buffer = lines.pop() || ""
 
     for (const line of lines) {
-      const trimmedLine = line.trim()
-      if (!trimmedLine) continue
-
-      try {
-        const data: DefaultProviderPullResponse = JSON.parse(trimmedLine)
-        for (const event of eventFromResponse(data)) {
-          await options.onEvent(event)
-          if (isTerminalEvent(event)) {
-            return
-          }
-        }
-      } catch (parseError) {
-        logger.warn("Failed to parse line", "handlePullStream", {
-          line: trimmedLine,
-          error: parseError
-        })
-      }
+      if (await consumeJsonLine(line, options, "line")) return
     }
   }
 
-  if (buffer.trim() && !options.isCancelled()) {
-    try {
-      const data: DefaultProviderPullResponse = JSON.parse(buffer.trim())
-      for (const event of eventFromResponse(data)) {
-        await options.onEvent(event)
-        if (isTerminalEvent(event)) {
-          return
-        }
-      }
-    } catch (parseError) {
-      logger.warn("Failed to parse final buffer", "handlePullStream", {
-        buffer,
-        error: parseError
-      })
-    }
+  if (!options.isCancelled()) {
+    await consumeJsonLine(buffer, options, "final buffer")
   }
 }

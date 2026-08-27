@@ -193,6 +193,73 @@ const anthropicReasoningSupport = (
   return undefined
 }
 
+const deepSeekReasoningSupport = (
+  normalizedModel: string
+): ReasoningEffortSupport =>
+  /^deepseek-v4-(?:flash|pro)(?:-|$)/.test(normalizedModel)
+    ? support(["high", "max"], {
+        canEnable: true,
+        canDisable: true,
+        defaultEffort: "high",
+        defaultEnabled: true
+      })
+    : support([], { canEnable: true, canDisable: true })
+
+const togetherReasoningSupport = (
+  normalizedModel: string
+): ReasoningEffortSupport | undefined => {
+  if (normalizedModel.includes("gpt-oss")) {
+    return support(STANDARD_EFFORTS, {
+      canEnable: false,
+      canDisable: false
+    })
+  }
+  if (normalizedModel.includes("deepseek-v4")) {
+    return support(["high", "max"], { canEnable: true, canDisable: true })
+  }
+  return undefined
+}
+
+const zaiReasoningSupport = (
+  normalizedModel: string
+): ReasoningEffortSupport | undefined =>
+  /(?:^|\/)glm-(?:4\.[5-9]|[5-9])/.test(normalizedModel)
+    ? support([], { canEnable: true, canDisable: true })
+    : undefined
+
+const upstreamRouterSupport = (
+  model: string,
+  normalizedModel: string
+): ReasoningEffortSupport | undefined =>
+  openAIReasoningSupport(model) ??
+  anthropicReasoningSupport(model) ??
+  (normalizedModel.includes("deepseek-v4")
+    ? support(["high", "max"], { canEnable: true, canDisable: true })
+    : undefined)
+
+const zenmuxReasoningSupport = (
+  model: string,
+  normalizedModel: string
+): ReasoningEffortSupport | undefined => {
+  const upstream = upstreamRouterSupport(model, normalizedModel)
+  if (!upstream) return undefined
+  return support(
+    upstream.supportedEfforts.filter(
+      (effort) =>
+        effort === "minimal" ||
+        effort === "low" ||
+        effort === "medium" ||
+        effort === "high"
+    ),
+    { canEnable: true, canDisable: true }
+  )
+}
+
+const isRouterHost = (hostname: string): boolean =>
+  isHost(hostname, "openrouter.ai") ||
+  isHost(hostname, "api.trustedrouter.com") ||
+  isHost(hostname, "api.quillrouter.com")
+
 /**
  * Resolve the control a settings UI can honestly offer. Live per-model catalog
  * metadata wins; provider/model rules are deliberately conservative fallbacks.
@@ -204,18 +271,15 @@ export const resolveReasoningEffortSupport = (
 ): ReasoningEffortSupport | undefined => {
   const hostname = hostnameOf(config)
   const normalizedModel = model.toLowerCase()
+  const isAnthropic =
+    config.serviceProfile === ProviderServiceProfile.ANTHROPIC ||
+    isHost(hostname, "api.anthropic.com")
+
   if (reported) {
     const resolved = reportedSupport(reported)
-    if (
-      config.serviceProfile === ProviderServiceProfile.ANTHROPIC ||
-      isHost(hostname, "api.anthropic.com")
-    ) {
-      return {
-        ...resolved,
-        canDisable: anthropicSupportsAdaptiveThinking(model)
-      }
-    }
-    return resolved
+    return isAnthropic
+      ? { ...resolved, canDisable: anthropicSupportsAdaptiveThinking(model) }
+      : resolved
   }
   if (
     config.serviceProfile === ProviderServiceProfile.OPENAI ||
@@ -223,86 +287,25 @@ export const resolveReasoningEffortSupport = (
   ) {
     return openAIReasoningSupport(model)
   }
-  if (
-    config.serviceProfile === ProviderServiceProfile.ANTHROPIC ||
-    isHost(hostname, "api.anthropic.com")
-  ) {
-    return anthropicReasoningSupport(model)
-  }
-
+  if (isAnthropic) return anthropicReasoningSupport(model)
   if (isHost(hostname, "api.deepseek.com")) {
-    return /^deepseek-v4-(?:flash|pro)(?:-|$)/.test(normalizedModel)
-      ? support(["high", "max"], {
-          canEnable: true,
-          canDisable: true,
-          defaultEffort: "high",
-          defaultEnabled: true
-        })
-      : support([], { canEnable: true, canDisable: true })
+    return deepSeekReasoningSupport(normalizedModel)
   }
-
   if (isHost(hostname, "api.together.xyz")) {
-    if (normalizedModel.includes("gpt-oss")) {
-      return support(STANDARD_EFFORTS, {
-        canEnable: false,
-        canDisable: false
-      })
-    }
-    if (normalizedModel.includes("deepseek-v4")) {
-      return support(["high", "max"], {
-        canEnable: true,
-        canDisable: true
-      })
-    }
+    return togetherReasoningSupport(normalizedModel)
   }
-
   if (isHost(hostname, "api.z.ai") || isHost(hostname, "open.bigmodel.cn")) {
-    return /(?:^|\/)glm-(?:4\.[5-9]|[5-9])/.test(normalizedModel)
-      ? support([], { canEnable: true, canDisable: true })
-      : undefined
+    return zaiReasoningSupport(normalizedModel)
   }
-
   if (isHost(hostname, "zenmux.ai")) {
-    const upstream =
-      openAIReasoningSupport(model) ??
-      anthropicReasoningSupport(model) ??
-      (normalizedModel.includes("deepseek-v4")
-        ? support(["high", "max"], { canEnable: true, canDisable: true })
-        : undefined)
-    if (!upstream) return undefined
-    // ZenMux documents minimal/low/medium/high for its Chat Completions
-    // gateway. Keep only the intersection with the upstream model instead of
-    // forwarding xhigh/max values that the gateway does not advertise.
-    return support(
-      upstream.supportedEfforts.filter(
-        (effort) =>
-          effort === "minimal" ||
-          effort === "low" ||
-          effort === "medium" ||
-          effort === "high"
-      ),
-      { canEnable: true, canDisable: true }
-    )
+    return zenmuxReasoningSupport(model, normalizedModel)
   }
-
   if (
     config.serviceProfile === ProviderServiceProfile.OPENROUTER ||
-    isHost(hostname, "openrouter.ai") ||
-    isHost(hostname, "api.trustedrouter.com") ||
-    isHost(hostname, "api.quillrouter.com")
+    isRouterHost(hostname)
   ) {
-    // Routers can change an upstream route without changing its model id. When
-    // their catalog omits exact metadata, a vendor-family fallback is safer
-    // than pretending every gateway level is accepted.
-    return (
-      openAIReasoningSupport(model) ??
-      anthropicReasoningSupport(model) ??
-      (normalizedModel.includes("deepseek-v4")
-        ? support(["high", "max"], { canEnable: true, canDisable: true })
-        : undefined)
-    )
+    return upstreamRouterSupport(model, normalizedModel)
   }
-
   return undefined
 }
 
@@ -311,11 +314,7 @@ export const withReasoningEffortSupport = (
   config: ProviderConfig
 ): ProviderModel => {
   if (model.capabilityHints?.reasoning) return model
-  if (hasAuthoritativeReasoningCatalog(config)) {
-    // These catalogs expose an authoritative per-model reasoning object. Its
-    // absence means no selector, not permission to reconstruct one by name.
-    return model
-  }
+  if (hasAuthoritativeReasoningCatalog(config)) return model
   const reasoning = resolveReasoningEffortSupport(config, model.model)
   if (!reasoning) return model
   return {
@@ -354,9 +353,7 @@ export const resolveOpenAIReasoningWire = (
   }
   if (
     config.serviceProfile === ProviderServiceProfile.OPENROUTER ||
-    isHost(hostname, "openrouter.ai") ||
-    isHost(hostname, "api.trustedrouter.com") ||
-    isHost(hostname, "api.quillrouter.com") ||
+    isRouterHost(hostname) ||
     isHost(hostname, "zenmux.ai")
   ) {
     return "router"

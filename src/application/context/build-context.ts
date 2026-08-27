@@ -145,11 +145,6 @@ const boundedReformulationHistory = (
 
 /**
  * Runs `fn` under a timeout that the caller's cancellation can also trigger.
- *
- * Without the parent link, a stop during query reformulation left the request
- * running for the rest of its eight seconds against a provider that may bill
- * for it. `AbortSignal.any` would express this in one line but is newer than
- * the browsers this extension supports.
  */
 const withTimeoutSignal = async <T>(
   fn: (signal: AbortSignal) => Promise<T>,
@@ -180,68 +175,18 @@ const withTimeoutSignal = async <T>(
   }
 }
 
-/**
- * Build a RAG-augmented user message body plus telemetry.
- *
- * This is the heaviest piece of `useChat.sendMessage`, factored out as a
- * pure async function so it can be reasoned about (and eventually tested)
- * in isolation. It performs no direct React state mutation — callers may
- * observe activity events through `onActivityEvent` and thread them into UI.
- *
- * The augmentation pipeline:
- *   1. Classify the query intent.
- *   2. If RAG is on and the query benefits: optionally reformulate the
- *      query using recent history + the active knowledge set prompt.
- *   3. Retrieve page-context (tab documents) and chunk-level context
- *      (vector store + reranker), clamp each to its char budget, append.
- *   4. Track which chunks were used for the assistant message metrics.
- */
-export const buildRagContext = async (
-  options: BuildRagContextOptions
-): Promise<BuildRagContextResult> => {
-  const {
-    rawInput,
-    files,
-    messages,
-    hasTabContext,
-    tabDocuments,
-    memoryEnabled,
-    maxTabContextChars,
-    maxRagContextChars,
-    groundedOnlyMode,
-    retrievalToolsActive,
-    selectedModel,
-    selectedModelRef,
-    customModel,
-    onActivityEvent,
-    toast,
-    signal
-  } = options
-
-  const plan = createContextPlan({
-    rawInput,
-    maxRagContextChars,
-    groundedOnlyMode,
-    retrievalToolsActive
-  })
-  const assembly = new ContextAssembly(
-    plan,
-    groundedOnlyMode,
-    onActivityEvent,
-    DEFAULT_RAG_PROMPT
-  )
-
-  signal?.throwIfAborted()
-  const useRag = await readSetting(SETTINGS.USE_RAG)
-
-  const invokeModelOnce = async (prompt: string): Promise<string> => {
+const createModelInvoker = (options: BuildRagContextOptions) =>
+  async (prompt: string): Promise<string> => {
     try {
-      const modelId = customModel || selectedModelRef?.modelId || selectedModel
+      const modelId =
+        options.customModel ||
+        options.selectedModelRef?.modelId ||
+        options.selectedModel
       if (!modelId) return ""
 
       const provider = await ProviderFactory.getProviderForModel(
         modelId,
-        selectedModelRef?.providerId
+        options.selectedModelRef?.providerId
       )
       assertProviderEnabled(provider, modelId)
       const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
@@ -249,7 +194,7 @@ export const buildRagContext = async (
         getStoredModelConfig(
           modelConfigMap,
           modelId,
-          selectedModelRef?.providerId
+          options.selectedModelRef?.providerId
         )
       )
       let response = ""
@@ -275,11 +220,11 @@ export const buildRagContext = async (
             requestSignal
           ),
         REFORMULATION_TIMEOUT_MS,
-        signal
+        options.signal
       )
       return response.trim()
-    } catch (err) {
-      if (err instanceof ReformulationTimeoutError) {
+    } catch (error) {
+      if (error instanceof ReformulationTimeoutError) {
         logger.info(
           "Query reformulation timed out; using the original query",
           "useChat",
@@ -287,239 +232,318 @@ export const buildRagContext = async (
         )
         return ""
       }
-      // Reformulation is best-effort and degrades to the raw query, but a
-      // cancelled build must not be degraded into a successful one: the caller
-      // asked for the whole turn to stop, not for a worse retrieval query.
-      if (isAbortError(err)) throw err
-      logger.warn("Failed to reformulate question", "useChat", { error: err })
+      if (isAbortError(error)) throw error
+      logger.warn("Failed to reformulate question", "useChat", { error })
       return ""
     }
   }
 
-  let queryForRag = plan.initialRetrievalQuery
+type QueryClassification = ReturnType<typeof classifyQuery>
 
+type ModelInvoker = ReturnType<typeof createModelInvoker>
+
+const maybeRewriteQuery = async ({
+  rawInput,
+  recentHistory,
+  activeKnowledgeSet,
+  assembly,
+  initialQuery,
+  invokeModel
+}: {
+  rawInput: string
+  recentHistory: Array<{ role: "user" | "assistant"; content: string }>
+  activeKnowledgeSet?: KnowledgeSetRecord
+  assembly: ContextAssembly
+  initialQuery: string
+  invokeModel: ModelInvoker
+}): Promise<string> => {
+  const questionPrompt = activeKnowledgeSet?.questionPrompt?.trim()
+  if (!questionPrompt || recentHistory.length < 2) return initialQuery
+
+  const rewriteEvent = assembly.startActivity(
+    "query-rewrite",
+    "query_rewrite",
+    ACTIVITY_LABELS.rewritingQuery,
+    preview(rawInput || "summary")
+  )
+  const reformulated = await reformulateQuestion(
+    rawInput || "summary",
+    recentHistory,
+    invokeModel,
+    questionPrompt
+  )
+  assembly.finishActivity(rewriteEvent, {
+    outputPreview: preview(reformulated || rawInput || "summary")
+  })
+  if (!reformulated) return initialQuery
+
+  logger.info("Reformulated query for RAG", "useChat", {
+    queryForRag: reformulated
+  })
+  return reformulated
+}
+
+const appendPageRetrieval = async ({
+  options,
+  queryForRag,
+  classification,
+  retrievalOverrides,
+  assembly
+}: {
+  options: BuildRagContextOptions
+  queryForRag: string
+  classification: QueryClassification
+  retrievalOverrides?: KnowledgeSetRecord["retrieval"]
+  assembly: ContextAssembly
+}): Promise<void> => {
+  if (!options.hasTabContext) return
+
+  const pageEvent = assembly.startActivity(
+    "page-context",
+    "reading_page",
+    ACTIVITY_LABELS.readingPageContext,
+    preview(queryForRag)
+  )
+  const pageContext = await retrieveContextFromSources(
+    queryForRag,
+    options.tabDocuments,
+    {
+      topK: Math.min(
+        classification.suggestedTopK,
+        retrievalOverrides?.topK ?? classification.suggestedTopK,
+        4
+      ),
+      maxTokens: options.maxTabContextChars,
+      minSimilarity: retrievalOverrides?.minSimilarity,
+      ...(options.signal ? { signal: options.signal } : {})
+    }
+  )
+
+  if (pageContext.documents.length > 0) {
+    assembly.appendPageContext(
+      pageContext.formattedContext,
+      pageContext.sources,
+      options.rawInput || "summary",
+      options.maxTabContextChars
+    )
+  }
+  assembly.finishActivity(pageEvent, {
+    resultCount: pageContext.documents.length,
+    sourceTitles: pageContext.sources.slice(0, 3).map((source) => source.title),
+    outputPreview:
+      pageContext.documents.length > 0
+        ? preview(pageContext.formattedContext)
+        : {
+            text: ACTIVITY_TEXTS.noMatchingPageChunks.text,
+            textKey: ACTIVITY_TEXTS.noMatchingPageChunks.key
+          }
+  })
+}
+
+const appendFileRetrieval = async ({
+  options,
+  queryForRag,
+  classification,
+  activeKnowledgeSet,
+  assembly
+}: {
+  options: BuildRagContextOptions
+  queryForRag: string
+  classification: QueryClassification
+  activeKnowledgeSet?: KnowledgeSetRecord
+  assembly: ContextAssembly
+}): Promise<void> => {
+  const fileIds = await resolveFileRagScope(options.files, activeKnowledgeSet)
+  if (!fileIds || fileIds.length === 0) {
+    logger.info("Skipping file RAG: no scoped files selected", "useChat")
+    return
+  }
+
+  const retrievalOverrides = activeKnowledgeSet?.retrieval
+  const searchEvent = assembly.startActivity(
+    "file-search",
+    "searching_files",
+    ACTIVITY_LABELS.searchingFiles,
+    preview(queryForRag)
+  )
+  logger.verbose("RAG searching for context", "useChat", {
+    scope: "Specific Files",
+    suggestedTopK: classification.suggestedTopK,
+    suggestedMode: classification.suggestedMode
+  })
+
+  const context = await retrieveContext(queryForRag, fileIds, {
+    mode: classification.suggestedMode,
+    topK: retrievalOverrides?.topK ?? classification.suggestedTopK,
+    minSimilarity: retrievalOverrides?.minSimilarity,
+    minRerankScore: retrievalOverrides?.minRerankScore,
+    includeMemory: false,
+    ...(options.signal ? { signal: options.signal } : {})
+  })
+
+  if (context.documents.length > 0) {
+    logger.info("RAG found relevant chunks", "useChat", {
+      chunkCount: context.documents.length
+    })
+    assembly.appendStoredContext(
+      context.formattedContext,
+      context.sources,
+      queryForRag,
+      (source) => source.source
+    )
+  }
+  assembly.finishActivity(searchEvent, {
+    resultCount: context.documents.length,
+    sourceTitles: context.sources.slice(0, 3).map((source) => source.title),
+    outputPreview:
+      context.documents.length > 0
+        ? preview(context.formattedContext)
+        : {
+            text: ACTIVITY_TEXTS.noMatchingFileChunks.text,
+            textKey: ACTIVITY_TEXTS.noMatchingFileChunks.key
+          }
+  })
+}
+
+const memorySourceTitle = (result: Awaited<ReturnType<typeof retrieveContextEnhanced>>[number]) =>
+  result.isMemory
+    ? {
+        text: ACTIVITY_TEXTS.previousConversation.text,
+        textKey: ACTIVITY_TEXTS.previousConversation.key
+      }
+    : result.document.metadata.title || {
+        text: ACTIVITY_TEXTS.memory.text,
+        textKey: ACTIVITY_TEXTS.memory.key
+      }
+
+const appendMemoryRetrieval = async ({
+  options,
+  queryForRag,
+  assembly
+}: {
+  options: BuildRagContextOptions
+  queryForRag: string
+  assembly: ContextAssembly
+}): Promise<void> => {
+  if (!options.memoryEnabled) return
+
+  const memoryEvent = assembly.startActivity(
+    "memory-recall",
+    "searching_memory",
+    ACTIVITY_LABELS.searchingMemory,
+    preview(queryForRag)
+  )
+  const memoryResults = await retrieveContextEnhanced(queryForRag, {
+    type: "chat",
+    topK: 4,
+    ...(options.signal ? { signal: options.signal } : {})
+  })
+  if (memoryResults.length > 0 && assembly.remainingRagBudget > 0) {
+    const { formattedContext, sources } = formatEnhancedResults(memoryResults)
+    assembly.appendStoredContext(
+      formattedContext,
+      sources,
+      queryForRag,
+      () => "memory"
+    )
+  }
+  assembly.finishActivity(memoryEvent, {
+    resultCount: memoryResults.length,
+    sourceTitles: memoryResults.slice(0, 3).map(memorySourceTitle),
+    outputPreview:
+      memoryResults.length > 0
+        ? {
+            text: ACTIVITY_TEXTS.recalledPastConversation.text,
+            textKey: ACTIVITY_TEXTS.recalledPastConversation.key
+          }
+        : {
+            text: ACTIVITY_TEXTS.noMatchingMemory.text,
+            textKey: ACTIVITY_TEXTS.noMatchingMemory.key
+          }
+  })
+}
+
+const runRagPipeline = async (
+  options: BuildRagContextOptions,
+  assembly: ContextAssembly,
+  initialQuery: string
+): Promise<void> => {
+  const recentHistory = boundedReformulationHistory(options.messages)
+  const classification = classifyQuery(options.rawInput || "", recentHistory)
+  logger.verbose("Query classified", "useChat", {
+    intent: classification.intent,
+    confidence: classification.confidence,
+    shouldUseRAG: classification.shouldUseRAG
+  })
+  if (!classification.shouldUseRAG) {
+    logger.info("Skipping RAG for conversational query", "useChat")
+    return
+  }
+
+  const activeKnowledgeSet = await getActiveKnowledgeSet()
+  const ragPrompt = activeKnowledgeSet?.ragPrompt?.trim()
+  if (ragPrompt) assembly.setRagInstruction(ragPrompt)
+
+  const queryForRag = await maybeRewriteQuery({
+    rawInput: options.rawInput,
+    recentHistory,
+    activeKnowledgeSet,
+    assembly,
+    initialQuery,
+    invokeModel: createModelInvoker(options)
+  })
+  await appendPageRetrieval({
+    options,
+    queryForRag,
+    classification,
+    retrievalOverrides: activeKnowledgeSet?.retrieval,
+    assembly
+  })
+  if (!createContextPlan({
+    rawInput: options.rawInput,
+    maxRagContextChars: options.maxRagContextChars,
+    groundedOnlyMode: options.groundedOnlyMode,
+    retrievalToolsActive: options.retrievalToolsActive
+  }).injectStoredContext) {
+    return
+  }
+  await appendFileRetrieval({
+    options,
+    queryForRag,
+    classification,
+    activeKnowledgeSet,
+    assembly
+  })
+  await appendMemoryRetrieval({ options, queryForRag, assembly })
+}
+
+/** Build a RAG-augmented user message body plus telemetry. */
+export const buildRagContext = async (
+  options: BuildRagContextOptions
+): Promise<BuildRagContextResult> => {
+  const plan = createContextPlan({
+    rawInput: options.rawInput,
+    maxRagContextChars: options.maxRagContextChars,
+    groundedOnlyMode: options.groundedOnlyMode,
+    retrievalToolsActive: options.retrievalToolsActive
+  })
+  const assembly = new ContextAssembly(
+    plan,
+    options.groundedOnlyMode,
+    options.onActivityEvent,
+    DEFAULT_RAG_PROMPT
+  )
+
+  options.signal?.throwIfAborted()
+  const useRag = await readSetting(SETTINGS.USE_RAG)
   if (useRag) {
     try {
-      const recentHistory = boundedReformulationHistory(messages)
-
-      const queryClassification = classifyQuery(rawInput || "", recentHistory)
-
-      logger.verbose("Query classified", "useChat", {
-        intent: queryClassification.intent,
-        confidence: queryClassification.confidence,
-        shouldUseRAG: queryClassification.shouldUseRAG
-      })
-
-      if (!queryClassification.shouldUseRAG) {
-        logger.info("Skipping RAG for conversational query", "useChat")
-      } else {
-        const activeKnowledgeSet = await getActiveKnowledgeSet()
-        if (activeKnowledgeSet?.ragPrompt?.trim()) {
-          assembly.setRagInstruction(activeKnowledgeSet.ragPrompt.trim())
-        }
-
-        const retrievalOverrides = activeKnowledgeSet?.retrieval
-
-        if (
-          activeKnowledgeSet?.questionPrompt?.trim() &&
-          recentHistory.length >= 2
-        ) {
-          const rewriteEvent = assembly.startActivity(
-            "query-rewrite",
-            "query_rewrite",
-            ACTIVITY_LABELS.rewritingQuery,
-            preview(rawInput || "summary")
-          )
-          const reformulated = await reformulateQuestion(
-            rawInput || "summary",
-            recentHistory,
-            invokeModelOnce,
-            activeKnowledgeSet.questionPrompt
-          )
-          assembly.finishActivity(rewriteEvent, {
-            outputPreview: preview(reformulated || rawInput || "summary")
-          })
-          if (reformulated) {
-            queryForRag = reformulated
-            logger.info("Reformulated query for RAG", "useChat", {
-              queryForRag
-            })
-          }
-        }
-
-        // Page-only context (ephemeral, not persisted).
-        if (hasTabContext) {
-          const pageEvent = assembly.startActivity(
-            "page-context",
-            "reading_page",
-            ACTIVITY_LABELS.readingPageContext,
-            preview(queryForRag)
-          )
-          const pageContext = await retrieveContextFromSources(
-            queryForRag,
-            tabDocuments,
-            {
-              topK: Math.min(
-                queryClassification.suggestedTopK,
-                retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
-                4
-              ),
-              maxTokens: maxTabContextChars,
-              minSimilarity: retrievalOverrides?.minSimilarity,
-              ...(signal ? { signal } : {})
-            }
-          )
-
-          if (pageContext.documents.length > 0) {
-            assembly.appendPageContext(
-              pageContext.formattedContext,
-              pageContext.sources,
-              rawInput || "summary",
-              maxTabContextChars
-            )
-          }
-          assembly.finishActivity(pageEvent, {
-            resultCount: pageContext.documents.length,
-            sourceTitles: pageContext.sources
-              .slice(0, 3)
-              .map((source) => source.title),
-            outputPreview:
-              pageContext.documents.length > 0
-                ? preview(pageContext.formattedContext)
-                : {
-                    text: ACTIVITY_TEXTS.noMatchingPageChunks.text,
-                    textKey: ACTIVITY_TEXTS.noMatchingPageChunks.key
-                  }
-          })
-        }
-
-        // Skip pre-injecting stored file/memory context when the model has its
-        // own retrieval tools this turn — it pulls on demand instead, so the
-        // prompt stays clean and the same store isn't retrieved twice.
-        if (plan.injectStoredContext) {
-          const fileIds = await resolveFileRagScope(files, activeKnowledgeSet)
-
-          if (fileIds && fileIds.length > 0) {
-            const searchEvent = assembly.startActivity(
-              "file-search",
-              "searching_files",
-              ACTIVITY_LABELS.searchingFiles,
-              preview(queryForRag)
-            )
-            logger.verbose("RAG searching for context", "useChat", {
-              scope: "Specific Files",
-              suggestedTopK: queryClassification.suggestedTopK,
-              suggestedMode: queryClassification.suggestedMode
-            })
-
-            // Memory is retrieved by its own standalone step below (independent
-            // of file scope), so file retrieval must not also fold memory in or
-            // it would be injected twice.
-            const context = await retrieveContext(queryForRag, fileIds, {
-              mode: queryClassification.suggestedMode,
-              topK:
-                retrievalOverrides?.topK ?? queryClassification.suggestedTopK,
-              minSimilarity: retrievalOverrides?.minSimilarity,
-              minRerankScore: retrievalOverrides?.minRerankScore,
-              includeMemory: false,
-              ...(signal ? { signal } : {})
-            })
-
-            if (context.documents.length > 0) {
-              logger.info("RAG found relevant chunks", "useChat", {
-                chunkCount: context.documents.length
-              })
-              assembly.appendStoredContext(
-                context.formattedContext,
-                context.sources,
-                queryForRag,
-                (source) => source.source
-              )
-            }
-            assembly.finishActivity(searchEvent, {
-              resultCount: context.documents.length,
-              sourceTitles: context.sources
-                .slice(0, 3)
-                .map((source) => source.title),
-              outputPreview:
-                context.documents.length > 0
-                  ? preview(context.formattedContext)
-                  : {
-                      text: ACTIVITY_TEXTS.noMatchingFileChunks.text,
-                      textKey: ACTIVITY_TEXTS.noMatchingFileChunks.key
-                    }
-            })
-          } else {
-            logger.info(
-              "Skipping file RAG: no scoped files selected",
-              "useChat"
-            )
-          }
-
-          // Conversation-memory recall, independent of file scope. This is the
-          // path that answers "based on our past conversation …": it runs
-          // whenever memory is enabled, with or without selected files.
-          if (memoryEnabled) {
-            const memoryEvent = assembly.startActivity(
-              "memory-recall",
-              "searching_memory",
-              ACTIVITY_LABELS.searchingMemory,
-              preview(queryForRag)
-            )
-            const memoryResults = await retrieveContextEnhanced(queryForRag, {
-              type: "chat",
-              topK: 4,
-              ...(signal ? { signal } : {})
-            })
-            // Memory shares the RAG budget with file context above; only append
-            // what fits in the remainder so the two together stay within cap.
-            const memoryBudget = assembly.remainingRagBudget
-            if (memoryResults.length > 0 && memoryBudget > 0) {
-              const { formattedContext, sources } =
-                formatEnhancedResults(memoryResults)
-              assembly.appendStoredContext(
-                formattedContext,
-                sources,
-                queryForRag,
-                () => "memory"
-              )
-            }
-            assembly.finishActivity(memoryEvent, {
-              resultCount: memoryResults.length,
-              sourceTitles: memoryResults.slice(0, 3).map((result) =>
-                result.isMemory
-                  ? {
-                      text: ACTIVITY_TEXTS.previousConversation.text,
-                      textKey: ACTIVITY_TEXTS.previousConversation.key
-                    }
-                  : result.document.metadata.title || {
-                      text: ACTIVITY_TEXTS.memory.text,
-                      textKey: ACTIVITY_TEXTS.memory.key
-                    }
-              ),
-              outputPreview:
-                memoryResults.length > 0
-                  ? {
-                      text: ACTIVITY_TEXTS.recalledPastConversation.text,
-                      textKey: ACTIVITY_TEXTS.recalledPastConversation.key
-                    }
-                  : {
-                      text: ACTIVITY_TEXTS.noMatchingMemory.text,
-                      textKey: ACTIVITY_TEXTS.noMatchingMemory.key
-                    }
-            })
-          }
-        }
-      }
-    } catch (e) {
-      // Retrieval failing is a warning the turn continues past. Cancellation is
-      // not: swallowing it here would report a stopped build as a completed one
-      // with no context, and toast a retrieval warning for something the user
-      // asked to stop.
-      if (isAbortError(e)) throw e
-      logger.error("RAG error", "useChat", { error: e })
-      assembly.recordError(e)
-      toast?.({
+      await runRagPipeline(options, assembly, plan.initialRetrievalQuery)
+    } catch (error) {
+      if (isAbortError(error)) throw error
+      logger.error("RAG error", "useChat", { error })
+      assembly.recordError(error)
+      options.toast?.({
         variant: "destructive",
         titleKey: "chat.errors.context_retrieval_warning_title",
         descriptionKey: "chat.errors.context_retrieval_warning_description"
@@ -527,13 +551,9 @@ export const buildRagContext = async (
     }
   }
 
-  // Tab fallback: full extracted page text when RAG didn't add page context.
-  if (hasTabContext) {
-    assembly.appendTabFallback(options.contextText, maxTabContextChars)
+  if (options.hasTabContext) {
+    assembly.appendTabFallback(options.contextText, options.maxTabContextChars)
   }
-
-  // File full-text fallback: only when specific files attached and RAG added nothing.
-  assembly.appendFileFallback(files)
-
+  assembly.appendFileFallback(options.files)
   return assembly.finish()
 }

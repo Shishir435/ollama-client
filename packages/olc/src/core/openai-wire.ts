@@ -139,6 +139,101 @@ const describeToolCall = (call: OpenAIToolCall): string => {
   return `${name}(${args})`
 }
 
+interface PromptAccumulator {
+  parts: PromptPart[]
+  systemChunks: string[]
+  userContents: string[]
+  toolNames: Map<string, string>
+}
+
+const registerToolNames = (
+  calls: OpenAIToolCall[],
+  toolNames: Map<string, string>
+): void => {
+  for (const call of calls) {
+    if (typeof call?.id !== "string") continue
+    const name = isRecord(call.function) ? call.function.name : undefined
+    if (typeof name === "string") toolNames.set(call.id, name)
+  }
+}
+
+const appendAssistantMessage = (
+  message: OpenAIMessage,
+  content: string,
+  accumulator: PromptAccumulator
+): boolean => {
+  const calls = Array.isArray(message.tool_calls) ? message.tool_calls : []
+  registerToolNames(calls, accumulator.toolNames)
+  if (calls.length === 0) return false
+
+  const rendered = calls.map(describeToolCall).join(", ")
+  accumulator.parts.push({
+    type: "text",
+    text: `ASSISTANT: [called tools] ${rendered}${content ? `\n${content}` : ""}`
+  })
+  return true
+}
+
+const appendToolMessage = (
+  message: OpenAIMessage,
+  content: string,
+  images: FilePromptPart[],
+  accumulator: PromptAccumulator
+): void => {
+  const name =
+    (message.tool_call_id && accumulator.toolNames.get(message.tool_call_id)) ||
+    "tool"
+  accumulator.parts.push({
+    type: "text",
+    text: `TOOL RESULT (${name}): ${content}`
+  })
+  accumulator.parts.push(...images)
+}
+
+const appendRegularMessage = (
+  message: OpenAIMessage,
+  role: string,
+  content: string,
+  images: FilePromptPart[],
+  accumulator: PromptAccumulator
+): void => {
+  if (!content && images.length === 0) return
+  if (content) {
+    if (role === "user") accumulator.userContents.push(content)
+    const nameSuffix = message?.name ? `(${message.name})` : ""
+    accumulator.parts.push({
+      type: "text",
+      text: `${role.toUpperCase()}${nameSuffix}: ${content}`
+    })
+  }
+  accumulator.parts.push(...images)
+}
+
+const appendPromptMessage = (
+  message: OpenAIMessage,
+  accumulator: PromptAccumulator
+): void => {
+  const role = String(message?.role || "user").toLowerCase()
+  const content = normalizeMessageContent(message?.content)
+  const images = extractImageParts(message?.content)
+
+  if (role === "system") {
+    if (content) accumulator.systemChunks.push(content)
+    return
+  }
+  if (
+    role === "assistant" &&
+    appendAssistantMessage(message, content, accumulator)
+  ) {
+    return
+  }
+  if (role === "tool") {
+    appendToolMessage(message, content, images, accumulator)
+    return
+  }
+  appendRegularMessage(message, role, content, images, accumulator)
+}
+
 /**
  * Turn the client's message list into OpenCode prompt parts.
  *
@@ -149,64 +244,23 @@ const describeToolCall = (call: OpenAIToolCall): string => {
 export const buildPromptParts = (
   messages: unknown
 ): { parts: PromptPart[]; system: string; lastUserMsg: string } => {
-  const parts: PromptPart[] = []
-  const systemChunks: string[] = []
-  const userContents: string[] = []
-  const toolNames = new Map<string, string>()
+  const accumulator: PromptAccumulator = {
+    parts: [],
+    systemChunks: [],
+    userContents: [],
+    toolNames: new Map<string, string>()
+  }
   const list: OpenAIMessage[] = Array.isArray(messages) ? messages : []
 
   for (const message of list) {
-    const role = String(message?.role || "user").toLowerCase()
-    const content = normalizeMessageContent(message?.content)
-    const images = extractImageParts(message?.content)
-
-    if (role === "system") {
-      if (content) systemChunks.push(content)
-      continue
-    }
-
-    if (role === "assistant") {
-      const calls = Array.isArray(message.tool_calls) ? message.tool_calls : []
-      for (const call of calls) {
-        if (typeof call?.id !== "string") continue
-        const name = isRecord(call.function) ? call.function.name : undefined
-        if (typeof name === "string") toolNames.set(call.id, name)
-      }
-      if (calls.length > 0) {
-        const rendered = calls.map(describeToolCall).join(", ")
-        parts.push({
-          type: "text",
-          text: `ASSISTANT: [called tools] ${rendered}${content ? `\n${content}` : ""}`
-        })
-        continue
-      }
-    }
-
-    if (role === "tool") {
-      const name =
-        (message.tool_call_id && toolNames.get(message.tool_call_id)) || "tool"
-      parts.push({ type: "text", text: `TOOL RESULT (${name}): ${content}` })
-      parts.push(...images)
-      continue
-    }
-
-    if (!content && images.length === 0) continue
-    if (content) {
-      if (role === "user") userContents.push(content)
-      const nameSuffix = message?.name ? `(${message.name})` : ""
-      parts.push({
-        type: "text",
-        text: `${role.toUpperCase()}${nameSuffix}: ${content}`
-      })
-    }
-    // After the text, so the model reads the question and then what it is about.
-    parts.push(...images)
+    appendPromptMessage(message, accumulator)
   }
 
   return {
-    parts,
-    system: systemChunks.join("\n\n"),
-    lastUserMsg: userContents[userContents.length - 1] || ""
+    parts: accumulator.parts,
+    system: accumulator.systemChunks.join("\n\n"),
+    lastUserMsg:
+      accumulator.userContents[accumulator.userContents.length - 1] || ""
   }
 }
 

@@ -1,0 +1,49 @@
+name: Complexity refactor harness
+
+on:
+  push:
+    branches:
+      - refactor/0.13.3-cognitive-complexity
+    paths:
+      - scripts/complexity-refactor-pass.mjs
+      - .github/workflows/complexity-refactor.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refactor-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: refactor/0.13.3-cognitive-complexity
+          fetch-depth: 0
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Apply scripted refactors
+        run: node scripts/complexity-refactor-pass.mjs
+      - name: Format refactored tree
+        run: pnpm exec biome format . --write
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Unit tests
+        run: pnpm test -- --run
+      - name: Strict lint
+        run: pnpm lint:check
+      - name: Commit verified refactors
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No refactor changes to commit"
+            exit 0
+          fi
+          git commit -m "refactor: reduce cognitive complexity"
+          git push origin HEAD:refactor/0.13.3-cognitive-complexity

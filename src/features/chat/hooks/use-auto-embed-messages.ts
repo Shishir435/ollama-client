@@ -9,9 +9,6 @@ import { logger } from "@/lib/logger"
 import { SETTINGS } from "@/lib/storage/settings"
 import type { ChatMessage } from "@/types"
 
-/**
- * Check if a message with the same content already exists for this session
- */
 const checkDuplicateEmbedding = async (
   content: string,
   sessionId: string,
@@ -20,7 +17,6 @@ const checkDuplicateEmbedding = async (
 ): Promise<boolean> => {
   try {
     const query = vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
-
     if (messageId) {
       const existing = await query
         .filter((doc) =>
@@ -30,55 +26,86 @@ const checkDuplicateEmbedding = async (
               doc.metadata.chunkIndex === chunkIndex
         )
         .first()
-      return !!existing
+      return Boolean(existing)
     }
-
-    const existing = await query
-      .filter((doc) => doc.content === content)
-      .first()
-    return !!existing
+    return Boolean(await query.filter((doc) => doc.content === content).first())
   } catch {
     return false
   }
 }
 
-/**
- * Hook to automatically embed chat messages when they're saved
- * Embeds both user and assistant messages for semantic search
- * Prevents duplicate embeddings by tracking processed messages
- * NOW WITH QUALITY FILTERING: Filters out low-quality content before embedding
- */
+const embeddableContent = (message: ChatMessage): string | null => {
+  if (message.role === "system" || message.metrics?.permissionNotice) return null
+  if (message.role === "assistant" && message.done !== true) return null
+  const content = message.content?.trim()
+  return content && content.length >= 10 ? content : null
+}
+
+const embedMessageChunks = async ({
+  message,
+  content,
+  sessionId,
+  qualityScore,
+  qualityReasons
+}: {
+  message: ChatMessage
+  content: string
+  sessionId: string
+  qualityScore: number
+  qualityReasons: string[]
+}): Promise<void> => {
+  const embeddingConfig = await getEmbeddingConfig()
+  const chunks = await chunkTextAsync(content, {
+    chunkSize: embeddingConfig.chunkSize,
+    chunkOverlap: embeddingConfig.chunkOverlap,
+    strategy: embeddingConfig.chunkingStrategy
+  })
+  const messageId = typeof message.id === "number" ? message.id : undefined
+
+  for (let index = 0; index < chunks.length; index += 1) {
+    const chunk = chunks[index]
+    if (await checkDuplicateEmbedding(chunk.text, sessionId, messageId, index)) {
+      continue
+    }
+    const result = await generateEmbedding(chunk.text)
+    if ("error" in result) {
+      logger.warn(
+        "Failed to embed message chunk:",
+        "useAutoEmbedMessages",
+        result.error
+      )
+      continue
+    }
+    await storeVector(chunk.text, result.embedding, {
+      type: "chat",
+      source: "chat",
+      sessionId,
+      timestamp: Date.now(),
+      title: message.role === "user" ? "User message" : "Assistant response",
+      messageId,
+      role: message.role,
+      chunkIndex: index,
+      totalChunks: chunks.length,
+      qualityScore,
+      qualityReasons: qualityReasons.join(", "),
+      embeddingModel: result.model,
+      embeddingProviderId: result.providerId,
+      embeddingDim: result.embedding.length
+    })
+  }
+}
+
 export const useAutoEmbedMessages = () => {
   const [memoryEnabled] = useSetting(SETTINGS.MEMORY_ENABLED)
-
-  // Track messages currently being processed to avoid concurrent duplicates
-  // Using ref to persist across renders without causing re-renders
   const processingMessagesRef = useRef<Set<string>>(new Set())
 
   const embedMessage = useCallback(
     async (message: ChatMessage, sessionId: string): Promise<void> => {
-      // Skip if auto-embedding is disabled
       if (!memoryEnabled) return
+      const content = embeddableContent(message)
+      if (!content) return
 
-      // Skip system messages
-      if (message.role === "system") return
-
-      // Permission recovery copy is app UI, not conversation content.
-      if (message.metrics?.permissionNotice) return
-
-      // Skip if message is empty or too short
-      const content = message.content?.trim()
-      if (!content || content.length < 10) return
-
-      // Skip incomplete messages (assistant messages without done flag)
-      // This prevents embedding partial streaming responses
-      if (message.role === "assistant" && message.done !== true) {
-        return
-      }
-
-      // ===== NEW: Content Quality Assessment =====
       const qualityAssessment = assessContentQuality(content, message.role)
-
       if (!qualityAssessment.shouldEmbed) {
         logger.debug(
           `Skipping low-quality message (score: ${qualityAssessment.score.toFixed(2)})`,
@@ -91,82 +118,23 @@ export const useAutoEmbedMessages = () => {
         return
       }
 
-      logger.verbose(
-        `Embedding message with quality score: ${qualityAssessment.score.toFixed(2)}`,
-        "useAutoEmbedMessages"
-      )
-      // ===== END Quality Assessment =====
-
-      // Create a unique key for this message
       const messageKey = `${sessionId}:${content}`
-      const messageId = typeof message.id === "number" ? message.id : undefined
-
-      // Skip if already processing this message
-      if (processingMessagesRef.current.has(messageKey)) {
-        return
-      }
-
-      // Mark as processing
+      if (processingMessagesRef.current.has(messageKey)) return
       processingMessagesRef.current.add(messageKey)
 
       try {
-        const embeddingConfig = await getEmbeddingConfig()
-        const chunks = await chunkTextAsync(content, {
-          chunkSize: embeddingConfig.chunkSize,
-          chunkOverlap: embeddingConfig.chunkOverlap,
-          strategy: embeddingConfig.chunkingStrategy
+        await embedMessageChunks({
+          message,
+          content,
+          sessionId,
+          qualityScore: qualityAssessment.score,
+          qualityReasons: qualityAssessment.reasons
         })
-
-        for (let index = 0; index < chunks.length; index += 1) {
-          const chunk = chunks[index]
-          const isDuplicate = await checkDuplicateEmbedding(
-            chunk.text,
-            sessionId,
-            messageId,
-            index
-          )
-          if (isDuplicate) {
-            continue
-          }
-
-          const result = await generateEmbedding(chunk.text)
-
-          if ("error" in result) {
-            logger.warn(
-              "Failed to embed message chunk:",
-              "useAutoEmbedMessages",
-              result.error
-            )
-            continue
-          }
-
-          const embedding = result.embedding
-
-          await storeVector(chunk.text, embedding, {
-            type: "chat",
-            source: "chat",
-            sessionId,
-            timestamp: Date.now(),
-            title:
-              message.role === "user" ? "User message" : "Assistant response",
-            messageId,
-            role: message.role,
-            chunkIndex: index,
-            totalChunks: chunks.length,
-            qualityScore: qualityAssessment.score,
-            qualityReasons: qualityAssessment.reasons.join(", "),
-            embeddingModel: result.model,
-            embeddingProviderId: result.providerId,
-            embeddingDim: embedding.length
-          })
-        }
       } catch (error) {
         logger.error("Error embedding message:", "useAutoEmbedMessages", {
           error
         })
-        // Don't throw - embedding failures shouldn't block chat
       } finally {
-        // Remove from processing set after a delay to allow for race conditions
         setTimeout(() => {
           processingMessagesRef.current.delete(messageKey)
         }, 1000)
@@ -179,43 +147,16 @@ export const useAutoEmbedMessages = () => {
     async (
       messages: ChatMessage[],
       sessionId: string,
-      isStreaming: boolean = false
+      isStreaming = false
     ): Promise<void> => {
-      if (!memoryEnabled) return
-
-      // Skip if streaming - we'll embed when streaming completes
-      if (isStreaming) return
-
-      // Only embed completed messages (skip the last one if it's incomplete)
-      const messagesToProcess = messages.filter((msg) => {
-        // Skip system messages
-        if (msg.role === "system") return false
-
-        if (msg.metrics?.permissionNotice) return false
-
-        // Skip incomplete messages
-        if (msg.role === "assistant" && msg.done !== true) return false
-
-        // Skip empty or too short messages
-        const content = msg.content?.trim()
-        if (!content || content.length < 10) return false
-
-        return true
-      })
-
-      // Process messages one by one with deduplication check
-      for (const message of messagesToProcess) {
+      if (!memoryEnabled || isStreaming) return
+      for (const message of messages.filter((msg) => embeddableContent(msg))) {
         await embedMessage(message, sessionId)
-        // Small delay to avoid overwhelming the system
         await new Promise((resolve) => setTimeout(resolve, 50))
       }
     },
     [memoryEnabled, embedMessage]
   )
 
-  return {
-    embedMessage,
-    embedMessages,
-    isEnabled: memoryEnabled
-  }
+  return { embedMessage, embedMessages, isEnabled: memoryEnabled }
 }

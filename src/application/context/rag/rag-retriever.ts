@@ -3,6 +3,8 @@ import { type ChunkDocument, chunkDocuments } from "@/lib/embeddings/chunker"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import {
   cosineSimilarity,
+  type EmbeddingError,
+  type EmbeddingResult,
   generateEmbedding,
   generateEmbeddingsBatch
 } from "@/lib/embeddings/embedding-client"
@@ -215,6 +217,113 @@ export async function retrieveContext(
   )
 }
 
+const createSourceDocuments = (
+  sources: RagSourceInput[],
+  timestamp: number
+): ChunkDocument[] =>
+  sources.map((source) => ({
+    pageContent: source.content,
+    metadata: {
+      fileId: source.id,
+      source: source.title,
+      title: source.title,
+      type: "webpage",
+      timestamp
+    }
+  }))
+
+const buildSourceVectorDocument = (
+  chunk: ChunkDocument,
+  embedding: number[],
+  timestamp: number
+): VectorDocument => {
+  const metadata = chunk.metadata || {}
+  const source = typeof metadata.source === "string" ? metadata.source : "Page"
+  return {
+    content: chunk.pageContent,
+    embedding,
+    metadata: {
+      source,
+      title: typeof metadata.title === "string" ? metadata.title : source,
+      type: "webpage",
+      timestamp:
+        typeof metadata.timestamp === "number" ? metadata.timestamp : timestamp,
+      fileId: typeof metadata.fileId === "string" ? metadata.fileId : undefined,
+      chunkIndex:
+        typeof metadata.chunkIndex === "number" ? metadata.chunkIndex : undefined,
+      totalChunks:
+        typeof metadata.totalChunks === "number" ? metadata.totalChunks : undefined
+    }
+  }
+}
+
+const collectEmbeddingCandidates = ({
+  chunks,
+  embeddings,
+  queryEmbedding,
+  minSimilarity,
+  timestamp
+}: {
+  chunks: ChunkDocument[]
+  embeddings: Array<EmbeddingResult | EmbeddingError>
+  queryEmbedding: number[]
+  minSimilarity: number
+  timestamp: number
+}): {
+  results: EnhancedSearchResult[]
+  allCandidates: EnhancedSearchResult[]
+} => {
+  const results: EnhancedSearchResult[] = []
+  const allCandidates: EnhancedSearchResult[] = []
+
+  for (let index = 0; index < embeddings.length; index += 1) {
+    const embeddingResult = embeddings[index]
+    if ("error" in embeddingResult || !embeddingResult.embedding) continue
+
+    const similarity = cosineSimilarity(queryEmbedding, embeddingResult.embedding)
+    const candidate: EnhancedSearchResult = {
+      document: buildSourceVectorDocument(
+        chunks[index],
+        embeddingResult.embedding,
+        timestamp
+      ),
+      score: similarity
+    }
+    allCandidates.push(candidate)
+    if (similarity >= minSimilarity) results.push(candidate)
+  }
+
+  return { results, allCandidates }
+}
+
+const useFallbackCandidates = (
+  results: EnhancedSearchResult[],
+  allCandidates: EnhancedSearchResult[],
+  minSimilarity: number
+): void => {
+  if (results.length > 0 || allCandidates.length === 0) return
+  logger.info(
+    "No in-memory sources exceeded similarity threshold, using top candidates",
+    "retrieveContextFromSources",
+    { minSimilarity }
+  )
+  results.push(...allCandidates)
+}
+
+const compressResults = (
+  results: EnhancedSearchResult[],
+  query: string
+): EnhancedSearchResult[] => {
+  const queryTerms = tokenizeQuery(query)
+  return results.map((result) => ({
+    ...result,
+    document: {
+      ...result.document,
+      content: compressToRelevant(result.document.content, queryTerms)
+    }
+  }))
+}
+
 /**
  * Retrieves context from in-memory sources (like the current browser webpage/tab content).
  * These sources are chunked and vectorized on-the-fly without being persisted to the main DB.
@@ -235,19 +344,8 @@ export async function retrieveContextFromSources(
   }
 
   const timestamp = Date.now()
-  const documents: ChunkDocument[] = sources.map((source) => ({
-    pageContent: source.content,
-    metadata: {
-      fileId: source.id,
-      source: source.title,
-      title: source.title,
-      type: "webpage",
-      timestamp
-    }
-  }))
-
   const embeddingConfig = await getEmbeddingConfig()
-  const chunks = await chunkDocuments(documents, {
+  const chunks = await chunkDocuments(createSourceDocuments(sources, timestamp), {
     chunkSize: embeddingConfig.chunkSize,
     chunkOverlap: embeddingConfig.chunkOverlap,
     strategy: embeddingConfig.chunkingStrategy
@@ -261,9 +359,7 @@ export async function retrieveContextFromSources(
     logger.warn(
       "Failed to generate query embedding for in-memory sources, using keyword fallback",
       "retrieveContextFromSources",
-      {
-        error: queryEmbedding.error
-      }
+      { error: queryEmbedding.error }
     )
     return buildKeywordFallbackContext(query, chunks, options, timestamp)
   }
@@ -274,64 +370,16 @@ export async function retrieveContextFromSources(
     undefined,
     options.signal
   )
-
-  const results: EnhancedSearchResult[] = []
-  const allCandidates: EnhancedSearchResult[] = []
   const minSimilarity =
     options.minSimilarity ?? (await knowledgeConfig.getMinSimilarity())
-
-  for (let i = 0; i < embeddings.length; i++) {
-    const emb = embeddings[i]
-    if ("error" in emb || !emb.embedding) continue
-
-    const similarity = cosineSimilarity(queryEmbedding.embedding, emb.embedding)
-    const chunk = chunks[i]
-    const metadata = chunk.metadata || {}
-    const source =
-      typeof metadata.source === "string" ? metadata.source : "Page"
-    const document: VectorDocument = {
-      content: chunk.pageContent,
-      embedding: emb.embedding,
-      metadata: {
-        source,
-        title: typeof metadata.title === "string" ? metadata.title : source,
-        type: "webpage",
-        timestamp:
-          typeof metadata.timestamp === "number"
-            ? metadata.timestamp
-            : timestamp,
-        fileId:
-          typeof metadata.fileId === "string" ? metadata.fileId : undefined,
-        chunkIndex:
-          typeof metadata.chunkIndex === "number"
-            ? metadata.chunkIndex
-            : undefined,
-        totalChunks:
-          typeof metadata.totalChunks === "number"
-            ? metadata.totalChunks
-            : undefined
-      }
-    }
-
-    const candidate: EnhancedSearchResult = {
-      document,
-      score: similarity
-    }
-
-    allCandidates.push(candidate)
-    if (similarity >= minSimilarity) {
-      results.push(candidate)
-    }
-  }
-
-  if (results.length === 0 && allCandidates.length > 0) {
-    logger.info(
-      "No in-memory sources exceeded similarity threshold, using top candidates",
-      "retrieveContextFromSources",
-      { minSimilarity }
-    )
-    results.push(...allCandidates)
-  }
+  const { results, allCandidates } = collectEmbeddingCandidates({
+    chunks,
+    embeddings,
+    queryEmbedding: queryEmbedding.embedding,
+    minSimilarity,
+    timestamp
+  })
+  useFallbackCandidates(results, allCandidates, minSimilarity)
 
   if (results.length === 0) {
     logger.warn(
@@ -343,18 +391,8 @@ export async function retrieveContextFromSources(
 
   const topK = options.topK || (await knowledgeConfig.getRetrievalTopK())
   const trimmed = results.sort((a, b) => b.score - a.score).slice(0, topK)
-
-  const queryTerms = tokenizeQuery(query)
-  const compressed = trimmed.map((result) => ({
-    ...result,
-    document: {
-      ...result.document,
-      content: compressToRelevant(result.document.content, queryTerms)
-    }
-  }))
-
   return formatEnhancedResults(
-    compressed,
+    compressResults(trimmed, query),
     options.maxTokens || (await knowledgeConfig.getMaxContextSize())
   )
 }

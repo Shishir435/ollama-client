@@ -50,7 +50,53 @@ const createRequestId = () =>
   globalThis.crypto?.randomUUID?.() ||
   `chat-stream-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
-/** React effects adapter for the framework-independent ChatStreamSession. */
+type TerminalCallback = NonNullable<ChatStreamSessionCallbacks["onTerminal"]>
+type Terminal = Parameters<TerminalCallback>[0]
+type TerminalOptions = Parameters<TerminalCallback>[1]
+type ErrorTerminal = Extract<Terminal, { type: "error" }>
+
+const resolveTerminalErrorContext = (
+  terminal: ErrorTerminal,
+  options: TerminalOptions
+) => {
+  const { error } = terminal
+  const isProviderError = error.kind === "provider"
+  const providerId =
+    error.providerId || (isProviderError ? options.providerId : undefined)
+  const providerName =
+    error.providerName ||
+    (providerId ? getProviderDisplayName(providerId) : undefined)
+  return {
+    isProviderError,
+    providerId,
+    providerName,
+    model: error.model || options.model
+  }
+}
+
+const buildIssueUrl = (
+  terminal: ErrorTerminal,
+  errorMessage: string,
+  context: ReturnType<typeof resolveTerminalErrorContext>
+): string | undefined => {
+  const { error } = terminal
+  if (!context.isProviderError || error.status < 500) return undefined
+  return buildErrorReportUrl({
+    status: error.status,
+    kind: error.kind,
+    message: errorMessage,
+    providerId: context.providerId,
+    providerName: context.providerName,
+    model: context.model,
+    baseUrl: error.baseUrl,
+    code: error.code,
+    phase: error.phase,
+    incidentId: error.incidentId,
+    durationMs: error.durationMs,
+    recoveryAction: error.recoveryAction
+  })
+}
+
 export const useChatStream = ({
   setMessages,
   setIsLoading,
@@ -76,6 +122,108 @@ export const useChatStream = ({
     assistant: ChatMessage,
     options: ChatStreamStartOptions
   ) => setMessages([...options.messages, assistant])
+
+  const handleErrorTerminal = (
+    terminal: ErrorTerminal,
+    options: TerminalOptions
+  ): void => {
+    const { error, partial } = terminal
+    const context = resolveTerminalErrorContext(terminal, options)
+    const localizedUserMessage = error.messageKey
+      ? t(error.messageKey)
+      : error.userMessage
+    const displayError = formatErrorForDisplay(
+      { ...error, userMessage: localizedUserMessage },
+      t("chat.errors.unknown_error_description")
+    )
+    const errMsg =
+      localizedUserMessage ??
+      ERROR_MESSAGES[error.status] ??
+      (context.isProviderError && error.status > 0
+        ? providerErrorUserMessage(error.status, {
+            providerName: context.providerName,
+            model: context.model,
+            baseUrl: error.baseUrl
+          })
+        : t("chat.errors.unknown_error", {
+            message:
+              getDisplayErrorMessage(error) || t("chat.errors.no_message")
+          }))
+    const issueUrl = buildIssueUrl(terminal, errMsg, context)
+
+    void renderAssistant(
+      {
+        ...partial,
+        content: errMsg,
+        done: true,
+        error: {
+          status: error.status,
+          kind: error.kind,
+          retryable: error.retryable,
+          retryAfterMs: error.retryAfterMs,
+          userMessage: errMsg,
+          providerId: context.providerId,
+          providerName: context.providerName,
+          model: context.model,
+          baseUrl: error.baseUrl,
+          code: error.code,
+          phase: error.phase,
+          incidentId: error.incidentId,
+          durationMs: error.durationMs,
+          recoveryAction: error.recoveryAction
+        }
+      },
+      options
+    )
+    toast({
+      variant: "destructive",
+      title: displayError.kind
+        ? context.isProviderError && context.providerName
+          ? `${context.providerName} error`
+          : displayError.title
+        : t("chat.errors.response_failed_title"),
+      description:
+        context.isProviderError && context.providerName
+          ? `${displayError.message}${
+              error.retryable ? " This may be temporary; try again." : ""
+            }`
+          : displayError.message,
+      ...(issueUrl && {
+        action: {
+          label: "Open new issue",
+          onClick: () => {
+            void browser.tabs.create({ url: issueUrl })
+          }
+        }
+      })
+    })
+  }
+
+  const handleSuccessTerminal = (
+    terminal: Exclude<Terminal, { type: "error" }>,
+    options: TerminalOptions
+  ): void => {
+    const message = terminal.emptyReason
+      ? {
+          ...terminal.message,
+          content:
+            terminal.emptyReason === "thinking-only"
+              ? t("chat.errors.thinking_only_response")
+              : t("chat.errors.empty_response")
+        }
+      : terminal.message
+    Promise.resolve(renderAssistant(message, options))
+      .then(async () => {
+        await onSuccessfulResponse?.(message)
+      })
+      .catch((error) => {
+        logger.debug(
+          "Successful response persistence finalization failed",
+          "useChatStream",
+          { error }
+        )
+      })
+  }
 
   const callbacks: ChatStreamSessionCallbacks = {
     onAssistant: renderAssistant,
@@ -123,122 +271,10 @@ export const useChatStream = ({
     },
     onTerminal: (terminal, options) => {
       if (terminal.type === "error") {
-        const { error, partial } = terminal
-        const isProviderError = error.kind === "provider"
-        const errorProviderId =
-          error.providerId || (isProviderError ? options.providerId : undefined)
-        const providerName =
-          error.providerName ||
-          (errorProviderId
-            ? getProviderDisplayName(errorProviderId)
-            : undefined)
-        const errorModel = error.model || options.model
-        const localizedUserMessage = error.messageKey
-          ? t(error.messageKey)
-          : error.userMessage
-        const displayError = formatErrorForDisplay(
-          { ...error, userMessage: localizedUserMessage },
-          t("chat.errors.unknown_error_description")
-        )
-        const errMsg =
-          localizedUserMessage ??
-          ERROR_MESSAGES[error.status] ??
-          (isProviderError && error.status > 0
-            ? providerErrorUserMessage(error.status, {
-                providerName,
-                model: errorModel,
-                baseUrl: error.baseUrl
-              })
-            : t("chat.errors.unknown_error", {
-                message:
-                  getDisplayErrorMessage(error) || t("chat.errors.no_message")
-              }))
-        const issueUrl =
-          isProviderError && error.status >= 500
-            ? buildErrorReportUrl({
-                status: error.status,
-                kind: error.kind,
-                message: errMsg,
-                providerId: errorProviderId,
-                providerName,
-                model: errorModel,
-                baseUrl: error.baseUrl,
-                code: error.code,
-                phase: error.phase,
-                incidentId: error.incidentId,
-                durationMs: error.durationMs,
-                recoveryAction: error.recoveryAction
-              })
-            : undefined
-        void renderAssistant(
-          {
-            ...partial,
-            content: errMsg,
-            done: true,
-            error: {
-              status: error.status,
-              kind: error.kind,
-              retryable: error.retryable,
-              retryAfterMs: error.retryAfterMs,
-              userMessage: errMsg,
-              providerId: errorProviderId,
-              providerName,
-              model: errorModel,
-              baseUrl: error.baseUrl,
-              code: error.code,
-              phase: error.phase,
-              incidentId: error.incidentId,
-              durationMs: error.durationMs,
-              recoveryAction: error.recoveryAction
-            }
-          },
-          options
-        )
-        toast({
-          variant: "destructive",
-          title: displayError.kind
-            ? isProviderError && providerName
-              ? `${providerName} error`
-              : displayError.title
-            : t("chat.errors.response_failed_title"),
-          description:
-            isProviderError && providerName
-              ? `${displayError.message}${
-                  error.retryable ? " This may be temporary; try again." : ""
-                }`
-              : displayError.message,
-          ...(issueUrl && {
-            action: {
-              label: "Open new issue",
-              onClick: () => {
-                void browser.tabs.create({ url: issueUrl })
-              }
-            }
-          })
-        })
+        handleErrorTerminal(terminal, options)
         return
       }
-
-      const message = terminal.emptyReason
-        ? {
-            ...terminal.message,
-            content:
-              terminal.emptyReason === "thinking-only"
-                ? t("chat.errors.thinking_only_response")
-                : t("chat.errors.empty_response")
-          }
-        : terminal.message
-      Promise.resolve(renderAssistant(message, options))
-        .then(async () => {
-          await onSuccessfulResponse?.(message)
-        })
-        .catch((error) => {
-          logger.debug(
-            "Successful response persistence finalization failed",
-            "useChatStream",
-            { error }
-          )
-        })
+      handleSuccessTerminal(terminal, options)
     }
   }
   session.updateCallbacks(callbacks)

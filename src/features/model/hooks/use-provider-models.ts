@@ -114,10 +114,37 @@ const fetchProviderVersion = async (providerId: string): Promise<string> => {
   )
 }
 
+const migrateLegacyModelSelection = async ({
+  legacyModelId,
+  models,
+  persistSelectedModel,
+  setSelectionConflictModel
+}: {
+  legacyModelId: string
+  models: ProvidersListModelsResult["models"]
+  persistSelectedModel: (modelId: string, providerId?: string) => Promise<void>
+  setSelectionConflictModel: (value: string | null) => void
+}): Promise<void> => {
+  const resolved = resolveModelRefFromModels(legacyModelId, models)
+  if (resolved.ref) {
+    await persistSelectedModel(resolved.ref.modelId, resolved.ref.providerId)
+    setSelectionConflictModel(null)
+    return
+  }
+  if (resolved.ambiguous) {
+    setSelectionConflictModel(legacyModelId)
+    return
+  }
+
+  const mapping = await ProviderManager.getModelMapping(legacyModelId)
+  if (!mapping?.providerId) return
+  await persistSelectedModel(legacyModelId, mapping.providerId)
+  setSelectionConflictModel(null)
+}
+
 /**
  * Hook for managing provider models, including fetching, selecting, and deleting.
  */
-
 export const useProviderModels = () => {
   const { t } = useTranslation()
   const queryClientInstance = useQueryClient()
@@ -182,13 +209,6 @@ export const useProviderModels = () => {
         extensionRpcClient.call(RpcMethod.ProvidersListModels, {
           providerId: provider.id
         }),
-      /*
-       * The catalog rarely changes mid-session, and the changes that matter —
-       * a pull, a delete, a configuration edit — invalidate this query
-       * directly. The poll is only here to notice a provider that came up or
-       * went away while a surface is open, so it runs on the user's interval
-       * and, unlike the interval it replaces, not while the surface is hidden.
-       */
       staleTime: catalogStaleTimeMs(catalogRefreshMs),
       refetchInterval:
         catalogRefreshMs > 0 ? catalogRefreshMs : (false as const)
@@ -197,20 +217,8 @@ export const useProviderModels = () => {
   })
 
   const isLoading = isLoadingProviders || isLoadingModels
-  /*
-   * A failed provider list is a failed model list: without it there is nobody to
-   * ask, and reporting that as an empty catalog would send the user looking for
-   * missing models instead of the error that hid them.
-   */
   const modelsError = providersError ?? modelQueryError
 
-  /*
-   * Providers that contributed nothing at all. A provider whose declared model
-   * ids carried the list is not in here — its models are on screen, so there is
-   * nothing to warn about — but one that returned neither discovery nor
-   * declarations would otherwise just be absent from the menu with no reason
-   * given.
-   */
   const unavailableProviders = useMemo(
     () =>
       failures.filter(
@@ -246,23 +254,17 @@ export const useProviderModels = () => {
     if (isStorageLoading || models.length === 0) return
 
     const runMigration = async () => {
-      const refIsValid = isSelectedModelRef(selectedModelRef)
-
-      if (refIsValid) {
-        // Keep legacy key in sync during compatibility window.
+      if (isSelectedModelRef(selectedModelRef)) {
         if (selectedModel !== selectedModelRef.modelId) {
           await setSelectedModel(selectedModelRef.modelId)
         }
-        if (selectionConflictModel) {
-          await setSelectionConflictModel(null)
-        }
+        if (selectionConflictModel) await setSelectionConflictModel(null)
         return
       }
 
-      const legacyModelId = selectedModel
-      if (!legacyModelId) {
+      if (!selectedModel) {
         const firstChatModel = models.find(
-          (m) => !isEmbeddingModel(m.name, m.details?.families || [])
+          (model) => !isEmbeddingModel(model.name, model.details?.families || [])
         )
         if (firstChatModel?.providerId) {
           await persistSelectedModel(
@@ -273,27 +275,12 @@ export const useProviderModels = () => {
         return
       }
 
-      const resolved = resolveModelRefFromModels(legacyModelId, models)
-
-      if (resolved.ref) {
-        await persistSelectedModel(
-          resolved.ref.modelId,
-          resolved.ref.providerId
-        )
-        await setSelectionConflictModel(null)
-        return
-      }
-
-      if (resolved.ambiguous) {
-        await setSelectionConflictModel(legacyModelId)
-        return
-      }
-
-      const mapping = await ProviderManager.getModelMapping(legacyModelId)
-      if (mapping?.providerId) {
-        await persistSelectedModel(legacyModelId, mapping.providerId)
-        await setSelectionConflictModel(null)
-      }
+      await migrateLegacyModelSelection({
+        legacyModelId: selectedModel,
+        models,
+        persistSelectedModel,
+        setSelectionConflictModel
+      })
     }
     runMigration().catch((error) => {
       logger.error(
@@ -313,9 +300,6 @@ export const useProviderModels = () => {
     setSelectionConflictModel
   ])
 
-  /**
-   * Ollama version query
-   */
   const { data: version = null, error: versionRawError } = useQuery({
     queryKey: [...queryKeys.model.providerVersion(), selectedProviderId],
     queryFn: () => fetchProviderVersion(selectedProviderId),
@@ -324,10 +308,6 @@ export const useProviderModels = () => {
     retry: false
   })
 
-  /**
-   * The explicit refresh button: everyone, unconditionally. Per-provider keys
-   * are nested under the list prefix, so one invalidation still covers them all.
-   */
   const refresh = useCallback(async () => {
     await queryClientInstance.invalidateQueries({
       queryKey: queryKeys.model.providerConfigs()
@@ -340,9 +320,6 @@ export const useProviderModels = () => {
     })
   }, [queryClientInstance])
 
-  /**
-   * Delete mutation — invalidates the model list on success
-   */
   const { mutateAsync: deleteModel } = useMutation({
     mutationFn: async (
       target: { modelName: string; providerId?: string } | string
@@ -395,7 +372,6 @@ export const useProviderModels = () => {
   })
 
   const error = modelsError ? t("errors.failed_to_fetch_models") : null
-
   const status = isLoading
     ? "loading"
     : error
@@ -408,7 +384,6 @@ export const useProviderModels = () => {
     return getProviderCapabilities(selectedProviderId)
   })()
   const isOllama = selectedProviderId === DEFAULT_PROVIDER_ID
-
   const versionError = versionRawError ? "Failed to connect to provider" : null
 
   return {
