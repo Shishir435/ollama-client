@@ -59,22 +59,55 @@ const startMockProvider = async () => {
     const path = request.url ?? ""
     if (path.endsWith("/api/tags")) {
       response.setHeader("Content-Type", "application/json")
-      response.end(JSON.stringify({ models: [{ name: "verify-model", model: "verify-model", modified_at: new Date(0).toISOString(), size: 1, digest: "verify", details: { family: "verify", families: ["verify"] } }] }))
+      response.end(
+        JSON.stringify({
+          models: [
+            {
+              name: "verify-model",
+              model: "verify-model",
+              modified_at: new Date(0).toISOString(),
+              size: 1,
+              digest: "verify",
+              details: { family: "verify", families: ["verify"] }
+            }
+          ]
+        })
+      )
       return
     }
     if (path.endsWith("/api/show")) {
       response.setHeader("Content-Type", "application/json")
-      response.end(JSON.stringify({ capabilities: ["completion"], details: { family: "verify" } }))
+      response.end(
+        JSON.stringify({
+          capabilities: ["completion"],
+          details: { family: "verify" }
+        })
+      )
       return
     }
     if (path.endsWith("/api/v0/models")) {
       response.setHeader("Content-Type", "application/json")
-      response.end(JSON.stringify({ data: [{ id: "verify-model", type: "llm", arch: "verify", capabilities: [] }] }))
+      response.end(
+        JSON.stringify({
+          data: [
+            {
+              id: "verify-model",
+              type: "llm",
+              arch: "verify",
+              capabilities: []
+            }
+          ]
+        })
+      )
       return
     }
     if (path.endsWith("/v1/models")) {
       response.setHeader("Content-Type", "application/json")
-      response.end(JSON.stringify({ data: [{ id: "verify-model", meta: { n_params: 1_000_000_000 } }] }))
+      response.end(
+        JSON.stringify({
+          data: [{ id: "verify-model", meta: { n_params: 1_000_000_000 } }]
+        })
+      )
       return
     }
 
@@ -89,8 +122,12 @@ const startMockProvider = async () => {
         return
       }
       response.setHeader("Content-Type", "application/x-ndjson")
-      response.write(`${JSON.stringify({ message: { content: "custom " }, done: false })}\n`)
-      response.end(`${JSON.stringify({ message: { content: "ollama" }, done: false })}\n${JSON.stringify({ message: { content: "" }, done: true })}\n`)
+      response.write(
+        `${JSON.stringify({ message: { content: "custom " }, done: false })}\n`
+      )
+      response.end(
+        `${JSON.stringify({ message: { content: "ollama" }, done: false })}\n${JSON.stringify({ message: { content: "" }, done: true })}\n`
+      )
       return
     }
 
@@ -117,9 +154,15 @@ const startMockProvider = async () => {
         return
       }
 
-      const providerText = path.includes("lm-studio") ? "lm studio" : "llama.cpp"
-      response.write(`data: ${JSON.stringify({ choices: [{ delta: { content: "custom " }, finish_reason: null }] })}\n\n`)
-      response.end(`data: ${JSON.stringify({ choices: [{ delta: { content: providerText }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`)
+      const providerText = path.includes("lm-studio")
+        ? "lm studio"
+        : "llama.cpp"
+      response.write(
+        `data: ${JSON.stringify({ choices: [{ delta: { content: "custom " }, finish_reason: null }] })}\n\n`
+      )
+      response.end(
+        `data: ${JSON.stringify({ choices: [{ delta: { content: providerText }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`
+      )
       return
     }
 
@@ -138,22 +181,29 @@ const startMockProvider = async () => {
   return {
     baseUrl: (path: string) => `${origin}${path}`,
     requests,
-    close: () => new Promise<void>((resolve) => {
-      if (closed) {
-        resolve()
-        return
-      }
-      closed = true
-      server.close(() => resolve())
-      server.closeAllConnections()
-    })
+    close: () =>
+      new Promise<void>((resolve) => {
+        if (closed) {
+          resolve()
+          return
+        }
+        closed = true
+        server.close(() => resolve())
+        server.closeAllConnections()
+      })
   }
 }
 
-const startTurn = (call: VerifyCall, turnId: string, prompt: string, providerId: string) =>
-  call("startDurableTurn", turnId, prompt, providerId)
+const startTurn = (
+  call: VerifyCall,
+  turnId: string,
+  prompt: string,
+  providerId: string
+) => call("startDurableTurn", turnId, prompt, providerId)
 
-test("@critical built-in providers stream through fully custom base URLs", async ({ extension }) => {
+test("@critical built-in providers stream through fully custom base URLs", async ({
+  extension
+}) => {
   test.setTimeout(120_000)
   const mock = await startMockProvider()
   try {
@@ -166,9 +216,32 @@ test("@critical built-in providers stream through fully custom base URLs", async
       { ...PROVIDERS.llamaCpp, expected: "custom llama.cpp" }
     ]
     for (const provider of cases) {
-      await call("configureFakeProvider", provider.id, mock.baseUrl(provider.basePath))
-      const assistantMessageId = (await startTurn(call, `custom-url-${provider.id}`, `${provider.id} custom-url stream`, provider.id)) as number
-      await expect.poll(() => call("durableTurnResult", `custom-url-${provider.id}`, assistantMessageId), { timeout: 30_000 }).toEqual({ status: "completed", content: provider.expected, done: true })
+      await call(
+        "configureFakeProvider",
+        provider.id,
+        mock.baseUrl(provider.basePath)
+      )
+      const assistantMessageId = (await startTurn(
+        call,
+        `custom-url-${provider.id}`,
+        `${provider.id} custom-url stream`,
+        provider.id
+      )) as number
+      await expect
+        .poll(
+          () =>
+            call(
+              "durableTurnResult",
+              `custom-url-${provider.id}`,
+              assistantMessageId
+            ),
+          { timeout: 30_000 }
+        )
+        .toEqual({
+          status: "completed",
+          content: provider.expected,
+          done: true
+        })
     }
 
     expect(mock.requests.map(({ path }) => path)).toEqual([
@@ -182,35 +255,85 @@ test("@critical built-in providers stream through fully custom base URLs", async
   }
 })
 
-test("@critical partial and malformed SSE still completes", async ({ extension }) => {
+test("@critical partial and malformed SSE still completes", async ({
+  extension
+}) => {
   const mock = await startMockProvider()
   try {
     const { page, call } = await openPersistenceVerifyPage(extension)
     await waitForOpfsMarker(call)
-    await call("configureFakeProvider", PROVIDERS.llamaCpp.id, mock.baseUrl(PROVIDERS.llamaCpp.basePath))
+    await call(
+      "configureFakeProvider",
+      PROVIDERS.llamaCpp.id,
+      mock.baseUrl(PROVIDERS.llamaCpp.basePath)
+    )
 
-    const assistantMessageId = (await startTurn(call, "fragmented-sse", "fragmented sse", PROVIDERS.llamaCpp.id)) as number
-    await expect.poll(() => call("durableTurnResult", "fragmented-sse", assistantMessageId), { timeout: 30_000 }).toEqual({ status: "completed", content: "fragmented stream", done: true })
+    const assistantMessageId = (await startTurn(
+      call,
+      "fragmented-sse",
+      "fragmented sse",
+      PROVIDERS.llamaCpp.id
+    )) as number
+    await expect
+      .poll(
+        () => call("durableTurnResult", "fragmented-sse", assistantMessageId),
+        { timeout: 30_000 }
+      )
+      .toEqual({
+        status: "completed",
+        content: "fragmented stream",
+        done: true
+      })
     await page.close()
   } finally {
     await mock.close()
   }
 })
 
-test("@critical HTTP and connection failures reach the durable result", async ({ extension }) => {
+test("@critical HTTP and connection failures reach the durable result", async ({
+  extension
+}) => {
   const mock = await startMockProvider()
   try {
     const { page, call } = await openPersistenceVerifyPage(extension)
     await waitForOpfsMarker(call)
-    await call("configureFakeProvider", PROVIDERS.lmStudio.id, mock.baseUrl(PROVIDERS.lmStudio.basePath))
-    const httpAssistantId = (await startTurn(call, "http-failure", "http failure", PROVIDERS.lmStudio.id)) as number
-    await expect.poll(() => call("durableTurnResult", "http-failure", httpAssistantId), { timeout: 30_000 }).toMatchObject({ status: "failed", done: true })
+    await call(
+      "configureFakeProvider",
+      PROVIDERS.lmStudio.id,
+      mock.baseUrl(PROVIDERS.lmStudio.basePath)
+    )
+    const httpAssistantId = (await startTurn(
+      call,
+      "http-failure",
+      "http failure",
+      PROVIDERS.lmStudio.id
+    )) as number
+    await expect
+      .poll(() => call("durableTurnResult", "http-failure", httpAssistantId), {
+        timeout: 30_000
+      })
+      .toMatchObject({ status: "failed", done: true })
 
     const closedBaseUrl = mock.baseUrl("/closed-provider/v1")
     await mock.close()
     await call("configureFakeProvider", PROVIDERS.llamaCpp.id, closedBaseUrl)
-    const connectionAssistantId = (await startTurn(call, "connection-failure", "connection failure", PROVIDERS.llamaCpp.id)) as number
-    await expect.poll(() => call("durableTurnResult", "connection-failure", connectionAssistantId), { timeout: 30_000 }).toMatchObject({ status: "failed", done: true })
+    const connectionAssistantId = (await startTurn(
+      call,
+      "connection-failure",
+      "connection failure",
+      PROVIDERS.llamaCpp.id
+    )) as number
+    await expect
+      .poll(
+        () =>
+          call(
+            "durableTurnResult",
+            "connection-failure",
+            connectionAssistantId
+          ),
+        { timeout: 30_000 }
+      )
+      .toMatchObject({ status: "failed", done: true })
     await page.close()
   } finally {
     await mock.close()
