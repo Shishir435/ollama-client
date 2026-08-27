@@ -255,7 +255,7 @@ test("@critical built-in providers stream through fully custom base URLs", async
   }
 })
 
-test("@provider-full partial and malformed SSE still completes", async ({
+test("@critical partial and malformed SSE still completes", async ({
   extension
 }) => {
   const mock = await startMockProvider()
@@ -290,7 +290,7 @@ test("@provider-full partial and malformed SSE still completes", async ({
   }
 })
 
-test("@provider-full HTTP and connection failures reach the durable result", async ({
+test("@critical HTTP and connection failures reach the durable result", async ({
   extension
 }) => {
   const mock = await startMockProvider()
