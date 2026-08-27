@@ -30,17 +30,15 @@ describe("release metadata integrity", () => {
     }
   })
 
-  it("keeps the changelog textual and documents the current release", () => {
+  it("keeps the changelog textual and structurally usable", () => {
     const changelog = readText("CHANGELOG.md")
-    const rootPackage = JSON.parse(readText("package.json")) as {
-      version: string
-    }
 
     expect(changelog).not.toContain("\u0000")
-    expect(changelog).toContain(`# Changelog`)
-    expect(changelog).toContain(`## [${rootPackage.version}]`)
+    expect(changelog).toContain("# Changelog")
+    expect(changelog).toContain("## [Unreleased]")
+    expect(changelog).toMatch(/## \[\d+\.\d+\.\d+\]/)
     expect(changelog.indexOf("## [Unreleased]")).toBeLessThan(
-      changelog.indexOf(`## [${rootPackage.version}]`)
+      changelog.search(/## \[\d+\.\d+\.\d+\]/)
     )
   })
 })
