@@ -31,30 +31,12 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path("src/lib/providers/openai-compatible.ts")
           text = path.read_text()
 
-          old_type = '''    type OpenAiSseData = {
-              error?: unknown
-              choices?: Array<{
-                delta?: {
-                  content?: unknown
-                  images?: unknown
-                  reasoning?: string
-                  reasoning_content?: string
-                  thinking?: string
-                  thoughts?: string
-                  reasoning_details?: unknown[]
-                  tool_calls?: ToolCallFragment[]
-                }
-                finish_reason?: string
-              }>
-              usage?: { prompt_tokens?: number; completion_tokens?: number }
-            }
-          '''
-
-          new_type = '''    const OpenAiSseDataSchema = z
+          schema_block = '''    const OpenAiSseDataSchema = z
               .object({
                 error: z.unknown().optional(),
                 choices: z
@@ -91,9 +73,10 @@ jobs:
             type OpenAiSseData = z.infer<typeof OpenAiSseDataSchema>
           '''
 
-          if old_type not in text:
-              raise SystemExit("OpenAiSseData type block not found")
-          text = text.replace(old_type, new_type, 1)
+          pattern = r'    type OpenAiSseData = \{.*?\n    \}\n\n(?=    const parseSseData)'
+          text, count = re.subn(pattern, schema_block + "\n", text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f"expected one OpenAiSseData block, replaced {count}")
 
           old_return = "        return parsed as OpenAiSseData"
           new_return = '''        const decoded = OpenAiSseDataSchema.safeParse(parsed)
@@ -150,13 +133,13 @@ jobs:
 
           parent = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
           base_tree = subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip()
-          path = "src/lib/providers/openai-compatible.ts"
-          with open(path, "rb") as handle:
+          source_path = "src/lib/providers/openai-compatible.ts"
+          with open(source_path, "rb") as handle:
               content = base64.b64encode(handle.read()).decode()
           blob = req("/git/blobs", "POST", {"content": content, "encoding": "base64"})["sha"]
           tree = req("/git/trees", "POST", {
               "base_tree": base_tree,
-              "tree": [{"path": path, "mode": "100644", "type": "blob", "sha": blob}],
+              "tree": [{"path": source_path, "mode": "100644", "type": "blob", "sha": blob}],
           })["sha"]
           commit = req("/git/commits", "POST", {
               "message": "fix: validate OpenAI SSE payloads",
