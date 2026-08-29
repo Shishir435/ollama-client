@@ -791,23 +791,41 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }
 
     type TerminalMarker = "finish-reason" | "done" | null
-    type OpenAiSseData = {
-      error?: unknown
-      choices?: Array<{
-        delta?: {
-          content?: unknown
-          images?: unknown
-          reasoning?: string
-          reasoning_content?: string
-          thinking?: string
-          thoughts?: string
-          reasoning_details?: unknown[]
-          tool_calls?: ToolCallFragment[]
-        }
-        finish_reason?: string
-      }>
-      usage?: { prompt_tokens?: number; completion_tokens?: number }
-    }
+    const OpenAiSseDataSchema = z
+      .object({
+        error: z.unknown().optional(),
+        choices: z
+          .array(
+            z
+              .object({
+                delta: z
+                  .object({
+                    content: z.unknown().optional(),
+                    images: z.unknown().optional(),
+                    reasoning: z.string().optional(),
+                    reasoning_content: z.string().optional(),
+                    thinking: z.string().optional(),
+                    thoughts: z.string().optional(),
+                    reasoning_details: z.array(z.unknown()).optional(),
+                    tool_calls: z.array(z.unknown()).optional()
+                  })
+                  .passthrough()
+                  .optional(),
+                finish_reason: z.string().nullable().optional()
+              })
+              .passthrough()
+          )
+          .optional(),
+        usage: z
+          .object({
+            prompt_tokens: z.number().optional(),
+            completion_tokens: z.number().optional()
+          })
+          .passthrough()
+          .optional()
+      })
+      .passthrough()
+    type OpenAiSseData = z.infer<typeof OpenAiSseDataSchema>
 
     const parseSseData = (
       line: string
@@ -825,7 +843,16 @@ export class OpenAICompatibleProvider implements LLMProvider {
           )
           return null
         }
-        return parsed as OpenAiSseData
+        const decoded = OpenAiSseDataSchema.safeParse(parsed)
+        if (!decoded.success) {
+          logger.warn(
+            "Ignored invalid SSE data event",
+            "OpenAICompatibleProvider",
+            { issues: decoded.error.issues }
+          )
+          return null
+        }
+        return decoded.data
       } catch (error) {
         logger.warn(
           "Failed to parse SSE data line",
