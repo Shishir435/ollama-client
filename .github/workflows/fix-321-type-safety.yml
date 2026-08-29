@@ -1,0 +1,168 @@
+name: Fix PR 321 SSE type safety
+
+on:
+  push:
+    branches:
+      - refactor/0.13.3-cognitive-complexity
+    paths:
+      - .github/workflows/fix-321-type-safety.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Replace unsafe SSE assertion with runtime schema
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/lib/providers/openai-compatible.ts")
+          text = path.read_text()
+
+          old_type = '''    type OpenAiSseData = {
+              error?: unknown
+              choices?: Array<{
+                delta?: {
+                  content?: unknown
+                  images?: unknown
+                  reasoning?: string
+                  reasoning_content?: string
+                  thinking?: string
+                  thoughts?: string
+                  reasoning_details?: unknown[]
+                  tool_calls?: ToolCallFragment[]
+                }
+                finish_reason?: string
+              }>
+              usage?: { prompt_tokens?: number; completion_tokens?: number }
+            }
+          '''
+
+          new_type = '''    const OpenAiSseDataSchema = z
+              .object({
+                error: z.unknown().optional(),
+                choices: z
+                  .array(
+                    z
+                      .object({
+                        delta: z
+                          .object({
+                            content: z.unknown().optional(),
+                            images: z.unknown().optional(),
+                            reasoning: z.string().optional(),
+                            reasoning_content: z.string().optional(),
+                            thinking: z.string().optional(),
+                            thoughts: z.string().optional(),
+                            reasoning_details: z.array(z.unknown()).optional(),
+                            tool_calls: z.array(z.unknown()).optional()
+                          })
+                          .passthrough()
+                          .optional(),
+                        finish_reason: z.string().nullable().optional()
+                      })
+                      .passthrough()
+                  )
+                  .optional(),
+                usage: z
+                  .object({
+                    prompt_tokens: z.number().optional(),
+                    completion_tokens: z.number().optional()
+                  })
+                  .passthrough()
+                  .optional()
+              })
+              .passthrough()
+            type OpenAiSseData = z.infer<typeof OpenAiSseDataSchema>
+          '''
+
+          if old_type not in text:
+              raise SystemExit("OpenAiSseData type block not found")
+          text = text.replace(old_type, new_type, 1)
+
+          old_return = "        return parsed as OpenAiSseData"
+          new_return = '''        const decoded = OpenAiSseDataSchema.safeParse(parsed)
+                if (!decoded.success) {
+                  logger.warn(
+                    "Ignored invalid SSE data event",
+                    "OpenAICompatibleProvider",
+                    { issues: decoded.error.issues }
+                  )
+                  return null
+                }
+                return decoded.data'''
+          if old_return not in text:
+              raise SystemExit("unsafe SSE assertion not found")
+          text = text.replace(old_return, new_return, 1)
+          path.write_text(text)
+          PY
+
+      - name: Format and validate
+        run: |
+          pnpm exec biome check src/lib/providers/openai-compatible.ts --write
+          pnpm typecheck
+          pnpm test --run src/lib/providers --passWithNoTests
+
+      - name: Publish fix through GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          git add src/lib/providers/openai-compatible.ts
+          git diff --cached --check
+          python - <<'PY'
+          import base64, json, os, subprocess, urllib.request
+
+          token = os.environ["GH_TOKEN"]
+          repo = os.environ["GH_REPO"]
+          branch = "refactor/0.13.3-cognitive-complexity"
+          api = f"https://api.github.com/repos/{repo}"
+
+          def req(path, method="GET", data=None):
+              body = None if data is None else json.dumps(data).encode()
+              request = urllib.request.Request(
+                  api + path,
+                  data=body,
+                  method=method,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Accept": "application/vnd.github+json",
+                      "Content-Type": "application/json",
+                  },
+              )
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+
+          parent = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          base_tree = subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip()
+          path = "src/lib/providers/openai-compatible.ts"
+          with open(path, "rb") as handle:
+              content = base64.b64encode(handle.read()).decode()
+          blob = req("/git/blobs", "POST", {"content": content, "encoding": "base64"})["sha"]
+          tree = req("/git/trees", "POST", {
+              "base_tree": base_tree,
+              "tree": [{"path": path, "mode": "100644", "type": "blob", "sha": blob}],
+          })["sha"]
+          commit = req("/git/commits", "POST", {
+              "message": "fix: validate OpenAI SSE payloads",
+              "tree": tree,
+              "parents": [parent],
+          })["sha"]
+          req(f"/git/refs/heads/{branch}", "PATCH", {"sha": commit, "force": False})
+          print(commit)
+          PY
