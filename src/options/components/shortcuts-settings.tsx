@@ -35,7 +35,10 @@ const isPlainEscape = (event: KeyboardEvent): boolean =>
   !event.metaKey &&
   !event.shiftKey
 
-const getShortcutModifiers = (event: KeyboardEvent, isMac: boolean): string[] => {
+const getShortcutModifiers = (
+  event: KeyboardEvent,
+  isMac: boolean
+): string[] => {
   const modifiers: string[] = []
   if (event.metaKey && isMac) modifiers.push("Mod")
   if (event.ctrlKey && !isMac) modifiers.push("Mod")

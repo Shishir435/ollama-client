@@ -264,7 +264,8 @@ export const useProviderModels = () => {
 
       if (!selectedModel) {
         const firstChatModel = models.find(
-          (model) => !isEmbeddingModel(model.name, model.details?.families || [])
+          (model) =>
+            !isEmbeddingModel(model.name, model.details?.families || [])
         )
         if (firstChatModel?.providerId) {
           await persistSelectedModel(

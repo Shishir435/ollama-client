@@ -35,7 +35,8 @@ const collectImportedIcons = (source: ts.SourceFile): Set<string> => {
     if (statement.moduleSpecifier.text !== "lucide-react") continue
     const bindings = statement.importClause?.namedBindings
     if (!bindings || !ts.isNamedImports(bindings)) continue
-    for (const element of bindings.elements) importedIcons.add(element.name.text)
+    for (const element of bindings.elements)
+      importedIcons.add(element.name.text)
   }
   return importedIcons
 }

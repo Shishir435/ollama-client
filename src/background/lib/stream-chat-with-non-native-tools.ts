@@ -190,7 +190,8 @@ export const streamChatWithNonNativeTools = async ({
 
       await provider.streamChat(
         { ...baseRequest, messages: workingMessages },
-        (chunk) => collectNonNativeStreamChunk(chunk, gate, streamState, onChunk),
+        (chunk) =>
+          collectNonNativeStreamChunk(chunk, gate, streamState, onChunk),
         signal
       )
 

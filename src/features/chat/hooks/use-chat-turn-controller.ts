@@ -292,9 +292,14 @@ export const useChatTurnController = ({
     if (!sessionId) return false
 
     const userContent = rawInput || ""
-    const includeContext = selectedTabIds.length > 0 && Boolean(contextText?.trim())
+    const includeContext =
+      selectedTabIds.length > 0 && Boolean(contextText?.trim())
     const hasTabContext = includeContext && tabDocuments.length > 0
-    const userMessage = buildUserMessage({ content: userContent, files, images })
+    const userMessage = buildUserMessage({
+      content: userContent,
+      files,
+      images
+    })
     const userMessageId = await persistUserMessage({
       sessionId,
       userMessage,

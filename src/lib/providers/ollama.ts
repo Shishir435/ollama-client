@@ -638,84 +638,83 @@ export class OllamaProvider implements LLMProvider {
     // message (which may carry tool_calls or the final done+metrics) is lost.
     let buffer = ""
 
-    const processLine = (line: string) => {
-      if (!line.trim()) return
-      let data: {
-        error?: unknown
-        message?: {
-          content?: string
-          images?: unknown[]
-          thinking?: string
-          reasoning?: string
-          reasoning_content?: string
-          tool_calls?: OllamaToolCall[]
-        }
-        done?: boolean
-        total_duration?: number
-        load_duration?: number
-        sample_count?: number
-        sample_duration?: number
-        prompt_eval_count?: number
-        prompt_eval_duration?: number
-        eval_count?: number
-        eval_duration?: number
+    type OllamaStreamData = {
+      error?: unknown
+      message?: {
+        content?: string
+        images?: unknown[]
+        thinking?: string
+        reasoning?: string
+        reasoning_content?: string
+        tool_calls?: OllamaToolCall[]
       }
+      done?: boolean
+      total_duration?: number
+      load_duration?: number
+      sample_count?: number
+      sample_duration?: number
+      prompt_eval_count?: number
+      prompt_eval_duration?: number
+      eval_count?: number
+      eval_duration?: number
+    }
+
+    const parseStreamLine = (line: string): OllamaStreamData | null => {
+      if (!line.trim()) return null
       try {
         const parsed = JSON.parse(line)
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
           logger.warn("Ignored invalid stream chunk", "OllamaProvider")
-          return
+          return null
         }
-        data = parsed
+        return parsed as OllamaStreamData
       } catch (error) {
         logger.warn("Failed to parse chunk", "OllamaProvider", { error })
-        return
+        return null
       }
+    }
 
-      if (data.error) {
-        const message =
-          typeof data.error === "string"
-            ? data.error
-            : "The provider reported an error while generating the response."
-        const classification = classifyProviderError(undefined, message)
-        throw createAppError(message, {
-          kind: "provider",
-          providerId: ProviderId.OLLAMA,
-          providerName: this.config.name,
-          model,
-          baseUrl,
-          code: classification.code,
-          phase: "read-stream",
-          recoveryAction: classification.recoveryAction,
-          userMessage: classification.reason
-            ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
-            : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
-          debug: typeof data.error === "string" ? data.error : undefined
-        })
-      }
+    const throwStreamError = (data: OllamaStreamData): void => {
+      if (!data.error) return
+      const message =
+        typeof data.error === "string"
+          ? data.error
+          : "The provider reported an error while generating the response."
+      const classification = classifyProviderError(undefined, message)
+      throw createAppError(message, {
+        kind: "provider",
+        providerId: ProviderId.OLLAMA,
+        providerName: this.config.name,
+        model,
+        baseUrl,
+        code: classification.code,
+        phase: "read-stream",
+        recoveryAction: classification.recoveryAction,
+        userMessage: classification.reason
+          ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+          : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
+        debug: typeof data.error === "string" ? data.error : undefined
+      })
+    }
 
+    const emitThinking = (data: OllamaStreamData): void => {
       const thinkingDelta =
         data.message?.thinking ||
         data.message?.reasoning ||
         data.message?.reasoning_content
+      if (thinkingDelta) onChunk({ thinkingDelta, done: false })
+    }
 
-      if (thinkingDelta) {
-        onChunk({
-          thinkingDelta,
-          done: false
-        })
-      }
-
-      // Ollama emits the whole tool_calls array in one message (arguments
-      // already parsed to an object), unlike OpenAI's streamed fragments.
+    const emitToolCalls = (data: OllamaStreamData): void => {
       const rawToolCalls = data.message?.tool_calls
-      if (Array.isArray(rawToolCalls) && rawToolCalls.length > 0) {
-        onChunk({
-          toolCalls: rawToolCalls.map(normalizeOllamaToolCall),
-          done: false
-        })
-      }
+      if (!Array.isArray(rawToolCalls) || rawToolCalls.length === 0) return
+      onChunk({
+        toolCalls: rawToolCalls.map(normalizeOllamaToolCall),
+        done: false
+      })
+    }
 
+    const emitGeneratedImages = (data: OllamaStreamData): void => {
       const generatedImages = (data.message?.images ?? []).flatMap(
         (value, index) => {
           if (typeof value !== "string") return []
@@ -727,10 +726,10 @@ export class OllamaProvider implements LLMProvider {
           return image ? [image] : []
         }
       )
-      if (generatedImages.length > 0) {
-        onChunk({ generatedImages, done: false })
-      }
+      if (generatedImages.length > 0) onChunk({ generatedImages, done: false })
+    }
 
+    const emitContent = (data: OllamaStreamData): void => {
       onChunk({
         delta: data.message?.content || "",
         done: data.done,
@@ -747,6 +746,16 @@ export class OllamaProvider implements LLMProvider {
             }
           : undefined
       })
+    }
+
+    const processLine = (line: string): void => {
+      const data = parseStreamLine(line)
+      if (!data) return
+      throwStreamError(data)
+      emitThinking(data)
+      emitToolCalls(data)
+      emitGeneratedImages(data)
+      emitContent(data)
     }
 
     try {

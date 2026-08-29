@@ -13,9 +13,7 @@ import type { Role } from "@/types"
 
 const BATCH_SIZE = 10
 
-type MigrationMessage = Awaited<
-  ReturnType<typeof getMessagesPaginated>
->[number]
+type MigrationMessage = Awaited<ReturnType<typeof getMessagesPaginated>>[number]
 
 const messageIdOf = (message: MigrationMessage): number | undefined =>
   typeof message.id === "number" ? message.id : undefined
@@ -40,9 +38,7 @@ const removeLegacyVector = async (message: MigrationMessage): Promise<void> => {
   await vectorDb.vectors
     .where("metadata.sessionId")
     .equals(message.sessionId)
-    .filter(
-      (doc) => doc.content === message.content && !doc.metadata.messageId
-    )
+    .filter((doc) => doc.content === message.content && !doc.metadata.messageId)
     .delete()
 }
 

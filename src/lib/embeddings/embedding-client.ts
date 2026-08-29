@@ -260,4 +260,5 @@ export const getEmbeddingRouteCapabilities =
   async (): Promise<EmbeddingStrategyCapabilities> => getEmbeddingCapabilities()
 
 export const ensureEmbeddingRouteReady =
-  async (): Promise<EmbeddingStrategyReadiness> => ensureEmbeddingStrategyReady()
+  async (): Promise<EmbeddingStrategyReadiness> =>
+    ensureEmbeddingStrategyReady()

@@ -90,138 +90,135 @@ export const useProviderSettingsState = () => {
     defaultUrl: t("settings.providers.test_connection.default_url")
   })
 
+  const setConnectionFailure = (message: string): void => {
+    dispatch({
+      type: "connection-status-set",
+      status: { success: false, message }
+    })
+  }
+
+  const handleApiKeyRequired = (name: string): void => {
+    const message = t("settings.providers.test_connection.api_key_required", {
+      name
+    })
+    setConnectionFailure(message)
+    toast({
+      title: t("settings.providers.test_connection.api_key_required_title"),
+      description: message,
+      variant: "destructive"
+    })
+  }
+
+  const handleEmptyModelCatalog = (
+    modelListSupported: boolean | undefined
+  ): void => {
+    const noModelList = modelListSupported === false
+    setConnectionFailure(
+      t(
+        noModelList
+          ? "settings.providers.test_connection.inline_no_model_list"
+          : "settings.providers.test_connection.inline_no_models",
+        { url: displayUrl }
+      )
+    )
+    toast({
+      title: t(
+        noModelList
+          ? "settings.providers.test_connection.no_model_list_title"
+          : "settings.providers.test_connection.no_models_title"
+      ),
+      description: t(
+        noModelList
+          ? "settings.providers.test_connection.no_model_list_description"
+          : "settings.providers.test_connection.no_models_description",
+        { url: displayUrl }
+      ),
+      variant: "destructive"
+    })
+  }
+
+  const handleConnectionSuccess = (
+    name: string,
+    result: { modelCount: number; modelListSupported?: boolean }
+  ): void => {
+    const manualOnly = result.modelListSupported === false
+    dispatch({
+      type: "connection-status-set",
+      status: {
+        success: true,
+        message: t(
+          manualOnly
+            ? "settings.providers.test_connection.inline_success_manual"
+            : "settings.providers.test_connection.inline_success",
+          { url: displayUrl, count: result.modelCount }
+        )
+      }
+    })
+    toast({
+      title: t("settings.providers.test_connection.success_title"),
+      description: t(
+        manualOnly
+          ? "settings.providers.test_connection.success_description_manual"
+          : "settings.providers.test_connection.success_description",
+        { name, url: displayUrl, count: result.modelCount }
+      ),
+      variant: "default"
+    })
+  }
+
+  const handleConnectionFailure = (error: unknown): void => {
+    logger.error("Connection test failed", "ProviderSettings", { error })
+    const errorMessage =
+      isAppError(error) && error.messageKey
+        ? t(error.messageKey, error.messageParams)
+        : getDisplayErrorMessage(error, "Failed to connect")
+    const errorWithHint =
+      errorMessage.toLowerCase().includes("failed to fetch") &&
+      cspCompatibilityHint
+        ? `${errorMessage}. ${cspCompatibilityHint}`
+        : errorMessage
+    setConnectionFailure(
+      t("settings.providers.test_connection.inline_failed", {
+        url: displayUrl,
+        error: errorWithHint
+      })
+    )
+    toast({
+      title: t("settings.providers.test_connection.failed_title"),
+      description: t("settings.providers.test_connection.failed_description", {
+        url: displayUrl,
+        error: errorWithHint
+      }),
+      variant: "destructive"
+    })
+  }
+
   const handleTestConnection = async () => {
     if (!activeConfig) return
-
     logger.info("Testing connection with config", "ProviderSettings", {
       id: activeConfig.id,
       name: activeConfig.name,
       baseUrl: activeConfig.baseUrl,
       enabled: activeConfig.enabled
     })
-
     dispatch({ type: "connection-test-started" })
-
     try {
       const command = await testProviderConnection(activeConfig)
       if (command.kind === "api-key-required") {
-        const message = t(
-          "settings.providers.test_connection.api_key_required",
-          { name: activeConfig.name }
-        )
-        dispatch({
-          type: "connection-status-set",
-          status: { success: false, message }
-        })
-        toast({
-          title: t("settings.providers.test_connection.api_key_required_title"),
-          description: message,
-          variant: "destructive"
-        })
+        handleApiKeyRequired(activeConfig.name)
         return
       }
       const { result } = command
       logger.debug("Provider connection RPC succeeded", "ProviderSettings", {
         count: result.modelCount
       })
-
       if (result.modelCount === 0) {
-        // A server without a catalog endpoint is reachable but has nothing to
-        // offer until the user names a model, so say that instead of repeating
-        // "no models were returned" at someone who cannot make it return any.
-        const noModelList = result.modelListSupported === false
-        dispatch({
-          type: "connection-status-set",
-          status: {
-            success: false,
-            message: t(
-              noModelList
-                ? "settings.providers.test_connection.inline_no_model_list"
-                : "settings.providers.test_connection.inline_no_models",
-              { url: displayUrl }
-            )
-          }
-        })
-        toast({
-          title: t(
-            noModelList
-              ? "settings.providers.test_connection.no_model_list_title"
-              : "settings.providers.test_connection.no_models_title"
-          ),
-          description: t(
-            noModelList
-              ? "settings.providers.test_connection.no_model_list_description"
-              : "settings.providers.test_connection.no_models_description",
-            { url: displayUrl }
-          ),
-          variant: "destructive"
-        })
+        handleEmptyModelCatalog(result.modelListSupported)
         return
       }
-
-      const manualOnly = result.modelListSupported === false
-      dispatch({
-        type: "connection-status-set",
-        status: {
-          success: true,
-          message: t(
-            manualOnly
-              ? "settings.providers.test_connection.inline_success_manual"
-              : "settings.providers.test_connection.inline_success",
-            { url: displayUrl, count: result.modelCount }
-          )
-        }
-      })
-      toast({
-        title: t("settings.providers.test_connection.success_title"),
-        description: t(
-          manualOnly
-            ? "settings.providers.test_connection.success_description_manual"
-            : "settings.providers.test_connection.success_description",
-          {
-            name: activeConfig.name,
-            url: displayUrl,
-            count: result.modelCount
-          }
-        ),
-        variant: "default"
-      })
+      handleConnectionSuccess(activeConfig.name, result)
     } catch (error: unknown) {
-      logger.error("Connection test failed", "ProviderSettings", { error })
-      const errorMessage =
-        isAppError(error) && error.messageKey
-          ? t(error.messageKey, error.messageParams)
-          : getDisplayErrorMessage(error, "Failed to connect")
-      const shouldShowCspHint =
-        errorMessage.toLowerCase().includes("failed to fetch") &&
-        Boolean(cspCompatibilityHint)
-      const failureMessage = t(
-        "settings.providers.test_connection.inline_failed",
-        {
-          url: displayUrl,
-          error: shouldShowCspHint
-            ? `${errorMessage}. ${cspCompatibilityHint}`
-            : errorMessage
-        }
-      )
-
-      dispatch({
-        type: "connection-status-set",
-        status: { success: false, message: failureMessage }
-      })
-      toast({
-        title: t("settings.providers.test_connection.failed_title"),
-        description: t(
-          "settings.providers.test_connection.failed_description",
-          {
-            url: displayUrl,
-            error: shouldShowCspHint
-              ? `${errorMessage}. ${cspCompatibilityHint}`
-              : errorMessage
-          }
-        ),
-        variant: "destructive"
-      })
+      handleConnectionFailure(error)
     } finally {
       dispatch({ type: "connection-test-finished" })
     }

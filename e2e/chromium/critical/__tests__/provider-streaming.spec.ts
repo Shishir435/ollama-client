@@ -1,5 +1,5 @@
-import { createServer } from "node:http"
 import type { IncomingMessage, ServerResponse } from "node:http"
+import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import { expect, test } from "../../fixtures/extension"
 import {
@@ -51,7 +51,10 @@ const sendJson = (response: ServerResponse, payload: unknown): void => {
   response.end(JSON.stringify(payload))
 }
 
-const handleModelRequest = (path: string, response: ServerResponse): boolean => {
+const handleModelRequest = (
+  path: string,
+  response: ServerResponse
+): boolean => {
   if (path.endsWith("/api/tags")) {
     sendJson(response, {
       models: [

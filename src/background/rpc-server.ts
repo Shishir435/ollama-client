@@ -170,11 +170,15 @@ const response = <T>(
 
 const requestIdFromUnknownEnvelope = (rawMessage: unknown): string => {
   if (!rawMessage || typeof rawMessage !== "object") return crypto.randomUUID()
-  if (!("requestId" in rawMessage) || typeof rawMessage.requestId !== "string") {
+  if (
+    !("requestId" in rawMessage) ||
+    typeof rawMessage.requestId !== "string"
+  ) {
     return crypto.randomUUID()
   }
-  return RpcRequestEnvelopeSchema.shape.requestId.safeParse(rawMessage.requestId)
-    .success
+  return RpcRequestEnvelopeSchema.shape.requestId.safeParse(
+    rawMessage.requestId
+  ).success
     ? rawMessage.requestId
     : crypto.randomUUID()
 }

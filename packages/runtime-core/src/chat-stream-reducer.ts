@@ -319,11 +319,8 @@ const buildSuccessfulTerminal = <TMessage extends StreamAssistantMessage>(
   assistant: TMessage,
   msg: StreamMessage
 ): { assistant: TMessage; terminal: StreamTerminal<TMessage> } => {
-  const {
-    emptyReason,
-    thinkingOnlyResponse,
-    toolBackedThinkingOnlyResponse
-  } = getEmptyReason(assistant, msg.aborted)
+  const { emptyReason, thinkingOnlyResponse, toolBackedThinkingOnlyResponse } =
+    getEmptyReason(assistant, msg.aborted)
 
   let base: StreamAssistantMessage = assistant
   if (thinkingOnlyResponse) {

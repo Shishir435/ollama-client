@@ -117,10 +117,12 @@ const normalizeCapabilityHints = (
   if (!hints) return undefined
   const normalized: NormalizedCapabilityHints = {}
   if (hints.modelType) normalized.modelType = hints.modelType
-  if (hints.contextLength != null) normalized.contextLength = hints.contextLength
+  if (hints.contextLength != null)
+    normalized.contextLength = hints.contextLength
   if (hints.capabilityTags) normalized.capabilityTags = hints.capabilityTags
   if (hints.modalities) normalized.modalities = hints.modalities
-  if (hints.outputModalities) normalized.outputModalities = hints.outputModalities
+  if (hints.outputModalities)
+    normalized.outputModalities = hints.outputModalities
   if (hints.supportedParameters) {
     normalized.supportedParameters = hints.supportedParameters
   }
@@ -140,7 +142,9 @@ interface NormalizedCloud {
   maxOutputTokens?: number
 }
 
-const normalizeCloud = (cloud?: CloudInput | null): NormalizedCloud | undefined => {
+const normalizeCloud = (
+  cloud?: CloudInput | null
+): NormalizedCloud | undefined => {
   if (!cloud) return undefined
   const normalized: NormalizedCloud = {}
   if (cloud.description) normalized.description = cloud.description
@@ -234,7 +238,8 @@ const ProviderModelSchema = z
       ...model
     }) => {
       const resolvedFamily = details?.family ?? family ?? ""
-      const normalizedCapabilityHints = normalizeCapabilityHints(capabilityHints)
+      const normalizedCapabilityHints =
+        normalizeCapabilityHints(capabilityHints)
       const normalizedCloud = normalizeCloud(cloud)
 
       return {

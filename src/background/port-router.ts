@@ -93,7 +93,9 @@ export const registerPortRouter = () => {
       if (port.abortScopeKey) abortAndClearController(port.abortScopeKey)
     })
 
-    const dispatchMessage = async (msg: ChatStreamClientEvent): Promise<void> => {
+    const dispatchMessage = async (
+      msg: ChatStreamClientEvent
+    ): Promise<void> => {
       switch (msg.type) {
         case MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL:
           abortCurrentOnDisconnect = true

@@ -74,7 +74,10 @@ type SourceRowMeta = {
   Icon: LucideIcon
 }
 
-const getSourceRowMeta = (item: SourceItem, group: SourceGroup): SourceRowMeta => {
+const getSourceRowMeta = (
+  item: SourceItem,
+  group: SourceGroup
+): SourceRowMeta => {
   const isWeb = group === "web"
   const isChatSource = group === "knowledge" && item.source === "chat"
   const isUserMessage = isChatSource && item.title === "User message"

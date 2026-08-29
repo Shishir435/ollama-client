@@ -110,9 +110,12 @@ const buildMemoryContextHeader = async ({
   const { retrieveContextEnhanced, formatEnhancedResults } = await import(
     "@/application/context/rag/rag-pipeline"
   )
-  const enhancedResults = await retrieveContextEnhanced(lastUserMessage.content, {
-    type: "chat"
-  })
+  const enhancedResults = await retrieveContextEnhanced(
+    lastUserMessage.content,
+    {
+      type: "chat"
+    }
+  )
   if (enhancedResults.length === 0) return ""
 
   const { formattedContext, sources } = formatEnhancedResults(enhancedResults)
@@ -173,7 +176,9 @@ const createChunkHandler = (
       logger.debug("Chat stream chunk", "ChatStream", {
         hasDelta: typeof chunk.delta === "string" && chunk.delta.length > 0,
         deltaPreview:
-          typeof chunk.delta === "string" ? chunk.delta.slice(0, 120) : undefined,
+          typeof chunk.delta === "string"
+            ? chunk.delta.slice(0, 120)
+            : undefined,
         hasThinkingDelta:
           typeof chunk.thinkingDelta === "string" &&
           chunk.thinkingDelta.length > 0,
@@ -222,13 +227,18 @@ export const handleChatWithModel = withErrorContext(
       ...limitMessagesForModel(model, conversationMessages)
     ]
     const isMemoryEnabled = await readSetting(SETTINGS.MEMORY_ENABLED)
-    const sessionSystemPrompt = await getSessionSystemPrompt(msg.payload.sessionId)
+    const sessionSystemPrompt = await getSessionSystemPrompt(
+      msg.payload.sessionId
+    )
     const systemPrompt =
       sessionSystemPrompt ||
       modelParams.system ||
       "You are a helpful AI assistant."
 
-    const provider = await ProviderFactory.getProviderForModel(model, providerId)
+    const provider = await ProviderFactory.getProviderForModel(
+      model,
+      providerId
+    )
     assertProviderEnabled(provider, model)
 
     const latestUserText = latestUserMessage(conversationMessages)?.content
@@ -321,7 +331,9 @@ export const handleChatWithModel = withErrorContext(
     const runToolGeneration = async () => {
       if (!resolvedTools || resolvedTools.tools.length === 0) return false
       const { getToolRegistry } = await import("@/lib/tools")
-      const toolResultMaxChars = await readSetting(SETTINGS.MAX_TOOL_RESULT_CHARS)
+      const toolResultMaxChars = await readSetting(
+        SETTINGS.MAX_TOOL_RESULT_CHARS
+      )
       const ctx = {
         signal: ac.signal,
         sessionId: msg.payload.sessionId,
@@ -349,7 +361,9 @@ export const handleChatWithModel = withErrorContext(
               model,
               providerId,
               mode,
-              status: awaitingConfirmation ? "awaiting-confirmation" : "running",
+              status: awaitingConfirmation
+                ? "awaiting-confirmation"
+                : "running",
               state,
               updatedAt: Date.now()
             })
@@ -413,7 +427,10 @@ export const handleChatWithModel = withErrorContext(
     resolveDiagnosticSessionId: (msg) => msg.payload.sessionId,
     resolveProviderErrorContext: async (msg) => {
       const { model, providerId } = msg.payload
-      const provider = await ProviderFactory.getProviderForModel(model, providerId)
+      const provider = await ProviderFactory.getProviderForModel(
+        model,
+        providerId
+      )
       return {
         providerId: provider.id,
         providerName: provider.config.name,

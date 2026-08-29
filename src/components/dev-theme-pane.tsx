@@ -42,7 +42,8 @@ const THEME_TOKENS: ThemeToken[] = [
 ]
 
 const getRootStyle = () => getComputedStyle(document.documentElement)
-const readTokenValue = (key: string) => getRootStyle().getPropertyValue(key).trim()
+const readTokenValue = (key: string) =>
+  getRootStyle().getPropertyValue(key).trim()
 
 const parseOklch = (value: string): OklchValue | null => {
   const match = value.match(
@@ -118,7 +119,9 @@ const ThemeChannelEditor = ({
     updateToken(token.key, channel, Number(event.target.value))
   return (
     <label className="grid grid-cols-[1rem_1fr_4.25rem] items-center gap-2 text-xs">
-      <span className="font-medium text-muted-foreground uppercase">{channel}</span>
+      <span className="font-medium text-muted-foreground uppercase">
+        {channel}
+      </span>
       <input
         type="range"
         min={0}
@@ -165,7 +168,9 @@ const ThemeTokenEditor = ({
       <span className="min-w-0 flex-1 truncate font-medium text-sm">
         {token.label}
       </span>
-      <code className="text-muted-foreground text-xs">{formatOklch(value)}</code>
+      <code className="text-muted-foreground text-xs">
+        {formatOklch(value)}
+      </code>
     </div>
     {CHANNELS.map((channel) => (
       <ThemeChannelEditor
@@ -190,7 +195,11 @@ const DevThemePanel = ({
   onReset: () => void
   onCopy: () => void
   params: Record<string, OklchValue>
-  updateToken: (key: string, channel: keyof OklchValue, nextValue: number) => void
+  updateToken: (
+    key: string,
+    channel: keyof OklchValue,
+    nextValue: number
+  ) => void
 }) => {
   const [position, setPosition] = useState({ x: 20, y: 90 })
   const dragRef = useRef<DragState | null>(null)
@@ -227,7 +236,11 @@ const DevThemePanel = ({
   return (
     <div
       className="fixed z-2147483647 max-h-[min(44rem,calc(100vh-1rem))] w-[min(21rem,calc(100vw-1rem))] overflow-hidden border border-border bg-popover text-popover-foreground shadow-2xl"
-      style={{ left: position.x, top: position.y, borderRadius: "var(--radius-panel)" }}>
+      style={{
+        left: position.x,
+        top: position.y,
+        borderRadius: "var(--radius-panel)"
+      }}>
       <div
         className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted px-3 py-2 text-sm"
         onPointerDown={startDrag}
@@ -316,7 +329,8 @@ export const DevThemePane = () => {
     const loadOverrides = async () => {
       const stored = await browser.storage.local.get(DEV_THEME_STORAGE_KEY)
       overridesRef.current =
-        (stored[DEV_THEME_STORAGE_KEY] as Record<string, string> | undefined) ?? {}
+        (stored[DEV_THEME_STORAGE_KEY] as Record<string, string> | undefined) ??
+        {}
       applyOverrides(overridesRef.current)
       setParams(readTokenParams())
     }

@@ -250,9 +250,13 @@ const buildSourceVectorDocument = (
         typeof metadata.timestamp === "number" ? metadata.timestamp : timestamp,
       fileId: typeof metadata.fileId === "string" ? metadata.fileId : undefined,
       chunkIndex:
-        typeof metadata.chunkIndex === "number" ? metadata.chunkIndex : undefined,
+        typeof metadata.chunkIndex === "number"
+          ? metadata.chunkIndex
+          : undefined,
       totalChunks:
-        typeof metadata.totalChunks === "number" ? metadata.totalChunks : undefined
+        typeof metadata.totalChunks === "number"
+          ? metadata.totalChunks
+          : undefined
     }
   }
 }
@@ -280,7 +284,10 @@ const collectEmbeddingCandidates = ({
     const embeddingResult = embeddings[index]
     if ("error" in embeddingResult || !embeddingResult.embedding) continue
 
-    const similarity = cosineSimilarity(queryEmbedding, embeddingResult.embedding)
+    const similarity = cosineSimilarity(
+      queryEmbedding,
+      embeddingResult.embedding
+    )
     const candidate: EnhancedSearchResult = {
       document: buildSourceVectorDocument(
         chunks[index],
@@ -296,7 +303,7 @@ const collectEmbeddingCandidates = ({
   return { results, allCandidates }
 }
 
-const useFallbackCandidates = (
+const appendFallbackCandidates = (
   results: EnhancedSearchResult[],
   allCandidates: EnhancedSearchResult[],
   minSimilarity: number
@@ -345,11 +352,14 @@ export async function retrieveContextFromSources(
 
   const timestamp = Date.now()
   const embeddingConfig = await getEmbeddingConfig()
-  const chunks = await chunkDocuments(createSourceDocuments(sources, timestamp), {
-    chunkSize: embeddingConfig.chunkSize,
-    chunkOverlap: embeddingConfig.chunkOverlap,
-    strategy: embeddingConfig.chunkingStrategy
-  })
+  const chunks = await chunkDocuments(
+    createSourceDocuments(sources, timestamp),
+    {
+      chunkSize: embeddingConfig.chunkSize,
+      chunkOverlap: embeddingConfig.chunkOverlap,
+      strategy: embeddingConfig.chunkingStrategy
+    }
+  )
   const texts = chunks.map((chunk) => chunk.pageContent)
 
   const queryEmbedding = await generateEmbedding(query, undefined, undefined, {
@@ -379,7 +389,7 @@ export async function retrieveContextFromSources(
     minSimilarity,
     timestamp
   })
-  useFallbackCandidates(results, allCandidates, minSimilarity)
+  appendFallbackCandidates(results, allCandidates, minSimilarity)
 
   if (results.length === 0) {
     logger.warn(

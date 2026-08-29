@@ -138,7 +138,11 @@ const classifyImageFailure = (
     return { status: 503, message, type: "ServiceUnavailable" }
   }
   if (timedOut) {
-    return { status: 504, message: "Image generation timed out", type: "Timeout" }
+    return {
+      status: 504,
+      message: "Image generation timed out",
+      type: "Timeout"
+    }
   }
   if (aborted) {
     return {

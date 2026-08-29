@@ -138,7 +138,11 @@ export const extractReadableContent = (
   if (shouldTryReadability(scraper, current)) {
     const readability = tryReadability(doc, scraper === "readability")
     if (readability) {
-      current = mergeReadability(current, readability, scraper === "readability")
+      current = mergeReadability(
+        current,
+        readability,
+        scraper === "readability"
+      )
     }
   }
 

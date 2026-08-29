@@ -175,7 +175,8 @@ const withTimeoutSignal = async <T>(
   }
 }
 
-const createModelInvoker = (options: BuildRagContextOptions) =>
+const createModelInvoker =
+  (options: BuildRagContextOptions) =>
   async (prompt: string): Promise<string> => {
     try {
       const modelId =
@@ -405,7 +406,9 @@ const appendFileRetrieval = async ({
   })
 }
 
-const memorySourceTitle = (result: Awaited<ReturnType<typeof retrieveContextEnhanced>>[number]) =>
+const memorySourceTitle = (
+  result: Awaited<ReturnType<typeof retrieveContextEnhanced>>[number]
+) =>
   result.isMemory
     ? {
         text: ACTIVITY_TEXTS.previousConversation.text,
@@ -499,12 +502,14 @@ const runRagPipeline = async (
     retrievalOverrides: activeKnowledgeSet?.retrieval,
     assembly
   })
-  if (!createContextPlan({
-    rawInput: options.rawInput,
-    maxRagContextChars: options.maxRagContextChars,
-    groundedOnlyMode: options.groundedOnlyMode,
-    retrievalToolsActive: options.retrievalToolsActive
-  }).injectStoredContext) {
+  if (
+    !createContextPlan({
+      rawInput: options.rawInput,
+      maxRagContextChars: options.maxRagContextChars,
+      groundedOnlyMode: options.groundedOnlyMode,
+      retrievalToolsActive: options.retrievalToolsActive
+    }).injectStoredContext
+  ) {
     return
   }
   await appendFileRetrieval({

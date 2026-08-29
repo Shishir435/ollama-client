@@ -35,7 +35,8 @@ const checkDuplicateEmbedding = async (
 }
 
 const embeddableContent = (message: ChatMessage): string | null => {
-  if (message.role === "system" || message.metrics?.permissionNotice) return null
+  if (message.role === "system" || message.metrics?.permissionNotice)
+    return null
   if (message.role === "assistant" && message.done !== true) return null
   const content = message.content?.trim()
   return content && content.length >= 10 ? content : null
@@ -64,7 +65,9 @@ const embedMessageChunks = async ({
 
   for (let index = 0; index < chunks.length; index += 1) {
     const chunk = chunks[index]
-    if (await checkDuplicateEmbedding(chunk.text, sessionId, messageId, index)) {
+    if (
+      await checkDuplicateEmbedding(chunk.text, sessionId, messageId, index)
+    ) {
       continue
     }
     const result = await generateEmbedding(chunk.text)

@@ -51,10 +51,7 @@ const BROWSER_RULES: BrowserRule[] = [
   }
 ]
 
-const detectBrowser = (
-  nav: NavigatorWithBrands,
-  userAgent: string
-): string => {
+const detectBrowser = (nav: NavigatorWithBrands, userAgent: string): string => {
   const brands = nav.userAgentData?.brands ?? []
   const chromiumVersion =
     brands.find(({ brand }) => /Chromium/i.test(brand))?.version ||
