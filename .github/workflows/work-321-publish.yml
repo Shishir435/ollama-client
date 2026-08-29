@@ -29,10 +29,13 @@ jobs:
         run: |
           git fetch origin work/321-complexity-final
           mkdir -p /tmp/321-refactors
-          for path in $(git ls-tree -r --name-only origin/work/321-complexity-final -- 'scripts/work-321-refactor*.mjs' | sort); do
+          git ls-tree -r --name-only origin/work/321-complexity-final scripts \
+            | grep '^scripts/work-321-refactor.*\.mjs$' \
+            | sort > /tmp/321-refactors/list.txt
+          while IFS= read -r path; do
             file=$(basename "$path")
             git show "origin/work/321-complexity-final:$path" > "/tmp/321-refactors/$file"
-          done
+          done < /tmp/321-refactors/list.txt
           for script in /tmp/321-refactors/work-321-refactor*.mjs; do node "$script"; done
       - name: Format generated changes
         run: pnpm exec biome check . --write --unsafe || true
