@@ -47,9 +47,9 @@ jobs:
           rm -f _nonexistent _nonexistent2
       - name: Commit refactor batch
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --check
-          git commit --no-verify -m "refactor: apply cognitive complexity cleanup"
-          git push origin HEAD:refactor/0.13.3-cognitive-complexity
+          tree=$(git write-tree)
+          parent=$(git rev-parse HEAD)
+          commit=$(printf '%s\n' 'refactor: apply cognitive complexity cleanup' | git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit-tree "$tree" -p "$parent")
+          git push origin "$commit":refs/heads/refactor/0.13.3-cognitive-complexity
