@@ -742,6 +742,10 @@
           "label": "视觉",
           "desc": "在文本之外接受图像输入。"
         },
+        "imageOutput": {
+          "label": "图像生成",
+          "desc": "在聊天中生成图像作为回复。"
+        },
         "toolCalling": {
           "label": "工具调用",
           "desc": "可在回复过程中调用工具/函数。"
@@ -1047,6 +1051,24 @@
         "unload_on_switch_description": "在切换模型时卸载上个模型以释放内存。"
       },
       "parameters": {
+        "reasoning_effort": {
+          "label": "推理强度",
+          "description_reported": "此模型的提供商报告的级别。",
+          "description_profile": "已为此提供商和模型系列验证的级别。",
+          "description_unknown": "此提供商未公布可靠的推理控制。",
+          "options": {
+            "auto": "自动（提供商默认值）",
+            "auto_short": "自动",
+            "enabled": "开启",
+            "none": "关闭",
+            "minimal": "最低",
+            "low": "低",
+            "medium": "中",
+            "high": "高",
+            "xhigh": "超高",
+            "max": "最高"
+          }
+        },
         "temperature": {
           "label": "温度",
           "conservative": "保守",

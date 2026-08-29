@@ -2,6 +2,7 @@ import {
   buildSiblingsMap,
   enrichPathWithSiblingsAndAttachments,
   findLatestLeafDescendant,
+  findNewestStructuralLeaf,
   groupFilesByMessageId,
   traversePathFromLeaf,
   traversePathFromLeafWithFetcher
@@ -78,7 +79,7 @@ export const createChatSessionMessageActions = (
     }
 
     const storedLeafId =
-      session.currentLeafId ?? treeNodes[treeNodes.length - 1].id
+      session.currentLeafId ?? findNewestStructuralLeaf(treeNodes)
     if (storedLeafId === undefined) return
 
     /**
@@ -90,10 +91,12 @@ export const createChatSessionMessageActions = (
      *
      * Reaching here means the tree decoded completely, so this is a stale
      * pointer rather than missing data: something removed messages without
-     * repairing `sessions.currentLeafId`. The newest node is then a real leaf,
-     * which is what a session with no stored leaf already falls back to, and is
-     * safe to hand `addMessage` as the next parent. The decode-failure case
-     * cannot arrive here at all — it returned above rather than guess.
+     * repairing `sessions.currentLeafId`. The fallback is a structural leaf —
+     * a node no other node claims as its parent — rather than the newest row,
+     * because the two only coincide while timestamps rise with depth, and an
+     * imported or clock-skewed session breaks that. It is safe to hand
+     * `addMessage` as the next parent. The decode-failure case cannot arrive
+     * here at all — it returned above rather than guess.
      *
      * Still not written back: a read does not repair durable state.
      */
@@ -101,10 +104,11 @@ export const createChatSessionMessageActions = (
       (node) => String(node.id) === String(storedLeafId)
     )
       ? storedLeafId
-      : treeNodes[treeNodes.length - 1].id
+      : findNewestStructuralLeaf(treeNodes)
+    if (leafId === undefined) return
     if (leafId !== storedLeafId) {
       logger.warn(
-        "Stored leaf is not in the message tree; falling back to the newest node",
+        "Stored leaf is not in the message tree; falling back to the newest leaf",
         "chatSessionStore",
         { sessionId, treeSize: treeNodes.length }
       )
@@ -319,7 +323,11 @@ export const createChatSessionMessageActions = (
     skipDb = false
   ) => {
     if (!skipDb) {
-      await repo.updateMessage(messageId, updates)
+      if (updates.images !== undefined) {
+        await repo.updateMessageWithImages(messageId, updates, updates.images)
+      } else {
+        await repo.updateMessage(messageId, updates)
+      }
       if (updates.content) {
         try {
           await deleteVectors({ messageId })

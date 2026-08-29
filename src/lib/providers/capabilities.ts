@@ -28,13 +28,19 @@ export interface ModelCapabilityState {
 }
 
 export type ModelCapabilityStates = Record<
-  "text" | "vision" | "embeddings" | "toolCalling" | "reasoning",
+  | "text"
+  | "vision"
+  | "imageOutput"
+  | "embeddings"
+  | "toolCalling"
+  | "reasoning",
   ModelCapabilityState
 >
 
 export interface ModelCapabilities {
   text: boolean
   vision: boolean
+  imageOutput: boolean
   embeddings: boolean
   toolCalling: boolean
   reasoning: boolean
@@ -53,6 +59,7 @@ export interface ModelCapabilities {
 export interface ModelCapabilityOverride {
   text?: boolean
   vision?: boolean
+  imageOutput?: boolean
   embeddings?: boolean
   toolCalling?: boolean
   reasoning?: boolean
@@ -63,6 +70,7 @@ export interface ModelCapabilityOverride {
 const OVERRIDABLE_FLAGS = [
   "text",
   "vision",
+  "imageOutput",
   "embeddings",
   "toolCalling",
   "reasoning"
@@ -90,6 +98,8 @@ export interface ModelCapabilityInput {
   contextLength?: number
   /** Modalities reported by model catalogs such as OpenRouter. */
   modalities?: string[]
+  /** Output modalities reported independently from input modalities. */
+  outputModalities?: string[]
   /** Supported request parameters reported by the model catalog. */
   supportedParameters?: string[]
   /** User-set capability override for this model, if any. */
@@ -152,6 +162,8 @@ const detectModelCapabilities = (
     return {
       text: has(OLLAMA_CAP_COMPLETION) || has(OLLAMA_CAP_INSERT),
       vision: has(OLLAMA_CAP_VISION),
+      imageOutput:
+        has("image") || has("image-generation") || has("image_generation"),
       embeddings: has(OLLAMA_CAP_EMBEDDING),
       toolCalling: has(OLLAMA_CAP_TOOLS),
       reasoning: has(OLLAMA_CAP_THINKING),
@@ -174,6 +186,7 @@ const detectModelCapabilities = (
     return {
       text: !isEmbeddings,
       vision: isVlm,
+      imageOutput: false,
       embeddings: isEmbeddings,
       // The model type says nothing about tools, but `capabilities[]` does when
       // the server sends it. Without it there is nothing to read, so the
@@ -201,7 +214,14 @@ const detectModelCapabilities = (
   const supportedParameters = input.supportedParameters?.length
     ? input.supportedParameters.map((value) => value.toLowerCase())
     : undefined
-  if (modalities !== undefined || supportedParameters !== undefined) {
+  const outputModalities = input.outputModalities?.length
+    ? input.outputModalities.map((value) => value.toLowerCase())
+    : undefined
+  if (
+    modalities !== undefined ||
+    outputModalities !== undefined ||
+    supportedParameters !== undefined
+  ) {
     const supportsAnyParameter = (...names: string[]) =>
       names.some((name) => supportedParameters?.includes(name))
     return {
@@ -209,6 +229,7 @@ const detectModelCapabilities = (
         modalities?.includes("text") ??
         (providerCaps?.chat === true || modalities === undefined),
       vision: modalities?.includes("image") ?? false,
+      imageOutput: outputModalities?.includes("image") ?? false,
       embeddings: providerCaps?.embeddings ?? false,
       toolCalling:
         supportedParameters !== undefined
@@ -235,6 +256,7 @@ const detectModelCapabilities = (
   return {
     text: providerCaps?.chat ?? true,
     vision: false,
+    imageOutput: false,
     embeddings: providerCaps?.embeddings ?? false,
     // Ollama supports tool transport, but model support is tag-based. If
     // /api/show metadata is missing, keep model-level tools off.
@@ -320,6 +342,7 @@ export const getModelCapabilityStates = (
   const flags = [
     "text",
     "vision",
+    "imageOutput",
     "embeddings",
     "toolCalling",
     "reasoning"
@@ -327,6 +350,7 @@ export const getModelCapabilityStates = (
   const states = {} as ModelCapabilityStates
   const tagsAvailable = Boolean(input.ollamaCapabilities?.length)
   const modalitiesAvailable = Boolean(input.modalities?.length)
+  const outputModalitiesAvailable = Boolean(input.outputModalities?.length)
   const parametersAvailable = Boolean(input.supportedParameters?.length)
   const lmTypeAvailable = Boolean(input.lmStudioModelType)
   const capabilityTagsAvailable = Boolean(input.capabilityTags?.length)
@@ -359,6 +383,7 @@ export const getModelCapabilityStates = (
     const metadataOwnsFlag =
       tagsAvailable ||
       (modalitiesAvailable && (flag === "text" || flag === "vision")) ||
+      (outputModalitiesAvailable && flag === "imageOutput") ||
       (parametersAvailable &&
         (flag === "toolCalling" || flag === "reasoning")) ||
       (lmTypeAvailable &&

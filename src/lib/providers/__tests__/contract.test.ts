@@ -6,7 +6,7 @@ import { LocalAIProvider } from "@/lib/providers/localai"
 import { OllamaProvider } from "@/lib/providers/ollama"
 import { OpenAICompatibleProvider } from "@/lib/providers/openai-compatible"
 import { VllmProvider } from "@/lib/providers/vllm"
-import { ProviderId, ProviderType } from "../types"
+import { ProviderId, ProviderServiceProfile, ProviderType } from "../types"
 
 const jsonResponse = (body: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(body), {
@@ -335,7 +335,13 @@ describe("provider contracts", () => {
               input_modalities: ["text", "image"],
               output_modalities: ["text"]
             },
-            supported_parameters: ["tools", "reasoning"]
+            supported_parameters: ["tools", "reasoning"],
+            reasoning: {
+              supported_efforts: ["high", "low"],
+              default_effort: "low",
+              default_enabled: true,
+              mandatory: false
+            }
           }
         ]
       })
@@ -347,10 +353,36 @@ describe("provider contracts", () => {
         capabilityHints: {
           contextLength: 131072,
           modalities: ["text", "image"],
-          supportedParameters: ["tools", "reasoning"]
+          outputModalities: ["text"],
+          supportedParameters: ["tools", "reasoning"],
+          reasoning: {
+            supportedEfforts: ["high", "low"],
+            canEnable: true,
+            canDisable: true,
+            defaultEffort: "low",
+            defaultEnabled: true,
+            source: "model-metadata"
+          }
         }
       })
     ])
+  })
+
+  it("does not guess levels when an authoritative router catalog omits reasoning", async () => {
+    const provider = new OpenAICompatibleProvider({
+      id: "custom:openai:openrouter",
+      name: "OpenRouter",
+      type: ProviderType.OPENAI,
+      serviceProfile: ProviderServiceProfile.OPENROUTER,
+      enabled: true,
+      baseUrl: "https://openrouter.ai/api/v1"
+    })
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({ data: [{ id: "openai/gpt-5.6" }] })
+    )
+
+    const models = await provider.getModels()
+    expect(models[0]?.capabilityHints?.reasoning).toBeUndefined()
   })
 
   it("treats a zero hosted context length as unknown", async () => {

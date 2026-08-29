@@ -5,7 +5,10 @@ import { normalizeError } from "@/background/lib/error-handler"
 import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { resolveModelConfig } from "@/lib/model-config-utils"
+import {
+  getStoredModelConfig,
+  resolveModelConfig
+} from "@/lib/model-config-utils"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import { readSetting } from "@/lib/storage/setting-access"
@@ -45,7 +48,12 @@ export const handleSelectionAction = async (
 
   try {
     const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
-    const modelParams = resolveModelConfig(modelConfigMap[model])
+    const storedModelConfig = getStoredModelConfig(
+      modelConfigMap,
+      model,
+      providerId
+    )
+    const modelParams = resolveModelConfig(storedModelConfig)
     const provider = await ProviderFactory.getProviderForModel(
       model,
       providerId
@@ -56,7 +64,7 @@ export const handleSelectionAction = async (
     // markdown...") conflicts with the selection action's "Return plain text
     // only" instruction, so only forward a system prompt the user actually set.
     const configuredSystemPrompt =
-      modelConfigMap[model]?.system?.trim() || undefined
+      storedModelConfig?.system?.trim() || undefined
     const prompt = buildSelectionActionPrompt(
       msg.payload,
       configuredSystemPrompt
@@ -79,7 +87,8 @@ export const handleSelectionAction = async (
         num_thread: modelParams.num_thread,
         num_gpu: modelParams.num_gpu,
         num_batch: modelParams.num_batch,
-        keep_alive: modelParams.keep_alive
+        keep_alive: modelParams.keep_alive,
+        reasoningEffort: modelParams.reasoning_effort
       },
       (chunk) => {
         if (isPortClosed()) return

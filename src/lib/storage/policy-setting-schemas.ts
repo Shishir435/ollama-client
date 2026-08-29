@@ -6,6 +6,7 @@ const ModelCapabilityOverrideSchema = z
   .object({
     text: z.boolean().optional(),
     vision: z.boolean().optional(),
+    imageOutput: z.boolean().optional(),
     embeddings: z.boolean().optional(),
     toolCalling: z.boolean().optional(),
     reasoning: z.boolean().optional(),

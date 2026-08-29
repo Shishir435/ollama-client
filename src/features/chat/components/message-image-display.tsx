@@ -12,13 +12,17 @@ import type { ImageAttachment } from "@/types"
 
 interface MessageImageDisplayProps {
   images: ImageAttachment[]
+  generated?: boolean
 }
 
 /**
- * Thumbnails of the images attached to a sent message. Clicking one opens it
- * full-size in a sheet. Separate from `FileAttachmentDisplay` (RAG files).
+ * User-image thumbnails or large generated-image previews. Clicking one opens
+ * it full-size in a sheet. Separate from `FileAttachmentDisplay` (RAG files).
  */
-export const MessageImageDisplay = ({ images }: MessageImageDisplayProps) => {
+export const MessageImageDisplay = ({
+  images,
+  generated = false
+}: MessageImageDisplayProps) => {
   const { t } = useTranslation()
   const [active, setActive] = useState<ImageAttachment | null>(null)
 
@@ -26,18 +30,27 @@ export const MessageImageDisplay = ({ images }: MessageImageDisplayProps) => {
 
   return (
     <>
-      <div className="mb-2 flex flex-wrap gap-2">
+      <div
+        className={generated ? "mb-3 grid gap-2" : "mb-2 flex flex-wrap gap-2"}>
         {images.map((image) => (
           <button
             key={image.imageId}
             type="button"
             onClick={() => setActive(image)}
             aria-label={t("chat.message.images.view", { name: image.fileName })}
-            className="size-20 overflow-hidden rounded-control border border-border/40 bg-muted/30 transition-opacity hover:opacity-90">
+            className={
+              generated
+                ? "max-h-[32rem] w-fit max-w-full overflow-hidden rounded-control border border-border/40 bg-muted/30 transition-opacity hover:opacity-90"
+                : "size-20 overflow-hidden rounded-control border border-border/40 bg-muted/30 transition-opacity hover:opacity-90"
+            }>
             <img
               src={toDataUrl(image.mimeType, image.base64)}
               alt={image.fileName}
-              className="size-full object-cover"
+              className={
+                generated
+                  ? "max-h-[32rem] max-w-full object-contain"
+                  : "size-full object-cover"
+              }
             />
           </button>
         ))}

@@ -1,4 +1,8 @@
 import { ContextService } from "@/application/context/context-service"
+import {
+  clearAbortController,
+  setAbortController
+} from "@/background/lib/abort-controller-registry"
 import { resolveModelTools } from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
@@ -68,6 +72,14 @@ export const handleBuildContext = async (
     safePostChatStreamEvent(port, message)
   }
 
+  // Unlike a durable turn, this build has no owner once the panel goes away —
+  // its result can only be delivered over this port. Registering under the
+  // request id puts it on the same abort path as a chat stream, so both a stop
+  // and a disconnect end the retrieval and embedding work instead of leaving it
+  // running for a reply nobody can receive.
+  const controller = new AbortController()
+  setAbortController(p.requestId, controller)
+
   try {
     const modelId =
       p.customModel || p.selectedModelRef?.modelId || p.selectedModel
@@ -110,7 +122,8 @@ export const handleBuildContext = async (
             type: CHAT_STREAM_EVENT_TYPES.CONTEXT_WARNING,
             requestId: p.requestId,
             payload: warning
-          })
+          }),
+        signal: controller.signal
       }
     })
 
@@ -132,5 +145,7 @@ export const handleBuildContext = async (
         context: "context-build"
       })
     })
+  } finally {
+    clearAbortController(p.requestId)
   }
 }

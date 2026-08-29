@@ -29,6 +29,15 @@ export interface RetrievalOptions {
   memoryTopK?: number
   minSimilarity?: number
   minRerankScore?: number
+  /**
+   * Cancellation for the whole retrieval.
+   *
+   * Retrieval is several awaits deep — a query embedding, one or two hybrid
+   * searches, a re-scoring pass — and the embedding among them can be a slow
+   * remote request that bills per call. Without a signal the turn that asked
+   * for it can be stopped while all of that keeps running.
+   */
+  signal?: AbortSignal
 }
 
 export interface EnhancedSearchResult {
@@ -62,7 +71,8 @@ export async function retrieveContextEnhanced(
     includeMemory = false,
     memoryTopK = 3,
     minSimilarity = 0.3,
-    minRerankScore
+    minRerankScore,
+    signal
   } = options
 
   // Full mode: return all documents above minSimilarity without re-ranking or MMR.
@@ -73,7 +83,12 @@ export async function retrieveContextEnhanced(
       "RAGPipeline"
     )
 
-    const fullEmbeddingResult = await generateEmbedding(query)
+    const fullEmbeddingResult = await generateEmbedding(
+      query,
+      undefined,
+      undefined,
+      { ...(signal ? { signal } : {}) }
+    )
     if ("error" in fullEmbeddingResult) {
       logger.error(
         "Failed to generate query embedding (full mode)",
@@ -115,7 +130,10 @@ export async function retrieveContextEnhanced(
   }
 
   // Generate query embedding
-  const embeddingResult = await generateEmbedding(query)
+  signal?.throwIfAborted()
+  const embeddingResult = await generateEmbedding(query, undefined, undefined, {
+    ...(signal ? { signal } : {})
+  })
   if ("error" in embeddingResult) {
     logger.error("Failed to generate query embedding", "RAGPipeline", {
       error: embeddingResult.error
@@ -133,6 +151,7 @@ export async function retrieveContextEnhanced(
   })
 
   // Primary search (files/webpages)
+  signal?.throwIfAborted()
   const searchType = type ?? "file"
   const candidates = await searchHybrid(query, embeddingResult.embedding, {
     limit: candidateK,

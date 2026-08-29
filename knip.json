@@ -1,13 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": [
-    "src/entrypoints/**/*.{ts,tsx}",
-    "config/**/*.ts",
-    "tools/*.ts",
-    "wxt.config.ts",
-    "vitest.config.ts"
-  ],
-  "project": ["src/**/*.{ts,tsx}", "config/**/*.ts", "tools/**/*.ts"],
   "ignore": ["docs/**"],
   "ignoreExportsUsedInFile": true,
   "include": [
@@ -25,7 +17,28 @@
     "tailwind-scrollbar",
     "babel-plugin-react-compiler",
     "geckodriver",
-    "shadcn"
+    "shadcn",
+    "@opencode-ai/plugin"
   ],
-  "ignoreBinaries": ["geckodriver", "preview"]
+  "ignoreBinaries": ["geckodriver", "preview"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/entrypoints/**/*.{ts,tsx}",
+        "config/**/*.ts",
+        "tools/*.ts",
+        "wxt.config.ts",
+        "vitest.config.ts"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "config/**/*.ts", "tools/**/*.ts"]
+    },
+    "packages/olc": {
+      "entry": [
+        "src/index.ts",
+        "src/cli.ts",
+        "src/backends/opencode/plugin/bridge.ts"
+      ],
+      "project": ["src/**/*.ts"]
+    }
+  }
 }

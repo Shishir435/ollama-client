@@ -222,6 +222,7 @@ export const ModelMenu = ({
         capabilityTags: targetModelData?.capabilityHints?.capabilityTags,
         contextLength: targetModelData?.capabilityHints?.contextLength,
         modalities: targetModelData?.capabilityHints?.modalities,
+        outputModalities: targetModelData?.capabilityHints?.outputModalities,
         supportedParameters:
           targetModelData?.capabilityHints?.supportedParameters,
         probed: getProbe(capabilityTarget.providerId, capabilityTarget.model)
@@ -237,6 +238,7 @@ export const ModelMenu = ({
         capabilityTags: targetModelData?.capabilityHints?.capabilityTags,
         contextLength: targetModelData?.capabilityHints?.contextLength,
         modalities: targetModelData?.capabilityHints?.modalities,
+        outputModalities: targetModelData?.capabilityHints?.outputModalities,
         supportedParameters:
           targetModelData?.capabilityHints?.supportedParameters,
         override: getOverride(
@@ -605,6 +607,7 @@ export const ModelMenu = ({
           modelName={capabilityTarget.model}
           current={targetCurrent}
           detected={targetDetected}
+          reasoningSupport={targetModelData?.capabilityHints?.reasoning}
           hasOverride={Boolean(
             getOverride(capabilityTarget.providerId, capabilityTarget.model)
           )}

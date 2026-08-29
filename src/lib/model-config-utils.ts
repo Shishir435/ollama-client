@@ -23,7 +23,20 @@ export const ModelConfigSchema = z
     num_batch: z.number().optional(),
     keep_alive: z.union([z.string(), z.number()]).optional(),
     warm_on_select: z.boolean().optional(),
-    unload_on_switch: z.boolean().optional()
+    unload_on_switch: z.boolean().optional(),
+    reasoning_effort: z
+      .enum([
+        "auto",
+        "enabled",
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ])
+      .optional()
   })
   .partial()
   .passthrough()
@@ -31,6 +44,31 @@ export const ModelConfigSchema = z
 export const ModelConfigMapSchema = z.record(z.string(), ModelConfigSchema)
 
 export type StoredModelConfigMap = Record<string, Partial<ModelConfig>>
+
+export const modelConfigKey = (model: string, providerId?: string): string =>
+  providerId ? `${providerId}::${model}` : model
+
+/**
+ * Prefer the provider-scoped entry. Bare model keys remain a read fallback for
+ * provider-neutral settings written before model configs became
+ * collision-safe. Reasoning effort is provider-specific and must never cross
+ * that boundary.
+ */
+export const getStoredModelConfig = (
+  configs: StoredModelConfigMap,
+  model: string,
+  providerId?: string
+): Partial<ModelConfig> | undefined => {
+  const scoped = configs[modelConfigKey(model, providerId)]
+  if (scoped || !providerId) return scoped
+
+  const legacy = configs[model]
+  if (!legacy || legacy.reasoning_effort === undefined) return legacy
+
+  const safeLegacy = { ...legacy }
+  delete safeLegacy.reasoning_effort
+  return safeLegacy
+}
 
 export const parseStoredModelConfigMap = (
   value: unknown

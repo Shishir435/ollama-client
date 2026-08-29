@@ -17,6 +17,15 @@ export const MODELS_SETTINGS = [
 
   // ---- Models: sampling parameters (advanced) ----------------------------
   {
+    id: "reasoning-effort",
+    sectionId: "model-parameters",
+    labelKey: "settings.model.parameters.reasoning_effort.label",
+    descriptionKey:
+      "settings.model.parameters.reasoning_effort.description_profile",
+    advanced: true,
+    keywords: ["reasoning", "thinking", "effort", "budget", "depth"]
+  },
+  {
     id: "temperature",
     sectionId: "model-parameters",
     labelKey: "settings.model.parameters.temperature.label",

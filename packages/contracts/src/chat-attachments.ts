@@ -49,6 +49,15 @@ export const ImageAttachmentSchema = z.object({
   base64: z.string(),
   width: z.number().optional(),
   height: z.number().optional(),
+  /** Where the image entered the conversation. Missing means a legacy upload. */
+  origin: z.enum(["user-upload", "tool-result", "model-generated"]).optional(),
+  /** Provider/model provenance for generated output; never used for routing. */
+  generatedBy: z
+    .object({
+      providerId: z.string(),
+      model: z.string()
+    })
+    .optional(),
   sessionId: z.string().optional(),
   messageId: z.number().optional()
 })

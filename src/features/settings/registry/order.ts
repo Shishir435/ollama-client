@@ -12,6 +12,7 @@ export const SETTINGS_REGISTRY_ORDER = [
   "settings-presets",
   "system-prompt",
   "stop-sequences",
+  "reasoning-effort",
   "temperature",
   "top-p",
   "top-k",

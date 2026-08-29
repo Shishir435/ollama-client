@@ -67,6 +67,7 @@ docs/public/llms.txt
 docs/public/llms-full.txt
 docs/public/ai.txt
 docs/public/**/*.md
+docs/public/openapi.json
 
 # astro / starlight build caches
 docs/.astro/

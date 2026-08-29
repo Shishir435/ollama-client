@@ -11,6 +11,7 @@ vi.mock("react-i18next", () => ({
 const caps = (over: Partial<ModelCapabilities>): ModelCapabilities => ({
   text: true,
   vision: false,
+  imageOutput: false,
   embeddings: false,
   toolCalling: false,
   reasoning: false,

@@ -75,6 +75,39 @@ describe("AnthropicProvider", () => {
     )
   })
 
+  it("preserves exact effort levels reported by the Anthropic model catalog", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "claude-sonnet-4-6",
+              capabilities: {
+                effort: {
+                  supported: true,
+                  low: { supported: true },
+                  medium: { supported: true },
+                  high: { supported: true },
+                  max: { supported: true },
+                  xhigh: { supported: false }
+                }
+              }
+            }
+          ]
+        }),
+        { status: 200 }
+      )
+    )
+
+    const [model] = await new AnthropicProvider(config).getModels()
+
+    expect(model.capabilityHints?.reasoning).toMatchObject({
+      supportedEfforts: ["low", "medium", "high", "max"],
+      canDisable: true,
+      source: "model-metadata"
+    })
+  })
+
   it("keeps generic Anthropic-compatible requests keyless", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -283,6 +316,31 @@ describe("AnthropicProvider", () => {
     expect(body.thinking).toEqual({ type: "enabled", budget_tokens: 1024 })
     // max_tokens must exceed the thinking budget even when num_predict is small
     expect(body.max_tokens).toBeGreaterThan(body.thinking.budget_tokens)
+    expect(body.temperature).toBeUndefined()
+    expect(body.top_p).toBeUndefined()
+  })
+
+  it("maps an effort level to adaptive thinking on supported Claude models", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(streamResponse([]))
+
+    await new AnthropicProvider(config).streamChat(
+      {
+        model: "claude-sonnet-4-6",
+        messages: [{ role: "user", content: "Think carefully." }],
+        reasoningEffort: "medium",
+        temperature: 0.4,
+        top_p: 0.9
+      },
+      () => {}
+    )
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+    )
+    expect(body.thinking).toEqual({ type: "adaptive" })
+    expect(body.output_config).toEqual({ effort: "medium" })
     expect(body.temperature).toBeUndefined()
     expect(body.top_p).toBeUndefined()
   })

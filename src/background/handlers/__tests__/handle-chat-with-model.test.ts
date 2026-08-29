@@ -10,12 +10,15 @@ import {
   setupHandlerMocks
 } from "./test-utils"
 
-const { mockProvider, mockStreamChat } = vi.hoisted(() => {
+const { mockGenerateImage, mockProvider, mockStreamChat } = vi.hoisted(() => {
   const streamChat = vi.fn().mockImplementation(async (_req, onChunk) => {
     onChunk({ delta: "Hello", done: false })
     onChunk({ done: true })
   })
   return {
+    mockGenerateImage: vi.fn().mockImplementation(async (_req, onChunk) => {
+      onChunk({ done: true })
+    }),
     mockStreamChat: streamChat,
     mockProvider: {
       id: "ollama", // string for simpler mock, or use ProviderId.OLLAMA if imported inside
@@ -26,7 +29,11 @@ const { mockProvider, mockStreamChat } = vi.hoisted(() => {
         baseUrl: "http://localhost:11434",
         name: "Ollama"
       },
+      generateImage: vi.fn().mockImplementation(async (_req, onChunk) => {
+        onChunk({ done: true })
+      }),
       streamChat: streamChat,
+      getModelDetails: vi.fn().mockResolvedValue(null),
       getModels: vi.fn().mockResolvedValue(["llama3:latest"])
     }
   }
@@ -84,6 +91,8 @@ describe("handleChatWithModel", () => {
     mockIsPortClosed = createMockIsPortClosed(false)
     vi.clearAllMocks()
     mockProvider.config.enabled = true
+    mockProvider.generateImage = mockGenerateImage
+    mockProvider.getModelDetails.mockResolvedValue(null)
     const storage = await import("@/lib/plasmo-global-storage")
     vi.mocked(storage.getPlasmoStoredValue).mockResolvedValue(undefined)
 
@@ -351,6 +360,77 @@ describe("handleChatWithModel", () => {
           num_gpu: 1,
           num_batch: 16,
           stop: ["</s>"]
+        }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+    })
+
+    it("uses the selected provider's config for duplicate model names", async () => {
+      const { getPlasmoStoredValue } = await import(
+        "@/lib/plasmo-global-storage"
+      )
+      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
+        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
+          return {
+            "provider-a::shared": { reasoning_effort: "low" },
+            "provider-b::shared": { reasoning_effort: "high" },
+            shared: { reasoning_effort: "max" }
+          }
+        }
+        return undefined
+      })
+
+      await handleChatWithModel(
+        {
+          type: "CHAT_WITH_MODEL",
+          payload: {
+            model: "shared",
+            providerId: "provider-a",
+            messages: [{ role: "user", content: "Hello" }]
+          }
+        },
+        mockPort,
+        mockIsPortClosed
+      )
+
+      expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({ reasoningEffort: "low" }),
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+    })
+
+    it("does not inherit reasoning effort from a legacy bare config", async () => {
+      const { getPlasmoStoredValue } = await import(
+        "@/lib/plasmo-global-storage"
+      )
+      vi.mocked(getPlasmoStoredValue).mockImplementation(async (key) => {
+        if (key === STORAGE_KEYS.PROVIDER.MODEL_CONFIGS) {
+          return {
+            shared: { temperature: 0.25, reasoning_effort: "max" }
+          }
+        }
+        return undefined
+      })
+
+      await handleChatWithModel(
+        {
+          type: "CHAT_WITH_MODEL",
+          payload: {
+            model: "shared",
+            providerId: "provider-b",
+            messages: [{ role: "user", content: "Hello" }]
+          }
+        },
+        mockPort,
+        mockIsPortClosed
+      )
+
+      expect(mockStreamChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          temperature: 0.25,
+          reasoningEffort: "auto"
         }),
         expect.any(Function),
         expect.any(AbortSignal)
@@ -646,6 +726,59 @@ describe("handleChatWithModel", () => {
   })
 
   describe("stream handling", () => {
+    it("routes an image-output model through the provider-neutral image operation", async () => {
+      mockProvider.getModelDetails.mockResolvedValueOnce({
+        capabilities: ["image"]
+      })
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "image-model-for-dispatch-test",
+          messages: [{ role: "user", content: "a fox in the snow" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockGenerateImage).toHaveBeenCalledWith(
+        {
+          model: "image-model-for-dispatch-test",
+          prompt: "a fox in the snow",
+          images: undefined
+        },
+        expect.any(Function),
+        expect.any(AbortSignal)
+      )
+      expect(mockStreamChat).not.toHaveBeenCalled()
+    })
+
+    it("rejects image output when the provider has no generation operation", async () => {
+      mockProvider.getModelDetails.mockResolvedValueOnce({
+        capabilities: ["image"]
+      })
+      mockProvider.generateImage = undefined as never
+      const message: ChatWithModelMessage = {
+        type: "CHAT_WITH_MODEL",
+        payload: {
+          model: "unsupported-image-model",
+          messages: [{ role: "user", content: "a fox in the snow" }]
+        }
+      }
+
+      await handleChatWithModel(message, mockPort, mockIsPortClosed)
+
+      expect(mockStreamChat).not.toHaveBeenCalled()
+      expect(mockPort.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            status: 400,
+            code: "OLC-INPUT-UNSUPPORTED",
+            userMessage: expect.stringContaining("cannot generate images")
+          })
+        })
+      )
+    })
+
     it("should call streamChat on provider", async () => {
       const message: ChatWithModelMessage = {
         type: "CHAT_WITH_MODEL",

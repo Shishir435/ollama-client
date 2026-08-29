@@ -9,6 +9,43 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.13.2]
+
+### Added
+
+- The `olc` local proxy now supports both OpenCode and Codex agent backends,
+  including native tool-call round trips, provider-neutral generated images,
+  installer scripts, and documented local run commands.
+- Per-model reasoning effort can be configured and is translated to the native
+  request shape supported by each provider.
+
+### Fixed
+
+- RAG query reformulation now reuses the selected model's context, thread, GPU,
+  batch, and keep-alive settings. Ollama no longer restarts the runner between a
+  rewrite request using its default 4K context and a chat request using the
+  configured context window.
+- Embedding responses are validated before retrieval, cancellation reaches
+  in-flight context and embedding work, and transient fallback vectors are not
+  cached as if the primary route produced them.
+- Query-rewrite history is bounded, expected rewrite timeouts fall back to the
+  original query without a warning stack, and a real user cancellation remains
+  distinct from that best-effort timeout.
+- Imported or clock-skewed session trees recover to a structural leaf instead
+  of attaching the next message to an internal timestamp-selected node.
+- Generated-image requests through the Codex backend are routed to the image
+  operation rather than falling through to text generation.
+
+### Development
+
+- Provider wire contracts now cover the built-in local providers plus major
+  frontier, router, Anthropic, and Chinese frontier APIs while retaining fully
+  configurable provider base URLs.
+- Unit coverage runs in parallel shards with enforced thresholds. Packaged
+  Chromium and Firefox regression gates exercise the extension-to-provider
+  path, custom local-provider URLs, streaming text, malformed or partial SSE,
+  HTTP and connection failures, and the Ollama model-reload regression.
+
 ## [0.13.1]
 
 ### Added

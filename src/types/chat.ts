@@ -34,6 +34,13 @@ export interface ImageAttachment {
   base64: string
   width?: number
   height?: number
+  /** Missing on legacy/shared-file rows; message role still drives presentation. */
+  origin?: "user-upload" | "tool-result" | "model-generated"
+  /** Stream-time provenance only. Provider routing never reads this value. */
+  generatedBy?: {
+    providerId: string
+    model: string
+  }
   sessionId?: string
   messageId?: number
 }
@@ -293,6 +300,8 @@ export interface ChatStreamMessage {
   seq?: number
   delta?: string
   thinkingDelta?: string
+  /** Final provider-generated images normalized by the provider adapter. */
+  generatedImages?: ImageAttachment[]
   /** Opaque provider continuation state; never log or render its blocks. */
   replayArtifact?: ProviderReplayArtifact
   done?: boolean

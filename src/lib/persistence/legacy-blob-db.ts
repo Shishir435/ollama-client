@@ -67,11 +67,11 @@ export interface LegacyBlobDb {
  * `deleteDatabase` fire `onblocked` and the reset path then waits on a delete
  * that never lands.
  */
-const withBlobStore = <T>(
+const withBlobStore = (
   mode: IDBTransactionMode,
-  work: (store: IDBObjectStore, done: (value: T) => void) => void
-): Promise<T> =>
-  new Promise<T>((resolve, reject) => {
+  work: (store: IDBObjectStore) => void
+): Promise<void> =>
+  new Promise<void>((resolve, reject) => {
     const request = indexedDB.open(SQLITE_DB_NAME, 1)
     request.onerror = () => reject(request.error)
     request.onupgradeneeded = (event) => {
@@ -84,14 +84,21 @@ const withBlobStore = <T>(
       const database = request.result
       try {
         const transaction = database.transaction([SQLITE_DB_STORE], mode)
-        work(transaction.objectStore(SQLITE_DB_STORE), (value) => {
+        transaction.oncomplete = () => {
           database.close()
-          resolve(value)
-        })
+          resolve()
+        }
         transaction.onerror = () => {
           database.close()
           reject(transaction.error)
         }
+        transaction.onabort = () => {
+          database.close()
+          reject(
+            transaction.error ?? new Error("IndexedDB transaction aborted")
+          )
+        }
+        work(transaction.objectStore(SQLITE_DB_STORE))
       } catch (error) {
         database.close()
         reject(error)
@@ -106,8 +113,8 @@ const withBlobStore = <T>(
 export { readLegacyBlobBytes as readLegacyBlob } from "./legacy-blob-reader"
 
 export const writeLegacyBlob = (bytes: Uint8Array): Promise<void> =>
-  withBlobStore<void>("readwrite", (store, done) => {
-    store.put(bytes, SQLITE_DB_KEY).onsuccess = () => done(undefined)
+  withBlobStore("readwrite", (store) => {
+    store.put(bytes, SQLITE_DB_KEY)
   })
 
 export const deleteLegacyBlob = (): Promise<void> =>

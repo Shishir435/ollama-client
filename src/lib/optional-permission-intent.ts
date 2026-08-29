@@ -55,8 +55,97 @@ const REMINDER_INTENT = [
   /\bschedule\b.{0,20}\b(?:a\s+)?reminder\b/i
 ]
 
-const matchesAny = (text: string, patterns: RegExp[]): boolean =>
-  patterns.some((pattern) => pattern.test(text))
+/**
+ * Keywords whose misspelling would silently withhold a sensitive tool.
+ *
+ * Why only these: the gate exists so a model is offered browser-data tools only when
+ * the user actually asked for that data, and the ask is carried by one word. A typo in
+ * that word ("bookamrks") used to drop both the tool and the permission notice, so the
+ * model answered that it had no such ability at all. Short words are left out — at one
+ * edit they collide with unrelated ones.
+ */
+const CANONICAL_INTENT_KEYWORDS = [
+  "bookmark",
+  "bookmarks",
+  "history",
+  "download",
+  "downloads",
+  "reminder",
+  "reminders",
+  "session",
+  "sessions",
+  "synced",
+  "visited"
+]
+
+const MIN_FUZZY_LENGTH = 6
+
+/**
+ * True when one edit — a substitution, insertion, deletion, or transposition of two
+ * adjacent characters — turns `candidate` into `target`. Transpositions matter because
+ * they are the most common real typo and cost two plain edits.
+ */
+const isOneEditApart = (candidate: string, target: string): boolean => {
+  if (candidate === target) return false
+  const lengthDifference = Math.abs(candidate.length - target.length)
+  if (lengthDifference > 1) return false
+
+  if (candidate.length === target.length) {
+    const differences: number[] = []
+    for (let index = 0; index < candidate.length; index += 1) {
+      if (candidate[index] !== target[index]) differences.push(index)
+      if (differences.length > 2) return false
+    }
+    if (differences.length === 1) return true
+    if (differences.length !== 2) return false
+    const [first, second] = differences as [number, number]
+    return (
+      second === first + 1 &&
+      candidate[first] === target[second] &&
+      candidate[second] === target[first]
+    )
+  }
+
+  const longer = candidate.length > target.length ? candidate : target
+  const shorter = candidate.length > target.length ? target : candidate
+  let longerIndex = 0
+  let shorterIndex = 0
+  let edited = false
+  while (longerIndex < longer.length && shorterIndex < shorter.length) {
+    if (longer[longerIndex] === shorter[shorterIndex]) {
+      longerIndex += 1
+      shorterIndex += 1
+      continue
+    }
+    if (edited) return false
+    edited = true
+    longerIndex += 1
+  }
+  return true
+}
+
+/**
+ * Rewrite near-miss spellings of the intent keywords to their canonical form, so the
+ * patterns below can stay readable regular expressions over correct English.
+ */
+export const canonicalizeIntentText = (text: string): string =>
+  text.replace(/[a-z]{6,}/gi, (word) => {
+    const lowered = word.toLowerCase()
+    if (CANONICAL_INTENT_KEYWORDS.includes(lowered)) return word
+    if (lowered.length < MIN_FUZZY_LENGTH) return word
+    const corrected = CANONICAL_INTENT_KEYWORDS.find((keyword) =>
+      isOneEditApart(lowered, keyword)
+    )
+    return corrected ?? word
+  })
+
+const matchesAny = (text: string, patterns: RegExp[]): boolean => {
+  if (patterns.some((pattern) => pattern.test(text))) return true
+  const corrected = canonicalizeIntentText(text)
+  return (
+    corrected !== text && patterns.some((pattern) => pattern.test(corrected))
+  )
+}
 
 export const matchesOptionalPermissionIntent = (
   capabilityId: OptionalPermissionCapabilityId,

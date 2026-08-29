@@ -284,12 +284,26 @@ function writeLlmsTxt(pages: DocPage[]) {
 
 Ollama Client is a local-first browser extension for private LLM chat, provider management, and local RAG workflows.
 
+## When to use Ollama Client
+
+- Use it when a person wants to chat with Ollama, LM Studio, llama.cpp, Anthropic, or an OpenAI-compatible server from a Chrome or Firefox side panel.
+- Use it for local-first conversations, file and knowledge-base retrieval, current-page context, optional web search, and browser tools whose permissions remain visible to the user.
+- Use the local **olc** proxy when an OpenAI-compatible client needs to call an OpenCode-backed agent runtime, including client-owned function tools.
+
+## When not to use Ollama Client
+
+- Do not treat ollamaclient.in as a hosted inference API. The website publishes documentation; model requests go to endpoints configured by the user.
+- Do not assume a model, provider, web-search backend, or browser permission is available. Ask the user or inspect their configuration first.
+- Do not send sensitive data to a remote provider without the user's informed approval.
+
 ## Docs
 
 ${lines.join("\n")}
 
 ## Reference
 
+- [Developer Portal](${SITE_URL}/developers/): Local proxy quickstart, authentication, endpoints, errors, and integration guidance.
+- [OpenAPI 3.1 Specification](${SITE_URL}/openapi.json): Machine-readable schema for the local olc proxy; its servers are loopback addresses, not this website.
 - [API Reference](${SITE_URL}/reference/): Generated TypeScript API reference.
 - [Full Markdown Docs](${SITE_URL}/llms-full.txt): All public docs in one Markdown file.
 - [GitHub Repository](https://github.com/Shishir435/ollama-client): Source code and issue tracker.
@@ -326,6 +340,15 @@ Primary AI docs index: ${SITE_URL}/llms.txt
 Full Markdown docs: ${SITE_URL}/llms-full.txt
 Sitemap: ${SITE_URL}/sitemap-index.xml
 Repository: https://github.com/Shishir435/ollama-client
+Developer portal: ${SITE_URL}/developers/
+OpenAPI specification: ${SITE_URL}/openapi.json
+
+When to use Ollama Client:
+- A user wants a local-first Chrome or Firefox interface for their configured LLM provider.
+- An OpenAI-compatible client needs the local olc proxy to reach an OpenCode-backed agent runtime.
+- The task benefits from user-controlled page context, local files, retrieval, web search, or permission-gated browser tools.
+
+Do not treat this documentation host as a model API. The olc OpenAPI servers are loopback URLs, and the extension sends requests only to provider endpoints the user configures.
 
 Preferred fetch order:
 1. Fetch /llms.txt for the docs map.

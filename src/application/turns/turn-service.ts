@@ -14,6 +14,7 @@ import type {
   ContextBuildOutput,
   ContextService
 } from "@/application/context/context-service"
+import { isAbortError } from "@/lib/error-utils"
 import { toAppFailure } from "@/protocol/app-failure"
 import type { ChatMessage } from "@/types"
 import { type DurableTurnRun, failureForTurn } from "./turn-contract"
@@ -84,7 +85,8 @@ export class TurnService {
           toAppFailure(error, {
             fallbackMessage: "Turn failed",
             context: "turn-run"
-          })
+          }),
+        isCancellation: isAbortError
       },
       { now: Date.now }
     )

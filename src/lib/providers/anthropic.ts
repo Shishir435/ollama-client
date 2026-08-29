@@ -14,6 +14,10 @@ import {
   createProviderReplayArtifact,
   getProviderReplayBlocks
 } from "./provider-replay"
+import {
+  anthropicSupportsAdaptiveThinking,
+  resolveReasoningEffortSupport
+} from "./reasoning-effort"
 import { decodeProviderJson } from "./response-decoding"
 import { resolveProviderServiceProfile } from "./service-profile"
 import type {
@@ -197,7 +201,24 @@ const AnthropicModelCatalogSchema = z
         .object({
           id: z.string().min(1),
           display_name: OptionalString,
-          created_at: OptionalString
+          created_at: OptionalString,
+          capabilities: z
+            .object({
+              effort: z
+                .object({
+                  supported: z.boolean().optional(),
+                  minimal: z.object({ supported: z.boolean() }).optional(),
+                  low: z.object({ supported: z.boolean() }).optional(),
+                  medium: z.object({ supported: z.boolean() }).optional(),
+                  high: z.object({ supported: z.boolean() }).optional(),
+                  xhigh: z.object({ supported: z.boolean() }).optional(),
+                  max: z.object({ supported: z.boolean() }).optional()
+                })
+                .passthrough()
+                .optional()
+            })
+            .passthrough()
+            .optional()
         })
         .passthrough()
     )
@@ -263,21 +284,36 @@ export class AnthropicProvider implements LLMProvider {
         userMessage: "Anthropic returned an invalid model list."
       }
     )
-    return payload.data.map((model) => ({
-      name: model.id,
-      model: model.id,
-      modified_at: model.created_at || new Date().toISOString(),
-      size: 0,
-      digest: model.id,
-      details: {
-        parent_model: "",
-        format: "anthropic",
-        family: "anthropic",
-        families: ["anthropic"],
-        parameter_size: "",
-        quantization_level: ""
+    return payload.data.map((model) => {
+      const reportedEfforts = model.capabilities?.effort
+        ? (
+            ["minimal", "low", "medium", "high", "xhigh", "max"] as const
+          ).filter(
+            (effort) => model.capabilities?.effort?.[effort]?.supported === true
+          )
+        : undefined
+      const reasoning = reportedEfforts?.length
+        ? resolveReasoningEffortSupport(this.config, model.id, {
+            supportedEfforts: [...reportedEfforts]
+          })
+        : undefined
+      return {
+        name: model.id,
+        model: model.id,
+        modified_at: model.created_at || new Date().toISOString(),
+        size: 0,
+        digest: model.id,
+        details: {
+          parent_model: "",
+          format: "anthropic",
+          family: "anthropic",
+          families: ["anthropic"],
+          parameter_size: "",
+          quantization_level: ""
+        },
+        ...(reasoning && { capabilityHints: { reasoning } })
       }
-    }))
+    })
   }
 
   async streamChat(
@@ -315,6 +351,28 @@ export class AnthropicProvider implements LLMProvider {
       Boolean(request.think) &&
       request.tool_choice !== "required" &&
       (!hasToolHistory || hasReplayableToolHistory)
+    const configuredEffort = request.reasoningEffort
+    const explicitEffort =
+      configuredEffort &&
+      configuredEffort !== "auto" &&
+      configuredEffort !== "enabled" &&
+      configuredEffort !== "none"
+        ? configuredEffort
+        : undefined
+    const brandedAnthropic =
+      resolveProviderServiceProfile(this.config) ===
+      ProviderServiceProfile.ANTHROPIC
+    const adaptiveThinking =
+      Boolean(explicitEffort) &&
+      brandedAnthropic &&
+      anthropicSupportsAdaptiveThinking(request.model) &&
+      request.tool_choice !== "required"
+    const adaptiveThinkingDisabled =
+      configuredEffort === "none" &&
+      brandedAnthropic &&
+      anthropicSupportsAdaptiveThinking(request.model)
+    const compatibleThinking =
+      !brandedAnthropic && configuredEffort && configuredEffort !== "auto"
     // num_predict:-1 (and 0) is our "unlimited" sentinel; Anthropic requires a
     // positive max_tokens, so collapse non-positive requests to a real default
     // instead of forwarding -1 or deriving a bogus thinking budget from it.
@@ -333,14 +391,23 @@ export class AnthropicProvider implements LLMProvider {
       max_tokens: thinkEnabled
         ? Math.max(requestedMaxTokens, thinkingBudget + 1024)
         : requestedMaxTokens,
-      thinking: thinkEnabled
-        ? { type: "enabled" as const, budget_tokens: thinkingBudget }
-        : undefined,
+      thinking: adaptiveThinking
+        ? { type: "adaptive" as const }
+        : adaptiveThinkingDisabled
+          ? { type: "disabled" as const }
+          : compatibleThinking
+            ? {
+                type: configuredEffort === "none" ? "disabled" : "enabled"
+              }
+            : thinkEnabled
+              ? { type: "enabled" as const, budget_tokens: thinkingBudget }
+              : undefined,
+      output_config: explicitEffort ? { effort: explicitEffort } : undefined,
       temperature:
-        thinkEnabled || request.temperature === undefined
+        thinkEnabled || adaptiveThinking || request.temperature === undefined
           ? undefined
           : Math.min(1, Math.max(0, request.temperature)),
-      top_p: thinkEnabled ? undefined : request.top_p,
+      top_p: thinkEnabled || adaptiveThinking ? undefined : request.top_p,
       stop_sequences: request.stop,
       tools: tools?.length ? tools : undefined,
       tool_choice:
