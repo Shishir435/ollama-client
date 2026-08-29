@@ -45,11 +45,38 @@ jobs:
           rm -f .github/workflows/complexity-refactor.yml
           rm -f scripts/complexity-refactor-pass.mjs
           rm -f _nonexistent _nonexistent2
-      - name: Commit refactor batch
+      - name: Publish staged tree through GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           git add -A
           git diff --cached --check
-          tree=$(git write-tree)
-          parent=$(git rev-parse HEAD)
-          commit=$(printf '%s\n' 'refactor: apply cognitive complexity cleanup' | git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit-tree "$tree" -p "$parent")
-          git push origin "$commit":refs/heads/refactor/0.13.3-cognitive-complexity
+          python - <<'PY'
+          import base64, json, os, subprocess, urllib.request
+          token=os.environ['GH_TOKEN']; repo=os.environ['GH_REPO']
+          branch='refactor/0.13.3-cognitive-complexity'
+          api=f'https://api.github.com/repos/{repo}'
+          def req(path, method='GET', data=None):
+              body=None if data is None else json.dumps(data).encode()
+              r=urllib.request.Request(api+path, data=body, method=method, headers={
+                  'Authorization':f'Bearer {token}','Accept':'application/vnd.github+json','Content-Type':'application/json'})
+              with urllib.request.urlopen(r) as x: return json.load(x)
+          parent=subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()
+          base_tree=subprocess.check_output(['git','rev-parse','HEAD^{tree}'], text=True).strip()
+          raw=subprocess.check_output(['git','diff','--cached','--name-only','-z'])
+          paths=[p.decode() for p in raw.split(b'\0') if p]
+          entries=[]
+          for path in paths:
+              if os.path.exists(path):
+                  with open(path,'rb') as f: content=base64.b64encode(f.read()).decode()
+                  sha=req('/git/blobs','POST',{'content':content,'encoding':'base64'})['sha']
+                  mode=subprocess.check_output(['git','ls-files','-s','--',path],text=True).split()[0] if subprocess.check_output(['git','ls-files','-s','--',path]) else '100644'
+                  entries.append({'path':path,'mode':mode,'type':'blob','sha':sha})
+              else:
+                  entries.append({'path':path,'mode':'100644','type':'blob','sha':None})
+          tree=req('/git/trees','POST',{'base_tree':base_tree,'tree':entries})['sha']
+          commit=req('/git/commits','POST',{'message':'refactor: apply cognitive complexity cleanup','tree':tree,'parents':[parent]})['sha']
+          req('/git/refs/heads/'+branch,'PATCH',{'sha':commit,'force':False})
+          print(commit)
+          PY
