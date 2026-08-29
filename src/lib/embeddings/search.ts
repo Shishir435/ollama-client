@@ -130,29 +130,178 @@ async function searchBruteForce(
  * Incorporates results from the HNSW graph if populated, otherwise scans the DB sequentially.
  * Results are cached to minimize redundant embedding and DB lookups.
  */
+type VectorSearchOptions = {
+  limit?: number
+  minSimilarity?: number
+  type?: VectorDocument["metadata"]["type"]
+  sessionId?: string
+  fileId?: string | string[]
+  embeddingModel?: string
+  embeddingProviderId?: string
+  embeddingDimension?: number
+}
+
+const baseVectorQuery = (
+  options: VectorSearchOptions
+): Dexie.Collection<VectorDocument, number> => {
+  const { sessionId, fileId, type } = options
+  if (sessionId)
+    return vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
+  if (fileId && !Array.isArray(fileId)) {
+    return vectorDb.vectors.where("metadata.fileId").equals(fileId)
+  }
+  if (type === "file") {
+    return vectorDb.vectors.filter((doc) =>
+      matchesVectorType(doc.metadata.type, type)
+    )
+  }
+  if (type) return vectorDb.vectors.where("metadata.type").equals(type)
+  return vectorDb.vectors.toCollection()
+}
+
+const applyMetadataFilters = (
+  query: Dexie.Collection<VectorDocument, number>,
+  options: VectorSearchOptions
+): Dexie.Collection<VectorDocument, number> => {
+  const { sessionId, fileId, type } = options
+  let filtered = query
+  if (type && sessionId) {
+    filtered = filtered.filter((doc) =>
+      matchesVectorType(doc.metadata.type, type)
+    )
+  }
+  if (Array.isArray(fileId)) {
+    filtered = filtered.filter((doc) =>
+      fileId.includes(doc.metadata.fileId || "")
+    )
+  } else if (fileId && (sessionId || type)) {
+    filtered = filtered.filter((doc) => doc.metadata.fileId === fileId)
+  }
+  return filtered
+}
+
+const applyEmbeddingPartition = (
+  query: Dexie.Collection<VectorDocument, number>,
+  queryDimension: number,
+  normalizedEmbeddingModel: string,
+  embeddingProviderId: string | null
+): Dexie.Collection<VectorDocument, number> =>
+  query.filter((doc) => {
+    const docDimension = doc.metadata.embeddingDim ?? doc.embedding.length
+    if (docDimension !== queryDimension) return false
+    const docModel = normalizeEmbeddingModelName(
+      doc.metadata.embeddingModel || DEFAULT_EMBEDDING_MODEL
+    )
+    if (docModel !== normalizedEmbeddingModel) return false
+    const docProviderId = doc.metadata.embeddingProviderId
+    if (embeddingProviderId) {
+      return !docProviderId || docProviderId === embeddingProviderId
+    }
+    return !docProviderId
+  })
+
+const maybeScheduleHnswRebuild = (
+  config: Awaited<ReturnType<typeof getEmbeddingConfig>>,
+  allowHNSW: boolean,
+  vectorCount: number,
+  queryDimension: number
+): void => {
+  if (
+    !allowHNSW ||
+    !config.useHNSW ||
+    config.annBackend === "bruteforce" ||
+    !config.hnswAutoRebuild ||
+    hnswIndexManager.isDeletionRebuildPending() ||
+    vectorCount <= 0
+  )
+    return
+  const stats = hnswIndexManager.getStats()
+  if (
+    stats.isBuilding ||
+    (stats.numElements > 0 && stats.dimension === queryDimension)
+  )
+    return
+  const now = Date.now()
+  const sameDimension = lastHnswRebuildAttempt?.dimension === queryDimension
+  const withinCooldown = Boolean(
+    lastHnswRebuildAttempt &&
+      now - lastHnswRebuildAttempt.timestamp < HNSW_REBUILD_COOLDOWN_MS
+  )
+  if (sameDimension && withinCooldown) return
+  lastHnswRebuildAttempt = { dimension: queryDimension, timestamp: now }
+  void hnswIndexManager.buildIndex(undefined, queryDimension).catch((error) => {
+    logger.warn("HNSW auto-rebuild failed", "searchSimilarVectors", { error })
+  })
+}
+
+const runVectorSearch = async ({
+  queryEmbedding,
+  limit,
+  minSimilarity,
+  vectorQuery,
+  vectorCount,
+  useHNSW,
+  hnswEnabled,
+  startTime
+}: {
+  queryEmbedding: number[]
+  limit: number
+  minSimilarity: number
+  vectorQuery: Dexie.Collection<VectorDocument, number>
+  vectorCount: number
+  useHNSW: boolean
+  hnswEnabled: boolean
+  startTime: number
+}): Promise<SearchResult[]> => {
+  if (!useHNSW) {
+    logger.verbose("Brute-force search started", "searchSimilarVectors", {
+      vectorCount,
+      hnswStatus: hnswEnabled ? "not initialized" : "disabled"
+    })
+    const results = await searchBruteForce(
+      queryEmbedding,
+      limit,
+      minSimilarity,
+      vectorQuery
+    )
+    logger.info("Brute-force search completed", "searchSimilarVectors", {
+      resultCount: results.length,
+      duration: `${(performance.now() - startTime).toFixed(2)}ms`
+    })
+    return results
+  }
+  logger.verbose("HNSW Search started", "searchSimilarVectors", { vectorCount })
+  try {
+    const results = await searchWithHNSW(
+      queryEmbedding,
+      limit,
+      minSimilarity,
+      vectorQuery
+    )
+    logger.info("HNSW search completed", "searchSimilarVectors", {
+      resultCount: results.length,
+      duration: `${(performance.now() - startTime).toFixed(2)}ms`
+    })
+    return results
+  } catch (error) {
+    logger.warn(
+      "HNSW Search failed, falling back to brute-force",
+      "searchSimilarVectors",
+      {
+        error
+      }
+    )
+    return searchBruteForce(queryEmbedding, limit, minSimilarity, vectorQuery)
+  }
+}
+
 export const searchSimilarVectors = async (
   queryEmbedding: number[],
-  options: {
-    limit?: number
-    minSimilarity?: number
-    type?: VectorDocument["metadata"]["type"]
-    sessionId?: string
-    fileId?: string | string[]
-    embeddingModel?: string
-    embeddingProviderId?: string
-    embeddingDimension?: number
-  } = {}
+  options: VectorSearchOptions = {}
 ): Promise<SearchResult[]> => {
   const config = await getEmbeddingConfig()
-  const {
-    limit = config.defaultSearchLimit,
-    minSimilarity = config.defaultMinSimilarity,
-    type,
-    sessionId,
-    fileId
-  } = options
-
-  // Check cache first
+  const limit = options.limit ?? config.defaultSearchLimit
+  const minSimilarity = options.minSimilarity ?? config.defaultMinSimilarity
   const cacheKey = hashSearchQuery(queryEmbedding, options)
   const cached = searchCache.get(cacheKey)
   const { ttl } = await getCacheConfig()
@@ -162,174 +311,37 @@ export const searchSimilarVectors = async (
   }
 
   const startTime = performance.now()
-
-  // Optimize query by picking the most selective index
-  let vectorQuery: Dexie.Collection<VectorDocument, number>
-
-  if (sessionId) {
-    vectorQuery = vectorDb.vectors.where("metadata.sessionId").equals(sessionId)
-  } else if (fileId && !Array.isArray(fileId)) {
-    vectorQuery = vectorDb.vectors.where("metadata.fileId").equals(fileId)
-  } else if (type) {
-    // "file" needs a scan, not the index: legacy rows carry MIME strings in
-    // metadata.type (see matchesVectorType) and would be skipped by equals().
-    vectorQuery =
-      type === "file"
-        ? vectorDb.vectors.filter((doc) =>
-            matchesVectorType(doc.metadata.type, type)
-          )
-        : vectorDb.vectors.where("metadata.type").equals(type)
-  } else {
-    vectorQuery = vectorDb.vectors.toCollection()
-  }
-
-  // Apply remaining filters manually
-  if (type && sessionId) {
-    vectorQuery = vectorQuery.filter((doc) =>
-      matchesVectorType(doc.metadata.type, type)
-    )
-  }
-
-  if (fileId) {
-    if (Array.isArray(fileId)) {
-      vectorQuery = vectorQuery.filter((doc) =>
-        fileId.includes(doc.metadata.fileId || "")
-      )
-    } else if (sessionId || type) {
-      // Only filter if not already used as primary index
-      vectorQuery = vectorQuery.filter((doc) => doc.metadata.fileId === fileId)
-    }
-  }
-
   const queryDimension = options.embeddingDimension ?? queryEmbedding.length
   const normalizedEmbeddingModel = normalizeEmbeddingModelName(
     options.embeddingModel || DEFAULT_EMBEDDING_MODEL
   )
   const embeddingProviderId = options.embeddingProviderId || null
   const allowHNSW = !options.embeddingModel && !embeddingProviderId
-
-  // A cosine comparison across dimensions is invalid. Keep this filter even
-  // for low-level callers that omit the model identity.
-  vectorQuery = vectorQuery.filter((doc) => {
-    const docDimension = doc.metadata.embeddingDim ?? doc.embedding.length
-    if (docDimension !== queryDimension) return false
-
-    const docProviderId = doc.metadata.embeddingProviderId
-    const docModel = normalizeEmbeddingModelName(
-      doc.metadata.embeddingModel || DEFAULT_EMBEDDING_MODEL
-    )
-    if (docModel !== normalizedEmbeddingModel) return false
-
-    if (embeddingProviderId) {
-      if (docProviderId && docProviderId !== embeddingProviderId) {
-        return false
-      }
-    } else if (docProviderId) {
-      // An unidentified query belongs to the legacy provider-less partition.
-      return false
-    }
-    return true
-  })
-
+  let vectorQuery = applyMetadataFilters(baseVectorQuery(options), options)
+  vectorQuery = applyEmbeddingPartition(
+    vectorQuery,
+    queryDimension,
+    normalizedEmbeddingModel,
+    embeddingProviderId
+  )
   const vectorCount = await vectorQuery.count()
-
-  if (
-    allowHNSW &&
-    config.useHNSW &&
-    config.annBackend !== "bruteforce" &&
-    config.hnswAutoRebuild &&
-    !hnswIndexManager.isDeletionRebuildPending() &&
-    vectorCount > 0
-  ) {
-    const stats = hnswIndexManager.getStats()
-    const needsRebuild =
-      !stats.isBuilding &&
-      (stats.numElements === 0 || stats.dimension !== queryDimension)
-
-    if (needsRebuild) {
-      const now = Date.now()
-      const sameDimension = lastHnswRebuildAttempt?.dimension === queryDimension
-      const withinCooldown =
-        lastHnswRebuildAttempt &&
-        now - lastHnswRebuildAttempt.timestamp < HNSW_REBUILD_COOLDOWN_MS
-
-      if (!sameDimension || !withinCooldown) {
-        lastHnswRebuildAttempt = { dimension: queryDimension, timestamp: now }
-        void hnswIndexManager
-          .buildIndex(undefined, queryDimension)
-          .catch((error) => {
-            logger.warn("HNSW auto-rebuild failed", "searchSimilarVectors", {
-              error
-            })
-          })
-      }
-    }
-  }
-
-  // Decide search strategy
+  maybeScheduleHnswRebuild(config, allowHNSW, vectorCount, queryDimension)
   const useHNSW =
     allowHNSW &&
     (await hnswIndexManager.shouldUseHNSW(vectorCount)) &&
     hnswIndexManager.isCompatibleDimension(queryDimension)
-
-  let results: SearchResult[]
-
-  if (useHNSW) {
-    // HNSW Search Path (High Quality)
-    logger.verbose("HNSW Search started", "searchSimilarVectors", {
-      vectorCount
-    })
-    try {
-      results = await searchWithHNSW(
-        queryEmbedding,
-        limit,
-        minSimilarity,
-        vectorQuery
-      )
-      const duration = performance.now() - startTime
-      logger.info("HNSW search completed", "searchSimilarVectors", {
-        resultCount: results.length,
-        duration: `${duration.toFixed(2)}ms`
-      })
-    } catch (error) {
-      logger.warn(
-        "HNSW Search failed, falling back to brute-force",
-        "searchSimilarVectors",
-        { error }
-      )
-      results = await searchBruteForce(
-        queryEmbedding,
-        limit,
-        minSimilarity,
-        vectorQuery
-      )
-    }
-  } else {
-    // Brute-force Search Path (Small datasets or HNSW disabled)
-    logger.verbose("Brute-force search started", "searchSimilarVectors", {
-      vectorCount,
-      hnswStatus: config.useHNSW ? "not initialized" : "disabled"
-    })
-    results = await searchBruteForce(
-      queryEmbedding,
-      limit,
-      minSimilarity,
-      vectorQuery
-    )
-    const duration = performance.now() - startTime
-    logger.info("Brute-force search completed", "searchSimilarVectors", {
-      resultCount: results.length,
-      duration: `${duration.toFixed(2)}ms`
-    })
-  }
-
-  // Cache results
-  await cleanSearchCache()
-  searchCache.set(cacheKey, {
-    results,
-    timestamp: Date.now()
+  const results = await runVectorSearch({
+    queryEmbedding,
+    limit,
+    minSimilarity,
+    vectorQuery,
+    vectorCount,
+    useHNSW,
+    hnswEnabled: config.useHNSW,
+    startTime
   })
-
+  await cleanSearchCache()
+  searchCache.set(cacheKey, { results, timestamp: Date.now() })
   return results
 }
 
@@ -390,14 +402,15 @@ export const searchHybrid = async (
     prefix: true,
     combineWith: "OR"
   })
-  const filteredKeywordResults = keywordResults.filter((result) => {
+  const keywordCandidateMatches = (
+    result: (typeof keywordResults)[number]
+  ): boolean => {
     const document = result.document
     const queryDimension =
       searchOptions.embeddingDimension ?? queryEmbedding.length
     const documentDimension =
       document.metadata.embeddingDim ?? document.embeddingDim
     if (documentDimension !== queryDimension) return false
-
     const requestedModel = normalizeEmbeddingModelName(
       searchOptions.embeddingModel || DEFAULT_EMBEDDING_MODEL
     )
@@ -405,38 +418,33 @@ export const searchHybrid = async (
       document.metadata.embeddingModel || DEFAULT_EMBEDDING_MODEL
     )
     if (documentModel !== requestedModel) return false
-
     const requestedProvider = searchOptions.embeddingProviderId
     const documentProvider = document.metadata.embeddingProviderId
     if (
       requestedProvider &&
       documentProvider &&
       requestedProvider !== documentProvider
-    ) {
+    )
       return false
-    }
     if (!requestedProvider && documentProvider) return false
-
     if (
       searchOptions.type &&
       !matchesVectorType(document.metadata.type, searchOptions.type)
-    ) {
+    )
       return false
-    }
     if (
       searchOptions.sessionId &&
       document.metadata.sessionId !== searchOptions.sessionId
-    ) {
+    )
       return false
+    if (Array.isArray(searchOptions.fileId)) {
+      return searchOptions.fileId.includes(document.metadata.fileId || "")
     }
-    if (searchOptions.fileId) {
-      if (Array.isArray(searchOptions.fileId)) {
-        return searchOptions.fileId.includes(document.metadata.fileId || "")
-      }
-      return document.metadata.fileId === searchOptions.fileId
-    }
-    return true
-  })
+    return (
+      !searchOptions.fileId || document.metadata.fileId === searchOptions.fileId
+    )
+  }
+  const filteredKeywordResults = keywordResults.filter(keywordCandidateMatches)
 
   // 2. Semantic search (conceptual)
   const semanticResults = await searchSimilarVectors(queryEmbedding, {

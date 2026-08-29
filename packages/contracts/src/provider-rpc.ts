@@ -72,6 +72,89 @@ export type ProviderDraftInput = z.infer<typeof ProviderDraftInputSchema>
 export const PROVIDER_MODEL_CLOUD_DESCRIPTION_MAX_LENGTH = 2_000
 export const PROVIDER_MODEL_CLOUD_PLAN_MAX_LENGTH = 64
 
+interface ReasoningHintInput {
+  supportedEfforts: Array<
+    "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
+  >
+  canEnable: boolean
+  canDisable: boolean
+  mandatory?: boolean
+  defaultEffort?:
+    | "none"
+    | "minimal"
+    | "low"
+    | "medium"
+    | "high"
+    | "xhigh"
+    | "max"
+  defaultEnabled?: boolean
+  source: "model-metadata" | "provider-profile"
+}
+
+interface CapabilityHintsInput {
+  modelType?: string | null
+  contextLength?: number | null
+  capabilityTags?: string[] | null
+  modalities?: string[] | null
+  outputModalities?: string[] | null
+  supportedParameters?: string[] | null
+  reasoning?: ReasoningHintInput | null
+}
+
+interface NormalizedCapabilityHints {
+  modelType?: string
+  contextLength?: number
+  capabilityTags?: string[]
+  modalities?: string[]
+  outputModalities?: string[]
+  supportedParameters?: string[]
+  reasoning?: ReasoningHintInput
+}
+
+const normalizeCapabilityHints = (
+  hints?: CapabilityHintsInput | null
+): NormalizedCapabilityHints | undefined => {
+  if (!hints) return undefined
+  const normalized: NormalizedCapabilityHints = {}
+  if (hints.modelType) normalized.modelType = hints.modelType
+  if (hints.contextLength != null)
+    normalized.contextLength = hints.contextLength
+  if (hints.capabilityTags) normalized.capabilityTags = hints.capabilityTags
+  if (hints.modalities) normalized.modalities = hints.modalities
+  if (hints.outputModalities)
+    normalized.outputModalities = hints.outputModalities
+  if (hints.supportedParameters) {
+    normalized.supportedParameters = hints.supportedParameters
+  }
+  if (hints.reasoning) normalized.reasoning = hints.reasoning
+  return Object.keys(normalized).length > 0 ? normalized : undefined
+}
+
+interface CloudInput {
+  description?: string | null
+  requiredPlan?: string | null
+  maxOutputTokens?: number | null
+}
+
+interface NormalizedCloud {
+  description?: string
+  requiredPlan?: string
+  maxOutputTokens?: number
+}
+
+const normalizeCloud = (
+  cloud?: CloudInput | null
+): NormalizedCloud | undefined => {
+  if (!cloud) return undefined
+  const normalized: NormalizedCloud = {}
+  if (cloud.description) normalized.description = cloud.description
+  if (cloud.requiredPlan) normalized.requiredPlan = cloud.requiredPlan
+  if (cloud.maxOutputTokens != null) {
+    normalized.maxOutputTokens = cloud.maxOutputTokens
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined
+}
+
 const ProviderModelSchema = z
   .object({
     name: z.string().min(1),
@@ -155,31 +238,10 @@ const ProviderModelSchema = z
       ...model
     }) => {
       const resolvedFamily = details?.family ?? family ?? ""
-      const normalizedCapabilityHints = capabilityHints
-        ? {
-            ...(capabilityHints.modelType && {
-              modelType: capabilityHints.modelType
-            }),
-            ...(capabilityHints.contextLength != null && {
-              contextLength: capabilityHints.contextLength
-            }),
-            ...(capabilityHints.capabilityTags && {
-              capabilityTags: capabilityHints.capabilityTags
-            }),
-            ...(capabilityHints.modalities && {
-              modalities: capabilityHints.modalities
-            }),
-            ...(capabilityHints.outputModalities && {
-              outputModalities: capabilityHints.outputModalities
-            }),
-            ...(capabilityHints.supportedParameters && {
-              supportedParameters: capabilityHints.supportedParameters
-            }),
-            ...(capabilityHints.reasoning && {
-              reasoning: capabilityHints.reasoning
-            })
-          }
-        : undefined
+      const normalizedCapabilityHints =
+        normalizeCapabilityHints(capabilityHints)
+      const normalizedCloud = normalizeCloud(cloud)
+
       return {
         ...model,
         model: model.model || model.name,
@@ -198,19 +260,10 @@ const ProviderModelSchema = z
         ...(providerId && { providerId }),
         ...(providerName && { providerName }),
         ...(providerBrand && { providerBrand }),
-        ...(cloud && {
-          cloud: {
-            ...(cloud.description && { description: cloud.description }),
-            ...(cloud.requiredPlan && { requiredPlan: cloud.requiredPlan }),
-            ...(cloud.maxOutputTokens != null && {
-              maxOutputTokens: cloud.maxOutputTokens
-            })
-          }
-        }),
-        ...(normalizedCapabilityHints &&
-          Object.keys(normalizedCapabilityHints).length > 0 && {
-            capabilityHints: normalizedCapabilityHints
-          })
+        ...(normalizedCloud && { cloud: normalizedCloud }),
+        ...(normalizedCapabilityHints && {
+          capabilityHints: normalizedCapabilityHints
+        })
       }
     }
   )

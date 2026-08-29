@@ -271,85 +271,101 @@ export const addSession = async (session: ChatSession): Promise<string> => {
   return session.id
 }
 
+const importedMessageFiles = (
+  sessionId: string,
+  message: ChatMessage,
+  messageId: number
+) => [
+  ...(message.attachments?.map((file) => ({
+    ...file,
+    data: normalizeFileData(file.data),
+    sessionId,
+    messageId
+  })) ?? []),
+  ...(message.images?.map((image) =>
+    imageToStoredFile(image, messageId, sessionId)
+  ) ?? [])
+]
+
+const insertImportedSessionMessages = async (
+  session: ChatSession,
+  messages: ChatMessage[],
+  transaction: Pick<SqlExecutor, "run" | "runWithMeta">
+): Promise<Map<number, number>> => {
+  const idMap = new Map<number, number>()
+  for (const message of messages) {
+    const oldId = typeof message.id === "number" ? message.id : undefined
+    const messageId = await insertImportedMessage(
+      session.id,
+      message,
+      transaction
+    )
+    if (oldId !== undefined) idMap.set(oldId, messageId)
+    const fileRows = importedMessageFiles(session.id, message, messageId)
+    if (fileRows.length > 0) await insertFiles(fileRows, transaction)
+  }
+  return idMap
+}
+
+const remapImportedParents = async (
+  messages: ChatMessage[],
+  idMap: Map<number, number>,
+  transaction: Pick<SqlExecutor, "run">
+): Promise<void> => {
+  for (const message of messages) {
+    if (
+      typeof message.id !== "number" ||
+      typeof message.parentId !== "number"
+    ) {
+      continue
+    }
+    const newId = idMap.get(message.id)
+    const newParentId = idMap.get(message.parentId)
+    if (newId === undefined || newParentId === undefined) continue
+    await transaction.run("UPDATE messages SET parentId = ? WHERE id = ?", [
+      newParentId,
+      newId
+    ])
+  }
+}
+
+const importSessionWithMessages = async (
+  session: ChatSession
+): Promise<void> => {
+  const messages = session.messages ?? []
+  await withTransaction(async (transaction) => {
+    await putSessionRow(session, transaction)
+    await transaction.run("DELETE FROM files WHERE sessionId = ?", [session.id])
+    await transaction.run("DELETE FROM messages WHERE sessionId = ?", [
+      session.id
+    ])
+    const idMap = await insertImportedSessionMessages(
+      session,
+      messages,
+      transaction
+    )
+    await remapImportedParents(messages, idMap, transaction)
+    const newLeafId =
+      typeof session.currentLeafId === "number"
+        ? (idMap.get(session.currentLeafId) ?? null)
+        : null
+    await transaction.run(
+      "UPDATE sessions SET currentLeafId = ? WHERE id = ?",
+      [newLeafId, session.id]
+    )
+  })
+}
+
 export const bulkPutSessions = async (
   sessions: ChatSession[]
 ): Promise<void> => {
   for (const session of sessions) {
-    if (!session.messages || session.messages.length === 0) {
+    if (!session.messages?.length) {
       await putSessionRow(session)
       continue
     }
-
-    await withTransaction(async (transaction) => {
-      const messages = session.messages ?? []
-      await putSessionRow(session, transaction)
-      await transaction.run("DELETE FROM files WHERE sessionId = ?", [
-        session.id
-      ])
-      await transaction.run("DELETE FROM messages WHERE sessionId = ?", [
-        session.id
-      ])
-
-      // Pass 1: insert each message with a fresh id, record old→new, and
-      // persist its files (which need the new message id).
-      const idMap = new Map<number, number>()
-      for (const message of messages) {
-        const oldId = typeof message.id === "number" ? message.id : undefined
-        const messageId = await insertImportedMessage(
-          session.id,
-          message,
-          transaction
-        )
-        if (oldId !== undefined) idMap.set(oldId, messageId)
-
-        const fileRows = [
-          ...(message.attachments?.map((file) => ({
-            ...file,
-            data: normalizeFileData(file.data),
-            sessionId: session.id,
-            messageId
-          })) ?? []),
-          ...(message.images?.map((image) =>
-            imageToStoredFile(image, messageId, session.id)
-          ) ?? [])
-        ]
-        if (fileRows.length > 0) {
-          await insertFiles(fileRows, transaction)
-        }
-      }
-
-      // Pass 2: remap parentId links to the freshly-allocated ids.
-      for (const message of messages) {
-        const oldId = typeof message.id === "number" ? message.id : undefined
-        const oldParentId =
-          typeof message.parentId === "number" ? message.parentId : undefined
-        if (oldId === undefined || oldParentId === undefined) continue
-        const newId = idMap.get(oldId)
-        const newParentId = idMap.get(oldParentId)
-        if (newId === undefined || newParentId === undefined) continue
-        await transaction.run("UPDATE messages SET parentId = ? WHERE id = ?", [
-          newParentId,
-          newId
-        ])
-      }
-
-      // Remap the session's current-leaf pointer; clear it if the referenced
-      // message wasn't part of the import (avoids a dangling cross-session ref
-      // that putSessionRow's raw copy would otherwise leave).
-      const newLeafId =
-        typeof session.currentLeafId === "number"
-          ? (idMap.get(session.currentLeafId) ?? null)
-          : null
-      await transaction.run(
-        "UPDATE sessions SET currentLeafId = ? WHERE id = ?",
-        [newLeafId, session.id]
-      )
-    })
+    await importSessionWithMessages(session)
   }
-
-  // Imported data was just committed inside transactions, but persistence to
-  // IndexedDB is debounced. Flush now so a sidepanel/worker teardown within the
-  // debounce window can't lose an import the UI already reported as succeeded.
   await flushSave()
 }
 

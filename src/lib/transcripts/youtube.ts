@@ -41,314 +41,261 @@ const LEGACY_TRANSCRIPT_SEGMENT_SELECTOR =
  * 2. The "Show transcript" button
  * Returns true if transcript panel was opened or already exists
  */
-const openYouTubeTranscript = async (): Promise<boolean> => {
-  logger.debug("Starting transcript panel automation", "TranscriptExtractor")
-  logger.debug(`Current URL: ${window.location.href}`, "TranscriptExtractor")
+const isTranscriptButton = (button: HTMLElement): boolean => {
+  const text = button.textContent?.trim().toLowerCase() || ""
+  const ariaLabel = button.getAttribute("aria-label")?.toLowerCase() || ""
+  return (
+    text.includes("transcript") ||
+    text.includes("show transcript") ||
+    ariaLabel.includes("transcript")
+  )
+}
 
-  if (!isYouTubeVideoPage(window.location.href)) {
-    logger.debug("Not a YouTube video page, skipping", "TranscriptExtractor")
-    return false
+const findButtonFromTouchFeedback = (
+  feedback: HTMLElement,
+  boundary: Element
+): HTMLElement | null => {
+  let current: HTMLElement | null = feedback.parentElement
+  while (current && current !== boundary) {
+    if (
+      current.tagName === "BUTTON" ||
+      current.classList.contains("yt-spec-button-shape-next")
+    ) {
+      return current
+    }
+    current = current.parentElement
+  }
+  return null
+}
+
+const findTranscriptButtonInSection = (): HTMLElement | null => {
+  const section = document.querySelector<HTMLElement>(
+    "ytd-video-description-transcript-section-renderer"
+  )
+  if (!section) return null
+  logger.debug("Found transcript section renderer", "TranscriptExtractor")
+
+  const direct = section.querySelector<HTMLElement>(
+    "button.yt-spec-button-shape-next, ytd-button-renderer button, #primary-button button"
+  )
+  if (direct && isTranscriptButton(direct)) {
+    logger.debug(
+      "Found button inside transcript section",
+      "TranscriptExtractor"
+    )
+    return direct
   }
 
-  logger.debug(
-    "Checking for existing transcript panel...",
-    "TranscriptExtractor"
+  const feedback = section.querySelector<HTMLElement>(
+    "div.yt-spec-touch-feedback-shape__fill"
   )
-  // Check if transcript is already open
-  const existingTranscript = document.querySelector(
-    YOUTUBE_TRANSCRIPT_PANEL_SELECTOR
-  )
-  if (existingTranscript) {
-    logger.debug("Transcript panel already exists!", "TranscriptExtractor")
-    return true
+  if (!feedback) return null
+  const button = findButtonFromTouchFeedback(feedback, section)
+  if (button) {
+    logger.debug(
+      "Found button by traversing up from touch feedback",
+      "TranscriptExtractor"
+    )
   }
+  return button
+}
 
+const findTranscriptButtonBySelectors = (): HTMLElement | null => {
+  const selectors = [
+    'button[aria-label*="transcript" i]',
+    'button[aria-label*="Show transcript" i]',
+    "ytd-button-renderer button",
+    "button.yt-spec-button-shape-next"
+  ]
+  for (const selector of selectors) {
+    const button = Array.from(
+      document.querySelectorAll<HTMLElement>(selector)
+    ).find(isTranscriptButton)
+    if (!button) continue
+    logger.debug(
+      `Found button via selector: ${selector}`,
+      "TranscriptExtractor"
+    )
+    return button
+  }
+  return null
+}
+
+const findTranscriptButtonByTouchFeedback = (): HTMLElement | null => {
+  const feedbackDivs = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      "div.yt-spec-touch-feedback-shape__fill"
+    )
+  )
   logger.debug(
-    "Transcript panel not found, attempting to open...",
+    `Found ${feedbackDivs.length} touch feedback divs`,
     "TranscriptExtractor"
   )
+  for (const feedback of feedbackDivs) {
+    const section = feedback.closest(
+      "ytd-video-description-transcript-section-renderer"
+    )
+    if (!section) continue
+    const button = findButtonFromTouchFeedback(feedback, section)
+    if (!button) continue
+    logger.debug(
+      "Found button by traversing touch feedback div",
+      "TranscriptExtractor"
+    )
+    return button
+  }
+  return null
+}
 
-  // Step 1: Try to click "more" button to expand description
+const findTranscriptButtonByText = (): HTMLElement | null => {
+  const buttons = Array.from(
+    document.querySelectorAll<HTMLElement>("button, div[role='button']")
+  )
+  logger.debug(
+    `Found ${buttons.length} potential buttons for text search`,
+    "TranscriptExtractor"
+  )
+  const button = buttons.find(isTranscriptButton) ?? null
+  if (button)
+    logger.debug("Found button via text search", "TranscriptExtractor")
+  return button
+}
+
+const findTranscriptButton = (): HTMLElement | null =>
+  findTranscriptButtonInSection() ||
+  findTranscriptButtonBySelectors() ||
+  findTranscriptButtonByTouchFeedback() ||
+  findTranscriptButtonByText()
+
+const expandYouTubeDescription = async (): Promise<void> => {
   logger.debug("Step 1: Looking for 'more' button...", "TranscriptExtractor")
   const moreButton = await waitForElement(
     "tp-yt-paper-button#expand.button.style-scope.ytd-text-inline-expander",
     3,
     300
   )
-
-  if (moreButton) {
-    const moreButtonText = moreButton.textContent?.trim() || ""
-    logger.debug(
-      `Found 'more' button with text: "${moreButtonText}"`,
-      "TranscriptExtractor"
-    )
-    if (moreButtonText.includes("more") || moreButtonText.includes("...")) {
-      logger.debug("Clicking 'more' button...", "TranscriptExtractor")
-      moreButton.click()
-      // Wait for description to expand
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      logger.debug(
-        "Waited 500ms for description to expand",
-        "TranscriptExtractor"
-      )
-    } else {
-      logger.debug(
-        `'more' button found but text doesn't match: "${moreButtonText}"`,
-        "TranscriptExtractor"
-      )
-    }
-  } else {
+  if (!moreButton) {
     logger.debug(
       "'more' button not found (may already be expanded)",
       "TranscriptExtractor"
     )
+    return
+  }
+  const text = moreButton.textContent?.trim() || ""
+  logger.debug(
+    `Found 'more' button with text: "${text}"`,
+    "TranscriptExtractor"
+  )
+  if (!text.includes("more") && !text.includes("...")) {
+    logger.debug(
+      `'more' button found but text doesn't match: "${text}"`,
+      "TranscriptExtractor"
+    )
+    return
+  }
+  logger.debug("Clicking 'more' button...", "TranscriptExtractor")
+  moreButton.click()
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  logger.debug("Waited 500ms for description to expand", "TranscriptExtractor")
+}
+
+const clickTranscriptButton = (button: HTMLElement): void => {
+  button.click()
+  button.dispatchEvent(
+    new PointerEvent("pointerdown", {
+      bubbles: true,
+      cancelable: true,
+      pointerId: 1,
+      pointerType: "mouse"
+    })
+  )
+  button.dispatchEvent(
+    new PointerEvent("pointerup", {
+      bubbles: true,
+      cancelable: true,
+      pointerId: 1,
+      pointerType: "mouse"
+    })
+  )
+  button.dispatchEvent(
+    new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
+  )
+}
+
+const transcriptPanelExists = (): boolean =>
+  Boolean(document.querySelector(YOUTUBE_TRANSCRIPT_PANEL_SELECTOR))
+
+const openTranscriptWithButton = async (
+  button: HTMLElement
+): Promise<boolean> => {
+  logger.debug("Found transcript button!", "TranscriptExtractor", {
+    buttonText: button.textContent?.trim() || "",
+    ariaLabel: button.getAttribute("aria-label") || "",
+    tag: button.tagName,
+    classes: button.className
+  })
+  logger.debug("Clicking transcript button...", "TranscriptExtractor")
+  clickTranscriptButton(button)
+  await new Promise((resolve) => setTimeout(resolve, 1500))
+  if (transcriptPanelExists()) {
+    logger.debug("Transcript panel successfully opened!", "TranscriptExtractor")
+    return true
+  }
+  logger.debug(
+    "Transcript panel not found after clicking, waiting longer...",
+    "TranscriptExtractor"
+  )
+  await new Promise((resolve) => setTimeout(resolve, 1500))
+  const opened = transcriptPanelExists()
+  if (opened) {
+    logger.debug(
+      "Transcript panel appeared after longer wait!",
+      "TranscriptExtractor"
+    )
+  }
+  return opened
+}
+
+const logTranscriptButtonSamples = (): void => {
+  const buttonTexts = Array.from(
+    document.querySelectorAll("button, div[role='button']")
+  )
+    .slice(0, 20)
+    .map((button) => ({
+      text: button.textContent?.trim(),
+      ariaLabel: button.getAttribute("aria-label"),
+      tag: button.tagName,
+      classes: button.className
+    }))
+    .filter((info) => info.text || info.ariaLabel)
+  logger.debug("Sample buttons found", "TranscriptExtractor", { buttonTexts })
+}
+
+const openYouTubeTranscript = async (): Promise<boolean> => {
+  logger.debug("Starting transcript panel automation", "TranscriptExtractor")
+  logger.debug(`Current URL: ${window.location.href}`, "TranscriptExtractor")
+  if (!isYouTubeVideoPage(window.location.href)) {
+    logger.debug("Not a YouTube video page, skipping", "TranscriptExtractor")
+    return false
+  }
+  if (transcriptPanelExists()) {
+    logger.debug("Transcript panel already exists!", "TranscriptExtractor")
+    return true
   }
 
-  // Step 2: Try to find and click "Show transcript" button with retries
+  await expandYouTubeDescription()
   logger.debug(
     "Step 2: Looking for 'Show transcript' button...",
     "TranscriptExtractor"
   )
-
-  let transcriptButton: HTMLElement | null = null
   const maxRetries = 5
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
     logger.debug(
       `Attempt ${attempt}/${maxRetries} to find transcript button...`,
       "TranscriptExtractor"
     )
-
-    // Strategy 1: Find the transcript section renderer and get the button from it
-    const transcriptSection = document.querySelector<HTMLElement>(
-      "ytd-video-description-transcript-section-renderer"
-    )
-    if (transcriptSection) {
-      logger.debug("Found transcript section renderer", "TranscriptExtractor")
-
-      // Try to find the button inside the section
-      const buttonInside = transcriptSection.querySelector<HTMLElement>(
-        "button.yt-spec-button-shape-next, ytd-button-renderer button, #primary-button button"
-      )
-      if (buttonInside) {
-        const text = buttonInside.textContent?.trim() || ""
-        const ariaLabel = buttonInside.getAttribute("aria-label") || ""
-        if (
-          text.toLowerCase().includes("transcript") ||
-          text.toLowerCase().includes("show transcript") ||
-          ariaLabel.toLowerCase().includes("transcript")
-        ) {
-          transcriptButton = buttonInside
-          logger.debug(
-            "Found button inside transcript section",
-            "TranscriptExtractor"
-          )
-        }
-      }
-
-      // If button not found, try the touch feedback div and traverse up
-      if (!transcriptButton) {
-        const touchFeedback = transcriptSection.querySelector<HTMLElement>(
-          "div.yt-spec-touch-feedback-shape__fill"
-        )
-        if (touchFeedback) {
-          // Traverse up to find the actual button element
-          let current: HTMLElement | null = touchFeedback.parentElement
-          while (current && current !== transcriptSection) {
-            if (
-              current.tagName === "BUTTON" ||
-              current.classList.contains("yt-spec-button-shape-next")
-            ) {
-              transcriptButton = current
-              logger.debug(
-                "Found button by traversing up from touch feedback",
-                "TranscriptExtractor"
-              )
-              break
-            }
-            current = current.parentElement
-          }
-        }
-      }
-    }
-
-    // Strategy 2: Find button by specific selectors
-    if (!transcriptButton) {
-      const selectors = [
-        'button[aria-label*="transcript" i]',
-        'button[aria-label*="Show transcript" i]',
-        "ytd-button-renderer button",
-        "button.yt-spec-button-shape-next"
-      ]
-
-      for (const selector of selectors) {
-        const buttons = Array.from(
-          document.querySelectorAll<HTMLElement>(selector)
-        )
-        for (const button of buttons) {
-          const text = button.textContent?.trim() || ""
-          const ariaLabel = button.getAttribute("aria-label") || ""
-          if (
-            text.toLowerCase().includes("transcript") ||
-            text.toLowerCase().includes("show transcript") ||
-            ariaLabel.toLowerCase().includes("transcript")
-          ) {
-            transcriptButton = button
-            logger.debug(
-              `Found button via selector: ${selector}`,
-              "TranscriptExtractor"
-            )
-            break
-          }
-        }
-        if (transcriptButton) break
-      }
-    }
-
-    // Strategy 3: Find touch feedback div and traverse to find button
-    if (!transcriptButton) {
-      const touchFeedbackDivs = Array.from(
-        document.querySelectorAll<HTMLElement>(
-          "div.yt-spec-touch-feedback-shape__fill"
-        )
-      )
-      logger.debug(
-        `Found ${touchFeedbackDivs.length} touch feedback divs`,
-        "TranscriptExtractor"
-      )
-
-      for (const div of touchFeedbackDivs) {
-        // Check if this div is inside a transcript section
-        const parentSection = div.closest(
-          "ytd-video-description-transcript-section-renderer"
-        )
-        if (parentSection) {
-          // Traverse up to find button
-          let current: HTMLElement | null = div.parentElement
-          while (current && current !== parentSection) {
-            if (
-              current.tagName === "BUTTON" ||
-              current.classList.contains("yt-spec-button-shape-next")
-            ) {
-              transcriptButton = current
-              logger.debug(
-                "Found button by traversing touch feedback div",
-                "TranscriptExtractor"
-              )
-              break
-            }
-            current = current.parentElement
-          }
-          if (transcriptButton) break
-        }
-      }
-    }
-
-    // Strategy 4: Text-based search as fallback
-    if (!transcriptButton) {
-      const allButtons = Array.from(
-        document.querySelectorAll<HTMLElement>("button, div[role='button']")
-      )
-      logger.debug(
-        `Found ${allButtons.length} potential buttons for text search`,
-        "TranscriptExtractor"
-      )
-
-      transcriptButton =
-        (allButtons.find((btn) => {
-          const text = btn.textContent?.trim() || ""
-          const ariaLabel = btn.getAttribute("aria-label") || ""
-          return (
-            text.toLowerCase().includes("transcript") ||
-            text.toLowerCase().includes("show transcript") ||
-            ariaLabel.toLowerCase().includes("transcript")
-          )
-        }) as HTMLElement | undefined) || null
-
-      if (transcriptButton) {
-        logger.debug("Found button via text search", "TranscriptExtractor")
-      }
-    }
-
-    if (transcriptButton) {
-      const buttonText = transcriptButton.textContent?.trim() || ""
-      const ariaLabel = transcriptButton.getAttribute("aria-label") || ""
-      logger.debug("Found transcript button!", "TranscriptExtractor", {
-        buttonText,
-        ariaLabel,
-        tag: transcriptButton.tagName,
-        classes: transcriptButton.className
-      })
-      logger.debug("Clicking transcript button...", "TranscriptExtractor")
-
-      // Try multiple click methods to ensure it works
-      // Method 1: Direct click
-      transcriptButton.click()
-
-      // Method 2: Dispatch pointer event (more realistic)
-      transcriptButton.dispatchEvent(
-        new PointerEvent("pointerdown", {
-          bubbles: true,
-          cancelable: true,
-          pointerId: 1,
-          pointerType: "mouse"
-        })
-      )
-      transcriptButton.dispatchEvent(
-        new PointerEvent("pointerup", {
-          bubbles: true,
-          cancelable: true,
-          pointerId: 1,
-          pointerType: "mouse"
-        })
-      )
-
-      // Method 3: Dispatch click event
-      transcriptButton.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          cancelable: true,
-          view: window
-        })
-      )
-
-      // Wait for transcript panel to appear
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-      logger.debug(
-        "Waited 1500ms for transcript panel to appear",
-        "TranscriptExtractor"
-      )
-
-      // Verify transcript panel appeared
-      const transcriptPanel = document.querySelector(
-        YOUTUBE_TRANSCRIPT_PANEL_SELECTOR
-      )
-      if (transcriptPanel) {
-        logger.debug(
-          "Transcript panel successfully opened!",
-          "TranscriptExtractor"
-        )
-        return true
-      } else {
-        logger.debug(
-          "Transcript panel not found after clicking, waiting longer...",
-          "TranscriptExtractor"
-        )
-        // Wait a bit more and retry
-        await new Promise((resolve) => setTimeout(resolve, 1500))
-        const retryPanel = document.querySelector(
-          YOUTUBE_TRANSCRIPT_PANEL_SELECTOR
-        )
-        if (retryPanel) {
-          logger.debug(
-            "Transcript panel appeared after longer wait!",
-            "TranscriptExtractor"
-          )
-          return true
-        }
-      }
-    }
-
+    const button = findTranscriptButton()
+    if (button && (await openTranscriptWithButton(button))) return true
     if (attempt < maxRetries) {
       logger.debug(
         `Waiting before retry ${attempt + 1}...`,
@@ -357,25 +304,11 @@ const openYouTubeTranscript = async (): Promise<boolean> => {
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
   }
-
   logger.debug(
     "Transcript button not found after all retries",
     "TranscriptExtractor"
   )
-  // Log some button texts for debugging
-  const allButtons = Array.from(
-    document.querySelectorAll("button, div[role='button']")
-  )
-  const buttonTexts = allButtons
-    .slice(0, 20)
-    .map((btn) => ({
-      text: btn.textContent?.trim(),
-      ariaLabel: btn.getAttribute("aria-label"),
-      tag: btn.tagName,
-      classes: btn.className
-    }))
-    .filter((info) => info.text || info.ariaLabel)
-  logger.debug("Sample buttons found", "TranscriptExtractor", { buttonTexts })
+  logTranscriptButtonSamples()
   return false
 }
 

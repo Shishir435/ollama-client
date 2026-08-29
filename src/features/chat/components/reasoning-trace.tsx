@@ -82,8 +82,6 @@ const buildToolTraceStep = (
     label: getToolRunLabel(run, t),
     status: getToolRunStatus(run),
     icon: iconKey ? (TOOL_ICONS[iconKey] ?? Circle) : Circle,
-    // Only the error goes in the compact chip tooltip; full input/output/sources
-    // live in the expandable details panel below to keep tooltips short.
     detail: run.error
   }
 }
@@ -172,16 +170,29 @@ export interface ReasoningTraceProps {
   isStreaming?: boolean
 }
 
-export const shouldShowReasoningTrace = (
+type TraceContext = {
+  hasThinking: boolean
+  activityEvents: ActivityEvent[]
+  toolRuns: ToolRun[]
+  hasFileContext: boolean
+  hasPageContext: boolean
+  isBusy: boolean
+  hasVisibleContent: boolean
+  isThinkingOnlyFallback: boolean
+  hasActivityDetails: boolean
+  hasDetails: boolean
+}
+
+const getTraceContext = (
   message: ChatMessage,
-  isLoading = false,
-  isStreaming = false
-) => {
-  const hasThinking = Boolean(message.thinking?.trim())
+  isLoading: boolean,
+  isStreaming: boolean
+): TraceContext => {
   const activityEvents = message.metrics?.activityEvents ?? []
   const toolRuns = message.metrics?.toolRuns ?? []
   const usedContextChunks = message.metrics?.usedContextChunks ?? []
   const ragSources = message.metrics?.ragSources ?? []
+  const hasThinking = Boolean(message.thinking?.trim())
   const hasFileContext =
     Boolean(message.metrics?.ragContextLength) ||
     ragSources.some((source) => source.type !== "webpage") ||
@@ -189,16 +200,97 @@ export const shouldShowReasoningTrace = (
   const hasPageContext =
     Boolean(message.metrics?.tabContextLength) ||
     usedContextChunks.some((chunk) => chunk.source === "tab")
-  const isBusy = isLoading || isStreaming
+  const hasActivityDetails = activityEvents.length > 0 || toolRuns.length > 0
+  return {
+    hasThinking,
+    activityEvents,
+    toolRuns,
+    hasFileContext,
+    hasPageContext,
+    isBusy: isLoading || isStreaming,
+    hasVisibleContent: Boolean(message.content?.trim()),
+    isThinkingOnlyFallback: message.metrics?.thinkingOnlyResponse === true,
+    hasActivityDetails,
+    hasDetails: hasActivityDetails || hasThinking
+  }
+}
 
+export const shouldShowReasoningTrace = (
+  message: ChatMessage,
+  isLoading = false,
+  isStreaming = false
+) => {
+  const context = getTraceContext(message, isLoading, isStreaming)
   return (
-    hasThinking ||
-    isBusy ||
-    activityEvents.length > 0 ||
-    toolRuns.length > 0 ||
-    hasFileContext ||
-    hasPageContext
+    context.hasThinking ||
+    context.isBusy ||
+    context.activityEvents.length > 0 ||
+    context.toolRuns.length > 0 ||
+    context.hasFileContext ||
+    context.hasPageContext
   )
+}
+
+const buildTraceSteps = (
+  context: TraceContext,
+  t: (key: string, options?: { count?: number }) => string
+): TraceStep[] => {
+  const steps: Array<TraceStep | null> = [
+    ...context.activityEvents.map((event) => buildActivityTraceStep(event, t)),
+    context.isBusy &&
+    !context.hasVisibleContent &&
+    context.activityEvents.length === 0
+      ? {
+          key: "thinking",
+          label: t("chat.reasoning.trace.preparing"),
+          status: "running",
+          icon: Sparkles
+        }
+      : null,
+    context.hasPageContext
+      ? {
+          key: "page",
+          label: t("chat.reasoning.trace.page"),
+          status: "done",
+          icon: PanelsTopLeft
+        }
+      : null,
+    context.hasFileContext
+      ? {
+          key: "files",
+          label: t("chat.reasoning.trace.files"),
+          status: "done",
+          icon: FileStack
+        }
+      : null,
+    ...buildCompactToolTraceSteps(context.toolRuns, t),
+    context.isBusy && context.hasVisibleContent
+      ? {
+          key: "answering",
+          label: t("chat.reasoning.trace.answering"),
+          status: "running",
+          icon: Circle
+        }
+      : null
+  ]
+  return steps.filter((step): step is TraceStep => step !== null)
+}
+
+const getActiveStep = (
+  steps: TraceStep[],
+  hasVisibleContent: boolean
+): TraceStep | undefined =>
+  steps.find((step) => step.status === "running") ??
+  (!hasVisibleContent
+    ? steps.find((step) => step.status === "error")
+    : undefined)
+
+const getActiveLabel = (step?: TraceStep): string | undefined => {
+  if (!step) return undefined
+  if (step.status === "error" && step.detail) {
+    return `${step.label}: ${step.detail}`
+  }
+  return step.preview ? `${step.label}: ${step.preview}` : step.label
 }
 
 export const ReasoningTrace = ({
@@ -208,45 +300,17 @@ export const ReasoningTrace = ({
 }: ReasoningTraceProps) => {
   const { t } = useTranslation()
   const [detailsOpen, setDetailsOpen] = useState(false)
-  // Once the user clicks the toggle we stop auto-managing the open state.
   const userControlledRef = useRef(false)
   const autoOpenedRef = useRef(false)
   const autoCollapsedRef = useRef(false)
   const reasoningBodyRef = useRef<HTMLDivElement>(null)
-  const hasThinking = Boolean(message.thinking?.trim())
-  const activityEvents = message.metrics?.activityEvents ?? []
-  const toolRuns = message.metrics?.toolRuns ?? []
-  const usedContextChunks = message.metrics?.usedContextChunks ?? []
-  const ragSources = message.metrics?.ragSources ?? []
-  const hasFileContext =
-    Boolean(message.metrics?.ragContextLength) ||
-    ragSources.some((source) => source.type !== "webpage") ||
-    Boolean(message.attachments?.length)
-  const hasPageContext =
-    Boolean(message.metrics?.tabContextLength) ||
-    usedContextChunks.some((chunk) => chunk.source === "tab")
-  const isBusy = isLoading || isStreaming
+  const context = getTraceContext(message, isLoading, isStreaming)
 
-  const hasVisibleContent = Boolean(message.content?.trim())
-  const isThinkingOnlyFallback = message.metrics?.thinkingOnlyResponse === true
-  const hasActivityDetails = activityEvents.length > 0 || toolRuns.length > 0
-  const hasDetails = hasActivityDetails || hasThinking
-
-  // Edge-trigger auto state. Streaming updates tool status/thinking on every
-  // chunk; deriving open/closed from those volatile values makes the panel
-  // visibly flicker. Open once when work starts, collapse once when answer text
-  // appears, then leave user clicks in control.
   useEffect(() => {
     if (userControlledRef.current) return
-    if (isThinkingOnlyFallback && hasDetails && !autoOpenedRef.current) {
-      autoOpenedRef.current = true
-      setDetailsOpen(true)
-      return
-    }
     if (
-      isBusy &&
-      hasActivityDetails &&
-      !hasVisibleContent &&
+      context.isThinkingOnlyFallback &&
+      context.hasDetails &&
       !autoOpenedRef.current
     ) {
       autoOpenedRef.current = true
@@ -254,19 +318,29 @@ export const ReasoningTrace = ({
       return
     }
     if (
-      hasVisibleContent &&
-      !isThinkingOnlyFallback &&
+      context.isBusy &&
+      context.hasActivityDetails &&
+      !context.hasVisibleContent &&
+      !autoOpenedRef.current
+    ) {
+      autoOpenedRef.current = true
+      setDetailsOpen(true)
+      return
+    }
+    if (
+      context.hasVisibleContent &&
+      !context.isThinkingOnlyFallback &&
       !autoCollapsedRef.current
     ) {
       autoCollapsedRef.current = true
       setDetailsOpen(false)
     }
   }, [
-    isBusy,
-    hasDetails,
-    hasVisibleContent,
-    isThinkingOnlyFallback,
-    hasActivityDetails
+    context.isBusy,
+    context.hasDetails,
+    context.hasVisibleContent,
+    context.isThinkingOnlyFallback,
+    context.hasActivityDetails
   ])
 
   const toggleDetails = () => {
@@ -274,73 +348,24 @@ export const ReasoningTrace = ({
     setDetailsOpen((open) => !open)
   }
 
-  // Keep the live reasoning scrolled to the latest line while it streams.
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on thinking growth
   useEffect(() => {
-    if (detailsOpen && isBusy && reasoningBodyRef.current) {
+    if (detailsOpen && context.isBusy && reasoningBodyRef.current) {
       reasoningBodyRef.current.scrollTop = reasoningBodyRef.current.scrollHeight
     }
   }, [
     message.thinking,
-    activityEvents.length,
-    toolRuns.length,
+    context.activityEvents.length,
+    context.toolRuns.length,
     detailsOpen,
-    isBusy
+    context.isBusy
   ])
 
-  if (!shouldShowReasoningTrace(message, isLoading, isStreaming)) {
-    return null
-  }
+  if (!shouldShowReasoningTrace(message, isLoading, isStreaming)) return null
 
-  const steps: TraceStep[] = [
-    ...activityEvents.map((event) => buildActivityTraceStep(event, t)),
-    isBusy && !hasVisibleContent && activityEvents.length === 0
-      ? {
-          key: "thinking",
-          label: t("chat.reasoning.trace.preparing"),
-          status: "running",
-          icon: Sparkles
-        }
-      : null,
-    hasPageContext
-      ? {
-          key: "page",
-          label: t("chat.reasoning.trace.page"),
-          status: "done",
-          icon: PanelsTopLeft
-        }
-      : null,
-    hasFileContext
-      ? {
-          key: "files",
-          label: t("chat.reasoning.trace.files"),
-          status: "done",
-          icon: FileStack
-        }
-      : null,
-    ...buildCompactToolTraceSteps(toolRuns, t),
-    isBusy && hasVisibleContent
-      ? {
-          key: "answering",
-          label: t("chat.reasoning.trace.answering"),
-          status: "running",
-          icon: Circle
-        }
-      : null
-  ].filter(Boolean) as TraceStep[]
-  const activeStep =
-    steps.find((step) => step.status === "running") ??
-    (!hasVisibleContent
-      ? steps.find((step) => step.status === "error")
-      : undefined)
-  const activeLabel = activeStep
-    ? activeStep.status === "error" && activeStep.detail
-      ? `${activeStep.label}: ${activeStep.detail}`
-      : activeStep.preview
-        ? `${activeStep.label}: ${activeStep.preview}`
-        : activeStep.label
-    : undefined
-
+  const steps = buildTraceSteps(context, t)
+  const activeStep = getActiveStep(steps, context.hasVisibleContent)
+  const activeLabel = getActiveLabel(activeStep)
   const reasoningLabel = t("chat.reasoning.title")
 
   return (
@@ -393,7 +418,7 @@ export const ReasoningTrace = ({
           </span>
         )}
 
-        {hasDetails && (
+        {context.hasDetails && (
           <button
             type="button"
             onClick={toggleDetails}
@@ -411,20 +436,20 @@ export const ReasoningTrace = ({
         )}
       </div>
 
-      {hasDetails && detailsOpen && (
+      {context.hasDetails && detailsOpen && (
         <div
           ref={reasoningBodyRef}
           className="scroll-fade-y flex max-h-72 flex-col gap-2 overflow-y-auto rounded-panel border border-border/30 bg-background/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-          {activityEvents.length > 0 && (
+          {context.activityEvents.length > 0 && (
             <ol className="flex flex-col gap-1.5">
-              {activityEvents.map((event) => (
+              {context.activityEvents.map((event) => (
                 <ActivityStepRow key={event.id} event={event} t={t} />
               ))}
             </ol>
           )}
-          {toolRuns.length > 0 && (
+          {context.toolRuns.length > 0 && (
             <ol className="flex flex-col gap-1.5">
-              {toolRuns.map((run) => (
+              {context.toolRuns.map((run) => (
                 <ToolStepRow
                   key={`${run.toolId}-${run.startedAt}`}
                   run={run}
@@ -433,7 +458,7 @@ export const ReasoningTrace = ({
               ))}
             </ol>
           )}
-          {hasThinking && (
+          {context.hasThinking && (
             <details className="rounded-control border border-border/20 bg-background/45 px-2.5 py-2">
               <summary className="cursor-pointer text-2xs font-medium text-muted-foreground/80">
                 {t("chat.reasoning.debug")}

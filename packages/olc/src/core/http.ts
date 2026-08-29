@@ -135,6 +135,94 @@ const readJsonBody = (request: IncomingMessage): Promise<unknown> =>
     request.on("error", reject)
   })
 
+const applyOriginPolicy = (
+  request: IncomingMessage,
+  response: ServerResponse,
+  allowedOrigins: string[]
+): boolean => {
+  const origin = request.headers.origin
+  if (typeof origin !== "string" || origin === "") return true
+  if (!isOriginAllowed(origin, allowedOrigins)) {
+    sendJson(response, 403, {
+      error: {
+        message: `Origin ${origin} is not allowed to use this proxy`,
+        type: "Forbidden"
+      }
+    })
+    return false
+  }
+  response.setHeader("Access-Control-Allow-Origin", origin)
+  response.setHeader("Vary", "Origin")
+  return true
+}
+
+const handlePreflight = (
+  method: string,
+  response: ServerResponse,
+  allowedHeaders: string[]
+): boolean => {
+  if (method !== "OPTIONS") return false
+  response.writeHead(204, {
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": allowedHeaders.join(", "),
+    "Access-Control-Max-Age": "86400"
+  })
+  response.end()
+  return true
+}
+
+const readRequestBody = async (
+  method: string,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<{ ok: boolean; body?: unknown }> => {
+  if (method !== "POST") return { ok: true }
+  try {
+    return { ok: true, body: await readJsonBody(request) }
+  } catch (error) {
+    sendJson(response, 400, {
+      error: { message: (error as Error).message, type: "BadRequest" }
+    })
+    return { ok: false }
+  }
+}
+
+const findMatchingRoute = (
+  routes: Route[],
+  patterns: Map<Route, string>,
+  method: string,
+  path: string
+): { route: Route; params: Record<string, string> } | null => {
+  for (const route of routes) {
+    if (route.method !== method) continue
+    const params = matchRoute(patterns.get(route) as string, path)
+    if (params) return { route, params }
+  }
+  return null
+}
+
+const runRouteHandler = async (
+  route: Route,
+  routeRequest: RouteRequest,
+  response: ServerResponse
+): Promise<void> => {
+  try {
+    await route.handler(routeRequest, response)
+  } catch (error) {
+    console.error("[Proxy] Unhandled route error:", (error as Error).message)
+    if (!response.headersSent) {
+      sendJson(response, 500, {
+        error: {
+          message: (error as Error).message,
+          type: "InternalProxyError"
+        }
+      })
+      return
+    }
+    response.end()
+  }
+}
+
 export const createRouter = ({
   allowedHeaders = ["Content-Type", "Authorization"],
   allowedOrigins = [],
@@ -167,89 +255,36 @@ export const createRouter = ({
     const url = new URL(request.url ?? "/", "http://localhost")
     const method = (request.method ?? "GET").toUpperCase()
 
-    // A request without an `Origin` is not from a page: a CLI, a script, or the
-    // extension's own background fetch. Only a browser origin is gated here.
-    const origin = request.headers.origin
-    if (typeof origin === "string" && origin !== "") {
-      if (!isOriginAllowed(origin, allowedOrigins)) {
-        sendJson(response, 403, {
-          error: {
-            message: `Origin ${origin} is not allowed to use this proxy`,
-            type: "Forbidden"
-          }
-        })
-        return
-      }
-      response.setHeader("Access-Control-Allow-Origin", origin)
-      response.setHeader("Vary", "Origin")
-    }
+    if (!applyOriginPolicy(request, response, allowedOrigins)) return
+    if (handlePreflight(method, response, allowedHeaders)) return
 
-    if (method === "OPTIONS") {
-      response.writeHead(204, {
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": allowedHeaders.join(", "),
-        "Access-Control-Max-Age": "86400"
+    const bodyResult = await readRequestBody(method, request, response)
+    if (!bodyResult.ok) return
+
+    const match = findMatchingRoute(routes, patterns, method, url.pathname)
+    if (!match) {
+      sendJson(response, 404, {
+        error: { message: `No route for ${method} ${url.pathname}` }
       })
-      response.end()
       return
     }
 
-    let body: unknown
-    if (method === "POST") {
-      try {
-        body = await readJsonBody(request)
-      } catch (error) {
-        sendJson(response, 400, {
-          error: { message: (error as Error).message, type: "BadRequest" }
-        })
-        return
-      }
+    const routeRequest: RouteRequest = {
+      method,
+      path: url.pathname,
+      params: match.params,
+      query: url.searchParams,
+      headers: request.headers,
+      body: bodyResult.body,
+      raw: request
     }
-
-    for (const route of routes) {
-      if (route.method !== method) continue
-      const params = matchRoute(patterns.get(route) as string, url.pathname)
-      if (!params) continue
-
-      const routeRequest: RouteRequest = {
-        method,
-        path: url.pathname,
-        params,
-        query: url.searchParams,
-        headers: request.headers,
-        body,
-        raw: request
-      }
-      if (onRequest) onRequest(routeRequest, response)
-      if (authorize && !authorize(routeRequest)) {
-        sendJson(response, 401, { error: { message: "Unauthorized" } })
-        return
-      }
-
-      try {
-        await route.handler(routeRequest, response)
-      } catch (error) {
-        console.error(
-          "[Proxy] Unhandled route error:",
-          (error as Error).message
-        )
-        if (!response.headersSent) {
-          sendJson(response, 500, {
-            error: {
-              message: (error as Error).message,
-              type: "InternalProxyError"
-            }
-          })
-        } else {
-          response.end()
-        }
-      }
+    if (onRequest) onRequest(routeRequest, response)
+    if (authorize && !authorize(routeRequest)) {
+      sendJson(response, 401, { error: { message: "Unauthorized" } })
       return
     }
 
-    sendJson(response, 404, {
-      error: { message: `No route for ${method} ${url.pathname}` }
-    })
+    await runRouteHandler(match.route, routeRequest, response)
   }
 
   return {
