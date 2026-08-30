@@ -53,6 +53,15 @@ describe("RPC method registry", () => {
     }
   })
 
+  it("allows cold embedding work the same deadline as preparation", () => {
+    expect(RPC_METHOD_DEFINITIONS[RpcMethod.EmbeddingsGenerate].timeoutMs).toBe(
+      300_000
+    )
+    expect(
+      RPC_METHOD_DEFINITIONS[RpcMethod.EmbeddingsPrepareModel].timeoutMs
+    ).toBe(300_000)
+  })
+
   it("requires explicit review before classifying a method as a query", () => {
     // Metadata cannot prove an implementation is side-effect free. Keeping the
     // complete query set here makes adding or relabelling one a deliberate

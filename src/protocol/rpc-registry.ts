@@ -189,7 +189,10 @@ export const RPC_METHOD_DEFINITIONS = {
     request: EmbeddingsGenerateRequestSchema,
     response: EmbeddingsGenerateResultSchema,
     allowedSources: extensionPagesOnly,
-    timeoutMs: 120_000,
+    // Cold embedding models can take as long as model preparation. Keep the
+    // page request bounded, but do not abort valid migration or indexing work
+    // before the preparation RPC's 300-second ceiling.
+    timeoutMs: 300_000,
     operation: "query"
   },
   [RpcMethod.IngestionSubmit]: {
