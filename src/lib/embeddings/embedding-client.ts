@@ -223,14 +223,18 @@ export const generateEmbeddingsBatch = async (
     const batch = texts.slice(i, i + batchSize)
     const batchResults = await Promise.all(
       batch.map(async (text) => {
-        const opts = { plan, signal },
+        const opts = { plan, signal }
+        let result = await generateEmbedding(text, modelName, config, opts)
+        for (let attempt = 1; attempt < 3; attempt += 1) {
+          const failure = (result as EmbeddingError).failure
+          if (failure?.status !== 429) break
+          await abortableDelay(
+            Math.min(30_000, failure.retryAfterMs || 250),
+            signal
+          )
           result = await generateEmbedding(text, modelName, config, opts)
-        const failure = (result as EmbeddingError).failure
-        return failure?.status === 429
-          ? abortableDelay(failure.retryAfterMs || 250, signal).then(() =>
-              generateEmbedding(text, modelName, config, opts)
-            )
-          : result
+        }
+        return result
       })
     )
     results.push(...batchResults)
