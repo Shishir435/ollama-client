@@ -1,11 +1,15 @@
-import { pruneSearchCache, type SearchCacheEntry } from "./cache-pruning"
 import { getEmbeddingConfig } from "./config"
-import type { VectorDocument } from "./types"
+import type { SearchResult, VectorDocument } from "./types"
 
 /**
  * Search result cache (query hash -> results)
  * Cache TTL and max size are configurable via EmbeddingConfig
  */
+export interface SearchCacheEntry {
+  results: SearchResult[]
+  timestamp: number
+}
+
 export const searchCache = new Map<string, SearchCacheEntry>()
 
 /**
@@ -50,5 +54,16 @@ export const hashSearchQuery = (
 export const cleanSearchCache = async (): Promise<void> => {
   const { ttl, maxSize } = await getCacheConfig()
   const now = Date.now()
-  pruneSearchCache(searchCache, now, ttl, maxSize)
+  for (const [key, entry] of searchCache.entries()) {
+    if (now - entry.timestamp > ttl) searchCache.delete(key)
+  }
+
+  if (searchCache.size > maxSize) {
+    const entries = Array.from(searchCache.entries()).sort(
+      (a, b) => a[1].timestamp - b[1].timestamp
+    )
+    for (const [key] of entries.slice(0, searchCache.size - maxSize)) {
+      searchCache.delete(key)
+    }
+  }
 }
