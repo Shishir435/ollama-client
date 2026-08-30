@@ -393,16 +393,11 @@ export async function retrieveContextFromSources(
   })
   if (failedIndexes.length > 0 && results.length > 0) {
     const terms = tokenizeQuery(query)
-    const keywordScores = failedIndexes.map((index) => ({
-      index,
-      score: scoreKeywordMatch(chunks[index].pageContent, terms)
-    }))
-    const maxScore = Math.max(...keywordScores.map(({ score }) => score), 0)
-    for (const { index, score } of keywordScores) {
-      if (score === 0) continue
+    for (const index of failedIndexes) {
+      if (scoreKeywordMatch(chunks[index].pageContent, terms) === 0) continue
       results.push({
         document: buildSourceVectorDocument(chunks[index], [], timestamp),
-        score: (score / maxScore) * minSimilarity
+        score: minSimilarity
       })
     }
   }

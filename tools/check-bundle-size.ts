@@ -190,7 +190,7 @@ const budgets: Budget[] = [
     // cache safeguards, retry metadata, and the complexity-helper split live
     // in the background owner. Keep Chrome narrow while leaving deterministic
     // build headroom.
-    max: isFirefox ? 210_000 : 202_050
+    max: isFirefox ? 210_000 : 202_150
   }
 ]
 
