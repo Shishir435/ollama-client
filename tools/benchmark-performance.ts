@@ -13,9 +13,14 @@ type Measurement = {
   samples: number[]
 }
 
-const measure = (run: () => void, iterations = 15): Measurement => {
+const measure = (
+  run: () => void,
+  iterations = 15,
+  prepare?: () => void
+): Measurement => {
   const samples: number[] = []
   for (let iteration = 0; iteration < iterations; iteration++) {
+    prepare?.()
     const started = performance.now()
     run()
     samples.push(performance.now() - started)
@@ -44,15 +49,17 @@ const benchmarkStreamReducer = (): Measurement => {
 
 const benchmarkSearchCachePruning = (): Measurement => {
   const now = 1_000_000
+  const cache = new Map<string, SearchCacheEntry>()
   return measure(() => {
-    const cache = new Map<string, SearchCacheEntry>()
+    pruneSearchCache(cache, now, 5_000, 50)
+  }, 15, () => {
+    cache.clear()
     for (let index = 0; index < 1_000; index++) {
       cache.set(`query-${index}`, {
         results: [],
         timestamp: now - index * 10
       })
     }
-    pruneSearchCache(cache, now, 5_000, 50)
   })
 }
 
