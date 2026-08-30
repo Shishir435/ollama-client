@@ -313,7 +313,8 @@ describe("retrieveContextFromSources", () => {
           document: expect.objectContaining({
             content: "keyword match in failed chunk",
             embedding: []
-          })
+          }),
+          score: 0.1
         })
       ]),
       expect.any(Number)

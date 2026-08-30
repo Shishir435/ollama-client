@@ -394,11 +394,15 @@ export async function retrieveContextFromSources(
   appendFallbackCandidates(results, allCandidates, minSimilarity)
   if (failedIndexes.length > 0 && results.length > 0) {
     const terms = tokenizeQuery(query)
+    const fallbackScore = Math.min(
+      minSimilarity,
+      Math.max(...allCandidates.map(({ score }) => score), 0)
+    )
     for (const index of failedIndexes) {
       if (scoreKeywordMatch(chunks[index].pageContent, terms) === 0) continue
       results.push({
         document: buildSourceVectorDocument(chunks[index], [], timestamp),
-        score: minSimilarity
+        score: fallbackScore
       })
     }
   }
