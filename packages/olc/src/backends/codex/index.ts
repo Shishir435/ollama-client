@@ -295,6 +295,122 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       }
     }
 
+    private appendTextDelta(
+      params: Record<string, unknown>,
+      handlers: TurnStreamHandlers
+    ): void {
+      const delta = typeof params.delta === "string" ? params.delta : ""
+      this.content += delta
+      handlers.onText(delta)
+    }
+
+    private appendReasoningDelta(
+      params: Record<string, unknown>,
+      handlers: TurnStreamHandlers
+    ): void {
+      const delta = typeof params.delta === "string" ? params.delta : ""
+      this.reasoning += delta
+      handlers.onReasoning(delta)
+    }
+
+    private handleCompletedItem(
+      item: Record<string, unknown>,
+      handlers: TurnStreamHandlers
+    ): void {
+      if (
+        item.type === "agentMessage" &&
+        typeof item.text === "string" &&
+        !this.content
+      ) {
+        this.content = item.text
+      }
+      if (item.type !== "imageGeneration" || typeof item.result !== "string")
+        return
+
+      const itemId = typeof item.id === "string" ? item.id : undefined
+      if (itemId && this.imageItemIds.has(itemId)) return
+      if (itemId) this.imageItemIds.add(itemId)
+      const image: GeneratedImage = {
+        b64Json: item.result,
+        ...(typeof item.revisedPrompt === "string" && item.revisedPrompt
+          ? { revisedPrompt: item.revisedPrompt }
+          : {})
+      }
+      this.images.push(image)
+      handlers.onImage?.(image)
+    }
+
+    private recordNotificationError(params: Record<string, unknown>): void {
+      const error = isRecord(params.error) ? params.error : {}
+      if (typeof error.message === "string") this.lastError = error.message
+    }
+
+    private appServerExitedResult(params: Record<string, unknown>): TurnResult {
+      return {
+        status: "failed",
+        error: {
+          type: "CodexAppServerExited",
+          message: String(params.message ?? "Codex app-server exited")
+        }
+      }
+    }
+
+    private completedTurnResult(): TurnResult {
+      return {
+        status: "completed",
+        content: this.content,
+        reasoning: this.reasoning,
+        ...(this.images.length > 0 ? { images: [...this.images] } : {}),
+        finish: "stop"
+      }
+    }
+
+    private finishedTurnResult(turn: Record<string, unknown>): TurnResult {
+      const status = String(turn.status ?? "failed")
+      if (status === "completed") return this.completedTurnResult()
+      const turnError = isRecord(turn.error) ? turn.error : {}
+      return {
+        status: "failed",
+        error: {
+          type: status === "interrupted" ? "CodexInterrupted" : "CodexError",
+          message:
+            (typeof turnError.message === "string" && turnError.message) ||
+            this.lastError ||
+            `Codex turn ended with status '${status}'`
+        }
+      }
+    }
+
+    private handleNotification(
+      method: string,
+      params: Record<string, unknown>,
+      handlers: TurnStreamHandlers
+    ): TurnResult | null {
+      switch (method) {
+        case "item/agentMessage/delta":
+          this.appendTextDelta(params, handlers)
+          return null
+        case "item/reasoning/summaryTextDelta":
+          this.appendReasoningDelta(params, handlers)
+          return null
+        case "item/completed":
+          if (isRecord(params.item))
+            this.handleCompletedItem(params.item, handlers)
+          return null
+        case "error":
+          this.recordNotificationError(params)
+          return null
+        case "olc/appServerExited":
+          return this.appServerExitedResult(params)
+        case "turn/completed":
+          return isRecord(params.turn)
+            ? this.finishedTurnResult(params.turn)
+            : null
+        default:
+          return null
+      }
+    }
+
     private async readLeg(
       handlers: TurnStreamHandlers,
       signals: TurnRunSignals
@@ -308,87 +424,13 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
             ? this.interruptedResult()
             : { status: "suspended" }
         }
-        const { method } = next.message
         const params = isRecord(next.message.params) ? next.message.params : {}
-
-        if (method === "item/agentMessage/delta") {
-          const delta = typeof params.delta === "string" ? params.delta : ""
-          this.content += delta
-          handlers.onText(delta)
-          continue
-        }
-        if (method === "item/reasoning/summaryTextDelta") {
-          const delta = typeof params.delta === "string" ? params.delta : ""
-          this.reasoning += delta
-          handlers.onReasoning(delta)
-          continue
-        }
-        if (method === "item/completed" && isRecord(params.item)) {
-          if (
-            params.item.type === "agentMessage" &&
-            typeof params.item.text === "string" &&
-            !this.content
-          ) {
-            this.content = params.item.text
-          }
-          if (
-            params.item.type === "imageGeneration" &&
-            typeof params.item.result === "string"
-          ) {
-            const itemId =
-              typeof params.item.id === "string" ? params.item.id : undefined
-            if (!itemId || !this.imageItemIds.has(itemId)) {
-              if (itemId) this.imageItemIds.add(itemId)
-              const image: GeneratedImage = {
-                b64Json: params.item.result,
-                ...(typeof params.item.revisedPrompt === "string" &&
-                params.item.revisedPrompt
-                  ? { revisedPrompt: params.item.revisedPrompt }
-                  : {})
-              }
-              this.images.push(image)
-              handlers.onImage?.(image)
-            }
-          }
-          continue
-        }
-        if (method === "error") {
-          const error = isRecord(params.error) ? params.error : {}
-          if (typeof error.message === "string") this.lastError = error.message
-          continue
-        }
-        if (method === "olc/appServerExited") {
-          return {
-            status: "failed",
-            error: {
-              type: "CodexAppServerExited",
-              message: String(params.message ?? "Codex app-server exited")
-            }
-          }
-        }
-        if (method !== "turn/completed" || !isRecord(params.turn)) continue
-
-        const status = String(params.turn.status ?? "failed")
-        if (status === "completed") {
-          return {
-            status: "completed",
-            content: this.content,
-            reasoning: this.reasoning,
-            ...(this.images.length > 0 ? { images: [...this.images] } : {}),
-            finish: "stop"
-          }
-        }
-        const turnError = isRecord(params.turn.error) ? params.turn.error : {}
-        return {
-          status: "failed",
-          error: {
-            type: status === "interrupted" ? "CodexInterrupted" : "CodexError",
-            message:
-              (typeof turnError.message === "string" && turnError.message) ||
-              this.lastError ||
-              `Codex turn ended with status '${status}'`
-          }
-        }
+        const result = this.handleNotification(
+          next.message.method ?? "",
+          params,
+          handlers
+        )
+        if (result) return result
       }
     }
 

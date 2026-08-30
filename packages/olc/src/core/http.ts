@@ -162,6 +162,109 @@ const readJsonBody = (request: IncomingMessage): Promise<unknown> =>
     request.on("error", reject)
   })
 
+const applyOriginPolicy = (
+  request: IncomingMessage,
+  response: ServerResponse,
+  allowedOrigins: string[]
+): boolean => {
+  const origin = request.headers.origin
+  if (typeof origin !== "string" || origin === "") return true
+  if (!isOriginAllowed(origin, allowedOrigins)) {
+    sendJson(response, 403, {
+      error: {
+        type: "Forbidden",
+        code: "origin_not_allowed",
+        message: `Origin ${origin} is not allowed to use this proxy.`,
+        resolution: "Add the exact trusted origin to --allowed-origins."
+      }
+    })
+    return false
+  }
+  response.setHeader("Access-Control-Allow-Origin", origin)
+  response.setHeader("Vary", "Origin")
+  return true
+}
+
+const handlePreflight = (
+  method: string,
+  response: ServerResponse,
+  allowedHeaders: string[]
+): boolean => {
+  if (method !== "OPTIONS") return false
+  response.writeHead(204, {
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": allowedHeaders.join(", "),
+    "Access-Control-Max-Age": "86400",
+    "X-API-Version": "1",
+    "RateLimit-Policy": '"default";q=60;w=60',
+    RateLimit: '"default";r=60;t=60',
+    "RateLimit-Limit": "60",
+    "RateLimit-Remaining": "60",
+    "RateLimit-Reset": "60"
+  })
+  response.end()
+  return true
+}
+
+const readRequestBody = async (
+  method: string,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<{ ok: boolean; body?: unknown }> => {
+  if (method !== "POST") return { ok: true }
+  try {
+    return { ok: true, body: await readJsonBody(request) }
+  } catch (error) {
+    sendJson(response, 400, {
+      error: {
+        type: "BadRequest",
+        code: "invalid_json",
+        message: (error as Error).message,
+        resolution: "Send valid JSON with Content-Type application/json."
+      }
+    })
+    return { ok: false }
+  }
+}
+
+const findMatchingRoute = (
+  routes: Route[],
+  patterns: Map<Route, string>,
+  method: string,
+  path: string
+): { route: Route; params: Record<string, string> } | null => {
+  for (const route of routes) {
+    if (route.method !== method) continue
+    const params = matchRoute(patterns.get(route) as string, path)
+    if (params) return { route, params }
+  }
+  return null
+}
+
+const runRouteHandler = async (
+  route: Route,
+  routeRequest: RouteRequest,
+  response: ServerResponse
+): Promise<void> => {
+  try {
+    await route.handler(routeRequest, response)
+  } catch (error) {
+    console.error("[Proxy] Unhandled route error:", (error as Error).message)
+    if (!response.headersSent) {
+      sendJson(response, 500, {
+        error: {
+          type: "InternalProxyError",
+          code: "internal_proxy_error",
+          message: (error as Error).message,
+          resolution: "Inspect local olc logs and retry only when safe."
+        }
+      })
+      return
+    }
+    response.end()
+  }
+}
+
 export const createRouter = ({
   allowedHeaders = ["Content-Type", "Authorization"],
   allowedOrigins = [],
@@ -217,136 +320,43 @@ export const createRouter = ({
     const url = new URL(request.url ?? "/", "http://localhost")
     const method = (request.method ?? "GET").toUpperCase()
 
-    // A request without an `Origin` is not from a page: a CLI, a script, or the
-    // extension's own background fetch. Only a browser origin is gated here.
-    const origin = request.headers.origin
-    if (typeof origin === "string" && origin !== "") {
-      if (!isOriginAllowed(origin, allowedOrigins)) {
-        sendJson(response, 403, {
-          error: {
-            type: "Forbidden",
-            code: "origin_not_allowed",
-            message: `Origin ${origin} is not allowed to use this proxy.`,
-            resolution: "Add the exact trusted origin to --allowed-origins."
-          }
-        })
-        return
-      }
-      response.setHeader("Access-Control-Allow-Origin", origin)
-      response.setHeader("Vary", "Origin")
-    }
+    if (!applyOriginPolicy(request, response, allowedOrigins)) return
+    if (handlePreflight(method, response, allowedHeaders)) return
 
-    if (method === "OPTIONS") {
-      response.writeHead(204, {
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": allowedHeaders.join(", "),
-        "Access-Control-Max-Age": "86400",
-        "X-API-Version": "1",
-        "RateLimit-Policy": '"default";q=60;w=60',
-        RateLimit: '"default";r=60;t=60',
-        "RateLimit-Limit": "60",
-        "RateLimit-Remaining": "60",
-        "RateLimit-Reset": "60"
+    const match = findMatchingRoute(routes, patterns, method, url.pathname)
+    if (!match) {
+      sendJson(response, 404, {
+        error: {
+          type: "NotFound",
+          code: "route_not_found",
+          message: `No route for ${method} ${url.pathname}.`,
+          resolution:
+            "Use GET /, GET /health, GET /v1/models, or a documented /v1 endpoint."
+        }
       })
-      response.end()
       return
     }
 
-    for (const route of routes) {
-      if (route.method !== method) continue
-      const params = matchRoute(patterns.get(route) as string, url.pathname)
-      if (!params) continue
-
-      const routeRequest: RouteRequest = {
-        method,
-        path: url.pathname,
-        params,
-        query: url.searchParams,
-        headers: request.headers,
-        body: undefined,
-        raw: request
-      }
-      if (onRequest) onRequest(routeRequest, response)
-      if (authorize && !authorize(routeRequest)) {
-        sendJson(response, 401, {
-          error: {
-            type: "Unauthorized",
-            code: "unauthorized",
-            message: "Bearer authentication failed.",
-            resolution:
-              "Supply Authorization: Bearer <token>, or remove the configured API key."
-          }
-        })
-        return
-      }
-
-      const bucketKey =
-        request.headers.authorization ||
-        request.socket.remoteAddress ||
-        "anonymous"
-      const now = Date.now()
-      const previous = buckets.get(bucketKey)
-      const bucket =
-        !previous || previous.resetAt <= now
-          ? { count: 0, resetAt: now + rateLimit.windowMs }
-          : previous
-      bucket.count += 1
-      buckets.set(bucketKey, bucket)
-      setRateLimitHeaders(
-        response,
-        rateLimit.limit - bucket.count,
-        bucket.resetAt
-      )
-      if (bucket.count > rateLimit.limit) {
-        const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))
-        response.setHeader("Retry-After", String(retryAfter))
-        sendJson(response, 429, {
-          error: {
-            type: "RateLimitExceeded",
-            code: "rate_limit_exceeded",
-            message: "Request rate limit exceeded.",
-            resolution: `Wait ${retryAfter} seconds, then retry with backoff.`
-          }
-        })
-        return
-      }
-
-      if (method === "POST") {
-        try {
-          routeRequest.body = await readJsonBody(request)
-        } catch (error) {
-          sendJson(response, 400, {
-            error: {
-              type: "BadRequest",
-              code: "invalid_json",
-              message: (error as Error).message,
-              resolution: "Send valid JSON with Content-Type application/json."
-            }
-          })
-          return
+    const routeRequest: RouteRequest = {
+      method,
+      path: url.pathname,
+      params: match.params,
+      query: url.searchParams,
+      headers: request.headers,
+      body: undefined,
+      raw: request
+    }
+    if (onRequest) onRequest(routeRequest, response)
+    if (authorize && !authorize(routeRequest)) {
+      sendJson(response, 401, {
+        error: {
+          type: "Unauthorized",
+          code: "unauthorized",
+          message: "Bearer authentication failed.",
+          resolution:
+            "Supply Authorization: Bearer <token>, or remove the configured API key."
         }
-      }
-
-      try {
-        await route.handler(routeRequest, response)
-      } catch (error) {
-        console.error(
-          "[Proxy] Unhandled route error:",
-          (error as Error).message
-        )
-        if (!response.headersSent) {
-          sendJson(response, 500, {
-            error: {
-              type: "InternalProxyError",
-              code: "internal_proxy_error",
-              message: (error as Error).message,
-              resolution: "Inspect local olc logs and retry only when safe."
-            }
-          })
-        } else {
-          response.end()
-        }
-      }
+      })
       return
     }
 
@@ -362,16 +372,30 @@ export const createRouter = ({
         : previous
     bucket.count += 1
     buckets.set(bucketKey, bucket)
-    setRateLimitHeaders(response, rateLimit.limit - bucket.count, bucket.resetAt)
-    sendJson(response, 404, {
-      error: {
-        type: "NotFound",
-        code: "route_not_found",
-        message: `No route for ${method} ${url.pathname}.`,
-        resolution:
-          "Use GET /, GET /health, GET /v1/models, or a documented /v1 endpoint."
-      }
-    })
+    setRateLimitHeaders(
+      response,
+      rateLimit.limit - bucket.count,
+      bucket.resetAt
+    )
+    if (bucket.count > rateLimit.limit) {
+      const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))
+      response.setHeader("Retry-After", String(retryAfter))
+      sendJson(response, 429, {
+        error: {
+          type: "RateLimitExceeded",
+          code: "rate_limit_exceeded",
+          message: "Request rate limit exceeded.",
+          resolution: `Wait ${retryAfter} seconds, then retry with backoff.`
+        }
+      })
+      return
+    }
+
+    const bodyResult = await readRequestBody(method, request, response)
+    if (!bodyResult.ok) return
+    routeRequest.body = bodyResult.body
+
+    await runRouteHandler(match.route, routeRequest, response)
   }
 
   return {

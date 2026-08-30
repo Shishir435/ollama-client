@@ -201,6 +201,49 @@ export const isLocalProviderBaseUrl = (baseUrl?: string): boolean => {
   }
 }
 
+interface ProviderUserMessageContext {
+  lead: string
+  reason: string
+  provider: string
+  providerLower: string
+  selectedModel: string
+  baseUrl?: string
+  retryAfterMs?: number
+}
+
+const retryDelayMessage = (
+  retryAfterMs: number | undefined,
+  fallback: string
+): string =>
+  retryAfterMs
+    ? ` Retry in about ${Math.max(1, Math.ceil(retryAfterMs / 1000))} seconds.`
+    : fallback
+
+const authFailureMessage = (
+  lead: string,
+  baseUrl: string | undefined
+): string =>
+  isLocalProviderBaseUrl(baseUrl)
+    ? `${lead} This is likely a CORS/origin block. Allow chrome-extension://* and moz-extension://* in the provider's CORS or origin settings, then retry. Provider-specific setup: ${EXTERNAL_URLS.SETUP_GUIDE}`
+    : `${lead} Check its credentials, API key, or account access.`
+
+const serverFailureMessage = ({
+  lead,
+  reason,
+  providerLower,
+  selectedModel,
+  baseUrl,
+  retryAfterMs
+}: ProviderUserMessageContext): string => {
+  if (!isLocalProviderBaseUrl(baseUrl)) {
+    return `${lead}${reason} The hosted provider is temporarily unavailable.${retryDelayMessage(
+      retryAfterMs,
+      " Try again shortly."
+    )}`
+  }
+  return `${lead}${reason} Check that ${providerLower} is running, the ${selectedModel} is loaded, and its base URL/port are correct.`
+}
+
 /**
  * Map a provider HTTP status to a clean, user-facing message. Keeps raw
  * provider response bodies (which can be JSON or stack traces) out of the chat
@@ -228,14 +271,21 @@ export const providerErrorUserMessage = (
     : " while generating a response"
   const lead = `${provider}${endpoint} returned HTTP ${status}${operation}.`
   const reason = options.reason ? ` ${options.reason}` : ""
+  const context: ProviderUserMessageContext = {
+    lead,
+    reason,
+    provider,
+    providerLower,
+    selectedModel,
+    baseUrl: options.baseUrl,
+    retryAfterMs: options.retryAfterMs
+  }
+
   if (status === 400) {
     return `${lead}${reason || ` The ${selectedModel} may not support this input — for example, images on a model without vision support.`}`
   }
   if (status === 401 || status === 403) {
-    if (isLocalProviderBaseUrl(options.baseUrl)) {
-      return `${lead} This is likely a CORS/origin block. Allow chrome-extension://* and moz-extension://* in the provider's CORS or origin settings, then retry. Provider-specific setup: ${EXTERNAL_URLS.SETUP_GUIDE}`
-    }
-    return `${lead} Check its credentials, API key, or account access.`
+    return authFailureMessage(lead, options.baseUrl)
   }
   if (status === 404) {
     return `${lead}${reason || ` ${provider} could not find the ${selectedModel} or endpoint.`} Check the model name and ${providerLower}'s base URL.`
@@ -250,23 +300,15 @@ export const providerErrorUserMessage = (
     return `${lead} The provider account has insufficient credits or requires payment. Add credits or choose another provider.`
   }
   if (status === 429) {
-    const retryIn = options.retryAfterMs
-      ? ` Retry in about ${Math.max(1, Math.ceil(options.retryAfterMs / 1000))} seconds.`
-      : " Wait a moment and try again."
-    return `${lead} The provider is rate-limiting requests.${retryIn}`
+    return `${lead} The provider is rate-limiting requests.${retryDelayMessage(
+      options.retryAfterMs,
+      " Wait a moment and try again."
+    )}`
   }
   if (status === 529) {
     return `${lead} The hosted provider is temporarily overloaded. Wait a moment and try again.`
   }
-  if (status >= 500) {
-    if (!isLocalProviderBaseUrl(options.baseUrl)) {
-      const retryIn = options.retryAfterMs
-        ? ` Retry in about ${Math.max(1, Math.ceil(options.retryAfterMs / 1000))} seconds.`
-        : " Try again shortly."
-      return `${lead}${reason} The hosted provider is temporarily unavailable.${retryIn}`
-    }
-    return `${lead}${reason} Check that ${providerLower} is running, the ${selectedModel} is loaded, and its base URL/port are correct.`
-  }
+  if (status >= 500) return serverFailureMessage(context)
   return `${lead}${reason} Check ${providerLower}, the ${selectedModel}, and its server logs.`
 }
 

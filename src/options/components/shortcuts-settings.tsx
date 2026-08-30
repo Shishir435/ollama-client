@@ -23,8 +23,49 @@ const CATEGORY_LABELS = {
   toggles: "Toggles"
 } as const
 
+const MODIFIER_KEYS = ["Control", "Alt", "Meta", "Shift"]
+
 const shortcutFocusId = (id: ShortcutAction) =>
   `shortcut-${id.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()}`
+
+const isPlainEscape = (event: KeyboardEvent): boolean =>
+  event.key === "Escape" &&
+  !event.altKey &&
+  !event.ctrlKey &&
+  !event.metaKey &&
+  !event.shiftKey
+
+const getShortcutModifiers = (
+  event: KeyboardEvent,
+  isMac: boolean
+): string[] => {
+  const modifiers: string[] = []
+  if (event.metaKey && isMac) modifiers.push("Mod")
+  if (event.ctrlKey && !isMac) modifiers.push("Mod")
+  if (event.ctrlKey && isMac) modifiers.push("Ctrl")
+  if (event.altKey) modifiers.push("Alt")
+  if (event.shiftKey) modifiers.push("Shift")
+  return modifiers
+}
+
+const normalizeShortcutKey = (event: KeyboardEvent): string => {
+  if (event.altKey && event.code.startsWith("Key")) {
+    return event.code.replace("Key", "")
+  }
+  if (event.altKey && event.code.startsWith("Digit")) {
+    return event.code.replace("Digit", "")
+  }
+
+  const keyNames: Record<string, string> = {
+    " ": "Space",
+    Escape: "Escape",
+    Delete: "Delete",
+    Backspace: "Backspace"
+  }
+  const namedKey = keyNames[event.key]
+  if (namedKey) return namedKey
+  return event.key.length === 1 ? event.key.toUpperCase() : event.key
+}
 
 export const ShortcutsSettings = () => {
   const { t } = useTranslation()
@@ -95,56 +136,20 @@ export const ShortcutsSettings = () => {
   useEffect(() => {
     if (!recordingAction) return
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
+    const handleKeyDown = (event: KeyboardEvent) => {
+      event.preventDefault()
+      event.stopPropagation()
 
-      if (["Control", "Alt", "Meta", "Shift"].includes(e.key)) {
-        return
-      }
-
-      // Cancel on Escape
-      if (
-        e.key === "Escape" &&
-        !e.altKey &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.shiftKey
-      ) {
+      if (MODIFIER_KEYS.includes(event.key)) return
+      if (isPlainEscape(event)) {
         setRecordingAction(null)
         return
       }
 
-      const modifiers = []
-      if (e.metaKey && isMac) modifiers.push("Mod")
-      if (e.ctrlKey && !isMac) modifiers.push("Mod")
-      if (e.ctrlKey && isMac) modifiers.push("Ctrl")
-      if (e.altKey) modifiers.push("Alt")
-      if (e.shiftKey) modifiers.push("Shift")
-
-      // On Mac, Option+key produces special characters (e.g., Option+G = ©)
-      // Use e.code to get the actual physical key pressed
-      let key = e.key
-
-      // Extract letter from KeyX codes when Alt is pressed (Mac produces special chars)
-      if (e.altKey && e.code.startsWith("Key")) {
-        key = e.code.replace("Key", "")
-      } else if (e.altKey && e.code.startsWith("Digit")) {
-        key = e.code.replace("Digit", "")
-      } else if (key === " ") {
-        key = "Space"
-      } else if (key === "Escape") {
-        key = "Escape"
-      } else if (key === "Delete") {
-        key = "Delete"
-      } else if (key === "Backspace") {
-        key = "Backspace"
-      } else if (key.length === 1) {
-        key = key.toUpperCase()
-      }
-
-      const newShortcut = [...modifiers, key].join("+")
-
+      const newShortcut = [
+        ...getShortcutModifiers(event, isMac),
+        normalizeShortcutKey(event)
+      ].join("+")
       const conflictAction = hasConflict(newShortcut, recordingAction)
       if (conflictAction) {
         setConflictWarning(

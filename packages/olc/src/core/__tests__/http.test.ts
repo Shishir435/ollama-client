@@ -5,8 +5,9 @@ import {
   createRouter,
   isOriginAllowed,
   matchRoute,
+  type RouteRequest,
   sendJson,
-  type RouteRequest
+  startEventStream
 } from "../http.js"
 
 describe("matchRoute", () => {
@@ -71,6 +72,10 @@ describe("router origin policy", () => {
     router.post("/v1/chat/completions", (_request, response) =>
       sendJson(response, 200, { ok: true })
     )
+    router.get("/stream", (_request, response) => {
+      startEventStream(response)
+      response.end("data: [DONE]\n\n")
+    })
     server = createServer((request, response) => {
       void router.handle(request, response)
     })
@@ -142,7 +147,7 @@ describe("router origin policy", () => {
     expect(first.status).toBe(404)
     expect(first.headers.get("content-type")).toContain("application/json")
     expect(first.headers.get("x-api-version")).toBe("1")
-    expect(first.headers.get("ratelimit-remaining")).toBe("0")
+    expect(first.headers.get("ratelimit-remaining")).toBe("60")
     expect(await first.json()).toEqual({
       error: {
         type: "NotFound",
@@ -153,7 +158,11 @@ describe("router origin policy", () => {
       }
     })
 
-    const limited = await fetch(`${url}/missing`)
+    const consumed = await post(url)
+    expect(consumed.status).toBe(200)
+    expect(consumed.headers.get("ratelimit-remaining")).toBe("0")
+
+    const limited = await post(url)
     expect(limited.status).toBe(429)
     expect(limited.headers.get("retry-after")).toBeTruthy()
     const errorBody = (await limited.json()) as { error: { code: string } }
@@ -173,5 +182,14 @@ describe("router origin policy", () => {
     const authorized = await post(url, { Authorization: "Bearer valid" })
     expect(authorized.status).toBe(200)
     expect(authorized.headers.get("ratelimit-remaining")).toBe("0")
+  })
+
+  it("keeps calculated rate-limit headers on SSE responses", async () => {
+    const url = await startServer([], { limit: 1, windowMs: 60_000 })
+    const response = await fetch(`${url}/stream`)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toContain("text/event-stream")
+    expect(response.headers.get("ratelimit-remaining")).toBe("0")
   })
 })

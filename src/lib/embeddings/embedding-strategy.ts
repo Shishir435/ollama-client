@@ -516,6 +516,39 @@ export const getEmbeddingCapabilities =
     }
   }
 
+const recordEmbeddingRouteFailure = async ({
+  error,
+  attempt,
+  sharedAttempt,
+  attemptedRoutes,
+  routeErrors,
+  routeFailures
+}: {
+  error: unknown
+  attempt: EmbedAttempt
+  sharedAttempt?: EmbedAttempt
+  attemptedRoutes: EmbeddingRoute[]
+  routeErrors: string[]
+  routeFailures: unknown[]
+}): Promise<void> => {
+  if (isAbortError(error)) throw error
+
+  const errorMessage = getErrorMessage(error)
+  routeErrors.push(`${attempt.route}: ${errorMessage}`)
+  routeFailures.push(error)
+  logger.warn(`Embedding route failed: ${attempt.route}`, "EmbeddingStrategy", {
+    providerId: attempt.providerId,
+    model: attempt.model,
+    error
+  })
+
+  if (attempt.route !== "shared-model" || !sharedAttempt) return
+  attemptedRoutes.push("shared-model-warmup")
+  const config = await getEmbeddingConfig()
+  if (!config.warmupEmbeddingsInBackground) return
+  void scheduleSharedModelWarmup(sharedAttempt.providerId, sharedAttempt.model)
+}
+
 /**
  * Robust embedding generation that tries multiple providers and models based on user preference.
  * Use this as the primary entry point for vectorizing text in the extension.
@@ -545,36 +578,14 @@ export const generateEmbeddingWithStrategy = async (
         return result
       }
     } catch (error) {
-      // A cancelled request is not a failed route: falling through to the next
-      // provider would start the network work the caller just asked to stop.
-      if (isAbortError(error)) {
-        throw error
-      }
-
-      const errorMessage = getErrorMessage(error)
-      routeErrors.push(`${attempt.route}: ${errorMessage}`)
-      routeFailures.push(error)
-      logger.warn(
-        `Embedding route failed: ${attempt.route}`,
-        "EmbeddingStrategy",
-        {
-          providerId: attempt.providerId,
-          model: attempt.model,
-          error
-        }
-      )
-
-      // Shared model failure in auto path triggers best-effort background warmup.
-      if (attempt.route === "shared-model" && sharedAttempt) {
-        attemptedRoutes.push("shared-model-warmup")
-        const config = await getEmbeddingConfig()
-        if (config.warmupEmbeddingsInBackground) {
-          void scheduleSharedModelWarmup(
-            sharedAttempt.providerId,
-            sharedAttempt.model
-          )
-        }
-      }
+      await recordEmbeddingRouteFailure({
+        error,
+        attempt,
+        sharedAttempt,
+        attemptedRoutes,
+        routeErrors,
+        routeFailures
+      })
     }
   }
 

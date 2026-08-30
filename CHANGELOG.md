@@ -9,6 +9,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.13.3]
+
+### Development
+
+- Release metadata checks now reject a missing current-version changelog entry
+  while workspace package versions continue to use the existing dynamic
+  package-discovery contract.
+- Packaged Chromium provider regression coverage now blocks on fragmented or
+  malformed SSE handling plus HTTP and connection-failure propagation through
+  durable turns, while custom provider base URLs remain fully configurable.
+- Biome now enforces an initial cognitive-complexity ceiling so newly changed
+  code cannot grow unchecked while the threshold is tightened incrementally.
+
 ## [0.13.2]
 
 ### Added
@@ -20,9 +33,6 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   request shape supported by each provider.
 
 ### Fixed
-
-- File RAG keyword search now indexes filenames, so questions referencing
-  hyphenated filenames such as `ChatGPT-Memory.txt` retrieve their contents.
 
 - RAG query reformulation now reuses the selected model's context, thread, GPU,
   batch, and keep-alive settings. Ollama no longer restarts the runner between a
@@ -979,8 +989,10 @@ No functional changes: this release is store metadata only.
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.13.2...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.13.3...HEAD
+[0.13.3]: https://github.com/Shishir435/ollama-client/compare/0.13.2...0.13.3
 [0.13.2]: https://github.com/Shishir435/ollama-client/compare/0.13.1...0.13.2
+[0.13.1]: https://github.com/Shishir435/ollama-client/compare/0.13.0...0.13.1
 [0.13.0]: https://github.com/Shishir435/ollama-client/compare/0.12.8...0.13.0
 [0.12.8]: https://github.com/Shishir435/ollama-client/compare/0.12.7...0.12.8
 [0.12.7]: https://github.com/Shishir435/ollama-client/compare/0.12.6...0.12.7
