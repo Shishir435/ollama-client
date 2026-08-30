@@ -32,18 +32,24 @@ interface CacheEntry {
   routeFingerprint: string
   model: string
   providerId: string
+  dimension: number
 }
 
 const embeddingCache = new Map<string, CacheEntry>()
 const CACHE_MAX_SIZE = 100
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
-const hashContent = (text: string): string => {
-  let hash = 0
-  for (let i = 0; i < text.length; i++) {
-    hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0
-  }
-  return `${hash.toString(36)}:${text.length.toString(36)}`
+/**
+ * Hash the complete UTF-8 payload. Sampling or a 32-bit rolling hash makes
+ * long chunks vulnerable to silent cache collisions, which are especially
+ * costly here because the wrong vector still looks valid to the index.
+ */
+const hashContent = async (text: string): Promise<string> => {
+  const bytes = new TextEncoder().encode(text)
+  const digest = await crypto.subtle.digest("SHA-256", bytes)
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("")
 }
 
 const cleanExpiredCache = (): void => {
@@ -54,16 +60,41 @@ const cleanExpiredCache = (): void => {
 }
 
 const readCachedEmbedding = (
-  cacheKey: string | undefined,
+  contentHash: string | undefined,
+  routeFingerprint: string | undefined,
   enabled: boolean
 ): EmbeddingResult | undefined => {
-  if (!enabled || !cacheKey) return undefined
-  const cached = embeddingCache.get(cacheKey)
-  if (!cached) return undefined
-  if (Date.now() - cached.timestamp >= CACHE_TTL_MS) {
-    embeddingCache.delete(cacheKey)
-    return undefined
+  if (!enabled || !contentHash || !routeFingerprint) return undefined
+
+  const prefix = `${contentHash}:${routeFingerprint}:`
+  const candidates: Array<[string, CacheEntry]> = []
+  for (const [key, entry] of embeddingCache.entries()) {
+    if (!key.startsWith(prefix)) continue
+    if (Date.now() - entry.timestamp >= CACHE_TTL_MS) {
+      embeddingCache.delete(key)
+      continue
+    }
+    // Keep the identity fields redundant with the key: this makes a future
+    // cache-format change fail closed instead of trusting a stale entry.
+    if (
+      entry.routeFingerprint === routeFingerprint &&
+      typeof entry.providerId === "string" &&
+      entry.providerId.length > 0 &&
+      typeof entry.model === "string" &&
+      entry.model.length > 0 &&
+      Array.isArray(entry.embedding) &&
+      Number.isInteger(entry.dimension) &&
+      entry.dimension > 0 &&
+      entry.dimension === entry.embedding.length
+    ) {
+      candidates.push([key, entry])
+    }
   }
+
+  // A provider can change vector dimensions without changing its URL/model.
+  // If both generations are present, do not guess which one is current.
+  if (candidates.length !== 1) return undefined
+  const [, cached] = candidates[0]
   return {
     embedding: cached.embedding,
     model: cached.model,
@@ -86,33 +117,45 @@ const evictOldestCacheEntry = (now: number): void => {
 
 const writeCachedEmbedding = ({
   enabled,
-  cacheKey,
+  contentHash,
   expectedRouteFingerprint,
   resolved
 }: {
   enabled: boolean
-  cacheKey?: string
+  contentHash?: string
   expectedRouteFingerprint?: string
   resolved: Awaited<ReturnType<typeof generateEmbeddingWithStrategy>>
 }): void => {
   if (
     !enabled ||
-    !cacheKey ||
-    resolved.routeFingerprint !== expectedRouteFingerprint
+    !contentHash ||
+    !expectedRouteFingerprint ||
+    resolved.routeFingerprint !== expectedRouteFingerprint ||
+    resolved.embedding.length === 0
   ) {
     return
   }
+  const dimension = resolved.embedding.length
   const now = Date.now()
+  const prefix = `${contentHash}:${resolved.routeFingerprint}:`
+  // A provider may change dimensions without changing its route identity.
+  // Keep only the newest generation so a dimension change repairs cache
+  // efficiency on the write that discovers it.
+  for (const key of embeddingCache.keys()) {
+    if (key.startsWith(prefix)) embeddingCache.delete(key)
+  }
   if (embeddingCache.size > 0 && embeddingCache.size % 10 === 0) {
     cleanExpiredCache()
   }
   evictOldestCacheEntry(now)
+  const cacheKey = `${contentHash}:${resolved.routeFingerprint}:${dimension}`
   embeddingCache.set(cacheKey, {
     embedding: resolved.embedding,
     timestamp: now,
     routeFingerprint: resolved.routeFingerprint,
     model: resolved.model,
-    providerId: resolved.providerId
+    providerId: resolved.providerId,
+    dimension
   })
 }
 
@@ -136,10 +179,12 @@ export const generateEmbedding = async (
 ): Promise<EmbeddingResult | EmbeddingError> => {
   const resolvedConfig = config ?? (await getEmbeddingConfig())
   const plan = options.plan ?? (await resolveEmbeddingPlan(modelName))
-  const cacheKey = plan.cacheFingerprint
-    ? `${hashContent(text)}:${plan.cacheFingerprint}`
-    : undefined
-  const cached = readCachedEmbedding(cacheKey, resolvedConfig.enableCaching)
+  const contentHash = await hashContent(text)
+  const cached = readCachedEmbedding(
+    contentHash,
+    plan.cacheFingerprint,
+    resolvedConfig.enableCaching
+  )
   if (cached) return cached
 
   try {
@@ -149,7 +194,7 @@ export const generateEmbedding = async (
     })
     writeCachedEmbedding({
       enabled: resolvedConfig.enableCaching,
-      cacheKey,
+      contentHash,
       expectedRouteFingerprint: plan.cacheFingerprint,
       resolved
     })
