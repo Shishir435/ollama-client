@@ -1,7 +1,7 @@
 import type { AppFailure } from "@ollama-client/contracts/app-failure"
 import { abortableDelay } from "@/lib/abortable-delay"
 import type { EmbeddingConfig } from "@/lib/constants"
-import { getErrorMessage, isAbortError } from "@/lib/error-utils"
+import { isAbortError } from "@/lib/error-utils"
 import { toAppFailure } from "@/protocol/app-failure"
 import { getEmbeddingConfig } from "./config"
 import {
@@ -122,7 +122,7 @@ const embeddingFailure = (error: unknown): EmbeddingError => {
     fallbackMessage: "Error generating embedding"
   })
   return {
-    error: `Error generating embedding: ${getErrorMessage(error)}`,
+    error: failure.userMessage ?? "Error generating embedding",
     code: failure.code ?? (failure.kind === "abort" ? "ABORTED" : undefined),
     failure
   }

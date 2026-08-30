@@ -20,6 +20,13 @@ const jsonResponse = (body: unknown): Response =>
     json: () => Promise.resolve(body)
   }) as unknown as Response
 
+const errorResponse = (status: number, body: string): Response =>
+  ({
+    ok: false,
+    status,
+    text: () => Promise.resolve(body)
+  }) as unknown as Response
+
 const openAiProvider = () =>
   new OpenAICompatibleProvider({
     id: "custom:openai:test",
@@ -157,6 +164,25 @@ describe("Ollama embeddings", () => {
     expect(isAppError(error)).toBe(true)
     if (isAppError(error)) {
       expect(error.phase).toBe("response")
+    }
+  })
+
+  it("sanitizes legacy endpoint bodies in the structured error", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(errorResponse(404, "apiKey=private-value"))
+      .mockResolvedValueOnce(
+        errorResponse(500, "stack trace and apiKey=private-value")
+      )
+
+    const error = await ollamaProvider()
+      .embed("hello", "nomic-embed-text")
+      .catch((thrown: unknown) => thrown)
+
+    expect(isAppError(error)).toBe(true)
+    if (isAppError(error)) {
+      expect(error.userMessage).toContain("returned HTTP 500")
+      expect(error.userMessage).not.toContain("private-value")
+      expect(error.debug).toContain("private-value")
     }
   })
 

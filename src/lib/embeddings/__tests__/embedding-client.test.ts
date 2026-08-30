@@ -94,7 +94,7 @@ describe("Embedding Client", () => {
 
       expect(result).toHaveProperty("error")
       if ("error" in result) {
-        expect(result.error).toContain("500")
+        expect(result.error).toBe("Error generating embedding")
       }
     })
 
@@ -105,7 +105,7 @@ describe("Embedding Client", () => {
 
       expect(result).toHaveProperty("error")
       if ("error" in result) {
-        expect(result.error).toContain("Network error")
+        expect(result.error).toBe("Error generating embedding")
       }
     })
 
@@ -122,7 +122,7 @@ describe("Embedding Client", () => {
 
       expect(result).toHaveProperty("error")
       if ("error" in result) {
-        expect(result.error).toContain("Provider error")
+        expect(result.error).toBe("Error generating embedding")
       }
     })
 

@@ -21,6 +21,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   durable turns, while custom provider base URLs remain fully configurable.
 - Biome now enforces an initial cognitive-complexity ceiling so newly changed
   code cannot grow unchecked while the threshold is tightened incrementally.
+- Embedding generation from extension pages now crosses the validated,
+  background-owned `embeddings.generate` RPC. The RPC preserves model/provider
+  identity, forwards cancellation, and bounds stalled provider work with a
+  generous 15-minute deadline. Background RAG uses an application service seam;
+  full strategy/cache ownership migration continues in 0.13.3.
 
 ## [0.13.2]
 
@@ -33,6 +38,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   request shape supported by each provider.
 
 ### Fixed
+
+- File RAG keyword search now indexes filenames, so questions referencing
+  hyphenated filenames such as `ChatGPT-Memory.txt` retrieve their contents.
 
 - RAG query reformulation now reuses the selected model's context, thread, GPU,
   batch, and keep-alive settings. Ollama no longer restarts the runner between a
