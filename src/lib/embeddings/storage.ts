@@ -485,7 +485,12 @@ export const fromDocuments = async (
   for (const doc of documents) {
     try {
       options.signal?.throwIfAborted()
-      const embeddingResult = await EmbeddingService.generate(doc.pageContent)
+      const embeddingResult = await EmbeddingService.generate(
+        doc.pageContent,
+        undefined,
+        undefined,
+        options.signal ? { signal: options.signal } : {}
+      )
       options.signal?.throwIfAborted()
 
       if ("error" in embeddingResult) {
@@ -538,10 +543,17 @@ export const storeChatMessage = async (
     chatId?: string
     title?: string
     messageId?: number
-  }
+  },
+  signal?: AbortSignal
 ): Promise<number> => {
   try {
-    const embeddingResult = await EmbeddingService.generate(content)
+    signal?.throwIfAborted()
+    const embeddingResult = await EmbeddingService.generate(
+      content,
+      undefined,
+      undefined,
+      signal ? { signal } : {}
+    )
 
     if ("error" in embeddingResult) {
       logger.error(
@@ -554,6 +566,7 @@ export const storeChatMessage = async (
       return 0
     }
 
+    signal?.throwIfAborted()
     return storeVector(content, embeddingResult.embedding, {
       ...metadata,
       type: "chat",

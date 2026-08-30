@@ -1125,7 +1125,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
       reader.releaseLock()
     }
   }
-  async getModelDetails(_model: string): Promise<null> {
+  async getModelDetails(_model: string, _signal?: AbortSignal): Promise<null> {
     return null
   }
 

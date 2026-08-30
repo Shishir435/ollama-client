@@ -28,9 +28,11 @@ import type {
 export const resolveRetrievalToolsActive = async (
   modelId: string,
   providerId: string | undefined,
-  latestUserText: string
+  latestUserText: string,
+  signal?: AbortSignal
 ): Promise<boolean> => {
   try {
+    signal?.throwIfAborted()
     const provider = await ProviderFactory.getProviderForModel(
       modelId,
       providerId
@@ -39,10 +41,13 @@ export const resolveRetrievalToolsActive = async (
       modelId,
       providerId,
       provider,
-      latestUserText
+      latestUserText,
+      undefined,
+      signal
     )
     return hasRetrievalTool(resolved)
   } catch (error) {
+    if (signal?.aborted) throw error
     logger.debug(
       "Failed to resolve retrieval tools for context gating; auto-injecting",
       "handleBuildContext",
@@ -86,7 +91,8 @@ export const handleBuildContext = async (
     const retrievalToolsActive = await resolveRetrievalToolsActive(
       modelId,
       p.selectedModelRef?.providerId,
-      p.rawInput
+      p.rawInput,
+      controller.signal
     )
 
     const output = await new ContextService().build({

@@ -177,8 +177,10 @@ export const generateEmbedding = async (
   config?: EmbeddingConfig,
   options: { plan?: EmbeddingPlan; signal?: AbortSignal } = {}
 ): Promise<EmbeddingResult | EmbeddingError> => {
+  options.signal?.throwIfAborted()
   const resolvedConfig = config ?? (await getEmbeddingConfig())
   const plan = options.plan ?? (await resolveEmbeddingPlan(modelName))
+  options.signal?.throwIfAborted()
   const contentHash = await hashContent(text)
   const cached = readCachedEmbedding(
     contentHash,

@@ -32,6 +32,7 @@ export const withRetrievalToolState = async (
   submission: TurnSubmission,
   options: BuildRagContextOptions
 ): Promise<BuildRagContextOptions> => {
+  const signal = contextAbortSignal(submission.id)
   const context = submission.request.context
   const model =
     context.customModel ||
@@ -40,12 +41,13 @@ export const withRetrievalToolState = async (
   const retrievalToolsActive = await resolveRetrievalToolsActive(
     model,
     submission.providerId,
-    context.rawInput
+    context.rawInput,
+    signal
   )
   return {
     ...options,
     retrievalToolsActive,
-    signal: contextAbortSignal(submission.id)
+    signal
   }
 }
 
