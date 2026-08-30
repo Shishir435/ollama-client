@@ -126,6 +126,15 @@ describe("Embedding Client", () => {
       }
     })
 
+    it("rejects non-finite vectors from a provider route", async () => {
+      mockEmbed.mockResolvedValue([0.1, Number.NaN, 0.3])
+
+      const result = await generateEmbedding("invalid-vector")
+
+      expect(result).toHaveProperty("error")
+      expect(mockEmbed).toHaveBeenCalledTimes(2)
+    })
+
     /**
      * Every cause used to arrive as one string with code NETWORK_ERROR, so a
      * caller could not tell an abort from an unreachable provider and no

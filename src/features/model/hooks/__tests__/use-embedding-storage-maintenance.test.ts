@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: mocks.toast })
 }))
-vi.mock("@/lib/embeddings/embedding-client", () => ({
+vi.mock("@/application/embeddings/embedding-service", () => ({
   getCacheStats: mocks.getCacheStats
 }))
 vi.mock("@/lib/embeddings/vector-store", () => ({
