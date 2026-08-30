@@ -13,7 +13,6 @@ export interface SearchCacheEntry {
 
 export const searchCache = new Map<string, SearchCacheEntry>()
 
-/** Mark a cache hit as recently used while preserving insertion-order LRU. */
 /**
  * Gets cache configuration from settings
  */
