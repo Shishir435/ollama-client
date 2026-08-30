@@ -63,15 +63,20 @@ export const extensionRpcClient = {
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined
     try {
-      const rawResponse = await Promise.race([
-        browser.runtime.sendMessage(envelope),
-        new Promise<never>((_resolve, reject) => {
-          timeoutId = setTimeout(() => {
-            cancelRpcRequest(requestId)
-            reject(timeoutError(method))
-          }, definition.timeoutMs)
-        })
-      ])
+      const responsePromises: Promise<unknown>[] = [
+        browser.runtime.sendMessage(envelope)
+      ]
+      if (definition.timeoutMs !== undefined) {
+        responsePromises.push(
+          new Promise<never>((_resolve, reject) => {
+            timeoutId = setTimeout(() => {
+              cancelRpcRequest(requestId)
+              reject(timeoutError(method))
+            }, definition.timeoutMs)
+          })
+        )
+      }
+      const rawResponse = await Promise.race(responsePromises)
       const responseSchema = createRpcResponseEnvelopeSchema(
         definition.response
       )

@@ -38,7 +38,11 @@ describe("RPC method registry", () => {
     expect(definition.request).toBeDefined()
     expect(definition.response).toBeDefined()
     expect(definition.allowedSources.length).toBeGreaterThan(0)
-    expect(definition.timeoutMs).toBeGreaterThan(0)
+    if (method === RpcMethod.EmbeddingsGenerate) {
+      expect(definition.timeoutMs).toBeUndefined()
+    } else {
+      expect(definition.timeoutMs).toBeGreaterThan(0)
+    }
     expect(["query", "command"]).toContain(definition.operation)
   })
 
@@ -53,13 +57,10 @@ describe("RPC method registry", () => {
     }
   })
 
-  it("allows cold embedding work the same deadline as preparation", () => {
+  it("leaves embedding generation deadline-free", () => {
     expect(RPC_METHOD_DEFINITIONS[RpcMethod.EmbeddingsGenerate].timeoutMs).toBe(
-      300_000
+      undefined
     )
-    expect(
-      RPC_METHOD_DEFINITIONS[RpcMethod.EmbeddingsPrepareModel].timeoutMs
-    ).toBe(300_000)
   })
 
   it("requires explicit review before classifying a method as a query", () => {

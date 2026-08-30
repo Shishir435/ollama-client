@@ -299,10 +299,10 @@ export const handleRpcRequest = async (
 
   const controller = new AbortController()
   activeRequests.set(requestId, controller)
-  const serverTimeoutId = setTimeout(
-    () => controller.abort(),
-    definition.timeoutMs
-  )
+  const serverTimeoutId =
+    definition.timeoutMs === undefined
+      ? undefined
+      : setTimeout(() => controller.abort(), definition.timeoutMs)
 
   let status = "success"
   let errorCode: RpcErrorCode | undefined
@@ -341,7 +341,7 @@ export const handleRpcRequest = async (
       })
     }
   } finally {
-    clearTimeout(serverTimeoutId)
+    if (serverTimeoutId !== undefined) clearTimeout(serverTimeoutId)
     if (activeRequests.get(requestId) === controller) {
       activeRequests.clear(requestId)
     }

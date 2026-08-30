@@ -52,7 +52,7 @@ export interface RpcMethodDefinition {
   request: z.ZodType
   response: z.ZodType
   allowedSources: readonly RpcSource[]
-  timeoutMs: number
+  timeoutMs?: number
   operation: "query" | "command"
 }
 
@@ -63,7 +63,7 @@ const extensionPagesOnly = ["extension-page"] as const
  * operation rather than a global default: model warmup and embedding prepare
  * may perform cold-start or pull work, while ordinary queries stay bounded.
  */
-export const RPC_METHOD_DEFINITIONS = {
+export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
   [RpcMethod.ProvidersList]: {
     request: ProvidersListRequestSchema,
     response: ProvidersListResultSchema,
@@ -189,10 +189,6 @@ export const RPC_METHOD_DEFINITIONS = {
     request: EmbeddingsGenerateRequestSchema,
     response: EmbeddingsGenerateResultSchema,
     allowedSources: extensionPagesOnly,
-    // Cold embedding models can take as long as model preparation. Keep the
-    // page request bounded, but do not abort valid migration or indexing work
-    // before the preparation RPC's 300-second ceiling.
-    timeoutMs: 300_000,
     operation: "query"
   },
   [RpcMethod.IngestionSubmit]: {
@@ -272,7 +268,7 @@ export const RPC_METHOD_DEFINITIONS = {
     timeoutMs: 5_000,
     operation: "command"
   }
-} as const satisfies Record<RpcMethod, RpcMethodDefinition>
+}
 
 import {
   DiagnosticsClearRequestSchema,
