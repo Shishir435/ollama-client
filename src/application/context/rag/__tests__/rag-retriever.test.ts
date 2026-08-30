@@ -262,7 +262,12 @@ describe("retrieveContextFromSources", () => {
       "@/application/embeddings/embedding-service"
     )
     const { formatEnhancedResults } = await import("../rag-pipeline")
+    const { chunkDocuments } = await import("@/lib/embeddings/chunker")
     vi.mocked(formatEnhancedResults).mockClear()
+    vi.mocked(chunkDocuments).mockResolvedValueOnce([
+      { pageContent: "keyword content for mixed batch", metadata: {} },
+      { pageContent: "another keyword chunk", metadata: {} }
+    ] as any)
 
     vi.mocked(generateEmbeddingsBatch).mockResolvedValueOnce([
       { embedding: [0.1, 0.2], model: "test-model", providerId: "ollama" },

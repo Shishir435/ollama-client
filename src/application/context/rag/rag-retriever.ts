@@ -276,13 +276,18 @@ const collectEmbeddingCandidates = ({
 }): {
   results: EnhancedSearchResult[]
   allCandidates: EnhancedSearchResult[]
+  failedIndexes: number[]
 } => {
   const results: EnhancedSearchResult[] = []
   const allCandidates: EnhancedSearchResult[] = []
+  const failedIndexes: number[] = []
 
   for (let index = 0; index < embeddings.length; index += 1) {
     const e = embeddings[index]
-    if ("error" in e) continue
+    if ("error" in e) {
+      failedIndexes.push(index)
+      continue
+    }
 
     const similarity = cosineSimilarity(queryEmbedding, e.embedding)
     const candidate: EnhancedSearchResult = {
@@ -297,7 +302,7 @@ const collectEmbeddingCandidates = ({
     if (similarity >= minSimilarity) results.push(candidate)
   }
 
-  return { results, allCandidates }
+  return { results, allCandidates, failedIndexes }
 }
 
 const appendFallbackCandidates = (
@@ -379,13 +384,28 @@ export async function retrieveContextFromSources(
   )
   const minSimilarity =
     options.minSimilarity ?? (await knowledgeConfig.getMinSimilarity())
-  const { results, allCandidates } = collectEmbeddingCandidates({
+  const { results, allCandidates, failedIndexes } = collectEmbeddingCandidates({
     chunks,
     embeddings,
     queryEmbedding: queryEmbedding.embedding,
     minSimilarity,
     timestamp
   })
+  if (failedIndexes.length > 0 && results.length > 0) {
+    const terms = tokenizeQuery(query)
+    const keywordScores = failedIndexes.map((index) => ({
+      index,
+      score: scoreKeywordMatch(chunks[index].pageContent, terms)
+    }))
+    const maxScore = Math.max(...keywordScores.map(({ score }) => score), 0)
+    for (const { index, score } of keywordScores) {
+      if (score === 0) continue
+      results.push({
+        document: buildSourceVectorDocument(chunks[index], [], timestamp),
+        score: (score / maxScore) * minSimilarity
+      })
+    }
+  }
   appendFallbackCandidates(results, allCandidates, minSimilarity)
 
   if (results.length === 0) {
