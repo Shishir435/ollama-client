@@ -1,13 +1,13 @@
-import { knowledgeConfig } from "@/lib/config/knowledge-config"
-import { type ChunkDocument, chunkDocuments } from "@/lib/embeddings/chunker"
-import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import {
   cosineSimilarity,
   type EmbeddingError,
   type EmbeddingResult,
   generateEmbedding,
   generateEmbeddingsBatch
-} from "@/lib/embeddings/embedding-client"
+} from "@/application/embeddings/embedding-service"
+import { knowledgeConfig } from "@/lib/config/knowledge-config"
+import { type ChunkDocument, chunkDocuments } from "@/lib/embeddings/chunker"
+import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import {
   getAllDocuments,
   type VectorDocument

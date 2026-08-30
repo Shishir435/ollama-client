@@ -31,6 +31,11 @@ export type RouteHandler = (
   response: ServerResponse
 ) => void | Promise<void>
 
+export interface RateLimitConfig {
+  limit: number
+  windowMs: number
+}
+
 interface Route {
   method: string
   segments: string[]
@@ -44,20 +49,42 @@ export const sendJson = (
 ): void => {
   if (response.writableEnded) return
   const body = JSON.stringify(payload)
-  response.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(body)
-  })
+  response.setHeader("Content-Type", "application/json; charset=utf-8")
+  response.setHeader("Content-Length", Buffer.byteLength(body))
+  if (!response.hasHeader("X-API-Version"))
+    response.setHeader("X-API-Version", "1")
+  if (!response.hasHeader("RateLimit-Policy"))
+    response.setHeader("RateLimit-Policy", '"default";q=60;w=60')
+  if (!response.hasHeader("RateLimit"))
+    response.setHeader("RateLimit", '"default";r=60;t=60')
+  if (!response.hasHeader("RateLimit-Limit"))
+    response.setHeader("RateLimit-Limit", "60")
+  if (!response.hasHeader("RateLimit-Remaining"))
+    response.setHeader("RateLimit-Remaining", "60")
+  if (!response.hasHeader("RateLimit-Reset"))
+    response.setHeader("RateLimit-Reset", "60")
+  response.writeHead(statusCode)
   response.end(body)
 }
 
 export const startEventStream = (response: ServerResponse): void => {
-  response.writeHead(200, {
-    "Content-Type": "text/event-stream; charset=utf-8",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no"
-  })
+  response.setHeader("Content-Type", "text/event-stream; charset=utf-8")
+  response.setHeader("Cache-Control", "no-cache")
+  response.setHeader("Connection", "keep-alive")
+  response.setHeader("X-Accel-Buffering", "no")
+  if (!response.hasHeader("X-API-Version"))
+    response.setHeader("X-API-Version", "1")
+  if (!response.hasHeader("RateLimit-Policy"))
+    response.setHeader("RateLimit-Policy", '"default";q=60;w=60')
+  if (!response.hasHeader("RateLimit"))
+    response.setHeader("RateLimit", '"default";r=60;t=60')
+  if (!response.hasHeader("RateLimit-Limit"))
+    response.setHeader("RateLimit-Limit", "60")
+  if (!response.hasHeader("RateLimit-Remaining"))
+    response.setHeader("RateLimit-Remaining", "60")
+  if (!response.hasHeader("RateLimit-Reset"))
+    response.setHeader("RateLimit-Reset", "60")
+  response.writeHead(200)
   if (typeof response.flushHeaders === "function") response.flushHeaders()
 }
 
@@ -145,8 +172,10 @@ const applyOriginPolicy = (
   if (!isOriginAllowed(origin, allowedOrigins)) {
     sendJson(response, 403, {
       error: {
-        message: `Origin ${origin} is not allowed to use this proxy`,
-        type: "Forbidden"
+        type: "Forbidden",
+        code: "origin_not_allowed",
+        message: `Origin ${origin} is not allowed to use this proxy.`,
+        resolution: "Add the exact trusted origin to --allowed-origins."
       }
     })
     return false
@@ -165,7 +194,13 @@ const handlePreflight = (
   response.writeHead(204, {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": allowedHeaders.join(", "),
-    "Access-Control-Max-Age": "86400"
+    "Access-Control-Max-Age": "86400",
+    "X-API-Version": "1",
+    "RateLimit-Policy": '"default";q=60;w=60',
+    RateLimit: '"default";r=60;t=60',
+    "RateLimit-Limit": "60",
+    "RateLimit-Remaining": "60",
+    "RateLimit-Reset": "60"
   })
   response.end()
   return true
@@ -181,7 +216,12 @@ const readRequestBody = async (
     return { ok: true, body: await readJsonBody(request) }
   } catch (error) {
     sendJson(response, 400, {
-      error: { message: (error as Error).message, type: "BadRequest" }
+      error: {
+        type: "BadRequest",
+        code: "invalid_json",
+        message: (error as Error).message,
+        resolution: "Send valid JSON with Content-Type application/json."
+      }
     })
     return { ok: false }
   }
@@ -213,8 +253,10 @@ const runRouteHandler = async (
     if (!response.headersSent) {
       sendJson(response, 500, {
         error: {
+          type: "InternalProxyError",
+          code: "internal_proxy_error",
           message: (error as Error).message,
-          type: "InternalProxyError"
+          resolution: "Inspect local olc logs and retry only when safe."
         }
       })
       return
@@ -227,16 +269,42 @@ export const createRouter = ({
   allowedHeaders = ["Content-Type", "Authorization"],
   allowedOrigins = [],
   onRequest,
-  authorize
+  authorize,
+  rateLimitKey,
+  rateLimit = { limit: 60, windowMs: 60_000 }
 }: {
   allowedHeaders?: string[]
   /** Browser origins allowed to call this server. Empty means none. */
   allowedOrigins?: string[]
   onRequest?: (request: RouteRequest, response: ServerResponse) => void
   authorize?: (request: RouteRequest) => boolean
+  /** Return an authenticated identity; undefined falls back to peer address. */
+  rateLimitKey?: (request: RouteRequest) => string | undefined
+  rateLimit?: RateLimitConfig
 } = {}) => {
   const routes: Route[] = []
   const patterns = new Map<Route, string>()
+  const buckets = new Map<string, { count: number; resetAt: number }>()
+
+  const setRateLimitHeaders = (
+    response: ServerResponse,
+    remaining: number,
+    resetAt: number
+  ) => {
+    const resetSeconds = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))
+    response.setHeader(
+      "RateLimit-Policy",
+      `"default";q=${rateLimit.limit};w=${Math.ceil(rateLimit.windowMs / 1000)}`
+    )
+    response.setHeader(
+      "RateLimit",
+      `"default";r=${Math.max(0, remaining)};t=${resetSeconds}`
+    )
+    response.setHeader("RateLimit-Limit", String(rateLimit.limit))
+    response.setHeader("RateLimit-Remaining", String(Math.max(0, remaining)))
+    response.setHeader("RateLimit-Reset", String(resetSeconds))
+    response.setHeader("X-API-Version", "1")
+  }
 
   const register = (method: string, pattern: string, handler: RouteHandler) => {
     const route: Route = {
@@ -258,13 +326,16 @@ export const createRouter = ({
     if (!applyOriginPolicy(request, response, allowedOrigins)) return
     if (handlePreflight(method, response, allowedHeaders)) return
 
-    const bodyResult = await readRequestBody(method, request, response)
-    if (!bodyResult.ok) return
-
     const match = findMatchingRoute(routes, patterns, method, url.pathname)
     if (!match) {
       sendJson(response, 404, {
-        error: { message: `No route for ${method} ${url.pathname}` }
+        error: {
+          type: "NotFound",
+          code: "route_not_found",
+          message: `No route for ${method} ${url.pathname}.`,
+          resolution:
+            "Use GET /, GET /health, GET /v1/models, or a documented /v1 endpoint."
+        }
       })
       return
     }
@@ -275,14 +346,57 @@ export const createRouter = ({
       params: match.params,
       query: url.searchParams,
       headers: request.headers,
-      body: bodyResult.body,
+      body: undefined,
       raw: request
     }
     if (onRequest) onRequest(routeRequest, response)
     if (authorize && !authorize(routeRequest)) {
-      sendJson(response, 401, { error: { message: "Unauthorized" } })
+      sendJson(response, 401, {
+        error: {
+          type: "Unauthorized",
+          code: "unauthorized",
+          message: "Bearer authentication failed.",
+          resolution:
+            "Supply Authorization: Bearer <token>, or remove the configured API key."
+        }
+      })
       return
     }
+
+    const bucketKey =
+      rateLimitKey?.(routeRequest) ||
+      request.socket.remoteAddress ||
+      "anonymous"
+    const now = Date.now()
+    const previous = buckets.get(bucketKey)
+    const bucket =
+      !previous || previous.resetAt <= now
+        ? { count: 0, resetAt: now + rateLimit.windowMs }
+        : previous
+    bucket.count += 1
+    buckets.set(bucketKey, bucket)
+    setRateLimitHeaders(
+      response,
+      rateLimit.limit - bucket.count,
+      bucket.resetAt
+    )
+    if (bucket.count > rateLimit.limit) {
+      const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))
+      response.setHeader("Retry-After", String(retryAfter))
+      sendJson(response, 429, {
+        error: {
+          type: "RateLimitExceeded",
+          code: "rate_limit_exceeded",
+          message: "Request rate limit exceeded.",
+          resolution: `Wait ${retryAfter} seconds, then retry with backoff.`
+        }
+      })
+      return
+    }
+
+    const bodyResult = await readRequestBody(method, request, response)
+    if (!bodyResult.ok) return
+    routeRequest.body = bodyResult.body
 
     await runRouteHandler(match.route, routeRequest, response)
   }

@@ -396,18 +396,24 @@ export const registerChatRoutes = (
    */
   const resolveResume = (messages: unknown) => {
     const toolResults = extractTrailingToolResults(messages)
-    const resumeTurn = toolResults
-      .map((result) => pending.turnOf(result.toolCallId))
+    const ownedResults = toolResults.map((result) => ({
+      result,
+      turnId: pending.turnOf(result.toolCallId)
+    }))
+    const resumeTurn = ownedResults
+      .map(({ turnId }) => turnId)
       .map((turnId) => (turnId ? backend.findTurn(turnId) : undefined))
       .find((candidate): candidate is BackendTurn => candidate !== undefined)
-    // Only this turn's own results travel with it. Ids belonging to another parked
-    // turn stay parked, to be released by the request that actually resumes it.
-    const resumeResults = resumeTurn
-      ? toolResults.filter(
-          (result) => pending.turnOf(result.toolCallId) === resumeTurn.id
-        )
+    const foreignToolResults = resumeTurn
+      ? ownedResults
+          .filter(({ turnId }) => turnId !== resumeTurn.id)
+          .map(({ result }) => result)
       : []
-    return { toolResults, resumeTurn, resumeResults }
+    // Admission is atomic: a batch resumes one live turn in full or releases
+    // nothing. Narrowing a mixed batch here used to silently lose the other output.
+    const resumeResults =
+      resumeTurn && foreignToolResults.length === 0 ? toolResults : []
+    return { toolResults, resumeTurn, resumeResults, foreignToolResults }
   }
 
   /**
@@ -431,6 +437,28 @@ export const registerChatRoutes = (
         message: `No live turn is waiting for tool call ${callIds.join(", ")}. The turn expired, was cancelled, or belongs to an earlier proxy run; send the request again without the tool results to start a new turn.`,
         type: "StaleToolResults",
         code: "stale_tool_results"
+      }
+    })
+  }
+
+  const sendMixedToolResults = (
+    response: ServerResponse,
+    requestId: string,
+    toolResults: ToolResultMessage[],
+    foreignToolResults: ToolResultMessage[]
+  ) => {
+    const callIds = toolResults.map((result) => result.toolCallId)
+    const foreignCallIds = foreignToolResults.map((result) => result.toolCallId)
+    log("Rejected a mixed-turn tool-result batch", {
+      requestId,
+      callIds,
+      foreignCallIds
+    })
+    sendJson(response, 400, {
+      error: {
+        message: `Tool results in one request must belong to exactly one live turn. No tool results were accepted. Conflicting or stale tool calls: ${foreignCallIds.join(", ")}. Send each live turn's results in a separate request.`,
+        type: "MixedToolResults",
+        code: "mixed_tool_results"
       }
     })
   }
@@ -713,9 +741,8 @@ export const registerChatRoutes = (
     const body = (
       isRecord(request.body) ? request.body : {}
     ) as ChatCompletionRequest
-    const { toolResults, resumeTurn, resumeResults } = resolveResume(
-      body.messages
-    )
+    const { toolResults, resumeTurn, resumeResults, foreignToolResults } =
+      resolveResume(body.messages)
 
     log("POST /v1/chat/completions", {
       requestId,
@@ -725,12 +752,16 @@ export const registerChatRoutes = (
       toolCount: Array.isArray(body.tools) ? body.tools.length : 0,
       resumes: resumeTurn?.id ?? null,
       toolResults: resumeResults.length,
-      foreignToolResults: toolResults.length - resumeResults.length
+      foreignToolResults: foreignToolResults.length
     })
 
     // Trailing tool results are a request to continue one specific turn. Answered
     // here rather than after the queue, so a follow-up the proxy cannot correlate
     // never waits behind a turn it will not join.
+    if (foreignToolResults.length > 0) {
+      sendMixedToolResults(response, requestId, toolResults, foreignToolResults)
+      return
+    }
     if (toolResults.length > 0 && !resumeTurn) {
       sendStaleToolResults(response, requestId, toolResults)
       return
@@ -744,6 +775,15 @@ export const registerChatRoutes = (
         // allowed to run. Correlate again: the turn captured above is a claim about
         // a moment that has passed, and only the backend knows if it still holds it.
         const current = resolveResume(body.messages)
+        if (current.foreignToolResults.length > 0) {
+          sendMixedToolResults(
+            response,
+            requestId,
+            toolResults,
+            current.foreignToolResults
+          )
+          return Promise.resolve()
+        }
         if (toolResults.length > 0 && !current.resumeTurn) {
           sendStaleToolResults(response, requestId, toolResults)
           return Promise.resolve()

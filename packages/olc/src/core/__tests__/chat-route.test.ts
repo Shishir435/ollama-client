@@ -517,7 +517,7 @@ describe("chat completions", () => {
     expect(harness.calls.startTurn).toBe(0)
   })
 
-  it("releases only the resumed turn's own tool results", async () => {
+  it("rejects results for two live turns without releasing either", async () => {
     harness = await startHarness({ mode: "tool" })
     const askForTools = (messages: unknown[]) =>
       streamTurn(harness?.url as string, {
@@ -537,10 +537,7 @@ describe("chat completions", () => {
     expect(secondCall?.id).toBeDefined()
     expect(harness.calls.startTurn).toBe(2)
 
-    // One request carrying results for both parked turns. Only the turn it
-    // resumes may be released; the other one's call stays parked for the request
-    // that actually resumes it.
-    const resumed = await askForTools([
+    const mixed = await askForTools([
       ...askedForTabs,
       {
         role: "assistant",
@@ -553,11 +550,55 @@ describe("chat completions", () => {
       { role: "tool", tool_call_id: secondCall?.id, content: "tabs for two" }
     ])
 
-    expect(resumed.finishReason).toBe("stop")
-    expect(resumed.content).toContain("saw tabs for one")
-    expect(resumed.content).not.toContain("tabs for two")
+    expect(mixed.status).toBe(400)
+    expect(mixed.content).toContain("MixedToolResults")
+    expect(mixed.content).toContain("No tool results were accepted")
     expect(harness.calls.startTurn).toBe(2)
+    expect(harness.pending.turnOf(firstCall?.id as string)).toBeDefined()
     expect(harness.pending.turnOf(secondCall?.id as string)).toBeDefined()
+  })
+
+  it("rejects a live and stale result atomically so the live result can retry", async () => {
+    harness = await startHarness({ mode: "tool" })
+    const askForTools = (messages: unknown[]) =>
+      streamTurn(harness?.url as string, {
+        model: "fake/model-a",
+        stream: true,
+        messages,
+        tools: [{ type: "function", function: { name: "list_tabs" } }]
+      })
+    const first = await askForTools(askedForTabs)
+    const call = first.toolCalls[0]
+    expect(call?.id).toBeDefined()
+
+    const transcript = [
+      ...askedForTabs,
+      {
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          { id: call?.id, type: "function", function: call?.function }
+        ]
+      }
+    ]
+    const mixed = await askForTools([
+      ...transcript,
+      { role: "tool", tool_call_id: call?.id, content: "two tabs" },
+      { role: "tool", tool_call_id: "call_expired", content: "too late" }
+    ])
+
+    expect(mixed.status).toBe(400)
+    expect(mixed.content).toContain("MixedToolResults")
+    expect(mixed.content).toContain("call_expired")
+    expect(harness.pending.turnOf(call?.id as string)).toBeDefined()
+
+    const retried = await askForTools([
+      ...transcript,
+      { role: "tool", tool_call_id: call?.id, content: "two tabs" }
+    ])
+    expect(retried.status).toBe(200)
+    expect(retried.content).toContain("saw two tabs")
+    expect(harness.calls.startTurn).toBe(1)
   })
 
   it("refuses a tool result no live turn is waiting for", async () => {

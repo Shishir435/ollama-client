@@ -37,7 +37,7 @@ vi.mock("@/lib/embeddings/vector-store", () => ({
   storeVector: mocks.storeVector
 }))
 
-vi.mock("@/lib/embeddings/embedding-client", () => ({
+vi.mock("@/protocol/embedding-client", () => ({
   generateEmbedding: mocks.generateEmbedding
 }))
 

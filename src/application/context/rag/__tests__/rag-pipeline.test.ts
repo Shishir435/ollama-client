@@ -4,7 +4,7 @@ import type { VectorDocument } from "@/lib/embeddings/types"
 import { formatEnhancedResults, retrieveContextEnhanced } from "../rag-pipeline"
 
 // ─── Mocks for retrieveContextEnhanced tests ─────────────────────────────────
-vi.mock("@/lib/embeddings/embedding-client", () => ({
+vi.mock("@/application/embeddings/embedding-service", () => ({
   generateEmbedding: vi.fn()
 }))
 
@@ -31,8 +31,8 @@ vi.mock("@/lib/embeddings/feedback-service", () => ({
   feedbackService: { getFeedbackScore: vi.fn().mockResolvedValue(null) }
 }))
 
+import { generateEmbedding } from "@/application/embeddings/embedding-service"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
-import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { rerankerService } from "@/lib/embeddings/reranker"
 import { searchHybrid } from "@/lib/embeddings/search"

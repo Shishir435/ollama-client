@@ -29,6 +29,8 @@ import type {
 import type {
   EmbeddingsCheckModelRequest,
   EmbeddingsCheckModelResult,
+  EmbeddingsGenerateRequest,
+  EmbeddingsGenerateResult,
   EmbeddingsPrepareModelRequest,
   EmbeddingsPrepareModelResult,
   ModelsGetDetailsRequest,
@@ -129,6 +131,10 @@ export interface RpcMap {
   [RpcMethod.EmbeddingsPrepareModel]: RpcDefinition<
     EmbeddingsPrepareModelRequest,
     EmbeddingsPrepareModelResult
+  >
+  [RpcMethod.EmbeddingsGenerate]: RpcDefinition<
+    EmbeddingsGenerateRequest,
+    EmbeddingsGenerateResult
   >
   [RpcMethod.IngestionSubmit]: RpcDefinition<
     IngestionSubmitRequest,

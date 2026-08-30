@@ -112,6 +112,42 @@ Firefox development:
 pnpm dev:firefox
 ```
 
+### Install `olc` local proxy
+
+`olc` exposes OpenCode or Codex through an OpenAI-compatible local API. It
+requires Node.js 22.12 or newer and the selected runtime on `PATH`.
+
+macOS / Linux:
+
+```bash
+curl -fsSL https://ollamaclient.in/olc.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://ollamaclient.in/olc.ps1 | iex
+```
+
+To pin version `0.13.2` on macOS / Linux:
+
+```bash
+export OLC_VERSION=0.13.2
+curl -fsSL https://ollamaclient.in/olc.sh | sh
+```
+
+To pin version `0.13.2` in Windows PowerShell:
+
+```powershell
+$env:OLC_VERSION = "0.13.2"
+irm https://ollamaclient.in/olc.ps1 | iex
+```
+
+Then run `olc --help`.
+Configure Ollama Client with a custom OpenAI-compatible provider at
+`http://127.0.0.1:8083/v1`. See the [OLC developer guide](https://www.ollamaclient.in/developers/)
+for backend setup, authentication, and tool-calling details.
+
 ## Common Commands
 
 ```bash

@@ -11,6 +11,7 @@ import {
 import { CancellationRegistry } from "@ollama-client/runtime-core/cancellation"
 import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import type { Runtime } from "webextension-polyfill"
+import { EmbeddingService } from "@/application/embeddings/embedding-service"
 import {
   checkEmbeddingModelExists,
   prepareEmbeddingModel
@@ -70,6 +71,24 @@ const handlers = {
   },
   [RpcMethod.EmbeddingsPrepareModel]: async (request, signal) =>
     prepareEmbeddingModel(request, signal),
+  [RpcMethod.EmbeddingsGenerate]: async (request, signal) => {
+    const result = await EmbeddingService.generate(
+      request.text,
+      request.model,
+      undefined,
+      {
+        signal
+      }
+    )
+    if ("error" in result) {
+      return {
+        ok: false as const,
+        error: result.failure?.userMessage ?? "Embedding generation failed",
+        ...(result.code ? { code: result.code } : {})
+      }
+    }
+    return { ok: true as const, ...result }
+  },
   [RpcMethod.IngestionSubmit]: async (request) =>
     IngestionService.submit(request),
   [RpcMethod.IngestionGet]: async (request) =>
@@ -202,14 +221,21 @@ export const handleRpcCancellation = (
   sendResponse({ success: true, cancelled: Boolean(controller) })
 }
 
-export const handleRpcRequest = async (
+type ValidatedRpcRequest = {
+  requestId: string
+  method: RpcMethod
+  request: unknown
+  definition: (typeof RPC_METHOD_DEFINITIONS)[RpcMethod]
+  source: string
+}
+
+const validateRpcRequest = (
   rawMessage: unknown,
   sender: Runtime.MessageSender,
   extensionId: string,
   extensionUrlPrefix: string,
   sendResponse: (value: unknown) => void
-): Promise<void> => {
-  const startedAt = performance.now()
+): ValidatedRpcRequest | null => {
   const parsedEnvelope = RpcRequestEnvelopeSchema.safeParse(rawMessage)
   const unsafeRequestId = requestIdFromUnknownEnvelope(rawMessage)
   if (!parsedEnvelope.success) {
@@ -223,7 +249,7 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
 
   const { requestId, method, request } = parsedEnvelope.data
@@ -240,7 +266,7 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
 
   const parsedRequest = definition.request.safeParse(request)
@@ -255,7 +281,7 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
 
   if (activeRequests.has(requestId)) {
@@ -269,15 +295,43 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
+
+  return {
+    requestId,
+    method,
+    request: parsedRequest.data,
+    definition,
+    source
+  }
+}
+
+export const handleRpcRequest = async (
+  rawMessage: unknown,
+  sender: Runtime.MessageSender,
+  extensionId: string,
+  extensionUrlPrefix: string,
+  sendResponse: (value: unknown) => void
+): Promise<void> => {
+  const startedAt = performance.now()
+  const validated = validateRpcRequest(
+    rawMessage,
+    sender,
+    extensionId,
+    extensionUrlPrefix,
+    sendResponse
+  )
+  if (!validated) return
+
+  const { requestId, method, request, definition, source } = validated
 
   const controller = new AbortController()
   activeRequests.set(requestId, controller)
-  const serverTimeoutId = setTimeout(
-    () => controller.abort(),
-    definition.timeoutMs
-  )
+  const serverTimeoutId =
+    definition.timeoutMs === undefined
+      ? undefined
+      : setTimeout(() => controller.abort(), definition.timeoutMs)
 
   let status = "success"
   let errorCode: RpcErrorCode | undefined
@@ -287,7 +341,7 @@ export const handleRpcRequest = async (
       value: unknown,
       signal: AbortSignal
     ) => Promise<RpcMap[RpcMethod]["response"]>
-    const result = await handler(parsedRequest.data, controller.signal)
+    const result = await handler(request, controller.signal)
     const parsedResult = definition.response.safeParse(result)
     if (!parsedResult.success) {
       throw new Error(`RPC handler returned invalid data for ${method}`)
@@ -316,7 +370,7 @@ export const handleRpcRequest = async (
       })
     }
   } finally {
-    clearTimeout(serverTimeoutId)
+    if (serverTimeoutId !== undefined) clearTimeout(serverTimeoutId)
     if (activeRequests.get(requestId) === controller) {
       activeRequests.clear(requestId)
     }

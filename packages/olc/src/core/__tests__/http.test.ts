@@ -1,7 +1,14 @@
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { afterEach, describe, expect, it } from "vitest"
-import { createRouter, isOriginAllowed, matchRoute, sendJson } from "../http.js"
+import {
+  createRouter,
+  isOriginAllowed,
+  matchRoute,
+  type RouteRequest,
+  sendJson,
+  startEventStream
+} from "../http.js"
 
 describe("matchRoute", () => {
   it("matches fixed paths exactly", () => {
@@ -56,11 +63,19 @@ describe("isOriginAllowed", () => {
 describe("router origin policy", () => {
   let server: Server | null = null
 
-  const startServer = async (allowedOrigins: string[]) => {
-    const router = createRouter({ allowedOrigins })
+  const startServer = async (
+    allowedOrigins: string[],
+    rateLimit?: { limit: number; windowMs: number },
+    authorize?: (request: RouteRequest) => boolean
+  ) => {
+    const router = createRouter({ allowedOrigins, rateLimit, authorize })
     router.post("/v1/chat/completions", (_request, response) =>
       sendJson(response, 200, { ok: true })
     )
+    router.get("/stream", (_request, response) => {
+      startEventStream(response)
+      response.end("data: [DONE]\n\n")
+    })
     server = createServer((request, response) => {
       void router.handle(request, response)
     })
@@ -123,5 +138,68 @@ describe("router origin policy", () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get("access-control-allow-origin")).toBeNull()
+  })
+
+  it("returns machine-readable errors and rate-limit guidance", async () => {
+    const url = await startServer([], { limit: 1, windowMs: 60_000 })
+
+    const first = await fetch(`${url}/missing`)
+    expect(first.status).toBe(404)
+    expect(first.headers.get("content-type")).toContain("application/json")
+    expect(first.headers.get("x-api-version")).toBe("1")
+    expect(first.headers.get("ratelimit-remaining")).toBe("60")
+    expect(await first.json()).toEqual({
+      error: {
+        type: "NotFound",
+        code: "route_not_found",
+        message: "No route for GET /missing.",
+        resolution:
+          "Use GET /, GET /health, GET /v1/models, or a documented /v1 endpoint."
+      }
+    })
+
+    const consumed = await post(url)
+    expect(consumed.status).toBe(200)
+    expect(consumed.headers.get("ratelimit-remaining")).toBe("0")
+
+    const limited = await post(url)
+    expect(limited.status).toBe(429)
+    expect(limited.headers.get("retry-after")).toBeTruthy()
+    const errorBody = (await limited.json()) as { error: { code: string } }
+    expect(errorBody.error.code).toBe("rate_limit_exceeded")
+  })
+
+  it("does not let unauthorized traffic consume an authenticated bucket", async () => {
+    const url = await startServer(
+      [],
+      { limit: 1, windowMs: 60_000 },
+      (request) => request.headers.authorization === "Bearer valid"
+    )
+
+    const unauthorized = await post(url)
+    expect(unauthorized.status).toBe(401)
+
+    const authorized = await post(url, { Authorization: "Bearer valid" })
+    expect(authorized.status).toBe(200)
+    expect(authorized.headers.get("ratelimit-remaining")).toBe("0")
+  })
+
+  it("keeps calculated rate-limit headers on SSE responses", async () => {
+    const url = await startServer([], { limit: 1, windowMs: 60_000 })
+    const response = await fetch(`${url}/stream`)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toContain("text/event-stream")
+    expect(response.headers.get("ratelimit-remaining")).toBe("0")
+  })
+
+  it("cannot bypass a no-key limit by rotating Authorization values", async () => {
+    const url = await startServer([], { limit: 1, windowMs: 60_000 })
+
+    const first = await post(url, { Authorization: "Bearer arbitrary-a" })
+    const second = await post(url, { Authorization: "Bearer arbitrary-b" })
+
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(429)
   })
 })

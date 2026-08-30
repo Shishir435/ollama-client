@@ -9,11 +9,36 @@ The project does include **olc**, a local command-line proxy that exposes an age
 
 ## Quickstart
 
-olc currently runs from a repository checkout and requires Node.js 22.12 or
-newer plus the selected runtime on `PATH`: OpenCode, or Codex CLI with an
-existing `codex login`.
+olc requires Node.js 22.12 or newer plus the selected runtime on `PATH`:
+OpenCode, or Codex CLI with an existing `codex login`.
+
+Install the published release bundle directly:
+
+```powershell
+# Windows PowerShell
+irm https://ollamaclient.in/olc.ps1 | iex
+```
 
 ```bash
+# macOS / Linux
+curl -fsSL https://ollamaclient.in/olc.sh | sh
+```
+
+Both installers download checksum-verified archives from the GitHub release.
+Pin version `0.13.2` with the shell-specific commands below:
+
+```bash
+export OLC_VERSION=0.13.2
+curl -fsSL https://ollamaclient.in/olc.sh | sh
+```
+
+```powershell
+$env:OLC_VERSION = "0.13.2"
+irm https://ollamaclient.in/olc.ps1 | iex
+```
+
+```bash
+# Source checkout alternative
 git clone https://github.com/Shishir435/ollama-client.git
 cd ollama-client
 pnpm install
@@ -28,7 +53,8 @@ Use `pnpm proxy:opencode:debug` or `pnpm proxy:codex:debug` for verbose proxy
 logging. The existing `pnpm proxy` and `pnpm proxy:debug` commands remain
 OpenCode aliases.
 
-The CLI is part of the source distribution but is not yet published to npm, PyPI, or Homebrew. Do not tell users to install an `olc` package from a public registry unless an official release announcement links it.
+The CLI is distributed as release archives, not through npm, PyPI, or Homebrew.
+Do not tell users to install an `olc` package from a public registry.
 
 ## Authentication and browser access
 
@@ -102,6 +128,23 @@ Non-streaming errors use an OpenAI-style JSON envelope:
 ```
 
 Common statuses are `400` for malformed requests or stale tool results, `401` for an invalid bearer token, `403` for a disallowed browser origin, `404` for an unknown route or model, `502` for a backend failure, `503` for a stalled request queue, and `504` for a timeout. A stream that fails after headers were sent reports a final proxy-error text delta because the HTTP status can no longer change.
+
+## Versioning, rate limits, and deprecation
+
+The local proxy's public API is versioned in its URL under `/v1`. Clients should
+use the documented versioned routes and inspect `X-API-Version` in responses.
+The proxy publishes the RFC RateLimit fields (`RateLimit-Policy`, `RateLimit`,
+`RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset`) on API
+responses. When a client exceeds the configured window it receives `429` with
+`Retry-After`; retry with exponential backoff and do not blindly replay a
+non-idempotent generation.
+
+No `/v1` route is removed without advance notice. A future deprecated route
+will return the standard `Deprecation` response header and a `Sunset` HTTP date
+at least 30 days before removal. The migration and replacement route will be
+documented here and in the OpenAPI specification. The website's read-only
+discovery surface is available at [`/api`](/api) and uses the same header
+conventions.
 
 ## Agent integration guidance
 

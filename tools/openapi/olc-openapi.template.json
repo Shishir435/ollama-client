@@ -9,6 +9,15 @@
       "identifier": "MIT"
     }
   },
+  "x-api-version": "v1",
+  "x-deprecation-policy": {
+    "notice": "Deprecated routes receive Deprecation and Sunset headers at least 30 days before removal.",
+    "documentation": "https://www.ollamaclient.in/developers/"
+  },
+  "x-rate-limit": {
+    "policy": "60 requests per 60 seconds per client",
+    "headers": ["RateLimit-Policy", "RateLimit", "Retry-After"]
+  },
   "externalDocs": {
     "description": "Ollama Client developer portal",
     "url": "https://www.ollamaclient.in/developers/"
@@ -744,6 +753,10 @@
               },
               "code": {
                 "type": "string"
+              },
+              "resolution": {
+                "type": "string",
+                "description": "Action the caller can take to recover."
               }
             },
             "additionalProperties": true

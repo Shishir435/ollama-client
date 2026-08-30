@@ -1,13 +1,13 @@
 import { useCallback, useState } from "react"
 import { useSetting } from "@/hooks/use-setting"
 import { ensureKeywordIndexBuilt } from "@/lib/embeddings/auto-index"
-import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
 import { searchHybrid } from "@/lib/embeddings/vector-store"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 import { SETTINGS } from "@/lib/storage/settings"
+import { generateEmbedding } from "@/protocol/embedding-client"
 
 export interface ChatSearchResult {
   result: SearchResult
