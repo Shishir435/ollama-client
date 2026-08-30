@@ -281,17 +281,16 @@ const collectEmbeddingCandidates = ({
   const allCandidates: EnhancedSearchResult[] = []
 
   for (let index = 0; index < embeddings.length; index += 1) {
-    const embeddingResult = embeddings[index]
-    if ("error" in embeddingResult || !embeddingResult.embedding) continue
+    const e = embeddings[index]
+    if ("error" in e) {
+      return { results: [], allCandidates: [] }
+    }
 
-    const similarity = cosineSimilarity(
-      queryEmbedding,
-      embeddingResult.embedding
-    )
+    const similarity = cosineSimilarity(queryEmbedding, e.embedding)
     const candidate: EnhancedSearchResult = {
       document: buildSourceVectorDocument(
         chunks[index],
-        embeddingResult.embedding,
+        e.embedding,
         timestamp
       ),
       score: similarity

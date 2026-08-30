@@ -235,6 +235,27 @@ describe("retrieveContextFromSources", () => {
     expect(result).toHaveProperty("formattedContext")
     expect(result).toHaveProperty("sources")
   })
+
+  it("falls back to keyword context when a source embedding is rate-limited", async () => {
+    const { generateEmbeddingsBatch } = await import(
+      "@/application/embeddings/embedding-service"
+    )
+
+    vi.mocked(generateEmbeddingsBatch).mockResolvedValueOnce([
+      { error: "rate limited", failure: { status: 429 } }
+    ] as any)
+    const sources = [
+      {
+        id: "src-1",
+        title: "Test Title",
+        content: "keyword content for rate limit fallback"
+      }
+    ]
+    const result = await retrieveContextFromSources("keyword", sources)
+
+    expect(result.documents).toHaveLength(1)
+    expect(result.documents[0]?.embedding).toEqual([])
+  })
 })
 
 describe("reformulateQuestion", () => {
