@@ -38,11 +38,7 @@ describe("RPC method registry", () => {
     expect(definition.request).toBeDefined()
     expect(definition.response).toBeDefined()
     expect(definition.allowedSources.length).toBeGreaterThan(0)
-    if (method === RpcMethod.EmbeddingsGenerate) {
-      expect(definition.timeoutMs).toBeUndefined()
-    } else {
-      expect(definition.timeoutMs).toBeGreaterThan(0)
-    }
+    expect(definition.timeoutMs).toBeGreaterThan(0)
     expect(["query", "command"]).toContain(definition.operation)
   })
 
@@ -57,9 +53,9 @@ describe("RPC method registry", () => {
     }
   })
 
-  it("leaves embedding generation deadline-free", () => {
+  it("gives slow embedding generation a bounded cancellation window", () => {
     expect(RPC_METHOD_DEFINITIONS[RpcMethod.EmbeddingsGenerate].timeoutMs).toBe(
-      undefined
+      900_000
     )
   })
 

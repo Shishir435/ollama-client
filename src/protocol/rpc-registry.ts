@@ -189,6 +189,10 @@ export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
     request: EmbeddingsGenerateRequestSchema,
     response: EmbeddingsGenerateResultSchema,
     allowedSources: extensionPagesOnly,
+    // Embedding generation may include a cold start or a large migration
+    // chunk. Keep a generous bound so a provider that accepts but never
+    // completes still releases both page and background resources.
+    timeoutMs: 900_000,
     operation: "query"
   },
   [RpcMethod.IngestionSubmit]: {
