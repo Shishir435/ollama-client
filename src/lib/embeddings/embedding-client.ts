@@ -225,7 +225,7 @@ export const generateEmbeddingsBatch = async (
       batch.map(async (text) => {
         const opts = { plan, signal }
         let result = await generateEmbedding(text, modelName, config, opts)
-        for (let attempt = 1; attempt < 3; attempt += 1) {
+        for (let attempt = 1; attempt < 3; attempt++) {
           const failure = (result as EmbeddingError).failure
           if (failure?.status !== 429) break
           await abortableDelay(
@@ -239,9 +239,7 @@ export const generateEmbeddingsBatch = async (
     )
     results.push(...batchResults)
 
-    if (onProgress) {
-      onProgress(Math.min(i + batchSize, texts.length), texts.length)
-    }
+    onProgress?.(Math.min(i + batchSize, texts.length), texts.length)
     if (i + batchSize < texts.length) {
       await abortableDelay(100, signal)
     }
