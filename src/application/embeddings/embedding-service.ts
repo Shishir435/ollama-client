@@ -19,5 +19,5 @@ export const EmbeddingService = {
 }
 
 export type { EmbeddingError, EmbeddingResult }
-// Named exports keep existing application seams stable while callers migrate.
+/** Named exports keep existing application seams stable while callers migrate. */
 export { cosineSimilarity, generateEmbedding, generateEmbeddingsBatch }

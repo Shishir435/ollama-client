@@ -68,18 +68,23 @@ export const sendJson = (
 }
 
 export const startEventStream = (response: ServerResponse): void => {
-  response.writeHead(200, {
-    "Content-Type": "text/event-stream; charset=utf-8",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-    "X-API-Version": "1",
-    "RateLimit-Policy": '"default";q=60;w=60',
-    RateLimit: '"default";r=60;t=60',
-    "RateLimit-Limit": "60",
-    "RateLimit-Remaining": "60",
-    "RateLimit-Reset": "60"
-  })
+  response.setHeader("Content-Type", "text/event-stream; charset=utf-8")
+  response.setHeader("Cache-Control", "no-cache")
+  response.setHeader("Connection", "keep-alive")
+  response.setHeader("X-Accel-Buffering", "no")
+  if (!response.hasHeader("X-API-Version"))
+    response.setHeader("X-API-Version", "1")
+  if (!response.hasHeader("RateLimit-Policy"))
+    response.setHeader("RateLimit-Policy", '"default";q=60;w=60')
+  if (!response.hasHeader("RateLimit"))
+    response.setHeader("RateLimit", '"default";r=60;t=60')
+  if (!response.hasHeader("RateLimit-Limit"))
+    response.setHeader("RateLimit-Limit", "60")
+  if (!response.hasHeader("RateLimit-Remaining"))
+    response.setHeader("RateLimit-Remaining", "60")
+  if (!response.hasHeader("RateLimit-Reset"))
+    response.setHeader("RateLimit-Reset", "60")
+  response.writeHead(200)
   if (typeof response.flushHeaders === "function") response.flushHeaders()
 }
 
@@ -247,52 +252,6 @@ export const createRouter = ({
       return
     }
 
-    const bucketKey =
-      request.headers.origin || request.socket.remoteAddress || "anonymous"
-    const now = Date.now()
-    const previous = buckets.get(bucketKey)
-    const bucket =
-      !previous || previous.resetAt <= now
-        ? { count: 0, resetAt: now + rateLimit.windowMs }
-        : previous
-    bucket.count += 1
-    buckets.set(bucketKey, bucket)
-    setRateLimitHeaders(
-      response,
-      rateLimit.limit - bucket.count,
-      bucket.resetAt
-    )
-    if (bucket.count > rateLimit.limit) {
-      const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))
-      response.setHeader("Retry-After", String(retryAfter))
-      sendJson(response, 429, {
-        error: {
-          type: "RateLimitExceeded",
-          code: "rate_limit_exceeded",
-          message: "Request rate limit exceeded.",
-          resolution: `Wait ${retryAfter} seconds, then retry with backoff.`
-        }
-      })
-      return
-    }
-
-    let body: unknown
-    if (method === "POST") {
-      try {
-        body = await readJsonBody(request)
-      } catch (error) {
-        sendJson(response, 400, {
-          error: {
-            type: "BadRequest",
-            code: "invalid_json",
-            message: (error as Error).message,
-            resolution: "Send valid JSON with Content-Type application/json."
-          }
-        })
-        return
-      }
-    }
-
     for (const route of routes) {
       if (route.method !== method) continue
       const params = matchRoute(patterns.get(route) as string, url.pathname)
@@ -304,7 +263,7 @@ export const createRouter = ({
         params,
         query: url.searchParams,
         headers: request.headers,
-        body,
+        body: undefined,
         raw: request
       }
       if (onRequest) onRequest(routeRequest, response)
@@ -319,6 +278,53 @@ export const createRouter = ({
           }
         })
         return
+      }
+
+      const bucketKey =
+        request.headers.authorization ||
+        request.socket.remoteAddress ||
+        "anonymous"
+      const now = Date.now()
+      const previous = buckets.get(bucketKey)
+      const bucket =
+        !previous || previous.resetAt <= now
+          ? { count: 0, resetAt: now + rateLimit.windowMs }
+          : previous
+      bucket.count += 1
+      buckets.set(bucketKey, bucket)
+      setRateLimitHeaders(
+        response,
+        rateLimit.limit - bucket.count,
+        bucket.resetAt
+      )
+      if (bucket.count > rateLimit.limit) {
+        const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))
+        response.setHeader("Retry-After", String(retryAfter))
+        sendJson(response, 429, {
+          error: {
+            type: "RateLimitExceeded",
+            code: "rate_limit_exceeded",
+            message: "Request rate limit exceeded.",
+            resolution: `Wait ${retryAfter} seconds, then retry with backoff.`
+          }
+        })
+        return
+      }
+
+      if (method === "POST") {
+        try {
+          routeRequest.body = await readJsonBody(request)
+        } catch (error) {
+          sendJson(response, 400, {
+            error: {
+              type: "BadRequest",
+              code: "invalid_json",
+              message: (error as Error).message,
+              resolution: "Send valid JSON with Content-Type application/json."
+            }
+          })
+          return
+        }
       }
 
       try {
@@ -344,6 +350,19 @@ export const createRouter = ({
       return
     }
 
+    const bucketKey =
+      request.headers.authorization ||
+      request.socket.remoteAddress ||
+      "anonymous"
+    const now = Date.now()
+    const previous = buckets.get(bucketKey)
+    const bucket =
+      !previous || previous.resetAt <= now
+        ? { count: 0, resetAt: now + rateLimit.windowMs }
+        : previous
+    bucket.count += 1
+    buckets.set(bucketKey, bucket)
+    setRateLimitHeaders(response, rateLimit.limit - bucket.count, bucket.resetAt)
     sendJson(response, 404, {
       error: {
         type: "NotFound",

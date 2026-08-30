@@ -1,7 +1,13 @@
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { afterEach, describe, expect, it } from "vitest"
-import { createRouter, isOriginAllowed, matchRoute, sendJson } from "../http.js"
+import {
+  createRouter,
+  isOriginAllowed,
+  matchRoute,
+  sendJson,
+  type RouteRequest
+} from "../http.js"
 
 describe("matchRoute", () => {
   it("matches fixed paths exactly", () => {
@@ -58,9 +64,10 @@ describe("router origin policy", () => {
 
   const startServer = async (
     allowedOrigins: string[],
-    rateLimit?: { limit: number; windowMs: number }
+    rateLimit?: { limit: number; windowMs: number },
+    authorize?: (request: RouteRequest) => boolean
   ) => {
-    const router = createRouter({ allowedOrigins, rateLimit })
+    const router = createRouter({ allowedOrigins, rateLimit, authorize })
     router.post("/v1/chat/completions", (_request, response) =>
       sendJson(response, 200, { ok: true })
     )
@@ -151,5 +158,20 @@ describe("router origin policy", () => {
     expect(limited.headers.get("retry-after")).toBeTruthy()
     const errorBody = (await limited.json()) as { error: { code: string } }
     expect(errorBody.error.code).toBe("rate_limit_exceeded")
+  })
+
+  it("does not let unauthorized traffic consume an authenticated bucket", async () => {
+    const url = await startServer(
+      [],
+      { limit: 1, windowMs: 60_000 },
+      (request) => request.headers.authorization === "Bearer valid"
+    )
+
+    const unauthorized = await post(url)
+    expect(unauthorized.status).toBe(401)
+
+    const authorized = await post(url, { Authorization: "Bearer valid" })
+    expect(authorized.status).toBe(200)
+    expect(authorized.headers.get("ratelimit-remaining")).toBe("0")
   })
 })
