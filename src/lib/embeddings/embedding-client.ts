@@ -242,6 +242,9 @@ export const generateEmbeddingsBatch = async (
     if (onProgress) {
       onProgress(Math.min(i + batchSize, texts.length), texts.length)
     }
+    if (i + batchSize < texts.length) {
+      await abortableDelay(100, signal)
+    }
   }
 
   return results
