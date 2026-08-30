@@ -12,6 +12,7 @@ import {
   isAppError
 } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import { assertEmbeddingVector } from "@/lib/providers/embedding-response"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { ProviderManager } from "@/lib/providers/manager"
 import type { LLMProvider } from "@/lib/providers/types"
@@ -225,10 +226,15 @@ const tryEmbed = async (
     signal?.throwIfAborted()
 
     try {
-      const vector = await provider.embed(truncatedText, attempt.model, signal)
-      if (!Array.isArray(vector) || vector.length === 0) {
-        return null
-      }
+      const vector = assertEmbeddingVector(
+        await provider.embed(truncatedText, attempt.model, signal),
+        {
+          providerId: provider.id,
+          providerName: provider.config.name,
+          baseUrl: attempt.baseUrl ?? "",
+          userMessage: "The embedding provider returned an invalid vector."
+        }
+      )
 
       return {
         embedding: vector,
