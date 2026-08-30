@@ -391,6 +391,7 @@ export async function retrieveContextFromSources(
     minSimilarity,
     timestamp
   })
+  appendFallbackCandidates(results, allCandidates, minSimilarity)
   if (failedIndexes.length > 0 && results.length > 0) {
     const terms = tokenizeQuery(query)
     for (const index of failedIndexes) {
@@ -401,7 +402,6 @@ export async function retrieveContextFromSources(
       })
     }
   }
-  appendFallbackCandidates(results, allCandidates, minSimilarity)
 
   if (results.length === 0) {
     logger.warn(
