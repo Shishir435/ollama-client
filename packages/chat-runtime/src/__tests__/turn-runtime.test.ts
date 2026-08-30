@@ -43,7 +43,8 @@ const command = {
 const makeRuntime = (
   store: TurnRunStore<TestContext, TestMessage>,
   context: TurnContextOwner<TestContext, TestOutput>,
-  generation: TurnGenerationOwner<TestContext, TestMessage, TestOutput>
+  generation: TurnGenerationOwner<TestContext, TestMessage, TestOutput>,
+  isCancellation?: (error: unknown) => boolean
 ) =>
   new TurnRuntime<TestContext, TestMessage, TestContext, TestOutput>(
     store,
@@ -53,7 +54,8 @@ const makeRuntime = (
       toFailure: (error) => ({
         status: 0,
         message: error instanceof Error ? error.message : "Turn failed"
-      })
+      }),
+      ...(isCancellation ? { isCancellation } : {})
     },
     { now: () => 10 }
   )
@@ -275,5 +277,58 @@ describe("TurnRuntime lifecycle claims", () => {
 
     expect(context.build).toHaveBeenCalledTimes(1)
     expect(generation.start).not.toHaveBeenCalled()
+  })
+})
+
+/*
+ * Context building can be interrupted mid-flight now that the signal reaches
+ * retrieval and provider fetches. That interruption arrives here as a thrown
+ * error like any other, and recorded as `failed` it would show the user a
+ * failure for something they asked to stop — and consume their retry path.
+ */
+describe("TurnRuntime cancellation", () => {
+  const cancelledDuringContext = async (
+    isCancellation?: (error: unknown) => boolean
+  ) => {
+    const updates: string[] = []
+    const store: TurnRunStore<TestContext, TestMessage> = {
+      create: vi.fn(async () => {}),
+      update: vi.fn(async (_id, update) => {
+        updates.push(update.status)
+        return true
+      })
+    }
+    const abort = Object.assign(new Error("Aborted"), { name: "AbortError" })
+    const context: TurnContextOwner<TestContext, TestOutput> = {
+      build: vi.fn(async () => {
+        throw abort
+      })
+    }
+    const generation: TurnGenerationOwner<
+      TestContext,
+      TestMessage,
+      TestOutput
+    > = { start: vi.fn(async () => ({})) }
+
+    const runtime = makeRuntime(store, context, generation, isCancellation)
+    await expect(runtime.start(command)).rejects.toBe(abort)
+
+    return { updates, generation }
+  }
+
+  it("settles a cancelled context build as cancelled, not failed", async () => {
+    const { updates, generation } = await cancelledDuringContext(
+      (error: unknown) => error instanceof Error && error.name === "AbortError"
+    )
+
+    expect(updates).toContain("cancelled")
+    expect(updates).not.toContain("failed")
+    expect(generation.start).not.toHaveBeenCalled()
+  })
+
+  it("still records a failure when the host does not classify the error", async () => {
+    const { updates } = await cancelledDuringContext()
+
+    expect(updates).toContain("failed")
   })
 })

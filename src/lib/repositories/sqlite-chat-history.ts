@@ -19,7 +19,13 @@ import {
   runWithMeta,
   withTransaction
 } from "@/lib/sqlite/db"
-import type { ChatMessage, ChatSession, FileAttachment, Role } from "@/types"
+import type {
+  ChatMessage,
+  ChatSession,
+  FileAttachment,
+  ImageAttachment,
+  Role
+} from "@/types"
 import { decodeRows } from "./row-decoder"
 
 /**
@@ -628,9 +634,10 @@ export const appendMessage = async (
   return messageId
 }
 
-export const updateMessage = async (
+const updateMessageWithExecutor = async (
   id: number,
-  updates: Partial<ChatMessage>
+  updates: Partial<ChatMessage>,
+  executor: Pick<SqlExecutor, "run">
 ): Promise<number> => {
   const fields: string[] = []
   const values: RowValue[] = []
@@ -685,8 +692,49 @@ export const updateMessage = async (
   values.push(Date.now())
 
   values.push(id)
-  await run(`UPDATE messages SET ${fields.join(", ")} WHERE id = ?`, values)
+  await executor.run(
+    `UPDATE messages SET ${fields.join(", ")} WHERE id = ?`,
+    values
+  )
   return 1
+}
+
+export const updateMessage = (
+  id: number,
+  updates: Partial<ChatMessage>
+): Promise<number> => updateMessageWithExecutor(id, updates, { run })
+
+/**
+ * Persist a generated assistant snapshot and its image bytes in one SQLite
+ * transaction. Replacing only image rows preserves ordinary RAG attachments.
+ */
+export const updateMessageWithImages = async (
+  id: number,
+  updates: Partial<ChatMessage>,
+  images: ImageAttachment[]
+): Promise<number> => {
+  let updated = 0
+  await withTransaction(async (transaction) => {
+    const rows = await transaction.query(
+      "SELECT sessionId FROM messages WHERE id = ?",
+      [id]
+    )
+    const sessionId = rows[0]?.sessionId
+    if (typeof sessionId !== "string") return
+
+    updated = await updateMessageWithExecutor(id, updates, transaction)
+    await transaction.run(
+      "DELETE FROM files WHERE messageId = ? AND fileType LIKE 'image/%'",
+      [id]
+    )
+    if (images.length > 0) {
+      await insertFiles(
+        images.map((image) => imageToStoredFile(image, id, sessionId)),
+        transaction
+      )
+    }
+  })
+  return updated
 }
 
 /**

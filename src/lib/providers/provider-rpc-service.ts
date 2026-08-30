@@ -42,6 +42,10 @@ import {
   resolveProviderFavicon
 } from "./provider-favicon"
 import {
+  resolveReasoningEffortSupport,
+  withReasoningEffortSupport
+} from "./reasoning-effort"
+import {
   type LLMProvider,
   type ProviderConfig,
   ProviderServiceProfile,
@@ -136,23 +140,27 @@ const toPublicConfig = (config: ProviderConfig): PublicProviderConfig => {
   }
 }
 
-const customModel = (name: string, config: ProviderConfig): ProviderModel => ({
-  name,
-  model: name,
-  modified_at: new Date().toISOString(),
-  size: 0,
-  digest: String(config.id),
-  providerId: String(config.id),
-  providerName: config.name,
-  details: {
-    parent_model: "",
-    format: "gguf",
-    family: config.type,
-    families: [],
-    parameter_size: "",
-    quantization_level: ""
+const customModel = (name: string, config: ProviderConfig): ProviderModel => {
+  const reasoning = resolveReasoningEffortSupport(config, name)
+  return {
+    name,
+    model: name,
+    modified_at: new Date().toISOString(),
+    size: 0,
+    digest: String(config.id),
+    providerId: String(config.id),
+    providerName: config.name,
+    details: {
+      parent_model: "",
+      format: "gguf",
+      family: config.type,
+      families: [],
+      parameter_size: "",
+      quantization_level: ""
+    },
+    ...(reasoning && { capabilityHints: { reasoning } })
   }
-})
+}
 
 /**
  * Confirm a catalog-less endpoint by asking it to generate one token.
@@ -325,12 +333,15 @@ const mergeProviderModels = (
     name: config.name,
     serviceProfile: config.serviceProfile
   })
-  return [...byName.values()].map((model) => ({
-    ...model,
-    providerId: model.providerId || String(config.id),
-    providerName: model.providerName || config.name,
-    ...(brand && { providerBrand: brand })
-  }))
+  return [...byName.values()].map((rawModel) => {
+    const model = withReasoningEffortSupport(rawModel, config)
+    return {
+      ...model,
+      providerId: model.providerId || String(config.id),
+      providerName: model.providerName || config.name,
+      ...(brand && { providerBrand: brand })
+    }
+  })
 }
 
 export const ProviderRpcService = {

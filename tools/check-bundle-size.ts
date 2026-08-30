@@ -186,7 +186,10 @@ const budgets: Budget[] = [
   {
     metric: "background",
     field: "gzipBytes",
-    max: isFirefox ? 210_000 : 194_000
+    // Generated-image responses plus embedding route validation, cancellation,
+    // and cache identity safeguards run in the background owner. Keep the
+    // increase narrow while leaving enough margin for deterministic builds.
+    max: isFirefox ? 210_000 : 201_000
   }
 ]
 

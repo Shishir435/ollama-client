@@ -1,3 +1,4 @@
+import { abortableDelay } from "@/lib/abortable-delay"
 import { vectorDb } from "@/lib/embeddings/db"
 import { logger } from "@/lib/logger"
 import {
@@ -15,22 +16,6 @@ interface MigrationProgress {
   processed: number
   total: number
   updated: number
-}
-
-const abortableDelay = (ms: number, signal?: AbortSignal): Promise<void> => {
-  if (!signal) return new Promise((resolve) => setTimeout(resolve, ms))
-  signal.throwIfAborted()
-  return new Promise((resolve, reject) => {
-    const onAbort = () => {
-      clearTimeout(timer)
-      reject(signal.reason)
-    }
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort)
-      resolve()
-    }, ms)
-    signal.addEventListener("abort", onAbort, { once: true })
-  })
 }
 
 export async function runEmbeddingDimensionMigration(

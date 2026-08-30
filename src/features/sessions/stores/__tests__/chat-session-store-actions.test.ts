@@ -548,6 +548,34 @@ describe("updateMessage", () => {
     expect(mockRepo.updateMessage).not.toHaveBeenCalled()
   })
 
+  it("persists generated images through the atomic image writer", async () => {
+    const images = [
+      {
+        imageId: "generated-1",
+        fileName: "generated-image.png",
+        mimeType: "image/png",
+        size: 3,
+        base64: "AQID",
+        origin: "model-generated" as const
+      }
+    ]
+    mockRepo.updateMessageWithImages.mockResolvedValue(undefined as any)
+
+    await chatSessionStore
+      .getState()
+      .updateMessage(11, { content: "", images, done: true }, false)
+
+    expect(mockRepo.updateMessageWithImages).toHaveBeenCalledWith(
+      11,
+      { content: "", images, done: true },
+      images
+    )
+    expect(mockRepo.updateMessage).not.toHaveBeenCalled()
+    expect(chatSessionStore.getState().sessions[0]?.messages?.[0].images).toBe(
+      images
+    )
+  })
+
   it("updates the message content in store state", async () => {
     mockRepo.updateMessage.mockResolvedValue(undefined as any)
 

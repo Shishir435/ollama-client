@@ -55,6 +55,8 @@
  */
 
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { createServer } from "node:http"
+import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { Builder, type WebDriver } from "selenium-webdriver"
@@ -335,6 +337,114 @@ const waitForOpfsMarker = async (
   }
 }
 
+const startReloadRegressionServer = async () => {
+  const signatures: Array<Record<string, unknown>> = []
+  const server = createServer((request, response) => {
+    response.setHeader("Access-Control-Allow-Origin", "*")
+    response.setHeader("Access-Control-Allow-Headers", "*")
+    if (request.method === "OPTIONS") {
+      response.statusCode = 204
+      response.end()
+      return
+    }
+    if (request.url?.endsWith("/api/tags")) {
+      response.setHeader("Content-Type", "application/json")
+      response.end(
+        JSON.stringify({
+          models: [
+            {
+              name: "verify-model",
+              model: "verify-model",
+              modified_at: new Date(0).toISOString(),
+              size: 1,
+              digest: "verify",
+              details: { family: "verify", families: ["verify"] }
+            }
+          ]
+        })
+      )
+      return
+    }
+    if (request.url?.endsWith("/api/show")) {
+      response.setHeader("Content-Type", "application/json")
+      response.end(
+        JSON.stringify({
+          capabilities: ["completion"],
+          details: { family: "verify" }
+        })
+      )
+      return
+    }
+    if (!request.url?.endsWith("/api/chat")) {
+      response.statusCode = 404
+      response.end(JSON.stringify({ error: "not found" }))
+      return
+    }
+
+    let rawBody = ""
+    request.setEncoding("utf8")
+    request.on("data", (chunk) => {
+      rawBody += chunk
+    })
+    request.on("end", () => {
+      const body = JSON.parse(rawBody) as {
+        keep_alive?: string | number
+        model?: string
+        options?: Record<string, unknown>
+      }
+      signatures.push({
+        model: body.model,
+        keepAlive: body.keep_alive,
+        numCtx: body.options?.num_ctx,
+        numThread: body.options?.num_thread,
+        numGpu: body.options?.num_gpu,
+        numBatch: body.options?.num_batch
+      })
+      response.setHeader("Content-Type", "application/x-ndjson")
+      response.end(
+        `${JSON.stringify({ message: { content: "firefox" }, done: false })}\n${JSON.stringify({ message: { content: "" }, done: true })}\n`
+      )
+    })
+  })
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject)
+    server.listen(0, "127.0.0.1", resolve)
+  })
+  const { port } = server.address() as AddressInfo
+  return {
+    baseUrl: `http://127.0.0.1:${port}/custom/ollama`,
+    signatures,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve())
+        server.closeAllConnections()
+      })
+  }
+}
+
+const waitForTurnResult = async (
+  driver: WebDriver,
+  turnId: string,
+  assistantMessageId: number,
+  timeoutMs = 30000
+): Promise<{ status?: string; content?: string; done?: boolean }> => {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const result = await call<{
+      status?: string
+      content?: string
+      done?: boolean
+    }>(driver, "durableTurnResult", turnId, assistantMessageId)
+    if (["completed", "failed", "cancelled"].includes(result.status ?? "")) {
+      return result
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`Turn ${turnId} did not settle: ${JSON.stringify(result)}`)
+    }
+    await sleep(250)
+  }
+}
+
 const runScenarios = async (): Promise<void> => {
   if (!existsSync(resolve(buildPath, "persistence-verify.html"))) {
     throw new Error(
@@ -367,6 +477,50 @@ const runScenarios = async (): Promise<void> => {
       { freshMarker, freshCounts }
     )
 
+    // #315 crossed two production paths: RAG rewrite followed by durable chat.
+    // Firefox must preserve the same runner settings across both requests too.
+    const reloadServer = await startReloadRegressionServer()
+    try {
+      await call<void>(driver, "configureFakeOllama", reloadServer.baseUrl)
+      await call<void>(driver, "buildConfiguredRagContext", "firefox-315-rag")
+      const assistantMessageId = await call<number>(
+        driver,
+        "startDurableTurn",
+        "firefox-315-chat",
+        "firefox runtime consistency"
+      )
+      const result = await waitForTurnResult(
+        driver,
+        "firefox-315-chat",
+        assistantMessageId
+      )
+      const expected = {
+        model: "verify-model",
+        keepAlive: "15m",
+        numCtx: 8192,
+        numThread: 8,
+        numGpu: 20,
+        numBatch: 256
+      }
+      record(
+        "provider-runtime-config-consistent-firefox",
+        result.status === "completed" &&
+          result.content === "firefox" &&
+          reloadServer.signatures.length === 2 &&
+          reloadServer.signatures.every(
+            (signature) => JSON.stringify(signature) === JSON.stringify(expected)
+          ),
+        { baseUrl: reloadServer.baseUrl, result, signatures: reloadServer.signatures }
+      )
+    } finally {
+      await reloadServer.close()
+    }
+
+    const providerRegressionCounts = await call<{
+      sessions: number
+      messages: number
+    }>(driver, "counts")
+
     // ---- 2. Concurrent facade writes from two tabs, exact counts ----
     const secondTab = await openVerifyTab(driver)
 
@@ -384,8 +538,14 @@ const runScenarios = async (): Promise<void> => {
     )
     record(
       "concurrent-facade-writes",
-      afterWrites.sessions === 2 && afterWrites.messages === APPENDS * 2,
-      { expected: APPENDS * 2, ...afterWrites }
+      afterWrites.sessions === providerRegressionCounts.sessions + 2 &&
+        afterWrites.messages ===
+          providerRegressionCounts.messages + APPENDS * 2,
+      {
+        baseline: providerRegressionCounts,
+        expectedAppendedMessages: APPENDS * 2,
+        ...afterWrites
+      }
     )
 
     await driver.switchTo().window(secondTab)

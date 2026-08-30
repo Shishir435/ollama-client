@@ -208,6 +208,31 @@ describe("reduceStreamEvent", () => {
     }
   })
 
+  it("treats an image-only response as visible output", () => {
+    const { state, last } = apply(start(), [
+      { generatedImages: [{ imageId: "image-1" }] },
+      { done: true }
+    ])
+    expect(state.assistant.images).toEqual([{ imageId: "image-1" }])
+    if (last.terminal?.type === "success") {
+      expect(last.terminal.emptyReason).toBeUndefined()
+      expect(last.terminal.message.metrics?.emptyResponse).toBeUndefined()
+    } else {
+      throw new Error("expected success terminal")
+    }
+  })
+
+  it("deduplicates generated image stream snapshots by image id", () => {
+    const { state } = apply(start(), [
+      { generatedImages: [{ imageId: "image-1" }] },
+      { generatedImages: [{ imageId: "image-1" }, { imageId: "image-2" }] }
+    ])
+    expect(state.assistant.images).toEqual([
+      { imageId: "image-1" },
+      { imageId: "image-2" }
+    ])
+  })
+
   it("surfaces a terminal error with the accumulated partial for display", () => {
     const { last } = apply(start(), [
       { delta: "partial" },

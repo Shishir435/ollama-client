@@ -2,6 +2,10 @@ import path from "node:path"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
 
+const COVERAGE_MODE = process.argv.includes("--coverage")
+const COVERAGE_SHARD = process.env.VITEST_COVERAGE_SHARD === "true"
+const COVERAGE_TEST_TIMEOUT_MS = 30_000
+
 const THREAD_TEST_PATTERNS = [
   "src/features/chat/hooks/__tests__/use-embedding-migration.test.ts",
   "src/lib/__tests__/backup-service.test.ts",
@@ -23,8 +27,9 @@ export default defineConfig({
         test: {
           name: "unit-vm",
           pool: "vmThreads",
-          maxWorkers: 6,
+          maxWorkers: COVERAGE_MODE ? 4 : 6,
           vmMemoryLimit: "256MB",
+          testTimeout: COVERAGE_MODE ? COVERAGE_TEST_TIMEOUT_MS : 5_000,
           include: [
             "src/**/*.{test,spec}.{ts,tsx}",
             "config/**/*.{test,spec}.ts"
@@ -37,7 +42,8 @@ export default defineConfig({
         test: {
           name: "persistence",
           pool: "threads",
-          maxWorkers: 6,
+          maxWorkers: COVERAGE_MODE ? 4 : 6,
+          testTimeout: COVERAGE_MODE ? COVERAGE_TEST_TIMEOUT_MS : 5_000,
           include: THREAD_TEST_PATTERNS
         }
       },
@@ -45,7 +51,8 @@ export default defineConfig({
         test: {
           name: "packages",
           environment: "node",
-          maxWorkers: 6,
+          maxWorkers: COVERAGE_MODE ? 4 : 6,
+          testTimeout: COVERAGE_MODE ? COVERAGE_TEST_TIMEOUT_MS : 5_000,
           include: ["packages/*/src/**/*.test.ts"]
         }
       }
@@ -57,9 +64,30 @@ export default defineConfig({
       exclude: [
         "src/**/*.{test,spec}.{ts,tsx}",
         "packages/*/src/**/*.{test,spec}.{ts,tsx}",
+        "src/**/__tests__/**",
+        "packages/*/src/**/__tests__/**",
         "src/**/*.d.ts",
-        "packages/*/src/**/*.d.ts"
-      ]
+        "packages/*/src/**/*.d.ts",
+        // Browser composition roots are executed only inside packaged
+        // extensions. Counting them as unit-test misses obscures the logic
+        // coverage beneath them; the browser gates own these files instead.
+        "src/entrypoints/**",
+        "src/contents/index.ts",
+        "src/contents/debug-init.ts",
+        "src/lib/persistence/chat-db-worker.ts",
+        "src/spike/**"
+      ],
+      // A shard cannot satisfy global thresholds alone. Its V8 data is stored
+      // in the blob report, then the merge job applies these floors to the
+      // complete cross-shard coverage map.
+      thresholds: COVERAGE_SHARD
+        ? undefined
+        : {
+            branches: 67,
+            functions: 75,
+            lines: 80,
+            statements: 78
+          }
     }
   },
   resolve: {

@@ -3,6 +3,7 @@ import {
   Code,
   Database,
   Eye,
+  Image,
   type LucideIcon,
   MessageSquare
 } from "lucide-react"
@@ -11,6 +12,7 @@ import type { ModelCapabilities } from "@/lib/providers/capabilities"
 export type CapabilityFlag =
   | "text"
   | "vision"
+  | "imageOutput"
   | "embeddings"
   | "toolCalling"
   | "reasoning"
@@ -35,6 +37,12 @@ export const CAPABILITY_META: CapabilityMeta[] = [
     icon: Eye,
     labelKey: "model.capabilities.flags.vision.label",
     descKey: "model.capabilities.flags.vision.desc"
+  },
+  {
+    flag: "imageOutput",
+    icon: Image,
+    labelKey: "model.capabilities.flags.imageOutput.label",
+    descKey: "model.capabilities.flags.imageOutput.desc"
   },
   {
     flag: "toolCalling",
@@ -64,6 +72,7 @@ export const CAPABILITY_META: CapabilityMeta[] = [
 export const BADGE_FLAGS: CapabilityFlag[] = [
   "text",
   "vision",
+  "imageOutput",
   "toolCalling",
   "reasoning",
   "embeddings"

@@ -77,6 +77,15 @@ export interface TurnGenerationOwner<TContext, TMessage, TContextOutput> {
 
 export interface TurnFailureMapper {
   toFailure: (error: unknown) => AppFailure
+  /**
+   * Whether an escaping error is the user's own cancellation.
+   *
+   * Context building can now be interrupted mid-flight, and the interruption
+   * arrives here as a thrown error like any other. Recorded as `failed` it
+   * would consume the user's retry path and show a failure for something they
+   * asked to stop, so the host — which owns the abort primitive — decides.
+   */
+  isCancellation?: (error: unknown) => boolean
 }
 
 export interface TurnClock {
@@ -241,6 +250,16 @@ export class TurnRuntime<TContext, TMessage, TContextOptions, TContextOutput> {
       // row remains live so a later worker can resume it. It is not a turn
       // failure and must not consume the user's retry path.
       if (signal?.aborted) throw error
+      // A stop that reached the work itself settles the turn as cancelled. The
+      // CAS still decides: a row someone else already settled refuses this
+      // write, exactly as it refuses a late failure.
+      if (this.failures.isCancellation?.(error)) {
+        await this.store.update(submission.id, {
+          status: "cancelled",
+          failure: null
+        })
+        throw error
+      }
       await this.store.update(submission.id, {
         status: "failed",
         failure: this.failures.toFailure(error)

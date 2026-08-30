@@ -112,7 +112,34 @@ const ProviderModelSchema = z
         contextLength: z.number().nullish(),
         capabilityTags: z.array(z.string()).max(50).nullish(),
         modalities: z.array(z.string()).max(50).nullish(),
-        supportedParameters: z.array(z.string()).max(100).nullish()
+        outputModalities: z.array(z.string()).max(50).nullish(),
+        supportedParameters: z.array(z.string()).max(100).nullish(),
+        reasoning: z
+          .object({
+            supportedEfforts: z
+              .array(
+                z.enum(["minimal", "low", "medium", "high", "xhigh", "max"])
+              )
+              .max(10),
+            canEnable: z.boolean(),
+            canDisable: z.boolean(),
+            mandatory: z.boolean().optional(),
+            defaultEffort: z
+              .enum([
+                "none",
+                "minimal",
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ])
+              .optional(),
+            defaultEnabled: z.boolean().optional(),
+            source: z.enum(["model-metadata", "provider-profile"])
+          })
+          .strict()
+          .nullish()
       })
       .nullish()
   })
@@ -142,8 +169,14 @@ const ProviderModelSchema = z
             ...(capabilityHints.modalities && {
               modalities: capabilityHints.modalities
             }),
+            ...(capabilityHints.outputModalities && {
+              outputModalities: capabilityHints.outputModalities
+            }),
             ...(capabilityHints.supportedParameters && {
               supportedParameters: capabilityHints.supportedParameters
+            }),
+            ...(capabilityHints.reasoning && {
+              reasoning: capabilityHints.reasoning
             })
           }
         : undefined

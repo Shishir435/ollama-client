@@ -116,6 +116,28 @@ describe("Keyword Index Manager", () => {
       )
     })
 
+    it("should find documents by hyphenated filename", () => {
+      const document: VectorDocument = {
+        id: 6,
+        content: "Notes about long-term memory",
+        embedding: [0.1, 0.2, 0.3],
+        metadata: {
+          source: "ChatGPT-Memory.txt",
+          title: "ChatGPT-Memory.txt",
+          type: "file",
+          timestamp: Date.now()
+        }
+      }
+
+      keywordIndexManager.addDocument(6, document.content, document)
+
+      const results = keywordIndexManager.search("ChatGPT-Memory.txt", {
+        combineWith: "AND"
+      })
+
+      expect(results.some((result) => result.id === 6)).toBe(true)
+    })
+
     it("should be case-insensitive", () => {
       const results1 = keywordIndexManager.search("python")
       const results2 = keywordIndexManager.search("PYTHON")

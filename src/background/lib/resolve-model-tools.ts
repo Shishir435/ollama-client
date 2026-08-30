@@ -1,7 +1,11 @@
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
-import { getModelCapabilities } from "@/lib/providers/capabilities"
+import {
+  getModelCapabilities,
+  type ModelCapabilities
+} from "@/lib/providers/capabilities"
+import type { CapabilityProbeResult } from "@/lib/providers/capability-probe"
 import { getCapabilityProbe } from "@/lib/providers/capability-probe"
 import { getModelCapabilityOverride } from "@/lib/providers/model-capability-overrides"
 import { discoverProviderModels } from "@/lib/providers/model-discovery"
@@ -29,6 +33,7 @@ interface CapabilityTagsCacheEntry {
   capabilityTags?: string[]
   contextLength?: number
   modalities?: string[]
+  outputModalities?: string[]
   supportedParameters?: string[]
   expiresAt: number
 }
@@ -47,24 +52,17 @@ export interface ResolvedModelTools {
   mode: ToolCallingMode
 }
 
-/**
- * Resolve the tools to offer a model for one chat turn.
- *
- * When the model's resolved `toolCalling` capability is true (override →
- * metadata → provider default — the same chain the UI uses), tools are driven
- * natively. When it is false, tools are offered only if the user opted this
- * model into the prompt-based `nonNativeToolFallback`; otherwise the model gets
- * no tools and the request stays byte-identical to the pre-tool-calling shape.
- *
- * Returns `undefined` when no tools should be offered (governance off, none
- * registered, or non-tool-calling model without the fallback opt-in).
- */
-export const resolveModelTools = async (
+export interface ResolvedModelCapabilities {
+  capabilities: ModelCapabilities
+  probed: CapabilityProbeResult | null
+}
+
+/** Resolve one model's shared capability chain for any background consumer. */
+export const resolveModelCapabilities = async (
   model: string,
   providerId: string | undefined,
-  provider: LLMProvider,
-  latestUserText?: string
-): Promise<ResolvedModelTools | undefined> => {
+  provider: LLMProvider
+): Promise<ResolvedModelCapabilities> => {
   const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
   const providerUrl = resolveProviderBaseUrl(provider.config)
   const cacheKey = `${resolvedProviderId}::${providerUrl}::${model}`
@@ -88,20 +86,15 @@ export const resolveModelTools = async (
         }
       } catch (error) {
         logger.debug(
-          "Failed to read model details for tool gating",
-          "resolveModelTools",
+          "Failed to read model details for capability gating",
+          "resolveModelCapabilities",
           { error }
         )
       }
     }
 
-    // OpenAI-compatible providers expose a null-returning detail method. A
-    // missing detail verdict must fall through to their richer model catalog.
     if (!resolvedMetadata && provider.capabilities?.modelDiscovery) {
       try {
-        // Through the discovery service, not `getModels` directly: tool gating
-        // runs on every turn whose capability cache has expired, and a
-        // catalog-less provider was being asked to 404 again each time.
         const { models } = await discoverProviderModels(provider)
         const servedModel = models.find((candidate) => candidate.name === model)
         if (servedModel) {
@@ -111,6 +104,7 @@ export const resolveModelTools = async (
             capabilityTags: servedModel.capabilityHints?.capabilityTags,
             contextLength: servedModel.capabilityHints?.contextLength,
             modalities: servedModel.capabilityHints?.modalities,
+            outputModalities: servedModel.capabilityHints?.outputModalities,
             supportedParameters:
               servedModel.capabilityHints?.supportedParameters
           }
@@ -118,8 +112,8 @@ export const resolveModelTools = async (
         }
       } catch (error) {
         logger.debug(
-          "Failed to read model catalog metadata for tool gating",
-          "resolveModelTools",
+          "Failed to read model catalog metadata for capability gating",
+          "resolveModelCapabilities",
           { error }
         )
       }
@@ -137,17 +131,46 @@ export const resolveModelTools = async (
     getModelCapabilityOverride(resolvedProviderId, model),
     getCapabilityProbe(resolvedProviderId, model)
   ])
-  const capabilities = getModelCapabilities({
-    providerId: resolvedProviderId,
-    ollamaCapabilities: metadata.tags,
-    lmStudioModelType: metadata.modelType,
-    capabilityTags: metadata.capabilityTags,
-    contextLength: metadata.contextLength,
-    modalities: metadata.modalities,
-    supportedParameters: metadata.supportedParameters,
-    override,
+  return {
+    capabilities: getModelCapabilities({
+      providerId: resolvedProviderId,
+      ollamaCapabilities: metadata.tags,
+      lmStudioModelType: metadata.modelType,
+      capabilityTags: metadata.capabilityTags,
+      contextLength: metadata.contextLength,
+      modalities: metadata.modalities,
+      outputModalities: metadata.outputModalities,
+      supportedParameters: metadata.supportedParameters,
+      override,
+      probed
+    }),
     probed
-  })
+  }
+}
+
+/**
+ * Resolve the tools to offer a model for one chat turn.
+ *
+ * When the model's resolved `toolCalling` capability is true (override →
+ * metadata → provider default — the same chain the UI uses), tools are driven
+ * natively. When it is false, tools are offered only if the user opted this
+ * model into the prompt-based `nonNativeToolFallback`; otherwise the model gets
+ * no tools and the request stays byte-identical to the pre-tool-calling shape.
+ *
+ * Returns `undefined` when no tools should be offered (governance off, none
+ * registered, or non-tool-calling model without the fallback opt-in).
+ */
+export const resolveModelTools = async (
+  model: string,
+  providerId: string | undefined,
+  provider: LLMProvider,
+  latestUserText?: string,
+  resolvedCapabilities?: ResolvedModelCapabilities
+): Promise<ResolvedModelTools | undefined> => {
+  const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
+  const { capabilities, probed } =
+    resolvedCapabilities ??
+    (await resolveModelCapabilities(model, providerId, provider))
 
   // Native when the model supports tool-calling; otherwise fall back to the
   // prompt-based path only if the user opted this model in. Off by default, so a

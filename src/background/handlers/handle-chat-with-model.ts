@@ -4,13 +4,20 @@ import {
 } from "@/background/lib/abort-controller-registry"
 import { buildToolSystemGuidance } from "@/background/lib/build-tool-system-guidance"
 import { withErrorContext } from "@/background/lib/error-handler"
-import { resolveModelTools } from "@/background/lib/resolve-model-tools"
+import {
+  resolveModelCapabilities,
+  resolveModelTools
+} from "@/background/lib/resolve-model-tools"
 import { hasRetrievalTool } from "@/background/lib/retrieval-tools"
 import { safePostChatStreamEvent } from "@/background/lib/runtime-delivery"
 import { streamChatWithNonNativeTools } from "@/background/lib/stream-chat-with-non-native-tools"
 import { streamChatWithTools } from "@/background/lib/stream-chat-with-tools"
+import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
-import { resolveModelConfig } from "@/lib/model-config-utils"
+import {
+  getStoredModelConfig,
+  resolveModelConfig
+} from "@/lib/model-config-utils"
 import { resolveProviderBaseUrl } from "@/lib/providers/base-url"
 import { ProviderFactory } from "@/lib/providers/factory"
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
@@ -76,7 +83,9 @@ export const handleChatWithModel = withErrorContext(
     setAbortController(abortKey, ac)
 
     const modelConfigMap = await readSetting(SETTINGS.MODEL_CONFIGS)
-    const modelParams = resolveModelConfig(modelConfigMap[model])
+    const modelParams = resolveModelConfig(
+      getStoredModelConfig(modelConfigMap, model, providerId)
+    )
 
     // App-owned permission cards are durable UI recovery state, never model
     // output or prompt context. Filter defensively even though the client does
@@ -126,12 +135,40 @@ export const handleChatWithModel = withErrorContext(
     const latestUserText = [...conversationMessages]
       .reverse()
       .find((message) => message.role === "user")?.content
-    const resolvedTools = await resolveModelTools(
+    const resolvedCapabilities = await resolveModelCapabilities(
       model,
       providerId,
-      provider,
-      latestUserText
+      provider
     )
+    const { capabilities } = resolvedCapabilities
+    const imageGenerator = capabilities.imageOutput
+      ? provider.generateImage
+      : undefined
+    if (capabilities.imageOutput && !imageGenerator) {
+      throw createAppError("Provider does not support image generation.", {
+        kind: "validation",
+        status: 400,
+        code: "OLC-INPUT-UNSUPPORTED",
+        phase: "configuration",
+        providerId: provider.id,
+        providerName: provider.config.name,
+        model,
+        userMessage:
+          "This provider cannot generate images. Disable the image-output override or choose another provider."
+      })
+    }
+    // Image-generation models use a provider-specific generation operation,
+    // normalized into the ordinary chat stream. They do not participate in a
+    // text tool loop: the user's latest message is their generation prompt.
+    const resolvedTools = imageGenerator
+      ? null
+      : await resolveModelTools(
+          model,
+          providerId,
+          provider,
+          latestUserText,
+          resolvedCapabilities
+        )
     // Only the native path sends a tools array + the native system guidance; the
     // non-native path injects its own protocol prompt inside its streamer.
     const nativeTools =
@@ -254,6 +291,7 @@ export const handleChatWithModel = withErrorContext(
       num_gpu: modelParams.num_gpu,
       num_batch: modelParams.num_batch,
       keep_alive: modelParams.keep_alive,
+      reasoningEffort: modelParams.reasoning_effort,
       tools: nativeTools
       // provider handles system prompt if needed, but we already injected it into messages
       // so we pass the prepared messages
@@ -292,7 +330,21 @@ export const handleChatWithModel = withErrorContext(
     }
 
     try {
-      if (resolvedTools && resolvedTools.tools.length > 0) {
+      if (imageGenerator) {
+        const latestUserMessage = [...conversationMessages]
+          .reverse()
+          .find((message) => message.role === "user")
+        await imageGenerator.call(
+          provider,
+          {
+            model,
+            prompt: latestUserMessage?.content ?? "",
+            images: latestUserMessage?.images
+          },
+          onChunk,
+          ac.signal
+        )
+      } else if (resolvedTools && resolvedTools.tools.length > 0) {
         const { getToolRegistry } = await import("@/lib/tools")
         const toolResultMaxChars = await readSetting(
           SETTINGS.MAX_TOOL_RESULT_CHARS

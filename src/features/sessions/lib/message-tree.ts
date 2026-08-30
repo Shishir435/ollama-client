@@ -232,6 +232,39 @@ export const findLatestLeafDescendant = <T extends MessageTreeNode>(
 }
 
 /**
+ * The newest node that nothing else claims as a parent.
+ *
+ * Callers used to take the last row of a tree the repository returns ordered by
+ * timestamp, which is a leaf only while timestamps rise with depth. They do for
+ * messages this build wrote; they need not for a session restored from a backup
+ * with its original timestamps, or one written across a clock adjustment. The
+ * newest-timestamped row is then an internal node, so the rendered path stops
+ * there and hides the branch below it — and, worse, `addMessage` persists that
+ * id as the next message's `parentId`, durably forking a branch the user did
+ * not ask for.
+ *
+ * Falls back to the newest node when every node has a child, which a cycle
+ * would produce and a tree cannot otherwise.
+ */
+export const findNewestStructuralLeaf = <T extends MessageTreeNode>(
+  messages: T[]
+): number | string | undefined => {
+  const parented = new Set(
+    messages
+      .filter((message) => message.parentId !== undefined)
+      .map((message) => String(message.parentId))
+  )
+  const leaves = messages.filter(
+    (message) => message.id !== undefined && !parented.has(String(message.id))
+  )
+  const ordered = (leaves.length > 0 ? leaves : messages)
+    .filter((message) => message.id !== undefined)
+    .sort(compareMessages)
+
+  return ordered[ordered.length - 1]?.id
+}
+
+/**
  * Group a list of files by their `messageId`. Files without a numeric
  * messageId are skipped.
  */

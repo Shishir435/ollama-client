@@ -51,6 +51,7 @@ export const useSelectedModelCapabilities = (): SelectedModelCapabilities => {
     capabilityTags: model?.capabilityHints?.capabilityTags,
     contextLength: model?.capabilityHints?.contextLength,
     modalities: model?.capabilityHints?.modalities,
+    outputModalities: model?.capabilityHints?.outputModalities,
     supportedParameters: model?.capabilityHints?.supportedParameters,
     override: getOverride(providerId, selectedModel)
   })

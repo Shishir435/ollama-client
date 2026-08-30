@@ -590,6 +590,10 @@
           "label": "Vision",
           "desc": "Accepts image input alongside text."
         },
+        "imageOutput": {
+          "label": "Image generation",
+          "desc": "Generates images as a response in chat."
+        },
         "toolCalling": {
           "label": "Tool calling",
           "desc": "Can call tools/functions during a response."
@@ -1053,6 +1057,24 @@
         "unload_on_switch_description": "Free memory by unloading the last model when switching."
       },
       "parameters": {
+        "reasoning_effort": {
+          "label": "Reasoning effort",
+          "description_reported": "Levels reported by this model's provider.",
+          "description_profile": "Levels verified for this provider and model family.",
+          "description_unknown": "This provider does not advertise a reliable reasoning control.",
+          "options": {
+            "auto": "Auto (provider default)",
+            "auto_short": "Auto",
+            "enabled": "On",
+            "none": "Off",
+            "minimal": "Minimal",
+            "low": "Low",
+            "medium": "Medium",
+            "high": "High",
+            "xhigh": "Extra high",
+            "max": "Maximum"
+          }
+        },
         "temperature": {
           "label": "Temperature",
           "conservative": "Conservative",

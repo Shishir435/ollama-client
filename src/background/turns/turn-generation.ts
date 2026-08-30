@@ -21,7 +21,8 @@ import { MESSAGE_KEYS } from "@/lib/constants"
 import {
   appendMessage,
   getSession,
-  updateMessage
+  updateMessage,
+  updateMessageWithImages
 } from "@/lib/repositories/chat-history"
 import {
   CHAT_STREAM_EVENT_TYPES,
@@ -29,18 +30,22 @@ import {
 } from "@/protocol/streams"
 import type { ChatMessage, ChatStreamSink, ChatWithModelMessage } from "@/types"
 
-export const persistAssistant = (
+export const persistAssistant = async (
   assistantMessageId: number,
   assistant: ChatMessage
-): Promise<number> =>
-  updateMessage(assistantMessageId, {
+): Promise<number> => {
+  const updates = {
     content: assistant.content,
     thinking: assistant.thinking,
     replayArtifact: assistant.replayArtifact,
     metrics: assistant.metrics,
     done: assistant.done,
     error: assistant.error
-  })
+  }
+  return assistant.images
+    ? updateMessageWithImages(assistantMessageId, updates, assistant.images)
+    : updateMessage(assistantMessageId, updates)
+}
 
 /**
  * Record a failed turn on its assistant row.

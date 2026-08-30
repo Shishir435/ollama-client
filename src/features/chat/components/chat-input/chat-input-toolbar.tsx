@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { SettingsButton } from "@/components/settings-button"
 import { ModelMenu } from "@/features/model/components/model-menu"
+import { ReasoningEffortMenu } from "@/features/model/components/reasoning-effort-menu"
 import type { FileProcessingState } from "@/lib/file-processors/types"
 import type { ImageAttachment } from "@/types"
 import { ContextSettingsMenu } from "./context-settings-menu"
@@ -48,6 +49,8 @@ export const ChatInputToolbar = ({
           showStatusPopup={false}
           tooltipTextContent={t("chat.input.switch_model")}
         />
+
+        <ReasoningEffortMenu />
 
         <ContextSettingsMenu
           attachmentCount={attachmentCount}
