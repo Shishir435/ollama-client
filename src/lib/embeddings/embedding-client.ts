@@ -1,5 +1,4 @@
 import type { AppFailure } from "@ollama-client/contracts/app-failure"
-import { abortableDelay } from "@/lib/abortable-delay"
 import type { EmbeddingConfig } from "@/lib/constants"
 import { isAbortError } from "@/lib/error-utils"
 import { toAppFailure } from "@/protocol/app-failure"
@@ -226,21 +225,18 @@ export const generateEmbeddingsBatch = async (
     signal?.throwIfAborted()
     const batch = texts.slice(i, i + batchSize)
     const batchResults = await Promise.all(
-      batch.map((text) =>
-        generateEmbedding(text, modelName, config, {
-          plan,
-          ...(signal ? { signal } : {})
-        })
-      )
+      batch.map(async (text) => {
+        const opts = { plan, signal },
+          result = await generateEmbedding(text, modelName, config, opts)
+        const failure = (result as EmbeddingError).failure
+        if (failure?.status !== 429) return result
+        return generateEmbedding(text, modelName, config, opts)
+      })
     )
     results.push(...batchResults)
 
     if (onProgress) {
       onProgress(Math.min(i + batchSize, texts.length), texts.length)
-    }
-    if (i + batchSize < texts.length) {
-      // Yield between batches without imposing a fixed wall-clock penalty.
-      await abortableDelay(0, signal)
     }
   }
 
