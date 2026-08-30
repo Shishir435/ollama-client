@@ -1,15 +1,12 @@
 import type { AppFailure } from "@ollama-client/contracts/app-failure"
+import { abortableDelay } from "@/lib/abortable-delay"
 import type { EmbeddingConfig } from "@/lib/constants"
 import { isAbortError } from "@/lib/error-utils"
 import { toAppFailure } from "@/protocol/app-failure"
 import { getEmbeddingConfig } from "./config"
 import {
   type EmbeddingPlan,
-  type EmbeddingStrategyCapabilities,
-  type EmbeddingStrategyReadiness,
-  ensureEmbeddingStrategyReady,
   generateEmbeddingWithStrategy,
-  getEmbeddingCapabilities,
   resolveEmbeddingPlan
 } from "./embedding-strategy"
 
@@ -229,8 +226,11 @@ export const generateEmbeddingsBatch = async (
         const opts = { plan, signal },
           result = await generateEmbedding(text, modelName, config, opts)
         const failure = (result as EmbeddingError).failure
-        if (failure?.status !== 429) return result
-        return generateEmbedding(text, modelName, config, opts)
+        return failure?.status === 429
+          ? abortableDelay(failure.retryAfterMs || 250, signal).then(() =>
+              generateEmbedding(text, modelName, config, opts)
+            )
+          : result
       })
     )
     results.push(...batchResults)
@@ -299,10 +299,3 @@ export const getCacheStats = (): { size: number; maxSize: number } => {
     maxSize: CACHE_MAX_SIZE
   }
 }
-
-export const getEmbeddingRouteCapabilities =
-  async (): Promise<EmbeddingStrategyCapabilities> => getEmbeddingCapabilities()
-
-export const ensureEmbeddingRouteReady =
-  async (): Promise<EmbeddingStrategyReadiness> =>
-    ensureEmbeddingStrategyReady()
