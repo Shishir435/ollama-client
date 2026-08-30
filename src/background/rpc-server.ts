@@ -11,6 +11,7 @@ import {
 import { CancellationRegistry } from "@ollama-client/runtime-core/cancellation"
 import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import type { Runtime } from "webextension-polyfill"
+import { EmbeddingService } from "@/application/embeddings/embedding-service"
 import {
   checkEmbeddingModelExists,
   prepareEmbeddingModel
@@ -73,6 +74,24 @@ const handlers = {
   },
   [RpcMethod.EmbeddingsPrepareModel]: async (request, signal) =>
     prepareEmbeddingModel(request, signal),
+  [RpcMethod.EmbeddingsGenerate]: async (request, signal) => {
+    const result = await EmbeddingService.generate(
+      request.text,
+      request.model,
+      undefined,
+      {
+        signal
+      }
+    )
+    if ("error" in result) {
+      return {
+        ok: false as const,
+        error: result.failure?.userMessage ?? "Embedding generation failed",
+        ...(result.code ? { code: result.code } : {})
+      }
+    }
+    return { ok: true as const, ...result }
+  },
   [RpcMethod.IngestionSubmit]: async (request) =>
     IngestionService.submit(request),
   [RpcMethod.IngestionGet]: async (request) =>

@@ -1,5 +1,5 @@
+import { generateEmbedding } from "@/application/embeddings/embedding-service"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
-import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { feedbackService } from "@/lib/embeddings/feedback-service"
 import { rerankerService } from "@/lib/embeddings/reranker"
 import { searchHybrid } from "@/lib/embeddings/search"

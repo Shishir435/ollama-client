@@ -19,7 +19,7 @@ vi.mock("@/lib/config/knowledge-config", () => ({
   }
 }))
 
-vi.mock("@/lib/embeddings/embedding-client", () => ({
+vi.mock("@/application/embeddings/embedding-service", () => ({
   generateEmbedding: vi.fn().mockResolvedValue({ embedding: [0.1, 0.2, 0.3] }),
   generateEmbeddingsBatch: vi
     .fn()
@@ -186,7 +186,7 @@ describe("retrieveContextFromSources", () => {
 
   it("returns formatted results when embedding succeeds", async () => {
     const { generateEmbedding, generateEmbeddingsBatch } = await import(
-      "@/lib/embeddings/embedding-client"
+      "@/application/embeddings/embedding-service"
     )
     const { formatEnhancedResults } = await import("../rag-pipeline")
 
@@ -217,7 +217,7 @@ describe("retrieveContextFromSources", () => {
 
   it("falls back to keyword context when embedding fails", async () => {
     const { generateEmbedding } = await import(
-      "@/lib/embeddings/embedding-client"
+      "@/application/embeddings/embedding-service"
     )
 
     vi.mocked(generateEmbedding).mockResolvedValueOnce({ error: "failed" })

@@ -19,6 +19,7 @@ describe("RPC method registry", () => {
     RpcMethod.ModelsSearchLibrary,
     RpcMethod.ModelsGetLibraryVariants,
     RpcMethod.EmbeddingsCheckModel,
+    RpcMethod.EmbeddingsGenerate,
     RpcMethod.IngestionGet,
     RpcMethod.ModelPullGet,
     RpcMethod.ModelPullListActive,

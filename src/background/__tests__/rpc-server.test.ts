@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   probeModelCapabilities: vi.fn(),
   checkEmbeddingModelExists: vi.fn(),
   prepareEmbeddingModel: vi.fn(),
+  generateEmbedding: vi.fn(),
   info: vi.fn(),
   error: vi.fn()
 }))
@@ -34,6 +35,10 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("@/background/handlers/handle-embedding-download", () => ({
   checkEmbeddingModelExists: mocks.checkEmbeddingModelExists,
   prepareEmbeddingModel: mocks.prepareEmbeddingModel
+}))
+
+vi.mock("@/application/embeddings/embedding-service", () => ({
+  EmbeddingService: { generate: mocks.generateEmbedding }
 }))
 
 import {
@@ -92,6 +97,11 @@ beforeEach(() => {
   mocks.prepareEmbeddingModel.mockResolvedValue({
     ready: true,
     prepared: false
+  })
+  mocks.generateEmbedding.mockResolvedValue({
+    embedding: [0.1, 0.2],
+    model: "embed-model",
+    providerId: "ollama"
   })
 })
 
@@ -280,6 +290,40 @@ describe("RPC server", () => {
     expect(mocks.prepareEmbeddingModel).toHaveBeenCalledWith(
       { model: "embed-model", providerId: "ollama" },
       expect.any(AbortSignal)
+    )
+  })
+
+  it("dispatches embedding generation through background service", async () => {
+    const envelope = request(RpcMethod.EmbeddingsGenerate, {
+      text: "hello",
+      model: "embed-model"
+    })
+    const sendResponse = vi.fn()
+
+    await handleRpcRequest(
+      envelope,
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      sendResponse
+    )
+
+    expect(mocks.generateEmbedding).toHaveBeenCalledWith(
+      "hello",
+      "embed-model",
+      undefined,
+      { signal: expect.any(AbortSignal) }
+    )
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: true,
+        result: {
+          ok: true,
+          embedding: [0.1, 0.2],
+          model: "embed-model",
+          providerId: "ollama"
+        }
+      })
     )
   })
 

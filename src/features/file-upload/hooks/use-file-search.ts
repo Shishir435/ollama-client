@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
-import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import type { SearchResult } from "@/lib/embeddings/vector-store"
 import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
 import { getDisplayErrorMessage } from "@/lib/error-display"
 import { createAppError } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
+import { generateEmbedding } from "@/protocol/embedding-client"
 
 export interface FileSearchResult {
   result: SearchResult

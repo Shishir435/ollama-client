@@ -11,6 +11,8 @@ import {
 import {
   EmbeddingsCheckModelRequestSchema,
   EmbeddingsCheckModelResultSchema,
+  EmbeddingsGenerateRequestSchema,
+  EmbeddingsGenerateResultSchema,
   EmbeddingsPrepareModelRequestSchema,
   EmbeddingsPrepareModelResultSchema,
   ModelsGetDetailsRequestSchema,
@@ -182,6 +184,13 @@ export const RPC_METHOD_DEFINITIONS = {
     // Preparing can mean pulling the model.
     timeoutMs: 300_000,
     operation: "command"
+  },
+  [RpcMethod.EmbeddingsGenerate]: {
+    request: EmbeddingsGenerateRequestSchema,
+    response: EmbeddingsGenerateResultSchema,
+    allowedSources: extensionPagesOnly,
+    timeoutMs: 120_000,
+    operation: "query"
   },
   [RpcMethod.IngestionSubmit]: {
     request: IngestionSubmitRequestSchema,
