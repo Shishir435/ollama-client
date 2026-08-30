@@ -276,22 +276,24 @@ const collectEmbeddingCandidates = ({
 }): {
   results: EnhancedSearchResult[]
   allCandidates: EnhancedSearchResult[]
+  failedIndexes: number[]
 } => {
   const results: EnhancedSearchResult[] = []
   const allCandidates: EnhancedSearchResult[] = []
+  const failedIndexes: number[] = []
 
   for (let index = 0; index < embeddings.length; index += 1) {
-    const embeddingResult = embeddings[index]
-    if ("error" in embeddingResult || !embeddingResult.embedding) continue
+    const e = embeddings[index]
+    if ("error" in e) {
+      failedIndexes.push(index)
+      continue
+    }
 
-    const similarity = cosineSimilarity(
-      queryEmbedding,
-      embeddingResult.embedding
-    )
+    const similarity = cosineSimilarity(queryEmbedding, e.embedding)
     const candidate: EnhancedSearchResult = {
       document: buildSourceVectorDocument(
         chunks[index],
-        embeddingResult.embedding,
+        e.embedding,
         timestamp
       ),
       score: similarity
@@ -300,7 +302,7 @@ const collectEmbeddingCandidates = ({
     if (similarity >= minSimilarity) results.push(candidate)
   }
 
-  return { results, allCandidates }
+  return { results, allCandidates, failedIndexes }
 }
 
 const appendFallbackCandidates = (
@@ -382,7 +384,7 @@ export async function retrieveContextFromSources(
   )
   const minSimilarity =
     options.minSimilarity ?? (await knowledgeConfig.getMinSimilarity())
-  const { results, allCandidates } = collectEmbeddingCandidates({
+  const { results, allCandidates, failedIndexes } = collectEmbeddingCandidates({
     chunks,
     embeddings,
     queryEmbedding: queryEmbedding.embedding,
@@ -390,6 +392,20 @@ export async function retrieveContextFromSources(
     timestamp
   })
   appendFallbackCandidates(results, allCandidates, minSimilarity)
+  if (failedIndexes.length > 0 && results.length > 0) {
+    const terms = tokenizeQuery(query)
+    const fallbackScore = Math.min(
+      minSimilarity,
+      Math.max(...allCandidates.map(({ score }) => score), 0)
+    )
+    for (const index of failedIndexes) {
+      if (scoreKeywordMatch(chunks[index].pageContent, terms) === 0) continue
+      results.push({
+        document: buildSourceVectorDocument(chunks[index], [], timestamp),
+        score: fallbackScore
+      })
+    }
+  }
 
   if (results.length === 0) {
     logger.warn(

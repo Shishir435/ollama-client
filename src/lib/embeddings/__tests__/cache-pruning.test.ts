@@ -25,4 +25,16 @@ describe("pruneSearchCache", () => {
 
     expect([...cache.keys()]).toEqual(["middle", "newest"])
   })
+
+  it("evicts by insertion order without requiring timestamp sorting", () => {
+    const cache = new Map([
+      ["least-recent", { results: [], timestamp: 3 }],
+      ["recent", { results: [], timestamp: 1 }],
+      ["most-recent", { results: [], timestamp: 2 }]
+    ])
+
+    pruneSearchCache(cache, 3, 10_000, 2)
+
+    expect([...cache.keys()]).toEqual(["recent", "most-recent"])
+  })
 })

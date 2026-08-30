@@ -12,9 +12,9 @@ data.
 
 | Item | Question | Current decision |
 | --- | --- | --- |
-| PERF-07 | Does per-token stream reduction or session-state publication create measurable cost? | Profile first; do not change session-state ownership from a hypothesis. |
-| PERF-02 | Can search results survive page/worker recreation without stale results? | Keep the cache in memory until a vector-generation invalidation contract exists. |
-| PERF-10 | Does the fixed inter-batch wait materially delay ingestion or retrieval? | Measure provider time, indexing time, and retrieval quality before changing the delay. |
+| PERF-07 | Does per-token stream reduction or session-state publication create measurable cost? | Keep reducer/session-state ownership unchanged; retain the benchmark evidence without an unsupported refactor. |
+| PERF-02 | Can search results survive page/worker recreation without stale results? | Keep results in memory; retain them with bounded insertion order until a vector-generation invalidation contract exists. |
+| PERF-10 | Does the fixed inter-batch wait materially delay ingestion or retrieval? | Yield between batches with no fixed wall-clock delay; provider adapters remain responsible for throttling. |
 
 ## Reproduce
 

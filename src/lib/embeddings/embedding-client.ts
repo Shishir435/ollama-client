@@ -6,11 +6,7 @@ import { toAppFailure } from "@/protocol/app-failure"
 import { getEmbeddingConfig } from "./config"
 import {
   type EmbeddingPlan,
-  type EmbeddingStrategyCapabilities,
-  type EmbeddingStrategyReadiness,
-  ensureEmbeddingStrategyReady,
   generateEmbeddingWithStrategy,
-  getEmbeddingCapabilities,
   resolveEmbeddingPlan
 } from "./embedding-strategy"
 
@@ -226,18 +222,24 @@ export const generateEmbeddingsBatch = async (
     signal?.throwIfAborted()
     const batch = texts.slice(i, i + batchSize)
     const batchResults = await Promise.all(
-      batch.map((text) =>
-        generateEmbedding(text, modelName, config, {
-          plan,
-          ...(signal ? { signal } : {})
-        })
-      )
+      batch.map(async (text) => {
+        const opts = { plan, signal }
+        let result = await generateEmbedding(text, modelName, config, opts)
+        for (let attempt = 1; attempt < 3; attempt++) {
+          const failure = (result as EmbeddingError).failure
+          if (failure?.status !== 429) break
+          await abortableDelay(
+            Math.min(30_000, failure.retryAfterMs || 250),
+            signal
+          )
+          result = await generateEmbedding(text, modelName, config, opts)
+        }
+        return result
+      })
     )
     results.push(...batchResults)
 
-    if (onProgress) {
-      onProgress(Math.min(i + batchSize, texts.length), texts.length)
-    }
+    onProgress?.(Math.min(i + batchSize, texts.length), texts.length)
     if (i + batchSize < texts.length) {
       await abortableDelay(100, signal)
     }
@@ -302,10 +304,3 @@ export const getCacheStats = (): { size: number; maxSize: number } => {
     maxSize: CACHE_MAX_SIZE
   }
 }
-
-export const getEmbeddingRouteCapabilities =
-  async (): Promise<EmbeddingStrategyCapabilities> => getEmbeddingCapabilities()
-
-export const ensureEmbeddingRouteReady =
-  async (): Promise<EmbeddingStrategyReadiness> =>
-    ensureEmbeddingStrategyReady()
