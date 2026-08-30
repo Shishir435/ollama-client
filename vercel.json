@@ -25,6 +25,10 @@
         }
       ],
       "destination": "/:path*.md"
+    },
+    {
+      "source": "/api/health",
+      "destination": "/api-health"
     }
   ],
   "headers": [

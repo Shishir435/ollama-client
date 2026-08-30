@@ -221,14 +221,21 @@ export const handleRpcCancellation = (
   sendResponse({ success: true, cancelled: Boolean(controller) })
 }
 
-export const handleRpcRequest = async (
+type ValidatedRpcRequest = {
+  requestId: string
+  method: RpcMethod
+  request: unknown
+  definition: (typeof RPC_METHOD_DEFINITIONS)[RpcMethod]
+  source: string
+}
+
+const validateRpcRequest = (
   rawMessage: unknown,
   sender: Runtime.MessageSender,
   extensionId: string,
   extensionUrlPrefix: string,
   sendResponse: (value: unknown) => void
-): Promise<void> => {
-  const startedAt = performance.now()
+): ValidatedRpcRequest | null => {
   const parsedEnvelope = RpcRequestEnvelopeSchema.safeParse(rawMessage)
   const unsafeRequestId = requestIdFromUnknownEnvelope(rawMessage)
   if (!parsedEnvelope.success) {
@@ -242,7 +249,7 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
 
   const { requestId, method, request } = parsedEnvelope.data
@@ -259,7 +266,7 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
 
   const parsedRequest = definition.request.safeParse(request)
@@ -274,7 +281,7 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
 
   if (activeRequests.has(requestId)) {
@@ -288,8 +295,36 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
+
+  return {
+    requestId,
+    method,
+    request: parsedRequest.data,
+    definition,
+    source
+  }
+}
+
+export const handleRpcRequest = async (
+  rawMessage: unknown,
+  sender: Runtime.MessageSender,
+  extensionId: string,
+  extensionUrlPrefix: string,
+  sendResponse: (value: unknown) => void
+): Promise<void> => {
+  const startedAt = performance.now()
+  const validated = validateRpcRequest(
+    rawMessage,
+    sender,
+    extensionId,
+    extensionUrlPrefix,
+    sendResponse
+  )
+  if (!validated) return
+
+  const { requestId, method, request, definition, source } = validated
 
   const controller = new AbortController()
   activeRequests.set(requestId, controller)
@@ -306,7 +341,7 @@ export const handleRpcRequest = async (
       value: unknown,
       signal: AbortSignal
     ) => Promise<RpcMap[RpcMethod]["response"]>
-    const result = await handler(parsedRequest.data, controller.signal)
+    const result = await handler(request, controller.signal)
     const parsedResult = definition.response.safeParse(result)
     if (!parsedResult.success) {
       throw new Error(`RPC handler returned invalid data for ${method}`)

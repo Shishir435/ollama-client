@@ -192,4 +192,14 @@ describe("router origin policy", () => {
     expect(response.headers.get("content-type")).toContain("text/event-stream")
     expect(response.headers.get("ratelimit-remaining")).toBe("0")
   })
+
+  it("cannot bypass a no-key limit by rotating Authorization values", async () => {
+    const url = await startServer([], { limit: 1, windowMs: 60_000 })
+
+    const first = await post(url, { Authorization: "Bearer arbitrary-a" })
+    const second = await post(url, { Authorization: "Bearer arbitrary-b" })
+
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(429)
+  })
 })

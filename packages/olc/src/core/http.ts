@@ -270,6 +270,7 @@ export const createRouter = ({
   allowedOrigins = [],
   onRequest,
   authorize,
+  rateLimitKey,
   rateLimit = { limit: 60, windowMs: 60_000 }
 }: {
   allowedHeaders?: string[]
@@ -277,6 +278,8 @@ export const createRouter = ({
   allowedOrigins?: string[]
   onRequest?: (request: RouteRequest, response: ServerResponse) => void
   authorize?: (request: RouteRequest) => boolean
+  /** Return an authenticated identity; undefined falls back to peer address. */
+  rateLimitKey?: (request: RouteRequest) => string | undefined
   rateLimit?: RateLimitConfig
 } = {}) => {
   const routes: Route[] = []
@@ -361,7 +364,7 @@ export const createRouter = ({
     }
 
     const bucketKey =
-      request.headers.authorization ||
+      rateLimitKey?.(routeRequest) ||
       request.socket.remoteAddress ||
       "anonymous"
     const now = Date.now()
