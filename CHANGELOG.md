@@ -979,7 +979,8 @@ No functional changes: this release is store metadata only.
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.13.0...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.13.2...HEAD
+[0.13.2]: https://github.com/Shishir435/ollama-client/compare/0.13.1...0.13.2
 [0.13.0]: https://github.com/Shishir435/ollama-client/compare/0.12.8...0.13.0
 [0.12.8]: https://github.com/Shishir435/ollama-client/compare/0.12.7...0.12.8
 [0.12.7]: https://github.com/Shishir435/ollama-client/compare/0.12.6...0.12.7

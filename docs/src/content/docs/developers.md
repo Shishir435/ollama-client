@@ -9,11 +9,36 @@ The project does include **olc**, a local command-line proxy that exposes an age
 
 ## Quickstart
 
-olc currently runs from a repository checkout and requires Node.js 22.12 or
-newer plus the selected runtime on `PATH`: OpenCode, or Codex CLI with an
-existing `codex login`.
+olc requires Node.js 22.12 or newer plus the selected runtime on `PATH`:
+OpenCode, or Codex CLI with an existing `codex login`.
+
+Install the published release bundle directly:
+
+```powershell
+# Windows PowerShell
+irm https://ollamaclient.in/olc.ps1 | iex
+```
 
 ```bash
+# macOS / Linux
+curl -fsSL https://ollamaclient.in/olc.sh | sh
+```
+
+Both installers download checksum-verified archives from the GitHub release.
+Pin version `0.13.2` with the shell-specific commands below:
+
+```bash
+export OLC_VERSION=0.13.2
+curl -fsSL https://ollamaclient.in/olc.sh | sh
+```
+
+```powershell
+$env:OLC_VERSION = "0.13.2"
+irm https://ollamaclient.in/olc.ps1 | iex
+```
+
+```bash
+# Source checkout alternative
 git clone https://github.com/Shishir435/ollama-client.git
 cd ollama-client
 pnpm install
@@ -28,7 +53,8 @@ Use `pnpm proxy:opencode:debug` or `pnpm proxy:codex:debug` for verbose proxy
 logging. The existing `pnpm proxy` and `pnpm proxy:debug` commands remain
 OpenCode aliases.
 
-The CLI is part of the source distribution but is not yet published to npm, PyPI, or Homebrew. Do not tell users to install an `olc` package from a public registry unless an official release announcement links it.
+The CLI is distributed as release archives, not through npm, PyPI, or Homebrew.
+Do not tell users to install an `olc` package from a public registry.
 
 ## Authentication and browser access
 
