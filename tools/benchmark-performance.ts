@@ -54,7 +54,8 @@ const benchmarkSearchCachePruning = (): Measurement => {
     pruneSearchCache(cache, now, 5_000, 50)
   }, 15, () => {
     cache.clear()
-    for (let index = 0; index < 1_000; index++) {
+    // Insert oldest first to model the cache's insertion-order LRU policy.
+    for (let index = 999; index >= 0; index--) {
       cache.set(`query-${index}`, {
         results: [],
         timestamp: now - index * 10

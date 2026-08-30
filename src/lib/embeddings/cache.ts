@@ -1,3 +1,4 @@
+import { pruneSearchCache } from "./cache-pruning"
 import { getEmbeddingConfig } from "./config"
 import type { SearchResult, VectorDocument } from "./types"
 
@@ -12,6 +13,7 @@ export interface SearchCacheEntry {
 
 export const searchCache = new Map<string, SearchCacheEntry>()
 
+/** Mark a cache hit as recently used while preserving insertion-order LRU. */
 /**
  * Gets cache configuration from settings
  */
@@ -53,17 +55,5 @@ export const hashSearchQuery = (
  */
 export const cleanSearchCache = async (): Promise<void> => {
   const { ttl, maxSize } = await getCacheConfig()
-  const now = Date.now()
-  for (const [key, entry] of searchCache.entries()) {
-    if (now - entry.timestamp > ttl) searchCache.delete(key)
-  }
-
-  if (searchCache.size > maxSize) {
-    const entries = Array.from(searchCache.entries()).sort(
-      (a, b) => a[1].timestamp - b[1].timestamp
-    )
-    for (const [key] of entries.slice(0, searchCache.size - maxSize)) {
-      searchCache.delete(key)
-    }
-  }
+  pruneSearchCache(searchCache, Date.now(), ttl, maxSize)
 }

@@ -239,7 +239,10 @@ export const generateEmbeddingsBatch = async (
       onProgress(Math.min(i + batchSize, texts.length), texts.length)
     }
     if (i + batchSize < texts.length) {
-      await abortableDelay(100, signal)
+      // Yield between batches without imposing a fixed wall-clock penalty.
+      // Provider throttling belongs to the provider adapter; a global delay
+      // multiplied by every batch made ingestion needlessly serial.
+      await abortableDelay(0, signal)
     }
   }
 
