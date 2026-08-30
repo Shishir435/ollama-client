@@ -256,6 +256,30 @@ describe("retrieveContextFromSources", () => {
     expect(result.documents).toHaveLength(1)
     expect(result.documents[0]?.embedding).toEqual([])
   })
+
+  it("keeps successful semantic candidates when another source embedding fails", async () => {
+    const { generateEmbeddingsBatch } = await import(
+      "@/application/embeddings/embedding-service"
+    )
+    const { formatEnhancedResults } = await import("../rag-pipeline")
+    vi.mocked(formatEnhancedResults).mockClear()
+
+    vi.mocked(generateEmbeddingsBatch).mockResolvedValueOnce([
+      { embedding: [0.1, 0.2], model: "test-model", providerId: "ollama" },
+      { error: "rate limited", failure: { status: 429 } }
+    ] as any)
+
+    const result = await retrieveContextFromSources("keyword", [
+      {
+        id: "src-1",
+        title: "Test Title",
+        content: "keyword content for mixed batch"
+      }
+    ])
+
+    expect(formatEnhancedResults).toHaveBeenCalled()
+    expect(result.documents[0]?.embedding).toEqual([0.1, 0.2])
+  })
 })
 
 describe("reformulateQuestion", () => {

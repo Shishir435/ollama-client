@@ -282,9 +282,7 @@ const collectEmbeddingCandidates = ({
 
   for (let index = 0; index < embeddings.length; index += 1) {
     const e = embeddings[index]
-    if ("error" in e) {
-      return { results: [], allCandidates: [] }
-    }
+    if ("error" in e) continue
 
     const similarity = cosineSimilarity(queryEmbedding, e.embedding)
     const candidate: EnhancedSearchResult = {
