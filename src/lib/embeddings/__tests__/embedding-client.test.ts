@@ -94,7 +94,7 @@ describe("Embedding Client", () => {
 
       expect(result).toHaveProperty("error")
       if ("error" in result) {
-        expect(result.error).toContain("500")
+        expect(result.error).toBe("Error generating embedding")
       }
     })
 
@@ -105,7 +105,7 @@ describe("Embedding Client", () => {
 
       expect(result).toHaveProperty("error")
       if ("error" in result) {
-        expect(result.error).toContain("Network error")
+        expect(result.error).toBe("Error generating embedding")
       }
     })
 
@@ -122,8 +122,17 @@ describe("Embedding Client", () => {
 
       expect(result).toHaveProperty("error")
       if ("error" in result) {
-        expect(result.error).toContain("Provider error")
+        expect(result.error).toBe("Error generating embedding")
       }
+    })
+
+    it("rejects non-finite vectors from a provider route", async () => {
+      mockEmbed.mockResolvedValue([0.1, Number.NaN, 0.3])
+
+      const result = await generateEmbedding("invalid-vector")
+
+      expect(result).toHaveProperty("error")
+      expect(mockEmbed).toHaveBeenCalledTimes(2)
     })
 
     /**

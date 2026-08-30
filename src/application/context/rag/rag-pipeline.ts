@@ -56,350 +56,347 @@ export interface EnhancedSearchResult {
  * 4. Feedback Blending: Adjusts scores based on historical user feedback.
  * 5. MMR Diversity Filtering: Selects final subset while minimizing structural redundancy.
  */
+interface ResolvedRetrievalOptions {
+  topK: number
+  mode: "similarity" | "full"
+  diversityEnabled: boolean
+  diversityLambda: number
+  fileId?: string | string[]
+  sessionId?: string
+  type?: VectorDocument["metadata"]["type"]
+  includeMemory: boolean
+  memoryTopK: number
+  minSimilarity: number
+  minRerankScore?: number
+  signal?: AbortSignal
+}
+
+const resolveRetrievalOptions = (
+  options: RetrievalOptions
+): ResolvedRetrievalOptions => ({
+  topK: options.topK ?? 5,
+  mode: options.mode ?? "similarity",
+  diversityEnabled: options.diversityEnabled ?? true,
+  diversityLambda: options.diversityLambda ?? 0.7,
+  fileId: options.fileId,
+  sessionId: options.sessionId,
+  type: options.type,
+  includeMemory: options.includeMemory ?? false,
+  memoryTopK: options.memoryTopK ?? 3,
+  minSimilarity: options.minSimilarity ?? 0.3,
+  minRerankScore: options.minRerankScore,
+  signal: options.signal
+})
+
+const embeddingSearchOptions = (
+  resolved: ResolvedRetrievalOptions,
+  embedding: { embedding: number[]; model: string; providerId: string },
+  overrides: {
+    limit: number
+    type: VectorDocument["metadata"]["type"]
+    minSimilarity: number
+  }
+) => ({
+  limit: overrides.limit,
+  keywordWeight: 0.6,
+  semanticWeight: 0.4,
+  fileId: resolved.fileId,
+  sessionId: resolved.sessionId,
+  type: overrides.type,
+  minSimilarity: overrides.minSimilarity,
+  embeddingModel: embedding.model,
+  embeddingProviderId: embedding.providerId,
+  embeddingDimension: embedding.embedding.length
+})
+
+const retrieveFullMode = async (
+  query: string,
+  resolved: ResolvedRetrievalOptions
+): Promise<EnhancedSearchResult[]> => {
+  logger.info("Full mode selected, skipping re-ranking and MMR", "RAGPipeline")
+  const embedding = await generateEmbedding(query, undefined, undefined, {
+    ...(resolved.signal ? { signal: resolved.signal } : {})
+  })
+  if ("error" in embedding) {
+    logger.error(
+      "Failed to generate query embedding (full mode)",
+      "RAGPipeline",
+      {
+        error: embedding.error
+      }
+    )
+    return []
+  }
+  const results = await searchHybrid(
+    query,
+    embedding.embedding,
+    embeddingSearchOptions(resolved, embedding, {
+      limit: resolved.topK,
+      type: resolved.type ?? "file",
+      minSimilarity: resolved.minSimilarity
+    })
+  )
+  logger.info(
+    `Full mode complete: ${results.length} results (no re-ranking)`,
+    "RAGPipeline"
+  )
+  return results.map((candidate) => ({
+    document: candidate.document,
+    score: candidate.similarity,
+    originalSimilarity: candidate.similarity
+  }))
+}
+
+const retrieveMemoryCandidates = async (
+  query: string,
+  embedding: { embedding: number[]; model: string; providerId: string },
+  resolved: ResolvedRetrievalOptions
+): Promise<EnhancedSearchResult[]> => {
+  if (!resolved.includeMemory) return []
+  logger.verbose("Stage 1.5: Memory search", "RAGPipeline", {
+    memoryTopK: resolved.memoryTopK
+  })
+  const results = await searchHybrid(query, embedding.embedding, {
+    limit: resolved.memoryTopK * 3,
+    keywordWeight: 0.6,
+    semanticWeight: 0.4,
+    type: "chat",
+    minSimilarity: resolved.minSimilarity * 0.5,
+    embeddingModel: embedding.model,
+    embeddingProviderId: embedding.providerId,
+    embeddingDimension: embedding.embedding.length
+  })
+  const candidates = results.map((candidate) => ({
+    document: candidate.document,
+    score: candidate.similarity,
+    originalSimilarity: candidate.similarity,
+    isMemory: true
+  }))
+  logger.info(
+    `Stage 1.5 complete: ${candidates.length} memory candidates`,
+    "RAGPipeline"
+  )
+  return candidates
+}
+
+const thresholdCandidates = (
+  candidates: Awaited<ReturnType<typeof searchHybrid>>,
+  topK: number,
+  minSimilarity: number
+): EnhancedSearchResult[] => {
+  const topScore = candidates[0]?.similarity ?? 0
+  const adaptiveThreshold = Math.max(minSimilarity, topScore * 0.5)
+  logger.info(
+    "Re-ranking disabled, applying adaptive threshold",
+    "RAGPipeline",
+    {
+      topScore: topScore.toFixed(3),
+      adaptiveThreshold: adaptiveThreshold.toFixed(3)
+    }
+  )
+  const results = candidates
+    .filter((candidate) => candidate.similarity >= adaptiveThreshold)
+    .slice(0, topK)
+    .map((candidate) => ({
+      document: candidate.document,
+      score: candidate.similarity,
+      originalSimilarity: candidate.similarity
+    }))
+  if (results.length > 0 || candidates.length === 0) return results
+  const top = candidates[0]
+  return [
+    {
+      document: top.document,
+      score: top.similarity,
+      originalSimilarity: top.similarity
+    }
+  ]
+}
+
+const rerankCandidates = async (
+  candidates: Awaited<ReturnType<typeof searchHybrid>>,
+  queryEmbedding: number[],
+  topK: number,
+  candidateK: number,
+  minSimilarity: number,
+  minRerankScore: number | undefined,
+  embeddingConfig: Awaited<ReturnType<typeof getEmbeddingConfig>>
+): Promise<EnhancedSearchResult[]> => {
+  const useReranking = embeddingConfig.useReranking ?? true
+  if (!useReranking) return thresholdCandidates(candidates, topK, minSimilarity)
+  const backend = embeddingConfig.rerankerBackend ?? "none"
+  logger.verbose(`Stage 2: Re-scoring with ${backend}`, "RAGPipeline")
+  rerankerService.setBackend(backend)
+  rerankerService.setEnabled(backend !== "none")
+  const reranked = await rerankerService.rerank(
+    queryEmbedding,
+    candidates.map((candidate) => ({
+      content: candidate.document.content,
+      embedding: candidate.document.embedding,
+      metadata: candidate.document.metadata
+    })),
+    Math.min(candidateK, topK * 2)
+  )
+  const topScore = reranked[0]?.score ?? 0
+  const avgScore = reranked.length
+    ? reranked.reduce((sum, result) => sum + result.score, 0) / reranked.length
+    : 0
+  logger.info(`Stage 2 complete: ${reranked.length} results`, "RAGPipeline", {
+    topScore: topScore.toFixed(3),
+    avgScore: avgScore.toFixed(3)
+  })
+  const threshold = minRerankScore ?? embeddingConfig.minRerankScore ?? 0.6
+  const confident = reranked.filter((result) => result.score >= threshold)
+  if (!confident.length) {
+    logger.warn("No results passed re-ranking threshold", "RAGPipeline", {
+      minScore: threshold,
+      topScore
+    })
+    return []
+  }
+  logger.info(
+    `Filtered to ${confident.length} confident results (score >= ${threshold})`,
+    "RAGPipeline"
+  )
+  const candidateByContent = new Map(
+    candidates.map((candidate) => [candidate.document.content, candidate])
+  )
+  return confident.map((result) => {
+    const original = candidateByContent.get(result.content)
+    return {
+      document: {
+        id: original?.document.id,
+        content: result.content,
+        embedding: original?.document.embedding || [],
+        metadata: result.metadata || {}
+      } as VectorDocument,
+      score: result.score,
+      originalSimilarity: original?.similarity
+    }
+  })
+}
+
+const blendFeedback = async (
+  query: string,
+  results: EnhancedSearchResult[],
+  embeddingConfig: Awaited<ReturnType<typeof getEmbeddingConfig>>
+): Promise<void> => {
+  if (!embeddingConfig.feedbackEnabled) return
+  logger.verbose("Stage 2.5: Blending feedback scores", "RAGPipeline")
+  for (const result of results) {
+    if (result.isMemory) continue
+    const chunkId = result.document.id?.toString()
+    if (!chunkId) continue
+    const feedbackScore = await feedbackService.getFeedbackScore(chunkId, query)
+    if (feedbackScore === null) continue
+    const blendWeight = embeddingConfig.feedbackBlendWeight || 0.2
+    const originalScore = result.score
+    result.score =
+      (1 - blendWeight) * originalScore + blendWeight * feedbackScore
+    logger.verbose(
+      `Blended score for chunk ${chunkId}: ${originalScore.toFixed(3)} → ${result.score.toFixed(3)}`,
+      "RAGPipeline"
+    )
+  }
+  results.sort((a, b) => b.score - a.score)
+}
+
+const selectDiverseResults = (
+  results: EnhancedSearchResult[],
+  resolved: ResolvedRetrievalOptions
+): EnhancedSearchResult[] => {
+  const fileResults = results.filter((result) => !result.isMemory)
+  const memoryResults = results.filter((result) => result.isMemory)
+  if (!resolved.diversityEnabled) {
+    return [
+      ...fileResults.slice(0, resolved.topK),
+      ...memoryResults.slice(0, 1)
+    ]
+  }
+  logger.verbose("Stage 3: MMR diversity filtering", "RAGPipeline", {
+    lambda: resolved.diversityLambda
+  })
+  const diversified = [
+    ...applyMMR(fileResults, resolved.topK, resolved.diversityLambda),
+    ...memoryResults.slice(0, 1)
+  ]
+  const fileCount = diversified.filter((result) => !result.isMemory).length
+  logger.info(
+    `Stage 3 complete: ${diversified.length} final results (${fileCount} files, ${diversified.length - fileCount} memory)`,
+    "RAGPipeline"
+  )
+  return diversified
+}
+
 export async function retrieveContextEnhanced(
   query: string,
   options: RetrievalOptions = {}
 ): Promise<EnhancedSearchResult[]> {
-  const {
-    topK = 5,
-    mode = "similarity",
-    diversityEnabled = true,
-    diversityLambda = 0.7,
-    fileId,
-    sessionId,
-    type,
-    includeMemory = false,
-    memoryTopK = 3,
-    minSimilarity = 0.3,
-    minRerankScore,
-    signal
-  } = options
-
-  // Full mode: return all documents above minSimilarity without re-ranking or MMR.
-  // Useful for bulk retrieval (e.g., knowledge-base export, diagnostics).
-  if (mode === "full") {
-    logger.info(
-      "Full mode selected, skipping re-ranking and MMR",
-      "RAGPipeline"
-    )
-
-    const fullEmbeddingResult = await generateEmbedding(
-      query,
-      undefined,
-      undefined,
-      { ...(signal ? { signal } : {}) }
-    )
-    if ("error" in fullEmbeddingResult) {
-      logger.error(
-        "Failed to generate query embedding (full mode)",
-        "RAGPipeline",
-        {
-          error: fullEmbeddingResult.error
-        }
-      )
-      return []
-    }
-
-    const fullResults = await searchHybrid(
-      query,
-      fullEmbeddingResult.embedding,
-      {
-        limit: topK,
-        keywordWeight: 0.6,
-        semanticWeight: 0.4,
-        fileId,
-        sessionId,
-        type: type ?? "file",
-        minSimilarity,
-        embeddingModel: fullEmbeddingResult.model,
-        embeddingProviderId: fullEmbeddingResult.providerId,
-        embeddingDimension: fullEmbeddingResult.embedding.length
-      }
-    )
-
-    logger.info(
-      `Full mode complete: ${fullResults.length} results (no re-ranking)`,
-      "RAGPipeline"
-    )
-
-    return fullResults.map((c) => ({
-      document: c.document,
-      score: c.similarity,
-      originalSimilarity: c.similarity
-    }))
-  }
-
-  // Generate query embedding
-  signal?.throwIfAborted()
-  const embeddingResult = await generateEmbedding(query, undefined, undefined, {
-    ...(signal ? { signal } : {})
+  const resolved = resolveRetrievalOptions(options)
+  if (resolved.mode === "full") return retrieveFullMode(query, resolved)
+  resolved.signal?.throwIfAborted()
+  const embedding = await generateEmbedding(query, undefined, undefined, {
+    ...(resolved.signal ? { signal: resolved.signal } : {})
   })
-  if ("error" in embeddingResult) {
+  if ("error" in embedding) {
     logger.error("Failed to generate query embedding", "RAGPipeline", {
-      error: embeddingResult.error
+      error: embedding.error
     })
     return []
   }
-
-  // ===== STAGE 1: Hybrid Search (Recall-Optimized) =====
-  const candidateK = topK * 5 // Over-retrieve for re-ranking
-
+  const candidateK = resolved.topK * 5
   logger.verbose("Stage 1: Hybrid search", "RAGPipeline", {
     candidateK,
-    topK,
-    includeMemory
+    topK: resolved.topK,
+    includeMemory: resolved.includeMemory
   })
-
-  // Primary search (files/webpages)
-  signal?.throwIfAborted()
-  const searchType = type ?? "file"
-  const candidates = await searchHybrid(query, embeddingResult.embedding, {
-    limit: candidateK,
-    keywordWeight: 0.6,
-    semanticWeight: 0.4,
-    fileId,
-    sessionId,
-    type: searchType,
-    minSimilarity: minSimilarity * 0.7, // Lower threshold for recall
-    embeddingModel: embeddingResult.model,
-    embeddingProviderId: embeddingResult.providerId,
-    embeddingDimension: embeddingResult.embedding.length
-  })
-
-  // ===== STAGE 1.5: Memory Search (if enabled) =====
-  let memoryCandidates: EnhancedSearchResult[] = []
-  if (includeMemory) {
-    logger.verbose("Stage 1.5: Memory search", "RAGPipeline", {
-      memoryTopK
+  resolved.signal?.throwIfAborted()
+  const candidates = await searchHybrid(
+    query,
+    embedding.embedding,
+    embeddingSearchOptions(resolved, embedding, {
+      limit: candidateK,
+      type: resolved.type ?? "file",
+      minSimilarity: resolved.minSimilarity * 0.7
     })
-
-    const memResults = await searchHybrid(query, embeddingResult.embedding, {
-      limit: memoryTopK * 3,
-      keywordWeight: 0.6,
-      semanticWeight: 0.4,
-      type: "chat",
-      minSimilarity: minSimilarity * 0.5, // Lower threshold for memory
-      embeddingModel: embeddingResult.model,
-      embeddingProviderId: embeddingResult.providerId,
-      embeddingDimension: embeddingResult.embedding.length
-    })
-
-    memoryCandidates = memResults.map((c) => ({
-      document: c.document,
-      score: c.similarity,
-      originalSimilarity: c.similarity,
-      isMemory: true
-    }))
-
-    logger.info(
-      `Stage 1.5 complete: ${memoryCandidates.length} memory candidates`,
-      "RAGPipeline"
-    )
-  }
-
-  if (candidates.length === 0 && memoryCandidates.length === 0) {
+  )
+  const memoryCandidates = await retrieveMemoryCandidates(
+    query,
+    embedding,
+    resolved
+  )
+  if (!candidates.length && !memoryCandidates.length) {
     logger.info("No candidates found in hybrid search", "RAGPipeline")
     return []
   }
-
   logger.info(
     `Stage 1 complete: ${candidates.length} candidates`,
     "RAGPipeline"
   )
-
   const embeddingConfig = await getEmbeddingConfig()
-  const useReranking = embeddingConfig.useReranking ?? true
-  const rerankerBackend = embeddingConfig.rerankerBackend ?? "none"
-  let rerankedResults: EnhancedSearchResult[] = []
-
-  if (!useReranking) {
-    // Adaptive threshold: keep results that are at least 50% as good as the top hit.
-    // Prevents weak tail candidates from polluting the context when a strong top result exists.
-    const topScore = candidates[0]?.similarity ?? 0
-    const adaptiveThreshold = Math.max(minSimilarity, topScore * 0.5)
-
-    logger.info(
-      "Re-ranking disabled, applying adaptive threshold",
-      "RAGPipeline",
-      {
-        topScore: topScore.toFixed(3),
-        adaptiveThreshold: adaptiveThreshold.toFixed(3)
-      }
-    )
-
-    rerankedResults = candidates
-      .filter((c) => c.similarity >= adaptiveThreshold)
-      .slice(0, topK)
-      .map((candidate) => ({
-        document: candidate.document,
-        score: candidate.similarity,
-        originalSimilarity: candidate.similarity
-      }))
-
-    // Always surface at least one result to prevent silent empty context
-    if (rerankedResults.length === 0 && candidates.length > 0) {
-      const top = candidates[0]
-      rerankedResults = [
-        {
-          document: top.document,
-          score: top.similarity,
-          originalSimilarity: top.similarity
-        }
-      ]
-    }
-  } else {
-    // ===== STAGE 2: Cosine Re-Scoring (Precision Pass) =====
-    // NOTE: current reranker backend is cosine similarity, not a cross-encoder.
-    // It provides a precision pass using semantic signal only (no keyword weight),
-    // which is useful when keywordWeight was high in stage 1. A real cross-encoder
-    // (e.g. transformers.js) would give stronger signal but requires a local model.
-    logger.verbose(`Stage 2: Re-scoring with ${rerankerBackend}`, "RAGPipeline")
-    rerankerService.setBackend(rerankerBackend)
-    rerankerService.setEnabled(useReranking && rerankerBackend !== "none")
-
-    const reranked = await rerankerService.rerank(
-      embeddingResult.embedding,
-      candidates.map((c) => ({
-        content: c.document.content,
-        embedding: c.document.embedding,
-        metadata: c.document.metadata
-      })),
-      Math.min(candidateK, topK * 2) // Get 2x topK for diversity filtering
-    )
-
-    const topScore = reranked[0]?.score ?? 0
-    const avgScore =
-      reranked.length > 0
-        ? reranked.reduce((sum, r) => sum + r.score, 0) / reranked.length
-        : 0
-
-    logger.info(`Stage 2 complete: ${reranked.length} results`, "RAGPipeline", {
-      topScore: topScore.toFixed(3),
-      avgScore: avgScore.toFixed(3)
-    })
-
-    const MIN_RERANK_SCORE =
-      minRerankScore ?? embeddingConfig.minRerankScore ?? 0.6
-    const confidentResults = reranked.filter((r) => r.score >= MIN_RERANK_SCORE)
-
-    if (confidentResults.length === 0) {
-      logger.warn("No results passed re-ranking threshold", "RAGPipeline", {
-        minScore: MIN_RERANK_SCORE,
-        topScore
-      })
-      return [] // Return empty if no confident matches
-    }
-
-    logger.info(
-      `Filtered to ${confidentResults.length} confident results (score >= ${MIN_RERANK_SCORE})`,
-      "RAGPipeline"
-    )
-
-    // Build lookup map before reranking to avoid O(n×m) content-string scan
-    const candidateByContent = new Map(
-      candidates.map((c) => [c.document.content, c])
-    )
-
-    rerankedResults = confidentResults.map((r) => {
-      const originalCandidate = candidateByContent.get(r.content)
-      return {
-        document: {
-          id: originalCandidate?.document.id,
-          content: r.content,
-          embedding: originalCandidate?.document.embedding || [],
-          metadata: r.metadata || {}
-        } as VectorDocument,
-        score: r.score,
-        originalSimilarity: originalCandidate?.similarity
-      }
-    })
-  }
-
-  // ===== STAGE 1.6: Add Memory Candidates =====
-  // Memory is kept separate (not reranked) for Option B - separate context blocks
-  if (memoryCandidates.length > 0) {
-    // Add memory with a slight score boost to prioritize files first
-    const boostedMemory = memoryCandidates.map((m) => ({
-      ...m,
-      score: m.score * 0.9 // Slightly lower priority than file results
+  let ranked = await rerankCandidates(
+    candidates,
+    embedding.embedding,
+    resolved.topK,
+    candidateK,
+    resolved.minSimilarity,
+    resolved.minRerankScore,
+    embeddingConfig
+  )
+  if (!ranked.length && (embeddingConfig.useReranking ?? true)) return []
+  if (memoryCandidates.length) {
+    const boostedMemory = memoryCandidates.map((memory) => ({
+      ...memory,
+      score: memory.score * 0.9
     }))
-    rerankedResults = [...rerankedResults, ...boostedMemory]
+    ranked = [...ranked, ...boostedMemory]
     logger.info(
       `Added ${boostedMemory.length} memory results to pool`,
       "RAGPipeline"
     )
   }
-
-  // ===== STAGE 2.5: Feedback Score Blending =====
-  // Blend user feedback scores with model scores
-  if (embeddingConfig.feedbackEnabled) {
-    logger.verbose("Stage 2.5: Blending feedback scores", "RAGPipeline")
-
-    for (const result of rerankedResults) {
-      // Skip feedback for memory - it's based on chat content
-      if (result.isMemory) continue
-
-      // Get feedback score for this chunk + query combination
-      const chunkId = result.document.id?.toString()
-      if (chunkId) {
-        const feedbackScore = await feedbackService.getFeedbackScore(
-          chunkId,
-          query
-        )
-
-        if (feedbackScore !== null) {
-          // Blend scores: (1 - weight) * modelScore + weight * feedbackScore
-          const blendWeight = embeddingConfig.feedbackBlendWeight || 0.2
-          const originalScore = result.score
-          result.score =
-            (1 - blendWeight) * originalScore + blendWeight * feedbackScore
-
-          logger.verbose(
-            `Blended score for chunk ${chunkId}: ${originalScore.toFixed(3)} → ${result.score.toFixed(3)}`,
-            "RAGPipeline"
-          )
-        }
-      }
-    }
-
-    // Re-sort after blending
-    rerankedResults.sort((a, b) => b.score - a.score)
-  }
-
-  // ===== STAGE 3: MMR Diversity Filtering =====
-  // Memory results are kept separate from MMR to preserve them
-  const fileResults = rerankedResults.filter((r) => !r.isMemory)
-  const memoryResults = rerankedResults.filter((r) => r.isMemory)
-
-  if (!diversityEnabled) {
-    const finalResults = [
-      ...fileResults.slice(0, topK),
-      ...memoryResults.slice(0, 1) // Add 1 memory result max
-    ]
-    return finalResults
-  }
-
-  logger.verbose("Stage 3: MMR diversity filtering", "RAGPipeline", {
-    lambda: diversityLambda
-  })
-
-  const diversifiedFileResults = applyMMR(fileResults, topK, diversityLambda)
-
-  // Combine: top file results + memory results (separate blocks for Option B)
-  const diversified = [
-    ...diversifiedFileResults,
-    ...memoryResults.slice(0, 1) // Add 1 memory result max
-  ]
-
-  const fileCount = diversified.filter((r) => !r.isMemory).length
-  const memoryCount = diversified.filter((r) => r.isMemory).length
-
-  logger.info(
-    `Stage 3 complete: ${diversified.length} final results (${fileCount} files, ${memoryCount} memory)`,
-    "RAGPipeline"
-  )
-
-  return diversified
+  await blendFeedback(query, ranked, embeddingConfig)
+  return selectDiverseResults(ranked, resolved)
 }
 
 /**

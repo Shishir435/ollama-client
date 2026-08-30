@@ -1,3 +1,4 @@
+import { abortableDelay } from "@/lib/abortable-delay"
 import { type ChunkDocument, chunkDocuments } from "@/lib/embeddings/chunker"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { fromDocuments } from "@/lib/embeddings/vector-store"
@@ -158,6 +159,7 @@ export async function processKnowledge(
       chunkCount: chunks.length
     }
   } catch (error) {
+    if (signal?.aborted) throw error
     const errorMessage = getErrorMessage(error)
 
     logger.error("Error processing document", "processKnowledge", {
@@ -195,7 +197,8 @@ export async function processKnowledgeBatch(
     pages?: Array<{ pageNumber: number; text: string }>
     contentType: string
   }>,
-  onProgress?: (fileId: string, progress: ProcessingProgress) => void
+  onProgress?: (fileId: string, progress: ProcessingProgress) => void,
+  signal?: AbortSignal
 ): Promise<
   Map<string, { success: boolean; chunkCount: number; error?: string }>
 > {
@@ -205,8 +208,10 @@ export async function processKnowledgeBatch(
   >()
 
   for (const file of files) {
+    signal?.throwIfAborted()
     const result = await processKnowledge({
       ...file,
+      signal,
       onProgress: (progress) => onProgress?.(file.fileId, progress)
     })
 
@@ -217,7 +222,9 @@ export async function processKnowledgeBatch(
     })
 
     // Small delay between files to prevent overwhelming the system
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    if (file !== files[files.length - 1]) {
+      await abortableDelay(100, signal)
+    }
   }
 
   return results

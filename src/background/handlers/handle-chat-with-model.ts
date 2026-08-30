@@ -62,6 +62,141 @@ const limitMessagesForModel = (
   return messages
 }
 
+const getSessionSystemPrompt = async (
+  sessionId?: string
+): Promise<string | undefined> => {
+  if (!sessionId) return undefined
+  try {
+    const session = await getSession(sessionId)
+    return session?.systemPrompt?.trim() || undefined
+  } catch (error) {
+    logger.debug(
+      "Failed to read per-chat system prompt",
+      "handleChatWithModel",
+      { error }
+    )
+    return undefined
+  }
+}
+
+const latestUserMessage = (messages: ChatMessage[]): ChatMessage | undefined =>
+  [...messages].reverse().find((message) => message.role === "user")
+
+const capContext = (formattedContext: string, maxChars: number): string => {
+  if (maxChars <= 0 || formattedContext.length <= maxChars) {
+    return formattedContext
+  }
+  const marker = "\n\n[Context truncated due to length]"
+  return `${formattedContext.slice(0, Math.max(0, maxChars - marker.length))}${marker}`
+}
+
+const buildMemoryContextHeader = async ({
+  enabled,
+  clientContextPrepared,
+  retrievalToolsActive,
+  conversationMessages,
+  port
+}: {
+  enabled: boolean
+  clientContextPrepared?: boolean
+  retrievalToolsActive: boolean
+  conversationMessages: ChatMessage[]
+  port: ChatStreamSink
+}): Promise<string> => {
+  if (!enabled || clientContextPrepared || retrievalToolsActive) return ""
+  const lastUserMessage = conversationMessages[conversationMessages.length - 1]
+  if (!lastUserMessage || lastUserMessage.role !== "user") return ""
+
+  const { retrieveContextEnhanced, formatEnhancedResults } = await import(
+    "@/application/context/rag/rag-pipeline"
+  )
+  const enhancedResults = await retrieveContextEnhanced(
+    lastUserMessage.content,
+    {
+      type: "chat"
+    }
+  )
+  if (enhancedResults.length === 0) return ""
+
+  const { formattedContext, sources } = formatEnhancedResults(enhancedResults)
+  const maxRagChars = await readSetting(SETTINGS.MAX_RAG_CONTEXT_CHARS)
+  const cappedContext = capContext(formattedContext, maxRagChars)
+
+  logger.info(
+    `Injected ${enhancedResults.length} past context items`,
+    "handleChatWithModel",
+    {
+      contextChars: cappedContext.length,
+      truncated: cappedContext.length < formattedContext.length
+    }
+  )
+
+  try {
+    safePostChatStreamEvent(port, {
+      version: 1,
+      type: CHAT_STREAM_EVENT_TYPES.RAG_SOURCES,
+      payload: { sources, query: lastUserMessage.content }
+    })
+  } catch (error) {
+    logger.warn("Failed to send RAG sources", "handleChatWithModel", { error })
+  }
+
+  return `\n\nIMPORTANT: You have access to context from previous conversations:\n${cappedContext}\n\nUse this context to provide personalized responses.`
+}
+
+const injectSystemMessage = (
+  messages: ChatMessage[],
+  systemPrompt: string,
+  contextHeader: string,
+  guidance: string
+): void => {
+  const systemIndex = messages.findIndex((message) => message.role === "system")
+  if (systemIndex === -1) {
+    messages.unshift({
+      role: "system",
+      content: systemPrompt + contextHeader + guidance
+    })
+    return
+  }
+  messages[systemIndex] = {
+    ...messages[systemIndex],
+    content: messages[systemIndex].content + contextHeader + guidance
+  }
+}
+
+const createChunkHandler = (
+  port: ChatStreamSink,
+  isPortClosed: PortStatusFunction
+) => {
+  port.streamSequence = 0
+  return (chunk: ChatStreamMessage) => {
+    if (isPortClosed()) return
+
+    if (process.env.NODE_ENV === "development") {
+      logger.debug("Chat stream chunk", "ChatStream", {
+        hasDelta: typeof chunk.delta === "string" && chunk.delta.length > 0,
+        deltaPreview:
+          typeof chunk.delta === "string"
+            ? chunk.delta.slice(0, 120)
+            : undefined,
+        hasThinkingDelta:
+          typeof chunk.thinkingDelta === "string" &&
+          chunk.thinkingDelta.length > 0,
+        done: chunk.done,
+        error: chunk.error
+      })
+    }
+    const seq = port.streamSequence ?? 0
+    port.streamSequence = seq + 1
+    safePostChatStreamEvent(port, {
+      version: 1,
+      type: CHAT_STREAM_EVENT_TYPES.CHUNK,
+      ...chunk,
+      seq
+    })
+  }
+}
+
 /**
  * Main handler for streaming chat interactions.
  * Features:
@@ -78,7 +213,6 @@ export const handleChatWithModel = withErrorContext(
   ) => {
     const { model, providerId, messages } = msg.payload
     const abortKey = msg.payload.requestId || port.abortScopeKey || port.name
-
     const ac = new AbortController()
     setAbortController(abortKey, ac)
 
@@ -86,59 +220,33 @@ export const handleChatWithModel = withErrorContext(
     const modelParams = resolveModelConfig(
       getStoredModelConfig(modelConfigMap, model, providerId)
     )
-
-    // App-owned permission cards are durable UI recovery state, never model
-    // output or prompt context. Filter defensively even though the client does
-    // the same before submission.
     const conversationMessages = messages.filter(
       (message) => !message.metrics?.permissionNotice
     )
-    const limitedMessages = limitMessagesForModel(model, conversationMessages)
-    const preparedMessages = [...limitedMessages]
-
-    // --- System Prompt & Context Injection ---
+    const preparedMessages = [
+      ...limitMessagesForModel(model, conversationMessages)
+    ]
     const isMemoryEnabled = await readSetting(SETTINGS.MEMORY_ENABLED)
-    // A per-chat system prompt override, when set, replaces the model's
-    // configured prompt for this session only. Empty/whitespace is ignored, and
-    // a failed read degrades to the model default rather than breaking the turn.
-    let sessionSystemPrompt: string | undefined
-    if (msg.payload.sessionId) {
-      try {
-        const session = await getSession(msg.payload.sessionId)
-        sessionSystemPrompt = session?.systemPrompt?.trim() || undefined
-      } catch (error) {
-        logger.debug(
-          "Failed to read per-chat system prompt",
-          "handleChatWithModel",
-          { error }
-        )
-      }
-    }
+    const sessionSystemPrompt = await getSessionSystemPrompt(
+      msg.payload.sessionId
+    )
     const systemPrompt =
       sessionSystemPrompt ||
       modelParams.system ||
       "You are a helpful AI assistant."
-    let contextHeader = ""
 
-    // Get Provider
     const provider = await ProviderFactory.getProviderForModel(
       model,
       providerId
     )
     assertProviderEnabled(provider, model)
 
-    // Resolve tools + how to drive them. Native models get an OpenAI/Ollama tool
-    // array; models opted into the prompt-based fallback get a non-native loop;
-    // everything else gets no tools and the old context-injection path as-is.
-    // Resolved up here (before memory injection) so the regenerate/fork path can
-    // gate auto-injection on retrieval-tool availability too.
-    const latestUserText = [...conversationMessages]
-      .reverse()
-      .find((message) => message.role === "user")?.content
+    const latestUserText = latestUserMessage(conversationMessages)?.content
     const resolvedCapabilities = await resolveModelCapabilities(
       model,
       providerId,
-      provider
+      provider,
+      ac.signal
     )
     const { capabilities } = resolvedCapabilities
     const imageGenerator = capabilities.imageOutput
@@ -157,9 +265,7 @@ export const handleChatWithModel = withErrorContext(
           "This provider cannot generate images. Disable the image-output override or choose another provider."
       })
     }
-    // Image-generation models use a provider-specific generation operation,
-    // normalized into the ordinary chat stream. They do not participate in a
-    // text tool loop: the user's latest message is their generation prompt.
+
     const resolvedTools = imageGenerator
       ? null
       : await resolveModelTools(
@@ -167,112 +273,24 @@ export const handleChatWithModel = withErrorContext(
           providerId,
           provider,
           latestUserText,
-          resolvedCapabilities
+          resolvedCapabilities,
+          ac.signal
         )
-    // Only the native path sends a tools array + the native system guidance; the
-    // non-native path injects its own protocol prompt inside its streamer.
     const nativeTools =
       resolvedTools?.mode === "native" ? resolvedTools.tools : undefined
-    // When the model has its own retrieval tools this turn, it pulls stored
-    // context on demand — so neither the client nor this background path should
-    // pre-inject memory (it would appear in the prompt AND be retrievable via
-    // the tool, contrary to the no-auto-injection contract).
-    const retrievalToolsActive = hasRetrievalTool(resolvedTools)
-
-    // Skip background memory retrieval when the UI already prepared context for
-    // this turn, when retrieval tools cover it, or when there is nothing to key
-    // off. Otherwise memory is injected twice (UI into the user content,
-    // background into the system prompt) and the background would embed the
-    // RAG-augmented last message instead of the raw user query. Regenerate/fork
-    // paths leave `clientContextPrepared` false, so the background is the sole
-    // memory source there and embeds the original query — but still defers to
-    // active retrieval tools.
-    if (
-      isMemoryEnabled &&
-      !msg.payload.clientContextPrepared &&
-      !retrievalToolsActive &&
-      conversationMessages.length > 0
-    ) {
-      const lastUserMessage =
-        conversationMessages[conversationMessages.length - 1]
-      if (lastUserMessage.role === "user") {
-        // Dynamic import to reduce bundle size
-        const { retrieveContextEnhanced, formatEnhancedResults } = await import(
-          "@/application/context/rag/rag-pipeline"
-        )
-
-        const enhancedResults = await retrieveContextEnhanced(
-          lastUserMessage.content,
-          { type: "chat" }
-        )
-        if (enhancedResults.length > 0) {
-          const { formattedContext, sources } =
-            formatEnhancedResults(enhancedResults)
-
-          // Enforce the prompt-budget ceiling (same setting the client RAG path
-          // uses) so a large set of recalled memories can't blow the model's
-          // context window. `<= 0` means unlimited.
-          const maxRagChars = await readSetting(SETTINGS.MAX_RAG_CONTEXT_CHARS)
-          const truncationMarker = "\n\n[Context truncated due to length]"
-          const cappedContext =
-            maxRagChars > 0 && formattedContext.length > maxRagChars
-              ? `${formattedContext.slice(
-                  0,
-                  Math.max(0, maxRagChars - truncationMarker.length)
-                )}${truncationMarker}`
-              : formattedContext
-
-          logger.info(
-            `Injected ${enhancedResults.length} past context items`,
-            "handleChatWithModel",
-            {
-              contextChars: cappedContext.length,
-              truncated: cappedContext.length < formattedContext.length
-            }
-          )
-
-          try {
-            safePostChatStreamEvent(port, {
-              version: 1,
-              type: CHAT_STREAM_EVENT_TYPES.RAG_SOURCES,
-              payload: { sources, query: lastUserMessage.content }
-            })
-          } catch (e) {
-            logger.warn("Failed to send RAG sources", "handleChatWithModel", {
-              error: e
-            })
-          }
-          contextHeader = `\n\nIMPORTANT: You have access to context from previous conversations:\n${cappedContext}\n\nUse this context to provide personalized responses.`
-        }
-      }
-    }
-
-    // Tell the model the tools exist and when to use them. Without this, weaker
-    // and reasoning-tuned models (e.g. deepseek-r1) ignore the offered tools and
-    // hallucinate "I can't access your tabs" instead of calling current_tab.
-    // Empty when no tools are offered natively.
-    const guidance = buildToolSystemGuidance(nativeTools)
-
-    // Build the system message in one place: append the RAG context header and
-    // tool guidance to an existing system message, or prepend one from the
-    // default/system prompt. Single construction means guidance can never be
-    // silently dropped, regardless of whether the user kept a system prompt.
-    const systemMsgIndex = preparedMessages.findIndex(
-      (m) => m.role === "system"
+    const contextHeader = await buildMemoryContextHeader({
+      enabled: isMemoryEnabled,
+      clientContextPrepared: msg.payload.clientContextPrepared,
+      retrievalToolsActive: hasRetrievalTool(resolvedTools),
+      conversationMessages,
+      port
+    })
+    injectSystemMessage(
+      preparedMessages,
+      systemPrompt,
+      contextHeader,
+      buildToolSystemGuidance(nativeTools)
     )
-    if (systemMsgIndex !== -1) {
-      preparedMessages[systemMsgIndex] = {
-        ...preparedMessages[systemMsgIndex],
-        content:
-          preparedMessages[systemMsgIndex].content + contextHeader + guidance
-      }
-    } else {
-      preparedMessages.unshift({
-        role: "system",
-        content: systemPrompt + contextHeader + guidance
-      })
-    }
-    // -----------------------------------
 
     const request = {
       model,
@@ -293,145 +311,114 @@ export const handleChatWithModel = withErrorContext(
       keep_alive: modelParams.keep_alive,
       reasoningEffort: modelParams.reasoning_effort,
       tools: nativeTools
-      // provider handles system prompt if needed, but we already injected it into messages
-      // so we pass the prepared messages
+    }
+    const onChunk = createChunkHandler(port, isPortClosed)
+
+    const runImageGeneration = async () => {
+      if (!imageGenerator) return false
+      const userMessage = latestUserMessage(conversationMessages)
+      await imageGenerator.call(
+        provider,
+        {
+          model,
+          prompt: userMessage?.content ?? "",
+          images: userMessage?.images
+        },
+        onChunk,
+        ac.signal
+      )
+      return true
     }
 
-    // Monotonic per-turn sequence, stamped on every emitted chunk so the UI
-    // reducer can drop duplicates/out-of-order and resume from the last applied
-    // sequence. Resets to 0 on a fresh SW instance (including after a restart),
-    // so the UI resets its counter when it reconnects.
-    port.streamSequence = 0
-    const onChunk = (chunk: ChatStreamMessage) => {
-      if (isPortClosed()) return
-
-      if (process.env.NODE_ENV === "development") {
-        logger.debug("Chat stream chunk", "ChatStream", {
-          hasDelta: typeof chunk.delta === "string" && chunk.delta.length > 0,
-          deltaPreview:
-            typeof chunk.delta === "string"
-              ? chunk.delta.slice(0, 120)
-              : undefined,
-          hasThinkingDelta:
-            typeof chunk.thinkingDelta === "string" &&
-            chunk.thinkingDelta.length > 0,
-          done: chunk.done,
-          error: chunk.error
-        })
+    const runToolGeneration = async () => {
+      if (!resolvedTools || resolvedTools.tools.length === 0) return false
+      const { getToolRegistry } = await import("@/lib/tools")
+      const toolResultMaxChars = await readSetting(
+        SETTINGS.MAX_TOOL_RESULT_CHARS
+      )
+      const ctx = {
+        signal: ac.signal,
+        sessionId: msg.payload.sessionId,
+        model
       }
-      const seq = port.streamSequence ?? 0
-      port.streamSequence = seq + 1
-      safePostChatStreamEvent(port, {
-        version: 1,
-        type: CHAT_STREAM_EVENT_TYPES.CHUNK,
-        ...chunk,
-        seq
-      })
+      const mode: ToolLoopMode = resolvedTools.mode
+      const durableRun = msg.payload.requestId
+        ? await getToolLoopRun(msg.payload.requestId)
+        : null
+      const initialState =
+        durableRun &&
+        durableRun.model === model &&
+        durableRun.mode === mode &&
+        durableRun.sessionId === msg.payload.sessionId
+          ? durableRun.state
+          : undefined
+      const onCheckpoint = msg.payload.requestId
+        ? async (
+            state: NonNullable<typeof initialState>,
+            awaitingConfirmation: boolean
+          ) => {
+            await saveToolLoopRun({
+              requestId: msg.payload.requestId as string,
+              sessionId: msg.payload.sessionId,
+              model,
+              providerId,
+              mode,
+              status: awaitingConfirmation
+                ? "awaiting-confirmation"
+                : "running",
+              state,
+              updatedAt: Date.now()
+            })
+          }
+        : undefined
+
+      try {
+        if (resolvedTools.mode === "non-native") {
+          await streamChatWithNonNativeTools({
+            provider,
+            request,
+            tools: resolvedTools.tools,
+            registry: getToolRegistry(),
+            onChunk,
+            signal: ac.signal,
+            ctx,
+            toolResultMaxChars,
+            initialState,
+            onCheckpoint
+          })
+        } else {
+          await streamChatWithTools({
+            provider,
+            request,
+            registry: getToolRegistry(),
+            onChunk,
+            signal: ac.signal,
+            ctx,
+            toolResultMaxChars,
+            toolResultMode:
+              resolvedTools.mode === "native-user-results" ? "user" : "tool",
+            initialState,
+            onCheckpoint
+          })
+        }
+      } finally {
+        if (msg.payload.requestId) {
+          await deleteToolLoopRun(msg.payload.requestId).catch((error) => {
+            logger.warn(
+              "Failed to remove completed tool-loop checkpoint",
+              "handleChatWithModel",
+              { error }
+            )
+          })
+        }
+      }
+      return true
     }
 
     try {
-      if (imageGenerator) {
-        const latestUserMessage = [...conversationMessages]
-          .reverse()
-          .find((message) => message.role === "user")
-        await imageGenerator.call(
-          provider,
-          {
-            model,
-            prompt: latestUserMessage?.content ?? "",
-            images: latestUserMessage?.images
-          },
-          onChunk,
-          ac.signal
-        )
-      } else if (resolvedTools && resolvedTools.tools.length > 0) {
-        const { getToolRegistry } = await import("@/lib/tools")
-        const toolResultMaxChars = await readSetting(
-          SETTINGS.MAX_TOOL_RESULT_CHARS
-        )
-        const ctx = {
-          signal: ac.signal,
-          sessionId: msg.payload.sessionId,
-          model
-        }
-        const mode: ToolLoopMode = resolvedTools.mode
-        const durableRun = msg.payload.requestId
-          ? await getToolLoopRun(msg.payload.requestId)
-          : null
-        const initialState =
-          durableRun &&
-          durableRun.model === model &&
-          durableRun.mode === mode &&
-          durableRun.sessionId === msg.payload.sessionId
-            ? durableRun.state
-            : undefined
-        const onCheckpoint = msg.payload.requestId
-          ? async (
-              state: NonNullable<typeof initialState>,
-              awaitingConfirmation: boolean
-            ) => {
-              await saveToolLoopRun({
-                requestId: msg.payload.requestId as string,
-                sessionId: msg.payload.sessionId,
-                model,
-                providerId,
-                mode,
-                status: awaitingConfirmation
-                  ? "awaiting-confirmation"
-                  : "running",
-                state,
-                updatedAt: Date.now()
-              })
-            }
-          : undefined
-
-        try {
-          if (resolvedTools.mode === "non-native") {
-            await streamChatWithNonNativeTools({
-              provider,
-              request,
-              tools: resolvedTools.tools,
-              registry: getToolRegistry(),
-              onChunk,
-              signal: ac.signal,
-              ctx,
-              toolResultMaxChars,
-              initialState,
-              onCheckpoint
-            })
-          } else {
-            await streamChatWithTools({
-              provider,
-              request,
-              registry: getToolRegistry(),
-              onChunk,
-              signal: ac.signal,
-              ctx,
-              toolResultMaxChars,
-              toolResultMode:
-                resolvedTools.mode === "native-user-results" ? "user" : "tool",
-              initialState,
-              onCheckpoint
-            })
-          }
-        } finally {
-          // Any exit on this SW instance — done, aborted, or a thrown tool
-          // error — ends the run, so the checkpoint must go with it (a stale
-          // row could be replayed if the requestId ever recurs). The one case
-          // a checkpoint must survive, an MV3 SW restart, never executes this.
-          if (msg.payload.requestId) {
-            await deleteToolLoopRun(msg.payload.requestId).catch((error) => {
-              logger.warn(
-                "Failed to remove completed tool-loop checkpoint",
-                "handleChatWithModel",
-                { error }
-              )
-            })
-          }
-        }
-      } else {
-        await provider.streamChat(request, onChunk, ac.signal)
-      }
+      if (await runImageGeneration()) return
+      if (await runToolGeneration()) return
+      await provider.streamChat(request, onChunk, ac.signal)
     } finally {
       clearAbortController(abortKey)
     }

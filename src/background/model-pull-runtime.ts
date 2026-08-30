@@ -54,10 +54,126 @@ const checkpoint = async (
   run: ModelPullRun,
   patch: Partial<ModelPullRun>,
   options: { flush?: boolean } = {}
+): Promise<ModelPullRun> =>
+  writeCheckpoint(run, patch, (updated) => saveModelPullRun(updated, options))
+
+const buildPullRequest = (
+  baseUrl: string,
+  providerId: string,
+  model: string
+): { endpoint: string; body: string; isLmStudio: boolean } => {
+  const isLmStudio = providerId === ProviderId.LM_STUDIO
+  const endpoint = isLmStudio
+    ? `${baseUrl.replace(/\/v1\/?$/, "")}/api/v1/models/download`
+    : `${baseUrl}/api/pull`
+  const requestBody: DefaultProviderPullRequest = { name: model }
+  return {
+    endpoint,
+    body: JSON.stringify(isLmStudio ? { model } : requestBody),
+    isLmStudio
+  }
+}
+
+const throwForFailedResponse = (
+  response: Response,
+  providerId: string,
+  model: string,
+  baseUrl: string
+): void => {
+  if (response.ok) return
+  throw createAppError(response.statusText || "Model download request failed", {
+    kind: "provider",
+    status: response.status,
+    providerId,
+    model,
+    baseUrl,
+    retryable: response.status >= 500
+  })
+}
+
+const consumeDurablePullStream = async (
+  response: Response,
+  run: ModelPullRun,
+  controller: AbortController,
+  providerId: string
 ): Promise<ModelPullRun> => {
-  return writeCheckpoint(run, patch, (updated) =>
-    saveModelPullRun(updated, options)
-  )
+  if (!response.body) {
+    throw createAppError("No response body received", {
+      kind: "provider",
+      providerId,
+      model: run.model
+    })
+  }
+
+  let current = run
+  let terminal = false
+  await consumePullStream(response, {
+    isCancelled: () => controller.signal.aborted,
+    onEvent: async (event) => {
+      if (event.type === MODEL_PULL_EVENT_TYPES.PROGRESS) {
+        current = await checkpoint(
+          current,
+          {
+            status: "running",
+            statusText: event.status,
+            ...(event.progress !== undefined && { progress: event.progress })
+          },
+          { flush: false }
+        )
+        return
+      }
+
+      terminal = true
+      current =
+        event.type === MODEL_PULL_EVENT_TYPES.COMPLETE
+          ? await checkpoint(current, {
+              status: "completed",
+              statusText: event.status || "Success",
+              progress: 100
+            })
+          : await checkpoint(current, {
+              status: "failed",
+              statusText: event.failure.message,
+              failure: event.failure
+            })
+    }
+  })
+  controller.signal.throwIfAborted()
+  if (!terminal) {
+    throw createAppError("Model download stream ended before completion", {
+      kind: "network",
+      providerId,
+      model: current.model,
+      retryable: true
+    })
+  }
+  return current
+}
+
+const persistExecutionFailure = async (
+  run: ModelPullRun,
+  error: unknown,
+  recoverySignal: AbortSignal | undefined,
+  timedOut: boolean
+): Promise<void> => {
+  if (run.status === "completed" || run.status === "failed") return
+  if (recoverySignal?.aborted) return
+
+  const cancelled = isAbortError(error) && !timedOut
+  const failure = cancelled
+    ? undefined
+    : toAppFailure(error, {
+        status: timedOut ? 408 : undefined,
+        fallbackMessage: timedOut
+          ? `Connection timed out after ${PULL_CONNECT_TIMEOUT_MS / 1000}s`
+          : "Failed to pull model",
+        providerId: run.providerId
+      })
+  await checkpoint(run, {
+    status: cancelled ? "cancelled" : "failed",
+    statusText: cancelled ? "Cancelled" : failure?.message,
+    failure
+  })
 }
 
 const execute = async (
@@ -86,37 +202,17 @@ const execute = async (
     }
 
     const baseUrl = resolveProviderBaseUrl(provider.config)
-    const isLmStudio = provider.id === ProviderId.LM_STUDIO
-    const endpoint = isLmStudio
-      ? `${baseUrl.replace(/\/v1\/?$/, "")}/api/v1/models/download`
-      : `${baseUrl}/api/pull`
-    const requestBody: DefaultProviderPullRequest = { name: run.model }
-    const body = isLmStudio
-      ? JSON.stringify({ model: run.model })
-      : JSON.stringify(requestBody)
-    const response = await fetch(endpoint, {
+    const pull = buildPullRequest(baseUrl, provider.id, run.model)
+    const response = await fetch(pull.endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body,
+      body: pull.body,
       signal: controller.signal
     })
     connectTimeout.clear()
+    throwForFailedResponse(response, provider.id, run.model, baseUrl)
 
-    if (!response.ok) {
-      throw createAppError(
-        response.statusText || "Model download request failed",
-        {
-          kind: "provider",
-          status: response.status,
-          providerId: provider.id,
-          model: run.model,
-          baseUrl,
-          retryable: response.status >= 500
-        }
-      )
-    }
-
-    if (isLmStudio) {
+    if (pull.isLmStudio) {
       await checkpoint(run, {
         status: "completed",
         statusText: "Download requested",
@@ -124,80 +220,15 @@ const execute = async (
       })
       return
     }
-    if (!response.body) {
-      throw createAppError("No response body received", {
-        kind: "provider",
-        providerId: provider.id,
-        model: run.model
-      })
-    }
-
-    let terminal = false
-    await consumePullStream(response, {
-      isCancelled: () => controller.signal.aborted,
-      onEvent: async (event) => {
-        if (event.type === MODEL_PULL_EVENT_TYPES.PROGRESS) {
-          run = await checkpoint(
-            run,
-            {
-              status: "running",
-              statusText: event.status,
-              ...(event.progress !== undefined && {
-                progress: event.progress
-              })
-            },
-            { flush: false }
-          )
-          return
-        }
-        if (event.type === MODEL_PULL_EVENT_TYPES.COMPLETE) {
-          terminal = true
-          run = await checkpoint(run, {
-            status: "completed",
-            statusText: event.status || "Success",
-            progress: 100
-          })
-          return
-        }
-        terminal = true
-        run = await checkpoint(run, {
-          status: "failed",
-          statusText: event.failure.message,
-          failure: event.failure
-        })
-      }
-    })
-    controller.signal.throwIfAborted()
-    if (!terminal) {
-      throw createAppError("Model download stream ended before completion", {
-        kind: "network",
-        providerId: provider.id,
-        model: run.model,
-        retryable: true
-      })
-    }
+    run = await consumeDurablePullStream(response, run, controller, provider.id)
   } catch (error) {
     connectTimeout.clear()
-    if (run.status === "completed" || run.status === "failed") return
-    // Supervisor expiry stops this attempt without converting the user's
-    // durable download into a user-requested cancellation. Its active row is
-    // eligible for recovery on the next worker boot.
-    if (recoverySignal?.aborted) return
-    const cancelled = isAbortError(error) && !connectTimeout.timedOut()
-    const failure = cancelled
-      ? undefined
-      : toAppFailure(error, {
-          status: connectTimeout.timedOut() ? 408 : undefined,
-          fallbackMessage: connectTimeout.timedOut()
-            ? `Connection timed out after ${PULL_CONNECT_TIMEOUT_MS / 1000}s`
-            : "Failed to pull model",
-          providerId: run.providerId
-        })
-    await checkpoint(run, {
-      status: cancelled ? "cancelled" : "failed",
-      statusText: cancelled ? "Cancelled" : failure?.message,
-      failure
-    })
+    await persistExecutionFailure(
+      run,
+      error,
+      recoverySignal,
+      connectTimeout.timedOut()
+    )
   }
 }
 
@@ -206,9 +237,6 @@ const start = (
   recoverySignal?: AbortSignal
 ): Promise<void> => {
   const active = activePulls.get(run.id)
-  // A pull already started through submit owns its controller. Startup may
-  // await it, but cannot borrow cancellation authority and reinterpret a
-  // recovery timeout as the user's request to cancel the download.
   if (active) return active.promise
   const controller = new AbortController()
   const stopForwarding = forwardAbort(recoverySignal, controller)

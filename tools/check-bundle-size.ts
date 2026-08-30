@@ -187,9 +187,10 @@ const budgets: Budget[] = [
     metric: "background",
     field: "gzipBytes",
     // Generated-image responses plus embedding route validation, cancellation,
-    // and cache identity safeguards run in the background owner. Keep the
-    // increase narrow while leaving enough margin for deterministic builds.
-    max: isFirefox ? 210_000 : 201_000
+    // cache safeguards, retry metadata, and the complexity-helper split live
+    // in the background owner. Keep Chrome narrow while leaving deterministic
+    // build headroom.
+    max: isFirefox ? 210_000 : 202_150
   }
 ]
 

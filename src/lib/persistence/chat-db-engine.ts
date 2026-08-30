@@ -474,213 +474,208 @@ export const createChatDbEngine = (
   // Ops
   // -------------------------------------------------------------------------
 
-  const execute = async (request: PersistenceOp): Promise<unknown> => {
-    if (request.op === "setBackend") {
-      if (backend !== request.backend) {
-        await closeContext()
-        backend = request.backend
+  const switchBackend = async (
+    request: Extract<PersistenceOp, { op: "setBackend" }>
+  ): Promise<null> => {
+    if (backend !== request.backend) {
+      await closeContext()
+      backend = request.backend
+    }
+    legacyIntegrityHint = request.integrity
+    await openContext()
+    return null
+  }
+
+  const executeRun = (
+    context: Context,
+    request: Extract<PersistenceOp, { op: "run" }>
+  ) => {
+    assertWritable(context)
+    const result = runStatement(context.db, request.sql, request.bind)
+    if (context.backend === "legacy") {
+      if (activeTx) legacyDirtyInTx = true
+      else context.legacy.markDirty()
+    }
+    return result
+  }
+
+  const beginTransaction = (
+    context: Context,
+    request: Extract<PersistenceOp, { op: "txBegin" }>
+  ): null => {
+    assertWritable(context)
+    context.db.exec("BEGIN IMMEDIATE")
+    legacyDirtyInTx = false
+    startTxLease(request.token, context.db)
+    return null
+  }
+
+  const commitTransaction = (context: Context): null => {
+    try {
+      context.db.exec("COMMIT")
+      if (context.backend === "legacy" && legacyDirtyInTx)
+        context.legacy.markDirty()
+    } finally {
+      legacyDirtyInTx = false
+      clearTxLease()
+    }
+    return null
+  }
+
+  const rollbackTransaction = (context: Context): null => {
+    try {
+      context.db.exec("ROLLBACK")
+    } finally {
+      legacyDirtyInTx = false
+      clearTxLease()
+    }
+    return null
+  }
+
+  const flushContext = async (context: Context): Promise<null> => {
+    if (context.backend === "legacy") await context.legacy.flush()
+    return null
+  }
+
+  const exportContextDb = async (context: Context) => {
+    if (context.backend === "legacy") {
+      const image = context.legacy.exportImage()
+      return image.buffer.slice(
+        image.byteOffset,
+        image.byteOffset + image.byteLength
+      )
+    }
+    const bytes = await context.pool.exportFile(DB_PATH)
+    return bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength
+    )
+  }
+
+  const surveyDatabase = async (
+    request: Extract<PersistenceOp, { op: "surveyDb" }>
+  ): Promise<SurveyResult> => {
+    const pool = await getPool()
+    pool.unlink(PROBE_PATH)
+    await ensureFreeSlots(pool, 1)
+    try {
+      await pool.importDb(PROBE_PATH, new Uint8Array(request.bytes))
+      const sourceDb = new pool.OpfsSAHPoolDb(PROBE_PATH)
+      try {
+        return {
+          ...counts(sourceDb),
+          schemaVersion: queryNumber(sourceDb, "PRAGMA user_version"),
+          integrity: integrity(sourceDb)
+        } satisfies SurveyResult
+      } finally {
+        sourceDb.close()
       }
-      legacyIntegrityHint = request.integrity
+    } finally {
+      pool.unlink(PROBE_PATH)
+    }
+  }
+
+  const importLegacyDatabase = async (
+    _context: Extract<Context, { backend: "legacy" }>,
+    bytes: ArrayBuffer
+  ): Promise<ImportResult> => {
+    const report = await verifyLegacyCandidate(bytes)
+    if (!isSoundDatabase(report)) {
+      throw new Error(
+        `Imported database failed integrity_check: ${report.integrityCheck}`
+      )
+    }
+    await writeLegacyBlob(new Uint8Array(bytes))
+    await closeContext()
+    legacyIntegrityHint = report
+    const fresh = await openContext()
+    return { ...counts(fresh.db), integrity: report } satisfies ImportResult
+  }
+
+  const importOpfsDatabase = async (
+    context: Extract<Context, { backend: "opfs" }>,
+    bytes: ArrayBuffer
+  ): Promise<ImportResult> => {
+    const { db, pool } = context
+    const report = await verifyImportCandidate(pool, bytes)
+    if (!isSoundDatabase(report)) {
+      throw new Error(
+        `Imported database failed integrity_check: ${report.integrityCheck}`
+      )
+    }
+    db.close()
+    contextPromise = null
+    await ensureFreeSlots(pool, 1)
+    const rollback = await stageRollbackCopy(pool, DB_PATH)
+    try {
+      await pool.importDb(DB_PATH, new Uint8Array(bytes))
+      const fresh = await reopenOpfsContext(pool)
+      const result: ImportResult = { ...counts(fresh.db), integrity: report }
+      clearRollbackCopy(pool)
+      return result
+    } catch (error) {
+      if (await recoverFailedReplacement(pool, DB_PATH, rollback)) {
+        await reopenOpfsContext(pool).catch((reopenError: unknown) => {
+          reportError(`reopen after a failed import failed: ${reopenError}`)
+        })
+      }
+      throw error
+    }
+  }
+
+  const importDatabase = async (
+    context: Context,
+    request: Extract<PersistenceOp, { op: "importDb" }>
+  ): Promise<ImportResult> =>
+    context.backend === "legacy"
+      ? importLegacyDatabase(context, request.bytes)
+      : importOpfsDatabase(context, request.bytes)
+
+  const resetDatabase = async (context: Context): Promise<null> => {
+    if (context.backend === "legacy") {
+      await closeContext()
+      await deleteLegacyBlob()
       await openContext()
       return null
     }
+    context.db.close()
+    contextPromise = null
+    context.pool.unlink(DB_PATH)
+    await deleteLegacyBlob().catch((error: unknown) => {
+      reportError(`failed to clear the legacy blob during reset: ${error}`)
+    })
+    await reopenOpfsContext(context.pool)
+    return null
+  }
 
+  const execute = async (request: PersistenceOp): Promise<unknown> => {
+    if (request.op === "setBackend") return switchBackend(request)
     const context = await openContext()
-    const { db } = context
-
     switch (request.op) {
       case "ping":
         return { ok: true }
       case "query":
-        return runQuery(db, request.sql, request.bind)
-      case "run": {
-        assertWritable(context)
-        const result = runStatement(db, request.sql, request.bind)
-        if (context.backend === "legacy") {
-          if (activeTx) legacyDirtyInTx = true
-          else context.legacy.markDirty()
-        }
-        return result
-      }
-      case "txBegin": {
-        assertWritable(context)
-        db.exec("BEGIN IMMEDIATE")
-        legacyDirtyInTx = false
-        startTxLease(request.token, db)
-        return null
-      }
-      case "txCommit": {
-        try {
-          db.exec("COMMIT")
-          if (context.backend === "legacy" && legacyDirtyInTx) {
-            context.legacy.markDirty()
-          }
-        } finally {
-          legacyDirtyInTx = false
-          clearTxLease()
-        }
-        return null
-      }
-      case "txRollback": {
-        try {
-          db.exec("ROLLBACK")
-        } finally {
-          // The rolled-back writes are gone, so a later commit must not
-          // schedule a save for them.
-          legacyDirtyInTx = false
-          clearTxLease()
-        }
-        return null
-      }
+        return runQuery(context.db, request.sql, request.bind)
+      case "run":
+        return executeRun(context, request)
+      case "txBegin":
+        return beginTransaction(context, request)
+      case "txCommit":
+        return commitTransaction(context)
+      case "txRollback":
+        return rollbackTransaction(context)
       case "counts":
-        return counts(db)
-      case "flush": {
-        // On OPFS every committed statement is already durable, so this exists
-        // for the legacy blob alone — the callers that flush at unload,
-        // migration and export boundaries do not know which backend answered.
-        if (context.backend === "legacy") await context.legacy.flush()
-        return null
-      }
-      case "exportDb": {
-        if (context.backend === "legacy") {
-          const image = context.legacy.exportImage()
-          return image.buffer.slice(
-            image.byteOffset,
-            image.byteOffset + image.byteLength
-          )
-        }
-        const bytes = await context.pool.exportFile(DB_PATH)
-        return bytes.buffer.slice(
-          bytes.byteOffset,
-          bytes.byteOffset + bytes.byteLength
-        )
-      }
-      case "surveyDb": {
-        // Read-only measurement of a candidate database, on the same engine that
-        // will import it. The live database is not touched and the scratch file is
-        // unlinked before returning, so a survey that throws leaves nothing behind
-        // for the next one to trip over.
-        const pool = await getPool()
-        pool.unlink(PROBE_PATH)
-        await ensureFreeSlots(pool, 1)
-        // The unlink covers the import and the open, not just the survey: a blob
-        // that imports but cannot be opened would otherwise keep the scratch file
-        // linked and hold a pool slot until some later op happened to clear it.
-        // The pool has a fixed capacity, so a leaked slot is a resource the next
-        // import has to grow the pool to replace.
-        try {
-          await pool.importDb(PROBE_PATH, new Uint8Array(request.bytes))
-          const source = new pool.OpfsSAHPoolDb(PROBE_PATH)
-          try {
-            // Nothing writes to this handle — no schema runner, no migrations. A
-            // source blob is evidence, and evidence that has been written to is
-            // no longer the thing that was measured.
-            return {
-              ...counts(source),
-              schemaVersion: queryNumber(source, "PRAGMA user_version"),
-              integrity: integrity(source)
-            } satisfies SurveyResult
-          } finally {
-            source.close()
-          }
-        } finally {
-          pool.unlink(PROBE_PATH)
-        }
-      }
-      case "importDb": {
-        // Backup restore and legacy migration: replace the database wholesale.
-        //
-        // The payload is verified FIRST, away from the live database. Verifying
-        // after replacing it cost the user their history whenever the payload
-        // turned out to be unusable: a rejected restore reported failure over an
-        // already-destroyed database. Nothing touches the live file until the
-        // incoming one is known to be sound.
-        if (context.backend === "legacy") {
-          const report = await verifyLegacyCandidate(request.bytes)
-          if (!isSoundDatabase(report)) {
-            throw new Error(
-              `Imported database failed integrity_check: ${report.integrityCheck}`
-            )
-          }
-          // The blob is the system of record here, so it is written first and
-          // the database is reopened from it. There is no half-replaced state
-          // to recover from: either the new image is in IndexedDB or the old
-          // one still is.
-          await writeLegacyBlob(new Uint8Array(request.bytes))
-          await closeContext()
-          legacyIntegrityHint = report
-          const fresh = await openContext()
-          return {
-            ...counts(fresh.db),
-            integrity: report
-          } satisfies ImportResult
-        }
-
-        const pool = context.pool
-        // The scratch file is gone by the time this returns, whichever way it
-        // went — verifyImportCandidate owns it end to end.
-        const report = await verifyImportCandidate(pool, request.bytes)
-        if (!isSoundDatabase(report)) {
-          throw new Error(
-            `Imported database failed integrity_check: ${report.integrityCheck}`
-          )
-        }
-
-        db.close()
-        contextPromise = null
-        // The replacement itself can still fail or be interrupted, so the live
-        // database is copied aside until it completes. A replacement that cannot
-        // be protected does not happen: failing here leaves the database intact
-        // and the restore retryable.
-        await ensureFreeSlots(pool, 1)
-        const rollback = await stageRollbackCopy(pool, DB_PATH)
-        try {
-          await pool.importDb(DB_PATH, new Uint8Array(request.bytes))
-          // Held until the imported database is open, migrated by the schema
-          // runner, and counted. Reopening is where forward migrations and drift
-          // repair happen, and they write — a failure there is exactly the kind
-          // of restore that must still be undoable.
-          const fresh = await reopenOpfsContext(pool)
-          const result: ImportResult = {
-            ...counts(fresh.db),
-            integrity: report
-          }
-          clearRollbackCopy(pool)
-          return result
-        } catch (error) {
-          // Reopening is not unconditional. While a rollback copy is still on
-          // disk it outranks the half-replaced file — startup recovery restores
-          // it — so opening that file here would serve missing history and let
-          // writes land on a database the next boot discards. When the copy
-          // cannot be put back, the engine opens nothing: the next request
-          // re-enters openContext, which recovers before anything opens.
-          if (await recoverFailedReplacement(pool, DB_PATH, rollback)) {
-            await reopenOpfsContext(pool).catch((reopenError: unknown) => {
-              reportError(`reopen after a failed import failed: ${reopenError}`)
-            })
-          }
-          throw error
-        }
-      }
-      case "reset": {
-        if (context.backend === "legacy") {
-          await closeContext()
-          await deleteLegacyBlob()
-          await openContext()
-          return null
-        }
-        db.close()
-        contextPromise = null
-        context.pool.unlink(DB_PATH)
-        // A user-initiated reset must also remove the legacy blob. It is the
-        // rollback artifact, so keeping it would resurrect every deleted chat
-        // the moment the operator override sent this profile back to it.
-        await deleteLegacyBlob().catch((error: unknown) => {
-          reportError(`failed to clear the legacy blob during reset: ${error}`)
-        })
-        await reopenOpfsContext(context.pool)
-        return null
-      }
+        return counts(context.db)
+      case "flush":
+        return flushContext(context)
+      case "exportDb":
+        return exportContextDb(context)
+      case "surveyDb":
+        return surveyDatabase(request)
+      case "importDb":
+        return importDatabase(context, request)
+      case "reset":
+        return resetDatabase(context)
       default:
         throw new Error(`Unknown persistence op: ${JSON.stringify(request)}`)
     }

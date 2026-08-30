@@ -1,6 +1,6 @@
 # Release Roadmap
 
-Last reviewed: 2026-08-14
+Last reviewed: 2026-08-30
 
 This file tracks unfinished release and product work. Completed implementation
 history belongs in the changelog and merged pull requests, while durable
@@ -15,9 +15,10 @@ Release work merges into `preview` for validation; only `preview` merges into
 
 | Version | Remaining work | Status |
 | --- | --- | --- |
-| `0.13.0` | Promote the verified `preview` release to `main` and publish the final artifacts | Release-ready |
-| `0.13.1` | Make the extension more context-aware and intelligent while preserving supervised, local-first behavior | Next product phase |
-| `0.13.x` | Maintain the completed runtime foundation and address only evidence-backed regressions | Maintenance |
+| `0.13.0` | Runtime foundation: durable turns/jobs, SQLite ownership, typed RPC, provider policy | Shipped |
+| `0.13.1` | Context-aware retrieval, capability-aware behavior, local-first intelligence | Shipped; continue quality work in 0.13.x |
+| `0.13.2` | Provider/runtime reliability, OLC backends, reasoning effort, RAG fixes | Shipped |
+| `0.13.3` | Complete embedding ownership migration and close evidence-backed audit gaps | In progress |
 | `0.14.x` | Build the supervised browser agent | Planned |
 | Later | Remove compatibility paths only when ledger evidence permits | Evidence-gated |
 
@@ -27,6 +28,26 @@ in environment-independent workspace packages. Browser, provider, persistence,
 and UI adapters remain in `src/`. Architecture contracts, runtime schemas,
 restart tests, test-layout checks, and documentation-comment checks guard those
 boundaries automatically.
+
+## `0.13.3` active work
+
+The first embedding-boundary slice shipped in merged PR #328:
+
+- Extension-page embedding generation uses validated `embeddings.generate` RPC.
+- Background RAG callers use the application `EmbeddingService` seam.
+- Provider identity and cancellation propagate through the RPC.
+- A 15-minute lifetime bound prevents stalled providers from remaining pending
+  forever while allowing cold starts and large inputs to complete.
+
+Next slices:
+
+1. Move strategy, cache, fallback, and error policy fully behind the background
+   embedding service.
+2. Migrate remaining shared embedding paths away from the legacy client seam.
+3. Include embedding dimension in cache validation and route identity.
+4. Add browser coverage proving UI callers never resolve providers or expose
+   credentials.
+5. Close retained-message typing and startup-idempotence audit findings.
 
 ## `0.13.0` architecture-audit closure
 

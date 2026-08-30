@@ -192,7 +192,10 @@ export interface LLMProvider {
   ): Promise<void>
 
   getModels(signal?: AbortSignal): Promise<ProviderModel[]>
-  getModelDetails?(model: string): Promise<ProviderModelDetails | null>
+  getModelDetails?(
+    model: string,
+    signal?: AbortSignal
+  ): Promise<ProviderModelDetails | null>
   getEmbeddingSupport?(): Promise<EmbeddingSupport>
   embed?(text: string, model?: string, signal?: AbortSignal): Promise<number[]>
   embedBatch?(

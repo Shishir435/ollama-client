@@ -1,15 +1,9 @@
 import type { ChunkingStrategy } from "@/lib/constants"
 import { createAppError } from "@/lib/error-utils"
 
-/**
- * Configuration for the text chunking process.
- */
 export interface ChunkOptions {
-  /** Size in tokens (approximate). Roughly 1 token per 4 characters. */
   chunkSize: number
-  /** Number of tokens to overlap between adjacent chunks to maintain context. */
   chunkOverlap: number
-  /** The splitting logic to use (fixed, semantic, hybrid, or markdown). */
   strategy: ChunkingStrategy
 }
 
@@ -25,27 +19,14 @@ export interface ChunkDocument {
   metadata: Record<string, unknown>
 }
 
-/**
- * Estimates the number of tokens in a text string.
- * Uses a standard rule of thumb for English/Code: 1 token ≈ 4 characters.
- * This is a fast, deterministic estimation that avoids the overhead of a full BPE tokenizer
- * while remaining sufficiently accurate for context-window management in browser extensions.
- */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4)
 }
 
-/**
- * Converts token count to approximate character count
- */
 function tokensToChars(tokens: number): number {
   return tokens * 4
 }
 
-/**
- * Fixed-size chunking: Simple splitting based on character count
- * Preserves overlap between chunks for context continuity
- */
 function fixedSizeChunking(
   text: string,
   chunkSize: number,
@@ -69,47 +50,32 @@ function fixedSizeChunking(
       endPos: end
     })
 
-    // Move start position forward, accounting for overlap
     start = end - charOverlap
-
-    // Prevent infinite loop if overlap is too large
-    if (start <= chunks[chunks.length - 1].startPos && end >= text.length) {
-      break
-    }
-
+    if (start <= chunks[chunks.length - 1].startPos && end >= text.length) break
     index++
   }
 
   return chunks
 }
 
-/**
- * Semantic chunking: Split on natural boundaries (paragraphs, sentences)
- * while respecting size limits
- */
 function semanticChunking(
   text: string,
   chunkSize: number,
   chunkOverlap: number
 ): TextChunk[] {
-  const _targetCharSize = tokensToChars(chunkSize)
   const charOverlap = tokensToChars(chunkOverlap)
   const chunks: TextChunk[] = []
-
-  // Split into paragraphs first
   const paragraphs = text.split(/\n\n+/).filter((p) => p.trim().length > 0)
 
   let currentChunk = ""
   let currentStartPos = 0
   let index = 0
 
-  for (let i = 0; i < paragraphs.length; i++) {
-    const paragraph = paragraphs[i]
+  for (const paragraph of paragraphs) {
     const potentialChunk = currentChunk
       ? `${currentChunk}\n\n${paragraph}`
       : paragraph
 
-    // If adding this paragraph exceeds size, save current chunk
     if (estimateTokens(potentialChunk) > chunkSize && currentChunk) {
       const endPos = currentStartPos + currentChunk.length
       chunks.push({
@@ -119,7 +85,6 @@ function semanticChunking(
         endPos
       })
 
-      // Start new chunk with overlap from previous chunk
       const overlapText = currentChunk.slice(-charOverlap)
       currentChunk = overlapText ? `${overlapText}\n\n${paragraph}` : paragraph
       currentStartPos = endPos - charOverlap
@@ -129,7 +94,6 @@ function semanticChunking(
     }
   }
 
-  // Add final chunk
   if (currentChunk) {
     chunks.push({
       text: currentChunk,
@@ -142,22 +106,72 @@ function semanticChunking(
   return chunks
 }
 
-/**
- * Hybrid chunking: Uses semantic boundaries (paragraphs) but enforces strict size limits.
- * If a paragraph exceeds the target `chunkSize`, it is further subdivided into sentences.
- * This is the recommended default for most RAG applications as it balances context integrity
- * with consistent vector density.
- */
+const splitSentences = (paragraph: string): string[] =>
+  paragraph
+    .replace(/([.!?]+)(\s+)/g, "$1|SPLIT|$2")
+    .split("|SPLIT|")
+    .filter((sentence) => sentence.trim())
+
+const appendOversizedParagraph = ({
+  paragraph,
+  chunkSize,
+  charOverlap,
+  chunks,
+  index,
+  startPos
+}: {
+  paragraph: string
+  chunkSize: number
+  charOverlap: number
+  chunks: TextChunk[]
+  index: number
+  startPos: number
+}): { index: number; startPos: number } => {
+  let sentenceChunk = ""
+  let sentenceStartPos = startPos
+  let nextIndex = index
+
+  for (const sentence of splitSentences(paragraph)) {
+    const potentialChunk = sentenceChunk
+      ? `${sentenceChunk}. ${sentence}`
+      : sentence
+
+    if (estimateTokens(potentialChunk) > chunkSize && sentenceChunk) {
+      const endPos = sentenceStartPos + sentenceChunk.length
+      chunks.push({
+        text: sentenceChunk,
+        index: nextIndex,
+        startPos: sentenceStartPos,
+        endPos
+      })
+      const overlapText = sentenceChunk.slice(-charOverlap)
+      sentenceChunk = overlapText ? `${overlapText}. ${sentence}` : sentence
+      sentenceStartPos = endPos - charOverlap
+      nextIndex++
+    } else {
+      sentenceChunk = potentialChunk
+    }
+  }
+
+  if (!sentenceChunk) return { index: nextIndex, startPos: sentenceStartPos }
+
+  const endPos = sentenceStartPos + sentenceChunk.length
+  chunks.push({
+    text: sentenceChunk,
+    index: nextIndex,
+    startPos: sentenceStartPos,
+    endPos
+  })
+  return { index: nextIndex + 1, startPos: endPos }
+}
+
 function hybridChunking(
   text: string,
   chunkSize: number,
   chunkOverlap: number
 ): TextChunk[] {
-  const _targetCharSize = tokensToChars(chunkSize)
   const charOverlap = tokensToChars(chunkOverlap)
   const chunks: TextChunk[] = []
-
-  // Split into paragraphs
   const paragraphs = text.split(/\n\n+/).filter((p) => p.trim().length > 0)
 
   let currentChunk = ""
@@ -165,9 +179,7 @@ function hybridChunking(
   let index = 0
 
   for (const paragraph of paragraphs) {
-    // If a single paragraph is too large, split it by sentences
     if (estimateTokens(paragraph) > chunkSize) {
-      // Save current chunk if exists
       if (currentChunk) {
         const endPos = currentStartPos + currentChunk.length
         chunks.push({
@@ -180,78 +192,41 @@ function hybridChunking(
         currentChunk = ""
       }
 
-      // Split large paragraph by sentences
-      // Split large paragraph by sentences, preserving punctuation
-      // Match sentence endings but keep them attached to the sentence
-      const sentences = paragraph
-        .replace(/([.!?]+)(\s+)/g, "$1|SPLIT|$2")
-        .split("|SPLIT|")
-        .filter((s) => s.trim())
-      let sentenceChunk = ""
-      let sentenceStartPos = currentStartPos
+      const oversized = appendOversizedParagraph({
+        paragraph,
+        chunkSize,
+        charOverlap,
+        chunks,
+        index,
+        startPos: currentStartPos
+      })
+      index = oversized.index
+      currentStartPos = oversized.startPos
+      continue
+    }
 
-      for (const sentence of sentences) {
-        const potentialChunk = sentenceChunk
-          ? `${sentenceChunk}. ${sentence}`
-          : sentence
+    const potentialChunk = currentChunk
+      ? `${currentChunk}\n\n${paragraph}`
+      : paragraph
 
-        if (estimateTokens(potentialChunk) > chunkSize && sentenceChunk) {
-          const endPos = sentenceStartPos + sentenceChunk.length
-          chunks.push({
-            text: sentenceChunk,
-            index,
-            startPos: sentenceStartPos,
-            endPos
-          })
+    if (estimateTokens(potentialChunk) > chunkSize && currentChunk) {
+      const endPos = currentStartPos + currentChunk.length
+      chunks.push({
+        text: currentChunk,
+        index,
+        startPos: currentStartPos,
+        endPos
+      })
 
-          const overlapText = sentenceChunk.slice(-charOverlap)
-          sentenceChunk = overlapText ? `${overlapText}. ${sentence}` : sentence
-          sentenceStartPos = endPos - charOverlap
-          index++
-        } else {
-          sentenceChunk = potentialChunk
-        }
-      }
-
-      if (sentenceChunk) {
-        const endPos = sentenceStartPos + sentenceChunk.length
-        chunks.push({
-          text: sentenceChunk,
-          index,
-          startPos: sentenceStartPos,
-          endPos
-        })
-        currentStartPos = endPos
-        index++
-      }
+      const overlapText = currentChunk.slice(-charOverlap)
+      currentChunk = overlapText ? `${overlapText}\n\n${paragraph}` : paragraph
+      currentStartPos = endPos - charOverlap
+      index++
     } else {
-      // Normal-sized paragraph
-      const potentialChunk = currentChunk
-        ? `${currentChunk}\n\n${paragraph}`
-        : paragraph
-
-      if (estimateTokens(potentialChunk) > chunkSize && currentChunk) {
-        const endPos = currentStartPos + currentChunk.length
-        chunks.push({
-          text: currentChunk,
-          index,
-          startPos: currentStartPos,
-          endPos
-        })
-
-        const overlapText = currentChunk.slice(-charOverlap)
-        currentChunk = overlapText
-          ? `${overlapText}\n\n${paragraph}`
-          : paragraph
-        currentStartPos = endPos - charOverlap
-        index++
-      } else {
-        currentChunk = potentialChunk
-      }
+      currentChunk = potentialChunk
     }
   }
 
-  // Add final chunk
   if (currentChunk) {
     chunks.push({
       text: currentChunk,
@@ -264,11 +239,6 @@ function hybridChunking(
   return chunks
 }
 
-/**
- * Markdown-aware chunking: Splits by headers (H1-H6) and protects code blocks from being split.
- * Best for technical documentation, READMEs, and structured notes.
- * If a section between headers is too large, it falls back to hybrid chunking for that specific section.
- */
 function markdownChunking(
   text: string,
   chunkSize: number,
@@ -276,37 +246,26 @@ function markdownChunking(
 ): TextChunk[] {
   const charOverlap = tokensToChars(chunkOverlap)
   const chunks: TextChunk[] = []
-
-  // 1. Split by Code Blocks first to preserve them
-  // We use a placeholder to protect code blocks from being split by headers
   const codeBlocks: string[] = []
   const textWithPlaceholders = text.replace(/```[\s\S]*?```/g, (match) => {
     codeBlocks.push(match)
     return `__CODE_BLOCK_${codeBlocks.length - 1}__`
   })
 
-  // 2. Split by Headers (H1-H6)
-  // Regex looks for # Header at start of line
   const sections = textWithPlaceholders.split(/^(#{1,6}\s+.+)$/m)
-
   let currentChunk = ""
   let currentStartPos = 0
   let index = 0
 
-  for (let i = 0; i < sections.length; i++) {
-    let section = sections[i] // Can be a header or content between headers
-    if (!section.trim()) continue
-
-    // Restore code blocks
-    section = section.replace(
+  for (const rawSection of sections) {
+    if (!rawSection.trim()) continue
+    const section = rawSection.replace(
       /__CODE_BLOCK_(\d+)__/g,
       (_, id) => codeBlocks[parseInt(id, 10)]
     )
 
-    // If section is huge (e.g. long content between headers), fall back to semantic/hybrid splitting for it
     if (estimateTokens(section) > chunkSize) {
       if (currentChunk) {
-        // Flux current chunk
         chunks.push({
           text: currentChunk,
           index,
@@ -315,29 +274,22 @@ function markdownChunking(
         })
         index++
         currentChunk = ""
-        currentStartPos += chunks[chunks.length - 1].text.length // Approx, logic needs real tracking
+        currentStartPos += chunks[chunks.length - 1].text.length
       }
 
-      // Recursively chunk this large section using hybrid strategy
-      // but strictly bounded
       const subChunks = hybridChunking(section, chunkSize, chunkOverlap)
-      subChunks.forEach((sc) => {
+      for (const subChunk of subChunks) {
         chunks.push({
-          ...sc,
+          ...subChunk,
           index,
-          startPos: currentStartPos + sc.startPos // Offset correction needed?
-          // Note: hybridChunking returns relative positions. We need to offset them.
-          // But for simplicity/robustness, we might just push them.
-          // Correct offset tracking is hard without carrying state.
-          // Let's simplify: just push them and fix indices.
+          startPos: currentStartPos + subChunk.startPos
         })
         index++
-      })
+      }
       currentStartPos += section.length
       continue
     }
 
-    // Normal accumulation
     const potentialChunk = currentChunk
       ? `${currentChunk}\n${section}`
       : section
@@ -372,41 +324,22 @@ function markdownChunking(
   return chunks
 }
 
-/**
- * Main entry point for text chunking. selects the appropriate strategy based on options.
- * Validates sizes and handles small-string edge cases (returning a single chunk if beneath limit).
- */
 export function chunkText(text: string, options: ChunkOptions): TextChunk[] {
   const { strategy, chunkSize, chunkOverlap } = options
 
-  // Validate inputs
   if (chunkSize <= 0) {
     throw createAppError("Chunk size must be positive", { kind: "validation" })
   }
-
   if (chunkOverlap < 0 || chunkOverlap >= chunkSize) {
     throw createAppError("Overlap must be between 0 and chunk size", {
       kind: "validation"
     })
   }
-
-  if (!text || text.trim().length === 0) {
-    return []
-  }
-
-  // If text is smaller than chunk size, return as single chunk
+  if (!text || text.trim().length === 0) return []
   if (estimateTokens(text) <= chunkSize) {
-    return [
-      {
-        text,
-        index: 0,
-        startPos: 0,
-        endPos: text.length
-      }
-    ]
+    return [{ text, index: 0, startPos: 0, endPos: text.length }]
   }
 
-  // Select chunking strategy
   switch (strategy) {
     case "fixed":
       return fixedSizeChunking(text, chunkSize, chunkOverlap)
@@ -417,37 +350,18 @@ export function chunkText(text: string, options: ChunkOptions): TextChunk[] {
     case "markdown":
       return markdownChunking(text, chunkSize, chunkOverlap)
     default:
-      // Fallback to hybrid if unknown strategy
       return hybridChunking(text, chunkSize, chunkOverlap)
   }
 }
 
-/**
- * Async version of chunkText that yields to the event loop to avoid blocking the UI
- * Useful for large files
- */
 export async function chunkTextAsync(
   text: string,
   options: ChunkOptions
 ): Promise<TextChunk[]> {
-  // For now, we'll just wrap the sync version with a yield if it's very large
-  // In a real implementation, we would rewrite the chunking algos to be generators
-  // But this is a good first step: yield before starting
   await new Promise((resolve) => setTimeout(resolve, 0))
-
-  // If text is huge, we might want to split it and chunk parts, but that's complex for semantic chunking
-  // For now, let's rely on the fact that we yielded once.
-  // A better approach would be to run this in a worker, but that requires more setup.
-  // Alternatively, we can implement a simple yielding loop here if we refactor the chunkers.
-
   return chunkText(text, options)
 }
 
-/**
- * Single document-chunking entrypoint used by files, live page context, and
- * chat-memory ingestion. Metadata survives splitting and chunk indexes are
- * stable across multi-page documents.
- */
 export async function chunkDocuments(
   documents: ChunkDocument[],
   options: ChunkOptions
@@ -474,22 +388,15 @@ export async function chunkDocuments(
   }))
 }
 
-/**
- * Utility to merge chunks back into original text
- * Useful for debugging and validation
- */
 export function mergeChunks(chunks: TextChunk[]): string {
   return chunks.map((chunk) => chunk.text).join("\n\n---CHUNK---\n\n")
 }
 
-/**
- * Get statistics about chunking result
- */
 export function getChunkStats(chunks: TextChunk[]) {
   const totalChars = chunks.reduce((sum, chunk) => sum + chunk.text.length, 0)
   const avgChunkSize = totalChars / chunks.length
-  const minChunkSize = Math.min(...chunks.map((c) => c.text.length))
-  const maxChunkSize = Math.max(...chunks.map((c) => c.text.length))
+  const minChunkSize = Math.min(...chunks.map((chunk) => chunk.text.length))
+  const maxChunkSize = Math.max(...chunks.map((chunk) => chunk.text.length))
 
   return {
     totalChunks: chunks.length,

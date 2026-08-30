@@ -295,99 +295,115 @@ export const createTurnReader = ({
         })
       }
 
-      const consume = async () => {
-        const partTypeById = new Map<string, string>()
-        const seenPatchHashes = new Set<string>()
+      const partTypeById = new Map<string, string>()
+      const seenPatchHashes = new Set<string>()
 
+      const classifyPartEvent = (event: StreamEvent) => {
+        const properties = event.properties
+        const isUpdated =
+          event.type === "message.part.updated" &&
+          properties?.part?.sessionID === sessionId
+        const isDelta =
+          event.type === "message.part.delta" &&
+          properties?.sessionID === sessionId
+        if (!isUpdated && !isDelta) return null
+        const part = isUpdated ? properties?.part : undefined
+        const partId = isUpdated ? part?.id || part?.partID : properties?.partID
+        if (isUpdated && partId && part?.type)
+          partTypeById.set(partId, part.type)
+        return { properties, part, partId, isUpdated }
+      }
+
+      const handlePartActivity = async (part?: MessagePart): Promise<void> => {
+        if (!part) return
+        if (part.type === "patch") {
+          await announcePatch(sessionId, part, seenPatchHashes, onPatch)
+          return
+        }
+        if (part.type === "text" || part.type === "reasoning") return
+        log("Non-text part activity", {
+          sessionId,
+          ms: Date.now() - startedAt,
+          partType: part.type,
+          toolName: part.tool || part.name,
+          state: part.state?.status || part.status
+        })
+      }
+
+      const handlePartDelta = (
+        classified: NonNullable<ReturnType<typeof classifyPartEvent>>
+      ): void => {
+        const delta = classified.properties?.delta
+        if (!delta) return
+        const knownType = classified.isUpdated
+          ? classified.part?.type
+          : classified.partId
+            ? partTypeById.get(classified.partId)
+            : undefined
+        receivedDelta = true
+        if (firstDeltaTimer) clearTimeout(firstDeltaTimer)
+        scheduleIdleTimer()
+        deltaChars += delta.length
+        if (knownType === "reasoning") {
+          reasoning += delta
+          onDelta?.(delta, true)
+          return
+        }
+        if (knownType === "text") {
+          content += delta
+          onDelta?.(delta, false)
+          return
+        }
+        log("Unclassified part delta (not streamed)", {
+          sessionId,
+          partId: classified.partId,
+          deltaLen: delta.length
+        })
+      }
+
+      const logUnhandledEvent = (event: StreamEvent): void => {
+        const properties = event.properties
+        if (!event.type) return
+        if (
+          event.type === "message.part.updated" ||
+          event.type === "message.updated"
+        )
+          return
+        if (IGNORED_DEBUG_EVENT_TYPES.has(event.type)) return
+        if (properties?.sessionID || properties?.part?.sessionID) return
+        log("Unhandled event type", { sessionId, eventType: event.type })
+      }
+
+      const terminalFinish = (event: StreamEvent): string | null => {
+        const info = event.properties?.info
+        if (event.type !== "message.updated" || info?.sessionID !== sessionId)
+          return null
+        return info.finish && TERMINAL_FINISH_REASONS.has(info.finish)
+          ? info.finish
+          : null
+      }
+
+      const consume = async () => {
         for await (const raw of stream) {
           const event = raw as StreamEvent
-          const properties = event.properties
-          const isPartUpdated =
-            event.type === "message.part.updated" &&
-            properties?.part?.sessionID === sessionId
-          const isPartDelta =
-            event.type === "message.part.delta" &&
-            properties?.sessionID === sessionId
-
-          if (isPartUpdated || isPartDelta) {
-            const part = isPartUpdated ? properties?.part : undefined
-            const partId = isPartUpdated
-              ? part?.id || part?.partID
-              : properties?.partID
-            if (isPartUpdated && partId && part?.type) {
-              partTypeById.set(partId, part.type)
-            }
-
-            if (part && part.type === "patch") {
-              await announcePatch(sessionId, part, seenPatchHashes, onPatch)
-            } else if (
-              part &&
-              part.type !== "text" &&
-              part.type !== "reasoning"
-            ) {
-              log("Non-text part activity", {
-                sessionId,
-                ms: Date.now() - startedAt,
-                partType: part.type,
-                toolName: part.tool || part.name,
-                state: part.state?.status || part.status
-              })
-            }
-
-            const delta = properties?.delta
-            if (delta) {
-              const knownType = isPartUpdated
-                ? part?.type
-                : partId
-                  ? partTypeById.get(partId)
-                  : undefined
-              receivedDelta = true
-              if (firstDeltaTimer) clearTimeout(firstDeltaTimer)
-              scheduleIdleTimer()
-              deltaChars += delta.length
-
-              if (knownType === "reasoning") {
-                reasoning += delta
-                if (onDelta) onDelta(delta, true)
-              } else if (knownType === "text") {
-                content += delta
-                if (onDelta) onDelta(delta, false)
-              } else {
-                log("Unclassified part delta (not streamed)", {
-                  sessionId,
-                  partId,
-                  deltaLen: delta.length
-                })
-              }
-            }
-          } else if (
-            event.type &&
-            event.type !== "message.part.updated" &&
-            event.type !== "message.updated" &&
-            !IGNORED_DEBUG_EVENT_TYPES.has(event.type) &&
-            !properties?.sessionID &&
-            !properties?.part?.sessionID
-          ) {
-            log("Unhandled event type", { sessionId, eventType: event.type })
+          const classified = classifyPartEvent(event)
+          if (classified) {
+            await handlePartActivity(classified.part)
+            handlePartDelta(classified)
+          } else {
+            logUnhandledEvent(event)
           }
-
-          const info = properties?.info
-          if (
-            event.type === "message.updated" &&
-            info?.sessionID === sessionId &&
-            info.finish &&
-            TERMINAL_FINISH_REASONS.has(info.finish)
-          ) {
-            log("Event stream completed", {
-              sessionId,
-              ms: Date.now() - startedAt,
-              deltaChars,
-              finish: info.finish
-            })
-            clearTimers()
-            settle({ content, reasoning, finish: info.finish })
-            break
-          }
+          const finish = terminalFinish(event)
+          if (!finish) continue
+          log("Event stream completed", {
+            sessionId,
+            ms: Date.now() - startedAt,
+            deltaChars,
+            finish
+          })
+          clearTimers()
+          settle({ content, reasoning, finish })
+          break
         }
       }
 
@@ -415,6 +431,87 @@ export const createTurnReader = ({
    * the turn to finish", which matters because a partially written message looks
    * identical to a finished one until its finish reason lands.
    */
+  const fetchSessionMessages = async (
+    sessionId: string
+  ): Promise<MessageEntry[]> => {
+    const response = await retryAsync(
+      () => client.session.messages({ path: { id: sessionId } }),
+      { label: `session.messages(${sessionId})` }
+    )
+    const payload = (response as { data?: unknown })?.data ?? response
+    return Array.isArray(payload) ? (payload as MessageEntry[]) : []
+  }
+
+  const latestAssistantEntry = (
+    messages: MessageEntry[]
+  ): MessageEntry | null => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const entry = messages[index]
+      if (entry?.info?.role === "assistant") return entry
+    }
+    return null
+  }
+
+  const streamProgress = (
+    content: string,
+    reasoning: string,
+    cursors: { content: number; reasoning: number },
+    onProgress?: (content: string, reasoning: string) => void
+  ): void => {
+    if (!onProgress) return
+    const newContent =
+      content.length > cursors.content ? content.slice(cursors.content) : ""
+    const newReasoning =
+      reasoning.length > cursors.reasoning
+        ? reasoning.slice(cursors.reasoning)
+        : ""
+    if (!newContent && !newReasoning) return
+    cursors.content = content.length
+    cursors.reasoning = reasoning.length
+    onProgress(newContent, newReasoning)
+  }
+
+  const announceEntryPatches = async (
+    sessionId: string,
+    entry: MessageEntry,
+    seenPatchHashes: Set<string>,
+    onPatch?: (payload: PatchPayload) => void | Promise<void>
+  ): Promise<void> => {
+    if (!onPatch) return
+    for (const part of entry.parts ?? []) {
+      if (part.type === "patch") {
+        await announcePatch(sessionId, part, seenPatchHashes, onPatch)
+      }
+    }
+  }
+
+  const assistantOutcome = (
+    entry: MessageEntry,
+    requireFinalOrContent: boolean
+  ): { outcome: TurnOutcome; isDone: boolean } | null => {
+    const { content, reasoning, toolErrors } = extractFromParts(entry.parts)
+    const info = entry.info
+    const error = info?.error ?? null
+    const terminal = Boolean(
+      info?.finish && TERMINAL_FINISH_REASONS.has(info.finish)
+    )
+    const isDone = Boolean(terminal || info?.time?.completed || error)
+    const shouldReturn = requireFinalOrContent
+      ? isDone
+      : Boolean(isDone || content || reasoning)
+    if (!shouldReturn) return null
+    return {
+      isDone,
+      outcome: {
+        content,
+        reasoning,
+        error,
+        toolErrors,
+        finish: info?.finish ?? null
+      }
+    }
+  }
+
   const pollForAssistantResponse = async (
     sessionId: string,
     {
@@ -433,101 +530,55 @@ export const createTurnReader = ({
       isSuspended?: () => boolean
     }
   ): Promise<TurnOutcome> => {
-    let progressContentLen = 0
-    let progressReasoningLen = 0
+    const cursors = { content: 0, reasoning: 0 }
     const seenPatchHashes = new Set<string>()
     const startedAt = Date.now()
     let lastHeartbeatAt = startedAt
 
     while (Date.now() - startedAt < timeoutMs) {
-      if (typeof isSuspended === "function" && isSuspended()) {
+      if (isSuspended?.()) {
         return { content: "", reasoning: "", toolErrors: [], suspended: true }
       }
-
-      const response = await retryAsync(
-        () => client.session.messages({ path: { id: sessionId } }),
-        { label: `session.messages(${sessionId})` }
-      )
-      const payload = (response as { data?: unknown })?.data ?? response
-      const messages: MessageEntry[] = Array.isArray(payload) ? payload : []
-
-      for (let index = messages.length - 1; index >= 0; index -= 1) {
-        const entry = messages[index] as MessageEntry
-        const info = entry?.info
-        if (info?.role !== "assistant") continue
-
-        const { content, reasoning, toolErrors } = extractFromParts(
-          entry?.parts
+      const entry = latestAssistantEntry(await fetchSessionMessages(sessionId))
+      if (entry) {
+        const extracted = extractFromParts(entry.parts)
+        streamProgress(
+          extracted.content,
+          extracted.reasoning,
+          cursors,
+          onProgress
         )
-        const error = info?.error ?? null
-        const isTerminalFinish = Boolean(
-          info.finish && TERMINAL_FINISH_REASONS.has(info.finish)
-        )
-        const isDone = Boolean(
-          isTerminalFinish || info.time?.completed || error
-        )
-
-        if (onProgress) {
-          const newContent =
-            content.length > progressContentLen
-              ? content.slice(progressContentLen)
-              : ""
-          const newReasoning =
-            reasoning.length > progressReasoningLen
-              ? reasoning.slice(progressReasoningLen)
-              : ""
-          if (newContent || newReasoning) {
-            progressContentLen = content.length
-            progressReasoningLen = reasoning.length
-            onProgress(newContent, newReasoning)
+        await announceEntryPatches(sessionId, entry, seenPatchHashes, onPatch)
+        const resolved = assistantOutcome(entry, requireFinalOrContent)
+        if (resolved) {
+          if (resolved.outcome.error) {
+            console.error(
+              "[Proxy] OpenCode assistant error:",
+              resolved.outcome.error
+            )
           }
-        }
-
-        if (onPatch) {
-          for (const part of (entry?.parts ?? []).filter(
-            (candidate) => candidate.type === "patch"
-          )) {
-            await announcePatch(sessionId, part, seenPatchHashes, onPatch)
-          }
-        }
-
-        const shouldReturn = requireFinalOrContent
-          ? isDone
-          : Boolean(isDone || content || reasoning)
-        if (shouldReturn) {
-          if (error) console.error("[Proxy] OpenCode assistant error:", error)
           log("Polling completed", {
             sessionId,
             ms: Date.now() - startedAt,
-            isDone,
-            finish: info?.finish ?? null,
-            contentLen: content.length,
-            reasoningLen: reasoning.length
+            isDone: resolved.isDone,
+            finish: resolved.outcome.finish ?? null,
+            contentLen: resolved.outcome.content.length,
+            reasoningLen: resolved.outcome.reasoning.length
           })
-          return {
-            content,
-            reasoning,
-            error,
-            toolErrors,
-            finish: info?.finish ?? null
-          }
+          return resolved.outcome
         }
-
         if (Date.now() - lastHeartbeatAt >= HEARTBEAT_MS) {
           lastHeartbeatAt = Date.now()
           log("Polling heartbeat", {
             sessionId,
             ms: Date.now() - startedAt,
-            contentLen: content.length,
-            reasoningLen: reasoning.length
+            contentLen: extracted.content.length,
+            reasoningLen: extracted.reasoning.length
           })
         }
-        break
       }
-
       await sleep(intervalMs)
     }
-
     log("Polling timeout", { sessionId, ms: Date.now() - startedAt })
     throw new Error(`Request timeout after ${timeoutMs}ms`)
   }

@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Local AI Chat for Ollama, LM Studio, llama.cpp",
-  "version": "0.13.2",
+  "version": "0.13.3",
   "description": "Local-first browser extension for private LLM chat with Ollama, LM Studio, llama.cpp, and other local or remote providers, with local RAG, web search, and page context.",
   "author": "Shishir Chaurasiya",
   "keywords": [
@@ -45,6 +45,7 @@
     "verify:local-browsers": "pnpm exec tsx tools/verify-local-browsers-sequential.ts",
     "verify:browser-automation": "pnpm verify:browser-smoke && pnpm exec tsx tools/verify-browser-automation-local.ts",
     "benchmark:persistence": "tsx tools/benchmark-sqlite-persistence.ts",
+    "benchmark:performance": "tsx tools/benchmark-performance.ts",
     "benchmark:build": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_OUTPUT_DIR=build/chrome-mv3-benchmark wxt build",
     "benchmark:build:firefox": "pnpm generate:resources && WXT_BENCHMARK=1 WXT_OUTPUT_DIR=build/firefox-mv2-benchmark wxt build -b firefox --mv2 --mode production",
     "bundle:report": "tsx tools/check-bundle-size.ts",
@@ -78,7 +79,7 @@
     "test:watch": "vitest watch",
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
-    "lint:check": "biome check .",
+    "lint:check": "biome check . --max-diagnostics=100",
     "test:related": "vitest related --run",
     "format": "biome format .",
     "format:fix": "biome format --write .",

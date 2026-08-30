@@ -149,6 +149,23 @@ describe("resolveModelTools", () => {
     expect(getModelDetails).toHaveBeenCalledTimes(2)
   })
 
+  it("passes cancellation to provider capability metadata", async () => {
+    const controller = new AbortController()
+    const getModelDetails = vi.fn(async () => ({ capabilities: ["tools"] }))
+    const provider = providerWithDetails(getModelDetails)
+
+    await resolveModelTools(
+      "qwen",
+      "ollama",
+      provider,
+      undefined,
+      undefined,
+      controller.signal
+    )
+
+    expect(getModelDetails).toHaveBeenCalledWith("qwen", controller.signal)
+  })
+
   it("offers all tools when every family is enabled (default)", async () => {
     await expect(
       resolveModelTools("qwen", "ollama", toolModel())

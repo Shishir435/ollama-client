@@ -9,6 +9,24 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.13.3]
+
+### Development
+
+- Release metadata checks now reject a missing current-version changelog entry
+  while workspace package versions continue to use the existing dynamic
+  package-discovery contract.
+- Packaged Chromium provider regression coverage now blocks on fragmented or
+  malformed SSE handling plus HTTP and connection-failure propagation through
+  durable turns, while custom provider base URLs remain fully configurable.
+- Biome now enforces an initial cognitive-complexity ceiling so newly changed
+  code cannot grow unchecked while the threshold is tightened incrementally.
+- Embedding generation from extension pages now crosses the validated,
+  background-owned `embeddings.generate` RPC. The RPC preserves model/provider
+  identity, forwards cancellation, and bounds stalled provider work with a
+  generous 15-minute deadline. Background RAG uses an application service seam;
+  full strategy/cache ownership migration continues in 0.13.3.
+
 ## [0.13.2]
 
 ### Added
@@ -979,8 +997,10 @@ No functional changes: this release is store metadata only.
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.13.2...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.13.3...HEAD
+[0.13.3]: https://github.com/Shishir435/ollama-client/compare/0.13.2...0.13.3
 [0.13.2]: https://github.com/Shishir435/ollama-client/compare/0.13.1...0.13.2
+[0.13.1]: https://github.com/Shishir435/ollama-client/compare/0.13.0...0.13.1
 [0.13.0]: https://github.com/Shishir435/ollama-client/compare/0.12.8...0.13.0
 [0.12.8]: https://github.com/Shishir435/ollama-client/compare/0.12.7...0.12.8
 [0.12.7]: https://github.com/Shishir435/ollama-client/compare/0.12.6...0.12.7

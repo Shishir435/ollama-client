@@ -1,9 +1,11 @@
 import {
+  clearEmbeddingCache,
   cosineSimilarity,
   type EmbeddingError,
   type EmbeddingResult,
   generateEmbedding,
-  generateEmbeddingsBatch
+  generateEmbeddingsBatch,
+  getCacheStats
 } from "@/lib/embeddings/embedding-client"
 
 /**
@@ -15,9 +17,17 @@ import {
  */
 export const EmbeddingService = {
   generate: generateEmbedding,
-  generateBatch: generateEmbeddingsBatch
+  generateBatch: generateEmbeddingsBatch,
+  clearCache: clearEmbeddingCache,
+  getCacheStats
 }
 
 export type { EmbeddingError, EmbeddingResult }
-// Named exports keep existing application seams stable while callers migrate.
-export { cosineSimilarity, generateEmbedding, generateEmbeddingsBatch }
+/** Named exports keep existing application seams stable while callers migrate. */
+export {
+  clearEmbeddingCache,
+  cosineSimilarity,
+  generateEmbedding,
+  generateEmbeddingsBatch,
+  getCacheStats
+}
