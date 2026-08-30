@@ -26,7 +26,11 @@ export default defineConfig({
         extends: true,
         test: {
           name: "unit-vm",
-          pool: "vmThreads",
+          // V8 coverage and Node 24 can crash while vmThreads recycle their
+          // contexts during a shard/report merge. Process isolation keeps
+          // coverage cleanup out of the VM finalizer path; local test runs
+          // keep the faster VM pool.
+          pool: COVERAGE_MODE ? "forks" : "vmThreads",
           maxWorkers: COVERAGE_MODE ? 4 : 6,
           vmMemoryLimit: "256MB",
           testTimeout: COVERAGE_MODE ? COVERAGE_TEST_TIMEOUT_MS : 5_000,
