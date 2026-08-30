@@ -1007,6 +1007,15 @@ export class OllamaProvider implements LLMProvider {
           kind: "provider",
           status: legacyResponse.status,
           providerId: ProviderId.OLLAMA,
+          providerName: this.config.name,
+          model: targetModel,
+          baseUrl,
+          phase: "response",
+          userMessage: providerErrorUserMessage(legacyResponse.status, {
+            providerName: this.config.name,
+            model: targetModel,
+            baseUrl
+          }),
           retryable: legacyResponse.status >= 500,
           debug: errorText
         })
