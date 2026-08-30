@@ -35,27 +35,6 @@ interface CacheEntry {
   dimension: number
 }
 
-const MAX_RATE_LIMIT_BACKOFF_MS = 30_000
-const DEFAULT_RATE_LIMIT_BACKOFF_MS = 250
-
-const rateLimitBackoffMs = (
-  results: Array<EmbeddingResult | EmbeddingError>
-): number => {
-  let backoff = 0
-  for (const result of results) {
-    const failure = "failure" in result ? result.failure : undefined
-    if (failure?.status !== 429) continue
-    backoff = Math.max(
-      backoff,
-      Math.min(
-        MAX_RATE_LIMIT_BACKOFF_MS,
-        failure.retryAfterMs ?? DEFAULT_RATE_LIMIT_BACKOFF_MS
-      )
-    )
-  }
-  return backoff
-}
-
 const embeddingCache = new Map<string, CacheEntry>()
 const CACHE_MAX_SIZE = 100
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
@@ -261,9 +240,7 @@ export const generateEmbeddingsBatch = async (
     }
     if (i + batchSize < texts.length) {
       // Yield between batches without imposing a fixed wall-clock penalty.
-      // If a provider explicitly rate-limits a batch, honor its retry hint so
-      // the next batch does not immediately amplify the same failure.
-      await abortableDelay(rateLimitBackoffMs(batchResults), signal)
+      await abortableDelay(0, signal)
     }
   }
 
