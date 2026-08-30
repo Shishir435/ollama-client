@@ -83,10 +83,7 @@ const handlers = {
     if ("error" in result) {
       return {
         ok: false as const,
-        error:
-          result.failure?.userMessage ??
-          result.error ??
-          "Embedding generation failed",
+        error: result.failure?.userMessage ?? "Embedding generation failed",
         ...(result.code ? { code: result.code } : {})
       }
     }

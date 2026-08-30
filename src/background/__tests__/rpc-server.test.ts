@@ -327,9 +327,9 @@ describe("RPC server", () => {
     )
   })
 
-  it("preserves a safe embedding error when no failure detail exists", async () => {
+  it("does not expose embedding diagnostics when no safe message exists", async () => {
     mocks.generateEmbedding.mockResolvedValueOnce({
-      error: "Embedding provider returned HTTP 503",
+      error: "upstream echoed apiKey=private-value",
       code: "OLC-PROVIDER-HTTP"
     })
     const sendResponse = vi.fn()
@@ -350,7 +350,7 @@ describe("RPC server", () => {
         ok: true,
         result: {
           ok: false,
-          error: "Embedding provider returned HTTP 503",
+          error: "Embedding generation failed",
           code: "OLC-PROVIDER-HTTP"
         }
       })
