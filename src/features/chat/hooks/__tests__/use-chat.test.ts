@@ -42,7 +42,7 @@ vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: toastMock })
 }))
 
-vi.mock("@/lib/embeddings/embedding-client", () => ({
+vi.mock("@/protocol/embedding-client", () => ({
   generateEmbedding: vi.fn()
 }))
 

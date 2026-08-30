@@ -5,11 +5,11 @@ import { SettingsCard } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import {
   type SearchResult,
   searchSimilarVectors
 } from "@/lib/embeddings/vector-store"
+import { generateEmbedding } from "@/protocol/embedding-client"
 
 export interface EmbeddingTestSearchProps {
   modelExists: boolean

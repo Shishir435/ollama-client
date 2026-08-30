@@ -1,5 +1,32 @@
 import { z } from "zod"
 
+const EmbeddingVectorSchema = z.array(z.number().finite()).min(1).max(100_000)
+
+export const EmbeddingsGenerateRequestSchema = z
+  .object({
+    text: z.string().max(2_000_000),
+    model: z.string().min(1).max(500).optional()
+  })
+  .strict()
+
+export const EmbeddingsGenerateResultSchema = z.discriminatedUnion("ok", [
+  z
+    .object({
+      ok: z.literal(true),
+      embedding: EmbeddingVectorSchema,
+      model: z.string().min(1).max(500),
+      providerId: z.string().min(1).max(200)
+    })
+    .strict(),
+  z
+    .object({
+      ok: z.literal(false),
+      error: z.string().max(2_000),
+      code: z.string().max(100).optional()
+    })
+    .strict()
+])
+
 /**
  * Model lifecycle and catalog methods.
  *
@@ -217,4 +244,10 @@ export type EmbeddingsPrepareModelRequest = z.input<
 >
 export type EmbeddingsPrepareModelResult = z.infer<
   typeof EmbeddingsPrepareModelResultSchema
+>
+export type EmbeddingsGenerateRequest = z.input<
+  typeof EmbeddingsGenerateRequestSchema
+>
+export type EmbeddingsGenerateResult = z.infer<
+  typeof EmbeddingsGenerateResultSchema
 >

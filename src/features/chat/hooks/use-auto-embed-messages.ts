@@ -3,10 +3,10 @@ import { useSetting } from "@/hooks/use-setting"
 import { chunkTextAsync } from "@/lib/embeddings/chunker"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
 import { assessContentQuality } from "@/lib/embeddings/content-quality-filter"
-import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import { SETTINGS } from "@/lib/storage/settings"
+import { generateEmbedding } from "@/protocol/embedding-client"
 import type { ChatMessage } from "@/types"
 
 /**

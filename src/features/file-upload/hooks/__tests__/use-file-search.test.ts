@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useFileSearch } from "../use-file-search"
 
 // Mock dependencies
-vi.mock("@/lib/embeddings/embedding-client", () => ({
+vi.mock("@/protocol/embedding-client", () => ({
   generateEmbedding: vi.fn()
 }))
 
@@ -15,9 +15,9 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: vi.fn()
 }))
 
-import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { searchSimilarVectors } from "@/lib/embeddings/vector-store"
 import { getPlasmoStoredValue } from "@/lib/plasmo-global-storage"
+import { generateEmbedding } from "@/protocol/embedding-client"
 
 describe("useFileSearch", () => {
   beforeEach(() => {
