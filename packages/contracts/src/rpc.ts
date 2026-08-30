@@ -24,6 +24,7 @@ export enum RpcMethod {
   ModelsGetLibraryVariants = "models.getLibraryVariants",
   EmbeddingsCheckModel = "embeddings.checkModel",
   EmbeddingsPrepareModel = "embeddings.prepareModel",
+  EmbeddingsGenerate = "embeddings.generate",
   IngestionSubmit = "ingestions.submit",
   IngestionGet = "ingestions.get",
   IngestionCancel = "ingestions.cancel",

@@ -19,6 +19,7 @@ describe("RPC method registry", () => {
     RpcMethod.ModelsSearchLibrary,
     RpcMethod.ModelsGetLibraryVariants,
     RpcMethod.EmbeddingsCheckModel,
+    RpcMethod.EmbeddingsGenerate,
     RpcMethod.IngestionGet,
     RpcMethod.ModelPullGet,
     RpcMethod.ModelPullListActive,
@@ -50,6 +51,12 @@ describe("RPC method registry", () => {
         "extension-page"
       ])
     }
+  })
+
+  it("gives slow embedding generation a bounded cancellation window", () => {
+    expect(RPC_METHOD_DEFINITIONS[RpcMethod.EmbeddingsGenerate].timeoutMs).toBe(
+      900_000
+    )
   })
 
   it("requires explicit review before classifying a method as a query", () => {

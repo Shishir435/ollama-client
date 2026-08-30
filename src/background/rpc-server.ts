@@ -11,6 +11,7 @@ import {
 import { CancellationRegistry } from "@ollama-client/runtime-core/cancellation"
 import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 import type { Runtime } from "webextension-polyfill"
+import { EmbeddingService } from "@/application/embeddings/embedding-service"
 import {
   checkEmbeddingModelExists,
   prepareEmbeddingModel
@@ -73,6 +74,24 @@ const handlers = {
   },
   [RpcMethod.EmbeddingsPrepareModel]: async (request, signal) =>
     prepareEmbeddingModel(request, signal),
+  [RpcMethod.EmbeddingsGenerate]: async (request, signal) => {
+    const result = await EmbeddingService.generate(
+      request.text,
+      request.model,
+      undefined,
+      {
+        signal
+      }
+    )
+    if ("error" in result) {
+      return {
+        ok: false as const,
+        error: result.failure?.userMessage ?? "Embedding generation failed",
+        ...(result.code ? { code: result.code } : {})
+      }
+    }
+    return { ok: true as const, ...result }
+  },
   [RpcMethod.IngestionSubmit]: async (request) =>
     IngestionService.submit(request),
   [RpcMethod.IngestionGet]: async (request) =>
@@ -280,10 +299,10 @@ export const handleRpcRequest = async (
 
   const controller = new AbortController()
   activeRequests.set(requestId, controller)
-  const serverTimeoutId = setTimeout(
-    () => controller.abort(),
-    definition.timeoutMs
-  )
+  const serverTimeoutId =
+    definition.timeoutMs === undefined
+      ? undefined
+      : setTimeout(() => controller.abort(), definition.timeoutMs)
 
   let status = "success"
   let errorCode: RpcErrorCode | undefined
@@ -322,7 +341,7 @@ export const handleRpcRequest = async (
       })
     }
   } finally {
-    clearTimeout(serverTimeoutId)
+    if (serverTimeoutId !== undefined) clearTimeout(serverTimeoutId)
     if (activeRequests.get(requestId) === controller) {
       activeRequests.clear(requestId)
     }

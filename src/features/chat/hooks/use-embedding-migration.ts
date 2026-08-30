@@ -2,13 +2,13 @@ import { useEffect, useState } from "react"
 
 import { chunkTextAsync } from "@/lib/embeddings/chunker"
 import { getEmbeddingConfig } from "@/lib/embeddings/config"
-import { generateEmbedding } from "@/lib/embeddings/embedding-client"
 import { storeVector, vectorDb } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 import {
   countMessages,
   getMessagesPaginated
 } from "@/lib/repositories/chat-history"
+import { generateEmbedding } from "@/protocol/embedding-client"
 import type { Role } from "@/types"
 
 export const useEmbeddingMigration = () => {

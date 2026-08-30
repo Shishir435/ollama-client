@@ -11,6 +11,8 @@ import {
 import {
   EmbeddingsCheckModelRequestSchema,
   EmbeddingsCheckModelResultSchema,
+  EmbeddingsGenerateRequestSchema,
+  EmbeddingsGenerateResultSchema,
   EmbeddingsPrepareModelRequestSchema,
   EmbeddingsPrepareModelResultSchema,
   ModelsGetDetailsRequestSchema,
@@ -50,7 +52,7 @@ export interface RpcMethodDefinition {
   request: z.ZodType
   response: z.ZodType
   allowedSources: readonly RpcSource[]
-  timeoutMs: number
+  timeoutMs?: number
   operation: "query" | "command"
 }
 
@@ -61,7 +63,7 @@ const extensionPagesOnly = ["extension-page"] as const
  * operation rather than a global default: model warmup and embedding prepare
  * may perform cold-start or pull work, while ordinary queries stay bounded.
  */
-export const RPC_METHOD_DEFINITIONS = {
+export const RPC_METHOD_DEFINITIONS: Record<RpcMethod, RpcMethodDefinition> = {
   [RpcMethod.ProvidersList]: {
     request: ProvidersListRequestSchema,
     response: ProvidersListResultSchema,
@@ -183,6 +185,16 @@ export const RPC_METHOD_DEFINITIONS = {
     timeoutMs: 300_000,
     operation: "command"
   },
+  [RpcMethod.EmbeddingsGenerate]: {
+    request: EmbeddingsGenerateRequestSchema,
+    response: EmbeddingsGenerateResultSchema,
+    allowedSources: extensionPagesOnly,
+    // Embedding generation may include a cold start or a large migration
+    // chunk. Keep a generous bound so a provider that accepts but never
+    // completes still releases both page and background resources.
+    timeoutMs: 900_000,
+    operation: "query"
+  },
   [RpcMethod.IngestionSubmit]: {
     request: IngestionSubmitRequestSchema,
     response: IngestionSubmitResultSchema,
@@ -260,7 +272,7 @@ export const RPC_METHOD_DEFINITIONS = {
     timeoutMs: 5_000,
     operation: "command"
   }
-} as const satisfies Record<RpcMethod, RpcMethodDefinition>
+}
 
 import {
   DiagnosticsClearRequestSchema,
