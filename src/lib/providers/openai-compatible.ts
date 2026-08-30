@@ -791,29 +791,49 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }
 
     type TerminalMarker = "finish-reason" | "done" | null
-    const processLine = (line: string): TerminalMarker => {
+    const OpenAiSseDataSchema = z
+      .object({
+        error: z.unknown().optional(),
+        choices: z
+          .array(
+            z
+              .object({
+                delta: z
+                  .object({
+                    content: z.unknown().optional(),
+                    images: z.unknown().optional(),
+                    reasoning: z.string().optional(),
+                    reasoning_content: z.string().optional(),
+                    thinking: z.string().optional(),
+                    thoughts: z.string().optional(),
+                    reasoning_details: z.array(z.unknown()).optional(),
+                    tool_calls: z.array(z.unknown()).optional()
+                  })
+                  .passthrough()
+                  .optional(),
+                finish_reason: z.string().nullable().optional()
+              })
+              .passthrough()
+          )
+          .optional(),
+        usage: z
+          .object({
+            prompt_tokens: z.number().optional(),
+            completion_tokens: z.number().optional()
+          })
+          .passthrough()
+          .optional()
+      })
+      .passthrough()
+    type OpenAiSseData = z.infer<typeof OpenAiSseDataSchema>
+
+    const parseSseData = (
+      line: string
+    ): OpenAiSseData | TerminalMarker | null => {
       const trimmed = line.trim()
       if (!trimmed) return null
       if (trimmed === "data: [DONE]") return "done"
       if (!trimmed.startsWith("data: ")) return null
-
-      let data: {
-        error?: unknown
-        choices?: Array<{
-          delta?: {
-            content?: unknown
-            images?: unknown
-            reasoning?: string
-            reasoning_content?: string
-            thinking?: string
-            thoughts?: string
-            reasoning_details?: unknown[]
-            tool_calls?: ToolCallFragment[]
-          }
-          finish_reason?: string
-        }>
-        usage?: { prompt_tokens?: number; completion_tokens?: number }
-      }
       try {
         const parsed = asRecord(JSON.parse(trimmed.slice(6)))
         if (!parsed) {
@@ -823,98 +843,110 @@ export class OpenAICompatibleProvider implements LLMProvider {
           )
           return null
         }
-        data = parsed
-      } catch (e) {
+        const decoded = OpenAiSseDataSchema.safeParse(parsed)
+        if (!decoded.success) {
+          logger.warn(
+            "Ignored invalid SSE data event",
+            "OpenAICompatibleProvider",
+            { issues: decoded.error.issues }
+          )
+          return null
+        }
+        return decoded.data
+      } catch (error) {
         logger.warn(
           "Failed to parse SSE data line",
           "OpenAICompatibleProvider",
-          { error: e }
+          {
+            error
+          }
         )
         return null
       }
+    }
 
-      // Mid-stream provider error (HTTP 200 already sent — vLLM/LiteLLM/etc.).
-      // Throw so it surfaces as an error instead of a silently truncated
-      // answer. This is outside the parse try/catch so it propagates rather
-      // than being downgraded to a parse warning.
-      if (data.error) {
-        const errorRecord = asRecord(data.error)
-        const message =
-          typeof data.error === "string"
-            ? data.error
-            : typeof errorRecord?.message === "string"
-              ? errorRecord.message
-              : undefined
-        const status = streamErrorStatus(data.error)
-        const retryAfterMs = streamErrorRetryAfter(data.error)
-        const baseUrl = resolveProviderBaseUrl(this.config)
-        const classification = classifyProviderError(status, message)
-        throw createAppError(
-          message ||
-            "The provider reported an error while generating the response.",
-          {
-            kind: "provider",
-            status,
-            providerId: this.id,
-            retryable:
-              status === undefined
-                ? undefined
-                : isRetryableProviderStatus(status),
-            retryAfterMs,
-            code:
-              status === undefined ? "OLC-PROVIDER-HTTP" : classification.code,
-            phase: "read-stream",
-            recoveryAction: classification.recoveryAction,
-            providerName: this.config.name,
-            model,
-            baseUrl,
-            userMessage:
-              status === undefined
-                ? classification.reason
-                  ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
-                  : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`
-                : providerErrorUserMessage(status, {
-                    baseUrl,
-                    retryAfterMs,
-                    providerName: this.config.name,
-                    model,
-                    reason: classification.reason
-                  }),
-            debug:
-              typeof data.error === "string"
-                ? data.error
-                : JSON.stringify(data.error)
-          }
-        )
-      }
-
-      const delta = data.choices?.[0]?.delta
-
-      if (captureReasoningDetails && Array.isArray(delta?.reasoning_details)) {
-        for (const detail of delta.reasoning_details) {
-          const record = asRecord(detail)
-          if (record) reasoningDetails.push(record)
+    const throwSseError = (data: OpenAiSseData): void => {
+      if (!data.error) return
+      const errorRecord = asRecord(data.error)
+      const message =
+        typeof data.error === "string"
+          ? data.error
+          : typeof errorRecord?.message === "string"
+            ? errorRecord.message
+            : undefined
+      const status = streamErrorStatus(data.error)
+      const retryAfterMs = streamErrorRetryAfter(data.error)
+      const baseUrl = resolveProviderBaseUrl(this.config)
+      const classification = classifyProviderError(status, message)
+      throw createAppError(
+        message ||
+          "The provider reported an error while generating the response.",
+        {
+          kind: "provider",
+          status,
+          providerId: this.id,
+          retryable:
+            status === undefined
+              ? undefined
+              : isRetryableProviderStatus(status),
+          retryAfterMs,
+          code:
+            status === undefined ? "OLC-PROVIDER-HTTP" : classification.code,
+          phase: "read-stream",
+          recoveryAction: classification.recoveryAction,
+          providerName: this.config.name,
+          model,
+          baseUrl,
+          userMessage:
+            status === undefined
+              ? classification.reason
+                ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+                : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`
+              : providerErrorUserMessage(status, {
+                  baseUrl,
+                  retryAfterMs,
+                  providerName: this.config.name,
+                  model,
+                  reason: classification.reason
+                }),
+          debug:
+            typeof data.error === "string"
+              ? data.error
+              : JSON.stringify(data.error)
         }
-      }
+      )
+    }
 
+    const captureReplayDetails = (
+      delta: NonNullable<OpenAiSseData["choices"]>[number]["delta"]
+    ): void => {
+      if (!captureReasoningDetails || !Array.isArray(delta?.reasoning_details))
+        return
+      for (const detail of delta.reasoning_details) {
+        const record = asRecord(detail)
+        if (record) reasoningDetails.push(record)
+      }
+    }
+
+    const emitReasoning = (
+      delta: NonNullable<OpenAiSseData["choices"]>[number]["delta"]
+    ): void => {
       const thinkingDelta =
         delta?.reasoning ||
         delta?.reasoning_content ||
         delta?.thinking ||
         delta?.thoughts
+      if (thinkingDelta) onChunk({ thinkingDelta, done: false })
+    }
 
-      if (thinkingDelta) {
-        onChunk({ thinkingDelta, done: false })
-      }
-
+    const emitOutput = (
+      delta: NonNullable<OpenAiSseData["choices"]>[number]["delta"]
+    ): void => {
       const output = extractOpenAIOutputParts(delta?.content, delta?.images)
       if (output.text) {
-        if (!firstTokenTime) {
-          firstTokenTime = Date.now()
-        }
+        firstTokenTime ??= Date.now()
         onChunk({ delta: output.text, done: false })
       }
-
       const generatedImages = output.imageData.flatMap((value, index) => {
         const image = generatedImageFromBase64(
           value,
@@ -923,53 +955,61 @@ export class OpenAICompatibleProvider implements LLMProvider {
         )
         return image ? [image] : []
       })
-      if (generatedImages.length > 0) {
-        onChunk({ generatedImages, done: false })
-      }
+      if (generatedImages.length > 0) onChunk({ generatedImages, done: false })
+    }
 
-      if (Array.isArray(delta?.tool_calls)) {
-        const fragments = delta.tool_calls.filter(
-          (fragment): fragment is ToolCallFragment =>
-            Boolean(
-              asRecord(fragment) &&
-                Number.isInteger(asRecord(fragment)?.index) &&
-                Number(asRecord(fragment)?.index) >= 0
-            )
-        )
-        toolCalls.add(fragments)
-      }
-
-      // Most providers set finish_reason "tool_calls" before usage; some
-      // omit it, so the stream-done path also flushes.
-      const finishReason = data.choices?.[0]?.finish_reason
-      if (finishReason === "tool_calls") {
-        emitToolCalls()
-      }
-
-      if (data.usage) {
-        const totalDurationNs = (Date.now() - startTime) * 1_000_000
-        const evalDurationNs = firstTokenTime
-          ? (Date.now() - firstTokenTime) * 1_000_000
-          : 1
-
-        const promptEvalDurationNs = firstTokenTime
-          ? (firstTokenTime - startTime) * 1_000_000
-          : totalDurationNs
-
-        latestMetrics = {
-          total_duration: totalDurationNs,
-          prompt_eval_count: data.usage.prompt_tokens,
-          prompt_eval_duration: promptEvalDurationNs,
-          eval_count: data.usage.completion_tokens,
-          eval_duration: evalDurationNs
+    const accumulateToolCalls = (
+      delta: NonNullable<OpenAiSseData["choices"]>[number]["delta"]
+    ): void => {
+      if (!Array.isArray(delta?.tool_calls)) return
+      const fragments = delta.tool_calls.filter(
+        (fragment): fragment is ToolCallFragment => {
+          const record = asRecord(fragment)
+          return Boolean(
+            record &&
+              Number.isInteger(record.index) &&
+              Number(record.index) >= 0
+          )
         }
+      )
+      toolCalls.add(fragments)
+    }
 
-        onChunk({
-          done: false,
-          metrics: latestMetrics
-        })
+    const updateUsage = (usage: OpenAiSseData["usage"]): void => {
+      if (!usage) return
+      const totalDurationNs = (Date.now() - startTime) * 1_000_000
+      const evalDurationNs = firstTokenTime
+        ? (Date.now() - firstTokenTime) * 1_000_000
+        : 1
+      const promptEvalDurationNs = firstTokenTime
+        ? (firstTokenTime - startTime) * 1_000_000
+        : totalDurationNs
+      latestMetrics = {
+        total_duration: totalDurationNs,
+        prompt_eval_count: usage.prompt_tokens,
+        prompt_eval_duration: promptEvalDurationNs,
+        eval_count: usage.completion_tokens,
+        eval_duration: evalDurationNs
       }
-      return typeof finishReason === "string" && finishReason.length > 0
+      onChunk({ done: false, metrics: latestMetrics })
+    }
+
+    const processLine = (line: string): TerminalMarker => {
+      const parsed = parseSseData(line)
+      if (parsed === "done") return "done"
+      if (!parsed || typeof parsed === "string") return null
+      const data = parsed
+      throwSseError(data)
+      const choice = data.choices?.[0]
+      const delta = choice?.delta
+      captureReplayDetails(delta)
+      emitReasoning(delta)
+      emitOutput(delta)
+      accumulateToolCalls(delta)
+      if (choice?.finish_reason === "tool_calls") emitToolCalls()
+      updateUsage(data.usage)
+      return typeof choice?.finish_reason === "string" &&
+        choice.finish_reason.length > 0
         ? "finish-reason"
         : null
     }
@@ -1030,55 +1070,57 @@ export class OpenAICompatibleProvider implements LLMProvider {
       return timed
     }
 
-    try {
+    const decodeChunkMarker = (value: Uint8Array): TerminalMarker => {
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() || ""
+      let marker: TerminalMarker = null
+      for (const line of lines) {
+        const lineMarker = processLine(line)
+        if (lineMarker === "done") return "done"
+        if (!marker && lineMarker) marker = lineMarker
+      }
+      const bufferedMarker = bufferedTerminalMarker()
+      if (!marker && bufferedMarker) {
+        marker = processLine(buffer)
+        buffer = ""
+      }
+      return marker
+    }
+
+    const finishAndCancel = async (): Promise<void> => {
+      finishStream()
+      await reader.cancel()
+    }
+
+    const consumeStream = async (): Promise<void> => {
       while (true) {
         const next = await readNextChunk()
         if (next.timedOut) {
-          finishStream()
-          await reader.cancel()
-          break
+          await finishAndCancel()
+          return
         }
         const { done, value } = next.result
         if (done) {
-          // Flush a final data line left without a trailing newline at EOF.
           if (buffer.trim()) processLine(buffer)
           buffer = ""
           finishStream()
-          break
+          return
         }
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split("\n")
-        buffer = lines.pop() || ""
-
-        let chunkMarker: TerminalMarker = null
-        for (const line of lines) {
-          const marker = processLine(line)
-          if (marker === "done" || (marker && !chunkMarker)) {
-            chunkMarker = marker
-          }
-        }
-        // Some local servers flush the final SSE record but omit its trailing
-        // newline and keep the HTTP connection alive. Once the buffered JSON
-        // itself carries a finish reason, it is a complete protocol record.
-        const bufferedMarker = bufferedTerminalMarker()
-        if (!chunkMarker && bufferedMarker) {
-          chunkMarker = processLine(buffer)
-          buffer = ""
-        }
+        const chunkMarker = decodeChunkMarker(value)
         if (chunkMarker === "done") {
-          finishStream()
-          await reader.cancel()
-          break
+          await finishAndCancel()
+          return
         }
         if (chunkMarker === "finish-reason" && terminalMarker === null) {
-          // Preserve standard usage chunks that follow `finish_reason`, but
-          // bound the wait because several local servers never send [DONE] or
-          // close the socket.
           terminalMarker = chunkMarker
           terminalDeadline = Date.now() + TERMINAL_GRACE_MS
         }
       }
+    }
+
+    try {
+      await consumeStream()
     } finally {
       reader.releaseLock()
     }

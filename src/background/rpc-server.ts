@@ -61,9 +61,6 @@ const handlers = {
     ModelRpcService.searchLibrary(request, signal),
   [RpcMethod.ModelsGetLibraryVariants]: async (request, signal) =>
     ModelRpcService.getLibraryVariants(request, signal),
-  // Embedding preparation is owned by the background download handler, which
-  // also drives the pull port; wired here rather than proxied through
-  // ModelRpcService so `src/lib` keeps no dependency on `src/background`.
   [RpcMethod.EmbeddingsCheckModel]: async (request, signal) => {
     const { exists, debug } = await checkEmbeddingModelExists(
       request.model,
@@ -86,7 +83,10 @@ const handlers = {
     if ("error" in result) {
       return {
         ok: false as const,
-        error: result.failure?.userMessage ?? "Embedding generation failed",
+        error:
+          result.failure?.userMessage ??
+          result.error ??
+          "Embedding generation failed",
         ...(result.code ? { code: result.code } : {})
       }
     }
@@ -116,8 +116,6 @@ const handlers = {
     const { ModelPullService } = await import("@/background/model-pull-runtime")
     return ModelPullService.listActive()
   },
-  // `diagnostics.run` is only reachable from the user pressing "Run self-tests",
-  // which means "measure now" — never answer it from the shared TTL result.
   [RpcMethod.DiagnosticsRun]: async (_request, signal) =>
     DiagnosticsService.run(signal, { force: true }),
   [RpcMethod.DiagnosticsGetBundle]: async (request, signal) =>
@@ -172,14 +170,6 @@ const normalizeRpcError = (
       (code === RpcErrorCode.NotFound
         ? "Provider configuration was not found"
         : "The provider request failed"),
-    /*
-     * The generic key is a last resort, not an upgrade. An upstream HTTP 404
-     * carries `status: 404` too, so attaching `errors.rpc.not_found`
-     * unconditionally replaced "the provider could not find that model or
-     * endpoint — check the model name and base URL" with "the provider
-     * configuration was not found", which described a different problem
-     * entirely. A crafted message wins over a translated non-answer.
-     */
     messageKey:
       error.messageKey ??
       (error.userMessage ? undefined : `errors.rpc.${code}`),
@@ -200,6 +190,21 @@ const response = <T>(
   ...value
 })
 
+const requestIdFromUnknownEnvelope = (rawMessage: unknown): string => {
+  if (!rawMessage || typeof rawMessage !== "object") return crypto.randomUUID()
+  if (
+    !("requestId" in rawMessage) ||
+    typeof rawMessage.requestId !== "string"
+  ) {
+    return crypto.randomUUID()
+  }
+  return RpcRequestEnvelopeSchema.shape.requestId.safeParse(
+    rawMessage.requestId
+  ).success
+    ? rawMessage.requestId
+    : crypto.randomUUID()
+}
+
 export const handleRpcCancellation = (
   rawMessage: unknown,
   sender: Runtime.MessageSender,
@@ -219,24 +224,23 @@ export const handleRpcCancellation = (
   sendResponse({ success: true, cancelled: Boolean(controller) })
 }
 
-export const handleRpcRequest = async (
+type ValidatedRpcRequest = {
+  requestId: string
+  method: RpcMethod
+  request: unknown
+  definition: (typeof RPC_METHOD_DEFINITIONS)[RpcMethod]
+  source: string
+}
+
+const validateRpcRequest = (
   rawMessage: unknown,
   sender: Runtime.MessageSender,
   extensionId: string,
   extensionUrlPrefix: string,
   sendResponse: (value: unknown) => void
-): Promise<void> => {
-  const startedAt = performance.now()
+): ValidatedRpcRequest | null => {
   const parsedEnvelope = RpcRequestEnvelopeSchema.safeParse(rawMessage)
-  const unsafeRequestId =
-    rawMessage &&
-    typeof rawMessage === "object" &&
-    "requestId" in rawMessage &&
-    typeof rawMessage.requestId === "string" &&
-    RpcRequestEnvelopeSchema.shape.requestId.safeParse(rawMessage.requestId)
-      .success
-      ? rawMessage.requestId
-      : crypto.randomUUID()
+  const unsafeRequestId = requestIdFromUnknownEnvelope(rawMessage)
   if (!parsedEnvelope.success) {
     sendResponse(
       response(unsafeRequestId, {
@@ -248,7 +252,7 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
 
   const { requestId, method, request } = parsedEnvelope.data
@@ -265,7 +269,7 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
 
   const parsedRequest = definition.request.safeParse(request)
@@ -280,7 +284,7 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
 
   if (activeRequests.has(requestId)) {
@@ -294,8 +298,36 @@ export const handleRpcRequest = async (
         })
       })
     )
-    return
+    return null
   }
+
+  return {
+    requestId,
+    method,
+    request: parsedRequest.data,
+    definition,
+    source
+  }
+}
+
+export const handleRpcRequest = async (
+  rawMessage: unknown,
+  sender: Runtime.MessageSender,
+  extensionId: string,
+  extensionUrlPrefix: string,
+  sendResponse: (value: unknown) => void
+): Promise<void> => {
+  const startedAt = performance.now()
+  const validated = validateRpcRequest(
+    rawMessage,
+    sender,
+    extensionId,
+    extensionUrlPrefix,
+    sendResponse
+  )
+  if (!validated) return
+
+  const { requestId, method, request, definition, source } = validated
 
   const controller = new AbortController()
   activeRequests.set(requestId, controller)
@@ -312,7 +344,7 @@ export const handleRpcRequest = async (
       value: unknown,
       signal: AbortSignal
     ) => Promise<RpcMap[RpcMethod]["response"]>
-    const result = await handler(parsedRequest.data, controller.signal)
+    const result = await handler(request, controller.signal)
     const parsedResult = definition.response.safeParse(result)
     if (!parsedResult.success) {
       throw new Error(`RPC handler returned invalid data for ${method}`)

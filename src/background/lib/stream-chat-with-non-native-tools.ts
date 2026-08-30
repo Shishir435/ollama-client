@@ -45,19 +45,10 @@ interface StreamChatWithNonNativeToolsOptions {
 }
 
 const DEFAULT_MAX_ITERATIONS = 5
-
-/**
- * Parser call ids restart at `<name>_0` on every parse. A per-invocation stream
- * sequence keeps callIds unique across turns and concurrent streams — the
- * confirmation registry and the UI's answered-set are both keyed by callId, so
- * a repeat would silently suppress the second confirmation prompt.
- */
 let streamSeq = 0
-
 const TOOL_LIMIT_FALLBACK_MESSAGE =
   "I reached the tool-call limit while gathering context. Please try again with a narrower request."
 
-/** Append the tool protocol to the system message (or prepend one). */
 const injectToolPrompt = (
   messages: ChatMessage[],
   toolPrompt: string
@@ -76,13 +67,6 @@ const injectToolPrompt = (
   return copy
 }
 
-/**
- * Streams model output while withholding non-native `<tool_call>` syntax from the
- * user. Text is forwarded live until an opening tag appears; from that point the
- * remainder of the turn is captured silently (it is tool-call markup, not an
- * answer). A short tail is held back each delta so an opening tag split across
- * chunk boundaries is still detected before any of it is shown.
- */
 class ToolCallStreamGate {
   private full = ""
   private emitted = 0
@@ -104,7 +88,6 @@ class ToolCallStreamGate {
       return
     }
 
-    // Hold back a tail that could be the start of a split "<tool_call>".
     const safeUpto = Math.max(
       this.emitted,
       this.full.length - (NON_NATIVE_TOOL_CALL_OPEN.length - 1)
@@ -115,7 +98,6 @@ class ToolCallStreamGate {
     }
   }
 
-  /** Flush any held-back tail when the turn produced no tool call. */
   flushTail(): void {
     if (!this.capturing && this.full.length > this.emitted) {
       this.emit(this.full.slice(this.emitted))
@@ -128,21 +110,40 @@ class ToolCallStreamGate {
   }
 }
 
-/**
- * Prompt-based tool loop for models without native tool-calling.
- *
- * Mirrors `streamChatWithTools` but drives tools through the system prompt: it
- * describes the tools, streams a plain-text turn (hiding `<tool_call>` markup),
- * parses any calls out of the turn, executes them through the same registry and
- * runtime policy, feeds results back as a `<tool_response>` user turn, and loops
- * until the model answers without calling tools. The `toolRuns` trace and result
- * `sources` are emitted exactly like the native path, so the reasoning-trace and
- * Sources surfaces work unchanged.
- *
- * Limitations vs native: images returned by tools are dropped (the text protocol
- * can't carry them), and a tool-calling turn is not streamed live to the user
- * (only its non-tool prose prefix is).
- */
+type StreamCollectionState = {
+  metrics?: ChatStreamMessage["metrics"]
+  replayArtifact?: ChatStreamMessage["replayArtifact"]
+  stopped: boolean
+}
+
+const isSuccessfulTerminalChunk = (chunk: ChatStreamMessage): boolean =>
+  Boolean(chunk.done && !chunk.error && !chunk.aborted)
+
+const isStoppedChunk = (chunk: ChatStreamMessage): boolean =>
+  Boolean(chunk.error || chunk.aborted)
+
+const collectNonNativeStreamChunk = (
+  chunk: ChatStreamMessage,
+  gate: ToolCallStreamGate,
+  state: StreamCollectionState,
+  onChunk: (chunk: ChatStreamMessage) => void
+): void => {
+  if (chunk.replayArtifact) state.replayArtifact = chunk.replayArtifact
+  if (isSuccessfulTerminalChunk(chunk)) {
+    if (chunk.metrics) state.metrics = chunk.metrics
+    return
+  }
+  if (isStoppedChunk(chunk)) {
+    state.stopped = true
+    onChunk(chunk)
+    return
+  }
+  if (typeof chunk.thinkingDelta === "string") {
+    onChunk({ thinkingDelta: chunk.thinkingDelta })
+  }
+  if (typeof chunk.delta === "string") gate.push(chunk.delta)
+}
+
 export const streamChatWithNonNativeTools = async ({
   provider,
   request,
@@ -171,8 +172,6 @@ export const streamChatWithNonNativeTools = async ({
   )
   const coordinator = new ToolLoopCoordinator(state, onCheckpoint)
   const workingMessages = state.workingMessages
-  // Never forward a `tools` array to the provider on this path — the model
-  // doesn't support native calls and some endpoints 400 on an unusable field.
   const baseRequest: ChatRequest = { ...request, tools: undefined }
   const toolRuns = state.toolRuns
   const streamId = ++streamSeq
@@ -187,35 +186,17 @@ export const streamChatWithNonNativeTools = async ({
 
     if (state.phase === "model") {
       const gate = new ToolCallStreamGate((text) => onChunk({ delta: text }))
-      let metrics: ChatStreamMessage["metrics"] | undefined
-      let replayArtifact: ChatStreamMessage["replayArtifact"]
-      let stopped = false
+      const streamState: StreamCollectionState = { stopped: false }
 
       await provider.streamChat(
         { ...baseRequest, messages: workingMessages },
-        (chunk) => {
-          if (chunk.replayArtifact) replayArtifact = chunk.replayArtifact
-          if (chunk.done && !chunk.error && !chunk.aborted) {
-            if (chunk.metrics) metrics = chunk.metrics
-            return
-          }
-          if (chunk.error || chunk.aborted) {
-            stopped = true
-            onChunk(chunk)
-            return
-          }
-          if (typeof chunk.thinkingDelta === "string") {
-            onChunk({ thinkingDelta: chunk.thinkingDelta })
-          }
-          if (typeof chunk.delta === "string") {
-            gate.push(chunk.delta)
-          }
-        },
+        (chunk) =>
+          collectNonNativeStreamChunk(chunk, gate, streamState, onChunk),
         signal
       )
 
-      if (stopped) return
-      coordinator.setMetrics(metrics)
+      if (streamState.stopped) return
+      coordinator.setMetrics(streamState.metrics)
 
       const { toolCalls: parsedCalls } = parseNonNativeToolCalls(gate.text)
       const toolCalls = parsedCalls.map((call) => ({
@@ -227,9 +208,9 @@ export const streamChatWithNonNativeTools = async ({
         gate.flushTail()
         onChunk({
           done: true,
-          metrics,
+          metrics: streamState.metrics,
           toolRuns: [...toolRuns],
-          replayArtifact
+          replayArtifact: streamState.replayArtifact
         })
         return
       }
@@ -237,7 +218,7 @@ export const streamChatWithNonNativeTools = async ({
       workingMessages.push({
         role: "assistant",
         content: gate.text,
-        replayArtifact
+        replayArtifact: streamState.replayArtifact
       })
       await coordinator.enterTools(toolCalls, "non-native")
     }
@@ -306,7 +287,6 @@ export const streamChatWithNonNativeTools = async ({
     })
   }
 
-  // Iteration cap: one final plain pass so the user gets an answer.
   logger.warn(
     "Non-native tool loop hit max iterations",
     "streamChatWithNonNativeTools",
@@ -318,44 +298,27 @@ export const streamChatWithNonNativeTools = async ({
   }
 
   const finalGate = new ToolCallStreamGate((text) => onChunk({ delta: text }))
-  let synthesisMetrics = state.lastMetrics
-  let synthesisStopped = false
-  let synthesisReplayArtifact: ChatStreamMessage["replayArtifact"]
+  const synthesisState: StreamCollectionState = {
+    metrics: state.lastMetrics,
+    stopped: false
+  }
 
   await provider.streamChat(
     { ...baseRequest, messages: workingMessages },
-    (chunk) => {
-      if (chunk.replayArtifact) {
-        synthesisReplayArtifact = chunk.replayArtifact
-      }
-      if (chunk.done && !chunk.error && !chunk.aborted) {
-        if (chunk.metrics) synthesisMetrics = chunk.metrics
-        return
-      }
-      if (chunk.error || chunk.aborted) {
-        synthesisStopped = true
-        onChunk(chunk)
-        return
-      }
-      if (typeof chunk.thinkingDelta === "string") {
-        onChunk({ thinkingDelta: chunk.thinkingDelta })
-      }
-      if (typeof chunk.delta === "string") {
-        finalGate.push(chunk.delta)
-      }
-    },
+    (chunk) =>
+      collectNonNativeStreamChunk(chunk, finalGate, synthesisState, onChunk),
     signal
   )
 
-  if (synthesisStopped) return
+  if (synthesisState.stopped) return
   finalGate.flushTail()
   if (finalGate.text.trim().length === 0) {
     onChunk({ delta: TOOL_LIMIT_FALLBACK_MESSAGE })
   }
   onChunk({
     done: true,
-    metrics: synthesisMetrics,
+    metrics: synthesisState.metrics,
     toolRuns: [...toolRuns],
-    replayArtifact: synthesisReplayArtifact
+    replayArtifact: synthesisState.replayArtifact
   })
 }

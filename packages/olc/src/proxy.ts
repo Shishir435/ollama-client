@@ -80,7 +80,9 @@ export const createProxy = ({
         request.path === config.BRIDGE_PATH
       if (exempt || !config.API_KEY.trim()) return true
       return request.headers.authorization === `Bearer ${config.API_KEY}`
-    }
+    },
+    rateLimitKey: (request) =>
+      config.API_KEY.trim() ? request.headers.authorization : undefined
   })
 
   router.get(OLC_PUBLIC_ROUTES.serviceInfo, (_request, response) =>

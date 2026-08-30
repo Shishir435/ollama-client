@@ -32,7 +32,7 @@ export default defineConfig({
           // keep the faster VM pool.
           pool: COVERAGE_MODE ? "forks" : "vmThreads",
           maxWorkers: COVERAGE_MODE ? 4 : 6,
-          vmMemoryLimit: "256MB",
+          ...(COVERAGE_MODE ? {} : { vmMemoryLimit: "256MB" }),
           testTimeout: COVERAGE_MODE ? COVERAGE_TEST_TIMEOUT_MS : 5_000,
           include: [
             "src/**/*.{test,spec}.{ts,tsx}",

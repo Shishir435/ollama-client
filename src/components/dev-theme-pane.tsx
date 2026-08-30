@@ -22,6 +22,7 @@ type DragState = {
 }
 
 const DEV_THEME_STORAGE_KEY = "dev-theme-token-overrides"
+const CHANNELS = ["l", "c", "h"] as const
 
 const THEME_TOKENS: ThemeToken[] = [
   { key: "--background", label: "Background", group: "Surfaces" },
@@ -41,7 +42,6 @@ const THEME_TOKENS: ThemeToken[] = [
 ]
 
 const getRootStyle = () => getComputedStyle(document.documentElement)
-
 const readTokenValue = (key: string) =>
   getRootStyle().getPropertyValue(key).trim()
 
@@ -49,9 +49,7 @@ const parseOklch = (value: string): OklchValue | null => {
   const match = value.match(
     /^oklch\(([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+)%?)?\)$/
   )
-
   if (!match) return null
-
   return {
     l: Number(match[1]),
     c: Number(match[2]),
@@ -79,11 +77,8 @@ const readTokenParams = () => {
 const applyOverrides = (overrides?: Record<string, string>) => {
   for (const token of THEME_TOKENS) {
     const value = overrides?.[token.key]
-    if (value) {
-      document.documentElement.style.setProperty(token.key, value)
-    } else {
-      document.documentElement.style.removeProperty(token.key)
-    }
+    if (value) document.documentElement.style.setProperty(token.key, value)
+    else document.documentElement.style.removeProperty(token.key)
   }
 }
 
@@ -91,17 +86,103 @@ const sliderBackground = (value: OklchValue, channel: keyof OklchValue) => {
   if (channel === "l") {
     return `linear-gradient(90deg, oklch(0 ${value.c} ${value.h}), oklch(1 ${value.c} ${value.h}))`
   }
-
   if (channel === "c") {
     return `linear-gradient(90deg, oklch(${value.l} 0 ${value.h}), oklch(${value.l} 0.4 ${value.h}))`
   }
-
   if (channel === "h") {
     return `linear-gradient(90deg, oklch(${value.l} ${value.c} 0), oklch(${value.l} ${value.c} 60), oklch(${value.l} ${value.c} 120), oklch(${value.l} ${value.c} 180), oklch(${value.l} ${value.c} 240), oklch(${value.l} ${value.c} 300), oklch(${value.l} ${value.c} 360))`
   }
-
   return "linear-gradient(90deg, transparent, currentColor)"
 }
+
+const channelMax = (channel: keyof OklchValue): number => {
+  if (channel === "l") return 1
+  if (channel === "c") return 0.4
+  return 360
+}
+
+const channelStep = (channel: keyof OklchValue): number =>
+  channel === "h" ? 1 : 0.001
+
+const ThemeChannelEditor = ({
+  token,
+  value,
+  channel,
+  updateToken
+}: {
+  token: ThemeToken
+  value: OklchValue
+  channel: keyof OklchValue
+  updateToken: (key: string, channel: keyof OklchValue, value: number) => void
+}) => {
+  const change = (event: React.ChangeEvent<HTMLInputElement>) =>
+    updateToken(token.key, channel, Number(event.target.value))
+  return (
+    <label className="grid grid-cols-[1rem_1fr_4.25rem] items-center gap-2 text-xs">
+      <span className="font-medium text-muted-foreground uppercase">
+        {channel}
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={channelMax(channel)}
+        step={channelStep(channel)}
+        value={value[channel]}
+        className="h-2 w-full appearance-none rounded-chip accent-primary"
+        style={{ background: sliderBackground(value, channel) }}
+        onChange={change}
+      />
+      <input
+        type="number"
+        min={0}
+        max={channelMax(channel)}
+        step={channelStep(channel)}
+        value={value[channel]}
+        className="h-7 rounded-control border border-border bg-background px-1 text-right text-xs"
+        onChange={change}
+      />
+    </label>
+  )
+}
+
+const ThemeTokenEditor = ({
+  token,
+  value,
+  updateToken
+}: {
+  token: ThemeToken
+  value: OklchValue
+  updateToken: (key: string, channel: keyof OklchValue, value: number) => void
+}) => (
+  <div
+    className="border border-border bg-card p-2"
+    style={{ borderRadius: "var(--radius-panel)" }}>
+    <div className="mb-2 flex items-center gap-2">
+      <span
+        className="size-5 shrink-0 border border-border"
+        style={{
+          background: formatOklch(value),
+          borderRadius: "var(--radius-control)"
+        }}
+      />
+      <span className="min-w-0 flex-1 truncate font-medium text-sm">
+        {token.label}
+      </span>
+      <code className="text-muted-foreground text-xs">
+        {formatOklch(value)}
+      </code>
+    </div>
+    {CHANNELS.map((channel) => (
+      <ThemeChannelEditor
+        key={channel}
+        token={token}
+        value={value}
+        channel={channel}
+        updateToken={updateToken}
+      />
+    ))}
+  </div>
+)
 
 const DevThemePanel = ({
   onClose,
@@ -136,17 +217,12 @@ const DevThemePanel = ({
   const drag = (event: React.PointerEvent<HTMLDivElement>) => {
     const dragState = dragRef.current
     if (!dragState) return
-
     const nextX = dragState.x + event.clientX - dragState.startX
     const nextY = dragState.y + event.clientY - dragState.startY
     setPosition({
       x: Math.min(Math.max(8, nextX), window.innerWidth - 340),
       y: Math.min(Math.max(8, nextY), window.innerHeight - 96)
     })
-  }
-
-  const stopDrag = () => {
-    dragRef.current = null
   }
 
   const groupedTokens = useMemo(
@@ -169,8 +245,12 @@ const DevThemePanel = ({
         className="flex cursor-move select-none items-center justify-between border-border border-b bg-muted px-3 py-2 text-sm"
         onPointerDown={startDrag}
         onPointerMove={drag}
-        onPointerUp={stopDrag}
-        onPointerCancel={stopDrag}>
+        onPointerUp={() => {
+          dragRef.current = null
+        }}
+        onPointerCancel={() => {
+          dragRef.current = null
+        }}>
         <span className="font-medium">Theme Lab</span>
         <button
           type="button"
@@ -205,77 +285,14 @@ const DevThemePanel = ({
               {group}
             </h3>
             <div className="space-y-3">
-              {tokens.map((token) => {
-                const value = params[token.key]
-                return (
-                  <div
-                    key={token.key}
-                    className="border border-border bg-card p-2"
-                    style={{ borderRadius: "var(--radius-panel)" }}>
-                    <div className="mb-2 flex items-center gap-2">
-                      <span
-                        className="size-5 shrink-0 border border-border"
-                        style={{
-                          background: formatOklch(value),
-                          borderRadius: "var(--radius-control)"
-                        }}
-                      />
-                      <span className="min-w-0 flex-1 truncate font-medium text-sm">
-                        {token.label}
-                      </span>
-                      <code className="text-muted-foreground text-xs">
-                        {formatOklch(value)}
-                      </code>
-                    </div>
-                    {(["l", "c", "h"] as const).map((channel) => (
-                      <label
-                        key={channel}
-                        className="grid grid-cols-[1rem_1fr_4.25rem] items-center gap-2 text-xs">
-                        <span className="font-medium text-muted-foreground uppercase">
-                          {channel}
-                        </span>
-                        <input
-                          type="range"
-                          min={channel === "h" ? 0 : 0}
-                          max={
-                            channel === "l" ? 1 : channel === "c" ? 0.4 : 360
-                          }
-                          step={channel === "h" ? 1 : 0.001}
-                          value={value[channel]}
-                          className="h-2 w-full appearance-none rounded-chip accent-primary"
-                          style={{
-                            background: sliderBackground(value, channel)
-                          }}
-                          onChange={(event) =>
-                            updateToken(
-                              token.key,
-                              channel,
-                              Number(event.target.value)
-                            )
-                          }
-                        />
-                        <input
-                          type="number"
-                          min={channel === "h" ? 0 : 0}
-                          max={
-                            channel === "l" ? 1 : channel === "c" ? 0.4 : 360
-                          }
-                          step={channel === "h" ? 1 : 0.001}
-                          value={value[channel]}
-                          className="h-7 rounded-control border border-border bg-background px-1 text-right text-xs"
-                          onChange={(event) =>
-                            updateToken(
-                              token.key,
-                              channel,
-                              Number(event.target.value)
-                            )
-                          }
-                        />
-                      </label>
-                    ))}
-                  </div>
-                )
-              })}
+              {tokens.map((token) => (
+                <ThemeTokenEditor
+                  key={token.key}
+                  token={token}
+                  value={params[token.key]}
+                  updateToken={updateToken}
+                />
+              ))}
             </div>
           </section>
         ))}
@@ -307,20 +324,16 @@ export const DevThemePane = () => {
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return
-
-    const optionsPage = window.location.pathname.endsWith("/options.html")
-    setIsOptionsPage(optionsPage)
+    setIsOptionsPage(window.location.pathname.endsWith("/options.html"))
 
     const loadOverrides = async () => {
       const stored = await browser.storage.local.get(DEV_THEME_STORAGE_KEY)
-      // The polyfill types the result as unknown-valued; @types/chrome did not.
       overridesRef.current =
         (stored[DEV_THEME_STORAGE_KEY] as Record<string, string> | undefined) ??
         {}
       applyOverrides(overridesRef.current)
       setParams(readTokenParams())
     }
-
     void loadOverrides()
 
     const onStorageChanged = (
@@ -345,16 +358,10 @@ export const DevThemePane = () => {
     setParams((current) => {
       const next = {
         ...current,
-        [key]: {
-          ...current[key],
-          [channel]: nextValue
-        }
+        [key]: { ...current[key], [channel]: nextValue }
       }
       const formatted = formatOklch(next[key])
-      overridesRef.current = {
-        ...overridesRef.current,
-        [key]: formatted
-      }
+      overridesRef.current = { ...overridesRef.current, [key]: formatted }
       document.documentElement.style.setProperty(key, formatted)
       void browser.storage.local.set({
         [DEV_THEME_STORAGE_KEY]: overridesRef.current

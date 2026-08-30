@@ -304,6 +304,8 @@ ${lines.join("\n")}
 
 - [Developer Portal](${SITE_URL}/developers/): Local proxy quickstart, authentication, endpoints, errors, and integration guidance.
 - [OpenAPI 3.1 Specification](${SITE_URL}/openapi.json): Machine-readable schema for the local olc proxy; its servers are loopback addresses, not this website.
+- [Website JSON API](${SITE_URL}/api): Read-only service metadata, versioning, and rate-limit conventions for agents.
+- [Website API health](${SITE_URL}/api/health): Machine-readable liveness response.
 - [API Reference](${SITE_URL}/reference/): Generated TypeScript API reference.
 - [Full Markdown Docs](${SITE_URL}/llms-full.txt): All public docs in one Markdown file.
 - [GitHub Repository](https://github.com/Shishir435/ollama-client): Source code and issue tracker.
@@ -342,6 +344,7 @@ Sitemap: ${SITE_URL}/sitemap-index.xml
 Repository: https://github.com/Shishir435/ollama-client
 Developer portal: ${SITE_URL}/developers/
 OpenAPI specification: ${SITE_URL}/openapi.json
+Website JSON API: ${SITE_URL}/api
 
 When to use Ollama Client:
 - A user wants a local-first Chrome or Firefox interface for their configured LLM provider.
@@ -349,6 +352,8 @@ When to use Ollama Client:
 - The task benefits from user-controlled page context, local files, retrieval, web search, or permission-gated browser tools.
 
 Do not treat this documentation host as a model API. The olc OpenAPI servers are loopback URLs, and the extension sends requests only to provider endpoints the user configures.
+
+API compatibility: website discovery endpoints use /api and version v1. Responses include RateLimit-Policy, RateLimit, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, and X-API-Version. A 429 response includes Retry-After. The local olc API uses /v1 paths; deprecated versions will be announced in the developer portal and signaled with Deprecation and Sunset headers before removal.
 
 Preferred fetch order:
 1. Fetch /llms.txt for the docs map.
@@ -363,13 +368,30 @@ ${lines.join("\n")}
   writeFileSync(join(PUBLIC_DIR, "ai.txt"), content, "utf-8")
 }
 
+function writeNotFoundMarkdown() {
+  writeFileSync(
+    join(PUBLIC_DIR, "404.md"),
+    `# 404 — ${SITE_TITLE} page not found
+
+The requested path does not exist.
+
+- [${SITE_TITLE} home](${SITE_URL}/)
+- [Agent map](${SITE_URL}/llms.txt)
+- [Full Markdown docs](${SITE_URL}/llms-full.txt)
+- [Sitemap](${SITE_URL}/sitemap-index.xml)
+- [Developer portal and OpenAPI](${SITE_URL}/developers/)
+`,
+    "utf-8"
+  )
+}
+
 function cleanOldMarkdown() {
   rmSync(join(PUBLIC_DIR, "llms.txt"), { force: true })
   rmSync(join(PUBLIC_DIR, "llms-full.txt"), { force: true })
   rmSync(join(PUBLIC_DIR, "ai.txt"), { force: true })
 
   for (const path of walk(PUBLIC_DIR)) {
-    if (path.endsWith(".md")) {
+    if (path.endsWith(".md") && !path.endsWith("/404.md")) {
       rmSync(path, { force: true })
     }
   }
@@ -384,6 +406,7 @@ function main() {
   writeLlmsTxt(pages)
   writeLlmsFullTxt(pages)
   writeAiTxt(pages)
+  writeNotFoundMarkdown()
 
   console.log(`Generated llms.txt, llms-full.txt, ai.txt, and ${pages.length} page markdown files`)
 }

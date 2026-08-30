@@ -153,113 +153,97 @@ const OLLAMA_CAP_THINKING = "thinking"
  * Unknown capabilities resolve to `false` — the UI must not enable a feature
  * (vision input, tool calling) on a guess.
  */
-const detectModelCapabilities = (
-  input: ModelCapabilityInput
+const detectOllamaModelCapabilities = (
+  input: ModelCapabilityInput,
+  tags: string[]
 ): ModelCapabilities => {
-  const tags = input.ollamaCapabilities
-  if (tags && tags.length > 0) {
-    const has = (tag: string) => tags.includes(tag)
-    return {
-      text: has(OLLAMA_CAP_COMPLETION) || has(OLLAMA_CAP_INSERT),
-      vision: has(OLLAMA_CAP_VISION),
-      imageOutput:
-        has("image") || has("image-generation") || has("image_generation"),
-      embeddings: has(OLLAMA_CAP_EMBEDDING),
-      toolCalling: has(OLLAMA_CAP_TOOLS),
-      reasoning: has(OLLAMA_CAP_THINKING),
-      contextLength: input.contextLength,
-      source: "model-metadata",
-      confidence: "high"
-    }
+  const has = (tag: string) => tags.includes(tag)
+  return {
+    text: has(OLLAMA_CAP_COMPLETION) || has(OLLAMA_CAP_INSERT),
+    vision: has(OLLAMA_CAP_VISION),
+    imageOutput:
+      has("image") || has("image-generation") || has("image_generation"),
+    embeddings: has(OLLAMA_CAP_EMBEDDING),
+    toolCalling: has(OLLAMA_CAP_TOOLS),
+    reasoning: has(OLLAMA_CAP_THINKING),
+    contextLength: input.contextLength,
+    source: "model-metadata",
+    confidence: "high"
   }
+}
 
-  const providerCaps = getProviderCapabilities(input.providerId)
-  const lmType = input.lmStudioModelType?.toLowerCase()
-  // An empty array is a placeholder often enough that it is treated as missing
-  // evidence, the same way modalities are below — never as a reported "no".
-  const tagsReported = input.capabilityTags?.length
-    ? input.capabilityTags.map((tag) => tag.toLowerCase())
-    : undefined
-  if (lmType) {
-    const isEmbeddings = lmType === LM_STUDIO_TYPE_EMBEDDINGS
-    const isVlm = lmType === LM_STUDIO_TYPE_VLM
-    return {
-      text: !isEmbeddings,
-      vision: isVlm,
-      imageOutput: false,
-      embeddings: isEmbeddings,
-      // The model type says nothing about tools, but `capabilities[]` does when
-      // the server sends it. Without it there is nothing to read, so the
-      // provider default stands.
-      toolCalling: tagsReported
-        ? tagsReported.includes(LM_STUDIO_CAP_TOOL_USE)
+const detectLmStudioCapabilities = (
+  input: ModelCapabilityInput,
+  providerCaps: ProviderCapabilities | null | undefined,
+  lmType: string,
+  tagsReported: string[] | undefined
+): ModelCapabilities => {
+  const isEmbeddings = lmType === LM_STUDIO_TYPE_EMBEDDINGS
+  const isVlm = lmType === LM_STUDIO_TYPE_VLM
+  return {
+    text: !isEmbeddings,
+    vision: isVlm,
+    imageOutput: false,
+    embeddings: isEmbeddings,
+    toolCalling: tagsReported
+      ? tagsReported.includes(LM_STUDIO_CAP_TOOL_USE)
+      : (providerCaps?.toolCalling ?? false),
+    reasoning: false,
+    contextLength: input.contextLength,
+    source: "model-metadata",
+    confidence: "medium"
+  }
+}
+
+const normalizeReportedList = (values?: string[]): string[] | undefined =>
+  values?.length ? values.map((value) => value.toLowerCase()) : undefined
+
+const detectReportedCapabilities = (
+  input: ModelCapabilityInput,
+  providerCaps: ProviderCapabilities | null | undefined,
+  modalities: string[] | undefined,
+  outputModalities: string[] | undefined,
+  supportedParameters: string[] | undefined
+): ModelCapabilities => {
+  const supportsAnyParameter = (...names: string[]) =>
+    names.some((name) => supportedParameters?.includes(name))
+  return {
+    text:
+      modalities?.includes("text") ??
+      (providerCaps?.chat === true || modalities === undefined),
+    vision: modalities?.includes("image") ?? false,
+    imageOutput: outputModalities?.includes("image") ?? false,
+    embeddings: providerCaps?.embeddings ?? false,
+    toolCalling:
+      supportedParameters !== undefined
+        ? supportsAnyParameter("tools", "tool_choice")
         : (providerCaps?.toolCalling ?? false),
-      reasoning: false,
-      contextLength: input.contextLength,
-      source: "model-metadata",
-      // Stays medium even with tags present. This confidence covers the whole
-      // result, and most of it still comes from the model *type*, which is a
-      // category rather than a statement about this model. Claiming high here
-      // would have marked a reasoning model as definitively non-reasoning.
-      confidence: "medium"
-    }
+    reasoning:
+      supportedParameters !== undefined
+        ? supportsAnyParameter(
+            "reasoning",
+            "reasoning_effort",
+            "include_reasoning"
+          )
+        : false,
+    contextLength: input.contextLength,
+    source: "model-metadata",
+    confidence: "high"
   }
+}
 
-  // Empty catalog arrays are frequently placeholders, not authoritative
-  // negatives. Treat them as missing evidence and fall back to probes,
-  // overrides, or provider defaults.
-  const modalities = input.modalities?.length
-    ? input.modalities.map((value) => value.toLowerCase())
-    : undefined
-  const supportedParameters = input.supportedParameters?.length
-    ? input.supportedParameters.map((value) => value.toLowerCase())
-    : undefined
-  const outputModalities = input.outputModalities?.length
-    ? input.outputModalities.map((value) => value.toLowerCase())
-    : undefined
-  if (
-    modalities !== undefined ||
-    outputModalities !== undefined ||
-    supportedParameters !== undefined
-  ) {
-    const supportsAnyParameter = (...names: string[]) =>
-      names.some((name) => supportedParameters?.includes(name))
-    return {
-      text:
-        modalities?.includes("text") ??
-        (providerCaps?.chat === true || modalities === undefined),
-      vision: modalities?.includes("image") ?? false,
-      imageOutput: outputModalities?.includes("image") ?? false,
-      embeddings: providerCaps?.embeddings ?? false,
-      toolCalling:
-        supportedParameters !== undefined
-          ? supportsAnyParameter("tools", "tool_choice")
-          : (providerCaps?.toolCalling ?? false),
-      reasoning:
-        supportedParameters !== undefined
-          ? supportsAnyParameter(
-              "reasoning",
-              "reasoning_effort",
-              "include_reasoning"
-            )
-          : false,
-      contextLength: input.contextLength,
-      source: "model-metadata",
-      confidence: "high"
-    }
-  }
-
+const detectProviderDefaultCapabilities = (
+  input: ModelCapabilityInput,
+  providerCaps: ProviderCapabilities | null | undefined
+): ModelCapabilities => {
   const isOllama =
     input.providerId === ProviderId.OLLAMA ||
     customProviderWireFromId(String(input.providerId)) === "ollama"
-
   return {
     text: providerCaps?.chat ?? true,
     vision: false,
     imageOutput: false,
     embeddings: providerCaps?.embeddings ?? false,
-    // Ollama supports tool transport, but model support is tag-based. If
-    // /api/show metadata is missing, keep model-level tools off.
     toolCalling: isOllama ? false : (providerCaps?.toolCalling ?? false),
     reasoning: false,
     contextLength: input.contextLength,
@@ -268,7 +252,37 @@ const detectModelCapabilities = (
   }
 }
 
+const detectModelCapabilities = (
+  input: ModelCapabilityInput
+): ModelCapabilities => {
+  const tags = input.ollamaCapabilities
+  if (tags?.length) return detectOllamaModelCapabilities(input, tags)
+
+  const providerCaps = getProviderCapabilities(input.providerId)
+  const lmType = input.lmStudioModelType?.toLowerCase()
+  const tagsReported = normalizeReportedList(input.capabilityTags)
+  if (lmType) {
+    return detectLmStudioCapabilities(input, providerCaps, lmType, tagsReported)
+  }
+
+  const modalities = normalizeReportedList(input.modalities)
+  const outputModalities = normalizeReportedList(input.outputModalities)
+  const supportedParameters = normalizeReportedList(input.supportedParameters)
+  if (modalities || outputModalities || supportedParameters) {
+    return detectReportedCapabilities(
+      input,
+      providerCaps,
+      modalities,
+      outputModalities,
+      supportedParameters
+    )
+  }
+
+  return detectProviderDefaultCapabilities(input, providerCaps)
+}
+
 /**
+ * Resolve normalized, model-level capabilities/**
  * Resolve normalized, model-level capabilities, applying any user override on
  * top of detection. Resolution order: user override → probe result → model
  * metadata → provider default.
@@ -335,6 +349,103 @@ const capabilityStatus = (value: boolean): CapabilityStatus =>
  * using `getModelCapabilities` booleans during migration; new RPC/enforcement
  * code can distinguish a real negative from missing evidence.
  */
+const metadataOwnsCapabilityFlag = (
+  flag: keyof Pick<
+    ModelCapabilities,
+    | "text"
+    | "vision"
+    | "imageOutput"
+    | "embeddings"
+    | "toolCalling"
+    | "reasoning"
+  >,
+  input: ModelCapabilityInput
+): boolean => {
+  const tagsAvailable = Boolean(input.ollamaCapabilities?.length)
+  if (tagsAvailable) return true
+  if (input.modalities?.length && (flag === "text" || flag === "vision"))
+    return true
+  if (input.outputModalities?.length && flag === "imageOutput") return true
+  if (
+    input.supportedParameters?.length &&
+    (flag === "toolCalling" || flag === "reasoning")
+  ) {
+    return true
+  }
+  const lmTypeAvailable = Boolean(input.lmStudioModelType)
+  if (
+    lmTypeAvailable &&
+    (flag === "text" || flag === "vision" || flag === "embeddings")
+  ) {
+    return true
+  }
+  return Boolean(
+    lmTypeAvailable && input.capabilityTags?.length && flag === "toolCalling"
+  )
+}
+
+const explicitCapabilityState = (
+  flag: keyof Pick<
+    ModelCapabilities,
+    | "text"
+    | "vision"
+    | "imageOutput"
+    | "embeddings"
+    | "toolCalling"
+    | "reasoning"
+  >,
+  input: ModelCapabilityInput
+): ModelCapabilityState | undefined => {
+  const override = input.override?.[flag]
+  if (typeof override === "boolean") {
+    return {
+      status: capabilityStatus(override),
+      source: "user-override",
+      confidence: "high"
+    }
+  }
+  const probed =
+    flag === "toolCalling" || flag === "reasoning" || flag === "vision"
+      ? input.probed?.[flag]
+      : undefined
+  if (typeof probed !== "boolean") return undefined
+  return {
+    status: capabilityStatus(probed),
+    source: "probed",
+    confidence: "medium"
+  }
+}
+
+const providerDefaultCapabilityState = (
+  flag: keyof Pick<
+    ModelCapabilities,
+    | "text"
+    | "vision"
+    | "imageOutput"
+    | "embeddings"
+    | "toolCalling"
+    | "reasoning"
+  >,
+  providerCaps: ProviderCapabilities | null | undefined
+): ModelCapabilityState => {
+  const providerValue =
+    flag === "text"
+      ? providerCaps?.chat
+      : flag === "embeddings"
+        ? providerCaps?.embeddings
+        : flag === "toolCalling"
+          ? providerCaps?.toolCalling
+          : undefined
+  return {
+    status:
+      typeof providerValue === "boolean"
+        ? capabilityStatus(providerValue)
+        : "unknown",
+    source: "provider-default",
+    confidence: "low"
+  }
+}
+
 export const getModelCapabilityStates = (
   input: ModelCapabilityInput
 ): ModelCapabilityStates => {
@@ -348,52 +459,15 @@ export const getModelCapabilityStates = (
     "reasoning"
   ] as const
   const states = {} as ModelCapabilityStates
-  const tagsAvailable = Boolean(input.ollamaCapabilities?.length)
-  const modalitiesAvailable = Boolean(input.modalities?.length)
-  const outputModalitiesAvailable = Boolean(input.outputModalities?.length)
-  const parametersAvailable = Boolean(input.supportedParameters?.length)
-  const lmTypeAvailable = Boolean(input.lmStudioModelType)
-  const capabilityTagsAvailable = Boolean(input.capabilityTags?.length)
   const providerCaps = getProviderCapabilities(input.providerId)
 
   for (const flag of flags) {
-    const override = input.override?.[flag]
-    if (typeof override === "boolean") {
-      states[flag] = {
-        status: capabilityStatus(override),
-        source: "user-override",
-        confidence: "high"
-      }
+    const explicit = explicitCapabilityState(flag, input)
+    if (explicit) {
+      states[flag] = explicit
       continue
     }
-
-    const probed =
-      flag === "toolCalling" || flag === "reasoning" || flag === "vision"
-        ? input.probed?.[flag]
-        : undefined
-    if (typeof probed === "boolean") {
-      states[flag] = {
-        status: capabilityStatus(probed),
-        source: "probed",
-        confidence: "medium"
-      }
-      continue
-    }
-
-    const metadataOwnsFlag =
-      tagsAvailable ||
-      (modalitiesAvailable && (flag === "text" || flag === "vision")) ||
-      (outputModalitiesAvailable && flag === "imageOutput") ||
-      (parametersAvailable &&
-        (flag === "toolCalling" || flag === "reasoning")) ||
-      (lmTypeAvailable &&
-        (flag === "text" || flag === "vision" || flag === "embeddings")) ||
-      // Reported tags own tool calling, but only where detection reads them:
-      // inside the LM Studio model-type branch. Claiming them without a type
-      // would credit the catalog for a value detection took from the provider
-      // default — the two answers must agree.
-      (lmTypeAvailable && capabilityTagsAvailable && flag === "toolCalling")
-    if (metadataOwnsFlag) {
+    if (metadataOwnsCapabilityFlag(flag, input)) {
       states[flag] = {
         status: capabilityStatus(resolved[flag]),
         source: "model-metadata",
@@ -401,25 +475,8 @@ export const getModelCapabilityStates = (
       }
       continue
     }
-
-    const providerValue =
-      flag === "text"
-        ? providerCaps?.chat
-        : flag === "embeddings"
-          ? providerCaps?.embeddings
-          : flag === "toolCalling"
-            ? providerCaps?.toolCalling
-            : undefined
-    states[flag] = {
-      status:
-        typeof providerValue === "boolean"
-          ? capabilityStatus(providerValue)
-          : "unknown",
-      source: "provider-default",
-      confidence: "low"
-    }
+    states[flag] = providerDefaultCapabilityState(flag, providerCaps)
   }
-
   return states
 }
 
