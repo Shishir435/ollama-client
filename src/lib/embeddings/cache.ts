@@ -55,17 +55,14 @@ export const cleanSearchCache = async (): Promise<void> => {
   const { ttl, maxSize } = await getCacheConfig()
   const now = Date.now()
   for (const [key, entry] of searchCache.entries()) {
-    if (now - entry.timestamp > ttl) {
-      searchCache.delete(key)
-    }
+    if (now - entry.timestamp > ttl) searchCache.delete(key)
   }
 
-  // If cache is still too large, remove oldest entries
   if (searchCache.size > maxSize) {
-    const entries = Array.from(searchCache.entries())
-    entries.sort((a, b) => a[1].timestamp - b[1].timestamp)
-    const toRemove = entries.slice(0, searchCache.size - maxSize)
-    for (const [key] of toRemove) {
+    const entries = Array.from(searchCache.entries()).sort(
+      (a, b) => a[1].timestamp - b[1].timestamp
+    )
+    for (const [key] of entries.slice(0, searchCache.size - maxSize)) {
       searchCache.delete(key)
     }
   }

@@ -86,6 +86,10 @@ export const DOC_SECTIONS = [
       {
         label: "Frontend Design System",
         slug: "internal/frontend-design-system"
+      },
+      {
+        label: "Performance Audit",
+        slug: "internal/performance-audit"
       }
     ]
   },
