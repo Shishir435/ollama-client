@@ -36,6 +36,7 @@ const jsonLd = {
     {
       "@type": "SoftwareApplication",
       name: SITE_TITLE,
+      alternateName: "Ollama Client local AI browser extension",
       description,
       applicationCategory: "BrowserApplication",
       operatingSystem: "Chrome, Firefox",
@@ -54,6 +55,10 @@ const jsonLd = {
       downloadUrl:
         "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
       codeRepository: "https://github.com/Shishir435/ollama-client",
+      sameAs: [
+        "https://github.com/Shishir435/ollama-client",
+        "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl"
+      ],
       softwareVersion: APP_VERSION
     },
     {
@@ -147,7 +152,7 @@ const stack = [
     <h1
       class="mt-5 max-w-3xl text-balance text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl"
     >
-      Chat with local LLMs, right in your browser.
+      Ollama Client — chat with local LLMs, right in your browser.
     </h1>
     <p class="mt-5 max-w-2xl text-balance text-[15px] leading-relaxed text-foreground/70">
       Ollama Client is an open-source browser extension for Ollama, LM Studio,

@@ -129,6 +129,23 @@ Non-streaming errors use an OpenAI-style JSON envelope:
 
 Common statuses are `400` for malformed requests or stale tool results, `401` for an invalid bearer token, `403` for a disallowed browser origin, `404` for an unknown route or model, `502` for a backend failure, `503` for a stalled request queue, and `504` for a timeout. A stream that fails after headers were sent reports a final proxy-error text delta because the HTTP status can no longer change.
 
+## Versioning, rate limits, and deprecation
+
+The local proxy's public API is versioned in its URL under `/v1`. Clients should
+use the documented versioned routes and inspect `X-API-Version` in responses.
+The proxy publishes the RFC RateLimit fields (`RateLimit-Policy`, `RateLimit`,
+`RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset`) on API
+responses. When a client exceeds the configured window it receives `429` with
+`Retry-After`; retry with exponential backoff and do not blindly replay a
+non-idempotent generation.
+
+No `/v1` route is removed without advance notice. A future deprecated route
+will return the standard `Deprecation` response header and a `Sunset` HTTP date
+at least 30 days before removal. The migration and replacement route will be
+documented here and in the OpenAPI specification. The website's read-only
+discovery surface is available at [`/api`](/api) and uses the same header
+conventions.
+
 ## Agent integration guidance
 
 Use olc when the caller already supports OpenAI chat completions and needs a local agent runtime, particularly when the caller—not the runtime—owns tool execution and approval. Inspect `/v1/models` before choosing modalities or tools. Prefer non-streaming responses when a simple function runner cannot parse server-sent events.

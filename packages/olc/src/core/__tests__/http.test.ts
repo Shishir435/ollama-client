@@ -56,8 +56,11 @@ describe("isOriginAllowed", () => {
 describe("router origin policy", () => {
   let server: Server | null = null
 
-  const startServer = async (allowedOrigins: string[]) => {
-    const router = createRouter({ allowedOrigins })
+  const startServer = async (
+    allowedOrigins: string[],
+    rateLimit?: { limit: number; windowMs: number }
+  ) => {
+    const router = createRouter({ allowedOrigins, rateLimit })
     router.post("/v1/chat/completions", (_request, response) =>
       sendJson(response, 200, { ok: true })
     )
@@ -123,5 +126,30 @@ describe("router origin policy", () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get("access-control-allow-origin")).toBeNull()
+  })
+
+  it("returns machine-readable errors and rate-limit guidance", async () => {
+    const url = await startServer([], { limit: 1, windowMs: 60_000 })
+
+    const first = await fetch(`${url}/missing`)
+    expect(first.status).toBe(404)
+    expect(first.headers.get("content-type")).toContain("application/json")
+    expect(first.headers.get("x-api-version")).toBe("1")
+    expect(first.headers.get("ratelimit-remaining")).toBe("0")
+    expect(await first.json()).toEqual({
+      error: {
+        type: "NotFound",
+        code: "route_not_found",
+        message: "No route for GET /missing.",
+        resolution:
+          "Use GET /, GET /health, GET /v1/models, or a documented /v1 endpoint."
+      }
+    })
+
+    const limited = await fetch(`${url}/missing`)
+    expect(limited.status).toBe(429)
+    expect(limited.headers.get("retry-after")).toBeTruthy()
+    const errorBody = (await limited.json()) as { error: { code: string } }
+    expect(errorBody.error.code).toBe("rate_limit_exceeded")
   })
 })
