@@ -1,4 +1,5 @@
 import type Dexie from "dexie"
+import { EmbeddingService } from "@/application/embeddings/embedding-service"
 import {
   DEFAULT_EMBEDDING_MODEL,
   normalizeEmbeddingModelName
@@ -14,7 +15,6 @@ import {
 } from "./cache"
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
-import { generateEmbedding } from "./embedding-client"
 import { cosineSimilarityOptimized, normalizeVector } from "./math"
 import type { SearchResult, VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
@@ -548,7 +548,7 @@ export const retrieveContext = async (
     type?: VectorDocument["metadata"]["type"]
   } = {}
 ): Promise<string> => {
-  const embeddingResult = await generateEmbedding(query)
+  const embeddingResult = await EmbeddingService.generate(query)
   if ("error" in embeddingResult) {
     logger.warn(
       "Failed to generate embedding for context retrieval",

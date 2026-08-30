@@ -9,6 +9,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Changed
+
+- Embedding generation from extension pages now crosses the validated,
+  background-owned `embeddings.generate` RPC. The RPC preserves model/provider
+  identity, forwards cancellation, and bounds stalled provider work with a
+  generous 15-minute deadline. Background RAG uses an application service seam;
+  full strategy/cache ownership migration continues in 0.13.3.
+
 ## [0.13.2]
 
 ### Added
