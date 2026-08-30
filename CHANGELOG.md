@@ -21,6 +21,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Fixed
 
+- File RAG keyword search now indexes filenames, so questions referencing
+  hyphenated filenames such as `ChatGPT-Memory.txt` retrieve their contents.
+
 - RAG query reformulation now reuses the selected model's context, thread, GPU,
   batch, and keep-alive settings. Ollama no longer restarts the runner between a
   rewrite request using its default 4K context and a chat request using the
