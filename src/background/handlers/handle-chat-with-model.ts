@@ -245,7 +245,8 @@ export const handleChatWithModel = withErrorContext(
     const resolvedCapabilities = await resolveModelCapabilities(
       model,
       providerId,
-      provider
+      provider,
+      ac.signal
     )
     const { capabilities } = resolvedCapabilities
     const imageGenerator = capabilities.imageOutput
@@ -272,7 +273,8 @@ export const handleChatWithModel = withErrorContext(
           providerId,
           provider,
           latestUserText,
-          resolvedCapabilities
+          resolvedCapabilities,
+          ac.signal
         )
     const nativeTools =
       resolvedTools?.mode === "native" ? resolvedTools.tools : undefined

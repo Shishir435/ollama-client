@@ -98,4 +98,31 @@ describe("processKnowledgeBatch", () => {
     expect(results.get("f2")?.success).toBe(true)
     expect(chunker.chunkDocuments).toHaveBeenCalledTimes(2)
   })
+
+  it("propagates cancellation between files", async () => {
+    vi.mocked(chunker.chunkDocuments).mockResolvedValue([
+      { pageContent: "chunk", metadata: {} }
+    ])
+    vi.mocked(vectorStore.fromDocuments).mockResolvedValue([1])
+    const controller = new AbortController()
+    const onProgress = vi.fn((_fileId, progress) => {
+      if (progress.status === "completed") controller.abort()
+    })
+
+    await expect(
+      processKnowledgeBatch(
+        [
+          {
+            fileId: "f1",
+            fileName: "1.txt",
+            content: "c1",
+            contentType: "txt"
+          },
+          { fileId: "f2", fileName: "2.txt", content: "c2", contentType: "txt" }
+        ],
+        onProgress,
+        controller.signal
+      )
+    ).rejects.toMatchObject({ name: "AbortError" })
+  })
 })

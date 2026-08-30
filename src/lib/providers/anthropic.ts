@@ -758,7 +758,7 @@ export class AnthropicProvider implements LLMProvider {
     }
   }
 
-  async getModelDetails(): Promise<null> {
+  async getModelDetails(_model?: string, _signal?: AbortSignal): Promise<null> {
     return null
   }
 
