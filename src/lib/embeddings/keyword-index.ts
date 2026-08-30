@@ -50,14 +50,22 @@ const toIndexDocument = (document: VectorDocument): KeywordIndexDocument => ({
  * Provides fast exact keyword matching to complement semantic search
  */
 class KeywordIndexManager {
-  private index: MiniSearch<{ id: number; content: string; timestamp: number }>
+  private index: MiniSearch<{
+    id: number
+    content: string
+    searchText: string
+    timestamp: number
+  }>
   private documents: Map<number, KeywordIndexDocument> = new Map()
   /** Running total of retained content, so stats never walk the corpus. */
   private retainedContentChars = 0
 
   constructor() {
     this.index = new MiniSearch({
-      fields: ["content"], // Fields to index
+      // Include source/title so filename-only questions can retrieve their
+      // chunks. Keep content separately for the stored projection returned to
+      // callers.
+      fields: ["searchText"],
       storeFields: ["content", "timestamp"], // Fields to store
       idField: "id",
       searchOptions: {
@@ -82,9 +90,16 @@ class KeywordIndexManager {
       const projected = toIndexDocument(document)
       this.documents.set(id, projected)
       this.retainedContentChars += projected.content.length
+      const searchableMetadata = [
+        projected.metadata.source,
+        projected.metadata.title
+      ]
+        .filter(Boolean)
+        .join(" ")
       this.index.add({
         id,
         content: content.toLowerCase(), // Normalize for better matching
+        searchText: `${content} ${searchableMetadata}`.toLowerCase(),
         timestamp: document.metadata.timestamp
       })
     } catch (error) {
@@ -143,6 +158,7 @@ class KeywordIndexManager {
         this.index.remove({ id } as {
           id: number
           content: string
+          searchText: string
           timestamp: number
         })
         this.documents.delete(id)
