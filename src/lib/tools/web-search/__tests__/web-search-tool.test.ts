@@ -53,6 +53,7 @@ vi.mock("../registry", () => ({
 
 describe("web_search tool", () => {
   beforeEach(() => {
+    lastQuery.current = null
     configState.current = {
       provider: "searxng",
       enabled: false,
@@ -86,6 +87,22 @@ describe("web_search tool", () => {
     expect(tools.map((tool) => tool.name)).toEqual(["web_search"])
   })
 
+  it("lists native intent without requiring a client backend", async () => {
+    configState.current = {
+      provider: "brave",
+      enabled: true,
+      executionSource: "native",
+      nativeMode: "live"
+    }
+    const { createWebSearchToolSource } = await import(
+      "../web-search-tool-source"
+    )
+
+    await expect(createWebSearchToolSource().listTools()).resolves.toHaveLength(
+      1
+    )
+  })
+
   it("returns normalized content with sources", async () => {
     configState.current.enabled = true
     const { runWebSearch } = await import("../web-search-tool")
@@ -104,6 +121,17 @@ describe("web_search tool", () => {
         used: true
       }
     ])
+  })
+
+  it("fails closed when native-only intent reaches the client executor", async () => {
+    configState.current.enabled = true
+    configState.current.executionSource = "native"
+    const { runWebSearch } = await import("../web-search-tool")
+
+    await expect(runWebSearch({ query: "private query" }, {})).resolves.toEqual(
+      expect.objectContaining({ isError: true })
+    )
+    expect(lastQuery.current).toBeNull()
   })
 
   it("marks results beyond the cap as unused and only sends the cap to the model", async () => {

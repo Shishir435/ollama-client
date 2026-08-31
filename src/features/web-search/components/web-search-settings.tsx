@@ -1,4 +1,4 @@
-import { CheckCircle, Loader2, Search, TriangleAlert } from "lucide-react"
+import { CheckCircle, Info, Loader2, Search, TriangleAlert } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -22,7 +22,9 @@ import {
   BRAVE_SEARCH_ENDPOINT,
   getWebSearchBackend,
   listWebSearchBackends,
+  type NativeWebSearchMode,
   TAVILY_SEARCH_ENDPOINT,
+  type WebSearchExecutionSource,
   type WebSearchProviderConfig,
   type WebSearchProviderId,
   type WebSearchSafeSearch
@@ -41,6 +43,12 @@ const providerFields: Record<
 }
 
 const safeSearchValues: WebSearchSafeSearch[] = ["off", "moderate", "strict"]
+const executionSources: WebSearchExecutionSource[] = [
+  "native",
+  "auto",
+  "client"
+]
+const nativeModes: NativeWebSearchMode[] = ["cached", "indexed", "live"]
 
 const providerBaseUrls: Partial<Record<WebSearchProviderId, string>> = {
   brave: BRAVE_SEARCH_ENDPOINT,
@@ -60,6 +68,8 @@ export const WebSearchSettings = () => {
   }, [])
 
   const backend = getWebSearchBackend(config.provider)
+  const executionSource = config.executionSource ?? "client"
+  const nativeMode = config.nativeMode ?? "cached"
   const visibleFields = providerFields[config.provider] ?? []
   const providerBaseUrl = providerBaseUrls[config.provider]
 
@@ -135,24 +145,30 @@ export const WebSearchSettings = () => {
 
       <div className="grid gap-4 md:grid-cols-2">
         <SettingsFormField
-          htmlFor="web-search-provider"
-          label={t("settings.web_search.provider.label")}
-          description={t("settings.web_search.provider.description")}
+          htmlFor="web-search-execution-source"
+          label={t("settings.web_search.execution_source.label")}
+          description={t("settings.web_search.execution_source.description")}
           className="min-w-0"
-          focusId="web-search-provider">
+          focusId="web-search-execution-source">
           <Select
-            value={config.provider}
-            onValueChange={(provider) =>
-              update({ provider: provider as WebSearchProviderId })
+            value={executionSource}
+            onValueChange={(executionSource) =>
+              update({
+                executionSource: executionSource as WebSearchExecutionSource
+              })
             }>
-            <SelectTrigger id="web-search-provider" className="w-full">
-              <SelectValue />
+            <SelectTrigger id="web-search-execution-source" className="w-full">
+              <SelectValue>
+                {() =>
+                  t(`settings.web_search.execution_source.${executionSource}`)
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {listWebSearchBackends().map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {t(item.labelKey)}
+                {executionSources.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {t(`settings.web_search.execution_source.${value}`)}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -160,132 +176,209 @@ export const WebSearchSettings = () => {
           </Select>
         </SettingsFormField>
 
-        <SettingsFormField
-          htmlFor="web-search-safe-search"
-          label={t("settings.web_search.safe_search.label")}
-          description={t("settings.web_search.safe_search.description")}
-          className="min-w-0"
-          focusId="web-search-safe-search">
-          <Select
-            value={config.safeSearch}
-            onValueChange={(safeSearch) =>
-              update({ safeSearch: safeSearch as WebSearchSafeSearch })
-            }>
-            <SelectTrigger id="web-search-safe-search" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {safeSearchValues.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {t(`settings.web_search.safe_search.${value}`)}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </SettingsFormField>
+        {executionSource !== "client" && (
+          <SettingsFormField
+            htmlFor="web-search-native-mode"
+            label={t("settings.web_search.native_mode.label")}
+            description={t("settings.web_search.native_mode.description")}
+            className="min-w-0"
+            focusId="web-search-native-mode">
+            <Select
+              value={nativeMode}
+              onValueChange={(nativeMode) =>
+                update({ nativeMode: nativeMode as NativeWebSearchMode })
+              }>
+              <SelectTrigger id="web-search-native-mode" className="w-full">
+                <SelectValue>
+                  {() => t(`settings.web_search.native_mode.${nativeMode}`)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {nativeModes.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {t(`settings.web_search.native_mode.${value}`)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </SettingsFormField>
+        )}
       </div>
 
-      {visibleFields.includes("endpoint") && (
-        <SettingsFormField
-          htmlFor="web-search-endpoint"
-          label={t("settings.web_search.endpoint.label")}
-          description={t("settings.web_search.endpoint.description")}
-          focusId="web-search-endpoint">
-          <Input
-            id="web-search-endpoint"
-            type="url"
-            value={config.endpoint ?? ""}
-            placeholder="http://localhost:8080"
-            onChange={(event) => update({ endpoint: event.target.value })}
-          />
-        </SettingsFormField>
-      )}
-
-      {providerBaseUrl && (
-        <SettingsFormField
-          label={t("settings.web_search.base_url.label")}
-          description={t("settings.web_search.base_url.description")}>
-          <div className="rounded-control border border-border bg-muted/20 px-3 py-2 font-mono text-xs text-muted-foreground">
-            {providerBaseUrl}
-          </div>
-        </SettingsFormField>
-      )}
-
-      {visibleFields.includes("apiKey") && (
-        <SettingsFormField
-          htmlFor="web-search-api-key"
-          label={t("settings.web_search.api_key.label")}
-          description={t("settings.web_search.api_key.description")}
-          focusId="web-search-api-key">
-          <Input
-            id="web-search-api-key"
-            type="password"
-            autoComplete="off"
-            value={config.apiKey ?? ""}
-            onChange={(event) => update({ apiKey: event.target.value })}
-          />
-        </SettingsFormField>
-      )}
-
-      {config.provider === "searxng" && (
-        <SettingsSliderField
-          label={t("settings.web_search.searxng_pages.label")}
-          description={t("settings.web_search.searxng_pages.description")}
-          value={config.searxngPages ?? 1}
-          min={1}
-          max={3}
-          step={1}
-          onValueChange={(searxngPages) => update({ searxngPages })}
-          valueLabel={t("settings.web_search.searxng_pages.value", {
-            count: config.searxngPages ?? 1
-          })}
-        />
-      )}
-
-      <SettingsSliderField
-        focusId="web-search-result-count"
-        label={t("settings.web_search.result_count.label")}
-        description={t("settings.web_search.result_count.description")}
-        value={config.count ?? 5}
-        min={1}
-        max={10}
-        step={1}
-        onValueChange={(count) => update({ count })}
-        valueLabel={t("settings.web_search.result_count.value", {
-          count: config.count ?? 5
-        })}
+      <StatusAlert
+        variant="info"
+        icon={Info}
+        title={t("settings.web_search.privacy.title")}
+        description={t(`settings.web_search.privacy.${executionSource}`)}
       />
 
-      <div className="flex items-center gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={testSearch}
-          disabled={isTesting || !backend}>
-          {isTesting ? (
-            <Loader2 className="icon-md animate-spin" />
-          ) : (
-            <Search className="icon-md" />
-          )}
-          {t("settings.web_search.test.button")}
-        </Button>
-      </div>
+      {executionSource !== "native" && (
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            <SettingsFormField
+              htmlFor="web-search-provider"
+              label={t("settings.web_search.provider.label")}
+              description={t("settings.web_search.provider.description")}
+              className="min-w-0"
+              focusId="web-search-provider">
+              <Select
+                value={config.provider}
+                onValueChange={(provider) =>
+                  update({ provider: provider as WebSearchProviderId })
+                }>
+                <SelectTrigger id="web-search-provider" className="w-full">
+                  <SelectValue>
+                    {() => (backend ? t(backend.labelKey) : config.provider)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {listWebSearchBackends().map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {t(item.labelKey)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </SettingsFormField>
 
-      {testState === "success" && (
-        <StatusAlert
-          variant="success"
-          icon={CheckCircle}
-          title={t("settings.web_search.test.success_title")}
-        />
-      )}
-      {testState === "error" && (
-        <StatusAlert
-          variant="destructive"
-          icon={TriangleAlert}
-          title={t("settings.web_search.test.error_title")}
-        />
+            <SettingsFormField
+              htmlFor="web-search-safe-search"
+              label={t("settings.web_search.safe_search.label")}
+              description={t("settings.web_search.safe_search.description")}
+              className="min-w-0"
+              focusId="web-search-safe-search">
+              <Select
+                value={config.safeSearch}
+                onValueChange={(safeSearch) =>
+                  update({ safeSearch: safeSearch as WebSearchSafeSearch })
+                }>
+                <SelectTrigger id="web-search-safe-search" className="w-full">
+                  <SelectValue>
+                    {() =>
+                      t(
+                        `settings.web_search.safe_search.${config.safeSearch ?? "moderate"}`
+                      )
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {safeSearchValues.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {t(`settings.web_search.safe_search.${value}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </SettingsFormField>
+          </div>
+
+          {visibleFields.includes("endpoint") && (
+            <SettingsFormField
+              htmlFor="web-search-endpoint"
+              label={t("settings.web_search.endpoint.label")}
+              description={t("settings.web_search.endpoint.description")}
+              focusId="web-search-endpoint">
+              <Input
+                id="web-search-endpoint"
+                type="url"
+                value={config.endpoint ?? ""}
+                placeholder="http://localhost:8080"
+                onChange={(event) => update({ endpoint: event.target.value })}
+              />
+            </SettingsFormField>
+          )}
+
+          {providerBaseUrl && (
+            <SettingsFormField
+              label={t("settings.web_search.base_url.label")}
+              description={t("settings.web_search.base_url.description")}>
+              <div className="rounded-control border border-border bg-muted/20 px-3 py-2 font-mono text-xs text-muted-foreground">
+                {providerBaseUrl}
+              </div>
+            </SettingsFormField>
+          )}
+
+          {visibleFields.includes("apiKey") && (
+            <SettingsFormField
+              htmlFor="web-search-api-key"
+              label={t("settings.web_search.api_key.label")}
+              description={t("settings.web_search.api_key.description")}
+              focusId="web-search-api-key">
+              <Input
+                id="web-search-api-key"
+                type="password"
+                autoComplete="off"
+                value={config.apiKey ?? ""}
+                onChange={(event) => update({ apiKey: event.target.value })}
+              />
+            </SettingsFormField>
+          )}
+
+          {config.provider === "searxng" && (
+            <SettingsSliderField
+              label={t("settings.web_search.searxng_pages.label")}
+              description={t("settings.web_search.searxng_pages.description")}
+              value={config.searxngPages ?? 1}
+              min={1}
+              max={3}
+              step={1}
+              onValueChange={(searxngPages) => update({ searxngPages })}
+              valueLabel={t("settings.web_search.searxng_pages.value", {
+                count: config.searxngPages ?? 1
+              })}
+            />
+          )}
+
+          <SettingsSliderField
+            focusId="web-search-result-count"
+            label={t("settings.web_search.result_count.label")}
+            description={t("settings.web_search.result_count.description")}
+            value={config.count ?? 5}
+            min={1}
+            max={10}
+            step={1}
+            onValueChange={(count) => update({ count })}
+            valueLabel={t("settings.web_search.result_count.value", {
+              count: config.count ?? 5
+            })}
+          />
+
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={testSearch}
+              disabled={isTesting || !backend}>
+              {isTesting ? (
+                <Loader2 className="icon-md animate-spin" />
+              ) : (
+                <Search className="icon-md" />
+              )}
+              {t("settings.web_search.test.button")}
+            </Button>
+          </div>
+
+          {testState === "success" && (
+            <StatusAlert
+              variant="success"
+              icon={CheckCircle}
+              title={t("settings.web_search.test.success_title")}
+            />
+          )}
+          {testState === "error" && (
+            <StatusAlert
+              variant="destructive"
+              icon={TriangleAlert}
+              title={t("settings.web_search.test.error_title")}
+            />
+          )}
+        </>
       )}
     </div>
   )

@@ -53,6 +53,22 @@ const baseDefinitions: ToolDefinition[] = [
 // Mutable so a test can swap in a vision-only tool; reset in afterEach.
 let definitions: ToolDefinition[] = baseDefinitions
 
+const definitionsWithWebSearchPolicy = () =>
+  definitions.map((definition) =>
+    definition.name === "web_search"
+      ? {
+          ...definition,
+          parameters: {
+            ...definition.parameters,
+            "x-ollama-client-web-search": {
+              source: "client" as const,
+              mode: "cached" as const
+            }
+          }
+        }
+      : definition
+  )
+
 const captureScreenshotTool: ToolDefinition = {
   name: "capture_screenshot",
   description: "Screenshot the tab",
@@ -145,7 +161,10 @@ describe("resolveModelTools", () => {
 
     await expect(
       resolveModelTools("qwen", "ollama", provider)
-    ).resolves.toEqual({ tools: definitions, mode: "native" })
+    ).resolves.toEqual({
+      tools: definitionsWithWebSearchPolicy(),
+      mode: "native"
+    })
     expect(getModelDetails).toHaveBeenCalledTimes(2)
   })
 
@@ -169,7 +188,10 @@ describe("resolveModelTools", () => {
   it("offers all tools when every family is enabled (default)", async () => {
     await expect(
       resolveModelTools("qwen", "ollama", toolModel())
-    ).resolves.toEqual({ tools: definitions, mode: "native" })
+    ).resolves.toEqual({
+      tools: definitionsWithWebSearchPolicy(),
+      mode: "native"
+    })
   })
 
   it("offers no tools when the master switch is off", async () => {
@@ -259,7 +281,10 @@ describe("resolveModelTools", () => {
 
     expect(getModelDetails).toHaveBeenCalledOnce()
     expect(getModels).toHaveBeenCalledOnce()
-    expect(resolved).toEqual({ tools: definitions, mode: "native" })
+    expect(resolved).toEqual({
+      tools: definitionsWithWebSearchPolicy(),
+      mode: "native"
+    })
   })
 
   it("returns no tools for a non-tool-calling model without the fallback opt-in", async () => {
@@ -278,7 +303,10 @@ describe("resolveModelTools", () => {
     )
     await expect(
       resolveModelTools("plain", "ollama", nonToolModel)
-    ).resolves.toEqual({ tools: definitions, mode: "non-native" })
+    ).resolves.toEqual({
+      tools: definitionsWithWebSearchPolicy(),
+      mode: "non-native"
+    })
   })
 
   it("uses alternating user-role results when the probe detects that mode", async () => {
@@ -293,7 +321,10 @@ describe("resolveModelTools", () => {
 
     await expect(
       resolveModelTools("gemma", "llamacpp", nonToolModel)
-    ).resolves.toEqual({ tools: definitions, mode: "native-user-results" })
+    ).resolves.toEqual({
+      tools: definitionsWithWebSearchPolicy(),
+      mode: "native-user-results"
+    })
   })
 
   it("still honors family governance in non-native mode", async () => {

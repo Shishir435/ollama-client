@@ -19,6 +19,8 @@ export const DEFAULT_WEB_SEARCH_CONFIG: WebSearchProviderConfig = {
   // search returns an actionable error to the model/user rather than the
   // feature being invisible.
   enabled: true,
+  executionSource: "client",
+  nativeMode: "cached",
   count: 5,
   searxngPages: 1,
   safeSearch: "moderate"
@@ -51,7 +53,12 @@ const StoredWebSearchProviderConfigSchema = z.object({
   count: z.number().finite().optional().catch(undefined),
   searxngPages: z.number().finite().optional().catch(undefined),
   safeSearch: z.enum(["off", "moderate", "strict"]).optional().catch(undefined),
-  enabled: z.boolean().optional().catch(undefined)
+  enabled: z.boolean().optional().catch(undefined),
+  executionSource: z
+    .enum(["auto", "client", "native"])
+    .optional()
+    .catch(undefined),
+  nativeMode: z.enum(["cached", "indexed", "live"]).optional().catch(undefined)
 })
 
 /**

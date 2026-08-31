@@ -17,6 +17,8 @@ import {
   getEffectiveToolFamilySettings,
   getToolModelOverride
 } from "@/lib/tools/tool-model-overrides"
+import { getWebSearchConfig } from "@/lib/tools/web-search"
+import { withWebSearchExecutionPolicy } from "@/lib/tools/web-search/web-search-tool"
 import { filterToolsForTurn } from "./tool-exposure-policy"
 
 /**
@@ -225,5 +227,12 @@ export const resolveModelTools = async (
   // browser-data tools are not sent to any provider unless their optional
   // permission is already granted and this request explicitly asks for them.
   const allowed = await filterToolsForTurn(governed, latestUserText)
-  return allowed.length > 0 ? { tools: allowed, mode } : undefined
+  if (allowed.length === 0) return undefined
+  const webSearchConfig = await getWebSearchConfig()
+  return {
+    tools: allowed.map((definition) =>
+      withWebSearchExecutionPolicy(definition, webSearchConfig)
+    ),
+    mode
+  }
 }

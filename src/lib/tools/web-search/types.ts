@@ -2,6 +2,10 @@ export type WebSearchProviderId = "searxng" | "brave" | "tavily"
 
 export type WebSearchSafeSearch = "off" | "moderate" | "strict"
 
+export type WebSearchExecutionSource = "auto" | "client" | "native"
+
+export type NativeWebSearchMode = "cached" | "indexed" | "live"
+
 /** Recency window for time-sensitive queries. Supported by all backends. */
 export type WebSearchTimeRange = "day" | "week" | "month" | "year"
 
@@ -35,6 +39,10 @@ export interface WebSearchProviderConfig {
   searxngPages?: number
   safeSearch?: WebSearchSafeSearch
   enabled?: boolean
+  /** Where the public `web_search` intent should execute. */
+  executionSource?: WebSearchExecutionSource
+  /** Requested provider-native search freshness; the runtime may cap it. */
+  nativeMode?: NativeWebSearchMode
 }
 
 export interface WebSearchConfigValidation {

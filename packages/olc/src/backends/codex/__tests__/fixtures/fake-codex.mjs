@@ -6,6 +6,7 @@ const lines = readline.createInterface({ input: process.stdin })
 const send = (message) => process.stdout.write(`${JSON.stringify(message)}\n`)
 const imageThreads = new Set()
 const delayedImageThreads = new Set()
+const nativeSearchThreads = new Set()
 const ONE_PIXEL_PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nXsAAAAASUVORK5CYII="
 
@@ -49,6 +50,7 @@ const isImageThreadRequest = (message) => {
 }
 
 const handleThreadStart = (message) => {
+  appendFileSync("thread-starts.jsonl", `${JSON.stringify(message.params)}\n`)
   if (isImageThreadRequest(message)) {
     const threadId =
       message.params?.model === "fake-codex-delayed"
@@ -60,11 +62,12 @@ const handleThreadStart = (message) => {
     return
   }
 
+  const nativeSearch = message.params?.config?.web_search !== "disabled"
   const valid =
     message.params?.approvalPolicy === "never" &&
     message.params?.sandbox === "read-only" &&
     message.params?.ephemeral === true &&
-    message.params?.developerInstructions === "Stay concise" &&
+    message.params?.developerInstructions?.startsWith("Stay concise") &&
     message.params?.dynamicTools?.[0]?.name === "lookup"
   if (!valid) {
     send({
@@ -73,7 +76,99 @@ const handleThreadStart = (message) => {
     })
     return
   }
-  send({ id: message.id, result: { thread: { id: "thread-1" } } })
+  const threadId = nativeSearch ? "thread-search" : "thread-1"
+  if (nativeSearch) nativeSearchThreads.add(threadId)
+  send({ id: message.id, result: { thread: { id: threadId } } })
+}
+
+const completeNativeSearchTurn = (message) => {
+  const threadId = message.params?.threadId
+  send({ id: message.id, result: { turn: { id: "turn-search" } } })
+  send({
+    method: "item/started",
+    params: {
+      threadId,
+      turnId: "turn-search",
+      item: {
+        type: "agentMessage",
+        id: "commentary-1",
+        phase: "commentary",
+        text: ""
+      }
+    }
+  })
+  send({
+    method: "item/agentMessage/delta",
+    params: {
+      threadId,
+      turnId: "turn-search",
+      itemId: "commentary-1",
+      delta: "Checking sources."
+    }
+  })
+  send({
+    method: "item/completed",
+    params: {
+      threadId,
+      turnId: "turn-search",
+      item: {
+        type: "agentMessage",
+        id: "commentary-1",
+        phase: "commentary",
+        text: "Checking sources."
+      }
+    }
+  })
+  send({
+    method: "item/started",
+    params: {
+      threadId,
+      turnId: "turn-search",
+      item: { type: "webSearch", id: "search-1", query: "", action: null }
+    }
+  })
+  send({
+    method: "item/completed",
+    params: {
+      threadId,
+      turnId: "turn-search",
+      item: {
+        type: "webSearch",
+        id: "search-1",
+        query: "current answer",
+        action: { type: "search", query: "current answer" }
+      }
+    }
+  })
+  send({
+    method: "item/started",
+    params: {
+      threadId,
+      turnId: "turn-search",
+      item: {
+        type: "agentMessage",
+        id: "final-1",
+        phase: "final_answer",
+        text: ""
+      }
+    }
+  })
+  send({
+    method: "item/agentMessage/delta",
+    params: {
+      threadId,
+      turnId: "turn-search",
+      itemId: "final-1",
+      delta: "Verified answer."
+    }
+  })
+  send({
+    method: "turn/completed",
+    params: {
+      threadId,
+      turn: { id: "turn-search", status: "completed", error: null }
+    }
+  })
 }
 
 const completeImageTurn = (message) => {
@@ -117,6 +212,10 @@ const handleImageTurnStart = (message) => {
 const handleTurnStart = (message) => {
   if (imageThreads.has(message.params?.threadId)) {
     handleImageTurnStart(message)
+    return
+  }
+  if (nativeSearchThreads.has(message.params?.threadId)) {
+    completeNativeSearchTurn(message)
     return
   }
   if (message.params?.effort !== "medium") {

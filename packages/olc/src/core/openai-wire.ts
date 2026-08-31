@@ -315,6 +315,65 @@ export const buildToolFlags = ({
   return flags
 }
 
+const toolFunctionName = (entry: unknown): string => {
+  if (!isRecord(entry) || !isRecord(entry.function)) return ""
+  return typeof entry.function.name === "string"
+    ? entry.function.name.trim()
+    : ""
+}
+
+export type WebSearchIntentSource = "auto" | "client" | "native"
+export type WebSearchIntentMode = "cached" | "indexed" | "live"
+
+const webSearchPolicy = (
+  entry: unknown
+): { source: WebSearchIntentSource; mode?: WebSearchIntentMode } => {
+  if (!isRecord(entry) || !isRecord(entry.function)) return { source: "auto" }
+  const parameters = entry.function.parameters
+  if (!isRecord(parameters)) return { source: "auto" }
+  const annotation = parameters["x-ollama-client-web-search"]
+  if (!isRecord(annotation)) return { source: "auto" }
+  const source = ["auto", "client", "native"].includes(
+    String(annotation.source)
+  )
+    ? (annotation.source as WebSearchIntentSource)
+    : "auto"
+  const mode = ["cached", "indexed", "live"].includes(String(annotation.mode))
+    ? (annotation.mode as WebSearchIntentMode)
+    : undefined
+  return { source, ...(mode ? { mode } : {}) }
+}
+
+/**
+ * Separate the extension's web-search intent from tools the runtime must bridge.
+ *
+ * `web_search` remains an ordinary OpenAI function on the public wire. A backend
+ * with native search consumes that function as per-turn intent and bridges every
+ * other tool unchanged. A backend without native search keeps the original array,
+ * allowing the connected client to execute its configured search provider.
+ */
+export const splitWebSearchIntent = (
+  tools: unknown
+): {
+  requested: boolean
+  clientTools: unknown[]
+  source: WebSearchIntentSource
+  mode?: WebSearchIntentMode
+} => {
+  const entries = Array.isArray(tools) ? tools : []
+  const search = entries.find(
+    (entry) => toolFunctionName(entry) === "web_search"
+  )
+  const policy = webSearchPolicy(search)
+  return {
+    requested: search !== undefined,
+    clientTools: entries.filter(
+      (entry) => toolFunctionName(entry) !== "web_search"
+    ),
+    ...policy
+  }
+}
+
 /** OpenAI `tool_calls` entry for one parked bridge call. */
 export const toToolCallPayload = (call: PendingToolCall, index: number) => ({
   index,
