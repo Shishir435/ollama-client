@@ -89,6 +89,47 @@ describe("WebSearchSettings", () => {
     expect(updateConfig).toHaveBeenCalledWith({ enabled: true })
   })
 
+  it("shows the execution source and client privacy disclosure", () => {
+    render(<WebSearchSettings />)
+
+    expect(
+      screen.getByLabelText("settings.web_search.execution_source.label")
+    ).toHaveTextContent("settings.web_search.execution_source.client")
+    expect(
+      screen.getByText("settings.web_search.privacy.client")
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByLabelText("settings.web_search.native_mode.label")
+    ).not.toBeInTheDocument()
+  })
+
+  it("shows native freshness and disclosure for native-only search", () => {
+    config.executionSource = "native"
+    config.nativeMode = "live"
+    render(<WebSearchSettings />)
+
+    expect(
+      screen.getByLabelText("settings.web_search.native_mode.label")
+    ).toHaveTextContent("settings.web_search.native_mode.live")
+    expect(
+      screen.getByText("settings.web_search.privacy.native")
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByLabelText("settings.web_search.provider.label")
+    ).not.toBeInTheDocument()
+  })
+
+  it("shows friendly provider and safety labels while selects are closed", () => {
+    render(<WebSearchSettings />)
+
+    expect(
+      screen.getByLabelText("settings.web_search.provider.label")
+    ).toHaveTextContent("settings.web_search.providers.searxng")
+    expect(
+      screen.getByLabelText("settings.web_search.safe_search.label")
+    ).toHaveTextContent("settings.web_search.safe_search.moderate")
+  })
+
   it("validates config before test search", async () => {
     config = {
       provider: "brave",

@@ -46,6 +46,8 @@ Codex backend options:
   --codex <path>           Path to the Codex CLI binary
   --codex-project-dir <path>
                            Empty workspace used for Codex turns
+  --codex-web-search <mode>
+                           disabled, cached, indexed, or live (default cached)
 `
 
 const FLAG_TO_OPTION: Record<string, string> = {
@@ -62,7 +64,8 @@ const FLAG_TO_OPTION: Record<string, string> = {
   "--allow-opencode-tools": "ALLOW_OPENCODE_TOOLS",
   "--plugin-dir": "PLUGIN_DIR",
   "--codex": "CODEX_PATH",
-  "--codex-project-dir": "CODEX_PROJECT_DIR"
+  "--codex-project-dir": "CODEX_PROJECT_DIR",
+  "--codex-web-search": "CODEX_WEB_SEARCH_MODE"
 }
 
 /** Parse argv into proxy options. Unknown flags are an error, not a silent no-op. */

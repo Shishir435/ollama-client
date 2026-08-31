@@ -15,7 +15,9 @@ describe("parseArgs", () => {
       "--codex",
       "/opt/codex",
       "--codex-project-dir",
-      "/tmp/codex-empty"
+      "/tmp/codex-empty",
+      "--codex-web-search",
+      "indexed"
     ])
 
     expect(options).toEqual({
@@ -24,7 +26,8 @@ describe("parseArgs", () => {
       OPENCODE_SERVER_URL: "http://127.0.0.1:4444",
       ALLOW_OPENCODE_TOOLS: "websearch",
       CODEX_PATH: "/opt/codex",
-      CODEX_PROJECT_DIR: "/tmp/codex-empty"
+      CODEX_PROJECT_DIR: "/tmp/codex-empty",
+      CODEX_WEB_SEARCH_MODE: "indexed"
     })
   })
 

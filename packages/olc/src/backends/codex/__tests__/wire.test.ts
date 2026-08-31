@@ -4,10 +4,70 @@ import {
   mapCodexModel,
   normalizeCodexTools,
   resolveCodexReasoningEffort,
+  routeCodexWebSearch,
   toDynamicTools
 } from "../wire.js"
 
 describe("Codex wire mappings", () => {
+  it("maps web-search intent to native mode without bridging a duplicate tool", () => {
+    const lookup = {
+      type: "function",
+      function: { name: "lookup", parameters: { type: "object" } }
+    }
+    const search = {
+      type: "function",
+      function: { name: "web_search", parameters: { type: "object" } }
+    }
+
+    expect(routeCodexWebSearch([search, lookup], "indexed")).toEqual({
+      native: true,
+      bridgeTools: [lookup],
+      threadMode: "indexed"
+    })
+    expect(routeCodexWebSearch([search, lookup], "disabled")).toEqual({
+      native: false,
+      bridgeTools: [search, lookup],
+      threadMode: "disabled"
+    })
+    expect(routeCodexWebSearch([lookup], "live")).toEqual({
+      native: false,
+      bridgeTools: [lookup],
+      threadMode: "disabled"
+    })
+  })
+
+  it("honors client/native routing and caps requested freshness", () => {
+    const search = (source: "client" | "native", mode = "live") => ({
+      type: "function",
+      function: {
+        name: "web_search",
+        parameters: {
+          type: "object",
+          "x-ollama-client-web-search": { source, mode }
+        }
+      }
+    })
+    expect(routeCodexWebSearch([search("client")], "live")).toMatchObject({
+      native: false,
+      threadMode: "disabled"
+    })
+    expect(routeCodexWebSearch([search("native")], "indexed")).toEqual({
+      native: true,
+      bridgeTools: [],
+      threadMode: "indexed"
+    })
+    expect(routeCodexWebSearch([search("native")], "disabled")).toEqual({
+      native: false,
+      bridgeTools: [],
+      threadMode: "disabled"
+    })
+    expect(routeCodexWebSearch([search("native")], "live", false)).toEqual({
+      native: false,
+      bridgeTools: [],
+      threadMode: "disabled"
+    })
+  })
+
   it("publishes model modalities and canonical reasoning efforts", () => {
     expect(
       mapCodexModel({

@@ -188,7 +188,15 @@ Every tool id OpenCode reports is explicitly disabled per turn unless listed in
 `ALLOW_OPENCODE_TOOLS`. The client that talks to this proxy has its own tool
 inventory and its own approval flow; an agent quietly reaching for `bash` or
 `write` instead is neither visible nor wanted there. Opt individual tools back in
-by id, for example `--allow-opencode-tools websearch,webfetch`.
+by id with `--allow-opencode-tools`.
+
+`web_search` is also the client's per-turn search intent. Its execution policy
+can request client-managed, automatic, or native-only search. Automatic uses
+OpenCode's `websearch` when discovered and otherwise preserves the client tool as
+a SearXNG/Brave/Tavily fallback. Native-only removes that fallback and therefore
+fails closed when `websearch` is absent. Native `webfetch` remains off unless the
+operator explicitly lists it; a web-search request alone does not grant arbitrary
+URL fetching. Clients without a policy annotation retain automatic behavior.
 
 ### Codex backend
 
@@ -196,6 +204,7 @@ by id, for example `--allow-opencode-tools websearch,webfetch`.
 | --- | --- | --- | --- |
 | `CODEX_PATH` | `--codex` | `OLC_CODEX_PATH` (or `CODEX_PATH`) | `codex` |
 | `CODEX_PROJECT_DIR` | `--codex-project-dir` | `OLC_CODEX_PROJECT_DIR` | isolated temporary workspace |
+| `CODEX_WEB_SEARCH_MODE` | `--codex-web-search` | `OLC_CODEX_WEB_SEARCH_MODE` | `cached` |
 
 Codex runs with `approvalPolicy: never`, a read-only sandbox, and an ephemeral
 thread rooted in the dedicated workspace. The client-provided tools are exposed
@@ -206,6 +215,18 @@ Server reports native image generation, olc publishes a dedicated
 `codex/image-generation` model and exposes its result through the
 OpenAI-compatible Images endpoint. Ordinary Codex models remain text-output models;
 older Codex builds simply omit the image-generation model.
+
+For ordinary chat turns, an incoming `web_search` function is explicit per-turn
+intent. olc removes the duplicate dynamic tool and starts that Codex thread with
+search set to the client-requested `cached`, `indexed`, or `live` mode, capped by
+`CODEX_WEB_SEARCH_MODE`. A turn without the function—or one explicitly requesting
+client-managed execution—always starts with search `disabled`. Automatic mode
+preserves the client function as fallback when native search is operator-disabled;
+native-only removes it and fails closed. Image turns always disable search.
+Codex `webSearch` lifecycle items are forwarded as reasoning-status deltas, while
+commentary-phase messages stay in reasoning instead of being concatenated into
+the final answer. Debug mode reports the selected native mode and the number of
+observed search events, but never logs the query text.
 
 ## Endpoints
 
