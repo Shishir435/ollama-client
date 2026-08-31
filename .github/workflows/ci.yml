@@ -46,6 +46,28 @@ jobs:
       - name: Static checks
         run: pnpm check:static
 
+  docs:
+    name: Documentation build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # This used to run in pre-push. Keep it required in CI when hooks stop
+      # rebuilding the site; provider contracts generate documentation too.
+      - name: Build documentation
+        run: pnpm docs:build
+
   test-shards:
     name: Unit tests and coverage (shard ${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
@@ -84,9 +106,9 @@ jobs:
 
   checks:
     # Preserve the stable check name used by branch protection while allowing
-    # static analysis and the two test shards to run at the same time.
+    # static analysis, docs and the two test shards to run at the same time.
     name: Typecheck, lint, test
-    needs: [static-checks, test-shards]
+    needs: [static-checks, test-shards, docs]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
