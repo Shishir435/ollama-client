@@ -23,11 +23,11 @@ import {
   SITE_DESCRIPTION,
   SITE_TITLE,
   SITE_URL
-} from "../docs/src/seo/constants.mjs"
-import { DOC_ORDER } from "../docs/src/seo/doc-ia.mjs"
+} from "../../docs/src/seo/constants.mjs"
+import { DOC_ORDER } from "../../docs/src/seo/doc-ia.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const REPO_ROOT = join(__dirname, "..")
+const REPO_ROOT = join(__dirname, "../..")
 const DOCS_CONTENT_DIR = join(REPO_ROOT, "docs/src/content/docs")
 const PUBLIC_DIR = join(REPO_ROOT, "docs/public")
 
@@ -76,6 +76,7 @@ function routeFromSource(path: string) {
     : withoutExt
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: existing MDX scanner keeps quote, comment and bracket state together; parser regression tests cover it.
 function stripMdxExportDeclarations(body: string) {
   const lines = body.split("\n")
   const cleaned: string[] = []
@@ -144,14 +145,8 @@ export function cleanMarkdown(body: string) {
     .replace(/^import\s+.*$/gm, "")
     .replace(/<FAQPageJsonLd\b[^>]*\/>/g, "")
     .replace(/<FAQPageJsonLd\b[^>]*>[\s\S]*?<\/FAQPageJsonLd>/g, "")
-    .replace(
-      /<([A-Z][A-Za-z0-9.]*)\b[^>]*>([\s\S]*?)<\/\1>/g,
-      "\n\n$2\n\n"
-    )
-    .replace(
-      /<([A-Z][A-Za-z0-9.]*)\b[^>]*\/>/g,
-      "_Rendered component: $1._"
-    )
+    .replace(/<([A-Z][A-Za-z0-9.]*)\b[^>]*>([\s\S]*?)<\/\1>/g, "\n\n$2\n\n")
+    .replace(/<([A-Z][A-Za-z0-9.]*)\b[^>]*\/>/g, "_Rendered component: $1._")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
 }
@@ -210,7 +205,9 @@ export function assertIaMatches(
 
 function loadPages() {
   const pages = walk(DOCS_CONTENT_DIR)
-    .filter((path) => !relative(DOCS_CONTENT_DIR, path).startsWith("reference/"))
+    .filter(
+      (path) => !relative(DOCS_CONTENT_DIR, path).startsWith("reference/")
+    )
     .map((sourcePath) => {
       const raw = readFileSync(sourcePath, "utf-8")
       const { data, body } = parseFrontmatter(raw)
@@ -329,9 +326,7 @@ ${sections.join("\n---\n\n")}
 }
 
 function writeAiTxt(pages: DocPage[]) {
-  const lines = pages.map(
-    (page) => `- ${page.title}: ${page.markdownUrl}`
-  )
+  const lines = pages.map((page) => `- ${page.title}: ${page.markdownUrl}`)
 
   const content = `# AI crawler guidance for ${SITE_TITLE}
 
@@ -408,7 +403,9 @@ function main() {
   writeAiTxt(pages)
   writeNotFoundMarkdown()
 
-  console.log(`Generated llms.txt, llms-full.txt, ai.txt, and ${pages.length} page markdown files`)
+  console.log(
+    `Generated llms.txt, llms-full.txt, ai.txt, and ${pages.length} page markdown files`
+  )
 }
 
 if (

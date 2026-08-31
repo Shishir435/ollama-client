@@ -1,6 +1,6 @@
 import { access, readFile } from "node:fs/promises"
 
-const LEDGER_URL = new URL("../compatibility-ledger.json", import.meta.url)
+const LEDGER_URL = new URL("../../compatibility-ledger.json", import.meta.url)
 const REQUIRED_FIELDS = [
   "id",
   "owner",
@@ -63,7 +63,7 @@ for (const [index, entry] of ledger.entries.entries()) {
     fail(`${entry.id}.targetRelease must be a string or null`)
   }
   try {
-    await access(new URL(`../${entry.owner}`, import.meta.url))
+    await access(new URL(`../../${entry.owner}`, import.meta.url))
   } catch {
     fail(`${entry.id}.owner does not exist: ${entry.owner}`)
   }

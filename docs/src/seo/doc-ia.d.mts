@@ -1,9 +1,9 @@
 // Type declarations for the plain-JS docs IA consumed by build tooling
-// (tools/generate-llms-docs.ts) under the strict root tsconfig.
+// (tools/generate/generate-llms-docs.ts) under the strict root tsconfig.
 export type DocIaItem = {
   label: string
   slug: string
-  /** Written by tools/generate-docs.ts and gitignored, not committed. */
+  /** Written by tools/generate/generate-docs.ts and gitignored, not committed. */
   generated?: boolean
 }
 

@@ -64,7 +64,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],
-      include: ["src/**/*.ts", "packages/*/src/**/*.ts"],
+      include: ["src/**/*.{ts,tsx}", "packages/*/src/**/*.{ts,tsx}"],
       exclude: [
         "src/**/*.{test,spec}.{ts,tsx}",
         "packages/*/src/**/*.{test,spec}.{ts,tsx}",
@@ -87,10 +87,23 @@ export default defineConfig({
       thresholds: COVERAGE_SHARD
         ? undefined
         : {
-            branches: 67,
-            functions: 75,
-            lines: 80,
-            statements: 78
+            // Preserve the gate for the previously measured TypeScript code.
+            "**/*.ts": {
+              branches: 67,
+              functions: 75,
+              lines: 80,
+              statements: 78
+            },
+            // React was previously omitted. Enforce its measured baseline
+            // separately so adding it cannot dilute the existing TS gate.
+            // 2026-08-31: branches 41.19, functions 44.42,
+            // lines 47.96, statements 46.47 (%).
+            "**/*.tsx": {
+              branches: 41,
+              functions: 44,
+              lines: 47,
+              statements: 46
+            }
           }
     }
   },

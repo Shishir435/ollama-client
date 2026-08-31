@@ -6,7 +6,7 @@
  *
  *   - the Starlight sidebar (docs/astro.config.mjs),
  *   - `llms.txt` / `ai.txt` / `llms-full.txt` ordering
- *     (tools/generate-llms-docs.ts),
+ *     (tools/generate/generate-llms-docs.ts),
  *   - breadcrumb section labels (src/components/starlight/Head.astro).
  *
  * They had already diverged: the generator's list carried 14 slugs against the
@@ -130,7 +130,7 @@ export const DOC_ORDER = DOC_SECTIONS.flatMap((section) =>
 )
 
 /**
- * Slugs whose content file is written by tools/generate-docs.ts rather than
+ * Slugs whose content file is written by tools/generate/generate-docs.ts rather than
  * committed. Both are gitignored, so they exist only after `pnpm docs:generate`
  * — which `docs:build` and `docs:dev` always run first and `pnpm test:run`
  * never does.

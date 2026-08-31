@@ -138,7 +138,9 @@ class PageSession {
       })
     })
     const session = new PageSession(ws)
-    ws.addEventListener("message", (event) => session.onMessage(String(event.data)))
+    ws.addEventListener("message", (event) =>
+      session.onMessage(String(event.data))
+    )
     const created = (await session.sendBrowser("Target.createTarget", {
       url
     })) as { targetId: string }
@@ -213,6 +215,7 @@ const ownerCall = (op: string, payload?: unknown): string =>
     payload === undefined ? "" : `, ${JSON.stringify(payload)}`
   })`
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: retained experimental scenario sequence; changing it would change historical owner-gate evidence.
 const run = async (): Promise<void> => {
   const userDataDir = mkdtempSync(`${tmpdir()}/ollama-client-sw-term-`)
   const child = spawn(
@@ -245,7 +248,8 @@ const run = async (): Promise<void> => {
       }
       await sleep(100)
     }
-    if (!debugPort) throw new Error("Chromium never reported its debugging port")
+    if (!debugPort)
+      throw new Error("Chromium never reported its debugging port")
 
     // Wait for the CDP endpoint.
     let browserWsUrl = ""
@@ -420,7 +424,9 @@ const run = async (): Promise<void> => {
         byState: Record<string, number>
       }>(ownerCall("checkpointSummary"))
       landed = summary.byState[attemptState] ?? 0
-      console.error(`[gate4d] attempt ${attempts} landed ${landed}/${INFLIGHT_TOTAL}`)
+      console.error(
+        `[gate4d] attempt ${attempts} landed ${landed}/${INFLIGHT_TOTAL}`
+      )
 
       if (landed > 0 && landed < INFLIGHT_TOTAL) {
         windowExercised = true
@@ -451,11 +457,10 @@ const run = async (): Promise<void> => {
 
     // (a) Durability: the committed write MUST have survived — exactly one row
     // in its own state (absence = lost write = fail).
-    record(
-      "gate4d-crashwrite-durable",
-      summary?.byState[DURABLE_STATE] === 1,
-      { summary, expectedState: DURABLE_STATE }
-    )
+    record("gate4d-crashwrite-durable", summary?.byState[DURABLE_STATE] === 1, {
+      summary,
+      expectedState: DURABLE_STATE
+    })
 
     // (b) Atomicity: the kill overlapped owner writes (0 < landed < total, i.e.
     // windowExercised), and no surviving row carries a state other than the

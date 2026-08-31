@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
-import { execSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 
-import { LANGUAGES } from "../src/i18n/languages"
+import { LANGUAGES } from "../../src/i18n/languages"
 
 interface ExtensionManifest {
   manifest_version?: number
@@ -35,14 +34,6 @@ interface ExtensionManifest {
 }
 
 const rootDir = process.cwd()
-
-const run = (command: string): void => {
-  console.log(`\n▶ ${command}`)
-  execSync(command, {
-    cwd: rootDir,
-    stdio: "inherit"
-  })
-}
 
 const readManifest = (relativePath: string): ExtensionManifest => {
   const absolutePath = resolve(rootDir, relativePath)
@@ -232,25 +223,47 @@ const expectCspToken = (
 }
 
 const main = (): void => {
-  run("pnpm build")
-  run("pnpm build:firefox")
-
   const chromeManifest = readManifest("build/chrome-mv3-prod/manifest.json")
   const firefoxManifest = readManifest("build/firefox-mv2-prod/manifest.json")
 
   expectHostPermission(chromeManifest, "<all_urls>", "Chrome")
   expectHostPermission(firefoxManifest, "<all_urls>", "Firefox")
 
-  expectExtensionPage(chromeManifest, /sidepanel\.html$/, "side panel", "Chrome")
+  expectExtensionPage(
+    chromeManifest,
+    /sidepanel\.html$/,
+    "side panel",
+    "Chrome"
+  )
   expectBuiltFile(
     "build/firefox-mv2-prod/sidepanel.html",
     "side panel shell",
     "Firefox"
   )
-  expectExtensionPage(chromeManifest, /options\.html$/, "options page", "Chrome")
-  expectExtensionPage(firefoxManifest, /options\.html$/, "options page", "Firefox")
-  expectBackgroundScript(chromeManifest, /background\.js$/, "message router", "Chrome")
-  expectBackgroundScript(firefoxManifest, /background\.js$/, "message router", "Firefox")
+  expectExtensionPage(
+    chromeManifest,
+    /options\.html$/,
+    "options page",
+    "Chrome"
+  )
+  expectExtensionPage(
+    firefoxManifest,
+    /options\.html$/,
+    "options page",
+    "Firefox"
+  )
+  expectBackgroundScript(
+    chromeManifest,
+    /background\.js$/,
+    "message router",
+    "Chrome"
+  )
+  expectBackgroundScript(
+    firefoxManifest,
+    /background\.js$/,
+    "message router",
+    "Firefox"
+  )
   expectNoContentScript(
     chromeManifest,
     /content-scripts\/content\.js$/,

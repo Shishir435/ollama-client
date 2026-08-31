@@ -1,24 +1,24 @@
-import fs from "fs"
-import path from "path"
-import { fileURLToPath } from "url"
+import fs from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const LOCALES_DIR = path.join(__dirname, "../src/locales")
+const LOCALES_DIR = path.join(__dirname, "../../src/locales")
 const SELECTION_OUTPUT_DIR = path.join(
   __dirname,
-  "../public/assets/selection-locales"
+  "../../public/assets/selection-locales"
 )
 const LEGACY_SELECTION_OUTPUT_DIR = path.join(
   __dirname,
-  "../src/i18n/selection-locales"
+  "../../src/i18n/selection-locales"
 )
 const LEGACY_SELECTION_OUTPUT_FILE = path.join(
   __dirname,
-  "../src/i18n/selection-resources.ts"
+  "../../src/i18n/selection-resources.ts"
 )
-const CHROME_LOCALES_DIR = path.join(__dirname, "../public/_locales")
+const CHROME_LOCALES_DIR = path.join(__dirname, "../../public/_locales")
 const CHROME_LOCALE_MAP: Record<string, string> = {
   zh: "zh_CN"
 }

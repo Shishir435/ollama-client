@@ -12,23 +12,27 @@
  * temporarily run without `--strict`) rather than letting a backlog accumulate.
  *
  * Run: pnpm check:i18n            (strict — fails on any missing key)
- *      npx tsx tools/check-i18n-drift.ts   (warn-only — report without failing)
+ *      npx tsx tools/checks/check-i18n-drift.ts   (warn-only — report without failing)
  */
 
-import fs from "fs"
-import path from "path"
-import { fileURLToPath } from "url"
+import fs from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const LOCALES_DIR = path.join(__dirname, "../src/locales")
+const LOCALES_DIR = path.join(__dirname, "../../src/locales")
 const REFERENCE_LOCALE = "en"
 
 type Json = Record<string, unknown>
 
 /** Flatten a nested translation object to a set of dot-joined leaf keys. */
-function flattenKeys(obj: Json, prefix = "", out = new Set<string>()): Set<string> {
+function flattenKeys(
+  obj: Json,
+  prefix = "",
+  out = new Set<string>()
+): Set<string> {
   for (const [key, value] of Object.entries(obj)) {
     const full = prefix ? `${prefix}.${key}` : key
     if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -54,7 +58,9 @@ function main(): void {
     .map((d) => d.name)
 
   if (!locales.includes(REFERENCE_LOCALE)) {
-    console.error(`Reference locale "${REFERENCE_LOCALE}" not found in ${LOCALES_DIR}`)
+    console.error(
+      `Reference locale "${REFERENCE_LOCALE}" not found in ${LOCALES_DIR}`
+    )
     process.exit(1)
   }
 
@@ -66,8 +72,12 @@ function main(): void {
     const missing = [...reference].filter((k) => !keys.has(k)).sort()
     const extra = [...keys].filter((k) => !reference.has(k)).sort()
 
-    const pct = Math.round(((reference.size - missing.length) / reference.size) * 100)
-    console.log(`\n${locale}: ${pct}% translated (${missing.length} missing, ${extra.length} extra of ${reference.size})`)
+    const pct = Math.round(
+      ((reference.size - missing.length) / reference.size) * 100
+    )
+    console.log(
+      `\n${locale}: ${pct}% translated (${missing.length} missing, ${extra.length} extra of ${reference.size})`
+    )
 
     if (missing.length > 0) {
       hasMissing = true

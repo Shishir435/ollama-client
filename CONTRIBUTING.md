@@ -84,17 +84,31 @@ package, configuration, and browser tests; do not place `*.test.*` or
   `src/application/context/build-context.ts`, and primitives (chunker, HNSW,
   keyword index, storage) in `src/lib/embeddings/`.
 
+### Responsibility boundaries
+
+- `features/` owns React UI and interaction state. Submit durable work through
+  application/protocol services rather than introducing persistence workflows
+  into components.
+- `application/` owns use-case orchestration. `background/` binds those workflows
+  to browser lifetime and privileged event handling.
+- `lib/` owns concrete adapters, repositories and reusable infrastructure.
+  Keep new multi-step workflows in `application/`; do not rename existing
+  subsystems solely to fit a directory label.
+- `packages/` owns environment-independent contracts/runtimes and the separate
+  OLC CLI. Tests enforce the allowed dependency direction.
+
 ## 4. Quality gates before opening a PR
 
-These all run in the pre-commit / pre-push hooks; running them
-manually first just speeds up the loop:
+Run the shared verification gate before opening a PR. Browser builds and
+documentation checks are explicit workflows, not Git-hook prerequisites:
 
 ```bash
 pnpm typecheck
 pnpm lint:check          # auto-fix with `pnpm lint:fix`
 pnpm format:check        # auto-fix with `pnpm format:fix`
 pnpm test:run            # full vitest suite
-pnpm verify              # typecheck + lint + full vitest suite
+pnpm verify             # shared static checks + full vitest suite
+pnpm verify:ci          # shared static checks + full coverage
 pnpm build               # Chrome MV3
 pnpm build:firefox       # Firefox MV2
 ```
@@ -107,15 +121,19 @@ pnpm generate:resources      # locale strings changed
 pnpm docs:generate           # docs changelog/provider matrix source changed
 ```
 
-Docs site source lives in `docs/`, but not every docs page is hand-edited there. `tools/generate-docs.ts` generates the changelog page from `CHANGELOG.md` and the provider matrix page from `src/lib/providers/`. Treat `CHANGELOG.md`, provider source files, and `tools/generate-docs.ts` as the source of truth; do not hand-edit the generated pages under `docs/src/content/docs/about/changelog.md` or `docs/src/content/docs/concepts/provider-matrix.md`. Astro writes build output to `docs/dist/` for Vercel.
+Docs site source lives in `docs/`, but not every docs page is hand-edited there. `tools/generate/generate-docs.ts` generates the changelog page from `CHANGELOG.md` and the provider matrix page from `src/lib/providers/`. Treat `CHANGELOG.md`, provider source files, and `tools/generate/generate-docs.ts` as the source of truth; do not hand-edit the generated pages under `docs/src/content/docs/about/changelog.md` or `docs/src/content/docs/concepts/provider-matrix.md`. Astro writes build output to `docs/dist/` for Vercel.
 
 The git hooks are split:
 
-- **pre-commit** runs `lint-staged` (typecheck, format-fix, lint-fix,
-  related tests) plus full `typecheck` / `lint:check` /
-  `format:check`. Fast enough to keep on every commit.
-- **pre-push** runs `pnpm test:run` (full suite). This is the last
-  safety net before code leaves your machine.
+- **pre-commit** runs `lint-staged` (Biome fixes on staged files and related
+  tests), then one full typecheck.
+- **pre-push** audits production dependencies and runs `pnpm verify`.
+- **CI/release verification** owns browser builds, bundle budgets, coverage,
+  documentation builds and browser recovery gates. Run `pnpm verify:release`
+  for the local release workflow; it builds each browser target once.
+
+See [the tooling guide](tools/README.md) for command prerequisites, generated
+outputs, clean-checkout verification, benchmarks, and experimental runners.
 
 ## 5. PR expectations
 

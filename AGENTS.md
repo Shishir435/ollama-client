@@ -396,7 +396,7 @@ The set is `ControlledTextarea`, `ControlledNumberInput`, `ControlledSlider` —
 - Loaded through the explicit dynamic-import map in `src/i18n/locale-loader.ts`, one lazy chunk per language. Do not build an aggregated all-languages resource.
 - **Never pass a fallback string to `t()`.** Add the key to every locale instead.
 - Keep the top-level `extension` block filled in for every locale.
-- `public/_locales/**/messages.json` and `public/assets/selection-locales/` are **generated** by `tools/generate-i18n-resources.ts`. Do not hand-edit them. `_locales` is committed because extension packages need it.
+- `public/_locales/**/messages.json` and `public/assets/selection-locales/` are **generated** by `tools/generate/generate-i18n-resources.ts`. Do not hand-edit them. `_locales` is committed because extension packages need it.
 - Generation runs before `dev`/`build`/`package`, not on install, so run `pnpm generate:resources` manually after a locale edit to validate the catalogs.
 - Before adding a key, check for an orphan that already fits — `tabs.select.ready` sat fully translated and unused.
 
@@ -405,7 +405,7 @@ The set is `ControlledTextarea`, `ControlledNumberInput`, `ControlledSlider` —
 - Vitest with `happy-dom` and `fake-indexeddb`. `src/test/setup.ts` mocks chrome APIs and IndexedDB.
 - Tests live in the nearest `__tests__` directory under `src/`, `packages/`, `config/` or `e2e/`. Never beside production modules.
 - Single file: `pnpm test src/path/to/module.test.ts`.
-- Coverage excludes only test files and `.d.ts`. UI components, type modules and barrels are included.
+- Coverage includes `.ts` and `.tsx`: UI components, type modules and barrels count. Tests, declarations, and explicit browser-only composition roots/harnesses are excluded in `vitest.config.ts`. Existing `.ts` thresholds and the newly measured `.tsx` baseline are gated separately; see `tools/README.md`.
 - `@testing-library/user-event` is **not** a dependency — use `fireEvent`.
 - When a change breaks an existing test, work out whether the test or the change is wrong. A broken assertion is sometimes the design talking: a fan-out that consumed a queued fetch response failed the Ollama contract test, and the predicate was the bug.
 
@@ -434,8 +434,9 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 
 Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a release branch into `preview`, validate it there, then merge `preview` into `main`. Do not promote a release branch directly to `main`.
 
-- `pre-commit`: lint-staged (typecheck, `format:fix`, `lint:fix`, `test:related`) → `format:check` → `lint:check` → `typecheck`. **Does not run the full suite.**
-- `pre-push`: `pnpm test:run`.
+- `pre-commit`: lint-staged (Biome fixes on staged files and `test:related`) → one full `typecheck`. **Does not run the full suite.**
+- `pre-push`: production dependency audit → `pnpm verify` (shared static checks and full tests). Builds and browser gates belong to CI / `verify:release`, not hooks.
+- `tools/README.md` documents command ownership and prerequisites. `check:static` is shared by CI and local verification; `verify:ci-parity` runs static checks and coverage on committed HEAD in a clean worktree.
 - Never bypass with `--no-verify`. If a hook fails, fix the cause.
 
 ## Constraints

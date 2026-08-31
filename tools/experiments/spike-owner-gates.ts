@@ -21,7 +21,7 @@
  *       and the owner topology recovers without manual intervention.
  *
  * Forced service-worker termination mid-write (gate 4d) is covered by a
- * separate runner, tools/spike-sw-termination.ts (pnpm spike:sw-termination):
+ * separate runner, tools/experiments/spike-sw-termination.ts (pnpm spike:sw-termination):
  * Playwright pins any worker it attaches to, so that gate launches Chromium
  * itself and kills the worker over the DevTools HTTP endpoint. Also not
  * covered here: incognito/split mode (explicitly unsupported for the spike),
@@ -32,11 +32,24 @@
  * Requires: pnpm spike:build
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { resolve } from "node:path"
+import type {
+  BrowserContext,
+  Page,
+  Worker as PlaywrightWorker
+} from "playwright"
 import { chromium } from "playwright"
-import type { BrowserContext, Page, Worker as PlaywrightWorker } from "playwright"
 
 const chromeBuildPath = resolve("build/chrome-mv3-spike")
 const artifactDir = resolve("artifacts/persistence-benchmark")
@@ -162,7 +175,6 @@ const runGates = async (visible: boolean): Promise<void> => {
     // ---- Gate 2: concurrent writers through one owner, no lost update ----
     const pageB = await context.newPage()
     await pageB.goto(ownerPageUrl)
-    const rpcB = pageRpc(pageB)
 
     const APPENDS = 100
     const appendMany = (page: Page, writer: string, total: number) =>
@@ -260,7 +272,11 @@ const runGates = async (visible: boolean): Promise<void> => {
       "gate4b-owner-close-recovery",
       afterClose.total === beforeKill.total &&
         infoAfterClose.ownerId !== info.ownerId,
-      { afterClose, previousOwner: info.ownerId, newOwner: infoAfterClose.ownerId }
+      {
+        afterClose,
+        previousOwner: info.ownerId,
+        newOwner: infoAfterClose.ownerId
+      }
     )
 
     // ---- Gate 5: kill worker inside an open transaction; must roll back ----
@@ -279,7 +295,6 @@ const runGates = async (visible: boolean): Promise<void> => {
     await rpcC("reset")
     const pageD = await context.newPage()
     await pageD.goto(ownerPageUrl)
-    const rpcD = pageRpc(pageD)
     const GATE7_APPENDS = 120
     const GATE7_SYNC_THRESHOLD = 10
     const [, exportMid] = await Promise.all([
@@ -443,7 +458,10 @@ const main = async (): Promise<void> => {
     results
   }
   mkdirSync(artifactDir, { recursive: true })
-  const outputPath = resolve(artifactDir, `spike-owner-gates-${Date.now()}.json`)
+  const outputPath = resolve(
+    artifactDir,
+    `spike-owner-gates-${Date.now()}.json`
+  )
   writeFileSync(outputPath, JSON.stringify(report, null, 2))
   console.error(`Report written: ${outputPath}`)
   console.log(JSON.stringify(report, null, 2))

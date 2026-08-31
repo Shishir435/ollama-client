@@ -7,11 +7,11 @@ import {
   DOC_ORDER,
   GENERATED_DOC_SLUGS
 } from "../../../docs/src/seo/doc-ia.mjs"
-import { GENERATED_PAGE_SLUGS } from "../../../tools/generate-docs"
+import { GENERATED_PAGE_SLUGS } from "../../../tools/generate/generate-docs"
 import {
   assertIaMatches,
   cleanMarkdown
-} from "../../../tools/generate-llms-docs"
+} from "../../../tools/generate/generate-llms-docs"
 
 describe("cleanMarkdown", () => {
   it("removes multiline MDX export declarations but keeps prose", () => {

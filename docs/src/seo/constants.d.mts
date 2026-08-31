@@ -1,5 +1,5 @@
 // Type declarations for the plain-JS SEO constants consumed by build tooling
-// (tools/generate-llms-docs.ts) under the strict root tsconfig.
+// (tools/generate/generate-llms-docs.ts) under the strict root tsconfig.
 export const APP_VERSION: string
 export const SITE_URL: string
 export const SITE_TITLE: string

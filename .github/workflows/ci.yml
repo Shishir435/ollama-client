@@ -43,26 +43,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Lint
-        run: pnpm lint:check
-
-      - name: Format check
-        run: pnpm format:check
-
-      - name: Dead code check
-        run: pnpm check:dead
-
-      - name: Generated resource drift
-        run: pnpm check:generated
-
-      - name: Translation completeness
-        run: pnpm check:i18n
-
-      - name: Compatibility ledger
-        run: pnpm check:compatibility
+      - name: Static checks
+        run: pnpm check:static
 
   test-shards:
     name: Unit tests and coverage (shard ${{ matrix.shard }}/2)
@@ -86,7 +68,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run test shard
-        run: pnpm exec vitest run --coverage --shard=${{ matrix.shard }}/2 --reporter=blob
+        run: pnpm test:coverage --shard=${{ matrix.shard }}/2 --reporter=blob
         env:
           VITEST_COVERAGE_SHARD: "true"
 

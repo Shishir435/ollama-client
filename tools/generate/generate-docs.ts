@@ -5,28 +5,24 @@
  * Source files stay outside `docs`; Starlight consumes generated
  * pages under `docs/src/content/docs/` during docs builds.
  */
-import {
-  existsSync,
-  readFileSync,
-  writeFileSync
-} from "node:fs"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join, relative } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
-import { AnthropicProvider } from "../src/lib/providers/anthropic"
-import { LlamaCppProvider } from "../src/lib/providers/llama-cpp"
-import { LMStudioProvider } from "../src/lib/providers/lm-studio"
-import { OllamaProvider } from "../src/lib/providers/ollama"
-import { OpenAICompatibleProvider } from "../src/lib/providers/openai-compatible"
+import { AnthropicProvider } from "../../src/lib/providers/anthropic"
+import { LlamaCppProvider } from "../../src/lib/providers/llama-cpp"
+import { LMStudioProvider } from "../../src/lib/providers/lm-studio"
+import { OllamaProvider } from "../../src/lib/providers/ollama"
+import { OpenAICompatibleProvider } from "../../src/lib/providers/openai-compatible"
 import {
   type LLMProvider,
   type ProviderConfig,
   ProviderId,
   ProviderType
-} from "../src/lib/providers/types"
+} from "../../src/lib/providers/types"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const REPO_ROOT = join(__dirname, "..")
+const REPO_ROOT = join(__dirname, "../..")
 const CHANGELOG_INPUT_PATH = join(REPO_ROOT, "CHANGELOG.md")
 const CHANGELOG_OUTPUT_PATH = join(
   REPO_ROOT,
@@ -75,9 +71,7 @@ ${changelog}
 `
 
   writeFileSync(CHANGELOG_OUTPUT_PATH, content, "utf-8")
-  console.log(
-    `Generated ${CHANGELOG_OUTPUT_PATH.replace(REPO_ROOT + "/", "")}`
-  )
+  console.log(`Generated ${CHANGELOG_OUTPUT_PATH.replace(`${REPO_ROOT}/`, "")}`)
 }
 
 /**
@@ -214,23 +208,25 @@ ${notesLines.join("\n")}
 
 ## How this table is built
 
-The generator at \`tools/generate-docs.ts\` instantiates each provider class with a minimal config and reads its \`capabilities: ProviderCapabilities\` field. The same field is the runtime source of truth for the extension UI's capability-aware routing (chat menu, model-management actions, etc.), so any divergence here would already be a bug.
+The generator at \`tools/generate/generate-docs.ts\` instantiates each provider class with a minimal config and reads its \`capabilities: ProviderCapabilities\` field. The same field is the runtime source of truth for the extension UI's capability-aware routing (chat menu, model-management actions, etc.), so any divergence here would already be a bug.
 
 If you're adding a new provider, register it in:
 
 1. \`src/lib/providers/\` (the class itself)
 2. \`src/lib/providers/factory.ts\` (the factory map)
 3. \`src/lib/providers/manager.ts\` (\`DEFAULT_PROVIDERS\`)
-4. \`tools/generate-docs.ts\` (this generator's \`providers\` array)
+4. \`tools/generate/generate-docs.ts\` (this generator's \`providers\` array)
 
 The first three are mandatory for the runtime; the fourth keeps the docs honest.
 `
 
   writeFileSync(PROVIDER_MATRIX_OUTPUT_PATH, markdown, "utf-8")
   console.log(
-    `Generated ${PROVIDER_MATRIX_OUTPUT_PATH.replace(REPO_ROOT + "/", "")}`
+    `Generated ${PROVIDER_MATRIX_OUTPUT_PATH.replace(`${REPO_ROOT}/`, "")}`
   )
-  console.log(`  ${providers.length} providers × ${COLUMNS.length} capabilities`)
+  console.log(
+    `  ${providers.length} providers × ${COLUMNS.length} capabilities`
+  )
 }
 
 /*
