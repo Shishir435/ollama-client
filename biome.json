@@ -10,7 +10,6 @@
     "includes": [
       "**",
       "!docs",
-      "!tools",
       "!src/globals.css",
       "!src/features/selection-actions/selection-overlay.css",
       "!public",

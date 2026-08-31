@@ -9,7 +9,7 @@
 #   It's the simplest way to get started with CORS setup!
 #
 # Usage:
-#   ./tools/ollama-env.sh [--lan]
+#   ./tools/setup/ollama-env.sh [--lan]
 #
 #   (no args)   Extension CORS enabled, server bound to 127.0.0.1 (this machine only)
 #   --lan       Also bind to 0.0.0.0 so other devices on your network can connect.
@@ -17,11 +17,11 @@
 #
 # Cross-platform Examples:
 #   # macOS/Linux/Windows (Git Bash/WSL):
-#   ./tools/ollama-env.sh
-#   ./tools/ollama-env.sh --lan
+#   ./tools/setup/ollama-env.sh
+#   ./tools/setup/ollama-env.sh --lan
 #
 #   # Windows (PowerShell/CMD):
-#   bash tools/ollama-env.sh
+#   bash tools/setup/ollama-env.sh
 #
 # What this script does:
 #   ✅ Detects your OS (macOS, Linux, Windows)

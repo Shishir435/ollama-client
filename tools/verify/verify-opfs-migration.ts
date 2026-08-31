@@ -29,11 +29,20 @@
  * Requires: pnpm benchmark:build (the verify page is dev-gated).
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { resolve } from "node:path"
-import { chromium } from "playwright"
 import type { BrowserContext, Page } from "playwright"
+import { chromium } from "playwright"
 
 const buildPath = resolve("build/chrome-mv3-benchmark")
 const artifactDir = resolve("artifacts/persistence-benchmark")
@@ -157,7 +166,9 @@ const waitForOpfsMarker = async (
     } | null
     if (marker?.backend === "opfs") return marker
     if (Date.now() > deadline) {
-      throw new Error(`Backend marker never became opfs: ${JSON.stringify(marker)}`)
+      throw new Error(
+        `Backend marker never became opfs: ${JSON.stringify(marker)}`
+      )
     }
     await new Promise((resolvePause) => setTimeout(resolvePause, 500))
   }
@@ -248,7 +259,11 @@ const runScenarios = async (visible: boolean): Promise<void> => {
     await second.page.close()
 
     // ---- 3. Real legacy-blob migration across an extension reload ----
-    const seeded = (await call("seedLegacyBlob", FIXTURE_SESSIONS, FIXTURE_MESSAGES)) as {
+    const seeded = (await call(
+      "seedLegacyBlob",
+      FIXTURE_SESSIONS,
+      FIXTURE_MESSAGES
+    )) as {
       sessions: number
       messages: number
       blobBytes: number
@@ -271,9 +286,7 @@ const runScenarios = async (visible: boolean): Promise<void> => {
       sourceCounts?: { sessions: number; messages: number }
     }
     const migratedCounts = (await call("counts")) as TableCounts
-    const migratedReceipt = (await call(
-      "migrationReceipt"
-    )) as MigrationReceipt
+    const migratedReceipt = (await call("migrationReceipt")) as MigrationReceipt
     const migratedIntegrity = (await call("integrityInfo")) as {
       integrityCheck: string
       foreignKeyViolations: number
@@ -438,7 +451,9 @@ const main = async (): Promise<void> => {
     ) {
       throw error
     }
-    console.error("[opfs-migration] headless bootstrap failed, retrying headful")
+    console.error(
+      "[opfs-migration] headless bootstrap failed, retrying headful"
+    )
     results.length = 0
     await runScenarios(true)
   }

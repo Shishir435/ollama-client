@@ -2,10 +2,10 @@ import { createRequire } from "node:module"
 import { indexedDB } from "fake-indexeddb"
 import initSqlJs, { type SqlJsStatic } from "sql.js"
 import {
+  runScale,
   SCALE_NAMES,
-  type ScaleName,
-  runScale
-} from "../src/lib/sqlite/benchmark/persistence-benchmark-core"
+  type ScaleName
+} from "../../src/lib/sqlite/benchmark/persistence-benchmark-core"
 
 const require = createRequire(import.meta.url)
 const wasmPath = require.resolve("sql.js/dist/sql-wasm.wasm")

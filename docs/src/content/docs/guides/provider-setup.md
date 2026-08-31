@@ -74,7 +74,7 @@ ollama pull all-minilm:latest
 You need at least one chat model and one embeddings model installed for the full experience.
 
 :::tip[Helper script]
-Need help with LAN or Firefox origin setup? See [`tools/ollama-env.sh`](https://github.com/Shishir435/ollama-client/blob/main/tools/ollama-env.sh) in the repo.
+Need help with LAN or Firefox origin setup? See [`tools/setup/ollama-env.sh`](https://github.com/Shishir435/ollama-client/blob/main/tools/setup/ollama-env.sh) in the repo.
 :::
 
 ## 4. Configure the extension

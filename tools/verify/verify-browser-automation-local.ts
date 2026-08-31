@@ -12,8 +12,8 @@ import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
 import { resolve } from "node:path"
-import { chromium, firefox } from "playwright"
 import type { BrowserContext, Page, ViewportSize } from "playwright"
+import { chromium, firefox } from "playwright"
 
 interface ChromePreferences {
   extensions?: {
@@ -113,7 +113,10 @@ const prepareVisualSmoke = async (
   // tsx/esbuild can inject its keep-names helper into serialized callbacks,
   // but Playwright evaluates them in a page where that helper does not exist.
   await installPageEvaluationHelpers(page)
-  await page.evaluate<void, { requestedTheme: string; requestedLocale: string }>(
+  await page.evaluate<
+    void,
+    { requestedTheme: string; requestedLocale: string }
+  >(
     ({ requestedTheme, requestedLocale }) => {
       function setExtensionStorage(
         values: Record<string, string>
@@ -136,7 +139,10 @@ const prepareVisualSmoke = async (
         })
       }
 
-      document.documentElement.classList.toggle("dark", requestedTheme === "dark")
+      document.documentElement.classList.toggle(
+        "dark",
+        requestedTheme === "dark"
+      )
       document.documentElement.dataset.theme = requestedTheme
       localStorage.setItem("theme", requestedTheme)
       localStorage.setItem("i18nextLng", requestedLocale)
@@ -208,6 +214,7 @@ const captureOptionsTabSmoke = async (
 const runChromiumExtensionChecks = async (
   ollamaModels: string[],
   forceHeadful = false
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: existing browser scenario and headful fallback share one context lifecycle.
 ): Promise<void> => {
   logStep("Chromium Extension Automation")
   const userDataDir = mkdtempSync(`${tmpdir()}/ollama-client-chromium-`)
@@ -340,9 +347,7 @@ const runChromiumExtensionChecks = async (
     await optionsPage.close()
 
     const sidepanelPage = await context.newPage()
-    await sidepanelPage.goto(
-      `chrome-extension://${extensionId}/sidepanel.html`
-    )
+    await sidepanelPage.goto(`chrome-extension://${extensionId}/sidepanel.html`)
     await checkPageLoaded(sidepanelPage, "Chromium sidepanel page")
     await prepareVisualSmoke(sidepanelPage, "light", "en", sidepanelViewport)
     await prepareSidepanelChatSmoke(sidepanelPage)
@@ -350,7 +355,10 @@ const runChromiumExtensionChecks = async (
     const contextButton = sidepanelPage.getByRole("button", { name: "Context" })
     if (await contextButton.isVisible()) {
       await contextButton.click()
-      await captureVisualSmoke(sidepanelPage, "chromium-sidepanel-context-light")
+      await captureVisualSmoke(
+        sidepanelPage,
+        "chromium-sidepanel-context-light"
+      )
       await sidepanelPage.keyboard.press("Escape")
     }
     await prepareVisualSmoke(sidepanelPage, "dark", "de", sidepanelViewport)
@@ -565,7 +573,14 @@ const pickChatModels = (models: string[]): string[] => {
     return [ollamaChatModelOverride]
   }
 
-  const blockedHints = ["embed", "embedding", "minilm", "bge", "e5", "nomic-embed"]
+  const blockedHints = [
+    "embed",
+    "embedding",
+    "minilm",
+    "bge",
+    "e5",
+    "nomic-embed"
+  ]
   const chatCandidates = models.filter((model) => {
     const lower = String(model).toLowerCase()
     return !blockedHints.some((hint) => lower.includes(hint))
@@ -593,18 +608,21 @@ const checkOllamaFromPage = async (
   page: Page,
   label: string
 ): Promise<void> => {
-  const result = await page.evaluate<PageOllamaResult, string>(async (baseUrl) => {
-    const urls = [`${baseUrl}/api/tags`, `${baseUrl}/v1/models`]
-    for (const url of urls) {
-      try {
-        const response = await fetch(url)
-        if (response.ok) {
-          return { ok: true, url }
-        }
-      } catch {}
-    }
-    return { ok: false }
-  }, ollamaBaseUrl)
+  const result = await page.evaluate<PageOllamaResult, string>(
+    async (baseUrl) => {
+      const urls = [`${baseUrl}/api/tags`, `${baseUrl}/v1/models`]
+      for (const url of urls) {
+        try {
+          const response = await fetch(url)
+          if (response.ok) {
+            return { ok: true, url }
+          }
+        } catch {}
+      }
+      return { ok: false }
+    },
+    ollamaBaseUrl
+  )
 
   if (!result.ok) {
     if (ollamaRequired) {
@@ -627,7 +645,9 @@ const verifyChatConversationFromExtension = async (
   >(
     ({ selectedModel, prompt }) =>
       new Promise<ChatVerificationResult>((resolve) => {
-        const port = chrome.runtime.connect({ name: "provider-stream-response" })
+        const port = chrome.runtime.connect({
+          name: "provider-stream-response"
+        })
         let content = ""
         let finished = false
 
@@ -648,6 +668,7 @@ const verifyChatConversationFromExtension = async (
           })
         }, 90000)
 
+        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: serialized page callback must contain its own stream/error handling.
         port.onMessage.addListener((msg: StreamMessage) => {
           if (typeof msg?.delta === "string") {
             content += msg.delta
@@ -695,7 +716,10 @@ const verifyChatConversationFromExtension = async (
     { selectedModel: model, prompt: chatPrompt }
   )
 
-  assert(response?.ok, `Chat stream failed: ${response?.error || "unknown error"}`)
+  assert(
+    response?.ok,
+    `Chat stream failed: ${response?.error || "unknown error"}`
+  )
   assert(
     typeof response?.content === "string" && response.content.trim().length > 0,
     "Chat stream completed but returned empty assistant content"
@@ -739,6 +763,7 @@ const verifyChatConversationViaHttp = async (
             messages: [{ role: "user", content: prompt }]
           })
         })
+          // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: serialized page callback keeps the existing Ollama streaming parser self-contained.
           .then(async (res) => {
             if (!res.ok) {
               const text = await res.text()

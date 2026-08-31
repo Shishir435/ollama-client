@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Firefox MV2 mirror of tools/verify-opfs-migration.ts: end-to-end
+ * Firefox MV2 mirror of tools/verify/verify-opfs-migration.ts: end-to-end
  * verification of the PRODUCTION OPFS persistence backend in real, packaged
  * Firefox.
  *
@@ -46,7 +46,7 @@
  *     cannot reach one either without web_accessible_resources. The page is
  *     therefore opened from Firefox's own chrome context with a system
  *     principal, which requires geckodriver's `--allow-system-access`. This is
- *     also why tools/spike-firefox-owner-gates.ts no longer runs as written;
+ *     also why tools/experiments/spike-firefox-owner-gates.ts no longer runs as written;
  *     see the note at the bottom of this file.
  *
  * Usage: pnpm verify:firefox-opfs-migration [--headful]
@@ -54,7 +54,13 @@
  * local Firefox install (override the binary with FIREFOX_BIN).
  */
 
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync
+} from "node:fs"
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
@@ -238,12 +244,7 @@ const call = async <T>(
   const outcome = await driver.executeAsyncScript<
     { ok: true; result: T } | { ok: false; error: string }
   >(
-    // biome-ignore lint/complexity/useArrowFunction: serialized into the page
-    function (
-      method: string,
-      args: unknown[],
-      done: (r: unknown) => void
-    ) {
+    (method: string, args: unknown[], done: (r: unknown) => void) => {
       const api = (
         window as unknown as {
           __persistenceVerify: Record<
@@ -279,8 +280,7 @@ const startCall = (
   ...args: unknown[]
 ): Promise<void> =>
   driver.executeScript(
-    // biome-ignore lint/complexity/useArrowFunction: serialized into the page
-    function (method: string, args: unknown[]) {
+    (method: string, args: unknown[]) => {
       const target = window as unknown as {
         __persistenceVerify: Record<
           string,
@@ -298,20 +298,18 @@ const startCall = (
 const settleCall = async (driver: WebDriver): Promise<void> => {
   const outcome = await driver.executeAsyncScript<
     { ok: true } | { ok: false; error: string }
-  >(
-    // biome-ignore lint/complexity/useArrowFunction: serialized into the page
-    function (done: (r: unknown) => void) {
-      const pending = (window as unknown as { __pendingVerify?: Promise<unknown> })
-        .__pendingVerify
-      if (!pending) {
-        done({ ok: false, error: "no pending call on this tab" })
-        return
-      }
-      pending
-        .then(() => done({ ok: true }))
-        .catch((error: unknown) => done({ ok: false, error: String(error) }))
+  >((done: (r: unknown) => void) => {
+    const pending = (
+      window as unknown as { __pendingVerify?: Promise<unknown> }
+    ).__pendingVerify
+    if (!pending) {
+      done({ ok: false, error: "no pending call on this tab" })
+      return
     }
-  )
+    pending
+      .then(() => done({ ok: true }))
+      .catch((error: unknown) => done({ ok: false, error: String(error) }))
+  })
   if (!outcome.ok) throw new Error(`pending call failed: ${outcome.error}`)
 }
 
@@ -439,7 +437,9 @@ const waitForTurnResult = async (
       return result
     }
     if (Date.now() > deadline) {
-      throw new Error(`Turn ${turnId} did not settle: ${JSON.stringify(result)}`)
+      throw new Error(
+        `Turn ${turnId} did not settle: ${JSON.stringify(result)}`
+      )
     }
     await sleep(250)
   }
@@ -508,9 +508,14 @@ const runScenarios = async (): Promise<void> => {
           result.content === "firefox" &&
           reloadServer.signatures.length === 2 &&
           reloadServer.signatures.every(
-            (signature) => JSON.stringify(signature) === JSON.stringify(expected)
+            (signature) =>
+              JSON.stringify(signature) === JSON.stringify(expected)
           ),
-        { baseUrl: reloadServer.baseUrl, result, signatures: reloadServer.signatures }
+        {
+          baseUrl: reloadServer.baseUrl,
+          result,
+          signatures: reloadServer.signatures
+        }
       )
     } finally {
       await reloadServer.close()
@@ -598,7 +603,8 @@ const runScenarios = async (): Promise<void> => {
     record(
       "every-durable-table-migrated",
       Object.entries(seeded.tables).every(
-        ([table, count]) => count === 0 || migratedCounts.tables[table] === count
+        ([table, count]) =>
+          count === 0 || migratedCounts.tables[table] === count
       ),
       { seeded: seeded.tables, migrated: migratedCounts.tables }
     )

@@ -161,7 +161,7 @@ pnpm package:firefox        # Zip Firefox build
 pnpm typecheck
 pnpm lint:check
 pnpm test:run
-pnpm verify                 # typecheck + lint + full test suite
+pnpm verify                 # shared static checks + full test suite
 pnpm verify:browser-smoke
 pnpm verify:browser-automation
 ```
@@ -240,7 +240,7 @@ Do not expose local provider APIs publicly without authentication and network co
 
 Keep changes scoped, testable, and aligned with the existing feature boundaries. New chat-history work should go through `src/lib/repositories/chat-history.ts`; new provider work should update the provider registry, factory, manager defaults, tests, and provider docs.
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md) for the full contributor workflow.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md) for the full contributor workflow. The [tooling guide](tools/README.md) lists command ownership and prerequisites.
 
 ## License
 

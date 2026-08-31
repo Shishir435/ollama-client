@@ -18,13 +18,22 @@
  * Requires: pnpm benchmark:build (and benchmark:build:firefox for Firefox).
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from "node:fs"
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
 import { resolve } from "node:path"
-import { chromium, firefox } from "playwright"
 import type { Page } from "playwright"
+import { chromium, firefox } from "playwright"
 
 const chromeBuildPath = resolve("build/chrome-mv3-benchmark")
 const firefoxBuildPath = resolve("build/firefox-mv2-benchmark")

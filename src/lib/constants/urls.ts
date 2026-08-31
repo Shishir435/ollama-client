@@ -12,7 +12,7 @@ export const EXTERNAL_URLS = {
   GITHUB_NEW_ISSUE: "https://github.com/Shishir435/ollama-client/issues/new",
   SETUP_GUIDE: `${DOCS_HOME}/guides/provider-setup/`,
   FIREFOX_CORS_SCRIPT:
-    "https://github.com/Shishir435/ollama-client/blob/main/tools/ollama-env.sh",
+    "https://github.com/Shishir435/ollama-client/blob/main/tools/setup/ollama-env.sh",
   I18N_DISCUSSION_GITHUB:
     "https://github.com/Shishir435/ollama-client/discussions/"
 } as const

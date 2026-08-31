@@ -4,13 +4,13 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
-import { OLC_PUBLIC_ROUTES } from "../packages/olc/src/core/public-api-contract.js"
+import { OLC_PUBLIC_ROUTES } from "../../packages/olc/src/core/public-api-contract.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const REPO_ROOT = join(__dirname, "..")
+const REPO_ROOT = join(__dirname, "../..")
 const TEMPLATE_PATH = join(
   REPO_ROOT,
-  "tools/openapi/olc-openapi.template.json"
+  "tools/generate/openapi/olc-openapi.template.json"
 )
 const OUTPUT_PATH = join(REPO_ROOT, "docs/public/openapi.json")
 
@@ -82,9 +82,7 @@ export function buildOlcOpenApi(): OpenApiDocument {
     const { method, operationId } = ROUTE_OPERATIONS[routeName]
     const operation = operations.get(operationId)
     if (!operation) {
-      throw new Error(
-        `OpenAPI template is missing operationId: ${operationId}`
-      )
+      throw new Error(`OpenAPI template is missing operationId: ${operationId}`)
     }
     const path = toOpenApiPath(runtimeRoute)
     paths[path] = { ...paths[path], [method]: operation }

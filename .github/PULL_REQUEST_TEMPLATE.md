@@ -21,13 +21,14 @@ Fixes #<issue-number>
 
 ## Quality gates
 
-All of these run in the pre-commit / pre-push hooks; tick them after
-they pass locally:
+Static checks and tests run in Git hooks. Browser builds are explicit
+CI/release gates; tick each check after it passes locally:
 
 - [ ] `pnpm typecheck`
 - [ ] `pnpm lint:check`
 - [ ] `pnpm format:check`
 - [ ] `pnpm test:run` (full suite)
+- [ ] `pnpm test:coverage` (when changing coverage or test configuration)
 - [ ] `pnpm build` (Chrome MV3)
 - [ ] `pnpm build:firefox` (Firefox MV2)
 

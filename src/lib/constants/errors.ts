@@ -1,5 +1,5 @@
 /**
- * Shared script content from tools/ollama-env.sh
+ * Shared script content from tools/setup/ollama-env.sh
  * This ensures both error messages have the same script content
  */
 import { EXTERNAL_URLS } from "@/lib/constants/urls"
@@ -15,20 +15,20 @@ const OLLAMA_ENV_SCRIPT_CONTENT = `#!/bin/bash
 #   It's the simplest way to get started with CORS setup!
 #
 # Usage:
-#   ./tools/ollama-env.sh [firefox|chrome]
+#   ./tools/setup/ollama-env.sh [firefox|chrome]
 #
 # Cross-platform Examples:
 #   # macOS/Linux/Windows (Git Bash/WSL):
-#   ./tools/ollama-env.sh firefox   # Firefox with CORS + LAN access
-#   ./tools/ollama-env.sh chrome    # Chrome with LAN access
+#   ./tools/setup/ollama-env.sh firefox   # Firefox with CORS + LAN access
+#   ./tools/setup/ollama-env.sh chrome    # Chrome with LAN access
 #
 #   # Windows (PowerShell/CMD):
-#   bash tools/ollama-env.sh firefox
-#   bash tools/ollama-env.sh chrome
+#   bash tools/setup/ollama-env.sh firefox
+#   bash tools/setup/ollama-env.sh chrome
 #
 #   # Windows (WSL):
-#   ./tools/ollama-env.sh firefox
-#   ./tools/ollama-env.sh chrome
+#   ./tools/setup/ollama-env.sh firefox
+#   ./tools/setup/ollama-env.sh chrome
 #
 # What this script does:
 #   ✅ Automatically detects your OS (macOS, Linux, Windows)

@@ -14,8 +14,6 @@
  */
 
 import { spawn } from "node:child_process"
-import { createServer } from "node:http"
-import type { AddressInfo } from "node:net"
 import {
   mkdirSync,
   mkdtempSync,
@@ -23,6 +21,8 @@ import {
   rmSync,
   writeFileSync
 } from "node:fs"
+import { createServer } from "node:http"
+import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
 import { resolve } from "node:path"
 import { chromium } from "playwright"
@@ -132,7 +132,9 @@ class PageSession {
       )
     })
     const page = new PageSession(ws)
-    ws.addEventListener("message", (event) => page.onMessage(String(event.data)))
+    ws.addEventListener("message", (event) =>
+      page.onMessage(String(event.data))
+    )
     const created = (await page.sendBrowser("Target.createTarget", {
       url
     })) as { targetId: string }
@@ -376,14 +378,17 @@ const run = async (): Promise<void> => {
       `chrome-extension://${extensionId}/persistence-verify.html`
     )
     await poll(
-      () => page?.evaluate("typeof window.__persistenceVerify === 'object'") ?? Promise.resolve(false),
+      () =>
+        page?.evaluate("typeof window.__persistenceVerify === 'object'") ??
+        Promise.resolve(false),
       Boolean,
       "persistence verification hooks"
     )
     await poll(
       () =>
-        page?.evaluate<{ backend?: string } | null>(verifyCall("backendMarker")) ??
-        Promise.resolve(null),
+        page?.evaluate<{ backend?: string } | null>(
+          verifyCall("backendMarker")
+        ) ?? Promise.resolve(null),
       (marker) => marker?.backend === "opfs",
       "OPFS backend marker"
     )
@@ -410,7 +415,10 @@ const run = async (): Promise<void> => {
 
     const closeResult = await httpJson(`/json/close/${originalWorker.id}`)
     const workerGone = await poll(
-      async () => !(await listTargets()).some((target) => target.id === originalWorker.id),
+      async () =>
+        !(await listTargets()).some(
+          (target) => target.id === originalWorker.id
+        ),
       Boolean,
       "original service-worker termination"
     )
@@ -485,10 +493,7 @@ const main = async (): Promise<void> => {
     results
   }
   mkdirSync(artifactDir, { recursive: true })
-  const outputPath = resolve(
-    artifactDir,
-    `sw-turn-recovery-${Date.now()}.json`
-  )
+  const outputPath = resolve(artifactDir, `sw-turn-recovery-${Date.now()}.json`)
   writeFileSync(outputPath, JSON.stringify(report, null, 2))
   console.error(`Report written: ${outputPath}`)
   console.log(JSON.stringify(report, null, 2))

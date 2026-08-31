@@ -1,11 +1,11 @@
 import {
   makeStreamReducerState,
   reduceStreamEvent
-} from "../packages/runtime-core/src/chat-stream-reducer"
+} from "../../packages/runtime-core/src/chat-stream-reducer"
 import {
   pruneSearchCache,
   type SearchCacheEntry
-} from "../src/lib/embeddings/cache-pruning"
+} from "../../src/lib/embeddings/cache-pruning"
 
 type Measurement = {
   medianMs: number
@@ -28,7 +28,10 @@ const measure = (
   samples.sort((a, b) => a - b)
   return {
     medianMs: samples[Math.floor(samples.length / 2)],
-    p95Ms: samples[Math.min(samples.length - 1, Math.ceil(samples.length * 0.95) - 1)],
+    p95Ms:
+      samples[
+        Math.min(samples.length - 1, Math.ceil(samples.length * 0.95) - 1)
+      ],
     samples
   }
 }
@@ -50,18 +53,22 @@ const benchmarkStreamReducer = (): Measurement => {
 const benchmarkSearchCachePruning = (): Measurement => {
   const now = 1_000_000
   const cache = new Map<string, SearchCacheEntry>()
-  return measure(() => {
-    pruneSearchCache(cache, now, 5_000, 50)
-  }, 15, () => {
-    cache.clear()
-    // Insert oldest first to model the cache's insertion-order LRU policy.
-    for (let index = 999; index >= 0; index--) {
-      cache.set(`query-${index}`, {
-        results: [],
-        timestamp: now - index * 10
-      })
+  return measure(
+    () => {
+      pruneSearchCache(cache, now, 5_000, 50)
+    },
+    15,
+    () => {
+      cache.clear()
+      // Insert oldest first to model the cache's insertion-order LRU policy.
+      for (let index = 999; index >= 0; index--) {
+        cache.set(`query-${index}`, {
+          results: [],
+          timestamp: now - index * 10
+        })
+      }
     }
-  })
+  )
 }
 
 const batchDelayScenarios = [

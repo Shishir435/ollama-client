@@ -46,7 +46,15 @@ const record = (name: string, pass: boolean, detail: unknown): void => {
 
 interface RpcResult {
   ok: boolean
-  result?: any
+  result?: {
+    ownerId?: string
+    byWriter?: Record<string, number>
+    state?: string
+    exportedBytes?: number
+    verifiedTotal?: number
+    uncommittedTotal?: number
+    total?: number
+  }
   error?: string
 }
 
@@ -102,7 +110,7 @@ const main = async (): Promise<void> => {
      *
      * Opening the tab from Firefox's own chrome context with a system
      * principal sidesteps the content-context restriction. Same approach as
-     * tools/verify-firefox-opfs-migration.ts.
+     * tools/verify/verify-firefox-opfs-migration.ts.
      */
     const context = driver as unknown as {
       setContext: (c: unknown) => Promise<void>
@@ -141,8 +149,7 @@ const main = async (): Promise<void> => {
 
     const rpc = (op: string, payload?: unknown): Promise<RpcResult> =>
       driver.executeAsyncScript(
-        // biome-ignore lint/complexity/useArrowFunction: serialized into the page
-        function (op: string, payload: unknown, done: (r: unknown) => void) {
+        (op: string, payload: unknown, done: (r: unknown) => void) => {
           ;(
             window as unknown as {
               __spikeOwner: (op: string, payload?: unknown) => Promise<unknown>
@@ -179,7 +186,9 @@ const main = async (): Promise<void> => {
     const counts = await rpc("counts")
     record(
       "mv2-appends-durable",
-      appendsOk && counts.ok && counts.result?.byWriter?.["ff-writer"] === APPENDS,
+      appendsOk &&
+        counts.ok &&
+        counts.result?.byWriter?.["ff-writer"] === APPENDS,
       counts
     )
 
@@ -209,7 +218,7 @@ const main = async (): Promise<void> => {
     record(
       "mv2-export-verified",
       exported.ok &&
-        exported.result?.exportedBytes > 0 &&
+        (exported.result?.exportedBytes ?? 0) > 0 &&
         exported.result?.verifiedTotal === APPENDS,
       exported.result ?? exported
     )
