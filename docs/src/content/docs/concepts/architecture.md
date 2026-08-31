@@ -301,7 +301,6 @@ Tools are registered in `src/lib/tools/internal/internal-tool-source.ts` — app
 | `read_tab` | low | Read a specific open tab by id or title/URL query. Stale ids are refreshed and can fall back to the active readable tab. |
 | `list_tab_groups` | low | List the browser's tab groups. |
 | `read_tab_group` | low | Read the readable tabs inside one group. |
-| `selected_text` | low | Use the most recent page selection captured by the extension. |
 | `list_reminders` | low | List pending reminders. |
 | `web_search` | medium | Search the live web through the configured search provider. |
 | `get_recent_history` | medium | Query recent browsing history. |
