@@ -8,7 +8,6 @@ import { runFileSearch } from "../file-search-tool"
 import { createInternalToolSource } from "../internal-tool-source"
 import { runListTabs } from "../list-tabs-tool"
 import { runReadTab } from "../read-tab-tool"
-import { runSelectedText } from "../selected-text-tool"
 import { runListTabGroups, runReadTabGroup } from "../tab-group-tools"
 import { clearTabContentCache } from "../tab-utils"
 
@@ -454,19 +453,27 @@ describe("read_tab tool", () => {
   })
 })
 
-describe("selected_text tool", () => {
+describe("internal tool registry", () => {
   afterEach(() => vi.clearAllMocks())
 
-  it("returns the stored selection", async () => {
-    vi.mocked(getPlasmoStoredValue).mockResolvedValue("highlighted bit")
-    expect((await runSelectedText({}, ctx)).content).toBe("highlighted bit")
+  it("does not offer the consumable selection handoff as a model tool", async () => {
+    const source = createInternalToolSource()
+    const tools = await source.listTools()
+
+    expect(tools.map((tool) => tool.name)).not.toContain("selected_text")
   })
 
-  it("reports an empty selection without erroring", async () => {
-    vi.mocked(getPlasmoStoredValue).mockResolvedValue(undefined)
-    const result = await runSelectedText({}, ctx)
-    expect(result.isError).toBeUndefined()
-    expect(result.content).toContain("No text")
+  it("rejects a stale selected_text call without reading the handoff", async () => {
+    vi.mocked(getPlasmoStoredValue).mockResolvedValue("pending composer quote")
+    const result = await createInternalToolSource().callTool(
+      "selected_text",
+      {},
+      ctx
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content).toBe("Unknown internal tool: selected_text")
+    expect(getPlasmoStoredValue).not.toHaveBeenCalled()
   })
 })
 

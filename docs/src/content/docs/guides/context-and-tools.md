@@ -36,6 +36,8 @@ Examples:
 - "Answer from my uploaded files."
 - "Search the web for the latest release notes."
 
+Page selections use an explicit handoff: highlight text and choose **Ask Local LLM** from the context menu to place it in the sidebar composer. The temporary handoff is cleared after insertion; it is not a model-callable tool or a history of page selections.
+
 Current internal tools:
 
 | Tool | Reads |
@@ -43,7 +45,6 @@ Current internal tools:
 | `current_tab` | The active tab's extracted text, including supported video transcripts. |
 | `list_tabs` | Current readable tab ids, titles, and URLs. |
 | `read_tab` | A specific readable tab by id or title/URL query. |
-| `selected_text` | The latest selected text captured by the extension. |
 | `file_search` | Uploaded/indexed files. |
 | `rag_search` | Local chat memory and indexed conversation context. |
 | `web_search` | Current web results through the configured search provider. |
