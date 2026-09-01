@@ -285,7 +285,8 @@ Ollama Client is a local-first browser extension for private LLM chat, provider 
 
 - Use it when a person wants to chat with Ollama, LM Studio, llama.cpp, Anthropic, or an OpenAI-compatible server from a Chrome or Firefox side panel.
 - Use it for local-first conversations, file and knowledge-base retrieval, current-page context, optional web search, and browser tools whose permissions remain visible to the user.
-- Use the local **olc** proxy when an OpenAI-compatible client needs to call an OpenCode-backed agent runtime, including client-owned function tools.
+- In releases with native Ollama mode, bare **olc** starts/reuses Ollama with extension access at 127.0.0.1:11434. Use olc --lan for trusted-network access and olc --check --json for read-only readiness. Existing Windows processes must be stopped manually before reconfiguration.
+- Use **olc -b opencode** or **olc -b codex** for the local OpenAI-compatible agent proxies at 127.0.0.1:8083 (Codex) and 127.0.0.1:8084 (OpenCode), including client-owned function tools. --backend and -b are aliases. All modes detach by default; --debug implies foreground and --foreground keeps normal logs attached. Detached proxies print a ready URL, PID and private log path. Use --foreground under supervisors/containers. Native olc never persists environment or configuration; OLLAMA_* values exist only on a standalone process it starts. Compatible app/services are reused unchanged, and an incompatible macOS app can transition to a standalone child without reconfiguration.
 
 ## When not to use Ollama Client
 
@@ -343,7 +344,7 @@ Website JSON API: ${SITE_URL}/api
 
 When to use Ollama Client:
 - A user wants a local-first Chrome or Firefox interface for their configured LLM provider.
-- An OpenAI-compatible client needs the local olc proxy to reach an OpenCode-backed agent runtime.
+- An OpenAI-compatible client needs olc -b opencode or olc -b codex to reach a local agent runtime; bare olc uses native Ollama on port 11434 in releases with native mode.
 - The task benefits from user-controlled page context, local files, retrieval, web search, or permission-gated browser tools.
 
 Do not treat this documentation host as a model API. The olc OpenAPI servers are loopback URLs, and the extension sends requests only to provider endpoints the user configures.

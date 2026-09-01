@@ -91,8 +91,10 @@ and retains the exact extension ZIPs used for publishing.
 - `spike:*` commands retain experimental checks and separate spike builds.
   They are not release gates. Do not remove them solely because a newer runner
   exists; verify its scenario coverage and compatibility-ledger evidence first.
-- `setup/ollama-env.sh` changes local Ollama configuration only when explicitly
-  invoked by a developer; read the script before using it.
+- `setup/ollama-env.sh` is an optional Bash helper for configuring native
+  Ollama's extension origins without installing olc. Users can also set
+  `OLLAMA_ORIGINS`/`OLLAMA_HOST` directly. olc adds stricter process ownership
+  checks and readiness reporting when installed.
 
 ## Adding or moving a tool
 

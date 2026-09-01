@@ -110,7 +110,8 @@
     "proxy:codex": "pnpm exec tsx packages/olc/src/cli.ts --backend codex",
     "proxy:codex:debug": "pnpm exec tsx packages/olc/src/cli.ts --backend codex --debug",
     "proxy:build": "pnpm --filter @ollama-client/olc build",
-    "proxy:bundle": "pnpm --filter @ollama-client/olc bundle"
+    "proxy:bundle": "pnpm --filter @ollama-client/olc bundle",
+    "olc": "tsx packages/olc/src/cli.ts"
   },
   "dependencies": {
     "@ollama-client/chat-runtime": "workspace:*",

@@ -7,29 +7,67 @@ A `403 Forbidden` or CORS error usually means Ollama rejected the browser
 extension origin. This is most common in Firefox, where extensions cannot use the
 same declarative network request CORS workaround that Chromium supports.
 
-## Quick fix
+## Choose a setup method
 
-Start Ollama with browser-extension origins allowed:
+olc is optional. It automates the same Ollama environment configuration shown
+in the manual instructions below.
+
+### Automatic setup with olc
+
+Install **olc**, then let it add and verify the browser-extension origins:
 
 ```bash
-OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*" ollama serve
+# macOS / Linux
+curl -fsSL https://ollamaclient.in/olc.sh | sh
+olc
+olc --check --json
 ```
 
-Then reopen Ollama Client and retry the connection.
+```powershell
+# Windows PowerShell
+irm https://ollamaclient.in/olc.ps1 | iex
+olc
+olc --check --json
+```
 
-## macOS persistent setup
+Ollama itself must already be installed. `olc --debug` provides foreground
+diagnostics. Use `olc --lan` only when trusted-network access is intended;
+Ollama has no native API authentication. olc passes `OLLAMA_*` only to a
+standalone Ollama child; the values disappear when that process stops and olc
+does not write them to the system or user environment.
 
-If Ollama runs as a launch service, set `OLLAMA_ORIGINS` in the service
-environment and restart Ollama.
+On macOS, if the running Ollama app lacks the required origins, olc gracefully
+quits it and starts a standalone Ollama process. Stop that standalone process
+before reopening the app; the app's own configuration remains unchanged.
 
-For a shell session:
+If olc reports that an app, tray process, or protected service must be configured
+through its owner, use the matching manual setup below.
+
+### Manual setup without olc
+
+#### macOS Ollama app
+
+Set the launch-session environment, fully quit Ollama, and reopen it:
+
+```bash
+launchctl setenv OLLAMA_ORIGINS "chrome-extension://*,moz-extension://*"
+osascript -e 'quit app "Ollama"'
+open -a Ollama
+```
+
+This value lasts until logout. Remove it with
+`launchctl unsetenv OLLAMA_ORIGINS`.
+
+#### macOS or Linux shell server
+
+Stop the existing server, then start a shell-owned server with the variable:
 
 ```bash
 export OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*"
 ollama serve
 ```
 
-## Linux systemd setup
+#### Linux systemd service
 
 Create or edit an Ollama service override:
 
@@ -51,7 +89,7 @@ sudo systemctl daemon-reload
 sudo systemctl restart ollama
 ```
 
-## Windows PowerShell setup
+#### Windows PowerShell
 
 Set the environment variable before starting Ollama:
 
@@ -67,6 +105,19 @@ For a persistent user variable:
 ```
 
 Restart Ollama after changing the value.
+
+### Verify the manual setup
+
+Confirm that Ollama answers a request carrying an extension origin:
+
+```bash
+curl -i -H 'Origin: moz-extension://cors-probe' \
+  http://127.0.0.1:11434/api/version
+```
+
+An HTTP `200` response means Ollama accepted the origin. A `403` means the
+running process did not inherit `OLLAMA_ORIGINS`; fully stop it and repeat the
+matching platform steps.
 
 ## Chrome vs Firefox
 

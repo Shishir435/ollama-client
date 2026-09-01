@@ -11,6 +11,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [0.13.3]
 
+### Changed
+
+- All olc backends now detach by default. `--debug` implies foreground; explicit
+  `--foreground`/`--detached` control the session. Detached proxies report readiness,
+  PID, private logs, and shutdown instructions.
+- `olc` now defaults to native Ollama on port 11434. Use `olc -b codex`
+  for the Codex proxy on port 8083 or `olc -b opencode` for the OpenCode proxy
+  on port 8084; `-b` aliases `--backend`.
+- Added native `--lan`, `--local`, `--check`, and `--json`, safe app/service
+  ownership checks, process-scoped child environments, and strict option
+  validation. olc never persists app, service, user, or machine environment;
+  an incompatible macOS app transitions to a standalone process safely.
+
 ### Development
 
 - Release metadata checks now reject a missing current-version changelog entry
