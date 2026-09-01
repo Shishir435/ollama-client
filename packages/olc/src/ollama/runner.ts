@@ -107,12 +107,12 @@ export async function runOllama(
   input: OllamaOptions,
   deps: OllamaDependencies = dependencies
 ): Promise<OllamaResult> {
-  const found = await deps.listeners(input.port)
-  assertOllamaListeners(found)
-  let listener = found[0]
   const options = { ...input }
-  if (listener && !options.explicitHost) options.host = listener.host
-  let url = endpoint(options.host, options.port)
+  const found = await deps.listeners(input.port)
+  const target = await selectOllamaTarget(input, options, found, deps)
+  const { selected, listener } = target
+  let { manager, env } = target
+  const url = endpoint(options.host, options.port)
   const result = (
     ready: boolean,
     status: OllamaResult["status"],
@@ -126,32 +126,18 @@ export async function runOllama(
     port: options.port,
     message
   })
-  if (
-    listener &&
-    matchesBind(listener.host, options.host) &&
-    (await deps.probe(url, options.origins)).ready
-  )
-    return result(true, "ready", "reusing native Ollama")
-  let manager = await deps.manager(listener)
-  let env = await deps.environment(manager, listener)
-  let rediscovered = false
-  if (!listener && !options.explicitHost && env.OLLAMA_HOST) {
-    const configured = parseHost(env.OLLAMA_HOST)
-    options.host = configured.host
-    options.port = configured.port
-    url = endpoint(options.host, options.port)
-    const configuredListeners = await deps.listeners(options.port)
-    assertOllamaListeners(configuredListeners)
-    listener = configuredListeners[0]
-    if (listener) {
-      rediscovered = true
-      manager = await deps.manager(listener)
-      env = await deps.environment(manager, listener)
-    }
+  try {
+    assertOllamaListeners(selected)
+  } catch (error) {
+    if (!options.check) throw error
+    return result(
+      false,
+      "not-ready",
+      "The selected Ollama endpoint is occupied by another process or has ambiguous ownership"
+    )
   }
-  options.origins = mergeOrigins(env.OLLAMA_ORIGINS, options.origins)
+  if (env) options.origins = mergeOrigins(env.OLLAMA_ORIGINS, options.origins)
   if (
-    rediscovered &&
     listener &&
     matchesBind(listener.host, options.host) &&
     (await deps.probe(url, options.origins)).ready
@@ -163,6 +149,9 @@ export async function runOllama(
       "not-ready",
       "Ollama is stopped, bound differently, or missing extension access; start a standalone server with olc or configure its owner manually"
     )
+  manager ??= await deps.manager(listener)
+  env ??= await deps.environment(manager, listener)
+  options.origins = mergeOrigins(env.OLLAMA_ORIGINS, options.origins)
   if (
     (manager.kind === "cli" || manager.kind === "mac-app") &&
     listener &&
@@ -191,6 +180,56 @@ export async function runOllama(
     run,
     result(true, listener ? "restarted" : "started", run.detail)
   )
+}
+
+interface OllamaTarget {
+  selected: Listener[]
+  listener?: Listener
+  manager?: Manager
+  env?: NodeJS.ProcessEnv
+}
+
+/** Prefer an installed macOS app's configured endpoint before judging the requested port. */
+async function selectOllamaTarget(
+  input: OllamaOptions,
+  options: OllamaOptions,
+  found: Listener[],
+  deps: OllamaDependencies
+): Promise<OllamaTarget> {
+  let selected = found
+  let listener = selected[0]
+  let manager: Manager | undefined
+  let env: NodeJS.ProcessEnv | undefined
+  if (options.explicitHost)
+    return { selected, ...(listener ? { listener } : {}) }
+  const installed = await deps.manager(undefined)
+  if (installed.kind === "mac-app") {
+    const configuredEnv = await deps.environment(installed, undefined)
+    if (configuredEnv.OLLAMA_HOST) {
+      const configured = parseHost(configuredEnv.OLLAMA_HOST)
+      options.host = configured.host
+      options.port = configured.port
+      selected =
+        configured.port === input.port
+          ? found
+          : await deps.listeners(configured.port)
+      listener = selected[0]
+      if (listener) {
+        manager = await deps.manager(listener)
+        env = await deps.environment(manager, listener)
+      } else {
+        manager = installed
+        env = configuredEnv
+      }
+    }
+  }
+  if (!manager && listener) options.host = listener.host
+  return {
+    selected,
+    ...(listener ? { listener } : {}),
+    ...(manager ? { manager } : {}),
+    ...(env ? { env } : {})
+  }
 }
 
 /** Go may report its dual-stack wildcard listener as either address family. */

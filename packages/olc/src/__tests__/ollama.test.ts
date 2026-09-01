@@ -248,14 +248,14 @@ describe("native lifecycle", () => {
     ).toBeUndefined()
     expect(deps.apply).not.toHaveBeenCalled()
   })
-  it("reuses a healthy server without querying a manager or modifying anything", async () => {
+  it("reuses a healthy server after read-only app discovery", async () => {
     const deps = fixture()
     expect(
       await runOllama(resolveOllamaOptions({}, {}, {}), deps)
     ).toMatchObject({ ready: true, status: "ready", port: 11434 })
     expect(deps.apply).not.toHaveBeenCalled()
     expect(deps.environment).not.toHaveBeenCalled()
-    expect(deps.manager).not.toHaveBeenCalled()
+    expect(deps.manager).toHaveBeenCalledExactlyOnceWith(undefined)
   })
   it("preserves existing LAN and makes repeated --lan idempotent", async () => {
     for (const options of [{}, { LAN: true }]) {
@@ -374,8 +374,8 @@ describe("native lifecycle", () => {
       undefined
     )
   })
-  it("rediscovers and reuses a running macOS app on its configured port", async () => {
-    const deps = fixture([])
+  it("prefers a running macOS app over a listener on the default port", async () => {
+    const deps = fixture()
     const configuredListener = {
       ...listener,
       host: "0.0.0.0",
@@ -395,7 +395,7 @@ describe("native lifecycle", () => {
       }
     }
     deps.listeners
-      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([listener])
       .mockResolvedValueOnce([configuredListener])
     deps.manager
       .mockResolvedValueOnce(stoppedManager)
@@ -410,6 +410,30 @@ describe("native lifecycle", () => {
     expect(deps.listeners).toHaveBeenNthCalledWith(2, 12345)
     expect(deps.manager).toHaveBeenNthCalledWith(2, configuredListener)
     expect(deps.apply).not.toHaveBeenCalled()
+  })
+  it("reports a foreign configured-port listener as not ready in check mode", async () => {
+    const deps = fixture([])
+    deps.listeners
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { ...listener, executable: "/usr/bin/node", host: "0.0.0.0" }
+      ])
+    deps.manager.mockResolvedValue({
+      kind: "mac-app",
+      appPath: "/Applications/Ollama.app"
+    })
+    deps.environment.mockResolvedValue({ OLLAMA_HOST: "0.0.0.0:12345" })
+    expect(
+      await runOllama(resolveOllamaOptions({ CHECK: true }, {}, {}), deps)
+    ).toMatchObject({
+      ready: false,
+      status: "not-ready",
+      host: "0.0.0.0",
+      port: 12345
+    })
+    expect(deps.apply).not.toHaveBeenCalled()
+    expect(deps.prepare).not.toHaveBeenCalled()
+    expect(deps.probe).not.toHaveBeenCalled()
   })
   it("fails after a bounded startup without retrying a restart", async () => {
     const deps = fixture([])
