@@ -41,6 +41,14 @@ import {
 } from "../ollama/process.js"
 
 const identity = "1000 Mon Sep  1 12:34:56 2026 /usr/local/bin/ollama"
+const appIdentity =
+  "1000 Mon Sep  1 12:30:00 2026 /Applications/Ollama.app/Contents/MacOS/Ollama"
+const appProcess = {
+  pid: 333,
+  identity: appIdentity,
+  executable: "/Applications/Ollama.app/Contents/MacOS/Ollama",
+  uid: 1000
+}
 const listener = {
   pid: 1234,
   identity,
@@ -152,7 +160,9 @@ describe("manager ownership", () => {
     Object.defineProperty(process, "platform", { value: "darwin" })
     mocks.execute
       .mockResolvedValueOnce({ stdout: "1" })
-      .mockResolvedValueOnce({ stdout: "/sbin/launchd" })
+      .mockResolvedValueOnce({
+        stdout: "0 Mon Sep  1 12:00:00 2026 /sbin/launchd"
+      })
       .mockResolvedValueOnce({
         stdout: "PID Status Label\n1234 0 homebrew.mxcl.ollama"
       })
@@ -171,12 +181,11 @@ describe("manager ownership", () => {
     Object.defineProperty(process, "platform", { value: "darwin" })
     mocks.execute
       .mockResolvedValueOnce({ stdout: "333" })
-      .mockResolvedValueOnce({
-        stdout: "/Applications/Ollama.app/Contents/MacOS/Ollama"
-      })
+      .mockResolvedValueOnce({ stdout: appIdentity })
     expect(await detectManager(listener)).toEqual({
       kind: "mac-app",
-      appPath: "/Applications/Ollama.app"
+      appPath: "/Applications/Ollama.app",
+      appProcess
     })
   })
   it("does not mistake an unrelated installed systemd unit for the owner", async () => {
@@ -241,27 +250,27 @@ describe("manager ownership", () => {
     Object.defineProperty(process, "platform", { value: "darwin" })
     const child = Object.assign(new EventEmitter(), { kill: vi.fn() })
     mocks.spawn.mockReturnValue(child)
+    vi.spyOn(process, "getuid").mockReturnValue(1000)
     mocks.execute
       .mockResolvedValueOnce({ stdout: identity })
-      .mockResolvedValueOnce({ stdout: "" })
+      .mockResolvedValueOnce({ stdout: appIdentity })
       .mockRejectedValueOnce(new Error("process exited"))
-    vi.spyOn(process, "kill").mockImplementation(() => {
+    const kill = vi.spyOn(process, "kill").mockImplementation((pid, signal) => {
+      if (pid === appProcess.pid && signal === "SIGTERM") return true
       throw Object.assign(new Error("missing"), { code: "ESRCH" })
     })
     const originalOrigins = process.env.OLLAMA_ORIGINS
     const run = await applyManager(
-      { kind: "mac-app", appPath: "/Applications/Ollama.app" },
+      { kind: "mac-app", appPath: "/Applications/Ollama.app", appProcess },
       resolveOllamaOptions({ FOREGROUND: true }, {}, {}),
       {},
       listener
     )
     expect(process.env.OLLAMA_ORIGINS).toBe(originalOrigins)
-    expect(mocks.execute).toHaveBeenCalledWith(
+    expect(kill).toHaveBeenCalledWith(333, "SIGTERM")
+    expect(mocks.execute).not.toHaveBeenCalledWith(
       "osascript",
-      [
-        "-e",
-        'if application "Ollama" is running then tell application "Ollama" to quit'
-      ],
+      expect.any(Array),
       expect.any(Object)
     )
     expect(mocks.execute).not.toHaveBeenCalledWith(

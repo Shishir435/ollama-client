@@ -147,7 +147,9 @@ export async function runOllama(
   const env = await deps.environment(manager, listener)
   options.origins = mergeOrigins(env.OLLAMA_ORIGINS, options.origins)
   if (!listener && !options.explicitHost && env.OLLAMA_HOST) {
-    options.host = parseHost(env.OLLAMA_HOST).host
+    const configured = parseHost(env.OLLAMA_HOST)
+    options.host = configured.host
+    options.port = configured.port
     url = endpoint(options.host, options.port)
   }
   if (

@@ -188,35 +188,75 @@ export function selectBackend(
       "Backend must be ollama, codex, or opencode. Use -b <name>."
     )
   }
-  const native = ["LAN", "LOCAL", "OLLAMA_PATH", "CHECK", "JSON"]
-  const proxy = ["API_KEY", "SYSTEM_PROMPT", "BRIDGE_ENABLED"]
-  const codex = ["CODEX_PATH", "CODEX_PROJECT_DIR", "CODEX_WEB_SEARCH_MODE"]
+  const native = [
+    optionRule("LAN"),
+    optionRule("LOCAL"),
+    optionRule("OLLAMA_PATH", "OLC_OLLAMA_PATH"),
+    optionRule("OLLAMA_HOST", "OLLAMA_HOST"),
+    optionRule("OLLAMA_ORIGINS", "OLLAMA_ORIGINS"),
+    optionRule("CHECK"),
+    optionRule("JSON")
+  ]
+  const proxy = [
+    optionRule("API_KEY", "OLC_API_KEY", "OPENCODE_PROXY_API_KEY"),
+    optionRule("SYSTEM_PROMPT", "OLC_SYSTEM_PROMPT"),
+    optionRule("BRIDGE_ENABLED", "OLC_BRIDGE_ENABLED")
+  ]
+  const codex = [
+    optionRule("CODEX_PATH", "OLC_CODEX_PATH", "CODEX_PATH"),
+    optionRule("CODEX_PROJECT_DIR", "OLC_CODEX_PROJECT_DIR"),
+    optionRule("CODEX_WEB_SEARCH_MODE", "OLC_CODEX_WEB_SEARCH_MODE")
+  ]
   const opencode = [
-    "OPENCODE_SERVER_URL",
-    "OPENCODE_PATH",
-    "OPENCODE_AGENT",
-    "PROJECT_DIR",
-    "ALLOW_OPENCODE_TOOLS",
-    "PLUGIN_DIR"
+    optionRule("OPENCODE_SERVER_URL", "OPENCODE_SERVER_URL"),
+    optionRule("OPENCODE_PATH", "OPENCODE_PATH"),
+    optionRule("OPENCODE_AGENT", "OPENCODE_PROXY_AGENT"),
+    optionRule("PROJECT_DIR", "OPENCODE_PROXY_PROJECT_DIR"),
+    optionRule(
+      "AUTO_APPROVE_PERMISSIONS",
+      "OPENCODE_PROXY_AUTO_APPROVE_PERMISSIONS"
+    ),
+    optionRule("USE_ISOLATED_HOME", "OPENCODE_USE_ISOLATED_HOME"),
+    optionRule(
+      "EVENT_FIRST_DELTA_TIMEOUT_MS",
+      "OPENCODE_PROXY_EVENT_FIRST_DELTA_TIMEOUT_MS"
+    ),
+    optionRule("EVENT_IDLE_TIMEOUT_MS", "OPENCODE_PROXY_EVENT_IDLE_TIMEOUT_MS"),
+    optionRule("POLL_TIMEOUT_RETRIES", "OPENCODE_PROXY_POLL_TIMEOUT_RETRIES"),
+    optionRule("ALLOW_OPENCODE_TOOLS", "OPENCODE_PROXY_ALLOW_OPENCODE_TOOLS"),
+    optionRule("PLUGIN_DIR", "OPENCODE_PROXY_PLUGIN_DIR"),
+    optionRule("PLUGIN_RUNTIME_DIR", "OPENCODE_PLUGIN_RUNTIME_DIR")
   ]
   const forbidden =
     backend === "ollama"
       ? [...proxy, ...codex, ...opencode]
       : [...native, ...(backend === "codex" ? opencode : codex)]
-  const invalid = forbidden.find((key) => key in options)
-  if (invalid)
+  const invalid = forbidden.find(
+    ({ key, envKeys }) =>
+      key in options ||
+      key in file ||
+      envKeys.some((envKey) => env[envKey] !== undefined)
+  )
+  if (invalid) {
+    if (backend === "ollama" && invalid.key === "API_KEY")
+      throw new Error(
+        "Native Ollama cannot enforce API_KEY. Select -b codex/opencode or remove the proxy API key configuration."
+      )
     throw new Error(
-      `${invalid} is not supported by ${backend}; select the matching backend with -b. See olc --help.`
-    )
-  if (
-    backend === "ollama" &&
-    (env.OLC_API_KEY || env.OPENCODE_PROXY_API_KEY || file.API_KEY)
-  ) {
-    throw new Error(
-      "Native Ollama cannot enforce API_KEY. Select -b codex/opencode or remove the proxy API key configuration."
+      `${invalid.key} is not supported by ${backend}; remove it from CLI, environment, or config, or select the matching backend with -b. See olc --help.`
     )
   }
   return backend as "ollama" | "codex" | "opencode"
+}
+
+interface BackendOptionRule {
+  key: string
+  envKeys: string[]
+}
+
+/** Name every layer that can configure a backend-owned option. */
+function optionRule(key: string, ...envKeys: string[]): BackendOptionRule {
+  return { key, envKeys }
 }
 
 /** Boolean switches cannot silently accept --flag=false as true. */

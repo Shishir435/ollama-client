@@ -25,6 +25,7 @@ export interface ManagerRun {
 export interface Manager {
   kind: "mac-app" | "system-service" | "user-service" | "cli"
   appPath?: string
+  appProcess?: Omit<Listener, "host">
 }
 
 /** Prefer the manager already supervising Ollama, never compete with its respawn. */
@@ -44,10 +45,14 @@ async function detectMacManager(listener?: Listener): Promise<Manager> {
       "-o",
       "ppid="
     ])
-    const owner = await command("ps", ["-p", parent, "-o", "comm="])
+    const owner = await processIdentity(Number(parent))
     const suffix = "/Contents/MacOS/Ollama"
-    if (owner.endsWith(suffix))
-      return { kind: "mac-app", appPath: owner.slice(0, -suffix.length) }
+    if (owner.executable.endsWith(suffix))
+      return {
+        kind: "mac-app",
+        appPath: owner.executable.slice(0, -suffix.length),
+        appProcess: owner
+      }
     const jobs = await command("launchctl", ["list"])
     if (
       jobs
@@ -207,18 +212,24 @@ export async function applyManager(
       "olc cannot apply process-scoped settings to a service-owned Ollama process. Stop or configure its owner manually."
     )
   if (manager.kind === "mac-app") {
-    if (!listener)
+    if (!listener || !manager.appProcess)
       throw new Error(
-        "The Ollama app listener disappeared before transition; retry olc."
+        "The verified Ollama app process or listener disappeared before transition; retry olc."
       )
     if ((await processIdentity(listener.pid)).identity !== listener.identity)
       throw new Error(
         "Ollama changed while preparing its transition; retry olc."
       )
-    await command("osascript", [
-      "-e",
-      'if application "Ollama" is running then tell application "Ollama" to quit'
-    ])
+    const app = await processIdentity(manager.appProcess.pid)
+    if (
+      app.identity !== manager.appProcess.identity ||
+      app.executable !== manager.appProcess.executable ||
+      app.uid !== process.getuid?.()
+    )
+      throw new Error(
+        "The Ollama app process changed or has another owner; leaving it running."
+      )
+    process.kill(app.pid, "SIGTERM")
     await waitForExit(listener)
   } else if (listener) await stopListener(listener)
   const childEnv = {

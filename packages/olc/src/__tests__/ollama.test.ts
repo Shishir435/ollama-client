@@ -110,6 +110,32 @@ describe("CLI backend policy", () => {
       selectBackend({ BACKEND: "codex", OPENCODE_AGENT: "build" }, {}, {})
     ).toThrow("not supported")
   })
+  it("validates backend-specific settings from environment and config", () => {
+    expect(() =>
+      selectBackend({ BACKEND: "ollama" }, { OPENCODE_AGENT: "build" }, {})
+    ).toThrow("OPENCODE_AGENT")
+    expect(() =>
+      selectBackend(
+        { BACKEND: "codex" },
+        {},
+        { OPENCODE_PATH: "/usr/local/bin/opencode" }
+      )
+    ).toThrow("OPENCODE_PATH")
+    expect(() =>
+      selectBackend(
+        { BACKEND: "opencode" },
+        {},
+        { OLC_CODEX_WEB_SEARCH_MODE: "live" }
+      )
+    ).toThrow("CODEX_WEB_SEARCH_MODE")
+    expect(() =>
+      selectBackend(
+        { BACKEND: "codex" },
+        { OLLAMA_ORIGINS: "moz-extension://*" },
+        {}
+      )
+    ).toThrow("OLLAMA_ORIGINS")
+  })
 })
 
 describe("native configuration", () => {
@@ -313,6 +339,22 @@ describe("native lifecycle", () => {
       await runOllama(resolveOllamaOptions({}, {}, {}), deps)
     ).toMatchObject({ status: "started" })
     expect(deps.apply).toHaveBeenCalledOnce()
+  })
+  it("preserves both host and port from a manager environment", async () => {
+    const deps = fixture([])
+    deps.listeners
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([{ ...listener, host: "0.0.0.0" }])
+    deps.environment.mockResolvedValue({ OLLAMA_HOST: "0.0.0.0:12345" })
+    expect(
+      await runOllama(resolveOllamaOptions({}, {}, {}), deps)
+    ).toMatchObject({ status: "started", host: "0.0.0.0", port: 12345 })
+    expect(deps.apply).toHaveBeenCalledWith(
+      { kind: "cli" },
+      expect.objectContaining({ host: "0.0.0.0", port: 12345 }),
+      expect.anything(),
+      undefined
+    )
   })
   it("fails after a bounded startup without retrying a restart", async () => {
     const deps = fixture([])
