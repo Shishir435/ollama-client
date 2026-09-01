@@ -118,6 +118,8 @@ export interface RunningProxy {
   server: Server
   config: ProxyConfig
   backend: AgentBackend
+  /** Resolves only after the listener and runtime are ready; rejects startup failure. */
+  ready: Promise<void>
   shutdown: () => Promise<void>
 }
 
@@ -138,21 +140,28 @@ export const startProxy = (
   server.requestTimeout = 0
   server.headersTimeout = 60_000
 
-  server.listen(config.PORT, config.BIND_HOST, async () => {
-    console.log(
-      `[Proxy] olc active at http://${config.BIND_HOST}:${config.PORT} (backend: ${backend.id})`
-    )
-    try {
-      await backend.ensureReady()
-    } catch (error) {
-      console.error("[Proxy] Backend warmup failed:", (error as Error).message)
-    }
+  const ready = new Promise<void>((resolve, reject) => {
+    server.once("error", reject)
+    server.listen(config.PORT, config.BIND_HOST, () => {
+      console.log(
+        `[Proxy] olc listening at http://${config.BIND_HOST}:${config.PORT} (backend: ${backend.id})`
+      )
+      void backend.ensureReady().then(resolve, reject)
+    })
   })
+  /** Embedded callers may ignore readiness; CLI callers await the original promise. */
+  void ready.catch((error: unknown) =>
+    console.error(
+      "[Proxy] Startup failed:",
+      error instanceof Error ? error.message : "Unknown failure"
+    )
+  )
 
   return {
     server,
     config,
     backend,
+    ready,
     shutdown: async () => {
       await chat.shutdown()
       await backend.shutdown()

@@ -5,12 +5,13 @@ description: Integrate with Ollama Client's local olc OpenAI-compatible proxy, i
 
 Ollama Client is a browser extension, not a hosted inference service. The website at `ollamaclient.in` publishes documentation and machine-readable resources; it does not accept prompts or expose users' models.
 
-The project does include **olc**, a local command-line proxy that exposes an agent runtime through an OpenAI-compatible HTTP API. Use it when an OpenAI-compatible client needs to reach an OpenCode-backed agent and preserve client-owned function calls. The published [OpenAPI 3.1 specification](/openapi.json) describes this local API and deliberately lists loopback servers.
+The project includes **olc**, a local CLI. Bare `olc` starts or reuses native Ollama on port `11434` with extension access. With `-b codex` or `-b opencode`, it runs a proxy that exposes an agent runtime through an OpenAI-compatible HTTP API. Use it when an OpenAI-compatible client needs to reach an OpenCode-backed agent and preserve client-owned function calls. The published [OpenAPI 3.1 specification](/openapi.json) describes this local API and deliberately lists loopback servers.
 
 ## Quickstart
 
 olc requires Node.js 22.12 or newer plus the selected runtime on `PATH`:
-OpenCode, or Codex CLI with an existing `codex login`.
+Ollama for native mode, OpenCode, or Codex CLI with an existing `codex login`.
+macOS/Linux native mode also requires `lsof` for process inspection.
 
 Install the published release bundle directly:
 
@@ -47,10 +48,40 @@ pnpm proxy:opencode --api-key "replace-with-a-long-random-token"
 pnpm proxy:codex --api-key "replace-with-a-long-random-token"
 ```
 
-The default address is `http://127.0.0.1:8083`. Configure Ollama Client with a custom OpenAI-compatible provider whose base URL is `http://127.0.0.1:8083/v1`, then select a model returned by the catalog.
+After upgrading to the release containing native mode (older bundles default to
+OpenCode), use the same command format for each backend:
+
+```bash
+olc                        # native Ollama: 127.0.0.1:11434
+olc --lan                  # native Ollama: 0.0.0.0:11434
+olc --local                # explicitly restore loopback
+olc --check --json         # read-only native readiness for scripts/agents
+olc -b codex               # Codex proxy: 127.0.0.1:8083
+olc --backend opencode     # OpenCode proxy: 127.0.0.1:8084
+olc -b codex --debug       # foreground, with verbose diagnostics
+olc -b opencode --foreground # foreground, normal logging
+```
+
+All modes detach by default. Use `--foreground` to stay attached, or `--debug`
+for foreground diagnostics; `--detached` makes the default explicit. Detached
+proxies report a ready URL, PID, and private log file under `~/.olc/logs/`
+(`OLC_LOG_DIR` overrides it). Startup failures return a nonzero exit code.
+Use `--foreground` with process supervisors and containers. Existing/app-managed
+Ollama stays under its original owner: foreground mode monitors it, and Ctrl-C
+exits only the monitor. A new standalone foreground server stops with the session.
+
+Native mode uses the built-in Ollama provider and keeps Ollama's own API.
+Existing LAN access is preserved by bare `olc`; a required restart interrupts
+active work. Ollama has no native API-key protection. Use LAN only on a trusted
+network. A system service needing administrator access prints manual steps;
+Windows users must quit an existing tray/server process before changing its
+settings. See the [operator guide](https://github.com/Shishir435/ollama-client/tree/main/packages/olc#native-ollama)
+for platform behavior and configuration.
+
+The following API documentation applies to **Codex/OpenCode proxy modes**. Codex defaults to `http://127.0.0.1:8083`; OpenCode defaults to `http://127.0.0.1:8084`. Configure Ollama Client with a custom OpenAI-compatible provider using the matching `/v1` base URL, then select a model returned by the catalog. The examples below use the Codex default; substitute port `8084` for OpenCode.
 
 Use `pnpm proxy:opencode:debug` or `pnpm proxy:codex:debug` for verbose proxy
-logging. The existing `pnpm proxy` and `pnpm proxy:debug` commands remain
+logging in the foreground. The existing `pnpm proxy` and `pnpm proxy:debug` commands remain
 OpenCode aliases.
 
 The CLI is distributed as release archives, not through npm, PyPI, or Homebrew.

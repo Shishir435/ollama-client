@@ -112,9 +112,11 @@ Firefox development:
 pnpm dev:firefox
 ```
 
-### Install `olc` local proxy
+### Install the `olc` CLI
 
-`olc` exposes OpenCode or Codex through an OpenAI-compatible local API. It
+Bare `olc` starts or reuses native Ollama with extension access. `olc --lan`
+enables trusted-network access, while `olc -b opencode` and `olc -b codex`
+expose those agent runtimes through an OpenAI-compatible local API. It
 requires Node.js 22.12 or newer and the selected runtime on `PATH`.
 
 macOS / Linux:
@@ -143,9 +145,10 @@ $env:OLC_VERSION = "0.13.2"
 irm https://ollamaclient.in/olc.ps1 | iex
 ```
 
-Then run `olc --help`.
-Configure Ollama Client with a custom OpenAI-compatible provider at
-`http://127.0.0.1:8083/v1`. See the [OLC developer guide](https://www.ollamaclient.in/developers/)
+Then run `olc` for native Ollama, or `olc --help` for all short/long options.
+All modes detach by default; `--debug` or `--foreground` stays attached.
+For Codex/OpenCode, configure Ollama Client with a custom OpenAI-compatible provider at
+`http://127.0.0.1:8083/v1` for Codex or `http://127.0.0.1:8084/v1` for OpenCode. See the [OLC developer guide](https://www.ollamaclient.in/developers/)
 for backend setup, authentication, and tool-calling details.
 
 ## Common Commands

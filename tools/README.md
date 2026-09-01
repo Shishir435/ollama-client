@@ -91,8 +91,10 @@ and retains the exact extension ZIPs used for publishing.
 - `spike:*` commands retain experimental checks and separate spike builds.
   They are not release gates. Do not remove them solely because a newer runner
   exists; verify its scenario coverage and compatibility-ledger evidence first.
-- `setup/ollama-env.sh` changes local Ollama configuration only when explicitly
-  invoked by a developer; read the script before using it.
+- `setup/ollama-env.sh` is a legacy compatibility helper. New setups install olc
+  (`curl -fsSL https://ollamaclient.in/olc.sh | sh`, or PowerShell
+  `irm https://ollamaclient.in/olc.ps1 | iex`) and use `olc`, `olc --lan`, or
+  `olc --check --json`. Read the legacy script before explicitly invoking it.
 
 ## Adding or moving a tool
 

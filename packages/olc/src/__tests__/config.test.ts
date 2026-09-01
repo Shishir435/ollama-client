@@ -18,12 +18,24 @@ describe("resolveConfig", () => {
     expect(resolveConfig({}, { PORT: 8500 }).PORT).toBe(9000)
     delete process.env.OLC_PORT
     expect(resolveConfig({}, { PORT: 8500 }).PORT).toBe(8500)
-    expect(resolveConfig().PORT).toBe(8083)
+    expect(resolveConfig().PORT).toBe(8084)
   })
 
   it("still reads the legacy OPENCODE_PROXY_ environment names", () => {
     process.env.OPENCODE_PROXY_PORT = "9200"
     expect(resolveConfig().PORT).toBe(9200)
+  })
+
+  it("uses backend-specific defaults while preserving every explicit override", () => {
+    expect(resolveConfig({ BACKEND: "codex" }).PORT).toBe(8083)
+    expect(resolveConfig({ BACKEND: "opencode" }).PORT).toBe(8084)
+    expect(resolveConfig({ BACKEND: "codex", PORT: 9001 }).PORT).toBe(9001)
+    process.env.OLC_BACKEND = "codex"
+    expect(resolveConfig().PORT).toBe(8083)
+    process.env.OLC_PORT = "9002"
+    expect(resolveConfig().PORT).toBe(9002)
+    delete process.env.OLC_PORT
+    expect(resolveConfig({}, { PORT: 9003 }).PORT).toBe(9003)
   })
 
   it("serves the opencode backend unless another is selected", () => {

@@ -4,9 +4,12 @@
 # Starts Ollama with CORS configured for browser extensions (Chrome + Firefox).
 # Works on macOS, Linux, and Windows (with Git Bash/WSL)
 #
-# ⚡ QUICK START (Easiest Method):
-#   This script automatically configures Ollama for browser extensions.
-#   It's the simplest way to get started with CORS setup!
+# Legacy only: new installations should use olc below.
+#
+# Legacy compatibility helper. New setups should install olc:
+#   curl -fsSL https://ollamaclient.in/olc.sh | sh
+#   # Windows PowerShell: irm https://ollamaclient.in/olc.ps1 | iex
+# Then run: olc, olc --lan, or olc --check --json.
 #
 # Usage:
 #   ./tools/setup/ollama-env.sh [--lan]

@@ -25,7 +25,11 @@
   "servers": [
     {
       "url": "http://127.0.0.1:8083",
-      "description": "Default loopback address"
+      "description": "Default Codex proxy address"
+    },
+    {
+      "url": "http://127.0.0.1:8084",
+      "description": "Default OpenCode proxy address"
     },
     {
       "url": "http://localhost:{port}",
@@ -33,7 +37,7 @@
       "variables": {
         "port": {
           "default": "8083",
-          "description": "Port selected with --port or OLC_PORT"
+          "description": "Backend default (Codex 8083, OpenCode 8084) or --port/OLC_PORT override"
         }
       }
     }
@@ -111,7 +115,12 @@
         "summary": "List backend models",
         "description": "Returns models from the selected local runtime with modalities, supported parameters, and empirical capability flags. Call this before selecting a model or enabling tools or images.",
         "tags": ["Models"],
-        "security": [{ "bearerAuth": [] }, {}],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
         "responses": {
           "200": {
             "description": "A model catalog, which may be empty.",
@@ -141,7 +150,12 @@
         "summary": "Get one backend model",
         "description": "Returns one model by full id or an unambiguous suffix id. Use the exact id returned by listModels when possible.",
         "tags": ["Models"],
-        "security": [{ "bearerAuth": [] }, {}],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
         "parameters": [
           {
             "name": "modelId",
@@ -199,7 +213,12 @@
         "summary": "Create or resume a chat completion",
         "description": "Starts an agent-runtime turn, or resumes its parked client-tool call when trailing tool messages carry live tool_call_id values. With stream=true the success response is server-sent events ending in [DONE]; otherwise it is one JSON completion.",
         "tags": ["Chat"],
-        "security": [{ "bearerAuth": [] }, {}],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
         "requestBody": {
           "required": true,
           "description": "OpenAI-compatible chat input. Discover the model id and capabilities through /v1/models first.",
@@ -294,7 +313,12 @@
         "summary": "Generate an image",
         "description": "Asks a runtime with native image-generation support to produce one image and returns its bytes as OpenAI-compatible base64 JSON.",
         "tags": ["Images"],
-        "security": [{ "bearerAuth": [] }, {}],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -560,8 +584,13 @@
           "tool_choice": {
             "description": "OpenAI-compatible tool choice value. Backend support may vary.",
             "oneOf": [
-              { "type": "string" },
-              { "type": "object", "additionalProperties": true }
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
             ]
           }
         },
@@ -631,12 +660,19 @@
           "content": {
             "description": "Text, null, or OpenAI-compatible content parts including text and image_url.",
             "oneOf": [
-              { "type": "string" },
+              {
+                "type": "string"
+              },
               {
                 "type": "array",
-                "items": { "type": "object", "additionalProperties": true }
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
               },
-              { "type": "null" }
+              {
+                "type": "null"
+              }
             ]
           },
           "name": {

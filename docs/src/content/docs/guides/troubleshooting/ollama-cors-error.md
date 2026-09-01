@@ -9,13 +9,30 @@ same declarative network request CORS workaround that Chromium supports.
 
 ## Quick fix
 
-Start Ollama with browser-extension origins allowed:
+Install **olc**, then let it add and verify the browser-extension origins:
 
 ```bash
-OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*" ollama serve
+# macOS / Linux
+curl -fsSL https://ollamaclient.in/olc.sh | sh
+olc
+olc --check --json
 ```
 
-Then reopen Ollama Client and retry the connection.
+```powershell
+# Windows PowerShell
+irm https://ollamaclient.in/olc.ps1 | iex
+olc
+olc --check --json
+```
+
+Ollama itself must already be installed. `olc --debug` provides foreground
+diagnostics. Use `olc --lan` only when trusted-network access is intended;
+Ollama has no native API authentication.
+
+If olc reports that an app, tray process, or protected service must be configured
+through its owner, use the matching manual fallback below.
+
+## Manual fallbacks
 
 ## macOS persistent setup
 
