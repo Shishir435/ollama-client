@@ -7,7 +7,7 @@ own API and default port; it does not run behind the agent proxy.
 | Command | Behavior | Default bind |
 | --- | --- | --- |
 | `olc` | Start or reuse native Ollama | `127.0.0.1:11434` |
-| `olc --lan` | Enable LAN access; restart when needed | `0.0.0.0:11434` |
+| `olc --lan` | Start/reuse a compatible LAN server | `0.0.0.0:11434` |
 | `olc -b codex` | Start the Codex proxy | `127.0.0.1:8083` |
 | `olc -b opencode` | Start the OpenCode proxy | `127.0.0.1:8084` |
 
@@ -226,30 +226,25 @@ Command line wins, then the environment, then `config.json`, then the default.
   rejected in native mode. LAN access is for trusted networks only; a firewall
   is still needed. Restarts interrupt active generations.
 
-On macOS, olc restarts the Ollama app through its normal quit/open lifecycle and
-sets its environment with `launchctl` (until logout). Standalone Unix processes
-are identified before `SIGTERM`; olc never escalates to a force-kill. Servers
-started directly by olc in detached mode keep running after it exits and log to
-`~/.ollama/olc.log`; foreground servers stay attached and stop with the session.
+olc never calls `launchctl setenv`, writes a systemd drop-in, changes Windows
+user/machine variables, edits a shell profile, or writes Ollama configuration.
+`OLLAMA_*` values are supplied only to the standalone `ollama serve` process
+that olc starts. A detached server retains them only for that process's lifetime;
+a foreground server loses them when it stops.
 
-On Linux, an existing systemd unit is kept under systemd. User services and
-root-run system services use a dedicated `99-olc.conf` drop-in. If a system
-service needs administrator access, olc prints the configuration/restart steps
-and leaves it alone; it never invokes sudo. If a service is stopped, start it
-through systemd first so olc can read and preserve its effective settings.
-Remove that drop-in and reload
-systemd to undo its persistent configuration.
+An already-compatible macOS app, systemd service, Windows tray process, or other
+managed server is reused unchanged. When a managed server needs a different bind
+or origin, olc leaves it running and asks the user to stop it and rerun olc for a
+standalone session, or configure that owner manually. Standalone Unix processes
+are identity-checked before `SIGTERM`; olc never escalates to a force-kill.
+Detached logs go to `~/.ollama/olc.log`. `--check` remains read-only.
 
-On Windows, a stopped standalone server can be launched and a ready server reused.
-Automatic restarts of existing Windows processes are refused: quit the tray app
-(or stop `ollama serve`), export the desired `OLLAMA_*` settings, then rerun olc.
-This avoids force-killing the tray app or losing settings that Windows cannot
-expose safely. `--check` remains read-only on every platform.
-
-The older `tools/setup/ollama-env.sh` remains available only for existing scripts.
-New setups should install olc with `curl -fsSL https://ollamaclient.in/olc.sh | sh`
-(macOS/Linux) or `irm https://ollamaclient.in/olc.ps1 | iex` (PowerShell), then
-use `olc`, `olc --lan`, or `olc --check --json`. The same installer serves all modes; Ollama itself is installed separately.
+Ollama Client does not require this CLI. Users can set `OLLAMA_ORIGINS` and
+`OLLAMA_HOST` manually by following the
+[provider setup guide](https://www.ollamaclient.in/guides/provider-setup/).
+From a repository clone, `tools/setup/ollama-env.sh` remains an optional Bash
+helper for that setup. Installing olc provides stricter ownership checks and
+readiness reporting. Ollama itself is installed separately.
 
 ### Proxy core (`-b codex` / `-b opencode`)
 

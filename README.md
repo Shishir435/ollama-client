@@ -112,9 +112,11 @@ Firefox development:
 pnpm dev:firefox
 ```
 
-### Install the `olc` CLI
+### Optional: install the `olc` CLI
 
-Bare `olc` starts or reuses native Ollama with extension access. `olc --lan`
+Ollama Client does not require olc; you can configure `OLLAMA_ORIGINS` manually
+using the [provider setup guide](https://www.ollamaclient.in/guides/provider-setup/).
+Bare `olc` offers an automated alternative: it starts or reuses native Ollama with extension access. `olc --lan`
 enables trusted-network access, while `olc -b opencode` and `olc -b codex`
 expose those agent runtimes through an OpenAI-compatible local API. It
 requires Node.js 22.12 or newer and the selected runtime on `PATH`.

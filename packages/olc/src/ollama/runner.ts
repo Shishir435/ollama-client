@@ -133,7 +133,7 @@ export async function runOllama(
     return result(
       false,
       "not-ready",
-      "Ollama is stopped, bound differently, or missing extension access; run olc to configure it"
+      "Ollama is stopped, bound differently, or missing extension access; start a standalone server with olc or configure its owner manually"
     )
   const manager = await deps.manager(listener)
   if (manager.kind === "cli" && listener && options.binary === "ollama")

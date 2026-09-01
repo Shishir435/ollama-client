@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { EventEmitter } from "node:events"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
@@ -29,7 +30,8 @@ import { resolveOllamaOptions } from "../ollama/config.js"
 import {
   applyManager,
   detectManager,
-  managerEnvironment
+  managerEnvironment,
+  prepareManager
 } from "../ollama/manager.js"
 import {
   listeners,
@@ -141,11 +143,10 @@ describe("process identity and shutdown", () => {
 })
 
 describe("manager ownership", () => {
-  it("does not overwrite settings of a service whose environment is unavailable", async () => {
-    await expect(
-      managerEnvironment({ kind: "system-service" })
-    ).rejects.toThrow("effective settings can be preserved")
+  it("does not inspect or overwrite global state without a running process", async () => {
+    expect(await managerEnvironment({ kind: "system-service" })).toEqual({})
     expect(mocks.writeFile).not.toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
   })
   it("refuses a launchd-supervised child instead of killing it", async () => {
     Object.defineProperty(process, "platform", { value: "darwin" })
@@ -187,46 +188,82 @@ describe("manager ownership", () => {
       .mockResolvedValueOnce({ stdout: "1234" })
     expect(await detectManager(listener)).toEqual({ kind: "user-service" })
   })
-  it("stops before editing a system service when privileges are missing", async () => {
-    vi.spyOn(process, "getuid").mockReturnValue(1000)
+  it("refuses to change a managed service even when settings need updating", async () => {
+    await expect(
+      prepareManager(
+        { kind: "system-service" },
+        resolveOllamaOptions({ LAN: true }, {}, {})
+      )
+    ).rejects.toThrow("does not change launchctl, systemd, user, or machine")
+    expect(mocks.writeFile).not.toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(mocks.spawn).not.toHaveBeenCalled()
+  })
+  it("keeps the apply boundary non-persistent as a defense in depth", async () => {
+    vi.spyOn(process, "getuid").mockReturnValue(0)
     await expect(
       applyManager(
-        { kind: "system-service" },
+        { kind: "user-service" },
         resolveOllamaOptions({ LAN: true }, {}, {}),
         {}
       )
-    ).rejects.toThrow("sudo systemctl edit")
+    ).rejects.toThrow("process-scoped settings")
     expect(mocks.writeFile).not.toHaveBeenCalled()
+    expect(mocks.mkdir).not.toHaveBeenCalled()
     expect(mocks.execute).not.toHaveBeenCalled()
-  })
-  it("escapes systemd settings and uses a dedicated drop-in", async () => {
-    vi.spyOn(process, "getuid").mockReturnValue(0)
-    const options = resolveOllamaOptions(
-      { LAN: true, ALLOWED_ORIGINS: 'https://example.com/100%"' },
-      {},
-      {}
-    )
-    await applyManager({ kind: "system-service" }, options, {})
-    expect(mocks.writeFile).toHaveBeenCalledWith(
-      "/etc/systemd/system/ollama.service.d/99-olc.conf",
-      expect.stringContaining('100%%\\"'),
-      { mode: 0o600 }
-    )
-    expect(mocks.execute).toHaveBeenCalledWith(
-      "systemctl",
-      ["restart", "ollama.service"],
-      expect.any(Object)
-    )
     expect(mocks.spawn).not.toHaveBeenCalled()
   })
-  it("retains app environment when adding browser origins", async () => {
+  it("passes settings only to the standalone child environment", async () => {
+    const child = Object.assign(new EventEmitter(), { kill: vi.fn() })
+    mocks.spawn.mockReturnValue(child)
+    const originalHost = process.env.OLLAMA_HOST
+    const run = await applyManager(
+      { kind: "cli" },
+      resolveOllamaOptions({ FOREGROUND: true, LAN: true }, {}, {}),
+      { OLLAMA_MODELS: "/models" }
+    )
+    expect(process.env.OLLAMA_HOST).toBe(originalHost)
+    expect(mocks.spawn).toHaveBeenCalledWith(
+      "ollama",
+      ["serve"],
+      expect.objectContaining({
+        env: expect.objectContaining({
+          OLLAMA_HOST: "0.0.0.0:11434",
+          OLLAMA_MODELS: "/models",
+          OLLAMA_ORIGINS: expect.stringContaining("moz-extension://*")
+        })
+      })
+    )
+    child.emit("exit", 0, null)
+    await expect(run.session?.finished).resolves.toBe(0)
+  })
+  it("uses a standalone process when no managed listener is running", async () => {
+    Object.defineProperty(process, "platform", { value: "linux" })
+    expect(await detectManager()).toEqual({ kind: "cli" })
     Object.defineProperty(process, "platform", { value: "darwin" })
-    mocks.execute
-      .mockResolvedValueOnce({ stdout: "0.0.0.0:11434" })
-      .mockResolvedValueOnce({ stdout: "https://existing.example" })
-    expect(await managerEnvironment({ kind: "mac-app" })).toEqual({
+    expect(await detectManager()).toEqual({ kind: "cli" })
+    expect(mocks.execute).not.toHaveBeenCalled()
+  })
+  it("reads app settings only from its running process", async () => {
+    Object.defineProperty(process, "platform", { value: "darwin" })
+    mocks.execute.mockResolvedValue({
+      stdout:
+        "ollama serve OLLAMA_HOST=0.0.0.0:11434 OLLAMA_ORIGINS=https://existing.example"
+    })
+    expect(
+      await managerEnvironment(
+        { kind: "mac-app", appPath: "/Applications/Ollama.app" },
+        listener
+      )
+    ).toEqual({
       OLLAMA_HOST: "0.0.0.0:11434",
       OLLAMA_ORIGINS: "https://existing.example"
     })
+    expect(mocks.execute).toHaveBeenCalledWith(
+      "ps",
+      ["eww", "-p", "1234", "-o", "command="],
+      expect.any(Object)
+    )
+    expect(mocks.writeFile).not.toHaveBeenCalled()
   })
 })

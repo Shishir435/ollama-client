@@ -20,8 +20,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   for the Codex proxy on port 8083 or `olc -b opencode` for the OpenCode proxy
   on port 8084; `-b` aliases `--backend`.
 - Added native `--lan`, `--local`, `--check`, and `--json`, safe app/service
-  ownership checks, and strict option validation. Windows restarts and system
-  services without administrator access receive manual recovery instructions.
+  ownership checks, process-scoped child environments, and strict option
+  validation. olc never persists app, service, user, or machine environment.
 
 ### Development
 

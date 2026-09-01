@@ -12,9 +12,7 @@ import {
   command,
   type Listener,
   ollamaEnvironment,
-  processIdentity,
-  stopListener,
-  waitForExit
+  stopListener
 } from "./process.js"
 
 export interface ManagerRun {
@@ -36,6 +34,7 @@ export async function detectManager(listener?: Listener): Promise<Manager> {
 
 /** Match the server's actual parent before choosing the macOS app. */
 async function detectMacManager(listener?: Listener): Promise<Manager> {
+  if (!listener) return { kind: "cli" }
   if (listener) {
     const parent = await command("ps", [
       "-p",
@@ -59,22 +58,12 @@ async function detectMacManager(listener?: Listener): Promise<Manager> {
     }
     return { kind: "cli" }
   }
-  for (const appPath of [
-    "/Applications/Ollama.app",
-    path.join(os.homedir(), "Applications/Ollama.app")
-  ]) {
-    try {
-      await fs.access(appPath)
-      return { kind: "mac-app", appPath }
-    } catch {
-      /* Try the other standard installation location. */
-    }
-  }
   return { kind: "cli" }
 }
 
 /** Only the unit owning the current server may restart it. */
 async function detectSystemdManager(listener?: Listener): Promise<Manager> {
+  if (!listener) return { kind: "cli" }
   for (const scope of ["system", "user"] as const) {
     try {
       const loaded = await command("systemctl", [
@@ -113,26 +102,11 @@ async function detectSystemdManager(listener?: Listener): Promise<Manager> {
   return { kind: "cli" }
 }
 
-/** Manager-owned settings survive restarting through that manager. */
+/** Read only the running Ollama process; never consult or mutate global state. */
 export async function managerEnvironment(
   manager: Manager,
   listener?: Listener
 ): Promise<NodeJS.ProcessEnv> {
-  if (manager.kind === "mac-app") {
-    const entries = await Promise.all(
-      ["OLLAMA_HOST", "OLLAMA_ORIGINS"].map(async (key) => {
-        try {
-          return [key, await command("launchctl", ["getenv", key])]
-        } catch {
-          return [key, ""]
-        }
-      })
-    )
-    return {
-      ...Object.fromEntries(entries),
-      ...(listener ? await ollamaEnvironment(listener) : {})
-    }
-  }
   if (listener) {
     try {
       return await ollamaEnvironment(listener)
@@ -143,15 +117,6 @@ export async function managerEnvironment(
         )
       throw error
     }
-  }
-  if (manager.kind === "system-service" || manager.kind === "user-service") {
-    const start =
-      manager.kind === "user-service"
-        ? "systemctl --user start ollama.service"
-        : "sudo systemctl start ollama.service"
-    throw new Error(
-      `No Ollama listener was found on the requested port. Start the existing service with ${start}, then rerun olc on its current port so its effective settings can be preserved. No service configuration was changed.`
-    )
   }
   return {}
 }
@@ -191,56 +156,21 @@ async function startDetached(
   return logPath
 }
 
-/** Service files escape systemd quoting/specifiers; never interpolate shell commands. */
-function serviceValue(value: string): string {
-  if (/[\r\n\0]/.test(value))
-    throw new Error(
-      "Ollama settings cannot contain newlines or NUL characters."
-    )
-  return value
-    .replaceAll("\\", "\\\\")
-    .replaceAll('"', '\\"')
-    .replaceAll("%", "%%")
-}
-
-/** Restart via systemd with a dedicated drop-in, leaving the vendor unit untouched. */
-async function restartService(
-  manager: Manager,
-  host: string,
-  origins: string
-): Promise<void> {
-  const user = manager.kind === "user-service"
-  if (!user && process.getuid?.() !== 0) {
-    throw new Error(
-      `Ollama is managed by systemd. Run sudo systemctl edit ollama.service and add:\n[Service]\nEnvironment="OLLAMA_HOST=${serviceValue(host)}"\nEnvironment="OLLAMA_ORIGINS=${serviceValue(origins)}"\nThen run sudo systemctl daemon-reload && sudo systemctl restart ollama.service, and olc --check. No service configuration was changed.`
-    )
-  }
-  const root = user
-    ? path.join(os.homedir(), ".config/systemd/user")
-    : "/etc/systemd/system"
-  const directory = path.join(root, "ollama.service.d")
-  await fs.mkdir(directory, { recursive: true })
-  await fs.writeFile(
-    path.join(directory, "99-olc.conf"),
-    `[Service]\nEnvironment="OLLAMA_HOST=${serviceValue(host)}"\nEnvironment="OLLAMA_ORIGINS=${serviceValue(origins)}"\n`,
-    { mode: 0o600 }
-  )
-  const prefix = user ? ["--user"] : []
-  await command("systemctl", [...prefix, "daemon-reload"])
-  await command("systemctl", [...prefix, "restart", "ollama.service"])
-}
-
 /** Validate launch prerequisites before touching the running server. */
 export async function prepareManager(
   manager: Manager,
   options: OllamaOptions
 ): Promise<void> {
   if (manager.kind !== "cli") {
-    if (options.binary !== "ollama")
-      throw new Error(
-        "--ollama cannot replace an app/service-managed installation. Stop that manager first."
-      )
-    return
+    const owner =
+      manager.kind === "mac-app"
+        ? "the Ollama app"
+        : manager.kind === "user-service"
+          ? "a user systemd service"
+          : "a system systemd service"
+    throw new Error(
+      `Ollama is managed by ${owner} and needs different access settings. olc does not change launchctl, systemd, user, or machine environment. Stop that owner and rerun olc to start a standalone process-scoped server, or configure the owner manually.`
+    )
   }
   if (process.platform === "win32") {
     const tray = await command("powershell.exe", [
@@ -263,7 +193,7 @@ export async function prepareManager(
   }
 }
 
-/** Restart only through the discovered owner; settings not changed here stay intact. */
+/** Restart only an owned CLI process, using an environment scoped to its child. */
 export async function applyManager(
   manager: Manager,
   options: OllamaOptions,
@@ -272,35 +202,10 @@ export async function applyManager(
 ): Promise<ManagerRun> {
   const host = bindAddress(options.host, options.port)
   const origins = options.origins.join(",")
-  if (manager.kind === "mac-app") {
-    if (
-      listener &&
-      (await processIdentity(listener.pid)).identity !== listener.identity
+  if (manager.kind !== "cli")
+    throw new Error(
+      "olc cannot apply process-scoped settings to an app/service-owned Ollama process. Stop or configure its owner manually."
     )
-      throw new Error("Ollama changed while preparing its restart; retry olc.")
-    for (const [key, value] of Object.entries(env)) {
-      if (
-        key.startsWith("OLLAMA_") &&
-        value !== undefined &&
-        key !== "OLLAMA_HOST" &&
-        key !== "OLLAMA_ORIGINS"
-      )
-        await command("launchctl", ["setenv", key, value])
-    }
-    await command("launchctl", ["setenv", "OLLAMA_HOST", host])
-    await command("launchctl", ["setenv", "OLLAMA_ORIGINS", origins])
-    await command("osascript", [
-      "-e",
-      'if application "Ollama" is running then tell application "Ollama" to quit'
-    ])
-    if (listener) await waitForExit(listener)
-    await command("open", ["-a", manager.appPath as string])
-    return { detail: "Ollama app (settings last until logout)" }
-  }
-  if (manager.kind !== "cli") {
-    await restartService(manager, host, origins)
-    return { detail: "ollama.service" }
-  }
   if (listener) await stopListener(listener)
   const childEnv = {
     ...process.env,

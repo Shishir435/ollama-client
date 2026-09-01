@@ -66,7 +66,9 @@ After the first chat works, enable the context controls you need:
 ### The provider says 403 or CORS
 
 Firefox and strict local servers may reject browser-extension origins. For
-Ollama, install olc and let it configure and verify native Ollama:
+Ollama, choose either setup; installing olc is optional.
+
+**Automatic setup with olc:**
 
 ```bash
 curl -fsSL https://ollamaclient.in/olc.sh | sh  # macOS / Linux
@@ -75,7 +77,24 @@ olc --check --json
 ```
 
 On Windows PowerShell, install with `irm https://ollamaclient.in/olc.ps1 | iex`,
-then run the same olc commands. See [Fix Ollama CORS errors](/guides/troubleshooting/ollama-cors-error/).
+then run the same olc commands.
+
+**Manual setup without olc:** stop the current Ollama app/server, set
+`OLLAMA_ORIGINS`, and start it again:
+
+```bash
+# macOS / Linux shell
+OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*" ollama serve
+```
+
+```powershell
+# Windows PowerShell
+$env:OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*"
+ollama serve
+```
+
+For persistent Ollama app and system-service configuration, see
+[Fix Ollama CORS errors](/guides/troubleshooting/ollama-cors-error/).
 
 ### The model list is empty
 

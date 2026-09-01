@@ -71,11 +71,13 @@ Ollama stays under its original owner: foreground mode monitors it, and Ctrl-C
 exits only the monitor. A new standalone foreground server stops with the session.
 
 Native mode uses the built-in Ollama provider and keeps Ollama's own API.
-Existing LAN access is preserved by bare `olc`; a required restart interrupts
-active work. Ollama has no native API-key protection. Use LAN only on a trusted
-network. A system service needing administrator access prints manual steps;
-Windows users must quit an existing tray/server process before changing its
-settings. See the [operator guide](https://github.com/Shishir435/ollama-client/tree/main/packages/olc#native-ollama)
+Existing compatible access is preserved by bare `olc`; restarting an owned
+standalone process interrupts active work. Ollama has no native API-key
+protection, so use LAN only on a trusted network. olc never changes launchctl,
+systemd, Windows user/machine variables, shell profiles, or Ollama configuration.
+It passes `OLLAMA_*` only to a standalone process it starts. An incompatible
+app/service remains untouched and must be stopped for a standalone olc session
+or configured manually. See the [operator guide](https://github.com/Shishir435/ollama-client/tree/main/packages/olc#native-ollama)
 for platform behavior and configuration.
 
 The following API documentation applies to **Codex/OpenCode proxy modes**. Codex defaults to `http://127.0.0.1:8083`; OpenCode defaults to `http://127.0.0.1:8084`. Configure Ollama Client with a custom OpenAI-compatible provider using the matching `/v1` base URL, then select a model returned by the catalog. The examples below use the Codex default; substitute port `8084` for OpenCode.

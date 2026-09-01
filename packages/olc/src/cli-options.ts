@@ -24,7 +24,7 @@ Shared options:
   -h, --help                  Show help
 
 Native Ollama options:
-  -l, --lan                   Enable LAN access; restart when needed
+  -l, --lan                   Use LAN access for a standalone server
   -L, --local                 Restore loopback access explicitly
   -O, --ollama <path>         Ollama executable (default ollama)
   -k, --check                 Read-only readiness check; never start or restart
@@ -33,8 +33,9 @@ Native Ollama options:
 All backends run in the background by default; --debug stays in the foreground.
 For an existing Ollama app/service, foreground mode monitors it without taking
 ownership; Ctrl-C leaves it running. New standalone foreground servers stop
-with Ctrl-C. Ollama keeps its native API. Existing LAN access is
-preserved unless --local or --host is supplied. Restarts interrupt active work.
+with Ctrl-C. Ollama keeps its native API. OLLAMA_* values are passed only to a
+standalone server olc starts; global, app, and service environments are never
+changed. Managed servers are reused only when already compatible.
 LAN access has no authentication: use only on a trusted network.
 
 Proxy-only options (require -b codex or -b opencode):
