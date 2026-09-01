@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   readFile: vi.fn(),
+  access: vi.fn(),
   writeFile: vi.fn(),
   mkdir: vi.fn(),
   spawn: vi.fn(),
@@ -21,7 +22,7 @@ vi.mock("node:fs/promises", () => ({
     readFile: mocks.readFile,
     writeFile: mocks.writeFile,
     mkdir: mocks.mkdir,
-    access: vi.fn().mockRejectedValue(new Error("not installed"))
+    access: mocks.access
   }
 }))
 vi.mock("node:timers/promises", () => ({ setTimeout: mocks.delay }))
@@ -60,6 +61,7 @@ const listener = {
 beforeEach(() => {
   mocks.execute.mockReset().mockResolvedValue({ stdout: "" })
   mocks.readFile.mockReset()
+  mocks.access.mockReset().mockRejectedValue(new Error("not installed"))
   mocks.writeFile.mockReset()
   mocks.mkdir.mockReset()
   mocks.spawn.mockReset()
@@ -151,7 +153,7 @@ describe("process identity and shutdown", () => {
 })
 
 describe("manager ownership", () => {
-  it("does not inspect or overwrite global state without a running process", async () => {
+  it("does not inspect or overwrite global state for a stopped service", async () => {
     expect(await managerEnvironment({ kind: "system-service" })).toEqual({})
     expect(mocks.writeFile).not.toHaveBeenCalled()
     expect(mocks.execute).not.toHaveBeenCalled()
@@ -187,6 +189,15 @@ describe("manager ownership", () => {
       appPath: "/Applications/Ollama.app",
       appProcess
     })
+  })
+  it("recognizes a stopped macOS app in a standard installation location", async () => {
+    Object.defineProperty(process, "platform", { value: "darwin" })
+    mocks.access.mockResolvedValueOnce(undefined)
+    expect(await detectManager()).toEqual({
+      kind: "mac-app",
+      appPath: "/Applications/Ollama.app"
+    })
+    expect(mocks.access).toHaveBeenCalledWith("/Applications/Ollama.app")
   })
   it("does not mistake an unrelated installed systemd unit for the owner", async () => {
     Object.defineProperty(process, "platform", { value: "linux" })
@@ -297,6 +308,31 @@ describe("manager ownership", () => {
     Object.defineProperty(process, "platform", { value: "darwin" })
     expect(await detectManager()).toEqual({ kind: "cli" })
     expect(mocks.execute).not.toHaveBeenCalled()
+  })
+  it("reads a stopped macOS app's host and port without changing launchctl", async () => {
+    Object.defineProperty(process, "platform", { value: "darwin" })
+    mocks.execute
+      .mockResolvedValueOnce({ stdout: "0.0.0.0:12345" })
+      .mockResolvedValueOnce({ stdout: "https://existing.example" })
+    expect(
+      await managerEnvironment({
+        kind: "mac-app",
+        appPath: "/Applications/Ollama.app"
+      })
+    ).toEqual({
+      OLLAMA_HOST: "0.0.0.0:12345",
+      OLLAMA_ORIGINS: "https://existing.example"
+    })
+    expect(mocks.execute).toHaveBeenCalledWith(
+      "launchctl",
+      ["getenv", "OLLAMA_HOST"],
+      expect.any(Object)
+    )
+    expect(mocks.execute).not.toHaveBeenCalledWith(
+      "launchctl",
+      expect.arrayContaining(["setenv"]),
+      expect.any(Object)
+    )
   })
   it("reads app settings only from its running process", async () => {
     Object.defineProperty(process, "platform", { value: "darwin" })

@@ -37,7 +37,6 @@ export async function detectManager(listener?: Listener): Promise<Manager> {
 
 /** Match the server's actual parent before choosing the macOS app. */
 async function detectMacManager(listener?: Listener): Promise<Manager> {
-  if (!listener) return { kind: "cli" }
   if (listener) {
     const parent = await command("ps", [
       "-p",
@@ -64,6 +63,17 @@ async function detectMacManager(listener?: Listener): Promise<Manager> {
       )
     }
     return { kind: "cli" }
+  }
+  for (const appPath of [
+    "/Applications/Ollama.app",
+    path.join(os.homedir(), "Applications/Ollama.app")
+  ]) {
+    try {
+      await fs.access(appPath)
+      return { kind: "mac-app", appPath }
+    } catch {
+      /* Try the other standard installation location. */
+    }
   }
   return { kind: "cli" }
 }
@@ -109,11 +119,23 @@ async function detectSystemdManager(listener?: Listener): Promise<Manager> {
   return { kind: "cli" }
 }
 
-/** Read only the running Ollama process; never consult or mutate global state. */
+/** Read effective process settings, or a stopped macOS app's launch environment. */
 export async function managerEnvironment(
   manager: Manager,
   listener?: Listener
 ): Promise<NodeJS.ProcessEnv> {
+  if (manager.kind === "mac-app" && !listener) {
+    const entries = await Promise.all(
+      ["OLLAMA_HOST", "OLLAMA_ORIGINS"].map(async (key) => {
+        try {
+          return [key, await command("launchctl", ["getenv", key])] as const
+        } catch {
+          return [key, ""] as const
+        }
+      })
+    )
+    return Object.fromEntries(entries.filter(([, value]) => value))
+  }
   if (listener) {
     try {
       return await ollamaEnvironment(listener)
@@ -212,25 +234,30 @@ export async function applyManager(
       "olc cannot apply process-scoped settings to a service-owned Ollama process. Stop or configure its owner manually."
     )
   if (manager.kind === "mac-app") {
-    if (!listener || !manager.appProcess)
+    if (listener && !manager.appProcess)
       throw new Error(
         "The verified Ollama app process or listener disappeared before transition; retry olc."
       )
-    if ((await processIdentity(listener.pid)).identity !== listener.identity)
+    if (
+      listener &&
+      (await processIdentity(listener.pid)).identity !== listener.identity
+    )
       throw new Error(
         "Ollama changed while preparing its transition; retry olc."
       )
-    const app = await processIdentity(manager.appProcess.pid)
-    if (
-      app.identity !== manager.appProcess.identity ||
-      app.executable !== manager.appProcess.executable ||
-      app.uid !== process.getuid?.()
-    )
-      throw new Error(
-        "The Ollama app process changed or has another owner; leaving it running."
+    if (listener && manager.appProcess) {
+      const app = await processIdentity(manager.appProcess.pid)
+      if (
+        app.identity !== manager.appProcess.identity ||
+        app.executable !== manager.appProcess.executable ||
+        app.uid !== process.getuid?.()
       )
-    process.kill(app.pid, "SIGTERM")
-    await waitForExit(listener)
+        throw new Error(
+          "The Ollama app process changed or has another owner; leaving it running."
+        )
+      process.kill(app.pid, "SIGTERM")
+      await waitForExit(listener)
+    }
   } else if (listener) await stopListener(listener)
   const childEnv = {
     ...process.env,

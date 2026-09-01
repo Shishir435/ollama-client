@@ -342,6 +342,10 @@ describe("native lifecycle", () => {
   })
   it("preserves both host and port from a manager environment", async () => {
     const deps = fixture([])
+    deps.manager.mockResolvedValue({
+      kind: "mac-app",
+      appPath: "/Applications/Ollama.app"
+    })
     deps.listeners
       .mockResolvedValueOnce([])
       .mockResolvedValue([{ ...listener, host: "0.0.0.0" }])
@@ -350,7 +354,7 @@ describe("native lifecycle", () => {
       await runOllama(resolveOllamaOptions({}, {}, {}), deps)
     ).toMatchObject({ status: "started", host: "0.0.0.0", port: 12345 })
     expect(deps.apply).toHaveBeenCalledWith(
-      { kind: "cli" },
+      { kind: "mac-app", appPath: "/Applications/Ollama.app" },
       expect.objectContaining({ host: "0.0.0.0", port: 12345 }),
       expect.anything(),
       undefined
