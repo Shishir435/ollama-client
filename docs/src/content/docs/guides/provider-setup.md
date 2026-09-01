@@ -78,7 +78,9 @@ authentication. Use `olc --debug` for foreground diagnostics. The CLI is detache
 by default and refuses to replace an unrelated listener. It never writes global,
 user, app, or service environment: `OLLAMA_*` exists only on a standalone Ollama
 process started by olc. Compatible managed servers are reused unchanged; stop or
-manually configure an incompatible owner. See [OLC installation and platform behavior](/developers/).
+manually configure an incompatible service. On macOS, olc can gracefully quit an
+incompatible Ollama app and replace it with a process-scoped standalone server.
+See [OLC installation and platform behavior](/developers/).
 
 ### Option B: manual setup without olc
 

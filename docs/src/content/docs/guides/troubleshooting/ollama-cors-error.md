@@ -36,6 +36,10 @@ Ollama has no native API authentication. olc passes `OLLAMA_*` only to a
 standalone Ollama child; the values disappear when that process stops and olc
 does not write them to the system or user environment.
 
+On macOS, if the running Ollama app lacks the required origins, olc gracefully
+quits it and starts a standalone Ollama process. Stop that standalone process
+before reopening the app; the app's own configuration remains unchanged.
+
 If olc reports that an app, tray process, or protected service must be configured
 through its owner, use the matching manual setup below.
 

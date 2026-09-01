@@ -12,7 +12,9 @@ import {
   command,
   type Listener,
   ollamaEnvironment,
-  stopListener
+  processIdentity,
+  stopListener,
+  waitForExit
 } from "./process.js"
 
 export interface ManagerRun {
@@ -161,13 +163,11 @@ export async function prepareManager(
   manager: Manager,
   options: OllamaOptions
 ): Promise<void> {
-  if (manager.kind !== "cli") {
+  if (manager.kind === "system-service" || manager.kind === "user-service") {
     const owner =
-      manager.kind === "mac-app"
-        ? "the Ollama app"
-        : manager.kind === "user-service"
-          ? "a user systemd service"
-          : "a system systemd service"
+      manager.kind === "user-service"
+        ? "a user systemd service"
+        : "a system systemd service"
     throw new Error(
       `Ollama is managed by ${owner} and needs different access settings. olc does not change launchctl, systemd, user, or machine environment. Stop that owner and rerun olc to start a standalone process-scoped server, or configure the owner manually.`
     )
@@ -193,7 +193,7 @@ export async function prepareManager(
   }
 }
 
-/** Restart only an owned CLI process, using an environment scoped to its child. */
+/** Transition an owned CLI/app process to a child-scoped standalone server. */
 export async function applyManager(
   manager: Manager,
   options: OllamaOptions,
@@ -202,11 +202,25 @@ export async function applyManager(
 ): Promise<ManagerRun> {
   const host = bindAddress(options.host, options.port)
   const origins = options.origins.join(",")
-  if (manager.kind !== "cli")
+  if (manager.kind === "system-service" || manager.kind === "user-service")
     throw new Error(
-      "olc cannot apply process-scoped settings to an app/service-owned Ollama process. Stop or configure its owner manually."
+      "olc cannot apply process-scoped settings to a service-owned Ollama process. Stop or configure its owner manually."
     )
-  if (listener) await stopListener(listener)
+  if (manager.kind === "mac-app") {
+    if (!listener)
+      throw new Error(
+        "The Ollama app listener disappeared before transition; retry olc."
+      )
+    if ((await processIdentity(listener.pid)).identity !== listener.identity)
+      throw new Error(
+        "Ollama changed while preparing its transition; retry olc."
+      )
+    await command("osascript", [
+      "-e",
+      'if application "Ollama" is running then tell application "Ollama" to quit'
+    ])
+    await waitForExit(listener)
+  } else if (listener) await stopListener(listener)
   const childEnv = {
     ...process.env,
     ...env,

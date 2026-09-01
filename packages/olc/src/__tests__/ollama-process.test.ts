@@ -237,6 +237,51 @@ describe("manager ownership", () => {
     child.emit("exit", 0, null)
     await expect(run.session?.finished).resolves.toBe(0)
   })
+  it("quits the macOS app and replaces it with a process-scoped child", async () => {
+    Object.defineProperty(process, "platform", { value: "darwin" })
+    const child = Object.assign(new EventEmitter(), { kill: vi.fn() })
+    mocks.spawn.mockReturnValue(child)
+    mocks.execute
+      .mockResolvedValueOnce({ stdout: identity })
+      .mockResolvedValueOnce({ stdout: "" })
+      .mockRejectedValueOnce(new Error("process exited"))
+    vi.spyOn(process, "kill").mockImplementation(() => {
+      throw Object.assign(new Error("missing"), { code: "ESRCH" })
+    })
+    const originalOrigins = process.env.OLLAMA_ORIGINS
+    const run = await applyManager(
+      { kind: "mac-app", appPath: "/Applications/Ollama.app" },
+      resolveOllamaOptions({ FOREGROUND: true }, {}, {}),
+      {},
+      listener
+    )
+    expect(process.env.OLLAMA_ORIGINS).toBe(originalOrigins)
+    expect(mocks.execute).toHaveBeenCalledWith(
+      "osascript",
+      [
+        "-e",
+        'if application "Ollama" is running then tell application "Ollama" to quit'
+      ],
+      expect.any(Object)
+    )
+    expect(mocks.execute).not.toHaveBeenCalledWith(
+      "launchctl",
+      expect.arrayContaining(["setenv"]),
+      expect.any(Object)
+    )
+    expect(mocks.spawn).toHaveBeenCalledWith(
+      "ollama",
+      ["serve"],
+      expect.objectContaining({
+        env: expect.objectContaining({
+          OLLAMA_HOST: "127.0.0.1:11434",
+          OLLAMA_ORIGINS: expect.stringContaining("chrome-extension://*")
+        })
+      })
+    )
+    child.emit("exit", 0, null)
+    await expect(run.session?.finished).resolves.toBe(0)
+  })
   it("uses a standalone process when no managed listener is running", async () => {
     Object.defineProperty(process, "platform", { value: "linux" })
     expect(await detectManager()).toEqual({ kind: "cli" })

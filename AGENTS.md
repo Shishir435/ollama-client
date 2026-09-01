@@ -309,7 +309,8 @@ Native lifecycle tests mock OS effects; never restart a developer's Ollama durin
 Native olc never persists environment or configuration: no `launchctl setenv`,
 systemd drop-ins, registry/user variables, or shell-profile edits. Pass
 `OLLAMA_*` only to a standalone child; reuse compatible managed servers and
-refuse changes that require their owner.
+refuse changes that require their owner. The macOS app may be gracefully quit
+and replaced by a standalone child, without relaunching or reconfiguring it.
 In agent mode it serves a local agent runtime over `/v1/chat/completions`, so that runtime's models reach the extension through the ordinary OpenAI-compatible custom-provider flow.
 
 - **Nothing in `src/` knows it exists.** Do not add proxy-aware branches to the extension: provider-shaped behaviour belongs behind the provider's own wire format, not behind a base-URL check in a handler.

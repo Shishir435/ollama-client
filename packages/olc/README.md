@@ -233,11 +233,14 @@ that olc starts. A detached server retains them only for that process's lifetime
 a foreground server loses them when it stops.
 
 An already-compatible macOS app, systemd service, Windows tray process, or other
-managed server is reused unchanged. When a managed server needs a different bind
-or origin, olc leaves it running and asks the user to stop it and rerun olc for a
-standalone session, or configure that owner manually. Standalone Unix processes
-are identity-checked before `SIGTERM`; olc never escalates to a force-kill.
-Detached logs go to `~/.ollama/olc.log`. `--check` remains read-only.
+managed server is reused unchanged. When the macOS app needs a different bind or
+origin, olc gracefully quits the app, waits for its verified listener to exit,
+and starts a standalone child with process-scoped settings. It does not relaunch
+or reconfigure the app. Other incompatible managed services remain untouched and
+must be stopped for a standalone session or configured through their owner.
+Standalone Unix processes are identity-checked before `SIGTERM`; olc never
+escalates to a force-kill. Detached logs go to `~/.ollama/olc.log`.
+`--check` remains read-only.
 
 Ollama Client does not require this CLI. Users can set `OLLAMA_ORIGINS` and
 `OLLAMA_HOST` manually by following the

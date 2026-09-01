@@ -35,7 +35,8 @@ For an existing Ollama app/service, foreground mode monitors it without taking
 ownership; Ctrl-C leaves it running. New standalone foreground servers stop
 with Ctrl-C. Ollama keeps its native API. OLLAMA_* values are passed only to a
 standalone server olc starts; global, app, and service environments are never
-changed. Managed servers are reused only when already compatible.
+changed. An incompatible macOS app is quit and replaced by a standalone server;
+other managed services must be stopped or configured by their owner.
 LAN access has no authentication: use only on a trusted network.
 
 Proxy-only options (require -b codex or -b opencode):

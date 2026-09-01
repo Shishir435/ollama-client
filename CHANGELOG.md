@@ -21,7 +21,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   on port 8084; `-b` aliases `--backend`.
 - Added native `--lan`, `--local`, `--check`, and `--json`, safe app/service
   ownership checks, process-scoped child environments, and strict option
-  validation. olc never persists app, service, user, or machine environment.
+  validation. olc never persists app, service, user, or machine environment;
+  an incompatible macOS app transitions to a standalone process safely.
 
 ### Development
 

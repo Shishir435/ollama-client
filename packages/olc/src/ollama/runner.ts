@@ -136,7 +136,11 @@ export async function runOllama(
       "Ollama is stopped, bound differently, or missing extension access; start a standalone server with olc or configure its owner manually"
     )
   const manager = await deps.manager(listener)
-  if (manager.kind === "cli" && listener && options.binary === "ollama")
+  if (
+    (manager.kind === "cli" || manager.kind === "mac-app") &&
+    listener &&
+    options.binary === "ollama"
+  )
     options.binary = listener.executable
   if (options.debug) deps.warn(`[Ollama] manager=${manager.kind} target=${url}`)
   await deps.prepare(manager, options)
