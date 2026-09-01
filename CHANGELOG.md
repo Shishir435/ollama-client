@@ -11,6 +11,15 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [0.13.3]
 
+### Added
+
+- Web search can route through the selected agent runtime's native search tool.
+  Ollama Client still exposes one provider-neutral `web_search` tool and keeps
+  configured SearXNG, Brave, and Tavily backends available as explicit choices.
+- `olc` adds native Ollama lifecycle management with `--lan`, `--local`,
+  `--check`, and `--json`, safe app/service ownership checks, process-scoped
+  child environments, and strict option validation.
+
 ### Changed
 
 - All olc backends now detach by default. `--debug` implies foreground; explicit
@@ -19,10 +28,19 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - `olc` now defaults to native Ollama on port 11434. Use `olc -b codex`
   for the Codex proxy on port 8083 or `olc -b opencode` for the OpenCode proxy
   on port 8084; `-b` aliases `--backend`.
-- Added native `--lan`, `--local`, `--check`, and `--json`, safe app/service
-  ownership checks, process-scoped child environments, and strict option
-  validation. olc never persists app, service, user, or machine environment;
-  an incompatible macOS app transitions to a standalone process safely.
+- Embedding requests use stricter cache identities, propagate cancellation
+  through provider and storage boundaries, retry rate limits without discarding
+  successful batches, and retain keyword context when dense embedding fails.
+- Embedding batches and search-cache retention are tuned against reproducible
+  performance benchmarks while preserving the extension bundle budgets.
+- olc never persists app, service, user, or machine environment; an incompatible
+  macOS app transitions to a standalone process safely.
+
+### Removed
+
+- The model-callable `selected_text` reader is removed. Pending page selections
+  remain an explicit, consumable composer handoff instead of silently becoming
+  live tool state, so stale selections cannot be read during a later turn.
 
 ### Development
 
@@ -34,11 +52,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   durable turns, while custom provider base URLs remain fully configurable.
 - Biome now enforces an initial cognitive-complexity ceiling so newly changed
   code cannot grow unchecked while the threshold is tightened incrementally.
+- Verification scripts are organized by purpose and the release gate now builds
+  each browser target once before reusing those artifacts for smoke, bundle,
+  migration, recovery, and critical browser checks.
+- Documentation articles remain centered on wide screens, terminal snippets use
+  recognizable red/yellow/green window controls, and the README no longer
+  advertises the removed selected-text tool.
 - Embedding generation from extension pages now crosses the validated,
   background-owned `embeddings.generate` RPC. The RPC preserves model/provider
   identity, forwards cancellation, and bounds stalled provider work with a
-  generous 15-minute deadline. Background RAG uses an application service seam;
-  full strategy/cache ownership migration continues in 0.13.3.
+  generous 15-minute deadline. Background RAG and UI maintenance use application
+  service seams instead of importing persistence adapters across ownership
+  boundaries.
 
 ## [0.13.2]
 

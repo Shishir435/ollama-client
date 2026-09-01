@@ -31,6 +31,13 @@ body {
   line-height: 1.6;
 }
 
+/* Keep the article centered in the reading pane on wide screens. */
+@media (min-width: 72rem) {
+  [data-has-sidebar][data-has-toc] .main-pane .sl-container {
+    margin-inline: auto;
+  }
+}
+
 /* Heading hierarchy — tighter tracking, normal weight, more breathing room. */
 .sl-markdown-content :is(h1, h2, h3, h4, h5, h6) {
   font-weight: 600;
@@ -211,6 +218,20 @@ starlight-toc nav a[aria-current="true"] {
 .expressive-code .frame .header {
   font-family: var(--sl-font-mono);
   font-size: 0.6875rem !important;
+}
+
+/* Expressive Code uses monochrome title-bar dots by default. Give terminal
+ * frames the familiar macOS close/minimize/zoom colors instead. */
+.expressive-code .frame.is-terminal .header::before {
+  width: 2.1rem;
+  height: 0.56rem;
+  background:
+    radial-gradient(circle at 0.28rem 50%, #ff5f57 0 0.25rem, transparent 0.27rem),
+    radial-gradient(circle at 1.05rem 50%, #febc2e 0 0.25rem, transparent 0.27rem),
+    radial-gradient(circle at 1.82rem 50%, #28c840 0 0.25rem, transparent 0.27rem);
+  opacity: 1;
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 @media (max-width: 50rem) {
