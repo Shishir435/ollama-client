@@ -60,7 +60,7 @@ still live in IndexedDB through the embeddings storage layer.
 
 Ollama Client supports two context paths:
 
-- **Manual context**: select tabs, files, or images before sending.
+- **Manual context**: select tabs, selected text, files, or images before sending.
 - **Model-requested context**: tool-capable models can call tools during a response to inspect the current page, list/read open tabs, read permission-gated recently closed or synced-device sessions, search indexed files, search local chat memory, or search the live web when web search is enabled.
 
 Tool calls run inside the extension and are shown in the reasoning trace with status, inputs, sources, and trimmed output previews. They do not create extra chat-history rows; only the final answer and trace metadata are persisted.
