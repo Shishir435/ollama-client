@@ -43,12 +43,12 @@ Proxy-only options (require -b codex or -b opencode):
   -K, --api-key <key>         Require a bearer token
   -s, --system-prompt <text>  Override the client's system prompt
   -n, --no-bridge             Disable the client tool bridge
+  -P, --project-dir <path>    Agent project/workspace directory
 
 OpenCode options (-b opencode):
   -u, --opencode-url <url>    Server URL (default http://127.0.0.1:4097)
   -x, --opencode <path>       OpenCode executable
   -a, --agent <name>          OpenCode agent
-  -P, --project-dir <path>    Project directory
   -t, --allow-opencode-tools <ids>
                                Comma-separated tools to leave enabled
   -g, --plugin-dir <path>     Bridge plugin directory
@@ -200,7 +200,8 @@ export function selectBackend(
   const proxy = [
     optionRule("API_KEY", "OLC_API_KEY", "OPENCODE_PROXY_API_KEY"),
     optionRule("SYSTEM_PROMPT", "OLC_SYSTEM_PROMPT"),
-    optionRule("BRIDGE_ENABLED", "OLC_BRIDGE_ENABLED")
+    optionRule("BRIDGE_ENABLED", "OLC_BRIDGE_ENABLED"),
+    optionRule("PROJECT_DIR")
   ]
   const codex = [
     optionRule("CODEX_PATH", "OLC_CODEX_PATH", "CODEX_PATH"),
@@ -211,7 +212,7 @@ export function selectBackend(
     optionRule("OPENCODE_SERVER_URL", "OPENCODE_SERVER_URL"),
     optionRule("OPENCODE_PATH", "OPENCODE_PATH"),
     optionRule("OPENCODE_AGENT", "OPENCODE_PROXY_AGENT"),
-    optionRule("PROJECT_DIR", "OPENCODE_PROXY_PROJECT_DIR"),
+    optionRule("OPENCODE_PROXY_PROJECT_DIR", "OPENCODE_PROXY_PROJECT_DIR"),
     optionRule(
       "AUTO_APPROVE_PERMISSIONS",
       "OPENCODE_PROXY_AUTO_APPROVE_PERMISSIONS"

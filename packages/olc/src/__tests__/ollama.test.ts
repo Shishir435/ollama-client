@@ -121,6 +121,19 @@ describe("CLI backend policy", () => {
         { OPENCODE_PATH: "/usr/local/bin/opencode" }
       )
     ).toThrow("OPENCODE_PATH")
+    expect(
+      selectBackend({ BACKEND: "codex", PROJECT_DIR: "/work" }, {}, {})
+    ).toBe("codex")
+    expect(
+      selectBackend({ BACKEND: "codex" }, { PROJECT_DIR: "/work" }, {})
+    ).toBe("codex")
+    expect(() =>
+      selectBackend(
+        { BACKEND: "codex" },
+        {},
+        { OPENCODE_PROXY_PROJECT_DIR: "/work" }
+      )
+    ).toThrow("OPENCODE_PROXY_PROJECT_DIR")
     expect(() =>
       selectBackend(
         { BACKEND: "opencode" },
@@ -348,6 +361,7 @@ describe("native lifecycle", () => {
     })
     deps.listeners
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValue([{ ...listener, host: "0.0.0.0" }])
     deps.environment.mockResolvedValue({ OLLAMA_HOST: "0.0.0.0:12345" })
     expect(
@@ -359,6 +373,43 @@ describe("native lifecycle", () => {
       expect.anything(),
       undefined
     )
+  })
+  it("rediscovers and reuses a running macOS app on its configured port", async () => {
+    const deps = fixture([])
+    const configuredListener = {
+      ...listener,
+      host: "0.0.0.0",
+      pid: 54321
+    }
+    const stoppedManager = {
+      kind: "mac-app" as const,
+      appPath: "/Applications/Ollama.app"
+    }
+    const runningManager = {
+      ...stoppedManager,
+      appProcess: {
+        pid: 222,
+        identity: "app-owner",
+        executable: "/Applications/Ollama.app/Contents/MacOS/Ollama",
+        uid: 1000
+      }
+    }
+    deps.listeners
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([configuredListener])
+    deps.manager
+      .mockResolvedValueOnce(stoppedManager)
+      .mockResolvedValueOnce(runningManager)
+    deps.environment
+      .mockResolvedValueOnce({ OLLAMA_HOST: "0.0.0.0:12345" })
+      .mockResolvedValueOnce({ OLLAMA_HOST: "0.0.0.0:12345" })
+    expect(
+      await runOllama(resolveOllamaOptions({}, {}, {}), deps)
+    ).toMatchObject({ status: "ready", host: "0.0.0.0", port: 12345 })
+    expect(deps.listeners).toHaveBeenNthCalledWith(1, 11434)
+    expect(deps.listeners).toHaveBeenNthCalledWith(2, 12345)
+    expect(deps.manager).toHaveBeenNthCalledWith(2, configuredListener)
+    expect(deps.apply).not.toHaveBeenCalled()
   })
   it("fails after a bounded startup without retrying a restart", async () => {
     const deps = fixture([])

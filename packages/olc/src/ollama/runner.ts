@@ -109,7 +109,7 @@ export async function runOllama(
 ): Promise<OllamaResult> {
   const found = await deps.listeners(input.port)
   assertOllamaListeners(found)
-  const listener = found[0]
+  let listener = found[0]
   const options = { ...input }
   if (listener && !options.explicitHost) options.host = listener.host
   let url = endpoint(options.host, options.port)
@@ -126,8 +126,36 @@ export async function runOllama(
     port: options.port,
     message
   })
-  const bindMatches = !listener || matchesBind(listener.host, options.host)
-  if (listener && bindMatches && (await deps.probe(url, options.origins)).ready)
+  if (
+    listener &&
+    matchesBind(listener.host, options.host) &&
+    (await deps.probe(url, options.origins)).ready
+  )
+    return result(true, "ready", "reusing native Ollama")
+  let manager = await deps.manager(listener)
+  let env = await deps.environment(manager, listener)
+  let rediscovered = false
+  if (!listener && !options.explicitHost && env.OLLAMA_HOST) {
+    const configured = parseHost(env.OLLAMA_HOST)
+    options.host = configured.host
+    options.port = configured.port
+    url = endpoint(options.host, options.port)
+    const configuredListeners = await deps.listeners(options.port)
+    assertOllamaListeners(configuredListeners)
+    listener = configuredListeners[0]
+    if (listener) {
+      rediscovered = true
+      manager = await deps.manager(listener)
+      env = await deps.environment(manager, listener)
+    }
+  }
+  options.origins = mergeOrigins(env.OLLAMA_ORIGINS, options.origins)
+  if (
+    rediscovered &&
+    listener &&
+    matchesBind(listener.host, options.host) &&
+    (await deps.probe(url, options.origins)).ready
+  )
     return result(true, "ready", "reusing native Ollama")
   if (options.check)
     return result(
@@ -135,7 +163,6 @@ export async function runOllama(
       "not-ready",
       "Ollama is stopped, bound differently, or missing extension access; start a standalone server with olc or configure its owner manually"
     )
-  const manager = await deps.manager(listener)
   if (
     (manager.kind === "cli" || manager.kind === "mac-app") &&
     listener &&
@@ -144,14 +171,6 @@ export async function runOllama(
     options.binary = listener.executable
   if (options.debug) deps.warn(`[Ollama] manager=${manager.kind} target=${url}`)
   await deps.prepare(manager, options)
-  const env = await deps.environment(manager, listener)
-  options.origins = mergeOrigins(env.OLLAMA_ORIGINS, options.origins)
-  if (!listener && !options.explicitHost && env.OLLAMA_HOST) {
-    const configured = parseHost(env.OLLAMA_HOST)
-    options.host = configured.host
-    options.port = configured.port
-    url = endpoint(options.host, options.port)
-  }
   if (
     options.host !== "127.0.0.1" &&
     options.host !== "localhost" &&
