@@ -143,6 +143,8 @@ export function preferredRepresentation(accept: string | null): Preference {
   const markdown = scoreFor(ranges, "text", "markdown")
   const html = scoreFor(ranges, "text", "html")
 
+  // Order matters: nothing acceptable is decided before the HTML default, or a
+  // sole `text/html;q=0` would fall through to the representation it excluded.
   if (markdown.q === 0 && html.q === 0) return "unacceptable"
   if (markdown.q === 0) return "html"
   if (markdown.q > html.q) return "markdown"

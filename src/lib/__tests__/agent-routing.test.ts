@@ -112,6 +112,28 @@ describe("representation preference", () => {
       "unacceptable"
     )
   })
+
+  it("refuses a sole exclusion rather than falling back to the default", () => {
+    /*
+     * `text/html;q=0` names one representation and rejects it, leaving nothing
+     * acceptable — the Markdown twin is not reachable through a range the
+     * client never wrote. The "no Markdown preference means HTML" shortcut must
+     * stay behind the check for that, or a client that ruled HTML out is
+     * answered with 200 HTML.
+     */
+    for (const accept of [
+      "text/html;q=0",
+      "text/html; q=0.0",
+      "text/*;q=0",
+      "text/markdown;q=0"
+    ]) {
+      expect(preferredRepresentation(accept), accept).toBe("unacceptable")
+      expect(resolve("/developers", accept), accept).toMatchObject({
+        kind: "respond",
+        status: 406
+      })
+    }
+  })
 })
 
 describe("Markdown negotiation", () => {
