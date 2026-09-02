@@ -348,6 +348,17 @@ describe("agent controller", () => {
     expect(harness.getState().status).toBe("completed")
   })
 
+  it("fails from the claimed verifying phase when verification throws", async () => {
+    const harness = createHarness({ verification: [] })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "verification_failed" }
+    })
+    expect(harness.calls).toContain("claim:verifying")
+    expect(harness.calls).toContain("transition:failed")
+  })
+
   it("re-decides after negative verification", async () => {
     const harness = createHarness({
       verification: [

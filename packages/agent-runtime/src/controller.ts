@@ -351,6 +351,7 @@ export const createAgentController = (
     })
     if (!executing) return undefined
     const authorizedEffect: AuthorizedAgentEffect = { ...effect, authorization }
+    let failureState = executing
 
     try {
       const receipt = await dependencies.effect.execute(
@@ -369,6 +370,7 @@ export const createAgentController = (
         updatedAt: dependencies.clock.now()
       })
       if (!verifying) return undefined
+      failureState = verifying
       const verification = await dependencies.effect.verify(
         { effect: authorizedEffect, receipt, before: observation },
         signal
@@ -394,7 +396,7 @@ export const createAgentController = (
     } catch {
       if (!signal.aborted) {
         await fail(
-          executing,
+          failureState,
           "verification_failed",
           "The page effect could not be executed and verified safely."
         )
