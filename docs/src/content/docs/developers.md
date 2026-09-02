@@ -59,9 +59,9 @@ Get-Content olc-install.ps1
 ./olc-install.ps1
 ```
 
-Or skip the wrapper and take the pinned release archive directly. `olc.tar.gz`
-and `olc.tar.gz.sha256` are immutable per tag, so this is the same artifact the
-wrapper would install, verified before anything runs:
+Or skip the wrapper and take the release archive for a chosen tag directly. This
+is the same artifact the wrapper would install, checked against its published
+`sha256` before anything runs:
 
 ```bash
 tag=0.13.3
@@ -83,6 +83,13 @@ if ((Get-FileHash olc.tar.gz -Algorithm SHA256).Hash -ne $expected) { throw "che
 tar -xzf olc.tar.gz
 node olc/dist/olc.mjs --help
 ```
+
+The checksum is published beside the archive on the same release, so it shows
+the download arrived intact — not that the file behind a tag is still the one you
+reviewed. The release workflow never overwrites a published asset (a re-run on a
+moved tag uploads only what is missing), but release assets can still be changed
+by hand. For a pin that does not depend on that, record the hash of a release you
+have checked and compare against it on later installs.
 
 Move the extracted `olc` directory wherever you keep tools and put `olc.mjs`
 on `PATH` under whatever name you prefer; the wrapper's only extra job is
