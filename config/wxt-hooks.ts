@@ -8,15 +8,17 @@ type WxtHooks = NonNullable<Parameters<typeof defineConfig>[0]["hooks"]>
  *
  * Never in a store package. `benchmark` and `spike-opfs` are the measurement
  * pages, `spike-owner`/`spike-owner-offscreen` are the owner-topology spike,
- * and `persistence-verify` drives the production OPFS path for
- * verify-opfs-migration.
+ * `persistence-verify` drives the production OPFS path for
+ * verify-opfs-migration, and `agent-perception-harness` exercises the
+ * read-only Agent protocol without creating a store-visible surface.
  */
 const DEV_ENTRYPOINTS = [
   "benchmark",
   "spike-opfs",
   "spike-owner",
   "spike-owner-offscreen",
-  "persistence-verify"
+  "persistence-verify",
+  "agent-perception-harness"
 ] as const
 
 export interface BuildTarget {
@@ -63,7 +65,7 @@ export const devEntrypointsToStrip = (target: BuildTarget): string[] => {
   // Firefox needs a separate hidden page because loading file processors into
   // its persistent background page would add several megabytes.
   return target.browser === "firefox"
-    ? [...devOnly, "persistence-host"]
+    ? [...devOnly, "persistence-host", "agent-control"]
     : [...devOnly, "ingestion-processor"]
 }
 

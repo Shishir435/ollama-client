@@ -24,6 +24,12 @@ const extensionOrContent = ["extension-page", "content-script"] as const
  */
 export const RUNTIME_TRANSPORT_DEFINITIONS = [
   {
+    type: MESSAGE_KEYS.AGENT.CONTROL_PORT,
+    transport: "port",
+    operation: "query",
+    allowedSources: extensionPage
+  },
+  {
     type: MESSAGE_KEYS.PROVIDER.GET_MODELS,
     transport: "message",
     operation: "query",

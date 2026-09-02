@@ -34,6 +34,9 @@ export const LEGACY_OLLAMA_MESSAGE_KEYS = {
 } as const
 
 export const MESSAGE_KEYS = {
+  AGENT: {
+    CONTROL_PORT: "agent-control-port"
+  },
   PROVIDER: PROVIDER_MESSAGE_KEYS,
   OLLAMA: LEGACY_OLLAMA_MESSAGE_KEYS,
   BROWSER: {
