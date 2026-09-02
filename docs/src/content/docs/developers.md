@@ -64,23 +64,28 @@ curl -fsSL "$base/olc.sh" -o olc.sh &&
 
 ```powershell
 $tag = "0.13.3"
-$base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
-irm "$base/olc.ps1" -OutFile olc.ps1
-irm "$base/olc.ps1.sha256" -OutFile olc.ps1.sha256
-$expected = (Get-Content olc.ps1.sha256).Split(" ")[0]
-if ((Get-FileHash olc.ps1 -Algorithm SHA256).Hash -ne $expected) {
-  Write-Error "checksum mismatch: not running olc.ps1"
-} else {
-  Get-Content olc.ps1
+try {
+  $base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
+  $dir = (New-Item -ItemType Directory -Path (Join-Path $env:TEMP "olc-$tag-$(Get-Random)")).FullName
+  irm "$base/olc.ps1" -OutFile "$dir\olc.ps1" -ErrorAction Stop
+  irm "$base/olc.ps1.sha256" -OutFile "$dir\olc.ps1.sha256" -ErrorAction Stop
+  $expected = (Get-Content "$dir\olc.ps1.sha256").Split(" ")[0]
+  if ((Get-FileHash "$dir\olc.ps1" -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
+  Get-Content "$dir\olc.ps1"
   $env:OLC_VERSION = $tag
-  Unblock-File olc.ps1
-  powershell -ExecutionPolicy Bypass -File ./olc.ps1
+  Unblock-File "$dir\olc.ps1"
+  powershell -ExecutionPolicy Bypass -File "$dir\olc.ps1"
+} catch {
+  Write-Error "olc install stopped: $_"
 }
 ```
 
-Every step is chained to the one before it, so a failed checksum stops the block
-instead of letting the wrapper run anyway — the point of verifying is lost if the
-next pasted line executes regardless.
+Each block is a single guarded unit rather than a list of independent commands:
+the Unix steps are chained with `&&`, and the PowerShell steps sit inside one
+`try`/`catch` that downloads into a fresh directory. A failed download or a
+mismatched checksum ends the block. Without that, the next pasted line runs
+regardless — on Windows it would hash and execute whatever `olc.ps1` happened to
+be sitting in the working directory.
 
 A file downloaded rather than piped carries the mark of the web, so PowerShell
 blocks it until `Unblock-File` clears the mark; the explicit policy on that one
@@ -105,15 +110,16 @@ curl -fsSL "$base/olc.tar.gz" -o olc.tar.gz &&
 
 ```powershell
 $tag = "0.13.3"
-$base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
-irm "$base/olc.tar.gz" -OutFile olc.tar.gz
-irm "$base/olc.tar.gz.sha256" -OutFile olc.tar.gz.sha256
-$expected = (Get-Content olc.tar.gz.sha256).Split(" ")[0]
-if ((Get-FileHash olc.tar.gz -Algorithm SHA256).Hash -ne $expected) {
-  Write-Error "checksum mismatch: not running olc.tar.gz"
-} else {
+try {
+  $base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
+  irm "$base/olc.tar.gz" -OutFile olc.tar.gz -ErrorAction Stop
+  irm "$base/olc.tar.gz.sha256" -OutFile olc.tar.gz.sha256 -ErrorAction Stop
+  $expected = (Get-Content olc.tar.gz.sha256).Split(" ")[0]
+  if ((Get-FileHash olc.tar.gz -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
   tar -xzf olc.tar.gz
   node olc/dist/olc.mjs --help
+} catch {
+  Write-Error "olc download stopped: $_"
 }
 ```
 
