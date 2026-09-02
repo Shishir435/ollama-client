@@ -25,6 +25,7 @@ Ollama Client gives you a browser-native chat workspace for local and bring-your
 - Upload files and use local retrieval-augmented generation over your own content.
 - Attach images for vision-capable models.
 - Let tool-capable models read the current tab, open tabs, uploaded files, local memory, and optionally the live web when the prompt calls for it.
+- Capture selected page text into chat with the selection-button overlay.
 - Keep chat history, sessions, files, settings, and embeddings on your machine by default.
 - Review all stored data, create a full backup, or wipe it from one Privacy screen.
 - Organize chats with tags; edit messages in place or fork an alternate branch.
