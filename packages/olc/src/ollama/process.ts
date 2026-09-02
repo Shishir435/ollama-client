@@ -151,23 +151,48 @@ export async function ollamaEnvironment(
   )
 }
 
-/** Wait for a specific process to exit without escalating to SIGKILL. */
-export async function waitForExit(listener: Listener): Promise<void> {
-  for (let attempt = 0; attempt < 40; attempt++) {
+const EXIT_POLL_MS = 250
+
+/** A CLI process handles SIGTERM promptly; anything longer is a hang, not a slow stop. */
+export const EXIT_TIMEOUT_MS = 10_000
+
+/**
+ * The macOS app tears down its UI and its own serve child before the port frees,
+ * so it is given a far longer deadline than a CLI SIGTERM. Waiting costs nothing
+ * while it lasts — Ollama is still serving — whereas giving up early can abandon
+ * an app that was already asked to quit and never start its replacement.
+ */
+export const APP_EXIT_TIMEOUT_MS = 60_000
+
+/** True once the PID is gone or has been recycled into a different process. */
+async function hasExited(listener: Listener): Promise<boolean> {
+  try {
+    const current = await processIdentity(listener.pid)
+    return current.identity !== listener.identity
+  } catch {
     try {
-      const current = await processIdentity(listener.pid)
-      if (current.identity !== listener.identity) return
-    } catch {
-      try {
-        process.kill(listener.pid, 0)
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ESRCH") return
-      }
+      process.kill(listener.pid, 0)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ESRCH") return true
     }
-    await delay(250)
+    return false
   }
+}
+
+/** Wait for a specific process to exit without escalating to SIGKILL. */
+export async function waitForExit(
+  listener: Listener,
+  timeoutMs: number = EXIT_TIMEOUT_MS
+): Promise<void> {
+  const attempts = Math.ceil(timeoutMs / EXIT_POLL_MS)
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (await hasExited(listener)) return
+    await delay(EXIT_POLL_MS)
+  }
+  /** Poll once more: exiting during the last interval is an exit, not a timeout. */
+  if (await hasExited(listener)) return
   throw new Error(
-    "Ollama did not stop within 10 seconds. No force-kill was attempted; stop it manually and retry."
+    `Ollama did not stop within ${Math.round(timeoutMs / 1000)} seconds and is still listening on ${listener.host}. No force-kill was attempted and no replacement was started, so the running server was left as it is; stop it manually and retry.`
   )
 }
 

@@ -9,6 +9,7 @@ import {
 } from "../foreground-process.js"
 import { bindAddress, type OllamaOptions } from "./config.js"
 import {
+  APP_EXIT_TIMEOUT_MS,
   command,
   type Listener,
   ollamaEnvironment,
@@ -256,7 +257,7 @@ export async function applyManager(
           "The Ollama app process changed or has another owner; leaving it running."
         )
       process.kill(app.pid, "SIGTERM")
-      await waitForExit(listener)
+      await waitForExit(listener, APP_EXIT_TIMEOUT_MS)
     }
   } else if (listener) await stopListener(listener)
   const childEnv = {

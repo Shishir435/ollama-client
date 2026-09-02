@@ -79,6 +79,9 @@ olc --check --json
 On Windows PowerShell, install with `irm https://ollamaclient.in/olc.ps1 | iex`,
 then run the same olc commands.
 
+These installers pipe a remote script into your shell. To pin the release and verify it first, see [installing without piping to a shell](/developers/#install-without-piping-to-a-shell).
+
+
 **Manual setup without olc:** stop the current Ollama app/server, set
 `OLLAMA_ORIGINS`, and start it again:
 

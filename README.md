@@ -147,6 +147,10 @@ $env:OLC_VERSION = "0.13.2"
 irm https://ollamaclient.in/olc.ps1 | iex
 ```
 
+These commands pipe a remote script into your shell. To pin the release and
+verify it before running anything, see
+[installing without piping to a shell](https://www.ollamaclient.in/developers/#install-without-piping-to-a-shell).
+
 Then run `olc` for native Ollama, or `olc --help` for all short/long options.
 All modes detach by default; `--debug` or `--foreground` stays attached.
 For Codex/OpenCode, configure Ollama Client with a custom OpenAI-compatible provider at

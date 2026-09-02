@@ -66,6 +66,8 @@ curl -fsSL https://ollamaclient.in/olc.sh | sh
 irm https://ollamaclient.in/olc.ps1 | iex
 ```
 
+These installers pipe a remote script into your shell. To pin the release and verify it first, see [installing without piping to a shell](/developers/#install-without-piping-to-a-shell).
+
 Start or reuse native Ollama with extension origins enabled:
 
 ```bash

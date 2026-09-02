@@ -236,7 +236,12 @@ An already-compatible macOS app, systemd service, Windows tray process, or other
 managed server is reused unchanged. When the macOS app needs a different bind or
 origin, olc gracefully quits the app, waits for its verified listener to exit,
 and starts a standalone child with process-scoped settings. It does not relaunch
-or reconfigure the app. Other incompatible managed services remain untouched and
+or reconfigure the app. The app gets a minute to finish quitting, far longer than
+the ten seconds a CLI `SIGTERM` is given: while the wait lasts Ollama is still
+serving, whereas giving up early would abandon an app that was already asked to
+quit and never start its replacement. If the listener is still up when that
+deadline passes, no replacement is started and the running server is left as it
+is. Other incompatible managed services remain untouched and
 must be stopped for a standalone session or configured through their owner.
 Standalone Unix processes are identity-checked before `SIGTERM`; olc never
 escalates to a force-kill. Detached logs go to `~/.ollama/olc.log`.
