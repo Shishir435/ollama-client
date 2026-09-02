@@ -26,6 +26,8 @@ export type RouteDecision =
   | { kind: "pass" }
   /** Serve a different path's bytes under the requested URL. */
   | { kind: "rewrite"; destination: string }
+  /** Send the client to the canonical URL for this path. */
+  | { kind: "redirect"; status: number; location: string }
   /** Answer here; static serving never runs. */
   | {
       kind: "respond"
@@ -40,6 +42,8 @@ export type ResolveInput = {
   accept: string | null
   /** Slugs with a published `.md` twin, i.e. `DOC_ORDER`. */
   markdownSlugs: readonly string[]
+  /** Old inbound paths and their canonical destinations, i.e. `LEGACY_REDIRECTS`. */
+  legacyRedirects: Readonly<Record<string, string>>
 }
 
 /**
@@ -135,6 +139,10 @@ export type Preference = "markdown" | "html" | "unacceptable"
  * `text/html,…,<full wildcard>;q=0.8`, which keeps HTML; `Accept: text/markdown` alone
  * flips it. No `Accept` header at all is not a preference — it means "anything"
  * (RFC 9110), so it keeps the default HTML representation.
+ *
+ * The order of the two zero-quality checks below is load-bearing: nothing
+ * acceptable has to be decided before the HTML default, or a sole
+ * `text/html;q=0` falls through to the representation it excluded.
  */
 export function preferredRepresentation(accept: string | null): Preference {
   const ranges = parseAccept(accept)
@@ -143,8 +151,6 @@ export function preferredRepresentation(accept: string | null): Preference {
   const markdown = scoreFor(ranges, "text", "markdown")
   const html = scoreFor(ranges, "text", "html")
 
-  // Order matters: nothing acceptable is decided before the HTML default, or a
-  // sole `text/html;q=0` would fall through to the representation it excluded.
   if (markdown.q === 0 && html.q === 0) return "unacceptable"
   if (markdown.q === 0) return "html"
   if (markdown.q > html.q) return "markdown"
@@ -246,7 +252,8 @@ export function resolveRequest({
   pathname,
   method,
   accept,
-  markdownSlugs
+  markdownSlugs,
+  legacyRedirects
 }: ResolveInput): RouteDecision {
   const normalized = pathname.replace(/\/{2,}/g, "/")
 
@@ -266,6 +273,18 @@ export function resolveRequest({
   }
 
   if (preference === "html") return { kind: "pass" }
+
+  /*
+   * A legacy alias exists — Astro emits a meta-refresh page at each one — but
+   * only as HTML, and this runs before the filesystem, so without the map the
+   * path reads as unknown and a Markdown client is told 404 for a URL that
+   * plainly resolves in a browser. Redirecting rather than rewriting hands the
+   * agent the canonical address, which is the thing it should remember.
+   */
+  const alias =
+    legacyRedirects[normalized] ??
+    legacyRedirects[normalized.replace(/\/$/, "")]
+  if (alias) return { kind: "redirect", status: 308, location: alias }
 
   const slug = slugOf(normalized)
   if (slug === "") return { kind: "rewrite", destination: "/index.md" }
