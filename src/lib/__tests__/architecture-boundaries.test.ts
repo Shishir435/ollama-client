@@ -224,16 +224,19 @@ describe("architecture import boundaries", () => {
     expect(offenders).toEqual([])
   })
 
-  it("prevents background agent composition from importing chat", () => {
-    const source = readFileSync(
-      join(sourceRoot, "background/agent/agent-composition.ts"),
-      "utf8"
-    )
-    const offenders = referencedModules(source).filter((module) =>
-      /^@\/(?:application\/turns|features\/chat|background\/turns)\//.test(
-        module
-      )
-    )
+  it("prevents background agent modules from importing chat", () => {
+    const offenders = productionSources
+      .filter((file) => file.startsWith("background/agent/"))
+      .flatMap((file) => {
+        const source = readFileSync(join(sourceRoot, file), "utf8")
+        return referencedModules(source)
+          .filter((module) =>
+            /^@\/(?:application\/turns|features\/chat|background\/turns)\//.test(
+              module
+            )
+          )
+          .map((module) => ({ file, module }))
+      })
 
     expect(offenders).toEqual([])
   })
