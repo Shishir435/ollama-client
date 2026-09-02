@@ -36,6 +36,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - olc never persists app, service, user, or machine environment; an incompatible
   macOS app transitions to a standalone process safely.
 
+### Fixed
+
+- The macOS Ollama app now gets a full minute to finish quitting before olc
+  gives up, and an exit during the final poll is treated as an exit rather than
+  a timeout. Previously a slower-than-ten-second quit aborted the transition
+  after the app had already been signalled, leaving no server running and no
+  replacement started.
+
 ### Removed
 
 - The model-callable `selected_text` reader is removed. Pending page selections
@@ -58,6 +66,9 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Documentation articles remain centered on wide screens, terminal snippets use
   recognizable red/yellow/green window controls, and the README no longer
   advertises the removed selected-text tool.
+- The olc installation docs now document a pinned, checksum-verified path that
+  does not pipe a remote script into a shell, and every place that shows the
+  one-line installer links to it.
 - Embedding generation from extension pages now crosses the validated,
   background-owned `embeddings.generate` RPC. The RPC preserves model/provider
   identity, forwards cancellation, and bounds stalled provider work with a

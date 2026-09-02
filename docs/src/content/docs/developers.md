@@ -38,6 +38,56 @@ $env:OLC_VERSION = "0.13.2"
 irm https://ollamaclient.in/olc.ps1 | iex
 ```
 
+### Install without piping to a shell
+
+`ollamaclient.in/olc.sh` and `olc.ps1` are mutable convenience wrappers. Both
+verify the archive they download against its published `sha256`, but the wrapper
+itself is fetched and executed in one step, so there is nothing to inspect or
+authenticate first. Two alternatives avoid that.
+
+Fetch the wrapper, read it, then run it:
+
+```bash
+curl -fsSL https://ollamaclient.in/olc.sh -o olc-install.sh
+less olc-install.sh
+sh olc-install.sh
+```
+
+```powershell
+irm https://ollamaclient.in/olc.ps1 -OutFile olc-install.ps1
+Get-Content olc-install.ps1
+./olc-install.ps1
+```
+
+Or skip the wrapper and take the pinned release archive directly. `olc.tar.gz`
+and `olc.tar.gz.sha256` are immutable per tag, so this is the same artifact the
+wrapper would install, verified before anything runs:
+
+```bash
+tag=0.13.3
+base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
+curl -fsSL "$base/olc.tar.gz" -o olc.tar.gz
+curl -fsSL "$base/olc.tar.gz.sha256" -o olc.tar.gz.sha256
+shasum -a 256 -c olc.tar.gz.sha256
+tar -xzf olc.tar.gz
+node olc/dist/olc.mjs --help
+```
+
+```powershell
+$tag = "0.13.3"
+$base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
+irm "$base/olc.tar.gz" -OutFile olc.tar.gz
+irm "$base/olc.tar.gz.sha256" -OutFile olc.tar.gz.sha256
+$expected = (Get-Content olc.tar.gz.sha256).Split(" ")[0]
+if ((Get-FileHash olc.tar.gz -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
+tar -xzf olc.tar.gz
+node olc/dist/olc.mjs --help
+```
+
+Move the extracted `olc` directory wherever you keep tools and put `olc.mjs`
+on `PATH` under whatever name you prefer; the wrapper's only extra job is
+choosing those locations for you.
+
 ```bash
 # Source checkout alternative
 git clone https://github.com/Shishir435/ollama-client.git

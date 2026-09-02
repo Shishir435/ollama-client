@@ -302,6 +302,54 @@ describe("manager ownership", () => {
     child.emit("exit", 0, null)
     await expect(run.session?.finished).resolves.toBe(0)
   })
+  it("treats an exit during the final poll as an exit, not a timeout", async () => {
+    vi.spyOn(process, "getuid").mockReturnValue(1000)
+    vi.spyOn(process, "kill").mockImplementation((_pid, signal) => {
+      if (signal === "SIGTERM") return true
+      throw Object.assign(new Error("missing"), { code: "ESRCH" })
+    })
+    let checks = 0
+    mocks.execute.mockImplementation(async () => {
+      checks += 1
+      /** Identity survives every polled check and disappears only after the last delay. */
+      if (checks > 41) throw new Error("process exited")
+      return { stdout: identity }
+    })
+    await expect(stopListener(listener)).resolves.toBeUndefined()
+    expect(mocks.delay).toHaveBeenCalledTimes(40)
+  })
+  it("waits past the CLI deadline while the macOS app finishes quitting", async () => {
+    Object.defineProperty(process, "platform", { value: "darwin" })
+    const child = Object.assign(new EventEmitter(), { kill: vi.fn() })
+    mocks.spawn.mockReturnValue(child)
+    vi.spyOn(process, "getuid").mockReturnValue(1000)
+    let checks = 0
+    mocks.execute.mockImplementation(async () => {
+      checks += 1
+      if (checks === 2) return { stdout: appIdentity }
+      /** Slower than the 10s CLI deadline, well inside the app's own. */
+      if (checks > 60) throw new Error("process exited")
+      return { stdout: identity }
+    })
+    vi.spyOn(process, "kill").mockImplementation((pid, signal) => {
+      if (pid === appProcess.pid && signal === "SIGTERM") return true
+      throw Object.assign(new Error("missing"), { code: "ESRCH" })
+    })
+    const run = await applyManager(
+      { kind: "mac-app", appPath: "/Applications/Ollama.app", appProcess },
+      resolveOllamaOptions({ FOREGROUND: true }, {}, {}),
+      {},
+      listener
+    )
+    expect(mocks.delay.mock.calls.length).toBeGreaterThan(40)
+    expect(mocks.spawn).toHaveBeenCalledWith(
+      "ollama",
+      ["serve"],
+      expect.any(Object)
+    )
+    child.emit("exit", 0, null)
+    await expect(run.session?.finished).resolves.toBe(0)
+  })
   it("uses a standalone process when no managed listener is running", async () => {
     Object.defineProperty(process, "platform", { value: "linux" })
     expect(await detectManager()).toEqual({ kind: "cli" })

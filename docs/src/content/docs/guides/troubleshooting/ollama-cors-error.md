@@ -30,6 +30,8 @@ olc
 olc --check --json
 ```
 
+These installers pipe a remote script into your shell. To pin the release and verify it first, see [installing without piping to a shell](/developers/#install-without-piping-to-a-shell).
+
 Ollama itself must already be installed. `olc --debug` provides foreground
 diagnostics. Use `olc --lan` only when trusted-network access is intended;
 Ollama has no native API authentication. olc passes `OLLAMA_*` only to a
