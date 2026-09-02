@@ -147,8 +147,9 @@ $env:OLC_VERSION = "0.13.2"
 irm https://ollamaclient.in/olc.ps1 | iex
 ```
 
-These commands pipe a remote script into your shell. To pin the release and
-verify it before running anything, see
+These commands pipe a remote script into your shell. Each release also publishes
+the wrappers with their own checksums, so they can be pinned and verified first —
+see
 [installing without piping to a shell](https://www.ollamaclient.in/developers/#install-without-piping-to-a-shell).
 
 Then run `olc` for native Ollama, or `olc --help` for all short/long options.
