@@ -116,7 +116,15 @@ Requires Node ≥ 22.12 and an existing [Ollama installation](https://ollama.com
 (or `--codex`) and an existing `codex login`; olc never reads, stores, or proxies
 the user's OpenAI credentials.
 
-Nothing is published to a registry. Release bundles can be installed directly:
+Nothing is published to a registry. Release bundles can be installed directly.
+
+Each release publishes `olc.sh`, `olc.ps1`, and a `sha256` for each, so the
+recommended path pins a wrapper to a tag and verifies it before it runs — see
+[installing without piping to a shell](https://www.ollamaclient.in/developers/#install-without-piping-to-a-shell),
+which also covers installing the archive with no wrapper at all.
+
+The site serves the same wrappers at a mutable URL for a quicker, unverified
+install:
 
 ```powershell
 # Windows PowerShell
@@ -132,11 +140,6 @@ Both installers download a checksum-verified archive from the project's GitHub
 release. Set `OLC_VERSION` to install a specific tag, or `OLC_INSTALL_DIR` to
 change the destination. Node remains an explicit prerequisite; olc itself and
 its runtime dependency are bundled, so npm is not involved.
-
-Those two commands execute a script fetched from a mutable URL. Each release
-also publishes `olc.sh`, `olc.ps1`, and a `sha256` for each, so the wrapper can
-be pinned to a tag and verified before it runs — see
-[installing without piping to a shell](https://www.ollamaclient.in/developers/#install-without-piping-to-a-shell).
 
 To run from a clone instead:
 
