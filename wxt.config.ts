@@ -80,7 +80,8 @@ export default defineConfig({
       "downloads",
       "tabGroups",
       "alarms",
-      "sessions"
+      "sessions",
+      "webNavigation"
     ],
     // Browser-level keyboard command. Uses the reserved
     // `_execute_action` so the hotkey mirrors a toolbar-icon click: with

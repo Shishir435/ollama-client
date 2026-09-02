@@ -1,8 +1,13 @@
 import { MESSAGE_KEYS } from "@/lib/constants"
 
 export type RuntimeTransport = "message" | "port" | "port-message"
-export type RuntimeOperation = "query" | "command" | "event" | "stream"
-export type RuntimeSource = "extension-page" | "content-script"
+export type RuntimeOperation =
+  | "query"
+  | "command"
+  | "event"
+  | "stream"
+  | "control"
+export type RuntimeSource = "background" | "extension-page" | "content-script"
 
 export interface RuntimeTransportDefinition {
   type: string
@@ -13,6 +18,7 @@ export interface RuntimeTransportDefinition {
 
 const extensionPage = ["extension-page"] as const
 const extensionOrContent = ["extension-page", "content-script"] as const
+const background = ["background"] as const
 
 /**
  * Policy ledger for runtime traffic that intentionally remains outside the
@@ -20,9 +26,16 @@ const extensionOrContent = ["extension-page", "content-script"] as const
  *
  * New request/response operations belong in RpcMethod. Entries here cover
  * streaming ports, lifecycle commands, one-way events, content-script reads,
- * and messages delivered to extension/content-page listeners.
+ * background-initiated control channels, and messages delivered to
+ * extension/content-page listeners.
  */
 export const RUNTIME_TRANSPORT_DEFINITIONS = [
+  {
+    type: MESSAGE_KEYS.AGENT.CONTROL_PORT,
+    transport: "port",
+    operation: "control",
+    allowedSources: background
+  },
   {
     type: MESSAGE_KEYS.PROVIDER.GET_MODELS,
     transport: "message",

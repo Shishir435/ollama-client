@@ -28,6 +28,7 @@ describe("devEntrypointsToStrip", () => {
       "spike-owner",
       "spike-owner-offscreen",
       "persistence-verify",
+      "agent-perception-harness",
       "ingestion-processor"
     ])
   })
@@ -200,6 +201,8 @@ describe("env wiring", () => {
       { name: "spike-owner" },
       { name: "spike-owner-offscreen" },
       { name: "persistence-verify" },
+      { name: "agent-perception-harness" },
+      { name: "agent-control" },
       { name: "persistence-host" },
       { name: "ingestion-processor" },
       { name: "background" }
@@ -246,6 +249,9 @@ describe("env wiring", () => {
     delete process.env.WXT_SPIKE_OWNER
 
     expect(strippedFor("chrome")).toContain("persistence-verify")
+    expect(strippedFor("chrome")).toContain("agent-perception-harness")
+    expect(strippedFor("chrome")).not.toContain("agent-control")
+    expect(strippedFor("firefox")).toContain("agent-control")
     expect(definesFor("chrome").__SPIKE_OPFS_OWNER__).toBe("false")
     expect(definesFor("firefox").__SPIKE_OPFS_OWNER_MV2__).toBe("false")
   })

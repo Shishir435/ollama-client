@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  hasAgentPerceptionPermission,
   hasPermission,
   removePermission,
+  requestAgentPerceptionPermission,
   requestPermission,
   requestPermissions
 } from "@/lib/permissions"
@@ -45,6 +47,15 @@ describe("permissions helper", () => {
     expect(request).toHaveBeenCalledWith({
       permissions: ["alarms", "notifications"]
     })
+  })
+
+  it("requests webNavigation only through the Agent user-gesture helper", async () => {
+    contains.mockResolvedValue(true)
+    request.mockResolvedValue(true)
+    await expect(hasAgentPerceptionPermission()).resolves.toBe(true)
+    await expect(requestAgentPerceptionPermission()).resolves.toBe(true)
+    expect(contains).toHaveBeenCalledWith({ permissions: ["webNavigation"] })
+    expect(request).toHaveBeenCalledWith({ permissions: ["webNavigation"] })
   })
 
   it("removePermission returns the removal result", async () => {

@@ -200,13 +200,17 @@ describe("architecture import boundaries", () => {
   })
 
   it("prevents agent application and features from importing chat", () => {
-    const agentRoots = ["application/agent/", "features/agent/"]
+    const agentRoots = [
+      "application/agent/",
+      "features/agent/",
+      "lib/browser-agent/"
+    ]
     const offenders = productionSources.filter((file) => {
       if (!agentRoots.some((root) => file.startsWith(root))) return false
       const source = readFileSync(join(sourceRoot, file), "utf8")
       return importsModule(
         source,
-        /@\/(?:application\/turns|features\/chat)\/[^"']+/
+        /(?:@\/(?:application\/turns|background\/turns|features\/chat)\/[^"']+|@ollama-client\/chat-runtime(?:\/[^"']+)?)/
       )
     })
 
@@ -218,7 +222,10 @@ describe("architecture import boundaries", () => {
     const offenders = productionSources.filter((file) => {
       if (!chatRoots.some((root) => file.startsWith(root))) return false
       const source = readFileSync(join(sourceRoot, file), "utf8")
-      return importsModule(source, /@\/(?:application|features)\/agent\/[^"']+/)
+      return importsModule(
+        source,
+        /(?:@\/(?:application|features)\/agent\/[^"']+|@\/lib\/browser-agent\/[^"']+|@ollama-client\/agent-runtime(?:\/[^"']+)?)/
+      )
     })
 
     expect(offenders).toEqual([])

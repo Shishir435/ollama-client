@@ -24,27 +24,43 @@ export type OptionalApiPermission =
   | "alarms"
   | "sessions"
 
+type RequestableApiPermission = OptionalApiPermission | "webNavigation"
+
 /**
  * `alarms` is genuinely requestable at runtime in Chrome MV3, but
  * `@types/webextension-polyfill` classifies it as a standing (non-optional)
  * permission, so the permission-API arg types reject it. This wraps the cast in
  * one place — the underlying runtime call is valid.
  */
-const permissionArg = (permissions: OptionalApiPermission[]) =>
+const permissionArg = (permissions: RequestableApiPermission[]) =>
   ({ permissions }) as unknown as Parameters<
     typeof browser.permissions.request
   >[0]
 
-/** Is the optional permission currently granted? Never throws. */
-export const hasPermission = async (
-  perm: OptionalApiPermission
+const hasApiPermission = async (
+  permission: RequestableApiPermission
 ): Promise<boolean> => {
   try {
-    return await browser.permissions.contains(permissionArg([perm]))
+    return await browser.permissions.contains(permissionArg([permission]))
   } catch {
     return false
   }
 }
+
+const requestApiPermissions = async (
+  permissions: RequestableApiPermission[]
+): Promise<boolean> => {
+  try {
+    return await browser.permissions.request(permissionArg(permissions))
+  } catch {
+    return false
+  }
+}
+
+/** Is the optional permission currently granted? Never throws. */
+export const hasPermission = async (
+  perm: OptionalApiPermission
+): Promise<boolean> => hasApiPermission(perm)
 
 /**
  * Request an optional permission. Returns whether it is granted afterward.
@@ -54,16 +70,17 @@ export const requestPermission = async (
   perm: OptionalApiPermission
 ): Promise<boolean> => requestPermissions([perm])
 
+/** User-gesture entrypoint for enabling the Chromium Agent perception path. */
+export const hasAgentPerceptionPermission = (): Promise<boolean> =>
+  hasApiPermission("webNavigation")
+
+export const requestAgentPerceptionPermission = (): Promise<boolean> =>
+  requestApiPermissions(["webNavigation"])
+
 /** Request several related optional permissions from one user gesture. */
 export const requestPermissions = async (
   permissions: OptionalApiPermission[]
-): Promise<boolean> => {
-  try {
-    return await browser.permissions.request(permissionArg(permissions))
-  } catch {
-    return false
-  }
-}
+): Promise<boolean> => requestApiPermissions(permissions)
 
 /** Revoke an optional permission. Returns whether removal succeeded. Never throws. */
 export const removePermission = async (

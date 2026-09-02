@@ -128,6 +128,7 @@ describe("runtime sender authorization", () => {
       portMessageAllowed(portName, MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL)
     ).toBe(false)
     expect(portAllowed(MESSAGE_KEYS.BROWSER.SELECTION_BRIDGE_PORT)).toBe(false)
+    expect(portAllowed(MESSAGE_KEYS.AGENT.CONTROL_PORT)).toBe(false)
   })
 
   it("rejects every message and port from foreign senders", () => {
