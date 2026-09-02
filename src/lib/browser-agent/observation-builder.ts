@@ -112,19 +112,43 @@ const elementValue = (element: Element): string | undefined => {
   return value || undefined
 }
 
+const collectVisibleText = (document: Document): string => {
+  const body = document.body
+  if (!body) return ""
+
+  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT)
+  let result = ""
+  for (
+    let node = walker.nextNode();
+    node && result.length < AGENT_OBSERVATION_LIMITS.visibleTextChars;
+    node = walker.nextNode()
+  ) {
+    const parent = node.parentElement
+    if (!parent || !isVisible(parent)) continue
+    const text = normalizedText(node.textContent ?? "")
+    if (!text) continue
+    const addition = `${result ? " " : ""}${text}`
+    result += truncate(
+      addition,
+      AGENT_OBSERVATION_LIMITS.visibleTextChars - result.length
+    )
+  }
+  return result
+}
+
 const toAgentElement = (element: Element, ref: string): AgentElement => {
   const visible = isVisible(element)
   const sensitive = !visible || isSensitiveAgentElement(element)
-  const name = accessibleName(element)
+  const name = visible ? accessibleName(element) : undefined
   const value = sensitive ? undefined : elementValue(element)
   const control = element as HTMLInputElement
   return {
     ref,
     frameId: 0,
     role: element.getAttribute("role") || undefined,
-    name: name
-      ? truncate(name, AGENT_OBSERVATION_LIMITS.elementNameChars)
-      : undefined,
+    ...(name
+      ? { name: truncate(name, AGENT_OBSERVATION_LIMITS.elementNameChars) }
+      : {}),
     tag: element.tagName.toLowerCase(),
     type: control.type || undefined,
     ...(value
@@ -171,10 +195,7 @@ export const buildAgentObservation = (input: {
   const elements = candidates.map((element) =>
     toAgentElement(element, snapshot.reference(element))
   )
-  const body = input.document.body
-  const visibleText = normalizedText(
-    body ? (body.innerText ?? body.textContent ?? "") : ""
-  )
+  const visibleText = collectVisibleText(input.document)
   const view = input.document.defaultView
   const root = input.document.documentElement
 
@@ -187,10 +208,7 @@ export const buildAgentObservation = (input: {
     origin: url.origin,
     title: truncate(input.document.title, AGENT_OBSERVATION_LIMITS.titleChars),
     elements,
-    visibleText: truncate(
-      visibleText,
-      AGENT_OBSERVATION_LIMITS.visibleTextChars
-    ),
+    visibleText,
     scroll: {
       x: view?.scrollX ?? 0,
       y: view?.scrollY ?? 0,

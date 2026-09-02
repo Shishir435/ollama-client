@@ -148,6 +148,52 @@ describe("Agent observation builder", () => {
     expect(build().elements[0]).not.toHaveProperty("value")
   })
 
+  it.each([
+    ["hidden", (element: HTMLElement) => element.setAttribute("hidden", "")],
+    [
+      "hidden ancestor",
+      (element: HTMLElement) =>
+        element.parentElement?.setAttribute("aria-hidden", "true")
+    ],
+    [
+      "transparent",
+      (element: HTMLElement) => element.style.setProperty("opacity", "0")
+    ],
+    [
+      "content-hidden",
+      (element: HTMLElement) =>
+        element.style.setProperty("content-visibility", "hidden")
+    ],
+    [
+      "offscreen",
+      (element: HTMLElement) => {
+        element.getClientRects = () =>
+          [
+            {
+              bottom: 20,
+              height: 20,
+              left: window.innerWidth + 100,
+              right: window.innerWidth + 200,
+              top: 0,
+              width: 100
+            } as DOMRect
+          ] as unknown as DOMRectList
+      }
+    ]
+  ])("omits %s DOM text and element names", (_label, hide) => {
+    const wrapper = document.createElement("div")
+    const element = document.createElement("button")
+    element.textContent = "hidden-page-secret"
+    wrapper.append(element)
+    document.body.append("visible page text", wrapper)
+    hide(element)
+
+    const observation = build()
+    expect(observation.visibleText).toBe("visible page text")
+    expect(observation.visibleText).not.toContain("hidden-page-secret")
+    expect(observation.elements[0]).not.toHaveProperty("name")
+  })
+
   it("rejects subframe and unsupported-scheme observations", () => {
     const references = createAgentElementReferenceStore({
       documentId: "document-1"
