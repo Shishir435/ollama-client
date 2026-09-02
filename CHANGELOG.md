@@ -66,9 +66,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Documentation articles remain centered on wide screens, terminal snippets use
   recognizable red/yellow/green window controls, and the README no longer
   advertises the removed selected-text tool.
-- The olc installation docs now document a pinned, checksum-verified path that
-  does not pipe a remote script into a shell, and every place that shows the
-  one-line installer links to it.
+- Every release now publishes the `olc.sh` and `olc.ps1` install wrappers with a
+  `sha256` for each, alongside the archives they install. The wrapper can be
+  pinned to a tag and verified before it runs instead of being piped straight
+  into a shell, and every place that shows the one-line installer links to that
+  path.
 - Embedding generation from extension pages now crosses the validated,
   background-owned `embeddings.generate` RPC. The RPC preserves model/provider
   identity, forwards cancellation, and bounds stalled provider work with a

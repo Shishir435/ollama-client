@@ -40,28 +40,43 @@ irm https://ollamaclient.in/olc.ps1 | iex
 
 ### Install without piping to a shell
 
-`ollamaclient.in/olc.sh` and `olc.ps1` are mutable convenience wrappers. Both
-verify the archive they download against its published `sha256`, but the wrapper
-itself is fetched and executed in one step, so there is nothing to inspect or
-authenticate first. Two alternatives avoid that.
+`ollamaclient.in/olc.sh` and `olc.ps1` are convenience wrappers served from a
+mutable URL. Both verify the archive they download against its published
+`sha256`, but the one-line commands fetch and execute the wrapper in a single
+step, so there is nothing to check or read before it runs with your privileges.
 
-Fetch the wrapper, read it, then run it:
+Every release publishes both wrappers alongside the archives, each with its own
+`sha256`. Pin one to a tag, verify it, read it, and only then run it:
 
 ```bash
-curl -fsSL https://ollamaclient.in/olc.sh -o olc-install.sh
-less olc-install.sh
-sh olc-install.sh
+tag=0.13.3
+base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
+curl -fsSL "$base/olc.sh" -o olc.sh
+curl -fsSL "$base/olc.sh.sha256" -o olc.sh.sha256
+shasum -a 256 -c olc.sh.sha256
+less olc.sh
+OLC_VERSION="$tag" sh olc.sh
 ```
 
 ```powershell
-irm https://ollamaclient.in/olc.ps1 -OutFile olc-install.ps1
-Get-Content olc-install.ps1
-./olc-install.ps1
+$tag = "0.13.3"
+$base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
+irm "$base/olc.ps1" -OutFile olc.ps1
+irm "$base/olc.ps1.sha256" -OutFile olc.ps1.sha256
+$expected = (Get-Content olc.ps1.sha256).Split(" ")[0]
+if ((Get-FileHash olc.ps1 -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
+Get-Content olc.ps1
+$env:OLC_VERSION = $tag
+Unblock-File olc.ps1
+powershell -ExecutionPolicy Bypass -File ./olc.ps1
 ```
 
+A file downloaded rather than piped carries the mark of the web, so PowerShell
+blocks it until `Unblock-File` clears the mark; the explicit policy on that one
+invocation avoids changing the machine's default.
+
 Or skip the wrapper and take the release archive for a chosen tag directly. This
-is the same artifact the wrapper would install, checked against its published
-`sha256` before anything runs:
+is the same artifact the wrapper would install, and nothing but `tar` runs:
 
 ```bash
 tag=0.13.3
@@ -84,12 +99,13 @@ tar -xzf olc.tar.gz
 node olc/dist/olc.mjs --help
 ```
 
-The checksum is published beside the archive on the same release, so it shows
-the download arrived intact — not that the file behind a tag is still the one you
-reviewed. The release workflow never overwrites a published asset (a re-run on a
-moved tag uploads only what is missing), but release assets can still be changed
-by hand. For a pin that does not depend on that, record the hash of a release you
-have checked and compare against it on later installs.
+Each checksum is published beside the file it covers on the same release, so it
+shows the download arrived intact — not that the file behind a tag is still the
+one you reviewed. The release workflow never overwrites a published asset (a
+re-run on a moved tag uploads only what is missing), but release assets can still
+be changed by hand, and a checksum served from the same place as its file is not
+an independent signature. For a pin that does not depend on any of that, record
+the hash of a release you have checked and compare against it on later installs.
 
 Move the extracted `olc` directory wherever you keep tools and put `olc.mjs`
 on `PATH` under whatever name you prefer; the wrapper's only extra job is

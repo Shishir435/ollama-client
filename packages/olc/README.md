@@ -133,6 +133,11 @@ release. Set `OLC_VERSION` to install a specific tag, or `OLC_INSTALL_DIR` to
 change the destination. Node remains an explicit prerequisite; olc itself and
 its runtime dependency are bundled, so npm is not involved.
 
+Those two commands execute a script fetched from a mutable URL. Each release
+also publishes `olc.sh`, `olc.ps1`, and a `sha256` for each, so the wrapper can
+be pinned to a tag and verified before it runs — see
+[installing without piping to a shell](https://www.ollamaclient.in/developers/#install-without-piping-to-a-shell).
+
 To run from a clone instead:
 
 ```bash

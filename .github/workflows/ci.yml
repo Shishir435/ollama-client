@@ -224,6 +224,13 @@ jobs:
           (cd release && zip -qr ../olc.zip olc)
           sha256sum olc.tar.gz > olc.tar.gz.sha256
           sha256sum olc.zip > olc.zip.sha256
+          # The install wrappers ship as release assets too, so a user can pin
+          # one to a tag and verify it before granting it their own privileges.
+          # Hashing the checked-out copy keeps them on the same verified-CI-run
+          # provenance path as the archives they install.
+          cp docs/public/olc.sh docs/public/olc.ps1 .
+          sha256sum olc.sh > olc.sh.sha256
+          sha256sum olc.ps1 > olc.ps1.sha256
           node packages/olc/dist/olc.mjs --help
 
       - name: Verify Windows launcher and installer syntax
@@ -243,6 +250,10 @@ jobs:
             olc.tar.gz.sha256
             olc.zip
             olc.zip.sha256
+            olc.sh
+            olc.sh.sha256
+            olc.ps1
+            olc.ps1.sha256
           retention-days: 14
           if-no-files-found: error
 
