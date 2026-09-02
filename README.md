@@ -24,7 +24,7 @@ Ollama Client gives you a browser-native chat workspace for local and bring-your
 - Use verified built-ins for Ollama, LM Studio, and llama.cpp; add other OpenAI-compatible servers or Anthropic from Settings.
 - Upload files and use local retrieval-augmented generation over your own content.
 - Attach images for vision-capable models.
-- Let tool-capable models read the current tab, selected text, open tabs, uploaded files, local memory, and optionally the live web when the prompt calls for it.
+- Let tool-capable models read the current tab, open tabs, uploaded files, local memory, and optionally the live web when the prompt calls for it.
 - Capture selected page text into chat with the selection-button overlay.
 - Keep chat history, sessions, files, settings, and embeddings on your machine by default.
 - Review all stored data, create a full backup, or wipe it from one Privacy screen.
@@ -62,7 +62,7 @@ still live in IndexedDB through the embeddings storage layer.
 Ollama Client supports two context paths:
 
 - **Manual context**: select tabs, selected text, files, or images before sending.
-- **Model-requested context**: tool-capable models can call tools during a response to inspect the current page, list/read open tabs, read permission-gated recently closed or synced-device sessions, search indexed files, search local chat memory, use the most recent selected text, or search the live web when web search is enabled.
+- **Model-requested context**: tool-capable models can call tools during a response to inspect the current page, list/read open tabs, read permission-gated recently closed or synced-device sessions, search indexed files, search local chat memory, or search the live web when web search is enabled.
 
 Tool calls run inside the extension and are shown in the reasoning trace with status, inputs, sources, and trimmed output previews. They do not create extra chat-history rows; only the final answer and trace metadata are persisted.
 

@@ -48,6 +48,16 @@
   --sl-color-accent: oklch(0.37 0.013 285.805);
   --sl-color-accent-high: oklch(0.274 0.006 286.033);
 
+  /*
+   * Terminal window-control dots. The only non-neutral hues in the docs
+   * palette: they are the recognizable macOS close/minimize/zoom colors,
+   * so they are identical in both themes and are not part of the accent
+   * scale.
+   */
+  --sl-color-terminal-dot-red: oklch(0.694 0.196 26.36);
+  --sl-color-terminal-dot-amber: oklch(0.835 0.161 80.91);
+  --sl-color-terminal-dot-green: oklch(0.728 0.217 144.71);
+
   --sl-content-width: 48rem;
   --sl-sidebar-width: 16.5rem;
   --sl-text-h1: 2.25rem;
