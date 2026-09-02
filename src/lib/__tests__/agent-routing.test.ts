@@ -16,6 +16,7 @@ import {
   RATE_LIMIT,
   SITE_ORIGIN
 } from "../../../docs/src/lib/api-response"
+import { LEGACY_REDIRECTS } from "../../../docs/src/seo/legacy-redirects.mjs"
 
 const REPO_ROOT = join(__dirname, "../../..")
 const readRepoFile = (path: string) =>
@@ -27,6 +28,8 @@ const MARKDOWN_SLUGS = [
   "guides/troubleshooting/error-reports"
 ]
 
+const LEGACY_ALIASES = { "/architecture": "/concepts/architecture/" }
+
 const resolve = (
   pathname: string,
   accept: string | null = null,
@@ -36,7 +39,8 @@ const resolve = (
     pathname,
     method,
     accept,
-    markdownSlugs: MARKDOWN_SLUGS
+    markdownSlugs: MARKDOWN_SLUGS,
+    legacyRedirects: LEGACY_ALIASES
   })
 
 describe("Accept parsing", () => {
@@ -178,6 +182,56 @@ describe("Markdown negotiation", () => {
       "application/json; charset=utf-8"
     )
     expect(JSON.parse(decision.body).error.code).toBe("not_acceptable")
+  })
+})
+
+describe("legacy inbound URLs", () => {
+  /*
+   * These paths exist as Astro meta-refresh pages, but this runs before the
+   * filesystem, so an unrecognized path is a 404 no redirect file ever gets to
+   * serve. A Markdown client following a link from the store listing or an old
+   * search result was told the page was gone.
+   */
+  it("sends a Markdown client to the canonical URL, not to a 404", () => {
+    expect(resolve("/architecture", "text/markdown")).toEqual({
+      kind: "redirect",
+      status: 308,
+      location: "/concepts/architecture/"
+    })
+    expect(resolve("/architecture/", "text/markdown")).toEqual({
+      kind: "redirect",
+      status: 308,
+      location: "/concepts/architecture/"
+    })
+  })
+
+  it("leaves the HTML redirect page to serve browsers unchanged", () => {
+    expect(resolve("/architecture", "text/html")).toEqual({ kind: "pass" })
+    expect(resolve("/architecture", null)).toEqual({ kind: "pass" })
+  })
+
+  it("still refuses a path that is neither published nor an alias", () => {
+    expect(resolve("/architecture-notes", "text/markdown")).toMatchObject({
+      kind: "respond",
+      status: 404
+    })
+  })
+
+  it("shares one alias map with the Astro redirect config", () => {
+    const config = readRepoFile("docs/astro.config.mjs")
+
+    expect(config).toContain(
+      'import { LEGACY_REDIRECTS } from "./src/seo/legacy-redirects.mjs"'
+    )
+    expect(config).toContain("redirects: LEGACY_REDIRECTS")
+    expect(readRepoFile("docs/proxy.ts")).toContain(
+      "legacyRedirects: LEGACY_REDIRECTS"
+    )
+    expect(Object.keys(LEGACY_REDIRECTS).length).toBeGreaterThan(0)
+    for (const [from, to] of Object.entries(LEGACY_REDIRECTS)) {
+      expect(from, from).toMatch(/^\//)
+      expect(to, to).toMatch(/^\/.*\/$/)
+    }
   })
 })
 

@@ -15,6 +15,7 @@ import { next, rewrite } from "@vercel/functions"
 
 import { resolveRequest } from "./src/lib/agent-routing"
 import { DOC_ORDER } from "./src/seo/doc-ia.mjs"
+import { LEGACY_REDIRECTS } from "./src/seo/legacy-redirects.mjs"
 
 export const config = {
   runtime: "nodejs",
@@ -44,11 +45,23 @@ export default function proxy(request: Request): Response {
       pathname,
       method: request.method.toUpperCase(),
       accept: request.headers.get("accept"),
-      markdownSlugs: DOC_ORDER
+      markdownSlugs: DOC_ORDER,
+      legacyRedirects: LEGACY_REDIRECTS
     })
 
     if (decision.kind === "rewrite") {
       return rewrite(new URL(decision.destination, request.url))
+    }
+
+    if (decision.kind === "redirect") {
+      return new Response(null, {
+        status: decision.status,
+        headers: {
+          Location: decision.location,
+          Vary: "Accept, Accept-Encoding",
+          "Cache-Control": "public, max-age=3600"
+        }
+      })
     }
 
     if (decision.kind === "respond") {

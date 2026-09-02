@@ -13,6 +13,7 @@ import {
   SITE_URL
 } from "./src/seo/constants.mjs"
 import { withReferenceGroup } from "./src/seo/doc-ia.mjs"
+import { LEGACY_REDIRECTS } from "./src/seo/legacy-redirects.mjs"
 import { lastModifiedForUrl } from "./src/seo/last-modified.mjs"
 
 /**
@@ -45,12 +46,13 @@ export default defineConfig({
    * Chrome Web Store listing, GitHub README, and existing index
    * results. Keep entries here as long as the old URLs are still
    * referenced anywhere we don't control.
+   *
+   * The map itself lives in src/seo/legacy-redirects.mjs because the Routing
+   * Middleware needs the same list: it answers a Markdown request before the
+   * filesystem, so a path it does not recognize is a 404 no redirect file ever
+   * gets to serve.
    */
-  redirects: {
-    "/architecture": "/concepts/architecture/",
-    "/ollama-setup-guide": "/guides/provider-setup/",
-    "/privacy-policy": "/legal/privacy-policy/"
-  },
+  redirects: LEGACY_REDIRECTS,
   markdown: {
     /*
      * Convert fenced ```mermaid blocks from a code-language block

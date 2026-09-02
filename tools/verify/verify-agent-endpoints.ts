@@ -13,6 +13,7 @@
 import { pathToFileURL } from "node:url"
 
 import { DOC_ORDER } from "../../docs/src/seo/doc-ia.mjs"
+import { LEGACY_REDIRECTS } from "../../docs/src/seo/legacy-redirects.mjs"
 
 const DEFAULT_BASE = "https://www.ollamaclient.in"
 
@@ -131,6 +132,20 @@ const checkStatus = async (
   )
 }
 
+const checkLegacyAlias = async (base: string, path: string, target: string) => {
+  const { response } = await fetchPath(base, path, {
+    headers: { Accept: "text/markdown" }
+  })
+  const location = response.headers.get("location") ?? ""
+  const ok = response.status === 308 && location === target
+
+  record(
+    `legacy alias ${path}`,
+    ok,
+    `${response.status} -> ${location || "none"} (expected 308 -> ${target})`
+  )
+}
+
 const checkMachineFile = async (
   base: string,
   path: string,
@@ -163,6 +178,14 @@ export async function verifyAgentEndpoints(base: string) {
    * carrying a Markdown body, not an HTML shell and not a 200.
    */
   await checkMarkdownVariant(base, "/some-path-that-does-not-exist", 404)
+  /*
+   * Old inbound URLs resolve in a browser through a meta-refresh page the
+   * middleware never reaches. A Markdown client has to be sent somewhere real.
+   */
+  for (const [from, to] of Object.entries(LEGACY_REDIRECTS)) {
+    await checkLegacyAlias(base, from, to)
+  }
+
   await checkStatus(base, "/some-path-that-does-not-exist", 404)
   await checkStatus(base, "/developers", 406, {
     headers: { Accept: "application/xml" }
