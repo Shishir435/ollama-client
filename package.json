@@ -1,7 +1,7 @@
 {
   "name": "ollama-client",
   "displayName": "Ollama Client - Local AI Chat for Ollama, LM Studio, llama.cpp",
-  "version": "0.13.3",
+  "version": "0.14.0",
   "description": "Local-first browser extension for private LLM chat with Ollama, LM Studio, llama.cpp, and other local or remote providers, with local RAG, web search, and page context.",
   "author": "Shishir Chaurasiya",
   "keywords": [
@@ -90,10 +90,11 @@
     "format:fix": "biome format --write .",
     "format:check": "biome format .",
     "typecheck": "pnpm typecheck:packages && tsc6 -p tsconfig.json --noEmit",
-    "typecheck:packages": "pnpm typecheck:contracts && pnpm typecheck:runtime-core && pnpm typecheck:chat-runtime && pnpm typecheck:olc",
+    "typecheck:packages": "pnpm typecheck:contracts && pnpm typecheck:runtime-core && pnpm typecheck:chat-runtime && pnpm typecheck:agent-runtime && pnpm typecheck:olc",
     "typecheck:contracts": "tsc6 -p packages/contracts/tsconfig.json --noEmit",
     "typecheck:runtime-core": "tsc6 -p packages/runtime-core/tsconfig.json --noEmit",
     "typecheck:chat-runtime": "tsc6 -p packages/chat-runtime/tsconfig.json --noEmit",
+    "typecheck:agent-runtime": "tsc6 -p packages/agent-runtime/tsconfig.json --noEmit",
     "typecheck:olc": "tsc6 -p packages/olc/tsconfig.json",
     "check:dead": "knip --no-config-hints",
     "audit": "pnpm audit",
@@ -114,6 +115,7 @@
     "olc": "tsx packages/olc/src/cli.ts"
   },
   "dependencies": {
+    "@ollama-client/agent-runtime": "workspace:*",
     "@ollama-client/chat-runtime": "workspace:*",
     "@ollama-client/contracts": "workspace:*",
     "@ollama-client/runtime-core": "workspace:*",

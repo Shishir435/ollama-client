@@ -1,5 +1,6 @@
 import "webextension-polyfill"
 
+import { createAgentComposition } from "@/background/agent/agent-composition"
 import { registerMessageRouter } from "@/background/message-router"
 import { startPersistenceTopology } from "@/background/persistence-readiness"
 import { registerPortRouter } from "@/background/port-router"
@@ -15,6 +16,7 @@ import { registerTabLifecycle } from "@/background/tab-lifecycle"
  */
 const persistenceReady = startPersistenceTopology()
 
+createAgentComposition()
 initializeBackgroundStartup(persistenceReady)
 registerPortRouter()
 registerMessageRouter()

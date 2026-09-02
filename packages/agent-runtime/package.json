@@ -1,0 +1,13 @@
+{
+  "name": "@ollama-client/agent-runtime",
+  "version": "0.14.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./state": "./src/state.ts"
+  },
+  "dependencies": {
+    "@ollama-client/contracts": "workspace:*"
+  }
+}

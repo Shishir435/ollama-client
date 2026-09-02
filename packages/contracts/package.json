@@ -1,10 +1,14 @@
 {
   "name": "@ollama-client/contracts",
-  "version": "0.13.3",
+  "version": "0.14.0",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./agent": "./src/agent.ts",
+    "./agent-command": "./src/agent-command.ts",
+    "./agent-events": "./src/agent-events.ts",
+    "./agent-observation": "./src/agent-observation.ts",
     "./app-failure": "./src/app-failure.ts",
     "./chat": "./src/chat.ts",
     "./context": "./src/context.ts",

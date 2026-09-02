@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest"
 
 const sourceRoot = join(process.cwd(), "src")
 const chatRuntimeRoot = join(process.cwd(), "packages/chat-runtime/src")
+const agentRuntimeRoot = join(process.cwd(), "packages/agent-runtime/src")
 const contractsRoot = join(process.cwd(), "packages/contracts/src")
 const runtimeCoreRoot = join(process.cwd(), "packages/runtime-core/src")
 
@@ -198,27 +199,60 @@ describe("architecture import boundaries", () => {
     expect(offenders).toEqual([])
   })
 
-  it("keeps chat and future agent domains mutually independent", () => {
-    const chatRoots = ["application/turns/", "features/chat/"]
+  it("prevents agent application and features from importing chat", () => {
     const agentRoots = ["application/agent/", "features/agent/"]
     const offenders = productionSources.filter((file) => {
+      if (!agentRoots.some((root) => file.startsWith(root))) return false
       const source = readFileSync(join(sourceRoot, file), "utf8")
-      if (chatRoots.some((root) => file.startsWith(root))) {
-        return importsModule(
-          source,
-          /@\/(?:application|features)\/agent\/[^"']+/
-        )
-      }
-      if (agentRoots.some((root) => file.startsWith(root))) {
-        return importsModule(
-          source,
-          /@\/(?:application\/turns|features\/chat)\/[^"']+/
-        )
-      }
-      return false
+      return importsModule(
+        source,
+        /@\/(?:application\/turns|features\/chat)\/[^"']+/
+      )
     })
 
     expect(offenders).toEqual([])
+  })
+
+  it("prevents chat application and features from importing agent", () => {
+    const chatRoots = ["application/turns/", "features/chat/"]
+    const offenders = productionSources.filter((file) => {
+      if (!chatRoots.some((root) => file.startsWith(root))) return false
+      const source = readFileSync(join(sourceRoot, file), "utf8")
+      return importsModule(source, /@\/(?:application|features)\/agent\/[^"']+/)
+    })
+
+    expect(offenders).toEqual([])
+  })
+
+  it("prevents background agent modules from importing chat", () => {
+    const offenders = productionSources
+      .filter((file) => file.startsWith("background/agent/"))
+      .flatMap((file) => {
+        const source = readFileSync(join(sourceRoot, file), "utf8")
+        return referencedModules(source)
+          .filter((module) =>
+            /^@\/(?:application\/turns|features\/chat|background\/turns)\//.test(
+              module
+            )
+          )
+          .map((module) => ({ file, module }))
+      })
+
+    expect(offenders).toEqual([])
+  })
+
+  it("allows chat and agent domains to depend on shared infrastructure", () => {
+    const references = [
+      'import type { AgentRunState } from "@ollama-client/contracts"',
+      'import { FEATURE_FLAGS } from "@/lib/feature-flags"',
+      'import type { AppFailure } from "@/lib/errors"'
+    ]
+    const forbidden =
+      /@\/(?:application\/turns|features\/(?:agent|chat))\/[^"']+/
+
+    expect(references.some((source) => importsModule(source, forbidden))).toBe(
+      false
+    )
   })
 
   it("keeps package candidates free of environment and UI adapters", () => {
@@ -292,6 +326,27 @@ describe("architecture import boundaries", () => {
         )
         .map((module) => ({
           file: relative(chatRuntimeRoot, file).replaceAll("\\", "/"),
+          module
+        }))
+    })
+
+    expect(offenders).toEqual([])
+  })
+
+  it("keeps agent-runtime behind contracts and relative ports", () => {
+    const runtimeSources = walk(agentRuntimeRoot)
+      .filter((file) => /\.ts$/.test(file))
+      .filter((file) => !file.endsWith(".test.ts"))
+    const offenders = runtimeSources.flatMap((file) => {
+      const source = readFileSync(file, "utf8")
+      return referencedModules(source)
+        .filter(
+          (module) =>
+            !module.startsWith(".") &&
+            !module.startsWith("@ollama-client/contracts")
+        )
+        .map((module) => ({
+          file: relative(agentRuntimeRoot, file).replaceAll("\\", "/"),
           module
         }))
     })

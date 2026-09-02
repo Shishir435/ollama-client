@@ -26,6 +26,9 @@ importers:
       '@mozilla/readability':
         specifier: ^0.6.0
         version: 0.6.0
+      '@ollama-client/agent-runtime':
+        specifier: workspace:*
+        version: link:packages/agent-runtime
       '@ollama-client/chat-runtime':
         specifier: workspace:*
         version: link:packages/chat-runtime
@@ -343,6 +346,12 @@ importers:
       typescript:
         specifier: npm:@typescript/typescript6@6.0.2
         version: '@typescript/typescript6@6.0.2'
+
+  packages/agent-runtime:
+    dependencies:
+      '@ollama-client/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/chat-runtime:
     dependencies:
@@ -3004,6 +3013,7 @@ packages:
   '@xmldom/xmldom@0.9.11':
     resolution: {integrity: sha512-tW8bcK3hsG0/uqSnNz6TK4BkcuZSezoU7DlnYssILmZDktPnSHHuDJJFM0AJv+13gz2r0iGdrj6qqKeUnxXEDg==}
     engines: {node: '>=14.6'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@zip.js/zip.js@2.8.31':
     resolution: {integrity: sha512-2NLmow9ax/5IdBbJKxNQp3Ur9mNxmgLfN2Yp/FKNh1ZIGs3OYkiC3AIUfIZouTPSgeW5+F1bzTAZAyD2Y4ZfFA==}
