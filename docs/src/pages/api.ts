@@ -43,11 +43,14 @@ const service = {
     }
   },
   contentNegotiation: {
+    appliesTo:
+      "Documentation pages. The endpoints under /api are JSON only and ignore Accept, so a machine probe always gets a parseable answer.",
     default: "text/html",
     markdown:
-      "Send Accept: text/markdown to receive the Markdown twin of any documentation page at the same URL.",
+      "Send Accept: text/markdown to receive the Markdown twin of any documentation page at the same URL. Quality factors are honoured, and the most specific matching range wins.",
     vary: "Accept, Accept-Encoding",
-    unsupported: "406 with a JSON explanation of the available representations."
+    unsupported:
+      "A documentation page whose Accept header matches no available representation returns 406 with a JSON explanation."
   },
   rateLimit: RATE_LIMIT_DOC,
   versioning: VERSIONING

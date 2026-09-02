@@ -367,10 +367,16 @@ cannot hand one variant to a client that asked for the other.
 curl -H 'Accept: text/markdown' https://www.ollamaclient.in/developers
 ```
 
-Quality factors are honoured, so `Accept: text/markdown;q=0.5, text/html`
-returns HTML. An `Accept` header that matches no available representation
-returns `406` with a JSON explanation. The twins are also addressable directly
-by appending `.md`, and `/index.md` is the twin of the landing page.
+Quality factors are honoured, and the most specific matching range decides a
+type's quality, so `Accept: text/markdown;q=0.5, text/html` returns HTML and
+`Accept: text/html;q=0, */*` returns Markdown. An `Accept` header that matches
+no available representation returns `406` with a JSON explanation. The twins are
+also addressable directly by appending `.md`, and `/index.md` is the twin of the
+landing page.
+
+Negotiation applies to documentation pages. `/api` and `/api/health` are JSON
+only and ignore `Accept`, so a machine probing them always gets something it can
+parse.
 
 An unknown path returns a real `404`, with a short Markdown recovery map when
 Markdown was requested and the [HTML 404 page](/404.md) otherwise. It never

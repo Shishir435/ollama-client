@@ -101,6 +101,14 @@ export function parseAccept(header: string | null): MediaRange[] {
   return ranges
 }
 
+/**
+ * Score one media type against the client's ranges.
+ *
+ * RFC 9110 settles a type's quality with the *most specific* range that matches
+ * it, not the most generous one. Taking the highest `q` instead would let
+ * `text/html;q=0, <full wildcard>` serve HTML: the wildcard's q=1 would outrank
+ * the exact exclusion the client wrote to rule it out.
+ */
 const scoreFor = (ranges: MediaRange[], type: string, subtype: string) =>
   ranges
     .filter(
@@ -110,8 +118,8 @@ const scoreFor = (ranges: MediaRange[], type: string, subtype: string) =>
     )
     .reduce(
       (best, range) =>
-        range.q > best.q ||
-        (range.q === best.q && range.specificity > best.specificity)
+        range.specificity > best.specificity ||
+        (range.specificity === best.specificity && range.q > best.q)
           ? { q: range.q, specificity: range.specificity }
           : best,
       { q: 0, specificity: -1 }

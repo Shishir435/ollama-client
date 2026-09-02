@@ -271,12 +271,19 @@ function writePageMarkdown(pages: DocPage[]) {
   }
 }
 
-function writeLlmsTxt(pages: DocPage[]) {
+/**
+ * Build `llms.txt`.
+ *
+ * Split from the writer so a test can assert the published contract without a
+ * generated tree on disk: `docs/public` is gitignored, so a test that read the
+ * artifact passed locally and failed on a clean CI checkout.
+ */
+export function llmsTxtContent(pages: DocPage[]) {
   const lines = pages.map(
     (page) => `- [${page.title}](${page.markdownUrl}): ${page.description}`
   )
 
-  const content = `# ${SITE_TITLE}
+  return `# ${SITE_TITLE}
 
 > ${SITE_DESCRIPTION}
 
@@ -326,8 +333,10 @@ ${lines.join("\n")}
 - [Recovery map](${SITE_URL}/404.md): What a 404 returns, so a lost agent can re-orient.
 - [GitHub Repository](https://github.com/Shishir435/ollama-client): Source code and issue tracker.
 `
+}
 
-  writeFileSync(join(PUBLIC_DIR, "llms.txt"), content, "utf-8")
+function writeLlmsTxt(pages: DocPage[]) {
+  writeFileSync(join(PUBLIC_DIR, "llms.txt"), llmsTxtContent(pages), "utf-8")
 }
 
 function writeLlmsFullTxt(pages: DocPage[]) {
@@ -460,8 +469,8 @@ ${lines.join("\n")}
  * the user's own machine. The linkset states which is which, in the shape
  * RFC 9264 defines, so an agent does not have to infer it from prose.
  */
-function writeApiCatalog() {
-  const catalog = {
+export function apiCatalogDocument() {
+  return {
     linkset: [
       {
         anchor: `${SITE_URL}/api`,
@@ -511,10 +520,16 @@ function writeApiCatalog() {
       }
     ]
   }
+}
 
+function writeApiCatalog() {
   const target = join(PUBLIC_DIR, ".well-known/api-catalog")
   mkdirSync(dirname(target), { recursive: true })
-  writeFileSync(target, `${JSON.stringify(catalog, null, 2)}\n`, "utf-8")
+  writeFileSync(
+    target,
+    `${JSON.stringify(apiCatalogDocument(), null, 2)}\n`,
+    "utf-8"
+  )
 }
 
 function cleanOldMarkdown() {

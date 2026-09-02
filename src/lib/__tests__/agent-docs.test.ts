@@ -4,6 +4,10 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
 import { OLC_PUBLIC_ROUTES } from "../../../packages/olc/src/core/public-api-contract"
+import {
+  apiCatalogDocument,
+  llmsTxtContent
+} from "../../../tools/generate/generate-llms-docs"
 import { buildOlcOpenApi } from "../../../tools/generate/generate-openapi"
 
 const REPO_ROOT = join(__dirname, "../../..")
@@ -216,16 +220,12 @@ describe("agent-facing documentation", () => {
   })
 
   it("publishes an RFC 9727 API catalog naming both surfaces", () => {
-    const catalog = JSON.parse(
-      readRepoFile("docs/public/.well-known/api-catalog")
-    ) as {
-      linkset: Array<{
-        anchor: string
-        "service-desc": Array<{ href: string; type: string }>
-        "service-doc": Array<{ href: string }>
-        status: Array<{ href: string }>
-      }>
-    }
+    /*
+     * Built rather than read: `docs/public` is generated and gitignored, so the
+     * published artifact exists only after `docs:generate`. A test that read it
+     * passed locally and failed on a clean checkout.
+     */
+    const catalog = apiCatalogDocument()
 
     expect(catalog.linkset).toHaveLength(2)
     for (const entry of catalog.linkset) {
@@ -267,7 +267,12 @@ describe("agent-facing documentation", () => {
   })
 
   it("lists developer resources by name in the agent map", () => {
-    const llms = readRepoFile("docs/public/llms.txt")
+    /*
+     * The page list is empty because every assertion below is about the fixed
+     * preamble, which is the part an agent navigates by. See the catalog test
+     * for why this is built rather than read.
+     */
+    const llms = llmsTxtContent([])
 
     for (const entry of [
       "Ollama Client Developer Portal",

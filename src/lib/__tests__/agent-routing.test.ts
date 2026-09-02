@@ -93,6 +93,19 @@ describe("representation preference", () => {
     expect(preferredRepresentation("text/html, text/*")).toBe("html")
   })
 
+  it("lets an explicit exclusion outrank a permissive wildcard", () => {
+    /*
+     * RFC 9110 resolves a type's quality with the most specific matching range.
+     * Ranking by quality alone would serve the exact thing the client just
+     * excluded, because the wildcard beside it carries a higher q.
+     */
+    expect(preferredRepresentation("text/html;q=0, */*;q=1")).toBe("markdown")
+    expect(preferredRepresentation("text/markdown;q=0, */*;q=1")).toBe("html")
+    expect(preferredRepresentation("text/html;q=0, text/*;q=1")).toBe(
+      "markdown"
+    )
+  })
+
   it("reports an Accept header nothing satisfies", () => {
     expect(preferredRepresentation("application/xml")).toBe("unacceptable")
     expect(preferredRepresentation("text/html;q=0, text/markdown;q=0")).toBe(
@@ -172,7 +185,18 @@ describe("404 handling", () => {
   })
 
   it("publishes the same recovery map as the static /404.md", () => {
-    expect(readRepoFile("docs/public/404.md")).toBe(notFoundMarkdown())
+    /*
+     * `docs/public` is generated and gitignored, so the artifact itself cannot
+     * be read here. What matters is that one string feeds both surfaces: the
+     * generator writes `notFoundMarkdown()` verbatim, and the rendered 404 page
+     * prints the same call.
+     */
+    expect(readRepoFile("tools/generate/generate-llms-docs.ts")).toContain(
+      'writeFileSync(join(PUBLIC_DIR, "404.md"), notFoundMarkdown(), "utf-8")'
+    )
+    expect(readRepoFile("docs/src/pages/404.astro")).toContain(
+      "{notFoundMarkdown()}"
+    )
   })
 })
 
