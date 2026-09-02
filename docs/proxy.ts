@@ -23,9 +23,16 @@ export const config = {
    * images, the well-known and reference trees, and any path carrying a file
    * extension (which includes the `.md` twins this middleware rewrites to, so
    * a rewrite can never re-enter it).
+   *
+   * `/api` is listed separately and unconditionally, because that exclusion
+   * would otherwise hand `/api/models.json` to static serving and answer a
+   * machine with an HTML 404 — the one thing the JSON error contract promises
+   * never happens under `/api`.
    */
   matcher: [
     "/",
+    "/api",
+    "/api/:path*",
     "/((?!_astro/|assets/|og/|\\.well-known/|reference/|[^/]*\\.[^/]+$).*)"
   ]
 }

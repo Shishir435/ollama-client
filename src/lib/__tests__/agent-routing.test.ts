@@ -228,6 +228,19 @@ describe("JSON API errors", () => {
     }
   })
 
+  it("answers an unknown API path that carries a file extension", () => {
+    /*
+     * `/api/models.json` looks like a static asset to a path matcher and like
+     * an API call to everyone else. It has to reach the JSON contract, or the
+     * one shape a machine is promised under /api is the one it does not get.
+     */
+    const decision = resolve("/api/models.json")
+
+    expect(decision).toMatchObject({ kind: "respond", status: 404 })
+    if (decision.kind !== "respond") throw new Error("expected a response")
+    expect(JSON.parse(decision.body).error.code).toBe("route_not_found")
+  })
+
   it("answers a write with 405 and names the methods it accepts", () => {
     const decision = resolve("/api", "application/json", "POST")
 

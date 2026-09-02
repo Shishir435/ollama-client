@@ -171,6 +171,12 @@ export async function verifyAgentEndpoints(base: string) {
   await checkJson(base, "/api", 200)
   await checkJson(base, "/api/health", 200)
   await checkJson(base, "/api/does-not-exist", 404)
+  /*
+   * An extension on an unknown API path is what a path matcher mistakes for a
+   * static asset. If this one comes back as HTML, the middleware is not seeing
+   * the request.
+   */
+  await checkJson(base, "/api/models.json", 404)
   await checkJson(base, "/api", 405, { method: "POST" })
 
   await checkMachineFile(base, "/llms.txt", "text/markdown", "## Docs")

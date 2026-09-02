@@ -204,7 +204,7 @@ describe("agent-facing documentation", () => {
     expect(markdownType?.value).toBe("text/markdown; charset=utf-8")
   })
 
-  it("keeps the middleware off paths it cannot negotiate", () => {
+  it("keeps the middleware off paths it cannot negotiate, but never off /api", () => {
     const proxy = readRepoFile("docs/proxy.ts")
 
     expect(proxy).toContain('runtime: "nodejs"')
@@ -217,6 +217,15 @@ describe("agent-facing documentation", () => {
     ]) {
       expect(proxy, excluded).toContain(excluded)
     }
+
+    /*
+     * The exclusion above drops any path with a file extension, which is what
+     * stops a `.md` rewrite re-entering the middleware. `/api` is matched
+     * unconditionally beside it so `/api/models.json` still reaches the JSON
+     * error contract instead of the static HTML 404.
+     */
+    expect(proxy).toContain('"/api"')
+    expect(proxy).toContain('"/api/:path*"')
   })
 
   it("publishes an RFC 9727 API catalog naming both surfaces", () => {
