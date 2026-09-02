@@ -6,7 +6,10 @@ import {
   AUTHOR_URL,
   LANDING_TITLE,
   LANDING_DESCRIPTION,
-  SITE_TITLE
+  REPO_URL,
+  SITE_DESCRIPTION,
+  SITE_TITLE,
+  SITE_URL
 } from "@/seo/constants.mjs"
 
 const title = LANDING_TITLE
@@ -30,11 +33,61 @@ const homepageFaq = [
   }
 ]
 
+/*
+ * Distribution URLs, listed once.
+ *
+ * These are the identities a brand-name search has to be able to tie back to
+ * this domain: two store listings, the repository, and the author. They are
+ * repeated as `sameAs` on both the application and the organization node
+ * because a search engine reconciles an entity from whichever node it reaches
+ * first, and a listing that appears on only one of them is a link it may never
+ * follow back here.
+ */
+const CHROME_LISTING =
+  "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl"
+const FIREFOX_LISTING =
+  "https://addons.mozilla.org/en-US/firefox/addon/ollama-client/"
+
+const brandProfiles = [REPO_URL, CHROME_LISTING, FIREFOX_LISTING]
+
+const publisher = {
+  "@type": "Organization",
+  "@id": `${SITE_URL}/#organization`,
+  name: SITE_TITLE,
+  alternateName: ["Ollama Client extension", "ollamaclient.in"],
+  url: `${SITE_URL}/`,
+  description: SITE_DESCRIPTION,
+  logo: {
+    "@type": "ImageObject",
+    url: `${SITE_URL}/assets/favicon-32x32.png`,
+    width: 32,
+    height: 32
+  },
+  founder: {
+    "@type": "Person",
+    name: AUTHOR_NAME,
+    url: AUTHOR_URL
+  },
+  sameAs: brandProfiles
+}
+
 const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
+    publisher,
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      name: SITE_TITLE,
+      alternateName: "Ollama Client docs",
+      url: `${SITE_URL}/`,
+      description: SITE_DESCRIPTION,
+      inLanguage: "en",
+      publisher: { "@id": `${SITE_URL}/#organization` }
+    },
     {
       "@type": "SoftwareApplication",
+      "@id": `${SITE_URL}/#software`,
       name: SITE_TITLE,
       alternateName: "Ollama Client local AI browser extension",
       description,
@@ -51,15 +104,17 @@ const jsonLd = {
         name: AUTHOR_NAME,
         url: AUTHOR_URL
       },
-      url: "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
-      downloadUrl:
-        "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl",
-      codeRepository: "https://github.com/Shishir435/ollama-client",
-      sameAs: [
-        "https://github.com/Shishir435/ollama-client",
-        "https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl"
-      ],
-      softwareVersion: APP_VERSION
+      publisher: { "@id": `${SITE_URL}/#organization` },
+      url: CHROME_LISTING,
+      downloadUrl: CHROME_LISTING,
+      installUrl: CHROME_LISTING,
+      codeRepository: REPO_URL,
+      sameAs: brandProfiles,
+      softwareVersion: APP_VERSION,
+      softwareHelp: {
+        "@type": "CreativeWork",
+        url: `${SITE_URL}/guides/quick-start/`
+      }
     },
     {
       "@type": "FAQPage",

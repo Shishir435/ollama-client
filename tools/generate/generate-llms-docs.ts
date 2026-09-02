@@ -19,6 +19,7 @@ import {
 import { dirname, join, relative } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
+import { notFoundMarkdown } from "../../docs/src/lib/agent-routing.js"
 import {
   SITE_DESCRIPTION,
   SITE_TITLE,
@@ -298,14 +299,31 @@ Ollama Client is a local-first browser extension for private LLM chat, provider 
 
 ${lines.join("\n")}
 
-## Reference
+## Developer resources
 
-- [Developer Portal](${SITE_URL}/developers/): Local proxy quickstart, authentication, endpoints, errors, and integration guidance.
-- [OpenAPI 3.1 Specification](${SITE_URL}/openapi.json): Machine-readable schema for the local olc proxy; its servers are loopback addresses, not this website.
-- [Website JSON API](${SITE_URL}/api): Read-only service metadata, versioning, and rate-limit conventions for agents.
-- [Website API health](${SITE_URL}/api/health): Machine-readable liveness response.
-- [API Reference](${SITE_URL}/reference/): Generated TypeScript API reference.
+- [Ollama Client Developer Portal](${SITE_URL}/developers.md): Local proxy quickstart, authentication, endpoints, errors, and integration guidance.
+- [Ollama Client OpenAPI 3.1 Specification](${SITE_URL}/openapi.json): Machine-readable schema for the local olc proxy; its servers are loopback addresses, not this website.
+- [Ollama Client API Catalog](${SITE_URL}/.well-known/api-catalog): RFC 9727 linkset naming both API surfaces and their descriptions, docs, and status endpoints.
+- [Ollama Client Website JSON API](${SITE_URL}/api): Read-only service metadata, error format, versioning, and rate-limit conventions for agents.
+- [Ollama Client Website API health](${SITE_URL}/api/health): Machine-readable liveness response.
+- [olc CLI](https://github.com/Shishir435/ollama-client/tree/main/packages/olc): Official command-line tool. Install with \`curl -fsSL ${SITE_URL}/olc.sh | sh\` on macOS/Linux or \`irm ${SITE_URL}/olc.ps1 | iex\` on Windows; both verify a checksummed archive from the GitHub release.
+- [Ollama Client TypeScript API Reference](${SITE_URL}/reference/): Generated reference for the extension's public modules.
+
+## API conventions
+
+- Versioning: the website API is \`/api\` (version \`v1\`); the local olc API is versioned in its path under \`/v1\`. Every response carries \`X-API-Version\`.
+- Deprecation: no route is removed without notice. A deprecated route responds with \`Deprecation\` (RFC 9745) and a \`Sunset\` date (RFC 8594) at least 30 days ahead, plus a \`Link\` to its replacement. Policy: ${SITE_URL}/developers/#versioning-rate-limits-and-deprecation
+- Rate limits: responses carry \`RateLimit-Policy\`, \`RateLimit\`, \`RateLimit-Limit\`, \`RateLimit-Remaining\`, and \`RateLimit-Reset\`. A \`429\` adds \`Retry-After\`.
+- Errors: JSON, shaped \`{ "error": { "status", "code", "message", "resolution" } }\`. Agents should read \`resolution\` before retrying.
+- Content negotiation: send \`Accept: text/markdown\` to any documentation URL for its Markdown twin; responses \`Vary\` on \`Accept\`. An unsupported \`Accept\` returns \`406\` with JSON.
+
+## Entrypoints
+
+- [Markdown home](${SITE_URL}/index.md): Markdown twin of the landing page.
 - [Full Markdown Docs](${SITE_URL}/llms-full.txt): All public docs in one Markdown file.
+- [AI crawler guidance](${SITE_URL}/ai.txt): Fetch order and usage boundaries.
+- [Sitemap](${SITE_URL}/sitemap-index.xml): Canonical HTML URLs.
+- [Recovery map](${SITE_URL}/404.md): What a 404 returns, so a lost agent can re-orient.
 - [GitHub Repository](https://github.com/Shishir435/ollama-client): Source code and issue tracker.
 `
 
@@ -335,12 +353,16 @@ Purpose: Help AI agents fetch clean, canonical documentation without parsing HTM
 
 Canonical site: ${SITE_URL}
 Primary AI docs index: ${SITE_URL}/llms.txt
+Markdown home: ${SITE_URL}/index.md
 Full Markdown docs: ${SITE_URL}/llms-full.txt
 Sitemap: ${SITE_URL}/sitemap-index.xml
 Repository: https://github.com/Shishir435/ollama-client
 Developer portal: ${SITE_URL}/developers/
 OpenAPI specification: ${SITE_URL}/openapi.json
+API catalog (RFC 9727): ${SITE_URL}/.well-known/api-catalog
 Website JSON API: ${SITE_URL}/api
+Recovery map for a 404: ${SITE_URL}/404.md
+Official CLI: olc — https://github.com/Shishir435/ollama-client/tree/main/packages/olc
 
 When to use Ollama Client:
 - A user wants a local-first Chrome or Firefox interface for their configured LLM provider.
@@ -349,7 +371,9 @@ When to use Ollama Client:
 
 Do not treat this documentation host as a model API. The olc OpenAPI servers are loopback URLs, and the extension sends requests only to provider endpoints the user configures.
 
-API compatibility: website discovery endpoints use /api and version v1. Responses include RateLimit-Policy, RateLimit, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, and X-API-Version. A 429 response includes Retry-After. The local olc API uses /v1 paths; deprecated versions will be announced in the developer portal and signaled with Deprecation and Sunset headers before removal.
+API compatibility: website discovery endpoints use /api and version v1. Responses include RateLimit-Policy, RateLimit, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, and X-API-Version. A 429 response includes Retry-After. Errors are JSON, shaped { "error": { "status", "code", "message", "resolution" } }; read resolution before retrying. The local olc API uses /v1 paths. No route is removed without notice: a deprecated route carries Deprecation (RFC 9745) and a Sunset date (RFC 8594) at least 30 days ahead, documented at ${SITE_URL}/developers/#versioning-rate-limits-and-deprecation.
+
+Content negotiation: send Accept: text/markdown to any documentation URL to receive its Markdown twin at the same address. Responses Vary on Accept. An Accept header matching no available representation returns 406 with a JSON explanation.
 
 Preferred fetch order:
 1. Fetch /llms.txt for the docs map.
@@ -364,21 +388,133 @@ ${lines.join("\n")}
   writeFileSync(join(PUBLIC_DIR, "ai.txt"), content, "utf-8")
 }
 
+/**
+ * Write the Markdown 404 body.
+ *
+ * The same string is what the Routing Middleware returns for an unknown path
+ * negotiated as Markdown, imported from the module that owns it. Two hand-kept
+ * copies of a recovery map is how one of them ends up pointing at a path that
+ * moved.
+ */
 function writeNotFoundMarkdown() {
+  writeFileSync(join(PUBLIC_DIR, "404.md"), notFoundMarkdown(), "utf-8")
+}
+
+/**
+ * Write the Markdown twin of the landing page.
+ *
+ * `/` is the one URL with no page markdown of its own, and it is the first
+ * thing an agent asks for. Pointing negotiation at `llms.txt` instead would
+ * serve a docs index under a URL whose HTML is a product page, so the twin says
+ * what the landing page says and then hands over the maps.
+ */
+function writeIndexMarkdown(pages: DocPage[]) {
+  const lines = pages.map(
+    (page) => `- [${page.title}](${page.markdownUrl}): ${page.description}`
+  )
+
   writeFileSync(
-    join(PUBLIC_DIR, "404.md"),
-    `# 404 — ${SITE_TITLE} page not found
+    join(PUBLIC_DIR, "index.md"),
+    `# ${SITE_TITLE}
 
-The requested path does not exist.
+Source: ${SITE_URL}/
+Markdown: ${SITE_URL}/index.md
+Description: ${SITE_DESCRIPTION}
 
-- [${SITE_TITLE} home](${SITE_URL}/)
-- [Agent map](${SITE_URL}/llms.txt)
-- [Full Markdown docs](${SITE_URL}/llms-full.txt)
+${SITE_TITLE} is a local-first browser extension for private LLM chat, provider
+management, and local RAG workflows. It runs in Chrome and Firefox and talks to
+Ollama, LM Studio, llama.cpp, Anthropic, or any OpenAI-compatible server the
+user configures. This website publishes documentation only; it hosts no models
+and accepts no prompts.
+
+## Start here
+
+- [Quick start](${SITE_URL}/guides/quick-start.md): install the extension and connect a provider.
+- [Provider setup](${SITE_URL}/guides/provider-setup.md): configure Ollama, LM Studio, llama.cpp, or a custom endpoint.
+- [Developer portal](${SITE_URL}/developers.md): the local olc OpenAI-compatible proxy, its CLI, and its OpenAPI document.
+
+## Machine-readable entrypoints
+
+- [Agent map](${SITE_URL}/llms.txt): every page with a one-line description.
+- [Full Markdown docs](${SITE_URL}/llms-full.txt): all public docs in one file.
+- [AI crawler guidance](${SITE_URL}/ai.txt): fetch order and usage boundaries.
+- [OpenAPI 3.1](${SITE_URL}/openapi.json): the local olc API; its servers are loopback addresses.
+- [API catalog](${SITE_URL}/.well-known/api-catalog): RFC 9727 linkset for both API surfaces.
+- [Website JSON API](${SITE_URL}/api): versioning, rate-limit, and error conventions.
 - [Sitemap](${SITE_URL}/sitemap-index.xml)
-- [Developer portal and OpenAPI](${SITE_URL}/developers/)
+
+## All documentation
+
+${lines.join("\n")}
 `,
     "utf-8"
   )
+}
+
+/**
+ * Write the RFC 9727 API catalog.
+ *
+ * Two API surfaces exist and they are easy to confuse, which is the whole
+ * reason for publishing the catalog: the website answers discovery questions
+ * over HTTPS, and the olc proxy answers inference questions over loopback on
+ * the user's own machine. The linkset states which is which, in the shape
+ * RFC 9264 defines, so an agent does not have to infer it from prose.
+ */
+function writeApiCatalog() {
+  const catalog = {
+    linkset: [
+      {
+        anchor: `${SITE_URL}/api`,
+        "service-desc": [
+          {
+            href: `${SITE_URL}/api`,
+            type: "application/json",
+            title: `${SITE_TITLE} website discovery API`
+          }
+        ],
+        "service-doc": [
+          {
+            href: `${SITE_URL}/developers/`,
+            type: "text/html",
+            title: `${SITE_TITLE} developer portal`
+          }
+        ],
+        status: [
+          {
+            href: `${SITE_URL}/api/health`,
+            type: "application/json"
+          }
+        ]
+      },
+      {
+        anchor: "http://127.0.0.1:8083/v1",
+        "service-desc": [
+          {
+            href: `${SITE_URL}/openapi.json`,
+            type: "application/json",
+            title: "olc local OpenAI-compatible proxy (OpenAPI 3.1)"
+          }
+        ],
+        "service-doc": [
+          {
+            href: `${SITE_URL}/developers/`,
+            type: "text/html",
+            title: "olc integration guide"
+          }
+        ],
+        status: [
+          {
+            href: "http://127.0.0.1:8083/health",
+            type: "application/json"
+          }
+        ]
+      }
+    ]
+  }
+
+  const target = join(PUBLIC_DIR, ".well-known/api-catalog")
+  mkdirSync(dirname(target), { recursive: true })
+  writeFileSync(target, `${JSON.stringify(catalog, null, 2)}\n`, "utf-8")
 }
 
 function cleanOldMarkdown() {
@@ -402,10 +538,12 @@ function main() {
   writeLlmsTxt(pages)
   writeLlmsFullTxt(pages)
   writeAiTxt(pages)
+  writeIndexMarkdown(pages)
   writeNotFoundMarkdown()
+  writeApiCatalog()
 
   console.log(
-    `Generated llms.txt, llms-full.txt, ai.txt, and ${pages.length} page markdown files`
+    `Generated llms.txt, llms-full.txt, ai.txt, index.md, .well-known/api-catalog, and ${pages.length} page markdown files`
   )
 }
 

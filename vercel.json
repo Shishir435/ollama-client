@@ -3,55 +3,16 @@
   "buildCommand": "pnpm docs:build",
   "outputDirectory": "docs/dist",
   "installCommand": "pnpm install --frozen-lockfile",
+  "proxy": {
+    "entrypoint": "docs/proxy.ts"
+  },
   "rewrites": [
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "header",
-          "key": "Accept",
-          "value": ".*text/markdown.*"
-        }
-      ],
-      "destination": "/llms.txt"
-    },
-    {
-      "source": "/:path((?!reference(?:/|$))(?!.*\\.).*)",
-      "has": [
-        {
-          "type": "header",
-          "key": "Accept",
-          "value": ".*text/markdown.*"
-        }
-      ],
-      "destination": "/:path*.md"
-    },
     {
       "source": "/api/health",
       "destination": "/api-health"
     }
   ],
   "headers": [
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "header",
-          "key": "Accept",
-          "value": ".*text/markdown.*"
-        }
-      ],
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "text/markdown; charset=utf-8"
-        },
-        {
-          "key": "Vary",
-          "value": "Accept, Accept-Encoding"
-        }
-      ]
-    },
     {
       "source": "/:path*",
       "headers": [
@@ -75,11 +36,74 @@
       ]
     },
     {
+      "source": "/llms.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/llms-full.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/.well-known/api-catalog",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/linkset+json"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300"
+        }
+      ]
+    },
+    {
       "source": "/api",
       "headers": [
         {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
+        },
+        {
           "key": "Cache-Control",
           "value": "public, max-age=60"
+        },
+        {
+          "key": "X-API-Version",
+          "value": "1"
+        },
+        {
+          "key": "Link",
+          "value": "<https://www.ollamaclient.in/openapi.json>; rel=\"service-desc\"; type=\"application/json\", <https://www.ollamaclient.in/developers/>; rel=\"service-doc\"; type=\"text/html\", <https://www.ollamaclient.in/.well-known/api-catalog>; rel=\"api-catalog\", <https://www.ollamaclient.in/developers/#versioning-rate-limits-and-deprecation>; rel=\"https://www.ollamaclient.in/rel/deprecation-policy\""
+        },
+        {
+          "key": "RateLimit-Policy",
+          "value": "\"default\";q=60;w=60"
+        },
+        {
+          "key": "RateLimit",
+          "value": "\"default\";r=60;t=60"
+        },
+        {
+          "key": "RateLimit-Limit",
+          "value": "60"
+        },
+        {
+          "key": "RateLimit-Remaining",
+          "value": "60"
+        },
+        {
+          "key": "RateLimit-Reset",
+          "value": "60"
         }
       ]
     },
@@ -87,8 +111,53 @@
       "source": "/api/health",
       "headers": [
         {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
+        },
+        {
           "key": "Cache-Control",
           "value": "public, max-age=60"
+        },
+        {
+          "key": "X-API-Version",
+          "value": "1"
+        },
+        {
+          "key": "Link",
+          "value": "<https://www.ollamaclient.in/openapi.json>; rel=\"service-desc\"; type=\"application/json\", <https://www.ollamaclient.in/developers/>; rel=\"service-doc\"; type=\"text/html\", <https://www.ollamaclient.in/.well-known/api-catalog>; rel=\"api-catalog\", <https://www.ollamaclient.in/developers/#versioning-rate-limits-and-deprecation>; rel=\"https://www.ollamaclient.in/rel/deprecation-policy\""
+        },
+        {
+          "key": "RateLimit-Policy",
+          "value": "\"default\";q=60;w=60"
+        },
+        {
+          "key": "RateLimit",
+          "value": "\"default\";r=60;t=60"
+        },
+        {
+          "key": "RateLimit-Limit",
+          "value": "60"
+        },
+        {
+          "key": "RateLimit-Remaining",
+          "value": "60"
+        },
+        {
+          "key": "RateLimit-Reset",
+          "value": "60"
+        }
+      ]
+    },
+    {
+      "source": "/openapi.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300"
+        },
+        {
+          "key": "Link",
+          "value": "<https://www.ollamaclient.in/developers/>; rel=\"service-doc\"; type=\"text/html\", <https://www.ollamaclient.in/.well-known/api-catalog>; rel=\"api-catalog\""
         }
       ]
     }

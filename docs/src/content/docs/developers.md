@@ -9,6 +9,12 @@ The project includes **olc**, a local CLI. Bare `olc` starts or reuses native Ol
 
 ## Quickstart
 
+**olc** is the project's official command-line tool. It is distributed as a
+checksum-verified archive attached to each [GitHub release](https://github.com/Shishir435/ollama-client/releases),
+fetched by the two installer wrappers below. There is no npm, PyPI, or Homebrew
+package yet; do not install a similarly named package from a public registry
+expecting this one.
+
 olc requires Node.js 22.12 or newer plus the selected runtime on `PATH`:
 Ollama for native mode, OpenCode, or Codex CLI with an existing `codex login`.
 macOS/Linux native mode also requires `lsof` for process inspection.
@@ -263,20 +269,112 @@ Common statuses are `400` for malformed requests or stale tool results, `401` fo
 
 ## Versioning, rate limits, and deprecation
 
-The local proxy's public API is versioned in its URL under `/v1`. Clients should
-use the documented versioned routes and inspect `X-API-Version` in responses.
-The proxy publishes the RFC RateLimit fields (`RateLimit-Policy`, `RateLimit`,
-`RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset`) on API
-responses. When a client exceeds the configured window it receives `429` with
+Both API surfaces are versioned in the URL path: the local proxy under `/v1`,
+and the website's read-only discovery surface at [`/api`](/api) as version
+`v1`. Every response carries `X-API-Version` with the major version of the
+contract that produced it. Use the documented versioned routes; do not depend
+on an undocumented path continuing to answer.
+
+### Rate-limit headers
+
+The proxy publishes the RFC RateLimit fields on every API response:
+
+| Header | Meaning |
+| --- | --- |
+| `RateLimit-Policy` | The published budget, `"default";q=<limit>;w=<window seconds>`. The proxy default is 60 requests per 60 seconds. |
+| `RateLimit` | The live window, `"default";r=<remaining>;t=<seconds to reset>`. |
+| `RateLimit-Limit` | Requests allowed in one window. |
+| `RateLimit-Remaining` | Requests left in the current window. |
+| `RateLimit-Reset` | Seconds until the window resets. |
+| `Retry-After` | On `429` only: seconds to wait. |
+
+The bucket is the bearer token when one is configured, and the remote address
+otherwise. When a client exceeds the window it receives `429` with
 `Retry-After`; retry with exponential backoff and do not blindly replay a
 non-idempotent generation.
 
-No `/v1` route is removed without advance notice. A future deprecated route
-will return the standard `Deprecation` response header and a `Sunset` HTTP date
-at least 30 days before removal. The migration and replacement route will be
-documented here and in the OpenAPI specification. The website's read-only
-discovery surface is available at [`/api`](/api) and uses the same header
-conventions.
+The website endpoints publish the same fields with the same names. They serve
+cached static JSON from a CDN and do not meter callers, so `RateLimit-Remaining`
+there always reports a full window — an honest answer to "have I been
+throttled", and a documented budget to pace against rather than guess at.
+
+### Deprecation and sunset policy
+
+No route on either surface is removed without advance notice. When a route is
+deprecated:
+
+1. Its responses carry the `Deprecation` header ([RFC 9745](https://www.rfc-editor.org/rfc/rfc9745.html))
+   with the HTTP date the deprecation took effect.
+2. They carry a `Sunset` HTTP date ([RFC 8594](https://www.rfc-editor.org/rfc/rfc8594.html))
+   at least **30 days** in the future. The route keeps working until that date.
+3. They carry a `Link` header pointing at the replacement route and at this
+   policy, using the extension relation
+   `https://www.ollamaclient.in/rel/deprecation-policy`.
+4. The migration and the replacement route are documented here and in the
+   OpenAPI specification *before* the headers appear, and the OpenAPI operation
+   is marked `deprecated: true`.
+
+No current route is deprecated, so neither header appears on any response
+today. The machine-readable form of this policy lives in `info.x-api-lifecycle`
+of the [OpenAPI document](/openapi.json) and in the `versioning` object of
+[`/api`](/api).
+
+## Website discovery API
+
+The website publishes two read-only JSON endpoints so an agent can find the rest
+of the surface without scraping HTML:
+
+| Method and path | Purpose |
+| --- | --- |
+| `GET /api` | Service metadata, error format, content-negotiation rules, rate-limit and versioning policy, CLI install commands. |
+| `GET /api/health` | Liveness response. |
+
+Errors from these endpoints are JSON, never an HTML page:
+
+```json
+{
+  "error": {
+    "status": 404,
+    "code": "route_not_found",
+    "message": "No API route for GET /api/models.",
+    "resolution": "This site publishes GET /api and GET /api/health. Inference endpoints live on the local olc proxy described by the OpenAPI document.",
+    "documentation": "https://www.ollamaclient.in/developers/",
+    "openapi": "https://www.ollamaclient.in/openapi.json",
+    "agentMap": "https://www.ollamaclient.in/llms.txt"
+  }
+}
+```
+
+`404` is an unknown route, `405` is a method other than `GET`, `HEAD`, or
+`OPTIONS` (the response names the allowed set in `Allow`), and `406` means no
+representation matched the `Accept` header. Read `error.resolution` before
+retrying.
+
+Both endpoints advertise the rest of the surface through `Link` relations:
+`service-desc` for the OpenAPI document, `service-doc` for this page, and
+`api-catalog` for the [RFC 9727](https://www.rfc-editor.org/rfc/rfc9727.html)
+linkset at [`/.well-known/api-catalog`](/.well-known/api-catalog).
+
+## Markdown content negotiation
+
+Every documentation page has a Markdown twin at the same URL. Send
+`Accept: text/markdown` and the response body is Markdown with
+`Content-Type: text/markdown; charset=utf-8`; send a browser's `Accept` and it
+is the rendered HTML page. Responses `Vary: Accept, Accept-Encoding`, so a CDN
+cannot hand one variant to a client that asked for the other.
+
+```bash
+curl -H 'Accept: text/markdown' https://www.ollamaclient.in/developers
+```
+
+Quality factors are honoured, so `Accept: text/markdown;q=0.5, text/html`
+returns HTML. An `Accept` header that matches no available representation
+returns `406` with a JSON explanation. The twins are also addressable directly
+by appending `.md`, and `/index.md` is the twin of the landing page.
+
+An unknown path returns a real `404`, with a short Markdown recovery map when
+Markdown was requested and the [HTML 404 page](/404.md) otherwise. It never
+returns `200` with an application shell, so an agent can trust the status.
 
 ## Agent integration guidance
 
@@ -286,7 +384,10 @@ Do not use this interface as a substitute for the extension's internal RPC contr
 
 ## Resources
 
-- [OpenAPI 3.1 JSON](/openapi.json)
+- [OpenAPI 3.1 JSON](/openapi.json) — machine-readable schema for the local olc API
+- [API catalog](/.well-known/api-catalog) — RFC 9727 linkset for both API surfaces
+- [Website JSON API](/api) and [health](/api/health)
+- [Agent map (llms.txt)](/llms.txt) and [full Markdown docs](/llms-full.txt)
 - [olc source and full operator guide](https://github.com/Shishir435/ollama-client/tree/main/packages/olc)
 - [Provider setup](/guides/provider-setup/)
 - [Error reports](/guides/troubleshooting/error-reports/)
