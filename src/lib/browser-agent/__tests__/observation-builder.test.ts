@@ -148,6 +148,59 @@ describe("Agent observation builder", () => {
     expect(build().elements[0]).not.toHaveProperty("value")
   })
 
+  it("redacts values clipped by an overflow ancestor", () => {
+    const wrapper = document.createElement("div")
+    wrapper.style.overflow = "hidden"
+    wrapper.getClientRects = () =>
+      [
+        {
+          bottom: 50,
+          height: 50,
+          left: 0,
+          right: 50,
+          top: 0,
+          width: 50
+        } as DOMRect
+      ] as unknown as DOMRectList
+    const input = document.createElement("input")
+    input.value = "clipped-secret"
+    input.getClientRects = () =>
+      [
+        {
+          bottom: 30,
+          height: 20,
+          left: 60,
+          right: 100,
+          top: 10,
+          width: 40
+        } as DOMRect
+      ] as unknown as DOMRectList
+    wrapper.append(input)
+    document.body.append(wrapper)
+
+    expect(build().elements[0]).toMatchObject({
+      sensitive: true,
+      visible: false
+    })
+    expect(build().elements[0]).not.toHaveProperty("value")
+  })
+
+  it.each([
+    ["clip-path", "inset(100%)"],
+    ["mask-image", "linear-gradient(transparent, transparent)"]
+  ])("redacts values behind %s", (property, value) => {
+    const input = document.createElement("input")
+    input.value = "clipped-secret"
+    input.style.setProperty(property, value)
+    document.body.append(input)
+
+    expect(build().elements[0]).toMatchObject({
+      sensitive: true,
+      visible: false
+    })
+    expect(build().elements[0]).not.toHaveProperty("value")
+  })
+
   it.each([
     ["hidden", (element: HTMLElement) => element.setAttribute("hidden", "")],
     [
@@ -192,6 +245,21 @@ describe("Agent observation builder", () => {
     expect(observation.visibleText).toBe("visible page text")
     expect(observation.visibleText).not.toContain("hidden-page-secret")
     expect(observation.elements[0]).not.toHaveProperty("name")
+  })
+
+  it("excludes hidden descendants from visible element names", () => {
+    const button = document.createElement("button")
+    button.append("Visible label")
+    const hidden = document.createElement("span")
+    hidden.hidden = true
+    hidden.textContent = " hidden-name-secret"
+    button.append(hidden)
+    document.body.append(button)
+
+    const observation = build()
+    expect(observation.visibleText).toBe("Visible label")
+    expect(observation.elements[0]?.name).toBe("Visible label")
+    expect(observation.elements[0]?.name).not.toContain("hidden-name-secret")
   })
 
   it("rejects subframe and unsupported-scheme observations", () => {

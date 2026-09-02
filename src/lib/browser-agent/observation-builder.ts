@@ -30,6 +30,121 @@ const truncate = (value: string, limit: number): string =>
 const normalizedText = (value: string): string =>
   value.replaceAll(/\s+/g, " ").trim()
 
+interface VisibleBounds {
+  bottom: number
+  left: number
+  right: number
+  top: number
+}
+
+const intersectBounds = (
+  first: VisibleBounds,
+  second: VisibleBounds
+): VisibleBounds | undefined => {
+  const intersection = {
+    bottom: Math.min(first.bottom, second.bottom),
+    left: Math.max(first.left, second.left),
+    right: Math.min(first.right, second.right),
+    top: Math.max(first.top, second.top)
+  }
+  return intersection.right > intersection.left &&
+    intersection.bottom > intersection.top
+    ? intersection
+    : undefined
+}
+
+const clipsOverflow = (value: string): boolean =>
+  ["auto", "clip", "hidden", "overlay", "scroll"].includes(value)
+
+const isSemanticallyHidden = (element: Element): boolean =>
+  element.hasAttribute("hidden") ||
+  element.hasAttribute("inert") ||
+  element.getAttribute("aria-hidden") === "true"
+
+const isHiddenByStyle = (style: CSSStyleDeclaration): boolean =>
+  style.display === "none" ||
+  style.visibility === "hidden" ||
+  style.visibility === "collapse" ||
+  style.contentVisibility === "hidden" ||
+  style.opacity === "0"
+
+const isActiveClipValue = (
+  value: string | null | undefined,
+  defaults: readonly string[]
+): boolean => Boolean(value && !defaults.includes(value))
+
+const hasConservativeClip = (
+  element: Element,
+  style: CSSStyleDeclaration
+): boolean => {
+  const declared = (element as HTMLElement).style
+  return (
+    [style.clip, declared.clip].some((value) =>
+      isActiveClipValue(value, ["auto", "none"])
+    ) ||
+    [style.clipPath, declared.clipPath].some((value) =>
+      isActiveClipValue(value, ["none"])
+    ) ||
+    [
+      style.maskImage,
+      style.getPropertyValue("mask-image"),
+      declared.maskImage,
+      declared.getPropertyValue("mask-image")
+    ].some((value) => isActiveClipValue(value, ["none"]))
+  )
+}
+
+const clipBoundsByAncestor = (
+  bounds: VisibleBounds[],
+  ancestor: Element,
+  style: CSSStyleDeclaration
+): VisibleBounds[] => {
+  const containPaint = style.contain
+    .split(/\s+/)
+    .some((value) => value === "paint" || value === "strict")
+  const declared = (ancestor as HTMLElement).style
+  const clipX =
+    containPaint ||
+    [
+      style.overflow,
+      style.overflowX,
+      declared.overflow,
+      declared.overflowX
+    ].some(clipsOverflow)
+  const clipY =
+    containPaint ||
+    [
+      style.overflow,
+      style.overflowY,
+      declared.overflow,
+      declared.overflowY
+    ].some(clipsOverflow)
+  if (!clipX && !clipY) return bounds
+
+  const clippingRects = Array.from(ancestor.getClientRects()).filter(
+    (rect) => rect.width > 0 && rect.height > 0
+  )
+  return bounds.flatMap((visible) =>
+    clippingRects
+      .map((rect) =>
+        intersectBounds(visible, {
+          bottom: clipY ? rect.bottom : visible.bottom,
+          left: clipX ? rect.left : visible.left,
+          right: clipX ? rect.right : visible.right,
+          top: clipY ? rect.top : visible.top
+        })
+      )
+      .filter((rect): rect is VisibleBounds => Boolean(rect))
+  )
+}
+
+const composedParent = (element: Element): Element | null => {
+  const root = element.getRootNode()
+  return (
+    element.parentElement ?? (root instanceof ShadowRoot ? root.host : null)
+  )
+}
+
 const isVisible = (element: Element): boolean => {
   if (
     element instanceof HTMLInputElement &&
@@ -39,43 +154,35 @@ const isVisible = (element: Element): boolean => {
   }
 
   const view = element.ownerDocument.defaultView
-  for (let current: Element | null = element; current; ) {
-    if (
-      current.hasAttribute("hidden") ||
-      current.hasAttribute("inert") ||
-      current.getAttribute("aria-hidden") === "true"
-    ) {
-      return false
-    }
-    const style = view?.getComputedStyle(current)
-    if (
-      style?.display === "none" ||
-      style?.visibility === "hidden" ||
-      style?.visibility === "collapse" ||
-      style?.contentVisibility === "hidden" ||
-      style?.opacity === "0"
-    ) {
-      return false
-    }
-    const root = current.getRootNode()
-    current =
-      current.parentElement ?? (root instanceof ShadowRoot ? root.host : null)
+  const viewport = {
+    bottom: view?.innerHeight ?? 0,
+    left: 0,
+    right: view?.innerWidth ?? 0,
+    top: 0
   }
+  let visibleBounds = Array.from(element.getClientRects())
+    .filter((rect) => rect.width > 0 && rect.height > 0)
+    .map((rect) => intersectBounds(rect, viewport))
+    .filter((rect): rect is VisibleBounds => Boolean(rect))
+  if (visibleBounds.length === 0) return false
 
-  const renderedRects = Array.from(element.getClientRects()).filter(
-    (rect) => rect.width > 0 && rect.height > 0
-  )
-  if (renderedRects.length === 0) return false
-
-  const viewportWidth = view?.innerWidth ?? 0
-  const viewportHeight = view?.innerHeight ?? 0
-  return renderedRects.some(
-    (rect) =>
-      rect.bottom > 0 &&
-      rect.right > 0 &&
-      rect.top < viewportHeight &&
-      rect.left < viewportWidth
-  )
+  for (
+    let current: Element | null = element;
+    current;
+    current = composedParent(current)
+  ) {
+    if (isSemanticallyHidden(current)) return false
+    const style = view?.getComputedStyle(current)
+    if (!style) return false
+    if (isHiddenByStyle(style) || hasConservativeClip(current, style)) {
+      return false
+    }
+    if (current !== element && style) {
+      visibleBounds = clipBoundsByAncestor(visibleBounds, current, style)
+      if (visibleBounds.length === 0) return false
+    }
+  }
+  return true
 }
 
 export const isSensitiveAgentElement = (element: Element): boolean => {
@@ -96,31 +203,18 @@ export const isSensitiveAgentElement = (element: Element): boolean => {
   )
 }
 
-const accessibleName = (element: Element): string | undefined => {
-  const labelled = element.getAttribute("aria-label")
-  if (labelled) return labelled
-  const text = normalizedText(element.textContent ?? "")
-  if (text) return text
-  const placeholder = element.getAttribute("placeholder")
-  if (placeholder) return placeholder
-  return undefined
-}
-
 const elementValue = (element: Element): string | undefined => {
   if (!("value" in element)) return undefined
   const value = String((element as HTMLInputElement).value ?? "")
   return value || undefined
 }
 
-const collectVisibleText = (document: Document): string => {
-  const body = document.body
-  if (!body) return ""
-
-  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT)
+const collectVisibleText = (root: Element, limit: number): string => {
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   let result = ""
   for (
     let node = walker.nextNode();
-    node && result.length < AGENT_OBSERVATION_LIMITS.visibleTextChars;
+    node && result.length < limit;
     node = walker.nextNode()
   ) {
     const parent = node.parentElement
@@ -128,12 +222,22 @@ const collectVisibleText = (document: Document): string => {
     const text = normalizedText(node.textContent ?? "")
     if (!text) continue
     const addition = `${result ? " " : ""}${text}`
-    result += truncate(
-      addition,
-      AGENT_OBSERVATION_LIMITS.visibleTextChars - result.length
-    )
+    result += truncate(addition, limit - result.length)
   }
   return result
+}
+
+const accessibleName = (element: Element): string | undefined => {
+  const labelled = element.getAttribute("aria-label")
+  if (labelled) return labelled
+  const text = collectVisibleText(
+    element,
+    AGENT_OBSERVATION_LIMITS.elementNameChars
+  )
+  if (text) return text
+  const placeholder = element.getAttribute("placeholder")
+  if (placeholder) return placeholder
+  return undefined
 }
 
 const toAgentElement = (element: Element, ref: string): AgentElement => {
@@ -195,7 +299,12 @@ export const buildAgentObservation = (input: {
   const elements = candidates.map((element) =>
     toAgentElement(element, snapshot.reference(element))
   )
-  const visibleText = collectVisibleText(input.document)
+  const visibleText = input.document.body
+    ? collectVisibleText(
+        input.document.body,
+        AGENT_OBSERVATION_LIMITS.visibleTextChars
+      )
+    : ""
   const view = input.document.defaultView
   const root = input.document.documentElement
 
