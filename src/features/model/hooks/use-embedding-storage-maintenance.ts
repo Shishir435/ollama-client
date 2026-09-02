@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
+import { getCacheStats } from "@/application/embeddings/embedding-service"
 import { useConfirmAction } from "@/hooks/use-confirm-action"
 import { useToast } from "@/hooks/use-toast"
-import { getCacheStats } from "@/lib/embeddings/embedding-client"
 import {
   clearAllVectors,
   getStorageStats,

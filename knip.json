@@ -26,7 +26,7 @@
       "entry": [
         "src/entrypoints/**/*.{ts,tsx}",
         "config/**/*.ts",
-        "tools/*.ts",
+        "tools/{checks,generate,benchmarks,experiments,verify}/*.{ts,mjs}",
         "wxt.config.ts",
         "vitest.config.ts"
       ],

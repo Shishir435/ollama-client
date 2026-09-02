@@ -17,6 +17,8 @@ import {
   getEffectiveToolFamilySettings,
   getToolModelOverride
 } from "@/lib/tools/tool-model-overrides"
+import { getWebSearchConfig } from "@/lib/tools/web-search"
+import { withWebSearchExecutionPolicy } from "@/lib/tools/web-search/web-search-tool"
 import { filterToolsForTurn } from "./tool-exposure-policy"
 
 /**
@@ -40,6 +42,10 @@ interface CapabilityTagsCacheEntry {
 
 const capabilityTagsCache = new Map<string, CapabilityTagsCacheEntry>()
 
+const throwIfAborted = (signal?: AbortSignal): void => {
+  signal?.throwIfAborted()
+}
+
 export const clearModelToolCapabilityCache = () => {
   capabilityTagsCache.clear()
 }
@@ -61,8 +67,10 @@ export interface ResolvedModelCapabilities {
 export const resolveModelCapabilities = async (
   model: string,
   providerId: string | undefined,
-  provider: LLMProvider
+  provider: LLMProvider,
+  signal?: AbortSignal
 ): Promise<ResolvedModelCapabilities> => {
+  throwIfAborted(signal)
   const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
   const providerUrl = resolveProviderBaseUrl(provider.config)
   const cacheKey = `${resolvedProviderId}::${providerUrl}::${model}`
@@ -74,10 +82,11 @@ export const resolveModelCapabilities = async (
   if (cached && cached.expiresAt > Date.now()) {
     metadata = cached
   } else {
+    throwIfAborted(signal)
     let resolvedMetadata = false
     if (provider.getModelDetails) {
       try {
-        const details = await provider.getModelDetails(model)
+        const details = await provider.getModelDetails(model, signal)
         const tags = (details as { capabilities?: string[] } | null)
           ?.capabilities
         if (tags?.length) {
@@ -85,6 +94,7 @@ export const resolveModelCapabilities = async (
           resolvedMetadata = true
         }
       } catch (error) {
+        throwIfAborted(signal)
         logger.debug(
           "Failed to read model details for capability gating",
           "resolveModelCapabilities",
@@ -95,7 +105,7 @@ export const resolveModelCapabilities = async (
 
     if (!resolvedMetadata && provider.capabilities?.modelDiscovery) {
       try {
-        const { models } = await discoverProviderModels(provider)
+        const { models } = await discoverProviderModels(provider, signal)
         const servedModel = models.find((candidate) => candidate.name === model)
         if (servedModel) {
           metadata = {
@@ -111,6 +121,7 @@ export const resolveModelCapabilities = async (
           resolvedMetadata = true
         }
       } catch (error) {
+        throwIfAborted(signal)
         logger.debug(
           "Failed to read model catalog metadata for capability gating",
           "resolveModelCapabilities",
@@ -165,12 +176,14 @@ export const resolveModelTools = async (
   providerId: string | undefined,
   provider: LLMProvider,
   latestUserText?: string,
-  resolvedCapabilities?: ResolvedModelCapabilities
+  resolvedCapabilities?: ResolvedModelCapabilities,
+  signal?: AbortSignal
 ): Promise<ResolvedModelTools | undefined> => {
+  throwIfAborted(signal)
   const resolvedProviderId = providerId || DEFAULT_PROVIDER_ID
   const { capabilities, probed } =
     resolvedCapabilities ??
-    (await resolveModelCapabilities(model, providerId, provider))
+    (await resolveModelCapabilities(model, providerId, provider, signal))
 
   // Native when the model supports tool-calling; otherwise fall back to the
   // prompt-based path only if the user opted this model in. Off by default, so a
@@ -214,5 +227,12 @@ export const resolveModelTools = async (
   // browser-data tools are not sent to any provider unless their optional
   // permission is already granted and this request explicitly asks for them.
   const allowed = await filterToolsForTurn(governed, latestUserText)
-  return allowed.length > 0 ? { tools: allowed, mode } : undefined
+  if (allowed.length === 0) return undefined
+  const webSearchConfig = await getWebSearchConfig()
+  return {
+    tools: allowed.map((definition) =>
+      withWebSearchExecutionPolicy(definition, webSearchConfig)
+    ),
+    mode
+  }
 }

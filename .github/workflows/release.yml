@@ -128,12 +128,17 @@ jobs:
             verified-release-artifacts/olc.tar.gz.sha256
             verified-release-artifacts/olc.zip
             verified-release-artifacts/olc.zip.sha256
+            verified-release-artifacts/olc.sh
+            verified-release-artifacts/olc.sh.sha256
+            verified-release-artifacts/olc.ps1
+            verified-release-artifacts/olc.ps1.sha256
           )
 
-          # CI publishes three extension packages plus two olc archives and their
-          # checksums. Refuse an incomplete or ambiguous set before touching a release.
-          if [ ${#ASSETS[@]} -ne 7 ]; then
-            echo "Expected exactly seven verified release assets; found ${#ASSETS[@]}."
+          # CI publishes three extension packages, two olc archives, the two
+          # install wrappers, and a checksum for each of those four. Refuse an
+          # incomplete or ambiguous set before touching a release.
+          if [ ${#ASSETS[@]} -ne 11 ]; then
+            echo "Expected exactly eleven verified release assets; found ${#ASSETS[@]}."
             exit 1
           fi
           for asset in "${ASSETS[@]}"; do

@@ -1224,14 +1224,34 @@
     },
     "web_search": {
       "title": "Web Search",
-      "description": "Let tool-capable models search the live web through a configured search provider.",
+      "description": "Let supported models search the web using built-in or configured search.",
+      "execution_source": {
+        "label": "Search source",
+        "description": "Choose the model's built-in search or a provider you configure.",
+        "client": "Configured provider",
+        "auto": "Built-in, then configured fallback",
+        "native": "Model's built-in search"
+      },
+      "native_mode": {
+        "label": "Search freshness",
+        "description": "How fresh built-in search should be. The runtime may enforce a stricter limit.",
+        "cached": "Cached (fastest)",
+        "indexed": "Indexed (balanced)",
+        "live": "Live (freshest)"
+      },
+      "privacy": {
+        "title": "Query destination",
+        "client": "Queries go only to the configured SearXNG, Brave, or Tavily backend.",
+        "auto": "Queries use the model's built-in search when available, otherwise the configured provider.",
+        "native": "Queries may leave this device through the selected model provider or its search partner. If built-in search is unavailable, the request fails instead of silently using the configured provider."
+      },
       "enable": {
         "label": "Enable web search",
-        "description": "Expose a web_search tool to supported models when the provider config is valid."
+        "description": "Allow supported models to search when the chat web toggle is on."
       },
       "provider": {
-        "label": "Provider",
-        "description": "Choose the backend used behind the single web_search tool."
+        "label": "Configured provider",
+        "description": "Used directly, or as fallback after built-in search."
       },
       "providers": {
         "searxng": "SearXNG",

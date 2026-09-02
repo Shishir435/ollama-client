@@ -1,9 +1,8 @@
 import { useCallback, useState } from "react"
-
+import { clearEmbeddingCache } from "@/application/embeddings/embedding-service"
 import { useAutoEmbedMessages } from "@/features/chat/hooks/use-auto-embed-messages"
 import { getEmbeddableMessagesBySession } from "@/features/chat/utils/embedding-backfill"
 import { rebuildEmbeddings } from "@/features/context/lib/embedding-rebuild"
-import { clearEmbeddingCache } from "@/lib/embeddings/embedding-client"
 import { clearAllVectors } from "@/lib/embeddings/vector-store"
 import { logger } from "@/lib/logger"
 

@@ -316,6 +316,186 @@ const preparePortableStorageImport = (
   }
 }
 
+const readBackupManifest = async (zip: JSZip) => {
+  const manifestFile = zip.file("manifest.json")
+  if (!manifestFile) {
+    throw createAppError("Missing manifest.json in backup file", {
+      kind: "validation"
+    })
+  }
+  const manifestResult = safeJsonParse(
+    await manifestFile.async("string"),
+    BackupManifestSchema
+  )
+  if (!manifestResult.success) {
+    throw createAppError("Invalid manifest: failed schema validation", {
+      kind: "validation"
+    })
+  }
+  if (!SUPPORTED_BACKUP_MANIFEST_VERSIONS.has(manifestResult.data.version)) {
+    throw createAppError(
+      `Unsupported backup version: ${manifestResult.data.version}`,
+      { kind: "validation" }
+    )
+  }
+  return manifestResult.data
+}
+
+const readPortableStorageSection = async (
+  zip: JSZip,
+  fileName: string,
+  allowLegacyKeys: boolean,
+  result: ImportSectionResult,
+  skippedStorageKeys: string[]
+): Promise<Record<string, unknown> | undefined> => {
+  try {
+    const file = zip.file(fileName)
+    if (!file) {
+      result.ok = false
+      result.error = `Missing ${fileName}`
+      return undefined
+    }
+    const parsed = safeJsonParse(
+      await file.async("string"),
+      StorageObjectSchema
+    )
+    if (!parsed.success) {
+      throw createAppError(`Invalid ${fileName}: expected a JSON object`, {
+        kind: "validation"
+      })
+    }
+    const selected = selectPortableStorageData(parsed.data, { allowLegacyKeys })
+    skippedStorageKeys.push(...selected.rejectedKeys)
+    result.ok = true
+    return selected.data
+  } catch (error) {
+    result.ok = false
+    result.error = getErrorMessage(error, "Unknown error")
+    return undefined
+  }
+}
+
+const importPortableStorageSections = async (
+  zip: JSZip,
+  manifestVersion: number,
+  result: ImportResult
+): Promise<void> => {
+  const syncData = await readPortableStorageSection(
+    zip,
+    "sync-storage.json",
+    manifestVersion === 1,
+    result.syncStorage,
+    result.skippedStorageKeys
+  )
+  const localData = await readPortableStorageSection(
+    zip,
+    "local-storage.json",
+    manifestVersion === 1,
+    result.localStorage,
+    result.skippedStorageKeys
+  )
+  if (syncData === undefined && localData === undefined) return
+  try {
+    const mergedData = { ...(localData ?? {}), ...(syncData ?? {}) }
+    const { settings, providerConfigs } =
+      preparePortableStorageImport(mergedData)
+    await importPortableStorageTransaction(settings, providerConfigs)
+  } catch (error) {
+    const storageError = getErrorMessage(error, "Unknown error")
+    if (syncData !== undefined)
+      result.syncStorage = { ok: false, error: storageError }
+    if (localData !== undefined)
+      result.localStorage = { ok: false, error: storageError }
+  }
+}
+
+const importSqliteSection = async (
+  zip: JSZip,
+  result: ImportResult
+): Promise<void> => {
+  try {
+    const dbFile = zip.file("database.sqlite")
+    if (dbFile) {
+      await importDatabaseBytes(await dbFile.async("uint8array"))
+      result.database.ok = true
+      return
+    }
+    result.database = zip.file("chat-db.json")
+      ? {
+          ok: false,
+          errorKey: "settings.migration.import_result.legacy_chat_backup"
+        }
+      : { ok: false, error: "Missing database.sqlite" }
+  } catch (error) {
+    result.database = {
+      ok: false,
+      error: getErrorMessage(error, "Unknown error")
+    }
+  }
+}
+
+const importVectorSection = async (
+  zip: JSZip,
+  result: ImportResult
+): Promise<void> => {
+  try {
+    const file = zip.file("vector-db.json")
+    if (!file) return
+    const blob = await file.async("blob")
+    await validateDexieMetadata(blob, "VectorDatabase")
+    await vectorDb.open()
+    await importInto(vectorDb, blob, {
+      overwriteValues: true,
+      clearTablesBeforeImport: true
+    })
+    result.dexie.vectorDb.ok = true
+  } catch (error) {
+    result.dexie.vectorDb = {
+      ok: false,
+      error: getErrorMessage(error, "Unknown error")
+    }
+  }
+}
+
+const importKnowledgeSection = async (
+  zip: JSZip,
+  result: ImportResult
+): Promise<void> => {
+  try {
+    const file = zip.file("knowledge-db.json")
+    if (!file) return
+    const blob = await file.async("blob")
+    await validateDexieExport(blob, "KnowledgeDatabase", {
+      knowledgeSets: KnowledgeSetRecordSchema,
+      knowledgeFiles: KnowledgeFileRecordSchema
+    })
+    await knowledgeDb.open()
+    await importInto(knowledgeDb, blob, {
+      overwriteValues: true,
+      clearTablesBeforeImport: true
+    })
+    result.dexie.knowledgeDb.ok = true
+  } catch (error) {
+    result.dexie.knowledgeDb = {
+      ok: false,
+      error: getErrorMessage(error, "Unknown error")
+    }
+  }
+}
+
+const importDexieSections = async (
+  zip: JSZip,
+  result: ImportResult
+): Promise<void> => {
+  await closeDexieConnectionsEverywhere()
+  try {
+    await importVectorSection(zip, result)
+    await importKnowledgeSection(zip, result)
+  } finally {
+    await reopenDexieConnectionsEverywhere()
+  }
+}
+
 export const backupService = {
   exportAll: async (): Promise<Blob> => {
     logger.info("Exporting all user data...", "Backup")
@@ -389,204 +569,22 @@ export const backupService = {
       syncStorage: { ok: false },
       localStorage: { ok: false },
       database: { ok: false },
-      dexie: {
-        vectorDb: { ok: false },
-        knowledgeDb: { ok: false }
-      },
+      dexie: { vectorDb: { ok: false }, knowledgeDb: { ok: false } },
       skippedStorageKeys: []
     }
-
     try {
       const zip = await JSZip.loadAsync(file)
-
-      // Manifest
-      const manifestFile = zip.file("manifest.json")
-      if (!manifestFile) {
-        throw createAppError("Missing manifest.json in backup file", {
-          kind: "validation"
-        })
-      }
-
-      const manifestStr = await manifestFile.async("string")
-      const manifestResult = safeJsonParse(manifestStr, BackupManifestSchema)
-      if (!manifestResult.success) {
-        throw createAppError("Invalid manifest: failed schema validation", {
-          kind: "validation"
-        })
-      }
-      const manifest = manifestResult.data
-      if (!SUPPORTED_BACKUP_MANIFEST_VERSIONS.has(manifest.version)) {
-        throw createAppError(
-          `Unsupported backup version: ${manifest.version}`,
-          {
-            kind: "validation"
-          }
-        )
-      }
-
-      let syncData: Record<string, unknown> | undefined
-      let localData: Record<string, unknown> | undefined
-
-      // Parse both storage files before mutating either area. Legacy local
-      // values fill gaps only; the canonical sync file wins every conflict.
-      try {
-        const syncFile = zip.file("sync-storage.json")
-        if (syncFile) {
-          const syncStr = await syncFile.async("string")
-          const syncResult = safeJsonParse(syncStr, StorageObjectSchema)
-          if (!syncResult.success) {
-            throw createAppError(
-              "Invalid sync storage: expected a JSON object",
-              { kind: "validation" }
-            )
-          }
-          const selected = selectPortableStorageData(syncResult.data, {
-            allowLegacyKeys: manifest.version === 1
-          })
-          syncData = selected.data
-          result.skippedStorageKeys.push(...selected.rejectedKeys)
-          result.syncStorage.ok = true
-        } else {
-          result.syncStorage = { ok: false, error: "Missing sync-storage.json" }
-        }
-      } catch (e) {
-        result.syncStorage = {
-          ok: false,
-          error: e instanceof Error ? e.message : "Unknown error"
-        }
-      }
-
-      try {
-        const localFile = zip.file("local-storage.json")
-        if (localFile) {
-          const localStr = await localFile.async("string")
-          const localResult = safeJsonParse(localStr, StorageObjectSchema)
-          if (!localResult.success) {
-            throw createAppError(
-              "Invalid local storage: expected a JSON object",
-              { kind: "validation" }
-            )
-          }
-          const selected = selectPortableStorageData(localResult.data, {
-            allowLegacyKeys: manifest.version === 1
-          })
-          localData = selected.data
-          result.skippedStorageKeys.push(...selected.rejectedKeys)
-          result.localStorage.ok = true
-        } else {
-          result.localStorage = {
-            ok: false,
-            error: "Missing local-storage.json"
-          }
-        }
-      } catch (e) {
-        result.localStorage = {
-          ok: false,
-          error: e instanceof Error ? e.message : "Unknown error"
-        }
-      }
-
-      if (syncData !== undefined || localData !== undefined) {
-        try {
-          const mergedData = { ...(localData ?? {}), ...(syncData ?? {}) }
-          const { settings, providerConfigs } =
-            preparePortableStorageImport(mergedData)
-          await importPortableStorageTransaction(settings, providerConfigs)
-        } catch (error) {
-          const storageError = getErrorMessage(error, "Unknown error")
-          if (syncData !== undefined) {
-            result.syncStorage = { ok: false, error: storageError }
-          }
-          if (localData !== undefined) {
-            result.localStorage = { ok: false, error: storageError }
-          }
-        }
-      }
-
-      // Database
-      try {
-        const dbFile = zip.file("database.sqlite")
-        if (dbFile) {
-          const dbBytes = await dbFile.async("uint8array")
-          await importDatabaseBytes(dbBytes)
-          result.database.ok = true
-        } else if (zip.file("chat-db.json")) {
-          // Backups written by 0.6.3 and earlier carry chat history as a Dexie
-          // export instead of a SQLite file. Nothing reads that format any more
-          // — the Dexie chat bridge shipped only in 0.6.5–0.7.3 — so say which
-          // backup this is rather than reporting a missing file, which reads as
-          // a corrupt archive.
-          result.database = {
-            ok: false,
-            errorKey: "settings.migration.import_result.legacy_chat_backup"
-          }
-        } else {
-          result.database = { ok: false, error: "Missing database.sqlite" }
-        }
-      } catch (e) {
-        result.database = {
-          ok: false,
-          error: e instanceof Error ? e.message : "Unknown error"
-        }
-      }
-
-      // Dexie-backed vector/knowledge databases.
-      await closeDexieConnectionsEverywhere()
-      try {
-        const vectorDbFile = zip.file("vector-db.json")
-        if (vectorDbFile) {
-          const vectorDbBlob = await vectorDbFile.async("blob")
-          await validateDexieMetadata(vectorDbBlob, "VectorDatabase")
-          await vectorDb.open()
-          await importInto(vectorDb, vectorDbBlob, {
-            overwriteValues: true,
-            clearTablesBeforeImport: true
-          })
-          result.dexie.vectorDb.ok = true
-        }
-      } catch (e) {
-        result.dexie.vectorDb = {
-          ok: false,
-          error: e instanceof Error ? e.message : "Unknown error"
-        }
-      }
-
-      try {
-        const knowledgeDbFile = zip.file("knowledge-db.json")
-        if (knowledgeDbFile) {
-          const knowledgeDbBlob = await knowledgeDbFile.async("blob")
-          await validateDexieExport(knowledgeDbBlob, "KnowledgeDatabase", {
-            knowledgeSets: KnowledgeSetRecordSchema,
-            knowledgeFiles: KnowledgeFileRecordSchema
-          })
-          await knowledgeDb.open()
-          await importInto(knowledgeDb, knowledgeDbBlob, {
-            overwriteValues: true,
-            clearTablesBeforeImport: true
-          })
-          result.dexie.knowledgeDb.ok = true
-        }
-      } catch (e) {
-        result.dexie.knowledgeDb = {
-          ok: false,
-          error: e instanceof Error ? e.message : "Unknown error"
-        }
-      }
-
-      // The reload that follows a successful import reopens everything, but
-      // a partial failure leaves this session running — restore the handles
-      // every context closed for the import so vector/knowledge features
-      // keep working without a reload.
-      await reopenDexieConnectionsEverywhere()
-
+      const manifest = await readBackupManifest(zip)
+      await importPortableStorageSections(zip, manifest.version, result)
+      await importSqliteSection(zip, result)
+      await importDexieSections(zip, result)
       result.skippedStorageKeys = [...new Set(result.skippedStorageKeys)].sort()
       return result
-    } catch (e) {
-      // If we completely fail to parse zip or manifest:
-      const errorMessage = getErrorMessage(e, "Unknown error")
+    } catch (error) {
+      const errorMessage = getErrorMessage(error, "Unknown error")
       throw createAppError(`Failed to read backup file: ${errorMessage}`, {
         kind: "validation",
-        cause: e
+        cause: error
       })
     }
   }

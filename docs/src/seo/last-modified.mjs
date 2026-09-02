@@ -64,7 +64,7 @@ const SLUG_SOURCES = {
   "": ["docs/src/pages/index.astro"],
   goodbye: ["docs/src/pages/goodbye.astro"],
   "about/changelog": ["CHANGELOG.md"],
-  // Regenerated from the provider implementations by tools/generate-docs.ts, so
+  // Regenerated from the provider implementations by tools/generate/generate-docs.ts, so
   // the matrix is as current as the newest change in that directory.
   "concepts/provider-matrix": ["src/lib/providers"]
 }

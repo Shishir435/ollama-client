@@ -11,6 +11,11 @@ export const createWebSearchToolSource = (): ToolSource => ({
     // this device's chats (the composer toggle).
     if (!config.enabled) return []
     if (!(await getWebSearchActive())) return []
+    // Native/automatic modes must not require a configured client backend just
+    // to express intent. Automatic fallback validates only if it actually runs.
+    if ((config.executionSource ?? "client") !== "client") {
+      return [webSearchDefinition]
+    }
     const backend = getWebSearchBackend(config.provider)
     if (!backend) return []
     if (!backend.validateConfig(config).ok) return []

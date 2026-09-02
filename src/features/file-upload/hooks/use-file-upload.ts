@@ -16,9 +16,39 @@ export interface UseFileUploadOptions {
   maxFileSize?: number
 }
 
+const buildSubmittedStates = (
+  files: File[],
+  maxFileSize: number,
+  onError?: (error: Error) => void
+): Map<File, FileProcessingState> => {
+  const submittedStates = new Map<File, FileProcessingState>()
+  for (const file of files) {
+    const error = validateFileForUpload(file, maxFileSize)
+    if (error) {
+      submittedStates.set(file, {
+        file,
+        status: "error",
+        error: error.message
+      })
+      onError?.(error)
+      continue
+    }
+    submittedStates.set(file, { file, status: "processing" })
+  }
+  return submittedStates
+}
+
+const mergeProcessingStates = (
+  previous: Map<File, FileProcessingState>,
+  submitted: Map<File, FileProcessingState>
+): Map<File, FileProcessingState> => {
+  const next = new Map(previous)
+  for (const [file, state] of submitted) next.set(file, state)
+  return next
+}
+
 export function useFileUpload(options: UseFileUploadOptions = {}) {
   const [config] = useSetting(SETTINGS.FILE_UPLOAD_CONFIG)
-
   const safeConfig = config || DEFAULT_FILE_UPLOAD_CONFIG
   const {
     onFileProcessed,
@@ -30,97 +60,67 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     Map<File, FileProcessingState>
   >(new Map())
 
-  const processFiles = useCallback(
-    async (files: FileList | File[]) => {
-      const fileArray = Array.from(files)
-      const submittedStates = new Map<File, FileProcessingState>()
-
-      // Initialize processing states
-      for (const file of fileArray) {
-        const error = validateFileForUpload(file, maxFileSize)
-        if (error) {
-          submittedStates.set(file, {
-            file,
-            status: "error",
-            error: error.message
-          })
-          if (onError) onError(error)
-          continue
-        }
-
-        submittedStates.set(file, {
-          file,
-          status: "processing"
-        })
-      }
-
+  const setFileState = useCallback(
+    (file: File, state: Omit<FileProcessingState, "file">) => {
       setProcessingStates((previous) => {
         const next = new Map(previous)
-        for (const [file, state] of submittedStates) next.set(file, state)
+        next.set(file, { file, ...state } as FileProcessingState)
         return next
       })
+    },
+    []
+  )
 
-      // Process each file
-      for (const file of fileArray) {
-        // Skip if already has error
-        const currentState = submittedStates.get(file)
-        if (currentState?.status === "error") continue
-
-        try {
-          const result = await IngestionClient.submitFile(file, {
-            autoEmbed: safeConfig.autoEmbedFiles,
-            onStatus: () => {
-              if (!safeConfig.showEmbeddingProgress) return
-              setProcessingStates((prev) => {
-                const next = new Map(prev)
-                next.set(file, {
-                  file,
-                  status: "processing"
-                })
-                return next
-              })
-            }
-          })
-
-          setProcessingStates((prev) => {
-            const next = new Map(prev)
-            next.set(file, {
-              file,
-              status: "success",
-              progress: safeConfig.showEmbeddingProgress ? 100 : undefined,
-              result
-            })
-            return next
-          })
-
-          if (onFileProcessed) {
-            onFileProcessed(result)
+  const processFile = useCallback(
+    async (file: File): Promise<void> => {
+      try {
+        const result = await IngestionClient.submitFile(file, {
+          autoEmbed: safeConfig.autoEmbedFiles,
+          onStatus: () => {
+            if (!safeConfig.showEmbeddingProgress) return
+            setFileState(file, { status: "processing" })
           }
-        } catch (error) {
-          const errorMessage = getDisplayErrorMessage(error, "Unknown error")
-          setProcessingStates((prev) => {
-            const next = new Map(prev)
-            next.set(file, {
-              file,
-              status: "error",
-              error: errorMessage
-            })
-            return next
-          })
+        })
 
-          if (onError) {
-            onError(error instanceof Error ? error : new Error(errorMessage))
-          }
-        }
+        setFileState(file, {
+          status: "success",
+          progress: safeConfig.showEmbeddingProgress ? 100 : undefined,
+          result
+        })
+        onFileProcessed?.(result)
+      } catch (error) {
+        const errorMessage = getDisplayErrorMessage(error, "Unknown error")
+        setFileState(file, { status: "error", error: errorMessage })
+        onError?.(error instanceof Error ? error : new Error(errorMessage))
       }
     },
     [
-      maxFileSize,
       onFileProcessed,
       onError,
       safeConfig.autoEmbedFiles,
-      safeConfig.showEmbeddingProgress
+      safeConfig.showEmbeddingProgress,
+      setFileState
     ]
+  )
+
+  const processFiles = useCallback(
+    async (files: FileList | File[]) => {
+      const fileArray = Array.from(files)
+      const submittedStates = buildSubmittedStates(
+        fileArray,
+        maxFileSize,
+        onError
+      )
+      setProcessingStates((previous) =>
+        mergeProcessingStates(previous, submittedStates)
+      )
+
+      for (const file of fileArray) {
+        if (submittedStates.get(file)?.status === "error") continue
+        await processFile(file)
+      }
+    },
+    [maxFileSize, onError, processFile]
   )
 
   const clearProcessingState = useCallback((file: File) => {

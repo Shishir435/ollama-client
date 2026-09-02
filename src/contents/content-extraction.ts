@@ -80,68 +80,73 @@ const tryBasic = (doc: Document): ReadableContent | null => {
   }
 }
 
-/**
- * Pick the best available readable-content extractor for the page, honoring
- * the user's `contentScraper` preference. Falls back through the chain:
- *
- *   "auto"          → Defuddle → Readability (if defuddle short) → basic
- *   "defuddle"      → Defuddle only (no fallback)
- *   "readability"   → Readability only
- *
- * Returns a `ReadableContent` with the selected extractor metadata. If
- * everything fails to produce 50+ chars, returns a basic-fallback record
- * which may have empty `readableText` — the caller decides whether that
- * constitutes failure.
- */
+const shouldTryReadability = (
+  scraper: ContentExtractionConfig["contentScraper"],
+  current: ReadableContent | null
+): boolean => {
+  if (scraper === "readability") return true
+  if (scraper !== "auto") return false
+  const readableText = current?.readableText.trim()
+  return !readableText || readableText.length < MIN_DEFUDDLE_FALLBACK_THRESHOLD
+}
+
+const mergeReadability = (
+  current: ReadableContent | null,
+  readability: ReadableContent,
+  forced: boolean
+): ReadableContent => {
+  const useReadability =
+    forced ||
+    !current ||
+    readability.readableText.length > current.readableText.length ||
+    current.readableText.trim().length < MIN_READABILITY_FALLBACK_THRESHOLD
+
+  if (useReadability) {
+    if (!readability.pageTitle && current?.pageTitle) {
+      readability.pageTitle = current.pageTitle
+    }
+    return readability
+  }
+  if (!current.pageTitle && readability.pageTitle) {
+    current.pageTitle = readability.pageTitle
+  }
+  return current
+}
+
+const applyBasicFallback = (
+  doc: Document,
+  current: ReadableContent | null
+): ReadableContent | null => {
+  const hasUsefulContent =
+    current?.readableText &&
+    current.readableText.trim().length >= MIN_READABILITY_FALLBACK_THRESHOLD
+  if (hasUsefulContent) return current
+
+  const basic = tryBasic(doc)
+  if (!basic) return current
+  if (current?.pageTitle) basic.pageTitle = current.pageTitle
+  return basic
+}
+
 export const extractReadableContent = (
   doc: Document,
   scraper: ContentExtractionConfig["contentScraper"]
 ): ReadableContent => {
-  // 1. Defuddle, if requested.
-  let current: ReadableContent | null = null
-  if (scraper === "auto" || scraper === "defuddle") {
-    current = tryDefuddle(doc)
-  }
+  let current =
+    scraper === "auto" || scraper === "defuddle" ? tryDefuddle(doc) : null
 
-  // 2. Readability if (a) forced, or (b) auto + defuddle returned thin content.
-  const readableText = current?.readableText?.trim()
-  const defuddleTooShort =
-    !readableText || readableText.length < MIN_DEFUDDLE_FALLBACK_THRESHOLD
-
-  if (scraper === "readability" || (scraper === "auto" && defuddleTooShort)) {
+  if (shouldTryReadability(scraper, current)) {
     const readability = tryReadability(doc, scraper === "readability")
     if (readability) {
-      const useReadability =
-        scraper === "readability" ||
-        !current ||
-        readability.readableText.length > current.readableText.length ||
-        current.readableText.trim().length < MIN_READABILITY_FALLBACK_THRESHOLD
-      if (useReadability) {
-        // Preserve any title we already had from Defuddle if Readability
-        // returned an empty one.
-        if (!readability.pageTitle && current?.pageTitle) {
-          readability.pageTitle = current.pageTitle
-        }
-        current = readability
-      } else if (current && !current.pageTitle && readability.pageTitle) {
-        current.pageTitle = readability.pageTitle
-      }
+      current = mergeReadability(
+        current,
+        readability,
+        scraper === "readability"
+      )
     }
   }
 
-  // 3. Basic body fallback when we still have nothing useful.
-  const stillTooShort =
-    !current?.readableText ||
-    current.readableText.trim().length < MIN_READABILITY_FALLBACK_THRESHOLD
-  if (stillTooShort) {
-    const basic = tryBasic(doc)
-    if (basic) {
-      // Carry forward any title we found earlier.
-      if (current?.pageTitle) basic.pageTitle = current.pageTitle
-      current = basic
-    }
-  }
-
+  current = applyBasicFallback(doc, current)
   return (
     current ?? {
       readableText: "",
@@ -152,11 +157,6 @@ export const extractReadableContent = (
   )
 }
 
-/**
- * Resolve the best title for a page from extractor output + meta tags +
- * document.title. Cleans common " - SiteName" suffixes. Returns "Untitled"
- * as a final fallback.
- */
 export const resolvePageTitle = (
   doc: Document,
   extractorTitle: string

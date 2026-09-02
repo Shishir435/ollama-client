@@ -20,12 +20,36 @@ import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { getMessageType } from "@/protocol/message-type"
-import { parseChatStreamClientEvent } from "@/protocol/streams"
+import {
+  type ChatStreamClientEvent,
+  parseChatStreamClientEvent
+} from "@/protocol/streams"
 import type { ChromePort, PortStatusFunction } from "@/types"
 
 const extensionUrlPrefix = browser.runtime.getURL("")
 
 let portConnectionSeq = 0
+
+const warnUnauthorizedMessage = (
+  port: ChromePort,
+  sender: Parameters<typeof classifyRuntimeSender>[0],
+  messageType: string
+): void => {
+  logger.warn(
+    "Blocked unauthorized runtime port message",
+    "RuntimeAuthorization",
+    {
+      portName: port.name,
+      type: messageType || "invalid",
+      surface: classifyRuntimeSender(
+        sender,
+        browser.runtime.id,
+        extensionUrlPrefix
+      ),
+      tabId: sender.tab?.id
+    }
+  )
+}
 
 export const registerPortRouter = () => {
   browser.runtime.onConnect.addListener((rawPort) => {
@@ -56,25 +80,67 @@ export const registerPortRouter = () => {
     let isPortClosed = false
     let currentAbortKey: string | undefined
     let abortCurrentOnDisconnect = true
-    // Port names are shared constants; give each live connection its own
-    // abort key so same-named ports (e.g. two windows) never collide.
     port.abortScopeKey = `${port.name}#${++portConnectionSeq}`
     const isSelectionBridgePort = registerSelectionBridgePort(port)
-
     const getPortStatus: PortStatusFunction = () => isPortClosed
 
     port.onDisconnect.addListener(() => {
       isPortClosed = true
-      if (isSelectionBridgePort) {
-        unregisterSelectionBridgePort(port)
-      }
-      // Abort whatever this connection may have registered: a chat stream
-      // (keyed by requestId) and/or a selection action (keyed by scope key).
+      if (isSelectionBridgePort) unregisterSelectionBridgePort(port)
       if (currentAbortKey && abortCurrentOnDisconnect) {
         abortAndClearController(currentAbortKey)
       }
       if (port.abortScopeKey) abortAndClearController(port.abortScopeKey)
     })
+
+    const dispatchMessage = async (
+      msg: ChatStreamClientEvent
+    ): Promise<void> => {
+      switch (msg.type) {
+        case MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL:
+          abortCurrentOnDisconnect = true
+          currentAbortKey = msg.payload.requestId
+          await handleChatWithModel(msg, port, getPortStatus)
+          return
+        case MESSAGE_KEYS.PROVIDER.START_TURN:
+          currentAbortKey = msg.payload.start.submission.id
+          abortCurrentOnDisconnect = false
+          await handleStartTurn(msg, port, getPortStatus)
+          return
+        case MESSAGE_KEYS.PROVIDER.RECONNECT_STREAM:
+          currentAbortKey = msg.payload.requestId
+          abortCurrentOnDisconnect = false
+          await reconnectDurableTurn(
+            msg.payload.requestId,
+            msg.payload.afterSeq,
+            { port, isPortClosed: getPortStatus }
+          )
+          return
+        case MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT:
+          currentAbortKey = msg.payload.requestId
+          abortCurrentOnDisconnect = true
+          await handleBuildContext(msg, port, getPortStatus)
+          return
+        case MESSAGE_KEYS.PROVIDER.STOP_GENERATION: {
+          logger.info("Stop generation requested", "BackgroundSW")
+          const abortKey =
+            msg.payload?.requestId ??
+            currentAbortKey ??
+            port.abortScopeKey ??
+            port.name
+          await requestDurableTurnStop(abortKey)
+          abortAndClearController(abortKey)
+          abortCurrentOnDisconnect = true
+          return
+        }
+        case MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION:
+          await handleSelectionAction(msg, port, getPortStatus)
+          return
+        case MESSAGE_KEYS.PROVIDER.CANCEL_SELECTION_ACTION:
+          logger.info("Selection action cancel requested", "BackgroundSW")
+          abortAndClearController(port.abortScopeKey ?? port.name)
+      }
+    }
 
     port.onMessage.addListener(async (message) => {
       const parsed = parseChatStreamClientEvent(message)
@@ -88,20 +154,7 @@ export const registerPortRouter = () => {
           extensionUrlPrefix
         )
       ) {
-        logger.warn(
-          "Blocked unauthorized runtime port message",
-          "RuntimeAuthorization",
-          {
-            portName: port.name,
-            type: messageType || "invalid",
-            surface: classifyRuntimeSender(
-              sender,
-              browser.runtime.id,
-              extensionUrlPrefix
-            ),
-            tabId: sender.tab?.id
-          }
-        )
+        warnUnauthorizedMessage(port, sender, messageType)
         port.disconnect()
         return
       }
@@ -116,62 +169,7 @@ export const registerPortRouter = () => {
         return
       }
 
-      const msg = parsed.data
-      if (msg.type === MESSAGE_KEYS.PROVIDER.CHAT_WITH_MODEL) {
-        abortCurrentOnDisconnect = true
-        currentAbortKey = msg.payload.requestId
-        await handleChatWithModel(msg, port, getPortStatus)
-      }
-
-      if (msg.type === MESSAGE_KEYS.PROVIDER.START_TURN) {
-        currentAbortKey = msg.payload.start.submission.id
-        // The sidepanel is an observer after submission. Closing it must not
-        // cancel background-owned context building or generation.
-        abortCurrentOnDisconnect = false
-        await handleStartTurn(msg, port, getPortStatus)
-      }
-
-      if (msg.type === MESSAGE_KEYS.PROVIDER.RECONNECT_STREAM) {
-        currentAbortKey = msg.payload.requestId
-        abortCurrentOnDisconnect = false
-        await reconnectDurableTurn(
-          msg.payload.requestId,
-          msg.payload.afterSeq,
-          { port, isPortClosed: getPortStatus }
-        )
-      }
-
-      if (msg.type === MESSAGE_KEYS.PROVIDER.BUILD_CONTEXT) {
-        // Non-durable and panel-owned, unlike START_TURN: nothing can deliver
-        // this result after the port closes, so a disconnect cancels it.
-        currentAbortKey = msg.payload.requestId
-        abortCurrentOnDisconnect = true
-        await handleBuildContext(msg, port, getPortStatus)
-      }
-
-      if (msg.type === MESSAGE_KEYS.PROVIDER.STOP_GENERATION) {
-        logger.info("Stop generation requested", "BackgroundSW")
-        const requestedKey = msg.payload?.requestId
-        const abortKey =
-          requestedKey ?? currentAbortKey ?? port.abortScopeKey ?? port.name
-        // Intent first, abort second. The two are not interchangeable: a worker
-        // that dies after the abort but before the write restarts with a row
-        // still reading `generating`, and recovery hands it back to the
-        // provider as if the stop never happened. A key that names no live turn
-        // — a selection-action scope — writes nothing and costs one query.
-        await requestDurableTurnStop(abortKey)
-        abortAndClearController(abortKey)
-        abortCurrentOnDisconnect = true
-      }
-
-      if (msg.type === MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION) {
-        await handleSelectionAction(msg, port, getPortStatus)
-      }
-
-      if (msg.type === MESSAGE_KEYS.PROVIDER.CANCEL_SELECTION_ACTION) {
-        logger.info("Selection action cancel requested", "BackgroundSW")
-        abortAndClearController(port.abortScopeKey ?? port.name)
-      }
+      await dispatchMessage(parsed.data)
     })
   })
 }

@@ -9,13 +9,74 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.13.3]
+
+### Added
+
+- Web search can route through the selected agent runtime's native search tool.
+  Ollama Client still exposes one provider-neutral `web_search` tool and keeps
+  configured SearXNG, Brave, and Tavily backends available as explicit choices.
+- `olc` adds native Ollama lifecycle management with `--lan`, `--local`,
+  `--check`, and `--json`, safe app/service ownership checks, process-scoped
+  child environments, and strict option validation.
+
 ### Changed
 
+- All olc backends now detach by default. `--debug` implies foreground; explicit
+  `--foreground`/`--detached` control the session. Detached proxies report readiness,
+  PID, private logs, and shutdown instructions.
+- `olc` now defaults to native Ollama on port 11434. Use `olc -b codex`
+  for the Codex proxy on port 8083 or `olc -b opencode` for the OpenCode proxy
+  on port 8084; `-b` aliases `--backend`.
+- Embedding requests use stricter cache identities, propagate cancellation
+  through provider and storage boundaries, retry rate limits without discarding
+  successful batches, and retain keyword context when dense embedding fails.
+- Embedding batches and search-cache retention are tuned against reproducible
+  performance benchmarks while preserving the extension bundle budgets.
+- olc never persists app, service, user, or machine environment; an incompatible
+  macOS app transitions to a standalone process safely.
+
+### Fixed
+
+- The macOS Ollama app now gets a full minute to finish quitting before olc
+  gives up, and an exit during the final poll is treated as an exit rather than
+  a timeout. Previously a slower-than-ten-second quit aborted the transition
+  after the app had already been signalled, leaving no server running and no
+  replacement started.
+
+### Removed
+
+- The model-callable `selected_text` reader is removed. Pending page selections
+  remain an explicit, consumable composer handoff instead of silently becoming
+  live tool state, so stale selections cannot be read during a later turn.
+
+### Development
+
+- Release metadata checks now reject a missing current-version changelog entry
+  while workspace package versions continue to use the existing dynamic
+  package-discovery contract.
+- Packaged Chromium provider regression coverage now blocks on fragmented or
+  malformed SSE handling plus HTTP and connection-failure propagation through
+  durable turns, while custom provider base URLs remain fully configurable.
+- Biome now enforces an initial cognitive-complexity ceiling so newly changed
+  code cannot grow unchecked while the threshold is tightened incrementally.
+- Verification scripts are organized by purpose and the release gate now builds
+  each browser target once before reusing those artifacts for smoke, bundle,
+  migration, recovery, and critical browser checks.
+- Documentation articles remain centered on wide screens, terminal snippets use
+  recognizable red/yellow/green window controls, and the README no longer
+  advertises the removed selected-text tool.
+- Every release now publishes the `olc.sh` and `olc.ps1` install wrappers with a
+  `sha256` for each, alongside the archives they install. The READMEs lead with
+  pinning a wrapper to a tag and verifying it before it runs; the one-line
+  installer is documented below it as the unverified quick path, and every guide
+  that shows it links to the verified one.
 - Embedding generation from extension pages now crosses the validated,
   background-owned `embeddings.generate` RPC. The RPC preserves model/provider
   identity, forwards cancellation, and bounds stalled provider work with a
-  generous 15-minute deadline. Background RAG uses an application service seam;
-  full strategy/cache ownership migration continues in 0.13.3.
+  generous 15-minute deadline. Background RAG and UI maintenance use application
+  service seams instead of importing persistence adapters across ownership
+  boundaries.
 
 ## [0.13.2]
 
@@ -987,8 +1048,10 @@ No functional changes: this release is store metadata only.
 
 - Comprehensive docs refresh for v0.6.0, including RAG and WXT migration updates.
 
-[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.13.2...HEAD
+[Unreleased]: https://github.com/Shishir435/ollama-client/compare/0.13.3...HEAD
+[0.13.3]: https://github.com/Shishir435/ollama-client/compare/0.13.2...0.13.3
 [0.13.2]: https://github.com/Shishir435/ollama-client/compare/0.13.1...0.13.2
+[0.13.1]: https://github.com/Shishir435/ollama-client/compare/0.13.0...0.13.1
 [0.13.0]: https://github.com/Shishir435/ollama-client/compare/0.12.8...0.13.0
 [0.12.8]: https://github.com/Shishir435/ollama-client/compare/0.12.7...0.12.8
 [0.12.7]: https://github.com/Shishir435/ollama-client/compare/0.12.6...0.12.7

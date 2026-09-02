@@ -25,6 +25,7 @@ import {
   mapCodexImageGenerationModel,
   mapCodexModel,
   resolveCodexReasoningEffort,
+  routeCodexWebSearch,
   toDynamicTools
 } from "./wire.js"
 
@@ -43,6 +44,7 @@ interface ModelListResponse {
 
 interface ModelProviderCapabilities {
   imageGeneration?: boolean
+  webSearch?: boolean
 }
 
 type QueueResult =
@@ -100,6 +102,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
   let providerCapabilitiesCache: {
     expiresAt: number
     imageGeneration: boolean
+    webSearch: boolean
   } | null = null
 
   const unsubscribe = client.onNotification((message) => {
@@ -182,6 +185,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
 
   const loadProviderCapabilities = async (): Promise<{
     imageGeneration: boolean
+    webSearch: boolean
   }> => {
     if (
       providerCapabilitiesCache &&
@@ -191,21 +195,24 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     }
     await client.start()
     let imageGeneration = false
+    let webSearch = false
     try {
       const capabilities = await client.request<ModelProviderCapabilities>(
         "modelProvider/capabilities/read",
         {}
       )
       imageGeneration = capabilities?.imageGeneration === true
+      webSearch = capabilities?.webSearch === true
     } catch (error) {
       // Older App Server builds do not expose provider capabilities. Absence is
       // treated conservatively: accept image input, but advertise no image output.
-      log("Codex image-generation capability is unavailable", {
+      log("Codex provider capabilities are unavailable", {
         message: (error as Error).message
       })
     }
     providerCapabilitiesCache = {
       imageGeneration,
+      webSearch,
       expiresAt: Date.now() + 30_000
     }
     return providerCapabilitiesCache
@@ -223,6 +230,8 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
     private started = false
     private content = ""
     private reasoning = ""
+    private readonly agentMessagePhases = new Map<string, string>()
+    private nativeWebSearchEvents = 0
     private readonly images: GeneratedImage[] = []
     private readonly imageItemIds = new Set<string>()
     private lastError: string | null = null
@@ -295,6 +304,180 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
       }
     }
 
+    private appendTextDelta(
+      params: Record<string, unknown>,
+      handlers: TurnStreamHandlers
+    ): void {
+      const delta = typeof params.delta === "string" ? params.delta : ""
+      const itemId = typeof params.itemId === "string" ? params.itemId : ""
+      if (this.agentMessagePhases.get(itemId) === "commentary") {
+        this.reasoning += delta
+        handlers.onReasoning(delta)
+        return
+      }
+      this.content += delta
+      handlers.onText(delta)
+    }
+
+    private handleStartedItem(
+      item: Record<string, unknown>,
+      handlers: TurnStreamHandlers
+    ): void {
+      if (
+        item.type === "agentMessage" &&
+        typeof item.id === "string" &&
+        typeof item.phase === "string"
+      ) {
+        this.agentMessagePhases.set(item.id, item.phase)
+      }
+      if (item.type === "webSearch") {
+        handlers.onReasoning("\nSearching the web…\n")
+        this.reasoning += "\nSearching the web…\n"
+      }
+    }
+
+    private handleWebSearchCompleted(
+      item: Record<string, unknown>,
+      handlers: TurnStreamHandlers
+    ): void {
+      this.nativeWebSearchEvents += 1
+      const action = isRecord(item.action) ? item.action : {}
+      const query =
+        (typeof item.query === "string" && item.query.trim()) ||
+        (typeof action.query === "string" && action.query.trim())
+      const url = typeof action.url === "string" ? action.url.trim() : ""
+      const trace = query
+        ? `Web search: ${query}\n`
+        : url
+          ? `Opened web source: ${url}\n`
+          : "Web search completed.\n"
+      this.reasoning += trace
+      handlers.onReasoning(trace)
+    }
+
+    private appendReasoningDelta(
+      params: Record<string, unknown>,
+      handlers: TurnStreamHandlers
+    ): void {
+      const delta = typeof params.delta === "string" ? params.delta : ""
+      this.reasoning += delta
+      handlers.onReasoning(delta)
+    }
+
+    private handleCompletedItem(
+      item: Record<string, unknown>,
+      handlers: TurnStreamHandlers
+    ): void {
+      if (
+        item.type === "agentMessage" &&
+        typeof item.text === "string" &&
+        item.phase !== "commentary" &&
+        !this.content
+      ) {
+        this.content = item.text
+      }
+      if (item.type === "webSearch") {
+        this.handleWebSearchCompleted(item, handlers)
+        return
+      }
+      if (item.type === "agentMessage" && typeof item.id === "string") {
+        this.agentMessagePhases.delete(item.id)
+      }
+      if (item.type !== "imageGeneration" || typeof item.result !== "string")
+        return
+
+      const itemId = typeof item.id === "string" ? item.id : undefined
+      if (itemId && this.imageItemIds.has(itemId)) return
+      if (itemId) this.imageItemIds.add(itemId)
+      const image: GeneratedImage = {
+        b64Json: item.result,
+        ...(typeof item.revisedPrompt === "string" && item.revisedPrompt
+          ? { revisedPrompt: item.revisedPrompt }
+          : {})
+      }
+      this.images.push(image)
+      handlers.onImage?.(image)
+    }
+
+    private recordNotificationError(params: Record<string, unknown>): void {
+      const error = isRecord(params.error) ? params.error : {}
+      if (typeof error.message === "string") this.lastError = error.message
+    }
+
+    private appServerExitedResult(params: Record<string, unknown>): TurnResult {
+      return {
+        status: "failed",
+        error: {
+          type: "CodexAppServerExited",
+          message: String(params.message ?? "Codex app-server exited")
+        }
+      }
+    }
+
+    private completedTurnResult(): TurnResult {
+      log("Codex turn native-search evidence", {
+        threadId: this.id,
+        webSearchEvents: this.nativeWebSearchEvents
+      })
+      return {
+        status: "completed",
+        content: this.content,
+        reasoning: this.reasoning,
+        ...(this.images.length > 0 ? { images: [...this.images] } : {}),
+        finish: "stop"
+      }
+    }
+
+    private finishedTurnResult(turn: Record<string, unknown>): TurnResult {
+      const status = String(turn.status ?? "failed")
+      if (status === "completed") return this.completedTurnResult()
+      const turnError = isRecord(turn.error) ? turn.error : {}
+      return {
+        status: "failed",
+        error: {
+          type: status === "interrupted" ? "CodexInterrupted" : "CodexError",
+          message:
+            (typeof turnError.message === "string" && turnError.message) ||
+            this.lastError ||
+            `Codex turn ended with status '${status}'`
+        }
+      }
+    }
+
+    private handleNotification(
+      method: string,
+      params: Record<string, unknown>,
+      handlers: TurnStreamHandlers
+    ): TurnResult | null {
+      switch (method) {
+        case "item/started":
+          if (isRecord(params.item))
+            this.handleStartedItem(params.item, handlers)
+          return null
+        case "item/agentMessage/delta":
+          this.appendTextDelta(params, handlers)
+          return null
+        case "item/reasoning/summaryTextDelta":
+          this.appendReasoningDelta(params, handlers)
+          return null
+        case "item/completed":
+          if (isRecord(params.item))
+            this.handleCompletedItem(params.item, handlers)
+          return null
+        case "error":
+          this.recordNotificationError(params)
+          return null
+        case "olc/appServerExited":
+          return this.appServerExitedResult(params)
+        case "turn/completed":
+          return isRecord(params.turn)
+            ? this.finishedTurnResult(params.turn)
+            : null
+        default:
+          return null
+      }
+    }
+
     private async readLeg(
       handlers: TurnStreamHandlers,
       signals: TurnRunSignals
@@ -308,87 +491,13 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
             ? this.interruptedResult()
             : { status: "suspended" }
         }
-        const { method } = next.message
         const params = isRecord(next.message.params) ? next.message.params : {}
-
-        if (method === "item/agentMessage/delta") {
-          const delta = typeof params.delta === "string" ? params.delta : ""
-          this.content += delta
-          handlers.onText(delta)
-          continue
-        }
-        if (method === "item/reasoning/summaryTextDelta") {
-          const delta = typeof params.delta === "string" ? params.delta : ""
-          this.reasoning += delta
-          handlers.onReasoning(delta)
-          continue
-        }
-        if (method === "item/completed" && isRecord(params.item)) {
-          if (
-            params.item.type === "agentMessage" &&
-            typeof params.item.text === "string" &&
-            !this.content
-          ) {
-            this.content = params.item.text
-          }
-          if (
-            params.item.type === "imageGeneration" &&
-            typeof params.item.result === "string"
-          ) {
-            const itemId =
-              typeof params.item.id === "string" ? params.item.id : undefined
-            if (!itemId || !this.imageItemIds.has(itemId)) {
-              if (itemId) this.imageItemIds.add(itemId)
-              const image: GeneratedImage = {
-                b64Json: params.item.result,
-                ...(typeof params.item.revisedPrompt === "string" &&
-                params.item.revisedPrompt
-                  ? { revisedPrompt: params.item.revisedPrompt }
-                  : {})
-              }
-              this.images.push(image)
-              handlers.onImage?.(image)
-            }
-          }
-          continue
-        }
-        if (method === "error") {
-          const error = isRecord(params.error) ? params.error : {}
-          if (typeof error.message === "string") this.lastError = error.message
-          continue
-        }
-        if (method === "olc/appServerExited") {
-          return {
-            status: "failed",
-            error: {
-              type: "CodexAppServerExited",
-              message: String(params.message ?? "Codex app-server exited")
-            }
-          }
-        }
-        if (method !== "turn/completed" || !isRecord(params.turn)) continue
-
-        const status = String(params.turn.status ?? "failed")
-        if (status === "completed") {
-          return {
-            status: "completed",
-            content: this.content,
-            reasoning: this.reasoning,
-            ...(this.images.length > 0 ? { images: [...this.images] } : {}),
-            finish: "stop"
-          }
-        }
-        const turnError = isRecord(params.turn.error) ? params.turn.error : {}
-        return {
-          status: "failed",
-          error: {
-            type: status === "interrupted" ? "CodexInterrupted" : "CodexError",
-            message:
-              (typeof turnError.message === "string" && turnError.message) ||
-              this.lastError ||
-              `Codex turn ended with status '${status}'`
-          }
-        }
+        const result = this.handleNotification(
+          next.message.method ?? "",
+          params,
+          handlers
+        )
+        if (result) return result
       }
     }
 
@@ -473,7 +582,33 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
         if ("error" in resolved) throw new BackendInputError(resolved.error)
       }
       const prompt = buildPromptParts(input.messages)
-      const tools = config.BRIDGE_ENABLED ? toDynamicTools(input.tools) : []
+      const requestedWebSearch = routeCodexWebSearch(
+        input.tools,
+        codex.WEB_SEARCH_MODE
+      )
+      const capabilities = requestedWebSearch.native
+        ? await loadProviderCapabilities()
+        : null
+      const webSearch = routeCodexWebSearch(
+        input.tools,
+        codex.WEB_SEARCH_MODE,
+        capabilities?.webSearch ?? true
+      )
+      log("Codex web-search route", {
+        nativeWebSearch: webSearch.native,
+        webSearchMode: webSearch.threadMode
+      })
+      const tools = config.BRIDGE_ENABLED
+        ? toDynamicTools(webSearch.bridgeTools)
+        : []
+      const developerInstructions = [
+        config.SYSTEM_PROMPT || prompt.system,
+        webSearch.native
+          ? "Native web search is enabled for this turn. When the user asks to search, browse, verify, look up, or use current information, use the built-in web search before answering. Do not claim you searched unless a webSearch event occurred, and cite the source URLs you used."
+          : ""
+      ]
+        .filter(Boolean)
+        .join("\n\n")
       const response = await client.request<ThreadStartResponse>(
         "thread/start",
         {
@@ -483,9 +618,8 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
           sandbox: "read-only",
           ephemeral: true,
           serviceName: "ollama_client_olc",
-          ...(config.SYSTEM_PROMPT || prompt.system
-            ? { developerInstructions: config.SYSTEM_PROMPT || prompt.system }
-            : {}),
+          config: { web_search: webSearch.threadMode },
+          ...(developerInstructions ? { developerInstructions } : {}),
           ...(tools.length > 0 ? { dynamicTools: tools } : {})
         }
       )
@@ -518,6 +652,7 @@ export const createCodexBackend = (context: BackendContext): AgentBackend => {
           sandbox: "read-only",
           ephemeral: true,
           serviceName: "ollama_client_olc",
+          config: { web_search: "disabled" },
           developerInstructions: imageInstructions
         }
       )

@@ -9,6 +9,7 @@ import {
   imageChunk,
   imageMimeFromUrl,
   normalizeMessageContent,
+  splitWebSearchIntent,
   toolCallsChunk
 } from "../openai-wire.js"
 
@@ -141,6 +142,56 @@ describe("buildToolFlags", () => {
         bridgeNames: ["read"]
       })
     ).toEqual({ read: true })
+  })
+})
+
+describe("splitWebSearchIntent", () => {
+  it("removes only the web_search function and preserves other tools", () => {
+    const lookup = {
+      type: "function",
+      function: { name: "lookup", parameters: { type: "object" } }
+    }
+    const webSearch = {
+      type: "function",
+      function: { name: "web_search", parameters: { type: "object" } }
+    }
+
+    expect(splitWebSearchIntent([lookup, webSearch])).toEqual({
+      requested: true,
+      clientTools: [lookup],
+      source: "auto"
+    })
+  })
+
+  it("does not infer intent from malformed or absent tools", () => {
+    expect(splitWebSearchIntent(undefined)).toEqual({
+      requested: false,
+      clientTools: [],
+      source: "auto"
+    })
+    expect(splitWebSearchIntent([{ name: "web_search" }])).toEqual({
+      requested: false,
+      clientTools: [{ name: "web_search" }],
+      source: "auto"
+    })
+  })
+
+  it("reads the client web-search execution policy", () => {
+    const search = {
+      type: "function",
+      function: {
+        name: "web_search",
+        parameters: {
+          type: "object",
+          "x-ollama-client-web-search": { source: "native", mode: "live" }
+        }
+      }
+    }
+    expect(splitWebSearchIntent([search])).toMatchObject({
+      requested: true,
+      source: "native",
+      mode: "live"
+    })
   })
 })
 

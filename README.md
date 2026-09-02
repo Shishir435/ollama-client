@@ -24,7 +24,7 @@ Ollama Client gives you a browser-native chat workspace for local and bring-your
 - Use verified built-ins for Ollama, LM Studio, and llama.cpp; add other OpenAI-compatible servers or Anthropic from Settings.
 - Upload files and use local retrieval-augmented generation over your own content.
 - Attach images for vision-capable models.
-- Let tool-capable models read the current tab, selected text, open tabs, uploaded files, local memory, and optionally the live web when the prompt calls for it.
+- Let tool-capable models read the current tab, open tabs, uploaded files, local memory, and optionally the live web when the prompt calls for it.
 - Capture selected page text into chat with the selection-button overlay.
 - Keep chat history, sessions, files, settings, and embeddings on your machine by default.
 - Review all stored data, create a full backup, or wipe it from one Privacy screen.
@@ -62,7 +62,7 @@ still live in IndexedDB through the embeddings storage layer.
 Ollama Client supports two context paths:
 
 - **Manual context**: select tabs, selected text, files, or images before sending.
-- **Model-requested context**: tool-capable models can call tools during a response to inspect the current page, list/read open tabs, read permission-gated recently closed or synced-device sessions, search indexed files, search local chat memory, use the most recent selected text, or search the live web when web search is enabled.
+- **Model-requested context**: tool-capable models can call tools during a response to inspect the current page, list/read open tabs, read permission-gated recently closed or synced-device sessions, search indexed files, search local chat memory, or search the live web when web search is enabled.
 
 Tool calls run inside the extension and are shown in the reasoning trace with status, inputs, sources, and trimmed output previews. They do not create extra chat-history rows; only the final answer and trace metadata are persisted.
 
@@ -112,40 +112,75 @@ Firefox development:
 pnpm dev:firefox
 ```
 
-### Install `olc` local proxy
+### Optional: install the `olc` CLI
 
-`olc` exposes OpenCode or Codex through an OpenAI-compatible local API. It
+Ollama Client does not require olc; you can configure `OLLAMA_ORIGINS` manually
+using the [provider setup guide](https://www.ollamaclient.in/guides/provider-setup/).
+Bare `olc` offers an automated alternative: it starts or reuses native Ollama with extension access. `olc --lan`
+enables trusted-network access, while `olc -b opencode` and `olc -b codex`
+expose those agent runtimes through an OpenAI-compatible local API. It
 requires Node.js 22.12 or newer and the selected runtime on `PATH`.
+
+Every release publishes the install wrappers with a `sha256` for each, so the
+recommended path pins one to a tag and verifies it before it runs. Each block is
+one guarded unit, so a failed download or checksum ends it instead of falling
+through to whatever is already on disk.
 
 macOS / Linux:
 
 ```bash
-curl -fsSL https://ollamaclient.in/olc.sh | sh
+tag=0.13.3
+base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
+curl -fsSL "$base/olc.sh" -o olc.sh &&
+  curl -fsSL "$base/olc.sh.sha256" -o olc.sh.sha256 &&
+  { if command -v sha256sum >/dev/null
+    then sha256sum -c olc.sh.sha256
+    else shasum -a 256 -c olc.sh.sha256
+    fi
+  } &&
+  less olc.sh &&
+  OLC_VERSION="$tag" sh olc.sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://ollamaclient.in/olc.ps1 | iex
+$tag = "0.13.3"
+try {
+  $base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
+  $dir = (New-Item -ItemType Directory -Path (Join-Path $env:TEMP "olc-$tag-$(Get-Random)")).FullName
+  irm "$base/olc.ps1" -OutFile "$dir\olc.ps1" -ErrorAction Stop
+  irm "$base/olc.ps1.sha256" -OutFile "$dir\olc.ps1.sha256" -ErrorAction Stop
+  $expected = (Get-Content "$dir\olc.ps1.sha256").Split(" ")[0]
+  if ((Get-FileHash "$dir\olc.ps1" -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
+  Get-Content "$dir\olc.ps1"
+  $env:OLC_VERSION = $tag
+  Unblock-File "$dir\olc.ps1"
+  powershell -ExecutionPolicy Bypass -File "$dir\olc.ps1"
+} catch {
+  Write-Error "olc install stopped: $_"
+}
 ```
 
-To pin version `0.13.2` on macOS / Linux:
+If you would rather not verify anything, the site serves the same wrappers at a
+mutable URL and both accept `OLC_VERSION`:
 
 ```bash
-export OLC_VERSION=0.13.2
-curl -fsSL https://ollamaclient.in/olc.sh | sh
+curl -fsSL https://ollamaclient.in/olc.sh | sh          # macOS / Linux
 ```
-
-To pin version `0.13.2` in Windows PowerShell:
 
 ```powershell
-$env:OLC_VERSION = "0.13.2"
-irm https://ollamaclient.in/olc.ps1 | iex
+irm https://ollamaclient.in/olc.ps1 | iex               # Windows PowerShell
 ```
 
-Then run `olc --help`.
-Configure Ollama Client with a custom OpenAI-compatible provider at
-`http://127.0.0.1:8083/v1`. See the [OLC developer guide](https://www.ollamaclient.in/developers/)
+That form executes a remote script unread, with your own privileges. The
+[developer guide](https://www.ollamaclient.in/developers/#install-without-piping-to-a-shell)
+covers both paths, plus installing the release archive without a wrapper at all.
+
+Then run `olc` for native Ollama, or `olc --help` for all short/long options.
+All modes detach by default; `--debug` or `--foreground` stays attached.
+For Codex/OpenCode, configure Ollama Client with a custom OpenAI-compatible provider at
+`http://127.0.0.1:8083/v1` for Codex or `http://127.0.0.1:8084/v1` for OpenCode. See the [OLC developer guide](https://www.ollamaclient.in/developers/)
 for backend setup, authentication, and tool-calling details.
 
 ## Common Commands
@@ -161,7 +196,7 @@ pnpm package:firefox        # Zip Firefox build
 pnpm typecheck
 pnpm lint:check
 pnpm test:run
-pnpm verify                 # typecheck + lint + full test suite
+pnpm verify                 # shared static checks + full test suite
 pnpm verify:browser-smoke
 pnpm verify:browser-automation
 ```
@@ -240,7 +275,7 @@ Do not expose local provider APIs publicly without authentication and network co
 
 Keep changes scoped, testable, and aligned with the existing feature boundaries. New chat-history work should go through `src/lib/repositories/chat-history.ts`; new provider work should update the provider registry, factory, manager defaults, tests, and provider docs.
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md) for the full contributor workflow.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md) for the full contributor workflow. The [tooling guide](tools/README.md) lists command ownership and prerequisites.
 
 ## License
 

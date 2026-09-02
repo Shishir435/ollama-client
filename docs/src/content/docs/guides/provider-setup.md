@@ -47,13 +47,107 @@ reasoning, tools, context limits, and regional availability. A passing client
 contract test means Ollama Client preserves the documented wire shape; it is
 not a live service-health check.
 
-## 3. Start Ollama (primary path)
+## 3. Configure and start Ollama
 
-Install Ollama from [ollama.com](https://ollama.com), then start it:
+Ollama Client does not require olc. Choose the automatic CLI setup or configure
+Ollama's environment yourself.
+
+### Option A: automatic setup with olc
+
+Install Ollama from [ollama.com](https://ollama.com), then install the **olc CLI**:
 
 ```bash
+# macOS / Linux
+curl -fsSL https://ollamaclient.in/olc.sh | sh
+```
+
+```powershell
+# Windows PowerShell
+irm https://ollamaclient.in/olc.ps1 | iex
+```
+
+These installers pipe a remote script into your shell. To pin the release and verify it first, see [installing without piping to a shell](/developers/#install-without-piping-to-a-shell).
+
+Start or reuse native Ollama with extension origins enabled:
+
+```bash
+olc
+olc --check --json   # optional read-only verification
+```
+
+Use `olc --lan` only for trusted-network access; Ollama's native API has no
+authentication. Use `olc --debug` for foreground diagnostics. The CLI is detached
+by default and refuses to replace an unrelated listener. It never writes global,
+user, app, or service environment: `OLLAMA_*` exists only on a standalone Ollama
+process started by olc. Compatible managed servers are reused unchanged; stop or
+manually configure an incompatible service. On macOS, olc can gracefully quit an
+incompatible Ollama app and replace it with a process-scoped standalone server.
+See [OLC installation and platform behavior](/developers/).
+
+### Option B: manual setup without olc
+
+Fully stop the existing Ollama app or server first so the restarted process
+inherits the new environment.
+
+For a macOS or Linux shell-run server:
+
+```bash
+OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*" \
+OLLAMA_HOST="127.0.0.1:11434" \
 ollama serve
 ```
+
+For the macOS Ollama app, set its launch-session environment and restart it:
+
+```bash
+launchctl setenv OLLAMA_ORIGINS "chrome-extension://*,moz-extension://*"
+osascript -e 'quit app "Ollama"'
+open -a Ollama
+```
+
+The `launchctl` value lasts until logout. Remove it with
+`launchctl unsetenv OLLAMA_ORIGINS`.
+
+For a Linux systemd service:
+
+```bash
+sudo systemctl edit ollama
+```
+
+Add this override, then save the editor:
+
+```ini
+[Service]
+Environment="OLLAMA_ORIGINS=chrome-extension://*,moz-extension://*"
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+```
+
+For the current Windows PowerShell session:
+
+```powershell
+$env:OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*"
+ollama serve
+```
+
+To persist it for the current Windows user, set the user variable and then
+fully quit and reopen Ollama:
+
+```powershell
+[Environment]::SetEnvironmentVariable(
+  "OLLAMA_ORIGINS",
+  "chrome-extension://*,moz-extension://*",
+  "User"
+)
+```
+
+These examples keep Ollama on loopback port `11434`. For LAN access, set
+`OLLAMA_HOST=0.0.0.0:11434` only on a trusted network; Ollama has no native API
+authentication. See [CORS troubleshooting](/guides/troubleshooting/ollama-cors-error/)
+for verification and platform details.
 
 Pull at least one chat model:
 
@@ -73,9 +167,12 @@ ollama pull all-minilm:latest
 
 You need at least one chat model and one embeddings model installed for the full experience.
 
-:::tip[Helper script]
-Need help with LAN or Firefox origin setup? See [`tools/ollama-env.sh`](https://github.com/Shishir435/ollama-client/blob/main/tools/ollama-env.sh) in the repo.
+:::note[Optional Bash helper]
+From a repository clone, `tools/setup/ollama-env.sh` automates the same manual
+environment setup for existing Bash workflows. You can use it without installing
+olc. The olc path adds stricter process ownership checks and readiness reporting.
 :::
+
 
 ## 4. Configure the extension
 
@@ -155,7 +252,7 @@ SearXNG supports `pageno`, not an API-side result-count parameter. Ollama Client
 Chrome-based browsers route extension requests through Declarative Net Request (DNR). Firefox uses a different extension API model.
 
 :::caution[Firefox + Ollama]
-On Firefox or strict environments, you may need to set `OLLAMA_ORIGINS` to allow the extension origin. The helper script linked above handles this for common setups.
+On Firefox or strict environments, you may need to set `OLLAMA_ORIGINS` to allow the extension origin. Either run olc as shown above or use the manual environment instructions; both configure Ollama itself, and the extension works the same way afterward.
 :::
 
 ## 10. Troubleshooting

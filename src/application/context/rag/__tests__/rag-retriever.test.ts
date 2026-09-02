@@ -235,6 +235,92 @@ describe("retrieveContextFromSources", () => {
     expect(result).toHaveProperty("formattedContext")
     expect(result).toHaveProperty("sources")
   })
+
+  it("falls back to keyword context when a source embedding is rate-limited", async () => {
+    const { generateEmbeddingsBatch } = await import(
+      "@/application/embeddings/embedding-service"
+    )
+
+    vi.mocked(generateEmbeddingsBatch).mockResolvedValueOnce([
+      { error: "rate limited", failure: { status: 429 } }
+    ] as any)
+    const sources = [
+      {
+        id: "src-1",
+        title: "Test Title",
+        content: "keyword content for rate limit fallback"
+      }
+    ]
+    const result = await retrieveContextFromSources("keyword", sources)
+
+    expect(result.documents).toHaveLength(1)
+    expect(result.documents[0]?.embedding).toEqual([])
+  })
+
+  it("keeps successful semantic candidates when another source embedding fails", async () => {
+    const { generateEmbeddingsBatch } = await import(
+      "@/application/embeddings/embedding-service"
+    )
+    const { formatEnhancedResults } = await import("../rag-pipeline")
+    const { chunkDocuments } = await import("@/lib/embeddings/chunker")
+    vi.mocked(formatEnhancedResults).mockClear()
+    vi.mocked(chunkDocuments).mockResolvedValueOnce([
+      { pageContent: "keyword content for mixed batch", metadata: {} },
+      { pageContent: "another keyword chunk", metadata: {} }
+    ] as any)
+
+    vi.mocked(generateEmbeddingsBatch).mockResolvedValueOnce([
+      { embedding: [0.1, 0.2], model: "test-model", providerId: "ollama" },
+      { error: "rate limited", failure: { status: 429 } }
+    ] as any)
+
+    const result = await retrieveContextFromSources("keyword", [
+      {
+        id: "src-1",
+        title: "Test Title",
+        content: "keyword content for mixed batch"
+      }
+    ])
+
+    expect(formatEnhancedResults).toHaveBeenCalled()
+    expect(result.documents[0]?.embedding).toEqual([0.1, 0.2])
+  })
+
+  it("recovers keyword-relevant failed chunks when semantic scores are below threshold", async () => {
+    const { cosineSimilarity, generateEmbeddingsBatch } = await import(
+      "@/application/embeddings/embedding-service"
+    )
+    const { formatEnhancedResults } = await import("../rag-pipeline")
+    const { chunkDocuments } = await import("@/lib/embeddings/chunker")
+    vi.mocked(cosineSimilarity).mockReturnValueOnce(0.1)
+    vi.mocked(formatEnhancedResults).mockClear()
+    vi.mocked(chunkDocuments).mockResolvedValueOnce([
+      { pageContent: "unrelated chunk", metadata: {} },
+      { pageContent: "keyword match in failed chunk", metadata: {} }
+    ] as any)
+    vi.mocked(generateEmbeddingsBatch).mockResolvedValueOnce([
+      { embedding: [0.1, 0.2], model: "test-model", providerId: "ollama" },
+      { error: "rate limited", failure: { status: 429 } }
+    ] as any)
+
+    const result = await retrieveContextFromSources("keyword", [
+      { id: "src-1", title: "Test Title", content: "source content" }
+    ])
+
+    expect(formatEnhancedResults).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          document: expect.objectContaining({
+            content: "keyword match in failed chunk",
+            embedding: []
+          }),
+          score: 0.1
+        })
+      ]),
+      expect.any(Number)
+    )
+    expect(result.documents).toHaveLength(2)
+  })
 })
 
 describe("reformulateQuestion", () => {

@@ -8,7 +8,10 @@ const repositoryRoot = process.cwd()
 const localeRoot = join(repositoryRoot, "src/locales")
 const localeLoaderPath = join(repositoryRoot, "src/i18n/locale-loader.ts")
 const aggregateResourcePath = join(repositoryRoot, "src/i18n/resources.ts")
-const generatorPath = join(repositoryRoot, "tools/generate-i18n-resources.ts")
+const generatorPath = join(
+  repositoryRoot,
+  "tools/generate/generate-i18n-resources.ts"
+)
 
 describe("locale architecture", () => {
   it("keeps every source locale behind an explicit dynamic import", () => {

@@ -1,0 +1,167 @@
+import fs from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+const LOCALES_DIR = path.join(__dirname, "../../src/locales")
+const SELECTION_OUTPUT_DIR = path.join(
+  __dirname,
+  "../../public/assets/selection-locales"
+)
+const LEGACY_SELECTION_OUTPUT_DIR = path.join(
+  __dirname,
+  "../../src/i18n/selection-locales"
+)
+const LEGACY_SELECTION_OUTPUT_FILE = path.join(
+  __dirname,
+  "../../src/i18n/selection-resources.ts"
+)
+const CHROME_LOCALES_DIR = path.join(__dirname, "../../public/_locales")
+const CHROME_LOCALE_MAP: Record<string, string> = {
+  zh: "zh_CN"
+}
+
+type ExtensionMessages = {
+  name: string
+  short_name: string
+  description: string
+  action_default_title: string
+}
+
+type TranslationJson = {
+  extension?: Partial<ExtensionMessages>
+  [key: string]: unknown
+}
+
+function assertExtensionMessages(
+  locale: string,
+  extension: TranslationJson["extension"]
+): asserts extension is ExtensionMessages {
+  const requiredKeys = [
+    "name",
+    "short_name",
+    "description",
+    "action_default_title"
+  ] satisfies Array<keyof ExtensionMessages>
+
+  const missingKeys = requiredKeys.filter((key) => !extension?.[key])
+
+  if (missingKeys.length > 0) {
+    throw new Error(
+      `${locale}/translation.json is missing extension metadata: ${missingKeys.join(", ")}`
+    )
+  }
+}
+
+function toChromeMessages(extension: ExtensionMessages) {
+  return {
+    extName: {
+      message: extension.name,
+      description: "Extension name shown by Chrome and Chrome Web Store"
+    },
+    extShortName: {
+      message: extension.short_name,
+      description: "Short extension name"
+    },
+    extDescription: {
+      message: extension.description,
+      description: "Extension description shown by Chrome and Chrome Web Store"
+    },
+    actionDefaultTitle: {
+      message: extension.action_default_title,
+      description: "Toolbar action title"
+    }
+  }
+}
+
+function writeChromeLocalesDir(
+  chromeMessages: Record<string, ReturnType<typeof toChromeMessages>>
+) {
+  const tempDir = `${CHROME_LOCALES_DIR}.tmp-${process.pid}`
+  const backupDir = `${CHROME_LOCALES_DIR}.bak-${process.pid}`
+
+  fs.rmSync(tempDir, { recursive: true, force: true })
+  fs.rmSync(backupDir, { recursive: true, force: true })
+  fs.mkdirSync(tempDir, { recursive: true })
+
+  try {
+    for (const [locale, messages] of Object.entries(chromeMessages)) {
+      const localeDir = path.join(tempDir, locale)
+      fs.mkdirSync(localeDir, { recursive: true })
+      fs.writeFileSync(
+        path.join(localeDir, "messages.json"),
+        `${JSON.stringify(messages, null, 2)}\n`
+      )
+      console.log(`✨ Generated Chrome locale metadata for ${locale}`)
+    }
+
+    if (fs.existsSync(CHROME_LOCALES_DIR)) {
+      fs.renameSync(CHROME_LOCALES_DIR, backupDir)
+    }
+    fs.renameSync(tempDir, CHROME_LOCALES_DIR)
+    fs.rmSync(backupDir, { recursive: true, force: true })
+  } catch (error) {
+    if (!fs.existsSync(CHROME_LOCALES_DIR) && fs.existsSync(backupDir)) {
+      fs.renameSync(backupDir, CHROME_LOCALES_DIR)
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true })
+    fs.rmSync(backupDir, { recursive: true, force: true })
+    throw error
+  }
+}
+
+function generateResources() {
+  console.log("📦 Generating i18n artifacts...")
+
+  const chromeMessages: Record<string, ReturnType<typeof toChromeMessages>> = {}
+  let hasErrors = false
+
+  if (!fs.existsSync(LOCALES_DIR)) {
+    console.error(`❌ Locales directory not found: ${LOCALES_DIR}`)
+    process.exit(1)
+  }
+
+  fs.rmSync(SELECTION_OUTPUT_DIR, { recursive: true, force: true })
+  fs.rmSync(LEGACY_SELECTION_OUTPUT_DIR, { recursive: true, force: true })
+  fs.rmSync(LEGACY_SELECTION_OUTPUT_FILE, { force: true })
+  fs.mkdirSync(SELECTION_OUTPUT_DIR, { recursive: true })
+
+  const locales = fs.readdirSync(LOCALES_DIR).filter((item) => {
+    return fs.statSync(path.join(LOCALES_DIR, item)).isDirectory()
+  })
+
+  for (const locale of locales) {
+    const translationFile = path.join(LOCALES_DIR, locale, "translation.json")
+
+    if (fs.existsSync(translationFile)) {
+      try {
+        const content = fs.readFileSync(translationFile, "utf-8")
+        const json = JSON.parse(content) as TranslationJson
+        assertExtensionMessages(locale, json.extension)
+        fs.writeFileSync(
+          path.join(SELECTION_OUTPUT_DIR, `${locale}.json`),
+          `${JSON.stringify({ selection_button: json.selection_button })}\n`
+        )
+        chromeMessages[CHROME_LOCALE_MAP[locale] ?? locale] = toChromeMessages(
+          json.extension
+        )
+        console.log(`  ✓ Loaded ${locale}`)
+      } catch (error) {
+        console.error(`  ❌ Error loading ${locale}:`, error)
+        hasErrors = true
+      }
+    }
+  }
+
+  if (hasErrors) {
+    process.exit(1)
+  }
+
+  console.log(`✨ Generated selection locales at ${SELECTION_OUTPUT_DIR}`)
+
+  writeChromeLocalesDir(chromeMessages)
+}
+
+generateResources()

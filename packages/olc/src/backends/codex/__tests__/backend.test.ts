@@ -113,6 +113,18 @@ describe("Codex backend", () => {
         ],
         reasoningEffort: "medium"
       })
+      const firstThreadStart = JSON.parse(
+        readFileSync(
+          path.join(directory, "workspace", "thread-starts.jsonl"),
+          "utf8"
+        )
+          .trim()
+          .split("\n")[0] as string
+      )
+      expect(firstThreadStart).toMatchObject({
+        config: { web_search: "disabled" },
+        dynamicTools: [{ name: "lookup" }]
+      })
       const suspended = new Promise<void>((resolve) => {
         suspend = resolve
       })
@@ -151,6 +163,68 @@ describe("Codex backend", () => {
       expect(text).toEqual(["Result: 42"])
       expect(reasoning).toEqual(["Checked. "])
       await turn.dispose()
+
+      const nativeSearchTurn = await backend.startTurn({
+        requestId: "request-native-search",
+        model: { providerId: "codex", modelId: "fake-codex" },
+        messages: [
+          { role: "system", content: "Stay concise" },
+          { role: "user", content: "Find current information" }
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "web_search",
+              description: "Search the web",
+              parameters: { type: "object" }
+            }
+          },
+          {
+            type: "function",
+            function: {
+              name: "lookup",
+              description: "Look up an answer",
+              parameters: { type: "object" }
+            }
+          }
+        ],
+        reasoningEffort: "medium"
+      })
+      const threadStarts = readFileSync(
+        path.join(directory, "workspace", "thread-starts.jsonl"),
+        "utf8"
+      )
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line))
+      expect(threadStarts[1]).toMatchObject({
+        config: { web_search: "cached" },
+        dynamicTools: [{ name: "lookup" }]
+      })
+      expect(threadStarts[1].developerInstructions).toContain(
+        "Native web search is enabled"
+      )
+      const nativeText: string[] = []
+      const nativeReasoning: string[] = []
+      const nativeOutcome = await nativeSearchTurn.run(
+        {
+          onText: (delta: string) => nativeText.push(delta),
+          onReasoning: (delta: string) => nativeReasoning.push(delta)
+        },
+        {
+          suspended: new Promise(() => {}),
+          hasUnannouncedToolCalls: () => false
+        }
+      )
+      expect(nativeOutcome).toMatchObject({
+        status: "completed",
+        content: "Verified answer."
+      })
+      expect(nativeText).toEqual(["Verified answer."])
+      expect(nativeReasoning.join("")).toContain("Checking sources.")
+      expect(nativeReasoning.join("")).toContain("Web search: current answer")
+      await nativeSearchTurn.dispose()
 
       await expect(
         backend.generateImage?.({

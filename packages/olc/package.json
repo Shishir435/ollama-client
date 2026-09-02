@@ -1,6 +1,6 @@
 {
   "name": "@ollama-client/olc",
-  "version": "0.13.2",
+  "version": "0.13.3",
   "description": "OpenAI-compatible proxy for a local agent runtime, with a tool bridge that lets OpenAI-compatible clients run their own tools",
   "type": "module",
   "main": "./dist/index.js",
@@ -23,7 +23,7 @@
   "scripts": {
     "build": "pnpm clean && tsc6 -p tsconfig.build.json && node ./scripts/copy-plugin.mjs",
     "typecheck": "tsc6 -p tsconfig.json --noEmit",
-    "dev": "tsx src/cli.ts --backend opencode --debug",
+    "dev": "tsx src/cli.ts",
     "dev:opencode": "tsx src/cli.ts --backend opencode",
     "dev:opencode:debug": "tsx src/cli.ts --backend opencode --debug",
     "dev:codex": "tsx src/cli.ts --backend codex",

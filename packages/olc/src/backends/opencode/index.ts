@@ -45,6 +45,7 @@ import { resolveOpencodeConfig } from "./config.js"
 import { createBackendSupervisor } from "./server.js"
 import { ToolManifest } from "./tool-manifest.js"
 import { createTurnReader, type TurnOutcome } from "./turn-events.js"
+import { routeOpencodeWebSearch } from "./web-search.js"
 
 const TOOL_IDS_CACHE_TTL_MS = 60_000
 const MODEL_CATALOG_CACHE_TTL_MS = 30_000
@@ -371,11 +372,20 @@ export const createOpencodeBackend = (
         )
       }
 
-      const bridgeNames = await syncBridgeTools(input.tools, input.requestId)
+      const discoveredIds = await loadToolIds()
+      const webSearch = routeOpencodeWebSearch({
+        tools: input.tools,
+        discoveredIds,
+        operatorAllowedTools: opencode.ALLOW_OPENCODE_TOOLS
+      })
+      const bridgeNames = await syncBridgeTools(
+        webSearch.bridgeTools,
+        input.requestId
+      )
       const flags = buildToolFlags({
-        discoveredIds: await loadToolIds(),
+        discoveredIds,
         bridgeNames,
-        allowedNativeTools: opencode.ALLOW_OPENCODE_TOOLS
+        allowedNativeTools: webSearch.allowedNativeTools
       })
 
       let variant: string | undefined
@@ -411,6 +421,7 @@ export const createOpencodeBackend = (
         requestId: input.requestId,
         sessionId,
         model: `${input.model.providerId}/${input.model.modelId}`,
+        nativeWebSearch: webSearch.native,
         bridgeTools: bridgeNames,
         parts: parts.length
       })
