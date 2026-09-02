@@ -122,18 +122,23 @@ expose those agent runtimes through an OpenAI-compatible local API. It
 requires Node.js 22.12 or newer and the selected runtime on `PATH`.
 
 Every release publishes the install wrappers with a `sha256` for each, so the
-recommended path pins one to a tag and verifies it before it runs.
+recommended path pins one to a tag and verifies it before it runs. The steps are
+chained, so a failed checksum stops before the wrapper executes.
 
 macOS / Linux:
 
 ```bash
 tag=0.13.3
 base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
-curl -fsSL "$base/olc.sh" -o olc.sh
-curl -fsSL "$base/olc.sh.sha256" -o olc.sh.sha256
-if command -v sha256sum >/dev/null; then sha256sum -c olc.sh.sha256; else shasum -a 256 -c olc.sh.sha256; fi
-less olc.sh
-OLC_VERSION="$tag" sh olc.sh
+curl -fsSL "$base/olc.sh" -o olc.sh &&
+  curl -fsSL "$base/olc.sh.sha256" -o olc.sh.sha256 &&
+  { if command -v sha256sum >/dev/null
+    then sha256sum -c olc.sh.sha256
+    else shasum -a 256 -c olc.sh.sha256
+    fi
+  } &&
+  less olc.sh &&
+  OLC_VERSION="$tag" sh olc.sh
 ```
 
 Windows PowerShell:
@@ -144,11 +149,14 @@ $base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
 irm "$base/olc.ps1" -OutFile olc.ps1
 irm "$base/olc.ps1.sha256" -OutFile olc.ps1.sha256
 $expected = (Get-Content olc.ps1.sha256).Split(" ")[0]
-if ((Get-FileHash olc.ps1 -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
-Get-Content olc.ps1
-$env:OLC_VERSION = $tag
-Unblock-File olc.ps1
-powershell -ExecutionPolicy Bypass -File ./olc.ps1
+if ((Get-FileHash olc.ps1 -Algorithm SHA256).Hash -ne $expected) {
+  Write-Error "checksum mismatch: not running olc.ps1"
+} else {
+  Get-Content olc.ps1
+  $env:OLC_VERSION = $tag
+  Unblock-File olc.ps1
+  powershell -ExecutionPolicy Bypass -File ./olc.ps1
+}
 ```
 
 If you would rather not verify anything, the site serves the same wrappers at a

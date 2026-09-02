@@ -51,11 +51,15 @@ Every release publishes both wrappers alongside the archives, each with its own
 ```bash
 tag=0.13.3
 base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
-curl -fsSL "$base/olc.sh" -o olc.sh
-curl -fsSL "$base/olc.sh.sha256" -o olc.sh.sha256
-if command -v sha256sum >/dev/null; then sha256sum -c olc.sh.sha256; else shasum -a 256 -c olc.sh.sha256; fi
-less olc.sh
-OLC_VERSION="$tag" sh olc.sh
+curl -fsSL "$base/olc.sh" -o olc.sh &&
+  curl -fsSL "$base/olc.sh.sha256" -o olc.sh.sha256 &&
+  { if command -v sha256sum >/dev/null
+    then sha256sum -c olc.sh.sha256
+    else shasum -a 256 -c olc.sh.sha256
+    fi
+  } &&
+  less olc.sh &&
+  OLC_VERSION="$tag" sh olc.sh
 ```
 
 ```powershell
@@ -64,12 +68,19 @@ $base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
 irm "$base/olc.ps1" -OutFile olc.ps1
 irm "$base/olc.ps1.sha256" -OutFile olc.ps1.sha256
 $expected = (Get-Content olc.ps1.sha256).Split(" ")[0]
-if ((Get-FileHash olc.ps1 -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
-Get-Content olc.ps1
-$env:OLC_VERSION = $tag
-Unblock-File olc.ps1
-powershell -ExecutionPolicy Bypass -File ./olc.ps1
+if ((Get-FileHash olc.ps1 -Algorithm SHA256).Hash -ne $expected) {
+  Write-Error "checksum mismatch: not running olc.ps1"
+} else {
+  Get-Content olc.ps1
+  $env:OLC_VERSION = $tag
+  Unblock-File olc.ps1
+  powershell -ExecutionPolicy Bypass -File ./olc.ps1
+}
 ```
+
+Every step is chained to the one before it, so a failed checksum stops the block
+instead of letting the wrapper run anyway — the point of verifying is lost if the
+next pasted line executes regardless.
 
 A file downloaded rather than piped carries the mark of the web, so PowerShell
 blocks it until `Unblock-File` clears the mark; the explicit policy on that one
@@ -81,11 +92,15 @@ is the same artifact the wrapper would install, and nothing but `tar` runs:
 ```bash
 tag=0.13.3
 base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
-curl -fsSL "$base/olc.tar.gz" -o olc.tar.gz
-curl -fsSL "$base/olc.tar.gz.sha256" -o olc.tar.gz.sha256
-if command -v sha256sum >/dev/null; then sha256sum -c olc.tar.gz.sha256; else shasum -a 256 -c olc.tar.gz.sha256; fi
-tar -xzf olc.tar.gz
-node olc/dist/olc.mjs --help
+curl -fsSL "$base/olc.tar.gz" -o olc.tar.gz &&
+  curl -fsSL "$base/olc.tar.gz.sha256" -o olc.tar.gz.sha256 &&
+  { if command -v sha256sum >/dev/null
+    then sha256sum -c olc.tar.gz.sha256
+    else shasum -a 256 -c olc.tar.gz.sha256
+    fi
+  } &&
+  tar -xzf olc.tar.gz &&
+  node olc/dist/olc.mjs --help
 ```
 
 ```powershell
@@ -94,9 +109,12 @@ $base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
 irm "$base/olc.tar.gz" -OutFile olc.tar.gz
 irm "$base/olc.tar.gz.sha256" -OutFile olc.tar.gz.sha256
 $expected = (Get-Content olc.tar.gz.sha256).Split(" ")[0]
-if ((Get-FileHash olc.tar.gz -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
-tar -xzf olc.tar.gz
-node olc/dist/olc.mjs --help
+if ((Get-FileHash olc.tar.gz -Algorithm SHA256).Hash -ne $expected) {
+  Write-Error "checksum mismatch: not running olc.tar.gz"
+} else {
+  tar -xzf olc.tar.gz
+  node olc/dist/olc.mjs --help
+}
 ```
 
 Each checksum is published beside the file it covers on the same release, so it
