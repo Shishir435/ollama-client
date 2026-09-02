@@ -9,6 +9,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.14.0]
+
+### Development
+
+- Supervised Agent Preview begins behind a disabled-by-default release gate.
+  Versioned contracts now define its commands, observations, lifecycle,
+  approvals, takeovers, and safe error vocabulary, while a new pure runtime
+  package enforces legal run transitions and strict isolation from Chat. This
+  foundation adds no browser permission, browser mutation, or visible Agent UI.
+
 ## [0.13.3]
 
 ### Added
