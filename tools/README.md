@@ -68,6 +68,7 @@ only after merging the reports.
 | `pnpm e2e:release:run` | Consume those four builds; run critical Chromium, worker recovery, and Chrome/Firefox migration gates |
 | `pnpm e2e:release` | Build all four targets and run the release browser gates |
 | `pnpm verify:release` | Static checks + coverage, all four builds, manifest/bundle checks, docs build, and release browser gates; each browser target builds once |
+| `pnpm verify:agent-endpoints [baseUrl]` | Probe a deployed docs site for the agent contract: Markdown negotiation, 404 status and body, JSON API errors, rate-limit headers, and every machine-readable file. Defaults to production; pass a preview URL to check a deploy before promoting it. Needs network, no build |
 
 Browser gates need the corresponding installed browsers. Chromium automation
 uses Playwright; the Firefox migration gate uses Firefox and geckodriver.

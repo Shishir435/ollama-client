@@ -1,7 +1,21 @@
-import { apiError, apiJson } from "@/lib/api-response"
+import {
+  API_VERSION_PATH,
+  apiError,
+  apiJson,
+  SITE_ORIGIN
+} from "@/lib/api-response"
 
 export function GET() {
-  return apiJson({ status: "ok", service: "ollama-client-website", version: "v1" })
+  return apiJson({
+    status: "ok",
+    service: "ollama-client-website",
+    version: API_VERSION_PATH,
+    checks: {
+      docs: "static",
+      inference: "not-hosted"
+    },
+    self: `${SITE_ORIGIN}/api/health`
+  })
 }
 
 export function ALL() {
@@ -9,6 +23,7 @@ export function ALL() {
     405,
     "method_not_allowed",
     "Only GET is supported by this read-only endpoint.",
-    "Use GET /api/health."
+    "Use GET /api/health.",
+    { Allow: "GET, HEAD, OPTIONS" }
   )
 }
