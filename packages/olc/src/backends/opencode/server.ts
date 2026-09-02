@@ -77,112 +77,126 @@ const findExecutableInDirs = (dirs: string[], names: string[]) => {
   return null
 }
 
-/** Locate the OpenCode binary across the shells and version managers people use. */
-export const resolveOpencodePath = (
-  requestedPath?: string
-): { path: string | null; source: string } => {
-  const input = (requestedPath ?? "").trim()
-  const names = candidateNames()
+const resolveConfiguredPath = (input: string): string | null => {
+  if (!input) return null
+  const looksLikePath =
+    path.isAbsolute(input) || input.includes("/") || input.includes("\\")
+  if (!looksLikePath) return null
+  if (fs.existsSync(input)) return input
+  const resolved = path.resolve(process.cwd(), input)
+  return fs.existsSync(resolved) ? resolved : null
+}
 
-  if (input) {
-    const looksLikePath =
-      path.isAbsolute(input) || input.includes("/") || input.includes("\\")
-    if (looksLikePath) {
-      if (fs.existsSync(input)) return { path: input, source: "config" }
-      const resolved = path.resolve(process.cwd(), input)
-      if (fs.existsSync(resolved)) return { path: resolved, source: "config" }
-    }
-  }
-
-  const fromPath = findExecutableInDirs(splitPathEnv(), names)
-  if (fromPath) return { path: fromPath, source: "PATH" }
-
-  const extraDirs: string[] = []
-  if (process.env.OPENCODE_HOME) {
-    pushDir(extraDirs, path.join(process.env.OPENCODE_HOME, "bin"))
-  }
-  if (process.env.OPENCODE_DIR) {
-    pushDir(extraDirs, path.join(process.env.OPENCODE_DIR, "bin"))
-  }
+const addEnvironmentDirs = (dirs: string[]): void => {
+  if (process.env.OPENCODE_HOME)
+    pushDir(dirs, path.join(process.env.OPENCODE_HOME, "bin"))
+  if (process.env.OPENCODE_DIR)
+    pushDir(dirs, path.join(process.env.OPENCODE_DIR, "bin"))
   pushDir(
-    extraDirs,
+    dirs,
     prefixToBin(process.env.npm_config_prefix ?? process.env.NPM_CONFIG_PREFIX)
   )
-  pushDir(extraDirs, process.env.PNPM_HOME)
-  if (process.env.YARN_GLOBAL_FOLDER) {
-    pushDir(extraDirs, path.join(process.env.YARN_GLOBAL_FOLDER, "bin"))
-  }
-  if (process.env.VOLTA_HOME) {
-    pushDir(extraDirs, path.join(process.env.VOLTA_HOME, "bin"))
-  }
-  pushDir(extraDirs, process.env.NVM_BIN)
-  pushDir(extraDirs, path.dirname(process.execPath))
+  pushDir(dirs, process.env.PNPM_HOME)
+  if (process.env.YARN_GLOBAL_FOLDER)
+    pushDir(dirs, path.join(process.env.YARN_GLOBAL_FOLDER, "bin"))
+  if (process.env.VOLTA_HOME)
+    pushDir(dirs, path.join(process.env.VOLTA_HOME, "bin"))
+  pushDir(dirs, process.env.NVM_BIN)
+  pushDir(dirs, path.dirname(process.execPath))
+}
 
-  const home = os.homedir()
-  if (home) {
-    pushDir(extraDirs, path.join(home, ".opencode", "bin"))
-    pushDir(extraDirs, path.join(home, ".local", "bin"))
-    pushDir(extraDirs, path.join(home, ".npm-global", "bin"))
-    pushDir(extraDirs, path.join(home, ".npm", "bin"))
-    pushDir(extraDirs, path.join(home, ".pnpm-global", "bin"))
-    pushDir(extraDirs, path.join(home, ".local", "share", "pnpm"))
-    pushDir(extraDirs, path.join(home, ".asdf", "shims"))
-  }
+const addHomeDirs = (dirs: string[], home: string): void => {
+  if (!home) return
+  for (const relative of [
+    [".opencode", "bin"],
+    [".local", "bin"],
+    [".npm-global", "bin"],
+    [".npm", "bin"],
+    [".pnpm-global", "bin"],
+    [".local", "share", "pnpm"],
+    [".asdf", "shims"]
+  ])
+    pushDir(dirs, path.join(home, ...relative))
+}
 
-  if (process.platform === "win32") {
-    pushDir(
-      extraDirs,
-      process.env.APPDATA ? path.join(process.env.APPDATA, "npm") : null
-    )
-    pushDir(
-      extraDirs,
-      process.env.LOCALAPPDATA
-        ? path.join(process.env.LOCALAPPDATA, "pnpm")
-        : null
-    )
-    pushDir(extraDirs, process.env.NVM_HOME)
-    pushDir(extraDirs, process.env.NVM_SYMLINK)
-    pushDir(
-      extraDirs,
-      process.env.ProgramFiles
-        ? path.join(process.env.ProgramFiles, "nodejs")
-        : null
-    )
-    pushDir(
-      extraDirs,
-      process.env["ProgramFiles(x86)"]
-        ? path.join(process.env["ProgramFiles(x86)"] as string, "nodejs")
-        : null
-    )
-  } else {
-    pushDir(extraDirs, "/usr/local/bin")
-    pushDir(extraDirs, "/usr/bin")
-    pushDir(extraDirs, "/bin")
-    pushDir(extraDirs, "/opt/homebrew/bin")
-    pushDir(extraDirs, "/snap/bin")
+const addPlatformDirs = (dirs: string[]): void => {
+  if (process.platform !== "win32") {
+    for (const dir of [
+      "/usr/local/bin",
+      "/usr/bin",
+      "/bin",
+      "/opt/homebrew/bin",
+      "/snap/bin"
+    ])
+      pushDir(dirs, dir)
+    return
   }
+  pushDir(
+    dirs,
+    process.env.APPDATA ? path.join(process.env.APPDATA, "npm") : null
+  )
+  pushDir(
+    dirs,
+    process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, "pnpm")
+      : null
+  )
+  pushDir(dirs, process.env.NVM_HOME)
+  pushDir(dirs, process.env.NVM_SYMLINK)
+  pushDir(
+    dirs,
+    process.env.ProgramFiles
+      ? path.join(process.env.ProgramFiles, "nodejs")
+      : null
+  )
+  pushDir(
+    dirs,
+    process.env["ProgramFiles(x86)"]
+      ? path.join(process.env["ProgramFiles(x86)"], "nodejs")
+      : null
+  )
+}
 
+const addVersionManagerDirs = (dirs: string[], home: string): void => {
   const nvmDir = process.env.NVM_DIR ?? (home ? path.join(home, ".nvm") : null)
-  if (nvmDir) {
-    addVersionedDirs(extraDirs, path.join(nvmDir, "versions", "node"), "bin")
-  }
+  if (nvmDir)
+    addVersionedDirs(dirs, path.join(nvmDir, "versions", "node"), "bin")
   const asdfDir =
     process.env.ASDF_DATA_DIR ?? (home ? path.join(home, ".asdf") : null)
-  if (asdfDir) {
-    addVersionedDirs(extraDirs, path.join(asdfDir, "installs", "nodejs"), "bin")
-  }
+  if (asdfDir)
+    addVersionedDirs(dirs, path.join(asdfDir, "installs", "nodejs"), "bin")
   if (home) {
     addVersionedDirs(
-      extraDirs,
+      dirs,
       path.join(home, ".fnm", "node-versions", "v1"),
       path.join("installation", "bin")
     )
   }
+}
 
-  const fromExtras = findExecutableInDirs(extraDirs, names)
-  if (fromExtras) return { path: fromExtras, source: "known-locations" }
+const knownExecutableDirs = (): string[] => {
+  const dirs: string[] = []
+  const home = os.homedir()
+  addEnvironmentDirs(dirs)
+  addHomeDirs(dirs, home)
+  addPlatformDirs(dirs)
+  addVersionManagerDirs(dirs, home)
+  return dirs
+}
 
-  return { path: null, source: "not-found" }
+/** Locate the OpenCode binary across the shells and version managers people use. */
+export const resolveOpencodePath = (
+  requestedPath?: string
+): { path: string | null; source: string } => {
+  const configured = resolveConfiguredPath((requestedPath ?? "").trim())
+  if (configured) return { path: configured, source: "config" }
+  const names = candidateNames()
+  const fromPath = findExecutableInDirs(splitPathEnv(), names)
+  if (fromPath) return { path: fromPath, source: "PATH" }
+  const fromExtras = findExecutableInDirs(knownExecutableDirs(), names)
+  return fromExtras
+    ? { path: fromExtras, source: "known-locations" }
+    : { path: null, source: "not-found" }
 }
 
 /**
@@ -342,148 +356,175 @@ export const createBackendSupervisor = ({
     return false
   }
 
-  const ensureReady = async () => {
-    if (state.isStarting) {
-      console.log(
-        `[Proxy] Backend already starting for ${opencode.OPENCODE_SERVER_URL}, waiting for it to become ready...`
-      )
-      const ready = await waitForHealth(
-        STARTING_WAIT_ITERATIONS,
-        STARTING_WAIT_INTERVAL_MS
-      )
-      if (!ready) throw new Error("Backend startup timeout")
-      return
-    }
+  const waitForConcurrentStart = async (): Promise<boolean> => {
+    if (!state.isStarting) return false
+    console.log(
+      `[Proxy] Backend already starting for ${opencode.OPENCODE_SERVER_URL}, waiting for it to become ready...`
+    )
+    const ready = await waitForHealth(
+      STARTING_WAIT_ITERATIONS,
+      STARTING_WAIT_INTERVAL_MS
+    )
+    if (!ready) throw new Error("Backend startup timeout")
+    return true
+  }
 
+  const backendAlreadyHealthy = async (): Promise<boolean> => {
     try {
       await checkHealth(opencode.OPENCODE_SERVER_URL)
-      return
+      return true
     } catch {
-      // Nothing is listening yet; fall through and start one.
+      return false
     }
+  }
 
+  const cleanupPreviousBackend = (): void => {
+    if (state.process) {
+      try {
+        state.process.kill()
+      } catch {
+        // The child is already gone.
+      }
+    }
+    if (!state.jailRoot || !fs.existsSync(state.jailRoot)) return
+    try {
+      fs.rmSync(state.jailRoot, { recursive: true, force: true })
+    } catch {
+      // A leftover jail is cleaned up on exit as well.
+    }
+  }
+
+  const createWorkspace = (): { jailRoot: string; cwd: string } => {
+    const salt = Math.random().toString(36).slice(2, 9)
+    const jailRoot = path.join(os.tmpdir(), JAIL_PARENT, salt)
+    state.jailRoot = jailRoot
+    const workspace = path.join(jailRoot, "empty-workspace")
+    fs.mkdirSync(workspace, { recursive: true })
+    const projectDir = opencode.PROJECT_DIR.trim() || workspace
+    const projectExists = projectDir === workspace || fs.existsSync(projectDir)
+    if (!projectExists) {
+      console.warn(
+        `[Proxy] PROJECT_DIR '${projectDir}' does not exist. Falling back to an empty workspace.`
+      )
+    }
+    return { jailRoot, cwd: projectExists ? projectDir : workspace }
+  }
+
+  const resolveBackendBinary = () => {
+    const resolved = resolveOpencodePath(opencode.OPENCODE_PATH)
+    const opencodeBin =
+      resolved.path ?? opencode.OPENCODE_PATH ?? OPENCODE_BASENAME
+    if (resolved.path) {
+      console.log(
+        `[Proxy] Using OpenCode binary: ${opencodeBin} (source: ${resolved.source})`
+      )
+    } else {
+      console.warn(
+        `[Proxy] Unable to resolve the OpenCode binary for '${opencode.OPENCODE_PATH}'. Using it as-is.`
+      )
+    }
+    return { resolved, opencodeBin }
+  }
+
+  const createBackendEnvironment = (
+    jailRoot: string,
+    cwd: string,
+    pluginEntry: string | null
+  ): NodeJS.ProcessEnv => {
+    const envVars: NodeJS.ProcessEnv = {
+      ...process.env,
+      OPENCODE_PROJECT_DIR: cwd
+    }
+    if (process.platform !== "win32" && opencode.USE_ISOLATED_HOME) {
+      const fakeHome = path.join(jailRoot, "fake-home")
+      fs.mkdirSync(
+        path.join(fakeHome, ".local", "share", "opencode", "storage"),
+        {
+          recursive: true
+        }
+      )
+      envVars.HOME = fakeHome
+      envVars.USERPROFILE = fakeHome
+      console.log("[Proxy] Using an isolated home for OpenCode")
+    }
+    envVars.OPENCODE_CONFIG_CONTENT = buildConfigContent(pluginEntry)
+    return envVars
+  }
+
+  const spawnBackendProcess = (
+    opencodeBin: string,
+    resolvedPath: string | null,
+    cwd: string,
+    env: NodeJS.ProcessEnv
+  ): void => {
+    const [, , portPart] = opencode.OPENCODE_SERVER_URL.split(":")
+    const port = portPart ? (portPart.split("/")[0] as string) : "4097"
+    const useShell =
+      process.platform === "win32" ||
+      !resolvedPath ||
+      opencodeBin.endsWith(".cmd") ||
+      opencodeBin.endsWith(".bat")
+    const spawnArgs = ["serve", "--port", port, "--hostname", "127.0.0.1"]
+    console.log(
+      `[Proxy] Spawning OpenCode: ${opencodeBin} ${spawnArgs.join(" ")} (cwd: ${cwd}, shell: ${useShell})`
+    )
+    const child = spawn(opencodeBin, spawnArgs, {
+      stdio: "inherit",
+      cwd,
+      env,
+      shell: useShell
+    })
+    state.process = child
+    console.log(`[Proxy] OpenCode child process started with pid ${child.pid}`)
+    child.on("error", (error: NodeJS.ErrnoException) => {
+      console.error(`[Proxy] Failed to spawn OpenCode: ${error.message}`)
+      if (error.code === "ENOENT") {
+        console.error(
+          `[Proxy] Command '${opencode.OPENCODE_PATH}' not found. Install OpenCode or set 'OPENCODE_PATH' in config.json.`
+        )
+      }
+    })
+    child.on("exit", (code, signal) => {
+      console.log(
+        `[Proxy] OpenCode child process (pid ${child.pid}) exited with code ${code}, signal ${signal}`
+      )
+    })
+  }
+
+  const startBackend = async (): Promise<void> => {
+    console.log(
+      `[Proxy] OpenCode backend not found at ${opencode.OPENCODE_SERVER_URL}. Starting...`
+    )
+    cleanupPreviousBackend()
+    const { jailRoot, cwd } = createWorkspace()
+    const { resolved, opencodeBin } = resolveBackendBinary()
+    const pluginRuntimeDirectory =
+      opencode.PLUGIN_RUNTIME_DIR ||
+      resolvePluginRuntimeDirectory(resolved.path)
+    const plugin = installPlugin(pluginRuntimeDirectory)
+    const env = createBackendEnvironment(
+      jailRoot,
+      cwd,
+      plugin.installed ? manifest.pluginEntry : null
+    )
+    spawnBackendProcess(opencodeBin, resolved.path, cwd, env)
+    const started = await waitForHealth(
+      STARTUP_WAIT_ITERATIONS,
+      STARTUP_WAIT_INTERVAL_MS
+    )
+    if (!started) {
+      console.warn("[Proxy] Backend start timed out.")
+      throw new Error("Backend start timeout")
+    }
+    console.log("[Proxy] OpenCode backend ready.")
+  }
+
+  const ensureReady = async () => {
+    if (await waitForConcurrentStart()) return
+    if (await backendAlreadyHealthy()) return
     state.isStarting = true
     try {
-      console.log(
-        `[Proxy] OpenCode backend not found at ${opencode.OPENCODE_SERVER_URL}. Starting...`
-      )
-
-      if (state.process) {
-        try {
-          state.process.kill()
-        } catch {
-          // The child is already gone.
-        }
-      }
-      if (state.jailRoot && fs.existsSync(state.jailRoot)) {
-        try {
-          fs.rmSync(state.jailRoot, { recursive: true, force: true })
-        } catch {
-          // A leftover jail is cleaned up on exit as well.
-        }
-      }
-
-      const salt = Math.random().toString(36).slice(2, 9)
-      const jailRoot = path.join(os.tmpdir(), JAIL_PARENT, salt)
-      state.jailRoot = jailRoot
-      const workspace = path.join(jailRoot, "empty-workspace")
-      fs.mkdirSync(workspace, { recursive: true })
-
-      const projectDir = opencode.PROJECT_DIR.trim()
-        ? opencode.PROJECT_DIR.trim()
-        : workspace
-      if (projectDir !== workspace && !fs.existsSync(projectDir)) {
-        console.warn(
-          `[Proxy] PROJECT_DIR '${projectDir}' does not exist. Falling back to an empty workspace.`
-        )
-      }
-      const cwd =
-        projectDir !== workspace && fs.existsSync(projectDir)
-          ? projectDir
-          : workspace
-
-      const resolved = resolveOpencodePath(opencode.OPENCODE_PATH)
-      const opencodeBin =
-        resolved.path ?? opencode.OPENCODE_PATH ?? OPENCODE_BASENAME
-      if (resolved.path) {
-        console.log(
-          `[Proxy] Using OpenCode binary: ${opencodeBin} (source: ${resolved.source})`
-        )
-      } else {
-        console.warn(
-          `[Proxy] Unable to resolve the OpenCode binary for '${opencode.OPENCODE_PATH}'. Using it as-is.`
-        )
-      }
-
-      const pluginRuntimeDirectory =
-        opencode.PLUGIN_RUNTIME_DIR ||
-        resolvePluginRuntimeDirectory(resolved.path)
-      const plugin = installPlugin(pluginRuntimeDirectory)
-
-      const envVars: NodeJS.ProcessEnv = {
-        ...process.env,
-        OPENCODE_PROJECT_DIR: cwd
-      }
-      if (process.platform !== "win32" && opencode.USE_ISOLATED_HOME) {
-        const fakeHome = path.join(jailRoot, "fake-home")
-        fs.mkdirSync(
-          path.join(fakeHome, ".local", "share", "opencode", "storage"),
-          { recursive: true }
-        )
-        envVars.HOME = fakeHome
-        envVars.USERPROFILE = fakeHome
-        console.log("[Proxy] Using an isolated home for OpenCode")
-      }
-      envVars.OPENCODE_CONFIG_CONTENT = buildConfigContent(
-        plugin.installed ? manifest.pluginEntry : null
-      )
-
-      const [, , portPart] = opencode.OPENCODE_SERVER_URL.split(":")
-      const port = portPart ? (portPart.split("/")[0] as string) : "4097"
-      const useShell =
-        process.platform === "win32" ||
-        !resolved.path ||
-        opencodeBin.endsWith(".cmd") ||
-        opencodeBin.endsWith(".bat")
-
-      const spawnArgs = ["serve", "--port", port, "--hostname", "127.0.0.1"]
-      console.log(
-        `[Proxy] Spawning OpenCode: ${opencodeBin} ${spawnArgs.join(" ")} (cwd: ${cwd}, shell: ${useShell})`
-      )
-      const child = spawn(opencodeBin, spawnArgs, {
-        stdio: "inherit",
-        cwd,
-        env: envVars,
-        shell: useShell
-      })
-      state.process = child
-      console.log(
-        `[Proxy] OpenCode child process started with pid ${child.pid}`
-      )
-
-      child.on("error", (error: NodeJS.ErrnoException) => {
-        console.error(`[Proxy] Failed to spawn OpenCode: ${error.message}`)
-        if (error.code === "ENOENT") {
-          console.error(
-            `[Proxy] Command '${opencode.OPENCODE_PATH}' not found. Install OpenCode or set 'OPENCODE_PATH' in config.json.`
-          )
-        }
-      })
-      child.on("exit", (code, signal) => {
-        console.log(
-          `[Proxy] OpenCode child process (pid ${child.pid}) exited with code ${code}, signal ${signal}`
-        )
-      })
-
-      const started = await waitForHealth(
-        STARTUP_WAIT_ITERATIONS,
-        STARTUP_WAIT_INTERVAL_MS
-      )
-      if (!started) {
-        console.warn("[Proxy] Backend start timed out.")
-        throw new Error("Backend start timeout")
-      }
-      console.log("[Proxy] OpenCode backend ready.")
+      await startBackend()
     } finally {
       state.isStarting = false
     }

@@ -140,6 +140,54 @@ describe("OpenCode turn reader", () => {
     expect(stream.controller.signal.aborted).toBe(true)
   })
 
+  it("routes part.delta through the type learned from part.updated", async () => {
+    const client = clientWith({
+      events: [
+        {
+          type: "message.part.updated",
+          properties: {
+            part: { sessionID: "session-1", id: "text-1", type: "text" }
+          }
+        },
+        {
+          type: "message.part.delta",
+          properties: {
+            sessionID: "other-session",
+            partID: "text-1",
+            delta: "ignored"
+          }
+        },
+        {
+          type: "message.part.delta",
+          properties: {
+            sessionID: "session-1",
+            partID: "text-1",
+            delta: "hello from delta"
+          }
+        },
+        {
+          type: "message.updated",
+          properties: { info: { sessionID: "session-1", finish: "stop" } }
+        }
+      ]
+    })
+    const onDelta = vi.fn()
+    const reader = createTurnReader({ client: client as never, retryAsync })
+
+    const { done } = await reader.openEventStream("session-1", {
+      timeoutMs: 1000,
+      onDelta
+    })
+
+    await expect(done).resolves.toMatchObject({
+      content: "hello from delta",
+      reasoning: "",
+      finish: "stop"
+    })
+    expect(onDelta).toHaveBeenCalledOnce()
+    expect(onDelta).toHaveBeenCalledWith("hello from delta", false)
+  })
+
   it("announces each patch hash once with its session diff", async () => {
     const patch = {
       sessionID: "session-1",

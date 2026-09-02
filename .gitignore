@@ -10,6 +10,7 @@ node_modules
 
 # testing
 /coverage
+/.vitest-reports/
 
 # misc
 .DS_Store
@@ -51,18 +52,18 @@ analysis/stats.html
 #webstorm
 .idea
 
-# generated at build time by tools/generate-i18n-resources.ts
+# generated at build time by tools/generate/generate-i18n-resources.ts
 public/assets/selection-locales/
 
 # generated at build time by starlight-typedoc from the extension's
 # TypeScript source. Regenerated on every `pnpm docs/:build`.
 docs/src/content/docs/reference/
 
-# generated at build time by tools/generate-docs.ts
+# generated at build time by tools/generate/generate-docs.ts
 docs/src/content/docs/about/changelog.md
 docs/src/content/docs/concepts/provider-matrix.md
 
-# generated at build time by tools/generate-llms-docs.ts
+# generated at build time by tools/generate/generate-llms-docs.ts
 docs/public/llms.txt
 docs/public/llms-full.txt
 docs/public/ai.txt

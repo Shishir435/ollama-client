@@ -316,24 +316,15 @@ export class AnthropicProvider implements LLMProvider {
     })
   }
 
-  async streamChat(
-    request: ChatRequest,
-    onChunk: (chunk: ChatStreamMessage) => void,
-    signal?: AbortSignal
-  ): Promise<void> {
-    const mapped = mapMessages(request.messages, {
-      providerId: this.id,
-      model: request.model
-    })
-    const tools =
-      request.tool_choice === "none" ? undefined : request.tools?.map(mapTool)
+  private hasReplayableToolHistory(request: ChatRequest): boolean {
     const assistantToolTurns = request.messages.filter(
       (message) => message.role === "assistant" && message.toolCalls?.length
     )
     const hasToolHistory = request.messages.some(
       (message) => message.role === "tool" || message.toolCalls?.length
     )
-    const hasReplayableToolHistory =
+    if (!hasToolHistory) return true
+    return (
       assistantToolTurns.length > 0 &&
       assistantToolTurns.every((message) =>
         Boolean(
@@ -344,13 +335,10 @@ export class AnthropicProvider implements LLMProvider {
           })
         )
       )
-    // Thinking may continue through auto/none tool turns now that signed and
-    // redacted blocks are replayed. Old/incomplete checkpoints keep the prior
-    // safe degradation, and Anthropic still rejects forced tool choice.
-    const thinkEnabled =
-      Boolean(request.think) &&
-      request.tool_choice !== "required" &&
-      (!hasToolHistory || hasReplayableToolHistory)
+    )
+  }
+
+  private resolveThinkingPolicy(request: ChatRequest) {
     const configuredEffort = request.reasoningEffort
     const explicitEffort =
       configuredEffort &&
@@ -362,52 +350,77 @@ export class AnthropicProvider implements LLMProvider {
     const brandedAnthropic =
       resolveProviderServiceProfile(this.config) ===
       ProviderServiceProfile.ANTHROPIC
-    const adaptiveThinking =
-      Boolean(explicitEffort) &&
-      brandedAnthropic &&
-      anthropicSupportsAdaptiveThinking(request.model) &&
-      request.tool_choice !== "required"
-    const adaptiveThinkingDisabled =
-      configuredEffort === "none" &&
-      brandedAnthropic &&
-      anthropicSupportsAdaptiveThinking(request.model)
-    const compatibleThinking =
-      !brandedAnthropic && configuredEffort && configuredEffort !== "auto"
-    // num_predict:-1 (and 0) is our "unlimited" sentinel; Anthropic requires a
-    // positive max_tokens, so collapse non-positive requests to a real default
-    // instead of forwarding -1 or deriving a bogus thinking budget from it.
+    const supportsAdaptive =
+      brandedAnthropic && anthropicSupportsAdaptiveThinking(request.model)
+    const thinkEnabled =
+      Boolean(request.think) &&
+      request.tool_choice !== "required" &&
+      this.hasReplayableToolHistory(request)
+    return {
+      configuredEffort,
+      explicitEffort,
+      thinkEnabled,
+      adaptiveThinking:
+        Boolean(explicitEffort) &&
+        supportsAdaptive &&
+        request.tool_choice !== "required",
+      adaptiveThinkingDisabled: configuredEffort === "none" && supportsAdaptive,
+      compatibleThinking:
+        !brandedAnthropic &&
+        Boolean(configuredEffort && configuredEffort !== "auto")
+    }
+  }
+
+  private resolveThinkingField(
+    policy: ReturnType<AnthropicProvider["resolveThinkingPolicy"]>,
+    thinkingBudget: number
+  ): Record<string, unknown> | undefined {
+    if (policy.adaptiveThinking) return { type: "adaptive" }
+    if (policy.adaptiveThinkingDisabled) return { type: "disabled" }
+    if (policy.compatibleThinking) {
+      return {
+        type: policy.configuredEffort === "none" ? "disabled" : "enabled"
+      }
+    }
+    if (policy.thinkEnabled) {
+      return { type: "enabled", budget_tokens: thinkingBudget }
+    }
+    return undefined
+  }
+
+  private buildStreamBody(request: ChatRequest): Record<string, unknown> {
+    const mapped = mapMessages(request.messages, {
+      providerId: this.id,
+      model: request.model
+    })
+    const tools =
+      request.tool_choice === "none" ? undefined : request.tools?.map(mapTool)
+    const policy = this.resolveThinkingPolicy(request)
     const rawMaxTokens = request.max_tokens ?? request.num_predict ?? 4096
     const requestedMaxTokens = rawMaxTokens > 0 ? rawMaxTokens : 4096
-    // Thinking needs budget_tokens ≥ 1024 and max_tokens strictly above it —
-    // grow the cap rather than silently dropping thinking when the configured
-    // num_predict is small. Sampling params must stay at their defaults while
-    // thinking; the API rejects temperature/top_p overrides.
     const thinkingBudget = Math.max(1024, Math.floor(requestedMaxTokens / 2))
-    const body = {
+    return {
       model: request.model,
       messages: mapped.messages,
       system: mapped.system,
       stream: true,
-      max_tokens: thinkEnabled
+      max_tokens: policy.thinkEnabled
         ? Math.max(requestedMaxTokens, thinkingBudget + 1024)
         : requestedMaxTokens,
-      thinking: adaptiveThinking
-        ? { type: "adaptive" as const }
-        : adaptiveThinkingDisabled
-          ? { type: "disabled" as const }
-          : compatibleThinking
-            ? {
-                type: configuredEffort === "none" ? "disabled" : "enabled"
-              }
-            : thinkEnabled
-              ? { type: "enabled" as const, budget_tokens: thinkingBudget }
-              : undefined,
-      output_config: explicitEffort ? { effort: explicitEffort } : undefined,
+      thinking: this.resolveThinkingField(policy, thinkingBudget),
+      output_config: policy.explicitEffort
+        ? { effort: policy.explicitEffort }
+        : undefined,
       temperature:
-        thinkEnabled || adaptiveThinking || request.temperature === undefined
+        policy.thinkEnabled ||
+        policy.adaptiveThinking ||
+        request.temperature === undefined
           ? undefined
           : Math.min(1, Math.max(0, request.temperature)),
-      top_p: thinkEnabled || adaptiveThinking ? undefined : request.top_p,
+      top_p:
+        policy.thinkEnabled || policy.adaptiveThinking
+          ? undefined
+          : request.top_p,
       stop_sequences: request.stop,
       tools: tools?.length ? tools : undefined,
       tool_choice:
@@ -417,11 +430,17 @@ export class AnthropicProvider implements LLMProvider {
             ? { type: "auto" }
             : undefined
     }
+  }
 
+  async streamChat(
+    request: ChatRequest,
+    onChunk: (chunk: ChatStreamMessage) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
     const response = await fetch(`${this.baseUrl}/messages`, {
       method: "POST",
       headers: this.headers(),
-      body: JSON.stringify(body),
+      body: JSON.stringify(this.buildStreamBody(request)),
       signal
     }).catch((error) =>
       throwProviderConnectionError(error, {
@@ -431,10 +450,7 @@ export class AnthropicProvider implements LLMProvider {
         baseUrl: this.baseUrl
       })
     )
-    if (!response.ok) {
-      await this.responseError(response, request.model)
-    }
-
+    if (!response.ok) await this.responseError(response, request.model)
     await this.processSSE(response, onChunk, Date.now(), request.model)
   }
 
@@ -536,10 +552,9 @@ export class AnthropicProvider implements LLMProvider {
       })
     }
 
-    const processLine = (line: string) => {
+    const parseEvent = (line: string): AnthropicStreamEvent | null => {
       const trimmed = line.trim()
-      if (!trimmed.startsWith("data: ")) return
-      let event: AnthropicStreamEvent
+      if (!trimmed.startsWith("data: ")) return null
       try {
         const parsed = AnthropicStreamEventSchema.safeParse(
           JSON.parse(trimmed.slice(6))
@@ -549,9 +564,9 @@ export class AnthropicProvider implements LLMProvider {
             "Ignored invalid Anthropic SSE event",
             "AnthropicProvider"
           )
-          return
+          return null
         }
-        event = parsed.data
+        return parsed.data
       } catch (error) {
         logger.warn(
           "Failed to parse Anthropic SSE event",
@@ -560,127 +575,162 @@ export class AnthropicProvider implements LLMProvider {
             error
           }
         )
+        return null
+      }
+    }
+
+    const throwStreamError = (event: AnthropicStreamEvent): void => {
+      if (event.type !== "error") return
+      const status = event.error?.type === "overloaded_error" ? 529 : undefined
+      const message =
+        event.error?.message || "Anthropic stream returned an error."
+      const classification = classifyProviderError(status, message)
+      throw createAppError(message, {
+        kind: "provider",
+        status,
+        providerId: this.id,
+        providerName: this.config.name,
+        model,
+        baseUrl: this.baseUrl,
+        retryable: event.error?.type === "overloaded_error",
+        code: classification.code,
+        phase: "read-stream",
+        recoveryAction: classification.recoveryAction,
+        userMessage: classification.reason
+          ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
+          : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
+        debug: event.error
+      })
+    }
+
+    const handleContentBlockStart = (event: AnthropicStreamEvent): void => {
+      if (
+        event.type !== "content_block_start" ||
+        typeof event.index !== "number"
+      )
+        return
+      const block = event.content_block
+      if (!block?.type) return
+      if (block.type === "tool_use") {
+        toolBlocks.set(event.index, {
+          id: block.id || "",
+          name: block.name || "",
+          input: ""
+        })
+        contentBlocks.set(event.index, {
+          ...block,
+          type: "tool_use",
+          id: block.id || "",
+          name: block.name || "",
+          input: block.input || {}
+        })
         return
       }
-
-      if (event.type === "error") {
-        const status =
-          event.error?.type === "overloaded_error" ? 529 : undefined
-        const message =
-          event.error?.message || "Anthropic stream returned an error."
-        const classification = classifyProviderError(status, message)
-        throw createAppError(message, {
-          kind: "provider",
-          status,
-          providerId: this.id,
-          providerName: this.config.name,
-          model,
-          baseUrl: this.baseUrl,
-          retryable: event.error?.type === "overloaded_error",
-          code: classification.code,
-          phase: "read-stream",
-          recoveryAction: classification.recoveryAction,
-          userMessage: classification.reason
-            ? `${this.config.name} reported an error while generating the response. ${classification.reason}`
-            : `${this.config.name} reported an error while generating the response. Check its server logs and configuration.`,
-          debug: event.error
+      if (block.type === "thinking") {
+        contentBlocks.set(event.index, {
+          ...block,
+          type: "thinking",
+          thinking: block.thinking || "",
+          signature: block.signature || ""
         })
+        return
       }
+      if (
+        block.type === "redacted_thinking" &&
+        typeof block.data === "string"
+      ) {
+        contentBlocks.set(event.index, {
+          ...block,
+          type: "redacted_thinking",
+          data: block.data
+        })
+        return
+      }
+      if (block.type === "text") {
+        contentBlocks.set(event.index, {
+          ...block,
+          type: "text",
+          text: block.text || ""
+        })
+        return
+      }
+      contentBlocks.set(event.index, { ...block })
+    }
+
+    const appendTextDelta = (event: AnthropicStreamEvent): boolean => {
+      if (event.delta?.type !== "text_delta" || !event.delta.text) return false
+      if (typeof event.index === "number") {
+        const block = contentBlocks.get(event.index)
+        if (block?.type === "text") {
+          block.text = `${String(block.text)}${event.delta.text}`
+        }
+      }
+      onChunk({ delta: event.delta.text, done: false })
+      return true
+    }
+
+    const appendThinkingDelta = (event: AnthropicStreamEvent): boolean => {
+      if (event.delta?.type !== "thinking_delta" || !event.delta.thinking)
+        return false
+      if (typeof event.index === "number") {
+        const block = contentBlocks.get(event.index)
+        if (block?.type === "thinking") {
+          block.thinking = `${String(block.thinking)}${event.delta.thinking}`
+        }
+      }
+      onChunk({ thinkingDelta: event.delta.thinking, done: false })
+      return true
+    }
+
+    const appendSignatureDelta = (event: AnthropicStreamEvent): boolean => {
+      if (
+        event.delta?.type !== "signature_delta" ||
+        !event.delta.signature ||
+        typeof event.index !== "number"
+      ) {
+        return false
+      }
+      const block = contentBlocks.get(event.index)
+      if (block?.type === "thinking") {
+        block.signature = `${String(block.signature)}${event.delta.signature}`
+      }
+      return true
+    }
+
+    const appendToolInputDelta = (event: AnthropicStreamEvent): void => {
+      if (
+        event.delta?.type !== "input_json_delta" ||
+        typeof event.index !== "number"
+      )
+        return
+      const block = toolBlocks.get(event.index)
+      if (block) block.input += event.delta.partial_json || ""
+    }
+
+    const handleContentBlockDelta = (event: AnthropicStreamEvent): void => {
+      if (event.type !== "content_block_delta") return
+      if (appendTextDelta(event)) return
+      if (appendThinkingDelta(event)) return
+      if (appendSignatureDelta(event)) return
+      appendToolInputDelta(event)
+    }
+
+    const processLine = (line: string): void => {
+      const event = parseEvent(line)
+      if (!event) return
+      throwStreamError(event)
       if (event.type === "message_start") {
         inputTokens = event.message?.usage?.input_tokens
         outputTokens = event.message?.usage?.output_tokens
         return
       }
+      handleContentBlockStart(event)
+      handleContentBlockDelta(event)
       if (
-        event.type === "content_block_start" &&
-        typeof event.index === "number"
+        event.type === "message_delta" &&
+        typeof event.usage?.output_tokens === "number"
       ) {
-        const block = event.content_block
-        if (block?.type === "tool_use") {
-          toolBlocks.set(event.index, {
-            id: block.id || "",
-            name: block.name || "",
-            input: ""
-          })
-          contentBlocks.set(event.index, {
-            ...block,
-            type: "tool_use",
-            id: block.id || "",
-            name: block.name || "",
-            input: block.input || {}
-          })
-        } else if (block?.type === "thinking") {
-          contentBlocks.set(event.index, {
-            ...block,
-            type: "thinking",
-            thinking: block.thinking || "",
-            signature: block.signature || ""
-          })
-        } else if (
-          block?.type === "redacted_thinking" &&
-          typeof block.data === "string"
-        ) {
-          contentBlocks.set(event.index, {
-            ...block,
-            type: "redacted_thinking",
-            data: block.data
-          })
-        } else if (block?.type === "text") {
-          contentBlocks.set(event.index, {
-            ...block,
-            type: "text",
-            text: block.text || ""
-          })
-        } else if (block?.type) {
-          // Preserve unknown blocks so wire validation fails locally instead
-          // of silently replaying an altered assistant message.
-          contentBlocks.set(event.index, { ...block })
-        }
-        return
-      }
-      if (event.type === "content_block_delta") {
-        if (event.delta?.type === "text_delta" && event.delta.text) {
-          if (typeof event.index === "number") {
-            const block = contentBlocks.get(event.index)
-            if (block?.type === "text") {
-              block.text = `${String(block.text)}${event.delta.text}`
-            }
-          }
-          onChunk({ delta: event.delta.text, done: false })
-        } else if (
-          event.delta?.type === "thinking_delta" &&
-          event.delta.thinking
-        ) {
-          if (typeof event.index === "number") {
-            const block = contentBlocks.get(event.index)
-            if (block?.type === "thinking") {
-              block.thinking = `${String(block.thinking)}${event.delta.thinking}`
-            }
-          }
-          onChunk({ thinkingDelta: event.delta.thinking, done: false })
-        } else if (
-          event.delta?.type === "signature_delta" &&
-          event.delta.signature &&
-          typeof event.index === "number"
-        ) {
-          const block = contentBlocks.get(event.index)
-          if (block?.type === "thinking") {
-            block.signature = `${String(block.signature)}${event.delta.signature}`
-          }
-        } else if (
-          event.delta?.type === "input_json_delta" &&
-          typeof event.index === "number"
-        ) {
-          const block = toolBlocks.get(event.index)
-          if (block) block.input += event.delta.partial_json || ""
-        }
-        return
-      }
-      if (event.type === "message_delta") {
-        if (typeof event.usage?.output_tokens === "number") {
-          outputTokens = event.usage.output_tokens
-        }
-        return
+        outputTokens = event.usage.output_tokens
       }
       if (event.type === "message_stop") emitDone()
     }
@@ -708,7 +758,7 @@ export class AnthropicProvider implements LLMProvider {
     }
   }
 
-  async getModelDetails(): Promise<null> {
+  async getModelDetails(_model?: string, _signal?: AbortSignal): Promise<null> {
     return null
   }
 

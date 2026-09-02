@@ -4,7 +4,9 @@
  * Goals:
  *   - Pure neutrals (white / zinc-950) with hairline borders.
  *   - Accent (extension's primary blue) used only on links and the
- *     active sidebar item. No accent panels, no decorative tints.
+ *     active sidebar item. No accent panels, no decorative tints. The
+ *     one exception is the terminal window-control dots, which are the
+ *     recognizable macOS colors and are tokenized as such.
  *   - Geist Sans / Geist Mono throughout. Slightly larger body type
  *     and tighter heading line-height than Starlight defaults.
  *   - Code blocks: github-light + github-dark-dimmed (configured in
@@ -29,6 +31,19 @@ body {
 .sl-markdown-content {
   font-size: 0.9375rem;
   line-height: 1.6;
+}
+
+/*
+ * Keep the article centered in the reading pane on wide screens.
+ * Starlight sets `--sl-content-margin-inline: auto 0` for the
+ * sidebar-plus-TOC layout, which is the only case where the article is
+ * not centered; overriding the variable rather than the property leaves
+ * the container rule to Starlight.
+ */
+@media (min-width: 72rem) {
+  [data-has-sidebar][data-has-toc] .main-pane {
+    --sl-content-margin-inline: auto;
+  }
 }
 
 /* Heading hierarchy — tighter tracking, normal weight, more breathing room. */
@@ -211,6 +226,24 @@ starlight-toc nav a[aria-current="true"] {
 .expressive-code .frame .header {
   font-family: var(--sl-font-mono);
   font-size: 0.6875rem !important;
+}
+
+/*
+ * Expressive Code paints monochrome title-bar dots by masking a flat
+ * background color. Repaint that background with a three-stop gradient so
+ * the dots take the familiar macOS close/minimize/zoom colors while their
+ * size and spacing stay whatever the mask says. The stops sit at 33% and
+ * 66% of the mask's 60-unit viewBox (units 19.8 and 39.6), inside the gaps
+ * between its circles.
+ */
+.expressive-code .frame.is-terminal .header::before {
+  background: linear-gradient(
+    to right,
+    var(--sl-color-terminal-dot-red) 0 33%,
+    var(--sl-color-terminal-dot-amber) 0 66%,
+    var(--sl-color-terminal-dot-green) 0
+  );
+  opacity: 1;
 }
 
 @media (max-width: 50rem) {

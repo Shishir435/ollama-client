@@ -34,7 +34,6 @@ export interface UnifiedSection {
   group: SourceGroup
   label: string
   items: SourceItem[]
-  /** Web results that were retrieved but not sent to the model. */
   unused?: boolean
 }
 
@@ -68,6 +67,148 @@ const GROUP_META: Record<
 
 const COLLAPSED_COUNT = 4
 
+type SourceRowMeta = {
+  isWeb: boolean
+  isChatMessage: boolean
+  host?: string
+  Icon: LucideIcon
+}
+
+const getSourceRowMeta = (
+  item: SourceItem,
+  group: SourceGroup
+): SourceRowMeta => {
+  const isWeb = group === "web"
+  const isChatSource = group === "knowledge" && item.source === "chat"
+  const isUserMessage = isChatSource && item.title === "User message"
+  const isAssistantMessage = isChatSource && item.title === "Assistant response"
+  return {
+    isWeb,
+    isChatMessage: isUserMessage || isAssistantMessage,
+    host: isWeb && item.url ? (hostOf(item.url) ?? item.url) : undefined,
+    Icon: isUserMessage
+      ? User
+      : isAssistantMessage
+        ? Bot
+        : GROUP_META[group].icon
+  }
+}
+
+const SourceIcon = ({
+  item,
+  group,
+  meta
+}: {
+  item: SourceItem
+  group: SourceGroup
+  meta: SourceRowMeta
+}) => (
+  <div
+    className={cn(
+      "mt-0.5 flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-control",
+      meta.isWeb
+        ? "border border-border/50 bg-background"
+        : meta.isChatMessage
+          ? "bg-primary/10 text-primary"
+          : GROUP_META[group].chip
+    )}>
+    {meta.isWeb && item.url ? (
+      <WebSourceFavicon url={item.url} />
+    ) : (
+      <meta.Icon className="icon-sm" aria-hidden="true" />
+    )}
+  </div>
+)
+
+const SourceDetails = ({
+  item,
+  group,
+  expanded,
+  onToggle,
+  host
+}: {
+  item: SourceItem
+  group: SourceGroup
+  expanded: boolean
+  onToggle: () => void
+  host?: string
+}) => {
+  const { t } = useTranslation()
+  return (
+    <div className="min-w-0 flex-1">
+      {host && (
+        <span className="flex min-w-0 items-center gap-1.5 text-micro text-muted-foreground">
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            title={item.url}
+            className="truncate transition-colors hover:text-foreground hover:underline">
+            {host}
+          </a>
+          <SearchEngineBadge engine={item.engine} />
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="block w-full min-w-0 text-left">
+        <span className="block truncate text-xs font-medium text-foreground">
+          {item.title}
+        </span>
+        {item.content && (
+          <span
+            className={cn(
+              "block text-micro text-muted-foreground",
+              expanded ? "whitespace-pre-wrap wrap-anywhere" : "line-clamp-1"
+            )}>
+            {item.content}
+          </span>
+        )}
+        {group !== "web" && (item.sectionPath || item.source) && (
+          <span className="block truncate text-nano text-muted-foreground/70">
+            {[item.sectionPath, item.source !== "rag" ? item.source : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        )}
+        {item.publishedAt && (
+          <span className="block text-nano text-muted-foreground/70">
+            {t("chat.sources.web_published", { date: item.publishedAt })}
+          </span>
+        )}
+      </button>
+    </div>
+  )
+}
+
+const SourceRowActions = ({
+  item,
+  expanded,
+  onToggle
+}: {
+  item: SourceItem
+  expanded: boolean
+  onToggle: () => void
+}) => (
+  <div className="flex shrink-0 items-center gap-1">
+    {item.score > 0 && (
+      <span className="rounded-control bg-emerald-500/12 px-1.5 py-0.5 text-micro font-medium text-emerald-400 tabular-nums">
+        {item.score.toFixed(2)}
+      </span>
+    )}
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      className="flex size-6 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/55 hover:text-foreground">
+      <ChevronDown
+        className={cn("icon-xs transition-transform", expanded && "rotate-180")}
+      />
+    </button>
+  </div>
+)
+
 const SourceRow = ({
   item,
   group,
@@ -81,106 +222,20 @@ const SourceRow = ({
   onToggle: () => void
   feedback?: { query: string; sessionId?: string }
 }) => {
-  const { t } = useTranslation()
-  const isWeb = group === "web"
-  const isChatSource = group === "knowledge" && item.source === "chat"
-  const isUserMessage = isChatSource && item.title === "User message"
-  const isAssistantMessage = isChatSource && item.title === "Assistant response"
-  const isChatMessage = isUserMessage || isAssistantMessage
-  const host = isWeb && item.url ? (hostOf(item.url) ?? item.url) : undefined
-  const Icon = isUserMessage
-    ? User
-    : isAssistantMessage
-      ? Bot
-      : GROUP_META[group].icon
-
+  const meta = getSourceRowMeta(item, group)
   return (
     <div className="group/row">
       <div className="flex items-start gap-2 px-2 py-2 sm:gap-2.5 sm:px-3 sm:py-2.5">
-        <div
-          className={cn(
-            "mt-0.5 flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-control",
-            isWeb
-              ? "border border-border/50 bg-background"
-              : isChatMessage
-                ? "bg-primary/10 text-primary"
-                : GROUP_META[group].chip
-          )}>
-          {isWeb && item.url ? (
-            <WebSourceFavicon url={item.url} />
-          ) : (
-            <Icon className="icon-sm" aria-hidden="true" />
-          )}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          {host && (
-            <span className="flex min-w-0 items-center gap-1.5 text-micro text-muted-foreground">
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-                title={item.url}
-                className="truncate transition-colors hover:text-foreground hover:underline">
-                {host}
-              </a>
-              <SearchEngineBadge engine={item.engine} />
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={onToggle}
-            className="block w-full min-w-0 text-left">
-            <span className="block truncate text-xs font-medium text-foreground">
-              {item.title}
-            </span>
-            {item.content && (
-              <span
-                className={cn(
-                  "block text-micro text-muted-foreground",
-                  expanded
-                    ? "whitespace-pre-wrap wrap-anywhere"
-                    : "line-clamp-1"
-                )}>
-                {item.content}
-              </span>
-            )}
-            {!isWeb && (item.sectionPath || item.source) && (
-              <span className="block truncate text-nano text-muted-foreground/70">
-                {[item.sectionPath, item.source !== "rag" ? item.source : null]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-            )}
-            {item.publishedAt && (
-              <span className="block text-nano text-muted-foreground/70">
-                {t("chat.sources.web_published", { date: item.publishedAt })}
-              </span>
-            )}
-          </button>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1">
-          {item.score > 0 && (
-            <span className="rounded-control bg-emerald-500/12 px-1.5 py-0.5 text-micro font-medium text-emerald-400 tabular-nums">
-              {item.score.toFixed(2)}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={expanded}
-            className="flex size-6 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/55 hover:text-foreground">
-            <ChevronDown
-              className={cn(
-                "icon-xs transition-transform",
-                expanded && "rotate-180"
-              )}
-            />
-          </button>
-        </div>
+        <SourceIcon item={item} group={group} meta={meta} />
+        <SourceDetails
+          item={item}
+          group={group}
+          expanded={expanded}
+          onToggle={onToggle}
+          host={meta.host}
+        />
+        <SourceRowActions item={item} expanded={expanded} onToggle={onToggle} />
       </div>
-
       {expanded && feedback && group === "knowledge" && (
         <div className="flex items-center gap-1 pb-2.5 pl-10 sm:pl-13">
           <ChunkFeedbackButton
@@ -216,7 +271,6 @@ const SourceSection = ({
     ? section.items
     : section.items.slice(0, COLLAPSED_COUNT)
   const hidden = section.items.length - visible.length
-
   const urls = section.items
     .map((item) => item.url)
     .filter((url): url is string => Boolean(url))

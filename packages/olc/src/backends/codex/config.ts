@@ -5,12 +5,23 @@ import { type ProxyOptions, stringOption } from "../../config.js"
 
 export const CODEX_DEFAULTS = {
   CODEX_PATH: "codex",
-  PROJECT_DIR: path.join(os.tmpdir(), "olc-codex-workspace")
+  PROJECT_DIR: path.join(os.tmpdir(), "olc-codex-workspace"),
+  WEB_SEARCH_MODE: "cached"
 } as const
+
+export type CodexWebSearchMode = "disabled" | "cached" | "indexed" | "live"
+
+const CODEX_WEB_SEARCH_MODES: readonly CodexWebSearchMode[] = [
+  "disabled",
+  "cached",
+  "indexed",
+  "live"
+]
 
 export interface CodexConfig {
   CODEX_PATH: string
   PROJECT_DIR: string
+  WEB_SEARCH_MODE: CodexWebSearchMode
 }
 
 export const resolveCodexConfig = ({
@@ -21,6 +32,18 @@ export const resolveCodexConfig = ({
   fileOptions?: ProxyOptions
 } = {}): CodexConfig => {
   const env = process.env
+  const webSearchMode = stringOption(
+    options.CODEX_WEB_SEARCH_MODE,
+    env.OLC_CODEX_WEB_SEARCH_MODE,
+    fileOptions.CODEX_WEB_SEARCH_MODE,
+    CODEX_DEFAULTS.WEB_SEARCH_MODE
+  )
+  if (!CODEX_WEB_SEARCH_MODES.includes(webSearchMode as CodexWebSearchMode)) {
+    throw new Error(
+      `Invalid Codex web-search mode '${webSearchMode}'. Expected disabled, cached, indexed, or live.`
+    )
+  }
+
   return {
     CODEX_PATH: stringOption(
       options.CODEX_PATH,
@@ -36,6 +59,7 @@ export const resolveCodexConfig = ({
       fileOptions.CODEX_PROJECT_DIR,
       fileOptions.PROJECT_DIR,
       CODEX_DEFAULTS.PROJECT_DIR
-    )
+    ),
+    WEB_SEARCH_MODE: webSearchMode as CodexWebSearchMode
   }
 }

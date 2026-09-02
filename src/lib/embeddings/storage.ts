@@ -1,3 +1,4 @@
+import { EmbeddingService } from "@/application/embeddings/embedding-service"
 import { hnswIndexManager } from "@/lib/embeddings/hnsw-index"
 import { keywordIndexManager } from "@/lib/embeddings/keyword-index"
 import { createAppError } from "@/lib/error-utils"
@@ -5,7 +6,6 @@ import { logger } from "@/lib/logger"
 
 import { getEmbeddingConfig } from "./config"
 import { vectorDb } from "./db"
-import { generateEmbedding } from "./embedding-client"
 import { normalizeVector } from "./math"
 import type { VectorDocument } from "./types"
 import { matchesVectorType } from "./types"
@@ -485,7 +485,12 @@ export const fromDocuments = async (
   for (const doc of documents) {
     try {
       options.signal?.throwIfAborted()
-      const embeddingResult = await generateEmbedding(doc.pageContent)
+      const embeddingResult = await EmbeddingService.generate(
+        doc.pageContent,
+        undefined,
+        undefined,
+        options.signal ? { signal: options.signal } : {}
+      )
       options.signal?.throwIfAborted()
 
       if ("error" in embeddingResult) {
@@ -538,10 +543,17 @@ export const storeChatMessage = async (
     chatId?: string
     title?: string
     messageId?: number
-  }
+  },
+  signal?: AbortSignal
 ): Promise<number> => {
   try {
-    const embeddingResult = await generateEmbedding(content)
+    signal?.throwIfAborted()
+    const embeddingResult = await EmbeddingService.generate(
+      content,
+      undefined,
+      undefined,
+      signal ? { signal } : {}
+    )
 
     if ("error" in embeddingResult) {
       logger.error(
@@ -554,6 +566,7 @@ export const storeChatMessage = async (
       return 0
     }
 
+    signal?.throwIfAborted()
     return storeVector(content, embeddingResult.embedding, {
       ...metadata,
       type: "chat",

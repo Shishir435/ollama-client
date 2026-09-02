@@ -14,6 +14,11 @@ export interface ToolParameterSchema {
   type: "object"
   properties: Record<string, unknown>
   required?: string[]
+  /** Client-owned annotations. JSON Schema consumers ignore unknown keywords. */
+  "x-ollama-client-web-search"?: {
+    source: "auto" | "client" | "native"
+    mode: "cached" | "indexed" | "live"
+  }
 }
 
 export type ToolCategory =

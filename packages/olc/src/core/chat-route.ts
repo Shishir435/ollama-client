@@ -622,108 +622,117 @@ export const registerChatRoutes = (
         onAuxiliary: (payload) => emitter.auxiliary(payload)
       }
 
-      let pendingResults = resumeTurn === turn ? toolResults : []
-      let outcome: TurnResult
-      while (true) {
-        const suspension = createSuspensionSignal()
-        const unwatch = pending.watch(turn.id, () => suspension.trigger())
-        if (pending.hasUnemitted(turn.id)) suspension.trigger()
-
-        const signals = {
-          suspended: suspension.promise,
-          hasUnannouncedToolCalls: () =>
-            pending.hasUnemitted((turn as BackendTurn).id)
-        }
-
-        const results = pendingResults
-        pendingResults = []
-
-        try {
-          outcome =
-            results.length > 0
-              ? await turn.resume(results, handlers, {
-                  ...signals,
-                  releaseToolResults: () =>
-                    releaseResults(turn as BackendTurn, results)
-                })
-              : await turn.run(handlers, signals)
-        } finally {
-          unwatch()
-        }
-
-        if (outcome.status !== "suspended") break
-
-        // A backend can report suspension before the call is registered, or for a
-        // call the client was already told about. Only a real hand-off ends this
-        // leg; anything else means the turn is still ours to drive.
-        suspended = true
-        settled = true
-        const handedOff = await handOffToolCalls({ turn, emitter, requestId })
-        if (handedOff) return
-        suspended = false
-        settled = false
-      }
-
-      settled = true
-      if (outcome.status === "failed") {
-        if (emitter.streamMode) {
-          emitter.delta(
-            `[Proxy Error] ${outcome.error.type}: ${outcome.error.message}`,
-            false
+      const driveTurn = async (): Promise<TurnResult> => {
+        let pendingResults = resumeTurn === turn ? toolResults : []
+        while (true) {
+          const activeTurn = turn as BackendTurn
+          const suspension = createSuspensionSignal()
+          const unwatch = pending.watch(activeTurn.id, () =>
+            suspension.trigger()
           )
-          emitter.finish("stop")
-        } else {
-          sendJson(response, 502, { error: outcome.error })
-        }
-        await discardTurn(turn)
-        return
-      }
-
-      const tailReasoning = unsentTail(outcome.reasoning, emitter.reasoning)
-      if (tailReasoning) emitter.delta(tailReasoning, true)
-      const tailContent = unsentTail(outcome.content, emitter.content)
-      if (tailContent) {
-        emitter.delta(tailContent, false)
-      }
-      for (const image of outcome.images ?? []) emitter.image(image)
-      if (!emitter.content && !outcome.content && emitter.images.length === 0) {
-        emitter.delta(buildFallbackAnswerText(outcome.finish), false)
-      }
-
-      emitter.finish("stop")
-      await discardTurn(turn)
-    } catch (error) {
-      const message = (error as Error).message
-      console.error("[Proxy] Chat completion failed:", message)
-      log("Request failed", {
-        requestId,
-        turnId: turn?.id,
-        activeModel,
-        streamMode,
-        message
-      })
-      settled = true
-      if (turn) {
-        pending.failTurn(turn.id, `The turn failed: ${message}`)
-        await discardTurn(turn, { abort: true })
-      }
-
-      if (emitter.streamMode && response.headersSent) {
-        emitter.delta(`[Proxy Error] ${message}`, false)
-        emitter.finish("stop")
-        return
-      }
-      const inputError = error instanceof BackendInputError
-      sendJson(
-        response,
-        inputError ? 400 : /Request timeout/.test(message) ? 504 : 500,
-        {
-          error: {
-            message,
-            type: inputError ? "BadRequest" : "ProxyError"
+          if (pending.hasUnemitted(activeTurn.id)) suspension.trigger()
+          const signals = {
+            suspended: suspension.promise,
+            hasUnannouncedToolCalls: () => pending.hasUnemitted(activeTurn.id)
           }
+          const results = pendingResults
+          pendingResults = []
+          let outcome: TurnResult
+          try {
+            outcome = results.length
+              ? await activeTurn.resume(results, handlers, {
+                  ...signals,
+                  releaseToolResults: () => releaseResults(activeTurn, results)
+                })
+              : await activeTurn.run(handlers, signals)
+          } finally {
+            unwatch()
+          }
+          if (outcome.status !== "suspended") return outcome
+          suspended = true
+          settled = true
+          const handedOff = await handOffToolCalls({
+            turn: activeTurn,
+            emitter,
+            requestId
+          })
+          if (handedOff) return outcome
+          suspended = false
+          settled = false
         }
-      )
+      }
+
+      const outcome = await driveTurn()
+      if (outcome.status === "suspended") return
+
+      const finishOutcome = async (result: TurnResult): Promise<void> => {
+        if (result.status === "suspended") return
+        settled = true
+        if (result.status === "failed") {
+          if (emitter.streamMode) {
+            emitter.delta(
+              `[Proxy Error] ${result.error.type}: ${result.error.message}`,
+              false
+            )
+            emitter.finish("stop")
+          } else {
+            sendJson(response, 502, { error: result.error })
+          }
+          await discardTurn(turn as BackendTurn)
+          return
+        }
+        const tailReasoning = unsentTail(result.reasoning, emitter.reasoning)
+        if (tailReasoning) emitter.delta(tailReasoning, true)
+        const tailContent = unsentTail(result.content, emitter.content)
+        if (tailContent) emitter.delta(tailContent, false)
+        for (const image of result.images ?? []) emitter.image(image)
+        if (
+          !emitter.content &&
+          !result.content &&
+          emitter.images.length === 0
+        ) {
+          emitter.delta(buildFallbackAnswerText(result.finish), false)
+        }
+        emitter.finish("stop")
+        await discardTurn(turn as BackendTurn)
+      }
+
+      await finishOutcome(outcome)
+    } catch (error) {
+      const handleRequestFailure = async (): Promise<void> => {
+        const message = (error as Error).message
+        console.error("[Proxy] Chat completion failed:", message)
+        log("Request failed", {
+          requestId,
+          turnId: turn?.id,
+          activeModel,
+          streamMode,
+          message
+        })
+        settled = true
+        if (turn) {
+          pending.failTurn(turn.id, `The turn failed: ${message}`)
+          await discardTurn(turn, { abort: true })
+        }
+
+        if (emitter.streamMode && response.headersSent) {
+          emitter.delta(`[Proxy Error] ${message}`, false)
+          emitter.finish("stop")
+          return
+        }
+        const inputError = error instanceof BackendInputError
+        sendJson(
+          response,
+          inputError ? 400 : /Request timeout/.test(message) ? 504 : 500,
+          {
+            error: {
+              message,
+              type: inputError ? "BadRequest" : "ProxyError"
+            }
+          }
+        )
+      }
+      await handleRequestFailure()
     }
   }
 

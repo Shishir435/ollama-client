@@ -46,6 +46,7 @@ pnpm typecheck              # tsc --noEmit, extension and packages
 pnpm docs:dev               # Astro dev for the docs site (docs/)
 pnpm docs:build             # Astro build → docs/dist/
 
+pnpm olc                   # Start/reuse native Ollama (11434)
 pnpm proxy:opencode         # Run the olc proxy with OpenCode
 pnpm proxy:opencode:debug   # Run OpenCode with verbose proxy logging
 pnpm proxy:codex            # Run the olc proxy with Codex
@@ -83,7 +84,7 @@ WXT discovers entrypoints from `src/entrypoints/`. Each is a thin bootstrapper t
 | `@ollama-client/contracts` | environment-independent Zod schemas, RPC/stream envelopes, durable turn/context/tool-loop contracts |
 | `@ollama-client/runtime-core` | deterministic stream reduction, thinking parsing, cancellation, retry, checkpoint, sender-evidence primitives |
 | `@ollama-client/chat-runtime` | port-driven durable turn, context-build, and tool-loop orchestration |
-| `@ollama-client/olc` | standalone Node CLI: an OpenAI-compatible proxy for a local agent runtime ([details](#agent-runtimes-via-the-olc-proxy)) |
+| `@ollama-client/olc` | standalone Node CLI: native Ollama setup and explicit OpenAI-compatible agent proxies ([details](#agent-runtimes-via-the-olc-proxy)) |
 
 - The first three never import React, WXT, browser APIs, persistence adapters, feature UI, background composition, or concrete providers. Those stay in `src/` and connect through package ports.
 - Every package carries the extension's version; `config/__tests__/package-versions.test.ts` fails on drift.
@@ -298,7 +299,19 @@ Model-callable tools live in `src/lib/tools/internal/`, registered in `internal-
 
 ### Agent runtimes via the olc proxy
 
-`packages/olc` is a Node CLI, not extension code. It serves a local agent runtime over `/v1/chat/completions`, so that runtime's models reach the extension through the ordinary OpenAI-compatible custom-provider flow.
+`packages/olc` is a Node CLI, not extension code. Bare `olc` manages native Ollama
+through `src/ollama/` on port 11434; it never wraps Ollama in the proxy.
+`-b` / `--backend codex|opencode` explicitly selects the agent proxies on ports 8083 (Codex) and 8084 (OpenCode).
+All CLI backends detach by default; `--debug` or `--foreground` stays attached.
+Proxy readiness crosses a private IPC handoff before the launcher exits.
+Foreground native sessions stop only the standalone child they create, never an adopted service.
+Native lifecycle tests mock OS effects; never restart a developer's Ollama during validation.
+Native olc never persists environment or configuration: no `launchctl setenv`,
+systemd drop-ins, registry/user variables, or shell-profile edits. Pass
+`OLLAMA_*` only to a standalone child; reuse compatible managed servers and
+refuse changes that require their owner. The macOS app may be gracefully quit
+and replaced by a standalone child, without relaunching or reconfiguring it.
+In agent mode it serves a local agent runtime over `/v1/chat/completions`, so that runtime's models reach the extension through the ordinary OpenAI-compatible custom-provider flow.
 
 - **Nothing in `src/` knows it exists.** Do not add proxy-aware branches to the extension: provider-shaped behaviour belongs behind the provider's own wire format, not behind a base-URL check in a handler.
 - **An image is a part, not text.** An `image_url` content part carries no `text`, so flattening a message to a string drops it silently and leaves the model answering about pictures it never saw. `buildPromptParts` emits image parts as OpenCode file parts alongside the text, in message order.
@@ -396,7 +409,7 @@ The set is `ControlledTextarea`, `ControlledNumberInput`, `ControlledSlider` —
 - Loaded through the explicit dynamic-import map in `src/i18n/locale-loader.ts`, one lazy chunk per language. Do not build an aggregated all-languages resource.
 - **Never pass a fallback string to `t()`.** Add the key to every locale instead.
 - Keep the top-level `extension` block filled in for every locale.
-- `public/_locales/**/messages.json` and `public/assets/selection-locales/` are **generated** by `tools/generate-i18n-resources.ts`. Do not hand-edit them. `_locales` is committed because extension packages need it.
+- `public/_locales/**/messages.json` and `public/assets/selection-locales/` are **generated** by `tools/generate/generate-i18n-resources.ts`. Do not hand-edit them. `_locales` is committed because extension packages need it.
 - Generation runs before `dev`/`build`/`package`, not on install, so run `pnpm generate:resources` manually after a locale edit to validate the catalogs.
 - Before adding a key, check for an orphan that already fits — `tabs.select.ready` sat fully translated and unused.
 
@@ -405,7 +418,7 @@ The set is `ControlledTextarea`, `ControlledNumberInput`, `ControlledSlider` —
 - Vitest with `happy-dom` and `fake-indexeddb`. `src/test/setup.ts` mocks chrome APIs and IndexedDB.
 - Tests live in the nearest `__tests__` directory under `src/`, `packages/`, `config/` or `e2e/`. Never beside production modules.
 - Single file: `pnpm test src/path/to/module.test.ts`.
-- Coverage excludes only test files and `.d.ts`. UI components, type modules and barrels are included.
+- Coverage includes `.ts` and `.tsx`: UI components, type modules and barrels count. Tests, declarations, and explicit browser-only composition roots/harnesses are excluded in `vitest.config.ts`. Existing `.ts` thresholds and the newly measured `.tsx` baseline are gated separately; see `tools/README.md`.
 - `@testing-library/user-event` is **not** a dependency — use `fireEvent`.
 - When a change breaks an existing test, work out whether the test or the change is wrong. A broken assertion is sometimes the design talking: a fan-out that consumed a queued fetch response failed the Ollama contract test, and the predicate was the bug.
 
@@ -434,8 +447,9 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 
 Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a release branch into `preview`, validate it there, then merge `preview` into `main`. Do not promote a release branch directly to `main`.
 
-- `pre-commit`: lint-staged (typecheck, `format:fix`, `lint:fix`, `test:related`) → `format:check` → `lint:check` → `typecheck`. **Does not run the full suite.**
-- `pre-push`: `pnpm test:run`.
+- `pre-commit`: lint-staged (Biome fixes on staged files and `test:related`) → one full `typecheck`. **Does not run the full suite.**
+- `pre-push`: production dependency audit → `pnpm verify` (shared static checks and full tests). Builds and browser gates belong to CI / `verify:release`, not hooks.
+- `tools/README.md` documents command ownership and prerequisites. `check:static` is shared by CI and local verification; `verify:ci-parity` runs static checks and coverage on committed HEAD in a clean worktree.
 - Never bypass with `--no-verify`. If a hook fails, fix the cause.
 
 ## Constraints

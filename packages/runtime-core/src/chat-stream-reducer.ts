@@ -139,61 +139,84 @@ export const makeStreamReducerState = <TMessage extends StreamAssistantMessage>(
   started: false
 })
 
-/**
- * Pure transition: fold one {@link StreamMessage} into the turn state and
- * report what the effectful caller should do (render, emit tokens, flip
- * streaming, finalize). Performs no I/O — no `setMessages`, no `toast`, no
- * i18n. The caller owns all of that; error display copy is composed from
- * {@link StreamTerminal} rather than here so this stays testable and
- * replayable.
- */
-export const reduceStreamEvent = <TMessage extends StreamAssistantMessage>(
+const makeDroppedReduction = <TMessage extends StreamAssistantMessage>(
+  state: StreamReducerState<TMessage>
+): StreamReduction<TMessage> => ({
+  state,
+  dropped: true,
+  justStarted: false,
+  tokens: [],
+  changed: false,
+  terminal: null
+})
+
+const getNextSequence = (
+  current: number,
+  incoming: number | undefined
+): number | null => {
+  if (typeof incoming !== "number") return current
+  return incoming <= current ? null : incoming
+}
+
+const reduceRagSources = <TMessage extends StreamAssistantMessage>(
   state: StreamReducerState<TMessage>,
-  msg: StreamMessage
-): StreamReduction<TMessage> => {
-  const dropped: StreamReduction<TMessage> = {
-    state,
-    dropped: true,
-    justStarted: false,
+  msg: StreamMessage,
+  lastSeq: number,
+  justStarted: boolean
+): StreamReduction<TMessage> | null => {
+  if (
+    msg.type !== CHAT_STREAM_EVENT_TYPES.RAG_SOURCES ||
+    !msg.payload?.sources
+  ) {
+    return null
+  }
+
+  const assistant = {
+    ...state.assistant,
+    metrics: {
+      ...state.assistant.metrics,
+      ragSources: msg.payload.sources,
+      ragQuery: msg.payload.query
+    }
+  } as TMessage
+
+  return {
+    state: { ...state, assistant, lastSeq, started: true },
+    dropped: false,
+    justStarted,
     tokens: [],
     changed: false,
     terminal: null
   }
+}
 
-  let lastSeq = state.lastSeq
-  if (typeof msg.seq === "number") {
-    if (msg.seq <= lastSeq) return dropped
-    lastSeq = msg.seq
+const mergeGeneratedImages = (
+  current: StreamAssistantMessage["images"],
+  incoming: NonNullable<StreamMessage["generatedImages"]>
+): StreamAssistantMessage["images"] => {
+  const merged = [...(current ?? [])]
+  const seen = new Set(merged.map((image) => image.imageId).filter(Boolean))
+  for (const image of incoming) {
+    if (image.imageId && seen.has(image.imageId)) continue
+    merged.push(image)
+    if (image.imageId) seen.add(image.imageId)
   }
+  return merged
+}
 
-  const justStarted = !state.started
-  let assistant = state.assistant
+interface AppliedPayload<TMessage extends StreamAssistantMessage> {
+  assistant: TMessage
+  thinkingState: ThinkingParserState
+  tokens: string[]
+  changed: boolean
+}
 
-  // `rag_sources` side channel: fold retrieval metadata into metrics silently
-  // (no visible change, no token), matching the legacy early-return.
-  if (
-    msg.type === CHAT_STREAM_EVENT_TYPES.RAG_SOURCES &&
-    msg.payload?.sources
-  ) {
-    assistant = {
-      ...assistant,
-      metrics: {
-        ...assistant.metrics,
-        ragSources: msg.payload.sources,
-        ragQuery: msg.payload.query
-      }
-    } as TMessage
-    return {
-      state: { ...state, assistant, lastSeq, started: true },
-      dropped: false,
-      justStarted,
-      tokens: [],
-      changed: false,
-      terminal: null
-    }
-  }
-
-  const thinkingState = { ...state.thinkingState }
+const applyStreamPayload = <TMessage extends StreamAssistantMessage>(
+  assistant: TMessage,
+  msg: StreamMessage,
+  initialThinkingState: ThinkingParserState
+): AppliedPayload<TMessage> => {
+  const thinkingState = { ...initialThinkingState }
   const tokens: string[] = []
   let content = assistant.content
   let thinking = assistant.thinking
@@ -203,22 +226,13 @@ export const reduceStreamEvent = <TMessage extends StreamAssistantMessage>(
   let changed = false
 
   if (msg.generatedImages?.length) {
-    const merged = [...(images ?? [])]
-    const seen = new Set(merged.map((image) => image.imageId).filter(Boolean))
-    for (const image of msg.generatedImages) {
-      if (image.imageId && seen.has(image.imageId)) continue
-      merged.push(image)
-      if (image.imageId) seen.add(image.imageId)
-    }
-    images = merged
+    images = mergeGeneratedImages(images, msg.generatedImages)
     changed = true
   }
-
   if (msg.toolRuns) {
     metrics = { ...metrics, toolRuns: msg.toolRuns }
     changed = true
   }
-
   if (msg.replayArtifact) {
     replayArtifact = msg.replayArtifact
     changed = true
@@ -248,83 +262,153 @@ export const reduceStreamEvent = <TMessage extends StreamAssistantMessage>(
     }
   }
 
-  assistant = {
-    ...assistant,
-    content,
-    thinking,
-    images,
-    replayArtifact,
-    metrics
-  } as TMessage
+  return {
+    assistant: {
+      ...assistant,
+      content,
+      thinking,
+      images,
+      replayArtifact,
+      metrics
+    } as TMessage,
+    thinkingState,
+    tokens,
+    changed
+  }
+}
 
-  const isTerminal = Boolean(msg.done || msg.error || msg.aborted)
-  let terminal: StreamTerminal<TMessage> | null = null
+const getEmptyReason = <TMessage extends StreamAssistantMessage>(
+  assistant: TMessage,
+  aborted: boolean | undefined
+): {
+  emptyReason?: StreamEmptyReason
+  thinkingOnlyResponse: boolean
+  toolBackedThinkingOnlyResponse: boolean
+} => {
+  const hasThinking = Boolean(assistant.thinking?.trim())
+  const hasToolRuns = (assistant.metrics?.toolRuns?.length ?? 0) > 0
+  const hasImages = (assistant.images?.length ?? 0) > 0
+  const thinkingOnlyResponse =
+    !assistant.content.trim() && !hasImages && hasThinking
+  const toolBackedThinkingOnlyResponse = thinkingOnlyResponse && hasToolRuns
 
-  if (isTerminal) {
-    if (msg.error) {
-      terminal = { type: "error", error: msg.error, partial: assistant }
-      assistant = { ...assistant, done: true } as TMessage
-    } else {
-      const hasThinking = Boolean(assistant.thinking?.trim())
-      const hasToolRuns = (assistant.metrics?.toolRuns?.length ?? 0) > 0
-      const hasImages = (assistant.images?.length ?? 0) > 0
-      const thinkingOnlyResponse =
-        !assistant.content.trim() && !hasImages && hasThinking
-      // A tool-backed turn's reasoning is the answer often enough to show it,
-      // and this is content promotion rather than copy, so it stays here.
-      const toolBackedThinkingOnlyResponse = thinkingOnlyResponse && hasToolRuns
-      const emptyReason: StreamEmptyReason | undefined =
-        thinkingOnlyResponse && !toolBackedThinkingOnlyResponse
-          ? "thinking-only"
-          : // A stop the user asked for is not a server that answered nothing:
-            // it finalizes through the abort path, which owns its own copy.
-            !assistant.content.trim() &&
-              !hasThinking &&
-              !hasToolRuns &&
-              !hasImages &&
-              !msg.aborted
-            ? "no-output"
-            : undefined
-      const base = thinkingOnlyResponse
-        ? {
-            ...assistant,
-            ...(toolBackedThinkingOnlyResponse
-              ? { content: assistant.thinking?.trim() || "" }
-              : {}),
-            metrics: {
-              ...assistant.metrics,
-              thinkingOnlyResponse: true
-            }
-          }
-        : emptyReason === "no-output"
-          ? {
-              ...assistant,
-              metrics: { ...assistant.metrics, emptyResponse: true }
-            }
-          : assistant
-      const finalMessage = {
-        ...base,
-        metrics: {
-          ...base.metrics,
-          ...msg.metrics
-        },
-        done: true
-      } as TMessage
-      terminal = {
-        type: "success",
-        message: finalMessage,
-        ...(emptyReason ? { emptyReason } : {})
+  if (thinkingOnlyResponse && !toolBackedThinkingOnlyResponse) {
+    return {
+      emptyReason: "thinking-only",
+      thinkingOnlyResponse,
+      toolBackedThinkingOnlyResponse
+    }
+  }
+  if (
+    !assistant.content.trim() &&
+    !hasThinking &&
+    !hasToolRuns &&
+    !hasImages &&
+    !aborted
+  ) {
+    return {
+      emptyReason: "no-output",
+      thinkingOnlyResponse,
+      toolBackedThinkingOnlyResponse
+    }
+  }
+  return { thinkingOnlyResponse, toolBackedThinkingOnlyResponse }
+}
+
+const buildSuccessfulTerminal = <TMessage extends StreamAssistantMessage>(
+  assistant: TMessage,
+  msg: StreamMessage
+): { assistant: TMessage; terminal: StreamTerminal<TMessage> } => {
+  const { emptyReason, thinkingOnlyResponse, toolBackedThinkingOnlyResponse } =
+    getEmptyReason(assistant, msg.aborted)
+
+  let base: StreamAssistantMessage = assistant
+  if (thinkingOnlyResponse) {
+    base = {
+      ...assistant,
+      ...(toolBackedThinkingOnlyResponse
+        ? { content: assistant.thinking?.trim() || "" }
+        : {}),
+      metrics: {
+        ...assistant.metrics,
+        thinkingOnlyResponse: true
       }
-      assistant = finalMessage
+    }
+  } else if (emptyReason === "no-output") {
+    base = {
+      ...assistant,
+      metrics: { ...assistant.metrics, emptyResponse: true }
     }
   }
 
+  const finalMessage = {
+    ...base,
+    metrics: {
+      ...base.metrics,
+      ...msg.metrics
+    },
+    done: true
+  } as TMessage
+
   return {
-    state: { assistant, thinkingState, lastSeq, started: true },
+    assistant: finalMessage,
+    terminal: {
+      type: "success",
+      message: finalMessage,
+      ...(emptyReason ? { emptyReason } : {})
+    }
+  }
+}
+
+const applyTerminal = <TMessage extends StreamAssistantMessage>(
+  assistant: TMessage,
+  msg: StreamMessage
+): { assistant: TMessage; terminal: StreamTerminal<TMessage> | null } => {
+  if (!msg.done && !msg.error && !msg.aborted) {
+    return { assistant, terminal: null }
+  }
+  if (msg.error) {
+    return {
+      assistant: { ...assistant, done: true } as TMessage,
+      terminal: { type: "error", error: msg.error, partial: assistant }
+    }
+  }
+  return buildSuccessfulTerminal(assistant, msg)
+}
+
+/**
+ * Pure transition: fold one {@link StreamMessage} into the turn state and
+ * report what the effectful caller should do (render, emit tokens, flip
+ * streaming, finalize). Performs no I/O — no `setMessages`, no `toast`, no
+ * i18n. The caller owns all of that; error display copy is composed from
+ * {@link StreamTerminal} rather than here so this stays testable and
+ * replayable.
+ */
+export const reduceStreamEvent = <TMessage extends StreamAssistantMessage>(
+  state: StreamReducerState<TMessage>,
+  msg: StreamMessage
+): StreamReduction<TMessage> => {
+  const lastSeq = getNextSequence(state.lastSeq, msg.seq)
+  if (lastSeq === null) return makeDroppedReduction(state)
+
+  const justStarted = !state.started
+  const ragReduction = reduceRagSources(state, msg, lastSeq, justStarted)
+  if (ragReduction) return ragReduction
+
+  const applied = applyStreamPayload(state.assistant, msg, state.thinkingState)
+  const terminalResult = applyTerminal(applied.assistant, msg)
+
+  return {
+    state: {
+      assistant: terminalResult.assistant,
+      thinkingState: applied.thinkingState,
+      lastSeq,
+      started: true
+    },
     dropped: false,
     justStarted,
-    tokens,
-    changed,
-    terminal
+    tokens: applied.tokens,
+    changed: applied.changed,
+    terminal: terminalResult.terminal
   }
 }

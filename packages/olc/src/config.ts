@@ -19,8 +19,10 @@ import { randomBytes } from "node:crypto"
 import type { ProxyConfig } from "./types.js"
 import { parseBool, parseList } from "./util.js"
 
+export const PROXY_DEFAULT_PORTS = { codex: 8083, opencode: 8084 } as const
+
 export const DEFAULTS = {
-  PORT: 8083,
+  PORT: PROXY_DEFAULT_PORTS.opencode,
   BIND_HOST: "127.0.0.1",
   BACKEND: "opencode",
   ALLOWED_ORIGINS: [
@@ -93,12 +95,22 @@ export const resolveConfig = (
   fileOptions: ProxyOptions = {}
 ): ProxyConfig => {
   const env = process.env
+  const backend = stringOption(
+    options.BACKEND,
+    env.OLC_BACKEND,
+    fileOptions.BACKEND,
+    DEFAULTS.BACKEND
+  )
+  const backendPort =
+    backend === "codex"
+      ? PROXY_DEFAULT_PORTS.codex
+      : PROXY_DEFAULT_PORTS.opencode
   const port = numberOption(
     options.PORT,
     env.OLC_PORT,
     env.OPENCODE_PROXY_PORT,
     fileOptions.PORT,
-    DEFAULTS.PORT
+    backendPort
   )
   const bindHost = stringOption(
     options.BIND_HOST,
@@ -132,12 +144,7 @@ export const resolveConfig = (
       env.OLC_SYSTEM_PROMPT,
       fileOptions.SYSTEM_PROMPT
     ),
-    BACKEND: stringOption(
-      options.BACKEND,
-      env.OLC_BACKEND,
-      fileOptions.BACKEND,
-      DEFAULTS.BACKEND
-    ),
+    BACKEND: backend,
     ALLOWED_ORIGINS:
       allowedOrigins.length > 0
         ? allowedOrigins

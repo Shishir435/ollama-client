@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
 import { OLC_PUBLIC_ROUTES } from "../../../packages/olc/src/core/public-api-contract"
-import { buildOlcOpenApi } from "../../../tools/generate-openapi"
+import { buildOlcOpenApi } from "../../../tools/generate/generate-openapi"
 
 const REPO_ROOT = join(__dirname, "../../..")
 const readRepoFile = (path: string) =>

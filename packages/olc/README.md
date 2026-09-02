@@ -1,6 +1,24 @@
 # olc
 
-An OpenAI-compatible HTTP front end for a local agent runtime, with a **tool
+One CLI for native Ollama and local agent proxies. With no arguments, `olc`
+starts or reuses **native Ollama** with browser-extension access. Ollama keeps its
+own API and default port; it does not run behind the agent proxy.
+
+| Command | Behavior | Default bind |
+| --- | --- | --- |
+| `olc` | Start or reuse native Ollama | `127.0.0.1:11434` |
+| `olc --lan` | Start/reuse a compatible LAN server | `0.0.0.0:11434` |
+| `olc -b codex` | Start the Codex proxy | `127.0.0.1:8083` |
+| `olc -b opencode` | Start the OpenCode proxy | `127.0.0.1:8084` |
+
+`-b` and `--backend` are aliases. `--backend=codex` also works.
+
+**Migration:** bare `olc` previously selected OpenCode. Update scripts to
+`olc -b opencode --foreground` to keep that behavior. An explicit `OLC_BACKEND` or config
+`BACKEND` still takes precedence over the new default. These defaults ship with
+the next release; older installed bundles keep their previous behavior.
+
+In either explicit agent mode, olc is an OpenAI-compatible HTTP front end for a local agent runtime, with a **tool
 bridge** so an OpenAI-compatible client can run its own tools inside the
 runtime's turn. Bundled backends serve [OpenCode](https://opencode.ai) and the
 official [Codex CLI](https://developers.openai.com/codex/cli).
@@ -15,6 +33,61 @@ client  ──  POST /v1/chat/completions (messages + tools)  ──▶  olc  �
         ──  POST /v1/chat/completions (… + tool results)   ──▶  olc  ──▶  same turn resumed
         ◀──  content deltas, finish_reason=stop            ──
 ```
+
+## Short aliases
+
+| Scope | Aliases |
+| --- | --- |
+| Shared | `-b` backend, `-H` host, `-p` port, `-o` origins, `-c` config, `-D` detached, `-f` foreground, `-d` debug, `-h` help |
+| Ollama | `-l` LAN, `-L` local, `-O` binary, `-k` check, `-j` JSON |
+| Proxy | `-K` API key, `-s` system prompt, `-n` no bridge |
+| OpenCode | `-u` URL, `-x` binary, `-a` agent, `-P` project, `-t` allowed tools, `-g` plugin directory |
+| Codex | `-C` binary, `-W` workspace, `-w` web-search mode |
+
+Short flags take separate values (`-p 8083`); long flags also accept
+`--name=value`. Short flags are case-sensitive and are not combined into clusters.
+
+## Background and foreground mode
+
+All three backends default to **detached** mode. `--debug` keeps the command
+in the **foreground** with diagnostic output; `--foreground` does the same
+without enabling verbose logging. `--detached` explicitly selects the default.
+Contradictory `--foreground --detached` or `--debug --detached` combinations fail.
+
+```bash
+olc                          # native Ollama, background
+olc --lan                    # configure LAN, background
+olc --debug                  # attached native diagnostics
+olc -b codex                 # detached Codex proxy
+olc -b opencode --detached    # detached OpenCode proxy
+olc -b codex --foreground     # attached proxy, normal logs
+olc -b opencode --debug       # attached proxy, verbose logs
+```
+
+- A detached proxy prints its URL, PID, log path, and stop instruction after
+  both its HTTP listener and backend are ready. Logs are private per-run files
+  under `~/.olc/logs/`; `OLC_LOG_DIR` overrides that directory. Startup failure
+  returns a nonzero exit code and names the log. An occupied port is an error;
+  olc never stops an existing proxy to replace it.
+- Proxy configuration is handed to the child over private IPC, not written to
+  disk or duplicated in child arguments. Parent loss before accepting startup
+  shuts down the new child. After handoff, closing the terminal leaves it running.
+- Foreground proxies stop on Ctrl-C. A standalone Ollama started in foreground
+  streams its server logs to stderr, enables `OLLAMA_DEBUG` with `--debug`, and
+  stops with its CLI session. Its exit code is propagated.
+- Already-running Ollama and app/service-managed Ollama remain with their owner.
+  Foreground mode stays attached as a readiness monitor, with diagnostics on
+  stderr; Ctrl-C exits only the monitor. Server logs remain with the app/service.
+  `--check` always returns immediately after its read-only check, even with debug.
+- `OLC_DETACHED=false` or JSON config `"DETACHED": false` selects foreground by
+  default. CLI flags override that setting; debug logging always requires
+  foreground mode, including debug enabled through config/environment.
+
+Detached proxies are background processes, not installed login/reboot services.
+For a process supervisor or container, use `--foreground`. On Unix, stop the
+reported detached proxy with `kill -TERM <pid>` so its backend can clean up.
+On Windows, prefer foreground for terminal-controlled shutdown; stopping a
+background process through Task Manager does not guarantee graceful cleanup.
 
 ## Why a bridge
 
@@ -38,12 +111,20 @@ side channel, no client-side special cases.
 
 ## Install and run
 
-Requires Node ≥ 22.12. The OpenCode backend also needs the `opencode` binary on
+Requires Node ≥ 22.12 and an existing [Ollama installation](https://ollama.com/download) for native mode. macOS/Linux also need `lsof` for safe listener inspection. The OpenCode backend needs the `opencode` binary on
 `PATH` (or `--opencode`). The Codex backend needs the `codex` binary on `PATH`
 (or `--codex`) and an existing `codex login`; olc never reads, stores, or proxies
 the user's OpenAI credentials.
 
-Nothing is published to a registry. Release bundles can be installed directly:
+Nothing is published to a registry. Release bundles can be installed directly.
+
+Each release publishes `olc.sh`, `olc.ps1`, and a `sha256` for each, so the
+recommended path pins a wrapper to a tag and verifies it before it runs — see
+[installing without piping to a shell](https://www.ollamaclient.in/developers/#install-without-piping-to-a-shell),
+which also covers installing the archive with no wrapper at all.
+
+The site serves the same wrappers at a mutable URL for a quicker, unverified
+install:
 
 ```powershell
 # Windows PowerShell
@@ -64,9 +145,9 @@ To run from a clone instead:
 
 ```bash
 pnpm install
-pnpm proxy:bundle          # one minified file: packages/olc/dist/olc.mjs (~70 KB)
-packages/olc/bin/olc       # start it
-packages/olc/bin/olc --port 9000 --debug
+pnpm proxy:bundle          # one minified file: packages/olc/dist/olc.mjs
+packages/olc/bin/olc       # start/reuse native Ollama
+packages/olc/bin/olc -b opencode --port 9000 --debug
 ```
 
 `bin/olc` is a POSIX shell launcher. It runs the bundle when one exists, falls
@@ -77,6 +158,7 @@ so it works in a fresh checkout either way. On Windows, run
 Other entry points, from the repository root:
 
 ```bash
+pnpm olc                   # native Ollama from source
 pnpm proxy:opencode        # run OpenCode from source
 pnpm proxy:opencode:debug  # run OpenCode with verbose logging
 pnpm proxy:codex           # run Codex from source
@@ -113,8 +195,9 @@ olc ships with Ollama Client and carries the same version number; a contract tes
 
 ### Use it from Ollama Client
 
-Add a **custom OpenAI-compatible provider** with base URL
-`http://127.0.0.1:8083/v1`, then pick a model from the list. Tool calling, vision
+For native mode, select the built-in **Ollama** provider at
+`http://127.0.0.1:11434`. For Codex/OpenCode, add a **custom OpenAI-compatible provider** with base URL
+`http://127.0.0.1:8083/v1` for Codex or `http://127.0.0.1:8084/v1` for OpenCode, then pick a model from the list. Tool calling, vision
 and reasoning are advertised per model from the backend's own metadata, so the
 client enables them the same way it does for any other provider — no overrides.
 
@@ -133,15 +216,61 @@ silently changed to a nearby level.
 
 Command line wins, then the environment, then `config.json`, then the default.
 
-### Core
+### Native Ollama
+
+- `--lan` switches to `0.0.0.0`; `--local` restores `127.0.0.1`. Existing LAN
+  access is preserved by plain `olc`. Explicit `--host` and `--port` override defaults.
+- Native configuration uses `OLLAMA_HOST` (`host:port`) and `OLLAMA_ORIGINS` from
+  the environment or JSON config. Generic file `PORT`/`BIND_HOST` and proxy
+  `OLC_PORT`/`OLC_BIND_HOST` are ignored in native mode, so old proxy settings
+  cannot move Ollama to port 8083. `--ollama` / `OLC_OLLAMA_PATH` selects a binary.
+- Extension origins are merged with configured origins, including
+  `--allowed-origins`, `OLC_ALLOWED_ORIGINS`, and the running server's origins
+  when restarting. Other Ollama environment settings are preserved.
+- `olc --check` is read-only. `olc --check --json` emits one JSON result on
+  stdout; diagnostics go to stderr. Combine `--check --lan` to require LAN bind.
+  Exit codes are `0` ready/help, `1` not ready/runtime error, `2` usage/config error.
+- **No native authentication:** `--api-key` and proxy API-key configuration are
+  rejected in native mode. LAN access is for trusted networks only; a firewall
+  is still needed. Restarts interrupt active generations.
+
+olc never calls `launchctl setenv`, writes a systemd drop-in, changes Windows
+user/machine variables, edits a shell profile, or writes Ollama configuration.
+`OLLAMA_*` values are supplied only to the standalone `ollama serve` process
+that olc starts. A detached server retains them only for that process's lifetime;
+a foreground server loses them when it stops.
+
+An already-compatible macOS app, systemd service, Windows tray process, or other
+managed server is reused unchanged. When the macOS app needs a different bind or
+origin, olc gracefully quits the app, waits for its verified listener to exit,
+and starts a standalone child with process-scoped settings. It does not relaunch
+or reconfigure the app. The app gets a minute to finish quitting, far longer than
+the ten seconds a CLI `SIGTERM` is given: while the wait lasts Ollama is still
+serving, whereas giving up early would abandon an app that was already asked to
+quit and never start its replacement. If the listener is still up when that
+deadline passes, no replacement is started and the running server is left as it
+is. Other incompatible managed services remain untouched and
+must be stopped for a standalone session or configured through their owner.
+Standalone Unix processes are identity-checked before `SIGTERM`; olc never
+escalates to a force-kill. Detached logs go to `~/.ollama/olc.log`.
+`--check` remains read-only.
+
+Ollama Client does not require this CLI. Users can set `OLLAMA_ORIGINS` and
+`OLLAMA_HOST` manually by following the
+[provider setup guide](https://www.ollamaclient.in/guides/provider-setup/).
+From a repository clone, `tools/setup/ollama-env.sh` remains an optional Bash
+helper for that setup. Installing olc provides stricter ownership checks and
+readiness reporting. Ollama itself is installed separately.
+
+### Proxy core (`-b codex` / `-b opencode`)
 
 | Option | Flag | Environment | Default |
 | --- | --- | --- | --- |
-| `PORT` | `--port` | `OLC_PORT` | `8083` |
+| `PORT` | `--port`, `-p` | `OLC_PORT` | Codex: `8083`; OpenCode: `8084` |
 | `BIND_HOST` | `--host` | `OLC_BIND_HOST` | `127.0.0.1` |
 | `API_KEY` | `--api-key` | `OLC_API_KEY` | none (no auth) |
 | `ALLOWED_ORIGINS` | `--allowed-origins` | `OLC_ALLOWED_ORIGINS` | the extension schemes |
-| `BACKEND` | `--backend` | `OLC_BACKEND` | `opencode` |
+| `BACKEND` | `--backend`, `-b` | `OLC_BACKEND` | CLI: `ollama`; embedded proxy: `opencode` |
 | `SYSTEM_PROMPT` | `--system-prompt` | `OLC_SYSTEM_PROMPT` | the client's |
 | `BRIDGE_ENABLED` | `--no-bridge` to disable | `OLC_BRIDGE_ENABLED` | `true` |
 | `DEBUG` | `--debug` | `OLC_DEBUG` | `false` |
@@ -188,7 +317,15 @@ Every tool id OpenCode reports is explicitly disabled per turn unless listed in
 `ALLOW_OPENCODE_TOOLS`. The client that talks to this proxy has its own tool
 inventory and its own approval flow; an agent quietly reaching for `bash` or
 `write` instead is neither visible nor wanted there. Opt individual tools back in
-by id, for example `--allow-opencode-tools websearch,webfetch`.
+by id with `--allow-opencode-tools`.
+
+`web_search` is also the client's per-turn search intent. Its execution policy
+can request client-managed, automatic, or native-only search. Automatic uses
+OpenCode's `websearch` when discovered and otherwise preserves the client tool as
+a SearXNG/Brave/Tavily fallback. Native-only removes that fallback and therefore
+fails closed when `websearch` is absent. Native `webfetch` remains off unless the
+operator explicitly lists it; a web-search request alone does not grant arbitrary
+URL fetching. Clients without a policy annotation retain automatic behavior.
 
 ### Codex backend
 
@@ -196,6 +333,7 @@ by id, for example `--allow-opencode-tools websearch,webfetch`.
 | --- | --- | --- | --- |
 | `CODEX_PATH` | `--codex` | `OLC_CODEX_PATH` (or `CODEX_PATH`) | `codex` |
 | `CODEX_PROJECT_DIR` | `--codex-project-dir` | `OLC_CODEX_PROJECT_DIR` | isolated temporary workspace |
+| `CODEX_WEB_SEARCH_MODE` | `--codex-web-search` | `OLC_CODEX_WEB_SEARCH_MODE` | `cached` |
 
 Codex runs with `approvalPolicy: never`, a read-only sandbox, and an ephemeral
 thread rooted in the dedicated workspace. The client-provided tools are exposed
@@ -206,6 +344,18 @@ Server reports native image generation, olc publishes a dedicated
 `codex/image-generation` model and exposes its result through the
 OpenAI-compatible Images endpoint. Ordinary Codex models remain text-output models;
 older Codex builds simply omit the image-generation model.
+
+For ordinary chat turns, an incoming `web_search` function is explicit per-turn
+intent. olc removes the duplicate dynamic tool and starts that Codex thread with
+search set to the client-requested `cached`, `indexed`, or `live` mode, capped by
+`CODEX_WEB_SEARCH_MODE`. A turn without the function—or one explicitly requesting
+client-managed execution—always starts with search `disabled`. Automatic mode
+preserves the client function as fallback when native search is operator-disabled;
+native-only removes it and fails closed. Image turns always disable search.
+Codex `webSearch` lifecycle items are forwarded as reasoning-status deltas, while
+commentary-phase messages stay in reasoning instead of being concatenated into
+the final answer. Debug mode reports the selected native mode and the number of
+observed search events, but never logs the query text.
 
 ## Endpoints
 

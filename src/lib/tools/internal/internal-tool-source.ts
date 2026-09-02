@@ -41,7 +41,6 @@ import {
   runScheduleReminder,
   scheduleReminderDefinition
 } from "./schedule-reminder-tool"
-import { runSelectedText, selectedTextDefinition } from "./selected-text-tool"
 import {
   listTabGroupsDefinition,
   readTabGroupDefinition,
@@ -66,7 +65,6 @@ const INTERNAL_TOOLS: InternalTool[] = [
   { definition: readTabDefinition, run: runReadTab },
   { definition: listTabGroupsDefinition, run: runListTabGroups },
   { definition: readTabGroupDefinition, run: runReadTabGroup },
-  { definition: selectedTextDefinition, run: runSelectedText },
   { definition: recentHistoryDefinition, run: runRecentHistory },
   { definition: searchBookmarksDefinition, run: runSearchBookmarks },
   { definition: listRecentlyClosedDefinition, run: runListRecentlyClosed },

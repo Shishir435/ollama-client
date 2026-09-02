@@ -1,5 +1,6 @@
 /** Codex app-server mappings kept separate from the backend lifecycle. */
 
+import { splitWebSearchIntent } from "../../core/openai-wire.js"
 import type {
   BridgeToolDefinition,
   OpenAIToolDefinition,
@@ -8,6 +9,7 @@ import type {
 import { REASONING_EFFORTS } from "../../types.js"
 import { isRecord } from "../../util.js"
 import type { CatalogModel } from "../types.js"
+import type { CodexWebSearchMode } from "./config.js"
 
 export interface CodexModel {
   id: string
@@ -144,3 +146,41 @@ export const toDynamicTools = (tools: unknown) =>
     description: tool.description,
     inputSchema: tool.parameters
   }))
+
+/** Map public web-search intent onto one Codex thread without tool-name clashes. */
+export const routeCodexWebSearch = (
+  tools: unknown,
+  mode: CodexWebSearchMode,
+  nativeAvailable = true
+): {
+  native: boolean
+  bridgeTools: unknown
+  threadMode: CodexWebSearchMode
+} => {
+  const intent = splitWebSearchIntent(tools)
+  if (!intent.requested) {
+    return { native: false, bridgeTools: tools, threadMode: "disabled" }
+  }
+  if (intent.source === "client") {
+    return { native: false, bridgeTools: tools, threadMode: "disabled" }
+  }
+  const native = mode !== "disabled" && nativeAvailable
+  const ranks: Record<Exclude<CodexWebSearchMode, "disabled">, number> = {
+    cached: 0,
+    indexed: 1,
+    live: 2
+  }
+  const requestedMode = intent.mode ?? (mode === "disabled" ? "cached" : mode)
+  const threadMode = native
+    ? ranks[requestedMode] <=
+      ranks[mode as Exclude<CodexWebSearchMode, "disabled">]
+      ? requestedMode
+      : mode
+    : "disabled"
+  return {
+    native,
+    bridgeTools:
+      native || intent.source === "native" ? intent.clientTools : tools,
+    threadMode
+  }
+}

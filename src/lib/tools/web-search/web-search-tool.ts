@@ -7,7 +7,7 @@ import {
 } from "./backends/shared"
 import { getWebSearchConfig } from "./config"
 import { getWebSearchBackend } from "./registry"
-import type { WebSearchResult } from "./types"
+import type { WebSearchProviderConfig, WebSearchResult } from "./types"
 
 const PER_SNIPPET_CHAR_LIMIT = 500
 const TOOL_OUTPUT_CHAR_LIMIT = 6000
@@ -57,6 +57,24 @@ export const webSearchDefinition: ToolDefinition = {
       }
     },
     required: ["query"]
+  }
+}
+
+/** Attach per-turn execution intent without coupling provider adapters to OLC. */
+export const withWebSearchExecutionPolicy = (
+  definition: ToolDefinition,
+  config: WebSearchProviderConfig
+): ToolDefinition => {
+  if (definition.name !== webSearchDefinition.name) return definition
+  return {
+    ...definition,
+    parameters: {
+      ...definition.parameters,
+      "x-ollama-client-web-search": {
+        source: config.executionSource ?? "client",
+        mode: config.nativeMode ?? "cached"
+      }
+    }
   }
 }
 
@@ -201,6 +219,13 @@ export const runWebSearch = async (
   const config = await getWebSearchConfig()
   if (!config.enabled) {
     return { content: "Web search is not enabled.", isError: true }
+  }
+  if (config.executionSource === "native") {
+    return {
+      content:
+        "Native-only web search was requested, but the selected model runtime did not consume the search intent.",
+      isError: true
+    }
   }
 
   const backend = getWebSearchBackend(config.provider)

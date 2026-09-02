@@ -57,6 +57,28 @@ describe("WebSearchProviderConfigSchema", () => {
     )
   })
 
+  it("preserves native execution policy and rejects invalid policy values", () => {
+    expect(
+      WebSearchProviderConfigSchema.parse({
+        executionSource: "native",
+        nativeMode: "live"
+      })
+    ).toEqual(
+      expect.objectContaining({ executionSource: "native", nativeMode: "live" })
+    )
+    expect(
+      WebSearchProviderConfigSchema.parse({
+        executionSource: "remote",
+        nativeMode: "unlimited"
+      })
+    ).toEqual(
+      expect.objectContaining({
+        executionSource: "client",
+        nativeMode: "cached"
+      })
+    )
+  })
+
   it("rejects non-object persisted values", () => {
     expect(WebSearchProviderConfigSchema.safeParse("broken").success).toBe(
       false

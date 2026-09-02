@@ -327,6 +327,36 @@ describe("RPC server", () => {
     )
   })
 
+  it("does not expose embedding diagnostics when no safe message exists", async () => {
+    mocks.generateEmbedding.mockResolvedValueOnce({
+      error: "upstream echoed apiKey=private-value",
+      code: "OLC-PROVIDER-HTTP"
+    })
+    const sendResponse = vi.fn()
+
+    await handleRpcRequest(
+      request(RpcMethod.EmbeddingsGenerate, {
+        text: "hello",
+        model: "embed-model"
+      }),
+      extensionSender,
+      extensionId,
+      extensionPrefix,
+      sendResponse
+    )
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: true,
+        result: {
+          ok: false,
+          error: "Embedding generation failed",
+          code: "OLC-PROVIDER-HTTP"
+        }
+      })
+    )
+  })
+
   it("returns safe provider errors without logging upstream bodies", async () => {
     mocks.testConnection.mockRejectedValue(
       createAppError("upstream echoed apiKey=private-value", {

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest"
  * The store-visible title and description are generated, not authored where
  * they are read. `wxt.config.ts` resolves the manifest name from
  * `__MSG_extName__`, Chrome resolves that from `public/_locales`, and
- * `tools/generate-i18n-resources.ts` generates those from
+ * `tools/generate/generate-i18n-resources.ts` generates those from
  * `src/locales/<lang>/translation.json`. Three copies of one string, only one
  * of which is authoritative.
  *
@@ -21,7 +21,7 @@ const repositoryRoot = process.cwd()
 const localeRoot = join(repositoryRoot, "src/locales")
 const chromeLocaleRoot = join(repositoryRoot, "public/_locales")
 
-/** Mirrors CHROME_LOCALE_MAP in tools/generate-i18n-resources.ts. */
+/** Mirrors CHROME_LOCALE_MAP in tools/generate/generate-i18n-resources.ts. */
 const CHROME_LOCALE_MAP: Record<string, string> = { zh: "zh_CN" }
 
 /** Chrome Web Store listing limits, enforced at upload rather than at build. */

@@ -12,6 +12,7 @@ describe("resolveCodexConfig", () => {
     const config = resolveCodexConfig()
     expect(config.CODEX_PATH).toBe("codex")
     expect(config.PROJECT_DIR).toContain("olc-codex-workspace")
+    expect(config.WEB_SEARCH_MODE).toBe("cached")
   })
 
   it("keeps option, environment, file, default precedence", () => {
@@ -36,5 +37,17 @@ describe("resolveCodexConfig", () => {
         options: { CODEX_PROJECT_DIR: "/flag/workspace" }
       }).PROJECT_DIR
     ).toBe("/flag/workspace")
+  })
+
+  it("resolves and validates the native web-search mode", () => {
+    process.env.OLC_CODEX_WEB_SEARCH_MODE = "indexed"
+    expect(resolveCodexConfig().WEB_SEARCH_MODE).toBe("indexed")
+    expect(
+      resolveCodexConfig({ options: { CODEX_WEB_SEARCH_MODE: "live" } })
+        .WEB_SEARCH_MODE
+    ).toBe("live")
+    expect(() =>
+      resolveCodexConfig({ options: { CODEX_WEB_SEARCH_MODE: "surprise" } })
+    ).toThrow("Invalid Codex web-search mode 'surprise'")
   })
 })

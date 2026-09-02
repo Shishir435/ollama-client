@@ -1,4 +1,4 @@
-import { cosineSimilarity } from "@/lib/embeddings/embedding-client"
+import { cosineSimilarity } from "@/application/embeddings/embedding-service"
 import { getErrorMessage } from "@/lib/error-utils"
 import { logger } from "@/lib/logger"
 

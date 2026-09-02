@@ -10,7 +10,6 @@
     "includes": [
       "**",
       "!docs",
-      "!tools",
       "!src/globals.css",
       "!src/features/selection-actions/selection-overlay.css",
       "!public",
@@ -27,7 +26,15 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 25
+          }
+        }
+      }
     }
   },
   "javascript": {

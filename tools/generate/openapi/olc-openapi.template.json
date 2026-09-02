@@ -1,0 +1,817 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Ollama Client olc Local Proxy API",
+    "version": "generated-from-packages/olc/package.json",
+    "description": "OpenAI-compatible HTTP API exposed by the local olc CLI. This API runs on the user's machine; ollamaclient.in is documentation and does not host these endpoints.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "x-api-version": "v1",
+  "x-deprecation-policy": {
+    "notice": "Deprecated routes receive Deprecation and Sunset headers at least 30 days before removal.",
+    "documentation": "https://www.ollamaclient.in/developers/"
+  },
+  "x-rate-limit": {
+    "policy": "60 requests per 60 seconds per client",
+    "headers": ["RateLimit-Policy", "RateLimit", "Retry-After"]
+  },
+  "externalDocs": {
+    "description": "Ollama Client developer portal",
+    "url": "https://www.ollamaclient.in/developers/"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8083",
+      "description": "Default Codex proxy address"
+    },
+    {
+      "url": "http://127.0.0.1:8084",
+      "description": "Default OpenCode proxy address"
+    },
+    {
+      "url": "http://localhost:{port}",
+      "description": "Locally configured olc instance",
+      "variables": {
+        "port": {
+          "default": "8083",
+          "description": "Backend default (Codex 8083, OpenCode 8084) or --port/OLC_PORT override"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "name": "Service",
+      "description": "Local proxy identity and liveness"
+    },
+    {
+      "name": "Models",
+      "description": "Backend model discovery and capability metadata"
+    },
+    {
+      "name": "Chat",
+      "description": "OpenAI-compatible chat completions and client-owned function calls"
+    },
+    {
+      "name": "Images",
+      "description": "OpenAI-compatible image generation"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "getServiceInfo",
+        "summary": "Identify the local proxy",
+        "description": "Returns the olc service name, active backend id, and whether the client tool bridge is enabled. This liveness route does not require the optional bearer token.",
+        "tags": ["Service"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The local proxy is running.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceInfo"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenOrigin"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Check local proxy liveness",
+        "description": "Returns a small JSON response when the olc process and selected backend adapter are reachable. It does not prove that a model can complete a request.",
+        "tags": ["Service"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The local proxy process is healthy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenOrigin"
+          }
+        }
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "operationId": "listModels",
+        "summary": "List backend models",
+        "description": "Returns models from the selected local runtime with modalities, supported parameters, and empirical capability flags. Call this before selecting a model or enabling tools or images.",
+        "tags": ["Models"],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "A model catalog, which may be empty.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenOrigin"
+          },
+          "502": {
+            "$ref": "#/components/responses/BackendFailure"
+          }
+        }
+      }
+    },
+    "/v1/models/{modelId}": {
+      "get": {
+        "operationId": "getModel",
+        "summary": "Get one backend model",
+        "description": "Returns one model by full id or an unambiguous suffix id. Use the exact id returned by listModels when possible.",
+        "tags": ["Models"],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "modelId",
+            "in": "path",
+            "required": true,
+            "description": "URL-encoded full model id or unambiguous suffix from the catalog.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "example": "openai/gpt-5"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The matching model and its capability metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Model"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenOrigin"
+          },
+          "404": {
+            "description": "No model matched. Refresh the catalog and retry with an exact id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                },
+                "example": {
+                  "error": {
+                    "message": "Model not found"
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "$ref": "#/components/responses/BackendFailure"
+          }
+        }
+      }
+    },
+    "/v1/chat/completions": {
+      "post": {
+        "operationId": "createChatCompletion",
+        "summary": "Create or resume a chat completion",
+        "description": "Starts an agent-runtime turn, or resumes its parked client-tool call when trailing tool messages carry live tool_call_id values. With stream=true the success response is server-sent events ending in [DONE]; otherwise it is one JSON completion.",
+        "tags": ["Chat"],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "OpenAI-compatible chat input. Discover the model id and capabilities through /v1/models first.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatCompletionRequest"
+              },
+              "examples": {
+                "buffered": {
+                  "summary": "Non-streaming text completion",
+                  "value": {
+                    "model": "provider/model",
+                    "messages": [
+                      {
+                        "role": "user",
+                        "content": "Summarize this project."
+                      }
+                    ],
+                    "stream": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A JSON completion when stream is false, or an SSE stream when stream is true. A tool call uses finish_reason=tool_calls and must be continued with matching tool messages.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletion"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "OpenAI-compatible data events followed by data: [DONE]."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The JSON shape, messages, model, or tool-result correlation is invalid. The error message includes a recovery direction; stale tool results also include code stale_tool_results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenOrigin"
+          },
+          "500": {
+            "$ref": "#/components/responses/ProxyFailure"
+          },
+          "502": {
+            "$ref": "#/components/responses/BackendFailure"
+          },
+          "503": {
+            "description": "The serialized request queue is stalled. Back off until the named active turn stops.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The turn exceeded the configured request deadline. Retry only after considering whether the operation is safe to repeat.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/images/generations": {
+      "post": {
+        "operationId": "createImageGeneration",
+        "summary": "Generate an image",
+        "description": "Asks a runtime with native image-generation support to produce one image and returns its bytes as OpenAI-compatible base64 JSON.",
+        "tags": ["Images"],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageGenerationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One generated image encoded as base64.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGenerationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The prompt, model, count, or response format is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenOrigin"
+          },
+          "501": {
+            "description": "The selected runtime has no image-generation operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "$ref": "#/components/responses/BackendFailure"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Optional token configured with --api-key or OLC_API_KEY. When no token is configured, API routes permit unauthenticated non-browser clients."
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "The configured bearer token is missing or invalid. Supply Authorization: Bearer <token>.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            },
+            "example": {
+              "error": {
+                "message": "Unauthorized"
+              }
+            }
+          }
+        }
+      },
+      "ForbiddenOrigin": {
+        "description": "The request carries a browser Origin that is not in OLC_ALLOWED_ORIGINS. Add the exact trusted origin or call from a non-browser client.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "BackendFailure": {
+        "description": "The selected local runtime failed. Check its process, model catalog, and olc logs before retrying.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "ProxyFailure": {
+        "description": "olc could not complete the request. Read error.type and message, then inspect local logs without exposing secrets.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ServiceInfo": {
+        "type": "object",
+        "required": ["service", "backend", "toolBridge"],
+        "properties": {
+          "service": {
+            "const": "olc"
+          },
+          "backend": {
+            "type": "string"
+          },
+          "toolBridge": {
+            "type": "string",
+            "enum": ["enabled", "disabled"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "Health": {
+        "type": "object",
+        "required": ["status", "backend"],
+        "properties": {
+          "status": {
+            "const": "ok"
+          },
+          "backend": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ModelList": {
+        "type": "object",
+        "required": ["object", "data"],
+        "properties": {
+          "object": {
+            "const": "list"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Model"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "Model": {
+        "type": "object",
+        "required": [
+          "id",
+          "object",
+          "created",
+          "owned_by",
+          "name",
+          "input_modalities",
+          "supported_parameters",
+          "capabilities"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "object": {
+            "const": "model"
+          },
+          "created": {
+            "type": "integer"
+          },
+          "owned_by": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "context_length": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "input_modalities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "output_modalities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supported_parameters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "capabilities": {
+            "type": "object",
+            "required": ["function_calling", "vision", "reasoning"],
+            "properties": {
+              "function_calling": {
+                "type": "boolean"
+              },
+              "vision": {
+                "type": "boolean"
+              },
+              "reasoning": {
+                "type": "boolean"
+              },
+              "image_generation": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "ChatCompletionRequest": {
+        "type": "object",
+        "required": ["model", "messages"],
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exact id from GET /v1/models."
+          },
+          "messages": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/ChatMessage"
+            }
+          },
+          "stream": {
+            "type": "boolean",
+            "default": false
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolDefinition"
+            }
+          },
+          "tool_choice": {
+            "description": "OpenAI-compatible tool choice value. Backend support may vary.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
+          }
+        },
+        "additionalProperties": true
+      },
+      "ImageGenerationRequest": {
+        "type": "object",
+        "required": ["model", "prompt"],
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Exact image-capable id from GET /v1/models."
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100000
+          },
+          "n": {
+            "const": 1,
+            "default": 1
+          },
+          "response_format": {
+            "const": "b64_json",
+            "default": "b64_json"
+          }
+        },
+        "additionalProperties": true
+      },
+      "ImageGenerationResponse": {
+        "type": "object",
+        "required": ["created", "data"],
+        "properties": {
+          "created": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["b64_json"],
+              "properties": {
+                "b64_json": {
+                  "type": "string",
+                  "contentEncoding": "base64"
+                },
+                "revised_prompt": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChatMessage": {
+        "type": "object",
+        "required": ["role"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["system", "developer", "user", "assistant", "tool"]
+          },
+          "content": {
+            "description": "Text, null, or OpenAI-compatible content parts including text and image_url.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "tool_call_id": {
+            "type": "string"
+          },
+          "tool_calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToolCall"
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "ToolDefinition": {
+        "type": "object",
+        "required": ["type", "function"],
+        "properties": {
+          "type": {
+            "const": "function"
+          },
+          "function": {
+            "type": "object",
+            "required": ["name", "parameters"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "parameters": {
+                "type": "object",
+                "description": "JSON Schema for function arguments.",
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "ToolCall": {
+        "type": "object",
+        "required": ["id", "type", "function"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "const": "function"
+          },
+          "function": {
+            "type": "object",
+            "required": ["name", "arguments"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "arguments": {
+                "type": "string",
+                "description": "JSON-encoded function arguments."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": true
+      },
+      "ChatCompletion": {
+        "type": "object",
+        "required": ["id", "object", "created", "model", "choices"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "const": "chat.completion"
+          },
+          "created": {
+            "type": "integer"
+          },
+          "model": {
+            "type": "string"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["index", "message", "finish_reason"],
+              "properties": {
+                "index": {
+                  "type": "integer"
+                },
+                "message": {
+                  "$ref": "#/components/schemas/ChatMessage"
+                },
+                "finish_reason": {
+                  "type": ["string", "null"]
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["message"],
+            "properties": {
+              "message": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              },
+              "resolution": {
+                "type": "string",
+                "description": "Action the caller can take to recover."
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}
