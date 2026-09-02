@@ -7,6 +7,30 @@
     "license": {
       "name": "MIT",
       "identifier": "MIT"
+    },
+    "contact": {
+      "name": "Ollama Client",
+      "url": "https://www.ollamaclient.in/contact/"
+    },
+    "x-api-lifecycle": {
+      "versioning": "URL path versioning under /v1",
+      "versionHeader": "X-API-Version",
+      "deprecationHeaders": ["Deprecation", "Sunset"],
+      "minimumNoticeDays": 30,
+      "policy": "No /v1 route is removed without notice. A deprecated route responds with the Deprecation header (RFC 9745), a Sunset date (RFC 8594) at least 30 days ahead, and a Link to its replacement. The migration is documented in the developer portal and in this specification before the header appears.",
+      "policyUrl": "https://www.ollamaclient.in/developers/#versioning-rate-limits-and-deprecation"
+    },
+    "x-rate-limit": {
+      "scope": "per client bucket (bearer token when configured, otherwise remote address)",
+      "headers": [
+        "RateLimit-Policy",
+        "RateLimit",
+        "RateLimit-Limit",
+        "RateLimit-Remaining",
+        "RateLimit-Reset"
+      ],
+      "exceeded": "429 with Retry-After",
+      "policy": "60 requests per 60 seconds"
     }
   },
   "x-api-version": "v1",
@@ -77,12 +101,46 @@
                   "$ref": "#/components/schemas/ServiceInfo"
                 }
               }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              }
             }
           },
           "403": {
             "$ref": "#/components/responses/ForbiddenOrigin"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          }
+        ]
       }
     },
     "/health": {
@@ -101,12 +159,46 @@
                   "$ref": "#/components/schemas/Health"
                 }
               }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              }
             }
           },
           "403": {
             "$ref": "#/components/responses/ForbiddenOrigin"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          }
+        ]
       }
     },
     "/v1/models": {
@@ -130,6 +222,32 @@
                   "$ref": "#/components/schemas/ModelList"
                 }
               }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              }
             }
           },
           "401": {
@@ -138,10 +256,18 @@
           "403": {
             "$ref": "#/components/responses/ForbiddenOrigin"
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
+          },
           "502": {
             "$ref": "#/components/responses/BackendFailure"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          }
+        ]
       }
     },
     "/v1/models/{modelId}": {
@@ -157,6 +283,9 @@
           {}
         ],
         "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
           {
             "name": "modelId",
             "in": "path",
@@ -177,6 +306,32 @@
                 "schema": {
                   "$ref": "#/components/schemas/Model"
                 }
+              }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
               }
             }
           },
@@ -199,7 +354,36 @@
                   }
                 }
               }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              }
             }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
           },
           "502": {
             "$ref": "#/components/responses/BackendFailure"
@@ -260,6 +444,32 @@
                   "description": "OpenAI-compatible data events followed by data: [DONE]."
                 }
               }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              }
             }
           },
           "400": {
@@ -270,6 +480,32 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              }
             }
           },
           "401": {
@@ -277,6 +513,9 @@
           },
           "403": {
             "$ref": "#/components/responses/ForbiddenOrigin"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
           },
           "500": {
             "$ref": "#/components/responses/ProxyFailure"
@@ -292,6 +531,32 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              }
             }
           },
           "504": {
@@ -302,9 +567,40 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          }
+        ]
       }
     },
     "/v1/images/generations": {
@@ -338,6 +634,32 @@
                   "$ref": "#/components/schemas/ImageGenerationResponse"
                 }
               }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              }
             }
           },
           "400": {
@@ -348,6 +670,32 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              }
             }
           },
           "401": {
@@ -355,6 +703,9 @@
           },
           "403": {
             "$ref": "#/components/responses/ForbiddenOrigin"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
           },
           "501": {
             "description": "The selected runtime has no image-generation operation.",
@@ -364,12 +715,43 @@
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
+            },
+            "headers": {
+              "RateLimit-Policy": {
+                "$ref": "#/components/headers/RateLimitPolicy"
+              },
+              "RateLimit": {
+                "$ref": "#/components/headers/RateLimit"
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimitLimit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimitRemaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimitReset"
+              },
+              "X-API-Version": {
+                "$ref": "#/components/headers/ApiVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              }
             }
           },
           "502": {
             "$ref": "#/components/responses/BackendFailure"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          }
+        ]
       }
     }
   },
@@ -395,6 +777,32 @@
               }
             }
           }
+        },
+        "headers": {
+          "RateLimit-Policy": {
+            "$ref": "#/components/headers/RateLimitPolicy"
+          },
+          "RateLimit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimitLimit"
+          },
+          "RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          },
+          "RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimitReset"
+          },
+          "X-API-Version": {
+            "$ref": "#/components/headers/ApiVersion"
+          },
+          "Deprecation": {
+            "$ref": "#/components/headers/Deprecation"
+          },
+          "Sunset": {
+            "$ref": "#/components/headers/Sunset"
+          }
         }
       },
       "ForbiddenOrigin": {
@@ -404,6 +812,32 @@
             "schema": {
               "$ref": "#/components/schemas/ErrorEnvelope"
             }
+          }
+        },
+        "headers": {
+          "RateLimit-Policy": {
+            "$ref": "#/components/headers/RateLimitPolicy"
+          },
+          "RateLimit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimitLimit"
+          },
+          "RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          },
+          "RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimitReset"
+          },
+          "X-API-Version": {
+            "$ref": "#/components/headers/ApiVersion"
+          },
+          "Deprecation": {
+            "$ref": "#/components/headers/Deprecation"
+          },
+          "Sunset": {
+            "$ref": "#/components/headers/Sunset"
           }
         }
       },
@@ -415,6 +849,32 @@
               "$ref": "#/components/schemas/ErrorEnvelope"
             }
           }
+        },
+        "headers": {
+          "RateLimit-Policy": {
+            "$ref": "#/components/headers/RateLimitPolicy"
+          },
+          "RateLimit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimitLimit"
+          },
+          "RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          },
+          "RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimitReset"
+          },
+          "X-API-Version": {
+            "$ref": "#/components/headers/ApiVersion"
+          },
+          "Deprecation": {
+            "$ref": "#/components/headers/Deprecation"
+          },
+          "Sunset": {
+            "$ref": "#/components/headers/Sunset"
+          }
         }
       },
       "ProxyFailure": {
@@ -423,6 +883,79 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "RateLimit-Policy": {
+            "$ref": "#/components/headers/RateLimitPolicy"
+          },
+          "RateLimit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimitLimit"
+          },
+          "RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          },
+          "RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimitReset"
+          },
+          "X-API-Version": {
+            "$ref": "#/components/headers/ApiVersion"
+          },
+          "Deprecation": {
+            "$ref": "#/components/headers/Deprecation"
+          },
+          "Sunset": {
+            "$ref": "#/components/headers/Sunset"
+          }
+        }
+      },
+      "RateLimitExceeded": {
+        "description": "The caller exceeded the configured window. Wait for Retry-After, then retry with exponential backoff. Do not blindly replay a non-idempotent generation.",
+        "headers": {
+          "Retry-After": {
+            "$ref": "#/components/headers/RetryAfter"
+          },
+          "RateLimit-Policy": {
+            "$ref": "#/components/headers/RateLimitPolicy"
+          },
+          "RateLimit": {
+            "$ref": "#/components/headers/RateLimit"
+          },
+          "RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimitLimit"
+          },
+          "RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimitRemaining"
+          },
+          "RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimitReset"
+          },
+          "X-API-Version": {
+            "$ref": "#/components/headers/ApiVersion"
+          },
+          "Deprecation": {
+            "$ref": "#/components/headers/Deprecation"
+          },
+          "Sunset": {
+            "$ref": "#/components/headers/Sunset"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            },
+            "example": {
+              "error": {
+                "type": "RateLimitExceeded",
+                "code": "rate_limit_exceeded",
+                "message": "Request rate limit exceeded.",
+                "resolution": "Wait 58 seconds, then retry with backoff."
+              }
             }
           }
         }
@@ -812,6 +1345,95 @@
         },
         "additionalProperties": false
       }
+    },
+    "parameters": {
+      "OriginHeader": {
+        "name": "Origin",
+        "in": "header",
+        "required": false,
+        "description": "Browser origin of the caller. olc refuses any origin outside --allowed-origins with 403 and echoes an allowed one back in Access-Control-Allow-Origin. Non-browser clients omit it and are not origin-checked.",
+        "schema": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^[A-Za-z][A-Za-z0-9+.-]*://"
+        },
+        "example": "chrome-extension://bfaoaaogfcgomkjfbmfepbiijmciinjl"
+      }
+    },
+    "headers": {
+      "RateLimitPolicy": {
+        "description": "Published request budget, as RFC RateLimit fields: \"default\";q=<limit>;w=<window seconds>. The proxy budget is 60 requests per 60 seconds.",
+        "schema": {
+          "type": "string"
+        },
+        "example": "\"default\";q=60;w=60"
+      },
+      "RateLimit": {
+        "description": "Remaining budget for the current window: \"default\";r=<remaining>;t=<seconds until reset>.",
+        "schema": {
+          "type": "string"
+        },
+        "example": "\"default\";r=59;t=58"
+      },
+      "RateLimitLimit": {
+        "description": "Requests allowed in one window.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 60
+      },
+      "RateLimitRemaining": {
+        "description": "Requests left in the current window.",
+        "schema": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "example": 59
+      },
+      "RateLimitReset": {
+        "description": "Seconds until the current window resets.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 58
+      },
+      "ApiVersion": {
+        "description": "Major version of the olc HTTP contract. A breaking change increments it and is announced through Deprecation and Sunset first.",
+        "schema": {
+          "type": "string"
+        },
+        "example": "1"
+      },
+      "RetryAfter": {
+        "description": "Seconds to wait before retrying, with backoff.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 58
+      },
+      "Deprecation": {
+        "description": "Present only on a deprecated route (RFC 9745). An HTTP date, or the value true, marking when the route became deprecated. Absent on every current route.",
+        "schema": {
+          "type": "string"
+        },
+        "example": "Wed, 01 Jul 2026 00:00:00 GMT"
+      },
+      "Sunset": {
+        "description": "Present only on a deprecated route (RFC 8594). The HTTP date after which the route stops responding, at least 30 days ahead of removal.",
+        "schema": {
+          "type": "string"
+        },
+        "example": "Sat, 01 Aug 2026 00:00:00 GMT"
+      }
     }
-  }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {}
+  ]
 }

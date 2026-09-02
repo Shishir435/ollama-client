@@ -7,6 +7,17 @@ Ollama Client is an open-source browser extension for chatting with local and us
 
 The project is maintained by [Shishir Chaurasiya](https://www.shishirchaurasiya.in/) and developed publicly in the [Ollama Client GitHub repository](https://github.com/Shishir435/ollama-client). Source code is available under the MIT license. Releases are distributed through browser extension stores, while this site publishes setup, architecture, privacy, troubleshooting, and developer documentation.
 
+## Where Ollama Client is published
+
+These are the only official listings. Anything else carrying the name is not
+maintained by this project.
+
+- Chrome, Edge, and Brave: [Ollama Client on the Chrome Web Store](https://chromewebstore.google.com/detail/ollama-client-chat-with-l/bfaoaaogfcgomkjfbmfepbiijmciinjl)
+- Firefox: [Ollama Client on Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ollama-client/)
+- Source and releases: [github.com/Shishir435/ollama-client](https://github.com/Shishir435/ollama-client)
+- Documentation and machine-readable resources: [www.ollamaclient.in](https://www.ollamaclient.in/)
+- Command-line tool: [olc](https://github.com/Shishir435/ollama-client/tree/main/packages/olc), installed from the GitHub releases
+
 ## What local-first means here
 
 Chat history, sessions, attachments, and most application state are stored by the extension in the user's browser profile. Model prompts go to the provider endpoint the user configures. A local provider can keep inference traffic on the device; a remote provider receives the data sent to it under that provider's terms. Optional web-search services likewise receive their search requests. “Local-first” describes the default ownership and architecture, not a claim that every possible configuration is offline.

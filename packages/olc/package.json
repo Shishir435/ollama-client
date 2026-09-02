@@ -2,6 +2,32 @@
   "name": "@ollama-client/olc",
   "version": "0.13.3",
   "description": "OpenAI-compatible proxy for a local agent runtime, with a tool bridge that lets OpenAI-compatible clients run their own tools",
+  "keywords": [
+    "ollama",
+    "ollama-client",
+    "olc",
+    "openai-compatible",
+    "proxy",
+    "cli",
+    "agent",
+    "opencode",
+    "codex",
+    "local-llm"
+  ],
+  "homepage": "https://www.ollamaclient.in/developers/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shishir435/ollama-client.git",
+    "directory": "packages/olc"
+  },
+  "bugs": {
+    "url": "https://github.com/Shishir435/ollama-client/issues"
+  },
+  "license": "MIT",
+  "author": "Shishir Chaurasiya (https://www.shishirchaurasiya.in/)",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

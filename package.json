@@ -62,6 +62,7 @@
     "verify:ci-parity": "tsx tools/verify/verify-ci-parity.ts",
     "verify:ci": "pnpm check:static && pnpm test:coverage",
     "verify:opfs-migration": "tsx tools/verify/verify-opfs-migration.ts",
+    "verify:agent-endpoints": "tsx tools/verify/verify-agent-endpoints.ts",
     "verify:firefox-opfs-migration": "tsx tools/verify/verify-firefox-opfs-migration.ts",
     "verify:sw-turn-recovery": "tsx tools/verify/verify-sw-turn-recovery.ts",
     "e2e": "pnpm e2e:build && pnpm e2e:chromium:critical",
