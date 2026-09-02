@@ -53,7 +53,7 @@ tag=0.13.3
 base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
 curl -fsSL "$base/olc.sh" -o olc.sh
 curl -fsSL "$base/olc.sh.sha256" -o olc.sh.sha256
-shasum -a 256 -c olc.sh.sha256
+if command -v sha256sum >/dev/null; then sha256sum -c olc.sh.sha256; else shasum -a 256 -c olc.sh.sha256; fi
 less olc.sh
 OLC_VERSION="$tag" sh olc.sh
 ```
@@ -83,7 +83,7 @@ tag=0.13.3
 base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
 curl -fsSL "$base/olc.tar.gz" -o olc.tar.gz
 curl -fsSL "$base/olc.tar.gz.sha256" -o olc.tar.gz.sha256
-shasum -a 256 -c olc.tar.gz.sha256
+if command -v sha256sum >/dev/null; then sha256sum -c olc.tar.gz.sha256; else shasum -a 256 -c olc.tar.gz.sha256; fi
 tar -xzf olc.tar.gz
 node olc/dist/olc.mjs --help
 ```
