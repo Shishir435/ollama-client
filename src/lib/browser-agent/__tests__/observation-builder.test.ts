@@ -1,5 +1,5 @@
 import { Window } from "happy-dom"
-import { beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { createAgentElementReferenceStore } from "../element-references"
 import {
@@ -11,7 +11,19 @@ beforeEach(() => {
   document.title = "Example"
   document.body.replaceChildren()
   history.replaceState({}, "", "/path")
+  vi.spyOn(Element.prototype, "getClientRects").mockReturnValue([
+    {
+      bottom: 20,
+      height: 20,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100
+    } as DOMRect
+  ] as unknown as DOMRectList)
 })
+
+afterEach(() => vi.restoreAllMocks())
 
 const build = (minimumGeneration = 0) =>
   buildAgentObservation({
@@ -69,6 +81,71 @@ describe("Agent observation builder", () => {
       sensitive: false,
       value: "safe value"
     })
+  })
+
+  it.each([
+    [
+      "hidden input",
+      (input: HTMLInputElement) => input.setAttribute("type", "hidden")
+    ],
+    [
+      "hidden attribute",
+      (input: HTMLInputElement) => input.setAttribute("hidden", "")
+    ],
+    [
+      "hidden ancestor",
+      (input: HTMLInputElement) =>
+        input.parentElement?.setAttribute("hidden", "")
+    ],
+    [
+      "display none",
+      (input: HTMLInputElement) => input.style.setProperty("display", "none")
+    ],
+    [
+      "visibility hidden",
+      (input: HTMLInputElement) =>
+        input.style.setProperty("visibility", "hidden")
+    ],
+    [
+      "transparent",
+      (input: HTMLInputElement) => input.style.setProperty("opacity", "0")
+    ]
+  ])("redacts values from a %s", (_label, hide) => {
+    const wrapper = document.createElement("div")
+    const input = document.createElement("input")
+    input.value = "page-secret"
+    wrapper.append(input)
+    document.body.append(wrapper)
+    hide(input)
+
+    expect(build().elements[0]).toMatchObject({
+      sensitive: true,
+      visible: false
+    })
+    expect(build().elements[0]).not.toHaveProperty("value")
+  })
+
+  it("redacts values outside the viewport", () => {
+    const input = document.createElement("input")
+    input.value = "offscreen-secret"
+    input.getClientRects = () =>
+      [
+        {
+          bottom: 20,
+          height: 20,
+          left: window.innerWidth + 100,
+          right: window.innerWidth + 200,
+          top: 0,
+          width: 100
+        } as DOMRect
+      ] as unknown as DOMRectList
+    document.body.append(input)
+
+    expect(build().elements[0]).toMatchObject({
+      sensitive: true,
+      visible: false
+    })
+    expect(build().elements[0]).not.toHaveProperty("value")
   })
 
   it("rejects subframe and unsupported-scheme observations", () => {

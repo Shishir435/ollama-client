@@ -31,10 +31,51 @@ const normalizedText = (value: string): string =>
   value.replaceAll(/\s+/g, " ").trim()
 
 const isVisible = (element: Element): boolean => {
-  if (element.hasAttribute("hidden")) return false
-  if (element.getAttribute("aria-hidden") === "true") return false
-  const style = (element as HTMLElement).style
-  return style?.display !== "none" && style?.visibility !== "hidden"
+  if (
+    element instanceof HTMLInputElement &&
+    element.type.toLowerCase() === "hidden"
+  ) {
+    return false
+  }
+
+  const view = element.ownerDocument.defaultView
+  for (let current: Element | null = element; current; ) {
+    if (
+      current.hasAttribute("hidden") ||
+      current.hasAttribute("inert") ||
+      current.getAttribute("aria-hidden") === "true"
+    ) {
+      return false
+    }
+    const style = view?.getComputedStyle(current)
+    if (
+      style?.display === "none" ||
+      style?.visibility === "hidden" ||
+      style?.visibility === "collapse" ||
+      style?.contentVisibility === "hidden" ||
+      style?.opacity === "0"
+    ) {
+      return false
+    }
+    const root = current.getRootNode()
+    current =
+      current.parentElement ?? (root instanceof ShadowRoot ? root.host : null)
+  }
+
+  const renderedRects = Array.from(element.getClientRects()).filter(
+    (rect) => rect.width > 0 && rect.height > 0
+  )
+  if (renderedRects.length === 0) return false
+
+  const viewportWidth = view?.innerWidth ?? 0
+  const viewportHeight = view?.innerHeight ?? 0
+  return renderedRects.some(
+    (rect) =>
+      rect.bottom > 0 &&
+      rect.right > 0 &&
+      rect.top < viewportHeight &&
+      rect.left < viewportWidth
+  )
 }
 
 export const isSensitiveAgentElement = (element: Element): boolean => {
@@ -72,7 +113,8 @@ const elementValue = (element: Element): string | undefined => {
 }
 
 const toAgentElement = (element: Element, ref: string): AgentElement => {
-  const sensitive = isSensitiveAgentElement(element)
+  const visible = isVisible(element)
+  const sensitive = !visible || isSensitiveAgentElement(element)
   const name = accessibleName(element)
   const value = sensitive ? undefined : elementValue(element)
   const control = element as HTMLInputElement
@@ -90,7 +132,7 @@ const toAgentElement = (element: Element, ref: string): AgentElement => {
           value: truncate(value, AGENT_OBSERVATION_LIMITS.elementValueChars)
         }
       : {}),
-    visible: isVisible(element),
+    visible,
     enabled: !(control.disabled ?? false),
     editable:
       element instanceof HTMLInputElement ||
