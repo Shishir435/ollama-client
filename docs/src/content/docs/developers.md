@@ -51,25 +51,41 @@ Every release publishes both wrappers alongside the archives, each with its own
 ```bash
 tag=0.13.3
 base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
-curl -fsSL "$base/olc.sh" -o olc.sh
-curl -fsSL "$base/olc.sh.sha256" -o olc.sh.sha256
-if command -v sha256sum >/dev/null; then sha256sum -c olc.sh.sha256; else shasum -a 256 -c olc.sh.sha256; fi
-less olc.sh
-OLC_VERSION="$tag" sh olc.sh
+curl -fsSL "$base/olc.sh" -o olc.sh &&
+  curl -fsSL "$base/olc.sh.sha256" -o olc.sh.sha256 &&
+  { if command -v sha256sum >/dev/null
+    then sha256sum -c olc.sh.sha256
+    else shasum -a 256 -c olc.sh.sha256
+    fi
+  } &&
+  less olc.sh &&
+  OLC_VERSION="$tag" sh olc.sh
 ```
 
 ```powershell
 $tag = "0.13.3"
-$base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
-irm "$base/olc.ps1" -OutFile olc.ps1
-irm "$base/olc.ps1.sha256" -OutFile olc.ps1.sha256
-$expected = (Get-Content olc.ps1.sha256).Split(" ")[0]
-if ((Get-FileHash olc.ps1 -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
-Get-Content olc.ps1
-$env:OLC_VERSION = $tag
-Unblock-File olc.ps1
-powershell -ExecutionPolicy Bypass -File ./olc.ps1
+try {
+  $base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
+  $dir = (New-Item -ItemType Directory -Path (Join-Path $env:TEMP "olc-$tag-$(Get-Random)")).FullName
+  irm "$base/olc.ps1" -OutFile "$dir\olc.ps1" -ErrorAction Stop
+  irm "$base/olc.ps1.sha256" -OutFile "$dir\olc.ps1.sha256" -ErrorAction Stop
+  $expected = (Get-Content "$dir\olc.ps1.sha256").Split(" ")[0]
+  if ((Get-FileHash "$dir\olc.ps1" -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
+  Get-Content "$dir\olc.ps1"
+  $env:OLC_VERSION = $tag
+  Unblock-File "$dir\olc.ps1"
+  powershell -ExecutionPolicy Bypass -File "$dir\olc.ps1"
+} catch {
+  Write-Error "olc install stopped: $_"
+}
 ```
+
+Each block is a single guarded unit rather than a list of independent commands:
+the Unix steps are chained with `&&`, and the PowerShell steps sit inside one
+`try`/`catch` that downloads into a fresh directory. A failed download or a
+mismatched checksum ends the block. Without that, the next pasted line runs
+regardless — on Windows it would hash and execute whatever `olc.ps1` happened to
+be sitting in the working directory.
 
 A file downloaded rather than piped carries the mark of the web, so PowerShell
 blocks it until `Unblock-File` clears the mark; the explicit policy on that one
@@ -81,22 +97,30 @@ is the same artifact the wrapper would install, and nothing but `tar` runs:
 ```bash
 tag=0.13.3
 base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
-curl -fsSL "$base/olc.tar.gz" -o olc.tar.gz
-curl -fsSL "$base/olc.tar.gz.sha256" -o olc.tar.gz.sha256
-if command -v sha256sum >/dev/null; then sha256sum -c olc.tar.gz.sha256; else shasum -a 256 -c olc.tar.gz.sha256; fi
-tar -xzf olc.tar.gz
-node olc/dist/olc.mjs --help
+curl -fsSL "$base/olc.tar.gz" -o olc.tar.gz &&
+  curl -fsSL "$base/olc.tar.gz.sha256" -o olc.tar.gz.sha256 &&
+  { if command -v sha256sum >/dev/null
+    then sha256sum -c olc.tar.gz.sha256
+    else shasum -a 256 -c olc.tar.gz.sha256
+    fi
+  } &&
+  tar -xzf olc.tar.gz &&
+  node olc/dist/olc.mjs --help
 ```
 
 ```powershell
 $tag = "0.13.3"
-$base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
-irm "$base/olc.tar.gz" -OutFile olc.tar.gz
-irm "$base/olc.tar.gz.sha256" -OutFile olc.tar.gz.sha256
-$expected = (Get-Content olc.tar.gz.sha256).Split(" ")[0]
-if ((Get-FileHash olc.tar.gz -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
-tar -xzf olc.tar.gz
-node olc/dist/olc.mjs --help
+try {
+  $base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
+  irm "$base/olc.tar.gz" -OutFile olc.tar.gz -ErrorAction Stop
+  irm "$base/olc.tar.gz.sha256" -OutFile olc.tar.gz.sha256 -ErrorAction Stop
+  $expected = (Get-Content olc.tar.gz.sha256).Split(" ")[0]
+  if ((Get-FileHash olc.tar.gz -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
+  tar -xzf olc.tar.gz
+  node olc/dist/olc.mjs --help
+} catch {
+  Write-Error "olc download stopped: $_"
+}
 ```
 
 Each checksum is published beside the file it covers on the same release, so it

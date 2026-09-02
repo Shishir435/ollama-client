@@ -67,10 +67,10 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   recognizable red/yellow/green window controls, and the README no longer
   advertises the removed selected-text tool.
 - Every release now publishes the `olc.sh` and `olc.ps1` install wrappers with a
-  `sha256` for each, alongside the archives they install. The wrapper can be
-  pinned to a tag and verified before it runs instead of being piped straight
-  into a shell, and every place that shows the one-line installer links to that
-  path.
+  `sha256` for each, alongside the archives they install. The READMEs lead with
+  pinning a wrapper to a tag and verifying it before it runs; the one-line
+  installer is documented below it as the unverified quick path, and every guide
+  that shows it links to the verified one.
 - Embedding generation from extension pages now crosses the validated,
   background-owned `embeddings.generate` RPC. The RPC preserves model/provider
   identity, forwards cancellation, and bounds stalled provider work with a

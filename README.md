@@ -121,36 +121,61 @@ enables trusted-network access, while `olc -b opencode` and `olc -b codex`
 expose those agent runtimes through an OpenAI-compatible local API. It
 requires Node.js 22.12 or newer and the selected runtime on `PATH`.
 
+Every release publishes the install wrappers with a `sha256` for each, so the
+recommended path pins one to a tag and verifies it before it runs. Each block is
+one guarded unit, so a failed download or checksum ends it instead of falling
+through to whatever is already on disk.
+
 macOS / Linux:
 
 ```bash
-curl -fsSL https://ollamaclient.in/olc.sh | sh
+tag=0.13.3
+base="https://github.com/Shishir435/ollama-client/releases/download/$tag"
+curl -fsSL "$base/olc.sh" -o olc.sh &&
+  curl -fsSL "$base/olc.sh.sha256" -o olc.sh.sha256 &&
+  { if command -v sha256sum >/dev/null
+    then sha256sum -c olc.sh.sha256
+    else shasum -a 256 -c olc.sh.sha256
+    fi
+  } &&
+  less olc.sh &&
+  OLC_VERSION="$tag" sh olc.sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://ollamaclient.in/olc.ps1 | iex
+$tag = "0.13.3"
+try {
+  $base = "https://github.com/Shishir435/ollama-client/releases/download/$tag"
+  $dir = (New-Item -ItemType Directory -Path (Join-Path $env:TEMP "olc-$tag-$(Get-Random)")).FullName
+  irm "$base/olc.ps1" -OutFile "$dir\olc.ps1" -ErrorAction Stop
+  irm "$base/olc.ps1.sha256" -OutFile "$dir\olc.ps1.sha256" -ErrorAction Stop
+  $expected = (Get-Content "$dir\olc.ps1.sha256").Split(" ")[0]
+  if ((Get-FileHash "$dir\olc.ps1" -Algorithm SHA256).Hash -ne $expected) { throw "checksum mismatch" }
+  Get-Content "$dir\olc.ps1"
+  $env:OLC_VERSION = $tag
+  Unblock-File "$dir\olc.ps1"
+  powershell -ExecutionPolicy Bypass -File "$dir\olc.ps1"
+} catch {
+  Write-Error "olc install stopped: $_"
+}
 ```
 
-To pin version `0.13.2` on macOS / Linux:
+If you would rather not verify anything, the site serves the same wrappers at a
+mutable URL and both accept `OLC_VERSION`:
 
 ```bash
-export OLC_VERSION=0.13.2
-curl -fsSL https://ollamaclient.in/olc.sh | sh
+curl -fsSL https://ollamaclient.in/olc.sh | sh          # macOS / Linux
 ```
-
-To pin version `0.13.2` in Windows PowerShell:
 
 ```powershell
-$env:OLC_VERSION = "0.13.2"
-irm https://ollamaclient.in/olc.ps1 | iex
+irm https://ollamaclient.in/olc.ps1 | iex               # Windows PowerShell
 ```
 
-These commands pipe a remote script into your shell. Each release also publishes
-the wrappers with their own checksums, so they can be pinned and verified first —
-see
-[installing without piping to a shell](https://www.ollamaclient.in/developers/#install-without-piping-to-a-shell).
+That form executes a remote script unread, with your own privileges. The
+[developer guide](https://www.ollamaclient.in/developers/#install-without-piping-to-a-shell)
+covers both paths, plus installing the release archive without a wrapper at all.
 
 Then run `olc` for native Ollama, or `olc --help` for all short/long options.
 All modes detach by default; `--debug` or `--foreground` stays attached.
