@@ -209,6 +209,26 @@ const decoded = (value: string): string => {
 }
 
 /**
+ * Both readings of a string, because the two sides of the comparison arrive
+ * differently encoded: a query parameter is decoded once by `URL` already, a
+ * path segment is not decoded at all, and a value the user typed may itself
+ * contain a literal `%20`. Decoding only one side is what lets an encoded
+ * value slip past the comparison, so each side offers every form it has.
+ */
+const comparisonForms = (value: string): string[] => {
+  const forms = new Set<string>()
+  let current = value
+  for (let depth = 0; depth < 3; depth += 1) {
+    const normalized = normalizeForComparison(current)
+    if (normalized.length >= MINIMUM_EGRESS_SPAN) forms.add(normalized)
+    const next = decoded(current)
+    if (next === current) break
+    current = next
+  }
+  return [...forms]
+}
+
+/**
  * Every part of a destination the model could have filled in. Path segments
  * count: a collector that reads its payload out of the path exfiltrates
  * exactly as well as one that reads it out of a query parameter.
@@ -218,9 +238,7 @@ const modelSuppliedSpans = (url: URL): string[] =>
     ...url.pathname.split("/"),
     ...url.searchParams.values(),
     url.hash.replace(/^#/, "")
-  ]
-    .map((span) => normalizeForComparison(decoded(span)))
-    .filter((span) => span.length >= MINIMUM_EGRESS_SPAN)
+  ].flatMap(comparisonForms)
 
 /**
  * Overlap in either direction is evidence. A span wrapping an observed value
@@ -266,8 +284,7 @@ const pageDataEvidence = (
   const values = observation.elements
     .map((element) => element.value)
     .filter((value): value is string => value !== undefined)
-    .map(normalizeForComparison)
-    .filter((value) => value.length >= MINIMUM_EGRESS_SPAN)
+    .flatMap(comparisonForms)
   if (spans.some((span) => values.some((value) => overlaps(span, value)))) {
     return "field_value"
   }

