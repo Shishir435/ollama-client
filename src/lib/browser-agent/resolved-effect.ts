@@ -209,22 +209,26 @@ const decoded = (value: string): string => {
 }
 
 /**
- * Both readings of a string, because the two sides of the comparison arrive
+ * Every reading of a string, because the two sides of the comparison arrive
  * differently encoded: a query parameter is decoded once by `URL` already, a
  * path segment is not decoded at all, and a value the user typed may itself
  * contain a literal `%20`. Decoding only one side is what lets an encoded
  * value slip past the comparison, so each side offers every form it has.
+ *
+ * Decoding runs to a fixed point rather than to a depth limit: percent-decoding
+ * either shrinks a string or leaves it unchanged, so the walk terminates on its
+ * own, and any limit would simply tell an attacker how many layers to add.
  */
 const comparisonForms = (value: string): string[] => {
   const forms = new Set<string>()
   let current = value
-  for (let depth = 0; depth < 3; depth += 1) {
+  let next = value
+  do {
+    current = next
     const normalized = normalizeForComparison(current)
     if (normalized.length >= MINIMUM_EGRESS_SPAN) forms.add(normalized)
-    const next = decoded(current)
-    if (next === current) break
-    current = next
-  }
+    next = decoded(current)
+  } while (next.length < current.length)
   return [...forms]
 }
 

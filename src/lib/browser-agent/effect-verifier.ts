@@ -336,10 +336,12 @@ export const NAVIGATION_AGENT_VERIFIERS = {
       "navigation"
     )
     if (committed.outcome !== "confirmed") return committed
-    // A same-document route change commits the URL without replacing the
-    // document, so the document identity is recorded rather than required: an
-    // observation that still reports the pre-navigation URL means the tab
-    // answered but the page did not move.
+    /**
+     * A same-document route change commits the URL without replacing the
+     * document, so the document identity is recorded rather than required: an
+     * observation that still reports the pre-navigation URL means the tab
+     * answered but the page did not move.
+     */
     const after = await observeAfter(input, adapter, signal)
     if (!sameUrl(after.url, input.effect.destination?.url ?? "")) {
       return result(
@@ -362,8 +364,10 @@ export const NAVIGATION_AGENT_VERIFIERS = {
     if (input.effect.command.type !== "open_tab" || !input.effect.destination) {
       throw new Error("Invalid open-tab effect")
     }
-    // The opened tab is only knowable from the receipt; without it there is
-    // nothing to check and nothing the run may adopt.
+    /**
+     * The opened tab is only knowable from the receipt; without it there is
+     * nothing to check and nothing the run may adopt.
+     */
     const opened = input.receipt.controlledTabId
     if (opened === undefined) {
       return result(

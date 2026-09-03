@@ -183,8 +183,10 @@ describe("durable job rows decode as their writers wrote them", () => {
       })
 
       expect(executing.claimed).toBe(true)
-      // An origin the user approved is durable from the claim that opened
-      // execution, so a worker lost mid-effect does not re-prompt for it.
+      /**
+       * An origin the user approved is durable from the claim that opened
+       * execution, so a worker lost mid-effect does not re-prompt for it.
+       */
       await expect(
         repo
           .getAgentRun("agent-row-1")

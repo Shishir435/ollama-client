@@ -225,11 +225,13 @@ export const NAVIGATION_AGENT_EXECUTORS = {
     if (effect.command.type !== "navigate" || !effect.destination) {
       throw new Error("Invalid navigate effect")
     }
-    // The authorization the user gave names one source page and one
-    // destination. Re-establishing the source here is what keeps an approval
-    // from being spent on a page that changed underneath it while the run
-    // waited, and the destination is taken from the resolved effect rather
-    // than from the command so an approved URL is the URL that travels.
+    /**
+     * The authorization the user gave names one source page and one
+     * destination. Re-establishing the source here is what keeps an approval
+     * from being spent on a page that changed underneath it while the run
+     * waited, and the destination is taken from the resolved effect rather
+     * than from the command so an approved URL is the URL that travels.
+     */
     await assertSource(effect, adapter, true)
     await assertReadable(adapter, effect.destination.url)
     await adapter.navigate(
@@ -251,8 +253,10 @@ export const NAVIGATION_AGENT_EXECUTORS = {
     if (opened?.id === undefined) {
       throw new Error("Agent open-tab produced no tab")
     }
-    // The new tab is reported, not adopted: the controller moves the run onto
-    // it only after verification confirms the destination it actually holds.
+    /**
+     * The new tab is reported, not adopted: the controller moves the run onto
+     * it only after verification confirms the destination it actually holds.
+     */
     return receipt(adapter, "open_tab", opened.id)
   }
 } satisfies Record<NavigationAgentAction, Executor>

