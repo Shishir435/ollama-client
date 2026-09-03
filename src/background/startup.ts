@@ -1,4 +1,3 @@
-import { recoverAndPruneAgentRuns } from "@/background/agent/agent-recovery"
 import { resumeIncompleteTurnRuns } from "@/background/durable-turn-runtime"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { downloadEmbeddingModelSilently } from "@/background/handlers/handle-embedding-download"
@@ -16,6 +15,7 @@ import {
 } from "@/lib/constants"
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
+import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
@@ -259,7 +259,12 @@ const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
   {
     id: "durable-agent-runs",
     name: "durable agent runs",
-    run: (signal) => recoverAndPruneAgentRuns(signal)
+    run: (signal) => {
+      if (!AGENT_PREVIEW_ENABLED) return Promise.resolve()
+      return import("@/background/agent/agent-recovery").then(
+        ({ recoverAndPruneAgentRuns }) => recoverAndPruneAgentRuns(signal)
+      )
+    }
   },
   {
     id: "vector-cleanup-receipts",

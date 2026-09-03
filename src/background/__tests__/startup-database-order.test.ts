@@ -69,6 +69,9 @@ const recordDiagnosticEvent = vi.fn().mockResolvedValue(undefined)
 vi.mock("@/lib/app-reset", () => ({
   resumePendingAppLifecycle: () => resumePendingAppLifecycle()
 }))
+vi.mock("@/lib/feature-flags", () => ({
+  AGENT_PREVIEW_ENABLED: true
+}))
 vi.mock("@/lib/storage/backup-import-transaction", () => ({
   recoverBackupImport: (signal?: AbortSignal) =>
     tasks["backup-import"].run(signal)
@@ -236,7 +239,10 @@ describe("background database startup", () => {
     await settle()
 
     // Two workflows at a time, and only once the migrations are done.
-    expect(started.slice(3)).toEqual(["recover-agent", "prune-tool-loops"])
+    expect(started.slice(3)).toHaveLength(2)
+    expect(started.slice(3)).toEqual(
+      expect.arrayContaining(["recover-agent", "prune-tool-loops"])
+    )
     expect(peakInFlight).toBe(2)
 
     releaseAll()
@@ -377,7 +383,9 @@ describe("background database startup", () => {
       "BackgroundSW",
       expect.objectContaining({ error: expect.any(Error) })
     )
-    expect(finished).toContain("resume-ingestion")
-    expect(finished).toContain("resume-pulls")
+    await vi.waitFor(() => {
+      expect(finished).toContain("resume-ingestion")
+      expect(finished).toContain("resume-pulls")
+    })
   })
 })
