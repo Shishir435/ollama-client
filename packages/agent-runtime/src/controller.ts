@@ -50,6 +50,7 @@ export const createAgentController = (
   const active = new Map<string, AgentCancellationController>()
   const lastGeneration = new Map<string, number>()
   const minimumGeneration = new Map<string, number>()
+  const pendingControlledTab = new Map<string, number>()
 
   const claim = async (
     state: AgentRunState,
@@ -392,9 +393,6 @@ export const createAgentController = (
         at: dependencies.clock.now()
       })
       const verifying = await claim(executing, "verifying", {
-        ...(receipt.controlledTabId === undefined
-          ? {}
-          : { controlledTabId: receipt.controlledTabId }),
         updatedAt: dependencies.clock.now()
       })
       if (!verifying) return undefined
@@ -413,6 +411,13 @@ export const createAgentController = (
         verification,
         at: dependencies.clock.now()
       })
+      // A tab the run does not yet own becomes the observation target only
+      // once verification confirms it; a negative or ambiguous outcome leaves
+      // the run on the tab it already controls.
+      pendingControlledTab.delete(state.id)
+      if (action.type === "advance" && receipt.controlledTabId !== undefined) {
+        pendingControlledTab.set(state.id, receipt.controlledTabId)
+      }
       if (action.type === "pause") {
         await pause(
           verifying,
@@ -500,7 +505,9 @@ export const createAgentController = (
   ): Promise<void> => {
     let state = initialState
     while (!controller.signal.aborted) {
+      const adopted = pendingControlledTab.get(state.id)
       const observing = await claim(state, "observing", {
+        ...(adopted === undefined ? {} : { controlledTabId: adopted }),
         ...((afterTakeover || state.status === "paused") && state.deadline
           ? {
               deadline: resumeAgentDeadlines(
@@ -511,6 +518,7 @@ export const createAgentController = (
           : {}),
         updatedAt: dependencies.clock.now()
       })
+      pendingControlledTab.delete(state.id)
       if (!observing) return
       state = observing
       const observation = await observe(state, controller.signal)
