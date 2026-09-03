@@ -262,6 +262,39 @@ describe("Agent observation builder", () => {
     expect(observation.elements[0]?.name).not.toContain("hidden-name-secret")
   })
 
+  it("reports absolute destinations for rendered links only", () => {
+    const visible = document.createElement("a")
+    visible.setAttribute("href", "/docs?page=2")
+    visible.textContent = "Docs"
+    const download = document.createElement("a")
+    download.setAttribute("href", "/export")
+    download.setAttribute("download", "")
+    download.textContent = "Export"
+    const script = document.createElement("a")
+    script.setAttribute("href", "javascript:alert(1)")
+    script.textContent = "Run"
+    document.body.append(visible, download, script)
+
+    const elements = build().elements
+    expect(elements[0]?.href).toBe("http://localhost:3000/docs?page=2")
+    expect(elements[0]?.download).toBeUndefined()
+    expect(elements[1]?.href).toBe("http://localhost:3000/export")
+    expect(elements[1]?.download).toBe(true)
+    expect(elements[2]?.href).toBeUndefined()
+  })
+
+  it("omits destinations for links the user cannot see", () => {
+    const hidden = document.createElement("a")
+    hidden.setAttribute("href", "/hidden")
+    hidden.textContent = "Hidden"
+    document.body.append(hidden)
+    vi.spyOn(Element.prototype, "getClientRects").mockReturnValue(
+      [] as unknown as DOMRectList
+    )
+
+    expect(build().elements[0]?.href).toBeUndefined()
+  })
+
   it("rejects subframe and unsupported-scheme observations", () => {
     const references = createAgentElementReferenceStore({
       documentId: "document-1"

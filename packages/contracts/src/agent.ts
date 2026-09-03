@@ -139,6 +139,9 @@ export const AgentDeadlineStateSchema = z
   )
 export type AgentDeadlineState = z.infer<typeof AgentDeadlineStateSchema>
 
+/** A run holds a bounded allowlist, so growing it can be refused, never evicted. */
+export const MAX_AGENT_ALLOWED_ORIGINS = 25
+
 export const AgentRunStateSchema = z
   .object({
     version: z.literal(1),
@@ -151,7 +154,7 @@ export const AgentRunStateSchema = z
     controlledTabId: z.number().int().nonnegative(),
     providerId: z.string().min(1),
     modelId: z.string().min(1),
-    allowedOrigins: z.array(z.string().min(1)).max(25),
+    allowedOrigins: z.array(z.string().min(1)).max(MAX_AGENT_ALLOWED_ORIGINS),
     error: AgentErrorSchema.optional(),
     deadline: AgentDeadlineStateSchema.optional(),
     createdAt: z.number().int().nonnegative(),

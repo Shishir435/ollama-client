@@ -6,7 +6,10 @@ import type {
 import type { AgentObservation } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
-import type { ReadOnlyAgentAction } from "./resolved-effect"
+import type {
+  NavigationAgentAction,
+  ReadOnlyAgentAction
+} from "./resolved-effect"
 
 export interface AgentEffectVerifierAdapter {
   observe(
@@ -271,5 +274,117 @@ export const verifyReadOnlyAgentEffect = async (input: {
     input.verification.effect.command.type as ReadOnlyAgentAction
   ] as Verifier | undefined
   if (!verifier) throw new Error("Agent action has no read-only verifier")
+  return verifier(input.verification, input.adapter, input.signal)
+}
+
+/**
+ * A destination is confirmed only when the tab is holding the exact URL the
+ * user authorized and the run may still read it. A commit elsewhere — a
+ * redirect, an interstitial, a consent wall — is ambiguous rather than
+ * negative: the browser did move, so the step cannot be retried blindly.
+ */
+const verifyCommittedDestination = async (
+  input: AgentVerificationInput,
+  adapter: AgentEffectVerifierAdapter,
+  tabId: number,
+  kind: string
+): Promise<AgentVerificationResult> => {
+  const destination = input.effect.destination
+  if (!destination) {
+    return result("ambiguous", kind, "Destination unavailable", adapter.now())
+  }
+  const tab = await adapter.getTab(tabId)
+  if (!tab?.url) {
+    return result("negative", kind, "Destination tab is gone", adapter.now())
+  }
+  if (!sameUrl(tab.url, destination.url)) {
+    return sameUrl(tab.url, input.effect.sourceUrl)
+      ? result(
+          "negative",
+          kind,
+          "Navigation did not leave the source page",
+          adapter.now()
+        )
+      : result(
+          "ambiguous",
+          kind,
+          "A different destination committed",
+          adapter.now()
+        )
+  }
+  return (await adapter.classifyAccess(tab.url)) === "ok"
+    ? result(
+        "confirmed",
+        kind,
+        "Authorized destination is committed",
+        adapter.now()
+      )
+    : result(
+        "ambiguous",
+        kind,
+        "Destination is no longer readable",
+        adapter.now()
+      )
+}
+
+export const NAVIGATION_AGENT_VERIFIERS = {
+  async navigate(input, adapter, signal) {
+    const committed = await verifyCommittedDestination(
+      input,
+      adapter,
+      input.effect.snapshotIdentity.tabId,
+      "navigation"
+    )
+    if (committed.outcome !== "confirmed") return committed
+    // A same-document route change commits the URL without replacing the
+    // document, so the document identity is recorded rather than required: an
+    // observation that still reports the pre-navigation URL means the tab
+    // answered but the page did not move.
+    const after = await observeAfter(input, adapter, signal)
+    if (!sameUrl(after.url, input.effect.destination?.url ?? "")) {
+      return result(
+        "ambiguous",
+        "navigation",
+        "Observed page does not match the committed destination",
+        adapter.now()
+      )
+    }
+    return result(
+      "confirmed",
+      "navigation",
+      after.documentId === input.before.documentId
+        ? "Destination committed within the same document"
+        : "Destination committed in a new document",
+      adapter.now()
+    )
+  },
+  async open_tab(input, adapter) {
+    if (input.effect.command.type !== "open_tab" || !input.effect.destination) {
+      throw new Error("Invalid open-tab effect")
+    }
+    // The opened tab is only knowable from the receipt; without it there is
+    // nothing to check and nothing the run may adopt.
+    const opened = input.receipt.controlledTabId
+    if (opened === undefined) {
+      return result(
+        "ambiguous",
+        "tab",
+        "Opened tab was not reported",
+        adapter.now()
+      )
+    }
+    return verifyCommittedDestination(input, adapter, opened, "tab")
+  }
+} satisfies Record<NavigationAgentAction, Verifier>
+
+export const verifyNavigationAgentEffect = async (input: {
+  verification: AgentVerificationInput
+  adapter: AgentEffectVerifierAdapter
+  signal: AgentCancellationSignal
+}): Promise<AgentVerificationResult> => {
+  const verifier = NAVIGATION_AGENT_VERIFIERS[
+    input.verification.effect.command.type as NavigationAgentAction
+  ] as Verifier | undefined
+  if (!verifier) throw new Error("Agent action has no navigation verifier")
   return verifier(input.verification, input.adapter, input.signal)
 }

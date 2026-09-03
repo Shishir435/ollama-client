@@ -175,10 +175,21 @@ describe("durable job rows decode as their writers wrote them", () => {
         runId: "agent-row-1",
         phase: "executing",
         expected: ["awaiting_approval"],
-        patch: { stepCount: 1, updatedAt: createdAt + 7 }
+        patch: {
+          allowedOrigins: ["https://example.com", "https://other.example"],
+          stepCount: 1,
+          updatedAt: createdAt + 7
+        }
       })
 
       expect(executing.claimed).toBe(true)
+      // An origin the user approved is durable from the claim that opened
+      // execution, so a worker lost mid-effect does not re-prompt for it.
+      await expect(
+        repo
+          .getAgentRun("agent-row-1")
+          .then((run) => run?.state?.allowedOrigins)
+      ).resolves.toEqual(["https://example.com", "https://other.example"])
       await expect(repo.listAgentSteps("agent-row-1")).resolves.toEqual(
         expect.arrayContaining([
           expect.objectContaining({ status: "executing" })

@@ -17,6 +17,8 @@ export const AgentElementSchema = z
     tag: z.string().min(1),
     type: z.string().min(1).optional(),
     value: z.string().optional(),
+    href: z.url().max(2_048).optional(),
+    download: z.boolean().optional(),
     visible: z.boolean(),
     enabled: z.boolean(),
     editable: z.boolean(),
@@ -29,6 +31,13 @@ export const AgentElementSchema = z
         code: "custom",
         path: ["value"],
         message: "Sensitive element values must be omitted"
+      })
+    }
+    if (element.href !== undefined && !element.visible) {
+      context.addIssue({
+        code: "custom",
+        path: ["href"],
+        message: "Hidden element destinations must be omitted"
       })
     }
   })

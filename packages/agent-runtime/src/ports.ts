@@ -40,6 +40,13 @@ export interface AgentDestination {
   url: string
   origin: string
   source: "observed" | "model" | "browser"
+  /**
+   * Set by the resolver when the destination carries data the run only knows
+   * because it observed the page: `field_value` for something a user typed
+   * into a control, `visible_text` for rendered page text. Evidence, not a
+   * decision — policy owns what each grade costs.
+   */
+  pageDataEvidence?: "field_value" | "visible_text"
 }
 
 export type AgentSemanticEffect =
@@ -145,6 +152,7 @@ export type AgentClaimResult =
 export type AgentStatePatch = Partial<
   Pick<
     AgentRunState,
+    | "allowedOrigins"
     | "deadline"
     | "controlledTabId"
     | "error"
