@@ -1,10 +1,17 @@
-import { Database, HardDrive, MessageSquare, ShieldCheck } from "lucide-react"
+import {
+  Bot,
+  Database,
+  HardDrive,
+  MessageSquare,
+  ShieldCheck
+} from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsCard } from "@/components/settings"
 import { Badge } from "@/components/ui/badge"
 import { getStorageStats } from "@/lib/embeddings/vector-store"
 import { knowledgeDb } from "@/lib/knowledge/knowledge-sets"
+import { countAgentRuns } from "@/lib/repositories/agent-runs"
 import { countMessages, getAllSessions } from "@/lib/repositories/chat-history"
 
 interface InventoryCounts {
@@ -12,13 +19,15 @@ interface InventoryCounts {
   messages: number
   vectors: number
   knowledgeFiles: number
+  agentRuns: number
 }
 
 const EMPTY_COUNTS: InventoryCounts = {
   sessions: 0,
   messages: 0,
   vectors: 0,
-  knowledgeFiles: 0
+  knowledgeFiles: 0,
+  agentRuns: 0
 }
 
 export const PrivacyDataInventory = () => {
@@ -31,15 +40,17 @@ export const PrivacyDataInventory = () => {
       getAllSessions(),
       countMessages(),
       getStorageStats(),
-      knowledgeDb.knowledgeFiles.count()
+      knowledgeDb.knowledgeFiles.count(),
+      countAgentRuns()
     ])
-      .then(([sessions, messages, vectors, knowledgeFiles]) => {
+      .then(([sessions, messages, vectors, knowledgeFiles, agentRuns]) => {
         if (!active) return
         setCounts({
           sessions: sessions.length,
           messages,
           vectors: vectors.totalVectors,
-          knowledgeFiles
+          knowledgeFiles,
+          agentRuns
         })
       })
       .catch(() => {
@@ -67,6 +78,14 @@ export const PrivacyDataInventory = () => {
       value: t("settings.privacy_spine.inventory.knowledge_count", {
         files: counts.knowledgeFiles,
         vectors: counts.vectors
+      })
+    },
+    {
+      key: "agent",
+      icon: Bot,
+      label: t("settings.privacy_spine.inventory.agent"),
+      value: t("settings.privacy_spine.inventory.agent_count", {
+        runs: counts.agentRuns
       })
     },
     {

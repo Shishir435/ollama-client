@@ -105,6 +105,7 @@ export const PRIVACY_SETTINGS = [
     searchKeys: [
       "settings.privacy_spine.inventory.chat",
       "settings.privacy_spine.inventory.knowledge",
+      "settings.privacy_spine.inventory.agent",
       "settings.privacy_spine.inventory.settings",
       "settings.privacy_spine.inventory.preferences"
     ],

@@ -9,6 +9,12 @@ export interface StorageKeyMetadata {
 }
 
 export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
+  [STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED]: {
+    key: STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED,
+    scope: "sync-safe",
+    reason:
+      "One-time privacy acknowledgement for continuous remote page observation; contains no page or provider data."
+  },
   [STORAGE_KEYS.BACKUP.IMPORT_JOURNAL]: {
     key: STORAGE_KEYS.BACKUP.IMPORT_JOURNAL,
     scope: "device-local",

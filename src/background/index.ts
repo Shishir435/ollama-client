@@ -1,11 +1,11 @@
 import "webextension-polyfill"
 
-import { createAgentComposition } from "@/background/agent/agent-composition"
 import { registerMessageRouter } from "@/background/message-router"
 import { startPersistenceTopology } from "@/background/persistence-readiness"
 import { registerPortRouter } from "@/background/port-router"
 import { initializeBackgroundStartup } from "@/background/startup"
 import { registerTabLifecycle } from "@/background/tab-lifecycle"
+import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 
 /**
  * The persistence topology starts first and hands its readiness to startup,
@@ -16,7 +16,11 @@ import { registerTabLifecycle } from "@/background/tab-lifecycle"
  */
 const persistenceReady = startPersistenceTopology()
 
-createAgentComposition()
+if (AGENT_PREVIEW_ENABLED) {
+  void import("@/background/agent/agent-composition").then(
+    ({ createAgentComposition }) => createAgentComposition()
+  )
+}
 initializeBackgroundStartup(persistenceReady)
 registerPortRouter()
 registerMessageRouter()

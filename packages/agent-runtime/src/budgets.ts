@@ -1,4 +1,56 @@
-import type { AgentDecision } from "@ollama-client/contracts"
+import {
+  type AgentDeadlineState,
+  AgentDeadlineStateSchema,
+  type AgentDecision
+} from "@ollama-client/contracts"
+
+export const initialAgentDeadlineState = (now: number): AgentDeadlineState => ({
+  runStartedAt: now,
+  stepStartedAt: now,
+  runSuspendedMs: 0,
+  stepSuspendedMs: 0
+})
+
+export const beginAgentStepDeadline = (
+  state: AgentDeadlineState,
+  now: number
+): AgentDeadlineState =>
+  AgentDeadlineStateSchema.parse({
+    ...state,
+    stepStartedAt: now,
+    stepSuspendedMs: 0
+  })
+
+export const suspendAgentDeadlines = (
+  state: AgentDeadlineState,
+  kind: "approval" | "takeover",
+  now: number
+): AgentDeadlineState =>
+  state.suspendedAt === undefined
+    ? AgentDeadlineStateSchema.parse({
+        ...state,
+        suspendedAt: now,
+        suspensionKind: kind
+      })
+    : state
+
+export const resumeAgentDeadlines = (
+  state: AgentDeadlineState,
+  now: number
+): AgentDeadlineState => {
+  if (state.suspendedAt === undefined) return state
+  const duration = Math.max(0, now - state.suspendedAt)
+  const {
+    suspendedAt: _suspendedAt,
+    suspensionKind: _suspensionKind,
+    ...active
+  } = state
+  return AgentDeadlineStateSchema.parse({
+    ...active,
+    runSuspendedMs: state.runSuspendedMs + duration,
+    stepSuspendedMs: state.stepSuspendedMs + duration
+  })
+}
 
 export interface AgentBudgetInput {
   now: () => number

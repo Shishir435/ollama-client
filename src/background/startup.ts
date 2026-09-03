@@ -15,6 +15,7 @@ import {
 } from "@/lib/constants"
 import { recordDiagnosticEvent } from "@/lib/diagnostics/diagnostic-recorder"
 import { sweepVectorCleanupReceipts } from "@/lib/embeddings/vector-cleanup-receipts"
+import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
 import { IngestionService } from "@/lib/ingestion/ingestion-service"
 import { logger } from "@/lib/logger"
 import { runEmbeddingDimensionMigration } from "@/lib/migration/embedding-dimension-migration"
@@ -255,6 +256,16 @@ const SCHEMA_STARTUP_TASKS: StartupTask[] = [
  * should not hold up an ingestion job the user is waiting on.
  */
 const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
+  {
+    id: "durable-agent-runs",
+    name: "durable agent runs",
+    run: (signal) => {
+      if (!AGENT_PREVIEW_ENABLED) return Promise.resolve()
+      return import("@/background/agent/agent-recovery").then(
+        ({ recoverAndPruneAgentRuns }) => recoverAndPruneAgentRuns(signal)
+      )
+    }
+  },
   {
     id: "vector-cleanup-receipts",
     name: "pending vector cleanup receipts",

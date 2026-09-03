@@ -7,6 +7,12 @@ import {
   type AgentRunState,
   type AgentRunStatus
 } from "@ollama-client/contracts"
+import {
+  beginAgentStepDeadline,
+  initialAgentDeadlineState,
+  resumeAgentDeadlines,
+  suspendAgentDeadlines
+} from "./budgets"
 import type {
   AgentCancellationController,
   AgentController,
@@ -135,8 +141,17 @@ export const createAgentController = (
       }
     | undefined
   > => {
+    const now = dependencies.clock.now()
+    const deadline = beginAgentStepDeadline(
+      state.deadline ?? initialAgentDeadlineState(state.createdAt),
+      now
+    )
     const checkpoint = await claim(state, "awaiting_approval", {
-      updatedAt: dependencies.clock.now()
+      deadline:
+        decision.type === "approval_required"
+          ? suspendAgentDeadlines(deadline, "approval", now)
+          : deadline,
+      updatedAt: now
     })
     if (!checkpoint) return undefined
 
@@ -309,9 +324,15 @@ export const createAgentController = (
       return undefined
     }
     if (policy.type === "takeover_required") {
+      const now = dependencies.clock.now()
+      const deadline = beginAgentStepDeadline(
+        state.deadline ?? initialAgentDeadlineState(state.createdAt),
+        now
+      )
       const waiting = await claim(state, "awaiting_takeover", {
+        deadline: suspendAgentDeadlines(deadline, "takeover", now),
         stepCount: stepNumber,
-        updatedAt: dependencies.clock.now()
+        updatedAt: now
       })
       if (!waiting) return undefined
       const answer = await dependencies.takeover.request(policy.request, signal)
@@ -346,6 +367,10 @@ export const createAgentController = (
       at: dependencies.clock.now()
     })
     const executing = await claim(state, "executing", {
+      deadline: resumeAgentDeadlines(
+        state.deadline ?? initialAgentDeadlineState(state.createdAt),
+        dependencies.clock.now()
+      ),
       stepCount: stepNumber,
       updatedAt: dependencies.clock.now()
     })
@@ -467,11 +492,20 @@ export const createAgentController = (
 
   const runLoop = async (
     initialState: AgentRunState,
-    controller: AgentCancellationController
+    controller: AgentCancellationController,
+    afterTakeover = false
   ): Promise<void> => {
     let state = initialState
     while (!controller.signal.aborted) {
       const observing = await claim(state, "observing", {
+        ...((afterTakeover || state.status === "paused") && state.deadline
+          ? {
+              deadline: resumeAgentDeadlines(
+                state.deadline,
+                dependencies.clock.now()
+              )
+            }
+          : {}),
         updatedAt: dependencies.clock.now()
       })
       if (!observing) return
@@ -518,7 +552,7 @@ export const createAgentController = (
       const state = await dependencies.persistence.load(runId)
       if (!state || isTerminalAgentStatus(state.status)) return
       if (state.status === "awaiting_takeover" && !afterTakeover) return
-      await runLoop(state, controller)
+      await runLoop(state, controller, afterTakeover)
     } finally {
       if (active.get(runId) === controller) active.delete(runId)
     }
@@ -537,7 +571,12 @@ export const createAgentController = (
     await transition(
       requested,
       "paused",
-      pausePatch("user", dependencies.clock.now())
+      pausePatch(
+        state.status === "executing" || state.status === "verifying"
+          ? "unresolved_effect"
+          : "user",
+        dependencies.clock.now()
+      )
     )
   }
 

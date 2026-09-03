@@ -105,6 +105,171 @@ const boot = async () => {
 
 describe("durable job rows decode as their writers wrote them", () => {
   it(
+    "round-trips agent ownership and claims execution before effect evidence",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      const createdAt = 1_700_000_000_000
+      await repo.createAgentRun({
+        version: 1,
+        id: "agent-row-1",
+        goal: "Inspect the current page",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 0,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt,
+        updatedAt: createdAt
+      })
+
+      const observing = await repo.claimAgentRunPhase({
+        runId: "agent-row-1",
+        phase: "observing",
+        expected: ["submitted"],
+        patch: { updatedAt: createdAt + 1 }
+      })
+      expect(observing.claimed).toBe(true)
+
+      const losingOwner = await repo.claimAgentRunPhase({
+        runId: "agent-row-1",
+        phase: "observing",
+        expected: ["submitted"],
+        patch: { updatedAt: createdAt + 2 }
+      })
+      expect(losingOwner.claimed).toBe(false)
+
+      await repo.transitionAgentRun({
+        runId: "agent-row-1",
+        from: "observing",
+        to: "deciding",
+        patch: { updatedAt: createdAt + 3 }
+      })
+      await repo.appendAgentStep({
+        runId: "agent-row-1",
+        stepId: "agent-row-1:1",
+        status: "planned",
+        command: {
+          type: "back",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        at: createdAt + 4
+      })
+      await repo.claimAgentRunPhase({
+        runId: "agent-row-1",
+        phase: "awaiting_approval",
+        expected: ["deciding"],
+        patch: { updatedAt: createdAt + 5 }
+      })
+      await repo.appendAgentStep({
+        runId: "agent-row-1",
+        stepId: "agent-row-1:1",
+        status: "approved",
+        risk: "low",
+        at: createdAt + 6
+      })
+      const executing = await repo.claimAgentRunPhase({
+        runId: "agent-row-1",
+        phase: "executing",
+        expected: ["awaiting_approval"],
+        patch: { stepCount: 1, updatedAt: createdAt + 7 }
+      })
+
+      expect(executing.claimed).toBe(true)
+      await expect(repo.listAgentSteps("agent-row-1")).resolves.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ status: "executing" })
+        ])
+      )
+    },
+    TIMEOUT
+  )
+
+  it(
+    "compacts an agent checkpoint in the terminal CAS statement",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      const db = await import("@/lib/sqlite/db")
+      await repo.createAgentRun({
+        version: 1,
+        id: "agent-terminal-1",
+        goal: "Finish safely",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 1,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt: 1,
+        updatedAt: 2
+      })
+
+      await repo.claimAgentRunPhase({
+        runId: "agent-terminal-1",
+        phase: "observing",
+        expected: ["submitted"],
+        patch: { updatedAt: 2 }
+      })
+      await repo.transitionAgentRun({
+        runId: "agent-terminal-1",
+        from: "observing",
+        to: "deciding",
+        patch: { updatedAt: 2 }
+      })
+      await repo.transitionAgentRun({
+        runId: "agent-terminal-1",
+        from: "deciding",
+        to: "completed",
+        patch: { updatedAt: 3 }
+      })
+
+      const rows = await db.query(
+        "SELECT status, checkpoint FROM agent_runs WHERE id = ?",
+        ["agent-terminal-1"]
+      )
+      expect(rows[0]?.status).toBe("completed")
+      expect(JSON.parse(String(rows[0]?.checkpoint))).toEqual({
+        version: 1,
+        compacted: true,
+        terminalAt: 3
+      })
+      await expect(repo.getAgentRun("agent-terminal-1")).resolves.toMatchObject(
+        { status: "completed", compacted: true, state: undefined }
+      )
+    },
+    TIMEOUT
+  )
+
+  it(
+    "rejects oversized agent evidence before writing it",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      await expect(
+        repo.appendAgentStep({
+          runId: "missing-agent",
+          stepId: "missing-agent:1",
+          status: "planned",
+          command: {
+            type: "type",
+            ref: "field-1",
+            snapshotId: "snapshot-1",
+            generation: 1,
+            text: "x".repeat(20_000)
+          },
+          at: 1
+        })
+      ).rejects.toThrow(/byte limit/)
+    },
+    TIMEOUT
+  )
+
+  it(
     "round-trips an ingestion run through both of its readers",
     async () => {
       await boot()

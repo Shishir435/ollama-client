@@ -153,6 +153,32 @@ CREATE TABLE IF NOT EXISTS model_pull_runs (
 
 CREATE INDEX IF NOT EXISTS idx_model_pull_runs_status ON model_pull_runs(status);
 
+-- Agent owns its own lifecycle and never borrows chat rows. The checkpoint is
+-- bounded and compacted atomically with a terminal status transition.
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  checkpoint TEXT NOT NULL,
+  createdAt INTEGER NOT NULL,
+  updatedAt INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON agent_runs(status);
+
+-- Append-only, bounded evidence. Browser effects are claimed in this log
+-- before execution and an interrupted executing/verifying phase is unresolved.
+CREATE TABLE IF NOT EXISTS agent_steps (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  runId TEXT NOT NULL,
+  stepId TEXT NOT NULL,
+  status TEXT NOT NULL,
+  receipt TEXT NOT NULL,
+  createdAt INTEGER NOT NULL,
+  FOREIGN KEY(runId) REFERENCES agent_runs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_steps_runId ON agent_steps(runId, id);
+
 -- Chunk feedback table for learning from user feedback
 CREATE TABLE IF NOT EXISTS chunk_feedback (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

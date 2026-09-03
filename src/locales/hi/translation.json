@@ -872,6 +872,8 @@
         "chat_count": "{{sessions}} सत्र · {{messages}} संदेश",
         "knowledge": "ज्ञान और मेमोरी",
         "knowledge_count": "{{files}} फ़ाइलें · {{vectors}} वेक्टर",
+        "agent": "एजेंट रन",
+        "agent_count": "{{runs}} सहेजे गए रन और रिकवरी रसीदें",
         "settings": "लोकल सेटिंग और प्रोवाइडर सीक्रेट",
         "settings_description": "एंडपॉइंट, API कुंजियाँ, अनुमतियाँ और डिवाइस स्थिति",
         "preferences": "पोर्टेबल प्राथमिकताएँ",

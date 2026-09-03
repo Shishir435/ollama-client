@@ -74,6 +74,11 @@ vi.mock("../add-vector-cleanup-receipts-table", () => ({
     ensureVectorCleanupReceiptsTable(db)
 }))
 
+const ensureAgentRunsTables = vi.fn()
+vi.mock("../add-agent-runs-tables", () => ({
+  ensureAgentRunsTables: (db: unknown) => ensureAgentRunsTables(db)
+}))
+
 import {
   getSchemaVersion,
   LATEST_SCHEMA_VERSION,
@@ -109,7 +114,9 @@ const makeDb = (
       "turn_runs",
       "ingestion_runs",
       "model_pull_runs",
-      "vector_cleanup_receipts"
+      "vector_cleanup_receipts",
+      "agent_runs",
+      "agent_steps"
     ]
   )
   return {
@@ -166,6 +173,8 @@ beforeEach(() => {
   ensureTurnRunsTable.mockClear()
   ensureIngestionRunsTable.mockClear()
   ensureModelPullRunsTable.mockClear()
+  ensureVectorCleanupReceiptsTable.mockClear()
+  ensureAgentRunsTables.mockClear()
 })
 
 describe("migration-runner", () => {
@@ -209,6 +218,7 @@ describe("migration-runner", () => {
     expect(ensureTurnRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureIngestionRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureModelPullRunsTable).toHaveBeenCalledTimes(1)
+    expect(ensureAgentRunsTables).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -228,6 +238,7 @@ describe("migration-runner", () => {
     expect(ensureTurnRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureIngestionRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureModelPullRunsTable).toHaveBeenCalledTimes(1)
+    expect(ensureAgentRunsTables).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
 
@@ -256,7 +267,7 @@ describe("migration-runner", () => {
 
     const repaired = repairSchemaDrift(db as never)
 
-    expect(repaired).toBe(9)
+    expect(repaired).toBe(10)
     expect(ensureMessagesReplayArtifactColumn).toHaveBeenCalledWith(db)
     expect(ensureMessagesErrorColumn).toHaveBeenCalledWith(db)
     expect(ensureSessionsTagsColumn).toHaveBeenCalledWith(db)
@@ -266,6 +277,7 @@ describe("migration-runner", () => {
     expect(ensureIngestionRunsTable).toHaveBeenCalledWith(db)
     expect(ensureModelPullRunsTable).toHaveBeenCalledWith(db)
     expect(ensureVectorCleanupReceiptsTable).toHaveBeenCalledWith(db)
+    expect(ensureAgentRunsTables).toHaveBeenCalledWith(db)
     expect(ensureMessagesThinkingColumn).not.toHaveBeenCalled()
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
   })
@@ -285,5 +297,6 @@ describe("migration-runner", () => {
     expect(ensureIngestionRunsTable).not.toHaveBeenCalled()
     expect(ensureModelPullRunsTable).not.toHaveBeenCalled()
     expect(ensureVectorCleanupReceiptsTable).not.toHaveBeenCalled()
+    expect(ensureAgentRunsTables).not.toHaveBeenCalled()
   })
 })

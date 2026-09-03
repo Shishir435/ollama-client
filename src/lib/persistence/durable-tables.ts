@@ -13,6 +13,8 @@ export const DURABLE_TABLES = [
   "turn_runs",
   "ingestion_runs",
   "model_pull_runs",
+  "agent_runs",
+  "agent_steps",
   "vector_cleanup_receipts",
   "chunk_feedback"
 ] as const

@@ -872,6 +872,8 @@
         "chat_count": "{{sessions}} sessions · {{messages}} messages",
         "knowledge": "Knowledge and memory",
         "knowledge_count": "{{files}} files · {{vectors}} vectors",
+        "agent": "Agent runs",
+        "agent_count": "{{runs}} saved runs and recovery receipts",
         "settings": "Local settings and provider secrets",
         "settings_description": "Endpoints, API keys, permissions, and device state",
         "preferences": "Portable preferences",

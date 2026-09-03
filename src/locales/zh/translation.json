@@ -872,6 +872,8 @@
         "chat_count": "{{sessions}} 个会话 · {{messages}} 条消息",
         "knowledge": "知识和记忆",
         "knowledge_count": "{{files}} 个文件 · {{vectors}} 个向量",
+        "agent": "智能体运行",
+        "agent_count": "{{runs}} 个已保存运行和恢复记录",
         "settings": "本地设置和提供商密钥",
         "settings_description": "端点、API 密钥、权限和设备状态",
         "preferences": "可同步偏好",
