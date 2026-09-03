@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { describe, expect, it } from "vitest"
@@ -394,5 +394,54 @@ describe("published header contract", () => {
     expect(API_LINK_HEADER).toContain('rel="service-doc"')
     expect(API_LINK_HEADER).toContain('rel="api-catalog"')
     expect(API_LINK_HEADER).toContain("rel/deprecation-policy")
+  })
+})
+
+describe("routing middleware module graph", () => {
+  /*
+   * Vercel transpiles the `proxy` entrypoint in place instead of bundling it,
+   * so every relative specifier in its graph is handed to Node's ESM resolver
+   * verbatim. An extensionless one typechecks here (`moduleResolution:
+   * "bundler"`) and then throws `ERR_MODULE_NOT_FOUND` on the deployed site,
+   * which fails the middleware and therefore every request that matches it —
+   * the whole site, since the matcher covers `/`. That shipped once.
+   */
+  const RELATIVE_IMPORT = /from\s+"(\.[^"]*)"/g
+
+  const relativeImportsOf = (path: string) =>
+    [...readRepoFile(path).matchAll(RELATIVE_IMPORT)].map(([, specifier]) => ({
+      path,
+      specifier
+    }))
+
+  it("gives every relative import in the entrypoint graph an explicit extension", () => {
+    const imports = [
+      ...relativeImportsOf("docs/proxy.ts"),
+      ...relativeImportsOf("docs/src/lib/agent-routing.ts"),
+      ...relativeImportsOf("docs/src/lib/api-response.ts")
+    ]
+
+    expect(imports.length).toBeGreaterThan(0)
+    for (const { path, specifier } of imports) {
+      expect(specifier, `${path} imports ${specifier}`).toMatch(
+        /\.(js|mjs|json)$/
+      )
+    }
+  })
+
+  it("resolves each of those specifiers to a file the deployment carries", () => {
+    for (const { specifier } of relativeImportsOf("docs/proxy.ts")) {
+      /* A `.js` specifier is answered by the `.ts` source Vercel transpiles. */
+      const candidates = specifier.endsWith(".js")
+        ? [specifier, specifier.replace(/\.js$/, ".ts")]
+        : [specifier]
+
+      expect(
+        candidates.some((candidate) =>
+          existsSync(join(REPO_ROOT, "docs", candidate))
+        ),
+        specifier
+      ).toBe(true)
+    }
   })
 })
