@@ -364,6 +364,22 @@ describe("agent controller", () => {
     expect(harness.calls.indexOf("verify")).toBeLessThan(
       harness.calls.lastIndexOf("claim:observing")
     )
+    expect(
+      harness.calls.filter((call) => call === "claim:observing")
+    ).toHaveLength(2)
+  })
+
+  it("persists a confirmed switch-tab target before the next observation", async () => {
+    const harness = createHarness({
+      controlledTabIdAfterExecution: 9,
+      observations: [observation()]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      controlledTabId: 9,
+      status: "failed",
+      error: { code: "observation_failed" }
+    })
   })
 
   it("keeps the controlled tab when switch-tab verification is negative", async () => {

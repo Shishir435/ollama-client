@@ -50,7 +50,6 @@ export const createAgentController = (
   const active = new Map<string, AgentCancellationController>()
   const lastGeneration = new Map<string, number>()
   const minimumGeneration = new Map<string, number>()
-  const pendingControlledTab = new Map<string, number>()
 
   const claim = async (
     state: AgentRunState,
@@ -411,13 +410,6 @@ export const createAgentController = (
         verification,
         at: dependencies.clock.now()
       })
-      // A tab the run does not yet own becomes the observation target only
-      // once verification confirms it; a negative or ambiguous outcome leaves
-      // the run on the tab it already controls.
-      pendingControlledTab.delete(state.id)
-      if (action.type === "advance" && receipt.controlledTabId !== undefined) {
-        pendingControlledTab.set(state.id, receipt.controlledTabId)
-      }
       if (action.type === "pause") {
         await pause(
           verifying,
@@ -425,7 +417,17 @@ export const createAgentController = (
         )
         return undefined
       }
-      return verifying
+      if (action.type === "redecide") return verifying
+      // The write closing a confirmed step also opens the next observation, so
+      // a tab the effect switched to is durably owned before this controller
+      // can lose the run. A negative or ambiguous outcome never reaches here
+      // and leaves the run on the tab it already controls.
+      return claim(verifying, "observing", {
+        ...(receipt.controlledTabId === undefined
+          ? {}
+          : { controlledTabId: receipt.controlledTabId }),
+        updatedAt: dependencies.clock.now()
+      })
     } catch {
       if (!signal.aborted) {
         await fail(
@@ -498,29 +500,41 @@ export const createAgentController = (
     return processCommand(state, decision, observation, signal)
   }
 
+  const claimObserving = async (
+    state: AgentRunState,
+    resumeDeadline: boolean
+  ): Promise<AgentRunState | undefined> =>
+    claim(state, "observing", {
+      ...(resumeDeadline && state.deadline
+        ? {
+            deadline: resumeAgentDeadlines(
+              state.deadline,
+              dependencies.clock.now()
+            )
+          }
+        : {}),
+      updatedAt: dependencies.clock.now()
+    })
+
   const runLoop = async (
     initialState: AgentRunState,
     controller: AgentCancellationController,
     afterTakeover = false
   ): Promise<void> => {
     let state = initialState
+    // A confirmed step already claimed the next observing phase, durably, in
+    // the write that closed it; re-claiming it here would lose that CAS.
+    let observingClaimed = false
     while (!controller.signal.aborted) {
-      const adopted = pendingControlledTab.get(state.id)
-      const observing = await claim(state, "observing", {
-        ...(adopted === undefined ? {} : { controlledTabId: adopted }),
-        ...((afterTakeover || state.status === "paused") && state.deadline
-          ? {
-              deadline: resumeAgentDeadlines(
-                state.deadline,
-                dependencies.clock.now()
-              )
-            }
-          : {}),
-        updatedAt: dependencies.clock.now()
-      })
-      pendingControlledTab.delete(state.id)
+      const observing = observingClaimed
+        ? state
+        : await claimObserving(
+            state,
+            afterTakeover || state.status === "paused"
+          )
       if (!observing) return
       state = observing
+      observingClaimed = false
       const observation = await observe(state, controller.signal)
       if (!observation) return
 
@@ -549,6 +563,7 @@ export const createAgentController = (
       )
       if (!next) return
       state = next
+      observingClaimed = next.status === "observing"
       // Both confirmed and a provable safe negative require a fresh
       // observation and model decision; neither repeats the command here.
     }
