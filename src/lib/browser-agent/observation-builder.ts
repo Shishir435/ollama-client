@@ -1,7 +1,8 @@
 import {
   type AgentElement,
   type AgentObservation,
-  AgentObservationSchema
+  AgentObservationSchema,
+  MAX_AGENT_DESTINATION_URL_CHARS
 } from "@ollama-client/contracts"
 
 import type { AgentElementReferenceStore } from "./element-references"
@@ -11,7 +12,8 @@ export const AGENT_OBSERVATION_LIMITS = {
   visibleTextChars: 100_000,
   titleChars: 500,
   elementNameChars: 500,
-  elementValueChars: 500
+  elementValueChars: 500,
+  elementHrefChars: MAX_AGENT_DESTINATION_URL_CHARS
 } as const
 
 const INTERACTIVE_SELECTOR = [
@@ -240,11 +242,35 @@ const accessibleName = (element: Element): string | undefined => {
   return undefined
 }
 
+/**
+ * Observed destinations exist so navigation can be grounded in a link the page
+ * actually rendered rather than a URL the model composed. Anything the user
+ * cannot see contributes none: a hidden link is page content the observation
+ * boundary already withholds, and `javascript:`/`data:` targets are refused
+ * here so they never become a destination the run has to reason about.
+ */
+const elementHref = (element: Element): string | undefined => {
+  const href = element.getAttribute("href")
+  if (!href) return undefined
+  try {
+    const resolved = new URL(href, element.ownerDocument.location.href)
+    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") {
+      return undefined
+    }
+    return resolved.href.length <= AGENT_OBSERVATION_LIMITS.elementHrefChars
+      ? resolved.href
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
 const toAgentElement = (element: Element, ref: string): AgentElement => {
   const visible = isVisible(element)
   const sensitive = !visible || isSensitiveAgentElement(element)
   const name = visible ? accessibleName(element) : undefined
   const value = sensitive ? undefined : elementValue(element)
+  const href = visible ? elementHref(element) : undefined
   const control = element as HTMLInputElement
   return {
     ref,
@@ -260,6 +286,8 @@ const toAgentElement = (element: Element, ref: string): AgentElement => {
           value: truncate(value, AGENT_OBSERVATION_LIMITS.elementValueChars)
         }
       : {}),
+    ...(href ? { href } : {}),
+    ...(href && element.hasAttribute("download") ? { download: true } : {}),
     visible,
     enabled: !(control.disabled ?? false),
     editable:

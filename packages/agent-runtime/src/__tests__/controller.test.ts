@@ -5,6 +5,7 @@ import type {
   AgentRunState,
   AgentRunStatus
 } from "@ollama-client/contracts"
+import { MAX_AGENT_ALLOWED_ORIGINS } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
 import { createAgentController } from "../controller"
 import type {
@@ -127,6 +128,7 @@ interface HarnessOptions {
   observations?: AgentObservation[]
   verification?: AgentVerificationResult[]
   onVerify?: () => Promise<void>
+  effectOverrides?: Partial<ResolvedAgentEffect>
   controlledTabIdAfterExecution?: number
   policy?:
     | AgentPolicyDecision
@@ -208,7 +210,11 @@ const createHarness = (options: HarnessOptions = {}) => {
     effect: {
       async resolve(currentCommand, currentObservation) {
         calls.push("resolve")
-        return resolvedEffect(currentObservation, currentCommand)
+        return resolvedEffect(
+          currentObservation,
+          currentCommand,
+          options.effectOverrides
+        )
       },
       async execute() {
         calls.push("execute")
@@ -268,6 +274,15 @@ const deferred = <T>() => {
   return { promise, resolve, reject }
 }
 
+const newOriginEffect: Partial<ResolvedAgentEffect> = {
+  destination: {
+    url: "https://other.example/docs",
+    origin: "https://other.example",
+    source: "model"
+  },
+  semanticEffects: ["navigation"]
+}
+
 describe("agent controller", () => {
   it("claims a phase before observing or deciding", async () => {
     const harness = createHarness()
@@ -278,6 +293,51 @@ describe("agent controller", () => {
     expect(harness.calls.indexOf("claim:deciding")).toBeLessThan(
       harness.calls.indexOf("decide")
     )
+  })
+
+  it("adds an approved destination origin to the run allowlist", async () => {
+    const harness = createHarness({
+      policy: approvalPolicy("high"),
+      effectOverrides: newOriginEffect
+    })
+    await harness.controller.start("run-1")
+    expect(harness.calls).toContain("approval")
+    expect(harness.getState().allowedOrigins).toEqual([
+      "https://example.com",
+      "https://other.example"
+    ])
+  })
+
+  it("does not add an origin the user was never asked about", async () => {
+    const harness = createHarness({ effectOverrides: newOriginEffect })
+    await harness.controller.start("run-1")
+    expect(harness.calls).not.toContain("approval")
+    expect(harness.getState().allowedOrigins).toEqual(["https://example.com"])
+  })
+
+  it("does not add an origin when the user rejected it", async () => {
+    const harness = createHarness({
+      policy: approvalPolicy("high"),
+      approval: { type: "rejected" },
+      effectOverrides: newOriginEffect
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().allowedOrigins).toEqual(["https://example.com"])
+  })
+
+  it("declines to grow a full allowlist rather than evicting an origin", async () => {
+    const full = Array.from(
+      { length: MAX_AGENT_ALLOWED_ORIGINS },
+      (_, index) => `https://origin-${index}.example`
+    )
+    const harness = createHarness({
+      state: runState({ allowedOrigins: full }),
+      policy: approvalPolicy("high"),
+      effectOverrides: newOriginEffect
+    })
+    await harness.controller.start("run-1")
+    expect(harness.calls).toContain("execute")
+    expect(harness.getState().allowedOrigins).toEqual(full)
   })
 
   it("does no work when a phase claim loses", async () => {

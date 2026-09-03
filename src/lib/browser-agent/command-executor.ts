@@ -7,7 +7,10 @@ import type { AgentSnapshotIdentity } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type { AgentElementReferenceStore } from "./element-references"
-import type { ReadOnlyAgentAction } from "./resolved-effect"
+import type {
+  NavigationAgentAction,
+  ReadOnlyAgentAction
+} from "./resolved-effect"
 
 export const executeAgentScrollInDocument = (input: {
   command: Extract<AuthorizedAgentEffect["command"], { type: "scroll" }>
@@ -67,6 +70,11 @@ export interface AgentCommandExecutorAdapter {
     direction: "back" | "forward"
   ): Promise<string | undefined>
   wait(ms: number, signal: AgentCancellationSignal): Promise<void>
+  navigate(tabId: number, url: string): Promise<void>
+  createTab(input: {
+    url: string
+    openerTabId: number
+  }): Promise<{ id?: number; url?: string } | undefined>
   now(): number
 }
 
@@ -209,5 +217,58 @@ export const executeReadOnlyAgentEffect = async (input: {
     input.effect.command.type as ReadOnlyAgentAction
   ] as Executor | undefined
   if (!executor) throw new Error("Agent action has no read-only executor")
+  return executor(input.effect, input.adapter, input.signal)
+}
+
+export const NAVIGATION_AGENT_EXECUTORS = {
+  async navigate(effect, adapter) {
+    if (effect.command.type !== "navigate" || !effect.destination) {
+      throw new Error("Invalid navigate effect")
+    }
+    /**
+     * The authorization the user gave names one source page and one
+     * destination. Re-establishing the source here is what keeps an approval
+     * from being spent on a page that changed underneath it while the run
+     * waited, and the destination is taken from the resolved effect rather
+     * than from the command so an approved URL is the URL that travels.
+     */
+    await assertSource(effect, adapter, true)
+    await assertReadable(adapter, effect.destination.url)
+    await adapter.navigate(
+      effect.snapshotIdentity.tabId,
+      effect.destination.url
+    )
+    return receipt(adapter, "navigate")
+  },
+  async open_tab(effect, adapter) {
+    if (effect.command.type !== "open_tab" || !effect.destination) {
+      throw new Error("Invalid open-tab effect")
+    }
+    await assertSource(effect, adapter, true)
+    await assertReadable(adapter, effect.destination.url)
+    const opened = await adapter.createTab({
+      url: effect.destination.url,
+      openerTabId: effect.snapshotIdentity.tabId
+    })
+    if (opened?.id === undefined) {
+      throw new Error("Agent open-tab produced no tab")
+    }
+    /**
+     * The new tab is reported, not adopted: the controller moves the run onto
+     * it only after verification confirms the destination it actually holds.
+     */
+    return receipt(adapter, "open_tab", opened.id)
+  }
+} satisfies Record<NavigationAgentAction, Executor>
+
+export const executeNavigationAgentEffect = async (input: {
+  effect: AuthorizedAgentEffect
+  adapter: AgentCommandExecutorAdapter
+  signal: AgentCancellationSignal
+}): Promise<AgentExecutionReceipt> => {
+  const executor = NAVIGATION_AGENT_EXECUTORS[
+    input.effect.command.type as NavigationAgentAction
+  ] as Executor | undefined
+  if (!executor) throw new Error("Agent action has no navigation executor")
   return executor(input.effect, input.adapter, input.signal)
 }

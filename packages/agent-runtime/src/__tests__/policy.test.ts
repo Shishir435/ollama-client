@@ -119,6 +119,61 @@ describe("resolved-effect policy", () => {
     }
   })
 
+  it("blocks a composed destination carrying a value the user typed", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(
+          effect(["navigation"], {
+            destination: {
+              url: "https://example.com/collect?d=typed",
+              origin: "https://example.com",
+              source: "model",
+              pageDataEvidence: "field_value"
+            }
+          })
+        )
+      )
+    ).toEqual({
+      type: "blocked",
+      risk: "critical",
+      reason: "private_data_egress"
+    })
+  })
+
+  it("requires approval for a composed destination carrying page text", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["navigation"], {
+          destination: {
+            url: "https://example.com/search?q=page+text",
+            origin: "https://example.com",
+            source: "model",
+            pageDataEvidence: "visible_text"
+          }
+        })
+      )
+    )
+    expect(decision.type).toBe("approval_required")
+    expect(decision.risk).toBe("critical")
+  })
+
+  it("does not charge a link the page rendered for carrying its own data", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(
+          effect(["navigation"], {
+            destination: {
+              url: "https://example.com/next?token=abc",
+              origin: "https://example.com",
+              source: "observed",
+              pageDataEvidence: "field_value"
+            }
+          })
+        )
+      )
+    ).toEqual({ type: "allow", risk: "medium" })
+  })
+
   it.each([
     "javascript:alert(1)",
     "data:text/plain,secret",

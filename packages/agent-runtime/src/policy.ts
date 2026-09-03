@@ -103,6 +103,24 @@ export const evaluateAgentPolicy = (
     if (scheme !== "http" && scheme !== "https") {
       return { type: "blocked", risk: "critical", reason: "unsupported_scheme" }
     }
+    /**
+     * A destination the page rendered may carry the page's own data back to
+     * its own site; one the model composed may not, because observing the
+     * user's page is the only way it could have learned that data. A value the
+     * user typed is never worth a confirmation prompt, so it is refused
+     * outright; rendered text is what an ordinary research task carries into a
+     * search, so it is escalated below rather than blocked.
+     */
+    if (
+      destination.source !== "observed" &&
+      destination.pageDataEvidence === "field_value"
+    ) {
+      return {
+        type: "blocked",
+        risk: "critical",
+        reason: "private_data_egress"
+      }
+    }
   }
 
   const takeover = takeoverReason(input)
@@ -125,6 +143,17 @@ export const evaluateAgentPolicy = (
     if (newOrigin) risk = raiseRisk(risk, "high")
     if (destination.source === "model" && hasQuery(destination.url)) {
       risk = raiseRisk(risk, "high")
+    }
+    /**
+     * Page text the model carried into a destination it composed is the shape
+     * an exfiltration attempt takes, and also the shape an ordinary search
+     * takes. The user decides, against the complete URL.
+     */
+    if (
+      destination.source !== "observed" &&
+      destination.pageDataEvidence === "visible_text"
+    ) {
+      risk = raiseRisk(risk, "critical")
     }
   }
 

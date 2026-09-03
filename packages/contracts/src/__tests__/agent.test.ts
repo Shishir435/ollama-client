@@ -115,6 +115,49 @@ describe("agent contract schemas", () => {
     expect(AgentObservationSchema.safeParse(observation).success).toBe(false)
   })
 
+  it("rejects destinations on elements the user cannot see", () => {
+    const observation = {
+      snapshotId: "snapshot-1",
+      generation: 1,
+      tabId: 7,
+      documentId: "document-1",
+      url: "https://example.com",
+      origin: "https://example.com",
+      title: "Example",
+      elements: [
+        {
+          ref: "hidden-link",
+          frameId: 0,
+          tag: "a",
+          href: "https://example.com/hidden",
+          visible: false,
+          enabled: true,
+          editable: false,
+          sensitive: true
+        }
+      ],
+      visibleText: "",
+      scroll: {
+        x: 0,
+        y: 0,
+        viewportWidth: 100,
+        viewportHeight: 100,
+        documentWidth: 100,
+        documentHeight: 100
+      },
+      dialogs: [],
+      capturedAt: 1
+    }
+
+    expect(AgentObservationSchema.safeParse(observation).success).toBe(false)
+    expect(
+      AgentObservationSchema.safeParse({
+        ...observation,
+        elements: [{ ...observation.elements[0], visible: true }]
+      }).success
+    ).toBe(true)
+  })
+
   it("rejects unknown run and step statuses", () => {
     expect(AgentRunStatusSchema.safeParse("uncertain").success).toBe(false)
     expect(AgentStepStatusSchema.safeParse("running").success).toBe(false)

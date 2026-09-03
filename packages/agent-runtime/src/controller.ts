@@ -5,7 +5,8 @@ import {
   AgentObservationSchema,
   type AgentPauseReason,
   type AgentRunState,
-  type AgentRunStatus
+  type AgentRunStatus,
+  MAX_AGENT_ALLOWED_ORIGINS
 } from "@ollama-client/contracts"
 import {
   beginAgentStepDeadline,
@@ -27,6 +28,31 @@ import { AGENT_STATUS_PREDECESSORS, isTerminalAgentStatus } from "./state"
 import { classifyVerificationOutcome } from "./verification"
 
 const DEFAULT_MAX_MALFORMED_DECISIONS = 5
+
+/**
+ * An origin joins a run's allowlist only when the user approved travelling to
+ * it, and only in the durable write that opens execution — the same boundary
+ * that owns the effect the approval authorized. A policy `allow`, a page, and
+ * a model decision each contribute none, and the run's own cap is honoured by
+ * declining to grow rather than by evicting an origin the user already
+ * approved: a full allowlist costs another prompt, never a silent grant.
+ */
+const allowedOriginsPatch = (
+  state: AgentRunState,
+  effect: ResolvedAgentEffect,
+  authorization: AuthorizedAgentEffect["authorization"]
+): AgentStatePatch => {
+  const origin = effect.destination?.origin
+  if (
+    authorization.type !== "approval" ||
+    !origin ||
+    state.allowedOrigins.includes(origin) ||
+    state.allowedOrigins.length >= MAX_AGENT_ALLOWED_ORIGINS
+  ) {
+    return {}
+  }
+  return { allowedOrigins: [...state.allowedOrigins, origin] }
+}
 
 export const createAgentController = (
   dependencies: AgentControllerDependencies
@@ -372,6 +398,7 @@ export const createAgentController = (
         state.deadline ?? initialAgentDeadlineState(state.createdAt),
         dependencies.clock.now()
       ),
+      ...allowedOriginsPatch(state, effect, authorization),
       stepCount: stepNumber,
       updatedAt: dependencies.clock.now()
     })

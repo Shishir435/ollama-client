@@ -88,6 +88,8 @@ const executorAdapter = (
   goHistory: vi.fn(),
   resolveHistoryDestination: async () => "https://example.com/previous",
   wait: vi.fn(),
+  navigate: vi.fn(),
+  createTab: vi.fn(),
   now: () => 10,
   ...overrides
 })
