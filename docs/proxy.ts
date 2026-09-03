@@ -10,10 +10,17 @@
  * All of the behaviour lives in `src/lib/agent-routing.ts` so it can be tested
  * without a deployment; this file is the adapter. A thrown error falls through
  * to normal static serving rather than taking the site down with it.
+ *
+ * Every relative import here carries an explicit extension. Vercel transpiles
+ * this entrypoint in place rather than bundling it, so the specifiers reach
+ * Node's ESM resolver verbatim: an extensionless `./src/lib/agent-routing`
+ * typechecks under `moduleResolution: "bundler"` and then fails the deployed
+ * site with `ERR_MODULE_NOT_FOUND` on every request, because the middleware
+ * crashing takes the response with it.
  */
 import { next, rewrite } from "@vercel/functions"
 
-import { resolveRequest } from "./src/lib/agent-routing"
+import { resolveRequest } from "./src/lib/agent-routing.js"
 import { DOC_ORDER } from "./src/seo/doc-ia.mjs"
 import { LEGACY_REDIRECTS } from "./src/seo/legacy-redirects.mjs"
 
