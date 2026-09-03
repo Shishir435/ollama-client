@@ -126,6 +126,7 @@ interface HarnessOptions {
   decisions?: unknown[]
   observations?: AgentObservation[]
   verification?: AgentVerificationResult[]
+  onVerify?: () => Promise<void>
   controlledTabIdAfterExecution?: number
   policy?:
     | AgentPolicyDecision
@@ -218,6 +219,7 @@ const createHarness = (options: HarnessOptions = {}) => {
       },
       async verify() {
         calls.push("verify")
+        await options.onVerify?.()
         const next = verifications.shift()
         if (!next) throw new Error("No verification")
         return next
@@ -380,6 +382,47 @@ describe("agent controller", () => {
       status: "failed",
       error: { code: "observation_failed" }
     })
+  })
+
+  it("keeps the controlled tab when a pause races verification", async () => {
+    let requestPause: () => Promise<void> = async () => {}
+    const harness = createHarness({
+      controlledTabIdAfterExecution: 9,
+      onVerify: () => requestPause()
+    })
+    requestPause = () => harness.controller.requestPause("run-1")
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      controlledTabId: 7,
+      status: "paused",
+      pauseReason: "unresolved_effect"
+    })
+  })
+
+  it("does not resume a run paused while a negative step verified", async () => {
+    let requestPause: () => Promise<void> = async () => {}
+    const harness = createHarness({
+      onVerify: () => requestPause(),
+      // A pause committed by another owner does not abort this controller, so
+      // the phase claim is the only thing that may stop the loop.
+      createCancellationController: () => ({
+        signal: { aborted: false },
+        abort() {}
+      }),
+      verification: [
+        {
+          outcome: "negative",
+          evidence: { kind: "dom", summary: "No change", observedAt: 2 }
+        }
+      ]
+    })
+    requestPause = () => harness.controller.requestPause("run-1")
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "unresolved_effect"
+    })
+    expect(harness.calls.filter((call) => call === "decide")).toHaveLength(1)
   })
 
   it("keeps the controlled tab when switch-tab verification is negative", async () => {
