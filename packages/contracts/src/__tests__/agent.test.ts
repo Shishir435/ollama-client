@@ -13,6 +13,7 @@ const ground = { snapshotId: "snapshot-1", generation: 1 }
 describe("agent contract schemas", () => {
   it("accepts each supported command shape", () => {
     const commands = [
+      { type: "read", ...ground },
       { type: "click", ref: "e1", ...ground },
       { type: "type", ref: "e1", text: "hello", ...ground },
       { type: "press_key", ref: "e1", key: "Enter", ...ground },

@@ -12,6 +12,8 @@ describe("Agent element references", () => {
     const button = document.createElement("button")
     const ref = first.reference(button)
     expect(first.resolve(ref, first)).toBe(button)
+    expect(store.matches(first)).toBe(true)
+    expect(store.resolve(ref, first)).toBe(button)
     expect(
       first.resolve(ref, { ...first, documentId: "other" })
     ).toBeUndefined()
@@ -30,6 +32,7 @@ describe("Agent element references", () => {
       createSnapshotId: () => "snapshot-2"
     })
     expect(first.resolve(ref, first)).toBeUndefined()
+    expect(store.matches(first)).toBe(false)
     expect(second.generation).toBe(2)
   })
 })

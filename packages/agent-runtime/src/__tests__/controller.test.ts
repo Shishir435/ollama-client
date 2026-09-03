@@ -80,6 +80,8 @@ const resolvedEffect = (
     tabId: currentObservation.tabId,
     documentId: currentObservation.documentId
   },
+  sourceUrl: currentObservation.url,
+  sourceOrigin: currentObservation.origin,
   ...overrides
 })
 
@@ -124,6 +126,8 @@ interface HarnessOptions {
   decisions?: unknown[]
   observations?: AgentObservation[]
   verification?: AgentVerificationResult[]
+  onVerify?: () => Promise<void>
+  controlledTabIdAfterExecution?: number
   policy?:
     | AgentPolicyDecision
     | ((input: AgentPolicyInput) => AgentPolicyDecision)
@@ -208,10 +212,14 @@ const createHarness = (options: HarnessOptions = {}) => {
       },
       async execute() {
         calls.push("execute")
-        return { executedAt: 10 }
+        return {
+          executedAt: 10,
+          controlledTabId: options.controlledTabIdAfterExecution
+        }
       },
       async verify() {
         calls.push("verify")
+        await options.onVerify?.()
         const next = verifications.shift()
         if (!next) throw new Error("No verification")
         return next
@@ -346,6 +354,116 @@ describe("agent controller", () => {
     await harness.controller.start("run-1")
     expect(harness.steps).toContain("verified")
     expect(harness.getState().status).toBe("completed")
+  })
+
+  it("adopts a switch-tab target only after confirmed verification", async () => {
+    const harness = createHarness({
+      controlledTabIdAfterExecution: 9,
+      observations: [observation(), observation({ tabId: 9 })]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().controlledTabId).toBe(9)
+    expect(harness.calls.indexOf("verify")).toBeLessThan(
+      harness.calls.lastIndexOf("claim:observing")
+    )
+    expect(
+      harness.calls.filter((call) => call === "claim:observing")
+    ).toHaveLength(2)
+  })
+
+  it("persists a confirmed switch-tab target before the next observation", async () => {
+    const harness = createHarness({
+      controlledTabIdAfterExecution: 9,
+      observations: [observation()]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      controlledTabId: 9,
+      status: "failed",
+      error: { code: "observation_failed" }
+    })
+  })
+
+  it("keeps the controlled tab when a pause races verification", async () => {
+    let requestPause: () => Promise<void> = async () => {}
+    const harness = createHarness({
+      controlledTabIdAfterExecution: 9,
+      onVerify: () => requestPause()
+    })
+    requestPause = () => harness.controller.requestPause("run-1")
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      controlledTabId: 7,
+      status: "paused",
+      pauseReason: "unresolved_effect"
+    })
+  })
+
+  it("does not resume a run paused while a negative step verified", async () => {
+    let requestPause: () => Promise<void> = async () => {}
+    const harness = createHarness({
+      onVerify: () => requestPause(),
+      // A pause committed by another owner does not abort this controller, so
+      // the phase claim is the only thing that may stop the loop.
+      createCancellationController: () => ({
+        signal: { aborted: false },
+        abort() {}
+      }),
+      verification: [
+        {
+          outcome: "negative",
+          evidence: { kind: "dom", summary: "No change", observedAt: 2 }
+        }
+      ]
+    })
+    requestPause = () => harness.controller.requestPause("run-1")
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "unresolved_effect"
+    })
+    expect(harness.calls.filter((call) => call === "decide")).toHaveLength(1)
+  })
+
+  it("keeps the controlled tab when switch-tab verification is negative", async () => {
+    const harness = createHarness({
+      controlledTabIdAfterExecution: 9,
+      verification: [
+        {
+          outcome: "negative",
+          evidence: {
+            kind: "tab",
+            summary: "Requested tab is not active",
+            observedAt: 2
+          }
+        }
+      ]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().controlledTabId).toBe(7)
+    expect(harness.getState().status).toBe("completed")
+  })
+
+  it("keeps the controlled tab when switch-tab verification is ambiguous", async () => {
+    const harness = createHarness({
+      controlledTabIdAfterExecution: 9,
+      verification: [
+        {
+          outcome: "ambiguous",
+          evidence: {
+            kind: "tab",
+            summary: "Active tab destination changed",
+            observedAt: 2
+          }
+        }
+      ]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      controlledTabId: 7,
+      status: "paused",
+      pauseReason: "unresolved_effect"
+    })
   })
 
   it("fails from the claimed verifying phase when verification throws", async () => {

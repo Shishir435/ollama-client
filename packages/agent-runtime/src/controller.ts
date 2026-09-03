@@ -54,12 +54,13 @@ export const createAgentController = (
   const claim = async (
     state: AgentRunState,
     phase: AgentRunStatus,
-    patch?: AgentStatePatch
+    patch?: AgentStatePatch,
+    expected: readonly AgentRunStatus[] = AGENT_STATUS_PREDECESSORS[phase]
   ): Promise<AgentRunState | undefined> => {
     const result = await dependencies.persistence.claim({
       runId: state.id,
       phase,
-      expected: AGENT_STATUS_PREDECESSORS[phase],
+      expected,
       patch
     })
     return result.claimed ? result.state : undefined
@@ -417,7 +418,25 @@ export const createAgentController = (
         )
         return undefined
       }
-      return verifying
+      if (action.type === "redecide") return verifying
+      // The write closing a confirmed step also opens the next observation, so
+      // a tab the effect switched to is durably owned before this controller
+      // can lose the run. Only the verifying run this step owns may be claimed:
+      // a pause or cancellation that raced verification has already recorded
+      // the effect as unresolved, and resurrecting it here would restart a run
+      // the user stopped. A negative or ambiguous outcome never reaches here
+      // and leaves the run on the tab it already controls.
+      return claim(
+        verifying,
+        "observing",
+        {
+          ...(receipt.controlledTabId === undefined
+            ? {}
+            : { controlledTabId: receipt.controlledTabId }),
+          updatedAt: dependencies.clock.now()
+        },
+        ["verifying"]
+      )
     } catch {
       if (!signal.aborted) {
         await fail(
@@ -490,15 +509,16 @@ export const createAgentController = (
     return processCommand(state, decision, observation, signal)
   }
 
-  const runLoop = async (
-    initialState: AgentRunState,
-    controller: AgentCancellationController,
-    afterTakeover = false
-  ): Promise<void> => {
-    let state = initialState
-    while (!controller.signal.aborted) {
-      const observing = await claim(state, "observing", {
-        ...((afterTakeover || state.status === "paused") && state.deadline
+  const claimObserving = async (
+    state: AgentRunState,
+    resumeDeadline: boolean,
+    expected?: readonly AgentRunStatus[]
+  ): Promise<AgentRunState | undefined> =>
+    claim(
+      state,
+      "observing",
+      {
+        ...(resumeDeadline && state.deadline
           ? {
               deadline: resumeAgentDeadlines(
                 state.deadline,
@@ -507,9 +527,35 @@ export const createAgentController = (
             }
           : {}),
         updatedAt: dependencies.clock.now()
-      })
+      },
+      expected
+    )
+
+  const runLoop = async (
+    initialState: AgentRunState,
+    controller: AgentCancellationController,
+    afterTakeover = false
+  ): Promise<void> => {
+    let state = initialState
+    // A confirmed step already claimed the next observing phase, durably, in
+    // the write that closed it; re-claiming it here would lose that CAS.
+    let observingClaimed = false
+    // Only the first iteration may enter from a resumed or recovered status;
+    // later ones come from the step they just closed, so a pause that raced
+    // that step cannot be claimed back into observation.
+    let entered = false
+    while (!controller.signal.aborted) {
+      const observing = observingClaimed
+        ? state
+        : await claimObserving(
+            state,
+            afterTakeover || state.status === "paused",
+            entered ? ["verifying"] : undefined
+          )
       if (!observing) return
       state = observing
+      observingClaimed = false
+      entered = true
       const observation = await observe(state, controller.signal)
       if (!observation) return
 
@@ -538,6 +584,7 @@ export const createAgentController = (
       )
       if (!next) return
       state = next
+      observingClaimed = next.status === "observing"
       // Both confirmed and a provable safe negative require a fresh
       // observation and model decision; neither repeats the command here.
     }

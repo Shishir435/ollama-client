@@ -17,6 +17,8 @@ export interface AgentElementReferenceStore {
   }): AgentElementReferenceSnapshot
   invalidate(): void
   currentGeneration(): number
+  matches(identity: AgentReferenceIdentity): boolean
+  resolve(ref: string, identity: AgentReferenceIdentity): Element | undefined
 }
 
 export const createAgentElementReferenceStore = (input: {
@@ -68,6 +70,18 @@ export const createAgentElementReferenceStore = (input: {
       generation += 1
       active = undefined
     },
-    currentGeneration: () => generation
+    currentGeneration: () => generation,
+    matches(identity) {
+      return Boolean(
+        active &&
+          active.snapshotId === identity.snapshotId &&
+          active.generation === identity.generation &&
+          active.documentId === identity.documentId &&
+          identity.frameId === 0
+      )
+    },
+    resolve(ref, identity) {
+      return active?.resolve(ref, identity)
+    }
   }
 }

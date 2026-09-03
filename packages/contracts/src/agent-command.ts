@@ -10,6 +10,7 @@ const ElementCommandSchema = GroundedCommandSchema.extend({
 })
 
 export const AgentCommandSchema = z.discriminatedUnion("type", [
+  GroundedCommandSchema.extend({ type: z.literal("read") }).strict(),
   ElementCommandSchema.extend({ type: z.literal("click") }).strict(),
   ElementCommandSchema.extend({
     type: z.literal("type"),
