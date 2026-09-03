@@ -872,6 +872,8 @@
         "chat_count": "{{sessions}} セッション · {{messages}} メッセージ",
         "knowledge": "ナレッジとメモリ",
         "knowledge_count": "{{files}} ファイル · {{vectors}} ベクトル",
+        "agent": "エージェント実行",
+        "agent_count": "保存済み実行と復旧記録 {{runs}} 件",
         "settings": "ローカル設定とプロバイダーの秘密情報",
         "settings_description": "エンドポイント、APIキー、権限、デバイス状態",
         "preferences": "同期可能な設定",

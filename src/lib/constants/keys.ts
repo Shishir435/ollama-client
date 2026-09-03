@@ -75,6 +75,10 @@ export const LEGACY_STORAGE_KEYS = {
 }
 
 export const STORAGE_KEYS = {
+  AGENT: {
+    /** One-time acknowledgement before page observations reach a remote model. */
+    REMOTE_OBSERVATION_ACKNOWLEDGED: "agent-remote-observation-acknowledged-v1"
+  },
   BACKUP: {
     /** Durable rollback state for interrupted portable-settings imports. */
     IMPORT_JOURNAL: "backup_import_journal_v1"

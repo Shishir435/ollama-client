@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { ensureAgentRunsTables } from "../add-agent-runs-tables"
 import { ensureIngestionRunsTable } from "../add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "../add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "../add-message-replay-artifact-column"
@@ -170,5 +171,21 @@ describe("ensureModelPullRunsTable", () => {
     expect(statements[0]).toContain("progress INTEGER")
     expect(statements[0]).toContain("failure TEXT")
     expect(statements[1]).toContain("idx_model_pull_runs_status")
+  })
+})
+
+describe("ensureAgentRunsTables", () => {
+  it("creates isolated run ownership, append-only evidence, and indexes", () => {
+    const db = { run: vi.fn() }
+    ensureAgentRunsTables(db as never)
+    const statements = db.run.mock.calls.map(([sql]) => String(sql))
+
+    expect(statements[0]).toContain("CREATE TABLE IF NOT EXISTS agent_runs")
+    expect(statements[0]).toContain("checkpoint TEXT NOT NULL")
+    expect(statements[1]).toContain("idx_agent_runs_status")
+    expect(statements[2]).toContain("CREATE TABLE IF NOT EXISTS agent_steps")
+    expect(statements[2]).toContain("receipt TEXT NOT NULL")
+    expect(statements[2]).toContain("REFERENCES agent_runs(id)")
+    expect(statements[3]).toContain("idx_agent_steps_runId")
   })
 })

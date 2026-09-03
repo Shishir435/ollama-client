@@ -115,6 +115,30 @@ export const AgentErrorSchema = z
   .strict()
 export type AgentError = z.infer<typeof AgentErrorSchema>
 
+/**
+ * Durable accounting for the two active-time deadlines. Wall-clock time spent
+ * waiting for approval or takeover is subtracted after the wait is resumed.
+ * Keeping the open suspension in the checkpoint makes an MV3 restart during a
+ * user wait harmless: recovery can preserve the wait instead of charging it.
+ */
+export const AgentDeadlineStateSchema = z
+  .object({
+    runStartedAt: z.number().int().nonnegative(),
+    stepStartedAt: z.number().int().nonnegative(),
+    runSuspendedMs: z.number().int().nonnegative(),
+    stepSuspendedMs: z.number().int().nonnegative(),
+    suspendedAt: z.number().int().nonnegative().optional(),
+    suspensionKind: z.enum(["approval", "takeover"]).optional()
+  })
+  .strict()
+  .refine(
+    (value) =>
+      (value.suspendedAt === undefined) ===
+      (value.suspensionKind === undefined),
+    "A deadline suspension needs both its timestamp and kind"
+  )
+export type AgentDeadlineState = z.infer<typeof AgentDeadlineStateSchema>
+
 export const AgentRunStateSchema = z
   .object({
     version: z.literal(1),
@@ -129,6 +153,7 @@ export const AgentRunStateSchema = z
     modelId: z.string().min(1),
     allowedOrigins: z.array(z.string().min(1)).max(25),
     error: AgentErrorSchema.optional(),
+    deadline: AgentDeadlineStateSchema.optional(),
     createdAt: z.number().int().nonnegative(),
     updatedAt: z.number().int().nonnegative()
   })

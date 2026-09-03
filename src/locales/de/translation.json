@@ -872,6 +872,8 @@
         "chat_count": "{{sessions}} Sitzungen · {{messages}} Nachrichten",
         "knowledge": "Wissen und Gedächtnis",
         "knowledge_count": "{{files}} Dateien · {{vectors}} Vektoren",
+        "agent": "Agent-Ausführungen",
+        "agent_count": "{{runs}} gespeicherte Ausführungen und Wiederherstellungsbelege",
         "settings": "Lokale Einstellungen und Provider-Geheimnisse",
         "settings_description": "Endpunkte, API-Schlüssel, Berechtigungen und Gerätestatus",
         "preferences": "Übertragbare Einstellungen",

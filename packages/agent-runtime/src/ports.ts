@@ -142,7 +142,12 @@ export type AgentClaimResult =
 export type AgentStatePatch = Partial<
   Pick<
     AgentRunState,
-    "error" | "observationCount" | "pauseReason" | "stepCount" | "updatedAt"
+    | "deadline"
+    | "error"
+    | "observationCount"
+    | "pauseReason"
+    | "stepCount"
+    | "updatedAt"
   >
 >
 

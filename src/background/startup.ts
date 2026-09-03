@@ -1,3 +1,4 @@
+import { recoverAndPruneAgentRuns } from "@/background/agent/agent-recovery"
 import { resumeIncompleteTurnRuns } from "@/background/durable-turn-runtime"
 import { initializeContextMenu } from "@/background/handlers/handle-context-menu"
 import { downloadEmbeddingModelSilently } from "@/background/handlers/handle-embedding-download"
@@ -255,6 +256,11 @@ const SCHEMA_STARTUP_TASKS: StartupTask[] = [
  * should not hold up an ingestion job the user is waiting on.
  */
 const WORKFLOW_STARTUP_TASKS: StartupTask[] = [
+  {
+    id: "durable-agent-runs",
+    name: "durable agent runs",
+    run: (signal) => recoverAndPruneAgentRuns(signal)
+  },
   {
     id: "vector-cleanup-receipts",
     name: "pending vector cleanup receipts",

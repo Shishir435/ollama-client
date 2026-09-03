@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger"
+import { ensureAgentRunsTables } from "./add-agent-runs-tables"
 import { ensureIngestionRunsTable } from "./add-ingestion-runs-table"
 import { ensureMessagesErrorColumn } from "./add-message-error-column"
 import { ensureMessagesReplayArtifactColumn } from "./add-message-replay-artifact-column"
@@ -114,6 +115,11 @@ export const MIGRATIONS: Migration[] = [
     version: 15,
     name: "add-vector-cleanup-receipts-table",
     up: ensureVectorCleanupReceiptsTable
+  },
+  {
+    version: 16,
+    name: "add-agent-runs-tables",
+    up: ensureAgentRunsTables
   }
 ]
 
@@ -165,6 +171,8 @@ const hasTable = (
     | "ingestion_runs"
     | "model_pull_runs"
     | "vector_cleanup_receipts"
+    | "agent_runs"
+    | "agent_steps"
 ) => {
   const stmt = db.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1"
@@ -238,6 +246,10 @@ export const repairSchemaDrift = (db: MigrationDatabase): number => {
     {
       missing: !hasTable(db, "vector_cleanup_receipts"),
       apply: () => ensureVectorCleanupReceiptsTable(db)
+    },
+    {
+      missing: !hasTable(db, "agent_runs") || !hasTable(db, "agent_steps"),
+      apply: () => ensureAgentRunsTables(db)
     }
   ]
 

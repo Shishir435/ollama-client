@@ -1,6 +1,12 @@
 import type { AgentDecision } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
-import { classifyNoProgress, createAgentBudgetTracker } from "../budgets"
+import {
+  classifyNoProgress,
+  createAgentBudgetTracker,
+  initialAgentDeadlineState,
+  resumeAgentDeadlines,
+  suspendAgentDeadlines
+} from "../budgets"
 
 const complete: AgentDecision = { type: "complete", summary: "Done" }
 const wait: AgentDecision = {
@@ -15,6 +21,19 @@ const wait: AgentDecision = {
 }
 
 describe("agent budgets", () => {
+  it("persists and restores suspension of both deadline levels", () => {
+    const initial = initialAgentDeadlineState(100)
+    const suspended = suspendAgentDeadlines(initial, "approval", 150)
+    const restored = JSON.parse(JSON.stringify(suspended))
+    const resumed = resumeAgentDeadlines(restored, 1_150)
+
+    expect(resumed).toMatchObject({
+      runSuspendedMs: 1_000,
+      stepSuspendedMs: 1_000
+    })
+    expect(resumed).not.toHaveProperty("suspendedAt")
+    expect(resumed).not.toHaveProperty("suspensionKind")
+  })
   it("counts active runtime", () => {
     let now = 0
     const tracker = createAgentBudgetTracker({ now: () => now })

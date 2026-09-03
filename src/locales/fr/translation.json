@@ -872,6 +872,8 @@
         "chat_count": "{{sessions}} sessions · {{messages}} messages",
         "knowledge": "Connaissances et mémoire",
         "knowledge_count": "{{files}} fichiers · {{vectors}} vecteurs",
+        "agent": "Exécutions de l’agent",
+        "agent_count": "{{runs}} exécutions enregistrées et reçus de récupération",
         "settings": "Réglages locaux et secrets des fournisseurs",
         "settings_description": "Endpoints, clés API, autorisations et état de l’appareil",
         "preferences": "Préférences portables",
