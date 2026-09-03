@@ -39,7 +39,7 @@ export interface ResolvedAgentTarget {
 export interface AgentDestination {
   url: string
   origin: string
-  source: "observed" | "model"
+  source: "observed" | "model" | "browser"
 }
 
 export type AgentSemanticEffect =
@@ -60,6 +60,8 @@ export interface ResolvedAgentEffect {
   destination?: AgentDestination
   semanticEffects: readonly AgentSemanticEffect[]
   snapshotIdentity: AgentSnapshotIdentity
+  sourceUrl: string
+  sourceOrigin: string
 }
 
 export interface AuthorizedAgentEffect extends ResolvedAgentEffect {
@@ -76,6 +78,7 @@ export interface AuthorizedAgentEffect extends ResolvedAgentEffect {
 export interface AgentExecutionReceipt {
   executedAt: number
   details?: string
+  controlledTabId?: number
 }
 
 export interface AgentVerificationEvidence {
@@ -143,6 +146,7 @@ export type AgentStatePatch = Partial<
   Pick<
     AgentRunState,
     | "deadline"
+    | "controlledTabId"
     | "error"
     | "observationCount"
     | "pauseReason"

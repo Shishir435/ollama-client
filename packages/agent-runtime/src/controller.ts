@@ -392,6 +392,9 @@ export const createAgentController = (
         at: dependencies.clock.now()
       })
       const verifying = await claim(executing, "verifying", {
+        ...(receipt.controlledTabId === undefined
+          ? {}
+          : { controlledTabId: receipt.controlledTabId }),
         updatedAt: dependencies.clock.now()
       })
       if (!verifying) return undefined

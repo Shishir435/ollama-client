@@ -80,6 +80,8 @@ const resolvedEffect = (
     tabId: currentObservation.tabId,
     documentId: currentObservation.documentId
   },
+  sourceUrl: currentObservation.url,
+  sourceOrigin: currentObservation.origin,
   ...overrides
 })
 
@@ -124,6 +126,7 @@ interface HarnessOptions {
   decisions?: unknown[]
   observations?: AgentObservation[]
   verification?: AgentVerificationResult[]
+  controlledTabIdAfterExecution?: number
   policy?:
     | AgentPolicyDecision
     | ((input: AgentPolicyInput) => AgentPolicyDecision)
@@ -208,7 +211,10 @@ const createHarness = (options: HarnessOptions = {}) => {
       },
       async execute() {
         calls.push("execute")
-        return { executedAt: 10 }
+        return {
+          executedAt: 10,
+          controlledTabId: options.controlledTabIdAfterExecution
+        }
       },
       async verify() {
         calls.push("verify")
@@ -346,6 +352,12 @@ describe("agent controller", () => {
     await harness.controller.start("run-1")
     expect(harness.steps).toContain("verified")
     expect(harness.getState().status).toBe("completed")
+  })
+
+  it("persists a switch-tab target before verification begins", async () => {
+    const harness = createHarness({ controlledTabIdAfterExecution: 9 })
+    await harness.controller.start("run-1")
+    expect(harness.getState().controlledTabId).toBe(9)
   })
 
   it("fails from the claimed verifying phase when verification throws", async () => {

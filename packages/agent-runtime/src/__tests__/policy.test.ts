@@ -27,6 +27,8 @@ const effect = (
     tabId: 1,
     documentId: "document-1"
   },
+  sourceUrl: "https://example.com/",
+  sourceOrigin: "https://example.com",
   ...overrides
 })
 
