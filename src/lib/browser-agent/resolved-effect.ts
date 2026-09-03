@@ -191,6 +191,12 @@ const PAYMENT_PATH =
 
 const MINIMUM_EGRESS_SPAN = 12
 
+/**
+ * Rendered text is repetitive, so a window long enough to be evidence of
+ * copying is longer than one that identifies a value the user typed.
+ */
+const MINIMUM_TEXT_EGRESS_SPAN = 24
+
 const normalizeForComparison = (value: string): string =>
   value.replaceAll(/\s+/g, " ").trim().toLocaleLowerCase()
 
@@ -217,6 +223,35 @@ const modelSuppliedSpans = (url: URL): string[] =>
     .filter((span) => span.length >= MINIMUM_EGRESS_SPAN)
 
 /**
+ * Overlap in either direction is evidence. A span wrapping an observed value
+ * in padding hides it exactly as well as a span equal to it, and a span the
+ * observed value contains is a partial leak — half an account number is still
+ * an account number.
+ */
+const overlaps = (span: string, observed: string): boolean =>
+  span.includes(observed) || observed.includes(span)
+
+/**
+ * A run of page text long enough to be evidence of copying, wherever it sits
+ * inside the span. Checking the span's windows rather than the span itself is
+ * what keeps a prefix or suffix from concealing the copied run; the search
+ * stops at the first window that matches.
+ */
+const containsCopiedText = (span: string, text: string): boolean => {
+  if (text.includes(span)) return true
+  for (
+    let start = 0;
+    start + MINIMUM_TEXT_EGRESS_SPAN <= span.length;
+    start += 1
+  ) {
+    if (text.includes(span.slice(start, start + MINIMUM_TEXT_EGRESS_SPAN))) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
  * Two grades, because they cost different things. A span matching something a
  * user typed into the page is data the model could only have read off their
  * screen; a span matching rendered text is also what an ordinary research task
@@ -233,11 +268,13 @@ const pageDataEvidence = (
     .filter((value): value is string => value !== undefined)
     .map(normalizeForComparison)
     .filter((value) => value.length >= MINIMUM_EGRESS_SPAN)
-  if (spans.some((span) => values.some((value) => value.includes(span)))) {
+  if (spans.some((span) => values.some((value) => overlaps(span, value)))) {
     return "field_value"
   }
   const text = normalizeForComparison(observation.visibleText)
-  return spans.some((span) => text.includes(span)) ? "visible_text" : undefined
+  return spans.some((span) => containsCopiedText(span, text))
+    ? "visible_text"
+    : undefined
 }
 
 const observedLink = (

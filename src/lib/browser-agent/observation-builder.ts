@@ -1,7 +1,8 @@
 import {
   type AgentElement,
   type AgentObservation,
-  AgentObservationSchema
+  AgentObservationSchema,
+  MAX_AGENT_DESTINATION_URL_CHARS
 } from "@ollama-client/contracts"
 
 import type { AgentElementReferenceStore } from "./element-references"
@@ -12,7 +13,7 @@ export const AGENT_OBSERVATION_LIMITS = {
   titleChars: 500,
   elementNameChars: 500,
   elementValueChars: 500,
-  elementHrefChars: 2_048
+  elementHrefChars: MAX_AGENT_DESTINATION_URL_CHARS
 } as const
 
 const INTERACTIVE_SELECTOR = [

@@ -1,5 +1,11 @@
 import { z } from "zod"
 
+/**
+ * The longest destination a command may name, matching the cap an observed
+ * link carries. It also bounds the work the egress detector does per command.
+ */
+export const MAX_AGENT_DESTINATION_URL_CHARS = 2_048
+
 const GroundedCommandSchema = z.object({
   snapshotId: z.string().min(1),
   generation: z.number().int().nonnegative()
@@ -36,13 +42,13 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
   }).strict(),
   GroundedCommandSchema.extend({
     type: z.literal("navigate"),
-    url: z.url()
+    url: z.url().max(MAX_AGENT_DESTINATION_URL_CHARS)
   }).strict(),
   GroundedCommandSchema.extend({ type: z.literal("back") }).strict(),
   GroundedCommandSchema.extend({ type: z.literal("forward") }).strict(),
   GroundedCommandSchema.extend({
     type: z.literal("open_tab"),
-    url: z.url()
+    url: z.url().max(MAX_AGENT_DESTINATION_URL_CHARS)
   }).strict(),
   GroundedCommandSchema.extend({
     type: z.literal("switch_tab"),
