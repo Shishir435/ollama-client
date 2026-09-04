@@ -66,6 +66,12 @@
       "rejected": "Abgelehnt",
       "failed": "Fehlgeschlagen",
       "uncertain": "Prüfen"
+    },
+    "error": {
+      "already_running": "Ein Agent-Durchlauf läuft bereits.",
+      "permission_denied": "Agent benötigt die Berechtigung zur Seitenbeobachtung, bevor er starten kann.",
+      "tab_unsupported": "Agent kann auf dieser Seite nicht ausgeführt werden. Öffne eine normale Webseite und versuche es erneut.",
+      "unknown": "Agent konnte diese Anfrage nicht ausführen."
     }
   },
   "common": {

@@ -100,10 +100,34 @@ const announcing = (
   load: (runId) => port.load(runId)
 })
 
+export type AgentRunFailureReason =
+  | "already_running"
+  | "permission_denied"
+  | "tab_unsupported"
+  | "unknown_run"
+
+/**
+ * A refusal the panel can act on. The reason travels, the message does not:
+ * a thrown message can name the page URL or a provider response, and the panel
+ * renders its own copy from the reason.
+ */
+export class AgentRunError extends Error {
+  constructor(
+    readonly reason: AgentRunFailureReason,
+    message: string
+  ) {
+    super(message)
+    this.name = "AgentRunError"
+  }
+}
+
 const originOf = (url: string): string => {
   const parsed = new URL(url)
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error("Agent runs only on http(s) pages")
+    throw new AgentRunError(
+      "tab_unsupported",
+      "Agent runs only on http(s) pages"
+    )
   }
   return parsed.origin
 }
@@ -209,22 +233,35 @@ export const createAgentRunService = (input?: {
 
   const loadRunning = async (runId: string): Promise<AgentRunState> => {
     const state = await persistence.load(runId)
-    if (!state) throw new Error("Agent run is unknown")
+    if (!state) throw new AgentRunError("unknown_run", "Agent run is unknown")
     return state
   }
 
   return {
     async start(request) {
-      if (activeRunId) throw new Error("An Agent run is already unresolved")
+      if (activeRunId) {
+        throw new AgentRunError(
+          "already_running",
+          "An Agent run is already unresolved"
+        )
+      }
       if (!(await hasPerception())) {
-        throw new Error("Agent perception permission is not granted")
+        throw new AgentRunError(
+          "permission_denied",
+          "Agent perception permission is not granted"
+        )
       }
       const tab = await getTab(request.tabId)
       const address = tab?.url
-      if (!address) throw new Error("Agent tab has no address")
+      if (!address) {
+        throw new AgentRunError("tab_unsupported", "Agent tab has no address")
+      }
       const access = await classifyAccess(address)
       if (access !== "ok") {
-        throw new Error(`Agent tab access denied: ${access}`)
+        throw new AgentRunError(
+          "tab_unsupported",
+          `Agent tab access denied: ${access}`
+        )
       }
       const startedAt = now()
       const state = AgentRunStateSchema.parse({

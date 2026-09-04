@@ -63,6 +63,12 @@
       "rejected": "अस्वीकृत",
       "failed": "विफल",
       "uncertain": "जाँचें"
+    },
+    "error": {
+      "already_running": "एक Agent रन पहले से चल रहा है।",
+      "permission_denied": "शुरू करने से पहले Agent को पेज देखने की अनुमति चाहिए।",
+      "tab_unsupported": "Agent इस पेज पर नहीं चल सकता। कोई सामान्य वेब पेज खोलें और फिर कोशिश करें।",
+      "unknown": "Agent यह अनुरोध पूरा नहीं कर सका।"
     }
   },
   "common": {

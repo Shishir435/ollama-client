@@ -66,6 +66,12 @@
       "rejected": "Refusé",
       "failed": "Échec",
       "uncertain": "À vérifier"
+    },
+    "error": {
+      "already_running": "Une exécution d’Agent est déjà en cours.",
+      "permission_denied": "Agent a besoin de l’autorisation d’observation de page avant de démarrer.",
+      "tab_unsupported": "Agent ne peut pas s’exécuter sur cette page. Ouvre une page web normale et réessaie.",
+      "unknown": "Agent n’a pas pu exécuter cette demande."
     }
   },
   "common": {

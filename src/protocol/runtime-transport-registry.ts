@@ -37,6 +37,17 @@ export const RUNTIME_TRANSPORT_DEFINITIONS = [
     allowedSources: background
   },
   {
+    /**
+     * The panel's supervision channel. Extension pages only: a page that
+     * could open it could start a run, answer its own approval, and drive the
+     * browser as the user.
+     */
+    type: MESSAGE_KEYS.AGENT.RUN_PORT,
+    transport: "port",
+    operation: "control",
+    allowedSources: extensionPage
+  },
+  {
     type: MESSAGE_KEYS.PROVIDER.GET_MODELS,
     transport: "message",
     operation: "query",

@@ -59,6 +59,12 @@
       "rejected": "已拒绝",
       "failed": "失败",
       "uncertain": "需检查"
+    },
+    "error": {
+      "already_running": "已有一个 Agent 运行正在进行。",
+      "permission_denied": "启动前 Agent 需要页面观察权限。",
+      "tab_unsupported": "Agent 无法在此页面运行。请打开普通网页后重试。",
+      "unknown": "Agent 无法完成该请求。"
     }
   },
   "common": {
