@@ -12,6 +12,7 @@ import {
 import { usePendingChatSend } from "@/features/chat/stores/chat-input-store"
 import { useLoadStream } from "@/features/chat/stores/load-stream-store"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
+import { cn } from "@/lib/class-names"
 import { requestPermissions } from "@/lib/permissions"
 import { WelcomeScreen } from "@/sidepanel/components/welcome-screen"
 import { useSearchDialogStore } from "@/stores/search-dialog-store"
@@ -22,7 +23,7 @@ import { ChatMessageList } from "./chat-message-list"
 import { PendingToolConfirmation } from "./pending-tool-confirmation"
 import { SemanticChatSearchDialog } from "./semantic-chat-search-dialog"
 
-export const Chat = () => {
+export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
   const { t } = useTranslation()
   const {
     messages,
@@ -233,7 +234,11 @@ export const Chat = () => {
   const hasSession = !!currentSessionId
 
   return (
-    <div className="flex h-screen flex-col bg-surface-chat">
+    <div
+      className={cn(
+        "flex min-h-0 flex-col bg-surface-chat",
+        embedded ? "h-full" : "h-screen"
+      )}>
       <ChatHeader messages={messages} />
 
       {hasSession ? (

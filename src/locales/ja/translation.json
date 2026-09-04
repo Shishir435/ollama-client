@@ -1,4 +1,77 @@
 {
+  "agent": {
+    "title": "監督付きエージェント",
+    "surface": {
+      "chat": "チャット",
+      "agent": "エージェント",
+      "preview": "プレビュー"
+    },
+    "start": {
+      "description": "このパネルからブラウザー作業を監督します。",
+      "goal": "エージェントに何をさせますか？",
+      "placeholder": "ブラウザー作業を1つ説明…",
+      "action": "エージェントを開始"
+    },
+    "provider": {
+      "label": "プロバイダー",
+      "local": "ローカル",
+      "remote": "リモート",
+      "missing": "先にモデルを選択"
+    },
+    "tab": {
+      "label": "操作対象タブ",
+      "missing": "対応するウェブページを開いてください"
+    },
+    "privacy": {
+      "remote_notice": "エージェントの実行中、ページ観測はこのリモートプロバイダーへ継続的に送信されます。",
+      "acknowledge": "理解しました"
+    },
+    "observations": "観測 {{count}} 回",
+    "controls": {
+      "label": "エージェント操作",
+      "pause": "一時停止",
+      "resume": "再開",
+      "stop": "停止",
+      "takeover_done": "操作完了 — 続行"
+    },
+    "approval": {
+      "title": "承認が必要です",
+      "allow": "今回のみ許可",
+      "reject": "拒否"
+    },
+    "takeover": { "title": "この手順を引き継ぐ" },
+    "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
+    "work_log": { "title": "作業ログ" },
+    "completion": {
+      "summary": "この実行では、{{count}} 件のページ観測が {{provider}} に送信されました。"
+    },
+    "feedback": "フィードバックを送信",
+    "status": {
+      "submitted": "開始中",
+      "observing": "ページを観測中",
+      "deciding": "次の手順を選択中",
+      "awaiting_approval": "承認待ち",
+      "awaiting_takeover": "あなたの操作待ち",
+      "executing": "操作中",
+      "verifying": "結果を検証中",
+      "pause_requested": "一時停止中",
+      "paused": "一時停止",
+      "cancelling": "停止中",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "停止済み"
+    },
+    "step_status": {
+      "planned": "計画済み",
+      "approved": "承認済み",
+      "executing": "実行中",
+      "executed": "実行済み",
+      "verified": "検証済み",
+      "rejected": "拒否",
+      "failed": "失敗",
+      "uncertain": "要確認"
+    }
+  },
   "common": {
     "theme": {
       "toggle": "テーマを切り替え",

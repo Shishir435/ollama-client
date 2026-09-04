@@ -1,4 +1,70 @@
 {
+  "agent": {
+    "title": "निगरानी वाला एजेंट",
+    "surface": { "chat": "चैट", "agent": "एजेंट", "preview": "पूर्वावलोकन" },
+    "start": {
+      "description": "इस पैनल से ब्राउज़र कार्य की निगरानी करें।",
+      "goal": "एजेंट क्या करे?",
+      "placeholder": "एक ब्राउज़र कार्य बताएँ…",
+      "action": "एजेंट शुरू करें"
+    },
+    "provider": {
+      "label": "प्रदाता",
+      "local": "स्थानीय",
+      "remote": "रिमोट",
+      "missing": "पहले मॉडल चुनें"
+    },
+    "tab": { "label": "नियंत्रित टैब", "missing": "समर्थित वेब पेज खोलें" },
+    "privacy": {
+      "remote_notice": "एजेंट चलने के दौरान पेज अवलोकन लगातार इस रिमोट प्रदाता को भेजे जाएँगे।",
+      "acknowledge": "मैं समझता हूँ"
+    },
+    "observations": "{{count}} अवलोकन",
+    "controls": {
+      "label": "एजेंट नियंत्रण",
+      "pause": "रोकें",
+      "resume": "जारी रखें",
+      "stop": "बंद करें",
+      "takeover_done": "मेरा काम पूरा — जारी रखें"
+    },
+    "approval": {
+      "title": "अनुमोदन आवश्यक",
+      "allow": "एक बार अनुमति दें",
+      "reject": "अस्वीकार करें"
+    },
+    "takeover": { "title": "यह चरण अपने हाथ में लें" },
+    "unresolved": "यह कार्रवाई हुई हो सकती है। जारी रखने से पहले पेज की जाँच करें।",
+    "work_log": { "title": "कार्य लॉग" },
+    "completion": {
+      "summary": "इस रन में {{count}} पेज अवलोकन {{provider}} को भेजे गए।"
+    },
+    "feedback": "फ़ीडबैक भेजें",
+    "status": {
+      "submitted": "शुरू हो रहा है",
+      "observing": "पेज देखा जा रहा है",
+      "deciding": "अगला चरण चुना जा रहा है",
+      "awaiting_approval": "अनुमोदन की प्रतीक्षा",
+      "awaiting_takeover": "आपकी प्रतीक्षा",
+      "executing": "कार्रवाई जारी",
+      "verifying": "परिणाम की जाँच",
+      "pause_requested": "रुक रहा है",
+      "paused": "रुका हुआ",
+      "cancelling": "बंद हो रहा है",
+      "completed": "पूरा हुआ",
+      "failed": "विफल",
+      "cancelled": "बंद"
+    },
+    "step_status": {
+      "planned": "नियोजित",
+      "approved": "स्वीकृत",
+      "executing": "जारी",
+      "executed": "पूर्ण",
+      "verified": "सत्यापित",
+      "rejected": "अस्वीकृत",
+      "failed": "विफल",
+      "uncertain": "जाँचें"
+    }
+  },
   "common": {
     "theme": {
       "toggle": "थीम बदलें",
