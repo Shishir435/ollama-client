@@ -125,7 +125,11 @@ describe("Agent panel port", () => {
     })
     registerAgentPanelPort({
       service: agent,
-      resolveProvider: async () => ({ name: "qwen3", location: "local" })
+      resolveProvider: async () => ({
+        name: "opencode",
+        model: "qwen3",
+        location: "local"
+      })
     })
     const { port, messages } = createPort()
 
@@ -134,7 +138,7 @@ describe("Agent panel port", () => {
     expect(messages).toHaveLength(1)
     expect(messages[0]).toMatchObject({
       type: "agent_snapshot",
-      snapshot: { provider: { name: "qwen3", location: "local" } }
+      snapshot: { provider: { name: "opencode", model: "qwen3" } }
     })
 
     announce?.("run-1")

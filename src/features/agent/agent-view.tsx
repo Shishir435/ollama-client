@@ -18,6 +18,7 @@ import {
 
 export interface AgentProviderPresentation {
   name: string
+  model: string
   location: "local" | "remote"
 }
 
@@ -113,6 +114,20 @@ export const AgentView = ({
               {provider
                 ? `${agentPlainText(provider.name, 100)} · ${t(`agent.provider.${provider.location}`)}`
                 : t("agent.provider.missing")}
+            </span>
+          </div>
+          <div className="flex min-w-0 gap-2">
+            <span className="shrink-0 text-muted-foreground">
+              {t("agent.model.label")}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-right font-mono">
+              {/* During a run the truth is the model that produced its steps,
+                  not whatever is selected in Chat right now. */}
+              {run?.modelId
+                ? agentPlainText(run.modelId, 100)
+                : provider
+                  ? agentPlainText(provider.model, 100)
+                  : t("agent.provider.missing")}
             </span>
           </div>
           <div className="flex min-w-0 gap-2">

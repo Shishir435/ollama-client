@@ -65,6 +65,7 @@ export type AgentPendingSupervisionRecord = z.infer<
 export const AgentProviderDisclosureSchema = z
   .object({
     name: z.string().min(1).max(200),
+    model: z.string().min(1).max(200),
     location: z.enum(["local", "remote"])
   })
   .strict()

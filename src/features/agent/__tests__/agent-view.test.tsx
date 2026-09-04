@@ -32,7 +32,7 @@ describe("AgentView", () => {
     const onGoalChange = vi.fn()
     const { rerender } = render(
       <AgentView
-        provider={{ name: "Remote", location: "remote" }}
+        provider={{ name: "Remote", model: "qwen3", location: "remote" }}
         tab={{ title: "Example", url: "https://example.com" }}
         goal="Compare these products"
         onGoalChange={onGoalChange}
@@ -50,7 +50,7 @@ describe("AgentView", () => {
 
     rerender(
       <AgentView
-        provider={{ name: "Remote", location: "remote" }}
+        provider={{ name: "Remote", model: "qwen3", location: "remote" }}
         tab={{ title: "Example", url: "https://example.com" }}
         goal="Compare these products"
         privacyAcknowledged
@@ -72,7 +72,7 @@ describe("AgentView", () => {
             retryable: false
           }
         }}
-        provider={{ name: "Local", location: "local" }}
+        provider={{ name: "Local", model: "qwen3", location: "local" }}
         tab={{ title: "Page", url: "https://example.com" }}
         goal="Click the save button"
       />
@@ -91,7 +91,7 @@ describe("AgentView", () => {
     render(
       <AgentView
         run={run("awaiting_approval")}
-        provider={{ name: "Remote", location: "remote" }}
+        provider={{ name: "Remote", model: "qwen3", location: "remote" }}
         tab={{ title: "Page", url: "https://example.com" }}
         approval={{
           id: "approval-1",
@@ -120,7 +120,7 @@ describe("AgentView", () => {
     render(
       <AgentView
         run={run("awaiting_takeover")}
-        provider={{ name: "Local", location: "local" }}
+        provider={{ name: "Local", model: "qwen3", location: "local" }}
         tab={{ title: "Sign in", url: "https://example.com/login" }}
         takeover={{
           id: "takeover-1",

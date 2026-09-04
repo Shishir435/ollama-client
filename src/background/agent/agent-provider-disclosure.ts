@@ -35,6 +35,7 @@ export const resolveAgentProviderDisclosure = async (): Promise<
   if (!config) return undefined
   return {
     name: config.name || selected.providerId,
+    model: selected.modelId,
     location: locationOf(resolveProviderBaseUrl(config))
   }
 }

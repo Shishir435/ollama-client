@@ -14,6 +14,9 @@
       "remote": "Remoto",
       "missing": "Seleziona prima un modello"
     },
+    "model": {
+      "label": "Modello"
+    },
     "tab": {
       "label": "Scheda controllata",
       "missing": "Apri una pagina supportata"

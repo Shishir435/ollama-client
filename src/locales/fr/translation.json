@@ -14,6 +14,9 @@
       "remote": "Distant",
       "missing": "Sélectionnez d’abord un modèle"
     },
+    "model": {
+      "label": "Modèle"
+    },
     "tab": {
       "label": "Onglet contrôlé",
       "missing": "Ouvrez une page prise en charge"

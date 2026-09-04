@@ -14,6 +14,9 @@
       "remote": "远程",
       "missing": "请先选择模型"
     },
+    "model": {
+      "label": "模型"
+    },
     "tab": { "label": "受控标签页", "missing": "请打开受支持的网页" },
     "privacy": {
       "remote_notice": "智能体运行期间，页面观察内容将持续发送给此远程提供商。",
