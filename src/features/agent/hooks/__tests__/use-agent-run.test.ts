@@ -6,29 +6,31 @@ import { useAgentRun } from "../use-agent-run"
 
 const posted: unknown[] = []
 const messageListeners = new Set<(message: unknown) => void>()
+const disconnectListeners = new Set<() => void>()
 const disconnect = vi.fn()
-
-vi.mock("@/lib/browser-api", () => ({
-  browser: {
-    runtime: {
-      connect: () => ({
-        postMessage: (message: unknown) => posted.push(message),
-        disconnect,
-        onMessage: {
-          addListener: (listener: (message: unknown) => void) => {
-            messageListeners.add(listener)
-          },
-          removeListener: (listener: (message: unknown) => void) => {
-            messageListeners.delete(listener)
-          }
-        },
-        onDisconnect: {
-          addListener: () => undefined,
-          removeListener: () => undefined
-        }
-      })
+const connect = vi.fn(() => ({
+  postMessage: (message: unknown) => posted.push(message),
+  disconnect,
+  onMessage: {
+    addListener: (listener: (message: unknown) => void) => {
+      messageListeners.add(listener)
+    },
+    removeListener: (listener: (message: unknown) => void) => {
+      messageListeners.delete(listener)
+    }
+  },
+  onDisconnect: {
+    addListener: (listener: () => void) => {
+      disconnectListeners.add(listener)
+    },
+    removeListener: (listener: () => void) => {
+      disconnectListeners.delete(listener)
     }
   }
+}))
+
+vi.mock("@/lib/browser-api", () => ({
+  browser: { runtime: { connect: () => connect() } }
 }))
 
 const requestPerception = vi.fn(async () => true)
@@ -83,7 +85,9 @@ describe("useAgentRun", () => {
   beforeEach(() => {
     posted.length = 0
     messageListeners.clear()
+    disconnectListeners.clear()
     disconnect.mockClear()
+    connect.mockClear()
     requestPerception.mockClear()
     requestPerception.mockResolvedValue(true)
   })
@@ -209,6 +213,44 @@ describe("useAgentRun", () => {
     })
 
     expect(result.current.snapshot.run?.id).toBe("run-1")
+  })
+
+  it("reconnects after the background worker drops the port", () => {
+    vi.useFakeTimers()
+    try {
+      renderHook(() => useAgentRun(model))
+      expect(connect).toHaveBeenCalledOnce()
+
+      act(() => {
+        for (const listener of [...disconnectListeners]) listener()
+      })
+      act(() => {
+        vi.advanceTimersByTime(1_000)
+      })
+
+      expect(connect).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("stops reconnecting once the surface unmounts", () => {
+    vi.useFakeTimers()
+    try {
+      const { unmount } = renderHook(() => useAgentRun(model))
+      unmount()
+
+      act(() => {
+        for (const listener of [...disconnectListeners]) listener()
+      })
+      act(() => {
+        vi.advanceTimersByTime(10_000)
+      })
+
+      expect(connect).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("closes the port when the surface unmounts", () => {

@@ -28,6 +28,21 @@ import type { ChromePort, PortStatusFunction } from "@/types"
 
 const extensionUrlPrefix = browser.runtime.getURL("")
 
+/**
+ * The ports this router owns.
+ *
+ * `onConnect` is global, so without this every other feature's port — the
+ * Agent supervision channel, anything added later — reaches the chat-stream
+ * parser, fails it, and is disconnected by a router that was never meant to
+ * see it. A port name this router does not know belongs to someone else.
+ */
+const ROUTED_PORT_NAMES = new Set<string>([
+  MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE,
+  MESSAGE_KEYS.PROVIDER.START_SELECTION_ACTION,
+  MESSAGE_KEYS.BROWSER.SELECTION_BRIDGE_PORT,
+  MESSAGE_KEYS.OLLAMA.STREAM_RESPONSE
+])
+
 let portConnectionSeq = 0
 
 const warnUnauthorizedMessage = (
@@ -76,6 +91,13 @@ export const registerPortRouter = () => {
       port.disconnect()
       return
     }
+
+    /*
+     * Authorization first, ownership second: a content script reaching for an
+     * unknown port is refused, while another feature's extension-page port —
+     * Agent supervision, say — is left for its own listener to answer.
+     */
+    if (!ROUTED_PORT_NAMES.has(port.name)) return
 
     let isPortClosed = false
     let currentAbortKey: string | undefined

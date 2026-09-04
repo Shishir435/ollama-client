@@ -57,10 +57,9 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
   )
 
   useEffect(() => {
-    const port = browser.runtime.connect({
-      name: MESSAGE_KEYS.AGENT.RUN_PORT
-    })
-    portRef.current = port
+    let disposed = false
+    let retry: ReturnType<typeof setTimeout> | undefined
+    let attempt = 0
 
     const onMessage = (raw: unknown) => {
       const parsed = AgentPanelMessageSchema.safeParse(raw)
@@ -81,18 +80,38 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
         message: parsed.data.message
       })
     }
-    const onDisconnect = () => {
-      portRef.current = null
-      setBusy(false)
+    /*
+     * The MV3 worker shuts down when idle and takes the port with it, and a
+     * dropped port is silent: no error, just a panel that stops answering.
+     * Reconnecting is what makes the surface survive an idle background — the
+     * run itself is durable, so a fresh port simply asks for the snapshot
+     * again.
+     */
+    const connect = () => {
+      if (disposed) return
+      const port = browser.runtime.connect({
+        name: MESSAGE_KEYS.AGENT.RUN_PORT
+      })
+      portRef.current = port
+      port.onMessage.addListener(onMessage)
+      port.onDisconnect.addListener(() => {
+        portRef.current = null
+        setBusy(false)
+        if (disposed) return
+        attempt += 1
+        retry = setTimeout(connect, Math.min(1_000 * attempt, 5_000))
+      })
+      attempt = 0
     }
+    connect()
 
-    port.onMessage.addListener(onMessage)
-    port.onDisconnect.addListener(onDisconnect)
     return () => {
-      port.onMessage.removeListener(onMessage)
-      port.onDisconnect.removeListener(onDisconnect)
+      disposed = true
+      if (retry) clearTimeout(retry)
+      const port = portRef.current
       portRef.current = null
-      port.disconnect()
+      port?.onMessage.removeListener(onMessage)
+      port?.disconnect()
     }
   }, [])
 

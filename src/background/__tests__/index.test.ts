@@ -239,10 +239,26 @@ describe("Background Script Entry Point", () => {
       expect(port.onMessage.addListener).not.toHaveBeenCalled()
     })
 
+    it("ignores another feature's extension-page port", () => {
+      const onConnect = listeners.onConnect[0]
+      const port = {
+        name: MESSAGE_KEYS.AGENT.RUN_PORT,
+        sender: extensionSender,
+        onMessage: { addListener: vi.fn() },
+        onDisconnect: { addListener: vi.fn() },
+        disconnect: vi.fn()
+      }
+
+      onConnect(port)
+
+      expect(port.onMessage.addListener).not.toHaveBeenCalled()
+      expect(port.disconnect).not.toHaveBeenCalled()
+    })
+
     it("should route CHAT_WITH_MODEL via port", () => {
       const onConnect = listeners.onConnect[0]
       const port = {
-        name: "test-port",
+        name: MESSAGE_KEYS.PROVIDER.STREAM_RESPONSE,
         sender: extensionSender,
         onMessage: { addListener: vi.fn() },
         onDisconnect: { addListener: vi.fn() },
