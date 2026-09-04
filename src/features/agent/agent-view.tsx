@@ -73,6 +73,8 @@ export const AgentView = ({
   onFeedback = noop
 }: AgentViewProps) => {
   const { t } = useTranslation()
+  const settled =
+    run !== null && ["completed", "failed", "cancelled"].includes(run.status)
   const remoteNeedsAcknowledgement =
     provider?.location === "remote" && !privacyAcknowledged
   const canStart =
@@ -125,7 +127,7 @@ export const AgentView = ({
           </div>
         </section>
 
-        {!run && (
+        {(!run || settled) && (
           <section className="space-y-2" aria-labelledby="agent-goal-label">
             <label
               id="agent-goal-label"
@@ -211,8 +213,13 @@ export const AgentView = ({
 
         <AgentWorkLog items={toAgentWorkLog(steps)} />
 
-        {run && ["completed", "failed", "cancelled"].includes(run.status) && (
+        {settled && run && (
           <section className="mt-3 rounded-panel border border-border/50 bg-background p-2.5 text-xs">
+            {run.error && (
+              <p className="mb-1 font-medium text-destructive">
+                {agentPlainText(run.error.message, AGENT_PAGE_TEXT_LIMIT)}
+              </p>
+            )}
             <p>
               {t("agent.completion.summary", {
                 count: run.observationCount,
@@ -232,7 +239,7 @@ export const AgentView = ({
         )}
       </div>
 
-      {run && (
+      {run && !settled && (
         <AgentRunControls
           status={run.status}
           onPause={onPause}

@@ -37,6 +37,7 @@ const service = (
   answerTakeover: vi.fn(() => true),
   snapshot: vi.fn(async () => ({ steps: [] })),
   activeRunId: vi.fn(() => undefined),
+  latestRunId: vi.fn(() => undefined),
   subscribe: vi.fn(() => () => undefined),
   adopt: vi.fn(),
   ...overrides
@@ -111,6 +112,7 @@ describe("Agent panel port", () => {
     let announce: ((runId: string) => void) | undefined
     const agent = service({
       activeRunId: () => "run-1",
+      latestRunId: () => "run-1",
       subscribe: (listener) => {
         announce = listener
         return () => undefined
@@ -186,7 +188,10 @@ describe("Agent panel port", () => {
   })
 
   it("answers the parked request the panel names", async () => {
-    const agent = service({ activeRunId: () => "run-1" })
+    const agent = service({
+      activeRunId: () => "run-1",
+      latestRunId: () => "run-1"
+    })
     registerAgentPanelPort({ service: agent })
     const { port, emit } = createPort()
 
@@ -211,6 +216,7 @@ describe("Agent panel port", () => {
     const unsubscribe = vi.fn()
     const agent = service({
       activeRunId: () => "run-1",
+      latestRunId: () => "run-1",
       subscribe: (listener) => {
         announce = listener
         return unsubscribe

@@ -61,6 +61,31 @@ describe("AgentView", () => {
     expect(start).toHaveBeenCalledWith("Compare these products")
   })
 
+  it("keeps a failed run on screen with the reason it recorded", () => {
+    render(
+      <AgentView
+        run={{
+          ...run("failed"),
+          error: {
+            code: "invalid_decision",
+            message: "The model returned too many invalid decisions.",
+            retryable: false
+          }
+        }}
+        provider={{ name: "Local", location: "local" }}
+        tab={{ title: "Page", url: "https://example.com" }}
+        goal="Click the save button"
+      />
+    )
+
+    expect(
+      screen.getByText("The model returned too many invalid decisions.")
+    ).toBeInTheDocument()
+    // A settled run is done being supervised, and the next one starts here.
+    expect(screen.getByText("agent.start.action")).toBeInTheDocument()
+    expect(screen.queryByText("agent.controls.stop")).not.toBeInTheDocument()
+  })
+
   it("renders injected approval strings as inert, bounded text", () => {
     const approve = vi.fn()
     render(

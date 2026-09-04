@@ -63,6 +63,13 @@ export interface AgentRunService {
   }): boolean
   snapshot(runId: string): Promise<AgentRunSnapshot>
   activeRunId(): string | undefined
+  /**
+   * The run the panel should be showing: the unresolved one, or the last one
+   * this worker started. A settled run is the only record of what happened,
+   * and dropping it the moment it settles is how a failure looks to the user
+   * like nothing happened at all.
+   */
+  latestRunId(): string | undefined
   subscribe(listener: (runId: string) => void): () => void
   adopt(runId: string): void
 }
@@ -177,6 +184,7 @@ export const createAgentRunService = (input?: {
   const controllers = new Map<string, AgentController>()
   const experimental = new Set<string>()
   let activeRunId: string | undefined
+  let lastRunId: string | undefined
 
   const announce = (runId: string) => {
     for (const listener of [...listeners]) listener(runId)
@@ -246,6 +254,7 @@ export const createAgentRunService = (input?: {
       const unresolved = activeRunId ?? (await readIncompleteRuns())[0]?.id
       if (unresolved) {
         activeRunId = unresolved
+        lastRunId = unresolved
         throw new AgentRunError(
           "already_running",
           "An Agent run is already unresolved"
@@ -288,6 +297,7 @@ export const createAgentRunService = (input?: {
 
       await createRun(state)
       activeRunId = state.id
+      lastRunId = state.id
       if (request.allowExperimentalModel) experimental.add(state.id)
       history.record(request.tabId, address)
       announce(state.id)
@@ -325,6 +335,7 @@ export const createAgentRunService = (input?: {
       }
     },
     activeRunId: () => activeRunId,
+    latestRunId: () => activeRunId ?? lastRunId,
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
