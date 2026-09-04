@@ -552,6 +552,34 @@ describe("agent controller", () => {
     expect(harness.getState().status).toBe("completed")
   })
 
+  it("fails after three repeated semantic decisions without progress", async () => {
+    const noChange: AgentVerificationResult = {
+      outcome: "negative",
+      evidence: { kind: "dom", summary: "No change", observedAt: 2 }
+    }
+    const harness = createHarness({
+      decisions: [1, 2, 3, 4].map((generation) => ({
+        type: "command",
+        command: command(generation)
+      })),
+      observations: [1, 2, 3, 4].map((generation) =>
+        observation({
+          snapshotId: `snapshot-${generation}`,
+          generation,
+          capturedAt: generation
+        })
+      ),
+      verification: [noChange, noChange, noChange]
+    })
+
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "budget_exhausted" }
+    })
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(3)
+  })
+
   it("pauses with an unresolved effect after ambiguous verification", async () => {
     const harness = createHarness({
       verification: [

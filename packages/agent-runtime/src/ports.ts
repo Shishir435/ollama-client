@@ -201,6 +201,12 @@ export interface AgentStepWrite {
 /** Environment-neutral subset implemented by a host AbortSignal. */
 export interface AgentCancellationSignal {
   readonly aborted: boolean
+  addEventListener?(
+    type: "abort",
+    listener: () => void,
+    options?: { once?: boolean }
+  ): void
+  removeEventListener?(type: "abort", listener: () => void): void
 }
 
 /** Environment-neutral subset implemented by a host AbortController. */
