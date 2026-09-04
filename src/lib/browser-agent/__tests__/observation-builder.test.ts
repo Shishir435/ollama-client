@@ -112,7 +112,7 @@ describe("Agent observation builder", () => {
     expect(result.elements[0]).toMatchObject({
       focused: true,
       maySubmit: true,
-      formAction: new URL("/submit", location.href).href,
+      formAction: new URL("/finish", location.href).href,
       formMethod: "post"
     })
     expect(result.elements[1]).toMatchObject({ checked: true })

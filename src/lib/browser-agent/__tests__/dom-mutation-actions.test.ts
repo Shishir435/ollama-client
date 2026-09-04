@@ -653,13 +653,25 @@ describe("Agent DOM mutation execution", () => {
     expect(form.action).toBe(new URL("/finish", location.href).href)
   })
 
-  it("submits Enter through one guarded copy of the focused field", async () => {
+  it("submits Enter through the guarded default submitter semantics", async () => {
     const form = document.createElement("form")
     form.action = "/search"
+    form.method = "get"
     const input = document.createElement("input")
     input.name = "query"
     input.value = "safe value"
-    form.append(input)
+    const firstSubmitter = document.createElement("button")
+    firstSubmitter.name = "intent"
+    firstSubmitter.value = "archive"
+    firstSubmitter.formAction = "/archive"
+    firstSubmitter.formMethod = "post"
+    firstSubmitter.textContent = "Archive"
+    const secondSubmitter = document.createElement("button")
+    secondSubmitter.name = "intent"
+    secondSubmitter.value = "search"
+    secondSubmitter.formAction = "/search"
+    secondSubmitter.textContent = "Search"
+    form.append(input, firstSubmitter, secondSubmitter)
     document.body.append(form)
     input.focus()
     const keyHandler = vi.fn(() => {
@@ -677,6 +689,11 @@ describe("Agent DOM mutation execution", () => {
       input
     )
 
+    expect(effect.target.formAction).toBe(
+      new URL("/archive", location.href).href
+    )
+    expect(effect.target.formMethod).toBe("post")
+
     executeAgentDomMutationInDocument({
       effect,
       document,
@@ -684,10 +701,18 @@ describe("Agent DOM mutation execution", () => {
       signal
     })
     expect(keyHandler).not.toHaveBeenCalled()
-    expect(submittedForm?.action).toBe(new URL("/search", location.href).href)
+    expect(submittedForm?.action).toBe(new URL("/archive", location.href).href)
+    expect(submittedForm?.method).toBe("post")
     expect(submittedForm?.querySelectorAll('input[name="query"]')).toHaveLength(
       1
     )
+    expect(
+      submittedForm?.querySelector<HTMLInputElement>('input[name="intent"]')
+        ?.value
+    ).toBe("archive")
+    expect(
+      submittedForm?.querySelectorAll('input[name="intent"]')
+    ).toHaveLength(1)
   })
 
   it("navigates observed links without invoking page click handlers", async () => {

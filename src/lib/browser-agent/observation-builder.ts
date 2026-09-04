@@ -228,6 +228,28 @@ const isSubmitter = (element: Element): boolean => {
   )
 }
 
+export type AgentFormSubmitter = HTMLButtonElement | HTMLInputElement
+
+const formSubmitters = (form: HTMLFormElement): AgentFormSubmitter[] =>
+  Array.from(form.elements).filter(
+    (control): control is AgentFormSubmitter =>
+      control instanceof Element && isSubmitter(control)
+  )
+
+/**
+ * Native implicit submission activates the form's first submit button. Bind
+ * that button while observing an Enter-capable field so its destination,
+ * method, validation overrides, and submitted name/value are all part of the
+ * effect that receives approval.
+ */
+export const resolveAgentFormSubmitter = (
+  element: Element
+): AgentFormSubmitter | undefined => {
+  if (isSubmitter(element)) return element as AgentFormSubmitter
+  const form = associatedForm(element)
+  return form ? formSubmitters(form)[0] : undefined
+}
+
 const maySubmitWithEnter = (element: Element): boolean => {
   if (!(element instanceof HTMLInputElement) || !element.form) return false
   return ![
@@ -257,12 +279,10 @@ const associatedForm = (element: Element): HTMLFormElement | null => {
 const formAction = (element: Element): string | undefined => {
   const form = associatedForm(element)
   if (!form) return undefined
-  const action =
-    isSubmitter(element) &&
-    "formAction" in element &&
-    element.hasAttribute("formaction")
-      ? String(element.formAction)
-      : form.action
+  const submitter = resolveAgentFormSubmitter(element)
+  const action = submitter?.hasAttribute("formaction")
+    ? String(submitter.formAction)
+    : form.action
   return action.length <= MAX_AGENT_DESTINATION_URL_CHARS ? action : undefined
 }
 
@@ -271,11 +291,10 @@ const formMethod = (
 ): "get" | "post" | "dialog" | undefined => {
   const form = associatedForm(element)
   if (!form) return undefined
+  const submitter = resolveAgentFormSubmitter(element)
   const method = (
-    isSubmitter(element) &&
-    "formMethod" in element &&
-    element.hasAttribute("formmethod")
-      ? String(element.formMethod)
+    submitter?.hasAttribute("formmethod")
+      ? String(submitter.formMethod)
       : form.method
   ).toLowerCase()
   return method === "post" || method === "dialog" ? method : "get"

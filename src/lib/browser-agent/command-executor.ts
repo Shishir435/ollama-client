@@ -7,7 +7,11 @@ import type { AgentSnapshotIdentity } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type { AgentElementReferenceStore } from "./element-references"
-import { buildAgentElementObservation } from "./observation-builder"
+import {
+  type AgentFormSubmitter,
+  buildAgentElementObservation,
+  resolveAgentFormSubmitter
+} from "./observation-builder"
 import type {
   DomMutationAgentAction,
   NavigationAgentAction,
@@ -191,21 +195,6 @@ const associatedForm = (element: Element): HTMLFormElement | null =>
     ? element.form
     : null
 
-const submissionButton = (
-  element: Element
-): HTMLButtonElement | HTMLInputElement | undefined => {
-  if (
-    element instanceof HTMLButtonElement &&
-    element.type.toLowerCase() === "submit"
-  ) {
-    return element
-  }
-  return element instanceof HTMLInputElement &&
-    element.type.toLowerCase() === "submit"
-    ? element
-    : undefined
-}
-
 const successfulControlValues = (
   control: Element
 ): readonly string[] | undefined => {
@@ -262,7 +251,7 @@ const appendSubmissionValue = (
  */
 const buildGuardedSubmission = (
   form: HTMLFormElement,
-  submitter: HTMLButtonElement | HTMLInputElement | undefined,
+  submitter: AgentFormSubmitter | undefined,
   destination: string,
   method: "get" | "post"
 ): HTMLFormElement => {
@@ -282,7 +271,15 @@ const buildGuardedSubmission = (
     }
   }
   if (submitter?.name) {
-    appendSubmissionValue(guarded, submitter.name, submitter.value)
+    if (
+      submitter instanceof HTMLInputElement &&
+      submitter.type.toLowerCase() === "image"
+    ) {
+      appendSubmissionValue(guarded, `${submitter.name}.x`, "0")
+      appendSubmissionValue(guarded, `${submitter.name}.y`, "0")
+    } else {
+      appendSubmissionValue(guarded, submitter.name, submitter.value)
+    }
   }
   return guarded
 }
@@ -299,7 +296,10 @@ const submitWithoutPageHandlers = (
   if (effect.target.formMethod === "dialog") {
     throw new Error("Agent dialog form submission requires takeover")
   }
-  const submitter = submissionButton(element)
+  const submitter = resolveAgentFormSubmitter(element)
+  if (submitter?.matches(":disabled")) {
+    throw new Error("Agent form submitter is disabled")
+  }
   const skipsValidation = form.noValidate || Boolean(submitter?.formNoValidate)
   const invalid = Array.from(form.elements).some(
     (control) =>
