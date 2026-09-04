@@ -9,7 +9,10 @@ import {
   type AgentControlPort,
   type AgentDomMutationInstruction,
   AgentExecuteRequestSchema,
+  AgentExecuteScrollRequestSchema,
   AgentObserveRequestSchema,
+  type AgentScrollInstruction,
+  AgentScrollInstructionSchema,
   attachAgentControlContentPort,
   createAgentControlSession,
   openAgentControlSession,
@@ -84,6 +87,24 @@ const mutationInstruction = (
     accessibleName: "Continue",
     sensitive: false,
     maySubmit: false
+  },
+  snapshotIdentity: {
+    snapshotId: "snapshot-1",
+    generation: 1,
+    tabId: 7,
+    documentId: "document-1"
+  },
+  ...overrides
+})
+
+const scrollInstruction = (
+  overrides: Partial<AgentScrollInstruction> = {}
+): AgentScrollInstruction => ({
+  command: {
+    type: "scroll",
+    direction: "down",
+    snapshotId: "snapshot-1",
+    generation: 1
   },
   snapshotIdentity: {
     snapshotId: "snapshot-1",
@@ -295,12 +316,100 @@ describe("Agent control port", () => {
     expect(port.disconnect).toHaveBeenCalledOnce()
   })
 
+  it("carries a snapshot-bound scroll to the page and back", async () => {
+    const { port, onMessage } = createPort()
+    vi.mocked(port.postMessage).mockImplementation((raw) => {
+      const request = AgentExecuteScrollRequestSchema.parse(raw)
+      queueMicrotask(() =>
+        onMessage.emit({
+          version: AGENT_CONTROL_VERSION,
+          type: "agent_scroll_executed",
+          ...binding,
+          sequence: request.sequence
+        })
+      )
+    })
+    const session = createAgentControlSession({
+      port,
+      binding,
+      sender: { tabId: 7, frameId: 0, documentId: "document-1" }
+    })
+
+    await expect(
+      session.executeScroll(scrollInstruction())
+    ).resolves.toBeUndefined()
+    expect(
+      AgentExecuteScrollRequestSchema.parse(
+        vi.mocked(port.postMessage).mock.calls[0]?.[0]
+      ).instruction.command.type
+    ).toBe("scroll")
+  })
+
+  it("refuses a scroll instruction whose command is not a scroll", () => {
+    expect(
+      AgentScrollInstructionSchema.safeParse({
+        ...scrollInstruction(),
+        command: {
+          type: "click",
+          ref: "e1",
+          snapshotId: "snapshot-1",
+          generation: 1
+        }
+      }).success
+    ).toBe(false)
+  })
+
+  it("executes only a snapshot-bound scroll on the content side", () => {
+    const { port, onMessage } = createPort()
+    const executeScroll = vi.fn()
+    attachAgentControlContentPort(port, {
+      buildObservation: () => observation(),
+      executeDomMutation: vi.fn(),
+      executeScroll
+    })
+    onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_execute_scroll",
+      ...binding,
+      sequence: 1,
+      instruction: scrollInstruction({
+        snapshotIdentity: {
+          snapshotId: "snapshot-1",
+          generation: 1,
+          tabId: 8,
+          documentId: "document-1"
+        }
+      })
+    })
+    expect(executeScroll).not.toHaveBeenCalled()
+    expect(port.disconnect).toHaveBeenCalledOnce()
+
+    const live = createPort()
+    attachAgentControlContentPort(live.port, {
+      buildObservation: () => observation(),
+      executeDomMutation: vi.fn(),
+      executeScroll
+    })
+    live.onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_execute_scroll",
+      ...binding,
+      sequence: 1,
+      instruction: scrollInstruction()
+    })
+    expect(executeScroll).toHaveBeenCalledOnce()
+    expect(live.port.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "agent_scroll_executed", sequence: 1 })
+    )
+  })
+
   it("locks content responses to the first run, nonce, sequence, and document", () => {
     const { port, onMessage } = createPort()
     expect(
       attachAgentControlContentPort(port, {
         buildObservation: () => observation(),
-        executeDomMutation: vi.fn()
+        executeDomMutation: vi.fn(),
+        executeScroll: vi.fn()
       })
     ).toBe(true)
     onMessage.emit({
@@ -327,7 +436,8 @@ describe("Agent control port", () => {
     const executeDomMutation = vi.fn()
     attachAgentControlContentPort(port, {
       buildObservation: () => observation(),
-      executeDomMutation
+      executeDomMutation,
+      executeScroll: vi.fn()
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -358,7 +468,8 @@ describe("Agent control port", () => {
     const executeDomMutation = vi.fn()
     attachAgentControlContentPort(port, {
       buildObservation: () => observation(),
-      executeDomMutation
+      executeDomMutation,
+      executeScroll: vi.fn()
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
