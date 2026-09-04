@@ -4,13 +4,20 @@ import { useTranslation } from "react-i18next"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Chat } from "@/features/chat/components/chat"
 
-const AgentView = __AGENT_PREVIEW_ENABLED__
-  ? lazy(() =>
-      import("@/features/agent/agent-view").then((module) => ({
-        default: module.AgentView
-      }))
-    )
-  : undefined
+/**
+ * The build constant is read inline, not through `AGENT_PREVIEW_ENABLED`: the
+ * indirection defeats chunk elimination and ships `agent-view` to Firefox. The
+ * `typeof` guard keeps the module importable where nothing defines it (vitest
+ * without the define, component harnesses).
+ */
+const AgentView =
+  typeof __AGENT_PREVIEW_ENABLED__ !== "undefined" && __AGENT_PREVIEW_ENABLED__
+    ? lazy(() =>
+        import("@/features/agent/agent-view").then((module) => ({
+          default: module.AgentView
+        }))
+      )
+    : undefined
 
 export const SidepanelWorkspace = () => {
   const { t } = useTranslation()

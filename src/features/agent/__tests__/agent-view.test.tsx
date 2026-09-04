@@ -1,7 +1,7 @@
 import type { AgentRunState } from "@ollama-client/contracts"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { AgentView } from "../../agent-view"
+import { AgentView } from "../agent-view"
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
