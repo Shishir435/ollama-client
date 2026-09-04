@@ -25,6 +25,7 @@ import { monitorOllama } from "./ollama/foreground.js"
 import { runOllama } from "./ollama/runner.js"
 import { resolveProcessMode } from "./process-mode.js"
 import { serveProxy } from "./proxy-cli.js"
+import { assertProxyPortAvailable } from "./proxy-preflight.js"
 
 export { parseArgs } from "./cli-options.js"
 
@@ -79,11 +80,10 @@ const main = async () => {
   parsed.options.DEBUG = mode.debug
   try {
     const request = { options: parsed.options, fileOptions }
+    const { BIND_HOST, PORT } = resolveConfig(parsed.options, fileOptions)
+    await assertProxyPortAvailable({ backend, host: BIND_HOST, port: PORT })
     if (mode.detached) {
-      const result = await startDetachedProxy(
-        request,
-        resolveConfig(parsed.options, fileOptions).PORT
-      )
+      const result = await startDetachedProxy(request, PORT)
       console.log(
         `Ready: ${result.url} (detached ${backend}, PID ${result.pid})`
       )

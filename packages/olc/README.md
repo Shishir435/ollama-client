@@ -67,8 +67,20 @@ olc -b opencode --debug       # attached proxy, verbose logs
 - A detached proxy prints its URL, PID, log path, and stop instruction after
   both its HTTP listener and backend are ready. Logs are private per-run files
   under `~/.olc/logs/`; `OLC_LOG_DIR` overrides that directory. Startup failure
-  returns a nonzero exit code and names the log. An occupied port is an error;
-  olc never stops an existing proxy to replace it.
+  returns a nonzero exit code, states the child's own reason, and names the log.
+- An occupied port is an error; olc never stops an existing proxy to replace it.
+  The port is checked before anything is launched, and the failure names the
+  occupant — its PID, and whether it answered `/` as an olc proxy and for which
+  backend — plus a nearby port that is actually free:
+
+  ```
+  olc: Port 8084 is already in use. It is an olc opencode proxy (PID 73241) —
+       the extension can use it at http://127.0.0.1:8084 as it is.
+       Stop it with `kill -TERM 73241`, or run this one on a free port:
+       olc -b opencode --port 8085.
+  ```
+
+  A process that does not answer as an olc proxy is reported and left alone.
 - Proxy configuration is handed to the child over private IPC, not written to
   disk or duplicated in child arguments. Parent loss before accepting startup
   shuts down the new child. After handoff, closing the terminal leaves it running.

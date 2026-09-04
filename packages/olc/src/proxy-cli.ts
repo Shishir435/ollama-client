@@ -85,12 +85,10 @@ export async function serveProxy(
       })
     else console.log(`Ready: ${url} (foreground; Ctrl-C stops this proxy)`)
   } catch (error) {
-    console.error(
-      "[Fatal] Failed to start proxy:",
-      error instanceof Error ? error.message : "Unknown failure"
-    )
+    const message = error instanceof Error ? error.message : "Unknown failure"
+    console.error("[Fatal] Failed to start proxy:", message)
     if (child && process.connected)
-      process.send?.({ type: "olc:error" }, () => shutdown(1))
+      process.send?.({ type: "olc:error", message }, () => shutdown(1))
     else shutdown(1)
   }
 }
