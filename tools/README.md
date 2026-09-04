@@ -31,13 +31,13 @@ consume their documented builds and never build implicitly.
 | `pnpm verify:ci-parity` | Install the frozen lockfile and run `verify:ci` in a disposable checkout of committed HEAD; may need network; excludes uncommitted work |
 
 Pre-commit formats/lints staged supported files, runs related tests, then
-performs one full typecheck. Pre-push audits production dependencies and runs
-`verify`. Neither hook builds browser packages or documentation. CI and
-explicit release verification own the expensive build and browser gates.
-Never bypass hooks. CI uses `check:static` and shards `test:coverage`, then
-merges reports to enforce the same coverage thresholds as `verify:ci`.
-Clean-checkout parity does not reproduce browser tests, packaging, hosted CI,
-OS differences, or a fresh registry security audit.
+performs one full typecheck. Pre-push audits production dependencies, runs
+`verify`, packages Chrome and Firefox, and enforces both bundle budgets. It does
+not build documentation or run browser automation. Never bypass hooks. CI uses
+`check:static` and shards `test:coverage`, then merges reports to enforce the
+same coverage thresholds as `verify:ci`. Clean-checkout parity does not
+reproduce browser tests, packaging, hosted CI, OS differences, bundle budgets,
+or a fresh registry security audit.
 
 ## Coverage scope
 

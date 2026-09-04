@@ -187,11 +187,11 @@ const budgets: Budget[] = [
     metric: "background",
     field: "gzipBytes",
     // Generated-image responses plus embedding route validation, cancellation,
-    // cache safeguards, retry metadata, native web-search routing, and the
-    // complexity-helper split live
-    // in the background owner. Keep Chrome narrow while leaving deterministic
-    // build headroom.
-    max: isFirefox ? 210_000 : 202_400
+    // cache safeguards, retry metadata, native web-search routing, Agent
+    // recovery/composition, and the complexity-helper split live in the
+    // background owner. Keep Chrome narrow while leaving deterministic build
+    // headroom. Agent Preview raised the measured Chrome baseline to 205,819.
+    max: isFirefox ? 210_000 : 207_000
   }
 ]
 
