@@ -74,6 +74,7 @@
       "already_running": "An Agent run is already in progress.",
       "permission_denied": "Agent needs page-observation permission before it can start.",
       "tab_unsupported": "Agent cannot run on this page. Open a normal web page and try again.",
+      "unreadable_update": "The panel received an update it could not read.",
       "unknown": "Agent could not complete that request."
     }
   },

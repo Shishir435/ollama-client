@@ -9,6 +9,7 @@ import {
 } from "@ollama-client/agent-runtime"
 
 import { createProviderAgentModelPort } from "@/application/agent/agent-model-port"
+import { logger } from "@/lib/logger"
 import { createAgentBrowserAdapters } from "./agent-browser-adapters"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentEffectPort } from "./agent-effect-port"
@@ -32,12 +33,41 @@ const withDecisionTimeout = (
 ): AgentModelPort => ({
   async decide(input, signal) {
     const scope = new AbortController()
+    let timedOut = false
     const abort = () => scope.abort()
     if (signal.aborted) scope.abort()
     else signal.addEventListener?.("abort", abort, { once: true })
-    const timer = setTimeout(abort, timeoutMs)
+    const timer = setTimeout(() => {
+      timedOut = true
+      abort()
+    }, timeoutMs)
+    const startedAt = Date.now()
     try {
-      return await model.decide(input, scope.signal)
+      const decision = await model.decide(input, scope.signal)
+      logger.info("Agent decision received", "Agent", {
+        runId: input.state.id,
+        model: input.state.modelId,
+        elapsedMs: Date.now() - startedAt,
+        decision: decision.type
+      })
+      return decision
+    } catch (error) {
+      /*
+       * A decision that ends without an answer is the hardest failure to read
+       * from the outside: an aborted stream looks the same whether the run was
+       * stopped, the bound deadline fired, or something else cancelled it. The
+       * three are recorded apart here so the next one does not need a HAR.
+       */
+      logger.warn("Agent decision failed", "Agent", {
+        runId: input.state.id,
+        model: input.state.modelId,
+        elapsedMs: Date.now() - startedAt,
+        cancelledByRun: signal.aborted,
+        timedOut,
+        name: error instanceof Error ? error.name : typeof error,
+        message: error instanceof Error ? error.message : "unknown"
+      })
+      throw error
     } finally {
       clearTimeout(timer)
       signal.removeEventListener?.("abort", abort)

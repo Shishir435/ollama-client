@@ -4,6 +4,7 @@ import {
   AgentDecisionSchema,
   type AgentObservation
 } from "@ollama-client/contracts"
+import { logger } from "@/lib/logger"
 import type { ToolCall } from "@/lib/tools/types"
 
 export const AGENT_DECISION_TOOL_NAME = "agent_decision"
@@ -71,10 +72,26 @@ export const parseAgentDecisionToolCalls = (
   if (call.name !== AGENT_DECISION_TOOL_NAME) {
     throw new AgentDecisionFormatError("The model called an unknown agent tool")
   }
-  const parsed = AgentDecisionSchema.safeParse(
-    normalizeDecisionArguments(call.arguments)
-  )
+  const normalized = normalizeDecisionArguments(call.arguments)
+  const parsed = AgentDecisionSchema.safeParse(normalized)
   if (!parsed.success) {
+    /*
+     * Shape only. Which keys a model sent, and which field of the schema each
+     * complaint is about, is what tells a schema mismatch apart from a model
+     * that answered badly — the values are page-derived and stay out.
+     */
+    logger.warn("Agent decision rejected", "Agent", {
+      keys:
+        normalized && typeof normalized === "object"
+          ? Object.keys(normalized as Record<string, unknown>)
+          : typeof normalized,
+      decisionType:
+        normalized && typeof normalized === "object"
+          ? String((normalized as Record<string, unknown>).type)
+          : "unknown",
+      paths: parsed.error.issues.map((issue) => issue.path.join(".")),
+      codes: parsed.error.issues.map((issue) => issue.code)
+    })
     throw new AgentDecisionFormatError("The model returned an invalid decision")
   }
   return assertGroundedDecision(parsed.data, observation)

@@ -65,8 +65,25 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
     const onMessage = (raw: unknown) => {
       const parsed = AgentPanelMessageSchema.safeParse(raw)
       if (!parsed.success) {
+        /*
+         * Dropping the update silently leaves the panel showing a run state
+         * that has since moved on, which is indistinguishable from the agent
+         * doing nothing. The paths say which field disagreed; the values stay
+         * out of it.
+         */
+        const paths = parsed.error.issues
+          .map((issue) => issue.path.join("."))
+          .filter(Boolean)
         logger.warn("Discarded invalid Agent panel message", "Agent", {
-          issues: parsed.error.issues.length
+          issues: parsed.error.issues.length,
+          paths
+        })
+        setBusy(false)
+        setFailure({
+          command: "agent_snapshot",
+          messageKey: "agent.error.unreadable_update",
+          message: "The panel received an update it could not read.",
+          detail: paths.slice(0, 6).join(", ")
         })
         return
       }
