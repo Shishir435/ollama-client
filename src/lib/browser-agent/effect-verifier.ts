@@ -7,6 +7,7 @@ import type { AgentObservation } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type {
+  DomMutationAgentAction,
   NavigationAgentAction,
   ReadOnlyAgentAction
 } from "./resolved-effect"
@@ -390,5 +391,262 @@ export const verifyNavigationAgentEffect = async (input: {
     input.verification.effect.command.type as NavigationAgentAction
   ] as Verifier | undefined
   if (!verifier) throw new Error("Agent action has no navigation verifier")
+  return verifier(input.verification, input.adapter, input.signal)
+}
+
+const sameElementSemantics = (
+  input: AgentVerificationInput,
+  element: AgentObservation["elements"][number]
+): boolean =>
+  element.frameId === 0 &&
+  (input.effect.target.verificationId === undefined ||
+    element.verificationId === input.effect.target.verificationId) &&
+  element.tag === input.effect.target.tag &&
+  element.role === input.effect.target.role &&
+  element.name === input.effect.target.accessibleName &&
+  element.type === input.effect.target.inputType
+
+const mutationTargetAfter = (
+  input: AgentVerificationInput,
+  after: AgentObservation
+):
+  | { type: "one"; element: AgentObservation["elements"][number] }
+  | { type: "missing" | "ambiguous" } => {
+  const matches = after.elements.filter((element) =>
+    sameElementSemantics(input, element)
+  )
+  if (matches.length === 0) return { type: "missing" }
+  if (matches.length > 1) return { type: "ambiguous" }
+  return { type: "one", element: matches[0] }
+}
+
+const pageEvidence = (observation: AgentObservation): string =>
+  JSON.stringify({
+    url: observation.url,
+    documentId: observation.documentId,
+    title: observation.title,
+    visibleText: observation.visibleText,
+    elements: observation.elements.map((element) => ({
+      tag: element.tag,
+      role: element.role,
+      name: element.name,
+      type: element.type,
+      value: element.value,
+      checked: element.checked,
+      focused: element.focused,
+      href: element.href,
+      visible: element.visible,
+      enabled: element.enabled
+    }))
+  })
+
+const verifyValueMutation: Verifier = async (input, adapter, signal) => {
+  const after = await observeAfter(input, adapter, signal)
+  const target = mutationTargetAfter(input, after)
+  if (target.type !== "one") {
+    return result(
+      "ambiguous",
+      "field",
+      target.type === "missing"
+        ? "Mutated field is no longer identifiable"
+        : "Mutated field matches multiple controls",
+      adapter.now()
+    )
+  }
+  if (target.element.sensitive || target.element.value === undefined) {
+    return result(
+      "ambiguous",
+      "field",
+      "Mutated field value is unavailable",
+      adapter.now()
+    )
+  }
+  if (target.element.value === input.effect.target.expectedValue) {
+    return result(
+      "confirmed",
+      "field",
+      "Field contains the resolved value",
+      adapter.now()
+    )
+  }
+  return target.element.value === input.effect.target.observedValue
+    ? result("negative", "field", "Field value did not change", adapter.now())
+    : result(
+        "ambiguous",
+        "field",
+        "Field contains a value other than the resolved value",
+        adapter.now()
+      )
+}
+
+const verifyCheckedMutation: Verifier = async (input, adapter, signal) => {
+  const after = await observeAfter(input, adapter, signal)
+  const target = mutationTargetAfter(input, after)
+  if (target.type !== "one" || target.element.checked === undefined) {
+    return result(
+      "ambiguous",
+      "checked",
+      "Checked control is no longer uniquely identifiable",
+      adapter.now()
+    )
+  }
+  if (target.element.checked === input.effect.target.expectedChecked) {
+    return result(
+      "confirmed",
+      "checked",
+      "Control has the resolved checked state",
+      adapter.now()
+    )
+  }
+  return target.element.checked === input.effect.target.observedChecked
+    ? result(
+        "negative",
+        "checked",
+        "Checked state did not change",
+        adapter.now()
+      )
+    : result(
+        "ambiguous",
+        "checked",
+        "Control has an unexpected checked state",
+        adapter.now()
+      )
+}
+
+const verifySubmission: Verifier = async (input, adapter, signal) => {
+  const tabId = input.effect.snapshotIdentity.tabId
+  const tab = await adapter.getTab(tabId)
+  if (!tab?.url) {
+    return result(
+      "ambiguous",
+      "submission",
+      "Submission tab is unavailable",
+      adapter.now()
+    )
+  }
+  if (!sameUrl(tab.url, input.effect.sourceUrl)) {
+    if (
+      input.effect.destination &&
+      sameUrl(tab.url, input.effect.destination.url) &&
+      (await adapter.classifyAccess(tab.url)) === "ok"
+    ) {
+      return result(
+        "confirmed",
+        "submission",
+        "Form committed its resolved destination",
+        adapter.now()
+      )
+    }
+    return result(
+      "ambiguous",
+      "submission",
+      "Form committed an unexpected destination",
+      adapter.now()
+    )
+  }
+  const after = await observeAfter(input, adapter, signal)
+  if (
+    after.documentId !== input.before.documentId ||
+    pageEvidence(after) !== pageEvidence(input.before)
+  ) {
+    return result(
+      "confirmed",
+      "submission",
+      "Form submission produced an observable page change",
+      adapter.now()
+    )
+  }
+  return result(
+    "ambiguous",
+    "submission",
+    "Form submission produced no conclusive page evidence",
+    adapter.now()
+  )
+}
+
+const verifyActivation: Verifier = async (input, adapter, signal) => {
+  if (input.effect.semanticEffects.includes("submission")) {
+    return verifySubmission(input, adapter, signal)
+  }
+  if (input.effect.destination) {
+    return verifyCommittedDestination(
+      input,
+      adapter,
+      input.effect.snapshotIdentity.tabId,
+      "activation"
+    )
+  }
+  const after = await observeAfter(input, adapter, signal)
+  if (pageEvidence(after) !== pageEvidence(input.before)) {
+    return result(
+      "confirmed",
+      "activation",
+      "Control activation produced an observable page change",
+      adapter.now()
+    )
+  }
+  return result(
+    "negative",
+    "activation",
+    "Control activation produced no observable page change",
+    adapter.now()
+  )
+}
+
+const verifyKey: Verifier = async (input, adapter, signal) => {
+  if (input.effect.semanticEffects.includes("submission")) {
+    return verifySubmission(input, adapter, signal)
+  }
+  const after = await observeAfter(input, adapter, signal)
+  const target = mutationTargetAfter(input, after)
+  if (
+    input.effect.command.type === "press_key" &&
+    input.effect.command.key === "Tab" &&
+    target.type === "one" &&
+    !target.element.focused &&
+    after.elements.some((element) => element.focused)
+  ) {
+    return result(
+      "confirmed",
+      "keyboard",
+      "Keyboard focus moved to another control",
+      adapter.now()
+    )
+  }
+  if (pageEvidence(after) !== pageEvidence(input.before)) {
+    return result(
+      "confirmed",
+      "keyboard",
+      "Key press produced an observable page change",
+      adapter.now()
+    )
+  }
+  return result(
+    "negative",
+    "keyboard",
+    "Key press produced no observable page change",
+    adapter.now()
+  )
+}
+
+export const DOM_MUTATION_AGENT_VERIFIERS = {
+  click: verifyActivation,
+  type: verifyValueMutation,
+  clear_and_type: verifyValueMutation,
+  select: verifyValueMutation,
+  check: verifyCheckedMutation,
+  uncheck: verifyCheckedMutation,
+  press_key: verifyKey
+} satisfies Record<DomMutationAgentAction, Verifier>
+
+export const verifyDomMutationAgentEffect = async (input: {
+  verification: AgentVerificationInput
+  adapter: AgentEffectVerifierAdapter
+  signal: AgentCancellationSignal
+}): Promise<AgentVerificationResult> => {
+  const verifier = DOM_MUTATION_AGENT_VERIFIERS[
+    input.verification.effect.command.type as DomMutationAgentAction
+  ] as Verifier | undefined
+  if (!verifier) throw new Error("Agent action has no DOM mutation verifier")
   return verifier(input.verification, input.adapter, input.signal)
 }

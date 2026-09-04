@@ -10,6 +10,7 @@ import {
   isTerminalAgentStatus
 } from "@ollama-client/agent-runtime"
 import {
+  type AgentCommand,
   AgentCommandSchema,
   AgentDeadlineStateSchema,
   type AgentRunState,
@@ -81,6 +82,21 @@ const AgentStepRowSchema = z.object({
   receipt: z.string(),
   createdAt: z.number()
 })
+
+const REDACTED_AGENT_VALUE = "[redacted]"
+
+const redactAgentStepCommand = (
+  command?: AgentCommand
+): AgentCommand | undefined => {
+  if (!command) return undefined
+  if (command.type === "type" || command.type === "clear_and_type") {
+    return { ...command, text: REDACTED_AGENT_VALUE }
+  }
+  if (command.type === "select") {
+    return { ...command, value: REDACTED_AGENT_VALUE }
+  }
+  return command
+}
 
 const AgentCheckpointSchema = z
   .object({ version: z.literal(1), state: AgentRunStateSchema })
@@ -231,7 +247,16 @@ const appendStepInTransaction = async (
   tx: SqlExecutor,
   input: AgentStepWrite
 ): Promise<void> => {
-  const receipt = AgentStepReceiptSchema.parse({ version: 1, ...input })
+  serializeBounded(
+    { version: 1, ...input },
+    MAX_AGENT_STEP_RECEIPT_BYTES,
+    "Agent step receipt"
+  )
+  const receipt = AgentStepReceiptSchema.parse({
+    version: 1,
+    ...input,
+    command: redactAgentStepCommand(input.command)
+  })
   const serialized = serializeBounded(
     receipt,
     MAX_AGENT_STEP_RECEIPT_BYTES,

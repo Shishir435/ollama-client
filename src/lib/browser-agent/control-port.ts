@@ -1,6 +1,8 @@
 import {
+  AgentCommandSchema,
   type AgentObservation,
-  AgentObservationSchema
+  AgentObservationSchema,
+  AgentSnapshotIdentitySchema
 } from "@ollama-client/contracts"
 import { z } from "zod"
 
@@ -43,6 +45,106 @@ export const AgentObserveResponseSchema = z
   .strict()
 export type AgentObserveResponse = z.infer<typeof AgentObserveResponseSchema>
 
+const AgentDomMutationTargetSchema = z
+  .object({
+    ref: z.string().min(1),
+    verificationId: z.string().min(1).max(128).optional(),
+    frameId: z.literal(0),
+    tag: z.string().min(1),
+    role: z.string().min(1).optional(),
+    accessibleName: z.string().max(500).optional(),
+    inputType: z.string().min(1).optional(),
+    observedValue: z.string().max(500).optional(),
+    observedChecked: z.boolean().optional(),
+    observedFocused: z.boolean().optional(),
+    href: z.url().max(2_048).optional(),
+    formAction: z.url().max(2_048).optional(),
+    formMethod: z.enum(["get", "post", "dialog"]).optional(),
+    formFingerprint: z
+      .string()
+      .regex(/^[0-9a-f]{8}$/)
+      .optional(),
+    formHasSensitiveControl: z.boolean().optional(),
+    submitter: z.boolean().optional(),
+    expectedValue: z.string().max(500).optional(),
+    expectedChecked: z.boolean().optional(),
+    sensitive: z.boolean(),
+    maySubmit: z.boolean()
+  })
+  .strict()
+
+const AgentDomMutationCommandSchema = AgentCommandSchema.refine(
+  (command) =>
+    [
+      "click",
+      "type",
+      "clear_and_type",
+      "select",
+      "check",
+      "uncheck",
+      "press_key"
+    ].includes(command.type),
+  "Control-port execution accepts only DOM mutation commands"
+)
+
+export const AgentDomMutationInstructionSchema = z
+  .object({
+    command: AgentDomMutationCommandSchema,
+    target: AgentDomMutationTargetSchema,
+    snapshotIdentity: AgentSnapshotIdentitySchema
+  })
+  .strict()
+  .superRefine((instruction, context) => {
+    if (
+      instruction.command.snapshotId !==
+        instruction.snapshotIdentity.snapshotId ||
+      instruction.command.generation !== instruction.snapshotIdentity.generation
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["command"],
+        message: "Command and resolved snapshot identity must match"
+      })
+    }
+  })
+export type AgentDomMutationInstruction = z.infer<
+  typeof AgentDomMutationInstructionSchema
+>
+
+export const AgentExecuteRequestSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_execute_dom_mutation"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.literal(0),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    instruction: AgentDomMutationInstructionSchema
+  })
+  .strict()
+export type AgentExecuteRequest = z.infer<typeof AgentExecuteRequestSchema>
+
+export const AgentExecuteResponseSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_dom_mutation_executed"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.literal(0),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1)
+  })
+  .strict()
+export type AgentExecuteResponse = z.infer<typeof AgentExecuteResponseSchema>
+
+const AgentControlRequestSchema = z.union([
+  AgentObserveRequestSchema,
+  AgentExecuteRequestSchema
+])
+
 export interface AgentControlEvent<T extends (...args: never[]) => unknown> {
   addListener(listener: T): void
   removeListener(listener: T): void
@@ -75,6 +177,10 @@ export interface AgentControlSession {
     minimumGeneration: number,
     signal?: AbortSignal
   ): Promise<AgentObservation>
+  executeDomMutation(
+    instruction: AgentDomMutationInstruction,
+    signal?: AbortSignal
+  ): Promise<void>
   disconnect(): void
 }
 
@@ -157,6 +263,24 @@ export const validateAgentObservationResponse = (
   return response.observation
 }
 
+export const validateAgentExecuteResponse = (
+  raw: unknown,
+  binding: AgentControlBinding,
+  sequence: number
+): void => {
+  const response = AgentExecuteResponseSchema.parse(raw)
+  if (
+    response.runId !== binding.runId ||
+    response.tabId !== binding.tabId ||
+    response.frameId !== binding.frameId ||
+    response.nonce !== binding.nonce ||
+    response.sequence !== sequence ||
+    response.documentId !== binding.documentId
+  ) {
+    throw new Error("Agent execution response binding mismatch")
+  }
+}
+
 export const createAgentControlSession = (input: {
   port: AgentControlPort
   binding: AgentControlBinding
@@ -169,12 +293,66 @@ export const createAgentControlSession = (input: {
   let sequence = 0
   let inFlight = false
 
+  const exchange = <T>(
+    message: unknown,
+    validate: (raw: unknown) => T,
+    signal?: AbortSignal
+  ): Promise<T> => {
+    if (inFlight) {
+      return Promise.reject(
+        new Error("Agent control request already in flight")
+      )
+    }
+    inFlight = true
+    return new Promise<T>((resolve, reject) => {
+      const cleanup = () => {
+        inFlight = false
+        input.port.onMessage.removeListener(onMessage)
+        input.port.onDisconnect.removeListener(onDisconnect)
+        signal?.removeEventListener("abort", onAbort)
+      }
+      const fail = (error: Error) => {
+        cleanup()
+        reject(error)
+      }
+      const onMessage = (raw: unknown) => {
+        try {
+          const value = validate(raw)
+          cleanup()
+          resolve(value)
+        } catch (error) {
+          input.port.disconnect()
+          fail(
+            error instanceof Error
+              ? error
+              : new Error("Invalid Agent control response")
+          )
+        }
+      }
+      const onDisconnect = () => fail(new Error("Agent control port closed"))
+      const onAbort = () => {
+        input.port.disconnect()
+        fail(new Error("Agent control request cancelled"))
+      }
+
+      input.port.onMessage.addListener(onMessage)
+      input.port.onDisconnect.addListener(onDisconnect)
+      signal?.addEventListener("abort", onAbort, { once: true })
+      if (signal?.aborted) {
+        onAbort()
+        return
+      }
+      input.port.postMessage(message)
+    })
+  }
+
   return {
     observe(minimumGeneration, signal) {
       if (inFlight) {
-        return Promise.reject(new Error("Agent observation already in flight"))
+        return Promise.reject(
+          new Error("Agent control request already in flight")
+        )
       }
-      inFlight = true
       sequence += 1
       const expectedSequence = sequence
       const request: AgentObserveRequest = {
@@ -185,53 +363,44 @@ export const createAgentControlSession = (input: {
         minimumGeneration
       }
 
-      return new Promise<AgentObservation>((resolve, reject) => {
-        const cleanup = () => {
-          inFlight = false
-          input.port.onMessage.removeListener(onMessage)
-          input.port.onDisconnect.removeListener(onDisconnect)
-          signal?.removeEventListener("abort", onAbort)
-        }
-        const fail = (error: Error) => {
-          cleanup()
-          reject(error)
-        }
-        const onMessage = (raw: unknown) => {
-          try {
-            const observation = validateAgentObservationResponse(
-              raw,
-              input.binding,
-              expectedSequence
-            )
-            if (observation.generation < minimumGeneration) {
-              throw new Error("Agent observation generation is stale")
-            }
-            cleanup()
-            resolve(observation)
-          } catch (error) {
-            input.port.disconnect()
-            fail(
-              error instanceof Error
-                ? error
-                : new Error("Invalid Agent observation")
-            )
+      return exchange(
+        request,
+        (raw) => {
+          const observed = validateAgentObservationResponse(
+            raw,
+            input.binding,
+            expectedSequence
+          )
+          if (observed.generation < minimumGeneration) {
+            throw new Error("Agent observation generation is stale")
           }
-        }
-        const onDisconnect = () => fail(new Error("Agent control port closed"))
-        const onAbort = () => {
-          input.port.disconnect()
-          fail(new Error("Agent observation cancelled"))
-        }
-
-        input.port.onMessage.addListener(onMessage)
-        input.port.onDisconnect.addListener(onDisconnect)
-        signal?.addEventListener("abort", onAbort, { once: true })
-        if (signal?.aborted) {
-          onAbort()
-          return
-        }
-        input.port.postMessage(request)
-      })
+          return observed
+        },
+        signal
+      )
+    },
+    executeDomMutation(instruction, signal) {
+      if (inFlight) {
+        return Promise.reject(
+          new Error("Agent control request already in flight")
+        )
+      }
+      sequence += 1
+      const expectedSequence = sequence
+      const request: AgentExecuteRequest = {
+        version: AGENT_CONTROL_VERSION,
+        type: "agent_execute_dom_mutation",
+        ...input.binding,
+        sequence: expectedSequence,
+        instruction: AgentDomMutationInstructionSchema.parse(instruction)
+      }
+      return exchange(
+        request,
+        (raw) => {
+          validateAgentExecuteResponse(raw, input.binding, expectedSequence)
+        },
+        signal
+      )
     },
     disconnect() {
       input.port.disconnect()
@@ -283,14 +452,17 @@ export const openAgentControlSession = async (input: {
 
 export const attachAgentControlContentPort = (
   port: AgentControlPort,
-  buildObservation: (request: AgentObserveRequest) => AgentObservation
+  handlers: {
+    buildObservation(request: AgentObserveRequest): AgentObservation
+    executeDomMutation(request: AgentExecuteRequest): void
+  }
 ): boolean => {
   if (port.name !== MESSAGE_KEYS.AGENT.CONTROL_PORT) return false
   let binding: AgentControlBinding | undefined
   let lastSequence = 0
 
   port.onMessage.addListener((raw) => {
-    const parsed = AgentObserveRequestSchema.safeParse(raw)
+    const parsed = AgentControlRequestSchema.safeParse(raw)
     if (!parsed.success) {
       port.disconnect()
       return
@@ -320,8 +492,28 @@ export const attachAgentControlContentPort = (
     }
 
     try {
+      if (request.type === "agent_execute_dom_mutation") {
+        const identity = request.instruction.snapshotIdentity
+        if (
+          identity.tabId !== request.tabId ||
+          identity.documentId !== request.documentId
+        ) {
+          throw new Error("Agent mutation instruction binding mismatch")
+        }
+        handlers.executeDomMutation(request)
+        binding = nextBinding
+        lastSequence = request.sequence
+        const response: AgentExecuteResponse = {
+          version: AGENT_CONTROL_VERSION,
+          type: "agent_dom_mutation_executed",
+          ...nextBinding,
+          sequence: request.sequence
+        }
+        port.postMessage(response)
+        return
+      }
       const observation = AgentObservationSchema.parse(
-        buildObservation(request)
+        handlers.buildObservation(request)
       )
       binding = nextBinding
       lastSequence = request.sequence

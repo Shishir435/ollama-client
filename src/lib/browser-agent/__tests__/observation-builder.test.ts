@@ -83,6 +83,89 @@ describe("Agent observation builder", () => {
     })
   })
 
+  it("captures checked, focus, select options, and form semantics", () => {
+    const form = document.createElement("form")
+    form.action = "/submit"
+    form.method = "post"
+    const text = document.createElement("input")
+    text.name = "query"
+    const checkbox = document.createElement("input")
+    checkbox.type = "checkbox"
+    checkbox.checked = true
+    const select = document.createElement("select")
+    const first = document.createElement("option")
+    first.value = "one"
+    first.textContent = "First"
+    const second = document.createElement("option")
+    second.value = "two"
+    second.textContent = "Second"
+    second.selected = true
+    select.append(first, second)
+    const submit = document.createElement("button")
+    submit.textContent = "Continue"
+    submit.formAction = "/finish"
+    form.append(text, checkbox, select, submit)
+    document.body.append(form)
+    text.focus()
+
+    const result = build()
+    expect(result.elements[0]).toMatchObject({
+      focused: true,
+      maySubmit: true,
+      formAction: new URL("/finish", location.href).href,
+      formMethod: "post"
+    })
+    expect(result.elements[1]).toMatchObject({ checked: true })
+    expect(result.elements[2]).toMatchObject({
+      value: "two",
+      options: [
+        { value: "one", label: "First", disabled: false },
+        { value: "two", label: "Second", disabled: false }
+      ]
+    })
+    expect(result.elements[3]).toMatchObject({
+      submitter: true,
+      maySubmit: true,
+      formAction: new URL("/finish", location.href).href,
+      formMethod: "post"
+    })
+  })
+
+  it("keeps repeated controls distinct across observation generations", () => {
+    const first = document.createElement("input")
+    const second = document.createElement("input")
+    first.setAttribute("aria-label", "Quantity")
+    second.setAttribute("aria-label", "Quantity")
+    document.body.append(first, second)
+    let nextVerificationId = 0
+    let nextSnapshotId = 0
+    const references = createAgentElementReferenceStore({
+      documentId: "document-1",
+      createVerificationId: () => `control-${++nextVerificationId}`
+    })
+    const observe = () =>
+      buildAgentObservation({
+        document,
+        tabId: 7,
+        documentId: "document-1",
+        minimumGeneration: 0,
+        references,
+        createSnapshotId: () => `snapshot-${++nextSnapshotId}`,
+        capturedAt: 1
+      })
+
+    const before = observe()
+    const after = observe()
+    expect(before.elements.map((element) => element.verificationId)).toEqual([
+      "control-1",
+      "control-2"
+    ])
+    expect(after.elements.map((element) => element.verificationId)).toEqual([
+      "control-1",
+      "control-2"
+    ])
+  })
+
   it.each([
     [
       "hidden input",

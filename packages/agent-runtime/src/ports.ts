@@ -28,10 +28,23 @@ export interface AgentObserveRequest {
 
 export interface ResolvedAgentTarget {
   ref?: string
+  verificationId?: string
+  frameId?: 0
   tag?: string
   role?: string
   accessibleName?: string
   inputType?: string
+  observedValue?: string
+  observedChecked?: boolean
+  observedFocused?: boolean
+  href?: string
+  formAction?: string
+  formMethod?: "get" | "post" | "dialog"
+  formFingerprint?: string
+  formHasSensitiveControl?: boolean
+  submitter?: boolean
+  expectedValue?: string
+  expectedChecked?: boolean
   sensitive: boolean
   maySubmit: boolean
 }
@@ -53,6 +66,7 @@ export type AgentSemanticEffect =
   | "read"
   | "scroll"
   | "navigation"
+  | "activation"
   | "form_mutation"
   | "submission"
   | "destructive"

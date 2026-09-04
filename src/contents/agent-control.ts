@@ -1,4 +1,5 @@
 import type { Runtime } from "webextension-polyfill"
+import { executeAgentDomMutationInDocument } from "@/lib/browser-agent/command-executor"
 import {
   type AgentControlPort,
   attachAgentControlContentPort
@@ -18,9 +19,8 @@ export const installAgentControlContentScript = (): void => {
     let references:
       | ReturnType<typeof createAgentElementReferenceStore>
       | undefined
-    attachAgentControlContentPort(
-      rawPort as unknown as AgentControlPort,
-      (request) => {
+    attachAgentControlContentPort(rawPort as unknown as AgentControlPort, {
+      buildObservation(request) {
         references ??= createAgentElementReferenceStore({
           documentId: request.documentId
         })
@@ -31,8 +31,19 @@ export const installAgentControlContentScript = (): void => {
           minimumGeneration: request.minimumGeneration,
           references
         })
+      },
+      executeDomMutation(request) {
+        if (!references) {
+          throw new Error("Agent mutation has no observed snapshot")
+        }
+        executeAgentDomMutationInDocument({
+          effect: request.instruction,
+          document,
+          references,
+          signal: { aborted: false }
+        })
       }
-    )
+    })
   }) as Parameters<typeof browser.runtime.onConnect.addListener>[0])
 }
 
