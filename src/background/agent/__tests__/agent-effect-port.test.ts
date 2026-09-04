@@ -45,6 +45,7 @@ const observation = (
 })
 
 const adapters = (): AgentBrowserAdapters => ({
+  observation: { observe: vi.fn(async () => observation()) },
   resolver: {
     getTab: async (tabId) => ({ id: tabId, url: "https://example.com/start" }),
     classifyAccess: async () => "ok",

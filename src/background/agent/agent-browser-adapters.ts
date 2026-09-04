@@ -1,5 +1,6 @@
 import type {
   AgentCancellationSignal,
+  AgentObservationPort,
   AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
 import type { AgentSnapshotIdentity } from "@ollama-client/contracts"
@@ -17,6 +18,7 @@ import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import type { AgentTabHistory } from "./agent-tab-history"
 
 export interface AgentBrowserAdapters {
+  observation: AgentObservationPort
   resolver: AgentEffectResolverAdapter
   executor: AgentCommandExecutorAdapter
   verifier: AgentEffectVerifierAdapter
@@ -87,6 +89,10 @@ export const createAgentBrowserAdapters = (input: {
     )
 
   return {
+    observation: {
+      observe: (request, signal) =>
+        observe(request.tabId, request.minimumGeneration, signal)
+    },
     resolver: {
       getTab,
       classifyAccess: classifyAgentTabAccess,
