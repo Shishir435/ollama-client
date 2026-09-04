@@ -2,12 +2,17 @@
  * Port-conflict reporting for agent-proxy launches.
  *
  * A bind failure used to reach the user as `EADDRINUSE` plus a log path, which
- * says neither what holds the port nor what to do about it. This inspects the
- * port first and reports the occupant by name — including whether it is another
- * olc proxy, which is the common case — alongside a port that is actually free.
+ * says neither what holds the port nor what to do about it. This binds the port
+ * first and, when it is genuinely taken, reports the occupant by name —
+ * including whether it is another olc proxy, which is the common case —
+ * alongside a port that is actually free.
  *
- * Nothing here stops or signals a process: a launch that cannot have the port it
- * asked for fails and leaves the machine as it found it.
+ * Two rules shape the rest of this module. Nothing here stops or signals a
+ * process: a launch that cannot have the port it asked for fails and leaves the
+ * machine as it found it. And nothing a stranger supplied is printed as it
+ * arrived: the occupant's own service document and its process name are both
+ * written by whatever holds the port, so both are sanitized before they reach a
+ * terminal that would otherwise execute the escape sequences in them.
  */
 import { createServer } from "node:http"
 import path from "node:path"
@@ -22,6 +27,9 @@ export interface OlcService {
 
 const PROBE_TIMEOUT_MS = 1500
 const SUGGESTION_RANGE = 20
+
+/** A backend id is an identifier, so anything else is not one — not even quoted. */
+const BACKEND_ID = /^[a-z][a-z0-9-]{0,31}$/
 
 /** Only a proxy's own unauthenticated service document counts as identification. */
 export async function probeOlcService(
@@ -49,25 +57,37 @@ export async function probeOlcService(
   }
 }
 
-/** A port only counts as free once a real bind on the requested host succeeds. */
-export async function isPortFree(host: string, port: number): Promise<boolean> {
+/**
+ * Bind the port for real and report why that failed, if it did.
+ *
+ * The distinction matters to the user: `EADDRINUSE` means another port would
+ * work, while an unusable host or a privileged port means no port will, and
+ * sending them to retry on 8085 would waste their time.
+ */
+export async function probeBind(
+  host: string,
+  port: number
+): Promise<NodeJS.ErrnoException | undefined> {
   const server = createServer()
-  return new Promise<boolean>((resolve) => {
-    server.once("error", () => resolve(false))
-    server.listen(port, host, () => server.close(() => resolve(true)))
+  return new Promise<NodeJS.ErrnoException | undefined>((resolve) => {
+    server.once("error", (error: NodeJS.ErrnoException) => resolve(error))
+    server.listen(port, host, () => server.close(() => resolve(undefined)))
   })
 }
 
 export interface PreflightDependencies {
   listeners: (port: number) => Promise<Listener[]>
   probe: (url: string) => Promise<OlcService | undefined>
-  free: (host: string, port: number) => Promise<boolean>
+  bind: (
+    host: string,
+    port: number
+  ) => Promise<NodeJS.ErrnoException | undefined>
 }
 
 const dependencies: PreflightDependencies = {
   listeners,
   probe: probeOlcService,
-  free: isPortFree
+  bind: probeBind
 }
 
 /** Suggest a port the user can actually use, rather than telling them to guess. */
@@ -81,7 +101,7 @@ export async function findFreePort(
     candidate <= Math.min(port + SUGGESTION_RANGE, 65535);
     candidate++
   ) {
-    if (await deps.free(host, candidate)) return candidate
+    if (!(await deps.bind(host, candidate))) return candidate
   }
   return undefined
 }
@@ -93,17 +113,33 @@ export interface ProxyPortRequest {
 }
 
 /**
- * Resolve before spawning when the port is usable; otherwise throw the message
- * the user needs. Inspection is best effort — an unavailable `lsof` costs the
- * PID, not the diagnosis — so a launch is never blocked on failing to identify
- * an occupant.
+ * Resolve before spawning when the address is usable; otherwise throw the
+ * message the user needs. Inspection is best effort — an unavailable `lsof`
+ * costs the PID, not the diagnosis — so a launch is never blocked on failing to
+ * identify an occupant.
  */
 export async function assertProxyPortAvailable(
   request: ProxyPortRequest,
   deps: PreflightDependencies = dependencies
 ): Promise<void> {
-  if (await deps.free(request.host, request.port)) return
+  const error = await deps.bind(request.host, request.port)
+  if (!error) return
+  if (error.code !== "EADDRINUSE")
+    throw new Error(describeBindError(request, error))
   throw new Error(await describePortConflict(request, deps))
+}
+
+/** An address the machine will never give us is a configuration problem, not a busy port. */
+export function describeBindError(
+  request: ProxyPortRequest,
+  error: NodeJS.ErrnoException
+): string {
+  const address = `${request.host}:${request.port}`
+  if (error.code === "EACCES")
+    return `Cannot bind ${address}: permission denied.${request.port < 1024 ? " Ports below 1024 need elevated privileges" : " Something on this machine is refusing the bind"}, so pick a port above 1024 with --port.`
+  if (error.code === "EADDRNOTAVAIL" || error.code === "ENOTFOUND")
+    return `Cannot bind ${address}: this machine has no such address. Give --host an interface it actually has, or leave it at 127.0.0.1.`
+  return `Cannot bind ${address}: ${printable(error.code ?? error.message, 60)}. Check --host and --port.`
 }
 
 /** Name the occupant, then name the way forward. */
@@ -143,14 +179,33 @@ function occupant({
 }): string {
   const pid = owner ? ` (PID ${owner.pid})` : ""
   if (service) {
-    return service.backend === backend
-      ? `It is an olc ${service.backend} proxy${pid} — the extension can use it at ${url} as it is.`
-      : `It is an olc ${service.backend} proxy${pid}, not ${backend}.`
+    const named = BACKEND_ID.test(service.backend) ? service.backend : undefined
+    if (named === backend)
+      return `It is an olc ${named} proxy${pid} — the extension can use it at ${url} as it is.`
+    return named
+      ? `It is an olc ${named} proxy${pid}, not ${backend}.`
+      : `It is an olc proxy${pid} running some other backend, not ${backend}.`
   }
   if (count > 1) return "Several processes are listening on it."
   if (owner)
-    return `It is held by ${path.win32.basename(owner.executable)}${pid}, which did not answer as an olc proxy.`
+    return `It is held by ${printable(path.win32.basename(owner.executable), 40)}${pid}, which did not answer as an olc proxy.`
   return "The process holding it could not be identified."
+}
+
+/**
+ * Strip what a terminal would act on rather than print.
+ *
+ * A process name and a service document both come from whoever holds the port,
+ * and an escape sequence in either could rewrite this message, or reach further
+ * into terminals that answer OSC queries.
+ */
+function printable(value: string, limit: number): string {
+  const stripped = value
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, "")
+    .trim()
+  if (!stripped) return "an unnamed process"
+  return stripped.length > limit ? `${stripped.slice(0, limit)}…` : stripped
 }
 
 /** Stopping the occupant is the user's call, so give them the exact command. */

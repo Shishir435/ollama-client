@@ -200,10 +200,43 @@ threads, and maps its streamed messages, reasoning, model catalog, and dynamic
 tool calls onto the same OpenAI-compatible API. Codex account entitlements and
 usage limits still apply.
 
+### Updating
+
+```bash
+olc --version              # what is installed
+olc update                 # install the latest release
+olc update 0.13.3          # install a specific release
+olc update --check         # report what is available; install nothing
+olc update --json          # one JSON result on stdout, errors included
+```
+
+`olc update` downloads the same checksum-verified archive the installers use,
+from the release the GitHub API named — never a URL assembled from the argument.
+It replaces the directory it is running from, keeping the previous version until
+the new one is in place, so a failed download or a refused rename leaves the
+working installation exactly as it was.
+
+What it refuses, and why:
+
+- **A version with no release**, by name, listing the versions that do exist:
+  `Version 9.9.9 does not exist. Recent releases: 0.13.3, 0.13.2, ...`
+- **An argument that is not a version number**, before it reaches a URL.
+- **A repository checkout** - there is nothing to replace, and overwriting the
+  directory would take a working tree with it. Use `git pull`.
+- **Walking a development build backwards.** If the installed version is ahead of
+  every release, `olc update` says so instead of downgrading; naming that release
+  explicitly still installs it, because then it was asked for.
+
+`olc update --check` never touches the installation. Windows may refuse to
+replace a directory olc is running from; the failure says so and the previous
+version stays in place.
+
 ### Versioning
 
 olc ships with Ollama Client and carries the same version number; a contract test
-(`config/__tests__/package-versions.test.ts`) fails if the two drift.
+(`config/__tests__/package-versions.test.ts`) fails if the two drift - including
+the literal in `src/version.ts`, which is the only copy a release archive
+carries, since it ships no `package.json`.
 
 ### Use it from Ollama Client
 

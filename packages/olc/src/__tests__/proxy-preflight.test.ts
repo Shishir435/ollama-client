@@ -16,12 +16,16 @@ const listener = (overrides: Partial<Listener> = {}): Listener => ({
   ...overrides
 })
 
+const bindError = (code: string): NodeJS.ErrnoException =>
+  Object.assign(new Error(`listen ${code}`), { code })
+
 /** No OS inspection, no sockets: policy is tested without touching the machine. */
 function deps(overrides: Partial<PreflightDependencies> = {}) {
   return {
     listeners: async () => [listener()],
     probe: async () => ({ backend: "opencode" }),
-    free: async (_host: string, port: number) => port === 8085,
+    bind: async (_host: string, port: number) =>
+      port === 8085 ? undefined : bindError("EADDRINUSE"),
     ...overrides
   } satisfies PreflightDependencies
 }
@@ -29,9 +33,9 @@ function deps(overrides: Partial<PreflightDependencies> = {}) {
 const request = { backend: "opencode", host: "127.0.0.1", port: 8084 }
 
 describe("proxy port preflight", () => {
-  it("lets a launch through when the requested port actually binds", async () => {
+  it("lets a launch through when the requested address actually binds", async () => {
     await expect(
-      assertProxyPortAvailable(request, deps({ free: async () => true }))
+      assertProxyPortAvailable(request, deps({ bind: async () => undefined }))
     ).resolves.toBeUndefined()
   })
 
@@ -100,7 +104,7 @@ describe("proxy port preflight", () => {
   it("falls back to bare --port when nothing nearby is free", async () => {
     const message = await describePortConflict(
       request,
-      deps({ free: async () => false })
+      deps({ bind: async () => bindError("EADDRINUSE") })
     )
     expect(message).toContain("free port with --port")
     expect(message).not.toContain("--port 8085")
@@ -112,14 +116,89 @@ describe("proxy port preflight", () => {
       "127.0.0.1",
       8084,
       deps({
-        free: async (_host, candidate) => {
+        bind: async (_host, candidate) => {
           tried.push(candidate)
-          return candidate === 8087
+          return candidate === 8087 ? undefined : bindError("EADDRINUSE")
         }
       })
     )
     expect(port).toBe(8087)
     expect(tried).toEqual([8085, 8086, 8087])
+  })
+})
+
+describe("bind failures that another port cannot fix", () => {
+  it("does not call an unusable address a busy port", async () => {
+    await expect(
+      assertProxyPortAvailable(
+        { ...request, host: "10.1.2.3" },
+        deps({ bind: async () => bindError("EADDRNOTAVAIL") })
+      )
+    ).rejects.toThrow("this machine has no such address")
+  })
+
+  it("explains a privileged port rather than suggesting a retry", async () => {
+    await expect(
+      assertProxyPortAvailable(
+        { ...request, port: 80 },
+        deps({ bind: async () => bindError("EACCES") })
+      )
+    ).rejects.toThrow("Ports below 1024 need elevated privileges")
+  })
+
+  it("passes an unrecognized bind failure through by code", async () => {
+    await expect(
+      assertProxyPortAvailable(
+        request,
+        deps({ bind: async () => bindError("EINVAL") })
+      )
+    ).rejects.toThrow("Cannot bind 127.0.0.1:8084: EINVAL.")
+  })
+})
+
+describe("untrusted text from whoever holds the port", () => {
+  const ESCAPE = "\u001b"
+
+  it("refuses to print a backend name that is not an identifier", async () => {
+    const message = await describePortConflict(
+      request,
+      deps({
+        probe: async () => ({
+          backend: `opencode${ESCAPE}]0;pwned${ESCAPE}\u0007`
+        })
+      })
+    )
+    expect(message).not.toContain(ESCAPE)
+    expect(message).toContain("running some other backend")
+  })
+
+  it("strips control characters from a process name", async () => {
+    const message = await describePortConflict(
+      request,
+      deps({
+        probe: async () => undefined,
+        listeners: async () => [
+          listener({ executable: `/bin/ev${ESCAPE}[2Jil\u0000` })
+        ]
+      })
+    )
+    expect(message).not.toContain(ESCAPE)
+    expect(message).not.toContain("\u0000")
+    expect(message).toContain("held by ev[2Jil")
+  })
+
+  it("caps a process name a hostile occupant made long", async () => {
+    const message = await describePortConflict(
+      request,
+      deps({
+        probe: async () => undefined,
+        listeners: async () => [
+          listener({ executable: `/bin/${"x".repeat(500)}` })
+        ]
+      })
+    )
+    expect(message).toContain("\u2026")
+    expect(message.length).toBeLessThan(400)
   })
 })
 

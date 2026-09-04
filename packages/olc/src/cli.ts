@@ -26,6 +26,8 @@ import { runOllama } from "./ollama/runner.js"
 import { resolveProcessMode } from "./process-mode.js"
 import { serveProxy } from "./proxy-cli.js"
 import { assertProxyPortAvailable } from "./proxy-preflight.js"
+import { runUpdate } from "./update/runner.js"
+import { OLC_VERSION } from "./version.js"
 
 export { parseArgs } from "./cli-options.js"
 
@@ -50,6 +52,16 @@ const main = async () => {
 
   if (parsed.help) {
     console.log(USAGE)
+    return
+  }
+
+  if (parsed.options.VERSION === true) {
+    console.log(OLC_VERSION)
+    return
+  }
+
+  if (parsed.command === "update") {
+    await runUpdateCli(parsed)
     return
   }
 
@@ -124,6 +136,39 @@ function reportError(error: unknown, code: number) {
 }
 
 if (invokedDirectly) void main()
+
+/**
+ * Report an update the same way the native path reports a server: one line, or
+ * one JSON object when asked. A version that does not exist is an error, so it
+ * leaves through `reportError` with the available versions already in its text.
+ */
+async function runUpdateCli(
+  parsed: ReturnType<typeof parseArgs>
+): Promise<void> {
+  const json = parsed.options.JSON === true
+  try {
+    const result = await runUpdate({
+      requested: parsed.target ?? "latest",
+      check: parsed.options.CHECK === true,
+      json
+    })
+    console.log(json ? JSON.stringify(result) : result.message)
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unexpected failure"
+    if (json)
+      console.log(
+        JSON.stringify({
+          command: "update",
+          current: OLC_VERSION,
+          status: "error",
+          message
+        })
+      )
+    else console.error(`olc: ${message}`)
+    process.exitCode = 1
+  }
+}
 
 /** Keep foreground native sessions attached without changing read-only check behavior. */
 async function runNativeCli(
