@@ -431,6 +431,7 @@ const targetFromElement = (
   expected?: { value?: string; checked?: boolean }
 ): ResolvedAgentTarget => ({
   ref: element.ref,
+  verificationId: element.verificationId,
   frameId: 0,
   tag: element.tag,
   role: element.role,
@@ -531,6 +532,9 @@ const clickSemantics = (
   destination?: AgentDestination
   effects: AgentSemanticEffect[]
 } => {
+  if (element.tag === "input" && element.type?.toLowerCase() === "image") {
+    throw new Error("Agent image submit controls require takeover")
+  }
   if (element.href) {
     const destination = linkDestination(element)
     const effects: AgentSemanticEffect[] = ["navigation"]

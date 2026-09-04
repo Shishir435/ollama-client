@@ -183,6 +183,151 @@ const executeCheckedMutation = (
   dispatchFormEvents(element, true)
 }
 
+const associatedForm = (element: Element): HTMLFormElement | null =>
+  element instanceof HTMLButtonElement ||
+  element instanceof HTMLInputElement ||
+  element instanceof HTMLSelectElement ||
+  element instanceof HTMLTextAreaElement
+    ? element.form
+    : null
+
+const submissionButton = (
+  element: Element
+): HTMLButtonElement | HTMLInputElement | undefined => {
+  if (
+    element instanceof HTMLButtonElement &&
+    element.type.toLowerCase() === "submit"
+  ) {
+    return element
+  }
+  return element instanceof HTMLInputElement &&
+    element.type.toLowerCase() === "submit"
+    ? element
+    : undefined
+}
+
+const successfulControlValues = (
+  control: Element
+): readonly string[] | undefined => {
+  if (
+    !(control instanceof HTMLInputElement) &&
+    !(control instanceof HTMLSelectElement) &&
+    !(control instanceof HTMLTextAreaElement)
+  ) {
+    return undefined
+  }
+  if (!control.name || control.matches(":disabled")) return undefined
+  if (control instanceof HTMLInputElement) {
+    const type = control.type.toLowerCase()
+    if (["button", "file", "image", "reset", "submit"].includes(type)) {
+      return undefined
+    }
+    if (["checkbox", "radio"].includes(type) && !control.checked) {
+      return undefined
+    }
+    return [control.value]
+  }
+  if (control instanceof HTMLSelectElement) {
+    return Array.from(control.selectedOptions)
+      .filter(
+        (option) =>
+          !option.disabled &&
+          !(
+            option.parentElement instanceof HTMLOptGroupElement &&
+            option.parentElement.disabled
+          )
+      )
+      .map((option) => option.value)
+  }
+  return [control.value]
+}
+
+const appendSubmissionValue = (
+  form: HTMLFormElement,
+  name: string,
+  value: string
+): void => {
+  const field = form.ownerDocument.createElement("input")
+  field.type = "hidden"
+  field.name = name
+  field.value = value
+  form.append(field)
+}
+
+/**
+ * Native click/requestSubmit run page handlers before the browser consumes the
+ * destination. Submit a fresh form containing only the already-bound standard
+ * controls, so page listeners cannot swap the approved target during the
+ * activation event. Sensitive and file controls are rejected by policy first.
+ */
+const buildGuardedSubmission = (
+  form: HTMLFormElement,
+  submitter: HTMLButtonElement | HTMLInputElement | undefined,
+  destination: string,
+  method: "get" | "post"
+): HTMLFormElement => {
+  const guarded = form.ownerDocument.createElement("form")
+  guarded.hidden = true
+  guarded.action = destination
+  guarded.method = method
+  guarded.enctype = submitter?.formEnctype || form.enctype
+  guarded.acceptCharset = form.acceptCharset
+  guarded.target = "_self"
+  for (const control of Array.from(form.elements)) {
+    const values =
+      control instanceof Element ? successfulControlValues(control) : undefined
+    if (!values || !("name" in control)) continue
+    for (const value of values) {
+      appendSubmissionValue(guarded, String(control.name), value)
+    }
+  }
+  if (submitter?.name) {
+    appendSubmissionValue(guarded, submitter.name, submitter.value)
+  }
+  return guarded
+}
+
+const submitWithoutPageHandlers = (
+  effect: AgentDomMutationInstruction,
+  element: Element
+): void => {
+  const form = associatedForm(element)
+  const destination = effect.target.formAction
+  if (!form || !destination || !effect.target.formMethod) {
+    throw new Error("Agent submit target is no longer supported")
+  }
+  if (effect.target.formMethod === "dialog") {
+    throw new Error("Agent dialog form submission requires takeover")
+  }
+  const submitter = submissionButton(element)
+  const skipsValidation = form.noValidate || Boolean(submitter?.formNoValidate)
+  const invalid = Array.from(form.elements).some(
+    (control) =>
+      (control instanceof HTMLButtonElement ||
+        control instanceof HTMLInputElement ||
+        control instanceof HTMLSelectElement ||
+        control instanceof HTMLTextAreaElement) &&
+      control.willValidate &&
+      !control.validity.valid
+  )
+  if (!skipsValidation && invalid) {
+    throw new Error("Agent form is not valid for submission")
+  }
+
+  const guarded = buildGuardedSubmission(
+    form,
+    submitter,
+    destination,
+    effect.target.formMethod
+  )
+  try {
+    element.ownerDocument.body.append(guarded)
+    HTMLFormElement.prototype.submit.call(guarded)
+  } finally {
+    guarded.remove()
+  }
+}
+
 const executeKey = (
   effect: AgentDomMutationInstruction,
   element: Element
@@ -191,22 +336,7 @@ const executeKey = (
     throw new Error("Invalid Agent key effect")
   }
   if (effect.command.key === "Enter" && effect.target.maySubmit) {
-    if (
-      effect.target.submitter &&
-      (element instanceof HTMLButtonElement ||
-        element instanceof HTMLInputElement)
-    ) {
-      element.click()
-      return
-    }
-    const form =
-      element instanceof HTMLInputElement ||
-      element instanceof HTMLTextAreaElement ||
-      element instanceof HTMLSelectElement
-        ? element.form
-        : null
-    if (!form) throw new Error("Agent submit form is no longer available")
-    form.requestSubmit()
+    submitWithoutPageHandlers(effect, element)
     return
   }
   const init = {
@@ -235,6 +365,9 @@ export const executeAgentDomMutationInDocument = (input: {
   }
   const element = input.references.resolve(ref, identity)
   if (!element) throw new Error("Agent mutation target is stale")
+  if (!input.references.matchesFormState(ref, identity)) {
+    throw new Error("Agent mutation form state changed after approval")
+  }
   assertUnchangedMutationTarget(input.effect, element)
   if (
     input.effect.target.sensitive ||
@@ -248,7 +381,14 @@ export const executeAgentDomMutationInDocument = (input: {
       if (!(element instanceof HTMLElement)) {
         throw new Error("Agent click target is no longer supported")
       }
-      element.click()
+      if (input.effect.target.href) {
+        throw new Error("Agent link activation must use guarded navigation")
+      }
+      if (input.effect.target.submitter) {
+        submitWithoutPageHandlers(input.effect, element)
+      } else {
+        element.click()
+      }
       break
     case "type":
     case "clear_and_type":
@@ -500,7 +640,18 @@ export const DOM_MUTATION_AGENT_EXECUTORS = {
     if (effect.destination) {
       await assertReadable(adapter, effect.destination.url)
     }
-    await adapter.mutate(effect, signal)
+    if (
+      effect.destination &&
+      effect.semanticEffects.includes("navigation") &&
+      !effect.semanticEffects.includes("submission")
+    ) {
+      await adapter.navigate(
+        effect.snapshotIdentity.tabId,
+        effect.destination.url
+      )
+    } else {
+      await adapter.mutate(effect, signal)
+    }
     return receipt(adapter, "click")
   },
   async type(effect, adapter, signal) {

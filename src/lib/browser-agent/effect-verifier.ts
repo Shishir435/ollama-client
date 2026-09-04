@@ -399,6 +399,8 @@ const sameElementSemantics = (
   element: AgentObservation["elements"][number]
 ): boolean =>
   element.frameId === 0 &&
+  (input.effect.target.verificationId === undefined ||
+    element.verificationId === input.effect.target.verificationId) &&
   element.tag === input.effect.target.tag &&
   element.role === input.effect.target.role &&
   element.name === input.effect.target.accessibleName &&

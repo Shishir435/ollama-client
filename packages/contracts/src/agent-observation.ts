@@ -20,6 +20,7 @@ export type AgentSelectOption = z.infer<typeof AgentSelectOptionSchema>
 export const AgentElementSchema = z
   .object({
     ref: z.string().min(1),
+    verificationId: z.string().min(1).max(128).optional(),
     frameId: z.number().int().nonnegative(),
     role: z.string().min(1).optional(),
     name: z.string().optional(),

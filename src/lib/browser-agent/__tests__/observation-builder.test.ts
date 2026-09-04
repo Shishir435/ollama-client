@@ -131,6 +131,41 @@ describe("Agent observation builder", () => {
     })
   })
 
+  it("keeps repeated controls distinct across observation generations", () => {
+    const first = document.createElement("input")
+    const second = document.createElement("input")
+    first.setAttribute("aria-label", "Quantity")
+    second.setAttribute("aria-label", "Quantity")
+    document.body.append(first, second)
+    let nextVerificationId = 0
+    let nextSnapshotId = 0
+    const references = createAgentElementReferenceStore({
+      documentId: "document-1",
+      createVerificationId: () => `control-${++nextVerificationId}`
+    })
+    const observe = () =>
+      buildAgentObservation({
+        document,
+        tabId: 7,
+        documentId: "document-1",
+        minimumGeneration: 0,
+        references,
+        createSnapshotId: () => `snapshot-${++nextSnapshotId}`,
+        capturedAt: 1
+      })
+
+    const before = observe()
+    const after = observe()
+    expect(before.elements.map((element) => element.verificationId)).toEqual([
+      "control-1",
+      "control-2"
+    ])
+    expect(after.elements.map((element) => element.verificationId)).toEqual([
+      "control-1",
+      "control-2"
+    ])
+  })
+
   it.each([
     [
       "hidden input",

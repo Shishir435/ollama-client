@@ -48,6 +48,7 @@ export type AgentObserveResponse = z.infer<typeof AgentObserveResponseSchema>
 const AgentDomMutationTargetSchema = z
   .object({
     ref: z.string().min(1),
+    verificationId: z.string().min(1).max(128).optional(),
     frameId: z.literal(0),
     tag: z.string().min(1),
     role: z.string().min(1).optional(),

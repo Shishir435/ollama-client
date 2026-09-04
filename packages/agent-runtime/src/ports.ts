@@ -28,6 +28,7 @@ export interface AgentObserveRequest {
 
 export interface ResolvedAgentTarget {
   ref?: string
+  verificationId?: string
   frameId?: 0
   tag?: string
   role?: string

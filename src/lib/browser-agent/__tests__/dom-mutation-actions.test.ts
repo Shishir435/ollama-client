@@ -423,7 +423,13 @@ describe("Agent DOM mutation execution", () => {
     })
     const ref = snapshot.reference(target)
     const before = observation({
-      elements: [buildAgentElementObservation(target, ref)]
+      elements: [
+        buildAgentElementObservation(
+          target,
+          ref,
+          snapshot.verificationId(target)
+        )
+      ]
     })
     return { effect: await authorize(action, before), references }
   }
@@ -581,6 +587,132 @@ describe("Agent DOM mutation execution", () => {
     ).toThrow("changed after approval")
   })
 
+  it("detects hidden form-field changes without exposing their value", async () => {
+    const form = document.createElement("form")
+    form.action = "/finish"
+    const hidden = document.createElement("input")
+    hidden.type = "hidden"
+    hidden.name = "routing-token"
+    hidden.value = "recipient-a"
+    const submit = document.createElement("button")
+    submit.textContent = "Continue"
+    form.append(hidden, submit)
+    document.body.append(form)
+    const { effect, references } = await liveEffect(
+      command({ type: "click", ref: "e1" }),
+      submit
+    )
+    expect(JSON.stringify(effect)).not.toContain("recipient-a")
+
+    hidden.value = "recipient-b"
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow("form state changed after approval")
+  })
+
+  it("submits without invoking page-controlled click or submit handlers", async () => {
+    const form = document.createElement("form")
+    form.action = "/finish"
+    const submit = document.createElement("button")
+    submit.name = "intent"
+    submit.value = "save"
+    submit.textContent = "Continue"
+    form.append(submit)
+    document.body.append(form)
+    const clickHandler = vi.fn(() => {
+      form.action = "https://attacker.example/click"
+    })
+    const submitHandler = vi.fn((event: SubmitEvent) => {
+      event.preventDefault()
+      form.action = "https://attacker.example/submit"
+    })
+    submit.addEventListener("click", clickHandler)
+    form.addEventListener("submit", submitHandler)
+    const nativeSubmit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "click", ref: "e1" }),
+      submit
+    )
+
+    executeAgentDomMutationInDocument({
+      effect,
+      document,
+      references,
+      signal
+    })
+    expect(nativeSubmit).toHaveBeenCalledOnce()
+    expect(clickHandler).not.toHaveBeenCalled()
+    expect(submitHandler).not.toHaveBeenCalled()
+    expect(form.action).toBe(new URL("/finish", location.href).href)
+  })
+
+  it("submits Enter through one guarded copy of the focused field", async () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const input = document.createElement("input")
+    input.name = "query"
+    input.value = "safe value"
+    form.append(input)
+    document.body.append(form)
+    input.focus()
+    const keyHandler = vi.fn(() => {
+      form.action = "https://attacker.example/keypress"
+    })
+    input.addEventListener("keydown", keyHandler)
+    let submittedForm: HTMLFormElement | undefined
+    vi.spyOn(HTMLFormElement.prototype, "submit").mockImplementation(function (
+      this: HTMLFormElement
+    ) {
+      submittedForm = this
+    })
+    const { effect, references } = await liveEffect(
+      command({ type: "press_key", ref: "e1", key: "Enter" }),
+      input
+    )
+
+    executeAgentDomMutationInDocument({
+      effect,
+      document,
+      references,
+      signal
+    })
+    expect(keyHandler).not.toHaveBeenCalled()
+    expect(submittedForm?.action).toBe(new URL("/search", location.href).href)
+    expect(submittedForm?.querySelectorAll('input[name="query"]')).toHaveLength(
+      1
+    )
+  })
+
+  it("navigates observed links without invoking page click handlers", async () => {
+    const destination = new URL("/next", location.href).href
+    const link = document.createElement("a")
+    link.href = destination
+    link.textContent = "Next"
+    const clickHandler = vi.fn(() => {
+      link.href = "https://attacker.example/"
+    })
+    link.addEventListener("click", clickHandler)
+    const { effect } = await liveEffect(
+      command({ type: "click", ref: "e1" }),
+      link
+    )
+    const mutate = vi.fn()
+    const adapter = executorAdapter(mutate)
+    const navigate = vi.mocked(adapter.navigate)
+
+    await executeDomMutationAgentEffect({ effect, adapter, signal })
+    expect(navigate).toHaveBeenCalledWith(7, destination)
+    expect(mutate).not.toHaveBeenCalled()
+    expect(clickHandler).not.toHaveBeenCalled()
+  })
+
   it("rechecks a resolved destination immediately before activation", async () => {
     const destination = "https://blocked.example/submit"
     const before = observation({
@@ -665,6 +797,63 @@ describe("Agent DOM mutation verification", () => {
     )
     expect(result.outcome).toBe("confirmed")
     expect(JSON.stringify(result)).not.toContain(secretLikeValue)
+  })
+
+  it("uses an extension-issued identity to verify repeated controls", async () => {
+    const before = observation({
+      elements: [
+        element({
+          ref: "e1",
+          verificationId: "control-a",
+          tag: "input",
+          type: "text",
+          name: "Quantity",
+          editable: true,
+          value: "old"
+        }),
+        element({
+          ref: "e2",
+          verificationId: "control-b",
+          tag: "input",
+          type: "text",
+          name: "Quantity",
+          editable: true,
+          value: "old"
+        })
+      ]
+    })
+    const after = observation({
+      snapshotId: "snapshot-2",
+      generation: 2,
+      elements: [
+        element({
+          ref: "e8",
+          verificationId: "control-a",
+          tag: "input",
+          type: "text",
+          name: "Quantity",
+          editable: true,
+          value: "old"
+        }),
+        element({
+          ref: "e9",
+          verificationId: "control-b",
+          tag: "input",
+          type: "text",
+          name: "Quantity",
+          editable: true,
+          value: "new"
+        })
+      ]
+    })
+
+    await expect(
+      verify(
+        command({ type: "clear_and_type", ref: "e2", text: "new" }),
+        after,
+        before
+      )
+    ).resolves.toMatchObject({ outcome: "confirmed" })
   })
 
   it("treats an unexpected checked state as user interference", async () => {

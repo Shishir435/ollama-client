@@ -220,6 +220,7 @@ describe("read-only Agent effects", () => {
       invalidate: vi.fn(),
       currentGeneration: () => 2,
       matches: () => false,
+      matchesFormState: () => false,
       resolve: vi.fn()
     }
     expect(() =>

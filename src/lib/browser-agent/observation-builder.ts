@@ -281,6 +281,12 @@ const formMethod = (
   return method === "post" || method === "dialog" ? method : "get"
 }
 
+/**
+ * Bounded, non-sensitive evidence for the background resolver. This value is
+ * not the execution-time security binding: the content-script reference store
+ * separately retains and compares the exact form state, including hidden
+ * values, without sending those values across the port.
+ */
 const stableFormFingerprint = (form: HTMLFormElement): string => {
   const serialized = Array.from(form.elements)
     .map((control) => {
@@ -427,7 +433,8 @@ const observedControlFields = (
 
 export const buildAgentElementObservation = (
   element: Element,
-  ref: string
+  ref: string,
+  verificationId?: string
 ): AgentElement => {
   const visible = isVisible(element)
   const sensitive = !visible || isSensitiveAgentElement(element)
@@ -439,6 +446,7 @@ export const buildAgentElementObservation = (
   const maySubmit = submitter || maySubmitWithEnter(element)
   return {
     ref,
+    ...(verificationId ? { verificationId } : {}),
     frameId: 0,
     role: element.getAttribute("role") || undefined,
     ...(name
@@ -486,7 +494,11 @@ export const buildAgentObservation = (input: {
     input.document.querySelectorAll(INTERACTIVE_SELECTOR)
   ).slice(0, AGENT_OBSERVATION_LIMITS.elements)
   const elements = candidates.map((element) =>
-    buildAgentElementObservation(element, snapshot.reference(element))
+    buildAgentElementObservation(
+      element,
+      snapshot.reference(element),
+      snapshot.verificationId(element)
+    )
   )
   const visibleText = input.document.body
     ? collectVisibleText(
