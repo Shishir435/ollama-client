@@ -150,6 +150,11 @@ export const createProviderAgentModelPort = (
 
   return {
     async decide({ state, observation }, signal) {
+      if ((malformedByRun.get(state.id) ?? 0) >= MAX_MALFORMED_PER_RUN) {
+        throw new AgentDecisionFormatError(
+          "The Agent malformed-response budget is exhausted"
+        )
+      }
       const compatibilityScope = providerSignal(signal)
       const compatibility = await resolveCompatibility(
         state.providerId,

@@ -299,7 +299,6 @@ export interface AgentControllerDependencies {
   takeover: AgentTakeoverPort
   clock: AgentClockPort
   createCancellationController?: () => AgentCancellationController
-  maxMalformedDecisions?: number
 }
 
 export const agentFailure = (

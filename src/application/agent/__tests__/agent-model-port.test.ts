@@ -236,6 +236,9 @@ describe("createProviderAgentModelPort", () => {
     await expect(
       port.decide({ state, observation }, { aborted: false })
     ).rejects.toThrow("Expected one agent decision")
+    await expect(
+      port.decide({ state, observation }, { aborted: false })
+    ).rejects.toThrow("malformed-response budget is exhausted")
     expect(streamChat).toHaveBeenCalledTimes(9)
   })
 

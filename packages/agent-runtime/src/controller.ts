@@ -30,7 +30,6 @@ import { AgentMalformedDecisionError, agentFailure, pausePatch } from "./ports"
 import { AGENT_STATUS_PREDECESSORS, isTerminalAgentStatus } from "./state"
 import { classifyVerificationOutcome } from "./verification"
 
-const DEFAULT_MAX_MALFORMED_DECISIONS = 5
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
 
 /**
@@ -220,20 +219,14 @@ export const createAgentController = (
     observation: AgentObservation,
     signal: AgentCancellationController["signal"]
   ) => {
-    const maximum =
-      dependencies.maxMalformedDecisions ?? DEFAULT_MAX_MALFORMED_DECISIONS
-    for (let attempt = 1; attempt <= maximum; attempt += 1) {
-      let raw: unknown
-      try {
-        raw = await dependencies.model.decide({ state, observation }, signal)
-      } catch (error) {
-        if (error instanceof AgentMalformedDecisionError) return undefined
-        throw error
-      }
-      const parsed = AgentDecisionSchema.safeParse(raw)
-      if (parsed.success) return parsed.data
+    let raw: unknown
+    try {
+      raw = await dependencies.model.decide({ state, observation }, signal)
+    } catch (error) {
+      if (error instanceof AgentMalformedDecisionError) return undefined
+      throw error
     }
-    return undefined
+    return AgentDecisionSchema.safeParse(raw).data
   }
 
   const observe = async (
