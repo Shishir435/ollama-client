@@ -448,7 +448,7 @@ Contract tests worth knowing about, because they enforce conventions no reviewer
 Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a release branch into `preview`, validate it there, then merge `preview` into `main`. Do not promote a release branch directly to `main`.
 
 - `pre-commit`: lint-staged (Biome fixes on staged files and `test:related`) → one full `typecheck`. **Does not run the full suite.**
-- `pre-push`: production dependency audit → `pnpm verify` (shared static checks and full tests). Builds and browser gates belong to CI / `verify:release`, not hooks.
+- `pre-push`: production dependency audit → `pnpm verify` (shared static checks and full tests) → `package` + `bundle:check` for both browsers, because a bundle budget can only be measured against a real build and finding out from CI costs a whole round trip. Browser automation, docs and release gates still belong to CI / `verify:release`.
 - `tools/README.md` documents command ownership and prerequisites. `check:static` is shared by CI and local verification; `verify:ci-parity` runs static checks and coverage on committed HEAD in a clean worktree.
 - Never bypass with `--no-verify`. If a hook fails, fix the cause.
 

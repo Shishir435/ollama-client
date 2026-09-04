@@ -48,6 +48,10 @@ import {
 } from "./setting-schemas"
 
 export const SETTINGS = {
+  AGENT_REMOTE_OBSERVATION_ACKNOWLEDGED: defineSetting<boolean>(
+    STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED,
+    { defaultValue: false, parser: z.boolean() }
+  ),
   LANGUAGE: defineSetting<string>(STORAGE_KEYS.LANGUAGE, {
     defaultValue: "en"
   }),

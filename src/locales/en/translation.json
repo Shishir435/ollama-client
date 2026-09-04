@@ -1,4 +1,73 @@
 {
+  "agent": {
+    "title": "Supervised Agent",
+    "surface": { "chat": "Chat", "agent": "Agent", "preview": "Preview" },
+    "start": {
+      "description": "Supervise a browser task from this panel.",
+      "goal": "What should Agent do?",
+      "placeholder": "Describe one browser task…",
+      "action": "Start Agent"
+    },
+    "provider": {
+      "label": "Provider",
+      "local": "Local",
+      "remote": "Remote",
+      "missing": "Select a model first"
+    },
+    "tab": {
+      "label": "Controlled tab",
+      "missing": "Open a supported web page"
+    },
+    "privacy": {
+      "remote_notice": "Page observations will be sent continuously to this remote provider while Agent runs.",
+      "acknowledge": "I understand"
+    },
+    "observations": "{{count}} observations",
+    "controls": {
+      "label": "Agent controls",
+      "pause": "Pause",
+      "resume": "Resume",
+      "stop": "Stop",
+      "takeover_done": "I’m done — continue"
+    },
+    "approval": {
+      "title": "Approval required",
+      "allow": "Allow once",
+      "reject": "Reject"
+    },
+    "takeover": { "title": "Take over this step" },
+    "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
+    "work_log": { "title": "Work log" },
+    "completion": {
+      "summary": "{{count}} page observations were sent to {{provider}} during this run."
+    },
+    "feedback": "Send feedback",
+    "status": {
+      "submitted": "Starting",
+      "observing": "Observing page",
+      "deciding": "Choosing next step",
+      "awaiting_approval": "Waiting for approval",
+      "awaiting_takeover": "Waiting for you",
+      "executing": "Performing action",
+      "verifying": "Verifying result",
+      "pause_requested": "Pausing",
+      "paused": "Paused",
+      "cancelling": "Stopping",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Stopped"
+    },
+    "step_status": {
+      "planned": "Planned",
+      "approved": "Approved",
+      "executing": "Running",
+      "executed": "Done",
+      "verified": "Verified",
+      "rejected": "Rejected",
+      "failed": "Failed",
+      "uncertain": "Review"
+    }
+  },
   "common": {
     "theme": {
       "toggle": "Toggle Theme",

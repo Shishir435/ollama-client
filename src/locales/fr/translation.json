@@ -1,4 +1,73 @@
 {
+  "agent": {
+    "title": "Agent supervisé",
+    "surface": { "chat": "Chat", "agent": "Agent", "preview": "Aperçu" },
+    "start": {
+      "description": "Supervisez une tâche du navigateur depuis ce panneau.",
+      "goal": "Que doit faire l’Agent ?",
+      "placeholder": "Décrivez une tâche du navigateur…",
+      "action": "Démarrer l’Agent"
+    },
+    "provider": {
+      "label": "Fournisseur",
+      "local": "Local",
+      "remote": "Distant",
+      "missing": "Sélectionnez d’abord un modèle"
+    },
+    "tab": {
+      "label": "Onglet contrôlé",
+      "missing": "Ouvrez une page prise en charge"
+    },
+    "privacy": {
+      "remote_notice": "Les observations de page seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent.",
+      "acknowledge": "J’ai compris"
+    },
+    "observations": "{{count}} observations",
+    "controls": {
+      "label": "Commandes de l’Agent",
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "stop": "Arrêter",
+      "takeover_done": "Terminé — continuer"
+    },
+    "approval": {
+      "title": "Approbation requise",
+      "allow": "Autoriser une fois",
+      "reject": "Refuser"
+    },
+    "takeover": { "title": "Prenez le contrôle de cette étape" },
+    "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
+    "work_log": { "title": "Journal de travail" },
+    "completion": {
+      "summary": "{{count}} observations de page ont été envoyées à {{provider}} pendant cette exécution."
+    },
+    "feedback": "Envoyer un avis",
+    "status": {
+      "submitted": "Démarrage",
+      "observing": "Observation de la page",
+      "deciding": "Choix de l’étape suivante",
+      "awaiting_approval": "En attente d’approbation",
+      "awaiting_takeover": "En attente de vous",
+      "executing": "Action en cours",
+      "verifying": "Vérification du résultat",
+      "pause_requested": "Mise en pause",
+      "paused": "En pause",
+      "cancelling": "Arrêt",
+      "completed": "Terminé",
+      "failed": "Échec",
+      "cancelled": "Arrêté"
+    },
+    "step_status": {
+      "planned": "Planifié",
+      "approved": "Approuvé",
+      "executing": "En cours",
+      "executed": "Effectué",
+      "verified": "Vérifié",
+      "rejected": "Refusé",
+      "failed": "Échec",
+      "uncertain": "À vérifier"
+    }
+  },
   "common": {
     "theme": {
       "toggle": "Basculer le Thème",

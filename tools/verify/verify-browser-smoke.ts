@@ -157,6 +157,21 @@ const expectLazyLocaleArtifacts = (
   )
 }
 
+const expectChunk = (
+  relativeOutputDir: string,
+  matcher: RegExp,
+  expected: boolean,
+  label: string,
+  browserName: string
+): void => {
+  const chunkNames = readdirSync(resolve(rootDir, relativeOutputDir, "chunks"))
+  const found = chunkNames.some((name) => matcher.test(name))
+  assert(
+    found === expected,
+    `${browserName} build ${expected ? "missing" : "should not include"} chunk: ${label}`
+  )
+}
+
 const expectBackgroundScript = (
   manifest: ExtensionManifest,
   matcher: RegExp,
@@ -322,6 +337,34 @@ const main = (): void => {
   )
   expectLazyLocaleArtifacts("build/chrome-mv3-prod", "Chrome")
   expectLazyLocaleArtifacts("build/firefox-mv2-prod", "Firefox")
+  expectChunk(
+    "build/chrome-mv3-prod",
+    /^agent-view-[\w-]+\.js$/,
+    true,
+    "Agent Preview",
+    "Chrome"
+  )
+  expectChunk(
+    "build/firefox-mv2-prod",
+    /^agent-view-[\w-]+\.js$/,
+    false,
+    "Agent Preview",
+    "Firefox"
+  )
+  expectBuiltFile(
+    "build/chrome-mv3-prod/content-scripts/agent-control.js",
+    "runtime-injected Agent control",
+    "Chrome"
+  )
+  assert(
+    !existsSync(
+      resolve(
+        rootDir,
+        "build/firefox-mv2-prod/content-scripts/agent-control.js"
+      )
+    ),
+    "Firefox build should not include Agent control content script"
+  )
 
   expectPermission(chromeManifest, "storage", "Chrome")
   expectPermission(chromeManifest, "tabs", "Chrome")

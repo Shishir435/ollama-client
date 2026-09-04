@@ -79,3 +79,6 @@ declare const __SPIKE_OPFS_OWNER_MV2__: boolean
  * worker chunk out of the Chromium background entry.
  */
 declare const __FIREFOX_BG_OWNER__: boolean
+
+/** Chromium-only product gate. False lets Firefox builds erase Agent code. */
+declare const __AGENT_PREVIEW_ENABLED__: boolean

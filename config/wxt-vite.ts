@@ -45,7 +45,12 @@ export const persistenceDefines = (
   __SPIKE_OPFS_OWNER_MV2__: JSON.stringify(
     target.spikeOwner && target.browser === "firefox"
   ),
-  __FIREFOX_BG_OWNER__: JSON.stringify(target.browser === "firefox")
+  __FIREFOX_BG_OWNER__: JSON.stringify(target.browser === "firefox"),
+  /**
+   * Agent Preview is a Chromium product surface. Keeping this compile-time
+   * means Firefox bundles contain neither its UI nor its background runtime.
+   */
+  __AGENT_PREVIEW_ENABLED__: JSON.stringify(target.browser !== "firefox")
 })
 
 /**
