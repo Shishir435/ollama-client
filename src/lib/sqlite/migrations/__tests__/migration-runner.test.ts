@@ -95,6 +95,7 @@ const makeDb = (
     messages?: string[]
     sessions?: string[]
     tables?: string[]
+    agentRunColumns?: string[]
   } = {}
 ) => {
   let userVersion = initialVersion
@@ -132,14 +133,33 @@ const makeDb = (
       if (match) userVersion = Number(match[1])
     }),
     prepare: vi.fn((sql: string) => {
-      const tableInfoMatch = /PRAGMA table_info\((messages|sessions)\)/.exec(
-        sql
-      )
-      const rows = tableInfoMatch
-        ? columns[tableInfoMatch[1] as "messages" | "sessions"].map((name) => ({
-            name
-          }))
-        : []
+      const tableInfoMatch =
+        /PRAGMA table_info\((messages|sessions|agent_runs|agent_steps)\)/.exec(
+          sql
+        )
+      const infoTable = tableInfoMatch?.[1]
+      /*
+       * The agent tables answer their own shape, because the drift repair asks
+       * for columns rather than presence: a table left by an older build is
+       * there and still wrong.
+       */
+      const agentColumns: Record<string, string[]> = {
+        agent_runs: schema.agentRunColumns ?? [
+          "id",
+          "status",
+          "checkpoint",
+          "createdAt",
+          "updatedAt"
+        ],
+        agent_steps: ["id", "runId", "stepId", "status", "receipt", "createdAt"]
+      }
+      const names =
+        infoTable === "messages" || infoTable === "sessions"
+          ? columns[infoTable]
+          : infoTable && tables.has(infoTable)
+            ? agentColumns[infoTable]
+            : []
+      const rows = names.map((name) => ({ name }))
       let index = -1
       let boundTable = ""
       return {
@@ -220,6 +240,26 @@ describe("migration-runner", () => {
     expect(ensureModelPullRunsTable).toHaveBeenCalledTimes(1)
     expect(ensureAgentRunsTables).toHaveBeenCalledTimes(1)
     expect(getSchemaVersion(db as never)).toBe(LATEST_SCHEMA_VERSION)
+  })
+
+  it("rebuilds Agent tables a pre-release build left behind", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION, {
+      agentRunColumns: ["id", "status", "state", "createdAt", "updatedAt"]
+    })
+
+    const repaired = repairSchemaDrift(db as never)
+
+    expect(repaired).toBeGreaterThan(0)
+    expect(db.run).toHaveBeenCalledWith("DROP TABLE IF EXISTS agent_runs")
+    expect(ensureAgentRunsTables).toHaveBeenCalledTimes(1)
+  })
+
+  it("leaves Agent tables alone when their shape is current", () => {
+    const db = makeDb(LATEST_SCHEMA_VERSION)
+
+    repairSchemaDrift(db as never)
+
+    expect(ensureAgentRunsTables).not.toHaveBeenCalled()
   })
 
   it("only runs migrations above the current version", () => {

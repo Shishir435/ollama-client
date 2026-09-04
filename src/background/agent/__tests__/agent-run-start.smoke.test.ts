@@ -84,6 +84,31 @@ afterEach(() => {
   globalThis.__persistenceHostCall = undefined
 })
 
+const startService = (
+  createAgentRunService: typeof import("../agent-run-service").createAgentRunService,
+  runId: string
+) =>
+  createAgentRunService({
+    sessions: {
+      observe: vi.fn(),
+      executeDomMutation: vi.fn(),
+      executeScroll: vi.fn(),
+      release: vi.fn()
+    },
+    buildController: () => ({
+      start: vi.fn(async () => undefined),
+      requestPause: vi.fn(async () => undefined),
+      resume: vi.fn(async () => undefined),
+      requestCancel: vi.fn(async () => undefined),
+      completeTakeover: vi.fn(async () => undefined)
+    }),
+    hasPerception: async () => true,
+    getTab: async () => ({ url: "https://example.com/start" }),
+    classifyAccess: async () => "ok",
+    now: () => 1_700_000_000_000,
+    newRunId: () => runId
+  })
+
 describe("starting an Agent run against the real engine", () => {
   it(
     "writes the run and reports it back to the panel",
@@ -170,6 +195,50 @@ describe("starting an Agent run against the real engine", () => {
         })
       ).rejects.toThrow("already unresolved")
       expect(restarted.activeRunId()).toBe("run-smoke-1")
+    },
+    TIMEOUT
+  )
+
+  it(
+    "starts on a profile whose Agent tables were left by an older build",
+    async () => {
+      vi.resetModules()
+      installOwner()
+      const db = await import("@/lib/sqlite/db")
+
+      /*
+       * A pre-release Agent build's table, which `CREATE TABLE IF NOT EXISTS`
+       * will never correct: it exists, so every shipped query against it
+       * answers "no such column".
+       */
+      await db.run("DROP TABLE IF EXISTS agent_steps")
+      await db.run("DROP TABLE IF EXISTS agent_runs")
+      await db.run(
+        `CREATE TABLE agent_runs (
+           id TEXT PRIMARY KEY,
+           status TEXT NOT NULL,
+           state TEXT NOT NULL,
+           createdAt INTEGER NOT NULL,
+           updatedAt INTEGER NOT NULL
+         )`
+      )
+      await db.flushSave()
+
+      vi.resetModules()
+      installOwner()
+      const { createAgentRunService } = await import("../agent-run-service")
+
+      const state = await startService(
+        createAgentRunService,
+        "run-smoke-3"
+      ).start({
+        goal: "Click any button on this page",
+        tabId: 7,
+        providerId: "ollama",
+        modelId: "qwen3"
+      })
+
+      expect(state.id).toBe("run-smoke-3")
     },
     TIMEOUT
   )
