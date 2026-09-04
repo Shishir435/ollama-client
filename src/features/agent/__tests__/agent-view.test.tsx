@@ -29,17 +29,21 @@ describe("AgentView", () => {
   it("enforces remote-observation acknowledgement before start", () => {
     const acknowledge = vi.fn()
     const start = vi.fn()
+    const onGoalChange = vi.fn()
     const { rerender } = render(
       <AgentView
         provider={{ name: "Remote", location: "remote" }}
         tab={{ title: "Example", url: "https://example.com" }}
+        goal="Compare these products"
+        onGoalChange={onGoalChange}
         onAcknowledgePrivacy={acknowledge}
         onStart={start}
       />
     )
     fireEvent.change(screen.getByRole("textbox"), {
-      target: { value: "Compare these products" }
+      target: { value: "Compare these products now" }
     })
+    expect(onGoalChange).toHaveBeenCalledWith("Compare these products now")
     expect(screen.getByText("agent.start.action")).toBeDisabled()
     fireEvent.click(screen.getByText("agent.privacy.acknowledge"))
     expect(acknowledge).toHaveBeenCalledOnce()
@@ -48,6 +52,7 @@ describe("AgentView", () => {
       <AgentView
         provider={{ name: "Remote", location: "remote" }}
         tab={{ title: "Example", url: "https://example.com" }}
+        goal="Compare these products"
         privacyAcknowledged
         onStart={start}
       />

@@ -5,7 +5,6 @@ import type {
   AgentTakeoverRequest
 } from "@ollama-client/contracts"
 import { Bot, ExternalLink, Eye, MessageSquareWarning } from "lucide-react"
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -36,6 +35,9 @@ export interface AgentViewProps {
   takeover?: AgentTakeoverRequest
   privacyAcknowledged?: boolean
   busy?: boolean
+  /** The unsent goal. Held by the caller so it survives leaving the surface. */
+  goal?: string
+  onGoalChange?: (goal: string) => void
   onAcknowledgePrivacy?: () => void
   onStart?: (goal: string) => void
   onApprove?: () => void
@@ -58,6 +60,8 @@ export const AgentView = ({
   takeover,
   privacyAcknowledged = false,
   busy = false,
+  goal = "",
+  onGoalChange = () => undefined,
   onAcknowledgePrivacy = noop,
   onStart,
   onApprove = noop,
@@ -69,7 +73,6 @@ export const AgentView = ({
   onFeedback = noop
 }: AgentViewProps) => {
   const { t } = useTranslation()
-  const [goal, setGoal] = useState("")
   const remoteNeedsAcknowledgement =
     provider?.location === "remote" && !privacyAcknowledged
   const canStart =
@@ -135,7 +138,7 @@ export const AgentView = ({
               value={goal}
               maxLength={20_000}
               placeholder={t("agent.start.placeholder")}
-              onChange={(event) => setGoal(event.target.value)}
+              onChange={(event) => onGoalChange(event.target.value)}
             />
             {remoteNeedsAcknowledgement && (
               <div className="rounded-panel border border-status-warning/40 bg-status-warning/10 p-2.5 text-xs">

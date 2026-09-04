@@ -6,6 +6,7 @@ import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { SETTINGS } from "@/lib/storage/settings"
 import { AgentView } from "./agent-view"
 import { useAgentRun } from "./hooks/use-agent-run"
+import { useAgentDraft } from "./stores/agent-draft-store"
 
 /**
  * The Agent surface as the side panel mounts it: the supervision port, the
@@ -22,6 +23,7 @@ export const AgentPanel = () => {
   const [acknowledged, setAcknowledged] = useSetting(
     SETTINGS.AGENT_REMOTE_OBSERVATION_ACKNOWLEDGED
   )
+  const { goal, setGoal } = useAgentDraft()
   const connection = useAgentRun({
     providerId: selectedProviderId || undefined,
     modelId: selectedModel || undefined
@@ -55,6 +57,8 @@ export const AgentPanel = () => {
           }
           privacyAcknowledged={acknowledged === true}
           busy={connection.busy}
+          goal={goal}
+          onGoalChange={setGoal}
           onAcknowledgePrivacy={() => void setAcknowledged(true)}
           onStart={connection.start}
           onApprove={connection.approve}
