@@ -276,4 +276,29 @@ describe("createProviderAgentModelPort", () => {
     await expect(pending).rejects.toThrow("Agent model request cancelled")
     expect(receivedSignal?.aborted).toBe(true)
   })
+
+  it("advertises fillable parameters, not an empty object", () => {
+    /*
+     * A discriminated union renders as `oneOf` with no `properties`, and a
+     * tool published that way describes a function taking nothing: the model
+     * can only answer `{}`, which every decision parse then rejects.
+     */
+    const parameters = AGENT_DECISION_TOOL.parameters as {
+      type?: string
+      required?: string[]
+      properties?: Record<string, unknown>
+    }
+
+    expect(parameters.type).toBe("object")
+    expect(parameters.required).toContain("type")
+    expect(Object.keys(parameters.properties ?? {})).toEqual(
+      expect.arrayContaining([
+        "type",
+        "command",
+        "question",
+        "summary",
+        "reason"
+      ])
+    )
+  })
 })

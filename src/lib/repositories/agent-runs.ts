@@ -432,6 +432,23 @@ export const listAgentSteps = async (
   return steps
 }
 
+/**
+ * The most recently started run, settled or not.
+ *
+ * The panel shows what happened last, and an MV3 worker that restarted after
+ * a run ended remembers nothing — so the record has to come from the table
+ * rather than from whichever service instance happens to be alive.
+ */
+export const getLatestAgentRun = async (): Promise<DurableAgentRun | null> => {
+  const rows = await query(
+    `SELECT ${selectRunColumns} FROM agent_runs
+      ORDER BY createdAt DESC, id DESC
+      LIMIT 1`
+  )
+  const row = rows[0] ? decodeRow(AgentRunRowSchema, rows[0], TABLE) : null
+  return row ? parseRun(row) : null
+}
+
 export const listIncompleteAgentRuns = async (): Promise<DurableAgentRun[]> => {
   const rows = await query(
     `SELECT ${selectRunColumns} FROM agent_runs

@@ -3,8 +3,8 @@ import type {
   AgentModelPort
 } from "@ollama-client/agent-runtime"
 import {
+  AgentCommandSchema,
   type AgentDecision,
-  AgentDecisionSchema,
   type AgentObservation,
   type AgentRunState
 } from "@ollama-client/contracts"
@@ -31,14 +31,47 @@ import {
 const MAX_RETRIES_PER_DECISION = 2
 const MAX_MALFORMED_PER_RUN = 5
 
-const agentDecisionParameters = (): ToolParameterSchema => {
-  const schema = z.toJSONSchema(AgentDecisionSchema, { target: "draft-7" })
-  return {
-    ...schema,
-    type: "object",
-    properties: schema.properties ?? {}
-  }
-}
+/**
+ * A decision is a discriminated union, and `z.toJSONSchema` renders one as
+ * `oneOf` with no `properties` at all. Published as a tool's parameters that
+ * describes a function taking nothing: a provider reading `properties` — and
+ * the olc proxy's OpenCode bridge does exactly that — registers a
+ * zero-argument tool, so the model answers `{}` however hard it tries, and
+ * every decision is rejected as malformed.
+ *
+ * So the variants are flattened into one object keyed by the discriminator.
+ * Each variant's own field stays optional here and is enforced where it
+ * matters, by parsing the answer back through the union.
+ */
+const agentDecisionParameters = (): ToolParameterSchema => ({
+  type: "object",
+  properties: {
+    type: {
+      type: "string",
+      enum: ["command", "ask_user", "complete", "fail"],
+      description:
+        "command performs one browser action, ask_user asks the person a question, complete ends the task, fail abandons it."
+    },
+    command: {
+      ...z.toJSONSchema(AgentCommandSchema, { target: "draft-7" }),
+      description:
+        "The single browser command to perform. Required when type is command; its snapshotId and generation must match the supplied observation."
+    },
+    question: {
+      type: "string",
+      description: "Required when type is ask_user."
+    },
+    summary: {
+      type: "string",
+      description: "Required when type is complete."
+    },
+    reason: {
+      type: "string",
+      description: "Required when type is fail."
+    }
+  },
+  required: ["type"]
+})
 
 export const AGENT_DECISION_TOOL: ToolDefinition = {
   name: AGENT_DECISION_TOOL_NAME,

@@ -163,7 +163,7 @@ export const registerAgentPanelPort = (
           type: "agent_snapshot",
           version: AGENT_PANEL_PROTOCOL_VERSION,
           snapshot: await snapshotFor(
-            runId ?? dependencies.service.latestRunId()
+            runId ?? (await dependencies.service.latestRunId())
           )
         })
       } catch (error) {

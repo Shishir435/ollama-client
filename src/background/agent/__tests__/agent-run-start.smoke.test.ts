@@ -200,6 +200,40 @@ describe("starting an Agent run against the real engine", () => {
   )
 
   it(
+    "shows the last run to a worker that did not start it",
+    async () => {
+      vi.resetModules()
+      installOwner()
+      const first = await import("../agent-run-service")
+      await startService(first.createAgentRunService, "run-smoke-4").start({
+        goal: "Click any button on this page",
+        tabId: 7,
+        providerId: "ollama",
+        modelId: "qwen3"
+      })
+      const db = await import("@/lib/sqlite/db")
+      await db.flushSave()
+
+      /*
+       * The MV3 worker that ran it is gone; a run the user can no longer see
+       * is a run they cannot tell apart from nothing having happened.
+       */
+      vi.resetModules()
+      installOwner()
+      const restarted = await import("../agent-run-service")
+      const service = startService(
+        restarted.createAgentRunService,
+        "run-smoke-5"
+      )
+
+      await expect(service.latestRunId()).resolves.toBe("run-smoke-4")
+      const snapshot = await service.snapshot("run-smoke-4")
+      expect(snapshot.run?.goal).toBe("Click any button on this page")
+    },
+    TIMEOUT
+  )
+
+  it(
     "starts on a profile whose Agent tables were left by an older build",
     async () => {
       vi.resetModules()

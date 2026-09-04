@@ -96,4 +96,51 @@ describe("parseAgentDecisionToolCalls", () => {
       )
     ).toThrow("stale snapshot")
   })
+
+  it("accepts the flat shape the tool advertises", () => {
+    // The published schema offers every variant's field, so a model may fill
+    // the ones it did not choose.
+    expect(
+      parseAgentDecisionToolCalls(
+        [
+          {
+            id: "call-1",
+            name: AGENT_DECISION_TOOL_NAME,
+            arguments: {
+              type: "complete",
+              summary: "The save button is now pressed.",
+              question: "",
+              reason: "",
+              command: null
+            }
+          }
+        ],
+        observation
+      )
+    ).toEqual({ type: "complete", summary: "The save button is now pressed." })
+  })
+
+  it("still rejects a variant with nothing in its own field", () => {
+    expect(() =>
+      parseAgentDecisionToolCalls(
+        [
+          {
+            id: "call-1",
+            name: AGENT_DECISION_TOOL_NAME,
+            arguments: { type: "complete", summary: "" }
+          }
+        ],
+        observation
+      )
+    ).toThrow(AgentDecisionFormatError)
+  })
+
+  it("rejects an empty argument object, whatever produced it", () => {
+    expect(() =>
+      parseAgentDecisionToolCalls(
+        [{ id: "call-1", name: AGENT_DECISION_TOOL_NAME, arguments: {} }],
+        observation
+      )
+    ).toThrow(AgentDecisionFormatError)
+  })
 })

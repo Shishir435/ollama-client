@@ -17,6 +17,7 @@ import {
   createAgentRun,
   createInitialAgentDeadline,
   getAgentRun,
+  getLatestAgentRun,
   listAgentSteps,
   listIncompleteAgentRuns
 } from "@/lib/repositories/agent-runs"
@@ -65,11 +66,12 @@ export interface AgentRunService {
   activeRunId(): string | undefined
   /**
    * The run the panel should be showing: the unresolved one, or the last one
-   * this worker started. A settled run is the only record of what happened,
-   * and dropping it the moment it settles is how a failure looks to the user
-   * like nothing happened at all.
+   * recorded. A settled run is the only record of what happened, and dropping
+   * it is how a failure looks to the user like nothing happened at all — so
+   * this asks the table once memory has nothing, because the worker that ran
+   * it may already be gone.
    */
-  latestRunId(): string | undefined
+  latestRunId(): Promise<string | undefined>
   subscribe(listener: (runId: string) => void): () => void
   adopt(runId: string): void
 }
@@ -149,6 +151,7 @@ export const createAgentRunService = (input?: {
   persistence?: AgentPersistencePort
   createRun?: typeof createAgentRun
   readRun?: typeof getAgentRun
+  readLatestRun?: typeof getLatestAgentRun
   readIncompleteRuns?: typeof listIncompleteAgentRuns
   readSteps?: typeof listAgentSteps
   buildController?: BuildAgentController
@@ -166,6 +169,7 @@ export const createAgentRunService = (input?: {
   const hasPerception = input?.hasPerception ?? hasAgentPerceptionPermission
   const createRun = input?.createRun ?? createAgentRun
   const readRun = input?.readRun ?? getAgentRun
+  const readLatestRun = input?.readLatestRun ?? getLatestAgentRun
   const readSteps = input?.readSteps ?? listAgentSteps
   const readIncompleteRuns =
     input?.readIncompleteRuns ?? listIncompleteAgentRuns
@@ -335,7 +339,11 @@ export const createAgentRunService = (input?: {
       }
     },
     activeRunId: () => activeRunId,
-    latestRunId: () => activeRunId ?? lastRunId,
+    async latestRunId() {
+      if (activeRunId ?? lastRunId) return activeRunId ?? lastRunId
+      lastRunId = (await readLatestRun())?.id
+      return lastRunId
+    },
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
