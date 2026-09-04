@@ -31,6 +31,14 @@ export interface AgentPanelPortDependencies {
   service: AgentRunService
   resolveProvider?: () => Promise<AgentPanelSnapshot["provider"]>
   resolveTab?: (tabId: number) => Promise<AgentPanelSnapshot["tab"]>
+  /**
+   * The tab a run would control if one started now, and only when the run
+   * could actually read it. Before a run exists there is no controlled tab,
+   * and the panel needs a supported candidate to enable Start at all.
+   */
+  resolveCandidateTab?: () => Promise<AgentPanelSnapshot["tab"]>
+  /** Fires when the candidate tab may have changed. */
+  watchTabs?: (onChange: () => void) => () => void
 }
 
 interface PanelPort {
@@ -81,7 +89,13 @@ export const registerAgentPanelPort = (
 
   const snapshotFor = async (runId?: string): Promise<AgentPanelSnapshot> => {
     const provider = await dependencies.resolveProvider?.()
-    if (!runId) return { steps: [], provider }
+    if (!runId) {
+      return {
+        steps: [],
+        provider,
+        tab: await dependencies.resolveCandidateTab?.()
+      }
+    }
     const snapshot = await dependencies.service.snapshot(runId)
     return {
       run: snapshot.run,
@@ -143,9 +157,13 @@ export const registerAgentPanelPort = (
     const unsubscribe = dependencies.service.subscribe((runId) => {
       void publish(runId)
     })
+    const unwatchTabs = dependencies.watchTabs?.(() => {
+      void publish()
+    })
     port.onDisconnect.addListener(() => {
       closed = true
       unsubscribe()
+      unwatchTabs?.()
     })
 
     const run = async (command: AgentPanelCommand): Promise<void> => {

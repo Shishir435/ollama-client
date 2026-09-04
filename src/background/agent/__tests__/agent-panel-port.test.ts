@@ -140,6 +140,50 @@ describe("Agent panel port", () => {
     expect(messages).toHaveLength(2)
   })
 
+  it("discloses a supported candidate tab before any run exists", async () => {
+    registerAgentPanelPort({
+      service: service(),
+      resolveCandidateTab: async () => ({
+        title: "Example",
+        url: "https://example.com/start"
+      })
+    })
+    const { port, messages } = createPort()
+
+    connect(port)
+    await settled()
+
+    expect(messages[0]).toMatchObject({
+      snapshot: { tab: { url: "https://example.com/start" } }
+    })
+  })
+
+  it("republishes when the candidate tab may have changed", async () => {
+    let notify: (() => void) | undefined
+    const unwatch = vi.fn()
+    registerAgentPanelPort({
+      service: service(),
+      resolveCandidateTab: async () => ({
+        title: "Example",
+        url: "https://example.com/start"
+      }),
+      watchTabs: (onChange) => {
+        notify = onChange
+        return unwatch
+      }
+    })
+    const { port, messages, close } = createPort()
+
+    connect(port)
+    await settled()
+    notify?.()
+    await settled()
+    expect(messages).toHaveLength(2)
+
+    close()
+    expect(unwatch).toHaveBeenCalledOnce()
+  })
+
   it("disconnects on a command the contract does not describe", async () => {
     registerAgentPanelPort({ service: service() })
     const { port, emit } = createPort()

@@ -9,6 +9,7 @@ import { browser } from "@/lib/browser-api"
 import { queryActiveTab } from "@/lib/browser-tab-access"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { requestAgentPerceptionPermission } from "@/lib/permissions"
 
 export interface AgentCommandFailure {
   command: string
@@ -112,9 +113,29 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
       const trimmed = goal.trim()
       if (!trimmed) return
       setBusy(true)
-      void queryActiveTab()
+      /*
+       * The permission request goes first and unawaited-by-anything-else:
+       * Chromium only honours `permissions.request` while the click that
+       * caused it is still the current task, and an already-granted
+       * permission resolves without prompting. Querying the tab first would
+       * spend the gesture and leave the user with a silent refusal.
+       */
+      void requestAgentPerceptionPermission()
+        .then(async (granted) => {
+          if (!granted) {
+            setBusy(false)
+            setFailure({
+              command: "agent_start",
+              messageKey: "agent.error.permission_denied",
+              message: "Agent needs page-observation permission to start."
+            })
+            return undefined
+          }
+          return queryActiveTab()
+        })
         .then((tab) => {
-          if (typeof tab?.id !== "number") {
+          if (!tab) return
+          if (typeof tab.id !== "number") {
             setBusy(false)
             return
           }

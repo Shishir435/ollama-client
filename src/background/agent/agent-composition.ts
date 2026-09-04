@@ -2,6 +2,10 @@ import { isLegalAgentTransition } from "@ollama-client/agent-runtime"
 
 import { startBrowserAgentNavigationObserver } from "@/lib/browser-agent/navigation-observer"
 import { browser } from "@/lib/browser-api"
+import {
+  classifyAgentTabAccess,
+  queryActiveTab
+} from "@/lib/browser-tab-access"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
 import { hasAgentPerceptionPermission } from "@/lib/permissions"
 import { registerAgentPanelPort } from "./agent-panel-port"
@@ -44,14 +48,52 @@ export const createAgentComposition = async (): Promise<
       } catch {
         return undefined
       }
+    },
+    resolveCandidateTab: async () => {
+      const tab = await queryActiveTab()
+      if (!tab?.url || (await classifyAgentTabAccess(tab.url)) !== "ok") {
+        return undefined
+      }
+      return { title: tab.title ?? "", url: tab.url }
+    },
+    watchTabs: (onChange) => {
+      const onActivated = () => onChange()
+      const onUpdated = (
+        _tabId: number,
+        changeInfo: { url?: string; status?: string }
+      ) => {
+        if (changeInfo.url || changeInfo.status === "complete") onChange()
+      }
+      browser.tabs.onActivated.addListener(onActivated)
+      browser.tabs.onUpdated.addListener(onUpdated)
+      return () => {
+        browser.tabs.onActivated.removeListener(onActivated)
+        browser.tabs.onUpdated.removeListener(onUpdated)
+      }
     }
   })
 
-  const observer = (await hasAgentPerceptionPermission())
-    ? startBrowserAgentNavigationObserver((snapshot) => {
-        history.record(snapshot.tabId, snapshot.url)
-      })
-    : undefined
+  let observer:
+    | ReturnType<typeof startBrowserAgentNavigationObserver>
+    | undefined
+  const startObserver = () => {
+    observer ??= startBrowserAgentNavigationObserver((snapshot) => {
+      history.record(snapshot.tabId, snapshot.url)
+    })
+  }
+  if (await hasAgentPerceptionPermission()) startObserver()
+
+  /*
+   * The grant usually arrives mid-session, from the panel's first Start.
+   * Without this the run that triggered the prompt would drive a browser
+   * whose navigation nobody is watching until the next worker start.
+   */
+  const onPermissionAdded = () => {
+    void hasAgentPerceptionPermission().then((granted) => {
+      if (granted) startObserver()
+    })
+  }
+  browser.permissions.onAdded.addListener(onPermissionAdded)
 
   return {
     canTransition: isLegalAgentTransition,
@@ -59,6 +101,7 @@ export const createAgentComposition = async (): Promise<
     history,
     dispose() {
       stopPort()
+      browser.permissions.onAdded.removeListener(onPermissionAdded)
       observer?.stop()
     }
   }

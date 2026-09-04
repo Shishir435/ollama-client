@@ -31,6 +31,12 @@ vi.mock("@/lib/browser-api", () => ({
   }
 }))
 
+const requestPerception = vi.fn(async () => true)
+
+vi.mock("@/lib/permissions", () => ({
+  requestAgentPerceptionPermission: () => requestPerception()
+}))
+
 vi.mock("@/lib/browser-tab-access", () => ({
   queryActiveTab: async () => ({ id: 7, url: "https://example.com/start" })
 }))
@@ -78,6 +84,8 @@ describe("useAgentRun", () => {
     posted.length = 0
     messageListeners.clear()
     disconnect.mockClear()
+    requestPerception.mockClear()
+    requestPerception.mockResolvedValue(true)
   })
 
   it("renders whatever the background last published", () => {
@@ -106,6 +114,23 @@ describe("useAgentRun", () => {
         allowExperimentalModel: undefined
       }
     ])
+  })
+
+  it("asks for page-observation permission before it starts anything", async () => {
+    requestPerception.mockResolvedValue(false)
+    const { result } = renderHook(() => useAgentRun(model))
+
+    await act(async () => {
+      result.current.start("Find the pricing page")
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(requestPerception).toHaveBeenCalledOnce()
+    expect(posted).toEqual([])
+    expect(result.current.failure?.messageKey).toBe(
+      "agent.error.permission_denied"
+    )
   })
 
   it("sends nothing without a model or a goal", async () => {
