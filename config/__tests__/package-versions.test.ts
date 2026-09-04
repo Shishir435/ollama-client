@@ -39,4 +39,19 @@ describe("workspace package versions", () => {
       Object.fromEntries(packages.map((name) => [name, expected]))
     )
   })
+
+  /**
+   * A release archive ships `dist/` and `bin/` with no `package.json`, so the
+   * installed CLI reports and compares its version from a compiled-in literal.
+   * `olc update` decides whether it is current by comparing that literal to a
+   * release tag, and a stale one would report every build as up to date.
+   */
+  it("match the version compiled into the olc CLI", () => {
+    const expected = readVersion(resolve(root, "package.json"))
+    const source = readFileSync(
+      resolve(root, "packages/olc/src/version.ts"),
+      "utf8"
+    )
+    expect(source).toContain(`export const OLC_VERSION = "${expected}"`)
+  })
 })

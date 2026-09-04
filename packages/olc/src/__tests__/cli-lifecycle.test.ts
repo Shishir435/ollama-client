@@ -171,6 +171,9 @@ describe.skipIf(process.platform === "win32")(
       const second = launch(["--port", String(port)])
       expect((await second.exited)[0]).toBe(1)
       expect(second.stdout()).not.toContain("Ready:")
+      expect(second.stderr()).toContain(`Port ${port} is already in use.`)
+      expect(second.stderr()).toContain(`olc codex proxy (PID ${pid})`)
+      expect(second.stderr()).toContain("--port")
       expect((await fetch(`${url}/health`)).status).toBe(200)
     }, 15000)
 

@@ -40,6 +40,40 @@ export const sleep = (ms: number): Promise<void> =>
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value)
 
+/**
+ * Read a system error's `code` without asserting a shape onto it.
+ *
+ * `NodeJS.ErrnoException` is a claim about a value the runtime handed us, not a
+ * fact: an `error` event or a rejected call can carry anything, and asserting
+ * the type turns "no code here" into a silent `undefined` comparison that reads
+ * as a code that did not match.
+ */
+export const errorCode = (error: unknown): string | undefined =>
+  isRecord(error) && typeof error.code === "string" ? error.code : undefined
+
+/** A local endpoint must not be able to return an unbounded diagnostic body. */
+export const readBoundedJson = async (
+  response: Response,
+  limit = 16384
+): Promise<unknown> => {
+  const reader = response.body?.getReader()
+  if (!reader) return null
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > limit) return null
+      chunks.push(value)
+    }
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"))
+  } finally {
+    await reader.cancel()
+  }
+}
+
 export const isRetryableNetworkError = (error: unknown): boolean => {
   if (!error) return false
   const candidate = error as {

@@ -97,7 +97,7 @@ export function awaitProxyHandoff(
           if (error) fail("Could not send proxy configuration.")
         })
       }
-      if (message.type === "olc:error") return fail("Proxy startup failed.")
+      if (message.type === "olc:error") return fail(startupFailure(message))
       if (
         message.type === "olc:ready" &&
         typeof message.url === "string" &&
@@ -130,6 +130,17 @@ export function awaitProxyHandoff(
     process.on("SIGINT", cancelled)
     process.on("SIGTERM", cancelled)
   })
+}
+
+/**
+ * Carry the child's own reason into the launcher's failure, bounded and on one
+ * line: a log path tells the user where to look, not what went wrong.
+ */
+function startupFailure(message: Record<string, unknown>): string {
+  const reason = typeof message.message === "string" ? message.message : ""
+  const detail = reason.replace(/\s+/g, " ").trim().slice(0, 200)
+  if (!detail) return "Proxy startup failed."
+  return `Proxy startup failed: ${/[.!?]$/.test(detail) ? detail : `${detail}.`}`
 }
 
 /** Launch this CLI in a new process session with private per-run log output. */

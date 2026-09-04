@@ -67,8 +67,20 @@ olc -b opencode --debug       # attached proxy, verbose logs
 - A detached proxy prints its URL, PID, log path, and stop instruction after
   both its HTTP listener and backend are ready. Logs are private per-run files
   under `~/.olc/logs/`; `OLC_LOG_DIR` overrides that directory. Startup failure
-  returns a nonzero exit code and names the log. An occupied port is an error;
-  olc never stops an existing proxy to replace it.
+  returns a nonzero exit code, states the child's own reason, and names the log.
+- An occupied port is an error; olc never stops an existing proxy to replace it.
+  The port is checked before anything is launched, and the failure names the
+  occupant — its PID, and whether it answered `/` as an olc proxy and for which
+  backend — plus a nearby port that is actually free:
+
+  ```
+  olc: Port 8084 is already in use. It is an olc opencode proxy (PID 73241) —
+       the extension can use it at http://127.0.0.1:8084 as it is.
+       Stop it with `kill -TERM 73241`, or run this one on a free port:
+       olc -b opencode --port 8085.
+  ```
+
+  A process that does not answer as an olc proxy is reported and left alone.
 - Proxy configuration is handed to the child over private IPC, not written to
   disk or duplicated in child arguments. Parent loss before accepting startup
   shuts down the new child. After handoff, closing the terminal leaves it running.
@@ -188,10 +200,51 @@ threads, and maps its streamed messages, reasoning, model catalog, and dynamic
 tool calls onto the same OpenAI-compatible API. Codex account entitlements and
 usage limits still apply.
 
+### Updating
+
+```bash
+olc --version              # what is installed
+olc update                 # install the latest release
+olc update 0.13.3          # install a specific release
+olc update --check         # report what is available; install nothing
+olc update --json          # one JSON result on stdout, errors included
+```
+
+`olc update` downloads the same checksum-verified archive the installers use,
+from the release the GitHub API named — never a URL assembled from the argument.
+It replaces the directory it is running from, keeping the previous version until
+the new one is in place, so a failed download or a refused rename leaves the
+working installation exactly as it was.
+
+What it refuses, and why:
+
+- **A version with no release**, by name, listing the versions that do exist:
+  `Version 9.9.9 does not exist. Recent releases: 0.13.3, 0.13.2, ...`
+- **An argument that is not a version number**, before it reaches a URL.
+- **A repository checkout** - there is nothing to replace, and overwriting the
+  directory would take a working tree with it. Use `git pull`.
+- **Walking a development build backwards.** If the installed version is ahead of
+  every release, `olc update` says so instead of downgrading; naming that release
+  explicitly still installs it, because then it was asked for.
+
+`olc update --check` never touches the installation. Windows may refuse to
+replace a directory olc is running from; the failure says so and the previous
+version stays in place.
+
+One update runs per installation at a time, held by an exclusive lock file
+beside it (`.olc-update-<name>.lock`); a lock whose owner has exited, or that is
+older than ten minutes, is taken over rather than left to block. The directory
+swap holds off `SIGINT` and `SIGTERM` for the moment the installation is being
+renamed. A kill that cannot be caught leaves the previous version at
+`.olc-previous-<name>` beside the installation, and the next `olc update`
+restores it; if `olc` itself is gone, move that directory back by hand.
+
 ### Versioning
 
 olc ships with Ollama Client and carries the same version number; a contract test
-(`config/__tests__/package-versions.test.ts`) fails if the two drift.
+(`config/__tests__/package-versions.test.ts`) fails if the two drift - including
+the literal in `src/version.ts`, which is the only copy a release archive
+carries, since it ships no `package.json`.
 
 ### Use it from Ollama Client
 
