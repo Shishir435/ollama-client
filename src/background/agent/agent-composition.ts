@@ -2,10 +2,6 @@ import { isLegalAgentTransition } from "@ollama-client/agent-runtime"
 
 import { startBrowserAgentNavigationObserver } from "@/lib/browser-agent/navigation-observer"
 import { browser } from "@/lib/browser-api"
-import {
-  classifyAgentTabAccess,
-  queryActiveTab
-} from "@/lib/browser-tab-access"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
 import { hasAgentPerceptionPermission } from "@/lib/permissions"
 import { registerAgentPanelPort } from "./agent-panel-port"
@@ -47,28 +43,6 @@ export const createAgentComposition = async (): Promise<
         return { title: tab.title ?? "", url: tab.url ?? "" }
       } catch {
         return undefined
-      }
-    },
-    resolveCandidateTab: async () => {
-      const tab = await queryActiveTab()
-      if (!tab?.url || (await classifyAgentTabAccess(tab.url)) !== "ok") {
-        return undefined
-      }
-      return { title: tab.title ?? "", url: tab.url }
-    },
-    watchTabs: (onChange) => {
-      const onActivated = () => onChange()
-      const onUpdated = (
-        _tabId: number,
-        changeInfo: { url?: string; status?: string }
-      ) => {
-        if (changeInfo.url || changeInfo.status === "complete") onChange()
-      }
-      browser.tabs.onActivated.addListener(onActivated)
-      browser.tabs.onUpdated.addListener(onUpdated)
-      return () => {
-        browser.tabs.onActivated.removeListener(onActivated)
-        browser.tabs.onUpdated.removeListener(onUpdated)
       }
     }
   })

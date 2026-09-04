@@ -1,5 +1,6 @@
 import type {
   AgentController,
+  AgentModelPort,
   AgentPersistencePort
 } from "@ollama-client/agent-runtime"
 import {
@@ -14,6 +15,36 @@ import { createAgentEffectPort } from "./agent-effect-port"
 import type { AgentSupervision } from "./agent-supervision"
 import type { AgentTabHistory } from "./agent-tab-history"
 
+/**
+ * How long one decision may take before the run gives up on it.
+ *
+ * The runtime records deadlines but enforces none: a provider that accepts the
+ * request and never answers leaves the run in `deciding` with a panel that
+ * says "Choosing next step" and never changes. A local model reading a large
+ * page is genuinely slow, so this is generous — it exists to turn a hang into
+ * a reported failure, not to police latency.
+ */
+const DECISION_TIMEOUT_MS = 120_000
+
+const withDecisionTimeout = (
+  model: AgentModelPort,
+  timeoutMs: number
+): AgentModelPort => ({
+  async decide(input, signal) {
+    const scope = new AbortController()
+    const abort = () => scope.abort()
+    if (signal.aborted) scope.abort()
+    else signal.addEventListener?.("abort", abort, { once: true })
+    const timer = setTimeout(abort, timeoutMs)
+    try {
+      return await model.decide(input, scope.signal)
+    } finally {
+      clearTimeout(timer)
+      signal.removeEventListener?.("abort", abort)
+    }
+  }
+})
+
 export interface BuildAgentControllerInput {
   runId: string
   sessions: AgentControlSessionRegistry
@@ -22,6 +53,7 @@ export interface BuildAgentControllerInput {
   supervision: AgentSupervision
   allowExperimentalModel: boolean
   now(): number
+  decisionTimeoutMs?: number
 }
 
 export type BuildAgentController = (
@@ -46,9 +78,12 @@ export const buildAgentController: BuildAgentController = (input) => {
   })
 
   return createAgentController({
-    model: createProviderAgentModelPort({
-      allowExperimental: input.allowExperimentalModel
-    }),
+    model: withDecisionTimeout(
+      createProviderAgentModelPort({
+        allowExperimental: input.allowExperimentalModel
+      }),
+      input.decisionTimeoutMs ?? DECISION_TIMEOUT_MS
+    ),
     observation: adapters.observation,
     effect: createAgentEffectPort(adapters),
     policy: { evaluate: evaluateAgentPolicy },

@@ -5,6 +5,7 @@ import { useSetting } from "@/hooks/use-setting"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { SETTINGS } from "@/lib/storage/settings"
 import { AgentView } from "./agent-view"
+import { useAgentCandidateTab } from "./hooks/use-agent-candidate-tab"
 import { useAgentRun } from "./hooks/use-agent-run"
 import { agentPlainText } from "./lib/presentation"
 import { useAgentDraft } from "./stores/agent-draft-store"
@@ -25,6 +26,7 @@ export const AgentPanel = () => {
     SETTINGS.AGENT_REMOTE_OBSERVATION_ACKNOWLEDGED
   )
   const { goal, setGoal } = useAgentDraft()
+  const candidateTab = useAgentCandidateTab()
   const connection = useAgentRun({
     providerId: selectedProviderId || undefined,
     modelId: selectedModel || undefined
@@ -50,7 +52,7 @@ export const AgentPanel = () => {
           run={snapshot.run ?? null}
           steps={snapshot.steps}
           provider={snapshot.provider}
-          tab={snapshot.tab}
+          tab={snapshot.run ? snapshot.tab : candidateTab}
           approval={
             snapshot.pending?.kind === "approval"
               ? snapshot.pending.request
