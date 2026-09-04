@@ -57,6 +57,13 @@ const service = (
       return state ? ({ state } as DurableAgentRun) : null
     },
     readSteps: vi.fn(async () => []),
+    readIncompleteRuns: async () =>
+      [...runs.values()]
+        .filter(
+          (state) =>
+            !["completed", "failed", "cancelled"].includes(state.status)
+        )
+        .map((state) => ({ state, id: state.id }) as DurableAgentRun),
     buildController: () => controller,
     hasPerception: async () => true,
     getTab: async () => ({ url: "https://example.com/start" }),
@@ -99,6 +106,19 @@ describe("Agent run service", () => {
     await agent.start(startInput)
 
     await expect(agent.start(startInput)).rejects.toThrow("already unresolved")
+  })
+
+  it("refuses a run the durable rows still hold after a worker restart", async () => {
+    const { service: first } = service()
+    await first.start(startInput)
+
+    const { service: restarted, controller } = service()
+    expect(restarted.activeRunId()).toBeUndefined()
+    await expect(restarted.start(startInput)).rejects.toThrow(
+      "already unresolved"
+    )
+    expect(controller.start).not.toHaveBeenCalled()
+    expect(restarted.activeRunId()).toBe("run-1")
   })
 
   it("refuses to start without the perception permission", async () => {

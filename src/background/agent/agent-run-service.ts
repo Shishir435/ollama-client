@@ -17,7 +17,8 @@ import {
   createAgentRun,
   createInitialAgentDeadline,
   getAgentRun,
-  listAgentSteps
+  listAgentSteps,
+  listIncompleteAgentRuns
 } from "@/lib/repositories/agent-runs"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentControlSessionRegistry } from "./agent-control-sessions"
@@ -141,6 +142,7 @@ export const createAgentRunService = (input?: {
   persistence?: AgentPersistencePort
   createRun?: typeof createAgentRun
   readRun?: typeof getAgentRun
+  readIncompleteRuns?: typeof listIncompleteAgentRuns
   readSteps?: typeof listAgentSteps
   buildController?: BuildAgentController
   hasPerception?: () => Promise<boolean>
@@ -158,6 +160,8 @@ export const createAgentRunService = (input?: {
   const createRun = input?.createRun ?? createAgentRun
   const readRun = input?.readRun ?? getAgentRun
   const readSteps = input?.readSteps ?? listAgentSteps
+  const readIncompleteRuns =
+    input?.readIncompleteRuns ?? listIncompleteAgentRuns
   const classifyAccess = input?.classifyAccess ?? classifyAgentTabAccess
   const getTab =
     input?.getTab ??
@@ -233,7 +237,15 @@ export const createAgentRunService = (input?: {
 
   return {
     async start(request) {
-      if (activeRunId) {
+      /*
+       * The durable rows decide, not the in-memory flag: an MV3 worker
+       * restart forgets the active run, and a paused run the user has not
+       * settled is still that user's run. Asking SQL is what keeps a restart
+       * from letting a second run start beside it.
+       */
+      const unresolved = activeRunId ?? (await readIncompleteRuns())[0]?.id
+      if (unresolved) {
+        activeRunId = unresolved
         throw new AgentRunError(
           "already_running",
           "An Agent run is already unresolved"
