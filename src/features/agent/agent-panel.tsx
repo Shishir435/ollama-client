@@ -6,6 +6,7 @@ import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { SETTINGS } from "@/lib/storage/settings"
 import { AgentView } from "./agent-view"
 import { useAgentRun } from "./hooks/use-agent-run"
+import { agentPlainText } from "./lib/presentation"
 import { useAgentDraft } from "./stores/agent-draft-store"
 
 /**
@@ -33,11 +34,16 @@ export const AgentPanel = () => {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {connection.failure && (
-        <p
+        <div
           role="alert"
           className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs">
-          {t(connection.failure.messageKey)}
-        </p>
+          <p>{t(connection.failure.messageKey)}</p>
+          {connection.failure.detail && (
+            <p className="mt-1 break-words font-mono text-micro text-muted-foreground">
+              {agentPlainText(connection.failure.detail, 300)}
+            </p>
+          )}
+        </div>
       )}
       <div className="min-h-0 flex-1">
         <AgentView

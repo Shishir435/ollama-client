@@ -82,18 +82,20 @@ const FAILURES: Record<AgentRunFailureReason, { key: string; text: string }> = {
 const describeFailure = (
   command: string,
   error: unknown
-): { key: string; text: string } => {
+): { key: string; text: string; detail?: string } => {
   if (error instanceof AgentRunError) return FAILURES[error.reason]
   /*
    * An unclassified failure is a bug, not a refusal: the panel can only say
    * so generically, so the cause is recorded here or it is lost entirely.
    */
+  const name = error instanceof Error ? error.name : typeof error
+  const message = error instanceof Error ? error.message : "unknown"
   logger.error("Agent command failed unexpectedly", "Agent", {
     command,
-    name: error instanceof Error ? error.name : typeof error,
-    message: error instanceof Error ? error.message : "unknown"
+    name,
+    message
   })
-  return UNKNOWN_FAILURE
+  return { ...UNKNOWN_FAILURE, detail: `${name}: ${message}`.slice(0, 300) }
 }
 
 export const registerAgentPanelPort = (
@@ -255,7 +257,8 @@ export const registerAgentPanelPort = (
             version: AGENT_PANEL_PROTOCOL_VERSION,
             command: parsed.data.type,
             messageKey: failure.key,
-            message: failure.text
+            message: failure.text,
+            ...(failure.detail ? { detail: failure.detail } : {})
           })
         })
         .finally(() => {

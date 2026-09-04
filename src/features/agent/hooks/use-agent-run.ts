@@ -15,6 +15,7 @@ export interface AgentCommandFailure {
   command: string
   messageKey: string
   message: string
+  detail?: string
 }
 
 export interface AgentRunConnection {
@@ -77,7 +78,8 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
       setFailure({
         command: parsed.data.command,
         messageKey: parsed.data.messageKey,
-        message: parsed.data.message
+        message: parsed.data.message,
+        detail: parsed.data.detail
       })
     }
     /*

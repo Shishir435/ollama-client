@@ -135,7 +135,13 @@ export const AgentPanelMessageSchema = z.discriminatedUnion("type", [
       version: z.literal(AGENT_PANEL_PROTOCOL_VERSION),
       command: z.string().min(1).max(120),
       messageKey: z.string().min(1).max(200),
-      message: z.string().min(1).max(1_000)
+      message: z.string().min(1).max(1_000),
+      /**
+       * Only for a failure the background could not classify: the error's own
+       * name and message, so a Preview user can report what actually broke
+       * instead of "something went wrong". A classified refusal carries none.
+       */
+      detail: z.string().max(300).optional()
     })
     .strict()
 ])
