@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { TOOL_CALLING_PROBE_VERSION } from "@/lib/providers/capability-probe"
 import type { LLMProvider } from "@/lib/providers/types"
 import { ProviderType } from "@/lib/providers/types"
@@ -178,5 +178,42 @@ describe("deriveAgentModelCompatibility", () => {
       mode: "native",
       reason: "metadata"
     })
+  })
+
+  it("blocks a disabled provider before model discovery", async () => {
+    const discoverModels = vi.fn()
+    const provider: LLMProvider = {
+      id: "disabled",
+      config: {
+        id: "disabled",
+        type: ProviderType.OPENAI,
+        enabled: false,
+        name: "Disabled provider",
+        baseUrl: "https://disabled.example/v1"
+      },
+      capabilities: {
+        chat: true,
+        embeddings: false,
+        modelDiscovery: true,
+        modelDetails: false,
+        modelPull: false,
+        modelUnload: false,
+        modelDelete: false,
+        providerVersion: false,
+        toolCalling: true
+      },
+      streamChat: async () => undefined,
+      getModels: async () => []
+    }
+
+    await expect(
+      resolveAgentModelCompatibility(provider.id, "model", undefined, {
+        resolveProvider: async () => provider,
+        discoverModels,
+        getProbe: async () => null,
+        getOverride: async () => null
+      })
+    ).rejects.toThrow("Disabled provider is disabled")
+    expect(discoverModels).not.toHaveBeenCalled()
   })
 })

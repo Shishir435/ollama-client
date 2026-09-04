@@ -26,7 +26,7 @@ import type {
   AuthorizedAgentEffect,
   ResolvedAgentEffect
 } from "./ports"
-import { agentFailure, pausePatch } from "./ports"
+import { AgentMalformedDecisionError, agentFailure, pausePatch } from "./ports"
 import { AGENT_STATUS_PREDECESSORS, isTerminalAgentStatus } from "./state"
 import { classifyVerificationOutcome } from "./verification"
 
@@ -226,8 +226,9 @@ export const createAgentController = (
       let raw: unknown
       try {
         raw = await dependencies.model.decide({ state, observation }, signal)
-      } catch {
-        return undefined
+      } catch (error) {
+        if (error instanceof AgentMalformedDecisionError) return undefined
+        throw error
       }
       const parsed = AgentDecisionSchema.safeParse(raw)
       if (parsed.success) return parsed.data
@@ -612,7 +613,19 @@ export const createAgentController = (
       updatedAt: dependencies.clock.now()
     })
     if (!deciding) return undefined
-    const decision = await decide(deciding, observation, signal)
+    let decision: AgentDecision | undefined
+    try {
+      decision = await decide(deciding, observation, signal)
+    } catch {
+      if (!signal.aborted) {
+        await fail(
+          deciding,
+          "model_unavailable",
+          "The selected model could not produce an Agent decision."
+        )
+      }
+      return undefined
+    }
     if (!decision) {
       await fail(
         deciding,

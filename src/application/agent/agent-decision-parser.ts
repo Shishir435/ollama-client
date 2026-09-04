@@ -1,3 +1,4 @@
+import { AgentMalformedDecisionError } from "@ollama-client/agent-runtime"
 import {
   type AgentDecision,
   AgentDecisionSchema,
@@ -7,7 +8,7 @@ import type { ToolCall } from "@/lib/tools/types"
 
 export const AGENT_DECISION_TOOL_NAME = "agent_decision"
 
-export class AgentDecisionFormatError extends Error {
+export class AgentDecisionFormatError extends AgentMalformedDecisionError {
   constructor(message: string) {
     super(message)
     this.name = "AgentDecisionFormatError"

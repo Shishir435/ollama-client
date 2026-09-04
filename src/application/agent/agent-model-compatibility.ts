@@ -14,6 +14,7 @@ import {
   discoverProviderModels,
   type ModelDiscoveryResult
 } from "@/lib/providers/model-discovery"
+import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type { LLMProvider } from "@/lib/providers/types"
 
 export type AgentModelCompatibility =
@@ -112,6 +113,7 @@ export const resolveAgentModelCompatibility = async (
   const readProbe = dependencies.getProbe ?? getCapabilityProbe
   const readOverride = dependencies.getOverride ?? getModelCapabilityOverride
   const provider = await resolveProvider(providerId)
+  assertProviderEnabled(provider, modelId)
   const [discovery, probe, override] = await Promise.all([
     discoverModels(provider, signal),
     readProbe(providerId, modelId),

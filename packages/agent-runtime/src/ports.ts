@@ -215,6 +215,14 @@ export interface AgentCancellationController {
   abort(): void
 }
 
+/** A provider responded, but its output was not a valid Agent decision. */
+export class AgentMalformedDecisionError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "AgentMalformedDecisionError"
+  }
+}
+
 export interface AgentModelPort {
   decide(
     input: AgentModelInput,

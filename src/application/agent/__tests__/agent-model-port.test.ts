@@ -6,7 +6,10 @@ import type { ToolDefinition } from "@/lib/tools/types"
 import type { ChatStreamMessage } from "@/types"
 import { AGENT_DECISION_TOOL_NAME } from "../agent-decision-parser"
 import type { AgentModelCompatibility } from "../agent-model-compatibility"
-import { createProviderAgentModelPort } from "../agent-model-port"
+import {
+  AGENT_DECISION_TOOL,
+  createProviderAgentModelPort
+} from "../agent-model-port"
 
 const state: AgentRunState = {
   version: 1,
@@ -114,6 +117,32 @@ describe("createProviderAgentModelPort", () => {
       port.decide({ state, observation }, { aborted: false })
     ).rejects.toThrow("not Agent compatible")
     expect(streamChat).not.toHaveBeenCalled()
+  })
+
+  it("blocks a disabled provider before streaming", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const disabled = provider(streamChat)
+    disabled.config = { ...disabled.config, enabled: false }
+    const port = createProviderAgentModelPort({
+      resolveProvider: async () => disabled,
+      resolveCompatibility: async () => supported
+    })
+
+    await expect(
+      port.decide({ state, observation }, { aborted: false })
+    ).rejects.toThrow("Ollama is disabled")
+    expect(streamChat).not.toHaveBeenCalled()
+  })
+
+  it("publishes the complete command contract to schema-guided models", () => {
+    const schema = JSON.stringify(AGENT_DECISION_TOOL.parameters)
+    expect(schema).toContain('"const":"click"')
+    expect(schema).toContain('"const":"clear_and_type"')
+    expect(schema).toContain('"const":"press_key"')
+    expect(schema).toContain('"snapshotId"')
+    expect(schema).toContain('"generation"')
+    expect(schema).toContain('"ref"')
+    expect(schema).toContain('"text"')
   })
 
   it("contacts an experimental model only after explicit opt-in", async () => {

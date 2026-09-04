@@ -137,6 +137,7 @@ interface HarnessOptions {
   takeover?: AgentTakeoverDecision
   failClaim?: AgentRunStatus
   observe?: AgentControllerDependencies["observation"]["observe"]
+  decide?: AgentControllerDependencies["model"]["decide"]
   createCancellationController?: () => AgentCancellationController
 }
 
@@ -192,10 +193,12 @@ const createHarness = (options: HarnessOptions = {}) => {
     clock: { now: () => 10 },
     persistence,
     model: {
-      async decide() {
-        calls.push("decide")
-        return decisions.shift() as AgentDecision
-      }
+      decide:
+        options.decide ??
+        (async () => {
+          calls.push("decide")
+          return decisions.shift() as AgentDecision
+        })
     },
     observation: {
       observe:
@@ -751,5 +754,16 @@ describe("agent controller", () => {
     await harness.controller.start("run-1")
     expect(harness.getState().status).toBe("failed")
     expect(harness.getState().error?.code).toBe("invalid_decision")
+  })
+
+  it("classifies provider failures as model unavailable", async () => {
+    const harness = createHarness({
+      decide: async () => {
+        throw new Error("provider offline")
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().status).toBe("failed")
+    expect(harness.getState().error?.code).toBe("model_unavailable")
   })
 })
