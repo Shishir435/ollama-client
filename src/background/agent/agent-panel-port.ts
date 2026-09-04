@@ -12,6 +12,7 @@ import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sende
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
+import { PersistenceError } from "@/lib/persistence/errors"
 import type {
   AgentRunFailureReason,
   AgentRunService
@@ -95,7 +96,18 @@ const describeFailure = (
     name,
     message
   })
-  return { ...UNKNOWN_FAILURE, detail: `${name}: ${message}`.slice(0, 300) }
+  /*
+   * A persistence failure says only which op and reason in its message; what
+   * actually happened is SQLite's own text, which the error keeps out of logs
+   * and diagnostics bundles by design. Reading it by name here is the
+   * deliberate exception the class documents, and it goes to the panel — the
+   * user's own screen — never to the logger.
+   */
+  const detail =
+    error instanceof PersistenceError && error.detail
+      ? `${name}: ${message} — ${error.detail}`
+      : `${name}: ${message}`
+  return { ...UNKNOWN_FAILURE, detail: detail.slice(0, 300) }
 }
 
 export const registerAgentPanelPort = (
