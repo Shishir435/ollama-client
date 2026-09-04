@@ -18,7 +18,7 @@ import { createServer } from "node:http"
 import path from "node:path"
 import { endpoint } from "./ollama/config.js"
 import { type Listener, listeners } from "./ollama/process.js"
-import { isRecord, readBoundedJson } from "./util.js"
+import { errorCode, isRecord, readBoundedJson } from "./util.js"
 
 /** How the `/` service document identifies a running proxy. */
 export interface OlcService {
@@ -57,6 +57,13 @@ export async function probeOlcService(
   }
 }
 
+/** Why a bind failed, read off the error rather than asserted onto it. */
+export interface BindFailure {
+  /** Absent when the failure carried no `code`, which is not the same as any code. */
+  code?: string
+  message: string
+}
+
 /**
  * Bind the port for real and report why that failed, if it did.
  *
@@ -67,10 +74,13 @@ export async function probeOlcService(
 export async function probeBind(
   host: string,
   port: number
-): Promise<NodeJS.ErrnoException | undefined> {
+): Promise<BindFailure | undefined> {
   const server = createServer()
-  return new Promise<NodeJS.ErrnoException | undefined>((resolve) => {
-    server.once("error", (error: NodeJS.ErrnoException) => resolve(error))
+  return new Promise<BindFailure | undefined>((resolve) => {
+    server.once("error", (error) => {
+      const code = errorCode(error)
+      resolve({ ...(code ? { code } : {}), message: error.message })
+    })
     server.listen(port, host, () => server.close(() => resolve(undefined)))
   })
 }
@@ -78,10 +88,7 @@ export async function probeBind(
 export interface PreflightDependencies {
   listeners: (port: number) => Promise<Listener[]>
   probe: (url: string) => Promise<OlcService | undefined>
-  bind: (
-    host: string,
-    port: number
-  ) => Promise<NodeJS.ErrnoException | undefined>
+  bind: (host: string, port: number) => Promise<BindFailure | undefined>
 }
 
 const dependencies: PreflightDependencies = {
@@ -122,24 +129,24 @@ export async function assertProxyPortAvailable(
   request: ProxyPortRequest,
   deps: PreflightDependencies = dependencies
 ): Promise<void> {
-  const error = await deps.bind(request.host, request.port)
-  if (!error) return
-  if (error.code !== "EADDRINUSE")
-    throw new Error(describeBindError(request, error))
+  const failure = await deps.bind(request.host, request.port)
+  if (!failure) return
+  if (failure.code !== "EADDRINUSE")
+    throw new Error(describeBindError(request, failure))
   throw new Error(await describePortConflict(request, deps))
 }
 
 /** An address the machine will never give us is a configuration problem, not a busy port. */
 export function describeBindError(
   request: ProxyPortRequest,
-  error: NodeJS.ErrnoException
+  failure: BindFailure
 ): string {
   const address = `${request.host}:${request.port}`
-  if (error.code === "EACCES")
+  if (failure.code === "EACCES")
     return `Cannot bind ${address}: permission denied.${request.port < 1024 ? " Ports below 1024 need elevated privileges" : " Something on this machine is refusing the bind"}, so pick a port above 1024 with --port.`
-  if (error.code === "EADDRNOTAVAIL" || error.code === "ENOTFOUND")
+  if (failure.code === "EADDRNOTAVAIL" || failure.code === "ENOTFOUND")
     return `Cannot bind ${address}: this machine has no such address. Give --host an interface it actually has, or leave it at 127.0.0.1.`
-  return `Cannot bind ${address}: ${printable(error.code ?? error.message, 60)}. Check --host and --port.`
+  return `Cannot bind ${address}: ${printable(failure.code ?? failure.message, 60)}. Check --host and --port.`
 }
 
 /** Name the occupant, then name the way forward. */

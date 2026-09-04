@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -19,7 +20,13 @@ import {
   ReleaseNotFoundError,
   resolveRelease
 } from "../update/github.js"
-import { installRelease, resolveInstallTarget } from "../update/install.js"
+import {
+  installRelease,
+  previousPath,
+  recoverInterruptedUpdate,
+  resolveInstallTarget,
+  withUpdateLock
+} from "../update/install.js"
 import {
   compareVersions,
   runUpdate,
@@ -187,7 +194,7 @@ describe("resolving a version that was asked for by name", () => {
       })
     ).catch((thrown: unknown) => thrown)
     expect(error).toBeInstanceOf(ReleaseNotFoundError)
-    expect((error as Error).message).toBe(
+    expect(error instanceof Error && error.message).toBe(
       "Version 9.9.9 does not exist. Recent releases: 0.13.3, 0.13.2. Full list: https://github.com/Shishir435/ollama-client/releases"
     )
   })
@@ -339,6 +346,131 @@ describe("installing over a working olc", () => {
   })
 })
 
+describe("an update that was interrupted", () => {
+  function halfSwapped() {
+    const parent = mkdtempSync(path.join(os.tmpdir(), "olc-interrupted-"))
+    directories.push(parent)
+    const root = path.join(parent, "olc")
+    const previous = previousPath(root)
+    mkdirSync(path.join(previous, "dist"), { recursive: true })
+    writeFileSync(path.join(previous, "dist", "olc.mjs"), "the old build")
+    return { parent, root, previous }
+  }
+
+  it("puts the previous version back when the installation is gone", async () => {
+    const { root, previous } = halfSwapped()
+    expect(await recoverInterruptedUpdate(root)).toBe(true)
+    expect(readFileSync(path.join(root, "dist", "olc.mjs"), "utf8")).toBe(
+      "the old build"
+    )
+    expect(existsSync(previous)).toBe(false)
+  })
+
+  it("clears a stale backup rather than overwriting a working install", async () => {
+    const { root, previous } = halfSwapped()
+    mkdirSync(path.join(root, "dist"), { recursive: true })
+    writeFileSync(path.join(root, "dist", "olc.mjs"), "the current build")
+    expect(await recoverInterruptedUpdate(root)).toBe(false)
+    expect(readFileSync(path.join(root, "dist", "olc.mjs"), "utf8")).toBe(
+      "the current build"
+    )
+    expect(existsSync(previous)).toBe(false)
+  })
+
+  it("does nothing when there is no backup to consider", async () => {
+    const parent = mkdtempSync(path.join(os.tmpdir(), "olc-clean-"))
+    directories.push(parent)
+    expect(await recoverInterruptedUpdate(path.join(parent, "olc"))).toBe(false)
+  })
+
+  it("keeps two installations sharing a parent from colliding", () => {
+    expect(previousPath("/share/olc")).toBe("/share/.olc-previous-olc")
+    expect(previousPath("/share/olc-beta")).toBe(
+      "/share/.olc-previous-olc-beta"
+    )
+  })
+})
+
+describe("one update per installation", () => {
+  function root() {
+    const parent = mkdtempSync(path.join(os.tmpdir(), "olc-lock-"))
+    directories.push(parent)
+    return path.join(parent, "olc")
+  }
+
+  it("releases the lock so a later update can take it", async () => {
+    const target = root()
+    await withUpdateLock(target, async () => "first")
+    await expect(withUpdateLock(target, async () => "second")).resolves.toBe(
+      "second"
+    )
+  })
+
+  it("releases the lock even when the update fails", async () => {
+    const target = root()
+    await expect(
+      withUpdateLock(target, async () => {
+        throw new Error("download failed")
+      })
+    ).rejects.toThrow("download failed")
+    await expect(withUpdateLock(target, async () => "after")).resolves.toBe(
+      "after"
+    )
+  })
+
+  it("refuses to start beside an update this machine is still running", async () => {
+    const target = root()
+    await withUpdateLock(target, async () => {
+      await expect(
+        withUpdateLock(target, async () => "nested")
+      ).rejects.toThrow(
+        `Another olc update is already running (PID ${process.pid})`
+      )
+    })
+  })
+
+  it("takes over a lock whose owner is gone", async () => {
+    const target = root()
+    const lock = path.join(
+      path.dirname(target),
+      `.olc-update-${path.basename(target)}.lock`
+    )
+    /** PID 1 is never this process, and a distant timestamp is never fresh. */
+    writeFileSync(lock, JSON.stringify({ pid: 2 ** 30, at: Date.now() }))
+    await expect(withUpdateLock(target, async () => "claimed")).resolves.toBe(
+      "claimed"
+    )
+    expect(existsSync(lock)).toBe(false)
+  })
+
+  it("takes over a lock too old to belong to a live update", async () => {
+    const target = root()
+    const lock = path.join(
+      path.dirname(target),
+      `.olc-update-${path.basename(target)}.lock`
+    )
+    writeFileSync(
+      lock,
+      JSON.stringify({ pid: process.pid, at: Date.now() - 60 * 60_000 })
+    )
+    await expect(withUpdateLock(target, async () => "claimed")).resolves.toBe(
+      "claimed"
+    )
+  })
+
+  it("treats an unreadable lock as abandoned", async () => {
+    const target = root()
+    const lock = path.join(
+      path.dirname(target),
+      `.olc-update-${path.basename(target)}.lock`
+    )
+    writeFileSync(lock, "not json")
+    await expect(withUpdateLock(target, async () => "claimed")).resolves.toBe(
+      "claimed"
+    )
+  })
+})
+
 describe("update command line", () => {
   it("reads the version as the one positional argument", () => {
     expect(parseArgs(["update", "0.13.3"])).toMatchObject({
@@ -359,11 +491,24 @@ describe("update command line", () => {
 
   it("refuses server options that would say nothing about an update", () => {
     expect(() => parseArgs(["update", "--port", "8084"])).toThrow(
-      "PORT configures a server"
+      "--port configures a server"
     )
     expect(() => parseArgs(["update", "-b", "codex"])).toThrow(
-      "BACKEND configures a server"
+      "--backend configures a server"
     )
+  })
+
+  it("refuses --config rather than accepting and ignoring it", () => {
+    expect(() => parseArgs(["update", "--config", "olc.json"])).toThrow(
+      "--config configures a server"
+    )
+  })
+
+  it("still reads --config for a server", () => {
+    expect(parseArgs(["-b", "codex", "--config", "olc.json"])).toMatchObject({
+      command: "serve",
+      configPath: "olc.json"
+    })
   })
 
   it("does not treat a backend argument named update as a command", () => {

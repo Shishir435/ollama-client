@@ -231,6 +231,14 @@ What it refuses, and why:
 replace a directory olc is running from; the failure says so and the previous
 version stays in place.
 
+One update runs per installation at a time, held by an exclusive lock file
+beside it (`.olc-update-<name>.lock`); a lock whose owner has exited, or that is
+older than ten minutes, is taken over rather than left to block. The directory
+swap holds off `SIGINT` and `SIGTERM` for the moment the installation is being
+renamed. A kill that cannot be caught leaves the previous version at
+`.olc-previous-<name>` beside the installation, and the next `olc update`
+restores it; if `olc` itself is gone, move that directory back by hand.
+
 ### Versioning
 
 olc ships with Ollama Client and carries the same version number; a contract test

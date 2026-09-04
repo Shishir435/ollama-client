@@ -3,14 +3,23 @@
  *
  * This is the same sequence `olc.sh` performs — download, verify the published
  * SHA-256, unpack, swap the directory, keep a backup until the swap succeeds —
- * done in the process that is being replaced. Two consequences shape it:
+ * done in the process that is being replaced. That last part is what the rest of
+ * this module is about: an update that goes wrong must not leave the user
+ * without a working olc, and the only thing standing between them and that is
+ * this code, because a broken install cannot fix itself.
  *
  * - Nothing is downloaded and executed from a URL the user typed. The archive
  *   comes from the release the API named, and it is only unpacked after its
  *   checksum matches the checksum published beside it.
- * - A failed swap must leave the working installation in place. The old
- *   directory is moved aside rather than deleted, and put back if anything after
- *   that fails, so a broken download costs the user nothing.
+ * - A failed swap puts the previous version back. The old directory is moved
+ *   aside rather than deleted, so a bad download or a refused rename costs
+ *   nothing.
+ * - One update per installation at a time, enforced across processes by an
+ *   exclusive lock file, because two swaps interleaved is how a root gets
+ *   renamed out from under the process about to rename it.
+ * - The window where the installation directory does not exist is closed against
+ *   SIGINT and SIGTERM, and what a kill that cannot be caught leaves behind is a
+ *   complete previous version under a name the next run restores from.
  */
 import { execFile } from "node:child_process"
 import { createHash, randomBytes } from "node:crypto"
@@ -21,6 +30,7 @@ import path from "node:path"
 import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 import { promisify } from "node:util"
+import { errorCode, isRecord } from "../util.js"
 import type { Release } from "./github.js"
 
 const execute = promisify(execFile)
@@ -101,38 +111,81 @@ export async function installRelease(
 
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "olc-update-"))
   const parent = path.dirname(target.root)
-  const suffix = randomBytes(6).toString("hex")
-  const staged = path.join(parent, `.olc-update-${suffix}`)
-  const backup = path.join(parent, `.olc-backup-${suffix}`)
+  const staged = path.join(
+    parent,
+    `.olc-update-${randomBytes(6).toString("hex")}`
+  )
+  const backup = previousPath(target.root)
   try {
-    const archivePath = path.join(workspace, name)
-    await deps.download(archive.downloadUrl, archivePath)
-    const expected = (await deps.fetchText(checksum.downloadUrl))
-      .trim()
-      .split(/\s+/)[0]
-      ?.toLowerCase()
-    const actual = await sha256(archivePath)
-    if (!expected || actual !== expected)
-      throw new Error(
-        "The downloaded archive does not match its published checksum, so nothing was installed."
-      )
-    await deps.extract(archivePath, workspace)
-    const payload = path.join(workspace, "olc")
-    if (!(await exists(path.join(payload, "dist", "olc.mjs"))))
-      throw new Error(
-        "The release archive is missing dist/olc.mjs, so nothing was installed."
-      )
-    await fs.rename(payload, staged)
-    await swap({ root: target.root, staged, backup })
-    await fs.rm(backup, { recursive: true, force: true })
-    await makeExecutable(target.root)
+    await withUpdateLock(target.root, async () => {
+      await recoverInterruptedUpdate(target.root)
+      const archivePath = path.join(workspace, name)
+      await deps.download(archive.downloadUrl, archivePath)
+      const expected = (await deps.fetchText(checksum.downloadUrl))
+        .trim()
+        .split(/\s+/)[0]
+        ?.toLowerCase()
+      const actual = await sha256(archivePath)
+      if (!expected || actual !== expected)
+        throw new Error(
+          "The downloaded archive does not match its published checksum, so nothing was installed."
+        )
+      await deps.extract(archivePath, workspace)
+      const payload = path.join(workspace, "olc")
+      if (!(await exists(path.join(payload, "dist", "olc.mjs"))))
+        throw new Error(
+          "The release archive is missing dist/olc.mjs, so nothing was installed."
+        )
+      await fs.rename(payload, staged)
+      await swap({ root: target.root, staged, backup })
+      await fs.rm(backup, { recursive: true, force: true })
+      await makeExecutable(target.root)
+    })
   } finally {
     await fs.rm(workspace, { recursive: true, force: true })
     await fs.rm(staged, { recursive: true, force: true })
   }
 }
 
-/** The old installation is only removed once its replacement is in place. */
+/**
+ * Where an interrupted update leaves the version it was replacing.
+ *
+ * The name is derived from the installation rather than randomized, for two
+ * reasons: the next run can find it without guessing, and two installations
+ * sharing a parent directory cannot collide over it.
+ */
+export function previousPath(root: string): string {
+  return path.join(path.dirname(root), `.olc-previous-${path.basename(root)}`)
+}
+
+/**
+ * Put back an installation a previous run was interrupted while replacing.
+ *
+ * The only state worth restoring is a missing root beside a surviving backup:
+ * that pair can only come from a swap that died between its two renames. If the
+ * root is there, the backup is debris from a finished or reinstalled update, and
+ * restoring it would overwrite a working install with an older one.
+ */
+export async function recoverInterruptedUpdate(root: string): Promise<boolean> {
+  const previous = previousPath(root)
+  if (!(await exists(previous))) return false
+  if (await exists(root)) {
+    await fs.rm(previous, { recursive: true, force: true })
+    return false
+  }
+  await fs.rename(previous, root)
+  return true
+}
+
+/**
+ * Replace the installation, keeping the old one until the new one is in place.
+ *
+ * Two renames on one filesystem cannot be made one atomic operation portably —
+ * Node exposes no directory-exchange call — so the window between them is closed
+ * from the other side instead: SIGINT and SIGTERM are held off for its duration,
+ * and what survives a kill that cannot be caught is a complete previous version
+ * under a name the next run knows to restore.
+ */
 async function swap({
   root,
   staged,
@@ -142,17 +195,102 @@ async function swap({
   staged: string
   backup: string
 }): Promise<void> {
+  const hold = () => {}
+  process.on("SIGINT", hold)
+  process.on("SIGTERM", hold)
   const hadPrevious = await exists(root)
-  if (hadPrevious) await fs.rename(root, backup)
   try {
-    await fs.rename(staged, root)
+    if (hadPrevious) await fs.rename(root, backup)
+    try {
+      await fs.rename(staged, root)
+    } catch (error) {
+      if (hadPrevious) await fs.rename(backup, root)
+      throw new Error(
+        process.platform === "win32"
+          ? `Windows would not replace ${root} while olc is running from it. Close other olc processes and try again, or reinstall with: irm https://ollamaclient.in/olc.ps1 | iex`
+          : `Could not install into ${root}: ${error instanceof Error ? error.message : "unknown failure"}. The previous version was put back.`
+      )
+    }
+  } finally {
+    process.off("SIGINT", hold)
+    process.off("SIGTERM", hold)
+  }
+}
+
+const LOCK_STALE_MS = 10 * 60_000
+
+/**
+ * Serialize updates of one installation across processes.
+ *
+ * Two updates replacing the same directory at once is how one of them ends up
+ * renaming a root the other already moved. The lock is an exclusive file
+ * creation, which is atomic on every filesystem this runs on; a lock whose owner
+ * is gone, or that is older than any plausible update, is taken over rather than
+ * left to block forever.
+ */
+export async function withUpdateLock<T>(
+  root: string,
+  run: () => Promise<T>
+): Promise<T> {
+  const lock = path.join(
+    path.dirname(root),
+    `.olc-update-${path.basename(root)}.lock`
+  )
+  await claimLock(lock)
+  try {
+    return await run()
+  } finally {
+    await fs.rm(lock, { force: true })
+  }
+}
+
+async function claimLock(lock: string): Promise<void> {
+  const mine = JSON.stringify({ pid: process.pid, at: Date.now() })
+  try {
+    await fs.writeFile(lock, mine, { flag: "wx" })
+    return
   } catch (error) {
-    if (hadPrevious) await fs.rename(backup, root)
+    if (errorCode(error) !== "EEXIST") throw error
+  }
+  const holder = await readLock(lock)
+  if (holder && holder.at > Date.now() - LOCK_STALE_MS && isRunning(holder.pid))
     throw new Error(
-      process.platform === "win32"
-        ? `Windows would not replace ${root} while olc is running from it. Close other olc processes and try again, or reinstall with: irm https://ollamaclient.in/olc.ps1 | iex`
-        : `Could not install into ${root}: ${error instanceof Error ? error.message : "unknown failure"}. The previous version was put back.`
+      `Another olc update is already running (PID ${holder.pid}). Wait for it to finish, or remove ${lock} if it did not.`
     )
+  await fs.rm(lock, { force: true })
+  try {
+    await fs.writeFile(lock, mine, { flag: "wx" })
+  } catch {
+    throw new Error(
+      `Another olc update claimed ${lock} at the same moment. Try again.`
+    )
+  }
+}
+
+interface LockHolder {
+  pid: number
+  at: number
+}
+
+async function readLock(lock: string): Promise<LockHolder | undefined> {
+  try {
+    const parsed: unknown = JSON.parse(await fs.readFile(lock, "utf8"))
+    if (!isRecord(parsed)) return undefined
+    const { pid, at } = parsed
+    if (typeof pid === "number" && typeof at === "number") return { pid, at }
+  } catch {
+    /* An unreadable lock says nothing, so it is treated as abandoned. */
+  }
+  return undefined
+}
+
+/** Signal 0 tests for the process without touching it. */
+function isRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return errorCode(error) !== "ESRCH"
   }
 }
 

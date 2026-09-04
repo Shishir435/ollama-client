@@ -9,7 +9,7 @@
  * A version that does not exist is an ordinary answer here, not a failure to
  * report as one: the caller turns it into a message that names what does exist.
  */
-import { readBoundedJson } from "../util.js"
+import { isRecord, readBoundedJson } from "../util.js"
 import { OLC_VERSION } from "../version.js"
 
 export const OLC_REPO = "Shishir435/ollama-client"
@@ -140,8 +140,8 @@ export async function listVersions(
     if (!Array.isArray(response.body)) return []
     return response.body
       .flatMap((entry) =>
-        typeof (entry as { tag_name?: unknown })?.tag_name === "string"
-          ? [(entry as { tag_name: string }).tag_name]
+        isRecord(entry) && typeof entry.tag_name === "string"
+          ? [entry.tag_name]
           : []
       )
       .slice(0, limit)
@@ -165,23 +165,17 @@ function assertUsable(response: GithubResponse): void {
 
 /** Trust nothing about the shape of the response beyond what is read here. */
 function toRelease(body: unknown): Release | undefined {
-  if (!body || typeof body !== "object") return undefined
-  const candidate = body as {
-    tag_name?: unknown
-    prerelease?: unknown
-    assets?: unknown
-  }
-  if (typeof candidate.tag_name !== "string") return undefined
-  const assets = Array.isArray(candidate.assets) ? candidate.assets : []
+  if (!isRecord(body) || typeof body.tag_name !== "string") return undefined
+  const assets = Array.isArray(body.assets) ? body.assets : []
   return {
-    version: candidate.tag_name.replace(/^v/, ""),
-    prerelease: candidate.prerelease === true,
-    assets: assets.flatMap((asset) => {
-      const item = asset as { name?: unknown; browser_download_url?: unknown }
-      return typeof item?.name === "string" &&
-        typeof item.browser_download_url === "string"
-        ? [{ name: item.name, downloadUrl: item.browser_download_url }]
+    version: body.tag_name.replace(/^v/, ""),
+    prerelease: body.prerelease === true,
+    assets: assets.flatMap((asset: unknown) =>
+      isRecord(asset) &&
+      typeof asset.name === "string" &&
+      typeof asset.browser_download_url === "string"
+        ? [{ name: asset.name, downloadUrl: asset.browser_download_url }]
         : []
-    })
+    )
   }
 }

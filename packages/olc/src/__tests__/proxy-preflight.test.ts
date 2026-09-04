@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { Listener } from "../ollama/process.js"
 import {
   assertProxyPortAvailable,
+  type BindFailure,
   describePortConflict,
   findFreePort,
   type PreflightDependencies
@@ -16,8 +17,10 @@ const listener = (overrides: Partial<Listener> = {}): Listener => ({
   ...overrides
 })
 
-const bindError = (code: string): NodeJS.ErrnoException =>
-  Object.assign(new Error(`listen ${code}`), { code })
+const bindError = (code: string): BindFailure => ({
+  code,
+  message: `listen ${code}`
+})
 
 /** No OS inspection, no sockets: policy is tested without touching the machine. */
 function deps(overrides: Partial<PreflightDependencies> = {}) {

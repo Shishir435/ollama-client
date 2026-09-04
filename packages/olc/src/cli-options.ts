@@ -144,6 +144,11 @@ const BOOLEAN_FLAGS: Record<string, [string, boolean]> = {
 export const COMMANDS = ["update"] as const
 export type Command = "serve" | (typeof COMMANDS)[number]
 
+/** Narrows a raw token to a command without asserting that it is one. */
+function isCommand(value: string): value is (typeof COMMANDS)[number] {
+  return COMMANDS.some((name) => name === value)
+}
+
 /** What `olc update` may be given; every other option belongs to a server. */
 const UPDATE_FLAGS = new Set(["CHECK", "JSON", "VERSION"])
 
@@ -159,13 +164,13 @@ function readCommand(argv: string[]): {
   start: number
 } {
   const first = argv[0]
-  if (!first || !(COMMANDS as readonly string[]).includes(first))
+  if (first === undefined || !isCommand(first))
     return { command: "serve", start: 0 }
   const second = argv[1]
   /** The one positional olc has: the version `update` should install. */
   return second !== undefined && !second.startsWith("-")
-    ? { command: first as Command, target: second, start: 2 }
-    : { command: first as Command, start: 1 }
+    ? { command: first, target: second, start: 2 }
+    : { command: first, start: 1 }
 }
 
 /** Reject missing values and repeated options instead of guessing user intent. */
@@ -200,15 +205,29 @@ export function parseArgs(argv: string[]) {
     options[key] = value
   }
   validatePort(options.PORT)
+  /** Checked before CONFIG_PATH is removed, so --config cannot slip through. */
+  if (command === "update") assertUpdateOptions(options)
   const configPath = options.CONFIG_PATH as string | undefined
   delete options.CONFIG_PATH
-  if (command === "update") assertUpdateOptions(options)
   return { options, help, configPath, command, target }
+}
+
+/** Name the option the way the user typed it, not the way it is stored. */
+function flagFor(key: string): string {
+  const boolean = Object.entries(BOOLEAN_FLAGS).find(
+    ([, [name]]) => name === key
+  )
+  if (boolean) return boolean[0]
+  return (
+    Object.entries(VALUE_FLAGS).find(([, name]) => name === key)?.[0] ?? key
+  )
 }
 
 /** Server options say nothing about an update, so accepting them would mislead. */
 function assertUpdateOptions(options: ProxyOptions): void {
-  const stray = Object.keys(options).find((key) => !UPDATE_FLAGS.has(key))
+  const stray = Object.keys(options)
+    .filter((key) => !UPDATE_FLAGS.has(key))
+    .map(flagFor)[0]
   if (stray)
     throw new Error(
       `olc update takes a version and --check/--json; ${stray} configures a server. See olc --help.`
