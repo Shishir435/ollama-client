@@ -5,6 +5,7 @@ import { browser } from "@/lib/browser-api"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
 import { hasAgentPerceptionPermission } from "@/lib/permissions"
 import { registerAgentPanelPort } from "./agent-panel-port"
+import { resolveAgentProviderDisclosure } from "./agent-provider-disclosure"
 import type { AgentRunService } from "./agent-run-service"
 import { createAgentRunService } from "./agent-run-service"
 import type { AgentTabHistory } from "./agent-tab-history"
@@ -24,8 +25,7 @@ export interface AgentComposition {
  * The navigation observer needs `webNavigation`, which is optional and granted
  * from the panel, so it is attached only once the permission is in hand — a
  * missing grant leaves the run service refusing to start rather than reading
- * an API that is not there. Provider disclosure is not resolved here: the
- * panel owns the model selection it discloses.
+ * an API that is not there.
  */
 export const createAgentComposition = async (): Promise<
   AgentComposition | undefined
@@ -36,6 +36,7 @@ export const createAgentComposition = async (): Promise<
   const service = createAgentRunService({ history })
   const stopPort = registerAgentPanelPort({
     service,
+    resolveProvider: resolveAgentProviderDisclosure,
     resolveTab: async (tabId) => {
       try {
         const tab = await browser.tabs.get(tabId)

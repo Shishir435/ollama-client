@@ -9,10 +9,6 @@ import type { DurableAgentRun } from "@/lib/repositories/agent-runs"
 import { createAgentRunService } from "../agent-run-service"
 import { createAgentSupervision } from "../agent-supervision"
 
-vi.mock("@/application/agent/agent-model-port", () => ({
-  createProviderAgentModelPort: () => ({ decide: vi.fn() })
-}))
-
 const runs = new Map<string, AgentRunState>()
 
 const persistence = (): AgentPersistencePort => ({
@@ -61,7 +57,7 @@ const service = (
       return state ? ({ state } as DurableAgentRun) : null
     },
     readSteps: vi.fn(async () => []),
-    createController: () => controller,
+    buildController: () => controller,
     hasPerception: async () => true,
     getTab: async () => ({ url: "https://example.com/start" }),
     classifyAccess: async () => "ok",

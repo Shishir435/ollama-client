@@ -4,15 +4,10 @@ import type {
   AgentPersistencePort,
   AgentTakeoverDecision
 } from "@ollama-client/agent-runtime"
-import {
-  createAgentController,
-  evaluateAgentPolicy,
-  isTerminalAgentStatus
-} from "@ollama-client/agent-runtime"
+import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type { AgentRunState } from "@ollama-client/contracts"
 import { AgentRunStateSchema } from "@ollama-client/contracts"
 
-import { createProviderAgentModelPort } from "@/application/agent/agent-model-port"
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 import { hasAgentPerceptionPermission } from "@/lib/permissions"
@@ -24,10 +19,9 @@ import {
   getAgentRun,
   listAgentSteps
 } from "@/lib/repositories/agent-runs"
-import { createAgentBrowserAdapters } from "./agent-browser-adapters"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentControlSessionRegistry } from "./agent-control-sessions"
-import { createAgentEffectPort } from "./agent-effect-port"
+import type { BuildAgentController } from "./agent-run-controller"
 import type {
   AgentPendingSupervision,
   AgentSupervision
@@ -148,7 +142,7 @@ export const createAgentRunService = (input?: {
   createRun?: typeof createAgentRun
   readRun?: typeof getAgentRun
   readSteps?: typeof listAgentSteps
-  createController?: typeof createAgentController
+  buildController?: BuildAgentController
   hasPerception?: () => Promise<boolean>
   getTab?: (tabId: number) => Promise<{ url?: string } | undefined>
   classifyAccess?: typeof classifyAgentTabAccess
@@ -201,35 +195,35 @@ export const createAgentRunService = (input?: {
     if (activeRunId === runId) activeRunId = undefined
   }
 
-  const controllerFor = (state: AgentRunState): AgentController => {
+  /** Assembled on first use, and reused for the life of the run. */
+  const controllerFor = async (
+    state: AgentRunState
+  ): Promise<AgentController> => {
     const existing = controllers.get(state.id)
     if (existing) return existing
-    const adapters = createAgentBrowserAdapters({
+    const build =
+      input?.buildController ??
+      (await import("./agent-run-controller")).buildAgentController
+    const controller = build({
       runId: state.id,
       sessions,
       history,
-      now
-    })
-    const controller = (input?.createController ?? createAgentController)({
-      model: createProviderAgentModelPort({
-        allowExperimental: experimental.has(state.id)
-      }),
-      observation: adapters.observation,
-      effect: createAgentEffectPort(adapters),
-      policy: { evaluate: evaluateAgentPolicy },
       persistence,
-      approval: supervision.approval,
-      takeover: supervision.takeover,
-      clock: { now }
+      supervision,
+      allowExperimentalModel: experimental.has(state.id),
+      now
     })
     controllers.set(state.id, controller)
     return controller
   }
 
-  const drive = (
+  const drive = async (
     state: AgentRunState,
     work: (c: AgentController) => Promise<void>
-  ) => work(controllerFor(state)).finally(() => settle(state.id))
+  ) => {
+    const controller = await controllerFor(state)
+    return work(controller).finally(() => settle(state.id))
+  }
 
   const loadRunning = async (runId: string): Promise<AgentRunState> => {
     const state = await persistence.load(runId)

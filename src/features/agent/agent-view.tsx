@@ -1,6 +1,7 @@
 import type {
   AgentApprovalRequest,
   AgentRunState,
+  AgentStepRecord,
   AgentTakeoverRequest
 } from "@ollama-client/contracts"
 import { Bot, ExternalLink, Eye, MessageSquareWarning } from "lucide-react"
@@ -8,7 +9,6 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import type { DurableAgentStep } from "@/lib/repositories/agent-runs"
 import { AgentRunControls } from "./components/agent-run-controls"
 import { AgentWorkLog } from "./components/agent-work-log"
 import {
@@ -29,7 +29,7 @@ export interface AgentTabPresentation {
 
 export interface AgentViewProps {
   run?: AgentRunState | null
-  steps?: DurableAgentStep[]
+  steps?: AgentStepRecord[]
   provider?: AgentProviderPresentation
   tab?: AgentTabPresentation
   approval?: AgentApprovalRequest

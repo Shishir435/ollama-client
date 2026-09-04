@@ -1,0 +1,73 @@
+import { useTranslation } from "react-i18next"
+
+import { useProviderModels } from "@/features/model/hooks/use-provider-models"
+import { useSetting } from "@/hooks/use-setting"
+import { openOptionsInTab, runtime } from "@/lib/browser-api"
+import { SETTINGS } from "@/lib/storage/settings"
+import { AgentView } from "./agent-view"
+import { useAgentRun } from "./hooks/use-agent-run"
+
+/**
+ * The Agent surface as the side panel mounts it: the supervision port, the
+ * selected model, and the one-time remote-observation acknowledgement wired to
+ * the presentational view.
+ *
+ * Run state is never held here. Every control posts a command and the next
+ * snapshot is the answer, so what the panel shows always describes the durable
+ * run rather than an optimistic guess about it.
+ */
+export const AgentPanel = () => {
+  const { t } = useTranslation()
+  const { selectedModel, selectedProviderId } = useProviderModels()
+  const [acknowledged, setAcknowledged] = useSetting(
+    SETTINGS.AGENT_REMOTE_OBSERVATION_ACKNOWLEDGED
+  )
+  const connection = useAgentRun({
+    providerId: selectedProviderId || undefined,
+    modelId: selectedModel || undefined
+  })
+  const { snapshot } = connection
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {connection.failure && (
+        <p
+          role="alert"
+          className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs">
+          {t(connection.failure.messageKey)}
+        </p>
+      )}
+      <div className="min-h-0 flex-1">
+        <AgentView
+          run={snapshot.run ?? null}
+          steps={snapshot.steps}
+          provider={snapshot.provider}
+          tab={snapshot.tab}
+          approval={
+            snapshot.pending?.kind === "approval"
+              ? snapshot.pending.request
+              : undefined
+          }
+          takeover={
+            snapshot.pending?.kind === "takeover"
+              ? snapshot.pending.request
+              : undefined
+          }
+          privacyAcknowledged={acknowledged === true}
+          busy={connection.busy}
+          onAcknowledgePrivacy={() => void setAcknowledged(true)}
+          onStart={connection.start}
+          onApprove={connection.approve}
+          onReject={connection.reject}
+          onPause={connection.pause}
+          onResume={connection.resume}
+          onStop={connection.stop}
+          onTakeoverComplete={connection.completeTakeover}
+          onFeedback={() =>
+            void openOptionsInTab(runtime.getURL("options.html?tab=privacy"))
+          }
+        />
+      </div>
+    </div>
+  )
+}

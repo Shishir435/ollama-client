@@ -1,0 +1,173 @@
+import type {
+  AgentPanelCommand,
+  AgentPanelSnapshot
+} from "@ollama-client/contracts"
+import { AgentPanelMessageSchema } from "@ollama-client/contracts"
+import { useCallback, useEffect, useRef, useState } from "react"
+
+import { browser } from "@/lib/browser-api"
+import { queryActiveTab } from "@/lib/browser-tab-access"
+import { MESSAGE_KEYS } from "@/lib/constants"
+import { logger } from "@/lib/logger"
+
+export interface AgentCommandFailure {
+  command: string
+  messageKey: string
+  message: string
+}
+
+export interface AgentRunConnection {
+  snapshot: AgentPanelSnapshot
+  failure?: AgentCommandFailure
+  busy: boolean
+  start(goal: string): void
+  pause(): void
+  resume(): void
+  stop(): void
+  completeTakeover(): void
+  approve(): void
+  reject(): void
+  beginTakeover(): void
+}
+
+const EMPTY: AgentPanelSnapshot = { steps: [] }
+
+interface UseAgentRunInput {
+  providerId?: string
+  modelId?: string
+  allowExperimentalModel?: boolean
+}
+
+/**
+ * Holds the panel's supervision port for as long as the Agent surface is
+ * mounted.
+ *
+ * The panel never keeps its own copy of run state: every control sends a
+ * command and the next snapshot from the background is the answer. That is why
+ * a run survives the panel closing — what the panel shows is a view of the
+ * durable run, not the run itself.
+ */
+export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
+  const [snapshot, setSnapshot] = useState<AgentPanelSnapshot>(EMPTY)
+  const [failure, setFailure] = useState<AgentCommandFailure>()
+  const [busy, setBusy] = useState(false)
+  const portRef = useRef<ReturnType<typeof browser.runtime.connect> | null>(
+    null
+  )
+
+  useEffect(() => {
+    const port = browser.runtime.connect({
+      name: MESSAGE_KEYS.AGENT.RUN_PORT
+    })
+    portRef.current = port
+
+    const onMessage = (raw: unknown) => {
+      const parsed = AgentPanelMessageSchema.safeParse(raw)
+      if (!parsed.success) {
+        logger.warn("Discarded invalid Agent panel message", "Agent", {
+          issues: parsed.error.issues.length
+        })
+        return
+      }
+      setBusy(false)
+      if (parsed.data.type === "agent_snapshot") {
+        setSnapshot(parsed.data.snapshot)
+        return
+      }
+      setFailure({
+        command: parsed.data.command,
+        messageKey: parsed.data.messageKey,
+        message: parsed.data.message
+      })
+    }
+    const onDisconnect = () => {
+      portRef.current = null
+      setBusy(false)
+    }
+
+    port.onMessage.addListener(onMessage)
+    port.onDisconnect.addListener(onDisconnect)
+    return () => {
+      port.onMessage.removeListener(onMessage)
+      port.onDisconnect.removeListener(onDisconnect)
+      portRef.current = null
+      port.disconnect()
+    }
+  }, [])
+
+  const send = useCallback((command: AgentPanelCommand) => {
+    const port = portRef.current
+    if (!port) return
+    setFailure(undefined)
+    setBusy(true)
+    port.postMessage(command)
+  }, [])
+
+  const runId = snapshot.run?.id
+  const pending = snapshot.pending
+
+  const start = useCallback(
+    (goal: string) => {
+      if (!input.providerId || !input.modelId) return
+      const trimmed = goal.trim()
+      if (!trimmed) return
+      setBusy(true)
+      void queryActiveTab()
+        .then((tab) => {
+          if (typeof tab?.id !== "number") {
+            setBusy(false)
+            return
+          }
+          send({
+            type: "agent_start",
+            goal: trimmed,
+            tabId: tab.id,
+            providerId: input.providerId as string,
+            modelId: input.modelId as string,
+            allowExperimentalModel: input.allowExperimentalModel
+          })
+        })
+        .catch(() => setBusy(false))
+    },
+    [input.allowExperimentalModel, input.modelId, input.providerId, send]
+  )
+
+  const runScoped = useCallback(
+    (type: "agent_pause" | "agent_resume" | "agent_stop") => {
+      if (!runId) return
+      send({ type, runId })
+    },
+    [runId, send]
+  )
+
+  const answer = useCallback(
+    (
+      type:
+        | "agent_approve"
+        | "agent_reject"
+        | "agent_takeover_started"
+        | "agent_takeover_cancelled"
+    ) => {
+      if (!runId || !pending) return
+      send({ type, runId, requestId: pending.request.id })
+    },
+    [pending, runId, send]
+  )
+
+  return {
+    snapshot,
+    failure,
+    busy,
+    start,
+    pause: () => runScoped("agent_pause"),
+    resume: () => runScoped("agent_resume"),
+    stop: () => runScoped("agent_stop"),
+    completeTakeover: () => {
+      if (!runId) return
+      send({ type: "agent_complete_takeover", runId })
+    },
+    approve: () => answer("agent_approve"),
+    reject: () => answer("agent_reject"),
+    beginTakeover: () => answer("agent_takeover_started")
+  }
+}
