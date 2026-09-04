@@ -9,7 +9,10 @@ import {
   MAX_AGENT_ALLOWED_ORIGINS
 } from "@ollama-client/contracts"
 import {
+  type AgentProgressPoint,
   beginAgentStepDeadline,
+  classifyNoProgress,
+  hashAgentObservation,
   initialAgentDeadlineState,
   resumeAgentDeadlines,
   suspendAgentDeadlines
@@ -23,11 +26,11 @@ import type {
   AuthorizedAgentEffect,
   ResolvedAgentEffect
 } from "./ports"
-import { agentFailure, pausePatch } from "./ports"
+import { AgentMalformedDecisionError, agentFailure, pausePatch } from "./ports"
 import { AGENT_STATUS_PREDECESSORS, isTerminalAgentStatus } from "./state"
 import { classifyVerificationOutcome } from "./verification"
 
-const DEFAULT_MAX_MALFORMED_DECISIONS = 5
+const MAX_CONSECUTIVE_NO_PROGRESS = 3
 
 /**
  * An origin joins a run's allowlist only when the user approved travelling to
@@ -76,6 +79,8 @@ export const createAgentController = (
   const active = new Map<string, AgentCancellationController>()
   const lastGeneration = new Map<string, number>()
   const minimumGeneration = new Map<string, number>()
+  const previousProgress = new Map<string, AgentProgressPoint>()
+  const noProgressCounts = new Map<string, number>()
 
   const claim = async (
     state: AgentRunState,
@@ -214,17 +219,14 @@ export const createAgentController = (
     observation: AgentObservation,
     signal: AgentCancellationController["signal"]
   ) => {
-    const maximum =
-      dependencies.maxMalformedDecisions ?? DEFAULT_MAX_MALFORMED_DECISIONS
-    for (let attempt = 1; attempt <= maximum; attempt += 1) {
-      const raw = await dependencies.model.decide(
-        { state, observation },
-        signal
-      )
-      const parsed = AgentDecisionSchema.safeParse(raw)
-      if (parsed.success) return parsed.data
+    let raw: unknown
+    try {
+      raw = await dependencies.model.decide({ state, observation }, signal)
+    } catch (error) {
+      if (error instanceof AgentMalformedDecisionError) return undefined
+      throw error
     }
-    return undefined
+    return AgentDecisionSchema.safeParse(raw).data
   }
 
   const observe = async (
@@ -446,6 +448,8 @@ export const createAgentController = (
         return undefined
       }
       if (action.type === "redecide") return verifying
+      previousProgress.delete(state.id)
+      noProgressCounts.set(state.id, 0)
       // The write closing a confirmed step also opens the next observation, so
       // a tab the effect switched to is durably owned before this controller
       // can lose the run. Only the verifying run this step owns may be claimed:
@@ -558,6 +562,77 @@ export const createAgentController = (
       expected
     )
 
+  const exhaustedNoProgressBudget = async (
+    state: AgentRunState,
+    observation: AgentObservation,
+    decision: AgentDecision
+  ): Promise<boolean> => {
+    const progress: AgentProgressPoint = {
+      url: observation.url,
+      snapshotHash: hashAgentObservation(observation),
+      decision
+    }
+    const result = classifyNoProgress({
+      previous: previousProgress.get(state.id),
+      current: progress,
+      previousCount: noProgressCounts.get(state.id)
+    })
+    previousProgress.set(state.id, progress)
+    noProgressCounts.set(state.id, result.count)
+    if (result.count < MAX_CONSECUTIVE_NO_PROGRESS) return false
+    await fail(
+      state,
+      "budget_exhausted",
+      "The agent repeated the same decision without page progress."
+    )
+    return true
+  }
+
+  const observeAndDecide = async (
+    state: AgentRunState,
+    signal: AgentCancellationController["signal"]
+  ): Promise<
+    | {
+        state: AgentRunState
+        observation: AgentObservation
+        decision: AgentDecision
+      }
+    | undefined
+  > => {
+    const observation = await observe(state, signal)
+    if (!observation) return undefined
+    const deciding = await claim(state, "deciding", {
+      observationCount: state.observationCount + 1,
+      updatedAt: dependencies.clock.now()
+    })
+    if (!deciding) return undefined
+    let decision: AgentDecision | undefined
+    try {
+      decision = await decide(deciding, observation, signal)
+    } catch {
+      if (!signal.aborted) {
+        await fail(
+          deciding,
+          "model_unavailable",
+          "The selected model could not produce an Agent decision."
+        )
+      }
+      return undefined
+    }
+    if (!decision) {
+      await fail(
+        deciding,
+        "invalid_decision",
+        "The model returned too many invalid decisions."
+      )
+      return undefined
+    }
+    if (await exhaustedNoProgressBudget(deciding, observation, decision)) {
+      return undefined
+    }
+    return { state: deciding, observation, decision }
+  }
+
   const runLoop = async (
     initialState: AgentRunState,
     controller: AgentCancellationController,
@@ -583,30 +658,14 @@ export const createAgentController = (
       state = observing
       observingClaimed = false
       entered = true
-      const observation = await observe(state, controller.signal)
-      if (!observation) return
-
-      const deciding = await claim(state, "deciding", {
-        observationCount: state.observationCount + 1,
-        updatedAt: dependencies.clock.now()
-      })
-      if (!deciding) return
-      state = deciding
-
-      const modelDecision = await decide(state, observation, controller.signal)
-      if (!modelDecision) {
-        await fail(
-          state,
-          "invalid_decision",
-          "The model returned too many invalid decisions."
-        )
-        return
-      }
+      const prepared = await observeAndDecide(state, controller.signal)
+      if (!prepared) return
+      state = prepared.state
 
       const next = await processDecision(
         state,
-        modelDecision,
-        observation,
+        prepared.decision,
+        prepared.observation,
         controller.signal
       )
       if (!next) return

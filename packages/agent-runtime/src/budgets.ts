@@ -1,7 +1,8 @@
 import {
   type AgentDeadlineState,
   AgentDeadlineStateSchema,
-  type AgentDecision
+  type AgentDecision,
+  type AgentObservation
 } from "@ollama-client/contracts"
 
 export const initialAgentDeadlineState = (now: number): AgentDeadlineState => ({
@@ -147,6 +148,38 @@ export interface AgentNoProgressResult {
   count: number
 }
 
+const decisionFingerprint = (decision: AgentDecision): string => {
+  if (decision.type !== "command") return JSON.stringify(decision)
+  const {
+    snapshotId: _snapshotId,
+    generation: _generation,
+    ...command
+  } = decision.command
+  return JSON.stringify({ type: "command", command })
+}
+
+const fnv1a = (value: string): string => {
+  let hash = 0x811c9dc5
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0")
+}
+
+/** Snapshot identity and capture time change on every observation and are not progress. */
+export const hashAgentObservation = (observation: AgentObservation): string =>
+  fnv1a(
+    JSON.stringify({
+      url: observation.url,
+      title: observation.title,
+      elements: observation.elements,
+      visibleText: observation.visibleText,
+      scroll: observation.scroll,
+      dialogs: observation.dialogs
+    })
+  )
+
 export const classifyNoProgress = (
   input: AgentNoProgressInput
 ): AgentNoProgressResult => {
@@ -162,8 +195,8 @@ export const classifyNoProgress = (
     input.previous !== undefined &&
     input.previous.url === input.current.url &&
     input.previous.snapshotHash === input.current.snapshotHash &&
-    JSON.stringify(input.previous.decision) ===
-      JSON.stringify(input.current.decision)
+    decisionFingerprint(input.previous.decision) ===
+      decisionFingerprint(input.current.decision)
   return {
     noProgress: same,
     count: same ? (input.previousCount ?? 0) + 1 : 0

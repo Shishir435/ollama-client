@@ -124,6 +124,44 @@ describe("agent budgets", () => {
     ).toEqual({ noProgress: true, count: 2 })
   })
 
+  it("ignores fresh grounding tokens when the semantic command repeats", () => {
+    const first = {
+      url: "https://example.com",
+      snapshotHash: "same",
+      decision: wait
+    }
+    const second = {
+      ...first,
+      decision: {
+        type: "command" as const,
+        command: {
+          ...wait.command,
+          snapshotId: "snapshot-2",
+          generation: 2
+        }
+      }
+    }
+    expect(
+      classifyNoProgress({ previous: first, current: second, previousCount: 0 })
+    ).toEqual({ noProgress: false, count: 0 })
+
+    const firstRead: AgentDecision = {
+      type: "command",
+      command: { type: "read", snapshotId: "snapshot-1", generation: 1 }
+    }
+    const secondRead: AgentDecision = {
+      type: "command",
+      command: { type: "read", snapshotId: "snapshot-2", generation: 2 }
+    }
+    expect(
+      classifyNoProgress({
+        previous: { ...first, decision: firstRead },
+        current: { ...second, decision: secondRead },
+        previousCount: 0
+      })
+    ).toEqual({ noProgress: true, count: 1 })
+  })
+
   it("fails visibly after the malformed-response budget", () => {
     const tracker = createAgentBudgetTracker({
       now: () => 0,

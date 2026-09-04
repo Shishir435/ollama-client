@@ -201,12 +201,26 @@ export interface AgentStepWrite {
 /** Environment-neutral subset implemented by a host AbortSignal. */
 export interface AgentCancellationSignal {
   readonly aborted: boolean
+  addEventListener?(
+    type: "abort",
+    listener: () => void,
+    options?: { once?: boolean }
+  ): void
+  removeEventListener?(type: "abort", listener: () => void): void
 }
 
 /** Environment-neutral subset implemented by a host AbortController. */
 export interface AgentCancellationController {
   readonly signal: AgentCancellationSignal
   abort(): void
+}
+
+/** A provider responded, but its output was not a valid Agent decision. */
+export class AgentMalformedDecisionError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "AgentMalformedDecisionError"
+  }
 }
 
 export interface AgentModelPort {
@@ -285,7 +299,6 @@ export interface AgentControllerDependencies {
   takeover: AgentTakeoverPort
   clock: AgentClockPort
   createCancellationController?: () => AgentCancellationController
-  maxMalformedDecisions?: number
 }
 
 export const agentFailure = (
