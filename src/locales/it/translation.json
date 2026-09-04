@@ -1,4 +1,73 @@
 {
+  "agent": {
+    "title": "Agente supervisionato",
+    "surface": { "chat": "Chat", "agent": "Agente", "preview": "Anteprima" },
+    "start": {
+      "description": "Supervisiona un’attività del browser da questo pannello.",
+      "goal": "Cosa deve fare l’Agente?",
+      "placeholder": "Descrivi un’attività del browser…",
+      "action": "Avvia Agente"
+    },
+    "provider": {
+      "label": "Provider",
+      "local": "Locale",
+      "remote": "Remoto",
+      "missing": "Seleziona prima un modello"
+    },
+    "tab": {
+      "label": "Scheda controllata",
+      "missing": "Apri una pagina supportata"
+    },
+    "privacy": {
+      "remote_notice": "Le osservazioni della pagina saranno inviate continuamente a questo provider remoto mentre l’Agente è in esecuzione.",
+      "acknowledge": "Ho capito"
+    },
+    "observations": "{{count}} osservazioni",
+    "controls": {
+      "label": "Controlli Agente",
+      "pause": "Pausa",
+      "resume": "Riprendi",
+      "stop": "Interrompi",
+      "takeover_done": "Fatto — continua"
+    },
+    "approval": {
+      "title": "Approvazione richiesta",
+      "allow": "Consenti una volta",
+      "reject": "Rifiuta"
+    },
+    "takeover": { "title": "Prendi il controllo di questo passaggio" },
+    "unresolved": "Questa azione potrebbe essere avvenuta. Controlla la pagina prima di continuare.",
+    "work_log": { "title": "Registro attività" },
+    "completion": {
+      "summary": "Durante questa esecuzione sono state inviate {{count}} osservazioni di pagina a {{provider}}."
+    },
+    "feedback": "Invia feedback",
+    "status": {
+      "submitted": "Avvio",
+      "observing": "Osservazione pagina",
+      "deciding": "Scelta passaggio",
+      "awaiting_approval": "In attesa di approvazione",
+      "awaiting_takeover": "In attesa di te",
+      "executing": "Azione in corso",
+      "verifying": "Verifica risultato",
+      "pause_requested": "Pausa in corso",
+      "paused": "In pausa",
+      "cancelling": "Interruzione",
+      "completed": "Completato",
+      "failed": "Non riuscito",
+      "cancelled": "Interrotto"
+    },
+    "step_status": {
+      "planned": "Pianificato",
+      "approved": "Approvato",
+      "executing": "In corso",
+      "executed": "Fatto",
+      "verified": "Verificato",
+      "rejected": "Rifiutato",
+      "failed": "Non riuscito",
+      "uncertain": "Controlla"
+    }
+  },
   "common": {
     "theme": {
       "toggle": "Cambia Tema",

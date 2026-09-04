@@ -1,4 +1,66 @@
 {
+  "agent": {
+    "title": "监督式智能体",
+    "surface": { "chat": "聊天", "agent": "智能体", "preview": "预览" },
+    "start": {
+      "description": "在此面板中监督浏览器任务。",
+      "goal": "希望智能体做什么？",
+      "placeholder": "描述一个浏览器任务…",
+      "action": "启动智能体"
+    },
+    "provider": {
+      "label": "提供商",
+      "local": "本地",
+      "remote": "远程",
+      "missing": "请先选择模型"
+    },
+    "tab": { "label": "受控标签页", "missing": "请打开受支持的网页" },
+    "privacy": {
+      "remote_notice": "智能体运行期间，页面观察内容将持续发送给此远程提供商。",
+      "acknowledge": "我已了解"
+    },
+    "observations": "{{count}} 次观察",
+    "controls": {
+      "label": "智能体控制",
+      "pause": "暂停",
+      "resume": "继续",
+      "stop": "停止",
+      "takeover_done": "我已完成 — 继续"
+    },
+    "approval": { "title": "需要批准", "allow": "允许一次", "reject": "拒绝" },
+    "takeover": { "title": "接管此步骤" },
+    "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
+    "work_log": { "title": "工作日志" },
+    "completion": {
+      "summary": "本次运行中有 {{count}} 次页面观察发送给 {{provider}}。"
+    },
+    "feedback": "发送反馈",
+    "status": {
+      "submitted": "正在启动",
+      "observing": "正在观察页面",
+      "deciding": "正在选择下一步",
+      "awaiting_approval": "等待批准",
+      "awaiting_takeover": "等待你的操作",
+      "executing": "正在执行操作",
+      "verifying": "正在验证结果",
+      "pause_requested": "正在暂停",
+      "paused": "已暂停",
+      "cancelling": "正在停止",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已停止"
+    },
+    "step_status": {
+      "planned": "已计划",
+      "approved": "已批准",
+      "executing": "执行中",
+      "executed": "已执行",
+      "verified": "已验证",
+      "rejected": "已拒绝",
+      "failed": "失败",
+      "uncertain": "需检查"
+    }
+  },
   "common": {
     "theme": {
       "toggle": "切换主题",

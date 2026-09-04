@@ -155,6 +155,17 @@ describe("persistenceDefines", () => {
         .__FIREFOX_BG_OWNER__
     ).toBe("false")
   })
+
+  it("includes Agent Preview only in Chromium builds", () => {
+    expect(
+      persistenceDefines({ browser: "chrome", spikeOwner: false })
+        .__AGENT_PREVIEW_ENABLED__
+    ).toBe("true")
+    expect(
+      persistenceDefines({ browser: "firefox", spikeOwner: false })
+        .__AGENT_PREVIEW_ENABLED__
+    ).toBe("false")
+  })
 })
 
 /*

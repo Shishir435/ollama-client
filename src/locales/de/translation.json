@@ -1,4 +1,73 @@
 {
+  "agent": {
+    "title": "Beaufsichtigter Agent",
+    "surface": { "chat": "Chat", "agent": "Agent", "preview": "Vorschau" },
+    "start": {
+      "description": "Browseraufgabe in diesem Panel beaufsichtigen.",
+      "goal": "Was soll der Agent tun?",
+      "placeholder": "Eine Browseraufgabe beschreiben…",
+      "action": "Agent starten"
+    },
+    "provider": {
+      "label": "Anbieter",
+      "local": "Lokal",
+      "remote": "Remote",
+      "missing": "Zuerst Modell auswählen"
+    },
+    "tab": {
+      "label": "Gesteuerter Tab",
+      "missing": "Unterstützte Webseite öffnen"
+    },
+    "privacy": {
+      "remote_notice": "Seitenbeobachtungen werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet.",
+      "acknowledge": "Verstanden"
+    },
+    "observations": "{{count}} Beobachtungen",
+    "controls": {
+      "label": "Agent-Steuerung",
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "stop": "Stoppen",
+      "takeover_done": "Fertig — fortsetzen"
+    },
+    "approval": {
+      "title": "Genehmigung erforderlich",
+      "allow": "Einmal erlauben",
+      "reject": "Ablehnen"
+    },
+    "takeover": { "title": "Diesen Schritt übernehmen" },
+    "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
+    "work_log": { "title": "Arbeitsprotokoll" },
+    "completion": {
+      "summary": "Während dieses Laufs wurden {{count}} Seitenbeobachtungen an {{provider}} gesendet."
+    },
+    "feedback": "Feedback senden",
+    "status": {
+      "submitted": "Startet",
+      "observing": "Seite wird beobachtet",
+      "deciding": "Nächster Schritt",
+      "awaiting_approval": "Wartet auf Genehmigung",
+      "awaiting_takeover": "Wartet auf Sie",
+      "executing": "Aktion läuft",
+      "verifying": "Ergebnis wird geprüft",
+      "pause_requested": "Pausiert gleich",
+      "paused": "Pausiert",
+      "cancelling": "Wird gestoppt",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Gestoppt"
+    },
+    "step_status": {
+      "planned": "Geplant",
+      "approved": "Genehmigt",
+      "executing": "Läuft",
+      "executed": "Erledigt",
+      "verified": "Geprüft",
+      "rejected": "Abgelehnt",
+      "failed": "Fehlgeschlagen",
+      "uncertain": "Prüfen"
+    }
+  },
   "common": {
     "theme": {
       "toggle": "Thema wechseln",

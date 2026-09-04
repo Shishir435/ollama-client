@@ -1,4 +1,73 @@
 {
+  "agent": {
+    "title": "Agente supervisado",
+    "surface": { "chat": "Chat", "agent": "Agente", "preview": "Vista previa" },
+    "start": {
+      "description": "Supervisa una tarea del navegador desde este panel.",
+      "goal": "¿Qué debe hacer el Agente?",
+      "placeholder": "Describe una tarea del navegador…",
+      "action": "Iniciar Agente"
+    },
+    "provider": {
+      "label": "Proveedor",
+      "local": "Local",
+      "remote": "Remoto",
+      "missing": "Selecciona un modelo primero"
+    },
+    "tab": {
+      "label": "Pestaña controlada",
+      "missing": "Abre una página compatible"
+    },
+    "privacy": {
+      "remote_notice": "Las observaciones de página se enviarán continuamente a este proveedor remoto mientras se ejecute el Agente.",
+      "acknowledge": "Entiendo"
+    },
+    "observations": "{{count}} observaciones",
+    "controls": {
+      "label": "Controles del Agente",
+      "pause": "Pausar",
+      "resume": "Reanudar",
+      "stop": "Detener",
+      "takeover_done": "Terminé — continuar"
+    },
+    "approval": {
+      "title": "Aprobación necesaria",
+      "allow": "Permitir una vez",
+      "reject": "Rechazar"
+    },
+    "takeover": { "title": "Toma el control de este paso" },
+    "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
+    "work_log": { "title": "Registro de trabajo" },
+    "completion": {
+      "summary": "Se enviaron {{count}} observaciones de página a {{provider}} durante esta ejecución."
+    },
+    "feedback": "Enviar comentarios",
+    "status": {
+      "submitted": "Iniciando",
+      "observing": "Observando página",
+      "deciding": "Eligiendo siguiente paso",
+      "awaiting_approval": "Esperando aprobación",
+      "awaiting_takeover": "Esperándote",
+      "executing": "Realizando acción",
+      "verifying": "Verificando resultado",
+      "pause_requested": "Pausando",
+      "paused": "En pausa",
+      "cancelling": "Deteniendo",
+      "completed": "Completado",
+      "failed": "Falló",
+      "cancelled": "Detenido"
+    },
+    "step_status": {
+      "planned": "Planificado",
+      "approved": "Aprobado",
+      "executing": "En curso",
+      "executed": "Hecho",
+      "verified": "Verificado",
+      "rejected": "Rechazado",
+      "failed": "Falló",
+      "uncertain": "Revisar"
+    }
+  },
   "common": {
     "theme": {
       "toggle": "Alternar Tema",
