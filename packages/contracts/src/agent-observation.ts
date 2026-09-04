@@ -8,6 +8,15 @@ export const AgentSnapshotIdentitySchema = z.object({
 })
 export type AgentSnapshotIdentity = z.infer<typeof AgentSnapshotIdentitySchema>
 
+export const AgentSelectOptionSchema = z
+  .object({
+    value: z.string().max(2_000),
+    label: z.string().max(500),
+    disabled: z.boolean()
+  })
+  .strict()
+export type AgentSelectOption = z.infer<typeof AgentSelectOptionSchema>
+
 export const AgentElementSchema = z
   .object({
     ref: z.string().min(1),
@@ -16,9 +25,21 @@ export const AgentElementSchema = z
     name: z.string().optional(),
     tag: z.string().min(1),
     type: z.string().min(1).optional(),
-    value: z.string().optional(),
+    value: z.string().max(500).optional(),
+    checked: z.boolean().optional(),
+    focused: z.boolean().optional(),
     href: z.url().max(2_048).optional(),
     download: z.boolean().optional(),
+    formAction: z.url().max(2_048).optional(),
+    formMethod: z.enum(["get", "post", "dialog"]).optional(),
+    formFingerprint: z
+      .string()
+      .regex(/^[0-9a-f]{8}$/)
+      .optional(),
+    formHasSensitiveControl: z.boolean().optional(),
+    maySubmit: z.boolean().optional(),
+    submitter: z.boolean().optional(),
+    options: z.array(AgentSelectOptionSchema).max(200).optional(),
     visible: z.boolean(),
     enabled: z.boolean(),
     editable: z.boolean(),
@@ -38,6 +59,20 @@ export const AgentElementSchema = z
         code: "custom",
         path: ["href"],
         message: "Hidden element destinations must be omitted"
+      })
+    }
+    if (element.formAction !== undefined && !element.maySubmit) {
+      context.addIssue({
+        code: "custom",
+        path: ["formAction"],
+        message: "A form destination requires submit semantics"
+      })
+    }
+    if (element.options !== undefined && element.tag !== "select") {
+      context.addIssue({
+        code: "custom",
+        path: ["options"],
+        message: "Only select elements may expose options"
       })
     }
   })

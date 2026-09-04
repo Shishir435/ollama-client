@@ -20,7 +20,11 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
   ElementCommandSchema.extend({ type: z.literal("click") }).strict(),
   ElementCommandSchema.extend({
     type: z.literal("type"),
-    text: z.string().max(20_000)
+    text: z.string().min(1).max(500)
+  }).strict(),
+  ElementCommandSchema.extend({
+    type: z.literal("clear_and_type"),
+    text: z.string().max(500)
   }).strict(),
   ElementCommandSchema.extend({
     type: z.literal("press_key"),
@@ -31,9 +35,9 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     value: z.string().max(2_000)
   }).strict(),
   ElementCommandSchema.extend({
-    type: z.literal("check"),
-    checked: z.boolean()
+    type: z.literal("check")
   }).strict(),
+  ElementCommandSchema.extend({ type: z.literal("uncheck") }).strict(),
   GroundedCommandSchema.extend({
     type: z.literal("scroll"),
     direction: z.enum(["up", "down", "left", "right"]),

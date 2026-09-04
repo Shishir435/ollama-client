@@ -34,8 +34,10 @@ const effectRisk = (effect: AgentSemanticEffect): AgentRisk => {
     case "scroll":
       return "low"
     case "navigation":
-    case "form_mutation":
       return "medium"
+    case "activation":
+    case "form_mutation":
+      return "high"
     case "download":
       return "high"
     case "submission":

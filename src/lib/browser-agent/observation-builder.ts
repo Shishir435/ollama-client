@@ -13,7 +13,10 @@ export const AGENT_OBSERVATION_LIMITS = {
   titleChars: 500,
   elementNameChars: 500,
   elementValueChars: 500,
-  elementHrefChars: MAX_AGENT_DESTINATION_URL_CHARS
+  elementHrefChars: MAX_AGENT_DESTINATION_URL_CHARS,
+  selectOptions: 200,
+  selectOptionLabelChars: 500,
+  selectOptionValueChars: 2_000
 } as const
 
 const INTERACTIVE_SELECTOR = [
@@ -207,8 +210,124 @@ export const isSensitiveAgentElement = (element: Element): boolean => {
 
 const elementValue = (element: Element): string | undefined => {
   if (!("value" in element)) return undefined
-  const value = String((element as HTMLInputElement).value ?? "")
-  return value || undefined
+  return String((element as HTMLInputElement).value ?? "")
+}
+
+const isCheckableInput = (element: Element): element is HTMLInputElement =>
+  element instanceof HTMLInputElement &&
+  ["checkbox", "radio"].includes(element.type.toLowerCase())
+
+const isSubmitter = (element: Element): boolean => {
+  if (element instanceof HTMLButtonElement) {
+    return Boolean(element.form) && element.type.toLowerCase() === "submit"
+  }
+  return (
+    element instanceof HTMLInputElement &&
+    Boolean(element.form) &&
+    ["submit", "image"].includes(element.type.toLowerCase())
+  )
+}
+
+const maySubmitWithEnter = (element: Element): boolean => {
+  if (!(element instanceof HTMLInputElement) || !element.form) return false
+  return ![
+    "button",
+    "checkbox",
+    "file",
+    "hidden",
+    "image",
+    "radio",
+    "reset",
+    "submit"
+  ].includes(element.type.toLowerCase())
+}
+
+const associatedForm = (element: Element): HTMLFormElement | null => {
+  if (
+    element instanceof HTMLButtonElement ||
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLSelectElement ||
+    element instanceof HTMLTextAreaElement
+  ) {
+    return element.form
+  }
+  return null
+}
+
+const formAction = (element: Element): string | undefined => {
+  const form = associatedForm(element)
+  if (!form) return undefined
+  const action =
+    isSubmitter(element) &&
+    "formAction" in element &&
+    element.hasAttribute("formaction")
+      ? String(element.formAction)
+      : form.action
+  return action.length <= MAX_AGENT_DESTINATION_URL_CHARS ? action : undefined
+}
+
+const formMethod = (
+  element: Element
+): "get" | "post" | "dialog" | undefined => {
+  const form = associatedForm(element)
+  if (!form) return undefined
+  const method = (
+    isSubmitter(element) &&
+    "formMethod" in element &&
+    element.hasAttribute("formmethod")
+      ? String(element.formMethod)
+      : form.method
+  ).toLowerCase()
+  return method === "post" || method === "dialog" ? method : "get"
+}
+
+const stableFormFingerprint = (form: HTMLFormElement): string => {
+  const serialized = Array.from(form.elements)
+    .map((control) => {
+      if (!(control instanceof Element)) return "unknown"
+      const input = control as HTMLInputElement
+      const type = input.type?.toLowerCase() ?? ""
+      const sensitive = type === "hidden" || isSensitiveAgentElement(control)
+      return [
+        control.tagName.toLowerCase(),
+        type,
+        control.getAttribute("name") ?? "",
+        control.getAttribute("id") ?? "",
+        sensitive ? "redacted" : "value" in control ? String(input.value) : "",
+        "checked" in control ? String(input.checked) : ""
+      ].join("\u001f")
+    })
+    .join("\u001e")
+  let hash = 0x811c9dc5
+  for (let index = 0; index < serialized.length; index += 1) {
+    hash ^= serialized.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0")
+}
+
+const hasSensitiveFormControl = (form: HTMLFormElement): boolean =>
+  Array.from(form.elements).some(
+    (control) => control instanceof Element && isSensitiveAgentElement(control)
+  )
+
+const selectOptions = (
+  element: Element
+): AgentElement["options"] | undefined => {
+  if (!(element instanceof HTMLSelectElement)) return undefined
+  return Array.from(element.options)
+    .slice(0, AGENT_OBSERVATION_LIMITS.selectOptions)
+    .map((option) => ({
+      value: truncate(
+        option.value,
+        AGENT_OBSERVATION_LIMITS.selectOptionValueChars
+      ),
+      label: truncate(
+        normalizedText(option.label || option.textContent || option.value),
+        AGENT_OBSERVATION_LIMITS.selectOptionLabelChars
+      ),
+      disabled: option.disabled
+    }))
 }
 
 const collectVisibleText = (root: Element, limit: number): string => {
@@ -265,13 +384,59 @@ const elementHref = (element: Element): string | undefined => {
   }
 }
 
-const toAgentElement = (element: Element, ref: string): AgentElement => {
+const observedFormFields = (
+  element: Element,
+  maySubmit: boolean
+): Partial<AgentElement> => {
+  if (!maySubmit) return {}
+  const form = associatedForm(element)
+  const action = formAction(element)
+  const method = formMethod(element)
+  return {
+    ...(action ? { formAction: action } : {}),
+    ...(method ? { formMethod: method } : {}),
+    ...(form ? { formFingerprint: stableFormFingerprint(form) } : {}),
+    ...(form && hasSensitiveFormControl(form)
+      ? { formHasSensitiveControl: true }
+      : {}),
+    maySubmit: true
+  }
+}
+
+const observedControlFields = (
+  element: Element,
+  value: string | undefined,
+  href: string | undefined
+): Partial<AgentElement> => {
+  const options = selectOptions(element)
+  return {
+    ...(value !== undefined
+      ? {
+          value: truncate(value, AGENT_OBSERVATION_LIMITS.elementValueChars)
+        }
+      : {}),
+    ...(href ? { href } : {}),
+    ...(href && element.hasAttribute("download") ? { download: true } : {}),
+    ...(isCheckableInput(element) ? { checked: element.checked } : {}),
+    ...(element === element.ownerDocument.activeElement
+      ? { focused: true }
+      : {}),
+    ...(options ? { options } : {})
+  }
+}
+
+export const buildAgentElementObservation = (
+  element: Element,
+  ref: string
+): AgentElement => {
   const visible = isVisible(element)
   const sensitive = !visible || isSensitiveAgentElement(element)
   const name = visible ? accessibleName(element) : undefined
   const value = sensitive ? undefined : elementValue(element)
   const href = visible ? elementHref(element) : undefined
   const control = element as HTMLInputElement
+  const submitter = isSubmitter(element)
+  const maySubmit = submitter || maySubmitWithEnter(element)
   return {
     ref,
     frameId: 0,
@@ -281,13 +446,9 @@ const toAgentElement = (element: Element, ref: string): AgentElement => {
       : {}),
     tag: element.tagName.toLowerCase(),
     type: control.type || undefined,
-    ...(value
-      ? {
-          value: truncate(value, AGENT_OBSERVATION_LIMITS.elementValueChars)
-        }
-      : {}),
-    ...(href ? { href } : {}),
-    ...(href && element.hasAttribute("download") ? { download: true } : {}),
+    ...observedControlFields(element, value, href),
+    ...observedFormFields(element, maySubmit),
+    ...(submitter ? { submitter: true } : {}),
     visible,
     enabled: !(control.disabled ?? false),
     editable:
@@ -325,7 +486,7 @@ export const buildAgentObservation = (input: {
     input.document.querySelectorAll(INTERACTIVE_SELECTOR)
   ).slice(0, AGENT_OBSERVATION_LIMITS.elements)
   const elements = candidates.map((element) =>
-    toAgentElement(element, snapshot.reference(element))
+    buildAgentElementObservation(element, snapshot.reference(element))
   )
   const visibleText = input.document.body
     ? collectVisibleText(

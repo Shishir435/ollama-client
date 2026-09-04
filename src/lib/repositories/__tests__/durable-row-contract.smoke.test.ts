@@ -259,6 +259,65 @@ describe("durable job rows decode as their writers wrote them", () => {
   )
 
   it(
+    "redacts typed and selected values before durable step storage",
+    async () => {
+      await boot()
+      const repo = await import("@/lib/repositories/agent-runs")
+      const db = await import("@/lib/sqlite/db")
+      await repo.createAgentRun({
+        version: 1,
+        id: "agent-redaction-1",
+        goal: "Prepare a form",
+        status: "submitted",
+        stepCount: 0,
+        observationCount: 1,
+        controlledTabId: 7,
+        providerId: "ollama",
+        modelId: "model",
+        allowedOrigins: ["https://example.com"],
+        createdAt: 1,
+        updatedAt: 1
+      })
+      await repo.appendAgentStep({
+        runId: "agent-redaction-1",
+        stepId: "agent-redaction-1:1",
+        status: "planned",
+        command: {
+          type: "clear_and_type",
+          ref: "e1",
+          text: "private-profile-value",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        at: 2
+      })
+      await repo.appendAgentStep({
+        runId: "agent-redaction-1",
+        stepId: "agent-redaction-1:2",
+        status: "planned",
+        command: {
+          type: "select",
+          ref: "e2",
+          value: "private-option-value",
+          snapshotId: "snapshot-1",
+          generation: 1
+        },
+        at: 3
+      })
+
+      const stored = await db.query(
+        "SELECT receipt FROM agent_steps WHERE runId = ? ORDER BY id",
+        ["agent-redaction-1"]
+      )
+      const serialized = JSON.stringify(stored)
+      expect(serialized).not.toContain("private-profile-value")
+      expect(serialized).not.toContain("private-option-value")
+      expect(serialized).toContain("[redacted]")
+    },
+    TIMEOUT
+  )
+
+  it(
     "rejects oversized agent evidence before writing it",
     async () => {
       await boot()

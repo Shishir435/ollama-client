@@ -7,6 +7,8 @@ import {
   type AgentControlBrowserAdapter,
   type AgentControlEvent,
   type AgentControlPort,
+  type AgentDomMutationInstruction,
+  AgentExecuteRequestSchema,
   AgentObserveRequestSchema,
   attachAgentControlContentPort,
   createAgentControlSession,
@@ -63,6 +65,32 @@ const response = (overrides: Record<string, unknown> = {}) => ({
   ...binding,
   sequence: 1,
   observation: observation(),
+  ...overrides
+})
+
+const mutationInstruction = (
+  overrides: Partial<AgentDomMutationInstruction> = {}
+): AgentDomMutationInstruction => ({
+  command: {
+    type: "click",
+    ref: "e1",
+    snapshotId: "snapshot-1",
+    generation: 1
+  },
+  target: {
+    ref: "e1",
+    frameId: 0,
+    tag: "button",
+    accessibleName: "Continue",
+    sensitive: false,
+    maySubmit: false
+  },
+  snapshotIdentity: {
+    snapshotId: "snapshot-1",
+    generation: 1,
+    tabId: 7,
+    documentId: "document-1"
+  },
   ...overrides
 })
 
@@ -191,6 +219,68 @@ describe("Agent control port", () => {
     ).toEqual([1, 2])
   })
 
+  it("carries a resolved DOM mutation over the bound port", async () => {
+    const { port, onMessage } = createPort()
+    vi.mocked(port.postMessage).mockImplementation((raw) => {
+      const request = AgentExecuteRequestSchema.parse(raw)
+      queueMicrotask(() =>
+        onMessage.emit({
+          version: AGENT_CONTROL_VERSION,
+          type: "agent_dom_mutation_executed",
+          ...binding,
+          sequence: request.sequence
+        })
+      )
+    })
+    const session = createAgentControlSession({
+      port,
+      binding,
+      sender: { tabId: 7, frameId: 0, documentId: "document-1" }
+    })
+
+    await expect(
+      session.executeDomMutation(mutationInstruction())
+    ).resolves.toBeUndefined()
+    const request = AgentExecuteRequestSchema.parse(
+      vi.mocked(port.postMessage).mock.calls[0]?.[0]
+    )
+    expect(request.instruction.target.accessibleName).toBe("Continue")
+    expect(request.sequence).toBe(1)
+  })
+
+  it("does not consume a sequence for a concurrent control request", async () => {
+    const { port, onMessage } = createPort()
+    const session = createAgentControlSession({
+      port,
+      binding,
+      sender: { tabId: 7, frameId: 0, documentId: "document-1" }
+    })
+    const pending = session.observe(0)
+    await expect(
+      session.executeDomMutation(mutationInstruction())
+    ).rejects.toThrow("already in flight")
+    onMessage.emit(response())
+    await pending
+
+    vi.mocked(port.postMessage).mockImplementation((raw) => {
+      const request = AgentExecuteRequestSchema.parse(raw)
+      queueMicrotask(() =>
+        onMessage.emit({
+          version: AGENT_CONTROL_VERSION,
+          type: "agent_dom_mutation_executed",
+          ...binding,
+          sequence: request.sequence
+        })
+      )
+    })
+    await session.executeDomMutation(mutationInstruction())
+    expect(
+      AgentExecuteRequestSchema.parse(
+        vi.mocked(port.postMessage).mock.calls[1]?.[0]
+      ).sequence
+    ).toBe(2)
+  })
+
   it("rejects a generation older than the requested minimum", async () => {
     const { port, onMessage } = createPort()
     vi.mocked(port.postMessage).mockImplementation(() => {
@@ -207,7 +297,12 @@ describe("Agent control port", () => {
 
   it("locks content responses to the first run, nonce, sequence, and document", () => {
     const { port, onMessage } = createPort()
-    expect(attachAgentControlContentPort(port, () => observation())).toBe(true)
+    expect(
+      attachAgentControlContentPort(port, {
+        buildObservation: () => observation(),
+        executeDomMutation: vi.fn()
+      })
+    ).toBe(true)
     onMessage.emit({
       version: 1,
       type: "agent_observe",
@@ -224,6 +319,63 @@ describe("Agent control port", () => {
       sequence: 2,
       minimumGeneration: 0
     })
+    expect(port.disconnect).toHaveBeenCalledOnce()
+  })
+
+  it("executes only a snapshot-bound DOM mutation on the content side", () => {
+    const { port, onMessage } = createPort()
+    const executeDomMutation = vi.fn()
+    attachAgentControlContentPort(port, {
+      buildObservation: () => observation(),
+      executeDomMutation
+    })
+    onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_observe",
+      ...binding,
+      sequence: 1,
+      minimumGeneration: 0
+    })
+    onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_execute_dom_mutation",
+      ...binding,
+      sequence: 2,
+      instruction: mutationInstruction()
+    })
+
+    expect(executeDomMutation).toHaveBeenCalledOnce()
+    expect(port.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "agent_dom_mutation_executed",
+        sequence: 2
+      })
+    )
+  })
+
+  it("disconnects before a mutation with a mismatched snapshot binding", () => {
+    const { port, onMessage } = createPort()
+    const executeDomMutation = vi.fn()
+    attachAgentControlContentPort(port, {
+      buildObservation: () => observation(),
+      executeDomMutation
+    })
+    onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_execute_dom_mutation",
+      ...binding,
+      sequence: 1,
+      instruction: mutationInstruction({
+        snapshotIdentity: {
+          snapshotId: "snapshot-1",
+          generation: 1,
+          tabId: 8,
+          documentId: "document-1"
+        }
+      })
+    })
+
+    expect(executeDomMutation).not.toHaveBeenCalled()
     expect(port.disconnect).toHaveBeenCalledOnce()
   })
 

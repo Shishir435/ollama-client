@@ -84,6 +84,7 @@ const executorAdapter = (
   }),
   classifyAccess: async () => "ok",
   scroll: vi.fn(),
+  mutate: vi.fn(),
   activateTab: vi.fn(),
   goHistory: vi.fn(),
   resolveHistoryDestination: async () => "https://example.com/previous",

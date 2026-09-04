@@ -83,6 +83,54 @@ describe("Agent observation builder", () => {
     })
   })
 
+  it("captures checked, focus, select options, and form semantics", () => {
+    const form = document.createElement("form")
+    form.action = "/submit"
+    form.method = "post"
+    const text = document.createElement("input")
+    text.name = "query"
+    const checkbox = document.createElement("input")
+    checkbox.type = "checkbox"
+    checkbox.checked = true
+    const select = document.createElement("select")
+    const first = document.createElement("option")
+    first.value = "one"
+    first.textContent = "First"
+    const second = document.createElement("option")
+    second.value = "two"
+    second.textContent = "Second"
+    second.selected = true
+    select.append(first, second)
+    const submit = document.createElement("button")
+    submit.textContent = "Continue"
+    submit.formAction = "/finish"
+    form.append(text, checkbox, select, submit)
+    document.body.append(form)
+    text.focus()
+
+    const result = build()
+    expect(result.elements[0]).toMatchObject({
+      focused: true,
+      maySubmit: true,
+      formAction: new URL("/submit", location.href).href,
+      formMethod: "post"
+    })
+    expect(result.elements[1]).toMatchObject({ checked: true })
+    expect(result.elements[2]).toMatchObject({
+      value: "two",
+      options: [
+        { value: "one", label: "First", disabled: false },
+        { value: "two", label: "Second", disabled: false }
+      ]
+    })
+    expect(result.elements[3]).toMatchObject({
+      submitter: true,
+      maySubmit: true,
+      formAction: new URL("/finish", location.href).href,
+      formMethod: "post"
+    })
+  })
+
   it.each([
     [
       "hidden input",
