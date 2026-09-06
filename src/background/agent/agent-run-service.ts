@@ -197,6 +197,7 @@ export const createAgentRunService = (input?: {
   const listeners = new Set<(runId: string) => void>()
   const controllers = new Map<string, AgentController>()
   const experimental = new Set<string>()
+  let admitting = false
   let activeRunId: string | undefined
   let lastRunId: string | undefined
 
@@ -259,64 +260,77 @@ export const createAgentRunService = (input?: {
 
   return {
     async start(request) {
-      /*
-       * The durable rows decide, not the in-memory flag: an MV3 worker
-       * restart forgets the active run, and a paused run the user has not
-       * settled is still that user's run. Asking SQL is what keeps a restart
-       * from letting a second run start beside it.
-       */
-      const unresolved = activeRunId ?? (await readIncompleteRuns())[0]?.id
-      if (unresolved) {
-        activeRunId = unresolved
-        lastRunId = unresolved
+      // All panels share this service. Reserve admission before any async
+      // read/check/write, including the durable unresolved-run lookup.
+      if (admitting) {
         throw new AgentRunError(
           "already_running",
-          "An Agent run is already unresolved"
+          "An Agent start is in progress"
         )
       }
-      if (!(await hasPerception())) {
-        throw new AgentRunError(
-          "permission_denied",
-          "Agent perception permission is not granted"
-        )
-      }
-      const tab = await getTab(request.tabId)
-      const address = tab?.url
-      if (!address) {
-        throw new AgentRunError("tab_unsupported", "Agent tab has no address")
-      }
-      const access = await classifyAccess(address)
-      if (access !== "ok") {
-        throw new AgentRunError(
-          "tab_unsupported",
-          `Agent tab access denied: ${access}`
-        )
-      }
-      const startedAt = now()
-      const state = AgentRunStateSchema.parse({
-        version: 1,
-        id: newRunId(),
-        goal: request.goal,
-        status: "submitted",
-        stepCount: 0,
-        observationCount: 0,
-        controlledTabId: request.tabId,
-        providerId: request.providerId,
-        modelId: request.modelId,
-        allowedOrigins: [originOf(address)],
-        deadline: createInitialAgentDeadline(startedAt),
-        createdAt: startedAt,
-        updatedAt: startedAt
-      } satisfies AgentRunState)
+      admitting = true
+      try {
+        /*
+         * The durable rows decide, not the in-memory flag: an MV3 worker
+         * restart forgets the active run, and a paused run the user has not
+         * settled is still that user's run. Asking SQL is what keeps a restart
+         * from letting a second run start beside it.
+         */
+        const unresolved = activeRunId ?? (await readIncompleteRuns())[0]?.id
+        if (unresolved) {
+          activeRunId = unresolved
+          lastRunId = unresolved
+          throw new AgentRunError(
+            "already_running",
+            "An Agent run is already unresolved"
+          )
+        }
+        if (!(await hasPerception())) {
+          throw new AgentRunError(
+            "permission_denied",
+            "Agent perception permission is not granted"
+          )
+        }
+        const tab = await getTab(request.tabId)
+        const address = tab?.url
+        if (!address) {
+          throw new AgentRunError("tab_unsupported", "Agent tab has no address")
+        }
+        const access = await classifyAccess(address)
+        if (access !== "ok") {
+          throw new AgentRunError(
+            "tab_unsupported",
+            `Agent tab access denied: ${access}`
+          )
+        }
+        const startedAt = now()
+        const state = AgentRunStateSchema.parse({
+          version: 1,
+          id: newRunId(),
+          goal: request.goal,
+          status: "submitted",
+          stepCount: 0,
+          observationCount: 0,
+          controlledTabId: request.tabId,
+          providerId: request.providerId,
+          modelId: request.modelId,
+          allowedOrigins: [originOf(address)],
+          deadline: createInitialAgentDeadline(startedAt),
+          createdAt: startedAt,
+          updatedAt: startedAt
+        } satisfies AgentRunState)
 
-      await createRun(state)
-      activeRunId = state.id
-      lastRunId = state.id
-      if (request.allowExperimentalModel) experimental.add(state.id)
-      history.record(request.tabId, address)
-      announce(state.id)
-      void drive(state, (controller) => controller.start(state.id))
-      return state
+        await createRun(state)
+        activeRunId = state.id
+        lastRunId = state.id
+        if (request.allowExperimentalModel) experimental.add(state.id)
+        history.record(request.tabId, address)
+        announce(state.id)
+        void drive(state, (controller) => controller.start(state.id))
+        return state
+      } finally {
+        admitting = false
+      }
     },
     async pause(runId) {
       await drive(await loadRunning(runId), (controller) =>

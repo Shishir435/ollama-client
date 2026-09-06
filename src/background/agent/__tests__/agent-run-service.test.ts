@@ -101,6 +101,72 @@ describe("Agent run service", () => {
     expect(agent.activeRunId()).toBe("run-1")
   })
 
+  it("admits only one simultaneous start before the durable lookup settles", async () => {
+    let release = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const lookup = vi.fn(async () => {
+      await gate
+      return []
+    })
+    let nextId = 0
+    const { service: agent, controller } = service({
+      readIncompleteRuns: lookup,
+      newRunId: () => `run-${++nextId}`
+    })
+    const first = agent.start(startInput)
+    await expect(
+      agent.start({ ...startInput, tabId: 8 })
+    ).rejects.toMatchObject({ reason: "already_running" })
+    expect(lookup).toHaveBeenCalledTimes(1)
+    expect(runs.size).toBe(0)
+    release()
+    await first
+    expect(runs.size).toBe(1)
+    expect(controller.start).toHaveBeenCalledTimes(1)
+  })
+
+  it("holds admission until the insert settles and releases after a failed insert", async () => {
+    let rejectInsert: (error: Error) => void = () => {}
+    const gate = new Promise<void>((_resolve, reject) => {
+      rejectInsert = reject
+    })
+    const createRun = vi
+      .fn(async (state: AgentRunState) => {
+        runs.set(state.id, state)
+      })
+      .mockImplementationOnce(() => gate)
+    const { service: agent, controller } = service({ createRun })
+    const first = agent.start(startInput)
+    const failed = expect(first).rejects.toThrow("insert failed")
+    await vi.waitFor(() => expect(createRun).toHaveBeenCalledTimes(1))
+    await expect(agent.start(startInput)).rejects.toMatchObject({
+      reason: "already_running"
+    })
+    rejectInsert(new Error("insert failed"))
+    await failed
+    expect(agent.activeRunId()).toBeUndefined()
+    expect(controller.start).not.toHaveBeenCalled()
+    await agent.start(startInput)
+    expect(runs.size).toBe(1)
+    expect(controller.start).toHaveBeenCalledTimes(1)
+  })
+
+  it("releases admission after a permission refusal", async () => {
+    const hasPerception = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValue(true)
+    const { service: agent } = service({ hasPerception })
+    await expect(agent.start(startInput)).rejects.toMatchObject({
+      reason: "permission_denied"
+    })
+    await expect(agent.start(startInput)).resolves.toMatchObject({
+      id: "run-1"
+    })
+  })
+
   it("refuses a second run while one is unresolved", async () => {
     const { service: agent } = service()
     await agent.start(startInput)
