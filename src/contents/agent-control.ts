@@ -1,5 +1,8 @@
 import type { Runtime } from "webextension-polyfill"
-import { executeAgentDomMutationInDocument } from "@/lib/browser-agent/command-executor"
+import {
+  executeAgentDomMutationInDocument,
+  executeAgentScrollInDocument
+} from "@/lib/browser-agent/command-executor"
 import {
   type AgentControlPort,
   attachAgentControlContentPort
@@ -36,11 +39,22 @@ export const installAgentControlContentScript = (): void => {
         if (!references) {
           throw new Error("Agent mutation has no observed snapshot")
         }
-        executeAgentDomMutationInDocument({
+        return executeAgentDomMutationInDocument({
           effect: request.instruction,
           document,
           references,
           signal: { aborted: false }
+        })
+      },
+      executeScroll(request) {
+        if (!references) {
+          throw new Error("Agent scroll has no observed snapshot")
+        }
+        executeAgentScrollInDocument({
+          command: request.instruction.command,
+          identity: request.instruction.snapshotIdentity,
+          document,
+          references
         })
       }
     })

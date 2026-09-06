@@ -186,12 +186,20 @@ const budgets: Budget[] = [
   {
     metric: "background",
     field: "gzipBytes",
-    // Generated-image responses plus embedding route validation, cancellation,
-    // cache safeguards, retry metadata, native web-search routing, Agent
-    // recovery/composition, and the complexity-helper split live in the
-    // background owner. Keep Chrome narrow while leaving deterministic build
-    // headroom. Agent Preview raised the measured Chrome baseline to 205,819.
-    max: isFirefox ? 210_000 : 207_000
+    /*
+     * Generated-image responses plus embedding route validation,
+     * cancellation, cache safeguards, retry metadata, native web-search
+     * routing, Agent recovery/composition, and the complexity-helper split
+     * live in the background owner.
+     *
+     * The Chrome service worker is a classic worker, so WXT inlines every
+     * dynamic import into background.js: the Agent run loop, its effect layer
+     * and its provider decision port cannot be split out of the startup
+     * bundle, and wiring them raised the measured Chrome baseline from
+     * 205,819 to 223,794. Firefox carries no Agent code and stays at its
+     * measured 204,177.
+     */
+    max: isFirefox ? 210_000 : 226_000
   }
 ]
 

@@ -39,6 +39,15 @@ const build = (minimumGeneration = 0) =>
   })
 
 describe("Agent observation builder", () => {
+  it("names standard labelled fields and excludes hidden label text", () => {
+    document.body.innerHTML =
+      '<label for="name">Name</label><input id="name"><span id="visible">Account</span><span id="hidden" hidden>private</span><input aria-labelledby="visible hidden">'
+    expect(build().elements.map((element) => element.name)).toEqual([
+      "Name",
+      "Account"
+    ])
+  })
+
   it("caps visible text and interactive elements", () => {
     document.body.textContent = "x".repeat(
       AGENT_OBSERVATION_LIMITS.visibleTextChars + 100

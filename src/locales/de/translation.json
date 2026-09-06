@@ -14,6 +14,9 @@
       "remote": "Remote",
       "missing": "Zuerst Modell auswählen"
     },
+    "model": {
+      "label": "Modell"
+    },
     "tab": {
       "label": "Gesteuerter Tab",
       "missing": "Unterstützte Webseite öffnen"
@@ -66,6 +69,13 @@
       "rejected": "Abgelehnt",
       "failed": "Fehlgeschlagen",
       "uncertain": "Prüfen"
+    },
+    "error": {
+      "already_running": "Ein Agent-Durchlauf läuft bereits.",
+      "permission_denied": "Agent benötigt die Berechtigung zur Seitenbeobachtung, bevor er starten kann.",
+      "tab_unsupported": "Agent kann auf dieser Seite nicht ausgeführt werden. Öffne eine normale Webseite und versuche es erneut.",
+      "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",
+      "unknown": "Agent konnte diese Anfrage nicht ausführen."
     }
   },
   "common": {

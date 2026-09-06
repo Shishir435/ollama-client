@@ -14,6 +14,9 @@
       "remote": "远程",
       "missing": "请先选择模型"
     },
+    "model": {
+      "label": "模型"
+    },
     "tab": { "label": "受控标签页", "missing": "请打开受支持的网页" },
     "privacy": {
       "remote_notice": "智能体运行期间，页面观察内容将持续发送给此远程提供商。",
@@ -59,6 +62,13 @@
       "rejected": "已拒绝",
       "failed": "失败",
       "uncertain": "需检查"
+    },
+    "error": {
+      "already_running": "已有一个 Agent 运行正在进行。",
+      "permission_denied": "启动前 Agent 需要页面观察权限。",
+      "tab_unsupported": "Agent 无法在此页面运行。请打开普通网页后重试。",
+      "unreadable_update": "面板收到了无法读取的更新。",
+      "unknown": "Agent 无法完成该请求。"
     }
   },
   "common": {

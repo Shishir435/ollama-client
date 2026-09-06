@@ -6,15 +6,16 @@ import { Chat } from "@/features/chat/components/chat"
 
 /**
  * The build constant is read inline, not through `AGENT_PREVIEW_ENABLED`: the
- * indirection defeats chunk elimination and ships `agent-view` to Firefox. The
+ * indirection defeats chunk elimination and ships the Agent chunk to Firefox.
+ * The
  * `typeof` guard keeps the module importable where nothing defines it (vitest
  * without the define, component harnesses).
  */
-const AgentView =
+const AgentSurface =
   typeof __AGENT_PREVIEW_ENABLED__ !== "undefined" && __AGENT_PREVIEW_ENABLED__
     ? lazy(() =>
-        import("@/features/agent/agent-view").then((module) => ({
-          default: module.AgentView
+        import("@/features/agent/agent-panel").then((module) => ({
+          default: module.AgentPanel
         }))
       )
     : undefined
@@ -23,7 +24,7 @@ export const SidepanelWorkspace = () => {
   const { t } = useTranslation()
   const [surface, setSurface] = useState<"chat" | "agent">("chat")
 
-  if (!AgentView) return <Chat />
+  if (!AgentSurface) return <Chat />
 
   return (
     <div className="flex h-screen min-w-0 flex-col bg-surface-chat">
@@ -51,7 +52,7 @@ export const SidepanelWorkspace = () => {
             <Chat embedded />
           ) : (
             <Suspense fallback={null}>
-              <AgentView />
+              <AgentSurface />
             </Suspense>
           )}
         </div>

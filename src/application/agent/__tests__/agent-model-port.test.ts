@@ -134,13 +134,13 @@ describe("createProviderAgentModelPort", () => {
     expect(streamChat).not.toHaveBeenCalled()
   })
 
-  it("publishes the complete command contract to schema-guided models", () => {
+  it("publishes flat primitive arguments usable by native tool templates", () => {
     const schema = JSON.stringify(AGENT_DECISION_TOOL.parameters)
-    expect(schema).toContain('"const":"click"')
-    expect(schema).toContain('"const":"clear_and_type"')
-    expect(schema).toContain('"const":"press_key"')
-    expect(schema).toContain('"snapshotId"')
-    expect(schema).toContain('"generation"')
+    expect(schema).toContain('"click"')
+    expect(schema).toContain('"clear_and_type"')
+    expect(schema).toContain('"press_key"')
+    expect(schema).not.toContain('"snapshotId"')
+    expect(schema).not.toContain('"oneOf"')
     expect(schema).toContain('"ref"')
     expect(schema).toContain('"text"')
   })
@@ -275,5 +275,24 @@ describe("createProviderAgentModelPort", () => {
     controller.abort()
     await expect(pending).rejects.toThrow("Agent model request cancelled")
     expect(receivedSignal?.aborted).toBe(true)
+  })
+
+  it("advertises fillable parameters, not an empty object", () => {
+    /*
+     * A discriminated union renders as `oneOf` with no `properties`, and a
+     * tool published that way describes a function taking nothing: the model
+     * can only answer `{}`, which every decision parse then rejects.
+     */
+    const parameters = AGENT_DECISION_TOOL.parameters as {
+      type?: string
+      required?: string[]
+      properties?: Record<string, unknown>
+    }
+
+    expect(parameters.type).toBe("object")
+    expect(parameters.required).toContain("type")
+    expect(Object.keys(parameters.properties ?? {})).toEqual(
+      expect.arrayContaining(["type", "ref", "question", "summary", "reason"])
+    )
   })
 })

@@ -1,3 +1,4 @@
+import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import {
   AgentCommandSchema,
   type AgentObservation,
@@ -129,7 +130,75 @@ export type AgentExecuteRequest = z.infer<typeof AgentExecuteRequestSchema>
 export const AgentExecuteResponseSchema = z
   .object({
     version: z.literal(AGENT_CONTROL_VERSION),
-    type: z.literal("agent_dom_mutation_executed"),
+    type: z.enum([
+      "agent_dom_mutation_executed",
+      "agent_dom_mutation_rejected"
+    ]),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.literal(0),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    submissionUrl: z.url().max(32_768).optional()
+  })
+  .strict()
+export type AgentExecuteResponse = z.infer<typeof AgentExecuteResponseSchema>
+
+const AgentScrollCommandSchema = AgentCommandSchema.refine(
+  (command) => command.type === "scroll",
+  "Control-port scrolling accepts only scroll commands"
+)
+
+/**
+ * Scrolling is page-side work like DOM mutation: it needs the in-page
+ * reference store to resolve `ref` and to prove the snapshot is still live, so
+ * it travels the control port rather than a separate injection.
+ */
+export const AgentScrollInstructionSchema = z
+  .object({
+    command: AgentScrollCommandSchema,
+    snapshotIdentity: AgentSnapshotIdentitySchema
+  })
+  .strict()
+  .superRefine((instruction, context) => {
+    if (
+      instruction.command.snapshotId !==
+        instruction.snapshotIdentity.snapshotId ||
+      instruction.command.generation !== instruction.snapshotIdentity.generation
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["command"],
+        message: "Command and resolved snapshot identity must match"
+      })
+    }
+  })
+export type AgentScrollInstruction = z.infer<
+  typeof AgentScrollInstructionSchema
+>
+
+export const AgentExecuteScrollRequestSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_execute_scroll"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.literal(0),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    instruction: AgentScrollInstructionSchema
+  })
+  .strict()
+export type AgentExecuteScrollRequest = z.infer<
+  typeof AgentExecuteScrollRequestSchema
+>
+
+export const AgentScrollResponseSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_scroll_executed"),
     runId: z.string().min(1),
     tabId: z.number().int().nonnegative(),
     frameId: z.literal(0),
@@ -138,11 +207,12 @@ export const AgentExecuteResponseSchema = z
     documentId: z.string().min(1)
   })
   .strict()
-export type AgentExecuteResponse = z.infer<typeof AgentExecuteResponseSchema>
+export type AgentScrollResponse = z.infer<typeof AgentScrollResponseSchema>
 
 const AgentControlRequestSchema = z.union([
   AgentObserveRequestSchema,
-  AgentExecuteRequestSchema
+  AgentExecuteRequestSchema,
+  AgentExecuteScrollRequestSchema
 ])
 
 export interface AgentControlEvent<T extends (...args: never[]) => unknown> {
@@ -179,6 +249,10 @@ export interface AgentControlSession {
   ): Promise<AgentObservation>
   executeDomMutation(
     instruction: AgentDomMutationInstruction,
+    signal?: AbortSignal
+  ): Promise<string | undefined>
+  executeScroll(
+    instruction: AgentScrollInstruction,
     signal?: AbortSignal
   ): Promise<void>
   disconnect(): void
@@ -267,7 +341,7 @@ export const validateAgentExecuteResponse = (
   raw: unknown,
   binding: AgentControlBinding,
   sequence: number
-): void => {
+): string | undefined => {
   const response = AgentExecuteResponseSchema.parse(raw)
   if (
     response.runId !== binding.runId ||
@@ -278,6 +352,27 @@ export const validateAgentExecuteResponse = (
     response.documentId !== binding.documentId
   ) {
     throw new Error("Agent execution response binding mismatch")
+  }
+  if (response.type === "agent_dom_mutation_rejected")
+    throw new AgentEffectNotAppliedError()
+  return response.submissionUrl
+}
+
+export const validateAgentScrollResponse = (
+  raw: unknown,
+  binding: AgentControlBinding,
+  sequence: number
+): void => {
+  const response = AgentScrollResponseSchema.parse(raw)
+  if (
+    response.runId !== binding.runId ||
+    response.tabId !== binding.tabId ||
+    response.frameId !== binding.frameId ||
+    response.nonce !== binding.nonce ||
+    response.sequence !== sequence ||
+    response.documentId !== binding.documentId
+  ) {
+    throw new Error("Agent scroll response binding mismatch")
   }
 }
 
@@ -397,7 +492,34 @@ export const createAgentControlSession = (input: {
       return exchange(
         request,
         (raw) => {
-          validateAgentExecuteResponse(raw, input.binding, expectedSequence)
+          return validateAgentExecuteResponse(
+            raw,
+            input.binding,
+            expectedSequence
+          )
+        },
+        signal
+      )
+    },
+    executeScroll(instruction, signal) {
+      if (inFlight) {
+        return Promise.reject(
+          new Error("Agent control request already in flight")
+        )
+      }
+      sequence += 1
+      const expectedSequence = sequence
+      const request: AgentExecuteScrollRequest = {
+        version: AGENT_CONTROL_VERSION,
+        type: "agent_execute_scroll",
+        ...input.binding,
+        sequence: expectedSequence,
+        instruction: AgentScrollInstructionSchema.parse(instruction)
+      }
+      return exchange(
+        request,
+        (raw) => {
+          validateAgentScrollResponse(raw, input.binding, expectedSequence)
         },
         signal
       )
@@ -450,11 +572,25 @@ export const openAgentControlSession = async (input: {
   })
 }
 
+/** Only a typed, pre-effect rejection may authorize re-observation instead of uncertainty. */
+const runContentMutation = (
+  execute: () => string | undefined
+): Pick<AgentExecuteResponse, "type" | "submissionUrl"> => {
+  try {
+    return { type: "agent_dom_mutation_executed", submissionUrl: execute() }
+  } catch (error) {
+    if (error instanceof AgentEffectNotAppliedError)
+      return { type: "agent_dom_mutation_rejected" }
+    throw error
+  }
+}
+
 export const attachAgentControlContentPort = (
   port: AgentControlPort,
   handlers: {
     buildObservation(request: AgentObserveRequest): AgentObservation
-    executeDomMutation(request: AgentExecuteRequest): void
+    executeDomMutation(request: AgentExecuteRequest): string | undefined
+    executeScroll(request: AgentExecuteScrollRequest): void
   }
 ): boolean => {
   if (port.name !== MESSAGE_KEYS.AGENT.CONTROL_PORT) return false
@@ -492,23 +628,43 @@ export const attachAgentControlContentPort = (
     }
 
     try {
-      if (request.type === "agent_execute_dom_mutation") {
+      if (
+        request.type === "agent_execute_dom_mutation" ||
+        request.type === "agent_execute_scroll"
+      ) {
         const identity = request.instruction.snapshotIdentity
         if (
           identity.tabId !== request.tabId ||
           identity.documentId !== request.documentId
         ) {
-          throw new Error("Agent mutation instruction binding mismatch")
+          throw new Error("Agent instruction binding mismatch")
         }
-        handlers.executeDomMutation(request)
+        let mutation: Pick<AgentExecuteResponse, "type" | "submissionUrl"> = {
+          type: "agent_dom_mutation_executed"
+        }
+        if (request.type === "agent_execute_scroll") {
+          handlers.executeScroll(request)
+        } else {
+          mutation = runContentMutation(() =>
+            handlers.executeDomMutation(request)
+          )
+        }
         binding = nextBinding
         lastSequence = request.sequence
-        const response: AgentExecuteResponse = {
-          version: AGENT_CONTROL_VERSION,
-          type: "agent_dom_mutation_executed",
-          ...nextBinding,
-          sequence: request.sequence
-        }
+        const response: AgentExecuteResponse | AgentScrollResponse =
+          request.type === "agent_execute_scroll"
+            ? {
+                version: AGENT_CONTROL_VERSION,
+                type: "agent_scroll_executed",
+                ...nextBinding,
+                sequence: request.sequence
+              }
+            : {
+                version: AGENT_CONTROL_VERSION,
+                ...mutation,
+                ...nextBinding,
+                sequence: request.sequence
+              }
         port.postMessage(response)
         return
       }

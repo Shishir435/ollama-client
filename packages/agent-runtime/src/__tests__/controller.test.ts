@@ -417,6 +417,7 @@ describe("agent controller", () => {
     await harness.controller.start("run-1")
     expect(harness.steps).toContain("verified")
     expect(harness.getState().status).toBe("completed")
+    expect(harness.getState().result).toBe("Done")
   })
 
   it("adopts a switch-tab target only after confirmed verification", async () => {
@@ -529,15 +530,16 @@ describe("agent controller", () => {
     })
   })
 
-  it("fails from the claimed verifying phase when verification throws", async () => {
+  it("pauses unresolved when verification throws and refuses mutation replay", async () => {
     const harness = createHarness({ verification: [] })
     await harness.controller.start("run-1")
     expect(harness.getState()).toMatchObject({
-      status: "failed",
-      error: { code: "verification_failed" }
+      status: "paused",
+      pauseReason: "unresolved_effect"
     })
     expect(harness.calls).toContain("claim:verifying")
-    expect(harness.calls).toContain("transition:failed")
+    await harness.controller.resume("run-1")
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
   })
 
   it("re-decides after negative verification", async () => {
@@ -614,6 +616,29 @@ describe("agent controller", () => {
     expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
     expect(harness.calls.filter((call) => call === "decide")).toHaveLength(1)
     expect(harness.getState().status).toBe("paused")
+  })
+
+  it("delivers abort events to an in-flight model with the default controller", async () => {
+    let observedAbort = false
+    const started = deferred<void>()
+    const harness = createHarness({
+      decide: async (_input, signal) => {
+        started.resolve()
+        await new Promise<void>((resolve) =>
+          signal.addEventListener?.("abort", () => {
+            observedAbort = true
+            resolve()
+          })
+        )
+        throw new Error("cancelled")
+      }
+    })
+    const work = harness.controller.start("run-1")
+    await started.promise
+    await harness.controller.requestCancel("run-1")
+    await work
+    expect(observedAbort).toBe(true)
+    expect(harness.getState().status).toBe("cancelled")
   })
 
   it("commits pause_requested before aborting active work", async () => {

@@ -14,6 +14,9 @@
       "remote": "Remoto",
       "missing": "Selecciona un modelo primero"
     },
+    "model": {
+      "label": "Modelo"
+    },
     "tab": {
       "label": "Pestaña controlada",
       "missing": "Abre una página compatible"
@@ -66,6 +69,13 @@
       "rejected": "Rechazado",
       "failed": "Falló",
       "uncertain": "Revisar"
+    },
+    "error": {
+      "already_running": "Ya hay una ejecución de Agent en curso.",
+      "permission_denied": "Agent necesita permiso de observación de la página antes de empezar.",
+      "tab_unsupported": "Agent no puede ejecutarse en esta página. Abre una página web normal e inténtalo de nuevo.",
+      "unreadable_update": "El panel recibió una actualización que no pudo leer.",
+      "unknown": "Agent no pudo completar esa solicitud."
     }
   },
   "common": {

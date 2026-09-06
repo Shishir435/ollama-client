@@ -1,5 +1,8 @@
-import type { AgentCommand, AgentRunState } from "@ollama-client/contracts"
-import type { DurableAgentStep } from "@/lib/repositories/agent-runs"
+import type {
+  AgentCommand,
+  AgentRunState,
+  AgentStepRecord
+} from "@ollama-client/contracts"
 
 export const AGENT_PAGE_TEXT_LIMIT = 240
 export const AGENT_LOG_TEXT_LIMIT = 500
@@ -54,12 +57,12 @@ const commandLabel = (command?: AgentCommand): string => {
 export interface AgentWorkLogItem {
   id: string
   label: string
-  status: DurableAgentStep["status"]
+  status: AgentStepRecord["status"]
   detail?: string
 }
 
 export const toAgentWorkLog = (
-  steps: readonly DurableAgentStep[]
+  steps: readonly AgentStepRecord[]
 ): AgentWorkLogItem[] =>
   steps.map((step) => ({
     id: `${step.stepId}:${step.sequence}`,

@@ -29,25 +29,30 @@ describe("AgentView", () => {
   it("enforces remote-observation acknowledgement before start", () => {
     const acknowledge = vi.fn()
     const start = vi.fn()
+    const onGoalChange = vi.fn()
     const { rerender } = render(
       <AgentView
-        provider={{ name: "Remote", location: "remote" }}
+        provider={{ name: "Remote", model: "qwen3", location: "remote" }}
         tab={{ title: "Example", url: "https://example.com" }}
+        goal="Compare these products"
+        onGoalChange={onGoalChange}
         onAcknowledgePrivacy={acknowledge}
         onStart={start}
       />
     )
     fireEvent.change(screen.getByRole("textbox"), {
-      target: { value: "Compare these products" }
+      target: { value: "Compare these products now" }
     })
+    expect(onGoalChange).toHaveBeenCalledWith("Compare these products now")
     expect(screen.getByText("agent.start.action")).toBeDisabled()
     fireEvent.click(screen.getByText("agent.privacy.acknowledge"))
     expect(acknowledge).toHaveBeenCalledOnce()
 
     rerender(
       <AgentView
-        provider={{ name: "Remote", location: "remote" }}
+        provider={{ name: "Remote", model: "qwen3", location: "remote" }}
         tab={{ title: "Example", url: "https://example.com" }}
+        goal="Compare these products"
         privacyAcknowledged
         onStart={start}
       />
@@ -56,12 +61,49 @@ describe("AgentView", () => {
     expect(start).toHaveBeenCalledWith("Compare these products")
   })
 
+  it("keeps a failed run on screen with the reason it recorded", () => {
+    render(
+      <AgentView
+        run={{
+          ...run("failed"),
+          error: {
+            code: "invalid_decision",
+            message: "The model returned too many invalid decisions.",
+            retryable: false
+          }
+        }}
+        provider={{ name: "Local", model: "qwen3", location: "local" }}
+        tab={{ title: "Page", url: "https://example.com" }}
+        goal="Click the save button"
+      />
+    )
+
+    expect(
+      screen.getByText("The model returned too many invalid decisions.")
+    ).toBeInTheDocument()
+    // A settled run is done being supervised, and the next one starts here.
+    expect(screen.getByText("agent.start.action")).toBeInTheDocument()
+    expect(screen.queryByText("agent.controls.stop")).not.toBeInTheDocument()
+  })
+
+  it("shows the model's result when a run completes", () => {
+    render(
+      <AgentView
+        run={{ ...run("completed"), result: "Pricing page found." }}
+        provider={{ name: "Local", model: "qwen3", location: "local" }}
+        tab={{ title: "Pricing", url: "https://example.com/pricing" }}
+      />
+    )
+
+    expect(screen.getByText("Pricing page found.")).toBeInTheDocument()
+  })
+
   it("renders injected approval strings as inert, bounded text", () => {
     const approve = vi.fn()
     render(
       <AgentView
         run={run("awaiting_approval")}
-        provider={{ name: "Remote", location: "remote" }}
+        provider={{ name: "Remote", model: "qwen3", location: "remote" }}
         tab={{ title: "Page", url: "https://example.com" }}
         approval={{
           id: "approval-1",
@@ -90,7 +132,7 @@ describe("AgentView", () => {
     render(
       <AgentView
         run={run("awaiting_takeover")}
-        provider={{ name: "Local", location: "local" }}
+        provider={{ name: "Local", model: "qwen3", location: "local" }}
         tab={{ title: "Sign in", url: "https://example.com/login" }}
         takeover={{
           id: "takeover-1",

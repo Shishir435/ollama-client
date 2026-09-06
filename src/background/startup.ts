@@ -497,7 +497,7 @@ export const initializeBackgroundStartup = (
   // A scheduled destructive reset must complete before any other startup
   // task opens the chat database — an open handle would block the delete.
   const lifecycleReady = resumeLifecycleWithRetry()
-  void runDatabaseStartup(lifecycleReady, persistenceReady)
+  const databaseReady = runDatabaseStartup(lifecycleReady, persistenceReady)
   // MV3 workers can start without a browser onStartup event (extension reload,
   // event wakeup). Reconcile the request-origin rule on every worker boot.
   void updateDNRRules()
@@ -510,6 +510,7 @@ export const initializeBackgroundStartup = (
   registerScheduledJobs()
   registerReminderAlarms()
   registerAlarmPermissionReactivation()
+  return databaseReady
 }
 
 /**

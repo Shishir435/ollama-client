@@ -602,14 +602,14 @@ describe("Agent navigation actions", () => {
     expect(result.evidence.summary).toContain("same document")
   })
 
-  it("reports a navigation that never left the source page as negative", async () => {
+  it("keeps an uncommitted navigation uncertain", async () => {
     const result = await verify(
       navigate("https://example.com/docs"),
       verifierAdapter({
         getTab: async () => ({ url: "https://example.com/start" })
       })
     )
-    expect(result.outcome).toBe("negative")
+    expect(result.outcome).toBe("ambiguous")
   })
 
   it("reports a redirect to another destination as ambiguous", async () => {

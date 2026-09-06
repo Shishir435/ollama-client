@@ -18,6 +18,9 @@
       "remote": "リモート",
       "missing": "先にモデルを選択"
     },
+    "model": {
+      "label": "モデル"
+    },
     "tab": {
       "label": "操作対象タブ",
       "missing": "対応するウェブページを開いてください"
@@ -70,6 +73,13 @@
       "rejected": "拒否",
       "failed": "失敗",
       "uncertain": "要確認"
+    },
+    "error": {
+      "already_running": "Agent の実行は既に進行中です。",
+      "permission_denied": "開始する前に、ページ観測の権限が必要です。",
+      "tab_unsupported": "このページでは Agent を実行できません。通常のウェブページを開いてからやり直してください。",
+      "unreadable_update": "パネルは読み取れない更新を受け取りました。",
+      "unknown": "Agent はその要求を完了できませんでした。"
     }
   },
   "common": {

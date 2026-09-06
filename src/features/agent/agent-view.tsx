@@ -1,14 +1,13 @@
 import type {
   AgentApprovalRequest,
   AgentRunState,
+  AgentStepRecord,
   AgentTakeoverRequest
 } from "@ollama-client/contracts"
 import { Bot, ExternalLink, Eye, MessageSquareWarning } from "lucide-react"
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import type { DurableAgentStep } from "@/lib/repositories/agent-runs"
 import { AgentRunControls } from "./components/agent-run-controls"
 import { AgentWorkLog } from "./components/agent-work-log"
 import {
@@ -19,6 +18,7 @@ import {
 
 export interface AgentProviderPresentation {
   name: string
+  model: string
   location: "local" | "remote"
 }
 
@@ -29,13 +29,16 @@ export interface AgentTabPresentation {
 
 export interface AgentViewProps {
   run?: AgentRunState | null
-  steps?: DurableAgentStep[]
+  steps?: AgentStepRecord[]
   provider?: AgentProviderPresentation
   tab?: AgentTabPresentation
   approval?: AgentApprovalRequest
   takeover?: AgentTakeoverRequest
   privacyAcknowledged?: boolean
   busy?: boolean
+  /** The unsent goal. Held by the caller so it survives leaving the surface. */
+  goal?: string
+  onGoalChange?: (goal: string) => void
   onAcknowledgePrivacy?: () => void
   onStart?: (goal: string) => void
   onApprove?: () => void
@@ -58,6 +61,8 @@ export const AgentView = ({
   takeover,
   privacyAcknowledged = false,
   busy = false,
+  goal = "",
+  onGoalChange = () => undefined,
   onAcknowledgePrivacy = noop,
   onStart,
   onApprove = noop,
@@ -69,7 +74,8 @@ export const AgentView = ({
   onFeedback = noop
 }: AgentViewProps) => {
   const { t } = useTranslation()
-  const [goal, setGoal] = useState("")
+  const settled =
+    run !== null && ["completed", "failed", "cancelled"].includes(run.status)
   const remoteNeedsAcknowledgement =
     provider?.location === "remote" && !privacyAcknowledged
   const canStart =
@@ -112,6 +118,20 @@ export const AgentView = ({
           </div>
           <div className="flex min-w-0 gap-2">
             <span className="shrink-0 text-muted-foreground">
+              {t("agent.model.label")}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-right font-mono">
+              {/* During a run the truth is the model that produced its steps,
+                  not whatever is selected in Chat right now. */}
+              {run?.modelId
+                ? agentPlainText(run.modelId, 100)
+                : provider
+                  ? agentPlainText(provider.model, 100)
+                  : t("agent.provider.missing")}
+            </span>
+          </div>
+          <div className="flex min-w-0 gap-2">
+            <span className="shrink-0 text-muted-foreground">
               {t("agent.tab.label")}
             </span>
             <span className="min-w-0 flex-1 truncate text-right">
@@ -122,7 +142,7 @@ export const AgentView = ({
           </div>
         </section>
 
-        {!run && (
+        {(!run || settled) && (
           <section className="space-y-2" aria-labelledby="agent-goal-label">
             <label
               id="agent-goal-label"
@@ -135,7 +155,7 @@ export const AgentView = ({
               value={goal}
               maxLength={20_000}
               placeholder={t("agent.start.placeholder")}
-              onChange={(event) => setGoal(event.target.value)}
+              onChange={(event) => onGoalChange(event.target.value)}
             />
             {remoteNeedsAcknowledgement && (
               <div className="rounded-panel border border-status-warning/40 bg-status-warning/10 p-2.5 text-xs">
@@ -208,8 +228,18 @@ export const AgentView = ({
 
         <AgentWorkLog items={toAgentWorkLog(steps)} />
 
-        {run && ["completed", "failed", "cancelled"].includes(run.status) && (
+        {settled && run && (
           <section className="mt-3 rounded-panel border border-border/50 bg-background p-2.5 text-xs">
+            {run.result && (
+              <p className="mb-2 whitespace-pre-wrap break-words">
+                {agentPlainText(run.result, 20_000)}
+              </p>
+            )}
+            {run.error && (
+              <p className="mb-1 font-medium text-destructive">
+                {agentPlainText(run.error.message, AGENT_PAGE_TEXT_LIMIT)}
+              </p>
+            )}
             <p>
               {t("agent.completion.summary", {
                 count: run.observationCount,
@@ -229,9 +259,10 @@ export const AgentView = ({
         )}
       </div>
 
-      {run && (
+      {run && !settled && (
         <AgentRunControls
           status={run.status}
+          resumeDisabled={run.pauseReason === "unresolved_effect"}
           onPause={onPause}
           onResume={onResume}
           onStop={onStop}

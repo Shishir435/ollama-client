@@ -35,6 +35,32 @@ const call = (argumentsValue: Record<string, unknown>) => ({
 })
 
 describe("parseAgentDecisionToolCalls", () => {
+  it("binds flat intent to the current observation without model-generated identity", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "click", ref: "e1" })],
+        observation
+      )
+    ).toEqual({
+      type: "command",
+      command: {
+        type: "click",
+        ref: "e1",
+        snapshotId: "snapshot-2",
+        generation: 2
+      }
+    })
+    expect(() =>
+      parseAgentDecisionToolCalls([call({ type: "click" })], observation)
+    ).toThrow("invalid decision")
+    expect(() =>
+      parseAgentDecisionToolCalls(
+        [call({ type: "click", ref: "e1", generation: 1 })],
+        observation
+      )
+    ).toThrow("stale snapshot")
+  })
+
   it("accepts exactly one schema-valid grounded decision", () => {
     expect(
       parseAgentDecisionToolCalls(
@@ -95,5 +121,52 @@ describe("parseAgentDecisionToolCalls", () => {
         observation
       )
     ).toThrow("stale snapshot")
+  })
+
+  it("accepts the flat shape the tool advertises", () => {
+    // The published schema offers every variant's field, so a model may fill
+    // the ones it did not choose.
+    expect(
+      parseAgentDecisionToolCalls(
+        [
+          {
+            id: "call-1",
+            name: AGENT_DECISION_TOOL_NAME,
+            arguments: {
+              type: "complete",
+              summary: "The save button is now pressed.",
+              question: "",
+              reason: "",
+              command: null
+            }
+          }
+        ],
+        observation
+      )
+    ).toEqual({ type: "complete", summary: "The save button is now pressed." })
+  })
+
+  it("still rejects a variant with nothing in its own field", () => {
+    expect(() =>
+      parseAgentDecisionToolCalls(
+        [
+          {
+            id: "call-1",
+            name: AGENT_DECISION_TOOL_NAME,
+            arguments: { type: "complete", summary: "" }
+          }
+        ],
+        observation
+      )
+    ).toThrow(AgentDecisionFormatError)
+  })
+
+  it("rejects an empty argument object, whatever produced it", () => {
+    expect(() =>
+      parseAgentDecisionToolCalls(
+        [{ id: "call-1", name: AGENT_DECISION_TOOL_NAME, arguments: {} }],
+        observation
+      )
+    ).toThrow(AgentDecisionFormatError)
   })
 })

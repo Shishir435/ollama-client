@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 
 export interface AgentRunControlsProps {
   status: string
+  resumeDisabled?: boolean
   onPause: () => void
   onResume: () => void
   onStop: () => void
@@ -12,6 +13,7 @@ export interface AgentRunControlsProps {
 
 export const AgentRunControls = ({
   status,
+  resumeDisabled = false,
   onPause,
   onResume,
   onStop,
@@ -25,7 +27,7 @@ export const AgentRunControls = ({
     <fieldset className="sticky bottom-0 z-20 flex flex-wrap gap-1.5 border-t border-border/50 bg-surface-chat/95 px-3 py-2 backdrop-blur">
       <legend className="sr-only">{t("agent.controls.label")}</legend>
       {status === "paused" ? (
-        <Button type="button" onClick={onResume}>
+        <Button type="button" onClick={onResume} disabled={resumeDisabled}>
           <Play className="icon-xs" aria-hidden="true" />
           {t("agent.controls.resume")}
         </Button>
