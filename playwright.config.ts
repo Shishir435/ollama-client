@@ -29,6 +29,17 @@ export default defineConfig({
   // survive full browser restarts. It therefore owns trace, screenshot, and
   // video capture instead of relying on Playwright's `use` context.
   projects: [
+    {
+      ...chromiumProject(
+        "chromium-agent",
+        "**/agent.spec.ts",
+        "build/chrome-mv3-prod"
+      ),
+      metadata: {
+        extensionBuildPath: "build/chrome-mv3-prod",
+        agentObservationGrant: true
+      }
+    },
     chromiumProject(
       "chromium-production",
       "**/install-and-boot.spec.ts",

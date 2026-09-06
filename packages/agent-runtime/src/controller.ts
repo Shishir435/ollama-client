@@ -26,7 +26,12 @@ import type {
   AuthorizedAgentEffect,
   ResolvedAgentEffect
 } from "./ports"
-import { AgentMalformedDecisionError, agentFailure, pausePatch } from "./ports"
+import {
+  AgentEffectNotAppliedError,
+  AgentMalformedDecisionError,
+  agentFailure,
+  pausePatch
+} from "./ports"
 import { AGENT_STATUS_PREDECESSORS, isTerminalAgentStatus } from "./state"
 import { classifyVerificationOutcome } from "./verification"
 
@@ -64,14 +69,24 @@ export const createAgentController = (
     dependencies.createCancellationController ??
     (() => {
       let aborted = false
+      const listeners = new Set<() => void>()
       const controller: AgentCancellationController = {
         signal: {
           get aborted() {
             return aborted
+          },
+          addEventListener(_type, listener) {
+            listeners.add(listener)
+          },
+          removeEventListener(_type, listener) {
+            listeners.delete(listener)
           }
         },
         abort() {
+          if (aborted) return
           aborted = true
+          for (const listener of listeners) listener()
+          listeners.clear()
         }
       }
       return controller
@@ -374,6 +389,44 @@ export const createAgentController = (
     return { ...authorized, policy }
   }
 
+  const settleExecutionFailure = async (
+    state: AgentRunState,
+    effect: ResolvedAgentEffect,
+    risk: AuthorizedAgentEffect["authorization"]["risk"],
+    stepId: string,
+    error: unknown
+  ): Promise<AgentRunState | undefined> => {
+    if (
+      error instanceof AgentEffectNotAppliedError &&
+      state.status === "executing"
+    ) {
+      const verifying = await claim(state, "verifying", {
+        updatedAt: dependencies.clock.now()
+      })
+      if (!verifying) return undefined
+      await dependencies.persistence.appendStep({
+        runId: state.id,
+        stepId,
+        status: "failed",
+        command: effect.command,
+        risk,
+        at: dependencies.clock.now(),
+        verification: {
+          outcome: "negative",
+          evidence: {
+            kind: "stale_target",
+            summary: "Target changed; no browser effect was attempted",
+            observedAt: dependencies.clock.now()
+          }
+        }
+      })
+      return verifying
+    }
+    // A lost acknowledgement or verifier is not proof of non-execution.
+    await pause(state, "unresolved_effect")
+    return undefined
+  }
+
   const executeAndVerify = async (
     state: AgentRunState,
     effect: ResolvedAgentEffect,
@@ -468,15 +521,15 @@ export const createAgentController = (
         },
         ["verifying"]
       )
-    } catch {
-      if (!signal.aborted) {
-        await fail(
-          failureState,
-          "verification_failed",
-          "The page effect could not be executed and verified safely."
-        )
-      }
-      return undefined
+    } catch (error) {
+      if (signal.aborted) return undefined
+      return settleExecutionFailure(
+        failureState,
+        effect,
+        policy.risk,
+        stepId,
+        error
+      )
     }
   }
 
@@ -525,6 +578,7 @@ export const createAgentController = (
   ): Promise<AgentRunState | undefined> => {
     if (decision.type === "complete") {
       await transition(state, "completed", {
+        result: decision.summary,
         updatedAt: dependencies.clock.now()
       })
       return undefined
@@ -647,6 +701,14 @@ export const createAgentController = (
     // that step cannot be claimed back into observation.
     let entered = false
     while (!controller.signal.aborted) {
+      if (state.observationCount >= 25) {
+        await fail(
+          state,
+          "budget_exhausted",
+          "The Agent observation budget is exhausted."
+        )
+        return
+      }
       const observing = observingClaimed
         ? state
         : await claimObserving(
@@ -684,6 +746,7 @@ export const createAgentController = (
     try {
       const state = await dependencies.persistence.load(runId)
       if (!state || isTerminalAgentStatus(state.status)) return
+      if (state.pauseReason === "unresolved_effect") return
       if (state.status === "awaiting_takeover" && !afterTakeover) return
       await runLoop(state, controller, afterTakeover)
     } finally {

@@ -4,6 +4,7 @@ import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 
 export interface AgentCandidateTab {
+  id: number
   title: string
   url: string
 }
@@ -31,13 +32,14 @@ export const useAgentCandidateTab = (): AgentCandidateTab | undefined => {
           currentWindow: true
         })
         if (
+          typeof active?.id !== "number" ||
           !active?.url ||
           (await classifyAgentTabAccess(active.url)) !== "ok"
         ) {
           setTab(undefined)
           return
         }
-        setTab({ title: active.title ?? "", url: active.url })
+        setTab({ id: active.id, title: active.title ?? "", url: active.url })
       } catch {
         setTab(undefined)
       }

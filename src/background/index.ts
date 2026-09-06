@@ -15,13 +15,13 @@ import { AGENT_PREVIEW_ENABLED } from "@/lib/feature-flags"
  * these lines happen to run in.
  */
 const persistenceReady = startPersistenceTopology()
+const databaseReady = initializeBackgroundStartup(persistenceReady)
 
 if (AGENT_PREVIEW_ENABLED) {
   void import("@/background/agent/agent-composition").then(
-    ({ createAgentComposition }) => createAgentComposition()
+    ({ createAgentComposition }) => createAgentComposition(databaseReady)
   )
 }
-initializeBackgroundStartup(persistenceReady)
 registerPortRouter()
 registerMessageRouter()
 registerTabLifecycle()

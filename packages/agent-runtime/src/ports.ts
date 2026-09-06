@@ -97,6 +97,8 @@ export interface AuthorizedAgentEffect extends ResolvedAgentEffect {
 }
 
 export interface AgentExecutionReceipt {
+  /** Ephemeral exact native submission destination. Contains form values; never persist or log. */
+  submissionUrl?: string
   executedAt: number
   details?: string
   controlledTabId?: number
@@ -172,6 +174,7 @@ export type AgentStatePatch = Partial<
     | "error"
     | "observationCount"
     | "pauseReason"
+    | "result"
     | "stepCount"
     | "updatedAt"
   >
@@ -213,6 +216,14 @@ export interface AgentCancellationSignal {
 export interface AgentCancellationController {
   readonly signal: AgentCancellationSignal
   abort(): void
+}
+
+/** Trusted executor rejected stale state before any browser effect was attempted. */
+export class AgentEffectNotAppliedError extends Error {
+  constructor(message = "The observed target changed before execution") {
+    super(message)
+    this.name = "AgentEffectNotAppliedError"
+  }
 }
 
 /** A provider responded, but its output was not a valid Agent decision. */

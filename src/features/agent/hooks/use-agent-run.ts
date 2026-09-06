@@ -6,7 +6,6 @@ import { AgentPanelMessageSchema } from "@ollama-client/contracts"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { browser } from "@/lib/browser-api"
-import { queryActiveTab } from "@/lib/browser-tab-access"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { requestAgentPerceptionPermission } from "@/lib/permissions"
@@ -37,6 +36,8 @@ const EMPTY: AgentPanelSnapshot = { steps: [] }
 interface UseAgentRunInput {
   providerId?: string
   modelId?: string
+  /** Exact tab displayed by the panel when Start is pressed. */
+  tabId?: number
   allowExperimentalModel?: boolean
 }
 
@@ -61,6 +62,13 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
     let disposed = false
     let retry: ReturnType<typeof setTimeout> | undefined
     let attempt = 0
+    let active = false
+    // A supervised run may wait for a local model longer than the MV3 idle
+    // window. Only the mounted panel keeps it awake; closing it still pauses.
+    const heartbeat = setInterval(() => {
+      if (active && portRef.current)
+        portRef.current.postMessage({ type: "agent_refresh" })
+    }, 20_000)
 
     const onMessage = (raw: unknown) => {
       const parsed = AgentPanelMessageSchema.safeParse(raw)
@@ -89,6 +97,12 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
       }
       setBusy(false)
       if (parsed.data.type === "agent_snapshot") {
+        active = Boolean(
+          parsed.data.snapshot.run &&
+            !["completed", "failed", "cancelled", "paused"].includes(
+              parsed.data.snapshot.run.status
+            )
+        )
         setSnapshot(parsed.data.snapshot)
         return
       }
@@ -126,6 +140,7 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
 
     return () => {
       disposed = true
+      clearInterval(heartbeat)
       if (retry) clearTimeout(retry)
       const port = portRef.current
       portRef.current = null
@@ -144,10 +159,11 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
 
   const runId = snapshot.run?.id
   const pending = snapshot.pending
+  const { providerId, modelId, tabId, allowExperimentalModel } = input
 
   const start = useCallback(
     (goal: string) => {
-      if (!input.providerId || !input.modelId) return
+      if (!providerId || !modelId || typeof tabId !== "number") return
       const trimmed = goal.trim()
       if (!trimmed) return
       setBusy(true)
@@ -159,7 +175,7 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
        * spend the gesture and leave the user with a silent refusal.
        */
       void requestAgentPerceptionPermission()
-        .then(async (granted) => {
+        .then((granted) => {
           if (!granted) {
             setBusy(false)
             setFailure({
@@ -169,26 +185,18 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
             })
             return undefined
           }
-          return queryActiveTab()
-        })
-        .then((tab) => {
-          if (!tab) return
-          if (typeof tab.id !== "number") {
-            setBusy(false)
-            return
-          }
           send({
             type: "agent_start",
             goal: trimmed,
-            tabId: tab.id,
-            providerId: input.providerId as string,
-            modelId: input.modelId as string,
-            allowExperimentalModel: input.allowExperimentalModel
+            tabId,
+            providerId,
+            modelId,
+            allowExperimentalModel
           })
         })
         .catch(() => setBusy(false))
     },
-    [input.allowExperimentalModel, input.modelId, input.providerId, send]
+    [allowExperimentalModel, modelId, providerId, tabId, send]
   )
 
   const runScoped = useCallback(

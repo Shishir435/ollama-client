@@ -29,7 +29,8 @@ export const AgentPanel = () => {
   const candidateTab = useAgentCandidateTab()
   const connection = useAgentRun({
     providerId: selectedProviderId || undefined,
-    modelId: selectedModel || undefined
+    modelId: selectedModel || undefined,
+    tabId: candidateTab?.id
   })
   const { snapshot } = connection
 

@@ -73,7 +73,8 @@ export const AgentProviderDisclosureSchema = z
 export const AgentPanelSnapshotSchema = z
   .object({
     run: AgentRunStateSchema.optional(),
-    steps: z.array(AgentStepRecordSchema).max(25),
+    // Each of 25 actions has up to five append-only lifecycle receipts.
+    steps: z.array(AgentStepRecordSchema).max(125),
     pending: AgentPendingSupervisionSchema.optional(),
     provider: AgentProviderDisclosureSchema.optional(),
     tab: z

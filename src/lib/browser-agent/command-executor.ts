@@ -3,6 +3,7 @@ import type {
   AgentExecutionReceipt,
   AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
+import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import type { AgentSnapshotIdentity } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
@@ -108,7 +109,7 @@ const assertUnchangedMutationTarget = (
 ): void => {
   const ref = effect.target.ref
   if (!ref || !element.isConnected) {
-    throw new Error("Agent mutation target was replaced")
+    throw new AgentEffectNotAppliedError("Agent mutation target was replaced")
   }
   const current = buildAgentElementObservation(element, ref)
   const expected = effect.target
@@ -134,7 +135,10 @@ const assertUnchangedMutationTarget = (
     Boolean(current.submitter) === Boolean(expected.submitter) &&
     Boolean(current.maySubmit) === expected.maySubmit &&
     current.sensitive === expected.sensitive
-  if (!matches) throw new Error("Agent mutation target changed after approval")
+  if (!matches)
+    throw new AgentEffectNotAppliedError(
+      "Agent mutation target changed after approval"
+    )
 }
 
 const executeTextMutation = (
@@ -287,7 +291,7 @@ const buildGuardedSubmission = (
 const submitWithoutPageHandlers = (
   effect: AgentDomMutationInstruction,
   element: Element
-): void => {
+): string => {
   const form = associatedForm(element)
   const destination = effect.target.formAction
   if (!form || !destination || !effect.target.formMethod) {
@@ -320,24 +324,33 @@ const submitWithoutPageHandlers = (
     destination,
     effect.target.formMethod
   )
+  const submitted = new URL(destination)
+  if (effect.target.formMethod === "get") {
+    const query = new URLSearchParams()
+    for (const control of Array.from(guarded.elements)) {
+      if (control instanceof HTMLInputElement)
+        query.append(control.name, control.value)
+    }
+    submitted.search = query.toString()
+  }
   try {
     element.ownerDocument.body.append(guarded)
     HTMLFormElement.prototype.submit.call(guarded)
   } finally {
     guarded.remove()
   }
+  return submitted.href
 }
 
 const executeKey = (
   effect: AgentDomMutationInstruction,
   element: Element
-): void => {
+): string | undefined => {
   if (effect.command.type !== "press_key") {
     throw new Error("Invalid Agent key effect")
   }
   if (effect.command.key === "Enter" && effect.target.maySubmit) {
-    submitWithoutPageHandlers(effect, element)
-    return
+    return submitWithoutPageHandlers(effect, element)
   }
   const init = {
     key: effect.command.key,
@@ -355,18 +368,21 @@ export const executeAgentDomMutationInDocument = (input: {
   document: Document
   references: AgentElementReferenceStore
   signal: AgentCancellationSignal
-}): void => {
+}): string | undefined => {
   if (input.signal.aborted) throw new Error("Agent mutation cancelled")
   const ref = input.effect.target.ref
   if (!ref) throw new Error("Agent mutation target has no reference")
   const identity = { ...input.effect.snapshotIdentity, frameId: 0 as const }
   if (!input.references.matches(identity)) {
-    throw new Error("Agent mutation snapshot is stale")
+    throw new AgentEffectNotAppliedError("Agent mutation snapshot is stale")
   }
   const element = input.references.resolve(ref, identity)
-  if (!element) throw new Error("Agent mutation target is stale")
+  if (!element)
+    throw new AgentEffectNotAppliedError("Agent mutation target is stale")
   if (!input.references.matchesFormState(ref, identity)) {
-    throw new Error("Agent mutation form state changed after approval")
+    throw new AgentEffectNotAppliedError(
+      "Agent mutation form state changed after approval"
+    )
   }
   assertUnchangedMutationTarget(input.effect, element)
   if (
@@ -385,7 +401,7 @@ export const executeAgentDomMutationInDocument = (input: {
         throw new Error("Agent link activation must use guarded navigation")
       }
       if (input.effect.target.submitter) {
-        submitWithoutPageHandlers(input.effect, element)
+        return submitWithoutPageHandlers(input.effect, element)
       } else {
         element.click()
       }
@@ -402,8 +418,7 @@ export const executeAgentDomMutationInDocument = (input: {
       executeCheckedMutation(input.effect, element)
       break
     case "press_key":
-      executeKey(input.effect, element)
-      break
+      return executeKey(input.effect, element)
     default:
       throw new Error("Agent action is not a DOM mutation")
   }
@@ -423,7 +438,7 @@ export interface AgentCommandExecutorAdapter {
   mutate(
     effect: AuthorizedAgentEffect,
     signal: AgentCancellationSignal
-  ): Promise<void>
+  ): Promise<string | undefined>
   activateTab(tabId: number): Promise<void>
   goHistory(tabId: number, direction: "back" | "forward"): Promise<void>
   resolveHistoryDestination(
@@ -650,7 +665,11 @@ export const DOM_MUTATION_AGENT_EXECUTORS = {
         effect.destination.url
       )
     } else {
-      await adapter.mutate(effect, signal)
+      const submissionUrl = await adapter.mutate(effect, signal)
+      return {
+        ...receipt(adapter, "click"),
+        ...(submissionUrl ? { submissionUrl } : {})
+      }
     }
     return receipt(adapter, "click")
   },
@@ -684,8 +703,11 @@ export const DOM_MUTATION_AGENT_EXECUTORS = {
     if (effect.destination) {
       await assertReadable(adapter, effect.destination.url)
     }
-    await adapter.mutate(effect, signal)
-    return receipt(adapter, "press_key")
+    const submissionUrl = await adapter.mutate(effect, signal)
+    return {
+      ...receipt(adapter, "press_key"),
+      ...(submissionUrl ? { submissionUrl } : {})
+    }
   }
 } satisfies Record<DomMutationAgentAction, Executor>
 

@@ -31,6 +31,7 @@ import type {
 import { createAgentSupervision } from "./agent-supervision"
 import type { AgentTabHistory } from "./agent-tab-history"
 import { createAgentTabHistory } from "./agent-tab-history"
+import { traceAgentRun } from "./agent-trace"
 
 export interface StartAgentRunInput {
   goal: string
@@ -89,6 +90,10 @@ const announcing = (
 ): AgentPersistencePort => ({
   async claim(input) {
     const result = await port.claim(input)
+    traceAgentRun(input.runId, "claim", {
+      status: input.phase,
+      claimed: result.claimed
+    })
     announce(input.runId)
     return result
   },
@@ -98,6 +103,11 @@ const announcing = (
   },
   async transition(input) {
     const result = await port.transition(input)
+    traceAgentRun(input.runId, "transition", {
+      from: input.from,
+      to: input.to,
+      transitioned: result.transitioned
+    })
     announce(input.runId)
     return result
   },

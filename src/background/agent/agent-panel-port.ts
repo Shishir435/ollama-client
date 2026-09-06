@@ -29,8 +29,13 @@ import { AgentRunError } from "./agent-run-service"
  * the browser as the user.
  */
 export interface AgentPanelPortDependencies {
+  /** Recovery must finish before a new run can own durable rows. */
+  ready?: Promise<void>
   service: AgentRunService
-  resolveProvider?: () => Promise<AgentPanelSnapshot["provider"]>
+  resolveProvider?: (
+    providerId?: string,
+    modelId?: string
+  ) => Promise<AgentPanelSnapshot["provider"]>
   /**
    * The tab a run controls. Only a run has one: the candidate a run would
    * control is resolved in the panel, which unlike a service worker knows
@@ -111,11 +116,17 @@ export const registerAgentPanelPort = (
   dependencies: AgentPanelPortDependencies
 ): (() => void) => {
   const extensionUrlPrefix = browser.runtime.getURL("")
+  let connectedPanels = 0
 
   const snapshotFor = async (runId?: string): Promise<AgentPanelSnapshot> => {
-    const provider = await dependencies.resolveProvider?.()
-    if (!runId) return { steps: [], provider }
+    if (!runId) {
+      return { steps: [], provider: await dependencies.resolveProvider?.() }
+    }
     const snapshot = await dependencies.service.snapshot(runId)
+    const provider = await dependencies.resolveProvider?.(
+      snapshot.run?.providerId,
+      snapshot.run?.modelId
+    )
     return {
       run: snapshot.run,
       steps: snapshot.steps.map((step) => ({
@@ -155,10 +166,12 @@ export const registerAgentPanelPort = (
       return
     }
 
+    connectedPanels += 1
     let closed = false
     const publish = async (runId?: string) => {
-      if (closed) return
       try {
+        await dependencies.ready
+        if (closed) return
         port.postMessage({
           type: "agent_snapshot",
           version: AGENT_PANEL_PROTOCOL_VERSION,
@@ -177,11 +190,23 @@ export const registerAgentPanelPort = (
       void publish(runId)
     })
     port.onDisconnect.addListener(() => {
+      if (closed) return
       closed = true
       unsubscribe()
+      connectedPanels = Math.max(0, connectedPanels - 1)
+      const runId = dependencies.service.activeRunId()
+      if (connectedPanels === 0 && runId) {
+        void dependencies.service.pause(runId).catch((error: unknown) => {
+          logger.warn("Agent pause after panel disconnect failed", "Agent", {
+            name: error instanceof Error ? error.name : typeof error
+          })
+        })
+      }
     })
 
     const run = async (command: AgentPanelCommand): Promise<void> => {
+      await dependencies.ready
+      if (closed) return
       const service = dependencies.service
       switch (command.type) {
         case "agent_start":

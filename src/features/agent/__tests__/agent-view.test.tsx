@@ -86,6 +86,18 @@ describe("AgentView", () => {
     expect(screen.queryByText("agent.controls.stop")).not.toBeInTheDocument()
   })
 
+  it("shows the model's result when a run completes", () => {
+    render(
+      <AgentView
+        run={{ ...run("completed"), result: "Pricing page found." }}
+        provider={{ name: "Local", model: "qwen3", location: "local" }}
+        tab={{ title: "Pricing", url: "https://example.com/pricing" }}
+      />
+    )
+
+    expect(screen.getByText("Pricing page found.")).toBeInTheDocument()
+  })
+
   it("renders injected approval strings as inert, bounded text", () => {
     const approve = vi.fn()
     render(

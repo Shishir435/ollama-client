@@ -106,7 +106,13 @@ const CompactedAgentCheckpointSchema = z
   .object({
     version: z.literal(1),
     compacted: z.literal(true),
-    terminalAt: z.number().int().nonnegative()
+    terminalAt: z.number().int().nonnegative(),
+    /**
+     * Terminal state is already bounded and contains no page snapshot. Keep it
+     * so the panel can show completion/failure after the terminal CAS or an
+     * MV3 worker restart. Optional preserves reads of older compacted rows.
+     */
+    state: AgentRunStateSchema.optional()
   })
   .strict()
 
@@ -187,8 +193,28 @@ const serializeCheckpoint = (state: AgentRunState): string => {
   )
 }
 
-const compactedCheckpoint = (terminalAt: number): string =>
-  JSON.stringify({ version: 1, compacted: true, terminalAt })
+const compactedCheckpoint = (
+  terminalAt: number,
+  state?: AgentRunState
+): string =>
+  serializeBounded(
+    {
+      version: 1,
+      compacted: true,
+      terminalAt,
+      ...(state
+        ? {
+            state: AgentRunStateSchema.parse({
+              ...state,
+              deadline: undefined,
+              pauseReason: undefined
+            })
+          }
+        : {})
+    },
+    MAX_AGENT_CHECKPOINT_BYTES,
+    "Agent terminal checkpoint"
+  )
 
 const parseRun = (row: AgentRunRow): DurableAgentRun | null => {
   try {
@@ -196,7 +222,14 @@ const parseRun = (row: AgentRunRow): DurableAgentRun | null => {
     const compacted = CompactedAgentCheckpointSchema.safeParse(decoded)
     if (compacted.success) {
       if (!isTerminalAgentStatus(row.status)) return null
-      return { ...row, state: undefined, compacted: true }
+      if (
+        compacted.data.state &&
+        (compacted.data.state.id !== row.id ||
+          compacted.data.state.status !== row.status)
+      ) {
+        return null
+      }
+      return { ...row, state: compacted.data.state, compacted: true }
     }
     const checkpoint = AgentCheckpointSchema.parse(decoded)
     if (
@@ -334,7 +367,7 @@ const updateAgentRun = async (
     const next = applyPatch(current.state, target, input.patch)
     const terminal = isTerminalAgentStatus(target)
     const checkpoint = terminal
-      ? compactedCheckpoint(next.updatedAt)
+      ? compactedCheckpoint(next.updatedAt, next)
       : serializeCheckpoint(next)
     const placeholders = expected.map(() => "?").join(", ")
     const result = await tx.runWithMeta(

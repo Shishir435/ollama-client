@@ -31,9 +31,51 @@ const VARIANT_FIELDS: Record<string, string> = {
  * belonging to the stated type is kept, and everything else about the answer
  * is still validated.
  */
-const normalizeDecisionArguments = (raw: unknown): unknown => {
+const COMMAND_FIELDS: Record<string, readonly string[]> = {
+  read: [],
+  click: ["ref"],
+  type: ["ref", "text"],
+  clear_and_type: ["ref", "text"],
+  select: ["ref", "value"],
+  check: ["ref"],
+  uncheck: ["ref"],
+  press_key: ["ref", "key"],
+  scroll: ["ref", "direction", "amount"],
+  navigate: ["url"],
+  open_tab: ["url"],
+  switch_tab: ["tabId"],
+  back: [],
+  forward: [],
+  wait: ["condition", "timeoutMs"]
+}
+
+const normalizeDecisionArguments = (
+  raw: unknown,
+  observation: AgentObservation
+): unknown => {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw
   const record = raw as Record<string, unknown>
+  const fields = COMMAND_FIELDS[String(record.type)]
+  if (fields) {
+    if (
+      (record.snapshotId !== undefined &&
+        record.snapshotId !== observation.snapshotId) ||
+      (record.generation !== undefined &&
+        record.generation !== observation.generation)
+    )
+      throw new AgentDecisionFormatError(
+        "The agent decision references a stale snapshot"
+      )
+    const command: Record<string, unknown> = {
+      type: record.type,
+      snapshotId: observation.snapshotId,
+      generation: observation.generation
+    }
+    for (const field of fields) {
+      if (record[field] !== undefined) command[field] = record[field]
+    }
+    return { type: "command", command }
+  }
   const field = VARIANT_FIELDS[String(record.type)]
   if (!field) return raw
   const value = record[field]
@@ -72,7 +114,7 @@ export const parseAgentDecisionToolCalls = (
   if (call.name !== AGENT_DECISION_TOOL_NAME) {
     throw new AgentDecisionFormatError("The model called an unknown agent tool")
   }
-  const normalized = normalizeDecisionArguments(call.arguments)
+  const normalized = normalizeDecisionArguments(call.arguments, observation)
   const parsed = AgentDecisionSchema.safeParse(normalized)
   if (!parsed.success) {
     /*

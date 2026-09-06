@@ -35,6 +35,32 @@ const call = (argumentsValue: Record<string, unknown>) => ({
 })
 
 describe("parseAgentDecisionToolCalls", () => {
+  it("binds flat intent to the current observation without model-generated identity", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "click", ref: "e1" })],
+        observation
+      )
+    ).toEqual({
+      type: "command",
+      command: {
+        type: "click",
+        ref: "e1",
+        snapshotId: "snapshot-2",
+        generation: 2
+      }
+    })
+    expect(() =>
+      parseAgentDecisionToolCalls([call({ type: "click" })], observation)
+    ).toThrow("invalid decision")
+    expect(() =>
+      parseAgentDecisionToolCalls(
+        [call({ type: "click", ref: "e1", generation: 1 })],
+        observation
+      )
+    ).toThrow("stale snapshot")
+  })
+
   it("accepts exactly one schema-valid grounded decision", () => {
     expect(
       parseAgentDecisionToolCalls(

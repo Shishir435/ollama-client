@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { useAgentCandidateTab } from "../use-agent-candidate-tab"
 
-const tabs: Array<{ url?: string; title?: string }> = []
+const tabs: Array<{ id?: number; url?: string; title?: string }> = []
 const activatedListeners = new Set<() => void>()
 const query = vi.fn(async () => tabs)
 const access = vi.fn(async (url?: string) =>
@@ -39,12 +39,13 @@ describe("useAgentCandidateTab", () => {
   })
 
   it("asks the panel's own window, not the last focused one", async () => {
-    tabs.push({ url: "https://example.com/start", title: "Example" })
+    tabs.push({ id: 7, url: "https://example.com/start", title: "Example" })
 
     const { result } = renderHook(() => useAgentCandidateTab())
 
     await waitFor(() =>
       expect(result.current).toEqual({
+        id: 7,
         title: "Example",
         url: "https://example.com/start"
       })
@@ -53,7 +54,7 @@ describe("useAgentCandidateTab", () => {
   })
 
   it("offers no candidate for a page the run could not read", async () => {
-    tabs.push({ url: "chrome://settings", title: "Settings" })
+    tabs.push({ id: 7, url: "chrome://settings", title: "Settings" })
 
     const { result } = renderHook(() => useAgentCandidateTab())
 
@@ -62,11 +63,11 @@ describe("useAgentCandidateTab", () => {
   })
 
   it("follows the user to another tab", async () => {
-    tabs.push({ url: "https://example.com/start", title: "Example" })
+    tabs.push({ id: 7, url: "https://example.com/start", title: "Example" })
     const { result } = renderHook(() => useAgentCandidateTab())
     await waitFor(() => expect(result.current?.title).toBe("Example"))
 
-    tabs[0] = { url: "https://other.example/page", title: "Other" }
+    tabs[0] = { id: 8, url: "https://other.example/page", title: "Other" }
     act(() => {
       for (const listener of [...activatedListeners]) listener()
     })

@@ -1,3 +1,4 @@
+import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 import {
   AgentCommandSchema,
   type AgentObservation,
@@ -129,13 +130,17 @@ export type AgentExecuteRequest = z.infer<typeof AgentExecuteRequestSchema>
 export const AgentExecuteResponseSchema = z
   .object({
     version: z.literal(AGENT_CONTROL_VERSION),
-    type: z.literal("agent_dom_mutation_executed"),
+    type: z.enum([
+      "agent_dom_mutation_executed",
+      "agent_dom_mutation_rejected"
+    ]),
     runId: z.string().min(1),
     tabId: z.number().int().nonnegative(),
     frameId: z.literal(0),
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
-    documentId: z.string().min(1)
+    documentId: z.string().min(1),
+    submissionUrl: z.url().max(32_768).optional()
   })
   .strict()
 export type AgentExecuteResponse = z.infer<typeof AgentExecuteResponseSchema>
@@ -245,7 +250,7 @@ export interface AgentControlSession {
   executeDomMutation(
     instruction: AgentDomMutationInstruction,
     signal?: AbortSignal
-  ): Promise<void>
+  ): Promise<string | undefined>
   executeScroll(
     instruction: AgentScrollInstruction,
     signal?: AbortSignal
@@ -336,7 +341,7 @@ export const validateAgentExecuteResponse = (
   raw: unknown,
   binding: AgentControlBinding,
   sequence: number
-): void => {
+): string | undefined => {
   const response = AgentExecuteResponseSchema.parse(raw)
   if (
     response.runId !== binding.runId ||
@@ -348,6 +353,9 @@ export const validateAgentExecuteResponse = (
   ) {
     throw new Error("Agent execution response binding mismatch")
   }
+  if (response.type === "agent_dom_mutation_rejected")
+    throw new AgentEffectNotAppliedError()
+  return response.submissionUrl
 }
 
 export const validateAgentScrollResponse = (
@@ -484,7 +492,11 @@ export const createAgentControlSession = (input: {
       return exchange(
         request,
         (raw) => {
-          validateAgentExecuteResponse(raw, input.binding, expectedSequence)
+          return validateAgentExecuteResponse(
+            raw,
+            input.binding,
+            expectedSequence
+          )
         },
         signal
       )
@@ -560,11 +572,24 @@ export const openAgentControlSession = async (input: {
   })
 }
 
+/** Only a typed, pre-effect rejection may authorize re-observation instead of uncertainty. */
+const runContentMutation = (
+  execute: () => string | undefined
+): Pick<AgentExecuteResponse, "type" | "submissionUrl"> => {
+  try {
+    return { type: "agent_dom_mutation_executed", submissionUrl: execute() }
+  } catch (error) {
+    if (error instanceof AgentEffectNotAppliedError)
+      return { type: "agent_dom_mutation_rejected" }
+    throw error
+  }
+}
+
 export const attachAgentControlContentPort = (
   port: AgentControlPort,
   handlers: {
     buildObservation(request: AgentObserveRequest): AgentObservation
-    executeDomMutation(request: AgentExecuteRequest): void
+    executeDomMutation(request: AgentExecuteRequest): string | undefined
     executeScroll(request: AgentExecuteScrollRequest): void
   }
 ): boolean => {
@@ -614,10 +639,15 @@ export const attachAgentControlContentPort = (
         ) {
           throw new Error("Agent instruction binding mismatch")
         }
+        let mutation: Pick<AgentExecuteResponse, "type" | "submissionUrl"> = {
+          type: "agent_dom_mutation_executed"
+        }
         if (request.type === "agent_execute_scroll") {
           handlers.executeScroll(request)
         } else {
-          handlers.executeDomMutation(request)
+          mutation = runContentMutation(() =>
+            handlers.executeDomMutation(request)
+          )
         }
         binding = nextBinding
         lastSequence = request.sequence
@@ -631,7 +661,7 @@ export const attachAgentControlContentPort = (
               }
             : {
                 version: AGENT_CONTROL_VERSION,
-                type: "agent_dom_mutation_executed",
+                ...mutation,
                 ...nextBinding,
                 sequence: request.sequence
               }

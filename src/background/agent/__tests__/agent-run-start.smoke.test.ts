@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
+import { createAgentController } from "@ollama-client/agent-runtime"
+import type { AgentObservation } from "@ollama-client/contracts"
 import {
   afterEach,
   beforeAll,
@@ -12,6 +14,8 @@ import {
 
 import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { createChatDbEngine } from "@/lib/persistence/chat-db-engine"
+import type { LLMProvider } from "@/lib/providers/types"
+import { ProviderType } from "@/lib/providers/types"
 
 /**
  * Starting a run against the real engine.
@@ -110,6 +114,138 @@ const startService = (
   })
 
 describe("starting an Agent run against the real engine", () => {
+  it(
+    "carries a provider decision through the controller into a visible terminal snapshot",
+    async () => {
+      vi.resetModules()
+      installOwner()
+      const [{ createAgentRunService }, modelModule] = await Promise.all([
+        import("../agent-run-service"),
+        import("@/application/agent/agent-model-port")
+      ])
+      const observation: AgentObservation = {
+        snapshotId: "snapshot-vertical-1",
+        generation: 1,
+        tabId: 7,
+        documentId: "document-vertical-1",
+        url: "https://example.com/start",
+        origin: "https://example.com",
+        title: "Example",
+        elements: [],
+        visibleText: "Pricing is available.",
+        scroll: {
+          x: 0,
+          y: 0,
+          viewportWidth: 100,
+          viewportHeight: 100,
+          documentWidth: 100,
+          documentHeight: 100
+        },
+        dialogs: [],
+        capturedAt: 1_700_000_000_001
+      }
+      const provider = {
+        id: "ollama",
+        config: {
+          id: "ollama",
+          type: ProviderType.OLLAMA,
+          enabled: true,
+          name: "Ollama"
+        },
+        capabilities: {
+          chat: true,
+          embeddings: true,
+          modelDiscovery: true,
+          modelDetails: true,
+          modelPull: true,
+          modelUnload: true,
+          modelDelete: true,
+          providerVersion: true,
+          toolCalling: true
+        },
+        async streamChat(_request, emit) {
+          emit({
+            toolCalls: [
+              {
+                id: "decision-1",
+                name: "agent_decision",
+                arguments: {
+                  type: "complete",
+                  summary: "Pricing page found."
+                }
+              }
+            ],
+            done: true
+          })
+        },
+        getModels: async () => []
+      } satisfies LLMProvider
+      const service = createAgentRunService({
+        hasPerception: async () => true,
+        getTab: async () => ({ url: observation.url }),
+        classifyAccess: async () => "ok",
+        now: () => 1_700_000_000_001,
+        newRunId: () => "run-vertical-1",
+        buildController: ({ persistence, now }) =>
+          createAgentController({
+            persistence,
+            model: modelModule.createProviderAgentModelPort({
+              resolveProvider: async () => provider,
+              resolveCompatibility: async () => ({
+                status: "supported",
+                mode: "native",
+                reason: "metadata"
+              })
+            }),
+            observation: { observe: async () => observation },
+            effect: {
+              resolve: async () => {
+                throw new Error("complete decisions resolve no effect")
+              },
+              execute: async () => {
+                throw new Error("complete decisions execute no effect")
+              },
+              verify: async () => {
+                throw new Error("complete decisions verify no effect")
+              }
+            },
+            policy: {
+              evaluate: () => {
+                throw new Error("complete decisions invoke no policy")
+              }
+            },
+            approval: {
+              request: async () => {
+                throw new Error("complete decisions request no approval")
+              }
+            },
+            takeover: {
+              request: async () => {
+                throw new Error("complete decisions request no takeover")
+              }
+            },
+            clock: { now }
+          })
+      })
+
+      await service.start({
+        goal: "Find pricing",
+        tabId: 7,
+        providerId: "ollama",
+        modelId: "qwen3"
+      })
+
+      await vi.waitFor(async () => {
+        const snapshot = await service.snapshot("run-vertical-1")
+        expect(snapshot.run).toMatchObject({
+          status: "completed",
+          result: "Pricing page found."
+        })
+      })
+    },
+    TIMEOUT
+  )
+
   it(
     "writes the run and reports it back to the panel",
     async () => {

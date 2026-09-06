@@ -641,12 +641,15 @@ describe("Agent DOM mutation execution", () => {
       submit
     )
 
-    executeAgentDomMutationInDocument({
+    const submissionUrl = executeAgentDomMutationInDocument({
       effect,
       document,
       references,
       signal
     })
+    expect(submissionUrl).toBe(
+      new URL("/finish?intent=save", location.href).href
+    )
     expect(nativeSubmit).toHaveBeenCalledOnce()
     expect(clickHandler).not.toHaveBeenCalled()
     expect(submitHandler).not.toHaveBeenCalled()

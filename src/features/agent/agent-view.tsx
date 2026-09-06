@@ -230,6 +230,11 @@ export const AgentView = ({
 
         {settled && run && (
           <section className="mt-3 rounded-panel border border-border/50 bg-background p-2.5 text-xs">
+            {run.result && (
+              <p className="mb-2 whitespace-pre-wrap break-words">
+                {agentPlainText(run.result, 20_000)}
+              </p>
+            )}
             {run.error && (
               <p className="mb-1 font-medium text-destructive">
                 {agentPlainText(run.error.message, AGENT_PAGE_TEXT_LIMIT)}
@@ -257,6 +262,7 @@ export const AgentView = ({
       {run && !settled && (
         <AgentRunControls
           status={run.status}
+          resumeDisabled={run.pauseReason === "unresolved_effect"}
           onPause={onPause}
           onResume={onResume}
           onStop={onStop}

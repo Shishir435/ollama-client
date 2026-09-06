@@ -18,6 +18,12 @@ export interface AgentEffectVerifierAdapter {
     minimumGeneration: number,
     signal: AgentCancellationSignal
   ): Promise<AgentObservation>
+  waitForNavigation?(
+    tabId: number,
+    sourceUrl: string,
+    destinationUrl: string,
+    signal: AgentCancellationSignal
+  ): Promise<void>
   getActiveTabId(): Promise<number | undefined>
   getTab(tabId: number): Promise<{ url?: string } | undefined>
   classifyAccess(url?: string): Promise<TabAccess>
@@ -98,7 +104,7 @@ type Verifier = (
   signal: AgentCancellationSignal
 ) => Promise<AgentVerificationResult>
 
-const verifyHistory: Verifier = async (input, adapter) => {
+const verifyHistory: Verifier = async (input, adapter, signal) => {
   const destination = input.effect.destination
   if (!destination) {
     return result(
@@ -108,6 +114,12 @@ const verifyHistory: Verifier = async (input, adapter) => {
       adapter.now()
     )
   }
+  await adapter.waitForNavigation?.(
+    input.effect.snapshotIdentity.tabId,
+    input.effect.sourceUrl,
+    destination.url,
+    signal
+  )
   const tab = await adapter.getTab(input.effect.snapshotIdentity.tabId)
   if (!tab?.url) {
     return result("ambiguous", "navigation", "Tab unavailable", adapter.now())
@@ -129,9 +141,9 @@ const verifyHistory: Verifier = async (input, adapter) => {
   }
   return sameUrl(tab.url, input.effect.sourceUrl)
     ? result(
-        "negative",
+        "ambiguous",
         "navigation",
-        "History position did not change",
+        "History destination did not settle before verification",
         adapter.now()
       )
     : result(
@@ -247,7 +259,10 @@ export const READ_ONLY_AGENT_VERIFIERS = {
     }
     const tab = await adapter.getTab(active)
     return tab?.url &&
-      sameUrl(tab.url, input.effect.destination.url) &&
+      sameUrl(
+        tab.url,
+        input.receipt.submissionUrl ?? input.effect.destination.url
+      ) &&
       (await adapter.classifyAccess(tab.url)) === "ok"
       ? result(
           "confirmed",
@@ -288,12 +303,19 @@ const verifyCommittedDestination = async (
   input: AgentVerificationInput,
   adapter: AgentEffectVerifierAdapter,
   tabId: number,
-  kind: string
+  kind: string,
+  signal: AgentCancellationSignal
 ): Promise<AgentVerificationResult> => {
   const destination = input.effect.destination
   if (!destination) {
     return result("ambiguous", kind, "Destination unavailable", adapter.now())
   }
+  await adapter.waitForNavigation?.(
+    tabId,
+    input.effect.sourceUrl,
+    destination.url,
+    signal
+  )
   const tab = await adapter.getTab(tabId)
   if (!tab?.url) {
     return result("negative", kind, "Destination tab is gone", adapter.now())
@@ -301,9 +323,9 @@ const verifyCommittedDestination = async (
   if (!sameUrl(tab.url, destination.url)) {
     return sameUrl(tab.url, input.effect.sourceUrl)
       ? result(
-          "negative",
+          "ambiguous",
           kind,
-          "Navigation did not leave the source page",
+          "Navigation did not settle before verification",
           adapter.now()
         )
       : result(
@@ -334,7 +356,8 @@ export const NAVIGATION_AGENT_VERIFIERS = {
       input,
       adapter,
       input.effect.snapshotIdentity.tabId,
-      "navigation"
+      "navigation",
+      signal
     )
     if (committed.outcome !== "confirmed") return committed
     /**
@@ -361,7 +384,7 @@ export const NAVIGATION_AGENT_VERIFIERS = {
       adapter.now()
     )
   },
-  async open_tab(input, adapter) {
+  async open_tab(input, adapter, signal) {
     if (input.effect.command.type !== "open_tab" || !input.effect.destination) {
       throw new Error("Invalid open-tab effect")
     }
@@ -378,7 +401,7 @@ export const NAVIGATION_AGENT_VERIFIERS = {
         adapter.now()
       )
     }
-    return verifyCommittedDestination(input, adapter, opened, "tab")
+    return verifyCommittedDestination(input, adapter, opened, "tab", signal)
   }
 } satisfies Record<NavigationAgentAction, Verifier>
 
@@ -515,6 +538,15 @@ const verifyCheckedMutation: Verifier = async (input, adapter, signal) => {
 
 const verifySubmission: Verifier = async (input, adapter, signal) => {
   const tabId = input.effect.snapshotIdentity.tabId
+  const expectedUrl =
+    input.receipt.submissionUrl ?? input.effect.destination?.url
+  if (expectedUrl)
+    await adapter.waitForNavigation?.(
+      tabId,
+      input.effect.sourceUrl,
+      expectedUrl,
+      signal
+    )
   const tab = await adapter.getTab(tabId)
   if (!tab?.url) {
     return result(
@@ -527,7 +559,10 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
   if (!sameUrl(tab.url, input.effect.sourceUrl)) {
     if (
       input.effect.destination &&
-      sameUrl(tab.url, input.effect.destination.url) &&
+      sameUrl(
+        tab.url,
+        input.receipt.submissionUrl ?? input.effect.destination.url
+      ) &&
       (await adapter.classifyAccess(tab.url)) === "ok"
     ) {
       return result(
@@ -573,7 +608,8 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
       input,
       adapter,
       input.effect.snapshotIdentity.tabId,
-      "activation"
+      "activation",
+      signal
     )
   }
   const after = await observeAfter(input, adapter, signal)
@@ -586,9 +622,9 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
     )
   }
   return result(
-    "negative",
+    "ambiguous",
     "activation",
-    "Control activation produced no observable page change",
+    "Control activation produced no conclusive page evidence",
     adapter.now()
   )
 }

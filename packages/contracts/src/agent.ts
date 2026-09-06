@@ -155,6 +155,8 @@ export const AgentRunStateSchema = z
     providerId: z.string().min(1),
     modelId: z.string().min(1),
     allowedOrigins: z.array(z.string().min(1)).max(MAX_AGENT_ALLOWED_ORIGINS),
+    /** Bounded model-authored outcome retained for completed-run display. */
+    result: z.string().min(1).max(20_000).optional(),
     error: AgentErrorSchema.optional(),
     deadline: AgentDeadlineStateSchema.optional(),
     createdAt: z.number().int().nonnegative(),

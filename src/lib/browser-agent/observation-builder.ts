@@ -374,8 +374,33 @@ const collectVisibleText = (root: Element, limit: number): string => {
 }
 
 const accessibleName = (element: Element): string | undefined => {
+  const labelledBy = element
+    .getAttribute("aria-labelledby")
+    ?.trim()
+    .split(/\s+/)
+    .map((id) => element.ownerDocument.getElementById(id))
+    .filter((label): label is HTMLElement => label !== null)
+    .map((label) =>
+      collectVisibleText(label, AGENT_OBSERVATION_LIMITS.elementNameChars)
+    )
+    .filter(Boolean)
+    .join(" ")
+  if (labelledBy) return labelledBy
   const labelled = element.getAttribute("aria-label")
   if (labelled) return labelled
+  if (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement
+  ) {
+    const label = Array.from(element.labels ?? [])
+      .map((label) =>
+        collectVisibleText(label, AGENT_OBSERVATION_LIMITS.elementNameChars)
+      )
+      .filter(Boolean)
+      .join(" ")
+    if (label) return label
+  }
   const text = collectVisibleText(
     element,
     AGENT_OBSERVATION_LIMITS.elementNameChars

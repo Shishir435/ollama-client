@@ -27,14 +27,15 @@ export interface AgentComposition {
  * missing grant leaves the run service refusing to start rather than reading
  * an API that is not there.
  */
-export const createAgentComposition = async (): Promise<
-  AgentComposition | undefined
-> => {
+export const createAgentComposition = async (
+  ready: Promise<void> = Promise.resolve()
+): Promise<AgentComposition | undefined> => {
   if (!FEATURE_FLAGS.agentPreview) return undefined
 
   const history = createAgentTabHistory()
   const service = createAgentRunService({ history })
   const stopPort = registerAgentPanelPort({
+    ready,
     service,
     resolveProvider: resolveAgentProviderDisclosure,
     resolveTab: async (tabId) => {

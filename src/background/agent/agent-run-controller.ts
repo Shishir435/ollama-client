@@ -15,6 +15,7 @@ import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentEffectPort } from "./agent-effect-port"
 import type { AgentSupervision } from "./agent-supervision"
 import type { AgentTabHistory } from "./agent-tab-history"
+import { traceAgentRun } from "./agent-trace"
 
 /**
  * How long one decision may take before the run gives up on it.
@@ -107,16 +108,84 @@ export const buildAgentController: BuildAgentController = (input) => {
     now: input.now
   })
 
+  const model = withDecisionTimeout(
+    createProviderAgentModelPort({
+      allowExperimental: input.allowExperimentalModel
+    }),
+    input.decisionTimeoutMs ?? DECISION_TIMEOUT_MS
+  )
+  const effect = createAgentEffectPort(adapters)
   return createAgentController({
-    model: withDecisionTimeout(
-      createProviderAgentModelPort({
-        allowExperimental: input.allowExperimentalModel
-      }),
-      input.decisionTimeoutMs ?? DECISION_TIMEOUT_MS
-    ),
-    observation: adapters.observation,
-    effect: createAgentEffectPort(adapters),
-    policy: { evaluate: evaluateAgentPolicy },
+    model: {
+      async decide(request, signal) {
+        traceAgentRun(input.runId, "deciding", {
+          step: request.state.stepCount + 1,
+          providerId: request.state.providerId,
+          modelId: request.state.modelId
+        })
+        const decision = await model.decide(request, signal)
+        traceAgentRun(input.runId, "decision", {
+          type: decision.type,
+          action:
+            decision.type === "command" ? decision.command.type : undefined
+        })
+        return decision
+      }
+    },
+    observation: {
+      async observe(request, signal) {
+        traceAgentRun(input.runId, "observing", { tabId: request.tabId })
+        const observation = await adapters.observation.observe(request, signal)
+        traceAgentRun(input.runId, "observed", {
+          tabId: observation.tabId,
+          documentId: observation.documentId,
+          generation: observation.generation,
+          snapshotId: observation.snapshotId,
+          elements: observation.elements.length
+        })
+        return observation
+      }
+    },
+    effect: {
+      async resolve(command, observation) {
+        const resolved = await effect.resolve(command, observation)
+        traceAgentRun(input.runId, "resolved", {
+          action: command.type,
+          ref: resolved.target.ref,
+          snapshotId: observation.snapshotId
+        })
+        return resolved
+      },
+      async execute(authorized, signal) {
+        traceAgentRun(input.runId, "executing", {
+          action: authorized.command.type,
+          authorization: authorized.authorization.type
+        })
+        const receipt = await effect.execute(authorized, signal)
+        traceAgentRun(input.runId, "executed", {
+          executedAt: receipt.executedAt
+        })
+        return receipt
+      },
+      async verify(request, signal) {
+        const result = await effect.verify(request, signal)
+        traceAgentRun(input.runId, "verified", {
+          outcome: result.outcome,
+          kind: result.evidence.kind
+        })
+        return result
+      }
+    },
+    policy: {
+      evaluate(request) {
+        const decision = evaluateAgentPolicy(request)
+        traceAgentRun(input.runId, "policy", {
+          outcome: decision.type,
+          risk: decision.risk
+        })
+        return decision
+      }
+    },
     persistence: input.persistence,
     approval: input.supervision.approval,
     takeover: input.supervision.takeover,

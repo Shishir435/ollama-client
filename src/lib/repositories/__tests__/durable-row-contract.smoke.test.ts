@@ -246,13 +246,22 @@ describe("durable job rows decode as their writers wrote them", () => {
         ["agent-terminal-1"]
       )
       expect(rows[0]?.status).toBe("completed")
-      expect(JSON.parse(String(rows[0]?.checkpoint))).toEqual({
+      expect(JSON.parse(String(rows[0]?.checkpoint))).toMatchObject({
         version: 1,
         compacted: true,
-        terminalAt: 3
+        terminalAt: 3,
+        state: {
+          id: "agent-terminal-1",
+          status: "completed",
+          observationCount: 1
+        }
       })
       await expect(repo.getAgentRun("agent-terminal-1")).resolves.toMatchObject(
-        { status: "completed", compacted: true, state: undefined }
+        {
+          status: "completed",
+          compacted: true,
+          state: { id: "agent-terminal-1", status: "completed" }
+        }
       )
     },
     TIMEOUT

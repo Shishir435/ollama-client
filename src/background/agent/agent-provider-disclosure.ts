@@ -26,10 +26,14 @@ const locationOf = (baseUrl: string): "local" | "remote" => {
 }
 
 /** The provider the panel discloses before page observations are sent. */
-export const resolveAgentProviderDisclosure = async (): Promise<
-  AgentPanelSnapshot["provider"]
-> => {
-  const selected = await readStoredSetting(SETTINGS.SELECTED_MODEL_REF)
+export const resolveAgentProviderDisclosure = async (
+  providerId?: string,
+  modelId?: string
+): Promise<AgentPanelSnapshot["provider"]> => {
+  const selected =
+    providerId && modelId
+      ? { providerId, modelId }
+      : await readStoredSetting(SETTINGS.SELECTED_MODEL_REF)
   if (!selected) return undefined
   const config = await ProviderManager.getProviderConfig(selected.providerId)
   if (!config) return undefined

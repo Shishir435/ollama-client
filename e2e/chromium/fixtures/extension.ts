@@ -1,11 +1,13 @@
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
-  statSync
+  statSync,
+  writeFileSync
 } from "node:fs"
 import { tmpdir } from "node:os"
 import { resolve } from "node:path"
@@ -145,8 +147,23 @@ const createExtensionSession = async (
   close: () => Promise<void>
   logs: string[]
 }> => {
-  const buildPath = extensionBuildPathFor(testInfo)
+  let buildPath = extensionBuildPathFor(testInfo)
   const userDataDir = mkdtempSync(`${tmpdir()}/ollama-client-e2e-`)
+  // Headless Chromium cannot accept the native optional-permission bubble.
+  // Install identical production JS with a test-only install-time grant.
+  // This does not test the permission prompt; all runtime permission checks run.
+  if (testInfo.project.metadata.agentObservationGrant === true) {
+    const copiedBuild = resolve(userDataDir, "extension")
+    cpSync(buildPath, copiedBuild, { recursive: true })
+    const manifestPath = resolve(copiedBuild, "manifest.json")
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"))
+    manifest.permissions.push("webNavigation")
+    manifest.optional_permissions = manifest.optional_permissions.filter(
+      (permission: string) => permission !== "webNavigation"
+    )
+    writeFileSync(manifestPath, JSON.stringify(manifest))
+    buildPath = copiedBuild
+  }
   const artifactDir = testInfo.outputPath("persistent-context")
   const videoDir = resolve(artifactDir, "videos")
   mkdirSync(videoDir, { recursive: true })

@@ -39,10 +39,6 @@ vi.mock("@/lib/permissions", () => ({
   requestAgentPerceptionPermission: () => requestPerception()
 }))
 
-vi.mock("@/lib/browser-tab-access", () => ({
-  queryActiveTab: async () => ({ id: 7, url: "https://example.com/start" })
-}))
-
 const emit = (snapshot: AgentPanelSnapshot) => {
   for (const listener of messageListeners) {
     listener({ type: "agent_snapshot", version: 1, snapshot })
@@ -79,7 +75,7 @@ const runningSnapshot: AgentPanelSnapshot = {
   }
 }
 
-const model = { providerId: "ollama", modelId: "qwen3" }
+const model = { providerId: "ollama", modelId: "qwen3", tabId: 7 }
 
 describe("useAgentRun", () => {
   beforeEach(() => {
@@ -92,6 +88,22 @@ describe("useAgentRun", () => {
     requestPerception.mockResolvedValue(true)
   })
 
+  it("refreshes only supervised active runs and stops the heartbeat on unmount", async () => {
+    vi.useFakeTimers()
+    const hook = renderHook(() => useAgentRun(model))
+    try {
+      act(() => emit(runningSnapshot))
+      act(() => vi.advanceTimersByTime(20_000))
+      expect(posted).toContainEqual({ type: "agent_refresh" })
+      posted.length = 0
+      hook.unmount()
+      act(() => vi.advanceTimersByTime(20_000))
+      expect(posted).toEqual([])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("renders whatever the background last published", () => {
     const { result } = renderHook(() => useAgentRun(model))
 
@@ -100,7 +112,7 @@ describe("useAgentRun", () => {
     expect(result.current.snapshot.run?.status).toBe("awaiting_approval")
   })
 
-  it("starts a run on the active tab", async () => {
+  it("starts a run on the exact tab displayed by the panel", async () => {
     const { result } = renderHook(() => useAgentRun(model))
 
     await act(async () => {

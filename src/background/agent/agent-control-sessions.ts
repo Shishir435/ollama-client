@@ -28,7 +28,7 @@ export interface AgentControlSessionRegistry {
       instruction: AgentDomMutationInstruction
     },
     signal?: AbortSignal
-  ): Promise<void>
+  ): Promise<string | undefined>
   executeScroll(
     input: {
       runId: string
@@ -87,7 +87,7 @@ export const createAgentControlSessionRegistry = (input?: {
     async executeDomMutation({ runId, tabId, instruction }, signal) {
       const session = await acquire(runId, tabId)
       try {
-        await session.executeDomMutation(instruction, signal)
+        return await session.executeDomMutation(instruction, signal)
       } catch (error) {
         drop(runId, tabId)
         throw error

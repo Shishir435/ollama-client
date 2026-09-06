@@ -15,6 +15,7 @@ import {
   queryActiveTab
 } from "@/lib/browser-tab-access"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
+import { waitForAgentNavigation } from "./agent-navigation-settlement"
 import type { AgentTabHistory } from "./agent-tab-history"
 
 export interface AgentBrowserAdapters {
@@ -123,7 +124,7 @@ export const createAgentBrowserAdapters = (input: {
         )
       },
       async mutate(effect, signal) {
-        await input.sessions.executeDomMutation(
+        return input.sessions.executeDomMutation(
           {
             runId: input.runId,
             tabId: effect.snapshotIdentity.tabId,
@@ -169,6 +170,14 @@ export const createAgentBrowserAdapters = (input: {
     },
     verifier: {
       observe,
+      waitForNavigation: (tabId, sourceUrl, destinationUrl, signal) =>
+        waitForAgentNavigation({
+          tabId,
+          sourceUrl,
+          destinationUrl,
+          signal,
+          getTab
+        }),
       async getActiveTabId() {
         return (await queryActiveTab())?.id
       },

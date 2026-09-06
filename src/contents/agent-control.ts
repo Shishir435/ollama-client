@@ -39,7 +39,7 @@ export const installAgentControlContentScript = (): void => {
         if (!references) {
           throw new Error("Agent mutation has no observed snapshot")
         }
-        executeAgentDomMutationInDocument({
+        return executeAgentDomMutationInDocument({
           effect: request.instruction,
           document,
           references,
