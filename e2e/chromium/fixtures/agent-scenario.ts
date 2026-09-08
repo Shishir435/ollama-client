@@ -20,7 +20,10 @@ import { expect, test } from "./extension"
  * every change to the agent had to edit.
  */
 
-/** The observation fields a scripted decision is allowed to read. */
+/**
+ * The observation as the model receives it: projected, so a field at its
+ * default is absent rather than present and false.
+ */
 export interface AgentFixtureElement {
   ref: string
   tag: string
@@ -30,16 +33,20 @@ export interface AgentFixtureElement {
   value?: string
   checked?: boolean
   href?: string
-  visible: boolean
-  enabled: boolean
-  editable: boolean
-  sensitive: boolean
+  group?: string
+  submits?: boolean
+  editable?: boolean
+  sensitive?: boolean
+  disabled?: boolean
+  hidden?: boolean
 }
 
 export interface AgentFixtureObservation {
   url: string
   title: string
-  visibleText: string
+  text: string
+  documentText?: string
+  modals?: { id: string; kind: string; label?: string }[]
   elements: AgentFixtureElement[]
 }
 

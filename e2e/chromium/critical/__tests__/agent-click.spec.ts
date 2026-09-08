@@ -14,7 +14,7 @@ const silentButton =
   '<button type="button" onclick="fetch(\'/effect\');">Continue</button>'
 
 const clickContinue = (observation: AgentFixtureObservation) =>
-  observation.visibleText.includes("Status: Active")
+  observation.text.includes("Status: Active")
     ? { type: "complete", summary: "Active" }
     : {
         type: "click",

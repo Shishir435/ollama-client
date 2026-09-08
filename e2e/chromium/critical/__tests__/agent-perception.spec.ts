@@ -8,7 +8,7 @@ import {
 import { expect } from "../../fixtures/extension"
 
 const clickContinue = (observation: AgentFixtureObservation) =>
-  observation.visibleText.includes("Status: Active")
+  observation.text.includes("Status: Active")
     ? { type: "complete", summary: "Active" }
     : {
         type: "click",
@@ -37,11 +37,11 @@ runAgentScenario({
     const observed = firstObservation(wire)
     const svg = observed.elements.find((element) => element.tag === "svg")
     expect(svg).toMatchObject({ role: "img", name: "Brand" })
-    for (const element of observed.elements) {
-      expect(typeof element.editable).toBe("boolean")
-      expect(typeof element.enabled).toBe("boolean")
-      expect(typeof element.visible).toBe("boolean")
-    }
+    // Field-level derivation is asserted where it happens, in the builder's
+    // own tests: the wire is projected now, so a default is absent rather
+    // than present and false.
+    expect(svg).not.toHaveProperty("editable")
+    expect(svg).not.toHaveProperty("disabled")
   }
 })
 
@@ -68,7 +68,7 @@ runAgentScenario({
     expect(observed.elements.length).toBeLessThanOrEqual(2_000)
     expect(
       observed.elements
-        .filter((element) => element.visible)
+        .filter((element) => !element.hidden)
         .map((element) => element.name)
     ).toEqual(["Continue"])
   }

@@ -8,6 +8,7 @@ import { AGENT_DECISION_TOOL_NAME } from "../agent-decision-parser"
 import type { AgentModelCompatibility } from "../agent-model-compatibility"
 import {
   AGENT_DECISION_TOOL,
+  agentContextWindow,
   createProviderAgentModelPort
 } from "../agent-model-port"
 
@@ -473,5 +474,69 @@ describe("createProviderAgentModelPort", () => {
     )
     const system = String(streamChat.mock.calls[0]?.[0]?.messages[0]?.content)
     expect(system).toContain('Only an outcome of "confirmed" happened')
+  })
+
+  it("asks for a context window the request actually fits in", async () => {
+    const streamChat = vi.fn(
+      async (_request: ChatRequest, emit: (chunk: ChatStreamMessage) => void) =>
+        emit(validChunk)
+    )
+    await modelPort(streamChat).decide(
+      { state, observation },
+      {
+        aborted: false
+      }
+    )
+    // Ollama applies its own default when a request asks for nothing, and
+    // what falls off the front is the system prompt and the tool schema.
+    const request = streamChat.mock.calls[0]?.[0]
+    expect(request?.num_ctx).toBeGreaterThanOrEqual(8_192)
+    expect(request?.num_ctx).toBeLessThanOrEqual(32_768)
+  })
+
+  it("grows the window with the page and stops at the ceiling", () => {
+    expect(agentContextWindow("")).toBe(8_192)
+    expect(agentContextWindow("x".repeat(40_000))).toBeGreaterThan(8_192)
+    expect(agentContextWindow("x".repeat(4_000_000))).toBe(32_768)
+  })
+
+  it("sends the projected observation, not the executor's bookkeeping", async () => {
+    const prompts: string[] = []
+    const streamChat = vi.fn(
+      async (
+        request: ChatRequest,
+        emit: (chunk: ChatStreamMessage) => void
+      ) => {
+        prompts.push(String(request.messages.at(-1)?.content))
+        emit(validChunk)
+      }
+    )
+    const grounded: AgentObservation = {
+      ...observation,
+      elements: [
+        {
+          ref: "e1",
+          verificationId: "verification-1",
+          frameId: 0,
+          tag: "button",
+          name: "Continue",
+          visible: true,
+          enabled: true,
+          editable: false,
+          sensitive: false
+        }
+      ]
+    }
+    await modelPort(streamChat).decide(
+      { state, observation: grounded },
+      { aborted: false }
+    )
+
+    const sent = JSON.parse(prompts[0]).observation
+    expect(sent.elements).toEqual([
+      { ref: "e1", tag: "button", name: "Continue" }
+    ])
+    expect(sent).not.toHaveProperty("documentId")
+    expect(sent.text).toBe(observation.visibleText)
   })
 })
