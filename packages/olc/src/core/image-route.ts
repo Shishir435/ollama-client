@@ -1,5 +1,4 @@
 /** OpenAI-compatible image generations over a runtime-native image backend. */
-import type { ServerResponse } from "node:http"
 import {
   type AgentBackend,
   BackendInputError,
@@ -12,7 +11,7 @@ import type {
   ProxyLogger
 } from "../types.js"
 import { isRecord } from "../util.js"
-import { type RouteRequest, type Router, sendJson } from "./http.js"
+import { bindRequestAbort, type Router, sendJson } from "./http.js"
 import { OLC_PUBLIC_ROUTES } from "./public-api-contract.js"
 import { QueueStalledError, type RequestQueue } from "./queue.js"
 
@@ -74,18 +73,6 @@ const parseImageRequest = (
   return { body, prompt }
 }
 
-const bindRequestAbort = (
-  request: RouteRequest,
-  response: ServerResponse
-): AbortController => {
-  const abortController = new AbortController()
-  request.raw.once("aborted", () => abortController.abort())
-  response.once("close", () => {
-    if (!response.writableEnded) abortController.abort()
-  })
-  return abortController
-}
-
 const generateImages = async ({
   backend,
   config,
@@ -119,8 +106,11 @@ const generateImages = async ({
         queueSignal.removeEventListener("abort", abortFromQueue)
       }
     },
-    config.REQUEST_TIMEOUT_MS + 60_000,
-    `image-generation:${target.providerId}/${target.modelId}`
+    {
+      timeoutMs: config.REQUEST_TIMEOUT_MS + 60_000,
+      label: `image-generation:${target.providerId}/${target.modelId}`,
+      signal: abortController.signal
+    }
   )
 
   return images

@@ -32,6 +32,8 @@ import { createRequestQueue } from "../queue.js"
 interface FakeBackendOptions {
   mode: "answer" | "tool" | "fail" | "image"
   answer?: string
+  /** Holds `ensureReady` so a caller can leave while the backend is starting. */
+  readyDelayMs?: number
 }
 
 /** A prompt that makes the fake backend hold the queue for a while. */
@@ -58,8 +60,15 @@ const createFakeBackend = (
     startTurn: number
     dispose: number
     abort: number
+    ensureReady: number
     reasoningEfforts: Array<ReasoningEffort | undefined>
-  } = { startTurn: 0, dispose: 0, abort: 0, reasoningEfforts: [] }
+  } = {
+    startTurn: 0,
+    dispose: 0,
+    abort: 0,
+    ensureReady: 0,
+    reasoningEfforts: []
+  }
   let nextId = 0
 
   class FakeTurn implements BackendTurn {
@@ -183,7 +192,13 @@ const createFakeBackend = (
 
   const backend: AgentBackend = {
     id: "fake",
-    ensureReady: async () => {},
+    ensureReady: async () => {
+      calls.ensureReady += 1
+      if (options.readyDelayMs)
+        await new Promise((resolve) =>
+          setTimeout(resolve, options.readyDelayMs)
+        )
+    },
     listModels: async () => [MODEL],
     resolveModel: async (requested) =>
       requested === "fake/model-a"
@@ -214,6 +229,7 @@ interface Harness {
     startTurn: number
     dispose: number
     abort: number
+    ensureReady: number
     reasoningEfforts: Array<ReasoningEffort | undefined>
   }
   pending: PendingToolCalls
@@ -276,6 +292,7 @@ interface StreamedTurn {
     function: { name: string; arguments: string }
   }[]
   images: string[]
+  error?: { message: string; type: string; status: number }
 }
 
 const streamTurn = async (
@@ -310,7 +327,12 @@ const streamTurn = async (
     if (!line.startsWith("data: ")) continue
     const payload = line.slice(6).trim()
     if (payload === "[DONE]") continue
-    const choice = JSON.parse(payload).choices?.[0]
+    const frame = JSON.parse(payload)
+    if (frame.error) {
+      result.error = frame.error
+      continue
+    }
+    const choice = frame.choices?.[0]
     if (typeof choice?.delta?.content === "string") {
       result.content += choice.delta.content
     }
@@ -485,7 +507,7 @@ describe("chat completions", () => {
     )
   })
 
-  it("reports a backend failure in the stream without leaking the turn", async () => {
+  it("reports a backend failure as an error event, not as an answer", async () => {
     harness = await startHarness({ mode: "fail" })
     const turn = await streamTurn(harness.url, {
       model: "fake/model-a",
@@ -493,9 +515,117 @@ describe("chat completions", () => {
       messages: askedForTabs
     })
 
-    expect(turn.content).toContain("[Proxy Error] FakeError: upstream exploded")
-    expect(turn.finishReason).toBe("stop")
+    // A failure finished with `stop` reads as a completed turn to every
+    // OpenAI-compatible client, which is how a provider error became a
+    // decision with no tool call.
+    expect(turn.error).toEqual({
+      message: "upstream exploded",
+      type: "FakeError",
+      status: 502
+    })
+    expect(turn.content).toBe("")
+    expect(turn.finishReason).toBeNull()
     expect(harness.calls.dispose).toBe(1)
+  })
+
+  it("reports a backend failure in the non-streaming envelope too", async () => {
+    harness = await startHarness({ mode: "fail" })
+    const response = await fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: false,
+        messages: askedForTabs
+      })
+    })
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({
+      error: { message: "upstream exploded", type: "FakeError" }
+    })
+    expect(harness.calls.dispose).toBe(1)
+  })
+
+  it("never starts a request whose client left while it was queued", async () => {
+    harness = await startHarness({ mode: "answer" })
+    const holding = streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [{ role: "user", content: SLOW_TURN_MARKER }]
+    })
+    const abandoned = new AbortController()
+    const queued = fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: true,
+        messages: askedForTabs
+      }),
+      signal: abandoned.signal
+    }).catch(() => undefined)
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    abandoned.abort()
+    await queued
+    await holding
+    await new Promise((resolve) => setTimeout(resolve, 200))
+
+    expect(harness.calls.startTurn).toBe(1)
+  })
+
+  it("unwinds a cancelled stream before admitting the next request", async () => {
+    harness = await startHarness({ mode: "answer" })
+    const leaving = new AbortController()
+    const cancelled = fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: true,
+        messages: [{ role: "user", content: SLOW_TURN_MARKER }]
+      }),
+      signal: leaving.signal
+    }).catch(() => undefined)
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    leaving.abort()
+    await cancelled
+
+    const next = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs
+    })
+
+    expect(next.content).toBe("working. done")
+    expect(harness.calls.abort).toBe(1)
+    expect(harness.calls.startTurn).toBe(2)
+  })
+
+  it("does not spend a turn when the client leaves during backend startup", async () => {
+    harness = await startHarness({ mode: "answer", readyDelayMs: 150 })
+    const leaving = new AbortController()
+    const cancelled = fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: true,
+        messages: askedForTabs
+      }),
+      signal: leaving.signal
+    }).catch(() => undefined)
+
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    leaving.abort()
+    await cancelled
+    await new Promise((resolve) => setTimeout(resolve, 250))
+
+    // Startup itself is shared and is not cancelled; the turn behind it is.
+    expect(harness.calls.ensureReady).toBe(1)
+    expect(harness.calls.startTurn).toBe(0)
   })
 
   it("rejects an unknown model and an empty conversation", async () => {

@@ -100,6 +100,47 @@ describe("image generations route", () => {
     })
   })
 
+  it("never starts an image request whose client left the queue", async () => {
+    let releaseFirst: (() => void) | undefined
+    const generated: string[] = []
+    const generateImage = vi.fn(async (input: { prompt: string }) => {
+      generated.push(input.prompt)
+      if (input.prompt === "slow")
+        await new Promise<void>((resolve) => (releaseFirst = resolve))
+      return [{ b64Json: PNG }]
+    })
+    const url = await start(
+      backend(generateImage as unknown as AgentBackend["generateImage"])
+    )
+
+    const holding = post(url, {
+      model: "fake/image-model",
+      prompt: "slow",
+      response_format: "b64_json"
+    })
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    const abandoned = new AbortController()
+    const queued = fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/image-model",
+        prompt: "abandoned",
+        response_format: "b64_json"
+      }),
+      signal: abandoned.signal
+    }).catch(() => undefined)
+
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    abandoned.abort()
+    await queued
+    releaseFirst?.()
+    await holding
+    await new Promise((resolve) => setTimeout(resolve, 200))
+
+    expect(generated).toEqual(["slow"])
+  })
+
   it("returns 501 when the selected runtime has no image operation", async () => {
     const url = await start(backend())
     const response = await post(url, { prompt: "draw a fox" })

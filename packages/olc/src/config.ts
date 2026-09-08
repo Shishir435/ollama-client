@@ -30,7 +30,13 @@ export const DEFAULTS = {
     "moz-extension://*",
     "safari-web-extension://*"
   ],
-  REQUEST_TIMEOUT_MS: 1_800_000,
+  /*
+   * A caller's own deadline is shorter than this: the extension abandons an
+   * agent decision after two minutes. Thirty minutes therefore only bought a
+   * slot that outlived every client that could hold it. Five aligns with the
+   * bridge and parked-call deadlines while still covering a long reasoning turn.
+   */
+  REQUEST_TIMEOUT_MS: 300_000,
   BRIDGE_PATH: "/bridge/call",
   BRIDGE_CALL_TIMEOUT_MS: 300_000,
   BRIDGE_BATCH_MS: 150,
