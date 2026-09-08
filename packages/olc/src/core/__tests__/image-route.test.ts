@@ -11,15 +11,17 @@ const PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nXsAAAAASUVORK5CYII="
 
 const backend = (
-  generateImage?: AgentBackend["generateImage"]
+  generateImage?: AgentBackend["generateImage"],
+  { resolveDelayMs = 0 }: { resolveDelayMs?: number } = {}
 ): AgentBackend => ({
   id: "fake",
   ensureReady: vi.fn(async () => {}),
   listModels: vi.fn(async () => []),
-  resolveModel: vi.fn(async () => ({
-    providerId: "fake",
-    modelId: "image-model"
-  })),
+  resolveModel: vi.fn(async () => {
+    if (resolveDelayMs)
+      await new Promise((resolve) => setTimeout(resolve, resolveDelayMs))
+    return { providerId: "fake", modelId: "image-model" }
+  }),
   startTurn: vi.fn(async () => {
     throw new Error("not used")
   }),
@@ -139,6 +141,33 @@ describe("image generations route", () => {
     await new Promise((resolve) => setTimeout(resolve, 200))
 
     expect(generated).toEqual(["slow"])
+  })
+
+  it("never queues an image request whose client left during model resolution", async () => {
+    const generateImage = vi.fn(async () => [{ b64Json: PNG }])
+    const url = await start(
+      backend(generateImage as unknown as AgentBackend["generateImage"], {
+        resolveDelayMs: 150
+      })
+    )
+    const leaving = new AbortController()
+    const cancelled = fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/image-model",
+        prompt: "abandoned",
+        response_format: "b64_json"
+      }),
+      signal: leaving.signal
+    }).catch(() => undefined)
+
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    leaving.abort()
+    await cancelled
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    expect(generateImage).not.toHaveBeenCalled()
   })
 
   it("returns 501 when the selected runtime has no image operation", async () => {

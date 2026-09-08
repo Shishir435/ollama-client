@@ -162,6 +162,9 @@ export const registerImageRoutes = (
   }
 ): void => {
   router.post(OLC_PUBLIC_ROUTES.imageGenerations, async (request, response) => {
+    // Bound before the first await. Model resolution can outlive the caller,
+    // and a signal established after it would never learn the caller had left.
+    const abortController = bindRequestAbort(request, response)
     const parsed = parseImageRequest(request.body)
     if (parsed.error) {
       sendJson(response, 400, badRequest(parsed.error))
@@ -183,7 +186,6 @@ export const registerImageRoutes = (
       return
     }
 
-    const abortController = bindRequestAbort(request, response)
     const imageBackend = backend as AgentBackend & {
       generateImage: NonNullable<AgentBackend["generateImage"]>
     }
