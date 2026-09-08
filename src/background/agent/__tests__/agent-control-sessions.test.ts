@@ -1,3 +1,4 @@
+import { AgentControlFailedError } from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
 
@@ -135,6 +136,26 @@ describe("Agent control session registry", () => {
       )
     ).rejects.toThrow("cancelled")
     expect(open).toHaveBeenCalledOnce()
+  })
+
+  it("does not reopen for a failure the page already answered", async () => {
+    const answered = session({
+      observe: vi.fn(async () => {
+        throw new AgentControlFailedError({
+          reason: "observation_invalid",
+          issues: [{ path: "elements.0.editable", code: "invalid_type" }]
+        })
+      })
+    })
+    const open = vi.fn(async () => answered)
+    const registry = createAgentControlSessionRegistry({ open })
+
+    await expect(
+      registry.observe({ runId: "run-1", tabId: 7, minimumGeneration: 0 })
+    ).rejects.toMatchObject({ reason: "observation_invalid" })
+    expect(open).toHaveBeenCalledOnce()
+    expect(answered.observe).toHaveBeenCalledOnce()
+    expect(answered.disconnect).toHaveBeenCalledOnce()
   })
 
   it("never repeats a mutation whose port died", async () => {

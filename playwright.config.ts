@@ -32,7 +32,7 @@ export default defineConfig({
     {
       ...chromiumProject(
         "chromium-agent",
-        "**/agent.spec.ts",
+        "**/agent-*.spec.ts",
         "build/chrome-mv3-prod"
       ),
       metadata: {

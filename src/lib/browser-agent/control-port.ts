@@ -1,4 +1,10 @@
-import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
+import {
+  AGENT_CONTROL_FAILURE_REASONS,
+  AgentControlFailedError,
+  type AgentControlFailureReason,
+  AgentEffectNotAppliedError,
+  type AgentSchemaIssue
+} from "@ollama-client/agent-runtime"
 import {
   AgentCommandSchema,
   type AgentObservation,
@@ -45,6 +51,81 @@ export const AgentObserveResponseSchema = z
   })
   .strict()
 export type AgentObserveResponse = z.infer<typeof AgentObserveResponseSchema>
+
+export const AGENT_CONTROL_MAX_SCHEMA_ISSUES = 20
+
+const AgentControlIssueSchema = z
+  .object({
+    path: z.string().min(1).max(200),
+    code: z.string().min(1).max(64)
+  })
+  .strict()
+
+/**
+ * The answer a bound request gets when the content script cannot produce a
+ * response. It carries the same binding as a successful reply, so a failure
+ * cannot be replayed against a different run, tab or sequence, and it carries
+ * schema paths and rule codes rather than the values that were rejected.
+ */
+export const AgentControlFailureResponseSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_control_failed"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.literal(0),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    reason: z.enum(AGENT_CONTROL_FAILURE_REASONS),
+    issues: z
+      .array(AgentControlIssueSchema)
+      .max(AGENT_CONTROL_MAX_SCHEMA_ISSUES)
+  })
+  .strict()
+export type AgentControlFailureResponse = z.infer<
+  typeof AgentControlFailureResponseSchema
+>
+
+/**
+ * Structural evidence from a schema rejection, capped and stripped of values.
+ */
+export const agentControlSchemaIssues = (error: unknown): AgentSchemaIssue[] =>
+  error instanceof z.ZodError
+    ? error.issues.slice(0, AGENT_CONTROL_MAX_SCHEMA_ISSUES).map((issue) => ({
+        path: (issue.path.map(String).join(".") || "(root)").slice(0, 200),
+        code: String(issue.code).slice(0, 64) || "invalid"
+      }))
+    : []
+
+/**
+ * A failure only counts when it is bound to the request in flight. An
+ * unbound one is left to the response validators, which reject it and close
+ * the port, because a reply that cannot prove its origin is not a diagnostic.
+ */
+export const readAgentControlFailure = (
+  raw: unknown,
+  binding: AgentControlBinding,
+  sequence: number
+): AgentControlFailedError | undefined => {
+  const parsed = AgentControlFailureResponseSchema.safeParse(raw)
+  if (!parsed.success) return undefined
+  const response = parsed.data
+  if (
+    response.runId !== binding.runId ||
+    response.tabId !== binding.tabId ||
+    response.frameId !== binding.frameId ||
+    response.nonce !== binding.nonce ||
+    response.documentId !== binding.documentId ||
+    response.sequence !== sequence
+  ) {
+    return undefined
+  }
+  return new AgentControlFailedError({
+    reason: response.reason,
+    issues: response.issues
+  })
+}
 
 const AgentDomMutationTargetSchema = z
   .object({
@@ -214,6 +295,7 @@ const AgentControlRequestSchema = z.union([
   AgentExecuteRequestSchema,
   AgentExecuteScrollRequestSchema
 ])
+type AgentControlRequest = z.infer<typeof AgentControlRequestSchema>
 
 export interface AgentControlEvent<T extends (...args: never[]) => unknown> {
   addListener(listener: T): void
@@ -313,6 +395,8 @@ export const validateAgentObservationResponse = (
   binding: AgentControlBinding,
   sequence: number
 ): AgentObservation => {
+  const failure = readAgentControlFailure(raw, binding, sequence)
+  if (failure) throw failure
   const response = AgentObserveResponseSchema.parse(raw)
   if (
     response.runId !== binding.runId ||
@@ -342,6 +426,8 @@ export const validateAgentExecuteResponse = (
   binding: AgentControlBinding,
   sequence: number
 ): string | undefined => {
+  const failure = readAgentControlFailure(raw, binding, sequence)
+  if (failure) throw failure
   const response = AgentExecuteResponseSchema.parse(raw)
   if (
     response.runId !== binding.runId ||
@@ -363,6 +449,8 @@ export const validateAgentScrollResponse = (
   binding: AgentControlBinding,
   sequence: number
 ): void => {
+  const failure = readAgentControlFailure(raw, binding, sequence)
+  if (failure) throw failure
   const response = AgentScrollResponseSchema.parse(raw)
   if (
     response.runId !== binding.runId ||
@@ -585,6 +673,44 @@ const runContentMutation = (
   }
 }
 
+/**
+ * A content port answers one run, one document and one nonce, in sequence.
+ * The first request establishes that binding; every later one has to repeat
+ * it exactly and advance the sequence by one, or the port closes.
+ */
+const acceptsControlRequest = (input: {
+  binding: AgentControlBinding | undefined
+  next: AgentControlBinding
+  sequence: number
+  lastSequence: number
+}): boolean => {
+  if (!input.binding) return input.sequence === 1
+  return (
+    input.binding.runId === input.next.runId &&
+    input.binding.tabId === input.next.tabId &&
+    input.binding.frameId === input.next.frameId &&
+    input.binding.nonce === input.next.nonce &&
+    input.binding.documentId === input.next.documentId &&
+    input.sequence === input.lastSequence + 1
+  )
+}
+
+/**
+ * An observation that threw and an observation that failed validation are
+ * different problems: the first is a page this build cannot read, the second
+ * is a snapshot this build produced wrongly. Only the second carries schema
+ * evidence, and only the distinction tells a reader which one to go fix.
+ */
+const controlFailureReason = (
+  requestType: AgentControlRequest["type"],
+  error: unknown
+): AgentControlFailureReason => {
+  if (requestType !== "agent_observe") return "execution_failed"
+  return error instanceof z.ZodError
+    ? "observation_invalid"
+    : "observation_build_failed"
+}
+
 export const attachAgentControlContentPort = (
   port: AgentControlPort,
   handlers: {
@@ -611,18 +737,24 @@ export const attachAgentControlContentPort = (
       nonce: request.nonce,
       documentId: request.documentId
     }
-    if (binding) {
-      const matches =
-        binding.runId === nextBinding.runId &&
-        binding.tabId === nextBinding.tabId &&
-        binding.frameId === nextBinding.frameId &&
-        binding.nonce === nextBinding.nonce &&
-        binding.documentId === nextBinding.documentId
-      if (!matches || request.sequence !== lastSequence + 1) {
-        port.disconnect()
-        return
-      }
-    } else if (request.sequence !== 1) {
+    if (
+      !acceptsControlRequest({
+        binding,
+        next: nextBinding,
+        sequence: request.sequence,
+        lastSequence
+      })
+    ) {
+      port.disconnect()
+      return
+    }
+
+    if (
+      (request.type === "agent_execute_dom_mutation" ||
+        request.type === "agent_execute_scroll") &&
+      (request.instruction.snapshotIdentity.tabId !== request.tabId ||
+        request.instruction.snapshotIdentity.documentId !== request.documentId)
+    ) {
       port.disconnect()
       return
     }
@@ -632,13 +764,6 @@ export const attachAgentControlContentPort = (
         request.type === "agent_execute_dom_mutation" ||
         request.type === "agent_execute_scroll"
       ) {
-        const identity = request.instruction.snapshotIdentity
-        if (
-          identity.tabId !== request.tabId ||
-          identity.documentId !== request.documentId
-        ) {
-          throw new Error("Agent instruction binding mismatch")
-        }
         let mutation: Pick<AgentExecuteResponse, "type" | "submissionUrl"> = {
           type: "agent_dom_mutation_executed"
         }
@@ -681,8 +806,18 @@ export const attachAgentControlContentPort = (
         observation
       }
       port.postMessage(response)
-    } catch {
-      port.disconnect()
+    } catch (error) {
+      binding = nextBinding
+      lastSequence = request.sequence
+      const failure: AgentControlFailureResponse = {
+        version: AGENT_CONTROL_VERSION,
+        type: "agent_control_failed",
+        ...nextBinding,
+        sequence: request.sequence,
+        reason: controlFailureReason(request.type, error),
+        issues: agentControlSchemaIssues(error)
+      }
+      port.postMessage(failure)
     }
   })
   return true

@@ -25,7 +25,7 @@ beforeEach(() => {
 
 afterEach(() => vi.restoreAllMocks())
 
-const build = (minimumGeneration = 0) =>
+const build = (minimumGeneration = 0, now?: () => number) =>
   buildAgentObservation({
     document,
     tabId: 7,
@@ -35,8 +35,29 @@ const build = (minimumGeneration = 0) =>
       documentId: "document-1"
     }),
     createSnapshotId: () => "snapshot-1",
-    capturedAt: 1
+    capturedAt: 1,
+    ...(now ? { now } : {})
   })
+
+/** A scale fixture asserts coverage, not timing, so its clock never advances. */
+const unhurried = () => 0
+
+/** Past the budget from the pass's very first check, and no earlier. */
+const stalledClock = () => {
+  let reads = 0
+  return () => {
+    reads += 1
+    return reads === 1 ? 0 : AGENT_OBSERVATION_LIMITS.passBudgetMs + 1
+  }
+}
+
+const appendButtons = (count: number) => {
+  for (let index = 0; index < count; index += 1) {
+    const button = document.createElement("button")
+    button.textContent = `Act ${index}`
+    document.body.append(button)
+  }
+}
 
 describe("Agent observation builder", () => {
   it("names standard labelled fields and excludes hidden label text", () => {
@@ -59,7 +80,7 @@ describe("Agent observation builder", () => {
     ) {
       document.body.append(document.createElement("button"))
     }
-    const result = build()
+    const result = build(0, unhurried)
     expect(result.visibleText).toHaveLength(
       AGENT_OBSERVATION_LIMITS.visibleTextChars
     )
@@ -412,5 +433,143 @@ describe("Agent observation builder", () => {
         references
       })
     ).toThrow("HTTP(S)")
+  })
+
+  it("derives observation fields for a candidate that is not an HTMLElement", () => {
+    document.body.innerHTML =
+      '<svg role="img" aria-label="Logo"><rect width="10" height="10"/></svg><button>Continue</button>'
+    const svg = document.querySelector("svg")
+    expect(svg).toBeInstanceOf(SVGElement)
+    expect(svg).not.toBeInstanceOf(HTMLElement)
+    expect(typeof (svg as unknown as HTMLElement).isContentEditable).not.toBe(
+      "boolean"
+    )
+
+    const elements = build().elements
+    expect(elements[0]).toMatchObject({
+      tag: "svg",
+      role: "img",
+      name: "Logo",
+      editable: false,
+      enabled: true,
+      visible: true
+    })
+    expect(elements[0].type).toBeUndefined()
+    expect(elements.map((element) => element.tag)).toContain("button")
+  })
+
+  it("observes an SVG link and resolves its destination", () => {
+    document.body.innerHTML =
+      '<svg role="img"><a href="/next"><text>Go</text></a></svg>'
+    const anchor = build().elements.find((element) => element.href)
+    expect(anchor).toMatchObject({
+      tag: "a",
+      href: "http://localhost:3000/next",
+      editable: false,
+      enabled: true
+    })
+  })
+
+  it("keeps visible controls when hidden ones outnumber the element cap", () => {
+    for (let index = 0; index < AGENT_OBSERVATION_LIMITS.elements; index += 1) {
+      const hidden = document.createElement("input")
+      hidden.type = "hidden"
+      hidden.name = `hidden-${index}`
+      document.body.append(hidden)
+    }
+    const button = document.createElement("button")
+    button.textContent = "Continue"
+    document.body.append(button)
+
+    const elements = build(0, unhurried).elements
+    expect(elements).toHaveLength(AGENT_OBSERVATION_LIMITS.elements)
+    expect(
+      elements
+        .filter((element) => element.visible)
+        .map((element) => element.name)
+    ).toEqual(["Continue"])
+  })
+
+  it("keeps hidden controls while the element cap has room and holds document order", () => {
+    document.body.innerHTML =
+      '<input type="hidden" name="token"><button>First</button><input type="hidden" name="csrf"><button>Second</button>'
+    const elements = build().elements
+    expect(elements.map((element) => [element.tag, element.visible])).toEqual([
+      ["input", false],
+      ["button", true],
+      ["input", false],
+      ["button", true]
+    ])
+    expect(elements.map((element) => element.ref)).toEqual([
+      "e1",
+      "e2",
+      "e3",
+      "e4"
+    ])
+  })
+
+  it("surfaces a visible control behind more hidden ones than any cap", () => {
+    // A positional bound on the scan is the starvation defect one page-size
+    // later, so the control is placed past every plausible cutoff.
+    const buried = 20_100
+    const parts: string[] = []
+    for (let index = 0; index < buried; index += 1)
+      parts.push(`<input type="hidden" name="token-${index}">`)
+    parts.push("<button>Continue</button>")
+    document.body.innerHTML = parts.join("")
+
+    const elements = build(0, unhurried).elements
+    expect(elements).toHaveLength(AGENT_OBSERVATION_LIMITS.elements)
+    expect(
+      elements
+        .filter((element) => element.visible)
+        .map((element) => element.name)
+    ).toEqual(["Continue"])
+  })
+
+  it("stops scanning once the visible budget is full", () => {
+    appendButtons(AGENT_OBSERVATION_LIMITS.elements + 50)
+    const elements = build(0, unhurried).elements
+    expect(elements).toHaveLength(AGENT_OBSERVATION_LIMITS.elements)
+    expect(elements.every((element) => element.visible)).toBe(true)
+    expect(elements.at(-1)?.name).toBe(
+      `Act ${AGENT_OBSERVATION_LIMITS.elements - 1}`
+    )
+  })
+
+  it("refuses a document it cannot finish selecting within its budget", () => {
+    appendButtons(AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 10)
+    // A truncated selection is the defect this guards, so the pass fails
+    // instead of returning a snapshot missing the control the run needs.
+    expect(() => build(0, stalledClock())).toThrow("budget")
+  })
+
+  it("keeps the clock cost off a document that stays inside the budget", () => {
+    appendButtons(AGENT_OBSERVATION_LIMITS.budgetCheckInterval - 1)
+    let reads = 0
+    const observation = build(0, () => {
+      reads += 1
+      return 0
+    })
+    expect(observation.elements).toHaveLength(
+      AGENT_OBSERVATION_LIMITS.budgetCheckInterval - 1
+    )
+    // Read per interval across both walks, never per element.
+    expect(reads).toBeLessThan(5)
+  })
+
+  it("truncates page text rather than failing when the budget runs out", () => {
+    document.body.innerHTML = `<button>Continue</button>${Array.from(
+      { length: AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 10 },
+      (_value, index) => `<p>paragraph ${index}</p>`
+    ).join("")}`
+    const observation = build(0, stalledClock())
+    expect(observation.elements).toHaveLength(1)
+    // visibleText already truncates at its own cap, so stopping early there
+    // is the behaviour that field always had.
+    expect(observation.visibleText).toContain("paragraph 0")
+    expect(observation.visibleText).not.toContain(
+      `paragraph ${AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 9}`
+    )
   })
 })

@@ -16,7 +16,9 @@ export const AGENT_OBSERVATION_LIMITS = {
   elementHrefChars: MAX_AGENT_DESTINATION_URL_CHARS,
   selectOptions: 200,
   selectOptionLabelChars: 500,
-  selectOptionValueChars: 2_000
+  selectOptionValueChars: 2_000,
+  passBudgetMs: 500,
+  budgetCheckInterval: 256
 } as const
 
 const INTERACTIVE_SELECTOR = [
@@ -150,7 +152,99 @@ const composedParent = (element: Element): Element | null => {
   )
 }
 
-const isVisible = (element: Element): boolean => {
+/**
+ * Memo for one observation. Visibility is now resolved for every interactive
+ * candidate in the document rather than only the ones that fit the element
+ * cap, and the text walk asks the same question once per parent, so resolving
+ * a computed style twice was the entire cost of a pass. The DOM cannot change
+ * while a pass runs, which is what makes caching its answers sound; a pass is
+ * never reused across observations.
+ */
+interface AgentObservationPass {
+  chainHidden: Map<Element, boolean>
+  styles: Map<Element, CSSStyleDeclaration | undefined>
+  visible: Map<Element, boolean>
+  /** True once the pass has spent its wall-clock budget. */
+  exhausted(): boolean
+}
+
+/**
+ * The pass runs synchronously in the page's own main thread, and both of its
+ * walks are proportional to the document rather than to the caps — a cap on
+ * position is the starvation defect, so neither walk can carry one. What bounds
+ * them is time. The clock is read once per `budgetCheckInterval` candidates,
+ * so the bound costs nothing on a document that never approaches it.
+ */
+const createObservationPass = (
+  now: () => number = Date.now
+): AgentObservationPass => {
+  const deadline = now() + AGENT_OBSERVATION_LIMITS.passBudgetMs
+  let untilCheck = AGENT_OBSERVATION_LIMITS.budgetCheckInterval
+  return {
+    chainHidden: new Map(),
+    styles: new Map(),
+    visible: new Map(),
+    exhausted() {
+      untilCheck -= 1
+      if (untilCheck > 0) return false
+      untilCheck = AGENT_OBSERVATION_LIMITS.budgetCheckInterval
+      return now() > deadline
+    }
+  }
+}
+
+const styleOf = (
+  element: Element,
+  pass: AgentObservationPass
+): CSSStyleDeclaration | undefined => {
+  if (pass.styles.has(element)) return pass.styles.get(element)
+  const style =
+    element.ownerDocument.defaultView?.getComputedStyle(element) ?? undefined
+  pass.styles.set(element, style)
+  return style
+}
+
+/**
+ * Hidden by the element itself or by anything above it, independent of where
+ * the viewport happens to be. Walked iteratively so a deep document cannot
+ * exhaust the stack, and every element on the walked chain is memoized with
+ * the answer the walk reached.
+ */
+const isChainHidden = (
+  element: Element,
+  pass: AgentObservationPass
+): boolean => {
+  const walked: Element[] = []
+  let current: Element | null = element
+  let hidden = false
+  while (current) {
+    const cached = pass.chainHidden.get(current)
+    if (cached !== undefined) {
+      hidden = cached
+      break
+    }
+    const style = styleOf(current, pass)
+    if (
+      isSemanticallyHidden(current) ||
+      !style ||
+      isHiddenByStyle(style) ||
+      hasConservativeClip(current, style)
+    ) {
+      pass.chainHidden.set(current, true)
+      hidden = true
+      break
+    }
+    walked.push(current)
+    current = composedParent(current)
+  }
+  for (const visited of walked) pass.chainHidden.set(visited, hidden)
+  return hidden
+}
+
+const resolveVisibility = (
+  element: Element,
+  pass: AgentObservationPass
+): boolean => {
   if (
     element instanceof HTMLInputElement &&
     element.type.toLowerCase() === "hidden"
@@ -158,6 +252,13 @@ const isVisible = (element: Element): boolean => {
     return false
   }
 
+  /*
+   * Visibility is a conjunction of independent predicates, so their order is
+   * free — and the element's own box is the cheapest of them. Anything with no
+   * box, or none inside the viewport, is answered here without resolving a
+   * single computed style, which is what makes scanning a document full of
+   * unrendered candidates affordable.
+   */
   const view = element.ownerDocument.defaultView
   const viewport = {
     bottom: view?.innerHeight ?? 0,
@@ -170,24 +271,27 @@ const isVisible = (element: Element): boolean => {
     .map((rect) => intersectBounds(rect, viewport))
     .filter((rect): rect is VisibleBounds => Boolean(rect))
   if (visibleBounds.length === 0) return false
+  if (isChainHidden(element, pass)) return false
 
   for (
-    let current: Element | null = element;
+    let current = composedParent(element);
     current;
     current = composedParent(current)
   ) {
-    if (isSemanticallyHidden(current)) return false
-    const style = view?.getComputedStyle(current)
+    const style = styleOf(current, pass)
     if (!style) return false
-    if (isHiddenByStyle(style) || hasConservativeClip(current, style)) {
-      return false
-    }
-    if (current !== element && style) {
-      visibleBounds = clipBoundsByAncestor(visibleBounds, current, style)
-      if (visibleBounds.length === 0) return false
-    }
+    visibleBounds = clipBoundsByAncestor(visibleBounds, current, style)
+    if (visibleBounds.length === 0) return false
   }
   return true
+}
+
+const isVisible = (element: Element, pass: AgentObservationPass): boolean => {
+  const cached = pass.visible.get(element)
+  if (cached !== undefined) return cached
+  const result = resolveVisibility(element, pass)
+  pass.visible.set(element, result)
+  return result
 }
 
 export const isSensitiveAgentElement = (element: Element): boolean => {
@@ -212,6 +316,33 @@ const elementValue = (element: Element): string | undefined => {
   if (!("value" in element)) return undefined
   return String((element as HTMLInputElement).value ?? "")
 }
+
+/**
+ * `[role]` admits any element, so a candidate is frequently not an
+ * `HTMLElement` at all: an `<svg role="img">` or an SVG `<a href>` reaches
+ * these derivations with no `type`, no `disabled` and no `isContentEditable`.
+ * Reading those properties raw yielded `undefined` where the observation
+ * contract requires a boolean, which failed the whole snapshot — the page
+ * became unobservable because of one decorative icon. Every field is derived
+ * through a check that answers for a non-HTML element too.
+ */
+const elementType = (element: Element): string | undefined => {
+  const declared = (element as Partial<HTMLInputElement>).type
+  return typeof declared === "string" && declared.length > 0
+    ? declared
+    : undefined
+}
+
+const isEnabled = (element: Element): boolean => {
+  const disabled = (element as Partial<HTMLInputElement>).disabled
+  return typeof disabled === "boolean" ? !disabled : true
+}
+
+const isEditable = (element: Element): boolean =>
+  element instanceof HTMLInputElement ||
+  element instanceof HTMLTextAreaElement ||
+  element instanceof HTMLSelectElement ||
+  (element instanceof HTMLElement && element.isContentEditable)
 
 const isCheckableInput = (element: Element): element is HTMLInputElement =>
   element instanceof HTMLInputElement &&
@@ -355,16 +486,20 @@ const selectOptions = (
     }))
 }
 
-const collectVisibleText = (root: Element, limit: number): string => {
+const collectVisibleText = (
+  root: Element,
+  limit: number,
+  pass: AgentObservationPass
+): string => {
   const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   let result = ""
   for (
     let node = walker.nextNode();
-    node && result.length < limit;
+    node && result.length < limit && !pass.exhausted();
     node = walker.nextNode()
   ) {
     const parent = node.parentElement
-    if (!parent || !isVisible(parent)) continue
+    if (!parent || !isVisible(parent, pass)) continue
     const text = normalizedText(node.textContent ?? "")
     if (!text) continue
     const addition = `${result ? " " : ""}${text}`
@@ -373,7 +508,10 @@ const collectVisibleText = (root: Element, limit: number): string => {
   return result
 }
 
-const accessibleName = (element: Element): string | undefined => {
+const accessibleName = (
+  element: Element,
+  pass: AgentObservationPass
+): string | undefined => {
   const labelledBy = element
     .getAttribute("aria-labelledby")
     ?.trim()
@@ -381,7 +519,7 @@ const accessibleName = (element: Element): string | undefined => {
     .map((id) => element.ownerDocument.getElementById(id))
     .filter((label): label is HTMLElement => label !== null)
     .map((label) =>
-      collectVisibleText(label, AGENT_OBSERVATION_LIMITS.elementNameChars)
+      collectVisibleText(label, AGENT_OBSERVATION_LIMITS.elementNameChars, pass)
     )
     .filter(Boolean)
     .join(" ")
@@ -395,7 +533,11 @@ const accessibleName = (element: Element): string | undefined => {
   ) {
     const label = Array.from(element.labels ?? [])
       .map((label) =>
-        collectVisibleText(label, AGENT_OBSERVATION_LIMITS.elementNameChars)
+        collectVisibleText(
+          label,
+          AGENT_OBSERVATION_LIMITS.elementNameChars,
+          pass
+        )
       )
       .filter(Boolean)
       .join(" ")
@@ -403,7 +545,8 @@ const accessibleName = (element: Element): string | undefined => {
   }
   const text = collectVisibleText(
     element,
-    AGENT_OBSERVATION_LIMITS.elementNameChars
+    AGENT_OBSERVATION_LIMITS.elementNameChars,
+    pass
   )
   if (text) return text
   const placeholder = element.getAttribute("placeholder")
@@ -475,17 +618,17 @@ const observedControlFields = (
   }
 }
 
-export const buildAgentElementObservation = (
+const buildElementObservation = (
   element: Element,
   ref: string,
-  verificationId?: string
+  verificationId: string | undefined,
+  pass: AgentObservationPass
 ): AgentElement => {
-  const visible = isVisible(element)
+  const visible = isVisible(element, pass)
   const sensitive = !visible || isSensitiveAgentElement(element)
-  const name = visible ? accessibleName(element) : undefined
+  const name = visible ? accessibleName(element, pass) : undefined
   const value = sensitive ? undefined : elementValue(element)
   const href = visible ? elementHref(element) : undefined
-  const control = element as HTMLInputElement
   const submitter = isSubmitter(element)
   const maySubmit = submitter || maySubmitWithEnter(element)
   return {
@@ -497,19 +640,75 @@ export const buildAgentElementObservation = (
       ? { name: truncate(name, AGENT_OBSERVATION_LIMITS.elementNameChars) }
       : {}),
     tag: element.tagName.toLowerCase(),
-    type: control.type || undefined,
+    type: elementType(element),
     ...observedControlFields(element, value, href),
     ...observedFormFields(element, maySubmit),
     ...(submitter ? { submitter: true } : {}),
     visible,
-    enabled: !(control.disabled ?? false),
-    editable:
-      element instanceof HTMLInputElement ||
-      element instanceof HTMLTextAreaElement ||
-      element instanceof HTMLSelectElement ||
-      (element as HTMLElement).isContentEditable,
+    enabled: isEnabled(element),
+    editable: isEditable(element),
     sensitive
   }
+}
+
+export const buildAgentElementObservation = (
+  element: Element,
+  ref: string,
+  verificationId?: string
+): AgentElement =>
+  buildElementObservation(element, ref, verificationId, createObservationPass())
+
+/**
+ * The element cap bounds what crosses the port, but it must never be spent in
+ * document order: a page with thousands of hidden controls ahead of the one
+ * visible button filled the whole budget with rows carrying no name, value or
+ * destination, and the run had nothing left to act on.
+ *
+ * Bounding the *scan* positionally is the same defect one page-size later, so
+ * every candidate the selector matches is resolved, in document order, until
+ * the visible budget is full — nothing after that point could enter the set
+ * anyway. Hidden candidates are retained only up to the budget they could ever
+ * claim, the surplus is dropped from the end, and the result stays in document
+ * order, because order is how the model reads structure and how references are
+ * numbered.
+ */
+const selectObservedCandidates = (
+  document: Document,
+  pass: AgentObservationPass
+): Element[] => {
+  const budget = AGENT_OBSERVATION_LIMITS.elements
+  const selected: Element[] = []
+  const hiddenPositions: number[] = []
+  let visibleCount = 0
+
+  for (const candidate of document.querySelectorAll(INTERACTIVE_SELECTOR)) {
+    /*
+     * A truncated selection is the defect this function exists to prevent, so
+     * running out of budget here is reported rather than absorbed: the run is
+     * told the page could not be read, which is true, instead of being handed
+     * a snapshot that silently omits the control it needs. Text collection
+     * takes the opposite branch, because it is already a truncating field.
+     */
+    if (pass.exhausted()) {
+      throw new Error(
+        `Agent observation exceeded its ${AGENT_OBSERVATION_LIMITS.passBudgetMs}ms budget`
+      )
+    }
+    if (isVisible(candidate, pass)) {
+      selected.push(candidate)
+      visibleCount += 1
+      if (visibleCount >= budget) break
+      continue
+    }
+    if (hiddenPositions.length >= budget) continue
+    hiddenPositions.push(selected.length)
+    selected.push(candidate)
+  }
+
+  const hiddenBudget = budget - visibleCount
+  if (hiddenPositions.length <= hiddenBudget) return selected
+  const surplus = new Set(hiddenPositions.slice(Math.max(0, hiddenBudget)))
+  return selected.filter((_element, index) => !surplus.has(index))
 }
 
 export const buildAgentObservation = (input: {
@@ -521,6 +720,7 @@ export const buildAgentObservation = (input: {
   references: AgentElementReferenceStore
   capturedAt?: number
   createSnapshotId?: () => string
+  now?: () => number
 }): AgentObservation => {
   if ((input.frameId ?? 0) !== 0 || input.document.defaultView?.frameElement) {
     throw new Error("Agent observations are main-frame only")
@@ -534,20 +734,21 @@ export const buildAgentObservation = (input: {
     createSnapshotId:
       input.createSnapshotId ?? (() => globalThis.crypto.randomUUID())
   })
-  const candidates = Array.from(
-    input.document.querySelectorAll(INTERACTIVE_SELECTOR)
-  ).slice(0, AGENT_OBSERVATION_LIMITS.elements)
-  const elements = candidates.map((element) =>
-    buildAgentElementObservation(
-      element,
-      snapshot.reference(element),
-      snapshot.verificationId(element)
-    )
+  const pass = createObservationPass(input.now)
+  const elements = selectObservedCandidates(input.document, pass).map(
+    (element) =>
+      buildElementObservation(
+        element,
+        snapshot.reference(element),
+        snapshot.verificationId(element),
+        pass
+      )
   )
   const visibleText = input.document.body
     ? collectVisibleText(
         input.document.body,
-        AGENT_OBSERVATION_LIMITS.visibleTextChars
+        AGENT_OBSERVATION_LIMITS.visibleTextChars,
+        pass
       )
     : ""
   const view = input.document.defaultView

@@ -7,6 +7,7 @@ import type {
 } from "@ollama-client/contracts"
 import { MAX_AGENT_ALLOWED_ORIGINS } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
+import { AgentControlFailedError } from "../control-failure"
 import { createAgentController } from "../controller"
 import type {
   AgentApprovalDecision,
@@ -446,6 +447,38 @@ describe("agent controller", () => {
       status: "failed",
       error: { code: "observation_failed" }
     })
+  })
+
+  it("names why an observation failed when the page answered with a reason", async () => {
+    const harness = createHarness({
+      observe: async () => {
+        throw new AgentControlFailedError({
+          reason: "observation_invalid",
+          issues: [{ path: "elements.0.editable", code: "invalid_type" }]
+        })
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: {
+        code: "observation_failed",
+        message:
+          "The page produced a snapshot that failed the observation contract."
+      }
+    })
+  })
+
+  it("keeps the generic reason for an observation that failed untyped", async () => {
+    const harness = createHarness({
+      observe: async () => {
+        throw new Error("connection lost")
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().error?.message).toBe(
+      "The current page could not be observed safely."
+    )
   })
 
   it("keeps the controlled tab when a pause races verification", async () => {

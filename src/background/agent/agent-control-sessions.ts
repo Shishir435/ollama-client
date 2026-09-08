@@ -1,3 +1,4 @@
+import { AgentControlFailedError } from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
 
 import type {
@@ -6,6 +7,7 @@ import type {
   AgentScrollInstruction
 } from "@/lib/browser-agent/control-port"
 import { openAgentControlSession } from "@/lib/browser-agent/control-port"
+import { logger } from "@/lib/logger"
 
 /**
  * Run-scoped owner of the control sessions a run holds on the tabs it drives.
@@ -15,6 +17,11 @@ import { openAgentControlSession } from "@/lib/browser-agent/control-port"
  * normal rather than exceptional, so an observation retries once against a
  * fresh session. Execution never retries — a mutation whose port died may
  * already have run, and repeating it is how one click becomes two.
+ *
+ * A typed control failure is not reopened either: the content script answered,
+ * so the port is healthy and the answer is deterministic. Observing the same
+ * document again would fail identically and cost the run a second full
+ * snapshot, so the reason is logged and raised for the controller to name.
  */
 export interface AgentControlSessionRegistry {
   observe(
@@ -80,6 +87,14 @@ export const createAgentControlSessionRegistry = (input?: {
       } catch (error) {
         if (signal?.aborted) throw error
         drop(runId, tabId)
+        if (error instanceof AgentControlFailedError) {
+          logger.warn("Agent observation failed", "Agent", {
+            runId,
+            reason: error.reason,
+            issues: error.issues
+          })
+          throw error
+        }
         const reopened = await acquire(runId, tabId)
         return reopened.observe(minimumGeneration, signal)
       }
