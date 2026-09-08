@@ -199,8 +199,9 @@ const budgets: Budget[] = [
      * 205,819 to 223,794. Firefox carries no Agent code and stays at its
      * measured 204,177.
      *
-     * The shared affordance classifier and the feedback it phrases raised the
-     * measured Chrome baseline to 227,325: every refusal the model can be
+     * The shared affordance classifier, the vocabularies that keep page text
+     * out of its feedback, and the resolution-failure mapping raised the
+     * measured Chrome baseline to 227,848: every refusal the model can be
      * corrected on is a sentence that ships. Firefox is unchanged.
      */
     max: isFirefox ? 210_000 : 228_000

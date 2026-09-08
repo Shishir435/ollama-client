@@ -36,10 +36,16 @@ export const AGENT_AFFORDANCE_REASONS = [
 export type AgentAffordanceReason = (typeof AGENT_AFFORDANCE_REASONS)[number]
 
 /**
- * A refusal carries structure and nothing else. Tag, role and input type are
- * facts about the document's shape; an accessible name, a value or any page
- * string is content, and content is what must never travel back into a prompt
- * as an instruction the page got to write.
+ * A refusal carries structure and nothing else. An accessible name or a value
+ * is content, and content must never travel back into a prompt as something
+ * the page got to write.
+ *
+ * Tag, role and input type look structural, but only the tag actually is:
+ * `role` is whatever the page put in its attribute, and several elements
+ * reflect an arbitrary `type` attribute too. Unbounded and unfiltered, either
+ * would carry a sentence into the next prompt labelled as the agent's own
+ * refusal — worse than page text labelled as page text. They are therefore
+ * reported only when they name something this vocabulary already knows.
  */
 export interface AgentAffordanceRefusal {
   reason: AgentAffordanceReason
@@ -47,6 +53,72 @@ export interface AgentAffordanceRefusal {
   tag?: string
   role?: string
   inputType?: string
+}
+
+/**
+ * The roles this vocabulary can name. Not the whole ARIA set: a role only has
+ * to survive the filter if the agent's reasoning or its feedback says
+ * something about it. Anything else is dropped and the refusal describes the
+ * element by its tag alone.
+ */
+const REPORTABLE_ROLES = new Set([
+  "button",
+  "checkbox",
+  "combobox",
+  "dialog",
+  "gridcell",
+  "img",
+  "link",
+  "listbox",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "option",
+  "radio",
+  "searchbox",
+  "slider",
+  "spinbutton",
+  "switch",
+  "tab",
+  "textbox",
+  "treeitem"
+])
+
+/** Every type keyword an interactive control can legitimately report. */
+const REPORTABLE_INPUT_TYPES = new Set([
+  "button",
+  "checkbox",
+  "color",
+  "date",
+  "datetime-local",
+  "email",
+  "file",
+  "hidden",
+  "image",
+  "month",
+  "number",
+  "password",
+  "radio",
+  "range",
+  "reset",
+  "search",
+  "select-multiple",
+  "select-one",
+  "submit",
+  "tel",
+  "text",
+  "textarea",
+  "time",
+  "url",
+  "week"
+])
+
+const reportable = (
+  value: string | undefined,
+  vocabulary: Set<string>
+): string | undefined => {
+  const token = value?.toLowerCase()
+  return token && vocabulary.has(token) ? token : undefined
 }
 
 const TEXT_INPUT_TYPES = ["email", "number", "search", "tel", "text", "url"]
@@ -57,13 +129,17 @@ const refusal = (
   reason: AgentAffordanceReason,
   element?: AgentElement,
   ref?: string
-): AgentAffordanceRefusal => ({
-  reason,
-  ...((ref ?? element?.ref) ? { ref: ref ?? element?.ref } : {}),
-  ...(element?.tag ? { tag: element.tag } : {}),
-  ...(element?.role ? { role: element.role } : {}),
-  ...(element?.type ? { inputType: element.type } : {})
-})
+): AgentAffordanceRefusal => {
+  const role = reportable(element?.role, REPORTABLE_ROLES)
+  const type = reportable(element?.type, REPORTABLE_INPUT_TYPES)
+  return {
+    reason,
+    ...((ref ?? element?.ref) ? { ref: ref ?? element?.ref } : {}),
+    ...(element?.tag ? { tag: element.tag } : {}),
+    ...(role ? { role } : {}),
+    ...(type ? { inputType: type } : {})
+  }
+}
 
 const inputType = (element: AgentElement): string =>
   element.type?.toLowerCase() ?? ""
@@ -172,10 +248,18 @@ export const classifyAgentAffordance = (
     : classifyTarget(command, element)
 }
 
+/**
+ * Filtered again here, not only where the refusal was built: this function is
+ * exported, so a caller that assembled a refusal by hand would otherwise
+ * decide for itself what reaches a prompt. The guarantee has to hold wherever
+ * the sentence is produced.
+ */
 const described = (refused: AgentAffordanceRefusal): string => {
+  const role = reportable(refused.role, REPORTABLE_ROLES)
+  const type = reportable(refused.inputType, REPORTABLE_INPUT_TYPES)
   const parts = [refused.tag ? `<${refused.tag}>` : "the element"]
-  if (refused.inputType) parts.push(`of type "${refused.inputType}"`)
-  if (refused.role) parts.push(`with role "${refused.role}"`)
+  if (type) parts.push(`of type "${type}"`)
+  if (role) parts.push(`with role "${role}"`)
   return parts.join(" ")
 }
 

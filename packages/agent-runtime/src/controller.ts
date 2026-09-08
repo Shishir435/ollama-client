@@ -8,7 +8,6 @@ import {
   type AgentRunStatus,
   MAX_AGENT_ALLOWED_ORIGINS
 } from "@ollama-client/contracts"
-import { agentGroundingMessage } from "./affordance"
 import {
   type AgentProgressPoint,
   beginAgentStepDeadline,
@@ -35,6 +34,7 @@ import {
   agentFailure,
   pausePatch
 } from "./ports"
+import { agentResolutionFailure } from "./resolution-failure"
 import { AGENT_STATUS_PREDECESSORS, isTerminalAgentStatus } from "./state"
 import { classifyVerificationOutcome } from "./verification"
 
@@ -307,11 +307,13 @@ export const createAgentController = (
       effect = await dependencies.effect.resolve(command, observation)
     } catch (error) {
       /**
-       * Nothing was done to the page, so the run has lost track of nothing.
-       * Calling this a verification failure said the opposite, and hid the
-       * one fact that helps: which control refused which command.
+       * Nothing was done to the page, so the run has lost track of nothing —
+       * calling any of this a verification failure said the opposite. But a
+       * refused command and a page that went stale under it are different
+       * facts, and only the first is the model's to hear about.
        */
-      await fail(state, "invalid_decision", agentGroundingMessage(error))
+      const failure = agentResolutionFailure(error)
+      await fail(state, failure.code, failure.message)
       return undefined
     }
     const identity = effect.snapshotIdentity

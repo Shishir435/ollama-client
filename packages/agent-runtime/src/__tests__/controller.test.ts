@@ -20,6 +20,10 @@ import type {
   AgentVerificationResult,
   ResolvedAgentEffect
 } from "../ports"
+import {
+  AgentStaleObservationError,
+  AgentUnreadablePageError
+} from "../resolution-failure"
 import { isLegalAgentTransition } from "../state"
 
 const runState = (overrides: Partial<AgentRunState> = {}): AgentRunState => ({
@@ -527,6 +531,45 @@ describe("agent controller", () => {
       "only on a checkbox or radio input"
     )
     expect(harness.calls).not.toContain("execute")
+  })
+
+  it("does not blame the decision when the page went stale under it", async () => {
+    const harness = createHarness({
+      effect: async () => {
+        throw new AgentStaleObservationError()
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "stale_snapshot" }
+    })
+  })
+
+  it("reports an unreadable page as unsupported, not as a bad decision", async () => {
+    const harness = createHarness({
+      effect: async () => {
+        throw new AgentUnreadablePageError()
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "unsupported_page" }
+    })
+  })
+
+  it("keeps the pre-existing code for an unrecognized resolver failure", async () => {
+    const harness = createHarness({
+      effect: async () => {
+        throw new Error("resolver blew up")
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "verification_failed" }
+    })
   })
 
   it("blames the goal, not the endpoint, when the model gives up", async () => {

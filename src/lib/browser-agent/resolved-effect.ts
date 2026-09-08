@@ -2,6 +2,8 @@ import {
   type AgentDestination,
   AgentGroundingError,
   type AgentSemanticEffect,
+  AgentStaleObservationError,
+  AgentUnreadablePageError,
   classifyAgentAffordance,
   type ResolvedAgentEffect,
   type ResolvedAgentTarget
@@ -55,7 +57,8 @@ const targetFromObservation = (
   const element = observation.elements.find(
     (candidate) => candidate.ref === command.ref && candidate.frameId === 0
   )
-  if (!element) throw new Error("Agent scroll target is stale")
+  if (!element)
+    throw new AgentStaleObservationError("Agent scroll target is stale")
   return {
     ref: element.ref,
     tag: element.tag,
@@ -80,14 +83,18 @@ const assertLiveObservation = async (
     command.snapshotId !== observation.snapshotId ||
     command.generation !== observation.generation
   ) {
-    throw new Error("Agent command references a stale observation")
+    throw new AgentStaleObservationError(
+      "Agent command references a stale observation"
+    )
   }
   const source = destination(observation.url)
   if (
     source.origin !== observation.origin ||
     (await adapter.classifyAccess(source.url)) !== "ok"
   ) {
-    throw new Error("Agent observation is no longer readable")
+    throw new AgentUnreadablePageError(
+      "Agent observation is no longer readable"
+    )
   }
   return source
 }
@@ -111,7 +118,9 @@ export const resolveReadOnlyAgentEffect = async (input: {
   if (command.type === "switch_tab") {
     const tab = await input.adapter.getTab(command.tabId)
     if (!tab?.url || tab.id !== command.tabId) {
-      throw new Error("Agent switch-tab target is unavailable")
+      throw new AgentUnreadablePageError(
+        "Agent switch-tab target is unavailable"
+      )
     }
     resolvedDestination = destination(tab.url)
   } else if (command.type === "back" || command.type === "forward") {
@@ -119,14 +128,18 @@ export const resolveReadOnlyAgentEffect = async (input: {
       observation.tabId,
       command.type
     )
-    if (!url) throw new Error("Agent history destination is not known safely")
+    if (!url) {
+      throw new AgentUnreadablePageError(
+        "Agent history destination is not known safely"
+      )
+    }
     resolvedDestination = destination(url)
   }
   if (
     resolvedDestination &&
     (await input.adapter.classifyAccess(resolvedDestination.url)) !== "ok"
   ) {
-    throw new Error("Agent destination is not readable")
+    throw new AgentUnreadablePageError("Agent destination is not readable")
   }
 
   return {
