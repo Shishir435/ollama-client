@@ -16,7 +16,9 @@ export const AGENT_OBSERVATION_LIMITS = {
   elementHrefChars: MAX_AGENT_DESTINATION_URL_CHARS,
   selectOptions: 200,
   selectOptionLabelChars: 500,
-  selectOptionValueChars: 2_000
+  selectOptionValueChars: 2_000,
+  passBudgetMs: 500,
+  budgetCheckInterval: 256
 } as const
 
 const INTERACTIVE_SELECTOR = [
@@ -162,13 +164,34 @@ interface AgentObservationPass {
   chainHidden: Map<Element, boolean>
   styles: Map<Element, CSSStyleDeclaration | undefined>
   visible: Map<Element, boolean>
+  /** True once the pass has spent its wall-clock budget. */
+  exhausted(): boolean
 }
 
-const createObservationPass = (): AgentObservationPass => ({
-  chainHidden: new Map(),
-  styles: new Map(),
-  visible: new Map()
-})
+/**
+ * The pass runs synchronously in the page's own main thread, and both of its
+ * walks are proportional to the document rather than to the caps — a cap on
+ * position is the starvation defect, so neither walk can carry one. What bounds
+ * them is time. The clock is read once per `budgetCheckInterval` candidates,
+ * so the bound costs nothing on a document that never approaches it.
+ */
+const createObservationPass = (
+  now: () => number = Date.now
+): AgentObservationPass => {
+  const deadline = now() + AGENT_OBSERVATION_LIMITS.passBudgetMs
+  let untilCheck = AGENT_OBSERVATION_LIMITS.budgetCheckInterval
+  return {
+    chainHidden: new Map(),
+    styles: new Map(),
+    visible: new Map(),
+    exhausted() {
+      untilCheck -= 1
+      if (untilCheck > 0) return false
+      untilCheck = AGENT_OBSERVATION_LIMITS.budgetCheckInterval
+      return now() > deadline
+    }
+  }
+}
 
 const styleOf = (
   element: Element,
@@ -472,7 +495,7 @@ const collectVisibleText = (
   let result = ""
   for (
     let node = walker.nextNode();
-    node && result.length < limit;
+    node && result.length < limit && !pass.exhausted();
     node = walker.nextNode()
   ) {
     const parent = node.parentElement
@@ -659,6 +682,18 @@ const selectObservedCandidates = (
   let visibleCount = 0
 
   for (const candidate of document.querySelectorAll(INTERACTIVE_SELECTOR)) {
+    /*
+     * A truncated selection is the defect this function exists to prevent, so
+     * running out of budget here is reported rather than absorbed: the run is
+     * told the page could not be read, which is true, instead of being handed
+     * a snapshot that silently omits the control it needs. Text collection
+     * takes the opposite branch, because it is already a truncating field.
+     */
+    if (pass.exhausted()) {
+      throw new Error(
+        `Agent observation exceeded its ${AGENT_OBSERVATION_LIMITS.passBudgetMs}ms budget`
+      )
+    }
     if (isVisible(candidate, pass)) {
       selected.push(candidate)
       visibleCount += 1
@@ -685,6 +720,7 @@ export const buildAgentObservation = (input: {
   references: AgentElementReferenceStore
   capturedAt?: number
   createSnapshotId?: () => string
+  now?: () => number
 }): AgentObservation => {
   if ((input.frameId ?? 0) !== 0 || input.document.defaultView?.frameElement) {
     throw new Error("Agent observations are main-frame only")
@@ -698,7 +734,7 @@ export const buildAgentObservation = (input: {
     createSnapshotId:
       input.createSnapshotId ?? (() => globalThis.crypto.randomUUID())
   })
-  const pass = createObservationPass()
+  const pass = createObservationPass(input.now)
   const elements = selectObservedCandidates(input.document, pass).map(
     (element) =>
       buildElementObservation(

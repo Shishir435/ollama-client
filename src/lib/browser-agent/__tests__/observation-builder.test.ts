@@ -25,7 +25,7 @@ beforeEach(() => {
 
 afterEach(() => vi.restoreAllMocks())
 
-const build = (minimumGeneration = 0) =>
+const build = (minimumGeneration = 0, now?: () => number) =>
   buildAgentObservation({
     document,
     tabId: 7,
@@ -35,8 +35,29 @@ const build = (minimumGeneration = 0) =>
       documentId: "document-1"
     }),
     createSnapshotId: () => "snapshot-1",
-    capturedAt: 1
+    capturedAt: 1,
+    ...(now ? { now } : {})
   })
+
+/** A scale fixture asserts coverage, not timing, so its clock never advances. */
+const unhurried = () => 0
+
+/** Past the budget from the pass's very first check, and no earlier. */
+const stalledClock = () => {
+  let reads = 0
+  return () => {
+    reads += 1
+    return reads === 1 ? 0 : AGENT_OBSERVATION_LIMITS.passBudgetMs + 1
+  }
+}
+
+const appendButtons = (count: number) => {
+  for (let index = 0; index < count; index += 1) {
+    const button = document.createElement("button")
+    button.textContent = `Act ${index}`
+    document.body.append(button)
+  }
+}
 
 describe("Agent observation builder", () => {
   it("names standard labelled fields and excludes hidden label text", () => {
@@ -59,7 +80,7 @@ describe("Agent observation builder", () => {
     ) {
       document.body.append(document.createElement("button"))
     }
-    const result = build()
+    const result = build(0, unhurried)
     expect(result.visibleText).toHaveLength(
       AGENT_OBSERVATION_LIMITS.visibleTextChars
     )
@@ -460,7 +481,7 @@ describe("Agent observation builder", () => {
     button.textContent = "Continue"
     document.body.append(button)
 
-    const elements = build().elements
+    const elements = build(0, unhurried).elements
     expect(elements).toHaveLength(AGENT_OBSERVATION_LIMITS.elements)
     expect(
       elements
@@ -497,7 +518,7 @@ describe("Agent observation builder", () => {
     parts.push("<button>Continue</button>")
     document.body.innerHTML = parts.join("")
 
-    const elements = build().elements
+    const elements = build(0, unhurried).elements
     expect(elements).toHaveLength(AGENT_OBSERVATION_LIMITS.elements)
     expect(
       elements
@@ -507,20 +528,48 @@ describe("Agent observation builder", () => {
   })
 
   it("stops scanning once the visible budget is full", () => {
-    for (
-      let index = 0;
-      index < AGENT_OBSERVATION_LIMITS.elements + 50;
-      index += 1
-    ) {
-      const button = document.createElement("button")
-      button.textContent = `Act ${index}`
-      document.body.append(button)
-    }
-    const elements = build().elements
+    appendButtons(AGENT_OBSERVATION_LIMITS.elements + 50)
+    const elements = build(0, unhurried).elements
     expect(elements).toHaveLength(AGENT_OBSERVATION_LIMITS.elements)
     expect(elements.every((element) => element.visible)).toBe(true)
     expect(elements.at(-1)?.name).toBe(
       `Act ${AGENT_OBSERVATION_LIMITS.elements - 1}`
+    )
+  })
+
+  it("refuses a document it cannot finish selecting within its budget", () => {
+    appendButtons(AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 10)
+    // A truncated selection is the defect this guards, so the pass fails
+    // instead of returning a snapshot missing the control the run needs.
+    expect(() => build(0, stalledClock())).toThrow("budget")
+  })
+
+  it("keeps the clock cost off a document that stays inside the budget", () => {
+    appendButtons(AGENT_OBSERVATION_LIMITS.budgetCheckInterval - 1)
+    let reads = 0
+    const observation = build(0, () => {
+      reads += 1
+      return 0
+    })
+    expect(observation.elements).toHaveLength(
+      AGENT_OBSERVATION_LIMITS.budgetCheckInterval - 1
+    )
+    // Read per interval across both walks, never per element.
+    expect(reads).toBeLessThan(5)
+  })
+
+  it("truncates page text rather than failing when the budget runs out", () => {
+    document.body.innerHTML = `<button>Continue</button>${Array.from(
+      { length: AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 10 },
+      (_value, index) => `<p>paragraph ${index}</p>`
+    ).join("")}`
+    const observation = build(0, stalledClock())
+    expect(observation.elements).toHaveLength(1)
+    // visibleText already truncates at its own cap, so stopping early there
+    // is the behaviour that field always had.
+    expect(observation.visibleText).toContain("paragraph 0")
+    expect(observation.visibleText).not.toContain(
+      `paragraph ${AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 9}`
     )
   })
 })
