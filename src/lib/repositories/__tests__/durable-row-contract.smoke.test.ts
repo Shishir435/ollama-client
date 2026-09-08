@@ -156,8 +156,27 @@ describe("durable job rows decode as their writers wrote them", () => {
           snapshotId: "snapshot-1",
           generation: 1
         },
+        target: {
+          ref: "e1",
+          tag: "input",
+          role: "textbox",
+          name: "n".repeat(400)
+        },
+        sourceUrl: "https://example.com/start",
+        finding: "f".repeat(900),
         at: createdAt + 4
       })
+      const written = await repo.listAgentSteps("agent-row-1")
+      /**
+       * A receipt is read back into a prompt, so its page-derived parts are
+       * bounded at the write and not only where they are assembled.
+       */
+      expect(written[0]).toMatchObject({
+        target: { ref: "e1", tag: "input", role: "textbox" },
+        sourceUrl: "https://example.com/start"
+      })
+      expect(written[0]?.target?.name).toHaveLength(120)
+      expect(written[0]?.finding).toHaveLength(500)
       await repo.claimAgentRunPhase({
         runId: "agent-row-1",
         phase: "awaiting_approval",

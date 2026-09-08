@@ -203,8 +203,12 @@ const budgets: Budget[] = [
      * out of its feedback, and the resolution-failure mapping raised the
      * measured Chrome baseline to 227,848: every refusal the model can be
      * corrected on is a sentence that ships. Firefox is unchanged.
+     *
+     * Durable step history — the receipt fields that survive a snapshot, the
+     * bounded record built from them, and the prompt that carries it — took
+     * the measured Chrome baseline to 228,969.
      */
-    max: isFirefox ? 210_000 : 228_000
+    max: isFirefox ? 210_000 : 229_500
   }
 ]
 

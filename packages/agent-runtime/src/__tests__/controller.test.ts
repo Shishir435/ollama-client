@@ -14,8 +14,10 @@ import type {
   AgentApprovalDecision,
   AgentCancellationController,
   AgentControllerDependencies,
+  AgentModelInput,
   AgentPolicyDecision,
   AgentPolicyInput,
+  AgentStepWrite,
   AgentTakeoverDecision,
   AgentVerificationResult,
   ResolvedAgentEffect
@@ -147,12 +149,14 @@ interface HarnessOptions {
   createCancellationController?: () => AgentCancellationController
   clock?: () => number
   effect?: AgentControllerDependencies["effect"]["resolve"]
+  stepsFail?: boolean
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
   let state = options.state ?? runState()
   const calls: string[] = []
   const steps: string[] = []
+  const written: AgentStepWrite[] = []
   const decisions = [
     ...(options.decisions ?? [
       { type: "command", command: command() },
@@ -194,6 +198,14 @@ const createHarness = (options: HarnessOptions = {}) => {
     async appendStep(input) {
       calls.push(`step:${input.status}`)
       steps.push(input.status)
+      written.push(input)
+    },
+    async steps(runId) {
+      calls.push("steps")
+      if (options.stepsFail) throw new Error("receipts unreadable")
+      return written
+        .filter((step) => step.runId === runId)
+        .map((step, index) => ({ ...step, sequence: index + 1 }))
     }
   }
 
@@ -272,6 +284,7 @@ const createHarness = (options: HarnessOptions = {}) => {
   return {
     calls,
     steps,
+    writtenSteps: written,
     controller: createAgentController(dependencies),
     getState: () => state
   }
@@ -570,6 +583,66 @@ describe("agent controller", () => {
       status: "failed",
       error: { code: "verification_failed" }
     })
+  })
+
+  it("tells the next decision what the run has already done", async () => {
+    const inputs: AgentModelInput[] = []
+    const harness = createHarness({
+      decide: async (input) => {
+        inputs.push(input)
+        return inputs.length === 1
+          ? { type: "command", command: command() }
+          : { type: "complete", summary: "Done" }
+      }
+    })
+    await harness.controller.start("run-1")
+
+    // Every decision used to be made from the current page alone, which is
+    // how a run repeated an action it had already completed.
+    expect(inputs[0].history).toBeUndefined()
+    expect(inputs[1].history).toMatchObject([
+      { step: 1, action: "back", outcome: "confirmed" }
+    ])
+    expect(inputs[1].previousVerification).toMatchObject({
+      outcome: "confirmed"
+    })
+  })
+
+  it("records what a step acted on, not only the ref it used", async () => {
+    const harness = createHarness({
+      effectOverrides: {
+        target: {
+          ref: "e1",
+          tag: "button",
+          accessibleName: "Continue",
+          sensitive: false,
+          maySubmit: false
+        }
+      }
+    })
+    await harness.controller.start("run-1")
+    // A ref means nothing after the next observation, so a receipt holding
+    // only the command could not describe the step it recorded.
+    expect(harness.writtenSteps.at(-1)).toMatchObject({
+      target: { ref: "e1", tag: "button", name: "Continue" },
+      sourceUrl: "https://example.com"
+    })
+  })
+
+  it("decides without history rather than failing when the receipts cannot be read", async () => {
+    const inputs: AgentModelInput[] = []
+    const harness = createHarness({
+      stepsFail: true,
+      decide: async (input) => {
+        inputs.push(input)
+        return inputs.length === 1
+          ? { type: "command", command: command() }
+          : { type: "complete", summary: "Done" }
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().status).toBe("completed")
+    expect(inputs[1]?.history).toBeUndefined()
   })
 
   it("blames the goal, not the endpoint, when the model gives up", async () => {

@@ -137,7 +137,10 @@ export const registerAgentPanelPort = (
         at: step.at,
         command: step.command,
         risk: step.risk,
-        verification: step.verification
+        verification: step.verification,
+        target: step.target,
+        sourceUrl: step.sourceUrl,
+        finding: step.finding
       })),
       pending: snapshot.pending,
       provider,

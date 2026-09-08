@@ -27,7 +27,8 @@ const persistence = (): AgentPersistencePort => ({
     runs.set(runId, next)
     return { transitioned: true, state: next }
   },
-  load: async (runId) => runs.get(runId)
+  load: async (runId) => runs.get(runId),
+  steps: async () => []
 })
 
 const service = (

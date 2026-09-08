@@ -38,7 +38,23 @@ export const AgentStepRecordSchema = z
     at: z.number().int().nonnegative(),
     command: AgentCommandSchema.optional(),
     risk: AgentRiskSchema.optional(),
-    verification: AgentVerificationRecordSchema.optional()
+    verification: AgentVerificationRecordSchema.optional(),
+    /**
+     * What the step acted on, in terms that outlive the snapshot its ref came
+     * from. The name is page text: already dropped where the receipt was
+     * written when the control was sensitive, and bounded either way.
+     */
+    target: z
+      .object({
+        ref: z.string().max(40).optional(),
+        tag: z.string().max(40).optional(),
+        role: z.string().max(60).optional(),
+        name: z.string().max(120).optional()
+      })
+      .strict()
+      .optional(),
+    sourceUrl: z.string().max(2_048).optional(),
+    finding: z.string().max(500).optional()
   })
   .strict()
 export type AgentStepRecord = z.infer<typeof AgentStepRecordSchema>

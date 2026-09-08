@@ -111,7 +111,8 @@ const announcing = (
     announce(input.runId)
     return result
   },
-  load: (runId) => port.load(runId)
+  load: (runId) => port.load(runId),
+  steps: (runId) => port.steps(runId)
 })
 
 export type AgentRunFailureReason =
