@@ -116,6 +116,7 @@ export const buildAgentController: BuildAgentController = (input) => {
   )
   const effect = createAgentEffectPort(adapters)
   return createAgentController({
+    trace: traceAgentRun,
     model: {
       async decide(request, signal) {
         traceAgentRun(input.runId, "deciding", {

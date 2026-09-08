@@ -96,7 +96,10 @@ const normalizeDecisionArguments = (
     for (const field of fields) {
       if (record[field] !== undefined) command[field] = record[field]
     }
-    return { type: "command", command }
+    /** A finding belongs to the decision, not to the command's wire shape. */
+    return record.finding === undefined
+      ? { type: "command", command }
+      : { type: "command", command, finding: record.finding }
   }
   const field = VARIANT_FIELDS[String(record.type)]
   if (!field) return raw

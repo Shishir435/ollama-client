@@ -17,7 +17,8 @@ import {
   AgentRunStateSchema,
   type AgentRunStatus,
   AgentRunStatusSchema,
-  AgentStepStatusSchema
+  AgentStepStatusSchema,
+  MAX_AGENT_FINDING_CHARS
 } from "@ollama-client/contracts"
 import { z } from "zod"
 import { logger } from "@/lib/logger"
@@ -61,6 +62,21 @@ const AgentVerificationSchema = z
   })
   .strict()
 
+/**
+ * What a step acted on. A `ref` means nothing after the next observation, so
+ * a receipt that held only the command could not describe its own history.
+ * The name is page text and is therefore bounded, and dropped entirely for a
+ * sensitive control, exactly as the command's value already is.
+ */
+const AgentStepTargetSchema = z
+  .object({
+    ref: z.string().max(40).optional(),
+    tag: z.string().max(40).optional(),
+    role: z.string().max(60).optional(),
+    name: z.string().max(120).optional()
+  })
+  .strict()
+
 const AgentStepReceiptSchema = z
   .object({
     version: z.literal(1),
@@ -70,7 +86,10 @@ const AgentStepReceiptSchema = z
     at: z.number().int().nonnegative(),
     command: AgentCommandSchema.optional(),
     risk: z.enum(["low", "medium", "high", "critical"]).optional(),
-    verification: AgentVerificationSchema.optional()
+    verification: AgentVerificationSchema.optional(),
+    target: AgentStepTargetSchema.optional(),
+    sourceUrl: z.string().max(2_048).optional(),
+    finding: z.string().max(MAX_AGENT_FINDING_CHARS).optional()
   })
   .strict()
 
@@ -97,6 +116,20 @@ const redactAgentStepCommand = (
   }
   return command
 }
+
+/**
+ * Bounded again at the write, not only where the controller assembles it: a
+ * receipt is read back into a prompt, and a cap that lived in one place would
+ * be a cap that one caller could forget.
+ */
+const boundedStepTarget = (
+  target: NonNullable<AgentStepWrite["target"]>
+): NonNullable<AgentStepWrite["target"]> => ({
+  ...(target.ref ? { ref: target.ref.slice(0, 40) } : {}),
+  ...(target.tag ? { tag: target.tag.slice(0, 40) } : {}),
+  ...(target.role ? { role: target.role.slice(0, 60) } : {}),
+  ...(target.name ? { name: target.name.slice(0, 120) } : {})
+})
 
 const AgentCheckpointSchema = z
   .object({ version: z.literal(1), state: AgentRunStateSchema })
@@ -288,7 +321,11 @@ const appendStepInTransaction = async (
   const receipt = AgentStepReceiptSchema.parse({
     version: 1,
     ...input,
-    command: redactAgentStepCommand(input.command)
+    command: redactAgentStepCommand(input.command),
+    ...(input.target ? { target: boundedStepTarget(input.target) } : {}),
+    ...(input.finding
+      ? { finding: input.finding.slice(0, MAX_AGENT_FINDING_CHARS) }
+      : {})
   })
   const serialized = serializeBounded(
     receipt,
@@ -616,7 +653,8 @@ export const createAgentPersistencePort = (): AgentPersistencePort => ({
   transition: transitionAgentRun,
   async load(runId) {
     return (await getAgentRun(runId))?.state
-  }
+  },
+  steps: listAgentSteps
 })
 
 export const createInitialAgentDeadline = (now: number) =>

@@ -294,6 +294,16 @@ export const runAgentScenario = (scenario: AgentScenario): void => {
             { timeout: liveModel ? 200_000 : 30_000 }
           )
           .toBe(scenario.status)
+          .catch((error: unknown) => {
+            const last = messages
+              .filter((m) => m.type === "agent_snapshot")
+              .at(-1)?.snapshot
+            throw new Error(
+              `${(error as Error).message}\nrun: ${JSON.stringify(last?.run?.error)}\nsteps: ${JSON.stringify(
+                last?.steps.map((step) => [step.status, step.command?.type])
+              )}`
+            )
+          })
         await scenario.verify({
           page,
           panel,

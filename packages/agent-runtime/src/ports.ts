@@ -17,7 +17,15 @@ export type AgentRisk = "low" | "medium" | "high" | "critical"
 export interface AgentModelInput {
   state: AgentRunState
   observation: AgentObservation
+  /**
+   * How the step before this decision turned out. Declared since the loop was
+   * written and never populated, so every decision was made as if it were the
+   * first — the single largest cause of a run repeating an action it had
+   * already completed.
+   */
   previousVerification?: AgentVerificationResult
+  /** Bounded, oldest-first record of what this run has already done. */
+  history?: readonly AgentHistoryEntry[]
 }
 
 export interface AgentObserveRequest {
@@ -191,6 +199,22 @@ export type AgentTransitionResult =
   | { transitioned: true; state: AgentRunState }
   | { transitioned: false; state?: AgentRunState }
 
+/**
+ * What a step acted on, in terms that survive the next snapshot.
+ *
+ * A receipt used to hold the command alone, and a command holds a ref — `e1`
+ * means nothing once the page has been observed again, so the run could not
+ * describe its own history. Role, tag and a bounded name can be recognized
+ * later; the name is page text, so it is dropped when the control was
+ * sensitive and bounded whether or not it was.
+ */
+export interface AgentStepTarget {
+  ref?: string
+  tag?: string
+  role?: string
+  name?: string
+}
+
 export interface AgentStepWrite {
   runId: string
   stepId: string
@@ -199,6 +223,39 @@ export interface AgentStepWrite {
   command?: AgentCommand
   risk?: AgentRisk
   verification?: AgentVerificationResult
+  target?: AgentStepTarget
+  /** The page the step was taken on, so history can say where it happened. */
+  sourceUrl?: string
+  /** Model-authored note attached to the step it belongs to. */
+  finding?: string
+}
+
+/** A step as it is read back, carrying the durable order it was written in. */
+export interface AgentStepReadout extends AgentStepWrite {
+  sequence: number
+}
+
+/**
+ * One entry in what the model is told about its own run.
+ *
+ * `outcome` is deliberately not the step status: a status of `executed` with
+ * no verification is not a success, and presenting it as one is how a run
+ * concludes it has done something it only attempted.
+ */
+export interface AgentHistoryEntry {
+  step: number
+  action: string
+  outcome:
+    | "confirmed"
+    | "unverified"
+    | "uncertain"
+    | "rejected"
+    | "failed"
+    | "planned"
+  target?: AgentStepTarget
+  url?: string
+  evidence?: string
+  finding?: string
 }
 
 /** Environment-neutral subset implemented by a host AbortSignal. */
@@ -272,6 +329,12 @@ export interface AgentPersistencePort {
   appendStep(input: AgentStepWrite): Promise<void>
   transition(input: AgentTransitionWrite): Promise<AgentTransitionResult>
   load(runId: string): Promise<AgentRunState | undefined>
+  /**
+   * The run's own receipts, in the order they were written. History is built
+   * from these rather than from anything the controller holds in memory,
+   * because a worker restart keeps the receipts and loses the memory.
+   */
+  steps(runId: string): Promise<readonly AgentStepReadout[]>
 }
 
 export interface AgentApprovalPort {
@@ -310,6 +373,16 @@ export interface AgentControllerDependencies {
   takeover: AgentTakeoverPort
   clock: AgentClockPort
   createCancellationController?: () => AgentCancellationController
+  /**
+   * Structural metadata only, for a host that wants to see why a run
+   * degraded. Never page text, arguments or URLs — the same rule the
+   * background's own trace already holds itself to.
+   */
+  trace?: (
+    runId: string,
+    phase: string,
+    metadata?: Record<string, string | number | boolean | undefined>
+  ) => void
 }
 
 export const agentFailure = (

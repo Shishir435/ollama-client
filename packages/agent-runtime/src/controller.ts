@@ -19,12 +19,20 @@ import {
   suspendAgentDeadlines
 } from "./budgets"
 import { agentObservationFailureMessage } from "./control-failure"
+import {
+  agentStepSourceUrl,
+  agentStepTargetFrom,
+  buildAgentHistory,
+  previousAgentVerification
+} from "./history"
 import type {
   AgentCancellationController,
   AgentController,
   AgentControllerDependencies,
+  AgentModelInput,
   AgentPolicyDecision,
   AgentStatePatch,
+  AgentStepWrite,
   AuthorizedAgentEffect,
   ResolvedAgentEffect
 } from "./ports"
@@ -166,6 +174,29 @@ export const createAgentController = (
       : undefined
   }
 
+  /**
+   * What every receipt for this effect records beyond the command itself. A
+   * command holds a ref, and a ref means nothing after the next observation,
+   * so without this the run could not describe a step it had taken.
+   */
+  const stepEvidence = (
+    effect: ResolvedAgentEffect
+  ): Pick<AgentStepWrite, "target" | "sourceUrl"> => {
+    const target = agentStepTargetFrom(effect.target)
+    /**
+     * Origin and path only. A receipt is durable and is read back into a
+     * prompt, so a page whose URL carries a token in its query, a secret in
+     * its fragment or credentials in its userinfo must not leave one behind.
+     */
+    const sourceUrl = effect.sourceUrl
+      ? agentStepSourceUrl(effect.sourceUrl)
+      : undefined
+    return {
+      ...(target ? { target } : {}),
+      ...(sourceUrl ? { sourceUrl } : {})
+    }
+  }
+
   const fail = async (
     state: AgentRunState,
     code: Parameters<typeof agentFailure>[0],
@@ -232,14 +263,48 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * Built from the run's own receipts rather than from anything held in
+   * memory, so a worker restart keeps it. A read that fails degrades the
+   * decision instead of ending the run: acting without history is what the
+   * loop did for its whole life, and is survivable; failing here is not.
+   */
+  const recallHistory = async (
+    state: AgentRunState
+  ): Promise<Pick<AgentModelInput, "history" | "previousVerification">> => {
+    try {
+      const receipts = await dependencies.persistence.steps(state.id)
+      const history = buildAgentHistory(receipts)
+      const previous = previousAgentVerification(receipts)
+      return {
+        ...(history.length > 0 ? { history } : {}),
+        ...(previous ? { previousVerification: previous } : {})
+      }
+    } catch (error) {
+      /**
+       * History is a nicety and the run continues without it, but a run that
+       * lost continuity looks exactly like a model behaving badly. The reason
+       * goes to the host's trace so the two can be told apart.
+       */
+      dependencies.trace?.(state.id, "history_unavailable", {
+        reason: error instanceof Error ? error.name : typeof error
+      })
+      return {}
+    }
+  }
+
   const decide = async (
     state: AgentRunState,
     observation: AgentObservation,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    recalled: Pick<AgentModelInput, "history" | "previousVerification">
   ) => {
     let raw: unknown
     try {
-      raw = await dependencies.model.decide({ state, observation }, signal)
+      raw = await dependencies.model.decide(
+        { state, observation, ...recalled },
+        signal
+      )
     } catch (error) {
       if (error instanceof AgentMalformedDecisionError) return undefined
       throw error
@@ -363,6 +428,7 @@ export const createAgentController = (
         stepId,
         status: "failed",
         command: effect.command,
+        ...stepEvidence(effect),
         risk: policy.risk,
         at: dependencies.clock.now()
       })
@@ -415,6 +481,7 @@ export const createAgentController = (
         stepId,
         status: "failed",
         command: effect.command,
+        ...stepEvidence(effect),
         risk,
         at: dependencies.clock.now(),
         verification: {
@@ -451,6 +518,7 @@ export const createAgentController = (
       stepId,
       status: "approved",
       command: effect.command,
+      ...stepEvidence(effect),
       risk: policy.risk,
       at: dependencies.clock.now()
     })
@@ -477,6 +545,7 @@ export const createAgentController = (
         stepId,
         status: "executed",
         command: effect.command,
+        ...stepEvidence(effect),
         risk: policy.risk,
         at: dependencies.clock.now()
       })
@@ -495,6 +564,7 @@ export const createAgentController = (
         stepId,
         status: action.stepStatus,
         command: effect.command,
+        ...stepEvidence(effect),
         risk: policy.risk,
         verification,
         at: dependencies.clock.now()
@@ -556,6 +626,8 @@ export const createAgentController = (
       stepId,
       status: "planned",
       command: decision.command,
+      ...stepEvidence(effect),
+      ...(decision.finding ? { finding: decision.finding } : {}),
       at: dependencies.clock.now()
     })
     const authorized = await handlePolicy(
@@ -692,7 +764,12 @@ export const createAgentController = (
     if (!deciding) return undefined
     let decision: AgentDecision | undefined
     try {
-      decision = await decide(deciding, observation, signal)
+      decision = await decide(
+        deciding,
+        observation,
+        signal,
+        await recallHistory(deciding)
+      )
     } catch {
       if (!signal.aborted) {
         await fail(

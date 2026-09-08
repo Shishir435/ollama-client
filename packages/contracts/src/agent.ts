@@ -41,9 +41,21 @@ export const AGENT_STEP_STATUSES = [
 export const AgentStepStatusSchema = z.enum(AGENT_STEP_STATUSES)
 export type AgentStepStatus = z.infer<typeof AgentStepStatusSchema>
 
+/**
+ * A note the model attaches to the step it is taking, so a fact it read on
+ * one page survives into a later decision. Bounded, and page-derived like any
+ * other model output: it is recorded as evidence of what the run believed,
+ * never as an instruction.
+ */
+export const MAX_AGENT_FINDING_CHARS = 500
+
 export const AgentDecisionSchema = z.discriminatedUnion("type", [
   z
-    .object({ type: z.literal("command"), command: AgentCommandSchema })
+    .object({
+      type: z.literal("command"),
+      command: AgentCommandSchema,
+      finding: z.string().min(1).max(MAX_AGENT_FINDING_CHARS).optional()
+    })
     .strict(),
   z
     .object({
