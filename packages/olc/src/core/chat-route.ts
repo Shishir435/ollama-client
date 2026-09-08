@@ -38,7 +38,12 @@ import {
   type ToolResultMessage
 } from "../types.js"
 import { isRecord, sleep } from "../util.js"
-import { type Router, sendJson, startEventStream } from "./http.js"
+import {
+  bindRequestAbort,
+  type Router,
+  sendJson,
+  startEventStream
+} from "./http.js"
 import {
   contentChunk,
   extractTrailingToolResults,
@@ -52,7 +57,11 @@ import {
 } from "./openai-wire.js"
 import type { PendingToolCalls } from "./pending-tool-calls.js"
 import { OLC_PUBLIC_ROUTES } from "./public-api-contract.js"
-import { QueueStalledError, type RequestQueue } from "./queue.js"
+import {
+  ClientClosedError,
+  QueueStalledError,
+  type RequestQueue
+} from "./queue.js"
 
 const createRequestId = () =>
   `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
@@ -135,6 +144,18 @@ export const unsentTail = (stored: string, streamed: string): string => {
   return streamed ? "" : stored
 }
 
+/**
+ * A failure is a terminal event of its own, not a sentence in the answer.
+ * Streaming `[Proxy Error] ...` as content and finishing with `stop` looked
+ * like a completed turn to every OpenAI-compatible client: the extension read
+ * a decision with no tool call rather than an error it could report.
+ */
+export interface TurnFailure {
+  message: string
+  type: string
+  status: number
+}
+
 interface TurnEmitter {
   readonly streamMode: boolean
   start: () => void
@@ -143,6 +164,7 @@ interface TurnEmitter {
   auxiliary: (payload: unknown) => void
   toolCalls: (calls: PendingToolCall[]) => void
   finish: (reason: string) => void
+  fail: (failure: TurnFailure) => void
   readonly content: string
   readonly reasoning: string
   readonly images: readonly GeneratedImage[]
@@ -196,6 +218,19 @@ const createStreamEmitter = (
     },
     finish(reason) {
       write(finishChunk(id, model, reason))
+      if (!response.writableEnded) {
+        response.write("data: [DONE]\n\n")
+        response.end()
+      }
+    },
+    fail(failure) {
+      if (!response.headersSent) {
+        sendJson(response, failure.status, {
+          error: { message: failure.message, type: failure.type }
+        })
+        return
+      }
+      write({ error: failure })
       if (!response.writableEnded) {
         response.write("data: [DONE]\n\n")
         response.end()
@@ -291,6 +326,15 @@ const createBufferEmitter = (
           "stop"
         )
       )
+    },
+    fail(failure) {
+      if (response.headersSent) {
+        if (!response.writableEnded) response.end()
+        return
+      }
+      sendJson(response, failure.status, {
+        error: { message: failure.message, type: failure.type }
+      })
     },
     get content() {
       return content
@@ -593,7 +637,12 @@ export const registerChatRoutes = (
 
     try {
       if (!turn) {
+        // Startup is shared infrastructure the next request will reuse, so a
+        // departed caller does not cancel it — it only stops this request from
+        // spending a turn behind it.
+        signal?.throwIfAborted()
         await backend.ensureReady()
+        signal?.throwIfAborted()
         turn = await backend.startTurn({
           requestId,
           model: target,
@@ -669,15 +718,11 @@ export const registerChatRoutes = (
         if (result.status === "suspended") return
         settled = true
         if (result.status === "failed") {
-          if (emitter.streamMode) {
-            emitter.delta(
-              `[Proxy Error] ${result.error.type}: ${result.error.message}`,
-              false
-            )
-            emitter.finish("stop")
-          } else {
-            sendJson(response, 502, { error: result.error })
-          }
+          emitter.fail({
+            message: result.error.message,
+            type: result.error.type,
+            status: 502
+          })
           await discardTurn(turn as BackendTurn)
           return
         }
@@ -715,22 +760,17 @@ export const registerChatRoutes = (
           await discardTurn(turn, { abort: true })
         }
 
-        if (emitter.streamMode && response.headersSent) {
-          emitter.delta(`[Proxy Error] ${message}`, false)
-          emitter.finish("stop")
-          return
-        }
+        // Cancellation is now an ordinary way for a request to end. Reporting it
+        // means writing to a socket whose reader is gone, so the turn is cleaned
+        // up and logged and nothing is sent.
+        if (response.destroyed || error instanceof ClientClosedError) return
+
         const inputError = error instanceof BackendInputError
-        sendJson(
-          response,
-          inputError ? 400 : /Request timeout/.test(message) ? 504 : 500,
-          {
-            error: {
-              message,
-              type: inputError ? "BadRequest" : "ProxyError"
-            }
-          }
-        )
+        emitter.fail({
+          message,
+          type: inputError ? "BadRequest" : "ProxyError",
+          status: inputError ? 400 : /Request timeout/.test(message) ? 504 : 500
+        })
       }
       await handleRequestFailure()
     }
@@ -769,6 +809,8 @@ export const registerChatRoutes = (
 
     if (resumeTurn) holdTurn(resumeTurn.id)
 
+    const clientGone = bindRequestAbort(request, response)
+
     await lock(
       (signal) => {
         // The queue may have held this request for as long as another turn was
@@ -797,9 +839,17 @@ export const registerChatRoutes = (
           signal
         })
       },
-      config.REQUEST_TIMEOUT_MS + 60_000,
-      `chat-completions:${requestId}`
+      {
+        timeoutMs: config.REQUEST_TIMEOUT_MS + 60_000,
+        label: `chat-completions:${requestId}`,
+        signal: clientGone.signal
+      }
     ).catch((error: unknown) => {
+      if (error instanceof ClientClosedError) {
+        log("The client left before this request was served", { requestId })
+        if (!response.writableEnded) response.end()
+        return
+      }
       const message = (error as Error).message
       console.error("[Proxy] Request handler error:", message)
       // A stalled queue is a temporary refusal, not a failure of this request: it

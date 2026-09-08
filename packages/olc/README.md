@@ -327,6 +327,7 @@ readiness reporting. Ollama itself is installed separately.
 | `SYSTEM_PROMPT` | `--system-prompt` | `OLC_SYSTEM_PROMPT` | the client's |
 | `BRIDGE_ENABLED` | `--no-bridge` to disable | `OLC_BRIDGE_ENABLED` | `true` |
 | `DEBUG` | `--debug` | `OLC_DEBUG` | `false` |
+| `REQUEST_TIMEOUT_MS` | — | `OLC_REQUEST_TIMEOUT_MS` | `300000` |
 
 `REQUEST_TIMEOUT_MS`, `BRIDGE_CALL_TIMEOUT_MS`, `BRIDGE_BATCH_MS` and
 `SUSPENDED_TURN_TTL_MS` follow the same precedence with `OLC_`-prefixed
@@ -486,6 +487,11 @@ new adapter's expectations.
   cancelled, not merely failed, and the next request waits for it to unwind. A
   cancelled turn that does not stop is never overtaken: after ten seconds the
   queue refuses requests with `503` and names it, until it stops.
+- **A departed client releases its slot.** A request whose connection closes
+  while it is still queued is dropped and never starts; one that has already
+  started is cancelled the same way a deadline cancels it, and the slot is held
+  until it unwinds. Backend startup is not cancelled — the next request reuses
+  it — but a request whose caller left does not spend a turn behind it.
 - **A turn per user message.** Conversation history is replayed from the client's
   messages; only a tool exchange reuses its turn. Trailing tool results whose turn
   the proxy no longer holds — expired, cancelled, or from an earlier run — are

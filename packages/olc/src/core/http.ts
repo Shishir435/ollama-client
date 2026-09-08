@@ -67,6 +67,37 @@ export const sendJson = (
   response.end(body)
 }
 
+/**
+ * A controller that fires when the caller is gone.
+ *
+ * `close` also fires on a response that completed normally, so a departed
+ * client is the one that closed with nothing written back. Both routes bind
+ * this before the queue, since a request can wait there for as long as another
+ * turn is allowed to run.
+ *
+ * The state is read before the listeners are attached, because a listener only
+ * hears what has not happened yet: a caller that left during an earlier `await`
+ * fired both events already, and a controller that trusted its listeners alone
+ * would hand back a live signal for a connection that is gone.
+ */
+export const bindRequestAbort = (
+  request: RouteRequest,
+  response: ServerResponse
+): AbortController => {
+  const abortController = new AbortController()
+  request.raw.once("aborted", () => abortController.abort())
+  response.once("close", () => {
+    if (!response.writableEnded) abortController.abort()
+  })
+  // Read from the response, never from the request: a fully consumed request
+  // stream is destroyed by Node on its own, so `request.raw.destroyed` is true
+  // for every ordinary POST and says nothing about the connection.
+  if (response.destroyed || (response.closed && !response.writableEnded)) {
+    abortController.abort()
+  }
+  return abortController
+}
+
 export const startEventStream = (response: ServerResponse): void => {
   response.setHeader("Content-Type", "text/event-stream; charset=utf-8")
   response.setHeader("Cache-Control", "no-cache")
