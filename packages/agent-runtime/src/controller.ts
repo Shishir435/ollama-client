@@ -20,6 +20,7 @@ import {
 } from "./budgets"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
+  agentStepSourceUrl,
   agentStepTargetFrom,
   buildAgentHistory,
   previousAgentVerification
@@ -182,9 +183,17 @@ export const createAgentController = (
     effect: ResolvedAgentEffect
   ): Pick<AgentStepWrite, "target" | "sourceUrl"> => {
     const target = agentStepTargetFrom(effect.target)
+    /**
+     * Origin and path only. A receipt is durable and is read back into a
+     * prompt, so a page whose URL carries a token in its query, a secret in
+     * its fragment or credentials in its userinfo must not leave one behind.
+     */
+    const sourceUrl = effect.sourceUrl
+      ? agentStepSourceUrl(effect.sourceUrl)
+      : undefined
     return {
       ...(target ? { target } : {}),
-      ...(effect.sourceUrl ? { sourceUrl: effect.sourceUrl } : {})
+      ...(sourceUrl ? { sourceUrl } : {})
     }
   }
 
@@ -271,7 +280,15 @@ export const createAgentController = (
         ...(history.length > 0 ? { history } : {}),
         ...(previous ? { previousVerification: previous } : {})
       }
-    } catch {
+    } catch (error) {
+      /**
+       * History is a nicety and the run continues without it, but a run that
+       * lost continuity looks exactly like a model behaving badly. The reason
+       * goes to the host's trace so the two can be told apart.
+       */
+      dependencies.trace?.(state.id, "history_unavailable", {
+        reason: error instanceof Error ? error.name : typeof error
+      })
       return {}
     }
   }

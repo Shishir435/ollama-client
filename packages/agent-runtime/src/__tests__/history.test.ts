@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   AGENT_HISTORY_MAX_STEPS,
+  agentStepSourceUrl,
   agentStepTargetFrom,
   buildAgentHistory,
   previousAgentVerification
@@ -138,12 +139,62 @@ describe("buildAgentHistory", () => {
     expect(first.at(-1)?.step).toBe(8)
   })
 
-  it("keeps one entry even when it alone exceeds the byte bound", () => {
-    expect(
-      buildAgentHistory([step({ sequence: 1, finding: "x".repeat(400) })], {
-        maxBytes: 10
+  it("reduces a lone entry rather than exceeding its own bound", () => {
+    const [entry] = buildAgentHistory(
+      [
+        step({
+          sequence: 1,
+          finding: "x".repeat(400),
+          sourceUrl: "https://example.com/a",
+          target: { ref: "e1", tag: "button", name: "Continue" }
+        })
+      ],
+      { maxBytes: 80 }
+    )
+    // The bound is a bound. Keeping an entry it could not fit and sending it
+    // anyway is how a small local model runs out of context.
+    expect(entry).toEqual({ step: 1, action: "click", outcome: "confirmed" })
+  })
+
+  it("keeps as much of a lone entry as the bound allows", () => {
+    const [entry] = buildAgentHistory(
+      [
+        step({
+          sequence: 1,
+          finding: "x".repeat(400),
+          sourceUrl: "https://example.com/a"
+        })
+      ],
+      { maxBytes: 120 }
+    )
+    expect(entry.finding).toBeUndefined()
+    expect(entry.url).toBe("https://example.com/a")
+  })
+
+  it("strips secrets a page put in its own URL", () => {
+    const [entry] = buildAgentHistory([
+      step({
+        sequence: 1,
+        sourceUrl: "https://user:pass@Example.com/orders?token=abc#at=xyz"
       })
-    ).toHaveLength(1)
+    ])
+    expect(entry.url).toBe("https://example.com/orders")
+  })
+
+  it("strips a destination the command carried too", () => {
+    expect(
+      buildAgentHistory([
+        step({
+          sequence: 1,
+          command: {
+            type: "navigate",
+            url: "https://example.com/pay?card=4111111111111111",
+            snapshotId: "snapshot-1",
+            generation: 1
+          }
+        })
+      ])[0].action
+    ).toBe("navigate to https://example.com/pay")
   })
 
   it("orders by durable sequence, not by arrival", () => {
@@ -169,6 +220,34 @@ describe("buildAgentHistory", () => {
         })
       ])[0].action
     ).toBe("navigate to https://example.com/next")
+  })
+})
+
+describe("agentStepSourceUrl", () => {
+  it.each([
+    ["https://user:pass@example.com/a", "https://example.com/a"],
+    ["https://example.com/a?token=abc", "https://example.com/a"],
+    ["https://example.com/a#access_token=abc", "https://example.com/a"],
+    ["https://EXAMPLE.com/A", "https://example.com/A"],
+    ["https://example.com", "https://example.com"],
+    ["http://127.0.0.1:8080/x?y=1", "http://127.0.0.1:8080/x"]
+  ])("reduces %s to its page identity", (given, expected) => {
+    expect(agentStepSourceUrl(given)).toBe(expected)
+  })
+
+  it.each([
+    "javascript:alert(1)",
+    "data:text/html,x",
+    "about:blank",
+    "nope"
+  ])("refuses %s outright", (given) => {
+    expect(agentStepSourceUrl(given)).toBeUndefined()
+  })
+
+  it("bounds a path the page made long", () => {
+    expect(
+      agentStepSourceUrl(`https://example.com/${"p".repeat(600)}`)?.length
+    ).toBe(300)
   })
 })
 

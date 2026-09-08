@@ -150,6 +150,7 @@ interface HarnessOptions {
   clock?: () => number
   effect?: AgentControllerDependencies["effect"]["resolve"]
   stepsFail?: boolean
+  trace?: AgentControllerDependencies["trace"]
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
@@ -278,7 +279,8 @@ const createHarness = (options: HarnessOptions = {}) => {
         return options.takeover ?? { type: "takeover_started" }
       }
     },
-    createCancellationController: options.createCancellationController
+    createCancellationController: options.createCancellationController,
+    ...(options.trace ? { trace: options.trace } : {})
   }
 
   return {
@@ -629,9 +631,25 @@ describe("agent controller", () => {
     })
   })
 
+  it("keeps a page's URL secrets out of the receipt it writes", async () => {
+    const harness = createHarness({
+      observations: [
+        observation({ url: "https://example.com/pay?token=abc#at=xyz" }),
+        observation({ url: "https://example.com/pay?token=abc#at=xyz" })
+      ]
+    })
+    await harness.controller.start("run-1")
+    // A receipt is durable and is read back into a prompt.
+    expect(harness.writtenSteps.at(-1)?.sourceUrl).toBe(
+      "https://example.com/pay"
+    )
+  })
+
   it("decides without history rather than failing when the receipts cannot be read", async () => {
     const inputs: AgentModelInput[] = []
+    const traced: string[] = []
     const harness = createHarness({
+      trace: (_runId, phase) => traced.push(phase),
       stepsFail: true,
       decide: async (input) => {
         inputs.push(input)
@@ -643,6 +661,9 @@ describe("agent controller", () => {
     await harness.controller.start("run-1")
     expect(harness.getState().status).toBe("completed")
     expect(inputs[1]?.history).toBeUndefined()
+    // A run that lost continuity looks exactly like a model behaving badly,
+    // so the reason has to reach the host.
+    expect(traced).toContain("history_unavailable")
   })
 
   it("blames the goal, not the endpoint, when the model gives up", async () => {

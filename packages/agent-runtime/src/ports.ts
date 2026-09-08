@@ -373,6 +373,16 @@ export interface AgentControllerDependencies {
   takeover: AgentTakeoverPort
   clock: AgentClockPort
   createCancellationController?: () => AgentCancellationController
+  /**
+   * Structural metadata only, for a host that wants to see why a run
+   * degraded. Never page text, arguments or URLs — the same rule the
+   * background's own trace already holds itself to.
+   */
+  trace?: (
+    runId: string,
+    phase: string,
+    metadata?: Record<string, string | number | boolean | undefined>
+  ) => void
 }
 
 export const agentFailure = (
