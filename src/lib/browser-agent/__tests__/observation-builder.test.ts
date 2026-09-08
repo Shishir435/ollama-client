@@ -413,4 +413,83 @@ describe("Agent observation builder", () => {
       })
     ).toThrow("HTTP(S)")
   })
+
+  it("derives observation fields for a candidate that is not an HTMLElement", () => {
+    document.body.innerHTML =
+      '<svg role="img" aria-label="Logo"><rect width="10" height="10"/></svg><button>Continue</button>'
+    const svg = document.querySelector("svg")
+    expect(svg).toBeInstanceOf(SVGElement)
+    expect(svg).not.toBeInstanceOf(HTMLElement)
+    expect(typeof (svg as unknown as HTMLElement).isContentEditable).not.toBe(
+      "boolean"
+    )
+
+    const elements = build().elements
+    expect(elements[0]).toMatchObject({
+      tag: "svg",
+      role: "img",
+      name: "Logo",
+      editable: false,
+      enabled: true,
+      visible: true
+    })
+    expect(elements[0].type).toBeUndefined()
+    expect(elements.map((element) => element.tag)).toContain("button")
+  })
+
+  it("observes an SVG link and resolves its destination", () => {
+    document.body.innerHTML =
+      '<svg role="img"><a href="/next"><text>Go</text></a></svg>'
+    const anchor = build().elements.find((element) => element.href)
+    expect(anchor).toMatchObject({
+      tag: "a",
+      href: "http://localhost:3000/next",
+      editable: false,
+      enabled: true
+    })
+  })
+
+  it("keeps visible controls when hidden ones outnumber the element cap", () => {
+    for (let index = 0; index < AGENT_OBSERVATION_LIMITS.elements; index += 1) {
+      const hidden = document.createElement("input")
+      hidden.type = "hidden"
+      hidden.name = `hidden-${index}`
+      document.body.append(hidden)
+    }
+    const button = document.createElement("button")
+    button.textContent = "Continue"
+    document.body.append(button)
+
+    const elements = build().elements
+    expect(elements).toHaveLength(AGENT_OBSERVATION_LIMITS.elements)
+    expect(
+      elements
+        .filter((element) => element.visible)
+        .map((element) => element.name)
+    ).toEqual(["Continue"])
+  })
+
+  it("keeps hidden controls while the element cap has room and holds document order", () => {
+    document.body.innerHTML =
+      '<input type="hidden" name="token"><button>First</button><input type="hidden" name="csrf"><button>Second</button>'
+    const elements = build().elements
+    expect(elements.map((element) => [element.tag, element.visible])).toEqual([
+      ["input", false],
+      ["button", true],
+      ["input", false],
+      ["button", true]
+    ])
+    expect(elements.map((element) => element.ref)).toEqual([
+      "e1",
+      "e2",
+      "e3",
+      "e4"
+    ])
+  })
+
+  it("bounds how many candidates one pass resolves", () => {
+    expect(AGENT_OBSERVATION_LIMITS.candidates).toBeGreaterThan(
+      AGENT_OBSERVATION_LIMITS.elements
+    )
+  })
 })

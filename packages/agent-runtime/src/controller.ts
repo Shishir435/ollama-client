@@ -17,6 +17,7 @@ import {
   resumeAgentDeadlines,
   suspendAgentDeadlines
 } from "./budgets"
+import { agentObservationFailureMessage } from "./control-failure"
 import type {
   AgentCancellationController,
   AgentController,
@@ -269,12 +270,12 @@ export const createAgentController = (
       }
       lastGeneration.set(state.id, observation.generation)
       return observation
-    } catch {
+    } catch (error) {
       if (!signal.aborted) {
         await fail(
           state,
           "observation_failed",
-          "The current page could not be observed safely."
+          agentObservationFailureMessage(error)
         )
       }
       return undefined

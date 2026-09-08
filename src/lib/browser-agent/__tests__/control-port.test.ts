@@ -1,3 +1,4 @@
+import { AgentControlFailedError } from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
 
@@ -13,9 +14,11 @@ import {
   AgentObserveRequestSchema,
   type AgentScrollInstruction,
   AgentScrollInstructionSchema,
+  agentControlSchemaIssues,
   attachAgentControlContentPort,
   createAgentControlSession,
   openAgentControlSession,
+  readAgentControlFailure,
   validateAgentObservationResponse
 } from "../control-port"
 
@@ -547,6 +550,192 @@ describe("Agent control port", () => {
       name: MESSAGE_KEYS.AGENT.CONTROL_PORT,
       frameId: 0,
       documentId: "document-1"
+    })
+  })
+})
+
+describe("Agent control failures", () => {
+  const failure = (overrides: Record<string, unknown> = {}) => ({
+    version: AGENT_CONTROL_VERSION,
+    type: "agent_control_failed",
+    ...binding,
+    sequence: 1,
+    reason: "observation_invalid",
+    issues: [{ path: "visibleText", code: "too_big" }],
+    ...overrides
+  })
+
+  it("answers a page it cannot read with a bound typed failure", () => {
+    const { port, onMessage } = createPort()
+    attachAgentControlContentPort(port, {
+      buildObservation: () => {
+        throw new Error("Agent observations are main-frame only")
+      },
+      executeDomMutation: vi.fn(),
+      executeScroll: vi.fn()
+    })
+    onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_observe",
+      ...binding,
+      sequence: 1,
+      minimumGeneration: 0
+    })
+
+    expect(port.disconnect).not.toHaveBeenCalled()
+    expect(port.postMessage).toHaveBeenCalledWith({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_control_failed",
+      ...binding,
+      sequence: 1,
+      reason: "observation_build_failed",
+      issues: []
+    })
+  })
+
+  it("reports a rejected snapshot as paths and codes without its values", () => {
+    const { port, onMessage } = createPort()
+    const secret = "s".repeat(100_001)
+    attachAgentControlContentPort(port, {
+      buildObservation: () =>
+        observation({ visibleText: secret }) as AgentObservation,
+      executeDomMutation: vi.fn(),
+      executeScroll: vi.fn()
+    })
+    onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_observe",
+      ...binding,
+      sequence: 1,
+      minimumGeneration: 0
+    })
+
+    const [sent] = vi.mocked(port.postMessage).mock.calls[0]
+    expect(sent).toMatchObject({
+      type: "agent_control_failed",
+      reason: "observation_invalid",
+      issues: [{ path: "visibleText", code: "too_big" }]
+    })
+    expect(JSON.stringify(sent)).not.toContain("sss")
+  })
+
+  it("consumes the sequence a failure answered and keeps serving the port", () => {
+    const { port, onMessage } = createPort()
+    let readable = false
+    attachAgentControlContentPort(port, {
+      buildObservation: () => {
+        if (!readable) throw new Error("not yet")
+        return observation()
+      },
+      executeDomMutation: vi.fn(),
+      executeScroll: vi.fn()
+    })
+    onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_observe",
+      ...binding,
+      sequence: 1,
+      minimumGeneration: 0
+    })
+    readable = true
+    onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_observe",
+      ...binding,
+      sequence: 2,
+      minimumGeneration: 0
+    })
+
+    expect(port.disconnect).not.toHaveBeenCalled()
+    expect(port.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "agent_observation", sequence: 2 })
+    )
+  })
+
+  it("reports an execution that threw without closing the port", () => {
+    const { port, onMessage } = createPort()
+    attachAgentControlContentPort(port, {
+      buildObservation: () => observation(),
+      executeDomMutation: () => {
+        throw new Error("detached")
+      },
+      executeScroll: vi.fn()
+    })
+    onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_execute_dom_mutation",
+      ...binding,
+      sequence: 1,
+      instruction: mutationInstruction()
+    })
+
+    expect(port.disconnect).not.toHaveBeenCalled()
+    expect(port.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "agent_control_failed",
+        reason: "execution_failed"
+      })
+    )
+  })
+
+  it("raises a bound failure as a typed error carrying its reason", () => {
+    expect(() =>
+      validateAgentObservationResponse(failure(), binding, 1)
+    ).toThrow(AgentControlFailedError)
+    try {
+      validateAgentObservationResponse(failure(), binding, 1)
+    } catch (error) {
+      expect(error).toMatchObject({
+        reason: "observation_invalid",
+        issues: [{ path: "visibleText", code: "too_big" }]
+      })
+    }
+  })
+
+  it.each([
+    ["nonce", "fedcba9876543210"],
+    ["runId", "other-run"],
+    ["sequence", 2]
+  ])("refuses a failure that is not bound to the request (%s)", (field, value) => {
+    expect(
+      readAgentControlFailure(failure({ [field]: value }), binding, 1)
+    ).toBeUndefined()
+    expect(() =>
+      validateAgentObservationResponse(failure({ [field]: value }), binding, 1)
+    ).not.toThrow(AgentControlFailedError)
+  })
+
+  it("rejects a failure carrying more issues than the cap allows", () => {
+    expect(
+      readAgentControlFailure(
+        failure({
+          issues: Array.from({ length: 21 }, () => ({
+            path: "elements.0.editable",
+            code: "invalid_type"
+          }))
+        }),
+        binding,
+        1
+      )
+    ).toBeUndefined()
+  })
+
+  it("collects no schema evidence from an untyped error", () => {
+    expect(agentControlSchemaIssues(new Error("boom"))).toEqual([])
+  })
+
+  it("fails an observation request with the typed reason the page answered", async () => {
+    const { port, onMessage } = createPort()
+    const session = createAgentControlSession({
+      port,
+      binding,
+      sender: { tabId: 7, frameId: 0, documentId: "document-1" }
+    })
+    const observing = session.observe(0)
+    onMessage.emit(failure({ reason: "observation_build_failed", issues: [] }))
+    await expect(observing).rejects.toMatchObject({
+      name: "AgentControlFailedError",
+      reason: "observation_build_failed"
     })
   })
 })
