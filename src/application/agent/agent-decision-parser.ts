@@ -1,4 +1,8 @@
-import { AgentMalformedDecisionError } from "@ollama-client/agent-runtime"
+import {
+  AgentMalformedDecisionError,
+  agentAffordanceFeedback,
+  classifyAgentAffordance
+} from "@ollama-client/agent-runtime"
 import {
   type AgentDecision,
   AgentDecisionSchema,
@@ -9,12 +13,29 @@ import type { ToolCall } from "@/lib/tools/types"
 
 export const AGENT_DECISION_TOOL_NAME = "agent_decision"
 
+/**
+ * A rejected decision, with what the next attempt should be told.
+ *
+ * `feedback` is written for the model, so it is assembled from templates, the
+ * ref the model itself supplied and structural facts about the document. No
+ * page string reaches it: this text goes back out as part of a prompt, and a
+ * page that could write into it would be writing instructions.
+ */
 export class AgentDecisionFormatError extends AgentMalformedDecisionError {
-  constructor(message: string) {
+  readonly feedback?: string
+
+  constructor(message: string, feedback?: string) {
     super(message)
     this.name = "AgentDecisionFormatError"
+    if (feedback) this.feedback = feedback
   }
 }
+
+const SHAPE_FEEDBACK =
+  'Return exactly one agent_decision call with flat arguments, e.g. {"type":"click","ref":"e1"}.'
+
+const STALE_FEEDBACK =
+  "The page snapshot moved on. Use only the refs listed in the observation supplied with this request."
 
 const VARIANT_FIELDS: Record<string, string> = {
   command: "command",
@@ -64,7 +85,8 @@ const normalizeDecisionArguments = (
         record.generation !== observation.generation)
     )
       throw new AgentDecisionFormatError(
-        "The agent decision references a stale snapshot"
+        "The agent decision references a stale snapshot",
+        STALE_FEEDBACK
       )
     const command: Record<string, unknown> = {
       type: record.type,
@@ -94,8 +116,22 @@ const assertGroundedDecision = (
       decision.command.generation !== observation.generation)
   ) {
     throw new AgentDecisionFormatError(
-      "The agent decision references a stale snapshot"
+      "The agent decision references a stale snapshot",
+      STALE_FEEDBACK
     )
+  }
+  /**
+   * Asked here, where a wrong answer costs one retry, rather than only in the
+   * trusted resolver, where it ended the run. Both use the same classifier.
+   */
+  if (decision.type === "command") {
+    const refused = classifyAgentAffordance(decision.command, observation)
+    if (refused) {
+      throw new AgentDecisionFormatError(
+        `The agent decision was refused: ${refused.reason}`,
+        agentAffordanceFeedback(refused)
+      )
+    }
   }
   return decision
 }
@@ -107,17 +143,21 @@ export const parseAgentDecisionToolCalls = (
 ): AgentDecision => {
   if (calls.length !== 1) {
     throw new AgentDecisionFormatError(
-      `Expected one agent decision, received ${calls.length}`
+      `Expected one agent decision, received ${calls.length}`,
+      SHAPE_FEEDBACK
     )
   }
   const call = calls[0]
   if (call.name !== AGENT_DECISION_TOOL_NAME) {
-    throw new AgentDecisionFormatError("The model called an unknown agent tool")
+    throw new AgentDecisionFormatError(
+      "The model called an unknown agent tool",
+      SHAPE_FEEDBACK
+    )
   }
   const normalized = normalizeDecisionArguments(call.arguments, observation)
   const parsed = AgentDecisionSchema.safeParse(normalized)
   if (!parsed.success) {
-    /*
+    /**
      * Shape only. Which keys a model sent, and which field of the schema each
      * complaint is about, is what tells a schema mismatch apart from a model
      * that answered badly — the values are page-derived and stay out.
@@ -134,7 +174,10 @@ export const parseAgentDecisionToolCalls = (
       paths: parsed.error.issues.map((issue) => issue.path.join(".")),
       codes: parsed.error.issues.map((issue) => issue.code)
     })
-    throw new AgentDecisionFormatError("The model returned an invalid decision")
+    throw new AgentDecisionFormatError(
+      "The model returned an invalid decision",
+      SHAPE_FEEDBACK
+    )
   }
   return assertGroundedDecision(parsed.data, observation)
 }

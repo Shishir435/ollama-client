@@ -117,10 +117,17 @@ Never invent an element ref. Return flat arguments, e.g. {"type":"click","ref":"
 The extension attaches snapshot identity; do not return a nested command or opaque IDs.
 Use ask_user when the goal is ambiguous and complete only when the observed evidence supports completion.`
 
+/**
+ * A retry used to carry only a counter, which told the model that something
+ * was wrong and nothing about what: the same wrong answer came back until the
+ * budget ran out. `feedback` is the refusal in words the model can act on,
+ * built from templates and structure by the parser and never from page text.
+ */
 const decisionPrompt = (
   state: AgentRunState,
   observation: AgentObservation,
-  retry: number
+  retry: number,
+  feedback?: string
 ): string =>
   JSON.stringify({
     task: state.goal,
@@ -128,6 +135,7 @@ const decisionPrompt = (
     allowedOrigins: state.allowedOrigins,
     step: state.stepCount + 1,
     retry,
+    ...(feedback ? { previousAttemptRefused: feedback } : {}),
     observation
   })
 
@@ -149,6 +157,7 @@ const collectDecision = async (input: {
   state: AgentRunState
   observation: AgentObservation
   retry: number
+  feedback?: string
   signal: AgentCancellationSignal
 }): Promise<AgentDecision> => {
   const calls = new Map<string, ToolCall>()
@@ -162,7 +171,12 @@ const collectDecision = async (input: {
           { role: "system", content: SYSTEM_PROMPT },
           {
             role: "user",
-            content: decisionPrompt(input.state, input.observation, input.retry)
+            content: decisionPrompt(
+              input.state,
+              input.observation,
+              input.retry,
+              input.feedback
+            )
           }
         ],
         tools: [AGENT_DECISION_TOOL],
@@ -229,6 +243,7 @@ export const createProviderAgentModelPort = (
       )
       const provider = await resolveProvider(state.modelId, state.providerId)
       assertProviderEnabled(provider, state.modelId)
+      let feedback: string | undefined
       for (let retry = 0; retry <= MAX_RETRIES_PER_DECISION; retry += 1) {
         if (signal.aborted) throw new Error("Agent model request cancelled")
         try {
@@ -237,10 +252,12 @@ export const createProviderAgentModelPort = (
             state,
             observation,
             retry,
+            ...(feedback ? { feedback } : {}),
             signal
           })
         } catch (error) {
           if (!(error instanceof AgentDecisionFormatError)) throw error
+          feedback = error.feedback
           const malformed = (malformedByRun.get(state.id) ?? 0) + 1
           malformedByRun.set(state.id, malformed)
           if (

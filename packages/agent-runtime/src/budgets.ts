@@ -53,81 +53,50 @@ export const resumeAgentDeadlines = (
   })
 }
 
-export interface AgentBudgetInput {
-  now: () => number
-  maxActiveMs?: number
-  maxStepMs?: number
-  maxMalformedDecisions?: number
+/**
+ * The two active-time ceilings the product promises. Wall-clock time a user
+ * spent deciding on an approval or finishing a takeover is not the run's, so
+ * both are measured against the suspension accounting in the durable deadline
+ * rather than against the clock alone.
+ */
+export const AGENT_RUN_ACTIVE_BUDGET_MS = 10 * 60_000
+export const AGENT_STEP_ACTIVE_BUDGET_MS = 60_000
+
+const activeElapsed = (
+  startedAt: number,
+  suspendedMs: number,
+  state: AgentDeadlineState,
+  now: number
+): number => {
+  const openSuspension =
+    state.suspendedAt === undefined ? 0 : Math.max(0, now - state.suspendedAt)
+  return Math.max(0, now - startedAt - suspendedMs - openSuspension)
 }
 
-export interface AgentBudgetSnapshot {
-  activeRuntimeMs: number
-  activeStepMs: number
-  malformedDecisions: number
-  runExpired: boolean
-  stepExpired: boolean
-  malformedBudgetExhausted: boolean
-}
-
-export interface AgentBudgetTracker {
-  beginStep(): void
-  suspend(kind: "approval" | "takeover"): void
-  resume(): void
-  recordMalformedDecision(): boolean
-  snapshot(): AgentBudgetSnapshot
-}
-
-export const createAgentBudgetTracker = (
-  input: AgentBudgetInput
-): AgentBudgetTracker => {
-  const maxActiveMs = input.maxActiveMs ?? 10 * 60_000
-  const maxStepMs = input.maxStepMs ?? 60_000
-  const maxMalformedDecisions = input.maxMalformedDecisions ?? 5
-  const startedAt = input.now()
-  let stepStartedAt = startedAt
-  let suspendedAt: number | undefined
-  let runSuspendedMs = 0
-  let stepSuspendedMs = 0
-  let malformedDecisions = 0
-
-  const elapsed = (start: number, suspended: number): number => {
-    const currentPause =
-      suspendedAt === undefined ? 0 : input.now() - suspendedAt
-    return Math.max(0, input.now() - start - suspended - currentPause)
+/**
+ * Which ceiling a run has passed, if either. Returned rather than thrown
+ * because the caller decides where a run may be stopped: mid-step is not one
+ * of those places, since an effect already applied has to be verified.
+ */
+export const expiredAgentDeadline = (
+  state: AgentDeadlineState,
+  now: number,
+  budgets: { runMs?: number; stepMs?: number } = {}
+): "run" | "step" | undefined => {
+  if (
+    activeElapsed(state.runStartedAt, state.runSuspendedMs, state, now) >=
+    (budgets.runMs ?? AGENT_RUN_ACTIVE_BUDGET_MS)
+  ) {
+    return "run"
   }
-
-  return {
-    beginStep() {
-      stepStartedAt = input.now()
-      stepSuspendedMs = 0
-    },
-    suspend() {
-      suspendedAt ??= input.now()
-    },
-    resume() {
-      if (suspendedAt === undefined) return
-      const duration = input.now() - suspendedAt
-      runSuspendedMs += duration
-      stepSuspendedMs += duration
-      suspendedAt = undefined
-    },
-    recordMalformedDecision() {
-      malformedDecisions += 1
-      return malformedDecisions >= maxMalformedDecisions
-    },
-    snapshot() {
-      const activeRuntimeMs = elapsed(startedAt, runSuspendedMs)
-      const activeStepMs = elapsed(stepStartedAt, stepSuspendedMs)
-      return {
-        activeRuntimeMs,
-        activeStepMs,
-        malformedDecisions,
-        runExpired: activeRuntimeMs >= maxActiveMs,
-        stepExpired: activeStepMs >= maxStepMs,
-        malformedBudgetExhausted: malformedDecisions >= maxMalformedDecisions
-      }
-    }
-  }
+  return activeElapsed(
+    state.stepStartedAt,
+    state.stepSuspendedMs,
+    state,
+    now
+  ) >= (budgets.stepMs ?? AGENT_STEP_ACTIVE_BUDGET_MS)
+    ? "step"
+    : undefined
 }
 
 export interface AgentProgressPoint {

@@ -1,3 +1,4 @@
+export * from "./affordance"
 export * from "./budgets"
 export * from "./control-failure"
 export * from "./controller"

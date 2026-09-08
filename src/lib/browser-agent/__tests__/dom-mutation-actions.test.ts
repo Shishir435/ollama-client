@@ -345,9 +345,11 @@ describe("Agent DOM mutation resolution and policy", () => {
   })
 
   it("rejects stale, unsupported, and ambiguous controls", async () => {
+    // Each refusal now names its own reason. "Stale or ambiguous" covered two
+    // unrelated answers, and the model could act on neither of them.
     await expect(
       resolve(command({ type: "click", ref: "missing" }))
-    ).rejects.toThrow("stale or ambiguous")
+    ).rejects.toThrow("not in the current observation")
     await expect(
       resolve(
         command({ type: "clear_and_type", ref: "e1", text: "x" }),
@@ -355,7 +357,7 @@ describe("Agent DOM mutation resolution and policy", () => {
           elements: [element({ tag: "div", role: "textbox", editable: true })]
         })
       )
-    ).rejects.toThrow("unsupported control")
+    ).rejects.toThrow("does not accept typed text")
     await expect(
       resolve(
         command({ type: "uncheck", ref: "e1" }),
@@ -363,7 +365,7 @@ describe("Agent DOM mutation resolution and policy", () => {
           elements: [element({ tag: "input", type: "radio", checked: true })]
         })
       )
-    ).rejects.toThrow("cannot uncheck a radio")
+    ).rejects.toThrow("cannot be unchecked")
     await expect(
       resolve(
         command({ type: "clear_and_type", ref: "e1", text: "#000000" }),
@@ -373,7 +375,7 @@ describe("Agent DOM mutation resolution and policy", () => {
           ]
         })
       )
-    ).rejects.toThrow("unsupported control")
+    ).rejects.toThrow("does not accept typed text")
   })
 
   it("classifies a reset control as form mutation", async () => {

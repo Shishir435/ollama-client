@@ -101,6 +101,7 @@ export const AgentErrorSchema = z
   .object({
     code: z.enum([
       "budget_exhausted",
+      "goal_failed",
       "invalid_decision",
       "model_unavailable",
       "observation_failed",

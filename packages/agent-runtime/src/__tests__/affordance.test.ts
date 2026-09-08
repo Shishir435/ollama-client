@@ -1,0 +1,245 @@
+import type {
+  AgentCommand,
+  AgentElement,
+  AgentObservation
+} from "@ollama-client/contracts"
+import { describe, expect, it } from "vitest"
+
+import {
+  AGENT_AFFORDANCE_REASONS,
+  AgentGroundingError,
+  agentAffordanceFeedback,
+  agentGroundingMessage,
+  classifyAgentAffordance
+} from "../affordance"
+
+const element = (overrides: Partial<AgentElement> = {}): AgentElement => ({
+  ref: "e1",
+  frameId: 0,
+  tag: "button",
+  name: "Continue",
+  visible: true,
+  enabled: true,
+  editable: false,
+  sensitive: false,
+  ...overrides
+})
+
+const observation = (elements: AgentElement[]): AgentObservation => ({
+  snapshotId: "snapshot-1",
+  generation: 1,
+  tabId: 7,
+  documentId: "document-1",
+  url: "https://example.com/",
+  origin: "https://example.com",
+  title: "Example",
+  elements,
+  visibleText: "",
+  scroll: {
+    x: 0,
+    y: 0,
+    viewportWidth: 100,
+    viewportHeight: 100,
+    documentWidth: 100,
+    documentHeight: 100
+  },
+  dialogs: [],
+  capturedAt: 1
+})
+
+const command = (overrides: Record<string, unknown>): AgentCommand =>
+  ({ snapshotId: "snapshot-1", generation: 1, ...overrides }) as AgentCommand
+
+const classify = (
+  overrides: Record<string, unknown>,
+  elements: AgentElement[] = [element()]
+) => classifyAgentAffordance(command(overrides), observation(elements))
+
+describe("classifyAgentAffordance", () => {
+  it("accepts a command its target supports", () => {
+    expect(classify({ type: "click", ref: "e1" })).toBeUndefined()
+    expect(
+      classify({ type: "check", ref: "e1" }, [
+        element({ tag: "input", type: "checkbox" })
+      ])
+    ).toBeUndefined()
+    expect(
+      classify({ type: "clear_and_type", ref: "e1", text: "Alice" }, [
+        element({ tag: "input", type: "text", editable: true })
+      ])
+    ).toBeUndefined()
+  })
+
+  it("has no opinion on a command that names no element", () => {
+    expect(classify({ type: "read" })).toBeUndefined()
+    expect(
+      classify({ type: "navigate", url: "https://example.com/next" })
+    ).toBeUndefined()
+    // Only the resolver knows whether a tab or destination is reachable.
+    expect(classify({ type: "switch_tab", tabId: 9 })).toBeUndefined()
+  })
+
+  it.each([
+    ["unknown_ref", { type: "click", ref: "e404" }, [element()]],
+    [
+      "ambiguous_ref",
+      { type: "click", ref: "e1" },
+      [element(), element({ tag: "a" })]
+    ],
+    [
+      "hidden_target",
+      { type: "click", ref: "e1" },
+      [element({ visible: false })]
+    ],
+    [
+      "disabled_target",
+      { type: "click", ref: "e1" },
+      [element({ enabled: false })]
+    ],
+    [
+      "not_text_field",
+      { type: "type", ref: "e1", text: "x" },
+      [element({ tag: "div", role: "textbox", editable: true })]
+    ],
+    [
+      "not_select",
+      { type: "select", ref: "e1", value: "a" },
+      [element({ tag: "input", type: "text", editable: true })]
+    ],
+    [
+      "option_unavailable",
+      { type: "select", ref: "e1", value: "missing" },
+      [
+        element({
+          tag: "select",
+          editable: true,
+          options: [{ value: "a", label: "A", disabled: false }]
+        })
+      ]
+    ],
+    ["not_checkable", { type: "check", ref: "e1" }, [element()]],
+    [
+      "radio_uncheck",
+      { type: "uncheck", ref: "e1" },
+      [element({ tag: "input", type: "radio" })]
+    ],
+    [
+      "not_clickable",
+      { type: "click", ref: "e1" },
+      [element({ tag: "div", role: "presentation" })]
+    ],
+    [
+      "use_check_instead",
+      { type: "click", ref: "e1" },
+      [element({ tag: "input", type: "checkbox" })]
+    ],
+    [
+      "image_submit",
+      { type: "click", ref: "e1" },
+      [element({ tag: "input", type: "image" })]
+    ],
+    [
+      "not_focused",
+      { type: "press_key", ref: "e1", key: "Enter" },
+      [element({ tag: "input", type: "text", editable: true })]
+    ]
+  ])("refuses with %s", (reason, given, elements) => {
+    expect(classify(given, elements as AgentElement[])).toMatchObject({
+      reason
+    })
+  })
+
+  it("sends a click on a checkable control to check instead of to a button", () => {
+    const refused = classify({ type: "click", ref: "e1" }, [
+      element({ tag: "input", type: "radio" })
+    ])
+    expect(refused).toMatchObject({ reason: "use_check_instead" })
+    const feedback = agentAffordanceFeedback(
+      refused ?? { reason: "not_clickable" }
+    )
+    expect(feedback).toContain("Use check or uncheck on it rather than click")
+    expect(feedback).toContain("radio button")
+  })
+
+  it("accepts a click on anything the page gave a destination", () => {
+    expect(
+      classify({ type: "click", ref: "e1" }, [
+        element({ tag: "div", href: "https://example.com/next" })
+      ])
+    ).toBeUndefined()
+  })
+
+  it("accepts typing into a redacted field it can still identify", () => {
+    expect(
+      classify({ type: "clear_and_type", ref: "e1", text: "x" }, [
+        element({
+          tag: "input",
+          type: "password",
+          editable: true,
+          sensitive: true
+        })
+      ])
+    ).toBeUndefined()
+  })
+
+  it("lets a scroll target be anything the observation still lists", () => {
+    expect(
+      classify({ type: "scroll", ref: "e1", direction: "down" }, [
+        element({ tag: "div", role: "presentation" })
+      ])
+    ).toBeUndefined()
+  })
+})
+
+describe("agentAffordanceFeedback", () => {
+  it.each(
+    AGENT_AFFORDANCE_REASONS
+  )("states what to do instead for %s", (reason) => {
+    const feedback = agentAffordanceFeedback({ reason, ref: "e1" })
+    expect(feedback).toContain('"e1"')
+    expect(feedback.endsWith(".")).toBe(true)
+  })
+
+  it("carries structure and never a page string", () => {
+    const feedback = agentAffordanceFeedback({
+      reason: "not_checkable",
+      ref: "e2",
+      tag: "button",
+      role: "menuitem",
+      inputType: "submit"
+    })
+    expect(feedback).toContain("<button>")
+    expect(feedback).toContain('role "menuitem"')
+    expect(feedback).toContain('type "submit"')
+  })
+
+  it("describes an element it has no structure for", () => {
+    expect(agentAffordanceFeedback({ reason: "not_clickable" })).toContain(
+      "That element"
+    )
+  })
+})
+
+describe("AgentGroundingError", () => {
+  it("reads as its own refusal", () => {
+    const error = new AgentGroundingError({
+      refusal: { reason: "radio_uncheck", ref: "e3" }
+    })
+    expect(error.name).toBe("AgentGroundingError")
+    expect(error.message).toContain("cannot be unchecked")
+    expect(agentGroundingMessage(error)).toBe(error.message)
+  })
+
+  it("says only what it knows for an untyped failure", () => {
+    for (const value of [new Error("boom"), undefined, "no"]) {
+      expect(agentGroundingMessage(value)).toBe(
+        "The proposed page effect could not be grounded in the observed page."
+      )
+    }
+    expect(
+      agentGroundingMessage(new AgentGroundingError({ message: "custom" }))
+    ).toBe(
+      "The proposed page effect could not be grounded in the observed page."
+    )
+  })
+})
