@@ -259,4 +259,95 @@ describe("resolved-effect policy", () => {
     }
     expect(evaluateAgentPolicy(policyInput).type).toBe("approval_required")
   })
+
+  const grant = (
+    effects: ("activation" | "form_mutation")[] = ["activation"],
+    origin = "https://example.com"
+  ) => ({ origin, effects, grantedAt: 1 })
+
+  it("offers widening only for what may be widened", () => {
+    const offered = evaluateAgentPolicy(input(effect(["activation"])))
+    expect(offered).toMatchObject({
+      type: "approval_required",
+      request: { origin: "https://example.com", grantable: ["activation"] }
+    })
+
+    // Critical arrives with no offer attached, so the panel cannot render one.
+    const critical = evaluateAgentPolicy(input(effect(["submission"])))
+    expect(critical).toMatchObject({ type: "approval_required" })
+    if (critical.type === "approval_required") {
+      expect(critical.request.grantable).toBeUndefined()
+      expect(critical.request.origin).toBeUndefined()
+    }
+  })
+
+  it("allows a granted class on the granted origin", () => {
+    expect(
+      evaluateAgentPolicy(input(effect(["activation"]), { grants: [grant()] }))
+    ).toEqual({
+      type: "granted",
+      risk: "high",
+      origin: "https://example.com"
+    })
+  })
+
+  it("still asks for a class the grant does not name", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(effect(["form_mutation"]), { grants: [grant(["activation"])] })
+      ).type
+    ).toBe("approval_required")
+  })
+
+  it("never lets a grant cover a critical effect", () => {
+    // Submission, destruction, payment, authentication and sensitive input
+    // are the prompts that have to keep meaning something.
+    for (const critical of ["submission", "destructive", "payment"] as const) {
+      expect(
+        evaluateAgentPolicy(
+          input(effect(["activation", critical]), {
+            grants: [grant(["activation", "form_mutation"])]
+          })
+        ).type
+      ).not.toBe("granted")
+    }
+  })
+
+  it("never lets a grant cover another origin", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(effect(["activation"]), {
+          grants: [grant(["activation"], "https://other.example")]
+        })
+      ).type
+    ).toBe("approval_required")
+  })
+
+  it("never lets a grant cover a destination leaving its origin", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(
+          effect(["activation"], {
+            destination: {
+              url: "https://other.example/next",
+              origin: "https://other.example",
+              source: "observed"
+            }
+          }),
+          { grants: [grant()] }
+        ).valueOf() as AgentPolicyInput
+      ).type
+    ).toBe("approval_required")
+  })
+
+  it("never lets a grant cover an origin the run is not allowed on", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(effect(["activation"]), {
+          allowedOrigins: [],
+          grants: [grant()]
+        })
+      ).type
+    ).not.toBe("granted")
+  })
 })

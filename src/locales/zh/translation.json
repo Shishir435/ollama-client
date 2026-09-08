@@ -1,7 +1,11 @@
 {
   "agent": {
     "title": "监督式智能体",
-    "surface": { "chat": "聊天", "agent": "智能体", "preview": "预览" },
+    "surface": {
+      "chat": "聊天",
+      "agent": "智能体",
+      "preview": "预览"
+    },
     "start": {
       "description": "在此面板中监督浏览器任务。",
       "goal": "希望智能体做什么？",
@@ -17,7 +21,10 @@
     "model": {
       "label": "模型"
     },
-    "tab": { "label": "受控标签页", "missing": "请打开受支持的网页" },
+    "tab": {
+      "label": "受控标签页",
+      "missing": "请打开受支持的网页"
+    },
     "privacy": {
       "remote_notice": "智能体运行期间，页面观察内容将持续发送给此远程提供商。",
       "acknowledge": "我已了解"
@@ -30,10 +37,19 @@
       "stop": "停止",
       "takeover_done": "我已完成 — 继续"
     },
-    "approval": { "title": "需要批准", "allow": "允许一次", "reject": "拒绝" },
-    "takeover": { "title": "接管此步骤" },
+    "approval": {
+      "title": "需要批准",
+      "allow": "允许一次",
+      "reject": "拒绝",
+      "allowForRun": "本次运行始终允许在 {{origin}} 上执行此类操作"
+    },
+    "takeover": {
+      "title": "接管此步骤"
+    },
     "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
-    "work_log": { "title": "工作日志" },
+    "work_log": {
+      "title": "工作日志"
+    },
     "completion": {
       "summary": "本次运行中有 {{count}} 次页面观察发送给 {{provider}}。"
     },
@@ -69,6 +85,12 @@
       "tab_unsupported": "Agent 无法在此页面运行。请打开普通网页后重试。",
       "unreadable_update": "面板收到了无法读取的更新。",
       "unknown": "Agent 无法完成该请求。"
+    },
+    "question": {
+      "title": "Agent 需要答复",
+      "inputLabel": "你的答复",
+      "placeholder": "输入你的答复",
+      "send": "发送答复"
     }
   },
   "common": {

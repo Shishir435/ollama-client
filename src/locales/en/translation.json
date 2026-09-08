@@ -1,7 +1,11 @@
 {
   "agent": {
     "title": "Supervised Agent",
-    "surface": { "chat": "Chat", "agent": "Agent", "preview": "Preview" },
+    "surface": {
+      "chat": "Chat",
+      "agent": "Agent",
+      "preview": "Preview"
+    },
     "start": {
       "description": "Supervise a browser task from this panel.",
       "goal": "What should Agent do?",
@@ -36,11 +40,16 @@
     "approval": {
       "title": "Approval required",
       "allow": "Allow once",
-      "reject": "Reject"
+      "reject": "Reject",
+      "allowForRun": "Always allow this kind of action on {{origin}} for this run"
     },
-    "takeover": { "title": "Take over this step" },
+    "takeover": {
+      "title": "Take over this step"
+    },
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
-    "work_log": { "title": "Work log" },
+    "work_log": {
+      "title": "Work log"
+    },
     "completion": {
       "summary": "{{count}} page observations were sent to {{provider}} during this run."
     },
@@ -76,6 +85,12 @@
       "tab_unsupported": "Agent cannot run on this page. Open a normal web page and try again.",
       "unreadable_update": "The panel received an update it could not read.",
       "unknown": "Agent could not complete that request."
+    },
+    "question": {
+      "title": "Agent needs an answer",
+      "inputLabel": "Your answer",
+      "placeholder": "Type your answer",
+      "send": "Send answer"
     }
   },
   "common": {

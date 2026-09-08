@@ -210,8 +210,11 @@ const budgets: Budget[] = [
      *
      * The model-visible projection, the modal and grouping reporting, and the
      * document-text collection took the measured Chrome baseline to 229,855.
+     *
+     * Run-scoped grants and the durable question channel — contracts, the
+     * policy grant path, the two panel cards — took it to 231,180.
      */
-    max: isFirefox ? 210_000 : 230_500
+    max: isFirefox ? 210_000 : 232_000
   }
 ]
 

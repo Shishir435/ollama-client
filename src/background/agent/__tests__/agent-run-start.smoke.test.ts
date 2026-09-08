@@ -104,7 +104,9 @@ const startService = (
       requestPause: vi.fn(async () => undefined),
       resume: vi.fn(async () => undefined),
       requestCancel: vi.fn(async () => undefined),
-      completeTakeover: vi.fn(async () => undefined)
+      completeTakeover: vi.fn(async () => undefined),
+      answerQuestion: vi.fn(async () => undefined),
+      grant: vi.fn(async () => undefined)
     }),
     hasPerception: async () => true,
     getTab: async () => ({ url: "https://example.com/start" }),
@@ -258,7 +260,9 @@ describe("starting an Agent run against the real engine", () => {
         requestPause: vi.fn(async () => undefined),
         resume: vi.fn(async () => undefined),
         requestCancel: vi.fn(async () => undefined),
-        completeTakeover: vi.fn(async () => undefined)
+        completeTakeover: vi.fn(async () => undefined),
+        answerQuestion: vi.fn(async () => undefined),
+        grant: vi.fn(async () => undefined)
       }
       const service = createAgentRunService({
         sessions: {

@@ -3,6 +3,7 @@ import type {
   AgentCommand,
   AgentDecision,
   AgentError,
+  AgentGrant,
   AgentObservation,
   AgentPauseReason,
   AgentRunState,
@@ -102,6 +103,13 @@ export interface AuthorizedAgentEffect extends ResolvedAgentEffect {
         approvalId: string
         authorizedAt: number
       }
+    /** Covered by a grant the user gave earlier in this run, for this origin. */
+    | {
+        type: "grant"
+        risk: AgentRisk
+        origin: string
+        authorizedAt: number
+      }
 }
 
 export interface AgentExecutionReceipt {
@@ -136,6 +144,8 @@ export type AgentPolicyBlockReason =
 
 export type AgentPolicyDecision =
   | { type: "allow"; risk: AgentRisk }
+  /** Allowed only because a grant covers it, which the receipt records. */
+  | { type: "granted"; risk: AgentRisk; origin: string }
   | {
       type: "approval_required"
       risk: AgentRisk
@@ -153,10 +163,23 @@ export interface AgentPolicyInput {
   stepId: string
   effect: ResolvedAgentEffect
   allowedOrigins: readonly string[]
+  /** What the user pre-authorized for this run, if anything. */
+  grants?: readonly AgentGrant[]
   now: number
 }
 
-export type AgentApprovalDecision = { type: "approved" } | { type: "rejected" }
+export type AgentApprovalDecision =
+  | {
+      type: "approved"
+      /**
+       * `run_origin` widens the approval to the classes the request itself
+       * offered, on the origin it named, for the rest of the run. Anything
+       * else the request did not offer is ignored: what may be widened is
+       * policy's answer, not the panel's.
+       */
+      scope?: "once" | "run_origin"
+    }
+  | { type: "rejected" }
 
 export type AgentTakeoverDecision =
   | { type: "takeover_started" }
@@ -177,11 +200,14 @@ export type AgentStatePatch = Partial<
   Pick<
     AgentRunState,
     | "allowedOrigins"
+    | "answers"
     | "deadline"
     | "controlledTabId"
     | "error"
+    | "grants"
     | "observationCount"
     | "pauseReason"
+    | "question"
     | "result"
     | "stepCount"
     | "updatedAt"
@@ -361,6 +387,16 @@ export interface AgentController {
   resume(runId: string): Promise<void>
   requestCancel(runId: string): Promise<void>
   completeTakeover(runId: string): Promise<void>
+  /**
+   * Records the user's answer to the run's open question and resumes it. The
+   * question id is named so a click on a stale panel cannot answer whatever
+   * question replaced the one it showed.
+   */
+  answerQuestion(input: {
+    runId: string
+    questionId: string
+    text: string
+  }): Promise<void>
 }
 
 export interface AgentControllerDependencies {

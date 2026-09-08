@@ -3,7 +3,8 @@ import {
   AgentApprovalRequestSchema,
   AgentRunStateSchema,
   AgentStepStatusSchema,
-  AgentTakeoverRequestSchema
+  AgentTakeoverRequestSchema,
+  MAX_AGENT_ANSWER_CHARS
 } from "./agent"
 import { AgentCommandSchema } from "./agent-command"
 
@@ -130,10 +131,22 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
   RunScopedSchema.extend({
     type: z.literal("agent_complete_takeover")
   }).strict(),
-  AnswerSchema.extend({ type: z.literal("agent_approve") }).strict(),
+  AnswerSchema.extend({
+    type: z.literal("agent_approve"),
+    /**
+     * `run_origin` pre-authorizes the same class of effect on the same origin
+     * for the rest of this run. Absent means this step only, which is what an
+     * older panel sends and what every critical effect gets regardless.
+     */
+    scope: z.enum(["once", "run_origin"]).optional()
+  }).strict(),
   AnswerSchema.extend({ type: z.literal("agent_reject") }).strict(),
   AnswerSchema.extend({ type: z.literal("agent_takeover_started") }).strict(),
   AnswerSchema.extend({ type: z.literal("agent_takeover_cancelled") }).strict(),
+  AnswerSchema.extend({
+    type: z.literal("agent_answer"),
+    text: z.string().min(1).max(MAX_AGENT_ANSWER_CHARS)
+  }).strict(),
   z.object({ type: z.literal("agent_refresh") }).strict()
 ])
 export type AgentPanelCommand = z.infer<typeof AgentPanelCommandSchema>

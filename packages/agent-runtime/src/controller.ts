@@ -1,12 +1,16 @@
 import {
   type AgentDecision,
   AgentDecisionSchema,
+  type AgentGrantableEffect,
   type AgentObservation,
   AgentObservationSchema,
   type AgentPauseReason,
   type AgentRunState,
   type AgentRunStatus,
-  MAX_AGENT_ALLOWED_ORIGINS
+  MAX_AGENT_ALLOWED_ORIGINS,
+  MAX_AGENT_ANSWER_CHARS,
+  MAX_AGENT_ANSWERS,
+  MAX_AGENT_GRANTS
 } from "@ollama-client/contracts"
 import {
   type AgentProgressPoint,
@@ -139,39 +143,26 @@ export const createAgentController = (
 
   const pause = async (
     state: AgentRunState,
-    reason: AgentPauseReason
+    reason: AgentPauseReason,
+    extra: AgentStatePatch = {}
   ): Promise<AgentRunState | undefined> => {
+    const paused = () => ({
+      ...pausePatch(reason, dependencies.clock.now()),
+      ...extra
+    })
     if (state.status === "paused") return state
     if (state.status === "pause_requested") {
-      return transition(
-        state,
-        "paused",
-        pausePatch(reason, dependencies.clock.now())
-      )
+      return transition(state, "paused", paused())
     }
     if (
       (AGENT_STATUS_PREDECESSORS.paused as readonly AgentRunStatus[]).includes(
         state.status
       )
     ) {
-      return transition(
-        state,
-        "paused",
-        pausePatch(reason, dependencies.clock.now())
-      )
+      return transition(state, "paused", paused())
     }
-    const requested = await transition(
-      state,
-      "pause_requested",
-      pausePatch(reason, dependencies.clock.now())
-    )
-    return requested
-      ? transition(
-          requested,
-          "paused",
-          pausePatch(reason, dependencies.clock.now())
-        )
-      : undefined
+    const requested = await transition(state, "pause_requested", paused())
+    return requested ? transition(requested, "paused", paused()) : undefined
   }
 
   /**
@@ -208,17 +199,34 @@ export const createAgentController = (
     })
   }
 
+  /** Merged rather than appended, so re-granting an origin cannot grow the list. */
+  const grantsWith = (
+    state: AgentRunState,
+    origin: string,
+    effects: readonly AgentGrantableEffect[]
+  ): AgentRunState["grants"] => {
+    const existing = state.grants?.find((grant) => grant.origin === origin)
+    const merged = [
+      ...new Set([...(existing?.effects ?? []), ...effects])
+    ] as AgentGrantableEffect[]
+    return [
+      ...(state.grants ?? []).filter((grant) => grant.origin !== origin),
+      { origin, effects: merged, grantedAt: dependencies.clock.now() }
+    ].slice(-MAX_AGENT_GRANTS)
+  }
+
   const authorize = async (
     state: AgentRunState,
     decision: Extract<
       AgentPolicyDecision,
-      { type: "allow" | "approval_required" }
+      { type: "allow" | "granted" | "approval_required" }
     >,
     signal: AgentCancellationController["signal"]
   ): Promise<
     | {
         state: AgentRunState
         authorization: AuthorizedAgentEffect["authorization"]
+        grants?: AgentRunState["grants"]
       }
     | undefined
   > => {
@@ -247,13 +255,47 @@ export const createAgentController = (
       }
     }
 
+    /**
+     * Recorded as a grant rather than as policy, because a step the user
+     * pre-authorized and a step policy never questioned are different facts
+     * and the work log has to be able to say which happened.
+     */
+    if (decision.type === "granted") {
+      return {
+        state: checkpoint,
+        authorization: {
+          type: "grant",
+          risk: decision.risk,
+          origin: decision.origin,
+          authorizedAt: dependencies.clock.now()
+        }
+      }
+    }
+
     const answer = await dependencies.approval.request(decision.request, signal)
     if (answer.type !== "approved") {
       await pause(checkpoint, "user")
       return undefined
     }
+    /**
+     * Written on the transition the approval already causes, because the run
+     * has no status-preserving write and inventing one to record a
+     * convenience would put a second way to move a run outside the state
+     * machine. Only what the request offered can be granted.
+     */
+    const grants =
+      answer.scope === "run_origin" &&
+      decision.request.origin &&
+      decision.request.grantable?.length
+        ? grantsWith(
+            checkpoint,
+            decision.request.origin,
+            decision.request.grantable
+          )
+        : undefined
     return {
       state: checkpoint,
+      ...(grants ? { grants } : {}),
       authorization: {
         type: "approval",
         risk: decision.risk,
@@ -409,9 +451,10 @@ export const createAgentController = (
         state: AgentRunState
         policy: Extract<
           AgentPolicyDecision,
-          { type: "allow" | "approval_required" }
+          { type: "allow" | "granted" | "approval_required" }
         >
         authorization: AuthorizedAgentEffect["authorization"]
+        grants?: AgentRunState["grants"]
       }
     | undefined
   > => {
@@ -420,6 +463,7 @@ export const createAgentController = (
       stepId,
       effect,
       allowedOrigins: state.allowedOrigins,
+      ...(state.grants?.length ? { grants: state.grants } : {}),
       now: dependencies.clock.now()
     })
     if (policy.type === "blocked") {
@@ -507,11 +551,12 @@ export const createAgentController = (
     authorization: AuthorizedAgentEffect["authorization"],
     policy: Extract<
       AgentPolicyDecision,
-      { type: "allow" | "approval_required" }
+      { type: "allow" | "granted" | "approval_required" }
     >,
     stepId: string,
     stepNumber: number,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    grants?: AgentRunState["grants"]
   ): Promise<AgentRunState | undefined> => {
     await dependencies.persistence.appendStep({
       runId: state.id,
@@ -528,6 +573,7 @@ export const createAgentController = (
         dependencies.clock.now()
       ),
       ...allowedOriginsPatch(state, effect, authorization),
+      ...(grants ? { grants } : {}),
       stepCount: stepNumber,
       updatedAt: dependencies.clock.now()
     })
@@ -646,7 +692,8 @@ export const createAgentController = (
       authorized.policy,
       stepId,
       stepNumber,
-      signal
+      signal,
+      authorized.grants
     )
   }
 
@@ -669,7 +716,18 @@ export const createAgentController = (
       return undefined
     }
     if (decision.type === "ask_user") {
-      await pause(state, "user")
+      /**
+       * Recorded, not merely paused. `ask_user` used to pause with reason
+       * `user`, which is indistinguishable from the user pausing the run: the
+       * question went nowhere and nothing could answer it.
+       */
+      await pause(state, "question", {
+        question: {
+          id: `${state.id}:q${(state.answers?.length ?? 0) + 1}`,
+          text: decision.question,
+          askedAt: dependencies.clock.now()
+        }
+      })
       return undefined
     }
     return processCommand(state, decision, observation, signal)
@@ -797,12 +855,13 @@ export const createAgentController = (
   const runLoop = async (
     initialState: AgentRunState,
     controller: AgentCancellationController,
-    afterTakeover = false
+    afterTakeover = false,
+    resumedIntoObserving = false
   ): Promise<void> => {
     let state = initialState
     // A confirmed step already claimed the next observing phase, durably, in
     // the write that closed it; re-claiming it here would lose that CAS.
-    let observingClaimed = false
+    let observingClaimed = resumedIntoObserving
     // Only the first iteration may enter from a resumed or recovered status;
     // later ones come from the step they just closed, so a pause that raced
     // that step cannot be claimed back into observation.
@@ -851,7 +910,17 @@ export const createAgentController = (
     }
   }
 
-  const run = async (runId: string, afterTakeover = false): Promise<void> => {
+  const run = async (
+    runId: string,
+    afterTakeover = false,
+    /**
+     * Set when the caller already claimed the observation phase in the same
+     * write that resumed the run — an answered question does, because a
+     * paused run has no status-preserving write and the answer had to ride
+     * the transition that resumed it.
+     */
+    observingClaimed = false
+  ): Promise<void> => {
     if (active.has(runId)) return
 
     const controller = createCancellationController()
@@ -861,7 +930,7 @@ export const createAgentController = (
       if (!state || isTerminalAgentStatus(state.status)) return
       if (state.pauseReason === "unresolved_effect") return
       if (state.status === "awaiting_takeover" && !afterTakeover) return
-      await runLoop(state, controller, afterTakeover)
+      await runLoop(state, controller, afterTakeover, observingClaimed)
     } finally {
       if (active.get(runId) === controller) active.delete(runId)
     }
@@ -913,6 +982,38 @@ export const createAgentController = (
     start: (runId) => run(runId),
     requestPause,
     resume: (runId) => run(runId),
+    async answerQuestion({ runId, questionId, text }) {
+      const state = await dependencies.persistence.load(runId)
+      if (
+        !state ||
+        state.status !== "paused" ||
+        state.pauseReason !== "question" ||
+        state.question?.id !== questionId
+      ) {
+        return
+      }
+      const answers = [
+        ...(state.answers ?? []),
+        {
+          questionId,
+          text: text.slice(0, MAX_AGENT_ANSWER_CHARS),
+          answeredAt: dependencies.clock.now()
+        }
+      ].slice(-MAX_AGENT_ANSWERS)
+      /**
+       * Recorded on the transition that resumes the run, because a paused run
+       * has no status-preserving write. Answer and resumption are therefore
+       * one commit: a worker lost between them cannot leave an answered
+       * question still waiting for its answer.
+       */
+      const recorded = await transition(state, "observing", {
+        answers,
+        question: undefined,
+        updatedAt: dependencies.clock.now()
+      })
+      if (!recorded) return
+      await run(recorded.id, false, true)
+    },
     requestCancel,
     completeTakeover
   }

@@ -35,6 +35,7 @@ const service = (
   completeTakeover: vi.fn(async () => undefined),
   answerApproval: vi.fn(() => true),
   answerTakeover: vi.fn(() => true),
+  answerQuestion: vi.fn(async () => undefined),
   snapshot: vi.fn(async () => ({ steps: [] })),
   activeRunId: vi.fn(() => undefined),
   latestRunId: vi.fn(async () => undefined),
