@@ -30,7 +30,7 @@ export const DEFAULTS = {
     "moz-extension://*",
     "safari-web-extension://*"
   ],
-  /*
+  /**
    * A caller's own deadline is shorter than this: the extension abandons an
    * agent decision after two minutes. Thirty minutes therefore only bought a
    * slot that outlived every client that could hold it. Five aligns with the
