@@ -487,9 +487,40 @@ describe("Agent observation builder", () => {
     ])
   })
 
-  it("bounds how many candidates one pass resolves", () => {
-    expect(AGENT_OBSERVATION_LIMITS.candidates).toBeGreaterThan(
-      AGENT_OBSERVATION_LIMITS.elements
+  it("surfaces a visible control behind more hidden ones than any cap", () => {
+    // A positional bound on the scan is the starvation defect one page-size
+    // later, so the control is placed past every plausible cutoff.
+    const buried = 20_100
+    const parts: string[] = []
+    for (let index = 0; index < buried; index += 1)
+      parts.push(`<input type="hidden" name="token-${index}">`)
+    parts.push("<button>Continue</button>")
+    document.body.innerHTML = parts.join("")
+
+    const elements = build().elements
+    expect(elements).toHaveLength(AGENT_OBSERVATION_LIMITS.elements)
+    expect(
+      elements
+        .filter((element) => element.visible)
+        .map((element) => element.name)
+    ).toEqual(["Continue"])
+  })
+
+  it("stops scanning once the visible budget is full", () => {
+    for (
+      let index = 0;
+      index < AGENT_OBSERVATION_LIMITS.elements + 50;
+      index += 1
+    ) {
+      const button = document.createElement("button")
+      button.textContent = `Act ${index}`
+      document.body.append(button)
+    }
+    const elements = build().elements
+    expect(elements).toHaveLength(AGENT_OBSERVATION_LIMITS.elements)
+    expect(elements.every((element) => element.visible)).toBe(true)
+    expect(elements.at(-1)?.name).toBe(
+      `Act ${AGENT_OBSERVATION_LIMITS.elements - 1}`
     )
   })
 })

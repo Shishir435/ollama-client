@@ -9,7 +9,6 @@ import type { AgentElementReferenceStore } from "./element-references"
 
 export const AGENT_OBSERVATION_LIMITS = {
   elements: 2_000,
-  candidates: 20_000,
   visibleTextChars: 100_000,
   titleChars: 500,
   elementNameChars: 500,
@@ -229,8 +228,14 @@ const resolveVisibility = (
   ) {
     return false
   }
-  if (isChainHidden(element, pass)) return false
 
+  /*
+   * Visibility is a conjunction of independent predicates, so their order is
+   * free — and the element's own box is the cheapest of them. Anything with no
+   * box, or none inside the viewport, is answered here without resolving a
+   * single computed style, which is what makes scanning a document full of
+   * unrendered candidates affordable.
+   */
   const view = element.ownerDocument.defaultView
   const viewport = {
     bottom: view?.innerHeight ?? 0,
@@ -243,6 +248,7 @@ const resolveVisibility = (
     .map((rect) => intersectBounds(rect, viewport))
     .filter((rect): rect is VisibleBounds => Boolean(rect))
   if (visibleBounds.length === 0) return false
+  if (isChainHidden(element, pass)) return false
 
   for (
     let current = composedParent(element);
@@ -630,43 +636,44 @@ export const buildAgentElementObservation = (
   buildElementObservation(element, ref, verificationId, createObservationPass())
 
 /**
- * The element cap exists to bound what crosses the port, but applying it to
- * document order let a page starve the observation: thousands of hidden
- * controls ahead of the one visible button filled the budget with rows that
- * carry no name, value or destination, and the run then had nothing to act
- * on. Selection is therefore by visibility first — every visible candidate
- * that fits, then hidden candidates for whatever budget remains — while the
- * result stays in document order, because order is how the model reads
- * structure and how references are numbered.
+ * The element cap bounds what crosses the port, but it must never be spent in
+ * document order: a page with thousands of hidden controls ahead of the one
+ * visible button filled the whole budget with rows carrying no name, value or
+ * destination, and the run had nothing left to act on.
  *
- * Candidates themselves are bounded too: resolving visibility for a document
- * with more interactive elements than any page plausibly needs would only
- * move the cost from the port to the pass.
+ * Bounding the *scan* positionally is the same defect one page-size later, so
+ * every candidate the selector matches is resolved, in document order, until
+ * the visible budget is full — nothing after that point could enter the set
+ * anyway. Hidden candidates are retained only up to the budget they could ever
+ * claim, the surplus is dropped from the end, and the result stays in document
+ * order, because order is how the model reads structure and how references are
+ * numbered.
  */
 const selectObservedCandidates = (
   document: Document,
   pass: AgentObservationPass
 ): Element[] => {
-  const candidates = Array.from(
-    document.querySelectorAll(INTERACTIVE_SELECTOR)
-  ).slice(0, AGENT_OBSERVATION_LIMITS.candidates)
-  if (candidates.length <= AGENT_OBSERVATION_LIMITS.elements) return candidates
-
-  const visibility = candidates.map((element) => isVisible(element, pass))
   const budget = AGENT_OBSERVATION_LIMITS.elements
-  const visibleBudget = Math.min(visibility.filter(Boolean).length, budget)
-  let visibleTaken = 0
-  let hiddenTaken = 0
-  return candidates.filter((_element, index) => {
-    if (visibility[index]) {
-      if (visibleTaken >= visibleBudget) return false
-      visibleTaken += 1
-      return true
+  const selected: Element[] = []
+  const hiddenPositions: number[] = []
+  let visibleCount = 0
+
+  for (const candidate of document.querySelectorAll(INTERACTIVE_SELECTOR)) {
+    if (isVisible(candidate, pass)) {
+      selected.push(candidate)
+      visibleCount += 1
+      if (visibleCount >= budget) break
+      continue
     }
-    if (hiddenTaken >= budget - visibleBudget) return false
-    hiddenTaken += 1
-    return true
-  })
+    if (hiddenPositions.length >= budget) continue
+    hiddenPositions.push(selected.length)
+    selected.push(candidate)
+  }
+
+  const hiddenBudget = budget - visibleCount
+  if (hiddenPositions.length <= hiddenBudget) return selected
+  const surplus = new Set(hiddenPositions.slice(Math.max(0, hiddenBudget)))
+  return selected.filter((_element, index) => !surplus.has(index))
 }
 
 export const buildAgentObservation = (input: {
