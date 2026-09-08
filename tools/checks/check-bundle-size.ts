@@ -186,7 +186,7 @@ const budgets: Budget[] = [
   {
     metric: "background",
     field: "gzipBytes",
-    /*
+    /**
      * Generated-image responses plus embedding route validation,
      * cancellation, cache safeguards, retry metadata, native web-search
      * routing, Agent recovery/composition, and the complexity-helper split
@@ -198,8 +198,13 @@ const budgets: Budget[] = [
      * bundle, and wiring them raised the measured Chrome baseline from
      * 205,819 to 223,794. Firefox carries no Agent code and stays at its
      * measured 204,177.
+     *
+     * The shared affordance classifier, the vocabularies that keep page text
+     * out of its feedback, and the resolution-failure mapping raised the
+     * measured Chrome baseline to 227,848: every refusal the model can be
+     * corrected on is a sentence that ships. Firefox is unchanged.
      */
-    max: isFirefox ? 210_000 : 226_000
+    max: isFirefox ? 210_000 : 228_000
   }
 ]
 

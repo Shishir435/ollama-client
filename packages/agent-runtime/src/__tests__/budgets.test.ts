@@ -1,8 +1,11 @@
 import type { AgentDecision } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
+  AGENT_RUN_ACTIVE_BUDGET_MS,
+  AGENT_STEP_ACTIVE_BUDGET_MS,
+  beginAgentStepDeadline,
   classifyNoProgress,
-  createAgentBudgetTracker,
+  expiredAgentDeadline,
   initialAgentDeadlineState,
   resumeAgentDeadlines,
   suspendAgentDeadlines
@@ -35,55 +38,60 @@ describe("agent budgets", () => {
     expect(resumed).not.toHaveProperty("suspensionKind")
   })
   it("counts active runtime", () => {
-    let now = 0
-    const tracker = createAgentBudgetTracker({ now: () => now })
-    now = 1_500
-    expect(tracker.snapshot().activeRuntimeMs).toBe(1_500)
+    expect(
+      expiredAgentDeadline(initialAgentDeadlineState(0), 1_500, {
+        runMs: 1_000
+      })
+    ).toBe("run")
+    expect(
+      expiredAgentDeadline(initialAgentDeadlineState(0), 500, { runMs: 1_000 })
+    ).toBeUndefined()
   })
 
-  it("suspends the run deadline during approval", () => {
-    let now = 0
-    const tracker = createAgentBudgetTracker({ now: () => now })
-    now = 100
-    tracker.suspend("approval")
-    now = 1_100
-    expect(tracker.snapshot().activeRuntimeMs).toBe(100)
+  it("does not charge the run for an open approval wait", () => {
+    const suspended = suspendAgentDeadlines(
+      initialAgentDeadlineState(0),
+      "approval",
+      100
+    )
+    // Ten seconds of wall clock, a tenth of a second of the run's own time.
+    expect(
+      expiredAgentDeadline(suspended, 10_100, { runMs: 1_000 })
+    ).toBeUndefined()
   })
 
-  it("suspends the per-step deadline during approval", () => {
-    let now = 0
-    const tracker = createAgentBudgetTracker({ now: () => now })
-    tracker.beginStep()
-    now = 100
-    tracker.suspend("approval")
-    now = 1_100
-    expect(tracker.snapshot().activeStepMs).toBe(100)
+  it("does not charge the step for a takeover that outlasted it", () => {
+    const suspended = suspendAgentDeadlines(
+      initialAgentDeadlineState(0),
+      "takeover",
+      50
+    )
+    expect(
+      expiredAgentDeadline(suspended, 60_050, { stepMs: 1_000 })
+    ).toBeUndefined()
   })
 
-  it("suspends both deadlines during takeover", () => {
-    let now = 0
-    const tracker = createAgentBudgetTracker({ now: () => now })
-    now = 50
-    tracker.suspend("takeover")
-    now = 1_050
-    expect(tracker.snapshot()).toMatchObject({
-      activeRuntimeMs: 50,
-      activeStepMs: 50
-    })
+  it("charges the run again once the wait is resumed", () => {
+    const resumed = resumeAgentDeadlines(
+      suspendAgentDeadlines(initialAgentDeadlineState(0), "approval", 100),
+      1_100
+    )
+    expect(
+      expiredAgentDeadline(resumed, 1_300, { runMs: 1_000 })
+    ).toBeUndefined()
+    expect(expiredAgentDeadline(resumed, 2_200, { runMs: 1_000 })).toBe("run")
   })
 
-  it("resumes both deadlines after the wait state", () => {
-    let now = 0
-    const tracker = createAgentBudgetTracker({ now: () => now })
-    now = 100
-    tracker.suspend("approval")
-    now = 1_100
-    tracker.resume()
-    now = 1_300
-    expect(tracker.snapshot()).toMatchObject({
-      activeRuntimeMs: 300,
-      activeStepMs: 300
-    })
+  it("expires a step without expiring the run that carries it", () => {
+    const state = beginAgentStepDeadline(initialAgentDeadlineState(0), 1_000)
+    expect(
+      expiredAgentDeadline(state, 1_400, { runMs: 10_000, stepMs: 300 })
+    ).toBe("step")
+  })
+
+  it("states the ceilings the product promises", () => {
+    expect(AGENT_RUN_ACTIVE_BUDGET_MS).toBe(600_000)
+    expect(AGENT_STEP_ACTIVE_BUDGET_MS).toBe(60_000)
   })
 
   it("exempts wait from no-progress", () => {
@@ -160,15 +168,5 @@ describe("agent budgets", () => {
         previousCount: 0
       })
     ).toEqual({ noProgress: true, count: 1 })
-  })
-
-  it("fails visibly after the malformed-response budget", () => {
-    const tracker = createAgentBudgetTracker({
-      now: () => 0,
-      maxMalformedDecisions: 2
-    })
-    expect(tracker.recordMalformedDecision()).toBe(false)
-    expect(tracker.recordMalformedDecision()).toBe(true)
-    expect(tracker.snapshot().malformedBudgetExhausted).toBe(true)
   })
 })

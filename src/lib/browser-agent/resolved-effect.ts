@@ -1,8 +1,12 @@
-import type {
-  AgentDestination,
-  AgentSemanticEffect,
-  ResolvedAgentEffect,
-  ResolvedAgentTarget
+import {
+  type AgentDestination,
+  AgentGroundingError,
+  type AgentSemanticEffect,
+  AgentStaleObservationError,
+  AgentUnreadablePageError,
+  classifyAgentAffordance,
+  type ResolvedAgentEffect,
+  type ResolvedAgentTarget
 } from "@ollama-client/agent-runtime"
 import type {
   AgentCommand,
@@ -53,7 +57,8 @@ const targetFromObservation = (
   const element = observation.elements.find(
     (candidate) => candidate.ref === command.ref && candidate.frameId === 0
   )
-  if (!element) throw new Error("Agent scroll target is stale")
+  if (!element)
+    throw new AgentStaleObservationError("Agent scroll target is stale")
   return {
     ref: element.ref,
     tag: element.tag,
@@ -78,14 +83,18 @@ const assertLiveObservation = async (
     command.snapshotId !== observation.snapshotId ||
     command.generation !== observation.generation
   ) {
-    throw new Error("Agent command references a stale observation")
+    throw new AgentStaleObservationError(
+      "Agent command references a stale observation"
+    )
   }
   const source = destination(observation.url)
   if (
     source.origin !== observation.origin ||
     (await adapter.classifyAccess(source.url)) !== "ok"
   ) {
-    throw new Error("Agent observation is no longer readable")
+    throw new AgentUnreadablePageError(
+      "Agent observation is no longer readable"
+    )
   }
   return source
 }
@@ -109,7 +118,9 @@ export const resolveReadOnlyAgentEffect = async (input: {
   if (command.type === "switch_tab") {
     const tab = await input.adapter.getTab(command.tabId)
     if (!tab?.url || tab.id !== command.tabId) {
-      throw new Error("Agent switch-tab target is unavailable")
+      throw new AgentUnreadablePageError(
+        "Agent switch-tab target is unavailable"
+      )
     }
     resolvedDestination = destination(tab.url)
   } else if (command.type === "back" || command.type === "forward") {
@@ -117,14 +128,18 @@ export const resolveReadOnlyAgentEffect = async (input: {
       observation.tabId,
       command.type
     )
-    if (!url) throw new Error("Agent history destination is not known safely")
+    if (!url) {
+      throw new AgentUnreadablePageError(
+        "Agent history destination is not known safely"
+      )
+    }
     resolvedDestination = destination(url)
   }
   if (
     resolvedDestination &&
     (await input.adapter.classifyAccess(resolvedDestination.url)) !== "ok"
   ) {
-    throw new Error("Agent destination is not readable")
+    throw new AgentUnreadablePageError("Agent destination is not readable")
   }
 
   return {
@@ -408,21 +423,24 @@ const isDomMutationAction = (type: string): type is DomMutationAgentAction =>
 const isDestructiveLabel = (value?: string): boolean =>
   Boolean(value && DESTRUCTIVE_LABELS.some((pattern) => pattern.test(value)))
 
+/**
+ * The element the command names, refused through the shared classifier rather
+ * than through a second copy of its rules. The classifier answers the same
+ * question the parser asked, so a command that reached execution cannot be
+ * refused here for a reason the model was never told.
+ */
 const findMutationElement = (
   command: AgentCommand,
   observation: AgentObservation
 ): AgentElement => {
   if (!("ref" in command)) throw new Error("Agent action has no element ref")
-  const candidates = observation.elements.filter(
-    (element) => element.ref === command.ref && element.frameId === 0
+  const refused = classifyAgentAffordance(command, observation)
+  if (refused) throw new AgentGroundingError({ refusal: refused })
+  const element = observation.elements.find(
+    (candidate) => candidate.ref === command.ref && candidate.frameId === 0
   )
-  if (candidates.length !== 1) {
-    throw new Error("Agent mutation target is stale or ambiguous")
-  }
-  const element = candidates[0]
-  if (!element?.visible || !element.enabled) {
-    throw new Error("Agent mutation target is not actionable")
-  }
+  if (!element)
+    throw new AgentGroundingError({ refusal: { reason: "unknown_ref" } })
   return element
 }
 
@@ -484,57 +502,17 @@ const addPageClassifications = (
   if (paths.some((path) => PAYMENT_PATH.test(path))) effects.push("payment")
 }
 
-const assertTextTarget = (element: AgentElement): void => {
-  if (
-    element.sensitive &&
-    (element.tag === "input" || element.tag === "textarea") &&
-    element.editable
-  ) {
-    return
-  }
-  const supportedTextTypes = ["email", "number", "search", "tel", "text", "url"]
-  const supportedInput =
-    element.tag === "input" &&
-    supportedTextTypes.includes(element.type?.toLowerCase() ?? "text")
-  if ((!supportedInput && element.tag !== "textarea") || !element.editable) {
-    throw new Error("Agent text action targets an unsupported control")
-  }
-}
-
-const assertSelectTarget = (element: AgentElement, value: string): void => {
-  if (element.tag !== "select" || !element.editable || !element.options) {
-    throw new Error("Agent select action targets an unsupported control")
-  }
-  const matches = element.options.filter(
-    (option) => option.value === value && !option.disabled
-  )
-  if (matches.length !== 1) {
-    throw new Error("Agent select option is unavailable or ambiguous")
-  }
-}
-
-const assertCheckTarget = (
-  element: AgentElement,
-  action: "check" | "uncheck"
-): void => {
-  const type = element.type?.toLowerCase()
-  if (element.tag !== "input" || !["checkbox", "radio"].includes(type ?? "")) {
-    throw new Error("Agent check action targets an unsupported control")
-  }
-  if (action === "uncheck" && type === "radio") {
-    throw new Error("Agent cannot uncheck a radio control")
-  }
-}
-
+/**
+ * Only semantics remain here: which effects a click carries and where it goes.
+ * Whether the control accepts the command at all was settled by the shared
+ * classifier in `findMutationElement`.
+ */
 const clickSemantics = (
   element: AgentElement
 ): {
   destination?: AgentDestination
   effects: AgentSemanticEffect[]
 } => {
-  if (element.tag === "input" && element.type?.toLowerCase() === "image") {
-    throw new Error("Agent image submit controls require takeover")
-  }
   if (element.href) {
     const destination = linkDestination(element)
     const effects: AgentSemanticEffect[] = ["navigation"]
@@ -545,16 +523,6 @@ const clickSemantics = (
       effects.push("download")
     }
     return { destination, effects }
-  }
-  const clickable =
-    element.tag === "button" ||
-    (element.tag === "input" &&
-      ["button", "image", "reset", "submit"].includes(
-        element.type?.toLowerCase() ?? ""
-      )) ||
-    ["button", "link", "menuitem"].includes(element.role?.toLowerCase() ?? "")
-  if (!clickable) {
-    throw new Error("Agent click targets an unsupported control")
   }
   if (element.submitter) {
     return {
@@ -600,7 +568,6 @@ export const resolveDomMutationAgentEffect = async (input: {
       break
     }
     case "type": {
-      assertTextTarget(element)
       if (!element.sensitive) {
         const current = element.value ?? ""
         if (current.length + command.text.length > 500) {
@@ -614,25 +581,19 @@ export const resolveDomMutationAgentEffect = async (input: {
       break
     }
     case "clear_and_type":
-      assertTextTarget(element)
       if (!element.sensitive) expected = { value: command.text }
       effects.push("form_mutation")
       break
     case "select":
-      assertSelectTarget(element, command.value)
       expected = { value: command.value }
       effects.push("form_mutation")
       break
     case "check":
     case "uncheck":
-      assertCheckTarget(element, command.type)
       expected = { checked: command.type === "check" }
       effects.push("form_mutation")
       break
     case "press_key":
-      if (!element.focused) {
-        throw new Error("Agent key action target is not focused")
-      }
       if (command.key === "Enter" && element.maySubmit) {
         destination = formDestination(element)
         effects.push("form_mutation", "submission")

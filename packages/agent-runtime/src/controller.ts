@@ -12,6 +12,7 @@ import {
   type AgentProgressPoint,
   beginAgentStepDeadline,
   classifyNoProgress,
+  expiredAgentDeadline,
   hashAgentObservation,
   initialAgentDeadlineState,
   resumeAgentDeadlines,
@@ -33,6 +34,7 @@ import {
   agentFailure,
   pausePatch
 } from "./ports"
+import { agentResolutionFailure } from "./resolution-failure"
 import { AGENT_STATUS_PREDECESSORS, isTerminalAgentStatus } from "./state"
 import { classifyVerificationOutcome } from "./verification"
 
@@ -303,12 +305,15 @@ export const createAgentController = (
     let effect: ResolvedAgentEffect
     try {
       effect = await dependencies.effect.resolve(command, observation)
-    } catch {
-      await fail(
-        state,
-        "verification_failed",
-        "The proposed page effect could not be resolved safely."
-      )
+    } catch (error) {
+      /**
+       * Nothing was done to the page, so the run has lost track of nothing —
+       * calling any of this a verification failure said the opposite. But a
+       * refused command and a page that went stale under it are different
+       * facts, and only the first is the model's to hear about.
+       */
+      const failure = agentResolutionFailure(error)
+      await fail(state, failure.code, failure.message)
       return undefined
     }
     const identity = effect.snapshotIdentity
@@ -542,6 +547,8 @@ export const createAgentController = (
   ): Promise<AgentRunState | undefined> => {
     const effect = await resolveEffect(state, decision, observation)
     if (!effect) return undefined
+    /** The last point a run may stop without owing an account of an effect. */
+    if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
     const stepId = `${state.id}:${stepNumber}`
     await dependencies.persistence.appendStep({
@@ -585,7 +592,8 @@ export const createAgentController = (
       return undefined
     }
     if (decision.type === "fail") {
-      await fail(state, "model_unavailable", decision.reason)
+      /** The model answered; it just cannot do this. The endpoint is fine. */
+      await fail(state, "goal_failed", decision.reason)
       return undefined
     }
     if (decision.type === "ask_user") {
@@ -639,6 +647,27 @@ export const createAgentController = (
       state,
       "budget_exhausted",
       "The agent repeated the same decision without page progress."
+    )
+    return true
+  }
+
+  /**
+   * The two ceilings the product promises, which until now were recorded in
+   * the checkpoint and never read: a run could pass either and keep going.
+   */
+  const exhaustedTimeBudget = async (
+    state: AgentRunState
+  ): Promise<boolean> => {
+    const deadline = state.deadline
+    if (!deadline) return false
+    const expired = expiredAgentDeadline(deadline, dependencies.clock.now())
+    if (!expired) return false
+    await fail(
+      state,
+      "budget_exhausted",
+      expired === "run"
+        ? "The Agent run exceeded its active time budget."
+        : "This Agent step exceeded its active time budget."
     )
     return true
   }
@@ -710,6 +739,12 @@ export const createAgentController = (
         )
         return
       }
+      /**
+       * Checked between steps, never inside one: an effect already applied
+       * has to be verified before the run may stop, or the run ends still
+       * owing the user an account of what it did.
+       */
+      if (await exhaustedTimeBudget(state)) return
       const observing = observingClaimed
         ? state
         : await claimObserving(

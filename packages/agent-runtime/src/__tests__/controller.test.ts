@@ -7,6 +7,7 @@ import type {
 } from "@ollama-client/contracts"
 import { MAX_AGENT_ALLOWED_ORIGINS } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
+import { AgentGroundingError } from "../affordance"
 import { AgentControlFailedError } from "../control-failure"
 import { createAgentController } from "../controller"
 import type {
@@ -19,6 +20,10 @@ import type {
   AgentVerificationResult,
   ResolvedAgentEffect
 } from "../ports"
+import {
+  AgentStaleObservationError,
+  AgentUnreadablePageError
+} from "../resolution-failure"
 import { isLegalAgentTransition } from "../state"
 
 const runState = (overrides: Partial<AgentRunState> = {}): AgentRunState => ({
@@ -140,6 +145,8 @@ interface HarnessOptions {
   observe?: AgentControllerDependencies["observation"]["observe"]
   decide?: AgentControllerDependencies["model"]["decide"]
   createCancellationController?: () => AgentCancellationController
+  clock?: () => number
+  effect?: AgentControllerDependencies["effect"]["resolve"]
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
@@ -191,7 +198,7 @@ const createHarness = (options: HarnessOptions = {}) => {
   }
 
   const dependencies: AgentControllerDependencies = {
-    clock: { now: () => 10 },
+    clock: { now: options.clock ?? (() => 10) },
     persistence,
     model: {
       decide:
@@ -214,6 +221,8 @@ const createHarness = (options: HarnessOptions = {}) => {
     effect: {
       async resolve(currentCommand, currentObservation) {
         calls.push("resolve")
+        if (options.effect)
+          return options.effect(currentCommand, currentObservation)
         return resolvedEffect(
           currentObservation,
           currentCommand,
@@ -446,6 +455,134 @@ describe("agent controller", () => {
       controlledTabId: 9,
       status: "failed",
       error: { code: "observation_failed" }
+    })
+  })
+
+  it("stops a run that has spent its active time budget", async () => {
+    const harness = createHarness({
+      state: runState({
+        deadline: {
+          runStartedAt: -700_000,
+          stepStartedAt: -700_000,
+          runSuspendedMs: 0,
+          stepSuspendedMs: 0
+        }
+      })
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: {
+        code: "budget_exhausted",
+        message: "The Agent run exceeded its active time budget."
+      }
+    })
+    // Recorded in the checkpoint since 0.14.0 and never read until now, so a
+    // run could pass either ceiling and keep going.
+    expect(harness.calls).not.toContain("resolve")
+    expect(harness.calls).not.toContain("execute")
+  })
+
+  it("stops a step that outran its budget before it reaches the page", async () => {
+    let reads = 0
+    const harness = createHarness({
+      // The run's own ceiling is put out of reach, so only the step's can be
+      // what stops this: the two are measured separately on purpose.
+      state: runState({
+        deadline: {
+          runStartedAt: 1,
+          stepStartedAt: 1,
+          runSuspendedMs: 10_000_000,
+          stepSuspendedMs: 0
+        }
+      }),
+      clock: () => {
+        reads += 1
+        return 10 + (reads - 1) * 80_000
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: {
+        code: "budget_exhausted",
+        message: "This Agent step exceeded its active time budget."
+      }
+    })
+    // Resolution is free; execution is not, and a run may not stop after it.
+    expect(harness.calls).toContain("resolve")
+    expect(harness.calls).not.toContain("execute")
+  })
+
+  it("reports a refused command as an invalid decision, not a failed verification", async () => {
+    const harness = createHarness({
+      effect: async () => {
+        throw new AgentGroundingError({
+          refusal: { reason: "not_checkable", ref: "e1", tag: "button" }
+        })
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "invalid_decision" }
+    })
+    expect(harness.getState().error?.message).toContain(
+      "only on a checkbox or radio input"
+    )
+    expect(harness.calls).not.toContain("execute")
+  })
+
+  it("does not blame the decision when the page went stale under it", async () => {
+    const harness = createHarness({
+      effect: async () => {
+        throw new AgentStaleObservationError()
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "stale_snapshot" }
+    })
+  })
+
+  it("reports an unreadable page as unsupported, not as a bad decision", async () => {
+    const harness = createHarness({
+      effect: async () => {
+        throw new AgentUnreadablePageError()
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "unsupported_page" }
+    })
+  })
+
+  it("keeps the pre-existing code for an unrecognized resolver failure", async () => {
+    const harness = createHarness({
+      effect: async () => {
+        throw new Error("resolver blew up")
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "verification_failed" }
+    })
+  })
+
+  it("blames the goal, not the endpoint, when the model gives up", async () => {
+    const harness = createHarness({
+      decisions: [{ type: "fail", reason: "The page has no such control." }]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: {
+        code: "goal_failed",
+        message: "The page has no such control."
+      }
     })
   })
 
