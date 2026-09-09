@@ -7,7 +7,7 @@ import { SETTINGS } from "@/lib/storage/settings"
 import { AgentView } from "./agent-view"
 import { useAgentCandidateTab } from "./hooks/use-agent-candidate-tab"
 import { useAgentRun } from "./hooks/use-agent-run"
-import { agentPlainText } from "./lib/presentation"
+import { agentPlainText, visibleAgentTab } from "./lib/presentation"
 import { useAgentDraft } from "./stores/agent-draft-store"
 
 /**
@@ -53,7 +53,7 @@ export const AgentPanel = () => {
           run={snapshot.run ?? null}
           steps={snapshot.steps}
           provider={snapshot.provider}
-          tab={snapshot.run ? snapshot.tab : candidateTab}
+          tab={visibleAgentTab(snapshot.run, snapshot.tab, candidateTab)}
           approval={
             snapshot.pending?.kind === "approval"
               ? snapshot.pending.request
