@@ -356,6 +356,20 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   contract. A child receives only the element budget the frames before it
   left, and a child that cannot fit or cannot be read is listed as such rather
   than truncated or retried.
+- **Perception reads the composed tree, not the light DOM.** Candidate
+  selection and both text walks descend into open shadow roots at their host,
+  so a component's controls and text are observed like any other; every node
+  tree is walked once, so a `<slot>` never double-counts the light child it
+  projects. A closed shadow root reads as `null` and stays unread rather than
+  guessed at. The walk is `nodeType`-based, not `instanceof Element` — the same
+  observation runs against a child frame's own realm.
+- **A covered control is not a clickable one.** A laid-out, in-viewport element
+  whose click points all hit-test to some unrelated element is marked
+  `occluded`; it is still listed — the control exists — so the model dismisses
+  the cover or scrolls rather than clicking a point the pointer cannot reach.
+  An indeterminate hit test (no layout, or a `null` answer) reports no
+  occlusion: a covered control wrongly shown is recoverable, a reachable one
+  wrongly hidden is not.
 - **A child-frame effect happens on the frame's origin.** The resolver sets
   `frameUrl`/`frameOrigin` for a target outside the root frame; policy judges
   grants, grant offers and sign-in/payment paths against those, while

@@ -718,3 +718,114 @@ describe("Agent observation builder", () => {
     expect(build(0, unhurried).documentText).toBeUndefined()
   })
 })
+
+describe("Agent observation shadow DOM", () => {
+  const attachOpen = (html: string): HTMLElement => {
+    const host = document.createElement("div")
+    document.body.append(host)
+    host.attachShadow({ mode: "open" }).innerHTML = html
+    return host
+  }
+
+  it("collects an interactive control from inside an open shadow root", () => {
+    attachOpen("<button>Shadow Act</button>")
+    expect(build().elements.map((element) => element.name)).toContain(
+      "Shadow Act"
+    )
+  })
+
+  it("reads rendered text from inside an open shadow root", () => {
+    attachOpen("<p>Shadowed sentence</p>")
+    expect(build().visibleText).toContain("Shadowed sentence")
+  })
+
+  it("does not read a closed shadow root it cannot traverse", () => {
+    const host = document.createElement("div")
+    document.body.append(host)
+    host.attachShadow({ mode: "closed" }).innerHTML =
+      "<button>Sealed Act</button>"
+    expect(build().elements.map((element) => element.name)).not.toContain(
+      "Sealed Act"
+    )
+  })
+
+  it("counts a control once whether or not a slot projects it", () => {
+    const host = attachOpen("<slot></slot>")
+    const light = document.createElement("button")
+    light.textContent = "Slotted Act"
+    host.append(light)
+    const refs = build().elements.filter(
+      (element) => element.name === "Slotted Act"
+    )
+    expect(refs).toHaveLength(1)
+  })
+
+  it("numbers a shadow control after its host, in a stable order", () => {
+    const first = document.createElement("button")
+    first.textContent = "Light One"
+    document.body.append(first)
+    attachOpen("<button>Shadow Two</button>")
+    const last = document.createElement("button")
+    last.textContent = "Light Three"
+    document.body.append(last)
+    expect(build().elements.map((element) => element.name)).toEqual([
+      "Light One",
+      "Shadow Two",
+      "Light Three"
+    ])
+  })
+})
+
+describe("Agent observation occlusion", () => {
+  const appendButton = (label: string): HTMLButtonElement => {
+    const button = document.createElement("button")
+    button.textContent = label
+    document.body.append(button)
+    return button
+  }
+
+  it("marks a control an unrelated element covers", () => {
+    appendButton("Buy")
+    const overlay = document.createElement("div")
+    document.body.append(overlay)
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(overlay)
+    const element = build().elements.find((one) => one.name === "Buy")
+    expect(element?.occluded).toBe(true)
+  })
+
+  it("leaves a control the hit test reaches unmarked", () => {
+    const button = appendButton("Buy")
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(button)
+    const element = build().elements.find((one) => one.name === "Buy")
+    expect(element?.occluded).toBeUndefined()
+  })
+
+  it("reaches a control the hit test lands on a descendant of", () => {
+    const button = document.createElement("button")
+    const label = document.createElement("span")
+    label.textContent = "Buy"
+    button.append(label)
+    document.body.append(button)
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(label)
+    const element = build().elements.find((one) => one.tag === "button")
+    expect(element?.occluded).toBeUndefined()
+  })
+
+  it("treats an indeterminate hit test as reachable, not covered", () => {
+    appendButton("Buy")
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(null)
+    const element = build().elements.find((one) => one.name === "Buy")
+    expect(element?.occluded).toBeUndefined()
+  })
+
+  it("never reports a hidden control as occluded", () => {
+    const button = appendButton("Buy")
+    button.setAttribute("hidden", "")
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(
+      document.createElement("div")
+    )
+    const element = build().elements.find((one) => one.tag === "button")
+    expect(element?.visible).toBe(false)
+    expect(element?.occluded).toBeUndefined()
+  })
+})

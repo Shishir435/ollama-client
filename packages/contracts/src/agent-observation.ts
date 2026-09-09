@@ -127,6 +127,15 @@ export const AgentElementSchema = z
     submitter: z.boolean().optional(),
     options: z.array(AgentSelectOptionSchema).max(200).optional(),
     visible: z.boolean(),
+    /**
+     * Set when the element is in the layout and the viewport yet another
+     * element covers the points a click would land on. It is still listed —
+     * the control exists — but a decision is told it is not reachable where it
+     * sits, so it dismisses the cover or scrolls rather than clicking a target
+     * the pointer would never reach. Absent means reachable; the field is only
+     * present when the hit test found the element covered.
+     */
+    occluded: z.boolean().optional(),
     enabled: z.boolean(),
     editable: z.boolean(),
     sensitive: z.boolean(),
@@ -151,6 +160,13 @@ export const AgentElementSchema = z
         code: "custom",
         path: ["href"],
         message: "Hidden element destinations must be omitted"
+      })
+    }
+    if (element.occluded && !element.visible) {
+      context.addIssue({
+        code: "custom",
+        path: ["occluded"],
+        message: "Only a laid-out element can be reported as occluded"
       })
     }
     if (element.formAction !== undefined && !element.maySubmit) {

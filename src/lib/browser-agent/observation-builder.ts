@@ -180,6 +180,75 @@ const composedParent = (element: Element): Element | null => {
 }
 
 /**
+ * True when `ancestor` is `node` or lies on `node`'s composed-ancestor chain,
+ * crossing shadow boundaries the way `composedParent` does. `Node.contains`
+ * cannot answer this: it stops at the shadow boundary, so a control inside a
+ * component and the light-DOM host that renders it read as unrelated.
+ */
+const composedContains = (ancestor: Element, node: Element): boolean => {
+  for (
+    let current: Element | null = node;
+    current;
+    current = composedParent(current)
+  ) {
+    if (current === ancestor) return true
+  }
+  return false
+}
+
+/**
+ * A node's element view, or null. Tested by `nodeType` rather than
+ * `instanceof Element`, because a child frame's nodes belong to that frame's
+ * realm and fail an `instanceof` against this realm's constructor — the same
+ * observation runs against a child document, and an identity filter there
+ * would drop every element it holds.
+ */
+const asElement = (node: Node): Element | null =>
+  node.nodeType === 1 ? (node as Element) : null
+
+/** An element's open shadow root; a closed root reads as `null` and its
+ * contents stay unread rather than being guessed at. */
+const openShadowRoot = (node: Node): ShadowRoot | null =>
+  asElement(node)?.shadowRoot ?? null
+
+/**
+ * Every element and text node the composed tree reaches, in a stable
+ * depth-first order that descends into open shadow roots at their host. A
+ * child's own tree is walked exactly once whether or not a `<slot>` projects
+ * it elsewhere, so nothing is double-counted; a host is yielded, then its
+ * shadow content, then its light children. `document.querySelectorAll` and a
+ * `TreeWalker` both stop at the shadow boundary, which is why a component's
+ * controls and text were invisible to every collector below. Iterative so a
+ * deep component tree cannot exhaust the stack.
+ */
+const composedDescendants = function* (
+  root: Element | ShadowRoot | Document
+): Generator<Node> {
+  const stack: Node[] = []
+  const pushChildren = (node: Element | ShadowRoot | Document): void => {
+    const light = node.childNodes
+    for (let index = light.length - 1; index >= 0; index -= 1) {
+      stack.push(light[index])
+    }
+    const shadow = openShadowRoot(node as Node)
+    if (shadow) {
+      const shadowChildren = shadow.childNodes
+      for (let index = shadowChildren.length - 1; index >= 0; index -= 1) {
+        stack.push(shadowChildren[index])
+      }
+    }
+  }
+  pushChildren(root)
+  while (stack.length > 0) {
+    const node = stack.pop()
+    if (!node) continue
+    yield node
+    const element = asElement(node)
+    if (element) pushChildren(element)
+  }
+}
+
+/**
  * Memo for one observation. Visibility is now resolved for every interactive
  * candidate in the document rather than only the ones that fit the element
  * cap, and the text walk asks the same question once per parent, so resolving
@@ -319,6 +388,64 @@ const isVisible = (element: Element, pass: AgentObservationPass): boolean => {
   const result = resolveVisibility(element, pass)
   pass.visible.set(element, result)
   return result
+}
+
+/** Inset fractions of a rect to hit-test: the centre, then points pulled off
+ * each corner. One reachable point is enough to call the element clickable, so
+ * a control a fixed banner clips along one edge is not reported as covered. */
+const OCCLUSION_SAMPLES: ReadonlyArray<readonly [number, number]> = [
+  [0.5, 0.5],
+  [0.15, 0.15],
+  [0.85, 0.15],
+  [0.15, 0.85],
+  [0.85, 0.85]
+]
+
+/**
+ * Whether another element covers every point a click on `element` would land
+ * on. `elementFromPoint` returns the topmost element in the composed tree, so
+ * a hit on the element itself, on its own composed subtree, or on an ancestor
+ * that renders it all count as reachable; only a hit on some unrelated element
+ * at every sampled point means the control is covered. The hit test needs real
+ * layout, so an environment without `elementFromPoint`, or one that answers
+ * `null`, yields no occlusion rather than a guessed one — a covered control
+ * wrongly shown is recoverable, a reachable control wrongly hidden is not.
+ */
+const isOccluded = (element: Element): boolean => {
+  const doc = element.ownerDocument
+  const view = doc.defaultView
+  if (!view || typeof doc.elementFromPoint !== "function") return false
+  const viewport = {
+    bottom: view.innerHeight ?? 0,
+    left: 0,
+    right: view.innerWidth ?? 0,
+    top: 0
+  }
+  const rect = Array.from(element.getClientRects())
+    .filter((box) => box.width > 0 && box.height > 0)
+    .map((box) => intersectBounds(box, viewport))
+    .find((box): box is VisibleBounds => Boolean(box))
+  if (!rect) return false
+  const width = rect.right - rect.left
+  const height = rect.bottom - rect.top
+  for (const [fractionX, fractionY] of OCCLUSION_SAMPLES) {
+    const hit = doc.elementFromPoint(
+      rect.left + width * fractionX,
+      rect.top + height * fractionY
+    )
+    /*
+     * A point that hit-tests to nothing is indeterminate, not covered: the
+     * only safe conclusion when the layout cannot answer is that the control
+     * is reachable. A hit on the element or its own composed line is reachable
+     * outright. Everything left is a foreign element in front of this point,
+     * and the loop only reports occlusion once every sampled point is covered.
+     */
+    if (!hit) return false
+    if (composedContains(element, hit) || composedContains(hit, element)) {
+      return false
+    }
+  }
+  return true
 }
 
 export const isSensitiveAgentElement = (element: Element): boolean => {
@@ -518,13 +645,10 @@ const collectVisibleText = (
   limit: number,
   pass: AgentObservationPass
 ): string => {
-  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   let result = ""
-  for (
-    let node = walker.nextNode();
-    node && result.length < limit && !pass.exhausted();
-    node = walker.nextNode()
-  ) {
+  for (const node of composedDescendants(root)) {
+    if (node.nodeType !== Node.TEXT_NODE) continue
+    if (result.length >= limit || pass.exhausted()) break
     const parent = node.parentElement
     if (!parent || !isVisible(parent, pass)) continue
     const text = normalizedText(node.textContent ?? "")
@@ -546,10 +670,10 @@ const collectDocumentText = (
   limit: number,
   pass: AgentObservationPass
 ): { text: string; truncated: boolean } => {
-  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   let result = ""
   let truncated = false
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+  for (const node of composedDescendants(root)) {
+    if (node.nodeType !== Node.TEXT_NODE) continue
     /**
      * Running out of budget truncates just as surely as running out of
      * characters. Reporting only the second let a complex page send partial
@@ -780,6 +904,7 @@ const buildElementObservation = (
   modalIds: Map<Element, string> = new Map()
 ): AgentElement => {
   const visible = isVisible(element, pass)
+  const occluded = visible && isOccluded(element)
   const sensitive = !visible || isSensitiveAgentElement(element)
   const name = visible ? accessibleName(element, pass) : undefined
   const value = sensitive ? undefined : elementValue(element)
@@ -801,6 +926,7 @@ const buildElementObservation = (
     ...observedFormFields(element, maySubmit),
     ...(submitter ? { submitter: true } : {}),
     visible,
+    ...(occluded ? { occluded: true } : {}),
     enabled: isEnabled(element),
     editable: isEditable(element),
     sensitive,
@@ -847,7 +973,9 @@ const selectObservedCandidates = (
   const hiddenPositions: number[] = []
   let visibleCount = 0
 
-  for (const candidate of document.querySelectorAll(INTERACTIVE_SELECTOR)) {
+  for (const node of composedDescendants(document.documentElement)) {
+    const candidate = asElement(node)
+    if (!candidate?.matches(INTERACTIVE_SELECTOR)) continue
     /*
      * A truncated selection is the defect this function exists to prevent, so
      * running out of budget here is reported rather than absorbed: the run is
