@@ -381,10 +381,14 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
 - **A bounded overview is drilled into, not scrolled through.** Three read-only
   commands reveal what the overview summarised: `inspect` expands a region by
   its group, `find` surfaces controls matching a query, `extract_text` returns
-  the page's full text. None mutates the page, so all resolve as `read` and ask
-  no approval. What to expand is derived from the previous step's own durable
-  command (`currentAgentInspection`), so the next observation shows exactly what
-  was asked and a worker restart rebuilds it — no separate run state.
+  the page's full text — the below-fold document the overview omits. None
+  mutates the page, so all resolve as `read` and ask no approval. What to expand
+  is derived from the previous step's own durable command
+  (`currentAgentInspection`), so the next observation shows exactly what was
+  asked and a worker restart rebuilds it — no separate run state. An expansion
+  is still bounded by a hard ceiling (`pageContentMaxChars`, set from the
+  context ceiling), so a two-thousand-control region or a maximal text extract
+  cannot push the prompt past the window and truncate the system prompt.
 - **A finding outlives the history window.** `finding` on a decision is kept in
   a dedicated store (`buildAgentFindings`), bounded by count and bytes, carrying
   the redacted page each was recorded on. It is the run's own note and stays

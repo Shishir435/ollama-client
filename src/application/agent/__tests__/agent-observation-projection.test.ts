@@ -325,6 +325,7 @@ describe("projectAgentObservation overview budget", () => {
     ]
     const projected = projectAgentObservation(observation({ elements }), {
       pageContentChars: 2_000,
+      pageContentMaxChars: 20_000,
       focus: { region: 'form "b"' }
     })
     const shownB = projected.elements.filter(
@@ -335,6 +336,36 @@ describe("projectAgentObservation overview budget", () => {
     ).length
     expect(shownB).toBe(100)
     expect(shownA).toBeLessThan(100)
+  })
+
+  it("stops expanding a region at the hard ceiling, not the overview budget", () => {
+    const elements = many(2_000, { group: 'form "b"' })
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 2_000,
+      pageContentMaxChars: 6_000,
+      focus: { region: 'form "b"' }
+    })
+    // A huge inspected region is bounded by the ceiling so the prompt fits.
+    const size = JSON.stringify(projected.elements).length
+    expect(size).toBeLessThanOrEqual(6_500)
+    expect(projected.elements.length).toBeLessThan(2_000)
+  })
+
+  it("caps extracted page text at the ceiling", () => {
+    const projected = projectAgentObservation(
+      observation({
+        visibleText: "v".repeat(50_000),
+        documentText: "d".repeat(50_000)
+      }),
+      {
+        pageContentChars: 2_000,
+        pageContentMaxChars: 8_000,
+        focus: { text: true }
+      }
+    )
+    expect(
+      projected.text.length + (projected.documentText?.length ?? 0)
+    ).toBeLessThanOrEqual(8_000)
   })
 
   it("marks the text truncated when the budget cut it", () => {

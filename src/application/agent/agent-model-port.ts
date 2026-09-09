@@ -75,7 +75,7 @@ const agentDecisionParameters = (): ToolParameterSchema => ({
     target: {
       type: "string",
       description:
-        "For inspect, a region name from omittedByGroup or an element's group, to reveal its controls. For extract_text, an optional region; omit it for the whole page."
+        "For inspect: a region name from omittedByGroup or an element's group, to reveal its controls."
     },
     query: {
       type: "string",
@@ -156,6 +156,7 @@ findings are your own kept notes with the page each came from; they persist past
  * estimated first, and the page gets the rest, never less than a floor.
  */
 const AGENT_CONTEXT_BUDGET_TOKENS = 16_384
+const AGENT_CONTEXT_CEILING_TOKENS = 32_768
 const AGENT_PAGE_CONTENT_FLOOR_TOKENS = 2_048
 const AGENT_TOKEN_CHARS = 3.5
 
@@ -171,21 +172,33 @@ const AGENT_TOOL_SCHEMA_TOKENS = estimateTokens(
 
 /**
  * Characters the page content may spend, given what the rest of the prompt has
- * already claimed. The history has already been bounded upstream; here it is
- * charged at its real size so a long history leaves the page less, never the
- * other way round.
+ * already claimed. Two figures: the overview budget the page is normally
+ * projected to, and the hard ceiling an inspected region, a broad query or
+ * extracted text may reach — set from the context ceiling so even a maximal
+ * expansion leaves the instructions, tools and answer their room and the
+ * request never overflows the window. The history is charged at its real size,
+ * so a long history leaves the page less, never the other way round.
  */
-const agentPageContentChars = (historyEnvelope: string): number => {
+const agentPageBudget = (
+  historyEnvelope: string
+): { chars: number; maxChars: number } => {
   const reserved =
     AGENT_RESPONSE_TOKENS +
     AGENT_INSTRUCTION_TOKENS +
     AGENT_TOOL_SCHEMA_TOKENS +
     estimateTokens(historyEnvelope)
-  const pageTokens = Math.max(
+  const softTokens = Math.max(
     AGENT_PAGE_CONTENT_FLOOR_TOKENS,
     AGENT_CONTEXT_BUDGET_TOKENS - reserved
   )
-  return Math.floor(pageTokens * AGENT_TOKEN_CHARS)
+  const hardTokens = Math.max(
+    softTokens,
+    AGENT_CONTEXT_CEILING_TOKENS - reserved
+  )
+  return {
+    chars: Math.floor(softTokens * AGENT_TOKEN_CHARS),
+    maxChars: Math.floor(hardTokens * AGENT_TOKEN_CHARS)
+  }
 }
 
 const decisionPrompt = (input: {
@@ -231,11 +244,12 @@ const decisionPrompt = (input: {
    * a large application stays within budget while its controls stay reachable
    * through `inspect`.
    */
-  const pageContentChars = agentPageContentChars(JSON.stringify(envelope))
+  const { chars, maxChars } = agentPageBudget(JSON.stringify(envelope))
   return JSON.stringify({
     ...envelope,
     observation: projectAgentObservation(input.observation, {
-      pageContentChars,
+      pageContentChars: chars,
+      pageContentMaxChars: maxChars,
       ...(input.inspection ? { focus: input.inspection } : {})
     })
   })

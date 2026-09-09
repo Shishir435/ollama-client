@@ -280,6 +280,35 @@ describe("createProviderAgentModelPort", () => {
     expect(userContent).toContain("https://example.com/invoice")
   })
 
+  it("keeps a maximal inspection inside the context ceiling", async () => {
+    const region = 'form "b"'
+    const crowded: AgentObservation = {
+      ...observation,
+      elements: Array.from({ length: 2_000 }, (_value, index) => ({
+        ref: `e${index + 1}`,
+        frameId: 0,
+        tag: "input" as const,
+        name: `Field ${index + 1} of a very large inspected region`,
+        group: region,
+        visible: true,
+        enabled: true,
+        editable: true,
+        sensitive: false
+      })),
+      visibleText: "z".repeat(200_000)
+    }
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      { state, observation: crowded, inspection: { region } },
+      { aborted: false }
+    )
+    const request = streamChat.mock.calls[0]?.[0]
+    // Even a 2,000-control inspected region cannot overflow the window.
+    expect(request?.num_ctx).toBeLessThanOrEqual(32_768)
+    expect(String(request?.messages[1]?.content).length).toBeLessThan(120_000)
+  })
+
   it("retries malformed output at most twice for one decision", async () => {
     let attempt = 0
     const streamChat = vi.fn(async (_request, emit) => {

@@ -56,9 +56,7 @@ const commandLabel = (command?: AgentCommand): string => {
     case "find":
       return `Find "${agentPlainText(command.query, AGENT_PAGE_TEXT_LIMIT)}"`
     case "extract_text":
-      return command.target
-        ? `Read text of ${agentPlainText(command.target, AGENT_PAGE_TEXT_LIMIT)}`
-        : "Read page text"
+      return "Read page text"
   }
 }
 

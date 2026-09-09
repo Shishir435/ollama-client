@@ -88,12 +88,19 @@ export interface AgentProjectionOptions {
    */
   pageContentChars?: number
   /**
+   * The hard ceiling for page content — the most an expanded region, a broad
+   * query or extracted text may occupy so the whole prompt still fits the
+   * context window. Defaults to `pageContentChars`, i.e. no expansion room,
+   * when omitted.
+   */
+  pageContentMaxChars?: number
+  /**
    * What the model asked to see more of. Exactly one is expanded past the
-   * budget: `region` shows one group's controls in full, `query` surfaces the
-   * controls matching it, and `text` includes the page's full text — the
+   * overview budget, up to the ceiling: `region` shows one group's controls,
+   * `query` the controls matching it, and `text` the page's full text — the
    * below-fold document included — rather than the budgeted excerpt.
    */
-  focus?: { region?: string; query?: string; text?: string | true }
+  focus?: { region?: string; query?: string; text?: boolean }
 }
 
 export const AGENT_PROJECTION_LIMITS = {
@@ -208,6 +215,7 @@ const overviewPriority = (
 const selectOverviewElements = (
   elements: readonly AgentElement[],
   budgetChars: number,
+  ceilingChars: number,
   focus: AgentOverviewFocus
 ): {
   shown: AgentProjectedElement[]
@@ -229,13 +237,16 @@ const selectOverviewElements = (
   for (const item of ordered) {
     const cost = JSON.stringify(item.projected).length + 1
     /**
-     * The focused control and a region the model asked to inspect are kept
-     * whatever the budget: an inspect request that still hid half the region
-     * would defeat the point. Everything else competes for what remains, and
-     * at least one control is always kept so an overview is never empty.
+     * A focused control and a region the model asked to inspect are kept past
+     * the overview budget — an inspect that still hid half the region would
+     * defeat the point — but never past the hard ceiling, which is what keeps
+     * the whole prompt inside the context window: a two-thousand-control
+     * region cannot be shown whole if showing it would truncate the system
+     * prompt. Everything else competes for the overview budget, and at least
+     * one control is always kept so an overview is never empty.
      */
-    const mustKeep = item.priority === 0
-    if (!mustKeep && kept.size > 0 && used + cost > budgetChars) continue
+    const limit = item.priority === 0 ? ceilingChars : budgetChars
+    if (kept.size > 0 && used + cost > limit) continue
     kept.add(item.index)
     used += cost
   }
@@ -304,20 +315,34 @@ export const projectAgentObservation = (
    * the next action needs.
    */
   const budget = Math.max(0, options.pageContentChars)
+  const ceiling = Math.max(budget, options.pageContentMaxChars ?? budget)
   /**
    * An `extract_text` request is answered with the page's whole text — the
    * below-fold document included — rather than the budgeted excerpt, since
-   * reading the page is the thing it asked for. Otherwise the viewport text
-   * takes its share and yields the rest to controls.
+   * reading the page is the thing it asked for. It is still capped at the
+   * ceiling, split between the viewport and the below-fold text, so even a
+   * maximal page cannot push the prompt past the context window. Otherwise the
+   * viewport text takes its overview share and yields the rest to controls.
    */
-  const wantsText = options.focus?.text !== undefined
+  const wantsText = options.focus?.text === true
   const textBudget = wantsText
-    ? observation.visibleText.length
+    ? ceiling
     : Math.round(budget * AGENT_OVERVIEW_TEXT_SHARE)
   const text = observation.visibleText.slice(0, textBudget)
+  /** Below-fold text fills only what the viewport text left under the ceiling. */
+  const documentRoom = wantsText ? ceiling - text.length : 0
+  const documentText =
+    documentRoom > 0 && observation.documentText
+      ? observation.documentText.slice(0, documentRoom)
+      : undefined
+  const documentTextTruncated =
+    documentText !== undefined &&
+    (observation.documentTextTruncated === true ||
+      documentText.length < (observation.documentText?.length ?? 0))
   const { shown, omittedByGroup } = selectOverviewElements(
     observation.elements,
     budget - Math.min(text.length, budget),
+    ceiling - Math.min(text.length, ceiling),
     options.focus
   )
   return {
@@ -326,12 +351,8 @@ export const projectAgentObservation = (
     ...(text.length < observation.visibleText.length
       ? { textTruncated: true }
       : {}),
-    ...(wantsText && observation.documentText
-      ? { documentText: observation.documentText }
-      : {}),
-    ...(wantsText && observation.documentTextTruncated
-      ? { documentTextTruncated: true }
-      : {}),
+    ...(documentText !== undefined ? { documentText } : {}),
+    ...(documentTextTruncated ? { documentTextTruncated: true } : {}),
     elements: shown,
     ...(omittedByGroup.length ? { omittedByGroup } : {})
   }

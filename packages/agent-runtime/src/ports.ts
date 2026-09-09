@@ -19,12 +19,12 @@ export type AgentRisk = "low" | "medium" | "high" | "critical"
  * What the model asked to see more of on its previous step, derived from that
  * step's own command so a worker restart rebuilds it. The projection expands
  * exactly one of these against the fresh observation: a region by its group, a
- * query's matching controls, or a region's (or the whole document's) text.
+ * query's matching controls, or the whole document's text.
  */
 export interface AgentInspectionFocus {
   region?: string
   query?: string
-  text?: string | true
+  text?: boolean
 }
 
 /**
