@@ -18,6 +18,17 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   approvals, takeovers, and safe error vocabulary, while a new pure runtime
   package enforces legal run transitions and strict isolation from Chat. This
   foundation adds no browser permission, browser mutation, or visible Agent UI.
+- Agent Preview now completes ordinary tasks rather than only passing fixtures.
+  A page whose markup the observation could not read is observed; a wrong
+  command costs one retry with the reason instead of ending the run; each
+  decision sees what the run already did and why it turned out that way; the
+  model receives a page rather than the executor's bookkeeping, with the
+  context window sized to fit it; and an approval can be widened to a site for
+  the rest of one run, while a question the model asks is durable and
+  answerable. Submissions, destructive actions, payments, sign-ins and
+  sensitive fields keep asking every time. Startup recovery is now proven
+  against the real database at every phase a worker can be lost in, and a
+  frozen benchmark records what each task family actually costs.
 
 ## [0.13.3]
 

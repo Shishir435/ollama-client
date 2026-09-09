@@ -40,6 +40,22 @@ export default defineConfig({
         agentObservationGrant: true
       }
     },
+    {
+      /**
+       * Not in the `@critical` gate. It records what happened rather than
+       * asserting a threshold, because the thresholds are meant to come from
+       * a clean pass rather than be guessed before one exists.
+       */
+      ...chromiumProject(
+        "chromium-agent-benchmark",
+        "**/benchmark-agent.spec.ts",
+        "build/chrome-mv3-prod"
+      ),
+      metadata: {
+        extensionBuildPath: "build/chrome-mv3-prod",
+        agentObservationGrant: true
+      }
+    },
     chromiumProject(
       "chromium-production",
       "**/install-and-boot.spec.ts",
