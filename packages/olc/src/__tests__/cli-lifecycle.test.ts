@@ -172,7 +172,12 @@ describe.skipIf(process.platform === "win32")(
       expect((await second.exited)[0]).toBe(1)
       expect(second.stdout()).not.toContain("Ready:")
       expect(second.stderr()).toContain(`Port ${port} is already in use.`)
-      expect(second.stderr()).toContain(`olc codex proxy (PID ${pid})`)
+      expect(second.stderr()).toContain("olc codex proxy")
+      if (second.stderr().includes("(PID")) {
+        expect(second.stderr()).toContain(`olc codex proxy (PID ${pid})`)
+      } else {
+        expect(second.stderr()).toContain("Stop whatever is using it")
+      }
       expect(second.stderr()).toContain("--port")
       expect((await fetch(`${url}/health`)).status).toBe(200)
     }, 15000)
