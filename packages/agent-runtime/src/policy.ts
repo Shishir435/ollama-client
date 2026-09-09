@@ -111,9 +111,12 @@ const makeApprovalRequest = (
   risk: Exclude<AgentRisk, "low">
 ): AgentApprovalRequest => {
   const destination = input.effect.destination?.url
-  const action = destination
-    ? `Allow navigation to ${destination}`
-    : `Allow ${input.effect.command.type}`
+  const adopting = adoptsTab(input)
+  const action = adopting
+    ? `Adopt tab ${adopting} at ${destination}`
+    : destination
+      ? `Allow navigation to ${destination}`
+      : `Allow ${input.effect.command.type}`
   return {
     ...grantableFor(input, risk),
     id: `${input.stepId}:approval`,
@@ -163,6 +166,18 @@ const grantFor = (
   )
 }
 
+/**
+ * The tab a switch would adopt, when it is one the run does not drive yet. A
+ * tab outside the scope is a page the user was working in, and reading it is
+ * the user's to grant whatever its origin — the site allowlist answers a
+ * different question.
+ */
+const adoptsTab = (input: AgentPolicyInput): number | undefined => {
+  const command = input.effect.command
+  if (command.type !== "switch_tab") return undefined
+  return input.scopedTabIds.includes(command.tabId) ? undefined : command.tabId
+}
+
 export const evaluateAgentPolicy = (
   input: AgentPolicyInput
 ): AgentPolicyDecision => {
@@ -206,6 +221,7 @@ export const evaluateAgentPolicy = (
     risk = raiseRisk(risk, effectRisk(effect))
   }
   if (input.effect.target.maySubmit) risk = raiseRisk(risk, "critical")
+  if (adoptsTab(input) !== undefined) risk = raiseRisk(risk, "high")
 
   if (destination) {
     const newOrigin = !input.allowedOrigins.includes(destination.origin)

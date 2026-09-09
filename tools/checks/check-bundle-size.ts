@@ -217,8 +217,12 @@ const budgets: Budget[] = [
      * The Chromium debugger session manager — attach ownership, the tab and
      * detach listeners, the ownership gate on page-work claims — took it to
      * 232,235. Firefox is unchanged.
+     *
+     * Frame-aware identity — per-frame control sessions composed into one
+     * observation, frame authorization, the debugger frame tree and its
+     * explicit mapping, and per-run tab scope — took it to 235,751.
      */
-    max: isFirefox ? 210_000 : 233_000
+    max: isFirefox ? 210_000 : 236_500
   }
 ]
 

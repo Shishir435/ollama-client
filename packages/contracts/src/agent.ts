@@ -223,6 +223,14 @@ export type AgentDeadlineState = z.infer<typeof AgentDeadlineStateSchema>
 /** A run holds a bounded allowlist, so growing it can be refused, never evicted. */
 export const MAX_AGENT_ALLOWED_ORIGINS = 25
 
+/**
+ * Tabs a run may drive. The tab the user started on and every tab the run
+ * opened itself are in scope; any other tab enters only through an approval
+ * the user gave for that tab. Bounded like the origin allowlist, and for the
+ * same reason: a full scope costs another prompt, never a silent adoption.
+ */
+export const MAX_AGENT_SCOPED_TABS = 25
+
 export const AgentRunStateSchema = z
   .object({
     version: z.literal(1),
@@ -236,6 +244,14 @@ export const AgentRunStateSchema = z
     providerId: z.string().min(1),
     modelId: z.string().min(1),
     allowedOrigins: z.array(z.string().min(1)).max(MAX_AGENT_ALLOWED_ORIGINS),
+    /**
+     * Tabs the run may act on. Absent on rows written before tab scope
+     * existed, which means the controlled tab alone.
+     */
+    scopedTabIds: z
+      .array(z.number().int().nonnegative())
+      .max(MAX_AGENT_SCOPED_TABS)
+      .optional(),
     /** Bounded model-authored outcome retained for completed-run display. */
     result: z.string().min(1).max(20_000).optional(),
     error: AgentErrorSchema.optional(),

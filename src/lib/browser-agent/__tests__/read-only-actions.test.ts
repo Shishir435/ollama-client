@@ -31,10 +31,22 @@ const observation = (
   snapshotId: "snapshot-1",
   generation: 1,
   tabId: 7,
+  frameId: 0,
   documentId: "document-1",
   url: "https://example.com/start",
   origin: "https://example.com",
   title: "Example",
+  frames: [
+    {
+      frameId: 0,
+      documentId: "document-1",
+      origin: "https://example.com",
+      url: "https://example.com/start",
+      access: "ok",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+  ],
   elements: [],
   visibleText: "Initial content",
   scroll: {
@@ -78,7 +90,7 @@ const executorAdapter = (
   overrides: Partial<AgentCommandExecutorAdapter> = {}
 ): AgentCommandExecutorAdapter => ({
   getTab: async (tabId) => ({ id: tabId, url: "https://example.com/start" }),
-  getMainFrame: async () => ({
+  getFrame: async () => ({
     documentId: "document-1",
     url: "https://example.com/start"
   }),
@@ -113,7 +125,8 @@ const verificationInput = async (
 ): Promise<AgentVerificationInput> => ({
   effect: await authorize(command, before),
   receipt: { executedAt: 2 },
-  before
+  before,
+  allowedOrigins: ["https://example.com"]
 })
 
 describe("read-only Agent effects", () => {
@@ -235,6 +248,7 @@ describe("read-only Agent effects", () => {
           snapshotId: "snapshot-1",
           generation: 1,
           tabId: 7,
+          frameId: 0,
           documentId: "document-1"
         },
         document,
@@ -286,6 +300,76 @@ describe("read-only Agent effects", () => {
     )
     expect(Object.keys(READ_ONLY_AGENT_VERIFIERS).sort()).toEqual(
       [...READ_ONLY_AGENT_ACTIONS].sort()
+    )
+  })
+})
+
+describe("read-only Agent effects across frames", () => {
+  it("scrolls a child-frame target through that frame's identity", async () => {
+    const base = observation()
+    const before: AgentObservation = {
+      ...base,
+      frames: [
+        base.frames[0],
+        {
+          frameId: 2,
+          parentFrameId: 0,
+          documentId: "document-2",
+          origin: "https://example.com",
+          url: "https://example.com/child",
+          access: "ok",
+          snapshotId: "snapshot-child",
+          generation: 5
+        }
+      ],
+      elements: [
+        {
+          ref: "f2e1",
+          frameId: 2,
+          tag: "button",
+          name: "More",
+          visible: true,
+          enabled: true,
+          editable: false,
+          sensitive: false
+        }
+      ]
+    }
+    const scroll = vi.fn(async () => undefined)
+    const effect = await authorize(
+      {
+        type: "scroll",
+        direction: "down",
+        ref: "f2e1",
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      before
+    )
+    const getFrame = vi.fn(async (_tabId: number, frameId: number) => ({
+      documentId: frameId === 0 ? "document-1" : "document-2",
+      url:
+        frameId === 0
+          ? "https://example.com/start"
+          : "https://example.com/child"
+    }))
+    await executeReadOnlyAgentEffect({
+      effect,
+      adapter: executorAdapter({ scroll, getFrame }),
+      signal
+    })
+    expect(getFrame).toHaveBeenCalledWith(7, 2)
+    expect(scroll).toHaveBeenCalledWith(
+      effect.command,
+      effect.snapshotIdentity,
+      {
+        snapshotId: "snapshot-child",
+        generation: 5,
+        tabId: 7,
+        frameId: 2,
+        documentId: "document-2"
+      },
+      signal
     )
   })
 })

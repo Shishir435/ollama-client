@@ -21,11 +21,12 @@ import type {
 
 export const executeAgentScrollInDocument = (input: {
   command: Extract<AuthorizedAgentEffect["command"], { type: "scroll" }>
+  /** The identity of the frame this document is, as the store knows it. */
   identity: AgentSnapshotIdentity
   document: Document
   references: AgentElementReferenceStore
 }): void => {
-  const identity = { ...input.identity, frameId: 0 as const }
+  const identity = input.identity
   if (!input.references.matches(identity)) {
     throw new Error("Agent scroll snapshot is stale")
   }
@@ -98,7 +99,14 @@ const dispatchFormEvents = (element: Element, includeChange: boolean): void => {
 export type AgentDomMutationInstruction = Pick<
   AuthorizedAgentEffect,
   "command" | "target" | "snapshotIdentity"
->
+> & {
+  /**
+   * The frame the target lives in, with that frame's own snapshot. The root
+   * identity above is what the command named; this is what the document that
+   * executes the mutation checks against its own reference store.
+   */
+  frame: AgentSnapshotIdentity
+}
 
 const sameOptional = <T>(first: T | undefined, second: T | undefined) =>
   first === second
@@ -111,7 +119,12 @@ const assertUnchangedMutationTarget = (
   if (!ref || !element.isConnected) {
     throw new AgentEffectNotAppliedError("Agent mutation target was replaced")
   }
-  const current = buildAgentElementObservation(element, ref)
+  const current = buildAgentElementObservation(
+    element,
+    ref,
+    undefined,
+    effect.frame.frameId
+  )
   const expected = effect.target
   const matches =
     current.visible &&
@@ -372,7 +385,7 @@ export const executeAgentDomMutationInDocument = (input: {
   if (input.signal.aborted) throw new Error("Agent mutation cancelled")
   const ref = input.effect.target.ref
   if (!ref) throw new Error("Agent mutation target has no reference")
-  const identity = { ...input.effect.snapshotIdentity, frameId: 0 as const }
+  const identity = input.effect.frame
   if (!input.references.matches(identity)) {
     throw new AgentEffectNotAppliedError("Agent mutation snapshot is stale")
   }
@@ -426,13 +439,15 @@ export const executeAgentDomMutationInDocument = (input: {
 
 export interface AgentCommandExecutorAdapter {
   getTab(tabId: number): Promise<{ id?: number; url?: string } | undefined>
-  getMainFrame(
-    tabId: number
+  getFrame(
+    tabId: number,
+    frameId: number
   ): Promise<{ documentId?: string; url: string } | null>
   classifyAccess(url?: string): Promise<TabAccess>
   scroll(
     command: Extract<AuthorizedAgentEffect["command"], { type: "scroll" }>,
     identity: AgentSnapshotIdentity,
+    frame: AgentSnapshotIdentity,
     signal: AgentCancellationSignal
   ): Promise<void>
   mutate(
@@ -496,7 +511,10 @@ const assertSource = async (
   }
   await assertReadable(adapter, tab.url)
   if (!requireDocument) return
-  const frame = await adapter.getMainFrame(effect.snapshotIdentity.tabId)
+  const frame = await adapter.getFrame(
+    effect.snapshotIdentity.tabId,
+    effect.snapshotIdentity.frameId
+  )
   if (
     !frame ||
     frame.documentId !== effect.snapshotIdentity.documentId ||
@@ -504,6 +522,29 @@ const assertSource = async (
   ) {
     throw new Error("Agent source document changed before execution")
   }
+  await assertTargetFrame(effect, adapter)
+}
+
+/**
+ * A target in a child frame is bound to that frame's document too. The root
+ * document standing still says nothing about a child that navigated since the
+ * observation, and the child's own document is what the reference was taken
+ * from; its origin is re-checked because an authorization for the page is not
+ * one for whatever the frame now shows.
+ */
+const assertTargetFrame = async (
+  effect: AuthorizedAgentEffect,
+  adapter: AgentCommandExecutorAdapter
+): Promise<void> => {
+  const target = effect.target.frame
+  if (!target || target.frameId === effect.snapshotIdentity.frameId) return
+  const frame = await adapter.getFrame(target.tabId, target.frameId)
+  if (!frame || frame.documentId !== target.documentId) {
+    throw new AgentEffectNotAppliedError(
+      "Agent target frame changed before execution"
+    )
+  }
+  await assertReadable(adapter, frame.url)
 }
 
 type Executor = (
@@ -538,7 +579,12 @@ export const READ_ONLY_AGENT_EXECUTORS = {
     if (effect.command.type !== "scroll") {
       throw new Error("Invalid scroll effect")
     }
-    await adapter.scroll(effect.command, effect.snapshotIdentity, signal)
+    await adapter.scroll(
+      effect.command,
+      effect.snapshotIdentity,
+      effect.target.frame ?? effect.snapshotIdentity,
+      signal
+    )
     return receipt(adapter, "scroll")
   },
   async switch_tab(effect, adapter) {

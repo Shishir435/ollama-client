@@ -2,8 +2,17 @@ export interface AgentReferenceIdentity {
   snapshotId: string
   generation: number
   documentId: string
-  frameId: 0
+  frameId: number
 }
+
+/**
+ * The reference prefix a frame's elements carry. The root frame keeps the
+ * bare `e1` the model already knows; a child frame's references name the
+ * frame, so two identical controls in two frames are two references, and the
+ * frame an effect belongs to is legible in the command itself.
+ */
+export const agentReferencePrefix = (frameId: number): string =>
+  frameId === 0 ? "e" : `f${frameId}e`
 
 export interface AgentElementReferenceSnapshot extends AgentReferenceIdentity {
   reference(element: Element): string
@@ -74,8 +83,10 @@ const privateFormState = (element: Element): string | undefined => {
 
 export const createAgentElementReferenceStore = (input: {
   documentId: string
+  frameId: number
   createVerificationId?: () => string
 }): AgentElementReferenceStore => {
+  const prefix = agentReferencePrefix(input.frameId)
   let generation = 0
   let active: AgentElementReferenceSnapshot | undefined
   const verificationIds = new WeakMap<Element, string>()
@@ -98,14 +109,14 @@ export const createAgentElementReferenceStore = (input: {
         snapshotId,
         generation,
         documentId: input.documentId,
-        frameId: 0
+        frameId: input.frameId
       }
       const snapshot: AgentElementReferenceSnapshot = {
         ...identity,
         reference(element) {
           const existing = byElement.get(element)
           if (existing) return existing
-          const ref = `e${++nextRef}`
+          const ref = `${prefix}${++nextRef}`
           byElement.set(element, ref)
           byRef.set(ref, element)
           formStateByRef.set(ref, privateFormState(element))
@@ -129,7 +140,7 @@ export const createAgentElementReferenceStore = (input: {
             candidate.snapshotId !== snapshotId ||
             candidate.generation !== generation ||
             candidate.documentId !== input.documentId ||
-            candidate.frameId !== 0
+            candidate.frameId !== input.frameId
           ) {
             return undefined
           }
@@ -150,7 +161,7 @@ export const createAgentElementReferenceStore = (input: {
           active.snapshotId === identity.snapshotId &&
           active.generation === identity.generation &&
           active.documentId === identity.documentId &&
-          identity.frameId === 0
+          identity.frameId === input.frameId
       )
     },
     matchesFormState(ref, identity) {

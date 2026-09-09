@@ -1,12 +1,17 @@
 import {
   type AgentCancellationSignal,
+  AgentEffectNotAppliedError,
   type AgentVerificationInput,
   type AuthorizedAgentEffect,
   classifyVerificationOutcome,
   evaluateAgentPolicy
 } from "@ollama-client/agent-runtime"
 import type { AgentElement, AgentObservation } from "@ollama-client/contracts"
-import { type AgentCommand, AgentCommandSchema } from "@ollama-client/contracts"
+import {
+  type AgentCommand,
+  AgentCommandSchema,
+  type AgentSnapshotIdentity
+} from "@ollama-client/contracts"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
@@ -66,10 +71,22 @@ const observation = (
   snapshotId: "snapshot-1",
   generation: 1,
   tabId: 7,
+  frameId: 0,
   documentId: "document-1",
   url: new URL("/form", location.href).href,
   origin: location.origin,
   title: "Form",
+  frames: [
+    {
+      frameId: 0,
+      documentId: "document-1",
+      origin: location.origin,
+      url: new URL("/form", location.href).href,
+      access: "ok",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+  ],
   elements: [element()],
   visibleText: "Continue",
   scroll: {
@@ -124,6 +141,7 @@ const decide = async (action: AgentCommand, before = observation()) =>
     stepId: "step-1",
     effect: await resolve(action, before),
     allowedOrigins: [location.origin],
+    scopedTabIds: [7],
     now: 3
   })
 
@@ -148,7 +166,8 @@ const verify = async (
   const verification: AgentVerificationInput = {
     effect: await authorize(action, before),
     receipt: { executedAt: 5 },
-    before
+    before,
+    allowedOrigins: [location.origin]
   }
   return verifyDomMutationAgentEffect({
     verification,
@@ -161,7 +180,7 @@ const executorAdapter = (
   mutate: AgentCommandExecutorAdapter["mutate"]
 ): AgentCommandExecutorAdapter => ({
   getTab: async (tabId) => ({ id: tabId, url: observation().url }),
-  getMainFrame: async () => ({
+  getFrame: async () => ({
     documentId: "document-1",
     url: observation().url
   }),
@@ -412,12 +431,13 @@ describe("Agent DOM mutation execution", () => {
     action: AgentCommand,
     target: Element
   ): Promise<{
-    effect: AuthorizedAgentEffect
+    effect: AuthorizedAgentEffect & { frame: AgentSnapshotIdentity }
     references: ReturnType<typeof createAgentElementReferenceStore>
   }> => {
     if (!target.isConnected) document.body.append(target)
     const references = createAgentElementReferenceStore({
-      documentId: "document-1"
+      documentId: "document-1",
+      frameId: 0
     })
     const snapshot = references.beginSnapshot({
       minimumGeneration: 1,
@@ -433,7 +453,14 @@ describe("Agent DOM mutation execution", () => {
         )
       ]
     })
-    return { effect: await authorize(action, before), references }
+    const effect = await authorize(action, before)
+    return {
+      effect: {
+        ...effect,
+        frame: effect.target.frame ?? effect.snapshotIdentity
+      },
+      references
+    }
   }
 
   it("dispatches input without recording the field value in its receipt", async () => {
@@ -956,5 +983,128 @@ describe("Agent DOM mutation verification", () => {
     expect(Object.keys(DOM_MUTATION_AGENT_VERIFIERS).sort()).toEqual(
       [...DOM_MUTATION_AGENT_ACTIONS].sort()
     )
+  })
+})
+
+describe("Agent DOM mutation across frames", () => {
+  const childFrame = {
+    frameId: 2,
+    parentFrameId: 0,
+    documentId: "document-2",
+    origin: location.origin,
+    url: new URL("/child", location.href).href,
+    access: "ok" as const,
+    snapshotId: "snapshot-child",
+    generation: 4
+  }
+  const framed = (overrides: Partial<AgentObservation> = {}) => {
+    const base = observation(overrides)
+    return {
+      ...base,
+      frames: [base.frames[0], childFrame],
+      elements: [
+        element(),
+        element({ ref: "f2e1", frameId: 2 }),
+        ...(overrides.elements ?? [])
+      ]
+    }
+  }
+
+  it("binds a child-frame target to its own frame identity", async () => {
+    const effect = await resolve(
+      command({ type: "click", ref: "f2e1" }),
+      framed()
+    )
+    expect(effect.snapshotIdentity).toMatchObject({
+      snapshotId: "snapshot-1",
+      frameId: 0,
+      documentId: "document-1"
+    })
+    expect(effect.target.frameId).toBe(2)
+    expect(effect.target.frame).toEqual({
+      snapshotId: "snapshot-child",
+      generation: 4,
+      tabId: 7,
+      frameId: 2,
+      documentId: "document-2"
+    })
+  })
+
+  it("keeps the root target bound to the root frame", async () => {
+    const effect = await resolve(
+      command({ type: "click", ref: "e1" }),
+      framed()
+    )
+    expect(effect.target.frame).toEqual(effect.snapshotIdentity)
+  })
+
+  it("refuses to execute once the target's frame holds another document", async () => {
+    const mutate = vi.fn()
+    const effect = await authorize(
+      command({ type: "click", ref: "f2e1" }),
+      framed()
+    )
+    const getFrame = vi.fn(async (_tabId: number, frameId: number) =>
+      frameId === 0
+        ? { documentId: "document-1", url: observation().url }
+        : { documentId: "document-replaced", url: childFrame.url }
+    )
+    await expect(
+      executeDomMutationAgentEffect({
+        effect,
+        adapter: { ...executorAdapter(mutate), getFrame },
+        signal
+      })
+    ).rejects.toBeInstanceOf(AgentEffectNotAppliedError)
+    expect(getFrame).toHaveBeenCalledWith(7, 2)
+    expect(mutate).not.toHaveBeenCalled()
+  })
+
+  it("executes a child-frame mutation once its frame still holds the observed document", async () => {
+    const mutate = vi.fn(async () => undefined)
+    const effect = await authorize(
+      command({ type: "click", ref: "f2e1" }),
+      framed()
+    )
+    await executeDomMutationAgentEffect({
+      effect,
+      adapter: {
+        ...executorAdapter(mutate),
+        getFrame: async (_tabId, frameId) =>
+          frameId === 0
+            ? { documentId: "document-1", url: observation().url }
+            : { documentId: "document-2", url: childFrame.url }
+      },
+      signal
+    })
+    expect(mutate).toHaveBeenCalledOnce()
+  })
+
+  it("tells identical controls apart by frame when verifying", async () => {
+    const input = (ref: string, frameId: number, value: string) =>
+      element({
+        ref,
+        frameId,
+        tag: "input",
+        type: "text",
+        name: "Search",
+        value,
+        editable: true
+      })
+    const before = {
+      ...framed(),
+      elements: [input("e1", 0, ""), input("f2e1", 2, "")]
+    }
+    const after = {
+      ...before,
+      generation: 2,
+      elements: [input("e1", 0, "hello"), input("f2e1", 2, "")]
+    }
+    const verification = await verify(
+      command({ type: "type", ref: "e1", text: "hello" }),
+      after,
+      before
+    )
+    expect(verification.outcome).toBe("confirmed")
   })
 })

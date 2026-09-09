@@ -29,10 +29,22 @@ const observation = (elements: AgentElement[]): AgentObservation => ({
   snapshotId: "snapshot-1",
   generation: 1,
   tabId: 7,
+  frameId: 0,
   documentId: "document-1",
   url: "https://example.com/",
   origin: "https://example.com",
   title: "Example",
+  frames: [
+    {
+      frameId: 0,
+      documentId: "document-1",
+      origin: "https://example.com",
+      url: "https://example.com/",
+      access: "ok",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+  ],
   elements,
   visibleText: "",
   scroll: {

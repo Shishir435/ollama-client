@@ -25,6 +25,7 @@ const effect = (
     snapshotId: "snapshot-1",
     generation: 1,
     tabId: 1,
+    frameId: 0,
     documentId: "document-1"
   },
   sourceUrl: "https://example.com/",
@@ -40,6 +41,7 @@ const input = (
   stepId: "step-1",
   effect: resolved,
   allowedOrigins: ["https://example.com"],
+  scopedTabIds: [1],
   now: 100,
   ...overrides
 })
@@ -349,5 +351,49 @@ describe("resolved-effect policy", () => {
         })
       ).type
     ).not.toBe("granted")
+  })
+})
+
+describe("tab scope policy", () => {
+  const switchTab = (tabId: number): ResolvedAgentEffect => ({
+    command: {
+      type: "switch_tab",
+      tabId,
+      snapshotId: "snapshot-1",
+      generation: 1
+    },
+    target: { sensitive: false, maySubmit: false },
+    destination: {
+      url: "https://example.com/other",
+      origin: "https://example.com",
+      source: "browser"
+    },
+    semanticEffects: ["navigation"],
+    snapshotIdentity: {
+      snapshotId: "snapshot-1",
+      generation: 1,
+      tabId: 1,
+      frameId: 0,
+      documentId: "document-1"
+    },
+    sourceUrl: "https://example.com/",
+    sourceOrigin: "https://example.com"
+  })
+
+  it("lets the run switch between the tabs it already drives", () => {
+    expect(
+      evaluateAgentPolicy(input(switchTab(2), { scopedTabIds: [1, 2] }))
+    ).toEqual({ type: "allow", risk: "medium" })
+  })
+
+  it("asks before adopting a tab outside the run's scope, whatever its origin", () => {
+    const decision = evaluateAgentPolicy(
+      input(switchTab(9), { scopedTabIds: [1] })
+    )
+    expect(decision).toMatchObject({
+      type: "approval_required",
+      risk: "high",
+      request: { action: "Adopt tab 9 at https://example.com/other" }
+    })
   })
 })

@@ -15,6 +15,10 @@ import type {
 } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
+import {
+  agentFrameSnapshotIdentity,
+  rootAgentSnapshotIdentity
+} from "./frame-identity"
 
 export const READ_ONLY_AGENT_ACTIONS = [
   "read",
@@ -55,12 +59,14 @@ const targetFromObservation = (
     return { sensitive: false, maySubmit: false }
   }
   const element = observation.elements.find(
-    (candidate) => candidate.ref === command.ref && candidate.frameId === 0
+    (candidate) => candidate.ref === command.ref
   )
   if (!element)
     throw new AgentStaleObservationError("Agent scroll target is stale")
   return {
     ref: element.ref,
+    frameId: element.frameId,
+    frame: agentFrameSnapshotIdentity(observation, element),
     tag: element.tag,
     role: element.role,
     accessibleName: element.name,
@@ -154,12 +160,7 @@ export const resolveReadOnlyAgentEffect = async (input: {
             command.type === "forward"
           ? ["navigation"]
           : ["read"],
-    snapshotIdentity: {
-      snapshotId: observation.snapshotId,
-      generation: observation.generation,
-      tabId: observation.tabId,
-      documentId: observation.documentId
-    },
+    snapshotIdentity: rootAgentSnapshotIdentity(observation),
     sourceUrl: source.url,
     sourceOrigin: source.origin
   }
@@ -329,8 +330,7 @@ const observedLink = (
   observation: AgentObservation
 ): AgentElement | undefined =>
   observation.elements.find(
-    (element) =>
-      element.frameId === 0 && element.visible && element.href === url.href
+    (element) => element.visible && element.href === url.href
   )
 
 const isDownloadDestination = (url: URL, link?: AgentElement): boolean => {
@@ -393,12 +393,7 @@ export const resolveNavigationAgentEffect = async (input: {
     target: { sensitive: false, maySubmit: false },
     destination,
     semanticEffects: effects,
-    snapshotIdentity: {
-      snapshotId: observation.snapshotId,
-      generation: observation.generation,
-      tabId: observation.tabId,
-      documentId: observation.documentId
-    },
+    snapshotIdentity: rootAgentSnapshotIdentity(observation),
     sourceUrl: source.url,
     sourceOrigin: source.origin
   }
@@ -448,7 +443,7 @@ const findMutationElement = (
   const refused = classifyAgentAffordance(command, observation)
   if (refused) throw new AgentGroundingError({ refusal: refused })
   const element = observation.elements.find(
-    (candidate) => candidate.ref === command.ref && candidate.frameId === 0
+    (candidate) => candidate.ref === command.ref
   )
   if (!element)
     throw new AgentGroundingError({ refusal: { reason: "unknown_ref" } })
@@ -457,11 +452,13 @@ const findMutationElement = (
 
 const targetFromElement = (
   element: AgentElement,
+  observation: AgentObservation,
   expected?: { value?: string; checked?: boolean }
 ): ResolvedAgentTarget => ({
   ref: element.ref,
   verificationId: element.verificationId,
-  frameId: 0,
+  frameId: element.frameId,
+  frame: agentFrameSnapshotIdentity(observation, element),
   tag: element.tag,
   role: element.role,
   accessibleName: element.name,
@@ -622,15 +619,10 @@ export const resolveDomMutationAgentEffect = async (input: {
 
   return {
     command,
-    target: targetFromElement(element, expected),
+    target: targetFromElement(element, observation, expected),
     ...(destination ? { destination } : {}),
     semanticEffects: [...new Set(effects)],
-    snapshotIdentity: {
-      snapshotId: observation.snapshotId,
-      generation: observation.generation,
-      tabId: observation.tabId,
-      documentId: observation.documentId
-    },
+    snapshotIdentity: rootAgentSnapshotIdentity(observation),
     sourceUrl: source.url,
     sourceOrigin: source.origin
   }

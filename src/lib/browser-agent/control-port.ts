@@ -9,7 +9,8 @@ import {
   AgentCommandSchema,
   type AgentObservation,
   AgentObservationSchema,
-  AgentSnapshotIdentitySchema
+  AgentSnapshotIdentitySchema,
+  MAX_AGENT_OBSERVED_ELEMENTS
 } from "@ollama-client/contracts"
 import { z } from "zod"
 
@@ -28,11 +29,18 @@ export const AgentObserveRequestSchema = z
     type: z.literal("agent_observe"),
     runId: z.string().min(1),
     tabId: z.number().int().nonnegative(),
-    frameId: z.literal(0),
+    frameId: z.number().int().nonnegative(),
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
-    minimumGeneration: z.number().int().nonnegative()
+    minimumGeneration: z.number().int().nonnegative(),
+    /** Elements this frame may contribute to a composed observation. */
+    elementLimit: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(MAX_AGENT_OBSERVED_ELEMENTS)
+      .optional()
   })
   .strict()
 export type AgentObserveRequest = z.infer<typeof AgentObserveRequestSchema>
@@ -43,7 +51,7 @@ export const AgentObserveResponseSchema = z
     type: z.literal("agent_observation"),
     runId: z.string().min(1),
     tabId: z.number().int().nonnegative(),
-    frameId: z.literal(0),
+    frameId: z.number().int().nonnegative(),
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
@@ -73,7 +81,7 @@ export const AgentControlFailureResponseSchema = z
     type: z.literal("agent_control_failed"),
     runId: z.string().min(1),
     tabId: z.number().int().nonnegative(),
-    frameId: z.literal(0),
+    frameId: z.number().int().nonnegative(),
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
@@ -131,7 +139,7 @@ const AgentDomMutationTargetSchema = z
   .object({
     ref: z.string().min(1),
     verificationId: z.string().min(1).max(128).optional(),
-    frameId: z.literal(0),
+    frameId: z.number().int().nonnegative(),
     tag: z.string().min(1),
     role: z.string().min(1).optional(),
     accessibleName: z.string().max(500).optional(),
@@ -169,26 +177,66 @@ const AgentDomMutationCommandSchema = AgentCommandSchema.refine(
   "Control-port execution accepts only DOM mutation commands"
 )
 
+/**
+ * The command names the root snapshot; the target's frame holds its own. The
+ * two agree on the tab, and when the target is in the root frame they are the
+ * same identity — a frame identity that disagrees with the root it claims to
+ * be is a fabricated binding, not a child frame.
+ */
+const assertFrameBinding = (
+  instruction: {
+    command: { snapshotId: string; generation: number }
+    snapshotIdentity: z.infer<typeof AgentSnapshotIdentitySchema>
+    frame: z.infer<typeof AgentSnapshotIdentitySchema>
+    target?: { frameId: number }
+  },
+  context: z.RefinementCtx
+): void => {
+  if (
+    instruction.command.snapshotId !==
+      instruction.snapshotIdentity.snapshotId ||
+    instruction.command.generation !== instruction.snapshotIdentity.generation
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["command"],
+      message: "Command and resolved snapshot identity must match"
+    })
+  }
+  const root = instruction.snapshotIdentity
+  const frame = instruction.frame
+  const sameFrame = frame.frameId === root.frameId
+  if (
+    frame.tabId !== root.tabId ||
+    (sameFrame &&
+      (frame.snapshotId !== root.snapshotId ||
+        frame.generation !== root.generation ||
+        frame.documentId !== root.documentId))
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["frame"],
+      message: "Frame identity must belong to the resolved snapshot's tab"
+    })
+  }
+  if (instruction.target && instruction.target.frameId !== frame.frameId) {
+    context.addIssue({
+      code: "custom",
+      path: ["target", "frameId"],
+      message: "Target frame and frame identity must agree"
+    })
+  }
+}
+
 export const AgentDomMutationInstructionSchema = z
   .object({
     command: AgentDomMutationCommandSchema,
     target: AgentDomMutationTargetSchema,
-    snapshotIdentity: AgentSnapshotIdentitySchema
+    snapshotIdentity: AgentSnapshotIdentitySchema,
+    frame: AgentSnapshotIdentitySchema
   })
   .strict()
-  .superRefine((instruction, context) => {
-    if (
-      instruction.command.snapshotId !==
-        instruction.snapshotIdentity.snapshotId ||
-      instruction.command.generation !== instruction.snapshotIdentity.generation
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["command"],
-        message: "Command and resolved snapshot identity must match"
-      })
-    }
-  })
+  .superRefine(assertFrameBinding)
 export type AgentDomMutationInstruction = z.infer<
   typeof AgentDomMutationInstructionSchema
 >
@@ -199,7 +247,7 @@ export const AgentExecuteRequestSchema = z
     type: z.literal("agent_execute_dom_mutation"),
     runId: z.string().min(1),
     tabId: z.number().int().nonnegative(),
-    frameId: z.literal(0),
+    frameId: z.number().int().nonnegative(),
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
@@ -217,7 +265,7 @@ export const AgentExecuteResponseSchema = z
     ]),
     runId: z.string().min(1),
     tabId: z.number().int().nonnegative(),
-    frameId: z.literal(0),
+    frameId: z.number().int().nonnegative(),
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
@@ -239,22 +287,11 @@ const AgentScrollCommandSchema = AgentCommandSchema.refine(
 export const AgentScrollInstructionSchema = z
   .object({
     command: AgentScrollCommandSchema,
-    snapshotIdentity: AgentSnapshotIdentitySchema
+    snapshotIdentity: AgentSnapshotIdentitySchema,
+    frame: AgentSnapshotIdentitySchema
   })
   .strict()
-  .superRefine((instruction, context) => {
-    if (
-      instruction.command.snapshotId !==
-        instruction.snapshotIdentity.snapshotId ||
-      instruction.command.generation !== instruction.snapshotIdentity.generation
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["command"],
-        message: "Command and resolved snapshot identity must match"
-      })
-    }
-  })
+  .superRefine(assertFrameBinding)
 export type AgentScrollInstruction = z.infer<
   typeof AgentScrollInstructionSchema
 >
@@ -265,7 +302,7 @@ export const AgentExecuteScrollRequestSchema = z
     type: z.literal("agent_execute_scroll"),
     runId: z.string().min(1),
     tabId: z.number().int().nonnegative(),
-    frameId: z.literal(0),
+    frameId: z.number().int().nonnegative(),
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
@@ -282,7 +319,7 @@ export const AgentScrollResponseSchema = z
     type: z.literal("agent_scroll_executed"),
     runId: z.string().min(1),
     tabId: z.number().int().nonnegative(),
-    frameId: z.literal(0),
+    frameId: z.number().int().nonnegative(),
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
     documentId: z.string().min(1)
@@ -313,7 +350,7 @@ export interface AgentControlPort {
 export interface AgentControlBinding {
   runId: string
   tabId: number
-  frameId: 0
+  frameId: number
   nonce: string
   documentId: string
 }
@@ -325,9 +362,11 @@ export interface AgentControlSenderEvidence {
 }
 
 export interface AgentControlSession {
+  readonly frameId: number
   observe(
     minimumGeneration: number,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    elementLimit?: number
   ): Promise<AgentObservation>
   executeDomMutation(
     instruction: AgentDomMutationInstruction,
@@ -340,31 +379,64 @@ export interface AgentControlSession {
   disconnect(): void
 }
 
+export interface AgentControlBrowserFrame {
+  frameId: number
+  parentFrameId: number
+  documentId?: string
+  url: string
+}
+
 export interface AgentControlBrowserAdapter {
   getTab(tabId: number): Promise<{ url?: string }>
-  getMainFrame(tabId: number): Promise<{
+  getFrame(
+    tabId: number,
     frameId: number
-    documentId?: string
-    url: string
-  } | null>
-  inject(tabId: number): Promise<void>
+  ): Promise<AgentControlBrowserFrame | null>
+  /** Every frame the tab currently holds, the root included. */
+  listFrames(tabId: number): Promise<AgentControlBrowserFrame[]>
+  inject(tabId: number, frameId: number): Promise<void>
   connect(
     tabId: number,
-    options: { name: string; frameId: 0; documentId: string }
+    options: { name: string; frameId: number; documentId: string }
   ): AgentControlPort
   classifyAccess(url?: string): Promise<TabAccess>
   createNonce(): string
 }
 
+type BrowserFrameDetails = {
+  frameId: number
+  parentFrameId?: number
+  documentId?: string
+  url: string
+} | null
+
+const toBrowserFrame = (
+  frame: NonNullable<BrowserFrameDetails>
+): AgentControlBrowserFrame => ({
+  frameId: frame.frameId,
+  parentFrameId: frame.parentFrameId ?? -1,
+  ...(frame.documentId ? { documentId: frame.documentId } : {}),
+  url: frame.url
+})
+
 const defaultBrowserAdapter = (): AgentControlBrowserAdapter => ({
   getTab: (tabId) => browser.tabs.get(tabId),
-  async getMainFrame(tabId) {
-    const frame = await browser.webNavigation.getFrame({ tabId, frameId: 0 })
-    return frame ? { ...frame, frameId: 0 } : null
+  async getFrame(tabId, frameId) {
+    const frame = (await browser.webNavigation.getFrame({
+      tabId,
+      frameId
+    })) as BrowserFrameDetails
+    return frame ? toBrowserFrame({ ...frame, frameId }) : null
   },
-  async inject(tabId) {
+  async listFrames(tabId) {
+    const frames = (await browser.webNavigation.getAllFrames({ tabId })) as
+      | NonNullable<BrowserFrameDetails>[]
+      | null
+    return (frames ?? []).map(toBrowserFrame)
+  },
+  async inject(tabId, frameId) {
     await browser.scripting.executeScript({
-      target: { tabId, frameIds: [0] },
+      target: { tabId, frameIds: [frameId] },
       files: ["content-scripts/agent-control.js"]
     })
   },
@@ -381,8 +453,7 @@ const assertBinding = (
   sender: AgentControlSenderEvidence
 ): void => {
   if (
-    binding.frameId !== 0 ||
-    sender.frameId !== 0 ||
+    sender.frameId !== binding.frameId ||
     sender.tabId !== binding.tabId ||
     sender.documentId !== binding.documentId
   ) {
@@ -406,8 +477,12 @@ export const validateAgentObservationResponse = (
     response.sequence !== sequence ||
     response.documentId !== binding.documentId ||
     response.observation.tabId !== binding.tabId ||
+    response.observation.frameId !== binding.frameId ||
     response.observation.documentId !== binding.documentId ||
-    response.observation.elements.some((element) => element.frameId !== 0)
+    response.observation.frames.length !== 1 ||
+    response.observation.elements.some(
+      (element) => element.frameId !== binding.frameId
+    )
   ) {
     throw new Error("Agent observation response binding mismatch")
   }
@@ -530,7 +605,8 @@ export const createAgentControlSession = (input: {
   }
 
   return {
-    observe(minimumGeneration, signal) {
+    frameId: input.binding.frameId,
+    observe(minimumGeneration, signal, elementLimit) {
       if (inFlight) {
         return Promise.reject(
           new Error("Agent control request already in flight")
@@ -543,7 +619,8 @@ export const createAgentControlSession = (input: {
         type: "agent_observe",
         ...input.binding,
         sequence: expectedSequence,
-        minimumGeneration
+        minimumGeneration,
+        ...(elementLimit === undefined ? {} : { elementLimit })
       }
 
       return exchange(
@@ -618,35 +695,55 @@ export const createAgentControlSession = (input: {
   }
 }
 
+/**
+ * Opens a session on one frame of one tab.
+ *
+ * The tab is checked first, because a child frame inside a page the run may
+ * not read is not readable either, whatever its own address; then the frame's
+ * own document, because a frame is its own origin and the tab's answer says
+ * nothing about it. A child frame is opened only by a caller that has already
+ * decided the run may read it — this function enforces readability, and the
+ * caller enforces authorization.
+ */
 export const openAgentControlSession = async (input: {
   runId: string
   tabId: number
+  frameId?: number
   adapter?: AgentControlBrowserAdapter
 }): Promise<AgentControlSession> => {
   const adapter = input.adapter ?? defaultBrowserAdapter()
+  const frameId = input.frameId ?? 0
   const tab = await adapter.getTab(input.tabId)
   const access = await adapter.classifyAccess(tab.url)
   if (access !== "ok") {
     throw new Error(`Agent tab access denied: ${access}`)
   }
-  const frame = await adapter.getMainFrame(input.tabId)
-  if (!frame || frame.frameId !== 0 || !frame.documentId) {
-    throw new Error("Agent main-frame document is unavailable")
+  const frame = await adapter.getFrame(input.tabId, frameId)
+  if (!frame || frame.frameId !== frameId || !frame.documentId) {
+    throw new Error(
+      frameId === 0
+        ? "Agent main-frame document is unavailable"
+        : "Agent frame document is unavailable"
+    )
   }
   if ((await adapter.classifyAccess(frame.url)) !== "ok") {
-    throw new Error("Agent main-frame document is not readable")
+    throw new Error(
+      frameId === 0
+        ? "Agent main-frame document is not readable"
+        : "Agent frame document is not readable"
+    )
   }
-  await adapter.inject(input.tabId)
+  await adapter.inject(input.tabId, frameId)
   const binding: AgentControlBinding = {
     runId: input.runId,
     tabId: input.tabId,
-    frameId: 0,
+    frameId,
     nonce: adapter.createNonce(),
     documentId: frame.documentId
   }
   const port = adapter.connect(input.tabId, {
     name: MESSAGE_KEYS.AGENT.CONTROL_PORT,
-    frameId: 0,
+    frameId,
     documentId: frame.documentId
   })
   return createAgentControlSession({
@@ -749,11 +846,18 @@ export const attachAgentControlContentPort = (
       return
     }
 
+    /*
+     * The frame this document is has to be the frame the instruction binds
+     * to: same tab, same frame id, same document. The root identity beside it
+     * is the command's grounding and is checked where the root was observed.
+     */
     if (
       (request.type === "agent_execute_dom_mutation" ||
         request.type === "agent_execute_scroll") &&
-      (request.instruction.snapshotIdentity.tabId !== request.tabId ||
-        request.instruction.snapshotIdentity.documentId !== request.documentId)
+      (request.instruction.frame.tabId !== request.tabId ||
+        request.instruction.frame.frameId !== request.frameId ||
+        request.instruction.frame.documentId !== request.documentId ||
+        request.instruction.snapshotIdentity.tabId !== request.tabId)
     ) {
       port.disconnect()
       return

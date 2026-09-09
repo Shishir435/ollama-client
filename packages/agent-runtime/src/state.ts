@@ -1,4 +1,4 @@
-import type { AgentRunStatus } from "@ollama-client/contracts"
+import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
 
 export const TERMINAL_AGENT_STATUSES = [
   "completed",
@@ -68,3 +68,14 @@ export const isLegalAgentTransition = (
 
 export const isTerminalAgentStatus = (status: AgentRunStatus): boolean =>
   (TERMINAL_AGENT_STATUSES as readonly AgentRunStatus[]).includes(status)
+
+/**
+ * The tabs a run may drive. The controlled tab is always in scope, so a row
+ * written before scope existed, or one whose scope filled up, still names the
+ * tab the run is on.
+ */
+export const agentTabScope = (
+  state: Pick<AgentRunState, "controlledTabId" | "scopedTabIds">
+): readonly number[] => [
+  ...new Set([state.controlledTabId, ...(state.scopedTabIds ?? [])])
+]

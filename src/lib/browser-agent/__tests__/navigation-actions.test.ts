@@ -49,10 +49,22 @@ const observation = (
   snapshotId: "snapshot-1",
   generation: 1,
   tabId: 7,
+  frameId: 0,
   documentId: "document-1",
   url: "https://example.com/start",
   origin: "https://example.com",
   title: "Example",
+  frames: [
+    {
+      frameId: 0,
+      documentId: "document-1",
+      origin: "https://example.com",
+      url: "https://example.com/start",
+      access: "ok",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+  ],
   elements: [link()],
   visibleText: "Initial content",
   scroll: {
@@ -116,6 +128,7 @@ const decide = async (
     stepId: "step-1",
     effect: await resolve(command, before),
     allowedOrigins,
+    scopedTabIds: [7],
     now: 5
   })
 
@@ -123,7 +136,7 @@ const executorAdapter = (
   overrides: Partial<AgentCommandExecutorAdapter> = {}
 ): AgentCommandExecutorAdapter => ({
   getTab: async (tabId) => ({ id: tabId, url: "https://example.com/start" }),
-  getMainFrame: async () => ({
+  getFrame: async () => ({
     documentId: "document-1",
     url: "https://example.com/start"
   }),
@@ -160,7 +173,8 @@ const verify = async (
   const verification: AgentVerificationInput = {
     effect: await authorize(command, before),
     receipt,
-    before
+    before,
+    allowedOrigins: ["https://example.com"]
   }
   return verifyNavigationAgentEffect({ verification, adapter, signal })
 }
@@ -548,7 +562,7 @@ describe("Agent navigation actions", () => {
       executeNavigationAgentEffect({
         effect: await authorize(navigate("https://example.com/docs")),
         adapter: executorAdapter({
-          getMainFrame: async () => ({
+          getFrame: async () => ({
             documentId: "document-2",
             url: "https://example.com/start"
           }),

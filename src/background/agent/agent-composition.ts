@@ -55,7 +55,11 @@ export const createAgentComposition = async (
     | undefined
   const startObserver = () => {
     observer ??= startBrowserAgentNavigationObserver((snapshot) => {
-      history.record(snapshot.tabId, snapshot.url)
+      /*
+       * Back and forward are planned against the tab's own history, which a
+       * child frame's navigation does not enter.
+       */
+      if (snapshot.frameId === 0) history.record(snapshot.tabId, snapshot.url)
     })
   }
   if (await hasAgentPerceptionPermission()) startObserver()

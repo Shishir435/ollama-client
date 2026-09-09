@@ -263,10 +263,18 @@ export const createAgentRunService = (input?: {
   const browserSessions =
     input?.browserSessions ??
     ({
-      capabilities: { backend: "dom", cdpControl: false, domControl: true },
+      capabilities: {
+        backend: "dom",
+        cdpControl: false,
+        domControl: true,
+        frameTracking: false
+      },
       attach: async () => undefined,
       detach: async () => undefined,
       isAttached: () => true,
+      attachedTabId: () => undefined,
+      frames: () => ({ status: "unavailable", frames: [] }),
+      mapFrame: () => ({ mapped: false, reason: "tracking_unavailable" }),
       subscribe: () => () => undefined,
       dispose: async () => undefined
     } satisfies AgentBrowserSessionManager)
@@ -308,6 +316,33 @@ export const createAgentRunService = (input?: {
       ].includes(state.status)
     ) {
       await detachBrowserSession(state.id)
+      return
+    }
+    await followControlledTab(state)
+  }
+
+  /**
+   * The debugger follows the run onto the tab it now controls. Adoption is
+   * written in the same claim that opens the next observation, so this runs
+   * before that observation is taken; a tab the run left keeps no attachment,
+   * and a tab it moved to gets one before any page work is claimed on it.
+   * An attach that fails leaves the run marked as interrupted, which the
+   * ownership gate turns into a refused claim and the disconnect path into a
+   * recorded pause.
+   */
+  const followControlledTab = async (state: AgentRunState) => {
+    if (state.status !== "observing") return
+    const attached = browserSessions.attachedTabId(state.id)
+    if (attached === undefined || attached === state.controlledTabId) return
+    await detachBrowserSession(state.id)
+    try {
+      await browserSessions.attach(state.id, state.controlledTabId)
+    } catch (error) {
+      interruptedBrowserSessions.add(state.id)
+      logger.warn("Agent browser attach did not follow the run", "Agent", {
+        runId: state.id,
+        name: error instanceof Error ? error.name : typeof error
+      })
     }
   }
 
@@ -481,6 +516,7 @@ export const createAgentRunService = (input?: {
           providerId: request.providerId,
           modelId: request.modelId,
           allowedOrigins: [originOf(address)],
+          scopedTabIds: [request.tabId],
           deadline: createInitialAgentDeadline(startedAt),
           createdAt: startedAt,
           updatedAt: startedAt

@@ -776,7 +776,8 @@ const buildElementObservation = (
   ref: string,
   verificationId: string | undefined,
   pass: AgentObservationPass,
-  modalIds: Map<Element, string> = new Map()
+  modalIds: Map<Element, string> = new Map(),
+  frameId = 0
 ): AgentElement => {
   const visible = isVisible(element, pass)
   const sensitive = !visible || isSensitiveAgentElement(element)
@@ -789,7 +790,7 @@ const buildElementObservation = (
   return {
     ref,
     ...(verificationId ? { verificationId } : {}),
-    frameId: 0,
+    frameId,
     role: element.getAttribute("role") || undefined,
     ...(name
       ? { name: truncate(name, AGENT_OBSERVATION_LIMITS.elementNameChars) }
@@ -810,9 +811,17 @@ const buildElementObservation = (
 export const buildAgentElementObservation = (
   element: Element,
   ref: string,
-  verificationId?: string
+  verificationId?: string,
+  frameId = 0
 ): AgentElement =>
-  buildElementObservation(element, ref, verificationId, createObservationPass())
+  buildElementObservation(
+    element,
+    ref,
+    verificationId,
+    createObservationPass(),
+    new Map(),
+    frameId
+  )
 
 /**
  * The element cap bounds what crosses the port, but it must never be spent in
@@ -830,9 +839,9 @@ export const buildAgentElementObservation = (
  */
 const selectObservedCandidates = (
   document: Document,
-  pass: AgentObservationPass
+  pass: AgentObservationPass,
+  budget: number
 ): Element[] => {
-  const budget = AGENT_OBSERVATION_LIMITS.elements
   const selected: Element[] = []
   const hiddenPositions: number[] = []
   let visibleCount = 0
@@ -867,20 +876,49 @@ const selectObservedCandidates = (
   return selected.filter((_element, index) => !surplus.has(index))
 }
 
+/**
+ * The frame a document is in has to agree with the frame the request named.
+ * A content script cannot read its own extension frame id, so this is the
+ * one check it can make: the root frame is the top window and nothing else
+ * is. `top` is readable across origins even when nothing behind it is.
+ */
+const assertFrameRole = (document: Document, frameId: number): void => {
+  const view = document.defaultView
+  const isTop = !view || view.top === view
+  if (frameId === 0 && !isTop) {
+    throw new Error("Agent root-frame observation requested from a child frame")
+  }
+  if (frameId !== 0 && isTop) {
+    throw new Error(
+      "Agent child-frame observation requested from the top frame"
+    )
+  }
+}
+
 export const buildAgentObservation = (input: {
   document: Document
   tabId: number
   documentId: string
+  /** The extension frame id of `document`; the root frame is 0. */
   frameId?: number
   minimumGeneration: number
   references: AgentElementReferenceStore
+  /**
+   * Elements this frame may contribute. A composed observation hands a child
+   * frame what the root left over, so one page cannot exceed the cap by
+   * spreading its controls across frames.
+   */
+  elementLimit?: number
   capturedAt?: number
   createSnapshotId?: () => string
   now?: () => number
 }): AgentObservation => {
-  if ((input.frameId ?? 0) !== 0 || input.document.defaultView?.frameElement) {
-    throw new Error("Agent observations are main-frame only")
-  }
+  const frameId = input.frameId ?? 0
+  assertFrameRole(input.document, frameId)
+  const elementLimit = Math.min(
+    AGENT_OBSERVATION_LIMITS.elements,
+    Math.max(0, input.elementLimit ?? AGENT_OBSERVATION_LIMITS.elements)
+  )
   const url = new URL(input.document.location.href)
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("Agent observations require an HTTP(S) document")
@@ -892,15 +930,19 @@ export const buildAgentObservation = (input: {
   })
   const pass = createObservationPass(input.now)
   const { modals, ids: modalIds } = collectModals(input.document, pass)
-  const elements = selectObservedCandidates(input.document, pass).map(
-    (element) =>
-      buildElementObservation(
-        element,
-        snapshot.reference(element),
-        snapshot.verificationId(element),
-        pass,
-        modalIds
-      )
+  const elements = selectObservedCandidates(
+    input.document,
+    pass,
+    elementLimit
+  ).map((element) =>
+    buildElementObservation(
+      element,
+      snapshot.reference(element),
+      snapshot.verificationId(element),
+      pass,
+      modalIds,
+      frameId
+    )
   )
   const visibleText = input.document.body
     ? collectVisibleText(
@@ -927,10 +969,26 @@ export const buildAgentObservation = (input: {
     snapshotId: snapshot.snapshotId,
     generation: snapshot.generation,
     tabId: input.tabId,
+    frameId,
     documentId: input.documentId,
     url: url.href,
     origin: url.origin,
     title: truncate(input.document.title, AGENT_OBSERVATION_LIMITS.titleChars),
+    /**
+     * A single frame's observation lists itself. Composition into the page's
+     * frame tree happens where the tree is known, in the background.
+     */
+    frames: [
+      {
+        frameId,
+        documentId: input.documentId,
+        origin: url.origin,
+        url: url.href,
+        access: "ok",
+        snapshotId: snapshot.snapshotId,
+        generation: snapshot.generation
+      }
+    ],
     elements,
     visibleText,
     scroll: {

@@ -5,7 +5,10 @@ import type {
   AgentRunState,
   AgentRunStatus
 } from "@ollama-client/contracts"
-import { MAX_AGENT_ALLOWED_ORIGINS } from "@ollama-client/contracts"
+import {
+  MAX_AGENT_ALLOWED_ORIGINS,
+  MAX_AGENT_SCOPED_TABS
+} from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
 import { AgentGroundingError } from "../affordance"
 import { AgentControlFailedError } from "../control-failure"
@@ -46,28 +49,45 @@ const runState = (overrides: Partial<AgentRunState> = {}): AgentRunState => ({
 
 const observation = (
   overrides: Partial<AgentObservation> = {}
-): AgentObservation => ({
-  snapshotId: "snapshot-1",
-  generation: 1,
-  tabId: 7,
-  documentId: "document-1",
-  url: "https://example.com",
-  origin: "https://example.com",
-  title: "Example",
-  elements: [],
-  visibleText: "Page text",
-  scroll: {
-    x: 0,
-    y: 0,
-    viewportWidth: 100,
-    viewportHeight: 100,
-    documentWidth: 100,
-    documentHeight: 100
-  },
-  dialogs: [],
-  capturedAt: 1,
-  ...overrides
-})
+): AgentObservation => {
+  const base = {
+    snapshotId: "snapshot-1",
+    generation: 1,
+    tabId: 7,
+    frameId: 0,
+    documentId: "document-1",
+    url: "https://example.com",
+    origin: "https://example.com",
+    title: "Example",
+    elements: [],
+    visibleText: "Page text",
+    scroll: {
+      x: 0,
+      y: 0,
+      viewportWidth: 100,
+      viewportHeight: 100,
+      documentWidth: 100,
+      documentHeight: 100
+    },
+    dialogs: [],
+    capturedAt: 1,
+    ...overrides
+  }
+  return {
+    ...base,
+    frames: overrides.frames ?? [
+      {
+        frameId: base.frameId,
+        documentId: base.documentId,
+        origin: base.origin,
+        url: base.url,
+        access: "ok",
+        snapshotId: base.snapshotId,
+        generation: base.generation
+      }
+    ]
+  }
+}
 
 const command = (generation = 1): AgentCommand => ({
   type: "back",
@@ -87,6 +107,7 @@ const resolvedEffect = (
     snapshotId: currentObservation.snapshotId,
     generation: currentObservation.generation,
     tabId: currentObservation.tabId,
+    frameId: currentObservation.frameId,
     documentId: currentObservation.documentId
   },
   sourceUrl: currentObservation.url,
@@ -452,6 +473,7 @@ describe("agent controller", () => {
     })
     await harness.controller.start("run-1")
     expect(harness.getState().controlledTabId).toBe(9)
+    expect(harness.getState().scopedTabIds).toEqual([7, 9])
     expect(harness.calls.indexOf("verify")).toBeLessThan(
       harness.calls.lastIndexOf("claim:observing")
     )
@@ -1190,5 +1212,35 @@ describe("agent controller", () => {
     await harness.controller.start("run-1")
     expect(harness.getState().status).toBe("failed")
     expect(harness.getState().error?.code).toBe("model_unavailable")
+  })
+})
+
+describe("agent controller tab scope", () => {
+  it("still moves onto a confirmed tab when the scope is full", async () => {
+    const full = Array.from(
+      { length: MAX_AGENT_SCOPED_TABS },
+      (_, i) => i + 100
+    )
+    const harness = createHarness({
+      state: runState({ controlledTabId: 100, scopedTabIds: full }),
+      controlledTabIdAfterExecution: 9,
+      observations: [observation({ tabId: 100 }), observation({ tabId: 9 })]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().controlledTabId).toBe(9)
+    expect(harness.getState().scopedTabIds).toEqual(full)
+  })
+
+  it("hands policy the tabs the run drives", async () => {
+    const scopes: (readonly number[])[] = []
+    const harness = createHarness({
+      state: runState({ scopedTabIds: [7, 3] }),
+      policy: (input) => {
+        scopes.push(input.scopedTabIds)
+        return { type: "allow", risk: "low" }
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(scopes[0]).toEqual([7, 3])
   })
 })

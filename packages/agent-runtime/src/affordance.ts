@@ -232,8 +232,12 @@ export const classifyAgentAffordance = (
   observation: AgentObservation
 ): AgentAffordanceRefusal | undefined => {
   if (!("ref" in command) || command.ref === undefined) return undefined
+  /**
+   * References are unique across frames — a child frame's carry its frame in
+   * their prefix — so the ref alone names the element and the frame it is in.
+   */
   const candidates = observation.elements.filter(
-    (element) => element.ref === command.ref && element.frameId === 0
+    (element) => element.ref === command.ref
   )
   if (candidates.length === 0)
     return { reason: "unknown_ref", ref: command.ref }

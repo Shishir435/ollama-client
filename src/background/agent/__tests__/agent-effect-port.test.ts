@@ -14,10 +14,22 @@ const observation = (
   snapshotId: "snapshot-1",
   generation: 1,
   tabId: 7,
+  frameId: 0,
   documentId: "document-1",
   url: "https://example.com/start",
   origin: "https://example.com",
   title: "Example",
+  frames: [
+    {
+      frameId: 0,
+      documentId: "document-1",
+      origin: "https://example.com",
+      url: "https://example.com/start",
+      access: "ok",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+  ],
   elements: [
     {
       ref: "e1",
@@ -53,7 +65,7 @@ const adapters = (): AgentBrowserAdapters => ({
   },
   executor: {
     getTab: async (tabId) => ({ id: tabId, url: "https://example.com/start" }),
-    getMainFrame: async () => ({
+    getFrame: async () => ({
       documentId: "document-1",
       url: "https://example.com/start"
     }),
@@ -148,7 +160,12 @@ describe("Agent effect port", () => {
     expect(deps.executor.mutate).toHaveBeenCalledOnce()
 
     const verification = await port.verify(
-      { effect: authorized(effect), receipt, before: observation() },
+      {
+        effect: authorized(effect),
+        receipt,
+        before: observation(),
+        allowedOrigins: ["https://example.com"]
+      },
       signal
     )
     expect(deps.verifier.observe).toHaveBeenCalledOnce()
