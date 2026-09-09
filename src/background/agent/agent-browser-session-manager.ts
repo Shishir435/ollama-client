@@ -187,6 +187,22 @@ export const createAgentBrowserSessionManager = (input?: {
     emit({ runId, tabId, reason: "tab_closed" })
   }
 
+  /**
+   * A page whose access cannot be decided is a page the run may not keep.
+   * The classifier reads the user's exclusion settings, and a read that fails
+   * says nothing about the address — so the answer is the one that releases
+   * the debugger, not the one that keeps driving a page nobody authorized.
+   */
+  const classifyNavigation = async (
+    url: string
+  ): Promise<Awaited<ReturnType<typeof classifyAccess>>> => {
+    try {
+      return await classifyAccess(url)
+    } catch {
+      return "restricted"
+    }
+  }
+
   const onTabUpdated = (tabId: number, change: { url?: string }) => {
     if (!change.url) return
     const runId = tabOwners.get(tabId)
@@ -195,7 +211,7 @@ export const createAgentBrowserSessionManager = (input?: {
     if (!attachment) return
     attachment.navigationSequence += 1
     const navigationSequence = attachment.navigationSequence
-    void classifyAccess(change.url).then(async (access) => {
+    void classifyNavigation(change.url).then(async (access) => {
       if (
         access === "ok" ||
         attachments.get(runId) !== attachment ||

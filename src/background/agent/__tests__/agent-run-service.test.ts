@@ -233,6 +233,108 @@ describe("Agent run service", () => {
     )
   })
 
+  /**
+   * A controller that claims page work the way the runtime does, so the test
+   * can fire a disconnect between the service's ownership check and the claim.
+   */
+  const claimingController = (
+    browser: ReturnType<typeof browserSessions>,
+    interruptBefore: "start" | "resume" | "none"
+  ) => {
+    const claims: boolean[] = []
+    const build = vi.fn(({ persistence: port, runId }) => {
+      const claim = async (expected: AgentRunStatus) => {
+        const result = await port.claim({
+          runId,
+          phase: "observing",
+          expected: [expected]
+        })
+        claims.push(result.claimed)
+      }
+      const interrupt = () =>
+        browser.interrupt({ runId, tabId: 7, reason: "debugger_disconnected" })
+      return {
+        start: vi.fn(async () => {
+          if (interruptBefore === "start") interrupt()
+          await claim("submitted")
+        }),
+        requestPause: vi.fn(async (id: string, reason?: string) => {
+          const state = await port.load(id)
+          if (!state || state.status === "paused") return
+          await port.transition({
+            runId: id,
+            from: state.status,
+            to: "paused",
+            patch: { pauseReason: reason as AgentRunState["pauseReason"] }
+          })
+        }),
+        resume: vi.fn(async () => {
+          if (interruptBefore === "resume") interrupt()
+          await claim("paused")
+        }),
+        requestCancel: vi.fn(async () => undefined),
+        completeTakeover: vi.fn(async () => undefined),
+        answerQuestion: vi.fn(async () => undefined)
+      } satisfies AgentController
+    })
+    return { build, claims }
+  }
+
+  it("lets an attached run claim page work", async () => {
+    const browser = browserSessions()
+    const { build, claims } = claimingController(browser, "none")
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: build
+    })
+
+    await agent.start(startInput)
+
+    await vi.waitFor(() => expect(claims).toEqual([true]))
+    expect(runs.get("run-1")?.status).toBe("observing")
+  })
+
+  it("refuses page work when a disconnect races the start", async () => {
+    const browser = browserSessions()
+    const { build, claims } = claimingController(browser, "start")
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: build
+    })
+
+    await agent.start(startInput)
+
+    await vi.waitFor(() => expect(claims).toEqual([false]))
+    await vi.waitFor(() =>
+      expect(runs.get("run-1")).toMatchObject({
+        status: "paused",
+        pauseReason: "browser_disconnected"
+      })
+    )
+  })
+
+  it("refuses page work when a disconnect races the resume", async () => {
+    const browser = browserSessions()
+    const { build, claims } = claimingController(browser, "resume")
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: build
+    })
+    await agent.start(startInput)
+    await vi.waitFor(() => expect(claims).toEqual([true]))
+    claims.length = 0
+    runs.set("run-1", {
+      ...(runs.get("run-1") as AgentRunState),
+      status: "paused",
+      pauseReason: "user"
+    })
+
+    await agent.resume("run-1")
+
+    expect(claims).toEqual([false])
+    expect(runs.get("run-1")?.status).toBe("paused")
+  })
+
   it.each([
     ["pause", "paused"],
     ["stop", "cancelling"]

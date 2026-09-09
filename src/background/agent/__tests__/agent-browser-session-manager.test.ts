@@ -229,6 +229,32 @@ describe("Agent browser session manager", () => {
     await manager.dispose()
   })
 
+  it("releases control when navigation access cannot be classified", async () => {
+    const host = harness()
+    const manager = createAgentBrowserSessionManager({
+      debugger: host.debuggerApi,
+      tabs: host.tabs,
+      classifyAccess: vi.fn(async () => {
+        throw new Error("settings unavailable")
+      }),
+      readLastError: host.readLastError
+    })
+    const interrupted = vi.fn()
+    manager.subscribe(interrupted)
+    await manager.attach("run-1", 7)
+
+    host.fireUpdated(7, "https://example.com/next")
+
+    await vi.waitFor(() => expect(manager.isAttached("run-1")).toBe(false))
+    expect(interrupted).toHaveBeenCalledWith({
+      runId: "run-1",
+      tabId: 7,
+      reason: "navigation_blocked"
+    })
+    expect(host.debuggerApi.detach).toHaveBeenCalledTimes(1)
+    await manager.dispose()
+  })
+
   it("ignores a stale blocked-navigation result after a newer safe navigation", async () => {
     const host = harness()
     let resolveOld: (access: "restricted") => void = () => undefined

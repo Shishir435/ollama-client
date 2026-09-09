@@ -5,7 +5,7 @@ import type {
   AgentTakeoverDecision
 } from "@ollama-client/agent-runtime"
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
-import type { AgentRunState } from "@ollama-client/contracts"
+import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
 import { AgentRunStateSchema } from "@ollama-client/contracts"
 
 import { browser } from "@/lib/browser-api"
@@ -125,6 +125,59 @@ const announcing = (
   load: (runId) => port.load(runId),
   steps: (runId) => port.steps(runId)
 })
+
+/**
+ * The phases in which the controller touches the page. Entering one is the
+ * moment runtime work is claimed, so it is the moment browser ownership has
+ * to hold.
+ */
+const BROWSER_WORK_STATUSES: readonly AgentRunStatus[] = [
+  "observing",
+  "executing",
+  "verifying"
+]
+
+/**
+ * Refuses to claim page work for a run that no longer owns its browser.
+ *
+ * A disconnect can land after `attachBrowserSession` confirmed ownership and
+ * before the controller has claimed anything. The interruption handler then
+ * finds a `submitted` or `paused` row with no active controller to abort, and
+ * a `paused` row cannot even record the pause — so the resume it raced would
+ * legally take the run back to `observing` without a debugger behind it. The
+ * check is repeated here, synchronously, at the claim itself: the disconnect
+ * listener marks the run before any await, and the compare-and-set that would
+ * start page work is the last place to read that mark. A refused claim leaves
+ * the row where it was, which is where the controller's own guards stop.
+ */
+const guardingBrowserOwnership = (
+  port: AgentPersistencePort,
+  ownsBrowser: (runId: string) => boolean
+): AgentPersistencePort => {
+  const refuse = (runId: string, to: AgentRunStatus) => {
+    const refused = BROWSER_WORK_STATUSES.includes(to) && !ownsBrowser(runId)
+    if (refused) {
+      logger.warn("Agent refused page work without browser control", "Agent", {
+        runId,
+        to
+      })
+    }
+    return refused
+  }
+  return {
+    async claim(input) {
+      if (refuse(input.runId, input.phase)) return { claimed: false }
+      return port.claim(input)
+    },
+    async transition(input) {
+      if (refuse(input.runId, input.to)) return { transitioned: false }
+      return port.transition(input)
+    },
+    appendStep: (input) => port.appendStep(input),
+    load: (runId) => port.load(runId),
+    steps: (runId) => port.steps(runId)
+  }
+}
 
 export type AgentRunFailureReason =
   | "already_running"
@@ -258,8 +311,14 @@ export const createAgentRunService = (input?: {
     }
   }
 
+  const ownsBrowser = (runId: string): boolean =>
+    browserSessions.isAttached(runId) && !interruptedBrowserSessions.has(runId)
+
   const persistence = announcing(
-    input?.persistence ?? createAgentPersistencePort(),
+    guardingBrowserOwnership(
+      input?.persistence ?? createAgentPersistencePort(),
+      ownsBrowser
+    ),
     announce,
     releaseBrowserSessionFor
   )
@@ -343,10 +402,7 @@ export const createAgentRunService = (input?: {
           : "Agent browser control could not attach"
       )
     }
-    return (
-      browserSessions.isAttached(state.id) &&
-      !interruptedBrowserSessions.has(state.id)
-    )
+    return ownsBrowser(state.id)
   }
 
   browserSessions.subscribe((event) => {
