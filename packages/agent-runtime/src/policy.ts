@@ -1,6 +1,8 @@
-import type {
-  AgentApprovalRequest,
-  AgentTakeoverRequest
+import {
+  AGENT_GRANTABLE_EFFECTS,
+  type AgentApprovalRequest,
+  type AgentGrant,
+  type AgentTakeoverRequest
 } from "@ollama-client/contracts"
 import type {
   AgentPolicyDecision,
@@ -74,6 +76,36 @@ const makeTakeoverRequest = (
   createdAt: input.now
 })
 
+/**
+ * Which classes this approval may be widened to, if any.
+ *
+ * Decided here rather than in the panel: the panel renders what it is given,
+ * and a UI that worked out for itself when widening is safe would be a second
+ * copy of this rule. Critical risk, a class outside the grantable set, or a
+ * destination leaving the origin all mean the offer is simply absent.
+ */
+const grantableFor = (
+  input: AgentPolicyInput,
+  risk: Exclude<AgentRisk, "low">
+): Pick<AgentApprovalRequest, "origin" | "grantable"> => {
+  const origin = input.effect.sourceOrigin
+  const destination = input.effect.destination
+  const grantable: readonly string[] = AGENT_GRANTABLE_EFFECTS
+  if (
+    risk === "critical" ||
+    !input.allowedOrigins.includes(origin) ||
+    (destination && destination.origin !== origin) ||
+    !input.effect.semanticEffects.every((effect) => grantable.includes(effect))
+  ) {
+    return {}
+  }
+  return {
+    origin,
+    grantable: input.effect
+      .semanticEffects as unknown as AgentApprovalRequest["grantable"]
+  }
+}
+
 const makeApprovalRequest = (
   input: AgentPolicyInput,
   risk: Exclude<AgentRisk, "low">
@@ -83,6 +115,7 @@ const makeApprovalRequest = (
     ? `Allow navigation to ${destination}`
     : `Allow ${input.effect.command.type}`
   return {
+    ...grantableFor(input, risk),
     id: `${input.stepId}:approval`,
     runId: input.runId,
     stepId: input.stepId,
@@ -94,6 +127,40 @@ const makeApprovalRequest = (
     pageEvidence: input.effect.target.accessibleName,
     createdAt: input.now
   }
+}
+
+/**
+ * Whether a grant the user already gave covers this effect.
+ *
+ * Deliberately narrow. The grant has to name the origin the effect happens
+ * on; every semantic effect the step carries has to be one of the grantable
+ * classes, so a submission riding along inside an activation is not covered;
+ * and a critical risk is never covered at all, however it got there. A
+ * destination leaving the granted origin is a different site and a different
+ * decision.
+ */
+const grantFor = (
+  input: AgentPolicyInput,
+  risk: AgentRisk
+): AgentGrant | undefined => {
+  if (risk === "critical" || !input.grants?.length) return undefined
+  const origin = input.effect.sourceOrigin
+  if (!input.allowedOrigins.includes(origin)) return undefined
+  const destination = input.effect.destination
+  if (destination && destination.origin !== origin) return undefined
+  const grantable: readonly string[] = AGENT_GRANTABLE_EFFECTS
+  if (
+    !input.effect.semanticEffects.every((effect) => grantable.includes(effect))
+  ) {
+    return undefined
+  }
+  return input.grants.find(
+    (grant) =>
+      grant.origin === origin &&
+      input.effect.semanticEffects.every((effect) =>
+        (grant.effects as readonly string[]).includes(effect)
+      )
+  )
 }
 
 export const evaluateAgentPolicy = (
@@ -166,6 +233,9 @@ export const evaluateAgentPolicy = (
   ) {
     return { type: "allow", risk }
   }
+
+  const granted = grantFor(input, risk)
+  if (granted) return { type: "granted", risk, origin: granted.origin }
 
   return {
     type: "approval_required",

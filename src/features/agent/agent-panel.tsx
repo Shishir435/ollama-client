@@ -70,6 +70,7 @@ export const AgentPanel = () => {
           onGoalChange={setGoal}
           onAcknowledgePrivacy={() => void setAcknowledged(true)}
           onStart={connection.start}
+          onAnswer={connection.answerQuestion}
           onApprove={connection.approve}
           onReject={connection.reject}
           onPause={connection.pause}

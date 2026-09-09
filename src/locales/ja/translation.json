@@ -40,11 +40,16 @@
     "approval": {
       "title": "承認が必要です",
       "allow": "今回のみ許可",
-      "reject": "拒否"
+      "reject": "拒否",
+      "allowForRun": "この実行中は {{origin}} でこの種の操作を常に許可する"
     },
-    "takeover": { "title": "この手順を引き継ぐ" },
+    "takeover": {
+      "title": "この手順を引き継ぐ"
+    },
     "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
-    "work_log": { "title": "作業ログ" },
+    "work_log": {
+      "title": "作業ログ"
+    },
     "completion": {
       "summary": "この実行では、{{count}} 件のページ観測が {{provider}} に送信されました。"
     },
@@ -80,6 +85,12 @@
       "tab_unsupported": "このページでは Agent を実行できません。通常のウェブページを開いてからやり直してください。",
       "unreadable_update": "パネルは読み取れない更新を受け取りました。",
       "unknown": "Agent はその要求を完了できませんでした。"
+    },
+    "question": {
+      "title": "Agent が回答を求めています",
+      "inputLabel": "あなたの回答",
+      "placeholder": "回答を入力",
+      "send": "回答を送信"
     }
   },
   "common": {

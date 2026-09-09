@@ -666,6 +666,131 @@ describe("agent controller", () => {
     expect(traced).toContain("history_unavailable")
   })
 
+  it("records an asked question instead of looking like a user pause", async () => {
+    const harness = createHarness({
+      decisions: [{ type: "ask_user", question: "Which account?" }]
+    })
+    await harness.controller.start("run-1")
+    // Pausing with reason `user` is what a user pausing looks like: the
+    // question went nowhere and nothing could answer it.
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question",
+      question: { text: "Which account?" }
+    })
+  })
+
+  it("resumes on an answer and keeps it for later decisions", async () => {
+    const harness = createHarness({
+      decisions: [
+        { type: "ask_user", question: "Which account?" },
+        { type: "complete", summary: "Done" }
+      ],
+      observations: [observation(), observation(), observation()]
+    })
+    await harness.controller.start("run-1")
+    const asked = harness.getState().question?.id as string
+
+    await harness.controller.answerQuestion({
+      runId: "run-1",
+      questionId: asked,
+      text: "The second one."
+    })
+
+    expect(harness.getState()).toMatchObject({
+      status: "completed",
+      answers: [{ questionId: asked, text: "The second one." }]
+    })
+  })
+
+  it("refuses to resume past a question instead of answering it", async () => {
+    const harness = createHarness({
+      decisions: [{ type: "ask_user", question: "Which account?" }]
+    })
+    await harness.controller.start("run-1")
+    const asked = harness.getState().question
+
+    await harness.controller.resume("run-1")
+
+    // Resuming would take the run to another observation without the
+    // information it asked for, and leave the question attached unanswered.
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question"
+    })
+    expect(harness.getState().question).toEqual(asked)
+  })
+
+  it("names a question by something that only goes up", async () => {
+    const harness = createHarness({
+      state: runState({
+        answers: Array.from({ length: 10 }, (_v, i) => ({
+          questionId: `run-1:q${i}`,
+          text: "old",
+          answeredAt: 1
+        }))
+      }),
+      decisions: [{ type: "ask_user", question: "Which account?" }]
+    })
+    await harness.controller.start("run-1")
+    // Numbering from the retained answers made every question after the
+    // tenth `q11`, and a stale answer is refused on this id alone.
+    expect(harness.getState().question?.id).not.toBe("run-1:q11")
+  })
+
+  it("ignores an answer to a question that is no longer open", async () => {
+    const harness = createHarness({
+      decisions: [{ type: "ask_user", question: "Which account?" }]
+    })
+    await harness.controller.start("run-1")
+    await harness.controller.answerQuestion({
+      runId: "run-1",
+      questionId: "run-1:q99",
+      text: "stale"
+    })
+    // A click on a stale panel must not answer the question that replaced
+    // the one it showed.
+    expect(harness.getState()).toMatchObject({ status: "paused" })
+    expect(harness.getState().answers).toBeUndefined()
+  })
+
+  it("widens an approval only to what the request offered", async () => {
+    const harness = createHarness({
+      policy: approvalPolicy("high"),
+      approval: async () => ({ type: "approved", scope: "run_origin" })
+    })
+    await harness.controller.start("run-1")
+    // Written on the transition the approval already causes: the run has no
+    // status-preserving write, and inventing one to record a convenience
+    // would put a second way to move a run outside the state machine.
+    expect(harness.getState().grants).toBeUndefined()
+  })
+
+  it("records a grant when the request named an origin and its classes", async () => {
+    const harness = createHarness({
+      policy: {
+        type: "approval_required",
+        risk: "high",
+        request: {
+          id: "approval-1",
+          runId: "run-1",
+          stepId: "run-1:1",
+          risk: "high",
+          action: "Allow click",
+          consequence: "The browser will perform the resolved page effect.",
+          origin: "https://example.com",
+          grantable: ["activation"],
+          createdAt: 1
+        }
+      },
+      approval: async () => ({ type: "approved", scope: "run_origin" })
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().grants).toEqual([
+      { origin: "https://example.com", effects: ["activation"], grantedAt: 10 }
+    ])
+  })
+
   it("blames the goal, not the endpoint, when the model gives up", async () => {
     const harness = createHarness({
       decisions: [{ type: "fail", reason: "The page has no such control." }]

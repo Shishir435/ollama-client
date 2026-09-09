@@ -23,7 +23,9 @@ export const AGENT_PAUSE_REASONS = [
   "user",
   "panel_closed",
   "unresolved_effect",
-  "takeover"
+  "takeover",
+  /** The model asked the user something and cannot proceed until answered. */
+  "question"
 ] as const
 export const AgentPauseReasonSchema = z.enum(AGENT_PAUSE_REASONS)
 export type AgentPauseReason = z.infer<typeof AgentPauseReasonSchema>
@@ -75,6 +77,58 @@ export const AgentDecisionSchema = z.discriminatedUnion("type", [
 ])
 export type AgentDecision = z.infer<typeof AgentDecisionSchema>
 
+/**
+ * The effect classes a user may pre-authorize for the rest of a run.
+ *
+ * Filling in three fields cost three prompts, which trains a user to approve
+ * without reading — the failure mode a confirmation exists to prevent. These
+ * two classes are the repetitive ones. Nothing that submits, destroys, pays,
+ * authenticates or touches a sensitive control is grantable at any scope:
+ * those are the prompts that have to keep meaning something.
+ */
+export const AGENT_GRANTABLE_EFFECTS = ["activation", "form_mutation"] as const
+export const AgentGrantableEffectSchema = z.enum(AGENT_GRANTABLE_EFFECTS)
+export type AgentGrantableEffect = z.infer<typeof AgentGrantableEffectSchema>
+
+export const MAX_AGENT_GRANTS = 10
+
+/** A grant names one origin and dies with the run that was given it. */
+export const AgentGrantSchema = z
+  .object({
+    origin: z.url(),
+    effects: z.array(AgentGrantableEffectSchema).min(1).max(2),
+    grantedAt: z.number().int().nonnegative()
+  })
+  .strict()
+export type AgentGrant = z.infer<typeof AgentGrantSchema>
+
+export const MAX_AGENT_QUESTION_CHARS = 2_000
+export const MAX_AGENT_ANSWER_CHARS = 2_000
+export const MAX_AGENT_ANSWERS = 10
+
+/**
+ * The model's open question. `ask_user` used to pause with reason `user`,
+ * which is what a user pausing the run looks like: the question itself went
+ * nowhere and there was nothing to answer it with.
+ */
+export const AgentQuestionSchema = z
+  .object({
+    id: z.string().min(1).max(200),
+    text: z.string().min(1).max(MAX_AGENT_QUESTION_CHARS),
+    askedAt: z.number().int().nonnegative()
+  })
+  .strict()
+export type AgentQuestion = z.infer<typeof AgentQuestionSchema>
+
+export const AgentAnswerSchema = z
+  .object({
+    questionId: z.string().min(1).max(200),
+    text: z.string().min(1).max(MAX_AGENT_ANSWER_CHARS),
+    answeredAt: z.number().int().nonnegative()
+  })
+  .strict()
+export type AgentAnswer = z.infer<typeof AgentAnswerSchema>
+
 export const AgentApprovalRequestSchema = z
   .object({
     id: z.string().min(1),
@@ -84,9 +138,22 @@ export const AgentApprovalRequestSchema = z
     action: z.string().min(1).max(500),
     consequence: z.string().min(1).max(1_000),
     pageEvidence: z.string().max(1_000).optional(),
+    /**
+     * The origin this effect happens on, and the classes the user may widen
+     * to for the rest of the run. Absent means widening is not on offer —
+     * which is how a critical effect, or one carrying an ungrantable class,
+     * is kept to a single step: the panel cannot offer what it was not given.
+     */
+    origin: z.url().optional(),
+    grantable: z.array(AgentGrantableEffectSchema).min(1).max(2).optional(),
     createdAt: z.number().int().nonnegative()
   })
   .strict()
+  .refine(
+    (request) =>
+      request.grantable === undefined || request.origin !== undefined,
+    "A grantable approval must name the origin it would be granted on"
+  )
 export type AgentApprovalRequest = z.infer<typeof AgentApprovalRequestSchema>
 
 export const AgentTakeoverRequestSchema = z
@@ -171,6 +238,10 @@ export const AgentRunStateSchema = z
     /** Bounded model-authored outcome retained for completed-run display. */
     result: z.string().min(1).max(20_000).optional(),
     error: AgentErrorSchema.optional(),
+    /** Pre-authorized effect classes, per origin, for this run only. */
+    grants: z.array(AgentGrantSchema).max(MAX_AGENT_GRANTS).optional(),
+    question: AgentQuestionSchema.optional(),
+    answers: z.array(AgentAnswerSchema).max(MAX_AGENT_ANSWERS).optional(),
     deadline: AgentDeadlineStateSchema.optional(),
     createdAt: z.number().int().nonnegative(),
     updatedAt: z.number().int().nonnegative()

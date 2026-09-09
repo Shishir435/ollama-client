@@ -1,7 +1,11 @@
 {
   "agent": {
     "title": "Agente supervisionato",
-    "surface": { "chat": "Chat", "agent": "Agente", "preview": "Anteprima" },
+    "surface": {
+      "chat": "Chat",
+      "agent": "Agente",
+      "preview": "Anteprima"
+    },
     "start": {
       "description": "Supervisiona un’attività del browser da questo pannello.",
       "goal": "Cosa deve fare l’Agente?",
@@ -36,11 +40,16 @@
     "approval": {
       "title": "Approvazione richiesta",
       "allow": "Consenti una volta",
-      "reject": "Rifiuta"
+      "reject": "Rifiuta",
+      "allowForRun": "Consenti sempre questo tipo di azione su {{origin}} per questa esecuzione"
     },
-    "takeover": { "title": "Prendi il controllo di questo passaggio" },
+    "takeover": {
+      "title": "Prendi il controllo di questo passaggio"
+    },
     "unresolved": "Questa azione potrebbe essere avvenuta. Controlla la pagina prima di continuare.",
-    "work_log": { "title": "Registro attività" },
+    "work_log": {
+      "title": "Registro attività"
+    },
     "completion": {
       "summary": "Durante questa esecuzione sono state inviate {{count}} osservazioni di pagina a {{provider}}."
     },
@@ -76,6 +85,12 @@
       "tab_unsupported": "Agent non può essere eseguito su questa pagina. Apri una normale pagina web e riprova.",
       "unreadable_update": "Il pannello ha ricevuto un aggiornamento che non è riuscito a leggere.",
       "unknown": "Agent non ha potuto completare la richiesta."
+    },
+    "question": {
+      "title": "Agent ha bisogno di una risposta",
+      "inputLabel": "La tua risposta",
+      "placeholder": "Scrivi la tua risposta",
+      "send": "Invia risposta"
     }
   },
   "common": {

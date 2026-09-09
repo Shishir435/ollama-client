@@ -1,7 +1,11 @@
 {
   "agent": {
     "title": "Beaufsichtigter Agent",
-    "surface": { "chat": "Chat", "agent": "Agent", "preview": "Vorschau" },
+    "surface": {
+      "chat": "Chat",
+      "agent": "Agent",
+      "preview": "Vorschau"
+    },
     "start": {
       "description": "Browseraufgabe in diesem Panel beaufsichtigen.",
       "goal": "Was soll der Agent tun?",
@@ -36,11 +40,16 @@
     "approval": {
       "title": "Genehmigung erforderlich",
       "allow": "Einmal erlauben",
-      "reject": "Ablehnen"
+      "reject": "Ablehnen",
+      "allowForRun": "Diese Art von Aktion auf {{origin}} für diesen Lauf immer erlauben"
     },
-    "takeover": { "title": "Diesen Schritt übernehmen" },
+    "takeover": {
+      "title": "Diesen Schritt übernehmen"
+    },
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
-    "work_log": { "title": "Arbeitsprotokoll" },
+    "work_log": {
+      "title": "Arbeitsprotokoll"
+    },
     "completion": {
       "summary": "Während dieses Laufs wurden {{count}} Seitenbeobachtungen an {{provider}} gesendet."
     },
@@ -76,6 +85,12 @@
       "tab_unsupported": "Agent kann auf dieser Seite nicht ausgeführt werden. Öffne eine normale Webseite und versuche es erneut.",
       "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",
       "unknown": "Agent konnte diese Anfrage nicht ausführen."
+    },
+    "question": {
+      "title": "Agent benötigt eine Antwort",
+      "inputLabel": "Ihre Antwort",
+      "placeholder": "Antwort eingeben",
+      "send": "Antwort senden"
     }
   },
   "common": {

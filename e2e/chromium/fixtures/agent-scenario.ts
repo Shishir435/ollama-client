@@ -68,6 +68,13 @@ export interface AgentScenarioOutcome {
 }
 
 export interface AgentScenario {
+  /**
+   * How the panel answers an approval. `run_origin` widens it to the origin
+   * for the rest of the run, which is what a user checking the box does.
+   */
+  approvalScope?: "once" | "run_origin"
+  /** What the panel's textarea replies with, when the run asks something. */
+  answer?: string
   /** Names the test and the scenario in its attachments. */
   name: string
   goal: string
@@ -255,8 +262,9 @@ export const runAgentScenario = (scenario: AgentScenario): void => {
         "recordAgentMessage",
         (message: AgentPanelMessage) => messages.push(message)
       )
+
       await panel.evaluate(
-        async ({ origin }) => {
+        async ({ origin, approvalScope, answer }) => {
           const tab = (await chrome.tabs.query({})).find((tab) =>
             tab.url?.startsWith(origin)
           )
@@ -273,12 +281,28 @@ export const runAgentScenario = (scenario: AgentScenario): void => {
               port.postMessage({
                 type: "agent_approve",
                 runId: message.snapshot.run.id,
-                requestId: message.snapshot.pending.request.id
+                requestId: message.snapshot.pending.request.id,
+                ...(approvalScope === "run_origin"
+                  ? { scope: approvalScope }
+                  : {})
+              })
+            }
+            const question = message.snapshot?.run?.question
+            if (question && answer) {
+              port.postMessage({
+                type: "agent_answer",
+                runId: message.snapshot.run.id,
+                requestId: question.id,
+                text: answer
               })
             }
           })
         },
-        { origin }
+        {
+          origin,
+          approvalScope: scenario.approvalScope,
+          answer: scenario.answer
+        }
       )
       await panel
         .getByRole("button", { name: "Skip for now", exact: true })

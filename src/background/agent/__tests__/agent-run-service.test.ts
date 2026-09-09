@@ -39,7 +39,8 @@ const service = (
     requestPause: vi.fn(async () => undefined),
     resume: vi.fn(async () => undefined),
     requestCancel: vi.fn(async () => undefined),
-    completeTakeover: vi.fn(async () => undefined)
+    completeTakeover: vi.fn(async () => undefined),
+    answerQuestion: vi.fn(async () => undefined)
   }
   const sessions = {
     observe: vi.fn(),

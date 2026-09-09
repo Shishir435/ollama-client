@@ -63,6 +63,12 @@ export interface AgentRunService {
     requestId: string
     decision: AgentTakeoverDecision
   }): boolean
+  /** Records the answer to the run's open question and resumes it. */
+  answerQuestion(input: {
+    runId: string
+    questionId: string
+    text: string
+  }): Promise<void>
   snapshot(runId: string): Promise<AgentRunSnapshot>
   activeRunId(): string | undefined
   /**
@@ -355,6 +361,11 @@ export const createAgentRunService = (input?: {
     },
     answerApproval: (answer) => supervision.answerApproval(answer),
     answerTakeover: (answer) => supervision.answerTakeover(answer),
+    async answerQuestion(answer) {
+      await drive(await loadRunning(answer.runId), (controller) =>
+        controller.answerQuestion(answer)
+      )
+    },
     async snapshot(runId) {
       const durable = await readRun(runId)
       return {

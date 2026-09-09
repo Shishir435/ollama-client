@@ -8,6 +8,8 @@ import { Bot, ExternalLink, Eye, MessageSquareWarning } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { AgentApprovalCard } from "./components/agent-approval-card"
+import { AgentQuestionCard } from "./components/agent-question-card"
 import { AgentRunControls } from "./components/agent-run-controls"
 import { AgentWorkLog } from "./components/agent-work-log"
 import {
@@ -41,8 +43,10 @@ export interface AgentViewProps {
   onGoalChange?: (goal: string) => void
   onAcknowledgePrivacy?: () => void
   onStart?: (goal: string) => void
-  onApprove?: () => void
+  /** `scope` widens the approval to this origin for the rest of the run. */
+  onApprove?: (scope?: "run_origin") => void
   onReject?: () => void
+  onAnswer?: (text: string) => void
   onPause?: () => void
   onResume?: () => void
   onStop?: () => void
@@ -67,6 +71,7 @@ export const AgentView = ({
   onStart,
   onApprove = noop,
   onReject = noop,
+  onAnswer = noop,
   onPause = noop,
   onResume = noop,
   onStop = noop,
@@ -181,28 +186,15 @@ export const AgentView = ({
         )}
 
         {approval && run?.status === "awaiting_approval" && (
-          <section className="mb-3 rounded-panel border border-status-warning/40 bg-status-warning/10 p-2.5 text-xs">
-            <h2 className="font-medium">{t("agent.approval.title")}</h2>
-            <p className="mt-1 break-words">
-              {agentPlainText(approval.action, AGENT_PAGE_TEXT_LIMIT)}
-            </p>
-            <p className="mt-1 break-words text-muted-foreground">
-              {agentPlainText(approval.consequence, AGENT_PAGE_TEXT_LIMIT)}
-            </p>
-            {approval.pageEvidence && (
-              <p className="mt-1 max-h-12 overflow-hidden break-words rounded-control bg-background/70 px-2 py-1">
-                {agentPlainText(approval.pageEvidence, AGENT_PAGE_TEXT_LIMIT)}
-              </p>
-            )}
-            <div className="mt-2 flex gap-1.5">
-              <Button type="button" onClick={onApprove}>
-                {t("agent.approval.allow")}
-              </Button>
-              <Button type="button" variant="outline" onClick={onReject}>
-                {t("agent.approval.reject")}
-              </Button>
-            </div>
-          </section>
+          <AgentApprovalCard
+            onApprove={onApprove}
+            onReject={onReject}
+            request={approval}
+          />
+        )}
+
+        {run?.question && run.status === "paused" && (
+          <AgentQuestionCard onAnswer={onAnswer} question={run.question.text} />
         )}
 
         {takeover && run?.status === "awaiting_takeover" && (
@@ -262,7 +254,10 @@ export const AgentView = ({
       {run && !settled && (
         <AgentRunControls
           status={run.status}
-          resumeDisabled={run.pauseReason === "unresolved_effect"}
+          resumeDisabled={
+            run.pauseReason === "unresolved_effect" ||
+            run.pauseReason === "question"
+          }
           onPause={onPause}
           onResume={onResume}
           onStop={onStop}

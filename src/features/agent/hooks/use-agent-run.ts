@@ -26,8 +26,9 @@ export interface AgentRunConnection {
   resume(): void
   stop(): void
   completeTakeover(): void
-  approve(): void
+  approve(scope?: "run_origin"): void
   reject(): void
+  answerQuestion(text: string): void
   beginTakeover(): void
 }
 
@@ -233,8 +234,22 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
       if (!runId) return
       send({ type: "agent_complete_takeover", runId })
     },
-    approve: () => answer("agent_approve"),
+    approve: (scope?: "run_origin") => {
+      if (!runId || !pending) return
+      send({
+        type: "agent_approve",
+        runId,
+        requestId: pending.request.id,
+        ...(scope ? { scope } : {})
+      })
+    },
     reject: () => answer("agent_reject"),
+    answerQuestion: (text: string) => {
+      const question = snapshot?.run?.question
+      /** The question is named, so a stale panel cannot answer its successor. */
+      if (!runId || !question) return
+      send({ type: "agent_answer", runId, requestId: question.id, text })
+    },
     beginTakeover: () => answer("agent_takeover_started")
   }
 }

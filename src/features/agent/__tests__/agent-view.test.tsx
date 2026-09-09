@@ -151,4 +151,75 @@ describe("AgentView", () => {
     fireEvent.click(screen.getByText("agent.controls.takeover_done"))
     expect(complete).toHaveBeenCalledOnce()
   })
+
+  it("answers an open question instead of offering to resume past it", () => {
+    const answer = vi.fn()
+    render(
+      <AgentView
+        onAnswer={answer}
+        privacyAcknowledged
+        run={{
+          ...run("paused"),
+          pauseReason: "question",
+          question: {
+            id: "agent-1:q2",
+            text: "Which of the two accounts?",
+            askedAt: 1
+          }
+        }}
+      />
+    )
+
+    // Resuming would take the run to another observation without the
+    // information it asked for.
+    expect(
+      screen.getByText("agent.controls.resume").closest("button")
+    ).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText("agent.question.inputLabel"), {
+      target: { value: "The second one." }
+    })
+    fireEvent.click(screen.getByText("agent.question.send"))
+    expect(answer).toHaveBeenCalledWith("The second one.")
+  })
+
+  it("offers to widen only an approval that came with an offer", () => {
+    const approve = vi.fn()
+    const request = {
+      id: "approval-1",
+      runId: "agent-1",
+      stepId: "agent-1:1",
+      risk: "high" as const,
+      action: "Allow click",
+      consequence: "The browser will perform the resolved page effect.",
+      createdAt: 1
+    }
+
+    const { rerender } = render(
+      <AgentView
+        approval={request}
+        onApprove={approve}
+        privacyAcknowledged
+        run={run("awaiting_approval")}
+      />
+    )
+    // Whether an effect may be pre-authorized is policy's answer, so a
+    // request with no offer must not grow one in the panel.
+    expect(screen.queryByText(/allowForRun/)).not.toBeInTheDocument()
+
+    rerender(
+      <AgentView
+        approval={{
+          ...request,
+          origin: "https://example.com",
+          grantable: ["activation"]
+        }}
+        onApprove={approve}
+        privacyAcknowledged
+        run={run("awaiting_approval")}
+      />
+    )
+    fireEvent.click(screen.getByText(/allowForRun/))
+    expect(approve).toHaveBeenCalledWith("run_origin")
+  })
 })

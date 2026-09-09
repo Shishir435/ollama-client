@@ -237,7 +237,17 @@ export const registerAgentPanelPort = (
           service.answerApproval({
             runId: command.runId,
             requestId: command.requestId,
-            decision: { type: "approved" }
+            /**
+             * The scope travels with the answer, so the grant is written on
+             * the transition the approval already causes and the step this
+             * prompt belongs to runs under it too.
+             */
+            decision: {
+              type: "approved",
+              ...(command.scope === "run_origin"
+                ? { scope: command.scope }
+                : {})
+            }
           })
           return
         case "agent_reject":
@@ -245,6 +255,13 @@ export const registerAgentPanelPort = (
             runId: command.runId,
             requestId: command.requestId,
             decision: { type: "rejected" }
+          })
+          return
+        case "agent_answer":
+          await service.answerQuestion({
+            runId: command.runId,
+            questionId: command.requestId,
+            text: command.text
           })
           return
         case "agent_takeover_started":
