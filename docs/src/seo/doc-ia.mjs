@@ -32,6 +32,7 @@ export const DOC_SECTIONS = [
         label: "Context, Images, and Tools",
         slug: "guides/context-and-tools"
       },
+      { label: "Agent (Preview)", slug: "guides/agent-preview" },
       {
         label: "Fix Ollama CORS errors",
         slug: "guides/troubleshooting/ollama-cors-error"

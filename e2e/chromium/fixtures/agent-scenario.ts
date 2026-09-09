@@ -75,6 +75,12 @@ export interface AgentScenario {
   approvalScope?: "once" | "run_origin"
   /** What the panel's textarea replies with, when the run asks something. */
   answer?: string
+  /**
+   * Left off the `@critical` gate. A benchmark scenario records what happened
+   * rather than asserting a threshold, so a gate that ran it would be
+   * measuring rather than gating.
+   */
+  gated?: boolean
   /** Names the test and the scenario in its attachments. */
   name: string
   goal: string
@@ -113,9 +119,11 @@ const readObservation = (request: {
 
 export const runAgentScenario = (scenario: AgentScenario): void => {
   /** Synthetic page data only. No user profile or credentials enter this harness. */
-  test(`@critical Agent ${scenario.name} through production boundaries`, async ({
-    extension
-  }, testInfo) => {
+  const title =
+    scenario.gated === false
+      ? `Agent ${scenario.name} through production boundaries`
+      : `@critical Agent ${scenario.name} through production boundaries`
+  test(title, async ({ extension }, testInfo) => {
     const liveModel = process.env.AGENT_HOSTED_MODEL
     test.setTimeout(liveModel ? 240_000 : (scenario.timeoutMs ?? 60_000))
     test.skip(
