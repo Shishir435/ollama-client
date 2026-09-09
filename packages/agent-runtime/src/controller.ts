@@ -723,7 +723,14 @@ export const createAgentController = (
        */
       await pause(state, "question", {
         question: {
-          id: `${state.id}:q${(state.answers?.length ?? 0) + 1}`,
+          /**
+           * Keyed on the run's observation count, which only goes up and is
+           * bounded by the run's own budget. Numbering from the retained
+           * answers instead made every question after the tenth `q11`, and
+           * since a stale answer is refused on this id alone, an old panel
+           * could then answer a question it had never seen.
+           */
+          id: `${state.id}:q${state.observationCount}`,
           text: decision.question,
           askedAt: dependencies.clock.now()
         }
@@ -929,6 +936,14 @@ export const createAgentController = (
       const state = await dependencies.persistence.load(runId)
       if (!state || isTerminalAgentStatus(state.status)) return
       if (state.pauseReason === "unresolved_effect") return
+      /**
+       * A question is answered, not resumed past. Ordinary resume reaching
+       * here would take the run to another observation without the
+       * information it explicitly asked for, leaving the question attached
+       * to the run and unanswered — and `answerQuestion` is the only path
+       * that clears it, so it is the only path that may continue.
+       */
+      if (state.pauseReason === "question" && !observingClaimed) return
       if (state.status === "awaiting_takeover" && !afterTakeover) return
       await runLoop(state, controller, afterTakeover, observingClaimed)
     } finally {

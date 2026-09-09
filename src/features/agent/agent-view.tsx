@@ -254,7 +254,10 @@ export const AgentView = ({
       {run && !settled && (
         <AgentRunControls
           status={run.status}
-          resumeDisabled={run.pauseReason === "unresolved_effect"}
+          resumeDisabled={
+            run.pauseReason === "unresolved_effect" ||
+            run.pauseReason === "question"
+          }
           onPause={onPause}
           onResume={onResume}
           onStop={onStop}

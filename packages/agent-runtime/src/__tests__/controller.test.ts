@@ -703,6 +703,41 @@ describe("agent controller", () => {
     })
   })
 
+  it("refuses to resume past a question instead of answering it", async () => {
+    const harness = createHarness({
+      decisions: [{ type: "ask_user", question: "Which account?" }]
+    })
+    await harness.controller.start("run-1")
+    const asked = harness.getState().question
+
+    await harness.controller.resume("run-1")
+
+    // Resuming would take the run to another observation without the
+    // information it asked for, and leave the question attached unanswered.
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question"
+    })
+    expect(harness.getState().question).toEqual(asked)
+  })
+
+  it("names a question by something that only goes up", async () => {
+    const harness = createHarness({
+      state: runState({
+        answers: Array.from({ length: 10 }, (_v, i) => ({
+          questionId: `run-1:q${i}`,
+          text: "old",
+          answeredAt: 1
+        }))
+      }),
+      decisions: [{ type: "ask_user", question: "Which account?" }]
+    })
+    await harness.controller.start("run-1")
+    // Numbering from the retained answers made every question after the
+    // tenth `q11`, and a stale answer is refused on this id alone.
+    expect(harness.getState().question?.id).not.toBe("run-1:q11")
+  })
+
   it("ignores an answer to a question that is no longer open", async () => {
     const harness = createHarness({
       decisions: [{ type: "ask_user", question: "Which account?" }]
