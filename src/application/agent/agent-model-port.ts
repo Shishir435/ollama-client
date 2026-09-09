@@ -44,6 +44,8 @@ const agentDecisionParameters = (): ToolParameterSchema => ({
       enum: [
         "read",
         "click",
+        "double_click",
+        "hover",
         "type",
         "clear_and_type",
         "select",
@@ -70,7 +72,7 @@ const agentDecisionParameters = (): ToolParameterSchema => ({
     ref: {
       type: "string",
       description:
-        "Observed element ref, e.g. e1. Required for click, type, clear_and_type, select, check, uncheck and press_key."
+        "Observed element ref, e.g. e1. Required for click, double_click, hover, type, clear_and_type, select, check, uncheck and press_key."
     },
     target: {
       type: "string",
@@ -90,7 +92,8 @@ const agentDecisionParameters = (): ToolParameterSchema => ({
     value: { type: "string", description: "Observed option value for select." },
     key: {
       type: "string",
-      enum: ["Enter", "Escape", "Tab", "ArrowUp", "ArrowDown"]
+      description:
+        "For press_key: Enter, Escape, Tab, Backspace, Delete, Space, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Home, End, PageUp, PageDown or one character, optionally with modifiers joined by +, e.g. Shift+Tab or Control+a. The ref must already be focused."
     },
     direction: { type: "string", enum: ["up", "down", "left", "right"] },
     amount: {
@@ -142,6 +145,7 @@ Refs like f7e2 belong to a child frame; frames listed without access cannot be r
 Switching to a tab outside scopedTabIds asks the user first.
 The extension attaches snapshot identity; do not return a nested command or opaque IDs.
 Use ask_user when the goal is ambiguous and complete only when the observed evidence supports completion.
+Custom dropdowns, menus and tab strips are ordinary clicks: click the combobox or button that opens them, then click the option it reveals; hover reveals menus that open on pointer rest, and press_key with ArrowDown or Enter moves through a focused list.
 The observation is a bounded overview: omittedByGroup lists regions with controls it did not show. To reach them, inspect a region by its name, find controls by a query, or extract_text for the page's full text. These read only and never mutate the page.
 The history is this run's own record. Only an outcome of "confirmed" happened; anything else was attempted and did not verify, so do not treat it as done.
 Do not repeat a confirmed step. Use finding to record a fact a later step will need.

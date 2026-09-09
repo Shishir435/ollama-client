@@ -6,6 +6,8 @@ import type {
   AgentControlBrowserFrame,
   AgentControlSession,
   AgentDomMutationInstruction,
+  AgentInputTraceWire,
+  AgentNativeInputPreparedResult,
   AgentScrollInstruction
 } from "@/lib/browser-agent/control-port"
 import { openAgentControlSession } from "@/lib/browser-agent/control-port"
@@ -68,6 +70,25 @@ export interface AgentControlSessionRegistry {
     },
     signal?: AbortSignal
   ): Promise<void>
+  /**
+   * Native input's page-side halves. Preparation rechecks the target and arms
+   * the document's input record; settlement reads that record back once the
+   * debugger has sent the plan. Neither retries: a preparation whose port died
+   * is stale, and a settlement whose port died is a document that navigated —
+   * reported as such, so the verifier reads page evidence instead.
+   */
+  prepareNativeInput(
+    input: {
+      runId: string
+      tabId: number
+      instruction: AgentDomMutationInstruction
+    },
+    signal?: AbortSignal
+  ): Promise<AgentNativeInputPreparedResult>
+  settleNativeInput(
+    input: { runId: string; tabId: number; frameId: number },
+    signal?: AbortSignal
+  ): Promise<AgentInputTraceWire | undefined>
   release(runId: string): void
 }
 
@@ -242,6 +263,26 @@ export const createAgentControlSessionRegistry = (input?: {
       const session = await acquire(runId, tabId, frameId)
       try {
         await session.executeScroll(instruction, signal)
+      } catch (error) {
+        drop(runId, tabId, frameId)
+        throw error
+      }
+    },
+    async prepareNativeInput({ runId, tabId, instruction }, signal) {
+      const frameId = instruction.frame.frameId
+      const session = await acquire(runId, tabId, frameId)
+      try {
+        return await session.prepareNativeInput(instruction, signal)
+      } catch (error) {
+        drop(runId, tabId, frameId)
+        throw error
+      }
+    },
+    async settleNativeInput({ runId, tabId, frameId }, signal) {
+      const session = sessions.get(key(runId, tabId, frameId))
+      if (!session) return undefined
+      try {
+        return await session.settleNativeInput(signal)
       } catch (error) {
         drop(runId, tabId, frameId)
         throw error

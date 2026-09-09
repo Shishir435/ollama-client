@@ -167,6 +167,8 @@ const AgentDomMutationCommandSchema = AgentCommandSchema.refine(
   (command) =>
     [
       "click",
+      "double_click",
+      "hover",
       "type",
       "clear_and_type",
       "select",
@@ -327,10 +329,127 @@ export const AgentScrollResponseSchema = z
   .strict()
 export type AgentScrollResponse = z.infer<typeof AgentScrollResponseSchema>
 
+/**
+ * Native input is prepared in the page and dispatched from the background.
+ * The page rechecks the approved target, brings it into view, picks the point
+ * a pointer can reach and starts recording what the document receives; the
+ * background sends the events through the debugger; the page is then asked
+ * what arrived. Coordinates are the frame's own viewport pixels — the
+ * background places the frame, never the page.
+ */
+export const AgentPrepareNativeInputRequestSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_prepare_native_input"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    instruction: AgentDomMutationInstructionSchema
+  })
+  .strict()
+export type AgentPrepareNativeInputRequest = z.infer<
+  typeof AgentPrepareNativeInputRequestSchema
+>
+
+const AgentInputPointSchema = z
+  .object({ x: z.number().finite(), y: z.number().finite() })
+  .strict()
+
+export const AgentPrepareNativeInputResponseSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.enum([
+      "agent_native_input_prepared",
+      "agent_native_input_rejected"
+    ]),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    point: AgentInputPointSchema.optional(),
+    focused: z.boolean().optional()
+  })
+  .strict()
+export type AgentPrepareNativeInputResponse = z.infer<
+  typeof AgentPrepareNativeInputResponseSchema
+>
+
+export interface AgentNativeInputPreparedResult {
+  point: { x: number; y: number }
+  focused: boolean
+}
+
+export const AgentSettleNativeInputRequestSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_settle_native_input"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1)
+  })
+  .strict()
+export type AgentSettleNativeInputRequest = z.infer<
+  typeof AgentSettleNativeInputRequestSchema
+>
+
+/** Structural only: event types, coordinates and key names, never page text. */
+const AgentRecordedInputEventSchema = z
+  .object({
+    type: z.enum([
+      "mousemove",
+      "mousedown",
+      "mouseup",
+      "keydown",
+      "keyup",
+      "wheel"
+    ]),
+    x: z.number().finite().optional(),
+    y: z.number().finite().optional(),
+    key: z.string().max(40).optional(),
+    onTarget: z.boolean()
+  })
+  .strict()
+
+export const AgentInputTraceSchema = z
+  .object({
+    events: z.array(AgentRecordedInputEventSchema).max(2_200),
+    overflow: z.boolean().optional()
+  })
+  .strict()
+
+export const AgentSettleNativeInputResponseSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_native_input_settled"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    /** Absent when nothing was armed on this document. */
+    trace: AgentInputTraceSchema.optional()
+  })
+  .strict()
+export type AgentSettleNativeInputResponse = z.infer<
+  typeof AgentSettleNativeInputResponseSchema
+>
+export type AgentInputTraceWire = z.infer<typeof AgentInputTraceSchema>
+
 const AgentControlRequestSchema = z.union([
   AgentObserveRequestSchema,
   AgentExecuteRequestSchema,
-  AgentExecuteScrollRequestSchema
+  AgentExecuteScrollRequestSchema,
+  AgentPrepareNativeInputRequestSchema,
+  AgentSettleNativeInputRequestSchema
 ])
 type AgentControlRequest = z.infer<typeof AgentControlRequestSchema>
 
@@ -376,6 +495,13 @@ export interface AgentControlSession {
     instruction: AgentScrollInstruction,
     signal?: AbortSignal
   ): Promise<void>
+  prepareNativeInput(
+    instruction: AgentDomMutationInstruction,
+    signal?: AbortSignal
+  ): Promise<AgentNativeInputPreparedResult>
+  settleNativeInput(
+    signal?: AbortSignal
+  ): Promise<AgentInputTraceWire | undefined>
   disconnect(): void
 }
 
@@ -539,6 +665,61 @@ export const validateAgentScrollResponse = (
   }
 }
 
+const assertBoundResponse = (
+  response: {
+    runId: string
+    tabId: number
+    frameId: number
+    nonce: string
+    sequence: number
+    documentId: string
+  },
+  binding: AgentControlBinding,
+  sequence: number,
+  what: string
+): void => {
+  if (
+    response.runId !== binding.runId ||
+    response.tabId !== binding.tabId ||
+    response.frameId !== binding.frameId ||
+    response.nonce !== binding.nonce ||
+    response.sequence !== sequence ||
+    response.documentId !== binding.documentId
+  ) {
+    throw new Error(`Agent ${what} response binding mismatch`)
+  }
+}
+
+export const validateAgentPrepareNativeInputResponse = (
+  raw: unknown,
+  binding: AgentControlBinding,
+  sequence: number
+): AgentNativeInputPreparedResult => {
+  const failure = readAgentControlFailure(raw, binding, sequence)
+  if (failure) throw failure
+  const response = AgentPrepareNativeInputResponseSchema.parse(raw)
+  assertBoundResponse(response, binding, sequence, "native input preparation")
+  if (response.type === "agent_native_input_rejected") {
+    throw new AgentEffectNotAppliedError()
+  }
+  if (!response.point || response.focused === undefined) {
+    throw new Error("Agent native input preparation is incomplete")
+  }
+  return { point: response.point, focused: response.focused }
+}
+
+export const validateAgentSettleNativeInputResponse = (
+  raw: unknown,
+  binding: AgentControlBinding,
+  sequence: number
+): AgentInputTraceWire | undefined => {
+  const failure = readAgentControlFailure(raw, binding, sequence)
+  if (failure) throw failure
+  const response = AgentSettleNativeInputResponseSchema.parse(raw)
+  assertBoundResponse(response, binding, sequence, "native input settlement")
+  return response.trace
+}
+
 export const createAgentControlSession = (input: {
   port: AgentControlPort
   binding: AgentControlBinding
@@ -689,6 +870,57 @@ export const createAgentControlSession = (input: {
         signal
       )
     },
+    prepareNativeInput(instruction, signal) {
+      if (inFlight) {
+        return Promise.reject(
+          new Error("Agent control request already in flight")
+        )
+      }
+      sequence += 1
+      const expectedSequence = sequence
+      const request: AgentPrepareNativeInputRequest = {
+        version: AGENT_CONTROL_VERSION,
+        type: "agent_prepare_native_input",
+        ...input.binding,
+        sequence: expectedSequence,
+        instruction: AgentDomMutationInstructionSchema.parse(instruction)
+      }
+      return exchange(
+        request,
+        (raw) =>
+          validateAgentPrepareNativeInputResponse(
+            raw,
+            input.binding,
+            expectedSequence
+          ),
+        signal
+      )
+    },
+    settleNativeInput(signal) {
+      if (inFlight) {
+        return Promise.reject(
+          new Error("Agent control request already in flight")
+        )
+      }
+      sequence += 1
+      const expectedSequence = sequence
+      const request: AgentSettleNativeInputRequest = {
+        version: AGENT_CONTROL_VERSION,
+        type: "agent_settle_native_input",
+        ...input.binding,
+        sequence: expectedSequence
+      }
+      return exchange(
+        request,
+        (raw) =>
+          validateAgentSettleNativeInputResponse(
+            raw,
+            input.binding,
+            expectedSequence
+          ),
+        signal
+      )
+    },
     disconnect() {
       input.port.disconnect()
     }
@@ -808,13 +1040,114 @@ const controlFailureReason = (
     : "observation_build_failed"
 }
 
+/** Only a typed, pre-effect rejection may authorize re-observation instead of uncertainty. */
+const runContentPreparation = (
+  prepare: () => AgentNativeInputPreparedResult
+): Pick<AgentPrepareNativeInputResponse, "type" | "point" | "focused"> => {
+  try {
+    const prepared = prepare()
+    return {
+      type: "agent_native_input_prepared",
+      point: prepared.point,
+      focused: prepared.focused
+    }
+  } catch (error) {
+    if (error instanceof AgentEffectNotAppliedError)
+      return { type: "agent_native_input_rejected" }
+    throw error
+  }
+}
+
+export interface AgentControlContentHandlers {
+  buildObservation(request: AgentObserveRequest): AgentObservation
+  executeDomMutation(request: AgentExecuteRequest): string | undefined
+  executeScroll(request: AgentExecuteScrollRequest): void
+  prepareNativeInput(
+    request: AgentPrepareNativeInputRequest
+  ): AgentNativeInputPreparedResult
+  settleNativeInput(
+    request: AgentSettleNativeInputRequest
+  ): AgentInputTraceWire | undefined
+}
+
+type AgentControlResponse =
+  | AgentObserveResponse
+  | AgentExecuteResponse
+  | AgentScrollResponse
+  | AgentPrepareNativeInputResponse
+  | AgentSettleNativeInputResponse
+  | AgentControlFailureResponse
+
+const answerAccepted = (
+  request: AgentControlRequest,
+  binding: AgentControlBinding,
+  handlers: AgentControlContentHandlers
+): AgentControlResponse => {
+  const envelope = {
+    version: AGENT_CONTROL_VERSION,
+    ...binding,
+    sequence: request.sequence
+  } as const
+  switch (request.type) {
+    case "agent_prepare_native_input":
+      return {
+        ...envelope,
+        ...runContentPreparation(() => handlers.prepareNativeInput(request))
+      }
+    case "agent_settle_native_input": {
+      const trace = handlers.settleNativeInput(request)
+      return {
+        ...envelope,
+        type: "agent_native_input_settled",
+        ...(trace ? { trace } : {})
+      }
+    }
+    case "agent_execute_scroll":
+      handlers.executeScroll(request)
+      return { ...envelope, type: "agent_scroll_executed" }
+    case "agent_execute_dom_mutation":
+      return {
+        ...envelope,
+        ...runContentMutation(() => handlers.executeDomMutation(request))
+      }
+    case "agent_observe":
+      return {
+        ...envelope,
+        type: "agent_observation",
+        observation: AgentObservationSchema.parse(
+          handlers.buildObservation(request)
+        )
+      }
+  }
+}
+
+/**
+ * The reply to one accepted request, or the bound failure that stands in for
+ * it when the handler threw. Either way the reply carries the request's own
+ * binding and sequence, so it can be matched to nothing else.
+ */
+const answerControlRequest = (
+  request: AgentControlRequest,
+  binding: AgentControlBinding,
+  handlers: AgentControlContentHandlers
+): AgentControlResponse => {
+  try {
+    return answerAccepted(request, binding, handlers)
+  } catch (error) {
+    return {
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_control_failed",
+      ...binding,
+      sequence: request.sequence,
+      reason: controlFailureReason(request.type, error),
+      issues: agentControlSchemaIssues(error)
+    }
+  }
+}
+
 export const attachAgentControlContentPort = (
   port: AgentControlPort,
-  handlers: {
-    buildObservation(request: AgentObserveRequest): AgentObservation
-    executeDomMutation(request: AgentExecuteRequest): string | undefined
-    executeScroll(request: AgentExecuteScrollRequest): void
-  }
+  handlers: AgentControlContentHandlers
 ): boolean => {
   if (port.name !== MESSAGE_KEYS.AGENT.CONTROL_PORT) return false
   let binding: AgentControlBinding | undefined
@@ -853,7 +1186,8 @@ export const attachAgentControlContentPort = (
      */
     if (
       (request.type === "agent_execute_dom_mutation" ||
-        request.type === "agent_execute_scroll") &&
+        request.type === "agent_execute_scroll" ||
+        request.type === "agent_prepare_native_input") &&
       (request.instruction.frame.tabId !== request.tabId ||
         request.instruction.frame.frameId !== request.frameId ||
         request.instruction.frame.documentId !== request.documentId ||
@@ -863,66 +1197,9 @@ export const attachAgentControlContentPort = (
       return
     }
 
-    try {
-      if (
-        request.type === "agent_execute_dom_mutation" ||
-        request.type === "agent_execute_scroll"
-      ) {
-        let mutation: Pick<AgentExecuteResponse, "type" | "submissionUrl"> = {
-          type: "agent_dom_mutation_executed"
-        }
-        if (request.type === "agent_execute_scroll") {
-          handlers.executeScroll(request)
-        } else {
-          mutation = runContentMutation(() =>
-            handlers.executeDomMutation(request)
-          )
-        }
-        binding = nextBinding
-        lastSequence = request.sequence
-        const response: AgentExecuteResponse | AgentScrollResponse =
-          request.type === "agent_execute_scroll"
-            ? {
-                version: AGENT_CONTROL_VERSION,
-                type: "agent_scroll_executed",
-                ...nextBinding,
-                sequence: request.sequence
-              }
-            : {
-                version: AGENT_CONTROL_VERSION,
-                ...mutation,
-                ...nextBinding,
-                sequence: request.sequence
-              }
-        port.postMessage(response)
-        return
-      }
-      const observation = AgentObservationSchema.parse(
-        handlers.buildObservation(request)
-      )
-      binding = nextBinding
-      lastSequence = request.sequence
-      const response: AgentObserveResponse = {
-        version: AGENT_CONTROL_VERSION,
-        type: "agent_observation",
-        ...nextBinding,
-        sequence: request.sequence,
-        observation
-      }
-      port.postMessage(response)
-    } catch (error) {
-      binding = nextBinding
-      lastSequence = request.sequence
-      const failure: AgentControlFailureResponse = {
-        version: AGENT_CONTROL_VERSION,
-        type: "agent_control_failed",
-        ...nextBinding,
-        sequence: request.sequence,
-        reason: controlFailureReason(request.type, error),
-        issues: agentControlSchemaIssues(error)
-      }
-      port.postMessage(failure)
-    }
+    binding = nextBinding
+    lastSequence = request.sequence
+    port.postMessage(answerControlRequest(request, nextBinding, handlers))
   })
   return true
 }

@@ -1,3 +1,4 @@
+import type { AgentNativeInputStep } from "@/lib/browser-agent/native-input"
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 
@@ -121,6 +122,28 @@ export interface AgentCdpFrameTree {
   frames: readonly AgentCdpFrame[]
 }
 
+/**
+ * The typed surface native input reaches the debugger through. Steps are the
+ * planner's own vocabulary — a mouse move, a key down, text to insert — and
+ * are translated to protocol messages here, so nothing above this file names
+ * a CDP method or holds a target. A frame's offset is read from the tracked
+ * tree the same way, and nothing else about the page is exposed.
+ */
+export interface AgentNativeInputChannel {
+  dispatch(step: AgentNativeInputStep): Promise<void>
+  /**
+   * Where an extension frame's viewport origin sits in the root viewport, in
+   * CSS pixels, or nothing when the frame cannot be placed exactly. The root
+   * frame is at the origin.
+   */
+  frameOffset(
+    frameId: number,
+    frames: readonly AgentExtensionFrame[]
+  ): Promise<{ x: number; y: number } | undefined>
+  /** The root layout viewport's centre, for input that targets no element. */
+  viewportCentre(): Promise<{ x: number; y: number } | undefined>
+}
+
 export interface AgentBrowserSessionManager {
   readonly capabilities: AgentBrowserCapabilities
   attach(runId: string, tabId: number): Promise<void>
@@ -142,6 +165,12 @@ export interface AgentBrowserSessionManager {
   subscribe(
     listener: (event: AgentBrowserSessionInterruption) => void
   ): () => void
+  /**
+   * The native input channel for the run's attached tab, or nothing when the
+   * run does not hold that tab's debugger. Asked immediately before an action
+   * and used for that action alone.
+   */
+  nativeInput(runId: string, tabId: number): AgentNativeInputChannel | undefined
   dispose(): Promise<void>
 }
 
@@ -156,7 +185,65 @@ interface Attachment {
   ready: Promise<void>
   tracking: "pending" | "tracking" | "unavailable"
   frames: Map<string, AgentCdpFrame>
+  /** Sessions whose `DOM` domain has been enabled for box-model reads. */
+  domEnabled: Set<string>
 }
+
+/** CDP `Input` mouse button and event names for the planner's steps. */
+const MOUSE_EVENT_TYPES = {
+  mouseMoved: "mouseMoved",
+  mousePressed: "mousePressed",
+  mouseReleased: "mouseReleased"
+} as const
+
+const isBoxModel = (
+  value: unknown
+): value is { model: { content: number[] } } =>
+  typeof value === "object" &&
+  value !== null &&
+  "model" in value &&
+  Array.isArray((value as { model?: { content?: unknown } }).model?.content)
+
+const isFrameOwner = (value: unknown): value is { backendNodeId: number } =>
+  typeof value === "object" &&
+  value !== null &&
+  typeof (value as { backendNodeId?: unknown }).backendNodeId === "number"
+
+const isLayoutMetrics = (
+  value: unknown
+): value is {
+  cssLayoutViewport: { clientWidth: number; clientHeight: number }
+} => {
+  const viewport = (value as { cssLayoutViewport?: unknown } | null)
+    ?.cssLayoutViewport as { clientWidth?: unknown; clientHeight?: unknown }
+  return (
+    typeof viewport?.clientWidth === "number" &&
+    typeof viewport.clientHeight === "number"
+  )
+}
+
+/**
+ * A key with text is a `keyDown`, which Chromium turns into a character; one
+ * without is a `rawKeyDown`, which produces no character even for a printable
+ * key — how a modifier chord avoids also typing its letter.
+ */
+const keyEventParams = (
+  step: Extract<AgentNativeInputStep, { kind: "key" }>
+): object => ({
+  type: step.type === "keyUp" ? "keyUp" : step.text ? "keyDown" : "rawKeyDown",
+  key: step.key,
+  modifiers: step.modifiers,
+  ...(step.code ? { code: step.code } : {}),
+  ...(step.keyCode !== undefined
+    ? {
+        windowsVirtualKeyCode: step.keyCode,
+        nativeVirtualKeyCode: step.keyCode
+      }
+    : {}),
+  ...(step.text ? { text: step.text, unmodifiedText: step.text } : {}),
+  ...(step.location !== undefined ? { location: step.location } : {}),
+  ...(step.commands?.length ? { commands: [...step.commands] } : {})
+})
 
 const debuggerApi = (): DebuggerApi | undefined =>
   (
@@ -600,6 +687,142 @@ export const createAgentBrowserSessionManager = (input?: {
     }
   }
 
+  const sessionTarget = (attachment: Attachment, sessionId?: string) =>
+    sessionId ? { ...attachment.target, sessionId } : attachment.target
+
+  const ensureDom = async (attachment: Attachment, sessionId?: string) => {
+    const key = sessionId ?? ""
+    if (attachment.domEnabled.has(key)) return
+    await send(sessionTarget(attachment, sessionId), "DOM.enable")
+    attachment.domEnabled.add(key)
+  }
+
+  /**
+   * The top of a frame's session: the frame itself when its parent renders in
+   * another session, else the same for its parent. A box model read in a
+   * session is reported in that session's top frame's viewport, so a frame's
+   * offset is its owner's box plus the offset of the top of the session that
+   * owner renders in — one hop per session, not one per frame.
+   */
+  const sessionTop = (
+    attachment: Attachment,
+    frame: AgentCdpFrame
+  ): AgentCdpFrame => {
+    let current = frame
+    for (;;) {
+      const parent = current.parentCdpFrameId
+        ? attachment.frames.get(current.parentCdpFrameId)
+        : undefined
+      if (!parent || parent.sessionId !== current.sessionId) return current
+      current = parent
+    }
+  }
+
+  const ownerOffset = async (
+    attachment: Attachment,
+    frame: AgentCdpFrame,
+    parent: AgentCdpFrame
+  ): Promise<{ x: number; y: number } | undefined> => {
+    await ensureDom(attachment, parent.sessionId)
+    const target = sessionTarget(attachment, parent.sessionId)
+    const owner = await send(target, "DOM.getFrameOwner", {
+      frameId: frame.cdpFrameId
+    })
+    if (!isFrameOwner(owner)) return undefined
+    const box = await send(target, "DOM.getBoxModel", {
+      backendNodeId: owner.backendNodeId
+    })
+    if (!isBoxModel(box) || box.model.content.length < 2) return undefined
+    const [x, y] = box.model.content
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined
+  }
+
+  const frameOffsetOf = async (
+    attachment: Attachment,
+    mapping: AgentFrameMapping
+  ): Promise<{ x: number; y: number } | undefined> => {
+    if (!mapping.mapped) return undefined
+    const offset = { x: 0, y: 0 }
+    let current = mapping.frame
+    /* Bounded by the tree's own size: a cycle is a tree the browser never reports. */
+    for (let depth = 0; depth <= attachment.frames.size; depth += 1) {
+      if (!current.parentCdpFrameId) return offset
+      const parent = attachment.frames.get(current.parentCdpFrameId)
+      if (!parent) return undefined
+      const owner = await ownerOffset(attachment, current, parent)
+      if (!owner) return undefined
+      offset.x += owner.x
+      offset.y += owner.y
+      current = sessionTop(attachment, parent)
+    }
+    return undefined
+  }
+
+  const dispatchStep = async (
+    attachment: Attachment,
+    step: AgentNativeInputStep
+  ): Promise<void> => {
+    switch (step.kind) {
+      case "mouse":
+        await send(attachment.target, "Input.dispatchMouseEvent", {
+          type: MOUSE_EVENT_TYPES[step.type],
+          x: step.x,
+          y: step.y,
+          button: step.button,
+          clickCount: step.clickCount,
+          modifiers: step.modifiers,
+          ...(step.type === "mousePressed" ? { buttons: 1 } : {})
+        })
+        return
+      case "wheel":
+        await send(attachment.target, "Input.dispatchMouseEvent", {
+          type: "mouseWheel",
+          x: step.x,
+          y: step.y,
+          deltaX: step.deltaX,
+          deltaY: step.deltaY
+        })
+        return
+      case "insertText":
+        await send(attachment.target, "Input.insertText", { text: step.text })
+        return
+      case "key":
+        await send(
+          attachment.target,
+          "Input.dispatchKeyEvent",
+          keyEventParams(step)
+        )
+        return
+    }
+  }
+
+  const channelFor = (attachment: Attachment): AgentNativeInputChannel => ({
+    dispatch: (step) => {
+      if (attachments.get(attachment.runId) !== attachment) {
+        return Promise.reject(new Error("Agent debugger is no longer attached"))
+      }
+      return dispatchStep(attachment, step)
+    },
+    async frameOffset(frameId, frames) {
+      if (attachments.get(attachment.runId) !== attachment) return undefined
+      if (frameId === 0) return { x: 0, y: 0 }
+      if (attachment.tracking !== "tracking") return undefined
+      return frameOffsetOf(
+        attachment,
+        mapExtensionFrame(attachment, frameId, frames)
+      )
+    },
+    async viewportCentre() {
+      if (attachments.get(attachment.runId) !== attachment) return undefined
+      const metrics = await send(attachment.target, "Page.getLayoutMetrics")
+      if (!isLayoutMetrics(metrics)) return undefined
+      return {
+        x: metrics.cssLayoutViewport.clientWidth / 2,
+        y: metrics.cssLayoutViewport.clientHeight / 2
+      }
+    }
+  })
+
   cdp?.onDetach.addListener(onDebuggerDetach)
   cdp?.onEvent?.addListener(onDebuggerEvent)
   tabs.onRemoved.addListener(onTabRemoved)
@@ -631,7 +854,8 @@ export const createAgentBrowserSessionManager = (input?: {
         rawAttach: Promise.resolve(),
         ready: Promise.resolve(),
         tracking: "pending",
-        frames: new Map()
+        frames: new Map(),
+        domEnabled: new Set()
       }
       attachment.rawAttach = cdp
         ? callDebugger(
@@ -690,6 +914,12 @@ export const createAgentBrowserSessionManager = (input?: {
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
+    },
+    nativeInput(runId, tabId) {
+      if (!cdp) return undefined
+      const attachment = attachments.get(runId)
+      if (!attachment?.attached || attachment.tabId !== tabId) return undefined
+      return channelFor(attachment)
     },
     async dispose() {
       cdp?.onDetach.removeListener(onDebuggerDetach)

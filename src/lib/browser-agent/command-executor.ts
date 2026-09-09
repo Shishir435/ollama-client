@@ -9,6 +9,19 @@ import type { AgentSnapshotIdentity } from "@ollama-client/contracts"
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type { AgentElementReferenceStore } from "./element-references"
 import {
+  type AgentInputBackendChoice,
+  type AgentInputPlatform,
+  type AgentInputPoint,
+  type AgentInputTrace,
+  AgentNativeInputCancelledError,
+  AgentNativeInputFailedError,
+  type AgentNativeInputPlan,
+  assessAgentInputDelivery,
+  chooseAgentInputBackend,
+  planAgentNativeInput,
+  planAgentWheel
+} from "./native-input"
+import {
   type AgentFormSubmitter,
   buildAgentElementObservation,
   resolveAgentFormSubmitter
@@ -374,6 +387,77 @@ const executeKey = (
   element.dispatchEvent(new KeyboardEvent("keyup", init))
 }
 
+/**
+ * The live element an approved instruction still names, or a typed refusal.
+ *
+ * Every check here is one the approval was given against: the snapshot the
+ * reference was bound in, the element it resolves to, the form state around
+ * it and the observed facts about it. Native and synthetic execution share the
+ * function so the two backends cannot drift in what they refuse.
+ */
+export const resolveAgentMutationTarget = (
+  effect: AgentDomMutationInstruction,
+  references: AgentElementReferenceStore
+): Element => {
+  const ref = effect.target.ref
+  if (!ref) throw new Error("Agent mutation target has no reference")
+  const identity = effect.frame
+  if (!references.matches(identity)) {
+    throw new AgentEffectNotAppliedError("Agent mutation snapshot is stale")
+  }
+  const element = references.resolve(ref, identity)
+  if (!element)
+    throw new AgentEffectNotAppliedError("Agent mutation target is stale")
+  if (!references.matchesFormState(ref, identity)) {
+    throw new AgentEffectNotAppliedError(
+      "Agent mutation form state changed after approval"
+    )
+  }
+  assertUnchangedMutationTarget(effect, element)
+  if (effect.target.sensitive || effect.target.formHasSensitiveControl) {
+    throw new Error("Agent cannot mutate a sensitive control")
+  }
+  return element
+}
+
+const pointerEventInit = (element: Element): MouseEventInit => {
+  const rect = element.getBoundingClientRect()
+  return {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    clientX: rect.left + rect.width / 2,
+    clientY: rect.top + rect.height / 2,
+    view: element.ownerDocument.defaultView ?? undefined
+  }
+}
+
+/**
+ * The synthetic stand-ins for pointer gestures, used only where no debugger is
+ * attached. A page can tell them from a real pointer; the receipt records the
+ * backend so the verifier expects nothing a synthetic event cannot produce.
+ */
+const executeSyntheticPointer = (
+  type: "double_click" | "hover",
+  element: Element
+): void => {
+  const init = pointerEventInit(element)
+  if (type === "hover") {
+    element.dispatchEvent(new MouseEvent("mouseover", init))
+    element.dispatchEvent(
+      new MouseEvent("mouseenter", { ...init, bubbles: false })
+    )
+    element.dispatchEvent(new MouseEvent("mousemove", init))
+    return
+  }
+  if (!(element instanceof HTMLElement)) {
+    throw new Error("Agent double-click target is no longer supported")
+  }
+  element.click()
+  element.click()
+  element.dispatchEvent(new MouseEvent("dblclick", { ...init, detail: 2 }))
+}
+
 /** Executes a previously resolved mutation against the still-live snapshot. */
 export const executeAgentDomMutationInDocument = (input: {
   effect: AgentDomMutationInstruction
@@ -382,27 +466,7 @@ export const executeAgentDomMutationInDocument = (input: {
   signal: AgentCancellationSignal
 }): string | undefined => {
   if (input.signal.aborted) throw new Error("Agent mutation cancelled")
-  const ref = input.effect.target.ref
-  if (!ref) throw new Error("Agent mutation target has no reference")
-  const identity = input.effect.frame
-  if (!input.references.matches(identity)) {
-    throw new AgentEffectNotAppliedError("Agent mutation snapshot is stale")
-  }
-  const element = input.references.resolve(ref, identity)
-  if (!element)
-    throw new AgentEffectNotAppliedError("Agent mutation target is stale")
-  if (!input.references.matchesFormState(ref, identity)) {
-    throw new AgentEffectNotAppliedError(
-      "Agent mutation form state changed after approval"
-    )
-  }
-  assertUnchangedMutationTarget(input.effect, element)
-  if (
-    input.effect.target.sensitive ||
-    input.effect.target.formHasSensitiveControl
-  ) {
-    throw new Error("Agent cannot mutate a sensitive control")
-  }
+  const element = resolveAgentMutationTarget(input.effect, input.references)
 
   switch (input.effect.command.type) {
     case "click":
@@ -431,9 +495,31 @@ export const executeAgentDomMutationInDocument = (input: {
       break
     case "press_key":
       return executeKey(input.effect, element)
+    case "double_click":
+    case "hover":
+      executeSyntheticPointer(input.effect.command.type, element)
+      break
     default:
       throw new Error("Agent action is not a DOM mutation")
   }
+}
+
+/**
+ * What the executor learns about native control before choosing a backend,
+ * all read in one go so the choice and the offset it will use come from the
+ * same moment. `frameOffset` is set only when the target's frame is placed.
+ */
+export interface AgentNativeControlFacts {
+  cdpControl: boolean
+  attached: boolean
+  frameMapped: boolean
+  frameOffset?: AgentInputPoint
+  platform: AgentInputPlatform
+}
+
+export interface AgentNativeInputPreparation {
+  point: AgentInputPoint
+  focused: boolean
 }
 
 export interface AgentCommandExecutorAdapter {
@@ -453,6 +539,32 @@ export interface AgentCommandExecutorAdapter {
     effect: AuthorizedAgentEffect,
     signal: AgentCancellationSignal
   ): Promise<string | undefined>
+  /**
+   * Native input, in the order the executor calls it: the facts a backend is
+   * chosen on, the page-side recheck that arms the input record and yields the
+   * pointer target, the debugger dispatch of a plan, and the record read back.
+   * Absent means this browser has no native backend.
+   */
+  nativeControl?(
+    effect: AuthorizedAgentEffect
+  ): Promise<AgentNativeControlFacts>
+  prepareNativeInput?(
+    effect: AuthorizedAgentEffect,
+    signal: AgentCancellationSignal
+  ): Promise<AgentNativeInputPreparation>
+  dispatchNativeInput?(
+    effect: AuthorizedAgentEffect,
+    plan: AgentNativeInputPlan,
+    signal: AgentCancellationSignal
+  ): Promise<{ dispatched: number }>
+  settleNativeInput?(
+    effect: AuthorizedAgentEffect,
+    signal: AgentCancellationSignal
+  ): Promise<AgentInputTrace | undefined>
+  /** The root viewport's centre, where a native wheel is aimed. */
+  viewportCentre?(
+    effect: AuthorizedAgentEffect
+  ): Promise<AgentInputPoint | undefined>
   activateTab(tabId: number): Promise<void>
   goHistory(tabId: number, direction: "back" | "forward"): Promise<void>
   resolveHistoryDestination(
@@ -562,6 +674,185 @@ const receipt = (
   ...(controlledTabId === undefined ? {} : { controlledTabId })
 })
 
+/**
+ * Which backend an action runs on, decided before anything touches the page.
+ * A browser without native control, or an adapter that does not offer it, is
+ * the DOM backend by construction.
+ */
+const chooseBackend = async (
+  effect: AuthorizedAgentEffect,
+  adapter: AgentCommandExecutorAdapter
+): Promise<{
+  choice: AgentInputBackendChoice
+  facts?: AgentNativeControlFacts
+}> => {
+  if (!adapter.nativeControl) {
+    return {
+      choice: chooseAgentInputBackend({
+        effect,
+        cdpControl: false,
+        attached: false,
+        frameMapped: false
+      })
+    }
+  }
+  const facts = await adapter.nativeControl(effect)
+  return {
+    facts,
+    choice: chooseAgentInputBackend({
+      effect,
+      cdpControl: facts.cdpControl,
+      attached: facts.attached,
+      frameMapped: facts.frameMapped && facts.frameOffset !== undefined
+    })
+  }
+}
+
+/**
+ * Runs an element action as native input.
+ *
+ * The page rechecks the target and arms its record; nothing has been sent by
+ * then, so a refusal there is a clean stale-target failure. Once the first
+ * step goes out the action is committed: a plan that cannot finish reports
+ * how far it got and is never completed by other means, and a plan that
+ * finished is followed by asking the document what it received. A document
+ * that cannot answer — it navigated, typically — leaves delivery unknown and
+ * the verifier reading page evidence.
+ */
+const executeNative = async (
+  effect: AuthorizedAgentEffect,
+  adapter: AgentCommandExecutorAdapter,
+  facts: AgentNativeControlFacts,
+  signal: AgentCancellationSignal
+): Promise<AgentExecutionReceipt> => {
+  if (
+    !adapter.prepareNativeInput ||
+    !adapter.dispatchNativeInput ||
+    !adapter.settleNativeInput ||
+    !facts.frameOffset
+  ) {
+    throw new Error("Agent native input adapter is incomplete")
+  }
+  const prepared = await adapter.prepareNativeInput(effect, signal)
+  const plan = planAgentNativeInput({
+    command: effect.command,
+    point: prepared.point,
+    frameOffset: facts.frameOffset,
+    focused: prepared.focused,
+    platform: facts.platform
+  })
+  try {
+    await adapter.dispatchNativeInput(effect, plan, signal)
+  } catch (error) {
+    /**
+     * A first step the debugger refused to send never reached the page, so
+     * the target is simply re-observed. Anything after that may have acted,
+     * and is reported as such rather than completed on the DOM backend.
+     */
+    if (
+      error instanceof AgentNativeInputFailedError &&
+      error.dispatched === 0
+    ) {
+      throw new AgentEffectNotAppliedError(
+        "Agent native input could not be sent"
+      )
+    }
+    if (
+      error instanceof AgentNativeInputCancelledError &&
+      error.dispatched === 0
+    ) {
+      throw new AgentEffectNotAppliedError("Agent native input was cancelled")
+    }
+    throw error
+  }
+  let trace: AgentInputTrace | undefined
+  let settled = true
+  try {
+    trace = await adapter.settleNativeInput(effect, signal)
+  } catch {
+    settled = false
+  }
+  return {
+    ...receipt(adapter, effect.command.type),
+    backend: "cdp",
+    inputDelivery: settled ? assessAgentInputDelivery(plan, trace) : "unknown"
+  }
+}
+
+/** The DOM backend, recorded as such so the verifier expects no native record. */
+const executeSynthetic = async (
+  effect: AuthorizedAgentEffect,
+  adapter: AgentCommandExecutorAdapter,
+  signal: AgentCancellationSignal
+): Promise<AgentExecutionReceipt> => {
+  const submissionUrl = await adapter.mutate(effect, signal)
+  return {
+    ...receipt(adapter, effect.command.type),
+    backend: "dom",
+    ...(submissionUrl ? { submissionUrl } : {})
+  }
+}
+
+/** An element action on whichever backend was chosen for it, and only that one. */
+const executeElementAction = async (
+  effect: AuthorizedAgentEffect,
+  adapter: AgentCommandExecutorAdapter,
+  signal: AgentCancellationSignal
+): Promise<AgentExecutionReceipt> => {
+  const { choice, facts } = await chooseBackend(effect, adapter)
+  if (choice.backend === "cdp" && facts) {
+    return executeNative(effect, adapter, facts, signal)
+  }
+  return executeSynthetic(effect, adapter, signal)
+}
+
+/** How long a native wheel is given to settle before the page is re-observed. */
+const WHEEL_SETTLE_MS = 150
+
+/**
+ * A scroll without a target goes native when it can: a wheel at the viewport
+ * centre scrolls whatever container sits there, which is the document on a
+ * page and the application's own scroller on a page that never scrolls. A
+ * referenced scroll keeps `scrollIntoView`, which names its destination.
+ */
+const executeScroll = async (
+  effect: AuthorizedAgentEffect,
+  adapter: AgentCommandExecutorAdapter,
+  signal: AgentCancellationSignal
+): Promise<AgentExecutionReceipt> => {
+  if (effect.command.type !== "scroll") throw new Error("Invalid scroll effect")
+  const native =
+    !effect.command.ref && adapter.nativeControl && adapter.dispatchNativeInput
+      ? await adapter.nativeControl(effect)
+      : undefined
+  const centre =
+    native?.cdpControl && native.attached
+      ? await adapter.viewportCentre?.(effect)
+      : undefined
+  if (centre && adapter.dispatchNativeInput) {
+    const amount =
+      effect.command.amount ??
+      (effect.command.direction === "up" || effect.command.direction === "down"
+        ? centre.y * 2 * 0.8
+        : centre.x * 2 * 0.8)
+    const plan = planAgentWheel({
+      point: centre,
+      direction: effect.command.direction,
+      amount
+    })
+    await adapter.dispatchNativeInput(effect, plan, signal)
+    await adapter.wait(WHEEL_SETTLE_MS, signal)
+    return { ...receipt(adapter, "scroll"), backend: "cdp" }
+  }
+  await adapter.scroll(
+    effect.command,
+    effect.snapshotIdentity,
+    effect.target.frame ?? effect.snapshotIdentity,
+    signal
+  )
+  return { ...receipt(adapter, "scroll"), backend: "dom" }
+}
+
 export const READ_ONLY_AGENT_EXECUTORS = {
   async read(effect, adapter) {
     await assertSource(effect, adapter, true)
@@ -592,16 +883,7 @@ export const READ_ONLY_AGENT_EXECUTORS = {
   },
   async scroll(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
-    if (effect.command.type !== "scroll") {
-      throw new Error("Invalid scroll effect")
-    }
-    await adapter.scroll(
-      effect.command,
-      effect.snapshotIdentity,
-      effect.target.frame ?? effect.snapshotIdentity,
-      signal
-    )
-    return receipt(adapter, "scroll")
+    return executeScroll(effect, adapter, signal)
   },
   async switch_tab(effect, adapter) {
     if (effect.command.type !== "switch_tab" || !effect.destination) {
@@ -726,24 +1008,25 @@ export const DOM_MUTATION_AGENT_EXECUTORS = {
         effect.snapshotIdentity.tabId,
         effect.destination.url
       )
-    } else {
-      const submissionUrl = await adapter.mutate(effect, signal)
-      return {
-        ...receipt(adapter, "click"),
-        ...(submissionUrl ? { submissionUrl } : {})
-      }
+      return { ...receipt(adapter, "click"), backend: "dom" }
     }
-    return receipt(adapter, "click")
+    return executeElementAction(effect, adapter, signal)
+  },
+  async double_click(effect, adapter, signal) {
+    await assertSource(effect, adapter, true)
+    return executeElementAction(effect, adapter, signal)
+  },
+  async hover(effect, adapter, signal) {
+    await assertSource(effect, adapter, true)
+    return executeElementAction(effect, adapter, signal)
   },
   async type(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
-    await adapter.mutate(effect, signal)
-    return receipt(adapter, "type")
+    return executeElementAction(effect, adapter, signal)
   },
   async clear_and_type(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
-    await adapter.mutate(effect, signal)
-    return receipt(adapter, "clear_and_type")
+    return executeElementAction(effect, adapter, signal)
   },
   async select(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
@@ -765,11 +1048,7 @@ export const DOM_MUTATION_AGENT_EXECUTORS = {
     if (effect.destination) {
       await assertReadable(adapter, effect.destination.url)
     }
-    const submissionUrl = await adapter.mutate(effect, signal)
-    return {
-      ...receipt(adapter, "press_key"),
-      ...(submissionUrl ? { submissionUrl } : {})
-    }
+    return executeElementAction(effect, adapter, signal)
   }
 } satisfies Record<DomMutationAgentAction, Executor>
 

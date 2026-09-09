@@ -8,6 +8,10 @@ import {
   attachAgentControlContentPort
 } from "@/lib/browser-agent/control-port"
 import { createAgentElementReferenceStore } from "@/lib/browser-agent/element-references"
+import {
+  createAgentInputWatch,
+  prepareAgentNativeInputInDocument
+} from "@/lib/browser-agent/native-input-page"
 import { buildAgentObservation } from "@/lib/browser-agent/observation-builder"
 import { browser } from "@/lib/browser-api"
 
@@ -27,6 +31,7 @@ export const installAgentControlContentScript = (): void => {
     let references:
       | ReturnType<typeof createAgentElementReferenceStore>
       | undefined
+    const watch = createAgentInputWatch(document)
     attachAgentControlContentPort(rawPort as unknown as AgentControlPort, {
       buildObservation(request) {
         references ??= createAgentElementReferenceStore({
@@ -64,6 +69,25 @@ export const installAgentControlContentScript = (): void => {
           document,
           references
         })
+      },
+      prepareNativeInput(request) {
+        if (!references) {
+          throw new Error("Agent native input has no observed snapshot")
+        }
+        return prepareAgentNativeInputInDocument({
+          effect: request.instruction,
+          references,
+          watch
+        })
+      },
+      settleNativeInput() {
+        const trace = watch.settle()
+        return trace
+          ? {
+              events: [...trace.events],
+              ...(trace.overflow ? { overflow: true } : {})
+            }
+          : undefined
       }
     })
   }) as Parameters<typeof browser.runtime.onConnect.addListener>[0])

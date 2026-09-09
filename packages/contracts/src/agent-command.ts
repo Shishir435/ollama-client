@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+import { AgentKeyCombinationSchema } from "./agent-keys"
+
 /**
  * The longest destination a command may name, matching the cap an observed
  * link carries. It also bounds the work the egress detector does per command.
@@ -36,6 +38,14 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
   }).strict(),
   GroundedCommandSchema.extend({ type: z.literal("extract_text") }).strict(),
   ElementCommandSchema.extend({ type: z.literal("click") }).strict(),
+  /**
+   * Pointer actions a synthetic DOM event cannot stand in for. A double click
+   * is two native clicks the page may read as one gesture, and a hover is a
+   * pointer that arrives and stays — neither exists without a real pointer,
+   * so both run on the native input backend where one is attached.
+   */
+  ElementCommandSchema.extend({ type: z.literal("double_click") }).strict(),
+  ElementCommandSchema.extend({ type: z.literal("hover") }).strict(),
   ElementCommandSchema.extend({
     type: z.literal("type"),
     text: z.string().min(1).max(500)
@@ -44,9 +54,13 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     type: z.literal("clear_and_type"),
     text: z.string().max(500)
   }).strict(),
+  /**
+   * A key or a combination, `Shift+Tab` or `Control+a` included; see
+   * `agent-keys.ts` for the grammar. The target must already hold focus.
+   */
   ElementCommandSchema.extend({
     type: z.literal("press_key"),
-    key: z.enum(["Enter", "Escape", "Tab", "ArrowUp", "ArrowDown"])
+    key: AgentKeyCombinationSchema
   }).strict(),
   ElementCommandSchema.extend({
     type: z.literal("select"),

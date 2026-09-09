@@ -124,6 +124,8 @@ export interface AgentDestination {
 export type AgentSemanticEffect =
   | "read"
   | "scroll"
+  /** A pointer arriving on a control and staying there; nothing is pressed. */
+  | "hover"
   | "navigation"
   | "activation"
   | "form_mutation"
@@ -171,12 +173,46 @@ export interface AuthorizedAgentEffect extends ResolvedAgentEffect {
       }
 }
 
+/**
+ * How an effect reached the page. `cdp` is native input through the attached
+ * debugger — real pointer and key events the page cannot tell from a user's;
+ * `dom` is the content script's synthetic events and value setters. Chosen
+ * before the action and recorded so the verifier knows what evidence it may
+ * expect, and never changed afterwards: an action whose native delivery is
+ * uncertain is not retried through the other backend.
+ */
+export type AgentInputBackend = "cdp" | "dom"
+
+/**
+ * What the page reported receiving while native input was in flight.
+ *
+ * `delivered`: exactly the planned events arrived, on the resolved target.
+ * `misdirected`: the planned events arrived, but on some other element.
+ * `partial`: the plan was cut short — some planned events arrived, the rest
+ * did not, typically because the document went away or the run was stopped.
+ * `undelivered`: no trusted input reached the document at all.
+ * `interference`: trusted input the plan did not send was observed — a real
+ * pointer or keyboard was in use while the agent acted, so what the page did
+ * cannot be attributed to the agent alone.
+ * `unknown`: the document could not be asked, usually because the action
+ * navigated it away; the verifier falls back to page evidence.
+ */
+export type AgentInputDelivery =
+  | "delivered"
+  | "misdirected"
+  | "partial"
+  | "undelivered"
+  | "interference"
+  | "unknown"
+
 export interface AgentExecutionReceipt {
   /** Ephemeral exact native submission destination. Contains form values; never persist or log. */
   submissionUrl?: string
   executedAt: number
   details?: string
   controlledTabId?: number
+  backend?: AgentInputBackend
+  inputDelivery?: AgentInputDelivery
 }
 
 export interface AgentVerificationEvidence {

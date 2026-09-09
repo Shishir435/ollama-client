@@ -238,6 +238,22 @@ export const READ_ONLY_AGENT_VERIFIERS = {
         adapter.now()
       )
     }
+    /**
+     * A native wheel scrolls whatever container sits under the pointer, and
+     * an application whose document never scrolls still shows new content.
+     * The window position is silent about that; the visible text is not.
+     */
+    if (
+      input.receipt.backend === "cdp" &&
+      after.visibleText !== input.before.visibleText
+    ) {
+      return result(
+        "confirmed",
+        "scroll",
+        "Visible content changed as requested",
+        adapter.now()
+      )
+    }
     const atBoundary =
       (input.effect.command.direction === "up" && before.y <= 0) ||
       (input.effect.command.direction === "left" && before.x <= 0) ||
@@ -461,6 +477,12 @@ const mutationTargetAfter = (
   return { type: "one", element: matches[0] }
 }
 
+/**
+ * What counts as the page having changed. Focus is deliberately left out: a
+ * native click moves focus onto the control it lands on, and a silent button
+ * that merely took focus is not a button that did something. Focus traversal
+ * has its own explicit check in the key verifier.
+ */
 const pageEvidence = (observation: AgentObservation): string =>
   JSON.stringify({
     url: observation.url,
@@ -474,12 +496,57 @@ const pageEvidence = (observation: AgentObservation): string =>
       type: element.type,
       value: element.value,
       checked: element.checked,
-      focused: element.focused,
       href: element.href,
       visible: element.visible,
       enabled: element.enabled
     }))
   })
+
+/**
+ * Native input the page did not receive as planned settles the step before any
+ * page evidence is read. Interference means a hand other than the agent's was
+ * on the page during the action, so whatever changed cannot be attributed; a
+ * partial or misdirected plan means the resolved control was not the one that
+ * received the input. Either is an unresolved effect the user has to look at,
+ * never a confirmed one and never a clean negative to retry.
+ */
+const deliveryProblem = (
+  input: AgentVerificationInput,
+  kind: string,
+  now: number
+): AgentVerificationResult | undefined => {
+  switch (input.receipt.inputDelivery) {
+    case "interference":
+      return result(
+        "ambiguous",
+        kind,
+        "User input was observed while the action ran",
+        now
+      )
+    case "misdirected":
+      return result(
+        "ambiguous",
+        kind,
+        "Native input reached an element other than the target",
+        now
+      )
+    case "partial":
+      return result(
+        "ambiguous",
+        kind,
+        "Native input was cut short before the plan completed",
+        now
+      )
+    default:
+      return undefined
+  }
+}
+
+const withDelivery =
+  (kind: string, verifier: Verifier): Verifier =>
+  async (input, adapter, signal) =>
+    deliveryProblem(input, kind, adapter.now()) ??
+    verifier(input, adapter, signal)
 
 const verifyValueMutation: Verifier = async (input, adapter, signal) => {
   const after = await observeAfter(input, adapter, signal)
@@ -617,6 +684,37 @@ const verifySubmission: Verifier = async (input, adapter, signal) => {
   )
 }
 
+/**
+ * Widgets whose job is to receive input once they hold focus. A click that
+ * lands focus on one of these has done what a click on them does — the typing
+ * or arrow keys come next. A button or a link taking focus proves nothing of
+ * the kind, so they are not in the set.
+ */
+const FOCUS_RECEIVING_ROLES = new Set([
+  "combobox",
+  "grid",
+  "gridcell",
+  "listbox",
+  "option",
+  "searchbox",
+  "slider",
+  "spinbutton",
+  "tab",
+  "textbox",
+  "tree",
+  "treeitem"
+])
+const FOCUS_RECEIVING_TAGS = new Set(["input", "select", "textarea"])
+
+const receivesInputOnFocus = (
+  target: AgentVerificationInput["effect"]["target"]
+): boolean =>
+  FOCUS_RECEIVING_ROLES.has(target.role?.toLowerCase() ?? "") ||
+  (FOCUS_RECEIVING_TAGS.has(target.tag ?? "") &&
+    !["button", "submit", "reset", "image"].includes(
+      target.inputType?.toLowerCase() ?? ""
+    ))
+
 const verifyActivation: Verifier = async (input, adapter, signal) => {
   if (input.effect.semanticEffects.includes("submission")) {
     return verifySubmission(input, adapter, signal)
@@ -639,6 +737,20 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
       adapter.now()
     )
   }
+  const target = mutationTargetAfter(input, after)
+  if (
+    target.type === "one" &&
+    target.element.focused === true &&
+    !input.effect.target.observedFocused &&
+    receivesInputOnFocus(input.effect.target)
+  ) {
+    return result(
+      "confirmed",
+      "activation",
+      "Control took focus and is ready for input",
+      adapter.now()
+    )
+  }
   return result(
     "ambiguous",
     "activation",
@@ -646,6 +758,42 @@ const verifyActivation: Verifier = async (input, adapter, signal) => {
     adapter.now()
   )
 }
+
+/**
+ * A hover has no state of its own to read back. A page that reacted — a menu
+ * opened, a tooltip appeared — is evidence enough; a page that did not is
+ * still confirmed when the document reported the pointer arriving on the
+ * control, because that is all a hover promises. Without either the pointer
+ * may have gone anywhere, and the step stays unresolved.
+ */
+const verifyHover: Verifier = async (input, adapter, signal) => {
+  const after = await observeAfter(input, adapter, signal)
+  if (pageEvidence(after) !== pageEvidence(input.before)) {
+    return result(
+      "confirmed",
+      "hover",
+      "Pointer hover produced an observable page change",
+      adapter.now()
+    )
+  }
+  if (input.receipt.inputDelivery === "delivered") {
+    return result(
+      "confirmed",
+      "hover",
+      "Pointer reached the control",
+      adapter.now()
+    )
+  }
+  return result(
+    "ambiguous",
+    "hover",
+    "Pointer hover produced no conclusive page evidence",
+    adapter.now()
+  )
+}
+
+const isFocusTraversal = (key: string): boolean =>
+  key === "Tab" || key === "Shift+Tab"
 
 const verifyKey: Verifier = async (input, adapter, signal) => {
   if (input.effect.semanticEffects.includes("submission")) {
@@ -655,7 +803,7 @@ const verifyKey: Verifier = async (input, adapter, signal) => {
   const target = mutationTargetAfter(input, after)
   if (
     input.effect.command.type === "press_key" &&
-    input.effect.command.key === "Tab" &&
+    isFocusTraversal(input.effect.command.key) &&
     target.type === "one" &&
     !target.element.focused &&
     after.elements.some((element) => element.focused)
@@ -684,13 +832,15 @@ const verifyKey: Verifier = async (input, adapter, signal) => {
 }
 
 export const DOM_MUTATION_AGENT_VERIFIERS = {
-  click: verifyActivation,
-  type: verifyValueMutation,
-  clear_and_type: verifyValueMutation,
+  click: withDelivery("activation", verifyActivation),
+  double_click: withDelivery("activation", verifyActivation),
+  hover: withDelivery("hover", verifyHover),
+  type: withDelivery("field", verifyValueMutation),
+  clear_and_type: withDelivery("field", verifyValueMutation),
   select: verifyValueMutation,
   check: verifyCheckedMutation,
   uncheck: verifyCheckedMutation,
-  press_key: verifyKey
+  press_key: withDelivery("keyboard", verifyKey)
 } satisfies Record<DomMutationAgentAction, Verifier>
 
 export const verifyDomMutationAgentEffect = async (input: {

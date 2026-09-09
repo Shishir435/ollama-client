@@ -58,6 +58,8 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   find: ["query"],
   extract_text: [],
   click: ["ref"],
+  double_click: ["ref"],
+  hover: ["ref"],
   type: ["ref", "text"],
   clear_and_type: ["ref", "text"],
   select: ["ref", "value"],

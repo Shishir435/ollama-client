@@ -32,6 +32,7 @@ export interface AgentFixtureElement {
   type?: string
   value?: string
   checked?: boolean
+  focused?: boolean
   href?: string
   group?: string
   submits?: boolean
@@ -65,6 +66,8 @@ export interface AgentScenarioOutcome {
   wire: { request: unknown; decision?: unknown; response?: string }[]
   /** Live count, so an assertion can poll it. */
   effects: () => number
+  /** Structural run trace lines the worker logged, oldest first. */
+  phases: readonly Record<string, unknown>[]
 }
 
 export interface AgentScenario {
@@ -350,7 +353,15 @@ export const runAgentScenario = (scenario: AgentScenario): void => {
             ?.snapshot,
           messages,
           wire,
-          effects: () => effects
+          effects: () => effects,
+          phases: phases.flatMap((line) =>
+            Array.isArray(line)
+              ? line.filter(
+                  (part): part is Record<string, unknown> =>
+                    typeof part === "object" && part !== null && "phase" in part
+                )
+              : []
+          )
         })
       } finally {
         await testInfo.attach("agent-phases", {

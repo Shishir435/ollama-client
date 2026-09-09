@@ -411,6 +411,8 @@ export const resolveNavigationAgentEffect = async (input: {
 
 export const DOM_MUTATION_AGENT_ACTIONS = [
   "click",
+  "double_click",
+  "hover",
   "type",
   "clear_and_type",
   "select",
@@ -587,6 +589,13 @@ export const resolveDomMutationAgentEffect = async (input: {
       destination = semantics.destination
       break
     }
+    /** The classifier refused links and submitters; what is left activates. */
+    case "double_click":
+      effects.push("activation")
+      break
+    case "hover":
+      effects.push("hover")
+      break
     case "type": {
       if (!element.sensitive) {
         const current = element.value ?? ""
