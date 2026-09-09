@@ -59,14 +59,14 @@ export const createAgentBrowserAdapters = (input: {
     if (!effect.target.ref || !effect.target.tag) {
       throw new Error("Agent mutation target is not an observed element")
     }
-    const frame = effect.target.frame ?? effect.snapshotIdentity
+    // The frame identity travels as the instruction's own field, never inside
+    // the wire target: that target is validated by a strict schema with no
+    // `frame` key, so leaking it there is a parse failure before a byte is sent.
+    const { frame: targetFrame, ...target } = effect.target
+    const frame = targetFrame ?? effect.snapshotIdentity
     return {
       command: effect.command,
-      target: {
-        ...effect.target,
-        ref: effect.target.ref,
-        frameId: frame.frameId
-      },
+      target: { ...target, ref: effect.target.ref, frameId: frame.frameId },
       snapshotIdentity: effect.snapshotIdentity,
       frame
     } as AgentDomMutationInstruction
