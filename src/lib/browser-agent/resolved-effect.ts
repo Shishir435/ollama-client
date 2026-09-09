@@ -150,10 +150,10 @@ export const resolveReadOnlyAgentEffect = async (input: {
   }
 
   const target = targetFromObservation(command, observation)
-  const frame =
-    command.type === "scroll" && command.ref
-      ? agentFramePage(observation, { frameId: target.frameId ?? 0 })
-      : undefined
+  /* A referenced scroll is bound to its target's frame; nothing else has one. */
+  const frame = target.frame
+    ? agentFramePage(observation, target.frame)
+    : undefined
   return {
     command,
     target,
