@@ -258,3 +258,177 @@ describe("projectAgentObservation frames", () => {
     expect(JSON.stringify(projected.frames)).not.toContain("token")
   })
 })
+
+describe("projectAgentObservation overview budget", () => {
+  const many = (
+    count: number,
+    base: Partial<AgentElement> = {}
+  ): AgentElement[] =>
+    Array.from({ length: count }, (_value, index) =>
+      element({
+        ref: `e${index + 1}`,
+        name: `Field ${index + 1}`,
+        ...base
+      })
+    )
+
+  it("sends every control and the full text when no budget is set", () => {
+    const projected = projectAgentObservation(
+      observation({ elements: many(50), visibleText: "x".repeat(5_000) })
+    )
+    expect(projected.elements).toHaveLength(50)
+    expect(projected.text).toHaveLength(5_000)
+    expect(projected.omittedByGroup).toBeUndefined()
+  })
+
+  it("keeps the overview within its page-content budget", () => {
+    const projected = projectAgentObservation(
+      observation({ elements: many(500), visibleText: "x".repeat(50_000) }),
+      { pageContentChars: 2_000 }
+    )
+    const size =
+      JSON.stringify(projected.elements).length + projected.text.length
+    expect(size).toBeLessThanOrEqual(2_400)
+    expect(projected.elements.length).toBeLessThan(500)
+  })
+
+  it("reports what it dropped, by region, so a control stays discoverable", () => {
+    const elements = [
+      ...many(200, { group: 'form "signup"' }),
+      ...many(1, {}).map((one) => ({ ...one, ref: "keep", focused: true }))
+    ]
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 800
+    })
+    expect(projected.omittedByGroup?.[0]?.group).toBe('form "signup"')
+    expect(projected.omittedByGroup?.[0]?.count).toBeGreaterThan(0)
+  })
+
+  it("keeps the focused control under a tiny overview budget", () => {
+    const elements = [
+      ...many(100),
+      element({ ref: "focused", name: "Active", focused: true })
+    ]
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 1,
+      pageContentMaxChars: 10_000
+    })
+    expect(projected.elements.map((one) => one.ref)).toContain("focused")
+  })
+
+  it("keeps nothing over the ceiling, even the one control it prefers", () => {
+    const elements = [element({ ref: "only", name: "Solo", focused: true })]
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 1,
+      pageContentMaxChars: 1
+    })
+    // A ceiling of one character has room for nothing; the guarantee yields.
+    expect(projected.elements).toHaveLength(0)
+  })
+
+  it("expands a focused region in full while others stay at overview", () => {
+    const elements = [
+      ...many(100, { group: 'form "a"' }),
+      ...many(100, { group: 'form "b"' }).map((one, index) => ({
+        ...one,
+        ref: `b${index}`
+      }))
+    ]
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 2_000,
+      pageContentMaxChars: 20_000,
+      focus: { region: 'form "b"' }
+    })
+    const shownB = projected.elements.filter(
+      (one) => one.group === 'form "b"'
+    ).length
+    const shownA = projected.elements.filter(
+      (one) => one.group === 'form "a"'
+    ).length
+    expect(shownB).toBe(100)
+    expect(shownA).toBeLessThan(100)
+  })
+
+  it("stops expanding a region at the hard ceiling, not the overview budget", () => {
+    const elements = many(2_000, { group: 'form "b"' })
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 2_000,
+      pageContentMaxChars: 6_000,
+      focus: { region: 'form "b"' }
+    })
+    // A huge inspected region is bounded by the ceiling so the prompt fits.
+    const size = JSON.stringify(projected.elements).length
+    expect(size).toBeLessThanOrEqual(6_500)
+    expect(projected.elements.length).toBeLessThan(2_000)
+  })
+
+  it("caps extracted page text at the ceiling", () => {
+    const projected = projectAgentObservation(
+      observation({
+        visibleText: "v".repeat(50_000),
+        documentText: "d".repeat(50_000)
+      }),
+      {
+        pageContentChars: 2_000,
+        pageContentMaxChars: 8_000,
+        focus: { text: true }
+      }
+    )
+    expect(
+      projected.text.length + (projected.documentText?.length ?? 0)
+    ).toBeLessThanOrEqual(8_000)
+  })
+
+  it("marks the text truncated when the budget cut it", () => {
+    const projected = projectAgentObservation(
+      observation({ visibleText: "y".repeat(10_000) }),
+      { pageContentChars: 1_000 }
+    )
+    expect(projected.textTruncated).toBe(true)
+    expect(projected.text.length).toBeLessThan(10_000)
+  })
+})
+
+describe("projectAgentObservation inspection focus", () => {
+  const many = (
+    count: number,
+    base: Partial<AgentElement> = {}
+  ): AgentElement[] =>
+    Array.from({ length: count }, (_value, index) =>
+      element({ ref: `e${index + 1}`, name: `Field ${index + 1}`, ...base })
+    )
+
+  it("surfaces controls matching a find query past the budget", () => {
+    const elements = [
+      ...many(200),
+      element({ ref: "target", name: "Submit application", tag: "button" })
+    ]
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 500,
+      focus: { query: "submit" }
+    })
+    expect(projected.elements.map((one) => one.ref)).toContain("target")
+  })
+
+  it("returns the whole document text when text is requested", () => {
+    const projected = projectAgentObservation(
+      observation({
+        visibleText: "top of page",
+        documentText: "below the fold",
+        documentTextTruncated: true
+      }),
+      { pageContentChars: 500, focus: { text: true } }
+    )
+    expect(projected.text).toBe("top of page")
+    expect(projected.documentText).toBe("below the fold")
+    expect(projected.documentTextTruncated).toBe(true)
+  })
+
+  it("omits the document text by default under a budget", () => {
+    const projected = projectAgentObservation(
+      observation({ visibleText: "top", documentText: "below the fold" }),
+      { pageContentChars: 500 }
+    )
+    expect(projected.documentText).toBeUndefined()
+  })
+})

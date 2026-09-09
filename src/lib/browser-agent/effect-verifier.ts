@@ -161,24 +161,35 @@ const verifyHistory: Verifier = async (input, adapter, signal) => {
       )
 }
 
+/**
+ * A pure read — a plain observation or a progressive inspection — is confirmed
+ * when the page it named is still the page in hand. Inspection changes nothing
+ * on the page, only what the next observation shows, so it verifies exactly as
+ * a read does.
+ */
+const verifyPureRead: Verifier = async (input, adapter, signal) => {
+  const after = await observeAfter(input, adapter, signal)
+  return after.documentId === input.before.documentId &&
+    sameUrl(after.url, input.before.url)
+    ? result(
+        "confirmed",
+        "observation",
+        "Fresh page observation received",
+        adapter.now()
+      )
+    : result(
+        "ambiguous",
+        "observation",
+        "Page changed while it was read",
+        adapter.now()
+      )
+}
+
 export const READ_ONLY_AGENT_VERIFIERS = {
-  async read(input, adapter, signal) {
-    const after = await observeAfter(input, adapter, signal)
-    return after.documentId === input.before.documentId &&
-      sameUrl(after.url, input.before.url)
-      ? result(
-          "confirmed",
-          "observation",
-          "Fresh page observation received",
-          adapter.now()
-        )
-      : result(
-          "ambiguous",
-          "observation",
-          "Page changed while it was read",
-          adapter.now()
-        )
-  },
+  read: verifyPureRead,
+  inspect: verifyPureRead,
+  find: verifyPureRead,
+  extract_text: verifyPureRead,
   async wait(input, adapter, signal) {
     if (input.effect.command.type !== "wait")
       throw new Error("Invalid wait effect")

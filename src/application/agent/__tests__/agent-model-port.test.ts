@@ -198,6 +198,156 @@ describe("createProviderAgentModelPort", () => {
     expect(request?.messages[1]?.content).toContain(observation.title)
   })
 
+  it("bounds the page content of a large application within budget", async () => {
+    const huge: AgentObservation = {
+      ...observation,
+      elements: Array.from({ length: 1_500 }, (_value, index) => ({
+        ref: `e${index + 1}`,
+        frameId: 0,
+        tag: "button",
+        name: `Control number ${index + 1} on a very large application page`,
+        visible: true,
+        enabled: true,
+        editable: false,
+        sensitive: false
+      })),
+      visibleText: "z".repeat(200_000)
+    }
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide({ state, observation: huge }, { aborted: false })
+    const request = streamChat.mock.calls[0]?.[0]
+    const userContent = String(request?.messages[1]?.content)
+    // The raw observation is ~250k+ chars; the overview stays far below it.
+    expect(userContent.length).toBeLessThan(70_000)
+    // The window follows the bounded content rather than the raw page.
+    expect(request?.num_ctx).toBeLessThanOrEqual(32_768)
+    // Dropped controls are reported so they stay discoverable.
+    expect(userContent).toContain("omittedByGroup")
+  })
+
+  it("expands the region the previous step inspected", async () => {
+    const crowded: AgentObservation = {
+      ...observation,
+      elements: Array.from({ length: 400 }, (_value, index) => ({
+        ref: `e${index + 1}`,
+        frameId: 0,
+        tag: "input" as const,
+        name: `Field ${index + 1}`,
+        group: index < 200 ? 'form "a"' : 'form "b"',
+        visible: true,
+        enabled: true,
+        editable: true,
+        sensitive: false
+      })),
+      visibleText: "z".repeat(100_000)
+    }
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      { state, observation: crowded, inspection: { region: 'form "b"' } },
+      { aborted: false }
+    )
+    const userContent = String(
+      streamChat.mock.calls[0]?.[0]?.messages[1]?.content
+    )
+    // Every control of the inspected region is present despite the budget.
+    const shownB = (userContent.match(/form \\"b\\"/g) ?? []).length
+    expect(shownB).toBeGreaterThanOrEqual(200)
+  })
+
+  it("carries the run's kept findings into the prompt", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      {
+        state,
+        observation,
+        findings: [
+          {
+            step: 2,
+            note: "the invoice total is 412.90",
+            source: "https://example.com/invoice"
+          }
+        ]
+      },
+      { aborted: false }
+    )
+    const userContent = String(
+      streamChat.mock.calls[0]?.[0]?.messages[1]?.content
+    )
+    expect(userContent).toContain("the invoice total is 412.90")
+    expect(userContent).toContain("https://example.com/invoice")
+  })
+
+  it("keeps a maximal inspection inside the context ceiling", async () => {
+    const region = 'form "b"'
+    const crowded: AgentObservation = {
+      ...observation,
+      elements: Array.from({ length: 2_000 }, (_value, index) => ({
+        ref: `e${index + 1}`,
+        frameId: 0,
+        tag: "input" as const,
+        name: `Field ${index + 1} of a very large inspected region`,
+        group: region,
+        visible: true,
+        enabled: true,
+        editable: true,
+        sensitive: false
+      })),
+      visibleText: "z".repeat(200_000)
+    }
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      { state, observation: crowded, inspection: { region } },
+      { aborted: false }
+    )
+    const request = streamChat.mock.calls[0]?.[0]
+    // Even a 2,000-control inspected region cannot overflow the window.
+    expect(request?.num_ctx).toBeLessThanOrEqual(32_768)
+    expect(String(request?.messages[1]?.content).length).toBeLessThan(120_000)
+  })
+
+  it("yields page content to a large history instead of overflowing", async () => {
+    const huge: AgentObservation = {
+      ...observation,
+      elements: Array.from({ length: 800 }, (_value, index) => ({
+        ref: `e${index + 1}`,
+        frameId: 0,
+        tag: "button" as const,
+        name: `Control ${index + 1}`,
+        visible: true,
+        enabled: true,
+        editable: false,
+        sensitive: false
+      }))
+    }
+    const bigHistory = Array.from({ length: 12 }, (_value, index) => ({
+      step: index + 1,
+      action: "x".repeat(8_500),
+      outcome: "confirmed" as const
+    }))
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      { state, observation: huge, history: bigHistory },
+      { aborted: false }
+    )
+    const request = streamChat.mock.calls[0]?.[0]
+    // The whole request — every message plus the tool schema — must fit the
+    // window it asked for, so the model never silently drops the system prompt.
+    const promptChars =
+      (request?.messages ?? []).reduce(
+        (total: number, message: { content?: unknown }) =>
+          total + String(message.content).length,
+        0
+      ) + JSON.stringify(request?.tools ?? []).length
+    expect(Math.ceil(promptChars / 3.5)).toBeLessThanOrEqual(
+      request?.num_ctx ?? 0
+    )
+  })
+
   it("retries malformed output at most twice for one decision", async () => {
     let attempt = 0
     const streamChat = vi.fn(async (_request, emit) => {

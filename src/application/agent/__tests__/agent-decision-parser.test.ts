@@ -85,6 +85,32 @@ describe("parseAgentDecisionToolCalls", () => {
     ).toThrow("stale snapshot")
   })
 
+  it("binds the flat inspection actions to the observation", () => {
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "inspect", target: 'form "signup"' })],
+        observation
+      )
+    ).toEqual({
+      type: "command",
+      command: {
+        type: "inspect",
+        target: 'form "signup"',
+        snapshotId: "snapshot-2",
+        generation: 2
+      }
+    })
+    expect(
+      parseAgentDecisionToolCalls(
+        [call({ type: "find", query: "next" })],
+        observation
+      )
+    ).toMatchObject({ command: { type: "find", query: "next" } })
+    expect(
+      parseAgentDecisionToolCalls([call({ type: "extract_text" })], observation)
+    ).toMatchObject({ command: { type: "extract_text" } })
+  })
+
   it("accepts exactly one schema-valid grounded decision", () => {
     expect(
       parseAgentDecisionToolCalls(

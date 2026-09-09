@@ -51,6 +51,12 @@ const commandLabel = (command?: AgentCommand): string => {
       return "Click control"
     case "read":
       return "Read page"
+    case "inspect":
+      return `Inspect ${agentPlainText(command.target, AGENT_PAGE_TEXT_LIMIT)}`
+    case "find":
+      return `Find "${agentPlainText(command.query, AGENT_PAGE_TEXT_LIMIT)}"`
+    case "extract_text":
+      return "Read page text"
   }
 }
 

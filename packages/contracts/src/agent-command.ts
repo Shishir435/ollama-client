@@ -17,6 +17,24 @@ const ElementCommandSchema = GroundedCommandSchema.extend({
 
 export const AgentCommandSchema = z.discriminatedUnion("type", [
   GroundedCommandSchema.extend({ type: z.literal("read") }).strict(),
+  /**
+   * Read-only progressive inspection. An overview is bounded, so a large
+   * application's controls do not all travel at once; these ask for more of
+   * the page the overview summarised. `inspect` expands one region named by
+   * its group, `find` surfaces controls matching a query, and `extract_text`
+   * returns the page's whole text — the below-fold document included, which
+   * the overview omits. None mutates the page, so all resolve as `read` and
+   * never ask approval.
+   */
+  GroundedCommandSchema.extend({
+    type: z.literal("inspect"),
+    target: z.string().min(1).max(80)
+  }).strict(),
+  GroundedCommandSchema.extend({
+    type: z.literal("find"),
+    query: z.string().min(1).max(100)
+  }).strict(),
+  GroundedCommandSchema.extend({ type: z.literal("extract_text") }).strict(),
   ElementCommandSchema.extend({ type: z.literal("click") }).strict(),
   ElementCommandSchema.extend({
     type: z.literal("type"),

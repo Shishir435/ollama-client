@@ -54,6 +54,9 @@ const VARIANT_FIELDS: Record<string, string> = {
  */
 const COMMAND_FIELDS: Record<string, readonly string[]> = {
   read: [],
+  inspect: ["target"],
+  find: ["query"],
+  extract_text: [],
   click: ["ref"],
   type: ["ref", "text"],
   clear_and_type: ["ref", "text"],

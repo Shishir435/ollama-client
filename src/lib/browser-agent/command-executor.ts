@@ -567,6 +567,23 @@ export const READ_ONLY_AGENT_EXECUTORS = {
     await assertSource(effect, adapter, true)
     return receipt(adapter, "read")
   },
+  /**
+   * Inspection touches nothing: its whole effect is to steer the next
+   * observation, which the run rebuilds from the step's own command. The
+   * executor confirms the page is still the one named and returns.
+   */
+  async inspect(effect, adapter) {
+    await assertSource(effect, adapter, true)
+    return receipt(adapter, "inspect")
+  },
+  async find(effect, adapter) {
+    await assertSource(effect, adapter, true)
+    return receipt(adapter, "find")
+  },
+  async extract_text(effect, adapter) {
+    await assertSource(effect, adapter, true)
+    return receipt(adapter, "extract_text")
+  },
   async wait(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
     if (effect.command.type !== "wait") throw new Error("Invalid wait effect")

@@ -370,6 +370,31 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   An indeterminate hit test (no layout, or a `null` answer) reports no
   occlusion: a covered control wrongly shown is recoverable, a reachable one
   wrongly hidden is not.
+- **The page is one budget claimant, not the whole prompt.** The context
+  window is partitioned across instructions, tools, history, output and page
+  content (`agent-model-port.ts`); the page gets the remainder and is projected
+  to fit it. A large application does not send every control — the overview
+  keeps the focused control, the reachable ones and whatever fits in document
+  order, and reports the rest in `omittedByGroup` so a control the budget
+  dropped is discoverable, not silently absent. No budget preserves the whole
+  projection.
+- **A bounded overview is drilled into, not scrolled through.** Three read-only
+  commands reveal what the overview summarised: `inspect` expands a region by
+  its group, `find` surfaces controls matching a query, `extract_text` returns
+  the page's full text — the below-fold document the overview omits. None
+  mutates the page, so all resolve as `read` and ask no approval. What to expand
+  is derived from the previous step's own durable command
+  (`currentAgentInspection`), so the next observation shows exactly what was
+  asked and a worker restart rebuilds it — no separate run state. An expansion
+  is still bounded by a hard ceiling (`pageContentMaxChars`, set from the
+  context ceiling), so a two-thousand-control region or a maximal text extract
+  cannot push the prompt past the window and truncate the system prompt.
+- **A finding outlives the history window.** `finding` on a decision is kept in
+  a dedicated store (`buildAgentFindings`), bounded by count and bytes, carrying
+  the redacted page each was recorded on. It is the run's own note and stays
+  untrusted page-derived data, never an instruction, so a fact learned on step
+  two survives to step fifty without letting the page it came from change the
+  goal.
 - **A child-frame effect happens on the frame's origin.** The resolver sets
   `frameUrl`/`frameOrigin` for a target outside the root frame; policy judges
   grants, grant offers and sign-in/payment paths against those, while
