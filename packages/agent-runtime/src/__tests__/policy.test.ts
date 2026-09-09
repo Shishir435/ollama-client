@@ -397,3 +397,50 @@ describe("tab scope policy", () => {
     })
   })
 })
+
+describe("child frame policy", () => {
+  const grant = {
+    origin: "https://example.com",
+    effects: ["activation" as const],
+    grantedAt: 1
+  }
+  const framed = effect(["activation"], {
+    frameUrl: "https://widgets.example/login",
+    frameOrigin: "https://widgets.example"
+  })
+
+  it("does not spend a page grant on a frame from another site", () => {
+    const decision = evaluateAgentPolicy(
+      input(framed, {
+        allowedOrigins: ["https://example.com", "https://widgets.example"],
+        grants: [grant]
+      })
+    )
+    expect(decision).toMatchObject({ type: "approval_required", risk: "high" })
+    expect(
+      (decision as { request?: { origin?: string } }).request?.origin
+    ).toBe("https://widgets.example")
+  })
+
+  it("spends a grant given for the frame's own site", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(framed, {
+          allowedOrigins: ["https://example.com", "https://widgets.example"],
+          grants: [{ ...grant, origin: "https://widgets.example" }]
+        })
+      )
+    ).toEqual({
+      type: "granted",
+      risk: "high",
+      origin: "https://widgets.example"
+    })
+  })
+
+  it("treats a frame on an origin outside the allowlist as a new site", () => {
+    expect(evaluateAgentPolicy(input(effect(["read"], framed)))).toMatchObject({
+      type: "approval_required",
+      risk: "high"
+    })
+  })
+})

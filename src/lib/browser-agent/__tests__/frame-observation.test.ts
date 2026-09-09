@@ -128,18 +128,28 @@ describe("authorizeAgentFrame", () => {
 })
 
 describe("selectAgentChildFrames", () => {
-  it("reads the earliest frames and reports the rest as over the limit", () => {
+  it("reads the earliest frames and counts the rest", () => {
     const frames = Array.from({ length: 15 }, (_, index) =>
       child(index + 1, `https://example.com/${index + 1}`)
     ).reverse()
-    const { selected, overflow } = selectAgentChildFrames([
+    const { selected, omitted } = selectAgentChildFrames([
       { frameId: 0, parentFrameId: -1, url: "https://example.com/" },
       ...frames
     ])
     expect(selected.map((frame) => frame.frameId)).toEqual([
       1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
     ])
-    expect(overflow.map((frame) => frame.frameId)).toEqual([12, 13, 14, 15])
+    expect(omitted).toBe(4)
+  })
+
+  it("never lets a frame without an origin take a place or be counted", () => {
+    const { selected, omitted } = selectAgentChildFrames([
+      child(1, "about:blank"),
+      child(2, "about:srcdoc"),
+      child(3, "https://example.com/real")
+    ])
+    expect(selected.map((frame) => frame.frameId)).toEqual([3])
+    expect(omitted).toBe(0)
   })
 })
 
@@ -178,7 +188,7 @@ describe("composeAgentFrameObservations", () => {
           access: "unauthorized_origin"
         }
       ],
-      overflow: [child(9, "https://example.com/late")]
+      omitted: 2
     })
 
     expect(composed.snapshotId).toBe("snapshot-0")
@@ -196,15 +206,30 @@ describe("composeAgentFrameObservations", () => {
         documentId: "document-3",
         origin: "https://ads.example",
         access: "unauthorized_origin"
-      },
-      expect.objectContaining({ frameId: 9, access: "frame_limit" })
+      }
     ])
+    expect(composed.omittedFrames).toBe(2)
     expect(JSON.stringify(composed.frames)).not.toContain("secret")
     expect(composed.elements.map((element) => element.ref)).toEqual([
       "e1",
       "f2e1"
     ])
     expect(composed.visibleText).toBe("Root text\nChild text")
+  })
+
+  it("stays within the frame contract however many frames a page has", () => {
+    const children = Array.from({ length: 11 }, (_, index) => ({
+      frame: child(index + 1, `https://example.com/${index + 1}`),
+      origin: "https://example.com",
+      access: "unreadable" as const
+    }))
+    const composed = composeAgentFrameObservations({
+      root,
+      children,
+      omitted: 30
+    })
+    expect(composed.frames).toHaveLength(12)
+    expect(composed.omittedFrames).toBe(30)
   })
 
   it("lists a read frame that produced no observation as unreadable", () => {

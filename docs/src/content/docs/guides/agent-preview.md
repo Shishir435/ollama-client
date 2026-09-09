@@ -76,7 +76,7 @@ These are current limits, not design decisions.
   control inside one cannot be used. Frames are observed; the controls inside
   a shadow root within a frame are not.
 - **Frame limits.** A page with more than eleven child frames has the rest
-  listed but not read, and a very large page can leave a frame no room to
+  counted but not read, and a very large page can leave a frame no room to
   report its controls; both are reported to the model as such.
 - **Native dialogs.** A JavaScript `alert`, `confirm` or `prompt` blocks the
   page and cannot be seen or answered. In-page dialogs and menus are fine.

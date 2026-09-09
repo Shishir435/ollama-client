@@ -50,3 +50,19 @@ export const agentFrameSnapshotIdentity = (
     documentId: frame.documentId
   }
 }
+
+/**
+ * The page a child-frame element is actually on, or nothing for an element in
+ * the root frame — the root's own url is the effect's `sourceUrl` already.
+ */
+export const agentFramePage = (
+  observation: AgentObservation,
+  element: Pick<AgentElement, "frameId">
+): { url: string; origin: string } | undefined => {
+  if (element.frameId === observation.frameId) return undefined
+  const frame = agentFrameRecord(observation, element.frameId)
+  if (!frame || frame.access !== "ok" || frame.url === undefined) {
+    throw new Error("Agent element names a frame the observation did not read")
+  }
+  return { url: frame.url, origin: frame.origin }
+}

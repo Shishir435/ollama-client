@@ -209,7 +209,7 @@ export const createAgentControlSessionRegistry = (input?: {
   return {
     async observe({ runId, tabId, minimumGeneration, allowedOrigins }, signal) {
       const root = await observeRoot(runId, tabId, minimumGeneration, signal)
-      const { selected, overflow } = selectAgentChildFrames(
+      const { selected, omitted } = selectAgentChildFrames(
         await listFrames(tabId)
       )
       const children: AgentChildFrameResult[] = []
@@ -225,7 +225,7 @@ export const createAgentControlSessionRegistry = (input?: {
         )
         if (child) children.push(child)
       }
-      return composeAgentFrameObservations({ root, children, overflow })
+      return composeAgentFrameObservations({ root, children, omitted })
     },
     async executeDomMutation({ runId, tabId, instruction }, signal) {
       const frameId = instruction.frame.frameId

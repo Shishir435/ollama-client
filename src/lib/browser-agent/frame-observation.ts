@@ -66,20 +66,22 @@ export interface AgentChildFrameResult {
 }
 
 /**
- * The child frames a page has, in the order the run will read them, and the
- * ones past the cap. Frame ids rise in creation order, so the earliest frames
- * — the ones the page laid out first — are the ones that fit.
+ * The child frames a page has, in the order the run will read them, and how
+ * many it cannot. Frames with no origin of their own — `about:blank`, `srcdoc`
+ * — are dropped before the cap is applied, so a placeholder never costs a real
+ * frame its place. Frame ids rise in creation order, so the earliest frames,
+ * the ones the page laid out first, are the ones that fit.
  */
 export const selectAgentChildFrames = (
   frames: readonly AgentBrowserFrame[]
-): { selected: AgentBrowserFrame[]; overflow: AgentBrowserFrame[] } => {
+): { selected: AgentBrowserFrame[]; omitted: number } => {
   const children = frames
-    .filter((frame) => frame.frameId !== 0)
+    .filter((frame) => frame.frameId !== 0 && originOf(frame.url) !== undefined)
     .sort((first, second) => first.frameId - second.frameId)
   const capacity = MAX_AGENT_OBSERVED_FRAMES - 1
   return {
     selected: children.slice(0, capacity),
-    overflow: children.slice(capacity)
+    omitted: Math.max(0, children.length - capacity)
   }
 }
 
@@ -120,9 +122,9 @@ const blockedFrame = (
 export const composeAgentFrameObservations = (input: {
   root: AgentObservation
   children: readonly AgentChildFrameResult[]
-  overflow?: readonly AgentBrowserFrame[]
+  omitted?: number
 }): AgentObservation => {
-  if (input.children.length === 0 && !input.overflow?.length) return input.root
+  if (input.children.length === 0 && !input.omitted) return input.root
   const frames: AgentFrameObservation[] = [input.root.frames[0]]
   const elements = [...input.root.elements]
   const texts = [input.root.visibleText]
@@ -145,14 +147,10 @@ export const composeAgentFrameObservations = (input: {
       )
     )
   }
-  for (const frame of input.overflow ?? []) {
-    frames.push(
-      blockedFrame(frame, originOf(frame.url) ?? "null", "frame_limit")
-    )
-  }
   return AgentObservationSchema.parse({
     ...input.root,
     frames,
+    ...(input.omitted ? { omittedFrames: input.omitted } : {}),
     elements,
     visibleText: texts
       .join("\n")

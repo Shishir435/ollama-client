@@ -103,8 +103,17 @@ export interface ResolvedAgentEffect {
   destination?: AgentDestination
   semanticEffects: readonly AgentSemanticEffect[]
   snapshotIdentity: AgentSnapshotIdentity
+  /** The page the run is on: what the tab shows and what history records. */
   sourceUrl: string
   sourceOrigin: string
+  /**
+   * Where the effect actually happens when the target is in a child frame.
+   * Policy judges grants and sensitive paths against this, not the page: a
+   * grant for the page's origin says nothing about a frame from another site
+   * embedded in it, and a sign-in form inside a frame is still a sign-in form.
+   */
+  frameUrl?: string
+  frameOrigin?: string
 }
 
 export interface AuthorizedAgentEffect extends ResolvedAgentEffect {

@@ -1030,6 +1030,25 @@ describe("Agent DOM mutation across frames", () => {
     })
   })
 
+  it("tells policy where a child-frame effect really happens", async () => {
+    const before = framed()
+    before.frames[1] = {
+      ...childFrame,
+      origin: "https://widgets.example",
+      url: "https://widgets.example/login"
+    }
+    const effect = await resolve(
+      command({ type: "click", ref: "f2e1" }),
+      before
+    )
+    expect(effect.sourceUrl).toBe(observation().url)
+    expect(effect.frameUrl).toBe("https://widgets.example/login")
+    expect(effect.frameOrigin).toBe("https://widgets.example")
+    expect(effect.semanticEffects).toContain("authentication")
+    const root = await resolve(command({ type: "click", ref: "e1" }), before)
+    expect(root.frameOrigin).toBeUndefined()
+  })
+
   it("keeps the root target bound to the root frame", async () => {
     const effect = await resolve(
       command({ type: "click", ref: "e1" }),

@@ -53,6 +53,8 @@ export interface AgentProjectedObservation {
   title: string
   /** Present only when the page has frames beyond its root. */
   frames?: AgentProjectedFrame[]
+  /** Child frames the frame cap left unread and unlisted. */
+  omittedFrames?: number
   scroll: { y: number; ofDocument: number }
   /** Open dialogs and menus, so a decision can act inside the top one. */
   modals?: { id: string; label?: string; kind: string }[]
@@ -143,6 +145,9 @@ export const projectAgentObservation = (
           .slice(1)
           .map(({ frameId, origin, access }) => ({ frameId, origin, access }))
       }
+    : {}),
+  ...(observation.omittedFrames
+    ? { omittedFrames: observation.omittedFrames }
     : {}),
   scroll: {
     y: Math.round(observation.scroll.y),

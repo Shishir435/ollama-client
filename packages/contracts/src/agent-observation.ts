@@ -39,9 +39,11 @@ export const MAX_AGENT_OBSERVED_FRAMES = 12
  * `ok` frames contribute elements and text. Every other value names a frame
  * the run knows exists and did not read: the browser refuses content scripts
  * there, the user excluded the site, the frame's origin is one the run was
- * never authorized for, the frame could not be observed, or a bound was hit.
- * The frame is listed either way, because a control the model cannot see is
- * different from a control that is not there.
+ * never authorized for, the frame could not be observed, or the element
+ * budget was spent before it. The frame is listed either way, because a
+ * control the model cannot see is different from a control that is not there.
+ * Frames beyond the frame cap are not listed at all; `omittedFrames` counts
+ * them, so the list itself stays bounded.
  */
 export const AGENT_FRAME_ACCESS = [
   "ok",
@@ -49,7 +51,6 @@ export const AGENT_FRAME_ACCESS = [
   "excluded",
   "unauthorized_origin",
   "unreadable",
-  "frame_limit",
   "element_budget"
 ] as const
 export const AgentFrameAccessSchema = z.enum(AGENT_FRAME_ACCESS)
@@ -220,6 +221,8 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
     .array(AgentFrameObservationSchema)
     .min(1)
     .max(MAX_AGENT_OBSERVED_FRAMES),
+  /** Child frames with an origin that the frame cap left unread and unlisted. */
+  omittedFrames: z.number().int().positive().optional(),
   elements: z.array(AgentElementSchema).max(MAX_AGENT_OBSERVED_ELEMENTS),
   visibleText: z.string().max(100_000),
   /**

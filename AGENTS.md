@@ -351,9 +351,15 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   exists so it can ask rather than conclude the control is missing.
   `about:blank` and `srcdoc` frames have no origin and are omitted.
 - **Frames and elements are bounded together.** Root first, then children in
-  frame-id order up to `MAX_AGENT_OBSERVED_FRAMES`; a child receives only the
-  element budget the frames before it left, and a child that cannot fit or
-  cannot be read is listed as such rather than truncated or retried.
+  frame-id order up to `MAX_AGENT_OBSERVED_FRAMES`; frames past the cap are
+  counted in `omittedFrames`, never listed, so the list itself honours the
+  contract. A child receives only the element budget the frames before it
+  left, and a child that cannot fit or cannot be read is listed as such rather
+  than truncated or retried.
+- **A child-frame effect happens on the frame's origin.** The resolver sets
+  `frameUrl`/`frameOrigin` for a target outside the root frame; policy judges
+  grants, grant offers and sign-in/payment paths against those, while
+  `sourceUrl` stays the page the tab shows and history records.
 - **The debugger's frame tree is tracked, not guessed.** After attach, the
   session manager enables `Page`, flattens auto-attach for out-of-process
   frames, and follows frame events on every session. `mapFrame` joins an

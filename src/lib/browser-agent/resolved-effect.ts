@@ -16,6 +16,7 @@ import type {
 
 import type { TabAccess } from "@/lib/browser-tab-access"
 import {
+  agentFramePage,
   agentFrameSnapshotIdentity,
   rootAgentSnapshotIdentity
 } from "./frame-identity"
@@ -148,9 +149,14 @@ export const resolveReadOnlyAgentEffect = async (input: {
     throw new AgentUnreadablePageError("Agent destination is not readable")
   }
 
+  const target = targetFromObservation(command, observation)
+  const frame =
+    command.type === "scroll" && command.ref
+      ? agentFramePage(observation, { frameId: target.frameId ?? 0 })
+      : undefined
   return {
     command,
-    target: targetFromObservation(command, observation),
+    target,
     ...(resolvedDestination ? { destination: resolvedDestination } : {}),
     semanticEffects:
       command.type === "scroll"
@@ -162,7 +168,8 @@ export const resolveReadOnlyAgentEffect = async (input: {
           : ["read"],
     snapshotIdentity: rootAgentSnapshotIdentity(observation),
     sourceUrl: source.url,
-    sourceOrigin: source.origin
+    sourceOrigin: source.origin,
+    ...(frame ? { frameUrl: frame.url, frameOrigin: frame.origin } : {})
   }
 }
 
@@ -497,9 +504,11 @@ const linkDestination = (
 const addPageClassifications = (
   effects: AgentSemanticEffect[],
   source: URL,
-  destination?: AgentDestination
+  destination?: AgentDestination,
+  frame?: URL
 ): void => {
   const paths = [`${source.pathname}${source.search}`]
+  if (frame) paths.push(`${frame.pathname}${frame.search}`)
   if (destination) {
     const parsed = new URL(destination.url)
     paths.push(`${parsed.pathname}${parsed.search}`)
@@ -615,7 +624,13 @@ export const resolveDomMutationAgentEffect = async (input: {
     effects.push("sensitive_input")
   }
   if (isDestructiveLabel(element.name)) effects.push("destructive")
-  addPageClassifications(effects, new URL(source.url), destination)
+  const frame = agentFramePage(observation, element)
+  addPageClassifications(
+    effects,
+    new URL(source.url),
+    destination,
+    frame ? new URL(frame.url) : undefined
+  )
 
   return {
     command,
@@ -624,6 +639,7 @@ export const resolveDomMutationAgentEffect = async (input: {
     semanticEffects: [...new Set(effects)],
     snapshotIdentity: rootAgentSnapshotIdentity(observation),
     sourceUrl: source.url,
-    sourceOrigin: source.origin
+    sourceOrigin: source.origin,
+    ...(frame ? { frameUrl: frame.url, frameOrigin: frame.origin } : {})
   }
 }
