@@ -136,6 +136,47 @@ Do not repeat a confirmed step. Use finding to record a fact a later step will n
  * budget ran out. `feedback` is the refusal in words the model can act on,
  * built from templates and structure by the parser and never from page text.
  */
+/**
+ * The context window is one budget spent across five claimants: the fixed
+ * instructions and tool schema, the run's own history, room for the answer,
+ * and whatever is left for the page. The page is the elastic one — a large
+ * application holds far more than a window can — so it is the one that is
+ * measured against a remainder rather than sent whole. Everything else is
+ * estimated first, and the page gets the rest, never less than a floor.
+ */
+const AGENT_CONTEXT_BUDGET_TOKENS = 16_384
+const AGENT_PAGE_CONTENT_FLOOR_TOKENS = 2_048
+const AGENT_TOKEN_CHARS = 3.5
+
+const estimateTokens = (text: string): number =>
+  Math.ceil(text.length / AGENT_TOKEN_CHARS)
+
+/** Estimated once: neither the instructions nor the tool schema changes across
+ * a run, so their share of the budget is a constant, not a per-step cost. */
+const AGENT_INSTRUCTION_TOKENS = estimateTokens(SYSTEM_PROMPT)
+const AGENT_TOOL_SCHEMA_TOKENS = estimateTokens(
+  JSON.stringify(AGENT_DECISION_TOOL)
+)
+
+/**
+ * Characters the page content may spend, given what the rest of the prompt has
+ * already claimed. The history has already been bounded upstream; here it is
+ * charged at its real size so a long history leaves the page less, never the
+ * other way round.
+ */
+const agentPageContentChars = (historyEnvelope: string): number => {
+  const reserved =
+    AGENT_RESPONSE_TOKENS +
+    AGENT_INSTRUCTION_TOKENS +
+    AGENT_TOOL_SCHEMA_TOKENS +
+    estimateTokens(historyEnvelope)
+  const pageTokens = Math.max(
+    AGENT_PAGE_CONTENT_FLOOR_TOKENS,
+    AGENT_CONTEXT_BUDGET_TOKENS - reserved
+  )
+  return Math.floor(pageTokens * AGENT_TOKEN_CHARS)
+}
+
 const decisionPrompt = (input: {
   state: AgentRunState
   observation: AgentObservation
@@ -143,8 +184,8 @@ const decisionPrompt = (input: {
   feedback?: string
   history?: readonly AgentHistoryEntry[]
   previousVerification?: AgentVerificationResult
-}): string =>
-  JSON.stringify({
+}): string => {
+  const envelope = {
     task: input.state.goal,
     controlledTabId: input.state.controlledTabId,
     scopedTabIds: agentTabScope(input.state),
@@ -160,14 +201,25 @@ const decisionPrompt = (input: {
     ...(input.history?.length ? { history: input.history } : {}),
     ...(input.previousVerification
       ? { previousStepOutcome: input.previousVerification.outcome }
-      : {}),
-    /**
-     * Projected, not raw. Most of an observation is the executor's business —
-     * frame ids, verification bindings, form fingerprints, flags already at
-     * their default — and on a real page that noise is most of the payload.
-     */
-    observation: projectAgentObservation(input.observation)
+      : {})
+  }
+  /**
+   * Projected against the page's own budget, not raw. Most of an observation
+   * is the executor's business — frame ids, verification bindings, form
+   * fingerprints, flags already at their default — and on a real page the
+   * controls and text past the budget are more than a window can hold. The
+   * overview keeps what a decision acts on and reports the rest by region, so
+   * a large application stays within budget while its controls stay reachable
+   * through `inspect`.
+   */
+  const pageContentChars = agentPageContentChars(JSON.stringify(envelope))
+  return JSON.stringify({
+    ...envelope,
+    observation: projectAgentObservation(input.observation, {
+      pageContentChars
+    })
   })
+}
 
 const providerSignal = (
   signal: AgentCancellationSignal

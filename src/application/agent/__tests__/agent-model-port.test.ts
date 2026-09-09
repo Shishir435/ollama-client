@@ -198,6 +198,34 @@ describe("createProviderAgentModelPort", () => {
     expect(request?.messages[1]?.content).toContain(observation.title)
   })
 
+  it("bounds the page content of a large application within budget", async () => {
+    const huge: AgentObservation = {
+      ...observation,
+      elements: Array.from({ length: 1_500 }, (_value, index) => ({
+        ref: `e${index + 1}`,
+        frameId: 0,
+        tag: "button",
+        name: `Control number ${index + 1} on a very large application page`,
+        visible: true,
+        enabled: true,
+        editable: false,
+        sensitive: false
+      })),
+      visibleText: "z".repeat(200_000)
+    }
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide({ state, observation: huge }, { aborted: false })
+    const request = streamChat.mock.calls[0]?.[0]
+    const userContent = String(request?.messages[1]?.content)
+    // The raw observation is ~250k+ chars; the overview stays far below it.
+    expect(userContent.length).toBeLessThan(70_000)
+    // The window follows the bounded content rather than the raw page.
+    expect(request?.num_ctx).toBeLessThanOrEqual(32_768)
+    // Dropped controls are reported so they stay discoverable.
+    expect(userContent).toContain("omittedByGroup")
+  })
+
   it("retries malformed output at most twice for one decision", async () => {
     let attempt = 0
     const streamChat = vi.fn(async (_request, emit) => {

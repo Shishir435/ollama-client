@@ -66,7 +66,30 @@ export interface AgentProjectedObservation {
   /** The rest of the document, when there is any and it fits. */
   documentText?: string
   documentTextTruncated?: boolean
+  /** Set when the viewport text was cut to fit the page-content budget, so an
+   * absent string is not read as a fact the page does not state. */
+  textTruncated?: boolean
   elements: AgentProjectedElement[]
+  /**
+   * Controls the overview left out to stay within budget, counted by the
+   * region that holds them. The model is told a region has more than it can
+   * see so it can `inspect` that region rather than concluding the control is
+   * not there. Present only in a budgeted overview that dropped something.
+   */
+  omittedByGroup?: { group: string; count: number }[]
+}
+
+/** A region the model asked to see in full; its controls survive the budget. */
+export interface AgentProjectionOptions {
+  /**
+   * Character budget for the projected page content — its elements and text
+   * together. Omitted means no budget: every control and the full text
+   * travel, as they did before progressive inspection existed.
+   */
+  pageContentChars?: number
+  /** A region, named by its group, to expand in full while the rest stays at
+   * overview detail. */
+  focus?: { group: string }
 }
 
 export const AGENT_PROJECTION_LIMITS = {
@@ -138,30 +161,145 @@ export const projectAgentElement = (
   }
 }
 
+/** The share of a page-content budget the viewport text may take before the
+ * rest goes to controls. Controls are what a decision acts on, so text yields
+ * to them; enough is kept to read the page's own words. */
+const AGENT_OVERVIEW_TEXT_SHARE = 0.35
+
+/** The element with no landmark, form or dialog of its own belongs to the
+ * page itself, which is the region an omission is reported against. */
+const AGENT_PAGE_GROUP = "page"
+
+/**
+ * How readily a control is kept when the page overflows the budget. Lower is
+ * kept first: the focused control and anything in a region the model asked to
+ * inspect, then the controls a click could reach, then everything else —
+ * hidden, covered, disabled or decorative. Priority decides what survives;
+ * document order decides how the survivors read.
+ */
+const overviewPriority = (
+  element: AgentElement,
+  focusGroup: string | undefined
+): number => {
+  if (element.focused) return 0
+  if (focusGroup !== undefined && element.group === focusGroup) return 0
+  const reachable = element.visible && !element.occluded && element.enabled
+  return reachable ? 1 : 2
+}
+
+const selectOverviewElements = (
+  elements: readonly AgentElement[],
+  budgetChars: number,
+  focusGroup: string | undefined
+): {
+  shown: AgentProjectedElement[]
+  omittedByGroup: { group: string; count: number }[]
+} => {
+  const indexed = elements.map((element, index) => ({
+    element,
+    index,
+    projected: projectAgentElement(element),
+    priority: overviewPriority(element, focusGroup)
+  }))
+  const ordered = [...indexed].sort((first, second) =>
+    first.priority !== second.priority
+      ? first.priority - second.priority
+      : first.index - second.index
+  )
+  const kept = new Set<number>()
+  let used = 0
+  for (const item of ordered) {
+    const cost = JSON.stringify(item.projected).length + 1
+    /**
+     * The focused control and a region the model asked to inspect are kept
+     * whatever the budget: an inspect request that still hid half the region
+     * would defeat the point. Everything else competes for what remains, and
+     * at least one control is always kept so an overview is never empty.
+     */
+    const mustKeep = item.priority === 0
+    if (!mustKeep && kept.size > 0 && used + cost > budgetChars) continue
+    kept.add(item.index)
+    used += cost
+  }
+  const shown = indexed
+    .filter((item) => kept.has(item.index))
+    .map((item) => item.projected)
+  const omitted = new Map<string, number>()
+  for (const item of indexed) {
+    if (kept.has(item.index)) continue
+    const group = item.element.group ?? AGENT_PAGE_GROUP
+    omitted.set(group, (omitted.get(group) ?? 0) + 1)
+  }
+  const omittedByGroup = [...omitted.entries()]
+    .map(([group, count]) => ({ group, count }))
+    .sort((first, second) => second.count - first.count)
+  return { shown, omittedByGroup }
+}
+
 export const projectAgentObservation = (
-  observation: AgentObservation
-): AgentProjectedObservation => ({
-  url: observation.url,
-  title: observation.title,
-  ...(observation.frames.length > 1
-    ? {
-        frames: observation.frames
-          .slice(1)
-          .map(({ frameId, origin, access }) => ({ frameId, origin, access }))
-      }
-    : {}),
-  ...(observation.omittedFrames
-    ? { omittedFrames: observation.omittedFrames }
-    : {}),
-  scroll: {
-    y: Math.round(observation.scroll.y),
-    ofDocument: Math.max(1, Math.round(observation.scroll.documentHeight))
-  },
-  ...(observation.modals?.length ? { modals: observation.modals } : {}),
-  text: observation.visibleText,
-  ...(observation.documentText
-    ? { documentText: observation.documentText }
-    : {}),
-  ...(observation.documentTextTruncated ? { documentTextTruncated: true } : {}),
-  elements: observation.elements.map(projectAgentElement)
-})
+  observation: AgentObservation,
+  options: AgentProjectionOptions = {}
+): AgentProjectedObservation => {
+  const base = {
+    url: observation.url,
+    title: observation.title,
+    ...(observation.frames.length > 1
+      ? {
+          frames: observation.frames
+            .slice(1)
+            .map(({ frameId, origin, access }) => ({ frameId, origin, access }))
+        }
+      : {}),
+    ...(observation.omittedFrames
+      ? { omittedFrames: observation.omittedFrames }
+      : {}),
+    scroll: {
+      y: Math.round(observation.scroll.y),
+      ofDocument: Math.max(1, Math.round(observation.scroll.documentHeight))
+    },
+    ...(observation.modals?.length ? { modals: observation.modals } : {})
+  }
+  /**
+   * No budget means the whole page travels, as it did before progressive
+   * inspection: every control and the full text, including the below-fold
+   * document text.
+   */
+  if (options.pageContentChars === undefined) {
+    return {
+      ...base,
+      text: observation.visibleText,
+      ...(observation.documentText
+        ? { documentText: observation.documentText }
+        : {}),
+      ...(observation.documentTextTruncated
+        ? { documentTextTruncated: true }
+        : {}),
+      elements: observation.elements.map(projectAgentElement)
+    }
+  }
+  /**
+   * A budgeted overview spends its characters on controls first and text
+   * second, and reports what it dropped by region so the model can inspect a
+   * region rather than conclude a control is gone. The below-fold document
+   * text is left for an explicit `extract_text`, never carried by default —
+   * it is the largest thing an overview could hold and the least often what
+   * the next action needs.
+   */
+  const budget = Math.max(0, options.pageContentChars)
+  const textBudget = Math.round(budget * AGENT_OVERVIEW_TEXT_SHARE)
+  const text = observation.visibleText.slice(0, textBudget)
+  const { shown, omittedByGroup } = selectOverviewElements(
+    observation.elements,
+    budget - text.length,
+    options.focus?.group
+  )
+  return {
+    ...base,
+    text,
+    ...(text.length < observation.visibleText.length
+      ? { textTruncated: true }
+      : {}),
+    elements: shown,
+    ...(omittedByGroup.length ? { omittedByGroup } : {})
+  }
+}

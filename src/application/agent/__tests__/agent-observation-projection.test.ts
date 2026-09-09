@@ -258,3 +258,91 @@ describe("projectAgentObservation frames", () => {
     expect(JSON.stringify(projected.frames)).not.toContain("token")
   })
 })
+
+describe("projectAgentObservation overview budget", () => {
+  const many = (
+    count: number,
+    base: Partial<AgentElement> = {}
+  ): AgentElement[] =>
+    Array.from({ length: count }, (_value, index) =>
+      element({
+        ref: `e${index + 1}`,
+        name: `Field ${index + 1}`,
+        ...base
+      })
+    )
+
+  it("sends every control and the full text when no budget is set", () => {
+    const projected = projectAgentObservation(
+      observation({ elements: many(50), visibleText: "x".repeat(5_000) })
+    )
+    expect(projected.elements).toHaveLength(50)
+    expect(projected.text).toHaveLength(5_000)
+    expect(projected.omittedByGroup).toBeUndefined()
+  })
+
+  it("keeps the overview within its page-content budget", () => {
+    const projected = projectAgentObservation(
+      observation({ elements: many(500), visibleText: "x".repeat(50_000) }),
+      { pageContentChars: 2_000 }
+    )
+    const size =
+      JSON.stringify(projected.elements).length + projected.text.length
+    expect(size).toBeLessThanOrEqual(2_400)
+    expect(projected.elements.length).toBeLessThan(500)
+  })
+
+  it("reports what it dropped, by region, so a control stays discoverable", () => {
+    const elements = [
+      ...many(200, { group: 'form "signup"' }),
+      ...many(1, {}).map((one) => ({ ...one, ref: "keep", focused: true }))
+    ]
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 800
+    })
+    expect(projected.omittedByGroup?.[0]?.group).toBe('form "signup"')
+    expect(projected.omittedByGroup?.[0]?.count).toBeGreaterThan(0)
+  })
+
+  it("always keeps the focused control even under a tiny budget", () => {
+    const elements = [
+      ...many(100),
+      element({ ref: "focused", name: "Active", focused: true })
+    ]
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 1
+    })
+    expect(projected.elements.map((one) => one.ref)).toContain("focused")
+  })
+
+  it("expands a focused region in full while others stay at overview", () => {
+    const elements = [
+      ...many(100, { group: 'form "a"' }),
+      ...many(100, { group: 'form "b"' }).map((one, index) => ({
+        ...one,
+        ref: `b${index}`
+      }))
+    ]
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 2_000,
+      focus: { group: 'form "b"' }
+    })
+    const shownB = projected.elements.filter(
+      (one) => one.group === 'form "b"'
+    ).length
+    const shownA = projected.elements.filter(
+      (one) => one.group === 'form "a"'
+    ).length
+    expect(shownB).toBe(100)
+    expect(shownA).toBeLessThan(100)
+  })
+
+  it("marks the text truncated when the budget cut it", () => {
+    const projected = projectAgentObservation(
+      observation({ visibleText: "y".repeat(10_000) }),
+      { pageContentChars: 1_000 }
+    )
+    expect(projected.textTruncated).toBe(true)
+    expect(projected.text.length).toBeLessThan(10_000)
+  })
+})
