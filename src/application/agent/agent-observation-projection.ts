@@ -25,7 +25,7 @@ export interface AgentProjectedElement {
   checked?: boolean
   focused?: boolean
   href?: string
-  options?: string[]
+  options?: { value: string; label?: string }[]
   /** The landmark, form or dialog this element belongs to. */
   group?: string
   /** Present only when true, because the default is what most rows are. */
@@ -51,51 +51,72 @@ export interface AgentProjectedObservation {
 }
 
 export const AGENT_PROJECTION_LIMITS = {
-  optionLabels: 25,
-  optionLabelChars: 60,
   /**
-   * A label longer than this is page prose rather than a name, and the
-   * observation's own 500-character cap is generous for a prompt: two
-   * thousand rows of it is most of a small model's window on its own.
+   * A name is prose the model reads and never has to reproduce, so it can be
+   * shortened: the observation's own 500-character cap is generous for a
+   * prompt, and two thousand rows of it is most of a small model's window.
+   *
+   * A `value` gets no such cap. For a select it has to match an option
+   * exactly, and for any field it is what tells the model whether the field
+   * already holds what the goal wants — an altered one is worse than a
+   * missing one.
    */
-  nameChars: 200,
-  valueChars: 200
+  nameChars: 200
 } as const
 
-const projectOptions = (element: AgentElement): string[] | undefined => {
+/**
+ * The one field that is not reduced.
+ *
+ * An option's value is the payload of a `select`, and the executor requires
+ * exact equality against the option the page actually holds — so a truncated
+ * value is unselectable and an omitted option is unreachable. Capping either
+ * does not make the page cheaper to read, it makes part of it impossible to
+ * use. Disabled options are dropped because the executor refuses them anyway,
+ * and a label travels only when it says something the value does not.
+ *
+ * The bound that matters is the observation's own: two hundred options, each
+ * at most two thousand characters.
+ */
+const projectOptions = (
+  element: AgentElement
+): AgentProjectedElement["options"] => {
   if (!element.options?.length) return undefined
-  return element.options
-    .filter((option) => !option.disabled)
-    .slice(0, AGENT_PROJECTION_LIMITS.optionLabels)
-    .map((option) =>
-      option.value.slice(0, AGENT_PROJECTION_LIMITS.optionLabelChars)
-    )
+  const enabled = element.options.filter((option) => !option.disabled)
+  return enabled.length > 0
+    ? enabled.map((option) => ({
+        value: option.value,
+        ...(option.label && option.label !== option.value
+          ? { label: option.label }
+          : {})
+      }))
+    : undefined
 }
 
 export const projectAgentElement = (
   element: AgentElement
-): AgentProjectedElement => ({
-  ref: element.ref,
-  tag: element.tag,
-  ...(element.role ? { role: element.role } : {}),
-  ...(element.name
-    ? { name: element.name.slice(0, AGENT_PROJECTION_LIMITS.nameChars) }
-    : {}),
-  ...(element.type ? { type: element.type } : {}),
-  ...(element.value !== undefined
-    ? { value: element.value.slice(0, AGENT_PROJECTION_LIMITS.valueChars) }
-    : {}),
-  ...(element.checked !== undefined ? { checked: element.checked } : {}),
-  ...(element.focused ? { focused: true } : {}),
-  ...(element.href ? { href: element.href } : {}),
-  ...(projectOptions(element) ? { options: projectOptions(element) } : {}),
-  ...(element.group ? { group: element.group } : {}),
-  ...(element.submitter || element.maySubmit ? { submits: true } : {}),
-  ...(element.editable ? { editable: true } : {}),
-  ...(element.sensitive ? { sensitive: true } : {}),
-  ...(element.enabled ? {} : { disabled: true }),
-  ...(element.visible ? {} : { hidden: true })
-})
+): AgentProjectedElement => {
+  const options = projectOptions(element)
+  return {
+    ref: element.ref,
+    tag: element.tag,
+    ...(element.role ? { role: element.role } : {}),
+    ...(element.name
+      ? { name: element.name.slice(0, AGENT_PROJECTION_LIMITS.nameChars) }
+      : {}),
+    ...(element.type ? { type: element.type } : {}),
+    ...(element.value !== undefined ? { value: element.value } : {}),
+    ...(element.checked !== undefined ? { checked: element.checked } : {}),
+    ...(element.focused ? { focused: true } : {}),
+    ...(element.href ? { href: element.href } : {}),
+    ...(options ? { options } : {}),
+    ...(element.group ? { group: element.group } : {}),
+    ...(element.submitter || element.maySubmit ? { submits: true } : {}),
+    ...(element.editable ? { editable: true } : {}),
+    ...(element.sensitive ? { sensitive: true } : {}),
+    ...(element.enabled ? {} : { disabled: true }),
+    ...(element.visible ? {} : { hidden: true })
+  }
+}
 
 export const projectAgentObservation = (
   observation: AgentObservation

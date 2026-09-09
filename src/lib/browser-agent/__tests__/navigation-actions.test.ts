@@ -458,6 +458,22 @@ describe("Agent navigation actions", () => {
     expect(decision.risk).toBe("critical")
   })
 
+  it("escalates page text the model read below the fold", async () => {
+    const decision = await decide(
+      navigate("https://example.com/search?q=confidential%20merger%20terms"),
+      observation({
+        visibleText: "Nothing here",
+        documentText:
+          "Nothing here Confidential merger terms and conditions apply"
+      })
+    )
+    // The model is given the document's text, so checking only the viewport
+    // would let the same words escape the classification they carry when they
+    // happen to be on screen.
+    expect(decision.type).toBe("approval_required")
+    expect(decision.risk).toBe("critical")
+  })
+
   it("does not block an observed link that carries the page's own data", async () => {
     const href = "https://example.com/next?token=session-token-value"
     const decision = await decide(

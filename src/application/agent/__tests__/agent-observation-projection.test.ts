@@ -106,26 +106,44 @@ describe("projectAgentElement", () => {
   })
 
   it("bounds a label the page made into prose", () => {
-    const projected = projectAgentElement(
-      element({ name: "n".repeat(500), value: "v".repeat(500) })
-    )
-    expect(projected.name).toHaveLength(200)
-    expect(projected.value).toHaveLength(200)
+    expect(
+      projectAgentElement(element({ name: "n".repeat(500) })).name
+    ).toHaveLength(200)
   })
 
-  it("reduces select options to the enabled values", () => {
+  it("never alters a value the model has to reproduce", () => {
+    // A select's value must match an option exactly, and for any field the
+    // value is what says whether it already holds what the goal wants.
+    const exact = "v".repeat(900)
+    expect(projectAgentElement(element({ value: exact })).value).toBe(exact)
+  })
+
+  it("keeps every enabled option, exactly, with a label that adds something", () => {
     expect(
       projectAgentElement(
         element({
           tag: "select",
           options: [
-            { value: "a", label: "A", disabled: false },
+            { value: "a", label: "Apple", disabled: false },
             { value: "b", label: "B", disabled: true },
-            { value: "c", label: "C", disabled: false }
+            { value: "c", label: "c", disabled: false }
           ]
         })
       ).options
-    ).toEqual(["a", "c"])
+    ).toEqual([{ value: "a", label: "Apple" }, { value: "c" }])
+  })
+
+  it("makes no option unselectable, however many or long they are", () => {
+    // The executor requires exact equality, so a truncated value cannot be
+    // selected and an omitted option cannot be reached at all.
+    const options = Array.from({ length: 120 }, (_value, index) => ({
+      value: `${"v".repeat(300)}-${index}`,
+      label: `Option ${index}`,
+      disabled: false
+    }))
+    const projected = projectAgentElement(element({ tag: "select", options }))
+    expect(projected.options).toHaveLength(120)
+    expect(projected.options?.at(-1)?.value).toBe(options[119].value)
   })
 })
 

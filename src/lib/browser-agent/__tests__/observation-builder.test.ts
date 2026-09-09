@@ -665,6 +665,18 @@ describe("Agent observation builder", () => {
     )
   })
 
+  it("declares truncation when the budget ends the walk, not just the cap", () => {
+    document.body.innerHTML = `<main>${Array.from(
+      { length: AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 40 },
+      (_value, index) => `<p>paragraph ${index}</p>`
+    ).join("")}</main>`
+    const result = build(0, stalledClock())
+    // Running out of budget truncates as surely as running out of characters,
+    // and partial text that looks complete makes an absent fact read as a
+    // fact the page does not state.
+    expect(result.documentTextTruncated).toBe(true)
+  })
+
   it("omits the document text when the viewport already said it all", () => {
     document.body.innerHTML = "<main><p>All of it</p></main>"
     expect(build(0, unhurried).documentText).toBeUndefined()

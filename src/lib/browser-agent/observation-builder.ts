@@ -549,11 +549,17 @@ const collectDocumentText = (
   const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   let result = ""
   let truncated = false
-  for (
-    let node = walker.nextNode();
-    node && !pass.exhausted();
-    node = walker.nextNode()
-  ) {
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    /**
+     * Running out of budget truncates just as surely as running out of
+     * characters. Reporting only the second let a complex page send partial
+     * text that looked complete, and an absent fact then reads as a fact the
+     * page does not state.
+     */
+    if (pass.exhausted()) {
+      truncated = true
+      break
+    }
     const parent = node.parentElement
     if (!parent || isChainHidden(parent, pass)) continue
     const text = normalizedText(node.textContent ?? "")
