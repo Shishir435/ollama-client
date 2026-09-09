@@ -44,7 +44,13 @@ export const AgentElementSchema = z
     visible: z.boolean(),
     enabled: z.boolean(),
     editable: z.boolean(),
-    sensitive: z.boolean()
+    sensitive: z.boolean(),
+    /**
+     * The landmark, form or dialog this element belongs to. Duplicate labels
+     * are common and a flat list gives a decision no way to tell two
+     * identically named controls apart; the group is what does.
+     */
+    group: z.string().min(1).max(80).optional()
   })
   .strict()
   .superRefine((element, context) => {
@@ -95,14 +101,44 @@ export const AgentDialogStateSchema = z.object({
 })
 export type AgentDialogState = z.infer<typeof AgentDialogStateSchema>
 
+/**
+ * An open in-page dialog or menu.
+ *
+ * Deliberately not `dialogs`, which is typed for `alert`, `confirm`, `prompt`
+ * and `beforeunload` — native dialogs block the page and are genuinely
+ * unobservable from a content script. A `<dialog open>` or `[role=dialog]` is
+ * ordinary DOM, and the run needs to know which one owns the controls it can
+ * see: acting on the opener behind a modal is the loop the fixtures showed.
+ */
+export const AgentModalStateSchema = z
+  .object({
+    id: z.string().min(1).max(80),
+    kind: z.enum(["dialog", "alertdialog", "menu", "listbox"]),
+    label: z.string().max(200).optional(),
+    modal: z.boolean().optional()
+  })
+  .strict()
+export type AgentModalState = z.infer<typeof AgentModalStateSchema>
+
 export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
   url: z.url(),
   origin: z.url(),
   title: z.string().max(500),
   elements: z.array(AgentElementSchema).max(2_000),
   visibleText: z.string().max(100_000),
+  /**
+   * The document's own text, beyond the viewport, so a question the page
+   * answers below the fold does not have to be reached by scrolling — which
+   * costs an observation each time and is how a reading task exhausted its
+   * budget.
+   */
+  documentText: z.string().max(30_000).optional(),
+  /** Set when the document had more text than the cap allowed, so an absent
+   * fact is not read as a fact the page does not state. */
+  documentTextTruncated: z.boolean().optional(),
   scroll: AgentScrollStateSchema,
   dialogs: z.array(AgentDialogStateSchema).max(10),
+  modals: z.array(AgentModalStateSchema).max(10).optional(),
   capturedAt: z.number().int().nonnegative()
 }).strict()
 export type AgentObservation = z.infer<typeof AgentObservationSchema>

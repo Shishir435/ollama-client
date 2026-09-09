@@ -307,8 +307,19 @@ const pageDataEvidence = (
   if (spans.some((span) => values.some((value) => overlaps(span, value)))) {
     return "field_value"
   }
-  const text = normalizeForComparison(observation.visibleText)
-  return spans.some((span) => containsCopiedText(span, text))
+  /**
+   * Both the viewport and the rest of the document, because the model is
+   * given both. Checking only what was on screen would let a destination
+   * built from text below the fold escape the classification that the same
+   * text carries when it happens to be visible.
+   */
+  const rendered = [
+    observation.visibleText,
+    ...(observation.documentText ? [observation.documentText] : [])
+  ].map(normalizeForComparison)
+  return spans.some((span) =>
+    rendered.some((text) => containsCopiedText(span, text))
+  )
     ? "visible_text"
     : undefined
 }

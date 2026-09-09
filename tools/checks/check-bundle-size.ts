@@ -207,8 +207,11 @@ const budgets: Budget[] = [
      * Durable step history — the receipt fields that survive a snapshot, the
      * bounded record built from them, and the prompt that carries it — took
      * the measured Chrome baseline to 228,969.
+     *
+     * The model-visible projection, the modal and grouping reporting, and the
+     * document-text collection took the measured Chrome baseline to 229,855.
      */
-    max: isFirefox ? 210_000 : 229_500
+    max: isFirefox ? 210_000 : 230_500
   }
 ]
 

@@ -572,4 +572,113 @@ describe("Agent observation builder", () => {
       `paragraph ${AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 9}`
     )
   })
+
+  it("reports an open dialog and gives its controls its name", () => {
+    document.body.innerHTML =
+      '<main><button>Open</button><div role="dialog" aria-label="Confirm delete"><button>Delete</button><button>Cancel</button></div></main>'
+    const result = build(0, unhurried)
+    expect(result.modals).toEqual([
+      { id: "dialog1", kind: "dialog", label: "Confirm delete" }
+    ])
+    // "Delete" in a dialog and "Delete" in a row are different buttons, and a
+    // flat list gave a decision nothing to tell them apart with.
+    expect(
+      result.elements.map((element) => [element.name, element.group])
+    ).toEqual([
+      ["Open", "main"],
+      ["Confirm delete", "dialog1"],
+      ["Delete", "dialog1"],
+      ["Cancel", "dialog1"]
+    ])
+  })
+
+  it("reports a menu and a listbox by their own kind", () => {
+    document.body.innerHTML =
+      '<div role="menu" aria-label="Actions"><button>Edit</button></div><div role="listbox" aria-label="Sizes"><div role="option">S</div></div>'
+    expect(build(0, unhurried).modals).toEqual([
+      { id: "menu1", kind: "menu", label: "Actions" },
+      { id: "listbox1", kind: "listbox", label: "Sizes" }
+    ])
+  })
+
+  it("leaves the native dialog list empty, because it cannot be read", () => {
+    document.body.innerHTML = '<div role="dialog" aria-label="Modal"></div>'
+    // `dialogs` is typed for alert, confirm, prompt and beforeunload, which
+    // block the page and are unobservable from a content script.
+    expect(build(0, unhurried).dialogs).toEqual([])
+  })
+
+  it("reads a form's name from its attribute, not its shadowed property", () => {
+    // A form exposes its controls as named properties, so `form.name` here is
+    // the input element, and a label built from it threw.
+    document.body.innerHTML =
+      '<form action="/next"><input name="name"><button>Go</button></form>'
+    expect(() => build(0, unhurried)).not.toThrow()
+    expect(
+      build(0, unhurried).elements.map((element) => element.group)
+    ).toEqual(["form", "form"])
+  })
+
+  it("names the landmark or form an element sits in", () => {
+    document.body.innerHTML =
+      '<nav><a href="/a">Home</a></nav><form name="signup"><input name="email"><button>Join</button></form>'
+    expect(
+      build(0, unhurried).elements.map((element) => element.group)
+    ).toEqual(["nav", 'form "signup"', 'form "signup"'])
+  })
+
+  it("carries the document's text past the viewport", () => {
+    const rects = vi.spyOn(Element.prototype, "getClientRects")
+    document.body.innerHTML =
+      "<main><p id='seen'>Above the fold</p><p id='below'>Below the fold</p></main>"
+    const below = document.querySelector("#below") as HTMLElement
+    rects.mockImplementation(function (this: Element) {
+      const offscreen = this === below || below.contains(this)
+      return [
+        {
+          bottom: offscreen ? 5_000 : 20,
+          height: 20,
+          left: 0,
+          right: 100,
+          top: offscreen ? 4_980 : 0,
+          width: 100
+        } as DOMRect
+      ] as unknown as DOMRectList
+    })
+
+    const result = build(0, unhurried)
+    expect(result.visibleText).toBe("Above the fold")
+    // A fact below the fold is still a fact the page states, and reaching it
+    // by scrolling costs an observation each time.
+    expect(result.documentText).toBe("Above the fold Below the fold")
+    expect(result.documentTextTruncated).toBeUndefined()
+  })
+
+  it("says when the document had more text than it could carry", () => {
+    document.body.innerHTML = `<main><p>${"word ".repeat(
+      AGENT_OBSERVATION_LIMITS.documentTextChars
+    )}</p></main>`
+    const result = build(0, unhurried)
+    expect(result.documentTextTruncated).toBe(true)
+    expect((result.documentText ?? "").length).toBeLessThanOrEqual(
+      AGENT_OBSERVATION_LIMITS.documentTextChars
+    )
+  })
+
+  it("declares truncation when the budget ends the walk, not just the cap", () => {
+    document.body.innerHTML = `<main>${Array.from(
+      { length: AGENT_OBSERVATION_LIMITS.budgetCheckInterval + 40 },
+      (_value, index) => `<p>paragraph ${index}</p>`
+    ).join("")}</main>`
+    const result = build(0, stalledClock())
+    // Running out of budget truncates as surely as running out of characters,
+    // and partial text that looks complete makes an absent fact read as a
+    // fact the page does not state.
+    expect(result.documentTextTruncated).toBe(true)
+  })
+
+  it("omits the document text when the viewport already said it all", () => {
+    document.body.innerHTML = "<main><p>All of it</p></main>"
+    expect(build(0, unhurried).documentText).toBeUndefined()
+  })
 })

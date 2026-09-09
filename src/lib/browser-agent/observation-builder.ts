@@ -17,9 +17,36 @@ export const AGENT_OBSERVATION_LIMITS = {
   selectOptions: 200,
   selectOptionLabelChars: 500,
   selectOptionValueChars: 2_000,
+  documentTextChars: 30_000,
+  modals: 10,
+  modalLabelChars: 200,
+  groupChars: 80,
   passBudgetMs: 500,
   budgetCheckInterval: 256
 } as const
+
+const MODAL_SELECTOR = [
+  "dialog[open]",
+  "[role='dialog']",
+  "[role='alertdialog']",
+  "[role='menu']",
+  "[role='listbox']"
+].join(",")
+
+const LANDMARK_SELECTOR = [
+  "main",
+  "nav",
+  "header",
+  "footer",
+  "aside",
+  "form",
+  "[role='main']",
+  "[role='navigation']",
+  "[role='banner']",
+  "[role='contentinfo']",
+  "[role='complementary']",
+  "[role='search']"
+].join(",")
 
 const INTERACTIVE_SELECTOR = [
   "a[href]",
@@ -508,6 +535,132 @@ const collectVisibleText = (
   return result
 }
 
+/**
+ * Rendered text wherever it sits in the document, not only where the viewport
+ * happens to be. `isVisible` requires viewport intersection, which is right
+ * for deciding what can be acted on and wrong for deciding what the page
+ * says: a fact below the fold is still a fact the page states.
+ */
+const collectDocumentText = (
+  root: Element,
+  limit: number,
+  pass: AgentObservationPass
+): { text: string; truncated: boolean } => {
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let result = ""
+  let truncated = false
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    /**
+     * Running out of budget truncates just as surely as running out of
+     * characters. Reporting only the second let a complex page send partial
+     * text that looked complete, and an absent fact then reads as a fact the
+     * page does not state.
+     */
+    if (pass.exhausted()) {
+      truncated = true
+      break
+    }
+    const parent = node.parentElement
+    if (!parent || isChainHidden(parent, pass)) continue
+    const text = normalizedText(node.textContent ?? "")
+    if (!text) continue
+    if (result.length + text.length + 1 > limit) {
+      truncated = true
+      break
+    }
+    result += `${result ? " " : ""}${text}`
+  }
+  return { text: result, truncated }
+}
+
+/**
+ * Which landmark, form or open dialog owns an element.
+ *
+ * Two controls with the same accessible name are ordinary — "Delete" in a row
+ * and "Delete" in a confirmation are different buttons — and a flat list gives
+ * a decision nothing to tell them apart with. The nearest owning region is
+ * what does, and it is a structural label rather than page prose.
+ */
+const groupOf = (
+  element: Element,
+  modalIds: Map<Element, string>
+): string | undefined => {
+  for (
+    let current: Element | null = element;
+    current;
+    current = composedParent(current)
+  ) {
+    const modalId = modalIds.get(current)
+    if (modalId) return modalId
+    if (current === element) continue
+    if (!current.matches(LANDMARK_SELECTOR)) continue
+    const role =
+      current.getAttribute("role")?.toLowerCase() ||
+      current.tagName.toLowerCase()
+    /**
+     * Read from attributes, never from properties. A form exposes its own
+     * controls as named properties, so `form.name` on a form containing
+     * `<input name="name">` is that input element rather than a string — and
+     * a group label built from it threw, which made the page unobservable.
+     */
+    const label =
+      current.getAttribute("aria-label") ?? current.getAttribute("name")
+    const named = label ? `${role} "${normalizedText(label)}"` : role
+    return truncate(named, AGENT_OBSERVATION_LIMITS.groupChars)
+  }
+  return undefined
+}
+
+/**
+ * Open in-page dialogs and menus, keyed so an element can name its owner.
+ * Native `alert`/`confirm`/`prompt` block the page and remain unobservable;
+ * `dialogs` in the contract is for those and stays empty here.
+ */
+const collectModals = (
+  document: Document,
+  pass: AgentObservationPass
+): {
+  modals: NonNullable<AgentObservation["modals"]>
+  ids: Map<Element, string>
+} => {
+  const ids = new Map<Element, string>()
+  const modals: NonNullable<AgentObservation["modals"]> = []
+  for (const candidate of document.querySelectorAll(MODAL_SELECTOR)) {
+    if (modals.length >= AGENT_OBSERVATION_LIMITS.modals) break
+    if (!isVisible(candidate, pass)) continue
+    const role = candidate.getAttribute("role")?.toLowerCase()
+    const kind =
+      role === "alertdialog" || role === "menu" || role === "listbox"
+        ? role
+        : "dialog"
+    /** Numbered per kind, so `dialog1` and `menu1` can coexist. */
+    const ordinal = modals.filter((modal) => modal.kind === kind).length + 1
+    const id = `${kind}${ordinal}`
+    ids.set(candidate, id)
+    const label =
+      candidate.getAttribute("aria-label") ??
+      accessibleName(candidate, pass) ??
+      undefined
+    modals.push({
+      id,
+      kind,
+      ...(label
+        ? {
+            label: truncate(
+              normalizedText(label),
+              AGENT_OBSERVATION_LIMITS.modalLabelChars
+            )
+          }
+        : {}),
+      ...(candidate instanceof HTMLDialogElement &&
+      candidate.hasAttribute("open")
+        ? { modal: true }
+        : {})
+    })
+  }
+  return { modals, ids }
+}
+
 const accessibleName = (
   element: Element,
   pass: AgentObservationPass
@@ -622,7 +775,8 @@ const buildElementObservation = (
   element: Element,
   ref: string,
   verificationId: string | undefined,
-  pass: AgentObservationPass
+  pass: AgentObservationPass,
+  modalIds: Map<Element, string> = new Map()
 ): AgentElement => {
   const visible = isVisible(element, pass)
   const sensitive = !visible || isSensitiveAgentElement(element)
@@ -631,6 +785,7 @@ const buildElementObservation = (
   const href = visible ? elementHref(element) : undefined
   const submitter = isSubmitter(element)
   const maySubmit = submitter || maySubmitWithEnter(element)
+  const group = groupOf(element, modalIds)
   return {
     ref,
     ...(verificationId ? { verificationId } : {}),
@@ -647,7 +802,8 @@ const buildElementObservation = (
     visible,
     enabled: isEnabled(element),
     editable: isEditable(element),
-    sensitive
+    sensitive,
+    ...(group ? { group } : {})
   }
 }
 
@@ -735,13 +891,15 @@ export const buildAgentObservation = (input: {
       input.createSnapshotId ?? (() => globalThis.crypto.randomUUID())
   })
   const pass = createObservationPass(input.now)
+  const { modals, ids: modalIds } = collectModals(input.document, pass)
   const elements = selectObservedCandidates(input.document, pass).map(
     (element) =>
       buildElementObservation(
         element,
         snapshot.reference(element),
         snapshot.verificationId(element),
-        pass
+        pass,
+        modalIds
       )
   )
   const visibleText = input.document.body
@@ -751,6 +909,17 @@ export const buildAgentObservation = (input: {
         pass
       )
     : ""
+  /**
+   * Only sent when it says more than the viewport already did, so an ordinary
+   * short page does not pay for the field twice.
+   */
+  const documentText = input.document.body
+    ? collectDocumentText(
+        input.document.body,
+        AGENT_OBSERVATION_LIMITS.documentTextChars,
+        pass
+      )
+    : { text: "", truncated: false }
   const view = input.document.defaultView
   const root = input.document.documentElement
 
@@ -773,6 +942,11 @@ export const buildAgentObservation = (input: {
       documentHeight: Math.max(root.scrollHeight, root.clientHeight)
     },
     dialogs: [],
+    ...(modals.length > 0 ? { modals } : {}),
+    ...(documentText.text && documentText.text !== visibleText
+      ? { documentText: documentText.text }
+      : {}),
+    ...(documentText.truncated ? { documentTextTruncated: true } : {}),
     capturedAt: input.capturedAt ?? Date.now()
   })
 }

@@ -17,7 +17,7 @@ runAgentScenario({
   // Real sites acknowledge navigation before the document finishes loading.
   navigationDelayMs: (path) => (path.startsWith("/details") ? 1_500 : 0),
   decide(observation) {
-    if (observation.visibleText.includes("Status: Active"))
+    if (observation.text.includes("Status: Active"))
       return { type: "complete", summary: "Active" }
     return {
       type: "click",

@@ -27,6 +27,7 @@ import {
   assertAgentModelCompatibility,
   resolveAgentModelCompatibility
 } from "./agent-model-compatibility"
+import { projectAgentObservation } from "./agent-observation-projection"
 
 const MAX_RETRIES_PER_DECISION = 2
 const MAX_MALFORMED_PER_RUN = 5
@@ -156,7 +157,12 @@ const decisionPrompt = (input: {
     ...(input.previousVerification
       ? { previousStepOutcome: input.previousVerification.outcome }
       : {}),
-    observation: input.observation
+    /**
+     * Projected, not raw. Most of an observation is the executor's business —
+     * frame ids, verification bindings, form fingerprints, flags already at
+     * their default — and on a real page that noise is most of the payload.
+     */
+    observation: projectAgentObservation(input.observation)
   })
 
 const providerSignal = (
@@ -172,6 +178,33 @@ const providerSignal = (
   }
 }
 
+const AGENT_RESPONSE_TOKENS = 1_024
+
+/**
+ * Ollama applies its own default context window when a request does not ask
+ * for one, and anything past it is dropped from the front — which is where
+ * the system prompt and the tool schema are. The result is a malformed
+ * decision rather than a context error, so nothing pointed at the cause.
+ *
+ * Sized from the request itself: a rough token estimate for the prompt, the
+ * system prompt and the tool schema, plus room for the answer, rounded up to
+ * a step and clamped. Too small silently truncates; too large asks a small
+ * machine for memory it does not have.
+ */
+const AGENT_CONTEXT_FLOOR = 8_192
+const AGENT_CONTEXT_CEILING = 32_768
+const AGENT_CONTEXT_STEP = 2_048
+const AGENT_FIXED_PROMPT_TOKENS = 1_200
+
+export const agentContextWindow = (prompt: string): number => {
+  const estimated =
+    Math.ceil(prompt.length / 3.5) +
+    AGENT_FIXED_PROMPT_TOKENS +
+    AGENT_RESPONSE_TOKENS
+  const stepped = Math.ceil(estimated / AGENT_CONTEXT_STEP) * AGENT_CONTEXT_STEP
+  return Math.min(AGENT_CONTEXT_CEILING, Math.max(AGENT_CONTEXT_FLOOR, stepped))
+}
+
 const collectDecision = async (input: {
   provider: LLMProvider
   state: AgentRunState
@@ -183,6 +216,7 @@ const collectDecision = async (input: {
   signal: AgentCancellationSignal
 }): Promise<AgentDecision> => {
   const calls = new Map<string, ToolCall>()
+  const prompt = decisionPrompt(input)
   let streamError: string | undefined
   const scoped = providerSignal(input.signal)
   try {
@@ -193,13 +227,14 @@ const collectDecision = async (input: {
           { role: "system", content: SYSTEM_PROMPT },
           {
             role: "user",
-            content: decisionPrompt(input)
+            content: prompt
           }
         ],
         tools: [AGENT_DECISION_TOOL],
         tool_choice: "required",
         think: false,
-        num_predict: 1_024
+        num_predict: AGENT_RESPONSE_TOKENS,
+        num_ctx: agentContextWindow(prompt)
       },
       (chunk) => {
         if (chunk.error) {
