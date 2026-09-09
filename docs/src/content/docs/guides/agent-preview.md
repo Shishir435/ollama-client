@@ -53,8 +53,11 @@ card number or a one-time code, and it will not choose a file for you.
 
 ## What it will not do
 
-- **Only the tab you started it on.** It can open and switch to a tab, but it
-  will not wander into tabs you did not involve.
+- **One tab at a time.** Agent drives the tab it currently controls. It can
+  open a tab and switch to one, and every tab it acts on has to be readable
+  and on a site you allowed — an unfamiliar site is a new approval. It is not
+  restricted to tabs it opened itself, so treat "sites you allowed" rather
+  than "the tab you started on" as the boundary that holds.
 - **Only sites you allowed.** A destination on a new site is a new decision.
 - **Only what the page rendered.** Destinations come from links the page
   actually showed; a URL the model composed carrying data from your page is
@@ -65,6 +68,9 @@ card number or a one-time code, and it will not choose a file for you.
 ## Where it stops
 
 These are current limits, not design decisions.
+
+- **No tab allowlist.** Switching tabs is bounded by readability and the site
+  allowlist, not by which tabs the run has been involved with.
 
 - **One frame.** Content inside an iframe or a shadow root is not observed, so
   a control inside one cannot be used.

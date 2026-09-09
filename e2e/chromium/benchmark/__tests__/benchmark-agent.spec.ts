@@ -8,7 +8,8 @@ import { expect } from "../../fixtures/extension"
 import type { AgentAttemptRecord } from "../agent-benchmark"
 import {
   approvalsAsked,
-  countDuplicateEffects,
+  countRepeatedTargets,
+  recordAttempt,
   writeAgentBenchmarkReport
 } from "../agent-benchmark"
 
@@ -24,7 +25,15 @@ import {
  */
 
 const attempts: AgentAttemptRecord[] = []
-const backend = process.env.AGENT_BENCHMARK_BACKEND ?? "fixture"
+
+/**
+ * Derived from the one variable that actually changes how a scenario runs, so
+ * a fixture pass cannot be labelled hosted. A report whose backend field is
+ * whatever an operator typed is a report that cannot be compared.
+ */
+const backend = process.env.AGENT_HOSTED_MODEL
+  ? `hosted:${process.env.AGENT_HOSTED_MODEL}`
+  : "fixture"
 
 const record = (
   family: string,
@@ -35,7 +44,8 @@ const record = (
   const run = outcome.snapshot?.run
   const steps = outcome.snapshot?.steps ?? []
   const asked = approvalsAsked(outcome.messages)
-  attempts.push({
+  const targets = countRepeatedTargets(steps)
+  recordAttempt(attempts, {
     family,
     scenario,
     attempt: 1,
@@ -48,7 +58,8 @@ const record = (
     modelCalls: outcome.wire.length,
     approvalsAsked: asked.length,
     approvalsGranted: run?.grants?.length ?? 0,
-    duplicateEffects: countDuplicateEffects(steps),
+    repeatedTargets: targets.repeated,
+    ambiguousTargets: targets.ambiguous,
     wallMs: Date.now() - startedAt,
     ...(run?.error?.code
       ? { firstLimitation: run.error.code }
@@ -98,7 +109,7 @@ runAgentScenario({
     record("single-action", "benchmark single-action", startedAt, outcome)
     startedAt = Date.now()
     // One click, never two: the whole series exists to keep this true.
-    expect(countDuplicateEffects(outcome.snapshot?.steps ?? [])).toBe(0)
+    expect(countRepeatedTargets(outcome.snapshot?.steps ?? []).repeated).toBe(0)
   }
 })
 
@@ -122,9 +133,11 @@ runAgentScenario({
   verify: (outcome) => {
     record("form-preparation", "benchmark form-preparation", startedAt, outcome)
     startedAt = Date.now()
-    const path = writeAgentBenchmarkReport(attempts, backend)
-    // Written last, so one pass produces one report naming every family.
+    // Checked before writing, so a retry that lost an earlier scenario
+    // cannot produce a report that looks complete.
     expect(attempts).toHaveLength(3)
-    expect(path).toContain("agent-benchmark-")
+    expect(writeAgentBenchmarkReport(attempts, backend)).toContain(
+      "agent-benchmark-"
+    )
   }
 })

@@ -26,8 +26,15 @@ export interface AgentAttemptRecord {
   modelCalls: number
   approvalsAsked: number
   approvalsGranted: number
-  /** Verified steps whose command and target repeat an earlier verified step. */
-  duplicateEffects: number
+  /**
+   * Verified steps whose recorded identity repeats an earlier one. Not proof
+   * of a repeated effect: a page with two identically named controls of the
+   * same role produces the same identity for both, and a receipt does not
+   * record enough to tell them apart.
+   */
+  repeatedTargets: number
+  /** Verified steps whose identity another verified step also carries. */
+  ambiguousTargets: number
   wallMs: number
   /** The first thing that stopped it going further, as a label. */
   firstLimitation?: string
@@ -42,7 +49,8 @@ export interface AgentBenchmarkReport {
     attempts: number
     completed: number
     medianWallMs: number
-    duplicateEffects: number
+    repeatedTargets: number
+    ambiguousTargets: number
   }[]
 }
 
@@ -56,30 +64,45 @@ const median = (values: number[]): number => {
 }
 
 /**
- * A repeated effect is the failure this whole series exists to prevent, so it
- * is counted rather than inferred: two verified steps with the same command
- * type on the same target are one click that became two.
+ * A repeated effect is the failure the whole series exists to prevent, so it
+ * is measured — but measured for what a receipt can actually say.
+ *
+ * A receipt records the command, the target's role, tag and bounded name, and
+ * the page. Two distinct controls can share all of that: the modal fixture
+ * has a Delete inside the dialog and a Delete behind it. So a repeat here is
+ * a repeated *identity*, and the count of identities more than one step
+ * carries is reported beside it, so a number can be read as suspicion rather
+ * than as proof. Distinguishing them needs the owning group in the receipt,
+ * which the receipt does not yet carry.
  */
-export const countDuplicateEffects = (
+export const countRepeatedTargets = (
   steps: {
     status: string
     command?: { type: string }
-    target?: { ref?: string; tag?: string; name?: string }
+    sourceUrl?: string
+    target?: { ref?: string; tag?: string; role?: string; name?: string }
   }[]
-): number => {
-  const seen = new Set<string>()
-  let duplicates = 0
+): { repeated: number; ambiguous: number } => {
+  const counts = new Map<string, number>()
   for (const step of steps) {
     if (step.status !== "verified" || !step.command) continue
     const key = JSON.stringify([
       step.command.type,
       step.target?.tag,
-      step.target?.name
+      step.target?.role,
+      step.target?.name,
+      step.sourceUrl
     ])
-    if (seen.has(key)) duplicates += 1
-    else seen.add(key)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
   }
-  return duplicates
+  let repeated = 0
+  let ambiguous = 0
+  for (const count of counts.values()) {
+    if (count <= 1) continue
+    repeated += count - 1
+    ambiguous += count
+  }
+  return { repeated, ambiguous }
 }
 
 export const summarizeAttempts = (
@@ -100,8 +123,12 @@ export const summarizeAttempts = (
         (record) => record.terminalStatus === "completed"
       ).length,
       medianWallMs: median(records.map((record) => record.wallMs)),
-      duplicateEffects: records.reduce(
-        (total, record) => total + record.duplicateEffects,
+      repeatedTargets: records.reduce(
+        (total, record) => total + record.repeatedTargets,
+        0
+      ),
+      ambiguousTargets: records.reduce(
+        (total, record) => total + record.ambiguousTargets,
         0
       )
     }))
@@ -113,6 +140,25 @@ export const summarizeAttempts = (
  * a success rate, and publishing one from this would be the claim the audit
  * refused to make.
  */
+/**
+ * One attempt per family and scenario. Playwright retries a failed test, and
+ * a module-level list would then hold the abandoned attempt as well as the
+ * one that finished — so a later record for the same scenario replaces the
+ * earlier one rather than joining it.
+ */
+export const recordAttempt = (
+  attempts: AgentAttemptRecord[],
+  attempt: AgentAttemptRecord
+): void => {
+  const existing = attempts.findIndex(
+    (candidate) =>
+      candidate.family === attempt.family &&
+      candidate.scenario === attempt.scenario
+  )
+  if (existing >= 0) attempts.splice(existing, 1, attempt)
+  else attempts.push(attempt)
+}
+
 export const writeAgentBenchmarkReport = (
   attempts: AgentAttemptRecord[],
   backend: string

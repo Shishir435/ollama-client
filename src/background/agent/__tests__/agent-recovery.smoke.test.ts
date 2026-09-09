@@ -45,8 +45,11 @@ beforeAll(() => {
   )
 })
 
+const owners: ReturnType<typeof createChatDbEngine>[] = []
+
 const installOwner = () => {
   const engine = createChatDbEngine({ wasmBinary: Promise.resolve(wasmBuffer) })
+  owners.push(engine)
   const ready = engine.submit({ op: "setBackend", backend: "legacy" })
   globalThis.__persistenceHostCall = async (request) => {
     await ready
@@ -88,9 +91,17 @@ beforeEach(async () => {
   await clearSqliteStore()
 }, TIMEOUT)
 
-afterEach(() => {
+afterEach(async () => {
+  // Every test here mutates, which leaves the legacy backend's one-second
+  // save timer alive. Under coverage that timer can fire after the next test
+  // has cleared IndexedDB and overwrite its fixture with this test's image.
+  await Promise.all(
+    owners
+      .splice(0)
+      .map((engine) => engine.submit({ op: "flush" }).catch(() => undefined))
+  )
   globalThis.__persistenceHostCall = undefined
-})
+}, TIMEOUT)
 
 const runState = (
   status: AgentRunState["status"],
