@@ -162,6 +162,15 @@ describe("native input planning", () => {
     expect(kinds(selectAll.steps)[0]).toBe("keyDown:Meta")
   })
 
+  it("inserts a printable key the table cannot press, and refuses to chord it", () => {
+    const inserted = plan({ type: "press_key", key: "é" })
+    expect(inserted.steps).toEqual([{ kind: "insertText", text: "é" }])
+    expect(inserted.expected).toEqual([])
+    expect(() => plan({ type: "press_key", key: "Control+é" })).toThrow(
+      /chord has no native definition/
+    )
+  })
+
   it("refuses to plan an action that has no native form", () => {
     expect(() => plan({ type: "select", value: "x" })).toThrow(
       /no native input plan/
@@ -321,6 +330,35 @@ describe("native input delivery", () => {
     ).toBe("unknown")
   })
 
+  it("lets a key's release land on whatever took focus, and claims nothing for inserted text", () => {
+    const tab = plan({ type: "press_key", key: "Shift+Tab" })
+    expect(
+      assessAgentInputDelivery(tab, {
+        events: [
+          { type: "keydown", key: "Shift", onTarget: true },
+          { type: "keydown", key: "Tab", onTarget: true },
+          { type: "keyup", key: "Tab", onTarget: false },
+          { type: "keyup", key: "Shift", onTarget: false }
+        ]
+      })
+    ).toBe("delivered")
+    expect(
+      assessAgentInputDelivery(tab, {
+        events: [
+          { type: "keydown", key: "Shift", onTarget: false },
+          { type: "keydown", key: "Tab", onTarget: false },
+          { type: "keyup", key: "Tab", onTarget: false },
+          { type: "keyup", key: "Shift", onTarget: false }
+        ]
+      })
+    ).toBe("misdirected")
+    expect(
+      assessAgentInputDelivery(plan({ type: "press_key", key: "é" }), {
+        events: []
+      })
+    ).toBe("unknown")
+  })
+
   it("matches keys by name and tolerates sub-pixel pointer rounding", () => {
     const chord = plan({ type: "press_key", key: "Shift+Tab" })
     expect(
@@ -395,6 +433,62 @@ describe("native input backend choice", () => {
         }
       })
     ).toEqual({ backend: "dom", reason: "guarded_submission" })
+  })
+
+  it("keeps a newline typed into a submitting field off the native path", () => {
+    const submitting = { ...target, maySubmit: true }
+    expect(
+      chooseAgentInputBackend({
+        ...cdp,
+        effect: {
+          command: command({ type: "type", text: "Alice\n" }),
+          target: submitting
+        }
+      })
+    ).toEqual({ backend: "dom", reason: "guarded_submission" })
+    expect(
+      chooseAgentInputBackend({
+        ...cdp,
+        effect: {
+          command: command({ type: "clear_and_type", text: "a\rb" }),
+          target: submitting
+        }
+      }).reason
+    ).toBe("guarded_submission")
+    /* A textarea's newline is a newline; without submit semantics it stays native. */
+    expect(
+      chooseAgentInputBackend({
+        ...cdp,
+        effect: { command: command({ type: "type", text: "a\nb" }), target }
+      }).backend
+    ).toBe("cdp")
+    expect(
+      chooseAgentInputBackend({
+        ...cdp,
+        effect: {
+          command: command({ type: "type", text: "Alice" }),
+          target: submitting
+        }
+      }).backend
+    ).toBe("cdp")
+  })
+
+  it("sends a chord on a key the table cannot press to the DOM backend", () => {
+    expect(
+      chooseAgentInputBackend({
+        ...cdp,
+        effect: {
+          command: command({ type: "press_key", key: "Control+é" }),
+          target
+        }
+      })
+    ).toEqual({ backend: "dom", reason: "key_not_native" })
+    expect(
+      chooseAgentInputBackend({
+        ...cdp,
+        effect: { command: command({ type: "press_key", key: "é" }), target }
+      }).backend
+    ).toBe("cdp")
   })
 
   it("falls to the DOM backend without control, without attachment, or with an unplaced frame", () => {

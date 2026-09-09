@@ -374,7 +374,18 @@ export const planAgentNativeInput = (
       const combination = parseAgentKeyCombination(input.command.key)
       if (!combination) throw new Error("Agent key combination is invalid")
       const definition = agentNativeKeyDefinition(combination.key)
-      if (!definition) throw new Error("Agent key has no native definition")
+      /**
+       * A printable character the key table cannot type is inserted as text,
+       * which is what pressing it does. Chorded, it has no native form at all
+       * and the backend choice sends it to the DOM path before this runs.
+       */
+      if (!definition) {
+        if (combination.modifiers.length > 0) {
+          throw new Error("Agent key chord has no native definition")
+        }
+        builder.steps.push({ kind: "insertText", text: combination.key })
+        break
+      }
       const withModifiers = {
         ...definition,
         ...(combination.modifiers.length > 0 ? { text: undefined } : {})
@@ -612,10 +623,18 @@ export const assessAgentInputDelivery = (
     if (INTERFERENCE_TYPES.has(recorded.type)) interference = true
   }
   if (interference) return "interference"
-  if (plan.expected.length === 0) return "delivered"
+  /* A plan of inserted text alone leaves no events to match; nothing is claimed. */
+  if (plan.expected.length === 0) return "unknown"
   if (matched.length === 0) return "undelivered"
   if (matched.length < plan.expected.length) return "partial"
-  return matched.every((event) => event.onTarget) ? "delivered" : "misdirected"
+  /**
+   * A key's release lands wherever focus is by then: after Tab it is the next
+   * control, after Enter it may be a dialog. Only the press has to have reached
+   * the resolved target for the plan to count as delivered there.
+   */
+  return matched.every((event) => event.type === "keyup" || event.onTarget)
+    ? "delivered"
+    : "misdirected"
 }
 
 export interface AgentInputBackendChoice {
@@ -625,8 +644,21 @@ export interface AgentInputBackendChoice {
     | "guarded_navigation"
     | "guarded_submission"
     | "action_not_native"
+    | "key_not_native"
     | "no_native_control"
     | "frame_unmapped"
+}
+
+const containsNewline = (text: string): boolean => /[\r\n]/.test(text)
+
+/** A chord on a character the key table cannot press has no native form. */
+const chordLacksNativeKey = (key: string): boolean => {
+  const combination = parseAgentKeyCombination(key)
+  return (
+    combination !== undefined &&
+    combination.modifiers.length > 0 &&
+    agentNativeKeyDefinition(combination.key) === undefined
+  )
 }
 
 /**
@@ -663,6 +695,21 @@ export const chooseAgentInputBackend = (input: {
     target.maySubmit
   ) {
     return { backend: "dom", reason: "guarded_submission" }
+  }
+  /**
+   * A newline typed natively is a real Enter, and a real Enter in a field
+   * that submits is an implicit submission the page would handle itself. The
+   * DOM path assigns the value instead and never presses anything.
+   */
+  if (
+    (command.type === "type" || command.type === "clear_and_type") &&
+    target.maySubmit &&
+    containsNewline(command.text)
+  ) {
+    return { backend: "dom", reason: "guarded_submission" }
+  }
+  if (command.type === "press_key" && chordLacksNativeKey(command.key)) {
+    return { backend: "dom", reason: "key_not_native" }
   }
   if (!input.cdpControl || !input.attached) {
     return { backend: "dom", reason: "no_native_control" }

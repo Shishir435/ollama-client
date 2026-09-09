@@ -16,15 +16,17 @@ import { expect } from "../../fixtures/extension"
  * events came from the browser's input pipeline.
  */
 
-const executedNatively = (outcome: AgentScenarioOutcome, action: string) =>
-  outcome.phases.some(
-    (line) =>
-      line.phase === "executed" &&
-      line.backend === "cdp" &&
-      outcome.phases.some(
-        (earlier) => earlier.phase === "executing" && earlier.action === action
-      )
+/**
+ * Every execution of `action` in this run went through the debugger. The
+ * executed record names its action, so a native click beside a key action that
+ * fell back to the DOM cannot vouch for it.
+ */
+const executedNatively = (outcome: AgentScenarioOutcome, action: string) => {
+  const executed = outcome.phases.filter(
+    (line) => line.phase === "executed" && line.action === action
   )
+  return executed.length > 0 && executed.every((line) => line.backend === "cdp")
+}
 
 /**
  * A listbox-backed dropdown built the way component libraries build them: a

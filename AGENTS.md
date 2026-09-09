@@ -415,10 +415,12 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
 - **Native input is chosen before the action and never swapped after it.**
   `chooseAgentInputBackend` (`native-input.ts`) decides `cdp` or `dom` from the
   command, the resolved target and whether the run holds the tab's debugger
-  and can place the target's frame. Link activation, form submission and
-  Enter-on-a-submitting-field stay on the guarded DOM paths whatever is
-  attached — those paths exist so page handlers cannot redirect an approved
-  destination, and a native click would hand it back to the page. Once a
+  and can place the target's frame. Link activation, form submission,
+  Enter-on-a-submitting-field and a newline typed into one stay on the
+  guarded DOM paths whatever is attached — those paths exist so page handlers
+  cannot redirect an approved destination, and a native click or Enter would
+  hand it back to the page. A chord on a character the key table cannot press
+  has no native form and goes to the DOM path too. Once a
   native step has been sent, a failure is an unresolved effect; it is not
   completed through the content script. Only a plan the debugger refused from
   its first step is a clean `AgentEffectNotAppliedError`.
@@ -442,8 +444,10 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   state-changing event the plan did not send is `interference` (a real hand on
   the page), and the verifier pauses the step as unresolved rather than
   crediting or retrying it; stray `mousemove`s are ignored because the browser
-  synthesizes them after layout. `misdirected`, `partial`, `undelivered` and
-  `unknown` (the document navigated before it could answer) are told apart on
+  synthesizes them after layout. A key's release is not judged for target —
+  after Tab it lands on the next control. `misdirected`, `partial`,
+  `undelivered` and `unknown` (the document navigated before it could answer,
+  or the plan was inserted text with no events to match) are told apart on
   the receipt. Native and user events are both trusted, so this is the only
   discriminator there is — a user event that exactly matches the plan is
   indistinguishable, and the limitation is stated rather than papered over.

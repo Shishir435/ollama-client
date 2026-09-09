@@ -168,6 +168,7 @@ export const buildAgentController: BuildAgentController = (input) => {
         })
         const receipt = await effect.execute(authorized, signal)
         traceAgentRun(input.runId, "executed", {
+          action: authorized.command.type,
           executedAt: receipt.executedAt,
           backend: receipt.backend,
           inputDelivery: receipt.inputDelivery
