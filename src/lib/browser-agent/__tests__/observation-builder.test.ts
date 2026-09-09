@@ -829,3 +829,94 @@ describe("Agent observation occlusion", () => {
     expect(element?.occluded).toBeUndefined()
   })
 })
+
+describe("Agent observation flattened tree", () => {
+  const withShadow = (html: string): HTMLElement => {
+    const host = document.createElement("div")
+    document.body.append(host)
+    host.attachShadow({ mode: "open" }).innerHTML = html
+    return host
+  }
+
+  it("reads projected content and not the slot's unused fallback", () => {
+    const host = withShadow("<slot><button>Fallback Act</button></slot>")
+    const light = document.createElement("button")
+    light.textContent = "Projected Act"
+    host.append(light)
+    const names = build().elements.map((element) => element.name)
+    expect(names).toContain("Projected Act")
+    expect(names).not.toContain("Fallback Act")
+  })
+
+  it("reads a slot's fallback only when nothing is projected", () => {
+    withShadow("<slot><button>Fallback Act</button></slot>")
+    expect(build().elements.map((element) => element.name)).toContain(
+      "Fallback Act"
+    )
+  })
+
+  it("orders projected text by the shadow tree, not the light DOM", () => {
+    const host = withShadow(
+      '<slot name="second"></slot><slot name="first"></slot>'
+    )
+    const first = document.createElement("span")
+    first.setAttribute("slot", "first")
+    first.textContent = "Alpha"
+    const second = document.createElement("span")
+    second.setAttribute("slot", "second")
+    second.textContent = "Beta"
+    host.append(first, second)
+    expect(build().visibleText).toContain("Beta Alpha")
+  })
+
+  it("names a shadow control from a label in its own shadow root", () => {
+    withShadow(
+      '<span id="lbl">Shadow Label</span><input aria-labelledby="lbl">'
+    )
+    const input = build().elements.find((element) => element.tag === "input")
+    expect(input?.name).toBe("Shadow Label")
+  })
+})
+
+describe("Agent observation fragmented occlusion", () => {
+  const rect = (top: number): DOMRect =>
+    ({
+      bottom: top + 20,
+      height: 20,
+      left: 0,
+      right: 100,
+      top,
+      width: 100
+    }) as DOMRect
+
+  const wrapped = (label: string): HTMLButtonElement => {
+    const button = document.createElement("button")
+    button.textContent = label
+    document.body.append(button)
+    vi.spyOn(button, "getClientRects").mockReturnValue([
+      rect(0),
+      rect(40)
+    ] as unknown as DOMRectList)
+    return button
+  }
+
+  it("keeps a wrapped control reachable when a later fragment is exposed", () => {
+    const button = wrapped("Wrapped")
+    const overlay = document.createElement("div")
+    document.body.append(overlay)
+    vi.spyOn(document, "elementFromPoint").mockImplementation((_x, y) =>
+      y < 30 ? overlay : button
+    )
+    const element = build().elements.find((one) => one.name === "Wrapped")
+    expect(element?.occluded).toBeUndefined()
+  })
+
+  it("marks a wrapped control only when every fragment is covered", () => {
+    wrapped("Wrapped")
+    const overlay = document.createElement("div")
+    document.body.append(overlay)
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(overlay)
+    const element = build().elements.find((one) => one.name === "Wrapped")
+    expect(element?.occluded).toBe(true)
+  })
+})

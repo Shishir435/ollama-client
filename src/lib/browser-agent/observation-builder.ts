@@ -206,36 +206,60 @@ const composedContains = (ancestor: Element, node: Element): boolean => {
 const asElement = (node: Node): Element | null =>
   node.nodeType === 1 ? (node as Element) : null
 
-/** An element's open shadow root; a closed root reads as `null` and its
- * contents stay unread rather than being guessed at. */
-const openShadowRoot = (node: Node): ShadowRoot | null =>
-  asElement(node)?.shadowRoot ?? null
+/**
+ * A slot's assigned nodes in rendered order, or `null` when the element is not
+ * a filled slot. `localName` rather than `instanceof HTMLSlotElement` keeps it
+ * realm-safe. An empty result reads as `null` so the caller falls through to
+ * the slot's own children — its fallback content, which is what renders when
+ * nothing is assigned.
+ */
+const slotAssignedNodes = (element: Element): Node[] | null => {
+  if (element.localName !== "slot") return null
+  const slot = element as HTMLSlotElement
+  if (typeof slot.assignedNodes !== "function") return null
+  const assigned = slot.assignedNodes({ flatten: true })
+  return assigned.length > 0 ? assigned : null
+}
 
 /**
- * Every element and text node the composed tree reaches, in a stable
- * depth-first order that descends into open shadow roots at their host. A
- * child's own tree is walked exactly once whether or not a `<slot>` projects
- * it elsewhere, so nothing is double-counted; a host is yielded, then its
- * shadow content, then its light children. `document.querySelectorAll` and a
- * `TreeWalker` both stop at the shadow boundary, which is why a component's
- * controls and text were invisible to every collector below. Iterative so a
- * deep component tree cannot exhaust the stack.
+ * The flattened-tree children of a node: what actually renders in its place.
+ * A shadow host renders its shadow tree, so its light children are reached
+ * only through the slots that project them — never directly, which is what
+ * keeps unslotted light content out and stops a filled slot's fallback from
+ * being read. A filled slot renders its assigned nodes at that position; an
+ * empty one renders its fallback children. Everything else renders its own
+ * children.
+ */
+const flattenedChildren = (node: Node): Node[] => {
+  const element = asElement(node)
+  if (element) {
+    const shadow = element.shadowRoot
+    if (shadow) return Array.from(shadow.childNodes)
+    const assigned = slotAssignedNodes(element)
+    if (assigned) return assigned
+  }
+  return Array.from(node.childNodes)
+}
+
+/**
+ * Every element and text node the composed tree reaches, in rendered
+ * depth-first order across open shadow roots and slot projections. Each node
+ * tree is walked once — a slotted child through its slot, never also at its
+ * light-DOM position — so nothing is double-counted and the order matches what
+ * the user sees. A closed shadow root is unreachable and stays unread rather
+ * than guessed at. `document.querySelectorAll` and a `TreeWalker` both stop at
+ * the shadow boundary, which is why a component's controls and text were
+ * invisible to every collector below. Iterative so a deep component tree
+ * cannot exhaust the stack.
  */
 const composedDescendants = function* (
   root: Element | ShadowRoot | Document
 ): Generator<Node> {
   const stack: Node[] = []
-  const pushChildren = (node: Element | ShadowRoot | Document): void => {
-    const light = node.childNodes
-    for (let index = light.length - 1; index >= 0; index -= 1) {
-      stack.push(light[index])
-    }
-    const shadow = openShadowRoot(node as Node)
-    if (shadow) {
-      const shadowChildren = shadow.childNodes
-      for (let index = shadowChildren.length - 1; index >= 0; index -= 1) {
-        stack.push(shadowChildren[index])
-      }
+  const pushChildren = (node: Node): void => {
+    const children = flattenedChildren(node)
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      stack.push(children[index])
     }
   }
   pushChildren(root)
@@ -243,8 +267,7 @@ const composedDescendants = function* (
     const node = stack.pop()
     if (!node) continue
     yield node
-    const element = asElement(node)
-    if (element) pushChildren(element)
+    pushChildren(node)
   }
 }
 
@@ -402,14 +425,49 @@ const OCCLUSION_SAMPLES: ReadonlyArray<readonly [number, number]> = [
 ]
 
 /**
+ * A wrapped inline control renders as several client rects, so the hit test
+ * runs against each of them and stops at the first that is reachable. Bounded
+ * so a pathological control cannot spend the pass on hit tests; the cap only
+ * limits how many fragments are consulted, and a control reachable anywhere in
+ * its first few fragments is already answered.
+ */
+const OCCLUSION_MAX_FRAGMENTS = 6
+
+/** Reachable — hit is the element, its own composed subtree, or an ancestor
+ * that renders it — versus covered by a foreign element, versus indeterminate
+ * when the layout answers nothing. */
+type OcclusionProbe = "reachable" | "covered" | "indeterminate"
+
+const probeFragment = (
+  element: Element,
+  doc: Document,
+  rect: VisibleBounds
+): OcclusionProbe => {
+  const width = rect.right - rect.left
+  const height = rect.bottom - rect.top
+  for (const [fractionX, fractionY] of OCCLUSION_SAMPLES) {
+    const hit = doc.elementFromPoint(
+      rect.left + width * fractionX,
+      rect.top + height * fractionY
+    )
+    if (!hit) return "indeterminate"
+    if (composedContains(element, hit) || composedContains(hit, element)) {
+      return "reachable"
+    }
+  }
+  return "covered"
+}
+
+/**
  * Whether another element covers every point a click on `element` would land
- * on. `elementFromPoint` returns the topmost element in the composed tree, so
- * a hit on the element itself, on its own composed subtree, or on an ancestor
- * that renders it all count as reachable; only a hit on some unrelated element
- * at every sampled point means the control is covered. The hit test needs real
- * layout, so an environment without `elementFromPoint`, or one that answers
- * `null`, yields no occlusion rather than a guessed one — a covered control
- * wrongly shown is recoverable, a reachable control wrongly hidden is not.
+ * on, across every fragment it renders as. `elementFromPoint` returns the
+ * topmost element in the composed tree, so a hit on the element itself, on its
+ * own composed subtree, or on an ancestor that renders it counts as reachable;
+ * only a foreign element at every sampled point of every fragment means the
+ * control is covered. The hit test needs real layout, so an environment
+ * without `elementFromPoint`, or one that answers `null`, yields no occlusion
+ * rather than a guessed one — a covered control wrongly shown is recoverable, a
+ * reachable control wrongly hidden is not.
  */
 const isOccluded = (element: Element): boolean => {
   const doc = element.ownerDocument
@@ -421,29 +479,21 @@ const isOccluded = (element: Element): boolean => {
     right: view.innerWidth ?? 0,
     top: 0
   }
-  const rect = Array.from(element.getClientRects())
+  const rects = Array.from(element.getClientRects())
     .filter((box) => box.width > 0 && box.height > 0)
     .map((box) => intersectBounds(box, viewport))
-    .find((box): box is VisibleBounds => Boolean(box))
-  if (!rect) return false
-  const width = rect.right - rect.left
-  const height = rect.bottom - rect.top
-  for (const [fractionX, fractionY] of OCCLUSION_SAMPLES) {
-    const hit = doc.elementFromPoint(
-      rect.left + width * fractionX,
-      rect.top + height * fractionY
-    )
+    .filter((box): box is VisibleBounds => Boolean(box))
+    .slice(0, OCCLUSION_MAX_FRAGMENTS)
+  if (rects.length === 0) return false
+  for (const rect of rects) {
+    const probe = probeFragment(element, doc, rect)
     /*
-     * A point that hit-tests to nothing is indeterminate, not covered: the
-     * only safe conclusion when the layout cannot answer is that the control
-     * is reachable. A hit on the element or its own composed line is reachable
-     * outright. Everything left is a foreign element in front of this point,
-     * and the loop only reports occlusion once every sampled point is covered.
+     * One reachable fragment is enough to call the control clickable, and an
+     * indeterminate probe is the safe answer that it is: the layout could not
+     * confirm coverage, so the control is left unmarked. Only when every
+     * fragment is covered by a foreign element is the whole control covered.
      */
-    if (!hit) return false
-    if (composedContains(element, hit) || composedContains(hit, element)) {
-      return false
-    }
+    if (probe !== "covered") return false
   }
   return true
 }
@@ -789,11 +839,24 @@ const accessibleName = (
   element: Element,
   pass: AgentObservationPass
 ): string | undefined => {
+  /**
+   * IDREFs resolve within the element's own tree, so a control inside a shadow
+   * root is named by a label in that same shadow root — not by `getElementById`
+   * on the document, which cannot see into it. `getRootNode` is the shadow root
+   * for a shadow element and the document otherwise; both carry
+   * `getElementById`, and the duck-typed check stays sound across a child
+   * frame's realm.
+   */
+  const scope = element.getRootNode() as Partial<Document | ShadowRoot>
+  const byId: Document | ShadowRoot =
+    typeof scope.getElementById === "function"
+      ? (scope as Document | ShadowRoot)
+      : element.ownerDocument
   const labelledBy = element
     .getAttribute("aria-labelledby")
     ?.trim()
     .split(/\s+/)
-    .map((id) => element.ownerDocument.getElementById(id))
+    .map((id) => byId.getElementById(id))
     .filter((label): label is HTMLElement => label !== null)
     .map((label) =>
       collectVisibleText(label, AGENT_OBSERVATION_LIMITS.elementNameChars, pass)
