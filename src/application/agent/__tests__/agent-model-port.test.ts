@@ -256,6 +256,30 @@ describe("createProviderAgentModelPort", () => {
     expect(shownB).toBeGreaterThanOrEqual(200)
   })
 
+  it("carries the run's kept findings into the prompt", async () => {
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      {
+        state,
+        observation,
+        findings: [
+          {
+            step: 2,
+            note: "the invoice total is 412.90",
+            source: "https://example.com/invoice"
+          }
+        ]
+      },
+      { aborted: false }
+    )
+    const userContent = String(
+      streamChat.mock.calls[0]?.[0]?.messages[1]?.content
+    )
+    expect(userContent).toContain("the invoice total is 412.90")
+    expect(userContent).toContain("https://example.com/invoice")
+  })
+
   it("retries malformed output at most twice for one decision", async () => {
     let attempt = 0
     const streamChat = vi.fn(async (_request, emit) => {

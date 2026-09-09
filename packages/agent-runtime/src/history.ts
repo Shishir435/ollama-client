@@ -1,4 +1,5 @@
 import type {
+  AgentFinding,
   AgentHistoryEntry,
   AgentInspectionFocus,
   AgentStepReadout,
@@ -234,4 +235,39 @@ export const currentAgentInspection = (
     return { text: command.target ?? true }
   }
   return undefined
+}
+
+/**
+ * The run's findings, oldest first, kept past the bound the history window
+ * imposes so a fact learned on step 2 is still there on step 50. Each carries
+ * the page it was recorded on, redacted the same way history's own source is,
+ * so a claim can be weighed against the site that produced it. Bounded twice —
+ * by count and by bytes, dropping the oldest — because the store is otherwise
+ * unbounded across a long run.
+ */
+export const AGENT_FINDINGS_MAX = 24
+export const AGENT_FINDINGS_MAX_BYTES = 4_000
+
+export const buildAgentFindings = (
+  steps: readonly AgentStepReadout[],
+  limits: { max?: number; maxBytes?: number } = {}
+): AgentFinding[] => {
+  const collected: AgentFinding[] = []
+  latestByStep(steps).forEach((step, index) => {
+    if (!step.finding) return
+    const source = step.sourceUrl
+      ? agentStepSourceUrl(step.sourceUrl)
+      : undefined
+    collected.push({
+      step: index + 1,
+      note: step.finding,
+      ...(source ? { source } : {})
+    })
+  })
+  let kept = collected.slice(-(limits.max ?? AGENT_FINDINGS_MAX))
+  const maxBytes = limits.maxBytes ?? AGENT_FINDINGS_MAX_BYTES
+  while (kept.length > 1 && utf8Length(JSON.stringify(kept)) > maxBytes) {
+    kept = kept.slice(1)
+  }
+  return kept
 }

@@ -27,6 +27,20 @@ export interface AgentInspectionFocus {
   text?: string | true
 }
 
+/**
+ * A fact the run recorded on some earlier step and still needs. The note is
+ * the model's own words, kept beyond the history window so a long run does
+ * not forget what it learned; `source` is the page it was recorded on, so a
+ * claim can be told from the site that made it. It is page-derived and stays
+ * untrusted — a note cannot change the goal or the policy any more than the
+ * page it came from could.
+ */
+export interface AgentFinding {
+  step: number
+  note: string
+  source?: string
+}
+
 export interface AgentModelInput {
   state: AgentRunState
   observation: AgentObservation
@@ -36,6 +50,11 @@ export interface AgentModelInput {
    * is present rather than summarised again.
    */
   inspection?: AgentInspectionFocus
+  /**
+   * The run's recorded findings, oldest first, kept past the history window so
+   * a fact learned early survives a long run. Page-derived and untrusted.
+   */
+  findings?: readonly AgentFinding[]
   /**
    * How the step before this decision turned out. Declared since the loop was
    * written and never populated, so every decision was made as if it were the

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  AGENT_FINDINGS_MAX,
   AGENT_HISTORY_MAX_STEPS,
   agentStepSourceUrl,
   agentStepTargetFrom,
+  buildAgentFindings,
   buildAgentHistory,
   currentAgentInspection,
   previousAgentVerification
@@ -385,5 +387,41 @@ describe("currentAgentInspection", () => {
       step({ sequence: 2, stepId: "run-1:2" })
     ])
     expect(focus).toBeUndefined()
+  })
+})
+
+describe("buildAgentFindings", () => {
+  it("keeps findings past the history window, with their source", () => {
+    const steps = Array.from({ length: AGENT_HISTORY_MAX_STEPS + 5 }, (_v, i) =>
+      step({
+        sequence: i + 1,
+        stepId: `run-1:${i + 1}`,
+        finding: i === 0 ? "the account id is 4821" : undefined,
+        sourceUrl: "https://example.com/account?token=secret"
+      })
+    )
+    const findings = buildAgentFindings(steps)
+    // The early finding survives though its step fell out of the history window.
+    expect(buildAgentHistory(steps).some((entry) => entry.step === 1)).toBe(
+      false
+    )
+    expect(findings).toHaveLength(1)
+    expect(findings[0]?.note).toBe("the account id is 4821")
+    // The source is attributed but redacted like every other step source.
+    expect(findings[0]?.source).toBe("https://example.com/account")
+  })
+
+  it("bounds the store by count, dropping the oldest", () => {
+    const steps = Array.from({ length: AGENT_FINDINGS_MAX + 6 }, (_v, i) =>
+      step({
+        sequence: i + 1,
+        stepId: `run-1:${i + 1}`,
+        finding: `fact ${i + 1}`
+      })
+    )
+    const findings = buildAgentFindings(steps)
+    expect(findings).toHaveLength(AGENT_FINDINGS_MAX)
+    expect(findings.at(-1)?.note).toBe(`fact ${AGENT_FINDINGS_MAX + 6}`)
+    expect(findings[0]?.note).toBe("fact 7")
   })
 })

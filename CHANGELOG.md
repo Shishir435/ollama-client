@@ -48,6 +48,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   all covered by an unrelated element is reported to the model as covered, so
   it dismisses the overlay or scrolls rather than clicking where the pointer
   cannot reach.
+- Agent Preview keeps a large application within its context budget. The
+  window is partitioned across instructions, tools, history, output and page
+  content, and the page is projected to fit its share: an overview keeps the
+  controls a decision acts on and reports the rest by region. Three read-only
+  actions reveal what it summarised — inspect a region, find controls by a
+  query, or extract the page's full text — none of which mutates the page or
+  asks approval. A fact the model records is now kept past the recent-step
+  window, with the page it came from, and stays untrusted page data.
 
 ## [0.13.3]
 

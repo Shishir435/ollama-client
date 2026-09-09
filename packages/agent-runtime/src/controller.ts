@@ -27,6 +27,7 @@ import { agentObservationFailureMessage } from "./control-failure"
 import {
   agentStepSourceUrl,
   agentStepTargetFrom,
+  buildAgentFindings,
   buildAgentHistory,
   currentAgentInspection,
   previousAgentVerification
@@ -342,17 +343,22 @@ export const createAgentController = (
   const recallHistory = async (
     state: AgentRunState
   ): Promise<
-    Pick<AgentModelInput, "history" | "previousVerification" | "inspection">
+    Pick<
+      AgentModelInput,
+      "history" | "previousVerification" | "inspection" | "findings"
+    >
   > => {
     try {
       const receipts = await dependencies.persistence.steps(state.id)
       const history = buildAgentHistory(receipts)
       const previous = previousAgentVerification(receipts)
       const inspection = currentAgentInspection(receipts)
+      const findings = buildAgentFindings(receipts)
       return {
         ...(history.length > 0 ? { history } : {}),
         ...(previous ? { previousVerification: previous } : {}),
-        ...(inspection ? { inspection } : {})
+        ...(inspection ? { inspection } : {}),
+        ...(findings.length > 0 ? { findings } : {})
       }
     } catch (error) {
       /**
@@ -373,7 +379,7 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     recalled: Pick<
       AgentModelInput,
-      "history" | "previousVerification" | "inspection"
+      "history" | "previousVerification" | "inspection" | "findings"
     >
   ) => {
     let raw: unknown
