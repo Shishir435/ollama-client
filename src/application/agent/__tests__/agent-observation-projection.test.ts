@@ -91,6 +91,12 @@ describe("projectAgentElement", () => {
     })
   })
 
+  it("tells the model a visible control is covered", () => {
+    expect(
+      projectAgentElement(element({ visible: true, occluded: true }))
+    ).toMatchObject({ occluded: true })
+  })
+
   it("keeps what a decision has to act on", () => {
     expect(
       projectAgentElement(

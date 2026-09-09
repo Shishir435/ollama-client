@@ -41,6 +41,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   started on and the tabs it opened; adopting any other tab asks first. The
   debugger's frame tree is tracked and mapped onto extension frames only when
   the join is exact.
+- Agent Preview sees controls inside web components and knows which ones a
+  cover blocks. Observation now descends into open shadow roots, so a
+  component's controls and text are read like any other, while a closed root
+  stays unread rather than guessed at. A visible control whose click points are
+  all covered by an unrelated element is reported to the model as covered, so
+  it dismisses the overlay or scrolls rather than clicking where the pointer
+  cannot reach.
 
 ## [0.13.3]
 

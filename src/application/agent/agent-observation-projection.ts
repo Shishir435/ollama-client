@@ -34,6 +34,9 @@ export interface AgentProjectedElement {
   sensitive?: boolean
   disabled?: boolean
   hidden?: boolean
+  /** Present only when a cover sits over the control, so the model dismisses
+   * it or scrolls rather than clicking a point the pointer cannot reach. */
+  occluded?: boolean
 }
 
 /**
@@ -130,7 +133,8 @@ export const projectAgentElement = (
     ...(element.editable ? { editable: true } : {}),
     ...(element.sensitive ? { sensitive: true } : {}),
     ...(element.enabled ? {} : { disabled: true }),
-    ...(element.visible ? {} : { hidden: true })
+    ...(element.visible ? {} : { hidden: true }),
+    ...(element.occluded ? { occluded: true } : {})
   }
 }
 
