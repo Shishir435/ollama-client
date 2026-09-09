@@ -187,13 +187,20 @@ const agentPageBudget = (
     AGENT_INSTRUCTION_TOKENS +
     AGENT_TOOL_SCHEMA_TOKENS +
     estimateTokens(historyEnvelope)
-  const softTokens = Math.max(
-    AGENT_PAGE_CONTENT_FLOOR_TOKENS,
-    AGENT_CONTEXT_BUDGET_TOKENS - reserved
-  )
-  const hardTokens = Math.max(
-    softTokens,
-    AGENT_CONTEXT_CEILING_TOKENS - reserved
+  /**
+   * The hard ceiling is whatever the ceiling has left once everything else is
+   * charged — never a floor, because forcing a minimum the window cannot spare
+   * is exactly what would overflow it when the history and instructions are
+   * large. The overview target keeps its floor, but only up to that ceiling, so
+   * the target never exceeds the room that actually remains.
+   */
+  const hardTokens = Math.max(0, AGENT_CONTEXT_CEILING_TOKENS - reserved)
+  const softTokens = Math.min(
+    hardTokens,
+    Math.max(
+      AGENT_PAGE_CONTENT_FLOOR_TOKENS,
+      AGENT_CONTEXT_BUDGET_TOKENS - reserved
+    )
   )
   return {
     chars: Math.floor(softTokens * AGENT_TOKEN_CHARS),

@@ -237,16 +237,20 @@ const selectOverviewElements = (
   for (const item of ordered) {
     const cost = JSON.stringify(item.projected).length + 1
     /**
-     * A focused control and a region the model asked to inspect are kept past
-     * the overview budget — an inspect that still hid half the region would
-     * defeat the point — but never past the hard ceiling, which is what keeps
-     * the whole prompt inside the context window: a two-thousand-control
-     * region cannot be shown whole if showing it would truncate the system
-     * prompt. Everything else competes for the overview budget, and at least
-     * one control is always kept so an overview is never empty.
+     * The hard ceiling is absolute — even the one control an overview always
+     * keeps yields to it, because when extracted text has already spent the
+     * ceiling there is no room for a control and forcing one in would push the
+     * prompt past the window. Within the ceiling, a focused control and a
+     * region the model asked to inspect are kept past the overview budget — an
+     * inspect that still hid half the region would defeat the point — while
+     * everything else competes for the overview budget, and one control is
+     * kept whenever the ceiling has room for it so an overview is never
+     * needlessly empty.
      */
-    const limit = item.priority === 0 ? ceilingChars : budgetChars
-    if (kept.size > 0 && used + cost > limit) continue
+    if (used + cost > ceilingChars) continue
+    if (kept.size > 0 && item.priority !== 0 && used + cost > budgetChars) {
+      continue
+    }
     kept.add(item.index)
     used += cost
   }

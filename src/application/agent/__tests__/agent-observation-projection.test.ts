@@ -304,15 +304,26 @@ describe("projectAgentObservation overview budget", () => {
     expect(projected.omittedByGroup?.[0]?.count).toBeGreaterThan(0)
   })
 
-  it("always keeps the focused control even under a tiny budget", () => {
+  it("keeps the focused control under a tiny overview budget", () => {
     const elements = [
       ...many(100),
       element({ ref: "focused", name: "Active", focused: true })
     ]
     const projected = projectAgentObservation(observation({ elements }), {
-      pageContentChars: 1
+      pageContentChars: 1,
+      pageContentMaxChars: 10_000
     })
     expect(projected.elements.map((one) => one.ref)).toContain("focused")
+  })
+
+  it("keeps nothing over the ceiling, even the one control it prefers", () => {
+    const elements = [element({ ref: "only", name: "Solo", focused: true })]
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 1,
+      pageContentMaxChars: 1
+    })
+    // A ceiling of one character has room for nothing; the guarantee yields.
+    expect(projected.elements).toHaveLength(0)
   })
 
   it("expands a focused region in full while others stay at overview", () => {

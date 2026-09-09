@@ -309,6 +309,45 @@ describe("createProviderAgentModelPort", () => {
     expect(String(request?.messages[1]?.content).length).toBeLessThan(120_000)
   })
 
+  it("yields page content to a large history instead of overflowing", async () => {
+    const huge: AgentObservation = {
+      ...observation,
+      elements: Array.from({ length: 800 }, (_value, index) => ({
+        ref: `e${index + 1}`,
+        frameId: 0,
+        tag: "button" as const,
+        name: `Control ${index + 1}`,
+        visible: true,
+        enabled: true,
+        editable: false,
+        sensitive: false
+      }))
+    }
+    const bigHistory = Array.from({ length: 12 }, (_value, index) => ({
+      step: index + 1,
+      action: "x".repeat(8_500),
+      outcome: "confirmed" as const
+    }))
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      { state, observation: huge, history: bigHistory },
+      { aborted: false }
+    )
+    const request = streamChat.mock.calls[0]?.[0]
+    // The whole request — every message plus the tool schema — must fit the
+    // window it asked for, so the model never silently drops the system prompt.
+    const promptChars =
+      (request?.messages ?? []).reduce(
+        (total: number, message: { content?: unknown }) =>
+          total + String(message.content).length,
+        0
+      ) + JSON.stringify(request?.tools ?? []).length
+    expect(Math.ceil(promptChars / 3.5)).toBeLessThanOrEqual(
+      request?.num_ctx ?? 0
+    )
+  })
+
   it("retries malformed output at most twice for one decision", async () => {
     let attempt = 0
     const streamChat = vi.fn(async (_request, emit) => {
