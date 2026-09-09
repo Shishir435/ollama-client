@@ -25,10 +25,22 @@ const observation = (
   snapshotId: "snapshot-1",
   generation: 1,
   tabId: 7,
+  frameId: 0,
   documentId: "document-1",
   url: "https://example.com/",
   origin: "https://example.com",
   title: "Example",
+  frames: [
+    {
+      frameId: 0,
+      documentId: "document-1",
+      origin: "https://example.com",
+      url: "https://example.com/",
+      access: "ok",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+  ],
   elements: [element()],
   visibleText: "Continue",
   scroll: {
@@ -196,5 +208,47 @@ describe("projectAgentObservation", () => {
     const before = JSON.stringify(wide).length
     const after = JSON.stringify(projectAgentObservation(wide)).length
     expect(after).toBeLessThan(before / 2)
+  })
+})
+
+describe("projectAgentObservation frames", () => {
+  it("says nothing about frames when the page has only its root", () => {
+    expect(projectAgentObservation(observation())).not.toHaveProperty("frames")
+  })
+
+  it("names every other frame by id, origin and access, and nothing more", () => {
+    const base = observation()
+    const projected = projectAgentObservation(
+      observation({
+        frames: [
+          base.frames[0],
+          {
+            frameId: 2,
+            parentFrameId: 0,
+            documentId: "document-2",
+            origin: "https://example.com",
+            url: "https://example.com/child?token=abc",
+            access: "ok",
+            snapshotId: "snapshot-2",
+            generation: 1
+          },
+          {
+            frameId: 3,
+            parentFrameId: 0,
+            origin: "https://ads.example",
+            access: "unauthorized_origin"
+          }
+        ]
+      })
+    )
+    expect(projected.frames).toEqual([
+      { frameId: 2, origin: "https://example.com", access: "ok" },
+      {
+        frameId: 3,
+        origin: "https://ads.example",
+        access: "unauthorized_origin"
+      }
+    ])
+    expect(JSON.stringify(projected.frames)).not.toContain("token")
   })
 })

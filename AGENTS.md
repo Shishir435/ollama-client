@@ -333,8 +333,46 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   completion, and failure boundaries. An unexpected disconnect pauses the run,
   and an interrupted effect remains unresolved rather than being replayed.
 - Firefox receives no `debugger` permission. The session manager reports the
-  existing DOM control backend with `cdpControl: false`; do not claim CDP-only
-  capabilities there.
+  existing DOM control backend with `cdpControl: false` and
+  `frameTracking: false`; do not claim CDP-only capabilities there.
+- **Identity is per frame.** `AgentSnapshotIdentity` names a tab, a frame, a
+  document and a generation; every frame keeps its own reference store, and a
+  child frame's references carry the frame in their prefix (`f7e2`), so `e1`
+  is never the same control in two frames. The command names the root
+  snapshot; the executor binds the effect to the target's own frame identity
+  (`target.frame`) and re-reads that frame's document before acting. Never
+  hardcode `frameId: 0` again — a literal zero is how a child-frame control
+  gets resolved against the wrong document.
+- **A frame is read only once the run may read it.** The registry lists the
+  tab's frames, and each child passes the browser's limits, the user's
+  exclusions and the run's origin allowlist before its port is opened. A frame
+  that fails any of them is listed in `observation.frames` with its origin and
+  the reason, never its URL, and contributes no elements; the model is told it
+  exists so it can ask rather than conclude the control is missing.
+  `about:blank` and `srcdoc` frames have no origin and are omitted.
+- **Frames and elements are bounded together.** Root first, then children in
+  frame-id order up to `MAX_AGENT_OBSERVED_FRAMES`; frames past the cap are
+  counted in `omittedFrames`, never listed, so the list itself honours the
+  contract. A child receives only the element budget the frames before it
+  left, and a child that cannot fit or cannot be read is listed as such rather
+  than truncated or retried.
+- **A child-frame effect happens on the frame's origin.** The resolver sets
+  `frameUrl`/`frameOrigin` for a target outside the root frame; policy judges
+  grants, grant offers and sign-in/payment paths against those, while
+  `sourceUrl` stays the page the tab shows and history records.
+- **The debugger's frame tree is tracked, not guessed.** After attach, the
+  session manager enables `Page`, flattens auto-attach for out-of-process
+  frames, and follows frame events on every session. `mapFrame` joins an
+  extension frame onto that tree only when the join is exact — the root, or
+  the single frame under the mapped parent with that URL. Ambiguous siblings
+  and unknown parents are reported as unmapped; a command aimed at a guessed
+  frame is an effect nobody approved.
+- **Tab scope is a run's, not a site's.** `scopedTabIds` holds the tab the
+  user started on and every tab the run opened itself; `switch_tab` to any
+  other tab raises an approval whatever the site allowlist says, and the tab
+  joins the scope in the same claim that moves the run onto it. The debugger
+  attachment follows the controlled tab in that write, before any page work
+  is claimed there.
 - Read-only helpers: `src/lib/browser-sessions.ts`. Model tools: `src/lib/tools/internal/browser-session-tools.ts`.
 - `sessions` is an optional permission. Always check browser support **and** the live permission before reading recently-closed or synced-device sessions.
 - Session URLs must pass the same unreadable/never-read filters as other browser tools.

@@ -2,6 +2,7 @@ import { AGENT_RUN_STATUSES } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
   AGENT_STATUS_PREDECESSORS,
+  agentTabScope,
   isLegalAgentTransition,
   isTerminalAgentStatus
 } from "../state"
@@ -35,5 +36,14 @@ describe("AGENT_STATUS_PREDECESSORS", () => {
 
   it("does not permit executing directly from deciding", () => {
     expect(isLegalAgentTransition("deciding", "executing")).toBe(false)
+  })
+})
+
+describe("agentTabScope", () => {
+  it("always includes the controlled tab and never a duplicate", () => {
+    expect(agentTabScope({ controlledTabId: 7 })).toEqual([7])
+    expect(agentTabScope({ controlledTabId: 9, scopedTabIds: [7, 9] })).toEqual(
+      [9, 7]
+    )
   })
 })

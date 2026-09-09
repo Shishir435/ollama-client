@@ -32,7 +32,8 @@ const build = (minimumGeneration = 0, now?: () => number) =>
     documentId: "document-1",
     minimumGeneration,
     references: createAgentElementReferenceStore({
-      documentId: "document-1"
+      documentId: "document-1",
+      frameId: 0
     }),
     createSnapshotId: () => "snapshot-1",
     capturedAt: 1,
@@ -171,6 +172,7 @@ describe("Agent observation builder", () => {
     let nextSnapshotId = 0
     const references = createAgentElementReferenceStore({
       documentId: "document-1",
+      frameId: 0,
       createVerificationId: () => `control-${++nextVerificationId}`
     })
     const observe = () =>
@@ -408,9 +410,43 @@ describe("Agent observation builder", () => {
     expect(build().elements[0]?.href).toBeUndefined()
   })
 
+  it("names a child frame in its references and frame record", () => {
+    /*
+     * happy-dom cannot load a frame page under vitest, so a child frame is a
+     * second window whose `top` is this one — the only fact the builder reads.
+     */
+    const childWindow = new Window({ url: "https://example.com/child" })
+    Object.defineProperty(childWindow, "top", {
+      value: window,
+      configurable: true
+    })
+    const child = childWindow.document
+    child.body.innerHTML = "<button>Inside</button>"
+    const references = createAgentElementReferenceStore({
+      documentId: "document-child",
+      frameId: 3
+    })
+    const observed = buildAgentObservation({
+      document: child as unknown as Document,
+      tabId: 7,
+      frameId: 3,
+      documentId: "document-child",
+      minimumGeneration: 0,
+      references,
+      createSnapshotId: () => "snapshot-child"
+    })
+    expect(observed.frameId).toBe(3)
+    expect(observed.frames).toEqual([
+      expect.objectContaining({ frameId: 3, documentId: "document-child" })
+    ])
+    expect(observed.elements.map((element) => element.ref)).toEqual(["f3e1"])
+    expect(observed.elements[0]?.frameId).toBe(3)
+  })
+
   it("rejects subframe and unsupported-scheme observations", () => {
     const references = createAgentElementReferenceStore({
-      documentId: "document-1"
+      documentId: "document-1",
+      frameId: 0
     })
     expect(() =>
       buildAgentObservation({
@@ -421,7 +457,7 @@ describe("Agent observation builder", () => {
         minimumGeneration: 0,
         references
       })
-    ).toThrow("main-frame only")
+    ).toThrow("from the top frame")
 
     const unsupported = new Window({ url: "file:///tmp/page.html" }).document
     expect(() =>

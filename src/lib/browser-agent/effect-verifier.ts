@@ -16,6 +16,7 @@ export interface AgentEffectVerifierAdapter {
   observe(
     tabId: number,
     minimumGeneration: number,
+    allowedOrigins: readonly string[],
     signal: AgentCancellationSignal
   ): Promise<AgentObservation>
   waitForNavigation?(
@@ -46,7 +47,12 @@ const observeAfter = (
   signal: AgentCancellationSignal,
   tabId = input.effect.snapshotIdentity.tabId
 ): Promise<AgentObservation> =>
-  adapter.observe(tabId, input.effect.snapshotIdentity.generation + 1, signal)
+  adapter.observe(
+    tabId,
+    input.effect.snapshotIdentity.generation + 1,
+    input.allowedOrigins,
+    signal
+  )
 
 const sameUrl = (first: string | undefined, second: string): boolean => {
   if (!first) return false
@@ -90,6 +96,7 @@ const resolvedTargetBecameVisible = (
   const candidates = after.elements.filter(
     (element) =>
       element.visible &&
+      element.frameId === (input.effect.target.frameId ?? 0) &&
       element.tag === input.effect.target.tag &&
       element.role === input.effect.target.role &&
       element.name === input.effect.target.accessibleName &&
@@ -421,7 +428,7 @@ const sameElementSemantics = (
   input: AgentVerificationInput,
   element: AgentObservation["elements"][number]
 ): boolean =>
-  element.frameId === 0 &&
+  element.frameId === (input.effect.target.frameId ?? 0) &&
   (input.effect.target.verificationId === undefined ||
     element.verificationId === input.effect.target.verificationId) &&
   element.tag === input.effect.target.tag &&

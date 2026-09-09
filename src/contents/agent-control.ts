@@ -19,19 +19,27 @@ export const installAgentControlContentScript = (): void => {
   scope[INSTALL_MARKER] = true
 
   browser.runtime.onConnect.addListener(((rawPort: Runtime.Port) => {
+    /*
+     * One store per port, created from the first request's binding: the
+     * frame id and document id the background connected to are the identity
+     * every reference this document hands out is bound to.
+     */
     let references:
       | ReturnType<typeof createAgentElementReferenceStore>
       | undefined
     attachAgentControlContentPort(rawPort as unknown as AgentControlPort, {
       buildObservation(request) {
         references ??= createAgentElementReferenceStore({
-          documentId: request.documentId
+          documentId: request.documentId,
+          frameId: request.frameId
         })
         return buildAgentObservation({
           document,
           tabId: request.tabId,
+          frameId: request.frameId,
           documentId: request.documentId,
           minimumGeneration: request.minimumGeneration,
+          elementLimit: request.elementLimit,
           references
         })
       },
@@ -52,7 +60,7 @@ export const installAgentControlContentScript = (): void => {
         }
         executeAgentScrollInDocument({
           command: request.instruction.command,
-          identity: request.instruction.snapshotIdentity,
+          identity: request.instruction.frame,
           document,
           references
         })

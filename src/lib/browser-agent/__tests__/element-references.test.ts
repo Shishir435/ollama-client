@@ -4,7 +4,10 @@ import { createAgentElementReferenceStore } from "../element-references"
 
 describe("Agent element references", () => {
   it("binds references to one document, frame, snapshot, and generation", () => {
-    const store = createAgentElementReferenceStore({ documentId: "document-1" })
+    const store = createAgentElementReferenceStore({
+      documentId: "document-1",
+      frameId: 0
+    })
     const first = store.beginSnapshot({
       minimumGeneration: 0,
       createSnapshotId: () => "snapshot-1"
@@ -21,7 +24,10 @@ describe("Agent element references", () => {
   })
 
   it("invalidates every reference when a new snapshot starts", () => {
-    const store = createAgentElementReferenceStore({ documentId: "document-1" })
+    const store = createAgentElementReferenceStore({
+      documentId: "document-1",
+      frameId: 0
+    })
     const first = store.beginSnapshot({
       minimumGeneration: 0,
       createSnapshotId: () => "snapshot-1"
@@ -40,6 +46,7 @@ describe("Agent element references", () => {
     let nextId = 0
     const store = createAgentElementReferenceStore({
       documentId: "document-1",
+      frameId: 0,
       createVerificationId: () => `node-${++nextId}`
     })
     const input = document.createElement("input")
@@ -60,7 +67,10 @@ describe("Agent element references", () => {
   })
 
   it("binds exact hidden form state without exposing it in a reference", () => {
-    const store = createAgentElementReferenceStore({ documentId: "document-1" })
+    const store = createAgentElementReferenceStore({
+      documentId: "document-1",
+      frameId: 0
+    })
     const form = document.createElement("form")
     const hidden = document.createElement("input")
     hidden.type = "hidden"
@@ -77,5 +87,30 @@ describe("Agent element references", () => {
     expect(ref).not.toContain("recipient-a")
     hidden.value = "recipient-b"
     expect(store.matchesFormState(ref, snapshot)).toBe(false)
+  })
+})
+
+describe("Agent element references across frames", () => {
+  it("names the frame in a child frame's references and binds them to it", () => {
+    const store = createAgentElementReferenceStore({
+      documentId: "document-child",
+      frameId: 3
+    })
+    const snapshot = store.beginSnapshot({
+      minimumGeneration: 0,
+      createSnapshotId: () => "snapshot-1"
+    })
+    const button = document.createElement("button")
+    expect(snapshot.reference(button)).toBe("f3e1")
+    expect(snapshot.frameId).toBe(3)
+
+    const identity = {
+      snapshotId: "snapshot-1",
+      generation: snapshot.generation,
+      documentId: "document-child"
+    }
+    expect(store.resolve("f3e1", { ...identity, frameId: 3 })).toBe(button)
+    expect(store.resolve("f3e1", { ...identity, frameId: 0 })).toBeUndefined()
+    expect(store.matches({ ...identity, frameId: 0 })).toBe(false)
   })
 })

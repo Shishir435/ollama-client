@@ -10,7 +10,8 @@ import {
   MAX_AGENT_ALLOWED_ORIGINS,
   MAX_AGENT_ANSWER_CHARS,
   MAX_AGENT_ANSWERS,
-  MAX_AGENT_GRANTS
+  MAX_AGENT_GRANTS,
+  MAX_AGENT_SCOPED_TABS
 } from "@ollama-client/contracts"
 import {
   type AgentProgressPoint,
@@ -47,7 +48,11 @@ import {
   pausePatch
 } from "./ports"
 import { agentResolutionFailure } from "./resolution-failure"
-import { AGENT_STATUS_PREDECESSORS, isTerminalAgentStatus } from "./state"
+import {
+  AGENT_STATUS_PREDECESSORS,
+  agentTabScope,
+  isTerminalAgentStatus
+} from "./state"
 import { classifyVerificationOutcome } from "./verification"
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
@@ -75,6 +80,28 @@ const allowedOriginsPatch = (
     return {}
   }
   return { allowedOrigins: [...state.allowedOrigins, origin] }
+}
+
+/**
+ * A tab joins the run's scope in the same write that moves the run onto it,
+ * and only after verification confirmed the destination it holds. A tab the
+ * run opened itself and a tab the user approved switching to arrive here the
+ * same way; nothing else does. A full scope still moves the run — the tab was
+ * confirmed — and `agentTabScope` keeps the controlled tab in scope anyway.
+ */
+const adoptedTabPatch = (
+  state: AgentRunState,
+  controlledTabId: number | undefined
+): AgentStatePatch => {
+  if (controlledTabId === undefined) return {}
+  const scope = agentTabScope(state)
+  if (
+    scope.includes(controlledTabId) ||
+    scope.length >= MAX_AGENT_SCOPED_TABS
+  ) {
+    return { controlledTabId }
+  }
+  return { controlledTabId, scopedTabIds: [...scope, controlledTabId] }
 }
 
 export const createAgentController = (
@@ -364,7 +391,8 @@ export const createAgentController = (
           {
             runId: state.id,
             tabId: state.controlledTabId,
-            minimumGeneration: minimumGeneration.get(state.id) ?? 0
+            minimumGeneration: minimumGeneration.get(state.id) ?? 0,
+            allowedOrigins: state.allowedOrigins
           },
           signal
         )
@@ -463,6 +491,7 @@ export const createAgentController = (
       stepId,
       effect,
       allowedOrigins: state.allowedOrigins,
+      scopedTabIds: agentTabScope(state),
       ...(state.grants?.length ? { grants: state.grants } : {}),
       now: dependencies.clock.now()
     })
@@ -601,7 +630,12 @@ export const createAgentController = (
       if (!verifying) return undefined
       failureState = verifying
       const verification = await dependencies.effect.verify(
-        { effect: authorizedEffect, receipt, before: observation },
+        {
+          effect: authorizedEffect,
+          receipt,
+          before: observation,
+          allowedOrigins: executing.allowedOrigins
+        },
         signal
       )
       const action = classifyVerificationOutcome(verification, policy.risk)
@@ -636,9 +670,7 @@ export const createAgentController = (
         verifying,
         "observing",
         {
-          ...(receipt.controlledTabId === undefined
-            ? {}
-            : { controlledTabId: receipt.controlledTabId }),
+          ...adoptedTabPatch(verifying, receipt.controlledTabId),
           updatedAt: dependencies.clock.now()
         },
         ["verifying"]

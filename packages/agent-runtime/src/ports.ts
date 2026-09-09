@@ -33,12 +33,25 @@ export interface AgentObserveRequest {
   runId: string
   tabId: number
   minimumGeneration: number
+  /**
+   * The origins the run may read. A child frame on any other origin is listed
+   * in the observation as unauthorized and contributes nothing, so the check
+   * happens where frames are read rather than after their content arrived.
+   */
+  allowedOrigins: readonly string[]
 }
 
 export interface ResolvedAgentTarget {
   ref?: string
   verificationId?: string
-  frameId?: 0
+  /** The frame the observed element lives in; the root frame is 0. */
+  frameId?: number
+  /**
+   * The identity the element's own frame holds. The command names the root
+   * snapshot; the executor binds the effect to this one, because a child frame
+   * keeps its own references and its own generation.
+   */
+  frame?: AgentSnapshotIdentity
   tag?: string
   role?: string
   accessibleName?: string
@@ -90,8 +103,17 @@ export interface ResolvedAgentEffect {
   destination?: AgentDestination
   semanticEffects: readonly AgentSemanticEffect[]
   snapshotIdentity: AgentSnapshotIdentity
+  /** The page the run is on: what the tab shows and what history records. */
   sourceUrl: string
   sourceOrigin: string
+  /**
+   * Where the effect actually happens when the target is in a child frame.
+   * Policy judges grants and sensitive paths against this, not the page: a
+   * grant for the page's origin says nothing about a frame from another site
+   * embedded in it, and a sign-in form inside a frame is still a sign-in form.
+   */
+  frameUrl?: string
+  frameOrigin?: string
 }
 
 export interface AuthorizedAgentEffect extends ResolvedAgentEffect {
@@ -135,6 +157,8 @@ export interface AgentVerificationInput {
   effect: AuthorizedAgentEffect
   receipt: AgentExecutionReceipt
   before: AgentObservation
+  /** What the verifier's own observation may read; see `AgentObserveRequest`. */
+  allowedOrigins: readonly string[]
 }
 
 export type AgentPolicyBlockReason =
@@ -163,6 +187,11 @@ export interface AgentPolicyInput {
   stepId: string
   effect: ResolvedAgentEffect
   allowedOrigins: readonly string[]
+  /**
+   * Tabs the run already drives. Switching to any other tab adopts a page the
+   * user has been working in, so it costs an approval whatever the page is.
+   */
+  scopedTabIds: readonly number[]
   /** What the user pre-authorized for this run, if anything. */
   grants?: readonly AgentGrant[]
   now: number
@@ -209,6 +238,7 @@ export type AgentStatePatch = Partial<
     | "pauseReason"
     | "question"
     | "result"
+    | "scopedTabIds"
     | "stepCount"
     | "updatedAt"
   >

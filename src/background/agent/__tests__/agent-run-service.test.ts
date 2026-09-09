@@ -16,10 +16,10 @@ import { createAgentSupervision } from "../agent-supervision"
 const runs = new Map<string, AgentRunState>()
 
 const persistence = (): AgentPersistencePort => ({
-  claim: async ({ runId, phase }) => {
+  claim: async ({ runId, phase, patch }) => {
     const state = runs.get(runId)
     if (!state) return { claimed: false }
-    const next: AgentRunState = { ...state, status: phase }
+    const next: AgentRunState = { ...state, ...patch, status: phase }
     runs.set(runId, next)
     return { claimed: true, state: next }
   },
@@ -91,10 +91,21 @@ const startInput = {
 const browserSessions = () => {
   let listener: ((event: AgentBrowserSessionInterruption) => void) | undefined
   const manager = {
-    capabilities: { backend: "cdp", cdpControl: true, domControl: true },
-    attach: vi.fn(async () => undefined),
-    detach: vi.fn(async () => undefined),
+    capabilities: {
+      backend: "cdp",
+      cdpControl: true,
+      domControl: true,
+      frameTracking: true
+    },
+    attach: vi.fn(async (_runId: string, _tabId: number) => undefined),
+    detach: vi.fn(async (_runId: string) => undefined),
     isAttached: vi.fn(() => true),
+    attachedTabId: vi.fn(() => 7),
+    frames: vi.fn(() => ({ status: "tracking" as const, frames: [] })),
+    mapFrame: vi.fn(() => ({
+      mapped: false as const,
+      reason: "no_matching_frame" as const
+    })),
     subscribe: vi.fn((next) => {
       listener = next
       return () => {
@@ -535,5 +546,53 @@ describe("Agent run service", () => {
       steps: [],
       pending: undefined
     })
+  })
+})
+
+describe("Agent run service tab scope", () => {
+  beforeEach(() => {
+    runs.clear()
+  })
+
+  it("starts with the controlled tab as the run's whole scope", async () => {
+    const { service: agent } = service()
+    const state = await agent.start(startInput)
+    expect(state.scopedTabIds).toEqual([7])
+  })
+
+  it("moves the debugger onto the tab the run adopted before page work begins", async () => {
+    const browser = browserSessions()
+    const order: string[] = []
+    browser.manager.detach.mockImplementation(async () => {
+      order.push("detach")
+    })
+    browser.manager.attach.mockImplementation(async (_runId, tabId) => {
+      order.push(`attach:${tabId}`)
+    })
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: vi.fn(({ persistence: port, runId }) => ({
+        start: vi.fn(async () => {
+          const claimed = await port.claim({
+            runId,
+            phase: "observing",
+            expected: ["submitted"],
+            patch: { controlledTabId: 9, scopedTabIds: [7, 9] }
+          })
+          order.push(`claimed:${claimed.claimed}`)
+        }),
+        requestPause: vi.fn(async () => undefined),
+        resume: vi.fn(async () => undefined),
+        requestCancel: vi.fn(async () => undefined),
+        completeTakeover: vi.fn(async () => undefined),
+        answerQuestion: vi.fn(async () => undefined)
+      }))
+    })
+
+    await agent.start(startInput)
+
+    await vi.waitFor(() =>
+      expect(order).toEqual(["attach:7", "detach", "attach:9", "claimed:true"])
+    )
   })
 })

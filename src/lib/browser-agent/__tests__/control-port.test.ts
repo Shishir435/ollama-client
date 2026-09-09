@@ -9,6 +9,7 @@ import {
   type AgentControlEvent,
   type AgentControlPort,
   type AgentDomMutationInstruction,
+  AgentDomMutationInstructionSchema,
   AgentExecuteRequestSchema,
   AgentExecuteScrollRequestSchema,
   AgentObserveRequestSchema,
@@ -33,11 +34,29 @@ class FakeEvent<T extends (...args: never[]) => unknown>
   }
 }
 
-const observation = (overrides: Partial<AgentObservation> = {}) =>
-  ({
+const rootFrame = (
+  observation: Pick<
+    AgentObservation,
+    "frameId" | "documentId" | "origin" | "url" | "snapshotId" | "generation"
+  >
+): AgentObservation["frames"][number] => ({
+  frameId: observation.frameId,
+  documentId: observation.documentId,
+  origin: observation.origin,
+  url: observation.url,
+  access: "ok",
+  snapshotId: observation.snapshotId,
+  generation: observation.generation
+})
+
+const observation = (
+  overrides: Partial<AgentObservation> = {}
+): AgentObservation => {
+  const base = {
     snapshotId: "snapshot-1",
     generation: 1,
     tabId: 7,
+    frameId: 0,
     documentId: "document-1",
     url: "https://example.com/",
     origin: "https://example.com",
@@ -55,7 +74,9 @@ const observation = (overrides: Partial<AgentObservation> = {}) =>
     dialogs: [],
     capturedAt: 1,
     ...overrides
-  }) satisfies AgentObservation
+  }
+  return { ...base, frames: overrides.frames ?? [rootFrame(base)] }
+}
 
 const binding = {
   runId: "run-1",
@@ -95,6 +116,14 @@ const mutationInstruction = (
     snapshotId: "snapshot-1",
     generation: 1,
     tabId: 7,
+    frameId: 0,
+    documentId: "document-1"
+  },
+  frame: {
+    snapshotId: "snapshot-1",
+    generation: 1,
+    tabId: 7,
+    frameId: 0,
     documentId: "document-1"
   },
   ...overrides
@@ -113,6 +142,14 @@ const scrollInstruction = (
     snapshotId: "snapshot-1",
     generation: 1,
     tabId: 7,
+    frameId: 0,
+    documentId: "document-1"
+  },
+  frame: {
+    snapshotId: "snapshot-1",
+    generation: 1,
+    tabId: 7,
+    frameId: 0,
     documentId: "document-1"
   },
   ...overrides
@@ -169,14 +206,28 @@ describe("Agent control port", () => {
     ).toThrow("binding mismatch")
   })
 
-  it("rejects subframe elements and inconsistent origins", () => {
+  it("rejects elements from another frame and inconsistent origins", () => {
+    const base = observation()
     expect(() =>
       validateAgentObservationResponse(
         response({
           observation: observation({
+            frames: [
+              base.frames[0],
+              {
+                frameId: 2,
+                parentFrameId: 0,
+                documentId: "document-2",
+                origin: "https://example.com",
+                url: "https://example.com/child",
+                access: "ok",
+                snapshotId: "snapshot-child",
+                generation: 1
+              }
+            ],
             elements: [
               {
-                ref: "e1",
+                ref: "f2e1",
                 frameId: 2,
                 tag: "button",
                 visible: true,
@@ -380,6 +431,7 @@ describe("Agent control port", () => {
           snapshotId: "snapshot-1",
           generation: 1,
           tabId: 8,
+          frameId: 0,
           documentId: "document-1"
         }
       })
@@ -484,6 +536,7 @@ describe("Agent control port", () => {
           snapshotId: "snapshot-1",
           generation: 1,
           tabId: 8,
+          frameId: 0,
           documentId: "document-1"
         }
       })
@@ -501,7 +554,8 @@ describe("Agent control port", () => {
     const { port } = createPort()
     const adapter: AgentControlBrowserAdapter = {
       getTab: async () => ({ url }),
-      getMainFrame: vi.fn(),
+      getFrame: vi.fn(),
+      listFrames: vi.fn(async () => []),
       inject: vi.fn(),
       connect: vi.fn(() => port),
       classifyAccess: async (candidate) =>
@@ -518,7 +572,8 @@ describe("Agent control port", () => {
     const { port } = createPort()
     const adapter: AgentControlBrowserAdapter = {
       getTab: async () => ({ url: "https://private.example" }),
-      getMainFrame: vi.fn(),
+      getFrame: vi.fn(),
+      listFrames: vi.fn(async () => []),
       inject: vi.fn(),
       connect: vi.fn(() => port),
       classifyAccess: async () => "excluded",
@@ -527,7 +582,7 @@ describe("Agent control port", () => {
     await expect(
       openAgentControlSession({ runId: "run-1", tabId: 7, adapter })
     ).rejects.toThrow("excluded")
-    expect(adapter.getMainFrame).not.toHaveBeenCalled()
+    expect(adapter.getFrame).not.toHaveBeenCalled()
   })
 
   it("connects only to the observed main-frame document", async () => {
@@ -535,11 +590,13 @@ describe("Agent control port", () => {
     const connect = vi.fn(() => port)
     const adapter: AgentControlBrowserAdapter = {
       getTab: async () => ({ url: "https://example.com" }),
-      getMainFrame: async () => ({
+      getFrame: async () => ({
         frameId: 0,
+        parentFrameId: -1,
         documentId: "document-1",
         url: "https://example.com/"
       }),
+      listFrames: vi.fn(async () => []),
       inject: vi.fn(),
       connect,
       classifyAccess: async () => "ok",
@@ -737,5 +794,99 @@ describe("Agent control failures", () => {
       name: "AgentControlFailedError",
       reason: "observation_build_failed"
     })
+  })
+})
+
+describe("Agent control port across frames", () => {
+  const childIdentity = {
+    snapshotId: "snapshot-child",
+    generation: 3,
+    tabId: 7,
+    frameId: 2,
+    documentId: "document-2"
+  }
+
+  it("opens a child frame session on that frame's own document", async () => {
+    const { port } = createPort()
+    const connect = vi.fn(() => port)
+    const inject = vi.fn()
+    const adapter: AgentControlBrowserAdapter = {
+      getTab: async () => ({ url: "https://example.com" }),
+      getFrame: async (_tabId, frameId) => ({
+        frameId,
+        parentFrameId: 0,
+        documentId: "document-2",
+        url: "https://example.com/child"
+      }),
+      listFrames: vi.fn(async () => []),
+      inject,
+      connect,
+      classifyAccess: async () => "ok",
+      createNonce: () => binding.nonce
+    }
+    const session = await openAgentControlSession({
+      runId: "run-1",
+      tabId: 7,
+      frameId: 2,
+      adapter
+    })
+    expect(session.frameId).toBe(2)
+    expect(inject).toHaveBeenCalledWith(7, 2)
+    expect(connect).toHaveBeenCalledWith(7, {
+      name: MESSAGE_KEYS.AGENT.CONTROL_PORT,
+      frameId: 2,
+      documentId: "document-2"
+    })
+  })
+
+  it("refuses an instruction bound to a frame other than the port's", () => {
+    const { port, onMessage } = createPort()
+    const executeDomMutation = vi.fn()
+    attachAgentControlContentPort(port, {
+      buildObservation: () => observation(),
+      executeDomMutation,
+      executeScroll: vi.fn()
+    })
+    onMessage.emit({
+      version: AGENT_CONTROL_VERSION,
+      type: "agent_execute_dom_mutation",
+      ...binding,
+      sequence: 1,
+      instruction: mutationInstruction({
+        target: { ...mutationInstruction().target, ref: "f2e1", frameId: 2 },
+        frame: childIdentity
+      })
+    })
+    expect(executeDomMutation).not.toHaveBeenCalled()
+    expect(port.disconnect).toHaveBeenCalledOnce()
+  })
+
+  it("accepts a child frame identity only when it names another frame", () => {
+    const base = mutationInstruction()
+    expect(
+      AgentDomMutationInstructionSchema.safeParse({
+        ...base,
+        target: { ...base.target, frameId: 2 },
+        frame: childIdentity
+      }).success
+    ).toBe(true)
+    expect(
+      AgentDomMutationInstructionSchema.safeParse({
+        ...base,
+        frame: { ...childIdentity, frameId: 0 }
+      }).success
+    ).toBe(false)
+    expect(
+      AgentDomMutationInstructionSchema.safeParse({
+        ...base,
+        frame: { ...childIdentity, tabId: 8 }
+      }).success
+    ).toBe(false)
+    expect(
+      AgentDomMutationInstructionSchema.safeParse({
+        ...base,
+        frame: childIdentity
+      }).success
+    ).toBe(false)
   })
 })

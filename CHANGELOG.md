@@ -29,6 +29,18 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   sensitive fields keep asking every time. Startup recovery is now proven
   against the real database at every phase a worker can be lost in, and a
   frozen benchmark records what each task family actually costs.
+- Agent Preview on Chromium owns its debugger sessions: attached when a run
+  starts on an authorized tab, released on pause, takeover, stop, completion
+  and failure, and paused clearly when the debugger disconnects or the tab
+  closes. Firefox keeps the DOM backend and says so.
+- Agent Preview knows which frame a control is in. Every reference is bound to
+  its tab, frame, document and observation generation; child frames on
+  allowed sites are read through their own sessions and composed into one
+  page, frames on other sites are listed by origin and left alone, and a frame
+  that navigates invalidates only its own references. A run drives the tab it
+  started on and the tabs it opened; adopting any other tab asks first. The
+  debugger's frame tree is tracked and mapped onto extension frames only when
+  the join is exact.
 
 ## [0.13.3]
 

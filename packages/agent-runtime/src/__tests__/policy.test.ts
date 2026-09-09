@@ -25,6 +25,7 @@ const effect = (
     snapshotId: "snapshot-1",
     generation: 1,
     tabId: 1,
+    frameId: 0,
     documentId: "document-1"
   },
   sourceUrl: "https://example.com/",
@@ -40,6 +41,7 @@ const input = (
   stepId: "step-1",
   effect: resolved,
   allowedOrigins: ["https://example.com"],
+  scopedTabIds: [1],
   now: 100,
   ...overrides
 })
@@ -349,5 +351,96 @@ describe("resolved-effect policy", () => {
         })
       ).type
     ).not.toBe("granted")
+  })
+})
+
+describe("tab scope policy", () => {
+  const switchTab = (tabId: number): ResolvedAgentEffect => ({
+    command: {
+      type: "switch_tab",
+      tabId,
+      snapshotId: "snapshot-1",
+      generation: 1
+    },
+    target: { sensitive: false, maySubmit: false },
+    destination: {
+      url: "https://example.com/other",
+      origin: "https://example.com",
+      source: "browser"
+    },
+    semanticEffects: ["navigation"],
+    snapshotIdentity: {
+      snapshotId: "snapshot-1",
+      generation: 1,
+      tabId: 1,
+      frameId: 0,
+      documentId: "document-1"
+    },
+    sourceUrl: "https://example.com/",
+    sourceOrigin: "https://example.com"
+  })
+
+  it("lets the run switch between the tabs it already drives", () => {
+    expect(
+      evaluateAgentPolicy(input(switchTab(2), { scopedTabIds: [1, 2] }))
+    ).toEqual({ type: "allow", risk: "medium" })
+  })
+
+  it("asks before adopting a tab outside the run's scope, whatever its origin", () => {
+    const decision = evaluateAgentPolicy(
+      input(switchTab(9), { scopedTabIds: [1] })
+    )
+    expect(decision).toMatchObject({
+      type: "approval_required",
+      risk: "high",
+      request: { action: "Adopt tab 9 at https://example.com/other" }
+    })
+  })
+})
+
+describe("child frame policy", () => {
+  const grant = {
+    origin: "https://example.com",
+    effects: ["activation" as const],
+    grantedAt: 1
+  }
+  const framed = effect(["activation"], {
+    frameUrl: "https://widgets.example/login",
+    frameOrigin: "https://widgets.example"
+  })
+
+  it("does not spend a page grant on a frame from another site", () => {
+    const decision = evaluateAgentPolicy(
+      input(framed, {
+        allowedOrigins: ["https://example.com", "https://widgets.example"],
+        grants: [grant]
+      })
+    )
+    expect(decision).toMatchObject({ type: "approval_required", risk: "high" })
+    expect(
+      (decision as { request?: { origin?: string } }).request?.origin
+    ).toBe("https://widgets.example")
+  })
+
+  it("spends a grant given for the frame's own site", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(framed, {
+          allowedOrigins: ["https://example.com", "https://widgets.example"],
+          grants: [{ ...grant, origin: "https://widgets.example" }]
+        })
+      )
+    ).toEqual({
+      type: "granted",
+      risk: "high",
+      origin: "https://widgets.example"
+    })
+  })
+
+  it("treats a frame on an origin outside the allowlist as a new site", () => {
+    expect(evaluateAgentPolicy(input(effect(["read"], framed)))).toMatchObject({
+      type: "approval_required",
+      risk: "high"
+    })
   })
 })

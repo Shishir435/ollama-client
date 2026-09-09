@@ -84,11 +84,19 @@ const makeTakeoverRequest = (
  * copy of this rule. Critical risk, a class outside the grantable set, or a
  * destination leaving the origin all mean the offer is simply absent.
  */
+/**
+ * The origin an effect acts on. A target in a child frame acts on that
+ * frame's origin; a grant for the page around it does not reach in, and an
+ * approval given here is offered for the frame's site, not the page's.
+ */
+const actingOrigin = (input: AgentPolicyInput): string =>
+  input.effect.frameOrigin ?? input.effect.sourceOrigin
+
 const grantableFor = (
   input: AgentPolicyInput,
   risk: Exclude<AgentRisk, "low">
 ): Pick<AgentApprovalRequest, "origin" | "grantable"> => {
-  const origin = input.effect.sourceOrigin
+  const origin = actingOrigin(input)
   const destination = input.effect.destination
   const grantable: readonly string[] = AGENT_GRANTABLE_EFFECTS
   if (
@@ -111,9 +119,12 @@ const makeApprovalRequest = (
   risk: Exclude<AgentRisk, "low">
 ): AgentApprovalRequest => {
   const destination = input.effect.destination?.url
-  const action = destination
-    ? `Allow navigation to ${destination}`
-    : `Allow ${input.effect.command.type}`
+  const adopting = adoptsTab(input)
+  const action = adopting
+    ? `Adopt tab ${adopting} at ${destination}`
+    : destination
+      ? `Allow navigation to ${destination}`
+      : `Allow ${input.effect.command.type}`
   return {
     ...grantableFor(input, risk),
     id: `${input.stepId}:approval`,
@@ -144,7 +155,7 @@ const grantFor = (
   risk: AgentRisk
 ): AgentGrant | undefined => {
   if (risk === "critical" || !input.grants?.length) return undefined
-  const origin = input.effect.sourceOrigin
+  const origin = actingOrigin(input)
   if (!input.allowedOrigins.includes(origin)) return undefined
   const destination = input.effect.destination
   if (destination && destination.origin !== origin) return undefined
@@ -161,6 +172,41 @@ const grantFor = (
         (grant.effects as readonly string[]).includes(effect)
       )
   )
+}
+
+/**
+ * The tab a switch would adopt, when it is one the run does not drive yet. A
+ * tab outside the scope is a page the user was working in, and reading it is
+ * the user's to grant whatever its origin — the site allowlist answers a
+ * different question.
+ */
+const adoptsTab = (input: AgentPolicyInput): number | undefined => {
+  const command = input.effect.command
+  if (command.type !== "switch_tab") return undefined
+  return input.scopedTabIds.includes(command.tabId) ? undefined : command.tabId
+}
+
+/**
+ * The risk an effect carries before its destination is considered: what it
+ * does to the page, whether it can submit, whether it adopts a tab the run
+ * does not drive, and whether it acts inside a frame on a site outside the
+ * allowlist — a frame the run reads is on an allowed origin, so anything else
+ * is a new site.
+ */
+const baselineRisk = (input: AgentPolicyInput): AgentRisk => {
+  let risk: AgentRisk = "low"
+  for (const effect of input.effect.semanticEffects) {
+    risk = raiseRisk(risk, effectRisk(effect))
+  }
+  if (input.effect.target.maySubmit) risk = raiseRisk(risk, "critical")
+  if (adoptsTab(input) !== undefined) risk = raiseRisk(risk, "high")
+  if (
+    input.effect.frameOrigin !== undefined &&
+    !input.allowedOrigins.includes(input.effect.frameOrigin)
+  ) {
+    risk = raiseRisk(risk, "high")
+  }
+  return risk
 }
 
 export const evaluateAgentPolicy = (
@@ -201,11 +247,7 @@ export const evaluateAgentPolicy = (
     }
   }
 
-  let risk: AgentRisk = "low"
-  for (const effect of input.effect.semanticEffects) {
-    risk = raiseRisk(risk, effectRisk(effect))
-  }
-  if (input.effect.target.maySubmit) risk = raiseRisk(risk, "critical")
+  let risk = baselineRisk(input)
 
   if (destination) {
     const newOrigin = !input.allowedOrigins.includes(destination.origin)

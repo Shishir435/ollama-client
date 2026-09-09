@@ -53,11 +53,14 @@ card number or a one-time code, and it will not choose a file for you.
 
 ## What it will not do
 
-- **One tab at a time.** Agent drives the tab it currently controls. It can
-  open a tab and switch to one, and every tab it acts on has to be readable
-  and on a site you allowed — an unfamiliar site is a new approval. It is not
-  restricted to tabs it opened itself, so treat "sites you allowed" rather
-  than "the tab you started on" as the boundary that holds.
+- **One tab at a time, from a known set.** Agent drives the tab it currently
+  controls. The tab you started on and any tab it opened itself are the tabs it
+  may switch between; switching to any other tab — one you were working in —
+  asks you first, whatever site it is on. Every tab it acts on also has to be
+  readable and on a site you allowed.
+- **Only frames on sites you allowed.** Content inside an iframe is observed
+  when the frame is on a site the run may read; a frame on any other site is
+  reported to the model by its origin and left alone.
 - **Only sites you allowed.** A destination on a new site is a new decision.
 - **Only what the page rendered.** Destinations come from links the page
   actually showed; a URL the model composed carrying data from your page is
@@ -69,11 +72,12 @@ card number or a one-time code, and it will not choose a file for you.
 
 These are current limits, not design decisions.
 
-- **No tab allowlist.** Switching tabs is bounded by readability and the site
-  allowlist, not by which tabs the run has been involved with.
-
-- **One frame.** Content inside an iframe or a shadow root is not observed, so
-  a control inside one cannot be used.
+- **Shadow roots.** Content inside a shadow root is not observed, so a
+  control inside one cannot be used. Frames are observed; the controls inside
+  a shadow root within a frame are not.
+- **Frame limits.** A page with more than eleven child frames has the rest
+  counted but not read, and a very large page can leave a frame no room to
+  report its controls; both are reported to the model as such.
 - **Native dialogs.** A JavaScript `alert`, `confirm` or `prompt` blocks the
   page and cannot be seen or answered. In-page dialogs and menus are fine.
 - **No vision.** Only the page's structure and text; an image, a canvas or a

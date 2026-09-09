@@ -15,6 +15,11 @@ import type {
 } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
+import {
+  agentFramePage,
+  agentFrameSnapshotIdentity,
+  rootAgentSnapshotIdentity
+} from "./frame-identity"
 
 export const READ_ONLY_AGENT_ACTIONS = [
   "read",
@@ -55,12 +60,14 @@ const targetFromObservation = (
     return { sensitive: false, maySubmit: false }
   }
   const element = observation.elements.find(
-    (candidate) => candidate.ref === command.ref && candidate.frameId === 0
+    (candidate) => candidate.ref === command.ref
   )
   if (!element)
     throw new AgentStaleObservationError("Agent scroll target is stale")
   return {
     ref: element.ref,
+    frameId: element.frameId,
+    frame: agentFrameSnapshotIdentity(observation, element),
     tag: element.tag,
     role: element.role,
     accessibleName: element.name,
@@ -142,9 +149,14 @@ export const resolveReadOnlyAgentEffect = async (input: {
     throw new AgentUnreadablePageError("Agent destination is not readable")
   }
 
+  const target = targetFromObservation(command, observation)
+  /* A referenced scroll is bound to its target's frame; nothing else has one. */
+  const frame = target.frame
+    ? agentFramePage(observation, target.frame)
+    : undefined
   return {
     command,
-    target: targetFromObservation(command, observation),
+    target,
     ...(resolvedDestination ? { destination: resolvedDestination } : {}),
     semanticEffects:
       command.type === "scroll"
@@ -154,14 +166,10 @@ export const resolveReadOnlyAgentEffect = async (input: {
             command.type === "forward"
           ? ["navigation"]
           : ["read"],
-    snapshotIdentity: {
-      snapshotId: observation.snapshotId,
-      generation: observation.generation,
-      tabId: observation.tabId,
-      documentId: observation.documentId
-    },
+    snapshotIdentity: rootAgentSnapshotIdentity(observation),
     sourceUrl: source.url,
-    sourceOrigin: source.origin
+    sourceOrigin: source.origin,
+    ...(frame ? { frameUrl: frame.url, frameOrigin: frame.origin } : {})
   }
 }
 
@@ -329,8 +337,7 @@ const observedLink = (
   observation: AgentObservation
 ): AgentElement | undefined =>
   observation.elements.find(
-    (element) =>
-      element.frameId === 0 && element.visible && element.href === url.href
+    (element) => element.visible && element.href === url.href
   )
 
 const isDownloadDestination = (url: URL, link?: AgentElement): boolean => {
@@ -393,12 +400,7 @@ export const resolveNavigationAgentEffect = async (input: {
     target: { sensitive: false, maySubmit: false },
     destination,
     semanticEffects: effects,
-    snapshotIdentity: {
-      snapshotId: observation.snapshotId,
-      generation: observation.generation,
-      tabId: observation.tabId,
-      documentId: observation.documentId
-    },
+    snapshotIdentity: rootAgentSnapshotIdentity(observation),
     sourceUrl: source.url,
     sourceOrigin: source.origin
   }
@@ -448,7 +450,7 @@ const findMutationElement = (
   const refused = classifyAgentAffordance(command, observation)
   if (refused) throw new AgentGroundingError({ refusal: refused })
   const element = observation.elements.find(
-    (candidate) => candidate.ref === command.ref && candidate.frameId === 0
+    (candidate) => candidate.ref === command.ref
   )
   if (!element)
     throw new AgentGroundingError({ refusal: { reason: "unknown_ref" } })
@@ -457,11 +459,13 @@ const findMutationElement = (
 
 const targetFromElement = (
   element: AgentElement,
+  observation: AgentObservation,
   expected?: { value?: string; checked?: boolean }
 ): ResolvedAgentTarget => ({
   ref: element.ref,
   verificationId: element.verificationId,
-  frameId: 0,
+  frameId: element.frameId,
+  frame: agentFrameSnapshotIdentity(observation, element),
   tag: element.tag,
   role: element.role,
   accessibleName: element.name,
@@ -500,9 +504,11 @@ const linkDestination = (
 const addPageClassifications = (
   effects: AgentSemanticEffect[],
   source: URL,
-  destination?: AgentDestination
+  destination?: AgentDestination,
+  frame?: URL
 ): void => {
   const paths = [`${source.pathname}${source.search}`]
+  if (frame) paths.push(`${frame.pathname}${frame.search}`)
   if (destination) {
     const parsed = new URL(destination.url)
     paths.push(`${parsed.pathname}${parsed.search}`)
@@ -618,20 +624,22 @@ export const resolveDomMutationAgentEffect = async (input: {
     effects.push("sensitive_input")
   }
   if (isDestructiveLabel(element.name)) effects.push("destructive")
-  addPageClassifications(effects, new URL(source.url), destination)
+  const frame = agentFramePage(observation, element)
+  addPageClassifications(
+    effects,
+    new URL(source.url),
+    destination,
+    frame ? new URL(frame.url) : undefined
+  )
 
   return {
     command,
-    target: targetFromElement(element, expected),
+    target: targetFromElement(element, observation, expected),
     ...(destination ? { destination } : {}),
     semanticEffects: [...new Set(effects)],
-    snapshotIdentity: {
-      snapshotId: observation.snapshotId,
-      generation: observation.generation,
-      tabId: observation.tabId,
-      documentId: observation.documentId
-    },
+    snapshotIdentity: rootAgentSnapshotIdentity(observation),
     sourceUrl: source.url,
-    sourceOrigin: source.origin
+    sourceOrigin: source.origin,
+    ...(frame ? { frameUrl: frame.url, frameOrigin: frame.origin } : {})
   }
 }

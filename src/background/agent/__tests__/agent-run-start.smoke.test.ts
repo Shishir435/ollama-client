@@ -129,10 +129,22 @@ describe("starting an Agent run against the real engine", () => {
         snapshotId: "snapshot-vertical-1",
         generation: 1,
         tabId: 7,
+        frameId: 0,
         documentId: "document-vertical-1",
         url: "https://example.com/start",
         origin: "https://example.com",
         title: "Example",
+        frames: [
+          {
+            frameId: 0,
+            documentId: "document-vertical-1",
+            origin: "https://example.com",
+            url: "https://example.com/start",
+            access: "ok",
+            snapshotId: "snapshot-vertical-1",
+            generation: 1
+          }
+        ],
         elements: [],
         visibleText: "Pricing is available.",
         scroll: {

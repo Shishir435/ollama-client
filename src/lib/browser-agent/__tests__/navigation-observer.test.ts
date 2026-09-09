@@ -21,7 +21,39 @@ const event = () => {
 }
 
 describe("Agent navigation observer", () => {
-  it("ignores subframe commits", () => {
+  it("invalidates on a child frame commit and keeps the root document", () => {
+    const committed = event()
+    const historyUpdated = event()
+    const invalidate = vi.fn()
+    const observer = createAgentNavigationObserver({
+      committed: committed.value,
+      historyUpdated: historyUpdated.value,
+      onInvalidate: invalidate
+    })
+    committed.emit({
+      tabId: 7,
+      frameId: 0,
+      documentId: "document-1",
+      url: "https://example.com/"
+    })
+    committed.emit({
+      tabId: 7,
+      frameId: 4,
+      documentId: "subframe",
+      url: "https://example.com/frame"
+    })
+    expect(observer.current(7)).toMatchObject({
+      frameId: 4,
+      generation: 2,
+      frames: [
+        { frameId: 0, documentId: "document-1" },
+        { frameId: 4, documentId: "subframe" }
+      ]
+    })
+    expect(invalidate).toHaveBeenCalledTimes(2)
+  })
+
+  it("drops every child document when the root commits", () => {
     const committed = event()
     const historyUpdated = event()
     const observer = createAgentNavigationObserver({
@@ -34,7 +66,15 @@ describe("Agent navigation observer", () => {
       documentId: "subframe",
       url: "https://example.com/frame"
     })
-    expect(observer.current(7)).toBeUndefined()
+    committed.emit({
+      tabId: 7,
+      frameId: 0,
+      documentId: "document-2",
+      url: "https://example.com/next"
+    })
+    expect(observer.current(7)?.frames).toEqual([
+      { frameId: 0, documentId: "document-2", url: "https://example.com/next" }
+    ])
   })
 
   it("invalidates snapshots for main-frame commits and SPA navigation", () => {

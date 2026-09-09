@@ -59,10 +59,16 @@ export const createAgentBrowserAdapters = (input: {
     if (!effect.target.ref || !effect.target.tag) {
       throw new Error("Agent mutation target is not an observed element")
     }
+    // The frame identity travels as the instruction's own field, never inside
+    // the wire target: that target is validated by a strict schema with no
+    // `frame` key, so leaking it there is a parse failure before a byte is sent.
+    const { frame: targetFrame, ...target } = effect.target
+    const frame = targetFrame ?? effect.snapshotIdentity
     return {
       command: effect.command,
-      target: { ...effect.target, ref: effect.target.ref, frameId: 0 },
-      snapshotIdentity: effect.snapshotIdentity
+      target: { ...target, ref: effect.target.ref, frameId: frame.frameId },
+      snapshotIdentity: effect.snapshotIdentity,
+      frame
     } as AgentDomMutationInstruction
   }
 
@@ -82,17 +88,23 @@ export const createAgentBrowserAdapters = (input: {
   const observe = (
     tabId: number,
     minimumGeneration: number,
+    allowedOrigins: readonly string[],
     signal: AgentCancellationSignal
   ) =>
     input.sessions.observe(
-      { runId: input.runId, tabId, minimumGeneration },
+      { runId: input.runId, tabId, minimumGeneration, allowedOrigins },
       abortSignal(signal)
     )
 
   return {
     observation: {
       observe: (request, signal) =>
-        observe(request.tabId, request.minimumGeneration, signal)
+        observe(
+          request.tabId,
+          request.minimumGeneration,
+          request.allowedOrigins,
+          signal
+        )
     },
     resolver: {
       getTab,
@@ -101,10 +113,10 @@ export const createAgentBrowserAdapters = (input: {
     },
     executor: {
       getTab,
-      async getMainFrame(tabId) {
+      async getFrame(tabId, frameId) {
         const frame = (await browser.webNavigation.getFrame({
           tabId,
-          frameId: 0
+          frameId
         })) as { documentId?: string; url: string } | null
         return frame ? { documentId: frame.documentId, url: frame.url } : null
       },
@@ -112,13 +124,14 @@ export const createAgentBrowserAdapters = (input: {
       async scroll(
         command,
         identity: AgentSnapshotIdentity,
+        frame: AgentSnapshotIdentity,
         signal: AgentCancellationSignal
       ) {
         await input.sessions.executeScroll(
           {
             runId: input.runId,
             tabId: identity.tabId,
-            instruction: { command, snapshotIdentity: identity }
+            instruction: { command, snapshotIdentity: identity, frame }
           },
           abortSignal(signal)
         )

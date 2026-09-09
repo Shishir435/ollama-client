@@ -300,8 +300,15 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
+      # The runner image ships Google's Chrome apt source, and Playwright's
+      # dependency install runs `apt-get update` across every source. That
+      # mirror serves a stale index often enough to fail the whole gate for a
+      # repository nothing here reads, so it is dropped first.
       - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome*.list \
+            /etc/apt/sources.list.d/google*.list
+          pnpm exec playwright install --with-deps chromium
 
       # Under xvfb so the runner's own headless→headful retry has a display to
       # fall back to when extension-id resolution fails headless.
@@ -415,8 +422,15 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
+      # The runner image ships Google's Chrome apt source, and Playwright's
+      # dependency install runs `apt-get update` across every source. That
+      # mirror serves a stale index often enough to fail the whole gate for a
+      # repository nothing here reads, so it is dropped first.
       - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome*.list \
+            /etc/apt/sources.list.d/google*.list
+          pnpm exec playwright install --with-deps chromium
 
       - name: Run critical browser gates
         run: pnpm e2e:chromium:critical
@@ -471,8 +485,15 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
+      # The runner image ships Google's Chrome apt source, and Playwright's
+      # dependency install runs `apt-get update` across every source. That
+      # mirror serves a stale index often enough to fail the whole gate for a
+      # repository nothing here reads, so it is dropped first.
       - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/google-chrome*.list \
+            /etc/apt/sources.list.d/google*.list
+          pnpm exec playwright install --with-deps chromium
 
       - name: Run full provider stream matrix
         run: pnpm e2e:chromium:provider-full

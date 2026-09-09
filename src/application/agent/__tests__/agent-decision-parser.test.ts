@@ -10,10 +10,22 @@ const observation: AgentObservation = {
   snapshotId: "snapshot-2",
   generation: 2,
   tabId: 7,
+  frameId: 0,
   documentId: "document-1",
   url: "https://example.com/",
   origin: "https://example.com",
   title: "Example",
+  frames: [
+    {
+      frameId: 0,
+      documentId: "document-1",
+      origin: "https://example.com",
+      url: "https://example.com/",
+      access: "ok",
+      snapshotId: "snapshot-2",
+      generation: 2
+    }
+  ],
   // The parser now grounds a ref, so a fixture has to render what it names.
   elements: [
     {

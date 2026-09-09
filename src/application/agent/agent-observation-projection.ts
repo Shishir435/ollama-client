@@ -36,9 +36,25 @@ export interface AgentProjectedElement {
   hidden?: boolean
 }
 
+/**
+ * A frame the page holds, as the model needs to know it: which frame a ref's
+ * prefix names, and whether the run was able to read it. A frame the run did
+ * not read shows its origin and why, so the model can ask for it rather than
+ * concluding the control is not there.
+ */
+export interface AgentProjectedFrame {
+  frameId: number
+  origin: string
+  access: AgentObservation["frames"][number]["access"]
+}
+
 export interface AgentProjectedObservation {
   url: string
   title: string
+  /** Present only when the page has frames beyond its root. */
+  frames?: AgentProjectedFrame[]
+  /** Child frames the frame cap left unread and unlisted. */
+  omittedFrames?: number
   scroll: { y: number; ofDocument: number }
   /** Open dialogs and menus, so a decision can act inside the top one. */
   modals?: { id: string; label?: string; kind: string }[]
@@ -123,6 +139,16 @@ export const projectAgentObservation = (
 ): AgentProjectedObservation => ({
   url: observation.url,
   title: observation.title,
+  ...(observation.frames.length > 1
+    ? {
+        frames: observation.frames
+          .slice(1)
+          .map(({ frameId, origin, access }) => ({ frameId, origin, access }))
+      }
+    : {}),
+  ...(observation.omittedFrames
+    ? { omittedFrames: observation.omittedFrames }
+    : {}),
   scroll: {
     y: Math.round(observation.scroll.y),
     ofDocument: Math.max(1, Math.round(observation.scroll.documentHeight))
