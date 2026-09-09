@@ -122,7 +122,6 @@ const assertUnchangedMutationTarget = (
   const current = buildAgentElementObservation(
     element,
     ref,
-    undefined,
     effect.frame.frameId
   )
   const expected = effect.target

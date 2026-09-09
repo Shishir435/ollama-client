@@ -449,6 +449,7 @@ describe("Agent DOM mutation execution", () => {
         buildAgentElementObservation(
           target,
           ref,
+          0,
           snapshot.verificationId(target)
         )
       ]

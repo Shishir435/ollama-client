@@ -776,8 +776,8 @@ const buildElementObservation = (
   ref: string,
   verificationId: string | undefined,
   pass: AgentObservationPass,
-  modalIds: Map<Element, string> = new Map(),
-  frameId = 0
+  frameId: number,
+  modalIds: Map<Element, string> = new Map()
 ): AgentElement => {
   const visible = isVisible(element, pass)
   const sensitive = !visible || isSensitiveAgentElement(element)
@@ -811,15 +811,16 @@ const buildElementObservation = (
 export const buildAgentElementObservation = (
   element: Element,
   ref: string,
-  verificationId?: string,
-  frameId = 0
+  /** The frame the element lives in; the root frame is 0. Required so a
+   * child-frame element is never silently bound to the root document. */
+  frameId: number,
+  verificationId?: string
 ): AgentElement =>
   buildElementObservation(
     element,
     ref,
     verificationId,
     createObservationPass(),
-    new Map(),
     frameId
   )
 
@@ -940,8 +941,8 @@ export const buildAgentObservation = (input: {
       snapshot.reference(element),
       snapshot.verificationId(element),
       pass,
-      modalIds,
-      frameId
+      frameId,
+      modalIds
     )
   )
   const visibleText = input.document.body
