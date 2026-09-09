@@ -325,7 +325,7 @@ describe("projectAgentObservation overview budget", () => {
     ]
     const projected = projectAgentObservation(observation({ elements }), {
       pageContentChars: 2_000,
-      focus: { group: 'form "b"' }
+      focus: { region: 'form "b"' }
     })
     const shownB = projected.elements.filter(
       (one) => one.group === 'form "b"'
@@ -344,5 +344,49 @@ describe("projectAgentObservation overview budget", () => {
     )
     expect(projected.textTruncated).toBe(true)
     expect(projected.text.length).toBeLessThan(10_000)
+  })
+})
+
+describe("projectAgentObservation inspection focus", () => {
+  const many = (
+    count: number,
+    base: Partial<AgentElement> = {}
+  ): AgentElement[] =>
+    Array.from({ length: count }, (_value, index) =>
+      element({ ref: `e${index + 1}`, name: `Field ${index + 1}`, ...base })
+    )
+
+  it("surfaces controls matching a find query past the budget", () => {
+    const elements = [
+      ...many(200),
+      element({ ref: "target", name: "Submit application", tag: "button" })
+    ]
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 500,
+      focus: { query: "submit" }
+    })
+    expect(projected.elements.map((one) => one.ref)).toContain("target")
+  })
+
+  it("returns the whole document text when text is requested", () => {
+    const projected = projectAgentObservation(
+      observation({
+        visibleText: "top of page",
+        documentText: "below the fold",
+        documentTextTruncated: true
+      }),
+      { pageContentChars: 500, focus: { text: true } }
+    )
+    expect(projected.text).toBe("top of page")
+    expect(projected.documentText).toBe("below the fold")
+    expect(projected.documentTextTruncated).toBe(true)
+  })
+
+  it("omits the document text by default under a budget", () => {
+    const projected = projectAgentObservation(
+      observation({ visibleText: "top", documentText: "below the fold" }),
+      { pageContentChars: 500 }
+    )
+    expect(projected.documentText).toBeUndefined()
   })
 })

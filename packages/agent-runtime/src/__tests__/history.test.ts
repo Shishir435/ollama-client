@@ -5,6 +5,7 @@ import {
   agentStepSourceUrl,
   agentStepTargetFrom,
   buildAgentHistory,
+  currentAgentInspection,
   previousAgentVerification
 } from "../history"
 import type {
@@ -317,5 +318,72 @@ describe("agentStepTargetFrom", () => {
     expect(
       agentStepTargetFrom({ sensitive: false, maySubmit: false })
     ).toBeUndefined()
+  })
+})
+
+describe("currentAgentInspection", () => {
+  it("derives a region focus from the latest inspect step", () => {
+    const focus = currentAgentInspection([
+      step({ sequence: 1 }),
+      step({
+        sequence: 2,
+        stepId: "run-1:2",
+        command: {
+          type: "inspect",
+          target: 'form "signup"',
+          snapshotId: "snapshot-1",
+          generation: 1
+        }
+      })
+    ])
+    expect(focus).toEqual({ region: 'form "signup"' })
+  })
+
+  it("derives a query focus from a find step", () => {
+    const focus = currentAgentInspection([
+      step({
+        sequence: 1,
+        stepId: "run-1:1",
+        command: {
+          type: "find",
+          query: "submit",
+          snapshotId: "snapshot-1",
+          generation: 1
+        }
+      })
+    ])
+    expect(focus).toEqual({ query: "submit" })
+  })
+
+  it("asks for the whole document text when extract_text names no region", () => {
+    const focus = currentAgentInspection([
+      step({
+        sequence: 1,
+        stepId: "run-1:1",
+        command: {
+          type: "extract_text",
+          snapshotId: "snapshot-1",
+          generation: 1
+        }
+      })
+    ])
+    expect(focus).toEqual({ text: true })
+  })
+
+  it("clears once the latest step is no longer an inspection", () => {
+    const focus = currentAgentInspection([
+      step({
+        sequence: 1,
+        stepId: "run-1:1",
+        command: {
+          type: "inspect",
+          target: 'form "a"',
+          snapshotId: "snapshot-1",
+          generation: 1
+        }
+      }),
+      step({ sequence: 2, stepId: "run-1:2" })
+    ])
+    expect(focus).toBeUndefined()
   })
 })

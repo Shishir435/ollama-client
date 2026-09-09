@@ -1,6 +1,7 @@
 import type {
   AgentCancellationSignal,
   AgentHistoryEntry,
+  AgentInspectionFocus,
   AgentModelPort,
   AgentVerificationResult
 } from "@ollama-client/agent-runtime"
@@ -49,6 +50,9 @@ const agentDecisionParameters = (): ToolParameterSchema => ({
         "uncheck",
         "press_key",
         "scroll",
+        "inspect",
+        "find",
+        "extract_text",
         "navigate",
         "open_tab",
         "switch_tab",
@@ -66,6 +70,16 @@ const agentDecisionParameters = (): ToolParameterSchema => ({
       type: "string",
       description:
         "Observed element ref, e.g. e1. Required for click, type, clear_and_type, select, check, uncheck and press_key."
+    },
+    target: {
+      type: "string",
+      description:
+        "For inspect, a region name from omittedByGroup or an element's group, to reveal its controls. For extract_text, an optional region; omit it for the whole page."
+    },
+    query: {
+      type: "string",
+      description:
+        "For find: text to match against control names, roles and tags across the page."
     },
     text: {
       type: "string",
@@ -127,15 +141,10 @@ Refs like f7e2 belong to a child frame; frames listed without access cannot be r
 Switching to a tab outside scopedTabIds asks the user first.
 The extension attaches snapshot identity; do not return a nested command or opaque IDs.
 Use ask_user when the goal is ambiguous and complete only when the observed evidence supports completion.
+The observation is a bounded overview: omittedByGroup lists regions with controls it did not show. To reach them, inspect a region by its name, find controls by a query, or extract_text for the page's full text. These read only and never mutate the page.
 The history is this run's own record. Only an outcome of "confirmed" happened; anything else was attempted and did not verify, so do not treat it as done.
 Do not repeat a confirmed step. Use finding to record a fact a later step will need.`
 
-/**
- * A retry used to carry only a counter, which told the model that something
- * was wrong and nothing about what: the same wrong answer came back until the
- * budget ran out. `feedback` is the refusal in words the model can act on,
- * built from templates and structure by the parser and never from page text.
- */
 /**
  * The context window is one budget spent across five claimants: the fixed
  * instructions and tool schema, the run's own history, room for the answer,
@@ -184,6 +193,7 @@ const decisionPrompt = (input: {
   feedback?: string
   history?: readonly AgentHistoryEntry[]
   previousVerification?: AgentVerificationResult
+  inspection?: AgentInspectionFocus
 }): string => {
   const envelope = {
     task: input.state.goal,
@@ -216,7 +226,8 @@ const decisionPrompt = (input: {
   return JSON.stringify({
     ...envelope,
     observation: projectAgentObservation(input.observation, {
-      pageContentChars
+      pageContentChars,
+      ...(input.inspection ? { focus: input.inspection } : {})
     })
   })
 }
@@ -269,6 +280,7 @@ const collectDecision = async (input: {
   feedback?: string
   history?: readonly AgentHistoryEntry[]
   previousVerification?: AgentVerificationResult
+  inspection?: AgentInspectionFocus
   signal: AgentCancellationSignal
 }): Promise<AgentDecision> => {
   const calls = new Map<string, ToolCall>()
@@ -318,6 +330,7 @@ const retryUntilWellFormed = async (input: {
   observation: AgentObservation
   history?: readonly AgentHistoryEntry[]
   previousVerification?: AgentVerificationResult
+  inspection?: AgentInspectionFocus
   signal: AgentCancellationSignal
   malformedByRun: Map<string, number>
 }): Promise<AgentDecision> => {
@@ -374,7 +387,7 @@ export const createProviderAgentModelPort = (
 
   return {
     async decide(
-      { state, observation, history, previousVerification },
+      { state, observation, history, previousVerification, inspection },
       signal
     ) {
       if ((malformedByRun.get(state.id) ?? 0) >= MAX_MALFORMED_PER_RUN) {
@@ -400,6 +413,7 @@ export const createProviderAgentModelPort = (
         observation,
         ...(history ? { history } : {}),
         ...(previousVerification ? { previousVerification } : {}),
+        ...(inspection ? { inspection } : {}),
         signal,
         malformedByRun
       })

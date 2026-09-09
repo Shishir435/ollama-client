@@ -1,5 +1,6 @@
 import type {
   AgentHistoryEntry,
+  AgentInspectionFocus,
   AgentStepReadout,
   AgentStepTarget,
   AgentVerificationResult,
@@ -213,4 +214,24 @@ export const agentStepTargetFrom = (
       : { name: target.accessibleName.slice(0, 120) })
   }
   return Object.keys(entry).length > 0 ? entry : undefined
+}
+
+/**
+ * The inspection the run's most recent step asked for, if it asked for one.
+ * Read from that step's own durable command so a worker restart reconstructs
+ * it exactly. A step that was anything else — a click, a navigation, a plain
+ * read — clears the focus, so an overview returns unless the model inspects
+ * again.
+ */
+export const currentAgentInspection = (
+  steps: readonly AgentStepReadout[]
+): AgentInspectionFocus | undefined => {
+  const command = latestByStep(steps).at(-1)?.command
+  if (!command) return undefined
+  if (command.type === "inspect") return { region: command.target }
+  if (command.type === "find") return { query: command.query }
+  if (command.type === "extract_text") {
+    return { text: command.target ?? true }
+  }
+  return undefined
 }

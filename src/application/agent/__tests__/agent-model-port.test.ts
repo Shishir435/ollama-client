@@ -226,6 +226,36 @@ describe("createProviderAgentModelPort", () => {
     expect(userContent).toContain("omittedByGroup")
   })
 
+  it("expands the region the previous step inspected", async () => {
+    const crowded: AgentObservation = {
+      ...observation,
+      elements: Array.from({ length: 400 }, (_value, index) => ({
+        ref: `e${index + 1}`,
+        frameId: 0,
+        tag: "input" as const,
+        name: `Field ${index + 1}`,
+        group: index < 200 ? 'form "a"' : 'form "b"',
+        visible: true,
+        enabled: true,
+        editable: true,
+        sensitive: false
+      })),
+      visibleText: "z".repeat(100_000)
+    }
+    const streamChat = vi.fn(async (_request, emit) => emit(validChunk))
+    const port = modelPort(streamChat)
+    await port.decide(
+      { state, observation: crowded, inspection: { region: 'form "b"' } },
+      { aborted: false }
+    )
+    const userContent = String(
+      streamChat.mock.calls[0]?.[0]?.messages[1]?.content
+    )
+    // Every control of the inspected region is present despite the budget.
+    const shownB = (userContent.match(/form \\"b\\"/g) ?? []).length
+    expect(shownB).toBeGreaterThanOrEqual(200)
+  })
+
   it("retries malformed output at most twice for one decision", async () => {
     let attempt = 0
     const streamChat = vi.fn(async (_request, emit) => {

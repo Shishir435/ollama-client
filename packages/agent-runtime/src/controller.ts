@@ -28,6 +28,7 @@ import {
   agentStepSourceUrl,
   agentStepTargetFrom,
   buildAgentHistory,
+  currentAgentInspection,
   previousAgentVerification
 } from "./history"
 import type {
@@ -340,14 +341,18 @@ export const createAgentController = (
    */
   const recallHistory = async (
     state: AgentRunState
-  ): Promise<Pick<AgentModelInput, "history" | "previousVerification">> => {
+  ): Promise<
+    Pick<AgentModelInput, "history" | "previousVerification" | "inspection">
+  > => {
     try {
       const receipts = await dependencies.persistence.steps(state.id)
       const history = buildAgentHistory(receipts)
       const previous = previousAgentVerification(receipts)
+      const inspection = currentAgentInspection(receipts)
       return {
         ...(history.length > 0 ? { history } : {}),
-        ...(previous ? { previousVerification: previous } : {})
+        ...(previous ? { previousVerification: previous } : {}),
+        ...(inspection ? { inspection } : {})
       }
     } catch (error) {
       /**
@@ -366,7 +371,10 @@ export const createAgentController = (
     state: AgentRunState,
     observation: AgentObservation,
     signal: AgentCancellationController["signal"],
-    recalled: Pick<AgentModelInput, "history" | "previousVerification">
+    recalled: Pick<
+      AgentModelInput,
+      "history" | "previousVerification" | "inspection"
+    >
   ) => {
     let raw: unknown
     try {

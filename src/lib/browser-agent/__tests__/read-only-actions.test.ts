@@ -178,6 +178,37 @@ describe("read-only Agent effects", () => {
     ).rejects.toThrow("destination is not readable")
   })
 
+  it.each([
+    { type: "inspect", target: 'form "signup"' },
+    { type: "find", query: "submit" },
+    { type: "extract_text" }
+  ] as const)("resolves $type as a read that never mutates", async (extra) => {
+    const command = {
+      ...extra,
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as AgentCommand
+    const effect = await resolve(command)
+    expect(effect.semanticEffects).toEqual(["read"])
+    const receipt = await executeReadOnlyAgentEffect({
+      effect: {
+        ...effect,
+        authorization: { type: "policy", risk: "low", authorizedAt: 2 }
+      },
+      adapter: executorAdapter(),
+      signal
+    })
+    expect(receipt.details).toBe(extra.type)
+    const after = observation({ snapshotId: "snapshot-2", generation: 2 })
+    await expect(
+      verifyReadOnlyAgentEffect({
+        verification: await verificationInput(command),
+        adapter: verifierAdapter(after),
+        signal
+      })
+    ).resolves.toMatchObject({ outcome: "confirmed" })
+  })
+
   it("re-runs source, destination, origin access, and history policy", async () => {
     const effect = await authorize({
       type: "back",

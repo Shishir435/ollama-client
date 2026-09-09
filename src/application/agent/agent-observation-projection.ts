@@ -87,9 +87,13 @@ export interface AgentProjectionOptions {
    * travel, as they did before progressive inspection existed.
    */
   pageContentChars?: number
-  /** A region, named by its group, to expand in full while the rest stays at
-   * overview detail. */
-  focus?: { group: string }
+  /**
+   * What the model asked to see more of. Exactly one is expanded past the
+   * budget: `region` shows one group's controls in full, `query` surfaces the
+   * controls matching it, and `text` includes the page's full text — the
+   * below-fold document included — rather than the budgeted excerpt.
+   */
+  focus?: { region?: string; query?: string; text?: string | true }
 }
 
 export const AGENT_PROJECTION_LIMITS = {
@@ -170,19 +174,33 @@ const AGENT_OVERVIEW_TEXT_SHARE = 0.35
  * page itself, which is the region an omission is reported against. */
 const AGENT_PAGE_GROUP = "page"
 
+type AgentOverviewFocus = AgentProjectionOptions["focus"]
+
+/** A control matches a `find` query when the query appears in the name, role
+ * or tag it shows — the fields the model has to recognise it by. */
+const matchesQuery = (element: AgentElement, query: string): boolean => {
+  const needle = query.toLowerCase()
+  return (
+    (element.name?.toLowerCase().includes(needle) ?? false) ||
+    (element.role?.toLowerCase().includes(needle) ?? false) ||
+    element.tag.toLowerCase().includes(needle)
+  )
+}
+
 /**
  * How readily a control is kept when the page overflows the budget. Lower is
- * kept first: the focused control and anything in a region the model asked to
- * inspect, then the controls a click could reach, then everything else —
- * hidden, covered, disabled or decorative. Priority decides what survives;
- * document order decides how the survivors read.
+ * kept first: the focused control and anything the model asked to inspect or
+ * find, then the controls a click could reach, then everything else — hidden,
+ * covered, disabled or decorative. Priority decides what survives; document
+ * order decides how the survivors read.
  */
 const overviewPriority = (
   element: AgentElement,
-  focusGroup: string | undefined
+  focus: AgentOverviewFocus
 ): number => {
   if (element.focused) return 0
-  if (focusGroup !== undefined && element.group === focusGroup) return 0
+  if (focus?.region !== undefined && element.group === focus.region) return 0
+  if (focus?.query !== undefined && matchesQuery(element, focus.query)) return 0
   const reachable = element.visible && !element.occluded && element.enabled
   return reachable ? 1 : 2
 }
@@ -190,7 +208,7 @@ const overviewPriority = (
 const selectOverviewElements = (
   elements: readonly AgentElement[],
   budgetChars: number,
-  focusGroup: string | undefined
+  focus: AgentOverviewFocus
 ): {
   shown: AgentProjectedElement[]
   omittedByGroup: { group: string; count: number }[]
@@ -199,7 +217,7 @@ const selectOverviewElements = (
     element,
     index,
     projected: projectAgentElement(element),
-    priority: overviewPriority(element, focusGroup)
+    priority: overviewPriority(element, focus)
   }))
   const ordered = [...indexed].sort((first, second) =>
     first.priority !== second.priority
@@ -286,18 +304,33 @@ export const projectAgentObservation = (
    * the next action needs.
    */
   const budget = Math.max(0, options.pageContentChars)
-  const textBudget = Math.round(budget * AGENT_OVERVIEW_TEXT_SHARE)
+  /**
+   * An `extract_text` request is answered with the page's whole text — the
+   * below-fold document included — rather than the budgeted excerpt, since
+   * reading the page is the thing it asked for. Otherwise the viewport text
+   * takes its share and yields the rest to controls.
+   */
+  const wantsText = options.focus?.text !== undefined
+  const textBudget = wantsText
+    ? observation.visibleText.length
+    : Math.round(budget * AGENT_OVERVIEW_TEXT_SHARE)
   const text = observation.visibleText.slice(0, textBudget)
   const { shown, omittedByGroup } = selectOverviewElements(
     observation.elements,
-    budget - text.length,
-    options.focus?.group
+    budget - Math.min(text.length, budget),
+    options.focus
   )
   return {
     ...base,
     text,
     ...(text.length < observation.visibleText.length
       ? { textTruncated: true }
+      : {}),
+    ...(wantsText && observation.documentText
+      ? { documentText: observation.documentText }
+      : {}),
+    ...(wantsText && observation.documentTextTruncated
+      ? { documentTextTruncated: true }
       : {}),
     elements: shown,
     ...(omittedByGroup.length ? { omittedByGroup } : {})

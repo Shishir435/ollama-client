@@ -15,9 +15,27 @@ import type {
 
 export type AgentRisk = "low" | "medium" | "high" | "critical"
 
+/**
+ * What the model asked to see more of on its previous step, derived from that
+ * step's own command so a worker restart rebuilds it. The projection expands
+ * exactly one of these against the fresh observation: a region by its group, a
+ * query's matching controls, or a region's (or the whole document's) text.
+ */
+export interface AgentInspectionFocus {
+  region?: string
+  query?: string
+  text?: string | true
+}
+
 export interface AgentModelInput {
   state: AgentRunState
   observation: AgentObservation
+  /**
+   * The inspection the previous step requested, if it was one. Steers this
+   * step's overview so an inspected region, a found control, or extracted text
+   * is present rather than summarised again.
+   */
+  inspection?: AgentInspectionFocus
   /**
    * How the step before this decision turned out. Declared since the loop was
    * written and never populated, so every decision was made as if it were the

@@ -23,6 +23,9 @@ import {
 
 export const READ_ONLY_AGENT_ACTIONS = [
   "read",
+  "inspect",
+  "find",
+  "extract_text",
   "wait",
   "scroll",
   "switch_tab",
