@@ -67,7 +67,7 @@ export default defineConfig({
       // the single SQLite worker owning durable chat history (Chromium only).
       ...(browser === "firefox"
         ? []
-        : ["sidePanel", "declarativeNetRequest", "offscreen"])
+        : ["sidePanel", "declarativeNetRequest", "offscreen", "debugger"])
     ],
     // Optional API permissions requested from the Permissions UI.
     // Declared so they can be requested at runtime via src/lib/permissions.ts;

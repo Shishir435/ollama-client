@@ -47,6 +47,7 @@
       "title": "Prendi il controllo di questo passaggio"
     },
     "unresolved": "Questa azione potrebbe essere avvenuta. Controlla la pagina prima di continuare.",
+    "browser_disconnected": "Il controllo del browser si è disconnesso, quindi Agent è in pausa. Controlla la pagina prima di riprendere.",
     "work_log": {
       "title": "Registro attività"
     },
@@ -81,6 +82,7 @@
     },
     "error": {
       "already_running": "Un’esecuzione di Agent è già in corso.",
+      "browser_control_unavailable": "Agent non ha potuto collegare il controllo del browser. Chiudi DevTools o un altro debugger e riprova.",
       "permission_denied": "Agent ha bisogno dell’autorizzazione a osservare la pagina prima di iniziare.",
       "tab_unsupported": "Agent non può essere eseguito su questa pagina. Apri una normale pagina web e riprova.",
       "unreadable_update": "Il pannello ha ricevuto un aggiornamento che non è riuscito a leggere.",

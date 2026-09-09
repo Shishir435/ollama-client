@@ -71,6 +71,10 @@ const FAILURES: Record<AgentRunFailureReason, { key: string; text: string }> = {
     key: "agent.error.already_running",
     text: "An Agent run is already in progress."
   },
+  browser_control_unavailable: {
+    key: "agent.error.browser_control_unavailable",
+    text: "Agent could not attach browser control. Close DevTools or another debugger and try again."
+  },
   permission_denied: {
     key: "agent.error.permission_denied",
     text: "Agent needs page-observation permission before it can start."

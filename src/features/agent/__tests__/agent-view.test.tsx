@@ -183,6 +183,21 @@ describe("AgentView", () => {
     expect(answer).toHaveBeenCalledWith("The second one.")
   })
 
+  it("explains an unexpected browser-control disconnect", () => {
+    render(
+      <AgentView
+        privacyAcknowledged
+        run={{
+          ...run("paused"),
+          pauseReason: "browser_disconnected"
+        }}
+      />
+    )
+
+    expect(screen.getByText("agent.browser_disconnected")).toBeInTheDocument()
+    expect(screen.getByText("agent.controls.resume")).toBeInTheDocument()
+  })
+
   it("offers to widen only an approval that came with an offer", () => {
     const approve = vi.fn()
     const request = {

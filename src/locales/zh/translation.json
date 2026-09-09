@@ -47,6 +47,7 @@
       "title": "接管此步骤"
     },
     "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
+    "browser_disconnected": "浏览器控制已断开，因此 Agent 已暂停。请检查页面后再继续。",
     "work_log": {
       "title": "工作日志"
     },
@@ -81,6 +82,7 @@
     },
     "error": {
       "already_running": "已有一个 Agent 运行正在进行。",
+      "browser_control_unavailable": "Agent 无法连接浏览器控制。请关闭 DevTools 或其他调试器后重试。",
       "permission_denied": "启动前 Agent 需要页面观察权限。",
       "tab_unsupported": "Agent 无法在此页面运行。请打开普通网页后重试。",
       "unreadable_update": "面板收到了无法读取的更新。",

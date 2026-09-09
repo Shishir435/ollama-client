@@ -10,6 +10,7 @@ import { AgentRunStateSchema } from "@ollama-client/contracts"
 
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
+import { logger } from "@/lib/logger"
 import { hasAgentPerceptionPermission } from "@/lib/permissions"
 import type { DurableAgentStep } from "@/lib/repositories/agent-runs"
 import {
@@ -21,6 +22,7 @@ import {
   listAgentSteps,
   listIncompleteAgentRuns
 } from "@/lib/repositories/agent-runs"
+import type { AgentBrowserSessionManager } from "./agent-browser-session-manager"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentControlSessionRegistry } from "./agent-control-sessions"
 import type { BuildAgentController } from "./agent-run-controller"
@@ -92,7 +94,8 @@ export interface AgentRunService {
  */
 const announcing = (
   port: AgentPersistencePort,
-  announce: (runId: string) => void
+  announce: (runId: string) => void,
+  afterWrite: (state: AgentRunState) => Promise<void> = async () => undefined
 ): AgentPersistencePort => ({
   async claim(input) {
     const result = await port.claim(input)
@@ -100,6 +103,7 @@ const announcing = (
       status: input.phase,
       claimed: result.claimed
     })
+    if (result.claimed) await afterWrite(result.state)
     announce(input.runId)
     return result
   },
@@ -114,6 +118,7 @@ const announcing = (
       to: input.to,
       transitioned: result.transitioned
     })
+    if (result.transitioned) await afterWrite(result.state)
     announce(input.runId)
     return result
   },
@@ -123,6 +128,7 @@ const announcing = (
 
 export type AgentRunFailureReason =
   | "already_running"
+  | "browser_control_unavailable"
   | "permission_denied"
   | "tab_unsupported"
   | "unknown_run"
@@ -162,6 +168,7 @@ const originOf = (url: string): string => {
  * one run, and nothing here can say which of two runs a page effect served.
  */
 export const createAgentRunService = (input?: {
+  browserSessions?: AgentBrowserSessionManager
   sessions?: AgentControlSessionRegistry
   supervision?: AgentSupervision
   history?: AgentTabHistory
@@ -200,10 +207,32 @@ export const createAgentRunService = (input?: {
         return undefined
       }
     })
+  const browserSessions =
+    input?.browserSessions ??
+    ({
+      capabilities: { backend: "dom", cdpControl: false, domControl: true },
+      attach: async () => undefined,
+      detach: async () => undefined,
+      isAttached: () => true,
+      subscribe: () => () => undefined,
+      dispose: async () => undefined
+    } satisfies AgentBrowserSessionManager)
+
+  const detachBrowserSession = async (runId: string): Promise<void> => {
+    try {
+      await browserSessions.detach(runId)
+    } catch (error) {
+      logger.warn("Agent browser detach failed", "Agent", {
+        runId,
+        name: error instanceof Error ? error.name : typeof error
+      })
+    }
+  }
 
   const listeners = new Set<(runId: string) => void>()
   const controllers = new Map<string, AgentController>()
   const experimental = new Set<string>()
+  const interruptedBrowserSessions = new Set<string>()
   let admitting = false
   let activeRunId: string | undefined
   let lastRunId: string | undefined
@@ -213,17 +242,36 @@ export const createAgentRunService = (input?: {
   }
   supervision.subscribe(announce)
 
+  const releaseBrowserSessionFor = async (state: AgentRunState) => {
+    if (
+      [
+        "awaiting_takeover",
+        "pause_requested",
+        "paused",
+        "cancelling",
+        "completed",
+        "failed",
+        "cancelled"
+      ].includes(state.status)
+    ) {
+      await detachBrowserSession(state.id)
+    }
+  }
+
   const persistence = announcing(
     input?.persistence ?? createAgentPersistencePort(),
-    announce
+    announce,
+    releaseBrowserSessionFor
   )
 
   const settle = async (runId: string) => {
     const state = await persistence.load(runId)
     if (!state || !isTerminalAgentStatus(state.status)) return
+    await detachBrowserSession(runId)
     supervision.abandon(runId)
     sessions.release(runId)
     experimental.delete(runId)
+    interruptedBrowserSessions.delete(runId)
     if (state.controlledTabId >= 0) history.forget(state.controlledTabId)
     controllers.delete(runId)
     if (activeRunId === runId) activeRunId = undefined
@@ -264,6 +312,61 @@ export const createAgentRunService = (input?: {
     if (!state) throw new AgentRunError("unknown_run", "Agent run is unknown")
     return state
   }
+
+  const attachBrowserSession = async (
+    state: AgentRunState
+  ): Promise<boolean> => {
+    const tab = await getTab(state.controlledTabId)
+    const address = tab?.url
+    if (!address || (await classifyAccess(address)) !== "ok") {
+      throw new AgentRunError(
+        "tab_unsupported",
+        "Agent controlled tab is no longer supported"
+      )
+    }
+    interruptedBrowserSessions.delete(state.id)
+    try {
+      await browserSessions.attach(state.id, state.controlledTabId)
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "name" in error &&
+        error.name === "AbortError"
+      ) {
+        return false
+      }
+      throw new AgentRunError(
+        "browser_control_unavailable",
+        error instanceof Error
+          ? error.message
+          : "Agent browser control could not attach"
+      )
+    }
+    return (
+      browserSessions.isAttached(state.id) &&
+      !interruptedBrowserSessions.has(state.id)
+    )
+  }
+
+  browserSessions.subscribe((event) => {
+    interruptedBrowserSessions.add(event.runId)
+    void persistence
+      .load(event.runId)
+      .then((state) => {
+        if (!state || isTerminalAgentStatus(state.status)) return
+        return drive(state, (controller) =>
+          controller.requestPause(event.runId, "browser_disconnected")
+        )
+      })
+      .catch((error: unknown) => {
+        logger.warn("Agent browser disconnect pause failed", "Agent", {
+          runId: event.runId,
+          reason: event.reason,
+          name: error instanceof Error ? error.name : typeof error
+        })
+      })
+  })
 
   return {
     async start(request) {
@@ -333,6 +436,26 @@ export const createAgentRunService = (input?: {
         if (request.allowExperimentalModel) experimental.add(state.id)
         history.record(request.tabId, address)
         announce(state.id)
+        try {
+          const attached = await attachBrowserSession(state)
+          if (!attached) return state
+        } catch (error) {
+          await persistence.transition({
+            runId: state.id,
+            from: "submitted",
+            to: "failed",
+            patch: {
+              error: {
+                code: "observation_failed",
+                message: "Agent could not attach browser control.",
+                retryable: true
+              },
+              updatedAt: now()
+            }
+          })
+          await settle(state.id)
+          throw error
+        }
         void drive(state, (controller) => controller.start(state.id))
         return state
       } finally {
@@ -345,9 +468,16 @@ export const createAgentRunService = (input?: {
       )
     },
     async resume(runId) {
-      await drive(await loadRunning(runId), (controller) =>
-        controller.resume(runId)
-      )
+      const state = await loadRunning(runId)
+      if (
+        state.status !== "paused" ||
+        state.pauseReason === "unresolved_effect" ||
+        state.pauseReason === "question"
+      ) {
+        return
+      }
+      if (!(await attachBrowserSession(state))) return
+      await drive(state, (controller) => controller.resume(runId))
     },
     async stop(runId) {
       await drive(await loadRunning(runId), (controller) =>
@@ -355,16 +485,24 @@ export const createAgentRunService = (input?: {
       )
     },
     async completeTakeover(runId) {
-      await drive(await loadRunning(runId), (controller) =>
-        controller.completeTakeover(runId)
-      )
+      const state = await loadRunning(runId)
+      if (state.status !== "awaiting_takeover") return
+      if (!(await attachBrowserSession(state))) return
+      await drive(state, (controller) => controller.completeTakeover(runId))
     },
     answerApproval: (answer) => supervision.answerApproval(answer),
     answerTakeover: (answer) => supervision.answerTakeover(answer),
     async answerQuestion(answer) {
-      await drive(await loadRunning(answer.runId), (controller) =>
-        controller.answerQuestion(answer)
-      )
+      const state = await loadRunning(answer.runId)
+      if (
+        state.status !== "paused" ||
+        state.pauseReason !== "question" ||
+        state.question?.id !== answer.questionId
+      ) {
+        return
+      }
+      if (!(await attachBrowserSession(state))) return
+      await drive(state, (controller) => controller.answerQuestion(answer))
     },
     async snapshot(runId) {
       const durable = await readRun(runId)

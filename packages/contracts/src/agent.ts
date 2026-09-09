@@ -22,6 +22,7 @@ export type AgentRunStatus = z.infer<typeof AgentRunStatusSchema>
 export const AGENT_PAUSE_REASONS = [
   "user",
   "panel_closed",
+  "browser_disconnected",
   "unresolved_effect",
   "takeover",
   /** The model asked the user something and cannot proceed until answered. */

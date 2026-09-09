@@ -2,10 +2,14 @@ import type {
   AgentController,
   AgentPersistencePort
 } from "@ollama-client/agent-runtime"
-import type { AgentRunState } from "@ollama-client/contracts"
+import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { DurableAgentRun } from "@/lib/repositories/agent-runs"
+import type {
+  AgentBrowserSessionInterruption,
+  AgentBrowserSessionManager
+} from "../agent-browser-session-manager"
 import { createAgentRunService } from "../agent-run-service"
 import { createAgentSupervision } from "../agent-supervision"
 
@@ -20,10 +24,10 @@ const persistence = (): AgentPersistencePort => ({
     return { claimed: true, state: next }
   },
   appendStep: async () => undefined,
-  transition: async ({ runId, to }) => {
+  transition: async ({ runId, to, patch }) => {
     const state = runs.get(runId)
     if (!state) return { transitioned: false }
-    const next: AgentRunState = { ...state, status: to }
+    const next: AgentRunState = { ...state, ...patch, status: to }
     runs.set(runId, next)
     return { transitioned: true, state: next }
   },
@@ -84,6 +88,46 @@ const startInput = {
   modelId: "qwen3"
 }
 
+const browserSessions = () => {
+  let listener: ((event: AgentBrowserSessionInterruption) => void) | undefined
+  const manager = {
+    capabilities: { backend: "cdp", cdpControl: true, domControl: true },
+    attach: vi.fn(async () => undefined),
+    detach: vi.fn(async () => undefined),
+    isAttached: vi.fn(() => true),
+    subscribe: vi.fn((next) => {
+      listener = next
+      return () => {
+        if (listener === next) listener = undefined
+      }
+    }),
+    dispose: vi.fn(async () => undefined)
+  } satisfies AgentBrowserSessionManager
+  return {
+    manager,
+    interrupt(event: AgentBrowserSessionInterruption) {
+      listener?.(event)
+    }
+  }
+}
+
+const transitionController = (to: AgentRunStatus) =>
+  vi.fn(({ persistence: port }) => {
+    const transition = async (runId: string) => {
+      const state = await port.load(runId)
+      if (!state) return
+      await port.transition({ runId, from: state.status, to })
+    }
+    return {
+      start: vi.fn(async () => undefined),
+      requestPause: vi.fn(transition),
+      resume: vi.fn(async () => undefined),
+      requestCancel: vi.fn(transition),
+      completeTakeover: vi.fn(transition),
+      answerQuestion: vi.fn(async () => undefined)
+    } satisfies AgentController
+  })
+
 describe("Agent run service", () => {
   beforeEach(() => {
     runs.clear()
@@ -101,6 +145,109 @@ describe("Agent run service", () => {
     })
     expect(controller.start).toHaveBeenCalledWith("run-1")
     expect(agent.activeRunId()).toBe("run-1")
+  })
+
+  it("persists and authorizes the tab before attaching browser control", async () => {
+    const order: string[] = []
+    const browser = browserSessions()
+    browser.manager.attach.mockImplementation(async () => {
+      order.push("attach")
+    })
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      createRun: async (state) => {
+        runs.set(state.id, state)
+        order.push("persist")
+      },
+      classifyAccess: async () => {
+        order.push("authorize")
+        return "ok"
+      }
+    })
+
+    await agent.start(startInput)
+
+    expect(order).toEqual(["authorize", "persist", "authorize", "attach"])
+    expect(browser.manager.attach).toHaveBeenCalledWith("run-1", 7)
+  })
+
+  it("fails durably when Chromium browser control cannot attach", async () => {
+    const browser = browserSessions()
+    browser.manager.attach.mockRejectedValue(new Error("attach refused"))
+    const {
+      service: agent,
+      controller,
+      sessions
+    } = service({
+      browserSessions: browser.manager
+    })
+
+    await expect(agent.start(startInput)).rejects.toMatchObject({
+      reason: "browser_control_unavailable"
+    })
+
+    expect(runs.get("run-1")).toMatchObject({
+      status: "failed",
+      error: { code: "observation_failed", retryable: true }
+    })
+    expect(controller.start).not.toHaveBeenCalled()
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+    expect(sessions.release).toHaveBeenCalledWith("run-1")
+    expect(agent.activeRunId()).toBeUndefined()
+  })
+
+  it("does not start runtime work after an attach is cancelled", async () => {
+    const browser = browserSessions()
+    browser.manager.attach.mockRejectedValue(
+      new DOMException("cancelled", "AbortError")
+    )
+    const { service: agent, controller } = service({
+      browserSessions: browser.manager
+    })
+
+    await expect(agent.start(startInput)).resolves.toMatchObject({
+      status: "submitted"
+    })
+    expect(controller.start).not.toHaveBeenCalled()
+    expect(runs.get("run-1")?.status).toBe("submitted")
+  })
+
+  it("pauses clearly when the debugger disconnects", async () => {
+    const browser = browserSessions()
+    const { service: agent, controller } = service({
+      browserSessions: browser.manager
+    })
+    await agent.start(startInput)
+
+    browser.interrupt({
+      runId: "run-1",
+      tabId: 7,
+      reason: "debugger_disconnected"
+    })
+
+    await vi.waitFor(() =>
+      expect(controller.requestPause).toHaveBeenCalledWith(
+        "run-1",
+        "browser_disconnected"
+      )
+    )
+  })
+
+  it.each([
+    ["pause", "paused"],
+    ["stop", "cancelling"]
+  ] as const)("detaches browser control on %s", async (method, status) => {
+    const browser = browserSessions()
+    const { service: agent } = service({
+      browserSessions: browser.manager,
+      buildController: transitionController(status)
+    })
+    await agent.start(startInput)
+
+    await agent[method]("run-1")
+
+    expect(browser.manager.detach).toHaveBeenCalledWith("run-1")
+    expect(runs.get("run-1")?.status).toBe(status)
   })
 
   it("admits only one simultaneous start before the durable lookup settles", async () => {

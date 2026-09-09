@@ -18,6 +18,15 @@ const manifestFor = (browser: string) =>
   })
 
 describe("Agent perception permission placement", () => {
+  it("requires debugger only for Chromium Agent control", () => {
+    expect(manifestFor("chrome").permissions).toContain("debugger")
+    expect(manifestFor("chrome").optional_permissions).not.toContain("debugger")
+    expect(manifestFor("firefox").permissions).not.toContain("debugger")
+    expect(manifestFor("firefox").optional_permissions).not.toContain(
+      "debugger"
+    )
+  })
+
   it("declares webNavigation as optional rather than standing", () => {
     for (const browser of ["chrome", "firefox"]) {
       const manifest = manifestFor(browser)
@@ -29,7 +38,6 @@ describe("Agent perception permission placement", () => {
   it("does not add unrelated powerful permissions", () => {
     const manifest = manifestFor("chrome")
     for (const permission of [
-      "debugger",
       "cookies",
       "webRequest",
       "nativeMessaging",
