@@ -221,8 +221,13 @@ const budgets: Budget[] = [
      * Frame-aware identity — per-frame control sessions composed into one
      * observation, frame authorization, the debugger frame tree and its
      * explicit mapping, and per-run tab scope — took it to 235,751.
+     *
+     * Context budgeting and progressive inspection — the bounded overview and
+     * its budget partition, the three read-only inspection commands, and the
+     * durable findings store — took it to 237,205. Firefox carries no Agent
+     * code and is unchanged.
      */
-    max: isFirefox ? 210_000 : 236_500
+    max: isFirefox ? 210_000 : 238_000
   }
 ]
 
