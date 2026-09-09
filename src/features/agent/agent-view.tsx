@@ -56,6 +56,22 @@ export interface AgentViewProps {
 
 const noop = () => undefined
 
+const pauseNoticeFor = (reason?: AgentRunState["pauseReason"]) => {
+  if (reason === "unresolved_effect") {
+    return {
+      messageKey: "agent.unresolved",
+      className: "border-destructive/30 bg-destructive/10"
+    }
+  }
+  if (reason === "browser_disconnected") {
+    return {
+      messageKey: "agent.browser_disconnected",
+      className: "border-status-warning/40 bg-status-warning/10"
+    }
+  }
+  return undefined
+}
+
 export const AgentView = ({
   run = null,
   steps = [],
@@ -83,6 +99,7 @@ export const AgentView = ({
     run !== null && ["completed", "failed", "cancelled"].includes(run.status)
   const remoteNeedsAcknowledgement =
     provider?.location === "remote" && !privacyAcknowledged
+  const pauseNotice = pauseNoticeFor(run?.pauseReason)
   const canStart =
     Boolean(onStart && provider && tab && goal.trim()) &&
     !remoteNeedsAcknowledgement &&
@@ -206,15 +223,15 @@ export const AgentView = ({
           </section>
         )}
 
-        {run?.pauseReason === "unresolved_effect" && (
+        {pauseNotice && (
           <section
-            className="mb-3 flex gap-2 rounded-panel border border-destructive/30 bg-destructive/10 p-2.5 text-xs"
+            className={`mb-3 flex gap-2 rounded-panel border p-2.5 text-xs ${pauseNotice.className}`}
             role="alert">
             <MessageSquareWarning
               className="icon-sm shrink-0"
               aria-hidden="true"
             />
-            <p>{t("agent.unresolved")}</p>
+            <p>{t(pauseNotice.messageKey)}</p>
           </section>
         )}
 

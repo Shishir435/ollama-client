@@ -47,6 +47,7 @@
       "title": "この手順を引き継ぐ"
     },
     "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
+    "browser_disconnected": "ブラウザー制御が切断されたため、Agent を一時停止しました。再開前にページを確認してください。",
     "work_log": {
       "title": "作業ログ"
     },
@@ -81,6 +82,7 @@
     },
     "error": {
       "already_running": "Agent の実行は既に進行中です。",
+      "browser_control_unavailable": "Agent はブラウザー制御に接続できませんでした。DevTools または別のデバッガーを閉じて再試行してください。",
       "permission_denied": "開始する前に、ページ観測の権限が必要です。",
       "tab_unsupported": "このページでは Agent を実行できません。通常のウェブページを開いてからやり直してください。",
       "unreadable_update": "パネルは読み取れない更新を受け取りました。",

@@ -47,6 +47,7 @@
       "title": "Prenez le contrôle de cette étape"
     },
     "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
+    "browser_disconnected": "Le contrôle du navigateur s’est déconnecté. Agent est donc en pause. Vérifiez la page avant de reprendre.",
     "work_log": {
       "title": "Journal de travail"
     },
@@ -81,6 +82,7 @@
     },
     "error": {
       "already_running": "Une exécution d’Agent est déjà en cours.",
+      "browser_control_unavailable": "Agent n’a pas pu connecter le contrôle du navigateur. Fermez DevTools ou un autre débogueur, puis réessayez.",
       "permission_denied": "Agent a besoin de l’autorisation d’observation de page avant de démarrer.",
       "tab_unsupported": "Agent ne peut pas s’exécuter sur cette page. Ouvre une page web normale et réessaie.",
       "unreadable_update": "Le panneau a reçu une mise à jour qu’il n’a pas pu lire.",

@@ -951,13 +951,16 @@ export const createAgentController = (
     }
   }
 
-  const requestPause = async (runId: string): Promise<void> => {
+  const requestPause = async (
+    runId: string,
+    reason: AgentPauseReason = "user"
+  ): Promise<void> => {
     const state = await dependencies.persistence.load(runId)
     if (!state || isTerminalAgentStatus(state.status)) return
     const requested = await transition(
       state,
       "pause_requested",
-      pausePatch("user", dependencies.clock.now())
+      pausePatch(reason, dependencies.clock.now())
     )
     if (!requested) return
     active.get(runId)?.abort()
@@ -967,7 +970,7 @@ export const createAgentController = (
       pausePatch(
         state.status === "executing" || state.status === "verifying"
           ? "unresolved_effect"
-          : "user",
+          : reason,
         dependencies.clock.now()
       )
     )

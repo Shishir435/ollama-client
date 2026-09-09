@@ -4,6 +4,7 @@ import { startBrowserAgentNavigationObserver } from "@/lib/browser-agent/navigat
 import { browser } from "@/lib/browser-api"
 import { FEATURE_FLAGS } from "@/lib/feature-flags"
 import { hasAgentPerceptionPermission } from "@/lib/permissions"
+import { createAgentBrowserSessionManager } from "./agent-browser-session-manager"
 import { registerAgentPanelPort } from "./agent-panel-port"
 import { resolveAgentProviderDisclosure } from "./agent-provider-disclosure"
 import type { AgentRunService } from "./agent-run-service"
@@ -33,7 +34,8 @@ export const createAgentComposition = async (
   if (!FEATURE_FLAGS.agentPreview) return undefined
 
   const history = createAgentTabHistory()
-  const service = createAgentRunService({ history })
+  const browserSessions = createAgentBrowserSessionManager()
+  const service = createAgentRunService({ history, browserSessions })
   const stopPort = registerAgentPanelPort({
     ready,
     service,
@@ -78,6 +80,7 @@ export const createAgentComposition = async (
       stopPort()
       browser.permissions.onAdded.removeListener(onPermissionAdded)
       observer?.stop()
+      void browserSessions.dispose()
     }
   }
 }

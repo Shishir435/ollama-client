@@ -852,6 +852,17 @@ describe("agent controller", () => {
     })
   })
 
+  it("records an external browser disconnect as the pause reason", async () => {
+    const harness = createHarness()
+
+    await harness.controller.requestPause("run-1", "browser_disconnected")
+
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "browser_disconnected"
+    })
+  })
+
   it("does not resume a run paused while a negative step verified", async () => {
     let requestPause: () => Promise<void> = async () => {}
     const harness = createHarness({

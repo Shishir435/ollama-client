@@ -213,8 +213,12 @@ const budgets: Budget[] = [
      *
      * Run-scoped grants and the durable question channel — contracts, the
      * policy grant path, the two panel cards — took it to 230,700.
+     *
+     * The Chromium debugger session manager — attach ownership, the tab and
+     * detach listeners, the ownership gate on page-work claims — took it to
+     * 232,235. Firefox is unchanged.
      */
-    max: isFirefox ? 210_000 : 231_500
+    max: isFirefox ? 210_000 : 233_000
   }
 ]
 

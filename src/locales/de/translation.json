@@ -47,6 +47,7 @@
       "title": "Diesen Schritt übernehmen"
     },
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
+    "browser_disconnected": "Die Browsersteuerung wurde getrennt, daher wurde Agent pausiert. Prüfen Sie die Seite vor dem Fortsetzen.",
     "work_log": {
       "title": "Arbeitsprotokoll"
     },
@@ -81,6 +82,7 @@
     },
     "error": {
       "already_running": "Ein Agent-Durchlauf läuft bereits.",
+      "browser_control_unavailable": "Agent konnte die Browsersteuerung nicht verbinden. Schließen Sie DevTools oder einen anderen Debugger und versuchen Sie es erneut.",
       "permission_denied": "Agent benötigt die Berechtigung zur Seitenbeobachtung, bevor er starten kann.",
       "tab_unsupported": "Agent kann auf dieser Seite nicht ausgeführt werden. Öffne eine normale Webseite und versuche es erneut.",
       "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",

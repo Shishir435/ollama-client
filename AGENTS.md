@@ -326,6 +326,15 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
 
 ### Browser sessions and capture
 
+- Chromium Agent debugger attachments belong only to
+  `src/background/agent/agent-browser-session-manager.ts`. Raw CDP targets stay
+  inside that adapter and never become model tools. Attach only after the run
+  service authorizes the user-selected tab; detach at pause, takeover, stop,
+  completion, and failure boundaries. An unexpected disconnect pauses the run,
+  and an interrupted effect remains unresolved rather than being replayed.
+- Firefox receives no `debugger` permission. The session manager reports the
+  existing DOM control backend with `cdpControl: false`; do not claim CDP-only
+  capabilities there.
 - Read-only helpers: `src/lib/browser-sessions.ts`. Model tools: `src/lib/tools/internal/browser-session-tools.ts`.
 - `sessions` is an optional permission. Always check browser support **and** the live permission before reading recently-closed or synced-device sessions.
 - Session URLs must pass the same unreadable/never-read filters as other browser tools.

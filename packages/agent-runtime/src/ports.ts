@@ -383,7 +383,7 @@ export interface AgentClockPort {
 
 export interface AgentController {
   start(runId: string): Promise<void>
-  requestPause(runId: string): Promise<void>
+  requestPause(runId: string, reason?: AgentPauseReason): Promise<void>
   resume(runId: string): Promise<void>
   requestCancel(runId: string): Promise<void>
   completeTakeover(runId: string): Promise<void>
