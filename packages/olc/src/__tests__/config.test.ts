@@ -21,6 +21,15 @@ describe("resolveConfig", () => {
     expect(resolveConfig().PORT).toBe(8084)
   })
 
+  it("bounds parked turns, overridably", () => {
+    // The default is what stops a client whose every request is one
+    // unresumed decision from holding a backend session per step.
+    expect(resolveConfig().MAX_PARKED_TURNS).toBe(4)
+    process.env.OLC_MAX_PARKED_TURNS = "2"
+    expect(resolveConfig().MAX_PARKED_TURNS).toBe(2)
+    expect(resolveConfig({ MAX_PARKED_TURNS: 6 }).MAX_PARKED_TURNS).toBe(6)
+  })
+
   it("still reads the legacy OPENCODE_PROXY_ environment names", () => {
     process.env.OPENCODE_PROXY_PORT = "9200"
     expect(resolveConfig().PORT).toBe(9200)

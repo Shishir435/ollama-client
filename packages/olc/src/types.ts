@@ -99,6 +99,8 @@ export interface ProxyConfig {
   BRIDGE_CALL_TIMEOUT_MS: number
   BRIDGE_BATCH_MS: number
   SUSPENDED_TURN_TTL_MS: number
+  /** How many turns may sit parked on a client tool result at once. */
+  MAX_PARKED_TURNS: number
   DEBUG: boolean
 }
 

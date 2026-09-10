@@ -432,6 +432,50 @@ export const registerChatRoutes = (
   }
 
   /**
+   * Bound how many turns may sit parked on a client tool result.
+   *
+   * A parked turn is a live backend session, and only its own ten-minute TTL
+   * used to end one. That is fine for a turn a client abandoned once, and
+   * wrong for a client whose every request is a single decision it never
+   * resumes: a browser-agent run left one session parked per step, all of
+   * them at once, and the runtime's own session bookkeeping pays for that.
+   *
+   * A bound rather than a guess. "This request carries no tool results, so
+   * the client has moved on" is not true — a client may legitimately start a
+   * fresh turn while still computing the result for one it left parked, and
+   * discarding on that basis throws away work it is about to hand back.
+   * What can be said without guessing is that unbounded is wrong, so the
+   * oldest parked turns above the cap are discarded when a fresh one is
+   * admitted, oldest first.
+   *
+   * A turn with an outstanding resume hold is never reaped: a request
+   * carrying its results already exists and may be queued behind this one.
+   */
+  const reapExcessParkedTurns = async (requestId: string): Promise<number> => {
+    const reapable = [...parkedTurns.keys()].filter(
+      (turnId) => !resumeHolds.has(turnId)
+    )
+    /** Room for the turn about to be admitted, so the steady state is the cap. */
+    const excess = reapable.length - Math.max(0, config.MAX_PARKED_TURNS - 1)
+    if (excess <= 0) return 0
+    for (const turnId of reapable.slice(0, excess)) {
+      clearParked(turnId)
+      pending.failTurn(
+        turnId,
+        "The proxy discarded this parked turn to stay within its parked-turn limit"
+      )
+      const turn = backend.findTurn(turnId)
+      if (turn) await discardTurn(turn, { abort: true })
+    }
+    log("Discarded parked turns above the limit", {
+      requestId,
+      discarded: excess,
+      limit: config.MAX_PARKED_TURNS
+    })
+    return excess
+  }
+
+  /**
    * Which live turn, if any, a request's trailing tool results continue.
    *
    * Resolved twice per request: once to answer the client quickly, and again inside
@@ -830,6 +874,16 @@ export const registerChatRoutes = (
           sendStaleToolResults(response, requestId, toolResults)
           return Promise.resolve()
         }
+        if (!current.resumeTurn) {
+          return reapExcessParkedTurns(requestId).then(() =>
+            runChatRequest({
+              body,
+              response,
+              requestId,
+              signal
+            })
+          )
+        }
         return runChatRequest({
           body,
           response,
@@ -872,10 +926,22 @@ export const registerChatRoutes = (
   })
 
   return {
+    /**
+     * What the route is still holding. Every terminal path is supposed to
+     * leave both at zero, and a test that asserts the response alone cannot
+     * tell a settled turn from one that merely stopped answering.
+     */
+    inspect: () => ({
+      parkedTurns: parkedTurns.size,
+      pendingCalls: pending.size,
+      resumeHolds: resumeHolds.size
+    }),
     shutdown: async () => {
-      for (const turnId of parkedTurns.keys()) {
+      for (const turnId of [...parkedTurns.keys()]) {
         pending.failTurn(turnId, "The proxy is shutting down")
         clearParked(turnId)
+        const turn = backend.findTurn(turnId)
+        if (turn) await discardTurn(turn, { abort: true })
       }
     }
   }

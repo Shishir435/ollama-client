@@ -40,7 +40,16 @@ export const DEFAULTS = {
   BRIDGE_PATH: "/bridge/call",
   BRIDGE_CALL_TIMEOUT_MS: 300_000,
   BRIDGE_BATCH_MS: 150,
-  SUSPENDED_TURN_TTL_MS: 600_000
+  SUSPENDED_TURN_TTL_MS: 600_000,
+  /**
+   * A parked turn is a live backend session, and its own TTL is ten minutes —
+   * fine for one turn a client abandoned, wrong for a client whose every
+   * request is a single decision it never resumes. Four leaves room for a
+   * client that legitimately interleaves a fresh turn with one it is still
+   * computing a tool result for, and stops a long run holding a session per
+   * step.
+   */
+  MAX_PARKED_TURNS: 4
 } as const
 
 /** Options as they arrive from a config file or the command line. */
@@ -189,6 +198,12 @@ export const resolveConfig = (
       env.OLC_BRIDGE_BATCH_MS,
       fileOptions.BRIDGE_BATCH_MS,
       DEFAULTS.BRIDGE_BATCH_MS
+    ),
+    MAX_PARKED_TURNS: numberOption(
+      options.MAX_PARKED_TURNS,
+      env.OLC_MAX_PARKED_TURNS,
+      fileOptions.MAX_PARKED_TURNS,
+      DEFAULTS.MAX_PARKED_TURNS
     ),
     SUSPENDED_TURN_TTL_MS: numberOption(
       options.SUSPENDED_TURN_TTL_MS,
