@@ -99,7 +99,7 @@ const connected = (handlers: {
     executeScroll: vi.fn(),
     prepareNativeInput,
     settleNativeInput,
-    measureElements: vi.fn(() => []),
+    sensitiveRegions: vi.fn(() => null),
     hitTest: vi.fn(() => null)
   })
   const session = createAgentControlSession({
@@ -182,7 +182,7 @@ describe("Agent control port native input", () => {
       executeScroll: vi.fn(),
       prepareNativeInput,
       settleNativeInput: vi.fn(),
-      measureElements: vi.fn(() => []),
+      sensitiveRegions: vi.fn(() => null),
       hitTest: vi.fn(() => null)
     })
     content.onMessage.emit({

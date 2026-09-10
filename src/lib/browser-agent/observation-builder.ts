@@ -545,6 +545,45 @@ const isOccluded = (element: Element): boolean => {
   return true
 }
 
+/**
+ * Every region of this document a screenshot must paint over, found by
+ * walking the whole composed tree rather than the bounded observation: a
+ * sensitive control past the element budget is still on screen. Child frames
+ * are masked whole — a frame the run cannot read may hold a sign-in form, and
+ * one it can read cannot be placed from here — so an embedded page never
+ * leaves in a picture. The scroll position is reported with the rects so a
+ * caller can prove the page did not move between two readings.
+ */
+export const collectAgentMaskRegions = (
+  document: Document
+): {
+  rects: { x: number; y: number; width: number; height: number }[]
+  scroll: { x: number; y: number }
+} => {
+  const view = document.defaultView
+  const rects: { x: number; y: number; width: number; height: number }[] = []
+  for (const node of composedDescendants(document)) {
+    const element = asElement(node)
+    if (!element) continue
+    const framed =
+      element.localName === "iframe" || element.localName === "frame"
+    if (!framed && !isSensitiveAgentElement(element)) continue
+    for (const box of Array.from(element.getClientRects())) {
+      if (box.width <= 0 || box.height <= 0) continue
+      rects.push({
+        x: box.left,
+        y: box.top,
+        width: box.width,
+        height: box.height
+      })
+    }
+  }
+  return {
+    rects,
+    scroll: { x: view?.scrollX ?? 0, y: view?.scrollY ?? 0 }
+  }
+}
+
 export const isSensitiveAgentElement = (element: Element): boolean => {
   const input = element as HTMLInputElement
   const type = input.type?.toLowerCase()

@@ -52,7 +52,7 @@ const service = (
     executeScroll: vi.fn(),
     prepareNativeInput: vi.fn(),
     settleNativeInput: vi.fn(),
-    measureElements: vi.fn(),
+    sensitiveRegions: vi.fn(),
     hitTest: vi.fn(),
     release: vi.fn()
   }

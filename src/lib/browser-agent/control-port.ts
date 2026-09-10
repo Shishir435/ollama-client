@@ -463,53 +463,62 @@ export type AgentInputTraceWire = z.infer<typeof AgentInputTraceSchema>
 
 /**
  * Visual grounding asks the page two read-only questions about the snapshot
- * in hand: where a set of observed controls sit, so a screenshot can be
- * masked before it leaves the device, and what lies under a point, so a pixel
- * the model chose becomes a control the run can reason about. Both are bound
- * to the frame's own snapshot identity like every other request.
+ * in hand: where everything a screenshot must paint over sits, and what lies
+ * under a point, so a pixel the model chose becomes a control the run can
+ * reason about. Both are bound to the frame's own snapshot identity like
+ * every other request.
  */
-export const MAX_AGENT_RECT_REFS = 200
+export const MAX_AGENT_MASK_REGIONS = 2_000
 
-export const AgentElementRectsRequestSchema = z
+export const AgentSensitiveRegionsRequestSchema = z
   .object({
     version: z.literal(AGENT_CONTROL_VERSION),
-    type: z.literal("agent_element_rects"),
+    type: z.literal("agent_sensitive_regions"),
     runId: z.string().min(1),
     tabId: z.number().int().nonnegative(),
     frameId: z.number().int().nonnegative(),
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
-    frame: AgentSnapshotIdentitySchema,
-    refs: z.array(z.string().min(1)).max(MAX_AGENT_RECT_REFS)
+    frame: AgentSnapshotIdentitySchema
   })
   .strict()
-export type AgentElementRectsRequest = z.infer<
-  typeof AgentElementRectsRequestSchema
+export type AgentSensitiveRegionsRequest = z.infer<
+  typeof AgentSensitiveRegionsRequestSchema
 >
 
-export const AgentElementRectSchema = AgentCssRectSchema.extend({
-  ref: z.string().min(1)
-}).strict()
+/**
+ * Every rect the document says a picture must cover, read from the whole
+ * composed tree, with the scroll position they were read at. `null` when the
+ * document is not the snapshot the request named.
+ */
+export const AgentSensitiveRegionsSchema = z
+  .object({
+    rects: z.array(AgentCssRectSchema).max(MAX_AGENT_MASK_REGIONS),
+    scroll: z
+      .object({ x: z.number().finite(), y: z.number().finite() })
+      .strict()
+  })
+  .strict()
+  .nullable()
+export type AgentSensitiveRegions = z.infer<typeof AgentSensitiveRegionsSchema>
 
-export const AgentElementRectsResponseSchema = z
+export const AgentSensitiveRegionsResponseSchema = z
   .object({
     version: z.literal(AGENT_CONTROL_VERSION),
-    type: z.literal("agent_element_rects_measured"),
+    type: z.literal("agent_sensitive_regions_measured"),
     runId: z.string().min(1),
     tabId: z.number().int().nonnegative(),
     frameId: z.number().int().nonnegative(),
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
-    /** One entry per ref that still resolves and has layout; the rest are absent. */
-    rects: z.array(AgentElementRectSchema).max(MAX_AGENT_RECT_REFS)
+    regions: AgentSensitiveRegionsSchema
   })
   .strict()
-export type AgentElementRectsResponse = z.infer<
-  typeof AgentElementRectsResponseSchema
+export type AgentSensitiveRegionsResponse = z.infer<
+  typeof AgentSensitiveRegionsResponseSchema
 >
-export type AgentElementRectWire = z.infer<typeof AgentElementRectSchema>
 
 export const AgentHitTestRequestSchema = z
   .object({
@@ -563,7 +572,7 @@ const AgentControlRequestSchema = z.union([
   AgentExecuteScrollRequestSchema,
   AgentPrepareNativeInputRequestSchema,
   AgentSettleNativeInputRequestSchema,
-  AgentElementRectsRequestSchema,
+  AgentSensitiveRegionsRequestSchema,
   AgentHitTestRequestSchema
 ])
 type AgentControlRequest = z.infer<typeof AgentControlRequestSchema>
@@ -617,11 +626,10 @@ export interface AgentControlSession {
   settleNativeInput(
     signal?: AbortSignal
   ): Promise<AgentInputTraceWire | undefined>
-  measureElements(
+  sensitiveRegions(
     frame: z.infer<typeof AgentSnapshotIdentitySchema>,
-    refs: readonly string[],
     signal?: AbortSignal
-  ): Promise<AgentElementRectWire[]>
+  ): Promise<AgentSensitiveRegions>
   hitTest(
     frame: z.infer<typeof AgentSnapshotIdentitySchema>,
     point: { x: number; y: number },
@@ -845,16 +853,16 @@ export const validateAgentSettleNativeInputResponse = (
   return response.trace
 }
 
-export const validateAgentElementRectsResponse = (
+export const validateAgentSensitiveRegionsResponse = (
   raw: unknown,
   binding: AgentControlBinding,
   sequence: number
-): AgentElementRectWire[] => {
+): AgentSensitiveRegions => {
   const failure = readAgentControlFailure(raw, binding, sequence)
   if (failure) throw failure
-  const response = AgentElementRectsResponseSchema.parse(raw)
-  assertBoundResponse(response, binding, sequence, "element rects")
-  return response.rects
+  const response = AgentSensitiveRegionsResponseSchema.parse(raw)
+  assertBoundResponse(response, binding, sequence, "sensitive regions")
+  return response.regions
 }
 
 export const validateAgentHitTestResponse = (
@@ -1076,7 +1084,7 @@ export const createAgentControlSession = (input: {
         signal
       )
     },
-    measureElements(frame, refs, signal) {
+    sensitiveRegions(frame, signal) {
       if (inFlight) {
         return Promise.reject(
           new Error("Agent control request already in flight")
@@ -1084,18 +1092,17 @@ export const createAgentControlSession = (input: {
       }
       sequence += 1
       const expectedSequence = sequence
-      const request: AgentElementRectsRequest = {
+      const request: AgentSensitiveRegionsRequest = {
         version: AGENT_CONTROL_VERSION,
-        type: "agent_element_rects",
+        type: "agent_sensitive_regions",
         ...input.binding,
         sequence: expectedSequence,
-        frame: AgentSnapshotIdentitySchema.parse(frame),
-        refs: [...refs]
+        frame: AgentSnapshotIdentitySchema.parse(frame)
       }
       return exchange(
         request,
         (raw) =>
-          validateAgentElementRectsResponse(
+          validateAgentSensitiveRegionsResponse(
             raw,
             input.binding,
             expectedSequence
@@ -1273,7 +1280,7 @@ export interface AgentControlContentHandlers {
   settleNativeInput(
     request: AgentSettleNativeInputRequest
   ): AgentInputTraceWire | undefined
-  measureElements(request: AgentElementRectsRequest): AgentElementRectWire[]
+  sensitiveRegions(request: AgentSensitiveRegionsRequest): AgentSensitiveRegions
   hitTest(request: AgentHitTestRequest): AgentHitTestResult
 }
 
@@ -1283,7 +1290,7 @@ type AgentControlResponse =
   | AgentScrollResponse
   | AgentPrepareNativeInputResponse
   | AgentSettleNativeInputResponse
-  | AgentElementRectsResponse
+  | AgentSensitiveRegionsResponse
   | AgentHitTestResponse
   | AgentControlFailureResponse
 
@@ -1311,11 +1318,11 @@ const answerAccepted = (
         ...(trace ? { trace } : {})
       }
     }
-    case "agent_element_rects":
+    case "agent_sensitive_regions":
       return {
         ...envelope,
-        type: "agent_element_rects_measured",
-        rects: handlers.measureElements(request)
+        type: "agent_sensitive_regions_measured",
+        regions: handlers.sensitiveRegions(request)
       }
     case "agent_hit_test":
       return {
@@ -1410,7 +1417,7 @@ export const attachAgentControlContentPort = (
       request.type === "agent_execute_scroll" ||
       request.type === "agent_prepare_native_input"
         ? request.instruction.frame
-        : request.type === "agent_element_rects" ||
+        : request.type === "agent_sensitive_regions" ||
             request.type === "agent_hit_test"
           ? request.frame
           : undefined

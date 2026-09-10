@@ -42,36 +42,53 @@ export interface AgentBrowserAdapters {
   verifier: AgentEffectVerifierAdapter
 }
 
+export interface AgentVisibleTabApi {
+  get(tabId: number): Promise<{ windowId?: number; active?: boolean }>
+  captureVisibleTab(
+    windowId: number,
+    options: { format: "jpeg"; quality: number }
+  ): Promise<string>
+}
+
 /**
  * Pictures a tab without a debugger: the browser's own capture of the visible
  * tab, framed by the observation's viewport since no layout metrics come with
- * it. Pinch zoom is not accounted for on this path and clips are not offered.
+ * it. The API pictures whichever tab is active in the window, so the
+ * controlled tab has to be that tab immediately before and after the capture
+ * or nothing is returned — a picture of a neighbouring tab stamped with this
+ * tab's identity would be masked for the wrong page. Pinch zoom is not
+ * accounted for on this path and clips are not offered.
  */
-const visibleTabCaptureSource = (
+export const visibleTabCaptureSource = (
   viewportOf: (
     tabId: number
-  ) => { x: number; y: number; width: number; height: number } | undefined
+  ) => { x: number; y: number; width: number; height: number } | undefined,
+  tabs: AgentVisibleTabApi = browser.tabs as unknown as AgentVisibleTabApi
 ): AgentScreenshotSource => ({
   async capture(tabId, clip) {
     if (clip) return undefined
     const viewport = viewportOf(tabId)
     if (!viewport) return undefined
-    let tab: { windowId?: number } | undefined
-    try {
-      tab = await browser.tabs.get(tabId)
-    } catch {
-      return undefined
+    const activeWindow = async (): Promise<number | undefined> => {
+      try {
+        const tab = await tabs.get(tabId)
+        return tab.active === true ? tab.windowId : undefined
+      } catch {
+        return undefined
+      }
     }
-    if (tab?.windowId === undefined) return undefined
+    const windowBefore = await activeWindow()
+    if (windowBefore === undefined) return undefined
     let dataUrl: string
     try {
-      dataUrl = await browser.tabs.captureVisibleTab(tab.windowId, {
+      dataUrl = await tabs.captureVisibleTab(windowBefore, {
         format: "jpeg",
         quality: 80
       })
     } catch {
       return undefined
     }
+    if ((await activeWindow()) !== windowBefore) return undefined
     const match = /^data:(image\/(?:jpeg|png));base64,(.+)$/.exec(dataUrl)
     if (!match) return undefined
     const layout = {
@@ -293,9 +310,9 @@ export const createAgentBrowserAdapters = (input: {
           }
         },
         sensitive: {
-          async rects(tabId, observation, refs, signal) {
+          async regions(tabId, observation, signal) {
             try {
-              const measured = await input.sessions.measureElements(
+              const regions = await input.sessions.sensitiveRegions(
                 {
                   runId: input.runId,
                   tabId,
@@ -305,20 +322,11 @@ export const createAgentBrowserAdapters = (input: {
                     tabId: observation.tabId,
                     frameId: observation.frameId,
                     documentId: observation.documentId
-                  },
-                  refs
+                  }
                 },
                 abortSignal(signal)
               )
-              /* Every sensitive control has to be placed; one that is not is a picture not taken. */
-              const placed = new Set(measured.map((rect) => rect.ref))
-              if (refs.some((ref) => !placed.has(ref))) return undefined
-              return measured.map(({ x, y, width, height }) => ({
-                x,
-                y,
-                width,
-                height
-              }))
+              return regions ?? undefined
             } catch {
               return undefined
             }

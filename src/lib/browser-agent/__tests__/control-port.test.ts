@@ -422,7 +422,7 @@ describe("Agent control port", () => {
       executeScroll,
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
-      measureElements: vi.fn(() => []),
+      sensitiveRegions: vi.fn(() => null),
       hitTest: vi.fn(() => null)
     })
     onMessage.emit({
@@ -450,7 +450,7 @@ describe("Agent control port", () => {
       executeScroll,
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
-      measureElements: vi.fn(() => []),
+      sensitiveRegions: vi.fn(() => null),
       hitTest: vi.fn(() => null)
     })
     live.onMessage.emit({
@@ -475,7 +475,7 @@ describe("Agent control port", () => {
         executeScroll: vi.fn(),
         prepareNativeInput: vi.fn(),
         settleNativeInput: vi.fn(),
-        measureElements: vi.fn(() => []),
+        sensitiveRegions: vi.fn(() => null),
         hitTest: vi.fn(() => null)
       })
     ).toBe(true)
@@ -507,7 +507,7 @@ describe("Agent control port", () => {
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
-      measureElements: vi.fn(() => []),
+      sensitiveRegions: vi.fn(() => null),
       hitTest: vi.fn(() => null)
     })
     onMessage.emit({
@@ -543,7 +543,7 @@ describe("Agent control port", () => {
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
-      measureElements: vi.fn(() => []),
+      sensitiveRegions: vi.fn(() => null),
       hitTest: vi.fn(() => null)
     })
     onMessage.emit({
@@ -652,7 +652,7 @@ describe("Agent control failures", () => {
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
-      measureElements: vi.fn(() => []),
+      sensitiveRegions: vi.fn(() => null),
       hitTest: vi.fn(() => null)
     })
     onMessage.emit({
@@ -684,7 +684,7 @@ describe("Agent control failures", () => {
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
-      measureElements: vi.fn(() => []),
+      sensitiveRegions: vi.fn(() => null),
       hitTest: vi.fn(() => null)
     })
     onMessage.emit({
@@ -716,7 +716,7 @@ describe("Agent control failures", () => {
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
-      measureElements: vi.fn(() => []),
+      sensitiveRegions: vi.fn(() => null),
       hitTest: vi.fn(() => null)
     })
     onMessage.emit({
@@ -751,7 +751,7 @@ describe("Agent control failures", () => {
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
-      measureElements: vi.fn(() => []),
+      sensitiveRegions: vi.fn(() => null),
       hitTest: vi.fn(() => null)
     })
     onMessage.emit({
@@ -884,7 +884,7 @@ describe("Agent control port across frames", () => {
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
-      measureElements: vi.fn(() => []),
+      sensitiveRegions: vi.fn(() => null),
       hitTest: vi.fn(() => null)
     })
     onMessage.emit({

@@ -3,9 +3,12 @@ import type {
   AgentSnapshotIdentity
 } from "@ollama-client/contracts"
 
-import type { AgentElementRectWire, AgentHitTestResult } from "./control-port"
+import type { AgentHitTestResult, AgentSensitiveRegions } from "./control-port"
 import type { AgentElementReferenceStore } from "./element-references"
-import { buildAgentElementObservation } from "./observation-builder"
+import {
+  buildAgentElementObservation,
+  collectAgentMaskRegions
+} from "./observation-builder"
 
 /**
  * The page's answers for visual grounding: where its observed controls are,
@@ -20,28 +23,19 @@ const composedParent = (element: Element): Element | null => {
   return root && "host" in root ? ((root as ShadowRoot).host ?? null) : null
 }
 
-/** Client rects of the refs that still resolve, in this frame's viewport CSS pixels. */
-export const measureAgentElementsInDocument = (input: {
+/**
+ * Everything a picture of this document must cover, read from the whole
+ * composed tree right now, or nothing when this document is not the snapshot
+ * the request named. Not bounded by the observation: a control the overview
+ * left out is still on screen.
+ */
+export const collectAgentSensitiveRegionsInDocument = (input: {
   identity: AgentSnapshotIdentity
-  refs: readonly string[]
+  document: Document
   references: AgentElementReferenceStore
-}): AgentElementRectWire[] => {
-  if (!input.references.matches(input.identity)) return []
-  const rects: AgentElementRectWire[] = []
-  for (const ref of input.refs) {
-    const element = input.references.resolve(ref, input.identity)
-    if (!element) continue
-    const rect = element.getBoundingClientRect()
-    if (rect.width <= 0 || rect.height <= 0) continue
-    rects.push({
-      ref,
-      x: rect.left,
-      y: rect.top,
-      width: rect.width,
-      height: rect.height
-    })
-  }
-  return rects
+}): AgentSensitiveRegions => {
+  if (!input.references.matches(input.identity)) return null
+  return collectAgentMaskRegions(input.document)
 }
 
 const isFrameElement = (element: Element): boolean =>

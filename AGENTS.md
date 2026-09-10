@@ -469,13 +469,30 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   message's image attachment, and is held for that decision and the resolution
   that follows — never persisted, logged, traced or shown. A capture that
   fails leaves the decision to the DOM; it never fails the run.
-- **Nothing leaves unmasked.** `screenshot-capture.ts` asks the page for the
-  rects of every visible sensitive control (`agent_element_rects`), paints them
-  black in image pixels with a one-pixel margin, and bounds the long edge to
-  `MAX_AGENT_SCREENSHOT_EDGE_PX`. A sensitive control that cannot be placed —
-  one in a child frame, a ref that no longer resolves, no image editor — means
-  no picture, not a picture with a hole in the plan. The editor is the
-  worker's `OffscreenCanvas`; without one there are no screenshots.
+- **Nothing leaves unmasked.** `screenshot-capture.ts` asks the page for
+  every region a picture must cover (`agent_sensitive_regions`): each sensitive
+  control in the *whole composed tree* — never the bounded observation, which
+  stops at its element budget — and every child frame, masked whole because a
+  frame the run cannot read may hold a sign-in form and one it can read cannot
+  be placed from the root. Regions are read at the observation's scroll
+  position, then read again after the capture; any difference means the page
+  moved under the picture and the step gets none. Masks are painted black in
+  image pixels with a one-pixel margin and the long edge is bounded to
+  `MAX_AGENT_SCREENSHOT_EDGE_PX`. The editor is the worker's `OffscreenCanvas`;
+  without one there are no screenshots.
+- **The fallback capture is the active tab's or nobody's.**
+  `tabs.captureVisibleTab` pictures whichever tab is active in a window, so the
+  debugger-less path (`visibleTabCaptureSource`) requires the controlled tab to
+  be that tab immediately before and after the capture and returns nothing
+  otherwise — a neighbouring tab stamped with this tab's identity would be
+  masked for the wrong page.
+- **Screenshots need their own acknowledgement, and the runtime enforces it.**
+  `AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED` is separate from the observation
+  acknowledgement. The panel shows the screenshot variant of the remote notice
+  whenever pictures *may* travel — vision true or not yet determined — and
+  `buildAgentController` refuses to picture a remote provider's run until the
+  setting is set, whatever the panel showed at start. A local endpoint needs
+  no acknowledgement; nothing leaves the device.
 - **Coordinates convert through the picture's own geometry.** A screenshot
   records the CSS `region` it shows and its `scale` (image px per CSS px);
   `screenshot-geometry.ts` converts a model's image pixel to the root layout

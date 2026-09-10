@@ -99,7 +99,7 @@ const startService = (
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
-      measureElements: vi.fn(),
+      sensitiveRegions: vi.fn(),
       hitTest: vi.fn(),
       release: vi.fn()
     },
@@ -287,7 +287,7 @@ describe("starting an Agent run against the real engine", () => {
           executeScroll: vi.fn(),
           prepareNativeInput: vi.fn(),
           settleNativeInput: vi.fn(),
-          measureElements: vi.fn(),
+          sensitiveRegions: vi.fn(),
           hitTest: vi.fn(),
           release: vi.fn()
         },
@@ -338,7 +338,7 @@ describe("starting an Agent run against the real engine", () => {
           executeScroll: vi.fn(),
           prepareNativeInput: vi.fn(),
           settleNativeInput: vi.fn(),
-          measureElements: vi.fn(),
+          sensitiveRegions: vi.fn(),
           hitTest: vi.fn(),
           release: vi.fn()
         },

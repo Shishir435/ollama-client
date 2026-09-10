@@ -9,11 +9,11 @@ import type {
   AgentControlBrowserFrame,
   AgentControlSession,
   AgentDomMutationInstruction,
-  AgentElementRectWire,
   AgentHitTestResult,
   AgentInputTraceWire,
   AgentNativeInputPreparedResult,
-  AgentScrollInstruction
+  AgentScrollInstruction,
+  AgentSensitiveRegions
 } from "@/lib/browser-agent/control-port"
 import { openAgentControlSession } from "@/lib/browser-agent/control-port"
 import {
@@ -95,15 +95,10 @@ export interface AgentControlSessionRegistry {
     signal?: AbortSignal
   ): Promise<AgentInputTraceWire | undefined>
   /** Read-only questions about the live snapshot of one frame. */
-  measureElements(
-    input: {
-      runId: string
-      tabId: number
-      frame: AgentSnapshotIdentity
-      refs: readonly string[]
-    },
+  sensitiveRegions(
+    input: { runId: string; tabId: number; frame: AgentSnapshotIdentity },
     signal?: AbortSignal
-  ): Promise<AgentElementRectWire[]>
+  ): Promise<AgentSensitiveRegions>
   hitTest(
     input: {
       runId: string
@@ -312,10 +307,10 @@ export const createAgentControlSessionRegistry = (input?: {
         throw error
       }
     },
-    async measureElements({ runId, tabId, frame, refs }, signal) {
+    async sensitiveRegions({ runId, tabId, frame }, signal) {
       const session = await acquire(runId, tabId, frame.frameId)
       try {
-        return await session.measureElements(frame, refs, signal)
+        return await session.sensitiveRegions(frame, signal)
       } catch (error) {
         drop(runId, tabId, frame.frameId)
         throw error

@@ -80,16 +80,10 @@ const editor = (size = { width: 1600, height: 1200 }) => {
   return { instance, edits }
 }
 
-const sensitiveElement = {
-  ref: "e1",
-  frameId: 0,
-  tag: "input",
-  type: "password",
-  visible: true,
-  enabled: true,
-  editable: true,
-  sensitive: true
-}
+const regionsOf = (
+  rects: { x: number; y: number; width: number; height: number }[],
+  scroll = { x: 0, y: 120 }
+) => ({ regions: vi.fn(async () => ({ rects, scroll })) })
 
 describe("screenshot capture pipeline", () => {
   it("binds the picture to the observation and records its geometry", async () => {
@@ -97,7 +91,7 @@ describe("screenshot capture pipeline", () => {
     const { instance } = editor()
     const port = createAgentScreenshotPort({
       source,
-      sensitive: { rects: vi.fn(async () => []) },
+      sensitive: regionsOf([]),
       editor: instance,
       now: () => 5
     })
@@ -122,24 +116,16 @@ describe("screenshot capture pipeline", () => {
     expect(shot?.scale).toBeCloseTo(1.6)
   })
 
-  it("paints over every sensitive control before the image leaves, in image pixels", async () => {
+  it("paints over every region the page names, read from the whole page, in image pixels", async () => {
     const { instance, edits } = editor({ width: 800, height: 600 })
+    const sensitive = regionsOf([{ x: 10, y: 20, width: 100, height: 30 }])
     const port = createAgentScreenshotPort({
       source: { capture: async () => raw() },
-      sensitive: {
-        rects: vi.fn(async (_tab, _observation, refs) => {
-          expect(refs).toEqual(["e1"])
-          return [{ x: 10, y: 20, width: 100, height: 30 }]
-        })
-      },
+      sensitive,
       editor: instance
     })
     const shot = await port.capture(
-      {
-        runId: "run",
-        tabId: 7,
-        observation: observation({ elements: [sensitiveElement] })
-      },
+      { runId: "run", tabId: 7, observation: observation() },
       signal
     )
     expect(shot?.maskedRegions).toBe(1)
@@ -147,60 +133,63 @@ describe("screenshot capture pipeline", () => {
       masks: [{ x: 9, y: 19, width: 102, height: 32 }],
       mimeType: "image/jpeg"
     })
+    /* Read before and again after the capture, never from the bounded observation. */
+    expect(sensitive.regions).toHaveBeenCalledTimes(2)
   })
 
-  it("takes no picture when a sensitive control cannot be placed, or lives in a child frame, or no editor exists", async () => {
+  it("takes no picture when the page will not say what to mask, scrolled since the observation, or moved during the capture", async () => {
     const { instance } = editor({ width: 800, height: 600 })
-    const unplaced = createAgentScreenshotPort({
+    const silent = createAgentScreenshotPort({
       source: { capture: async () => raw() },
-      sensitive: { rects: async () => undefined },
+      sensitive: { regions: async () => undefined },
       editor: instance
     })
     await expect(
-      unplaced.capture(
-        {
-          runId: "run",
-          tabId: 7,
-          observation: observation({ elements: [sensitiveElement] })
-        },
+      silent.capture(
+        { runId: "run", tabId: 7, observation: observation() },
         signal
       )
     ).resolves.toBeUndefined()
 
-    const framed = createAgentScreenshotPort({
+    const scrolled = createAgentScreenshotPort({
       source: { capture: async () => raw() },
-      sensitive: { rects: async () => [] },
+      sensitive: regionsOf([], { x: 0, y: 400 }),
       editor: instance
     })
     await expect(
-      framed.capture(
-        {
-          runId: "run",
-          tabId: 7,
-          observation: observation({
-            frames: [
-              ...observation().frames,
-              {
-                frameId: 3,
-                parentFrameId: 0,
-                documentId: "d3",
-                origin: "https://embed.example",
-                url: "https://embed.example/",
-                access: "ok",
-                snapshotId: "s3",
-                generation: 1
-              }
-            ],
-            elements: [{ ...sensitiveElement, frameId: 3, ref: "f3e1" }]
-          })
-        },
+      scrolled.capture(
+        { runId: "run", tabId: 7, observation: observation() },
         signal
       )
     ).resolves.toBeUndefined()
+
+    const readings = [
+      {
+        rects: [{ x: 10, y: 20, width: 100, height: 30 }],
+        scroll: { x: 0, y: 120 }
+      },
+      {
+        rects: [{ x: 10, y: 80, width: 100, height: 30 }],
+        scroll: { x: 0, y: 120 }
+      }
+    ]
+    const capture = vi.fn(async () => raw())
+    const moved = createAgentScreenshotPort({
+      source: { capture },
+      sensitive: { regions: async () => readings.shift() },
+      editor: instance
+    })
+    await expect(
+      moved.capture(
+        { runId: "run", tabId: 7, observation: observation() },
+        signal
+      )
+    ).resolves.toBeUndefined()
+    expect(capture).toHaveBeenCalledOnce()
 
     const noEditor = createAgentScreenshotPort({
       source: { capture: async () => raw() },
-      sensitive: { rects: async () => [] }
+      sensitive: regionsOf([])
     })
     await expect(
       noEditor.capture(
@@ -233,7 +222,7 @@ describe("screenshot capture pipeline", () => {
     }
     const port = createAgentScreenshotPort({
       source,
-      sensitive: { rects: async () => [] },
+      sensitive: regionsOf([]),
       editor: instance
     })
     const first = await port.capture(

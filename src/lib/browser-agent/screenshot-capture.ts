@@ -24,11 +24,13 @@ import {
 /**
  * The capture pipeline, with the browser behind three small ports.
  *
- * A picture leaves the device only after every sensitive control the
- * observation listed has been painted over, and only at a bounded size. When
- * either cannot be guaranteed — the page will not say where a sensitive
- * control is, or no image editor is available to mask and shrink — the step
- * gets no picture rather than a picture that might carry a password field.
+ * A picture leaves the device only after every region the page itself names
+ * — each sensitive control in the whole composed tree and every child frame —
+ * has been painted over, only when those regions read identically before and
+ * after the capture, and only at a bounded size. When any of that cannot be
+ * guaranteed — the page will not answer, it moved during the capture, no
+ * image editor is available — the step gets no picture rather than a picture
+ * that might carry a password field.
  */
 
 export interface AgentRawCapture {
@@ -52,16 +54,18 @@ export interface AgentScreenshotSource {
 
 export interface AgentSensitiveRegionSource {
   /**
-   * Where the listed sensitive controls are, in root layout-viewport CSS
-   * pixels. `undefined` means the question could not be answered for every
-   * ref, which the pipeline treats as "do not picture this page".
+   * Every rect the page says a picture must cover — sensitive controls and
+   * child frames, read from the whole composed tree — with the scroll they
+   * were read at. `undefined` means the page could not be asked, which the
+   * pipeline treats as "do not picture this page".
    */
-  rects(
+  regions(
     tabId: number,
     observation: AgentObservation,
-    refs: readonly string[],
     signal: AgentCancellationSignal
-  ): Promise<AgentCssRect[] | undefined>
+  ): Promise<
+    { rects: AgentCssRect[]; scroll: { x: number; y: number } } | undefined
+  >
 }
 
 export interface AgentImageEdit {
@@ -87,10 +91,10 @@ export interface AgentImageEditor {
 
 export const AGENT_SCREENSHOT_JPEG_QUALITY = 0.72
 
-const sensitiveRefs = (observation: AgentObservation): string[] =>
-  observation.elements
-    .filter((element) => element.sensitive && element.visible)
-    .map((element) => element.ref)
+const sameRegions = (
+  first: { rects: AgentCssRect[]; scroll: { x: number; y: number } },
+  second: { rects: AgentCssRect[]; scroll: { x: number; y: number } }
+): boolean => JSON.stringify(first) === JSON.stringify(second)
 
 /**
  * Assembles the pipeline. The previous capture's geometry is remembered per
@@ -109,33 +113,28 @@ export const createAgentScreenshotPort = (input: {
   const maxEdge = input.maxEdge ?? MAX_AGENT_SCREENSHOT_EDGE_PX
   const previous = new Map<string, AgentScreenshot>()
 
-  const maskRects = async (
+  /**
+   * The regions to paint, read from the whole page at the observation's own
+   * scroll position. A page that scrolled since the observation is a picture
+   * of something else; a page that will not answer is not pictured.
+   */
+  const maskRegions = async (
     request: AgentScreenshotRequest,
     signal: AgentCancellationSignal
-  ): Promise<AgentCssRect[] | undefined> => {
-    const refs = sensitiveRefs(request.observation)
-    if (refs.length === 0) return []
-    /**
-     * A child frame's controls are measured in that frame's own viewport, and
-     * placing them needs the frame's offset; until that is wired, a sensitive
-     * control in any child frame keeps the whole page unpictured.
-     */
+  ) => {
+    const regions = await input.sensitive.regions(
+      request.tabId,
+      request.observation,
+      signal
+    )
     if (
-      request.observation.elements.some(
-        (element) =>
-          element.sensitive &&
-          element.visible &&
-          element.frameId !== request.observation.frameId
-      )
+      !regions ||
+      regions.scroll.x !== request.observation.scroll.x ||
+      regions.scroll.y !== request.observation.scroll.y
     ) {
       return undefined
     }
-    return input.sensitive.rects(
-      request.tabId,
-      request.observation,
-      refs,
-      signal
-    )
+    return regions
   }
 
   const clipFor = (
@@ -161,8 +160,8 @@ export const createAgentScreenshotPort = (input: {
     /* No editor means no masking and no measuring, so no picture. */
     const editor = input.editor
     if (!editor) return undefined
-    const masks = await maskRects(request, signal)
-    if (!masks) return undefined
+    const before = await maskRegions(request, signal)
+    if (!before) return undefined
     if (signal.aborted) return undefined
 
     /*
@@ -193,6 +192,14 @@ export const createAgentScreenshotPort = (input: {
       }
     }
     if (signal.aborted) return undefined
+    /**
+     * Read again after the capture. Masks placed before it cover what the
+     * picture shows only if nothing moved in between; a page that scrolled,
+     * re-laid out or gained a control while the picture was taken is not
+     * pictured this step.
+     */
+    const after = await maskRegions(request, signal)
+    if (!after || !sameRegions(before, after)) return undefined
 
     const geometry = {
       region,
@@ -200,7 +207,7 @@ export const createAgentScreenshotPort = (input: {
       imageWidth: size.width,
       imageHeight: size.height
     }
-    const imageMasks = masks
+    const imageMasks = before.rects
       .map((rect) => cssRectToImage(geometry, rect))
       .filter((rect): rect is AgentImageRect => rect !== undefined)
     const bounded = boundedImageSize(size.width, size.height, maxEdge)

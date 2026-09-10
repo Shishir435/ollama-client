@@ -14,8 +14,8 @@ import {
 } from "@/lib/browser-agent/native-input-page"
 import { buildAgentObservation } from "@/lib/browser-agent/observation-builder"
 import {
-  hitTestAgentPointInDocument,
-  measureAgentElementsInDocument
+  collectAgentSensitiveRegionsInDocument,
+  hitTestAgentPointInDocument
 } from "@/lib/browser-agent/visual-grounding-page"
 import { browser } from "@/lib/browser-api"
 
@@ -84,11 +84,11 @@ export const installAgentControlContentScript = (): void => {
           watch
         })
       },
-      measureElements(request) {
-        if (!references) return []
-        return measureAgentElementsInDocument({
+      sensitiveRegions(request) {
+        if (!references) return null
+        return collectAgentSensitiveRegionsInDocument({
           identity: request.frame,
-          refs: request.refs,
+          document,
           references
         })
       },

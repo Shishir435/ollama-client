@@ -25,6 +25,9 @@ export const AgentPanel = () => {
   const [acknowledged, setAcknowledged] = useSetting(
     SETTINGS.AGENT_REMOTE_OBSERVATION_ACKNOWLEDGED
   )
+  const [screenshotsAcknowledged, setScreenshotsAcknowledged] = useSetting(
+    SETTINGS.AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED
+  )
   const { goal, setGoal } = useAgentDraft()
   const candidateTab = useAgentCandidateTab()
   const connection = useAgentRun({
@@ -65,10 +68,14 @@ export const AgentPanel = () => {
               : undefined
           }
           privacyAcknowledged={acknowledged === true}
+          screenshotsAcknowledged={screenshotsAcknowledged === true}
           busy={connection.busy}
           goal={goal}
           onGoalChange={setGoal}
-          onAcknowledgePrivacy={() => void setAcknowledged(true)}
+          onAcknowledgePrivacy={(scope) => {
+            void setAcknowledged(true)
+            if (scope === "screenshots") void setScreenshotsAcknowledged(true)
+          }}
           onStart={connection.start}
           onAnswer={connection.answerQuestion}
           onApprove={connection.approve}

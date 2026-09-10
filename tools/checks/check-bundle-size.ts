@@ -235,7 +235,7 @@ const budgets: Budget[] = [
      * Screenshots and visual grounding — the capture pipeline with its masking
      * and geometry, the OffscreenCanvas editor, the debugger capture, hit-test
      * and rect messages, and the vision variant of the decision tool — took it
-     * to 248,152. Firefox carries no Agent code and is unchanged.
+     * to 248,454. Firefox carries no Agent code and is unchanged.
      */
     max: isFirefox ? 210_000 : 249_000
   }

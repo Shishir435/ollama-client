@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { createAgentElementReferenceStore } from "../element-references"
 import {
-  hitTestAgentPointInDocument,
-  measureAgentElementsInDocument
+  collectAgentSensitiveRegionsInDocument,
+  hitTestAgentPointInDocument
 } from "../visual-grounding-page"
 
 const identity = {
@@ -43,27 +43,49 @@ const snapshotWith = (...elements: Element[]) => {
 }
 
 describe("visual grounding in the page", () => {
-  it("measures the refs that still resolve and skips the rest", () => {
-    const button = document.createElement("button")
-    const hidden = document.createElement("button")
-    document.body.append(button, hidden)
-    vi.spyOn(button, "getBoundingClientRect").mockReturnValue(rect(10, 20))
-    vi.spyOn(hidden, "getBoundingClientRect").mockReturnValue(rect(0, 0, 0, 0))
-    const { references, refs } = snapshotWith(button, hidden)
+  it("names every sensitive control and every child frame in the whole page, with the scroll it read at", () => {
+    const password = document.createElement("input")
+    password.type = "password"
+    const name = document.createElement("input")
+    const frame = document.createElement("iframe")
+    const host = document.createElement("div")
+    const shadow = host.attachShadow({ mode: "open" })
+    const hidden = document.createElement("input")
+    hidden.type = "password"
+    shadow.append(hidden)
+    document.body.append(password, name, frame, host)
+    vi.spyOn(password, "getClientRects").mockReturnValue([
+      rect(10, 20)
+    ] as unknown as DOMRectList)
+    vi.spyOn(name, "getClientRects").mockReturnValue([
+      rect(10, 60)
+    ] as unknown as DOMRectList)
+    vi.spyOn(frame, "getClientRects").mockReturnValue([
+      rect(0, 100, 300, 150)
+    ] as unknown as DOMRectList)
+    vi.spyOn(hidden, "getClientRects").mockReturnValue([
+      rect(400, 20)
+    ] as unknown as DOMRectList)
+    /* Only the password field was observed; the one inside the shadow root was not. */
+    const { references } = snapshotWith(password)
+    const regions = collectAgentSensitiveRegionsInDocument({
+      identity,
+      document,
+      references
+    })
+    expect(regions?.rects).toEqual([
+      { x: 10, y: 20, width: 50, height: 20 },
+      { x: 0, y: 100, width: 300, height: 150 },
+      { x: 400, y: 20, width: 50, height: 20 }
+    ])
+    expect(regions?.scroll).toEqual({ x: 0, y: 0 })
     expect(
-      measureAgentElementsInDocument({
-        identity,
-        refs: [...refs, "e99"],
-        references
-      })
-    ).toEqual([{ ref: refs[0], x: 10, y: 20, width: 50, height: 20 }])
-    expect(
-      measureAgentElementsInDocument({
+      collectAgentSensitiveRegionsInDocument({
         identity: { ...identity, generation: 2 },
-        refs,
+        document,
         references
       })
-    ).toEqual([])
+    ).toBeNull()
   })
 
   it("answers a point with the listed control that contains it, else the hit element newly referenced", () => {
