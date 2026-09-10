@@ -42,7 +42,7 @@ import {
 const attempts: AgentAttemptRecord[] = []
 
 /** Frozen: what the suite declares, checked before a report is written. */
-const TASKS = 15
+const TASKS = 30
 
 const task = (input: Parameters<typeof benchmarkTask>[1]) =>
   benchmarkTask(attempts, input)
@@ -354,6 +354,309 @@ task({
     return { type: "complete", summary: "Saved." }
   },
   succeeded: savedIndicator
+})
+
+// ── 6. frames ───────────────────────────────────────────────────────────────
+
+const panelHost = '<iframe src="/panel" title="panel"></iframe>'
+
+task({
+  family: "frames",
+  name: "same-origin-child",
+  goal: "Click Continue inside the embedded panel and report the status.",
+  status: "completed",
+  html: (path) =>
+    path.startsWith("/panel") ? page(observableButton()) : page(panelHost),
+  decide: clickThenReport(),
+  succeeded: async (outcome) =>
+    (
+      await outcome.page.frameLocator("iframe").locator("main").innerText()
+    ).includes("Status: Active")
+})
+
+task({
+  family: "frames",
+  name: "child-with-form",
+  goal: "Fill the given field inside the embedded panel. Do not submit.",
+  status: "completed",
+  approvalScope: "run_origin",
+  html: (path) =>
+    path.startsWith("/panel") ? fieldPage(["given"]) : page(panelHost),
+  decide: fillFields(["given"]),
+  succeeded: fieldsFilled(["given"], "iframe")
+})
+
+task({
+  family: "frames",
+  name: "srcdoc-cannot-be-read",
+  goal: "Click Continue inside the embedded panel and report the status.",
+  status: "paused",
+  html: () =>
+    page(
+      `<iframe srcdoc="${page(observableButton()).replaceAll('"', "&quot;")}"></iframe>`
+    ),
+  /**
+   * A `srcdoc` frame has no origin of its own, so the run may not read it and
+   * has to say so rather than guess. Asking is the correct outcome; the report
+   * records which it did.
+   */
+  decide: () => ({
+    type: "ask_user",
+    question: "The panel cannot be read. Should I act on the page instead?"
+  }),
+  succeeded: (outcome) => outcome.snapshot?.run?.status === "paused"
+})
+
+// ── 7. shadow-roots ─────────────────────────────────────────────────────────
+
+const shadowPage = (inner: string) =>
+  page(
+    `<div id="host"></div><script>
+      document.getElementById('host').attachShadow({ mode: 'open' }).innerHTML =
+        ${JSON.stringify(inner)}
+    </script>`
+  )
+
+task({
+  family: "shadow-roots",
+  name: "button-in-open-root",
+  goal: "Click Continue and report the status.",
+  status: "completed",
+  html: () => shadowPage(observableButton()),
+  decide: clickThenReport(),
+  succeeded: showsActiveStatus
+})
+
+task({
+  family: "shadow-roots",
+  name: "field-in-open-root",
+  goal: "Fill the given field. Do not submit.",
+  status: "completed",
+  approvalScope: "run_origin",
+  html: () => shadowPage('<label for="given">given</label><input id="given">'),
+  decide: fillFields(["given"]),
+  succeeded: async (outcome) =>
+    (await outcome.page.locator("#host #given").inputValue()) === "value-given"
+})
+
+task({
+  family: "shadow-roots",
+  name: "slotted-text",
+  goal: "Report the status the component shows.",
+  status: "completed",
+  html: () =>
+    page(
+      `<div id="host"><p>Status: Active</p></div><script>
+        document.getElementById('host').attachShadow({ mode: 'open' }).innerHTML =
+          '<slot></slot>'
+      </script>`
+    ),
+  decide: (observation) =>
+    observation.text.includes("Status: Active")
+      ? { type: "complete", summary: "Active" }
+      : { type: "extract_text" },
+  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+})
+
+// ── 8. canvas-and-visual ────────────────────────────────────────────────────
+
+const boardPage = page(
+  `<canvas id="board" width="320" height="160" style="background:#ccc" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>')"></canvas>`
+)
+
+task({
+  family: "canvas-and-visual",
+  name: "click-a-point",
+  goal: "Click the left half of the board and report the status.",
+  status: "completed",
+  approvalScope: "run_origin",
+  vision: true,
+  html: () => boardPage,
+  decide: (observation, context) =>
+    observation.text.includes("Status: Active")
+      ? { type: "complete", summary: "Active", evidence: "Status: Active" }
+      : {
+          type: "click_point",
+          x: Math.round((context.screenshot?.width ?? 640) / 4),
+          y: Math.round((context.screenshot?.height ?? 320) / 4)
+        },
+  succeeded: showsActiveStatus
+})
+
+task({
+  family: "canvas-and-visual",
+  name: "zoom-then-click",
+  goal: "Look closely at the board, then click its left half.",
+  status: "completed",
+  approvalScope: "run_origin",
+  vision: true,
+  html: () => boardPage,
+  decide: (observation, context) => {
+    if (observation.text.includes("Status: Active")) {
+      return { type: "complete", summary: "Active", evidence: "Status: Active" }
+    }
+    if (context.step === 1) {
+      return { type: "zoom", x: 0, y: 0, width: 160, height: 80 }
+    }
+    return {
+      type: "click_point",
+      x: Math.round((context.screenshot?.width ?? 640) / 4),
+      y: Math.round((context.screenshot?.height ?? 320) / 4)
+    }
+  },
+  succeeded: showsActiveStatus
+})
+
+task({
+  family: "canvas-and-visual",
+  name: "text-only-model",
+  goal: "Report the status shown beside the board.",
+  status: "completed",
+  html: () => page(`${boardPage}<p>Status: Active</p>`),
+  /** No picture is taken for a model that cannot read one, and none offered. */
+  decide: (_observation, context) => {
+    expect(context.images).toBe(0)
+    expect(context.actions).not.toContain("click_point")
+    return { type: "complete", summary: "Active" }
+  },
+  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+})
+
+// ── 9. multi-tab ────────────────────────────────────────────────────────────
+
+const detailsPage = page("<h1>Details</h1><p>Status: Active</p>")
+
+task({
+  family: "multi-tab",
+  name: "open-a-tab",
+  goal: "Open the details page and report the status.",
+  status: "completed",
+  html: (path) =>
+    path.startsWith("/details")
+      ? detailsPage
+      : page('<a href="/details">Details</a>'),
+  decide: (observation) => {
+    if (observation.text.includes("Status: Active")) {
+      return { type: "complete", summary: "Active" }
+    }
+    const link = named(observation, "Details")
+    return link?.href
+      ? { type: "open_tab", url: link.href }
+      : { type: "fail", reason: "No link to follow." }
+  },
+  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+})
+
+task({
+  family: "multi-tab",
+  name: "follow-a-slow-link",
+  goal: "Go to the details page and report the status.",
+  status: "completed",
+  html: (path) =>
+    path.startsWith("/details")
+      ? detailsPage
+      : page('<a href="/details">Details</a>'),
+  navigationDelayMs: (path) => (path.startsWith("/details") ? 900 : 0),
+  decide: (observation) =>
+    observation.text.includes("Status: Active")
+      ? { type: "complete", summary: "Active" }
+      : clickNamed(observation, "Details"),
+  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+})
+
+task({
+  family: "multi-tab",
+  name: "go-back",
+  goal: "Read the details page, then come back and report the heading.",
+  status: "completed",
+  html: (path) =>
+    path.startsWith("/details")
+      ? detailsPage
+      : page('<h1>Home</h1><a href="/details">Details</a>'),
+  decide: (observation, context) => {
+    if (context.step === 1) return clickNamed(observation, "Details")
+    if (observation.text.includes("Details")) return { type: "back" }
+    return { type: "complete", summary: "Home" }
+  },
+  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+})
+
+// ── 10. dialogs-and-recovery ────────────────────────────────────────────────
+
+task({
+  family: "dialogs-and-recovery",
+  name: "confirm-inside-a-modal",
+  goal: "Delete the item, confirming when asked.",
+  status: "completed",
+  html: () =>
+    page(
+      `<button type="button" onclick="document.getElementById('confirm').hidden=false;this.disabled=true">Delete</button>
+       <div id="confirm" role="dialog" aria-label="Confirm delete" hidden>
+         <p>Delete this item?</p>
+         <button type="button" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>');this.closest('[role=dialog]').hidden=true">Confirm</button>
+         <button type="button">Cancel</button>
+       </div>`
+    ),
+  decide: (observation) => {
+    if (observation.text.includes("Status: Active")) {
+      return {
+        type: "complete",
+        summary: "Deleted",
+        evidence: "Status: Active"
+      }
+    }
+    const confirm = named(observation, "Confirm")
+    return confirm && !confirm.hidden
+      ? { type: "click", ref: confirm.ref }
+      : clickNamed(observation, "Delete")
+  },
+  succeeded: showsActiveStatus
+})
+
+task({
+  family: "dialogs-and-recovery",
+  name: "ask-when-ambiguous",
+  goal: "Pick the right account.",
+  status: "completed",
+  answer: "Use the second account.",
+  html: () => page("<h1>Accounts</h1><p>Two accounts exist.</p>"),
+  decide: (_observation, context) =>
+    context.step === 1
+      ? { type: "ask_user", question: "Which of the two accounts?" }
+      : { type: "complete", summary: "Used the second account." },
+  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+})
+
+task({
+  family: "dialogs-and-recovery",
+  name: "native-confirm",
+  goal: "Delete the item, confirming when the browser asks.",
+  status: "completed",
+  html: () =>
+    page(
+      `<button type="button" onclick="if (confirm('Delete this item?')) document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>')">Delete</button>`
+    ),
+  /**
+   * A native dialog blocks the page and only an attached debugger sees one, so
+   * this task is expected to behave differently on the two backends. That is
+   * the point of it: the report says what each did rather than one of them
+   * being declared wrong.
+   */
+  decide: (observation) => {
+    if (observation.text.includes("Status: Active")) {
+      return {
+        type: "complete",
+        summary: "Deleted",
+        evidence: "Status: Active"
+      }
+    }
+    const dialog = observation.dialogs?.[0]
+    if (dialog) {
+      return { type: "handle_dialog", dialogId: dialog.id, accept: true }
+    }
+    return clickNamed(observation, "Delete")
+  },
+  succeeded: showsActiveStatus
 })
 
 // ── the report ──────────────────────────────────────────────────────────────

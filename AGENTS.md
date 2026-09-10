@@ -848,6 +848,30 @@ Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
 - `tools/README.md` documents command ownership and prerequisites. `check:static` is shared by CI and local verification; `verify:ci-parity` runs static checks and coverage on committed HEAD in a clean worktree.
 - Never bypass with `--no-verify`. If a hook fails, fix the cause.
 
+## Measured agent behaviour
+
+`AGENT_EVALUATION.md` holds the published numbers and the named remaining
+failures; regenerate it from the two benchmark projects rather than editing
+the tables by hand.
+
+- **The benchmark records, the gates assert.** `chromium-agent-benchmark` and
+  `chromium-agent-benchmark-dom` run the same thirty frozen tasks with and
+  without the `debugger` permission — the second is the browser Firefox gives
+  us — and write counts, never rates: a handful of attempts cannot support a
+  percentage. Tasks are declared `gated: false`, which is what makes a stalled
+  run a recorded row instead of a failed test; the run that did not finish is
+  the most interesting result and throwing would leave it out.
+- **A task scores itself from the page, not from the run.** Every task carries
+  a `succeeded` predicate that reads the page afterwards. False completion
+  cannot be counted any other way, since the thing being measured is precisely
+  the run's verdict being wrong. Its counterpart — goal met, never claimed —
+  is counted too, against the status the task *declared*, because some tasks
+  are meant to pause and scoring those as missed would call the right answer a
+  failure.
+- **CI runs the fixture pass.** Not as a threshold gate, which it is not, but
+  because it asserts, and the completion-evidence rule broke two of its
+  scenarios while nothing was running it.
+
 ## Constraints
 
 - MV3 CSP blocks dynamic eval; WASM is allowed via `'wasm-unsafe-eval'`. ONNX Runtime is bundled, never fetched.

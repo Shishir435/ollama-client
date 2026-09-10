@@ -18,6 +18,13 @@ export interface AgentAttemptRecord {
   attempt: number
   backend: string
   terminalStatus: string
+  /**
+   * The status the task declares as its finish. Some tasks are meant to pause
+   * — asking about a frame it may not read is the right answer — so a
+   * completion is not the measure for every row, and counting one as missed
+   * would score the correct outcome as a failure.
+   */
+  expectedStatus: string
   /** Why it stopped, when it stopped for a reason. */
   pauseReason?: string
   errorCode?: string
@@ -178,7 +185,9 @@ export const summarizeAttempts = (
         ).length,
         missedCompletions: records.filter(
           (record) =>
-            record.succeeded === true && record.terminalStatus !== "completed"
+            record.succeeded === true &&
+            record.expectedStatus === "completed" &&
+            record.terminalStatus !== "completed"
         ).length,
         medianWallMs: median(records.map((record) => record.wallMs)),
         repeatedTargets: records.reduce(

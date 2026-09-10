@@ -62,6 +62,7 @@ export const recordBenchmarkAttempt = async (input: {
   family: string
   scenario: string
   outcome: AgentScenarioOutcome
+  expectedStatus: string
   succeeded?: AgentScenario["succeeded"]
 }): Promise<void> => {
   const { outcome } = input
@@ -83,6 +84,7 @@ export const recordBenchmarkAttempt = async (input: {
     attempt: outcome.attempt,
     backend: outcome.backend,
     terminalStatus: run?.status ?? "unknown",
+    expectedStatus: input.expectedStatus,
     ...(run?.pauseReason ? { pauseReason: run.pauseReason } : {}),
     ...(run?.error?.code ? { errorCode: run.error.code } : {}),
     steps: new Set(steps.map((step) => step.stepId)).size,
@@ -137,6 +139,7 @@ export const benchmarkTask = (
         family,
         scenario,
         outcome,
+        expectedStatus: task.status,
         ...(succeeded ? { succeeded } : {})
       })
       onRecorded?.(outcome)
