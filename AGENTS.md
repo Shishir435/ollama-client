@@ -442,6 +442,23 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   - `classifyNoProgress` took a `verificationOutcome` input that reset the
     count on `confirmed`. Nothing ever passed it, and wiring it as written
     would have made the loop unkillable. It is gone; do not reintroduce it.
+- **A refused command is told to the model, not made fatal.** The resolver
+  refusing to ground a command means nothing was attempted, so the run has
+  lost nothing: it records a rejected step carrying the affordance layer's own
+  sentence — assembled from templates and the model's ref, never from page
+  text — and looks again, exactly as a declined completion does. Three
+  consecutive refusals fail the run with `command_refused`, whose advice says
+  the model kept naming controls the page does not offer. Failing on the first
+  one answered a well-formed decision with `invalid_decision`, whose advice
+  tells the user to find a larger model — wrong about what happened, and often
+  wrong about whose fault it was, since a control the observation offered can
+  be gone by the time the resolver reads the page.
+
+  Most refusals never reach the resolver: `agent-decision-parser.ts` asks the
+  same classifier the same question of the same observation, where a wrong
+  answer costs one retry instead of a step. What reaches the resolver is what
+  that check cannot see — a live hit test, a dialog that opened, a screenshot
+  that is no longer there.
 - **A finding outlives the history window.** `finding` on a decision is kept in
   a dedicated store (`buildAgentFindings`), bounded by count and bytes, carrying
   the redacted page each was recorded on. It is the run's own note and stays

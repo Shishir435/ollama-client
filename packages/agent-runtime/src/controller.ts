@@ -1,3 +1,4 @@
+import type { AgentCommand } from "@ollama-client/contracts"
 import {
   type AgentDecision,
   AgentDecisionSchema,
@@ -67,6 +68,29 @@ import {
 import { classifyVerificationOutcome } from "./verification"
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
+
+/**
+ * What became of a command the model proposed.
+ *
+ * `refused` is the one that needed saying: the resolver would not ground the
+ * command, nothing was attempted, and the run carries on with the refusal in
+ * its history. Collapsing it into `stopped` is what made the first refusal
+ * fatal.
+ */
+type AgentResolutionOutcome =
+  | { type: "resolved"; effect: ResolvedAgentEffect }
+  | { type: "refused"; state: AgentRunState | undefined }
+  | { type: "stopped" }
+
+/**
+ * Commands the resolver may refuse before the run gives up on the model.
+ *
+ * Three, matching the no-progress budget, and consecutive: a refusal is the
+ * model's mistake and it is told what the mistake was, so a model that can
+ * use the correction gets to. One that cannot is answering with controls the
+ * page does not offer, and no number of further looks changes that.
+ */
+const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
 
 /**
  * An origin joins a run's allowlist only when the user approved travelling to
@@ -160,6 +184,7 @@ export const createAgentController = (
    */
   let changeBaseline: { runId: string; text: string } | undefined
   const noProgressCounts = new Map<string, number>()
+  const refusedCommandCounts = new Map<string, number>()
 
   const claim = async (
     state: AgentRunState,
@@ -521,7 +546,7 @@ export const createAgentController = (
     decision: Extract<AgentDecision, { type: "command" }>,
     observation: AgentObservation,
     context: AgentResolutionContext
-  ): Promise<ResolvedAgentEffect | undefined> => {
+  ): Promise<AgentResolutionOutcome> => {
     const { command } = decision
     if (
       command.snapshotId !== observation.snapshotId ||
@@ -532,7 +557,7 @@ export const createAgentController = (
         "stale_snapshot",
         "The model referenced an obsolete page snapshot."
       )
-      return undefined
+      return { type: "stopped" }
     }
 
     let effect: ResolvedAgentEffect
@@ -544,11 +569,23 @@ export const createAgentController = (
        * calling any of this a verification failure said the opposite. But a
        * refused command and a page that went stale under it are different
        * facts, and only the first is the model's to hear about.
+       *
+       * Which is what this said while failing the run on the first refusal,
+       * telling nobody. A model that named a control it could see but the
+       * page had scrolled away got one chance, and the panel answered a
+       * well-formed decision with advice about needing a larger model.
        */
       const failure = agentResolutionFailure(error)
+      if (failure.code === "invalid_decision") {
+        return {
+          type: "refused",
+          state: await refuseCommand(state, command, failure.message)
+        }
+      }
       await fail(state, failure.code, failure.message)
-      return undefined
+      return { type: "stopped" }
     }
+    refusedCommandCounts.set(state.id, 0)
     const identity = effect.snapshotIdentity
     if (
       identity.snapshotId !== observation.snapshotId ||
@@ -561,9 +598,9 @@ export const createAgentController = (
         "stale_snapshot",
         "The resolved effect no longer belongs to the observed page."
       )
-      return undefined
+      return { type: "stopped" }
     }
-    return effect
+    return { type: "resolved", effect }
   }
 
   const handlePolicy = async (
@@ -827,8 +864,16 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     context: AgentResolutionContext
   ): Promise<AgentRunState | undefined> => {
-    const effect = await resolveEffect(state, decision, observation, context)
-    if (!effect) return undefined
+    const resolution = await resolveEffect(
+      state,
+      decision,
+      observation,
+      context
+    )
+    /** A refused command left the run alive and looking again, not stopped. */
+    if (resolution.type === "refused") return resolution.state
+    if (resolution.type === "stopped") return undefined
+    const { effect } = resolution
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
@@ -927,6 +972,42 @@ export const createAgentController = (
         }
       }
     })
+    return claimObserving(state, false, ["deciding"])
+  }
+
+  /**
+   * A command the resolver would not ground, recorded and handed back.
+   *
+   * The same shape as a declined completion, and for the same reason:
+   * nothing was attempted, so the run has lost nothing and the honest move
+   * is to look again with the refusal in its own history. The sentence is
+   * the affordance layer's — assembled from templates and the model's own
+   * ref, never from page text — so it is safe to put in the next prompt.
+   */
+  const refuseCommand = async (
+    state: AgentRunState,
+    command: AgentCommand,
+    feedback: string
+  ): Promise<AgentRunState | undefined> => {
+    const refusals = (refusedCommandCounts.get(state.id) ?? 0) + 1
+    refusedCommandCounts.set(state.id, refusals)
+    const now = dependencies.clock.now()
+    dependencies.trace?.(state.id, "command_refused", { refusals })
+    await dependencies.persistence.appendStep({
+      runId: state.id,
+      stepId: `${state.id}:refused:${state.observationCount}:${refusals}`,
+      status: "rejected",
+      command,
+      at: now,
+      verification: {
+        outcome: "negative",
+        evidence: { kind: "resolution", summary: feedback, observedAt: now }
+      }
+    })
+    if (refusals >= MAX_CONSECUTIVE_REFUSED_COMMANDS) {
+      await fail(state, "command_refused", feedback)
+      return undefined
+    }
     return claimObserving(state, false, ["deciding"])
   }
 

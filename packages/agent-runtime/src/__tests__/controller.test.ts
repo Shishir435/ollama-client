@@ -559,23 +559,65 @@ describe("agent controller", () => {
     expect(harness.calls).not.toContain("execute")
   })
 
-  it("reports a refused command as an invalid decision, not a failed verification", async () => {
+  it("hands a refused command back to the model instead of failing the run", async () => {
+    /**
+     * Nothing was attempted, so the run has lost nothing. Failing here gave
+     * a well-formed decision one chance and answered it with advice about
+     * needing a larger model.
+     */
+    let refusals = 0
     const harness = createHarness({
-      effect: async () => {
+      effect: async (currentCommand, currentObservation) => {
+        refusals += 1
+        if (refusals > 1) {
+          return resolvedEffect(currentObservation, currentCommand)
+        }
         throw new AgentGroundingError({
           refusal: { reason: "not_checkable", ref: "e1", tag: "button" }
         })
       }
     })
     await harness.controller.start("run-1")
-    expect(harness.getState()).toMatchObject({
-      status: "failed",
-      error: { code: "invalid_decision" }
-    })
-    expect(harness.getState().error?.message).toContain(
+
+    expect(harness.getState().status).not.toBe("failed")
+    const rejected = harness.writtenSteps.find(
+      (step) => step.status === "rejected"
+    )
+    expect(rejected?.verification?.evidence.summary).toContain(
       "only on a checkbox or radio input"
     )
+    /** The refusal is in the record, so the next decision is told about it. */
+    expect(rejected?.command).toBeDefined()
+  })
+
+  it("fails with command_refused once the model will not take the correction", async () => {
+    const harness = createHarness({
+      /** The model keeps naming the same control the page will not offer. */
+      decide: async () => ({ type: "command", command: command() }),
+      observations: [
+        observation(),
+        observation(),
+        observation(),
+        observation()
+      ],
+      effect: async () => {
+        throw new AgentGroundingError({
+          refusal: { reason: "hidden_target", ref: "e149" }
+        })
+      }
+    })
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "failed",
+      error: { code: "command_refused" }
+    })
+    expect(harness.getState().error?.message).toContain("is not visible")
     expect(harness.calls).not.toContain("execute")
+    /** Three chances, not one and not the whole observation budget. */
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "rejected")
+    ).toHaveLength(3)
   })
 
   it("does not blame the decision when the page went stale under it", async () => {

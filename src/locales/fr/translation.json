@@ -64,6 +64,7 @@
     },
     "failure": {
       "budget_exhausted": "L'exécution a épuisé son budget d'étapes. Restreignez l'objectif ou reprenez depuis l'état actuel de la page.",
+      "command_refused": "Le modèle a continué à désigner des contrôles que la page ne propose pas : masqués, hors écran ou déjà disparus. Faites d'abord défiler jusqu'à ce dont vous avez besoin, ou essayez un modèle qui lit les pages plus attentivement.",
       "goal_failed": "Le modèle indique qu'il ne peut pas le faire. Essayez un objectif plus clair ou un autre modèle.",
       "invalid_decision": "Le modèle a répondu de façon inexploitable à plusieurs reprises. Un modèle plus grand, capable d'appeler des outils, résout généralement cela.",
       "model_unavailable": "Le modèle est injoignable. Vérifiez que le fournisseur fonctionne, puis relancez.",

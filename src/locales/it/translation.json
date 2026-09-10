@@ -64,6 +64,7 @@
     },
     "failure": {
       "budget_exhausted": "L'esecuzione ha esaurito il budget di passi. Restringi l'obiettivo o riparti dallo stato attuale della pagina.",
+      "command_refused": "Il modello ha continuato a indicare controlli che la pagina non offre: nascosti, fuori schermo o già scomparsi. Scorri prima fino a ciò che ti serve, oppure prova un modello che legga le pagine con più attenzione.",
       "goal_failed": "Il modello ha dichiarato di non poterlo fare. Prova un obiettivo più chiaro o un altro modello.",
       "invalid_decision": "Il modello ha risposto ripetutamente in una forma inutilizzabile. Di solito basta un modello più grande con chiamata di strumenti.",
       "model_unavailable": "Il modello non è raggiungibile. Verifica che il provider sia attivo, poi riavvia.",
