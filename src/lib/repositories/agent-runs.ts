@@ -86,6 +86,8 @@ const AgentStepReceiptSchema = z
     at: z.number().int().nonnegative(),
     command: AgentCommandSchema.optional(),
     risk: z.enum(["low", "medium", "high", "critical"]).optional(),
+    /** Whether the step changed the page; a completion is judged against it. */
+    mutating: z.boolean().optional(),
     verification: AgentVerificationSchema.optional(),
     target: AgentStepTargetSchema.optional(),
     sourceUrl: z.string().max(2_048).optional(),

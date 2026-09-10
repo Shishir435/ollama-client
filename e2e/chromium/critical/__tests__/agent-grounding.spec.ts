@@ -19,7 +19,11 @@ runAgentScenario({
     '<!doctype html><title>Agent grounding</title><main><h1>Preferences</h1><label for="news">Newsletter</label><input id="news" type="checkbox" onchange="document.querySelector(\'main\').insertAdjacentHTML(\'beforeend\',\'<p>Status: Active</p>\')"></main>',
   decide(observation: AgentFixtureObservation, { step }) {
     if (observation.text.includes("Status: Active"))
-      return { type: "complete", summary: "Active" }
+      return {
+        type: "complete",
+        summary: "Active",
+        evidence: "Status: Active"
+      }
     const box = agentFixtureElement(
       observation,
       (element) => element.type === "checkbox"

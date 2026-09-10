@@ -328,7 +328,12 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
 
 - Chromium Agent debugger attachments belong only to
   `src/background/agent/agent-browser-session-manager.ts`. Raw CDP targets stay
-  inside that adapter and never become model tools. Attach only after the run
+  inside that adapter and never become model tools. This is a rule about
+  extension code: `chrome.debugger` attachments taken against the user's tab
+  in the shipped product. It does not reach `tools/verify/**`, where a Node
+  runner drives Chromium's own DevTools endpoint from outside the extension
+  to kill and restart the worker — the thing under test cannot own the switch
+  that kills it, and nothing there ships or is reachable by a model. Attach only after the run
   service authorizes the user-selected tab; detach at pause, takeover, stop,
   completion, and failure boundaries. An unexpected disconnect pauses the run,
   and an interrupted effect remains unresolved rather than being replayed.
@@ -569,6 +574,77 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   `form_mutation`. It is read from the observation, which is why
   `formFingerprint` is reported for every control belonging to a form and not
   only for the ones that submit.
+- **Input delivered, effect observed and goal achieved are three answers, and
+  a run owes all three.** The receipt's `inputDelivery` says the page received
+  the events; the verifier's outcome says the control changed as the step
+  intended; neither says the thing the user asked for is true. Clicking Save
+  is an activation a verifier confirms — the button was pressed, the page
+  changed — while the document is still saving, so `complete` used to let
+  every run that pressed the right button report success.
+  `judgeAgentCompletion` (`completion.ts`) is the third answer: a run that
+  changed anything must cite evidence, and that phrase has to be in the
+  observation it decided on, read by the same matcher `wait` uses
+  (`observed-text.ts`) so a run cannot complete on evidence its own wait would
+  reject. A run that only read owes none — what it read is its answer.
+  Changes are counted from the resolved effect's own classes and recorded
+  durably on the receipt as `mutating`, because a worker restart keeps the
+  receipts and loses everything else; navigation is not a change, or every
+  research task would owe a saved-state indicator it never had.
+  Presence is necessary and not sufficient. Nothing in the trusted layer can
+  judge whether a phrase *demonstrates* the goal — that is the claim the
+  model is making, and no deterministic rule checks it — but it can refuse
+  evidence that was already true before the change and therefore cannot be
+  evidence of it: the acted-on control's own label, compared exactly so a
+  goal worded around a button's text is still answerable, and anything the
+  page already said when the change was decided. That baseline is promoted
+  against the status the step actually settled on — `isAppliedAgentStepStatus`
+  is shared with the judge's own selection so the two cannot drift, because a
+  baseline captured for an attempt that never landed would measure a later
+  completion against a page already holding the previous change's result and
+  refuse every honest quotation of it. It lives in the worker that made the
+  change, so a restart loses it and the check is skipped rather than guessed
+  at — an absent baseline is not proof the evidence is new, and after a
+  restart the interrupted step is `uncertain`, which the unverified-change
+  rule refuses before evidence is reached at all.
+  A step is appended once per lifecycle change, so the judge collapses
+  receipts to the last one per step before selecting, the way history does: a
+  superseded `executed` receipt for a step that went on to fail is an applied
+  change with no verification, and would refuse every completion after it. Receipts that
+  cannot be read are an unknown, never an empty history — reading them as
+  "changed nothing" is the hole the gate exists to close. A refusal is a safe
+  failure: nothing was attempted, so it is recorded as a rejected step and the
+  run looks again, with the reason reaching the next decision through its own
+  history, and a model that keeps claiming the same thing exhausts the
+  no-progress budget like any other repetition. `deciding -> observing` is a
+  real edge in `AGENT_STATUS_PREDECESSORS` for that reason: every other exit
+  from `deciding` runs through a step, and a declined decision touched
+  nothing. `claimAgentRunPhase` filters `expected` by those predecessors
+  before it reaches SQL, so a claim across an edge the table lacks matches no
+  row and strands the run — the controller's test double enforces the same
+  filter, because a double that only checked `expected` was more permissive
+  than the database and hid exactly that.
+- **Waiting is bounded looking, not sleeping.** `wait` names an application
+  state — a saved indicator, a row that appears — and the verifier re-observes
+  until the page shows it or the named timeout is spent, whichever comes
+  first, capped at `AGENT_WAIT_MAX_POLLS` because every look is a full
+  observation. The whole named window is covered — the look before the last
+  waits out whatever remains, since six looks leave five gaps and spacing
+  them evenly ended a thirty-second wait at twenty-five, sending the run off
+  to re-plan work that was about to succeed. Sleeping the whole timeout and reading once was the worst of
+  both: a save that landed in 300ms still cost thirty seconds, and one that
+  landed a moment after the single read was reported absent.
+- **A real terminated worker is the only proof of recovery.**
+  `pnpm verify:sw-agent-recovery` leaves a run durably `executing` with its
+  step open, kills the worker through DevTools while the extension page and
+  the offscreen SQLite owner keep running, and requires the replacement
+  worker's own startup recovery to settle it: the step `uncertain`, the run
+  `paused` for an unresolved effect, and no second step — a second step would
+  mean the effect was reissued. The unit smoke test proves the SQL settles a
+  run already in that state and cannot prove a terminated worker reaches it.
+  Seeding walks the real state machine (a run may only be created
+  `submitted`, and entering `executing` copies the planned receipt into an
+  execution claim), in a loop, because a worker booting mid-seed runs the very
+  recovery being measured and pauses the run out from under it.
 - **A screenshot is an observation's companion, never a record.** The
   controller pictures the tab (`AgentScreenshotPort`) only after the DOM
   observation is in hand and only for a model whose `vision` the model port

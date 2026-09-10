@@ -3,6 +3,7 @@ import type {
   AgentVerificationInput,
   AgentVerificationResult
 } from "@ollama-client/agent-runtime"
+import { agentObservationStates } from "@ollama-client/agent-runtime"
 import type { AgentObservation } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
@@ -30,6 +31,11 @@ export interface AgentEffectVerifierAdapter {
   getActiveTabId(): Promise<number | undefined>
   getTab(tabId: number): Promise<{ url?: string } | undefined>
   classifyAccess(url?: string): Promise<TabAccess>
+  /**
+   * Pauses between two looks at the page. Absent means the host cannot, and
+   * a bounded wait collapses to a single observation.
+   */
+  wait?(ms: number, signal: AgentCancellationSignal): Promise<void>
   now(): number
 }
 
@@ -65,26 +71,28 @@ const sameUrl = (first: string | undefined, second: string): boolean => {
   }
 }
 
-const conditionAppears = (
-  condition: string,
-  observation: AgentObservation
-): boolean => {
-  const needle = condition.replaceAll(/\s+/g, " ").trim().toLocaleLowerCase()
-  if (!needle) return false
-  const haystack = [
-    observation.title,
-    observation.visibleText,
-    ...observation.elements.flatMap((element) =>
-      [element.name, element.value].filter(
-        (value): value is string => value !== undefined
-      )
+/**
+ * How many times a wait may look at the page before giving up, and the
+ * narrowest and widest gap between those looks.
+ *
+ * A wait used to sleep its whole timeout and read the page once, which is the
+ * worst of both: a save that landed in 300ms still cost thirty seconds, and
+ * one that landed a moment after the single read was reported absent. Polling
+ * returns as soon as the indicator appears and still cannot run long, because
+ * every look is a full observation and the run pays for each one.
+ */
+const AGENT_WAIT_MAX_POLLS = 6
+const AGENT_WAIT_MIN_INTERVAL_MS = 250
+const AGENT_WAIT_MAX_INTERVAL_MS = 5_000
+
+const waitInterval = (timeoutMs: number): number =>
+  Math.min(
+    AGENT_WAIT_MAX_INTERVAL_MS,
+    Math.max(
+      AGENT_WAIT_MIN_INTERVAL_MS,
+      Math.round(timeoutMs / AGENT_WAIT_MAX_POLLS)
     )
-  ]
-    .join(" ")
-    .replaceAll(/\s+/g, " ")
-    .toLocaleLowerCase()
-  return haystack.includes(needle)
-}
+  )
 
 const resolvedTargetBecameVisible = (
   input: AgentVerificationInput,
@@ -193,23 +201,57 @@ export const READ_ONLY_AGENT_VERIFIERS = {
   find: verifyPureRead,
   extract_text: verifyPureRead,
   zoom: verifyPureRead,
+  /**
+   * Waiting is bounded looking, not sleeping.
+   *
+   * The condition is an application state the run is holding for — a saved
+   * indicator, a row that appears, a spinner that goes — so the page is read
+   * until it says so or the named timeout is spent, whichever comes first.
+   * The whole named window is covered: the timeout is what the model was
+   * promised, and reporting a condition absent before it has elapsed sends
+   * the run off to re-plan work that was about to succeed. A host with no way
+   * to pause between looks reads once, which is what this did before.
+   */
   async wait(input, adapter, signal) {
     if (input.effect.command.type !== "wait")
       throw new Error("Invalid wait effect")
-    const after = await observeAfter(input, adapter, signal)
-    return conditionAppears(input.effect.command.condition, after)
-      ? result(
+    const { condition, timeoutMs } = input.effect.command
+    const deadline = input.receipt.executedAt + timeoutMs
+    const interval = waitInterval(timeoutMs)
+    for (let poll = 1; ; poll += 1) {
+      const after = await observeAfter(input, adapter, signal)
+      if (agentObservationStates(condition, after)) {
+        return result(
           "confirmed",
           "condition",
-          "Named wait condition is present",
+          poll === 1
+            ? "Named wait condition is present"
+            : "Named wait condition appeared while waiting",
           adapter.now()
         )
-      : result(
+      }
+      const remaining = deadline - adapter.now()
+      if (poll >= AGENT_WAIT_MAX_POLLS || remaining <= 0 || !adapter.wait) {
+        return result(
           "negative",
           "condition",
           "Named wait condition is absent after timeout",
           adapter.now()
         )
+      }
+      /**
+       * The look before the last one waits out whatever is left, so the final
+       * observation lands at the deadline rather than an interval short of
+       * it. Six looks leave five gaps: spacing every gap evenly ended a
+       * thirty-second wait at twenty-five seconds and called a condition that
+       * arrived in the last five absent.
+       */
+      const lastGap = poll === AGENT_WAIT_MAX_POLLS - 1
+      await adapter.wait(
+        lastGap ? remaining : Math.min(interval, remaining),
+        signal
+      )
+    }
   },
   async scroll(input, adapter, signal) {
     if (input.effect.command.type !== "scroll")

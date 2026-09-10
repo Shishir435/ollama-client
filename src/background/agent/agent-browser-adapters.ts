@@ -112,6 +112,29 @@ export const visibleTabCaptureSource = (
   }
 })
 
+/**
+ * A cancellable pause. Both sides of a `wait` need one — the executor to let
+ * the page settle, the verifier to space the looks it takes while the
+ * condition has not appeared — and a second copy would be a second
+ * cancellation contract.
+ */
+const waitFor = (ms: number, signal: AgentCancellationSignal): Promise<void> =>
+  new Promise<void>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new Error("Agent wait cancelled"))
+      return
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener?.("abort", onAbort)
+      resolve()
+    }, ms)
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(new Error("Agent wait cancelled"))
+    }
+    signal.addEventListener?.("abort", onAbort, { once: true })
+  })
+
 /** The platform's primary editing modifier, read once from the worker's own UA. */
 const detectPlatform = (): AgentInputPlatform => {
   const navigatorLike = globalThis.navigator as
@@ -600,22 +623,7 @@ export const createAgentBrowserAdapters = (input: {
         await browser.tabs.goForward(tabId)
       },
       resolveHistoryDestination,
-      wait: (ms, signal) =>
-        new Promise<void>((resolve, reject) => {
-          if (signal.aborted) {
-            reject(new Error("Agent wait cancelled"))
-            return
-          }
-          const timer = setTimeout(() => {
-            signal.removeEventListener?.("abort", onAbort)
-            resolve()
-          }, ms)
-          const onAbort = () => {
-            clearTimeout(timer)
-            reject(new Error("Agent wait cancelled"))
-          }
-          signal.addEventListener?.("abort", onAbort, { once: true })
-        }),
+      wait: waitFor,
       async navigate(tabId, url) {
         await browser.tabs.update(tabId, { url })
       },
@@ -626,6 +634,7 @@ export const createAgentBrowserAdapters = (input: {
     },
     verifier: {
       observe,
+      wait: waitFor,
       waitForNavigation: (tabId, sourceUrl, destinationUrl, signal) =>
         waitForAgentNavigation({
           tabId,

@@ -47,7 +47,14 @@ runAgentScenario({
     const next = FIELDS.map((field) =>
       agentFixtureElement(observation, (element) => element.name === field)
     ).find((element) => element && !element.value)
-    if (!next) return { type: "complete", summary: "All three filled." }
+    if (!next) {
+      return {
+        type: "complete",
+        summary: "All three filled.",
+        // The value the last edit left behind; a filled form's own evidence.
+        evidence: `value-${FIELDS.at(-1)}`
+      }
+    }
     return { type: "clear_and_type", ref: next.ref, text: `value-${next.name}` }
   },
   async verify({ page, snapshot, messages }) {

@@ -15,7 +15,7 @@ const silentButton =
 
 const clickContinue = (observation: AgentFixtureObservation) =>
   observation.text.includes("Status: Active")
-    ? { type: "complete", summary: "Active" }
+    ? { type: "complete", summary: "Active", evidence: "Status: Active" }
     : {
         type: "click",
         ref: agentFixtureElement(

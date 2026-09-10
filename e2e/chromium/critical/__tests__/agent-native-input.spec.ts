@@ -75,7 +75,11 @@ runAgentScenario({
   html: () => dropdownPage,
   decide(observation: AgentFixtureObservation) {
     if (observation.text.includes("Status: south"))
-      return { type: "complete", summary: "south" }
+      return {
+        type: "complete",
+        summary: "south",
+        evidence: "Status: south"
+      }
     const option = agentFixtureElement(
       observation,
       (element) => element.role === "option" && element.name === "South"
@@ -140,7 +144,8 @@ runAgentScenario({
     if (observation.text.includes("Value: Alice"))
       return {
         type: "complete",
-        summary: observation.text.match(/Keys: \d+/)?.[0] ?? ""
+        summary: observation.text.match(/Keys: \d+/)?.[0] ?? "",
+        evidence: "Value: Alice"
       }
     const field = agentFixtureElement(
       observation,
@@ -197,7 +202,11 @@ runAgentScenario({
   html: () => listboxPage,
   decide(observation: AgentFixtureObservation) {
     if (observation.text.includes("Status: Large"))
-      return { type: "complete", summary: "Large" }
+      return {
+        type: "complete",
+        summary: "Large",
+        evidence: "Status: Large"
+      }
     const list = agentFixtureElement(
       observation,
       (element) => element.role === "listbox"

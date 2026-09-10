@@ -83,7 +83,11 @@ runAgentScenario({
   html: () => documentPage,
   decide(observation: AgentFixtureObservation) {
     if (observation.text.includes("Saved: The quick brown fox jumps."))
-      return { type: "complete", summary: "saved fox" }
+      return {
+        type: "complete",
+        summary: "saved fox",
+        evidence: "Saved: The quick brown fox jumps."
+      }
     const editor = agentFixtureElement(
       observation,
       (element) => element.type === "contenteditable"
@@ -161,7 +165,11 @@ runAgentScenario({
   html: () => boardPage,
   decide(observation: AgentFixtureObservation) {
     if (observation.text.includes("In: Done"))
-      return { type: "complete", summary: "moved to Done" }
+      return {
+        type: "complete",
+        summary: "moved to Done",
+        evidence: "In: Done"
+      }
     const card = agentFixtureElement(
       observation,
       (element) => element.draggable === true

@@ -291,6 +291,183 @@ describe("read-only Agent effects", () => {
     ).toThrow("snapshot is stale")
   })
 
+  it("stops looking as soon as the condition appears", async () => {
+    /**
+     * A wait used to sleep its whole timeout and read the page once: a save
+     * that landed in a moment still cost the full budget, and one that landed
+     * just after the single read was reported absent. It polls now, and stops
+     * on the first look that shows the condition.
+     */
+    const command = {
+      type: "wait",
+      condition: "All changes saved",
+      timeoutMs: 30_000,
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as const
+    let looks = 0
+    const pauses: number[] = []
+    const outcome = await verifyReadOnlyAgentEffect({
+      verification: await verificationInput(command),
+      adapter: verifierAdapter(observation(), {
+        observe: async () => {
+          looks += 1
+          return observation({
+            snapshotId: "snapshot-2",
+            generation: 2,
+            visibleText: looks < 3 ? "Saving…" : "All changes saved"
+          })
+        },
+        wait: async (ms) => {
+          pauses.push(ms)
+        },
+        now: () => 10
+      }),
+      signal
+    })
+    expect(outcome).toMatchObject({ outcome: "confirmed" })
+    expect(looks).toBe(3)
+    /** Bounded gaps, sized from the timeout rather than a fixed tick. */
+    expect(pauses).toEqual([5_000, 5_000])
+  })
+
+  it("covers the whole named window, not one interval short of it", async () => {
+    /**
+     * Six looks leave five gaps. Spacing every gap evenly ended a
+     * thirty-second wait at twenty-five seconds and reported a condition
+     * that arrived in the last five absent — the run then re-planned work
+     * that was about to succeed. The timeout is what the model was promised.
+     */
+    const command = {
+      type: "wait",
+      condition: "All changes saved",
+      timeoutMs: 30_000,
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as const
+    let clock = 2
+    const looks: number[] = []
+    const outcome = await verifyReadOnlyAgentEffect({
+      verification: await verificationInput(command),
+      adapter: verifierAdapter(observation(), {
+        observe: async () => {
+          looks.push(clock - 2)
+          return observation({
+            snapshotId: "snapshot-2",
+            generation: 2,
+            // Appears in the last stretch, which the old cadence never saw.
+            visibleText: clock - 2 >= 30_000 ? "All changes saved" : "Saving…"
+          })
+        },
+        wait: async (ms) => {
+          clock += ms
+        },
+        now: () => clock
+      }),
+      signal
+    })
+    expect(looks).toEqual([0, 5_000, 10_000, 15_000, 20_000, 30_000])
+    expect(outcome).toMatchObject({ outcome: "confirmed" })
+  })
+
+  it("gives up after a bounded number of looks", async () => {
+    const command = {
+      type: "wait",
+      condition: "never appears",
+      timeoutMs: 30_000,
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as const
+    let looks = 0
+    const outcome = await verifyReadOnlyAgentEffect({
+      verification: await verificationInput(command),
+      adapter: verifierAdapter(observation(), {
+        observe: async () => {
+          looks += 1
+          return observation({
+            snapshotId: "snapshot-2",
+            generation: 2,
+            visibleText: "Saving…"
+          })
+        },
+        wait: async () => undefined,
+        now: () => 10
+      }),
+      signal
+    })
+    expect(outcome).toMatchObject({ outcome: "negative" })
+    // Every look is a full observation and the run pays for each one.
+    expect(looks).toBe(6)
+  })
+
+  it("stops looking once the named timeout is spent", async () => {
+    const command = {
+      type: "wait",
+      condition: "never appears",
+      timeoutMs: 1_000,
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as const
+    let looks = 0
+    let clock = 2
+    const outcome = await verifyReadOnlyAgentEffect({
+      verification: await verificationInput(command),
+      adapter: verifierAdapter(observation(), {
+        observe: async () => {
+          looks += 1
+          return observation({
+            snapshotId: "snapshot-2",
+            generation: 2,
+            visibleText: "Saving…"
+          })
+        },
+        wait: async (ms) => {
+          clock += ms
+        },
+        now: () => clock
+      }),
+      signal
+    })
+    expect(outcome).toMatchObject({ outcome: "negative" })
+    // executedAt 2 plus a 1s budget, in 250ms steps: five looks, four gaps.
+    expect(looks).toBe(5)
+  })
+
+  it("reads once where the host cannot pause between looks", async () => {
+    const command = {
+      type: "wait",
+      condition: "never appears",
+      timeoutMs: 30_000,
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as const
+    let looks = 0
+    const outcome = await verifyReadOnlyAgentEffect({
+      verification: await verificationInput(command),
+      adapter: verifierAdapter(
+        observation({
+          snapshotId: "snapshot-2",
+          generation: 2,
+          visibleText: "Saving…"
+        }),
+        {
+          observe: async () => {
+            looks += 1
+            return observation({
+              snapshotId: "snapshot-2",
+              generation: 2,
+              visibleText: "Saving…"
+            })
+          },
+          now: () => 10
+        }
+      ),
+      signal
+    })
+    expect(outcome).toMatchObject({ outcome: "negative" })
+    expect(looks).toBe(1)
+  })
+
   it("confirms or negatively verifies a named wait condition", async () => {
     const command = {
       type: "wait",

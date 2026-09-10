@@ -31,7 +31,16 @@ describe("AGENT_STATUS_PREDECESSORS", () => {
 
   it("requires awaiting_takeover before takeover completion", () => {
     expect(isLegalAgentTransition("awaiting_takeover", "observing")).toBe(true)
-    expect(isLegalAgentTransition("deciding", "observing")).toBe(false)
+  })
+
+  it("lets a declined decision send the run back to looking", () => {
+    /**
+     * Every exit from `deciding` used to run through a step, so this edge was
+     * asserted illegal. A completion the run cannot support is now declined
+     * without anything happening to the page — a safe failure — and the run
+     * has to be able to observe again rather than ending there.
+     */
+    expect(isLegalAgentTransition("deciding", "observing")).toBe(true)
   })
 
   it("does not permit executing directly from deciding", () => {

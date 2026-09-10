@@ -33,7 +33,11 @@ runAgentScenario({
   html: () => canvasPage,
   decide(observation: AgentFixtureObservation, context) {
     if (observation.text.includes("Status: left"))
-      return { type: "complete", summary: "left" }
+      return {
+        type: "complete",
+        summary: "left",
+        evidence: "Status: left"
+      }
     /* A vision model is shown the picture and offered the visual commands. */
     expect(context.images).toBe(1)
     expect(context.actions).toContain("click_point")

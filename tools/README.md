@@ -65,14 +65,19 @@ only after merging the reports.
 | `pnpm verify:browser-automation` | Browser smoke workflow plus local browser/UI checks; see runner environment options for Ollama |
 | `pnpm e2e` | Build Chrome production and benchmark artifacts, then run critical Chromium tests |
 | `pnpm e2e:build:release` | Build production and benchmark artifacts for both browsers once each |
-| `pnpm e2e:release:run` | Consume those four builds; run critical Chromium, worker recovery, and Chrome/Firefox migration gates |
+| `pnpm e2e:release:run` | Consume those four builds; run critical Chromium, both worker-recovery gates, and Chrome/Firefox migration gates |
+| `pnpm verify:sw-turn-recovery` | Kill a real MV3 worker mid-turn; a fresh one must resume the durable turn exactly once. Needs `benchmark:build` |
+| `pnpm verify:sw-agent-recovery` | Kill a real MV3 worker mid-effect; a fresh one must settle the Agent run as unresolved without reissuing it. Needs `benchmark:build` |
 | `pnpm e2e:release` | Build all four targets and run the release browser gates |
 | `pnpm verify:release` | Static checks + coverage, all four builds, manifest/bundle checks, docs build, and release browser gates; each browser target builds once |
 
 Browser gates need the corresponding installed browsers. Chromium automation
 uses Playwright; the Firefox migration gate uses Firefox and geckodriver.
 Headful Linux runs need a display or Xvfb. Recovery runners document additional
-environment flags in their module headers. Reports go under `artifacts/`.
+environment flags in their module headers, and share their launch, attach and
+worker-termination mechanics through `tools/verify/lib/chromium-extension-harness.ts` —
+Playwright pins extension service workers alive, so those runners drive
+Chromium directly. Reports go under `artifacts/`.
 Release CI separately audits the distributable OLC package on Linux/Windows
 and retains the exact extension ZIPs used for publishing.
 
