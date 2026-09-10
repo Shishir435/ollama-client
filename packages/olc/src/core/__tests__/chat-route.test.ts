@@ -1004,6 +1004,58 @@ describe("a client that never resumes its turns", () => {
     expect(second.toolCalls[0]?.id).toBeDefined()
   })
 
+  it("settles a turn whose resume is still queued when the proxy shuts down", async () => {
+    /**
+     * A resuming turn is taken out of the parked map — a request carrying its
+     * results already exists, so its deadlines are suspended — which meant a
+     * shutdown that walked that map alone left the session, the hold and the
+     * suspended calls behind. The calls were the worst of it: their timers
+     * were cleared on the way in, so nothing was ever going to settle them.
+     */
+    harness = await startHarness({ mode: "tool" })
+    const first = await oneShotDecision(harness, 1)
+    const call = first.toolCalls[0]
+
+    // Occupy the single-flight slot so the resume below waits behind it, which
+    // is the window the hold exists for.
+    const slow = streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [{ role: "user", content: SLOW_TURN_MARKER }]
+    })
+    const resumed = streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: [
+        { role: "user", content: "step 1" },
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            { id: call?.id, type: "function", function: call?.function }
+          ]
+        },
+        { role: "tool", tool_call_id: call?.id, content: "two tabs" }
+      ],
+      tools: [{ type: "function", function: { name: "list_tabs" } }]
+    })
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    expect(harness.routes.inspect()).toMatchObject({
+      parkedTurns: 0,
+      resumeHolds: 1,
+      pendingCalls: 1
+    })
+
+    await harness.routes.shutdown()
+    expect(harness.routes.inspect()).toEqual({
+      parkedTurns: 0,
+      pendingCalls: 0,
+      resumeHolds: 0
+    })
+    await slow
+    await resumed
+  })
+
   it("leaves nothing held once the proxy shuts down", async () => {
     harness = await startHarness({ mode: "tool" })
     await oneShotDecision(harness, 1)

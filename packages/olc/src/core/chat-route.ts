@@ -936,10 +936,28 @@ export const registerChatRoutes = (
       pendingCalls: pending.size,
       resumeHolds: resumeHolds.size
     }),
+    /**
+     * Settle everything still held, not just what is parked.
+     *
+     * `holdTurn` takes a resuming turn out of `parkedTurns` — its deadline is
+     * suspended because a request carrying its results already exists — so a
+     * shutdown that walked that map alone left a live session, its suspended
+     * calls and its hold behind. The calls are the worst of the three: their
+     * timers were cleared on the way in, so nothing was ever going to settle
+     * them and whatever the backend awaited would hang for the life of the
+     * process. The registry is asked as well, for a call parked against a
+     * turn that is neither parked nor held.
+     */
     shutdown: async () => {
-      for (const turnId of [...parkedTurns.keys()]) {
-        pending.failTurn(turnId, "The proxy is shutting down")
+      const held = new Set([
+        ...parkedTurns.keys(),
+        ...resumeHolds.keys(),
+        ...pending.turnIds()
+      ])
+      for (const turnId of held) {
         clearParked(turnId)
+        resumeHolds.delete(turnId)
+        pending.failTurn(turnId, "The proxy is shutting down")
         const turn = backend.findTurn(turnId)
         if (turn) await discardTurn(turn, { abort: true })
       }

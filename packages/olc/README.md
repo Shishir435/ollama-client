@@ -350,7 +350,9 @@ So the number of parked turns is bounded instead. `MAX_PARKED_TURNS` (default
 `4`) is how many may sit parked at once; admitting a fresh turn discards the
 oldest above that, never one whose resume request already exists. Each turn
 still carries its own `SUSPENDED_TURN_TTL_MS` deadline. Raise the cap for a
-client that genuinely interleaves several tool-calling turns.
+client that genuinely interleaves several tool-calling turns; it is clamped to
+at least one, because parking is how a tool call reaches the client and zero
+would disable client tool calling rather than bound it.
 
 #### Who may call it
 

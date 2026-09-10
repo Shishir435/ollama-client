@@ -336,7 +336,10 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   and a parked call is a promise something awaits. `ChatRoutes.inspect()`
   reports what is still held so a test can tell the two apart, and shutdown
   disposes the turns it fails rather than leaving them to a timer nobody will
-  see.
+  see. It settles the union of parked turns, resume holds and whatever the
+  call registry still names — a resuming turn is deliberately taken *out* of
+  the parked map while its deadlines are suspended, so walking that map alone
+  left a live session whose calls had no timer left to settle them.
 - **A tool result belongs to one turn, or to none.** The parked-call registry is process-wide, so a follow-up releases only the calls the turn it resumes actually owns. A follow-up whose results name no live turn is refused with `400 StaleToolResults`; starting a fresh turn instead drops the result the client just produced and lets the model redo the work behind its back. The correlation is resolved twice — once to answer fast, once inside the queue slot — because a request can wait there for as long as another turn may run, and **both** of the turn's deadlines — the turn-level one and the shorter per-call one in the registry — are suspended for as long as its own resume is waiting. They ask the same question, so a fix that suspends one and not the other only moves which timer loses the result.
 - **One turn at a time is an invariant, not a hint.** A request past its deadline is cancelled through an `AbortSignal` and the queue keeps holding the slot: a task still running has not left the single-flight boundary, whatever its caller was told. If it will not stop, the queue refuses requests with `503` and names it rather than starting a second turn beside it.
 - **A browser origin is refused unless it is allowed.** The proxy listens on loopback and runs an agent, so a wildcard `Access-Control-Allow-Origin` would let any page spend a turn — a missing response header does not stop a simple request. `ALLOWED_ORIGINS` defaults to the extension schemes; a request with no `Origin` is not a page and is left alone.

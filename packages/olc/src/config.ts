@@ -199,11 +199,21 @@ export const resolveConfig = (
       fileOptions.BRIDGE_BATCH_MS,
       DEFAULTS.BRIDGE_BATCH_MS
     ),
-    MAX_PARKED_TURNS: numberOption(
-      options.MAX_PARKED_TURNS,
-      env.OLC_MAX_PARKED_TURNS,
-      fileOptions.MAX_PARKED_TURNS,
-      DEFAULTS.MAX_PARKED_TURNS
+    /**
+     * At least one. A cap of zero cannot mean "park nothing": parking is how
+     * a tool call reaches the client at all, so zero would disable client
+     * tool calling rather than bound it — and the pre-admission sweep could
+     * not deliver it anyway, since the turn it makes room for parks
+     * afterwards. One means only the turn in flight may be parked.
+     */
+    MAX_PARKED_TURNS: Math.max(
+      1,
+      numberOption(
+        options.MAX_PARKED_TURNS,
+        env.OLC_MAX_PARKED_TURNS,
+        fileOptions.MAX_PARKED_TURNS,
+        DEFAULTS.MAX_PARKED_TURNS
+      )
     ),
     SUSPENDED_TURN_TTL_MS: numberOption(
       options.SUSPENDED_TURN_TTL_MS,
