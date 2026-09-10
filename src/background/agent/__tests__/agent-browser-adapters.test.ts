@@ -347,6 +347,33 @@ describe("observing a tab a native dialog is holding", () => {
     expect(blocked.dialogs[0].unauthorizedOrigin).toBeUndefined()
   })
 
+  it("reads the tab's own dialog even on an origin the run never approved", async () => {
+    /**
+     * The root frame is not allowlist-gated — `observeRoot` reads the page
+     * the user pointed the run at — so withholding an `alert` from a page
+     * whose whole body text is already readable would be a stricter rule for
+     * the box on top than for the page under it. Answering it is what costs
+     * an approval; policy covers that.
+     */
+    const { adapters } = withBlockedTab({
+      id: "d1",
+      type: "confirm" as const,
+      origin: "https://example.com",
+      message: "Are you sure?"
+    })
+    const blocked = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 1,
+        allowedOrigins: ["https://intended.example"]
+      },
+      { aborted: false }
+    )
+    expect(blocked.dialogs[0].message).toBe("Are you sure?")
+    expect(blocked.dialogs[0].unauthorizedOrigin).toBeUndefined()
+  })
+
   it("treats a dialog it cannot place as one it may not read", async () => {
     // A document with no origin of its own — about:blank, srcdoc, data: — is
     // recorded as "null", which no allowlist matches.

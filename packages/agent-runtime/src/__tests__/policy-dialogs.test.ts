@@ -180,6 +180,51 @@ describe("a dialog an embedded frame raised", () => {
   })
 })
 
+describe("a dialog on a top-level origin the run never approved", () => {
+  /**
+   * A page can navigate itself somewhere the run never approved. Every other
+   * effect there already costs an approval by its own class — an activation
+   * is high whatever page it is on — but a dismissal is low, so a dialog
+   * would have been the one thing answerable for free on a site nobody
+   * authorized.
+   */
+  const strayPage = (accept: boolean) => ({
+    ...policyInput(
+      dialogEffect({
+        accept,
+        type: "confirm",
+        effects: accept ? ["dialog", "destructive"] : ["dialog"],
+        message: "Are you sure?"
+      })
+    ),
+    allowedOrigins: ["https://intended.example"]
+  })
+
+  it("asks before dismissing it, where the page's own dialog is free", () => {
+    const decision = evaluateAgentPolicy(strayPage(false))
+    expect(decision.type).toBe("approval_required")
+    if (decision.type !== "approval_required") return
+    expect(decision.risk).toBe("high")
+    expect(decision.request.action).toBe(
+      "Dismiss https://example.com's confirm dialog"
+    )
+  })
+
+  it("names the site rather than calling it the page", () => {
+    const decision = evaluateAgentPolicy(strayPage(true))
+    if (decision.type !== "approval_required") throw new Error("expected one")
+    expect(decision.request.action).toContain("https://example.com")
+  })
+
+  it("does not claim the text was withheld, because it was not", () => {
+    // The root frame is not allowlist-gated, so the page's own dialog is
+    // readable exactly as its body text is. Only a frame's text is withheld.
+    const decision = evaluateAgentPolicy(strayPage(false))
+    if (decision.type !== "approval_required") throw new Error("expected one")
+    expect(decision.request.consequence).not.toContain("not authorized")
+  })
+})
+
 describe("an edit with no submit step behind it", () => {
   const typing: AgentCommand = {
     type: "clear_and_type",

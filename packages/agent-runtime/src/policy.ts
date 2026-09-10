@@ -167,13 +167,18 @@ const dialogAction = (
   if (command.type !== "handle_dialog") return undefined
   const kind = input.effect.dialog?.type ?? "dialog"
   /**
-   * Whose dialog it is. A frame origin is present only when the prompt was
-   * not the page's own, and then it is the first thing the user has to know:
-   * a third-party frame asking for a confirmation reads nothing like the site
-   * they are looking at, and the panel shows no URL of its own.
+   * Whose dialog it is, named whenever the answer is anything but "the page
+   * the user started on asking its own question": an embedded frame, or a
+   * top-level document on an origin this run was never approved for. Either
+   * reads nothing like the site the user thinks they are looking at, and the
+   * panel shows no URL of its own.
    */
   const frameOrigin = input.effect.frameOrigin
-  const whose = frameOrigin ? `${frameOrigin}'s` : "the page's"
+  const origin = actingOrigin(input)
+  const whose =
+    frameOrigin !== undefined || !input.allowedOrigins.includes(origin)
+      ? `${origin}'s`
+      : "the page's"
   /**
    * An embedded frame the run was not authorized to read had its dialog text
    * withheld, so neither the model nor the panel can show what is being
@@ -303,6 +308,23 @@ const baselineRisk = (input: AgentPolicyInput): AgentRisk => {
   if (
     input.effect.frameOrigin !== undefined &&
     !input.allowedOrigins.includes(input.effect.frameOrigin)
+  ) {
+    risk = raiseRisk(risk, "high")
+  }
+  /**
+   * A dialog is priced against the site that raised it, root frame included.
+   *
+   * Every other effect on an unapproved top-level origin already costs an
+   * approval by its own class — an activation is high whatever page it is on
+   * — but a dismissal is low, so without this a page that navigated itself
+   * somewhere the run never approved could have its dialogs answered for
+   * free. The rule above covers a child frame and this one covers the
+   * document the tab shows; both ask the same question of the origin that
+   * actually asked.
+   */
+  if (
+    input.effect.command.type === "handle_dialog" &&
+    !input.allowedOrigins.includes(actingOrigin(input))
   ) {
     risk = raiseRisk(risk, "high")
   }

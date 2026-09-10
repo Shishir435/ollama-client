@@ -425,11 +425,25 @@ export const createAgentBrowserAdapters = (input: {
    * The dialog as this run is allowed to know it.
    *
    * A dialog belongs to the document that opened it, and an embedded frame's
-   * `confirm` blocks the whole tab. The run's origin allowlist governs what
-   * it may read from a frame, and a dialog's text is frame content like any
-   * other — so a dialog raised on an origin the run was not authorized for is
-   * reported as existing, on that origin, with nothing it wrote. The page's
-   * own dialog is reported whole.
+   * `confirm` blocks the whole tab — so a dialog's text is read exactly when
+   * that document's content is, and it is the document, not the tab, that
+   * decides.
+   *
+   * For a child frame that is the run's origin allowlist, the same gate
+   * `authorizeAgentFrame` applies to a frame's elements: a dialog from an
+   * origin outside it is reported as existing, on that origin, with nothing
+   * it wrote. For the document the tab itself shows it is not, because the
+   * root frame is not allowlist-gated either — `observeRoot` reads the page
+   * the user pointed the run at, and `allowedOrigins` governs where the run
+   * may travel and act rather than what the page in front of it may say.
+   * Withholding an `alert` from a page whose whole body text is already
+   * readable would be a stricter rule for the box on top than for the page
+   * under it, and it would blind the run to a legitimate dialog after any
+   * redirect it did not itself approve.
+   *
+   * Reading it is not the same as answering it: a dialog on an origin the
+   * run was never approved for costs an approval whoever raised it, which is
+   * `baselineRisk`'s business and not this function's.
    */
   const authorizedDialog = (
     dialog: AgentDialogState,

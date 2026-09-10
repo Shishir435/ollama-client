@@ -520,10 +520,25 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   which origin, and that it could not be read (`unauthorizedOrigin`), because
   a prompt it cannot see is different from one that is not there. The resolver
   sets `frameOrigin` for such a dialog, so policy judges the answer, its grant
-  offer and its allowlist against the site that asked: dismissing a frame's
-  dialog from outside the allowlist costs an approval that names that origin
-  and says the text was withheld, where dismissing the page's own costs
-  nothing.
+  offer and its allowlist against the site that asked.
+
+  The document the tab shows is the exception to the withholding, and
+  deliberately: `observeRoot` is not allowlist-gated either — the root frame
+  is the page the user pointed the run at, and `allowedOrigins` governs where
+  the run may travel and act, not what the page in front of it may say — so
+  withholding an `alert` from a page whose whole body text is already
+  readable would be a stricter rule for the box on top than for the page
+  under it, and would blind the run to a legitimate dialog after any redirect
+  it did not itself approve.
+- **Answering a dialog is priced against the origin that raised it, root
+  frame included.** Reading one and answering it are different questions.
+  Every other effect on an unapproved top-level origin already costs an
+  approval by its own class — an activation is high whatever page it is on —
+  but a dismissal is low, so a page that navigated itself somewhere the run
+  never approved would otherwise have its dialogs answered for free.
+  `baselineRisk` therefore raises a `handle_dialog` on any acting origin
+  outside the allowlist, and the approval names that origin rather than
+  calling it "the page".
 - **A dialog is answered by identity, in its own action family.**
   `handle_dialog` names the `dialogId` the observation listed; `resolve`,
   `execute` and `verify` live in the `dialog` family, and the executor checks
