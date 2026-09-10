@@ -438,6 +438,16 @@ jobs:
       - name: Verify isolated service-worker turn recovery
         run: E2E_HEADFUL=1 xvfb-run --auto-servernum pnpm verify:sw-turn-recovery
 
+      - name: Verify isolated service-worker Agent recovery
+        run: E2E_HEADFUL=1 xvfb-run --auto-servernum pnpm verify:sw-agent-recovery
+
+      # Not a threshold gate — it records what happened. It is run here because
+      # it still asserts, and an ungated project is one nothing tells you about:
+      # the completion-evidence rule broke two of its three scenarios and only
+      # a manual run found out.
+      - name: Record the agent benchmark on the fixture model
+        run: pnpm e2e:chromium:agent-benchmark
+
       # Traces, videos, and the HTML report are only worth minutes and storage
       # when something failed.
       - name: Upload failure artifacts

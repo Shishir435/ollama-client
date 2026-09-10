@@ -71,7 +71,7 @@ const record = (
 
 const clickContinue = (observation: AgentFixtureObservation) =>
   observation.text.includes("Status: Active")
-    ? { type: "complete", summary: "Active" }
+    ? { type: "complete", summary: "Active", evidence: "Status: Active" }
     : {
         type: "click",
         ref: agentFixtureElement(
@@ -128,7 +128,7 @@ runAgentScenario({
     )
     return field && !field.value
       ? { type: "clear_and_type", ref: field.ref, text: "Alice" }
-      : { type: "complete", summary: "Filled." }
+      : { type: "complete", summary: "Filled.", evidence: "Alice" }
   },
   verify: (outcome) => {
     record("form-preparation", "benchmark form-preparation", startedAt, outcome)
