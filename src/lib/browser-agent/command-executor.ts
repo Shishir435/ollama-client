@@ -190,14 +190,21 @@ const executeEditorTextMutation = (
   effect: AgentDomMutationInstruction,
   host: Element
 ): void => {
+  const apply = (text: string): void => {
+    if (!insertAgentEditableText(host, text)) {
+      throw new AgentEffectNotAppliedError(
+        "Agent cannot edit this host through the browser's editing pipeline"
+      )
+    }
+  }
   switch (effect.command.type) {
     case "type":
       placeAgentEditableCaret(host, "end")
-      insertAgentEditableText(host, effect.command.text)
+      apply(effect.command.text)
       return
     case "clear_and_type":
       placeAgentEditableCaret(host, "all")
-      insertAgentEditableText(host, effect.command.text)
+      apply(effect.command.text)
       return
     case "replace_text":
       if (!selectAgentEditableText(host, effect.command.find)) {
@@ -205,7 +212,7 @@ const executeEditorTextMutation = (
           "Agent text to replace is no longer unique in the target"
         )
       }
-      insertAgentEditableText(host, effect.command.text)
+      apply(effect.command.text)
       return
     default:
       throw new Error("Invalid Agent editor text effect")

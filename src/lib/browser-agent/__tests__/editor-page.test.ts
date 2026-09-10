@@ -14,6 +14,7 @@ import {
   normalizeAgentEditorText,
   replaceAgentTextOnce
 } from "../editor-text"
+import { installAgentExecCommandStub } from "./execcommand-stub"
 
 /**
  * The page's half of editing, driven against a document rather than a mock:
@@ -23,6 +24,7 @@ import {
 
 beforeEach(() => {
   document.body.replaceChildren()
+  installAgentExecCommandStub(document)
 })
 
 afterEach(() => vi.restoreAllMocks())

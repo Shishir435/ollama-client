@@ -25,21 +25,52 @@ const executedNatively = (outcome: AgentScenarioOutcome, action: string) => {
 }
 
 /**
- * A rich-text editor of the kind a document app renders: a contenteditable
- * whose paragraphs are real elements, and a Save button that snapshots the
- * editor's text into a status line only when clicked. The editor holds a typo
- * the task fixes with an in-place edit.
+ * A controlled rich-text editor of the kind a framework renders: it keeps the
+ * document in its own model string and rebuilds the editor's DOM from that
+ * model on every `input`, restoring the caret by character offset. A change
+ * written into the DOM behind its back would be discarded on the next
+ * keystroke, so a passing edit proves the agent went through the editing
+ * pipeline (native `insertText`), not a raw DOM write. Save snapshots the
+ * model into a status line only when clicked.
  */
 const documentPage = `<!doctype html><title>Agent editor</title><main>
 <h1>Report</h1>
-<div id="doc" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Report body"><p>The quick brown fax jumps.</p></div>
+<div id="doc" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Report body"></div>
 <button id="save" type="button">Save</button>
 <p id="status">Saved: none</p>
 <script>
   const doc = document.getElementById('doc')
+  let model = 'The quick brown fax jumps.'
+  const caretOffset = () => {
+    const selection = getSelection()
+    if (!selection || selection.rangeCount === 0) return model.length
+    const range = selection.getRangeAt(0)
+    const pre = range.cloneRange()
+    pre.selectNodeContents(doc)
+    pre.setEnd(range.endContainer, range.endOffset)
+    return pre.toString().length
+  }
+  const render = (offset) => {
+    doc.innerHTML = ''
+    const paragraph = document.createElement('p')
+    const text = document.createTextNode(model)
+    paragraph.append(text)
+    doc.append(paragraph)
+    const range = document.createRange()
+    range.setStart(text, Math.min(offset, model.length))
+    range.collapse(true)
+    const selection = getSelection()
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }
+  render(0)
+  doc.addEventListener('input', () => {
+    const offset = caretOffset()
+    model = doc.textContent.replace(/\\s+/g, ' ')
+    render(offset)
+  })
   document.getElementById('save').addEventListener('click', () => {
-    document.getElementById('status').textContent =
-      'Saved: ' + doc.textContent.replace(/\\s+/g, ' ').trim()
+    document.getElementById('status').textContent = 'Saved: ' + model
     fetch('/effect')
   })
 </script></main>`

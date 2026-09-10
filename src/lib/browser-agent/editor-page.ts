@@ -258,82 +258,21 @@ const inputEvent = (
 }
 
 /**
- * The fallback for a runtime without `execCommand`: the selection's contents
- * are replaced in the DOM directly, with a line break element per newline,
- * and the editor is told through the same `beforeinput`/`input` pair the
- * browser would have sent. A `beforeinput` the editor cancels is honoured —
- * the editor has said it will apply the edit to its own model itself.
- */
-const insertIntoHostDirectly = (host: Element, text: string): void => {
-  const doc = host.ownerDocument
-  const selection = doc.defaultView?.getSelection?.()
-  const range =
-    selection && selection.rangeCount > 0
-      ? selection.getRangeAt(0)
-      : (() => {
-          const whole = doc.createRange()
-          whole.selectNodeContents(host)
-          whole.collapse(false)
-          return whole
-        })()
-  const inputType = text.length > 0 ? "insertText" : "deleteContentBackward"
-  const before = inputEvent(
-    doc.defaultView,
-    "beforeinput",
-    inputType,
-    text.length > 0 ? text : null
-  )
-  if (!host.dispatchEvent(before)) return
-  range.deleteContents()
-  const lines = text.split(/\r\n|\r|\n/)
-  const fragment = doc.createDocumentFragment()
-  lines.forEach((line, index) => {
-    if (index > 0) fragment.append(doc.createElement("br"))
-    if (line.length > 0) fragment.append(doc.createTextNode(line))
-  })
-  const last = fragment.lastChild
-  range.insertNode(fragment)
-  if (last && selection) {
-    const caret = doc.createRange()
-    caret.setStartAfter(last)
-    caret.collapse(true)
-    selection.removeAllRanges()
-    selection.addRange(caret)
-  }
-  host.dispatchEvent(
-    inputEvent(
-      doc.defaultView,
-      "input",
-      inputType,
-      text.length > 0 ? text : null
-    )
-  )
-}
-
-/**
  * Types `text` over the current selection of a focused editable control the
- * way the browser's editing pipeline does — `execCommand("insertText")`, or
- * `delete` for an empty replacement — so the editor receives `beforeinput`,
- * mutates its own model and re-renders. Only a runtime without `execCommand`
- * takes the direct path.
+ * way the browser's editing pipeline does — a form control through
+ * `setRangeText`, an editing host through `execCommand("insertText")` (or
+ * `delete` for an empty replacement) — so the editor receives `beforeinput`,
+ * mutates its own model and re-renders. The host is never written directly:
+ * a controlled editor rebuilds its DOM from its own model, so a node inserted
+ * behind its back would vanish on the next render. `false` means the host
+ * could not be edited through the pipeline (a runtime with no `execCommand`),
+ * and the caller reports an unapplied effect rather than corrupting the page.
  */
 export const insertAgentEditableText = (
   element: Element,
   text: string
-): void => {
+): boolean => {
   const doc = element.ownerDocument
-  const execCommand = (
-    doc as Document & {
-      execCommand?: (command: string, ui?: boolean, value?: string) => boolean
-    }
-  ).execCommand
-  if (typeof execCommand === "function") {
-    const applied =
-      text.length > 0
-        ? execCommand.call(doc, "insertText", false, text)
-        : execCommand.call(doc, "delete", false)
-    if (applied) return
-  }
   if (isTextControl(element)) {
     const start = element.selectionStart ?? element.value.length
     const end = element.selectionEnd ?? start
@@ -346,7 +285,15 @@ export const insertAgentEditableText = (
         text.length > 0 ? text : null
       )
     )
-    return
+    return true
   }
-  insertIntoHostDirectly(element, text)
+  const execCommand = (
+    doc as Document & {
+      execCommand?: (command: string, ui?: boolean, value?: string) => boolean
+    }
+  ).execCommand
+  if (typeof execCommand !== "function") return false
+  return text.length > 0
+    ? execCommand.call(doc, "insertText", false, text)
+    : execCommand.call(doc, "delete", false)
 }

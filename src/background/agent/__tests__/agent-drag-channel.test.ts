@@ -179,4 +179,17 @@ describe("Agent native drag channel", () => {
     expect(channel.consumeFileChooser()).toBe(true)
     expect(channel.consumeFileChooser()).toBe(false)
   })
+
+  it("discards a chooser opened before the action's own window opens", async () => {
+    const host = harness()
+    const channel = await channelOf(host)
+    /* A chooser between actions belongs to no action and is dropped. */
+    host.fire("Page.fileChooserOpened", { frameId: "F0", mode: "selectSingle" })
+    channel.beginFileChooserWindow()
+    expect(channel.consumeFileChooser()).toBe(false)
+    /* One opened inside the window is charged to the action. */
+    channel.beginFileChooserWindow()
+    host.fire("Page.fileChooserOpened", { frameId: "F0", mode: "selectSingle" })
+    expect(channel.consumeFileChooser()).toBe(true)
+  })
 })

@@ -29,6 +29,7 @@ import {
   type AgentEffectResolverAdapter,
   resolveDomMutationAgentEffect
 } from "../resolved-effect"
+import { installAgentExecCommandStub } from "./execcommand-stub"
 
 /**
  * Editors, in-place edits, drags and file choosers through the resolver,
@@ -42,6 +43,7 @@ beforeEach(() => {
   document.title = "Board"
   document.body.replaceChildren()
   history.replaceState({}, "", "/board")
+  installAgentExecCommandStub(document)
   vi.spyOn(Element.prototype, "getClientRects").mockReturnValue([
     {
       bottom: 20,
@@ -544,9 +546,11 @@ describe("editing verification", () => {
       elements: [item("e2", "Task B"), column("e3", "Done")],
       visibleText: "Task B Done"
     })
+    /* A vanished source is never confirmed: an unrelated rerender looks the
+     * same, so the drop is left for the user to review. */
     expect(await verify(drag, gone, before)).toMatchObject({
-      outcome: "confirmed",
-      evidence: { summary: expect.stringContaining("no longer on the page") }
+      outcome: "ambiguous",
+      evidence: { summary: expect.stringContaining("unconfirmed") }
     })
   })
 

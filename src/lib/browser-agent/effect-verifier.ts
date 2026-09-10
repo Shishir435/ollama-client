@@ -937,29 +937,25 @@ const sameNeighbour = (
  * having changed. The dragged element is found again by what it is; it has
  * moved when its order relative to the destination flipped, when it sits in
  * a different region, or when the controls beside it are no longer the ones
- * that were beside it. A destination that swallowed it — a trash target —
- * shows as the element gone from a page that changed. An identical page is a
- * negative; a page that changed without the element visibly moving is left
- * uncertain, because a pointer drag that landed somewhere else has changed
- * something the run did not intend.
+ * that were beside it. A source that is simply gone is never confirmed: a
+ * rerender that hides it, a timer, or a misdirected drag looks identical to a
+ * drop a trash target swallowed, and confirming a disappearance would credit
+ * an effect that may never have reached the destination. An identical page is
+ * a negative; a page that changed without the element visibly moving to its
+ * destination is left uncertain, because a pointer drag that landed somewhere
+ * else has changed something the run did not intend.
  */
 const verifyDrag: Verifier = async (input, adapter, signal) => {
   const after = await observeAfter(input, adapter, signal)
   const changed = pageEvidence(after) !== pageEvidence(input.before)
   const source = mutationTargetAfter(input, after)
-  if (source.type === "missing" && changed) {
-    return result(
-      "confirmed",
-      "arrangement",
-      "Dragged element is no longer on the page",
-      adapter.now()
-    )
-  }
   if (source.type !== "one") {
     return result(
       "ambiguous",
       "arrangement",
-      "Dragged element is no longer identifiable",
+      source.type === "missing"
+        ? "Dragged element is gone; its move to the destination is unconfirmed"
+        : "Dragged element is no longer identifiable",
       adapter.now()
     )
   }

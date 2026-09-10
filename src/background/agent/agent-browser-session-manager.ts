@@ -154,10 +154,17 @@ export interface AgentNativeInputChannel {
     scale: number
   }): Promise<AgentRawCapture | undefined>
   /**
-   * Whether the page asked the browser for a file chooser since the last time
-   * this was asked. The dialog itself was held back — the run cannot answer
-   * it and the user must — so the answer is charged to whichever action asks
-   * first, and cleared by the asking.
+   * Opens the file-chooser window for one action. Every chooser the page
+   * raises before this is discarded, so a dialog opened between actions — or
+   * during a `select` or `check` that never reads it — cannot be charged to a
+   * later, unrelated action. Called once immediately before the action acts.
+   */
+  beginFileChooserWindow(): void
+  /**
+   * Whether the page asked the browser for a file chooser since
+   * `beginFileChooserWindow`. The dialog itself was held back — the run cannot
+   * answer it and the user must — so the step that opened it is left for the
+   * user. Reading clears the window.
    */
   consumeFileChooser(): boolean
 }
@@ -1054,6 +1061,10 @@ export const createAgentBrowserSessionManager = (input?: {
       })
       if (!isScreenshot(shot)) return undefined
       return { data: shot.data, mimeType: "image/jpeg", layout }
+    },
+    beginFileChooserWindow() {
+      if (attachments.get(attachment.runId) !== attachment) return
+      attachment.fileChoosers = 0
     },
     consumeFileChooser() {
       if (attachments.get(attachment.runId) !== attachment) return false

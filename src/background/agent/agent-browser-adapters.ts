@@ -228,6 +228,12 @@ export const createAgentBrowserAdapters = (input: {
       if (!channel) {
         return { cdpControl, attached: false, frameMapped: false, platform }
       }
+      /**
+       * The facts are read once, immediately before the action acts, so this
+       * is where its file-chooser window opens: a chooser the page raised
+       * before now belongs to no action of this run and is discarded.
+       */
+      channel.beginFileChooserWindow()
       const frame = targetFrame(effect)
       const frames = frame.frameId === 0 ? [] : await listFrames(frame.tabId)
       const offset = await channel.frameOffset(frame.frameId, frames)
