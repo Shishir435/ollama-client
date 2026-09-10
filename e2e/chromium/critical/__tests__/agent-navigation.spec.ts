@@ -18,7 +18,11 @@ runAgentScenario({
   navigationDelayMs: (path) => (path.startsWith("/details") ? 1_500 : 0),
   decide(observation) {
     if (observation.text.includes("Status: Active"))
-      return { type: "complete", summary: "Active" }
+      return {
+        type: "complete",
+        summary: "Active",
+        evidence: "Status: Active"
+      }
     return {
       type: "click",
       ref: agentFixtureElement(

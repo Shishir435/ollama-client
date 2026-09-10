@@ -19,7 +19,11 @@ runAgentScenario({
     `<!doctype html><title>Agent modal</title><main><h1>Items</h1><button onclick="document.querySelector('#confirm').hidden=false;this.disabled=true">Delete</button><div id="confirm" role="dialog" aria-label="Confirm delete" hidden><p>Delete this item?</p><button onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>');this.closest('[role=dialog]').hidden=true">Delete</button><button>Cancel</button></div></main>`,
   decide(observation: AgentFixtureObservation) {
     if (observation.text.includes("Status: Active"))
-      return { type: "complete", summary: "Active" }
+      return {
+        type: "complete",
+        summary: "Active",
+        evidence: "Status: Active"
+      }
     const inDialog = agentFixtureElement(
       observation,
       (element) =>

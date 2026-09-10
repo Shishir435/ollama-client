@@ -16,7 +16,11 @@ runAgentScenario({
   html: (path) => (path.startsWith("/details") ? AGENT_DETAILS_PAGE : formPage),
   decide(observation) {
     if (observation.text.includes("Status: Active"))
-      return { type: "complete", summary: "Active" }
+      return {
+        type: "complete",
+        summary: "Active",
+        evidence: "Status: Active"
+      }
     const field = agentFixtureElement(
       observation,
       (element) => element.tag === "input"

@@ -28,37 +28,39 @@ const SAVE_PAGE = `<!doctype html>
   ">Save</button>
 </main>`
 
-let completions = 0
-
 runAgentScenario({
   name: "outcome-evidence",
   goal: "Save the document.",
   status: "completed",
-  timeoutMs: 60_000,
   html: () => SAVE_PAGE,
-  decide: (observation: AgentFixtureObservation) => {
-    const save = agentFixtureElement(
-      observation,
-      (element) => element.name === "Save"
-    )
-    if (save) return { type: "click", ref: save.ref }
-    completions += 1
+  /**
+   * Driven off what the page says rather than a decision counter, so a retry
+   * behaves like a first attempt: the counter carried across retries and made
+   * the second run skip the over-claim this scenario exists to catch.
+   */
+  decide: (observation: AgentFixtureObservation, { step }) => {
+    if (observation.text.includes("All changes saved")) {
+      return {
+        type: "complete",
+        summary: "Saved the document.",
+        evidence: "All changes saved"
+      }
+    }
+    if (observation.text.includes("Unsaved changes")) {
+      const save = agentFixtureElement(
+        observation,
+        (element) => element.name === "Save"
+      )
+      return { type: "click", ref: save?.ref }
+    }
     /**
-     * The first claim is the one a run used to be able to make: the button
-     * was pressed, so the job must be done. It carries no evidence and the
-     * page does not yet show any.
+     * Saving. The first claim here is the one a run used to be able to make:
+     * the button was pressed, so the job must be done. It carries no evidence
+     * and the page shows none, so it is refused and the run holds instead.
      */
-    if (completions === 1) {
-      return { type: "complete", summary: "Saved the document." }
-    }
-    if (!observation.text.includes("All changes saved")) {
-      return { type: "wait", condition: "All changes saved", timeoutMs: 8_000 }
-    }
-    return {
-      type: "complete",
-      summary: "Saved the document.",
-      evidence: "All changes saved"
-    }
+    return step === 2
+      ? { type: "complete", summary: "Saved the document." }
+      : { type: "wait", condition: "All changes saved", timeoutMs: 8_000 }
   },
   verify: async ({ page, snapshot, phases }) => {
     await expect(page.locator("#status")).toHaveText("All changes saved")
@@ -68,6 +70,8 @@ runAgentScenario({
     expect(
       phases.filter((phase) => phase.phase === "completion_refused")
     ).toHaveLength(1)
-    expect(completions).toBeGreaterThan(1)
+    expect(
+      snapshot?.steps.some((agentStep) => agentStep.status === "rejected")
+    ).toBe(true)
   }
 })

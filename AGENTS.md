@@ -328,7 +328,12 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
 
 - Chromium Agent debugger attachments belong only to
   `src/background/agent/agent-browser-session-manager.ts`. Raw CDP targets stay
-  inside that adapter and never become model tools. Attach only after the run
+  inside that adapter and never become model tools. This is a rule about
+  extension code: `chrome.debugger` attachments taken against the user's tab
+  in the shipped product. It does not reach `tools/verify/**`, where a Node
+  runner drives Chromium's own DevTools endpoint from outside the extension
+  to kill and restart the worker — the thing under test cannot own the switch
+  that kills it, and nothing there ships or is reachable by a model. Attach only after the run
   service authorizes the user-selected tab; detach at pause, takeover, stop,
   completion, and failure boundaries. An unexpected disconnect pauses the run,
   and an interrupted effect remains unresolved rather than being replayed.
@@ -610,7 +615,14 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   failure: nothing was attempted, so it is recorded as a rejected step and the
   run looks again, with the reason reaching the next decision through its own
   history, and a model that keeps claiming the same thing exhausts the
-  no-progress budget like any other repetition.
+  no-progress budget like any other repetition. `deciding -> observing` is a
+  real edge in `AGENT_STATUS_PREDECESSORS` for that reason: every other exit
+  from `deciding` runs through a step, and a declined decision touched
+  nothing. `claimAgentRunPhase` filters `expected` by those predecessors
+  before it reaches SQL, so a claim across an edge the table lacks matches no
+  row and strands the run — the controller's test double enforces the same
+  filter, because a double that only checked `expected` was more permissive
+  than the database and hid exactly that.
 - **Waiting is bounded looking, not sleeping.** `wait` names an application
   state — a saved indicator, a row that appears — and the verifier re-observes
   until the page shows it or the named timeout is spent, whichever comes

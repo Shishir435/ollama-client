@@ -197,9 +197,17 @@ const createHarness = (options: HarnessOptions = {}) => {
     },
     async claim(input) {
       calls.push(`claim:${input.phase}`)
+      /**
+       * The real claim filters `expected` by the phase's legal predecessors
+       * before it reaches SQL, so a claim across an edge the state machine
+       * does not have matches no row and silently fails. A double that only
+       * checked `expected` was more permissive than the database: it passed a
+       * `deciding -> observing` claim that stranded the run in a browser.
+       */
       if (
         options.failClaim === input.phase ||
-        !input.expected.includes(state.status)
+        !input.expected.includes(state.status) ||
+        !isLegalAgentTransition(state.status, input.phase)
       ) {
         return { claimed: false, state }
       }

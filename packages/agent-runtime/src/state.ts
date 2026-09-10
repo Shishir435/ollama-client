@@ -12,7 +12,19 @@ export const TERMINAL_AGENT_STATUSES = [
  */
 export const AGENT_STATUS_PREDECESSORS = {
   submitted: [],
-  observing: ["submitted", "verifying", "paused", "awaiting_takeover"],
+  /**
+   * `deciding` is here because a decision can now be declined without
+   * anything happening to the page: a completion the run cannot support is a
+   * safe failure, so the run goes back to looking rather than ending. Every
+   * other way out of `deciding` still runs through a step.
+   */
+  observing: [
+    "submitted",
+    "deciding",
+    "verifying",
+    "paused",
+    "awaiting_takeover"
+  ],
   deciding: ["observing"],
   awaiting_approval: ["deciding"],
   awaiting_takeover: ["deciding", "awaiting_approval"],

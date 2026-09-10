@@ -26,7 +26,7 @@ runAgentScenario({
     `<!doctype html><title>Agent continuity</title><main>${agentConfirmingButton()}</main>`,
   decide: (observation: AgentFixtureObservation) =>
     observation.text.includes("Status: Active")
-      ? { type: "complete", summary: "Active" }
+      ? { type: "complete", summary: "Active", evidence: "Status: Active" }
       : {
           type: "click",
           ref: agentFixtureElement(
