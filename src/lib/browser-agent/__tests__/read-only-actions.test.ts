@@ -1,7 +1,8 @@
-import type {
-  AgentCancellationSignal,
-  AgentVerificationInput,
-  AuthorizedAgentEffect
+import {
+  type AgentCancellationSignal,
+  AgentUnreadablePageError,
+  type AgentVerificationInput,
+  type AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
 import type { AgentCommand, AgentObservation } from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
@@ -289,6 +290,36 @@ describe("read-only Agent effects", () => {
         references
       })
     ).toThrow("snapshot is stale")
+  })
+
+  it("refuses to go back onto a history entry it could never read", async () => {
+    /**
+     * A tab commits `about:blank` before its first real page, so pressing
+     * back at the start of a run's own history lands on one. That reached
+     * the destination parser and threw a bare Error, which the resolution
+     * mapper has no case for — so the run died labelled `verification_failed`,
+     * a code about a page effect, for a command that never touched the page.
+     */
+    await expect(
+      resolve(
+        { type: "back", snapshotId: "snapshot-1", generation: 1 },
+        observation(),
+        resolverAdapter({
+          resolveHistoryDestination: async () => "about:blank"
+        })
+      )
+    ).rejects.toBeInstanceOf(AgentUnreadablePageError)
+  })
+
+  it("still goes back to an ordinary page", async () => {
+    const effect = await resolve(
+      { type: "back", snapshotId: "snapshot-1", generation: 1 },
+      observation(),
+      resolverAdapter({
+        resolveHistoryDestination: async () => "https://example.com/previous"
+      })
+    )
+    expect(effect.destination?.url).toBe("https://example.com/previous")
   })
 
   it("stops looking as soon as the condition appears", async () => {

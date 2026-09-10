@@ -33,6 +33,17 @@ const sameUrl = (left: string | undefined, right: string): boolean => {
   }
 }
 
+/**
+ * The tab's back stack as the browser holds it, entry for entry.
+ *
+ * Every committed URL is recorded, including the `about:blank` a tab commits
+ * before its first real page. Filtering those out is tempting and wrong: the
+ * stack is walked by index, so dropping an entry would leave the run
+ * predicting one destination while the browser went to another — an
+ * unapproved page reached through an approval given for a different one.
+ * Whether a destination may be *used* is the resolver's question, not this
+ * one's.
+ */
 export const createAgentTabHistory = (): AgentTabHistory => {
   const tabs = new Map<number, TabEntries>()
 

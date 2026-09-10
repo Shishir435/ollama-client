@@ -585,7 +585,12 @@ task({
       : page('<h1>Home</h1><a href="/details">Details</a>'),
   decide: (observation, context) => {
     if (context.step === 1) return clickNamed(observation, "Details")
-    if (observation.text.includes("Details")) return { type: "back" }
+    /**
+     * Keyed on the status the details page shows, not on the word "Details",
+     * which the home page also carries as its link label — so the run used to
+     * ask to go back a second time, off the start of its own history.
+     */
+    if (observation.text.includes("Status: Active")) return { type: "back" }
     return { type: "complete", summary: "Home" }
   },
   /** Back means back: the tab has to be showing Home again, not just say so. */
