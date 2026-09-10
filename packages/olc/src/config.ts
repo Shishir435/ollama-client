@@ -40,7 +40,16 @@ export const DEFAULTS = {
   BRIDGE_PATH: "/bridge/call",
   BRIDGE_CALL_TIMEOUT_MS: 300_000,
   BRIDGE_BATCH_MS: 150,
-  SUSPENDED_TURN_TTL_MS: 600_000
+  SUSPENDED_TURN_TTL_MS: 600_000,
+  /**
+   * A parked turn is a live backend session, and its own TTL is ten minutes —
+   * fine for one turn a client abandoned, wrong for a client whose every
+   * request is a single decision it never resumes. Four leaves room for a
+   * client that legitimately interleaves a fresh turn with one it is still
+   * computing a tool result for, and stops a long run holding a session per
+   * step.
+   */
+  MAX_PARKED_TURNS: 4
 } as const
 
 /** Options as they arrive from a config file or the command line. */
@@ -189,6 +198,22 @@ export const resolveConfig = (
       env.OLC_BRIDGE_BATCH_MS,
       fileOptions.BRIDGE_BATCH_MS,
       DEFAULTS.BRIDGE_BATCH_MS
+    ),
+    /**
+     * At least one. A cap of zero cannot mean "park nothing": parking is how
+     * a tool call reaches the client at all, so zero would disable client
+     * tool calling rather than bound it — and the pre-admission sweep could
+     * not deliver it anyway, since the turn it makes room for parks
+     * afterwards. One means only the turn in flight may be parked.
+     */
+    MAX_PARKED_TURNS: Math.max(
+      1,
+      numberOption(
+        options.MAX_PARKED_TURNS,
+        env.OLC_MAX_PARKED_TURNS,
+        fileOptions.MAX_PARKED_TURNS,
+        DEFAULTS.MAX_PARKED_TURNS
+      )
     ),
     SUSPENDED_TURN_TTL_MS: numberOption(
       options.SUSPENDED_TURN_TTL_MS,

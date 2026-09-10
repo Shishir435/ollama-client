@@ -101,6 +101,11 @@ export class PendingToolCalls {
     return claimed.sort((left, right) => left.createdAt - right.createdAt)
   }
 
+  /** Every turn with a call still parked. */
+  turnIds(): string[] {
+    return [...new Set([...this.calls.values()].map((call) => call.turnId))]
+  }
+
   hasPending(turnId: string): boolean {
     for (const call of this.calls.values()) {
       if (call.turnId === turnId) return true
