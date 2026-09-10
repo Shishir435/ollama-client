@@ -176,7 +176,13 @@ const budgets: Budget[] = [
   {
     metric: "total",
     field: "bytes",
-    max: isFirefox ? 11_800_000 : 9_500_000
+    /**
+     * Chrome's uncompressed total crossed 9.5MB with the Agent completion
+     * gate and its bounded waiting; the measured figure is 9,502,623. Raised
+     * to the next step rather than rounded generously, so the next thing to
+     * cross it is measured too.
+     */
+    max: isFirefox ? 11_800_000 : 9_600_000
   },
   {
     metric: "zip",
@@ -248,8 +254,13 @@ const budgets: Budget[] = [
      * the dialog action family with its own resolver, executor and verifier,
      * and the dialog rules in the classifier and the policy — took it to
      * 253,519. Firefox carries no Agent code and is unchanged.
+     *
+     * Task outcomes and recovery — the completion judge and its shared
+     * observed-text matcher, the durable `mutating` receipt field, and the
+     * bounded wait poll — took it to 255,224. Firefox carries no Agent code
+     * and is unchanged.
      */
-    max: isFirefox ? 210_000 : 254_000
+    max: isFirefox ? 210_000 : 256_000
   }
 ]
 
