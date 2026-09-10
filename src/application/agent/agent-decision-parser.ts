@@ -42,11 +42,20 @@ const NO_SCREENSHOT_FEEDBACK =
 
 const VISUAL_COMMANDS = new Set(["click_point", "zoom"])
 
+/**
+ * The field each non-command decision carries, and the optional ones beside
+ * it. A `complete` may name the evidence that supports it; everything else
+ * the flat tool schema invited is dropped, as it is for a command.
+ */
 const VARIANT_FIELDS: Record<string, string> = {
   command: "command",
   ask_user: "question",
   complete: "summary",
   fail: "reason"
+}
+
+const VARIANT_OPTIONAL_FIELDS: Record<string, readonly string[]> = {
+  complete: ["evidence"]
 }
 
 /**
@@ -119,9 +128,14 @@ const normalizeDecisionArguments = (
   const field = VARIANT_FIELDS[String(record.type)]
   if (!field) return raw
   const value = record[field]
+  const optional = Object.fromEntries(
+    (VARIANT_OPTIONAL_FIELDS[String(record.type)] ?? [])
+      .filter((name) => record[name] !== undefined)
+      .map((name) => [name, record[name]])
+  )
   return value === undefined
-    ? { type: record.type }
-    : { type: record.type, [field]: value }
+    ? { type: record.type, ...optional }
+    : { type: record.type, [field]: value, ...optional }
 }
 
 const assertGroundedDecision = (

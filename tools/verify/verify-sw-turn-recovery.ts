@@ -3,44 +3,32 @@
 /**
  * End-to-end durable-turn recovery after isolated MV3 service-worker loss.
  *
- * Playwright auto-attaches to extension service workers and pins them alive, so
- * this runner launches Chromium directly, attaches only to an extension page,
- * and terminates the worker through DevTools /json/close. The extension page
- * and offscreen SQLite owner remain alive while a fresh worker resumes the
- * generating turn through the real stream port and persistence paths.
+ * The worker is killed for real while the extension page and the offscreen
+ * SQLite owner keep running, so a fresh worker resumes the generating turn
+ * through the real stream port and persistence paths. The launch, attach and
+ * termination mechanics are shared with the other worker-loss runners; see
+ * `lib/chromium-extension-harness.ts` for why Playwright cannot do this.
  *
  * Usage: pnpm verify:sw-turn-recovery
  * Requires: pnpm benchmark:build
  */
 
-import { spawn } from "node:child_process"
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync
-} from "node:fs"
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
-import { tmpdir } from "node:os"
 import { resolve } from "node:path"
-import { chromium } from "playwright"
+
+import {
+  type ExtensionHarness,
+  type GateResult,
+  gateRecorder,
+  poll,
+  reportGates,
+  verifyCall,
+  withExtensionHarness
+} from "./lib/chromium-extension-harness"
 
 const buildPath = resolve("build/chrome-mv3-benchmark")
 const artifactDir = resolve("artifacts/e2e")
-
-interface CdpTarget {
-  id: string
-  type: string
-  url: string
-}
-
-interface GateResult {
-  gate: string
-  pass: boolean
-  detail: Record<string, unknown>
-}
 
 interface TurnResult {
   status?: string
@@ -49,163 +37,7 @@ interface TurnResult {
 }
 
 const results: GateResult[] = []
-let debugPort = 0
-
-const record = (
-  gate: string,
-  pass: boolean,
-  detail: Record<string, unknown>
-): void => {
-  results.push({ gate, pass, detail })
-  console.error(`${pass ? "PASS" : "FAIL"} ${gate}`)
-  if (!pass) console.error(JSON.stringify(detail, null, 2))
-}
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolvePause) => setTimeout(resolvePause, ms))
-
-const poll = async <T>(
-  read: () => Promise<T>,
-  accept: (value: T) => boolean,
-  description: string,
-  timeoutMs = 30_000
-): Promise<T> => {
-  const deadline = Date.now() + timeoutMs
-  let lastValue: T | undefined
-  let lastError: unknown
-  while (Date.now() < deadline) {
-    try {
-      lastValue = await read()
-      if (accept(lastValue)) return lastValue
-    } catch (error) {
-      lastError = error
-    }
-    await sleep(200)
-  }
-  throw new Error(
-    `${description} timed out; last value=${JSON.stringify(lastValue)}; last error=${String(lastError ?? "none")}`
-  )
-}
-
-const httpJson = async (path: string): Promise<unknown> => {
-  const response = await fetch(`http://127.0.0.1:${debugPort}${path}`)
-  const text = await response.text()
-  try {
-    return JSON.parse(text)
-  } catch {
-    return text
-  }
-}
-
-const listTargets = async (): Promise<CdpTarget[]> => {
-  const value = await httpJson("/json/list")
-  return Array.isArray(value) ? (value as CdpTarget[]) : []
-}
-
-const findServiceWorker = (targets: CdpTarget[]): CdpTarget | undefined =>
-  targets.find(
-    (target) =>
-      target.type === "service_worker" && target.url.endsWith("/background.js")
-  )
-
-class PageSession {
-  private ws: WebSocket
-  private nextId = 1
-  private pending = new Map<
-    number,
-    { resolve: (value: unknown) => void; reject: (error: Error) => void }
-  >()
-  private sessionId = ""
-
-  private constructor(ws: WebSocket) {
-    this.ws = ws
-  }
-
-  static async open(browserWsUrl: string, url: string): Promise<PageSession> {
-    const ws = new WebSocket(browserWsUrl)
-    await new Promise<void>((resolveOpen, rejectOpen) => {
-      ws.addEventListener("open", () => resolveOpen(), { once: true })
-      ws.addEventListener(
-        "error",
-        () => rejectOpen(new Error("browser websocket failed")),
-        { once: true }
-      )
-    })
-    const page = new PageSession(ws)
-    ws.addEventListener("message", (event) =>
-      page.onMessage(String(event.data))
-    )
-    const created = (await page.sendBrowser("Target.createTarget", {
-      url
-    })) as { targetId: string }
-    const attached = (await page.sendBrowser("Target.attachToTarget", {
-      targetId: created.targetId,
-      flatten: true
-    })) as { sessionId: string }
-    page.sessionId = attached.sessionId
-    await page.send("Runtime.enable")
-    return page
-  }
-
-  private onMessage(data: string): void {
-    const message = JSON.parse(data) as {
-      id?: number
-      result?: unknown
-      error?: { message: string }
-    }
-    if (typeof message.id !== "number") return
-    const waiter = this.pending.get(message.id)
-    if (!waiter) return
-    this.pending.delete(message.id)
-    if (message.error) waiter.reject(new Error(message.error.message))
-    else waiter.resolve(message.result)
-  }
-
-  private raw(payload: Record<string, unknown>): Promise<unknown> {
-    const id = this.nextId++
-    return new Promise((resolvePending, rejectPending) => {
-      this.pending.set(id, {
-        resolve: resolvePending,
-        reject: rejectPending
-      })
-      this.ws.send(JSON.stringify({ id, ...payload }))
-    })
-  }
-
-  private sendBrowser(method: string, params?: unknown): Promise<unknown> {
-    return this.raw({ method, params })
-  }
-
-  private send(method: string, params?: unknown): Promise<unknown> {
-    return this.raw({ method, params, sessionId: this.sessionId })
-  }
-
-  async evaluate<T>(expression: string): Promise<T> {
-    const result = (await this.send("Runtime.evaluate", {
-      expression,
-      awaitPromise: true,
-      returnByValue: true
-    })) as {
-      result: { value?: T }
-      exceptionDetails?: { exception?: { description?: string }; text?: string }
-    }
-    if (result.exceptionDetails) {
-      throw new Error(
-        result.exceptionDetails.exception?.description ??
-          result.exceptionDetails.text ??
-          "page evaluation failed"
-      )
-    }
-    return result.result.value as T
-  }
-
-  close(): void {
-    this.ws.close()
-  }
-}
-
-const verifyCall = (method: string, ...args: unknown[]): string =>
-  `window.__persistenceVerify[${JSON.stringify(method)}](...${JSON.stringify(args)})`
+const record = gateRecorder(results)
 
 const startFakeOllama = async () => {
   const prompt = "isolated worker loss e2e"
@@ -289,101 +121,29 @@ const startFakeOllama = async () => {
 }
 
 const run = async (): Promise<void> => {
-  const userDataDir = mkdtempSync(`${tmpdir()}/ollama-client-sw-turn-`)
   const fakeOllama = await startFakeOllama()
-  const chromiumArgs = [
-    `--user-data-dir=${userDataDir}`,
-    `--load-extension=${buildPath}`,
-    `--disable-extensions-except=${buildPath}`,
-    "--remote-debugging-port=0",
-    "--no-first-run",
-    "--no-default-browser-check"
-  ]
-  if (process.platform === "linux") {
-    chromiumArgs.push("--disable-dev-shm-usage")
-  }
-  if (process.env.CI) chromiumArgs.push("--no-sandbox")
-  if (process.env.E2E_HEADFUL !== "1") chromiumArgs.push("--headless=new")
-  const child = spawn(chromium.executablePath(), chromiumArgs, {
-    stdio: ["ignore", "ignore", "pipe"]
-  })
-  let browserFailure = ""
-  let browserStderr = ""
-  child.stderr.setEncoding("utf8")
-  child.stderr.on("data", (chunk: string) => {
-    browserStderr = `${browserStderr}${chunk}`.slice(-4_000)
-  })
-  child.once("error", (error) => {
-    browserFailure = `spawn error: ${error.message}`
-  })
-  child.once("exit", (code, signal) => {
-    browserFailure = `exited code=${String(code)} signal=${String(signal)}`
-  })
-  let page: PageSession | undefined
-
   try {
-    const activePortFile = resolve(userDataDir, "DevToolsActivePort")
-    const launchState = await poll(
-      async () => {
-        if (browserFailure) {
-          return { port: 0, failure: browserFailure }
-        }
-        try {
-          return {
-            port: Number.parseInt(readFileSync(activePortFile, "utf8"), 10),
-            failure: ""
-          }
-        } catch {
-          return { port: 0, failure: "" }
-        }
-      },
-      (state) =>
-        Boolean(state.failure) ||
-        (Number.isInteger(state.port) && state.port > 0),
-      "Chromium debugging port"
-    )
-    if (launchState.failure) {
-      throw new Error(
-        `Chromium failed before reporting its debugging port: ${launchState.failure}\n${browserStderr}`
-      )
-    }
-    debugPort = launchState.port
+    await withExtensionHarness({
+      buildPath,
+      page: "persistence-verify.html",
+      body: (harness) => driveTurnRecovery(harness, fakeOllama)
+    })
+  } finally {
+    await fakeOllama.close()
+  }
+}
 
-    const browserWsUrl = await poll(
-      async () => {
-        try {
-          return (await httpJson("/json/version")) as {
-            webSocketDebuggerUrl?: string
-          }
-        } catch {
-          return {}
-        }
-      },
-      (version) => Boolean(version.webSocketDebuggerUrl),
-      "Chromium DevTools endpoint"
-    ).then((version) => version.webSocketDebuggerUrl as string)
-
-    const originalWorkerCandidate = await poll(
-      async () => findServiceWorker(await listTargets()),
-      (target) => Boolean(target),
-      "extension service worker"
-    )
-    if (!originalWorkerCandidate) {
-      throw new Error("Extension service worker disappeared before test start")
-    }
-    const originalWorker = originalWorkerCandidate
-    const extensionId = new URL(originalWorker.url).host
-    page = await PageSession.open(
-      browserWsUrl,
-      `chrome-extension://${extensionId}/persistence-verify.html`
-    )
-    await poll(
-      () =>
-        page?.evaluate("typeof window.__persistenceVerify === 'object'") ??
-        Promise.resolve(false),
-      Boolean,
-      "persistence verification hooks"
-    )
+const driveTurnRecovery = async (
+  {
+    page,
+    originalWorker,
+    listTargets,
+    findServiceWorker,
+    httpJson
+  }: ExtensionHarness,
+  fakeOllama: Awaited<ReturnType<typeof startFakeOllama>>
+): Promise<void> => {
+  {
     await poll(
       () =>
         page?.evaluate<{ backend?: string } | null>(
@@ -468,36 +228,19 @@ const run = async (): Promise<void> => {
         replacementWorkerId: replacementWorker.id
       }
     )
-  } finally {
-    page?.close()
-    await fakeOllama.close()
-    child.kill("SIGKILL")
-    for (let attempt = 0; attempt < 15; attempt += 1) {
-      try {
-        rmSync(userDataDir, { recursive: true, force: true })
-        break
-      } catch {
-        await sleep(200)
-      }
-    }
   }
 }
 
 const main = async (): Promise<void> => {
   await run()
-  const report = {
-    measuredAt: new Date().toISOString(),
+  reportGates({
+    artifactDir,
+    name: "sw-turn-recovery",
     gate: "isolated MV3 service-worker durable-turn recovery",
     topology:
       "packaged Chromium benchmark extension; service worker killed via DevTools while extension page and offscreen SQLite owner survive",
     results
-  }
-  mkdirSync(artifactDir, { recursive: true })
-  const outputPath = resolve(artifactDir, `sw-turn-recovery-${Date.now()}.json`)
-  writeFileSync(outputPath, JSON.stringify(report, null, 2))
-  console.error(`Report written: ${outputPath}`)
-  console.log(JSON.stringify(report, null, 2))
-  if (results.some((result) => !result.pass)) process.exitCode = 1
+  })
 }
 
 main().catch((error) => {

@@ -23,6 +23,7 @@ import {
   resumeAgentDeadlines,
   suspendAgentDeadlines
 } from "./budgets"
+import { agentEffectChangesPage, judgeAgentCompletion } from "./completion"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
   agentStepSourceUrl,
@@ -40,6 +41,7 @@ import type {
   AgentPolicyDecision,
   AgentResolutionContext,
   AgentStatePatch,
+  AgentStepReadout,
   AgentStepWrite,
   AuthorizedAgentEffect,
   ResolvedAgentEffect
@@ -202,7 +204,7 @@ export const createAgentController = (
    */
   const stepEvidence = (
     effect: ResolvedAgentEffect
-  ): Pick<AgentStepWrite, "target" | "sourceUrl"> => {
+  ): Pick<AgentStepWrite, "target" | "sourceUrl" | "mutating"> => {
     const target = agentStepTargetFrom(effect.target)
     /**
      * Origin and path only. A receipt is durable and is read back into a
@@ -214,7 +216,14 @@ export const createAgentController = (
       : undefined
     return {
       ...(target ? { target } : {}),
-      ...(sourceUrl ? { sourceUrl } : {})
+      ...(sourceUrl ? { sourceUrl } : {}),
+      /**
+       * Recorded on every receipt this step writes, not only the first: a
+       * completion is judged against the last change the run applied, and a
+       * step whose later receipts forgot what it was would be judged as a
+       * read.
+       */
+      mutating: agentEffectChangesPage(effect)
     }
   }
 
@@ -802,6 +811,70 @@ export const createAgentController = (
     )
   }
 
+  /**
+   * A completion is a claim about the goal, and a run that changed anything
+   * has to be able to point at the page to support it. The judgement is a
+   * pure rule over the run's own receipts and the observation it decided on;
+   * see `completion.ts` for why pressing the right button is not the same as
+   * the thing being done.
+   *
+   * A refusal is a safe failure — nothing was attempted, the page is
+   * untouched — so it is recorded as a step and the run looks again, with the
+   * reason reaching the next decision through its own history. It is not a
+   * run failure: a model that has nearly finished should get the chance to
+   * observe the indicator it needs, and a model that keeps claiming the same
+   * thing runs out of no-progress budget like any other repetition.
+   */
+  const processCompletion = async (
+    state: AgentRunState,
+    decision: Extract<AgentDecision, { type: "complete" }>,
+    observation: AgentObservation
+  ): Promise<AgentRunState | undefined> => {
+    /**
+     * Receipts that cannot be read leave the judge with an unknown rather
+     * than an empty history: a run that submitted a form and then lost its
+     * receipts has still submitted it, and reading that as "changed nothing"
+     * would let exactly the claim this gate exists to stop straight through.
+     */
+    let steps: readonly AgentStepReadout[] | undefined
+    try {
+      steps = await dependencies.persistence.steps(state.id)
+    } catch {
+      dependencies.trace?.(state.id, "completion_receipts_unreadable")
+    }
+    const judgement = judgeAgentCompletion({
+      ...(steps ? { steps } : {}),
+      observation,
+      ...(decision.evidence ? { evidence: decision.evidence } : {})
+    })
+    if (judgement.type === "accepted") {
+      await transition(state, "completed", {
+        result: decision.summary,
+        updatedAt: dependencies.clock.now()
+      })
+      return undefined
+    }
+    const now = dependencies.clock.now()
+    dependencies.trace?.(state.id, "completion_refused", {
+      reason: judgement.reason
+    })
+    await dependencies.persistence.appendStep({
+      runId: state.id,
+      stepId: `${state.id}:completion:${state.observationCount}`,
+      status: "rejected",
+      at: now,
+      verification: {
+        outcome: "negative",
+        evidence: {
+          kind: "completion",
+          summary: judgement.feedback,
+          observedAt: now
+        }
+      }
+    })
+    return claimObserving(state, false, ["deciding"])
+  }
+
   const processDecision = async (
     state: AgentRunState,
     decision: AgentDecision,
@@ -810,11 +883,7 @@ export const createAgentController = (
     context: AgentResolutionContext = {}
   ): Promise<AgentRunState | undefined> => {
     if (decision.type === "complete") {
-      await transition(state, "completed", {
-        result: decision.summary,
-        updatedAt: dependencies.clock.now()
-      })
-      return undefined
+      return processCompletion(state, decision, observation)
     }
     if (decision.type === "fail") {
       /** The model answered; it just cannot do this. The endpoint is fine. */

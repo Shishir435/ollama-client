@@ -18,6 +18,7 @@ const gateCommands = [
   "check:browser-smoke",
   "e2e:chromium:critical",
   "verify:sw-turn-recovery",
+  "verify:sw-agent-recovery",
   "verify:opfs-migration",
   "verify:firefox-opfs-migration"
 ]

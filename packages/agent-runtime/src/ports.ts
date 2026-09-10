@@ -438,6 +438,14 @@ export interface AgentStepWrite {
   at: number
   command?: AgentCommand
   risk?: AgentRisk
+  /**
+   * Whether this step changed the page rather than read it, taken from the
+   * resolved effect's own classes. Durable because a completion is judged
+   * against it and a worker restart keeps the receipts and loses everything
+   * else — a run that submitted a form before the worker died still owes the
+   * user evidence that the submission landed.
+   */
+  mutating?: boolean
   verification?: AgentVerificationResult
   target?: AgentStepTarget
   /** The page the step was taken on, so history can say where it happened. */

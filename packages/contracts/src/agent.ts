@@ -52,6 +52,13 @@ export type AgentStepStatus = z.infer<typeof AgentStepStatusSchema>
  */
 export const MAX_AGENT_FINDING_CHARS = 500
 
+/**
+ * The most a completion's evidence may quote. Short on purpose: it has to be
+ * matched against the page, and a paragraph is a paraphrase no rendered page
+ * will contain verbatim.
+ */
+export const MAX_AGENT_EVIDENCE_CHARS = 200
+
 export const AgentDecisionSchema = z.discriminatedUnion("type", [
   z
     .object({
@@ -66,10 +73,19 @@ export const AgentDecisionSchema = z.discriminatedUnion("type", [
       question: z.string().min(1).max(2_000)
     })
     .strict(),
+  /**
+   * The goal is met. `evidence` is a short phrase the page shows now that
+   * demonstrates it — a saved-state indicator, the new value, the record that
+   * appeared. Required of a run that changed anything: pressing the right
+   * button is an effect the verifier can confirm and says nothing about
+   * whether the thing the user asked for is true. A run that only read is
+   * asked for none; what it read is its answer.
+   */
   z
     .object({
       type: z.literal("complete"),
-      summary: z.string().min(1).max(20_000)
+      summary: z.string().min(1).max(20_000),
+      evidence: z.string().min(1).max(MAX_AGENT_EVIDENCE_CHARS).optional()
     })
     .strict(),
   z

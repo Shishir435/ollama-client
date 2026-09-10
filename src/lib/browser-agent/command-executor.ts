@@ -1017,6 +1017,13 @@ const executeElementAction = async (
 const WHEEL_SETTLE_MS = 150
 
 /**
+ * How long a `wait` pauses before the verifier starts looking. Enough for a
+ * synchronous handler to run; the named timeout is the verifier's budget, not
+ * a sleep this side owes.
+ */
+const AGENT_WAIT_SETTLE_MS = 250
+
+/**
  * A scroll without a target goes native when it can: a wheel at the viewport
  * centre scrolls whatever container sits there, which is the document on a
  * page and the application's own scroller on a page that never scrolls. A
@@ -1086,10 +1093,20 @@ export const READ_ONLY_AGENT_EXECUTORS = {
     await assertSource(effect, adapter, true)
     return receipt(adapter, "extract_text")
   },
+  /**
+   * A wait settles the page and hands the rest to the verifier, which is the
+   * only side that can look. Sleeping the whole timeout here meant a
+   * condition that arrived in a moment still cost its full budget, and the
+   * page was read exactly once at the end; the verifier now polls to the same
+   * deadline and stops as soon as the condition holds.
+   */
   async wait(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
     if (effect.command.type !== "wait") throw new Error("Invalid wait effect")
-    await adapter.wait(effect.command.timeoutMs, signal)
+    await adapter.wait(
+      Math.min(effect.command.timeoutMs, AGENT_WAIT_SETTLE_MS),
+      signal
+    )
     return receipt(adapter, "wait")
   },
   async scroll(effect, adapter, signal) {

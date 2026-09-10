@@ -677,7 +677,14 @@ describe("agent controller", () => {
         inputs.push(input)
         return inputs.length === 1
           ? { type: "command", command: command() }
-          : { type: "complete", summary: "Done" }
+          : {
+              type: "complete",
+              summary: "Done",
+              // Receipts that cannot be read leave the completion gate
+              // unable to say whether this run changed anything, so it asks
+              // for evidence rather than assuming it did not.
+              evidence: "Page text"
+            }
       }
     })
     await harness.controller.start("run-1")
@@ -686,6 +693,75 @@ describe("agent controller", () => {
     // A run that lost continuity looks exactly like a model behaving badly,
     // so the reason has to reach the host.
     expect(traced).toContain("history_unavailable")
+  })
+
+  it("will not complete on unreadable receipts without evidence", async () => {
+    // Unreadable receipts are an unknown, not proof the run changed nothing.
+    // Reading them as "nothing happened" is exactly the claim the gate exists
+    // to stop, so the run keeps working instead of reporting success.
+    const traced: string[] = []
+    let decisions = 0
+    const harness = createHarness({
+      trace: (_runId, phase) => traced.push(phase),
+      stepsFail: true,
+      decide: async () => {
+        decisions += 1
+        return decisions === 1
+          ? { type: "command", command: command() }
+          : { type: "complete", summary: "Done" }
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().status).not.toBe("completed")
+    expect(traced).toContain("completion_refused")
+  })
+
+  it("does not let pressing Save alone complete saving the document", async () => {
+    /**
+     * The three layers, kept apart. The click is delivered, the verifier
+     * confirms its effect — the button was pressed and the page changed —
+     * and the goal is still not met. The run only completes once it can
+     * point at something the page shows.
+     */
+    const saved = observation({
+      snapshotId: "snapshot-1",
+      visibleText: "Page text — All changes saved"
+    })
+    const claims: unknown[] = []
+    let decisions = 0
+    const harness = createHarness({
+      effectOverrides: { semanticEffects: ["activation"] },
+      /** The indicator appears only after the run has looked again. */
+      observe: async () => (decisions >= 2 ? saved : observation()),
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1) return { type: "command", command: command() }
+        const decision =
+          decisions === 2
+            ? { type: "complete" as const, summary: "Saved the document" }
+            : {
+                type: "complete" as const,
+                summary: "Saved the document",
+                evidence: "All changes saved"
+              }
+        claims.push(decision)
+        return decision
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(claims).toHaveLength(2)
+    expect(harness.getState()).toMatchObject({
+      status: "completed",
+      result: "Saved the document"
+    })
+    /** The refusal is durable: the run's own record says it over-claimed. */
+    expect(
+      harness.writtenSteps
+        .filter((step) => step.status === "rejected")
+        .map((step) => step.verification?.outcome)
+    ).toEqual(["negative"])
   })
 
   it("records an asked question instead of looking like a user pause", async () => {
