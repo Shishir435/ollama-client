@@ -30,6 +30,7 @@ export const AGENT_AFFORDANCE_REASONS = [
   "radio_uncheck",
   "not_clickable",
   "use_check_instead",
+  "use_click_instead",
   "image_submit",
   "not_focused"
 ] as const
@@ -123,7 +124,25 @@ const reportable = (
 
 const TEXT_INPUT_TYPES = ["email", "number", "search", "tel", "text", "url"]
 const CLICKABLE_INPUT_TYPES = ["button", "image", "reset", "submit"]
-const CLICKABLE_ROLES = ["button", "link", "menuitem"]
+/**
+ * Widget roles a pointer activates. Custom dropdowns, tab strips and tree
+ * views are built from these rather than from `<button>`, and a model told it
+ * may only click buttons has no way to open the listbox it can see.
+ */
+const CLICKABLE_ROLES = [
+  "button",
+  "link",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "combobox",
+  "option",
+  "tab",
+  "treeitem",
+  "switch",
+  "gridcell",
+  "listbox"
+]
 
 const refusal = (
   reason: AgentAffordanceReason,
@@ -164,31 +183,53 @@ const isClickable = (element: AgentElement): boolean =>
     CLICKABLE_INPUT_TYPES.includes(inputType(element))) ||
   CLICKABLE_ROLES.includes(element.role?.toLowerCase() ?? "")
 
+const isCheckable = (element: AgentElement): boolean =>
+  element.tag === "input" && ["checkbox", "radio"].includes(inputType(element))
+
+/**
+ * A checkbox is refused to both pointer gestures, because `check` and
+ * `uncheck` state the intended value and can therefore be verified, while a
+ * click states a toggle. Saying so is the point: told to click a button
+ * instead, a model has no way to reach the box it can see.
+ */
+const classifyClick = (
+  element: AgentElement
+): AgentAffordanceRefusal | undefined => {
+  if (element.tag === "input" && inputType(element) === "image") {
+    return refusal("image_submit", element)
+  }
+  if (isCheckable(element)) return refusal("use_check_instead", element)
+  /** A rendered destination is activation enough, whatever the tag is. */
+  return element.href || isClickable(element)
+    ? undefined
+    : refusal("not_clickable", element)
+}
+
+/**
+ * A link or a submitter acts on the first click; the second would land on
+ * whatever page replaced it. `click` carries the guarded navigation and
+ * submission paths, so it is the one to use.
+ */
+const classifyDoubleClick = (
+  element: AgentElement
+): AgentAffordanceRefusal | undefined => {
+  if (isCheckable(element)) return refusal("use_check_instead", element)
+  return element.href || element.submitter
+    ? refusal("use_click_instead", element)
+    : undefined
+}
+
 const classifyTarget = (
   command: AgentCommand,
   element: AgentElement
 ): AgentAffordanceRefusal | undefined => {
   switch (command.type) {
     case "click":
-      if (element.tag === "input" && inputType(element) === "image") {
-        return refusal("image_submit", element)
-      }
-      /**
-       * A checkbox is refused, because `check` and `uncheck` state the
-       * intended value and can therefore be verified, while a click states a
-       * toggle. Saying so is the point: told to click a button instead, a
-       * model has no way to reach the box it can see.
-       */
-      if (
-        element.tag === "input" &&
-        ["checkbox", "radio"].includes(inputType(element))
-      ) {
-        return refusal("use_check_instead", element)
-      }
-      /** A rendered destination is activation enough, whatever the tag is. */
-      return element.href || isClickable(element)
-        ? undefined
-        : refusal("not_clickable", element)
+      return classifyClick(element)
+    case "double_click":
+      return classifyDoubleClick(element)
+    case "hover":
+      return undefined
     case "type":
     case "clear_and_type":
       return acceptsText(element)
@@ -245,6 +286,8 @@ export const classifyAgentAffordance = (
     return { reason: "ambiguous_ref", ref: command.ref }
   const element = candidates[0]
   if (!element.visible) return refusal("hidden_target", element)
+  /** A pointer may rest on a disabled control — that is how its tooltip shows. */
+  if (command.type === "hover") return undefined
   if (!element.enabled) return refusal("disabled_target", element)
   /** A scroll only needs a real element; it changes nothing about it. */
   return command.type === "scroll"
@@ -299,6 +342,8 @@ export const agentAffordanceFeedback = (
       return `${ref} is ${described(refused)} and is not an activatable control. Click a button, a link or a menuitem.`
     case "use_check_instead":
       return `${ref} is a ${refused.inputType === "radio" ? "radio button" : "checkbox"}. Use check or uncheck on it rather than click, so the intended value is stated.`
+    case "use_click_instead":
+      return `${ref} is ${refused.tag === "a" ? "a link" : "a submit control"}. Use click on it; a double click would act on the page it leaves.`
     case "image_submit":
       return `${ref} is an image submit control, which this agent cannot activate. Use a different control.`
     case "not_focused":

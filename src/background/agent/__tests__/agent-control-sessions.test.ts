@@ -49,6 +49,11 @@ const session = (
   observe: vi.fn(async () => observation()),
   executeDomMutation: vi.fn(async () => undefined),
   executeScroll: vi.fn(async () => undefined),
+  prepareNativeInput: vi.fn(async () => ({
+    point: { x: 10, y: 10 },
+    focused: false
+  })),
+  settleNativeInput: vi.fn(async () => undefined),
   disconnect: vi.fn(),
   ...overrides
 })

@@ -226,8 +226,13 @@ const budgets: Budget[] = [
      * its budget partition, the three read-only inspection commands, and the
      * durable findings store — took it to 237,205. Firefox carries no Agent
      * code and is unchanged.
+     *
+     * Native input — the plan builder and its key table, the cancellation-safe
+     * runner, the delivery matcher, the debugger input channel with its frame
+     * placement, and the two new control-port messages — took it to 243,113.
+     * Firefox carries no Agent code and is unchanged.
      */
-    max: isFirefox ? 210_000 : 238_000
+    max: isFirefox ? 210_000 : 244_000
   }
 ]
 

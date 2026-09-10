@@ -34,6 +34,7 @@ const effectRisk = (effect: AgentSemanticEffect): AgentRisk => {
   switch (effect) {
     case "read":
     case "scroll":
+    case "hover":
       return "low"
     case "navigation":
       return "medium"

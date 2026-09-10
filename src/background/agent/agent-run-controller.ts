@@ -11,6 +11,7 @@ import {
 import { createProviderAgentModelPort } from "@/application/agent/agent-model-port"
 import { logger } from "@/lib/logger"
 import { createAgentBrowserAdapters } from "./agent-browser-adapters"
+import type { AgentBrowserSessionManager } from "./agent-browser-session-manager"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentEffectPort } from "./agent-effect-port"
 import type { AgentSupervision } from "./agent-supervision"
@@ -79,6 +80,8 @@ const withDecisionTimeout = (
 export interface BuildAgentControllerInput {
   runId: string
   sessions: AgentControlSessionRegistry
+  /** Absent means no native input: every action runs on the DOM backend. */
+  browserSessions?: AgentBrowserSessionManager
   history: AgentTabHistory
   persistence: AgentPersistencePort
   supervision: AgentSupervision
@@ -104,6 +107,7 @@ export const buildAgentController: BuildAgentController = (input) => {
   const adapters = createAgentBrowserAdapters({
     runId: input.runId,
     sessions: input.sessions,
+    browserSessions: input.browserSessions,
     history: input.history,
     now: input.now
   })
@@ -164,7 +168,10 @@ export const buildAgentController: BuildAgentController = (input) => {
         })
         const receipt = await effect.execute(authorized, signal)
         traceAgentRun(input.runId, "executed", {
-          executedAt: receipt.executedAt
+          action: authorized.command.type,
+          executedAt: receipt.executedAt,
+          backend: receipt.backend,
+          inputDelivery: receipt.inputDelivery
         })
         return receipt
       },

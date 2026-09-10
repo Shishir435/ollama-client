@@ -34,7 +34,7 @@ const commandLabel = (command?: AgentCommand): string => {
     case "clear_and_type":
       return "Replace text in field"
     case "press_key":
-      return `Press ${command.key}`
+      return `Press ${agentPlainText(command.key, AGENT_PAGE_TEXT_LIMIT)}`
     case "type":
       return "Type in field"
     case "select":
@@ -49,6 +49,10 @@ const commandLabel = (command?: AgentCommand): string => {
       return "Go forward"
     case "click":
       return "Click control"
+    case "double_click":
+      return "Double-click control"
+    case "hover":
+      return "Hover over control"
     case "read":
       return "Read page"
     case "inspect":

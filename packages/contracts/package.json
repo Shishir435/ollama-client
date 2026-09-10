@@ -8,6 +8,7 @@
     "./agent": "./src/agent.ts",
     "./agent-command": "./src/agent-command.ts",
     "./agent-events": "./src/agent-events.ts",
+    "./agent-keys": "./src/agent-keys.ts",
     "./agent-observation": "./src/agent-observation.ts",
     "./agent-panel": "./src/agent-panel.ts",
     "./app-failure": "./src/app-failure.ts",

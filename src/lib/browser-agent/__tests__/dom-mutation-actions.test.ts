@@ -490,6 +490,46 @@ describe("Agent DOM mutation execution", () => {
     expect(JSON.stringify(receipt)).not.toContain("new")
   })
 
+  it("spells a chord out as key and modifier flags on the synthetic events", async () => {
+    const input = document.createElement("input")
+    document.body.append(input)
+    input.focus()
+    const action = command({
+      type: "press_key",
+      ref: "e1",
+      key: "Control+Shift+é"
+    })
+    const { effect, references } = await liveEffect(action, input)
+    const seen: KeyboardEvent[] = []
+    input.addEventListener("keydown", (event) => seen.push(event))
+    input.addEventListener("keyup", (event) => seen.push(event))
+    executeAgentDomMutationInDocument({
+      effect,
+      document,
+      references,
+      signal
+    })
+    expect(seen.map((event) => event.type)).toEqual(["keydown", "keyup"])
+    for (const event of seen) {
+      expect(event.key).toBe("é")
+      expect(event.ctrlKey).toBe(true)
+      expect(event.shiftKey).toBe(true)
+      expect(event.altKey).toBe(false)
+      expect(event.metaKey).toBe(false)
+    }
+
+    const tab = command({ type: "press_key", ref: "e1", key: "Shift+Tab" })
+    const live = await liveEffect(tab, input)
+    seen.length = 0
+    executeAgentDomMutationInDocument({
+      effect: live.effect,
+      document,
+      references: live.references,
+      signal
+    })
+    expect(seen[0]).toMatchObject({ key: "Tab", code: "Tab", shiftKey: true })
+  })
+
   it("sets select and checked state through native controls", async () => {
     const select = document.createElement("select")
     const first = document.createElement("option")

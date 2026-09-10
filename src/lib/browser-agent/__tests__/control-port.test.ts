@@ -419,7 +419,9 @@ describe("Agent control port", () => {
     attachAgentControlContentPort(port, {
       buildObservation: () => observation(),
       executeDomMutation: vi.fn(),
-      executeScroll
+      executeScroll,
+      prepareNativeInput: vi.fn(),
+      settleNativeInput: vi.fn()
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -443,7 +445,9 @@ describe("Agent control port", () => {
     attachAgentControlContentPort(live.port, {
       buildObservation: () => observation(),
       executeDomMutation: vi.fn(),
-      executeScroll
+      executeScroll,
+      prepareNativeInput: vi.fn(),
+      settleNativeInput: vi.fn()
     })
     live.onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -464,7 +468,9 @@ describe("Agent control port", () => {
       attachAgentControlContentPort(port, {
         buildObservation: () => observation(),
         executeDomMutation: vi.fn(),
-        executeScroll: vi.fn()
+        executeScroll: vi.fn(),
+        prepareNativeInput: vi.fn(),
+        settleNativeInput: vi.fn()
       })
     ).toBe(true)
     onMessage.emit({
@@ -492,7 +498,9 @@ describe("Agent control port", () => {
     attachAgentControlContentPort(port, {
       buildObservation: () => observation(),
       executeDomMutation,
-      executeScroll: vi.fn()
+      executeScroll: vi.fn(),
+      prepareNativeInput: vi.fn(),
+      settleNativeInput: vi.fn()
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -524,7 +532,9 @@ describe("Agent control port", () => {
     attachAgentControlContentPort(port, {
       buildObservation: () => observation(),
       executeDomMutation,
-      executeScroll: vi.fn()
+      executeScroll: vi.fn(),
+      prepareNativeInput: vi.fn(),
+      settleNativeInput: vi.fn()
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -629,7 +639,9 @@ describe("Agent control failures", () => {
         throw new Error("Agent observations are main-frame only")
       },
       executeDomMutation: vi.fn(),
-      executeScroll: vi.fn()
+      executeScroll: vi.fn(),
+      prepareNativeInput: vi.fn(),
+      settleNativeInput: vi.fn()
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -657,7 +669,9 @@ describe("Agent control failures", () => {
       buildObservation: () =>
         observation({ visibleText: secret }) as AgentObservation,
       executeDomMutation: vi.fn(),
-      executeScroll: vi.fn()
+      executeScroll: vi.fn(),
+      prepareNativeInput: vi.fn(),
+      settleNativeInput: vi.fn()
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -685,7 +699,9 @@ describe("Agent control failures", () => {
         return observation()
       },
       executeDomMutation: vi.fn(),
-      executeScroll: vi.fn()
+      executeScroll: vi.fn(),
+      prepareNativeInput: vi.fn(),
+      settleNativeInput: vi.fn()
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -716,7 +732,9 @@ describe("Agent control failures", () => {
       executeDomMutation: () => {
         throw new Error("detached")
       },
-      executeScroll: vi.fn()
+      executeScroll: vi.fn(),
+      prepareNativeInput: vi.fn(),
+      settleNativeInput: vi.fn()
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -845,7 +863,9 @@ describe("Agent control port across frames", () => {
     attachAgentControlContentPort(port, {
       buildObservation: () => observation(),
       executeDomMutation,
-      executeScroll: vi.fn()
+      executeScroll: vi.fn(),
+      prepareNativeInput: vi.fn(),
+      settleNativeInput: vi.fn()
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,

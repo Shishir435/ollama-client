@@ -276,6 +276,7 @@ export const createAgentRunService = (input?: {
       frames: () => ({ status: "unavailable", frames: [] }),
       mapFrame: () => ({ mapped: false, reason: "tracking_unavailable" }),
       subscribe: () => () => undefined,
+      nativeInput: () => undefined,
       dispose: async () => undefined
     } satisfies AgentBrowserSessionManager)
 
@@ -383,6 +384,7 @@ export const createAgentRunService = (input?: {
     const controller = build({
       runId: state.id,
       sessions,
+      browserSessions,
       history,
       persistence,
       supervision,

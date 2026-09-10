@@ -469,6 +469,53 @@ const probeFragment = (
  * rather than a guessed one — a covered control wrongly shown is recoverable, a
  * reachable control wrongly hidden is not.
  */
+/**
+ * The point a native pointer should be sent to: the first sampled point of the
+ * first fragment that hit-tests back to the element itself. A layout that
+ * cannot answer yields the first fragment's centre, mirroring the observation's
+ * choice to leave such a control unmarked; a control covered at every sample
+ * yields nothing, and the caller refuses rather than click the cover.
+ */
+export const findAgentReachablePoint = (
+  element: Element
+): { x: number; y: number } | undefined => {
+  const doc = element.ownerDocument
+  const view = doc.defaultView
+  const viewport = {
+    bottom: view?.innerHeight ?? 0,
+    left: 0,
+    right: view?.innerWidth ?? 0,
+    top: 0
+  }
+  const rects = Array.from(element.getClientRects())
+    .filter((box) => box.width > 0 && box.height > 0)
+    .map((box) => intersectBounds(box, viewport))
+    .filter((box): box is VisibleBounds => Boolean(box))
+    .slice(0, OCCLUSION_MAX_FRAGMENTS)
+  if (rects.length === 0) return undefined
+  const centre = (rect: VisibleBounds) => ({
+    x: rect.left + (rect.right - rect.left) / 2,
+    y: rect.top + (rect.bottom - rect.top) / 2
+  })
+  if (!view || typeof doc.elementFromPoint !== "function") {
+    return centre(rects[0])
+  }
+  for (const rect of rects) {
+    const width = rect.right - rect.left
+    const height = rect.bottom - rect.top
+    for (const [fractionX, fractionY] of OCCLUSION_SAMPLES) {
+      const x = rect.left + width * fractionX
+      const y = rect.top + height * fractionY
+      const hit = doc.elementFromPoint(x, y)
+      if (!hit) return centre(rect)
+      if (composedContains(element, hit) || composedContains(hit, element)) {
+        return { x, y }
+      }
+    }
+  }
+  return undefined
+}
+
 const isOccluded = (element: Element): boolean => {
   const doc = element.ownerDocument
   const view = doc.defaultView

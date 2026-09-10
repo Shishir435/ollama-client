@@ -412,6 +412,54 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   joins the scope in the same claim that moves the run onto it. The debugger
   attachment follows the controlled tab in that write, before any page work
   is claimed there.
+- **Native input is chosen before the action and never swapped after it.**
+  `chooseAgentInputBackend` (`native-input.ts`) decides `cdp` or `dom` from the
+  command, the resolved target and whether the run holds the tab's debugger
+  and can place the target's frame. Link activation, form submission,
+  Enter-on-a-submitting-field and a newline typed into one stay on the
+  guarded DOM paths whatever is attached — those paths exist so page handlers
+  cannot redirect an approved destination, and a native click or Enter would
+  hand it back to the page. A chord on a character the key table cannot press
+  has no native form and goes to the DOM path too. Once a
+  native step has been sent, a failure is an unresolved effect; it is not
+  completed through the content script. Only a plan the debugger refused from
+  its first step is a clean `AgentEffectNotAppliedError`.
+- **A native plan is a sequence the runner owes a release for.**
+  `runAgentNativeInputPlan` sends one step at a time, checks cancellation
+  between steps, and on abort or dispatcher failure releases every held button
+  and key (reverse order) before throwing with the count dispatched. It never
+  re-sends a step. `Input.*` and `DOM.*` method names live only in the session
+  manager, behind `nativeInput(runId, tabId)`; the planner speaks in steps.
+- **The page picks the point, the debugger places the frame.** Preparation
+  (`prepareAgentNativeInputInDocument`) runs the same target guards as
+  synthetic execution, scrolls the element into view, takes the first
+  hit-testable point from the occlusion sampler, and arms an input record —
+  all in one synchronous pass. Coordinates are the frame's own viewport
+  pixels; the background adds the frame's root offset from the debugger's
+  frame tree (`DOM.getFrameOwner` + `DOM.getBoxModel`, one hop per session),
+  so a child document cannot steer a click by misreporting where it sits.
+- **Delivery is matched, not assumed.** The page records trusted
+  `mousemove/mousedown/mouseup/keydown/keyup/wheel` while a plan is in flight;
+  `assessAgentInputDelivery` matches the record against the plan. A
+  state-changing event the plan did not send is `interference` (a real hand on
+  the page), and the verifier pauses the step as unresolved rather than
+  crediting or retrying it; stray `mousemove`s are ignored because the browser
+  synthesizes them after layout. A key's release is not judged for target —
+  after Tab it lands on the next control. `misdirected`, `partial`,
+  `undelivered` and `unknown` (the document navigated before it could answer,
+  or the plan was inserted text with no events to match) are told apart on
+  the receipt. Native and user events are both trusted, so this is the only
+  discriminator there is — a user event that exactly matches the plan is
+  indistinguishable, and the limitation is stated rather than papered over.
+- `double_click` and `hover` are element actions in the DOM-mutation family;
+  `press_key` accepts chords (`Shift+Tab`, `Control+a`) through the grammar in
+  `packages/contracts/src/agent-keys.ts`. Select-all and move-to-end travel as
+  CDP editing commands, not platform shortcuts, so a plan is the same on every
+  OS. Native `<select>`, `check` and `uncheck` stay synthetic: a native option
+  popup cannot be driven, and a checked state is stated, not toggled.
+- Firefox has no debugger: `double_click` and `hover` degrade to synthetic
+  events there, the receipt says `backend: "dom"`, and the hover verifier
+  then needs page evidence, since no delivery record exists.
 - Read-only helpers: `src/lib/browser-sessions.ts`. Model tools: `src/lib/tools/internal/browser-session-tools.ts`.
 - `sessions` is an optional permission. Always check browser support **and** the live permission before reading recently-closed or synced-device sessions.
 - Session URLs must pass the same unreadable/never-read filters as other browser tools.

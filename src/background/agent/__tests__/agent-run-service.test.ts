@@ -50,6 +50,8 @@ const service = (
     observe: vi.fn(),
     executeDomMutation: vi.fn(),
     executeScroll: vi.fn(),
+    prepareNativeInput: vi.fn(),
+    settleNativeInput: vi.fn(),
     release: vi.fn()
   }
   const created = createAgentRunService({
@@ -112,6 +114,7 @@ const browserSessions = () => {
         if (listener === next) listener = undefined
       }
     }),
+    nativeInput: vi.fn(() => undefined),
     dispose: vi.fn(async () => undefined)
   } satisfies AgentBrowserSessionManager
   return {
