@@ -1,11 +1,16 @@
 import { AgentControlFailedError } from "@ollama-client/agent-runtime"
-import type { AgentObservation } from "@ollama-client/contracts"
+import type {
+  AgentObservation,
+  AgentSnapshotIdentity
+} from "@ollama-client/contracts"
 
 import type {
   AgentControlBrowserAdapter,
   AgentControlBrowserFrame,
   AgentControlSession,
   AgentDomMutationInstruction,
+  AgentElementRectWire,
+  AgentHitTestResult,
   AgentInputTraceWire,
   AgentNativeInputPreparedResult,
   AgentScrollInstruction
@@ -89,6 +94,25 @@ export interface AgentControlSessionRegistry {
     input: { runId: string; tabId: number; frameId: number },
     signal?: AbortSignal
   ): Promise<AgentInputTraceWire | undefined>
+  /** Read-only questions about the live snapshot of one frame. */
+  measureElements(
+    input: {
+      runId: string
+      tabId: number
+      frame: AgentSnapshotIdentity
+      refs: readonly string[]
+    },
+    signal?: AbortSignal
+  ): Promise<AgentElementRectWire[]>
+  hitTest(
+    input: {
+      runId: string
+      tabId: number
+      frame: AgentSnapshotIdentity
+      point: { x: number; y: number }
+    },
+    signal?: AbortSignal
+  ): Promise<AgentHitTestResult>
   release(runId: string): void
 }
 
@@ -285,6 +309,24 @@ export const createAgentControlSessionRegistry = (input?: {
         return await session.settleNativeInput(signal)
       } catch (error) {
         drop(runId, tabId, frameId)
+        throw error
+      }
+    },
+    async measureElements({ runId, tabId, frame, refs }, signal) {
+      const session = await acquire(runId, tabId, frame.frameId)
+      try {
+        return await session.measureElements(frame, refs, signal)
+      } catch (error) {
+        drop(runId, tabId, frame.frameId)
+        throw error
+      }
+    },
+    async hitTest({ runId, tabId, frame, point }, signal) {
+      const session = await acquire(runId, tabId, frame.frameId)
+      try {
+        return await session.hitTest(frame, point, signal)
+      } catch (error) {
+        drop(runId, tabId, frame.frameId)
         throw error
       }
     },

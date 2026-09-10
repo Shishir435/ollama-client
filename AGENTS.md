@@ -460,6 +460,45 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
 - Firefox has no debugger: `double_click` and `hover` degrade to synthetic
   events there, the receipt says `backend: "dom"`, and the hover verifier
   then needs page evidence, since no delivery record exists.
+- **A screenshot is an observation's companion, never a record.** The
+  controller pictures the tab (`AgentScreenshotPort`) only after the DOM
+  observation is in hand and only for a model whose `vision` the model port
+  resolved from the same evidence chain as tool calling; text-only models are
+  offered no `click_point`/`zoom` and cost the page no capture. The picture
+  carries the observation's snapshot identity and scroll, travels as the user
+  message's image attachment, and is held for that decision and the resolution
+  that follows — never persisted, logged, traced or shown. A capture that
+  fails leaves the decision to the DOM; it never fails the run.
+- **Nothing leaves unmasked.** `screenshot-capture.ts` asks the page for the
+  rects of every visible sensitive control (`agent_element_rects`), paints them
+  black in image pixels with a one-pixel margin, and bounds the long edge to
+  `MAX_AGENT_SCREENSHOT_EDGE_PX`. A sensitive control that cannot be placed —
+  one in a child frame, a ref that no longer resolves, no image editor — means
+  no picture, not a picture with a hole in the plan. The editor is the
+  worker's `OffscreenCanvas`; without one there are no screenshots.
+- **Coordinates convert through the picture's own geometry.** A screenshot
+  records the CSS `region` it shows and its `scale` (image px per CSS px);
+  `screenshot-geometry.ts` converts a model's image pixel to the root layout
+  viewport point and back, which is how device scale, browser zoom, pinch zoom
+  (`cssVisualViewport`) and a `zoom` crop all reduce to two numbers. `zoom` is
+  read-only inspection: the next capture is a clip magnified to the zoom and
+  edge caps, converted by the capture port from the geometry it remembered in
+  memory — a restart forgets it and captures the whole viewport again.
+- **A visual click is a click on the control under the point.** `click_point`
+  resolves by asking the page what lies under the converted CSS point
+  (`agent_hit_test`): the nearest listed control that contains the hit, else
+  the hit element newly referenced into the live snapshot and observed like
+  any other. Every click rule then applies — sensitive input, links,
+  submitters, checkboxes — and only "not an activatable control" is waived,
+  because a canvas is what a point exists to reach. A point inside a child
+  frame is refused; the frame's own refs name its controls. A stale picture
+  cannot authorize a click: the screenshot must carry the command's snapshot
+  and generation and the observation's scroll, and the executor re-hit-tests
+  the point before anything is sent, refusing a control that moved.
+- Disclosure says whether pictures travel: `AgentProviderDisclosure.screenshots`
+  is resolved from model vision, memoized per model, shown as unknown when it
+  could not be determined, and switches the remote-provider notice to the
+  variant that names screenshots.
 - Read-only helpers: `src/lib/browser-sessions.ts`. Model tools: `src/lib/tools/internal/browser-session-tools.ts`.
 - `sessions` is an optional permission. Always check browser support **and** the live permission before reading recently-closed or synced-device sessions.
 - Session URLs must pass the same unreadable/never-read filters as other browser tools.

@@ -4,10 +4,12 @@ import type {
   AgentDecision,
   AgentError,
   AgentGrant,
+  AgentImageRect,
   AgentObservation,
   AgentPauseReason,
   AgentRunState,
   AgentRunStatus,
+  AgentScreenshot,
   AgentSnapshotIdentity,
   AgentStepStatus,
   AgentTakeoverRequest
@@ -25,6 +27,13 @@ export interface AgentInspectionFocus {
   region?: string
   query?: string
   text?: boolean
+  /**
+   * A region of the previous screenshot, in that image's pixels, that the next
+   * screenshot should magnify. Converted by the capture port, which alone
+   * remembers the previous image's geometry; after a restart it is ignored
+   * and the whole viewport is captured.
+   */
+  zoom?: AgentImageRect
 }
 
 /**
@@ -64,6 +73,34 @@ export interface AgentModelInput {
   previousVerification?: AgentVerificationResult
   /** Bounded, oldest-first record of what this run has already done. */
   history?: readonly AgentHistoryEntry[]
+  /**
+   * The viewport as pictured with this observation, for a model that can see.
+   * Absent for a text-only model, when the run holds no way to capture, or
+   * when the page could not be pictured without exposing a sensitive control.
+   */
+  screenshot?: AgentScreenshot
+}
+
+export interface AgentScreenshotRequest {
+  runId: string
+  tabId: number
+  /** The observation the picture belongs to; the capture binds itself to it. */
+  observation: AgentObservation
+  /** What the previous step asked to magnify, if it asked. */
+  zoom?: AgentImageRect
+}
+
+/**
+ * Pictures the controlled tab for one decision. `undefined` is an answer, not
+ * a failure: a run without a capture path, or a page whose sensitive controls
+ * could not be masked, decides from the DOM observation alone. The picture is
+ * held for the decision and the resolution that follows and nowhere else.
+ */
+export interface AgentScreenshotPort {
+  capture(
+    request: AgentScreenshotRequest,
+    signal: AgentCancellationSignal
+  ): Promise<AgentScreenshot | undefined>
 }
 
 export interface AgentObserveRequest {
@@ -104,6 +141,12 @@ export interface ResolvedAgentTarget {
   submitter?: boolean
   expectedValue?: string
   expectedChecked?: boolean
+  /**
+   * The CSS point a visual click named, in the root layout viewport. The
+   * executor aims there rather than at the control's centre, and the page
+   * confirms the control is still what lies under it before anything is sent.
+   */
+  point?: { x: number; y: number }
   sensitive: boolean
   maySubmit: boolean
 }
@@ -425,6 +468,20 @@ export interface AgentModelPort {
     input: AgentModelInput,
     signal: AgentCancellationSignal
   ): Promise<AgentDecision>
+  /**
+   * Whether the run's model accepts images. Asked before a capture is taken,
+   * so a text-only model costs the page no screenshot and is offered no
+   * visual command. Absent means text-only.
+   */
+  vision?(
+    state: AgentRunState,
+    signal: AgentCancellationSignal
+  ): Promise<boolean>
+}
+
+/** What a resolver may ground a command in besides the DOM observation. */
+export interface AgentResolutionContext {
+  screenshot?: AgentScreenshot
 }
 
 export interface AgentObservationPort {
@@ -437,7 +494,8 @@ export interface AgentObservationPort {
 export interface AgentEffectPort {
   resolve(
     command: AgentCommand,
-    observation: AgentObservation
+    observation: AgentObservation,
+    context?: AgentResolutionContext
   ): Promise<ResolvedAgentEffect>
   execute(
     effect: AuthorizedAgentEffect,
@@ -505,6 +563,8 @@ export interface AgentController {
 export interface AgentControllerDependencies {
   model: AgentModelPort
   observation: AgentObservationPort
+  /** Absent means the host cannot picture the page; runs are text-only. */
+  screenshot?: AgentScreenshotPort
   effect: AgentEffectPort
   policy: AgentPolicyPort
   persistence: AgentPersistencePort

@@ -180,6 +180,29 @@ export const prepareAgentNativeInputInDocument = (input: {
   watch: AgentInputWatch
 }): AgentNativeInputPreparation => {
   const element = resolveAgentMutationTarget(input.effect, input.references)
+  /**
+   * A named point is used as named, never re-sampled: the run approved a
+   * click there. It has to still land on the control, though — scrolling is
+   * skipped so the point stays meaningful, and a layout that moved the control
+   * away from it is a stale target, not a target to chase.
+   */
+  if (input.effect.point) {
+    const doc = element.ownerDocument
+    const hit =
+      typeof doc.elementFromPoint === "function"
+        ? doc.elementFromPoint(input.effect.point.x, input.effect.point.y)
+        : null
+    if (!hit || !(hit === element || element.contains(hit))) {
+      throw new AgentEffectNotAppliedError(
+        "Agent visual target moved before execution"
+      )
+    }
+    input.watch.arm(element)
+    return {
+      point: input.effect.point,
+      focused: element === doc.activeElement
+    }
+  }
   if (!fullyInViewport(element)) {
     element.scrollIntoView({
       block: "center",

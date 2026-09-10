@@ -13,6 +13,10 @@ import {
   prepareAgentNativeInputInDocument
 } from "@/lib/browser-agent/native-input-page"
 import { buildAgentObservation } from "@/lib/browser-agent/observation-builder"
+import {
+  hitTestAgentPointInDocument,
+  measureAgentElementsInDocument
+} from "@/lib/browser-agent/visual-grounding-page"
 import { browser } from "@/lib/browser-api"
 
 const INSTALL_MARKER = "__ollamaClientAgentControlInstalled__"
@@ -78,6 +82,23 @@ export const installAgentControlContentScript = (): void => {
           effect: request.instruction,
           references,
           watch
+        })
+      },
+      measureElements(request) {
+        if (!references) return []
+        return measureAgentElementsInDocument({
+          identity: request.frame,
+          refs: request.refs,
+          references
+        })
+      },
+      hitTest(request) {
+        if (!references) return null
+        return hitTestAgentPointInDocument({
+          identity: request.frame,
+          point: request.point,
+          document,
+          references
         })
       },
       settleNativeInput() {

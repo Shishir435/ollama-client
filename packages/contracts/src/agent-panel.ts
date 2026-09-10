@@ -83,7 +83,13 @@ export const AgentProviderDisclosureSchema = z
   .object({
     name: z.string().min(1).max(200),
     model: z.string().min(1).max(200),
-    location: z.enum(["local", "remote"])
+    location: z.enum(["local", "remote"]),
+    /**
+     * Whether viewport screenshots will travel with observations: true for a
+     * model that reads images. Absent when it could not be determined, which
+     * the panel shows as unknown rather than as "no".
+     */
+    screenshots: z.boolean().optional()
   })
   .strict()
 

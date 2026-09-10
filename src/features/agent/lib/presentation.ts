@@ -51,6 +51,10 @@ const commandLabel = (command?: AgentCommand): string => {
       return "Click control"
     case "double_click":
       return "Double-click control"
+    case "click_point":
+      return "Click at a point in the screenshot"
+    case "zoom":
+      return "Zoom into the screenshot"
     case "hover":
       return "Hover over control"
     case "read":

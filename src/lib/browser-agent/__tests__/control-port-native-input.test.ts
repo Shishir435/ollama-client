@@ -98,7 +98,9 @@ const connected = (handlers: {
     executeDomMutation: vi.fn(),
     executeScroll: vi.fn(),
     prepareNativeInput,
-    settleNativeInput
+    settleNativeInput,
+    measureElements: vi.fn(() => []),
+    hitTest: vi.fn(() => null)
   })
   const session = createAgentControlSession({
     port: background.port,
@@ -179,7 +181,9 @@ describe("Agent control port native input", () => {
       executeDomMutation: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput,
-      settleNativeInput: vi.fn()
+      settleNativeInput: vi.fn(),
+      measureElements: vi.fn(() => []),
+      hitTest: vi.fn(() => null)
     })
     content.onMessage.emit({
       version: AGENT_CONTROL_VERSION,

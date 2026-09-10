@@ -25,9 +25,16 @@
       "label": "Onglet contrôlé",
       "missing": "Ouvrez une page prise en charge"
     },
+    "screenshots": {
+      "label": "Captures d’écran",
+      "sent": "Les captures de la zone visible sont envoyées au modèle",
+      "unused": "Non utilisées avec un modèle texte seul",
+      "unknown": "Pas encore déterminé"
+    },
     "privacy": {
       "remote_notice": "Les observations de page seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent.",
-      "acknowledge": "J’ai compris"
+      "acknowledge": "J’ai compris",
+      "remote_notice_screenshots": "Les observations de page et les captures de la zone visible seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent."
     },
     "observations": "{{count}} observations",
     "controls": {

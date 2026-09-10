@@ -421,7 +421,9 @@ describe("Agent control port", () => {
       executeDomMutation: vi.fn(),
       executeScroll,
       prepareNativeInput: vi.fn(),
-      settleNativeInput: vi.fn()
+      settleNativeInput: vi.fn(),
+      measureElements: vi.fn(() => []),
+      hitTest: vi.fn(() => null)
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -447,7 +449,9 @@ describe("Agent control port", () => {
       executeDomMutation: vi.fn(),
       executeScroll,
       prepareNativeInput: vi.fn(),
-      settleNativeInput: vi.fn()
+      settleNativeInput: vi.fn(),
+      measureElements: vi.fn(() => []),
+      hitTest: vi.fn(() => null)
     })
     live.onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -470,7 +474,9 @@ describe("Agent control port", () => {
         executeDomMutation: vi.fn(),
         executeScroll: vi.fn(),
         prepareNativeInput: vi.fn(),
-        settleNativeInput: vi.fn()
+        settleNativeInput: vi.fn(),
+        measureElements: vi.fn(() => []),
+        hitTest: vi.fn(() => null)
       })
     ).toBe(true)
     onMessage.emit({
@@ -500,7 +506,9 @@ describe("Agent control port", () => {
       executeDomMutation,
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
-      settleNativeInput: vi.fn()
+      settleNativeInput: vi.fn(),
+      measureElements: vi.fn(() => []),
+      hitTest: vi.fn(() => null)
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -534,7 +542,9 @@ describe("Agent control port", () => {
       executeDomMutation,
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
-      settleNativeInput: vi.fn()
+      settleNativeInput: vi.fn(),
+      measureElements: vi.fn(() => []),
+      hitTest: vi.fn(() => null)
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -641,7 +651,9 @@ describe("Agent control failures", () => {
       executeDomMutation: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
-      settleNativeInput: vi.fn()
+      settleNativeInput: vi.fn(),
+      measureElements: vi.fn(() => []),
+      hitTest: vi.fn(() => null)
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -671,7 +683,9 @@ describe("Agent control failures", () => {
       executeDomMutation: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
-      settleNativeInput: vi.fn()
+      settleNativeInput: vi.fn(),
+      measureElements: vi.fn(() => []),
+      hitTest: vi.fn(() => null)
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -701,7 +715,9 @@ describe("Agent control failures", () => {
       executeDomMutation: vi.fn(),
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
-      settleNativeInput: vi.fn()
+      settleNativeInput: vi.fn(),
+      measureElements: vi.fn(() => []),
+      hitTest: vi.fn(() => null)
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -734,7 +750,9 @@ describe("Agent control failures", () => {
       },
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
-      settleNativeInput: vi.fn()
+      settleNativeInput: vi.fn(),
+      measureElements: vi.fn(() => []),
+      hitTest: vi.fn(() => null)
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,
@@ -865,7 +883,9 @@ describe("Agent control port across frames", () => {
       executeDomMutation,
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
-      settleNativeInput: vi.fn()
+      settleNativeInput: vi.fn(),
+      measureElements: vi.fn(() => []),
+      hitTest: vi.fn(() => null)
     })
     onMessage.emit({
       version: AGENT_CONTROL_VERSION,

@@ -38,6 +38,7 @@ import type {
   AgentControllerDependencies,
   AgentModelInput,
   AgentPolicyDecision,
+  AgentResolutionContext,
   AgentStatePatch,
   AgentStepWrite,
   AuthorizedAgentEffect,
@@ -379,7 +380,11 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     recalled: Pick<
       AgentModelInput,
-      "history" | "previousVerification" | "inspection" | "findings"
+      | "history"
+      | "previousVerification"
+      | "inspection"
+      | "findings"
+      | "screenshot"
     >
   ) => {
     let raw: unknown
@@ -433,10 +438,63 @@ export const createAgentController = (
     }
   }
 
+  /**
+   * Pictures the page for a model that can see, once the DOM observation is in
+   * hand so the two share one identity. A capture that fails or is refused —
+   * no path to the tab, a sensitive control that could not be masked — leaves
+   * the decision to the DOM alone; it never fails the run, and the picture
+   * lives only in the memory of this step.
+   */
+  const picture = async (
+    state: AgentRunState,
+    observation: AgentObservation,
+    inspection: AgentModelInput["inspection"],
+    signal: AgentCancellationController["signal"]
+  ): Promise<AgentModelInput["screenshot"]> => {
+    if (!dependencies.screenshot || !dependencies.model.vision) return undefined
+    try {
+      if (!(await dependencies.model.vision(state, signal))) return undefined
+      const screenshot = await dependencies.screenshot.capture(
+        {
+          runId: state.id,
+          tabId: state.controlledTabId,
+          observation,
+          ...(inspection?.zoom ? { zoom: inspection.zoom } : {})
+        },
+        signal
+      )
+      if (
+        screenshot &&
+        (screenshot.snapshotId !== observation.snapshotId ||
+          screenshot.generation !== observation.generation ||
+          screenshot.documentId !== observation.documentId ||
+          screenshot.tabId !== observation.tabId)
+      ) {
+        dependencies.trace?.(state.id, "screenshot_unbound")
+        return undefined
+      }
+      dependencies.trace?.(state.id, "screenshot", {
+        captured: screenshot !== undefined,
+        width: screenshot?.imageWidth,
+        height: screenshot?.imageHeight,
+        maskedRegions: screenshot?.maskedRegions,
+        zoomed: screenshot?.zoomed
+      })
+      return screenshot
+    } catch (error) {
+      if (signal.aborted) return undefined
+      dependencies.trace?.(state.id, "screenshot_failed", {
+        reason: error instanceof Error ? error.name : typeof error
+      })
+      return undefined
+    }
+  }
+
   const resolveEffect = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>,
-    observation: AgentObservation
+    observation: AgentObservation,
+    context: AgentResolutionContext
   ): Promise<ResolvedAgentEffect | undefined> => {
     const { command } = decision
     if (
@@ -453,7 +511,7 @@ export const createAgentController = (
 
     let effect: ResolvedAgentEffect
     try {
-      effect = await dependencies.effect.resolve(command, observation)
+      effect = await dependencies.effect.resolve(command, observation, context)
     } catch (error) {
       /**
        * Nothing was done to the page, so the run has lost track of nothing —
@@ -705,9 +763,10 @@ export const createAgentController = (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "command" }>,
     observation: AgentObservation,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    context: AgentResolutionContext
   ): Promise<AgentRunState | undefined> => {
-    const effect = await resolveEffect(state, decision, observation)
+    const effect = await resolveEffect(state, decision, observation, context)
     if (!effect) return undefined
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
@@ -747,7 +806,8 @@ export const createAgentController = (
     state: AgentRunState,
     decision: AgentDecision,
     observation: AgentObservation,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    context: AgentResolutionContext = {}
   ): Promise<AgentRunState | undefined> => {
     if (decision.type === "complete") {
       await transition(state, "completed", {
@@ -783,7 +843,7 @@ export const createAgentController = (
       })
       return undefined
     }
-    return processCommand(state, decision, observation, signal)
+    return processCommand(state, decision, observation, signal, context)
   }
 
   const claimObserving = async (
@@ -863,6 +923,7 @@ export const createAgentController = (
         state: AgentRunState
         observation: AgentObservation
         decision: AgentDecision
+        context: AgentResolutionContext
       }
     | undefined
   > => {
@@ -874,13 +935,20 @@ export const createAgentController = (
     })
     if (!deciding) return undefined
     let decision: AgentDecision | undefined
+    const context: AgentResolutionContext = {}
     try {
-      decision = await decide(
+      const recalled = await recallHistory(deciding)
+      const screenshot = await picture(
         deciding,
         observation,
-        signal,
-        await recallHistory(deciding)
+        recalled.inspection,
+        signal
       )
+      if (screenshot) context.screenshot = screenshot
+      decision = await decide(deciding, observation, signal, {
+        ...recalled,
+        ...(screenshot ? { screenshot } : {})
+      })
     } catch {
       if (!signal.aborted) {
         await fail(
@@ -902,7 +970,7 @@ export const createAgentController = (
     if (await exhaustedNoProgressBudget(deciding, observation, decision)) {
       return undefined
     }
-    return { state: deciding, observation, decision }
+    return { state: deciding, observation, decision, context }
   }
 
   const runLoop = async (
@@ -953,7 +1021,8 @@ export const createAgentController = (
         state,
         prepared.decision,
         prepared.observation,
-        controller.signal
+        controller.signal,
+        prepared.context
       )
       if (!next) return
       state = next

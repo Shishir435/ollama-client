@@ -702,3 +702,93 @@ describe("createProviderAgentModelPort", () => {
     expect(sent.text).toBe(observation.visibleText)
   })
 })
+
+describe("vision decisions", () => {
+  const screenshot = {
+    snapshotId: "snapshot-1",
+    generation: 1,
+    tabId: 7,
+    frameId: 0,
+    documentId: "document-1",
+    capturedAt: 2,
+    mimeType: "image/jpeg" as const,
+    data: "AAAA",
+    imageWidth: 800,
+    imageHeight: 600,
+    region: { x: 0, y: 0, width: 800, height: 600 },
+    scale: 1,
+    scroll: { x: 0, y: 0 },
+    maskedRegions: 1
+  }
+
+  it("attaches the picture, the visual commands and the screenshot guidance for a vision model", async () => {
+    const requests: ChatRequest[] = []
+    const streamChat = vi.fn(async (request: ChatRequest, emit) => {
+      requests.push(request)
+      emit(validChunk)
+    })
+    const port = modelPort(streamChat, { ...supported, vision: true })
+    await expect(port.vision?.(state, { aborted: false })).resolves.toBe(true)
+    await port.decide({ state, observation, screenshot }, { aborted: false })
+    const request = requests[0]
+    const user = request.messages.at(-1)
+    expect(user?.images).toHaveLength(1)
+    expect(user?.images?.[0]).toMatchObject({
+      base64: "AAAA",
+      mimeType: "image/jpeg",
+      width: 800,
+      height: 600,
+      origin: "tool-result"
+    })
+    expect(JSON.parse(user?.content ?? "{}").screenshot).toEqual({
+      width: 800,
+      height: 600,
+      maskedRegions: 1
+    })
+    const actions = (
+      request.tools?.[0]?.parameters as unknown as {
+        properties: { type: { enum: string[] } }
+      }
+    ).properties.type.enum
+    expect(actions).toContain("click_point")
+    expect(actions).toContain("zoom")
+    expect(request.messages[0]?.content).toMatch(
+      /screenshot of the controlled tab/
+    )
+  })
+
+  it("never forwards a picture to a text-only model and offers it no visual command", async () => {
+    const requests: ChatRequest[] = []
+    const streamChat = vi.fn(async (request: ChatRequest, emit) => {
+      requests.push(request)
+      emit(validChunk)
+    })
+    const port = modelPort(streamChat, { ...supported, vision: false })
+    await expect(port.vision?.(state, { aborted: false })).resolves.toBe(false)
+    await port.decide({ state, observation, screenshot }, { aborted: false })
+    const request = requests[0]
+    expect(request.messages.at(-1)?.images).toBeUndefined()
+    const actions = (
+      request.tools?.[0]?.parameters as unknown as {
+        properties: { type: { enum: string[] } }
+      }
+    ).properties.type.enum
+    expect(actions).not.toContain("click_point")
+    expect(request.messages[0]?.content).not.toMatch(/screenshot/)
+  })
+
+  it("resolves vision once per run", async () => {
+    const resolveCompatibility = vi.fn(async () => ({
+      ...supported,
+      vision: true
+    }))
+    const port = createProviderAgentModelPort({
+      resolveProvider: async () =>
+        provider(vi.fn(async (_r, emit) => emit(validChunk))),
+      resolveCompatibility
+    })
+    await port.vision?.(state, { aborted: false })
+    await port.vision?.(state, { aborted: false })
+    expect(resolveCompatibility).toHaveBeenCalledTimes(1)
+  })
+})

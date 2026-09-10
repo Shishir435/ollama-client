@@ -25,9 +25,16 @@
       "label": "Pestaña controlada",
       "missing": "Abre una página compatible"
     },
+    "screenshots": {
+      "label": "Capturas de pantalla",
+      "sent": "Las capturas del área visible se envían al modelo",
+      "unused": "No se usan con un modelo solo de texto",
+      "unknown": "Aún no determinado"
+    },
     "privacy": {
       "remote_notice": "Las observaciones de página se enviarán continuamente a este proveedor remoto mientras se ejecute el Agente.",
-      "acknowledge": "Entiendo"
+      "acknowledge": "Entiendo",
+      "remote_notice_screenshots": "Las observaciones de página y las capturas del área visible se enviarán continuamente a este proveedor remoto mientras el Agente se ejecuta."
     },
     "observations": "{{count}} observaciones",
     "controls": {

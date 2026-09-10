@@ -55,6 +55,12 @@ export interface AgentScenarioContext {
   /** 1 for the first decision the scripted model answers. */
   step: number
   page: Page
+  /** Images attached to the request the scripted model is answering. */
+  images: number
+  /** The action names the request's tool schema offered. */
+  actions: string[]
+  /** The attached screenshot's pixel size, as the prompt describes it. */
+  screenshot?: { width: number; height: number }
 }
 
 export interface AgentScenarioOutcome {
@@ -91,6 +97,8 @@ export interface AgentScenario {
   status: "completed" | "paused"
   /** Included in the hosted-model matrix, which only runs a couple of tasks. */
   hosted?: boolean
+  /** The fixture model reports itself as reading images. */
+  vision?: boolean
   timeoutMs?: number
   html(path: string): string
   navigationDelayMs?(path: string): number
@@ -178,9 +186,20 @@ export const runAgentScenario = (scenario: AgentScenario): void => {
     const answerDecision = async (body: string): Promise<string> => {
       const parsed = JSON.parse(body)
       step += 1
+      const lastMessage = parsed.messages?.at(-1) as
+        | { images?: unknown[] }
+        | undefined
+      const actions: string[] =
+        parsed.tools?.[0]?.function?.parameters?.properties?.type?.enum ?? []
+      const envelope = JSON.parse(parsed.messages.at(-1)?.content ?? "{}") as {
+        screenshot?: { width: number; height: number }
+      }
       const decision = await scenario.decide(readObservation(parsed), {
         step,
-        page: fixturePage as Page
+        page: fixturePage as Page,
+        images: lastMessage?.images?.length ?? 0,
+        actions,
+        ...(envelope.screenshot ? { screenshot: envelope.screenshot } : {})
       })
       wire.push({ request: parsed, decision })
       return `${JSON.stringify({
@@ -205,7 +224,13 @@ export const runAgentScenario = (scenario: AgentScenario): void => {
           models: [{ name: model, model, details: { family: "fixture" } }]
         })
       if (path === "/api/show")
-        return JSON.stringify({ capabilities: ["completion", "tools"] })
+        return JSON.stringify({
+          capabilities: [
+            "completion",
+            "tools",
+            ...(scenario.vision ? ["vision"] : [])
+          ]
+        })
       if (path === "/api/chat") return answerDecision(body)
       return "{}"
     }

@@ -176,8 +176,70 @@ describe("deriveAgentModelCompatibility", () => {
     ).resolves.toEqual({
       status: "supported",
       mode: "native",
-      reason: "metadata"
+      reason: "metadata",
+      vision: false
     })
+  })
+
+  it("reports vision from the same evidence chain, never from a guess", async () => {
+    const provider: LLMProvider = {
+      id: "custom:openai:vision",
+      config: {
+        id: "custom:openai:vision",
+        type: ProviderType.CUSTOM,
+        enabled: true,
+        name: "Compatible"
+      },
+      capabilities: {
+        chat: true,
+        embeddings: false,
+        modelDiscovery: true,
+        modelDetails: false,
+        modelPull: false,
+        modelUnload: false,
+        modelDelete: false,
+        providerVersion: false,
+        toolCalling: true
+      },
+      streamChat: async () => undefined,
+      getModels: async () => []
+    } as unknown as LLMProvider
+    const resolve = (modalities: string[] | undefined) =>
+      resolveAgentModelCompatibility(provider.id, "model", undefined, {
+        resolveProvider: async () => provider,
+        discoverModels: async () => ({
+          catalog: "present",
+          models: [
+            {
+              name: "model",
+              model: "model",
+              modified_at: "",
+              size: 0,
+              digest: "",
+              details: {
+                parent_model: "",
+                format: "",
+                family: "",
+                families: [],
+                parameter_size: "",
+                quantization_level: ""
+              },
+              capabilityHints: {
+                supportedParameters: ["tools"],
+                ...(modalities ? { modalities } : {})
+              }
+            }
+          ]
+        }),
+        getProbe: async () => null,
+        getOverride: async () => null
+      })
+    await expect(resolve(["text", "image"])).resolves.toMatchObject({
+      status: "supported",
+      vision: true
+    })
+    await expect(resolve(["text"])).resolves.toMatchObject({ vision: false })
+    await expect(resolve(undefined)).resolves.toMatchObject({ vision: false })
   })
 
   it("blocks a disabled provider before model discovery", async () => {

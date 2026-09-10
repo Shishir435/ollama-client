@@ -1,4 +1,6 @@
 import type { AgentNativeInputStep } from "@/lib/browser-agent/native-input"
+import type { AgentRawCapture } from "@/lib/browser-agent/screenshot-capture"
+import type { AgentCaptureLayout } from "@/lib/browser-agent/screenshot-geometry"
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
 
@@ -142,6 +144,15 @@ export interface AgentNativeInputChannel {
   ): Promise<{ x: number; y: number } | undefined>
   /** The root layout viewport's centre, for input that targets no element. */
   viewportCentre(): Promise<{ x: number; y: number } | undefined>
+  /**
+   * A JPEG of the visual viewport, or of a CSS clip at the given image scale,
+   * with the layout metrics it was taken under. `undefined` when the tab
+   * cannot be pictured.
+   */
+  captureScreenshot(clip?: {
+    rect: { x: number; y: number; width: number; height: number }
+    scale: number
+  }): Promise<AgentRawCapture | undefined>
 }
 
 export interface AgentBrowserSessionManager {
@@ -221,6 +232,47 @@ const isLayoutMetrics = (
     typeof viewport.clientHeight === "number"
   )
 }
+
+const isViewportRecord = (value: unknown): value is Record<string, number> =>
+  typeof value === "object" &&
+  value !== null &&
+  ["pageX", "pageY", "clientWidth", "clientHeight"].every(
+    (key) => typeof (value as Record<string, unknown>)[key] === "number"
+  )
+
+/** Both viewports, or nothing when the metrics are not the shape expected. */
+const captureLayoutOf = (value: unknown): AgentCaptureLayout | undefined => {
+  const record = value as {
+    cssLayoutViewport?: unknown
+    cssVisualViewport?: unknown
+  } | null
+  const layout = record?.cssLayoutViewport
+  const visual = record?.cssVisualViewport
+  if (!isViewportRecord(layout) || !isViewportRecord(visual)) return undefined
+  return {
+    cssLayoutViewport: {
+      pageX: layout.pageX,
+      pageY: layout.pageY,
+      clientWidth: layout.clientWidth,
+      clientHeight: layout.clientHeight
+    },
+    cssVisualViewport: {
+      pageX: visual.pageX,
+      pageY: visual.pageY,
+      clientWidth: visual.clientWidth,
+      clientHeight: visual.clientHeight,
+      scale: typeof visual.scale === "number" ? visual.scale : 1
+    }
+  }
+}
+
+const isScreenshot = (value: unknown): value is { data: string } =>
+  typeof value === "object" &&
+  value !== null &&
+  typeof (value as { data?: unknown }).data === "string" &&
+  (value as { data: string }).data.length > 0
+
+const SCREENSHOT_JPEG_QUALITY = 80
 
 /**
  * A key with text is a `keyDown`, which Chromium turns into a character; one
@@ -820,6 +872,36 @@ export const createAgentBrowserSessionManager = (input?: {
         x: metrics.cssLayoutViewport.clientWidth / 2,
         y: metrics.cssLayoutViewport.clientHeight / 2
       }
+    },
+    async captureScreenshot(clip) {
+      if (attachments.get(attachment.runId) !== attachment) return undefined
+      const layout = captureLayoutOf(
+        await send(attachment.target, "Page.getLayoutMetrics")
+      )
+      if (!layout) return undefined
+      /**
+       * A clip's `scale` is the image scale the pipeline wants per CSS pixel;
+       * the protocol's own scale multiplies the device ratio, which the
+       * pipeline measured from the unclipped capture and folded in here.
+       */
+      const shot = await send(attachment.target, "Page.captureScreenshot", {
+        format: "jpeg",
+        quality: SCREENSHOT_JPEG_QUALITY,
+        captureBeyondViewport: false,
+        ...(clip
+          ? {
+              clip: {
+                x: clip.rect.x,
+                y: clip.rect.y,
+                width: clip.rect.width,
+                height: clip.rect.height,
+                scale: clip.scale
+              }
+            }
+          : {})
+      })
+      if (!isScreenshot(shot)) return undefined
+      return { data: shot.data, mimeType: "image/jpeg", layout }
     }
   })
 

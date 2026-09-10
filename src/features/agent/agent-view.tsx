@@ -22,7 +22,22 @@ export interface AgentProviderPresentation {
   name: string
   model: string
   location: "local" | "remote"
+  /** Whether viewport screenshots travel with observations; absent is unknown. */
+  screenshots?: boolean
 }
+
+/** Absent is shown as unknown, never as "not used": a picture may still be sent. */
+const screenshotsKey = (provider?: AgentProviderPresentation): string =>
+  provider?.screenshots === true
+    ? "agent.screenshots.sent"
+    : provider?.screenshots === false
+      ? "agent.screenshots.unused"
+      : "agent.screenshots.unknown"
+
+const remoteNoticeKey = (provider?: AgentProviderPresentation): string =>
+  provider?.screenshots
+    ? "agent.privacy.remote_notice_screenshots"
+    : "agent.privacy.remote_notice"
 
 export interface AgentTabPresentation {
   title: string
@@ -154,6 +169,14 @@ export const AgentView = ({
           </div>
           <div className="flex min-w-0 gap-2">
             <span className="shrink-0 text-muted-foreground">
+              {t("agent.screenshots.label")}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-right">
+              {t(screenshotsKey(provider))}
+            </span>
+          </div>
+          <div className="flex min-w-0 gap-2">
+            <span className="shrink-0 text-muted-foreground">
               {t("agent.tab.label")}
             </span>
             <span className="min-w-0 flex-1 truncate text-right">
@@ -181,7 +204,7 @@ export const AgentView = ({
             />
             {remoteNeedsAcknowledgement && (
               <div className="rounded-panel border border-status-warning/40 bg-status-warning/10 p-2.5 text-xs">
-                <p>{t("agent.privacy.remote_notice")}</p>
+                <p>{t(remoteNoticeKey(provider))}</p>
                 <Button
                   type="button"
                   variant="outline"

@@ -272,3 +272,79 @@ describe("parseAgentDecisionToolCalls", () => {
     }
   })
 })
+
+describe("visual commands need a screenshot", () => {
+  it("refuses click_point and zoom when no picture travelled, and admits them when one did", async () => {
+    const { AgentDecisionFormatError, parseAgentDecisionToolCalls } =
+      await import("../agent-decision-parser")
+    const observation = {
+      snapshotId: "snapshot-1",
+      generation: 1,
+      tabId: 7,
+      frameId: 0,
+      documentId: "document-1",
+      url: "https://example.com/",
+      origin: "https://example.com",
+      title: "Example",
+      frames: [
+        {
+          frameId: 0,
+          documentId: "document-1",
+          origin: "https://example.com",
+          url: "https://example.com/",
+          access: "ok" as const,
+          snapshotId: "snapshot-1",
+          generation: 1
+        }
+      ],
+      elements: [],
+      visibleText: "",
+      scroll: {
+        x: 0,
+        y: 0,
+        viewportWidth: 100,
+        viewportHeight: 100,
+        documentWidth: 100,
+        documentHeight: 100
+      },
+      dialogs: [],
+      capturedAt: 1
+    }
+    const call = (args: Record<string, unknown>) => [
+      { id: "c1", name: "agent_decision", arguments: args }
+    ]
+    for (const args of [
+      { type: "click_point", x: 10, y: 20 },
+      { type: "zoom", x: 0, y: 0, width: 50, height: 50 }
+    ]) {
+      let caught: unknown
+      try {
+        parseAgentDecisionToolCalls(call(args), observation)
+      } catch (error) {
+        caught = error
+      }
+      expect(caught).toBeInstanceOf(AgentDecisionFormatError)
+      expect((caught as { feedback?: string }).feedback).toMatch(
+        /No screenshot/
+      )
+    }
+    expect(
+      parseAgentDecisionToolCalls(
+        call({ type: "click_point", x: 10, y: 20 }),
+        observation,
+        {
+          screenshot: true
+        }
+      )
+    ).toEqual({
+      type: "command",
+      command: {
+        type: "click_point",
+        x: 10,
+        y: 20,
+        snapshotId: "snapshot-1",
+        generation: 1
+      }
+    })
+  })
+})

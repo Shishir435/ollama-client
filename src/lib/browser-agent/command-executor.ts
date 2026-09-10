@@ -123,6 +123,8 @@ export type AgentDomMutationInstruction = Pick<
    * executes the mutation checks against its own reference store.
    */
   frame: AgentSnapshotIdentity
+  /** The CSS point a visual click aims at; absent means the control's own centre. */
+  point?: { x: number; y: number }
 }
 
 const sameOptional = <T>(first: T | undefined, second: T | undefined) =>
@@ -479,6 +481,39 @@ const executeSyntheticPointer = (
   element.dispatchEvent(new MouseEvent("dblclick", { ...init, detail: 2 }))
 }
 
+/**
+ * A synthetic click at a named point, for the DOM backend. The point has to
+ * still land on the resolved control; a page whose layout moved under the
+ * approval is refused rather than clicked where the control used to be.
+ */
+const executeSyntheticPointClick = (
+  point: { x: number; y: number },
+  element: Element
+): void => {
+  const doc = element.ownerDocument
+  const hit =
+    typeof doc.elementFromPoint === "function"
+      ? doc.elementFromPoint(point.x, point.y)
+      : null
+  if (!hit || !(element === hit || element.contains(hit))) {
+    throw new AgentEffectNotAppliedError(
+      "Agent visual target moved before execution"
+    )
+  }
+  const init: MouseEventInit = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    clientX: point.x,
+    clientY: point.y,
+    button: 0,
+    view: doc.defaultView ?? undefined
+  }
+  element.dispatchEvent(new MouseEvent("mousedown", init))
+  element.dispatchEvent(new MouseEvent("mouseup", init))
+  element.dispatchEvent(new MouseEvent("click", { ...init, detail: 1 }))
+}
+
 /** Executes a previously resolved mutation against the still-live snapshot. */
 export const executeAgentDomMutationInDocument = (input: {
   effect: AgentDomMutationInstruction
@@ -491,6 +526,7 @@ export const executeAgentDomMutationInDocument = (input: {
 
   switch (input.effect.command.type) {
     case "click":
+    case "click_point":
       if (!(element instanceof HTMLElement)) {
         throw new Error("Agent click target is no longer supported")
       }
@@ -499,6 +535,9 @@ export const executeAgentDomMutationInDocument = (input: {
       }
       if (input.effect.target.submitter) {
         return submitWithoutPageHandlers(input.effect, element)
+      }
+      if (input.effect.point) {
+        executeSyntheticPointClick(input.effect.point, element)
       } else {
         element.click()
       }
@@ -888,6 +927,10 @@ export const READ_ONLY_AGENT_EXECUTORS = {
     await assertSource(effect, adapter, true)
     return receipt(adapter, "inspect")
   },
+  async zoom(effect, adapter) {
+    await assertSource(effect, adapter, true)
+    return receipt(adapter, "zoom")
+  },
   async find(effect, adapter) {
     await assertSource(effect, adapter, true)
     return receipt(adapter, "find")
@@ -1014,25 +1057,29 @@ export const executeNavigationAgentEffect = async (input: {
   return executor(input.effect, input.adapter, input.signal)
 }
 
+const executeClick: Executor = async (effect, adapter, signal) => {
+  await assertSource(effect, adapter, true)
+  if (effect.destination) {
+    await assertReadable(adapter, effect.destination.url)
+  }
+  if (
+    effect.destination &&
+    effect.semanticEffects.includes("navigation") &&
+    !effect.semanticEffects.includes("submission")
+  ) {
+    await adapter.navigate(
+      effect.snapshotIdentity.tabId,
+      effect.destination.url
+    )
+    return { ...receipt(adapter, effect.command.type), backend: "dom" }
+  }
+  return executeElementAction(effect, adapter, signal)
+}
+
 export const DOM_MUTATION_AGENT_EXECUTORS = {
-  async click(effect, adapter, signal) {
-    await assertSource(effect, adapter, true)
-    if (effect.destination) {
-      await assertReadable(adapter, effect.destination.url)
-    }
-    if (
-      effect.destination &&
-      effect.semanticEffects.includes("navigation") &&
-      !effect.semanticEffects.includes("submission")
-    ) {
-      await adapter.navigate(
-        effect.snapshotIdentity.tabId,
-        effect.destination.url
-      )
-      return { ...receipt(adapter, "click"), backend: "dom" }
-    }
-    return executeElementAction(effect, adapter, signal)
-  },
+  click: executeClick,
+  /** A visual click is a click on the control found under the point. */
+  click_point: executeClick,
   async double_click(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
     return executeElementAction(effect, adapter, signal)

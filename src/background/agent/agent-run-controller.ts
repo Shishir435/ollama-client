@@ -33,6 +33,7 @@ const withDecisionTimeout = (
   model: AgentModelPort,
   timeoutMs: number
 ): AgentModelPort => ({
+  ...(model.vision ? { vision: model.vision.bind(model) } : {}),
   async decide(input, signal) {
     const scope = new AbortController()
     let timedOut = false
@@ -121,12 +122,15 @@ export const buildAgentController: BuildAgentController = (input) => {
   const effect = createAgentEffectPort(adapters)
   return createAgentController({
     trace: traceAgentRun,
+    ...(adapters.screenshot ? { screenshot: adapters.screenshot } : {}),
     model: {
+      ...(model.vision ? { vision: model.vision } : {}),
       async decide(request, signal) {
         traceAgentRun(input.runId, "deciding", {
           step: request.state.stepCount + 1,
           providerId: request.state.providerId,
-          modelId: request.state.modelId
+          modelId: request.state.modelId,
+          screenshot: request.screenshot !== undefined
         })
         const decision = await model.decide(request, signal)
         traceAgentRun(input.runId, "decision", {
@@ -152,12 +156,13 @@ export const buildAgentController: BuildAgentController = (input) => {
       }
     },
     effect: {
-      async resolve(command, observation) {
-        const resolved = await effect.resolve(command, observation)
+      async resolve(command, observation, context) {
+        const resolved = await effect.resolve(command, observation, context)
         traceAgentRun(input.runId, "resolved", {
           action: command.type,
           ref: resolved.target.ref,
-          snapshotId: observation.snapshotId
+          snapshotId: observation.snapshotId,
+          visual: resolved.target.point !== undefined
         })
         return resolved
       },

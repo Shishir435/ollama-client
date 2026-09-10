@@ -1,6 +1,7 @@
 import type {
   AgentCancellationSignal,
   AgentObservationPort,
+  AgentScreenshotPort,
   AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
 import type { AgentSnapshotIdentity } from "@ollama-client/contracts"
@@ -13,6 +14,12 @@ import {
   runAgentNativeInputPlan
 } from "@/lib/browser-agent/native-input"
 import type { AgentEffectResolverAdapter } from "@/lib/browser-agent/resolved-effect"
+import {
+  type AgentImageEditor,
+  type AgentScreenshotSource,
+  createAgentScreenshotPort
+} from "@/lib/browser-agent/screenshot-capture"
+import { createOffscreenAgentImageEditor } from "@/lib/browser-agent/screenshot-image"
 import { browser } from "@/lib/browser-api"
 import {
   classifyAgentTabAccess,
@@ -28,10 +35,61 @@ import type { AgentTabHistory } from "./agent-tab-history"
 
 export interface AgentBrowserAdapters {
   observation: AgentObservationPort
+  /** Absent when this browser offers no way to picture the tab. */
+  screenshot?: AgentScreenshotPort
   resolver: AgentEffectResolverAdapter
   executor: AgentCommandExecutorAdapter
   verifier: AgentEffectVerifierAdapter
 }
+
+/**
+ * Pictures a tab without a debugger: the browser's own capture of the visible
+ * tab, framed by the observation's viewport since no layout metrics come with
+ * it. Pinch zoom is not accounted for on this path and clips are not offered.
+ */
+const visibleTabCaptureSource = (
+  viewportOf: (
+    tabId: number
+  ) => { x: number; y: number; width: number; height: number } | undefined
+): AgentScreenshotSource => ({
+  async capture(tabId, clip) {
+    if (clip) return undefined
+    const viewport = viewportOf(tabId)
+    if (!viewport) return undefined
+    let tab: { windowId?: number } | undefined
+    try {
+      tab = await browser.tabs.get(tabId)
+    } catch {
+      return undefined
+    }
+    if (tab?.windowId === undefined) return undefined
+    let dataUrl: string
+    try {
+      dataUrl = await browser.tabs.captureVisibleTab(tab.windowId, {
+        format: "jpeg",
+        quality: 80
+      })
+    } catch {
+      return undefined
+    }
+    const match = /^data:(image\/(?:jpeg|png));base64,(.+)$/.exec(dataUrl)
+    if (!match) return undefined
+    const layout = {
+      pageX: viewport.x,
+      pageY: viewport.y,
+      clientWidth: viewport.width,
+      clientHeight: viewport.height
+    }
+    return {
+      data: match[2],
+      mimeType: match[1] as "image/jpeg" | "image/png",
+      layout: {
+        cssLayoutViewport: layout,
+        cssVisualViewport: { ...layout, scale: 1 }
+      }
+    }
+  }
+})
 
 /** The platform's primary editing modifier, read once from the worker's own UA. */
 const detectPlatform = (): AgentInputPlatform => {
@@ -60,8 +118,14 @@ export const createAgentBrowserAdapters = (input: {
   now?: () => number
   platform?: AgentInputPlatform
   listFrames?: (tabId: number) => Promise<readonly AgentExtensionFrame[]>
+  /** Defaults to the worker's OffscreenCanvas; absent means no screenshots. */
+  imageEditor?: AgentImageEditor
 }): AgentBrowserAdapters => {
   const now = input.now ?? (() => Date.now())
+  const imageEditor =
+    "imageEditor" in input
+      ? input.imageEditor
+      : createOffscreenAgentImageEditor()
   const platform = input.platform ?? detectPlatform()
   const listFrames =
     input.listFrames ??
@@ -99,13 +163,14 @@ export const createAgentBrowserAdapters = (input: {
     // The frame identity travels as the instruction's own field, never inside
     // the wire target: that target is validated by a strict schema with no
     // `frame` key, so leaking it there is a parse failure before a byte is sent.
-    const { frame: targetFrame, ...target } = effect.target
+    const { frame: targetFrame, point, ...target } = effect.target
     const frame = targetFrame ?? effect.snapshotIdentity
     return {
       command: effect.command,
       target: { ...target, ref: effect.target.ref, frameId: frame.frameId },
       snapshotIdentity: effect.snapshotIdentity,
-      frame
+      frame,
+      ...(point ? { point } : {})
     } as AgentDomMutationInstruction
   }
 
@@ -202,20 +267,96 @@ export const createAgentBrowserAdapters = (input: {
       abortSignal(signal)
     )
 
+  /**
+   * The picture comes through the debugger when the run holds one and through
+   * the browser's visible-tab capture otherwise; sensitive controls are
+   * measured through the same bound control session the observation used.
+   */
+  const lastViewport = new Map<
+    number,
+    { x: number; y: number; width: number; height: number }
+  >()
+  const screenshot: AgentScreenshotPort | undefined = imageEditor
+    ? createAgentScreenshotPort({
+        editor: imageEditor,
+        now,
+        source: {
+          async capture(tabId, clip, signal) {
+            const channel = input.browserSessions?.nativeInput(
+              input.runId,
+              tabId
+            )
+            if (channel) return channel.captureScreenshot(clip)
+            return visibleTabCaptureSource((id) =>
+              lastViewport.get(id)
+            ).capture(tabId, clip, signal)
+          }
+        },
+        sensitive: {
+          async rects(tabId, observation, refs, signal) {
+            try {
+              const measured = await input.sessions.measureElements(
+                {
+                  runId: input.runId,
+                  tabId,
+                  frame: {
+                    snapshotId: observation.snapshotId,
+                    generation: observation.generation,
+                    tabId: observation.tabId,
+                    frameId: observation.frameId,
+                    documentId: observation.documentId
+                  },
+                  refs
+                },
+                abortSignal(signal)
+              )
+              /* Every sensitive control has to be placed; one that is not is a picture not taken. */
+              const placed = new Set(measured.map((rect) => rect.ref))
+              if (refs.some((ref) => !placed.has(ref))) return undefined
+              return measured.map(({ x, y, width, height }) => ({
+                x,
+                y,
+                width,
+                height
+              }))
+            } catch {
+              return undefined
+            }
+          }
+        }
+      })
+    : undefined
+
   return {
     observation: {
-      observe: (request, signal) =>
-        observe(
+      async observe(request, signal) {
+        const observation = await observe(
           request.tabId,
           request.minimumGeneration,
           request.allowedOrigins,
           signal
         )
+        lastViewport.set(request.tabId, {
+          x: observation.scroll.x,
+          y: observation.scroll.y,
+          width: observation.scroll.viewportWidth,
+          height: observation.scroll.viewportHeight
+        })
+        return observation
+      }
     },
+    ...(screenshot ? { screenshot } : {}),
     resolver: {
       getTab,
       classifyAccess: classifyAgentTabAccess,
-      resolveHistoryDestination
+      resolveHistoryDestination,
+      hitTest: (identity, point) =>
+        input.sessions.hitTest({
+          runId: input.runId,
+          tabId: identity.tabId,
+          frame: identity,
+          point
+        })
     },
     executor: {
       getTab,

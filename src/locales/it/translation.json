@@ -25,9 +25,16 @@
       "label": "Scheda controllata",
       "missing": "Apri una pagina supportata"
     },
+    "screenshots": {
+      "label": "Screenshot",
+      "sent": "Gli screenshot dell’area visibile vengono inviati al modello",
+      "unused": "Non usati con un modello solo testo",
+      "unknown": "Non ancora determinato"
+    },
     "privacy": {
       "remote_notice": "Le osservazioni della pagina saranno inviate continuamente a questo provider remoto mentre l’Agente è in esecuzione.",
-      "acknowledge": "Ho capito"
+      "acknowledge": "Ho capito",
+      "remote_notice_screenshots": "Le osservazioni della pagina e gli screenshot dell’area visibile saranno inviati continuamente a questo provider remoto mentre l’Agente è in esecuzione."
     },
     "observations": "{{count}} osservazioni",
     "controls": {

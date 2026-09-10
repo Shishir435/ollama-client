@@ -190,6 +190,7 @@ export const READ_ONLY_AGENT_VERIFIERS = {
   inspect: verifyPureRead,
   find: verifyPureRead,
   extract_text: verifyPureRead,
+  zoom: verifyPureRead,
   async wait(input, adapter, signal) {
     if (input.effect.command.type !== "wait")
       throw new Error("Invalid wait effect")
@@ -833,6 +834,7 @@ const verifyKey: Verifier = async (input, adapter, signal) => {
 
 export const DOM_MUTATION_AGENT_VERIFIERS = {
   click: withDelivery("activation", verifyActivation),
+  click_point: withDelivery("activation", verifyActivation),
   double_click: withDelivery("activation", verifyActivation),
   hover: withDelivery("hover", verifyHover),
   type: withDelivery("field", verifyValueMutation),
