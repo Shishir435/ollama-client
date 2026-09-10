@@ -38,6 +38,7 @@ import {
   resolveAgentFormSubmitter
 } from "./observation-builder"
 import type {
+  DialogAgentAction,
   DomMutationAgentAction,
   NavigationAgentAction,
   ReadOnlyAgentAction
@@ -748,6 +749,13 @@ export interface AgentCommandExecutorAdapter {
    * cleared by the asking, so it is charged to the step that caused it.
    */
   fileChooserOpened?(effect: AuthorizedAgentEffect): Promise<boolean>
+  /**
+   * Answers the native dialog the effect names. `not_open` means the prompt
+   * this step was decided against is not the one the browser is holding any
+   * more, so nothing was answered — the page closed it and possibly opened
+   * another. Absent means this browser cannot answer a dialog at all.
+   */
+  handleDialog?(effect: AuthorizedAgentEffect): Promise<"answered" | "not_open">
   activateTab(tabId: number): Promise<void>
   goHistory(tabId: number, direction: "back" | "forward"): Promise<void>
   resolveHistoryDestination(
@@ -1266,6 +1274,48 @@ export const DOM_MUTATION_AGENT_EXECUTORS = {
     return executeElementAction(effect, adapter, signal)
   }
 } satisfies Record<DomMutationAgentAction, Executor>
+
+/**
+ * Answering a dialog is the one action that does not touch the document.
+ *
+ * The tab is re-established, because the approval was given against this page
+ * — but its document is not asked anything: a native dialog is holding
+ * script, which is why the run has to answer it at all. The debugger's own
+ * record of which prompt is open is what the answer is matched against, and a
+ * mismatch is a clean unapplied effect rather than an answer given to
+ * whatever replaced it.
+ */
+export const DIALOG_AGENT_EXECUTORS = {
+  async handle_dialog(effect, adapter) {
+    if (effect.command.type !== "handle_dialog") {
+      throw new Error("Invalid dialog effect")
+    }
+    await assertSource(effect, adapter, false)
+    if (!adapter.handleDialog) {
+      throw new AgentEffectNotAppliedError(
+        "This browser cannot answer a page dialog"
+      )
+    }
+    if ((await adapter.handleDialog(effect)) === "not_open") {
+      throw new AgentEffectNotAppliedError(
+        "The dialog this step answers is no longer the one the page is holding"
+      )
+    }
+    return receipt(adapter, "handle_dialog")
+  }
+} satisfies Record<DialogAgentAction, Executor>
+
+export const executeDialogAgentEffect = async (input: {
+  effect: AuthorizedAgentEffect
+  adapter: AgentCommandExecutorAdapter
+  signal: AgentCancellationSignal
+}): Promise<AgentExecutionReceipt> => {
+  const executor = DIALOG_AGENT_EXECUTORS[
+    input.effect.command.type as DialogAgentAction
+  ] as Executor | undefined
+  if (!executor) throw new Error("Agent action has no dialog executor")
+  return executor(input.effect, input.adapter, input.signal)
+}
 
 export const executeDomMutationAgentEffect = async (input: {
   effect: AuthorizedAgentEffect

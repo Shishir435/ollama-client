@@ -95,6 +95,14 @@ const actionOf = (step: AgentStepReadout): string => {
   if (command.type === "press_key") return `press ${command.key}`
   if (command.type === "scroll") return `scroll ${command.direction}`
   if (command.type === "drag") return `drag onto ${command.to}`
+  /**
+   * The direction is the whole decision here: a run reading back
+   * "handle_dialog" could not tell the confirmation it refused from the one
+   * it gave, which is exactly the fact a later step needs.
+   */
+  if (command.type === "handle_dialog") {
+    return command.accept ? "accept dialog" : "dismiss dialog"
+  }
   return command.type
 }
 

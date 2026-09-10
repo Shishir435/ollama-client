@@ -189,6 +189,39 @@ describe("projectAgentObservation", () => {
     ).toEqual([{ id: "dialog1", kind: "dialog", label: "Confirm" }])
   })
 
+  it("carries a native dialog, which is all a blocked page can be acted on through", () => {
+    const dialog = {
+      id: "d1",
+      type: "confirm" as const,
+      origin: "https://example.com",
+      message: "Delete this project?"
+    }
+    const projected = projectAgentObservation(
+      observation({ elements: [], visibleText: "", dialogs: [dialog] })
+    )
+    expect(projected.dialogs).toEqual([dialog])
+  })
+
+  it("says nothing about dialogs on a page that has none", () => {
+    expect(projectAgentObservation(observation())).not.toHaveProperty("dialogs")
+  })
+
+  it("keeps a dialog even when the page budget is spent", () => {
+    // A budget that dropped the dialog would leave the model looking at an
+    // empty page with no way to explain it and no command that works.
+    const dialog = {
+      id: "d1",
+      type: "alert" as const,
+      origin: "https://example.com",
+      message: "Saved"
+    }
+    const projected = projectAgentObservation(
+      observation({ dialogs: [dialog] }),
+      { pageContentChars: 0 }
+    )
+    expect(projected.dialogs).toEqual([dialog])
+  })
+
   it("carries the document's own text and says when it was cut", () => {
     const projected = projectAgentObservation(
       observation({ documentText: "Full page", documentTextTruncated: true })

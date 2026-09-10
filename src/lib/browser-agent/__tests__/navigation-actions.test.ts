@@ -712,3 +712,53 @@ describe("Agent navigation actions", () => {
     )
   })
 })
+
+describe("a navigation a beforeunload dialog is holding", () => {
+  /**
+   * The debugger holds the dialog, so the tab never leaves the page and the
+   * settle wait times out. Nothing committed, which is a negative — the run
+   * re-observes, sees the dialog and decides whether to leave — rather than
+   * an unresolved effect, which would pause a run that has done nothing.
+   */
+  const held = () =>
+    observation({
+      generation: 2,
+      elements: [],
+      visibleText: "",
+      dialogs: [
+        {
+          id: "d1",
+          type: "beforeunload",
+          origin: "https://example.com",
+          message: "Changes you made"
+        }
+      ]
+    })
+
+  it("reports the navigation as not committed", async () => {
+    const outcome = await verify(
+      navigate("https://example.com/docs"),
+      verifierAdapter({
+        waitForNavigation: async () => {
+          throw new Error("Agent navigation did not settle")
+        },
+        observe: async () => held()
+      })
+    )
+    expect(outcome.outcome).toBe("negative")
+    expect(outcome.evidence.summary).toContain("dialog")
+  })
+
+  it("leaves an unsettled navigation with no dialog exactly as it was", async () => {
+    await expect(
+      verify(
+        navigate("https://example.com/docs"),
+        verifierAdapter({
+          waitForNavigation: async () => {
+            throw new Error("Agent navigation did not settle")
+          }
+        })
+      )
+    ).rejects.toThrow("did not settle")
+  })
+})

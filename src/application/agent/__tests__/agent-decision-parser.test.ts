@@ -85,6 +85,63 @@ describe("parseAgentDecisionToolCalls", () => {
     ).toThrow("stale snapshot")
   })
 
+  it("binds a flat dialog answer to the dialog the page is holding", () => {
+    const blocked: AgentObservation = {
+      ...observation,
+      elements: [],
+      dialogs: [
+        {
+          id: "d1",
+          type: "prompt",
+          origin: "https://example.com",
+          message: "New name"
+        }
+      ]
+    }
+    expect(
+      parseAgentDecisionToolCalls(
+        [
+          call({
+            type: "handle_dialog",
+            dialogId: "d1",
+            accept: true,
+            promptText: "Roadmap"
+          })
+        ],
+        blocked
+      )
+    ).toEqual({
+      type: "command",
+      command: {
+        type: "handle_dialog",
+        dialogId: "d1",
+        accept: true,
+        promptText: "Roadmap",
+        snapshotId: "snapshot-2",
+        generation: 2
+      }
+    })
+  })
+
+  it("costs a retry, not a run, when the page is held by a dialog", () => {
+    // Refused here rather than at resolution: the model is told the page is
+    // blocked and which dialog to answer, and tries again.
+    const blocked: AgentObservation = {
+      ...observation,
+      dialogs: [
+        {
+          id: "d1",
+          type: "alert",
+          origin: "https://example.com",
+          message: "Saved"
+        }
+      ]
+    }
+    expect(() =>
+      parseAgentDecisionToolCalls([call({ type: "click", ref: "e1" })], blocked)
+    ).toThrow("dialog_open")
+  })
+
   it("binds the flat inspection actions to the observation", () => {
     expect(
       parseAgentDecisionToolCalls(

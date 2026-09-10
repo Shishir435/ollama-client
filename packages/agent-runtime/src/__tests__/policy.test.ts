@@ -74,9 +74,15 @@ describe("resolved-effect policy", () => {
       snapshotId: "snapshot-1",
       generation: 1
     }
+    /**
+     * The resolver classifies Enter in a field that submits on it as a
+     * submission, and the submission is what costs critical. The target's
+     * `maySubmit` is not asked a second time: it is true of every field on a
+     * submit path, typing included.
+     */
     const decision = evaluateAgentPolicy(
       input(
-        effect(["form_mutation"], {
+        effect(["form_mutation", "submission"], {
           command: enter,
           target: { sensitive: false, maySubmit: true }
         })
@@ -84,6 +90,65 @@ describe("resolved-effect policy", () => {
     )
     expect(decision.type).toBe("approval_required")
     expect(decision.risk).toBe("critical")
+  })
+
+  it("prices typing into a field on a submit path as a form mutation", () => {
+    const typing: AgentCommand = {
+      type: "type",
+      text: "sunglasses",
+      ref: "input",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["form_mutation"], {
+          command: typing,
+          target: { sensitive: false, maySubmit: true }
+        })
+      )
+    )
+    expect(decision.type).toBe("approval_required")
+    expect(decision.risk).toBe("high")
+    /**
+     * The point of the change: high is grantable, so filling in a search box
+     * costs one prompt for the origin rather than one per field. Critical
+     * never is, which is why pricing typing as a submission trained the user
+     * to approve without reading.
+     */
+    expect(
+      decision.type === "approval_required" && decision.request.grantable
+    ).toEqual(["form_mutation"])
+  })
+
+  it("covers later typing on a granted origin without asking again", () => {
+    const typing: AgentCommand = {
+      type: "type",
+      text: "sunglasses",
+      ref: "input",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+    const decision = evaluateAgentPolicy({
+      ...input(
+        effect(["form_mutation"], {
+          command: typing,
+          target: { sensitive: false, maySubmit: true }
+        })
+      ),
+      grants: [
+        {
+          origin: "https://example.com",
+          effects: ["form_mutation"],
+          grantedAt: 1
+        }
+      ]
+    })
+    expect(decision).toEqual({
+      type: "granted",
+      risk: "high",
+      origin: "https://example.com"
+    })
   })
 
   it("requires approval for a new origin", () => {

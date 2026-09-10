@@ -1,5 +1,9 @@
 import type { AuthorizedAgentEffect } from "@ollama-client/agent-runtime"
-import type { AgentObservation } from "@ollama-client/contracts"
+import {
+  type AgentDialogState,
+  type AgentObservation,
+  AgentObservationSchema
+} from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
 
 import {
@@ -10,6 +14,7 @@ import {
   type AgentEffectResolverAdapter,
   resolveDomMutationAgentEffect
 } from "@/lib/browser-agent/resolved-effect"
+import { browser } from "@/lib/browser-api"
 import {
   createAgentBrowserAdapters,
   visibleTabCaptureSource
@@ -177,5 +182,219 @@ describe("visible-tab capture fallback", () => {
         aborted: false
       })
     ).resolves.toBeUndefined()
+  })
+})
+
+describe("observing a tab a native dialog is holding", () => {
+  /**
+   * The document's script is blocked, so the content script cannot answer at
+   * all. Asking it anyway is a request that waits for a page that will not
+   * reply until the dialog is answered — which is the thing the run is trying
+   * to do.
+   */
+  const pageDialog = {
+    id: "d1",
+    type: "confirm" as const,
+    origin: "https://example.com",
+    message: "Delete this project?"
+  }
+
+  const withBlockedTab = (dialog: AgentDialogState = pageDialog) => {
+    const sessions = createAgentControlSessionRegistry({
+      open: (async () => {
+        throw new Error("no session in this test")
+      }) as never
+    })
+    const observe = vi
+      .spyOn(sessions, "observe")
+      .mockRejectedValue(new Error("the page is blocked"))
+    const browserSessions = {
+      capabilities: {
+        backend: "cdp" as const,
+        cdpControl: true,
+        domControl: true as const,
+        frameTracking: true
+      },
+      attach: vi.fn(),
+      detach: vi.fn(),
+      isAttached: () => true,
+      attachedTabId: () => 7,
+      frames: () => ({ status: "tracking" as const, frames: [] }),
+      mapFrame: () => ({
+        mapped: false as const,
+        reason: "not_attached" as const
+      }),
+      subscribe: () => () => undefined,
+      nativeInput: () => undefined,
+      openDialog: vi.fn(() => dialog),
+      handleDialog: vi.fn(async () => "answered" as const),
+      dispose: vi.fn()
+    }
+    const extension = browser as unknown as Record<string, unknown>
+    extension.tabs = {
+      get: vi.fn(async () => ({
+        id: 7,
+        url: "https://example.com/board",
+        title: "Board"
+      }))
+    }
+    extension.webNavigation = {
+      getFrame: vi.fn(async () => ({
+        documentId: "document-9",
+        url: "https://example.com/board"
+      }))
+    }
+    const adapters = createAgentBrowserAdapters({
+      runId: "run-1",
+      sessions,
+      browserSessions,
+      history: createAgentTabHistory(),
+      imageEditor: undefined,
+      now: () => 5
+    })
+    return { adapters, observe }
+  }
+
+  it("reports the dialog and an unread page rather than asking the page", async () => {
+    const { adapters, observe } = withBlockedTab()
+    const blocked = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 3,
+        allowedOrigins: ["https://example.com"]
+      },
+      { aborted: false }
+    )
+    expect(observe).not.toHaveBeenCalled()
+    expect(AgentObservationSchema.parse(blocked)).toBeTruthy()
+    expect(blocked.dialogs).toEqual([pageDialog])
+    expect(blocked.elements).toEqual([])
+    expect(blocked.visibleText).toBe("")
+    expect(blocked.frames[0].access).toBe("unreadable")
+    expect(blocked.documentId).toBe("document-9")
+    expect(blocked.generation).toBeGreaterThanOrEqual(3)
+    /** The snapshot names the dialog, so it cannot be reused on the page. */
+    expect(blocked.snapshotId).toContain("d1")
+  })
+
+  it("keeps the verifier off the blocked page too", async () => {
+    // The verifier observes through the same seam, so a second dialog opened
+    // by the page cannot leave it waiting on a document that is frozen.
+    const { adapters, observe } = withBlockedTab()
+    const blocked = await adapters.verifier.observe(
+      7,
+      4,
+      ["https://example.com"],
+      { aborted: false }
+    )
+    expect(observe).not.toHaveBeenCalled()
+    expect(blocked.dialogs).toEqual([pageDialog])
+  })
+
+  it("withholds the text of a dialog raised by a frame the run may not read", async () => {
+    /**
+     * An embedded frame's `confirm` blocks the whole tab, and its words are
+     * that frame's content: the run's origin allowlist governs what it may
+     * read from a frame, so a dialog from an unauthorized origin is reported
+     * as existing, on that origin, with nothing it wrote.
+     */
+    const { adapters } = withBlockedTab({
+      id: "d1",
+      type: "confirm" as const,
+      origin: "https://ads.example",
+      message: "Confirm your payment of $500",
+      defaultPrompt: "500"
+    })
+    const blocked = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 1,
+        allowedOrigins: ["https://example.com"]
+      },
+      { aborted: false }
+    )
+    expect(AgentObservationSchema.parse(blocked)).toBeTruthy()
+    expect(blocked.dialogs).toEqual([
+      {
+        id: "d1",
+        type: "confirm",
+        origin: "https://ads.example",
+        message: "",
+        unauthorizedOrigin: true
+      }
+    ])
+  })
+
+  it("reads a frame's dialog once the run is authorized for its origin", async () => {
+    const { adapters } = withBlockedTab({
+      id: "d1",
+      type: "confirm" as const,
+      origin: "https://widget.example",
+      message: "Remove this widget?"
+    })
+    const blocked = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 1,
+        allowedOrigins: ["https://example.com", "https://widget.example"]
+      },
+      { aborted: false }
+    )
+    expect(blocked.dialogs[0].message).toBe("Remove this widget?")
+    expect(blocked.dialogs[0].unauthorizedOrigin).toBeUndefined()
+  })
+
+  it("reads the tab's own dialog even on an origin the run never approved", async () => {
+    /**
+     * The root frame is not allowlist-gated — `observeRoot` reads the page
+     * the user pointed the run at — so withholding an `alert` from a page
+     * whose whole body text is already readable would be a stricter rule for
+     * the box on top than for the page under it. Answering it is what costs
+     * an approval; policy covers that.
+     */
+    const { adapters } = withBlockedTab({
+      id: "d1",
+      type: "confirm" as const,
+      origin: "https://example.com",
+      message: "Are you sure?"
+    })
+    const blocked = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 1,
+        allowedOrigins: ["https://intended.example"]
+      },
+      { aborted: false }
+    )
+    expect(blocked.dialogs[0].message).toBe("Are you sure?")
+    expect(blocked.dialogs[0].unauthorizedOrigin).toBeUndefined()
+  })
+
+  it("treats a dialog it cannot place as one it may not read", async () => {
+    // A document with no origin of its own — about:blank, srcdoc, data: — is
+    // recorded as "null", which no allowlist matches.
+    const { adapters } = withBlockedTab({
+      id: "d1",
+      type: "alert" as const,
+      origin: "null",
+      message: "Anything at all"
+    })
+    const blocked = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 1,
+        allowedOrigins: ["https://example.com"]
+      },
+      { aborted: false }
+    )
+    expect(blocked.dialogs[0]).toMatchObject({
+      message: "",
+      unauthorizedOrigin: true
+    })
   })
 })

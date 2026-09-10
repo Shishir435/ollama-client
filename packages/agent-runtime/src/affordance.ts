@@ -42,6 +42,13 @@ export const AGENT_AFFORDANCE_REASONS = [
   "hidden_destination",
   "cross_frame_drag",
   "drag_onto_itself",
+  /**
+   * Native dialogs: the page is blocked by one, or an answer names a prompt
+   * that is not the one open.
+   */
+  "dialog_open",
+  "unknown_dialog",
+  "prompt_text_unsupported",
   /** Visual grounding: a point that cannot be turned into a control. */
   "no_screenshot",
   "point_outside_image",
@@ -340,6 +347,34 @@ const classifyTarget = (
 }
 
 /**
+ * What an open native dialog allows.
+ *
+ * A dialog holds the document itself: script does not run, so nothing in the
+ * page can be read or acted on until it is answered. Every other command is
+ * therefore refused while one is open, and the answer has to name the dialog
+ * it was decided against — the page can close one and open another between an
+ * observation and the answer, and an answer that named no prompt would
+ * confirm whichever prompt happened to be open.
+ */
+const classifyDialogState = (
+  command: AgentCommand,
+  observation: AgentObservation
+): AgentAffordanceRefusal | undefined => {
+  if (command.type !== "handle_dialog") {
+    return observation.dialogs.length > 0
+      ? { reason: "dialog_open" }
+      : undefined
+  }
+  const dialog = observation.dialogs.find(
+    (open) => open.id === command.dialogId
+  )
+  if (!dialog) return { reason: "unknown_dialog" }
+  return command.promptText !== undefined && dialog.type !== "prompt"
+    ? { reason: "prompt_text_unsupported" }
+    : undefined
+}
+
+/**
  * `undefined` means the observation supports the command. A command with no
  * ref is not this function's business: only the resolver knows whether a
  * destination or a tab is reachable.
@@ -348,6 +383,8 @@ export const classifyAgentAffordance = (
   command: AgentCommand,
   observation: AgentObservation
 ): AgentAffordanceRefusal | undefined => {
+  const blocked = classifyDialogState(command, observation)
+  if (blocked) return blocked
   if (!("ref" in command) || command.ref === undefined) return undefined
   /**
    * References are unique across frames — a child frame's carry its frame in
@@ -477,6 +514,12 @@ export const agentAffordanceFeedback = (
       return `${ref} names a point with nothing under it. Choose a point on a visible control, or use an element ref.`
     case "point_in_frame":
       return `${ref} names a point inside an embedded frame. Use the frame's own refs, which carry the frame in their prefix.`
+    case "dialog_open":
+      return "A dialog the page opened is holding it, so nothing on the page can be read or acted on. Answer it with handle_dialog, naming the dialogId the observation lists; accept false dismisses it."
+    case "unknown_dialog":
+      return "No dialog with that dialogId is open. Use the dialogId the current observation lists, or act on the page if it lists none."
+    case "prompt_text_unsupported":
+      return "promptText belongs to a prompt dialog only. Answer this dialog with accept alone."
   }
 }
 

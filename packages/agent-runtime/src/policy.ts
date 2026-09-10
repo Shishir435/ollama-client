@@ -35,6 +35,13 @@ const effectRisk = (effect: AgentSemanticEffect): AgentRisk => {
     case "read":
     case "scroll":
     case "hover":
+    /**
+     * Answering a dialog is low in itself: dismissing one is the safe
+     * direction and closing an alert is the only way past it. What accepting
+     * a confirm, a prompt or a beforeunload commits to is carried as
+     * `destructive` by whatever resolved it, and priced there.
+     */
+    case "dialog":
       return "low"
     case "navigation":
       return "medium"
@@ -129,17 +136,89 @@ const grantableFor = (
   }
 }
 
+/**
+ * Whether this step's change has no submission behind it.
+ *
+ * A form is prepared and then submitted, and the submission is the prompt
+ * that matters. A control belonging to no form has no such step, so this
+ * approval is the only one the user will be asked for — and on a page that
+ * saves as you type, the change is stored by the typing.
+ *
+ * What is claimed stops there. Verification compares the control's value and
+ * nothing else, so whether the page stored anything is not something the run
+ * knows; a standalone filter box with no submit step persists nothing at all.
+ * The risk is a form mutation either way — the wording exists so the user is
+ * not left expecting a confirmation that is never going to be asked for.
+ */
+const hasNoSubmitStep = (input: AgentPolicyInput): boolean =>
+  input.effect.target.noSubmitStep === true &&
+  input.effect.semanticEffects.includes("form_mutation")
+
+/**
+ * How a dialog answer reads to the user. The command's name says nothing —
+ * what is being decided is whether the page gets its OK — so the dialog's own
+ * kind and the direction of the answer are what the prompt states. The
+ * dialog's message travels separately as page evidence.
+ */
+const dialogAction = (
+  input: AgentPolicyInput
+): { action: string; consequence: string } | undefined => {
+  const command = input.effect.command
+  if (command.type !== "handle_dialog") return undefined
+  const kind = input.effect.dialog?.type ?? "dialog"
+  /**
+   * Whose dialog it is, named whenever the answer is anything but "the page
+   * the user started on asking its own question": an embedded frame, or a
+   * top-level document on an origin this run was never approved for. Either
+   * reads nothing like the site the user thinks they are looking at, and the
+   * panel shows no URL of its own.
+   */
+  const frameOrigin = input.effect.frameOrigin
+  const origin = actingOrigin(input)
+  const whose =
+    frameOrigin !== undefined || !input.allowedOrigins.includes(origin)
+      ? `${origin}'s`
+      : "the page's"
+  /**
+   * An embedded frame the run was not authorized to read had its dialog text
+   * withheld, so neither the model nor the panel can show what is being
+   * agreed to. The user is told that, rather than being shown a prompt with
+   * an empty quotation and left to assume the dialog was empty.
+   */
+  const unreadable =
+    frameOrigin !== undefined && !input.allowedOrigins.includes(frameOrigin)
+      ? " Its text was not read: the dialog belongs to a frame this run is not authorized to read."
+      : ""
+  if (!command.accept) {
+    return {
+      action: `Dismiss ${whose} ${kind} dialog`,
+      consequence: `The dialog is told it was dismissed and nothing is confirmed.${unreadable}`
+    }
+  }
+  return {
+    action: `Accept ${whose} ${kind} dialog`,
+    consequence:
+      (kind === "beforeunload"
+        ? "The page is allowed to leave; anything it has not saved is discarded."
+        : "The page proceeds as though the user pressed its confirm button, whatever that action is.") +
+      unreadable
+  }
+}
+
 const makeApprovalRequest = (
   input: AgentPolicyInput,
   risk: Exclude<AgentRisk, "low">
 ): AgentApprovalRequest => {
   const destination = input.effect.destination?.url
   const adopting = adoptsTab(input)
-  const action = adopting
-    ? `Adopt tab ${adopting} at ${destination}`
-    : destination
-      ? `Allow navigation to ${destination}`
-      : `Allow ${input.effect.command.type}`
+  const dialog = dialogAction(input)
+  const action =
+    dialog?.action ??
+    (adopting
+      ? `Adopt tab ${adopting} at ${destination}`
+      : destination
+        ? `Allow navigation to ${destination}`
+        : `Allow ${input.effect.command.type}`)
   return {
     ...grantableFor(input, risk),
     id: `${input.stepId}:approval`,
@@ -147,9 +226,13 @@ const makeApprovalRequest = (
     stepId: input.stepId,
     risk,
     action,
-    consequence: destination
-      ? `The browser will use the complete destination URL: ${destination}`
-      : "The browser will perform the resolved page effect shown above.",
+    consequence:
+      dialog?.consequence ??
+      (destination
+        ? `The browser will use the complete destination URL: ${destination}`
+        : hasNoSubmitStep(input)
+          ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
+          : "The browser will perform the resolved page effect shown above."),
     pageEvidence: input.effect.target.accessibleName,
     createdAt: input.now
   }
@@ -203,21 +286,45 @@ const adoptsTab = (input: AgentPolicyInput): number | undefined => {
 
 /**
  * The risk an effect carries before its destination is considered: what it
- * does to the page, whether it can submit, whether it adopts a tab the run
- * does not drive, and whether it acts inside a frame on a site outside the
- * allowlist — a frame the run reads is on an allowed origin, so anything else
- * is a new site.
+ * does to the page, whether it adopts a tab the run does not drive, and
+ * whether it acts inside a frame on a site outside the allowlist — a frame
+ * the run reads is on an allowed origin, so anything else is a new site.
+ *
+ * Submission is priced as the `submission` class the resolver attaches to the
+ * commands that actually submit — a click on a submitter, Enter in a field
+ * that submits on it. It used to be priced a second time from the target's
+ * `maySubmit`, which says only that the control sits on a submit path: every
+ * character typed into an ordinary single-field form was therefore critical,
+ * and critical is never grantable, so filling in a search box cost one
+ * unskippable prompt per keystroke-batch and trained the user to approve
+ * without reading. Typing is a form mutation and priced as one.
  */
 const baselineRisk = (input: AgentPolicyInput): AgentRisk => {
   let risk: AgentRisk = "low"
   for (const effect of input.effect.semanticEffects) {
     risk = raiseRisk(risk, effectRisk(effect))
   }
-  if (input.effect.target.maySubmit) risk = raiseRisk(risk, "critical")
   if (adoptsTab(input) !== undefined) risk = raiseRisk(risk, "high")
   if (
     input.effect.frameOrigin !== undefined &&
     !input.allowedOrigins.includes(input.effect.frameOrigin)
+  ) {
+    risk = raiseRisk(risk, "high")
+  }
+  /**
+   * A dialog is priced against the site that raised it, root frame included.
+   *
+   * Every other effect on an unapproved top-level origin already costs an
+   * approval by its own class — an activation is high whatever page it is on
+   * — but a dismissal is low, so without this a page that navigated itself
+   * somewhere the run never approved could have its dialogs answered for
+   * free. The rule above covers a child frame and this one covers the
+   * document the tab shows; both ask the same question of the origin that
+   * actually asked.
+   */
+  if (
+    input.effect.command.type === "handle_dialog" &&
+    !input.allowedOrigins.includes(actingOrigin(input))
   ) {
     risk = raiseRisk(risk, "high")
   }

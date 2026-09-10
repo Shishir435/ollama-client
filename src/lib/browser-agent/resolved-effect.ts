@@ -114,6 +114,15 @@ const assertLiveObservation = async (
       "Agent command references a stale observation"
     )
   }
+  /**
+   * A native dialog holds the document, so no other command can be grounded
+   * in a page nobody can read. Refused here rather than per family, because
+   * every family shares this function and the answer is the same for all of
+   * them: answer the dialog first.
+   */
+  if (command.type !== "handle_dialog" && observation.dialogs.length > 0) {
+    throw new AgentGroundingError({ refusal: { reason: "dialog_open" } })
+  }
   const source = destination(observation.url)
   if (
     source.origin !== observation.origin ||
@@ -426,6 +435,74 @@ export const resolveNavigationAgentEffect = async (input: {
   }
 }
 
+export const DIALOG_AGENT_ACTIONS = ["handle_dialog"] as const
+
+export type DialogAgentAction = (typeof DIALOG_AGENT_ACTIONS)[number]
+
+/**
+ * Resolves `handle_dialog` against the dialog the observation reported.
+ *
+ * The dialog's identity travels so the executor answers the prompt this
+ * decision was taken against and no other. Its message travels as the
+ * target's accessible name, which is the channel page evidence already
+ * reaches an approval through — page text, bounded and shown, never trusted.
+ *
+ * Dismissal is the safe direction and is priced as such. Accepting is not:
+ * a `confirm` is how a page asks before deleting something and a
+ * `beforeunload` is how it says work would be lost, and neither says which
+ * from the outside — so an accepted confirmation, prompt or unload carries
+ * `destructive`, which is critical and never grantable. An `alert` has only
+ * one button and commits to nothing, so closing it costs no prompt: a run
+ * that had to ask before dismissing an alert could not get past one.
+ */
+export const resolveDialogAgentEffect = async (input: {
+  command: AgentCommand
+  observation: AgentObservation
+  adapter: AgentEffectResolverAdapter
+}): Promise<ResolvedAgentEffect> => {
+  const { command, observation } = input
+  if (command.type !== "handle_dialog") {
+    throw new Error(`Unsupported Agent dialog action: ${command.type}`)
+  }
+  const source = await assertLiveObservation(
+    command,
+    observation,
+    input.adapter
+  )
+  const refused = classifyAgentAffordance(command, observation)
+  if (refused) throw new AgentGroundingError({ refusal: refused })
+  const dialog = observation.dialogs.find(
+    (open) => open.id === command.dialogId
+  )
+  if (!dialog) {
+    throw new AgentGroundingError({ refusal: { reason: "unknown_dialog" } })
+  }
+  const effects: AgentSemanticEffect[] = ["dialog"]
+  if (command.accept && dialog.type !== "alert") effects.push("destructive")
+  if (command.accept && dialog.type === "prompt") effects.push("form_mutation")
+  return {
+    command,
+    target: {
+      sensitive: false,
+      maySubmit: false,
+      ...(dialog.message ? { accessibleName: dialog.message } : {})
+    },
+    dialog: { id: dialog.id, type: dialog.type },
+    semanticEffects: effects,
+    snapshotIdentity: rootAgentSnapshotIdentity(observation),
+    sourceUrl: source.url,
+    sourceOrigin: source.origin,
+    /**
+     * A dialog raised by an embedded frame is an effect on that frame's
+     * site, not on the page the tab shows: it is the frame that asked and
+     * the frame that acts on the answer. Carried the same way a child-frame
+     * element's is, so policy judges the answer, its grant offer and its
+     * origin allowlist against the site that owns the prompt.
+     */
+    ...(dialog.origin === source.origin ? {} : { frameOrigin: dialog.origin })
+  }
+}
+
 export const DOM_MUTATION_AGENT_ACTIONS = [
   "click",
   "click_point",
@@ -512,6 +589,38 @@ const targetFromElement = (
   sensitive: element.sensitive,
   maySubmit: Boolean(element.maySubmit)
 })
+
+/**
+ * The commands whose whole effect is a changed value, and which therefore
+ * have to say whether that change is already persisted.
+ */
+const FORM_MUTATION_ACTIONS = new Set([
+  "type",
+  "clear_and_type",
+  "replace_text",
+  "select",
+  "check",
+  "uncheck"
+])
+
+/**
+ * Whether the edited control has no submission step behind it.
+ *
+ * A form is filled in and then submitted, and the submission is where the
+ * user is asked. A control belonging to no form — an editing host, or a bare
+ * field in an application that saves on input — has no such step, so this
+ * approval is the only one there will be. It says nothing about whether the
+ * page stored anything, which the run cannot see. Read from the observation's
+ * own facts: a control on a submit path reports `maySubmit`, and one
+ * belonging to a form reports that form's fingerprint.
+ */
+const hasNoSubmitStep = (
+  command: AgentCommand,
+  element: AgentElement
+): boolean =>
+  FORM_MUTATION_ACTIONS.has(command.type) &&
+  !element.maySubmit &&
+  element.formFingerprint === undefined
 
 const formDestination = (
   element: AgentElement
@@ -851,7 +960,8 @@ export const resolveDomMutationAgentEffect = async (input: {
     target: {
       ...targetFromElement(element, observation, expected),
       ...(point ? { point } : {}),
-      ...(drop ? { drop: drop.drop } : {})
+      ...(drop ? { drop: drop.drop } : {}),
+      ...(hasNoSubmitStep(command, element) ? { noSubmitStep: true } : {})
     },
     ...(destination ? { destination } : {}),
     semanticEffects: [...new Set(effects)],

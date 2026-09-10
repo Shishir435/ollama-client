@@ -8,6 +8,7 @@ import type { AgentObservation } from "@ollama-client/contracts"
 import type { TabAccess } from "@/lib/browser-tab-access"
 import { normalizeAgentEditorText } from "./editor-text"
 import type {
+  DialogAgentAction,
   DomMutationAgentAction,
   NavigationAgentAction,
   ReadOnlyAgentAction
@@ -346,12 +347,33 @@ const verifyCommittedDestination = async (
   if (!destination) {
     return result("ambiguous", kind, "Destination unavailable", adapter.now())
   }
-  await adapter.waitForNavigation?.(
-    tabId,
-    input.effect.sourceUrl,
-    destination.url,
-    signal
-  )
+  try {
+    await adapter.waitForNavigation?.(
+      tabId,
+      input.effect.sourceUrl,
+      destination.url,
+      signal
+    )
+  } catch (error) {
+    /**
+     * A navigation the page asked about has not happened. `beforeunload` is
+     * held by the debugger, so the wait times out with the old page still in
+     * the tab — which is a negative, not an unresolved effect: nothing
+     * committed, and the run can re-observe, see the dialog and decide
+     * whether to leave. Anything else that stopped the wait stays what it was.
+     */
+    if (signal.aborted) throw error
+    const held = await observeAfter(input, adapter, signal, tabId).catch(
+      () => undefined
+    )
+    if (!held?.dialogs.length) throw error
+    return result(
+      "negative",
+      kind,
+      "A dialog is holding the navigation",
+      adapter.now()
+    )
+  }
   const tab = await adapter.getTab(tabId)
   if (!tab?.url) {
     return result("negative", kind, "Destination tab is gone", adapter.now())
@@ -1032,6 +1054,52 @@ export const DOM_MUTATION_AGENT_VERIFIERS = {
   uncheck: verifyCheckedMutation,
   press_key: withDelivery("keyboard", verifyKey)
 } satisfies Record<DomMutationAgentAction, Verifier>
+
+/**
+ * A dialog answer is confirmed by the dialog being gone.
+ *
+ * The page unblocks the moment it is answered, so the fresh observation is
+ * the evidence: the prompt this step named is no longer held. A prompt still
+ * open is a negative — nothing was answered — while a different prompt now
+ * open is ambiguous: this one was answered and the page immediately asked
+ * something else, which the next step reads rather than this one crediting.
+ */
+const verifyDialogAnswer: Verifier = async (input, adapter, signal) => {
+  const answered = input.effect.dialog?.id
+  const after = await observeAfter(input, adapter, signal)
+  if (answered && after.dialogs.some((open) => open.id === answered)) {
+    return result(
+      "negative",
+      "dialog",
+      "The dialog is still holding the page",
+      adapter.now()
+    )
+  }
+  return after.dialogs.length > 0
+    ? result(
+        "ambiguous",
+        "dialog",
+        "The dialog was answered and the page opened another",
+        adapter.now()
+      )
+    : result("confirmed", "dialog", "No dialog holds the page", adapter.now())
+}
+
+export const DIALOG_AGENT_VERIFIERS = {
+  handle_dialog: verifyDialogAnswer
+} satisfies Record<DialogAgentAction, Verifier>
+
+export const verifyDialogAgentEffect = async (input: {
+  verification: AgentVerificationInput
+  adapter: AgentEffectVerifierAdapter
+  signal: AgentCancellationSignal
+}): Promise<AgentVerificationResult> => {
+  const verifier = DIALOG_AGENT_VERIFIERS[
+    input.verification.effect.command.type as DialogAgentAction
+  ] as Verifier | undefined
+  if (!verifier) throw new Error("Agent action has no dialog verifier")
+  return verifier(input.verification, input.adapter, input.signal)
+}
 
 export const verifyDomMutationAgentEffect = async (input: {
   verification: AgentVerificationInput

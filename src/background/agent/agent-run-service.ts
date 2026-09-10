@@ -277,6 +277,9 @@ export const createAgentRunService = (input?: {
       mapFrame: () => ({ mapped: false, reason: "tracking_unavailable" }),
       subscribe: () => () => undefined,
       nativeInput: () => undefined,
+      /** No debugger, so no dialog is ever intercepted or answerable. */
+      openDialog: () => undefined,
+      handleDialog: async () => "not_open" as const,
       dispose: async () => undefined
     } satisfies AgentBrowserSessionManager)
 

@@ -211,18 +211,73 @@ export const AgentScrollStateSchema = z.object({
 })
 export type AgentScrollState = z.infer<typeof AgentScrollStateSchema>
 
-export const AgentDialogStateSchema = z.object({
-  type: z.enum(["alert", "confirm", "prompt", "beforeunload"]),
-  message: z.string().max(500)
-})
+/** The most of a dialog's own text the run carries; it is page content. */
+export const MAX_AGENT_DIALOG_MESSAGE_CHARS = 500
+
+/**
+ * A native dialog the page opened and the browser is holding open.
+ *
+ * `id` is the prompt's identity, minted by whatever observed the dialog and
+ * stable for as long as that dialog is the one open. A command to answer a
+ * dialog names it, so a decision taken against one prompt cannot answer the
+ * prompt that replaced it — the page can close one and open another between
+ * an observation and the answer, and "accept whatever is open" would then
+ * accept something nobody read.
+ *
+ * `origin` is the document that opened it, which is not always the page: an
+ * embedded frame's `confirm` blocks the whole tab, and answering it is an
+ * effect on that frame's site. `"null"` is an answer — a frame with no origin
+ * of its own, or one that could not be placed — and never matches an
+ * allowlist.
+ *
+ * `message` and `defaultPrompt` are the page's own strings: untrusted data,
+ * bounded, and never instructions. Both are withheld when the dialog's origin
+ * is one the run was not authorized to read, the same way an unauthorized
+ * frame's elements are: the run is told a dialog exists and whose it is, and
+ * nothing that frame wrote.
+ */
+export const AgentDialogStateSchema = z
+  .object({
+    id: z.string().min(1).max(80),
+    type: z.enum(["alert", "confirm", "prompt", "beforeunload"]),
+    origin: z.string().min(1).max(2_048),
+    message: z.string().max(MAX_AGENT_DIALOG_MESSAGE_CHARS),
+    /** What a `prompt` arrived pre-filled with, when it did. */
+    defaultPrompt: z.string().max(MAX_AGENT_DIALOG_MESSAGE_CHARS).optional(),
+    /**
+     * Set when the dialog's origin is not one the run may read, so its text
+     * was withheld. The model is told the dialog exists and cannot be read,
+     * rather than being shown an empty message it would take for an empty
+     * dialog.
+     */
+    unauthorizedOrigin: z.boolean().optional()
+  })
+  .strict()
+  .superRefine((dialog, context) => {
+    if (dialog.unauthorizedOrigin && dialog.message !== "") {
+      context.addIssue({
+        code: "custom",
+        path: ["message"],
+        message: "An unauthorized dialog's text must be withheld"
+      })
+    }
+    if (dialog.unauthorizedOrigin && dialog.defaultPrompt !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["defaultPrompt"],
+        message: "An unauthorized dialog's default must be withheld"
+      })
+    }
+  })
 export type AgentDialogState = z.infer<typeof AgentDialogStateSchema>
 
 /**
  * An open in-page dialog or menu.
  *
  * Deliberately not `dialogs`, which is typed for `alert`, `confirm`, `prompt`
- * and `beforeunload` — native dialogs block the page and are genuinely
- * unobservable from a content script. A `<dialog open>` or `[role=dialog]` is
+ * and `beforeunload` — a native dialog blocks the page and is unobservable
+ * from a content script, so only an attached debugger reports one. A
+ * `<dialog open>` or `[role=dialog]` is
  * ordinary DOM, and the run needs to know which one owns the controls it can
  * see: acting on the opener behind a modal is the loop the fixtures showed.
  */
@@ -267,6 +322,12 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
    * fact is not read as a fact the page does not state. */
   documentTextTruncated: z.boolean().optional(),
   scroll: AgentScrollStateSchema,
+  /**
+   * Native dialogs holding the page open. A non-empty list means the document
+   * itself is blocked: nothing in it can be read or acted on until the dialog
+   * is answered, so such an observation carries no elements and its root frame
+   * reports itself unread.
+   */
   dialogs: z.array(AgentDialogStateSchema).max(10),
   modals: z.array(AgentModalStateSchema).max(10).optional(),
   capturedAt: z.number().int().nonnegative()

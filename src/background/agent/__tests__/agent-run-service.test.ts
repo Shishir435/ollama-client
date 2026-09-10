@@ -117,6 +117,8 @@ const browserSessions = () => {
       }
     }),
     nativeInput: vi.fn(() => undefined),
+    openDialog: vi.fn(() => undefined),
+    handleDialog: vi.fn(async () => "not_open" as const),
     dispose: vi.fn(async () => undefined)
   } satisfies AgentBrowserSessionManager
   return {

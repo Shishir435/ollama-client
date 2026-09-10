@@ -258,3 +258,102 @@ describe("visual grounding resolution", () => {
     expect(effect.target).toEqual({ sensitive: false, maySubmit: false })
   })
 })
+
+/**
+ * A point is only ever a way of naming a control. Once the page says which
+ * control lies under it, that control's own semantics decide what the step
+ * costs — so a visual click can reach a canvas without becoming a cheaper
+ * way to press Submit.
+ */
+describe("a visual click cannot outrank the control it lands on", () => {
+  const policy = (
+    effect: Awaited<ReturnType<typeof resolveDomMutationAgentEffect>>
+  ) =>
+    evaluateAgentPolicy({
+      runId: "run-1",
+      stepId: "run:1",
+      effect,
+      allowedOrigins: ["https://example.com"],
+      scopedTabIds: [7],
+      now: 3
+    })
+
+  const resolveOn = (element: AgentElement) =>
+    resolveDomMutationAgentEffect({
+      command: clickPoint(400, 300),
+      observation: observation(),
+      adapter: adapter({ element }).instance,
+      context: { screenshot: screenshot() }
+    })
+
+  it("prices a point on a submit control as a submission", async () => {
+    const effect = await resolveOn({
+      ref: "e2",
+      frameId: 0,
+      tag: "button",
+      type: "submit",
+      name: "Place order",
+      visible: true,
+      enabled: true,
+      editable: false,
+      sensitive: false,
+      submitter: true,
+      maySubmit: true,
+      formAction: "https://example.com/orders",
+      formMethod: "post"
+    })
+    expect(effect.semanticEffects).toContain("submission")
+    const decision = policy(effect)
+    expect(decision.type).toBe("approval_required")
+    expect(decision.risk).toBe("critical")
+    if (decision.type !== "approval_required") return
+    expect(decision.request.grantable).toBeUndefined()
+  })
+
+  it("hands a point on a sensitive control to the user", async () => {
+    const decision = policy(
+      await resolveOn({
+        ref: "e3",
+        frameId: 0,
+        tag: "input",
+        type: "password",
+        visible: true,
+        enabled: true,
+        editable: true,
+        sensitive: true
+      })
+    )
+    expect(decision.type).toBe("takeover_required")
+  })
+
+  it("prices a point on a delete control as destructive", async () => {
+    const decision = policy(
+      await resolveOn({
+        ref: "e4",
+        frameId: 0,
+        tag: "button",
+        name: "Delete project",
+        visible: true,
+        enabled: true,
+        editable: false,
+        sensitive: false
+      })
+    )
+    expect(decision.risk).toBe("critical")
+  })
+
+  it("still refuses a checkbox, which states a value rather than a toggle", async () => {
+    await expect(
+      resolveOn({
+        ref: "e5",
+        frameId: 0,
+        tag: "input",
+        type: "checkbox",
+        visible: true,
+        enabled: true,
+        editable: true,
+        sensitive: false
+      })
+    ).rejects.toBeInstanceOf(AgentGroundingError)
+  })
+})

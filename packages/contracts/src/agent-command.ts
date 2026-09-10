@@ -131,6 +131,23 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     type: z.literal("switch_tab"),
     tabId: z.number().int().nonnegative()
   }).strict(),
+  /**
+   * Answers the native dialog `dialogId` names. `accept` is the dialog's
+   * primary button — OK on an alert, OK on a confirm, Leave on a
+   * beforeunload — and `false` is its dismissal, which is the safe direction
+   * and the one that always exists. `promptText` is the value a `prompt`
+   * accepts with; a prompt accepted without it takes the page's own default.
+   *
+   * The id is what makes the answer the one that was decided on: a page may
+   * close one dialog and open another, and an answer that named only the tab
+   * would confirm whatever is open rather than what the model read.
+   */
+  GroundedCommandSchema.extend({
+    type: z.literal("handle_dialog"),
+    dialogId: z.string().min(1).max(80),
+    accept: z.boolean(),
+    promptText: z.string().max(500).optional()
+  }).strict(),
   GroundedCommandSchema.extend({
     type: z.literal("wait"),
     condition: z.string().min(1).max(500),

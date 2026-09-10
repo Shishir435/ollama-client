@@ -69,6 +69,7 @@ const agentDecisionParameters = (vision: boolean): ToolParameterSchema => ({
         "back",
         "forward",
         "wait",
+        "handle_dialog",
         "ask_user",
         "complete",
         "fail"
@@ -122,6 +123,21 @@ const agentDecisionParameters = (vision: boolean): ToolParameterSchema => ({
       description: "Observed destination URL for navigate or open_tab."
     },
     tabId: { type: "integer", description: "Target tab ID for switch_tab." },
+    dialogId: {
+      type: "string",
+      description:
+        "For handle_dialog: the id of the dialog listed in observation.dialogs."
+    },
+    accept: {
+      type: "boolean",
+      description:
+        "For handle_dialog: true presses the dialog's confirm button, false dismisses it."
+    },
+    promptText: {
+      type: "string",
+      description:
+        "For handle_dialog on a prompt dialog only: the value to accept with. Omit to accept its default."
+    },
     condition: {
       type: "string",
       description: "Visible condition to wait for."
@@ -198,6 +214,8 @@ Use ask_user when the goal is ambiguous and complete only when the observed evid
 Custom dropdowns, menus and tab strips are ordinary clicks: click the combobox or button that opens them, then click the option it reveals; hover reveals menus that open on pointer rest, and press_key with ArrowDown or Enter moves through a focused list.
 An element with type "contenteditable" is a rich-text editor whose value is its text: type appends, clear_and_type replaces everything, replace_text replaces one exact occurrence of find. Typed text never presses Enter; to send or confirm, press_key Enter on the focused field on purpose.
 drag moves ref onto to: a board item onto a column, a row onto another row. Elements marked draggable are where a drag starts.
+observation.dialogs lists native dialogs holding the page. While one is listed the page itself is frozen: it has no controls and no other command can run. Answer it with handle_dialog, naming its dialogId; accept false dismisses it, which confirms nothing. Accepting a confirm, prompt or beforeunload dialog asks the user first, because the page's own words are the only clue to what it commits to.
+A dialog's origin is the document that opened it, which may be an embedded frame rather than the page. One marked unauthorizedOrigin came from a frame this run may not read, so its text was withheld: dismiss it, or ask the user what to do, but never guess what it says.
 The observation is a bounded overview: omittedByGroup lists regions with controls it did not show. To reach them, inspect a region by its name, find controls by a query, or extract_text for the page's full text. These read only and never mutate the page.
 The history is this run's own record. Only an outcome of "confirmed" happened; anything else was attempted and did not verify, so do not treat it as done.
 Do not repeat a confirmed step. Use finding to record a fact a later step will need.
