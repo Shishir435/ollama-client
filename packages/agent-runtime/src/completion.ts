@@ -1,6 +1,10 @@
 import type { AgentCommand, AgentObservation } from "@ollama-client/contracts"
 
-import { agentObservationStates } from "./observed-text"
+import {
+  agentHaystackStates,
+  agentNormalizedClaim,
+  agentObservationStates
+} from "./observed-text"
 import type {
   AgentSemanticEffect,
   AgentStepReadout,
@@ -56,7 +60,12 @@ export type AgentCompletionJudgement =
   | { type: "accepted" }
   | {
       type: "refused"
-      reason: "unverified_change" | "missing_evidence" | "absent_evidence"
+      reason:
+        | "unverified_change"
+        | "missing_evidence"
+        | "absent_evidence"
+        | "self_evidence"
+        | "stale_evidence"
       /** Written for the model, from templates and its own words only. */
       feedback: string
     }
@@ -72,6 +81,13 @@ export interface AgentCompletionInput {
   observation: AgentObservation
   /** What the model says shows the goal is met, if it said anything. */
   evidence?: string
+  /**
+   * The page as it read when the run's last change was decided, flattened by
+   * `agentObservationHaystack`. Best effort: it lives in the worker that made
+   * the change, so a restart loses it and the staleness check is skipped
+   * rather than guessed at.
+   */
+  baselineText?: string
 }
 
 /**
@@ -131,6 +147,34 @@ const ABSENT_EVIDENCE_FEEDBACK =
 const UNVERIFIED_CHANGE_FEEDBACK =
   "The last change this run made was not confirmed, so the goal cannot be reported as met. Observe the page and check the change took effect — wait for a saved-state indicator, or make the change again — before completing."
 
+const SELF_EVIDENCE_FEEDBACK =
+  "The evidence named for complete is the label of the control this run acted on, which was on the page before the action and shows nothing about its outcome. Name what the page says now that it did not say before."
+
+const STALE_EVIDENCE_FEEDBACK =
+  "The evidence named for complete was already on the page before this run changed anything, so it does not show the change happened. Name something the change produced, or wait for it to appear."
+
+/**
+ * Evidence that is the acted-on control's own label.
+ *
+ * Clicking Save and then citing "Save" is the shape of a false completion
+ * that presence alone cannot catch: the word is on the page, and it was on
+ * the page before the click. Compared exactly after normalising, not by
+ * containment — a goal whose own wording happens to include a button's label
+ * ("rename it to Save the world") is a real answer, and refusing it would
+ * cost more than the bypass does.
+ */
+const isSelfEvidence = (
+  evidence: string,
+  change: AgentStepReadout
+): boolean => {
+  const name = change.target?.name
+  return (
+    name !== undefined &&
+    agentNormalizedClaim(name).length > 0 &&
+    agentNormalizedClaim(name) === agentNormalizedClaim(evidence)
+  )
+}
+
 /**
  * `accepted` means the completion may be recorded. A refusal is a safe
  * failure: nothing was done to the page and the run can look again, so it is
@@ -164,11 +208,37 @@ export const judgeAgentCompletion = (
       feedback: MISSING_EVIDENCE_FEEDBACK
     }
   }
-  return agentObservationStates(evidence, input.observation)
-    ? { type: "accepted" }
-    : {
-        type: "refused",
-        reason: "absent_evidence",
-        feedback: ABSENT_EVIDENCE_FEEDBACK
-      }
+  if (!agentObservationStates(evidence, input.observation)) {
+    return {
+      type: "refused",
+      reason: "absent_evidence",
+      feedback: ABSENT_EVIDENCE_FEEDBACK
+    }
+  }
+  /**
+   * Presence is necessary and not sufficient. Nothing here can judge whether
+   * a phrase demonstrates the goal — that is the claim the model is making,
+   * and a deterministic rule cannot check it. What it can refuse is evidence
+   * that was already true before the change, which therefore cannot be
+   * evidence of the change: the acted-on control's own label, and anything
+   * the page already said when the change was decided.
+   */
+  if (change !== "unreadable" && isSelfEvidence(evidence, change)) {
+    return {
+      type: "refused",
+      reason: "self_evidence",
+      feedback: SELF_EVIDENCE_FEEDBACK
+    }
+  }
+  if (
+    input.baselineText !== undefined &&
+    agentHaystackStates(evidence, input.baselineText)
+  ) {
+    return {
+      type: "refused",
+      reason: "stale_evidence",
+      feedback: STALE_EVIDENCE_FEEDBACK
+    }
+  }
+  return { type: "accepted" }
 }

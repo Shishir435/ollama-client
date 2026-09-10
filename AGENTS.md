@@ -584,7 +584,17 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   Changes are counted from the resolved effect's own classes and recorded
   durably on the receipt as `mutating`, because a worker restart keeps the
   receipts and loses everything else; navigation is not a change, or every
-  research task would owe a saved-state indicator it never had. Receipts that
+  research task would owe a saved-state indicator it never had.
+  Presence is necessary and not sufficient. Nothing in the trusted layer can
+  judge whether a phrase *demonstrates* the goal — that is the claim the
+  model is making, and no deterministic rule checks it — but it can refuse
+  evidence that was already true before the change and therefore cannot be
+  evidence of it: the acted-on control's own label, compared exactly so a
+  goal worded around a button's text is still answerable, and anything the
+  page already said when the change was decided. That baseline lives in the
+  worker that made the change, so a restart loses it and the check is skipped
+  rather than guessed at — an absent baseline is not proof the evidence is
+  new. Receipts that
   cannot be read are an unknown, never an empty history — reading them as
   "changed nothing" is the hole the gate exists to close. A refusal is a safe
   failure: nothing was attempted, so it is recorded as a rejected step and the
@@ -595,7 +605,10 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   state — a saved indicator, a row that appears — and the verifier re-observes
   until the page shows it or the named timeout is spent, whichever comes
   first, capped at `AGENT_WAIT_MAX_POLLS` because every look is a full
-  observation. Sleeping the whole timeout and reading once was the worst of
+  observation. The whole named window is covered — the look before the last
+  waits out whatever remains, since six looks leave five gaps and spacing
+  them evenly ended a thirty-second wait at twenty-five, sending the run off
+  to re-plan work that was about to succeed. Sleeping the whole timeout and reading once was the worst of
   both: a save that landed in 300ms still cost thirty seconds, and one that
   landed a moment after the single read was reported absent.
 - **A real terminated worker is the only proof of recovery.**

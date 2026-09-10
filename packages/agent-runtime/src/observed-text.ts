@@ -16,13 +16,12 @@ import type { AgentObservation } from "@ollama-client/contracts"
  * folded, because neither is something a model can be asked to reproduce
  * exactly from a rendered page.
  */
-export const agentObservationStates = (
-  claim: string,
+
+/** One page, flattened to the text a claim about it is matched against. */
+export const agentObservationHaystack = (
   observation: AgentObservation
-): boolean => {
-  const needle = claim.replaceAll(/\s+/g, " ").trim().toLocaleLowerCase()
-  if (!needle) return false
-  const haystack = [
+): string =>
+  [
     observation.title,
     observation.visibleText,
     observation.documentText ?? "",
@@ -35,5 +34,20 @@ export const agentObservationStates = (
     .join(" ")
     .replaceAll(/\s+/g, " ")
     .toLocaleLowerCase()
-  return haystack.includes(needle)
+
+/** The comparable form of a phrase a model wrote about a page. */
+export const agentNormalizedClaim = (claim: string): string =>
+  claim.replaceAll(/\s+/g, " ").trim().toLocaleLowerCase()
+
+export const agentHaystackStates = (
+  claim: string,
+  haystack: string
+): boolean => {
+  const needle = agentNormalizedClaim(claim)
+  return needle.length > 0 && haystack.includes(needle)
 }
+
+export const agentObservationStates = (
+  claim: string,
+  observation: AgentObservation
+): boolean => agentHaystackStates(claim, agentObservationHaystack(observation))

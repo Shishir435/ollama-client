@@ -224,6 +224,81 @@ describe("judgeAgentCompletion", () => {
     ).toMatchObject({ type: "refused", reason: "unverified_change" })
   })
 
+  it("refuses the label of the control the run just acted on", () => {
+    /**
+     * Clicking Save and citing "Save" is the false completion presence alone
+     * cannot catch: the word is on the page, and it was there before the
+     * click. Nothing here can judge whether a phrase demonstrates the goal —
+     * that is the model's claim — but evidence that was already true cannot
+     * be evidence of the change.
+     */
+    const decision = judgeAgentCompletion({
+      steps: [
+        step({
+          sequence: 1,
+          target: { ref: "e1", tag: "button", name: "Save" }
+        })
+      ],
+      observation: observation({ visibleText: "Save" }),
+      evidence: "Save"
+    })
+    expect(decision).toMatchObject({
+      type: "refused",
+      reason: "self_evidence"
+    })
+  })
+
+  it("still accepts an answer whose wording contains that label", () => {
+    // Compared exactly, not by containment: a goal worded around a button's
+    // label is a real answer, and refusing it costs more than the bypass.
+    expect(
+      judgeAgentCompletion({
+        steps: [
+          step({
+            sequence: 1,
+            target: { ref: "e1", tag: "button", name: "Save" }
+          })
+        ],
+        observation: observation({ visibleText: "Renamed to Save the world" }),
+        evidence: "Renamed to Save the world"
+      })
+    ).toEqual({ type: "accepted" })
+  })
+
+  it("refuses evidence the page already showed before the change", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [step({ sequence: 1 })],
+        observation: observation({ visibleText: "Draft — All changes saved" }),
+        evidence: "All changes saved",
+        baselineText: "draft — all changes saved"
+      })
+    ).toMatchObject({ type: "refused", reason: "stale_evidence" })
+  })
+
+  it("accepts evidence the change itself put there", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [step({ sequence: 1 })],
+        observation: observation({ visibleText: "Draft — All changes saved" }),
+        evidence: "All changes saved",
+        baselineText: "draft — unsaved changes"
+      })
+    ).toEqual({ type: "accepted" })
+  })
+
+  it("does not treat a lost baseline as proof the evidence is new", () => {
+    // A restart loses the baseline. Skipping the check is the honest answer;
+    // inventing one either way would be a guess about a page nobody kept.
+    expect(
+      judgeAgentCompletion({
+        steps: [step({ sequence: 1 })],
+        observation: observation({ visibleText: "All changes saved" }),
+        evidence: "All changes saved"
+      })
+    ).toEqual({ type: "accepted" })
+  })
+
   it("judges the last change, not an earlier one that was superseded", () => {
     const decision = judgeAgentCompletion({
       steps: [

@@ -33,6 +33,7 @@ import {
   currentAgentInspection,
   previousAgentVerification
 } from "./history"
+import { agentObservationHaystack } from "./observed-text"
 import type {
   AgentCancellationController,
   AgentController,
@@ -142,6 +143,17 @@ export const createAgentController = (
   const lastGeneration = new Map<string, number>()
   const minimumGeneration = new Map<string, number>()
   const previousProgress = new Map<string, AgentProgressPoint>()
+  /**
+   * The page as it read when this run's last change was decided.
+   *
+   * Evidence that was already true then cannot be evidence of the change, so
+   * the completion judge is given it to refuse with. One entry: the service
+   * admits one run at a time, so a second run replaces it rather than
+   * accumulating a page of text per run, and a worker restart simply loses it
+   * — the judge treats an absent baseline as unknown rather than as proof the
+   * evidence is new.
+   */
+  let changeBaseline: { runId: string; text: string } | undefined
   const noProgressCounts = new Map<string, number>()
 
   const claim = async (
@@ -781,6 +793,12 @@ export const createAgentController = (
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
     const stepId = `${state.id}:${stepNumber}`
+    if (agentEffectChangesPage(effect)) {
+      changeBaseline = {
+        runId: state.id,
+        text: agentObservationHaystack(observation)
+      }
+    }
     await dependencies.persistence.appendStep({
       runId: state.id,
       stepId,
@@ -842,10 +860,13 @@ export const createAgentController = (
     } catch {
       dependencies.trace?.(state.id, "completion_receipts_unreadable")
     }
+    const baseline =
+      changeBaseline?.runId === state.id ? changeBaseline.text : undefined
     const judgement = judgeAgentCompletion({
       ...(steps ? { steps } : {}),
       observation,
-      ...(decision.evidence ? { evidence: decision.evidence } : {})
+      ...(decision.evidence ? { evidence: decision.evidence } : {}),
+      ...(baseline === undefined ? {} : { baselineText: baseline })
     })
     if (judgement.type === "accepted") {
       await transition(state, "completed", {

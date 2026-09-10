@@ -206,9 +206,11 @@ export const READ_ONLY_AGENT_VERIFIERS = {
    *
    * The condition is an application state the run is holding for — a saved
    * indicator, a row that appears, a spinner that goes — so the page is read
-   * until it says so or the named timeout is spent, whichever comes first. A
-   * host with no way to pause between looks reads once, which is what this
-   * did before.
+   * until it says so or the named timeout is spent, whichever comes first.
+   * The whole named window is covered: the timeout is what the model was
+   * promised, and reporting a condition absent before it has elapsed sends
+   * the run off to re-plan work that was about to succeed. A host with no way
+   * to pause between looks reads once, which is what this did before.
    */
   async wait(input, adapter, signal) {
     if (input.effect.command.type !== "wait")
@@ -237,7 +239,18 @@ export const READ_ONLY_AGENT_VERIFIERS = {
           adapter.now()
         )
       }
-      await adapter.wait(Math.min(interval, remaining), signal)
+      /**
+       * The look before the last one waits out whatever is left, so the final
+       * observation lands at the deadline rather than an interval short of
+       * it. Six looks leave five gaps: spacing every gap evenly ended a
+       * thirty-second wait at twenty-five seconds and called a condition that
+       * arrived in the last five absent.
+       */
+      const lastGap = poll === AGENT_WAIT_MAX_POLLS - 1
+      await adapter.wait(
+        lastGap ? remaining : Math.min(interval, remaining),
+        signal
+      )
     }
   },
   async scroll(input, adapter, signal) {

@@ -331,6 +331,45 @@ describe("read-only Agent effects", () => {
     expect(pauses).toEqual([5_000, 5_000])
   })
 
+  it("covers the whole named window, not one interval short of it", async () => {
+    /**
+     * Six looks leave five gaps. Spacing every gap evenly ended a
+     * thirty-second wait at twenty-five seconds and reported a condition
+     * that arrived in the last five absent — the run then re-planned work
+     * that was about to succeed. The timeout is what the model was promised.
+     */
+    const command = {
+      type: "wait",
+      condition: "All changes saved",
+      timeoutMs: 30_000,
+      snapshotId: "snapshot-1",
+      generation: 1
+    } as const
+    let clock = 2
+    const looks: number[] = []
+    const outcome = await verifyReadOnlyAgentEffect({
+      verification: await verificationInput(command),
+      adapter: verifierAdapter(observation(), {
+        observe: async () => {
+          looks.push(clock - 2)
+          return observation({
+            snapshotId: "snapshot-2",
+            generation: 2,
+            // Appears in the last stretch, which the old cadence never saw.
+            visibleText: clock - 2 >= 30_000 ? "All changes saved" : "Saving…"
+          })
+        },
+        wait: async (ms) => {
+          clock += ms
+        },
+        now: () => clock
+      }),
+      signal
+    })
+    expect(looks).toEqual([0, 5_000, 10_000, 15_000, 20_000, 30_000])
+    expect(outcome).toMatchObject({ outcome: "confirmed" })
+  })
+
   it("gives up after a bounded number of looks", async () => {
     const command = {
       type: "wait",

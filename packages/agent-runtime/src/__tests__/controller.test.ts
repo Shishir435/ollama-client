@@ -764,6 +764,38 @@ describe("agent controller", () => {
     ).toEqual(["negative"])
   })
 
+  it("refuses evidence the page already showed when the change was made", async () => {
+    /**
+     * The baseline is the page as it read when the change was decided, so a
+     * run cannot finish by quoting something that was already true. Held in
+     * the worker that made the change; a restart loses it and the check is
+     * skipped rather than guessed at.
+     */
+    let decisions = 0
+    const claims: string[] = []
+    const harness = createHarness({
+      effectOverrides: { semanticEffects: ["activation"] },
+      observe: async () => observation({ visibleText: "Page text" }),
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1) return { type: "command", command: command() }
+        claims.push("Page text")
+        return {
+          type: "complete",
+          summary: "Done",
+          evidence: "Page text"
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState().status).not.toBe("completed")
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "rejected").length
+    ).toBeGreaterThan(0)
+  })
+
   it("records an asked question instead of looking like a user pause", async () => {
     const harness = createHarness({
       decisions: [{ type: "ask_user", question: "Which account?" }]
