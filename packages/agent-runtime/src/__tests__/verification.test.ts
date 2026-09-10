@@ -37,57 +37,6 @@ describe("verification outcomes", () => {
     })
   })
 
-  it("sends the run back to look when its own action raised a dialog", () => {
-    /**
-     * A confirm() in a click handler blocks the renderer, so the page cannot
-     * be asked what it received and delivery reads as unknown. The reason is
-     * known and answerable — the next observation reports the dialog — so the
-     * run looks again rather than stopping.
-     */
-    expect(
-      classifyVerificationOutcome(
-        {
-          outcome: "negative",
-          evidence: { kind: "dialog", summary: "held", observedAt: 1 }
-        },
-        "high",
-        true
-      )
-    ).toEqual({ type: "redecide", stepStatus: "failed", retryAllowed: true })
-  })
-
-  it("does so even at critical risk, which is where the confirmation is", () => {
-    /**
-     * The stranding case. A negative at critical risk pauses, and an
-     * ambiguous one pauses at any risk — between them, a button guarded by a
-     * confirmation could never be got past, and a guarded button is exactly
-     * where the risk is critical. Accepting the dialog still costs its own
-     * approval, so nothing is waved through by continuing.
-     */
-    expect(
-      classifyVerificationOutcome(
-        {
-          outcome: "ambiguous",
-          evidence: { kind: "dialog", summary: "held", observedAt: 1 }
-        },
-        "critical",
-        true
-      ).type
-    ).toBe("redecide")
-  })
-
-  it("pauses on the same outcome when no dialog explains it", () => {
-    expect(
-      classifyVerificationOutcome(
-        {
-          outcome: "ambiguous",
-          evidence: { kind: "field", summary: "unclear", observedAt: 1 }
-        },
-        "critical"
-      ).type
-    ).toBe("pause")
-  })
-
   it("never collapses ambiguous into negative", () => {
     const result = classifyVerificationOutcome(
       { outcome: "ambiguous", evidence },

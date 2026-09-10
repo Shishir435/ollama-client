@@ -196,63 +196,6 @@ const executorAdapter = (
   now: () => 10
 })
 
-describe("an action whose own handler opens a dialog", () => {
-  /**
-   * A `confirm()` in a click handler blocks the renderer, so the page cannot
-   * be asked what it received and delivery reads as unknown. Before this was
-   * recorded, the run paused as though the effect were unaccounted for — and
-   * never saw the dialog it had caused.
-   */
-  const clickCommand: AgentCommand = {
-    type: "click",
-    ref: "e1",
-    snapshotId: "snapshot-1",
-    generation: 1
-  }
-
-  it("records the dialog on the receipt", async () => {
-    const adapter = {
-      ...executorAdapter(vi.fn(async () => undefined)),
-      dialogOpened: async () => true
-    }
-    const receipt = await executeDomMutationAgentEffect({
-      effect: await authorize(clickCommand),
-      adapter,
-      signal
-    })
-    expect(receipt.dialog).toBe(true)
-  })
-
-  it("leaves the receipt alone when no dialog is holding the page", async () => {
-    const adapter = {
-      ...executorAdapter(vi.fn(async () => undefined)),
-      dialogOpened: async () => false
-    }
-    const receipt = await executeDomMutationAgentEffect({
-      effect: await authorize(clickCommand),
-      adapter,
-      signal
-    })
-    expect(receipt.dialog).toBeUndefined()
-  })
-
-  it("verifies as a negative naming the dialog, not an unexplained delivery", async () => {
-    const verification: AgentVerificationInput = {
-      effect: await authorize(clickCommand),
-      receipt: { executedAt: 5, dialog: true, inputDelivery: "unknown" },
-      before: observation(),
-      allowedOrigins: [location.origin]
-    }
-    const outcome = await verifyDomMutationAgentEffect({
-      verification,
-      adapter: verifierAdapter(observation()),
-      signal
-    })
-    expect(outcome.outcome).toBe("negative")
-    expect(outcome.evidence.kind).toBe("dialog")
-  })
-})
-
 describe("Agent DOM mutation resolution and policy", () => {
   it("derives submission and formaction from a submit control", async () => {
     const destination = new URL("/finish", location.href).href

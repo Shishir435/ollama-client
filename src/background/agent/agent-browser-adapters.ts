@@ -257,7 +257,6 @@ export const createAgentBrowserAdapters = (input: {
     | "settleNativeInput"
     | "viewportCentre"
     | "fileChooserOpened"
-    | "dialogOpened"
     | "handleDialog"
   > = {
     async nativeControl(effect) {
@@ -313,14 +312,6 @@ export const createAgentBrowserAdapters = (input: {
     },
     async fileChooserOpened(effect) {
       return nativeChannel(effect)?.consumeFileChooser() ?? false
-    },
-    async dialogOpened(effect) {
-      return (
-        input.browserSessions?.openDialog(
-          input.runId,
-          effect.snapshotIdentity.tabId
-        ) !== undefined
-      )
     },
     async handleDialog(effect) {
       const { command } = effect

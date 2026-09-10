@@ -750,12 +750,6 @@ export interface AgentCommandExecutorAdapter {
    */
   fileChooserOpened?(effect: AuthorizedAgentEffect): Promise<boolean>
   /**
-   * Whether a native dialog is holding the page now. Asked immediately after
-   * an action: the run refuses to act at all while one is open, so a dialog
-   * present afterwards is one this action raised.
-   */
-  dialogOpened?(effect: AuthorizedAgentEffect): Promise<boolean>
-  /**
    * Answers the native dialog the effect names. `not_open` means the prompt
    * this step was decided against is not the one the browser is holding any
    * more, so nothing was answered — the page closed it and possibly opened
@@ -974,8 +968,7 @@ const executeNative = async (
     ...receipt(adapter, effect.command.type),
     backend: "cdp",
     inputDelivery: settled ? assessAgentInputDelivery(plan, trace) : "unknown",
-    ...(await fileChooserFlag(effect, adapter)),
-    ...(await dialogFlag(effect, adapter))
+    ...(await fileChooserFlag(effect, adapter))
   }
 }
 
@@ -992,21 +985,6 @@ const fileChooserFlag = async (
   return opened ? { fileChooser: true } : {}
 }
 
-/**
- * A dialog the action raised, which is why the page could not be asked what
- * it received: a `confirm()` in a click handler blocks the renderer, so the
- * settle call goes unanswered and delivery reads as unknown. Recording the
- * reason is what stops that being mistaken for an effect nobody can account
- * for.
- */
-const dialogFlag = async (
-  effect: AuthorizedAgentEffect,
-  adapter: AgentCommandExecutorAdapter
-): Promise<Pick<AgentExecutionReceipt, "dialog">> => {
-  const holding = await adapter.dialogOpened?.(effect)
-  return holding ? { dialog: true } : {}
-}
-
 /** The DOM backend, recorded as such so the verifier expects no native record. */
 const executeSynthetic = async (
   effect: AuthorizedAgentEffect,
@@ -1018,8 +996,7 @@ const executeSynthetic = async (
     ...receipt(adapter, effect.command.type),
     backend: "dom",
     ...(submissionUrl ? { submissionUrl } : {}),
-    ...(await fileChooserFlag(effect, adapter)),
-    ...(await dialogFlag(effect, adapter))
+    ...(await fileChooserFlag(effect, adapter))
   }
 }
 

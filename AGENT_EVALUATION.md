@@ -122,16 +122,17 @@ while the browser went to another.
    renderer, so the action can neither finish nor be asked what it delivered,
    and the run pauses before it ever sees the dialog it caused.
 
-   Part of the machinery is now in place and does not fix it:
-   `AgentExecutionReceipt.dialog` records that an action raised one, and
-   `classifyVerificationOutcome` sends such a step back to be re-decided
-   rather than pausing — including at critical risk, which is where a
-   confirmation actually lives. That is necessary and insufficient, because
-   the executor does not reach the point of writing a receipt: the step runs
-   for the full 32-second budget, which is the shape of the dispatch itself
-   waiting on a renderer that is blocked. The remaining work is at that
-   level — the action has to stop waiting once a dialog is known to be
-   holding the page — and is not attempted here.
+   The diagnosis is sharper than it was, and it rules out the obvious fix.
+   Recording the dialog on the receipt after the action — the way a file
+   chooser is recorded — cannot work: the control port has no timeout, so the
+   page-side call that follows a native click waits forever on a renderer
+   blocked in `confirm()`, and nothing after it runs. The step burns its full
+   budget there. Any fix has to stop waiting on the page once a dialog is
+   known to be holding it, which means the executor learning about the dialog
+   from the debugger rather than from the document — the same principle the
+   observation path already follows, where a blocked page is observed as
+   blocked rather than asked. That is not attempted here, and no partial
+   machinery for it is shipped.
 2. **An over-claiming run can exhaust its budget instead of recovering.**
    `delayed-save/claims-before-it-lands` claims completion the moment Save is
    pressed. The claim is correctly refused every time — 0 false completions is
