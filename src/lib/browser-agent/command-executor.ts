@@ -4,7 +4,10 @@ import type {
   AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
 import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
-import type { AgentSnapshotIdentity } from "@ollama-client/contracts"
+import {
+  type AgentSnapshotIdentity,
+  parseAgentKeyCombination
+} from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type { AgentElementReferenceStore } from "./element-references"
@@ -16,6 +19,7 @@ import {
   AgentNativeInputCancelledError,
   AgentNativeInputFailedError,
   type AgentNativeInputPlan,
+  agentNativeKeyDefinition,
   assessAgentInputDelivery,
   chooseAgentInputBackend,
   planAgentNativeInput,
@@ -377,8 +381,25 @@ const executeKey = (
   if (effect.command.key === "Enter" && effect.target.maySubmit) {
     return submitWithoutPageHandlers(effect, element)
   }
-  const init = {
-    key: effect.command.key,
+  /**
+   * The chord is spelled out as a page would see it from a keyboard: the key
+   * itself in `key`, each modifier as its flag, and the code and virtual key
+   * where the table knows them. The command's own string is the grammar, not
+   * an event field — `Control+é` is a chord, not a key named that.
+   */
+  const combination = parseAgentKeyCombination(effect.command.key)
+  if (!combination) throw new Error("Agent key combination is invalid")
+  const definition = agentNativeKeyDefinition(combination.key)
+  const init: KeyboardEventInit = {
+    key: definition?.key ?? combination.key,
+    ...(definition?.code ? { code: definition.code } : {}),
+    ...(definition?.keyCode !== undefined
+      ? { keyCode: definition.keyCode }
+      : {}),
+    ctrlKey: combination.modifiers.includes("Control"),
+    shiftKey: combination.modifiers.includes("Shift"),
+    altKey: combination.modifiers.includes("Alt"),
+    metaKey: combination.modifiers.includes("Meta"),
     bubbles: true,
     cancelable: true,
     composed: true
