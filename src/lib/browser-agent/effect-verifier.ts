@@ -627,9 +627,30 @@ const fileChooserProblem = (
       )
     : undefined
 
+/**
+ * The action raised a dialog, so nothing about its effect can be read yet:
+ * the page is blocked behind the dialog and the effect it was meant to have
+ * is waiting on the answer. Reported as a negative rather than an ambiguity
+ * — nothing is unaccounted for, the reason is known and the run can act on
+ * it — and the controller sends the run back to look rather than pausing.
+ */
+const dialogProblem = (
+  input: AgentVerificationInput,
+  now: number
+): AgentVerificationResult | undefined =>
+  input.receipt.dialog
+    ? result(
+        "negative",
+        "dialog",
+        "The action opened a dialog, which is holding the page",
+        now
+      )
+    : undefined
+
 const withDelivery =
   (kind: string, verifier: Verifier): Verifier =>
   async (input, adapter, signal) =>
+    dialogProblem(input, adapter.now()) ??
     fileChooserProblem(input, adapter.now()) ??
     deliveryProblem(input, kind, adapter.now()) ??
     verifier(input, adapter, signal)

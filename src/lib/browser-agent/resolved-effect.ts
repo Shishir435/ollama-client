@@ -64,6 +64,16 @@ export interface AgentEffectResolverAdapter {
 const isReadOnlyAction = (type: string): type is ReadOnlyAgentAction =>
   (READ_ONLY_AGENT_ACTIONS as readonly string[]).includes(type)
 
+/** Whether a history entry names a page the run could read at all. */
+const isNavigableHistoryUrl = (url: string): boolean => {
+  try {
+    const { protocol } = new URL(url)
+    return protocol === "http:" || protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
 const destination = (url: string): AgentDestination => {
   const parsed = new URL(url)
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
@@ -164,7 +174,22 @@ export const resolveReadOnlyAgentEffect = async (input: {
       observation.tabId,
       command.type
     )
-    if (!url) {
+    /**
+     * A tab's back stack holds entries the run may not go to: the
+     * `about:blank` every tab commits before its first real page, a
+     * `chrome://` entry, a viewer. Backing onto one is an ordinary situation
+     * — pressing back at the start of a tab's history — and it is refused
+     * here in the same terms an unknown destination is.
+     *
+     * The refusal belongs here and not in the history, which mirrors the
+     * browser's own stack by index: dropping an entry from it would leave
+     * the run predicting one page and the browser going to another. Without
+     * this, the non-HTTP entry reached `destination()` and threw a bare
+     * `Error`, which the resolution mapper has no case for, so the run died
+     * labelled `verification_failed` — a code about a page effect, for a
+     * command that never touched the page.
+     */
+    if (!url || !isNavigableHistoryUrl(url)) {
       throw new AgentUnreadablePageError(
         "Agent history destination is not known safely"
       )

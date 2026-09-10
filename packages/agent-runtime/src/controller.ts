@@ -735,7 +735,11 @@ export const createAgentController = (
         },
         signal
       )
-      const action = classifyVerificationOutcome(verification, policy.risk)
+      const action = classifyVerificationOutcome(
+        verification,
+        policy.risk,
+        receipt.dialog === true
+      )
       /**
        * The evidence baseline is the page as it read before the last change
        * the run *applied* — so it is promoted here, against the status that

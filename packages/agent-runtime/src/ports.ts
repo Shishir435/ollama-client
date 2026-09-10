@@ -300,6 +300,16 @@ export interface AgentExecutionReceipt {
    * finished by the run and is left for the user.
    */
   fileChooser?: boolean
+  /**
+   * The action raised a native dialog, which is now holding the page.
+   *
+   * A `confirm()` in a click handler blocks the renderer, so the action can
+   * neither finish nor be asked what it delivered — the document cannot
+   * answer while it is blocked. That is why the effect is unjudgeable, and it
+   * is a benign, answerable reason: unlike a file chooser, the run can deal
+   * with a dialog itself on the next step.
+   */
+  dialog?: boolean
 }
 
 export interface AgentVerificationEvidence {

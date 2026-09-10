@@ -74,16 +74,16 @@ model, where it does.
 | editors | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2920 / 2934 |
 | form-preparation | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2908 / 2938 |
 | frames | 3 | 2 / 2 | 3 / 3 | 0 / 0 | 0 / 0 | 2887 / 2942 |
-| multi-tab | 3 | 2 / 2 | 2 / 2 | 0 / 0 | 0 / 0 | 4444 / 4412 |
+| multi-tab | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2933 / 2954 |
 | read-and-extract | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2903 / 2691 |
 | shadow-roots | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2936 / 2918 |
 | single-action | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2911 / 2906 |
 
 Totals, including the task that writes the report:
 
-- **native backend** — 27 of 31 attempts reported completion, 29 met the
+- **native backend** — 28 of 31 attempts reported completion, 30 met the
   predicate, **0 false completions**, 1 missed.
-- **DOM backend** — 25 of 31 reported completion, 27 met the predicate,
+- **DOM backend** — 26 of 31 reported completion, 28 met the predicate,
   **0 false completions**, 1 missed.
 
 ### The measured capability gain
@@ -105,17 +105,34 @@ apart, and none of these tasks needs one.
 
 Named rather than rounded away. Each is reproducible from the suite.
 
-1. **A click that opens a native dialog cannot be settled.**
+One earlier entry is gone: `multi-tab/go-back` failed with
+`verification_failed` on both backends and is fixed. A tab commits
+`about:blank` before its first page, so backing to the start of a run's own
+history reached the destination parser as a non-HTTP URL and threw an error
+the resolution mapper has no case for — the run died labelled with a code
+about page effects, for a command that never touched the page. Such an entry
+is now refused as an unreadable destination, in the same terms an unknown one
+is. The history itself still records every entry the browser does: it is
+walked by index, and dropping one would leave the run predicting one page
+while the browser went to another.
+
+1. **A click that opens a native dialog cannot be settled.** Still open.
    `dialogs-and-recovery/native-confirm` pauses with `unresolved_effect` on
    both backends. The click's own handler calls `confirm()`, which blocks the
-   renderer, so the action can neither finish nor be confirmed and the run
-   pauses before it ever sees the dialog it caused. Dialogs the run finds
-   already open are handled; one its own click raises is not. The
-   file-chooser case has a receipt flag for exactly this shape
-   (`AgentExecutionReceipt.fileChooser`) and a dialog needs the equivalent.
-2. **`multi-tab/go-back` fails with `verification_failed` on both backends.**
-   Not yet diagnosed. Recorded rather than guessed at.
-3. **An over-claiming run can exhaust its budget instead of recovering.**
+   renderer, so the action can neither finish nor be asked what it delivered,
+   and the run pauses before it ever sees the dialog it caused.
+
+   Part of the machinery is now in place and does not fix it:
+   `AgentExecutionReceipt.dialog` records that an action raised one, and
+   `classifyVerificationOutcome` sends such a step back to be re-decided
+   rather than pausing — including at critical risk, which is where a
+   confirmation actually lives. That is necessary and insufficient, because
+   the executor does not reach the point of writing a receipt: the step runs
+   for the full 32-second budget, which is the shape of the dispatch itself
+   waiting on a renderer that is blocked. The remaining work is at that
+   level — the action has to stop waiting once a dialog is known to be
+   holding the page — and is not attempted here.
+2. **An over-claiming run can exhaust its budget instead of recovering.**
    `delayed-save/claims-before-it-lands` claims completion the moment Save is
    pressed. The claim is correctly refused every time — 0 false completions is
    the whole point — but the run spends its no-progress budget repeating it and
