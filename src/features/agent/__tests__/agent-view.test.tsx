@@ -355,7 +355,32 @@ describe("AgentView disclosure and supervision", () => {
     )
     // Twice on purpose: the line above the log and the last line in it are
     // the same label, so the two can never disagree about what is happening.
-    expect(screen.getAllByText("Click control")).toHaveLength(2)
+    expect(screen.getAllByText("agent.action.click")).toHaveLength(2)
+  })
+
+  it("stops naming an action once its step has finished", () => {
+    render(
+      <AgentView
+        run={run("observing")}
+        steps={[
+          {
+            runId: "agent-1",
+            stepId: "agent-1:1",
+            sequence: 1,
+            status: "verified",
+            at: 1,
+            command: {
+              type: "click",
+              ref: "e1",
+              snapshotId: "snapshot-1",
+              generation: 1
+            }
+          }
+        ]}
+      />
+    )
+    // The log keeps it; the header does not, because the run is observing now.
+    expect(screen.getAllByText("agent.action.click")).toHaveLength(1)
   })
 
   it("counts every tab the run drives, not only the one it started on", () => {

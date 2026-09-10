@@ -1,9 +1,10 @@
-import type {
-  AgentApprovalRequest,
-  AgentBrowserDisclosure,
-  AgentRunState,
-  AgentStepRecord,
-  AgentTakeoverRequest
+import {
+  type AgentApprovalRequest,
+  type AgentBrowserDisclosure,
+  type AgentRunState,
+  type AgentStepRecord,
+  type AgentTakeoverRequest,
+  MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
 import { Bot, Eye, MessageSquareWarning } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -17,7 +18,6 @@ import { AgentRunControls } from "./components/agent-run-controls"
 import { AgentRunDetailsCard } from "./components/agent-run-details-card"
 import { AgentWorkLog } from "./components/agent-work-log"
 import {
-  AGENT_OBSERVATION_BUDGET,
   AGENT_PAGE_TEXT_LIMIT,
   agentPlainText,
   currentAgentAction,
@@ -169,7 +169,9 @@ export const AgentView = ({
             {/* The status is the machine's word for it; a supervisor needs
                 the action, named the way the log names it. */}
             {run && !settled && currentAction && (
-              <p className="mt-0.5 truncate text-xs">{currentAction}</p>
+              <p className="mt-0.5 truncate text-xs">
+                {t(currentAction.key, currentAction.values)}
+              </p>
             )}
           </div>
           {run && (
@@ -178,7 +180,7 @@ export const AgentView = ({
                   be cut off, so the ceiling that stops it is shown with it. */}
               {t("agent.progress", {
                 count: run.observationCount,
-                budget: AGENT_OBSERVATION_BUDGET
+                budget: MAX_AGENT_OBSERVATIONS
               })}
             </span>
           )}
