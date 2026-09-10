@@ -42,6 +42,8 @@ export interface AgentFixtureElement {
   sensitive?: boolean
   disabled?: boolean
   hidden?: boolean
+  /** A cover sits over it, so a click would land on whatever is on top. */
+  occluded?: boolean
 }
 
 export interface AgentFixtureObservation {
@@ -49,7 +51,13 @@ export interface AgentFixtureObservation {
   title: string
   text: string
   documentText?: string
+  documentTextTruncated?: boolean
   modals?: { id: string; kind: string; label?: string }[]
+  /** Child frames the page holds, with whether the run was able to read each. */
+  frames?: { frameId: number; origin: string; access: string }[]
+  /** Regions the overview left out, so a task can inspect one by name. */
+  omittedByGroup?: { group: string; count: number }[]
+  dialogs?: { id: string; type: string; message: string }[]
   elements: AgentFixtureElement[]
 }
 
@@ -76,6 +84,20 @@ export interface AgentScenarioOutcome {
   effects: () => number
   /** Structural run trace lines the worker logged, oldest first. */
   phases: readonly Record<string, unknown>[]
+  /** Which input backend this pass ran on, from the project that ran it. */
+  backend: string
+  /** 1 for the first run of this task, so a repeated pass can be told apart. */
+  attempt: number
+  /**
+   * When this attempt began, in epoch milliseconds.
+   *
+   * Taken here rather than where a task is declared: a closure initialised at
+   * module load measures from module load, so every first attempt in a pass
+   * was reported as having taken as long as everything before it.
+   */
+  startedAt: number
+  /** Tokens the provider reported, when it reports any; a fixture reports none. */
+  tokens: { prompt: number; completion: number } | undefined
 }
 
 export interface AgentScenario {
@@ -104,6 +126,18 @@ export interface AgentScenario {
   timeoutMs?: number
   html(path: string): string
   navigationDelayMs?(path: string): number
+  /**
+   * Whether the goal is actually met, judged from the page rather than from
+   * what the run claimed.
+   *
+   * Measuring false completion means the run's own verdict cannot be the
+   * scorer. `verify` throws and therefore gates; this answers and therefore
+   * measures, so a benchmark can count a run that reported success on a page
+   * that never changed.
+   */
+  succeeded?(outcome: AgentScenarioOutcome): Promise<boolean> | boolean
+  /** How many times to run this task. Repeats mean something for a live model. */
+  attempts?: number
   decide(
     observation: AgentFixtureObservation,
     context: AgentScenarioContext
@@ -130,17 +164,86 @@ const readObservation = (request: {
   JSON.parse(request.messages.at(-1)?.content ?? "{}")
     .observation as AgentFixtureObservation
 
+/**
+ * Tokens the provider charged for the whole run.
+ *
+ * Read from the responses rather than estimated: Ollama reports
+ * `prompt_eval_count` and `eval_count` per call, and a run's cost is their
+ * sum across its decisions. A scripted fixture reports neither, so the answer
+ * is `undefined` rather than zero — nothing was measured, which is not the
+ * same as nothing being spent.
+ */
+export const reportedTokens = (
+  wire: readonly { response?: string }[]
+): { prompt: number; completion: number } | undefined => {
+  let prompt = 0
+  let completion = 0
+  let seen = false
+  for (const entry of wire) {
+    if (!entry.response) continue
+    for (const line of entry.response.split("\n")) {
+      if (!line.trim()) continue
+      try {
+        const frame = JSON.parse(line) as {
+          prompt_eval_count?: unknown
+          eval_count?: unknown
+        }
+        if (typeof frame.prompt_eval_count === "number") {
+          prompt += frame.prompt_eval_count
+          seen = true
+        }
+        if (typeof frame.eval_count === "number") {
+          completion += frame.eval_count
+          seen = true
+        }
+      } catch {
+        /* A non-JSON line is an SSE frame or a blank; neither carries counts. */
+      }
+    }
+  }
+  return seen ? { prompt, completion } : undefined
+}
+
 export const runAgentScenario = (scenario: AgentScenario): void => {
+  const attempts = Math.max(1, scenario.attempts ?? 1)
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    runAgentScenarioAttempt(scenario, attempt, attempts)
+  }
+}
+
+const runAgentScenarioAttempt = (
+  scenario: AgentScenario,
+  attempt: number,
+  attempts: number
+): void => {
   /** Synthetic page data only. No user profile or credentials enter this harness. */
+  const suffix = attempts > 1 ? ` attempt ${attempt}` : ""
   const title =
     scenario.gated === false
-      ? `Agent ${scenario.name} through production boundaries`
-      : `@critical Agent ${scenario.name} through production boundaries`
+      ? `Agent ${scenario.name}${suffix} through production boundaries`
+      : `@critical Agent ${scenario.name}${suffix} through production boundaries`
   test(title, async ({ extension }, testInfo) => {
+    const startedAt = Date.now()
     const liveModel = process.env.AGENT_HOSTED_MODEL
+    /**
+     * Where a live pass sends its decisions: the olc proxy by default, since
+     * that is what the hosted matrix was written against, and Ollama directly
+     * when a pass wants the provider the extension treats as primary.
+     */
+    const liveBaseUrl =
+      process.env.AGENT_HOSTED_BASE_URL ?? "http://127.0.0.1:8084"
     test.setTimeout(liveModel ? 240_000 : (scenario.timeoutMs ?? 60_000))
+    /**
+     * The live matrix runs a couple of the gated tasks, not all of them — one
+     * real model against the whole critical suite is minutes per scenario for
+     * no extra signal. The benchmark is the opposite: a live pass is the
+     * entire point of it, and skipping those left the documented hosted
+     * workflow recording nothing and writing no report at all.
+     */
     test.skip(
-      Boolean(liveModel) && scenario.hosted !== true,
+      Boolean(liveModel) &&
+        scenario.gated !== false &&
+        scenario.hosted !== true,
       "Live model matrix uses form and delayed navigation tasks"
     )
 
@@ -174,7 +277,7 @@ export const runAgentScenario = (scenario: AgentScenario): void => {
       method: string | undefined,
       body: string
     ): Promise<{ status: number; body: string }> => {
-      const upstream = await fetch(`http://127.0.0.1:8084${path}`, {
+      const upstream = await fetch(`${liveBaseUrl}${path}`, {
         method,
         headers: { "Content-Type": "application/json" },
         ...(body ? { body } : {})
@@ -364,6 +467,13 @@ export const runAgentScenario = (scenario: AgentScenario): void => {
           )
           .toBe(scenario.status)
           .catch((error: unknown) => {
+            /**
+             * A gate fails here; a measurement records instead. A benchmark
+             * task that did not reach its expected status is a result — the
+             * most interesting one — and throwing would leave it out of the
+             * report entirely, so the pass would look better than it was.
+             */
+            if (scenario.gated === false) return
             const last = messages
               .filter((m) => m.type === "agent_snapshot")
               .at(-1)?.snapshot
@@ -381,6 +491,13 @@ export const runAgentScenario = (scenario: AgentScenario): void => {
           messages,
           wire,
           effects: () => effects,
+          backend:
+            (testInfo.project.metadata.agentBenchmarkBackend as
+              | string
+              | undefined) ?? "unknown",
+          attempt,
+          startedAt,
+          tokens: reportedTokens(wire),
           phases: phases.flatMap((line) =>
             Array.isArray(line)
               ? line.filter(
