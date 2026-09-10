@@ -259,8 +259,13 @@ const budgets: Budget[] = [
      * observed-text matcher, the durable `mutating` receipt field, and the
      * bounded wait poll — took it to 255,224. Firefox carries no Agent code
      * and is unchanged.
+     *
+     * The unmatched-request report — the region miss and the region names
+     * that answer it, plus the prompt line that tells the model what they
+     * mean — took it to 256,035. Firefox carries no Agent code and is
+     * unchanged.
      */
-    max: isFirefox ? 210_000 : 256_000
+    max: isFirefox ? 210_000 : 257_000
   }
 ]
 
