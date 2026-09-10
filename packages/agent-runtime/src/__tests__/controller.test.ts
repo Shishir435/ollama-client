@@ -796,6 +796,50 @@ describe("agent controller", () => {
     ).toBeGreaterThan(0)
   })
 
+  it("does not let an attempt that never landed replace the baseline", async () => {
+    /**
+     * The baseline has to describe the change a completion is judged
+     * against, which is the last one the run applied. A mutating step that
+     * executed and then verified negative is not that change — so if it
+     * replaced the baseline, the completion would be measured against a page
+     * already holding the earlier change's own result, and every honest
+     * quotation of that result would be refused as stale until the budget
+     * ran out.
+     */
+    const before = observation({ visibleText: "Unsaved changes" })
+    const after = observation({ visibleText: "All changes saved" })
+    let decisions = 0
+    const harness = createHarness({
+      effectOverrides: { semanticEffects: ["activation"] },
+      observe: async () => (decisions >= 1 ? after : before),
+      // The first change lands; the second executes and fails to verify, so
+      // the run re-decides rather than pausing.
+      verification: [
+        confirmed,
+        {
+          outcome: "negative",
+          evidence: { kind: "dom", summary: "Nothing changed", observedAt: 3 }
+        }
+      ],
+      decide: async () => {
+        decisions += 1
+        if (decisions <= 2) return { type: "command", command: command() }
+        return {
+          type: "complete",
+          summary: "Saved the document",
+          evidence: "All changes saved"
+        }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "completed",
+      result: "Saved the document"
+    })
+  })
+
   it("records an asked question instead of looking like a user pause", async () => {
     const harness = createHarness({
       decisions: [{ type: "ask_user", question: "Which account?" }]

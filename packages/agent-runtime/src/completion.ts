@@ -1,4 +1,8 @@
-import type { AgentCommand, AgentObservation } from "@ollama-client/contracts"
+import type {
+  AgentCommand,
+  AgentObservation,
+  AgentStepStatus
+} from "@ollama-client/contracts"
 
 import {
   agentHaystackStates,
@@ -115,28 +119,56 @@ const CHANGING_COMMANDS = new Set<AgentCommand["type"]>([
   "handle_dialog"
 ])
 
-/** A step is a change once it has actually been applied to the page. */
-const APPLIED_STATUSES = new Set(["executed", "verified", "uncertain"])
+/**
+ * A step is a change once it has actually been applied to the page.
+ *
+ * Exported because the controller has to promote its evidence baseline for
+ * exactly the steps this selects: a mutating command that policy refused, or
+ * that executed and then verified negative, is not the change a later
+ * completion is judged against, and a baseline captured for it would measure
+ * that completion against a page already holding the previous change's own
+ * result. Two copies of this rule would be two places for that to drift.
+ */
+const APPLIED_STATUSES = new Set<AgentStepStatus>([
+  "executed",
+  "verified",
+  "uncertain"
+])
+
+export const isAppliedAgentStepStatus = (status: AgentStepStatus): boolean =>
+  APPLIED_STATUSES.has(status)
 
 const isChange = (step: AgentStepReadout): boolean => {
-  if (!APPLIED_STATUSES.has(step.status)) return false
+  if (!isAppliedAgentStepStatus(step.status)) return false
   if (step.mutating !== undefined) return step.mutating
   return step.command !== undefined && CHANGING_COMMANDS.has(step.command.type)
 }
 
 /**
- * The last change the run applied, by durable order. Only the last one is
- * asked about: an earlier change that was superseded says nothing about
- * whether the run is finished, while the most recent one is the state the
- * completion is claiming about.
+ * The last change the run applied, by durable order.
+ *
+ * A step is appended once per lifecycle change, so the receipts hold several
+ * rows for one step and only the newest says how it ended: reading them all
+ * would let a step's superseded `executed` receipt stand for a step that went
+ * on to fail, which is an applied change with no verification and refuses
+ * every completion after it. Collapsed to the last receipt per step first,
+ * the same way history is.
+ *
+ * Only the last change is then asked about: an earlier one that was
+ * superseded says nothing about whether the run is finished, while the most
+ * recent is the state the completion is claiming about.
  */
 const lastChange = (
   steps: readonly AgentStepReadout[]
-): AgentStepReadout | undefined =>
-  [...steps]
-    .sort((first, second) => first.sequence - second.sequence)
-    .filter(isChange)
-    .at(-1)
+): AgentStepReadout | undefined => {
+  const latest = new Map<string, AgentStepReadout>()
+  for (const step of [...steps].sort(
+    (first, second) => first.sequence - second.sequence
+  )) {
+    latest.set(step.stepId, step)
+  }
+  return [...latest.values()].filter(isChange).at(-1)
+}
 
 const MISSING_EVIDENCE_FEEDBACK =
   "This run changed the page, so complete needs evidence: a short phrase that is visible on the page now and shows the goal is met, such as a saved-state indicator or the new value itself. Observe the page and complete again with evidence, or keep working."

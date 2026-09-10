@@ -319,6 +319,42 @@ describe("judgeAgentCompletion", () => {
     expect(decision).toMatchObject({ type: "refused" })
   })
 
+  it("reads a step's last receipt, not every receipt it ever wrote", () => {
+    /**
+     * A step is appended once per lifecycle change. Reading them all let a
+     * superseded `executed` receipt stand for a step that went on to fail —
+     * an applied change with no verification, which refuses every completion
+     * after it for the rest of the run.
+     */
+    const decision = judgeAgentCompletion({
+      steps: [
+        step({ sequence: 1 }),
+        step({
+          sequence: 2,
+          stepId: "run-1:2",
+          status: "executed",
+          verification: undefined
+        }),
+        step({
+          sequence: 3,
+          stepId: "run-1:2",
+          status: "failed",
+          verification: {
+            outcome: "negative",
+            evidence: {
+              kind: "dom",
+              summary: "Nothing changed",
+              observedAt: 3
+            }
+          }
+        })
+      ],
+      observation: observation({ visibleText: "All changes saved" }),
+      evidence: "All changes saved"
+    })
+    expect(decision).toEqual({ type: "accepted" })
+  })
+
   it("ignores a change that was planned and never applied", () => {
     const planned = step({ sequence: 1, status: "planned" })
     expect(

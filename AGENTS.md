@@ -591,10 +591,20 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   evidence that was already true before the change and therefore cannot be
   evidence of it: the acted-on control's own label, compared exactly so a
   goal worded around a button's text is still answerable, and anything the
-  page already said when the change was decided. That baseline lives in the
-  worker that made the change, so a restart loses it and the check is skipped
-  rather than guessed at — an absent baseline is not proof the evidence is
-  new. Receipts that
+  page already said when the change was decided. That baseline is promoted
+  against the status the step actually settled on — `isAppliedAgentStepStatus`
+  is shared with the judge's own selection so the two cannot drift, because a
+  baseline captured for an attempt that never landed would measure a later
+  completion against a page already holding the previous change's result and
+  refuse every honest quotation of it. It lives in the worker that made the
+  change, so a restart loses it and the check is skipped rather than guessed
+  at — an absent baseline is not proof the evidence is new, and after a
+  restart the interrupted step is `uncertain`, which the unverified-change
+  rule refuses before evidence is reached at all.
+  A step is appended once per lifecycle change, so the judge collapses
+  receipts to the last one per step before selecting, the way history does: a
+  superseded `executed` receipt for a step that went on to fail is an applied
+  change with no verification, and would refuse every completion after it. Receipts that
   cannot be read are an unknown, never an empty history — reading them as
   "changed nothing" is the hole the gate exists to close. A refusal is a safe
   failure: nothing was attempted, so it is recorded as a rejected step and the

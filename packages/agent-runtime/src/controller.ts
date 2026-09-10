@@ -23,7 +23,11 @@ import {
   resumeAgentDeadlines,
   suspendAgentDeadlines
 } from "./budgets"
-import { agentEffectChangesPage, judgeAgentCompletion } from "./completion"
+import {
+  agentEffectChangesPage,
+  isAppliedAgentStepStatus,
+  judgeAgentCompletion
+} from "./completion"
 import { agentObservationFailureMessage } from "./control-failure"
 import {
   agentStepSourceUrl,
@@ -732,6 +736,25 @@ export const createAgentController = (
         signal
       )
       const action = classifyVerificationOutcome(verification, policy.risk)
+      /**
+       * The evidence baseline is the page as it read before the last change
+       * the run *applied* — so it is promoted here, against the status that
+       * step actually settled on, and never where the command was chosen. A
+       * mutating command policy refused, or one that executed and then
+       * verified negative, is not that change: a baseline captured for it
+       * would measure a later completion against a page already holding the
+       * previous change's own result, and every honest quotation of that
+       * result would be refused as stale until the run ran out of budget.
+       */
+      if (
+        agentEffectChangesPage(effect) &&
+        isAppliedAgentStepStatus(action.stepStatus)
+      ) {
+        changeBaseline = {
+          runId: state.id,
+          text: agentObservationHaystack(observation)
+        }
+      }
       await dependencies.persistence.appendStep({
         runId: state.id,
         stepId,
@@ -793,12 +816,6 @@ export const createAgentController = (
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
     const stepId = `${state.id}:${stepNumber}`
-    if (agentEffectChangesPage(effect)) {
-      changeBaseline = {
-        runId: state.id,
-        text: agentObservationHaystack(observation)
-      }
-    }
     await dependencies.persistence.appendStep({
       runId: state.id,
       stepId,
