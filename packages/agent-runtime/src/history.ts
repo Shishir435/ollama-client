@@ -94,6 +94,7 @@ const actionOf = (step: AgentStepReadout): string => {
   }
   if (command.type === "press_key") return `press ${command.key}`
   if (command.type === "scroll") return `scroll ${command.direction}`
+  if (command.type === "drag") return `drag onto ${command.to}`
   return command.type
 }
 

@@ -389,6 +389,7 @@ describe("Agent browser session frame tracking", () => {
     expect(host.commands.map((command) => command.method)).toEqual([
       "Page.enable",
       "Target.setAutoAttach",
+      "Page.setInterceptFileChooserDialog",
       "Page.getFrameTree"
     ])
     expect(host.commands[1]?.params).toMatchObject({

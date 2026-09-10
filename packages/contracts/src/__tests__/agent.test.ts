@@ -17,6 +17,8 @@ describe("agent contract schemas", () => {
       { type: "click", ref: "e1", ...ground },
       { type: "type", ref: "e1", text: "hello", ...ground },
       { type: "clear_and_type", ref: "e1", text: "hello", ...ground },
+      { type: "replace_text", ref: "e1", find: "old", text: "", ...ground },
+      { type: "drag", ref: "e1", to: "e2", ...ground },
       { type: "press_key", ref: "e1", key: "Enter", ...ground },
       { type: "select", ref: "e1", value: "one", ...ground },
       { type: "check", ref: "e1", ...ground },

@@ -1,5 +1,6 @@
 import {
   type AgentDestination,
+  type AgentDropTarget,
   AgentGroundingError,
   type AgentResolutionContext,
   type AgentSemanticEffect,
@@ -20,6 +21,7 @@ import {
 
 import type { TabAccess } from "@/lib/browser-tab-access"
 import type { AgentHitTestResult } from "./control-port"
+import { replaceAgentTextOnce } from "./editor-text"
 import {
   agentFramePage,
   agentFrameSnapshotIdentity,
@@ -431,6 +433,8 @@ export const DOM_MUTATION_AGENT_ACTIONS = [
   "hover",
   "type",
   "clear_and_type",
+  "replace_text",
+  "drag",
   "select",
   "check",
   "uncheck",
@@ -438,6 +442,9 @@ export const DOM_MUTATION_AGENT_ACTIONS = [
 ] as const
 
 export type DomMutationAgentAction = (typeof DOM_MUTATION_AGENT_ACTIONS)[number]
+
+/** The most a field may hold for its value to remain verifiable. */
+const MAX_VERIFIABLE_VALUE_CHARS = 500
 
 const DESTRUCTIVE_LABELS = [
   /\b(?:delete|remove|erase|destroy|discard)\b/i,
@@ -571,7 +578,70 @@ const clickSemantics = (
   if (element.tag === "input" && element.type?.toLowerCase() === "reset") {
     return { effects: ["form_mutation"] }
   }
+  /** A file input's click is a request for the user's files, nothing else. */
+  if (element.tag === "input" && element.type?.toLowerCase() === "file") {
+    return { effects: ["file_selection"] }
+  }
   return { effects: ["activation"] }
+}
+
+/**
+ * The value an edit should leave behind, or a refusal when the observation
+ * cannot say. A value at the observation's cap may have been cut, so nothing
+ * computed from it is a fact about the field; a result past the cap could not
+ * be read back either way.
+ */
+const expectedTextValue = (
+  element: AgentElement,
+  compute: (current: string) => string | undefined
+): string => {
+  const current = element.value ?? ""
+  if (current.length >= MAX_VERIFIABLE_VALUE_CHARS) {
+    throw new Error("Agent text target exceeds the verifiable value limit")
+  }
+  const next = compute(current)
+  if (next === undefined) {
+    throw new AgentGroundingError({
+      refusal: { reason: "text_not_found", ref: element.ref, tag: element.tag }
+    })
+  }
+  if (next.length > MAX_VERIFIABLE_VALUE_CHARS) {
+    throw new Error("Agent text result exceeds the verifiable value limit")
+  }
+  return next
+}
+
+/**
+ * The destination of a drag, grounded through the same classifier that
+ * accepted the command, then carried in the terms its recheck compares. A
+ * drop is an effect on the destination as much as on the source, so its
+ * facts are part of what the user approves.
+ */
+const dropTargetOf = (
+  command: Extract<AgentCommand, { type: "drag" }>,
+  observation: AgentObservation
+): { element: AgentElement; drop: AgentDropTarget } => {
+  const element = observation.elements.find(
+    (candidate) => candidate.ref === command.to
+  )
+  if (!element) {
+    throw new AgentGroundingError({
+      refusal: { reason: "unknown_destination", ref: command.to }
+    })
+  }
+  return {
+    element,
+    drop: {
+      ref: element.ref,
+      ...(element.verificationId
+        ? { verificationId: element.verificationId }
+        : {}),
+      frameId: element.frameId,
+      tag: element.tag,
+      ...(element.role ? { role: element.role } : {}),
+      ...(element.name ? { accessibleName: element.name } : {})
+    }
+  }
 }
 
 /**
@@ -692,6 +762,7 @@ export const resolveDomMutationAgentEffect = async (input: {
   const effects: AgentSemanticEffect[] = []
   let destination: AgentDestination | undefined
   let expected: { value?: string; checked?: boolean } | undefined
+  let drop: { element: AgentElement; drop: AgentDropTarget } | undefined
 
   switch (command.type) {
     case "click":
@@ -710,13 +781,12 @@ export const resolveDomMutationAgentEffect = async (input: {
       break
     case "type": {
       if (!element.sensitive) {
-        const current = element.value ?? ""
-        if (current.length + command.text.length > 500) {
-          throw new Error(
-            "Agent text result exceeds the verifiable value limit"
+        expected = {
+          value: expectedTextValue(
+            element,
+            (current) => `${current}${command.text}`
           )
         }
-        expected = { value: `${current}${command.text}` }
       }
       effects.push("form_mutation")
       break
@@ -724,6 +794,26 @@ export const resolveDomMutationAgentEffect = async (input: {
     case "clear_and_type":
       if (!element.sensitive) expected = { value: command.text }
       effects.push("form_mutation")
+      break
+    case "replace_text":
+      if (!element.sensitive) {
+        expected = {
+          value: expectedTextValue(element, (current) =>
+            replaceAgentTextOnce(current, command.find, command.text)
+          )
+        }
+      }
+      effects.push("form_mutation")
+      break
+    /**
+     * A drop lands on the destination, so its label is read for destructive
+     * intent too: dragging an item onto "Trash" deletes it as surely as a
+     * button would.
+     */
+    case "drag":
+      drop = dropTargetOf(command, observation)
+      effects.push("drag")
+      if (isDestructiveLabel(drop.element.name)) effects.push("destructive")
       break
     case "select":
       expected = { value: command.value }
@@ -760,7 +850,8 @@ export const resolveDomMutationAgentEffect = async (input: {
     command,
     target: {
       ...targetFromElement(element, observation, expected),
-      ...(point ? { point } : {})
+      ...(point ? { point } : {}),
+      ...(drop ? { drop: drop.drop } : {})
     },
     ...(destination ? { destination } : {}),
     semanticEffects: [...new Set(effects)],

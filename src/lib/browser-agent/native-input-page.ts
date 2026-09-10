@@ -1,7 +1,11 @@
 import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
 
-import { resolveAgentMutationTarget } from "./command-executor"
+import {
+  resolveAgentDropTarget,
+  resolveAgentMutationTarget
+} from "./command-executor"
 import type { AgentDomMutationInstruction } from "./control-port"
+import { selectAgentEditableText } from "./editor-page"
 import type { AgentElementReferenceStore } from "./element-references"
 import type {
   AgentInputPoint,
@@ -25,6 +29,8 @@ export interface AgentNativeInputPreparation {
   point: AgentInputPoint
   /** Whether the target already holds focus. */
   focused: boolean
+  /** Where a drag is released, for a `drag` alone. */
+  dropPoint?: AgentInputPoint
 }
 
 const RECORDED_EVENT_TYPES: readonly AgentRecordedInputEventType[] = [
@@ -33,7 +39,8 @@ const RECORDED_EVENT_TYPES: readonly AgentRecordedInputEventType[] = [
   "mouseup",
   "keydown",
   "keyup",
-  "wheel"
+  "wheel",
+  "drop"
 ]
 
 const isRecordedType = (type: string): type is AgentRecordedInputEventType =>
@@ -164,6 +171,78 @@ const fullyInViewport = (element: Element): boolean => {
   )
 }
 
+const centreOf = (element: Element): AgentInputPoint => {
+  const rect = element.getBoundingClientRect()
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+}
+
+/**
+ * An in-place edit sends no pointer: the selection is placed over the text
+ * to replace and the control focused, here, in the same pass that checked
+ * the target, and what the debugger then types replaces exactly that run. A
+ * run that is no longer there once is a target that changed since approval.
+ */
+const prepareReplacement = (
+  effect: AgentDomMutationInstruction,
+  element: Element,
+  watch: AgentInputWatch
+): AgentNativeInputPreparation => {
+  if (effect.command.type !== "replace_text") {
+    throw new Error("Invalid Agent replacement effect")
+  }
+  if (!selectAgentEditableText(element, effect.command.find)) {
+    throw new AgentEffectNotAppliedError(
+      "Agent text to replace is no longer unique in the target"
+    )
+  }
+  watch.arm(element)
+  return {
+    point: findAgentReachablePoint(element) ?? centreOf(element),
+    focused: true
+  }
+}
+
+/**
+ * A drag needs both ends on screen at once, so the source is brought into
+ * view and the destination has to be visible already — scrolling the
+ * destination in could scroll the source out, and a pointer cannot drag what
+ * it cannot press. The destination is rechecked against what was approved and
+ * its own reachable point taken from the same hit test the source's is.
+ */
+const prepareDrag = (
+  effect: AgentDomMutationInstruction,
+  element: Element,
+  references: AgentElementReferenceStore,
+  watch: AgentInputWatch
+): AgentNativeInputPreparation => {
+  const destination = resolveAgentDropTarget(effect, references)
+  if (!fullyInViewport(element)) {
+    element.scrollIntoView({
+      block: "center",
+      inline: "center",
+      behavior: "instant"
+    })
+  }
+  const point = findAgentReachablePoint(element)
+  if (!point) {
+    throw new AgentEffectNotAppliedError(
+      "Agent drag source is covered by another element"
+    )
+  }
+  const dropPoint = findAgentReachablePoint(destination)
+  if (!dropPoint) {
+    throw new AgentEffectNotAppliedError(
+      "Agent drop destination is not reachable on screen"
+    )
+  }
+  watch.arm(element)
+  return {
+    point,
+    focused: element === element.ownerDocument.activeElement,
+    dropPoint
+  }
+}
+
 /**
  * Rechecks the approved target and picks the point a native pointer goes to.
  *
@@ -180,6 +259,12 @@ export const prepareAgentNativeInputInDocument = (input: {
   watch: AgentInputWatch
 }): AgentNativeInputPreparation => {
   const element = resolveAgentMutationTarget(input.effect, input.references)
+  if (input.effect.command.type === "replace_text") {
+    return prepareReplacement(input.effect, element, input.watch)
+  }
+  if (input.effect.command.type === "drag") {
+    return prepareDrag(input.effect, element, input.references, input.watch)
+  }
   /**
    * A named point is used as named, never re-sampled: the run approved a
    * click there. It has to still land on the control, though — scrolling is

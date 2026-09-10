@@ -6,6 +6,7 @@ import type {
 import type { AgentObservation } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
+import { normalizeAgentEditorText } from "./editor-text"
 import type {
   DomMutationAgentAction,
   NavigationAgentAction,
@@ -543,11 +544,50 @@ const deliveryProblem = (
   }
 }
 
+/**
+ * A file chooser the page opened is a step the run cannot finish: the
+ * debugger held the dialog back, nothing was chosen, and only the user can
+ * choose. The step is left unresolved for them rather than judged from a page
+ * that is waiting for a file.
+ */
+const fileChooserProblem = (
+  input: AgentVerificationInput,
+  now: number
+): AgentVerificationResult | undefined =>
+  input.receipt.fileChooser
+    ? result(
+        "ambiguous",
+        "file_chooser",
+        "The page asked for a file; choose it yourself, then continue",
+        now
+      )
+    : undefined
+
 const withDelivery =
   (kind: string, verifier: Verifier): Verifier =>
   async (input, adapter, signal) =>
+    fileChooserProblem(input, adapter.now()) ??
     deliveryProblem(input, kind, adapter.now()) ??
     verifier(input, adapter, signal)
+
+/**
+ * Field values compare exactly, except an editor's: its value is its markup
+ * flattened, and the editor may render the same text as `<p>` on one read and
+ * `<div><br></div>` on the next. Both sides go through the one normalization
+ * the page used, so a paragraph break is a paragraph break however it is
+ * spelled.
+ */
+const sameFieldValue = (
+  target: AgentVerificationInput["effect"]["target"],
+  actual: string,
+  expected: string | undefined
+): boolean => {
+  if (expected === undefined) return false
+  if (target.inputType?.toLowerCase() !== "contenteditable") {
+    return actual === expected
+  }
+  return normalizeAgentEditorText(actual) === normalizeAgentEditorText(expected)
+}
 
 const verifyValueMutation: Verifier = async (input, adapter, signal) => {
   const after = await observeAfter(input, adapter, signal)
@@ -570,7 +610,13 @@ const verifyValueMutation: Verifier = async (input, adapter, signal) => {
       adapter.now()
     )
   }
-  if (target.element.value === input.effect.target.expectedValue) {
+  if (
+    sameFieldValue(
+      input.effect.target,
+      target.element.value,
+      input.effect.target.expectedValue
+    )
+  ) {
     return result(
       "confirmed",
       "field",
@@ -832,6 +878,146 @@ const verifyKey: Verifier = async (input, adapter, signal) => {
   )
 }
 
+type ObservedElement = AgentObservation["elements"][number]
+
+const sameSemantics = (
+  first: Pick<ObservedElement, "tag" | "role" | "name" | "type">,
+  second: Pick<ObservedElement, "tag" | "role" | "name" | "type">
+): boolean =>
+  first.tag === second.tag &&
+  first.role === second.role &&
+  first.name === second.name &&
+  first.type === second.type
+
+/**
+ * The one element in an observation matching the drop target's facts, in the
+ * drag's own frame. Ambiguity is reported as absence: a destination the
+ * observation cannot single out cannot anchor an arrangement claim.
+ */
+const dropTargetIn = (
+  input: AgentVerificationInput,
+  observation: AgentObservation
+): ObservedElement | undefined => {
+  const drop = input.effect.target.drop
+  if (!drop) return undefined
+  const matches = observation.elements.filter(
+    (element) =>
+      element.frameId === drop.frameId &&
+      (drop.verificationId === undefined ||
+        element.verificationId === drop.verificationId) &&
+      element.tag === drop.tag &&
+      element.role === drop.role &&
+      element.name === drop.accessibleName
+  )
+  return matches.length === 1 ? matches[0] : undefined
+}
+
+/** The neighbours an element has in document order, by what they are. */
+const neighboursOf = (
+  observation: AgentObservation,
+  element: ObservedElement
+): { before?: ObservedElement; after?: ObservedElement } => {
+  const peers = observation.elements.filter(
+    (candidate) => candidate.frameId === element.frameId
+  )
+  const index = peers.indexOf(element)
+  return { before: peers[index - 1], after: peers[index + 1] }
+}
+
+const sameNeighbour = (
+  first: ObservedElement | undefined,
+  second: ObservedElement | undefined
+): boolean =>
+  first === undefined || second === undefined
+    ? first === second
+    : sameSemantics(first, second)
+
+/**
+ * A drag is verified by the arrangement it leaves, never by the page merely
+ * having changed. The dragged element is found again by what it is; it has
+ * moved when its order relative to the destination flipped, when it sits in
+ * a different region, or when the controls beside it are no longer the ones
+ * that were beside it. A source that is simply gone is never confirmed: a
+ * rerender that hides it, a timer, or a misdirected drag looks identical to a
+ * drop a trash target swallowed, and confirming a disappearance would credit
+ * an effect that may never have reached the destination. An identical page is
+ * a negative; a page that changed without the element visibly moving to its
+ * destination is left uncertain, because a pointer drag that landed somewhere
+ * else has changed something the run did not intend.
+ */
+const verifyDrag: Verifier = async (input, adapter, signal) => {
+  const after = await observeAfter(input, adapter, signal)
+  const changed = pageEvidence(after) !== pageEvidence(input.before)
+  const source = mutationTargetAfter(input, after)
+  if (source.type !== "one") {
+    return result(
+      "ambiguous",
+      "arrangement",
+      source.type === "missing"
+        ? "Dragged element is gone; its move to the destination is unconfirmed"
+        : "Dragged element is no longer identifiable",
+      adapter.now()
+    )
+  }
+  const sourceBefore = input.before.elements.find(
+    (element) => element.ref === input.effect.target.ref
+  )
+  const destinationBefore = dropTargetIn(input, input.before)
+  const destinationAfter = dropTargetIn(input, after)
+  if (sourceBefore && destinationBefore && destinationAfter) {
+    const wasBefore =
+      input.before.elements.indexOf(sourceBefore) <
+      input.before.elements.indexOf(destinationBefore)
+    const isBefore =
+      after.elements.indexOf(source.element) <
+      after.elements.indexOf(destinationAfter)
+    if (wasBefore !== isBefore) {
+      return result(
+        "confirmed",
+        "arrangement",
+        "Dragged element moved past its destination",
+        adapter.now()
+      )
+    }
+  }
+  if (sourceBefore && sourceBefore.group !== source.element.group) {
+    return result(
+      "confirmed",
+      "arrangement",
+      "Dragged element moved into another region",
+      adapter.now()
+    )
+  }
+  if (sourceBefore) {
+    const before = neighboursOf(input.before, sourceBefore)
+    const now = neighboursOf(after, source.element)
+    if (
+      !sameNeighbour(before.before, now.before) ||
+      !sameNeighbour(before.after, now.after)
+    ) {
+      return result(
+        "confirmed",
+        "arrangement",
+        "Dragged element sits among different controls",
+        adapter.now()
+      )
+    }
+  }
+  return changed
+    ? result(
+        "ambiguous",
+        "arrangement",
+        "Page changed but the dragged element did not visibly move",
+        adapter.now()
+      )
+    : result(
+        "negative",
+        "arrangement",
+        "Arrangement did not change",
+        adapter.now()
+      )
+}
+
 export const DOM_MUTATION_AGENT_VERIFIERS = {
   click: withDelivery("activation", verifyActivation),
   click_point: withDelivery("activation", verifyActivation),
@@ -839,6 +1025,8 @@ export const DOM_MUTATION_AGENT_VERIFIERS = {
   hover: withDelivery("hover", verifyHover),
   type: withDelivery("field", verifyValueMutation),
   clear_and_type: withDelivery("field", verifyValueMutation),
+  replace_text: withDelivery("field", verifyValueMutation),
+  drag: withDelivery("arrangement", verifyDrag),
   select: verifyValueMutation,
   check: verifyCheckedMutation,
   uncheck: verifyCheckedMutation,

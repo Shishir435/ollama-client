@@ -236,8 +236,14 @@ const budgets: Budget[] = [
      * and geometry, the OffscreenCanvas editor, the debugger capture, hit-test
      * and rect messages, and the vision variant of the decision tool — took it
      * to 248,454. Firefox carries no Agent code and is unchanged.
+     *
+     * Editors and drag interactions — the editing-host reader and its
+     * selection/insertion helpers, the shared text normalization, the
+     * synthetic and debugger-driven drag with its HTML5 interception, the
+     * arrangement verifier, and the file-chooser hold-back — took it to
+     * 251,314. Firefox carries no Agent code and is unchanged.
      */
-    max: isFirefox ? 210_000 : 249_000
+    max: isFirefox ? 210_000 : 252_000
   }
 ]
 

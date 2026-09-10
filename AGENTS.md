@@ -460,6 +460,36 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
 - Firefox has no debugger: `double_click` and `hover` degrade to synthetic
   events there, the receipt says `backend: "dom"`, and the hover verifier
   then needs page evidence, since no delivery record exists.
+- **An editor is edited through the browser's own editing pipeline, never by
+  writing its DOM.** A `contenteditable` host is observed as a control of type
+  `contenteditable` whose value is its flattened text; `type` appends,
+  `clear_and_type` replaces all, and `replace_text` replaces one exact
+  occurrence of `find`. The page-side helpers (`editor-page.ts`) place the
+  selection or caret and drive `execCommand`/`insertText`, so a rich-text
+  editor that rebuilds its DOM from its own model keeps the change. Value
+  comparison flattens markup the one way every side does (`editor-text.ts`), so
+  a paragraph rendered as `<p>` on one read and `<div><br></div>` on the next
+  is not a spurious change. Typed text never presses Enter — a newline is
+  inserted as a line break, allowed only in a `multiline` field — because Enter
+  is a submission or send that `press_key` must choose on purpose.
+- **A drag is grounded on both ends and verified by the arrangement it
+  leaves.** `drag` names a source `ref` and a destination `to`, both observed
+  and in one frame; the destination is rechecked before the pointer moves. The
+  native channel presses on the source and, if a held move makes the browser
+  start an HTML5 drag (`Input.dragIntercepted`), drives it with drag events and
+  drops with the drag data — otherwise the move stays a pointer drag a
+  library reads. A stopped drag is cancelled, never dropped. The verifier
+  confirms only a changed arrangement — the item moved past its destination,
+  into another region, among different neighbours, or off the page — never the
+  page merely having changed. Firefox and the DOM backend send the synthetic
+  pointer-and-HTML5 sequence in `drag-page.ts`.
+- **A file chooser is the user's, and the debugger holds it back.**
+  `Page.setInterceptFileChooserDialog` is enabled on attach, so a click on a
+  file input opens nothing; the run records `file_selection`, policy raises a
+  `file_upload` takeover, and detaching for the takeover lets the user's own
+  click open the chooser. A chooser the page opened mid-action is reported on
+  the receipt (`fileChooser`) and settles the step as the user's whatever else
+  happened.
 - **A screenshot is an observation's companion, never a record.** The
   controller pictures the tab (`AgentScreenshotPort`) only after the DOM
   observation is in hand and only for a model whose `vision` the model port

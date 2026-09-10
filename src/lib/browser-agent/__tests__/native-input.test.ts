@@ -131,13 +131,20 @@ describe("native input planning", () => {
     expect(kinds(other.steps)[0]).toBe("keyDown:Control")
   })
 
-  it("types a newline as Enter and expects each key the page should see", () => {
+  it("inserts a newline as text and never presses Enter for it", () => {
     const built = plan({ type: "type", text: "a\nb" }, { focused: true })
-    expect(kinds(built.steps)).toContain("keyDown:Enter")
+    expect(kinds(built.steps)).toEqual([
+      "keyDown:End",
+      "keyUp:End",
+      "keyDown:a",
+      "keyUp:a",
+      "insert:\n",
+      "keyDown:b",
+      "keyUp:b"
+    ])
     expect(built.expected.filter((event) => event.type === "keydown")).toEqual([
       { type: "keydown", key: "End" },
       { type: "keydown", key: "a" },
-      { type: "keydown", key: "Enter" },
       { type: "keydown", key: "b" }
     ])
   })

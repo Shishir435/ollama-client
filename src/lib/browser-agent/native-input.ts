@@ -27,6 +27,8 @@ export const NATIVE_INPUT_AGENT_ACTIONS = [
   "hover",
   "type",
   "clear_and_type",
+  "replace_text",
+  "drag",
   "press_key"
 ] as const
 export type NativeInputAgentAction = (typeof NATIVE_INPUT_AGENT_ACTIONS)[number]
@@ -173,25 +175,46 @@ export type AgentNativeInputStep =
       deltaX: number
       deltaY: number
     }
+  /**
+   * The pointer moving with its button held, and the release that ends it.
+   * Spoken as drag steps rather than mouse steps because the browser may turn
+   * the first held move into an HTML5 drag, after which the page receives
+   * drag events instead of mouse events; the channel that dispatches them
+   * decides which, and a `cancel` releases without dropping.
+   */
+  | { kind: "drag"; type: "move" | "drop" | "cancel"; x: number; y: number }
+
+export type AgentRecordedInputEventType =
+  | "mousemove"
+  | "mousedown"
+  | "mouseup"
+  | "keydown"
+  | "keyup"
+  | "wheel"
+  | "drop"
 
 /**
  * One DOM event the page is expected to report if the plan arrived. Pointer
  * coordinates are in the target frame's own viewport; keys carry their `key`.
+ * `alternatives` name other event types that satisfy the same expectation —
+ * a drag ends in `mouseup` or, once the browser made it an HTML5 drag, in
+ * `drop`. `anyTarget` waives the target check for an event that lands where
+ * the pointer is rather than on the resolved element: the release of a drag
+ * lands on the destination, or on the dragged element itself.
  */
 export interface AgentExpectedInputEvent {
-  type: "mousemove" | "mousedown" | "mouseup" | "keydown" | "keyup" | "wheel"
+  type: AgentRecordedInputEventType
+  alternatives?: readonly AgentRecordedInputEventType[]
   x?: number
   y?: number
   key?: string
+  anyTarget?: boolean
 }
 
 export interface AgentNativeInputPlan {
   steps: readonly AgentNativeInputStep[]
   expected: readonly AgentExpectedInputEvent[]
 }
-
-const modifierMask = (modifiers: readonly AgentKeyModifier[]): number =>
-  modifiers.reduce((mask, modifier) => mask | MODIFIER_BITS[modifier], 0)
 
 const primaryModifier = (platform: AgentInputPlatform): AgentKeyModifier =>
   platform === "mac" ? "Meta" : "Control"
@@ -277,6 +300,14 @@ const pushCombination = (
   }
 }
 
+/**
+ * Typed text, one key per character the table can press and inserted text for
+ * the rest. A line break is inserted, never pressed: an inserted newline
+ * starts a paragraph in an editor and a line in a textarea through the
+ * browser's own editing pipeline, without the `keydown` an Enter would send
+ * — and Enter is what a chat composer sends its message on. Completion is
+ * pressed on purpose, through `press_key`, or not at all.
+ */
 const pushText = (builder: PlanBuilder, text: string): void => {
   let pending = ""
   const flush = () => {
@@ -284,13 +315,8 @@ const pushText = (builder: PlanBuilder, text: string): void => {
     pending = ""
   }
   for (const character of text) {
-    if (character === "\n" || character === "\r") {
-      flush()
-      pushCombination(builder, [], NAMED_KEY_DEFINITIONS.Enter)
-      continue
-    }
     const definition = agentNativeKeyDefinition(character)
-    if (!definition || !definition.text) {
+    if (!definition?.text) {
       pending += character
       continue
     }
@@ -322,7 +348,69 @@ export interface AgentNativeInputPlanInput {
   frameOffset: AgentInputPoint
   /** Whether the target already holds focus, so typing needs no click first. */
   focused: boolean
+  /** Where a drag is released, in the frame's viewport; required for `drag`. */
+  dropPoint?: AgentInputPoint
   platform: AgentInputPlatform
+}
+
+/**
+ * How far the pointer first travels with the button held before heading for
+ * the destination. Pointer-based drag libraries start a drag only past an
+ * activation distance, and the browser starts an HTML5 drag only once the
+ * pointer has moved; a straight jump to the destination would skip both.
+ */
+const DRAG_ACTIVATION_PX = 12
+
+/**
+ * The sequence of a drag: press on the source, move a little, move to the
+ * destination, release there. Every move carries the held button. The
+ * expectation is the press on the source and a release at the destination —
+ * as `mouseup` for a pointer drag or `drop` for an HTML5 one — on whatever
+ * element is under the pointer then, since the dragged element itself often
+ * is. The moves in between are not expected: the browser synthesizes its own.
+ */
+const dragTo = (
+  builder: PlanBuilder,
+  root: AgentInputPoint,
+  local: AgentInputPoint,
+  destination: AgentInputPoint,
+  frameOffset: AgentInputPoint
+): void => {
+  pushMouse(builder, "mouseMoved", root, local, 0)
+  pushMouse(builder, "mousePressed", root, local, 1)
+  const direction = {
+    x: destination.x >= local.x ? 1 : -1,
+    y: destination.y >= local.y ? 1 : -1
+  }
+  const activation = {
+    x: local.x + direction.x * DRAG_ACTIVATION_PX,
+    y: local.y + direction.y * DRAG_ACTIVATION_PX
+  }
+  const midpoint = {
+    x: (local.x + destination.x) / 2,
+    y: (local.y + destination.y) / 2
+  }
+  for (const stop of [activation, midpoint, destination]) {
+    builder.steps.push({
+      kind: "drag",
+      type: "move",
+      x: stop.x + frameOffset.x,
+      y: stop.y + frameOffset.y
+    })
+  }
+  builder.steps.push({
+    kind: "drag",
+    type: "drop",
+    x: destination.x + frameOffset.x,
+    y: destination.y + frameOffset.y
+  })
+  builder.expected.push({
+    type: "mouseup",
+    alternatives: ["drop"],
+    x: destination.x,
+    y: destination.y,
+    anyTarget: true
+  })
 }
 
 /**
@@ -370,6 +458,20 @@ export const planAgentNativeInput = (
       pushText(builder, input.command.text)
       break
     }
+    /**
+     * The page placed the selection over the text to replace during
+     * preparation and focused the control without a click — a click would
+     * move the caret. What follows is typed over the selection: the
+     * replacement as text, or a Backspace when there is none.
+     */
+    case "replace_text":
+      if (input.command.text.length > 0) pushText(builder, input.command.text)
+      else pushCombination(builder, [], NAMED_KEY_DEFINITIONS.Backspace)
+      break
+    case "drag":
+      if (!input.dropPoint) throw new Error("Agent drag has no drop point")
+      dragTo(builder, root, input.point, input.dropPoint, input.frameOffset)
+      break
     case "press_key": {
       const combination = parseAgentKeyCombination(input.command.key)
       if (!combination) throw new Error("Agent key combination is invalid")
@@ -463,12 +565,26 @@ export class AgentNativeInputFailedError extends Error {
 
 interface HeldInput {
   button?: { x: number; y: number; clickCount: number }
+  /** Set once the held button has moved, so its release is a drag cancel. */
+  dragging?: boolean
   keys: Map<string, Extract<AgentNativeInputStep, { kind: "key" }>>
 }
 
+/**
+ * A held button is released where it is; a button that has been dragging is
+ * released through a drag cancel, so an HTML5 drag the browser started ends
+ * without a drop rather than dropping wherever the pointer happened to be.
+ */
 const releaseSteps = (held: HeldInput): AgentNativeInputStep[] => {
   const steps: AgentNativeInputStep[] = []
-  if (held.button) {
+  if (held.button && held.dragging) {
+    steps.push({
+      kind: "drag",
+      type: "cancel",
+      x: held.button.x,
+      y: held.button.y
+    })
+  } else if (held.button) {
     steps.push({
       kind: "mouse",
       type: "mouseReleased",
@@ -497,8 +613,20 @@ const track = (held: HeldInput, step: AgentNativeInputStep): void => {
   if (step.kind === "mouse") {
     if (step.type === "mousePressed") {
       held.button = { x: step.x, y: step.y, clickCount: step.clickCount }
+      held.dragging = false
     } else if (step.type === "mouseReleased") {
       held.button = undefined
+      held.dragging = false
+    }
+    return
+  }
+  if (step.kind === "drag") {
+    if (step.type === "move" && held.button) {
+      held.button = { ...held.button, x: step.x, y: step.y }
+      held.dragging = true
+    } else if (step.type !== "move") {
+      held.button = undefined
+      held.dragging = false
     }
     return
   }
@@ -551,8 +679,6 @@ export const runAgentNativeInputPlan = async (
   return { dispatched }
 }
 
-export type AgentRecordedInputEventType = AgentExpectedInputEvent["type"]
-
 /** One trusted input event the page recorded while a plan was in flight. */
 export interface AgentRecordedInputEvent {
   type: AgentRecordedInputEventType
@@ -575,7 +701,8 @@ const INTERFERENCE_TYPES = new Set([
   "mouseup",
   "keydown",
   "keyup",
-  "wheel"
+  "wheel",
+  "drop"
 ])
 
 const POINTER_TOLERANCE_PX = 1.5
@@ -584,7 +711,12 @@ const matchesExpected = (
   expected: AgentExpectedInputEvent,
   recorded: AgentRecordedInputEvent
 ): boolean => {
-  if (expected.type !== recorded.type) return false
+  if (
+    expected.type !== recorded.type &&
+    !expected.alternatives?.includes(recorded.type)
+  ) {
+    return false
+  }
   if (expected.key !== undefined) return expected.key === recorded.key
   if (expected.x === undefined || expected.y === undefined) return true
   return (
@@ -612,11 +744,11 @@ export const assessAgentInputDelivery = (
   if (!trace || trace.overflow) return "unknown"
   let next = 0
   let interference = false
-  const matched: AgentRecordedInputEvent[] = []
+  const matched: { event: AgentRecordedInputEvent; anyTarget: boolean }[] = []
   for (const recorded of trace.events) {
     const expected = plan.expected[next]
     if (expected && matchesExpected(expected, recorded)) {
-      matched.push(recorded)
+      matched.push({ event: recorded, anyTarget: expected.anyTarget === true })
       next += 1
       continue
     }
@@ -632,7 +764,10 @@ export const assessAgentInputDelivery = (
    * control, after Enter it may be a dialog. Only the press has to have reached
    * the resolved target for the plan to count as delivered there.
    */
-  return matched.every((event) => event.type === "keyup" || event.onTarget)
+  return matched.every(
+    ({ event, anyTarget }) =>
+      anyTarget || event.type === "keyup" || event.onTarget
+  )
     ? "delivered"
     : "misdirected"
 }

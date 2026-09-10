@@ -126,6 +126,21 @@ export const AgentElementSchema = z
     maySubmit: z.boolean().optional(),
     submitter: z.boolean().optional(),
     options: z.array(AgentSelectOptionSchema).max(200).optional(),
+    /**
+     * Set for a control whose value may hold line breaks: a `<textarea>`, or
+     * an editing host declared multiline. A newline typed into anything else
+     * is refused, because a single-line field has no place for it and the
+     * Enter it would stand for is a completion signal the model must press
+     * on purpose. Absent means single-line.
+     */
+    multiline: z.boolean().optional(),
+    /**
+     * Set when the page marks the element as something a pointer can pick
+     * up — `draggable="true"`, or an ARIA description saying so. Advisory:
+     * pointer-based drag libraries mark nothing, so its absence refuses no
+     * drag; its presence tells the model where a drag is meant to start.
+     */
+    draggable: z.boolean().optional(),
     visible: z.boolean(),
     /**
      * Set when the element is in the layout and the viewport yet another

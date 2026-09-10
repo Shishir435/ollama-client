@@ -160,6 +160,18 @@ const AgentDomMutationTargetSchema = z
     submitter: z.boolean().optional(),
     expectedValue: z.string().max(500).optional(),
     expectedChecked: z.boolean().optional(),
+    /** Where a drag is released; the page rechecks it like the source. */
+    drop: z
+      .object({
+        ref: z.string().min(1),
+        verificationId: z.string().min(1).max(128).optional(),
+        frameId: z.number().int().nonnegative(),
+        tag: z.string().min(1),
+        role: z.string().min(1).optional(),
+        accessibleName: z.string().max(500).optional()
+      })
+      .strict()
+      .optional(),
     sensitive: z.boolean(),
     maySubmit: z.boolean()
   })
@@ -174,6 +186,8 @@ const AgentDomMutationCommandSchema = AgentCommandSchema.refine(
       "hover",
       "type",
       "clear_and_type",
+      "replace_text",
+      "drag",
       "select",
       "check",
       "uncheck",
@@ -253,6 +267,16 @@ export const AgentDomMutationInstructionSchema = z
         code: "custom",
         path: ["point"],
         message: "A visual point is measured in the root frame only"
+      })
+    }
+    if (
+      instruction.target.drop &&
+      instruction.target.drop.frameId !== instruction.target.frameId
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["target", "drop", "frameId"],
+        message: "A drag stays within the frame it starts in"
       })
     }
   })
@@ -389,7 +413,9 @@ export const AgentPrepareNativeInputResponseSchema = z
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
     point: AgentInputPointSchema.optional(),
-    focused: z.boolean().optional()
+    focused: z.boolean().optional(),
+    /** Where a drag is released, in the same frame's viewport pixels. */
+    dropPoint: AgentInputPointSchema.optional()
   })
   .strict()
 export type AgentPrepareNativeInputResponse = z.infer<
@@ -399,6 +425,7 @@ export type AgentPrepareNativeInputResponse = z.infer<
 export interface AgentNativeInputPreparedResult {
   point: { x: number; y: number }
   focused: boolean
+  dropPoint?: { x: number; y: number }
 }
 
 export const AgentSettleNativeInputRequestSchema = z
@@ -426,7 +453,8 @@ const AgentRecordedInputEventSchema = z
       "mouseup",
       "keydown",
       "keyup",
-      "wheel"
+      "wheel",
+      "drop"
     ]),
     x: z.number().finite().optional(),
     y: z.number().finite().optional(),
@@ -838,7 +866,11 @@ export const validateAgentPrepareNativeInputResponse = (
   if (!response.point || response.focused === undefined) {
     throw new Error("Agent native input preparation is incomplete")
   }
-  return { point: response.point, focused: response.focused }
+  return {
+    point: response.point,
+    focused: response.focused,
+    ...(response.dropPoint ? { dropPoint: response.dropPoint } : {})
+  }
 }
 
 export const validateAgentSettleNativeInputResponse = (
@@ -1255,13 +1287,17 @@ const controlFailureReason = (
 /** Only a typed, pre-effect rejection may authorize re-observation instead of uncertainty. */
 const runContentPreparation = (
   prepare: () => AgentNativeInputPreparedResult
-): Pick<AgentPrepareNativeInputResponse, "type" | "point" | "focused"> => {
+): Pick<
+  AgentPrepareNativeInputResponse,
+  "type" | "point" | "focused" | "dropPoint"
+> => {
   try {
     const prepared = prepare()
     return {
       type: "agent_native_input_prepared",
       point: prepared.point,
-      focused: prepared.focused
+      focused: prepared.focused,
+      ...(prepared.dropPoint ? { dropPoint: prepared.dropPoint } : {})
     }
   } catch (error) {
     if (error instanceof AgentEffectNotAppliedError)

@@ -10,6 +10,13 @@ import {
 } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
+import { executeAgentSyntheticDrag } from "./drag-page"
+import {
+  insertAgentEditableText,
+  isAgentEditingHost,
+  placeAgentEditableCaret,
+  selectAgentEditableText
+} from "./editor-page"
 import type { AgentElementReferenceStore } from "./element-references"
 import {
   type AgentInputBackendChoice,
@@ -172,10 +179,54 @@ const assertUnchangedMutationTarget = (
     )
 }
 
+/**
+ * Text into an editing host goes through the browser's editing pipeline —
+ * caret placed, then `insertText` — never through `textContent`: a rich-text
+ * editor rebuilds its DOM from its own model on the next keystroke and would
+ * discard anything written behind its back. The resolved value is what the
+ * verifier compares afterwards; it is not assigned.
+ */
+const executeEditorTextMutation = (
+  effect: AgentDomMutationInstruction,
+  host: Element
+): void => {
+  const apply = (text: string): void => {
+    if (!insertAgentEditableText(host, text)) {
+      throw new AgentEffectNotAppliedError(
+        "Agent cannot edit this host through the browser's editing pipeline"
+      )
+    }
+  }
+  switch (effect.command.type) {
+    case "type":
+      placeAgentEditableCaret(host, "end")
+      apply(effect.command.text)
+      return
+    case "clear_and_type":
+      placeAgentEditableCaret(host, "all")
+      apply(effect.command.text)
+      return
+    case "replace_text":
+      if (!selectAgentEditableText(host, effect.command.find)) {
+        throw new AgentEffectNotAppliedError(
+          "Agent text to replace is no longer unique in the target"
+        )
+      }
+      apply(effect.command.text)
+      return
+    default:
+      throw new Error("Invalid Agent editor text effect")
+  }
+}
+
 const executeTextMutation = (
   effect: AgentDomMutationInstruction,
   element: Element
 ): void => {
+  if (isAgentEditingHost(element)) {
+    executeEditorTextMutation(effect, element)
+    return
+  }
   if (
     !(element instanceof HTMLInputElement) &&
     !(element instanceof HTMLTextAreaElement)
@@ -184,6 +235,18 @@ const executeTextMutation = (
   }
   if (effect.target.expectedValue === undefined) {
     throw new Error("Agent text effect has no resolved value")
+  }
+  /**
+   * A replacement is grounded in the live value too: the run it names has to
+   * still be there once, or the resolved value describes a field that moved.
+   */
+  if (
+    effect.command.type === "replace_text" &&
+    !selectAgentEditableText(element, effect.command.find)
+  ) {
+    throw new AgentEffectNotAppliedError(
+      "Agent text to replace is no longer unique in the target"
+    )
   }
   setNativeValue(element, effect.target.expectedValue)
   dispatchFormEvents(element, false)
@@ -443,6 +506,47 @@ export const resolveAgentMutationTarget = (
   return element
 }
 
+/**
+ * The live destination of a drag, or a typed refusal. Checked like the source
+ * — same snapshot, same element, same observed facts — because a drop is an
+ * effect on the destination, and a destination that changed since approval is
+ * a drop nobody approved.
+ */
+export const resolveAgentDropTarget = (
+  effect: AgentDomMutationInstruction,
+  references: AgentElementReferenceStore
+): Element => {
+  const drop = effect.target.drop
+  if (!drop) throw new Error("Agent drag has no drop target")
+  const element = references.resolve(drop.ref, effect.frame)
+  if (!element?.isConnected) {
+    throw new AgentEffectNotAppliedError("Agent drop target is stale")
+  }
+  const current = buildAgentElementObservation(
+    element,
+    drop.ref,
+    effect.frame.frameId
+  )
+  const unchanged =
+    current.visible &&
+    current.tag === drop.tag &&
+    sameOptional(current.role, drop.role) &&
+    sameOptional(current.name, drop.accessibleName) &&
+    (drop.verificationId === undefined ||
+      references.verificationIdOf(element) === drop.verificationId)
+  if (!unchanged) {
+    throw new AgentEffectNotAppliedError(
+      "Agent drop target changed after approval"
+    )
+  }
+  return element
+}
+
+const centreOf = (element: Element): { x: number; y: number } => {
+  const rect = element.getBoundingClientRect()
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+}
+
 const pointerEventInit = (element: Element): MouseEventInit => {
   const rect = element.getBoundingClientRect()
   return {
@@ -544,8 +648,19 @@ export const executeAgentDomMutationInDocument = (input: {
       break
     case "type":
     case "clear_and_type":
+    case "replace_text":
       executeTextMutation(input.effect, element)
       break
+    case "drag": {
+      const destination = resolveAgentDropTarget(input.effect, input.references)
+      executeAgentSyntheticDrag({
+        source: element,
+        destination,
+        from: centreOf(element),
+        to: centreOf(destination)
+      })
+      break
+    }
     case "select":
       executeSelectionMutation(input.effect, element)
       break
@@ -580,6 +695,8 @@ export interface AgentNativeControlFacts {
 export interface AgentNativeInputPreparation {
   point: AgentInputPoint
   focused: boolean
+  /** Where a drag is released, for a `drag` alone. */
+  dropPoint?: AgentInputPoint
 }
 
 export interface AgentCommandExecutorAdapter {
@@ -625,6 +742,12 @@ export interface AgentCommandExecutorAdapter {
   viewportCentre?(
     effect: AuthorizedAgentEffect
   ): Promise<AgentInputPoint | undefined>
+  /**
+   * Whether the page asked for a file chooser since the action began. The
+   * debugger holds such a chooser back; asked once after the action and
+   * cleared by the asking, so it is charged to the step that caused it.
+   */
+  fileChooserOpened?(effect: AuthorizedAgentEffect): Promise<boolean>
   activateTab(tabId: number): Promise<void>
   goHistory(tabId: number, direction: "back" | "forward"): Promise<void>
   resolveHistoryDestination(
@@ -799,6 +922,7 @@ const executeNative = async (
     point: prepared.point,
     frameOffset: facts.frameOffset,
     focused: prepared.focused,
+    ...(prepared.dropPoint ? { dropPoint: prepared.dropPoint } : {}),
     platform: facts.platform
   })
   try {
@@ -835,8 +959,22 @@ const executeNative = async (
   return {
     ...receipt(adapter, effect.command.type),
     backend: "cdp",
-    inputDelivery: settled ? assessAgentInputDelivery(plan, trace) : "unknown"
+    inputDelivery: settled ? assessAgentInputDelivery(plan, trace) : "unknown",
+    ...(await fileChooserFlag(effect, adapter))
   }
+}
+
+/**
+ * A file chooser the action opened, on either backend: a DOM click on an
+ * upload button reaches the same `input.click()` a native one does, and the
+ * attached debugger holds the chooser back either way.
+ */
+const fileChooserFlag = async (
+  effect: AuthorizedAgentEffect,
+  adapter: AgentCommandExecutorAdapter
+): Promise<Pick<AgentExecutionReceipt, "fileChooser">> => {
+  const opened = await adapter.fileChooserOpened?.(effect)
+  return opened ? { fileChooser: true } : {}
 }
 
 /** The DOM backend, recorded as such so the verifier expects no native record. */
@@ -849,7 +987,8 @@ const executeSynthetic = async (
   return {
     ...receipt(adapter, effect.command.type),
     backend: "dom",
-    ...(submissionUrl ? { submissionUrl } : {})
+    ...(submissionUrl ? { submissionUrl } : {}),
+    ...(await fileChooserFlag(effect, adapter))
   }
 }
 
@@ -1093,6 +1232,14 @@ export const DOM_MUTATION_AGENT_EXECUTORS = {
     return executeElementAction(effect, adapter, signal)
   },
   async clear_and_type(effect, adapter, signal) {
+    await assertSource(effect, adapter, true)
+    return executeElementAction(effect, adapter, signal)
+  },
+  async replace_text(effect, adapter, signal) {
+    await assertSource(effect, adapter, true)
+    return executeElementAction(effect, adapter, signal)
+  },
+  async drag(effect, adapter, signal) {
     await assertSource(effect, adapter, true)
     return executeElementAction(effect, adapter, signal)
   },

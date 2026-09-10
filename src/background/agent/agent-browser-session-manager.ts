@@ -153,6 +153,20 @@ export interface AgentNativeInputChannel {
     rect: { x: number; y: number; width: number; height: number }
     scale: number
   }): Promise<AgentRawCapture | undefined>
+  /**
+   * Opens the file-chooser window for one action. Every chooser the page
+   * raises before this is discarded, so a dialog opened between actions — or
+   * during a `select` or `check` that never reads it — cannot be charged to a
+   * later, unrelated action. Called once immediately before the action acts.
+   */
+  beginFileChooserWindow(): void
+  /**
+   * Whether the page asked the browser for a file chooser since
+   * `beginFileChooserWindow`. The dialog itself was held back — the run cannot
+   * answer it and the user must — so the step that opened it is left for the
+   * user. Reading clears the window.
+   */
+  consumeFileChooser(): boolean
 }
 
 export interface AgentBrowserSessionManager {
@@ -198,7 +212,25 @@ interface Attachment {
   frames: Map<string, AgentCdpFrame>
   /** Sessions whose `DOM` domain has been enabled for box-model reads. */
   domEnabled: Set<string>
+  /**
+   * An HTML5 drag the browser started from a held pointer move, intercepted
+   * so it can be driven by protocol: the drag data travels with every later
+   * move and the drop. `intercepting` is set while the browser is being asked
+   * whether a held move starts one; `waiter` receives the answer.
+   */
+  drag?: { data: unknown }
+  intercepting: boolean
+  dragWaiter?: (data: unknown) => void
+  /** File choosers the page opened and the debugger held back, not yet charged. */
+  fileChoosers: number
 }
+
+/**
+ * How long a held pointer move is given to turn into an HTML5 drag before the
+ * move is taken as a plain pointer move. The browser answers within the same
+ * input task when it does start one; the wait is for the event to arrive.
+ */
+const DRAG_INTERCEPT_WAIT_MS = 150
 
 /** CDP `Input` mouse button and event names for the planner's steps. */
 const MOUSE_EVENT_TYPES = {
@@ -501,6 +533,16 @@ export const createAgentBrowserSessionManager = (input?: {
         waitForDebuggerOnStart: false,
         flatten: true
       })
+      /**
+       * A file chooser the page opens while the run drives the tab is held
+       * back and reported rather than shown: the run cannot choose a file and
+       * a dialog left open would block the page under it. Detaching the
+       * debugger — which every takeover does — lets the user's own click open
+       * the chooser normally.
+       */
+      await send(attachment.target, "Page.setInterceptFileChooserDialog", {
+        enabled: true
+      }).catch(() => undefined)
       await readFrameTree(attachment, {})
       if (attachments.get(attachment.runId) === attachment) {
         attachment.tracking = "tracking"
@@ -631,7 +673,20 @@ export const createAgentBrowserSessionManager = (input?: {
 
   const onDebuggerEvent: DebuggerEventListener = (source, method, params) => {
     const attachment = attachmentFor(source)
-    if (!attachment || attachment.tracking !== "tracking") return
+    if (!attachment) return
+    if (method === "Input.dragIntercepted") {
+      const data = (params as { data?: unknown } | undefined)?.data
+      if (attachment.intercepting && data !== undefined) {
+        attachment.drag = { data }
+        attachment.dragWaiter?.(data)
+      }
+      return
+    }
+    if (method === "Page.fileChooserOpened") {
+      attachment.fileChoosers += 1
+      return
+    }
+    if (attachment.tracking !== "tracking") return
     frameEventHandlers[method]?.(
       attachment,
       source,
@@ -810,11 +865,115 @@ export const createAgentBrowserSessionManager = (input?: {
     return undefined
   }
 
+  const heldMouse = (
+    type: "mouseMoved" | "mouseReleased",
+    x: number,
+    y: number
+  ) =>
+    ({
+      type,
+      x,
+      y,
+      button: "left",
+      buttons: type === "mouseMoved" ? 1 : 0,
+      clickCount: 1,
+      modifiers: 0
+    }) as const
+
+  /**
+   * The first held move asks the browser whether it starts an HTML5 drag:
+   * interception is switched on around the move, and an `Input.dragIntercepted`
+   * arriving within the wait means the page's `dragstart` ran and the browser
+   * now expects the drag to be driven by protocol. Without one, the move was a
+   * plain pointer move — what a pointer-based library reads — and later moves
+   * stay plain.
+   */
+  const dragMove = async (
+    attachment: Attachment,
+    step: Extract<AgentNativeInputStep, { kind: "drag" }>
+  ): Promise<void> => {
+    if (attachment.drag) {
+      await send(attachment.target, "Input.dispatchDragEvent", {
+        type: "dragOver",
+        x: step.x,
+        y: step.y,
+        data: attachment.drag.data
+      })
+      return
+    }
+    if (attachment.intercepting) {
+      await send(
+        attachment.target,
+        "Input.dispatchMouseEvent",
+        heldMouse("mouseMoved", step.x, step.y)
+      )
+      return
+    }
+    attachment.intercepting = true
+    const intercepted = new Promise<unknown | undefined>((resolve) => {
+      attachment.dragWaiter = resolve
+      setTimeout(() => resolve(undefined), DRAG_INTERCEPT_WAIT_MS)
+    })
+    try {
+      await send(attachment.target, "Input.setInterceptDrags", {
+        enabled: true
+      })
+      await send(
+        attachment.target,
+        "Input.dispatchMouseEvent",
+        heldMouse("mouseMoved", step.x, step.y)
+      )
+      const data = await intercepted
+      await send(attachment.target, "Input.setInterceptDrags", {
+        enabled: false
+      }).catch(() => undefined)
+      if (data !== undefined) {
+        attachment.drag = { data }
+        await send(attachment.target, "Input.dispatchDragEvent", {
+          type: "dragEnter",
+          x: step.x,
+          y: step.y,
+          data
+        })
+      }
+    } finally {
+      attachment.dragWaiter = undefined
+    }
+  }
+
+  /** A drop releases into the drag if one started, else the button; a cancel never drops. */
+  const dragEnd = async (
+    attachment: Attachment,
+    step: Extract<AgentNativeInputStep, { kind: "drag" }>
+  ): Promise<void> => {
+    const drag = attachment.drag
+    attachment.drag = undefined
+    attachment.intercepting = false
+    if (drag) {
+      await send(attachment.target, "Input.dispatchDragEvent", {
+        type: step.type === "drop" ? "drop" : "dragCancel",
+        x: step.x,
+        y: step.y,
+        data: drag.data
+      })
+      return
+    }
+    await send(
+      attachment.target,
+      "Input.dispatchMouseEvent",
+      heldMouse("mouseReleased", step.x, step.y)
+    )
+  }
+
   const dispatchStep = async (
     attachment: Attachment,
     step: AgentNativeInputStep
   ): Promise<void> => {
     switch (step.kind) {
+      case "drag":
+        if (step.type === "move") await dragMove(attachment, step)
+        else await dragEnd(attachment, step)
+        return
       case "mouse":
         await send(attachment.target, "Input.dispatchMouseEvent", {
           type: MOUSE_EVENT_TYPES[step.type],
@@ -902,6 +1061,16 @@ export const createAgentBrowserSessionManager = (input?: {
       })
       if (!isScreenshot(shot)) return undefined
       return { data: shot.data, mimeType: "image/jpeg", layout }
+    },
+    beginFileChooserWindow() {
+      if (attachments.get(attachment.runId) !== attachment) return
+      attachment.fileChoosers = 0
+    },
+    consumeFileChooser() {
+      if (attachments.get(attachment.runId) !== attachment) return false
+      const opened = attachment.fileChoosers > 0
+      attachment.fileChoosers = 0
+      return opened
     }
   })
 
@@ -937,7 +1106,9 @@ export const createAgentBrowserSessionManager = (input?: {
         ready: Promise.resolve(),
         tracking: "pending",
         frames: new Map(),
-        domEnabled: new Set()
+        domEnabled: new Set(),
+        intercepting: false,
+        fileChoosers: 0
       }
       attachment.rawAttach = cdp
         ? callDebugger(

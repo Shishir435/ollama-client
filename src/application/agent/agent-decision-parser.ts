@@ -69,6 +69,8 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   hover: ["ref"],
   type: ["ref", "text"],
   clear_and_type: ["ref", "text"],
+  replace_text: ["ref", "find", "text"],
+  drag: ["ref", "to"],
   select: ["ref", "value"],
   check: ["ref"],
   uncheck: ["ref"],

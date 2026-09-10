@@ -31,6 +31,10 @@ export interface AgentProjectedElement {
   /** Present only when true, because the default is what most rows are. */
   submits?: boolean
   editable?: boolean
+  /** The field may hold line breaks; typed text into any other may not. */
+  multiline?: boolean
+  /** The page marks this as something a pointer picks up. */
+  draggable?: boolean
   sensitive?: boolean
   disabled?: boolean
   hidden?: boolean
@@ -165,6 +169,8 @@ export const projectAgentElement = (
     ...(element.group ? { group: element.group } : {}),
     ...(element.submitter || element.maySubmit ? { submits: true } : {}),
     ...(element.editable ? { editable: true } : {}),
+    ...(element.multiline ? { multiline: true } : {}),
+    ...(element.draggable ? { draggable: true } : {}),
     ...(element.sensitive ? { sensitive: true } : {}),
     ...(element.enabled ? {} : { disabled: true }),
     ...(element.visible ? {} : { hidden: true }),
