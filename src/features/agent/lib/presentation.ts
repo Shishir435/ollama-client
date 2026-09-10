@@ -37,6 +37,10 @@ const commandLabel = (command?: AgentCommand): string => {
       return `Press ${agentPlainText(command.key, AGENT_PAGE_TEXT_LIMIT)}`
     case "type":
       return "Type in field"
+    case "replace_text":
+      return "Edit text in field"
+    case "drag":
+      return "Drag control to a drop target"
     case "select":
       return "Select option"
     case "check":

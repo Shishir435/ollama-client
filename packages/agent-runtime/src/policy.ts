@@ -40,6 +40,8 @@ const effectRisk = (effect: AgentSemanticEffect): AgentRisk => {
       return "medium"
     case "activation":
     case "form_mutation":
+    /** A drop rearranges or hands off whatever was picked up; never granted. */
+    case "drag":
       return "high"
     case "download":
       return "high"
@@ -48,6 +50,7 @@ const effectRisk = (effect: AgentSemanticEffect): AgentRisk => {
     case "authentication":
     case "payment":
     case "sensitive_input":
+    case "file_selection":
       return "critical"
   }
 }
@@ -56,6 +59,13 @@ const takeoverReason = (
   input: AgentPolicyInput
 ): AgentTakeoverRequest["reason"] | undefined => {
   const effects = input.effect.semanticEffects
+  /**
+   * A file chooser names the user's own files; the run neither sees them nor
+   * chooses among them, so opening one is the user's step from the start. It
+   * is decided before the sensitive-input class a file input also carries,
+   * because the takeover instruction the user reads has to be about the file.
+   */
+  if (effects.includes("file_selection")) return "file_upload"
   if (input.effect.target.sensitive || effects.includes("sensitive_input")) {
     return "sensitive_input"
   }
@@ -63,6 +73,11 @@ const takeoverReason = (
   if (effects.includes("payment")) return "payment"
   return undefined
 }
+
+const takeoverInstruction = (reason: AgentTakeoverRequest["reason"]): string =>
+  reason === "file_upload"
+    ? "Take control of the page, choose the file yourself, then explicitly continue."
+    : "Take control of the page, complete the sensitive step, then explicitly continue."
 
 const makeTakeoverRequest = (
   input: AgentPolicyInput,
@@ -72,8 +87,7 @@ const makeTakeoverRequest = (
   runId: input.runId,
   stepId: input.stepId,
   reason,
-  instruction:
-    "Take control of the page, complete the sensitive step, then explicitly continue.",
+  instruction: takeoverInstruction(reason),
   createdAt: input.now
 })
 

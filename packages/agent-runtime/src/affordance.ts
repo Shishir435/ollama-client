@@ -33,6 +33,15 @@ export const AGENT_AFFORDANCE_REASONS = [
   "use_click_instead",
   "image_submit",
   "not_focused",
+  /** Editing: the text a command names is not there, or the field cannot hold it. */
+  "newline_in_single_line",
+  "text_not_found",
+  "text_ambiguous",
+  /** Drag: the destination cannot be grounded beside the source. */
+  "unknown_destination",
+  "hidden_destination",
+  "cross_frame_drag",
+  "drag_onto_itself",
   /** Visual grounding: a point that cannot be turned into a control. */
   "no_screenshot",
   "point_outside_image",
@@ -96,6 +105,7 @@ const REPORTABLE_INPUT_TYPES = new Set([
   "button",
   "checkbox",
   "color",
+  "contenteditable",
   "date",
   "datetime-local",
   "email",
@@ -169,6 +179,10 @@ const refusal = (
 const inputType = (element: AgentElement): string =>
   element.type?.toLowerCase() ?? ""
 
+/** An editing host: a rich-text editor's document, or a bare editable region. */
+const isEditor = (element: AgentElement): boolean =>
+  element.editable && inputType(element) === "contenteditable"
+
 const acceptsText = (element: AgentElement): boolean => {
   if (
     element.sensitive &&
@@ -180,7 +194,57 @@ const acceptsText = (element: AgentElement): boolean => {
   const supportedInput =
     element.tag === "input" &&
     TEXT_INPUT_TYPES.includes(element.type?.toLowerCase() ?? "text")
-  return (supportedInput || element.tag === "textarea") && element.editable
+  return (
+    (supportedInput || element.tag === "textarea" || isEditor(element)) &&
+    element.editable
+  )
+}
+
+const containsNewline = (text: string): boolean => /[\r\n]/.test(text)
+
+/**
+ * Typed text may hold a line break only where the field can hold one. In a
+ * single-line field the break would stand for Enter — and Enter is a
+ * completion signal, submitting a form or sending a message, that the model
+ * has to press on purpose through `press_key` so policy sees it as one.
+ */
+const classifyTypedText = (
+  element: AgentElement,
+  text: string
+): AgentAffordanceRefusal | undefined => {
+  if (!acceptsText(element)) return refusal("not_text_field", element)
+  if (containsNewline(text) && !element.multiline) {
+    return refusal("newline_in_single_line", element)
+  }
+  return undefined
+}
+
+const countOccurrences = (value: string, find: string): number => {
+  let count = 0
+  let from = 0
+  for (;;) {
+    const index = value.indexOf(find, from)
+    if (index < 0) return count
+    count += 1
+    from = index + find.length
+  }
+}
+
+/**
+ * An in-place edit is grounded in the value the model read: the text it
+ * names has to be there, once. A sensitive field shows no value, so nothing
+ * is checked here — policy sends the whole step to the user anyway.
+ */
+const classifyReplacement = (
+  element: AgentElement,
+  command: Extract<AgentCommand, { type: "replace_text" }>
+): AgentAffordanceRefusal | undefined => {
+  const typed = classifyTypedText(element, command.text)
+  if (typed) return typed
+  if (element.sensitive) return undefined
+  const occurrences = countOccurrences(element.value ?? "", command.find)
+  if (occurrences === 0) return refusal("text_not_found", element)
+  return occurrences > 1 ? refusal("text_ambiguous", element) : undefined
 }
 
 const isClickable = (element: AgentElement): boolean =>
@@ -205,6 +269,12 @@ const classifyClick = (
     return refusal("image_submit", element)
   }
   if (isCheckable(element)) return refusal("use_check_instead", element)
+  /**
+   * A file input opens the browser's chooser, which is the user's to answer;
+   * the click is accepted here so policy can hand the step over rather than
+   * the model being told the control does not exist.
+   */
+  if (element.tag === "input" && inputType(element) === "file") return undefined
   /** A rendered destination is activation enough, whatever the tag is. */
   return element.href || isClickable(element)
     ? undefined
@@ -238,9 +308,9 @@ const classifyTarget = (
       return undefined
     case "type":
     case "clear_and_type":
-      return acceptsText(element)
-        ? undefined
-        : refusal("not_text_field", element)
+      return classifyTypedText(element, command.text)
+    case "replace_text":
+      return classifyReplacement(element, command)
     case "select": {
       if (element.tag !== "select" || !element.editable || !element.options) {
         return refusal("not_select", element)
@@ -296,9 +366,38 @@ export const classifyAgentAffordance = (
   if (command.type === "hover") return undefined
   if (!element.enabled) return refusal("disabled_target", element)
   /** A scroll only needs a real element; it changes nothing about it. */
-  return command.type === "scroll"
-    ? undefined
-    : classifyTarget(command, element)
+  if (command.type === "scroll") return undefined
+  if (command.type === "drag")
+    return classifyDrag(command, element, observation)
+  return classifyTarget(command, element)
+}
+
+/**
+ * A drag is grounded twice. The destination has to be an element the
+ * observation lists and shows — a drop on a hidden element is a drop on
+ * nothing — and it has to share the source's frame, because one pointer
+ * gesture cannot cross documents. Nothing is said about whether the source
+ * can be dragged: pointer-based libraries mark nothing, so the verifier
+ * answers that from the page's own arrangement afterwards.
+ */
+const classifyDrag = (
+  command: Extract<AgentCommand, { type: "drag" }>,
+  source: AgentElement,
+  observation: AgentObservation
+): AgentAffordanceRefusal | undefined => {
+  if (command.to === command.ref) return refusal("drag_onto_itself", source)
+  const destinations = observation.elements.filter(
+    (element) => element.ref === command.to
+  )
+  if (destinations.length !== 1) {
+    return { reason: "unknown_destination", ref: command.to }
+  }
+  const destination = destinations[0]
+  if (!destination.visible) return refusal("hidden_destination", destination)
+  if (destination.frameId !== source.frameId) {
+    return refusal("cross_frame_drag", destination)
+  }
+  return undefined
 }
 
 /**
@@ -354,6 +453,20 @@ export const agentAffordanceFeedback = (
       return `${ref} is an image submit control, which this agent cannot activate. Use a different control.`
     case "not_focused":
       return `${ref} is not focused, so a key press would not reach it. Click or type into it first.`
+    case "newline_in_single_line":
+      return `${ref} is a single-line field, so typed text cannot contain a line break. Type the text without it; to confirm or send, use press_key with Enter on the focused field.`
+    case "text_not_found":
+      return `${ref} does not contain the text named in find. Use an exact run of its observed value.`
+    case "text_ambiguous":
+      return `${ref} contains the text named in find more than once. Name a longer run that occurs exactly once.`
+    case "unknown_destination":
+      return `${ref} is not in the current observation, so nothing can be dragged onto it. Use a destination ref the observation lists.`
+    case "hidden_destination":
+      return `${ref} is not visible, so nothing can be dropped on it. Choose a visible destination, or scroll first.`
+    case "cross_frame_drag":
+      return `${ref} is in a different frame from the dragged element. A drag stays within one frame; choose a destination in the same frame.`
+    case "drag_onto_itself":
+      return `${ref} is both the dragged element and the destination. Name a different element to drop it on.`
     case "no_screenshot":
       return `${ref} cannot be grounded by a point: no screenshot was attached to this observation. Use an element ref from the observation.`
     case "point_outside_image":

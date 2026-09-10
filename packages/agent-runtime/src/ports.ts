@@ -147,8 +147,24 @@ export interface ResolvedAgentTarget {
    * confirms the control is still what lies under it before anything is sent.
    */
   point?: { x: number; y: number }
+  /**
+   * Where a drag ends: the observed element the pointer is released over,
+   * grounded like the source so a drop is an effect on a control the run
+   * named, and re-checked before the pointer moves.
+   */
+  drop?: AgentDropTarget
   sensitive: boolean
   maySubmit: boolean
+}
+
+/** The destination of a drag, in the terms its later recheck compares. */
+export interface AgentDropTarget {
+  ref: string
+  verificationId?: string
+  frameId: number
+  tag: string
+  role?: string
+  accessibleName?: string
 }
 
 export interface AgentDestination {
@@ -172,12 +188,16 @@ export type AgentSemanticEffect =
   | "navigation"
   | "activation"
   | "form_mutation"
+  /** A pointer picks a control up and releases it over another. */
+  | "drag"
   | "submission"
   | "destructive"
   | "download"
   | "authentication"
   | "payment"
   | "sensitive_input"
+  /** Opening the browser's file chooser, which only the user can answer. */
+  | "file_selection"
 
 export interface ResolvedAgentEffect {
   command: AgentCommand
@@ -256,6 +276,12 @@ export interface AgentExecutionReceipt {
   controlledTabId?: number
   backend?: AgentInputBackend
   inputDelivery?: AgentInputDelivery
+  /**
+   * The page asked the browser for a file while the action ran and the run's
+   * debugger held the chooser back. Nothing was chosen; the step cannot be
+   * finished by the run and is left for the user.
+   */
+  fileChooser?: boolean
 }
 
 export interface AgentVerificationEvidence {

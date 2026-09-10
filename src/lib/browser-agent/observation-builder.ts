@@ -5,6 +5,7 @@ import {
   MAX_AGENT_DESTINATION_URL_CHARS
 } from "@ollama-client/contracts"
 
+import { agentEditorText, isAgentEditingHost } from "./editor-page"
 import type { AgentElementReferenceStore } from "./element-references"
 
 export const AGENT_OBSERVATION_LIMITS = {
@@ -55,7 +56,14 @@ const INTERACTIVE_SELECTOR = [
   "select",
   "textarea",
   "[role]",
-  "[contenteditable='true']"
+  /**
+   * Every editing host, however it spells `true` — the bare attribute and
+   * `plaintext-only` included — except one that says `false`, which is how an
+   * editor marks a toolbar inside its own document as not editable.
+   */
+  "[contenteditable]:not([contenteditable='false'])",
+  /** A board item or a sortable row is a control a pointer picks up. */
+  "[draggable='true']"
 ].join(",")
 
 const truncate = (value: string, limit: number): string =>
@@ -602,7 +610,12 @@ export const isSensitiveAgentElement = (element: Element): boolean => {
   )
 }
 
+/**
+ * An editing host's value is its text, read the one way every side reads it
+ * (`agentEditorText`). A form control's is its `value` property.
+ */
 const elementValue = (element: Element): string | undefined => {
+  if (isAgentEditingHost(element)) return agentEditorText(element)
   if (!("value" in element)) return undefined
   return String((element as HTMLInputElement).value ?? "")
 }
@@ -617,10 +630,44 @@ const elementValue = (element: Element): string | undefined => {
  * through a check that answers for a non-HTML element too.
  */
 const elementType = (element: Element): string | undefined => {
+  /**
+   * An editing host has no `type` property; it reports one so the model and
+   * the affordance rules can tell an editor from the `<div>` it is built on.
+   */
+  if (isAgentEditingHost(element)) return "contenteditable"
   const declared = (element as Partial<HTMLInputElement>).type
   return typeof declared === "string" && declared.length > 0
     ? declared
     : undefined
+}
+
+/**
+ * Whether a control's value may hold line breaks. A textarea's always may.
+ * An editing host is read from its ARIA: `aria-multiline="true"` says so, a
+ * `textbox` without it is single-line by the role's definition, and a host
+ * with no role is a document rather than a field, so Enter starts a paragraph.
+ * Whether Enter also *sends* — a chat composer's habit — is a page handler
+ * this cannot see, which is why typed text never presses Enter at all.
+ */
+const isMultiline = (element: Element): boolean => {
+  if (element instanceof HTMLTextAreaElement) return true
+  if (!isAgentEditingHost(element)) return false
+  const declared = element.getAttribute("aria-multiline")?.toLowerCase()
+  if (declared === "true") return true
+  if (declared === "false") return false
+  return element.getAttribute("role")?.toLowerCase() !== "textbox"
+}
+
+/**
+ * Whether the page marks the element as something a pointer picks up. The
+ * `draggable` attribute is the HTML5 mark; an ARIA role description saying
+ * sortable or draggable is how pointer-based libraries label their items.
+ */
+const isMarkedDraggable = (element: Element): boolean => {
+  if (element.getAttribute("draggable")?.toLowerCase() === "true") return true
+  if (element.hasAttribute("aria-grabbed")) return true
+  const description = element.getAttribute("aria-roledescription") ?? ""
+  return /\b(?:sortable|draggable|drag)/i.test(description)
 }
 
 const isEnabled = (element: Element): boolean => {
@@ -969,6 +1016,18 @@ const accessibleName = (
       .join(" ")
     if (label) return label
   }
+  /**
+   * An editor's text is its value, not its name: a document named by its own
+   * first paragraph would rename itself on every edit and could never be
+   * told from the text it holds. Only a placeholder names it.
+   */
+  if (isAgentEditingHost(element)) {
+    const placeholder =
+      element.getAttribute("aria-placeholder") ??
+      element.getAttribute("data-placeholder") ??
+      element.getAttribute("placeholder")
+    return placeholder || undefined
+  }
   const text = collectVisibleText(
     element,
     AGENT_OBSERVATION_LIMITS.elementNameChars,
@@ -1079,6 +1138,8 @@ const buildElementObservation = (
     enabled: isEnabled(element),
     editable: isEditable(element),
     sensitive,
+    ...(isMultiline(element) ? { multiline: true } : {}),
+    ...(isMarkedDraggable(element) ? { draggable: true } : {}),
     ...(group ? { group } : {})
   }
 }

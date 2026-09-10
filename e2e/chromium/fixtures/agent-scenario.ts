@@ -37,6 +37,8 @@ export interface AgentFixtureElement {
   group?: string
   submits?: boolean
   editable?: boolean
+  multiline?: boolean
+  draggable?: boolean
   sensitive?: boolean
   disabled?: boolean
   hidden?: boolean

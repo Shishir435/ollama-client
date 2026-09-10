@@ -220,6 +220,7 @@ export const createAgentBrowserAdapters = (input: {
     | "dispatchNativeInput"
     | "settleNativeInput"
     | "viewportCentre"
+    | "fileChooserOpened"
   > = {
     async nativeControl(effect) {
       const channel = nativeChannel(effect)
@@ -265,6 +266,9 @@ export const createAgentBrowserAdapters = (input: {
     },
     async viewportCentre(effect) {
       return nativeChannel(effect)?.viewportCentre()
+    },
+    async fileChooserOpened(effect) {
+      return nativeChannel(effect)?.consumeFileChooser() ?? false
     }
   }
 

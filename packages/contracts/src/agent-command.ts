@@ -75,6 +75,27 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     text: z.string().max(500)
   }).strict(),
   /**
+   * Editing in place. `find` is an exact run of the target's observed value
+   * that occurs once; it is replaced with `text`, which may be empty. This is
+   * how a word in the middle of a document is corrected without retyping the
+   * document, and how the caret is placed: at the replacement, never guessed.
+   */
+  ElementCommandSchema.extend({
+    type: z.literal("replace_text"),
+    find: z.string().min(1).max(500),
+    text: z.string().max(500)
+  }).strict(),
+  /**
+   * A pointer drag from the element `ref` to the element `to`, both observed.
+   * The destination is grounded like the source — a drop is an effect on it —
+   * and the two must share a frame, since a pointer cannot be placed across
+   * documents from either of them.
+   */
+  ElementCommandSchema.extend({
+    type: z.literal("drag"),
+    to: z.string().min(1)
+  }).strict(),
+  /**
    * A key or a combination, `Shift+Tab` or `Control+a` included; see
    * `agent-keys.ts` for the grammar. The target must already hold focus.
    */
