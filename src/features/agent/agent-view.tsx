@@ -1,20 +1,26 @@
 import type {
   AgentApprovalRequest,
+  AgentBrowserDisclosure,
   AgentRunState,
   AgentStepRecord,
   AgentTakeoverRequest
 } from "@ollama-client/contracts"
-import { Bot, ExternalLink, Eye, MessageSquareWarning } from "lucide-react"
+import { Bot, Eye, MessageSquareWarning } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { AgentApprovalCard } from "./components/agent-approval-card"
+import { AgentBrowserDisclosureCard } from "./components/agent-browser-disclosure-card"
+import { AgentOutcomeCard } from "./components/agent-outcome-card"
 import { AgentQuestionCard } from "./components/agent-question-card"
 import { AgentRunControls } from "./components/agent-run-controls"
+import { AgentRunDetailsCard } from "./components/agent-run-details-card"
 import { AgentWorkLog } from "./components/agent-work-log"
 import {
+  AGENT_OBSERVATION_BUDGET,
   AGENT_PAGE_TEXT_LIMIT,
   agentPlainText,
+  currentAgentAction,
   toAgentWorkLog
 } from "./lib/presentation"
 
@@ -25,14 +31,6 @@ export interface AgentProviderPresentation {
   /** Whether viewport screenshots travel with observations; absent is unknown. */
   screenshots?: boolean
 }
-
-/** Absent is shown as unknown, never as "not used": a picture may still be sent. */
-const screenshotsKey = (provider?: AgentProviderPresentation): string =>
-  provider?.screenshots === true
-    ? "agent.screenshots.sent"
-    : provider?.screenshots === false
-      ? "agent.screenshots.unused"
-      : "agent.screenshots.unknown"
 
 /**
  * Whether pictures may travel to this provider. Unknown counts as "may": the
@@ -71,6 +69,8 @@ export interface AgentViewProps {
   run?: AgentRunState | null
   steps?: AgentStepRecord[]
   provider?: AgentProviderPresentation
+  /** What this browser lets a run do; absent while it is still unknown. */
+  browser?: AgentBrowserDisclosure
   tab?: AgentTabPresentation
   approval?: AgentApprovalRequest
   takeover?: AgentTakeoverRequest
@@ -117,6 +117,7 @@ export const AgentView = ({
   run = null,
   steps = [],
   provider,
+  browser,
   tab,
   approval,
   takeover,
@@ -145,6 +146,7 @@ export const AgentView = ({
     screenshotsAcknowledged
   )
   const pauseNotice = pauseNoticeFor(run?.pauseReason)
+  const currentAction = currentAgentAction(steps)
   const canStart =
     Boolean(onStart && provider && tab && goal.trim()) &&
     !remoteNeedsAcknowledgement &&
@@ -164,58 +166,35 @@ export const AgentView = ({
                 ? t(`agent.status.${run.status}`)
                 : t("agent.start.description")}
             </p>
+            {/* The status is the machine's word for it; a supervisor needs
+                the action, named the way the log names it. */}
+            {run && !settled && currentAction && (
+              <p className="mt-0.5 truncate text-xs">{currentAction}</p>
+            )}
           </div>
           {run && (
             <span className="shrink-0 rounded-control bg-muted px-1.5 py-0.5 text-micro">
-              {t("agent.observations", { count: run.observationCount })}
+              {/* A bare count cannot say whether a run is halfway or about to
+                  be cut off, so the ceiling that stops it is shown with it. */}
+              {t("agent.progress", {
+                count: run.observationCount,
+                budget: AGENT_OBSERVATION_BUDGET
+              })}
             </span>
           )}
         </header>
 
-        <section className="mb-3 grid min-w-0 gap-1.5 rounded-panel border border-border/50 bg-background/70 p-2.5 text-xs">
-          <div className="flex min-w-0 gap-2">
-            <span className="shrink-0 text-muted-foreground">
-              {t("agent.provider.label")}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-right">
-              {provider
-                ? `${agentPlainText(provider.name, 100)} · ${t(`agent.provider.${provider.location}`)}`
-                : t("agent.provider.missing")}
-            </span>
-          </div>
-          <div className="flex min-w-0 gap-2">
-            <span className="shrink-0 text-muted-foreground">
-              {t("agent.model.label")}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-right font-mono">
-              {/* During a run the truth is the model that produced its steps,
-                  not whatever is selected in Chat right now. */}
-              {run?.modelId
-                ? agentPlainText(run.modelId, 100)
-                : provider
-                  ? agentPlainText(provider.model, 100)
-                  : t("agent.provider.missing")}
-            </span>
-          </div>
-          <div className="flex min-w-0 gap-2">
-            <span className="shrink-0 text-muted-foreground">
-              {t("agent.screenshots.label")}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-right">
-              {t(screenshotsKey(provider))}
-            </span>
-          </div>
-          <div className="flex min-w-0 gap-2">
-            <span className="shrink-0 text-muted-foreground">
-              {t("agent.tab.label")}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-right">
-              {tab
-                ? agentPlainText(tab.title || tab.url, AGENT_PAGE_TEXT_LIMIT)
-                : t("agent.tab.missing")}
-            </span>
-          </div>
-        </section>
+        <AgentRunDetailsCard provider={provider} run={run} tab={tab} />
+
+        {/*
+          What the browser will do, before anything is asked of it. Chromium
+          shows its own debugging banner the moment a run attaches, and a
+          banner with nothing beside it is what sends someone to ask a
+          developer.
+        */}
+        {(!run || settled) && browser && (
+          <AgentBrowserDisclosureCard browser={browser} />
+        )}
 
         {(!run || settled) && (
           <section className="space-y-2" aria-labelledby="agent-goal-label">
@@ -297,33 +276,11 @@ export const AgentView = ({
         <AgentWorkLog items={toAgentWorkLog(steps)} />
 
         {settled && run && (
-          <section className="mt-3 rounded-panel border border-border/50 bg-background p-2.5 text-xs">
-            {run.result && (
-              <p className="mb-2 whitespace-pre-wrap break-words">
-                {agentPlainText(run.result, 20_000)}
-              </p>
-            )}
-            {run.error && (
-              <p className="mb-1 font-medium text-destructive">
-                {agentPlainText(run.error.message, AGENT_PAGE_TEXT_LIMIT)}
-              </p>
-            )}
-            <p>
-              {t("agent.completion.summary", {
-                count: run.observationCount,
-                provider: agentPlainText(provider?.name ?? run.providerId, 100)
-              })}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={onFeedback}>
-              <ExternalLink className="icon-xs" aria-hidden="true" />
-              {t("agent.feedback")}
-            </Button>
-          </section>
+          <AgentOutcomeCard
+            run={run}
+            providerName={provider?.name ?? run.providerId}
+            onFeedback={onFeedback}
+          />
         )}
       </div>
 

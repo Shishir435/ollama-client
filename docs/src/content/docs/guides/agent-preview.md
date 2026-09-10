@@ -68,26 +68,62 @@ card number or a one-time code, and it will not choose a file for you.
 - **Nothing it cannot verify.** A step whose effect cannot be observed pauses
   the run and is reported as unresolved, not as done.
 
+## What your browser allows
+
+Agent works differently in Chromium and Firefox, and the panel says which
+before you start a run.
+
+**Chromium.** Starting a run attaches Chrome's debugger to the tab you chose.
+Chrome shows its own banner while that lasts — that banner is this extension,
+and it is the browser telling you the truth about what is attached. The
+attachment ends when the run stops, when it hands the tab to you to take
+over, and when it finishes. With it, the run can send real pointer and
+keyboard input a page cannot tell from yours, take screenshots for a model
+that reads them, and see and answer native dialogs.
+
+**Firefox.** There is no debugger, so the run drives pages through the
+extension's content scripts instead. Input is synthetic, which a page built
+around real input may not react to; no screenshots are taken, so a task that
+can only be done by looking will not work; and native dialogs can be neither
+seen nor answered.
+
 ## Where it stops
 
 These are current limits, not design decisions.
 
-- **Shadow roots.** Content inside a shadow root is not observed, so a
-  control inside one cannot be used. Frames are observed; the controls inside
-  a shadow root within a frame are not.
+- **Closed shadow roots.** Open shadow roots are observed like any other
+  content, including the text they slot in. A closed one reads as nothing and
+  stays unread rather than guessed at.
 - **Frame limits.** A page with more than eleven child frames has the rest
   counted but not read, and a very large page can leave a frame no room to
-  report its controls; both are reported to the model as such.
-- **Native dialogs.** A JavaScript `alert`, `confirm` or `prompt` blocks the
-  page and cannot be seen or answered. In-page dialogs and menus are fine.
-- **No vision.** Only the page's structure and text; an image, a canvas or a
-  chart is not read.
+  report its controls; both are reported to the model as such. A frame with
+  no origin of its own — `srcdoc`, `about:blank` — cannot be read at all.
+- **A dialog your own click opens.** Agent can see and answer a native
+  `alert`, `confirm` or `prompt` that is already open when it looks. One
+  raised by a click it just made is different: the page blocks behind the
+  dialog before the action can be accounted for, and the run stalls and
+  pauses instead of answering it. This is the largest known gap and it is
+  measured, not estimated — see the evaluation below.
+- **Vision needs a model that reads images.** A screenshot travels only to a
+  model whose provider reports it can read one; a text-only model is sent no
+  picture and is offered no visual action, so a canvas or an image region is
+  out of reach for it.
 - **Large pages cost tokens.** A page with a thousand controls is a large
-  prompt, and a small local model may run out of room before it can answer.
+  prompt. The page is projected to fit a budget and the model can ask to
+  expand a region, but a small local model may still run out of room.
 - **Twenty-five observations, ten minutes.** A run that passes either stops.
 - **A restart pauses the run.** If the browser stops the extension's worker
   mid-step, the run comes back paused, with the interrupted step marked
-  unresolved, and waits for you.
+  unresolved, and waits for you. This one is verified against a real
+  terminated worker rather than assumed.
+
+## What has actually been measured
+
+`AGENT_EVALUATION.md` in the repository holds the numbers: thirty frozen
+tasks across ten families, run with the debugger and without it, scored by
+predicates that read the page rather than by what the run claimed. It records
+the capability difference between the two browsers, the failures that remain,
+and what has not been measured yet. Every figure there came out of a run.
 
 ## Choosing a model
 
@@ -99,6 +135,10 @@ half-understood answer.
 
 ## If a run stops
 
-The panel keeps the reason. A paused run tells you why it paused; a failed run
-records what failed. Both stay on screen after the run ends, because the record
-is the only account of what happened.
+The panel keeps the reason, and says what you can do about it: narrow the
+goal, reload the page, pick a model that can call tools, or take the tab over
+and finish the step yourself. A paused run tells you why it paused; a failed
+run leads with the recovery and keeps the underlying message beneath it, so
+the words the run used are still there if you report the problem. Both stay
+on screen after the run ends, because the record is the only account of what
+happened.

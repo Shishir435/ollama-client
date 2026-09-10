@@ -1,4 +1,5 @@
 import type {
+  AgentBrowserDisclosure,
   AgentPanelCommand,
   AgentPanelMessage,
   AgentPanelSnapshot
@@ -13,6 +14,7 @@ import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { PersistenceError } from "@/lib/persistence/errors"
+import type { AgentBrowserCapabilities } from "./agent-browser-session-manager"
 import type {
   AgentRunFailureReason,
   AgentRunService
@@ -42,6 +44,13 @@ export interface AgentPanelPortDependencies {
    * which window is being looked at.
    */
   resolveTab?: (tabId: number) => Promise<AgentPanelSnapshot["tab"]>
+  /**
+   * What this browser can do, read from the session manager rather than
+   * inferred: whether a debugger is attachable is the difference between the
+   * run the user is about to start and a quieter one, and only the manager
+   * that would attach it knows.
+   */
+  browserCapabilities?: () => AgentBrowserCapabilities | undefined
 }
 
 interface PanelPort {
@@ -122,9 +131,32 @@ export const registerAgentPanelPort = (
   const extensionUrlPrefix = browser.runtime.getURL("")
   let connectedPanels = 0
 
+  /**
+   * What this browser lets a run do, from the session manager rather than
+   * from a guess about which browser is running. Sent with every snapshot,
+   * including the one before a run exists — the limits are what a user needs
+   * in order to choose a task, not an explanation offered after it stalls.
+   */
+  const browserDisclosure = (): AgentBrowserDisclosure | undefined => {
+    const capabilities = dependencies.browserCapabilities?.()
+    if (!capabilities) return undefined
+    const native = capabilities.backend === "cdp" && capabilities.cdpControl
+    return {
+      backend: capabilities.backend,
+      attaches: native,
+      nativeInput: native,
+      screenshots: native,
+      dialogs: native
+    }
+  }
+
   const snapshotFor = async (runId?: string): Promise<AgentPanelSnapshot> => {
     if (!runId) {
-      return { steps: [], provider: await dependencies.resolveProvider?.() }
+      return {
+        steps: [],
+        provider: await dependencies.resolveProvider?.(),
+        browser: browserDisclosure()
+      }
     }
     const snapshot = await dependencies.service.snapshot(runId)
     const provider = await dependencies.resolveProvider?.(
@@ -148,6 +180,7 @@ export const registerAgentPanelPort = (
       })),
       pending: snapshot.pending,
       provider,
+      browser: browserDisclosure(),
       tab: snapshot.run
         ? await dependencies.resolveTab?.(snapshot.run.controlledTabId)
         : undefined

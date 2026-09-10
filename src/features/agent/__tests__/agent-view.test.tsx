@@ -285,3 +285,133 @@ describe("AgentView", () => {
     expect(approve).toHaveBeenCalledWith("run_origin")
   })
 })
+
+describe("AgentView disclosure and supervision", () => {
+  it("says the run will attach a debugger before it is started", () => {
+    // Chromium shows its own debugging banner the moment a run attaches, and
+    // a banner with nothing beside it is what sends someone to ask a
+    // developer what their extension is doing.
+    render(
+      <AgentView
+        browser={{
+          backend: "cdp",
+          attaches: true,
+          nativeInput: true,
+          screenshots: true,
+          dialogs: true
+        }}
+      />
+    )
+    expect(screen.getByText("agent.attachment.attaches")).toBeTruthy()
+    expect(screen.queryByText("agent.limits.no_native_input")).toBeNull()
+  })
+
+  it("names what a browser without a debugger cannot do", () => {
+    render(
+      <AgentView
+        browser={{
+          backend: "dom",
+          attaches: false,
+          nativeInput: false,
+          screenshots: false,
+          dialogs: false
+        }}
+      />
+    )
+    expect(screen.getByText("agent.attachment.no_debugger")).toBeTruthy()
+    expect(screen.getByText("agent.limits.no_native_input")).toBeTruthy()
+    expect(screen.getByText("agent.limits.no_screenshots")).toBeTruthy()
+    expect(screen.getByText("agent.limits.no_dialogs")).toBeTruthy()
+  })
+
+  it("shows progress against the budget that will stop the run", () => {
+    // A bare count cannot say whether a run is halfway or about to be cut off.
+    render(<AgentView run={run("observing")} />)
+    expect(
+      screen.getByText('agent.progress:{"count":2,"budget":25}')
+    ).toBeTruthy()
+  })
+
+  it("names the action in flight, not only the phase", () => {
+    render(
+      <AgentView
+        run={run("executing")}
+        steps={[
+          {
+            runId: "agent-1",
+            stepId: "agent-1:1",
+            sequence: 1,
+            status: "executing",
+            at: 1,
+            command: {
+              type: "click",
+              ref: "e1",
+              snapshotId: "snapshot-1",
+              generation: 1
+            }
+          }
+        ]}
+      />
+    )
+    // Twice on purpose: the line above the log and the last line in it are
+    // the same label, so the two can never disagree about what is happening.
+    expect(screen.getAllByText("Click control")).toHaveLength(2)
+  })
+
+  it("counts every tab the run drives, not only the one it started on", () => {
+    render(
+      <AgentView
+        run={{ ...run("observing"), scopedTabIds: [7, 9] }}
+        tab={{ title: "Docs", url: "https://example.com" }}
+      />
+    )
+    expect(screen.getByText('agent.tabs.count:{"count":2}')).toBeTruthy()
+  })
+
+  it("leaves the tab count out when the run drives one tab", () => {
+    render(
+      <AgentView
+        run={run("observing")}
+        tab={{ title: "Docs", url: "https://example.com" }}
+      />
+    )
+    expect(screen.queryByText("agent.tabs.label")).toBeNull()
+  })
+
+  it("says what to do about a failure before repeating what happened", () => {
+    render(
+      <AgentView
+        run={{
+          ...run("failed"),
+          error: {
+            code: "model_unavailable",
+            message: "The selected model could not produce a decision.",
+            retryable: false
+          }
+        }}
+      />
+    )
+    // The advice is the answer; the runtime's own English sentence is kept
+    // underneath, because whoever reports the problem needs its words.
+    expect(screen.getByText("agent.failure.model_unavailable")).toBeTruthy()
+    expect(
+      screen.getByText("The selected model could not produce a decision.")
+    ).toBeTruthy()
+  })
+
+  it("still advises on a failure code it does not know", () => {
+    render(
+      <AgentView
+        run={{
+          ...run("failed"),
+          error: {
+            code: "budget_exhausted",
+            message: "x",
+            retryable: false
+          }
+        }}
+      />
+    )
+    expect(screen.getByText("agent.failure.budget_exhausted")).toBeTruthy()
+  })
+})

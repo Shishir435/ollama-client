@@ -76,6 +76,55 @@ const commandLabel = (command?: AgentCommand): string => {
   }
 }
 
+/**
+ * What a run is doing right now, from the step it most recently opened.
+ *
+ * The status alone says "executing", which is the machine's word for it. A
+ * user supervising a run needs the action: a page they can see being clicked,
+ * a field being filled. The label is the same one the work log uses, so the
+ * line above the log and the last line in it never disagree.
+ */
+export const currentAgentAction = (
+  steps: readonly AgentStepRecord[]
+): string | undefined => {
+  const open = [...steps]
+    .sort((left, right) => left.sequence - right.sequence)
+    .filter((step) => step.command)
+    .at(-1)
+  return open ? commandLabel(open.command) : undefined
+}
+
+/**
+ * How far a run has gone against the budget that will stop it.
+ *
+ * A bare count of observations means nothing without the ceiling: a user
+ * cannot tell a run that is halfway from one about to be cut off.
+ */
+export const AGENT_OBSERVATION_BUDGET = 25
+
+/**
+ * The recovery a failure leaves open, as an i18n key.
+ *
+ * The runtime's own message is written in English for a developer reading a
+ * receipt, and it says what happened rather than what to do. Every code has
+ * an answer — retry, narrow the goal, pick another model, take the tab over —
+ * and a user who is told it does not need one of us.
+ */
+export const agentFailureAdviceKey = (code: string): string =>
+  `agent.failure.${AGENT_FAILURE_CODES.has(code) ? code : "unknown"}`
+
+const AGENT_FAILURE_CODES = new Set([
+  "budget_exhausted",
+  "goal_failed",
+  "invalid_decision",
+  "model_unavailable",
+  "observation_failed",
+  "policy_blocked",
+  "stale_snapshot",
+  "unsupported_page",
+  "verification_failed"
+])
+
 export interface AgentWorkLogItem {
   id: string
   label: string

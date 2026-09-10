@@ -1,42 +1,20 @@
 {
   "agent": {
-    "title": "Supervised Agent",
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agent",
-      "preview": "Preview"
+    "approval": {
+      "title": "Approval required",
+      "allow": "Allow once",
+      "reject": "Reject",
+      "allowForRun": "Always allow this kind of action on {{origin}} for this run"
     },
-    "start": {
-      "description": "Supervise a browser task from this panel.",
-      "goal": "What should Agent do?",
-      "placeholder": "Describe one browser task…",
-      "action": "Start Agent"
+    "attachment": {
+      "title": "What this browser allows",
+      "attaches": "Starting a run attaches Chrome's debugger to the tab you choose. Chrome shows its own banner while it is attached, and the run detaches when it stops, pauses for you to take over, or finishes.",
+      "no_debugger": "This browser has no debugger, so the run drives pages through the extension's content scripts instead."
     },
-    "provider": {
-      "label": "Provider",
-      "local": "Local",
-      "remote": "Remote",
-      "missing": "Select a model first"
+    "browser_disconnected": "Browser control disconnected, so Agent paused. Review the page before resuming.",
+    "completion": {
+      "summary": "{{count}} page observations were sent to {{provider}} during this run."
     },
-    "model": {
-      "label": "Model"
-    },
-    "tab": {
-      "label": "Controlled tab",
-      "missing": "Open a supported web page"
-    },
-    "screenshots": {
-      "label": "Screenshots",
-      "sent": "Viewport screenshots are sent to the model",
-      "unused": "Not used with a text-only model",
-      "unknown": "Not determined yet"
-    },
-    "privacy": {
-      "remote_notice": "Page observations will be sent continuously to this remote provider while Agent runs.",
-      "acknowledge": "I understand",
-      "remote_notice_screenshots": "Page observations and viewport screenshots will be sent continuously to this remote provider while Agent runs."
-    },
-    "observations": "{{count}} observations",
     "controls": {
       "label": "Agent controls",
       "pause": "Pause",
@@ -44,24 +22,66 @@
       "stop": "Stop",
       "takeover_done": "I’m done — continue"
     },
-    "approval": {
-      "title": "Approval required",
-      "allow": "Allow once",
-      "reject": "Reject",
-      "allowForRun": "Always allow this kind of action on {{origin}} for this run"
+    "error": {
+      "already_running": "An Agent run is already in progress.",
+      "browser_control_unavailable": "Agent could not attach browser control. Close DevTools or another debugger and try again.",
+      "permission_denied": "Agent needs page-observation permission before it can start.",
+      "tab_unsupported": "Agent cannot run on this page. Open a normal web page and try again.",
+      "unreadable_update": "The panel received an update it could not read.",
+      "unknown": "Agent could not complete that request."
     },
-    "takeover": {
-      "title": "Take over this step"
-    },
-    "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
-    "browser_disconnected": "Browser control disconnected, so Agent paused. Review the page before resuming.",
-    "work_log": {
-      "title": "Work log"
-    },
-    "completion": {
-      "summary": "{{count}} page observations were sent to {{provider}} during this run."
+    "failure": {
+      "budget_exhausted": "The run used its whole step budget. Narrow the goal, or set it again from where the page is now.",
+      "goal_failed": "The model reported it cannot do this. Try a clearer goal, or a different model.",
+      "invalid_decision": "The model kept answering in a form the run could not use. A larger or tool-calling model usually fixes this.",
+      "model_unavailable": "The model could not be reached. Check the provider is running, then start the run again.",
+      "observation_failed": "The page could not be read. Reload it, make sure it is not a browser or store page, and try again.",
+      "policy_blocked": "The run asked for something policy refuses. Set a goal that does not need it, or do that step yourself.",
+      "stale_snapshot": "The page changed underneath the run. Start it again from the page as it is now.",
+      "unsupported_page": "The run cannot work on this page. Move to an ordinary web page and start again.",
+      "verification_failed": "The run could not confirm what its last action did. Check the page before starting again.",
+      "unknown": "The run stopped for a reason it could not name. Check the page, then start again."
     },
     "feedback": "Send feedback",
+    "limits": {
+      "no_native_input": "Pointer and keyboard input is synthetic, so a page that only reacts to real input may not respond.",
+      "no_screenshots": "No screenshots are taken, so a task that can only be done by looking at the page will not work.",
+      "no_dialogs": "Native alert, confirm and prompt dialogs cannot be seen or answered by the run."
+    },
+    "model": {
+      "label": "Model"
+    },
+    "observations": "{{count}} observations",
+    "privacy": {
+      "remote_notice": "Page observations will be sent continuously to this remote provider while Agent runs.",
+      "acknowledge": "I understand",
+      "remote_notice_screenshots": "Page observations and viewport screenshots will be sent continuously to this remote provider while Agent runs."
+    },
+    "progress": "{{count}} of {{budget}} observations",
+    "provider": {
+      "label": "Provider",
+      "local": "Local",
+      "remote": "Remote",
+      "missing": "Select a model first"
+    },
+    "question": {
+      "title": "Agent needs an answer",
+      "inputLabel": "Your answer",
+      "placeholder": "Type your answer",
+      "send": "Send answer"
+    },
+    "screenshots": {
+      "label": "Screenshots",
+      "sent": "Viewport screenshots are sent to the model",
+      "unused": "Not used with a text-only model",
+      "unknown": "Not determined yet"
+    },
+    "start": {
+      "description": "Supervise a browser task from this panel.",
+      "goal": "What should Agent do?",
+      "placeholder": "Describe one browser task…",
+      "action": "Start Agent"
+    },
     "status": {
       "submitted": "Starting",
       "observing": "Observing page",
@@ -87,19 +107,26 @@
       "failed": "Failed",
       "uncertain": "Review"
     },
-    "error": {
-      "already_running": "An Agent run is already in progress.",
-      "browser_control_unavailable": "Agent could not attach browser control. Close DevTools or another debugger and try again.",
-      "permission_denied": "Agent needs page-observation permission before it can start.",
-      "tab_unsupported": "Agent cannot run on this page. Open a normal web page and try again.",
-      "unreadable_update": "The panel received an update it could not read.",
-      "unknown": "Agent could not complete that request."
+    "surface": {
+      "chat": "Chat",
+      "agent": "Agent",
+      "preview": "Preview"
     },
-    "question": {
-      "title": "Agent needs an answer",
-      "inputLabel": "Your answer",
-      "placeholder": "Type your answer",
-      "send": "Send answer"
+    "tab": {
+      "label": "Controlled tab",
+      "missing": "Open a supported web page"
+    },
+    "tabs": {
+      "label": "Controlled tabs",
+      "count": "{{count}} tabs"
+    },
+    "takeover": {
+      "title": "Take over this step"
+    },
+    "title": "Supervised Agent",
+    "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
+    "work_log": {
+      "title": "Work log"
     }
   },
   "common": {

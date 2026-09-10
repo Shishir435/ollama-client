@@ -1,42 +1,20 @@
 {
   "agent": {
-    "title": "監督付きエージェント",
-    "surface": {
-      "chat": "チャット",
-      "agent": "エージェント",
-      "preview": "プレビュー"
+    "approval": {
+      "title": "承認が必要です",
+      "allow": "今回のみ許可",
+      "reject": "拒否",
+      "allowForRun": "この実行中は {{origin}} でこの種の操作を常に許可する"
     },
-    "start": {
-      "description": "このパネルからブラウザー作業を監督します。",
-      "goal": "エージェントに何をさせますか？",
-      "placeholder": "ブラウザー作業を1つ説明…",
-      "action": "エージェントを開始"
+    "attachment": {
+      "title": "このブラウザーでできること",
+      "attaches": "実行を開始すると、Chrome のデバッガーが選択したタブに接続します。接続中は Chrome 自身のバナーが表示され、停止・操作の引き継ぎ・完了のいずれかで接続は解除されます。",
+      "no_debugger": "このブラウザーにはデバッガーがないため、実行は拡張機能のコンテンツスクリプトを通じてページを操作します。"
     },
-    "provider": {
-      "label": "プロバイダー",
-      "local": "ローカル",
-      "remote": "リモート",
-      "missing": "先にモデルを選択"
+    "browser_disconnected": "ブラウザー制御が切断されたため、Agent を一時停止しました。再開前にページを確認してください。",
+    "completion": {
+      "summary": "この実行では、{{count}} 件のページ観測が {{provider}} に送信されました。"
     },
-    "model": {
-      "label": "モデル"
-    },
-    "tab": {
-      "label": "操作対象タブ",
-      "missing": "対応するウェブページを開いてください"
-    },
-    "screenshots": {
-      "label": "スクリーンショット",
-      "sent": "ビューポートのスクリーンショットをモデルに送信します",
-      "unused": "テキスト専用モデルでは使用しません",
-      "unknown": "未確定"
-    },
-    "privacy": {
-      "remote_notice": "エージェントの実行中、ページ観測はこのリモートプロバイダーへ継続的に送信されます。",
-      "acknowledge": "理解しました",
-      "remote_notice_screenshots": "エージェントの実行中、ページの観測結果とビューポートのスクリーンショットがこのリモートプロバイダーへ継続的に送信されます。"
-    },
-    "observations": "観測 {{count}} 回",
     "controls": {
       "label": "エージェント操作",
       "pause": "一時停止",
@@ -44,24 +22,66 @@
       "stop": "停止",
       "takeover_done": "操作完了 — 続行"
     },
-    "approval": {
-      "title": "承認が必要です",
-      "allow": "今回のみ許可",
-      "reject": "拒否",
-      "allowForRun": "この実行中は {{origin}} でこの種の操作を常に許可する"
+    "error": {
+      "already_running": "Agent の実行は既に進行中です。",
+      "browser_control_unavailable": "Agent はブラウザー制御に接続できませんでした。DevTools または別のデバッガーを閉じて再試行してください。",
+      "permission_denied": "開始する前に、ページ観測の権限が必要です。",
+      "tab_unsupported": "このページでは Agent を実行できません。通常のウェブページを開いてからやり直してください。",
+      "unreadable_update": "パネルは読み取れない更新を受け取りました。",
+      "unknown": "Agent はその要求を完了できませんでした。"
     },
-    "takeover": {
-      "title": "この手順を引き継ぐ"
-    },
-    "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
-    "browser_disconnected": "ブラウザー制御が切断されたため、Agent を一時停止しました。再開前にページを確認してください。",
-    "work_log": {
-      "title": "作業ログ"
-    },
-    "completion": {
-      "summary": "この実行では、{{count}} 件のページ観測が {{provider}} に送信されました。"
+    "failure": {
+      "budget_exhausted": "実行がステップの上限をすべて使い切りました。目標を絞るか、現在のページの状態から始め直してください。",
+      "goal_failed": "モデルがこれはできないと報告しました。目標をより明確にするか、別のモデルを試してください。",
+      "invalid_decision": "モデルが使用できない形式で応答し続けました。ツール呼び出しに対応した大きめのモデルにすると解決することが多いです。",
+      "model_unavailable": "モデルに接続できませんでした。プロバイダーが動作しているか確認し、もう一度開始してください。",
+      "observation_failed": "ページを読み取れませんでした。再読み込みし、ブラウザーやストアのページでないことを確認して、もう一度お試しください。",
+      "policy_blocked": "ポリシーが拒否する操作が要求されました。それを必要としない目標にするか、その手順はご自身で行ってください。",
+      "stale_snapshot": "実行中にページが変わりました。現在のページの状態から始め直してください。",
+      "unsupported_page": "このページでは実行できません。通常のウェブページに移動してから始め直してください。",
+      "verification_failed": "直前の操作の結果を確認できませんでした。始め直す前にページをご確認ください。",
+      "unknown": "理由を特定できないまま実行が停止しました。ページを確認してから、もう一度開始してください。"
     },
     "feedback": "フィードバックを送信",
+    "limits": {
+      "no_native_input": "マウスとキーボードの入力は合成されたものです。実際の入力にしか反応しないページは動作しないことがあります。",
+      "no_screenshots": "スクリーンショットは取得しないため、ページを見ることでしか行えない作業はできません。",
+      "no_dialogs": "ネイティブの alert・confirm・prompt ダイアログは、実行から見ることも応答することもできません。"
+    },
+    "model": {
+      "label": "モデル"
+    },
+    "observations": "観測 {{count}} 回",
+    "privacy": {
+      "remote_notice": "エージェントの実行中、ページ観測はこのリモートプロバイダーへ継続的に送信されます。",
+      "acknowledge": "理解しました",
+      "remote_notice_screenshots": "エージェントの実行中、ページの観測結果とビューポートのスクリーンショットがこのリモートプロバイダーへ継続的に送信されます。"
+    },
+    "progress": "{{budget}} 回中 {{count}} 回の観測",
+    "provider": {
+      "label": "プロバイダー",
+      "local": "ローカル",
+      "remote": "リモート",
+      "missing": "先にモデルを選択"
+    },
+    "question": {
+      "title": "Agent が回答を求めています",
+      "inputLabel": "あなたの回答",
+      "placeholder": "回答を入力",
+      "send": "回答を送信"
+    },
+    "screenshots": {
+      "label": "スクリーンショット",
+      "sent": "ビューポートのスクリーンショットをモデルに送信します",
+      "unused": "テキスト専用モデルでは使用しません",
+      "unknown": "未確定"
+    },
+    "start": {
+      "description": "このパネルからブラウザー作業を監督します。",
+      "goal": "エージェントに何をさせますか？",
+      "placeholder": "ブラウザー作業を1つ説明…",
+      "action": "エージェントを開始"
+    },
     "status": {
       "submitted": "開始中",
       "observing": "ページを観測中",
@@ -87,19 +107,26 @@
       "failed": "失敗",
       "uncertain": "要確認"
     },
-    "error": {
-      "already_running": "Agent の実行は既に進行中です。",
-      "browser_control_unavailable": "Agent はブラウザー制御に接続できませんでした。DevTools または別のデバッガーを閉じて再試行してください。",
-      "permission_denied": "開始する前に、ページ観測の権限が必要です。",
-      "tab_unsupported": "このページでは Agent を実行できません。通常のウェブページを開いてからやり直してください。",
-      "unreadable_update": "パネルは読み取れない更新を受け取りました。",
-      "unknown": "Agent はその要求を完了できませんでした。"
+    "surface": {
+      "chat": "チャット",
+      "agent": "エージェント",
+      "preview": "プレビュー"
     },
-    "question": {
-      "title": "Agent が回答を求めています",
-      "inputLabel": "あなたの回答",
-      "placeholder": "回答を入力",
-      "send": "回答を送信"
+    "tab": {
+      "label": "操作対象タブ",
+      "missing": "対応するウェブページを開いてください"
+    },
+    "tabs": {
+      "label": "操作中のタブ",
+      "count": "{{count}} 個のタブ"
+    },
+    "takeover": {
+      "title": "この手順を引き継ぐ"
+    },
+    "title": "監督付きエージェント",
+    "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
+    "work_log": {
+      "title": "作業ログ"
     }
   },
   "common": {
