@@ -242,8 +242,14 @@ const budgets: Budget[] = [
      * synthetic and debugger-driven drag with its HTML5 interception, the
      * arrangement verifier, and the file-chooser hold-back — took it to
      * 251,314. Firefox carries no Agent code and is unchanged.
+     *
+     * Dialogs and action-specific approvals — the held-dialog record and its
+     * answering path in the session manager, the blocked-page observation,
+     * the dialog action family with its own resolver, executor and verifier,
+     * and the dialog rules in the classifier and the policy — took it to
+     * 253,519. Firefox carries no Agent code and is unchanged.
      */
-    max: isFirefox ? 210_000 : 252_000
+    max: isFirefox ? 210_000 : 254_000
   }
 ]
 
