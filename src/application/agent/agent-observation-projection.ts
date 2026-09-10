@@ -70,7 +70,9 @@ export interface AgentProjectedObservation {
   /**
    * Native dialogs holding the page. Present only when there are any, and
    * when there are, the page carries no controls and nothing but answering
-   * one is possible — so this is what the next decision is about.
+   * one is possible — so this is what the next decision is about. Each names
+   * the origin that opened it, and says when its text was withheld because
+   * that origin is one the run may not read.
    */
   dialogs?: AgentDialogState[]
   /** Open in-page dialogs and menus, so a decision can act inside the top one. */

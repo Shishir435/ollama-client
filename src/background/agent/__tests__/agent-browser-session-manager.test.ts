@@ -563,8 +563,46 @@ describe("native dialogs the debugger holds", () => {
     expect(manager.openDialog("run-1", 7)).toEqual({
       id: "d1",
       type: "confirm",
+      origin: "https://example.com",
       message: "Delete this project?"
     })
+    await manager.dispose()
+  })
+
+  it("names the document that opened the dialog, not the tab", async () => {
+    // An embedded frame's confirm blocks the whole tab. Only the event's own
+    // url says whose prompt it is, and the answer is an effect on that site.
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "confirm",
+      message: "Confirm your payment",
+      url: "https://ads.example/frame"
+    })
+    expect(manager.openDialog("run-1", 7)?.origin).toBe("https://ads.example")
+    await manager.dispose()
+  })
+
+  it("records a document with no origin of its own as one it cannot place", async () => {
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "alert",
+      message: "?",
+      url: "about:blank"
+    })
+    expect(manager.openDialog("run-1", 7)?.origin).toBe("null")
+    await manager.dispose()
+  })
+
+  it("records an unreadable url as one it cannot place", async () => {
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "alert",
+      message: "?"
+    })
+    expect(manager.openDialog("run-1", 7)?.origin).toBe("null")
     await manager.dispose()
   })
 

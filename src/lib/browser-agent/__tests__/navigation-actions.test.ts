@@ -725,7 +725,14 @@ describe("a navigation a beforeunload dialog is holding", () => {
       generation: 2,
       elements: [],
       visibleText: "",
-      dialogs: [{ id: "d1", type: "beforeunload", message: "Changes you made" }]
+      dialogs: [
+        {
+          id: "d1",
+          type: "beforeunload",
+          origin: "https://example.com",
+          message: "Changes you made"
+        }
+      ]
     })
 
   it("reports the navigation as not committed", async () => {

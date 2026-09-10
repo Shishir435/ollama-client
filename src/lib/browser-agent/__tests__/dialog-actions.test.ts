@@ -31,6 +31,7 @@ const signal: AgentCancellationSignal = { aborted: false }
 const confirmDialog: AgentDialogState = {
   id: "d1",
   type: "confirm",
+  origin: "https://example.com",
   message: "Delete this project?"
 }
 
@@ -147,21 +148,39 @@ describe("resolveDialogAgentEffect", () => {
 
   it("prices accepting a beforeunload as destructive", async () => {
     const before = observation([
-      { id: "d1", type: "beforeunload", message: "Changes you made" }
+      {
+        id: "d1",
+        type: "beforeunload",
+        origin: "https://example.com",
+        message: "Changes you made"
+      }
     ])
     const effect = await resolve(answer({ accept: true }), before)
     expect(effect.semanticEffects).toContain("destructive")
   })
 
   it("leaves closing an alert free of any commitment", async () => {
-    const before = observation([{ id: "d1", type: "alert", message: "Saved" }])
+    const before = observation([
+      {
+        id: "d1",
+        type: "alert",
+        origin: "https://example.com",
+        message: "Saved"
+      }
+    ])
     const effect = await resolve(answer({ accept: true }), before)
     expect(effect.semanticEffects).toEqual(["dialog"])
   })
 
   it("carries an accepted prompt's text as a form mutation", async () => {
     const before = observation([
-      { id: "d1", type: "prompt", message: "New name", defaultPrompt: "Board" }
+      {
+        id: "d1",
+        type: "prompt",
+        origin: "https://example.com",
+        message: "New name",
+        defaultPrompt: "Board"
+      }
     ])
     const effect = await resolve(
       answer({ accept: true, promptText: "Roadmap" }),
@@ -177,6 +196,34 @@ describe("resolveDialogAgentEffect", () => {
   it("shows the dialog's own words as the evidence the user reads", async () => {
     const effect = await resolve(answer({ accept: true }))
     expect(effect.target.accessibleName).toBe("Delete this project?")
+  })
+
+  it("acts on the page's own origin when the page raised it", async () => {
+    const effect = await resolve(answer())
+    expect(effect.frameOrigin).toBeUndefined()
+    expect(effect.sourceOrigin).toBe("https://example.com")
+  })
+
+  it("acts on the frame's origin when a frame raised it", async () => {
+    /**
+     * An embedded frame's confirm blocks the whole tab, but answering it is
+     * an effect on that frame's site — so policy judges the answer, its grant
+     * offer and its allowlist against the frame, exactly as it does for a
+     * child-frame element.
+     */
+    const before = observation([
+      {
+        id: "d1",
+        type: "confirm",
+        origin: "https://ads.example",
+        message: "",
+        unauthorizedOrigin: true
+      }
+    ])
+    const effect = await resolve(answer({ accept: true }), before)
+    expect(effect.frameOrigin).toBe("https://ads.example")
+    expect(effect.sourceOrigin).toBe("https://example.com")
+    expect(effect.target.accessibleName).toBeUndefined()
   })
 
   it("refuses an answer aimed at a dialog that is not the one open", async () => {
@@ -291,7 +338,12 @@ describe("verifyDialogAgentEffect", () => {
 
   it("reports ambiguity when the page immediately asks something else", async () => {
     const after = observation([
-      { id: "d2", type: "confirm", message: "Really?" }
+      {
+        id: "d2",
+        type: "confirm",
+        origin: "https://example.com",
+        message: "Really?"
+      }
     ])
     expect((await verify(after)).outcome).toBe("ambiguous")
   })

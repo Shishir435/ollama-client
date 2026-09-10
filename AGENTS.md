@@ -508,6 +508,22 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   command grounded in it cannot be replayed against the page afterwards. The
   verifier shares that seam, so a second dialog cannot leave it waiting
   either.
+- **A dialog belongs to the document that opened it, not to the tab.**
+  `Page.javascriptDialogOpening` names that document, which is the only way to
+  tell the page's own `confirm` from an embedded frame's — and a frame's
+  dialog blocks the whole tab either way. The origin travels on
+  `AgentDialogState`, a document with none of its own (`about:blank`, `srcdoc`,
+  an unreadable URL) is recorded as `"null"` so no allowlist matches it, and
+  the adapter withholds `message` and `defaultPrompt` for an origin outside
+  the run's allowlist — a dialog's text is frame content, governed by the same
+  authorization as a frame's elements. The run is told the dialog exists, on
+  which origin, and that it could not be read (`unauthorizedOrigin`), because
+  a prompt it cannot see is different from one that is not there. The resolver
+  sets `frameOrigin` for such a dialog, so policy judges the answer, its grant
+  offer and its allowlist against the site that asked: dismissing a frame's
+  dialog from outside the allowlist costs an approval that names that origin
+  and says the text was withheld, where dismissing the page's own costs
+  nothing.
 - **A dialog is answered by identity, in its own action family.**
   `handle_dialog` names the `dialogId` the observation listed; `resolve`,
   `execute` and `verify` live in the `dialog` family, and the executor checks
@@ -527,11 +543,14 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   approve without reading. The `submission` class the resolver attaches to a
   click on a submitter and to Enter in a field that submits on it is what
   costs critical. Typing is a `form_mutation`, which is grantable per origin.
-- **An edit with no submission step says so.** `persistsOnChange` is set on an
-  edit whose target belongs to no form — an editing host, or a bare field in
-  an application that saves on input — so the approval the user grants against
-  states that the change is stored as it is entered rather than implying a
-  submit they will be asked about later. Evidence, not risk: the class stays
+- **An edit with no submission step says so, and says only that.**
+  `noSubmitStep` is set on an edit whose target belongs to no form — an
+  editing host, or a bare field in an application that saves on input — so the
+  approval states that no submit will be asked about later rather than
+  implying one. What it must not claim is that anything was stored: value
+  verification compares the control and nothing else, and a standalone filter
+  box with no submit step persists nothing, so the wording is that the change
+  *may* already be stored. Evidence, not risk: the class stays
   `form_mutation`. It is read from the observation, which is why
   `formFingerprint` is reported for every control belonging to a form and not
   only for the ones that submit.

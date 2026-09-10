@@ -215,14 +215,14 @@ describe("editing resolution", () => {
   it("marks an edit that has no submission step behind it", async () => {
     /**
      * An editing host belongs to no form, so there is no later submit the
-     * user would be asked about — the typing is the whole change and the
-     * application may already have stored it. Policy words the approval with
-     * this; the risk stays a form mutation either way.
+     * user would be asked about. That is all this records — whether the page
+     * stored anything is something the run cannot see. Policy words the
+     * approval with it; the risk stays a form mutation either way.
      */
     const effect = await resolve(
       command({ type: "type", ref: "e1", text: "!" })
     )
-    expect(effect.target.persistsOnChange).toBe(true)
+    expect(effect.target.noSubmitStep).toBe(true)
   })
 
   it("leaves an edit inside a form for its submission to be approved at", async () => {
@@ -236,7 +236,7 @@ describe("editing resolution", () => {
       command({ type: "type", ref: "e1", text: "!" }),
       observation({ elements: [field] })
     )
-    expect(effect.target.persistsOnChange).toBeUndefined()
+    expect(effect.target.noSubmitStep).toBeUndefined()
   })
 
   it("says nothing of the sort about a click, which changes no value", async () => {
@@ -252,7 +252,7 @@ describe("editing resolution", () => {
       command({ type: "click", ref: "e1" }),
       observation({ elements: [button] })
     )
-    expect(effect.target.persistsOnChange).toBeUndefined()
+    expect(effect.target.noSubmitStep).toBeUndefined()
   })
 
   it("refuses an edit the observed value does not ground", async () => {

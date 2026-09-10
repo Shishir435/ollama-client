@@ -491,7 +491,15 @@ export const resolveDialogAgentEffect = async (input: {
     semanticEffects: effects,
     snapshotIdentity: rootAgentSnapshotIdentity(observation),
     sourceUrl: source.url,
-    sourceOrigin: source.origin
+    sourceOrigin: source.origin,
+    /**
+     * A dialog raised by an embedded frame is an effect on that frame's
+     * site, not on the page the tab shows: it is the frame that asked and
+     * the frame that acts on the answer. Carried the same way a child-frame
+     * element's is, so policy judges the answer, its grant offer and its
+     * origin allowlist against the site that owns the prompt.
+     */
+    ...(dialog.origin === source.origin ? {} : { frameOrigin: dialog.origin })
   }
 }
 
@@ -601,12 +609,12 @@ const FORM_MUTATION_ACTIONS = new Set([
  * A form is filled in and then submitted, and the submission is where the
  * user is asked. A control belonging to no form — an editing host, or a bare
  * field in an application that saves on input — has no such step, so this
- * edit is the whole change and the page may already have stored it before the
- * step ends. Read from the observation's own facts: a control on a submit
- * path reports `maySubmit`, and one belonging to a form reports that form's
- * fingerprint.
+ * approval is the only one there will be. It says nothing about whether the
+ * page stored anything, which the run cannot see. Read from the observation's
+ * own facts: a control on a submit path reports `maySubmit`, and one
+ * belonging to a form reports that form's fingerprint.
  */
-const persistsOnChange = (
+const hasNoSubmitStep = (
   command: AgentCommand,
   element: AgentElement
 ): boolean =>
@@ -953,7 +961,7 @@ export const resolveDomMutationAgentEffect = async (input: {
       ...targetFromElement(element, observation, expected),
       ...(point ? { point } : {}),
       ...(drop ? { drop: drop.drop } : {}),
-      ...(persistsOnChange(command, element) ? { persistsOnChange: true } : {})
+      ...(hasNoSubmitStep(command, element) ? { noSubmitStep: true } : {})
     },
     ...(destination ? { destination } : {}),
     semanticEffects: [...new Set(effects)],

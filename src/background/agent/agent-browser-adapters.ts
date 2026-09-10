@@ -185,13 +185,13 @@ export const createAgentBrowserAdapters = (input: {
      * The frame identity travels as the instruction's own field, never inside
      * the wire target: that target is validated by a strict schema with no
      * `frame` key, so leaking it there is a parse failure before a byte is
-     * sent. `persistsOnChange` is dropped for the same reason — it is policy's
+     * sent. `noSubmitStep` is dropped for the same reason — it is policy's
      * evidence about the target, not a fact the page is told.
      */
     const {
       frame: targetFrame,
       point,
-      persistsOnChange: _persistsOnChange,
+      noSubmitStep: _noSubmitStep,
       ...target
     } = effect.target
     const frame = targetFrame ?? effect.snapshotIdentity
@@ -331,7 +331,10 @@ export const createAgentBrowserAdapters = (input: {
   ): Promise<AgentObservation> => {
     const dialog = input.browserSessions?.openDialog(input.runId, tabId)
     if (dialog) {
-      return dialogBlockedObservation({ tabId, minimumGeneration }, dialog)
+      return dialogBlockedObservation(
+        { tabId, minimumGeneration, allowedOrigins },
+        dialog
+      )
     }
     const observation = await input.sessions.observe(
       { runId: input.runId, tabId, minimumGeneration, allowedOrigins },
@@ -418,8 +421,37 @@ export const createAgentBrowserAdapters = (input: {
    * the snapshot names the dialog, so a command grounded in this observation
    * cannot be replayed against the page once the dialog is gone.
    */
+  /**
+   * The dialog as this run is allowed to know it.
+   *
+   * A dialog belongs to the document that opened it, and an embedded frame's
+   * `confirm` blocks the whole tab. The run's origin allowlist governs what
+   * it may read from a frame, and a dialog's text is frame content like any
+   * other — so a dialog raised on an origin the run was not authorized for is
+   * reported as existing, on that origin, with nothing it wrote. The page's
+   * own dialog is reported whole.
+   */
+  const authorizedDialog = (
+    dialog: AgentDialogState,
+    pageOrigin: string,
+    allowedOrigins: readonly string[]
+  ): AgentDialogState => {
+    if (
+      dialog.origin === pageOrigin ||
+      allowedOrigins.includes(dialog.origin)
+    ) {
+      return dialog
+    }
+    const { defaultPrompt: _withheld, ...rest } = dialog
+    return { ...rest, message: "", unauthorizedOrigin: true }
+  }
+
   const dialogBlockedObservation = async (
-    request: { tabId: number; minimumGeneration: number },
+    request: {
+      tabId: number
+      minimumGeneration: number
+      allowedOrigins: readonly string[]
+    },
     dialog: AgentDialogState
   ): Promise<AgentObservation> => {
     const tab = await getTab(request.tabId)
@@ -471,7 +503,7 @@ export const createAgentBrowserAdapters = (input: {
         documentWidth: 0,
         documentHeight: 0
       },
-      dialogs: [dialog],
+      dialogs: [authorizedDialog(dialog, origin, request.allowedOrigins)],
       capturedAt: now()
     }
   }

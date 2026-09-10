@@ -158,12 +158,12 @@ export interface ResolvedAgentTarget {
   maySubmit: boolean
   /**
    * Set on an edit whose target has no submission step: an editing host, or a
-   * field belonging to no form. The change such an edit makes is the whole
-   * change — there is no later submit the run would ask about — so an
-   * application that saves on input has already saved by the time the step
-   * ends. Evidence, not a decision: policy words the approval with it.
+   * field belonging to no form. It says what the observation can prove — that
+   * no later submit exists for the user to be asked about — and nothing about
+   * whether the page stored anything, which only the page knows. Evidence,
+   * not a decision: policy words the approval with it.
    */
-  persistsOnChange?: boolean
+  noSubmitStep?: boolean
 }
 
 /** The destination of a drag, in the terms its later recheck compares. */

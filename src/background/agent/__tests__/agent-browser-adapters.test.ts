@@ -1,5 +1,6 @@
 import type { AuthorizedAgentEffect } from "@ollama-client/agent-runtime"
 import {
+  type AgentDialogState,
   type AgentObservation,
   AgentObservationSchema
 } from "@ollama-client/contracts"
@@ -191,13 +192,14 @@ describe("observing a tab a native dialog is holding", () => {
    * reply until the dialog is answered — which is the thing the run is trying
    * to do.
    */
-  const dialog = {
+  const pageDialog = {
     id: "d1",
     type: "confirm" as const,
+    origin: "https://example.com",
     message: "Delete this project?"
   }
 
-  const withBlockedTab = () => {
+  const withBlockedTab = (dialog: AgentDialogState = pageDialog) => {
     const sessions = createAgentControlSessionRegistry({
       open: (async () => {
         throw new Error("no session in this test")
@@ -266,7 +268,7 @@ describe("observing a tab a native dialog is holding", () => {
     )
     expect(observe).not.toHaveBeenCalled()
     expect(AgentObservationSchema.parse(blocked)).toBeTruthy()
-    expect(blocked.dialogs).toEqual([dialog])
+    expect(blocked.dialogs).toEqual([pageDialog])
     expect(blocked.elements).toEqual([])
     expect(blocked.visibleText).toBe("")
     expect(blocked.frames[0].access).toBe("unreadable")
@@ -287,6 +289,85 @@ describe("observing a tab a native dialog is holding", () => {
       { aborted: false }
     )
     expect(observe).not.toHaveBeenCalled()
-    expect(blocked.dialogs).toEqual([dialog])
+    expect(blocked.dialogs).toEqual([pageDialog])
+  })
+
+  it("withholds the text of a dialog raised by a frame the run may not read", async () => {
+    /**
+     * An embedded frame's `confirm` blocks the whole tab, and its words are
+     * that frame's content: the run's origin allowlist governs what it may
+     * read from a frame, so a dialog from an unauthorized origin is reported
+     * as existing, on that origin, with nothing it wrote.
+     */
+    const { adapters } = withBlockedTab({
+      id: "d1",
+      type: "confirm" as const,
+      origin: "https://ads.example",
+      message: "Confirm your payment of $500",
+      defaultPrompt: "500"
+    })
+    const blocked = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 1,
+        allowedOrigins: ["https://example.com"]
+      },
+      { aborted: false }
+    )
+    expect(AgentObservationSchema.parse(blocked)).toBeTruthy()
+    expect(blocked.dialogs).toEqual([
+      {
+        id: "d1",
+        type: "confirm",
+        origin: "https://ads.example",
+        message: "",
+        unauthorizedOrigin: true
+      }
+    ])
+  })
+
+  it("reads a frame's dialog once the run is authorized for its origin", async () => {
+    const { adapters } = withBlockedTab({
+      id: "d1",
+      type: "confirm" as const,
+      origin: "https://widget.example",
+      message: "Remove this widget?"
+    })
+    const blocked = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 1,
+        allowedOrigins: ["https://example.com", "https://widget.example"]
+      },
+      { aborted: false }
+    )
+    expect(blocked.dialogs[0].message).toBe("Remove this widget?")
+    expect(blocked.dialogs[0].unauthorizedOrigin).toBeUndefined()
+  })
+
+  it("treats a dialog it cannot place as one it may not read", async () => {
+    // A document with no origin of its own — about:blank, srcdoc, data: — is
+    // recorded as "null", which no allowlist matches.
+    const { adapters } = withBlockedTab({
+      id: "d1",
+      type: "alert" as const,
+      origin: "null",
+      message: "Anything at all"
+    })
+    const blocked = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 1,
+        allowedOrigins: ["https://example.com"]
+      },
+      { aborted: false }
+    )
+    expect(blocked.dialogs[0]).toMatchObject({
+      message: "",
+      unauthorizedOrigin: true
+    })
   })
 })

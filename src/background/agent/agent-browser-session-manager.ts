@@ -266,6 +266,22 @@ interface Attachment {
  */
 const DRAG_INTERCEPT_WAIT_MS = 150
 
+/**
+ * The origin of the document that opened a dialog. `"null"` stands for every
+ * document that has none of its own — `about:blank`, a `srcdoc` or `data:`
+ * frame — and for a URL that could not be read at all: both are documents the
+ * run cannot place against its allowlist, and the strict answer is the honest
+ * one.
+ */
+const dialogOrigin = (url: unknown): string => {
+  if (typeof url !== "string") return "null"
+  try {
+    return new URL(url).origin
+  } catch {
+    return "null"
+  }
+}
+
 /** The dialog kinds `Page.javascriptDialogOpening` can report. */
 const DIALOG_TYPES: readonly AgentDialogState["type"][] = [
   "alert",
@@ -606,6 +622,13 @@ export const createAgentBrowserSessionManager = (input?: {
    * protocol answers. That is the reason this has to be tracked at all — an
    * unanswered dialog is a tab frozen for as long as the run holds it.
    *
+   * The event names the document that opened it, which is the only way to
+   * tell the page's own dialog from an embedded frame's: a child frame's
+   * `confirm` blocks the whole tab and arrives here either on the tab's
+   * session or, for an out-of-process frame, on its own. A URL that cannot be
+   * read as an origin is recorded as `"null"`, which no allowlist matches, so
+   * a dialog the run cannot place is treated as one it may not read.
+   *
    * The message and the default are the page's own strings, bounded here
    * because everything downstream treats them as page content.
    */
@@ -616,6 +639,7 @@ export const createAgentBrowserSessionManager = (input?: {
   ): void => {
     const event = (params ?? {}) as {
       type?: unknown
+      url?: unknown
       message?: unknown
       defaultPrompt?: unknown
     }
@@ -634,6 +658,7 @@ export const createAgentBrowserSessionManager = (input?: {
       state: {
         id: `d${attachment.dialogSequence}`,
         type,
+        origin: dialogOrigin(event.url),
         message,
         ...(defaultPrompt === undefined ? {} : { defaultPrompt })
       },

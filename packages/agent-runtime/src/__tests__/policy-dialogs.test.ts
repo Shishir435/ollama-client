@@ -21,6 +21,7 @@ const dialogEffect = (input: {
   type: AgentDialogState["type"]
   effects: readonly AgentSemanticEffect[]
   message?: string
+  frameOrigin?: string
 }): ResolvedAgentEffect => ({
   command: dialogCommand(input.accept),
   target: {
@@ -38,7 +39,8 @@ const dialogEffect = (input: {
     documentId: "document-1"
   },
   sourceUrl: "https://example.com/",
-  sourceOrigin: "https://example.com"
+  sourceOrigin: "https://example.com",
+  ...(input.frameOrigin ? { frameOrigin: input.frameOrigin } : {})
 })
 
 const policyInput = (effect: ResolvedAgentEffect): AgentPolicyInput => ({
@@ -128,6 +130,56 @@ describe("dialog policy", () => {
   })
 })
 
+describe("a dialog an embedded frame raised", () => {
+  const frameDialog = (accept: boolean, frameOrigin: string) =>
+    policyInput(
+      dialogEffect({
+        accept,
+        type: "confirm",
+        effects: accept ? ["dialog", "destructive"] : ["dialog"],
+        frameOrigin
+      })
+    )
+
+  it("asks before dismissing a dialog from a site the run may not read", () => {
+    // Dismissal is free on the page's own dialog. A frame outside the
+    // allowlist is a different site, and acting on it is the user's to
+    // authorize even in the safe direction.
+    const decision = evaluateAgentPolicy(
+      frameDialog(false, "https://ads.example")
+    )
+    expect(decision.type).toBe("approval_required")
+    if (decision.type !== "approval_required") return
+    expect(decision.risk).toBe("high")
+    expect(decision.request.action).toBe(
+      "Dismiss https://ads.example's confirm dialog"
+    )
+    expect(decision.request.consequence).toContain("not authorized to read")
+    /** A site outside the allowlist is never offered as a grant. */
+    expect(decision.request.grantable).toBeUndefined()
+  })
+
+  it("names the frame, not the page, when asking to accept one", () => {
+    const decision = evaluateAgentPolicy(
+      frameDialog(true, "https://ads.example")
+    )
+    expect(decision.type).toBe("approval_required")
+    if (decision.type !== "approval_required") return
+    expect(decision.risk).toBe("critical")
+    expect(decision.request.action).toBe(
+      "Accept https://ads.example's confirm dialog"
+    )
+  })
+
+  it("still dismisses an authorized frame's dialog without asking", () => {
+    const decision = evaluateAgentPolicy({
+      ...frameDialog(false, "https://widget.example"),
+      allowedOrigins: ["https://example.com", "https://widget.example"]
+    })
+    expect(decision).toEqual({ type: "allow", risk: "low" })
+  })
+})
+
 describe("an edit with no submit step behind it", () => {
   const typing: AgentCommand = {
     type: "clear_and_type",
@@ -137,13 +189,13 @@ describe("an edit with no submit step behind it", () => {
     generation: 1
   }
 
-  const editEffect = (persistsOnChange: boolean): ResolvedAgentEffect => ({
+  const editEffect = (noSubmitStep: boolean): ResolvedAgentEffect => ({
     command: typing,
     target: {
       sensitive: false,
       maySubmit: false,
       accessibleName: "Document body",
-      ...(persistsOnChange ? { persistsOnChange: true } : {})
+      ...(noSubmitStep ? { noSubmitStep: true } : {})
     },
     semanticEffects: ["form_mutation"],
     snapshotIdentity: {
@@ -157,11 +209,11 @@ describe("an edit with no submit step behind it", () => {
     sourceOrigin: "https://example.com"
   })
 
-  it("tells the user the change is saved as it is entered", () => {
+  it("tells the user no submission will be asked about later", () => {
     const decision = evaluateAgentPolicy(policyInput(editEffect(true)))
     expect(decision.type).toBe("approval_required")
     if (decision.type !== "approval_required") return
-    expect(decision.request.consequence).toContain("no submit step")
+    expect(decision.request.consequence).toContain("No submit step follows it")
     /**
      * Still grantable: the point is that the user grants against an accurate
      * sentence, not that an autosaving application costs a prompt per word.
@@ -169,10 +221,19 @@ describe("an edit with no submit step behind it", () => {
     expect(decision.request.grantable).toEqual(["form_mutation"])
   })
 
+  it("does not claim the page stored anything, which it cannot know", () => {
+    // Verification compares the control's value and nothing else, and a
+    // standalone filter box with no submit step persists nothing at all.
+    const decision = evaluateAgentPolicy(policyInput(editEffect(true)))
+    if (decision.type !== "approval_required") throw new Error("expected one")
+    expect(decision.request.consequence).toContain("may already be stored")
+    expect(decision.request.consequence).not.toMatch(/\bis saved\b/)
+  })
+
   it("says nothing of the sort when a submission is still to come", () => {
     const decision = evaluateAgentPolicy(policyInput(editEffect(false)))
     expect(decision.type).toBe("approval_required")
     if (decision.type !== "approval_required") return
-    expect(decision.request.consequence).not.toContain("no submit step")
+    expect(decision.request.consequence).not.toContain("No submit step")
   })
 })

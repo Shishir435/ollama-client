@@ -224,18 +224,51 @@ export const MAX_AGENT_DIALOG_MESSAGE_CHARS = 500
  * an observation and the answer, and "accept whatever is open" would then
  * accept something nobody read.
  *
+ * `origin` is the document that opened it, which is not always the page: an
+ * embedded frame's `confirm` blocks the whole tab, and answering it is an
+ * effect on that frame's site. `"null"` is an answer — a frame with no origin
+ * of its own, or one that could not be placed — and never matches an
+ * allowlist.
+ *
  * `message` and `defaultPrompt` are the page's own strings: untrusted data,
- * bounded, and never instructions.
+ * bounded, and never instructions. Both are withheld when the dialog's origin
+ * is one the run was not authorized to read, the same way an unauthorized
+ * frame's elements are: the run is told a dialog exists and whose it is, and
+ * nothing that frame wrote.
  */
 export const AgentDialogStateSchema = z
   .object({
     id: z.string().min(1).max(80),
     type: z.enum(["alert", "confirm", "prompt", "beforeunload"]),
+    origin: z.string().min(1).max(2_048),
     message: z.string().max(MAX_AGENT_DIALOG_MESSAGE_CHARS),
     /** What a `prompt` arrived pre-filled with, when it did. */
-    defaultPrompt: z.string().max(MAX_AGENT_DIALOG_MESSAGE_CHARS).optional()
+    defaultPrompt: z.string().max(MAX_AGENT_DIALOG_MESSAGE_CHARS).optional(),
+    /**
+     * Set when the dialog's origin is not one the run may read, so its text
+     * was withheld. The model is told the dialog exists and cannot be read,
+     * rather than being shown an empty message it would take for an empty
+     * dialog.
+     */
+    unauthorizedOrigin: z.boolean().optional()
   })
   .strict()
+  .superRefine((dialog, context) => {
+    if (dialog.unauthorizedOrigin && dialog.message !== "") {
+      context.addIssue({
+        code: "custom",
+        path: ["message"],
+        message: "An unauthorized dialog's text must be withheld"
+      })
+    }
+    if (dialog.unauthorizedOrigin && dialog.defaultPrompt !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["defaultPrompt"],
+        message: "An unauthorized dialog's default must be withheld"
+      })
+    }
+  })
 export type AgentDialogState = z.infer<typeof AgentDialogStateSchema>
 
 /**

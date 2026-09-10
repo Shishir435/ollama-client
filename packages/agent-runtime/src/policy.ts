@@ -137,17 +137,21 @@ const grantableFor = (
 }
 
 /**
- * Whether this step's own change is already persisted by making it.
+ * Whether this step's change has no submission behind it.
  *
  * A form is prepared and then submitted, and the submission is the prompt
- * that matters. An application that saves on input has no such step: the
- * field belongs to no form, or it is an editing host, and the typing is the
- * whole change. The risk is the same either way — a form mutation — but the
- * sentence the user grants against must not imply a later confirmation that
- * is never going to be asked for.
+ * that matters. A control belonging to no form has no such step, so this
+ * approval is the only one the user will be asked for — and on a page that
+ * saves as you type, the change is stored by the typing.
+ *
+ * What is claimed stops there. Verification compares the control's value and
+ * nothing else, so whether the page stored anything is not something the run
+ * knows; a standalone filter box with no submit step persists nothing at all.
+ * The risk is a form mutation either way — the wording exists so the user is
+ * not left expecting a confirmation that is never going to be asked for.
  */
-const persistsOnChange = (input: AgentPolicyInput): boolean =>
-  input.effect.target.persistsOnChange === true &&
+const hasNoSubmitStep = (input: AgentPolicyInput): boolean =>
+  input.effect.target.noSubmitStep === true &&
   input.effect.semanticEffects.includes("form_mutation")
 
 /**
@@ -162,19 +166,37 @@ const dialogAction = (
   const command = input.effect.command
   if (command.type !== "handle_dialog") return undefined
   const kind = input.effect.dialog?.type ?? "dialog"
+  /**
+   * Whose dialog it is. A frame origin is present only when the prompt was
+   * not the page's own, and then it is the first thing the user has to know:
+   * a third-party frame asking for a confirmation reads nothing like the site
+   * they are looking at, and the panel shows no URL of its own.
+   */
+  const frameOrigin = input.effect.frameOrigin
+  const whose = frameOrigin ? `${frameOrigin}'s` : "the page's"
+  /**
+   * An embedded frame the run was not authorized to read had its dialog text
+   * withheld, so neither the model nor the panel can show what is being
+   * agreed to. The user is told that, rather than being shown a prompt with
+   * an empty quotation and left to assume the dialog was empty.
+   */
+  const unreadable =
+    frameOrigin !== undefined && !input.allowedOrigins.includes(frameOrigin)
+      ? " Its text was not read: the dialog belongs to a frame this run is not authorized to read."
+      : ""
   if (!command.accept) {
     return {
-      action: `Dismiss the page's ${kind} dialog`,
-      consequence:
-        "The page is told the dialog was dismissed and nothing is confirmed."
+      action: `Dismiss ${whose} ${kind} dialog`,
+      consequence: `The dialog is told it was dismissed and nothing is confirmed.${unreadable}`
     }
   }
   return {
-    action: `Accept the page's ${kind} dialog`,
+    action: `Accept ${whose} ${kind} dialog`,
     consequence:
-      kind === "beforeunload"
+      (kind === "beforeunload"
         ? "The page is allowed to leave; anything it has not saved is discarded."
-        : "The page proceeds as though the user pressed its confirm button, whatever that action is."
+        : "The page proceeds as though the user pressed its confirm button, whatever that action is.") +
+      unreadable
   }
 }
 
@@ -203,8 +225,8 @@ const makeApprovalRequest = (
       dialog?.consequence ??
       (destination
         ? `The browser will use the complete destination URL: ${destination}`
-        : persistsOnChange(input)
-          ? "The browser will enter this into the control shown above. The page has no submit step, so the change is saved as it is entered."
+        : hasNoSubmitStep(input)
+          ? "The browser will enter this into the control shown above. No submit step follows it, so on a page that saves as you type the change may already be stored."
           : "The browser will perform the resolved page effect shown above."),
     pageEvidence: input.effect.target.accessibleName,
     createdAt: input.now

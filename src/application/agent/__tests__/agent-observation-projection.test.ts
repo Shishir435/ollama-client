@@ -193,6 +193,7 @@ describe("projectAgentObservation", () => {
     const dialog = {
       id: "d1",
       type: "confirm" as const,
+      origin: "https://example.com",
       message: "Delete this project?"
     }
     const projected = projectAgentObservation(
@@ -208,7 +209,12 @@ describe("projectAgentObservation", () => {
   it("keeps a dialog even when the page budget is spent", () => {
     // A budget that dropped the dialog would leave the model looking at an
     // empty page with no way to explain it and no command that works.
-    const dialog = { id: "d1", type: "alert" as const, message: "Saved" }
+    const dialog = {
+      id: "d1",
+      type: "alert" as const,
+      origin: "https://example.com",
+      message: "Saved"
+    }
     const projected = projectAgentObservation(
       observation({ dialogs: [dialog] }),
       { pageContentChars: 0 }

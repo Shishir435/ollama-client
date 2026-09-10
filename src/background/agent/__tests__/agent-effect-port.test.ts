@@ -151,7 +151,14 @@ describe("Agent effect port", () => {
   it("routes a dialog answer to the dialog family, end to end", async () => {
     const blocked = observation({
       elements: [],
-      dialogs: [{ id: "d1", type: "confirm", message: "Delete?" }]
+      dialogs: [
+        {
+          id: "d1",
+          type: "confirm",
+          origin: "https://example.com",
+          message: "Delete?"
+        }
+      ]
     })
     const deps = adapters()
     deps.verifier.observe = vi.fn(async () =>

@@ -89,7 +89,14 @@ describe("parseAgentDecisionToolCalls", () => {
     const blocked: AgentObservation = {
       ...observation,
       elements: [],
-      dialogs: [{ id: "d1", type: "prompt", message: "New name" }]
+      dialogs: [
+        {
+          id: "d1",
+          type: "prompt",
+          origin: "https://example.com",
+          message: "New name"
+        }
+      ]
     }
     expect(
       parseAgentDecisionToolCalls(
@@ -121,7 +128,14 @@ describe("parseAgentDecisionToolCalls", () => {
     // blocked and which dialog to answer, and tries again.
     const blocked: AgentObservation = {
       ...observation,
-      dialogs: [{ id: "d1", type: "alert", message: "Saved" }]
+      dialogs: [
+        {
+          id: "d1",
+          type: "alert",
+          origin: "https://example.com",
+          message: "Saved"
+        }
+      ]
     }
     expect(() =>
       parseAgentDecisionToolCalls([call({ type: "click", ref: "e1" })], blocked)

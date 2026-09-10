@@ -56,6 +56,7 @@ const observation = (dialogs: AgentDialogState[]): AgentObservation => ({
 const confirm: AgentDialogState = {
   id: "d1",
   type: "confirm",
+  origin: "https://example.com",
   message: "Delete?"
 }
 
@@ -125,7 +126,14 @@ describe("a dialog holding the page", () => {
           accept: true,
           promptText: "Roadmap"
         },
-        observation([{ id: "d1", type: "prompt", message: "Name" }])
+        observation([
+          {
+            id: "d1",
+            type: "prompt",
+            origin: "https://example.com",
+            message: "Name"
+          }
+        ])
       )
     ).toBeUndefined()
   })
