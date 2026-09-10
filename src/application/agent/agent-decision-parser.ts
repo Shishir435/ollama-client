@@ -37,6 +37,11 @@ const SHAPE_FEEDBACK =
 const STALE_FEEDBACK =
   "The page snapshot moved on. Use only the refs listed in the observation supplied with this request."
 
+const NO_SCREENSHOT_FEEDBACK =
+  "No screenshot was attached to this observation, so click_point and zoom are not available. Use an element ref from the observation."
+
+const VISUAL_COMMANDS = new Set(["click_point", "zoom"])
+
 const VARIANT_FIELDS: Record<string, string> = {
   command: "command",
   ask_user: "question",
@@ -58,6 +63,8 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   find: ["query"],
   extract_text: [],
   click: ["ref"],
+  click_point: ["x", "y"],
+  zoom: ["x", "y", "width", "height"],
   double_click: ["ref"],
   hover: ["ref"],
   type: ["ref", "text"],
@@ -144,10 +151,16 @@ const assertGroundedDecision = (
   return decision
 }
 
+export interface AgentDecisionParseOptions {
+  /** Whether a screenshot travelled with the observation the model decided on. */
+  screenshot?: boolean
+}
+
 /** Accept exactly one native tool call and no provider-specific response shape. */
 export const parseAgentDecisionToolCalls = (
   calls: readonly ToolCall[],
-  observation: AgentObservation
+  observation: AgentObservation,
+  options: AgentDecisionParseOptions = {}
 ): AgentDecision => {
   if (calls.length !== 1) {
     throw new AgentDecisionFormatError(
@@ -163,6 +176,26 @@ export const parseAgentDecisionToolCalls = (
     )
   }
   const normalized = normalizeDecisionArguments(call.arguments, observation)
+  /**
+   * A visual command without a picture is refused at parse time, where it
+   * costs a retry, rather than at resolution, where it would end the run. The
+   * tool schema a text-only model sees never offers these, so reaching here
+   * means the model invented one.
+   */
+  if (
+    normalized &&
+    typeof normalized === "object" &&
+    "command" in normalized &&
+    VISUAL_COMMANDS.has(
+      String((normalized as { command?: { type?: unknown } }).command?.type)
+    ) &&
+    !options.screenshot
+  ) {
+    throw new AgentDecisionFormatError(
+      "The agent decision used a visual command without a screenshot",
+      NO_SCREENSHOT_FEEDBACK
+    )
+  }
   const parsed = AgentDecisionSchema.safeParse(normalized)
   if (!parsed.success) {
     /**

@@ -54,6 +54,8 @@ const session = (
     focused: false
   })),
   settleNativeInput: vi.fn(async () => undefined),
+  sensitiveRegions: vi.fn(async () => null),
+  hitTest: vi.fn(async () => null),
   disconnect: vi.fn(),
   ...overrides
 })

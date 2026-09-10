@@ -37,6 +37,26 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     query: z.string().min(1).max(100)
   }).strict(),
   GroundedCommandSchema.extend({ type: z.literal("extract_text") }).strict(),
+  /**
+   * Visual grounding. `click_point` names a pixel in the screenshot attached
+   * to the observation the command is grounded in; the executor finds the
+   * control under it and clicks that control, never the bare coordinate.
+   * `zoom` asks for the next screenshot to be a magnified crop of a region,
+   * read-only like `inspect`. Both are offered only to a vision model and only
+   * when a screenshot travelled with the observation.
+   */
+  GroundedCommandSchema.extend({
+    type: z.literal("click_point"),
+    x: z.number().finite().nonnegative(),
+    y: z.number().finite().nonnegative()
+  }).strict(),
+  GroundedCommandSchema.extend({
+    type: z.literal("zoom"),
+    x: z.number().finite().nonnegative(),
+    y: z.number().finite().nonnegative(),
+    width: z.number().finite().positive(),
+    height: z.number().finite().positive()
+  }).strict(),
   ElementCommandSchema.extend({ type: z.literal("click") }).strict(),
   /**
    * Pointer actions a synthetic DOM event cannot stand in for. A double click

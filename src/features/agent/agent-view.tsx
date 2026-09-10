@@ -22,7 +22,45 @@ export interface AgentProviderPresentation {
   name: string
   model: string
   location: "local" | "remote"
+  /** Whether viewport screenshots travel with observations; absent is unknown. */
+  screenshots?: boolean
 }
+
+/** Absent is shown as unknown, never as "not used": a picture may still be sent. */
+const screenshotsKey = (provider?: AgentProviderPresentation): string =>
+  provider?.screenshots === true
+    ? "agent.screenshots.sent"
+    : provider?.screenshots === false
+      ? "agent.screenshots.unused"
+      : "agent.screenshots.unknown"
+
+/**
+ * Whether pictures may travel to this provider. Unknown counts as "may": the
+ * runtime resolves the model's vision on its own, so a notice that stayed
+ * silent about screenshots while the answer was pending would be one the user
+ * never saw before a picture left.
+ */
+export const agentScreenshotsMayTravel = (
+  provider?: AgentProviderPresentation
+): boolean => provider?.screenshots !== false
+
+/**
+ * A remote provider needs the observation acknowledgement, and the screenshot
+ * one too whenever pictures may travel.
+ */
+const needsRemoteAcknowledgement = (
+  provider: AgentProviderPresentation | undefined,
+  observationsAcknowledged: boolean,
+  screenshotsAcknowledged: boolean
+): boolean =>
+  provider?.location === "remote" &&
+  (!observationsAcknowledged ||
+    (agentScreenshotsMayTravel(provider) && !screenshotsAcknowledged))
+
+const remoteNoticeKey = (provider?: AgentProviderPresentation): string =>
+  agentScreenshotsMayTravel(provider)
+    ? "agent.privacy.remote_notice_screenshots"
+    : "agent.privacy.remote_notice"
 
 export interface AgentTabPresentation {
   title: string
@@ -41,7 +79,10 @@ export interface AgentViewProps {
   /** The unsent goal. Held by the caller so it survives leaving the surface. */
   goal?: string
   onGoalChange?: (goal: string) => void
-  onAcknowledgePrivacy?: () => void
+  /** Acknowledges the notice shown: observations alone, or observations and screenshots. */
+  onAcknowledgePrivacy?: (scope: "observations" | "screenshots") => void
+  /** The separate acknowledgement that screenshots may reach a remote model. */
+  screenshotsAcknowledged?: boolean
   onStart?: (goal: string) => void
   /** `scope` widens the approval to this origin for the rest of the run. */
   onApprove?: (scope?: "run_origin") => void
@@ -80,6 +121,7 @@ export const AgentView = ({
   approval,
   takeover,
   privacyAcknowledged = false,
+  screenshotsAcknowledged = false,
   busy = false,
   goal = "",
   onGoalChange = () => undefined,
@@ -97,8 +139,11 @@ export const AgentView = ({
   const { t } = useTranslation()
   const settled =
     run !== null && ["completed", "failed", "cancelled"].includes(run.status)
-  const remoteNeedsAcknowledgement =
-    provider?.location === "remote" && !privacyAcknowledged
+  const remoteNeedsAcknowledgement = needsRemoteAcknowledgement(
+    provider,
+    privacyAcknowledged,
+    screenshotsAcknowledged
+  )
   const pauseNotice = pauseNoticeFor(run?.pauseReason)
   const canStart =
     Boolean(onStart && provider && tab && goal.trim()) &&
@@ -154,6 +199,14 @@ export const AgentView = ({
           </div>
           <div className="flex min-w-0 gap-2">
             <span className="shrink-0 text-muted-foreground">
+              {t("agent.screenshots.label")}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-right">
+              {t(screenshotsKey(provider))}
+            </span>
+          </div>
+          <div className="flex min-w-0 gap-2">
+            <span className="shrink-0 text-muted-foreground">
               {t("agent.tab.label")}
             </span>
             <span className="min-w-0 flex-1 truncate text-right">
@@ -181,13 +234,19 @@ export const AgentView = ({
             />
             {remoteNeedsAcknowledgement && (
               <div className="rounded-panel border border-status-warning/40 bg-status-warning/10 p-2.5 text-xs">
-                <p>{t("agent.privacy.remote_notice")}</p>
+                <p>{t(remoteNoticeKey(provider))}</p>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   className="mt-2"
-                  onClick={onAcknowledgePrivacy}>
+                  onClick={() =>
+                    onAcknowledgePrivacy(
+                      agentScreenshotsMayTravel(provider)
+                        ? "screenshots"
+                        : "observations"
+                    )
+                  }>
                   <Eye className="icon-xs" aria-hidden="true" />
                   {t("agent.privacy.acknowledge")}
                 </Button>

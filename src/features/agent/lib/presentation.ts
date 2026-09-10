@@ -51,6 +51,10 @@ const commandLabel = (command?: AgentCommand): string => {
       return "Click control"
     case "double_click":
       return "Double-click control"
+    case "click_point":
+      return "Click at a point in the screenshot"
+    case "zoom":
+      return "Zoom into the screenshot"
     case "hover":
       return "Hover over control"
     case "read":
@@ -90,3 +94,25 @@ export const toAgentWorkLog = (
 
 export const agentRunIsActive = (status: AgentRunState["status"]): boolean =>
   !["completed", "failed", "cancelled", "paused"].includes(status)
+
+const SETTLED_AGENT_STATUSES: readonly AgentRunState["status"][] = [
+  "completed",
+  "failed",
+  "cancelled"
+]
+
+/**
+ * The tab the panel shows and gates Start on.
+ *
+ * While a run is unresolved that is the tab it controls, whatever the user is
+ * looking at. Once it has settled, the record of where it ran says nothing
+ * about where the next run would start — the tab may be closed by now — so
+ * the panel goes back to the page in front of the user. Gating on the stale
+ * tab is how a finished run left Start disabled on a perfectly good page.
+ */
+export const visibleAgentTab = <T>(
+  run: Pick<AgentRunState, "status"> | null | undefined,
+  runTab: T | undefined,
+  candidateTab: T | undefined
+): T | undefined =>
+  run && !SETTLED_AGENT_STATUSES.includes(run.status) ? runTab : candidateTab

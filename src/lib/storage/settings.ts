@@ -52,6 +52,10 @@ export const SETTINGS = {
     STORAGE_KEYS.AGENT.REMOTE_OBSERVATION_ACKNOWLEDGED,
     { defaultValue: false, parser: z.boolean() }
   ),
+  AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED: defineSetting<boolean>(
+    STORAGE_KEYS.AGENT.REMOTE_SCREENSHOT_ACKNOWLEDGED,
+    { defaultValue: false, parser: z.boolean() }
+  ),
   LANGUAGE: defineSetting<string>(STORAGE_KEYS.LANGUAGE, {
     defaultValue: "en"
   }),

@@ -8,12 +8,17 @@ import {
   evaluateAgentPolicy
 } from "@ollama-client/agent-runtime"
 
+import type { AgentRunState } from "@ollama-client/contracts"
+
 import { createProviderAgentModelPort } from "@/application/agent/agent-model-port"
 import { logger } from "@/lib/logger"
+import { readStoredSetting } from "@/lib/storage/setting-access"
+import { SETTINGS } from "@/lib/storage/settings"
 import { createAgentBrowserAdapters } from "./agent-browser-adapters"
 import type { AgentBrowserSessionManager } from "./agent-browser-session-manager"
 import type { AgentControlSessionRegistry } from "./agent-control-sessions"
 import { createAgentEffectPort } from "./agent-effect-port"
+import { resolveAgentProviderDisclosure } from "./agent-provider-disclosure"
 import type { AgentSupervision } from "./agent-supervision"
 import type { AgentTabHistory } from "./agent-tab-history"
 import { traceAgentRun } from "./agent-trace"
@@ -33,6 +38,7 @@ const withDecisionTimeout = (
   model: AgentModelPort,
   timeoutMs: number
 ): AgentModelPort => ({
+  ...(model.vision ? { vision: model.vision.bind(model) } : {}),
   async decide(input, signal) {
     const scope = new AbortController()
     let timedOut = false
@@ -88,6 +94,27 @@ export interface BuildAgentControllerInput {
   allowExperimentalModel: boolean
   now(): number
   decisionTimeoutMs?: number
+  /**
+   * Whether a picture may reach this run's provider. Defaults to: the provider
+   * answers on this device, or the user acknowledged the screenshot notice.
+   * Enforced here, not only in the panel, so a model whose vision resolved
+   * after the panel disclosed a text-only run still sends nothing.
+   */
+  screenshotsPermitted?: (state: AgentRunState) => Promise<boolean>
+}
+
+const defaultScreenshotsPermitted = async (
+  state: AgentRunState
+): Promise<boolean> => {
+  const disclosure = await resolveAgentProviderDisclosure(
+    state.providerId,
+    state.modelId
+  )
+  if (disclosure?.location === "local") return true
+  return (
+    (await readStoredSetting(SETTINGS.AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED)) ===
+    true
+  )
 }
 
 export type BuildAgentController = (
@@ -119,14 +146,33 @@ export const buildAgentController: BuildAgentController = (input) => {
     input.decisionTimeoutMs ?? DECISION_TIMEOUT_MS
   )
   const effect = createAgentEffectPort(adapters)
+  const screenshotsPermitted =
+    input.screenshotsPermitted ?? defaultScreenshotsPermitted
+  const vision = model.vision
   return createAgentController({
     trace: traceAgentRun,
+    ...(adapters.screenshot ? { screenshot: adapters.screenshot } : {}),
     model: {
+      ...(vision
+        ? {
+            async vision(state, signal) {
+              if (!(await vision(state, signal))) return false
+              const permitted = await screenshotsPermitted(state)
+              if (!permitted) {
+                traceAgentRun(input.runId, "screenshot_withheld", {
+                  reason: "not_acknowledged"
+                })
+              }
+              return permitted
+            }
+          }
+        : {}),
       async decide(request, signal) {
         traceAgentRun(input.runId, "deciding", {
           step: request.state.stepCount + 1,
           providerId: request.state.providerId,
-          modelId: request.state.modelId
+          modelId: request.state.modelId,
+          screenshot: request.screenshot !== undefined
         })
         const decision = await model.decide(request, signal)
         traceAgentRun(input.runId, "decision", {
@@ -152,12 +198,13 @@ export const buildAgentController: BuildAgentController = (input) => {
       }
     },
     effect: {
-      async resolve(command, observation) {
-        const resolved = await effect.resolve(command, observation)
+      async resolve(command, observation, context) {
+        const resolved = await effect.resolve(command, observation, context)
         traceAgentRun(input.runId, "resolved", {
           action: command.type,
           ref: resolved.target.ref,
-          snapshotId: observation.snapshotId
+          snapshotId: observation.snapshotId,
+          visual: resolved.target.point !== undefined
         })
         return resolved
       },

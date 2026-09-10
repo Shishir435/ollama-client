@@ -54,8 +54,23 @@ const harness = (input: {
           }
           case "Page.getLayoutMetrics":
             callback({
-              cssLayoutViewport: { clientWidth: 800, clientHeight: 600 }
+              cssLayoutViewport: {
+                pageX: 0,
+                pageY: 40,
+                clientWidth: 800,
+                clientHeight: 600
+              },
+              cssVisualViewport: {
+                pageX: 0,
+                pageY: 40,
+                clientWidth: 800,
+                clientHeight: 600,
+                scale: 1
+              }
             })
+            return
+          case "Page.captureScreenshot":
+            callback({ data: "/9j/AAAA" })
             return
           default:
             callback({})
@@ -250,5 +265,49 @@ describe("Agent native input channel", () => {
      * root-viewport coordinates: the grandchild's own owner box is the answer.
      */
     expect(await channel?.frameOffset(6, frames)).toEqual({ x: 130, y: 70 })
+  })
+})
+
+describe("Agent screenshot channel", () => {
+  it("captures a JPEG of the viewport with its layout, and a scaled clip when asked", async () => {
+    const { manager, sent, commands } = harness({})
+    await manager.attach("run-1", 7)
+    const channel = manager.nativeInput("run-1", 7)
+    if (!channel) throw new Error("channel missing")
+    void commands
+    const shot = await channel.captureScreenshot()
+    expect(sent("Page.captureScreenshot")[0]?.params).toEqual({
+      format: "jpeg",
+      quality: 80,
+      captureBeyondViewport: false
+    })
+    expect(shot).toEqual({
+      data: "/9j/AAAA",
+      mimeType: "image/jpeg",
+      layout: {
+        cssLayoutViewport: {
+          pageX: 0,
+          pageY: 40,
+          clientWidth: 800,
+          clientHeight: 600
+        },
+        cssVisualViewport: {
+          pageX: 0,
+          pageY: 40,
+          clientWidth: 800,
+          clientHeight: 600,
+          scale: 1
+        }
+      }
+    })
+    await channel.captureScreenshot({
+      rect: { x: 10, y: 20, width: 300, height: 200 },
+      scale: 1.5
+    })
+    expect(sent("Page.captureScreenshot")[1]?.params).toMatchObject({
+      clip: { x: 10, y: 20, width: 300, height: 200, scale: 1.5 }
+    })
+    await manager.detach("run-1")
+    await expect(channel.captureScreenshot()).resolves.toBeUndefined()
   })
 })

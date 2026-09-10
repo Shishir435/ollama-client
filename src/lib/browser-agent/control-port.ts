@@ -7,6 +7,8 @@ import {
 } from "@ollama-client/agent-runtime"
 import {
   AgentCommandSchema,
+  AgentCssRectSchema,
+  AgentElementSchema,
   type AgentObservation,
   AgentObservationSchema,
   AgentSnapshotIdentitySchema,
@@ -167,6 +169,7 @@ const AgentDomMutationCommandSchema = AgentCommandSchema.refine(
   (command) =>
     [
       "click",
+      "click_point",
       "double_click",
       "hover",
       "type",
@@ -235,10 +238,24 @@ export const AgentDomMutationInstructionSchema = z
     command: AgentDomMutationCommandSchema,
     target: AgentDomMutationTargetSchema,
     snapshotIdentity: AgentSnapshotIdentitySchema,
-    frame: AgentSnapshotIdentitySchema
+    frame: AgentSnapshotIdentitySchema,
+    /** Only a visual click names one, and only in the root frame. */
+    point: z
+      .object({ x: z.number().finite(), y: z.number().finite() })
+      .strict()
+      .optional()
   })
   .strict()
   .superRefine(assertFrameBinding)
+  .superRefine((instruction, context) => {
+    if (instruction.point && instruction.frame.frameId !== 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["point"],
+        message: "A visual point is measured in the root frame only"
+      })
+    }
+  })
 export type AgentDomMutationInstruction = z.infer<
   typeof AgentDomMutationInstructionSchema
 >
@@ -444,12 +461,119 @@ export type AgentSettleNativeInputResponse = z.infer<
 >
 export type AgentInputTraceWire = z.infer<typeof AgentInputTraceSchema>
 
+/**
+ * Visual grounding asks the page two read-only questions about the snapshot
+ * in hand: where everything a screenshot must paint over sits, and what lies
+ * under a point, so a pixel the model chose becomes a control the run can
+ * reason about. Both are bound to the frame's own snapshot identity like
+ * every other request.
+ */
+export const MAX_AGENT_MASK_REGIONS = 2_000
+
+export const AgentSensitiveRegionsRequestSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_sensitive_regions"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    frame: AgentSnapshotIdentitySchema
+  })
+  .strict()
+export type AgentSensitiveRegionsRequest = z.infer<
+  typeof AgentSensitiveRegionsRequestSchema
+>
+
+/**
+ * Every rect the document says a picture must cover, read from the whole
+ * composed tree, with the scroll position they were read at. `null` when the
+ * document is not the snapshot the request named.
+ */
+export const AgentSensitiveRegionsSchema = z
+  .object({
+    rects: z.array(AgentCssRectSchema).max(MAX_AGENT_MASK_REGIONS),
+    scroll: z
+      .object({ x: z.number().finite(), y: z.number().finite() })
+      .strict()
+  })
+  .strict()
+  .nullable()
+export type AgentSensitiveRegions = z.infer<typeof AgentSensitiveRegionsSchema>
+
+export const AgentSensitiveRegionsResponseSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_sensitive_regions_measured"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    regions: AgentSensitiveRegionsSchema
+  })
+  .strict()
+export type AgentSensitiveRegionsResponse = z.infer<
+  typeof AgentSensitiveRegionsResponseSchema
+>
+
+export const AgentHitTestRequestSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_hit_test"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    frame: AgentSnapshotIdentitySchema,
+    point: z.object({ x: z.number().finite(), y: z.number().finite() }).strict()
+  })
+  .strict()
+export type AgentHitTestRequest = z.infer<typeof AgentHitTestRequestSchema>
+
+/**
+ * What lies under a point. `element` is the nearest composed ancestor the
+ * snapshot knows, or the hit element newly referenced into the snapshot;
+ * `frameElement` says the point falls on a child frame, whose controls are
+ * that frame's own refs. Nothing under the point is `null`.
+ */
+export const AgentHitTestResultSchema = z
+  .object({
+    element: AgentElementSchema.optional(),
+    frameElement: z.boolean().optional()
+  })
+  .strict()
+  .nullable()
+export type AgentHitTestResult = z.infer<typeof AgentHitTestResultSchema>
+
+export const AgentHitTestResponseSchema = z
+  .object({
+    version: z.literal(AGENT_CONTROL_VERSION),
+    type: z.literal("agent_hit_tested"),
+    runId: z.string().min(1),
+    tabId: z.number().int().nonnegative(),
+    frameId: z.number().int().nonnegative(),
+    nonce: z.string().min(16).max(256),
+    sequence: z.number().int().positive(),
+    documentId: z.string().min(1),
+    hit: AgentHitTestResultSchema
+  })
+  .strict()
+export type AgentHitTestResponse = z.infer<typeof AgentHitTestResponseSchema>
+
 const AgentControlRequestSchema = z.union([
   AgentObserveRequestSchema,
   AgentExecuteRequestSchema,
   AgentExecuteScrollRequestSchema,
   AgentPrepareNativeInputRequestSchema,
-  AgentSettleNativeInputRequestSchema
+  AgentSettleNativeInputRequestSchema,
+  AgentSensitiveRegionsRequestSchema,
+  AgentHitTestRequestSchema
 ])
 type AgentControlRequest = z.infer<typeof AgentControlRequestSchema>
 
@@ -502,6 +626,15 @@ export interface AgentControlSession {
   settleNativeInput(
     signal?: AbortSignal
   ): Promise<AgentInputTraceWire | undefined>
+  sensitiveRegions(
+    frame: z.infer<typeof AgentSnapshotIdentitySchema>,
+    signal?: AbortSignal
+  ): Promise<AgentSensitiveRegions>
+  hitTest(
+    frame: z.infer<typeof AgentSnapshotIdentitySchema>,
+    point: { x: number; y: number },
+    signal?: AbortSignal
+  ): Promise<AgentHitTestResult>
   disconnect(): void
 }
 
@@ -720,6 +853,36 @@ export const validateAgentSettleNativeInputResponse = (
   return response.trace
 }
 
+export const validateAgentSensitiveRegionsResponse = (
+  raw: unknown,
+  binding: AgentControlBinding,
+  sequence: number
+): AgentSensitiveRegions => {
+  const failure = readAgentControlFailure(raw, binding, sequence)
+  if (failure) throw failure
+  const response = AgentSensitiveRegionsResponseSchema.parse(raw)
+  assertBoundResponse(response, binding, sequence, "sensitive regions")
+  return response.regions
+}
+
+export const validateAgentHitTestResponse = (
+  raw: unknown,
+  binding: AgentControlBinding,
+  sequence: number
+): AgentHitTestResult => {
+  const failure = readAgentControlFailure(raw, binding, sequence)
+  if (failure) throw failure
+  const response = AgentHitTestResponseSchema.parse(raw)
+  assertBoundResponse(response, binding, sequence, "hit test")
+  if (
+    response.hit?.element &&
+    response.hit.element.frameId !== binding.frameId
+  ) {
+    throw new Error("Agent hit test named an element outside its frame")
+  }
+  return response.hit
+}
+
 export const createAgentControlSession = (input: {
   port: AgentControlPort
   binding: AgentControlBinding
@@ -921,6 +1084,55 @@ export const createAgentControlSession = (input: {
         signal
       )
     },
+    sensitiveRegions(frame, signal) {
+      if (inFlight) {
+        return Promise.reject(
+          new Error("Agent control request already in flight")
+        )
+      }
+      sequence += 1
+      const expectedSequence = sequence
+      const request: AgentSensitiveRegionsRequest = {
+        version: AGENT_CONTROL_VERSION,
+        type: "agent_sensitive_regions",
+        ...input.binding,
+        sequence: expectedSequence,
+        frame: AgentSnapshotIdentitySchema.parse(frame)
+      }
+      return exchange(
+        request,
+        (raw) =>
+          validateAgentSensitiveRegionsResponse(
+            raw,
+            input.binding,
+            expectedSequence
+          ),
+        signal
+      )
+    },
+    hitTest(frame, point, signal) {
+      if (inFlight) {
+        return Promise.reject(
+          new Error("Agent control request already in flight")
+        )
+      }
+      sequence += 1
+      const expectedSequence = sequence
+      const request: AgentHitTestRequest = {
+        version: AGENT_CONTROL_VERSION,
+        type: "agent_hit_test",
+        ...input.binding,
+        sequence: expectedSequence,
+        frame: AgentSnapshotIdentitySchema.parse(frame),
+        point
+      }
+      return exchange(
+        request,
+        (raw) =>
+          validateAgentHitTestResponse(raw, input.binding, expectedSequence),
+        signal
+      )
+    },
     disconnect() {
       input.port.disconnect()
     }
@@ -1068,6 +1280,8 @@ export interface AgentControlContentHandlers {
   settleNativeInput(
     request: AgentSettleNativeInputRequest
   ): AgentInputTraceWire | undefined
+  sensitiveRegions(request: AgentSensitiveRegionsRequest): AgentSensitiveRegions
+  hitTest(request: AgentHitTestRequest): AgentHitTestResult
 }
 
 type AgentControlResponse =
@@ -1076,6 +1290,8 @@ type AgentControlResponse =
   | AgentScrollResponse
   | AgentPrepareNativeInputResponse
   | AgentSettleNativeInputResponse
+  | AgentSensitiveRegionsResponse
+  | AgentHitTestResponse
   | AgentControlFailureResponse
 
 const answerAccepted = (
@@ -1102,6 +1318,18 @@ const answerAccepted = (
         ...(trace ? { trace } : {})
       }
     }
+    case "agent_sensitive_regions":
+      return {
+        ...envelope,
+        type: "agent_sensitive_regions_measured",
+        regions: handlers.sensitiveRegions(request)
+      }
+    case "agent_hit_test":
+      return {
+        ...envelope,
+        type: "agent_hit_tested",
+        hit: handlers.hitTest(request)
+      }
     case "agent_execute_scroll":
       handlers.executeScroll(request)
       return { ...envelope, type: "agent_scroll_executed" }
@@ -1184,14 +1412,29 @@ export const attachAgentControlContentPort = (
      * to: same tab, same frame id, same document. The root identity beside it
      * is the command's grounding and is checked where the root was observed.
      */
+    const boundFrame =
+      request.type === "agent_execute_dom_mutation" ||
+      request.type === "agent_execute_scroll" ||
+      request.type === "agent_prepare_native_input"
+        ? request.instruction.frame
+        : request.type === "agent_sensitive_regions" ||
+            request.type === "agent_hit_test"
+          ? request.frame
+          : undefined
+    if (
+      boundFrame &&
+      (boundFrame.tabId !== request.tabId ||
+        boundFrame.frameId !== request.frameId ||
+        boundFrame.documentId !== request.documentId)
+    ) {
+      port.disconnect()
+      return
+    }
     if (
       (request.type === "agent_execute_dom_mutation" ||
         request.type === "agent_execute_scroll" ||
         request.type === "agent_prepare_native_input") &&
-      (request.instruction.frame.tabId !== request.tabId ||
-        request.instruction.frame.frameId !== request.frameId ||
-        request.instruction.frame.documentId !== request.documentId ||
-        request.instruction.snapshotIdentity.tabId !== request.tabId)
+      request.instruction.snapshotIdentity.tabId !== request.tabId
     ) {
       port.disconnect()
       return

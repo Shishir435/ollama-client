@@ -25,9 +25,16 @@
       "label": "Gesteuerter Tab",
       "missing": "Unterstützte Webseite öffnen"
     },
+    "screenshots": {
+      "label": "Screenshots",
+      "sent": "Screenshots des Viewports werden an das Modell gesendet",
+      "unused": "Nicht genutzt bei einem reinen Textmodell",
+      "unknown": "Noch nicht ermittelt"
+    },
     "privacy": {
       "remote_notice": "Seitenbeobachtungen werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet.",
-      "acknowledge": "Verstanden"
+      "acknowledge": "Verstanden",
+      "remote_notice_screenshots": "Seitenbeobachtungen und Viewport-Screenshots werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet."
     },
     "observations": "{{count}} Beobachtungen",
     "controls": {

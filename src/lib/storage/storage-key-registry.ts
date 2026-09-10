@@ -15,6 +15,12 @@ export const STORAGE_KEY_REGISTRY: Record<string, StorageKeyMetadata> = {
     reason:
       "One-time privacy acknowledgement for continuous remote page observation; contains no page or provider data."
   },
+  [STORAGE_KEYS.AGENT.REMOTE_SCREENSHOT_ACKNOWLEDGED]: {
+    key: STORAGE_KEYS.AGENT.REMOTE_SCREENSHOT_ACKNOWLEDGED,
+    scope: "sync-safe",
+    reason:
+      "Separate acknowledgement that viewport screenshots may reach a remote model; the runtime refuses to send one without it. Contains no page or provider data."
+  },
   [STORAGE_KEYS.BACKUP.IMPORT_JOURNAL]: {
     key: STORAGE_KEYS.BACKUP.IMPORT_JOURNAL,
     scope: "device-local",

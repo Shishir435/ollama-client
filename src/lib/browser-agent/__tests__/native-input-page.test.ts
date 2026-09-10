@@ -193,3 +193,22 @@ describe("native input watch", () => {
     ])
   })
 })
+
+describe("native input preparation for a visual point", () => {
+  it("uses the named point when the control still lies under it, and refuses when it does not", () => {
+    const { button, references, instruction } = observed()
+    const pointed = { ...instruction, point: { x: 15, y: 15 } }
+    document.elementFromPoint = () => button
+    const watch = createAgentInputWatch(document, { trusted: () => true })
+    expect(
+      prepareAgentNativeInputInDocument({ effect: pointed, references, watch })
+    ).toEqual({ point: { x: 15, y: 15 }, focused: false })
+
+    const cover = document.createElement("div")
+    document.body.append(cover)
+    document.elementFromPoint = () => cover
+    expect(() =>
+      prepareAgentNativeInputInDocument({ effect: pointed, references, watch })
+    ).toThrow(AgentEffectNotAppliedError)
+  })
+})

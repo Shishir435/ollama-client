@@ -1,6 +1,7 @@
 import {
   type AgentDestination,
   AgentGroundingError,
+  type AgentResolutionContext,
   type AgentSemanticEffect,
   AgentStaleObservationError,
   AgentUnreadablePageError,
@@ -8,24 +9,30 @@ import {
   type ResolvedAgentEffect,
   type ResolvedAgentTarget
 } from "@ollama-client/agent-runtime"
-import type {
-  AgentCommand,
-  AgentElement,
-  AgentObservation
+import {
+  type AgentCommand,
+  type AgentElement,
+  AgentElementSchema,
+  type AgentObservation,
+  type AgentScreenshot,
+  type AgentSnapshotIdentity
 } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
+import type { AgentHitTestResult } from "./control-port"
 import {
   agentFramePage,
   agentFrameSnapshotIdentity,
   rootAgentSnapshotIdentity
 } from "./frame-identity"
+import { imagePointToCss } from "./screenshot-geometry"
 
 export const READ_ONLY_AGENT_ACTIONS = [
   "read",
   "inspect",
   "find",
   "extract_text",
+  "zoom",
   "wait",
   "scroll",
   "switch_tab",
@@ -42,6 +49,14 @@ export interface AgentEffectResolverAdapter {
     tabId: number,
     direction: "back" | "forward"
   ): Promise<string | undefined>
+  /**
+   * What lies under a root-frame CSS point in the live snapshot. Absent means
+   * the host cannot ask the page, and visual targets are refused.
+   */
+  hitTest?(
+    identity: AgentSnapshotIdentity,
+    point: { x: number; y: number }
+  ): Promise<AgentHitTestResult>
 }
 
 const isReadOnlyAction = (type: string): type is ReadOnlyAgentAction =>
@@ -411,6 +426,7 @@ export const resolveNavigationAgentEffect = async (input: {
 
 export const DOM_MUTATION_AGENT_ACTIONS = [
   "click",
+  "click_point",
   "double_click",
   "hover",
   "type",
@@ -559,6 +575,87 @@ const clickSemantics = (
 }
 
 /**
+ * The screenshot a `click_point` is grounded in, or the reason there is none.
+ * A picture from another generation is a stale observation — the decision was
+ * sound when made — while a command aimed at a picture that never travelled
+ * is the model's own mistake and is told so.
+ */
+const groundingScreenshot = (
+  command: Extract<AgentCommand, { type: "click_point" }>,
+  observation: AgentObservation,
+  context: AgentResolutionContext | undefined
+): AgentScreenshot => {
+  const screenshot = context?.screenshot
+  if (!screenshot) {
+    throw new AgentGroundingError({ refusal: { reason: "no_screenshot" } })
+  }
+  if (
+    screenshot.snapshotId !== command.snapshotId ||
+    screenshot.generation !== command.generation ||
+    screenshot.documentId !== observation.documentId ||
+    screenshot.tabId !== observation.tabId ||
+    screenshot.scroll.x !== observation.scroll.x ||
+    screenshot.scroll.y !== observation.scroll.y
+  ) {
+    throw new AgentStaleObservationError(
+      "Agent screenshot is not the one this observation was taken with"
+    )
+  }
+  return screenshot
+}
+
+/**
+ * Turns a pixel in the screenshot into the control under it. The point is
+ * converted through the screenshot's own geometry and asked of the live page;
+ * what comes back is an observed element like any other, so every rule that
+ * governs a click — sensitivity, links, submitters, checkboxes — governs a
+ * visual click too. Only "not an activatable control" is waived: a canvas or
+ * a bare region is exactly what a point exists to reach.
+ */
+const findVisualElement = async (
+  command: Extract<AgentCommand, { type: "click_point" }>,
+  observation: AgentObservation,
+  context: AgentResolutionContext | undefined,
+  adapter: AgentEffectResolverAdapter
+): Promise<{ element: AgentElement; point: { x: number; y: number } }> => {
+  const screenshot = groundingScreenshot(command, observation, context)
+  const point = imagePointToCss(screenshot, { x: command.x, y: command.y })
+  if (!point) {
+    throw new AgentGroundingError({
+      refusal: { reason: "point_outside_image" }
+    })
+  }
+  if (!adapter.hitTest) {
+    throw new AgentGroundingError({ refusal: { reason: "visual_unavailable" } })
+  }
+  const hit = await adapter.hitTest(
+    rootAgentSnapshotIdentity(observation),
+    point
+  )
+  if (!hit) {
+    throw new AgentGroundingError({ refusal: { reason: "point_on_nothing" } })
+  }
+  if (hit.frameElement || !hit.element) {
+    throw new AgentGroundingError({ refusal: { reason: "point_in_frame" } })
+  }
+  const element = AgentElementSchema.parse(hit.element)
+  const refused = classifyAgentAffordance(
+    { ...command, type: "click", ref: element.ref } as AgentCommand,
+    {
+      ...observation,
+      elements: [
+        ...observation.elements.filter((known) => known.ref !== element.ref),
+        element
+      ]
+    }
+  )
+  if (refused && refused.reason !== "not_clickable") {
+    throw new AgentGroundingError({ refusal: refused })
+  }
+  return { element, point }
+}
+
+/**
  * Resolves mutation semantics from the exact element the observation exposed.
  * The command contributes intent, never authority: target type, form action,
  * submission behavior, and destination all come from the observed control.
@@ -567,6 +664,7 @@ export const resolveDomMutationAgentEffect = async (input: {
   command: AgentCommand
   observation: AgentObservation
   adapter: AgentEffectResolverAdapter
+  context?: AgentResolutionContext
 }): Promise<ResolvedAgentEffect> => {
   const { command, observation } = input
   if (!isDomMutationAction(command.type)) {
@@ -577,13 +675,27 @@ export const resolveDomMutationAgentEffect = async (input: {
     observation,
     input.adapter
   )
-  const element = findMutationElement(command, observation)
+  let point: { x: number; y: number } | undefined
+  let element: AgentElement
+  if (command.type === "click_point") {
+    const visual = await findVisualElement(
+      command,
+      observation,
+      input.context,
+      input.adapter
+    )
+    element = visual.element
+    point = visual.point
+  } else {
+    element = findMutationElement(command, observation)
+  }
   const effects: AgentSemanticEffect[] = []
   let destination: AgentDestination | undefined
   let expected: { value?: string; checked?: boolean } | undefined
 
   switch (command.type) {
-    case "click": {
+    case "click":
+    case "click_point": {
       const semantics = clickSemantics(element)
       effects.push(...semantics.effects)
       destination = semantics.destination
@@ -646,7 +758,10 @@ export const resolveDomMutationAgentEffect = async (input: {
 
   return {
     command,
-    target: targetFromElement(element, observation, expected),
+    target: {
+      ...targetFromElement(element, observation, expected),
+      ...(point ? { point } : {})
+    },
     ...(destination ? { destination } : {}),
     semanticEffects: [...new Set(effects)],
     snapshotIdentity: rootAgentSnapshotIdentity(observation),

@@ -52,8 +52,8 @@ const familyOf = (type: AgentCommand["type"]): AgentActionFamily => {
 export const createAgentEffectPort = (
   adapters: AgentBrowserAdapters
 ): AgentEffectPort => ({
-  async resolve(command, observation) {
-    const input = { command, observation, adapter: adapters.resolver }
+  async resolve(command, observation, context) {
+    const input = { command, observation, adapter: adapters.resolver, context }
     switch (familyOf(command.type)) {
       case "read_only":
         return resolveReadOnlyAgentEffect(input)

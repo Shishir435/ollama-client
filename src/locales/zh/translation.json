@@ -25,9 +25,16 @@
       "label": "受控标签页",
       "missing": "请打开受支持的网页"
     },
+    "screenshots": {
+      "label": "截图",
+      "sent": "视口截图会发送给模型",
+      "unused": "纯文本模型不使用",
+      "unknown": "尚未确定"
+    },
     "privacy": {
       "remote_notice": "智能体运行期间，页面观察内容将持续发送给此远程提供商。",
-      "acknowledge": "我已了解"
+      "acknowledge": "我已了解",
+      "remote_notice_screenshots": "Agent 运行期间，页面观测结果和视口截图将持续发送到此远程提供商。"
     },
     "observations": "{{count}} 次观察",
     "controls": {

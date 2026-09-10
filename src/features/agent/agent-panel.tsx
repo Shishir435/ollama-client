@@ -7,7 +7,7 @@ import { SETTINGS } from "@/lib/storage/settings"
 import { AgentView } from "./agent-view"
 import { useAgentCandidateTab } from "./hooks/use-agent-candidate-tab"
 import { useAgentRun } from "./hooks/use-agent-run"
-import { agentPlainText } from "./lib/presentation"
+import { agentPlainText, visibleAgentTab } from "./lib/presentation"
 import { useAgentDraft } from "./stores/agent-draft-store"
 
 /**
@@ -24,6 +24,9 @@ export const AgentPanel = () => {
   const { selectedModel, selectedProviderId } = useProviderModels()
   const [acknowledged, setAcknowledged] = useSetting(
     SETTINGS.AGENT_REMOTE_OBSERVATION_ACKNOWLEDGED
+  )
+  const [screenshotsAcknowledged, setScreenshotsAcknowledged] = useSetting(
+    SETTINGS.AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED
   )
   const { goal, setGoal } = useAgentDraft()
   const candidateTab = useAgentCandidateTab()
@@ -53,7 +56,7 @@ export const AgentPanel = () => {
           run={snapshot.run ?? null}
           steps={snapshot.steps}
           provider={snapshot.provider}
-          tab={snapshot.run ? snapshot.tab : candidateTab}
+          tab={visibleAgentTab(snapshot.run, snapshot.tab, candidateTab)}
           approval={
             snapshot.pending?.kind === "approval"
               ? snapshot.pending.request
@@ -65,10 +68,14 @@ export const AgentPanel = () => {
               : undefined
           }
           privacyAcknowledged={acknowledged === true}
+          screenshotsAcknowledged={screenshotsAcknowledged === true}
           busy={connection.busy}
           goal={goal}
           onGoalChange={setGoal}
-          onAcknowledgePrivacy={() => void setAcknowledged(true)}
+          onAcknowledgePrivacy={(scope) => {
+            void setAcknowledged(true)
+            if (scope === "screenshots") void setScreenshotsAcknowledged(true)
+          }}
           onStart={connection.start}
           onAnswer={connection.answerQuestion}
           onApprove={connection.approve}

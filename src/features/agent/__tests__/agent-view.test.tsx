@@ -30,9 +30,15 @@ describe("AgentView", () => {
     const acknowledge = vi.fn()
     const start = vi.fn()
     const onGoalChange = vi.fn()
+    const textOnly = {
+      name: "Remote",
+      model: "qwen3",
+      location: "remote" as const,
+      screenshots: false
+    }
     const { rerender } = render(
       <AgentView
-        provider={{ name: "Remote", model: "qwen3", location: "remote" }}
+        provider={textOnly}
         tab={{ title: "Example", url: "https://example.com" }}
         goal="Compare these products"
         onGoalChange={onGoalChange}
@@ -45,12 +51,13 @@ describe("AgentView", () => {
     })
     expect(onGoalChange).toHaveBeenCalledWith("Compare these products now")
     expect(screen.getByText("agent.start.action")).toBeDisabled()
+    expect(screen.getByText("agent.privacy.remote_notice")).toBeInTheDocument()
     fireEvent.click(screen.getByText("agent.privacy.acknowledge"))
-    expect(acknowledge).toHaveBeenCalledOnce()
+    expect(acknowledge).toHaveBeenCalledWith("observations")
 
     rerender(
       <AgentView
-        provider={{ name: "Remote", model: "qwen3", location: "remote" }}
+        provider={textOnly}
         tab={{ title: "Example", url: "https://example.com" }}
         goal="Compare these products"
         privacyAcknowledged
@@ -59,6 +66,46 @@ describe("AgentView", () => {
     )
     fireEvent.click(screen.getByText("agent.start.action"))
     expect(start).toHaveBeenCalledWith("Compare these products")
+  })
+
+  it("asks separately about screenshots when they may travel, unknown included", () => {
+    const acknowledge = vi.fn()
+    const start = vi.fn()
+    const remote = {
+      name: "Remote",
+      model: "llava",
+      location: "remote" as const
+    }
+    const { rerender } = render(
+      <AgentView
+        provider={remote}
+        tab={{ title: "Example", url: "https://example.com" }}
+        goal="Find the red square"
+        privacyAcknowledged
+        onAcknowledgePrivacy={acknowledge}
+        onStart={start}
+      />
+    )
+    /* Observations were acknowledged once; that does not cover pictures. */
+    expect(screen.getByText("agent.start.action")).toBeDisabled()
+    expect(
+      screen.getByText("agent.privacy.remote_notice_screenshots")
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByText("agent.privacy.acknowledge"))
+    expect(acknowledge).toHaveBeenCalledWith("screenshots")
+
+    rerender(
+      <AgentView
+        provider={{ ...remote, screenshots: true }}
+        tab={{ title: "Example", url: "https://example.com" }}
+        goal="Find the red square"
+        privacyAcknowledged
+        screenshotsAcknowledged
+        onStart={start}
+      />
+    )
+    fireEvent.click(screen.getByText("agent.start.action"))
+    expect(start).toHaveBeenCalledWith("Find the red square")
   })
 
   it("keeps a failed run on screen with the reason it recorded", () => {

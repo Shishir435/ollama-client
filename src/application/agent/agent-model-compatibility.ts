@@ -17,7 +17,7 @@ import {
 import { assertProviderEnabled } from "@/lib/providers/provider-policy"
 import type { LLMProvider } from "@/lib/providers/types"
 
-export type AgentModelCompatibility =
+export type AgentModelCompatibility = (
   | {
       status: "supported"
       mode: "native" | "native-user-results"
@@ -32,6 +32,14 @@ export type AgentModelCompatibility =
       status: "unsupported"
       reason: "reported_unsupported" | "unverified" | "unknown"
     }
+) & {
+  /**
+   * Whether the model accepts images, resolved the same way tool calling is —
+   * override, probe, metadata, default — and never guessed: an unknown vision
+   * capability is a text-only run, which is offered no visual command.
+   */
+  vision?: boolean
+}
 
 export class AgentModelCompatibilityError extends Error {
   constructor(message: string) {
@@ -55,19 +63,34 @@ export const assertAgentModelCompatibility = (
 
 export const deriveAgentModelCompatibility = (input: {
   toolCalling: ModelCapabilityState
+  vision?: ModelCapabilityState
   probe?: CapabilityProbeResult | null
 }): AgentModelCompatibility => {
+  /** Only stated when vision evidence was supplied; callers without it stay text-only. */
+  const vision = input.vision
+    ? { vision: input.vision.status === "supported" }
+    : {}
   if (input.toolCalling.status === "unsupported") {
-    return { status: "unsupported", reason: "reported_unsupported" }
+    return { status: "unsupported", reason: "reported_unsupported", ...vision }
   }
   if (input.toolCalling.status === "unknown") {
-    return { status: "unsupported", reason: "unknown" }
+    return { status: "unsupported", reason: "unknown", ...vision }
   }
   if (input.toolCalling.source === "user-override") {
-    return { status: "experimental", mode: "native", reason: "user_override" }
+    return {
+      status: "experimental",
+      mode: "native",
+      reason: "user_override",
+      ...vision
+    }
   }
   if (input.toolCalling.source === "model-metadata") {
-    return { status: "supported", mode: "native", reason: "metadata" }
+    return {
+      status: "supported",
+      mode: "native",
+      reason: "metadata",
+      ...vision
+    }
   }
   if (
     input.toolCalling.source === "probed" &&
@@ -78,10 +101,11 @@ export const deriveAgentModelCompatibility = (input: {
     return {
       status: "supported",
       mode: input.probe.toolCallingMode,
-      reason: "verified_probe"
+      reason: "verified_probe",
+      ...vision
     }
   }
-  return { status: "unsupported", reason: "unverified" }
+  return { status: "unsupported", reason: "unverified", ...vision }
 }
 
 export interface AgentModelCompatibilityResolverDependencies {
@@ -140,6 +164,7 @@ export const resolveAgentModelCompatibility = async (
   })
   return deriveAgentModelCompatibility({
     toolCalling: states.toolCalling,
+    vision: states.vision,
     probe
   })
 }

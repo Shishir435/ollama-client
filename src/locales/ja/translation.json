@@ -25,9 +25,16 @@
       "label": "操作対象タブ",
       "missing": "対応するウェブページを開いてください"
     },
+    "screenshots": {
+      "label": "スクリーンショット",
+      "sent": "ビューポートのスクリーンショットをモデルに送信します",
+      "unused": "テキスト専用モデルでは使用しません",
+      "unknown": "未確定"
+    },
     "privacy": {
       "remote_notice": "エージェントの実行中、ページ観測はこのリモートプロバイダーへ継続的に送信されます。",
-      "acknowledge": "理解しました"
+      "acknowledge": "理解しました",
+      "remote_notice_screenshots": "エージェントの実行中、ページの観測結果とビューポートのスクリーンショットがこのリモートプロバイダーへ継続的に送信されます。"
     },
     "observations": "観測 {{count}} 回",
     "controls": {

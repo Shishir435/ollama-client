@@ -99,6 +99,8 @@ const startService = (
       executeScroll: vi.fn(),
       prepareNativeInput: vi.fn(),
       settleNativeInput: vi.fn(),
+      sensitiveRegions: vi.fn(),
+      hitTest: vi.fn(),
       release: vi.fn()
     },
     buildController: () => ({
@@ -285,6 +287,8 @@ describe("starting an Agent run against the real engine", () => {
           executeScroll: vi.fn(),
           prepareNativeInput: vi.fn(),
           settleNativeInput: vi.fn(),
+          sensitiveRegions: vi.fn(),
+          hitTest: vi.fn(),
           release: vi.fn()
         },
         buildController: () => controller,
@@ -334,6 +338,8 @@ describe("starting an Agent run against the real engine", () => {
           executeScroll: vi.fn(),
           prepareNativeInput: vi.fn(),
           settleNativeInput: vi.fn(),
+          sensitiveRegions: vi.fn(),
+          hitTest: vi.fn(),
           release: vi.fn()
         },
         buildController: () => controller,

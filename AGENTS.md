@@ -460,6 +460,62 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
 - Firefox has no debugger: `double_click` and `hover` degrade to synthetic
   events there, the receipt says `backend: "dom"`, and the hover verifier
   then needs page evidence, since no delivery record exists.
+- **A screenshot is an observation's companion, never a record.** The
+  controller pictures the tab (`AgentScreenshotPort`) only after the DOM
+  observation is in hand and only for a model whose `vision` the model port
+  resolved from the same evidence chain as tool calling; text-only models are
+  offered no `click_point`/`zoom` and cost the page no capture. The picture
+  carries the observation's snapshot identity and scroll, travels as the user
+  message's image attachment, and is held for that decision and the resolution
+  that follows — never persisted, logged, traced or shown. A capture that
+  fails leaves the decision to the DOM; it never fails the run.
+- **Nothing leaves unmasked.** `screenshot-capture.ts` asks the page for
+  every region a picture must cover (`agent_sensitive_regions`): each sensitive
+  control in the *whole composed tree* — never the bounded observation, which
+  stops at its element budget — and every child frame, masked whole because a
+  frame the run cannot read may hold a sign-in form and one it can read cannot
+  be placed from the root. Regions are read at the observation's scroll
+  position, then read again after the capture; any difference means the page
+  moved under the picture and the step gets none. Masks are painted black in
+  image pixels with a one-pixel margin and the long edge is bounded to
+  `MAX_AGENT_SCREENSHOT_EDGE_PX`. The editor is the worker's `OffscreenCanvas`;
+  without one there are no screenshots.
+- **The fallback capture is the active tab's or nobody's.**
+  `tabs.captureVisibleTab` pictures whichever tab is active in a window, so the
+  debugger-less path (`visibleTabCaptureSource`) requires the controlled tab to
+  be that tab immediately before and after the capture and returns nothing
+  otherwise — a neighbouring tab stamped with this tab's identity would be
+  masked for the wrong page.
+- **Screenshots need their own acknowledgement, and the runtime enforces it.**
+  `AGENT_REMOTE_SCREENSHOT_ACKNOWLEDGED` is separate from the observation
+  acknowledgement. The panel shows the screenshot variant of the remote notice
+  whenever pictures *may* travel — vision true or not yet determined — and
+  `buildAgentController` refuses to picture a remote provider's run until the
+  setting is set, whatever the panel showed at start. A local endpoint needs
+  no acknowledgement; nothing leaves the device.
+- **Coordinates convert through the picture's own geometry.** A screenshot
+  records the CSS `region` it shows and its `scale` (image px per CSS px);
+  `screenshot-geometry.ts` converts a model's image pixel to the root layout
+  viewport point and back, which is how device scale, browser zoom, pinch zoom
+  (`cssVisualViewport`) and a `zoom` crop all reduce to two numbers. `zoom` is
+  read-only inspection: the next capture is a clip magnified to the zoom and
+  edge caps, converted by the capture port from the geometry it remembered in
+  memory — a restart forgets it and captures the whole viewport again.
+- **A visual click is a click on the control under the point.** `click_point`
+  resolves by asking the page what lies under the converted CSS point
+  (`agent_hit_test`): the nearest listed control that contains the hit, else
+  the hit element newly referenced into the live snapshot and observed like
+  any other. Every click rule then applies — sensitive input, links,
+  submitters, checkboxes — and only "not an activatable control" is waived,
+  because a canvas is what a point exists to reach. A point inside a child
+  frame is refused; the frame's own refs name its controls. A stale picture
+  cannot authorize a click: the screenshot must carry the command's snapshot
+  and generation and the observation's scroll, and the executor re-hit-tests
+  the point before anything is sent, refusing a control that moved.
+- Disclosure says whether pictures travel: `AgentProviderDisclosure.screenshots`
+  is resolved from model vision, memoized per model, shown as unknown when it
+  could not be determined, and switches the remote-provider notice to the
+  variant that names screenshots.
 - Read-only helpers: `src/lib/browser-sessions.ts`. Model tools: `src/lib/tools/internal/browser-session-tools.ts`.
 - `sessions` is an optional permission. Always check browser support **and** the live permission before reading recently-closed or synced-device sessions.
 - Session URLs must pass the same unreadable/never-read filters as other browser tools.

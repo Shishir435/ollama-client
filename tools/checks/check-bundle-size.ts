@@ -231,8 +231,13 @@ const budgets: Budget[] = [
      * runner, the delivery matcher, the debugger input channel with its frame
      * placement, and the two new control-port messages — took it to 243,113.
      * Firefox carries no Agent code and is unchanged.
+     *
+     * Screenshots and visual grounding — the capture pipeline with its masking
+     * and geometry, the OffscreenCanvas editor, the debugger capture, hit-test
+     * and rect messages, and the vision variant of the decision tool — took it
+     * to 248,454. Firefox carries no Agent code and is unchanged.
      */
-    max: isFirefox ? 210_000 : 244_000
+    max: isFirefox ? 210_000 : 249_000
   }
 ]
 

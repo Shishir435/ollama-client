@@ -265,7 +265,10 @@ describe("read-only Agent effects", () => {
       currentGeneration: () => 2,
       matches: () => false,
       matchesFormState: () => false,
-      resolve: vi.fn()
+      resolve: vi.fn(),
+      referenceIn: vi.fn(),
+      existingReference: vi.fn(),
+      verificationIdOf: vi.fn(() => "v")
     }
     expect(() =>
       executeAgentScrollInDocument({

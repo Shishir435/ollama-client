@@ -16,6 +16,8 @@ export const agentReferencePrefix = (frameId: number): string =>
 
 export interface AgentElementReferenceSnapshot extends AgentReferenceIdentity {
   reference(element: Element): string
+  /** The ref this snapshot already gave an element, or nothing. */
+  referenceOf(element: Element): string | undefined
   verificationId(element: Element): string
   matchesFormState(ref: string, identity: AgentReferenceIdentity): boolean
   resolve(ref: string, identity: AgentReferenceIdentity): Element | undefined
@@ -29,6 +31,22 @@ export interface AgentElementReferenceStore {
   invalidate(): void
   currentGeneration(): number
   matches(identity: AgentReferenceIdentity): boolean
+  /**
+   * The active snapshot's ref for an element, or a new one when the snapshot
+   * in hand is the identity given and the element has none yet. This is how a
+   * control the overview never listed — one found under a pointer — joins the
+   * snapshot it was found in, bound like every other ref to that generation.
+   */
+  referenceIn(
+    element: Element,
+    identity: AgentReferenceIdentity
+  ): string | undefined
+  /** The active snapshot's ref for an element, never assigning one. */
+  existingReference(
+    element: Element,
+    identity: AgentReferenceIdentity
+  ): string | undefined
+  verificationIdOf(element: Element): string
   matchesFormState(ref: string, identity: AgentReferenceIdentity): boolean
   resolve(ref: string, identity: AgentReferenceIdentity): Element | undefined
 }
@@ -122,6 +140,9 @@ export const createAgentElementReferenceStore = (input: {
           formStateByRef.set(ref, privateFormState(element))
           return ref
         },
+        referenceOf(element) {
+          return byElement.get(element)
+        },
         verificationId(element) {
           const existing = verificationIds.get(element)
           if (existing) return existing
@@ -169,6 +190,19 @@ export const createAgentElementReferenceStore = (input: {
     },
     resolve(ref, identity) {
       return active?.resolve(ref, identity)
+    },
+    referenceIn(element, identity) {
+      return this.matches(identity) ? active?.reference(element) : undefined
+    },
+    existingReference(element, identity) {
+      return this.matches(identity) ? active?.referenceOf(element) : undefined
+    },
+    verificationIdOf(element) {
+      const existing = verificationIds.get(element)
+      if (existing) return existing
+      const id = createVerificationId()
+      verificationIds.set(element, id)
+      return id
     }
   }
 }

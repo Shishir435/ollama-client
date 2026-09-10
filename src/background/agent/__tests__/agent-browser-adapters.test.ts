@@ -10,7 +10,10 @@ import {
   type AgentEffectResolverAdapter,
   resolveDomMutationAgentEffect
 } from "@/lib/browser-agent/resolved-effect"
-import { createAgentBrowserAdapters } from "../agent-browser-adapters"
+import {
+  createAgentBrowserAdapters,
+  visibleTabCaptureSource
+} from "../agent-browser-adapters"
 import { createAgentControlSessionRegistry } from "../agent-control-sessions"
 import { createAgentTabHistory } from "../agent-tab-history"
 
@@ -121,5 +124,58 @@ describe("Agent browser adapters", () => {
     expect(sent?.target).not.toHaveProperty("frame")
     expect(sent?.target.frameId).toBe(0)
     expect(sent?.frame).toMatchObject({ frameId: 0, documentId: "document-1" })
+  })
+})
+
+describe("visible-tab capture fallback", () => {
+  const viewport = () => ({ x: 0, y: 0, width: 800, height: 600 })
+  const dataUrl = "data:image/jpeg;base64,/9j/AAAA"
+
+  it("pictures the controlled tab only while it is the window's active tab, before and after", async () => {
+    const active = { windowId: 3, active: true }
+    const tabs = {
+      get: vi.fn(async () => active),
+      captureVisibleTab: vi.fn(async () => dataUrl)
+    }
+    const shot = await visibleTabCaptureSource(viewport, tabs).capture(
+      7,
+      undefined,
+      { aborted: false }
+    )
+    expect(shot?.data).toBe("/9j/AAAA")
+    expect(tabs.captureVisibleTab).toHaveBeenCalledWith(3, {
+      format: "jpeg",
+      quality: 80
+    })
+    expect(tabs.get).toHaveBeenCalledTimes(2)
+  })
+
+  it("returns nothing for a background tab, since the API pictures the active one instead", async () => {
+    const tabs = {
+      get: vi.fn(async () => ({ windowId: 3, active: false })),
+      captureVisibleTab: vi.fn(async () => dataUrl)
+    }
+    await expect(
+      visibleTabCaptureSource(viewport, tabs).capture(7, undefined, {
+        aborted: false
+      })
+    ).resolves.toBeUndefined()
+    expect(tabs.captureVisibleTab).not.toHaveBeenCalled()
+  })
+
+  it("discards a capture when the tab stopped being active while it was taken", async () => {
+    const states = [
+      { windowId: 3, active: true },
+      { windowId: 3, active: false }
+    ]
+    const tabs = {
+      get: vi.fn(async () => states.shift() ?? { windowId: 3, active: false }),
+      captureVisibleTab: vi.fn(async () => dataUrl)
+    }
+    await expect(
+      visibleTabCaptureSource(viewport, tabs).capture(7, undefined, {
+        aborted: false
+      })
+    ).resolves.toBeUndefined()
   })
 })

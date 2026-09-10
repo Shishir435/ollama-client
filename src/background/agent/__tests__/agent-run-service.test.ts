@@ -52,6 +52,8 @@ const service = (
     executeScroll: vi.fn(),
     prepareNativeInput: vi.fn(),
     settleNativeInput: vi.fn(),
+    sensitiveRegions: vi.fn(),
+    hitTest: vi.fn(),
     release: vi.fn()
   }
   const created = createAgentRunService({

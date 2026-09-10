@@ -32,7 +32,13 @@ export const AGENT_AFFORDANCE_REASONS = [
   "use_check_instead",
   "use_click_instead",
   "image_submit",
-  "not_focused"
+  "not_focused",
+  /** Visual grounding: a point that cannot be turned into a control. */
+  "no_screenshot",
+  "point_outside_image",
+  "visual_unavailable",
+  "point_on_nothing",
+  "point_in_frame"
 ] as const
 export type AgentAffordanceReason = (typeof AGENT_AFFORDANCE_REASONS)[number]
 
@@ -348,6 +354,16 @@ export const agentAffordanceFeedback = (
       return `${ref} is an image submit control, which this agent cannot activate. Use a different control.`
     case "not_focused":
       return `${ref} is not focused, so a key press would not reach it. Click or type into it first.`
+    case "no_screenshot":
+      return `${ref} cannot be grounded by a point: no screenshot was attached to this observation. Use an element ref from the observation.`
+    case "point_outside_image":
+      return `${ref} names a point outside the attached screenshot. Coordinates are pixels of the image, x from its left edge and y from its top edge.`
+    case "visual_unavailable":
+      return `${ref} cannot be reached by a point: visual clicks are not available on this page. Use an element ref from the observation.`
+    case "point_on_nothing":
+      return `${ref} names a point with nothing under it. Choose a point on a visible control, or use an element ref.`
+    case "point_in_frame":
+      return `${ref} names a point inside an embedded frame. Use the frame's own refs, which carry the frame in their prefix.`
   }
 }
 

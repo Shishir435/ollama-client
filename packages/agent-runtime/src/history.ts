@@ -232,6 +232,16 @@ export const currentAgentInspection = (
   if (command.type === "inspect") return { region: command.target }
   if (command.type === "find") return { query: command.query }
   if (command.type === "extract_text") return { text: true }
+  if (command.type === "zoom") {
+    return {
+      zoom: {
+        x: command.x,
+        y: command.y,
+        width: command.width,
+        height: command.height
+      }
+    }
+  }
   return undefined
 }
 

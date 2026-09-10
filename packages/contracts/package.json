@@ -11,6 +11,7 @@
     "./agent-keys": "./src/agent-keys.ts",
     "./agent-observation": "./src/agent-observation.ts",
     "./agent-panel": "./src/agent-panel.ts",
+    "./agent-screenshot": "./src/agent-screenshot.ts",
     "./app-failure": "./src/app-failure.ts",
     "./chat": "./src/chat.ts",
     "./context": "./src/context.ts",

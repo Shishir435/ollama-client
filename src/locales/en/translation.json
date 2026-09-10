@@ -25,9 +25,16 @@
       "label": "Controlled tab",
       "missing": "Open a supported web page"
     },
+    "screenshots": {
+      "label": "Screenshots",
+      "sent": "Viewport screenshots are sent to the model",
+      "unused": "Not used with a text-only model",
+      "unknown": "Not determined yet"
+    },
     "privacy": {
       "remote_notice": "Page observations will be sent continuously to this remote provider while Agent runs.",
-      "acknowledge": "I understand"
+      "acknowledge": "I understand",
+      "remote_notice_screenshots": "Page observations and viewport screenshots will be sent continuously to this remote provider while Agent runs."
     },
     "observations": "{{count}} observations",
     "controls": {
