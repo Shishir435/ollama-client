@@ -1,48 +1,36 @@
 {
   "agent": {
-    "title": "Beaufsichtigter Agent",
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agent",
-      "preview": "Vorschau"
-    },
-    "start": {
-      "description": "Browseraufgabe in diesem Panel beaufsichtigen.",
-      "goal": "Was soll der Agent tun?",
-      "placeholder": "Eine Browseraufgabe beschreiben…",
-      "action": "Agent starten"
-    },
-    "provider": {
-      "label": "Anbieter",
-      "local": "Lokal",
-      "remote": "Remote",
-      "missing": "Zuerst Modell auswählen"
-    },
-    "model": {
-      "label": "Modell"
-    },
-    "tab": {
-      "label": "Gesteuerter Tab",
-      "missing": "Unterstützte Webseite öffnen"
-    },
-    "screenshots": {
-      "label": "Screenshots",
-      "sent": "Screenshots des Viewports werden an das Modell gesendet",
-      "unused": "Nicht genutzt bei einem reinen Textmodell",
-      "unknown": "Noch nicht ermittelt"
-    },
-    "privacy": {
-      "remote_notice": "Seitenbeobachtungen werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet.",
-      "acknowledge": "Verstanden",
-      "remote_notice_screenshots": "Seitenbeobachtungen und Viewport-Screenshots werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet."
-    },
-    "observations": "{{count}} Beobachtungen",
-    "controls": {
-      "label": "Agent-Steuerung",
-      "pause": "Pausieren",
-      "resume": "Fortsetzen",
-      "stop": "Stoppen",
-      "takeover_done": "Fertig — fortsetzen"
+    "action": {
+      "step": "Agentenschritt",
+      "navigate": "Navigieren: {{url}}",
+      "open_tab": "Tab öffnen: {{url}}",
+      "scroll_up": "Nach oben scrollen",
+      "scroll_down": "Nach unten scrollen",
+      "scroll_left": "Nach links scrollen",
+      "scroll_right": "Nach rechts scrollen",
+      "switch_tab": "Zu Tab {{tab}} wechseln",
+      "wait": "Warten auf {{condition}}",
+      "clear_and_type": "Text im Feld ersetzen",
+      "press_key": "{{key}} drücken",
+      "type": "In Feld tippen",
+      "replace_text": "Text im Feld bearbeiten",
+      "drag": "Element auf ein Ziel ziehen",
+      "select": "Option auswählen",
+      "check": "Kontrollkästchen aktivieren",
+      "uncheck": "Kontrollkästchen deaktivieren",
+      "back": "Zurück",
+      "forward": "Vorwärts",
+      "click": "Element anklicken",
+      "double_click": "Element doppelklicken",
+      "click_point": "Auf einen Punkt im Screenshot klicken",
+      "zoom": "In den Screenshot hineinzoomen",
+      "hover": "Über Element schweben",
+      "read": "Seite lesen",
+      "inspect": "{{region}} untersuchen",
+      "find": "„{{query}}“ suchen",
+      "extract_text": "Seitentext lesen",
+      "handle_dialog_accept": "Dialog der Seite bestätigen",
+      "handle_dialog_dismiss": "Dialog der Seite abbrechen"
     },
     "approval": {
       "title": "Genehmigung erforderlich",
@@ -50,18 +38,82 @@
       "reject": "Ablehnen",
       "allowForRun": "Diese Art von Aktion auf {{origin}} für diesen Lauf immer erlauben"
     },
-    "takeover": {
-      "title": "Diesen Schritt übernehmen"
+    "attachment": {
+      "title": "Was dieser Browser zulässt",
+      "attaches": "Beim Start verbindet sich der Debugger von Chrome mit dem gewählten Tab. Chrome zeigt währenddessen einen eigenen Hinweis; die Verbindung endet beim Stoppen, bei einer Übergabe an Sie oder am Ende des Laufs.",
+      "no_debugger": "Dieser Browser hat keinen Debugger, daher steuert der Lauf Seiten über die Content-Skripte der Erweiterung."
     },
-    "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
     "browser_disconnected": "Die Browsersteuerung wurde getrennt, daher wurde Agent pausiert. Prüfen Sie die Seite vor dem Fortsetzen.",
-    "work_log": {
-      "title": "Arbeitsprotokoll"
-    },
     "completion": {
       "summary": "Während dieses Laufs wurden {{count}} Seitenbeobachtungen an {{provider}} gesendet."
     },
+    "controls": {
+      "label": "Agent-Steuerung",
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "stop": "Stoppen",
+      "takeover_done": "Fertig — fortsetzen"
+    },
+    "error": {
+      "already_running": "Ein Agent-Durchlauf läuft bereits.",
+      "browser_control_unavailable": "Agent konnte die Browsersteuerung nicht verbinden. Schließen Sie DevTools oder einen anderen Debugger und versuchen Sie es erneut.",
+      "permission_denied": "Agent benötigt die Berechtigung zur Seitenbeobachtung, bevor er starten kann.",
+      "tab_unsupported": "Agent kann auf dieser Seite nicht ausgeführt werden. Öffne eine normale Webseite und versuche es erneut.",
+      "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",
+      "unknown": "Agent konnte diese Anfrage nicht ausführen."
+    },
+    "failure": {
+      "budget_exhausted": "Der Lauf hat sein gesamtes Schrittbudget verbraucht. Grenzen Sie das Ziel ein oder starten Sie vom aktuellen Stand neu.",
+      "goal_failed": "Das Modell meldet, dass es dies nicht kann. Formulieren Sie das Ziel klarer oder wählen Sie ein anderes Modell.",
+      "invalid_decision": "Das Modell antwortete wiederholt in einer unbrauchbaren Form. Ein größeres Modell mit Tool-Unterstützung hilft meist.",
+      "model_unavailable": "Das Modell war nicht erreichbar. Prüfen Sie, ob der Anbieter läuft, und starten Sie erneut.",
+      "observation_failed": "Die Seite konnte nicht gelesen werden. Laden Sie sie neu, achten Sie darauf, dass es keine Browser- oder Store-Seite ist, und versuchen Sie es erneut.",
+      "policy_blocked": "Der Lauf verlangte etwas, das die Richtlinie ablehnt. Wählen Sie ein Ziel ohne diesen Schritt oder führen Sie ihn selbst aus.",
+      "stale_snapshot": "Die Seite hat sich unter dem Lauf verändert. Starten Sie vom aktuellen Stand der Seite neu.",
+      "unsupported_page": "Auf dieser Seite kann der Lauf nicht arbeiten. Wechseln Sie zu einer normalen Webseite und starten Sie erneut.",
+      "verification_failed": "Der Lauf konnte die Wirkung seiner letzten Aktion nicht bestätigen. Prüfen Sie die Seite, bevor Sie erneut starten.",
+      "unknown": "Der Lauf endete ohne benennbaren Grund. Prüfen Sie die Seite und starten Sie erneut."
+    },
     "feedback": "Feedback senden",
+    "limits": {
+      "no_native_input": "Maus- und Tastatureingaben sind synthetisch; eine Seite, die nur auf echte Eingaben reagiert, antwortet möglicherweise nicht.",
+      "no_screenshots": "Es werden keine Screenshots erstellt; Aufgaben, die nur visuell lösbar sind, funktionieren nicht.",
+      "no_dialogs": "Native Dialoge (alert, confirm, prompt) kann der Lauf weder sehen noch beantworten."
+    },
+    "model": {
+      "label": "Modell"
+    },
+    "observations": "{{count}} Beobachtungen",
+    "privacy": {
+      "remote_notice": "Seitenbeobachtungen werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet.",
+      "acknowledge": "Verstanden",
+      "remote_notice_screenshots": "Seitenbeobachtungen und Viewport-Screenshots werden während des Agent-Laufs fortlaufend an diesen Remote-Anbieter gesendet."
+    },
+    "progress": "{{count}} von {{budget}} Beobachtungen",
+    "provider": {
+      "label": "Anbieter",
+      "local": "Lokal",
+      "remote": "Remote",
+      "missing": "Zuerst Modell auswählen"
+    },
+    "question": {
+      "title": "Agent benötigt eine Antwort",
+      "inputLabel": "Ihre Antwort",
+      "placeholder": "Antwort eingeben",
+      "send": "Antwort senden"
+    },
+    "screenshots": {
+      "label": "Screenshots",
+      "sent": "Screenshots des Viewports werden an das Modell gesendet",
+      "unused": "Nicht genutzt bei einem reinen Textmodell",
+      "unknown": "Noch nicht ermittelt"
+    },
+    "start": {
+      "description": "Browseraufgabe in diesem Panel beaufsichtigen.",
+      "goal": "Was soll der Agent tun?",
+      "placeholder": "Eine Browseraufgabe beschreiben…",
+      "action": "Agent starten"
+    },
     "status": {
       "submitted": "Startet",
       "observing": "Seite wird beobachtet",
@@ -87,19 +139,26 @@
       "failed": "Fehlgeschlagen",
       "uncertain": "Prüfen"
     },
-    "error": {
-      "already_running": "Ein Agent-Durchlauf läuft bereits.",
-      "browser_control_unavailable": "Agent konnte die Browsersteuerung nicht verbinden. Schließen Sie DevTools oder einen anderen Debugger und versuchen Sie es erneut.",
-      "permission_denied": "Agent benötigt die Berechtigung zur Seitenbeobachtung, bevor er starten kann.",
-      "tab_unsupported": "Agent kann auf dieser Seite nicht ausgeführt werden. Öffne eine normale Webseite und versuche es erneut.",
-      "unreadable_update": "Das Panel hat eine Aktualisierung erhalten, die es nicht lesen konnte.",
-      "unknown": "Agent konnte diese Anfrage nicht ausführen."
+    "surface": {
+      "chat": "Chat",
+      "agent": "Agent",
+      "preview": "Vorschau"
     },
-    "question": {
-      "title": "Agent benötigt eine Antwort",
-      "inputLabel": "Ihre Antwort",
-      "placeholder": "Antwort eingeben",
-      "send": "Antwort senden"
+    "tab": {
+      "label": "Gesteuerter Tab",
+      "missing": "Unterstützte Webseite öffnen"
+    },
+    "tabs": {
+      "label": "Gesteuerte Tabs",
+      "count": "{{count}} Tabs"
+    },
+    "takeover": {
+      "title": "Diesen Schritt übernehmen"
+    },
+    "title": "Beaufsichtigter Agent",
+    "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
+    "work_log": {
+      "title": "Arbeitsprotokoll"
     }
   },
   "common": {

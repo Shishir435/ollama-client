@@ -11,6 +11,7 @@ import {
   MAX_AGENT_ANSWER_CHARS,
   MAX_AGENT_ANSWERS,
   MAX_AGENT_GRANTS,
+  MAX_AGENT_OBSERVATIONS,
   MAX_AGENT_SCOPED_TABS
 } from "@ollama-client/contracts"
 import {
@@ -1095,7 +1096,7 @@ export const createAgentController = (
     // that step cannot be claimed back into observation.
     let entered = false
     while (!controller.signal.aborted) {
-      if (state.observationCount >= 25) {
+      if (state.observationCount >= MAX_AGENT_OBSERVATIONS) {
         await fail(
           state,
           "budget_exhausted",

@@ -19,66 +19,136 @@ export const agentPlainText = (value: string, limit: number): string => {
     : `${normalized.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
 }
 
-const commandLabel = (command?: AgentCommand): string => {
-  if (!command) return "Agent step"
+/**
+ * How a command reads, as an i18n key and the values it needs.
+ *
+ * The label used to be an English sentence built here, so a Japanese panel
+ * showed a translated status above a work log written in another language.
+ * The key travels instead and the component translates it, which is also why
+ * a direction and a dialog answer get a key each rather than an interpolated
+ * enum: "up" and "accept" have no translation at the point of use.
+ *
+ * Page-derived values — a URL, a wait condition, a query, a region — are
+ * flattened before they travel, because a label is rendered and page text
+ * must not be able to imitate one.
+ */
+export interface AgentActionLabel {
+  key: string
+  values?: Record<string, string | number>
+}
+
+const pageValue = (value: string) =>
+  agentPlainText(value, AGENT_PAGE_TEXT_LIMIT)
+
+export const agentActionLabel = (command?: AgentCommand): AgentActionLabel => {
+  if (!command) return { key: "agent.action.step" }
   switch (command.type) {
     case "navigate":
     case "open_tab":
-      return `${command.type === "navigate" ? "Navigate" : "Open tab"}: ${agentPlainText(command.url, AGENT_PAGE_TEXT_LIMIT)}`
+      return {
+        key: `agent.action.${command.type}`,
+        values: { url: pageValue(command.url) }
+      }
     case "scroll":
-      return `Scroll ${command.direction}`
+      return { key: `agent.action.scroll_${command.direction}` }
     case "switch_tab":
-      return `Switch to tab ${command.tabId}`
+      return {
+        key: "agent.action.switch_tab",
+        values: { tab: command.tabId }
+      }
     case "wait":
-      return `Wait for ${agentPlainText(command.condition, AGENT_PAGE_TEXT_LIMIT)}`
-    case "clear_and_type":
-      return "Replace text in field"
+      return {
+        key: "agent.action.wait",
+        values: { condition: pageValue(command.condition) }
+      }
     case "press_key":
-      return `Press ${agentPlainText(command.key, AGENT_PAGE_TEXT_LIMIT)}`
-    case "type":
-      return "Type in field"
-    case "replace_text":
-      return "Edit text in field"
-    case "drag":
-      return "Drag control to a drop target"
-    case "select":
-      return "Select option"
-    case "check":
-      return "Check control"
-    case "uncheck":
-      return "Uncheck control"
-    case "back":
-      return "Go back"
-    case "forward":
-      return "Go forward"
-    case "click":
-      return "Click control"
-    case "double_click":
-      return "Double-click control"
-    case "click_point":
-      return "Click at a point in the screenshot"
-    case "zoom":
-      return "Zoom into the screenshot"
-    case "hover":
-      return "Hover over control"
-    case "read":
-      return "Read page"
+      return {
+        key: "agent.action.press_key",
+        values: { key: pageValue(command.key) }
+      }
     case "inspect":
-      return `Inspect ${agentPlainText(command.target, AGENT_PAGE_TEXT_LIMIT)}`
+      return {
+        key: "agent.action.inspect",
+        values: { region: pageValue(command.target) }
+      }
     case "find":
-      return `Find "${agentPlainText(command.query, AGENT_PAGE_TEXT_LIMIT)}"`
-    case "extract_text":
-      return "Read page text"
+      return {
+        key: "agent.action.find",
+        values: { query: pageValue(command.query) }
+      }
     case "handle_dialog":
-      return command.accept
-        ? "Accept the page's dialog"
-        : "Dismiss the page's dialog"
+      return {
+        key: command.accept
+          ? "agent.action.handle_dialog_accept"
+          : "agent.action.handle_dialog_dismiss"
+      }
+    default:
+      return { key: `agent.action.${command.type}` }
   }
 }
 
+/**
+ * Steps still in flight. A step that verified, failed, was rejected or ended
+ * uncertain is over, whatever the run does next.
+ */
+const OPEN_AGENT_STEP_STATUSES: readonly AgentStepRecord["status"][] = [
+  "planned",
+  "approved",
+  "executing",
+  "executed"
+]
+
+/**
+ * What a run is doing right now, from the step it most recently opened.
+ *
+ * The status alone says "executing", which is the machine's word for it. A
+ * user supervising a run needs the action: a page they can see being clicked,
+ * a field being filled. The label is the same one the work log uses, so the
+ * line above the log and the last line in it never disagree.
+ *
+ * The latest step is only the current action while that step is unfinished.
+ * A verified click stays the newest command all through the observation and
+ * decision that follow it, and naming it there tells a supervisor the run is
+ * clicking when it is thinking — showing nothing is the honest answer.
+ */
+export const currentAgentAction = (
+  steps: readonly AgentStepRecord[]
+): AgentActionLabel | undefined => {
+  const latest = [...steps]
+    .sort((left, right) => left.sequence - right.sequence)
+    .filter((step) => step.command)
+    .at(-1)
+  return latest && OPEN_AGENT_STEP_STATUSES.includes(latest.status)
+    ? agentActionLabel(latest.command)
+    : undefined
+}
+
+/**
+ * The recovery a failure leaves open, as an i18n key.
+ *
+ * The runtime's own message is written in English for a developer reading a
+ * receipt, and it says what happened rather than what to do. Every code has
+ * an answer — retry, narrow the goal, pick another model, take the tab over —
+ * and a user who is told it does not need one of us.
+ */
+export const agentFailureAdviceKey = (code: string): string =>
+  `agent.failure.${AGENT_FAILURE_CODES.has(code) ? code : "unknown"}`
+
+const AGENT_FAILURE_CODES = new Set([
+  "budget_exhausted",
+  "goal_failed",
+  "invalid_decision",
+  "model_unavailable",
+  "observation_failed",
+  "policy_blocked",
+  "stale_snapshot",
+  "unsupported_page",
+  "verification_failed"
+])
+
 export interface AgentWorkLogItem {
   id: string
-  label: string
+  label: AgentActionLabel
   status: AgentStepRecord["status"]
   detail?: string
 }
@@ -88,7 +158,7 @@ export const toAgentWorkLog = (
 ): AgentWorkLogItem[] =>
   steps.map((step) => ({
     id: `${step.stepId}:${step.sequence}`,
-    label: commandLabel(step.command),
+    label: agentActionLabel(step.command),
     status: step.status,
     ...(step.verification?.evidence.summary
       ? {

@@ -40,6 +40,7 @@ export const createAgentComposition = async (
     ready,
     service,
     resolveProvider: resolveAgentProviderDisclosure,
+    browserCapabilities: () => browserSessions.capabilities,
     resolveTab: async (tabId) => {
       try {
         const tab = await browser.tabs.get(tabId)

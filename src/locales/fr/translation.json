@@ -1,48 +1,36 @@
 {
   "agent": {
-    "title": "Agent supervisé",
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agent",
-      "preview": "Aperçu"
-    },
-    "start": {
-      "description": "Supervisez une tâche du navigateur depuis ce panneau.",
-      "goal": "Que doit faire l’Agent ?",
-      "placeholder": "Décrivez une tâche du navigateur…",
-      "action": "Démarrer l’Agent"
-    },
-    "provider": {
-      "label": "Fournisseur",
-      "local": "Local",
-      "remote": "Distant",
-      "missing": "Sélectionnez d’abord un modèle"
-    },
-    "model": {
-      "label": "Modèle"
-    },
-    "tab": {
-      "label": "Onglet contrôlé",
-      "missing": "Ouvrez une page prise en charge"
-    },
-    "screenshots": {
-      "label": "Captures d’écran",
-      "sent": "Les captures de la zone visible sont envoyées au modèle",
-      "unused": "Non utilisées avec un modèle texte seul",
-      "unknown": "Pas encore déterminé"
-    },
-    "privacy": {
-      "remote_notice": "Les observations de page seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent.",
-      "acknowledge": "J’ai compris",
-      "remote_notice_screenshots": "Les observations de page et les captures de la zone visible seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent."
-    },
-    "observations": "{{count}} observations",
-    "controls": {
-      "label": "Commandes de l’Agent",
-      "pause": "Pause",
-      "resume": "Reprendre",
-      "stop": "Arrêter",
-      "takeover_done": "Terminé — continuer"
+    "action": {
+      "step": "Étape de l’agent",
+      "navigate": "Naviguer : {{url}}",
+      "open_tab": "Ouvrir un onglet : {{url}}",
+      "scroll_up": "Défiler vers le haut",
+      "scroll_down": "Défiler vers le bas",
+      "scroll_left": "Défiler vers la gauche",
+      "scroll_right": "Défiler vers la droite",
+      "switch_tab": "Passer à l’onglet {{tab}}",
+      "wait": "Attendre {{condition}}",
+      "clear_and_type": "Remplacer le texte du champ",
+      "press_key": "Appuyer sur {{key}}",
+      "type": "Saisir dans le champ",
+      "replace_text": "Modifier le texte du champ",
+      "drag": "Faire glisser le contrôle vers une cible",
+      "select": "Choisir une option",
+      "check": "Cocher la case",
+      "uncheck": "Décocher la case",
+      "back": "Revenir en arrière",
+      "forward": "Aller en avant",
+      "click": "Cliquer sur le contrôle",
+      "double_click": "Double-cliquer sur le contrôle",
+      "click_point": "Cliquer sur un point de la capture",
+      "zoom": "Agrandir la capture",
+      "hover": "Survoler le contrôle",
+      "read": "Lire la page",
+      "inspect": "Inspecter {{region}}",
+      "find": "Rechercher « {{query}} »",
+      "extract_text": "Lire le texte de la page",
+      "handle_dialog_accept": "Accepter la boîte de dialogue de la page",
+      "handle_dialog_dismiss": "Fermer la boîte de dialogue de la page"
     },
     "approval": {
       "title": "Approbation requise",
@@ -50,18 +38,82 @@
       "reject": "Refuser",
       "allowForRun": "Toujours autoriser ce type d'action sur {{origin}} pour cette exécution"
     },
-    "takeover": {
-      "title": "Prenez le contrôle de cette étape"
+    "attachment": {
+      "title": "Ce que permet ce navigateur",
+      "attaches": "Au démarrage, le débogueur de Chrome se connecte à l'onglet choisi. Chrome affiche son propre bandeau pendant ce temps, et la connexion cesse à l'arrêt, lors d'une reprise en main ou à la fin.",
+      "no_debugger": "Ce navigateur n'a pas de débogueur : l'exécution pilote les pages via les scripts de contenu de l'extension."
     },
-    "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
     "browser_disconnected": "Le contrôle du navigateur s’est déconnecté. Agent est donc en pause. Vérifiez la page avant de reprendre.",
-    "work_log": {
-      "title": "Journal de travail"
-    },
     "completion": {
       "summary": "{{count}} observations de page ont été envoyées à {{provider}} pendant cette exécution."
     },
+    "controls": {
+      "label": "Commandes de l’Agent",
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "stop": "Arrêter",
+      "takeover_done": "Terminé — continuer"
+    },
+    "error": {
+      "already_running": "Une exécution d’Agent est déjà en cours.",
+      "browser_control_unavailable": "Agent n’a pas pu connecter le contrôle du navigateur. Fermez DevTools ou un autre débogueur, puis réessayez.",
+      "permission_denied": "Agent a besoin de l’autorisation d’observation de page avant de démarrer.",
+      "tab_unsupported": "Agent ne peut pas s’exécuter sur cette page. Ouvre une page web normale et réessaie.",
+      "unreadable_update": "Le panneau a reçu une mise à jour qu’il n’a pas pu lire.",
+      "unknown": "Agent n’a pas pu exécuter cette demande."
+    },
+    "failure": {
+      "budget_exhausted": "L'exécution a épuisé son budget d'étapes. Restreignez l'objectif ou reprenez depuis l'état actuel de la page.",
+      "goal_failed": "Le modèle indique qu'il ne peut pas le faire. Essayez un objectif plus clair ou un autre modèle.",
+      "invalid_decision": "Le modèle a répondu de façon inexploitable à plusieurs reprises. Un modèle plus grand, capable d'appeler des outils, résout généralement cela.",
+      "model_unavailable": "Le modèle est injoignable. Vérifiez que le fournisseur fonctionne, puis relancez.",
+      "observation_failed": "La page n'a pas pu être lue. Rechargez-la, vérifiez qu'il ne s'agit pas d'une page du navigateur ou du store, puis réessayez.",
+      "policy_blocked": "L'exécution a demandé quelque chose que la politique refuse. Choisissez un objectif qui ne l'exige pas, ou faites cette étape vous-même.",
+      "stale_snapshot": "La page a changé sous l'exécution. Reprenez depuis la page telle qu'elle est maintenant.",
+      "unsupported_page": "L'exécution ne peut pas travailler sur cette page. Passez à une page web ordinaire et recommencez.",
+      "verification_failed": "L'exécution n'a pas pu confirmer l'effet de sa dernière action. Vérifiez la page avant de relancer.",
+      "unknown": "L'exécution s'est arrêtée sans raison identifiable. Vérifiez la page, puis relancez."
+    },
     "feedback": "Envoyer un avis",
+    "limits": {
+      "no_native_input": "Les entrées souris et clavier sont synthétiques ; une page qui ne réagit qu'à de vraies entrées peut ne pas répondre.",
+      "no_screenshots": "Aucune capture d'écran n'est prise : une tâche qui exige de regarder la page ne fonctionnera pas.",
+      "no_dialogs": "L'exécution ne peut ni voir ni répondre aux boîtes natives alert, confirm et prompt."
+    },
+    "model": {
+      "label": "Modèle"
+    },
+    "observations": "{{count}} observations",
+    "privacy": {
+      "remote_notice": "Les observations de page seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent.",
+      "acknowledge": "J’ai compris",
+      "remote_notice_screenshots": "Les observations de page et les captures de la zone visible seront envoyées en continu à ce fournisseur distant pendant l’exécution de l’Agent."
+    },
+    "progress": "{{count}} observations sur {{budget}}",
+    "provider": {
+      "label": "Fournisseur",
+      "local": "Local",
+      "remote": "Distant",
+      "missing": "Sélectionnez d’abord un modèle"
+    },
+    "question": {
+      "title": "Agent a besoin d'une réponse",
+      "inputLabel": "Votre réponse",
+      "placeholder": "Saisissez votre réponse",
+      "send": "Envoyer la réponse"
+    },
+    "screenshots": {
+      "label": "Captures d’écran",
+      "sent": "Les captures de la zone visible sont envoyées au modèle",
+      "unused": "Non utilisées avec un modèle texte seul",
+      "unknown": "Pas encore déterminé"
+    },
+    "start": {
+      "description": "Supervisez une tâche du navigateur depuis ce panneau.",
+      "goal": "Que doit faire l’Agent ?",
+      "placeholder": "Décrivez une tâche du navigateur…",
+      "action": "Démarrer l’Agent"
+    },
     "status": {
       "submitted": "Démarrage",
       "observing": "Observation de la page",
@@ -87,19 +139,26 @@
       "failed": "Échec",
       "uncertain": "À vérifier"
     },
-    "error": {
-      "already_running": "Une exécution d’Agent est déjà en cours.",
-      "browser_control_unavailable": "Agent n’a pas pu connecter le contrôle du navigateur. Fermez DevTools ou un autre débogueur, puis réessayez.",
-      "permission_denied": "Agent a besoin de l’autorisation d’observation de page avant de démarrer.",
-      "tab_unsupported": "Agent ne peut pas s’exécuter sur cette page. Ouvre une page web normale et réessaie.",
-      "unreadable_update": "Le panneau a reçu une mise à jour qu’il n’a pas pu lire.",
-      "unknown": "Agent n’a pas pu exécuter cette demande."
+    "surface": {
+      "chat": "Chat",
+      "agent": "Agent",
+      "preview": "Aperçu"
     },
-    "question": {
-      "title": "Agent a besoin d'une réponse",
-      "inputLabel": "Votre réponse",
-      "placeholder": "Saisissez votre réponse",
-      "send": "Envoyer la réponse"
+    "tab": {
+      "label": "Onglet contrôlé",
+      "missing": "Ouvrez une page prise en charge"
+    },
+    "tabs": {
+      "label": "Onglets contrôlés",
+      "count": "{{count}} onglets"
+    },
+    "takeover": {
+      "title": "Prenez le contrôle de cette étape"
+    },
+    "title": "Agent supervisé",
+    "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
+    "work_log": {
+      "title": "Journal de travail"
     }
   },
   "common": {

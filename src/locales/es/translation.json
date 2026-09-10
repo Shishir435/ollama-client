@@ -1,48 +1,36 @@
 {
   "agent": {
-    "title": "Agente supervisado",
-    "surface": {
-      "chat": "Chat",
-      "agent": "Agente",
-      "preview": "Vista previa"
-    },
-    "start": {
-      "description": "Supervisa una tarea del navegador desde este panel.",
-      "goal": "¿Qué debe hacer el Agente?",
-      "placeholder": "Describe una tarea del navegador…",
-      "action": "Iniciar Agente"
-    },
-    "provider": {
-      "label": "Proveedor",
-      "local": "Local",
-      "remote": "Remoto",
-      "missing": "Selecciona un modelo primero"
-    },
-    "model": {
-      "label": "Modelo"
-    },
-    "tab": {
-      "label": "Pestaña controlada",
-      "missing": "Abre una página compatible"
-    },
-    "screenshots": {
-      "label": "Capturas de pantalla",
-      "sent": "Las capturas del área visible se envían al modelo",
-      "unused": "No se usan con un modelo solo de texto",
-      "unknown": "Aún no determinado"
-    },
-    "privacy": {
-      "remote_notice": "Las observaciones de página se enviarán continuamente a este proveedor remoto mientras se ejecute el Agente.",
-      "acknowledge": "Entiendo",
-      "remote_notice_screenshots": "Las observaciones de página y las capturas del área visible se enviarán continuamente a este proveedor remoto mientras el Agente se ejecuta."
-    },
-    "observations": "{{count}} observaciones",
-    "controls": {
-      "label": "Controles del Agente",
-      "pause": "Pausar",
-      "resume": "Reanudar",
-      "stop": "Detener",
-      "takeover_done": "Terminé — continuar"
+    "action": {
+      "step": "Paso del agente",
+      "navigate": "Navegar: {{url}}",
+      "open_tab": "Abrir pestaña: {{url}}",
+      "scroll_up": "Desplazar hacia arriba",
+      "scroll_down": "Desplazar hacia abajo",
+      "scroll_left": "Desplazar hacia la izquierda",
+      "scroll_right": "Desplazar hacia la derecha",
+      "switch_tab": "Cambiar a la pestaña {{tab}}",
+      "wait": "Esperar a {{condition}}",
+      "clear_and_type": "Reemplazar el texto del campo",
+      "press_key": "Pulsar {{key}}",
+      "type": "Escribir en el campo",
+      "replace_text": "Editar el texto del campo",
+      "drag": "Arrastrar el control a un destino",
+      "select": "Seleccionar opción",
+      "check": "Marcar la casilla",
+      "uncheck": "Desmarcar la casilla",
+      "back": "Ir atrás",
+      "forward": "Ir adelante",
+      "click": "Hacer clic en el control",
+      "double_click": "Hacer doble clic en el control",
+      "click_point": "Hacer clic en un punto de la captura",
+      "zoom": "Ampliar la captura",
+      "hover": "Pasar el cursor sobre el control",
+      "read": "Leer la página",
+      "inspect": "Inspeccionar {{region}}",
+      "find": "Buscar «{{query}}»",
+      "extract_text": "Leer el texto de la página",
+      "handle_dialog_accept": "Aceptar el diálogo de la página",
+      "handle_dialog_dismiss": "Descartar el diálogo de la página"
     },
     "approval": {
       "title": "Aprobación necesaria",
@@ -50,18 +38,82 @@
       "reject": "Rechazar",
       "allowForRun": "Permitir siempre este tipo de acción en {{origin}} durante esta ejecución"
     },
-    "takeover": {
-      "title": "Toma el control de este paso"
+    "attachment": {
+      "title": "Lo que permite este navegador",
+      "attaches": "Al iniciar, el depurador de Chrome se conecta a la pestaña elegida. Chrome muestra su propio aviso mientras está conectado, y la conexión termina al detener, al cederle el control o al finalizar.",
+      "no_debugger": "Este navegador no tiene depurador, así que la ejecución controla las páginas mediante los scripts de contenido de la extensión."
     },
-    "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
     "browser_disconnected": "El control del navegador se desconectó, por lo que Agent se pausó. Revisa la página antes de continuar.",
-    "work_log": {
-      "title": "Registro de trabajo"
-    },
     "completion": {
       "summary": "Se enviaron {{count}} observaciones de página a {{provider}} durante esta ejecución."
     },
+    "controls": {
+      "label": "Controles del Agente",
+      "pause": "Pausar",
+      "resume": "Reanudar",
+      "stop": "Detener",
+      "takeover_done": "Terminé — continuar"
+    },
+    "error": {
+      "already_running": "Ya hay una ejecución de Agent en curso.",
+      "browser_control_unavailable": "Agent no pudo conectar el control del navegador. Cierra DevTools u otro depurador e inténtalo de nuevo.",
+      "permission_denied": "Agent necesita permiso de observación de la página antes de empezar.",
+      "tab_unsupported": "Agent no puede ejecutarse en esta página. Abre una página web normal e inténtalo de nuevo.",
+      "unreadable_update": "El panel recibió una actualización que no pudo leer.",
+      "unknown": "Agent no pudo completar esa solicitud."
+    },
+    "failure": {
+      "budget_exhausted": "La ejecución agotó su presupuesto de pasos. Acote el objetivo o vuelva a empezar desde el estado actual de la página.",
+      "goal_failed": "El modelo indicó que no puede hacerlo. Pruebe un objetivo más claro u otro modelo.",
+      "invalid_decision": "El modelo respondió repetidamente en un formato inutilizable. Un modelo mayor con llamadas a herramientas suele resolverlo.",
+      "model_unavailable": "No se pudo alcanzar el modelo. Compruebe que el proveedor está activo y vuelva a iniciar.",
+      "observation_failed": "No se pudo leer la página. Recárguela, asegúrese de que no sea una página del navegador o de la tienda, e inténtelo de nuevo.",
+      "policy_blocked": "La ejecución pidió algo que la política rechaza. Plantee un objetivo que no lo requiera o hágalo usted.",
+      "stale_snapshot": "La página cambió bajo la ejecución. Vuelva a empezar desde la página tal como está ahora.",
+      "unsupported_page": "La ejecución no puede trabajar en esta página. Vaya a una página web normal y vuelva a empezar.",
+      "verification_failed": "La ejecución no pudo confirmar el efecto de su última acción. Revise la página antes de volver a empezar.",
+      "unknown": "La ejecución se detuvo por un motivo que no pudo nombrar. Revise la página y vuelva a empezar."
+    },
     "feedback": "Enviar comentarios",
+    "limits": {
+      "no_native_input": "La entrada de ratón y teclado es sintética; una página que solo responde a entrada real puede no reaccionar.",
+      "no_screenshots": "No se toman capturas, así que una tarea que solo puede resolverse mirando la página no funcionará.",
+      "no_dialogs": "La ejecución no puede ver ni responder los diálogos nativos alert, confirm y prompt."
+    },
+    "model": {
+      "label": "Modelo"
+    },
+    "observations": "{{count}} observaciones",
+    "privacy": {
+      "remote_notice": "Las observaciones de página se enviarán continuamente a este proveedor remoto mientras se ejecute el Agente.",
+      "acknowledge": "Entiendo",
+      "remote_notice_screenshots": "Las observaciones de página y las capturas del área visible se enviarán continuamente a este proveedor remoto mientras el Agente se ejecuta."
+    },
+    "progress": "{{count}} de {{budget}} observaciones",
+    "provider": {
+      "label": "Proveedor",
+      "local": "Local",
+      "remote": "Remoto",
+      "missing": "Selecciona un modelo primero"
+    },
+    "question": {
+      "title": "Agent necesita una respuesta",
+      "inputLabel": "Tu respuesta",
+      "placeholder": "Escribe tu respuesta",
+      "send": "Enviar respuesta"
+    },
+    "screenshots": {
+      "label": "Capturas de pantalla",
+      "sent": "Las capturas del área visible se envían al modelo",
+      "unused": "No se usan con un modelo solo de texto",
+      "unknown": "Aún no determinado"
+    },
+    "start": {
+      "description": "Supervisa una tarea del navegador desde este panel.",
+      "goal": "¿Qué debe hacer el Agente?",
+      "placeholder": "Describe una tarea del navegador…",
+      "action": "Iniciar Agente"
+    },
     "status": {
       "submitted": "Iniciando",
       "observing": "Observando página",
@@ -87,19 +139,26 @@
       "failed": "Falló",
       "uncertain": "Revisar"
     },
-    "error": {
-      "already_running": "Ya hay una ejecución de Agent en curso.",
-      "browser_control_unavailable": "Agent no pudo conectar el control del navegador. Cierra DevTools u otro depurador e inténtalo de nuevo.",
-      "permission_denied": "Agent necesita permiso de observación de la página antes de empezar.",
-      "tab_unsupported": "Agent no puede ejecutarse en esta página. Abre una página web normal e inténtalo de nuevo.",
-      "unreadable_update": "El panel recibió una actualización que no pudo leer.",
-      "unknown": "Agent no pudo completar esa solicitud."
+    "surface": {
+      "chat": "Chat",
+      "agent": "Agente",
+      "preview": "Vista previa"
     },
-    "question": {
-      "title": "Agent necesita una respuesta",
-      "inputLabel": "Tu respuesta",
-      "placeholder": "Escribe tu respuesta",
-      "send": "Enviar respuesta"
+    "tab": {
+      "label": "Pestaña controlada",
+      "missing": "Abre una página compatible"
+    },
+    "tabs": {
+      "label": "Pestañas controladas",
+      "count": "{{count}} pestañas"
+    },
+    "takeover": {
+      "title": "Toma el control de este paso"
+    },
+    "title": "Agente supervisado",
+    "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
+    "work_log": {
+      "title": "Registro de trabajo"
     }
   },
   "common": {

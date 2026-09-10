@@ -55,6 +55,7 @@ export const AgentPanel = () => {
         <AgentView
           run={snapshot.run ?? null}
           steps={snapshot.steps}
+          browser={snapshot.browser}
           provider={snapshot.provider}
           tab={visibleAgentTab(snapshot.run, snapshot.tab, candidateTab)}
           approval={

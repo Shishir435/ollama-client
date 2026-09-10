@@ -93,6 +93,32 @@ export const AgentProviderDisclosureSchema = z
   })
   .strict()
 
+/**
+ * What this browser lets a run do, disclosed before it starts.
+ *
+ * A user cannot supervise what they were not told about. Chromium shows its
+ * own "is debugging this browser" banner the moment the run attaches, and a
+ * banner with no explanation beside it is the thing that sends someone to ask
+ * a developer. Firefox has no debugger at all, so the same run is quietly a
+ * different one: no native input, no pictures, no native dialogs — limits
+ * worth knowing before a task is set rather than after it stalls.
+ */
+export const AgentBrowserDisclosureSchema = z
+  .object({
+    /** `cdp` attaches the debugger; `dom` drives the page through content scripts. */
+    backend: z.enum(["cdp", "dom"]),
+    /** Whether the run will attach a debugger, and the browser will say so. */
+    attaches: z.boolean(),
+    nativeInput: z.boolean(),
+    screenshots: z.boolean(),
+    /** Native alert/confirm/prompt can only be seen through a debugger. */
+    dialogs: z.boolean()
+  })
+  .strict()
+export type AgentBrowserDisclosure = z.infer<
+  typeof AgentBrowserDisclosureSchema
+>
+
 export const AgentPanelSnapshotSchema = z
   .object({
     run: AgentRunStateSchema.optional(),
@@ -100,6 +126,7 @@ export const AgentPanelSnapshotSchema = z
     steps: z.array(AgentStepRecordSchema).max(125),
     pending: AgentPendingSupervisionSchema.optional(),
     provider: AgentProviderDisclosureSchema.optional(),
+    browser: AgentBrowserDisclosureSchema.optional(),
     tab: z
       .object({
         title: z.string().max(500),

@@ -1,48 +1,36 @@
 {
   "agent": {
-    "title": "监督式智能体",
-    "surface": {
-      "chat": "聊天",
-      "agent": "智能体",
-      "preview": "预览"
-    },
-    "start": {
-      "description": "在此面板中监督浏览器任务。",
-      "goal": "希望智能体做什么？",
-      "placeholder": "描述一个浏览器任务…",
-      "action": "启动智能体"
-    },
-    "provider": {
-      "label": "提供商",
-      "local": "本地",
-      "remote": "远程",
-      "missing": "请先选择模型"
-    },
-    "model": {
-      "label": "模型"
-    },
-    "tab": {
-      "label": "受控标签页",
-      "missing": "请打开受支持的网页"
-    },
-    "screenshots": {
-      "label": "截图",
-      "sent": "视口截图会发送给模型",
-      "unused": "纯文本模型不使用",
-      "unknown": "尚未确定"
-    },
-    "privacy": {
-      "remote_notice": "智能体运行期间，页面观察内容将持续发送给此远程提供商。",
-      "acknowledge": "我已了解",
-      "remote_notice_screenshots": "Agent 运行期间，页面观测结果和视口截图将持续发送到此远程提供商。"
-    },
-    "observations": "{{count}} 次观察",
-    "controls": {
-      "label": "智能体控制",
-      "pause": "暂停",
-      "resume": "继续",
-      "stop": "停止",
-      "takeover_done": "我已完成 — 继续"
+    "action": {
+      "step": "代理步骤",
+      "navigate": "导航：{{url}}",
+      "open_tab": "打开标签页：{{url}}",
+      "scroll_up": "向上滚动",
+      "scroll_down": "向下滚动",
+      "scroll_left": "向左滚动",
+      "scroll_right": "向右滚动",
+      "switch_tab": "切换到标签页 {{tab}}",
+      "wait": "等待 {{condition}}",
+      "clear_and_type": "替换字段中的文本",
+      "press_key": "按 {{key}}",
+      "type": "在字段中输入",
+      "replace_text": "编辑字段中的文本",
+      "drag": "将控件拖到目标位置",
+      "select": "选择选项",
+      "check": "勾选复选框",
+      "uncheck": "取消勾选复选框",
+      "back": "后退",
+      "forward": "前进",
+      "click": "点击控件",
+      "double_click": "双击控件",
+      "click_point": "点击截图中的某个位置",
+      "zoom": "放大截图",
+      "hover": "悬停在控件上",
+      "read": "读取页面",
+      "inspect": "查看 {{region}}",
+      "find": "查找“{{query}}”",
+      "extract_text": "读取页面文本",
+      "handle_dialog_accept": "接受页面对话框",
+      "handle_dialog_dismiss": "关闭页面对话框"
     },
     "approval": {
       "title": "需要批准",
@@ -50,18 +38,82 @@
       "reject": "拒绝",
       "allowForRun": "本次运行始终允许在 {{origin}} 上执行此类操作"
     },
-    "takeover": {
-      "title": "接管此步骤"
+    "attachment": {
+      "title": "此浏览器允许的操作",
+      "attaches": "启动后，Chrome 的调试器会连接到你选择的标签页。连接期间 Chrome 会显示自己的提示条；停止、交由你接管或运行结束时都会断开。",
+      "no_debugger": "此浏览器没有调试器，因此运行通过扩展的内容脚本来操作页面。"
     },
-    "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
     "browser_disconnected": "浏览器控制已断开，因此 Agent 已暂停。请检查页面后再继续。",
-    "work_log": {
-      "title": "工作日志"
-    },
     "completion": {
       "summary": "本次运行中有 {{count}} 次页面观察发送给 {{provider}}。"
     },
+    "controls": {
+      "label": "智能体控制",
+      "pause": "暂停",
+      "resume": "继续",
+      "stop": "停止",
+      "takeover_done": "我已完成 — 继续"
+    },
+    "error": {
+      "already_running": "已有一个 Agent 运行正在进行。",
+      "browser_control_unavailable": "Agent 无法连接浏览器控制。请关闭 DevTools 或其他调试器后重试。",
+      "permission_denied": "启动前 Agent 需要页面观察权限。",
+      "tab_unsupported": "Agent 无法在此页面运行。请打开普通网页后重试。",
+      "unreadable_update": "面板收到了无法读取的更新。",
+      "unknown": "Agent 无法完成该请求。"
+    },
+    "failure": {
+      "budget_exhausted": "运行已用完全部步骤预算。请缩小目标，或从页面当前状态重新开始。",
+      "goal_failed": "模型表示无法完成。请把目标写得更清楚，或换一个模型。",
+      "invalid_decision": "模型反复以无法使用的形式作答。改用支持工具调用的更大模型通常可以解决。",
+      "model_unavailable": "无法连接模型。请确认提供方正在运行，然后重新开始。",
+      "observation_failed": "无法读取页面。请重新加载，确认它不是浏览器或商店页面，然后重试。",
+      "policy_blocked": "运行请求了策略拒绝的操作。请设定不需要该操作的目标，或由你自己完成这一步。",
+      "stale_snapshot": "页面在运行过程中发生了变化。请从页面当前状态重新开始。",
+      "unsupported_page": "运行无法在此页面上工作。请切换到普通网页后重新开始。",
+      "verification_failed": "运行无法确认上一步操作的结果。重新开始前请检查页面。",
+      "unknown": "运行因无法说明的原因停止。请检查页面后重新开始。"
+    },
     "feedback": "发送反馈",
+    "limits": {
+      "no_native_input": "鼠标和键盘输入是合成的；只响应真实输入的页面可能不会有反应。",
+      "no_screenshots": "不会截屏，因此只能通过查看页面完成的任务无法进行。",
+      "no_dialogs": "运行既看不到也无法回应 alert、confirm 和 prompt 等原生对话框。"
+    },
+    "model": {
+      "label": "模型"
+    },
+    "observations": "{{count}} 次观察",
+    "privacy": {
+      "remote_notice": "智能体运行期间，页面观察内容将持续发送给此远程提供商。",
+      "acknowledge": "我已了解",
+      "remote_notice_screenshots": "Agent 运行期间，页面观测结果和视口截图将持续发送到此远程提供商。"
+    },
+    "progress": "{{budget}} 次观察中的第 {{count}} 次",
+    "provider": {
+      "label": "提供商",
+      "local": "本地",
+      "remote": "远程",
+      "missing": "请先选择模型"
+    },
+    "question": {
+      "title": "Agent 需要答复",
+      "inputLabel": "你的答复",
+      "placeholder": "输入你的答复",
+      "send": "发送答复"
+    },
+    "screenshots": {
+      "label": "截图",
+      "sent": "视口截图会发送给模型",
+      "unused": "纯文本模型不使用",
+      "unknown": "尚未确定"
+    },
+    "start": {
+      "description": "在此面板中监督浏览器任务。",
+      "goal": "希望智能体做什么？",
+      "placeholder": "描述一个浏览器任务…",
+      "action": "启动智能体"
+    },
     "status": {
       "submitted": "正在启动",
       "observing": "正在观察页面",
@@ -87,19 +139,26 @@
       "failed": "失败",
       "uncertain": "需检查"
     },
-    "error": {
-      "already_running": "已有一个 Agent 运行正在进行。",
-      "browser_control_unavailable": "Agent 无法连接浏览器控制。请关闭 DevTools 或其他调试器后重试。",
-      "permission_denied": "启动前 Agent 需要页面观察权限。",
-      "tab_unsupported": "Agent 无法在此页面运行。请打开普通网页后重试。",
-      "unreadable_update": "面板收到了无法读取的更新。",
-      "unknown": "Agent 无法完成该请求。"
+    "surface": {
+      "chat": "聊天",
+      "agent": "智能体",
+      "preview": "预览"
     },
-    "question": {
-      "title": "Agent 需要答复",
-      "inputLabel": "你的答复",
-      "placeholder": "输入你的答复",
-      "send": "发送答复"
+    "tab": {
+      "label": "受控标签页",
+      "missing": "请打开受支持的网页"
+    },
+    "tabs": {
+      "label": "受控标签页",
+      "count": "{{count}} 个标签页"
+    },
+    "takeover": {
+      "title": "接管此步骤"
+    },
+    "title": "监督式智能体",
+    "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
+    "work_log": {
+      "title": "工作日志"
     }
   },
   "common": {

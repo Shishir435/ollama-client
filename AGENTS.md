@@ -848,6 +848,29 @@ Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
 - `tools/README.md` documents command ownership and prerequisites. `check:static` is shared by CI and local verification; `verify:ci-parity` runs static checks and coverage on committed HEAD in a clean worktree.
 - Never bypass with `--no-verify`. If a hook fails, fix the cause.
 
+## Agent supervision surface
+
+- **The browser's own limits are disclosed before a run, not after it
+  stalls.** `AgentBrowserDisclosure` travels on every panel snapshot, read
+  from the session manager rather than guessed from a user agent, and the
+  panel names what attaching means — Chromium shows its own debugging banner
+  the moment a run attaches, and a banner with nothing beside it is what
+  sends someone to ask a developer. A browser with no debugger states what it
+  therefore cannot do: synthetic input only, no screenshots, no native
+  dialogs.
+- **A failure leads with the recovery.** `AgentError.message` is written in
+  English for whoever reads a receipt and says what happened; the panel shows
+  `agent.failure.<code>` first, in the reader's language, and keeps the
+  original beneath so the words the run used survive for a bug report. A code
+  with no key falls back to the `unknown` advice rather than to nothing.
+- **Supervision needs the action and the ceiling.** The status is the
+  machine's word for it, so the panel also names the step in flight — the
+  same label the work log uses, so the two cannot disagree — shows progress
+  against the observation budget that will stop the run, and counts every tab
+  the run drives once it has adopted more than the one it started on.
+- Panel copy is i18n like everything else: every key exists in all nine
+  locales, and `pnpm generate:resources` runs after a locale edit.
+
 ## Measured agent behaviour
 
 `AGENT_EVALUATION.md` holds the published numbers and the named remaining

@@ -40,7 +40,9 @@ export const AgentWorkLog = ({ items }: { items: AgentWorkLogItem[] }) => {
                   aria-hidden="true"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-xs">{item.label}</p>
+                  <p className="break-words text-xs">
+                    {t(item.label.key, item.label.values)}
+                  </p>
                   {item.detail && (
                     <p className="mt-0.5 break-words text-2xs text-muted-foreground">
                       {item.detail}

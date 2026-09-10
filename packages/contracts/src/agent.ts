@@ -50,6 +50,15 @@ export type AgentStepStatus = z.infer<typeof AgentStepStatusSchema>
  * other model output: it is recorded as evidence of what the run believed,
  * never as an instruction.
  */
+/**
+ * Observations a run may take before it is stopped.
+ *
+ * Declared once because two places need it and they must agree: the loop
+ * enforces it, and the panel shows progress against it. A panel with its own
+ * copy would keep confidently naming a ceiling the runtime had moved.
+ */
+export const MAX_AGENT_OBSERVATIONS = 25
+
 export const MAX_AGENT_FINDING_CHARS = 500
 
 /**
@@ -254,7 +263,7 @@ export const AgentRunStateSchema = z
     goal: z.string().min(1).max(20_000),
     status: AgentRunStatusSchema,
     pauseReason: AgentPauseReasonSchema.optional(),
-    stepCount: z.number().int().nonnegative().max(25),
+    stepCount: z.number().int().nonnegative().max(MAX_AGENT_OBSERVATIONS),
     observationCount: z.number().int().nonnegative(),
     controlledTabId: z.number().int().nonnegative(),
     providerId: z.string().min(1),
