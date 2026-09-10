@@ -57,6 +57,8 @@ export interface AgentFixtureObservation {
   frames?: { frameId: number; origin: string; access: string }[]
   /** Regions the overview left out, so a task can inspect one by name. */
   omittedByGroup?: { group: string; count: number }[]
+  /** Set when the inspect or find this observation answers matched nothing. */
+  unmatched?: { region?: string; query?: string; regions?: string[] }
   dialogs?: { id: string; type: string; message: string }[]
   elements: AgentFixtureElement[]
 }
@@ -118,7 +120,7 @@ export interface AgentScenario {
   name: string
   goal: string
   /** The terminal run status the scenario is finished at. */
-  status: "completed" | "paused"
+  status: "completed" | "paused" | "failed"
   /** Included in the hosted-model matrix, which only runs a couple of tasks. */
   hosted?: boolean
   /** The fixture model reports itself as reading images. */
@@ -533,3 +535,17 @@ export const firstObservation = (
   wire: AgentScenarioOutcome["wire"]
 ): AgentFixtureObservation =>
   readObservation(wire[0]?.request as { messages: { content: string }[] })
+
+/**
+ * Every observation the scripted model was given, oldest first. The first one
+ * cannot answer a request the model had not made yet, so anything about how a
+ * read-only request is answered has to be read from a later one.
+ */
+export const observations = (
+  wire: AgentScenarioOutcome["wire"]
+): AgentFixtureObservation[] =>
+  wire
+    .map((entry) =>
+      readObservation(entry.request as { messages: { content: string }[] })
+    )
+    .filter((observation) => observation !== undefined)

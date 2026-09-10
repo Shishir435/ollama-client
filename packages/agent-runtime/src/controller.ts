@@ -774,8 +774,24 @@ export const createAgentController = (
         return undefined
       }
       if (action.type === "redecide") return verifying
-      previousProgress.delete(state.id)
-      noProgressCounts.set(state.id, 0)
+      /**
+       * A step that changed the page is progress, and the guard forgets
+       * whatever came before it. A confirmed step that changed nothing is
+       * not: a pure read verifies `confirmed` by definition — the page it
+       * named is still the page in hand — so clearing here on any confirmed
+       * outcome wiped the guard's memory after every single read, and a
+       * model repeating one read-only request could never accumulate a
+       * repeat against a budget of three. One run spent all twenty-five of
+       * its observations that way.
+       *
+       * Navigation is deliberately not a page change here, as it is not for
+       * the completion judge; it needs no exemption, because going somewhere
+       * changes the URL the guard compares first.
+       */
+      if (agentEffectChangesPage(effect)) {
+        previousProgress.delete(state.id)
+        noProgressCounts.set(state.id, 0)
+      }
       // The write closing a confirmed step also opens the next observation, so
       // a tab the effect switched to is durably owned before this controller
       // can lose the run. Only the verifying run this step owns may be claimed:

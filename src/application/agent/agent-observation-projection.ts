@@ -93,6 +93,23 @@ export interface AgentProjectedObservation {
    * not there. Present only in a budgeted overview that dropped something.
    */
   omittedByGroup?: { group: string; count: number }[]
+  /**
+   * Set when the `inspect` or `find` this observation answers matched no
+   * control at all.
+   *
+   * Without it the answer to a region that does not exist is byte-for-byte
+   * the answer to one the model already saw: the same overview, with no word
+   * that the request missed. A model that misnames a region therefore asks
+   * again with the same name, and again, until the run's observation budget
+   * is gone — which is exactly how a run spent twenty-one observations on
+   * `inspect form`. `regions` names the groups the page actually has, so the
+   * next ask can name a real one.
+   */
+  unmatched?: {
+    region?: string
+    query?: string
+    regions?: string[]
+  }
 }
 
 /** A region the model asked to see in full; its controls survive the budget. */
@@ -224,10 +241,67 @@ const overviewPriority = (
   focus: AgentOverviewFocus
 ): number => {
   if (element.focused) return 0
-  if (focus?.region !== undefined && element.group === focus.region) return 0
+  /**
+   * Against the same fallback the omission report uses. `omittedByGroup`
+   * publishes `page` for controls in no landmark, so `inspect page` is a name
+   * the model is invited to use; comparing the raw undefined group made it
+   * the one published region that could never match.
+   */
+  if (
+    focus?.region !== undefined &&
+    (element.group ?? AGENT_PAGE_GROUP) === focus.region
+  ) {
+    return 0
+  }
   if (focus?.query !== undefined && matchesQuery(element, focus.query)) return 0
   const reachable = element.visible && !element.occluded && element.enabled
   return reachable ? 1 : 2
+}
+
+/**
+ * Regions a page has, most populated first. Reported only when a request
+ * missed, and capped, because it is a hint for the next ask rather than an
+ * inventory — a page with three hundred landmarks would otherwise answer a
+ * typo with three hundred names.
+ */
+const AGENT_MAX_REPORTED_REGIONS = 20
+
+const pageRegions = (elements: readonly AgentElement[]): string[] => {
+  const counts = new Map<string, number>()
+  for (const element of elements) {
+    const group = element.group ?? AGENT_PAGE_GROUP
+    counts.set(group, (counts.get(group) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort((first, second) => second[1] - first[1])
+    .slice(0, AGENT_MAX_REPORTED_REGIONS)
+    .map(([group]) => group)
+}
+
+/**
+ * Whether the request this observation answers found anything. A region is
+ * matched by the exact group name the observation itself publishes, so a
+ * near miss — `form` for `form "search"` — is a miss, and saying so is the
+ * whole point.
+ */
+const unmatchedFocus = (
+  elements: readonly AgentElement[],
+  focus: AgentOverviewFocus
+): AgentProjectedObservation["unmatched"] => {
+  const { region, query } = focus ?? {}
+  if (region !== undefined) {
+    return elements.some(
+      (element) => (element.group ?? AGENT_PAGE_GROUP) === region
+    )
+      ? undefined
+      : { region, regions: pageRegions(elements) }
+  }
+  if (query !== undefined) {
+    return elements.some((element) => matchesQuery(element, query))
+      ? undefined
+      : { query, regions: pageRegions(elements) }
+  }
+  return undefined
 }
 
 const selectOverviewElements = (
@@ -362,6 +436,7 @@ export const projectAgentObservation = (
     documentText !== undefined &&
     (observation.documentTextTruncated === true ||
       documentText.length < (observation.documentText?.length ?? 0))
+  const unmatched = unmatchedFocus(observation.elements, options.focus)
   const { shown, omittedByGroup } = selectOverviewElements(
     observation.elements,
     budget - Math.min(text.length, budget),
@@ -377,6 +452,7 @@ export const projectAgentObservation = (
     ...(documentText !== undefined ? { documentText } : {}),
     ...(documentTextTruncated ? { documentTextTruncated: true } : {}),
     elements: shown,
-    ...(omittedByGroup.length ? { omittedByGroup } : {})
+    ...(omittedByGroup.length ? { omittedByGroup } : {}),
+    ...(unmatched ? { unmatched } : {})
   }
 }

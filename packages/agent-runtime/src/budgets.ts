@@ -109,7 +109,6 @@ export interface AgentNoProgressInput {
   previous?: AgentProgressPoint
   current: AgentProgressPoint
   previousCount?: number
-  verificationOutcome?: "confirmed" | "negative" | "ambiguous"
 }
 
 export interface AgentNoProgressResult {
@@ -149,23 +148,53 @@ export const hashAgentObservation = (observation: AgentObservation): string =>
     })
   )
 
+/**
+ * Requests whose whole purpose is to reveal something the run does not have
+ * yet. Repeating one is a loop whatever the page did: the run changed
+ * nothing, so the page's own churn is not progress it made, and the second
+ * identical ask is answered with the first answer.
+ *
+ * `read` and `extract_text` are deliberately not here. For those the
+ * observation *is* the answer, so a page that changed did answer differently
+ * — a run watching a reply stream in reads the same page repeatedly and is
+ * making progress every time.
+ *
+ * There was a `verificationOutcome` input here that reset the count on a
+ * confirmed step. Nothing ever passed it, and wiring it as written would
+ * have made this exact loop unkillable: a pure read verifies `confirmed` by
+ * definition, so every repeat would have cleared its own evidence.
+ */
+const AGENT_INSPECTION_REQUESTS = new Set(["inspect", "find"])
+
+const isInspectionRequest = (decision: AgentDecision): boolean =>
+  decision.type === "command" &&
+  AGENT_INSPECTION_REQUESTS.has(decision.command.type)
+
 export const classifyNoProgress = (
   input: AgentNoProgressInput
 ): AgentNoProgressResult => {
-  if (input.verificationOutcome === "confirmed") {
-    return { noProgress: false, count: 0 }
-  }
   if (input.current.decision.type === "command") {
     if (input.current.decision.command.type === "wait") {
       return { noProgress: false, count: input.previousCount ?? 0 }
     }
   }
-  const same =
+  const repeated =
     input.previous !== undefined &&
     input.previous.url === input.current.url &&
-    input.previous.snapshotHash === input.current.snapshotHash &&
     decisionFingerprint(input.previous.decision) ===
       decisionFingerprint(input.current.decision)
+  /**
+   * A changed page is normally proof the run got somewhere, which is why the
+   * observation hash is part of the test. It cannot be that for a repeated
+   * inspection request, because the page moving on its own is not something
+   * the run did — and on a live application it moves between every pair of
+   * observations, which is how a run repeated one request twenty-one times
+   * with a guard set to three standing right there.
+   */
+  const same =
+    repeated &&
+    (input.previous?.snapshotHash === input.current.snapshotHash ||
+      isInspectionRequest(input.current.decision))
   return {
     noProgress: same,
     count: same ? (input.previousCount ?? 0) + 1 : 0

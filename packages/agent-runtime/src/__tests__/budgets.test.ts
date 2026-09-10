@@ -105,20 +105,63 @@ describe("agent budgets", () => {
     ).toEqual({ noProgress: false, count: 2 })
   })
 
-  it("resets no-progress after confirmed verification", () => {
-    const point = {
-      url: "https://example.com",
-      snapshotHash: "same",
-      decision: complete
+  it("counts a repeated inspection as no-progress even when the page moved", () => {
+    /**
+     * A live application changes between every pair of observations, which is
+     * how a run repeated `inspect form` twenty-one times with the guard set
+     * to three. The run changed nothing, so the page moving is not its
+     * progress.
+     */
+    const inspect: AgentDecision = {
+      type: "command",
+      command: {
+        type: "inspect",
+        target: "form",
+        snapshotId: "snapshot-1",
+        generation: 1
+      }
     }
-    expect(
-      classifyNoProgress({
-        previous: point,
-        current: point,
-        previousCount: 2,
-        verificationOutcome: "confirmed"
-      })
-    ).toEqual({ noProgress: false, count: 0 })
+    const result = classifyNoProgress({
+      previous: {
+        url: "https://example.com",
+        snapshotHash: "before",
+        decision: inspect
+      },
+      current: {
+        url: "https://example.com",
+        snapshotHash: "after",
+        decision: { ...inspect, command: { ...inspect.command, generation: 2 } }
+      },
+      previousCount: 2
+    })
+
+    expect(result).toEqual({ noProgress: true, count: 3 })
+  })
+
+  it("leaves a repeated plain read alone while the page changes", () => {
+    /**
+     * For a read the observation is the answer, so a page that changed did
+     * answer differently — a run watching a reply stream in is working.
+     */
+    const read: AgentDecision = {
+      type: "command",
+      command: { type: "read", snapshotId: "snapshot-1", generation: 1 }
+    }
+    const result = classifyNoProgress({
+      previous: {
+        url: "https://example.com",
+        snapshotHash: "before",
+        decision: read
+      },
+      current: {
+        url: "https://example.com",
+        snapshotHash: "after",
+        decision: read
+      },
+      previousCount: 2
+    })
+
+    expect(result).toEqual({ noProgress: false, count: 0 })
   })
 
   it("counts identical URL snapshot hash and decision as no-progress", () => {

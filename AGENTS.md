@@ -415,6 +415,33 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   is still bounded by a hard ceiling (`pageContentMaxChars`, set from the
   context ceiling), so a two-thousand-control region or a maximal text extract
   cannot push the prompt past the window and truncate the system prompt.
+- **A read-only request that matched nothing says so.** A region is matched by
+  the exact group name the observation publishes — `page` included, which is
+  the name omissions outside any landmark are reported under and was for a
+  while the one published region that could never match. A miss is reported as
+  `unmatched`, with the regions the page does have, because the answer to a
+  misnamed region is otherwise byte-identical to the answer to a real one and
+  a model has no way to learn: one run spent twenty-one of its twenty-five
+  observations asking for the same absent region.
+- **A confirmed step is not the same thing as progress, and the no-progress
+  guard must not be told otherwise.** It failed to fire on a run that repeated
+  one request twenty-one times, and the reason was that idea written down
+  three separate times:
+  - `classifyNoProgress` required an identical observation hash. A changed
+    page is normally proof the run got somewhere, but that does not hold for
+    `inspect` and `find` — the run changed nothing, so the page moving is not
+    its progress, and a live application moves between every pair of
+    observations. Those two are compared on url and decision alone. `read` and
+    `extract_text` keep the hash test, because for those the observation *is*
+    the answer and a changed page is a different answer.
+  - The controller cleared the guard's memory after every confirmed
+    verification. A pure read verifies `confirmed` by definition, so a repeat
+    could never accumulate. It is cleared on `agentEffectChangesPage(effect)`
+    now — navigation needs no exemption, since going somewhere changes the url
+    the guard compares first.
+  - `classifyNoProgress` took a `verificationOutcome` input that reset the
+    count on `confirmed`. Nothing ever passed it, and wiring it as written
+    would have made the loop unkillable. It is gone; do not reintroduce it.
 - **A finding outlives the history window.** `finding` on a decision is kept in
   a dedicated store (`buildAgentFindings`), bounded by count and bytes, carrying
   the redacted page each was recorded on. It is the run's own note and stays
