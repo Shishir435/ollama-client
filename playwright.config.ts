@@ -53,7 +53,27 @@ export default defineConfig({
       ),
       metadata: {
         extensionBuildPath: "build/chrome-mv3-prod",
-        agentObservationGrant: true
+        agentObservationGrant: true,
+        agentBenchmarkBackend: "cdp"
+      }
+    },
+    {
+      /**
+       * The same tasks with no debugger, which is the browser Firefox gives
+       * us: `backend: "dom"`, every action through the content script. Two
+       * passes over one suite are what makes "the native backend is better"
+       * a measurement instead of a claim.
+       */
+      ...chromiumProject(
+        "chromium-agent-benchmark-dom",
+        "**/benchmark-agent.spec.ts",
+        "build/chrome-mv3-prod"
+      ),
+      metadata: {
+        extensionBuildPath: "build/chrome-mv3-prod",
+        agentObservationGrant: true,
+        agentDomBackend: true,
+        agentBenchmarkBackend: "dom"
       }
     },
     chromiumProject(

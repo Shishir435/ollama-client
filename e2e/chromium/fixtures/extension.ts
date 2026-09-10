@@ -161,6 +161,19 @@ const createExtensionSession = async (
     manifest.optional_permissions = manifest.optional_permissions.filter(
       (permission: string) => permission !== "webNavigation"
     )
+    /**
+     * A project may ask for the browser Firefox gives us: no debugger, so the
+     * session manager reports `backend: "dom"` and every action runs through
+     * the content script. Removing the permission is the only honest way to
+     * get that on Chromium — a flag the extension read would be a second code
+     * path, and the point of measuring the two is that they are the same code
+     * seeing a different browser.
+     */
+    if (testInfo.project.metadata.agentDomBackend === true) {
+      manifest.permissions = manifest.permissions.filter(
+        (permission: string) => permission !== "debugger"
+      )
+    }
     writeFileSync(manifestPath, JSON.stringify(manifest))
     buildPath = copiedBuild
   }
