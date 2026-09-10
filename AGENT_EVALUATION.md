@@ -19,6 +19,9 @@ Thirty tasks across ten families, frozen: read-and-extract, single-action,
 form-preparation, editors, delayed-save, frames, shadow-roots,
 canvas-and-visual, multi-tab, dialogs-and-recovery.
 
+Every scorer reads the page. Nothing in the suite scores a task on the run's
+own completion summary alone.
+
 Each task declares the page it runs against, the decisions a scripted model
 makes, the status it expects to finish in, and — the part a gate does not
 have — a predicate that scores it independently of what the run claimed. That
@@ -37,6 +40,13 @@ one by construction, so the scorer agreed with the run every time and could
 not have detected the thing it exists to detect. Re-measuring with grounded
 predicates did not move any number below — but before the fix, those numbers
 were not evidence.
+
+One task had no honest scorer available at all, because its page had no
+controls and so nothing it did could be observed. It was rewritten rather
+than scored loosely: the run now asks which account, and then has to click
+the one it was told, which the page records. Asking is only half the
+behaviour worth measuring; acting on the answer is the half that leaves a
+mark.
 
 The suite runs twice. Once with the debugger attached, which is the native
 input backend, and once against a build with the `debugger` permission
@@ -58,16 +68,16 @@ model, where it does.
 
 | family | n | completed (cdp / dom) | goal met (cdp / dom) | false | missed | median ms (cdp / dom) |
 | --- | --- | --- | --- | --- | --- | --- |
-| canvas-and-visual | 3 | 3 / 1 | 3 / 1 | 0 / 0 | 0 / 0 | 2879 / 32531 |
-| delayed-save | 3 | 2 / 2 | 3 / 3 | 0 / 0 | 1 / 1 | 6441 / 6472 |
-| dialogs-and-recovery | 3 | 2 / 2 | 2 / 2 | 0 / 0 | 0 / 0 | 2918 / 2904 |
-| editors | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2913 / 2943 |
-| form-preparation | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2923 / 2950 |
-| frames | 3 | 2 / 2 | 3 / 3 | 0 / 0 | 0 / 0 | 2848 / 2970 |
-| multi-tab | 3 | 2 / 2 | 2 / 2 | 0 / 0 | 0 / 0 | 4402 / 4330 |
-| read-and-extract | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2654 / 2630 |
-| shadow-roots | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2895 / 2941 |
-| single-action | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2922 / 2945 |
+| canvas-and-visual | 3 | 3 / 1 | 3 / 1 | 0 / 0 | 0 / 0 | 2887 / 32454 |
+| delayed-save | 3 | 2 / 2 | 3 / 3 | 0 / 0 | 1 / 1 | 6448 / 6394 |
+| dialogs-and-recovery | 3 | 2 / 2 | 2 / 2 | 0 / 0 | 0 / 0 | 2959 / 2911 |
+| editors | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2920 / 2934 |
+| form-preparation | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2908 / 2938 |
+| frames | 3 | 2 / 2 | 3 / 3 | 0 / 0 | 0 / 0 | 2887 / 2942 |
+| multi-tab | 3 | 2 / 2 | 2 / 2 | 0 / 0 | 0 / 0 | 4444 / 4412 |
+| read-and-extract | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2903 / 2691 |
+| shadow-roots | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2936 / 2918 |
+| single-action | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2911 / 2906 |
 
 Totals, including the task that writes the report:
 

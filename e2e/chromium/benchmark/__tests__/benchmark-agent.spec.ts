@@ -626,22 +626,44 @@ task({
 
 task({
   family: "dialogs-and-recovery",
-  name: "ask-when-ambiguous",
-  goal: "Pick the right account.",
+  name: "ask-then-act-on-the-answer",
+  goal: "Select the right account.",
   status: "completed",
   answer: "Use the second account.",
-  html: () => page("<h1>Accounts</h1><p>Two accounts exist.</p>"),
-  decide: (_observation, context) =>
-    context.step === 1
-      ? { type: "ask_user", question: "Which of the two accounts?" }
-      : { type: "complete", summary: "Used the second account." },
   /**
-   * The page never changes, so the durable evidence is the answer the *user*
-   * gave — not model-authored — and that the run's own summary reflects it.
+   * The page has to be able to show which account was chosen.
+   *
+   * This task used to run against a page with no controls at all, so nothing
+   * it did could be observed and the only things left to score were the
+   * answer the harness itself supplied and the model's own summary — which
+   * is not a scorer. Asking the user is only half the behaviour worth
+   * measuring; acting on what they said is the other half, and it is the
+   * half that leaves a mark.
    */
-  succeeded: (outcome) =>
-    outcome.snapshot?.run?.answers?.length === 1 &&
-    Boolean(outcome.snapshot?.run?.result?.includes("second account"))
+  html: () =>
+    page(
+      `<h1>Accounts</h1>
+       <button type="button" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Chose: first</p>')">First account</button>
+       <button type="button" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p><p>Chose: second</p>')">Second account</button>`
+    ),
+  decide: (observation, context) => {
+    if (observation.text.includes("Chose: second")) {
+      return {
+        type: "complete",
+        summary: "Chose: second",
+        evidence: "Chose: second"
+      }
+    }
+    return context.step === 1
+      ? { type: "ask_user", question: "Which of the two accounts?" }
+      : clickNamed(observation, "Second account")
+  },
+  succeeded: async (outcome) => {
+    const rendered = await outcome.page.locator("main").innerText()
+    return (
+      rendered.includes("Chose: second") && !rendered.includes("Chose: first")
+    )
+  }
 })
 
 task({
