@@ -35,6 +35,13 @@ const effectRisk = (effect: AgentSemanticEffect): AgentRisk => {
     case "read":
     case "scroll":
     case "hover":
+    /**
+     * Answering a dialog is low in itself: dismissing one is the safe
+     * direction and closing an alert is the only way past it. What accepting
+     * a confirm, a prompt or a beforeunload commits to is carried as
+     * `destructive` by whatever resolved it, and priced there.
+     */
+    case "dialog":
       return "low"
     case "navigation":
       return "medium"
@@ -129,17 +136,62 @@ const grantableFor = (
   }
 }
 
+/**
+ * Whether this step's own change is already persisted by making it.
+ *
+ * A form is prepared and then submitted, and the submission is the prompt
+ * that matters. An application that saves on input has no such step: the
+ * field belongs to no form, or it is an editing host, and the typing is the
+ * whole change. The risk is the same either way — a form mutation — but the
+ * sentence the user grants against must not imply a later confirmation that
+ * is never going to be asked for.
+ */
+const persistsOnChange = (input: AgentPolicyInput): boolean =>
+  input.effect.target.persistsOnChange === true &&
+  input.effect.semanticEffects.includes("form_mutation")
+
+/**
+ * How a dialog answer reads to the user. The command's name says nothing —
+ * what is being decided is whether the page gets its OK — so the dialog's own
+ * kind and the direction of the answer are what the prompt states. The
+ * dialog's message travels separately as page evidence.
+ */
+const dialogAction = (
+  input: AgentPolicyInput
+): { action: string; consequence: string } | undefined => {
+  const command = input.effect.command
+  if (command.type !== "handle_dialog") return undefined
+  const kind = input.effect.dialog?.type ?? "dialog"
+  if (!command.accept) {
+    return {
+      action: `Dismiss the page's ${kind} dialog`,
+      consequence:
+        "The page is told the dialog was dismissed and nothing is confirmed."
+    }
+  }
+  return {
+    action: `Accept the page's ${kind} dialog`,
+    consequence:
+      kind === "beforeunload"
+        ? "The page is allowed to leave; anything it has not saved is discarded."
+        : "The page proceeds as though the user pressed its confirm button, whatever that action is."
+  }
+}
+
 const makeApprovalRequest = (
   input: AgentPolicyInput,
   risk: Exclude<AgentRisk, "low">
 ): AgentApprovalRequest => {
   const destination = input.effect.destination?.url
   const adopting = adoptsTab(input)
-  const action = adopting
-    ? `Adopt tab ${adopting} at ${destination}`
-    : destination
-      ? `Allow navigation to ${destination}`
-      : `Allow ${input.effect.command.type}`
+  const dialog = dialogAction(input)
+  const action =
+    dialog?.action ??
+    (adopting
+      ? `Adopt tab ${adopting} at ${destination}`
+      : destination
+        ? `Allow navigation to ${destination}`
+        : `Allow ${input.effect.command.type}`)
   return {
     ...grantableFor(input, risk),
     id: `${input.stepId}:approval`,
@@ -147,9 +199,13 @@ const makeApprovalRequest = (
     stepId: input.stepId,
     risk,
     action,
-    consequence: destination
-      ? `The browser will use the complete destination URL: ${destination}`
-      : "The browser will perform the resolved page effect shown above.",
+    consequence:
+      dialog?.consequence ??
+      (destination
+        ? `The browser will use the complete destination URL: ${destination}`
+        : persistsOnChange(input)
+          ? "The browser will enter this into the control shown above. The page has no submit step, so the change is saved as it is entered."
+          : "The browser will perform the resolved page effect shown above."),
     pageEvidence: input.effect.target.accessibleName,
     createdAt: input.now
   }
@@ -203,17 +259,24 @@ const adoptsTab = (input: AgentPolicyInput): number | undefined => {
 
 /**
  * The risk an effect carries before its destination is considered: what it
- * does to the page, whether it can submit, whether it adopts a tab the run
- * does not drive, and whether it acts inside a frame on a site outside the
- * allowlist — a frame the run reads is on an allowed origin, so anything else
- * is a new site.
+ * does to the page, whether it adopts a tab the run does not drive, and
+ * whether it acts inside a frame on a site outside the allowlist — a frame
+ * the run reads is on an allowed origin, so anything else is a new site.
+ *
+ * Submission is priced as the `submission` class the resolver attaches to the
+ * commands that actually submit — a click on a submitter, Enter in a field
+ * that submits on it. It used to be priced a second time from the target's
+ * `maySubmit`, which says only that the control sits on a submit path: every
+ * character typed into an ordinary single-field form was therefore critical,
+ * and critical is never grantable, so filling in a search box cost one
+ * unskippable prompt per keystroke-batch and trained the user to approve
+ * without reading. Typing is a form mutation and priced as one.
  */
 const baselineRisk = (input: AgentPolicyInput): AgentRisk => {
   let risk: AgentRisk = "low"
   for (const effect of input.effect.semanticEffects) {
     risk = raiseRisk(risk, effectRisk(effect))
   }
-  if (input.effect.target.maySubmit) risk = raiseRisk(risk, "critical")
   if (adoptsTab(input) !== undefined) risk = raiseRisk(risk, "high")
   if (
     input.effect.frameOrigin !== undefined &&

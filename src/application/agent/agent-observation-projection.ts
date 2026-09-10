@@ -1,4 +1,8 @@
-import type { AgentElement, AgentObservation } from "@ollama-client/contracts"
+import type {
+  AgentDialogState,
+  AgentElement,
+  AgentObservation
+} from "@ollama-client/contracts"
 
 /**
  * What the model is actually given for a page.
@@ -63,7 +67,13 @@ export interface AgentProjectedObservation {
   /** Child frames the frame cap left unread and unlisted. */
   omittedFrames?: number
   scroll: { y: number; ofDocument: number }
-  /** Open dialogs and menus, so a decision can act inside the top one. */
+  /**
+   * Native dialogs holding the page. Present only when there are any, and
+   * when there are, the page carries no controls and nothing but answering
+   * one is possible — so this is what the next decision is about.
+   */
+  dialogs?: AgentDialogState[]
+  /** Open in-page dialogs and menus, so a decision can act inside the top one. */
   modals?: { id: string; label?: string; kind: string }[]
   /** Text inside the viewport. */
   text: string
@@ -296,6 +306,7 @@ export const projectAgentObservation = (
       y: Math.round(observation.scroll.y),
       ofDocument: Math.max(1, Math.round(observation.scroll.documentHeight))
     },
+    ...(observation.dialogs.length ? { dialogs: observation.dialogs } : {}),
     ...(observation.modals?.length ? { modals: observation.modals } : {})
   }
   /**

@@ -211,18 +211,40 @@ export const AgentScrollStateSchema = z.object({
 })
 export type AgentScrollState = z.infer<typeof AgentScrollStateSchema>
 
-export const AgentDialogStateSchema = z.object({
-  type: z.enum(["alert", "confirm", "prompt", "beforeunload"]),
-  message: z.string().max(500)
-})
+/** The most of a dialog's own text the run carries; it is page content. */
+export const MAX_AGENT_DIALOG_MESSAGE_CHARS = 500
+
+/**
+ * A native dialog the page opened and the browser is holding open.
+ *
+ * `id` is the prompt's identity, minted by whatever observed the dialog and
+ * stable for as long as that dialog is the one open. A command to answer a
+ * dialog names it, so a decision taken against one prompt cannot answer the
+ * prompt that replaced it — the page can close one and open another between
+ * an observation and the answer, and "accept whatever is open" would then
+ * accept something nobody read.
+ *
+ * `message` and `defaultPrompt` are the page's own strings: untrusted data,
+ * bounded, and never instructions.
+ */
+export const AgentDialogStateSchema = z
+  .object({
+    id: z.string().min(1).max(80),
+    type: z.enum(["alert", "confirm", "prompt", "beforeunload"]),
+    message: z.string().max(MAX_AGENT_DIALOG_MESSAGE_CHARS),
+    /** What a `prompt` arrived pre-filled with, when it did. */
+    defaultPrompt: z.string().max(MAX_AGENT_DIALOG_MESSAGE_CHARS).optional()
+  })
+  .strict()
 export type AgentDialogState = z.infer<typeof AgentDialogStateSchema>
 
 /**
  * An open in-page dialog or menu.
  *
  * Deliberately not `dialogs`, which is typed for `alert`, `confirm`, `prompt`
- * and `beforeunload` — native dialogs block the page and are genuinely
- * unobservable from a content script. A `<dialog open>` or `[role=dialog]` is
+ * and `beforeunload` — a native dialog blocks the page and is unobservable
+ * from a content script, so only an attached debugger reports one. A
+ * `<dialog open>` or `[role=dialog]` is
  * ordinary DOM, and the run needs to know which one owns the controls it can
  * see: acting on the opener behind a modal is the loop the fixtures showed.
  */
@@ -267,6 +289,12 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
    * fact is not read as a fact the page does not state. */
   documentTextTruncated: z.boolean().optional(),
   scroll: AgentScrollStateSchema,
+  /**
+   * Native dialogs holding the page open. A non-empty list means the document
+   * itself is blocked: nothing in it can be read or acted on until the dialog
+   * is answered, so such an observation carries no elements and its root frame
+   * reports itself unread.
+   */
   dialogs: z.array(AgentDialogStateSchema).max(10),
   modals: z.array(AgentModalStateSchema).max(10).optional(),
   capturedAt: z.number().int().nonnegative()

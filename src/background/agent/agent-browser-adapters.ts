@@ -4,7 +4,11 @@ import type {
   AgentScreenshotPort,
   AuthorizedAgentEffect
 } from "@ollama-client/agent-runtime"
-import type { AgentSnapshotIdentity } from "@ollama-client/contracts"
+import type {
+  AgentDialogState,
+  AgentObservation,
+  AgentSnapshotIdentity
+} from "@ollama-client/contracts"
 
 import type { AgentCommandExecutorAdapter } from "@/lib/browser-agent/command-executor"
 import type { AgentDomMutationInstruction } from "@/lib/browser-agent/control-port"
@@ -177,10 +181,19 @@ export const createAgentBrowserAdapters = (input: {
     if (!effect.target.ref || !effect.target.tag) {
       throw new Error("Agent mutation target is not an observed element")
     }
-    // The frame identity travels as the instruction's own field, never inside
-    // the wire target: that target is validated by a strict schema with no
-    // `frame` key, so leaking it there is a parse failure before a byte is sent.
-    const { frame: targetFrame, point, ...target } = effect.target
+    /**
+     * The frame identity travels as the instruction's own field, never inside
+     * the wire target: that target is validated by a strict schema with no
+     * `frame` key, so leaking it there is a parse failure before a byte is
+     * sent. `persistsOnChange` is dropped for the same reason — it is policy's
+     * evidence about the target, not a fact the page is told.
+     */
+    const {
+      frame: targetFrame,
+      point,
+      persistsOnChange: _persistsOnChange,
+      ...target
+    } = effect.target
     const frame = targetFrame ?? effect.snapshotIdentity
     return {
       command: effect.command,
@@ -221,6 +234,7 @@ export const createAgentBrowserAdapters = (input: {
     | "settleNativeInput"
     | "viewportCentre"
     | "fileChooserOpened"
+    | "handleDialog"
   > = {
     async nativeControl(effect) {
       const channel = nativeChannel(effect)
@@ -275,6 +289,25 @@ export const createAgentBrowserAdapters = (input: {
     },
     async fileChooserOpened(effect) {
       return nativeChannel(effect)?.consumeFileChooser() ?? false
+    },
+    async handleDialog(effect) {
+      const { command } = effect
+      if (command.type !== "handle_dialog") {
+        throw new Error("Agent dialog answer names another command")
+      }
+      return (
+        (await input.browserSessions?.handleDialog(
+          input.runId,
+          effect.snapshotIdentity.tabId,
+          {
+            dialogId: command.dialogId,
+            accept: command.accept,
+            ...(command.promptText === undefined
+              ? {}
+              : { promptText: command.promptText })
+          }
+        )) ?? "not_open"
+      )
     }
   }
 
@@ -283,16 +316,33 @@ export const createAgentBrowserAdapters = (input: {
     direction: "back" | "forward"
   ) => input.history.resolveDestination(tabId, direction)
 
-  const observe = (
+  /**
+   * Every observation this run takes, whether the controller's or the
+   * verifier's, goes through here — so the dialog check is not something a
+   * second caller can forget. A blocked document cannot answer a control
+   * port at all, and a verifier that asked one anyway would wait for a page
+   * that is not going to reply until the dialog is answered.
+   */
+  const observe = async (
     tabId: number,
     minimumGeneration: number,
     allowedOrigins: readonly string[],
     signal: AgentCancellationSignal
-  ) =>
-    input.sessions.observe(
+  ): Promise<AgentObservation> => {
+    const dialog = input.browserSessions?.openDialog(input.runId, tabId)
+    if (dialog) {
+      return dialogBlockedObservation({ tabId, minimumGeneration }, dialog)
+    }
+    const observation = await input.sessions.observe(
       { runId: input.runId, tabId, minimumGeneration, allowedOrigins },
       abortSignal(signal)
     )
+    lastPage.set(tabId, {
+      documentId: observation.documentId,
+      generation: observation.generation
+    })
+    return observation
+  }
 
   /**
    * The picture comes through the debugger when the run holds one and through
@@ -303,6 +353,14 @@ export const createAgentBrowserAdapters = (input: {
     number,
     { x: number; y: number; width: number; height: number }
   >()
+  /**
+   * What the last real observation of a tab established about it. A dialog
+   * blocks the document, so an observation taken while one is open cannot ask
+   * the page anything — including which document it is and which generation
+   * its references are on. Both are remembered here from the observation
+   * before it.
+   */
+  const lastPage = new Map<number, { documentId: string; generation: number }>()
   const screenshot: AgentScreenshotPort | undefined = imageEditor
     ? createAgentScreenshotPort({
         editor: imageEditor,
@@ -344,6 +402,79 @@ export const createAgentBrowserAdapters = (input: {
         }
       })
     : undefined
+
+  /**
+   * The observation of a tab a native dialog is holding.
+   *
+   * Nothing in the page can be read: its script is blocked, so the content
+   * script cannot answer and no element, text or scroll position can be
+   * reported. What travels instead is the truth — the tab, the dialog, and a
+   * root frame that says it was not read — so the only thing the run can do
+   * with it is answer the dialog, which is also the only thing that is true.
+   *
+   * Its identity is the browser's where the browser knows it (the tab and its
+   * document) and the run's own where the page would have supplied it: the
+   * generation follows the last real observation so nothing regresses, and
+   * the snapshot names the dialog, so a command grounded in this observation
+   * cannot be replayed against the page once the dialog is gone.
+   */
+  const dialogBlockedObservation = async (
+    request: { tabId: number; minimumGeneration: number },
+    dialog: AgentDialogState
+  ): Promise<AgentObservation> => {
+    const tab = await getTab(request.tabId)
+    const url = tab?.url
+    if (!url) throw new Error("Agent dialog tab has no readable address")
+    const frame = await browser.webNavigation
+      .getFrame({ tabId: request.tabId, frameId: 0 })
+      .catch(() => null)
+    const known = lastPage.get(request.tabId)
+    const documentId =
+      (frame as { documentId?: string } | null)?.documentId ?? known?.documentId
+    if (!documentId) {
+      throw new Error("Agent dialog tab has no identified document")
+    }
+    const generation = Math.max(
+      request.minimumGeneration,
+      (known?.generation ?? 0) + 1
+    )
+    const identity = {
+      snapshotId: `dialog-${dialog.id}-${generation}`,
+      generation,
+      tabId: request.tabId,
+      frameId: 0,
+      documentId
+    }
+    const origin = new URL(url).origin
+    return {
+      ...identity,
+      url,
+      origin,
+      title: (tab as { title?: string }).title?.slice(0, 500) ?? "",
+      frames: [
+        {
+          frameId: 0,
+          documentId,
+          origin,
+          access: "unreadable",
+          snapshotId: identity.snapshotId,
+          generation
+        }
+      ],
+      elements: [],
+      visibleText: "",
+      scroll: {
+        x: 0,
+        y: 0,
+        viewportWidth: 0,
+        viewportHeight: 0,
+        documentWidth: 0,
+        documentHeight: 0
+      },
+      dialogs: [dialog],
+      capturedAt: now()
+    }
+  }
 
   return {
     observation: {

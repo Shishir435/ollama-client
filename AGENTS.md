@@ -490,6 +490,51 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   click open the chooser. A chooser the page opened mid-action is reported on
   the receipt (`fileChooser`) and settles the step as the user's whatever else
   happened.
+- **A native dialog holds the page, and only the debugger can see it or let
+  go of it.** Enabling `Page` is what makes `alert`, `confirm`, `prompt` and
+  `beforeunload` reach `Page.javascriptDialogOpening` instead of the user, so
+  an unanswered one is a tab frozen for as long as the run holds it. The
+  session manager records the held dialog with an id minted from a
+  never-resetting counter (`openDialog`), and `release` dismisses whatever is
+  still held before detaching — dismissal confirms nothing and keeps a
+  `beforeunload` on the page, and detaching for a takeover is what lets the
+  user's own click raise a fresh dialog.
+- **A blocked page is observed as blocked, not asked.** A dialog blocks the
+  document's script, so no control port can answer: every observation the run
+  takes goes through one seam in `agent-browser-adapters.ts`, which reports
+  the tab, the dialog and a root frame marked `unreadable` — no elements, no
+  text — rather than waiting on a page that will not reply. Its generation
+  follows the last real observation and its snapshot names the dialog, so a
+  command grounded in it cannot be replayed against the page afterwards. The
+  verifier shares that seam, so a second dialog cannot leave it waiting
+  either.
+- **A dialog is answered by identity, in its own action family.**
+  `handle_dialog` names the `dialogId` the observation listed; `resolve`,
+  `execute` and `verify` live in the `dialog` family, and the executor checks
+  the tab but never the document. An answer whose prompt is no longer the one
+  held is an `AgentEffectNotAppliedError`, never an answer given to whatever
+  replaced it. Every other command is refused while a dialog is open
+  (`dialog_open`, in `assertLiveObservation` so no family can forget it), and
+  the classifier refuses the same thing at parse time so it costs a retry.
+  Dismissing is allowed; closing an `alert` is allowed, because a run that had
+  to ask could not get past one. Accepting a `confirm`, `prompt` or
+  `beforeunload` carries `destructive` — critical, never grantable — because
+  the page's own words are the only clue to what it commits to.
+- **Submission is priced where it happens, not from the target's shape.**
+  `maySubmit` says a control sits on a submit path, which is true of every
+  field in a single-input form; pricing it as critical made each character
+  typed into a search box an ungrantable prompt and trained the user to
+  approve without reading. The `submission` class the resolver attaches to a
+  click on a submitter and to Enter in a field that submits on it is what
+  costs critical. Typing is a `form_mutation`, which is grantable per origin.
+- **An edit with no submission step says so.** `persistsOnChange` is set on an
+  edit whose target belongs to no form — an editing host, or a bare field in
+  an application that saves on input — so the approval the user grants against
+  states that the change is stored as it is entered rather than implying a
+  submit they will be asked about later. Evidence, not risk: the class stays
+  `form_mutation`. It is read from the observation, which is why
+  `formFingerprint` is reported for every control belonging to a form and not
+  only for the ones that submit.
 - **A screenshot is an observation's companion, never a record.** The
   controller pictures the tab (`AgentScreenshotPort`) only after the DOM
   observation is in hand and only for a model whose `vision` the model port

@@ -2,6 +2,7 @@ import type {
   AgentApprovalRequest,
   AgentCommand,
   AgentDecision,
+  AgentDialogState,
   AgentError,
   AgentGrant,
   AgentImageRect,
@@ -155,6 +156,14 @@ export interface ResolvedAgentTarget {
   drop?: AgentDropTarget
   sensitive: boolean
   maySubmit: boolean
+  /**
+   * Set on an edit whose target has no submission step: an editing host, or a
+   * field belonging to no form. The change such an edit makes is the whole
+   * change — there is no later submit the run would ask about — so an
+   * application that saves on input has already saved by the time the step
+   * ends. Evidence, not a decision: policy words the approval with it.
+   */
+  persistsOnChange?: boolean
 }
 
 /** The destination of a drag, in the terms its later recheck compares. */
@@ -190,6 +199,8 @@ export type AgentSemanticEffect =
   | "form_mutation"
   /** A pointer picks a control up and releases it over another. */
   | "drag"
+  /** Answering a native dialog the page opened; dismissing one included. */
+  | "dialog"
   | "submission"
   | "destructive"
   | "download"
@@ -203,6 +214,13 @@ export interface ResolvedAgentEffect {
   command: AgentCommand
   target: ResolvedAgentTarget
   destination?: AgentDestination
+  /**
+   * The native dialog this effect answers, for the one command that answers
+   * one. Its identity travels so the executor can refuse an answer aimed at a
+   * prompt that has since been replaced, and its kind travels so policy and
+   * the panel can say what is being accepted rather than naming a command.
+   */
+  dialog?: Pick<AgentDialogState, "id" | "type">
   semanticEffects: readonly AgentSemanticEffect[]
   snapshotIdentity: AgentSnapshotIdentity
   /** The page the run is on: what the tab shows and what history records. */

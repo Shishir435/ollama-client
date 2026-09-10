@@ -1,3 +1,8 @@
+import {
+  type AgentDialogState,
+  MAX_AGENT_DIALOG_MESSAGE_CHARS
+} from "@ollama-client/contracts"
+
 import type { AgentNativeInputStep } from "@/lib/browser-agent/native-input"
 import type { AgentRawCapture } from "@/lib/browser-agent/screenshot-capture"
 import type { AgentCaptureLayout } from "@/lib/browser-agent/screenshot-geometry"
@@ -196,7 +201,29 @@ export interface AgentBrowserSessionManager {
    * and used for that action alone.
    */
   nativeInput(runId: string, tabId: number): AgentNativeInputChannel | undefined
+  /**
+   * The native dialog holding the run's tab, or nothing. A dialog blocks the
+   * document, so this is the only thing an observation of that tab can say
+   * about it, and the id it carries is what an answer has to name.
+   */
+  openDialog(runId: string, tabId: number): AgentDialogState | undefined
+  /**
+   * Answers that dialog. `not_open` means the prompt named is not the one
+   * being held any more — the page closed it, or replaced it with another —
+   * so nothing was answered and no other prompt was answered in its place.
+   */
+  handleDialog(
+    runId: string,
+    tabId: number,
+    answer: { dialogId: string; accept: boolean; promptText?: string }
+  ): Promise<"answered" | "not_open">
   dispose(): Promise<void>
+}
+
+/** A held dialog, with the session that must be told how it was answered. */
+interface HeldDialog {
+  state: AgentDialogState
+  sessionId?: string
 }
 
 interface Attachment {
@@ -223,6 +250,13 @@ interface Attachment {
   dragWaiter?: (data: unknown) => void
   /** File choosers the page opened and the debugger held back, not yet charged. */
   fileChoosers: number
+  /**
+   * The native dialog the debugger is holding, if any, and the counter its id
+   * is minted from. The counter never resets while the attachment lives, so
+   * an answer decided against one prompt can never match the next.
+   */
+  dialog?: HeldDialog
+  dialogSequence: number
 }
 
 /**
@@ -231,6 +265,14 @@ interface Attachment {
  * input task when it does start one; the wait is for the event to arrive.
  */
 const DRAG_INTERCEPT_WAIT_MS = 150
+
+/** The dialog kinds `Page.javascriptDialogOpening` can report. */
+const DIALOG_TYPES: readonly AgentDialogState["type"][] = [
+  "alert",
+  "confirm",
+  "prompt",
+  "beforeunload"
+]
 
 /** CDP `Input` mouse button and event names for the planner's steps. */
 const MOUSE_EVENT_TYPES = {
@@ -490,6 +532,7 @@ export const createAgentBrowserSessionManager = (input?: {
   }
 
   const release = async (attachment: Attachment): Promise<void> => {
+    await releaseDialog(attachment)
     forget(attachment)
     await rawDetach(attachment)
   }
@@ -553,6 +596,72 @@ export const createAgentBrowserSessionManager = (input?: {
         attachment.frames.clear()
       }
     }
+  }
+
+  /**
+   * Records the dialog the debugger just held back.
+   *
+   * Enabling `Page` is what makes this event exist: from then on the browser
+   * shows no dialog of its own and the page's script stays blocked until the
+   * protocol answers. That is the reason this has to be tracked at all — an
+   * unanswered dialog is a tab frozen for as long as the run holds it.
+   *
+   * The message and the default are the page's own strings, bounded here
+   * because everything downstream treats them as page content.
+   */
+  const onDialogOpening = (
+    attachment: Attachment,
+    source: Debuggee,
+    params: unknown
+  ): void => {
+    const event = (params ?? {}) as {
+      type?: unknown
+      message?: unknown
+      defaultPrompt?: unknown
+    }
+    const type = DIALOG_TYPES.find((known) => known === event.type)
+    if (!type) return
+    attachment.dialogSequence += 1
+    const message =
+      typeof event.message === "string"
+        ? event.message.slice(0, MAX_AGENT_DIALOG_MESSAGE_CHARS)
+        : ""
+    const defaultPrompt =
+      type === "prompt" && typeof event.defaultPrompt === "string"
+        ? event.defaultPrompt.slice(0, MAX_AGENT_DIALOG_MESSAGE_CHARS)
+        : undefined
+    attachment.dialog = {
+      state: {
+        id: `d${attachment.dialogSequence}`,
+        type,
+        message,
+        ...(defaultPrompt === undefined ? {} : { defaultPrompt })
+      },
+      ...(source.sessionId ? { sessionId: source.sessionId } : {})
+    }
+  }
+
+  /**
+   * Lets go of a held dialog before the attachment does.
+   *
+   * Detaching with one open would leave the tab frozen with nothing left to
+   * answer it, so it is dismissed — the direction that confirms nothing, keeps
+   * a `beforeunload` on the page, and is the only one safe to take without
+   * asking. A takeover instead hands the page back with no dialog pending,
+   * which is what lets the user's own click raise a fresh one.
+   */
+  const releaseDialog = async (attachment: Attachment): Promise<void> => {
+    const held = attachment.dialog
+    if (!held || !cdp) return
+    attachment.dialog = undefined
+    await send(
+      {
+        ...attachment.target,
+        ...(held.sessionId ? { sessionId: held.sessionId } : {})
+      },
+      "Page.handleJavaScriptDialog",
+      { accept: false }
+    ).catch(() => undefined)
   }
 
   const attachmentFor = (source: Debuggee): Attachment | undefined => {
@@ -684,6 +793,14 @@ export const createAgentBrowserSessionManager = (input?: {
     }
     if (method === "Page.fileChooserOpened") {
       attachment.fileChoosers += 1
+      return
+    }
+    if (method === "Page.javascriptDialogOpening") {
+      onDialogOpening(attachment, source, params)
+      return
+    }
+    if (method === "Page.javascriptDialogClosing") {
+      attachment.dialog = undefined
       return
     }
     if (attachment.tracking !== "tracking") return
@@ -1108,7 +1225,8 @@ export const createAgentBrowserSessionManager = (input?: {
         frames: new Map(),
         domEnabled: new Set(),
         intercepting: false,
-        fileChoosers: 0
+        fileChoosers: 0,
+        dialogSequence: 0
       }
       attachment.rawAttach = cdp
         ? callDebugger(
@@ -1173,6 +1291,39 @@ export const createAgentBrowserSessionManager = (input?: {
       const attachment = attachments.get(runId)
       if (!attachment?.attached || attachment.tabId !== tabId) return undefined
       return channelFor(attachment)
+    },
+    openDialog(runId, tabId) {
+      const attachment = attachments.get(runId)
+      if (!attachment?.attached || attachment.tabId !== tabId) return undefined
+      return attachment.dialog?.state
+    },
+    async handleDialog(runId, tabId, answer) {
+      const attachment = attachments.get(runId)
+      if (!attachment?.attached || attachment.tabId !== tabId) return "not_open"
+      const held = attachment.dialog
+      if (!held || held.state.id !== answer.dialogId) return "not_open"
+      /**
+       * Cleared before the command is sent: the dialog is gone either way
+       * once answered, and a failed send leaves a prompt this run can no
+       * longer identify rather than one it might answer twice.
+       */
+      attachment.dialog = undefined
+      await send(
+        {
+          ...attachment.target,
+          ...(held.sessionId ? { sessionId: held.sessionId } : {})
+        },
+        "Page.handleJavaScriptDialog",
+        {
+          accept: answer.accept,
+          ...(answer.accept &&
+          held.state.type === "prompt" &&
+          answer.promptText !== undefined
+            ? { promptText: answer.promptText }
+            : {})
+        }
+      )
+      return "answered"
     },
     async dispose() {
       cdp?.onDetach.removeListener(onDebuggerDetach)

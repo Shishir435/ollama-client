@@ -1,5 +1,8 @@
 import type { AuthorizedAgentEffect } from "@ollama-client/agent-runtime"
-import type { AgentObservation } from "@ollama-client/contracts"
+import {
+  type AgentObservation,
+  AgentObservationSchema
+} from "@ollama-client/contracts"
 import { describe, expect, it, vi } from "vitest"
 
 import {
@@ -10,6 +13,7 @@ import {
   type AgentEffectResolverAdapter,
   resolveDomMutationAgentEffect
 } from "@/lib/browser-agent/resolved-effect"
+import { browser } from "@/lib/browser-api"
 import {
   createAgentBrowserAdapters,
   visibleTabCaptureSource
@@ -177,5 +181,112 @@ describe("visible-tab capture fallback", () => {
         aborted: false
       })
     ).resolves.toBeUndefined()
+  })
+})
+
+describe("observing a tab a native dialog is holding", () => {
+  /**
+   * The document's script is blocked, so the content script cannot answer at
+   * all. Asking it anyway is a request that waits for a page that will not
+   * reply until the dialog is answered — which is the thing the run is trying
+   * to do.
+   */
+  const dialog = {
+    id: "d1",
+    type: "confirm" as const,
+    message: "Delete this project?"
+  }
+
+  const withBlockedTab = () => {
+    const sessions = createAgentControlSessionRegistry({
+      open: (async () => {
+        throw new Error("no session in this test")
+      }) as never
+    })
+    const observe = vi
+      .spyOn(sessions, "observe")
+      .mockRejectedValue(new Error("the page is blocked"))
+    const browserSessions = {
+      capabilities: {
+        backend: "cdp" as const,
+        cdpControl: true,
+        domControl: true as const,
+        frameTracking: true
+      },
+      attach: vi.fn(),
+      detach: vi.fn(),
+      isAttached: () => true,
+      attachedTabId: () => 7,
+      frames: () => ({ status: "tracking" as const, frames: [] }),
+      mapFrame: () => ({
+        mapped: false as const,
+        reason: "not_attached" as const
+      }),
+      subscribe: () => () => undefined,
+      nativeInput: () => undefined,
+      openDialog: vi.fn(() => dialog),
+      handleDialog: vi.fn(async () => "answered" as const),
+      dispose: vi.fn()
+    }
+    const extension = browser as unknown as Record<string, unknown>
+    extension.tabs = {
+      get: vi.fn(async () => ({
+        id: 7,
+        url: "https://example.com/board",
+        title: "Board"
+      }))
+    }
+    extension.webNavigation = {
+      getFrame: vi.fn(async () => ({
+        documentId: "document-9",
+        url: "https://example.com/board"
+      }))
+    }
+    const adapters = createAgentBrowserAdapters({
+      runId: "run-1",
+      sessions,
+      browserSessions,
+      history: createAgentTabHistory(),
+      imageEditor: undefined,
+      now: () => 5
+    })
+    return { adapters, observe }
+  }
+
+  it("reports the dialog and an unread page rather than asking the page", async () => {
+    const { adapters, observe } = withBlockedTab()
+    const blocked = await adapters.observation.observe(
+      {
+        runId: "run-1",
+        tabId: 7,
+        minimumGeneration: 3,
+        allowedOrigins: ["https://example.com"]
+      },
+      { aborted: false }
+    )
+    expect(observe).not.toHaveBeenCalled()
+    expect(AgentObservationSchema.parse(blocked)).toBeTruthy()
+    expect(blocked.dialogs).toEqual([dialog])
+    expect(blocked.elements).toEqual([])
+    expect(blocked.visibleText).toBe("")
+    expect(blocked.frames[0].access).toBe("unreadable")
+    expect(blocked.documentId).toBe("document-9")
+    expect(blocked.generation).toBeGreaterThanOrEqual(3)
+    /** The snapshot names the dialog, so it cannot be reused on the page. */
+    expect(blocked.snapshotId).toContain("d1")
+  })
+
+  it("keeps the verifier off the blocked page too", async () => {
+    // The verifier observes through the same seam, so a second dialog opened
+    // by the page cannot leave it waiting on a document that is frozen.
+    const { adapters, observe } = withBlockedTab()
+    const blocked = await adapters.verifier.observe(
+      7,
+      4,
+      ["https://example.com"],
+      { aborted: false }
+    )
+    expect(observe).not.toHaveBeenCalled()
+    expect(blocked.dialogs).toEqual([dialog])
   })
 })

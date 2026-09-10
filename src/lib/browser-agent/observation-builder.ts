@@ -1062,22 +1062,36 @@ const elementHref = (element: Element): string | undefined => {
   }
 }
 
+/**
+ * The form facts an element carries.
+ *
+ * The fingerprint identifies the form the control belongs to and is reported
+ * for every control that belongs to one, whether or not that control is on a
+ * submit path. It used to be gated on `maySubmit`, which made a `<textarea>`
+ * inside a form indistinguishable from a field belonging to no form at all —
+ * and "belongs to no form" is exactly the evidence that an edit has no later
+ * submission step to be confirmed at.
+ *
+ * The submission facts stay gated: a destination, a method and `maySubmit`
+ * describe what submitting this control would do, and a control that submits
+ * nothing has nothing to say about them. The contract requires as much.
+ */
 const observedFormFields = (
   element: Element,
   maySubmit: boolean
 ): Partial<AgentElement> => {
-  if (!maySubmit) return {}
   const form = associatedForm(element)
+  if (!form && !maySubmit) return {}
   const action = formAction(element)
   const method = formMethod(element)
   return {
-    ...(action ? { formAction: action } : {}),
-    ...(method ? { formMethod: method } : {}),
+    ...(maySubmit && action ? { formAction: action } : {}),
+    ...(maySubmit && method ? { formMethod: method } : {}),
     ...(form ? { formFingerprint: stableFormFingerprint(form) } : {}),
-    ...(form && hasSensitiveFormControl(form)
+    ...(maySubmit && form && hasSensitiveFormControl(form)
       ? { formHasSensitiveControl: true }
       : {}),
-    maySubmit: true
+    ...(maySubmit ? { maySubmit: true } : {})
   }
 }
 

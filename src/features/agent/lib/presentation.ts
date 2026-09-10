@@ -69,6 +69,10 @@ const commandLabel = (command?: AgentCommand): string => {
       return `Find "${agentPlainText(command.query, AGENT_PAGE_TEXT_LIMIT)}"`
     case "extract_text":
       return "Read page text"
+    case "handle_dialog":
+      return command.accept
+        ? "Accept the page's dialog"
+        : "Dismiss the page's dialog"
   }
 }
 

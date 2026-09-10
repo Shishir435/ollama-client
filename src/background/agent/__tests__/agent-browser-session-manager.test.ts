@@ -539,3 +539,182 @@ describe("Agent browser session frame tracking", () => {
     await manager.dispose()
   })
 })
+
+describe("native dialogs the debugger holds", () => {
+  const attached = async (host: ReturnType<typeof harness>) => {
+    const manager = createAgentBrowserSessionManager({
+      debugger: host.debuggerApi,
+      tabs: host.tabs,
+      classifyAccess: async () => "ok",
+      readLastError: host.readLastError
+    })
+    await manager.attach("run-1", 7)
+    return manager
+  }
+
+  it("records the dialog with an identity an answer can name", async () => {
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "confirm",
+      message: "Delete this project?",
+      url: "https://example.com/"
+    })
+    expect(manager.openDialog("run-1", 7)).toEqual({
+      id: "d1",
+      type: "confirm",
+      message: "Delete this project?"
+    })
+    await manager.dispose()
+  })
+
+  it("keeps a prompt's default and bounds the page's own strings", async () => {
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "prompt",
+      message: "x".repeat(900),
+      defaultPrompt: "y".repeat(900)
+    })
+    const dialog = manager.openDialog("run-1", 7)
+    expect(dialog?.message.length).toBe(500)
+    expect(dialog?.defaultPrompt?.length).toBe(500)
+    await manager.dispose()
+  })
+
+  it("reports nothing for a tab this run does not hold", async () => {
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "alert",
+      message: "Saved"
+    })
+    expect(manager.openDialog("run-1", 9)).toBeUndefined()
+    expect(manager.openDialog("run-2", 7)).toBeUndefined()
+    await manager.dispose()
+  })
+
+  it("answers the dialog it was asked to answer", async () => {
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "prompt",
+      message: "New name",
+      defaultPrompt: "Board"
+    })
+    expect(
+      await manager.handleDialog("run-1", 7, {
+        dialogId: "d1",
+        accept: true,
+        promptText: "Roadmap"
+      })
+    ).toBe("answered")
+    expect(
+      host.commands.filter(
+        (entry) => entry.method === "Page.handleJavaScriptDialog"
+      )
+    ).toEqual([
+      {
+        target: { tabId: 7 },
+        method: "Page.handleJavaScriptDialog",
+        params: { accept: true, promptText: "Roadmap" }
+      }
+    ])
+    expect(manager.openDialog("run-1", 7)).toBeUndefined()
+    await manager.dispose()
+  })
+
+  it("answers nothing when the prompt named is not the one held", async () => {
+    // A page can close one dialog and open another between the observation
+    // and the answer. Answering "whatever is open" would confirm something
+    // nobody read.
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "confirm",
+      message: "First"
+    })
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogClosing", {})
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "confirm",
+      message: "Second"
+    })
+    expect(
+      await manager.handleDialog("run-1", 7, { dialogId: "d1", accept: true })
+    ).toBe("not_open")
+    expect(
+      host.commands.some(
+        (entry) => entry.method === "Page.handleJavaScriptDialog"
+      )
+    ).toBe(false)
+    expect(manager.openDialog("run-1", 7)?.id).toBe("d2")
+    await manager.dispose()
+  })
+
+  it("keeps prompt text out of an answer to a dialog with no field", async () => {
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "confirm",
+      message: "Delete?"
+    })
+    await manager.handleDialog("run-1", 7, {
+      dialogId: "d1",
+      accept: true,
+      promptText: "ignored"
+    })
+    expect(
+      host.commands.find(
+        (entry) => entry.method === "Page.handleJavaScriptDialog"
+      )?.params
+    ).toEqual({ accept: true })
+    await manager.dispose()
+  })
+
+  it("answers a dialog raised in an out-of-process frame's own session", async () => {
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent(
+      { tabId: 7, sessionId: "child" },
+      "Page.javascriptDialogOpening",
+      { type: "alert", message: "Embedded" }
+    )
+    await manager.handleDialog("run-1", 7, { dialogId: "d1", accept: true })
+    expect(
+      host.commands.find(
+        (entry) => entry.method === "Page.handleJavaScriptDialog"
+      )?.target
+    ).toEqual({ tabId: 7, sessionId: "child" })
+    await manager.dispose()
+  })
+
+  it("dismisses a held dialog before letting go of the tab", async () => {
+    // Detaching with one open leaves the tab frozen and nothing left that
+    // could answer it. Dismissal confirms nothing and keeps a beforeunload
+    // on the page.
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "beforeunload",
+      message: "Changes you made"
+    })
+    await manager.detach("run-1")
+    expect(
+      host.commands.find(
+        (entry) => entry.method === "Page.handleJavaScriptDialog"
+      )?.params
+    ).toEqual({ accept: false })
+    await manager.dispose()
+  })
+
+  it("ignores a dialog kind the protocol does not name", async () => {
+    const host = harness()
+    const manager = await attached(host)
+    host.fireEvent({ tabId: 7 }, "Page.javascriptDialogOpening", {
+      type: "print",
+      message: "?"
+    })
+    expect(manager.openDialog("run-1", 7)).toBeUndefined()
+    await manager.dispose()
+  })
+})

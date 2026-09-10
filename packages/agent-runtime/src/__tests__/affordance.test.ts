@@ -203,13 +203,38 @@ describe("classifyAgentAffordance", () => {
   })
 })
 
+/**
+ * Refusals about the page rather than about one control. A dialog holding the
+ * page names no element, and neither does an answer aimed at a prompt that is
+ * no longer open, so their sentences cannot quote a ref.
+ */
+const PAGE_SCOPED_REASONS = [
+  "dialog_open",
+  "unknown_dialog",
+  "prompt_text_unsupported"
+] as const
+
 describe("agentAffordanceFeedback", () => {
   it.each(
     AGENT_AFFORDANCE_REASONS
   )("states what to do instead for %s", (reason) => {
     const feedback = agentAffordanceFeedback({ reason, ref: "e1" })
-    expect(feedback).toContain('"e1"')
     expect(feedback.endsWith(".")).toBe(true)
+    if ((PAGE_SCOPED_REASONS as readonly string[]).includes(reason)) {
+      expect(feedback).not.toContain('"e1"')
+      return
+    }
+    expect(feedback).toContain('"e1"')
+  })
+
+  it("keeps the page-scoped set to the reasons that name no control", () => {
+    // A new reason has to be classified on purpose: one that names a control
+    // and forgets to quote its ref leaves the model nothing to correct.
+    expect(
+      AGENT_AFFORDANCE_REASONS.filter((reason) =>
+        agentAffordanceFeedback({ reason, ref: "e1" }).includes('"e1"')
+      ).length
+    ).toBe(AGENT_AFFORDANCE_REASONS.length - PAGE_SCOPED_REASONS.length)
   })
 
   it("carries structure and never a page string", () => {

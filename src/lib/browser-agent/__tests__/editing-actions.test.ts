@@ -212,6 +212,49 @@ describe("editing resolution", () => {
     expect(resolved.semanticEffects).toEqual(["form_mutation"])
   })
 
+  it("marks an edit that has no submission step behind it", async () => {
+    /**
+     * An editing host belongs to no form, so there is no later submit the
+     * user would be asked about — the typing is the whole change and the
+     * application may already have stored it. Policy words the approval with
+     * this; the risk stays a form mutation either way.
+     */
+    const effect = await resolve(
+      command({ type: "type", ref: "e1", text: "!" })
+    )
+    expect(effect.target.persistsOnChange).toBe(true)
+  })
+
+  it("leaves an edit inside a form for its submission to be approved at", async () => {
+    const field = element({
+      tag: "textarea",
+      type: "textarea",
+      value: "Notes",
+      formFingerprint: "abcd1234"
+    })
+    const effect = await resolve(
+      command({ type: "type", ref: "e1", text: "!" }),
+      observation({ elements: [field] })
+    )
+    expect(effect.target.persistsOnChange).toBeUndefined()
+  })
+
+  it("says nothing of the sort about a click, which changes no value", async () => {
+    const button = element({
+      tag: "button",
+      type: undefined,
+      value: undefined,
+      editable: false,
+      multiline: undefined,
+      name: "Continue"
+    })
+    const effect = await resolve(
+      command({ type: "click", ref: "e1" }),
+      observation({ elements: [button] })
+    )
+    expect(effect.target.persistsOnChange).toBeUndefined()
+  })
+
   it("refuses an edit the observed value does not ground", async () => {
     await expect(
       resolve(

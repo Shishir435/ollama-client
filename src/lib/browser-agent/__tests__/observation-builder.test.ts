@@ -162,6 +162,31 @@ describe("Agent observation builder", () => {
     })
   })
 
+  it("names the form a control belongs to even when Enter would not submit it", () => {
+    /**
+     * A `<textarea>` never submits on Enter, so it reports no submit
+     * semantics — but it does belong to a form, and that is the difference
+     * between a field with a submission step still to come and a field in an
+     * application that saves as you type.
+     */
+    const form = document.createElement("form")
+    form.method = "post"
+    form.action = "/finish"
+    const notes = document.createElement("textarea")
+    const submit = document.createElement("button")
+    submit.textContent = "Save"
+    form.append(notes, submit)
+    const loose = document.createElement("textarea")
+    loose.setAttribute("aria-label", "Document body")
+    document.body.append(form, loose)
+
+    const [inForm, , outsideForm] = build().elements
+    expect(inForm.formFingerprint).toMatch(/^[0-9a-f]{8}$/)
+    expect(inForm.maySubmit).toBeUndefined()
+    expect(inForm.formAction).toBeUndefined()
+    expect(outsideForm.formFingerprint).toBeUndefined()
+  })
+
   it("keeps repeated controls distinct across observation generations", () => {
     const first = document.createElement("input")
     const second = document.createElement("input")

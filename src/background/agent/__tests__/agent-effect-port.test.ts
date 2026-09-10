@@ -78,6 +78,7 @@ const adapters = (): AgentBrowserAdapters => ({
     wait: vi.fn(async () => undefined),
     navigate: vi.fn(async () => undefined),
     createTab: vi.fn(async () => undefined),
+    handleDialog: vi.fn(async () => "answered" as const),
     now: () => 1_000
   },
   verifier: {
@@ -145,6 +146,44 @@ describe("Agent effect port", () => {
     await port.execute(authorized(effect), signal)
     expect(deps.executor.scroll).toHaveBeenCalledOnce()
     expect(deps.executor.mutate).not.toHaveBeenCalled()
+  })
+
+  it("routes a dialog answer to the dialog family, end to end", async () => {
+    const blocked = observation({
+      elements: [],
+      dialogs: [{ id: "d1", type: "confirm", message: "Delete?" }]
+    })
+    const deps = adapters()
+    deps.verifier.observe = vi.fn(async () =>
+      observation({ generation: 2, dialogs: [] })
+    )
+    const port = createAgentEffectPort(deps)
+    const effect = await port.resolve(
+      {
+        type: "handle_dialog",
+        dialogId: "d1",
+        accept: false,
+        snapshotId: "snapshot-1",
+        generation: 1
+      },
+      blocked
+    )
+
+    expect(effect.semanticEffects).toEqual(["dialog"])
+    const receipt = await port.execute(authorized(effect), signal)
+    expect(deps.executor.handleDialog).toHaveBeenCalledOnce()
+    expect(deps.executor.mutate).not.toHaveBeenCalled()
+
+    const verification = await port.verify(
+      {
+        effect: authorized(effect),
+        receipt,
+        before: blocked,
+        allowedOrigins: ["https://example.com"]
+      },
+      signal
+    )
+    expect(verification.outcome).toBe("confirmed")
   })
 
   it("routes a click to the DOM mutation family and verifies it there", async () => {

@@ -200,6 +200,38 @@ describe("buildAgentHistory", () => {
     ).toBe("navigate to https://example.com/pay")
   })
 
+  it("says which way a dialog was answered", () => {
+    // "handle_dialog" alone cannot tell the confirmation the run refused
+    // from the one it gave, and that is the fact a later step needs.
+    const answers = buildAgentHistory([
+      step({
+        sequence: 1,
+        command: {
+          type: "handle_dialog",
+          dialogId: "d1",
+          accept: false,
+          snapshotId: "snapshot-1",
+          generation: 1
+        }
+      }),
+      step({
+        sequence: 2,
+        stepId: "run-1:2",
+        command: {
+          type: "handle_dialog",
+          dialogId: "d2",
+          accept: true,
+          snapshotId: "snapshot-1",
+          generation: 1
+        }
+      })
+    ])
+    expect(answers.map((entry) => entry.action)).toEqual([
+      "dismiss dialog",
+      "accept dialog"
+    ])
+  })
+
   it("orders by durable sequence, not by arrival", () => {
     const history = buildAgentHistory([
       step({ sequence: 3, stepId: "run-1:3" }),

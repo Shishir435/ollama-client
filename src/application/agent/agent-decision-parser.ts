@@ -79,6 +79,7 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   navigate: ["url"],
   open_tab: ["url"],
   switch_tab: ["tabId"],
+  handle_dialog: ["dialogId", "accept", "promptText"],
   back: [],
   forward: [],
   wait: ["condition", "timeoutMs"]
