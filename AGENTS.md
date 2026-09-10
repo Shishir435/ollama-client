@@ -861,13 +861,20 @@ the tables by hand.
   percentage. Tasks are declared `gated: false`, which is what makes a stalled
   run a recorded row instead of a failed test; the run that did not finish is
   the most interesting result and throwing would leave it out.
-- **A task scores itself from the page, not from the run.** Every task carries
-  a `succeeded` predicate that reads the page afterwards. False completion
-  cannot be counted any other way, since the thing being measured is precisely
-  the run's verdict being wrong. Its counterpart — goal met, never claimed —
+- **A task scores itself independently of the run.** Every task carries a
+  `succeeded` predicate: for an effect it reads the page, and for a reading
+  task it requires the page to state a fact *and* the answer to carry it.
+  False completion cannot be counted any other way, since the thing being
+  measured is precisely the run's verdict being wrong — and
+  `Boolean(run.result)` is not a scorer at all, because `result` is the
+  model's own summary and exists whenever a completion was accepted. Its counterpart — goal met, never claimed —
   is counted too, against the status the task *declared*, because some tasks
   are meant to pause and scoring those as missed would call the right answer a
   failure.
+- **A live pass runs the whole suite.** The critical suite's hosted matrix
+  deliberately runs only a couple of its tasks, and applying that skip to the
+  benchmark left a hosted run recording nothing and writing no report — the
+  opposite of the point. The skip applies to gated scenarios only.
 - **CI runs the fixture pass.** Not as a threshold gate, which it is not, but
   because it asserts, and the completion-evidence rule broke two of its
   scenarios while nothing was running it.

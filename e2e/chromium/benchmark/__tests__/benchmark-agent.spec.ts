@@ -18,6 +18,8 @@ import {
   named,
   observableButton,
   page,
+  reportsFact,
+  reportsFactFromAnyTab,
   showsActiveStatus
 } from "../benchmark-tasks"
 
@@ -55,8 +57,8 @@ task({
   goal: "Report the status shown on the page.",
   status: "completed",
   html: () => page("<h1>Account</h1><p>Status: Active</p>"),
-  decide: () => ({ type: "complete", summary: "Active" }),
-  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+  decide: () => ({ type: "complete", summary: "Status: Active" }),
+  succeeded: reportsFact("Status: Active")
 })
 
 task({
@@ -71,8 +73,7 @@ task({
     observation.text.includes("Account 4471")
       ? { type: "complete", summary: "Account 4471" }
       : { type: "extract_text" },
-  succeeded: (outcome) =>
-    Boolean(outcome.snapshot?.run?.result?.includes("4471"))
+  succeeded: reportsFact("Account 4471")
 })
 
 task({
@@ -86,9 +87,9 @@ task({
     ),
   decide: (observation) =>
     observation.text.includes("Status: Active")
-      ? { type: "complete", summary: "Active" }
+      ? { type: "complete", summary: "Status: Active" }
       : { type: "inspect", target: "details" },
-  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+  succeeded: reportsFact("Status: Active")
 })
 
 // ── 2. single-action ────────────────────────────────────────────────────────
@@ -249,8 +250,14 @@ task({
     }
     return clickNamed(observation, "Save")
   },
-  succeeded: async (outcome) =>
-    (await outcome.page.locator("#doc").innerText()).includes("Done.")
+  succeeded: async (outcome) => {
+    const rendered = await outcome.page.locator("main").innerText()
+    return (
+      rendered.includes("Done.") &&
+      rendered.includes("Saved: ") &&
+      (await outcome.page.locator("#doc").innerText()).includes("Done.")
+    )
+  }
 })
 
 task({
@@ -275,6 +282,9 @@ task({
     return clickNamed(observation, "Save")
   },
   succeeded: async (outcome) =>
+    (await outcome.page.locator("main").innerText()).includes(
+      "Saved: Rewritten."
+    ) &&
     (await outcome.page.locator("#doc").innerText()).trim() === "Rewritten."
 })
 
@@ -453,9 +463,9 @@ task({
     ),
   decide: (observation) =>
     observation.text.includes("Status: Active")
-      ? { type: "complete", summary: "Active" }
+      ? { type: "complete", summary: "Status: Active" }
       : { type: "extract_text" },
-  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+  succeeded: reportsFact("Status: Active")
 })
 
 // ── 8. canvas-and-visual ────────────────────────────────────────────────────
@@ -517,9 +527,9 @@ task({
   decide: (_observation, context) => {
     expect(context.images).toBe(0)
     expect(context.actions).not.toContain("click_point")
-    return { type: "complete", summary: "Active" }
+    return { type: "complete", summary: "Status: Active" }
   },
-  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+  succeeded: reportsFact("Status: Active")
 })
 
 // ── 9. multi-tab ────────────────────────────────────────────────────────────
@@ -537,14 +547,14 @@ task({
       : page('<a href="/details">Details</a>'),
   decide: (observation) => {
     if (observation.text.includes("Status: Active")) {
-      return { type: "complete", summary: "Active" }
+      return { type: "complete", summary: "Status: Active" }
     }
     const link = named(observation, "Details")
     return link?.href
       ? { type: "open_tab", url: link.href }
       : { type: "fail", reason: "No link to follow." }
   },
-  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+  succeeded: reportsFactFromAnyTab("Status: Active")
 })
 
 task({
@@ -559,9 +569,9 @@ task({
   navigationDelayMs: (path) => (path.startsWith("/details") ? 900 : 0),
   decide: (observation) =>
     observation.text.includes("Status: Active")
-      ? { type: "complete", summary: "Active" }
+      ? { type: "complete", summary: "Status: Active" }
       : clickNamed(observation, "Details"),
-  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+  succeeded: reportsFactFromAnyTab("Status: Active")
 })
 
 task({
@@ -578,7 +588,8 @@ task({
     if (observation.text.includes("Details")) return { type: "back" }
     return { type: "complete", summary: "Home" }
   },
-  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+  /** Back means back: the tab has to be showing Home again, not just say so. */
+  succeeded: reportsFact("Home")
 })
 
 // ── 10. dialogs-and-recovery ────────────────────────────────────────────────
@@ -624,7 +635,13 @@ task({
     context.step === 1
       ? { type: "ask_user", question: "Which of the two accounts?" }
       : { type: "complete", summary: "Used the second account." },
-  succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+  /**
+   * The page never changes, so the durable evidence is the answer the *user*
+   * gave — not model-authored — and that the run's own summary reflects it.
+   */
+  succeeded: (outcome) =>
+    outcome.snapshot?.run?.answers?.length === 1 &&
+    Boolean(outcome.snapshot?.run?.result?.includes("second account"))
 })
 
 task({
@@ -673,8 +690,8 @@ benchmarkTask(
     goal: "Report the status shown on the page.",
     status: "completed",
     html: () => page("<p>Status: Active</p>"),
-    decide: () => ({ type: "complete", summary: "Active" }),
-    succeeded: (outcome) => Boolean(outcome.snapshot?.run?.result)
+    decide: () => ({ type: "complete", summary: "Status: Active" }),
+    succeeded: reportsFact("Status: Active")
   },
   (outcome) => {
     if (outcome.attempt < benchmarkAttempts) return

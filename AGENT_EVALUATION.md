@@ -21,9 +21,22 @@ canvas-and-visual, multi-tab, dialogs-and-recovery.
 
 Each task declares the page it runs against, the decisions a scripted model
 makes, the status it expects to finish in, and — the part a gate does not
-have — a predicate that reads the page afterwards to say whether the goal was
-actually met. That predicate is why false completion can be counted at all:
-the run's own verdict cannot be the scorer.
+have — a predicate that scores it independently of what the run claimed. That
+predicate is why false completion can be counted at all: the run's own verdict
+cannot be the scorer.
+
+For a task with an effect, the predicate reads the page: the field holds the
+value, the document says saved, the status appeared. For a reading task the
+deliverable *is* the answer, so the predicate requires the page to state a
+fact and the run's answer to carry it — both halves, so a drifted fixture
+fails rather than passing vacuously.
+
+The first version of this suite scored several tasks as `Boolean(run.result)`,
+which is the model's own completion summary: an accepted completion produced
+one by construction, so the scorer agreed with the run every time and could
+not have detected the thing it exists to detect. Re-measuring with grounded
+predicates did not move any number below — but before the fix, those numbers
+were not evidence.
 
 The suite runs twice. Once with the debugger attached, which is the native
 input backend, and once against a build with the `debugger` permission
@@ -103,8 +116,13 @@ Named rather than rounded away. Each is reproducible from the suite.
 
 - **A live model.** Every number above is from a scripted model, so it
   measures the runtime and not model capability. `AGENT_HOSTED_MODEL` and
-  `AGENT_HOSTED_BASE_URL` point the same suite at a real provider, and
-  `AGENT_BENCHMARK_ATTEMPTS` repeats it; no live pass has been published here.
+  `AGENT_HOSTED_BASE_URL` point the same suite at a real provider and
+  `AGENT_BENCHMARK_ATTEMPTS` repeats it. That path is exercised — one task run
+  against `qwen3.5:latest` through Ollama completed and scored, taking 3.6
+  minutes where the scripted model takes 2.7 seconds — but no live table is
+  published here. At that rate a full pass is hours, and mixing measured
+  runtime numbers with a partial capability sample would make the table say
+  less than it appears to.
 - **Tokens.** Read from the provider's own counts when it reports them
   (`prompt_eval_count`, `eval_count`), which a scripted fixture does not, so
   the columns are empty above rather than zero. Nothing is estimated.

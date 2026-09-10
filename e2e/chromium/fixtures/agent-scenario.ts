@@ -233,8 +233,17 @@ const runAgentScenarioAttempt = (
     const liveBaseUrl =
       process.env.AGENT_HOSTED_BASE_URL ?? "http://127.0.0.1:8084"
     test.setTimeout(liveModel ? 240_000 : (scenario.timeoutMs ?? 60_000))
+    /**
+     * The live matrix runs a couple of the gated tasks, not all of them — one
+     * real model against the whole critical suite is minutes per scenario for
+     * no extra signal. The benchmark is the opposite: a live pass is the
+     * entire point of it, and skipping those left the documented hosted
+     * workflow recording nothing and writing no report at all.
+     */
     test.skip(
-      Boolean(liveModel) && scenario.hosted !== true,
+      Boolean(liveModel) &&
+        scenario.gated !== false &&
+        scenario.hosted !== true,
       "Live model matrix uses form and delayed navigation tasks"
     )
 

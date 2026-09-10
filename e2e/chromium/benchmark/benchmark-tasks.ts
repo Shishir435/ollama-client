@@ -162,6 +162,45 @@ export const page = (body: string, title = "Benchmark"): string =>
 export const observableButton = (label = "Continue"): string =>
   `<button type="button" onclick="document.querySelector('main').insertAdjacentHTML('beforeend','<p>Status: Active</p>');this.disabled=true">${label}</button>`
 
+/**
+ * A reading task's answer, checked against what the page actually says.
+ *
+ * `Boolean(run.result)` was circular: `result` is the model's own completion
+ * summary, so an accepted completion produced one by construction and the
+ * scorer agreed with the run every time — the false completion it exists to
+ * catch could never be seen. Both halves are required here: the page has to
+ * state the fact, so a fixture that drifted fails rather than passing
+ * vacuously, and the answer has to carry it.
+ */
+export const reportsFact =
+  (fact: string) =>
+  async (outcome: AgentScenarioOutcome): Promise<boolean> => {
+    const rendered = await outcome.page.locator("body").innerText()
+    return (
+      rendered.includes(fact) &&
+      Boolean(outcome.snapshot?.run?.result?.includes(fact))
+    )
+  }
+
+/**
+ * The same, for a task whose answer is on a page the run opened. The tab it
+ * reported from is not the tab the test drives, so every page in the context
+ * is asked.
+ */
+export const reportsFactFromAnyTab =
+  (fact: string) =>
+  async (outcome: AgentScenarioOutcome): Promise<boolean> => {
+    if (!outcome.snapshot?.run?.result?.includes(fact)) return false
+    for (const open of outcome.page.context().pages()) {
+      try {
+        if ((await open.locator("body").innerText()).includes(fact)) return true
+      } catch {
+        /* A page that closed under us cannot show anything. */
+      }
+    }
+    return false
+  }
+
 export const showsActiveStatus = async (
   outcome: AgentScenarioOutcome
 ): Promise<boolean> =>
