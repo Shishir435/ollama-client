@@ -33,6 +33,11 @@ export const createAgentComposition = async (
 ): Promise<AgentComposition | undefined> => {
   if (!FEATURE_FLAGS.agentPreview) return undefined
 
+  if (FEATURE_FLAGS.agentDebugReport) {
+    const { installAgentDebugReport } = await import("./agent-debug-report")
+    installAgentDebugReport()
+  }
+
   const history = createAgentTabHistory()
   const browserSessions = createAgentBrowserSessionManager()
   const service = createAgentRunService({ history, browserSessions })

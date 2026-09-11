@@ -82,3 +82,9 @@ declare const __FIREFOX_BG_OWNER__: boolean
 
 /** Chromium-only product gate. False lets Firefox builds erase Agent code. */
 declare const __AGENT_PREVIEW_ENABLED__: boolean
+
+/**
+ * Development-only Agent run-record dump. False in every store build, which
+ * erases the builder and the page text it would otherwise expose.
+ */
+declare const __AGENT_DEBUG_REPORT__: boolean
