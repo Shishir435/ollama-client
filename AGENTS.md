@@ -762,6 +762,17 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   cannot authorize a click: the screenshot must carry the command's snapshot
   and generation and the observation's scroll, and the executor re-hit-tests
   the point before anything is sent, refusing a control that moved.
+
+  What a visual click does **not** answer to is our own reachability
+  reconstruction. `elementFromPoint` is the browser saying what a pointer at
+  that coordinate lands on; `visible` is `resolveVisibility` rebuilding the
+  same fact from client rects, the viewport and every ancestor's overflow.
+  When they disagree the reconstruction is wrong, so `hidden_target` is waived
+  alongside `not_clickable`, and occlusion needs no waiver because a hit test
+  returns the topmost element. Everything about what the click would *do* —
+  sensitive fields, links, submitters, checkboxes, a disabled control — still
+  governs. Overruling the browser here refused four different points across
+  ChatGPT's composer as "not visible" until the run's budget was gone.
 - Disclosure says whether pictures travel: `AgentProviderDisclosure.screenshots`
   is resolved from model vision, memoized per model, shown as unknown when it
   could not be determined, and switches the remote-provider notice to the

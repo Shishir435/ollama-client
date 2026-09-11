@@ -1,4 +1,5 @@
 import {
+  type AgentAffordanceReason,
   type AgentDestination,
   type AgentDropTarget,
   AgentGroundingError,
@@ -809,12 +810,39 @@ const groundingScreenshot = (
 }
 
 /**
+ * Refusals a visual click does not answer to, because the hit test already
+ * answered the question they ask.
+ *
+ * `not_clickable` was always waived: a canvas or a bare region is exactly what
+ * a point exists to reach. `hidden_target` is the same argument and was not.
+ * `elementFromPoint` is the browser saying what a pointer at this coordinate
+ * lands on — ground truth about reachability — while `visible` is our own
+ * reconstruction of it, computed by intersecting client rects with the
+ * viewport and clipping by every ancestor's overflow. When the two disagree
+ * the reconstruction is what is wrong, and overruling the browser with it
+ * refuses a click on a control the user can see and press. (Occlusion needs no
+ * waiver: a hit test returns the topmost element, so what it names is never
+ * the thing underneath.)
+ *
+ * A run did that to ChatGPT's composer: four different points across the
+ * field, every one of them answered `e174 is not visible`, until the run's
+ * whole budget was gone.
+ *
+ * The rules that exist for safety are untouched — a sensitive field, a link,
+ * a submitter, a checkbox all still govern a visual click, and they are about
+ * what the click would *do* rather than whether it can happen.
+ */
+const VISUAL_CLICK_WAIVED_REFUSALS = new Set<AgentAffordanceReason>([
+  "not_clickable",
+  "hidden_target"
+])
+
+/**
  * Turns a pixel in the screenshot into the control under it. The point is
  * converted through the screenshot's own geometry and asked of the live page;
  * what comes back is an observed element like any other, so every rule that
  * governs a click — sensitivity, links, submitters, checkboxes — governs a
- * visual click too. Only "not an activatable control" is waived: a canvas or
- * a bare region is exactly what a point exists to reach.
+ * visual click too.
  */
 const findVisualElement = async (
   command: Extract<AgentCommand, { type: "click_point" }>,
@@ -853,7 +881,7 @@ const findVisualElement = async (
       ]
     }
   )
-  if (refused && refused.reason !== "not_clickable") {
+  if (refused && !VISUAL_CLICK_WAIVED_REFUSALS.has(refused.reason)) {
     throw new AgentGroundingError({ refusal: refused })
   }
   return { element, point }

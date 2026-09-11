@@ -265,6 +265,50 @@ describe("visual grounding resolution", () => {
  * costs — so a visual click can reach a canvas without becoming a cheaper
  * way to press Submit.
  */
+describe("a visual click trusts the hit test about reachability", () => {
+  it("clicks a control the observation calls not visible", async () => {
+    /**
+     * `elementFromPoint` said the pointer lands here. `visible` is our own
+     * reconstruction of the same fact, and when the two disagree the
+     * reconstruction is what is wrong. Refusing anyway cost a run its whole
+     * budget on ChatGPT's composer: four points across the field, every one
+     * answered "not visible".
+     */
+    const { instance } = adapter({
+      element: { ...canvas, ref: "e174", tag: "textarea", visible: false }
+    })
+
+    const effect = await resolveDomMutationAgentEffect({
+      command: clickPoint(400, 300),
+      observation: observation(),
+      adapter: instance,
+      context: { screenshot: screenshot() }
+    })
+
+    expect(effect.target).toMatchObject({ ref: "e174", tag: "textarea" })
+  })
+
+  it("still refuses a control that cannot be activated at all", async () => {
+    /**
+     * The hit test says the pointer lands here, and that is not in dispute —
+     * a disabled control receives the event and does nothing with it. Only
+     * reachability is waived, not every rule.
+     */
+    const { instance } = adapter({
+      element: { ...canvas, ref: "e175", tag: "button", enabled: false }
+    })
+
+    await expect(
+      resolveDomMutationAgentEffect({
+        command: clickPoint(400, 300),
+        observation: observation(),
+        adapter: instance,
+        context: { screenshot: screenshot() }
+      })
+    ).rejects.toThrow()
+  })
+})
+
 describe("a visual click cannot outrank the control it lands on", () => {
   const policy = (
     effect: Awaited<ReturnType<typeof resolveDomMutationAgentEffect>>
