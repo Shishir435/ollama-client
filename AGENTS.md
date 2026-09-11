@@ -924,7 +924,11 @@ Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
   it went wrong. `globalThis.__OLLAMA_CLIENT_AGENT_TRACE__ = true` is the
   other half: structural phase lines for the rest of the worker lifetime.
   The dump is compile-time absent from store builds (`__AGENT_DEBUG_REPORT__`)
-  because the record quotes page text.
+  because the record quotes page text. `pnpm dev` carries it; a production
+  build does not, so testing against one means `pnpm build:debug` — the same
+  output directory, the same production bundle, with the dump kept. Only
+  `WXT_AGENT_DEBUG=1` turns it on, so a release build cannot acquire it by
+  forgetting a flag.
 
 ## Measured agent behaviour
 

@@ -285,7 +285,34 @@ console.log(
   )
 )
 
+/**
+ * Symbols a shipped bundle must not contain, whatever the build did.
+ *
+ * `__agentReport` dumps a run's durable record — every step's command and the
+ * page text its verifier quoted — and exists for a developer at a console. It
+ * is gated on a compile-time constant, and the gate silently did nothing the
+ * first time: it was read through a frozen object, which no bundler can fold,
+ * so the store bundle carried the dump and the repository imports behind it.
+ * A define is a claim about the output, so it is checked against the output.
+ */
+const FORBIDDEN_IN_STORE_BUILD = ["__agentReport"] as const
+
+const storeBuildLeaks = (): string[] => {
+  if (process.env.WXT_AGENT_DEBUG === "1") return []
+  const background = path.join(outputDir, "background.js")
+  if (!fs.existsSync(background)) return []
+  const source = fs.readFileSync(background, "utf8")
+  return FORBIDDEN_IN_STORE_BUILD.filter((symbol) => source.includes(symbol))
+}
+
 if (shouldCheck) {
+  const leaked = storeBuildLeaks()
+  for (const symbol of leaked) {
+    console.error(
+      `${symbol} is present in a store build; it must be compile-time absent`
+    )
+  }
+  if (leaked.length > 0) process.exitCode = 1
   const failures = budgets.filter(
     (budget) => report[budget.metric][budget.field] > budget.max
   )

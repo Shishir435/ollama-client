@@ -2,7 +2,7 @@ import { isLegalAgentTransition } from "@ollama-client/agent-runtime"
 
 import { startBrowserAgentNavigationObserver } from "@/lib/browser-agent/navigation-observer"
 import { browser } from "@/lib/browser-api"
-import { FEATURE_FLAGS } from "@/lib/feature-flags"
+import { AGENT_DEBUG_REPORT_ENABLED, FEATURE_FLAGS } from "@/lib/feature-flags"
 import { hasAgentPerceptionPermission } from "@/lib/permissions"
 import { createAgentBrowserSessionManager } from "./agent-browser-session-manager"
 import { registerAgentPanelPort } from "./agent-panel-port"
@@ -33,7 +33,12 @@ export const createAgentComposition = async (
 ): Promise<AgentComposition | undefined> => {
   if (!FEATURE_FLAGS.agentPreview) return undefined
 
-  if (FEATURE_FLAGS.agentDebugReport) {
+  /**
+   * The direct build constant, not the frozen-object property: a property
+   * read is not foldable, so the store bundle kept the dump and the page text
+   * it reads. Verified by grepping a real production background bundle.
+   */
+  if (AGENT_DEBUG_REPORT_ENABLED) {
     const { installAgentDebugReport } = await import("./agent-debug-report")
     installAgentDebugReport()
   }
