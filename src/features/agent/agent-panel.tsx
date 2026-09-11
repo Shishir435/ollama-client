@@ -6,6 +6,7 @@ import { openOptionsInTab, runtime } from "@/lib/browser-api"
 import { SETTINGS } from "@/lib/storage/settings"
 import { AgentView } from "./agent-view"
 import { useAgentCandidateTab } from "./hooks/use-agent-candidate-tab"
+import { useAgentDebugReport } from "./hooks/use-agent-debug-report"
 import { useAgentRun } from "./hooks/use-agent-run"
 import { agentPlainText, visibleAgentTab } from "./lib/presentation"
 import { useAgentDraft } from "./stores/agent-draft-store"
@@ -21,6 +22,7 @@ import { useAgentDraft } from "./stores/agent-draft-store"
  */
 export const AgentPanel = () => {
   const { t } = useTranslation()
+  useAgentDebugReport()
   const { selectedModel, selectedProviderId } = useProviderModels()
   const [acknowledged, setAcknowledged] = useSetting(
     SETTINGS.AGENT_REMOTE_OBSERVATION_ACKNOWLEDGED

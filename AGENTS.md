@@ -914,15 +914,19 @@ Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
   the run drives once it has adopted more than the one it started on.
 - Panel copy is i18n like everything else: every key exists in all nine
   locales, and `pnpm generate:resources` runs after a locale edit.
-- **A run's record comes out as text, in a dev build.** From the background
-  DevTools console: `await __agentReport()` for the run that ran last,
+- **A run's record comes out as text, in a dev build.** From the side panel's
+  own DevTools console, or the background worker's:
+  `await __agentReport()` for the run that ran last,
   `await __agentReport("run-id")` for a particular one, `copy(await
   __agentReport())` to the clipboard. It returns the durable record — every
   step's command and its fields, the verification outcome and summary, the
   failure's code — because a screenshot of the work log has statuses and none
   of those, and diagnosing a run from pictures loses exactly what says where
   it went wrong. `globalThis.__OLLAMA_CLIENT_AGENT_TRACE__ = true` is the
-  other half: structural phase lines for the rest of the worker lifetime.
+  other half: structural phase lines for the rest of the worker lifetime, and
+  that one is the worker's console only. The panel carries the dump because
+  the worker's console is behind chrome://extensions, is not the console the
+  panel is open in, and loses the binding whenever the worker sleeps.
   The dump is compile-time absent from store builds (`__AGENT_DEBUG_REPORT__`)
   because the record quotes page text. `pnpm dev` carries it; a production
   build does not, so testing against one means `pnpm build:debug` — the same
