@@ -57,6 +57,29 @@ const observation = (
 })
 
 describe("projectAgentElement", () => {
+  it("finds an editor by its visible placeholder without replacing its ARIA name", () => {
+    const editor = element({
+      ref: "editor",
+      tag: "div",
+      name: "Chat with assistant",
+      type: "contenteditable",
+      placeholder: "Ask assistant",
+      editable: true
+    })
+    const result = projectAgentObservation(
+      observation({ elements: [editor] }),
+      { focus: { query: "Ask assistant" } }
+    )
+    expect(result.elements).toContainEqual(
+      expect.objectContaining({
+        ref: "editor",
+        name: "Chat with assistant",
+        placeholder: "Ask assistant"
+      })
+    )
+    expect(result.unmatched).toBeUndefined()
+  })
+
   it("drops what only the executor uses", () => {
     const projected = projectAgentElement(
       element({ formFingerprint: "abcd1234", maySubmit: true })
@@ -172,7 +195,7 @@ describe("projectAgentObservation", () => {
       url: "https://example.com/",
       title: "Example",
       text: "Continue",
-      scroll: { y: 40, ofDocument: 4_000 }
+      scroll: { y: 40, ofDocument: 4_000, viewportHeight: 600 }
     })
     expect(projected).not.toHaveProperty("snapshotId")
     expect(projected).not.toHaveProperty("documentId")
@@ -441,6 +464,62 @@ describe("projectAgentObservation inspection focus", () => {
       focus: { query: "submit" }
     })
     expect(projected.elements.map((one) => one.ref)).toContain("target")
+  })
+
+  it("says so when an inspected region does not exist, and names the real ones", () => {
+    /**
+     * The loop this closes: the answer to a misnamed region was the same
+     * overview as the answer to a real one, so the model asked again until
+     * the run's budget was gone.
+     */
+    const projected = projectAgentObservation(
+      observation({
+        elements: [
+          ...many(40, { group: 'form "signup"' }),
+          ...many(4, { group: "nav" })
+        ]
+      }),
+      { pageContentChars: 500, focus: { region: "form" } }
+    )
+    expect(projected.unmatched?.region).toBe("form")
+    expect(projected.unmatched?.regions).toEqual(['form "signup"', "nav"])
+  })
+
+  it("says so when a find query matches nothing", () => {
+    const projected = projectAgentObservation(
+      observation({ elements: many(10, { group: "main" }) }),
+      { pageContentChars: 500, focus: { query: "weather" } }
+    )
+    expect(projected.unmatched?.query).toBe("weather")
+  })
+
+  it("reports no miss when the region exists", () => {
+    const projected = projectAgentObservation(
+      observation({ elements: many(40, { group: 'form "signup"' }) }),
+      { pageContentChars: 500, focus: { region: 'form "signup"' } }
+    )
+    expect(projected.unmatched).toBeUndefined()
+  })
+
+  it("expands the page region the omission report publishes", () => {
+    /**
+     * Controls in no landmark are omitted under the name `page`, so `page` is
+     * a name the model is invited to inspect; comparing the raw undefined
+     * group made it the one published region that could never match.
+     */
+    const elements = many(200)
+    const overview = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 400
+    })
+    expect(overview.omittedByGroup?.[0]?.group).toBe("page")
+
+    const projected = projectAgentObservation(observation({ elements }), {
+      pageContentChars: 400,
+      pageContentMaxChars: 40_000,
+      focus: { region: "page" }
+    })
+    expect(projected.unmatched).toBeUndefined()
+    expect(projected.elements.length).toBeGreaterThan(overview.elements.length)
   })
 
   it("returns the whole document text when text is requested", () => {

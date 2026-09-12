@@ -1,3 +1,4 @@
+import { matchesAgentInspection } from "@ollama-client/agent-runtime/budgets"
 import type {
   AgentDialogState,
   AgentElement,
@@ -24,10 +25,13 @@ export interface AgentProjectedElement {
   tag: string
   role?: string
   name?: string
+  placeholder?: string
   type?: string
   value?: string
+  valueTruncated?: boolean
   checked?: boolean
   focused?: boolean
+  scroll?: AgentElement["scroll"]
   href?: string
   options?: { value: string; label?: string }[]
   /** The landmark, form or dialog this element belongs to. */
@@ -66,7 +70,7 @@ export interface AgentProjectedObservation {
   frames?: AgentProjectedFrame[]
   /** Child frames the frame cap left unread and unlisted. */
   omittedFrames?: number
-  scroll: { y: number; ofDocument: number }
+  scroll: { y: number; ofDocument: number; viewportHeight: number }
   /**
    * Native dialogs holding the page. Present only when there are any, and
    * when there are, the page carries no controls and nothing but answering
@@ -80,6 +84,7 @@ export interface AgentProjectedObservation {
   /** Text inside the viewport. */
   text: string
   /** The rest of the document, when there is any and it fits. */
+  textPage?: AgentObservation["textPage"]
   documentText?: string
   documentTextTruncated?: boolean
   /** Set when the viewport text was cut to fit the page-content budget, so an
@@ -93,6 +98,23 @@ export interface AgentProjectedObservation {
    * not there. Present only in a budgeted overview that dropped something.
    */
   omittedByGroup?: { group: string; count: number }[]
+  /**
+   * Set when the `inspect` or `find` this observation answers matched no
+   * control at all.
+   *
+   * Without it the answer to a region that does not exist is byte-for-byte
+   * the answer to one the model already saw: the same overview, with no word
+   * that the request missed. A model that misnames a region therefore asks
+   * again with the same name, and again, until the run's observation budget
+   * is gone — which is exactly how a run spent twenty-one observations on
+   * `inspect form`. `regions` names the groups the page actually has, so the
+   * next ask can name a real one.
+   */
+  unmatched?: {
+    region?: string
+    query?: string
+    regions?: string[]
+  }
 }
 
 /** A region the model asked to see in full; its controls survive the budget. */
@@ -172,8 +194,11 @@ export const projectAgentElement = (
     ...(element.name
       ? { name: element.name.slice(0, AGENT_PROJECTION_LIMITS.nameChars) }
       : {}),
+    ...(element.placeholder ? { placeholder: element.placeholder } : {}),
     ...(element.type ? { type: element.type } : {}),
     ...(element.value !== undefined ? { value: element.value } : {}),
+    ...(element.valueTruncated ? { valueTruncated: true } : {}),
+    ...(element.scroll ? { scroll: element.scroll } : {}),
     ...(element.checked !== undefined ? { checked: element.checked } : {}),
     ...(element.focused ? { focused: true } : {}),
     ...(element.href ? { href: element.href } : {}),
@@ -201,15 +226,9 @@ const AGENT_PAGE_GROUP = "page"
 
 type AgentOverviewFocus = AgentProjectionOptions["focus"]
 
-/** A control matches a `find` query when the query appears in the name, role
- * or tag it shows — the fields the model has to recognise it by. */
+/** Search the same names, placeholders and control kinds as loop detection. */
 const matchesQuery = (element: AgentElement, query: string): boolean => {
-  const needle = query.toLowerCase()
-  return (
-    (element.name?.toLowerCase().includes(needle) ?? false) ||
-    (element.role?.toLowerCase().includes(needle) ?? false) ||
-    element.tag.toLowerCase().includes(needle)
-  )
+  return matchesAgentInspection(element, { query })
 }
 
 /**
@@ -224,10 +243,67 @@ const overviewPriority = (
   focus: AgentOverviewFocus
 ): number => {
   if (element.focused) return 0
-  if (focus?.region !== undefined && element.group === focus.region) return 0
+  /**
+   * Against the same fallback the omission report uses. `omittedByGroup`
+   * publishes `page` for controls in no landmark, so `inspect page` is a name
+   * the model is invited to use; comparing the raw undefined group made it
+   * the one published region that could never match.
+   */
+  if (
+    focus?.region !== undefined &&
+    (element.group ?? AGENT_PAGE_GROUP) === focus.region
+  ) {
+    return 0
+  }
   if (focus?.query !== undefined && matchesQuery(element, focus.query)) return 0
   const reachable = element.visible && !element.occluded && element.enabled
   return reachable ? 1 : 2
+}
+
+/**
+ * Regions a page has, most populated first. Reported only when a request
+ * missed, and capped, because it is a hint for the next ask rather than an
+ * inventory — a page with three hundred landmarks would otherwise answer a
+ * typo with three hundred names.
+ */
+const AGENT_MAX_REPORTED_REGIONS = 20
+
+const pageRegions = (elements: readonly AgentElement[]): string[] => {
+  const counts = new Map<string, number>()
+  for (const element of elements) {
+    const group = element.group ?? AGENT_PAGE_GROUP
+    counts.set(group, (counts.get(group) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort((first, second) => second[1] - first[1])
+    .slice(0, AGENT_MAX_REPORTED_REGIONS)
+    .map(([group]) => group)
+}
+
+/**
+ * Whether the request this observation answers found anything. A region is
+ * matched by the exact group name the observation itself publishes, so a
+ * near miss — `form` for `form "search"` — is a miss, and saying so is the
+ * whole point.
+ */
+const unmatchedFocus = (
+  elements: readonly AgentElement[],
+  focus: AgentOverviewFocus
+): AgentProjectedObservation["unmatched"] => {
+  const { region, query } = focus ?? {}
+  if (region !== undefined) {
+    return elements.some(
+      (element) => (element.group ?? AGENT_PAGE_GROUP) === region
+    )
+      ? undefined
+      : { region, regions: pageRegions(elements) }
+  }
+  if (query !== undefined) {
+    return elements.some((element) => matchesQuery(element, query))
+      ? undefined
+      : { query, regions: pageRegions(elements) }
+  }
+  return undefined
 }
 
 const selectOverviewElements = (
@@ -287,6 +363,21 @@ const selectOverviewElements = (
   return { shown, omittedByGroup }
 }
 
+/** Preserve the continuation offset when the prompt has less room than the page. */
+const projectTextPage = (
+  page: NonNullable<AgentObservation["textPage"]>,
+  ceiling: number
+) => {
+  const text = page.text.slice(0, Math.max(0, ceiling - 512))
+  return {
+    ...page,
+    text,
+    ...(text.length < page.text.length
+      ? { nextOffset: page.offset + text.length }
+      : {})
+  }
+}
+
 export const projectAgentObservation = (
   observation: AgentObservation,
   options: AgentProjectionOptions = {}
@@ -306,10 +397,14 @@ export const projectAgentObservation = (
       : {}),
     scroll: {
       y: Math.round(observation.scroll.y),
-      ofDocument: Math.max(1, Math.round(observation.scroll.documentHeight))
+      ofDocument: Math.max(1, Math.round(observation.scroll.documentHeight)),
+      viewportHeight: Math.round(observation.scroll.viewportHeight)
     },
     ...(observation.dialogs.length ? { dialogs: observation.dialogs } : {}),
-    ...(observation.modals?.length ? { modals: observation.modals } : {})
+    ...(observation.modals?.length ? { modals: observation.modals } : {}),
+    ...(observation.documentTextTruncated
+      ? { documentTextTruncated: true }
+      : {})
   }
   /**
    * No budget means the whole page travels, as it did before progressive
@@ -347,6 +442,15 @@ export const projectAgentObservation = (
    * maximal page cannot push the prompt past the context window. Otherwise the
    * viewport text takes its overview share and yields the rest to controls.
    */
+  if (options.focus?.text && observation.textPage) {
+    return {
+      ...base,
+      text: "",
+      elements: [],
+      textPage: projectTextPage(observation.textPage, ceiling)
+    }
+  }
+
   const wantsText = options.focus?.text === true
   const textBudget = wantsText
     ? ceiling
@@ -362,6 +466,7 @@ export const projectAgentObservation = (
     documentText !== undefined &&
     (observation.documentTextTruncated === true ||
       documentText.length < (observation.documentText?.length ?? 0))
+  const unmatched = unmatchedFocus(observation.elements, options.focus)
   const { shown, omittedByGroup } = selectOverviewElements(
     observation.elements,
     budget - Math.min(text.length, budget),
@@ -377,6 +482,7 @@ export const projectAgentObservation = (
     ...(documentText !== undefined ? { documentText } : {}),
     ...(documentTextTruncated ? { documentTextTruncated: true } : {}),
     elements: shown,
-    ...(omittedByGroup.length ? { omittedByGroup } : {})
+    ...(omittedByGroup.length ? { omittedByGroup } : {}),
+    ...(unmatched ? { unmatched } : {})
   }
 }

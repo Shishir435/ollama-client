@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { MAX_AGENT_TEXT_CHARS } from "./agent-command"
 
 /**
  * The browser's own name for one document: the tab, the frame within it, and
@@ -102,6 +103,16 @@ export const AgentSelectOptionSchema = z
   .strict()
 export type AgentSelectOption = z.infer<typeof AgentSelectOptionSchema>
 
+export const AgentScrollStateSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  viewportWidth: z.number().finite().nonnegative(),
+  viewportHeight: z.number().finite().nonnegative(),
+  documentWidth: z.number().finite().nonnegative(),
+  documentHeight: z.number().finite().nonnegative()
+})
+export type AgentScrollState = z.infer<typeof AgentScrollStateSchema>
+
 export const AgentElementSchema = z
   .object({
     ref: z.string().min(1),
@@ -109,9 +120,12 @@ export const AgentElementSchema = z
     frameId: z.number().int().nonnegative(),
     role: z.string().min(1).optional(),
     name: z.string().optional(),
+    placeholder: z.string().max(500).optional(),
     tag: z.string().min(1),
     type: z.string().min(1).optional(),
-    value: z.string().max(500).optional(),
+    value: z.string().max(MAX_AGENT_TEXT_CHARS).optional(),
+    valueTruncated: z.boolean().optional(),
+    scroll: AgentScrollStateSchema.optional(),
     checked: z.boolean().optional(),
     focused: z.boolean().optional(),
     href: z.url().max(2_048).optional(),
@@ -200,16 +214,6 @@ export const AgentElementSchema = z
     }
   })
 export type AgentElement = z.infer<typeof AgentElementSchema>
-
-export const AgentScrollStateSchema = z.object({
-  x: z.number().finite(),
-  y: z.number().finite(),
-  viewportWidth: z.number().finite().nonnegative(),
-  viewportHeight: z.number().finite().nonnegative(),
-  documentWidth: z.number().finite().nonnegative(),
-  documentHeight: z.number().finite().nonnegative()
-})
-export type AgentScrollState = z.infer<typeof AgentScrollStateSchema>
 
 /** The most of a dialog's own text the run carries; it is page content. */
 export const MAX_AGENT_DIALOG_MESSAGE_CHARS = 500
@@ -318,6 +322,17 @@ export const AgentObservationSchema = AgentSnapshotIdentitySchema.extend({
    * budget.
    */
   documentText: z.string().max(30_000).optional(),
+  /** Explicit extraction page, read from one authorized frame. */
+  textPage: z
+    .object({
+      text: z.string().max(12_000),
+      offset: z.number().int().nonnegative(),
+      nextOffset: z.number().int().nonnegative().optional(),
+      frameId: z.number().int().nonnegative(),
+      scanTruncated: z.boolean().optional()
+    })
+    .strict()
+    .optional(),
   /** Set when the document had more text than the cap allowed, so an absent
    * fact is not read as a fact the page does not state. */
   documentTextTruncated: z.boolean().optional(),

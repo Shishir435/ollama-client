@@ -240,7 +240,12 @@ export const currentAgentInspection = (
   if (!command) return undefined
   if (command.type === "inspect") return { region: command.target }
   if (command.type === "find") return { query: command.query }
-  if (command.type === "extract_text") return { text: true }
+  if (command.type === "extract_text")
+    return {
+      text: true,
+      offset: command.offset ?? 0,
+      frameId: command.frameId ?? 0
+    }
   if (command.type === "zoom") {
     return {
       zoom: {

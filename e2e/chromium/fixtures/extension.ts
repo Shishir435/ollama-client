@@ -266,7 +266,11 @@ const createExtensionSession = async (
             `failure-page-${index + 1}.png`
           )
           await page
-            .screenshot({ path: screenshotPath, fullPage: true })
+            .screenshot({
+              path: screenshotPath,
+              fullPage: true,
+              timeout: 5_000
+            })
             .then(() => screenshots.push(screenshotPath))
             .catch(() => {})
         })

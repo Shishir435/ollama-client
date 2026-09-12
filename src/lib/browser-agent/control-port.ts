@@ -12,7 +12,8 @@ import {
   type AgentObservation,
   AgentObservationSchema,
   AgentSnapshotIdentitySchema,
-  MAX_AGENT_OBSERVED_ELEMENTS
+  MAX_AGENT_OBSERVED_ELEMENTS,
+  MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
 import { z } from "zod"
 
@@ -36,6 +37,7 @@ export const AgentObserveRequestSchema = z
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
     minimumGeneration: z.number().int().nonnegative(),
+    textOffset: z.number().int().min(0).max(10_000_000).optional(),
     /** Elements this frame may contribute to a composed observation. */
     elementLimit: z
       .number()
@@ -146,7 +148,7 @@ const AgentDomMutationTargetSchema = z
     role: z.string().min(1).optional(),
     accessibleName: z.string().max(500).optional(),
     inputType: z.string().min(1).optional(),
-    observedValue: z.string().max(500).optional(),
+    observedValue: z.string().max(MAX_AGENT_TEXT_CHARS).optional(),
     observedChecked: z.boolean().optional(),
     observedFocused: z.boolean().optional(),
     href: z.url().max(2_048).optional(),
@@ -158,7 +160,7 @@ const AgentDomMutationTargetSchema = z
       .optional(),
     formHasSensitiveControl: z.boolean().optional(),
     submitter: z.boolean().optional(),
-    expectedValue: z.string().max(500).optional(),
+    expectedValue: z.string().max(MAX_AGENT_TEXT_CHARS).optional(),
     expectedChecked: z.boolean().optional(),
     /** Where a drag is released; the page rechecks it like the source. */
     drop: z
@@ -637,7 +639,8 @@ export interface AgentControlSession {
   observe(
     minimumGeneration: number,
     signal?: AbortSignal,
-    elementLimit?: number
+    elementLimit?: number,
+    textOffset?: number
   ): Promise<AgentObservation>
   executeDomMutation(
     instruction: AgentDomMutationInstruction,
@@ -982,7 +985,7 @@ export const createAgentControlSession = (input: {
 
   return {
     frameId: input.binding.frameId,
-    observe(minimumGeneration, signal, elementLimit) {
+    observe(minimumGeneration, signal, elementLimit, textOffset) {
       if (inFlight) {
         return Promise.reject(
           new Error("Agent control request already in flight")
@@ -996,7 +999,8 @@ export const createAgentControlSession = (input: {
         ...input.binding,
         sequence: expectedSequence,
         minimumGeneration,
-        ...(elementLimit === undefined ? {} : { elementLimit })
+        ...(elementLimit === undefined ? {} : { elementLimit }),
+        ...(textOffset === undefined ? {} : { textOffset })
       }
 
       return exchange(

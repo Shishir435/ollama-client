@@ -2,6 +2,7 @@ import {
   type AgentDeadlineState,
   AgentDeadlineStateSchema,
   type AgentDecision,
+  type AgentElement,
   type AgentObservation
 } from "@ollama-client/contracts"
 
@@ -24,7 +25,7 @@ export const beginAgentStepDeadline = (
 
 export const suspendAgentDeadlines = (
   state: AgentDeadlineState,
-  kind: "approval" | "takeover",
+  kind: "approval" | "takeover" | "user" | "question",
   now: number
 ): AgentDeadlineState =>
   state.suspendedAt === undefined
@@ -107,9 +108,9 @@ export interface AgentProgressPoint {
 
 export interface AgentNoProgressInput {
   previous?: AgentProgressPoint
+  recent?: readonly AgentProgressPoint[]
   current: AgentProgressPoint
   previousCount?: number
-  verificationOutcome?: "confirmed" | "negative" | "ambiguous"
 }
 
 export interface AgentNoProgressResult {
@@ -118,6 +119,7 @@ export interface AgentNoProgressResult {
 }
 
 const decisionFingerprint = (decision: AgentDecision): string => {
+  if (decision.type === "complete") return "complete"
   if (decision.type !== "command") return JSON.stringify(decision)
   const {
     snapshotId: _snapshotId,
@@ -136,36 +138,72 @@ const fnv1a = (value: string): string => {
   return (hash >>> 0).toString(16).padStart(8, "0")
 }
 
-/** Snapshot identity and capture time change on every observation and are not progress. */
-export const hashAgentObservation = (observation: AgentObservation): string =>
-  fnv1a(
+/** Shared with prompt projection so loop detection compares the requested controls. */
+export const matchesAgentInspection = (
+  element: AgentElement,
+  focus: { region?: string; query?: string }
+): boolean => {
+  if (focus.region !== undefined)
+    return (element.group ?? "page") === focus.region
+  if (focus.query === undefined) return false
+  const needle = focus.query.toLowerCase()
+  return [
+    element.name,
+    element.placeholder,
+    element.role,
+    element.tag,
+    element.type
+  ].some((value) => value?.toLowerCase().includes(needle))
+}
+
+/** Ignore unrelated page churn for targeted reads, but never ignore a changed answer. */
+export const hashAgentObservation = (
+  observation: AgentObservation,
+  decision?: AgentDecision
+): string => {
+  const command = decision?.type === "command" ? decision.command : undefined
+  if (command?.type === "inspect" || command?.type === "find") {
+    const focus =
+      command.type === "inspect"
+        ? { region: command.target }
+        : { query: command.query }
+    return fnv1a(
+      JSON.stringify(
+        observation.elements
+          .filter((element) => matchesAgentInspection(element, focus))
+          .map(({ verificationId: _verificationId, ...element }) => element)
+      )
+    )
+  }
+  return fnv1a(
     JSON.stringify({
       url: observation.url,
       title: observation.title,
       elements: observation.elements,
       visibleText: observation.visibleText,
       scroll: observation.scroll,
-      dialogs: observation.dialogs
+      dialogs: observation.dialogs,
+      textPage: observation.textPage
     })
   )
+}
 
 export const classifyNoProgress = (
   input: AgentNoProgressInput
 ): AgentNoProgressResult => {
-  if (input.verificationOutcome === "confirmed") {
-    return { noProgress: false, count: 0 }
-  }
   if (input.current.decision.type === "command") {
     if (input.current.decision.command.type === "wait") {
       return { noProgress: false, count: input.previousCount ?? 0 }
     }
   }
-  const same =
-    input.previous !== undefined &&
-    input.previous.url === input.current.url &&
-    input.previous.snapshotHash === input.current.snapshotHash &&
-    decisionFingerprint(input.previous.decision) ===
-      decisionFingerprint(input.current.decision)
+  const candidates = input.recent ?? (input.previous ? [input.previous] : [])
+  const same = candidates.some(
+    (previous) =>
+      previous.url === input.current.url &&
+      decisionFingerprint(previous.decision) ===
+        decisionFingerprint(input.current.decision) &&
+      previous.snapshotHash === input.current.snapshotHash
+  )
   return {
     noProgress: same,
     count: same ? (input.previousCount ?? 0) + 1 : 0

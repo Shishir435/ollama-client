@@ -20,6 +20,8 @@ import type {
  */
 export const AGENT_AFFORDANCE_REASONS = [
   "unknown_ref",
+  "not_scrollable",
+  "unavailable_frame",
   "ambiguous_ref",
   "hidden_target",
   "disabled_target",
@@ -37,6 +39,7 @@ export const AGENT_AFFORDANCE_REASONS = [
   "newline_in_single_line",
   "text_not_found",
   "text_ambiguous",
+  "value_truncated",
   /** Drag: the destination cannot be grounded beside the source. */
   "unknown_destination",
   "hidden_destination",
@@ -220,6 +223,7 @@ const classifyTypedText = (
   text: string
 ): AgentAffordanceRefusal | undefined => {
   if (!acceptsText(element)) return refusal("not_text_field", element)
+  if (element.valueTruncated) return refusal("value_truncated", element)
   if (containsNewline(text) && !element.multiline) {
     return refusal("newline_in_single_line", element)
   }
@@ -385,6 +389,19 @@ export const classifyAgentAffordance = (
 ): AgentAffordanceRefusal | undefined => {
   const blocked = classifyDialogState(command, observation)
   if (blocked) return blocked
+  if (
+    command.type === "extract_text" &&
+    command.frameId !== undefined &&
+    command.frameId !== 0 &&
+    !observation.frames.some(
+      (frame) =>
+        frame.frameId === command.frameId &&
+        (frame.access === "ok" || frame.access === "element_budget")
+    )
+  )
+    return { reason: "unavailable_frame" }
+  if (command.type === "scroll" && command.container && !command.ref)
+    return { reason: "not_scrollable" }
   if (!("ref" in command) || command.ref === undefined) return undefined
   /**
    * References are unique across frames — a child frame's carry its frame in
@@ -398,12 +415,25 @@ export const classifyAgentAffordance = (
   if (candidates.length > 1)
     return { reason: "ambiguous_ref", ref: command.ref }
   const element = candidates[0]
+  if (command.type === "scroll" && !command.container) return undefined
   if (!element.visible) return refusal("hidden_target", element)
   /** A pointer may rest on a disabled control — that is how its tooltip shows. */
   if (command.type === "hover") return undefined
   if (!element.enabled) return refusal("disabled_target", element)
   /** A scroll only needs a real element; it changes nothing about it. */
-  if (command.type === "scroll") return undefined
+  if (command.type === "scroll") {
+    if (
+      command.container &&
+      (!command.ref ||
+        !observation.elements.find((element) => element.ref === command.ref)
+          ?.scroll)
+    )
+      return {
+        reason: "not_scrollable",
+        ...(command.ref ? { ref: command.ref } : {})
+      }
+    return undefined
+  }
   if (command.type === "drag")
     return classifyDrag(command, element, observation)
   return classifyTarget(command, element)
@@ -462,6 +492,10 @@ export const agentAffordanceFeedback = (
 ): string => {
   const ref = refused.ref ? `Ref "${refused.ref}"` : "That element"
   switch (refused.reason) {
+    case "not_scrollable":
+      return `${ref} is not an observed scrollable pane. Choose a ref with scroll metrics, or omit container to bring a target into view.`
+    case "unavailable_frame":
+      return "The requested frame is not available to this run. Choose an authorized frame from observation.frames, or ask the user for help."
     case "unknown_ref":
       return `${ref} is not in the current observation. Use a ref that the observation lists.`
     case "ambiguous_ref":
@@ -496,6 +530,8 @@ export const agentAffordanceFeedback = (
       return `${ref} does not contain the text named in find. Use an exact run of its observed value.`
     case "text_ambiguous":
       return `${ref} contains the text named in find more than once. Name a longer run that occurs exactly once.`
+    case "value_truncated":
+      return `${ref} exceeds the editable text limit and its value is truncated. Ask the user to edit this field; changing only the observed prefix could discard unseen text.`
     case "unknown_destination":
       return `${ref} is not in the current observation, so nothing can be dragged onto it. Use a destination ref the observation lists.`
     case "hidden_destination":

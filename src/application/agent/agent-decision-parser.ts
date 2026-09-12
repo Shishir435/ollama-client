@@ -32,7 +32,7 @@ export class AgentDecisionFormatError extends AgentMalformedDecisionError {
 }
 
 const SHAPE_FEEDBACK =
-  'Return exactly one agent_decision call with flat arguments, e.g. {"type":"click","ref":"e1"}.'
+  'Call the tool named agent_decision only. Action names are its type argument, not tool names. Use flat arguments, e.g. {"type":"click","ref":"e1"} or {"type":"ask_user","question":"Which account?"}.'
 
 const STALE_FEEDBACK =
   "The page snapshot moved on. Use only the refs listed in the observation supplied with this request."
@@ -70,7 +70,7 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   read: [],
   inspect: ["target"],
   find: ["query"],
-  extract_text: [],
+  extract_text: ["offset", "frameId"],
   click: ["ref"],
   click_point: ["x", "y"],
   zoom: ["x", "y", "width", "height"],
@@ -84,7 +84,7 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   check: ["ref"],
   uncheck: ["ref"],
   press_key: ["ref", "key"],
-  scroll: ["ref", "direction", "amount"],
+  scroll: ["ref", "direction", "amount", "container"],
   navigate: ["url"],
   open_tab: ["url"],
   switch_tab: ["tabId"],
@@ -92,6 +92,49 @@ const COMMAND_FIELDS: Record<string, readonly string[]> = {
   back: [],
   forward: [],
   wait: ["condition", "timeoutMs"]
+}
+
+const DECISION_FIELDS = new Set([
+  "type",
+  "command",
+  "finding",
+  ...Object.values(COMMAND_FIELDS).flat(),
+  ...Object.values(VARIANT_FIELDS),
+  ...Object.values(VARIANT_OPTIONAL_FIELDS).flat()
+])
+
+/** Schema-owned field names only: never echo rejected values or Zod messages. */
+const invalidFieldsFeedback = (
+  issues: readonly { path: readonly PropertyKey[] }[],
+  normalized: unknown
+): string => {
+  const fields = [
+    ...new Set(
+      issues.flatMap((issue) =>
+        issue.path.filter(
+          (part): part is string =>
+            typeof part === "string" &&
+            part !== "command" &&
+            DECISION_FIELDS.has(part)
+        )
+      )
+    )
+  ]
+  if (!fields.length) return SHAPE_FEEDBACK
+  const isWait =
+    normalized &&
+    typeof normalized === "object" &&
+    "command" in normalized &&
+    normalized.command &&
+    typeof normalized.command === "object" &&
+    "type" in normalized.command &&
+    normalized.command.type === "wait"
+  return (
+    `The agent_decision call has missing or invalid fields: ${fields.join(", ")}. Correct these fields using the tool schema and flat arguments.` +
+    (isWait
+      ? ' For wait, condition is required: the exact page text to wait for (1 to 500 characters), alongside timeoutMs (integer 1 to 30000). Example: {"type":"wait","condition":"All changes saved","timeoutMs":10000}.'
+      : "")
+  )
 }
 
 const normalizeDecisionArguments = (
@@ -234,7 +277,7 @@ export const parseAgentDecisionToolCalls = (
     })
     throw new AgentDecisionFormatError(
       "The model returned an invalid decision",
-      SHAPE_FEEDBACK
+      invalidFieldsFeedback(parsed.error.issues, normalized)
     )
   }
   return assertGroundedDecision(parsed.data, observation)

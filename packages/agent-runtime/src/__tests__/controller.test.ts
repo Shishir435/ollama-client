@@ -167,6 +167,8 @@ interface HarnessOptions {
   failClaim?: AgentRunStatus
   observe?: AgentControllerDependencies["observation"]["observe"]
   decide?: AgentControllerDependencies["model"]["decide"]
+  vision?: AgentControllerDependencies["model"]["vision"]
+  screenshot?: AgentControllerDependencies["screenshot"]
   createCancellationController?: () => AgentCancellationController
   clock?: () => number
   effect?: AgentControllerDependencies["effect"]["resolve"]
@@ -242,7 +244,9 @@ const createHarness = (options: HarnessOptions = {}) => {
   const dependencies: AgentControllerDependencies = {
     clock: { now: options.clock ?? (() => 10) },
     persistence,
+    screenshot: options.screenshot,
     model: {
+      vision: options.vision,
       decide:
         options.decide ??
         (async () => {
@@ -341,6 +345,32 @@ const newOriginEffect: Partial<ResolvedAgentEffect> = {
 }
 
 describe("agent controller", () => {
+  it("never asks the frozen renderer for a screenshot while a native dialog is held", async () => {
+    const capture = vi.fn(async () => undefined)
+    const vision = vi.fn(async () => true)
+    const harness = createHarness({
+      vision,
+      screenshot: { capture },
+      observations: [
+        observation({
+          dialogs: [
+            {
+              id: "held",
+              type: "confirm",
+              message: "Continue?",
+              origin: "https://example.com"
+            }
+          ]
+        })
+      ],
+      decisions: [{ type: "ask_user", question: "May I accept?" }]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().question?.text).toBe("May I accept?")
+    expect(capture).not.toHaveBeenCalled()
+    expect(vision).not.toHaveBeenCalled()
+  })
+
   it("claims a phase before observing or deciding", async () => {
     const harness = createHarness()
     await harness.controller.start("run-1")
@@ -559,23 +589,139 @@ describe("agent controller", () => {
     expect(harness.calls).not.toContain("execute")
   })
 
-  it("reports a refused command as an invalid decision, not a failed verification", async () => {
+  it("hands a refused command back to the model instead of failing the run", async () => {
+    /**
+     * Nothing was attempted, so the run has lost nothing. Failing here gave
+     * a well-formed decision one chance and answered it with advice about
+     * needing a larger model.
+     */
+    let refusals = 0
     const harness = createHarness({
-      effect: async () => {
+      effect: async (currentCommand, currentObservation) => {
+        refusals += 1
+        if (refusals > 1) {
+          return resolvedEffect(currentObservation, currentCommand)
+        }
         throw new AgentGroundingError({
           refusal: { reason: "not_checkable", ref: "e1", tag: "button" }
         })
       }
     })
     await harness.controller.start("run-1")
-    expect(harness.getState()).toMatchObject({
-      status: "failed",
-      error: { code: "invalid_decision" }
-    })
-    expect(harness.getState().error?.message).toContain(
+
+    expect(harness.getState().status).not.toBe("failed")
+    const rejected = harness.writtenSteps.find(
+      (step) => step.status === "rejected"
+    )
+    expect(rejected?.verification?.evidence.summary).toContain(
       "only on a checkbox or radio input"
     )
+    /** The refusal is in the record, so the next decision is told about it. */
+    expect(rejected?.command).toBeDefined()
+  })
+
+  it("asks for help after repeated grounding refusals", async () => {
+    const harness = createHarness({
+      /** The model keeps naming the same control the page will not offer. */
+      decide: async () => ({ type: "command", command: command() }),
+      observations: [
+        observation(),
+        observation(),
+        observation(),
+        observation()
+      ],
+      effect: async () => {
+        throw new AgentGroundingError({
+          refusal: { reason: "hidden_target", ref: "e149" }
+        })
+      }
+    })
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question"
+    })
+    expect(harness.getState().question?.text).toContain("is not visible")
     expect(harness.calls).not.toContain("execute")
+    /** Three chances, not one and not the whole observation budget. */
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "rejected")
+    ).toHaveLength(3)
+  })
+
+  it("resets consecutive refusals after a declined completion", async () => {
+    const harness = createHarness({
+      stepsFail: true,
+      decisions: [
+        { type: "command", command: command() },
+        { type: "command", command: command() },
+        { type: "complete", summary: "Done", evidence: "not on this page" },
+        { type: "command", command: command() },
+        { type: "ask_user", question: "Which control?" }
+      ],
+      observe: async () => observation(),
+      effect: async () => {
+        throw new AgentGroundingError({
+          refusal: { reason: "hidden_target", ref: "e1" }
+        })
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().question?.text).toBe("Which control?")
+    expect(harness.calls).not.toContain("execute")
+  })
+
+  it("records a correction only for the exact user pause and resumes active deadlines", async () => {
+    let seen: AgentModelInput | undefined
+    const harness = createHarness({
+      state: runState({
+        status: "paused",
+        pauseReason: "user",
+        updatedAt: 20,
+        deadline: {
+          runStartedAt: 0,
+          stepStartedAt: 0,
+          runSuspendedMs: 0,
+          stepSuspendedMs: 0,
+          suspendedAt: 20,
+          suspensionKind: "user"
+        }
+      }),
+      clock: () => 1_000_020,
+      decide: async (input) => {
+        seen = input
+        return { type: "ask_user", question: "Continue?" }
+      }
+    })
+    await harness.controller.resume("run-1", {
+      text: "Use the blue account",
+      pausedAt: 19
+    })
+    expect(seen).toBeUndefined()
+    await harness.controller.resume("run-1", {
+      text: "Use the blue account",
+      pausedAt: 20
+    })
+    expect(seen?.state.answers).toEqual([
+      expect.objectContaining({
+        text: "Use the blue account",
+        question: "User correction after pausing"
+      })
+    ])
+    expect(harness.getState().deadline?.runSuspendedMs).toBe(1_000_000)
+  })
+
+  it.each([
+    "unresolved_effect",
+    "question"
+  ] as const)("cannot correct past %s", async (pauseReason) => {
+    const harness = createHarness({
+      state: runState({ status: "paused", pauseReason, updatedAt: 20 })
+    })
+    await harness.controller.resume("run-1", { text: "Continue", pausedAt: 20 })
+    expect(harness.calls).not.toContain("decide")
+    expect(harness.getState().answers).toBeUndefined()
   })
 
   it("does not blame the decision when the page went stale under it", async () => {
@@ -1139,7 +1285,7 @@ describe("agent controller", () => {
     expect(harness.getState().status).toBe("completed")
   })
 
-  it("fails after three repeated semantic decisions without progress", async () => {
+  it("asks for correction after three repeated semantic decisions without progress", async () => {
     const noChange: AgentVerificationResult = {
       outcome: "negative",
       evidence: { kind: "dom", summary: "No change", observedAt: 2 }
@@ -1161,8 +1307,11 @@ describe("agent controller", () => {
 
     await harness.controller.start("run-1")
     expect(harness.getState()).toMatchObject({
-      status: "failed",
-      error: { code: "budget_exhausted" }
+      status: "paused",
+      pauseReason: "question",
+      question: expect.objectContaining({
+        text: expect.stringContaining("What should I do differently")
+      })
     })
     expect(harness.calls.filter((call) => call === "execute")).toHaveLength(3)
   })

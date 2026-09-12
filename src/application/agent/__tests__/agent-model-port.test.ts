@@ -792,3 +792,60 @@ describe("vision decisions", () => {
     expect(resolveCompatibility).toHaveBeenCalledTimes(1)
   })
 })
+
+describe("usable agent prompt", () => {
+  it("forwards persisted clarification and its question into the provider request", async () => {
+    let sent: ChatRequest | undefined
+    const port = modelPort(async (request, emit) => {
+      sent = request
+      emit(validChunk)
+    })
+    await port.decide(
+      {
+        state: {
+          ...state,
+          answers: [
+            {
+              questionId: "q1",
+              question: "Which account?",
+              text: "BLUE-742",
+              answeredAt: 2
+            }
+          ]
+        },
+        observation
+      },
+      { aborted: false }
+    )
+    if (!sent) throw new Error("No model request")
+    const prompt = JSON.parse(String(sent.messages[1].content))
+    expect(prompt.userAnswers).toEqual([
+      {
+        questionId: "q1",
+        question: "Which account?",
+        text: "BLUE-742",
+        answeredAt: 2
+      }
+    ])
+  })
+  it("reserves actual system and schema cost at a context rounding boundary", async () => {
+    let sent: ChatRequest | undefined
+    const port = modelPort(async (request, emit) => {
+      sent = request
+      emit(validChunk)
+    })
+    await port.decide(
+      { state: { ...state, goal: "x".repeat(12_000) }, observation },
+      { aborted: false }
+    )
+    if (!sent) throw new Error("No model request")
+    const fixed = Math.ceil(
+      (String(sent.messages[0].content).length +
+        JSON.stringify(sent.tools).length) /
+        3.5
+    )
+    const estimated =
+      Math.ceil(String(sent.messages[1].content).length / 3.5) + fixed + 4096
+    expect(sent.num_ctx).toBeGreaterThanOrEqual(estimated)
+  })
+})

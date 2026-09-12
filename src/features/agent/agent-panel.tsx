@@ -3,9 +3,11 @@ import { useTranslation } from "react-i18next"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { useSetting } from "@/hooks/use-setting"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
+import { downloadFile } from "@/lib/exporters/utils"
 import { SETTINGS } from "@/lib/storage/settings"
 import { AgentView } from "./agent-view"
 import { useAgentCandidateTab } from "./hooks/use-agent-candidate-tab"
+import { useAgentDebugReport } from "./hooks/use-agent-debug-report"
 import { useAgentRun } from "./hooks/use-agent-run"
 import { agentPlainText, visibleAgentTab } from "./lib/presentation"
 import { useAgentDraft } from "./stores/agent-draft-store"
@@ -35,6 +37,7 @@ export const AgentPanel = () => {
     modelId: selectedModel || undefined,
     tabId: candidateTab?.id
   })
+  useAgentDebugReport(connection.debugReport)
   const { snapshot } = connection
 
   return (
@@ -83,8 +86,25 @@ export const AgentPanel = () => {
           onReject={connection.reject}
           onPause={connection.pause}
           onResume={connection.resume}
+          onCorrect={connection.correct}
           onStop={connection.stop}
           onTakeoverComplete={connection.completeTakeover}
+          onExport={() => {
+            if (!snapshot.run) return
+            downloadFile(
+              new Blob(
+                [
+                  JSON.stringify(
+                    { run: snapshot.run, steps: snapshot.steps },
+                    null,
+                    2
+                  )
+                ],
+                { type: "application/json" }
+              ),
+              `agent-${snapshot.run.id}.json`
+            )
+          }}
           onFeedback={() =>
             void openOptionsInTab(runtime.getURL("options.html?tab=privacy"))
           }

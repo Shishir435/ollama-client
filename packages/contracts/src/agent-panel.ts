@@ -159,7 +159,17 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
     })
     .strict(),
   RunScopedSchema.extend({ type: z.literal("agent_pause") }).strict(),
-  RunScopedSchema.extend({ type: z.literal("agent_resume") }).strict(),
+  RunScopedSchema.extend({
+    type: z.literal("agent_resume"),
+    text: z.string().min(1).max(MAX_AGENT_ANSWER_CHARS).optional(),
+    pausedAt: z.number().int().nonnegative().optional()
+  })
+    .strict()
+    .refine(
+      (command) =>
+        (command.text === undefined) === (command.pausedAt === undefined),
+      { message: "A correction requires its pause timestamp" }
+    ),
   RunScopedSchema.extend({ type: z.literal("agent_stop") }).strict(),
   RunScopedSchema.extend({
     type: z.literal("agent_complete_takeover")
@@ -180,12 +190,27 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
     type: z.literal("agent_answer"),
     text: z.string().min(1).max(MAX_AGENT_ANSWER_CHARS)
   }).strict(),
+  z
+    .object({
+      type: z.literal("agent_debug_report"),
+      requestId: z.string().min(1).max(120),
+      runId: z.string().min(1).max(200).optional()
+    })
+    .strict(),
   z.object({ type: z.literal("agent_refresh") }).strict()
 ])
 export type AgentPanelCommand = z.infer<typeof AgentPanelCommandSchema>
 
 /** Background to panel. */
 export const AgentPanelMessageSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("agent_debug_report"),
+      version: z.literal(AGENT_PANEL_PROTOCOL_VERSION),
+      requestId: z.string().min(1).max(120),
+      report: z.string().max(4_000_000)
+    })
+    .strict(),
   z
     .object({
       type: z.literal("agent_snapshot"),

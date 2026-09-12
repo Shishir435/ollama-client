@@ -64,6 +64,7 @@
     },
     "failure": {
       "budget_exhausted": "La ejecución agotó su presupuesto de pasos. Acote el objetivo o vuelva a empezar desde el estado actual de la página.",
+      "command_refused": "El modelo siguió nombrando controles que la página no ofrece: ocultos, fuera de pantalla o ya desaparecidos. Desplácese primero hasta lo que necesita, o pruebe un modelo que lea las páginas con más cuidado.",
       "goal_failed": "El modelo indicó que no puede hacerlo. Pruebe un objetivo más claro u otro modelo.",
       "invalid_decision": "El modelo respondió repetidamente en un formato inutilizable. Un modelo mayor con llamadas a herramientas suele resolverlo.",
       "model_unavailable": "No se pudo alcanzar el modelo. Compruebe que el proveedor está activo y vuelva a iniciar.",
@@ -159,7 +160,9 @@
     "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
     "work_log": {
       "title": "Registro de trabajo"
-    }
+    },
+    "correction": "En pausa. Describe qué debe cambiar y continúa.",
+    "export_report": "Exportar informe (incluye texto de la página)"
   },
   "common": {
     "theme": {

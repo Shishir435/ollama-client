@@ -59,6 +59,36 @@ const call = (argumentsValue: Record<string, unknown>) => ({
 })
 
 describe("parseAgentDecisionToolCalls", () => {
+  it("tells an invalid wait which fields to repair without echoing values", () => {
+    for (const args of [
+      { type: "wait", timeoutMs: 20000 },
+      { type: "wait", condition: "private-page-value", timeoutMs: 40000 }
+    ]) {
+      try {
+        parseAgentDecisionToolCalls([call(args)], observation)
+        expect.fail("invalid wait accepted")
+      } catch (error) {
+        expect(error).toBeInstanceOf(AgentDecisionFormatError)
+        const feedback = (error as AgentDecisionFormatError).feedback
+        expect(feedback).toContain("condition is required")
+        expect(feedback).toContain("timeoutMs (integer 1 to 30000)")
+        expect(feedback).not.toContain("private-page-value")
+      }
+    }
+    expect(
+      parseAgentDecisionToolCalls(
+        [
+          call({
+            type: "wait",
+            condition: "All changes saved",
+            timeoutMs: 10000
+          })
+        ],
+        observation
+      )
+    ).toMatchObject({ type: "command", command: { type: "wait" } })
+  })
+
   it("binds flat intent to the current observation without model-generated identity", () => {
     expect(
       parseAgentDecisionToolCalls(

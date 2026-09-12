@@ -4,7 +4,7 @@ import type {
   AgentPanelMessage,
   AgentPanelSnapshot
 } from "@ollama-client/contracts"
-import type { Page } from "@playwright/test"
+import type { Dialog, Page } from "@playwright/test"
 
 import { expect, test } from "./extension"
 
@@ -31,6 +31,12 @@ export interface AgentFixtureElement {
   name?: string
   type?: string
   value?: string
+  scroll?: {
+    x: number
+    y: number
+    documentHeight: number
+    viewportHeight: number
+  }
   checked?: boolean
   focused?: boolean
   href?: string
@@ -50,6 +56,12 @@ export interface AgentFixtureObservation {
   url: string
   title: string
   text: string
+  textPage?: {
+    text: string
+    offset: number
+    nextOffset?: number
+    frameId: number
+  }
   documentText?: string
   documentTextTruncated?: boolean
   modals?: { id: string; kind: string; label?: string }[]
@@ -57,11 +69,14 @@ export interface AgentFixtureObservation {
   frames?: { frameId: number; origin: string; access: string }[]
   /** Regions the overview left out, so a task can inspect one by name. */
   omittedByGroup?: { group: string; count: number }[]
+  /** Set when the inspect or find this observation answers matched nothing. */
+  unmatched?: { region?: string; query?: string; regions?: string[] }
   dialogs?: { id: string; type: string; message: string }[]
   elements: AgentFixtureElement[]
 }
 
 export interface AgentScenarioContext {
+  userAnswers?: { text: string; question?: string }[]
   /** 1 for the first decision the scripted model answers. */
   step: number
   page: Page
@@ -118,7 +133,7 @@ export interface AgentScenario {
   name: string
   goal: string
   /** The terminal run status the scenario is finished at. */
-  status: "completed" | "paused"
+  status: "completed" | "paused" | "failed"
   /** Included in the hosted-model matrix, which only runs a couple of tasks. */
   hosted?: boolean
   /** The fixture model reports itself as reading images. */
@@ -225,6 +240,8 @@ const runAgentScenarioAttempt = (
   test(title, async ({ extension }, testInfo) => {
     const startedAt = Date.now()
     const liveModel = process.env.AGENT_HOSTED_MODEL
+    const useHostedWire =
+      Boolean(liveModel) && process.env.AGENT_HOSTED_WIRE !== "ollama"
     /**
      * Where a live pass sends its decisions: the olc proxy by default, since
      * that is what the hosted matrix was written against, and Ollama directly
@@ -247,6 +264,7 @@ const runAgentScenarioAttempt = (
       "Live model matrix uses form and delayed navigation tasks"
     )
 
+    const dialogs: Dialog[] = []
     let fixturePage: Page | undefined
     let effects = 0
     let step = 0
@@ -297,6 +315,7 @@ const runAgentScenarioAttempt = (
       const actions: string[] =
         parsed.tools?.[0]?.function?.parameters?.properties?.type?.enum ?? []
       const envelope = JSON.parse(parsed.messages.at(-1)?.content ?? "{}") as {
+        userAnswers?: { text: string; question?: string }[]
         screenshot?: { width: number; height: number }
       }
       const decision = await scenario.decide(readObservation(parsed), {
@@ -304,6 +323,7 @@ const runAgentScenarioAttempt = (
         page: fixturePage as Page,
         images: lastMessage?.images?.length ?? 0,
         actions,
+        ...(envelope.userAnswers ? { userAnswers: envelope.userAnswers } : {}),
         ...(envelope.screenshot ? { screenshot: envelope.screenshot } : {})
       })
       wire.push({ request: parsed, decision })
@@ -375,6 +395,9 @@ const runAgentScenarioAttempt = (
       )
       const page = await extension.context.newPage()
       fixturePage = page
+      /** Playwright otherwise dismisses native dialogs before the extension can answer. */
+      if (testInfo.project.metadata.agentDomBackend !== true)
+        page.on("dialog", (dialog) => dialogs.push(dialog))
       await page.goto(origin)
       await panel.evaluate(
         async ({ origin, model, hosted }) => {
@@ -395,7 +418,7 @@ const runAgentScenarioAttempt = (
             })
           })
         },
-        { origin, model, hosted: Boolean(liveModel) }
+        { origin, model, hosted: useHostedWire }
       )
       await panel.reload()
       await page.bringToFront()
@@ -460,12 +483,25 @@ const runAgentScenarioAttempt = (
       try {
         await expect
           .poll(
-            () =>
-              messages.filter((m) => m.type === "agent_snapshot").at(-1)
-                ?.snapshot.run?.status,
+            () => {
+              const status = messages
+                .filter((m) => m.type === "agent_snapshot")
+                .at(-1)?.snapshot.run?.status
+              return (
+                status === scenario.status ||
+                status === "failed" ||
+                status === "cancelled"
+              )
+            },
             { timeout: liveModel ? 200_000 : 30_000 }
           )
-          .toBe(scenario.status)
+          .toBe(true)
+          .then(() =>
+            expect(
+              messages.filter((m) => m.type === "agent_snapshot").at(-1)
+                ?.snapshot.run?.status
+            ).toBe(scenario.status)
+          )
           .catch((error: unknown) => {
             /**
              * A gate fails here; a measurement records instead. A benchmark
@@ -522,6 +558,10 @@ const runAgentScenarioAttempt = (
         })
       }
     } finally {
+      // A failed run may leave a native prompt held; release it before failure screenshots.
+      await Promise.all(
+        dialogs.map((dialog) => dialog.dismiss().catch(() => {}))
+      )
       server.closeAllConnections()
       await new Promise<void>((resolve) => server.close(() => resolve()))
     }
@@ -533,3 +573,17 @@ export const firstObservation = (
   wire: AgentScenarioOutcome["wire"]
 ): AgentFixtureObservation =>
   readObservation(wire[0]?.request as { messages: { content: string }[] })
+
+/**
+ * Every observation the scripted model was given, oldest first. The first one
+ * cannot answer a request the model had not made yet, so anything about how a
+ * read-only request is answered has to be read from a later one.
+ */
+export const observations = (
+  wire: AgentScenarioOutcome["wire"]
+): AgentFixtureObservation[] =>
+  wire
+    .map((entry) =>
+      readObservation(entry.request as { messages: { content: string }[] })
+    )
+    .filter((observation) => observation !== undefined)

@@ -415,6 +415,51 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   is still bounded by a hard ceiling (`pageContentMaxChars`, set from the
   context ceiling), so a two-thousand-control region or a maximal text extract
   cannot push the prompt past the window and truncate the system prompt.
+- **A read-only request that matched nothing says so.** A region is matched by
+  the exact group name the observation publishes — `page` included, which is
+  the name omissions outside any landmark are reported under and was for a
+  while the one published region that could never match. A miss is reported as
+  `unmatched`, with the regions the page does have, because the answer to a
+  misnamed region is otherwise byte-identical to the answer to a real one and
+  a model has no way to learn: one run spent twenty-one of its twenty-five
+  observations asking for the same absent region.
+- **A confirmed step is not the same thing as progress, and the no-progress
+  guard must not be told otherwise.** It failed to fire on a run that repeated
+  one request twenty-one times, and the reason was that idea written down
+  three separate times:
+  - `classifyNoProgress` required an identical observation hash. A changed
+    page is normally proof the run got somewhere, but that does not hold for
+    `inspect` and `find` — the run changed nothing, so the page moving is not
+    its progress, and a live application moves between every pair of
+    observations. Those two compare the requested controls, ignoring unrelated page text and
+    layout churn while accepting new matching controls or changed values as progress. `read` and
+    `extract_text` keep the hash test, because for those the observation *is*
+    the answer and a changed page is a different answer.
+  - The controller cleared the guard's memory after every confirmed
+    verification. A pure read verifies `confirmed` by definition, so a repeat
+    could never accumulate. It is cleared on `agentEffectChangesPage(effect)`
+    now — navigation needs no exemption, since going somewhere changes the url
+    the guard compares first.
+  - `classifyNoProgress` took a `verificationOutcome` input that reset the
+    count on `confirmed`. Nothing ever passed it, and wiring it as written
+    would have made the loop unkillable. It is gone; do not reintroduce it.
+- **A refused command is told to the model, not made fatal.** The resolver
+  refusing to ground a command means nothing was attempted, so the run has
+  lost nothing: it records a rejected step carrying the affordance layer's own
+  sentence — assembled from templates and the model's ref, never from page
+  text — and looks again, exactly as a declined completion does. Three
+  consecutive refusals now pause with a question so the user can correct the
+  approach; the older `command_refused` error remains readable for saved runs. Failing on the first
+  one answered a well-formed decision with `invalid_decision`, whose advice
+  tells the user to find a larger model — wrong about what happened, and often
+  wrong about whose fault it was, since a control the observation offered can
+  be gone by the time the resolver reads the page.
+
+  Most refusals never reach the resolver: `agent-decision-parser.ts` asks the
+  same classifier the same question of the same observation, where a wrong
+  answer costs one retry instead of a step. What reaches the resolver is what
+  that check cannot see — a live hit test, a dialog that opened, a screenshot
+  that is no longer there.
 - **A finding outlives the history window.** `finding` on a decision is kept in
   a dedicated store (`buildAgentFindings`), bounded by count and bytes, carrying
   the redacted page each was recorded on. It is the run's own note and stays
@@ -718,6 +763,17 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   cannot authorize a click: the screenshot must carry the command's snapshot
   and generation and the observation's scroll, and the executor re-hit-tests
   the point before anything is sent, refusing a control that moved.
+
+  What a visual click does **not** answer to is our own reachability
+  reconstruction. `elementFromPoint` is the browser saying what a pointer at
+  that coordinate lands on; `visible` is `resolveVisibility` rebuilding the
+  same fact from client rects, the viewport and every ancestor's overflow.
+  When they disagree the reconstruction is wrong, so `hidden_target` is waived
+  alongside `not_clickable`, and occlusion needs no waiver because a hit test
+  returns the topmost element. Everything about what the click would *do* —
+  sensitive fields, links, submitters, checkboxes, a disabled control — still
+  governs. Overruling the browser here refused four different points across
+  ChatGPT's composer as "not visible" until the run's budget was gone.
 - Disclosure says whether pictures travel: `AgentProviderDisclosure.screenshots`
   is resolved from model vision, memoized per model, shown as unknown when it
   could not be determined, and switches the remote-provider notice to the
@@ -870,6 +926,25 @@ Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
   the run drives once it has adopted more than the one it started on.
 - Panel copy is i18n like everything else: every key exists in all nine
   locales, and `pnpm generate:resources` runs after a locale edit.
+- **A run's record comes out as text, in a dev build.** From the side panel's
+  own DevTools console, or the background worker's:
+  `await __agentReport()` for the run that ran last,
+  `await __agentReport("run-id")` for a particular one, `copy(await
+  __agentReport())` to the clipboard. It returns the durable record — every
+  step's command and its fields, the verification outcome and summary, the
+  failure's code — because a screenshot of the work log has statuses and none
+  of those, and diagnosing a run from pictures loses exactly what says where
+  it went wrong. `globalThis.__OLLAMA_CLIENT_AGENT_TRACE__ = true` is the
+  other half: structural phase lines for the rest of the worker lifetime, and
+  that one is the worker's console only. The panel carries the dump because
+  the worker's console is behind chrome://extensions, is not the console the
+  panel is open in, and loses the binding whenever the worker sleeps.
+  The dump is compile-time absent from store builds (`__AGENT_DEBUG_REPORT__`)
+  because the record quotes page text. `pnpm dev` carries it; a production
+  build does not, so testing against one means `pnpm build:debug` — the same
+  output directory, the same production bundle, with the dump kept. Only
+  `WXT_AGENT_DEBUG=1` turns it on, so a release build cannot acquire it by
+  forgetting a flag.
 
 ## Measured agent behaviour
 
@@ -955,3 +1030,43 @@ What these files are *now*, so you neither go looking for a god-object that was 
 - `src/types/index.ts` is a ~11-LOC re-export barrel. Prefer the per-domain path (`@/types/chat`).
 - `packages/contracts/src/chat.ts` is a ~31-LOC barrel over `chat-activity.ts`, `chat-attachments.ts`, `chat-replay.ts` and `chat-message.ts`. Consumers keep importing `@ollama-client/contracts/chat`; inside the package, import the part that owns the concept.
 - Dexie chat-history paths are retired. Vectors and knowledge sets still use Dexie; chat history is SQLite-only through the facade.
+
+## Agent task-completion contracts
+
+- Clarifications carry their question and answer into `agent-model-port.ts`.
+  A user correction applies only to the exact user-paused state (`pausedAt`);
+  it cannot resume an unresolved side effect or answer an approval.
+- `MAX_AGENT_TEXT_CHARS` is the shared editing value ceiling across commands,
+  observations and the control port. `valueTruncated` refuses editing and
+  prevents verification from accepting a prefix as the whole result. A value
+  exactly at the ceiling is editable when complete. Never truncate an expected
+  value merely to make verification succeed.
+- Control lookup searches both the ARIA name and a separate placeholder hint,
+  including an empty editor's child-paragraph placeholder. Never rename an
+  editor from its draft text. Invalid-decision feedback names schema-owned
+  fields to repair, without echoing rejected values or Zod messages.
+- `extract_text` offsets are reconstructed from the durable command and sent
+  to the selected frame through its authorized observation session. The
+  extraction page carries a continuation offset, and projection adjusts it
+  when it further shortens the page. No page query may bypass frame access.
+- `scroll` with `container: true` names a scrollable ref; its own scroll
+  coordinates, joined by verification identity, prove movement. Ordinary ref
+  scrolling retains `scrollIntoView` behavior.
+- A native dialog can block input acknowledgment. The executor stops waiting
+  on the renderer using debugger state, does not replay input, and verifies
+  that the same dialog is held. A held dialog skips screenshot capture,
+  because the renderer cannot answer it. The following dialog decision keeps its own
+  approval. Browser fixtures must register a passive Playwright dialog
+  listener, otherwise Playwright dismisses it before the extension can answer.
+- Completion retries read evidence only. Missing evidence is never accepted
+  because a timeout elapsed. Repeated or alternating decisions pause for a
+  correction; user/question pauses suspend active-time accounting. A supplied
+  completion quote is checked even for a run that only read or scrolled.
+- `agent-useful-workflows.spec.ts` exercises composer lookup, long editing, pane scrolling,
+  paginated extraction, clarification, delayed save and native confirmation.
+  Its hosted flag also runs these tasks against a real provider. Scripted
+  results establish execution coverage, not live-model reliability. Set
+  `AGENT_HOSTED_WIRE=ollama` for native Ollama; the default is OpenAI-compatible.
+- The panel debug report uses its existing authenticated supervision port.
+  Features never import background repositories. Store checks scan every JS
+  bundle for debug helpers regardless of the caller's environment flags.

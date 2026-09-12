@@ -194,10 +194,20 @@ describe("classifyAgentAffordance", () => {
     ).toBeUndefined()
   })
 
+  it("refuses a container scroll without a ref", () => {
+    expect(
+      classify({ type: "scroll", direction: "down", container: true }, [])
+    ).toEqual({ reason: "not_scrollable" })
+  })
+  it("refuses extraction of an unobserved frame", () => {
+    expect(
+      classify({ type: "extract_text", frameId: 99, offset: 0 }, [])
+    ).toEqual({ reason: "unavailable_frame" })
+  })
   it("lets a scroll target be anything the observation still lists", () => {
     expect(
       classify({ type: "scroll", ref: "e1", direction: "down" }, [
-        element({ tag: "div", role: "presentation" })
+        element({ tag: "div", role: "presentation", visible: false })
       ])
     ).toBeUndefined()
   })
@@ -209,6 +219,7 @@ describe("classifyAgentAffordance", () => {
  * no longer open, so their sentences cannot quote a ref.
  */
 const PAGE_SCOPED_REASONS = [
+  "unavailable_frame",
   "dialog_open",
   "unknown_dialog",
   "prompt_text_unsupported"

@@ -64,6 +64,7 @@
     },
     "failure": {
       "budget_exhausted": "The run used its whole step budget. Narrow the goal, or set it again from where the page is now.",
+      "command_refused": "The model kept naming controls the page does not offer — hidden, off-screen or already gone. Scroll to what you need first, or try a model that reads pages more carefully.",
       "goal_failed": "The model reported it cannot do this. Try a clearer goal, or a different model.",
       "invalid_decision": "The model kept answering in a form the run could not use. A larger or tool-calling model usually fixes this.",
       "model_unavailable": "The model could not be reached. Check the provider is running, then start the run again.",
@@ -159,7 +160,9 @@
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
     "work_log": {
       "title": "Work log"
-    }
+    },
+    "correction": "Paused. Describe what should change, then continue.",
+    "export_report": "Export run report (includes page text)"
   },
   "common": {
     "theme": {

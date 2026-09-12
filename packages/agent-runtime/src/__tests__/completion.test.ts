@@ -120,6 +120,16 @@ describe("agentEffectChangesPage", () => {
 })
 
 describe("judgeAgentCompletion", () => {
+  it("checks a supplied evidence quote even when the run only read or scrolled", () => {
+    expect(
+      judgeAgentCompletion({
+        steps: [],
+        observation: observation(),
+        evidence: "Button is ready to click"
+      })
+    ).toMatchObject({ type: "refused", reason: "absent_evidence" })
+  })
+
   it("accepts a run that only read", () => {
     expect(
       judgeAgentCompletion({ steps: [], observation: observation() })

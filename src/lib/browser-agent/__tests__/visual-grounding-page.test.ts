@@ -88,6 +88,37 @@ describe("visual grounding in the page", () => {
     ).toBeNull()
   })
 
+  it("passes over a listed ancestor the run could not act on", () => {
+    /**
+     * A wrapper with no box of its own is listed and contains the point, and
+     * answering with it handed the resolver a target it refuses by rule: a
+     * run spent its whole budget clicking one screenshot point and being told
+     * the control it named was not visible.
+     */
+    const wrapper = document.createElement("div")
+    const input = document.createElement("input")
+    wrapper.append(input)
+    document.body.append(wrapper)
+    vi.spyOn(wrapper, "getClientRects").mockReturnValue(
+      [] as unknown as DOMRectList
+    )
+    vi.spyOn(input, "getClientRects").mockReturnValue([
+      rect(0, 0)
+    ] as unknown as DOMRectList)
+    /** Only the wrapper was listed, so the walk climbs to it from the input. */
+    const { references } = snapshotWith(wrapper)
+
+    document.elementFromPoint = () => input
+    const hit = hitTestAgentPointInDocument({
+      identity,
+      point: { x: 5, y: 5 },
+      document,
+      references
+    })
+
+    expect(hit?.element).toMatchObject({ tag: "input", visible: true })
+  })
+
   it("answers a point with the listed control that contains it, else the hit element newly referenced", () => {
     const button = document.createElement("button")
     const icon = document.createElement("span")

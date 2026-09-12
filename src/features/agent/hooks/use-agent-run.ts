@@ -9,6 +9,10 @@ import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { requestAgentPerceptionPermission } from "@/lib/permissions"
+import {
+  type AgentDebugReporter,
+  requestAgentDebugReport
+} from "./use-agent-debug-report"
 
 export interface AgentCommandFailure {
   command: string
@@ -24,6 +28,8 @@ export interface AgentRunConnection {
   start(goal: string): void
   pause(): void
   resume(): void
+  correct(text: string): void
+  debugReport: AgentDebugReporter
   stop(): void
   completeTakeover(): void
   approve(scope?: "run_origin"): void
@@ -96,6 +102,7 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
         })
         return
       }
+      if (parsed.data.type === "agent_debug_report") return
       setBusy(false)
       if (parsed.data.type === "agent_snapshot") {
         active = Boolean(
@@ -156,6 +163,12 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
     setFailure(undefined)
     setBusy(true)
     port.postMessage(command)
+  }, [])
+
+  const debugReport = useCallback<AgentDebugReporter>((runId, signal) => {
+    const port = portRef.current
+    if (!port) return Promise.reject(new Error("Agent background disconnected"))
+    return requestAgentDebugReport(port, runId, signal)
   }, [])
 
   const runId = snapshot.run?.id
@@ -223,6 +236,23 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
   )
 
   return {
+    debugReport,
+    correct(text) {
+      const run = snapshot.run
+      if (
+        !run ||
+        run.status !== "paused" ||
+        run.pauseReason !== "user" ||
+        !text.trim()
+      )
+        return
+      send({
+        type: "agent_resume",
+        runId: run.id,
+        text: text.trim(),
+        pausedAt: run.updatedAt
+      })
+    },
     snapshot,
     failure,
     busy,

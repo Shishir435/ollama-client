@@ -350,7 +350,8 @@ export const createAgentBrowserAdapters = (input: {
     tabId: number,
     minimumGeneration: number,
     allowedOrigins: readonly string[],
-    signal: AgentCancellationSignal
+    signal: AgentCancellationSignal,
+    extraction?: { offset: number; frameId: number }
   ): Promise<AgentObservation> => {
     const dialog = input.browserSessions?.openDialog(input.runId, tabId)
     if (dialog) {
@@ -360,7 +361,13 @@ export const createAgentBrowserAdapters = (input: {
       )
     }
     const observation = await input.sessions.observe(
-      { runId: input.runId, tabId, minimumGeneration, allowedOrigins },
+      {
+        runId: input.runId,
+        tabId,
+        minimumGeneration,
+        allowedOrigins,
+        ...(extraction ? { extraction } : {})
+      },
       abortSignal(signal)
     )
     lastPage.set(tabId, {
@@ -552,7 +559,8 @@ export const createAgentBrowserAdapters = (input: {
           request.tabId,
           request.minimumGeneration,
           request.allowedOrigins,
-          signal
+          signal,
+          request.extraction
         )
         lastViewport.set(request.tabId, {
           x: observation.scroll.x,
@@ -612,6 +620,15 @@ export const createAgentBrowserAdapters = (input: {
         )
       },
       ...(input.browserSessions ? nativeAdapter : {}),
+      ...(input.browserSessions
+        ? {
+            openDialogId: (effect: AuthorizedAgentEffect) =>
+              input.browserSessions?.openDialog(
+                input.runId,
+                effect.snapshotIdentity.tabId
+              )?.id
+          }
+        : {}),
       async activateTab(tabId) {
         await browser.tabs.update(tabId, { active: true })
       },

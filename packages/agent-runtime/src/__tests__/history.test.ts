@@ -401,7 +401,7 @@ describe("currentAgentInspection", () => {
         }
       })
     ])
-    expect(focus).toEqual({ text: true })
+    expect(focus).toEqual({ text: true, offset: 0, frameId: 0 })
   })
 
   it("clears once the latest step is no longer an inspection", () => {

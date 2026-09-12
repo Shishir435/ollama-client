@@ -60,7 +60,7 @@ neither pass is the reference.
 | false completions | reported complete, predicate says otherwise |
 | missed completions | predicate says met, the run never claimed it |
 
-## Results — scripted model, 2026-09-10
+## Results — scripted model, 2026-09-12
 
 One attempt per task per backend. A scripted model is deterministic, so
 repetition measures nothing here; `AGENT_BENCHMARK_ATTEMPTS` exists for a live
@@ -68,96 +68,101 @@ model, where it does.
 
 | family | n | completed (cdp / dom) | goal met (cdp / dom) | false | missed | median ms (cdp / dom) |
 | --- | --- | --- | --- | --- | --- | --- |
-| canvas-and-visual | 3 | 3 / 1 | 3 / 1 | 0 / 0 | 0 / 0 | 2887 / 32454 |
-| delayed-save | 3 | 2 / 2 | 3 / 3 | 0 / 0 | 1 / 1 | 6448 / 6394 |
-| dialogs-and-recovery | 3 | 2 / 2 | 2 / 2 | 0 / 0 | 0 / 0 | 2959 / 2911 |
-| editors | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2920 / 2934 |
-| form-preparation | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2908 / 2938 |
-| frames | 3 | 2 / 2 | 3 / 3 | 0 / 0 | 0 / 0 | 2887 / 2942 |
-| multi-tab | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2933 / 2954 |
-| read-and-extract | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2903 / 2691 |
-| shadow-roots | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2936 / 2918 |
-| single-action | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2911 / 2906 |
+| canvas-and-visual | 3 | 3 / 1 | 3 / 1 | 0 / 0 | 0 / 0 | 3981 / 32576 |
+| delayed-save | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 5874 / 5670 |
+| dialogs-and-recovery | 3 | 3 / 2 | 3 / 2 | 0 / 0 | 0 / 0 | 7950 / 3052 |
+| editors | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 3148 / 3084 |
+| form-preparation | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 3192 / 3267 |
+| frames | 3 | 2 / 2 | 3 / 3 | 0 / 0 | 0 / 0 | 3954 / 3118 |
+| multi-tab | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 5853 / 3074 |
+| read-and-extract | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 2837 / 3368 |
+| shadow-roots | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 3584 / 3201 |
+| single-action | 3 | 3 / 3 | 3 / 3 | 0 / 0 | 0 / 0 | 3596 / 3139 |
 
-Totals, including the task that writes the report:
+Totals include the additional report task:
 
-- **native backend** — 28 of 31 attempts reported completion, 30 met the
-  predicate, **0 false completions**, 1 missed.
-- **DOM backend** — 26 of 31 reported completion, 28 met the predicate,
-  **0 false completions**, 1 missed.
+- **native backend** — 30 of 31 attempts reported completion, 31 met the predicate, **0 false completions**, 0 missed.
+- **DOM backend** — 27 of 31 attempts reported completion, 28 met the predicate, **0 false completions**, 0 missed.
 
-### The measured capability gain
+Source reports:
+- `agent-benchmark-1789225000995.json` — cdp, 2026-09-12T14:56:40.987Z.
+- `agent-benchmark-1789225227277.json` — dom, 2026-09-12T15:00:27.271Z.
 
-`canvas-and-visual` is the only family the two backends disagree on: 3 of 3
-with the debugger, 1 of 3 without, and a median that goes from 2.9 seconds to
-32.5 seconds because the two failing attempts spend their time stalling. The
-cause is direct — no debugger means no `Page.captureScreenshot`, the
-visible-tab fallback needs the controlled tab to be frontmost and it is not,
-so no picture travels, `click_point` and `zoom` are never offered, and a task
-that can only be done visually cannot be done.
+The intentional `srcdoc` permission question meets its predicate without
+reporting completion. It is counted as a correct pause, not a missed completion.
 
-Nothing else differs. The other nine families use semantic targets, and a
-semantic target resolves the same either way — which is the design working,
-not a null result: native input exists for the gestures a page can tell
-apart, and none of these tasks needs one.
+## Remaining limits
 
-## Remaining failures
+The native backend met every predicate in this fixture pass. This establishes
+coverage of these tasks, not general browser-agent reliability. Delayed-save
+completion and native-confirm handling now pass: completion waits only for
+readable evidence, and debugger-held dialogs interrupt the renderer wait.
 
-Named rather than rounded away. Each is reproducible from the suite.
+Three DOM-backend tasks remain unmet:
 
-One earlier entry is gone: `multi-tab/go-back` failed with
-`verification_failed` on both backends and is fixed. A tab commits
-`about:blank` before its first page, so backing to the start of a run's own
-history reached the destination parser as a non-HTTP URL and threw an error
-the resolution mapper has no case for — the run died labelled with a code
-about page effects, for a command that never touched the page. Such an entry
-is now refused as an unreadable destination, in the same terms an unknown one
-is. The history itself still records every entry the browser does: it is
-walked by index, and dropping one would leave the run predicting one page
-while the browser went to another.
+- `canvas-and-visual/click-a-point` and `zoom-then-click` need a screenshot.
+  Without a debugger, the visible-tab fallback requires a foreground tab;
+  these background fixtures cannot provide one. The run pauses unresolved.
+- `dialogs-and-recovery/native-confirm` needs debugger dialog state. The DOM
+  backend cannot observe or answer a native dialog that blocks its renderer.
 
-1. **A click that opens a native dialog cannot be settled.** Still open.
-   `dialogs-and-recovery/native-confirm` pauses with `unresolved_effect` on
-   both backends. The click's own handler calls `confirm()`, which blocks the
-   renderer, so the action can neither finish nor be asked what it delivered,
-   and the run pauses before it ever sees the dialog it caused.
+Closed shadow roots and origin-less child frames remain unavailable. The
+`srcdoc-cannot-be-read` task deliberately asks the user rather than entering an
+unreadable frame. No permission or verification gate was relaxed to improve
+these counts.
 
-   The diagnosis is sharper than it was, and it rules out the obvious fix.
-   Recording the dialog on the receipt after the action — the way a file
-   chooser is recorded — cannot work: the control port has no timeout, so the
-   page-side call that follows a native click waits forever on a renderer
-   blocked in `confirm()`, and nothing after it runs. The step burns its full
-   budget there. Any fix has to stop waiting on the page once a dialog is
-   known to be holding it, which means the executor learning about the dialog
-   from the debugger rather than from the document — the same principle the
-   observation path already follows, where a blocked page is observed as
-   blocked rather than asked. That is not attempted here, and no partial
-   machinery for it is shipped.
-2. **An over-claiming run can exhaust its budget instead of recovering.**
-   `delayed-save/claims-before-it-lands` claims completion the moment Save is
-   pressed. The claim is correctly refused every time — 0 false completions is
-   the whole point — but the run spends its no-progress budget repeating it and
-   fails, on a page that did save. It is counted as a missed completion, which
-   is the honest label: the opposite error to a false one, and a real failure.
+## Live model sample — 2026-09-12
+
+The seven useful-workflow gates also ran against the existing local
+`qwen3.5:latest` model through native Ollama. These are a separate sample from
+the thirty frozen benchmark tasks above. One attempt per workflow; no success
+rate is inferred from this sample.
+
+Reproduce with a running Ollama server and the model already available:
+
+```bash
+pnpm build
+AGENT_HOSTED_MODEL=qwen3.5:latest \
+AGENT_HOSTED_BASE_URL=http://127.0.0.1:11434 \
+AGENT_HOSTED_WIRE=ollama \
+pnpm exec playwright test --project=chromium-agent agent-useful-workflows.spec.ts
+```
+
+| workflow | outcome | wall ms |
+| --- | --- | --- |
+| useful-composer-placeholder | passed | 120206 |
+| useful-long-edit | passed | 107654 |
+| useful-pane-scroll | failed | 214599 |
+| useful-paginated-reading | passed | 117519 |
+| useful-clarification | passed | 35943 |
+| useful-delayed-completion | passed | 30116 |
+| useful-native-dialog | passed | 129452 |
+
+**6 of 7 workflows passed.** The pane-scroll attempt chose two coordinate
+clicks instead of scrolling. The first was refused; the second produced no
+verifiable activation and the run paused unresolved. It did not claim success.
+The failure duration includes the harness waiting for expected completion.
+
+Composer lookup, long editing, paginated reading, clarification, delayed saving
+and native confirmation completed with independent page assertions. An earlier
+six-workflow pass met five, with delayed saving failing on a missing wait
+condition. Field-specific repair feedback fixed that case in this pass; the
+pane case had passed earlier and failed here. This variation is why a scripted
+pass cannot establish model reliability. Timings include browser setup and ran
+alongside other validation; they are not a model-performance comparison.
 
 ## What is not measured yet
 
-- **A live model.** Every number above is from a scripted model, so it
-  measures the runtime and not model capability. `AGENT_HOSTED_MODEL` and
-  `AGENT_HOSTED_BASE_URL` point the same suite at a real provider and
-  `AGENT_BENCHMARK_ATTEMPTS` repeats it. That path is exercised — one task run
-  against `qwen3.5:latest` through Ollama completed and scored, taking 3.6
-  minutes where the scripted model takes 2.7 seconds — but no live table is
-  published here. At that rate a full pass is hours, and mixing measured
-  runtime numbers with a partial capability sample would make the table say
-  less than it appears to.
-- **Tokens.** Read from the provider's own counts when it reports them
-  (`prompt_eval_count`, `eval_count`), which a scripted fixture does not, so
-  the columns are empty above rather than zero. Nothing is estimated.
+- **A full live-model benchmark.** The thirty frozen tasks have not all run
+  against a real model in this revision. `AGENT_HOSTED_MODEL` and
+  `AGENT_HOSTED_BASE_URL` select a provider for either benchmark project, and
+  `AGENT_BENCHMARK_ATTEMPTS` repeats it. The seven-workflow sample above does
+  not replace that evaluation or establish reliability across other models
+  and real websites.
+- **Tokens across the full benchmark.** Provider counts are recorded when
+  available; scripted fixtures report none, so missing values are not zero.
 - **Approval counts across backends.** Recorded per family in the JSON, not
-  yet compared; the two passes ask the same approvals because policy does not
-  depend on the backend.
-- **Recovery under real worker loss.** Covered by
-  `pnpm verify:sw-agent-recovery`, which kills a service worker for real, and
-  is a gate rather than a measurement — it belongs to the recovery gates, not
-  to this table.
+  compared here; approval policy does not depend on the input backend.
+- **Recovery is a separate gate.** `pnpm verify:sw-agent-recovery` passed all
+  five checks after a real service-worker termination, including durable
+  unresolved pause and no repeated effect. It is not part of this table.

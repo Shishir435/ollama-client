@@ -52,7 +52,10 @@ export interface AgentRunSnapshot {
 export interface AgentRunService {
   start(input: StartAgentRunInput): Promise<AgentRunState>
   pause(runId: string): Promise<void>
-  resume(runId: string): Promise<void>
+  resume(
+    runId: string,
+    correction?: { text: string; pausedAt: number }
+  ): Promise<void>
   stop(runId: string): Promise<void>
   completeTakeover(runId: string): Promise<void>
   answerApproval(input: {
@@ -564,7 +567,7 @@ export const createAgentRunService = (input?: {
         controller.requestPause(runId)
       )
     },
-    async resume(runId) {
+    async resume(runId, correction) {
       const state = await loadRunning(runId)
       if (
         state.status !== "paused" ||
@@ -573,8 +576,18 @@ export const createAgentRunService = (input?: {
       ) {
         return
       }
+      if (
+        correction &&
+        (state.pauseReason !== "user" ||
+          state.updatedAt !== correction.pausedAt)
+      )
+        return
       if (!(await attachBrowserSession(state))) return
-      await drive(state, (controller) => controller.resume(runId))
+      await drive(state, (controller) =>
+        correction
+          ? controller.resume(runId, correction)
+          : controller.resume(runId)
+      )
     },
     async stop(runId) {
       await drive(await loadRunning(runId), (controller) =>

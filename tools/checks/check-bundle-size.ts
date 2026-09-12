@@ -259,8 +259,14 @@ const budgets: Budget[] = [
      * observed-text matcher, the durable `mutating` receipt field, and the
      * bounded wait poll — took it to 255,224. Firefox carries no Agent code
      * and is unchanged.
+     *
+     * The unmatched-request report — the region miss and the region names
+     * that answer it, plus the prompt line that tells the model what they
+     * mean — took it to 256,035. Firefox carries no Agent code and is
+     * unchanged.
      */
-    max: isFirefox ? 210_000 : 256_000
+    // Task recovery, paginated reads, pane scrolling and dialog handling: 259,597 gzip bytes.
+    max: isFirefox ? 210_000 : 260_000
   }
 ]
 
@@ -280,7 +286,35 @@ console.log(
   )
 )
 
+/**
+ * Symbols a shipped bundle must not contain, whatever the build did.
+ *
+ * `__agentReport` dumps a run's durable record — every step's command and the
+ * page text its verifier quoted — and exists for a developer at a console. It
+ * is gated on a compile-time constant, and the gate silently did nothing the
+ * first time: it was read through a frozen object, which no bundler can fold,
+ * so the store bundle carried the dump and the repository imports behind it.
+ * A define is a claim about the output, so it is checked against the output.
+ */
+const FORBIDDEN_IN_STORE_BUILD = ["__agentReport"] as const
+
+const storeBuildLeaks = (): string[] => {
+  const sources = collectFiles(outputDir)
+    .filter((file) => file.endsWith(".js"))
+    .map((file) => fs.readFileSync(file, "utf8"))
+  return FORBIDDEN_IN_STORE_BUILD.filter((symbol) =>
+    sources.some((source) => source.includes(symbol))
+  )
+}
+
 if (shouldCheck) {
+  const leaked = storeBuildLeaks()
+  for (const symbol of leaked) {
+    console.error(
+      `${symbol} is present in a store build; it must be compile-time absent`
+    )
+  }
+  if (leaked.length > 0) process.exitCode = 1
   const failures = budgets.filter(
     (budget) => report[budget.metric][budget.field] > budget.max
   )

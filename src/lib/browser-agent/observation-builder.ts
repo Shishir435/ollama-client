@@ -2,7 +2,8 @@ import {
   type AgentElement,
   type AgentObservation,
   AgentObservationSchema,
-  MAX_AGENT_DESTINATION_URL_CHARS
+  MAX_AGENT_DESTINATION_URL_CHARS,
+  MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
 
 import { agentEditorText, isAgentEditingHost } from "./editor-page"
@@ -13,7 +14,7 @@ export const AGENT_OBSERVATION_LIMITS = {
   visibleTextChars: 100_000,
   titleChars: 500,
   elementNameChars: 500,
-  elementValueChars: 500,
+  elementValueChars: MAX_AGENT_TEXT_CHARS,
   elementHrefChars: MAX_AGENT_DESTINATION_URL_CHARS,
   selectOptions: 200,
   selectOptionLabelChars: 500,
@@ -880,6 +881,52 @@ const collectDocumentText = (
   return { text: result, truncated }
 }
 
+/** A bounded, offset-addressed read; never stops before an oversized text node. */
+export const collectAgentTextPage = (
+  root: Element,
+  offset: number,
+  frameId: number,
+  limit = 12_000
+): NonNullable<AgentObservation["textPage"]> => {
+  const pass = createObservationPass()
+  let position = 0
+  let text = ""
+  let more = false
+  let scanTruncated = false
+  for (const node of composedDescendants(root)) {
+    if (pass.exhausted()) {
+      scanTruncated = true
+      break
+    }
+    if (node.nodeType !== Node.TEXT_NODE) continue
+    const parent = node.parentElement
+    if (!parent || isChainHidden(parent, pass)) continue
+    const value = normalizedText(node.textContent ?? "")
+    if (!value) continue
+    const part = `${position ? " " : ""}${value}`
+    const end = position + part.length
+    if (end > offset) {
+      const available = part.slice(Math.max(0, offset - position))
+      const room = limit - text.length
+      text += available.slice(0, room)
+      if (available.length > room) {
+        more = true
+        break
+      }
+    }
+    position = end
+  }
+  return {
+    text,
+    offset,
+    frameId,
+    ...(more || (scanTruncated && text.length > 0)
+      ? { nextOffset: offset + text.length }
+      : {}),
+    ...(scanTruncated ? { scanTruncated: true } : {})
+  }
+}
+
 /**
  * Which landmark, form or open dialog owns an element.
  *
@@ -966,6 +1013,32 @@ const collectModals = (
     })
   }
   return { modals, ids }
+}
+
+/** Editors often render their empty-state hint on a child paragraph. Keep it
+ * separate from the ARIA name so either visible label can find the editor. */
+const elementPlaceholder = (
+  element: Element,
+  pass: AgentObservationPass
+): string | undefined => {
+  const own =
+    element.getAttribute("aria-placeholder") ||
+    element.getAttribute("data-placeholder") ||
+    element.getAttribute("placeholder")
+  if (own) return own
+  if (!isAgentEditingHost(element) || element.textContent?.trim())
+    return undefined
+  let visited = 0
+  for (const node of composedDescendants(element)) {
+    if (++visited > 128 || pass.exhausted()) break
+    const child = asElement(node)
+    if (!child || child.closest("[contenteditable]") !== element) continue
+    const hint =
+      child.getAttribute("data-placeholder") ||
+      child.getAttribute("aria-placeholder")
+    if (hint && isVisible(child, pass)) return hint
+  }
+  return undefined
 }
 
 const accessibleName = (
@@ -1130,10 +1203,12 @@ const buildElementObservation = (
   const sensitive = !visible || isSensitiveAgentElement(element)
   const name = visible ? accessibleName(element, pass) : undefined
   const value = sensitive ? undefined : elementValue(element)
+  const placeholder = sensitive ? undefined : elementPlaceholder(element, pass)
   const href = visible ? elementHref(element) : undefined
   const submitter = isSubmitter(element)
   const maySubmit = submitter || maySubmitWithEnter(element)
   const group = groupOf(element, modalIds)
+  const scroll = scrollState(element, pass)
   return {
     ref,
     ...(verificationId ? { verificationId } : {}),
@@ -1142,9 +1217,22 @@ const buildElementObservation = (
     ...(name
       ? { name: truncate(name, AGENT_OBSERVATION_LIMITS.elementNameChars) }
       : {}),
+    ...(placeholder && placeholder !== name
+      ? {
+          placeholder: truncate(
+            placeholder,
+            AGENT_OBSERVATION_LIMITS.elementNameChars
+          )
+        }
+      : {}),
     tag: element.tagName.toLowerCase(),
     type: elementType(element),
     ...observedControlFields(element, value, href),
+    ...(value !== undefined &&
+    value.length > AGENT_OBSERVATION_LIMITS.elementValueChars
+      ? { valueTruncated: true }
+      : {}),
+    ...(scroll ? { scroll } : {}),
     ...observedFormFields(element, maySubmit),
     ...(submitter ? { submitter: true } : {}),
     visible,
@@ -1188,18 +1276,53 @@ export const buildAgentElementObservation = (
  * order, because order is how the model reads structure and how references are
  * numbered.
  */
+/** Only real overflow panes are offered as scroll targets. */
+const scrollState = (
+  element: Element,
+  pass: AgentObservationPass
+): AgentElement["scroll"] => {
+  if (element.clientWidth <= 0 || element.clientHeight <= 0) return undefined
+  if (
+    element.scrollHeight <= element.clientHeight &&
+    element.scrollWidth <= element.clientWidth
+  )
+    return undefined
+  const style = styleOf(element, pass)
+  const vertical =
+    element.scrollHeight > element.clientHeight &&
+    /auto|scroll|overlay/.test(style?.overflowY ?? "")
+  const horizontal =
+    element.scrollWidth > element.clientWidth &&
+    /auto|scroll|overlay/.test(style?.overflowX ?? "")
+  if (!vertical && !horizontal) return undefined
+  return {
+    x: element.scrollLeft,
+    y: element.scrollTop,
+    viewportWidth: element.clientWidth,
+    viewportHeight: element.clientHeight,
+    documentWidth: element.scrollWidth,
+    documentHeight: element.scrollHeight
+  }
+}
+
 const selectObservedCandidates = (
   document: Document,
   pass: AgentObservationPass,
   budget: number
 ): Element[] => {
+  if (budget <= 0) return []
   const selected: Element[] = []
   const hiddenPositions: number[] = []
   let visibleCount = 0
 
   for (const node of composedDescendants(document.documentElement)) {
     const candidate = asElement(node)
-    if (!candidate?.matches(INTERACTIVE_SELECTOR)) continue
+    if (
+      !candidate ||
+      (!candidate.matches(INTERACTIVE_SELECTOR) &&
+        !scrollState(candidate, pass))
+    )
+      continue
     /*
      * A truncated selection is the defect this function exists to prevent, so
      * running out of budget here is reported rather than absorbed: the run is
@@ -1262,6 +1385,7 @@ export const buildAgentObservation = (input: {
    * spreading its controls across frames.
    */
   elementLimit?: number
+  textOffset?: number
   capturedAt?: number
   createSnapshotId?: () => string
   now?: () => number
@@ -1344,6 +1468,15 @@ export const buildAgentObservation = (input: {
     ],
     elements,
     visibleText,
+    ...(input.textOffset === undefined || !input.document.body
+      ? {}
+      : {
+          textPage: collectAgentTextPage(
+            input.document.body,
+            input.textOffset,
+            frameId
+          )
+        }),
     scroll: {
       x: view?.scrollX ?? 0,
       y: view?.scrollY ?? 0,

@@ -257,10 +257,32 @@ export const READ_ONLY_AGENT_VERIFIERS = {
     if (input.effect.command.type !== "scroll")
       throw new Error("Invalid scroll effect")
     const after = await observeAfter(input, adapter, signal)
-    const before = input.before.scroll
+    const pane = input.effect.command.container === true
+    const before = pane
+      ? input.before.elements.find(
+          (element) => element.ref === input.effect.target.ref
+        )?.scroll
+      : input.before.scroll
+    const candidates = after.elements.filter(
+      (element) =>
+        element.frameId === input.effect.target.frameId &&
+        element.verificationId === input.effect.target.verificationId
+    )
+    const afterScroll = pane
+      ? input.effect.target.verificationId && candidates.length === 1
+        ? candidates[0].scroll
+        : undefined
+      : after.scroll
+    if (!before || !afterScroll)
+      return result(
+        "ambiguous",
+        "scroll",
+        "Scroll container could not be identified after scrolling",
+        adapter.now()
+      )
     const delta = {
-      x: after.scroll.x - before.x,
-      y: after.scroll.y - before.y
+      x: afterScroll.x - before.x,
+      y: afterScroll.y - before.y
     }
     const moved =
       (input.effect.command.direction === "down" && delta.y > 0) ||
@@ -629,10 +651,32 @@ const fileChooserProblem = (
 
 const withDelivery =
   (kind: string, verifier: Verifier): Verifier =>
-  async (input, adapter, signal) =>
-    fileChooserProblem(input, adapter.now()) ??
-    deliveryProblem(input, kind, adapter.now()) ??
-    verifier(input, adapter, signal)
+  async (input, adapter, signal) => {
+    if (input.receipt.dialogOpened) {
+      const after = await observeAfter(input, adapter, signal)
+      const held = after.dialogs.some(
+        (dialog) => dialog.id === input.receipt.dialogOpened
+      )
+      const activation =
+        input.receipt.inputDelivery !== "undelivered" &&
+        ["click", "click_point", "press_key"].includes(
+          input.effect.command.type
+        )
+      return result(
+        held && activation ? "confirmed" : "ambiguous",
+        "native_dialog",
+        held && activation
+          ? "Activation reached a held native dialog. Answer the dialog before judging the task outcome."
+          : "Input was interrupted by a native dialog; its effect is unresolved",
+        adapter.now()
+      )
+    }
+    return (
+      fileChooserProblem(input, adapter.now()) ??
+      deliveryProblem(input, kind, adapter.now()) ??
+      verifier(input, adapter, signal)
+    )
+  }
 
 /**
  * Field values compare exactly, except an editor's: its value is its markup
@@ -666,7 +710,11 @@ const verifyValueMutation: Verifier = async (input, adapter, signal) => {
       adapter.now()
     )
   }
-  if (target.element.sensitive || target.element.value === undefined) {
+  if (
+    target.element.sensitive ||
+    target.element.valueTruncated ||
+    target.element.value === undefined
+  ) {
     return result(
       "ambiguous",
       "field",

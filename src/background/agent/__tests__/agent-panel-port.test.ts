@@ -4,6 +4,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { registerAgentPanelPort } from "../agent-panel-port"
 import { AgentRunError, type AgentRunService } from "../agent-run-service"
 
+const debug = vi.hoisted(() => ({
+  enabled: false,
+  report: vi.fn(
+    async (_runId?: string): Promise<unknown> => ({ runId: "old-run" })
+  )
+}))
+vi.mock("@/lib/feature-flags", () => ({
+  get AGENT_DEBUG_REPORT_ENABLED() {
+    return debug.enabled
+  }
+}))
+vi.mock("../agent-debug-report", () => ({
+  buildAgentDebugReport: debug.report
+}))
+
 const connectListeners = new Set<(port: unknown) => void>()
 
 vi.mock("@/lib/browser-api", () => ({
@@ -82,6 +97,41 @@ const settled = () => new Promise((resolve) => setTimeout(resolve, 0))
 describe("Agent panel port", () => {
   beforeEach(() => {
     connectListeners.clear()
+    debug.enabled = false
+    debug.report.mockClear()
+  })
+
+  it("keeps debug reads background-owned, correlated and disabled in store builds", async () => {
+    registerAgentPanelPort({ service: service() })
+    const connection = createPort()
+    connect(connection.port)
+    connection.emit({
+      type: "agent_debug_report",
+      requestId: "request-1",
+      runId: "old-run"
+    })
+    await settled()
+    expect(debug.report).not.toHaveBeenCalled()
+    expect(connection.messages).toContainEqual(
+      expect.objectContaining({
+        type: "agent_command_failed",
+        command: "agent_debug_report"
+      })
+    )
+    debug.enabled = true
+    connection.emit({
+      type: "agent_debug_report",
+      requestId: "request-2",
+      runId: "old-run"
+    })
+    await settled()
+    expect(debug.report).toHaveBeenCalledWith("old-run")
+    expect(connection.messages).toContainEqual({
+      type: "agent_debug_report",
+      version: 1,
+      requestId: "request-2",
+      report: JSON.stringify({ runId: "old-run" }, null, 2)
+    })
   })
 
   it("holds commands and snapshots until startup recovery finishes", async () => {
@@ -199,6 +249,17 @@ describe("Agent panel port", () => {
     await settled()
 
     expect(resolveProvider).toHaveBeenCalledWith("run-provider", "run-model")
+  })
+
+  it("refuses a correction that does not identify its pause", async () => {
+    const agent = service()
+    registerAgentPanelPort({ service: agent })
+    const connection = createPort()
+    connect(connection.port)
+    connection.emit({ type: "agent_resume", runId: "run-1", text: "Use Blue" })
+    await settled()
+    expect(agent.resume).not.toHaveBeenCalled()
+    expect(connection.port.disconnect).toHaveBeenCalledOnce()
   })
 
   it("disconnects on a command the contract does not describe", async () => {
