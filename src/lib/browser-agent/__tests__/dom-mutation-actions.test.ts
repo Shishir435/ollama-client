@@ -464,6 +464,29 @@ describe("Agent DOM mutation execution", () => {
     }
   }
 
+  it("preserves a suffix added after approval beyond the observation limit", async () => {
+    const input = document.createElement("textarea")
+    input.value = `first ${"x".repeat(19994)}`
+    const action = command({
+      type: "replace_text",
+      ref: "e1",
+      find: "first",
+      text: "final"
+    })
+    const { effect, references } = await liveEffect(action, input)
+    input.value += " unseen tail"
+    const unchanged = input.value
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow("verifiable text limit")
+    expect(input.value).toBe(unchanged)
+  })
+
   it("dispatches input without recording the field value in its receipt", async () => {
     const input = document.createElement("input")
     input.value = "old"

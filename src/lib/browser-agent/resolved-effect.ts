@@ -17,7 +17,8 @@ import {
   AgentElementSchema,
   type AgentObservation,
   type AgentScreenshot,
-  type AgentSnapshotIdentity
+  type AgentSnapshotIdentity,
+  MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
@@ -97,6 +98,7 @@ const targetFromObservation = (
     throw new AgentStaleObservationError("Agent scroll target is stale")
   return {
     ref: element.ref,
+    verificationId: element.verificationId,
     frameId: element.frameId,
     frame: agentFrameSnapshotIdentity(observation, element),
     tag: element.tag,
@@ -204,6 +206,20 @@ export const resolveReadOnlyAgentEffect = async (input: {
     throw new AgentUnreadablePageError("Agent destination is not readable")
   }
 
+  if (
+    command.type === "scroll" &&
+    command.container &&
+    (!command.ref ||
+      !observation.elements.find((element) => element.ref === command.ref)
+        ?.scroll)
+  ) {
+    throw new AgentGroundingError({
+      refusal: {
+        reason: "not_scrollable",
+        ...(command.ref ? { ref: command.ref } : {})
+      }
+    })
+  }
   const target = targetFromObservation(command, observation)
   /* A referenced scroll is bound to its target's frame; nothing else has one. */
   const frame = target.frame
@@ -547,7 +563,7 @@ export const DOM_MUTATION_AGENT_ACTIONS = [
 export type DomMutationAgentAction = (typeof DOM_MUTATION_AGENT_ACTIONS)[number]
 
 /** The most a field may hold for its value to remain verifiable. */
-const MAX_VERIFIABLE_VALUE_CHARS = 500
+const MAX_VERIFIABLE_VALUE_CHARS = MAX_AGENT_TEXT_CHARS
 
 const DESTRUCTIVE_LABELS = [
   /\b(?:delete|remove|erase|destroy|discard)\b/i,
@@ -722,16 +738,16 @@ const clickSemantics = (
 
 /**
  * The value an edit should leave behind, or a refusal when the observation
- * cannot say. A value at the observation's cap may have been cut, so nothing
- * computed from it is a fact about the field; a result past the cap could not
- * be read back either way.
+ * cannot say. Truncation is explicit so a complete value exactly at the cap
+ * remains editable. An omitted suffix or a result beyond the cap cannot be
+ * verified and must never be replaced with a computed prefix.
  */
 const expectedTextValue = (
   element: AgentElement,
   compute: (current: string) => string | undefined
 ): string => {
   const current = element.value ?? ""
-  if (current.length >= MAX_VERIFIABLE_VALUE_CHARS) {
+  if (element.valueTruncated || current.length > MAX_VERIFIABLE_VALUE_CHARS) {
     throw new Error("Agent text target exceeds the verifiable value limit")
   }
   const next = compute(current)

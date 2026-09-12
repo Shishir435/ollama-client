@@ -89,13 +89,14 @@ runAgentScenario({
 runAgentScenario({
   name: "unmatched-region",
   goal: "Find the weather control.",
-  status: "failed",
+  status: "paused",
   html: () =>
     `<!doctype html><title>Agent unmatched region</title><nav aria-label="Primary"><a href="/help">Help</a></nav><main><form aria-label="Search"><input name="q" aria-label="Query"><button type="submit">Go</button></form></main>`,
   /** Every step, and the page never changes because nothing here mutates it. */
   decide: () => ({ type: "inspect", target: "sidebar" }),
   async verify({ snapshot, wire }) {
-    expect(snapshot?.run?.error?.code).toBe("budget_exhausted")
+    expect(snapshot?.run?.pauseReason).toBe("question")
+    expect(snapshot?.run?.question?.text).toContain("without progress")
     /** Four identical decisions, not twenty-five. */
     expect(snapshot?.run?.observationCount).toBe(4)
 

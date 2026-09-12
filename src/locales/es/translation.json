@@ -160,7 +160,9 @@
     "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
     "work_log": {
       "title": "Registro de trabajo"
-    }
+    },
+    "correction": "En pausa. Describe qué debe cambiar y continúa.",
+    "export_report": "Exportar informe (incluye texto de la página)"
   },
   "common": {
     "theme": {

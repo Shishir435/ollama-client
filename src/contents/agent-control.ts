@@ -49,6 +49,7 @@ export const installAgentControlContentScript = (): void => {
           documentId: request.documentId,
           minimumGeneration: request.minimumGeneration,
           elementLimit: request.elementLimit,
+          textOffset: request.textOffset,
           references
         })
       },

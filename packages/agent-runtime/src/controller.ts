@@ -44,6 +44,7 @@ import type {
   AgentCancellationController,
   AgentController,
   AgentControllerDependencies,
+  AgentInspectionFocus,
   AgentModelInput,
   AgentPolicyDecision,
   AgentResolutionContext,
@@ -172,6 +173,7 @@ export const createAgentController = (
   const lastGeneration = new Map<string, number>()
   const minimumGeneration = new Map<string, number>()
   const previousProgress = new Map<string, AgentProgressPoint>()
+  const recentProgress = new Map<string, AgentProgressPoint[]>()
   /**
    * The page as it read when this run's last change was decided.
    *
@@ -222,6 +224,15 @@ export const createAgentController = (
   ): Promise<AgentRunState | undefined> => {
     const paused = () => ({
       ...pausePatch(reason, dependencies.clock.now()),
+      ...(state.deadline && (reason === "question" || reason === "user")
+        ? {
+            deadline: suspendAgentDeadlines(
+              state.deadline,
+              reason,
+              dependencies.clock.now()
+            )
+          }
+        : {}),
       ...extra
     })
     if (state.status === "paused") return state
@@ -453,7 +464,8 @@ export const createAgentController = (
 
   const observe = async (
     state: AgentRunState,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    inspection?: AgentInspectionFocus
   ): Promise<AgentObservation | undefined> => {
     try {
       const observation = AgentObservationSchema.parse(
@@ -462,7 +474,15 @@ export const createAgentController = (
             runId: state.id,
             tabId: state.controlledTabId,
             minimumGeneration: minimumGeneration.get(state.id) ?? 0,
-            allowedOrigins: state.allowedOrigins
+            allowedOrigins: state.allowedOrigins,
+            ...(inspection?.text
+              ? {
+                  extraction: {
+                    offset: inspection.offset ?? 0,
+                    frameId: inspection.frameId ?? 0
+                  }
+                }
+              : {})
           },
           signal
         )
@@ -502,7 +522,13 @@ export const createAgentController = (
     inspection: AgentModelInput["inspection"],
     signal: AgentCancellationController["signal"]
   ): Promise<AgentModelInput["screenshot"]> => {
-    if (!dependencies.screenshot || !dependencies.model.vision) return undefined
+    // Native dialogs freeze the renderer; its debugger-held text is the observation.
+    if (
+      observation.dialogs.length ||
+      !dependencies.screenshot ||
+      !dependencies.model.vision
+    )
+      return undefined
     try {
       if (!(await dependencies.model.vision(state, signal))) return undefined
       const screenshot = await dependencies.screenshot.capture(
@@ -827,6 +853,7 @@ export const createAgentController = (
        */
       if (agentEffectChangesPage(effect)) {
         previousProgress.delete(state.id)
+        recentProgress.delete(state.id)
         noProgressCounts.set(state.id, 0)
       }
       // The write closing a confirmed step also opens the next observation, so
@@ -922,10 +949,51 @@ export const createAgentController = (
    * observe the indicator it needs, and a model that keeps claiming the same
    * thing runs out of no-progress budget like any other repetition.
    */
+  /** Cancellation while waiting is a pause, never a fabricated completion. */
+  const waitBeforeCompletionRead = async (
+    delay: number,
+    signal: AgentCancellationController["signal"]
+  ) => {
+    try {
+      await dependencies.clock.wait?.(delay, signal)
+    } catch (error) {
+      if (!signal.aborted) throw error
+    }
+    return !signal.aborted
+  }
+
+  /** Wait only for evidence; no action that produced it is ever replayed. */
+  const settleCompletion = async (
+    state: AgentRunState,
+    input: Parameters<typeof judgeAgentCompletion>[0],
+    signal: AgentCancellationController["signal"]
+  ) => {
+    let judgement = judgeAgentCompletion(input)
+    let observation = input.observation
+    if (!dependencies.clock.wait || judgement.type === "accepted")
+      return { judgement, observation }
+    const delays =
+      judgement.reason === "missing_evidence"
+        ? [1000]
+        : judgement.reason === "absent_evidence"
+          ? [250, 750, 1500]
+          : []
+    for (const delay of delays) {
+      if (!(await waitBeforeCompletionRead(delay, signal))) return undefined
+      const fresh = await observe(state, signal)
+      if (!fresh) return undefined
+      observation = fresh
+      judgement = judgeAgentCompletion({ ...input, observation })
+      if (judgement.type === "accepted") break
+    }
+    return { judgement, observation }
+  }
+
   const processCompletion = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "complete" }>,
-    observation: AgentObservation
+    observation: AgentObservation,
+    signal: AgentCancellationController["signal"]
   ): Promise<AgentRunState | undefined> => {
     /**
      * Receipts that cannot be read leave the judge with an unknown rather
@@ -941,12 +1009,19 @@ export const createAgentController = (
     }
     const baseline =
       changeBaseline?.runId === state.id ? changeBaseline.text : undefined
-    const judgement = judgeAgentCompletion({
-      ...(steps ? { steps } : {}),
-      observation,
-      ...(decision.evidence ? { evidence: decision.evidence } : {}),
-      ...(baseline === undefined ? {} : { baselineText: baseline })
-    })
+    const settled = await settleCompletion(
+      state,
+      {
+        steps,
+        observation,
+        evidence: decision.evidence,
+        baselineText: baseline
+      },
+      signal
+    )
+    if (!settled) return undefined
+    const { judgement } = settled
+    observation = settled.observation
     if (judgement.type === "accepted") {
       await transition(state, "completed", {
         result: decision.summary,
@@ -954,6 +1029,8 @@ export const createAgentController = (
       })
       return undefined
     }
+    if (await exhaustedNoProgressBudget(state, observation, decision))
+      return undefined
     const now = dependencies.clock.now()
     dependencies.trace?.(state.id, "completion_refused", {
       reason: judgement.reason
@@ -1005,7 +1082,13 @@ export const createAgentController = (
       }
     })
     if (refusals >= MAX_CONSECUTIVE_REFUSED_COMMANDS) {
-      await fail(state, "command_refused", feedback)
+      await pause(state, "question", {
+        question: {
+          id: `${state.id}:q${state.observationCount}`,
+          text: `${feedback} What should I try instead?`,
+          askedAt: dependencies.clock.now()
+        }
+      })
       return undefined
     }
     return claimObserving(state, false, ["deciding"])
@@ -1018,8 +1101,9 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     context: AgentResolutionContext = {}
   ): Promise<AgentRunState | undefined> => {
+    if (decision.type !== "command") refusedCommandCounts.delete(state.id)
     if (decision.type === "complete") {
-      return processCompletion(state, decision, observation)
+      return processCompletion(state, decision, observation, signal)
     }
     if (decision.type === "fail") {
       /** The model answered; it just cannot do this. The endpoint is fine. */
@@ -1080,22 +1164,29 @@ export const createAgentController = (
   ): Promise<boolean> => {
     const progress: AgentProgressPoint = {
       url: observation.url,
-      snapshotHash: hashAgentObservation(observation),
+      snapshotHash: hashAgentObservation(observation, decision),
       decision
     }
     const result = classifyNoProgress({
       previous: previousProgress.get(state.id),
+      recent: recentProgress.get(state.id),
       current: progress,
       previousCount: noProgressCounts.get(state.id)
     })
     previousProgress.set(state.id, progress)
+    recentProgress.set(
+      state.id,
+      [...(recentProgress.get(state.id) ?? []), progress].slice(-6)
+    )
     noProgressCounts.set(state.id, result.count)
     if (result.count < MAX_CONSECUTIVE_NO_PROGRESS) return false
-    await fail(
-      state,
-      "budget_exhausted",
-      "The agent repeated the same decision without page progress."
-    )
+    await pause(state, "question", {
+      question: {
+        id: `${state.id}:q${state.observationCount}`,
+        text: "I am repeating actions without progress. What should I do differently? You can also stop and finish this task yourself.",
+        askedAt: dependencies.clock.now()
+      }
+    })
     return true
   }
 
@@ -1132,7 +1223,8 @@ export const createAgentController = (
       }
     | undefined
   > => {
-    const observation = await observe(state, signal)
+    const recalled = await recallHistory(state)
+    const observation = await observe(state, signal, recalled.inspection)
     if (!observation) return undefined
     const deciding = await claim(state, "deciding", {
       observationCount: state.observationCount + 1,
@@ -1142,7 +1234,6 @@ export const createAgentController = (
     let decision: AgentDecision | undefined
     const context: AgentResolutionContext = {}
     try {
-      const recalled = await recallHistory(deciding)
       const screenshot = await picture(
         deciding,
         observation,
@@ -1172,7 +1263,10 @@ export const createAgentController = (
       )
       return undefined
     }
-    if (await exhaustedNoProgressBudget(deciding, observation, decision)) {
+    if (
+      decision.type !== "complete" &&
+      (await exhaustedNoProgressBudget(deciding, observation, decision))
+    ) {
       return undefined
     }
     return { state: deciding, observation, decision, context }
@@ -1277,11 +1371,18 @@ export const createAgentController = (
   ): Promise<void> => {
     const state = await dependencies.persistence.load(runId)
     if (!state || isTerminalAgentStatus(state.status)) return
-    const requested = await transition(
-      state,
-      "pause_requested",
-      pausePatch(reason, dependencies.clock.now())
-    )
+    const requested = await transition(state, "pause_requested", {
+      ...pausePatch(reason, dependencies.clock.now()),
+      ...(state.deadline && reason === "user"
+        ? {
+            deadline: suspendAgentDeadlines(
+              state.deadline,
+              "user",
+              dependencies.clock.now()
+            )
+          }
+        : {})
+    })
     if (!requested) return
     active.get(runId)?.abort()
     await transition(
@@ -1319,7 +1420,44 @@ export const createAgentController = (
   return {
     start: (runId) => run(runId),
     requestPause,
-    resume: (runId) => run(runId),
+    async resume(runId, correction) {
+      if (!correction) return run(runId)
+      const state = await dependencies.persistence.load(runId)
+      if (
+        !state ||
+        state.status !== "paused" ||
+        state.pauseReason !== "user" ||
+        state.updatedAt !== correction.pausedAt
+      )
+        return
+      const recorded = await transition(state, "observing", {
+        ...(state.deadline
+          ? {
+              deadline: resumeAgentDeadlines(
+                state.deadline,
+                dependencies.clock.now()
+              )
+            }
+          : {}),
+        pauseReason: undefined,
+        answers: [
+          ...(state.answers ?? []),
+          {
+            questionId: `${state.id}:correction:${state.updatedAt}`,
+            question: "User correction after pausing",
+            text: correction.text.slice(0, MAX_AGENT_ANSWER_CHARS),
+            answeredAt: dependencies.clock.now()
+          }
+        ].slice(-MAX_AGENT_ANSWERS),
+        updatedAt: dependencies.clock.now()
+      })
+      if (!recorded) return
+      previousProgress.delete(state.id)
+      recentProgress.delete(state.id)
+      noProgressCounts.delete(state.id)
+      refusedCommandCounts.delete(state.id)
+      await run(recorded.id, false, true)
+    },
     async answerQuestion({ runId, questionId, text }) {
       const state = await dependencies.persistence.load(runId)
       if (
@@ -1330,10 +1468,15 @@ export const createAgentController = (
       ) {
         return
       }
+      previousProgress.delete(state.id)
+      recentProgress.delete(state.id)
+      noProgressCounts.delete(state.id)
+      refusedCommandCounts.delete(state.id)
       const answers = [
         ...(state.answers ?? []),
         {
           questionId,
+          question: state.question.text,
           text: text.slice(0, MAX_AGENT_ANSWER_CHARS),
           answeredAt: dependencies.clock.now()
         }
@@ -1345,6 +1488,15 @@ export const createAgentController = (
        * question still waiting for its answer.
        */
       const recorded = await transition(state, "observing", {
+        ...(state.deadline
+          ? {
+              deadline: resumeAgentDeadlines(
+                state.deadline,
+                dependencies.clock.now()
+              )
+            }
+          : {}),
+        pauseReason: undefined,
         answers,
         question: undefined,
         updatedAt: dependencies.clock.now()

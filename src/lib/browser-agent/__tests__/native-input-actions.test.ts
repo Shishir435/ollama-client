@@ -466,3 +466,64 @@ describe("activation evidence after a native click", () => {
     expect(result.evidence.summary).toMatch(/took focus/)
   })
 })
+
+describe("native dialog interruption", () => {
+  it("stops waiting for a blocked renderer and never replays the click", async () => {
+    let held: string | undefined
+    const executor = adapter({
+      openDialogId: () => held,
+      dispatchNativeInput: vi.fn(async () => {
+        held = "dialog-1"
+        return { dispatched: 3 }
+      }),
+      settleNativeInput: vi.fn(
+        (_effect, scoped) =>
+          new Promise<undefined>((_resolve, reject) =>
+            scoped.addEventListener?.(
+              "abort",
+              () => reject(new Error("cancelled")),
+              { once: true }
+            )
+          )
+      )
+    })
+    const receipt = await executeDomMutationAgentEffect({
+      effect: await authorize(command({ type: "click", ref: "e1" })),
+      adapter: executor,
+      signal
+    })
+    expect(receipt).toMatchObject({ dialogOpened: "dialog-1", backend: "cdp" })
+    expect(executor.dispatchNativeInput).toHaveBeenCalledOnce()
+    expect(executor.mutate).not.toHaveBeenCalled()
+  })
+  it("does not dispatch if preparing input opens a dialog", async () => {
+    let held: string | undefined
+    const executor = adapter({
+      openDialogId: () => held,
+      prepareNativeInput: vi.fn(async () => {
+        held = "focus-dialog"
+        return { point: { x: 5, y: 5 }, focused: true }
+      })
+    })
+    await expect(
+      executeDomMutationAgentEffect({
+        effect: await authorize(command({ type: "click", ref: "e1" })),
+        adapter: executor,
+        signal
+      })
+    ).rejects.toThrow("before dispatch")
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+    expect(executor.mutate).not.toHaveBeenCalled()
+  })
+  it("does not act when a dialog was already open", async () => {
+    const executor = adapter({ openDialogId: () => "existing" })
+    await expect(
+      executeDomMutationAgentEffect({
+        effect: await authorize(command({ type: "click", ref: "e1" })),
+        adapter: executor,
+        signal
+      })
+    ).rejects.toThrow("before input")
+    expect(executor.dispatchNativeInput).not.toHaveBeenCalled()
+  })
+})

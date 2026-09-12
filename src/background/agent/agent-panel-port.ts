@@ -6,12 +6,14 @@ import type {
 } from "@ollama-client/contracts"
 import {
   AGENT_PANEL_PROTOCOL_VERSION,
-  AgentPanelCommandSchema
+  AgentPanelCommandSchema,
+  AgentPanelMessageSchema
 } from "@ollama-client/contracts"
 import { classifyRuntimeSender } from "@ollama-client/runtime-core/runtime-sender"
 
 import { browser } from "@/lib/browser-api"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import { AGENT_DEBUG_REPORT_ENABLED } from "@/lib/feature-flags"
 import { logger } from "@/lib/logger"
 import { PersistenceError } from "@/lib/persistence/errors"
 import type { AgentBrowserCapabilities } from "./agent-browser-session-manager"
@@ -249,6 +251,29 @@ export const registerAgentPanelPort = (
       if (closed) return
       const service = dependencies.service
       switch (command.type) {
+        case "agent_debug_report": {
+          if (!AGENT_DEBUG_REPORT_ENABLED)
+            throw new AgentRunError(
+              "unknown_run",
+              "Agent debug reports are disabled"
+            )
+          const { buildAgentDebugReport } = await import("./agent-debug-report")
+          const report = await buildAgentDebugReport(command.runId)
+          if (closed) return
+          port.postMessage(
+            AgentPanelMessageSchema.parse({
+              type: "agent_debug_report",
+              version: AGENT_PANEL_PROTOCOL_VERSION,
+              requestId: command.requestId,
+              report: JSON.stringify(
+                report ?? { error: "No agent run found" },
+                null,
+                2
+              )
+            })
+          )
+          return
+        }
         case "agent_start":
           await service.start({
             goal: command.goal,
@@ -262,7 +287,12 @@ export const registerAgentPanelPort = (
           await service.pause(command.runId)
           return
         case "agent_resume":
-          await service.resume(command.runId)
+          if (command.text && command.pausedAt !== undefined)
+            await service.resume(command.runId, {
+              text: command.text,
+              pausedAt: command.pausedAt
+            })
+          else await service.resume(command.runId)
           return
         case "agent_stop":
           await service.stop(command.runId)

@@ -265,7 +265,8 @@ const budgets: Budget[] = [
      * mean — took it to 256,035. Firefox carries no Agent code and is
      * unchanged.
      */
-    max: isFirefox ? 210_000 : 257_000
+    // Task recovery, paginated reads, pane scrolling and dialog handling: 259,597 gzip bytes.
+    max: isFirefox ? 210_000 : 260_000
   }
 ]
 
@@ -298,11 +299,12 @@ console.log(
 const FORBIDDEN_IN_STORE_BUILD = ["__agentReport"] as const
 
 const storeBuildLeaks = (): string[] => {
-  if (process.env.WXT_AGENT_DEBUG === "1") return []
-  const background = path.join(outputDir, "background.js")
-  if (!fs.existsSync(background)) return []
-  const source = fs.readFileSync(background, "utf8")
-  return FORBIDDEN_IN_STORE_BUILD.filter((symbol) => source.includes(symbol))
+  const sources = collectFiles(outputDir)
+    .filter((file) => file.endsWith(".js"))
+    .map((file) => fs.readFileSync(file, "utf8"))
+  return FORBIDDEN_IN_STORE_BUILD.filter((symbol) =>
+    sources.some((source) => source.includes(symbol))
+  )
 }
 
 if (shouldCheck) {

@@ -174,7 +174,7 @@ const MISSING_EVIDENCE_FEEDBACK =
   "This run changed the page, so complete needs evidence: a short phrase that is visible on the page now and shows the goal is met, such as a saved-state indicator or the new value itself. Observe the page and complete again with evidence, or keep working."
 
 const ABSENT_EVIDENCE_FEEDBACK =
-  "The evidence named for complete is not present in the observation. Quote text the page actually shows now, or keep working until it does; wait can hold for an indicator that has not appeared yet."
+  "The evidence string does not occur on the current page. Copy ONLY an exact phrase from observation text or an element value into evidence, without explanation or quotation marks. For an edit use the changed words themselves. Do not quote history or verifier commentary. If the result has not appeared, wait for it."
 
 const UNVERIFIED_CHANGE_FEEDBACK =
   "The last change this run made was not confirmed, so the goal cannot be reported as met. Observe the page and check the change took effect — wait for a saved-state indicator, or make the change again — before completing."
@@ -217,7 +217,19 @@ export const judgeAgentCompletion = (
 ): AgentCompletionJudgement => {
   const change = input.steps ? lastChange(input.steps) : "unreadable"
   /** Only a run whose receipts say it changed nothing completes unevidenced. */
-  if (change === undefined) return { type: "accepted" }
+  if (change === undefined) {
+    // A read needs no change evidence, but a supplied page quote must still be real.
+    if (
+      input.evidence?.trim() &&
+      !agentObservationStates(input.evidence, input.observation)
+    )
+      return {
+        type: "refused",
+        reason: "absent_evidence",
+        feedback: ABSENT_EVIDENCE_FEEDBACK
+      }
+    return { type: "accepted" }
+  }
   /**
    * Receipts that cannot be read are an unknown, and an unknown is not a no.
    * The verification check is skipped — there is nothing to check it against,

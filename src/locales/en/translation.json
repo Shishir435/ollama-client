@@ -160,7 +160,9 @@
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
     "work_log": {
       "title": "Work log"
-    }
+    },
+    "correction": "Paused. Describe what should change, then continue.",
+    "export_report": "Export run report (includes page text)"
   },
   "common": {
     "theme": {

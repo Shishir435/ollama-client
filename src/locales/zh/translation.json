@@ -160,7 +160,9 @@
     "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
     "work_log": {
       "title": "工作日志"
-    }
+    },
+    "correction": "已暂停。说明需要更改的内容，然后继续。",
+    "export_report": "导出运行报告（包含页面文本）"
   },
   "common": {
     "theme": {

@@ -57,6 +57,29 @@ const observation = (
 })
 
 describe("projectAgentElement", () => {
+  it("finds an editor by its visible placeholder without replacing its ARIA name", () => {
+    const editor = element({
+      ref: "editor",
+      tag: "div",
+      name: "Chat with assistant",
+      type: "contenteditable",
+      placeholder: "Ask assistant",
+      editable: true
+    })
+    const result = projectAgentObservation(
+      observation({ elements: [editor] }),
+      { focus: { query: "Ask assistant" } }
+    )
+    expect(result.elements).toContainEqual(
+      expect.objectContaining({
+        ref: "editor",
+        name: "Chat with assistant",
+        placeholder: "Ask assistant"
+      })
+    )
+    expect(result.unmatched).toBeUndefined()
+  })
+
   it("drops what only the executor uses", () => {
     const projected = projectAgentElement(
       element({ formFingerprint: "abcd1234", maySubmit: true })
@@ -172,7 +195,7 @@ describe("projectAgentObservation", () => {
       url: "https://example.com/",
       title: "Example",
       text: "Continue",
-      scroll: { y: 40, ofDocument: 4_000 }
+      scroll: { y: 40, ofDocument: 4_000, viewportHeight: 600 }
     })
     expect(projected).not.toHaveProperty("snapshotId")
     expect(projected).not.toHaveProperty("documentId")

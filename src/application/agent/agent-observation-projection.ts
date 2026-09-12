@@ -1,3 +1,4 @@
+import { matchesAgentInspection } from "@ollama-client/agent-runtime/budgets"
 import type {
   AgentDialogState,
   AgentElement,
@@ -24,10 +25,13 @@ export interface AgentProjectedElement {
   tag: string
   role?: string
   name?: string
+  placeholder?: string
   type?: string
   value?: string
+  valueTruncated?: boolean
   checked?: boolean
   focused?: boolean
+  scroll?: AgentElement["scroll"]
   href?: string
   options?: { value: string; label?: string }[]
   /** The landmark, form or dialog this element belongs to. */
@@ -66,7 +70,7 @@ export interface AgentProjectedObservation {
   frames?: AgentProjectedFrame[]
   /** Child frames the frame cap left unread and unlisted. */
   omittedFrames?: number
-  scroll: { y: number; ofDocument: number }
+  scroll: { y: number; ofDocument: number; viewportHeight: number }
   /**
    * Native dialogs holding the page. Present only when there are any, and
    * when there are, the page carries no controls and nothing but answering
@@ -80,6 +84,7 @@ export interface AgentProjectedObservation {
   /** Text inside the viewport. */
   text: string
   /** The rest of the document, when there is any and it fits. */
+  textPage?: AgentObservation["textPage"]
   documentText?: string
   documentTextTruncated?: boolean
   /** Set when the viewport text was cut to fit the page-content budget, so an
@@ -189,8 +194,11 @@ export const projectAgentElement = (
     ...(element.name
       ? { name: element.name.slice(0, AGENT_PROJECTION_LIMITS.nameChars) }
       : {}),
+    ...(element.placeholder ? { placeholder: element.placeholder } : {}),
     ...(element.type ? { type: element.type } : {}),
     ...(element.value !== undefined ? { value: element.value } : {}),
+    ...(element.valueTruncated ? { valueTruncated: true } : {}),
+    ...(element.scroll ? { scroll: element.scroll } : {}),
     ...(element.checked !== undefined ? { checked: element.checked } : {}),
     ...(element.focused ? { focused: true } : {}),
     ...(element.href ? { href: element.href } : {}),
@@ -218,15 +226,9 @@ const AGENT_PAGE_GROUP = "page"
 
 type AgentOverviewFocus = AgentProjectionOptions["focus"]
 
-/** A control matches a `find` query when the query appears in the name, role
- * or tag it shows — the fields the model has to recognise it by. */
+/** Search the same names, placeholders and control kinds as loop detection. */
 const matchesQuery = (element: AgentElement, query: string): boolean => {
-  const needle = query.toLowerCase()
-  return (
-    (element.name?.toLowerCase().includes(needle) ?? false) ||
-    (element.role?.toLowerCase().includes(needle) ?? false) ||
-    element.tag.toLowerCase().includes(needle)
-  )
+  return matchesAgentInspection(element, { query })
 }
 
 /**
@@ -361,6 +363,21 @@ const selectOverviewElements = (
   return { shown, omittedByGroup }
 }
 
+/** Preserve the continuation offset when the prompt has less room than the page. */
+const projectTextPage = (
+  page: NonNullable<AgentObservation["textPage"]>,
+  ceiling: number
+) => {
+  const text = page.text.slice(0, Math.max(0, ceiling - 512))
+  return {
+    ...page,
+    text,
+    ...(text.length < page.text.length
+      ? { nextOffset: page.offset + text.length }
+      : {})
+  }
+}
+
 export const projectAgentObservation = (
   observation: AgentObservation,
   options: AgentProjectionOptions = {}
@@ -380,10 +397,14 @@ export const projectAgentObservation = (
       : {}),
     scroll: {
       y: Math.round(observation.scroll.y),
-      ofDocument: Math.max(1, Math.round(observation.scroll.documentHeight))
+      ofDocument: Math.max(1, Math.round(observation.scroll.documentHeight)),
+      viewportHeight: Math.round(observation.scroll.viewportHeight)
     },
     ...(observation.dialogs.length ? { dialogs: observation.dialogs } : {}),
-    ...(observation.modals?.length ? { modals: observation.modals } : {})
+    ...(observation.modals?.length ? { modals: observation.modals } : {}),
+    ...(observation.documentTextTruncated
+      ? { documentTextTruncated: true }
+      : {})
   }
   /**
    * No budget means the whole page travels, as it did before progressive
@@ -421,6 +442,15 @@ export const projectAgentObservation = (
    * maximal page cannot push the prompt past the context window. Otherwise the
    * viewport text takes its overview share and yields the rest to controls.
    */
+  if (options.focus?.text && observation.textPage) {
+    return {
+      ...base,
+      text: "",
+      elements: [],
+      textPage: projectTextPage(observation.textPage, ceiling)
+    }
+  }
+
   const wantsText = options.focus?.text === true
   const textBudget = wantsText
     ? ceiling

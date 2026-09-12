@@ -28,6 +28,8 @@ export interface AgentInspectionFocus {
   region?: string
   query?: string
   text?: boolean
+  offset?: number
+  frameId?: number
   /**
    * A region of the previous screenshot, in that image's pixels, that the next
    * screenshot should magnify. Converted by the capture port, which alone
@@ -105,6 +107,7 @@ export interface AgentScreenshotPort {
 }
 
 export interface AgentObserveRequest {
+  extraction?: { offset: number; frameId: number }
   runId: string
   tabId: number
   minimumGeneration: number
@@ -300,6 +303,8 @@ export interface AgentExecutionReceipt {
    * finished by the run and is left for the user.
    */
   fileChooser?: boolean
+  /** A held native dialog interrupted this activation; no input is replayed. */
+  dialogOpened?: string
 }
 
 export interface AgentVerificationEvidence {
@@ -592,12 +597,16 @@ export interface AgentTakeoverPort {
 
 export interface AgentClockPort {
   now(): number
+  wait?(ms: number, signal: AgentCancellationSignal): Promise<void>
 }
 
 export interface AgentController {
   start(runId: string): Promise<void>
   requestPause(runId: string, reason?: AgentPauseReason): Promise<void>
-  resume(runId: string): Promise<void>
+  resume(
+    runId: string,
+    correction?: { text: string; pausedAt: number }
+  ): Promise<void>
   requestCancel(runId: string): Promise<void>
   completeTakeover(runId: string): Promise<void>
   /**

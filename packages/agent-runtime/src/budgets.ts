@@ -2,6 +2,7 @@ import {
   type AgentDeadlineState,
   AgentDeadlineStateSchema,
   type AgentDecision,
+  type AgentElement,
   type AgentObservation
 } from "@ollama-client/contracts"
 
@@ -24,7 +25,7 @@ export const beginAgentStepDeadline = (
 
 export const suspendAgentDeadlines = (
   state: AgentDeadlineState,
-  kind: "approval" | "takeover",
+  kind: "approval" | "takeover" | "user" | "question",
   now: number
 ): AgentDeadlineState =>
   state.suspendedAt === undefined
@@ -107,6 +108,7 @@ export interface AgentProgressPoint {
 
 export interface AgentNoProgressInput {
   previous?: AgentProgressPoint
+  recent?: readonly AgentProgressPoint[]
   current: AgentProgressPoint
   previousCount?: number
 }
@@ -117,6 +119,7 @@ export interface AgentNoProgressResult {
 }
 
 const decisionFingerprint = (decision: AgentDecision): string => {
+  if (decision.type === "complete") return "complete"
   if (decision.type !== "command") return JSON.stringify(decision)
   const {
     snapshotId: _snapshotId,
@@ -135,40 +138,55 @@ const fnv1a = (value: string): string => {
   return (hash >>> 0).toString(16).padStart(8, "0")
 }
 
-/** Snapshot identity and capture time change on every observation and are not progress. */
-export const hashAgentObservation = (observation: AgentObservation): string =>
-  fnv1a(
+/** Shared with prompt projection so loop detection compares the requested controls. */
+export const matchesAgentInspection = (
+  element: AgentElement,
+  focus: { region?: string; query?: string }
+): boolean => {
+  if (focus.region !== undefined)
+    return (element.group ?? "page") === focus.region
+  if (focus.query === undefined) return false
+  const needle = focus.query.toLowerCase()
+  return [
+    element.name,
+    element.placeholder,
+    element.role,
+    element.tag,
+    element.type
+  ].some((value) => value?.toLowerCase().includes(needle))
+}
+
+/** Ignore unrelated page churn for targeted reads, but never ignore a changed answer. */
+export const hashAgentObservation = (
+  observation: AgentObservation,
+  decision?: AgentDecision
+): string => {
+  const command = decision?.type === "command" ? decision.command : undefined
+  if (command?.type === "inspect" || command?.type === "find") {
+    const focus =
+      command.type === "inspect"
+        ? { region: command.target }
+        : { query: command.query }
+    return fnv1a(
+      JSON.stringify(
+        observation.elements
+          .filter((element) => matchesAgentInspection(element, focus))
+          .map(({ verificationId: _verificationId, ...element }) => element)
+      )
+    )
+  }
+  return fnv1a(
     JSON.stringify({
       url: observation.url,
       title: observation.title,
       elements: observation.elements,
       visibleText: observation.visibleText,
       scroll: observation.scroll,
-      dialogs: observation.dialogs
+      dialogs: observation.dialogs,
+      textPage: observation.textPage
     })
   )
-
-/**
- * Requests whose whole purpose is to reveal something the run does not have
- * yet. Repeating one is a loop whatever the page did: the run changed
- * nothing, so the page's own churn is not progress it made, and the second
- * identical ask is answered with the first answer.
- *
- * `read` and `extract_text` are deliberately not here. For those the
- * observation *is* the answer, so a page that changed did answer differently
- * — a run watching a reply stream in reads the same page repeatedly and is
- * making progress every time.
- *
- * There was a `verificationOutcome` input here that reset the count on a
- * confirmed step. Nothing ever passed it, and wiring it as written would
- * have made this exact loop unkillable: a pure read verifies `confirmed` by
- * definition, so every repeat would have cleared its own evidence.
- */
-const AGENT_INSPECTION_REQUESTS = new Set(["inspect", "find"])
-
-const isInspectionRequest = (decision: AgentDecision): boolean =>
-  decision.type === "command" &&
-  AGENT_INSPECTION_REQUESTS.has(decision.command.type)
+}
 
 export const classifyNoProgress = (
   input: AgentNoProgressInput
@@ -178,23 +196,14 @@ export const classifyNoProgress = (
       return { noProgress: false, count: input.previousCount ?? 0 }
     }
   }
-  const repeated =
-    input.previous !== undefined &&
-    input.previous.url === input.current.url &&
-    decisionFingerprint(input.previous.decision) ===
-      decisionFingerprint(input.current.decision)
-  /**
-   * A changed page is normally proof the run got somewhere, which is why the
-   * observation hash is part of the test. It cannot be that for a repeated
-   * inspection request, because the page moving on its own is not something
-   * the run did — and on a live application it moves between every pair of
-   * observations, which is how a run repeated one request twenty-one times
-   * with a guard set to three standing right there.
-   */
-  const same =
-    repeated &&
-    (input.previous?.snapshotHash === input.current.snapshotHash ||
-      isInspectionRequest(input.current.decision))
+  const candidates = input.recent ?? (input.previous ? [input.previous] : [])
+  const same = candidates.some(
+    (previous) =>
+      previous.url === input.current.url &&
+      decisionFingerprint(previous.decision) ===
+        decisionFingerprint(input.current.decision) &&
+      previous.snapshotHash === input.current.snapshotHash
+  )
   return {
     noProgress: same,
     count: same ? (input.previousCount ?? 0) + 1 : 0

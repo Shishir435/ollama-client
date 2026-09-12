@@ -149,6 +149,7 @@ export type AgentQuestion = z.infer<typeof AgentQuestionSchema>
 export const AgentAnswerSchema = z
   .object({
     questionId: z.string().min(1).max(200),
+    question: z.string().max(MAX_AGENT_QUESTION_CHARS).optional(),
     text: z.string().min(1).max(MAX_AGENT_ANSWER_CHARS),
     answeredAt: z.number().int().nonnegative()
   })
@@ -235,7 +236,9 @@ export const AgentDeadlineStateSchema = z
     runSuspendedMs: z.number().int().nonnegative(),
     stepSuspendedMs: z.number().int().nonnegative(),
     suspendedAt: z.number().int().nonnegative().optional(),
-    suspensionKind: z.enum(["approval", "takeover"]).optional()
+    suspensionKind: z
+      .enum(["approval", "takeover", "user", "question"])
+      .optional()
   })
   .strict()
   .refine(

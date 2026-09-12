@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { createAgentElementReferenceStore } from "../element-references"
 import {
   AGENT_OBSERVATION_LIMITS,
-  buildAgentObservation
+  buildAgentObservation,
+  collectAgentTextPage
 } from "../observation-builder"
 
 beforeEach(() => {
@@ -61,6 +62,29 @@ const appendButtons = (count: number) => {
 }
 
 describe("Agent observation builder", () => {
+  it("exposes an empty editor's rendered placeholder separately from its ARIA name", () => {
+    document.body.innerHTML =
+      '<div contenteditable="true" aria-label="Chat with assistant"><p data-placeholder="Ask assistant"><br></p></div>'
+    const editor = build().elements[0]
+    expect(editor).toMatchObject({
+      name: "Chat with assistant",
+      placeholder: "Ask assistant",
+      value: ""
+    })
+    const paragraph = document.querySelector("p")
+    if (!paragraph) throw new Error("Missing fixture paragraph")
+    paragraph.textContent = "Existing draft"
+    expect(build().elements[0]).not.toHaveProperty("placeholder")
+  })
+
+  it.each([
+    "hidden",
+    'contenteditable="false"'
+  ])("ignores %s descendant placeholder hints", (attribute) => {
+    document.body.innerHTML = `<div contenteditable="true"><p ${attribute} data-placeholder="Hidden hint"><br></p></div>`
+    expect(build().elements[0]).not.toHaveProperty("placeholder")
+  })
+
   it("names standard labelled fields and excludes hidden label text", () => {
     document.body.innerHTML =
       '<label for="name">Name</label><input id="name"><span id="visible">Account</span><span id="hidden" hidden>private</span><input aria-labelledby="visible hidden">'
@@ -112,6 +136,18 @@ describe("Agent observation builder", () => {
       sensitive: false,
       value: "safe value"
     })
+  })
+
+  it("marks an omitted value suffix so it cannot be mistaken for the whole field", () => {
+    const field = document.createElement("textarea")
+    field.value = "x".repeat(20_001)
+    document.body.append(field)
+    expect(build().elements[0]).toMatchObject({
+      value: "x".repeat(20_000),
+      valueTruncated: true
+    })
+    field.value = "x".repeat(20_000)
+    expect(build().elements[0]).not.toHaveProperty("valueTruncated")
   })
 
   it("captures checked, focus, select options, and form semantics", () => {
@@ -943,5 +979,50 @@ describe("Agent observation fragmented occlusion", () => {
     vi.spyOn(document, "elementFromPoint").mockReturnValue(overlay)
     const element = build().elements.find((one) => one.name === "Wrapped")
     expect(element?.occluded).toBe(true)
+  })
+})
+
+describe("paginated document reading", () => {
+  it("reconstructs a long single text node without dropping its tail", () => {
+    const original = `${"x".repeat(35_000)} UNIQUE-END`
+    document.body.textContent = original
+    let offset = 0
+    let output = ""
+    for (let index = 0; index < 10; index += 1) {
+      const page = collectAgentTextPage(document.body, offset, 0)
+      output += page.text
+      if (page.nextOffset === undefined) break
+      expect(page.nextOffset).toBeGreaterThan(offset)
+      offset = page.nextOffset
+    }
+    expect(output).toBe(original)
+  })
+  it("retains whitespace boundaries and excludes hidden text across pages", () => {
+    document.body.innerHTML =
+      "<p>alpha beta</p><p hidden>secret</p><p>gamma delta</p>"
+    const first = collectAgentTextPage(document.body, 0, 0, 12)
+    if (first.nextOffset === undefined) throw new Error("Missing next page")
+    const second = collectAgentTextPage(document.body, first.nextOffset, 0, 12)
+    expect(first.text + second.text).toBe("alpha beta gamma delta")
+    expect(second.nextOffset).toBeUndefined()
+  })
+  it("observes an unlabelled overflow pane as a referenced scroll target", () => {
+    const pane = document.createElement("div")
+    pane.style.overflowY = "auto"
+    Object.defineProperties(pane, {
+      clientWidth: { value: 100 },
+      clientHeight: { value: 100 },
+      scrollHeight: { value: 900 },
+      scrollWidth: { value: 100 }
+    })
+    document.body.append(pane)
+    expect(build().elements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: "div",
+          scroll: expect.objectContaining({ documentHeight: 900 })
+        })
+      ])
+    )
   })
 })

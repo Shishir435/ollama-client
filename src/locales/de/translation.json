@@ -160,7 +160,9 @@
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
     "work_log": {
       "title": "Arbeitsprotokoll"
-    }
+    },
+    "correction": "Pausiert. Beschreibe die gewünschte Änderung und fahre fort.",
+    "export_report": "Laufbericht exportieren (enthält Seitentext)"
   },
   "common": {
     "theme": {

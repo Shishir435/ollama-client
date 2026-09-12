@@ -5,8 +5,8 @@ description: What the supervised browser agent does, what it refuses, and where 
 
 Agent drives one browser tab towards a goal you write, one step at a time, and
 asks before anything that changes the page in a way you would not want undone.
-It is a Preview: the loop is real and supervised, and the list of what it
-cannot yet do is longer than the list of what it can.
+It is a Preview: success depends on the website and the selected model,
+and each step remains supervised.
 
 It is off unless you turn it on, and it never reads a page without the
 page-observation permission you grant explicitly.
@@ -98,12 +98,25 @@ These are current limits, not design decisions.
   counted but not read, and a very large page can leave a frame no room to
   report its controls; both are reported to the model as such. A frame with
   no origin of its own — `srcdoc`, `about:blank` — cannot be read at all.
-- **A dialog your own click opens.** Agent can see and answer a native
-  `alert`, `confirm` or `prompt` that is already open when it looks. One
-  raised by a click it just made is different: the page blocks behind the
-  dialog before the action can be accounted for, and the run stalls and
-  pauses instead of answering it. This is the largest known gap and it is
-  measured, not estimated — see the evaluation below.
+- **Native dialogs need Chromium.** A click that opens `alert`, `confirm`
+  or `prompt` is handed from the input executor to the debugger's dialog
+  state. Agent can then answer the dialog, with approval before accepting a
+  confirmation. An interrupted edit whose value cannot be verified still
+  pauses; the input is never replayed automatically.
+- **Document editing is bounded.** Text fields and rich-text documents support
+  up to 20,000 characters. Appending or replacing text beyond that bound is
+  refused because the full resulting value cannot be verified. A model's
+  output budget can require a long insertion to be split into smaller edits.
+  Composer lookup recognizes both its accessibility label and the placeholder
+  shown inside an empty rich-text editor.
+- **Long documents are read in pages.** `extract_text` returns up to 12,000
+  characters and a continuation offset. Agent can keep reading past the
+  initial 30,000-character overview, including inside an authorized frame.
+  Each page reads the current document; content changing between reads can
+  change its offsets. A scan that runs out of time reports that explicitly.
+- **Scroll inside a pane.** Scrollable regions have their own references and
+  scroll positions. Agent can scroll a selected pane without moving the rest
+  of the page. Firefox uses the page's programmatic scrolling for this too.
 - **Vision needs a model that reads images.** A screenshot travels only to a
   model whose provider reports it can read one; a text-only model is sent no
   picture and is offered no visual action, so a canvas or an image region is
@@ -142,3 +155,22 @@ run leads with the recovery and keeps the underlying message beneath it, so
 the words the run used are still there if you report the problem. Both stay
 on screen after the run ends, because the record is the only account of what
 happened.
+
+## Correcting a run and exporting its record
+
+Pause a run between actions to give it a correction, then submit the correction
+and continue. Answers to Agent's questions also travel to the next decision,
+with the question they answer. These instructions do not change permission or
+approval rules. Time spent answering or correcting a paused run does not count
+against its active-time budget.
+
+Repeated decisions, including short alternating loops, pause for your guidance.
+Repeated grounding refusals do the same. A premature completion gives a delayed
+save a bounded chance to produce evidence; it still cannot be accepted without
+that evidence. An unresolved side effect remains paused and cannot be resumed
+through the correction field.
+
+Use **Export run report** to download the current run and its redacted step
+records as JSON. The report includes your goal, clarifications and page-derived
+text. It is saved locally only when you click the export button; nothing is
+sent to a feedback service automatically.

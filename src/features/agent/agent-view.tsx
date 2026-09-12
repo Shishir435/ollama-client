@@ -90,9 +90,11 @@ export interface AgentViewProps {
   onAnswer?: (text: string) => void
   onPause?: () => void
   onResume?: () => void
+  onCorrect?: (text: string) => void
   onStop?: () => void
   onTakeoverComplete?: () => void
   onFeedback?: () => void
+  onExport?: () => void
 }
 
 const noop = () => undefined
@@ -133,9 +135,11 @@ export const AgentView = ({
   onAnswer = noop,
   onPause = noop,
   onResume = noop,
+  onCorrect,
   onStop = noop,
   onTakeoverComplete = noop,
-  onFeedback = noop
+  onFeedback = noop,
+  onExport
 }: AgentViewProps) => {
   const { t } = useTranslation()
   const settled =
@@ -250,6 +254,15 @@ export const AgentView = ({
           />
         )}
 
+        {run?.status === "paused" &&
+          run.pauseReason === "user" &&
+          onCorrect && (
+            <AgentQuestionCard
+              question={t("agent.correction")}
+              onAnswer={onCorrect}
+            />
+          )}
+
         {run?.question && run.status === "paused" && (
           <AgentQuestionCard onAnswer={onAnswer} question={run.question.text} />
         )}
@@ -276,6 +289,11 @@ export const AgentView = ({
         )}
 
         <AgentWorkLog items={toAgentWorkLog(steps)} />
+        {run && onExport && (
+          <Button type="button" variant="outline" size="sm" onClick={onExport}>
+            {t("agent.export_report")}
+          </Button>
+        )}
 
         {settled && run && (
           <AgentOutcomeCard
