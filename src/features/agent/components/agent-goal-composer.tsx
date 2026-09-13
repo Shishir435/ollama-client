@@ -52,6 +52,7 @@ export const AgentGoalComposer = ({
       <ComposerShell isFocused={focused}>
         <Textarea
           id="agent-goal"
+          aria-label={t("agent.start.goal")}
           value={goal}
           maxLength={20_000}
           placeholder={t("agent.start.placeholder")}

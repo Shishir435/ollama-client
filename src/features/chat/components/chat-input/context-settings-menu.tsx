@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sheet"
 import { useContextSettings } from "@/features/chat/hooks/use-context-settings"
 import { useContextTabOptions } from "@/features/chat/hooks/use-context-tab-options"
-import { PermissionsSheet } from "@/features/permissions/components/permissions-sheet"
+import { PermissionsPanel } from "@/features/permissions/components/permissions-panel"
 import { cn } from "@/lib/class-names"
 import type { FileProcessingState } from "@/lib/file-processors/types"
 import type { ImageAttachment } from "@/types"
@@ -61,11 +61,12 @@ export const ContextSettingsMenu = ({
   })
 
   const [open, setOpen] = useState(false)
-  const [permsOpen, setPermsOpen] = useState(false)
   // In-sheet sub-views: a tab preview (previewTabId set) or the attachment list
   // ("attachments") replace the main panel instead of opening a second sheet, so
   // the user never loses their place in the Context sheet.
-  const [view, setView] = useState<"main" | "attachments">("main")
+  const [view, setView] = useState<"main" | "attachments" | "permissions">(
+    "main"
+  )
 
   // The attachments view empties out when the user removes the last item — fall
   // back to the main panel instead of stranding them on a blank list.
@@ -94,136 +95,144 @@ export const ContextSettingsMenu = ({
   const contextCount = countContextSources(contextInput)
 
   return (
-    <>
-      <Sheet open={open} onOpenChange={handleOpenChange}>
-        <TooltipActionButton
-          trigger={
-            <SheetTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
-                  aria-label={t("tabs.context")}
-                />
-              }
-            />
-          }
-          label={t("tabs.context")}
-          icon={
-            /*
-             * How many sources the next message carries, readable without
-             * opening the sheet. Zero is shown rather than hidden: a control
-             * that only marks itself when something is attached leaves
-             * "nothing attached" and "I have not checked" looking identical.
-             */
-            <span className="relative inline-flex">
-              <Layers className="icon-sm" aria-hidden="true" />
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "-right-1.5 -top-1 absolute min-w-3 rounded-full px-0.5 text-center text-nano leading-3 tabular-nums",
-                  contextCount > 0
-                    ? "bg-app-primary-soft text-app-primary"
-                    : "bg-muted text-muted-foreground"
-                )}>
-                {contextCount}
-              </span>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      <TooltipActionButton
+        trigger={
+          <SheetTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+                aria-label={t("tabs.context")}
+              />
+            }
+          />
+        }
+        label={t("tabs.context")}
+        icon={
+          /*
+           * How many sources the next message carries, readable without
+           * opening the sheet. Zero is shown rather than hidden: a control
+           * that only marks itself when something is attached leaves
+           * "nothing attached" and "I have not checked" looking identical.
+           */
+          <span className="relative inline-flex">
+            <Layers className="icon-sm" aria-hidden="true" />
+            <span
+              aria-hidden="true"
+              className={cn(
+                "-right-1.5 -top-1 absolute min-w-3 rounded-full px-0.5 text-center text-nano leading-3 tabular-nums",
+                contextCount > 0
+                  ? "bg-app-primary-soft text-app-primary"
+                  : "bg-muted text-muted-foreground"
+              )}>
+              {contextCount}
             </span>
-          }
-        />
-        <SheetContent
-          side="right"
-          className="w-[min(28rem,calc(100vw-1rem))] gap-2 overflow-hidden p-2 sm:max-w-md"
-          // Every text and leading glyph in this sheet sits on one content edge
-          // 18px from the sheet's outer edge (8px sheet inset + 10px inner), and
-          // every trailing glyph is optically 18px from the right edge. A
-          // trailing hit-area therefore carries a smaller box inset than its
-          // leading side: 18px minus the button's own padding.
-          closeButtonClassName="top-2 right-3">
-          <SheetHeader className="p-0 pl-2.5 pr-10">
-            <SheetTitle className="flex items-center gap-2">
-              <Layers className="icon-sm" />
-              {t("tabs.context")}
-            </SheetTitle>
-            {/* The summary used to be a bordered card at the top of the main
+          </span>
+        }
+      />
+      <SheetContent
+        side="right"
+        className="w-[min(28rem,calc(100vw-1rem))] gap-2 overflow-hidden p-2 sm:max-w-md"
+        // Every text and leading glyph in this sheet sits on one content edge
+        // 18px from the sheet's outer edge (8px sheet inset + 10px inner), and
+        // every trailing glyph is optically 18px from the right edge. A
+        // trailing hit-area therefore carries a smaller box inset than its
+        // leading side: 18px minus the button's own padding.
+        closeButtonClassName="top-2 right-3">
+        <SheetHeader className="p-0 pl-2.5 pr-10">
+          <SheetTitle className="flex items-center gap-2">
+            <Layers className="icon-sm" />
+            {t("tabs.context")}
+          </SheetTitle>
+          {/* The summary used to be a bordered card at the top of the main
                 view, spending a full boxed row plus its own uppercase label on
                 one line of text, and vanishing in the sub-views even though the
                 context it names does not change. As the sheet's description it
                 sits under the title where a subtitle belongs, needs no label to
                 be understood, and stays visible everywhere. */}
-            <SheetDescription>{contextSummary}</SheetDescription>
-          </SheetHeader>
-          {tabs.previewTabId ? (
-            <ContextSubView
-              title={tabs.previewTab?.title || t("tabs.inspector.untitled")}
-              onBack={tabs.closePreview}
-              headerActions={
-                <>
-                  <span className="shrink-0 text-2xs text-muted-foreground">
-                    {t("tabs.inspector.chars", {
-                      count: previewContent?.length ?? 0
-                    })}
-                  </span>
-                  {previewContent && <CopyButton text={previewContent} />}
-                </>
-              }>
-              <ScrollArea className="min-h-0 flex-1 rounded-control border border-border/35 bg-background/35">
-                <PreviewTextBlock
-                  text={previewContent || ""}
-                  emptyText={t("tabs.inspector.no_content")}
+          <SheetDescription>{contextSummary}</SheetDescription>
+        </SheetHeader>
+        {tabs.previewTabId ? (
+          <ContextSubView
+            title={tabs.previewTab?.title || t("tabs.inspector.untitled")}
+            onBack={tabs.closePreview}
+            headerActions={
+              <>
+                <span className="shrink-0 text-2xs text-muted-foreground">
+                  {t("tabs.inspector.chars", {
+                    count: previewContent?.length ?? 0
+                  })}
+                </span>
+                {previewContent && <CopyButton text={previewContent} />}
+              </>
+            }>
+            <ScrollArea className="min-h-0 flex-1 rounded-control border border-border/35 bg-background/35">
+              <PreviewTextBlock
+                text={previewContent || ""}
+                emptyText={t("tabs.inspector.no_content")}
+              />
+            </ScrollArea>
+          </ContextSubView>
+        ) : view === "permissions" ? (
+          /*
+           * A sub-view, like attachments. It used to close this sheet and
+           * open a second one, which left the only way out as a close
+           * button: you arrived at permissions and could not get back to
+           * the context you opened them from.
+           */
+          <ContextSubView
+            title={t("settings.permissions.title")}
+            onBack={() => setView("main")}>
+            <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
+              <PermissionsPanel compact />
+            </ScrollArea>
+          </ContextSubView>
+        ) : view === "attachments" ? (
+          <ContextSubView
+            title={t("chat.input.attachments", { count: attachmentCount })}
+            onBack={() => setView("main")}>
+            <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
+              <AttachmentList
+                processingStates={processingStates}
+                onRemove={onRemoveFile ?? (() => undefined)}
+                images={images}
+                onRemoveImage={onRemoveImage}
+              />
+            </ScrollArea>
+          </ContextSubView>
+        ) : (
+          <ContextMainView
+            toggleActions={settings.toggleActions}
+            attachmentCount={attachmentCount}
+            disabled={disabled}
+            acceptImages={acceptImages}
+            showScreenshot={showScreenshot}
+            onFilesSelected={onFilesSelected}
+            onCaptureScreenshot={onCaptureScreenshot}
+            onOpenAttachments={() => setView("attachments")}
+            onOpenPermissions={() => setView("permissions")}
+            tabList={
+              settings.tabAccess ? (
+                <TabContextPanel
+                  filteredTabOptions={tabs.filteredTabOptions}
+                  allVisibleSelected={tabs.allVisibleSelected}
+                  toggleAllVisible={tabs.toggleAllVisible}
+                  tabContents={tabs.tabContents}
+                  getTabStatus={tabs.getTabStatus}
+                  selectedTabIds={tabs.selectedTabIds}
+                  tabSearch={tabs.tabSearch}
+                  setTabSearch={tabs.setTabSearch}
+                  refreshTabs={tabs.refreshTabs}
+                  toggleTab={tabs.toggleTab}
+                  openPreview={tabs.openPreview}
                 />
-              </ScrollArea>
-            </ContextSubView>
-          ) : view === "attachments" ? (
-            <ContextSubView
-              title={t("chat.input.attachments", { count: attachmentCount })}
-              onBack={() => setView("main")}>
-              <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
-                <AttachmentList
-                  processingStates={processingStates}
-                  onRemove={onRemoveFile ?? (() => undefined)}
-                  images={images}
-                  onRemoveImage={onRemoveImage}
-                />
-              </ScrollArea>
-            </ContextSubView>
-          ) : (
-            <ContextMainView
-              toggleActions={settings.toggleActions}
-              attachmentCount={attachmentCount}
-              disabled={disabled}
-              acceptImages={acceptImages}
-              showScreenshot={showScreenshot}
-              onFilesSelected={onFilesSelected}
-              onCaptureScreenshot={onCaptureScreenshot}
-              onOpenAttachments={() => setView("attachments")}
-              onOpenPermissions={() => {
-                setOpen(false)
-                setPermsOpen(true)
-              }}
-              tabList={
-                settings.tabAccess ? (
-                  <TabContextPanel
-                    filteredTabOptions={tabs.filteredTabOptions}
-                    allVisibleSelected={tabs.allVisibleSelected}
-                    toggleAllVisible={tabs.toggleAllVisible}
-                    tabContents={tabs.tabContents}
-                    getTabStatus={tabs.getTabStatus}
-                    selectedTabIds={tabs.selectedTabIds}
-                    tabSearch={tabs.tabSearch}
-                    setTabSearch={tabs.setTabSearch}
-                    refreshTabs={tabs.refreshTabs}
-                    toggleTab={tabs.toggleTab}
-                    openPreview={tabs.openPreview}
-                  />
-                ) : undefined
-              }
-            />
-          )}
-        </SheetContent>
-      </Sheet>
-      <PermissionsSheet open={permsOpen} onOpenChange={setPermsOpen} />
-    </>
+              ) : undefined
+            }
+          />
+        )}
+      </SheetContent>
+    </Sheet>
   )
 }

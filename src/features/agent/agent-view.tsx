@@ -232,10 +232,9 @@ export const AgentView = ({
         )}
 
         {(!run || settled) && (
-          <section className="space-y-2" aria-labelledby="agent-goal-label">
-            <h2 id="agent-goal-label" className="font-medium text-xs">
-              {t("agent.start.goal")}
-            </h2>
+          /* The goal's own label lives on the composer that holds it; what
+             is left here is the consent this run needs before it starts. */
+          <section className="space-y-2">
             <label className="flex items-start gap-2 rounded-panel border border-border/50 p-2.5 text-xs">
               <input
                 type="checkbox"
