@@ -76,7 +76,7 @@ export interface AgentViewProps {
   approval?: AgentApprovalRequest
   takeover?: AgentTakeoverRequest
   privacyAcknowledged?: boolean
-  /** The side panel's surface switch, rendered in the header's first slot. */
+  /** The surface toggle, rendered in the panel's own control row. */
   leading?: ReactNode
   busy?: boolean
   /** The unsent goal. Held by the caller so it survives leaving the surface. */
@@ -167,17 +167,9 @@ export const AgentView = ({
     <main className="flex h-full min-h-0 flex-col bg-surface-chat">
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <header className="mb-3 flex min-w-0 items-start gap-2">
-          {/*
-            The switch takes the slot a decorative bot avatar held. It names
-            this surface already, and the panel used to lead with two rows and
-            a glyph all saying "Agent" before anything said what the Agent was
-            doing.
-          */}
-          {leading ?? (
-            <span className="grid size-8 shrink-0 place-items-center rounded-control bg-app-primary-soft text-app-agent">
-              <Bot className="icon-sm" aria-hidden="true" />
-            </span>
-          )}
+          <span className="grid size-8 shrink-0 place-items-center rounded-control bg-app-primary-soft text-app-agent">
+            <Bot className="icon-sm" aria-hidden="true" />
+          </span>
           <div className="min-w-0 flex-1">
             <h1 className="font-semibold">{t("agent.title")}</h1>
             <p className="text-xs text-muted-foreground">
@@ -375,6 +367,19 @@ export const AgentView = ({
           />
         )}
       </div>
+
+      {/*
+        The control row the chat surface has at the bottom of its composer.
+        This panel has no message to compose, so it carries only the controls
+        that are not about one: the surface toggle and the model the run will
+        use, composed by the panel — which had no picker here at all, so
+        changing the model meant leaving for the chat surface and coming back.
+      */}
+      {leading && (
+        <div className="flex shrink-0 items-center gap-0.5 border-border/40 border-t px-2 py-1">
+          {leading}
+        </div>
+      )}
 
       {run && !settled && (
         <AgentRunControls

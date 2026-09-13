@@ -1,7 +1,6 @@
 import { lazy, Suspense, useState } from "react"
-import { Tabs } from "@/components/ui/tabs"
 import { Chat } from "@/features/chat/components/chat"
-import { SurfaceSwitch } from "./surface-switch"
+import { type PanelSurface, SurfaceToggle } from "./surface-toggle"
 
 /**
  * The build constant is read inline, not through `AGENT_PREVIEW_ENABLED`: the
@@ -20,33 +19,29 @@ const AgentSurface =
     : undefined
 
 export const SidepanelWorkspace = () => {
-  const [surface, setSurface] = useState<"chat" | "agent">("chat")
+  const [surface, setSurface] = useState<PanelSurface>("chat")
 
   if (!AgentSurface) return <Chat />
 
+  /*
+   * No bar of its own, and no tab strip. The toggle is handed to whichever
+   * surface is showing and rendered in that surface's bottom control row,
+   * beside the model picker — the row both surfaces now share. A full-width
+   * row for a two-item switch was forty pixels of a four-hundred-pixel panel,
+   * and a segmented control in the header put the mode one row away from the
+   * controls that belong to it.
+   */
+  const toggle = <SurfaceToggle surface={surface} onChange={setSurface} />
+
   return (
     <div className="flex h-screen min-w-0 flex-col bg-surface-chat">
-      <Tabs
-        value={surface}
-        onValueChange={(value) => setSurface(value as "chat" | "agent")}
-        className="min-h-0 flex-1 gap-0">
-        {/*
-          No bar of its own. The switch is handed to whichever surface is
-          showing and rendered in that surface's own header row, because a
-          full-width row for a two-item toggle is forty pixels of a
-          four-hundred-pixel panel and it put the mode a person is in one row
-          away from the state that mode is in.
-        */}
-        <div className="min-h-0 flex-1">
-          {surface === "chat" ? (
-            <Chat embedded leading={<SurfaceSwitch />} />
-          ) : (
-            <Suspense fallback={null}>
-              <AgentSurface leading={<SurfaceSwitch />} />
-            </Suspense>
-          )}
-        </div>
-      </Tabs>
+      {surface === "chat" ? (
+        <Chat embedded leading={toggle} />
+      ) : (
+        <Suspense fallback={null}>
+          <AgentSurface leading={toggle} />
+        </Suspense>
+      )}
     </div>
   )
 }

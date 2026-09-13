@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
+import { ModelMenu } from "@/features/model/components/model-menu"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { useSetting } from "@/hooks/use-setting"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
@@ -57,7 +58,23 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
       )}
       <div className="min-h-0 flex-1">
         <AgentView
-          leading={leading}
+          leading={
+            leading && (
+              <>
+                {leading}
+                {/*
+                 * The model a run will use, changeable from the surface that
+                 * runs it. The panel stated it read-only, so picking another
+                 * one meant switching to chat, changing it there, and coming
+                 * back — for the setting this surface cares most about.
+                 */}
+                <ModelMenu
+                  showStatusPopup={false}
+                  tooltipTextContent={t("chat.input.switch_model")}
+                />
+              </>
+            )
+          }
           run={snapshot.run ?? null}
           steps={snapshot.steps}
           browser={snapshot.browser}

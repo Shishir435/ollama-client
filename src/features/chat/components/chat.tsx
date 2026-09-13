@@ -29,7 +29,7 @@ export const Chat = ({
   leading
 }: {
   embedded?: boolean
-  /** The side panel's surface switch, rendered in the chat header's row. */
+  /** The surface toggle, rendered in the composer's control row. */
   leading?: ReactNode
 }) => {
   const { t } = useTranslation()
@@ -247,7 +247,7 @@ export const Chat = ({
         "flex min-h-0 flex-col bg-surface-chat",
         embedded ? "h-full" : "h-screen"
       )}>
-      <ChatHeader messages={messages} leading={leading} />
+      <ChatHeader messages={messages} />
 
       {hasSession ? (
         <>
@@ -272,6 +272,7 @@ export const Chat = ({
             <PendingToolConfirmation messages={messages} />
             <div className="mx-auto max-w-4xl px-2">
               <ChatInputBox
+                leading={leading}
                 onSend={sendMessage}
                 stopGeneration={stopGeneration}
               />
