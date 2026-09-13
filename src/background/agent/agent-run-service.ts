@@ -6,7 +6,10 @@ import type {
 } from "@ollama-client/agent-runtime"
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
-import { AgentRunStateSchema } from "@ollama-client/contracts"
+import {
+  AGENT_GRANTABLE_EFFECTS,
+  AgentRunStateSchema
+} from "@ollama-client/contracts"
 
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
@@ -40,6 +43,7 @@ export interface StartAgentRunInput {
   tabId: number
   providerId: string
   modelId: string
+  allowRoutineActions?: boolean
   allowExperimentalModel?: boolean
 }
 
@@ -524,6 +528,17 @@ export const createAgentRunService = (input?: {
           providerId: request.providerId,
           modelId: request.modelId,
           allowedOrigins: [originOf(address)],
+          ...(request.allowRoutineActions
+            ? {
+                grants: [
+                  {
+                    origin: originOf(address),
+                    effects: [...AGENT_GRANTABLE_EFFECTS],
+                    grantedAt: startedAt
+                  }
+                ]
+              }
+            : {}),
           scopedTabIds: [request.tabId],
           deadline: createInitialAgentDeadline(startedAt),
           createdAt: startedAt,

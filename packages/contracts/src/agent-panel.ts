@@ -155,6 +155,7 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
       tabId: z.number().int().nonnegative(),
       providerId: z.string().min(1),
       modelId: z.string().min(1),
+      allowRoutineActions: z.boolean().optional(),
       allowExperimentalModel: z.boolean().optional()
     })
     .strict(),

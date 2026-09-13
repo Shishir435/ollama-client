@@ -197,6 +197,37 @@ const executorAdapter = (
 })
 
 describe("Agent DOM mutation resolution and policy", () => {
+  it.each([
+    ["empty attachment picker", 'type="file"', 0, "approval_required"],
+    ["selected attachment", 'type="file"', 1, "takeover_required"],
+    ["unreadable file list", 'type="file"', null, "takeover_required"],
+    ["empty password", 'type="password"', 0, "takeover_required"],
+    ["empty OTP", 'autocomplete="one-time-code"', 0, "takeover_required"],
+    ["empty card field", 'autocomplete="cc-number"', 0, "takeover_required"]
+  ] as const)("applies submission policy to a form with %s", async (_label, attributes, fileCount, expectedPolicy) => {
+    document.body.innerHTML = `<form action="/comments" method="post"><input type="hidden" name="authenticity_token" value="private-csrf"><textarea name="comment[body]">This is a test comment.</textarea><input ${attributes}><button>Comment</button></form>`
+    const submit = document.querySelector("button")
+    if (!submit) throw new Error("Missing comment submit button")
+    const control = document.querySelectorAll("input")[1]
+    if (control.type === "file") {
+      vi.spyOn(control, "files", "get").mockReturnValue(
+        fileCount === null ? null : ({ length: fileCount } as FileList)
+      )
+    }
+    const observed = buildAgentElementObservation(submit, "e1", 0)
+    const before = observation({ elements: [observed] })
+    const action = command({ type: "click", ref: "e1" })
+    const policy = await decide(action, before)
+    expect(policy.type).toBe(expectedPolicy)
+    expect(policy.risk).toBe("critical")
+    expect(JSON.stringify(await resolve(action, before))).not.toContain(
+      "private-csrf"
+    )
+    expect(buildAgentElementObservation(control, "e2", 0)).toMatchObject({
+      sensitive: true
+    })
+  })
+
   it("derives submission and formaction from a submit control", async () => {
     const destination = new URL("/finish", location.href).href
     const before = observation({
@@ -708,6 +739,34 @@ describe("Agent DOM mutation execution", () => {
     ).toThrow("form state changed after approval")
   })
 
+  it("refuses a file selected after an empty-attachment form was approved", async () => {
+    document.body.innerHTML =
+      '<form action="/comments" method="post"><textarea>Draft</textarea><input type="file"><button>Comment</button></form>'
+    const file = document.querySelector("input")
+    const submit = document.querySelector("button")
+    if (!file || !submit) throw new Error("Missing comment form controls")
+    const { effect, references } = await liveEffect(
+      command({ type: "click", ref: "e1" }),
+      submit
+    )
+    expect(effect.semanticEffects).not.toContain("sensitive_input")
+    const nativeSubmit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    // Keep the value string unchanged to prove the live sensitivity check,
+    // independently of the private form-state fingerprint.
+    vi.spyOn(file, "files", "get").mockReturnValue({ length: 1 } as FileList)
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow("changed after approval")
+    expect(nativeSubmit).not.toHaveBeenCalled()
+  })
+
   it("submits without invoking page-controlled click or submit handlers", async () => {
     const form = document.createElement("form")
     form.action = "/finish"
@@ -1038,6 +1097,77 @@ describe("Agent DOM mutation verification", () => {
     await expect(
       verify(command({ type: "click", ref: "e1" }), after, before)
     ).resolves.toMatchObject({ outcome: "confirmed" })
+  })
+
+  it.each([
+    ["result anchor", "/form#comment-1", "document-2", true, "ok", "confirmed"],
+    ["result page", "/result", "document-2", true, "ok", "confirmed"],
+    [
+      "unrelated site",
+      "https://other.example/result",
+      "document-2",
+      true,
+      "ok",
+      "ambiguous"
+    ],
+    ["same document", "/form#comment-1", "document-1", true, "ok", "ambiguous"],
+    [
+      "missing dispatch receipt",
+      "/result",
+      "document-2",
+      false,
+      "ok",
+      "ambiguous"
+    ],
+    [
+      "excluded result",
+      "/result",
+      "document-2",
+      true,
+      "restricted",
+      "ambiguous"
+    ]
+  ] as const)("verifies a submission redirect to %s", async (_label, destination, documentId, dispatched, access, outcome) => {
+    const formAction = new URL("/comments", location.href).href
+    const before = observation({
+      elements: [
+        element({
+          type: "submit",
+          maySubmit: true,
+          submitter: true,
+          formAction
+        })
+      ]
+    })
+    const url = new URL(destination, location.href)
+    const after = observation({
+      url: url.href,
+      origin: url.origin,
+      documentId,
+      visibleText: "Posted comment",
+      elements: []
+    })
+    const observe = vi.fn(async () => after)
+    const result = await verifyDomMutationAgentEffect({
+      verification: {
+        effect: await authorize(command({ type: "click", ref: "e1" }), before),
+        receipt: {
+          executedAt: 5,
+          ...(dispatched ? { submissionUrl: formAction } : {})
+        },
+        before,
+        allowedOrigins: [location.origin]
+      },
+      adapter: verifierAdapter(after, {
+        observe,
+        classifyAccess: async () => access
+      }),
+      signal
+    })
+    expect(result.outcome).toBe(outcome)
+    if (url.origin !== location.origin || access !== "ok") {
+      expect(observe).not.toHaveBeenCalled()
+    }
   })
 
   it("ships one resolver, executor, and verifier entry for every mutation action", () => {

@@ -3,10 +3,10 @@ title: Agent (Preview)
 description: What the supervised browser agent does, what it refuses, and where it stops.
 ---
 
-Agent drives one browser tab towards a goal you write, one step at a time, and
-asks before anything that changes the page in a way you would not want undone.
-It is a Preview: success depends on the website and the selected model,
-and each step remains supervised.
+Agent drives one browser tab towards a goal you write. Routine clicks and typing
+can run automatically; posting, destructive actions and sensitive steps still
+require your decision. It is a Preview: success depends on the website and the
+selected model, and every step is checked against the page.
 
 It is off unless you turn it on, and it never reads a page without the
 page-observation permission you grant explicitly.
@@ -38,15 +38,18 @@ Every step is the same six things, in order, and none of them is skipped.
 | --- | --- |
 | Reading, scrolling | Runs without asking |
 | Following a link within a site you already allowed | Runs without asking |
-| Clicking a control, typing into a field | Asks the first time |
+| Clicking a control, typing into a field | Runs automatically on the starting site when routine actions are enabled |
 | Submitting a form, anything destructive | Asks every time |
 | Payment, sign-in, one-time codes, file pickers | Hands the page to you |
 
-When Agent asks about a click or a field, you can allow that kind of action on
-that site for the rest of the run. That offer is never made for a submission,
-anything destructive, a payment, a sign-in, or a sensitive field: those keep
-asking, every time, because a prompt you cannot turn off is the only kind that
-still means something.
+Before starting, **Allow routine actions for this task** is selected by default.
+It authorizes clicks and typing on the starting site for this run only. Clear
+it to review each change instead. Forms that post or send, destructive actions,
+new sites, and sensitive steps still require your decision. An empty attachment
+picker does not force manual takeover; choosing a file does.
+
+When Agent asks about a click or a field, you can also allow that kind of action
+on that site for the rest of the run. This never carries over to another run.
 
 Anything Agent hands to you is yours to finish. It does not type a password, a
 card number or a one-time code, and it will not choose a file for you.

@@ -25,7 +25,7 @@ export interface AgentRunConnection {
   snapshot: AgentPanelSnapshot
   failure?: AgentCommandFailure
   busy: boolean
-  start(goal: string): void
+  start(goal: string, allowRoutineActions?: boolean): void
   pause(): void
   resume(): void
   correct(text: string): void
@@ -176,7 +176,7 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
   const { providerId, modelId, tabId, allowExperimentalModel } = input
 
   const start = useCallback(
-    (goal: string) => {
+    (goal: string, allowRoutineActions = false) => {
       if (!providerId || !modelId || typeof tabId !== "number") return
       const trimmed = goal.trim()
       if (!trimmed) return
@@ -205,6 +205,7 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
             tabId,
             providerId,
             modelId,
+            ...(allowRoutineActions ? { allowRoutineActions: true } : {}),
             allowExperimentalModel
           })
         })

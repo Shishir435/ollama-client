@@ -166,7 +166,7 @@ describe("useAgentRun", () => {
     const { result } = renderHook(() => useAgentRun(model))
 
     await act(async () => {
-      result.current.start("  Find the pricing page  ")
+      result.current.start("  Find the pricing page  ", true)
       await Promise.resolve()
     })
 
@@ -177,6 +177,7 @@ describe("useAgentRun", () => {
         tabId: 7,
         providerId: "ollama",
         modelId: "qwen3",
+        allowRoutineActions: true,
         allowExperimentalModel: undefined
       }
     ])

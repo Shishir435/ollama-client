@@ -7,6 +7,8 @@ export const waitForAgentNavigation = async (input: {
   destinationUrl: string
   signal: AgentCancellationSignal
   getTab(tabId: number): Promise<{ url?: string; status?: string } | undefined>
+  sourceDocumentId?: string
+  getDocumentId?(): Promise<string | undefined>
   timeoutMs?: number
 }): Promise<void> => {
   const deadline = Date.now() + (input.timeoutMs ?? 10_000)
@@ -20,6 +22,10 @@ export const waitForAgentNavigation = async (input: {
         (tab.url && tab.url !== input.sourceUrl))
     )
       return
+    if (tab.status !== "loading" && input.sourceDocumentId) {
+      const documentId = await input.getDocumentId?.()
+      if (documentId && documentId !== input.sourceDocumentId) return
+    }
     const remaining = deadline - Date.now()
     if (remaining <= 0) throw new Error("Agent navigation did not settle")
     await new Promise<void>((resolve, reject) => {

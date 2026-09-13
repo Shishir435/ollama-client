@@ -113,7 +113,9 @@
       "description": "Supervisiona un’attività del browser da questo pannello.",
       "goal": "Cosa deve fare l’Agente?",
       "placeholder": "Descrivi un’attività del browser…",
-      "action": "Avvia Agente"
+      "action": "Avvia Agente",
+      "auto_actions": "Consenti le azioni di routine per questa attività",
+      "auto_actions_description": "Clic e digitazione su questo sito sono automatici. Pubblicazioni, eliminazioni, nuovi siti e passaggi sensibili richiedono ancora conferma."
     },
     "status": {
       "submitted": "Avvio",

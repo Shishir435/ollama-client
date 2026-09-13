@@ -113,7 +113,9 @@
       "description": "Supervisa una tarea del navegador desde este panel.",
       "goal": "¿Qué debe hacer el Agente?",
       "placeholder": "Describe una tarea del navegador…",
-      "action": "Iniciar Agente"
+      "action": "Iniciar Agente",
+      "auto_actions": "Permitir acciones rutinarias para esta tarea",
+      "auto_actions_description": "Los clics y la escritura en este sitio son automáticos. Publicar, eliminar, visitar nuevos sitios y los pasos sensibles siguen requiriendo confirmación."
     },
     "status": {
       "submitted": "Iniciando",

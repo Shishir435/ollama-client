@@ -166,6 +166,47 @@ beforeEach(() => {
 })
 
 describe("durable turn runtime", () => {
+  it.each([
+    "start",
+    "recovery"
+  ] as const)("does not recover a turn already owned by a live %s in this worker", async (owner) => {
+    const releaseGeneration = deferred<void>()
+    mocks.getIncompleteTurnRuns.mockResolvedValue([
+      {
+        ...submission,
+        status: "generating",
+        userMessageId: 1,
+        assistantMessageId: 2,
+        updatedAt: 12
+      } satisfies DurableTurnRun
+    ])
+    mocks.handleChat.mockImplementationOnce(async (_message, port) => {
+      port.postMessage({ delta: "before-worker-kill " })
+      await releaseGeneration.promise
+      port.postMessage({ done: true })
+    })
+    const running =
+      owner === "start"
+        ? startDurableTurn(submission, 1, 2, {})
+        : resumeIncompleteTurnRuns()
+    try {
+      await vi.waitFor(() => expect(mocks.handleChat).toHaveBeenCalledOnce())
+      await resumeIncompleteTurnRuns()
+      await startDurableTurn(submission, 1, 2, {})
+      expect(mocks.contextBuild).toHaveBeenCalledOnce()
+      expect(mocks.handleChat).toHaveBeenCalledOnce()
+      expect(hasAbortController(submission.id)).toBe(true)
+      expect(mocks.updateTurnRun).not.toHaveBeenCalledWith(
+        submission.id,
+        expect.objectContaining({ status: "completed" })
+      )
+    } finally {
+      releaseGeneration.resolve()
+      await running
+    }
+    expect(hasAbortController(submission.id)).toBe(false)
+  })
+
   it("owns context and generation after the sidepanel submits", async () => {
     await startDurableTurn(submission, 1, 2, {})
 

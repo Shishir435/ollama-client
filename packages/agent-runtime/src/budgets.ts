@@ -171,7 +171,12 @@ export const hashAgentObservation = (
       JSON.stringify(
         observation.elements
           .filter((element) => matchesAgentInspection(element, focus))
-          .map(({ verificationId: _verificationId, ...element }) => element)
+          // Refs are positional within a snapshot; unrelated insertions can
+          // renumber the same answer without making progress on the task.
+          .map(
+            ({ ref: _ref, verificationId: _verificationId, ...element }) =>
+              element
+          )
       )
     )
   }

@@ -113,7 +113,9 @@
       "description": "Browseraufgabe in diesem Panel beaufsichtigen.",
       "goal": "Was soll der Agent tun?",
       "placeholder": "Eine Browseraufgabe beschreiben…",
-      "action": "Agent starten"
+      "action": "Agent starten",
+      "auto_actions": "Routineaktionen für diese Aufgabe erlauben",
+      "auto_actions_description": "Klicken und Tippen auf dieser Website erfolgen automatisch. Veröffentlichen, Löschen, neue Websites und sensible Schritte erfordern weiterhin Ihre Zustimmung."
     },
     "status": {
       "submitted": "Startet",

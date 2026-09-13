@@ -204,6 +204,7 @@ Chat history is **SQLite-only**, on one engine and one writer: official sqlite-w
   - `updateTurnRun` resolving false means another owner has the turn: `TurnRuntime` then does no provider work.
   - A stop commits `cancelling` **before** aborting the controller, so a worker lost mid-stop restarts into recovery rather than handing a `generating` row back to the provider.
   - Startup finalizes interrupted cancellations without reissuing anything, and terminally fails an unparseable row with a content-free diagnostic.
+  - Live starts and recovery share a worker-local execution claim, held through cleanup. A status CAS permits `generating` → `generating` for restart recovery; it cannot prevent delayed startup recovery from duplicating a turn this worker already owns.
 - **A settled turn keeps no resumable input.** `turn_runs.request` holds the whole prior conversation, file text, page bodies and base64 images — necessary while resumable, and O(n²) bytes per chat once it is not.
   - `compactedTurnRequest(...)` replaces it **in the same statement that writes the terminal status** (`updateTurnRun`, `finalizeCancelledTurn`, `quarantineTurnRun`), never in a later pass a dying worker could skip. Migration 14 cleared the backlog.
   - What survives as evidence: the bounded `contextReceipt`, the message rows it points at, and the recorded failure.
@@ -561,6 +562,11 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   click open the chooser. A chooser the page opened mid-action is reported on
   the receipt (`fileChooser`) and settles the step as the user's whatever else
   happened.
+- **An empty attachment picker does not make a form sensitive.** Submitting a
+  comment with no selected files follows normal submission approval. Selected
+  files, an unreadable selection, and password/OTP/card controls still require
+  takeover. The executor rechecks selection after approval; the file picker
+  itself remains sensitive even when empty.
 - **A native dialog holds the page, and only the debugger can see it or let
   go of it.** Enabling `Page` is what makes `alert`, `confirm`, `prompt` and
   `beforeunload` reach `Page.javascriptDialogOpening` instead of the user, so
@@ -629,6 +635,11 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   approve without reading. The `submission` class the resolver attaches to a
   click on a submitter and to Enter in a field that submits on it is what
   costs critical. Typing is a `form_mutation`, which is grantable per origin.
+- **Routine-action consent starts with the task.** The start screen's selected
+  checkbox sends `allowRoutineActions`; the background creates only activation
+  and form-mutation grants for the starting origin in that run. Omitted consent
+  keeps per-step review. Submission, destruction, new origins and sensitive
+  controls retain their own gates; a new run receives no previous run's grants.
 - **An edit with no submission step says so, and says only that.**
   `noSubmitStep` is set on an edit whose target belongs to no form — an
   editing host, or a bare field in an application that saves on input — so the

@@ -113,7 +113,9 @@
       "description": "在此面板中监督浏览器任务。",
       "goal": "希望智能体做什么？",
       "placeholder": "描述一个浏览器任务…",
-      "action": "启动智能体"
+      "action": "启动智能体",
+      "auto_actions": "允许此任务的常规操作",
+      "auto_actions_description": "在此网站上自动点击和输入。发布、删除、访问新网站及敏感操作仍会请求确认。"
     },
     "status": {
       "submitted": "正在启动",

@@ -113,7 +113,9 @@
       "description": "Supervise a browser task from this panel.",
       "goal": "What should Agent do?",
       "placeholder": "Describe one browser task…",
-      "action": "Start Agent"
+      "action": "Start Agent",
+      "auto_actions": "Allow routine actions for this task",
+      "auto_actions_description": "Clicks and typing on this site run automatically. Posting, deleting, new sites and sensitive steps still ask."
     },
     "status": {
       "submitted": "Starting",

@@ -113,7 +113,9 @@
       "description": "Supervisez une tâche du navigateur depuis ce panneau.",
       "goal": "Que doit faire l’Agent ?",
       "placeholder": "Décrivez une tâche du navigateur…",
-      "action": "Démarrer l’Agent"
+      "action": "Démarrer l’Agent",
+      "auto_actions": "Autoriser les actions courantes pour cette tâche",
+      "auto_actions_description": "Les clics et la saisie sur ce site sont automatiques. Les publications, suppressions, nouveaux sites et étapes sensibles demandent encore votre accord."
     },
     "status": {
       "submitted": "Démarrage",

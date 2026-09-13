@@ -801,9 +801,17 @@ const stableFormFingerprint = (form: HTMLFormElement): string => {
 }
 
 const hasSensitiveFormControl = (form: HTMLFormElement): boolean =>
-  Array.from(form.elements).some(
-    (control) => control instanceof Element && isSensitiveAgentElement(control)
-  )
+  Array.from(form.elements).some((control) => {
+    if (!(control instanceof Element)) return false
+    // An unused attachment picker contributes no private file to a comment
+    // or message. Opening the picker itself stays sensitive, as does a form
+    // with selected files (or an unreadable selection). The executor rechecks
+    // this fact so a file chosen after approval cannot ride that approval.
+    if (control instanceof HTMLInputElement && control.type === "file") {
+      return control.files?.length !== 0
+    }
+    return isSensitiveAgentElement(control)
+  })
 
 const selectOptions = (
   element: Element

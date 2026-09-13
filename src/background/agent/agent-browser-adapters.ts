@@ -652,13 +652,27 @@ export const createAgentBrowserAdapters = (input: {
     verifier: {
       observe,
       wait: waitFor,
-      waitForNavigation: (tabId, sourceUrl, destinationUrl, signal) =>
+      waitForNavigation: (
+        tabId,
+        sourceUrl,
+        destinationUrl,
+        signal,
+        sourceDocumentId
+      ) =>
         waitForAgentNavigation({
           tabId,
           sourceUrl,
           destinationUrl,
           signal,
-          getTab
+          getTab,
+          sourceDocumentId,
+          getDocumentId: async () => {
+            const frame = (await browser.webNavigation.getFrame({
+              tabId,
+              frameId: 0
+            })) as { documentId?: string } | null
+            return frame?.documentId
+          }
         }),
       async getActiveTabId() {
         return (await queryActiveTab())?.id

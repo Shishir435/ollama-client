@@ -159,6 +159,31 @@ describe("agent budgets", () => {
     expect(
       hashAgentObservation({ ...before, visibleText: "Clock 2" }, decision)
     ).toBe(hash)
+    const renumbered = {
+      ...before,
+      elements: [
+        { ...element, name: "Home", group: "nav" },
+        { ...element, ref: "e2", verificationId: "fresh-render" }
+      ]
+    }
+    expect(hashAgentObservation(renumbered, decision)).toBe(hash)
+    expect(
+      classifyNoProgress({
+        previous: { url: before.url, snapshotHash: hash, decision },
+        current: {
+          url: renumbered.url,
+          snapshotHash: hashAgentObservation(renumbered, decision),
+          decision
+        },
+        previousCount: 2
+      })
+    ).toEqual({ noProgress: true, count: 3 })
+    expect(
+      hashAgentObservation(
+        { ...before, elements: [{ ...element, enabled: false }] },
+        decision
+      )
+    ).not.toBe(hash)
     const after = {
       ...before,
       elements: [element, { ...element, ref: "e2", name: "Save draft" }]

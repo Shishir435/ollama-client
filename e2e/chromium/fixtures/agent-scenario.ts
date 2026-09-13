@@ -121,6 +121,7 @@ export interface AgentScenario {
    * for the rest of the run, which is what a user checking the box does.
    */
   approvalScope?: "once" | "run_origin"
+  allowRoutineActions?: boolean
   /** What the panel's textarea replies with, when the run asks something. */
   answer?: string
   /**
@@ -140,6 +141,7 @@ export interface AgentScenario {
   vision?: boolean
   timeoutMs?: number
   html(path: string): string
+  redirect?(path: string): string | undefined
   navigationDelayMs?(path: string): number
   /**
    * Whether the goal is actually met, judged from the page rather than from
@@ -379,6 +381,12 @@ const runAgentScenarioAttempt = (
         response.end(answered.body)
         return
       }
+      const redirect = scenario.redirect?.(path)
+      if (redirect) {
+        response.writeHead(303, { Location: redirect })
+        response.end()
+        return
+      }
       // Real sites acknowledge navigation before the document finishes loading.
       const delay = scenario.navigationDelayMs?.(path) ?? 0
       if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
@@ -476,6 +484,10 @@ const runAgentScenarioAttempt = (
       await panel
         .getByRole("textbox", { name: "What should Agent do?" })
         .fill(scenario.goal)
+      // Keep existing benchmark approval scenarios in their original mode.
+      await panel
+        .getByRole("checkbox", { name: /Allow routine actions for this task/ })
+        .setChecked(scenario.allowRoutineActions === true)
       await panel
         .getByRole("button", { name: "Start Agent", exact: true })
         .click()
