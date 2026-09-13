@@ -22,6 +22,40 @@ describe("Agent presentation", () => {
     expect(agentPlainText("safe\u0000\u0007 label", 100)).toBe("safe label")
   })
 
+  it("carries the control acted on and the model's own note", () => {
+    /*
+     * Both were durable and neither was rendered, so twenty steps of a real
+     * run read as twenty repetitions of "Click control" — the run's own
+     * account of what it was doing existed and nobody could see it.
+     */
+    const [row] = toAgentWorkLog([
+      {
+        runId: "run-1",
+        stepId: "s1",
+        sequence: 1,
+        status: "verified",
+        at: 1,
+        command: {
+          type: "click",
+          snapshotId: "s",
+          generation: 1,
+          ref: "e7"
+        },
+        target: {
+          ref: "e7",
+          tag: "a",
+          role: "link",
+          name: "Install\nextension"
+        },
+        finding: "The download is on the store page, not here."
+      }
+    ])
+
+    expect(row?.label.key).toBe("agent.action.click")
+    expect(row?.target).toBe("Install extension")
+    expect(row?.note).toBe("The download is on the store page, not here.")
+  })
+
   it("shows one row per step, at the point that step reached", () => {
     const ground = { snapshotId: "s", generation: 1, ref: "e7" }
     const click = { type: "click", ...ground } as const

@@ -1,4 +1,8 @@
 import type { AgentPanelMessage } from "@ollama-client/contracts"
+import {
+  AgentPanelMessageSchema,
+  MAX_AGENT_OBSERVATIONS
+} from "@ollama-client/contracts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { registerAgentPanelPort } from "../agent-panel-port"
@@ -216,6 +220,47 @@ describe("Agent panel port", () => {
     announce?.("run-1")
     await settled()
     expect(messages).toHaveLength(2)
+  })
+
+  it("sends one receipt per step, so a long run still fits a snapshot", async () => {
+    /*
+     * A step is appended once per lifecycle change, so a run at the step
+     * ceiling writes several times that many receipts. The snapshot used to
+     * carry every one against a flat cap of 125, which a fifty-step run
+     * overflows: the panel refused the whole message as unreadable and the
+     * supervision surface went dead while the run was still going.
+     */
+    const steps = Array.from({ length: MAX_AGENT_OBSERVATIONS }, (_, index) =>
+      ["planned", "approved", "executing", "verified"].map((status, phase) => ({
+        runId: "run-1",
+        stepId: `step-${index}`,
+        sequence: index * 4 + phase,
+        status: status as "planned",
+        at: index * 4 + phase
+      }))
+    ).flat()
+    const agent = service({
+      activeRunId: () => "run-1",
+      latestRunId: async () => "run-1",
+      snapshot: async () => ({ run: undefined, steps, pending: undefined })
+    })
+    registerAgentPanelPort({ service: agent })
+    const { port, messages } = createPort()
+
+    connect(port)
+    await settled()
+
+    const published = messages[0]
+    expect(published?.type).toBe("agent_snapshot")
+    const sent =
+      published?.type === "agent_snapshot" ? published.snapshot.steps : []
+    expect(steps).toHaveLength(MAX_AGENT_OBSERVATIONS * 4)
+    expect(sent).toHaveLength(MAX_AGENT_OBSERVATIONS)
+    expect(sent.map((step) => step.status)).toEqual(
+      Array.from({ length: MAX_AGENT_OBSERVATIONS }, () => "verified")
+    )
+    /* The panel refuses anything the contract cannot describe. */
+    expect(AgentPanelMessageSchema.safeParse(published).success).toBe(true)
   })
 
   it("discloses the provider bound to the run, not the current selection", async () => {

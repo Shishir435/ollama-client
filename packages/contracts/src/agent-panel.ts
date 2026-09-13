@@ -4,7 +4,8 @@ import {
   AgentRunStateSchema,
   AgentStepStatusSchema,
   AgentTakeoverRequestSchema,
-  MAX_AGENT_ANSWER_CHARS
+  MAX_AGENT_ANSWER_CHARS,
+  MAX_AGENT_OBSERVATIONS
 } from "./agent"
 import { AgentCommandSchema } from "./agent-command"
 
@@ -122,8 +123,18 @@ export type AgentBrowserDisclosure = z.infer<
 export const AgentPanelSnapshotSchema = z
   .object({
     run: AgentRunStateSchema.optional(),
-    // Each of 25 actions has up to five append-only lifecycle receipts.
-    steps: z.array(AgentStepRecordSchema).max(125),
+    /**
+     * The latest receipt per step, which is one row per action the run took.
+     *
+     * This was a flat cap of 125 — twenty-five actions at up to five
+     * append-only lifecycle receipts each — and it stopped being true the
+     * moment the step ceiling moved to fifty: a long run overflowed the
+     * array, the panel refused the whole snapshot as unreadable, and the
+     * supervision surface went dead exactly when there was most to supervise.
+     * A literal cannot be allowed to disagree with the budget again, so the
+     * bound is the budget, and the sender collapses receipts to reach it.
+     */
+    steps: z.array(AgentStepRecordSchema).max(MAX_AGENT_OBSERVATIONS),
     pending: AgentPendingSupervisionSchema.optional(),
     provider: AgentProviderDisclosureSchema.optional(),
     browser: AgentBrowserDisclosureSchema.optional(),

@@ -542,6 +542,23 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   times over as "Planned", "Approved", "Running" and "Review". History and the
   completion judge collapse receipts to the latest per step for the same
   reason; the log is the one place a person reads them.
+- **The snapshot carries one receipt per step, and its bound is the budget.**
+  `latestReceiptPerStep` collapses at the panel port, so the array is bounded
+  by the step ceiling itself. It was every receipt against a flat cap of 125 —
+  twenty-five steps at up to five receipts each — and that stopped being true
+  the moment the ceiling moved to fifty: a long run overflowed the array, the
+  panel refused the whole message as `unreadable_update`, and the supervision
+  surface went dead at exactly the point in a run where there was most to
+  supervise. A literal that has to agree with a budget will eventually not,
+  so the schema reads `MAX_AGENT_OBSERVATIONS` rather than a number.
+- **A row says what was acted on and why.** The step's `target.name` and the
+  model's own `finding` were both durable and neither was rendered, so a log
+  of twenty steps read as twenty repetitions of "Click control" — the run's
+  account of its own work existed and the supervisor could not see it. The
+  name travels beside the label rather than inside it: the label is one
+  translated sentence, and a name is page text that has to read as page text.
+  The goal is shown for the duration of the run too, because the box it was
+  typed into is the surface the running panel replaces.
 - **Vision unknown is not vision absent.** `resolveAgentProviderDisclosure`
   passes compatibility's `vision` through instead of comparing it to `true`:
   the field is stated only when there is evidence either way, and reading

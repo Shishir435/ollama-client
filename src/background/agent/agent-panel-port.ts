@@ -152,6 +152,30 @@ export const registerAgentPanelPort = (
     }
   }
 
+  /**
+   * One receipt per step: the last one written for it.
+   *
+   * A step is appended once per lifecycle change, so a run's receipts outnumber
+   * its actions several times over. The panel collapses them to render, history
+   * and the completion judge collapse them to reason, and every one of those
+   * happens after the array has already had to fit in a snapshot — which a long
+   * run's receipts did not, taking the whole panel down with them. Collapsing
+   * here bounds the array by the step ceiling itself rather than by a number
+   * somebody remembered to raise.
+   */
+  const latestReceiptPerStep = <T extends { stepId: string; sequence: number }>(
+    steps: readonly T[]
+  ): T[] => {
+    const latest = new Map<string, T>()
+    for (const step of steps) {
+      const held = latest.get(step.stepId)
+      if (!held || step.sequence >= held.sequence) latest.set(step.stepId, step)
+    }
+    return [...latest.values()].sort(
+      (first, second) => first.sequence - second.sequence
+    )
+  }
+
   const snapshotFor = async (runId?: string): Promise<AgentPanelSnapshot> => {
     if (!runId) {
       return {
@@ -167,7 +191,7 @@ export const registerAgentPanelPort = (
     )
     return {
       run: snapshot.run,
-      steps: snapshot.steps.map((step) => ({
+      steps: latestReceiptPerStep(snapshot.steps).map((step) => ({
         runId: step.runId,
         stepId: step.stepId,
         sequence: step.sequence,

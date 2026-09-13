@@ -166,6 +166,18 @@ export interface AgentWorkLogItem {
   id: string
   label: AgentActionLabel
   status: AgentStepRecord["status"]
+  /**
+   * The control the step acted on, in the page's own words.
+   *
+   * Carried beside the label rather than interpolated into it: "Click
+   * control" is the same sentence in every language, and a name is page text
+   * that must read as page text rather than as part of a sentence this build
+   * wrote. It is already bounded where the receipt was written, and dropped
+   * there when the control was sensitive.
+   */
+  target?: string
+  /** The model's own note for this step, if it left one. */
+  note?: string
   detail?: string
 }
 
@@ -178,6 +190,11 @@ export interface AgentWorkLogItem {
  * The run had done one thing. History and the completion judge both collapse
  * receipts to the latest per step for the same reason; the log is the one
  * place a person reads them, so it is the place it mattered most.
+ *
+ * Each row carries what the step acted on and the note the model left on it.
+ * Both were durable and neither was rendered, so a log of twenty steps read
+ * as twenty repetitions of "Click control" — the run's own account of what it
+ * was doing existed and the supervisor could not see it.
  */
 export const toAgentWorkLog = (
   steps: readonly AgentStepRecord[]
@@ -193,6 +210,12 @@ export const toAgentWorkLog = (
       id: step.stepId,
       label: agentActionLabel(step.command),
       status: step.status,
+      ...(step.target?.name
+        ? { target: agentPlainText(step.target.name, AGENT_PAGE_TEXT_LIMIT) }
+        : {}),
+      ...(step.finding
+        ? { note: agentPlainText(step.finding, AGENT_LOG_TEXT_LIMIT) }
+        : {}),
       ...(step.verification?.evidence.summary
         ? {
             detail: agentPlainText(

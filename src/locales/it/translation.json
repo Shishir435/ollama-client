@@ -162,10 +162,12 @@
     "unresolved": "Questa azione potrebbe essere avvenuta. Controlla la pagina prima di continuare.",
     "unresolved_reviewed": "Ho controllato la pagina: continua",
     "work_log": {
-      "title": "Registro attività"
+      "title": "Registro attività",
+      "target": "«{{name}}»"
     },
     "correction": "In pausa. Descrivi cosa cambiare, poi continua.",
-    "export_report": "Esporta rapporto (include il testo della pagina)"
+    "export_report": "Esporta rapporto (include il testo della pagina)",
+    "running_goal": "In lavorazione"
   },
   "common": {
     "theme": {

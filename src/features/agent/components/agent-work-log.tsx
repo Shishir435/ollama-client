@@ -43,6 +43,25 @@ export const AgentWorkLog = ({ items }: { items: AgentWorkLogItem[] }) => {
                   <p className="break-words text-xs">
                     {t(item.label.key, item.label.values)}
                   </p>
+                  {/*
+                    The control's own name, quoted so it reads as the page's
+                    words rather than as part of the sentence above it.
+                  */}
+                  {item.target && (
+                    <p className="mt-0.5 break-words text-2xs text-muted-foreground">
+                      {t("agent.work_log.target", { name: item.target })}
+                    </p>
+                  )}
+                  {/*
+                    The model's own note for the step. It is why the run did
+                    this, in its words, and it was durable long before it was
+                    ever shown.
+                  */}
+                  {item.note && (
+                    <p className="mt-1 break-words border-l-2 border-border pl-2 text-2xs text-muted-foreground">
+                      {item.note}
+                    </p>
+                  )}
                   {item.detail && (
                     <p className="mt-0.5 break-words text-2xs text-muted-foreground">
                       {item.detail}

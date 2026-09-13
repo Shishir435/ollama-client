@@ -162,10 +162,12 @@
     "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
     "unresolved_reviewed": "ページを確認した — 続行",
     "work_log": {
-      "title": "作業ログ"
+      "title": "作業ログ",
+      "target": "「{{name}}」"
     },
     "correction": "一時停止中です。変更点を説明してから続行してください。",
-    "export_report": "実行レポートを出力（ページのテキストを含む）"
+    "export_report": "実行レポートを出力（ページのテキストを含む）",
+    "running_goal": "実行中のタスク"
   },
   "common": {
     "theme": {

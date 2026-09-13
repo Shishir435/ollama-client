@@ -206,6 +206,27 @@ export const AgentView = ({
           <AgentBrowserDisclosureCard browser={browser} />
         )}
 
+        {/*
+          The goal, while the run is working on it. It was on screen only in
+          the box it was typed into, which the running panel replaces — so the
+          one question a supervisor is answering, "is it still doing what I
+          asked", had to be answered from memory.
+        */}
+        {run && !settled && (
+          <section
+            className="mb-3 rounded-panel border border-border/50 p-2.5"
+            aria-labelledby="agent-running-goal-label">
+            <h2
+              id="agent-running-goal-label"
+              className="text-2xs font-medium text-muted-foreground">
+              {t("agent.running_goal")}
+            </h2>
+            <p className="mt-0.5 break-words text-xs">
+              {agentPlainText(run.goal, AGENT_PAGE_TEXT_LIMIT)}
+            </p>
+          </section>
+        )}
+
         {(!run || settled) && (
           <section className="space-y-2" aria-labelledby="agent-goal-label">
             <label

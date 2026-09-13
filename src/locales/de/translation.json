@@ -162,10 +162,12 @@
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
     "unresolved_reviewed": "Seite geprüft — fortfahren",
     "work_log": {
-      "title": "Arbeitsprotokoll"
+      "title": "Arbeitsprotokoll",
+      "target": "„{{name}}“"
     },
     "correction": "Pausiert. Beschreibe die gewünschte Änderung und fahre fort.",
-    "export_report": "Laufbericht exportieren (enthält Seitentext)"
+    "export_report": "Laufbericht exportieren (enthält Seitentext)",
+    "running_goal": "Arbeitet an"
   },
   "common": {
     "theme": {

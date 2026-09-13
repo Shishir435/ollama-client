@@ -162,10 +162,12 @@
     "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
     "unresolved_reviewed": "已查看页面 — 继续",
     "work_log": {
-      "title": "工作日志"
+      "title": "工作日志",
+      "target": "“{{name}}”"
     },
     "correction": "已暂停。说明需要更改的内容，然后继续。",
-    "export_report": "导出运行报告（包含页面文本）"
+    "export_report": "导出运行报告（包含页面文本）",
+    "running_goal": "正在执行"
   },
   "common": {
     "theme": {

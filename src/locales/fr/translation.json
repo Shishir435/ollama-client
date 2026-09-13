@@ -162,10 +162,12 @@
     "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
     "unresolved_reviewed": "J'ai vérifié la page — continuer",
     "work_log": {
-      "title": "Journal de travail"
+      "title": "Journal de travail",
+      "target": "« {{name}} »"
     },
     "correction": "En pause. Décrivez le changement souhaité, puis continuez.",
-    "export_report": "Exporter le rapport (contient le texte de la page)"
+    "export_report": "Exporter le rapport (contient le texte de la page)",
+    "running_goal": "Tâche en cours"
   },
   "common": {
     "theme": {

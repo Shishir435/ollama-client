@@ -162,10 +162,12 @@
     "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
     "unresolved_reviewed": "He revisado la página: continuar",
     "work_log": {
-      "title": "Registro de trabajo"
+      "title": "Registro de trabajo",
+      "target": "«{{name}}»"
     },
     "correction": "En pausa. Describe qué debe cambiar y continúa.",
-    "export_report": "Exportar informe (incluye texto de la página)"
+    "export_report": "Exportar informe (incluye texto de la página)",
+    "running_goal": "Trabajando en"
   },
   "common": {
     "theme": {

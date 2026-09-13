@@ -162,10 +162,12 @@
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
     "unresolved_reviewed": "I've reviewed the page — continue",
     "work_log": {
-      "title": "Work log"
+      "title": "Work log",
+      "target": "“{{name}}”"
     },
     "correction": "Paused. Describe what should change, then continue.",
-    "export_report": "Export run report (includes page text)"
+    "export_report": "Export run report (includes page text)",
+    "running_goal": "Working on"
   },
   "common": {
     "theme": {
