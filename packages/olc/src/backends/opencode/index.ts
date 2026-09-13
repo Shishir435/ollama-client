@@ -149,9 +149,29 @@ export const createOpencodeBackend = (
         })
       }
     }
-    catalogCache = {
-      models,
-      expiresAt: Date.now() + MODEL_CATALOG_CACHE_TTL_MS
+    /**
+     * An empty catalog is not an answer, so it is never cached.
+     *
+     * A backend that is up has not necessarily finished discovering its
+     * providers — reading auth, loading config — and until it has,
+     * `config.providers()` answers with nothing. Storing that for the TTL
+     * turned one unlucky read into thirty seconds of a proxy confidently
+     * reporting that its runtime has no models, which is what the extension's
+     * model menu then shows: a provider that lists nothing. Every later
+     * request inside the window was served the same empty answer from memory
+     * without asking again, which is why the catalog appeared to fix itself
+     * only after something else had spent the window.
+     *
+     * It is the rule the extension already keeps for provider metadata —
+     * empty means unknown, never a reported no — applied to the proxy's own
+     * cache. Nothing is retried here and nothing waits: the empty answer is
+     * returned as it stands, and the next caller asks the runtime again.
+     */
+    if (models.length > 0) {
+      catalogCache = {
+        models,
+        expiresAt: Date.now() + MODEL_CATALOG_CACHE_TTL_MS
+      }
     }
     return models
   }
