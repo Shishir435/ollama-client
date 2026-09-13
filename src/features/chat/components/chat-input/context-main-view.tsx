@@ -158,7 +158,7 @@ export const ContextMainView = ({
           chevron, which is the sheet's only navigation affordance. */}
       {/* Written here rather than behind a glyph in the header: it is part of
           what the next message carries, like everything else in this sheet. */}
-      <div className="shrink-0 border-t border-border/40 pt-2">
+      <div className="shrink-0 border-t border-border/40 pt-1.5">
         <SessionInstructionsField />
       </div>
 

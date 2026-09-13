@@ -47,7 +47,7 @@ export const SessionInstructionsField = () => {
   }
 
   return (
-    <section className="space-y-1.5 px-2.5" aria-labelledby="chat-instructions">
+    <section className="space-y-1 px-2.5" aria-labelledby="chat-instructions">
       <h3
         id="chat-instructions"
         className="flex items-center gap-2 font-medium text-xs">
@@ -60,10 +60,10 @@ export const SessionInstructionsField = () => {
       <Textarea
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
-        rows={3}
+        rows={2}
         placeholder={t("chat.system_prompt.placeholder")}
       />
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-1">
         <Button
           variant="ghost"
           size="sm"

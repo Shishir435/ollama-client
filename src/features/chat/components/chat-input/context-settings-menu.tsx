@@ -185,9 +185,15 @@ export const ContextSettingsMenu = ({
           <ContextSubView
             title={t("settings.permissions.title")}
             onBack={() => setView("main")}>
-            <ScrollArea className="min-h-0 flex-1 overflow-x-hidden">
+            {/*
+              A native scroller, like the sheet's main view. ScrollArea draws a
+              track that stays put, which down a long list of toggles reads as
+              a second border on the panel; the platform scrollbar shows itself
+              while scrolling and gets out of the way afterwards.
+            */}
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
               <PermissionsPanel compact />
-            </ScrollArea>
+            </div>
           </ContextSubView>
         ) : view === "attachments" ? (
           <ContextSubView
