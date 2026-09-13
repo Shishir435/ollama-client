@@ -27,6 +27,17 @@ const run = (status: AgentRunState["status"]): AgentRunState => ({
 })
 
 describe("AgentView", () => {
+  it("takes the caret when the surface appears", () => {
+    /*
+     * Switching surfaces mounts this panel fresh, and a person who came here
+     * to describe a task should not have to click the box they are already
+     * looking at. The chat composer autofocuses for the same reason.
+     */
+    render(<AgentView />)
+
+    expect(screen.getByLabelText("agent.start.goal")).toHaveFocus()
+  })
+
   it("enforces remote-observation acknowledgement before start", () => {
     const acknowledge = vi.fn()
     const start = vi.fn()

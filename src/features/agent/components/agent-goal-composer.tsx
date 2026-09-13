@@ -1,6 +1,6 @@
 import { SendHorizontal } from "lucide-react"
 import type { ReactNode } from "react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { TooltipActionButton } from "@/components/actions"
@@ -39,6 +39,20 @@ export const AgentGoalComposer = ({
 }) => {
   const { t } = useTranslation()
   const [focused, setFocused] = useState(false)
+  const field = useRef<HTMLTextAreaElement>(null)
+
+  /*
+   * Focused when the surface appears, the way the chat composer is. Switching
+   * mounts this panel fresh, so a person who moved here to describe a task
+   * would otherwise have to click the box they were already looking at.
+   *
+   * Mount only: a run that settles later brings the composer back while its
+   * outcome is being read, and taking the caret at that moment would be the
+   * panel interrupting rather than getting out of the way.
+   */
+  useEffect(() => {
+    field.current?.focus()
+  }, [])
 
   if (!startable) {
     if (!controls) return null
@@ -57,6 +71,7 @@ export const AgentGoalComposer = ({
     <div className="shrink-0 px-2 pb-2">
       <ComposerShell isFocused={focused}>
         <Textarea
+          ref={field}
           id="agent-goal"
           aria-label={t("agent.start.goal")}
           value={goal}
