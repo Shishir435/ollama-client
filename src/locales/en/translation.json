@@ -436,7 +436,8 @@
       "tooltip_tokens": "Total tokens used in this session",
       "tooltip_time": "Total response generation time",
       "tooltip_speed": "Average generation speed",
-      "tooltip_messages": "Number of AI responses"
+      "tooltip_messages": "Number of AI responses",
+      "speed_average": "avg {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "Activity log",

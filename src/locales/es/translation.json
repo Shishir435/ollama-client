@@ -402,7 +402,8 @@
       "tooltip_tokens": "Total de tokens usados en esta sesión",
       "tooltip_time": "Tiempo total de generación de respuestas",
       "tooltip_speed": "Velocidad media de generación",
-      "tooltip_messages": "Número de respuestas de IA"
+      "tooltip_messages": "Número de respuestas de IA",
+      "speed_average": "media {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "Registro de actividad",

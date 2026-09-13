@@ -402,7 +402,8 @@
       "tooltip_tokens": "Всего токенов в текущей сессии",
       "tooltip_time": "Общее время генерации",
       "tooltip_speed": "Средняя скорость генерации",
-      "tooltip_messages": "Количество ответов ИИ"
+      "tooltip_messages": "Количество ответов ИИ",
+      "speed_average": "сред. {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "Журнал активности",

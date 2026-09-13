@@ -402,7 +402,8 @@
       "tooltip_tokens": "本次会话使用的总 Token",
       "tooltip_time": "总生成时间",
       "tooltip_speed": "平均生成速度",
-      "tooltip_messages": "AI 回复数量"
+      "tooltip_messages": "AI 回复数量",
+      "speed_average": "平均 {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "活动日志",

@@ -402,7 +402,8 @@
       "tooltip_tokens": "इस सत्र में कुल उपयोग किए गए टोकन",
       "tooltip_time": "कुल प्रतिक्रिया उत्पन्न करने का समय",
       "tooltip_speed": "औसत उत्पन्न करने की गति",
-      "tooltip_messages": "एआई प्रतिक्रियाओं की संख्या"
+      "tooltip_messages": "एआई प्रतिक्रियाओं की संख्या",
+      "speed_average": "औसत {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "गतिविधि लॉग",
