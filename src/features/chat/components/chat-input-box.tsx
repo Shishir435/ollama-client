@@ -1,4 +1,3 @@
-import type { ReactNode } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Textarea } from "@/components/ui/textarea"
@@ -38,11 +37,8 @@ const pendingSelectionStorage = getPlasmoStorageForKey(
 
 export const ChatInputBox = ({
   onSend,
-  stopGeneration,
-  leading
+  stopGeneration
 }: {
-  /** The side panel's surface switch, rendered first in the toolbar row. */
-  leading?: ReactNode
   onSend: (
     customInput?: string,
     customModel?: string,
@@ -429,7 +425,6 @@ export const ChatInputBox = ({
         />
 
         <ChatInputToolbar
-          leading={leading}
           inputLength={input.length}
           isLoading={isLoading}
           onFilesSelected={handleFilesSelected}

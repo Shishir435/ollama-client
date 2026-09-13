@@ -1,4 +1,3 @@
-import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { SettingsButton } from "@/components/settings-button"
 import { ModelMenu } from "@/features/model/components/model-menu"
@@ -10,12 +9,6 @@ import { InputMetrics } from "./input-metrics"
 import { VoiceInputButton } from "./voice-input-button"
 
 export interface ChatInputToolbarProps {
-  /**
-   * The side panel's surface switch. It sits with the composer's own controls
-   * rather than in the header, so the row that says which mode you are in is
-   * the row you are already looking at when you type.
-   */
-  leading?: ReactNode
   inputLength: number
   isLoading: boolean
   onFilesSelected: (files: FileList) => void
@@ -32,7 +25,6 @@ export interface ChatInputToolbarProps {
 }
 
 export const ChatInputToolbar = ({
-  leading,
   inputLength,
   isLoading,
   onFilesSelected,
@@ -53,7 +45,6 @@ export const ChatInputToolbar = ({
   return (
     <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-2 rounded-control bg-background/85 p-1 backdrop-blur">
       <div className="flex min-w-0 items-center gap-0.5">
-        {leading}
         <ModelMenu
           showStatusPopup={false}
           tooltipTextContent={t("chat.input.switch_model")}

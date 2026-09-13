@@ -39,10 +39,10 @@ export const SidepanelWorkspace = () => {
         */}
         <div className="min-h-0 flex-1">
           {surface === "chat" ? (
-            <Chat embedded leading={<SurfaceSwitch compact />} />
+            <Chat embedded leading={<SurfaceSwitch />} />
           ) : (
             <Suspense fallback={null}>
-              <AgentSurface leading={<SurfaceSwitch compact />} />
+              <AgentSurface leading={<SurfaceSwitch />} />
             </Suspense>
           )}
         </div>
