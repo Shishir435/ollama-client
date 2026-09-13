@@ -160,6 +160,14 @@ Differs sharply by server, so check before assuming a field exists.
   plain text above them. A segment with no mark of its own — `opencode`, a
   user's own namespace — resolves to nothing and keeps the generic icon.
 - Marks are inline monochrome SVG in `src/components/icons/provider-brand-icons.tsx` (from MIT-licensed `@lobehub/icons`), rendered through `<ProviderIcon>`, not imported directly.
+- **Initials sit between a favicon and the generic glyph.** A custom provider
+  with no curated mark and no reachable favicon — which is every loopback
+  proxy, since those hosts are refused — drew the same server icon as every
+  other one, so a rail holding three said only that three existed.
+  `providerMonogram` takes the first letter of a one-word name and two for a
+  longer one, drawn as SVG text in the mark's own 24-square box so it scales
+  with the size class like a curated mark would. It is offered only for a
+  `custom:` id: a built-in with a real icon must never be reduced to a letter.
 - **Favicons are the tier below**, for unrecognized *remote* providers only (`provider-favicon.ts`, served by `providers.icons`). Rules, all load-bearing:
   - The configured base URL is asked first. Its parent site is asked **only** after a settled "nothing here" (401/403/404/410, or a 200 carrying non-image bytes — a gateway guards `/favicon.ico` behind its key like every other path). Timeouts and 5xx are never chased.
   - Exactly one label is stripped (`api.acme.com` → `acme.com`), never down to a public suffix.

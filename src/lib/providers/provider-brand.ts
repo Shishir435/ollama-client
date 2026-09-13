@@ -22,7 +22,8 @@ export const PROVIDER_BRANDS = [
   "gemini",
   "perplexity",
   "qwen",
-  "vllm"
+  "vllm",
+  "opencode"
 ] as const
 
 export type ProviderBrandId = (typeof PROVIDER_BRANDS)[number]
@@ -77,7 +78,8 @@ const BRAND_NAME_TOKENS: ReadonlyArray<readonly [ProviderBrandId, string[]]> = [
   ["xai", ["xai", "x.ai", "grok"]],
   ["gemini", ["gemini", "google ai", "vertex"]],
   ["perplexity", ["perplexity"]],
-  ["qwen", ["qwen", "dashscope", "tongyi"]]
+  ["qwen", ["qwen", "dashscope", "tongyi"]],
+  ["opencode", ["opencode", "open code"]]
 ]
 
 const PROFILE_BRANDS: Partial<Record<ProviderServiceProfile, ProviderBrandId>> =
