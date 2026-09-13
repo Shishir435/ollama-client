@@ -1,9 +1,10 @@
+import { SendHorizontal } from "lucide-react"
 import type { ReactNode } from "react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { TooltipActionButton } from "@/components/actions"
 import { ComposerShell } from "@/components/layout/composer-shell"
-import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 
 /**
@@ -59,19 +60,25 @@ export const AgentGoalComposer = ({
           onChange={(event) => onGoalChange(event.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          className="min-h-16 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
+          className="min-h-16 resize-none border-0 bg-transparent pr-10 shadow-none focus-visible:ring-0"
         />
-        <div className="flex min-w-0 items-center gap-0.5 p-1">
-          {controls}
-          <Button
-            type="button"
-            size="sm"
-            className="ml-auto shrink-0"
+        {/*
+          The same send control the chat composer has, in the same corner: one
+          icon at the top-right of the field rather than a worded button down
+          in the control row, so both surfaces are dispatched the same way.
+        */}
+        <div className="absolute top-3 right-3">
+          <TooltipActionButton
+            onClick={onStart}
+            variant="ghost"
+            size="icon"
+            className="rounded-control"
             disabled={!canStart}
-            onClick={onStart}>
-            {t("agent.start.action")}
-          </Button>
+            label={t("agent.start.action")}
+            icon={<SendHorizontal size={16} />}
+          />
         </div>
+        <div className="flex min-w-0 items-center gap-0.5 p-1">{controls}</div>
       </ComposerShell>
     </div>
   )

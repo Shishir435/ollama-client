@@ -51,7 +51,9 @@ describe("AgentView", () => {
       target: { value: "Compare these products now" }
     })
     expect(onGoalChange).toHaveBeenCalledWith("Compare these products now")
-    expect(screen.getByText("agent.start.action")).toBeDisabled()
+    expect(
+      screen.getByRole("button", { name: "agent.start.action" })
+    ).toBeDisabled()
     expect(screen.getByText("agent.privacy.remote_notice")).toBeInTheDocument()
     fireEvent.click(screen.getByText("agent.privacy.acknowledge"))
     expect(acknowledge).toHaveBeenCalledWith("observations")
@@ -65,10 +67,10 @@ describe("AgentView", () => {
         onStart={start}
       />
     )
-    fireEvent.click(screen.getByText("agent.start.action"))
+    fireEvent.click(screen.getByRole("button", { name: "agent.start.action" }))
     expect(start).toHaveBeenCalledWith("Compare these products", true)
     fireEvent.click(screen.getByRole("checkbox"))
-    fireEvent.click(screen.getByText("agent.start.action"))
+    fireEvent.click(screen.getByRole("button", { name: "agent.start.action" }))
     expect(start).toHaveBeenLastCalledWith("Compare these products", false)
   })
 
@@ -91,7 +93,9 @@ describe("AgentView", () => {
       />
     )
     /* Observations were acknowledged once; that does not cover pictures. */
-    expect(screen.getByText("agent.start.action")).toBeDisabled()
+    expect(
+      screen.getByRole("button", { name: "agent.start.action" })
+    ).toBeDisabled()
     expect(
       screen.getByText("agent.privacy.remote_notice_screenshots")
     ).toBeInTheDocument()
@@ -108,7 +112,7 @@ describe("AgentView", () => {
         onStart={start}
       />
     )
-    fireEvent.click(screen.getByText("agent.start.action"))
+    fireEvent.click(screen.getByRole("button", { name: "agent.start.action" }))
     expect(start).toHaveBeenCalledWith("Find the red square", true)
   })
 
@@ -133,7 +137,9 @@ describe("AgentView", () => {
       screen.getByText("The model returned too many invalid decisions.")
     ).toBeInTheDocument()
     // A settled run is done being supervised, and the next one starts here.
-    expect(screen.getByText("agent.start.action")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "agent.start.action" })
+    ).toBeInTheDocument()
     expect(screen.queryByText("agent.controls.stop")).not.toBeInTheDocument()
   })
 

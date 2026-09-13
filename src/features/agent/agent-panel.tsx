@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
+import { SettingsButton } from "@/components/settings-button"
 import { ModelMenu } from "@/features/model/components/model-menu"
 import { ReasoningEffortMenu } from "@/features/model/components/reasoning-effort-menu"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
@@ -79,6 +80,13 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
                  * — was the one place it could not be set.
                  */}
                 <ReasoningEffortMenu />
+                <SettingsButton
+                  showText={false}
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+                  iconClassName="icon-sm"
+                />
                 {/*
                  * Last in the row, beside the effort control: the two panel
                  * controls sit together at the end, the way the chat composer
