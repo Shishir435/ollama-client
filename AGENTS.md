@@ -1114,9 +1114,10 @@ Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
 
 ## Measured agent behaviour
 
-`AGENT_EVALUATION.md` holds the published numbers and the named remaining
-failures; regenerate it from the two benchmark projects rather than editing
-the tables by hand.
+The two benchmark projects write their own counts to
+`artifacts/e2e/benchmark/`; that output is the record. No table in the
+repository restates it, because a copied number goes stale silently while the
+run that produced it can always be repeated.
 
 - **The benchmark records, the gates assert.** `chromium-agent-benchmark` and
   `chromium-agent-benchmark-dom` run the same thirty frozen tasks with and

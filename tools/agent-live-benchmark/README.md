@@ -31,7 +31,8 @@ Each run writes `artifacts/agent-live-benchmark/<suite>/<model>/`: one
 `benchmark-results.json`, and per task an `evidence.json` holding the row, every
 panel snapshot, the full model wire (request envelope and streamed response) and
 the worker's trace, plus a screenshot of the page as it was left. `artifacts/`
-is gitignored; copy a row into `AGENT_EVALUATION.md` when it is worth keeping.
+is gitignored, so a result worth keeping goes in the pull request that earned
+it.
 
 ## What each suite is for
 
