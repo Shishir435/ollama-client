@@ -76,7 +76,7 @@ export interface AgentViewProps {
   approval?: AgentApprovalRequest
   takeover?: AgentTakeoverRequest
   privacyAcknowledged?: boolean
-  /** The side panel's surface switch, rendered in the header's first slot. */
+  /** The side panel's surface switch, rendered in the panel's footer. */
   leading?: ReactNode
   busy?: boolean
   /** The unsent goal. Held by the caller so it survives leaving the surface. */
@@ -167,17 +167,9 @@ export const AgentView = ({
     <main className="flex h-full min-h-0 flex-col bg-surface-chat">
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <header className="mb-3 flex min-w-0 items-start gap-2">
-          {/*
-            The surface switch takes the slot a decorative bot avatar held.
-            The switch names this surface already, and the panel had a
-            full-width switcher row above it — two rows and a glyph all saying
-            "Agent" before anything said what the Agent was doing.
-          */}
-          {leading ?? (
-            <span className="grid size-8 shrink-0 place-items-center rounded-control bg-app-primary-soft text-app-agent">
-              <Bot className="icon-sm" aria-hidden="true" />
-            </span>
-          )}
+          <span className="grid size-8 shrink-0 place-items-center rounded-control bg-app-primary-soft text-app-agent">
+            <Bot className="icon-sm" aria-hidden="true" />
+          </span>
           <div className="min-w-0 flex-1">
             <h1 className="font-semibold">{t("agent.title")}</h1>
             <p className="text-xs text-muted-foreground">
@@ -375,6 +367,17 @@ export const AgentView = ({
           />
         )}
       </div>
+
+      {/*
+        The switch sits where the chat surface puts it — bottom left, with the
+        controls — so the one thing on screen that is the same on both surfaces
+        does not move when you use it.
+      */}
+      {leading && (
+        <div className="shrink-0 border-border/40 border-t px-3 py-2">
+          {leading}
+        </div>
+      )}
 
       {run && !settled && (
         <AgentRunControls

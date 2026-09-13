@@ -15,7 +15,7 @@ import { TabsList, TabsTrigger } from "@/components/ui/tabs"
  * more room than the two labels it sat beside, and it is the Agent tab's own
  * badge, not a third thing to read.
  */
-export const SurfaceSwitch = () => {
+export const SurfaceSwitch = ({ compact = false }: { compact?: boolean }) => {
   const { t } = useTranslation()
 
   return (
@@ -35,16 +35,21 @@ export const SurfaceSwitch = () => {
     <TabsList className="h-7 min-w-0 gap-0.5 p-0.5">
       <TabsTrigger
         value="chat"
+        aria-label={t("agent.surface.chat")}
         className="min-w-0 flex-1 basis-0 gap-1 px-2 text-2xs">
         <MessageCircle className="icon-xs shrink-0" aria-hidden="true" />
-        <span className="truncate">{t("agent.surface.chat")}</span>
+        {!compact && (
+          <span className="truncate">{t("agent.surface.chat")}</span>
+        )}
       </TabsTrigger>
       <TabsTrigger
         value="agent"
         className="min-w-0 flex-1 basis-0 gap-1 px-2 text-2xs"
         title={t("agent.surface.preview")}>
         <Bot className="icon-xs shrink-0" aria-hidden="true" />
-        <span className="truncate">{t("agent.surface.agent")}</span>
+        {!compact && (
+          <span className="truncate">{t("agent.surface.agent")}</span>
+        )}
         <span
           role="img"
           aria-label={t("agent.surface.preview")}

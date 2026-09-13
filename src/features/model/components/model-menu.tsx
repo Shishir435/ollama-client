@@ -335,8 +335,20 @@ export const ModelMenu = ({
                 {selectedModel ? (
                   <div className="flex min-w-0 items-center gap-1.5">
                     {(() => {
+                      /*
+                       * The same vendor mark the menu row wears. The trigger
+                       * kept the generic glyph, so choosing an OpenAI-marked
+                       * model closed the menu and put a robot back in its
+                       * place — the one row that has to agree with the list.
+                       */
                       const SelectedModelIcon = getModelIcon(selectedModel)
-                      return (
+                      const selectedBrand = resolveModelBrand(selectedModel)
+                      return selectedBrand ? (
+                        <ProviderIcon
+                          brand={selectedBrand}
+                          className="icon-md shrink-0 text-muted-foreground"
+                        />
+                      ) : (
                         <SelectedModelIcon className="icon-md shrink-0 text-muted-foreground" />
                       )
                     })()}
