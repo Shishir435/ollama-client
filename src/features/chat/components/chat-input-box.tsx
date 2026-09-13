@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { ComposerShell } from "@/components/layout/composer-shell"
 import { Textarea } from "@/components/ui/textarea"
 import { useChatInputAttachments } from "@/features/chat/hooks/use-chat-input-attachments"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
@@ -25,7 +26,6 @@ import { SETTINGS } from "@/lib/storage/settings"
 import type { ChromeMessage, ImageAttachment } from "@/types"
 import { ChatInputDragOverlay } from "./chat-input/chat-input-drag-overlay"
 import { ChatInputToolbar } from "./chat-input/chat-input-toolbar"
-import { ComposerShell } from "./chat-input/composer-shell"
 import {
   fileListFromFiles,
   splitDropFiles

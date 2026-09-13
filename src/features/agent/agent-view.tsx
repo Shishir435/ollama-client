@@ -10,9 +10,9 @@ import { Bot, Eye, MessageSquareWarning } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { AgentApprovalCard } from "./components/agent-approval-card"
 import { AgentBrowserDisclosureCard } from "./components/agent-browser-disclosure-card"
+import { AgentGoalComposer } from "./components/agent-goal-composer"
 import { AgentOutcomeCard } from "./components/agent-outcome-card"
 import { AgentQuestionCard } from "./components/agent-question-card"
 import { AgentRunControls } from "./components/agent-run-controls"
@@ -157,6 +157,7 @@ export const AgentView = ({
     screenshotsAcknowledged
   )
   const pauseNotice = pauseNoticeFor(run?.pauseReason)
+  const startable = !run || settled
   const currentAction = currentAgentAction(steps)
   const canStart =
     Boolean(onStart && provider && tab && goal.trim()) &&
@@ -232,19 +233,9 @@ export const AgentView = ({
 
         {(!run || settled) && (
           <section className="space-y-2" aria-labelledby="agent-goal-label">
-            <label
-              id="agent-goal-label"
-              htmlFor="agent-goal"
-              className="text-xs font-medium">
+            <h2 id="agent-goal-label" className="font-medium text-xs">
               {t("agent.start.goal")}
-            </label>
-            <Textarea
-              id="agent-goal"
-              value={goal}
-              maxLength={20_000}
-              placeholder={t("agent.start.placeholder")}
-              onChange={(event) => onGoalChange(event.target.value)}
-            />
+            </h2>
             <label className="flex items-start gap-2 rounded-panel border border-border/50 p-2.5 text-xs">
               <input
                 type="checkbox"
@@ -283,12 +274,6 @@ export const AgentView = ({
                 </Button>
               </div>
             )}
-            <Button
-              type="button"
-              disabled={!canStart}
-              onClick={() => onStart?.(goal.trim(), allowRoutineActions)}>
-              {t("agent.start.action")}
-            </Button>
           </section>
         )}
 
@@ -375,11 +360,20 @@ export const AgentView = ({
         use, composed by the panel — which had no picker here at all, so
         changing the model meant leaving for the chat surface and coming back.
       */}
-      {leading && (
-        <div className="flex shrink-0 items-center gap-0.5 border-border/40 border-t px-2 py-1">
-          {leading}
-        </div>
-      )}
+      {/*
+        Always rendered: the goal is this surface's own input, not something
+        the side panel lends it. Gating the whole composer on the toggle being
+        passed meant a view rendered without one had no way to start a run at
+        all.
+      */}
+      <AgentGoalComposer
+        startable={startable}
+        goal={goal}
+        canStart={canStart}
+        controls={leading}
+        onGoalChange={onGoalChange}
+        onStart={() => onStart?.(goal.trim(), allowRoutineActions)}
+      />
 
       {run && !settled && (
         <AgentRunControls

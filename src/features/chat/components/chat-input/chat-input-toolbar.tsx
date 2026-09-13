@@ -11,9 +11,10 @@ import { VoiceInputButton } from "./voice-input-button"
 
 export interface ChatInputToolbarProps {
   /**
-   * The surface toggle. It sits first in the row both surfaces share, so the
-   * control that moves between Chat and Agent is one of the row's own icon
-   * buttons rather than a different kind of thing above it.
+   * The surface toggle, next to the settings button. It is the row's other
+   * control that is about the panel rather than about the message, so the two
+   * sit together at the end of the group instead of the switch leading a row
+   * of message controls.
    */
   leading?: ReactNode
   inputLength: number
@@ -53,7 +54,6 @@ export const ChatInputToolbar = ({
   return (
     <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-2 rounded-control bg-background/85 p-1 backdrop-blur">
       <div className="flex min-w-0 items-center gap-0.5">
-        {leading}
         <ModelMenu
           showStatusPopup={false}
           tooltipTextContent={t("chat.input.switch_model")}
@@ -81,6 +81,8 @@ export const ChatInputToolbar = ({
           className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
           iconClassName="icon-sm"
         />
+
+        {leading}
 
         <VoiceInputButton disabled={isLoading} />
       </div>

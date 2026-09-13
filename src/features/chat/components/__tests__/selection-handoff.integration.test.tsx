@@ -119,7 +119,7 @@ vi.mock("@/features/tabs/stores/selected-tabs-store", () => ({
 vi.mock("@/features/chat/components/chat-input/chat-input-toolbar", () => ({
   ChatInputToolbar: () => null
 }))
-vi.mock("@/features/chat/components/chat-input/composer-shell", () => ({
+vi.mock("@/components/layout/composer-shell", () => ({
   ComposerShell: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   )

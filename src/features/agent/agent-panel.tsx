@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
 import { ModelMenu } from "@/features/model/components/model-menu"
+import { ReasoningEffortMenu } from "@/features/model/components/reasoning-effort-menu"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { useSetting } from "@/hooks/use-setting"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
@@ -72,6 +73,13 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
                   showStatusPopup={false}
                   tooltipTextContent={t("chat.input.switch_model")}
                 />
+                {/*
+                 * Reasoning effort is a per-model setting the chat composer
+                 * has always offered and this surface never did, so the one
+                 * place it matters most — a run that plans twenty-five steps
+                 * — was the one place it could not be set.
+                 */}
+                <ReasoningEffortMenu />
               </>
             )
           }
