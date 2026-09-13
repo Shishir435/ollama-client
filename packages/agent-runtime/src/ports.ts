@@ -359,6 +359,14 @@ export interface AgentPolicyInput {
   scopedTabIds: readonly number[]
   /** What the user pre-authorized for this run, if anything. */
   grants?: readonly AgentGrant[]
+  /**
+   * The words this run supplied itself — the user's goal, their answers, and
+   * the text it has typed or selected into the page. The egress rule reads it
+   * to tell a field value the run authored from one the page put there;
+   * absent means no such claim can be made, and the rule stays as strict as
+   * it was. See `provenance.ts`.
+   */
+  authoredText?: readonly string[]
   now: number
 }
 
@@ -610,6 +618,19 @@ export interface AgentController {
   requestCancel(runId: string): Promise<void>
   completeTakeover(runId: string): Promise<void>
   /**
+   * Records that the user has reviewed a page whose effect could not be
+   * resolved, and continues the run from a fresh observation.
+   *
+   * Nothing is replayed: the run looks at the page again and decides from
+   * what is actually there. Without this the only exit from an unresolved
+   * effect is to stop and start the whole goal over, which is the more
+   * dangerous of the two — a new run carries no memory that the click already
+   * happened, so it is the path that repeats the action. The moment being
+   * resolved is named so a click on a stale panel cannot resolve whatever
+   * replaced it.
+   */
+  resolveEffect(input: { runId: string; pausedAt: number }): Promise<void>
+  /**
    * Records the user's answer to the run's open question and resumes it. The
    * question id is named so a click on a stale panel cannot answer whatever
    * question replaced the one it showed.
@@ -650,6 +671,43 @@ export const agentFailure = (
   message: string,
   retryable = false
 ): AgentError => ({ code, message, retryable })
+
+const textProperty = (value: unknown, key: string): string | undefined => {
+  if (typeof value !== "object" || value === null) return undefined
+  const candidate = (value as Record<string, unknown>)[key]
+  return typeof candidate === "string" && candidate.trim().length > 0
+    ? candidate.slice(0, 1_000)
+    : undefined
+}
+
+/**
+ * A failure the layer below already named, kept rather than replaced.
+ *
+ * Read structurally, not by instance: this package knows nothing about the
+ * host's error classes and must not start. What it takes is what the layer
+ * below chose to say to a user — its i18n key, its user-facing sentence and
+ * whether it is worth retrying — and nothing else; a provider's raw text can
+ * carry a URL or a key, so only these declared fields travel.
+ *
+ * Collapsing all of it into one sentence is how a wedged local proxy
+ * answering 503 reached a user as "the model could not be reached, check the
+ * provider is running" while the provider was perfectly healthy.
+ */
+export const agentProviderFailure = (
+  code: AgentError["code"],
+  error: unknown,
+  fallbackMessage: string
+): AgentError => {
+  const messageKey = textProperty(error, "messageKey")
+  const userMessage = textProperty(error, "userMessage")
+  const retryable = (error as { retryable?: unknown } | null)?.retryable
+  return {
+    code,
+    message: userMessage ?? fallbackMessage,
+    ...(messageKey ? { messageKey } : {}),
+    retryable: retryable === true
+  }
+}
 
 export const pausePatch = (
   reason: AgentPauseReason,

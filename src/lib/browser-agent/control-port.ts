@@ -23,6 +23,12 @@ import {
   type TabAccess
 } from "@/lib/browser-tab-access"
 import { MESSAGE_KEYS } from "@/lib/constants"
+import {
+  AGENT_EFFECT_REJECTION_REASONS,
+  AGENT_EFFECT_REJECTIONS,
+  agentRejectionMessage,
+  agentRejectionReason
+} from "./effect-rejection"
 
 export const AGENT_CONTROL_VERSION = 1 as const
 
@@ -314,6 +320,12 @@ export const AgentExecuteResponseSchema = z
     nonce: z.string().min(16).max(256),
     sequence: z.number().int().positive(),
     documentId: z.string().min(1),
+    /**
+     * Why the page refused, when it did. A closed vocabulary this build
+     * composes, so a refusal reaches the run as a cause rather than as the
+     * one sentence every refusal used to share.
+     */
+    rejection: z.enum(AGENT_EFFECT_REJECTION_REASONS).optional(),
     submissionUrl: z.url().max(32_768).optional()
   })
   .strict()
@@ -417,7 +429,9 @@ export const AgentPrepareNativeInputResponseSchema = z
     point: AgentInputPointSchema.optional(),
     focused: z.boolean().optional(),
     /** Where a drag is released, in the same frame's viewport pixels. */
-    dropPoint: AgentInputPointSchema.optional()
+    dropPoint: AgentInputPointSchema.optional(),
+    /** Why preparation refused, from the same closed vocabulary. */
+    rejection: z.enum(AGENT_EFFECT_REJECTION_REASONS).optional()
   })
   .strict()
 export type AgentPrepareNativeInputResponse = z.infer<
@@ -804,8 +818,13 @@ export const validateAgentExecuteResponse = (
   ) {
     throw new Error("Agent execution response binding mismatch")
   }
-  if (response.type === "agent_dom_mutation_rejected")
-    throw new AgentEffectNotAppliedError()
+  if (response.type === "agent_dom_mutation_rejected") {
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(
+        response.rejection ?? AGENT_EFFECT_REJECTIONS.unspecified
+      )
+    )
+  }
   return response.submissionUrl
 }
 
@@ -864,7 +883,11 @@ export const validateAgentPrepareNativeInputResponse = (
   const response = AgentPrepareNativeInputResponseSchema.parse(raw)
   assertBoundResponse(response, binding, sequence, "native input preparation")
   if (response.type === "agent_native_input_rejected") {
-    throw new AgentEffectNotAppliedError()
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(
+        response.rejection ?? AGENT_EFFECT_REJECTIONS.unspecified
+      )
+    )
   }
   if (!response.point || response.focused === undefined) {
     throw new Error("Agent native input preparation is incomplete")
@@ -1240,12 +1263,16 @@ export const openAgentControlSession = async (input: {
 /** Only a typed, pre-effect rejection may authorize re-observation instead of uncertainty. */
 const runContentMutation = (
   execute: () => string | undefined
-): Pick<AgentExecuteResponse, "type" | "submissionUrl"> => {
+): Pick<AgentExecuteResponse, "type" | "submissionUrl" | "rejection"> => {
   try {
     return { type: "agent_dom_mutation_executed", submissionUrl: execute() }
   } catch (error) {
-    if (error instanceof AgentEffectNotAppliedError)
-      return { type: "agent_dom_mutation_rejected" }
+    if (error instanceof AgentEffectNotAppliedError) {
+      return {
+        type: "agent_dom_mutation_rejected",
+        rejection: agentRejectionReason(error)
+      }
+    }
     throw error
   }
 }
@@ -1293,7 +1320,7 @@ const runContentPreparation = (
   prepare: () => AgentNativeInputPreparedResult
 ): Pick<
   AgentPrepareNativeInputResponse,
-  "type" | "point" | "focused" | "dropPoint"
+  "type" | "point" | "focused" | "dropPoint" | "rejection"
 > => {
   try {
     const prepared = prepare()
@@ -1304,8 +1331,12 @@ const runContentPreparation = (
       ...(prepared.dropPoint ? { dropPoint: prepared.dropPoint } : {})
     }
   } catch (error) {
-    if (error instanceof AgentEffectNotAppliedError)
-      return { type: "agent_native_input_rejected" }
+    if (error instanceof AgentEffectNotAppliedError) {
+      return {
+        type: "agent_native_input_rejected",
+        rejection: agentRejectionReason(error)
+      }
+    }
     throw error
   }
 }

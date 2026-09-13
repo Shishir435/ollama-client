@@ -37,7 +37,7 @@ import {
   type ReasoningEffort,
   type ToolResultMessage
 } from "../types.js"
-import { isRecord, sleep } from "../util.js"
+import { isRecord, sleep, withTimeout } from "../util.js"
 import {
   bindRequestAbort,
   type Router,
@@ -62,6 +62,15 @@ import {
   QueueStalledError,
   type RequestQueue
 } from "./queue.js"
+
+/**
+ * How long the proxy waits for a backend to let a turn go.
+ *
+ * Deliberately shorter than the queue's cancel grace: a request that is being
+ * cancelled must have finished releasing its turn before the queue would
+ * otherwise conclude that it will not stop.
+ */
+const TURN_DISCARD_TIMEOUT_MS = 8_000
 
 const createRequestId = () =>
   `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
@@ -373,10 +382,34 @@ export const registerChatRoutes = (
     parkedTurns.delete(turnId)
   }
 
+  /**
+   * Let a turn go, bounded.
+   *
+   * A backend's abort and dispose reach a runtime over the network, and a
+   * runtime that has stopped answering will not answer these either. This runs
+   * on the cancellation path, inside the queue's single-flight slot, so a wait
+   * here is the slot being held: bounding it well under the queue's cancel
+   * grace is what keeps one hung `session.delete` from becoming the next stall.
+   * The calls are left to finish on their own; only the waiting stops.
+   */
   const discardTurn = async (turn: BackendTurn, { abort = false } = {}) => {
     clearParked(turn.id)
-    if (abort) await turn.abort()
-    await turn.dispose()
+    const release = async () => {
+      if (abort) await turn.abort()
+      await turn.dispose()
+    }
+    try {
+      await withTimeout(
+        release(),
+        TURN_DISCARD_TIMEOUT_MS,
+        `discard ${turn.id}`
+      )
+    } catch (error) {
+      log("Gave up waiting for a turn to be discarded", {
+        turnId: turn.id,
+        message: (error as Error).message
+      })
+    }
   }
 
   const parkTurn = (turn: BackendTurn) => {
@@ -726,7 +759,13 @@ export const registerChatRoutes = (
           if (pending.hasUnemitted(activeTurn.id)) suspension.trigger()
           const signals = {
             suspended: suspension.promise,
-            hasUnannouncedToolCalls: () => pending.hasUnemitted(activeTurn.id)
+            hasUnannouncedToolCalls: () => pending.hasUnemitted(activeTurn.id),
+            /**
+             * The same signal the queue cancels this request with. Without it a
+             * backend reads on against a turn nobody is waiting for, and the
+             * slot it holds is never released.
+             */
+            ...(signal ? { abort: signal } : {})
           }
           const results = pendingResults
           pendingResults = []

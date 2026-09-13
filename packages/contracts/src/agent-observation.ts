@@ -157,6 +157,18 @@ export const AgentElementSchema = z
     draggable: z.boolean().optional(),
     visible: z.boolean(),
     /**
+     * Set when the element is laid out and nothing above it hides it, yet no
+     * part of its box falls inside the viewport: a control a scroll brings
+     * into reach.
+     *
+     * `visible` is a conjunction, so it answers the same `false` for this
+     * control and for a `display:none` one — and an observation that cannot
+     * tell them apart treats a below-fold button as unreadable. It is
+     * readable: it carries its name, so a decision can choose to scroll to
+     * it, which is exactly what a run cannot do with a bare `ref`.
+     */
+    offscreen: z.boolean().optional(),
+    /**
      * Set when the element is in the layout and the viewport yet another
      * element covers the points a click would land on. It is still listed —
      * the control exists — but a decision is told it is not reachable where it
@@ -167,6 +179,17 @@ export const AgentElementSchema = z
     occluded: z.boolean().optional(),
     enabled: z.boolean(),
     editable: z.boolean(),
+    /**
+     * The control holds or accepts data the run must not read or write on the
+     * user's behalf: a password, a one-time code, a card number, a file
+     * picker, or a hidden input carrying a token the page keeps for itself.
+     *
+     * It is not a statement about where the control sits. Off-screen once
+     * meant sensitive here, which flagged nine of every ten rows on an
+     * ordinary page — suppressing their names and destinations, and telling
+     * policy that scrolling to a link was a step the user had to take by
+     * hand. `offscreen` carries that fact now.
+     */
     sensitive: z.boolean(),
     /**
      * The landmark, form or dialog this element belongs to. Duplicate labels
@@ -189,6 +212,13 @@ export const AgentElementSchema = z
         code: "custom",
         path: ["href"],
         message: "Hidden element destinations must be omitted"
+      })
+    }
+    if (element.offscreen && element.visible) {
+      context.addIssue({
+        code: "custom",
+        path: ["offscreen"],
+        message: "An element cannot be both visible and off screen"
       })
     }
     if (element.occluded && !element.visible) {

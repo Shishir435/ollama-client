@@ -55,10 +55,28 @@ export const agentEffectChangesPage = (effect: ResolvedAgentEffect): boolean =>
  * or the form rejected. `complete` used to be taken at the model's word, so
  * every run that pressed the right button reported success.
  *
- * So a run that changed anything owes evidence: a string it can point to in
- * the page as it stands now. A run that changed nothing owes none — a reading
- * task's answer is the thing it read, and asking it to quote a saved-state
- * indicator that does not exist would refuse every research goal.
+ * What a quotation is for is the gap between the second answer and the third,
+ * and it is only asked for where that gap exists. A change whose own
+ * verification came back `confirmed` has already been checked against the
+ * page by the verifier that knew what the step was for — the field holds the
+ * resolved value, the control holds the resolved checked state — and that
+ * check is the evidence. Demanding a quotation on top of it asked for
+ * something a toggle cannot produce: selecting Blue in a dropdown and ticking
+ * a checkbox add no new words to the page, so every phrase the model could
+ * name was either already there (`stale_evidence`), the control's own label
+ * (`self_evidence`) or not page text at all (`absent_evidence`). Three live
+ * runs finished the task, were confirmed, and then spent their whole budget
+ * being refused for work they had done.
+ *
+ * The quotation is still required where the run cannot vouch for its own
+ * change: a step that verified `ambiguous` — the effect landed and the page
+ * has not shown its consequence — and a run whose receipts could not be read
+ * at all. A change with no verification recorded is refused outright; there
+ * is nothing for a quotation to add to a step nobody checked.
+ *
+ * A run that changed nothing owes none of this — a reading task's answer is
+ * the thing it read, and asking it to quote a saved-state indicator that does
+ * not exist would refuse every research goal.
  */
 export type AgentCompletionJudgement =
   | { type: "accepted" }
@@ -237,11 +255,25 @@ export const judgeAgentCompletion = (
    * evidence requirement stands, because that is the half a model can answer
    * by looking at the page in front of it.
    */
-  if (change !== "unreadable" && change.verification?.outcome !== "confirmed") {
-    return {
-      type: "refused",
-      reason: "unverified_change",
-      feedback: UNVERIFIED_CHANGE_FEEDBACK
+  if (change !== "unreadable") {
+    const outcome = change.verification?.outcome
+    /**
+     * The verification is the evidence. It was produced by the check that
+     * knew what this step was supposed to do, against the page, after it
+     * happened — which is strictly more than a quoted phrase proves.
+     */
+    if (outcome === "confirmed") return { type: "accepted" }
+    /**
+     * Not `ambiguous` here means no verification was recorded at all: a step
+     * a worker restart interrupted, which is `uncertain` with nothing behind
+     * it. Nobody checked it, so there is nothing a quotation could complete.
+     */
+    if (outcome !== "ambiguous") {
+      return {
+        type: "refused",
+        reason: "unverified_change",
+        feedback: UNVERIFIED_CHANGE_FEEDBACK
+      }
     }
   }
   const evidence = input.evidence?.trim()

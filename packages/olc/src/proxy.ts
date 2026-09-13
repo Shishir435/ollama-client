@@ -45,7 +45,10 @@ export const createProxy = ({
     timeoutMs: config.BRIDGE_CALL_TIMEOUT_MS,
     log
   })
-  const lock = createRequestQueue()
+  const lock = createRequestQueue({
+    cancelGraceMs: config.QUEUE_CANCEL_GRACE_MS,
+    forceReleaseMs: config.QUEUE_FORCE_RELEASE_MS
+  })
 
   const context: BackendContext = {
     config,
@@ -85,19 +88,6 @@ export const createProxy = ({
       config.API_KEY.trim() ? request.headers.authorization : undefined
   })
 
-  router.get(OLC_PUBLIC_ROUTES.serviceInfo, (_request, response) =>
-    sendJson(response, 200, {
-      service: "olc",
-      backend: backend.id,
-      toolBridge: config.BRIDGE_ENABLED ? "enabled" : "disabled"
-    })
-  )
-  router.get(OLC_PUBLIC_ROUTES.health, (_request, response) =>
-    sendJson(response, 200, { status: "ok", backend: backend.id })
-  )
-
-  registerModelRoutes(router, { backend, log })
-  registerImageRoutes(router, { backend, config, lock, log })
   const chat = registerChatRoutes(router, {
     backend,
     config,
@@ -105,6 +95,52 @@ export const createProxy = ({
     pending,
     lock
   })
+
+  router.get(OLC_PUBLIC_ROUTES.serviceInfo, (_request, response) =>
+    sendJson(response, 200, {
+      service: "olc",
+      backend: backend.id,
+      toolBridge: config.BRIDGE_ENABLED ? "enabled" : "disabled"
+    })
+  )
+  /**
+   * Liveness, plus what the proxy is actually holding.
+   *
+   * A static `ok` was true of a proxy that had refused every request for an
+   * hour, which is the one state a health check exists to surface. `status`
+   * stays `"ok"` for probes that only read it — the process is up and
+   * answering — and `degraded` carries the judgement.
+   *
+   * This route is authentication-exempt, so it reports counts, flags, request
+   * ids and durations only: never session ids, prompt text or tokens.
+   */
+  router.get(OLC_PUBLIC_ROUTES.health, (_request, response) => {
+    const queue = lock.inspect()
+    const held = chat.inspect()
+    const backendHealth = backend.inspect?.() ?? null
+    const bridge = backendHealth?.bridge ?? {
+      enabled: config.BRIDGE_ENABLED,
+      pluginLinked: false,
+      pluginConfirmed: null
+    }
+    const degraded =
+      queue.stalled ||
+      queue.orphaned > 0 ||
+      (bridge.enabled && bridge.pluginConfirmed === false)
+    sendJson(response, 200, {
+      status: "ok",
+      degraded,
+      backend: backend.id,
+      queue,
+      turns: held,
+      bridge,
+      ...(backendHealth ? { managedRuntime: backendHealth.managed } : {}),
+      lastError: queue.lastFailure
+    })
+  })
+
+  registerModelRoutes(router, { backend, log })
+  registerImageRoutes(router, { backend, config, lock, log })
   backend.registerRoutes?.(router)
 
   const server = createServer((request, response) => {

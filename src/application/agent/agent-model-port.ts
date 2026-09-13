@@ -6,7 +6,10 @@ import type {
   AgentModelPort,
   AgentVerificationResult
 } from "@ollama-client/agent-runtime"
-import { agentTabScope } from "@ollama-client/agent-runtime"
+import {
+  agentRemainingBudget,
+  agentTabScope
+} from "@ollama-client/agent-runtime"
 import type {
   AgentDecision,
   AgentObservation,
@@ -235,7 +238,8 @@ For reading a long document or finding its final text, choose extract_text with 
 Refs like f7e2 belong to a child frame; frames listed without access cannot be read or acted on, so ask the user if the goal needs one.
 Scrollable panes carry scroll metrics. To reveal more rows in a specific pane, use scroll with its ref and container:true. To reach the bottom, set amount to its documentHeight (at most 10000), then inspect the new observation. Keep scrolling while the target is hidden. Scrolling a pane does not click the controls inside it.
 A control marked hidden is not on screen and one marked occluded has something over it; neither can be acted on, so scroll to it or clear what covers it first. One marked disabled needs whatever the page requires to enable it. Acting on any of them is refused and costs a step.
-Switching to a tab outside scopedTabIds asks the user first.
+open_tab is yours to use: a tab this run opens joins its own scope. Switching to a tab the run did not open asks the user first.
+An href shown as a path belongs to the page's own site. Follow it by clicking its ref; navigate and open_tab need a whole address, scheme and host included.
 The extension attaches snapshot identity; do not return a nested command or opaque IDs.
 Use ask_user when the goal is ambiguous. Complete only after ALL requested work is done: if asked to click a control, revealing it or being ready to click is not completion.
 Custom dropdowns, menus and tab strips are ordinary clicks: click the combobox or button that opens them, then click the option it reveals; hover reveals menus that open on pointer rest, and press_key with ArrowDown or Enter moves through a focused list.
@@ -340,6 +344,7 @@ const decisionPrompt = (input: {
   findings?: readonly AgentFinding[]
   screenshot?: AgentScreenshot
 }): string => {
+  const remaining = agentRemainingBudget(input.state)
   const envelope = {
     task: input.state.goal,
     ...(input.state.answers?.length
@@ -349,6 +354,13 @@ const decisionPrompt = (input: {
     scopedTabIds: agentTabScope(input.state),
     allowedOrigins: input.state.allowedOrigins,
     step: input.state.stepCount + 1,
+    /**
+     * What the run has left. A model told only which step it is on has no
+     * reason to hurry, and a run that spends its last looks re-reading the
+     * same page fails on a budget it was never shown.
+     */
+    stepsRemaining: remaining.stepsRemaining,
+    maxSteps: remaining.maxObservations,
     retry: input.retry,
     ...(input.feedback ? { previousAttemptRefused: input.feedback } : {}),
     /**

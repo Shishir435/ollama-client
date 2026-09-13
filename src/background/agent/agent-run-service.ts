@@ -7,7 +7,7 @@ import type {
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
 import {
-  AGENT_GRANTABLE_EFFECTS,
+  AGENT_ROUTINE_GRANT_EFFECTS,
   AgentRunStateSchema
 } from "@ollama-client/contracts"
 
@@ -62,6 +62,7 @@ export interface AgentRunService {
   ): Promise<void>
   stop(runId: string): Promise<void>
   completeTakeover(runId: string): Promise<void>
+  resolveEffect(input: { runId: string; pausedAt: number }): Promise<void>
   answerApproval(input: {
     runId: string
     requestId: string
@@ -310,7 +311,7 @@ export const createAgentRunService = (input?: {
   let lastRunId: string | undefined
 
   const announce = (runId: string) => {
-    for (const listener of [...listeners]) listener(runId)
+    for (const listener of listeners) listener(runId)
   }
   supervision.subscribe(announce)
 
@@ -533,7 +534,7 @@ export const createAgentRunService = (input?: {
                 grants: [
                   {
                     origin: originOf(address),
-                    effects: [...AGENT_GRANTABLE_EFFECTS],
+                    effects: [...AGENT_ROUTINE_GRANT_EFFECTS],
                     grantedAt: startedAt
                   }
                 ]
@@ -614,6 +615,24 @@ export const createAgentRunService = (input?: {
       if (state.status !== "awaiting_takeover") return
       if (!(await attachBrowserSession(state))) return
       await drive(state, (controller) => controller.completeTakeover(runId))
+    },
+    /**
+     * Browser control was released when the run paused, so it is re-attached
+     * here exactly as a completed takeover re-attaches it, before the run
+     * looks at the page again.
+     */
+    async resolveEffect({ runId, pausedAt }) {
+      const state = await loadRunning(runId)
+      if (
+        state.status !== "paused" ||
+        state.pauseReason !== "unresolved_effect"
+      ) {
+        return
+      }
+      if (!(await attachBrowserSession(state))) return
+      await drive(state, (controller) =>
+        controller.resolveEffect({ runId, pausedAt })
+      )
     },
     answerApproval: (answer) => supervision.answerApproval(answer),
     answerTakeover: (answer) => supervision.answerTakeover(answer),

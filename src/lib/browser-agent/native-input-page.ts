@@ -1,11 +1,14 @@
 import { AgentEffectNotAppliedError } from "@ollama-client/agent-runtime"
-
 import {
   resolveAgentDropTarget,
   resolveAgentMutationTarget
 } from "./command-executor"
 import type { AgentDomMutationInstruction } from "./control-port"
 import { selectAgentEditableText } from "./editor-page"
+import {
+  AGENT_EFFECT_REJECTIONS,
+  agentRejectionMessage
+} from "./effect-rejection"
 import type { AgentElementReferenceStore } from "./element-references"
 import type {
   AgentInputPoint,
@@ -279,7 +282,7 @@ export const prepareAgentNativeInputInDocument = (input: {
         : null
     if (!hit || !(hit === element || element.contains(hit))) {
       throw new AgentEffectNotAppliedError(
-        "Agent visual target moved before execution"
+        agentRejectionMessage(AGENT_EFFECT_REJECTIONS.visualTargetMoved)
       )
     }
     input.watch.arm(element)
@@ -298,7 +301,7 @@ export const prepareAgentNativeInputInDocument = (input: {
   const point = findAgentReachablePoint(element)
   if (!point) {
     throw new AgentEffectNotAppliedError(
-      "Agent target is covered by another element"
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.targetCovered)
     )
   }
   input.watch.arm(element)

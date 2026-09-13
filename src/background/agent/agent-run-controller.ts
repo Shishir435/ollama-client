@@ -4,6 +4,7 @@ import type {
   AgentPersistencePort
 } from "@ollama-client/agent-runtime"
 import {
+  AGENT_DECISION_TIMEOUT_MS,
   createAgentController,
   evaluateAgentPolicy
 } from "@ollama-client/agent-runtime"
@@ -31,8 +32,13 @@ import { traceAgentRun } from "./agent-trace"
  * says "Choosing next step" and never changes. A local model reading a large
  * page is genuinely slow, so this is generous — it exists to turn a hang into
  * a reported failure, not to police latency.
+ *
+ * The value itself lives with the step budget it has to stay under
+ * (`AGENT_DECISION_TIMEOUT_MS`), because a decision timeout longer than the
+ * step ceiling kills good steps for taking the time they were given, and two
+ * files cannot each own half of that ordering.
  */
-const DECISION_TIMEOUT_MS = 120_000
+const DECISION_TIMEOUT_MS = AGENT_DECISION_TIMEOUT_MS
 
 const withDecisionTimeout = (
   model: AgentModelPort,

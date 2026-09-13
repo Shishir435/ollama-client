@@ -301,6 +301,12 @@ export const registerAgentPanelPort = (
         case "agent_complete_takeover":
           await service.completeTakeover(command.runId)
           return
+        case "agent_resolve_effect":
+          await service.resolveEffect({
+            runId: command.runId,
+            pausedAt: command.pausedAt
+          })
+          return
         case "agent_approve":
           service.answerApproval({
             runId: command.runId,

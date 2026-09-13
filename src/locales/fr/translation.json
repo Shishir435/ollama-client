@@ -160,6 +160,7 @@
     },
     "title": "Agent supervisé",
     "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
+    "unresolved_reviewed": "J'ai vérifié la page — continuer",
     "work_log": {
       "title": "Journal de travail"
     },
@@ -587,6 +588,7 @@
       "response_failed_title": "Échec de la génération de la réponse",
       "unknown_error_description": "Une erreur inconnue est survenue",
       "provider_replay_invalid": "Cette réponse ne peut pas être poursuivie en toute sécurité. Réessayez ce tour pour reconstruire le contexte du fournisseur.",
+      "provider_busy": "Le point de terminaison local termine encore une requête précédente et ne peut pas en démarrer une autre. Patiente environ une minute ou redémarre-le.",
       "report_issue": "Signaler un problème",
       "open_issue": "Ouvrir un ticket",
       "copy_diagnostics": "Copier le diagnostic",

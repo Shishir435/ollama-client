@@ -264,9 +264,19 @@ const budgets: Budget[] = [
      * that answer it, plus the prompt line that tells the model what they
      * mean — took it to 256,035. Firefox carries no Agent code and is
      * unchanged.
+     *
+     * Task recovery, paginated reads, pane scrolling and dialog handling took
+     * it to 259,597.
+     *
+     * Live-run reliability — the closed refusal vocabulary carried across the
+     * control port, the authorship record the egress rule reads, the settle
+     * window around an ambiguous verification, and the supervisor's path out
+     * of an unresolved effect — took it to 262,135. Every one of those is a
+     * sentence or a durable field that has to ship: a refusal the run cannot
+     * name is a failure nobody can diagnose. Firefox gains only the provider
+     * busy failure and stays well under its own ceiling.
      */
-    // Task recovery, paginated reads, pane scrolling and dialog handling: 259,597 gzip bytes.
-    max: isFirefox ? 210_000 : 260_000
+    max: isFirefox ? 210_000 : 263_000
   }
 ]
 

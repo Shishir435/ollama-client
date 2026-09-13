@@ -22,10 +22,11 @@ import {
   type PromptPart
 } from "../../core/openai-wire.js"
 import type { ToolResultMessage } from "../../types.js"
-import { isRecord } from "../../util.js"
+import { isRecord, withTimeout } from "../../util.js"
 import {
   type AgentBackend,
   type BackendContext,
+  type BackendHealth,
   BackendInputError,
   type BackendTurn,
   type CatalogModel,
@@ -49,6 +50,15 @@ import { routeOpencodeWebSearch } from "./web-search.js"
 
 const TOOL_IDS_CACHE_TTL_MS = 60_000
 const MODEL_CATALOG_CACHE_TTL_MS = 30_000
+/**
+ * How long a session's own control calls may take. Aborting or deleting a
+ * session is a loopback request; one that has not answered by now is a wait
+ * with nothing behind it, and it happens on the path that frees the proxy's
+ * single-flight slot.
+ */
+const SESSION_CONTROL_TIMEOUT_MS = 5_000
+/** How long the running server's config is trusted before it is read again. */
+const SERVER_CONFIG_CACHE_TTL_MS = 30_000
 
 interface PromptBody {
   model: { providerID: string; modelID: string }
@@ -91,6 +101,13 @@ export const createOpencodeBackend = (
 
   let toolIdsCache: { ids: string[]; expiresAt: number } | null = null
   let catalogCache: { models: CatalogModel[]; expiresAt: number } | null = null
+  let serverConfigCache: {
+    confirmed: boolean
+    pluginEntry: string
+    expiresAt: number
+  } | null = null
+  let bridgeConfirmed: boolean | null = null
+  let warnedAboutAdoptedServer = false
 
   const loadModels = async ({
     force = false
@@ -160,6 +177,77 @@ export const createOpencodeBackend = (
   }
 
   /**
+   * Whether the running server is known to have loaded *this* proxy's plugin.
+   *
+   * A server this proxy spawned was told to load it, so nothing needs asking.
+   * A server that was already running was told nothing by us: it may have been
+   * started by another proxy, whose plugin is still loaded and still points at
+   * that proxy's bridge endpoint and token. `tool.ids()` cannot tell the two
+   * apart — the stale plugin registers the same tool names — so the running
+   * server's own config is asked whether our plugin entry is among its
+   * plugins. Anything other than a clear yes is a no.
+   *
+   * Follow-up: a nonce would answer this without trusting the config endpoint
+   * — register a uniquely named tool in the manifest and look for it in
+   * `tool.ids()` after a reload — at the cost of a plugin reload per proxy
+   * start. Worth doing only if a runtime is found whose config omits plugins
+   * supplied through `OPENCODE_CONFIG_CONTENT`.
+   */
+  const confirmPluginEntryLoaded = async (): Promise<boolean> => {
+    if (supervisor.managedServer) return true
+    if (
+      serverConfigCache &&
+      serverConfigCache.expiresAt > Date.now() &&
+      serverConfigCache.pluginEntry === manifest.pluginEntry
+    ) {
+      return serverConfigCache.confirmed
+    }
+    let confirmed = false
+    try {
+      const response = await retryAsync(() => client.config.get(), {
+        label: "config.get"
+      })
+      const plugins = (response as { data?: { plugin?: unknown } })?.data
+        ?.plugin
+      confirmed =
+        Array.isArray(plugins) && plugins.includes(manifest.pluginEntry)
+    } catch (error) {
+      log("Could not read the running OpenCode server's config", {
+        message: (error as Error).message
+      })
+    }
+    serverConfigCache = {
+      confirmed,
+      pluginEntry: manifest.pluginEntry,
+      expiresAt: Date.now() + SERVER_CONFIG_CACHE_TTL_MS
+    }
+    return confirmed
+  }
+
+  /**
+   * Whether client tools may be offered to the model at all.
+   *
+   * Offering a tool whose every result is an error string is worse than
+   * offering none: the model calls it, the stale plugin posts to whichever
+   * proxy wrote the manifest it loaded, that proxy answers "no client is
+   * attached to this session", and the model narrates the refusal as prose.
+   * Saying so once, loudly, is the actionable answer.
+   */
+  const bridgeIsUsable = async (): Promise<boolean> => {
+    if (!config.BRIDGE_ENABLED) return false
+    const confirmed = await confirmPluginEntryLoaded()
+    bridgeConfirmed = confirmed
+    if (confirmed) return true
+    if (!warnedAboutAdoptedServer) {
+      warnedAboutAdoptedServer = true
+      console.warn(
+        `[Proxy] The OpenCode server at ${opencode.OPENCODE_SERVER_URL} was already running and does not report this proxy's bridge plugin (${manifest.pluginEntry}) among its plugins, so client tools cannot reach this proxy and will not be offered to the model. Stop that server and let olc start its own, or restart it with this plugin entry in its config.`
+      )
+    }
+    return false
+  }
+
+  /**
    * Publish the request's tools to the bridge plugin and report which of them
    * OpenCode actually registered. A tool OpenCode never registered is dropped from
    * the enabled set, so the model is never told about a tool it cannot call.
@@ -168,9 +256,9 @@ export const createOpencodeBackend = (
     tools: unknown,
     requestId: string
   ): Promise<string[]> => {
-    if (!config.BRIDGE_ENABLED) return []
-    const { changed, names } = manifest.sync(tools)
-    if (changed) {
+    if (!(await bridgeIsUsable())) return []
+    const { changed, names, installed } = manifest.sync(tools)
+    if (changed && installed) {
       log("Bridge tool manifest changed", { requestId, names })
       try {
         await retryAsync(() => client.instance.dispose(), {
@@ -242,7 +330,11 @@ export const createOpencodeBackend = (
 
     async abort(): Promise<void> {
       try {
-        await client.session.abort({ path: { id: this.id } })
+        await withTimeout(
+          client.session.abort({ path: { id: this.id } }),
+          SESSION_CONTROL_TIMEOUT_MS,
+          `session.abort(${this.id})`
+        )
       } catch (error) {
         log("Session abort failed", {
           sessionId: this.id,
@@ -254,7 +346,11 @@ export const createOpencodeBackend = (
     async dispose(): Promise<void> {
       turns.delete(this.id)
       try {
-        await client.session.delete({ path: { id: this.id } })
+        await withTimeout(
+          client.session.delete({ path: { id: this.id } }),
+          SESSION_CONTROL_TIMEOUT_MS,
+          `session.delete(${this.id})`
+        )
         log("Session cleaned up", { sessionId: this.id })
       } catch (error) {
         console.error(
@@ -268,6 +364,7 @@ export const createOpencodeBackend = (
       handlers: TurnStreamHandlers,
       signals: TurnRunSignals
     ): Promise<TurnResult> {
+      const abortSignal = signals.abort
       const pollOptions = {
         timeoutMs: config.REQUEST_TIMEOUT_MS,
         requireFinalOrContent: true,
@@ -276,7 +373,8 @@ export const createOpencodeBackend = (
           if (content) handlers.onText(content)
         },
         onPatch: (payload: unknown) => handlers.onAuxiliary?.(payload),
-        isSuspended: () => suspended
+        isSuspended: () => suspended,
+        ...(abortSignal ? { abortSignal } : {})
       }
       let suspended = false
       void signals.suspended.then(() => {
@@ -292,7 +390,8 @@ export const createOpencodeBackend = (
           else handlers.onText(text)
         },
         onPatch: (payload) => handlers.onAuxiliary?.(payload),
-        suspendPromise: signals.suspended
+        suspendPromise: signals.suspended,
+        ...(abortSignal ? { abortSignal } : {})
       })
 
       try {
@@ -429,6 +528,17 @@ export const createOpencodeBackend = (
     },
 
     findTurn: (turnId) => turns.get(turnId),
+
+    inspect: (): BackendHealth => ({
+      managed: supervisor.managedServer,
+      bridge: {
+        enabled: config.BRIDGE_ENABLED,
+        pluginLinked: supervisor.pluginLinked,
+        pluginConfirmed: config.BRIDGE_ENABLED
+          ? supervisor.managedServer || bridgeConfirmed
+          : null
+      }
+    }),
 
     registerRoutes: (router: Router) => {
       router.post(config.BRIDGE_PATH, async (request, response) => {

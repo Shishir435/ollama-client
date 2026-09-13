@@ -160,6 +160,7 @@
     },
     "title": "Agente supervisado",
     "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
+    "unresolved_reviewed": "He revisado la página: continuar",
     "work_log": {
       "title": "Registro de trabajo"
     },
@@ -587,6 +588,7 @@
       "response_failed_title": "Generación de respuesta fallida",
       "unknown_error_description": "Ocurrió un error desconocido",
       "provider_replay_invalid": "Esta respuesta no puede continuar de forma segura. Reintenta el turno para reconstruir el contexto del proveedor.",
+      "provider_busy": "El endpoint local todavía está terminando una solicitud anterior y no puede iniciar otra. Espera alrededor de un minuto o reinícialo.",
       "report_issue": "Informar de un problema",
       "open_issue": "Abrir una incidencia",
       "copy_diagnostics": "Copiar diagnóstico",

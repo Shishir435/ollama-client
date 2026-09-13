@@ -94,6 +94,7 @@ export interface AgentViewProps {
   onCorrect?: (text: string) => void
   onStop?: () => void
   onTakeoverComplete?: () => void
+  onResolveEffect?: () => void
   onFeedback?: () => void
   onExport?: () => void
 }
@@ -139,6 +140,7 @@ export const AgentView = ({
   onCorrect,
   onStop = noop,
   onTakeoverComplete = noop,
+  onResolveEffect,
   onFeedback = noop,
   onExport
 }: AgentViewProps) => {
@@ -290,7 +292,7 @@ export const AgentView = ({
         {takeover && run?.status === "awaiting_takeover" && (
           <section className="mb-3 rounded-panel border border-app-primary/40 bg-app-primary-soft/40 p-2.5 text-xs">
             <h2 className="font-medium">{t("agent.takeover.title")}</h2>
-            <p className="mt-1 break-words text-muted-foreground">
+            <p className="mt-1 wrap-break-word text-muted-foreground">
               {agentPlainText(takeover.instruction, AGENT_PAGE_TEXT_LIMIT)}
             </p>
           </section>
@@ -298,13 +300,31 @@ export const AgentView = ({
 
         {pauseNotice && (
           <section
-            className={`mb-3 flex gap-2 rounded-panel border p-2.5 text-xs ${pauseNotice.className}`}
+            className={`mb-3 rounded-panel border p-2.5 text-xs ${pauseNotice.className}`}
             role="alert">
-            <MessageSquareWarning
-              className="icon-sm shrink-0"
-              aria-hidden="true"
-            />
-            <p>{t(pauseNotice.messageKey)}</p>
+            <div className="flex gap-2">
+              <MessageSquareWarning
+                className="icon-sm shrink-0"
+                aria-hidden="true"
+              />
+              <p>{t(pauseNotice.messageKey)}</p>
+            </div>
+            {/**
+             * The way out of an unresolved effect. Nothing is replayed: the
+             * run looks at the page again and decides from what is there.
+             * Without it the only exit was to stop and start the whole goal
+             * over, which is what actually risked repeating the action.
+             */}
+            {run?.pauseReason === "unresolved_effect" && onResolveEffect && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={onResolveEffect}>
+                {t("agent.unresolved_reviewed")}
+              </Button>
+            )}
           </section>
         )}
 

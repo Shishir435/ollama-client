@@ -117,6 +117,128 @@ describe("createRequestQueue", () => {
     )
   })
 
+  /**
+   * The wedge this window exists to end: a cancelled task that ignores its
+   * abort held the slot from its own `finally`, which never ran, so every
+   * later request met the same 503 for the life of the process.
+   */
+  it("releases the slot when a cancelled task will not stop", async () => {
+    const queue = createRequestQueue({
+      cancelGraceMs: 20,
+      forceReleaseMs: 60
+    })
+    let ran = false
+
+    const wedged = queue(() => new Promise<void>(() => {}), {
+      timeoutMs: 20,
+      label: "wedged"
+    })
+    await expect(wedged).rejects.toThrow(/timeout/)
+    await expect(
+      queue(async () => "refused", { timeoutMs: 1000 })
+    ).rejects.toThrow(QueueStalledError)
+    expect(queue.inspect()).toMatchObject({
+      running: true,
+      runningLabel: "wedged",
+      stalled: true,
+      stalledLabel: "wedged",
+      orphaned: 0
+    })
+
+    await tick(120)
+    await expect(
+      queue(
+        async () => {
+          ran = true
+          return "served"
+        },
+        { timeoutMs: 1000 }
+      )
+    ).resolves.toBe("served")
+    expect(ran).toBe(true)
+    expect(queue.inspect()).toMatchObject({
+      stalled: false,
+      stalledLabel: null,
+      orphaned: 1,
+      lastFailure: { label: "wedged", reason: "timeout" }
+    })
+  })
+
+  it("does not let a force-released orphan clobber the task that replaced it", async () => {
+    const queue = createRequestQueue({ cancelGraceMs: 10, forceReleaseMs: 30 })
+    let stopWedged: (() => void) | undefined
+    let releaseNext: (() => void) | undefined
+
+    const wedged = queue(
+      () => new Promise<void>((resolve) => (stopWedged = resolve)),
+      { timeoutMs: 10, label: "wedged" }
+    )
+    await expect(wedged).rejects.toThrow(/timeout/)
+    await tick(80)
+
+    const running = queue(
+      () =>
+        new Promise<string>((resolve) => (releaseNext = () => resolve("ok"))),
+      { timeoutMs: 2000, label: "next" }
+    )
+    await tick(20)
+    expect(queue.inspect()).toMatchObject({
+      running: true,
+      runningLabel: "next",
+      orphaned: 1
+    })
+
+    // The orphan settles minutes late, as far as the queue is concerned.
+    stopWedged?.()
+    await tick(50)
+    expect(queue.inspect()).toMatchObject({
+      running: true,
+      runningLabel: "next",
+      stalled: false,
+      orphaned: 0
+    })
+
+    releaseNext?.()
+    await expect(running).resolves.toBe("ok")
+    await tick(150)
+    expect(queue.inspect()).toMatchObject({ running: false, depth: 0 })
+  })
+
+  it("reports what it is holding", async () => {
+    const queue = createRequestQueue()
+    expect(queue.inspect()).toEqual({
+      running: false,
+      runningLabel: null,
+      runningForMs: null,
+      depth: 0,
+      stalled: false,
+      stalledLabel: null,
+      stalledForMs: null,
+      orphaned: 0,
+      lastFailure: null
+    })
+
+    let release: (() => void) | undefined
+    const holding = queue(
+      () => new Promise<void>((resolve) => (release = resolve)),
+      { timeoutMs: 1000, label: "holding" }
+    )
+    const waiting = queue(async () => "queued", {
+      timeoutMs: 1000,
+      label: "waiting"
+    })
+    await tick(10)
+    expect(queue.inspect()).toMatchObject({
+      running: true,
+      runningLabel: "holding",
+      depth: 1
+    })
+
+    release?.()
+    await holding
+    await waiting
+  })
+
   it("never starts a request whose client left the queue", async () => {
     const queue = createRequestQueue()
     const controller = new AbortController()

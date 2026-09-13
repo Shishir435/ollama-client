@@ -95,6 +95,86 @@ const waitInterval = (timeoutMs: number): number =>
     )
   )
 
+/**
+ * How long an ordinary effect is given to show itself, and how many looks it
+ * gets in that time.
+ *
+ * A page that answers a click over the network answers it a little after the
+ * click. The verifier read once, immediately, so an effect that landed 1.2
+ * seconds later was `ambiguous` — which pauses the run for the user as an
+ * unresolved effect, three seconds after a step that had in fact worked.
+ *
+ * Two seconds, four looks, and it returns the moment the effect is there: the
+ * cost is paid only by a step that would otherwise have been reported
+ * unresolved, and a genuinely unknown outcome is still unknown at the end of
+ * it. Short on purpose — this is a settle window, not a wait. A run that
+ * needs to hold for an application state names it with `wait`, which has its
+ * own timeout and its own budget.
+ */
+const AGENT_SETTLE_MAX_POLLS = 4
+const AGENT_SETTLE_WINDOW_MS = 2_000
+const AGENT_SETTLE_INTERVAL_MS = 500
+
+/**
+ * One bounded looking loop, shared by `wait` and by ordinary verification.
+ *
+ * Both ask the same question — is it there yet — and differ only in what
+ * counts as settled and how long they may ask. A second mechanism beside this
+ * one would be a second place for the spacing rule to be got wrong.
+ *
+ * The look before the last waits out whatever is left, so the final
+ * observation lands at the deadline rather than an interval short of it: with
+ * six looks there are five gaps, and spacing every gap evenly ended a
+ * thirty-second wait at twenty-five seconds.
+ */
+const pollUntilSettled = async (
+  adapter: AgentEffectVerifierAdapter,
+  signal: AgentCancellationSignal,
+  plan: { maxPolls: number; deadline: number; interval: number },
+  look: (poll: number) => Promise<AgentVerificationResult>,
+  settled: (outcome: AgentVerificationResult) => boolean
+): Promise<AgentVerificationResult> => {
+  for (let poll = 1; ; poll += 1) {
+    const outcome = await look(poll)
+    if (settled(outcome)) return outcome
+    const remaining = plan.deadline - adapter.now()
+    if (poll >= plan.maxPolls || remaining <= 0 || !adapter.wait) return outcome
+    const lastGap = poll === plan.maxPolls - 1
+    await adapter.wait(
+      lastGap ? remaining : Math.min(plan.interval, remaining),
+      signal
+    )
+  }
+}
+
+/**
+ * Gives a verifier a short settle window before its answer is believed.
+ *
+ * Only an `ambiguous` answer is looked at again: `confirmed` and `negative`
+ * are both conclusions drawn from evidence the page already gave, and
+ * re-reading them would cost every honest step two seconds to learn nothing.
+ * Ambiguity is the one answer that means "not yet", and it is the one that
+ * pauses the run.
+ *
+ * Wrapped inside `withDelivery`, never outside it: a delivery problem, a file
+ * chooser and a held dialog are settled facts about what happened to the
+ * input, and looking at the page four more times cannot change any of them.
+ */
+const settling =
+  (verifier: Verifier): Verifier =>
+  (input, adapter, signal) =>
+    pollUntilSettled(
+      adapter,
+      signal,
+      {
+        maxPolls: AGENT_SETTLE_MAX_POLLS,
+        deadline: adapter.now() + AGENT_SETTLE_WINDOW_MS,
+        interval: AGENT_SETTLE_INTERVAL_MS
+      },
+      () => verifier(input, adapter, signal),
+      (outcome) => outcome.outcome !== "ambiguous"
+    )
+
 const resolvedTargetBecameVisible = (
   input: AgentVerificationInput,
   after: AgentObservation
@@ -217,42 +297,34 @@ export const READ_ONLY_AGENT_VERIFIERS = {
     if (input.effect.command.type !== "wait")
       throw new Error("Invalid wait effect")
     const { condition, timeoutMs } = input.effect.command
-    const deadline = input.receipt.executedAt + timeoutMs
-    const interval = waitInterval(timeoutMs)
-    for (let poll = 1; ; poll += 1) {
-      const after = await observeAfter(input, adapter, signal)
-      if (agentObservationStates(condition, after)) {
-        return result(
-          "confirmed",
-          "condition",
-          poll === 1
-            ? "Named wait condition is present"
-            : "Named wait condition appeared while waiting",
-          adapter.now()
-        )
-      }
-      const remaining = deadline - adapter.now()
-      if (poll >= AGENT_WAIT_MAX_POLLS || remaining <= 0 || !adapter.wait) {
-        return result(
-          "negative",
-          "condition",
-          "Named wait condition is absent after timeout",
-          adapter.now()
-        )
-      }
-      /**
-       * The look before the last one waits out whatever is left, so the final
-       * observation lands at the deadline rather than an interval short of
-       * it. Six looks leave five gaps: spacing every gap evenly ended a
-       * thirty-second wait at twenty-five seconds and called a condition that
-       * arrived in the last five absent.
-       */
-      const lastGap = poll === AGENT_WAIT_MAX_POLLS - 1
-      await adapter.wait(
-        lastGap ? remaining : Math.min(interval, remaining),
-        signal
-      )
-    }
+    return pollUntilSettled(
+      adapter,
+      signal,
+      {
+        maxPolls: AGENT_WAIT_MAX_POLLS,
+        deadline: input.receipt.executedAt + timeoutMs,
+        interval: waitInterval(timeoutMs)
+      },
+      async (poll) => {
+        const after = await observeAfter(input, adapter, signal)
+        return agentObservationStates(condition, after)
+          ? result(
+              "confirmed",
+              "condition",
+              poll === 1
+                ? "Named wait condition is present"
+                : "Named wait condition appeared while waiting",
+              adapter.now()
+            )
+          : result(
+              "negative",
+              "condition",
+              "Named wait condition is absent after timeout",
+              adapter.now()
+            )
+      },
+      (outcome) => outcome.outcome === "confirmed"
+    )
   },
   async scroll(input, adapter, signal) {
     if (input.effect.command.type !== "scroll")
@@ -1159,18 +1231,18 @@ const verifyDrag: Verifier = async (input, adapter, signal) => {
 }
 
 export const DOM_MUTATION_AGENT_VERIFIERS = {
-  click: withDelivery("activation", verifyActivation),
-  click_point: withDelivery("activation", verifyActivation),
-  double_click: withDelivery("activation", verifyActivation),
-  hover: withDelivery("hover", verifyHover),
-  type: withDelivery("field", verifyValueMutation),
-  clear_and_type: withDelivery("field", verifyValueMutation),
-  replace_text: withDelivery("field", verifyValueMutation),
-  drag: withDelivery("arrangement", verifyDrag),
-  select: verifyValueMutation,
-  check: verifyCheckedMutation,
-  uncheck: verifyCheckedMutation,
-  press_key: withDelivery("keyboard", verifyKey)
+  click: withDelivery("activation", settling(verifyActivation)),
+  click_point: withDelivery("activation", settling(verifyActivation)),
+  double_click: withDelivery("activation", settling(verifyActivation)),
+  hover: withDelivery("hover", settling(verifyHover)),
+  type: withDelivery("field", settling(verifyValueMutation)),
+  clear_and_type: withDelivery("field", settling(verifyValueMutation)),
+  replace_text: withDelivery("field", settling(verifyValueMutation)),
+  drag: withDelivery("arrangement", settling(verifyDrag)),
+  select: settling(verifyValueMutation),
+  check: settling(verifyCheckedMutation),
+  uncheck: settling(verifyCheckedMutation),
+  press_key: withDelivery("keyboard", settling(verifyKey))
 } satisfies Record<DomMutationAgentAction, Verifier>
 
 /**

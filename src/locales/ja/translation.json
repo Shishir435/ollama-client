@@ -160,6 +160,7 @@
     },
     "title": "監督付きエージェント",
     "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
+    "unresolved_reviewed": "ページを確認した — 続行",
     "work_log": {
       "title": "作業ログ"
     },
@@ -587,6 +588,7 @@
       "response_failed_title": "応答の生成に失敗しました",
       "unknown_error_description": "不明なエラーが発生しました",
       "provider_replay_invalid": "この応答を安全に続行できません。プロバイダーのコンテキストを再構築するため、このターンを再試行してください。",
+      "provider_busy": "ローカルのエンドポイントは前のリクエストをまだ処理中で、別のリクエストを開始できません。1 分ほど待つか、再起動してください。",
       "report_issue": "問題を報告",
       "open_issue": "Issueを開く",
       "copy_diagnostics": "診断情報をコピー",

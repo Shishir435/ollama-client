@@ -43,7 +43,14 @@ const resolveVision = async (
   if (visionByModel.has(key)) return visionByModel.get(key)
   let vision: boolean | undefined
   try {
-    vision = (await resolve(providerId, modelId)).vision === true
+    /**
+     * Passed through rather than compared to `true`: compatibility states
+     * vision only when it has evidence either way, and `undefined` means it
+     * could not be determined. Reading that as `false` told the user
+     * "Not used with a text-only model" about a model whose own catalog
+     * reports vision — a claim, where the panel has a state for not knowing.
+     */
+    vision = (await resolve(providerId, modelId)).vision
   } catch {
     vision = undefined
   }

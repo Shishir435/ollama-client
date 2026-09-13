@@ -1,4 +1,5 @@
 import type { AgentRunState } from "@ollama-client/contracts"
+import { MAX_AGENT_OBSERVATIONS } from "@ollama-client/contracts"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { AgentView } from "../agent-view"
@@ -330,8 +331,13 @@ describe("AgentView disclosure and supervision", () => {
   it("shows progress against the budget that will stop the run", () => {
     // A bare count cannot say whether a run is halfway or about to be cut off.
     render(<AgentView run={run("observing")} />)
+    // Read from the contract rather than written out: the panel shows the
+    // ceiling the runtime enforces, so a literal here goes stale the moment
+    // that ceiling moves.
     expect(
-      screen.getByText('agent.progress:{"count":2,"budget":25}')
+      screen.getByText(
+        `agent.progress:{"count":2,"budget":${MAX_AGENT_OBSERVATIONS}}`
+      )
     ).toBeTruthy()
   })
 

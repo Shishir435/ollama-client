@@ -51,13 +51,20 @@ export type AgentStepStatus = z.infer<typeof AgentStepStatusSchema>
  * never as an instruction.
  */
 /**
- * Observations a run may take before it is stopped.
+ * Decisions a run may take before it is stopped.
+ *
+ * One observation is counted per decision, so this is the run's step ceiling
+ * under an older name: the verification look that follows a step is free, and
+ * the panel's progress bar is a step counter. Twenty-five of them was a
+ * budget sized for a scripted model — a real task spends several steps
+ * reading before it acts, and runs that were one click from finishing were
+ * being stopped for arithmetic rather than for looping.
  *
  * Declared once because two places need it and they must agree: the loop
  * enforces it, and the panel shows progress against it. A panel with its own
  * copy would keep confidently naming a ceiling the runtime had moved.
  */
-export const MAX_AGENT_OBSERVATIONS = 25
+export const MAX_AGENT_OBSERVATIONS = 50
 
 export const MAX_AGENT_FINDING_CHARS = 500
 
@@ -108,13 +115,41 @@ export type AgentDecision = z.infer<typeof AgentDecisionSchema>
  *
  * Filling in three fields cost three prompts, which trains a user to approve
  * without reading — the failure mode a confirmation exists to prevent. These
- * two classes are the repetitive ones. Nothing that submits, destroys, pays,
- * authenticates or touches a sensitive control is grantable at any scope:
- * those are the prompts that have to keep meaning something.
+ * are the repetitive classes.
+ *
+ * Submission is one of them. It was critical, and critical is never
+ * grantable, so an agent asked to post ten comments had to ask a human for
+ * the final click ten times, forever — a prompt nobody can ever answer once
+ * is not a safeguard, it is a wall. It stays an approval by default and the
+ * user may widen it to this origin for this run, which is the same bargain
+ * every other repetitive class already offers.
+ *
+ * Nothing that destroys, pays, authenticates or touches a sensitive control
+ * is grantable at any scope: those are the prompts that have to keep meaning
+ * something.
  */
-export const AGENT_GRANTABLE_EFFECTS = ["activation", "form_mutation"] as const
+export const AGENT_GRANTABLE_EFFECTS = [
+  "activation",
+  "form_mutation",
+  "submission"
+] as const
 export const AgentGrantableEffectSchema = z.enum(AGENT_GRANTABLE_EFFECTS)
 export type AgentGrantableEffect = z.infer<typeof AgentGrantableEffectSchema>
+
+/**
+ * What the start screen's routine-actions checkbox pre-authorizes.
+ *
+ * Deliberately not the whole grantable set. A grant a user gives on a
+ * specific approval is given while reading what that step would do;
+ * this one is given before the run has started, against a checkbox, so it
+ * covers only the repetitive classes the consent is worded for. A submission
+ * is grantable — once the user has been shown one and said "always" — and is
+ * never handed over in advance.
+ */
+export const AGENT_ROUTINE_GRANT_EFFECTS = [
+  "activation",
+  "form_mutation"
+] as const satisfies readonly AgentGrantableEffect[]
 
 export const MAX_AGENT_GRANTS = 10
 
@@ -122,7 +157,10 @@ export const MAX_AGENT_GRANTS = 10
 export const AgentGrantSchema = z
   .object({
     origin: z.url(),
-    effects: z.array(AgentGrantableEffectSchema).min(1).max(2),
+    effects: z
+      .array(AgentGrantableEffectSchema)
+      .min(1)
+      .max(AGENT_GRANTABLE_EFFECTS.length),
     grantedAt: z.number().int().nonnegative()
   })
   .strict()
@@ -172,7 +210,11 @@ export const AgentApprovalRequestSchema = z
      * is kept to a single step: the panel cannot offer what it was not given.
      */
     origin: z.url().optional(),
-    grantable: z.array(AgentGrantableEffectSchema).min(1).max(2).optional(),
+    grantable: z
+      .array(AgentGrantableEffectSchema)
+      .min(1)
+      .max(AGENT_GRANTABLE_EFFECTS.length)
+      .optional(),
     createdAt: z.number().int().nonnegative()
   })
   .strict()
@@ -218,6 +260,16 @@ export const AgentErrorSchema = z
       "verification_failed"
     ]),
     message: z.string().min(1).max(1_000),
+    /**
+     * The i18n key of the failure the layer below already named, when there
+     * is one. A provider that answered with its own typed failure — a wedged
+     * local proxy replying 503, say — knows more about what went wrong than
+     * the run does, and flattening that into "the model could not produce a
+     * decision" sent a user to restart a provider that was running perfectly
+     * well. The panel prefers this key over `agent.failure.<code>`; the code
+     * still says which part of the run stopped.
+     */
+    messageKey: z.string().min(1).max(200).optional(),
     retryable: z.boolean()
   })
   .strict()

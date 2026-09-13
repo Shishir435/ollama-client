@@ -19,6 +19,22 @@ export interface ProviderErrorClassification {
   recoveryAction: AppErrorRecoveryAction
 }
 
+/**
+ * A wedged local endpoint says the same thing in two places: the safe `reason`
+ * appended to a provider message, and the localized key the UI prefers. Keep
+ * them adjacent so the English fallback and the translated copy cannot drift.
+ */
+const LOCAL_PROVIDER_BUSY_REASON =
+  "The local endpoint is still finishing an earlier request and cannot start another."
+const LOCAL_PROVIDER_BUSY_ADVICE = "Wait about a minute, or restart it."
+const LOCAL_PROVIDER_BUSY_MESSAGE_KEY = "chat.errors.provider_busy"
+
+/** The localized key for a classification, where one reads better than prose. */
+export const providerErrorMessageKey = (
+  code: AppErrorCode
+): string | undefined =>
+  code === "OLC-PROVIDER-BUSY" ? LOCAL_PROVIDER_BUSY_MESSAGE_KEY : undefined
+
 const reasonForCode = (code: AppErrorCode): string | undefined => {
   if (code === "OLC-CONTEXT-TOO-LARGE")
     return "Request exceeds model context limit."
@@ -31,6 +47,7 @@ const reasonForCode = (code: AppErrorCode): string | undefined => {
   if (code === "OLC-MODEL-LOADING") return "Selected model is still loading."
   if (code === "OLC-INPUT-UNSUPPORTED")
     return "Selected model does not support part of this request."
+  if (code === "OLC-PROVIDER-BUSY") return LOCAL_PROVIDER_BUSY_REASON
   return undefined
 }
 
@@ -40,10 +57,14 @@ const includesAny = (value: string, patterns: RegExp[]) =>
 /**
  * Convert known provider messages into a small, safe vocabulary. Never return
  * provider text itself: it may contain prompts, filesystem paths, or secrets.
+ *
+ * `baseUrl` only ever narrows a status the caller already has; as elsewhere in
+ * this module, an absent base URL is read as local.
  */
 export const classifyProviderError = (
   status: number | undefined,
-  detail?: string
+  detail?: string,
+  baseUrl?: string
 ): ProviderErrorClassification => {
   const value = detail?.slice(0, 8_000) ?? ""
 
@@ -159,6 +180,22 @@ export const classifyProviderError = (
   if (status === 429) {
     return {
       code: "OLC-RATE-LIMITED",
+      recoveryAction: "wait-retry"
+    }
+  }
+  /**
+   * A local endpoint that answers 503 is single-flight and still occupied by a
+   * request it has not finished — the olc proxy does exactly this after a
+   * cancelled turn fails to stop. Nothing about the server is unreachable, so
+   * the `>= 500` advice ("check the provider is running") sends the user to
+   * debug a process that is working. A hosted 503 is left alone: there it means
+   * genuine overload or maintenance, the user owns neither the queue nor the
+   * restart, and `Retry-After` already carries the timing.
+   */
+  if (status === 503 && isLocalProviderBaseUrl(baseUrl)) {
+    return {
+      code: "OLC-PROVIDER-BUSY",
+      reason: LOCAL_PROVIDER_BUSY_REASON,
       recoveryAction: "wait-retry"
     }
   }
@@ -308,6 +345,9 @@ export const providerErrorUserMessage = (
   if (status === 529) {
     return `${lead} The hosted provider is temporarily overloaded. Wait a moment and try again.`
   }
+  if (status === 503 && isLocalProviderBaseUrl(options.baseUrl)) {
+    return `${lead} ${LOCAL_PROVIDER_BUSY_REASON} ${LOCAL_PROVIDER_BUSY_ADVICE}`
+  }
   if (status >= 500) return serverFailureMessage(context)
   return `${lead}${reason} Check ${providerLower}, the ${selectedModel}, and its server logs.`
 }
@@ -395,11 +435,13 @@ export const applyProviderErrorContext = (
 ): AppError => {
   const classification = classifyProviderError(
     error.status,
-    typeof error.debug === "string" ? error.debug : undefined
+    typeof error.debug === "string" ? error.debug : undefined,
+    context.baseUrl || error.baseUrl
   )
   if (error.code === "OLC-UNKNOWN") error.code = classification.code
   if (!error.recoveryAction)
     error.recoveryAction = classification.recoveryAction
+  if (!error.messageKey) error.messageKey = providerErrorMessageKey(error.code)
   if (error.phase === "unknown") error.phase = "response"
   error.providerId = context.providerId || error.providerId
   error.providerName = context.providerName || error.providerName
@@ -448,7 +490,11 @@ export const throwProviderResponseError = async (
 ): Promise<never> => {
   const detail = await response.text()
   const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"))
-  const classification = classifyProviderError(response.status, detail)
+  const classification = classifyProviderError(
+    response.status,
+    detail,
+    options.baseUrl
+  )
   if (
     (response.status === 401 || response.status === 403) &&
     isLocalProviderBaseUrl(options.baseUrl)
@@ -465,6 +511,7 @@ export const throwProviderResponseError = async (
     retryable: isRetryableProviderStatus(response.status),
     retryAfterMs,
     code: classification.code,
+    messageKey: providerErrorMessageKey(classification.code),
     phase: "response",
     recoveryAction: classification.recoveryAction,
     userMessage: providerErrorUserMessage(response.status, {

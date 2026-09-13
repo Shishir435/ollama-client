@@ -175,6 +175,15 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
   RunScopedSchema.extend({
     type: z.literal("agent_complete_takeover")
   }).strict(),
+  /**
+   * The user reviewed a page whose effect could not be resolved and is
+   * continuing. `pausedAt` names the moment they looked at, so a click on a
+   * stale panel cannot resolve whatever replaced it.
+   */
+  RunScopedSchema.extend({
+    type: z.literal("agent_resolve_effect"),
+    pausedAt: z.number().int().nonnegative()
+  }).strict(),
   AnswerSchema.extend({
     type: z.literal("agent_approve"),
     /**

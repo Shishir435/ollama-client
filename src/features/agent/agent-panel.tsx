@@ -48,7 +48,7 @@ export const AgentPanel = () => {
           className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs">
           <p>{t(connection.failure.messageKey)}</p>
           {connection.failure.detail && (
-            <p className="mt-1 break-words font-mono text-micro text-muted-foreground">
+            <p className="mt-1 wrap-break-word font-mono text-micro text-muted-foreground">
               {agentPlainText(connection.failure.detail, 300)}
             </p>
           )}
@@ -89,6 +89,7 @@ export const AgentPanel = () => {
           onCorrect={connection.correct}
           onStop={connection.stop}
           onTakeoverComplete={connection.completeTakeover}
+          onResolveEffect={connection.resolveEffect}
           onExport={() => {
             if (!snapshot.run) return
             downloadFile(

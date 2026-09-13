@@ -160,6 +160,7 @@
     },
     "title": "Supervised Agent",
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
+    "unresolved_reviewed": "I've reviewed the page — continue",
     "work_log": {
       "title": "Work log"
     },
@@ -621,6 +622,7 @@
       "response_failed_title": "Response Generation Failed",
       "unknown_error_description": "An unknown error occurred",
       "provider_replay_invalid": "This response cannot be continued safely. Retry the turn to rebuild its provider context.",
+      "provider_busy": "The local endpoint is still finishing an earlier request and cannot start another. Wait about a minute, or restart it.",
       "report_issue": "Report issue",
       "open_issue": "Open an issue",
       "issue_draft_notice": "Prefilled locally. Review before submitting.",

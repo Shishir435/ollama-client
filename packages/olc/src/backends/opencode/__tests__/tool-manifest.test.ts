@@ -60,17 +60,30 @@ describe("normalizeToolDefinitions", () => {
   })
 })
 
+const PLUGIN_SOURCE = fileURLToPath(new URL("../plugin", import.meta.url))
+
+/** A manifest whose plugin has been materialized, as a serving proxy's is. */
+const installedManifest = (endpoint = "http://127.0.0.1:8083/bridge/call") => {
+  const manifest = new ToolManifest({
+    directory: join(tempDir(), "plugin"),
+    endpoint,
+    token: "t"
+  })
+  manifest.install({
+    sourceDirectory: PLUGIN_SOURCE,
+    pluginRuntimeDirectory: null
+  })
+  return manifest
+}
+
 describe("ToolManifest", () => {
   it("reports a change only when registration would differ", () => {
-    const manifest = new ToolManifest({
-      directory: tempDir(),
-      endpoint: "http://127.0.0.1:8083/bridge/call",
-      token: "t"
-    })
+    const manifest = installedManifest()
 
     expect(manifest.sync([tool("list_tabs")])).toEqual({
       changed: true,
-      names: ["list_tabs"]
+      names: ["list_tabs"],
+      installed: true
     })
     expect(manifest.sync([tool("list_tabs")]).changed).toBe(false)
     expect(manifest.sync([tool("list_tabs", "now described")]).changed).toBe(
@@ -78,8 +91,54 @@ describe("ToolManifest", () => {
     )
     expect(
       manifest.sync([tool("list_tabs", "now described"), tool("read_tab")])
-    ).toEqual({ changed: true, names: ["list_tabs", "read_tab"] })
+    ).toEqual({
+      changed: true,
+      names: ["list_tabs", "read_tab"],
+      installed: true
+    })
     expect(manifest.sync([]).names).toEqual([])
+  })
+
+  /**
+   * A proxy that adopts a running OpenCode never used to reach `install`, so
+   * its manifest file was never written — and `sync` still named the tools as
+   * if they had been published. Offering the model a tool that exists nowhere
+   * is what produced replies narrating a bridge error instead of an answer.
+   */
+  it("reports no usable tools until the plugin is installed", () => {
+    const directory = join(tempDir(), "plugin")
+    const warnings: string[] = []
+    const manifest = new ToolManifest({
+      directory,
+      endpoint: "http://127.0.0.1:8085/bridge/call",
+      token: "t",
+      log: (message) => warnings.push(message)
+    })
+
+    const first = manifest.sync([tool("list_tabs"), tool("read_tab")])
+    expect(first.installed).toBe(false)
+    expect(first.names).toEqual([])
+    expect(existsSync(join(directory, "manifest.json"))).toBe(false)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain("not installed")
+
+    // Said once, not once per request.
+    manifest.sync([tool("list_tabs")])
+    expect(warnings).toHaveLength(1)
+
+    manifest.install({
+      sourceDirectory: PLUGIN_SOURCE,
+      pluginRuntimeDirectory: null
+    })
+    const published = manifest.sync([tool("list_tabs"), tool("read_tab")])
+    expect(published).toEqual({
+      changed: true,
+      names: ["list_tabs", "read_tab"],
+      installed: true
+    })
+    expect(
+      JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8")).tools
+    ).toHaveLength(2)
   })
 
   it("writes the plugin, its manifest, and the runtime link", () => {

@@ -160,6 +160,7 @@
     },
     "title": "Beaufsichtigter Agent",
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
+    "unresolved_reviewed": "Seite geprüft — fortfahren",
     "work_log": {
       "title": "Arbeitsprotokoll"
     },
@@ -587,6 +588,7 @@
       "response_failed_title": "Antwortgenerierung fehlgeschlagen",
       "unknown_error_description": "Ein unbekannter Fehler ist aufgetreten",
       "provider_replay_invalid": "Diese Antwort kann nicht sicher fortgesetzt werden. Wiederhole die Anfrage, um den Anbieterkontext neu aufzubauen.",
+      "provider_busy": "Der lokale Endpunkt beendet noch eine frühere Anfrage und kann keine weitere starten. Warte etwa eine Minute oder starte ihn neu.",
       "report_issue": "Problem melden",
       "open_issue": "Issue öffnen",
       "copy_diagnostics": "Diagnosedaten kopieren",

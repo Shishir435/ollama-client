@@ -260,6 +260,12 @@ export const cleanupTempDirs = (): void => {
 export interface BackendSupervisor {
   ensureReady: () => Promise<void>
   readonly pluginLinked: boolean
+  /**
+   * Whether this proxy started the server it talks to. A server it merely
+   * adopted was told nothing about this proxy's plugin, so its tool
+   * registrations are somebody else's and cannot be assumed to reach here.
+   */
+  readonly managedServer: boolean
   kill: () => void
 }
 
@@ -287,11 +293,17 @@ export const createBackendSupervisor = ({
     process: ChildProcess | null
     jailRoot: string | null
     pluginLinked: boolean
+    managedServer: boolean
+    binary: ReturnType<typeof resolveBackendBinary> | null
+    plugin: { installed: boolean; linked: boolean } | null
   } = {
     isStarting: false,
     process: null,
     jailRoot: null,
-    pluginLinked: false
+    pluginLinked: false,
+    managedServer: false,
+    binary: null,
+    plugin: null
   }
 
   const buildConfigContent = (pluginEntry: string | null) => {
@@ -337,6 +349,25 @@ export const createBackendSupervisor = ({
       )
       return { installed: false, linked: false }
     }
+  }
+
+  /**
+   * Materialize the plugin and its manifest before the proxy serves anything.
+   *
+   * The manifest is what `ToolManifest.sync` writes tool definitions into, and
+   * it writes nothing until the plugin has been installed. Installing only on
+   * the spawn path therefore left an adopted server's proxy with a manifest
+   * that was never written — the tools it thought it had published existed
+   * only in memory. Installed once per process; the result is reused by the
+   * spawn path rather than copied twice.
+   */
+  const ensurePluginInstalled = (): { installed: boolean; linked: boolean } => {
+    if (state.plugin) return state.plugin
+    const pluginRuntimeDirectory =
+      opencode.PLUGIN_RUNTIME_DIR ||
+      resolvePluginRuntimeDirectory(backendBinary().resolved.path)
+    state.plugin = installPlugin(pluginRuntimeDirectory)
+    return state.plugin
   }
 
   const waitForHealth = async (iterations: number, intervalMs: number) => {
@@ -426,6 +457,12 @@ export const createBackendSupervisor = ({
     return { resolved, opencodeBin }
   }
 
+  /** Resolved once: the lookup walks the filesystem and logs what it picked. */
+  const backendBinary = (): ReturnType<typeof resolveBackendBinary> => {
+    if (!state.binary) state.binary = resolveBackendBinary()
+    return state.binary
+  }
+
   const createBackendEnvironment = (
     jailRoot: string,
     cwd: string,
@@ -497,11 +534,8 @@ export const createBackendSupervisor = ({
     )
     cleanupPreviousBackend()
     const { jailRoot, cwd } = createWorkspace()
-    const { resolved, opencodeBin } = resolveBackendBinary()
-    const pluginRuntimeDirectory =
-      opencode.PLUGIN_RUNTIME_DIR ||
-      resolvePluginRuntimeDirectory(resolved.path)
-    const plugin = installPlugin(pluginRuntimeDirectory)
+    const { resolved, opencodeBin } = backendBinary()
+    const plugin = ensurePluginInstalled()
     const env = createBackendEnvironment(
       jailRoot,
       cwd,
@@ -516,10 +550,17 @@ export const createBackendSupervisor = ({
       console.warn("[Proxy] Backend start timed out.")
       throw new Error("Backend start timeout")
     }
+    state.managedServer = true
     console.log("[Proxy] OpenCode backend ready.")
   }
 
   const ensureReady = async () => {
+    /**
+     * Before either early return, not only on the path that spawns a server:
+     * a proxy that adopts a running one still has to have written its own
+     * manifest, or it publishes tools nowhere.
+     */
+    ensurePluginInstalled()
     if (await waitForConcurrentStart()) return
     if (await backendAlreadyHealthy()) return
     state.isStarting = true
@@ -534,6 +575,9 @@ export const createBackendSupervisor = ({
     ensureReady,
     get pluginLinked() {
       return state.pluginLinked
+    },
+    get managedServer() {
+      return state.managedServer
     },
     kill: () => {
       if (state.process) {

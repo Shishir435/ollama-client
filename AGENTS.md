@@ -359,6 +359,16 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   service authorizes the user-selected tab; detach at pause, takeover, stop,
   completion, and failure boundaries. An unexpected disconnect pauses the run,
   and an interrupted effect remains unresolved rather than being replayed.
+- **An unresolved effect is resolved by the supervisor, not by a guess.**
+  `resolveEffect` records that the user has looked at the page and continues
+  the run from a fresh observation, with the generation bumped so no reference
+  bound before the page moved survives. Nothing is replayed and nothing is
+  asserted about what happened — the run decides from what is on screen. It
+  names the `pausedAt` it is resolving, so a click on a stale panel cannot
+  resolve whatever replaced it. Stop used to be the only exit, and that was
+  the more dangerous arrangement: a stopped run is started again from the
+  goal, and the new run carries no memory that the click already landed, so
+  refusing to continue is what made the action likely to happen twice.
 - Firefox receives no `debugger` permission. The session manager reports the
   existing DOM control backend with `cdpControl: false` and
   `frameTracking: false`; do not claim CDP-only capabilities there.
@@ -496,6 +506,59 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   native step has been sent, a failure is an unresolved effect; it is not
   completed through the content script. Only a plan the debugger refused from
   its first step is a clean `AgentEffectNotAppliedError`.
+- **A submission runs the page's handlers first, then enforces the
+  destination.** `submitThroughPageHandlers` calls the form's own
+  `requestSubmit` and listens last. A handler that calls `preventDefault` is
+  an application submitting for itself: nothing navigates, no destination is
+  reported, and the verifier judges the step by what the page did. A handler
+  that does not prevent the default leaves the browser about to navigate to
+  whatever `action` says *now*, which the handler may just have rewritten —
+  so the default is cancelled there and the approved destination is submitted
+  from a fresh form carrying only the bound standard controls. Submitting
+  that copy unconditionally, as this used to, navigated single-page forms
+  away while the application never saw its own event.
+- **An approved effect is bound to a control, not to a moment of its state.**
+  `assertUnchangedMutationTarget` compares identity, kind, destination and
+  sensitivity; it does not compare live `value`, `focused` or `checked`,
+  which a page rewrites on its own while a model spends seconds deciding.
+  Only the commands whose text was computed from the field — `type`,
+  `clear_and_type`, `replace_text` — still require the value they were built
+  from. A key press focuses the control it names rather than refusing because
+  focus moved: refusing delivered nothing and stopped a run the moment a
+  page's own widget took focus, while a real hand on the page is caught by
+  input-delivery interference, which is evidence rather than a guess.
+- **The form fingerprint is the payload, not the paint.**
+  `privateFormState` hashes what the form would submit — action, method,
+  enctype, target, and each control's submission attributes, value, checked
+  and selected state. It used to hash every attribute of every control, so a
+  search widget flipping `aria-expanded` as its suggestion list opened
+  changed the fingerprint and the run refused to press Enter in the box it
+  had just filled in. Class and ARIA state cannot reach the wire, so
+  comparing them bought nothing and cost every live form on the web. A value
+  edited elsewhere in the form, a rewritten hidden token and a control
+  disabled into silence all still refuse.
+- **The work log shows one row per step.** A step is appended once per
+  lifecycle change, so rendering every receipt showed a single click four
+  times over as "Planned", "Approved", "Running" and "Review". History and the
+  completion judge collapse receipts to the latest per step for the same
+  reason; the log is the one place a person reads them.
+- **Vision unknown is not vision absent.** `resolveAgentProviderDisclosure`
+  passes compatibility's `vision` through instead of comparing it to `true`:
+  the field is stated only when there is evidence either way, and reading
+  `undefined` as `false` told the user "Not used with a text-only model" about
+  a model whose own catalog reports vision. The panel has a state for not
+  knowing, and that is what an undetermined capability gets.
+- **A refusal crosses the control port as a code.**
+  `effect-rejection.ts` holds the whole vocabulary and both halves of it: the
+  sentence each reason is raised with, and the classifier that reads it back.
+  The document that refuses is untrusted, so nothing it composes may travel —
+  an unrecognised message is `unspecified` rather than forwarded. The port
+  used to carry no reason at all, so a covered control, a replaced target and
+  a changed value all reached the run as the same bare error and were
+  recorded as "Target changed"; two live runs died that way with nothing in
+  the record to say which had happened. A refused identity check also names
+  the field that moved, which is this build's own vocabulary and never a
+  value read from the page.
 - **A native plan is a sequence the runner owes a release for.**
   `runAgentNativeInputPlan` sends one step at a time, checks cancellation
   between steps, and on abort or dispatcher failure releases every held button
@@ -634,12 +697,26 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   typed into a search box an ungrantable prompt and trained the user to
   approve without reading. The `submission` class the resolver attaches to a
   click on a submitter and to Enter in a field that submits on it is what
-  costs critical. Typing is a `form_mutation`, which is grantable per origin.
+  costs an approval. Typing is a `form_mutation`.
+- **Submission is `high`, and therefore grantable.** It was critical, and
+  critical is never grantable, so an agent asked to post ten comments had to
+  ask a human for the final click ten times with no way to say yes once — a
+  prompt nobody can ever answer in advance is not read more carefully, it is
+  read less. It is in `AGENT_GRANTABLE_EFFECTS` beside `activation` and
+  `form_mutation`, so "always allow this kind of action on this origin for
+  this run" covers it, and it still costs an approval by default. The floor
+  is unmoved: `destructive`, `authentication`, `payment`, `sensitive_input`
+  and `file_selection` stay critical or takeover, a grant never covers a step
+  carrying one of them, and a submission riding along with one is priced by
+  the one.
 - **Routine-action consent starts with the task.** The start screen's selected
   checkbox sends `allowRoutineActions`; the background creates only activation
-  and form-mutation grants for the starting origin in that run. Omitted consent
-  keeps per-step review. Submission, destruction, new origins and sensitive
-  controls retain their own gates; a new run receives no previous run's grants.
+  and form-mutation grants (`AGENT_ROUTINE_GRANT_EFFECTS`, deliberately
+  narrower than `AGENT_GRANTABLE_EFFECTS`) for the starting origin in that
+  run. Omitted consent keeps per-step review. Submission, destruction, new
+  origins and sensitive controls retain their own gates — a submission is
+  widened only from an approval the user was shown, never in advance from a
+  checkbox; a new run receives no previous run's grants.
 - **An edit with no submission step says so, and says only that.**
   `noSubmitStep` is set on an edit whose target belongs to no form — an
   editing host, or a bare field in an application that saves on input — so the
@@ -658,11 +735,25 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   is an activation a verifier confirms — the button was pressed, the page
   changed — while the document is still saving, so `complete` used to let
   every run that pressed the right button report success.
-  `judgeAgentCompletion` (`completion.ts`) is the third answer: a run that
-  changed anything must cite evidence, and that phrase has to be in the
-  observation it decided on, read by the same matcher `wait` uses
-  (`observed-text.ts`) so a run cannot complete on evidence its own wait would
-  reject. A run that only read owes none — what it read is its answer.
+  `judgeAgentCompletion` (`completion.ts`) is the third answer, and it asks
+  for a quotation only where the gap between the second and the third is
+  real. A change whose own verification came back `confirmed` has already
+  been checked against the page by the verifier that knew what the step was
+  for, and that check *is* the evidence: the run completes without quoting
+  anything. Demanding a phrase on top of it asked for something a toggle
+  cannot produce — selecting Blue in a dropdown and ticking a checkbox add no
+  words to the page, so every quotation a model could offer was already there
+  (`stale_evidence`), the control's own label (`self_evidence`) or not page
+  text at all (`absent_evidence`) — and three live runs finished the task,
+  were confirmed, and spent their whole budget being refused for work they
+  had done. A quotation is required of a change that verified `ambiguous`
+  (the effect landed and the page has not shown its consequence) and of a run
+  whose receipts could not be read; a change with no verification recorded is
+  refused outright, because nothing checked it and no phrase completes that.
+  Where a quotation is required it has to be in the observation the run
+  decided on, read by the same matcher `wait` uses (`observed-text.ts`) so a
+  run cannot complete on evidence its own wait would reject. A run that only
+  read owes none — what it read is its answer.
   Changes are counted from the resolved effect's own classes and recorded
   durably on the receipt as `mutating`, because a worker restart keeps the
   receipts and loses everything else; navigation is not a change, or every
@@ -681,8 +772,8 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   refuse every honest quotation of it. It lives in the worker that made the
   change, so a restart loses it and the check is skipped rather than guessed
   at — an absent baseline is not proof the evidence is new, and after a
-  restart the interrupted step is `uncertain`, which the unverified-change
-  rule refuses before evidence is reached at all.
+  restart the interrupted step is `uncertain` with no verification behind it,
+  which the unverified-change rule refuses before evidence is reached at all.
   A step is appended once per lifecycle change, so the judge collapses
   receipts to the last one per step before selecting, the way history does: a
   superseded `executed` receipt for a step that went on to fail is an applied
@@ -691,8 +782,13 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   "changed nothing" is the hole the gate exists to close. A refusal is a safe
   failure: nothing was attempted, so it is recorded as a rejected step and the
   run looks again, with the reason reaching the next decision through its own
-  history, and a model that keeps claiming the same thing exhausts the
-  no-progress budget like any other repetition. `deciding -> observing` is a
+  history. Looking again is the right answer once — the indicator may not
+  have appeared yet — and the wrong one when the same refusal comes back
+  unchanged, so a second consecutive refusal for the same reason pauses with
+  a question instead (`MAX_CONSECUTIVE_REFUSED_COMPLETIONS`), and any
+  confirmed step clears the count. A run that spends twenty observations
+  re-claiming a finished task and then reports `budget_exhausted` has told
+  the user nothing. `deciding -> observing` is a
   real edge in `AGENT_STATUS_PREDECESSORS` for that reason: every other exit
   from `deciding` runs through a step, and a declined decision touched
   nothing. `claimAgentRunPhase` filters `expected` by those predecessors
@@ -710,6 +806,50 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   to re-plan work that was about to succeed. Sleeping the whole timeout and reading once was the worst of
   both: a save that landed in 300ms still cost thirty seconds, and one that
   landed a moment after the single read was reported absent.
+- **An ordinary effect gets a settle window, not a sleep.** A page that
+  answers a click over the network answers it a little after the click, and
+  the verifier read once, immediately — so an effect that landed 1.2 seconds
+  later verified `ambiguous` and paused the run as an unresolved effect three
+  seconds after a step that had worked. Every DOM-mutation verifier is
+  wrapped in `settling`, which re-reads only an `ambiguous` answer, at most
+  `AGENT_SETTLE_MAX_POLLS` times across `AGENT_SETTLE_WINDOW_MS`, and returns
+  the moment the effect is there. It shares `pollUntilSettled` with `wait`,
+  because both ask the same question and a second copy would be a second
+  place to get the spacing wrong. `confirmed` and `negative` are conclusions
+  drawn from evidence the page already gave and are never re-read; the
+  wrapper sits *inside* `withDelivery`, because interference, a misdirected
+  plan and a held file chooser are facts about the input that looking at the
+  page again cannot change. The `unresolved_effect` pause is unweakened — it
+  is only given two seconds to stop being unknown.
+- **A budget is sized for a real task, and the step ceiling is longer than
+  one decision.** `MAX_AGENT_OBSERVATIONS` counts one observation per
+  decision, so it is the run's step ceiling under an older name; the panel's
+  progress bar is a step counter. `AGENT_STEP_ACTIVE_BUDGET_MS` must stay
+  strictly greater than `AGENT_DECISION_TIMEOUT_MS` — it was sixty seconds
+  while a decision was allowed a hundred and twenty, so a model answering
+  inside the time it had been promised had its good step failed with "this
+  Agent step exceeded its active time budget", which reads like a hang and is
+  not. Both constants live in `budgets.ts` for that reason, and
+  `budgets.test.ts` asserts the ordering. The run ceiling follows from the
+  other two: fifty steps at live decision latency need the better part of
+  half an hour, and what bounds a runaway run is the observation ceiling and
+  the no-progress guard, not the clock.
+- **The egress rule is about data the run read, not words it wrote.**
+  A destination the model composed carrying a page field's value is blocked
+  as `private_data_egress`. A search box holds a field value like any other
+  control, so a run that typed the user's own query and then followed the
+  site's own search URL was killed for exfiltrating it — the one thing the
+  task had asked for. `provenance.ts` answers authorship from the run's own
+  words: the goal, the user's answers, and the text it typed or selected on
+  its own durable receipts (never `replace_text.find`, which is a quotation
+  of what the page already held). Every long span of the URL must be
+  accounted for by those words, containment one way only, or the block
+  stands; no authored words at all is no claim, and the rule stays as strict
+  as it was. The destination raises are untouched, so a model-composed URL
+  with a query is still `high` and the user still sees the whole URL. The
+  honest limit: a value the run typed is its own, so a model that copies a
+  field value into a box and then navigates with it is stopped by that
+  approval rather than by this rule.
 - **A real terminated worker is the only proof of recovery.**
   `pnpm verify:sw-agent-recovery` leaves a run durably `executing` with its
   step open, kills the worker through DevTools while the extension page and
@@ -930,6 +1070,21 @@ Branch promotion has three stages: `release/*` → `preview` → `main`. Merge a
   `agent.failure.<code>` first, in the reader's language, and keeps the
   original beneath so the words the run used survive for a bug report. A code
   with no key falls back to the `unknown` advice rather than to nothing.
+  A failure the layer below already named keeps its own name: `AgentError`
+  carries an optional `messageKey` and `agentProviderFailure` reads the
+  provider's `messageKey`, `userMessage` and `retryable` structurally (never
+  by instance — the runtime knows nothing of the host's error classes), so a
+  wedged local proxy answering 503 stops surfacing as "the model could not be
+  reached, check the provider is running" while the provider is healthy. The
+  panel prefers that key over `agent.failure.<code>`; the code still says
+  which part of the run stopped.
+- **A refused effect records why it was refused.** The executor's
+  `AgentEffectNotAppliedError` message is one of the closed vocabulary in
+  `src/lib/browser-agent/effect-rejection.ts` — composed by this build, never
+  by the page — so the controller records it as the step's verification
+  summary instead of one fixed sentence. Flattening it threw the cause away a
+  line before it became useful and left live failures undiagnosable; the
+  fixed wording remains the fallback when the refusal carries no message.
 - **Supervision needs the action and the ceiling.** The status is the
   machine's word for it, so the panel also names the step in flight — the
   same label the work log uses, so the two cannot disagree — shows progress

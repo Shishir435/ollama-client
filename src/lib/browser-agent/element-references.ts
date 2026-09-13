@@ -60,18 +60,40 @@ const associatedForm = (element: Element): HTMLFormElement | null =>
     : null
 
 /**
- * This state never crosses the content-script boundary. In particular, hidden
- * and sensitive values are compared exactly here instead of being exposed in
- * an observation or weakened into a public, attacker-visible checksum.
+ * What this form would submit, as the payload it would submit it as.
+ *
+ * The state never crosses the content-script boundary, so hidden and
+ * sensitive values are compared exactly here rather than exposed in an
+ * observation or weakened into a public, attacker-visible checksum. It exists
+ * to catch the payload changing between the approval and the submission: a
+ * field edited elsewhere in the form, a hidden routing token rewritten, a
+ * control disabled so it stops being successful.
+ *
+ * It deliberately does **not** hash presentation. It used to hash every
+ * attribute of the form and of every control in it, which meant a search
+ * widget flipping `aria-expanded` as its suggestion list opened changed the
+ * fingerprint and the run refused to press Enter in the box it had just
+ * filled in. Class and ARIA state cannot reach the wire, so comparing them
+ * bought nothing and cost every live form on the web. The attributes kept
+ * below are the ones that decide what is sent and where.
  */
+const SUBMISSION_ATTRIBUTES = [
+  "name",
+  "type",
+  "value",
+  "disabled",
+  "checked",
+  "multiple",
+  "formaction",
+  "formmethod",
+  "formenctype",
+  "formnovalidate"
+] as const
+
 const privateFormState = (element: Element): string | undefined => {
   const form = associatedForm(element)
   if (!form) return undefined
   return JSON.stringify({
-    attributes: Array.from(form.attributes).map(({ name, value }) => [
-      name,
-      value
-    ]),
     action: form.action,
     method: form.method,
     enctype: form.enctype,
@@ -83,9 +105,9 @@ const privateFormState = (element: Element): string | undefined => {
       return {
         tag: control.tagName.toLowerCase(),
         type: input.type?.toLowerCase() ?? "",
-        attributes: Array.from(control.attributes).map(({ name, value }) => [
+        attributes: SUBMISSION_ATTRIBUTES.map((name) => [
           name,
-          value
+          control.getAttribute(name)
         ]),
         value: "value" in control ? String(input.value) : "",
         checked: "checked" in control ? Boolean(input.checked) : undefined,

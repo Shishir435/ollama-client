@@ -10,6 +10,7 @@ import type {
   AgentRisk,
   AgentSemanticEffect
 } from "./ports"
+import { isAgentAuthoredDestination } from "./provenance"
 
 const RISK_ORDER: readonly AgentRisk[] = ["low", "medium", "high", "critical"]
 
@@ -52,7 +53,18 @@ const effectRisk = (effect: AgentSemanticEffect): AgentRisk => {
       return "high"
     case "download":
       return "high"
+    /**
+     * High rather than critical, which is what makes it grantable. A
+     * submission is a real decision and still costs an approval by default —
+     * but critical can never be widened, so an agent asked to post ten
+     * comments had to ask a human for the final click ten times with no way
+     * to say yes once. A prompt that can never be answered in advance is not
+     * read more carefully; it is read less. The floor below is unmoved:
+     * destroying, paying, authenticating, a sensitive control and a file
+     * chooser stay critical.
+     */
     case "submission":
+      return "high"
     case "destructive":
     case "authentication":
     case "payment":
@@ -292,7 +304,8 @@ const adoptsTab = (input: AgentPolicyInput): number | undefined => {
  *
  * Submission is priced as the `submission` class the resolver attaches to the
  * commands that actually submit — a click on a submitter, Enter in a field
- * that submits on it. It used to be priced a second time from the target's
+ * that submits on it — and that class is `high`, so the user may widen it to
+ * this origin for this run. It used to be priced a second time from the target's
  * `maySubmit`, which says only that the control sits on a submit path: every
  * character typed into an ordinary single-field form was therefore critical,
  * and critical is never grantable, so filling in a search box cost one
@@ -343,14 +356,22 @@ export const evaluateAgentPolicy = (
     /**
      * A destination the page rendered may carry the page's own data back to
      * its own site; one the model composed may not, because observing the
-     * user's page is the only way it could have learned that data. A value the
-     * user typed is never worth a confirmation prompt, so it is refused
-     * outright; rendered text is what an ordinary research task carries into a
-     * search, so it is escalated below rather than blocked.
+     * user's page is the only way it could have learned that data. A value
+     * the page put in a field is refused outright; rendered text is what an
+     * ordinary research task carries into a search, so it is escalated below
+     * rather than blocked.
+     *
+     * What the run itself put in a field is neither. A search box holds a
+     * field value like any other control, so typing the user's own query and
+     * then following the site's own search URL read as exfiltration and
+     * killed the run — the one thing the task had asked for. The rule is
+     * about data the run *read*, and authorship is something it can answer
+     * from the goal, the user's answers and its own receipts.
      */
     if (
       destination.source !== "observed" &&
-      destination.pageDataEvidence === "field_value"
+      destination.pageDataEvidence === "field_value" &&
+      !isAgentAuthoredDestination(destination.url, input.authoredText)
     ) {
       return {
         type: "blocked",

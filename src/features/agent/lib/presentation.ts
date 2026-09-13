@@ -134,6 +134,21 @@ export const currentAgentAction = (
 export const agentFailureAdviceKey = (code: string): string =>
   `agent.failure.${AGENT_FAILURE_CODES.has(code) ? code : "unknown"}`
 
+/**
+ * The advice to lead a failure with.
+ *
+ * A failure that carries a key of its own knows something the run's code does
+ * not. A local proxy still unwinding a cancelled request answers every call
+ * with a 503, which the run can only record as `model_unavailable` — true,
+ * and its advice is "check the provider is running" for a provider that is
+ * running perfectly. The provider's own key says to wait or restart the
+ * proxy, so it wins when there is one.
+ */
+export const agentFailureMessageKey = (error: {
+  code: string
+  messageKey?: string
+}): string => error.messageKey ?? agentFailureAdviceKey(error.code)
+
 const AGENT_FAILURE_CODES = new Set([
   "budget_exhausted",
   "command_refused",
@@ -154,22 +169,40 @@ export interface AgentWorkLogItem {
   detail?: string
 }
 
+/**
+ * One row per step, showing where that step got to.
+ *
+ * A step is appended once per lifecycle change — planned, approved,
+ * executing, then how it settled — so rendering every receipt showed a single
+ * click four times over, as "Planned", "Approved", "Running" and "Review".
+ * The run had done one thing. History and the completion judge both collapse
+ * receipts to the latest per step for the same reason; the log is the one
+ * place a person reads them, so it is the place it mattered most.
+ */
 export const toAgentWorkLog = (
   steps: readonly AgentStepRecord[]
-): AgentWorkLogItem[] =>
-  steps.map((step) => ({
-    id: `${step.stepId}:${step.sequence}`,
-    label: agentActionLabel(step.command),
-    status: step.status,
-    ...(step.verification?.evidence.summary
-      ? {
-          detail: agentPlainText(
-            step.verification.evidence.summary,
-            AGENT_LOG_TEXT_LIMIT
-          )
-        }
-      : {})
-  }))
+): AgentWorkLogItem[] => {
+  const latest = new Map<string, AgentStepRecord>()
+  for (const step of steps) {
+    const held = latest.get(step.stepId)
+    if (!held || step.sequence >= held.sequence) latest.set(step.stepId, step)
+  }
+  return [...latest.values()]
+    .sort((first, second) => first.sequence - second.sequence)
+    .map((step) => ({
+      id: step.stepId,
+      label: agentActionLabel(step.command),
+      status: step.status,
+      ...(step.verification?.evidence.summary
+        ? {
+            detail: agentPlainText(
+              step.verification.evidence.summary,
+              AGENT_LOG_TEXT_LIMIT
+            )
+          }
+        : {})
+    }))
+}
 
 export const agentRunIsActive = (status: AgentRunState["status"]): boolean =>
   !["completed", "failed", "cancelled", "paused"].includes(status)

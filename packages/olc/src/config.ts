@@ -49,7 +49,16 @@ export const DEFAULTS = {
    * computing a tool result for, and stops a long run holding a session per
    * step.
    */
-  MAX_PARKED_TURNS: 4
+  MAX_PARKED_TURNS: 4,
+  /**
+   * How long a cancelled turn is waited for before the queue refuses work, and
+   * how long before its slot is released whatever it is doing. The first is a
+   * pause for a turn that unwinds slowly; the second is the admission that a
+   * turn ignoring its abort is never going to report back, and that refusing
+   * every later request is worse than writing this one off.
+   */
+  QUEUE_CANCEL_GRACE_MS: 10_000,
+  QUEUE_FORCE_RELEASE_MS: 60_000
 } as const
 
 /** Options as they arrive from a config file or the command line. */
@@ -220,6 +229,18 @@ export const resolveConfig = (
       env.OLC_SUSPENDED_TURN_TTL_MS,
       fileOptions.SUSPENDED_TURN_TTL_MS,
       DEFAULTS.SUSPENDED_TURN_TTL_MS
+    ),
+    QUEUE_CANCEL_GRACE_MS: numberOption(
+      options.QUEUE_CANCEL_GRACE_MS,
+      env.OLC_QUEUE_CANCEL_GRACE_MS,
+      fileOptions.QUEUE_CANCEL_GRACE_MS,
+      DEFAULTS.QUEUE_CANCEL_GRACE_MS
+    ),
+    QUEUE_FORCE_RELEASE_MS: numberOption(
+      options.QUEUE_FORCE_RELEASE_MS,
+      env.OLC_QUEUE_FORCE_RELEASE_MS,
+      fileOptions.QUEUE_FORCE_RELEASE_MS,
+      DEFAULTS.QUEUE_FORCE_RELEASE_MS
     ),
     DEBUG: boolOption(
       [

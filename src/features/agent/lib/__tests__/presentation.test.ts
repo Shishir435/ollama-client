@@ -22,6 +22,61 @@ describe("Agent presentation", () => {
     expect(agentPlainText("safe\u0000\u0007 label", 100)).toBe("safe label")
   })
 
+  it("shows one row per step, at the point that step reached", () => {
+    const ground = { snapshotId: "s", generation: 1, ref: "e7" }
+    const click = { type: "click", ...ground } as const
+    /**
+     * The receipts a single approved click leaves behind. Rendering each of
+     * them showed "Click control" four times for one thing the run did.
+     */
+    const log = toAgentWorkLog([
+      {
+        runId: "run-1",
+        stepId: "s1",
+        sequence: 503,
+        status: "planned",
+        at: 1,
+        command: click
+      },
+      {
+        runId: "run-1",
+        stepId: "s1",
+        sequence: 504,
+        status: "approved",
+        at: 2,
+        command: click
+      },
+      {
+        runId: "run-1",
+        stepId: "s1",
+        sequence: 505,
+        status: "executing",
+        at: 3,
+        command: click
+      },
+      {
+        runId: "run-1",
+        stepId: "s1",
+        sequence: 506,
+        status: "uncertain",
+        at: 4,
+        command: click,
+        verification: {
+          outcome: "ambiguous",
+          evidence: {
+            kind: "worker_termination",
+            summary: "The browser effect may have occurred before recovery.",
+            observedAt: 4
+          }
+        }
+      }
+    ])
+
+    expect(log).toHaveLength(1)
+    expect(log[0].status).toBe("uncertain")
+    expect(log[0].detail).toContain("may have occurred")
+  })
+
   it("labels editing and drag steps without echoing what was typed", () => {
     const ground = { snapshotId: "s", generation: 1, ref: "e1" }
     const log = toAgentWorkLog([

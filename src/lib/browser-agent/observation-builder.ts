@@ -369,16 +369,20 @@ const isChainHidden = (
   return hidden
 }
 
+/**
+ * A `type="hidden"` input has no box to see or scroll to, and its value is a
+ * token the page keeps for itself. It is answered before visibility and
+ * before position, because it is neither on screen nor off it.
+ */
+const isHiddenInput = (element: Element): boolean =>
+  element.tagName === "INPUT" &&
+  (element as HTMLInputElement).type?.toLowerCase() === "hidden"
+
 const resolveVisibility = (
   element: Element,
   pass: AgentObservationPass
 ): boolean => {
-  if (
-    element instanceof HTMLInputElement &&
-    element.type.toLowerCase() === "hidden"
-  ) {
-    return false
-  }
+  if (isHiddenInput(element)) return false
 
   /*
    * Visibility is a conjunction of independent predicates, so their order is
@@ -420,6 +424,27 @@ const isVisible = (element: Element, pass: AgentObservationPass): boolean => {
   const result = resolveVisibility(element, pass)
   pass.visible.set(element, result)
   return result
+}
+
+/**
+ * Laid out, with nothing above it hiding it, and yet no part of its box falls
+ * inside the viewport: a control a scroll brings into reach.
+ *
+ * `resolveVisibility` answers a conjunction, so it collapses this case into
+ * the same `false` as a `display:none` control. An observation that cannot
+ * tell the two apart has to treat both as unreadable, which is how nine of
+ * every ten rows on an ordinary page arrived as a bare `ref` the model could
+ * neither recognise nor act on. Asked separately, a below-fold control keeps
+ * its name — and the page's own text already travels below the fold
+ * (`collectDocumentText`), so that name is nothing the observation boundary
+ * was withholding.
+ */
+const isOffscreen = (element: Element, pass: AgentObservationPass): boolean => {
+  if (isHiddenInput(element)) return false
+  const laidOut = Array.from(element.getClientRects()).some(
+    (rect) => rect.width > 0 && rect.height > 0
+  )
+  return laidOut && !isChainHidden(element, pass)
 }
 
 /** Inset fractions of a rect to hit-test: the centre, then points pulled off
@@ -832,17 +857,38 @@ const selectOptions = (
     }))
 }
 
+/**
+ * Which of the page's text counts as readable.
+ *
+ * `viewport` is what the user can see, which is the right question for the
+ * page's visible text. `rendered` is everything the page draws, wherever the
+ * viewport happens to be, and is the question a below-fold control's own name
+ * has to be asked: its label is off screen exactly as it is, so asking for
+ * on-screen text would name it nothing at all.
+ */
+type AgentTextScope = "viewport" | "rendered"
+
+const rendersText = (
+  element: Element,
+  pass: AgentObservationPass,
+  scope: AgentTextScope
+): boolean =>
+  scope === "viewport"
+    ? isVisible(element, pass)
+    : !isChainHidden(element, pass)
+
 const collectVisibleText = (
   root: Element,
   limit: number,
-  pass: AgentObservationPass
+  pass: AgentObservationPass,
+  scope: AgentTextScope = "viewport"
 ): string => {
   let result = ""
   for (const node of composedDescendants(root)) {
     if (node.nodeType !== Node.TEXT_NODE) continue
     if (result.length >= limit || pass.exhausted()) break
     const parent = node.parentElement
-    if (!parent || !isVisible(parent, pass)) continue
+    if (!parent || !rendersText(parent, pass, scope)) continue
     const text = normalizedText(node.textContent ?? "")
     if (!text) continue
     const addition = `${result ? " " : ""}${text}`
@@ -1027,7 +1073,8 @@ const collectModals = (
  * separate from the ARIA name so either visible label can find the editor. */
 const elementPlaceholder = (
   element: Element,
-  pass: AgentObservationPass
+  pass: AgentObservationPass,
+  scope: AgentTextScope = "viewport"
 ): string | undefined => {
   const own =
     element.getAttribute("aria-placeholder") ||
@@ -1044,14 +1091,15 @@ const elementPlaceholder = (
     const hint =
       child.getAttribute("data-placeholder") ||
       child.getAttribute("aria-placeholder")
-    if (hint && isVisible(child, pass)) return hint
+    if (hint && rendersText(child, pass, scope)) return hint
   }
   return undefined
 }
 
 const accessibleName = (
   element: Element,
-  pass: AgentObservationPass
+  pass: AgentObservationPass,
+  textScope: AgentTextScope = "viewport"
 ): string | undefined => {
   /**
    * IDREFs resolve within the element's own tree, so a control inside a shadow
@@ -1073,7 +1121,12 @@ const accessibleName = (
     .map((id) => byId.getElementById(id))
     .filter((label): label is HTMLElement => label !== null)
     .map((label) =>
-      collectVisibleText(label, AGENT_OBSERVATION_LIMITS.elementNameChars, pass)
+      collectVisibleText(
+        label,
+        AGENT_OBSERVATION_LIMITS.elementNameChars,
+        pass,
+        textScope
+      )
     )
     .filter(Boolean)
     .join(" ")
@@ -1090,7 +1143,8 @@ const accessibleName = (
         collectVisibleText(
           label,
           AGENT_OBSERVATION_LIMITS.elementNameChars,
-          pass
+          pass,
+          textScope
         )
       )
       .filter(Boolean)
@@ -1112,7 +1166,8 @@ const accessibleName = (
   const text = collectVisibleText(
     element,
     AGENT_OBSERVATION_LIMITS.elementNameChars,
-    pass
+    pass,
+    textScope
   )
   if (text) return text
   const placeholder = element.getAttribute("placeholder")
@@ -1198,6 +1253,43 @@ const observedControlFields = (
   }
 }
 
+/**
+ * What the run may read off a control: its label, the hint that stands in for
+ * one, the value it currently holds and where it leads.
+ *
+ * Each answer has its own rule, and they are not the same rule. A label is
+ * readable wherever the page rendered it — below the fold included, which is
+ * where most of a page's controls sit and where stripping the name left the
+ * model a bare `ref` it could neither recognise nor act on. A value and a
+ * destination are only read where the user can see them, and a sensitive
+ * control yields neither anywhere.
+ */
+const observedContent = (
+  element: Element,
+  pass: AgentObservationPass,
+  placement: { visible: boolean; offscreen: boolean; sensitive: boolean }
+): {
+  name: string | undefined
+  placeholder: string | undefined
+  value: string | undefined
+  href: string | undefined
+} => {
+  const readable = placement.visible || placement.offscreen
+  const textScope: AgentTextScope = placement.visible ? "viewport" : "rendered"
+  return {
+    name: readable ? accessibleName(element, pass, textScope) : undefined,
+    placeholder:
+      placement.sensitive || !readable
+        ? undefined
+        : elementPlaceholder(element, pass, textScope),
+    value:
+      placement.sensitive || !placement.visible
+        ? undefined
+        : elementValue(element),
+    href: placement.visible ? elementHref(element) : undefined
+  }
+}
+
 const buildElementObservation = (
   element: Element,
   ref: string,
@@ -1207,12 +1299,21 @@ const buildElementObservation = (
   modalIds: Map<Element, string> = new Map()
 ): AgentElement => {
   const visible = isVisible(element, pass)
+  const offscreen = !visible && isOffscreen(element, pass)
   const occluded = visible && isOccluded(element)
-  const sensitive = !visible || isSensitiveAgentElement(element)
-  const name = visible ? accessibleName(element, pass) : undefined
-  const value = sensitive ? undefined : elementValue(element)
-  const placeholder = sensitive ? undefined : elementPlaceholder(element, pass)
-  const href = visible ? elementHref(element) : undefined
+  /**
+   * What the control is, not where it sits. Off screen used to land here,
+   * which flagged most of an ordinary page as holding a secret and left the
+   * rows that mattered anonymous. A reader that wants "off screen or
+   * sensitive" asks for both, and the two that do — the value and the
+   * destination — ask about `visible` directly.
+   */
+  const sensitive = isHiddenInput(element) || isSensitiveAgentElement(element)
+  const { name, placeholder, value, href } = observedContent(element, pass, {
+    visible,
+    offscreen,
+    sensitive
+  })
   const submitter = isSubmitter(element)
   const maySubmit = submitter || maySubmitWithEnter(element)
   const group = groupOf(element, modalIds)
@@ -1244,6 +1345,7 @@ const buildElementObservation = (
     ...observedFormFields(element, maySubmit),
     ...(submitter ? { submitter: true } : {}),
     visible,
+    ...(offscreen ? { offscreen: true } : {}),
     ...(occluded ? { occluded: true } : {}),
     enabled: isEnabled(element),
     editable: isEditable(element),

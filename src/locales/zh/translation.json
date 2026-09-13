@@ -160,6 +160,7 @@
     },
     "title": "监督式智能体",
     "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
+    "unresolved_reviewed": "已查看页面 — 继续",
     "work_log": {
       "title": "工作日志"
     },
@@ -587,6 +588,7 @@
       "response_failed_title": "响应生成失败",
       "unknown_error_description": "发生未知错误",
       "provider_replay_invalid": "无法安全地继续此响应。请重试本轮，以重新建立提供商上下文。",
+      "provider_busy": "本地端点仍在处理上一个请求，无法开始新的请求。请等待约一分钟，或重启它。",
       "report_issue": "报告问题",
       "open_issue": "新建议题",
       "copy_diagnostics": "复制诊断信息",
