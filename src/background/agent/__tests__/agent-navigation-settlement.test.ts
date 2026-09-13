@@ -10,6 +10,28 @@ const base = {
 afterEach(() => vi.useRealTimers())
 
 describe("navigation settlement", () => {
+  it("accepts a completed redirect back to the source URL only after the document changes", async () => {
+    vi.useFakeTimers()
+    const getDocumentId = vi
+      .fn()
+      .mockResolvedValueOnce("before")
+      .mockResolvedValue("after")
+    let settled = false
+    const pending = waitForAgentNavigation({
+      ...base,
+      sourceDocumentId: "before",
+      getDocumentId,
+      getTab: async () => ({ url: base.sourceUrl, status: "complete" }),
+      signal: new AbortController().signal
+    }).then(() => {
+      settled = true
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(settled).toBe(false)
+    await vi.advanceTimersByTimeAsync(100)
+    await pending
+    expect(getDocumentId).toHaveBeenCalledTimes(2)
+  })
   it("waits through request acknowledgement and loading before returning", async () => {
     vi.useFakeTimers()
     const getTab = vi

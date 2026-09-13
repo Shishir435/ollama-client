@@ -136,6 +136,7 @@ export const agentFailureAdviceKey = (code: string): string =>
 
 const AGENT_FAILURE_CODES = new Set([
   "budget_exhausted",
+  "command_refused",
   "goal_failed",
   "invalid_decision",
   "model_unavailable",

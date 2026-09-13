@@ -1,3 +1,4 @@
+import type { AgentCommand } from "@ollama-client/contracts"
 import {
   type AgentDecision,
   AgentDecisionSchema,
@@ -43,6 +44,7 @@ import type {
   AgentCancellationController,
   AgentController,
   AgentControllerDependencies,
+  AgentInspectionFocus,
   AgentModelInput,
   AgentPolicyDecision,
   AgentResolutionContext,
@@ -67,6 +69,29 @@ import {
 import { classifyVerificationOutcome } from "./verification"
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
+
+/**
+ * What became of a command the model proposed.
+ *
+ * `refused` is the one that needed saying: the resolver would not ground the
+ * command, nothing was attempted, and the run carries on with the refusal in
+ * its history. Collapsing it into `stopped` is what made the first refusal
+ * fatal.
+ */
+type AgentResolutionOutcome =
+  | { type: "resolved"; effect: ResolvedAgentEffect }
+  | { type: "refused"; state: AgentRunState | undefined }
+  | { type: "stopped" }
+
+/**
+ * Commands the resolver may refuse before the run gives up on the model.
+ *
+ * Three, matching the no-progress budget, and consecutive: a refusal is the
+ * model's mistake and it is told what the mistake was, so a model that can
+ * use the correction gets to. One that cannot is answering with controls the
+ * page does not offer, and no number of further looks changes that.
+ */
+const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
 
 /**
  * An origin joins a run's allowlist only when the user approved travelling to
@@ -148,6 +173,7 @@ export const createAgentController = (
   const lastGeneration = new Map<string, number>()
   const minimumGeneration = new Map<string, number>()
   const previousProgress = new Map<string, AgentProgressPoint>()
+  const recentProgress = new Map<string, AgentProgressPoint[]>()
   /**
    * The page as it read when this run's last change was decided.
    *
@@ -160,6 +186,7 @@ export const createAgentController = (
    */
   let changeBaseline: { runId: string; text: string } | undefined
   const noProgressCounts = new Map<string, number>()
+  const refusedCommandCounts = new Map<string, number>()
 
   const claim = async (
     state: AgentRunState,
@@ -197,6 +224,15 @@ export const createAgentController = (
   ): Promise<AgentRunState | undefined> => {
     const paused = () => ({
       ...pausePatch(reason, dependencies.clock.now()),
+      ...(state.deadline && (reason === "question" || reason === "user")
+        ? {
+            deadline: suspendAgentDeadlines(
+              state.deadline,
+              reason,
+              dependencies.clock.now()
+            )
+          }
+        : {}),
       ...extra
     })
     if (state.status === "paused") return state
@@ -428,7 +464,8 @@ export const createAgentController = (
 
   const observe = async (
     state: AgentRunState,
-    signal: AgentCancellationController["signal"]
+    signal: AgentCancellationController["signal"],
+    inspection?: AgentInspectionFocus
   ): Promise<AgentObservation | undefined> => {
     try {
       const observation = AgentObservationSchema.parse(
@@ -437,7 +474,15 @@ export const createAgentController = (
             runId: state.id,
             tabId: state.controlledTabId,
             minimumGeneration: minimumGeneration.get(state.id) ?? 0,
-            allowedOrigins: state.allowedOrigins
+            allowedOrigins: state.allowedOrigins,
+            ...(inspection?.text
+              ? {
+                  extraction: {
+                    offset: inspection.offset ?? 0,
+                    frameId: inspection.frameId ?? 0
+                  }
+                }
+              : {})
           },
           signal
         )
@@ -477,7 +522,13 @@ export const createAgentController = (
     inspection: AgentModelInput["inspection"],
     signal: AgentCancellationController["signal"]
   ): Promise<AgentModelInput["screenshot"]> => {
-    if (!dependencies.screenshot || !dependencies.model.vision) return undefined
+    // Native dialogs freeze the renderer; its debugger-held text is the observation.
+    if (
+      observation.dialogs.length ||
+      !dependencies.screenshot ||
+      !dependencies.model.vision
+    )
+      return undefined
     try {
       if (!(await dependencies.model.vision(state, signal))) return undefined
       const screenshot = await dependencies.screenshot.capture(
@@ -521,7 +572,7 @@ export const createAgentController = (
     decision: Extract<AgentDecision, { type: "command" }>,
     observation: AgentObservation,
     context: AgentResolutionContext
-  ): Promise<ResolvedAgentEffect | undefined> => {
+  ): Promise<AgentResolutionOutcome> => {
     const { command } = decision
     if (
       command.snapshotId !== observation.snapshotId ||
@@ -532,7 +583,7 @@ export const createAgentController = (
         "stale_snapshot",
         "The model referenced an obsolete page snapshot."
       )
-      return undefined
+      return { type: "stopped" }
     }
 
     let effect: ResolvedAgentEffect
@@ -544,11 +595,23 @@ export const createAgentController = (
        * calling any of this a verification failure said the opposite. But a
        * refused command and a page that went stale under it are different
        * facts, and only the first is the model's to hear about.
+       *
+       * Which is what this said while failing the run on the first refusal,
+       * telling nobody. A model that named a control it could see but the
+       * page had scrolled away got one chance, and the panel answered a
+       * well-formed decision with advice about needing a larger model.
        */
       const failure = agentResolutionFailure(error)
+      if (failure.code === "invalid_decision") {
+        return {
+          type: "refused",
+          state: await refuseCommand(state, command, failure.message)
+        }
+      }
       await fail(state, failure.code, failure.message)
-      return undefined
+      return { type: "stopped" }
     }
+    refusedCommandCounts.set(state.id, 0)
     const identity = effect.snapshotIdentity
     if (
       identity.snapshotId !== observation.snapshotId ||
@@ -561,9 +624,9 @@ export const createAgentController = (
         "stale_snapshot",
         "The resolved effect no longer belongs to the observed page."
       )
-      return undefined
+      return { type: "stopped" }
     }
-    return effect
+    return { type: "resolved", effect }
   }
 
   const handlePolicy = async (
@@ -774,8 +837,25 @@ export const createAgentController = (
         return undefined
       }
       if (action.type === "redecide") return verifying
-      previousProgress.delete(state.id)
-      noProgressCounts.set(state.id, 0)
+      /**
+       * A step that changed the page is progress, and the guard forgets
+       * whatever came before it. A confirmed step that changed nothing is
+       * not: a pure read verifies `confirmed` by definition — the page it
+       * named is still the page in hand — so clearing here on any confirmed
+       * outcome wiped the guard's memory after every single read, and a
+       * model repeating one read-only request could never accumulate a
+       * repeat against a budget of three. One run spent all twenty-five of
+       * its observations that way.
+       *
+       * Navigation is deliberately not a page change here, as it is not for
+       * the completion judge; it needs no exemption, because going somewhere
+       * changes the URL the guard compares first.
+       */
+      if (agentEffectChangesPage(effect)) {
+        previousProgress.delete(state.id)
+        recentProgress.delete(state.id)
+        noProgressCounts.set(state.id, 0)
+      }
       // The write closing a confirmed step also opens the next observation, so
       // a tab the effect switched to is durably owned before this controller
       // can lose the run. Only the verifying run this step owns may be claimed:
@@ -811,8 +891,16 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     context: AgentResolutionContext
   ): Promise<AgentRunState | undefined> => {
-    const effect = await resolveEffect(state, decision, observation, context)
-    if (!effect) return undefined
+    const resolution = await resolveEffect(
+      state,
+      decision,
+      observation,
+      context
+    )
+    /** A refused command left the run alive and looking again, not stopped. */
+    if (resolution.type === "refused") return resolution.state
+    if (resolution.type === "stopped") return undefined
+    const { effect } = resolution
     /** The last point a run may stop without owing an account of an effect. */
     if (await exhaustedTimeBudget(state)) return undefined
     const stepNumber = state.stepCount + 1
@@ -861,10 +949,51 @@ export const createAgentController = (
    * observe the indicator it needs, and a model that keeps claiming the same
    * thing runs out of no-progress budget like any other repetition.
    */
+  /** Cancellation while waiting is a pause, never a fabricated completion. */
+  const waitBeforeCompletionRead = async (
+    delay: number,
+    signal: AgentCancellationController["signal"]
+  ) => {
+    try {
+      await dependencies.clock.wait?.(delay, signal)
+    } catch (error) {
+      if (!signal.aborted) throw error
+    }
+    return !signal.aborted
+  }
+
+  /** Wait only for evidence; no action that produced it is ever replayed. */
+  const settleCompletion = async (
+    state: AgentRunState,
+    input: Parameters<typeof judgeAgentCompletion>[0],
+    signal: AgentCancellationController["signal"]
+  ) => {
+    let judgement = judgeAgentCompletion(input)
+    let observation = input.observation
+    if (!dependencies.clock.wait || judgement.type === "accepted")
+      return { judgement, observation }
+    const delays =
+      judgement.reason === "missing_evidence"
+        ? [1000]
+        : judgement.reason === "absent_evidence"
+          ? [250, 750, 1500]
+          : []
+    for (const delay of delays) {
+      if (!(await waitBeforeCompletionRead(delay, signal))) return undefined
+      const fresh = await observe(state, signal)
+      if (!fresh) return undefined
+      observation = fresh
+      judgement = judgeAgentCompletion({ ...input, observation })
+      if (judgement.type === "accepted") break
+    }
+    return { judgement, observation }
+  }
+
   const processCompletion = async (
     state: AgentRunState,
     decision: Extract<AgentDecision, { type: "complete" }>,
-    observation: AgentObservation
+    observation: AgentObservation,
+    signal: AgentCancellationController["signal"]
   ): Promise<AgentRunState | undefined> => {
     /**
      * Receipts that cannot be read leave the judge with an unknown rather
@@ -880,12 +1009,19 @@ export const createAgentController = (
     }
     const baseline =
       changeBaseline?.runId === state.id ? changeBaseline.text : undefined
-    const judgement = judgeAgentCompletion({
-      ...(steps ? { steps } : {}),
-      observation,
-      ...(decision.evidence ? { evidence: decision.evidence } : {}),
-      ...(baseline === undefined ? {} : { baselineText: baseline })
-    })
+    const settled = await settleCompletion(
+      state,
+      {
+        steps,
+        observation,
+        evidence: decision.evidence,
+        baselineText: baseline
+      },
+      signal
+    )
+    if (!settled) return undefined
+    const { judgement } = settled
+    observation = settled.observation
     if (judgement.type === "accepted") {
       await transition(state, "completed", {
         result: decision.summary,
@@ -893,6 +1029,8 @@ export const createAgentController = (
       })
       return undefined
     }
+    if (await exhaustedNoProgressBudget(state, observation, decision))
+      return undefined
     const now = dependencies.clock.now()
     dependencies.trace?.(state.id, "completion_refused", {
       reason: judgement.reason
@@ -914,6 +1052,48 @@ export const createAgentController = (
     return claimObserving(state, false, ["deciding"])
   }
 
+  /**
+   * A command the resolver would not ground, recorded and handed back.
+   *
+   * The same shape as a declined completion, and for the same reason:
+   * nothing was attempted, so the run has lost nothing and the honest move
+   * is to look again with the refusal in its own history. The sentence is
+   * the affordance layer's — assembled from templates and the model's own
+   * ref, never from page text — so it is safe to put in the next prompt.
+   */
+  const refuseCommand = async (
+    state: AgentRunState,
+    command: AgentCommand,
+    feedback: string
+  ): Promise<AgentRunState | undefined> => {
+    const refusals = (refusedCommandCounts.get(state.id) ?? 0) + 1
+    refusedCommandCounts.set(state.id, refusals)
+    const now = dependencies.clock.now()
+    dependencies.trace?.(state.id, "command_refused", { refusals })
+    await dependencies.persistence.appendStep({
+      runId: state.id,
+      stepId: `${state.id}:refused:${state.observationCount}:${refusals}`,
+      status: "rejected",
+      command,
+      at: now,
+      verification: {
+        outcome: "negative",
+        evidence: { kind: "resolution", summary: feedback, observedAt: now }
+      }
+    })
+    if (refusals >= MAX_CONSECUTIVE_REFUSED_COMMANDS) {
+      await pause(state, "question", {
+        question: {
+          id: `${state.id}:q${state.observationCount}`,
+          text: `${feedback} What should I try instead?`,
+          askedAt: dependencies.clock.now()
+        }
+      })
+      return undefined
+    }
+    return claimObserving(state, false, ["deciding"])
+  }
+
   const processDecision = async (
     state: AgentRunState,
     decision: AgentDecision,
@@ -921,8 +1101,9 @@ export const createAgentController = (
     signal: AgentCancellationController["signal"],
     context: AgentResolutionContext = {}
   ): Promise<AgentRunState | undefined> => {
+    if (decision.type !== "command") refusedCommandCounts.delete(state.id)
     if (decision.type === "complete") {
-      return processCompletion(state, decision, observation)
+      return processCompletion(state, decision, observation, signal)
     }
     if (decision.type === "fail") {
       /** The model answered; it just cannot do this. The endpoint is fine. */
@@ -983,22 +1164,29 @@ export const createAgentController = (
   ): Promise<boolean> => {
     const progress: AgentProgressPoint = {
       url: observation.url,
-      snapshotHash: hashAgentObservation(observation),
+      snapshotHash: hashAgentObservation(observation, decision),
       decision
     }
     const result = classifyNoProgress({
       previous: previousProgress.get(state.id),
+      recent: recentProgress.get(state.id),
       current: progress,
       previousCount: noProgressCounts.get(state.id)
     })
     previousProgress.set(state.id, progress)
+    recentProgress.set(
+      state.id,
+      [...(recentProgress.get(state.id) ?? []), progress].slice(-6)
+    )
     noProgressCounts.set(state.id, result.count)
     if (result.count < MAX_CONSECUTIVE_NO_PROGRESS) return false
-    await fail(
-      state,
-      "budget_exhausted",
-      "The agent repeated the same decision without page progress."
-    )
+    await pause(state, "question", {
+      question: {
+        id: `${state.id}:q${state.observationCount}`,
+        text: "I am repeating actions without progress. What should I do differently? You can also stop and finish this task yourself.",
+        askedAt: dependencies.clock.now()
+      }
+    })
     return true
   }
 
@@ -1035,7 +1223,8 @@ export const createAgentController = (
       }
     | undefined
   > => {
-    const observation = await observe(state, signal)
+    const recalled = await recallHistory(state)
+    const observation = await observe(state, signal, recalled.inspection)
     if (!observation) return undefined
     const deciding = await claim(state, "deciding", {
       observationCount: state.observationCount + 1,
@@ -1045,7 +1234,6 @@ export const createAgentController = (
     let decision: AgentDecision | undefined
     const context: AgentResolutionContext = {}
     try {
-      const recalled = await recallHistory(deciding)
       const screenshot = await picture(
         deciding,
         observation,
@@ -1075,7 +1263,10 @@ export const createAgentController = (
       )
       return undefined
     }
-    if (await exhaustedNoProgressBudget(deciding, observation, decision)) {
+    if (
+      decision.type !== "complete" &&
+      (await exhaustedNoProgressBudget(deciding, observation, decision))
+    ) {
       return undefined
     }
     return { state: deciding, observation, decision, context }
@@ -1180,11 +1371,18 @@ export const createAgentController = (
   ): Promise<void> => {
     const state = await dependencies.persistence.load(runId)
     if (!state || isTerminalAgentStatus(state.status)) return
-    const requested = await transition(
-      state,
-      "pause_requested",
-      pausePatch(reason, dependencies.clock.now())
-    )
+    const requested = await transition(state, "pause_requested", {
+      ...pausePatch(reason, dependencies.clock.now()),
+      ...(state.deadline && reason === "user"
+        ? {
+            deadline: suspendAgentDeadlines(
+              state.deadline,
+              "user",
+              dependencies.clock.now()
+            )
+          }
+        : {})
+    })
     if (!requested) return
     active.get(runId)?.abort()
     await transition(
@@ -1222,7 +1420,44 @@ export const createAgentController = (
   return {
     start: (runId) => run(runId),
     requestPause,
-    resume: (runId) => run(runId),
+    async resume(runId, correction) {
+      if (!correction) return run(runId)
+      const state = await dependencies.persistence.load(runId)
+      if (
+        !state ||
+        state.status !== "paused" ||
+        state.pauseReason !== "user" ||
+        state.updatedAt !== correction.pausedAt
+      )
+        return
+      const recorded = await transition(state, "observing", {
+        ...(state.deadline
+          ? {
+              deadline: resumeAgentDeadlines(
+                state.deadline,
+                dependencies.clock.now()
+              )
+            }
+          : {}),
+        pauseReason: undefined,
+        answers: [
+          ...(state.answers ?? []),
+          {
+            questionId: `${state.id}:correction:${state.updatedAt}`,
+            question: "User correction after pausing",
+            text: correction.text.slice(0, MAX_AGENT_ANSWER_CHARS),
+            answeredAt: dependencies.clock.now()
+          }
+        ].slice(-MAX_AGENT_ANSWERS),
+        updatedAt: dependencies.clock.now()
+      })
+      if (!recorded) return
+      previousProgress.delete(state.id)
+      recentProgress.delete(state.id)
+      noProgressCounts.delete(state.id)
+      refusedCommandCounts.delete(state.id)
+      await run(recorded.id, false, true)
+    },
     async answerQuestion({ runId, questionId, text }) {
       const state = await dependencies.persistence.load(runId)
       if (
@@ -1233,10 +1468,15 @@ export const createAgentController = (
       ) {
         return
       }
+      previousProgress.delete(state.id)
+      recentProgress.delete(state.id)
+      noProgressCounts.delete(state.id)
+      refusedCommandCounts.delete(state.id)
       const answers = [
         ...(state.answers ?? []),
         {
           questionId,
+          question: state.question.text,
           text: text.slice(0, MAX_AGENT_ANSWER_CHARS),
           answeredAt: dependencies.clock.now()
         }
@@ -1248,6 +1488,15 @@ export const createAgentController = (
        * question still waiting for its answer.
        */
       const recorded = await transition(state, "observing", {
+        ...(state.deadline
+          ? {
+              deadline: resumeAgentDeadlines(
+                state.deadline,
+                dependencies.clock.now()
+              )
+            }
+          : {}),
+        pauseReason: undefined,
         answers,
         question: undefined,
         updatedAt: dependencies.clock.now()

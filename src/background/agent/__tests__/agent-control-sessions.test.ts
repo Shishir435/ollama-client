@@ -308,6 +308,69 @@ describe("Agent control session registry across frames", () => {
       return found
     })
 
+  it("paginates only the requested authorized frame even when controls filled the budget", async () => {
+    const rootObservation = observation({
+      elements: Array.from({ length: 2_000 }, (_, index) => ({
+        ref: `e${index}`,
+        frameId: 0,
+        tag: "button",
+        visible: true,
+        enabled: true,
+        editable: false,
+        sensitive: false
+      }))
+    })
+    const root = session({ observe: vi.fn(async () => rootObservation) })
+    const child = session({
+      frameId: 2,
+      observe: vi.fn(async (_generation, _signal, _limit, offset) => ({
+        ...childObservation(2),
+        elements: [],
+        textPage: {
+          text: "Selected frame tail",
+          offset: offset ?? 0,
+          frameId: 2
+        }
+      }))
+    })
+    const open = openByFrame({ 0: root, 2: child })
+    const registry = createAgentControlSessionRegistry({
+      open: open as never,
+      frames: {
+        listFrames: async () => [
+          rootFrame,
+          { frameId: 2, parentFrameId: 0, url: "https://example.com/child" },
+          {
+            frameId: 3,
+            parentFrameId: 0,
+            url: "https://unapproved.example/child"
+          }
+        ],
+        classifyAccess: async () => "ok"
+      }
+    })
+    const observed = await registry.observe({
+      runId: "run-1",
+      tabId: 7,
+      minimumGeneration: 1,
+      allowedOrigins,
+      extraction: { offset: 24_000, frameId: 2 }
+    })
+    expect(observed.textPage).toEqual({
+      text: "Selected frame tail",
+      offset: 24_000,
+      frameId: 2
+    })
+    expect(root.observe).toHaveBeenCalledWith(
+      1,
+      undefined,
+      undefined,
+      undefined
+    )
+    expect(child.observe).toHaveBeenCalledWith(1, undefined, 0, 24_000)
+    expect(open).toHaveBeenCalledTimes(2)
+  })
+
   it("reads authorized child frames through their own sessions and lists the rest", async () => {
     const root = session()
     const child = session({
@@ -440,7 +503,7 @@ describe("Agent control session registry across frames", () => {
       allowedOrigins
     })
 
-    expect(child.observe).toHaveBeenCalledWith(4, undefined, 1_997)
+    expect(child.observe).toHaveBeenCalledWith(4, undefined, 1_997, undefined)
   })
 
   it("routes page work to the frame the instruction binds", async () => {

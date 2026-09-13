@@ -7,6 +7,7 @@ import {
   MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
 import { Bot, Eye, MessageSquareWarning } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -83,16 +84,18 @@ export interface AgentViewProps {
   onAcknowledgePrivacy?: (scope: "observations" | "screenshots") => void
   /** The separate acknowledgement that screenshots may reach a remote model. */
   screenshotsAcknowledged?: boolean
-  onStart?: (goal: string) => void
+  onStart?: (goal: string, allowRoutineActions: boolean) => void
   /** `scope` widens the approval to this origin for the rest of the run. */
   onApprove?: (scope?: "run_origin") => void
   onReject?: () => void
   onAnswer?: (text: string) => void
   onPause?: () => void
   onResume?: () => void
+  onCorrect?: (text: string) => void
   onStop?: () => void
   onTakeoverComplete?: () => void
   onFeedback?: () => void
+  onExport?: () => void
 }
 
 const noop = () => undefined
@@ -133,11 +136,14 @@ export const AgentView = ({
   onAnswer = noop,
   onPause = noop,
   onResume = noop,
+  onCorrect,
   onStop = noop,
   onTakeoverComplete = noop,
-  onFeedback = noop
+  onFeedback = noop,
+  onExport
 }: AgentViewProps) => {
   const { t } = useTranslation()
+  const [allowRoutineActions, setAllowRoutineActions] = useState(true)
   const settled =
     run !== null && ["completed", "failed", "cancelled"].includes(run.status)
   const remoteNeedsAcknowledgement = needsRemoteAcknowledgement(
@@ -213,6 +219,24 @@ export const AgentView = ({
               placeholder={t("agent.start.placeholder")}
               onChange={(event) => onGoalChange(event.target.value)}
             />
+            <label className="flex items-start gap-2 rounded-panel border border-border/50 p-2.5 text-xs">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={allowRoutineActions}
+                onChange={(event) =>
+                  setAllowRoutineActions(event.target.checked)
+                }
+              />
+              <span>
+                <span className="font-medium">
+                  {t("agent.start.auto_actions")}
+                </span>
+                <span className="mt-1 block text-muted-foreground">
+                  {t("agent.start.auto_actions_description")}
+                </span>
+              </span>
+            </label>
             {remoteNeedsAcknowledgement && (
               <div className="rounded-panel border border-status-warning/40 bg-status-warning/10 p-2.5 text-xs">
                 <p>{t(remoteNoticeKey(provider))}</p>
@@ -236,7 +260,7 @@ export const AgentView = ({
             <Button
               type="button"
               disabled={!canStart}
-              onClick={() => onStart?.(goal.trim())}>
+              onClick={() => onStart?.(goal.trim(), allowRoutineActions)}>
               {t("agent.start.action")}
             </Button>
           </section>
@@ -249,6 +273,15 @@ export const AgentView = ({
             request={approval}
           />
         )}
+
+        {run?.status === "paused" &&
+          run.pauseReason === "user" &&
+          onCorrect && (
+            <AgentQuestionCard
+              question={t("agent.correction")}
+              onAnswer={onCorrect}
+            />
+          )}
 
         {run?.question && run.status === "paused" && (
           <AgentQuestionCard onAnswer={onAnswer} question={run.question.text} />
@@ -276,6 +309,11 @@ export const AgentView = ({
         )}
 
         <AgentWorkLog items={toAgentWorkLog(steps)} />
+        {run && onExport && (
+          <Button type="button" variant="outline" size="sm" onClick={onExport}>
+            {t("agent.export_report")}
+          </Button>
+        )}
 
         {settled && run && (
           <AgentOutcomeCard

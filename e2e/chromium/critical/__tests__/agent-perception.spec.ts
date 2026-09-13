@@ -3,6 +3,7 @@ import {
   agentConfirmingButton,
   agentFixtureElement,
   firstObservation,
+  observations,
   runAgentScenario
 } from "../../fixtures/agent-scenario"
 import { expect } from "../../fixtures/extension"
@@ -71,5 +72,37 @@ runAgentScenario({
         .filter((element) => !element.hidden)
         .map((element) => element.name)
     ).toEqual(["Continue"])
+  }
+})
+
+/**
+ * A model that keeps asking for a region the page does not have.
+ *
+ * This ran twenty-one of its twenty-five observations before the budget
+ * stopped it, with a no-progress guard set to three standing right there: the
+ * guard wanted an identical page and a live application changes between every
+ * pair of observations. Two things are asserted, because either alone leaves
+ * the loop half-open — the observation tells the model its request missed and
+ * names the regions that exist, and the run is stopped in a handful of steps
+ * when the model asks anyway.
+ */
+runAgentScenario({
+  name: "unmatched-region",
+  goal: "Find the weather control.",
+  status: "paused",
+  html: () =>
+    `<!doctype html><title>Agent unmatched region</title><nav aria-label="Primary"><a href="/help">Help</a></nav><main><form aria-label="Search"><input name="q" aria-label="Query"><button type="submit">Go</button></form></main>`,
+  /** Every step, and the page never changes because nothing here mutates it. */
+  decide: () => ({ type: "inspect", target: "sidebar" }),
+  async verify({ snapshot, wire }) {
+    expect(snapshot?.run?.pauseReason).toBe("question")
+    expect(snapshot?.run?.question?.text).toContain("without progress")
+    /** Four identical decisions, not twenty-five. */
+    expect(snapshot?.run?.observationCount).toBe(4)
+
+    const answered = observations(wire).find((one) => one.unmatched)
+    expect(answered?.unmatched?.region).toBe("sidebar")
+    expect(answered?.unmatched?.regions).toContain('form "Search"')
+    expect(answered?.unmatched?.regions).toContain('nav "Primary"')
   }
 })

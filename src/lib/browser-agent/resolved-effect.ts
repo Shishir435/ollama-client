@@ -1,4 +1,5 @@
 import {
+  type AgentAffordanceReason,
   type AgentDestination,
   type AgentDropTarget,
   AgentGroundingError,
@@ -16,7 +17,8 @@ import {
   AgentElementSchema,
   type AgentObservation,
   type AgentScreenshot,
-  type AgentSnapshotIdentity
+  type AgentSnapshotIdentity,
+  MAX_AGENT_TEXT_CHARS
 } from "@ollama-client/contracts"
 
 import type { TabAccess } from "@/lib/browser-tab-access"
@@ -96,6 +98,7 @@ const targetFromObservation = (
     throw new AgentStaleObservationError("Agent scroll target is stale")
   return {
     ref: element.ref,
+    verificationId: element.verificationId,
     frameId: element.frameId,
     frame: agentFrameSnapshotIdentity(observation, element),
     tag: element.tag,
@@ -203,6 +206,20 @@ export const resolveReadOnlyAgentEffect = async (input: {
     throw new AgentUnreadablePageError("Agent destination is not readable")
   }
 
+  if (
+    command.type === "scroll" &&
+    command.container &&
+    (!command.ref ||
+      !observation.elements.find((element) => element.ref === command.ref)
+        ?.scroll)
+  ) {
+    throw new AgentGroundingError({
+      refusal: {
+        reason: "not_scrollable",
+        ...(command.ref ? { ref: command.ref } : {})
+      }
+    })
+  }
   const target = targetFromObservation(command, observation)
   /* A referenced scroll is bound to its target's frame; nothing else has one. */
   const frame = target.frame
@@ -546,7 +563,7 @@ export const DOM_MUTATION_AGENT_ACTIONS = [
 export type DomMutationAgentAction = (typeof DOM_MUTATION_AGENT_ACTIONS)[number]
 
 /** The most a field may hold for its value to remain verifiable. */
-const MAX_VERIFIABLE_VALUE_CHARS = 500
+const MAX_VERIFIABLE_VALUE_CHARS = MAX_AGENT_TEXT_CHARS
 
 const DESTRUCTIVE_LABELS = [
   /\b(?:delete|remove|erase|destroy|discard)\b/i,
@@ -721,16 +738,16 @@ const clickSemantics = (
 
 /**
  * The value an edit should leave behind, or a refusal when the observation
- * cannot say. A value at the observation's cap may have been cut, so nothing
- * computed from it is a fact about the field; a result past the cap could not
- * be read back either way.
+ * cannot say. Truncation is explicit so a complete value exactly at the cap
+ * remains editable. An omitted suffix or a result beyond the cap cannot be
+ * verified and must never be replaced with a computed prefix.
  */
 const expectedTextValue = (
   element: AgentElement,
   compute: (current: string) => string | undefined
 ): string => {
   const current = element.value ?? ""
-  if (current.length >= MAX_VERIFIABLE_VALUE_CHARS) {
+  if (element.valueTruncated || current.length > MAX_VERIFIABLE_VALUE_CHARS) {
     throw new Error("Agent text target exceeds the verifiable value limit")
   }
   const next = compute(current)
@@ -809,12 +826,39 @@ const groundingScreenshot = (
 }
 
 /**
+ * Refusals a visual click does not answer to, because the hit test already
+ * answered the question they ask.
+ *
+ * `not_clickable` was always waived: a canvas or a bare region is exactly what
+ * a point exists to reach. `hidden_target` is the same argument and was not.
+ * `elementFromPoint` is the browser saying what a pointer at this coordinate
+ * lands on — ground truth about reachability — while `visible` is our own
+ * reconstruction of it, computed by intersecting client rects with the
+ * viewport and clipping by every ancestor's overflow. When the two disagree
+ * the reconstruction is what is wrong, and overruling the browser with it
+ * refuses a click on a control the user can see and press. (Occlusion needs no
+ * waiver: a hit test returns the topmost element, so what it names is never
+ * the thing underneath.)
+ *
+ * A run did that to ChatGPT's composer: four different points across the
+ * field, every one of them answered `e174 is not visible`, until the run's
+ * whole budget was gone.
+ *
+ * The rules that exist for safety are untouched — a sensitive field, a link,
+ * a submitter, a checkbox all still govern a visual click, and they are about
+ * what the click would *do* rather than whether it can happen.
+ */
+const VISUAL_CLICK_WAIVED_REFUSALS = new Set<AgentAffordanceReason>([
+  "not_clickable",
+  "hidden_target"
+])
+
+/**
  * Turns a pixel in the screenshot into the control under it. The point is
  * converted through the screenshot's own geometry and asked of the live page;
  * what comes back is an observed element like any other, so every rule that
  * governs a click — sensitivity, links, submitters, checkboxes — governs a
- * visual click too. Only "not an activatable control" is waived: a canvas or
- * a bare region is exactly what a point exists to reach.
+ * visual click too.
  */
 const findVisualElement = async (
   command: Extract<AgentCommand, { type: "click_point" }>,
@@ -853,7 +897,7 @@ const findVisualElement = async (
       ]
     }
   )
-  if (refused && refused.reason !== "not_clickable") {
+  if (refused && !VISUAL_CLICK_WAIVED_REFUSALS.has(refused.reason)) {
     throw new AgentGroundingError({ refusal: refused })
   }
   return { element, point }

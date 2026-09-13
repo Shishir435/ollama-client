@@ -654,3 +654,73 @@ describe("editing verification", () => {
     })
   })
 })
+
+describe("document-sized editing", () => {
+  it("refuses edits of a truncated value before any input", async () => {
+    const before = observation({
+      elements: [
+        element({ value: `first ${"x".repeat(19994)}`, valueTruncated: true })
+      ]
+    })
+    await expect(
+      resolve(
+        command({
+          type: "replace_text",
+          ref: "e1",
+          find: "first",
+          text: "final"
+        }),
+        before
+      )
+    ).rejects.toThrow("value is truncated")
+  })
+
+  it("does not confirm a changed prefix when an unseen suffix remains", async () => {
+    const before = observation({ elements: [element({ value: "before" })] })
+    const action = command({
+      type: "clear_and_type",
+      ref: "e1",
+      text: "x".repeat(20000)
+    })
+    const after = observation({
+      generation: 2,
+      elements: [element({ value: "x".repeat(20000), valueTruncated: true })]
+    })
+    expect((await verify(action, after, before)).outcome).toBe("ambiguous")
+  })
+
+  it("appends beyond the former 500-character boundary and verifies the whole value", async () => {
+    const original = "A long paragraph. ".repeat(100)
+    const before = observation({ elements: [element({ value: original })] })
+    const action = command({
+      type: "type",
+      ref: "e1",
+      text: "The final sentence."
+    })
+    const resolved = await resolve(action, before)
+    expect(resolved.target.expectedValue).toBe(`${original}The final sentence.`)
+    const after = observation({
+      generation: 2,
+      elements: [element({ value: `${original}The final sentence.` })]
+    })
+    expect((await verify(action, after, before)).outcome).toBe("confirmed")
+  })
+  it("edits text past character 500 without replacing the rest of the document", async () => {
+    const original =
+      "Opening paragraph. ".repeat(100) +
+      "unique typo" +
+      " Ending paragraph.".repeat(100)
+    const resolved = await resolve(
+      command({
+        type: "replace_text",
+        ref: "e1",
+        find: "unique typo",
+        text: "correct phrase"
+      }),
+      observation({ elements: [element({ value: original })] })
+    )
+    expect(resolved.target.expectedValue).toBe(
+      original.replace("unique typo", "correct phrase")
+    )
+  })
+})

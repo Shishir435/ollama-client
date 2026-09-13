@@ -80,3 +80,5 @@ artifacts/
 *.diff
 
 .commandcode/
+# User-exported Agent runs can contain goals and page text.
+/agent-*.json

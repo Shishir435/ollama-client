@@ -244,6 +244,6 @@ export const buildAgentController: BuildAgentController = (input) => {
     persistence: input.persistence,
     approval: input.supervision.approval,
     takeover: input.supervision.takeover,
-    clock: { now: input.now }
+    clock: { now: input.now, wait: adapters.executor.wait }
   })
 }

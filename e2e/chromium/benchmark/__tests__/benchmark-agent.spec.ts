@@ -69,10 +69,10 @@ task({
   html: () =>
     page(`<h1>Account</h1>${"<p>filler</p>".repeat(120)}<p>Account 4471</p>`),
   decide: (observation) =>
-    observation.documentText?.includes("Account 4471") ||
+    observation.textPage?.text.includes("Account 4471") ||
     observation.text.includes("Account 4471")
       ? { type: "complete", summary: "Account 4471" }
-      : { type: "extract_text" },
+      : { type: "extract_text", offset: observation.textPage?.nextOffset ?? 0 },
   succeeded: reportsFact("Account 4471")
 })
 

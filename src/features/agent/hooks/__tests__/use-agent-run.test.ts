@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { useAgentRun } from "../use-agent-run"
 
+vi.mock("@/lib/feature-flags", () => ({ AGENT_DEBUG_REPORT_ENABLED: true }))
+
 const posted: unknown[] = []
 const messageListeners = new Set<(message: unknown) => void>()
 const disconnectListeners = new Set<() => void>()
@@ -88,6 +90,54 @@ describe("useAgentRun", () => {
     requestPerception.mockResolvedValue(true)
   })
 
+  it("reads historical debug reports through a correlated background request", async () => {
+    const hook = renderHook(() => useAgentRun(model))
+    const pending = hook.result.current.debugReport("historical-run")
+    const command = posted[0] as {
+      type: string
+      requestId: string
+      runId: string
+    }
+    expect(command).toMatchObject({
+      type: "agent_debug_report",
+      runId: "historical-run"
+    })
+    for (const listener of messageListeners)
+      listener({
+        type: "agent_debug_report",
+        version: 1,
+        requestId: "unrelated",
+        report: "wrong"
+      })
+    expect(disconnect).not.toHaveBeenCalled()
+    for (const listener of messageListeners)
+      listener({
+        type: "agent_debug_report",
+        version: 1,
+        requestId: command.requestId,
+        report: "historical record"
+      })
+    await expect(pending).resolves.toBe("historical record")
+    expect(disconnect).not.toHaveBeenCalled()
+    expect(messageListeners.size).toBe(1)
+    hook.unmount()
+    expect(disconnect).toHaveBeenCalledOnce()
+  })
+
+  it("cleans up pending debug reads when the panel closes", async () => {
+    const controller = new AbortController()
+    const hook = renderHook(() => useAgentRun(model))
+    const pending = hook.result.current.debugReport(
+      undefined,
+      controller.signal
+    )
+    controller.abort()
+    await expect(pending).rejects.toThrow("panel closed")
+    expect(disconnect).not.toHaveBeenCalled()
+    expect(messageListeners.size).toBe(1)
+    hook.unmount()
+  })
+
   it("refreshes only supervised active runs and stops the heartbeat on unmount", async () => {
     vi.useFakeTimers()
     const hook = renderHook(() => useAgentRun(model))
@@ -116,7 +166,7 @@ describe("useAgentRun", () => {
     const { result } = renderHook(() => useAgentRun(model))
 
     await act(async () => {
-      result.current.start("  Find the pricing page  ")
+      result.current.start("  Find the pricing page  ", true)
       await Promise.resolve()
     })
 
@@ -127,6 +177,7 @@ describe("useAgentRun", () => {
         tabId: 7,
         providerId: "ollama",
         modelId: "qwen3",
+        allowRoutineActions: true,
         allowExperimentalModel: undefined
       }
     ])

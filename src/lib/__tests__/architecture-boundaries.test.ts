@@ -189,7 +189,12 @@ describe("architecture import boundaries", () => {
   })
 
   it("keeps lower layers independent of background composition", () => {
-    const lowerLayerRoots = ["application/", "lib/", "protocol/"]
+    const lowerLayerRoots = [
+      "application/",
+      "lib/",
+      "protocol/",
+      "features/agent/"
+    ]
     const offenders = productionSources.filter((file) => {
       if (!lowerLayerRoots.some((root) => file.startsWith(root))) return false
       const source = readFileSync(join(sourceRoot, file), "utf8")

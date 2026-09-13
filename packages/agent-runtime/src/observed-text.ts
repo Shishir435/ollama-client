@@ -25,6 +25,7 @@ export const agentObservationHaystack = (
     observation.title,
     observation.visibleText,
     observation.documentText ?? "",
+    observation.textPage?.text ?? "",
     ...observation.elements.flatMap((element) =>
       [element.name, element.value].filter(
         (value): value is string => value !== undefined

@@ -32,6 +32,7 @@
   "scripts": {
     "dev": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-dev wxt",
     "build": "pnpm generate:resources && WXT_OUTPUT_DIR=build/chrome-mv3-prod wxt build",
+    "build:debug": "pnpm generate:resources && WXT_AGENT_DEBUG=1 WXT_OUTPUT_DIR=build/chrome-mv3-prod wxt build",
     "build:browsers": "pnpm build && pnpm build:firefox",
     "docs:dev": "pnpm docs:generate && pnpm --dir docs dev",
     "docs:build": "pnpm docs:generate && pnpm --dir docs build",

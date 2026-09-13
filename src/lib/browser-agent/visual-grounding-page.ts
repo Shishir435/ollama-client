@@ -51,6 +51,15 @@ const isFrameElement = (element: Element): boolean =>
  * same sensitivity, the same form facts — so a canvas or a bare `div` can be
  * grounded without becoming a different kind of target. A child frame is
  * reported as such: its controls are its own frame's refs.
+ *
+ * A listed ancestor is only the better answer while it is one the run could
+ * act on. An ancestor with no box of its own — `display: contents`, a wrapper
+ * its children are positioned out of, one an overflow clips to nothing —
+ * observes as not visible, and answering with it handed the resolver a target
+ * it refuses by rule. The pointer is over the point either way, so the walk
+ * passes over an ancestor it cannot use and keeps looking; the hit element
+ * itself is the floor. A run spent its whole budget clicking the same
+ * screenshot point and being told the control it named was not visible.
  */
 export const hitTestAgentPointInDocument = (input: {
   identity: AgentSnapshotIdentity
@@ -64,24 +73,24 @@ export const hitTestAgentPointInDocument = (input: {
   const hit = doc.elementFromPoint(input.point.x, input.point.y)
   if (!hit) return null
   if (isFrameElement(hit)) return { frameElement: true }
-  let target: Element = hit
+  const observe = (element: Element, ref: string): AgentElement =>
+    buildAgentElementObservation(
+      element,
+      ref,
+      input.identity.frameId,
+      input.references.verificationIdOf(element)
+    )
   for (
     let current: Element | null = hit;
     current;
     current = composedParent(current)
   ) {
-    if (input.references.existingReference(current, input.identity)) {
-      target = current
-      break
-    }
+    const ref = input.references.existingReference(current, input.identity)
+    if (!ref) continue
+    const listed = observe(current, ref)
+    if (listed.visible) return { element: listed }
   }
-  const ref = input.references.referenceIn(target, input.identity)
+  const ref = input.references.referenceIn(hit, input.identity)
   if (!ref) return null
-  const element: AgentElement = buildAgentElementObservation(
-    target,
-    ref,
-    input.identity.frameId,
-    input.references.verificationIdOf(target)
-  )
-  return { element }
+  return { element: observe(hit, ref) }
 }

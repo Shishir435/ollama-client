@@ -44,6 +44,16 @@ import type {
   ReadOnlyAgentAction
 } from "./resolved-effect"
 
+/** The same directional displacement for document and nested-pane scrolling. */
+const scrollOptions = (
+  direction: "up" | "down" | "left" | "right",
+  amount: number
+): ScrollToOptions => ({
+  behavior: "instant",
+  left: direction === "left" ? -amount : direction === "right" ? amount : 0,
+  top: direction === "up" ? -amount : direction === "down" ? amount : 0
+})
+
 export const executeAgentScrollInDocument = (input: {
   command: Extract<AuthorizedAgentEffect["command"], { type: "scroll" }>
   /** The identity of the frame this document is, as the store knows it. */
@@ -58,6 +68,15 @@ export const executeAgentScrollInDocument = (input: {
   if (input.command.ref) {
     const target = input.references.resolve(input.command.ref, identity)
     if (!target) throw new Error("Agent scroll target is stale")
+    if (input.command.container) {
+      const amount =
+        input.command.amount ??
+        (input.command.direction === "up" || input.command.direction === "down"
+          ? target.clientHeight
+          : target.clientWidth) * 0.8
+      target.scrollBy(scrollOptions(input.command.direction, amount))
+      return
+    }
     target.scrollIntoView({ block: "center", inline: "center" })
     return
   }
@@ -68,21 +87,7 @@ export const executeAgentScrollInDocument = (input: {
     (input.command.direction === "up" || input.command.direction === "down"
       ? view.innerHeight * 0.8
       : view.innerWidth * 0.8)
-  view.scrollBy({
-    behavior: "instant",
-    left:
-      input.command.direction === "left"
-        ? -amount
-        : input.command.direction === "right"
-          ? amount
-          : 0,
-    top:
-      input.command.direction === "up"
-        ? -amount
-        : input.command.direction === "down"
-          ? amount
-          : 0
-  })
+  view.scrollBy(scrollOptions(input.command.direction, amount))
 }
 
 const setNativeValue = (
@@ -152,6 +157,14 @@ const assertUnchangedMutationTarget = (
     effect.frame.frameId
   )
   const expected = effect.target
+  if (
+    current.valueTruncated &&
+    ["type", "clear_and_type", "replace_text"].includes(effect.command.type)
+  ) {
+    throw new AgentEffectNotAppliedError(
+      "Agent field exceeds the verifiable text limit"
+    )
+  }
   const matches =
     current.visible &&
     current.enabled &&
@@ -749,6 +762,8 @@ export interface AgentCommandExecutorAdapter {
    * cleared by the asking, so it is charged to the step that caused it.
    */
   fileChooserOpened?(effect: AuthorizedAgentEffect): Promise<boolean>
+  /** Synchronous debugger state; must not ask the blocked renderer. */
+  openDialogId?(effect: AuthorizedAgentEffect): string | undefined
   /**
    * Answers the native dialog the effect names. `not_open` means the prompt
    * this step was decided against is not the one the browser is holding any
@@ -914,7 +929,8 @@ const executeNative = async (
   effect: AuthorizedAgentEffect,
   adapter: AgentCommandExecutorAdapter,
   facts: AgentNativeControlFacts,
-  signal: AgentCancellationSignal
+  signal: AgentCancellationSignal,
+  onDispatch?: () => void
 ): Promise<AgentExecutionReceipt> => {
   if (
     !adapter.prepareNativeInput ||
@@ -933,6 +949,7 @@ const executeNative = async (
     ...(prepared.dropPoint ? { dropPoint: prepared.dropPoint } : {}),
     platform: facts.platform
   })
+  onDispatch?.()
   try {
     await adapter.dispatchNativeInput(effect, plan, signal)
   } catch (error) {
@@ -989,8 +1006,10 @@ const fileChooserFlag = async (
 const executeSynthetic = async (
   effect: AuthorizedAgentEffect,
   adapter: AgentCommandExecutorAdapter,
-  signal: AgentCancellationSignal
+  signal: AgentCancellationSignal,
+  onDispatch?: () => void
 ): Promise<AgentExecutionReceipt> => {
+  onDispatch?.()
   const submissionUrl = await adapter.mutate(effect, signal)
   return {
     ...receipt(adapter, effect.command.type),
@@ -1006,11 +1025,45 @@ const executeElementAction = async (
   adapter: AgentCommandExecutorAdapter,
   signal: AgentCancellationSignal
 ): Promise<AgentExecutionReceipt> => {
+  if (adapter.openDialogId?.(effect))
+    throw new AgentEffectNotAppliedError("A native dialog opened before input")
   const { choice, facts } = await chooseBackend(effect, adapter)
-  if (choice.backend === "cdp" && facts) {
-    return executeNative(effect, adapter, facts, signal)
+  let dispatchStarted = false
+  const onDispatch = () => {
+    if (signal.aborted || adapter.openDialogId?.(effect))
+      throw new AgentEffectNotAppliedError("Input stopped before dispatch")
+    dispatchStarted = true
   }
-  return executeSynthetic(effect, adapter, signal)
+  const execute = (scoped: AgentCancellationSignal) =>
+    choice.backend === "cdp" && facts
+      ? executeNative(effect, adapter, facts, scoped, onDispatch)
+      : executeSynthetic(effect, adapter, scoped, onDispatch)
+  if (!adapter.openDialogId) return execute(signal)
+  const scope = new AbortController()
+  const abort = () => scope.abort()
+  if (signal.aborted) scope.abort()
+  else signal.addEventListener?.("abort", abort, { once: true })
+  let timer: ReturnType<typeof setInterval> | undefined
+  try {
+    const interrupted = new Promise<AgentExecutionReceipt>((resolve) => {
+      timer = setInterval(() => {
+        if (signal.aborted) return
+        const id = adapter.openDialogId?.(effect)
+        if (!id) return
+        resolve({
+          ...receipt(adapter, effect.command.type),
+          backend: choice.backend,
+          inputDelivery: dispatchStarted ? "unknown" : "undelivered",
+          dialogOpened: id
+        })
+        scope.abort()
+      }, 25)
+    })
+    return await Promise.race([execute(scope.signal), interrupted])
+  } finally {
+    clearInterval(timer)
+    signal.removeEventListener?.("abort", abort)
+  }
 }
 
 /** How long a native wheel is given to settle before the page is re-observed. */

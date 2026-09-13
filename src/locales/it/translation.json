@@ -64,6 +64,7 @@
     },
     "failure": {
       "budget_exhausted": "L'esecuzione ha esaurito il budget di passi. Restringi l'obiettivo o riparti dallo stato attuale della pagina.",
+      "command_refused": "Il modello ha continuato a indicare controlli che la pagina non offre: nascosti, fuori schermo o già scomparsi. Scorri prima fino a ciò che ti serve, oppure prova un modello che legga le pagine con più attenzione.",
       "goal_failed": "Il modello ha dichiarato di non poterlo fare. Prova un obiettivo più chiaro o un altro modello.",
       "invalid_decision": "Il modello ha risposto ripetutamente in una forma inutilizzabile. Di solito basta un modello più grande con chiamata di strumenti.",
       "model_unavailable": "Il modello non è raggiungibile. Verifica che il provider sia attivo, poi riavvia.",
@@ -112,7 +113,9 @@
       "description": "Supervisiona un’attività del browser da questo pannello.",
       "goal": "Cosa deve fare l’Agente?",
       "placeholder": "Descrivi un’attività del browser…",
-      "action": "Avvia Agente"
+      "action": "Avvia Agente",
+      "auto_actions": "Consenti le azioni di routine per questa attività",
+      "auto_actions_description": "Clic e digitazione su questo sito sono automatici. Pubblicazioni, eliminazioni, nuovi siti e passaggi sensibili richiedono ancora conferma."
     },
     "status": {
       "submitted": "Avvio",
@@ -159,7 +162,9 @@
     "unresolved": "Questa azione potrebbe essere avvenuta. Controlla la pagina prima di continuare.",
     "work_log": {
       "title": "Registro attività"
-    }
+    },
+    "correction": "In pausa. Descrivi cosa cambiare, poi continua.",
+    "export_report": "Esporta rapporto (include il testo della pagina)"
   },
   "common": {
     "theme": {

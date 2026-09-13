@@ -9,6 +9,8 @@ export interface DefineTarget {
   browser: string
   /** process.env.WXT_SPIKE_OWNER, passed in rather than read, so this is pure. */
   spikeOwner: boolean
+  /** A development build: `wxt dev`, or an explicit WXT_AGENT_DEBUG opt-in. */
+  development: boolean
 }
 
 /**
@@ -50,7 +52,18 @@ export const persistenceDefines = (
    * Agent Preview is a Chromium product surface. Keeping this compile-time
    * means Firefox bundles contain neither its UI nor its background runtime.
    */
-  __AGENT_PREVIEW_ENABLED__: JSON.stringify(target.browser !== "firefox")
+  __AGENT_PREVIEW_ENABLED__: JSON.stringify(target.browser !== "firefox"),
+  /**
+   * The Agent run-record dump, reachable from the background console.
+   *
+   * A store build must not carry it: the record quotes page text — that is
+   * what makes it worth reading — and nothing in a shipped extension should
+   * offer a way to lift the last run's page content out of the database. A
+   * compile-time false erases the builder and its repository imports with it.
+   */
+  __AGENT_DEBUG_REPORT__: JSON.stringify(
+    target.development && target.browser !== "firefox"
+  )
 })
 
 /**
@@ -95,7 +108,9 @@ export const vite: WxtViteFactory = (env) =>
     build: { modulePreload: false },
     define: persistenceDefines({
       browser: env.browser,
-      spikeOwner: process.env.WXT_SPIKE_OWNER === "1"
+      spikeOwner: process.env.WXT_SPIKE_OWNER === "1",
+      development:
+        env.command === "serve" || process.env.WXT_AGENT_DEBUG === "1"
     }),
     plugins: [
       dropRedundantSqliteWasm,

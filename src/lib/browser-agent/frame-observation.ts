@@ -147,9 +147,15 @@ export const composeAgentFrameObservations = (input: {
       )
     )
   }
+  const textPage =
+    input.root.textPage ??
+    input.children.find(
+      (child) => child.access === "ok" && child.observation?.textPage
+    )?.observation?.textPage
   return AgentObservationSchema.parse({
     ...input.root,
     frames,
+    ...(textPage ? { textPage } : {}),
     ...(input.omitted ? { omittedFrames: input.omitted } : {}),
     elements,
     visibleText: texts

@@ -56,6 +56,7 @@ export interface AgentControlSessionRegistry {
       tabId: number
       minimumGeneration: number
       allowedOrigins: readonly string[]
+      extraction?: { offset: number; frameId: number }
     },
     signal?: AbortSignal
   ): Promise<AgentObservation>
@@ -177,11 +178,17 @@ export const createAgentControlSessionRegistry = (input?: {
     runId: string,
     tabId: number,
     minimumGeneration: number,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    textOffset?: number
   ): Promise<AgentObservation> => {
     const session = await acquire(runId, tabId, 0)
     try {
-      return await session.observe(minimumGeneration, signal)
+      return await session.observe(
+        minimumGeneration,
+        signal,
+        undefined,
+        textOffset
+      )
     } catch (error) {
       if (signal?.aborted) throw error
       drop(runId, tabId, 0)
@@ -194,7 +201,7 @@ export const createAgentControlSessionRegistry = (input?: {
         throw error
       }
       const reopened = await acquire(runId, tabId, 0)
-      return reopened.observe(minimumGeneration, signal)
+      return reopened.observe(minimumGeneration, signal, undefined, textOffset)
     }
   }
 
@@ -216,7 +223,8 @@ export const createAgentControlSessionRegistry = (input?: {
     minimumGeneration: number,
     allowedOrigins: readonly string[],
     elementLimit: number,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    textOffset?: number
   ): Promise<AgentChildFrameResult | undefined> => {
     const authorized = await authorizeAgentFrame(frame, {
       allowedOrigins,
@@ -225,13 +233,15 @@ export const createAgentControlSessionRegistry = (input?: {
     if (!authorized) return undefined
     const result: AgentChildFrameResult = { frame, ...authorized }
     if (result.access !== "ok") return result
-    if (elementLimit <= 0) return { ...result, access: "element_budget" }
+    if (elementLimit <= 0 && textOffset === undefined)
+      return { ...result, access: "element_budget" }
     try {
       const session = await acquire(runId, tabId, frame.frameId)
       const observation = await session.observe(
         minimumGeneration,
         signal,
-        elementLimit
+        elementLimit,
+        textOffset
       )
       return { ...result, observation }
     } catch (error) {
@@ -247,8 +257,17 @@ export const createAgentControlSessionRegistry = (input?: {
   }
 
   return {
-    async observe({ runId, tabId, minimumGeneration, allowedOrigins }, signal) {
-      const root = await observeRoot(runId, tabId, minimumGeneration, signal)
+    async observe(
+      { runId, tabId, minimumGeneration, allowedOrigins, extraction },
+      signal
+    ) {
+      const root = await observeRoot(
+        runId,
+        tabId,
+        minimumGeneration,
+        signal,
+        extraction?.frameId === 0 ? extraction.offset : undefined
+      )
       const { selected, omitted } = selectAgentChildFrames(
         await listFrames(tabId)
       )
@@ -261,7 +280,8 @@ export const createAgentControlSessionRegistry = (input?: {
           minimumGeneration,
           allowedOrigins,
           remainingAgentElementBudget(root, children),
-          signal
+          signal,
+          extraction?.frameId === frame.frameId ? extraction.offset : undefined
         )
         if (child) children.push(child)
       }

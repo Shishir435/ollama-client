@@ -8,6 +8,9 @@ import { AgentKeyCombinationSchema } from "./agent-keys"
  */
 export const MAX_AGENT_DESTINATION_URL_CHARS = 2_048
 
+/** Bounded text editing supports ordinary documents, not only short fields. */
+export const MAX_AGENT_TEXT_CHARS = 20_000
+
 const GroundedCommandSchema = z.object({
   snapshotId: z.string().min(1),
   generation: z.number().int().nonnegative()
@@ -36,7 +39,11 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
     type: z.literal("find"),
     query: z.string().min(1).max(100)
   }).strict(),
-  GroundedCommandSchema.extend({ type: z.literal("extract_text") }).strict(),
+  GroundedCommandSchema.extend({
+    type: z.literal("extract_text"),
+    offset: z.number().int().min(0).max(10_000_000).optional(),
+    frameId: z.number().int().nonnegative().optional()
+  }).strict(),
   /**
    * Visual grounding. `click_point` names a pixel in the screenshot attached
    * to the observation the command is grounded in; the executor finds the
@@ -68,11 +75,11 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
   ElementCommandSchema.extend({ type: z.literal("hover") }).strict(),
   ElementCommandSchema.extend({
     type: z.literal("type"),
-    text: z.string().min(1).max(500)
+    text: z.string().min(1).max(MAX_AGENT_TEXT_CHARS)
   }).strict(),
   ElementCommandSchema.extend({
     type: z.literal("clear_and_type"),
-    text: z.string().max(500)
+    text: z.string().max(MAX_AGENT_TEXT_CHARS)
   }).strict(),
   /**
    * Editing in place. `find` is an exact run of the target's observed value
@@ -83,7 +90,7 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
   ElementCommandSchema.extend({
     type: z.literal("replace_text"),
     find: z.string().min(1).max(500),
-    text: z.string().max(500)
+    text: z.string().max(MAX_AGENT_TEXT_CHARS)
   }).strict(),
   /**
    * A pointer drag from the element `ref` to the element `to`, both observed.
@@ -113,6 +120,7 @@ export const AgentCommandSchema = z.discriminatedUnion("type", [
   ElementCommandSchema.extend({ type: z.literal("uncheck") }).strict(),
   GroundedCommandSchema.extend({
     type: z.literal("scroll"),
+    container: z.boolean().optional(),
     direction: z.enum(["up", "down", "left", "right"]),
     amount: z.number().finite().positive().max(10_000).optional(),
     ref: z.string().min(1).optional()

@@ -65,7 +65,10 @@ describe("AgentView", () => {
       />
     )
     fireEvent.click(screen.getByText("agent.start.action"))
-    expect(start).toHaveBeenCalledWith("Compare these products")
+    expect(start).toHaveBeenCalledWith("Compare these products", true)
+    fireEvent.click(screen.getByRole("checkbox"))
+    fireEvent.click(screen.getByText("agent.start.action"))
+    expect(start).toHaveBeenLastCalledWith("Compare these products", false)
   })
 
   it("asks separately about screenshots when they may travel, unknown included", () => {
@@ -105,7 +108,7 @@ describe("AgentView", () => {
       />
     )
     fireEvent.click(screen.getByText("agent.start.action"))
-    expect(start).toHaveBeenCalledWith("Find the red square")
+    expect(start).toHaveBeenCalledWith("Find the red square", true)
   })
 
   it("keeps a failed run on screen with the reason it recorded", () => {

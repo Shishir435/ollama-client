@@ -163,6 +163,23 @@ describe("Agent run service", () => {
     })
     expect(controller.start).toHaveBeenCalledWith("run-1")
     expect(agent.activeRunId()).toBe("run-1")
+    expect(state.grants).toBeUndefined()
+  })
+
+  it("persists routine-action consent only for the starting origin and run", async () => {
+    const { service: agent } = service()
+    const state = await agent.start({
+      ...startInput,
+      allowRoutineActions: true
+    })
+    expect(state.grants).toEqual([
+      {
+        origin: "https://example.com",
+        effects: ["activation", "form_mutation"],
+        grantedAt: 1_000
+      }
+    ])
+    expect((await agent.snapshot(state.id)).run?.grants).toEqual(state.grants)
   })
 
   it("persists and authorizes the tab before attaching browser control", async () => {

@@ -6,7 +6,10 @@ import type {
 } from "@ollama-client/agent-runtime"
 import { isTerminalAgentStatus } from "@ollama-client/agent-runtime"
 import type { AgentRunState, AgentRunStatus } from "@ollama-client/contracts"
-import { AgentRunStateSchema } from "@ollama-client/contracts"
+import {
+  AGENT_GRANTABLE_EFFECTS,
+  AgentRunStateSchema
+} from "@ollama-client/contracts"
 
 import { browser } from "@/lib/browser-api"
 import { classifyAgentTabAccess } from "@/lib/browser-tab-access"
@@ -40,6 +43,7 @@ export interface StartAgentRunInput {
   tabId: number
   providerId: string
   modelId: string
+  allowRoutineActions?: boolean
   allowExperimentalModel?: boolean
 }
 
@@ -52,7 +56,10 @@ export interface AgentRunSnapshot {
 export interface AgentRunService {
   start(input: StartAgentRunInput): Promise<AgentRunState>
   pause(runId: string): Promise<void>
-  resume(runId: string): Promise<void>
+  resume(
+    runId: string,
+    correction?: { text: string; pausedAt: number }
+  ): Promise<void>
   stop(runId: string): Promise<void>
   completeTakeover(runId: string): Promise<void>
   answerApproval(input: {
@@ -521,6 +528,17 @@ export const createAgentRunService = (input?: {
           providerId: request.providerId,
           modelId: request.modelId,
           allowedOrigins: [originOf(address)],
+          ...(request.allowRoutineActions
+            ? {
+                grants: [
+                  {
+                    origin: originOf(address),
+                    effects: [...AGENT_GRANTABLE_EFFECTS],
+                    grantedAt: startedAt
+                  }
+                ]
+              }
+            : {}),
           scopedTabIds: [request.tabId],
           deadline: createInitialAgentDeadline(startedAt),
           createdAt: startedAt,
@@ -564,7 +582,7 @@ export const createAgentRunService = (input?: {
         controller.requestPause(runId)
       )
     },
-    async resume(runId) {
+    async resume(runId, correction) {
       const state = await loadRunning(runId)
       if (
         state.status !== "paused" ||
@@ -573,8 +591,18 @@ export const createAgentRunService = (input?: {
       ) {
         return
       }
+      if (
+        correction &&
+        (state.pauseReason !== "user" ||
+          state.updatedAt !== correction.pausedAt)
+      )
+        return
       if (!(await attachBrowserSession(state))) return
-      await drive(state, (controller) => controller.resume(runId))
+      await drive(state, (controller) =>
+        correction
+          ? controller.resume(runId, correction)
+          : controller.resume(runId)
+      )
     },
     async stop(runId) {
       await drive(await loadRunning(runId), (controller) =>
