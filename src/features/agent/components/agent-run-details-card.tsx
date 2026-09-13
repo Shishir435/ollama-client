@@ -7,7 +7,7 @@ import type {
 } from "../agent-view"
 import { AGENT_PAGE_TEXT_LIMIT, agentPlainText } from "../lib/presentation"
 
-/** Which endpoint, which model, whether pictures travel, and what it drives. */
+/** Whether pictures travel, what the run drives, and how many tabs. */
 const Row = ({ label, value }: { label: string; value: string }) => (
   <div className="flex min-w-0 gap-2">
     <span className="shrink-0 text-muted-foreground">{label}</span>
@@ -40,28 +40,26 @@ export const AgentRunDetailsCard = ({
 
   return (
     <section className="mb-3 grid min-w-0 gap-1.5 rounded-panel border border-border/50 bg-background/70 p-2.5 text-xs">
-      <Row
-        label={t("agent.provider.label")}
-        value={
-          provider
-            ? `${agentPlainText(provider.name, 100)} · ${t(`agent.provider.${provider.location}`)}`
-            : t("agent.provider.missing")
-        }
-      />
-      <div className="flex min-w-0 gap-2">
-        <span className="shrink-0 text-muted-foreground">
-          {t("agent.model.label")}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-right font-mono">
-          {/* During a run the truth is the model that produced its steps,
-              not whatever is selected in Chat right now. */}
-          {run?.modelId
-            ? agentPlainText(run.modelId, 100)
-            : provider
-              ? agentPlainText(provider.model, 100)
-              : t("agent.provider.missing")}
-        </span>
-      </div>
+      {/*
+        The provider and the model are on the control row below, next to the
+        picker that changes them, so stating them again here was the card
+        repeating what the panel already said.
+
+        The exception is a run whose model is no longer the selected one: a
+        finished run was produced by whatever was chosen when it started, and
+        the picker cannot say that. So the row appears exactly when leaving it
+        out would let the panel imply the wrong model produced these steps.
+      */}
+      {run?.modelId && run.modelId !== provider?.model && (
+        <div className="flex min-w-0 gap-2">
+          <span className="shrink-0 text-muted-foreground">
+            {t("agent.model.label")}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-right font-mono">
+            {agentPlainText(run.modelId, 100)}
+          </span>
+        </div>
+      )}
       <Row
         label={t("agent.screenshots.label")}
         value={t(screenshotsKey(provider))}

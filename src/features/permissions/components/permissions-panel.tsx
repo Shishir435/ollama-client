@@ -76,13 +76,21 @@ const SCHEDULED_JOB_LABELS: Record<
   }
 }
 
-const TabAccessSettings = () => {
+/**
+ * Dense rows for the side panel. `SettingsRow` is a bordered `p-3` card built
+ * for the ~900px options page; stacked six deep in a ~400px sheet that reads
+ * as six boxes rather than a list.
+ */
+const COMPACT_ROW = "gap-2 border-0 bg-transparent p-0 py-1.5"
+
+const TabAccessSettings = ({ compact }: { compact?: boolean }) => {
   const { t } = useTranslation()
   const [tabAccess, setTabAccess] = useSetting(SETTINGS.TABS_ACCESS)
 
   return (
     <SettingsSwitch
       id="browser-tab-access"
+      className={compact ? COMPACT_ROW : undefined}
       label={t("settings.presets.fields.tab_access")}
       checked={tabAccess}
       onCheckedChange={setTabAccess}
@@ -93,8 +101,10 @@ const TabAccessSettings = () => {
 const OptionalPermissionRow = ({
   meta,
   label,
-  description
+  description,
+  compact
 }: {
+  compact?: boolean
   meta: OptionalPermissionMeta
   label: string
   description: string
@@ -140,6 +150,7 @@ const OptionalPermissionRow = ({
   return (
     <SettingsSwitch
       id={meta.focusId}
+      className={compact ? COMPACT_ROW : undefined}
       label={label}
       description={description}
       checked={granted}
@@ -225,8 +236,10 @@ const TestNotificationButton = ({
 const ScheduledJobRow = ({
   jobId,
   label,
-  description
+  description,
+  compact
 }: {
+  compact?: boolean
   jobId: ScheduledJobId
   label: string
   description: string
@@ -254,6 +267,7 @@ const ScheduledJobRow = ({
   return (
     <SettingsSwitch
       id={`scheduled-job-${jobId}`}
+      className={compact ? COMPACT_ROW : undefined}
       label={label}
       description={description}
       checked={enabled}
@@ -302,6 +316,7 @@ export const PermissionsPanel = ({
         description={t("settings.permissions.optional.description")}>
         {OPTIONAL_PERMISSIONS.filter((m) => m.available()).map((meta) => (
           <OptionalPermissionRow
+            compact={compact}
             key={`${meta.perm}-${permissionRefreshKey}`}
             meta={meta}
             label={t(`settings.permissions.items.${meta.perm}.label`)}
@@ -327,7 +342,7 @@ export const PermissionsPanel = ({
           icon={Globe}
           title={t("settings.permissions.host.title")}
           description={t("settings.permissions.host.description")}>
-          <TabAccessSettings />
+          <TabAccessSettings compact={compact} />
         </SettingsCard>
       )}
 
@@ -341,6 +356,7 @@ export const PermissionsPanel = ({
             {(Object.keys(SCHEDULED_JOB_LABELS) as ScheduledJobId[]).map(
               (jobId) => (
                 <ScheduledJobRow
+                  compact={compact}
                   key={jobId}
                   jobId={jobId}
                   label={t(SCHEDULED_JOB_LABELS[jobId].labelKey)}
