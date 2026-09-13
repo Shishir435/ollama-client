@@ -41,7 +41,7 @@ const { mockGenerateImage, mockProvider, mockStreamChat } = vi.hoisted(() => {
 
 // Mock dependencies
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
+  plasmoSyncStorage: {
     get: vi.fn(),
     set: vi.fn().mockResolvedValue(undefined)
   },

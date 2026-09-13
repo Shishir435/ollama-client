@@ -2,7 +2,7 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
 import { STORAGE_KEYS } from "@/lib/constants"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { ZustandPersistedStateSchema } from "@/types/ui-state.schemas"
 
 export type ShortcutAction =
@@ -208,7 +208,7 @@ export const useShortcutStore = create<ShortcutState>()(
     {
       name: STORAGE_KEYS.SHORTCUTS,
       /*
-       * Persist through `plasmoGlobalStorage` (chrome.storage.sync)
+       * Persist through `plasmoSyncStorage` (chrome.storage.sync)
        * rather than Zustand's default `window.localStorage`. Three
        * reasons this matters in an extension:
        *
@@ -227,7 +227,7 @@ export const useShortcutStore = create<ShortcutState>()(
        */
       storage: {
         getItem: async (name) => {
-          const value = await plasmoGlobalStorage.get(name)
+          const value = await plasmoSyncStorage.get(name)
           if (value == null) return null
           if (typeof value === "string") {
             try {
@@ -244,10 +244,10 @@ export const useShortcutStore = create<ShortcutState>()(
           return null
         },
         setItem: async (name, value) => {
-          await plasmoGlobalStorage.set(name, value)
+          await plasmoSyncStorage.set(name, value)
         },
         removeItem: async (name) => {
-          await plasmoGlobalStorage.remove(name)
+          await plasmoSyncStorage.remove(name)
         }
       },
       // Merge persisted shortcuts with defaults to handle schema migrations

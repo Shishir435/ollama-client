@@ -9,7 +9,7 @@ const storage = vi.hoisted(() => ({
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: storage,
+  plasmoSyncStorage: storage,
   getPlasmoStoredValue: storage.get,
   setPlasmoStoredValue: storage.set
 }))

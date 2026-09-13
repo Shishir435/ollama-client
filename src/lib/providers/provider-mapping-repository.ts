@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import { remapLegacyProviderId } from "./provider-compat-migration"
 import { ProviderStorageKey } from "./types"
 
@@ -7,7 +7,7 @@ export const scopedModelKey = (providerId: string, modelId: string): string =>
   `${providerId}::${modelId}`
 
 const readScopedModelMappings = async (): Promise<Record<string, string>> => {
-  const v2 = await plasmoGlobalStorage.get<Record<string, string>>(
+  const v2 = await plasmoSyncStorage.get<Record<string, string>>(
     ProviderStorageKey.MODEL_MAPPINGS_V2
   )
   if (v2) {
@@ -22,7 +22,7 @@ const readScopedModelMappings = async (): Promise<Record<string, string>> => {
       if (targetKey !== key || targetProviderId !== providerId) changed = true
     }
     if (changed) {
-      await plasmoGlobalStorage.set(
+      await plasmoSyncStorage.set(
         ProviderStorageKey.MODEL_MAPPINGS_V2,
         normalized
       )
@@ -30,7 +30,7 @@ const readScopedModelMappings = async (): Promise<Record<string, string>> => {
     return normalized
   }
 
-  const legacy = await plasmoGlobalStorage.get<Record<string, string>>(
+  const legacy = await plasmoSyncStorage.get<Record<string, string>>(
     ProviderStorageKey.MODEL_MAPPINGS
   )
   const migrated: Record<string, string> = {}
@@ -41,19 +41,13 @@ const readScopedModelMappings = async (): Promise<Record<string, string>> => {
         migrated[scopedModelKey(targetProviderId, modelId)] = targetProviderId
       }
     }
-    await plasmoGlobalStorage.set(
-      ProviderStorageKey.MODEL_MAPPINGS_V2,
-      migrated
-    )
-    await plasmoGlobalStorage.remove(ProviderStorageKey.MODEL_MAPPINGS)
+    await plasmoSyncStorage.set(ProviderStorageKey.MODEL_MAPPINGS_V2, migrated)
+    await plasmoSyncStorage.remove(ProviderStorageKey.MODEL_MAPPINGS)
     logger.info("Migrated model mappings to scoped keys", "ProviderManager", {
       count: Object.keys(migrated).length
     })
   } else {
-    await plasmoGlobalStorage.set(
-      ProviderStorageKey.MODEL_MAPPINGS_V2,
-      migrated
-    )
+    await plasmoSyncStorage.set(ProviderStorageKey.MODEL_MAPPINGS_V2, migrated)
   }
   return migrated
 }
@@ -73,7 +67,7 @@ export const setModelMapping = async (
 ): Promise<void> => {
   const mappings = await readScopedModelMappings()
   mappings[scopedModelKey(providerId, modelId)] = providerId
-  await plasmoGlobalStorage.set(ProviderStorageKey.MODEL_MAPPINGS_V2, mappings)
+  await plasmoSyncStorage.set(ProviderStorageKey.MODEL_MAPPINGS_V2, mappings)
 }
 
 export const removeModelMappingsForProvider = async (
@@ -88,9 +82,6 @@ export const removeModelMappingsForProvider = async (
     }
   }
   if (changed) {
-    await plasmoGlobalStorage.set(
-      ProviderStorageKey.MODEL_MAPPINGS_V2,
-      mappings
-    )
+    await plasmoSyncStorage.set(ProviderStorageKey.MODEL_MAPPINGS_V2, mappings)
   }
 }

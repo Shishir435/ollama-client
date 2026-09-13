@@ -29,7 +29,7 @@ vi.mock("@/lib/knowledge/knowledge-sets", () => ({
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: vi.fn(),
-  plasmoGlobalStorage: {
+  plasmoSyncStorage: {
     get: vi.fn(),
     set: vi.fn(),
     remove: vi.fn(),

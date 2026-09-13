@@ -243,9 +243,16 @@ Four systems hold live values. Each value has exactly one owner; the rest read i
 |---|---|---|
 | **SQLite** (`chat-history.ts` facade) | chats, sessions, messages, attachments, prompt templates, tool-loop checkpoints, durable job runs | anything a UI needs synchronously on first paint |
 | **Dexie / IndexedDB** (`lib/embeddings/`, `lib/knowledge/`) | vectors, HNSW and keyword indexes, knowledge sets, chunk feedback | anything SQLite already owns — chat rows never live in both |
-| **`chrome.storage`** via `plasmoGlobalStorage` | settings, provider config and mappings, capability overrides, approval grants, handoff flags, persistence markers, the migration receipt | bulk data, and anything large enough to matter against the sync quota |
+| **`chrome.storage`** via `plasmoSyncStorage` / `plasmoDeviceStorage` | settings, provider config and mappings, capability overrides, approval grants, handoff flags, persistence markers, the migration receipt | bulk data, and anything large enough to matter against the sync quota |
 | **Zustand stores** | ephemeral UI state: selected tabs, input draft, stream progress, speech, search dialog | durable values, unless the store explicitly reads and writes through one of the systems above |
 
+- **A storage handle names its area.** `plasmoSyncStorage` and
+  `plasmoDeviceStorage` are the two, and `getPlasmoStoredValue` /
+  `setPlasmoStoredValue` route by the registry's scope for a key whose area is
+  the registry's business rather than the caller's. There was a third export,
+  `plasmoGlobalStorage`, which was the sync handle under a name that said
+  nothing about where it wrote — which is exactly what made it the default
+  people reached for. It is gone; the boundary test keeps it gone.
 - **Every `chrome.storage` key needs a descriptor** in `src/lib/storage/storage-key-registry.ts` with its sync scope and a `reason`. `storage-key-registry.test.ts` asserts registry and `STORAGE_KEYS` match exactly.
 - **Two stores are durable-backed and say so:** `stores/theme.ts` and `stores/shortcut-store.ts`. Every other store dies with the page — do not add a durable value to one.
 - **`MESSAGE_KEYS` are not storage keys.** They name runtime ports and one-way events, hold nothing, and stay out of the storage registry.

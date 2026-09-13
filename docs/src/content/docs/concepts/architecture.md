@@ -416,7 +416,7 @@ Before replay, the artifact's `providerId` and `model` are checked against the c
   owned by the persistence host. The facade
   `src/lib/repositories/chat-history.ts` is the only application entry point.
 - **Vectors / embeddings**: still on Dexie + IndexedDB via `src/lib/embeddings/storage.ts`. Not yet migrated to SQLite.
-- **Settings / provider config**: `@plasmohq/storage` via the `plasmoGlobalStorage` wrapper. Sync-safe settings use `chrome.storage.sync`; device-local keys use `chrome.storage.local`.
+- **Settings / provider config**: `@plasmohq/storage` via the `plasmoSyncStorage` / `plasmoDeviceStorage` wrappers. Sync-safe settings use `chrome.storage.sync`; device-local keys use `chrome.storage.local`.
 - **Settings IA**: six intent tabs — General, Models, Knowledge, Browser, Privacy, and Help. Each tab owns its registry entries under `src/features/settings/registry/`; the public registry preserves stable search ranking and legacy deep links.
 - **RAG splitting**: files, chat memory, and live page sources share `src/lib/embeddings/chunker.ts`; the retired parallel text-splitter tree must not be restored.
 - **Session organization**: tags are JSON stored in the SQLite `sessions.tags` column and exposed through the chat-session store. Pinned state and per-chat system prompts live on the same table.
