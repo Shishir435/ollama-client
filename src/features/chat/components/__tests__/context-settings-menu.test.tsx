@@ -17,6 +17,19 @@ const mocks = vi.hoisted(() => ({
   perSiteProfiles: { profiles: [] as unknown[] }
 }))
 
+/*
+ * The context sheet holds the chat instruction, which reads the session store.
+ * Without this, mounting the sheet reaches SQLite through the persistence
+ * client and the test logs an unhandled rejection it never asked for.
+ */
+vi.mock("@/features/sessions/stores/chat-session-store", () => ({
+  useChatSessions: () => ({
+    currentSessionId: undefined,
+    sessions: [],
+    setSessionSystemPrompt: vi.fn()
+  })
+}))
+
 vi.mock("@/hooks/use-setting", () => ({
   useSetting: vi.fn((descriptor: { key: string; defaultValue: unknown }) => {
     if (descriptor.key === "embeddings-use-rag") {

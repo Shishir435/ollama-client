@@ -15,14 +15,16 @@ import {
 import { useContextSettings } from "@/features/chat/hooks/use-context-settings"
 import { useContextTabOptions } from "@/features/chat/hooks/use-context-tab-options"
 import { PermissionsSheet } from "@/features/permissions/components/permissions-sheet"
+import { cn } from "@/lib/class-names"
 import type { FileProcessingState } from "@/lib/file-processors/types"
 import type { ImageAttachment } from "@/types"
 import { CopyButton } from "../copy-button"
 import { PreviewTextBlock } from "../preview-sheet"
+import { SessionSystemPromptButton } from "../session-system-prompt-button"
 import { AttachmentList } from "./attachment-list"
 import { ContextMainView } from "./context-main-view"
 import { ContextSubView } from "./context-sub-view"
-import { buildContextSummary } from "./context-summary"
+import { buildContextSummary, countContextSources } from "./context-summary"
 import { TabContextPanel } from "./tab-context-panel"
 
 const EMPTY_PROCESSING_STATES: FileProcessingState[] = []
@@ -81,17 +83,16 @@ export const ContextSettingsMenu = ({
   }
 
   const previewContent = tabs.previewTab?.html?.trim()
-  const contextSummary = buildContextSummary(
-    {
-      tabAccess: settings.tabAccess,
-      selectedTabCount: tabs.selectedTabIds.length,
-      attachmentCount,
-      useRAG: settings.useRAG,
-      webSearchActive: settings.webSearchActive,
-      showWebSearch: settings.showWebSearch
-    },
-    t
-  )
+  const contextInput = {
+    tabAccess: settings.tabAccess,
+    selectedTabCount: tabs.selectedTabIds.length,
+    attachmentCount,
+    useRAG: settings.useRAG,
+    webSearchActive: settings.webSearchActive,
+    showWebSearch: settings.showWebSearch
+  }
+  const contextSummary = buildContextSummary(contextInput, t)
+  const contextCount = countContextSources(contextInput)
 
   return (
     <>
@@ -110,7 +111,27 @@ export const ContextSettingsMenu = ({
             />
           }
           label={t("tabs.context")}
-          icon={<Layers className="icon-sm" aria-hidden="true" />}
+          icon={
+            /*
+             * How many sources the next message carries, readable without
+             * opening the sheet. Zero is shown rather than hidden: a control
+             * that only marks itself when something is attached leaves
+             * "nothing attached" and "I have not checked" looking identical.
+             */
+            <span className="relative inline-flex">
+              <Layers className="icon-sm" aria-hidden="true" />
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "-right-1.5 -top-1 absolute min-w-3 rounded-full px-0.5 text-center text-nano leading-3 tabular-nums",
+                  contextCount > 0
+                    ? "bg-app-primary-soft text-app-primary"
+                    : "bg-muted text-muted-foreground"
+                )}>
+                {contextCount}
+              </span>
+            </span>
+          }
         />
         <SheetContent
           side="right"
@@ -125,6 +146,12 @@ export const ContextSettingsMenu = ({
             <SheetTitle className="flex items-center gap-2">
               <Layers className="icon-sm" />
               {t("tabs.context")}
+              {/* The chat instruction is context the model receives, so it
+                  belongs with the rest of what a message carries rather than
+                  among the header's status glyphs. */}
+              <span className="ml-auto">
+                <SessionSystemPromptButton />
+              </span>
             </SheetTitle>
             {/* The summary used to be a bordered card at the top of the main
                 view, spending a full boxed row plus its own uppercase label on

@@ -26,15 +26,22 @@ export const SurfaceSwitch = () => {
      * under pressure while the readouts beside it — a speed, a status — keep
      * their whole value. Letting those wrap instead broke "avg 122.6 t/s"
      * across three lines.
+     *
+     * The two tabs share that pressure equally (`flex-1 basis-0`). Letting
+     * them size to their own content made the selected one keep its label
+     * while the other lost every letter, so the switch changed width and
+     * shape depending on which side you were on.
      */
     <TabsList className="h-7 min-w-0 gap-0.5 p-0.5">
-      <TabsTrigger value="chat" className="min-w-0 gap-1 px-2 text-2xs">
+      <TabsTrigger
+        value="chat"
+        className="min-w-0 flex-1 basis-0 gap-1 px-2 text-2xs">
         <MessageCircle className="icon-xs shrink-0" aria-hidden="true" />
         <span className="truncate">{t("agent.surface.chat")}</span>
       </TabsTrigger>
       <TabsTrigger
         value="agent"
-        className="min-w-0 gap-1 px-2 text-2xs"
+        className="min-w-0 flex-1 basis-0 gap-1 px-2 text-2xs"
         title={t("agent.surface.preview")}>
         <Bot className="icon-xs shrink-0" aria-hidden="true" />
         <span className="truncate">{t("agent.surface.agent")}</span>

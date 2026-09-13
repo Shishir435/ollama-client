@@ -2,16 +2,20 @@ import type { ReactNode } from "react"
 import { useSessionMetricsPreference } from "@/features/chat/hooks/use-session-metrics-preference"
 import { EmbeddingStatusIndicator } from "@/features/model/components/embedding-status-indicator"
 import { ProviderStatusIndicator } from "@/features/model/components/provider-status-indicator"
-import { PrivacyStatusChip } from "@/features/privacy/components/privacy-status-chip"
 import { ChatSessionSelector } from "@/features/sessions/components/chat-session-selector"
 import { useChatSessions } from "@/features/sessions/stores/chat-session-store"
 import type { ChatMessage } from "@/types"
 import { SessionMetricsBar } from "./session-metrics-bar"
-import { SessionSystemPromptButton } from "./session-system-prompt-button"
 
 /**
  * The chat surface's top bar: the surface switch, the session selector, this
  * session's metrics and the status indicators.
+ *
+ * The privacy chip is gone. It read "Local" whenever the endpoint was a
+ * loopback address, which a proxy forwarding to a hosted model also is, so the
+ * one word it had to say was the thing it could not actually know. The chat
+ * instruction moved to the context sheet, where the rest of what gets sent
+ * with a message already lives.
  *
  * `leading` is where the side panel puts the Chat/Agent switch. It used to
  * have a full-width row above this one, which spent forty pixels of a
@@ -37,8 +41,6 @@ export const ChatHeader = ({
           <SessionMetricsBar messages={messages} />
         )}
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <PrivacyStatusChip />
-          <SessionSystemPromptButton />
           <EmbeddingStatusIndicator />
           <ProviderStatusIndicator />
         </div>
