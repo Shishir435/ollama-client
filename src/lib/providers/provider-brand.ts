@@ -65,7 +65,8 @@ const BRAND_NAME_TOKENS: ReadonlyArray<readonly [ProviderBrandId, string[]]> = [
   ["lm-studio", ["lmstudio", "lm studio"]],
   ["vllm", ["vllm"]],
   ["openrouter", ["openrouter", "open router"]],
-  ["openai", ["openai", "open ai", "chatgpt"]],
+  /* Codex is OpenAI's, so a provider a user named for it wears OpenAI's mark. */
+  ["openai", ["openai", "open ai", "chatgpt", "codex"]],
   ["anthropic", ["anthropic", "claude"]],
   ["deepseek", ["deepseek", "deep seek"]],
   ["zhipu", ["zhipu", "bigmodel", "glm", "z.ai"]],

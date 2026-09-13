@@ -232,7 +232,7 @@ export const AgentView = ({
               className="text-2xs font-medium text-muted-foreground">
               {t("agent.running_goal")}
             </h2>
-            <p className="mt-0.5 break-words text-xs">
+            <p className="mt-0.5 wrap-break-word text-xs">
               {agentPlainText(run.goal, AGENT_PAGE_TEXT_LIMIT)}
             </p>
           </section>

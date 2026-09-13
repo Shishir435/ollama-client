@@ -19,21 +19,29 @@ export const SurfaceSwitch = () => {
   const { t } = useTranslation()
 
   return (
-    <TabsList className="h-7 shrink-0 gap-0.5 p-0.5">
-      <TabsTrigger value="chat" className="gap-1 px-2 text-2xs">
-        <MessageCircle className="icon-xs" aria-hidden="true" />
-        {t("agent.surface.chat")}
+    /*
+     * The switch is the row's flexible element: it is the widest thing in a
+     * four-hundred-pixel bar and its labels are the most redundant, since each
+     * tab carries an icon that says the same thing. So its labels truncate
+     * under pressure while the readouts beside it — a speed, a status — keep
+     * their whole value. Letting those wrap instead broke "avg 122.6 t/s"
+     * across three lines.
+     */
+    <TabsList className="h-7 min-w-0 gap-0.5 p-0.5">
+      <TabsTrigger value="chat" className="min-w-0 gap-1 px-2 text-2xs">
+        <MessageCircle className="icon-xs shrink-0" aria-hidden="true" />
+        <span className="truncate">{t("agent.surface.chat")}</span>
       </TabsTrigger>
       <TabsTrigger
         value="agent"
-        className="gap-1 px-2 text-2xs"
+        className="min-w-0 gap-1 px-2 text-2xs"
         title={t("agent.surface.preview")}>
-        <Bot className="icon-xs" aria-hidden="true" />
-        {t("agent.surface.agent")}
+        <Bot className="icon-xs shrink-0" aria-hidden="true" />
+        <span className="truncate">{t("agent.surface.agent")}</span>
         <span
           role="img"
           aria-label={t("agent.surface.preview")}
-          className="size-1.5 rounded-full bg-app-agent"
+          className="size-1.5 shrink-0 rounded-full bg-app-agent"
         />
       </TabsTrigger>
     </TabsList>

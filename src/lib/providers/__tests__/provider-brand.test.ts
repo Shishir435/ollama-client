@@ -122,6 +122,19 @@ describe("isProviderBrandId", () => {
   })
 })
 
+describe("a provider named for a vendor's product", () => {
+  it("wears that vendor's mark", () => {
+    /*
+     * The left rail of the model menu is provider marks, resolved from the
+     * provider's own configuration. A loopback proxy has no host to read and
+     * no favicon to fetch, so the name the user gave it is the only signal
+     * left — and a provider called Codex sat there as a generic glyph beside
+     * the OpenAI-marked models it serves.
+     */
+    expect(resolveProviderBrand({ name: "Codex" })).toBe("openai")
+  })
+})
+
 describe("resolveModelBrand", () => {
   it("reads the vendor a model id states for itself", () => {
     expect(resolveModelBrand("anthropic/claude-3")).toBe("anthropic")
