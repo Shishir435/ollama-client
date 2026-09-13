@@ -4,6 +4,16 @@
  * The route knows nothing about a runtime's catalog shape: the backend maps its own
  * metadata into `CatalogModel`, including the capability fields OpenAI-compatible
  * clients read to decide whether to send tools or images.
+ *
+ * Both routes start the backend first, the way the chat and image routes do.
+ * The proxy begins listening before `ensureReady` has resolved — deliberately,
+ * since startup is shared infrastructure rather than one request's work — so a
+ * catalog read arriving in that window used to ask a runtime that was not up
+ * yet and answer `502`. A missing catalog is not a failure a client retries:
+ * the model menu treats it as "this provider lists nothing" and moves on, so
+ * the models stayed absent until some later chat request happened to start the
+ * backend. Readiness is idempotent and cheap once held, so asking for it here
+ * costs the second caller nothing.
  */
 import type { AgentBackend, CatalogModel } from "../backends/types.js"
 import type { ProxyLogger } from "../types.js"
@@ -23,6 +33,7 @@ export const registerModelRoutes = (
 ): void => {
   router.get(OLC_PUBLIC_ROUTES.models, async (_request, response) => {
     try {
+      await backend.ensureReady()
       const models = await backend.listModels()
       log("GET /v1/models ok", { count: models.length })
       sendJson(response, 200, { object: "list", data: models })
@@ -34,6 +45,7 @@ export const registerModelRoutes = (
 
   router.get(OLC_PUBLIC_ROUTES.model, async (request, response) => {
     try {
+      await backend.ensureReady()
       const models: CatalogModel[] = await backend.listModels()
       const requested = request.params.modelId ?? ""
       const match = models.find(

@@ -584,7 +584,12 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   recorded as "Target changed"; two live runs died that way with nothing in
   the record to say which had happened. A refused identity check also names
   the field that moved, which is this build's own vocabulary and never a
-  value read from the page.
+  value read from the page — and the name travels with the code, as
+  `rejectionField` against a closed list. Only the code crossed for a while,
+  so seventeen refusals of one click all read as the same sentence with
+  nothing to say which of fifteen fields had moved, and diagnosing it meant
+  guessing from the page rather than reading the receipt. A name outside the
+  list is dropped rather than forwarded, the same rule the codes follow.
 - **A native plan is a sequence the runner owes a release for.**
   `runAgentNativeInputPlan` sends one step at a time, checks cancellation
   between steps, and on abort or dispatcher failure releases every held button
@@ -951,6 +956,15 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   sensitive fields, links, submitters, checkboxes, a disabled control — still
   governs. Overruling the browser here refused four different points across
   ChatGPT's composer as "not visible" until the run's budget was gone.
+
+  The waiver reaches execution too. `assertUnchangedMutationTarget` re-read
+  `visible` for every command, so a visual click was refused one layer later
+  by exactly the reconstruction resolution had just waived: a run asked to
+  open a video spent seventeen of its steps having approved clicks on a
+  thumbnail refused as `target_changed`, and never touched the page. The
+  executor re-hit-tests the point before it sends anything, so the browser
+  keeps the last word; everything about what the click would *do* is still
+  compared, and a ref click still refuses a control that left the page.
 - Disclosure says whether pictures travel: `AgentProviderDisclosure.screenshots`
   is resolved from model vision, memoized per model, shown as unknown when it
   could not be determined, and switches the remote-provider notice to the

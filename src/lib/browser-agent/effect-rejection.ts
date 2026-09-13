@@ -62,6 +62,51 @@ const REJECTION_MESSAGES: Record<AgentEffectRejectionReason, string> = {
 }
 
 /**
+ * The identity fields a refusal may name.
+ *
+ * A closed list, because the name travels: it is this build's own vocabulary
+ * and never a value read from the page, and a field outside this set is
+ * dropped rather than forwarded.
+ */
+export const AGENT_EFFECT_REJECTION_FIELDS = [
+  "frame",
+  "tag",
+  "role",
+  "name",
+  "type",
+  "href",
+  "formAction",
+  "formMethod",
+  "formFingerprint",
+  "formHasSensitiveControl",
+  "submitter",
+  "maySubmit",
+  "sensitive",
+  "visible",
+  "enabled"
+] as const
+
+export type AgentEffectRejectionField =
+  (typeof AGENT_EFFECT_REJECTION_FIELDS)[number]
+
+/**
+ * Read back the field a refusal named, for the port to carry beside the code.
+ *
+ * The code alone reached the panel for a while, so seventeen refusals of one
+ * click all read as the same sentence and the record could not say which of
+ * fifteen identity fields had moved. Diagnosing it meant guessing from the
+ * page instead of reading the receipt — which is the thing the vocabulary was
+ * added to stop.
+ */
+export const agentRejectionField = (
+  error: unknown
+): AgentEffectRejectionField | undefined => {
+  const message = error instanceof Error ? error.message : ""
+  const named = message.slice(message.lastIndexOf(": ") + 2)
+  return AGENT_EFFECT_REJECTION_FIELDS.find((field) => field === named)
+}
+
+/**
  * A refused identity check also names the field that moved. The field name is
  * this build's own vocabulary, never a value read from the page.
  */

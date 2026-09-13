@@ -174,6 +174,29 @@ const VALUE_DEPENDENT_COMMANDS: ReadonlySet<string> = new Set([
  * Each entry names the field so a refusal can say which one moved. The name
  * travels; the values never do, because both sides are page-derived.
  */
+/**
+ * A visual click answers to the browser's hit test, not to our reconstruction
+ * of visibility.
+ *
+ * `visible` is `resolveVisibility` rebuilding reachability from client rects,
+ * the viewport and every ancestor's overflow; `elementFromPoint` is the
+ * browser saying what a pointer at that coordinate actually lands on. Where
+ * they disagree the reconstruction is wrong, which is why resolution already
+ * waives `hidden_target` for `click_point`. Re-checking it here re-imposed one
+ * layer later exactly what was waived, and the executor re-hit-tests the point
+ * before it sends anything, so the browser still gets the last word either
+ * way. A run on YouTube spent seventeen of its steps this way: every click on
+ * a thumbnail was approved, refused as "target changed after approval", and
+ * tried again, until the budget was gone and the page had never been touched.
+ *
+ * Everything about what the click would *do* — a disabled control, a link, a
+ * submitter, a sensitive field — is unaffected and still compared.
+ */
+const identityWaivedForVisualClick = (
+  field: string,
+  command: string
+): boolean => command === "click_point" && field === "visible"
+
 const mutationTargetIdentity = (
   current: ReturnType<typeof buildAgentElementObservation>,
   expected: AgentDomMutationInstruction["target"]
@@ -241,7 +264,9 @@ const assertUnchangedMutationTarget = (
     )
   }
   const moved = mutationTargetIdentity(current, expected).find(
-    (check) => !check.same
+    (check) =>
+      !check.same &&
+      !identityWaivedForVisualClick(check.field, effect.command.type)
   )
   if (moved) {
     throw new AgentEffectNotAppliedError(

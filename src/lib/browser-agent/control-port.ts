@@ -24,8 +24,10 @@ import {
 } from "@/lib/browser-tab-access"
 import { MESSAGE_KEYS } from "@/lib/constants"
 import {
+  AGENT_EFFECT_REJECTION_FIELDS,
   AGENT_EFFECT_REJECTION_REASONS,
   AGENT_EFFECT_REJECTIONS,
+  agentRejectionField,
   agentRejectionMessage,
   agentRejectionReason
 } from "./effect-rejection"
@@ -326,6 +328,8 @@ export const AgentExecuteResponseSchema = z
      * one sentence every refusal used to share.
      */
     rejection: z.enum(AGENT_EFFECT_REJECTION_REASONS).optional(),
+    /** Which identity field moved, when the refusal named one. */
+    rejectionField: z.enum(AGENT_EFFECT_REJECTION_FIELDS).optional(),
     submissionUrl: z.url().max(32_768).optional()
   })
   .strict()
@@ -431,7 +435,9 @@ export const AgentPrepareNativeInputResponseSchema = z
     /** Where a drag is released, in the same frame's viewport pixels. */
     dropPoint: AgentInputPointSchema.optional(),
     /** Why preparation refused, from the same closed vocabulary. */
-    rejection: z.enum(AGENT_EFFECT_REJECTION_REASONS).optional()
+    rejection: z.enum(AGENT_EFFECT_REJECTION_REASONS).optional(),
+    /** Which identity field moved, when the refusal named one. */
+    rejectionField: z.enum(AGENT_EFFECT_REJECTION_FIELDS).optional()
   })
   .strict()
 export type AgentPrepareNativeInputResponse = z.infer<
@@ -821,7 +827,8 @@ export const validateAgentExecuteResponse = (
   if (response.type === "agent_dom_mutation_rejected") {
     throw new AgentEffectNotAppliedError(
       agentRejectionMessage(
-        response.rejection ?? AGENT_EFFECT_REJECTIONS.unspecified
+        response.rejection ?? AGENT_EFFECT_REJECTIONS.unspecified,
+        response.rejectionField
       )
     )
   }
@@ -885,7 +892,8 @@ export const validateAgentPrepareNativeInputResponse = (
   if (response.type === "agent_native_input_rejected") {
     throw new AgentEffectNotAppliedError(
       agentRejectionMessage(
-        response.rejection ?? AGENT_EFFECT_REJECTIONS.unspecified
+        response.rejection ?? AGENT_EFFECT_REJECTIONS.unspecified,
+        response.rejectionField
       )
     )
   }
@@ -1263,14 +1271,18 @@ export const openAgentControlSession = async (input: {
 /** Only a typed, pre-effect rejection may authorize re-observation instead of uncertainty. */
 const runContentMutation = (
   execute: () => string | undefined
-): Pick<AgentExecuteResponse, "type" | "submissionUrl" | "rejection"> => {
+): Pick<
+  AgentExecuteResponse,
+  "type" | "submissionUrl" | "rejection" | "rejectionField"
+> => {
   try {
     return { type: "agent_dom_mutation_executed", submissionUrl: execute() }
   } catch (error) {
     if (error instanceof AgentEffectNotAppliedError) {
       return {
         type: "agent_dom_mutation_rejected",
-        rejection: agentRejectionReason(error)
+        rejection: agentRejectionReason(error),
+        rejectionField: agentRejectionField(error)
       }
     }
     throw error
@@ -1320,7 +1332,7 @@ const runContentPreparation = (
   prepare: () => AgentNativeInputPreparedResult
 ): Pick<
   AgentPrepareNativeInputResponse,
-  "type" | "point" | "focused" | "dropPoint" | "rejection"
+  "type" | "point" | "focused" | "dropPoint" | "rejection" | "rejectionField"
 > => {
   try {
     const prepared = prepare()
@@ -1334,7 +1346,8 @@ const runContentPreparation = (
     if (error instanceof AgentEffectNotAppliedError) {
       return {
         type: "agent_native_input_rejected",
-        rejection: agentRejectionReason(error)
+        rejection: agentRejectionReason(error),
+        rejectionField: agentRejectionField(error)
       }
     }
     throw error

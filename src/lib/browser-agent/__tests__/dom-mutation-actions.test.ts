@@ -513,6 +513,75 @@ describe("Agent DOM mutation execution", () => {
     }
   }
 
+  it("clicks a visual target our own visibility check calls gone", async () => {
+    /*
+     * A run on YouTube spent seventeen of its steps here. Every click on a
+     * thumbnail was approved and then refused as "target changed after
+     * approval", because the executor re-read `visible` — our reconstruction
+     * of reachability — for a command whose whole point is that the browser's
+     * hit test already answered that question. Resolution waives it for a
+     * visual click; re-imposing it one layer later cost the run its budget
+     * without ever touching the page.
+     */
+    const control = document.createElement("button")
+    const clicks: string[] = []
+    control.addEventListener("click", () => clicks.push("clicked"))
+    const { effect, references } = await liveEffect(
+      command({ type: "click", ref: "e1" }),
+      control
+    )
+    /*
+     * Grounded as a ref click and executed as a visual one: resolving a
+     * `click_point` needs a screenshot and a hit test, and both are covered
+     * where they live. What is under test is the executor's identity check,
+     * which reads the command type and nothing else. No point is carried, so
+     * the click lands on the control's own centre and no second hit test runs
+     * — on the page this reproduces, the browser's hit test was satisfied all
+     * along and only our reconstruction disagreed. The control is grounded as
+     * a button because the thumbnail this reproduces is an `<img>`, which a
+     * ref click refuses as not activatable — which is why the run reached for
+     * a visual click in the first place.
+     */
+    const visual = {
+      ...effect,
+      command: command({ type: "click_point", x: 391, y: 319 })
+    }
+
+    control.style.display = "none"
+    expect(buildAgentElementObservation(control, "e1", 0).visible).toBe(false)
+
+    executeAgentDomMutationInDocument({
+      effect: visual,
+      document,
+      references,
+      signal
+    })
+
+    expect(clicks).toEqual(["clicked"])
+  })
+
+  it("still refuses a ref click whose control went invisible", async () => {
+    /*
+     * The waiver is the visual command's alone. A ref click was chosen from an
+     * observation that listed the control as visible, so the control leaving
+     * the page is a real change to what was approved.
+     */
+    const button = document.createElement("button")
+    const action = command({ type: "click", ref: "e1" })
+    const { effect, references } = await liveEffect(action, button)
+
+    button.style.display = "none"
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow("changed after approval")
+  })
+
   it("preserves a suffix added after approval beyond the observation limit", async () => {
     const input = document.createElement("textarea")
     input.value = `first ${"x".repeat(19994)}`
