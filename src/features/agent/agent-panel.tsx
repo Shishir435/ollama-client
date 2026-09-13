@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
@@ -21,7 +22,7 @@ import { useAgentDraft } from "./stores/agent-draft-store"
  * snapshot is the answer, so what the panel shows always describes the durable
  * run rather than an optimistic guess about it.
  */
-export const AgentPanel = () => {
+export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
   const { t } = useTranslation()
   const { selectedModel, selectedProviderId } = useProviderModels()
   const [acknowledged, setAcknowledged] = useSetting(
@@ -56,6 +57,7 @@ export const AgentPanel = () => {
       )}
       <div className="min-h-0 flex-1">
         <AgentView
+          leading={leading}
           run={snapshot.run ?? null}
           steps={snapshot.steps}
           browser={snapshot.browser}

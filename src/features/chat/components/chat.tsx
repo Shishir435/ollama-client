@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
@@ -23,7 +24,14 @@ import { ChatMessageList } from "./chat-message-list"
 import { PendingToolConfirmation } from "./pending-tool-confirmation"
 import { SemanticChatSearchDialog } from "./semantic-chat-search-dialog"
 
-export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
+export const Chat = ({
+  embedded = false,
+  leading
+}: {
+  embedded?: boolean
+  /** The side panel's surface switch, rendered inside the chat header's row. */
+  leading?: ReactNode
+}) => {
   const { t } = useTranslation()
   const {
     messages,
@@ -239,7 +247,7 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
         "flex min-h-0 flex-col bg-surface-chat",
         embedded ? "h-full" : "h-screen"
       )}>
-      <ChatHeader messages={messages} />
+      <ChatHeader messages={messages} leading={leading} />
 
       {hasSession ? (
         <>

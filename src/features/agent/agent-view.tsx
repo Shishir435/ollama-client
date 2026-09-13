@@ -7,7 +7,7 @@ import {
   MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
 import { Bot, Eye, MessageSquareWarning } from "lucide-react"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -76,6 +76,8 @@ export interface AgentViewProps {
   approval?: AgentApprovalRequest
   takeover?: AgentTakeoverRequest
   privacyAcknowledged?: boolean
+  /** The side panel's surface switch, rendered in the header's first slot. */
+  leading?: ReactNode
   busy?: boolean
   /** The unsent goal. Held by the caller so it survives leaving the surface. */
   goal?: string
@@ -118,6 +120,7 @@ const pauseNoticeFor = (reason?: AgentRunState["pauseReason"]) => {
 }
 
 export const AgentView = ({
+  leading,
   run = null,
   steps = [],
   provider,
@@ -164,9 +167,17 @@ export const AgentView = ({
     <main className="flex h-full min-h-0 flex-col bg-surface-chat">
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <header className="mb-3 flex min-w-0 items-start gap-2">
-          <span className="grid size-8 shrink-0 place-items-center rounded-control bg-app-primary-soft text-app-agent">
-            <Bot className="icon-sm" aria-hidden="true" />
-          </span>
+          {/*
+            The surface switch takes the slot a decorative bot avatar held.
+            The switch names this surface already, and the panel had a
+            full-width switcher row above it — two rows and a glyph all saying
+            "Agent" before anything said what the Agent was doing.
+          */}
+          {leading ?? (
+            <span className="grid size-8 shrink-0 place-items-center rounded-control bg-app-primary-soft text-app-agent">
+              <Bot className="icon-sm" aria-hidden="true" />
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <h1 className="font-semibold">{t("agent.title")}</h1>
             <p className="text-xs text-muted-foreground">

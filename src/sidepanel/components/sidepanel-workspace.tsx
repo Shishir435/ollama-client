@@ -1,8 +1,7 @@
-import { Bot, MessageCircle } from "lucide-react"
 import { lazy, Suspense, useState } from "react"
-import { useTranslation } from "react-i18next"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs } from "@/components/ui/tabs"
 import { Chat } from "@/features/chat/components/chat"
+import { SurfaceSwitch } from "./surface-switch"
 
 /**
  * The build constant is read inline, not through `AGENT_PREVIEW_ENABLED`: the
@@ -21,7 +20,6 @@ const AgentSurface =
     : undefined
 
 export const SidepanelWorkspace = () => {
-  const { t } = useTranslation()
   const [surface, setSurface] = useState<"chat" | "agent">("chat")
 
   if (!AgentSurface) return <Chat />
@@ -32,27 +30,19 @@ export const SidepanelWorkspace = () => {
         value={surface}
         onValueChange={(value) => setSurface(value as "chat" | "agent")}
         className="min-h-0 flex-1 gap-0">
-        <div className="shrink-0 border-b border-border/40 bg-background/90 px-2 py-1.5 backdrop-blur">
-          <TabsList className="grid h-7 w-full grid-cols-2">
-            <TabsTrigger value="chat">
-              <MessageCircle className="icon-xs" aria-hidden="true" />
-              {t("agent.surface.chat")}
-            </TabsTrigger>
-            <TabsTrigger value="agent">
-              <Bot className="icon-xs" aria-hidden="true" />
-              {t("agent.surface.agent")}
-              <span className="rounded-sm bg-app-primary-soft px-1 text-micro text-app-agent">
-                {t("agent.surface.preview")}
-              </span>
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        {/*
+          No bar of its own. The switch is handed to whichever surface is
+          showing and rendered in that surface's own header row, because a
+          full-width row for a two-item toggle is forty pixels of a
+          four-hundred-pixel panel and it put the mode a person is in one row
+          away from the state that mode is in.
+        */}
         <div className="min-h-0 flex-1">
           {surface === "chat" ? (
-            <Chat embedded />
+            <Chat embedded leading={<SurfaceSwitch />} />
           ) : (
             <Suspense fallback={null}>
-              <AgentSurface />
+              <AgentSurface leading={<SurfaceSwitch />} />
             </Suspense>
           )}
         </div>
