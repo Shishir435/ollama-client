@@ -48,12 +48,36 @@ export const SessionInstructionsField = () => {
 
   return (
     <section className="space-y-1 px-2.5" aria-labelledby="chat-instructions">
-      <h3
-        id="chat-instructions"
-        className="flex items-center gap-2 font-medium text-xs">
-        <ScrollText className="icon-sm text-muted-foreground" />
-        {t("chat.system_prompt.title")}
-      </h3>
+      {/*
+        The actions ride on the heading rather than under the field: two short
+        words were spending a whole row of a dense sheet, and a heading line
+        already reserves the space beside its own text.
+      */}
+      <div className="flex min-w-0 items-center gap-2">
+        <h3
+          id="chat-instructions"
+          className="flex min-w-0 items-center gap-2 font-medium text-xs">
+          <ScrollText className="icon-sm shrink-0 text-muted-foreground" />
+          <span className="truncate">{t("chat.system_prompt.title")}</span>
+        </h3>
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-2xs"
+            onClick={() => write("")}
+            disabled={saving || (!hasPrompt && draft.trim().length === 0)}>
+            {t("chat.system_prompt.clear")}
+          </Button>
+          <Button
+            size="sm"
+            className="h-6 px-2 text-2xs"
+            disabled={saving || !dirty}
+            onClick={() => write(draft)}>
+            {t("chat.system_prompt.save")}
+          </Button>
+        </div>
+      </div>
       <p className="text-2xs text-muted-foreground">
         {t("chat.system_prompt.description")}
       </p>
@@ -63,21 +87,6 @@ export const SessionInstructionsField = () => {
         rows={2}
         placeholder={t("chat.system_prompt.placeholder")}
       />
-      <div className="flex justify-end gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => write("")}
-          disabled={saving || (!hasPrompt && draft.trim().length === 0)}>
-          {t("chat.system_prompt.clear")}
-        </Button>
-        <Button
-          size="sm"
-          disabled={saving || !dirty}
-          onClick={() => write(draft)}>
-          {t("chat.system_prompt.save")}
-        </Button>
-      </div>
     </section>
   )
 }

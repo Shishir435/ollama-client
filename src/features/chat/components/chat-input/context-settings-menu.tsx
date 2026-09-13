@@ -191,7 +191,7 @@ export const ContextSettingsMenu = ({
               a second border on the panel; the platform scrollbar shows itself
               while scrolling and gets out of the way afterwards.
             */}
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5">
               <PermissionsPanel compact />
             </div>
           </ContextSubView>

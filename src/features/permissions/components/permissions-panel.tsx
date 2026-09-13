@@ -277,9 +277,25 @@ export const PermissionsPanel = ({
     setPermissionRefreshKey((value) => value + 1)
   }, [])
 
+  /*
+   * Compact drops the card's own surface and side padding. These composites
+   * are built for the ~900px options page, so inside a ~400px sheet their
+   * ring and px-4 stack on top of the sheet's own inset and push every row a
+   * few pixels further in than the rows above them — one list, two left
+   * edges. Flush here, so the sheet keeps a single content edge.
+   */
+  const cardProps = compact
+    ? {
+        className: "gap-2 bg-transparent py-0 ring-0",
+        headerClassName: "px-0 pb-2",
+        contentClassName: "space-y-3 px-0"
+      }
+    : {}
+
   return (
-    <div className="grid gap-4">
+    <div className={compact ? "grid gap-3" : "grid gap-4"}>
       <SettingsCard
+        {...cardProps}
         focusId="permissions"
         icon={Lock}
         title={t("settings.permissions.optional.title")}
