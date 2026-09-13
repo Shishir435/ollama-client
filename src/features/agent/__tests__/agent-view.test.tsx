@@ -27,6 +27,17 @@ const run = (status: AgentRunState["status"]): AgentRunState => ({
 })
 
 describe("AgentView", () => {
+  it("shows the phase in the log while no step names the action", () => {
+    /*
+     * A step joins the log only once it has a receipt, so observing and
+     * deciding left the panel a title above a screen of nothing at the one
+     * moment a person watches it hardest.
+     */
+    render(<AgentView run={run("deciding")} steps={[]} />)
+
+    expect(screen.getAllByText("agent.status.deciding")).toHaveLength(2)
+  })
+
   it("takes the caret when the surface appears", () => {
     /*
      * Switching surfaces mounts this panel fresh, and a person who came here

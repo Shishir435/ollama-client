@@ -10,9 +10,22 @@ const iconFor = (status: AgentWorkLogItem["status"]) => {
   return CircleDashed
 }
 
-export const AgentWorkLog = ({ items }: { items: AgentWorkLogItem[] }) => {
+export const AgentWorkLog = ({
+  items,
+  live
+}: {
+  items: AgentWorkLogItem[]
+  /**
+   * What the run is doing right now, shown as the log's last row.
+   *
+   * A step joins the log only once it has a receipt, so a run that is
+   * observing or deciding had nothing to show: the panel was a title above a
+   * screen of nothing, at the one moment a person is watching it hardest.
+   */
+  live?: string
+}) => {
   const { t } = useTranslation()
-  if (items.length === 0) return null
+  if (items.length === 0 && !live) return null
 
   return (
     <section className="min-w-0" aria-labelledby="agent-work-log-title">
@@ -40,7 +53,7 @@ export const AgentWorkLog = ({ items }: { items: AgentWorkLogItem[] }) => {
                   aria-hidden="true"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-xs">
+                  <p className="wrap-break-word text-xs">
                     {t(item.label.key, item.label.values)}
                   </p>
                   {/*
@@ -48,7 +61,7 @@ export const AgentWorkLog = ({ items }: { items: AgentWorkLogItem[] }) => {
                     words rather than as part of the sentence above it.
                   */}
                   {item.target && (
-                    <p className="mt-0.5 break-words text-2xs text-muted-foreground">
+                    <p className="mt-0.5 wrap-break-word text-2xs text-muted-foreground">
                       {t("agent.work_log.target", { name: item.target })}
                     </p>
                   )}
@@ -58,12 +71,12 @@ export const AgentWorkLog = ({ items }: { items: AgentWorkLogItem[] }) => {
                     ever shown.
                   */}
                   {item.note && (
-                    <p className="mt-1 break-words border-l-2 border-border pl-2 text-2xs text-muted-foreground">
+                    <p className="mt-1 wrap-break-word border-l-2 border-border pl-2 text-2xs text-muted-foreground">
                       {item.note}
                     </p>
                   )}
                   {item.detail && (
-                    <p className="mt-0.5 break-words text-2xs text-muted-foreground">
+                    <p className="mt-0.5 wrap-break-word text-2xs text-muted-foreground">
                       {item.detail}
                     </p>
                   )}
@@ -75,6 +88,15 @@ export const AgentWorkLog = ({ items }: { items: AgentWorkLogItem[] }) => {
             </li>
           )
         })}
+        {live && (
+          <li className="flex min-w-0 items-start gap-2 rounded-control border border-app-agent/30 bg-app-primary-soft/30 px-2 py-1.5">
+            <span
+              className="mt-1 size-1.5 shrink-0 animate-pulse rounded-full bg-app-agent"
+              aria-hidden="true"
+            />
+            <p className="min-w-0 flex-1 wrap-break-word text-xs">{live}</p>
+          </li>
+        )}
       </ol>
     </section>
   )

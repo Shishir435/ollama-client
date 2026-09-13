@@ -28,14 +28,14 @@ export const AgentApprovalCard = ({
   return (
     <section className="mb-3 rounded-panel border border-status-warning/40 bg-status-warning/10 p-2.5 text-xs">
       <h2 className="font-medium">{t("agent.approval.title")}</h2>
-      <p className="mt-1 break-words">
+      <p className="mt-1 wrap-break-word">
         {agentPlainText(request.action, AGENT_PAGE_TEXT_LIMIT)}
       </p>
-      <p className="mt-1 break-words text-muted-foreground">
+      <p className="mt-1 wrap-break-word text-muted-foreground">
         {agentPlainText(request.consequence, AGENT_PAGE_TEXT_LIMIT)}
       </p>
       {request.pageEvidence && (
-        <p className="mt-1 max-h-12 overflow-hidden break-words rounded-control bg-background/70 px-2 py-1">
+        <p className="mt-1 max-h-12 overflow-hidden wrap-break-word rounded-control bg-background/70 px-2 py-1">
           {agentPlainText(request.pageEvidence, AGENT_PAGE_TEXT_LIMIT)}
         </p>
       )}

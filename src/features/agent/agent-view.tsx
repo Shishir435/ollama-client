@@ -119,6 +119,47 @@ const pauseNoticeFor = (reason?: AgentRunState["pauseReason"]) => {
   return undefined
 }
 
+/**
+ * The phase, shown as the work log's last row while no step names the action.
+ *
+ * An open step is already a row of its own, so repeating it here would say the
+ * same thing three times over — header, live row, log row. What this covers is
+ * observing and deciding, which have no receipt yet and left the panel a title
+ * above a screen of nothing at the one moment a person watches it hardest.
+ */
+const liveStatusRow = ({
+  run,
+  settled,
+  named,
+  t
+}: {
+  run?: AgentRunState | null
+  settled: boolean
+  named: boolean
+  t: (key: string) => string
+}): string | undefined =>
+  run && !settled && !named ? t(`agent.status.${run.status}`) : undefined
+
+/**
+ * How far into its budget a run is.
+ *
+ * The count says one of fifty; the bar says what that looks like. A
+ * supervisor wants to know whether a run is early or about to be cut off, and
+ * reading two numbers to work that out is arithmetic a shape does for free.
+ */
+const AgentProgressBar = ({ used }: { used: number }) => (
+  <div
+    className="mb-3 h-1 overflow-hidden rounded-full bg-muted"
+    aria-hidden="true">
+    <div
+      className="h-full rounded-full bg-app-agent transition-[width] duration-500"
+      style={{
+        width: `${Math.min(100, Math.round((used / MAX_AGENT_OBSERVATIONS) * 100))}%`
+      }}
+    />
+  </div>
+)
+
 export const AgentView = ({
   leading,
   run = null,
@@ -159,6 +200,12 @@ export const AgentView = ({
   const pauseNotice = pauseNoticeFor(run?.pauseReason)
   const startable = !run || settled
   const currentAction = currentAgentAction(steps)
+  const liveRow = liveStatusRow({
+    run,
+    settled,
+    named: Boolean(currentAction),
+    t
+  })
   const canStart =
     Boolean(onStart && provider && tab && goal.trim()) &&
     !remoteNeedsAcknowledgement &&
@@ -197,6 +244,14 @@ export const AgentView = ({
             </span>
           )}
         </header>
+
+        {/*
+          The count says one of fifty; the bar says what that looks like. A
+          supervisor watching a run wants to know whether it is early or about
+          to be cut off, and reading two numbers to work that out is the kind
+          of arithmetic a shape does for free.
+        */}
+        {run && !settled && <AgentProgressBar used={run.observationCount} />}
 
         <AgentRunDetailsCard provider={provider} run={run} tab={tab} />
 
@@ -336,7 +391,7 @@ export const AgentView = ({
           </section>
         )}
 
-        <AgentWorkLog items={toAgentWorkLog(steps)} />
+        <AgentWorkLog items={toAgentWorkLog(steps)} live={liveRow} />
         {run && onExport && (
           <Button type="button" variant="outline" size="sm" onClick={onExport}>
             {t("agent.export_report")}
