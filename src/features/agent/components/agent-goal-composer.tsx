@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
 import { ComposerShell } from "@/components/layout/composer-shell"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/class-names"
 
 /**
  * Where a run is written, in the same shell the chat composer uses.
@@ -42,8 +43,12 @@ export const AgentGoalComposer = ({
   if (!startable) {
     if (!controls) return null
     return (
+      /* Same pill the composer's row sits in, so the controls do not move
+         or change shape when a run starts. */
       <div className="shrink-0 px-2 pb-2">
-        <div className="flex min-w-0 items-center gap-0.5">{controls}</div>
+        <div className="flex min-w-0 items-center gap-0.5 rounded-control bg-background/85 p-1">
+          {controls}
+        </div>
       </div>
     )
   }
@@ -60,7 +65,19 @@ export const AgentGoalComposer = ({
           onChange={(event) => onGoalChange(event.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          className="min-h-16 resize-none border-0 bg-transparent pr-10 shadow-none focus-visible:ring-0"
+          /*
+            The chat composer's own metrics. Its toolbar is absolutely placed
+            over the foot of the field and the field reserves the space with
+            `pb-14`, so the box is as tall as one text row plus the controls.
+            Stacking the row underneath instead made this composer visibly
+            taller than the one it sits beside on the other surface.
+          */
+          className={cn(
+            "max-h-75 min-h-11 w-full resize-none border-0 bg-transparent",
+            "pt-3 pr-14 pb-14 pl-4 text-sm leading-relaxed scrollbar-none",
+            "focus-visible:ring-0 focus-visible:ring-offset-0",
+            "placeholder:text-muted-foreground/70"
+          )}
         />
         {/*
           The same send control the chat composer has, in the same corner: one
@@ -78,7 +95,9 @@ export const AgentGoalComposer = ({
             icon={<SendHorizontal size={16} />}
           />
         </div>
-        <div className="flex min-w-0 items-center gap-0.5 p-1">{controls}</div>
+        <div className="absolute right-1 bottom-1 left-1 flex min-w-0 items-center gap-0.5 rounded-control bg-background/85 p-1 backdrop-blur">
+          {controls}
+        </div>
       </ComposerShell>
     </div>
   )
