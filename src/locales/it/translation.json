@@ -648,7 +648,6 @@
       "empty": "Nessun contenuto dell'artefatto"
     },
     "system_prompt": {
-      "button": "Istruzioni chat",
       "title": "Istruzioni chat",
       "description": "Un prompt di sistema solo per questa chat. Sostituisce il prompt predefinito del modello.",
       "placeholder": "es. Sei un assistente conciso che risponde con elenchi puntati.",

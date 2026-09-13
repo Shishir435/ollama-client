@@ -20,7 +20,6 @@ import type { FileProcessingState } from "@/lib/file-processors/types"
 import type { ImageAttachment } from "@/types"
 import { CopyButton } from "../copy-button"
 import { PreviewTextBlock } from "../preview-sheet"
-import { SessionSystemPromptButton } from "../session-system-prompt-button"
 import { AttachmentList } from "./attachment-list"
 import { ContextMainView } from "./context-main-view"
 import { ContextSubView } from "./context-sub-view"
@@ -146,12 +145,6 @@ export const ContextSettingsMenu = ({
             <SheetTitle className="flex items-center gap-2">
               <Layers className="icon-sm" />
               {t("tabs.context")}
-              {/* The chat instruction is context the model receives, so it
-                  belongs with the rest of what a message carries rather than
-                  among the header's status glyphs. */}
-              <span className="ml-auto">
-                <SessionSystemPromptButton />
-              </span>
             </SheetTitle>
             {/* The summary used to be a bordered card at the top of the main
                 view, spending a full boxed row plus its own uppercase label on

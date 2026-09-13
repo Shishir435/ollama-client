@@ -648,7 +648,6 @@
       "empty": "Aucun contenu d'artefact"
     },
     "system_prompt": {
-      "button": "Instructions du chat",
       "title": "Instructions du chat",
       "description": "Un prompt système pour ce chat uniquement. Il remplace le prompt par défaut du modèle.",
       "placeholder": "ex. Tu es un assistant concis qui répond par points.",

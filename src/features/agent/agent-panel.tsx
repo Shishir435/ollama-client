@@ -62,7 +62,6 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
           leading={
             leading && (
               <>
-                {leading}
                 {/*
                  * The model a run will use, changeable from the surface that
                  * runs it. The panel stated it read-only, so picking another
@@ -80,6 +79,13 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
                  * — was the one place it could not be set.
                  */}
                 <ReasoningEffortMenu />
+                {/*
+                 * Last in the row, beside the effort control: the two panel
+                 * controls sit together at the end, the way the chat composer
+                 * keeps its toggle next to settings, rather than the switch
+                 * leading a row of run controls.
+                 */}
+                {leading}
               </>
             )
           }

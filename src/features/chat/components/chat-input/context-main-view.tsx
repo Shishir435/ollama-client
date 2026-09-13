@@ -16,6 +16,7 @@ import {
 } from "@/components/layout"
 import type { ContextToggleAction } from "@/features/chat/hooks/use-context-settings"
 import { FileUploadButton } from "@/features/file-upload/components/file-upload-button"
+import { SessionInstructionsField } from "./session-instructions-field"
 
 interface ContextMainViewProps {
   toggleActions: ContextToggleAction[]
@@ -155,6 +156,12 @@ export const ContextMainView = ({
       {/* Its own group behind a rule. Sharing the toggle stack made it read as a
           switch that never turned on, when it opens another sheet — hence the
           chevron, which is the sheet's only navigation affordance. */}
+      {/* Written here rather than behind a glyph in the header: it is part of
+          what the next message carries, like everything else in this sheet. */}
+      <div className="shrink-0 border-t border-border/40 pt-2">
+        <SessionInstructionsField />
+      </div>
+
       <div className="shrink-0 border-t border-border/40 pt-1.5">
         <ListRowButton
           className="text-muted-foreground"
