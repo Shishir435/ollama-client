@@ -542,6 +542,15 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   times over as "Planned", "Approved", "Running" and "Review". History and the
   completion judge collapse receipts to the latest per step for the same
   reason; the log is the one place a person reads them.
+- **Every bound that has to agree with the step budget reads it.** Three
+  literals were written when the ceiling was twenty-five and none moved with
+  it: the snapshot's step cap, the row bound in `agent-runs.ts`, and the
+  docs. The row bound was the worst of them — `appendAgentStep` threw at step
+  26, so the raise to fifty bought nothing and the failure read "Agent run
+  exceeds its 25-step limit", which is a persistence error wearing a budget's
+  words. `MAX_AGENT_STEPS` now sits above `MAX_AGENT_OBSERVATIONS` rather than
+  on it, because the run must end by running out of steps, with the reason the
+  panel can explain, never because an INSERT refused.
 - **The snapshot carries one receipt per step, and its bound is the budget.**
   `latestReceiptPerStep` collapses at the panel port, so the array is bounded
   by the step ceiling itself. It was every receipt against a flat cap of 125 —
