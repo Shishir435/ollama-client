@@ -147,6 +147,18 @@ Differs sharply by server, so check before assuming a field exists.
 #### Vendor marks and favicons
 
 - **Vendor marks are display-only.** `provider-brand.ts` resolves a `ProviderBrandId` from built-in id, then base-URL host, then service profile, then display name; `mergeProviderModels` stamps it on every model row as `providerBrand`. Host beats profile, or every OpenAI-compatible provider would wear OpenAI's mark. An unrecognized provider gets no brand and falls back to the registry glyph. Never guess one, and never derive routing or capabilities from it.
+- **A model id may name its own vendor, and that beats the provider's mark on
+  a model row.** `resolveModelBrand` reads the segment before the first slash
+  against a closed table — an OpenRouter-style `anthropic/claude-3`, an olc
+  proxy's `codex/gpt-5.6-luna` — which is the catalog's own word for where the
+  model comes from rather than an inference from one, and is what separates
+  reading it from guessing. It is display-only like every other mark. Across
+  providers the provider's mark is what tells two same-named models apart and
+  still takes the slot; inside one provider that mark is identical on every
+  row and says nothing, which is how five models under one heading came to
+  wear five identical generic glyphs while each id had named its vendor in
+  plain text above them. A segment with no mark of its own — `opencode`, a
+  user's own namespace — resolves to nothing and keeps the generic icon.
 - Marks are inline monochrome SVG in `src/components/icons/provider-brand-icons.tsx` (from MIT-licensed `@lobehub/icons`), rendered through `<ProviderIcon>`, not imported directly.
 - **Favicons are the tier below**, for unrecognized *remote* providers only (`provider-favicon.ts`, served by `providers.icons`). Rules, all load-bearing:
   - The configured base URL is asked first. Its parent site is asked **only** after a settled "nothing here" (401/403/404/410, or a 200 carrying non-image bytes — a gateway guards `/favicon.ico` behind its key like every other path). Timeouts and 5xx are never chased.

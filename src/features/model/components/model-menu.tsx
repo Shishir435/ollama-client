@@ -3,6 +3,7 @@ import {
   Check,
   ChevronDown,
   Layers3,
+  type LucideIcon,
   RotateCcw,
   Search,
   Settings
@@ -32,6 +33,10 @@ import { cn } from "@/lib/class-names"
 import { DEFAULT_PROVIDER_ID } from "@/lib/constants"
 import { logger } from "@/lib/logger"
 import { getModelCapabilities } from "@/lib/providers/capabilities"
+import {
+  type ProviderBrandId,
+  resolveModelBrand
+} from "@/lib/providers/provider-brand"
 import { getProviderDisplayName } from "@/lib/providers/registry"
 import { extensionRpcClient } from "@/protocol/extension-client"
 import {
@@ -42,6 +47,56 @@ import {
 } from "../lib/model-utils"
 import { ModelCapabilityBadges } from "./model-capabilities/capability-badges"
 import { ModelCapabilitySheet } from "./model-capabilities/capability-sheet"
+
+/**
+ * The glyph for one model row.
+ *
+ * Across every provider the provider's mark is what tells two same-named
+ * models apart, so it takes the slot. Inside a single provider that mark is
+ * identical on every row and says nothing, so the model's own vendor takes it
+ * instead where its id names one — five models under one heading wore five
+ * identical generic glyphs while each id had stated its vendor in plain text
+ * above them the whole time. A namespace with no mark of its own keeps the
+ * generic icon rather than borrowing somebody's logo.
+ */
+const ModelRowIcon = ({
+  scoped,
+  providerId,
+  providerBrand,
+  providerName,
+  providerIconUrl,
+  modelBrand,
+  FallbackIcon
+}: {
+  scoped: boolean
+  providerId: string
+  providerBrand?: string
+  providerName?: string
+  providerIconUrl?: string
+  modelBrand?: ProviderBrandId
+  FallbackIcon: LucideIcon
+}) => {
+  if (!scoped) {
+    return (
+      <ProviderIcon
+        providerId={providerId}
+        brand={providerBrand}
+        fallbackName={providerName}
+        iconUrl={providerIconUrl}
+        className="icon-sm text-muted-foreground"
+      />
+    )
+  }
+  if (modelBrand) {
+    return (
+      <ProviderIcon
+        brand={modelBrand}
+        className="icon-sm text-muted-foreground"
+      />
+    )
+  }
+  return <FallbackIcon className="icon-sm text-muted-foreground" />
+}
 
 export interface ModelMenuProps {
   trigger?: React.ReactNode
@@ -455,6 +510,7 @@ export const ModelMenu = ({
                     }
                     itemContent={(_index, model) => {
                       const providerId = model.providerId || DEFAULT_PROVIDER_ID
+                      const modelBrand = resolveModelBrand(model.name)
                       const ModelIcon = getModelIcon(model.name)
                       const caps = resolve(
                         model,
@@ -481,17 +537,15 @@ export const ModelMenu = ({
                                  * the provider is what tells two same-named
                                  * models apart, so its mark takes the slot.
                                  */}
-                                {activeProviderId === null ? (
-                                  <ProviderIcon
-                                    providerId={providerId}
-                                    brand={model.providerBrand}
-                                    fallbackName={model.providerName}
-                                    iconUrl={providerIcons[providerId]}
-                                    className="icon-sm text-muted-foreground"
-                                  />
-                                ) : (
-                                  <ModelIcon className="icon-sm text-muted-foreground" />
-                                )}
+                                <ModelRowIcon
+                                  scoped={activeProviderId !== null}
+                                  providerId={providerId}
+                                  providerBrand={model.providerBrand}
+                                  providerName={model.providerName}
+                                  providerIconUrl={providerIcons[providerId]}
+                                  modelBrand={modelBrand}
+                                  FallbackIcon={ModelIcon}
+                                />
                               </div>
                             }
                             description={
