@@ -1178,7 +1178,7 @@ What these files are *now*, so you neither go looking for a god-object that was 
 
 **Do not restructure incrementally:**
 
-- `src/features/chat/hooks/use-chat-turn-controller.ts` — owns UI submission preconditions, session/message preparation, and durable turn command construction. Boundary cleanup is tracked in `RELEASE_ROADMAP.md`. Keep `use-chat.ts` as wiring only.
+- `src/features/chat/hooks/use-chat-turn-controller.ts` — owns UI submission preconditions, session/message preparation, and durable turn command construction. Its boundaries are settled in the from-scratch rebuild, not by incremental extraction here. Keep `use-chat.ts` as wiring only.
 
 **Open for incremental work:**
 

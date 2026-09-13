@@ -20,7 +20,7 @@ import { compactTerminalTurnRequests } from "@/lib/sqlite/migrations/compact-ter
 import { asMigrationDatabase } from "@/lib/sqlite/migrations/database"
 
 /**
- * Retention smoke for `turn_runs` (RELEASE_ROADMAP H4).
+ * Retention smoke for `turn_runs`.
  *
  * Runs the real engine and real SQL rather than asserting statement strings,
  * because the claim being defended is about bytes on disk: a settled turn must
