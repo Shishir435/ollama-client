@@ -105,7 +105,7 @@ export function MessageSourcesSheet({
                     />
                   </div>
                 )}
-                <Accordion className="divide-y divide-border/30 overflow-hidden rounded-control border border-border/40">
+                <Accordion className="divide-y divide-border-subtle overflow-hidden rounded-control border border-border">
                   {section.items.map((item) => {
                     const value = getItemValue(item)
                     const meta = renderMetadata(item)
@@ -113,7 +113,7 @@ export function MessageSourcesSheet({
                       <AccordionItem
                         key={value}
                         value={value}
-                        className="relative rounded-none border-0 bg-transparent data-open:bg-muted/20">
+                        className="relative rounded-none border-0 bg-transparent data-open:bg-state-selected">
                         <AccordionTrigger className="min-w-0 px-2.5 py-2 pr-14 text-xs font-medium hover:no-underline">
                           <div className="flex min-w-0 flex-1 overflow-hidden flex-col gap-0.5">
                             {meta && metadataPosition === "before-title" && (

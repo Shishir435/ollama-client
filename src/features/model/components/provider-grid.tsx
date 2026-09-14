@@ -129,7 +129,7 @@ export const ProviderGrid = ({
                     <MiniBadge text={t("settings.providers.beta_badge")} />
                     <TooltipActionButton
                       trigger={
-                        <span className="inline-flex text-muted-foreground/60 transition-colors hover:text-foreground" />
+                        <span className="inline-flex text-foreground-tertiary transition-colors hover:text-foreground" />
                       }
                       icon={Info}
                       iconClassName="icon-xs"

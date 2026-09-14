@@ -370,7 +370,7 @@ export const ReasoningTrace = ({
 
   return (
     <section className="mb-2 flex max-w-full flex-col gap-1 text-xs">
-      <div className="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-chip bg-background/35 px-1 py-0.5">
+      <div className="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-chip bg-surface-sunken px-1 py-0.5">
         <div className="flex shrink-0 items-center gap-0.5">
           <span className="sr-only">{t("chat.reasoning.aria_label")}</span>
           {steps.map((step) => {
@@ -383,7 +383,7 @@ export const ReasoningTrace = ({
                 trigger={
                   <span
                     className={cn(
-                      "inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-muted/45",
+                      "inline-flex size-7 items-center justify-center rounded-control transition-colors hover:bg-state-hover",
                       statusClass(step.status)
                     )}
                   />
@@ -423,7 +423,7 @@ export const ReasoningTrace = ({
             type="button"
             onClick={toggleDetails}
             aria-expanded={detailsOpen}
-            className="inline-flex h-7 shrink-0 items-center gap-0.5 whitespace-nowrap rounded-control px-1.5 text-2xs text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground">
+            className="inline-flex h-7 shrink-0 items-center gap-0.5 whitespace-nowrap rounded-control px-1.5 text-2xs text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground">
             <ListTree className="icon-sm" />
             {reasoningLabel}
             <ChevronDown
@@ -439,7 +439,7 @@ export const ReasoningTrace = ({
       {context.hasDetails && detailsOpen && (
         <div
           ref={reasoningBodyRef}
-          className="scroll-fade-y flex max-h-72 flex-col gap-2 overflow-y-auto rounded-panel border border-border/30 bg-background/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+          className="scroll-fade-y flex max-h-72 flex-col gap-2 overflow-y-auto rounded-panel border border-border-subtle bg-surface-sunken px-3 py-2 text-xs leading-relaxed text-muted-foreground">
           {context.activityEvents.length > 0 && (
             <ol className="flex flex-col gap-1.5">
               {context.activityEvents.map((event) => (
@@ -459,8 +459,8 @@ export const ReasoningTrace = ({
             </ol>
           )}
           {context.hasThinking && (
-            <details className="rounded-control border border-border/20 bg-background/45 px-2.5 py-2">
-              <summary className="cursor-pointer text-2xs font-medium text-muted-foreground/80">
+            <details className="rounded-control border border-border-subtle bg-surface-sunken px-2.5 py-2">
+              <summary className="cursor-pointer text-2xs font-medium text-foreground-tertiary">
                 {t("chat.reasoning.debug")}
               </summary>
               <ThinkingEvent content={message.thinking ?? ""} />

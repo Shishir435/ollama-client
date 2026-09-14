@@ -6,7 +6,7 @@ export const PromptTemplateVariableHelp = () => {
   const { t } = useTranslation()
 
   return (
-    <div className="rounded-control border border-border/35 bg-background/45 p-3">
+    <div className="rounded-control border border-border bg-surface-sunken p-3">
       <div className="mb-2 text-xs font-medium text-muted-foreground">
         {t("settings.prompts.variables.title")}
       </div>

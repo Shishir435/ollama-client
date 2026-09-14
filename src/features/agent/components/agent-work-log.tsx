@@ -40,7 +40,7 @@ export const AgentWorkLog = ({
           return (
             <li
               key={item.id}
-              className="min-w-0 overflow-hidden rounded-control border border-border/50 bg-background px-2 py-1.5">
+              className="min-w-0 overflow-hidden rounded-control border border-border bg-background px-2 py-1.5">
               <div className="flex min-w-0 items-start gap-2">
                 <Icon
                   className={cn(

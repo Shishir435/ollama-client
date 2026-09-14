@@ -12,7 +12,7 @@ import type { ChatArtifact } from "@/lib/artifacts"
 import { createChatArtifactFromCodeBlock } from "@/lib/artifacts"
 
 const codeActionButtonClass =
-  "inline-flex items-center justify-center rounded border border-border/50 bg-background/90 p-1 text-muted-foreground shadow-xs backdrop-blur hover:text-foreground"
+  "inline-flex items-center justify-center rounded border border-border bg-surface-overlay p-1 text-muted-foreground shadow-xs backdrop-blur hover:text-foreground"
 
 /**
  * Inline Lucide icon paths (the markdown toolbar is built with raw DOM, not

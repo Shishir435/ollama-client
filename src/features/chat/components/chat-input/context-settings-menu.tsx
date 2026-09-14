@@ -103,7 +103,7 @@ export const ContextSettingsMenu = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+                className="shrink-0 rounded-control text-muted-foreground hover:bg-state-hover hover:text-foreground"
                 aria-label={t("tabs.context")}
               />
             }
@@ -168,7 +168,7 @@ export const ContextSettingsMenu = ({
                 {previewContent && <CopyButton text={previewContent} />}
               </>
             }>
-            <ScrollArea className="min-h-0 flex-1 rounded-control border border-border/35 bg-background/35">
+            <ScrollArea className="min-h-0 flex-1 rounded-control border border-border bg-surface-sunken">
               <PreviewTextBlock
                 text={previewContent || ""}
                 emptyText={t("tabs.inspector.no_content")}

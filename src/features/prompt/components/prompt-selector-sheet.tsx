@@ -123,7 +123,7 @@ export function PromptSelectorSheet({
         count: filteredTemplates.length
       })}
       className="w-[min(34rem,calc(100vw-1rem))]">
-      <div className="grid shrink-0 gap-2 border-b border-border/35 p-3">
+      <div className="grid shrink-0 gap-2 border-b border-border p-3">
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
             <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2 icon-sm text-muted-foreground" />
@@ -180,8 +180,8 @@ export function PromptSelectorSheet({
       <ScrollArea hideScrollbar className="min-h-0 flex-1 overflow-x-hidden">
         <div className="grid gap-2 p-3">
           {filteredTemplates.length === 0 && (
-            <div className="grid justify-items-center gap-2 rounded-panel border border-border/35 bg-background/35 p-8 text-center">
-              <Search className="icon-3xl text-muted-foreground/50" />
+            <div className="grid justify-items-center gap-2 rounded-panel border border-border bg-surface-sunken p-8 text-center">
+              <Search className="icon-3xl text-foreground-tertiary" />
               <h3 className="text-sm font-semibold">
                 {t("prompts.selector.no_templates_title")}
               </h3>
@@ -210,7 +210,7 @@ export function PromptSelectorSheet({
               <div
                 key={template.id}
                 className={cn(
-                  "rounded-panel border border-border/35 bg-background/35",
+                  "rounded-panel border border-border bg-surface-sunken",
                   isPreviewed && "border-primary/40"
                 )}>
                 <button
@@ -240,11 +240,11 @@ export function PromptSelectorSheet({
                       {template.description}
                     </span>
                   )}
-                  <span className="line-clamp-2 text-xs text-muted-foreground/80">
+                  <span className="line-clamp-2 text-xs text-foreground-tertiary">
                     {previewPrompt(template)}
                   </span>
                 </button>
-                <div className="flex items-center justify-between border-t border-border/35 px-3 py-2">
+                <div className="flex items-center justify-between border-t border-border px-3 py-2">
                   <div className="flex min-w-0 flex-wrap gap-1">
                     {template.tags?.slice(0, 3).map((tag) => (
                       <Badge
@@ -278,7 +278,7 @@ export function PromptSelectorSheet({
                   </div>
                 </div>
                 {isPreviewed && (
-                  <div className="grid gap-3 border-t border-border/35 p-3">
+                  <div className="grid gap-3 border-t border-border p-3">
                     {template.systemPrompt && (
                       <PromptPreviewBlock
                         title={t("prompts.selector.preview_system_prompt")}
@@ -315,7 +315,7 @@ function PromptPreviewBlock({ title, text }: { title: string; text: string }) {
       <h4 className="mb-1 text-xs font-semibold text-muted-foreground">
         {title}
       </h4>
-      <div className="max-h-48 overflow-y-auto overflow-x-hidden rounded-control border border-border/35 bg-background/45 p-2 text-xs leading-relaxed text-muted-foreground">
+      <div className="max-h-48 overflow-y-auto overflow-x-hidden rounded-control border border-border bg-surface-sunken p-2 text-xs leading-relaxed text-muted-foreground">
         {text}
       </div>
     </div>

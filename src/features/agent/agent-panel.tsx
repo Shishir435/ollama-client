@@ -49,7 +49,7 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
       {connection.failure && (
         <div
           role="alert"
-          className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs">
+          className="shrink-0 border-b border-destructive/30 bg-tint-danger px-3 py-2 text-xs">
           <p>{t(connection.failure.messageKey)}</p>
           {connection.failure.detail && (
             <p className="mt-1 wrap-break-word font-mono text-micro text-muted-foreground">
@@ -84,7 +84,7 @@ export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
                   showText={false}
                   variant="ghost"
                   size="icon"
-                  className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+                  className="shrink-0 rounded-control text-muted-foreground hover:bg-state-hover hover:text-foreground"
                   iconClassName="icon-sm"
                 />
                 {/*

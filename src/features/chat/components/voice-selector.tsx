@@ -191,10 +191,10 @@ export const VoiceSelector = ({
                           }}
                           className={cn(
                             "group mx-1 flex items-center gap-3 rounded-control p-3 cursor-pointer transition-all",
-                            "aria-selected:bg-accent/50",
+                            "aria-selected:bg-state-selected",
                             isSelected
                               ? "bg-accent text-accent-foreground shadow-xs"
-                              : "hover:bg-accent/50"
+                              : "hover:bg-state-hover"
                           )}>
                           <div className="flex flex-1 items-center justify-between gap-3 min-w-0">
                             <div className="flex flex-col min-w-0">

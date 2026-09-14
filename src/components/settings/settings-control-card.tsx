@@ -55,7 +55,7 @@ export const SettingsControlCard = ({
       data-settings-focus="true"
       data-settings-focus-id={id}
       className={cn(
-        "flex-row items-center justify-between hover:bg-accent/20 focus-within:ring-ring/30",
+        "flex-row items-center justify-between hover:bg-accent/20 focus-within:ring-focus",
         isDeepLinkHighlighted &&
           "ring-2 ring-primary ring-offset-2 ring-offset-background",
         className

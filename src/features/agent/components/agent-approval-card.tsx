@@ -26,7 +26,7 @@ export const AgentApprovalCard = ({
   const grantable = Boolean(request.origin && request.grantable?.length)
 
   return (
-    <section className="mb-3 rounded-panel border border-status-warning/40 bg-status-warning/10 p-2.5 text-xs">
+    <section className="mb-3 rounded-panel border border-status-warning/40 bg-tint-warning p-2.5 text-xs">
       <h2 className="font-medium">{t("agent.approval.title")}</h2>
       <p className="mt-1 wrap-break-word">
         {agentPlainText(request.action, AGENT_PAGE_TEXT_LIMIT)}
@@ -35,7 +35,7 @@ export const AgentApprovalCard = ({
         {agentPlainText(request.consequence, AGENT_PAGE_TEXT_LIMIT)}
       </p>
       {request.pageEvidence && (
-        <p className="mt-1 max-h-12 overflow-hidden wrap-break-word rounded-control bg-background/70 px-2 py-1">
+        <p className="mt-1 max-h-12 overflow-hidden wrap-break-word rounded-control bg-surface-sunken px-2 py-1">
           {agentPlainText(request.pageEvidence, AGENT_PAGE_TEXT_LIMIT)}
         </p>
       )}

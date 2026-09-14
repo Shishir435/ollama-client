@@ -235,9 +235,9 @@ const ContentExtractionSettingsForm = ({
                 type="button"
                 onClick={() => onValueChange(option.value)}
                 className={cn(
-                  "group relative flex items-start gap-3 h-auto w-full min-w-0 shrink p-4 text-left whitespace-normal transition-all hover:border-accent-foreground/20 hover:bg-accent/50",
+                  "group relative flex items-start gap-3 h-auto w-full min-w-0 shrink p-4 text-left whitespace-normal transition-all hover:border-accent-foreground/20 hover:bg-state-hover",
                   isSelected
-                    ? "border-primary bg-primary/10 text-primary ring-1 ring-primary"
+                    ? "border-primary bg-tint-accent text-primary ring-1 ring-primary"
                     : "border-border bg-accent/30 text-accent-foreground shadow-xs"
                 )}>
                 <span
@@ -245,7 +245,7 @@ const ContentExtractionSettingsForm = ({
                     "flex size-10 shrink-0 items-center justify-center rounded-control transition-colors",
                     isSelected
                       ? "bg-primary text-primary-foreground"
-                      : "bg-muted group-hover:bg-muted/80"
+                      : "bg-muted group-hover:bg-state-hover"
                   )}>
                   <Icon className="icon-lg" />
                 </span>

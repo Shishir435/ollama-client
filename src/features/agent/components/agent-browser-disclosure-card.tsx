@@ -30,7 +30,7 @@ export const AgentBrowserDisclosureCard = ({
   const limits = agentBrowserLimitKeys(browser)
 
   return (
-    <section className="mb-3 rounded-panel border border-border/50 bg-background/70 p-2.5 text-xs">
+    <section className="mb-3 rounded-panel border border-border bg-surface-sunken p-2.5 text-xs">
       <h2 className="font-medium">{t("agent.attachment.title")}</h2>
       <p className="mt-1 text-muted-foreground">
         {t(

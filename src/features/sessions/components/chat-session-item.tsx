@@ -115,7 +115,7 @@ export const ChatSessionItem = ({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-7 shrink-0 rounded-control transition-all duration-200 hover:bg-muted hover:text-foreground focus:bg-muted focus:text-foreground focus:opacity-100"
+            className="size-7 shrink-0 rounded-control transition-all duration-200 hover:bg-state-hover hover:text-foreground focus:bg-state-hover focus:text-foreground focus:opacity-100"
             onClick={() => togglePinSession(session.id)}
             ariaLabel={
               isPinned ? t("sessions.actions.unpin") : t("sessions.actions.pin")

@@ -221,7 +221,7 @@ export function WebSearchSourcesButton({
         return (
           <div className="space-y-2">
             {details.length > 0 && (
-              <p className="text-micro text-muted-foreground/75">
+              <p className="text-micro text-foreground-tertiary">
                 {details.join(" · ")}
               </p>
             )}

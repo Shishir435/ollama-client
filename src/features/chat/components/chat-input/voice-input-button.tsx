@@ -120,9 +120,9 @@ export const VoiceInputButton = ({ disabled }: VoiceInputButtonProps) => {
       variant="ghost"
       size="icon"
       className={cn(
-        "shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground",
+        "shrink-0 rounded-control text-muted-foreground hover:bg-state-hover hover:text-foreground",
         listening &&
-          "bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive"
+          "bg-tint-danger text-destructive hover:bg-tint-danger hover:text-destructive"
       )}
       onClick={handleClick}
       disabled={disabled || preparing}
@@ -137,7 +137,7 @@ export const VoiceInputButton = ({ disabled }: VoiceInputButtonProps) => {
           <span className="relative flex items-center justify-center">
             <span
               aria-hidden="true"
-              className="absolute inline-flex size-full animate-ping rounded-full bg-destructive/40"
+              className="absolute inline-flex size-full animate-ping rounded-full bg-tint-danger"
             />
             <Mic className="icon-sm relative" aria-hidden="true" />
           </span>

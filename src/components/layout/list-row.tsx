@@ -64,7 +64,7 @@ const TRAILING_INSET: Record<
 
 const SURFACE: Record<ListRowSurface, string> = {
   none: "",
-  outline: "border border-border/40"
+  outline: "border border-border"
 }
 
 /**
@@ -139,8 +139,8 @@ const listRowClass = ({
     TRAILING_INSET[inset][trailingKind],
     SURFACE[surface],
     (hoverable || active !== undefined) &&
-      "hover:bg-muted/35 hover:text-foreground",
-    active === true && "bg-muted/55 text-foreground",
+      "hover:bg-state-hover hover:text-foreground",
+    active === true && "bg-state-selected text-foreground",
     active === false && "text-muted-foreground"
   )
 

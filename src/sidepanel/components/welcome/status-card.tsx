@@ -105,7 +105,7 @@ export const StatusCard = () => {
                   size="sm"
                   variant="outline"
                   onClick={() => refresh()}
-                  className="border-destructive/40 text-destructive hover:bg-destructive/10">
+                  className="border-destructive/40 text-destructive hover:bg-tint-danger">
                   <RefreshCw className="mr-1 icon-xs" />
                   {t("common.actions.retry")}
                 </Button>

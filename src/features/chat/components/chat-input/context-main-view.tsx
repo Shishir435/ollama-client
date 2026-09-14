@@ -158,11 +158,11 @@ export const ContextMainView = ({
           chevron, which is the sheet's only navigation affordance. */}
       {/* Written here rather than behind a glyph in the header: it is part of
           what the next message carries, like everything else in this sheet. */}
-      <div className="shrink-0 border-t border-border/40 pt-1.5">
+      <div className="shrink-0 border-t border-border pt-1.5">
         <SessionInstructionsField />
       </div>
 
-      <div className="shrink-0 border-t border-border/40 pt-1.5">
+      <div className="shrink-0 border-t border-border pt-1.5">
         <ListRowButton
           className="text-muted-foreground"
           leading={<Lock className="icon-sm" />}

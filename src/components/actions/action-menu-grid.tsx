@@ -88,8 +88,8 @@ export function ActionMenuGrid({
                   className={cn(
                     "size-8 justify-center rounded-control",
                     action.destructive
-                      ? "text-destructive hover:bg-destructive/10"
-                      : "hover:bg-muted/60",
+                      ? "text-destructive hover:bg-tint-danger"
+                      : "hover:bg-state-hover",
                     action.className
                   )}
                 />

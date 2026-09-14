@@ -39,7 +39,7 @@ export const AgentRunDetailsCard = ({
     : 0
 
   return (
-    <section className="mb-3 grid min-w-0 gap-1.5 rounded-panel border border-border/50 bg-background/70 p-2.5 text-xs">
+    <section className="mb-3 grid min-w-0 gap-1.5 rounded-panel border border-border bg-surface-sunken p-2.5 text-xs">
       {/*
         The provider and the model are on the control row below, next to the
         picker that changes them, so stating them again here was the card

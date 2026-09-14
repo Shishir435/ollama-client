@@ -268,7 +268,7 @@ export const Chat = ({
             onNavigate={handleNavigateBranch}
           />
 
-          <div className="sticky bottom-0 z-10 w-full border-t border-border/30 bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
+          <div className="sticky bottom-0 z-10 w-full border-t border-border-subtle bg-surface-chat/95 pb-2 pt-3 backdrop-blur">
             <PendingToolConfirmation messages={messages} />
             <div className="mx-auto max-w-4xl px-2">
               <ChatInputBox

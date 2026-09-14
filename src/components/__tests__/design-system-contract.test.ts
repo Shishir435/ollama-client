@@ -111,6 +111,23 @@ const isWrappedIconButton = (node: ts.Node, source: ts.SourceFile): boolean => {
 }
 
 describe("design-system source contracts", () => {
+  it("uses named tokens for shared alpha states and surfaces", () => {
+    const handAuthoredSemanticAlpha =
+      /\b(?:hover:bg-(?:muted(?:\/(?:20|35|40|45|50|55|60|80))?|accent\/50)|(?:aria-expanded|aria-pressed|data-open|data-selected):bg-muted(?:\/(?:20|50))?|data-\[state=on\]:bg-muted|bg-(?:muted\/(?:5|15|20|25|30|40|50|55|60)|input\/20|background\/(?:35|40|45|50|60|70|80|85|90)|black\/80|warning\/10|status-(?:warning|info|success)\/10|primary\/(?:5|10|15)|destructive\/(?:10|15|20|30|40))|border-border\/(?:20|25|30|35|40|45|50|60|70|80)|text-muted-foreground\/(?:40|50|55|60|65|70|75|80)|(?:focus-visible|focus-within):ring-ring\/(?:30|40|50)|ring-foreground\/10|dark:(?:hover:)?bg-input\/(?:30|50))\b/
+    const offenders = sourceFiles.flatMap((path) => {
+      const text = readFileSync(path, "utf8")
+      return text
+        .split("\n")
+        .flatMap((line, index) =>
+          handAuthoredSemanticAlpha.test(line)
+            ? [`${relative(repoRoot, path)}:${index + 1}`]
+            : []
+        )
+    })
+
+    expect(offenders).toEqual([])
+  })
+
   it("uses named typography and radius tokens", () => {
     const offenders = sourceFiles.flatMap((path) => {
       const text = readFileSync(path, "utf8")

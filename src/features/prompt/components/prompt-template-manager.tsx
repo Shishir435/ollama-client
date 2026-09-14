@@ -231,11 +231,11 @@ export const PromptTemplateManager = () => {
           />
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <FileText className="mb-3 size-10 text-muted-foreground/40" />
+            <FileText className="mb-3 size-10 text-foreground-tertiary" />
             <p className="text-sm text-muted-foreground">
               {t("settings.prompts.empty_state.title")}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground/60">
+            <p className="mt-1 text-xs text-foreground-tertiary">
               {t("settings.prompts.empty_state.description")}
             </p>
           </div>
