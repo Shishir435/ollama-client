@@ -107,13 +107,13 @@ const pauseNoticeFor = (reason?: AgentRunState["pauseReason"]) => {
   if (reason === "unresolved_effect") {
     return {
       messageKey: "agent.unresolved",
-      className: "border-destructive/30 bg-destructive/10"
+      className: "border-destructive/30 bg-tint-danger"
     }
   }
   if (reason === "browser_disconnected") {
     return {
       messageKey: "agent.browser_disconnected",
-      className: "border-status-warning/40 bg-status-warning/10"
+      className: "border-status-warning/40 bg-tint-warning"
     }
   }
   return undefined
@@ -273,7 +273,7 @@ export const AgentView = ({
         */}
         {run && !settled && (
           <section
-            className="mb-3 rounded-panel border border-border/50 p-2.5"
+            className="mb-3 rounded-panel border border-border p-2.5"
             aria-labelledby="agent-running-goal-label">
             <h2
               id="agent-running-goal-label"
@@ -290,7 +290,7 @@ export const AgentView = ({
           /* The goal's own label lives on the composer that holds it; what
              is left here is the consent this run needs before it starts. */
           <section className="space-y-2">
-            <label className="flex items-start gap-2 rounded-panel border border-border/50 p-2.5 text-xs">
+            <label className="flex items-start gap-2 rounded-panel border border-border p-2.5 text-xs">
               <input
                 type="checkbox"
                 className="mt-0.5"
@@ -309,7 +309,7 @@ export const AgentView = ({
               </span>
             </label>
             {remoteNeedsAcknowledgement && (
-              <div className="rounded-panel border border-status-warning/40 bg-status-warning/10 p-2.5 text-xs">
+              <div className="rounded-panel border border-status-warning/40 bg-tint-warning p-2.5 text-xs">
                 <p>{t(remoteNoticeKey(provider))}</p>
                 <Button
                   type="button"

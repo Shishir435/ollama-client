@@ -107,9 +107,9 @@ const SourceIcon = ({
     className={cn(
       "mt-0.5 flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-control",
       meta.isWeb
-        ? "border border-border/50 bg-background"
+        ? "border border-border bg-background"
         : meta.isChatMessage
-          ? "bg-primary/10 text-primary"
+          ? "bg-tint-accent text-primary"
           : GROUP_META[group].chip
     )}>
     {meta.isWeb && item.url ? (
@@ -166,14 +166,14 @@ const SourceDetails = ({
           </span>
         )}
         {group !== "web" && (item.sectionPath || item.source) && (
-          <span className="block truncate text-nano text-muted-foreground/70">
+          <span className="block truncate text-nano text-foreground-tertiary">
             {[item.sectionPath, item.source !== "rag" ? item.source : null]
               .filter(Boolean)
               .join(" · ")}
           </span>
         )}
         {item.publishedAt && (
-          <span className="block text-nano text-muted-foreground/70">
+          <span className="block text-nano text-foreground-tertiary">
             {t("chat.sources.web_published", { date: item.publishedAt })}
           </span>
         )}
@@ -201,7 +201,7 @@ const SourceRowActions = ({
       type="button"
       onClick={onToggle}
       aria-expanded={expanded}
-      className="flex size-6 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/55 hover:text-foreground">
+      className="flex size-6 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground">
       <ChevronDown
         className={cn("icon-xs transition-transform", expanded && "rotate-180")}
       />
@@ -291,7 +291,7 @@ const SourceSection = ({
               }}
               title={t("chat.sources.open_all_tabs")}
               aria-label={t("chat.sources.open_all_tabs")}
-              className="flex size-6 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/55 hover:text-foreground">
+              className="flex size-6 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground">
               <ExternalLink className="icon-xs" />
             </button>
           )}
@@ -300,7 +300,7 @@ const SourceSection = ({
           />
         </div>
       </div>
-      <div className="divide-y divide-border/30 overflow-hidden rounded-control border border-border/40">
+      <div className="divide-y divide-border-subtle overflow-hidden rounded-control border border-border">
         {visible.map((item) => (
           <SourceRow
             key={`${section.group}-${item.id}`}
@@ -316,7 +316,7 @@ const SourceSection = ({
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="flex w-full items-center justify-center gap-1 rounded-control py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
+          className="flex w-full items-center justify-center gap-1 rounded-control py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground">
           {t("chat.sources.show_more", { count: hidden })}
           <ChevronDown className="icon-xs" />
         </button>
@@ -408,7 +408,7 @@ export function UnifiedSourcesSheet({
         meta={subtitle}
         className="w-[min(32rem,calc(100vw-1rem))]">
         {tabs.length > 2 && (
-          <div className="scroll-fade-x flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border/35 px-1.5 scrollbar-none sm:gap-1 sm:px-3">
+          <div className="scroll-fade-x flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border px-1.5 scrollbar-none sm:gap-1 sm:px-3">
             {tabs.map((tab) => {
               const Icon = tab.icon
               const isActive = activeGroup === tab.key
@@ -429,7 +429,7 @@ export function UnifiedSourcesSheet({
                     className={cn(
                       "rounded-full px-1.5 text-nano tabular-nums",
                       isActive
-                        ? "bg-primary/15 text-primary"
+                        ? "bg-tint-accent text-primary"
                         : "bg-muted text-muted-foreground"
                     )}>
                     {tab.count}
@@ -453,7 +453,7 @@ export function UnifiedSourcesSheet({
             ))}
           </div>
         </ScrollArea>
-        <div className="flex shrink-0 items-center gap-2 border-t border-border/35 px-3 py-2.5 text-micro text-muted-foreground sm:px-4">
+        <div className="flex shrink-0 items-center gap-2 border-t border-border px-3 py-2.5 text-micro text-muted-foreground sm:px-4">
           <Info className="icon-xs shrink-0" />
           {t("chat.sources.disclaimer")}
         </div>

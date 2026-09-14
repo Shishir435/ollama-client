@@ -22,6 +22,8 @@ const listSourceFiles = (dir: string): string[] => {
 }
 
 const sourceFiles = listSourceFiles(sourceRoot)
+const handAuthoredSemanticAlpha =
+  /\b(?:bg-(?:muted|input|background|black|warning|primary|destructive|accent|status-(?:success|warning|info|danger))|border-border|text-muted-foreground|ring-(?:ring|foreground|destructive))\/(?:\d+(?:\.\d+)?|\[[^\]]+\])(?![\w-])/
 const location = (path: string, source: ts.SourceFile, position: number) => {
   const { line } = source.getLineAndCharacterOfPosition(position)
   return `${relative(repoRoot, path)}:${line + 1}`
@@ -111,6 +113,34 @@ const isWrappedIconButton = (node: ts.Node, source: ts.SourceFile): boolean => {
 }
 
 describe("design-system source contracts", () => {
+  it("uses named tokens for shared alpha states and surfaces", () => {
+    const bypassExamples = [
+      "bg-primary/30",
+      "dark:data-unchecked:bg-input/80",
+      "bg-background/20",
+      "hover:bg-muted/72",
+      "bg-muted/[0.12]"
+    ]
+    expect(
+      bypassExamples.filter((utility) =>
+        handAuthoredSemanticAlpha.test(utility)
+      )
+    ).toEqual(bypassExamples)
+
+    const offenders = sourceFiles.flatMap((path) => {
+      const text = readFileSync(path, "utf8")
+      return text
+        .split("\n")
+        .flatMap((line, index) =>
+          handAuthoredSemanticAlpha.test(line)
+            ? [`${relative(repoRoot, path)}:${index + 1}`]
+            : []
+        )
+    })
+
+    expect(offenders).toEqual([])
+  })
+
   it("uses named typography and radius tokens", () => {
     const offenders = sourceFiles.flatMap((path) => {
       const text = readFileSync(path, "utf8")

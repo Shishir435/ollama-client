@@ -20,7 +20,7 @@ export const RegenerateButton = ({
         <Button
           size="icon"
           variant="ghost"
-          className="group relative flex size-6 items-center justify-center rounded-control bg-transparent text-muted-foreground hover:bg-muted/55 hover:text-foreground">
+          className="group relative flex size-6 items-center justify-center rounded-control bg-transparent text-muted-foreground hover:bg-state-hover hover:text-foreground">
           <RefreshCcw className="icon-xs" />
         </Button>
       }

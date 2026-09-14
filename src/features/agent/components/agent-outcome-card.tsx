@@ -30,7 +30,7 @@ export const AgentOutcomeCard = ({
   const { t } = useTranslation()
 
   return (
-    <section className="mt-3 rounded-panel border border-border/50 bg-background p-2.5 text-xs">
+    <section className="mt-3 rounded-panel border border-border bg-background p-2.5 text-xs">
       {run.result && (
         <p className="mb-2 whitespace-pre-wrap wrap-break-word">
           {agentPlainText(run.result, 20_000)}

@@ -9,7 +9,7 @@ export type TraceStatus = "running" | "done" | "error"
 export const statusClass = (status: TraceStatus) =>
   ({
     running: "text-app-primary",
-    done: "text-muted-foreground/80",
+    done: "text-foreground-tertiary",
     error: "text-status-danger"
   })[status]
 
@@ -90,7 +90,7 @@ export const ActivityStepRow = ({
   const status = getActivityEventStatus(event)
   const resultPreview = getActivityResultPreview(event, t)
   return (
-    <li className="rounded-control border border-border/20 bg-background/45 px-2.5 py-2">
+    <li className="rounded-control border border-border-subtle bg-surface-sunken px-2.5 py-2">
       <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
         <span
           className={cn(
@@ -100,13 +100,13 @@ export const ActivityStepRow = ({
           {getActivityEventLabel(event, t)}
         </span>
         {event.resultCount !== undefined && (
-          <span className="text-micro text-muted-foreground/70">
+          <span className="text-micro text-foreground-tertiary">
             · {getActivityResultCountLabel(event.resultCount, t)}
           </span>
         )}
       </div>
       {event.inputPreview && (
-        <div className="mt-0.5 wrap-break-word font-mono text-2xs text-muted-foreground/80">
+        <div className="mt-0.5 wrap-break-word font-mono text-2xs text-foreground-tertiary">
           {event.inputPreview}
         </div>
       )}
@@ -114,13 +114,13 @@ export const ActivityStepRow = ({
         <div className="mt-0.5 text-2xs text-status-danger">{event.error}</div>
       ) : (
         resultPreview && (
-          <div className="mt-0.5 wrap-break-word text-2xs text-muted-foreground/70">
+          <div className="mt-0.5 wrap-break-word text-2xs text-foreground-tertiary">
             {resultPreview}
           </div>
         )
       )}
       {event.sourceTitles && event.sourceTitles.length > 0 && (
-        <div className="mt-0.5 text-2xs text-muted-foreground/80">
+        <div className="mt-0.5 text-2xs text-foreground-tertiary">
           {event.sourceTitles
             .map((title) => getActivityText(title, t))
             .join(", ")}
@@ -141,7 +141,7 @@ export const ToolStepRow = ({
   const status = getToolRunStatus(run)
   const argEntries = run.args ? Object.entries(run.args) : []
   return (
-    <li className="rounded-control border border-border/20 bg-background/45 px-2.5 py-2">
+    <li className="rounded-control border border-border-subtle bg-surface-sunken px-2.5 py-2">
       <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
         <span
           className={cn(
@@ -152,7 +152,7 @@ export const ToolStepRow = ({
           {status === "running" ? "…" : ""}
         </span>
         {run.truncated && (
-          <span className="min-w-0 text-micro text-muted-foreground/70">
+          <span className="min-w-0 text-micro text-foreground-tertiary">
             · {t("chat.reasoning.trace.trimmed")}{" "}
             <button
               type="button"
@@ -164,7 +164,7 @@ export const ToolStepRow = ({
         )}
       </div>
       {argEntries.length > 0 && (
-        <div className="mt-0.5 wrap-break-word font-mono text-2xs text-muted-foreground/80">
+        <div className="mt-0.5 wrap-break-word font-mono text-2xs text-foreground-tertiary">
           {argEntries
             .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
             .join(", ")}
@@ -173,12 +173,12 @@ export const ToolStepRow = ({
       {run.error ? (
         <div className="mt-0.5 text-2xs text-status-danger">{run.error}</div>
       ) : run.sources?.length ? (
-        <div className="mt-0.5 text-2xs text-muted-foreground/80">
+        <div className="mt-0.5 text-2xs text-foreground-tertiary">
           {run.sources.map((source) => source.title).join(", ")}
         </div>
       ) : (
         run.resultPreview && (
-          <div className="mt-0.5 wrap-break-word text-2xs text-muted-foreground/70">
+          <div className="mt-0.5 wrap-break-word text-2xs text-foreground-tertiary">
             {run.resultPreview}
             {run.resultPreview.length >= 240 ? "…" : ""}
           </div>
@@ -189,7 +189,7 @@ export const ToolStepRow = ({
 }
 
 export const ThinkingEvent = ({ content }: { content: string }) => (
-  <div className="mt-1 text-2xs text-muted-foreground/70">
+  <div className="mt-1 text-2xs text-foreground-tertiary">
     <MarkdownRenderer content={content} />
   </div>
 )

@@ -380,7 +380,7 @@ export const ModelMenu = ({
           <div className="flex h-96 min-h-0 overflow-hidden rounded-xl bg-popover text-popover-foreground">
             <nav
               aria-label={t("settings.tabs.providers")}
-              className="flex w-12 shrink-0 flex-col items-center gap-1 overflow-hidden border-r border-border/50 bg-muted/15 p-1.5">
+              className="flex w-12 shrink-0 flex-col items-center gap-1 overflow-hidden border-r border-border bg-surface-sunken p-1.5">
               <button
                 type="button"
                 aria-label={t("model.menu.models_label")}
@@ -391,9 +391,9 @@ export const ModelMenu = ({
                   setSearchQuery("")
                 }}
                 className={cn(
-                  "flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   activeProviderId === null &&
-                    "bg-muted text-foreground shadow-sm"
+                    "bg-state-selected text-foreground shadow-sm"
                 )}>
                 <Layers3 className="icon-md" />
               </button>
@@ -417,8 +417,9 @@ export const ModelMenu = ({
                         setSearchQuery("")
                       }}
                       className={cn(
-                        "relative flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        isActive && "bg-muted text-foreground shadow-sm"
+                        "relative flex size-9 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        isActive &&
+                          "bg-state-selected text-foreground shadow-sm"
                       )}>
                       <ProviderIcon
                         providerId={providerId}
@@ -467,14 +468,14 @@ export const ModelMenu = ({
               </div>
 
               {selectionConflictModel && (
-                <div className="mx-1 mb-1 rounded-control border border-status-warning/40 bg-status-warning/10 px-2 py-1.5 text-xs text-status-warning">
+                <div className="mx-1 mb-1 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-xs text-status-warning">
                   {t("model.menu.selection_conflict", {
                     model: selectionConflictModel
                   })}
                 </div>
               )}
               {unavailableProviders.length > 0 && (
-                <div className="mx-1 mb-1 rounded-control border border-status-warning/40 bg-status-warning/10 px-2 py-1.5 text-micro text-status-warning">
+                <div className="mx-1 mb-1 rounded-control border border-status-warning/40 bg-tint-warning px-2 py-1.5 text-micro text-status-warning">
                   {t("model.menu.providers_unavailable", {
                     names: unavailableProviders
                       .map(
@@ -508,7 +509,7 @@ export const ModelMenu = ({
                 />
               </div>
 
-              <div className="min-h-0 flex-1 border-t border-border/50 pt-1">
+              <div className="min-h-0 flex-1 border-t border-border pt-1">
                 {visibleModels.length === 0 ? (
                   <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground">
                     {t("model.menu.no_model_found")}
@@ -565,7 +566,7 @@ export const ModelMenu = ({
                                 {model.details?.parameter_size && (
                                   <Badge
                                     variant="outline"
-                                    className="h-4 shrink-0 border px-1 text-nano font-mono text-muted-foreground border-border/50">
+                                    className="h-4 shrink-0 border px-1 text-nano font-mono text-muted-foreground border-border">
                                     {formatParameterSize(
                                       model.details.parameter_size
                                     )}
@@ -575,7 +576,7 @@ export const ModelMenu = ({
                                   <Badge
                                     variant="outline"
                                     title={model.cloud.description}
-                                    className="h-4 shrink-0 border px-1 text-nano capitalize text-muted-foreground border-border/50">
+                                    className="h-4 shrink-0 border px-1 text-nano capitalize text-muted-foreground border-border">
                                     {t("model.menu.cloud_badge", {
                                       plan: model.cloud.requiredPlan
                                         ? ` · ${model.cloud.requiredPlan}`
@@ -586,7 +587,7 @@ export const ModelMenu = ({
                                 {model.details?.quantization_level && (
                                   <Badge
                                     variant="outline"
-                                    className="h-4 shrink-0 px-1 text-nano font-mono text-muted-foreground border-border/50">
+                                    className="h-4 shrink-0 px-1 text-nano font-mono text-muted-foreground border-border">
                                     {model.details.quantization_level}
                                   </Badge>
                                 )}
@@ -611,7 +612,7 @@ export const ModelMenu = ({
                                     { model: model.name }
                                   )}
                                   title={t("model.capabilities.edit_tooltip")}
-                                  className="flex size-7 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  className="flex size-7 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                   onClick={() =>
                                     openCapabilitySheet(model.name, providerId)
                                   }>

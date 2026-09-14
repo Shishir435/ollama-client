@@ -52,7 +52,7 @@ export const ChatInputToolbar = ({
   const attachmentCount = successfulStates.length + images.length
 
   return (
-    <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-2 rounded-control bg-background/85 p-1 backdrop-blur">
+    <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-2 rounded-control bg-surface-overlay p-1 backdrop-blur">
       <div className="flex min-w-0 items-center gap-0.5">
         <ModelMenu
           showStatusPopup={false}
@@ -78,7 +78,7 @@ export const ChatInputToolbar = ({
           showText={false}
           variant="ghost"
           size="icon"
-          className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+          className="shrink-0 rounded-control text-muted-foreground hover:bg-state-hover hover:text-foreground"
           iconClassName="icon-sm"
         />
 

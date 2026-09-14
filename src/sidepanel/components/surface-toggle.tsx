@@ -42,7 +42,7 @@ export const SurfaceToggle = ({
           size="icon"
           aria-label={label}
           onClick={() => onChange(target)}
-          className="relative shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+          className="relative shrink-0 rounded-control text-muted-foreground hover:bg-state-hover hover:text-foreground"
         />
       }
       label={label}

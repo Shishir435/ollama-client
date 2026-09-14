@@ -108,7 +108,7 @@ export const PrivacyDataInventory = () => {
           return (
             <div
               key={row.key}
-              className="flex items-center gap-3 rounded-control border border-border/45 p-3">
+              className="flex items-center gap-3 rounded-control border border-border p-3">
               <Icon className="icon-md shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{row.label}</p>
@@ -120,7 +120,7 @@ export const PrivacyDataInventory = () => {
             </div>
           )
         })}
-        <div className="flex items-center justify-between rounded-control border border-border/45 p-3">
+        <div className="flex items-center justify-between rounded-control border border-border p-3">
           <div>
             <p className="text-sm font-medium">
               {t("settings.privacy_spine.inventory.preferences")}

@@ -155,7 +155,7 @@ export const LoadedModelsInfo = () => {
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger
           render={
-            <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-muted/20" />
+            <div className="flex cursor-pointer items-center justify-between p-2 transition-colors hover:bg-state-hover" />
           }>
           <div className="flex items-center gap-2">
             <Brain className="icon-md text-muted-foreground" />
@@ -216,11 +216,11 @@ export const LoadedModelsInfo = () => {
           <div className="border-t border-border px-4 pb-4">
             {models.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
-                <Brain className="mb-2 icon-3xl text-muted-foreground/50" />
+                <Brain className="mb-2 icon-3xl text-foreground-tertiary" />
                 <p className="text-sm text-muted-foreground">
                   {t("settings.loaded_models.no_models_title")}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground/70">
+                <p className="mt-1 text-xs text-foreground-tertiary">
                   {t("settings.loaded_models.no_models_description")}
                 </p>
               </div>
@@ -229,7 +229,7 @@ export const LoadedModelsInfo = () => {
                 {models.map((model) => (
                   <Card
                     key={model.name}
-                    className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted">
+                    className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-state-hover">
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">

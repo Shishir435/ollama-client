@@ -186,7 +186,7 @@ export const SemanticChatSearchDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-full sm:max-w-lg h-[85vh] flex flex-col p-0 overflow-hidden gap-0 border-border/60 shadow-md">
+      <DialogContent className="max-w-[95vw] w-full sm:max-w-lg h-[85vh] flex flex-col p-0 overflow-hidden gap-0 border-border-strong shadow-md">
         <DialogHeader className="px-5 py-4 border-b shrink-0 bg-background">
           <DialogTitle className="text-base font-bold tracking-tight">
             {t("chat.search.dialog_title")}
@@ -196,7 +196,7 @@ export const SemanticChatSearchDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="p-4 space-y-4 shrink-0 bg-muted/5 border-b">
+        <div className="p-4 space-y-4 shrink-0 bg-surface-sunken border-b">
           {currentSessionId && (
             <SearchScopeTabs
               value={searchScope}
@@ -211,7 +211,7 @@ export const SemanticChatSearchDialog = ({
           />
 
           {error && (
-            <div className="text-xs text-destructive bg-destructive/10 p-2 rounded-control border border-destructive/20 animate-in fade-in slide-in-from-top-1">
+            <div className="text-xs text-destructive bg-tint-danger p-2 rounded-control border border-destructive/20 animate-in fade-in slide-in-from-top-1">
               {error}
             </div>
           )}
@@ -229,7 +229,7 @@ export const SemanticChatSearchDialog = ({
                     key={session.id}
                     type="button"
                     onClick={() => handleSelectSession(session.id)}
-                    className="flex w-full items-center gap-2 rounded-control p-2 text-left text-xs transition-colors hover:bg-muted/60">
+                    className="flex w-full items-center gap-2 rounded-control p-2 text-left text-xs transition-colors hover:bg-state-hover">
                     <MessageSquare className="icon-xs shrink-0 text-muted-foreground" />
                     <span className="truncate">{session.title}</span>
                   </button>

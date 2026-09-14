@@ -41,10 +41,10 @@ export const EmptyState = ({
       {...props}>
       {Icon &&
         (isCompact ? (
-          <Icon className="icon-sm text-muted-foreground/50" />
+          <Icon className="icon-sm text-foreground-tertiary" />
         ) : (
-          <div className="mb-4 rounded-full bg-muted/30 p-4">
-            <Icon className="icon-3xl text-muted-foreground/40" />
+          <div className="mb-4 rounded-full bg-surface-sunken p-4">
+            <Icon className="icon-3xl text-foreground-tertiary" />
           </div>
         ))}
       <h3

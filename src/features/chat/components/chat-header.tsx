@@ -34,7 +34,7 @@ export const ChatHeader = ({
 
   return (
     <div className="sticky top-0 z-30 px-2 pt-2">
-      <div className="flex min-w-0 items-center gap-1 rounded-panel bg-background/85 backdrop-blur p-0.5 shadow-xs">
+      <div className="flex min-w-0 items-center gap-1 rounded-panel bg-surface-overlay backdrop-blur p-0.5 shadow-xs">
         {leading}
         <ChatSessionSelector />
         {currentSessionId && showSessionMetrics && (

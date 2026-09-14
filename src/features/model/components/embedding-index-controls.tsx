@@ -102,8 +102,8 @@ export const EmbeddingIndexControls = () => {
           className={cn(
             "rounded px-2 py-2 text-xs",
             rebuildResult.startsWith("✅")
-              ? "border border-primary/20 bg-primary/10 text-primary"
-              : "border border-destructive/20 bg-destructive/10 text-destructive"
+              ? "border border-primary/20 bg-tint-accent text-primary"
+              : "border border-destructive/20 bg-tint-danger text-destructive"
           )}>
           {rebuildResult}
         </div>

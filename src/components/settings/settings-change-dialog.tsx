@@ -86,7 +86,7 @@ export const SettingsChangeDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader className="flex-row items-start gap-3 pr-6">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-panel bg-primary/10 text-primary">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-panel bg-tint-accent text-primary">
             <HeaderIcon className="icon-lg" />
           </span>
           <span className="min-w-0 flex-1 space-y-1">
@@ -97,7 +97,7 @@ export const SettingsChangeDialog = ({
           </span>
         </DialogHeader>
 
-        <div className="max-h-[50vh] overflow-y-auto rounded-panel border border-border/60">
+        <div className="max-h-[50vh] overflow-y-auto rounded-panel border border-border-strong">
           {writes.map((write, index) => {
             const meta = getPresetFieldMeta(write)
             const Icon = meta.icon
@@ -111,8 +111,8 @@ export const SettingsChangeDialog = ({
               <div
                 // biome-ignore lint/suspicious/noArrayIndexKey: settings preview rows can share storageKey/field; index suffix prevents future key collisions
                 key={`${write.storageKey}.${write.field ?? "__scalar__"}.${index}`}
-                className="flex items-center gap-3 px-3 py-2.5 not-last:border-b not-last:border-border/40">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-muted/50 text-muted-foreground">
+                className="flex items-center gap-3 px-3 py-2.5 not-last:border-b not-last:border-border">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-surface-sunken text-muted-foreground">
                   <Icon className="icon-md" />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -135,7 +135,7 @@ export const SettingsChangeDialog = ({
                     </span>
                   </span>
                 ) : (
-                  <span className="shrink-0 rounded-control border border-border bg-muted/30 px-2 py-1 font-mono text-xs text-foreground">
+                  <span className="shrink-0 rounded-control border border-border bg-surface-sunken px-2 py-1 font-mono text-xs text-foreground">
                     {String(write.value)}
                   </span>
                 )}

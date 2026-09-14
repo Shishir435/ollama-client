@@ -60,7 +60,7 @@ export const AgentGoalComposer = ({
       /* Same pill the composer's row sits in, so the controls do not move
          or change shape when a run starts. */
       <div className="shrink-0 px-2 pb-2">
-        <div className="flex min-w-0 items-center gap-0.5 rounded-control bg-background/85 p-1">
+        <div className="flex min-w-0 items-center gap-0.5 rounded-control bg-surface-overlay p-1">
           {controls}
         </div>
       </div>
@@ -91,7 +91,7 @@ export const AgentGoalComposer = ({
             "max-h-75 min-h-11 w-full resize-none border-0 bg-transparent",
             "pt-3 pr-14 pb-14 pl-4 text-sm leading-relaxed scrollbar-none",
             "focus-visible:ring-0 focus-visible:ring-offset-0",
-            "placeholder:text-muted-foreground/70"
+            "placeholder:text-foreground-tertiary"
           )}
         />
         {/*
@@ -110,7 +110,7 @@ export const AgentGoalComposer = ({
             icon={<SendHorizontal size={16} />}
           />
         </div>
-        <div className="absolute right-1 bottom-1 left-1 flex min-w-0 items-center gap-0.5 rounded-control bg-background/85 p-1 backdrop-blur">
+        <div className="absolute right-1 bottom-1 left-1 flex min-w-0 items-center gap-0.5 rounded-control bg-surface-overlay p-1 backdrop-blur">
           {controls}
         </div>
       </ComposerShell>

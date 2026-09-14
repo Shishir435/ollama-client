@@ -30,7 +30,7 @@ export const WelcomeScreen = ({ leading }: { leading?: ReactNode }) => {
         <div className="flex shrink-0 items-stretch">
           <SettingsButton
             variant="outline"
-            className="h-full px-5 font-medium text-base text-foreground shadow-sm transition-all duration-300 hover:bg-muted/50"
+            className="h-full px-5 font-medium text-base text-foreground shadow-sm transition-all duration-300 hover:bg-state-hover"
             iconClassName="icon-lg"
           />
         </div>

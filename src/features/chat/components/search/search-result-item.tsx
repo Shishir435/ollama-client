@@ -62,14 +62,14 @@ export const SearchResultItem = ({
                 ? t("chat.search.role_you")
                 : t("chat.search.role_assistant")}
             </Badge>
-            <span className="text-micro text-muted-foreground flex items-center gap-1 shrink-0 bg-muted/50 px-1.5 py-0.5 rounded-chip">
+            <span className="text-micro text-muted-foreground flex items-center gap-1 shrink-0 bg-surface-sunken px-1.5 py-0.5 rounded-chip">
               <Clock className="icon-xs" />
               {formatTimestamp(result.timestamp)}
             </span>
           </div>
           <Badge
             variant="outline"
-            className="text-micro h-5 px-1.5 font-mono shrink-0 bg-background/50 border-primary/20 text-primary">
+            className="text-micro h-5 px-1.5 font-mono shrink-0 bg-surface-sunken border-primary/20 text-primary">
             {Math.round(result.result.similarity * 100)}%
           </Badge>
         </div>

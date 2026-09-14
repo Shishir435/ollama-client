@@ -62,8 +62,8 @@ export const ChatSessionActions = ({
 
   const triggerClassName = cn(
     "size-7 shrink-0 rounded-control transition-all duration-200",
-    "hover:bg-muted hover:text-foreground",
-    "focus:bg-muted focus:text-foreground focus:opacity-100",
+    "hover:bg-state-hover hover:text-foreground",
+    "focus:bg-state-hover focus:text-foreground focus:opacity-100",
     className
   )
 
@@ -96,7 +96,7 @@ export const ChatSessionActions = ({
             <DropdownMenuItem
               onClick={destructiveAction.onClick}
               aria-label={destructiveAction.ariaLabel}
-              className="gap-2 rounded-control text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive">
+              className="gap-2 rounded-control text-destructive hover:bg-tint-danger-hover focus:bg-tint-danger-hover focus:text-destructive">
               {destructiveAction.icon}
               <span>{destructiveAction.label}</span>
             </DropdownMenuItem>
