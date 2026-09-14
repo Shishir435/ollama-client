@@ -73,6 +73,58 @@ describe("buildAgentHistory", () => {
     ])
   })
 
+  it("carries the runtime's own feedback to the model whole", () => {
+    /**
+     * The completion judge's refusal is 297 characters and ends with what to
+     * do instead. Cut at the page-text cap it stopped mid-sentence, so three
+     * live runs read only that they had been refused and re-claimed the same
+     * thing until the budget ran out.
+     */
+    const feedback =
+      "This run changed the page, so complete needs evidence: a short phrase that is visible on the page now and shows the goal is met, such as a saved-state indicator or the new value itself. Observe the page and complete again with evidence, or keep working."
+    const [entry] = buildAgentHistory([
+      step({
+        sequence: 1,
+        status: "rejected",
+        verification: {
+          outcome: "negative",
+          evidence: { kind: "completion", summary: feedback, observedAt: 1 }
+        }
+      })
+    ])
+    expect(entry.evidence).toBe(feedback)
+  })
+
+  it("keeps a page-derived summary bounded where it was", () => {
+    // The wider cap is for text this package composes. A verifier's summary
+    // is a sentence about a page and stays where it was.
+    const [entry] = buildAgentHistory([
+      step({
+        sequence: 1,
+        verification: verification("confirmed", "p".repeat(400))
+      })
+    ])
+    expect(entry.evidence).toHaveLength(200)
+  })
+
+  it("bounds even its own feedback", () => {
+    const [entry] = buildAgentHistory([
+      step({
+        sequence: 1,
+        status: "rejected",
+        verification: {
+          outcome: "negative",
+          evidence: {
+            kind: "resolution",
+            summary: "r".repeat(900),
+            observedAt: 1
+          }
+        }
+      })
+    ])
+    expect(entry.evidence).toHaveLength(500)
+  })
+
   it.each([
     [
       "verified with a confirmation",

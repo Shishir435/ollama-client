@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { ConfirmActionDialog } from "@/components/settings/confirm-action-dialog"
@@ -23,7 +24,14 @@ import { ChatMessageList } from "./chat-message-list"
 import { PendingToolConfirmation } from "./pending-tool-confirmation"
 import { SemanticChatSearchDialog } from "./semantic-chat-search-dialog"
 
-export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
+export const Chat = ({
+  embedded = false,
+  leading
+}: {
+  embedded?: boolean
+  /** The surface toggle, rendered in the composer's control row. */
+  leading?: ReactNode
+}) => {
   const { t } = useTranslation()
   const {
     messages,
@@ -264,6 +272,7 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
             <PendingToolConfirmation messages={messages} />
             <div className="mx-auto max-w-4xl px-2">
               <ChatInputBox
+                leading={leading}
                 onSend={sendMessage}
                 stopGeneration={stopGeneration}
               />
@@ -271,7 +280,7 @@ export const Chat = ({ embedded = false }: { embedded?: boolean }) => {
           </div>
         </>
       ) : (
-        <WelcomeScreen />
+        <WelcomeScreen leading={leading} />
       )}
       <SemanticChatSearchDialog
         open={isSearchOpen}

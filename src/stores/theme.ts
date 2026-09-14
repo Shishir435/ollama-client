@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware"
 
 import { STORAGE_KEYS } from "@/lib/constants"
 import { logger } from "@/lib/logger"
-import { plasmoGlobalStorage } from "@/lib/plasmo-global-storage"
+import { plasmoSyncStorage } from "@/lib/plasmo-global-storage"
 import type { ThemeState } from "@/types"
 import { ThemeSchema } from "@/types/ui-state.schemas"
 
@@ -17,7 +17,7 @@ export const useThemeStore = create<ThemeState>()(
       name: STORAGE_KEYS.THEME.PREFERENCE,
       storage: {
         getItem: async (name) => {
-          const value = await plasmoGlobalStorage.get(name)
+          const value = await plasmoSyncStorage.get(name)
           if (!value) return null
           try {
             return JSON.parse(value)
@@ -26,10 +26,10 @@ export const useThemeStore = create<ThemeState>()(
           }
         },
         setItem: async (name, value) => {
-          await plasmoGlobalStorage.set(name, value)
+          await plasmoSyncStorage.set(name, value)
         },
         removeItem: async (name) => {
-          await plasmoGlobalStorage.remove(name)
+          await plasmoSyncStorage.remove(name)
         }
       }
     }

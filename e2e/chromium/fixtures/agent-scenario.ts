@@ -480,7 +480,9 @@ const runAgentScenarioAttempt = (
         .getByRole("button", { name: "Skip for now", exact: true })
         .click({ timeout: 10_000 })
         .catch(() => {})
-      await panel.getByRole("tab", { name: /Agent/ }).click({ timeout: 10_000 })
+      await panel
+        .getByRole("button", { name: /^Agent/ })
+        .click({ timeout: 10_000 })
       await panel
         .getByRole("textbox", { name: "What should Agent do?" })
         .fill(scenario.goal)

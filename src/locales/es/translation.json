@@ -160,11 +160,14 @@
     },
     "title": "Agente supervisado",
     "unresolved": "Esta acción puede haber ocurrido. Revisa la página antes de continuar.",
+    "unresolved_reviewed": "He revisado la página: continuar",
     "work_log": {
-      "title": "Registro de trabajo"
+      "title": "Registro de trabajo",
+      "target": "«{{name}}»"
     },
     "correction": "En pausa. Describe qué debe cambiar y continúa.",
-    "export_report": "Exportar informe (incluye texto de la página)"
+    "export_report": "Exportar informe (incluye texto de la página)",
+    "running_goal": "Trabajando en"
   },
   "common": {
     "theme": {
@@ -399,7 +402,8 @@
       "tooltip_tokens": "Total de tokens usados en esta sesión",
       "tooltip_time": "Tiempo total de generación de respuestas",
       "tooltip_speed": "Velocidad media de generación",
-      "tooltip_messages": "Número de respuestas de IA"
+      "tooltip_messages": "Número de respuestas de IA",
+      "speed_average": "media {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "Registro de actividad",
@@ -587,6 +591,7 @@
       "response_failed_title": "Generación de respuesta fallida",
       "unknown_error_description": "Ocurrió un error desconocido",
       "provider_replay_invalid": "Esta respuesta no puede continuar de forma segura. Reintenta el turno para reconstruir el contexto del proveedor.",
+      "provider_busy": "El endpoint local todavía está terminando una solicitud anterior y no puede iniciar otra. Espera alrededor de un minuto o reinícialo.",
       "report_issue": "Informar de un problema",
       "open_issue": "Abrir una incidencia",
       "copy_diagnostics": "Copiar diagnóstico",
@@ -643,7 +648,6 @@
       "empty": "Sin contenido de artefacto"
     },
     "system_prompt": {
-      "button": "Instrucciones del chat",
       "title": "Instrucciones del chat",
       "description": "Un prompt de sistema solo para este chat. Anula el prompt predeterminado del modelo.",
       "placeholder": "p. ej. Eres un asistente conciso que responde con viñetas.",
@@ -1225,6 +1229,7 @@
           "description_reported": "Niveles informados por el proveedor de este modelo.",
           "description_profile": "Niveles verificados para este proveedor y familia de modelos.",
           "description_unknown": "Este proveedor no anuncia un control de razonamiento fiable.",
+          "reset": "Restablecer a Automático",
           "options": {
             "auto": "Automático (predeterminado del proveedor)",
             "auto_short": "Automático",

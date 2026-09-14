@@ -7,12 +7,12 @@ import {
   MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
 import { Bot, Eye, MessageSquareWarning } from "lucide-react"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { AgentApprovalCard } from "./components/agent-approval-card"
 import { AgentBrowserDisclosureCard } from "./components/agent-browser-disclosure-card"
+import { AgentGoalComposer } from "./components/agent-goal-composer"
 import { AgentOutcomeCard } from "./components/agent-outcome-card"
 import { AgentQuestionCard } from "./components/agent-question-card"
 import { AgentRunControls } from "./components/agent-run-controls"
@@ -76,6 +76,8 @@ export interface AgentViewProps {
   approval?: AgentApprovalRequest
   takeover?: AgentTakeoverRequest
   privacyAcknowledged?: boolean
+  /** The surface toggle, rendered in the panel's own control row. */
+  leading?: ReactNode
   busy?: boolean
   /** The unsent goal. Held by the caller so it survives leaving the surface. */
   goal?: string
@@ -94,6 +96,7 @@ export interface AgentViewProps {
   onCorrect?: (text: string) => void
   onStop?: () => void
   onTakeoverComplete?: () => void
+  onResolveEffect?: () => void
   onFeedback?: () => void
   onExport?: () => void
 }
@@ -116,7 +119,49 @@ const pauseNoticeFor = (reason?: AgentRunState["pauseReason"]) => {
   return undefined
 }
 
+/**
+ * The phase, shown as the work log's last row while no step names the action.
+ *
+ * An open step is already a row of its own, so repeating it here would say the
+ * same thing three times over — header, live row, log row. What this covers is
+ * observing and deciding, which have no receipt yet and left the panel a title
+ * above a screen of nothing at the one moment a person watches it hardest.
+ */
+const liveStatusRow = ({
+  run,
+  settled,
+  named,
+  t
+}: {
+  run?: AgentRunState | null
+  settled: boolean
+  named: boolean
+  t: (key: string) => string
+}): string | undefined =>
+  run && !settled && !named ? t(`agent.status.${run.status}`) : undefined
+
+/**
+ * How far into its budget a run is.
+ *
+ * The count says one of fifty; the bar says what that looks like. A
+ * supervisor wants to know whether a run is early or about to be cut off, and
+ * reading two numbers to work that out is arithmetic a shape does for free.
+ */
+const AgentProgressBar = ({ used }: { used: number }) => (
+  <div
+    className="mb-3 h-1 overflow-hidden rounded-full bg-muted"
+    aria-hidden="true">
+    <div
+      className="h-full rounded-full bg-app-agent transition-[width] duration-500"
+      style={{
+        width: `${Math.min(100, Math.round((used / MAX_AGENT_OBSERVATIONS) * 100))}%`
+      }}
+    />
+  </div>
+)
+
 export const AgentView = ({
+  leading,
   run = null,
   steps = [],
   provider,
@@ -139,6 +184,7 @@ export const AgentView = ({
   onCorrect,
   onStop = noop,
   onTakeoverComplete = noop,
+  onResolveEffect,
   onFeedback = noop,
   onExport
 }: AgentViewProps) => {
@@ -152,7 +198,14 @@ export const AgentView = ({
     screenshotsAcknowledged
   )
   const pauseNotice = pauseNoticeFor(run?.pauseReason)
+  const startable = !run || settled
   const currentAction = currentAgentAction(steps)
+  const liveRow = liveStatusRow({
+    run,
+    settled,
+    named: Boolean(currentAction),
+    t
+  })
   const canStart =
     Boolean(onStart && provider && tab && goal.trim()) &&
     !remoteNeedsAcknowledgement &&
@@ -192,6 +245,14 @@ export const AgentView = ({
           )}
         </header>
 
+        {/*
+          The count says one of fifty; the bar says what that looks like. A
+          supervisor watching a run wants to know whether it is early or about
+          to be cut off, and reading two numbers to work that out is the kind
+          of arithmetic a shape does for free.
+        */}
+        {run && !settled && <AgentProgressBar used={run.observationCount} />}
+
         <AgentRunDetailsCard provider={provider} run={run} tab={tab} />
 
         {/*
@@ -204,21 +265,31 @@ export const AgentView = ({
           <AgentBrowserDisclosureCard browser={browser} />
         )}
 
+        {/*
+          The goal, while the run is working on it. It was on screen only in
+          the box it was typed into, which the running panel replaces — so the
+          one question a supervisor is answering, "is it still doing what I
+          asked", had to be answered from memory.
+        */}
+        {run && !settled && (
+          <section
+            className="mb-3 rounded-panel border border-border/50 p-2.5"
+            aria-labelledby="agent-running-goal-label">
+            <h2
+              id="agent-running-goal-label"
+              className="text-2xs font-medium text-muted-foreground">
+              {t("agent.running_goal")}
+            </h2>
+            <p className="mt-0.5 wrap-break-word text-xs">
+              {agentPlainText(run.goal, AGENT_PAGE_TEXT_LIMIT)}
+            </p>
+          </section>
+        )}
+
         {(!run || settled) && (
-          <section className="space-y-2" aria-labelledby="agent-goal-label">
-            <label
-              id="agent-goal-label"
-              htmlFor="agent-goal"
-              className="text-xs font-medium">
-              {t("agent.start.goal")}
-            </label>
-            <Textarea
-              id="agent-goal"
-              value={goal}
-              maxLength={20_000}
-              placeholder={t("agent.start.placeholder")}
-              onChange={(event) => onGoalChange(event.target.value)}
-            />
+          /* The goal's own label lives on the composer that holds it; what
+             is left here is the consent this run needs before it starts. */
+          <section className="space-y-2">
             <label className="flex items-start gap-2 rounded-panel border border-border/50 p-2.5 text-xs">
               <input
                 type="checkbox"
@@ -257,12 +328,6 @@ export const AgentView = ({
                 </Button>
               </div>
             )}
-            <Button
-              type="button"
-              disabled={!canStart}
-              onClick={() => onStart?.(goal.trim(), allowRoutineActions)}>
-              {t("agent.start.action")}
-            </Button>
           </section>
         )}
 
@@ -290,7 +355,7 @@ export const AgentView = ({
         {takeover && run?.status === "awaiting_takeover" && (
           <section className="mb-3 rounded-panel border border-app-primary/40 bg-app-primary-soft/40 p-2.5 text-xs">
             <h2 className="font-medium">{t("agent.takeover.title")}</h2>
-            <p className="mt-1 break-words text-muted-foreground">
+            <p className="mt-1 wrap-break-word text-muted-foreground">
               {agentPlainText(takeover.instruction, AGENT_PAGE_TEXT_LIMIT)}
             </p>
           </section>
@@ -298,17 +363,35 @@ export const AgentView = ({
 
         {pauseNotice && (
           <section
-            className={`mb-3 flex gap-2 rounded-panel border p-2.5 text-xs ${pauseNotice.className}`}
+            className={`mb-3 rounded-panel border p-2.5 text-xs ${pauseNotice.className}`}
             role="alert">
-            <MessageSquareWarning
-              className="icon-sm shrink-0"
-              aria-hidden="true"
-            />
-            <p>{t(pauseNotice.messageKey)}</p>
+            <div className="flex gap-2">
+              <MessageSquareWarning
+                className="icon-sm shrink-0"
+                aria-hidden="true"
+              />
+              <p>{t(pauseNotice.messageKey)}</p>
+            </div>
+            {/**
+             * The way out of an unresolved effect. Nothing is replayed: the
+             * run looks at the page again and decides from what is there.
+             * Without it the only exit was to stop and start the whole goal
+             * over, which is what actually risked repeating the action.
+             */}
+            {run?.pauseReason === "unresolved_effect" && onResolveEffect && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={onResolveEffect}>
+                {t("agent.unresolved_reviewed")}
+              </Button>
+            )}
           </section>
         )}
 
-        <AgentWorkLog items={toAgentWorkLog(steps)} />
+        <AgentWorkLog items={toAgentWorkLog(steps)} live={liveRow} />
         {run && onExport && (
           <Button type="button" variant="outline" size="sm" onClick={onExport}>
             {t("agent.export_report")}
@@ -323,6 +406,28 @@ export const AgentView = ({
           />
         )}
       </div>
+
+      {/*
+        The control row the chat surface has at the bottom of its composer.
+        This panel has no message to compose, so it carries only the controls
+        that are not about one: the surface toggle and the model the run will
+        use, composed by the panel — which had no picker here at all, so
+        changing the model meant leaving for the chat surface and coming back.
+      */}
+      {/*
+        Always rendered: the goal is this surface's own input, not something
+        the side panel lends it. Gating the whole composer on the toggle being
+        passed meant a view rendered without one had no way to start a run at
+        all.
+      */}
+      <AgentGoalComposer
+        startable={startable}
+        goal={goal}
+        canStart={canStart}
+        controls={leading}
+        onGoalChange={onGoalChange}
+        onStart={() => onStart?.(goal.trim(), allowRoutineActions)}
+      />
 
       {run && !settled && (
         <AgentRunControls

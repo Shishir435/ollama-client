@@ -58,8 +58,10 @@ import {
   AgentEffectNotAppliedError,
   AgentMalformedDecisionError,
   agentFailure,
+  agentProviderFailure,
   pausePatch
 } from "./ports"
+import { agentAuthoredText } from "./provenance"
 import { agentResolutionFailure } from "./resolution-failure"
 import {
   AGENT_STATUS_PREDECESSORS,
@@ -69,6 +71,26 @@ import {
 import { classifyVerificationOutcome } from "./verification"
 
 const MAX_CONSECUTIVE_NO_PROGRESS = 3
+
+/**
+ * How the executor said the page refused an effect, when it said.
+ *
+ * The message is one of a closed vocabulary the extension composes for
+ * exactly this — `target_replaced`, `value_changed`, `target_covered` and the
+ * rest, sometimes with the identity field appended — so it is our own words
+ * about the page rather than the page's own words, and safe both to record
+ * and to hand back to the model. Bounded anyway, because a record read into
+ * a prompt is bounded whatever it holds.
+ */
+const MAX_REFUSAL_CAUSE_CHARS = 200
+
+const refusalCause = (error: unknown): string | undefined => {
+  const message =
+    error instanceof AgentEffectNotAppliedError ? error.message.trim() : ""
+  return message.length > 0
+    ? message.slice(0, MAX_REFUSAL_CAUSE_CHARS)
+    : undefined
+}
 
 /**
  * What became of a command the model proposed.
@@ -92,6 +114,24 @@ type AgentResolutionOutcome =
  * page does not offer, and no number of further looks changes that.
  */
 const MAX_CONSECUTIVE_REFUSED_COMMANDS = 3
+
+/**
+ * Completions the judge may refuse for the same reason before the run asks.
+ *
+ * Two, and lower than the command budget on purpose. A refused command is
+ * told what was wrong with the command, and the next one can be different; a
+ * refused completion is told what was wrong with a claim the model believes
+ * it has already proved, and a model that believes that says it again. Three
+ * live runs finished their task, were refused, and re-claimed the same thing
+ * until the observation budget ran out — twenty-odd observations spent
+ * telling the user nothing. The second identical refusal is the point where
+ * looking again has stopped being the useful move, so the run asks instead.
+ *
+ * Counted per reason: a run refused for missing evidence that comes back with
+ * a quotation the page does not show has not repeated itself, it has moved,
+ * and its next refusal starts its own count.
+ */
+const MAX_CONSECUTIVE_REFUSED_COMPLETIONS = 2
 
 /**
  * An origin joins a run's allowlist only when the user approved travelling to
@@ -187,6 +227,10 @@ export const createAgentController = (
   let changeBaseline: { runId: string; text: string } | undefined
   const noProgressCounts = new Map<string, number>()
   const refusedCommandCounts = new Map<string, number>()
+  const refusedCompletions = new Map<
+    string,
+    { reason: string; count: number }
+  >()
 
   const claim = async (
     state: AgentRunState,
@@ -287,6 +331,17 @@ export const createAgentController = (
   ): Promise<void> => {
     await transition(state, "failed", {
       error: agentFailure(code, message),
+      updatedAt: dependencies.clock.now()
+    })
+  }
+
+  /** The same, keeping whatever the layer below already named the failure. */
+  const failWith = async (
+    state: AgentRunState,
+    error: AgentRunState["error"]
+  ): Promise<void> => {
+    await transition(state, "failed", {
+      error,
       updatedAt: dependencies.clock.now()
     })
   }
@@ -629,6 +684,28 @@ export const createAgentController = (
     return { type: "resolved", effect }
   }
 
+  /**
+   * The words this run supplied itself, for the egress rule.
+   *
+   * Read only when the effect has a destination, because that is the only
+   * question it answers and every read is a durable one. Receipts that cannot
+   * be read leave the goal and the user's answers behind — fewer words than
+   * the run actually authored, so the rule stays stricter rather than looser.
+   */
+  const authoredWords = async (state: AgentRunState): Promise<string[]> => {
+    try {
+      return agentAuthoredText(
+        state,
+        await dependencies.persistence.steps(state.id)
+      )
+    } catch (error) {
+      dependencies.trace?.(state.id, "authored_text_unavailable", {
+        reason: error instanceof Error ? error.name : typeof error
+      })
+      return agentAuthoredText(state)
+    }
+  }
+
   const handlePolicy = async (
     state: AgentRunState,
     effect: ResolvedAgentEffect,
@@ -647,6 +724,9 @@ export const createAgentController = (
       }
     | undefined
   > => {
+    const authoredText = effect.destination
+      ? await authoredWords(state)
+      : undefined
     const policy = dependencies.policy.evaluate({
       runId: state.id,
       stepId,
@@ -654,6 +734,7 @@ export const createAgentController = (
       allowedOrigins: state.allowedOrigins,
       scopedTabIds: agentTabScope(state),
       ...(state.grants?.length ? { grants: state.grants } : {}),
+      ...(authoredText?.length ? { authoredText } : {}),
       now: dependencies.clock.now()
     })
     if (policy.type === "blocked") {
@@ -722,7 +803,16 @@ export const createAgentController = (
           outcome: "negative",
           evidence: {
             kind: "stale_target",
-            summary: "Target changed; no browser effect was attempted",
+            /**
+             * The page-side refusal's own cause, which is one of a closed
+             * vocabulary this build composes — never page text — so it is
+             * safe to record and to show the model. Flattening every refusal
+             * to one sentence threw the cause away a line before it would
+             * have become useful, and left two live failures undiagnosable.
+             */
+            summary:
+              refusalCause(error) ??
+              "Target changed; no browser effect was attempted",
             observedAt: dependencies.clock.now()
           }
         }
@@ -856,6 +946,13 @@ export const createAgentController = (
         recentProgress.delete(state.id)
         noProgressCounts.set(state.id, 0)
       }
+      /**
+       * A confirmed step is the run on new ground, so a completion refused
+       * before it was refused about a different page. Cleared for any
+       * confirmed step, a read included: what the counter is for is a run
+       * repeating one claim, and a step that verified is not that.
+       */
+      refusedCompletions.delete(state.id)
       // The write closing a confirmed step also opens the next observation, so
       // a tab the effect switched to is durably owned before this controller
       // can lose the run. Only the verifying run this step owns may be claimed:
@@ -1032,8 +1129,16 @@ export const createAgentController = (
     if (await exhaustedNoProgressBudget(state, observation, decision))
       return undefined
     const now = dependencies.clock.now()
+    const previous = refusedCompletions.get(state.id)
+    const refusals =
+      previous?.reason === judgement.reason ? previous.count + 1 : 1
+    refusedCompletions.set(state.id, {
+      reason: judgement.reason,
+      count: refusals
+    })
     dependencies.trace?.(state.id, "completion_refused", {
-      reason: judgement.reason
+      reason: judgement.reason,
+      refusals
     })
     await dependencies.persistence.appendStep({
       runId: state.id,
@@ -1049,6 +1154,23 @@ export const createAgentController = (
         }
       }
     })
+    /**
+     * A refusal must not be able to consume the run. Looking again is the
+     * right answer the first time — the indicator may simply not have
+     * appeared yet — and the wrong one once the same refusal has come back
+     * unchanged: nothing the run can see on its own is going to settle it, so
+     * the person who set the goal is asked.
+     */
+    if (refusals >= MAX_CONSECUTIVE_REFUSED_COMPLETIONS) {
+      await pause(state, "question", {
+        question: {
+          id: `${state.id}:q${state.observationCount}`,
+          text: `${judgement.feedback} I have reported this task finished twice and cannot support the claim. Is it done, and if not, what should I do next?`,
+          askedAt: dependencies.clock.now()
+        }
+      })
+      return undefined
+    }
     return claimObserving(state, false, ["deciding"])
   }
 
@@ -1245,12 +1367,21 @@ export const createAgentController = (
         ...recalled,
         ...(screenshot ? { screenshot } : {})
       })
-    } catch {
+    } catch (error) {
+      /**
+       * The provider's own typed failure, not a sentence written over the
+       * top of it. A wedged local proxy answering 503 has an i18n key and a
+       * user-facing sentence of its own; replacing them told the user to
+       * check a provider that was running perfectly well.
+       */
       if (!signal.aborted) {
-        await fail(
+        await failWith(
           deciding,
-          "model_unavailable",
-          "The selected model could not produce an Agent decision."
+          agentProviderFailure(
+            "model_unavailable",
+            error,
+            "The selected model could not produce an Agent decision."
+          )
         )
       }
       return undefined
@@ -1456,6 +1587,7 @@ export const createAgentController = (
       recentProgress.delete(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
+      refusedCompletions.delete(state.id)
       await run(recorded.id, false, true)
     },
     async answerQuestion({ runId, questionId, text }) {
@@ -1472,6 +1604,7 @@ export const createAgentController = (
       recentProgress.delete(state.id)
       noProgressCounts.delete(state.id)
       refusedCommandCounts.delete(state.id)
+      refusedCompletions.delete(state.id)
       const answers = [
         ...(state.answers ?? []),
         {
@@ -1499,6 +1632,51 @@ export const createAgentController = (
         pauseReason: undefined,
         answers,
         question: undefined,
+        updatedAt: dependencies.clock.now()
+      })
+      if (!recorded) return
+      await run(recorded.id, false, true)
+    },
+    /**
+     * The user has looked at the page and is continuing.
+     *
+     * Nothing is replayed and nothing is asserted about what happened: the
+     * run takes a fresh observation and decides from what is on screen, which
+     * is the only account of the page either of them can trust. The
+     * generation is bumped the way a completed takeover bumps it, so no
+     * reference bound before the page moved survives into the next decision.
+     *
+     * Leaving stop as the only exit was the more dangerous arrangement. A
+     * stopped run is started again from the goal, and the new run carries no
+     * memory that the click already landed — so refusing to continue here is
+     * what made the action likely to happen twice.
+     */
+    async resolveEffect({ runId, pausedAt }) {
+      const state = await dependencies.persistence.load(runId)
+      if (
+        !state ||
+        state.status !== "paused" ||
+        state.pauseReason !== "unresolved_effect" ||
+        state.updatedAt !== pausedAt
+      ) {
+        return
+      }
+      previousProgress.delete(state.id)
+      recentProgress.delete(state.id)
+      noProgressCounts.delete(state.id)
+      refusedCommandCounts.delete(state.id)
+      refusedCompletions.delete(state.id)
+      minimumGeneration.set(runId, (lastGeneration.get(runId) ?? 0) + 1)
+      const recorded = await transition(state, "observing", {
+        ...(state.deadline
+          ? {
+              deadline: resumeAgentDeadlines(
+                state.deadline,
+                dependencies.clock.now()
+              )
+            }
+          : {}),
+        pauseReason: undefined,
         updatedAt: dependencies.clock.now()
       })
       if (!recorded) return

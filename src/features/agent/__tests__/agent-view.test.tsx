@@ -1,4 +1,5 @@
 import type { AgentRunState } from "@ollama-client/contracts"
+import { MAX_AGENT_OBSERVATIONS } from "@ollama-client/contracts"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { AgentView } from "../agent-view"
@@ -26,6 +27,28 @@ const run = (status: AgentRunState["status"]): AgentRunState => ({
 })
 
 describe("AgentView", () => {
+  it("shows the phase in the log while no step names the action", () => {
+    /*
+     * A step joins the log only once it has a receipt, so observing and
+     * deciding left the panel a title above a screen of nothing at the one
+     * moment a person watches it hardest.
+     */
+    render(<AgentView run={run("deciding")} steps={[]} />)
+
+    expect(screen.getAllByText("agent.status.deciding")).toHaveLength(2)
+  })
+
+  it("takes the caret when the surface appears", () => {
+    /*
+     * Switching surfaces mounts this panel fresh, and a person who came here
+     * to describe a task should not have to click the box they are already
+     * looking at. The chat composer autofocuses for the same reason.
+     */
+    render(<AgentView />)
+
+    expect(screen.getByLabelText("agent.start.goal")).toHaveFocus()
+  })
+
   it("enforces remote-observation acknowledgement before start", () => {
     const acknowledge = vi.fn()
     const start = vi.fn()
@@ -50,7 +73,9 @@ describe("AgentView", () => {
       target: { value: "Compare these products now" }
     })
     expect(onGoalChange).toHaveBeenCalledWith("Compare these products now")
-    expect(screen.getByText("agent.start.action")).toBeDisabled()
+    expect(
+      screen.getByRole("button", { name: "agent.start.action" })
+    ).toBeDisabled()
     expect(screen.getByText("agent.privacy.remote_notice")).toBeInTheDocument()
     fireEvent.click(screen.getByText("agent.privacy.acknowledge"))
     expect(acknowledge).toHaveBeenCalledWith("observations")
@@ -64,10 +89,10 @@ describe("AgentView", () => {
         onStart={start}
       />
     )
-    fireEvent.click(screen.getByText("agent.start.action"))
+    fireEvent.click(screen.getByRole("button", { name: "agent.start.action" }))
     expect(start).toHaveBeenCalledWith("Compare these products", true)
     fireEvent.click(screen.getByRole("checkbox"))
-    fireEvent.click(screen.getByText("agent.start.action"))
+    fireEvent.click(screen.getByRole("button", { name: "agent.start.action" }))
     expect(start).toHaveBeenLastCalledWith("Compare these products", false)
   })
 
@@ -90,7 +115,9 @@ describe("AgentView", () => {
       />
     )
     /* Observations were acknowledged once; that does not cover pictures. */
-    expect(screen.getByText("agent.start.action")).toBeDisabled()
+    expect(
+      screen.getByRole("button", { name: "agent.start.action" })
+    ).toBeDisabled()
     expect(
       screen.getByText("agent.privacy.remote_notice_screenshots")
     ).toBeInTheDocument()
@@ -107,7 +134,7 @@ describe("AgentView", () => {
         onStart={start}
       />
     )
-    fireEvent.click(screen.getByText("agent.start.action"))
+    fireEvent.click(screen.getByRole("button", { name: "agent.start.action" }))
     expect(start).toHaveBeenCalledWith("Find the red square", true)
   })
 
@@ -132,7 +159,9 @@ describe("AgentView", () => {
       screen.getByText("The model returned too many invalid decisions.")
     ).toBeInTheDocument()
     // A settled run is done being supervised, and the next one starts here.
-    expect(screen.getByText("agent.start.action")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "agent.start.action" })
+    ).toBeInTheDocument()
     expect(screen.queryByText("agent.controls.stop")).not.toBeInTheDocument()
   })
 
@@ -330,8 +359,13 @@ describe("AgentView disclosure and supervision", () => {
   it("shows progress against the budget that will stop the run", () => {
     // A bare count cannot say whether a run is halfway or about to be cut off.
     render(<AgentView run={run("observing")} />)
+    // Read from the contract rather than written out: the panel shows the
+    // ceiling the runtime enforces, so a literal here goes stale the moment
+    // that ceiling moves.
     expect(
-      screen.getByText('agent.progress:{"count":2,"budget":25}')
+      screen.getByText(
+        `agent.progress:{"count":2,"budget":${MAX_AGENT_OBSERVATIONS}}`
+      )
     ).toBeTruthy()
   })
 

@@ -3,10 +3,13 @@ import type {
   AgentElement,
   AgentObservation
 } from "@ollama-client/contracts"
+import { MAX_AGENT_OBSERVATIONS } from "@ollama-client/contracts"
 import { describe, expect, it } from "vitest"
 import {
+  AGENT_DECISION_TIMEOUT_MS,
   AGENT_RUN_ACTIVE_BUDGET_MS,
   AGENT_STEP_ACTIVE_BUDGET_MS,
+  agentRemainingBudget,
   beginAgentStepDeadline,
   classifyNoProgress,
   expiredAgentDeadline,
@@ -95,8 +98,51 @@ describe("agent budgets", () => {
   })
 
   it("states the ceilings the product promises", () => {
-    expect(AGENT_RUN_ACTIVE_BUDGET_MS).toBe(600_000)
-    expect(AGENT_STEP_ACTIVE_BUDGET_MS).toBe(60_000)
+    expect(AGENT_RUN_ACTIVE_BUDGET_MS).toBe(2_400_000)
+    expect(AGENT_STEP_ACTIVE_BUDGET_MS).toBe(180_000)
+  })
+
+  it("gives a step strictly longer than one decision is allowed to take", () => {
+    /**
+     * The ordering is the rule, not the numbers. A step budget at or below
+     * the decision timeout kills a step for taking the time the decision was
+     * promised: a model that answered in ninety seconds, well inside its
+     * hundred and twenty, had its perfectly good step failed with "this Agent
+     * step exceeded its active time budget".
+     */
+    expect(AGENT_STEP_ACTIVE_BUDGET_MS).toBeGreaterThan(
+      AGENT_DECISION_TIMEOUT_MS
+    )
+    /** And a step has to fit inside the run that carries it. */
+    expect(AGENT_RUN_ACTIVE_BUDGET_MS).toBeGreaterThan(
+      AGENT_STEP_ACTIVE_BUDGET_MS
+    )
+  })
+
+  it("leaves the run time for the steps its observation ceiling allows", () => {
+    // Fifty steps whose decisions measured two to forty-one seconds apiece
+    // need the better part of half an hour. Ten minutes stopped honest runs a
+    // third of the way in.
+    const slowStepMs = 25_000
+    expect(AGENT_RUN_ACTIVE_BUDGET_MS).toBeGreaterThanOrEqual(
+      MAX_AGENT_OBSERVATIONS * slowStepMs
+    )
+  })
+
+  it("reports what the run has left, in the terms it spends", () => {
+    expect(agentRemainingBudget({ observationCount: 4 }, 50)).toEqual({
+      observationsUsed: 4,
+      observationsRemaining: 46,
+      maxObservations: 50,
+      stepsRemaining: 46
+    })
+  })
+
+  it("never reports a negative remainder", () => {
+    expect(agentRemainingBudget({ observationCount: 60 }, 50)).toMatchObject({
+      observationsRemaining: 0,
+      stepsRemaining: 0
+    })
   })
 
   it("exempts wait from no-progress", () => {

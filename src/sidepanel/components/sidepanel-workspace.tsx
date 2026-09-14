@@ -1,8 +1,6 @@
-import { Bot, MessageCircle } from "lucide-react"
 import { lazy, Suspense, useState } from "react"
-import { useTranslation } from "react-i18next"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Chat } from "@/features/chat/components/chat"
+import { type PanelSurface, SurfaceToggle } from "./surface-toggle"
 
 /**
  * The build constant is read inline, not through `AGENT_PREVIEW_ENABLED`: the
@@ -21,42 +19,29 @@ const AgentSurface =
     : undefined
 
 export const SidepanelWorkspace = () => {
-  const { t } = useTranslation()
-  const [surface, setSurface] = useState<"chat" | "agent">("chat")
+  const [surface, setSurface] = useState<PanelSurface>("chat")
 
   if (!AgentSurface) return <Chat />
 
+  /*
+   * No bar of its own, and no tab strip. The toggle is handed to whichever
+   * surface is showing and rendered in that surface's bottom control row,
+   * beside the model picker — the row both surfaces now share. A full-width
+   * row for a two-item switch was forty pixels of a four-hundred-pixel panel,
+   * and a segmented control in the header put the mode one row away from the
+   * controls that belong to it.
+   */
+  const toggle = <SurfaceToggle surface={surface} onChange={setSurface} />
+
   return (
     <div className="flex h-screen min-w-0 flex-col bg-surface-chat">
-      <Tabs
-        value={surface}
-        onValueChange={(value) => setSurface(value as "chat" | "agent")}
-        className="min-h-0 flex-1 gap-0">
-        <div className="shrink-0 border-b border-border/40 bg-background/90 px-2 py-1.5 backdrop-blur">
-          <TabsList className="grid h-7 w-full grid-cols-2">
-            <TabsTrigger value="chat">
-              <MessageCircle className="icon-xs" aria-hidden="true" />
-              {t("agent.surface.chat")}
-            </TabsTrigger>
-            <TabsTrigger value="agent">
-              <Bot className="icon-xs" aria-hidden="true" />
-              {t("agent.surface.agent")}
-              <span className="rounded-sm bg-app-primary-soft px-1 text-micro text-app-agent">
-                {t("agent.surface.preview")}
-              </span>
-            </TabsTrigger>
-          </TabsList>
-        </div>
-        <div className="min-h-0 flex-1">
-          {surface === "chat" ? (
-            <Chat embedded />
-          ) : (
-            <Suspense fallback={null}>
-              <AgentSurface />
-            </Suspense>
-          )}
-        </div>
-      </Tabs>
+      {surface === "chat" ? (
+        <Chat embedded leading={toggle} />
+      ) : (
+        <Suspense fallback={null}>
+          <AgentSurface leading={toggle} />
+        </Suspense>
+      )}
     </div>
   )
 }

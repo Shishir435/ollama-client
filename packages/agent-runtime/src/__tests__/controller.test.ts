@@ -25,6 +25,7 @@ import type {
   AgentVerificationResult,
   ResolvedAgentEffect
 } from "../ports"
+import { AgentEffectNotAppliedError } from "../ports"
 import {
   AgentStaleObservationError,
   AgentUnreadablePageError
@@ -120,6 +121,20 @@ const confirmed: AgentVerificationResult = {
   evidence: { kind: "dom", summary: "Changed", observedAt: 2 }
 }
 
+/**
+ * A verification that compared the step's own intended result, which is what
+ * lets a completion stand without a quotation. The default above is the other
+ * kind: the page reacted, which every intermediate click also produces.
+ */
+const confirmedValue: AgentVerificationResult = {
+  outcome: "confirmed",
+  evidence: {
+    kind: "field",
+    summary: "Field contains the resolved value",
+    observedAt: 2
+  }
+}
+
 const allow: AgentPolicyDecision = { type: "allow", risk: "low" }
 
 const approvalPolicy = (
@@ -172,6 +187,7 @@ interface HarnessOptions {
   createCancellationController?: () => AgentCancellationController
   clock?: () => number
   effect?: AgentControllerDependencies["effect"]["resolve"]
+  execute?: AgentControllerDependencies["effect"]["execute"]
   stepsFail?: boolean
   trace?: AgentControllerDependencies["trace"]
 }
@@ -275,8 +291,9 @@ const createHarness = (options: HarnessOptions = {}) => {
           options.effectOverrides
         )
       },
-      async execute() {
+      async execute(authorized, signal) {
         calls.push("execute")
+        if (options.execute) return options.execute(authorized, signal)
         return {
           executedAt: 10,
           controlledTabId: options.controlledTabIdAfterExecution
@@ -537,8 +554,8 @@ describe("agent controller", () => {
     const harness = createHarness({
       state: runState({
         deadline: {
-          runStartedAt: -700_000,
-          stepStartedAt: -700_000,
+          runStartedAt: -2_500_000,
+          stepStartedAt: -2_500_000,
           runSuspendedMs: 0,
           stepSuspendedMs: 0
         }
@@ -870,12 +887,44 @@ describe("agent controller", () => {
     expect(traced).toContain("completion_refused")
   })
 
+  it("completes a confirmed change without asking it to quote the page", async () => {
+    /**
+     * A toggle produces no new page text, so no quotation exists for one. The
+     * verifier already checked the control against the page — it holds the
+     * resolved state — and that check is the evidence. Three live runs
+     * selected the right option, were confirmed, and then spent their whole
+     * budget being refused for work they had done.
+     */
+    let decisions = 0
+    const harness = createHarness({
+      effectOverrides: { semanticEffects: ["form_mutation"] },
+      verification: [confirmedValue],
+      observe: async () => observation(),
+      decide: async () => {
+        decisions += 1
+        return decisions === 1
+          ? { type: "command", command: command() }
+          : { type: "complete", summary: "Selected Blue" }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "completed",
+      result: "Selected Blue"
+    })
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "rejected")
+    ).toHaveLength(0)
+  })
+
   it("does not let pressing Save alone complete saving the document", async () => {
     /**
-     * The three layers, kept apart. The click is delivered, the verifier
-     * confirms its effect — the button was pressed and the page changed —
-     * and the goal is still not met. The run only completes once it can
-     * point at something the page shows.
+     * The three layers, kept apart. The click is delivered and the goal is
+     * still not met — and here the run cannot even read its own receipts, so
+     * it has no confirmation to lean on and owes the page a quotation. It
+     * only completes once it can point at something the page shows.
      */
     const saved = observation({
       snapshotId: "snapshot-1",
@@ -884,6 +933,7 @@ describe("agent controller", () => {
     const claims: unknown[] = []
     let decisions = 0
     const harness = createHarness({
+      stepsFail: true,
       effectOverrides: { semanticEffects: ["activation"] },
       /** The indicator appears only after the run has looked again. */
       observe: async () => (decisions >= 2 ? saved : observation()),
@@ -918,6 +968,40 @@ describe("agent controller", () => {
     ).toEqual(["negative"])
   })
 
+  it("asks the user rather than spending the run on one refusal", async () => {
+    /**
+     * A refusal must not be able to consume the run. Looking again is right
+     * the first time — the indicator may not have appeared yet — and wrong
+     * once the same refusal comes back unchanged: three live runs re-claimed
+     * a finished task until `budget_exhausted`, telling the user nothing.
+     */
+    let decisions = 0
+    const harness = createHarness({
+      stepsFail: true,
+      effectOverrides: { semanticEffects: ["activation"] },
+      observe: async () => observation(),
+      decide: async () => {
+        decisions += 1
+        return decisions === 1
+          ? { type: "command", command: command() }
+          : { type: "complete", summary: "Saved the document" }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "question"
+    })
+    expect(harness.getState().question?.text).toContain("cannot support")
+    /** Two refusals, not a budget's worth. */
+    expect(
+      harness.writtenSteps.filter((step) => step.status === "rejected")
+    ).toHaveLength(2)
+    expect(harness.getState().error).toBeUndefined()
+  })
+
   it("refuses evidence the page already showed when the change was made", async () => {
     /**
      * The baseline is the page as it read when the change was decided, so a
@@ -928,6 +1012,7 @@ describe("agent controller", () => {
     let decisions = 0
     const claims: string[] = []
     const harness = createHarness({
+      stepsFail: true,
       effectOverrides: { semanticEffects: ["activation"] },
       observe: async () => observation({ visibleText: "Page text" }),
       decide: async () => {
@@ -1270,6 +1355,66 @@ describe("agent controller", () => {
     expect(harness.calls.filter((call) => call === "execute")).toHaveLength(1)
   })
 
+  it("continues from a fresh look once the user has reviewed the page", async () => {
+    const harness = createHarness({
+      verification: [],
+      decisions: [
+        { type: "command", command: command() },
+        { type: "complete", summary: "Done" }
+      ],
+      observations: [
+        observation(),
+        observation(),
+        observation({ snapshotId: "snapshot-2", generation: 2 }),
+        observation({ snapshotId: "snapshot-2", generation: 2 })
+      ]
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "unresolved_effect"
+    })
+    const executed = harness.calls.filter((call) => call === "execute").length
+    const resumedFrom = harness.calls.length
+
+    await harness.controller.resolveEffect({
+      runId: "run-1",
+      pausedAt: harness.getState().updatedAt
+    })
+
+    /**
+     * It left the pause and looked again, and the effect was never replayed:
+     * the run decides from what the page shows, which is the only account of
+     * it either of them has.
+     */
+    expect(harness.getState().pauseReason).not.toBe("unresolved_effect")
+    expect(harness.calls.slice(resumedFrom)).toContain("transition:observing")
+    expect(
+      harness.calls
+        .slice(resumedFrom)
+        .some((call) => call.startsWith("observe:"))
+    ).toBe(true)
+    expect(harness.calls.filter((call) => call === "execute")).toHaveLength(
+      executed
+    )
+  })
+
+  it("refuses to resolve a moment the panel was not showing", async () => {
+    const harness = createHarness({ verification: [] })
+    await harness.controller.start("run-1")
+    const paused = harness.getState()
+
+    await harness.controller.resolveEffect({
+      runId: "run-1",
+      pausedAt: paused.updatedAt - 1
+    })
+
+    expect(harness.getState()).toMatchObject({
+      status: "paused",
+      pauseReason: "unresolved_effect"
+    })
+  })
+
   it("re-decides after negative verification", async () => {
     const harness = createHarness({
       verification: [
@@ -1512,6 +1657,65 @@ describe("agent controller", () => {
     expect(harness.getState().error?.code).toBe("invalid_decision")
   })
 
+  it("tells policy what the run supplied itself before judging a destination", async () => {
+    /**
+     * The egress rule refuses a destination carrying a value the run read off
+     * the page. A search box holds a field value too, so without provenance a
+     * run that typed the user's own query and followed the site's own search
+     * URL was killed as an exfiltration attempt.
+     */
+    const inputs: AgentPolicyInput[] = []
+    const typed: AgentCommand = {
+      type: "type",
+      ref: "e1",
+      text: "ollama browser extension",
+      snapshotId: "snapshot-1",
+      generation: 1
+    }
+    let decisions = 0
+    const harness = createHarness({
+      state: runState({ goal: "Search for an extension" }),
+      effectOverrides: {
+        destination: {
+          url: "https://example.com/?q=ollama+browser+extension",
+          origin: "https://example.com",
+          source: "model"
+        }
+      },
+      observe: async () => observation(),
+      policy: (input) => {
+        inputs.push(input)
+        return allow
+      },
+      decide: async () => {
+        decisions += 1
+        if (decisions === 1) return { type: "command", command: typed }
+        if (decisions === 2) return { type: "command", command: command() }
+        return { type: "complete", summary: "Done" }
+      }
+    })
+
+    await harness.controller.start("run-1")
+
+    expect(inputs.at(-1)?.authoredText).toEqual([
+      "Search for an extension",
+      "ollama browser extension"
+    ])
+  })
+
+  it("asks policy nothing about authorship when there is no destination", async () => {
+    // Every read is a durable one, and this is the only question it answers.
+    const inputs: AgentPolicyInput[] = []
+    const harness = createHarness({
+      policy: (input) => {
+        inputs.push(input)
+        return allow
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(inputs.at(-1)?.authoredText).toBeUndefined()
+  })
+
   it("classifies provider failures as model unavailable", async () => {
     const harness = createHarness({
       decide: async () => {
@@ -1521,6 +1725,68 @@ describe("agent controller", () => {
     await harness.controller.start("run-1")
     expect(harness.getState().status).toBe("failed")
     expect(harness.getState().error?.code).toBe("model_unavailable")
+    expect(harness.getState().error?.messageKey).toBeUndefined()
+  })
+
+  it("keeps a failure the provider already named for the user", async () => {
+    /**
+     * A wedged local proxy answering 503 knows what is wrong; the run does
+     * not. Writing "the model could not be reached, check the provider is
+     * running" over the top of it sent a user to restart a provider that was
+     * running perfectly well.
+     */
+    const busy = Object.assign(new Error("503 from the proxy"), {
+      messageKey: "errors.provider.busy",
+      userMessage: "The local provider is busy with another request.",
+      retryable: true
+    })
+    const harness = createHarness({
+      decide: async () => {
+        throw busy
+      }
+    })
+    await harness.controller.start("run-1")
+    expect(harness.getState().error).toEqual({
+      code: "model_unavailable",
+      message: "The local provider is busy with another request.",
+      messageKey: "errors.provider.busy",
+      retryable: true
+    })
+  })
+
+  it("records why the page refused an effect instead of one fixed sentence", async () => {
+    /**
+     * The executor's refusal carries a cause from a closed vocabulary this
+     * build composes. Flattening it threw away the one fact a later reader
+     * needs, and left two live failures undiagnosable.
+     */
+    const harness = createHarness({
+      execute: async () => {
+        throw new AgentEffectNotAppliedError("target_changed: enabled")
+      }
+    })
+    await harness.controller.start("run-1")
+    const refused = harness.writtenSteps.find(
+      (step) => step.verification?.evidence.kind === "stale_target"
+    )
+    expect(refused?.verification?.evidence.summary).toBe(
+      "target_changed: enabled"
+    )
+  })
+
+  it("falls back to the fixed sentence when the refusal carries no cause", async () => {
+    const harness = createHarness({
+      execute: async () => {
+        throw new AgentEffectNotAppliedError("")
+      }
+    })
+    await harness.controller.start("run-1")
+    const refused = harness.writtenSteps.find(
+      (step) => step.verification?.evidence.kind === "stale_target"
+    )
+    expect(refused?.verification?.evidence.summary).toBe(
+      "Target changed; no browser effect was attempted"
+    )
   })
 })
 

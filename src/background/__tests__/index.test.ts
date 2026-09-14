@@ -92,7 +92,7 @@ vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: vi.fn().mockResolvedValue(false),
   setPlasmoStoredValue: vi.fn().mockResolvedValue(undefined),
   removePlasmoStoredValue: vi.fn().mockResolvedValue(undefined),
-  plasmoGlobalStorage: {
+  plasmoSyncStorage: {
     get: vi.fn().mockResolvedValue(false),
     set: vi.fn().mockResolvedValue(undefined),
     remove: vi.fn().mockResolvedValue(undefined)

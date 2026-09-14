@@ -10,10 +10,12 @@ import {
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { TooltipActionButton } from "@/components/actions"
+import { ProviderIcon } from "@/components/icons"
 import { chatIconBtnCls } from "@/features/chat/lib/chat-styles"
 import { ChatSessionActions } from "@/features/sessions/components/chat-session-actions"
 import { buildExportActionItems } from "@/features/sessions/lib/export-action-items"
 import { cn } from "@/lib/class-names"
+import { resolveModelBrand } from "@/lib/providers/provider-brand"
 import type { ChatMessage } from "@/types"
 import { CopyButton } from "./copy-button"
 import { RegenerateButton } from "./regenerate-button"
@@ -209,7 +211,16 @@ export const ChatMessageFooter = ({
             tooltip={msg.model}
             icon={
               <span className="inline-flex h-6 min-w-0 max-w-[clamp(5rem,24vw,14rem)] items-center gap-1 rounded-control px-1 text-micro text-muted-foreground/70 hover:bg-muted/35 hover:text-foreground">
-                <Bot className="icon-xs shrink-0" />
+                {/* The vendor the model id names, so the reply is attributed
+                    with the same mark the model menu shows. */}
+                {resolveModelBrand(msg.model) ? (
+                  <ProviderIcon
+                    brand={resolveModelBrand(msg.model)}
+                    className="icon-xs shrink-0"
+                  />
+                ) : (
+                  <Bot className="icon-xs shrink-0" />
+                )}
                 <span className="truncate">{msg.model}</span>
               </span>
             }

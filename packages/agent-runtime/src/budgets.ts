@@ -3,7 +3,9 @@ import {
   AgentDeadlineStateSchema,
   type AgentDecision,
   type AgentElement,
-  type AgentObservation
+  type AgentObservation,
+  type AgentRunState,
+  MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
 
 export const initialAgentDeadlineState = (now: number): AgentDeadlineState => ({
@@ -55,13 +57,39 @@ export const resumeAgentDeadlines = (
 }
 
 /**
+ * How long one decision may take before the host gives up on the model.
+ *
+ * Declared here rather than beside the host that enforces it, because the
+ * step budget below has to be sized against it and two files cannot own one
+ * ordering. A provider that accepts the request and never answers is what
+ * this exists to turn into a reported failure; it does not police latency.
+ */
+export const AGENT_DECISION_TIMEOUT_MS = 120_000
+
+/**
  * The two active-time ceilings the product promises. Wall-clock time a user
  * spent deciding on an approval or finishing a takeover is not the run's, so
  * both are measured against the suspension accounting in the durable deadline
  * rather than against the clock alone.
+ *
+ * The step ceiling is strictly greater than the decision timeout, and that is
+ * the whole reason for its value. It was sixty seconds while a decision was
+ * allowed a hundred and twenty, so a model that answered in ninety — well
+ * inside what it had been promised — had its perfectly good step killed with
+ * "this Agent step exceeded its active time budget", which reads like a hung
+ * page and is not. A step is a decision plus an observation, an execution and
+ * a verification that may itself wait for the page, so the ceiling is the
+ * decision timeout with room for the rest of the step around it.
+ *
+ * The run ceiling follows from the other two: a fifty-step run whose
+ * decisions measured two to forty-one seconds apiece needs the better part of
+ * half an hour, and ten minutes stopped honest runs a third of the way in.
+ * What bounds a runaway run is the observation ceiling and the no-progress
+ * guard, not this; this exists so a run cannot sit burning a remote provider
+ * indefinitely.
  */
-export const AGENT_RUN_ACTIVE_BUDGET_MS = 10 * 60_000
-export const AGENT_STEP_ACTIVE_BUDGET_MS = 60_000
+export const AGENT_RUN_ACTIVE_BUDGET_MS = 40 * 60_000
+export const AGENT_STEP_ACTIVE_BUDGET_MS = 3 * 60_000
 
 const activeElapsed = (
   startedAt: number,
@@ -98,6 +126,37 @@ export const expiredAgentDeadline = (
   ) >= (budgets.stepMs ?? AGENT_STEP_ACTIVE_BUDGET_MS)
     ? "step"
     : undefined
+}
+
+/**
+ * What the run has left, in the terms the model is asked to spend.
+ *
+ * `MAX_AGENT_OBSERVATIONS` counts one observation per decision, so the two
+ * figures are the same ceiling read two ways; both are reported because the
+ * model is told about steps and the panel shows observations. Derived rather
+ * than stored: the durable counters are the truth and a second copy would
+ * drift from them.
+ */
+export interface AgentRemainingBudget {
+  observationsUsed: number
+  observationsRemaining: number
+  maxObservations: number
+  /** Decisions left before the run is stopped, which is the same number. */
+  stepsRemaining: number
+}
+
+export const agentRemainingBudget = (
+  state: Pick<AgentRunState, "observationCount">,
+  maxObservations: number = MAX_AGENT_OBSERVATIONS
+): AgentRemainingBudget => {
+  const used = Math.max(0, state.observationCount)
+  const remaining = Math.max(0, maxObservations - used)
+  return {
+    observationsUsed: used,
+    observationsRemaining: remaining,
+    maxObservations,
+    stepsRemaining: remaining
+  }
 }
 
 export interface AgentProgressPoint {

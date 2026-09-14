@@ -25,12 +25,12 @@ export class DeviceLocalKeyInSyncError extends Error {
  * records most likely to overflow (provider configs, model and tool overrides,
  * knowledge sets), so the one path that was checked was the one least at risk.
  *
- * The scope check is here for the same reason. `plasmoGlobalStorage` does not
+ * The scope check is here for the same reason. `plasmoSyncStorage` does not
  * route by registry scope, so a device-local key written through it lands in
  * sync — for credentials that is the difference between one profile and every
  * profile. No such key is written through it today; this is what keeps that
- * true without migrating ~95 call sites to descriptors first, and it fails
- * loudly on the write rather than quietly on someone else's machine.
+ * true without migrating every remaining call site to a descriptor first, and
+ * it fails loudly on the write rather than quietly on someone else's machine.
  *
  * Reads and removes stay open: `getPlasmoStoredValue` deliberately reads a
  * legacy sync value and removes it as part of moving a key to local.
@@ -111,12 +111,3 @@ export const setPlasmoStoredValue = async <T>(
 export const removePlasmoStoredValue = async (key: string): Promise<void> => {
   await getPlasmoStorageForKey(key).remove(key)
 }
-
-/**
- * @deprecated Use typed descriptors with readSetting/writeSetting/useSetting.
- *
- * Still the sync handle, so writes through it are quota-checked — but it does
- * not route by scope, so a device-local key written here lands in sync. That is
- * the remaining reason to migrate call sites, not the quota.
- */
-export const plasmoGlobalStorage = plasmoSyncStorage

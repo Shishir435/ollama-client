@@ -3,6 +3,19 @@ import { useState } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ChatInputBox } from "@/features/chat/components/chat-input-box"
 
+/*
+ * The context sheet holds the chat instruction, which reads the session store.
+ * Without this, mounting the sheet reaches SQLite through the persistence
+ * client and the test logs an unhandled rejection it never asked for.
+ */
+vi.mock("@/features/sessions/stores/chat-session-store", () => ({
+  useChatSessions: () => ({
+    currentSessionId: undefined,
+    sessions: [],
+    setSessionSystemPrompt: vi.fn()
+  })
+}))
+
 vi.mock("@plasmohq/storage/hook", () => ({
   useStorage: () => [false, vi.fn()]
 }))
@@ -20,7 +33,7 @@ vi.mock("@/features/chat/components/chat-input/chat-input-toolbar", () => ({
   ChatInputToolbar: () => <div>toolbar</div>
 }))
 
-vi.mock("@/features/chat/components/chat-input/composer-shell", () => ({
+vi.mock("@/components/layout/composer-shell", () => ({
   ComposerShell: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   )

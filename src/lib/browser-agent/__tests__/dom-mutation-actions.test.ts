@@ -198,13 +198,31 @@ const executorAdapter = (
 
 describe("Agent DOM mutation resolution and policy", () => {
   it.each([
-    ["empty attachment picker", 'type="file"', 0, "approval_required"],
-    ["selected attachment", 'type="file"', 1, "takeover_required"],
-    ["unreadable file list", 'type="file"', null, "takeover_required"],
-    ["empty password", 'type="password"', 0, "takeover_required"],
-    ["empty OTP", 'autocomplete="one-time-code"', 0, "takeover_required"],
-    ["empty card field", 'autocomplete="cc-number"', 0, "takeover_required"]
-  ] as const)("applies submission policy to a form with %s", async (_label, attributes, fileCount, expectedPolicy) => {
+    ["empty attachment picker", 'type="file"', 0, "approval_required", "high"],
+    ["selected attachment", 'type="file"', 1, "takeover_required", "critical"],
+    [
+      "unreadable file list",
+      'type="file"',
+      null,
+      "takeover_required",
+      "critical"
+    ],
+    ["empty password", 'type="password"', 0, "takeover_required", "critical"],
+    [
+      "empty OTP",
+      'autocomplete="one-time-code"',
+      0,
+      "takeover_required",
+      "critical"
+    ],
+    [
+      "empty card field",
+      'autocomplete="cc-number"',
+      0,
+      "takeover_required",
+      "critical"
+    ]
+  ] as const)("applies submission policy to a form with %s", async (_label, attributes, fileCount, expectedPolicy, expectedRisk) => {
     document.body.innerHTML = `<form action="/comments" method="post"><input type="hidden" name="authenticity_token" value="private-csrf"><textarea name="comment[body]">This is a test comment.</textarea><input ${attributes}><button>Comment</button></form>`
     const submit = document.querySelector("button")
     if (!submit) throw new Error("Missing comment submit button")
@@ -219,7 +237,7 @@ describe("Agent DOM mutation resolution and policy", () => {
     const action = command({ type: "click", ref: "e1" })
     const policy = await decide(action, before)
     expect(policy.type).toBe(expectedPolicy)
-    expect(policy.risk).toBe("critical")
+    expect(policy.risk).toBe(expectedRisk)
     expect(JSON.stringify(await resolve(action, before))).not.toContain(
       "private-csrf"
     )
@@ -250,10 +268,10 @@ describe("Agent DOM mutation resolution and policy", () => {
     })
     const policy = await decide(command({ type: "click", ref: "e1" }), before)
     expect(policy.type).toBe("approval_required")
-    expect(policy.risk).toBe("critical")
+    expect(policy.risk).toBe("high")
   })
 
-  it("treats Enter in a form field as a critical submission", async () => {
+  it("treats Enter in a form field as a grantable submission", async () => {
     const before = observation({
       elements: [
         element({
@@ -271,7 +289,7 @@ describe("Agent DOM mutation resolution and policy", () => {
       before
     )
     expect(policy.type).toBe("approval_required")
-    expect(policy.risk).toBe("critical")
+    expect(policy.risk).toBe("high")
   })
 
   it("uses the submitter formaction instead of a command-provided destination", async () => {
@@ -291,7 +309,7 @@ describe("Agent DOM mutation resolution and policy", () => {
     expect(effect.destination?.url).toBe(destination)
     const policy = await decide(command({ type: "click", ref: "e1" }), before)
     expect(policy.type).toBe("approval_required")
-    expect(policy.risk).toBe("critical")
+    expect(policy.risk).toBe("high")
   })
 
   it("requires takeover for sensitive and authentication controls", async () => {
@@ -495,6 +513,75 @@ describe("Agent DOM mutation execution", () => {
     }
   }
 
+  it("clicks a visual target our own visibility check calls gone", async () => {
+    /*
+     * A run on YouTube spent seventeen of its steps here. Every click on a
+     * thumbnail was approved and then refused as "target changed after
+     * approval", because the executor re-read `visible` — our reconstruction
+     * of reachability — for a command whose whole point is that the browser's
+     * hit test already answered that question. Resolution waives it for a
+     * visual click; re-imposing it one layer later cost the run its budget
+     * without ever touching the page.
+     */
+    const control = document.createElement("button")
+    const clicks: string[] = []
+    control.addEventListener("click", () => clicks.push("clicked"))
+    const { effect, references } = await liveEffect(
+      command({ type: "click", ref: "e1" }),
+      control
+    )
+    /*
+     * Grounded as a ref click and executed as a visual one: resolving a
+     * `click_point` needs a screenshot and a hit test, and both are covered
+     * where they live. What is under test is the executor's identity check,
+     * which reads the command type and nothing else. No point is carried, so
+     * the click lands on the control's own centre and no second hit test runs
+     * — on the page this reproduces, the browser's hit test was satisfied all
+     * along and only our reconstruction disagreed. The control is grounded as
+     * a button because the thumbnail this reproduces is an `<img>`, which a
+     * ref click refuses as not activatable — which is why the run reached for
+     * a visual click in the first place.
+     */
+    const visual = {
+      ...effect,
+      command: command({ type: "click_point", x: 391, y: 319 })
+    }
+
+    control.style.display = "none"
+    expect(buildAgentElementObservation(control, "e1", 0).visible).toBe(false)
+
+    executeAgentDomMutationInDocument({
+      effect: visual,
+      document,
+      references,
+      signal
+    })
+
+    expect(clicks).toEqual(["clicked"])
+  })
+
+  it("still refuses a ref click whose control went invisible", async () => {
+    /*
+     * The waiver is the visual command's alone. A ref click was chosen from an
+     * observation that listed the control as visible, so the control leaving
+     * the page is a real change to what was approved.
+     */
+    const button = document.createElement("button")
+    const action = command({ type: "click", ref: "e1" })
+    const { effect, references } = await liveEffect(action, button)
+
+    button.style.display = "none"
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow("changed after approval")
+  })
+
   it("preserves a suffix added after approval beyond the observation limit", async () => {
     const input = document.createElement("textarea")
     input.value = `first ${"x".repeat(19994)}`
@@ -670,14 +757,56 @@ describe("Agent DOM mutation execution", () => {
     expect(input.value).toBe("old")
   })
 
-  it("refuses a key action after the user moves focus", async () => {
+  it("sends a key to the control it names after focus moves elsewhere", async () => {
     const input = document.createElement("input")
     const other = document.createElement("input")
     document.body.append(input, other)
     input.focus()
-    const action = command({ type: "press_key", ref: "e1", key: "Enter" })
+    const action = command({ type: "press_key", ref: "e1", key: "a" })
     const { effect, references } = await liveEffect(action, input)
+    const onKey = vi.fn()
+    input.addEventListener("keydown", onKey)
+    const strayKey = vi.fn()
+    other.addEventListener("keydown", strayKey)
     other.focus()
+
+    executeAgentDomMutationInDocument({
+      effect,
+      document,
+      references,
+      signal
+    })
+
+    expect(onKey).toHaveBeenCalledTimes(1)
+    expect(strayKey).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(input)
+  })
+
+  it("presses Enter in a search box whose widget repainted around it", async () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const input = document.createElement("input")
+    input.name = "q"
+    input.value = "Firefox"
+    const hidden = document.createElement("input")
+    hidden.type = "hidden"
+    hidden.name = "title"
+    hidden.value = "Special:Search"
+    form.append(input, hidden)
+    document.body.append(form)
+    input.focus()
+    const action = command({ type: "press_key", ref: "e1", key: "a" })
+    const { effect, references } = await liveEffect(action, input)
+    /**
+     * What a live search widget does while a model is deciding: its
+     * suggestion list opens and it repaints the box that opened it. None of
+     * this reaches the wire, so none of it may refuse the key press.
+     */
+    input.setAttribute("aria-expanded", "true")
+    input.setAttribute("aria-activedescendant", "suggestion-0")
+    input.className = "search-input--expanded"
+    const onKey = vi.fn()
+    input.addEventListener("keydown", onKey)
 
     expect(() =>
       executeAgentDomMutationInDocument({
@@ -686,7 +815,71 @@ describe("Agent DOM mutation execution", () => {
         references,
         signal
       })
-    ).toThrow("changed after approval")
+    ).not.toThrow()
+    expect(onKey).toHaveBeenCalledTimes(1)
+  })
+
+  it("still refuses when the payload around the target changed", async () => {
+    const form = document.createElement("form")
+    form.action = "/search"
+    const input = document.createElement("input")
+    input.name = "q"
+    input.value = "Firefox"
+    const hidden = document.createElement("input")
+    hidden.type = "hidden"
+    hidden.name = "title"
+    hidden.value = "Special:Search"
+    form.append(input, hidden)
+    document.body.append(form)
+    input.focus()
+    const action = command({ type: "press_key", ref: "e1", key: "a" })
+    const { effect, references } = await liveEffect(action, input)
+    hidden.value = "Special:Elsewhere"
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow("form state changed after approval")
+  })
+
+  it("still refuses to write text into a field whose value drifted", async () => {
+    const input = document.createElement("input")
+    input.value = "old"
+    const action = command({ type: "type", ref: "e1", text: "more" })
+    const { effect, references } = await liveEffect(action, input)
+    input.value = "user edit"
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow("value changed after approval")
+    expect(input.value).toBe("user edit")
+  })
+
+  it("names the identity field that moved so a refusal is diagnosable", async () => {
+    const input = document.createElement("input")
+    document.body.append(input)
+    input.focus()
+    const action = command({ type: "press_key", ref: "e1", key: "a" })
+    const { effect, references } = await liveEffect(action, input)
+    input.disabled = true
+
+    expect(() =>
+      executeAgentDomMutationInDocument({
+        effect,
+        document,
+        references,
+        signal
+      })
+    ).toThrow("changed after approval: enabled")
   })
 
   it("detects user edits elsewhere in a form after submit approval", async () => {
@@ -767,7 +960,47 @@ describe("Agent DOM mutation execution", () => {
     expect(nativeSubmit).not.toHaveBeenCalled()
   })
 
-  it("submits without invoking page-controlled click or submit handlers", async () => {
+  it("leaves a submission the page handled to the page", async () => {
+    const form = document.createElement("form")
+    form.action = "/finish"
+    const submit = document.createElement("button")
+    submit.name = "intent"
+    submit.value = "save"
+    submit.textContent = "Continue"
+    form.append(submit)
+    document.body.append(form)
+    const clickHandler = vi.fn()
+    const submitHandler = vi.fn((event: SubmitEvent) => event.preventDefault())
+    submit.addEventListener("click", clickHandler)
+    form.addEventListener("submit", submitHandler)
+    const nativeSubmit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => undefined)
+    const { effect, references } = await liveEffect(
+      command({ type: "click", ref: "e1" }),
+      submit
+    )
+
+    const submissionUrl = executeAgentDomMutationInDocument({
+      effect,
+      document,
+      references,
+      signal
+    })
+
+    /**
+     * An application that handles its own submission navigates nowhere, so
+     * there is no destination to report and the verifier judges the step by
+     * what the page did. Submitting a guarded copy here navigated away while
+     * the application never saw the event.
+     */
+    expect(submitHandler).toHaveBeenCalledOnce()
+    expect(submissionUrl).toBeUndefined()
+    expect(nativeSubmit).not.toHaveBeenCalled()
+    expect(clickHandler).not.toHaveBeenCalled()
+  })
+
+  it("submits the approved destination when a handler rewrites the action", async () => {
     const form = document.createElement("form")
     form.action = "/finish"
     const submit = document.createElement("button")
@@ -779,8 +1012,7 @@ describe("Agent DOM mutation execution", () => {
     const clickHandler = vi.fn(() => {
       form.action = "https://attacker.example/click"
     })
-    const submitHandler = vi.fn((event: SubmitEvent) => {
-      event.preventDefault()
+    const submitHandler = vi.fn(() => {
       form.action = "https://attacker.example/submit"
     })
     submit.addEventListener("click", clickHandler)
@@ -799,13 +1031,13 @@ describe("Agent DOM mutation execution", () => {
       references,
       signal
     })
+
+    expect(submitHandler).toHaveBeenCalledOnce()
     expect(submissionUrl).toBe(
       new URL("/finish?intent=save", location.href).href
     )
     expect(nativeSubmit).toHaveBeenCalledOnce()
     expect(clickHandler).not.toHaveBeenCalled()
-    expect(submitHandler).not.toHaveBeenCalled()
-    expect(form.action).toBe(new URL("/finish", location.href).href)
   })
 
   it("submits Enter through the guarded default submitter semantics", async () => {

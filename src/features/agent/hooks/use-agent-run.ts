@@ -32,6 +32,7 @@ export interface AgentRunConnection {
   debugReport: AgentDebugReporter
   stop(): void
   completeTakeover(): void
+  resolveEffect(): void
   approve(scope?: "run_origin"): void
   reject(): void
   answerQuestion(text: string): void
@@ -264,6 +265,15 @@ export const useAgentRun = (input: UseAgentRunInput): AgentRunConnection => {
     completeTakeover: () => {
       if (!runId) return
       send({ type: "agent_complete_takeover", runId })
+    },
+    /**
+     * Named with the moment the user was shown, so a click on a panel that
+     * has since moved on cannot resolve whatever replaced it.
+     */
+    resolveEffect: () => {
+      const run = snapshot?.run
+      if (!runId || !run || run.pauseReason !== "unresolved_effect") return
+      send({ type: "agent_resolve_effect", runId, pausedAt: run.updatedAt })
     },
     approve: (scope?: "run_origin") => {
       if (!runId || !pending) return

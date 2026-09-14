@@ -4,7 +4,8 @@ import {
   AgentRunStateSchema,
   AgentStepStatusSchema,
   AgentTakeoverRequestSchema,
-  MAX_AGENT_ANSWER_CHARS
+  MAX_AGENT_ANSWER_CHARS,
+  MAX_AGENT_OBSERVATIONS
 } from "./agent"
 import { AgentCommandSchema } from "./agent-command"
 
@@ -122,8 +123,18 @@ export type AgentBrowserDisclosure = z.infer<
 export const AgentPanelSnapshotSchema = z
   .object({
     run: AgentRunStateSchema.optional(),
-    // Each of 25 actions has up to five append-only lifecycle receipts.
-    steps: z.array(AgentStepRecordSchema).max(125),
+    /**
+     * The latest receipt per step, which is one row per action the run took.
+     *
+     * This was a flat cap of 125 — twenty-five actions at up to five
+     * append-only lifecycle receipts each — and it stopped being true the
+     * moment the step ceiling moved to fifty: a long run overflowed the
+     * array, the panel refused the whole snapshot as unreadable, and the
+     * supervision surface went dead exactly when there was most to supervise.
+     * A literal cannot be allowed to disagree with the budget again, so the
+     * bound is the budget, and the sender collapses receipts to reach it.
+     */
+    steps: z.array(AgentStepRecordSchema).max(MAX_AGENT_OBSERVATIONS),
     pending: AgentPendingSupervisionSchema.optional(),
     provider: AgentProviderDisclosureSchema.optional(),
     browser: AgentBrowserDisclosureSchema.optional(),
@@ -174,6 +185,15 @@ export const AgentPanelCommandSchema = z.discriminatedUnion("type", [
   RunScopedSchema.extend({ type: z.literal("agent_stop") }).strict(),
   RunScopedSchema.extend({
     type: z.literal("agent_complete_takeover")
+  }).strict(),
+  /**
+   * The user reviewed a page whose effect could not be resolved and is
+   * continuing. `pausedAt` names the moment they looked at, so a click on a
+   * stale panel cannot resolve whatever replaced it.
+   */
+  RunScopedSchema.extend({
+    type: z.literal("agent_resolve_effect"),
+    pausedAt: z.number().int().nonnegative()
   }).strict(),
   AnswerSchema.extend({
     type: z.literal("agent_approve"),

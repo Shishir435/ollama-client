@@ -17,7 +17,7 @@ vi.mock("@/lib/browser-sessions", () => ({
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
   getPlasmoStoredValue: mocks.storageGet,
-  plasmoGlobalStorage: { get: mocks.storageGet }
+  plasmoSyncStorage: { get: mocks.storageGet }
 }))
 
 import {

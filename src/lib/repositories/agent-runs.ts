@@ -18,7 +18,8 @@ import {
   type AgentRunStatus,
   AgentRunStatusSchema,
   AgentStepStatusSchema,
-  MAX_AGENT_FINDING_CHARS
+  MAX_AGENT_FINDING_CHARS,
+  MAX_AGENT_OBSERVATIONS
 } from "@ollama-client/contracts"
 import { z } from "zod"
 import { logger } from "@/lib/logger"
@@ -33,7 +34,21 @@ import { decodeRow, decodeRows, type RowDecodeContext } from "./row-decoder"
 
 export const MAX_AGENT_CHECKPOINT_BYTES = 64 * 1024
 export const MAX_AGENT_STEP_RECEIPT_BYTES = 16 * 1024
-export const MAX_AGENT_STEPS = 25
+/**
+ * The most distinct steps one run's rows may hold.
+ *
+ * This is a corruption bound, not the budget: the controller stops a run at
+ * `MAX_AGENT_OBSERVATIONS`, and this exists so a loop that escapes it cannot
+ * fill the table. It sits above the budget rather than on it for that reason
+ * — the run must end because it ran out of steps, with the reason the panel
+ * knows how to explain, never because an INSERT refused.
+ *
+ * It was the literal 25, written when that was the ceiling, and it stayed
+ * behind when the ceiling moved: every run died at step 26 with "Agent run
+ * exceeds its 25-step limit", which is a persistence error wearing a budget's
+ * words. The raise to fifty steps did nothing until this moved with it.
+ */
+export const MAX_AGENT_STEPS = MAX_AGENT_OBSERVATIONS + 5
 export const TERMINAL_AGENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 
 const TABLE: RowDecodeContext = { table: "agent_runs", operation: "read" }

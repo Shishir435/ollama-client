@@ -54,7 +54,7 @@ describe("resolved-effect policy", () => {
     })
   })
 
-  it("classifies click on a submit control as critical", () => {
+  it("classifies click on a submit control as a grantable approval", () => {
     const decision = evaluateAgentPolicy(
       input(
         effect(["submission"], {
@@ -63,10 +63,19 @@ describe("resolved-effect policy", () => {
       )
     )
     expect(decision.type).toBe("approval_required")
-    expect(decision.risk).toBe("critical")
+    expect(decision.risk).toBe("high")
+    /**
+     * High rather than critical is the whole point: a submission still costs
+     * an approval, and the user may now answer it once for this origin. As
+     * critical it could never be answered in advance, so an agent asked to
+     * post ten comments asked a human for ten final clicks.
+     */
+    expect(
+      decision.type === "approval_required" && decision.request.grantable
+    ).toEqual(["submission"])
   })
 
-  it("classifies Enter that may submit as critical", () => {
+  it("classifies Enter that may submit as a submission", () => {
     const enter: AgentCommand = {
       type: "press_key",
       key: "Enter",
@@ -89,7 +98,7 @@ describe("resolved-effect policy", () => {
       )
     )
     expect(decision.type).toBe("approval_required")
-    expect(decision.risk).toBe("critical")
+    expect(decision.risk).toBe("high")
   })
 
   it("prices typing into a field on a submit path as a form mutation", () => {
@@ -186,18 +195,19 @@ describe("resolved-effect policy", () => {
     }
   })
 
-  it("blocks a composed destination carrying a value the user typed", () => {
+  it("blocks a composed destination carrying a value the run read off the page", () => {
     expect(
       evaluateAgentPolicy(
         input(
           effect(["navigation"], {
             destination: {
-              url: "https://example.com/collect?d=typed",
+              url: "https://example.com/collect?d=4111111111111111",
               origin: "https://example.com",
               source: "model",
               pageDataEvidence: "field_value"
             }
-          })
+          }),
+          { authoredText: ["Find the cheapest flight to Lisbon"] }
         )
       )
     ).toEqual({
@@ -205,6 +215,90 @@ describe("resolved-effect policy", () => {
       risk: "critical",
       reason: "private_data_egress"
     })
+  })
+
+  it("blocks it just as firmly when the run cannot say what it authored", () => {
+    // No authored words is not a claim of authorship: receipts that could not
+    // be read leave the rule exactly as strict as it was before provenance.
+    expect(
+      evaluateAgentPolicy(
+        input(
+          effect(["navigation"], {
+            destination: {
+              url: "https://example.com/collect?d=4111111111111111",
+              origin: "https://example.com",
+              source: "model",
+              pageDataEvidence: "field_value"
+            }
+          })
+        )
+      )
+    ).toMatchObject({ type: "blocked", reason: "private_data_egress" })
+  })
+
+  it("lets the run search for the words the goal gave it", () => {
+    /**
+     * The live failure: the run typed the user's own query into the search
+     * box and followed the site's own search URL, so the query was a field
+     * value and the rule killed the run for exfiltrating it. Text that came
+     * from the goal is not data the run read off the page.
+     */
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["navigation"], {
+          destination: {
+            url: "https://example.com/?q=ollama+browser+extension",
+            origin: "https://example.com",
+            source: "model",
+            pageDataEvidence: "field_value"
+          }
+        }),
+        {
+          authoredText: [
+            "Search for ollama browser extension and summarise the first result"
+          ]
+        }
+      )
+    )
+    expect(decision.type).toBe("approval_required")
+    /** The destination raise is untouched: the user still sees the whole URL. */
+    expect(decision.risk).toBe("high")
+  })
+
+  it("lets the run search for the words it typed itself", () => {
+    const decision = evaluateAgentPolicy(
+      input(
+        effect(["navigation"], {
+          destination: {
+            url: "https://example.com/?q=lisbon+flights+in+may",
+            origin: "https://example.com",
+            source: "model",
+            pageDataEvidence: "field_value"
+          }
+        }),
+        { authoredText: ["Book me a holiday", "lisbon flights in may"] }
+      )
+    )
+    expect(decision.type).toBe("approval_required")
+  })
+
+  it("still blocks a URL that mixes the goal's words with the page's", () => {
+    // One authored phrase does not authorize the parameter beside it.
+    expect(
+      evaluateAgentPolicy(
+        input(
+          effect(["navigation"], {
+            destination: {
+              url: "https://example.com/?q=ollama+browser+extension&d=4111111111111111",
+              origin: "https://example.com",
+              source: "model",
+              pageDataEvidence: "field_value"
+            }
+          }),
+          { authoredText: ["Search for ollama browser extension"] }
+        )
+      )
+    ).toMatchObject({ type: "blocked", reason: "private_data_egress" })
   })
 
   it("requires approval for a composed destination carrying page text", () => {
@@ -297,9 +391,15 @@ describe("resolved-effect policy", () => {
   })
 
   it("remains safe when destructive language is unrecognized", () => {
+    /**
+     * A submission whose label the reader cannot parse is still a submission
+     * and still costs an approval. What makes a wipe critical is the
+     * `destructive` class the resolver attaches, never the wording: a rule
+     * that read labels would be a rule a page could write.
+     */
     const decision = evaluateAgentPolicy(
       input(
-        effect(["submission"], {
+        effect(["submission", "destructive"], {
           target: {
             sensitive: false,
             maySubmit: true,
@@ -309,6 +409,9 @@ describe("resolved-effect policy", () => {
       )
     )
     expect(decision.risk).toBe("critical")
+    expect(
+      decision.type === "approval_required" && decision.request.grantable
+    ).toBeUndefined()
   })
 
   it("does not allow page observations to expand the origin allowlist", () => {
@@ -328,7 +431,7 @@ describe("resolved-effect policy", () => {
   })
 
   const grant = (
-    effects: ("activation" | "form_mutation")[] = ["activation"],
+    effects: ("activation" | "form_mutation" | "submission")[] = ["activation"],
     origin = "https://example.com"
   ) => ({ origin, effects, grantedAt: 1 })
 
@@ -340,12 +443,43 @@ describe("resolved-effect policy", () => {
     })
 
     // Critical arrives with no offer attached, so the panel cannot render one.
-    const critical = evaluateAgentPolicy(input(effect(["submission"])))
+    const critical = evaluateAgentPolicy(input(effect(["destructive"])))
     expect(critical).toMatchObject({ type: "approval_required" })
     if (critical.type === "approval_required") {
       expect(critical.request.grantable).toBeUndefined()
       expect(critical.request.origin).toBeUndefined()
     }
+
+    // A submission riding along with a critical class is not widenable either.
+    const mixed = evaluateAgentPolicy(input(effect(["submission", "payment"])))
+    expect(mixed.type).toBe("takeover_required")
+  })
+
+  it("does not re-prompt a submission the user granted for this origin", () => {
+    /**
+     * The point of moving submission off critical. One "always allow this on
+     * this site for this run" covers the tenth comment as well as the first;
+     * before this the answer to every one of them was another prompt.
+     */
+    expect(
+      evaluateAgentPolicy(
+        input(effect(["submission"]), { grants: [grant(["submission"])] })
+      )
+    ).toEqual({
+      type: "granted",
+      risk: "high",
+      origin: "https://example.com"
+    })
+  })
+
+  it("does not let a submission grant cover a destructive one", () => {
+    expect(
+      evaluateAgentPolicy(
+        input(effect(["submission", "destructive"]), {
+          grants: [grant(["submission"])]
+        })
+      )
+    ).toMatchObject({ type: "approval_required", risk: "critical" })
   })
 
   it("allows a granted class on the granted origin", () => {

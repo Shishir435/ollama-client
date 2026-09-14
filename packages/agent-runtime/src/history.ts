@@ -35,6 +35,27 @@ const MAX_EVIDENCE_CHARS = 200
 const MAX_URL_CHARS = 300
 
 /**
+ * The runtime's own word to the model, which has to arrive whole.
+ *
+ * A verifier's summary is a sentence about a page and is bounded like page
+ * text. The completion judge's and the resolver's are different: they are
+ * assembled from templates in this package, carry no page text, and are the
+ * only thing that tells the model what to do instead. Cut at two hundred
+ * characters every one of them stopped mid-sentence — the refusal that says
+ * "complete again with evidence, or keep working" lost its instruction — so
+ * a run read three refusals telling it only that it had been refused.
+ *
+ * A separate cap rather than a wider one: page-derived summaries stay where
+ * they were, because the bound on them is what keeps a hostile page out of
+ * the next prompt.
+ */
+const MAX_FEEDBACK_CHARS = 500
+const RUNTIME_FEEDBACK_KINDS = new Set(["completion", "resolution"])
+
+const evidenceCap = (kind: string): number =>
+  RUNTIME_FEEDBACK_KINDS.has(kind) ? MAX_FEEDBACK_CHARS : MAX_EVIDENCE_CHARS
+
+/**
  * Counted rather than encoded: this package has no DOM and no Node globals,
  * and the bound has to mean bytes on the wire rather than UTF-16 units.
  */
@@ -148,7 +169,7 @@ const entryOf = (step: AgentStepReadout, index: number): AgentHistoryEntry => {
       ? {
           evidence: step.verification.evidence.summary.slice(
             0,
-            MAX_EVIDENCE_CHARS
+            evidenceCap(step.verification.evidence.kind)
           )
         }
       : {}),

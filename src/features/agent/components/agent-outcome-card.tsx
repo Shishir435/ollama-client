@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   AGENT_PAGE_TEXT_LIMIT,
-  agentFailureAdviceKey,
+  agentFailureMessageKey,
   agentPlainText
 } from "../lib/presentation"
 
@@ -32,14 +32,14 @@ export const AgentOutcomeCard = ({
   return (
     <section className="mt-3 rounded-panel border border-border/50 bg-background p-2.5 text-xs">
       {run.result && (
-        <p className="mb-2 whitespace-pre-wrap break-words">
+        <p className="mb-2 whitespace-pre-wrap wrap-break-word">
           {agentPlainText(run.result, 20_000)}
         </p>
       )}
       {run.error && (
         <>
           <p className="mb-1 font-medium text-destructive">
-            {t(agentFailureAdviceKey(run.error.code))}
+            {t(agentFailureMessageKey(run.error))}
           </p>
           <p className="mb-1 text-muted-foreground">
             {agentPlainText(run.error.message, AGENT_PAGE_TEXT_LIMIT)}

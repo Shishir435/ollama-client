@@ -42,7 +42,7 @@ vi.mock("@/background/lib/retrieval-tools", () => ({
 }))
 
 vi.mock("@/lib/plasmo-global-storage", () => ({
-  plasmoGlobalStorage: {
+  plasmoSyncStorage: {
     get: vi.fn(),
     set: vi.fn().mockResolvedValue(undefined)
   },

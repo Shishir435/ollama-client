@@ -40,6 +40,15 @@ interface FakeBackendOptions {
 const SLOW_TURN_MARKER = "please-be-slow"
 const SLOW_TURN_MS = 300
 
+/**
+ * A prompt whose turn ends only when the core cancels it.
+ *
+ * The backend port's `signals.abort` is the only thing that can end it, so a
+ * request using this marker hangs until its deadline if the core ever stops
+ * threading that signal through — which is exactly the failure it guards.
+ */
+const HELD_TURN_MARKER = "hold-until-cancelled"
+
 const MODEL: CatalogModel = {
   id: "fake/model-a",
   object: "model",
@@ -61,6 +70,7 @@ const createFakeBackend = (
     dispose: number
     abort: number
     ensureReady: number
+    cancelledByAbort: number
     reasoningEfforts: Array<ReasoningEffort | undefined>
     startedMessages: unknown[][]
   } = {
@@ -68,6 +78,7 @@ const createFakeBackend = (
     dispose: 0,
     abort: 0,
     ensureReady: 0,
+    cancelledByAbort: 0,
     reasoningEfforts: [],
     startedMessages: [] as unknown[][]
   }
@@ -76,19 +87,36 @@ const createFakeBackend = (
   class FakeTurn implements BackendTurn {
     readonly id: string
     readonly slow: boolean
+    readonly held: boolean
     private toolPromise: Promise<string> | null = null
     private toolOutput = ""
     private streamed = ""
 
-    constructor(id: string, slow = false) {
+    constructor(id: string, slow = false, held = false) {
       this.id = id
       this.slow = slow
+      this.held = held
     }
 
     async run(
       handlers: TurnStreamHandlers,
       signals: TurnRunSignals
     ): Promise<TurnResult> {
+      if (this.held) {
+        this.emit(handlers, "reading. ")
+        await new Promise<void>((resolve) => {
+          if (signals.abort?.aborted) {
+            resolve()
+            return
+          }
+          signals.abort?.addEventListener("abort", () => resolve(), {
+            once: true
+          })
+        })
+        calls.cancelledByAbort += 1
+        throw new Error("the turn was cancelled")
+      }
+
       if (this.slow) {
         await new Promise((resolve) => setTimeout(resolve, SLOW_TURN_MS))
         this.emit(handlers, "took a while")
@@ -211,9 +239,11 @@ const createFakeBackend = (
       calls.reasoningEfforts.push(input.reasoningEffort)
       calls.startedMessages.push(input.messages as unknown[])
       nextId += 1
+      const serialized = JSON.stringify(input.messages)
       const turn = new FakeTurn(
         `turn_${nextId}`,
-        JSON.stringify(input.messages).includes(SLOW_TURN_MARKER)
+        serialized.includes(SLOW_TURN_MARKER),
+        serialized.includes(HELD_TURN_MARKER)
       )
       turns.set(turn.id, turn)
       return turn
@@ -234,6 +264,8 @@ interface Harness {
     dispose: number
     abort: number
     ensureReady: number
+    /** Turns the backend ended because the core aborted them. */
+    cancelledByAbort: number
     reasoningEfforts: Array<ReasoningEffort | undefined>
     /** The messages each turn was started with, in order. */
     startedMessages: unknown[][]
@@ -1085,6 +1117,59 @@ describe("a client that never resumes its turns", () => {
  */
 describe("terminal paths settle the session and the slot", () => {
   const held = () => harness?.routes.inspect()
+
+  /** Poll rather than sleep: the point is that it settles, and quickly. */
+  const waitFor = async (
+    condition: () => boolean,
+    ms: number
+  ): Promise<void> => {
+    const deadline = Date.now() + ms
+    while (Date.now() < deadline && !condition()) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+  }
+
+  /**
+   * A client that leaves mid-stream is the ordinary end of an agent decision,
+   * and the turn behind it has to stop. The backend here ends only on
+   * `signals.abort`, so a core that does not pass it through holds this
+   * request until its deadline and leaves the session live.
+   */
+  it("settles a turn whose client left mid-stream", async () => {
+    harness = await startHarness({ mode: "answer" })
+    const leaving = new AbortController()
+    const cancelled = fetch(`${harness.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "fake/model-a",
+        stream: true,
+        messages: [{ role: "user", content: HELD_TURN_MARKER }]
+      }),
+      signal: leaving.signal
+    }).catch(() => undefined)
+
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    leaving.abort()
+    await cancelled
+
+    await waitFor(() => harness?.calls.cancelledByAbort === 1, 2000)
+    expect(harness.calls.cancelledByAbort).toBe(1)
+    expect(held()).toEqual({
+      parkedTurns: 0,
+      pendingCalls: 0,
+      resumeHolds: 0
+    })
+    expect(harness.calls.dispose).toBeGreaterThanOrEqual(1)
+
+    // And the slot is free: the next request is served, not refused.
+    const next = await streamTurn(harness.url, {
+      model: "fake/model-a",
+      stream: true,
+      messages: askedForTabs
+    })
+    expect(next.content).toBe("working. done")
+  })
 
   it("settles a plain answer", async () => {
     harness = await startHarness({ mode: "answer", answer: "all good" })

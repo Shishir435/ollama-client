@@ -329,10 +329,13 @@ readiness reporting. Ollama itself is installed separately.
 | `DEBUG` | `--debug` | `OLC_DEBUG` | `false` |
 | `REQUEST_TIMEOUT_MS` | — | `OLC_REQUEST_TIMEOUT_MS` | `300000` |
 | `MAX_PARKED_TURNS` | — | `OLC_MAX_PARKED_TURNS` | `4` |
+| `QUEUE_CANCEL_GRACE_MS` | — | `OLC_QUEUE_CANCEL_GRACE_MS` | `10000` |
+| `QUEUE_FORCE_RELEASE_MS` | — | `OLC_QUEUE_FORCE_RELEASE_MS` | `60000` |
 
 `REQUEST_TIMEOUT_MS`, `BRIDGE_CALL_TIMEOUT_MS`, `BRIDGE_BATCH_MS`,
-`SUSPENDED_TURN_TTL_MS` and `MAX_PARKED_TURNS` follow the same precedence with
-`OLC_`-prefixed environment variables.
+`SUSPENDED_TURN_TTL_MS`, `MAX_PARKED_TURNS`, `QUEUE_CANCEL_GRACE_MS` and
+`QUEUE_FORCE_RELEASE_MS` follow the same precedence with `OLC_`-prefixed
+environment variables.
 
 #### Parked turns
 
@@ -436,11 +439,21 @@ observed search events, but never logs the query text.
 
 | Route | Purpose |
 | --- | --- |
-| `GET /health`, `GET /` | liveness and which backend is serving |
+| `GET /health`, `GET /` | liveness, which backend is serving, and what the proxy is holding |
 | `GET /v1/models`, `GET /v1/models/:id` | the backend's catalog with capability metadata |
 | `POST /v1/chat/completions` | streaming and non-streaming completions, tool calls included |
 | `POST /v1/images/generations` | one native generated image as `b64_json` when the backend advertises image output |
 | `POST /bridge/call` | registered by the OpenCode backend; loopback-only, requires the per-run bridge token |
+
+`GET /health` answers `200` with `status: "ok"` whenever the process is up, so a
+probe that only reads `status` keeps working. What it is actually doing is
+alongside: `degraded` (a stalled or force-released queue, or a bridge whose
+plugin could not be confirmed), `queue` (running label, depth, stalled flag and
+age, orphaned tasks, last failure), `turns` (parked turns, pending tool calls,
+resume holds), `bridge` (enabled, plugin linked, plugin confirmed) and
+`managedRuntime`. The route is authentication-exempt, so it carries counts,
+flags, request ids and durations only — never session ids, prompt text or
+tokens.
 
 ## Layout
 
@@ -506,8 +519,14 @@ new adapter's expectations.
 - **One turn at a time.** Requests are serialized, because a single OpenCode
   instance runs one agent loop. A request that outlives `REQUEST_TIMEOUT_MS` is
   cancelled, not merely failed, and the next request waits for it to unwind. A
-  cancelled turn that does not stop is never overtaken: after ten seconds the
-  queue refuses requests with `503` and names it, until it stops.
+  cancelled turn that does not stop is not overtaken straight away: after
+  `QUEUE_CANCEL_GRACE_MS` (ten seconds) the queue refuses requests with `503`
+  and names it. That refusal is a window, not a verdict — after
+  `QUEUE_FORCE_RELEASE_MS` (one minute) the slot is released whatever the turn
+  is doing and the next request is served, because a turn that ignored its own
+  cancellation is not going to report back and a proxy that refuses everything
+  from then on is worse than one that writes that turn off. Anything the
+  abandoned turn still produces is discarded.
 - **A departed client releases its slot.** A request whose connection closes
   while it is still queued is dropped and never starts; one that has already
   started is cancelled the same way a deadline cancels it, and the slot is held
@@ -527,6 +546,16 @@ new adapter's expectations.
   the generated plugin; if it cannot be found, tools are dropped from the request
   and a warning names them. Point `OPENCODE_PLUGIN_RUNTIME_DIR` at the
   `node_modules` directory containing `@opencode-ai/plugin` to fix it.
+- **Client tools need the server this proxy configured.** A proxy that adopts an
+  OpenCode server it did not start told that server nothing: the plugin the
+  server has loaded belongs to whoever started it, and points at that proxy's
+  bridge endpoint and token. `tool.ids()` cannot tell the two apart, so the
+  running server's own config is asked whether this proxy's plugin entry is
+  among its plugins. Anything short of a clear yes means client tools are not
+  offered to the model at all, with one warning naming the server — a tool whose
+  every result is `No client is attached to session …` is worse than no tool.
+  Two proxies against one OpenCode server is therefore a single-bridge
+  arrangement: give the second one its own server, or none of its tools work.
 
 ## Tests
 

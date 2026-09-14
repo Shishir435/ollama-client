@@ -6,7 +6,7 @@ import { getAllResetKeys } from "@/lib/get-all-reset-keys"
 import { logger } from "@/lib/logger"
 import {
   plasmoDeviceStorage,
-  plasmoGlobalStorage,
+  plasmoSyncStorage,
   removePlasmoStoredValue
 } from "@/lib/plasmo-global-storage"
 import {
@@ -109,7 +109,7 @@ export const performAppReset = async (key: ResetKey): Promise<void> => {
   if (key === "all") {
     await withProviderPersistenceLock(async () => {
       await resetProviderStorageUnlocked(allKeys.PROVIDER || [])
-      await plasmoGlobalStorage.clear()
+      await plasmoSyncStorage.clear()
       await plasmoDeviceStorage.clear()
     })
     if (typeof sessionStorage !== "undefined") {

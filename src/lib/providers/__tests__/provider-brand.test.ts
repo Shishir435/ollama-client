@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   isProviderBrandId,
   PROVIDER_BRANDS,
+  resolveModelBrand,
   resolveProviderBrand
 } from "../provider-brand"
 import { ProviderId, ProviderServiceProfile } from "../types"
@@ -118,5 +119,42 @@ describe("isProviderBrandId", () => {
   it("rejects unknown and empty values", () => {
     expect(isProviderBrandId("cohere")).toBe(false)
     expect(isProviderBrandId(undefined)).toBe(false)
+  })
+})
+
+describe("a provider named for a vendor's product", () => {
+  it("wears that vendor's mark", () => {
+    /*
+     * The left rail of the model menu is provider marks, resolved from the
+     * provider's own configuration. A loopback proxy has no host to read and
+     * no favicon to fetch, so the name the user gave it is the only signal
+     * left — and a provider called Codex sat there as a generic glyph beside
+     * the OpenAI-marked models it serves.
+     */
+    expect(resolveProviderBrand({ name: "Codex" })).toBe("openai")
+  })
+})
+
+describe("resolveModelBrand", () => {
+  it("reads the vendor a model id states for itself", () => {
+    expect(resolveModelBrand("anthropic/claude-3")).toBe("anthropic")
+    expect(resolveModelBrand("deepseek/deepseek-chat")).toBe("deepseek")
+    /* Codex is OpenAI's, and an olc proxy names the runtime it reaches. */
+    expect(resolveModelBrand("codex/gpt-5.6-luna")).toBe("openai")
+  })
+
+  it("claims nothing for a namespace with no mark of its own", () => {
+    /*
+     * Falling back is the point: a namespace we do not recognise keeps the
+     * generic glyph rather than borrowing a vendor's logo.
+     */
+    expect(resolveModelBrand("opencode/muse-spark")).toBeUndefined()
+    expect(resolveModelBrand("hf.co/user/model")).toBeUndefined()
+  })
+
+  it("claims nothing for an id that names no vendor", () => {
+    expect(resolveModelBrand("qwen3:8b")).toBeUndefined()
+    expect(resolveModelBrand("/leading-slash")).toBeUndefined()
+    expect(resolveModelBrand(undefined)).toBeUndefined()
   })
 })

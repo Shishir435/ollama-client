@@ -160,11 +160,14 @@
     },
     "title": "监督式智能体",
     "unresolved": "此操作可能已经发生。请先检查页面，再决定是否继续。",
+    "unresolved_reviewed": "已查看页面 — 继续",
     "work_log": {
-      "title": "工作日志"
+      "title": "工作日志",
+      "target": "“{{name}}”"
     },
     "correction": "已暂停。说明需要更改的内容，然后继续。",
-    "export_report": "导出运行报告（包含页面文本）"
+    "export_report": "导出运行报告（包含页面文本）",
+    "running_goal": "正在执行"
   },
   "common": {
     "theme": {
@@ -399,7 +402,8 @@
       "tooltip_tokens": "本次会话使用的总 Token",
       "tooltip_time": "总生成时间",
       "tooltip_speed": "平均生成速度",
-      "tooltip_messages": "AI 回复数量"
+      "tooltip_messages": "AI 回复数量",
+      "speed_average": "平均 {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "活动日志",
@@ -587,6 +591,7 @@
       "response_failed_title": "响应生成失败",
       "unknown_error_description": "发生未知错误",
       "provider_replay_invalid": "无法安全地继续此响应。请重试本轮，以重新建立提供商上下文。",
+      "provider_busy": "本地端点仍在处理上一个请求，无法开始新的请求。请等待约一分钟，或重启它。",
       "report_issue": "报告问题",
       "open_issue": "新建议题",
       "copy_diagnostics": "复制诊断信息",
@@ -643,7 +648,6 @@
       "empty": "没有工件内容"
     },
     "system_prompt": {
-      "button": "对话指令",
       "title": "对话指令",
       "description": "仅用于此对话的系统提示词，会覆盖模型的默认提示词。",
       "placeholder": "例如：你是一个用要点简洁作答的助手。",
@@ -1225,6 +1229,7 @@
           "description_reported": "此模型的提供商报告的级别。",
           "description_profile": "已为此提供商和模型系列验证的级别。",
           "description_unknown": "此提供商未公布可靠的推理控制。",
+          "reset": "重置为自动",
           "options": {
             "auto": "自动（提供商默认值）",
             "auto_short": "自动",

@@ -349,9 +349,9 @@ describe("a visual click cannot outrank the control it lands on", () => {
     expect(effect.semanticEffects).toContain("submission")
     const decision = policy(effect)
     expect(decision.type).toBe("approval_required")
-    expect(decision.risk).toBe("critical")
+    expect(decision.risk).toBe("high")
     if (decision.type !== "approval_required") return
-    expect(decision.request.grantable).toBeUndefined()
+    expect(decision.request.grantable).toContain("submission")
   })
 
   it("hands a point on a sensitive control to the user", async () => {

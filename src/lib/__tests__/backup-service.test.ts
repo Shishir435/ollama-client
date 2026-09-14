@@ -6,7 +6,7 @@ import { STORAGE_KEYS } from "../constants/keys"
 import { knowledgeDb } from "../knowledge/knowledge-sets"
 import {
   plasmoDeviceStorage,
-  plasmoGlobalStorage
+  plasmoSyncStorage
 } from "../plasmo-global-storage"
 import { ProviderStorageKey } from "../providers/types"
 import {
@@ -548,7 +548,7 @@ describe("backupService", () => {
         STORAGE_KEYS.PROVIDER.SECRETS,
         {}
       )
-      expect(plasmoGlobalStorage.set).toHaveBeenCalledWith(
+      expect(plasmoSyncStorage.set).toHaveBeenCalledWith(
         ProviderStorageKey.CONFIG,
         [
           {
@@ -561,7 +561,7 @@ describe("backupService", () => {
         ]
       )
       expect(
-        JSON.stringify(vi.mocked(plasmoGlobalStorage.set).mock.calls)
+        JSON.stringify(vi.mocked(plasmoSyncStorage.set).mock.calls)
       ).not.toContain("legacy-plaintext-key")
     })
 
@@ -600,7 +600,7 @@ describe("backupService", () => {
 
       expect(result.syncStorage.ok).toBe(true)
       expect(result.localStorage.ok).toBe(true)
-      expect(plasmoGlobalStorage.set).toHaveBeenCalledWith(
+      expect(plasmoSyncStorage.set).toHaveBeenCalledWith(
         ProviderStorageKey.CONFIG,
         [provider]
       )

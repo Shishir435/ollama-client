@@ -120,6 +120,34 @@ const invalidFieldsFeedback = (
       )
     )
   ]
+  /**
+   * The constraint a field broke, when the schema states one as a number.
+   *
+   * "invalid fields: evidence" is true and useless: a model that supplied an
+   * evidence quotation one character over the cap reads it as "supply
+   * evidence", supplies the same one again, and spends the run's whole
+   * malformed budget on a field it was one edit away from fixing. A live run
+   * on github.com died exactly that way. The limit is the schema's own
+   * number, never the value that broke it — the value is page-derived and
+   * never travels.
+   */
+  const limits = [
+    ...new Set(
+      issues.flatMap((issue) => {
+        const field = issue.path.find(
+          (part): part is string =>
+            typeof part === "string" && DECISION_FIELDS.has(part)
+        )
+        if (!field) return []
+        const maximum =
+          "maximum" in issue && typeof issue.maximum === "number"
+            ? issue.maximum
+            : undefined
+        if (maximum === undefined) return []
+        return [`${field} takes at most ${maximum} characters`]
+      })
+    )
+  ]
   if (!fields.length) return SHAPE_FEEDBACK
   const isWait =
     normalized &&
@@ -131,6 +159,7 @@ const invalidFieldsFeedback = (
     normalized.command.type === "wait"
   return (
     `The agent_decision call has missing or invalid fields: ${fields.join(", ")}. Correct these fields using the tool schema and flat arguments.` +
+    (limits.length ? ` ${limits.join("; ")}.` : "") +
     (isWait
       ? ' For wait, condition is required: the exact page text to wait for (1 to 500 characters), alongside timeoutMs (integer 1 to 30000). Example: {"type":"wait","condition":"All changes saved","timeoutMs":10000}.'
       : "")

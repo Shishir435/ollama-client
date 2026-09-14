@@ -544,3 +544,292 @@ describe("projectAgentObservation inspection focus", () => {
     expect(projected.documentText).toBeUndefined()
   })
 })
+
+/**
+ * The page the live run measured: four hundred and eighty-seven controls, nine
+ * in ten of them laid out below the fold with no accessible name at all, and
+ * the region the run was working in reporting a hundred and seventy-five
+ * controls dropped for want of budget.
+ *
+ * The same page is described twice. `legacyRow` is what the builder used to
+ * produce — every off-viewport control stripped of its name and flagged
+ * sensitive — and `currentRow` is what it produces now.
+ */
+const WIKI_ORIGIN = "https://en.wikipedia.org"
+
+interface ReferencePageRow {
+  ref: string
+  tag: string
+  group: string
+  onScreen: boolean
+  label?: string
+  href?: string
+}
+
+const referencePage = (): ReferencePageRow[] => {
+  const rows: ReferencePageRow[] = [
+    {
+      ref: "e1",
+      tag: "input",
+      group: 'form "search"',
+      onScreen: true,
+      label: "Search Wikipedia"
+    },
+    {
+      ref: "e2",
+      tag: "button",
+      group: 'form "search"',
+      onScreen: true,
+      label: "Search"
+    },
+    {
+      ref: "e3",
+      tag: "a",
+      group: 'nav "Site"',
+      onScreen: true,
+      label: "Main page",
+      href: `${WIKI_ORIGIN}/wiki/Main_Page`
+    },
+    {
+      ref: "e4",
+      tag: "a",
+      group: 'nav "Site"',
+      onScreen: true,
+      label: "Current events",
+      href: `${WIKI_ORIGIN}/wiki/Portal:Current_events`
+    }
+  ]
+  for (let index = 0; index < 483; index += 1) {
+    rows.push({
+      ref: `e${rows.length + 1}`,
+      tag: "a",
+      group: index % 3 === 0 ? "main" : 'nav "Site"',
+      onScreen: false,
+      /** A handful of the below-fold controls have a name; the page's own
+       * measured envelope carried six hundred and seventy-eight characters of
+       * `name` across four hundred and eighty-seven rows. */
+      ...(index % 80 === 0 ? { label: `Below-fold action ${index}` } : {}),
+      href: `${WIKI_ORIGIN}/wiki/Article_${index}`
+    })
+  }
+  return rows
+}
+
+/** Off the viewport: no name, no destination, and flagged as holding a secret. */
+const legacyRow = (row: ReferencePageRow): AgentElement => ({
+  ref: row.ref,
+  verificationId: `verification-${row.ref}`,
+  frameId: 0,
+  tag: row.tag,
+  group: row.group,
+  visible: row.onScreen,
+  enabled: true,
+  editable: row.tag === "input",
+  sensitive: !row.onScreen,
+  ...(row.onScreen && row.label ? { name: row.label } : {}),
+  ...(row.onScreen && row.href ? { href: row.href } : {}),
+  ...(row.onScreen && row.tag === "input" ? { value: "" } : {})
+})
+
+const currentRow = (row: ReferencePageRow): AgentElement => ({
+  ref: row.ref,
+  verificationId: `verification-${row.ref}`,
+  frameId: 0,
+  tag: row.tag,
+  group: row.group,
+  visible: row.onScreen,
+  ...(row.onScreen ? {} : { offscreen: true }),
+  enabled: true,
+  editable: row.tag === "input",
+  sensitive: false,
+  ...(row.label ? { name: row.label } : {}),
+  ...(row.onScreen && row.href ? { href: row.href } : {}),
+  ...(row.onScreen && row.tag === "input" ? { value: "" } : {})
+})
+
+/** Enough of the page's own words that the envelope is not all controls. */
+const WIKI_TEXT = "Welcome to Wikipedia, the free encyclopedia. ".repeat(170)
+
+const wikiObservation = (elements: AgentElement[]): AgentObservation =>
+  observation({
+    url: `${WIKI_ORIGIN}/wiki/Main_Page`,
+    origin: WIKI_ORIGIN,
+    frames: [
+      {
+        frameId: 0,
+        documentId: "document-1",
+        origin: WIKI_ORIGIN,
+        url: `${WIKI_ORIGIN}/wiki/Main_Page`,
+        access: "ok",
+        snapshotId: "snapshot-1",
+        generation: 1
+      }
+    ],
+    elements,
+    visibleText: WIKI_TEXT
+  })
+
+/**
+ * The selection as it was: every row competes for the budget on reachability
+ * alone, so a nameless unreachable one is paid for before the named controls
+ * further down the document. It lives here rather than in the projection
+ * because it is the behaviour being removed, and a measurement needs
+ * something to measure against.
+ */
+const legacyEnvelope = (
+  page: AgentObservation,
+  budgetChars: number,
+  textChars: number
+): string => {
+  const rows = page.elements.map((candidate) => ({
+    element: candidate,
+    projected: projectAgentElement(candidate),
+    reachable: candidate.visible && !candidate.occluded && candidate.enabled
+  }))
+  const ordered = [...rows].sort(
+    (first, second) => Number(second.reachable) - Number(first.reachable)
+  )
+  const kept = new Set<string>()
+  let used = 0
+  for (const row of ordered) {
+    const cost = JSON.stringify(row.projected).length + 1
+    if (kept.size > 0 && used + cost > budgetChars) continue
+    kept.add(row.element.ref)
+    used += cost
+  }
+  return JSON.stringify({
+    url: page.url,
+    title: page.title,
+    scroll: { y: 40, ofDocument: 4_000, viewportHeight: 600 },
+    text: page.visibleText.slice(0, textChars),
+    elements: rows
+      .filter((row) => kept.has(row.element.ref))
+      .map((row) => row.projected)
+  })
+}
+
+describe("projectAgentObservation on a page of below-fold controls", () => {
+  const page = referencePage()
+  const budget = 40_000
+  const textChars = Math.round(budget * 0.35)
+  const project = (elements: AgentElement[]) =>
+    projectAgentObservation(wikiObservation(elements), {
+      pageContentChars: budget,
+      pageContentMaxChars: budget
+    })
+
+  it("spends a fraction of the envelope on the same page", () => {
+    const before = legacyEnvelope(
+      wikiObservation(page.map(legacyRow)),
+      budget,
+      textChars
+    ).length
+    const after = JSON.stringify(project(page.map(currentRow))).length
+
+    /**
+     * The measured page sent forty-one thousand characters, of which nine in
+     * ten rows were a `ref`, a tag and a group. What remains is the page's own
+     * words and the controls a decision can name or reach.
+     */
+    expect(before).toBeGreaterThan(30_000)
+    expect(after * 4).toBeLessThan(before)
+    expect(after * 6).toBeGreaterThan(before)
+  })
+
+  it("keeps every named reachable control the old projection kept", () => {
+    const before = legacyEnvelope(
+      wikiObservation(page.map(legacyRow)),
+      budget,
+      textChars
+    )
+    const shown = new Set(
+      project(page.map(currentRow)).elements.map((row) => row.ref)
+    )
+    const keptBefore = page.filter(
+      (row) => row.onScreen && row.label && before.includes(`"${row.ref}"`)
+    )
+    expect(keptBefore).toHaveLength(4)
+    for (const row of keptBefore) expect(shown).toContain(row.ref)
+  })
+
+  it("counts every dropped row against the region that holds it", () => {
+    const projected = project(page.map(currentRow))
+    const dropped = new Map<string, number>()
+    for (const row of page) {
+      if (row.onScreen || row.label) continue
+      dropped.set(row.group, (dropped.get(row.group) ?? 0) + 1)
+    }
+    expect(projected.elements).toHaveLength(
+      page.filter((row) => row.onScreen || row.label).length
+    )
+    expect(projected.omittedByGroup).toEqual(
+      [...dropped.entries()]
+        .map(([group, count]) => ({ group, count }))
+        .sort((first, second) => second.count - first.count)
+    )
+  })
+
+  it("keeps a named off-viewport control the run can scroll to", () => {
+    const projected = project(page.map(currentRow))
+    expect(projected.elements).toContainEqual(
+      expect.objectContaining({
+        ref: "e5",
+        name: "Below-fold action 0",
+        hidden: true
+      })
+    )
+  })
+
+  it("keeps a password field sensitive and value-suppressed", () => {
+    const password = element({
+      ref: "e-secret",
+      tag: "input",
+      type: "password",
+      name: "Password",
+      editable: true,
+      sensitive: true
+    })
+    const projected = project([...page.map(currentRow), password])
+    const row = projected.elements.find(
+      (candidate) => candidate.ref === "e-secret"
+    )
+    expect(row).toMatchObject({ sensitive: true })
+    expect(row).not.toHaveProperty("value")
+  })
+
+  it("emits a same-origin destination as a path and a foreign one whole", () => {
+    const projected = projectAgentObservation(
+      wikiObservation([
+        currentRow({
+          ref: "e1",
+          tag: "a",
+          group: "main",
+          onScreen: true,
+          label: "Main page",
+          href: `${WIKI_ORIGIN}/wiki/Main_Page?action=edit#top`
+        }),
+        currentRow({
+          ref: "e2",
+          tag: "a",
+          group: "main",
+          onScreen: true,
+          label: "Foundation",
+          href: "https://wikimediafoundation.org/about/"
+        })
+      ])
+    )
+    expect(projected.elements[0]?.href).toBe("/wiki/Main_Page?action=edit#top")
+    expect(projected.elements[1]?.href).toBe(
+      "https://wikimediafoundation.org/about/"
+    )
+  })
+
+  it("drops an empty value and keeps one the field holds", () => {
+    expect(
+      projectAgentElement(element({ tag: "input", value: "" }))
+    ).not.toHaveProperty("value")
+    expect(
+      projectAgentElement(element({ tag: "input", value: "drafted" }))
+    ).toMatchObject({ value: "drafted" })
+  })
+})

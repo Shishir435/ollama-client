@@ -259,11 +259,21 @@ describe("Agent observation builder", () => {
     ])
   })
 
+  it("keeps a hidden input's own value sensitive", () => {
+    const input = document.createElement("input")
+    input.setAttribute("type", "hidden")
+    input.value = "csrf-token"
+    document.body.append(input)
+
+    expect(build().elements[0]).toMatchObject({
+      sensitive: true,
+      visible: false
+    })
+    expect(build().elements[0]).not.toHaveProperty("value")
+    expect(build().elements[0]).not.toHaveProperty("offscreen")
+  })
+
   it.each([
-    [
-      "hidden input",
-      (input: HTMLInputElement) => input.setAttribute("type", "hidden")
-    ],
     [
       "hidden attribute",
       (input: HTMLInputElement) => input.setAttribute("hidden", "")
@@ -294,16 +304,23 @@ describe("Agent observation builder", () => {
     document.body.append(wrapper)
     hide(input)
 
+    /**
+     * Unreadable, and said so as `visible: false` alone. `sensitive` is what
+     * the control holds, and an ordinary field the page happens to hide holds
+     * nothing sensitive — flagging it so told policy that every such row was a
+     * step the user had to take by hand.
+     */
     expect(build().elements[0]).toMatchObject({
-      sensitive: true,
+      sensitive: false,
       visible: false
     })
     expect(build().elements[0]).not.toHaveProperty("value")
+    expect(build().elements[0]).not.toHaveProperty("offscreen")
   })
 
-  it("redacts values outside the viewport", () => {
+  it("redacts values outside the viewport without calling them sensitive", () => {
     const input = document.createElement("input")
-    input.value = "offscreen-secret"
+    input.value = "offscreen-value"
     input.getClientRects = () =>
       [
         {
@@ -318,7 +335,8 @@ describe("Agent observation builder", () => {
     document.body.append(input)
 
     expect(build().elements[0]).toMatchObject({
-      sensitive: true,
+      offscreen: true,
+      sensitive: false,
       visible: false
     })
     expect(build().elements[0]).not.toHaveProperty("value")
@@ -355,7 +373,7 @@ describe("Agent observation builder", () => {
     document.body.append(wrapper)
 
     expect(build().elements[0]).toMatchObject({
-      sensitive: true,
+      sensitive: false,
       visible: false
     })
     expect(build().elements[0]).not.toHaveProperty("value")
@@ -370,11 +388,13 @@ describe("Agent observation builder", () => {
     input.style.setProperty(property, value)
     document.body.append(input)
 
+    /** Clipped away by the page itself, which is hidden rather than off screen. */
     expect(build().elements[0]).toMatchObject({
-      sensitive: true,
+      sensitive: false,
       visible: false
     })
     expect(build().elements[0]).not.toHaveProperty("value")
+    expect(build().elements[0]).not.toHaveProperty("offscreen")
   })
 
   it.each([
@@ -392,22 +412,6 @@ describe("Agent observation builder", () => {
       "content-hidden",
       (element: HTMLElement) =>
         element.style.setProperty("content-visibility", "hidden")
-    ],
-    [
-      "offscreen",
-      (element: HTMLElement) => {
-        element.getClientRects = () =>
-          [
-            {
-              bottom: 20,
-              height: 20,
-              left: window.innerWidth + 100,
-              right: window.innerWidth + 200,
-              top: 0,
-              width: 100
-            } as DOMRect
-          ] as unknown as DOMRectList
-      }
     ]
   ])("omits %s DOM text and element names", (_label, hide) => {
     const wrapper = document.createElement("div")
@@ -421,6 +425,76 @@ describe("Agent observation builder", () => {
     expect(observation.visibleText).toBe("visible page text")
     expect(observation.visibleText).not.toContain("hidden-page-secret")
     expect(observation.elements[0]).not.toHaveProperty("name")
+  })
+
+  it("names a control the page laid out below the fold", () => {
+    const button = document.createElement("button")
+    button.textContent = "Save changes"
+    button.getClientRects = () =>
+      [
+        {
+          bottom: 20,
+          height: 20,
+          left: window.innerWidth + 100,
+          right: window.innerWidth + 200,
+          top: 0,
+          width: 100
+        } as DOMRect
+      ] as unknown as DOMRectList
+    document.body.append("visible page text", button)
+
+    const observation = build()
+    /** The page's visible text is still what the user can see. */
+    expect(observation.visibleText).toBe("visible page text")
+    /**
+     * The control's own name is not: a button called "Save changes" is what a
+     * decision needs in order to choose to scroll to it, and a bare `ref` is
+     * what it cannot act on.
+     */
+    expect(observation.elements[0]).toMatchObject({
+      name: "Save changes",
+      offscreen: true,
+      sensitive: false,
+      visible: false
+    })
+  })
+
+  it("names an off-screen field from its label and placeholder", () => {
+    document.body.innerHTML =
+      '<label for="q">Search articles</label><input id="q" placeholder="Type a title">'
+    const input = document.querySelector("input")
+    const label = document.querySelector("label")
+    if (!input || !label) throw new Error("Missing fixture controls")
+    const offscreen = () =>
+      [
+        {
+          bottom: 20,
+          height: 20,
+          left: 0,
+          right: 100,
+          top: window.innerHeight + 100,
+          width: 100
+        } as DOMRect
+      ] as unknown as DOMRectList
+    input.getClientRects = offscreen
+    label.getClientRects = offscreen
+
+    expect(build().elements[0]).toMatchObject({
+      name: "Search articles",
+      offscreen: true,
+      placeholder: "Type a title"
+    })
+  })
+
+  it("leaves a chain-hidden control unnamed", () => {
+    const button = document.createElement("button")
+    button.textContent = "Hidden action"
+    button.hidden = true
+    document.body.append(button)
+
+    const observation = build()
+    expect(observation.elements[0]).not.toHaveProperty("name")
+    expect(observation.elements[0]).not.toHaveProperty("offscreen")
   })
 
   it("excludes hidden descendants from visible element names", () => {

@@ -13,7 +13,7 @@ import { SQLITE_DB_KEY, SQLITE_DB_NAME, SQLITE_DB_STORE } from "@/lib/constants"
 import { createChatDbEngine } from "@/lib/persistence/chat-db-engine"
 
 /**
- * Writer/reader alignment for every durable job repository (RELEASE_ROADMAP H7).
+ * Writer/reader alignment for every durable job repository.
  *
  * Each of these modules writes rows with one SQL statement and decodes them with
  * a Zod schema written by hand beside it. Nothing makes the two agree — a column

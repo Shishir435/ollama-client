@@ -160,11 +160,14 @@
     },
     "title": "Beaufsichtigter Agent",
     "unresolved": "Diese Aktion könnte erfolgt sein. Seite prüfen, bevor Sie fortfahren.",
+    "unresolved_reviewed": "Seite geprüft — fortfahren",
     "work_log": {
-      "title": "Arbeitsprotokoll"
+      "title": "Arbeitsprotokoll",
+      "target": "„{{name}}“"
     },
     "correction": "Pausiert. Beschreibe die gewünschte Änderung und fahre fort.",
-    "export_report": "Laufbericht exportieren (enthält Seitentext)"
+    "export_report": "Laufbericht exportieren (enthält Seitentext)",
+    "running_goal": "Arbeitet an"
   },
   "common": {
     "theme": {
@@ -399,7 +402,8 @@
       "tooltip_tokens": "Insgesamt in dieser Sitzung genutzte Token",
       "tooltip_time": "Gesamte Antwortzeit",
       "tooltip_speed": "Durchschnittliche Generierungsgeschwindigkeit",
-      "tooltip_messages": "Anzahl der KI-Antworten"
+      "tooltip_messages": "Anzahl der KI-Antworten",
+      "speed_average": "Ø {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "Aktivitätsprotokoll",
@@ -587,6 +591,7 @@
       "response_failed_title": "Antwortgenerierung fehlgeschlagen",
       "unknown_error_description": "Ein unbekannter Fehler ist aufgetreten",
       "provider_replay_invalid": "Diese Antwort kann nicht sicher fortgesetzt werden. Wiederhole die Anfrage, um den Anbieterkontext neu aufzubauen.",
+      "provider_busy": "Der lokale Endpunkt beendet noch eine frühere Anfrage und kann keine weitere starten. Warte etwa eine Minute oder starte ihn neu.",
       "report_issue": "Problem melden",
       "open_issue": "Issue öffnen",
       "copy_diagnostics": "Diagnosedaten kopieren",
@@ -643,7 +648,6 @@
       "empty": "Kein Artefakt-Inhalt"
     },
     "system_prompt": {
-      "button": "Chat-Anweisungen",
       "title": "Chat-Anweisungen",
       "description": "Ein System-Prompt nur für diesen Chat. Er überschreibt den Standard-Prompt des Modells.",
       "placeholder": "z. B. Du bist ein präziser Assistent, der in Stichpunkten antwortet.",
@@ -1225,6 +1229,7 @@
           "description_reported": "Vom Anbieter dieses Modells gemeldete Stufen.",
           "description_profile": "Für diesen Anbieter und diese Modellfamilie verifizierte Stufen.",
           "description_unknown": "Dieser Anbieter weist keine verlässliche Steuerung des Denkaufwands aus.",
+          "reset": "Auf Automatisch zurücksetzen",
           "options": {
             "auto": "Automatisch (Anbieterstandard)",
             "auto_short": "Automatisch",

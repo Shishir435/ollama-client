@@ -64,9 +64,20 @@ export const SessionMetricsBar = ({
     {
       icon: Zap,
       iconColor: "text-muted-foreground",
+      /*
+       * Marked as an average, because the collapsed trigger shows this value
+       * beside nothing but a lightning glyph and every assistant message
+       * carries its own speed in the same unit and the same type. Two bare
+       * numbers six apart, one the session mean and one this reply's rate,
+       * read as one statistic disagreeing with itself; the label existed only
+       * in the tooltip and the popover, which a glance does not open.
+       */
       value:
         metrics.averageSpeed > 0
-          ? `${metrics.averageSpeed.toFixed(1)} ${t("chat.metrics.speed_unit")}`
+          ? t("chat.session_metrics.speed_average", {
+              value: metrics.averageSpeed.toFixed(1),
+              unit: t("chat.metrics.speed_unit")
+            })
           : "—",
       isAvailable: metrics.averageSpeed > 0,
       labelKey: "chat.session_metrics.label_speed",
@@ -94,7 +105,7 @@ export const SessionMetricsBar = ({
           <button
             type="button"
             className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-control px-2 text-2xs text-muted-foreground transition-colors hover:bg-muted/55 hover:text-foreground",
+              "inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-control px-2 text-2xs text-muted-foreground transition-colors hover:bg-muted/55 hover:text-foreground",
               className
             )}
             aria-label={`${label}: ${t(summaryItem.labelKey)} ${summaryItem.value}`}

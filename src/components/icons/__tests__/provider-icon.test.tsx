@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { PROVIDER_BRANDS } from "@/lib/providers/provider-brand"
 import { ProviderId } from "@/lib/providers/types"
 import { PROVIDER_BRAND_ICONS } from "../provider-brand-icons"
-import { ProviderIcon } from "../provider-icon"
+import { ProviderIcon, providerMonogram } from "../provider-icon"
 
 const paths = (container: HTMLElement) =>
   container.querySelectorAll("svg path").length
@@ -113,5 +113,18 @@ describe("ProviderIcon", () => {
         "icon-md"
       )
     })
+  })
+})
+
+describe("initials for an unrecognised provider", () => {
+  it("takes one letter from a single-word name and two from a longer one", () => {
+    expect(providerMonogram("opencode")).toBe("O")
+    expect(providerMonogram("My Local Proxy")).toBe("ML")
+    expect(providerMonogram("lm-studio")).toBe("LS")
+  })
+
+  it("claims nothing for a name it cannot read", () => {
+    expect(providerMonogram("   ")).toBeUndefined()
+    expect(providerMonogram(undefined)).toBeUndefined()
   })
 })

@@ -1,14 +1,66 @@
 import { describe, expect, it } from "vitest"
 import {
+  AGENT_GRANTABLE_EFFECTS,
   AGENT_RUN_STATUSES,
   AgentCommandSchema,
   AgentDecisionSchema,
+  AgentErrorSchema,
+  AgentGrantSchema,
   AgentObservationSchema,
   AgentRunStatusSchema,
-  AgentStepStatusSchema
+  AgentStepStatusSchema,
+  MAX_AGENT_OBSERVATIONS
 } from ".."
 
 const ground = { snapshotId: "snapshot-1", generation: 1 }
+
+describe("agent contract ceilings", () => {
+  it("gives a run room for a real task rather than a scripted one", () => {
+    // One observation is counted per decision, so this is the step ceiling.
+    // Twenty-five of them stopped runs that were one click from finishing.
+    expect(MAX_AGENT_OBSERVATIONS).toBe(50)
+  })
+
+  it("lets a submission be pre-authorized, and nothing below it", () => {
+    /**
+     * Critical is never grantable, so as a critical class a submission was a
+     * prompt no user could ever answer once — an agent asked to post ten
+     * comments asked for ten final clicks. The floor is unmoved: nothing that
+     * destroys, pays, authenticates or touches a sensitive control appears
+     * here at any scope.
+     */
+    expect([...AGENT_GRANTABLE_EFFECTS]).toEqual([
+      "activation",
+      "form_mutation",
+      "submission"
+    ])
+    expect(
+      AgentGrantSchema.safeParse({
+        origin: "https://example.com",
+        effects: ["activation", "form_mutation", "submission"],
+        grantedAt: 1
+      }).success
+    ).toBe(true)
+    expect(
+      AgentGrantSchema.safeParse({
+        origin: "https://example.com",
+        effects: ["destructive"],
+        grantedAt: 1
+      }).success
+    ).toBe(false)
+  })
+
+  it("lets a failure keep the key the layer below already named it by", () => {
+    expect(
+      AgentErrorSchema.safeParse({
+        code: "model_unavailable",
+        message: "The local provider is busy with another request.",
+        messageKey: "errors.provider.busy",
+        retryable: true
+      }).success
+    ).toBe(true)
+  })
+})
 
 describe("agent contract schemas", () => {
   it("accepts each supported command shape", () => {

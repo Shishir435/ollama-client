@@ -183,10 +183,37 @@ const projectOptions = (
     : undefined
 }
 
+/**
+ * A destination the page already owns needs only its path.
+ *
+ * Every row on a site's own page repeats that site's origin, which measured
+ * four thousand characters of one envelope and said nothing the observation's
+ * `url` does not already say. A link to anywhere else travels whole, because
+ * where it leads is the one thing a decision has to judge before following
+ * it. The observation's own cap still bounds what arrives here, and a path is
+ * never longer than the URL it came from.
+ */
+const projectHref = (
+  href: string | undefined,
+  pageOrigin: string | undefined
+): string | undefined => {
+  if (!href || !pageOrigin) return href
+  try {
+    const parsed = new URL(href)
+    if (parsed.origin !== new URL(pageOrigin).origin) return href
+    return `${parsed.pathname}${parsed.search}${parsed.hash}` || "/"
+  } catch {
+    return href
+  }
+}
+
 export const projectAgentElement = (
-  element: AgentElement
+  element: AgentElement,
+  /** The origin of the frame this element lives in, when it is known. */
+  pageOrigin?: string
 ): AgentProjectedElement => {
   const options = projectOptions(element)
+  const href = projectHref(element.href, pageOrigin)
   return {
     ref: element.ref,
     tag: element.tag,
@@ -196,12 +223,17 @@ export const projectAgentElement = (
       : {}),
     ...(element.placeholder ? { placeholder: element.placeholder } : {}),
     ...(element.type ? { type: element.type } : {}),
-    ...(element.value !== undefined ? { value: element.value } : {}),
+    /**
+     * An empty value is the page's default and the row's most common one; a
+     * field with nothing in it is already described by being a field. What a
+     * decision needs from `value` is what is *in* the control.
+     */
+    ...(element.value ? { value: element.value } : {}),
     ...(element.valueTruncated ? { valueTruncated: true } : {}),
     ...(element.scroll ? { scroll: element.scroll } : {}),
     ...(element.checked !== undefined ? { checked: element.checked } : {}),
     ...(element.focused ? { focused: true } : {}),
-    ...(element.href ? { href: element.href } : {}),
+    ...(href ? { href } : {}),
     ...(options ? { options } : {}),
     ...(element.group ? { group: element.group } : {}),
     ...(element.submitter || element.maySubmit ? { submits: true } : {}),
@@ -231,12 +263,37 @@ const matchesQuery = (element: AgentElement, query: string): boolean => {
   return matchesAgentInspection(element, { query })
 }
 
+/** A control a click reaches where it sits: on screen, uncovered and enabled. */
+const isReachable = (element: AgentElement): boolean =>
+  element.visible && !element.occluded && element.enabled
+
+/**
+ * Whether the row says anything a decision could use.
+ *
+ * A control the run cannot reach and cannot name is a `ref`, a tag and a
+ * group: the model can neither recognise it nor act on it, and asking about
+ * it costs a step. On one measured page nine of every ten rows were exactly
+ * that, and the controls the budget then had no room for were the ones in the
+ * region the run was working in. They are omitted like any other omission and
+ * counted by region, so the model is still told the region holds more and can
+ * `inspect` it — and `find`, `inspect` and `extract_text` still read the full
+ * observation, which is the escape hatch this leaves intact.
+ */
+const carriesInformation = (element: AgentElement): boolean =>
+  Boolean(
+    element.name ||
+      element.placeholder ||
+      element.value ||
+      element.options?.length ||
+      element.scroll
+  )
+
 /**
  * How readily a control is kept when the page overflows the budget. Lower is
  * kept first: the focused control and anything the model asked to inspect or
- * find, then the controls a click could reach, then everything else — hidden,
- * covered, disabled or decorative. Priority decides what survives; document
- * order decides how the survivors read.
+ * find, then the controls a click could reach, then the ones the page laid out
+ * below the fold, and last the ones nothing the run does will reveal. Priority
+ * decides what survives; document order decides how the survivors read.
  */
 const overviewPriority = (
   element: AgentElement,
@@ -256,8 +313,12 @@ const overviewPriority = (
     return 0
   }
   if (focus?.query !== undefined && matchesQuery(element, focus.query)) return 0
-  const reachable = element.visible && !element.occluded && element.enabled
-  return reachable ? 1 : 2
+  if (isReachable(element)) return 1
+  /**
+   * A named control the page laid out below the fold is one scroll away, so it
+   * outranks one hidden outright — which nothing the run does will reveal.
+   */
+  return element.offscreen ? 2 : 3
 }
 
 /**
@@ -310,17 +371,27 @@ const selectOverviewElements = (
   elements: readonly AgentElement[],
   budgetChars: number,
   ceilingChars: number,
-  focus: AgentOverviewFocus
+  focus: AgentOverviewFocus,
+  originOf: (element: AgentElement) => string | undefined
 ): {
   shown: AgentProjectedElement[]
   omittedByGroup: { group: string; count: number }[]
 } => {
-  const indexed = elements.map((element, index) => ({
-    element,
-    index,
-    projected: projectAgentElement(element),
-    priority: overviewPriority(element, focus)
-  }))
+  const indexed = elements.map((element, index) => {
+    const priority = overviewPriority(element, focus)
+    return {
+      element,
+      index,
+      projected: projectAgentElement(element, originOf(element)),
+      priority,
+      /**
+       * A row the model asked for is kept whatever it carries; everything else
+       * has to be reachable or say something.
+       */
+      informative:
+        priority === 0 || isReachable(element) || carriesInformation(element)
+    }
+  })
   const ordered = [...indexed].sort((first, second) =>
     first.priority !== second.priority
       ? first.priority - second.priority
@@ -329,6 +400,7 @@ const selectOverviewElements = (
   const kept = new Set<number>()
   let used = 0
   for (const item of ordered) {
+    if (!item.informative) continue
     const cost = JSON.stringify(item.projected).length + 1
     /**
      * The hard ceiling is absolute — even the one control an overview always
@@ -378,10 +450,26 @@ const projectTextPage = (
   }
 }
 
+/**
+ * Which origin a row's destination is read against. An element names its own
+ * frame, and a child frame's links belong to that frame's site — relativizing
+ * them against the tab's origin would report a third-party destination as one
+ * of the page's own paths.
+ */
+const frameOrigins = (
+  observation: AgentObservation
+): ((element: AgentElement) => string | undefined) => {
+  const origins = new Map<number, string>(
+    observation.frames.map((frame) => [frame.frameId, frame.origin])
+  )
+  return (element) => origins.get(element.frameId) ?? observation.origin
+}
+
 export const projectAgentObservation = (
   observation: AgentObservation,
   options: AgentProjectionOptions = {}
 ): AgentProjectedObservation => {
+  const originOf = frameOrigins(observation)
   const base = {
     url: observation.url,
     title: observation.title,
@@ -421,7 +509,9 @@ export const projectAgentObservation = (
       ...(observation.documentTextTruncated
         ? { documentTextTruncated: true }
         : {}),
-      elements: observation.elements.map(projectAgentElement)
+      elements: observation.elements.map((element) =>
+        projectAgentElement(element, originOf(element))
+      )
     }
   }
   /**
@@ -471,7 +561,8 @@ export const projectAgentObservation = (
     observation.elements,
     budget - Math.min(text.length, budget),
     ceiling - Math.min(text.length, ceiling),
-    options.focus
+    options.focus,
+    originOf
   )
   return {
     ...base,

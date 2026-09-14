@@ -127,7 +127,7 @@ These are current limits, not design decisions.
 - **Large pages cost tokens.** A page with a thousand controls is a large
   prompt. The page is projected to fit a budget and the model can ask to
   expand a region, but a small local model may still run out of room.
-- **Twenty-five observations, ten minutes.** A run that passes either stops.
+- **Fifty steps, forty minutes.** A run that passes either stops.
 - **A restart pauses the run.** If the browser stops the extension's worker
   mid-step, the run comes back paused, with the interrupted step marked
   unresolved, and waits for you. This one is verified against a real
@@ -135,11 +135,12 @@ These are current limits, not design decisions.
 
 ## What has actually been measured
 
-`AGENT_EVALUATION.md` in the repository holds the numbers: thirty frozen
-tasks across ten families, run with the debugger and without it, scored by
-predicates that read the page rather than by what the run claimed. It records
-the capability difference between the two browsers, the failures that remain,
-and what has not been measured yet. Every figure there came out of a run.
+Thirty frozen tasks across ten families run with the debugger and without it,
+each scored by a predicate that reads the page rather than by what the run
+claimed, plus a live-model suite against real websites. Both live in the
+repository and write their counts to `artifacts/` when you run them; that
+output is the only record, so the figures you get are from your own run rather
+than from a table someone copied out of theirs.
 
 ## Choosing a model
 

@@ -448,13 +448,42 @@
       },
       "Health": {
         "type": "object",
-        "required": ["status", "backend"],
+        "description": "Liveness, plus what the proxy can currently do. `status` stays `ok` while the process is answering, so an existing probe keeps working; `degraded` says the proxy is answering but cannot serve normally. Counts, flags, request-id labels and durations only.",
+        "required": [
+          "status",
+          "degraded",
+          "backend",
+          "queue",
+          "turns",
+          "bridge"
+        ],
         "properties": {
           "status": {
             "const": "ok"
           },
+          "degraded": {
+            "type": "boolean",
+            "description": "A stalled or orphaned queue, or a tool bridge that could not be confirmed."
+          },
           "backend": {
             "type": "string"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/HealthQueue"
+          },
+          "turns": {
+            "$ref": "#/components/schemas/HealthTurns"
+          },
+          "bridge": {
+            "$ref": "#/components/schemas/HealthBridge"
+          },
+          "managedRuntime": {
+            "type": "boolean",
+            "description": "Present when the backend reports whether this proxy spawned the runtime it serves."
+          },
+          "lastError": {
+            "$ref": "#/components/schemas/QueueFailure",
+            "description": "The queue's most recent failure, or null. The same value as queue.lastFailure."
           }
         },
         "additionalProperties": false
@@ -811,6 +840,89 @@
           }
         },
         "additionalProperties": false
+      },
+      "QueueFailure": {
+        "type": ["object", "null"],
+        "description": "The most recent cancelled or timed-out request: its label, why it ended, and how long ago it failed. Labels are request ids by convention and carry no prompt text, because /health is authentication-exempt.",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "agoMs": {
+            "type": "number"
+          }
+        },
+        "required": ["label", "reason", "agoMs"],
+        "additionalProperties": false
+      },
+      "HealthQueue": {
+        "type": "object",
+        "description": "The single-flight slot. A request runs alone; `stalled` means a cancelled request has not stopped and new ones are refused, `orphaned` counts slots force-released after that.",
+        "properties": {
+          "running": {
+            "type": "boolean"
+          },
+          "runningLabel": {
+            "type": ["string", "null"]
+          },
+          "runningForMs": {
+            "type": ["number", "null"]
+          },
+          "depth": {
+            "type": "integer"
+          },
+          "stalled": {
+            "type": "boolean"
+          },
+          "stalledLabel": {
+            "type": ["string", "null"]
+          },
+          "stalledForMs": {
+            "type": ["number", "null"]
+          },
+          "orphaned": {
+            "type": "integer"
+          },
+          "lastFailure": {
+            "$ref": "#/components/schemas/QueueFailure"
+          }
+        },
+        "additionalProperties": true
+      },
+      "HealthTurns": {
+        "type": "object",
+        "description": "What the chat routes still hold: a parked turn is a live runtime session, and a pending call is a promise something awaits.",
+        "properties": {
+          "parkedTurns": {
+            "type": "integer"
+          },
+          "pendingCalls": {
+            "type": "integer"
+          },
+          "resumeHolds": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": true
+      },
+      "HealthBridge": {
+        "type": "object",
+        "description": "The caller-tool bridge. `pluginConfirmed` is null when confirmation does not apply, false when the runtime this proxy adopted did not load this proxy's plugin — in which case caller tools are withheld rather than offered and answered by a stranger.",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "pluginLinked": {
+            "type": "boolean"
+          },
+          "pluginConfirmed": {
+            "type": ["boolean", "null"]
+          }
+        },
+        "additionalProperties": true
       }
     }
   }

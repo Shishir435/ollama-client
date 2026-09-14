@@ -17,6 +17,10 @@ import {
   placeAgentEditableCaret,
   selectAgentEditableText
 } from "./editor-page"
+import {
+  AGENT_EFFECT_REJECTIONS,
+  agentRejectionMessage
+} from "./effect-rejection"
 import type { AgentElementReferenceStore } from "./element-references"
 import {
   type AgentInputBackendChoice,
@@ -143,13 +147,107 @@ export type AgentDomMutationInstruction = Pick<
 const sameOptional = <T>(first: T | undefined, second: T | undefined) =>
   first === second
 
+/**
+ * Commands whose approval was granted against the control's own value: the
+ * text to write was computed from what the field held when the run observed
+ * it, so a value that drifted underneath would be appended to or replaced
+ * with arithmetic that no longer describes the field.
+ *
+ * Every other command acts on the control whatever it currently holds. A
+ * click, a key press, a drag or a toggle means the same thing against a
+ * changed value, and requiring the value to be identical refused exactly the
+ * step a run takes after typing: press Enter in the search box it just filled.
+ */
+const VALUE_DEPENDENT_COMMANDS: ReadonlySet<string> = new Set([
+  "type",
+  "clear_and_type",
+  "replace_text"
+])
+
+/**
+ * What has to still be true for the approved effect to be the effect that
+ * happens. Identity, kind, destination and sensitivity — never live state: a
+ * page rewrites its own value, focus and checked state as the user's own
+ * widgets open and close, and between an observation and a decision a live
+ * application does so continuously.
+ *
+ * Each entry names the field so a refusal can say which one moved. The name
+ * travels; the values never do, because both sides are page-derived.
+ */
+/**
+ * A visual click answers to the browser's hit test, not to our reconstruction
+ * of visibility.
+ *
+ * `visible` is `resolveVisibility` rebuilding reachability from client rects,
+ * the viewport and every ancestor's overflow; `elementFromPoint` is the
+ * browser saying what a pointer at that coordinate actually lands on. Where
+ * they disagree the reconstruction is wrong, which is why resolution already
+ * waives `hidden_target` for `click_point`. Re-checking it here re-imposed one
+ * layer later exactly what was waived, and the executor re-hit-tests the point
+ * before it sends anything, so the browser still gets the last word either
+ * way. A run on YouTube spent seventeen of its steps this way: every click on
+ * a thumbnail was approved, refused as "target changed after approval", and
+ * tried again, until the budget was gone and the page had never been touched.
+ *
+ * Everything about what the click would *do* — a disabled control, a link, a
+ * submitter, a sensitive field — is unaffected and still compared.
+ */
+const identityWaivedForVisualClick = (
+  field: string,
+  command: string
+): boolean => command === "click_point" && field === "visible"
+
+const mutationTargetIdentity = (
+  current: ReturnType<typeof buildAgentElementObservation>,
+  expected: AgentDomMutationInstruction["target"]
+): readonly { field: string; same: boolean }[] => [
+  { field: "frame", same: current.frameId === expected.frameId },
+  { field: "tag", same: current.tag === expected.tag },
+  { field: "role", same: sameOptional(current.role, expected.role) },
+  { field: "name", same: sameOptional(current.name, expected.accessibleName) },
+  { field: "type", same: sameOptional(current.type, expected.inputType) },
+  { field: "href", same: sameOptional(current.href, expected.href) },
+  {
+    field: "formAction",
+    same: sameOptional(current.formAction, expected.formAction)
+  },
+  {
+    field: "formMethod",
+    same: sameOptional(current.formMethod, expected.formMethod)
+  },
+  {
+    field: "formFingerprint",
+    same: sameOptional(current.formFingerprint, expected.formFingerprint)
+  },
+  {
+    field: "formHasSensitiveControl",
+    same: sameOptional(
+      current.formHasSensitiveControl,
+      expected.formHasSensitiveControl
+    )
+  },
+  {
+    field: "submitter",
+    same: Boolean(current.submitter) === Boolean(expected.submitter)
+  },
+  {
+    field: "maySubmit",
+    same: Boolean(current.maySubmit) === expected.maySubmit
+  },
+  { field: "sensitive", same: current.sensitive === expected.sensitive },
+  { field: "visible", same: current.visible },
+  { field: "enabled", same: current.enabled }
+]
+
 const assertUnchangedMutationTarget = (
   effect: AgentDomMutationInstruction,
   element: Element
 ): void => {
   const ref = effect.target.ref
   if (!ref || !element.isConnected) {
-    throw new AgentEffectNotAppliedError("Agent mutation target was replaced")
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.targetReplaced)
+    )
   }
   const current = buildAgentElementObservation(
     element,
@@ -159,38 +257,28 @@ const assertUnchangedMutationTarget = (
   const expected = effect.target
   if (
     current.valueTruncated &&
-    ["type", "clear_and_type", "replace_text"].includes(effect.command.type)
+    VALUE_DEPENDENT_COMMANDS.has(effect.command.type)
   ) {
     throw new AgentEffectNotAppliedError(
-      "Agent field exceeds the verifiable text limit"
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.valueTooLong)
     )
   }
-  const matches =
-    current.visible &&
-    current.enabled &&
-    current.frameId === expected.frameId &&
-    current.tag === expected.tag &&
-    sameOptional(current.role, expected.role) &&
-    sameOptional(current.name, expected.accessibleName) &&
-    sameOptional(current.type, expected.inputType) &&
-    sameOptional(current.value, expected.observedValue) &&
-    sameOptional(current.checked, expected.observedChecked) &&
-    sameOptional(current.focused, expected.observedFocused) &&
-    sameOptional(current.href, expected.href) &&
-    sameOptional(current.formAction, expected.formAction) &&
-    sameOptional(current.formMethod, expected.formMethod) &&
-    sameOptional(current.formFingerprint, expected.formFingerprint) &&
-    sameOptional(
-      current.formHasSensitiveControl,
-      expected.formHasSensitiveControl
-    ) &&
-    Boolean(current.submitter) === Boolean(expected.submitter) &&
-    Boolean(current.maySubmit) === expected.maySubmit &&
-    current.sensitive === expected.sensitive
-  if (!matches)
+  const moved = mutationTargetIdentity(current, expected).find(
+    (check) =>
+      !check.same &&
+      !identityWaivedForVisualClick(check.field, effect.command.type)
+  )
+  if (moved) {
     throw new AgentEffectNotAppliedError(
-      "Agent mutation target changed after approval"
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.targetChanged, moved.field)
     )
+  }
+  if (!VALUE_DEPENDENT_COMMANDS.has(effect.command.type)) return
+  if (!sameOptional(current.value, expected.observedValue)) {
+    throw new AgentEffectNotAppliedError(
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.valueChanged)
+    )
+  }
 }
 
 /**
@@ -207,7 +295,7 @@ const executeEditorTextMutation = (
   const apply = (text: string): void => {
     if (!insertAgentEditableText(host, text)) {
       throw new AgentEffectNotAppliedError(
-        "Agent cannot edit this host through the browser's editing pipeline"
+        agentRejectionMessage(AGENT_EFFECT_REJECTIONS.editorRefusedText)
       )
     }
   }
@@ -223,7 +311,7 @@ const executeEditorTextMutation = (
     case "replace_text":
       if (!selectAgentEditableText(host, effect.command.find)) {
         throw new AgentEffectNotAppliedError(
-          "Agent text to replace is no longer unique in the target"
+          agentRejectionMessage(AGENT_EFFECT_REJECTIONS.textNotUnique)
         )
       }
       apply(effect.command.text)
@@ -259,7 +347,7 @@ const executeTextMutation = (
     !selectAgentEditableText(element, effect.command.find)
   ) {
     throw new AgentEffectNotAppliedError(
-      "Agent text to replace is no longer unique in the target"
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.textNotUnique)
     )
   }
   setNativeValue(element, effect.target.expectedValue)
@@ -396,10 +484,59 @@ const buildGuardedSubmission = (
   return guarded
 }
 
-const submitWithoutPageHandlers = (
+/**
+ * Submit the approved destination itself, from a fresh form carrying only the
+ * already-bound standard controls, so a page listener cannot swap the
+ * destination during the activation event.
+ */
+const submitApprovedDestination = (
+  element: Element,
+  form: HTMLFormElement,
+  submitter: ReturnType<typeof resolveAgentFormSubmitter>,
+  destination: string,
+  method: "get" | "post"
+): string => {
+  const guarded = buildGuardedSubmission(form, submitter, destination, method)
+  const submitted = new URL(destination)
+  if (method === "get") {
+    const query = new URLSearchParams()
+    for (const control of Array.from(guarded.elements)) {
+      if (control instanceof HTMLInputElement)
+        query.append(control.name, control.value)
+    }
+    submitted.search = query.toString()
+  }
+  try {
+    element.ownerDocument.body.append(guarded)
+    HTMLFormElement.prototype.submit.call(guarded)
+  } finally {
+    guarded.remove()
+  }
+  return submitted.href
+}
+
+/**
+ * A submission runs the page's own handlers first and only then enforces the
+ * approved destination.
+ *
+ * An application that calls `preventDefault` is handling the submission
+ * itself and nothing navigates — that is what its form is for. Submitting a
+ * guarded copy in its place navigated away while the application never saw
+ * the event, which is how filling in a single-page form and pressing its
+ * button left the page on a query string and the run reporting a submission
+ * the application had not performed.
+ *
+ * When the page does not prevent the default, the browser is about to
+ * navigate to whatever `action` says at that moment — which a handler may
+ * have rewritten during the event. That is the case the guarded submission
+ * exists for: the default is cancelled and the destination the user approved
+ * is submitted instead. A prevented submission reports no destination, so the
+ * verifier judges it by what the page did.
+ */
+const submitThroughPageHandlers = (
   effect: AgentDomMutationInstruction,
   element: Element
-): string => {
+): string | undefined => {
   const form = associatedForm(element)
   const destination = effect.target.formAction
   if (!form || !destination || !effect.target.formMethod) {
@@ -425,29 +562,51 @@ const submitWithoutPageHandlers = (
   if (!skipsValidation && invalid) {
     throw new Error("Agent form is not valid for submission")
   }
-
-  const guarded = buildGuardedSubmission(
-    form,
-    submitter,
-    destination,
-    effect.target.formMethod
-  )
-  const submitted = new URL(destination)
-  if (effect.target.formMethod === "get") {
-    const query = new URLSearchParams()
-    for (const control of Array.from(guarded.elements)) {
-      if (control instanceof HTMLInputElement)
-        query.append(control.name, control.value)
-    }
-    submitted.search = query.toString()
+  const method = effect.target.formMethod
+  let committed: string | undefined
+  /**
+   * Registered last, so the page's own listeners — an inline `onsubmit`
+   * attribute included — have already run and already decided whether this
+   * submission is theirs.
+   */
+  const enforceDestination = (event: Event): void => {
+    if (event.defaultPrevented) return
+    event.preventDefault()
+    committed = submitApprovedDestination(
+      element,
+      form,
+      submitter,
+      destination,
+      method
+    )
   }
+  form.addEventListener("submit", enforceDestination)
   try {
-    element.ownerDocument.body.append(guarded)
-    HTMLFormElement.prototype.submit.call(guarded)
+    /**
+     * `requestSubmit` validates its argument before it dispatches anything,
+     * so a submitter it will not accept costs nothing and the approved
+     * destination is submitted directly instead. Falling back rather than
+     * throwing keeps an unusual submitter from becoming an unresolved effect.
+     */
+    try {
+      if (submitter instanceof HTMLElement && submitter.isConnected) {
+        form.requestSubmit(submitter as HTMLElement & { form: HTMLFormElement })
+      } else {
+        form.requestSubmit()
+      }
+    } catch {
+      return submitApprovedDestination(
+        element,
+        form,
+        submitter,
+        destination,
+        method
+      )
+    }
   } finally {
-    guarded.remove()
+    form.removeEventListener("submit", enforceDestination)
   }
-  return submitted.href
+  return committed
 }
 
 const executeKey = (
@@ -458,7 +617,7 @@ const executeKey = (
     throw new Error("Invalid Agent key effect")
   }
   if (effect.command.key === "Enter" && effect.target.maySubmit) {
-    return submitWithoutPageHandlers(effect, element)
+    return submitThroughPageHandlers(effect, element)
   }
   /**
    * The chord is spelled out as a page would see it from a keyboard: the key
@@ -482,6 +641,22 @@ const executeKey = (
     bubbles: true,
     cancelable: true,
     composed: true
+  }
+  /**
+   * A key press names the control it is for, so the control is focused before
+   * the key is sent rather than the press being refused because focus moved.
+   * Refusing was the stricter-looking rule and the weaker one: it delivered
+   * nothing, told the run only that its target had "changed", and stopped a
+   * run the moment a page's own widget took focus during the seconds a model
+   * spends deciding. Focusing the named control is what the approval was for,
+   * and a real hand on the page is caught by input-delivery interference,
+   * which is evidence rather than a guess.
+   */
+  if (
+    element instanceof HTMLElement &&
+    element.ownerDocument.activeElement !== element
+  ) {
+    element.focus({ preventScroll: true })
   }
   element.dispatchEvent(new KeyboardEvent("keydown", init))
   element.dispatchEvent(new KeyboardEvent("keyup", init))
@@ -510,7 +685,7 @@ export const resolveAgentMutationTarget = (
     throw new AgentEffectNotAppliedError("Agent mutation target is stale")
   if (!references.matchesFormState(ref, identity)) {
     throw new AgentEffectNotAppliedError(
-      "Agent mutation form state changed after approval"
+      agentRejectionMessage(AGENT_EFFECT_REJECTIONS.formStateChanged)
     )
   }
   assertUnchangedMutationTarget(effect, element)
@@ -652,7 +827,7 @@ export const executeAgentDomMutationInDocument = (input: {
         throw new Error("Agent link activation must use guarded navigation")
       }
       if (input.effect.target.submitter) {
-        return submitWithoutPageHandlers(input.effect, element)
+        return submitThroughPageHandlers(input.effect, element)
       }
       if (input.effect.point) {
         executeSyntheticPointClick(input.effect.point, element)

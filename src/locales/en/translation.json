@@ -160,11 +160,14 @@
     },
     "title": "Supervised Agent",
     "unresolved": "This action may have happened. Review the page before deciding whether to continue.",
+    "unresolved_reviewed": "I've reviewed the page — continue",
     "work_log": {
-      "title": "Work log"
+      "title": "Work log",
+      "target": "“{{name}}”"
     },
     "correction": "Paused. Describe what should change, then continue.",
-    "export_report": "Export run report (includes page text)"
+    "export_report": "Export run report (includes page text)",
+    "running_goal": "Working on"
   },
   "common": {
     "theme": {
@@ -361,7 +364,6 @@
       "preparing": "Preparing on-device speech…"
     },
     "system_prompt": {
-      "button": "Chat instructions",
       "title": "Chat instructions",
       "description": "A system prompt for this chat only. It overrides the model's default prompt.",
       "placeholder": "e.g. You are a concise assistant that answers in bullet points.",
@@ -433,7 +435,8 @@
       "tooltip_tokens": "Total tokens used in this session",
       "tooltip_time": "Total response generation time",
       "tooltip_speed": "Average generation speed",
-      "tooltip_messages": "Number of AI responses"
+      "tooltip_messages": "Number of AI responses",
+      "speed_average": "avg {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "Activity log",
@@ -621,6 +624,7 @@
       "response_failed_title": "Response Generation Failed",
       "unknown_error_description": "An unknown error occurred",
       "provider_replay_invalid": "This response cannot be continued safely. Retry the turn to rebuild its provider context.",
+      "provider_busy": "The local endpoint is still finishing an earlier request and cannot start another. Wait about a minute, or restart it.",
       "report_issue": "Report issue",
       "open_issue": "Open an issue",
       "issue_draft_notice": "Prefilled locally. Review before submitting.",
@@ -1231,6 +1235,7 @@
           "description_reported": "Levels reported by this model's provider.",
           "description_profile": "Levels verified for this provider and model family.",
           "description_unknown": "This provider does not advertise a reliable reasoning control.",
+          "reset": "Reset to Auto",
           "options": {
             "auto": "Auto (provider default)",
             "auto_short": "Auto",

@@ -10,12 +10,40 @@
  * an `AbortSignal` and the slot is held until it actually unwinds — a task that is
  * still running has not left the boundary, whatever its caller was told.
  *
- * A cancelled task that does not stop is therefore never overtaken. After a bounded
- * grace period the queue declares itself stalled and refuses work outright: waiting
- * and arriving requests fail immediately with a `QueueStalledError` naming the task
- * that will not stop. The alternatives are both worse — starting the next request
- * interleaves two live turns, and queueing behind a task that may never settle hangs
- * every caller with no explanation. The queue heals itself if the task ever settles.
+ * A cancelled task that does not stop is therefore not overtaken straight away.
+ * After a bounded grace period the queue declares itself stalled and refuses work:
+ * waiting and arriving requests fail immediately with a `QueueStalledError` naming
+ * the task that will not stop. The alternatives are both worse — starting the next
+ * request interleaves two live turns, and queueing behind a task that may never
+ * settle hangs every caller with no explanation.
+ *
+ * Refusing forever is worse still. A task that ignores its abort — an SDK call with
+ * no cancellation, a poll loop reading a session that is already gone — used to wedge
+ * the proxy for the life of the process, because the slot was released only from the
+ * task's own `finally`. After `forceReleaseMs` the slot is released regardless and
+ * the abandoned task is written off: whatever it is doing, it has been outside every
+ * deadline the caller had, and a proxy that serves the next request is worth more
+ * than one that guards a turn nobody is waiting for. The orphan's late `finally` is
+ * identity-guarded so it cannot clear state that now belongs to a newer task.
+ *
+ * What keeps that from being a hole rather than a trade, and what has to stay true
+ * of any caller that uses this queue:
+ *
+ * - The runtime work is *torn down* on cancellation, not merely unawaited. The chat
+ *   route abandons its turn the moment the signal aborts — `turn.abort()` then
+ *   `turn.dispose()`, bounded well under `cancelGraceMs` — a full minute before the
+ *   slot is given away. Force release is about a promise nobody can wait on any
+ *   longer, not about a session left running on purpose.
+ * - A turn owns its own backend session (`session.create()` per turn), so an orphan
+ *   and its replacement never share session state. What they can share is the
+ *   runtime process, which is why an orphan is counted rather than forgotten.
+ * - `inspect().orphaned` is non-zero for as long as one has not settled, and
+ *   `/health` reports the proxy degraded while it is. A run of orphans means the
+ *   runtime is ignoring both abort and dispose, and the answer to that is a restart,
+ *   which is a thing an operator can only do if the proxy says so.
+ *
+ * Shortening `forceReleaseMs` trades a wedged proxy for overlapping turns; lengthening
+ * it trades the other way. Neither is free, and neither is a bug.
  *
  * A caller can also leave. Its `signal` is honoured at both stages, because they are
  * not the same problem: a request still queued has started nothing, so it is simply
@@ -27,6 +55,15 @@
 
 /** Time a cancelled task is given to unwind before the queue declares itself stalled. */
 const CANCEL_GRACE_MS = 10_000
+
+/**
+ * Time a cancelled task is given before its slot is released regardless.
+ *
+ * Long enough that a turn which merely unwinds slowly is waited for rather than
+ * duplicated, and short enough that a client which retries after its own deadline
+ * is served instead of meeting the same refusal for the life of the process.
+ */
+const FORCE_RELEASE_MS = 60_000
 
 /** Raised when the caller withdrew before its request could be served. */
 export class ClientClosedError extends Error {
@@ -65,22 +102,55 @@ export interface RequestQueueOptions {
   signal?: AbortSignal
 }
 
-export type RequestQueue = <T>(
-  task: (signal: AbortSignal) => Promise<T>,
-  options?: RequestQueueOptions
-) => Promise<T>
+/**
+ * What the queue is holding, for the health endpoint and for tests.
+ *
+ * Labels are request ids by convention; nothing here carries prompt text,
+ * session ids or credentials, because `/health` is authentication-exempt.
+ */
+export interface QueueInspection {
+  /** Whether a task holds the single-flight slot right now. */
+  running: boolean
+  runningLabel: string | null
+  runningForMs: number | null
+  /** Requests waiting for the slot. */
+  depth: number
+  stalled: boolean
+  stalledLabel: string | null
+  stalledForMs: number | null
+  /** Cancelled tasks whose slot was force-released and that have not settled. */
+  orphaned: number
+  lastFailure: { label: string; reason: string; agoMs: number } | null
+}
+
+export interface RequestQueue {
+  <T>(
+    task: (signal: AbortSignal) => Promise<T>,
+    options?: RequestQueueOptions
+  ): Promise<T>
+  inspect: () => QueueInspection
+}
 
 export const createRequestQueue = ({
   defaultTimeoutMs = 120_000,
-  cancelGraceMs = CANCEL_GRACE_MS
+  cancelGraceMs = CANCEL_GRACE_MS,
+  forceReleaseMs = FORCE_RELEASE_MS
 }: {
   defaultTimeoutMs?: number
   cancelGraceMs?: number
+  forceReleaseMs?: number
 } = {}): RequestQueue => {
   const queue: QueueEntry[] = []
-  let isProcessing = false
+  /** The entry holding the slot, or null. Identity, not a flag, so a late
+   * `finally` from a force-released task cannot release a newer task's slot. */
+  let running: QueueEntry | null = null
+  let runningSince = 0
   /** The cancelled task that will not stop, while it will not stop. */
   let stalled: QueueEntry | null = null
+  let stalledSince = 0
+  /** Cancelled tasks whose slot was released before they settled. */
+  const orphaned = new Set<QueueEntry>()
+  let lastFailure: { label: string; reason: string; at: number } | null = null
 
   const failWaiting = (label: string) => {
     while (queue.length > 0) {
@@ -91,10 +161,11 @@ export const createRequestQueue = ({
   }
 
   const processQueue = () => {
-    if (isProcessing || queue.length === 0) return
-    isProcessing = true
+    if (running || queue.length === 0) return
 
     const entry = queue.shift() as QueueEntry
+    running = entry
+    runningSince = Date.now()
     entry.detach?.()
     const waitedMs = Date.now() - entry.queuedAt
     if (waitedMs > 50) {
@@ -105,8 +176,33 @@ export const createRequestQueue = ({
 
     let settled = false
     let graceId: NodeJS.Timeout | undefined
+    let releaseId: NodeJS.Timeout | undefined
     const controller = new AbortController()
     const startedAt = Date.now()
+
+    /**
+     * Release the slot without the task's cooperation.
+     *
+     * Everything the caller could be told has already been said, and every
+     * deadline it had has passed. What is left is a choice between serving the
+     * next request and refusing every request from here on, and only one of
+     * those is a working proxy.
+     */
+    const forceRelease = () => {
+      const heldMs = Math.max(cancelGraceMs, forceReleaseMs)
+      console.error(
+        `[Proxy][Queue] "${entry.label}" has not stopped ${heldMs}ms after cancellation; releasing its slot and accepting requests again. Anything it still produces is discarded.`
+      )
+      orphaned.add(entry)
+      if (stalled === entry) {
+        stalled = null
+        stalledSince = 0
+      }
+      if (running === entry) {
+        running = null
+        processQueue()
+      }
+    }
 
     /**
      * One cancellation path for both reasons a running task is ended. The slot
@@ -114,19 +210,26 @@ export const createRequestQueue = ({
      * the boundary until it unwinds, and the grace timer is what turns "will
      * not stop" into a refusal instead of an overlap.
      */
-    const cancelRunning = (error: Error) => {
+    const cancelRunning = (error: Error, reason: string) => {
       if (settled) return
       settled = true
       controller.abort(error)
       entry.reject(error)
+      lastFailure = { label: entry.label, reason, at: Date.now() }
       graceId = setTimeout(() => {
         console.error(
           `[Proxy][Queue] "${entry.label}" is still running ${cancelGraceMs}ms after cancellation; refusing further requests until it stops`
         )
         stalled = entry
+        stalledSince = Date.now()
         failWaiting(entry.label)
       }, cancelGraceMs)
       if (typeof graceId.unref === "function") graceId.unref()
+      releaseId = setTimeout(
+        forceRelease,
+        Math.max(cancelGraceMs, forceReleaseMs)
+      )
+      if (typeof releaseId.unref === "function") releaseId.unref()
     }
 
     const timeoutId = setTimeout(() => {
@@ -134,7 +237,10 @@ export const createRequestQueue = ({
       console.error(
         `[Proxy][Queue] "${entry.label}" timed out after ${entry.timeoutMs}ms`
       )
-      cancelRunning(new Error(`Request timeout after ${entry.timeoutMs}ms`))
+      cancelRunning(
+        new Error(`Request timeout after ${entry.timeoutMs}ms`),
+        "timeout"
+      )
     }, entry.timeoutMs)
     if (typeof timeoutId.unref === "function") timeoutId.unref()
 
@@ -145,7 +251,7 @@ export const createRequestQueue = ({
         console.log(
           `[Proxy][Queue] "${entry.label}" lost its client while running; cancelling it`
         )
-        cancelRunning(new ClientClosedError(entry.label))
+        cancelRunning(new ClientClosedError(entry.label), "client-closed")
       }
       signal.addEventListener("abort", onCallerGone, { once: true })
       entry.detach = () => signal.removeEventListener("abort", onCallerGone)
@@ -167,22 +273,31 @@ export const createRequestQueue = ({
       .finally(() => {
         clearTimeout(timeoutId)
         if (graceId) clearTimeout(graceId)
+        if (releaseId) clearTimeout(releaseId)
         entry.detach?.()
         if (stalled === entry) {
           console.log(
             `[Proxy][Queue] "${entry.label}" finally stopped; accepting requests again`
           )
           stalled = null
+          stalledSince = 0
+        }
+        if (orphaned.delete(entry)) {
+          console.log(
+            `[Proxy][Queue] The abandoned task "${entry.label}" stopped after ${Date.now() - startedAt}ms; its slot had already been released`
+          )
         }
         console.log(
           `[Proxy][Queue] Finished "${entry.label}" in ${Date.now() - startedAt}ms`
         )
-        isProcessing = false
-        setTimeout(processQueue, 100)
+        if (running === entry) {
+          running = null
+          setTimeout(processQueue, 100)
+        }
       })
   }
 
-  return <T>(
+  const submit = <T>(
     task: (signal: AbortSignal) => Promise<T>,
     {
       timeoutMs = defaultTimeoutMs,
@@ -209,9 +324,11 @@ export const createRequestQueue = ({
         reject
       }
       if (signal) {
-        // While queued there is nothing to unwind, so the entry is simply
-        // dropped. Once it starts, `processQueue` replaces this listener with
-        // the running-stage one.
+        /**
+         * While queued there is nothing to unwind, so the entry is simply
+         * dropped. Once it starts, `processQueue` replaces this listener with
+         * the running-stage one.
+         */
         const onCallerGone = () => {
           const index = queue.indexOf(entry)
           if (index < 0) return
@@ -233,4 +350,24 @@ export const createRequestQueue = ({
       }
       processQueue()
     })
+
+  const inspect = (): QueueInspection => ({
+    running: running !== null,
+    runningLabel: running?.label ?? null,
+    runningForMs: running ? Date.now() - runningSince : null,
+    depth: queue.length,
+    stalled: stalled !== null,
+    stalledLabel: stalled?.label ?? null,
+    stalledForMs: stalled ? Date.now() - stalledSince : null,
+    orphaned: orphaned.size,
+    lastFailure: lastFailure
+      ? {
+          label: lastFailure.label,
+          reason: lastFailure.reason,
+          agoMs: Date.now() - lastFailure.at
+        }
+      : null
+  })
+
+  return Object.assign(submit, { inspect })
 }

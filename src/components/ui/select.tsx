@@ -1,4 +1,5 @@
 import { Select as SelectPrimitive } from "@base-ui/react/select"
+import { cva, type VariantProps } from "class-variance-authority"
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import type * as React from "react"
 import { cn } from "@/lib/class-names"
@@ -25,22 +26,45 @@ function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   )
 }
 
+/**
+ * A trigger wears a field surface by default and none at all as a `ghost`,
+ * which is the shape a composer control needs. The theme-specific halves of
+ * each surface belong to the variant that owns them: a caller writing its own
+ * `dark:` override to cancel one it did not ask for leaves two rules about
+ * the same pixel in two files, and the theme-aware one silently wins.
+ */
+const selectTriggerVariants = cva(
+  "flex w-fit items-center justify-between gap-1.5 rounded-control border px-2 py-1.5 text-xs/relaxed whitespace-nowrap transition-colors outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-7 data-[size=sm]:h-6 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='icon-'])]:icon-sm",
+  {
+    variants: {
+      variant: {
+        default:
+          "border-input bg-input/20 dark:bg-input/30 dark:hover:bg-input/50",
+        ghost:
+          "border-transparent bg-transparent hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50"
+      }
+    },
+    defaultVariants: {
+      variant: "default"
+    }
+  }
+)
+
 function SelectTrigger({
   className,
   size = "default",
+  variant,
   children,
   ...props
-}: SelectPrimitive.Trigger.Props & {
-  size?: "sm" | "default"
-}) {
+}: SelectPrimitive.Trigger.Props &
+  VariantProps<typeof selectTriggerVariants> & {
+    size?: "sm" | "default"
+  }) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
-      className={cn(
-        "flex w-fit items-center justify-between gap-1.5 rounded-control border border-input bg-input/20 px-2 py-1.5 text-xs/relaxed whitespace-nowrap transition-colors outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-7 data-[size=sm]:h-6 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='icon-'])]:icon-sm",
-        className
-      )}
+      className={cn(selectTriggerVariants({ variant }), className)}
       {...props}>
       {children}
       <SelectPrimitive.Icon

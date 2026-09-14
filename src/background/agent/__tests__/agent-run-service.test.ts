@@ -44,6 +44,7 @@ const service = (
     resume: vi.fn(async () => undefined),
     requestCancel: vi.fn(async () => undefined),
     completeTakeover: vi.fn(async () => undefined),
+    resolveEffect: vi.fn(async () => undefined),
     answerQuestion: vi.fn(async () => undefined)
   }
   const sessions = {
@@ -142,6 +143,7 @@ const transitionController = (to: AgentRunStatus) =>
       resume: vi.fn(async () => undefined),
       requestCancel: vi.fn(transition),
       completeTakeover: vi.fn(transition),
+      resolveEffect: vi.fn(async () => undefined),
       answerQuestion: vi.fn(async () => undefined)
     } satisfies AgentController
   })
@@ -309,6 +311,7 @@ describe("Agent run service", () => {
         }),
         requestCancel: vi.fn(async () => undefined),
         completeTakeover: vi.fn(async () => undefined),
+        resolveEffect: vi.fn(async () => undefined),
         answerQuestion: vi.fn(async () => undefined)
       } satisfies AgentController
     })
@@ -609,6 +612,7 @@ describe("Agent run service tab scope", () => {
         resume: vi.fn(async () => undefined),
         requestCancel: vi.fn(async () => undefined),
         completeTakeover: vi.fn(async () => undefined),
+        resolveEffect: vi.fn(async () => undefined),
         answerQuestion: vi.fn(async () => undefined)
       }))
     })

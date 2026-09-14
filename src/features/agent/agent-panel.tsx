@@ -1,5 +1,9 @@
+import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
+import { SettingsButton } from "@/components/settings-button"
+import { ModelMenu } from "@/features/model/components/model-menu"
+import { ReasoningEffortMenu } from "@/features/model/components/reasoning-effort-menu"
 import { useProviderModels } from "@/features/model/hooks/use-provider-models"
 import { useSetting } from "@/hooks/use-setting"
 import { openOptionsInTab, runtime } from "@/lib/browser-api"
@@ -21,7 +25,7 @@ import { useAgentDraft } from "./stores/agent-draft-store"
  * snapshot is the answer, so what the panel shows always describes the durable
  * run rather than an optimistic guess about it.
  */
-export const AgentPanel = () => {
+export const AgentPanel = ({ leading }: { leading?: ReactNode } = {}) => {
   const { t } = useTranslation()
   const { selectedModel, selectedProviderId } = useProviderModels()
   const [acknowledged, setAcknowledged] = useSetting(
@@ -48,7 +52,7 @@ export const AgentPanel = () => {
           className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs">
           <p>{t(connection.failure.messageKey)}</p>
           {connection.failure.detail && (
-            <p className="mt-1 break-words font-mono text-micro text-muted-foreground">
+            <p className="mt-1 wrap-break-word font-mono text-micro text-muted-foreground">
               {agentPlainText(connection.failure.detail, 300)}
             </p>
           )}
@@ -56,6 +60,43 @@ export const AgentPanel = () => {
       )}
       <div className="min-h-0 flex-1">
         <AgentView
+          leading={
+            leading && (
+              <>
+                {/*
+                 * The model a run will use, changeable from the surface that
+                 * runs it. The panel stated it read-only, so picking another
+                 * one meant switching to chat, changing it there, and coming
+                 * back — for the setting this surface cares most about.
+                 */}
+                <ModelMenu
+                  showStatusPopup={false}
+                  tooltipTextContent={t("chat.input.switch_model")}
+                />
+                {/*
+                 * Reasoning effort is a per-model setting the chat composer
+                 * has always offered and this surface never did, so the one
+                 * place it matters most — a run that plans twenty-five steps
+                 * — was the one place it could not be set.
+                 */}
+                <ReasoningEffortMenu />
+                <SettingsButton
+                  showText={false}
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 rounded-control text-muted-foreground hover:bg-muted/55 hover:text-foreground"
+                  iconClassName="icon-sm"
+                />
+                {/*
+                 * Last in the row, beside the effort control: the two panel
+                 * controls sit together at the end, the way the chat composer
+                 * keeps its toggle next to settings, rather than the switch
+                 * leading a row of run controls.
+                 */}
+                {leading}
+              </>
+            )
+          }
           run={snapshot.run ?? null}
           steps={snapshot.steps}
           browser={snapshot.browser}
@@ -89,6 +130,7 @@ export const AgentPanel = () => {
           onCorrect={connection.correct}
           onStop={connection.stop}
           onTakeoverComplete={connection.completeTakeover}
+          onResolveEffect={connection.resolveEffect}
           onExport={() => {
             if (!snapshot.run) return
             downloadFile(

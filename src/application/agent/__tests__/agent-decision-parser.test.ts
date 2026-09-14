@@ -59,6 +59,36 @@ const call = (argumentsValue: Record<string, unknown>) => ({
 })
 
 describe("parseAgentDecisionToolCalls", () => {
+  it("names the length a field broke, without quoting what broke it", () => {
+    const quoted = "Ollama Client secret project codename ".repeat(12)
+    let feedback = ""
+    try {
+      parseAgentDecisionToolCalls(
+        [
+          call({
+            type: "complete",
+            summary: "Read the About section",
+            evidence: quoted
+          })
+        ],
+        observation
+      )
+    } catch (error) {
+      feedback =
+        error instanceof AgentDecisionFormatError
+          ? (error.feedback ?? "")
+          : String(error)
+    }
+    /**
+     * A model that overruns the cap by a character reads "invalid fields:
+     * evidence" as "supply evidence", supplies the same one, and spends the
+     * run's whole malformed budget on a one-edit mistake.
+     */
+    expect(feedback).toContain("evidence")
+    expect(feedback).toContain("at most")
+    expect(feedback).not.toContain("codename")
+  })
+
   it("tells an invalid wait which fields to repair without echoing values", () => {
     for (const args of [
       { type: "wait", timeoutMs: 20000 },

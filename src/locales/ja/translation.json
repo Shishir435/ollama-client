@@ -160,11 +160,14 @@
     },
     "title": "監督付きエージェント",
     "unresolved": "この操作は実行された可能性があります。続行前にページを確認してください。",
+    "unresolved_reviewed": "ページを確認した — 続行",
     "work_log": {
-      "title": "作業ログ"
+      "title": "作業ログ",
+      "target": "「{{name}}」"
     },
     "correction": "一時停止中です。変更点を説明してから続行してください。",
-    "export_report": "実行レポートを出力（ページのテキストを含む）"
+    "export_report": "実行レポートを出力（ページのテキストを含む）",
+    "running_goal": "実行中のタスク"
   },
   "common": {
     "theme": {
@@ -399,7 +402,8 @@
       "tooltip_tokens": "このセッションで使用された合計トークン",
       "tooltip_time": "合計応答生成時間",
       "tooltip_speed": "平均生成速度",
-      "tooltip_messages": "AI応答数"
+      "tooltip_messages": "AI応答数",
+      "speed_average": "平均 {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "アクティビティログ",
@@ -587,6 +591,7 @@
       "response_failed_title": "応答の生成に失敗しました",
       "unknown_error_description": "不明なエラーが発生しました",
       "provider_replay_invalid": "この応答を安全に続行できません。プロバイダーのコンテキストを再構築するため、このターンを再試行してください。",
+      "provider_busy": "ローカルのエンドポイントは前のリクエストをまだ処理中で、別のリクエストを開始できません。1 分ほど待つか、再起動してください。",
       "report_issue": "問題を報告",
       "open_issue": "Issueを開く",
       "copy_diagnostics": "診断情報をコピー",
@@ -643,7 +648,6 @@
       "empty": "アーティファクトの内容がありません"
     },
     "system_prompt": {
-      "button": "チャットの指示",
       "title": "チャットの指示",
       "description": "このチャットのみのシステムプロンプト。モデルの既定プロンプトを上書きします。",
       "placeholder": "例: 箇条書きで簡潔に答えるアシスタントです。",
@@ -1225,6 +1229,7 @@
           "description_reported": "このモデルのプロバイダーが報告したレベルです。",
           "description_profile": "このプロバイダーとモデルファミリーで確認済みのレベルです。",
           "description_unknown": "このプロバイダーは信頼できる推論制御を公開していません。",
+          "reset": "自動にリセット",
           "options": {
             "auto": "自動（プロバイダーの既定値）",
             "auto_short": "自動",

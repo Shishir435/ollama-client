@@ -160,11 +160,14 @@
     },
     "title": "Agent supervisé",
     "unresolved": "Cette action a peut-être eu lieu. Vérifiez la page avant de continuer.",
+    "unresolved_reviewed": "J'ai vérifié la page — continuer",
     "work_log": {
-      "title": "Journal de travail"
+      "title": "Journal de travail",
+      "target": "« {{name}} »"
     },
     "correction": "En pause. Décrivez le changement souhaité, puis continuez.",
-    "export_report": "Exporter le rapport (contient le texte de la page)"
+    "export_report": "Exporter le rapport (contient le texte de la page)",
+    "running_goal": "Tâche en cours"
   },
   "common": {
     "theme": {
@@ -399,7 +402,8 @@
       "tooltip_tokens": "Total des tokens utilisés dans cette session",
       "tooltip_time": "Temps total de génération des réponses",
       "tooltip_speed": "Vitesse moyenne de génération",
-      "tooltip_messages": "Nombre de réponses IA"
+      "tooltip_messages": "Nombre de réponses IA",
+      "speed_average": "moy. {{value}} {{unit}}"
     },
     "reasoning": {
       "aria_label": "Journal d'activité",
@@ -587,6 +591,7 @@
       "response_failed_title": "Échec de la génération de la réponse",
       "unknown_error_description": "Une erreur inconnue est survenue",
       "provider_replay_invalid": "Cette réponse ne peut pas être poursuivie en toute sécurité. Réessayez ce tour pour reconstruire le contexte du fournisseur.",
+      "provider_busy": "Le point de terminaison local termine encore une requête précédente et ne peut pas en démarrer une autre. Patiente environ une minute ou redémarre-le.",
       "report_issue": "Signaler un problème",
       "open_issue": "Ouvrir un ticket",
       "copy_diagnostics": "Copier le diagnostic",
@@ -643,7 +648,6 @@
       "empty": "Aucun contenu d'artefact"
     },
     "system_prompt": {
-      "button": "Instructions du chat",
       "title": "Instructions du chat",
       "description": "Un prompt système pour ce chat uniquement. Il remplace le prompt par défaut du modèle.",
       "placeholder": "ex. Tu es un assistant concis qui répond par points.",
@@ -1225,6 +1229,7 @@
           "description_reported": "Niveaux indiqués par le fournisseur de ce modèle.",
           "description_profile": "Niveaux vérifiés pour ce fournisseur et cette famille de modèles.",
           "description_unknown": "Ce fournisseur n'indique aucun contrôle fiable du raisonnement.",
+          "reset": "Réinitialiser sur Automatique",
           "options": {
             "auto": "Automatique (valeur du fournisseur)",
             "auto_short": "Automatique",

@@ -81,6 +81,36 @@ describe("model catalog routes", () => {
     expect(log).toHaveBeenCalledWith("GET /v1/models ok", { count: 2 })
   })
 
+  it("starts the backend before reading its catalog", async () => {
+    /*
+     * The proxy listens before `ensureReady` has resolved, so a catalog read
+     * can arrive while the runtime is still coming up. The chat and image
+     * routes have always started it first; this one asked straight away and
+     * answered 502 — and a missing catalog is not a failure a client retries,
+     * so the model menu simply showed a provider that lists nothing until some
+     * later chat request happened to start the backend.
+     */
+    const order: string[] = []
+    const ready = vi.fn(async () => {
+      order.push("ensureReady")
+    })
+    const list = vi.fn(async () => {
+      order.push("listModels")
+      return models
+    })
+    const { baseUrl } = await start({ ...backend(list), ensureReady: ready })
+
+    await fetch(`${baseUrl}/v1/models`)
+    await fetch(`${baseUrl}/v1/models/model-b`)
+
+    expect(order).toEqual([
+      "ensureReady",
+      "listModels",
+      "ensureReady",
+      "listModels"
+    ])
+  })
+
   it("finds a model by its full id", async () => {
     const { baseUrl } = await start(backend())
 
