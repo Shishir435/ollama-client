@@ -122,9 +122,13 @@ runAgentScenario({
         : []
     )
     expect(new Set(approvals.map((approval) => approval.id)).size).toBe(1)
-    expect(approvals.every((approval) => approval.risk === "critical")).toBe(
-      true
-    )
+    /**
+     * `high`, not `critical`: an empty attachment picker does not make the
+     * form sensitive, and a submission is priced high so the user can widen
+     * it to this origin for this run. Critical is the floor for destroying,
+     * paying, authenticating and a picker with something actually selected.
+     */
+    expect(approvals.every((approval) => approval.risk === "high")).toBe(true)
     expect(
       messages.some(
         (message) =>

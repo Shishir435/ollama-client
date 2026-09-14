@@ -280,7 +280,7 @@ export const Chat = ({
           </div>
         </>
       ) : (
-        <WelcomeScreen />
+        <WelcomeScreen leading={leading} />
       )}
       <SemanticChatSearchDialog
         open={isSearchOpen}

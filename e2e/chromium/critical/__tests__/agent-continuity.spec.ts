@@ -60,10 +60,10 @@ runAgentScenario({
     })
     expect(verified?.sourceUrl).toContain("127.0.0.1")
     // A finding is written once, on the receipt for the decision that made
-    // it; history merges a step's receipts, so the model still sees it.
-    expect(
-      snapshot?.steps.find((step) => step.status === "planned")?.finding
-    ).toBe("Continue was the only control on the page.")
+    // it. The snapshot carries one receipt per step, merged the way history
+    // merges them, so the supervisor reads the finding beside the outcome
+    // rather than losing it to the last receipt written.
+    expect(verified?.finding).toBe("Continue was the only control on the page.")
   }
 })
 

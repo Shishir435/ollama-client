@@ -153,23 +153,56 @@ export const registerAgentPanelPort = (
   }
 
   /**
-   * One receipt per step: the last one written for it.
+   * One receipt per step, merged rather than replaced.
    *
-   * A step is appended once per lifecycle change, so a run's receipts outnumber
-   * its actions several times over. The panel collapses them to render, history
-   * and the completion judge collapse them to reason, and every one of those
-   * happens after the array has already had to fit in a snapshot — which a long
-   * run's receipts did not, taking the whole panel down with them. Collapsing
-   * here bounds the array by the step ceiling itself rather than by a number
-   * somebody remembered to raise.
+   * A step is appended once per lifecycle change, so a run's receipts
+   * outnumber its actions several times over. The panel collapses them to
+   * render, history and the completion judge collapse them to reason, and
+   * every one of those happens after the array has already had to fit in a
+   * snapshot — which a long run's receipts did not, taking the whole panel
+   * down with them. Collapsing here bounds the array by the step ceiling
+   * itself rather than by a number somebody remembered to raise.
+   *
+   * What a later receipt does not repeat, an earlier one keeps: the model's
+   * `finding` is written once, on the receipt for the decision that made it,
+   * and taking the last receipt wholesale dropped it — along with the target
+   * and the page it happened on — from the one surface a person reads. This
+   * is the rule `latestByStep` already applies in `history.ts`; two copies of
+   * it are two places for the panel and the model to disagree about what a
+   * step did.
    */
-  const latestReceiptPerStep = <T extends { stepId: string; sequence: number }>(
+  const latestReceiptPerStep = <
+    T extends {
+      stepId: string
+      sequence: number
+      command?: unknown
+      target?: unknown
+      sourceUrl?: unknown
+      finding?: unknown
+      verification?: unknown
+    }
+  >(
     steps: readonly T[]
   ): T[] => {
     const latest = new Map<string, T>()
-    for (const step of steps) {
+    for (const step of [...steps].sort(
+      (first, second) => first.sequence - second.sequence
+    )) {
       const held = latest.get(step.stepId)
-      if (!held || step.sequence >= held.sequence) latest.set(step.stepId, step)
+      latest.set(
+        step.stepId,
+        held
+          ? {
+              ...held,
+              ...step,
+              command: step.command ?? held.command,
+              target: step.target ?? held.target,
+              sourceUrl: step.sourceUrl ?? held.sourceUrl,
+              finding: step.finding ?? held.finding,
+              verification: step.verification ?? held.verification
+            }
+          : step
+      )
     }
     return [...latest.values()].sort(
       (first, second) => first.sequence - second.sequence
