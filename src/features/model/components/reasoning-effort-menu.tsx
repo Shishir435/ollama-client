@@ -73,9 +73,10 @@ const ReasoningEffortSelect = ({
       }>
       <SelectTrigger
         size="sm"
+        variant="ghost"
         aria-label={t("settings.model.parameters.reasoning_effort.label")}
         title={`${t("settings.model.parameters.reasoning_effort.label")}: ${label}`}
-        className="h-8 max-w-20 shrink-0 gap-1 overflow-hidden border-0 bg-transparent px-2 hover:bg-muted/55">
+        className="h-8 max-w-20 shrink-0 gap-1 overflow-hidden rounded-panel px-2 font-medium">
         <Brain className="icon-sm shrink-0 text-muted-foreground" />
         <SelectValue className="min-w-0 truncate">{label}</SelectValue>
       </SelectTrigger>

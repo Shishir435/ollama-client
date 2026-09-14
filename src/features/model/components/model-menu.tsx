@@ -322,7 +322,7 @@ export const ModelMenu = ({
                     variant="ghost"
                     role="combobox"
                     aria-expanded={open}
-                    className="h-8 min-w-0 max-w-full justify-between gap-1.5 rounded-panel bg-transparent px-2 font-medium hover:bg-background/80 items-center transition-all"
+                    className="h-8 min-w-0 max-w-full justify-between gap-1.5 rounded-panel px-2 font-medium items-center transition-all"
                   />
                 }
               />
