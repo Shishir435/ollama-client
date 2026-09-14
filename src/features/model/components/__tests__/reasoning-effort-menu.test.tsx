@@ -73,6 +73,22 @@ describe("ReasoningEffortMenu", () => {
     })
   })
 
+  it("draws one stop per level the model offers", async () => {
+    render(<ReasoningEffortMenu />)
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "settings.model.parameters.reasoning_effort.label"
+      })
+    )
+    await screen.findAllByLabelText(
+      "settings.model.parameters.reasoning_effort.label"
+    )
+
+    /** auto, none, low, medium, high. */
+    expect(document.querySelectorAll("[data-slot=slider-mark]")).toHaveLength(5)
+  })
+
   it("returns the effort to the provider's own default", async () => {
     useModelConfigMock.mockReturnValue([
       { reasoning_effort: "high" },

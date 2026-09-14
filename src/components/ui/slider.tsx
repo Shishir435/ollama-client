@@ -1,5 +1,12 @@
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
+import { Fragment } from "react"
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/class-names"
 
 /**
@@ -35,11 +42,11 @@ function Slider({
   ...props
 }: SliderPrimitive.Root.Props & {
   /**
-   * Number of evenly spaced stops to draw on the track, for a scale whose
-   * values are a handful of named steps rather than a continuous range.
-   * Horizontal sliders only.
+   * The stops to draw on the track, for a scale whose values are a handful of
+   * named steps rather than a continuous range: a count, or one label per stop
+   * to name each of them in a tooltip. Horizontal sliders only.
    */
-  marks?: number
+  marks?: number | readonly string[]
   /** Track and thumb weight. `lg` is for a short scale read at a glance. */
   size?: keyof typeof SLIDER_SIZES
   /** Props for every thumb — labelling, mostly. */
@@ -51,8 +58,9 @@ function Slider({
       ? defaultValue
       : [min, max]
   const sizing = SLIDER_SIZES[size]
-  const markCount =
-    orientation === "horizontal" && marks && marks > 1 ? marks : 0
+  const markLabels = Array.isArray(marks) ? marks : undefined
+  const markCount = markLabels ? markLabels.length : ((marks as number) ?? 0)
+  const marksShown = orientation === "horizontal" && markCount > 1
 
   return (
     <SliderPrimitive.Root
@@ -76,22 +84,52 @@ function Slider({
             data-slot="slider-range"
             className="bg-primary select-none data-horizontal:h-full data-vertical:w-full"
           />
-          {Array.from({ length: markCount }, (_, index) => {
-            const fraction = index / (markCount - 1)
-            return (
-              <span
-                aria-hidden="true"
-                data-slot="slider-mark"
-                // biome-ignore lint/suspicious/noArrayIndexKey: marks are positional and fixed-count; index is a stable key here
-                key={index}
-                className="absolute top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-control bg-foreground/30"
-                style={{
-                  insetInlineStart: `calc(${fraction * 100}% + ${0.5 - fraction} * ${sizing.thumbWidth})`
-                }}
-              />
-            )
-          })}
         </SliderPrimitive.Track>
+        {/*
+         * Marks sit beside the track rather than inside it: the track clips
+         * its overflow, which would cut the hover area a named stop needs
+         * down to the four pixels of the dot itself. Pointer events still
+         * reach the control underneath, so a press on a stop moves the thumb
+         * to it as a press anywhere else on the track does.
+         */}
+        {marksShown ? (
+          /**
+           * A hover delay, so dragging the thumb across the scale does not
+           * flash a tooltip for every stop it passes.
+           */
+          <TooltipProvider delay={250}>
+            {Array.from({ length: markCount }, (_, index) => {
+              const fraction = index / (markCount - 1)
+              const mark = (
+                <span
+                  aria-hidden="true"
+                  data-slot="slider-mark"
+                  className={cn(
+                    "absolute top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-control bg-foreground/30",
+                    markLabels && "after:absolute after:-inset-2"
+                  )}
+                  style={{
+                    insetInlineStart: `calc(${fraction * 100}% + ${0.5 - fraction} * ${sizing.thumbWidth})`
+                  }}
+                />
+              )
+              const label = markLabels?.[index]
+              if (!label) {
+                // biome-ignore lint/suspicious/noArrayIndexKey: marks are positional and fixed-count; index is a stable key here
+                return <Fragment key={index}>{mark}</Fragment>
+              }
+              return (
+                // biome-ignore lint/suspicious/noArrayIndexKey: marks are positional and fixed-count; index is a stable key here
+                <Tooltip key={index}>
+                  <TooltipTrigger render={mark} />
+                  <TooltipContent side="top" sideOffset={8}>
+                    {label}
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })}
+          </TooltipProvider>
+        ) : null}
         {Array.from({ length: _values.length }, (_, index) => (
           <SliderPrimitive.Thumb
             data-slot="slider-thumb"

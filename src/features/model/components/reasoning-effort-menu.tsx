@@ -131,7 +131,9 @@ const ReasoningEffortControl = ({
           min={0}
           max={scale.length - 1}
           step={1}
-          marks={scale.length}
+          marks={scale.map((effort) =>
+            t(`settings.model.parameters.reasoning_effort.options.${effort}`)
+          )}
           onValueChange={(next) =>
             select(Array.isArray(next) ? (next[0] ?? 0) : next)
           }
