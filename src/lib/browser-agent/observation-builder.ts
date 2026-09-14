@@ -140,7 +140,8 @@ const hasConservativeClip = (
 const clipBoundsByAncestor = (
   bounds: VisibleBounds[],
   ancestor: Element,
-  style: CSSStyleDeclaration
+  style: CSSStyleDeclaration,
+  clips: (value: string) => boolean = clipsOverflow
 ): VisibleBounds[] => {
   const containPaint = style.contain
     .split(/\s+/)
@@ -153,7 +154,7 @@ const clipBoundsByAncestor = (
       style.overflowX,
       declared.overflow,
       declared.overflowX
-    ].some(clipsOverflow)
+    ].some(clips)
   const clipY =
     containPaint ||
     [
@@ -161,7 +162,7 @@ const clipBoundsByAncestor = (
       style.overflowY,
       declared.overflow,
       declared.overflowY
-    ].some(clipsOverflow)
+    ].some(clips)
   if (!clipX && !clipY) return bounds
 
   const clippingRects = Array.from(ancestor.getClientRects()).filter(
@@ -426,6 +427,43 @@ const isVisible = (element: Element, pass: AgentObservationPass): boolean => {
   return result
 }
 
+/** Clipped away by an ancestor that cannot be scrolled to reveal it. */
+const clipsWithoutScrolling = (value: string): boolean =>
+  value === "clip" || value === "hidden"
+
+/**
+ * Clipped to nothing by an ancestor whose overflow does not scroll: a
+ * collapsed panel held at `height: 0`, a carousel track, a region under
+ * `contain: paint`. A scrollable ancestor is deliberately not counted — a row
+ * below the fold of a scroll pane is exactly the control this reports, and
+ * `scroll` with a container ref reaches it.
+ */
+const isUnreachablyClipped = (
+  element: Element,
+  pass: AgentObservationPass
+): boolean => {
+  let bounds: VisibleBounds[] = Array.from(element.getClientRects())
+    .filter((rect) => rect.width > 0 && rect.height > 0)
+    .map((rect) => ({
+      bottom: rect.bottom,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top
+    }))
+  if (bounds.length === 0) return true
+  for (
+    let current = composedParent(element);
+    current;
+    current = composedParent(current)
+  ) {
+    const style = styleOf(current, pass)
+    if (!style) return true
+    bounds = clipBoundsByAncestor(bounds, current, style, clipsWithoutScrolling)
+    if (bounds.length === 0) return true
+  }
+  return false
+}
+
 /**
  * Laid out, with nothing above it hiding it, and yet no part of its box falls
  * inside the viewport: a control a scroll brings into reach.
@@ -438,13 +476,20 @@ const isVisible = (element: Element, pass: AgentObservationPass): boolean => {
  * its name — and the page's own text already travels below the fold
  * (`collectDocumentText`), so that name is nothing the observation boundary
  * was withholding.
+ *
+ * Out of the viewport is the whole claim, so the ancestors that clip without
+ * scrolling are asked about too. Reporting a control inside a closed
+ * accordion as one a scroll brings into reach is worse than not naming it:
+ * the run spends steps scrolling for something that is not coming, and the
+ * page never says why.
  */
 const isOffscreen = (element: Element, pass: AgentObservationPass): boolean => {
   if (isHiddenInput(element)) return false
   const laidOut = Array.from(element.getClientRects()).some(
     (rect) => rect.width > 0 && rect.height > 0
   )
-  return laidOut && !isChainHidden(element, pass)
+  if (!laidOut || isChainHidden(element, pass)) return false
+  return !isUnreachablyClipped(element, pass)
 }
 
 /** Inset fractions of a rect to hit-test: the centre, then points pulled off

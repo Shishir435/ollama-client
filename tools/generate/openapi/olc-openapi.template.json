@@ -482,8 +482,8 @@
             "description": "Present when the backend reports whether this proxy spawned the runtime it serves."
           },
           "lastError": {
-            "type": ["string", "null"],
-            "description": "Label of the most recent failed request, never its content."
+            "$ref": "#/components/schemas/QueueFailure",
+            "description": "The queue's most recent failure, or null. The same value as queue.lastFailure."
           }
         },
         "additionalProperties": false
@@ -841,6 +841,23 @@
         },
         "additionalProperties": false
       },
+      "QueueFailure": {
+        "type": ["object", "null"],
+        "description": "The most recent cancelled or timed-out request: its label, why it ended, and how long ago it failed. Labels are request ids by convention and carry no prompt text, because /health is authentication-exempt.",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "agoMs": {
+            "type": "number"
+          }
+        },
+        "required": ["label", "reason", "agoMs"],
+        "additionalProperties": false
+      },
       "HealthQueue": {
         "type": "object",
         "description": "The single-flight slot. A request runs alone; `stalled` means a cancelled request has not stopped and new ones are refused, `orphaned` counts slots force-released after that.",
@@ -870,7 +887,7 @@
             "type": "integer"
           },
           "lastFailure": {
-            "type": ["string", "null"]
+            "$ref": "#/components/schemas/QueueFailure"
           }
         },
         "additionalProperties": true

@@ -386,7 +386,21 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   the parked map while its deadlines are suspended, so walking that map alone
   left a live session whose calls had no timer left to settle them.
 - **A tool result belongs to one turn, or to none.** The parked-call registry is process-wide, so a follow-up releases only the calls the turn it resumes actually owns. A follow-up whose results name no live turn is refused with `400 StaleToolResults`; starting a fresh turn instead drops the result the client just produced and lets the model redo the work behind its back. The correlation is resolved twice — once to answer fast, once inside the queue slot — because a request can wait there for as long as another turn may run, and **both** of the turn's deadlines — the turn-level one and the shorter per-call one in the registry — are suspended for as long as its own resume is waiting. They ask the same question, so a fix that suspends one and not the other only moves which timer loses the result.
-- **One turn at a time is an invariant, not a hint.** A request past its deadline is cancelled through an `AbortSignal` and the queue keeps holding the slot: a task still running has not left the single-flight boundary, whatever its caller was told. If it will not stop, the queue refuses requests with `503` and names it rather than starting a second turn beside it.
+- **One turn at a time is an invariant, not a hint — until holding it costs
+  more than breaking it.** A request past its deadline is cancelled through an
+  `AbortSignal` and the queue keeps holding the slot: a task still running has
+  not left the single-flight boundary, whatever its caller was told. After
+  `CANCEL_GRACE_MS` it will not stop, so the queue refuses requests with `503`
+  and names it rather than starting a second turn beside it. After
+  `FORCE_RELEASE_MS` the slot is released anyway and the task is written off
+  as orphaned — a task that ignores its abort (an SDK call with no
+  cancellation, a poll loop on a session that is gone) used to wedge the proxy
+  for the life of the process. That is a real overlap, not a loophole: an
+  orphan may still be inside the runtime when the next turn starts, which is
+  why its late `finally` is identity-guarded, why `orphaned` is counted on
+  `/health`, and why a non-zero count marks the proxy degraded. Nothing about
+  it is cheap to widen — shortening the force-release window trades a wedged
+  proxy for interleaved turns.
 - **A browser origin is refused unless it is allowed.** The proxy listens on loopback and runs an agent, so a wildcard `Access-Control-Allow-Origin` would let any page spend a turn — a missing response header does not stop a simple request. `ALLOWED_ORIGINS` defaults to the extension schemes; a request with no `Origin` is not a page and is left alone.
 - `packages/olc/README.md` has the options, endpoints, build outputs and known limits.
 
@@ -409,7 +423,11 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   bound before the page moved survives. Nothing is replayed and nothing is
   asserted about what happened — the run decides from what is on screen. It
   names the `pausedAt` it is resolving, so a click on a stale panel cannot
-  resolve whatever replaced it. Stop used to be the only exit, and that was
+  resolve whatever replaced it — checked in the run service *before* the
+  debugger is attached, not only in the controller afterwards, because a
+  rejected resolve crosses no pause boundary and the detach hook that runs at
+  one would never fire: the tab kept the debugging banner with the run still
+  paused. Stop used to be the only exit, and that was
   the more dangerous arrangement: a stopped run is started again from the
   goal, and the new run carries no memory that the click already landed, so
   refusing to continue is what made the action likely to happen twice.
@@ -444,6 +462,17 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   projects. A closed shadow root reads as `null` and stays unread rather than
   guessed at. The walk is `nodeType`-based, not `instanceof Element` — the same
   observation runs against a child frame's own realm.
+- **Off the fold and out of reach are different answers.** `resolveVisibility`
+  is a conjunction, so a below-fold row collapses into the same `false` as a
+  `display:none` one; `isOffscreen` asks the question separately so the row
+  keeps its name. What it must not do is answer it from layout alone — a
+  control clipped to nothing by an ancestor that *cannot scroll*
+  (`overflow: hidden`/`clip`, `contain: paint`: a closed accordion, a carousel
+  track) is not a control a scroll brings into reach, and naming it as one
+  sends the run scrolling for something that is not coming.
+  `isUnreachablyClipped` walks the same ancestors as visibility with the
+  scrollable ones deliberately skipped, because a row below the fold of a
+  scroll pane is exactly what this is for.
 - **A covered control is not a clickable one.** A laid-out, in-viewport element
   whose click points all hit-test to some unrelated element is marked
   `occluded`; it is still listed — the control exists — so the model dismisses
@@ -812,19 +841,28 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   every run that pressed the right button report success.
   `judgeAgentCompletion` (`completion.ts`) is the third answer, and it asks
   for a quotation only where the gap between the second and the third is
-  real. A change whose own verification came back `confirmed` has already
-  been checked against the page by the verifier that knew what the step was
-  for, and that check *is* the evidence: the run completes without quoting
-  anything. Demanding a phrase on top of it asked for something a toggle
-  cannot produce — selecting Blue in a dropdown and ticking a checkbox add no
-  words to the page, so every quotation a model could offer was already there
-  (`stale_evidence`), the control's own label (`self_evidence`) or not page
-  text at all (`absent_evidence`) — and three live runs finished the task,
-  were confirmed, and spent their whole budget being refused for work they
-  had done. A quotation is required of a change that verified `ambiguous`
-  (the effect landed and the page has not shown its consequence) and of a run
-  whose receipts could not be read; a change with no verification recorded is
-  refused outright, because nothing checked it and no phrase completes that.
+  real. Whether it is real is a question about the **verification**, not
+  about the outcome: `confirmed` is one word for two different findings, and
+  the evidence kind says which. A verifier that compared the step's own
+  intended result — `field`, `checked`, `arrangement`, `condition`
+  (`RESULT_VERIFIED_EVIDENCE`) — has already answered the third question for
+  the change it checked, and that check *is* the evidence: the run completes
+  without quoting anything. Demanding a phrase on top of it asked for
+  something a toggle cannot produce — selecting Blue in a dropdown and
+  ticking a checkbox add no words to the page, so every quotation a model
+  could offer was already there (`stale_evidence`), the control's own label
+  (`self_evidence`) or not page text at all (`absent_evidence`) — and three
+  live runs finished the task, were confirmed, and spent their whole budget
+  being refused for work they had done. Every other kind is a reaction, not a
+  result: `activation` is confirmed when the page changed in *any* observable
+  way or the control merely took focus, `submission` when the form went,
+  `navigation` when the tab arrived. A menu opening is an observable page
+  change, so waiving the quotation for those let a run click an intermediate
+  control and report the goal met — they owe one. So does a change that
+  verified `ambiguous` (the effect landed and the page has not shown its
+  consequence) and a run whose receipts could not be read; a change with no
+  verification recorded is refused outright, because nothing checked it and
+  no phrase completes that.
   Where a quotation is required it has to be in the observation the run
   decided on, read by the same matcher `wait` uses (`observed-text.ts`) so a
   run cannot complete on evidence its own wait would reject. A run that only

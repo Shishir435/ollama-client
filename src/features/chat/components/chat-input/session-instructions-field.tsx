@@ -1,5 +1,5 @@
 import { ScrollText } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,12 @@ export const SessionInstructionsField = () => {
     useChatSessions()
   const [draft, setDraft] = useState("")
   const [saving, setSaving] = useState(false)
+  /** Read after an await, where the rendered `currentSessionId` is the one
+   * that was open when the write started rather than the one open now. */
+  const openSessionId = useRef(currentSessionId)
+  useEffect(() => {
+    openSessionId.current = currentSessionId
+  }, [currentSessionId])
 
   const saved =
     sessions.find((s) => s.id === currentSessionId)?.systemPrompt ?? ""
@@ -37,10 +43,17 @@ export const SessionInstructionsField = () => {
 
   const write = async (value: string) => {
     if (saving) return
+    const sessionId = currentSessionId
     setSaving(true)
     try {
-      await setSessionSystemPrompt(currentSessionId, value)
-      setDraft(value)
+      await setSessionSystemPrompt(sessionId, value)
+      /**
+       * The chat can change while the write is in flight, and the field
+       * belongs to whichever chat is open when it lands. Writing the saved
+       * value back unconditionally put the previous chat's instructions in
+       * the new chat's box, dirty, one Save away from being stored there.
+       */
+      if (openSessionId.current === sessionId) setDraft(value)
     } finally {
       setSaving(false)
     }

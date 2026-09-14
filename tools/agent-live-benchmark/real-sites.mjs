@@ -265,7 +265,7 @@ await panel
   .getByRole("button", { name: "Skip for now", exact: true })
   .click({ timeout: 3000 })
   .catch(() => {})
-await panel.getByRole("tab", { name: /Agent/ }).click()
+await panel.getByRole("button", { name: /^Agent/ }).click()
 try {
   const only = (process.env.AUDIT_ONLY ?? "")
     .split(",")

@@ -56,23 +56,35 @@ export const agentEffectChangesPage = (effect: ResolvedAgentEffect): boolean =>
  * every run that pressed the right button reported success.
  *
  * What a quotation is for is the gap between the second answer and the third,
- * and it is only asked for where that gap exists. A change whose own
- * verification came back `confirmed` has already been checked against the
- * page by the verifier that knew what the step was for — the field holds the
- * resolved value, the control holds the resolved checked state — and that
- * check is the evidence. Demanding a quotation on top of it asked for
- * something a toggle cannot produce: selecting Blue in a dropdown and ticking
- * a checkbox add no new words to the page, so every phrase the model could
- * name was either already there (`stale_evidence`), the control's own label
- * (`self_evidence`) or not page text at all (`absent_evidence`). Three live
- * runs finished the task, were confirmed, and then spent their whole budget
- * being refused for work they had done.
+ * and it is only asked for where that gap exists. Whether it exists is a
+ * question about the verification, not about the outcome: `confirmed` is one
+ * word for two different findings.
  *
- * The quotation is still required where the run cannot vouch for its own
- * change: a step that verified `ambiguous` — the effect landed and the page
- * has not shown its consequence — and a run whose receipts could not be read
- * at all. A change with no verification recorded is refused outright; there
- * is nothing for a quotation to add to a step nobody checked.
+ * A verifier that compared the step's own intended result against the page —
+ * the field holds the resolved value, the control holds the resolved checked
+ * state, the dragged item is among its new neighbours — has already answered
+ * the third question for the change it checked, and that check is the
+ * evidence. Demanding a quotation on top of it asked for something a toggle
+ * cannot produce: selecting Blue in a dropdown and ticking a checkbox add no
+ * new words to the page, so every phrase the model could name was either
+ * already there (`stale_evidence`), the control's own label (`self_evidence`)
+ * or not page text at all (`absent_evidence`). Three live runs finished the
+ * task, were confirmed, and then spent their whole budget being refused for
+ * work they had done.
+ *
+ * A verifier that could only watch for a reaction has not. `activation` is
+ * `confirmed` when the page changed in any observable way, or when the
+ * control merely took focus; `submission` when the form went; `navigation`
+ * when the tab arrived. Every one of those is the first two answers and
+ * neither is the third — a menu opening is an observable page change, so
+ * accepting a confirmed activation unevidenced let a run click any
+ * intermediate control and report the goal met. Those still owe a quotation.
+ *
+ * The quotation is also required where the run cannot vouch for its own
+ * change at all: a step that verified `ambiguous` — the effect landed and the
+ * page has not shown its consequence — and a run whose receipts could not be
+ * read. A change with no verification recorded is refused outright; there is
+ * nothing for a quotation to add to a step nobody checked.
  *
  * A run that changed nothing owes none of this — a reading task's answer is
  * the thing it read, and asking it to quote a saved-state indicator that does
@@ -188,6 +200,33 @@ const lastChange = (
   return [...latest.values()].filter(isChange).at(-1)
 }
 
+/**
+ * Verification evidence that answers what the step was for, rather than that
+ * something happened.
+ *
+ * Read off the evidence kind rather than the command, because the verifier is
+ * what decides which question it managed to answer: a click on a checkbox is
+ * verified against its resolved checked state, while a click on a menu item
+ * is verified against the page having changed at all. The second is true of
+ * every intermediate step a run takes.
+ */
+const RESULT_VERIFIED_EVIDENCE = new Set([
+  /** The control holds the value the step resolved. */
+  "field",
+  /** The control holds the checked state the step resolved. */
+  "checked",
+  /** The dragged item is where the drag meant to put it. */
+  "arrangement",
+  /** `wait` saw the application state it was told to wait for. */
+  "condition"
+])
+
+const provesItsOwnResult = (
+  verification: AgentStepReadout["verification"]
+): boolean =>
+  verification !== undefined &&
+  RESULT_VERIFIED_EVIDENCE.has(verification.evidence.kind)
+
 const MISSING_EVIDENCE_FEEDBACK =
   "This run changed the page, so complete needs evidence: a short phrase that is visible on the page now and shows the goal is met, such as a saved-state indicator or the new value itself. Observe the page and complete again with evidence, or keep working."
 
@@ -256,19 +295,23 @@ export const judgeAgentCompletion = (
    * by looking at the page in front of it.
    */
   if (change !== "unreadable") {
-    const outcome = change.verification?.outcome
+    const verification = change.verification
+    const outcome = verification?.outcome
     /**
-     * The verification is the evidence. It was produced by the check that
-     * knew what this step was supposed to do, against the page, after it
-     * happened — which is strictly more than a quoted phrase proves.
+     * The verification is the evidence, where the verifier compared the
+     * step's own intended result against the page. That is strictly more
+     * than a quoted phrase proves — and it is what a reaction-shaped
+     * confirmation does not carry.
      */
-    if (outcome === "confirmed") return { type: "accepted" }
+    if (outcome === "confirmed" && provesItsOwnResult(verification))
+      return { type: "accepted" }
     /**
-     * Not `ambiguous` here means no verification was recorded at all: a step
-     * a worker restart interrupted, which is `uncertain` with nothing behind
-     * it. Nobody checked it, so there is nothing a quotation could complete.
+     * Neither `confirmed` nor `ambiguous` means no verification was recorded
+     * at all: a step a worker restart interrupted, which is `uncertain` with
+     * nothing behind it. Nobody checked it, so there is nothing a quotation
+     * could complete.
      */
-    if (outcome !== "ambiguous") {
+    if (outcome !== "confirmed" && outcome !== "ambiguous") {
       return {
         type: "refused",
         reason: "unverified_change",

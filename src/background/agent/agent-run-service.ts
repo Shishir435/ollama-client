@@ -629,6 +629,14 @@ export const createAgentRunService = (input?: {
       ) {
         return
       }
+      /**
+       * The same staleness the controller checks, checked before the debugger
+       * is attached rather than after. A click on a panel the run has already
+       * moved past resolves nothing, and attaching for it left the tab wearing
+       * the debugging banner with the run still paused — the detach hook runs
+       * at pause boundaries, and this crossed none.
+       */
+      if (state.updatedAt !== pausedAt) return
       if (!(await attachBrowserSession(state))) return
       await drive(state, (controller) =>
         controller.resolveEffect({ runId, pausedAt })

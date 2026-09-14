@@ -253,7 +253,7 @@ await panel
   .getByRole("button", { name: "Skip for now", exact: true })
   .click({ timeout: 3000 })
   .catch(() => {})
-await panel.getByRole("tab", { name: /Agent/ }).click()
+await panel.getByRole("button", { name: /^Agent/ }).click()
 try {
   for (const [kind, goal] of cases) {
     current = { kind, effects: 0, replaced: false }

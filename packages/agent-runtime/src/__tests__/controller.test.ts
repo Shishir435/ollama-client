@@ -121,6 +121,20 @@ const confirmed: AgentVerificationResult = {
   evidence: { kind: "dom", summary: "Changed", observedAt: 2 }
 }
 
+/**
+ * A verification that compared the step's own intended result, which is what
+ * lets a completion stand without a quotation. The default above is the other
+ * kind: the page reacted, which every intermediate click also produces.
+ */
+const confirmedValue: AgentVerificationResult = {
+  outcome: "confirmed",
+  evidence: {
+    kind: "field",
+    summary: "Field contains the resolved value",
+    observedAt: 2
+  }
+}
+
 const allow: AgentPolicyDecision = { type: "allow", risk: "low" }
 
 const approvalPolicy = (
@@ -884,6 +898,7 @@ describe("agent controller", () => {
     let decisions = 0
     const harness = createHarness({
       effectOverrides: { semanticEffects: ["form_mutation"] },
+      verification: [confirmedValue],
       observe: async () => observation(),
       decide: async () => {
         decisions += 1

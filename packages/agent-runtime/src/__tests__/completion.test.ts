@@ -205,6 +205,37 @@ describe("judgeAgentCompletion", () => {
     ).toEqual({ type: "accepted" })
   })
 
+  it("refuses an unevidenced completion after a confirmed activation", () => {
+    /**
+     * `activation` is confirmed by any observable page change — a menu
+     * opening is one — so a run that clicked an intermediate control and
+     * claimed the goal would otherwise be recorded as having met it. The
+     * verifier answered that the click landed, not that the task is done.
+     */
+    expect(
+      judgeAgentCompletion({
+        steps: [step({ sequence: 1 })],
+        observation: observation()
+      })
+    ).toEqual({
+      type: "refused",
+      reason: "missing_evidence",
+      feedback: expect.any(String)
+    })
+  })
+
+  it("accepts a confirmed activation the page has words for", () => {
+    // Clicking Save is an activation; "Draft saved" is what the page says now.
+    expect(
+      judgeAgentCompletion({
+        steps: [step({ sequence: 1, target: { ref: "e1", name: "Save" } })],
+        observation: observation({ visibleText: "Draft saved" }),
+        evidence: "Draft saved",
+        baselineText: "edit your document"
+      })
+    ).toEqual({ type: "accepted" })
+  })
+
   it("accepts a confirmed toggle whose quote the page could never show", () => {
     // "checked:true" is not page text and "Agree" is the control's own label,
     // so under the old rule a ticked checkbox had no answer at all.
