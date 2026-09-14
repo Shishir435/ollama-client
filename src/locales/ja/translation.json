@@ -1229,6 +1229,7 @@
           "description_reported": "このモデルのプロバイダーが報告したレベルです。",
           "description_profile": "このプロバイダーとモデルファミリーで確認済みのレベルです。",
           "description_unknown": "このプロバイダーは信頼できる推論制御を公開していません。",
+          "reset": "自動にリセット",
           "options": {
             "auto": "自動（プロバイダーの既定値）",
             "auto_short": "自動",

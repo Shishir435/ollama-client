@@ -1229,6 +1229,7 @@
           "description_reported": "Vom Anbieter dieses Modells gemeldete Stufen.",
           "description_profile": "Für diesen Anbieter und diese Modellfamilie verifizierte Stufen.",
           "description_unknown": "Dieser Anbieter weist keine verlässliche Steuerung des Denkaufwands aus.",
+          "reset": "Auf Automatisch zurücksetzen",
           "options": {
             "auto": "Automatisch (Anbieterstandard)",
             "auto_short": "Automatisch",

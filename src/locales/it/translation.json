@@ -1229,6 +1229,7 @@
           "description_reported": "Livelli dichiarati dal fornitore di questo modello.",
           "description_profile": "Livelli verificati per questo fornitore e questa famiglia di modelli.",
           "description_unknown": "Questo fornitore non dichiara un controllo affidabile del ragionamento.",
+          "reset": "Ripristina su Automatico",
           "options": {
             "auto": "Automatico (predefinito del fornitore)",
             "auto_short": "Automatico",

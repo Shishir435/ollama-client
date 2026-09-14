@@ -1229,6 +1229,7 @@
           "description_reported": "Niveles informados por el proveedor de este modelo.",
           "description_profile": "Niveles verificados para este proveedor y familia de modelos.",
           "description_unknown": "Este proveedor no anuncia un control de razonamiento fiable.",
+          "reset": "Restablecer a Automático",
           "options": {
             "auto": "Automático (predeterminado del proveedor)",
             "auto_short": "Automático",

@@ -1229,6 +1229,7 @@
           "description_reported": "此模型的提供商报告的级别。",
           "description_profile": "已为此提供商和模型系列验证的级别。",
           "description_unknown": "此提供商未公布可靠的推理控制。",
+          "reset": "重置为自动",
           "options": {
             "auto": "自动（提供商默认值）",
             "auto_short": "自动",

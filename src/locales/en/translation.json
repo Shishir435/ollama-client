@@ -1235,6 +1235,7 @@
           "description_reported": "Levels reported by this model's provider.",
           "description_profile": "Levels verified for this provider and model family.",
           "description_unknown": "This provider does not advertise a reliable reasoning control.",
+          "reset": "Reset to Auto",
           "options": {
             "auto": "Auto (provider default)",
             "auto_short": "Auto",

@@ -29,6 +29,32 @@ export const getReasoningEffortOptions = (
   ]
 }
 
+/**
+ * The options a model offers, ordered as a scale from "leave it to the
+ * provider" up to its hardest setting, which is the order a slider needs and
+ * the order the list reads in anyway. `enabled` is last because it only ever
+ * appears for a model with no levels of its own, where the scale is auto, off,
+ * on.
+ */
+const REASONING_EFFORT_SCALE: ReasoningEffort[] = [
+  "auto",
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "enabled"
+]
+
+export const getReasoningEffortScale = (
+  support?: ReasoningEffortSupport
+): ReasoningEffort[] => {
+  const options = getReasoningEffortOptions(support)
+  return REASONING_EFFORT_SCALE.filter((effort) => options.includes(effort))
+}
+
 export const ReasoningEffortField = ({
   value,
   support,
