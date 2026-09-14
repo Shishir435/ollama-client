@@ -395,12 +395,18 @@ In agent mode it serves a local agent runtime over `/v1/chat/completions`, so th
   `FORCE_RELEASE_MS` the slot is released anyway and the task is written off
   as orphaned — a task that ignores its abort (an SDK call with no
   cancellation, a poll loop on a session that is gone) used to wedge the proxy
-  for the life of the process. That is a real overlap, not a loophole: an
-  orphan may still be inside the runtime when the next turn starts, which is
-  why its late `finally` is identity-guarded, why `orphaned` is counted on
-  `/health`, and why a non-zero count marks the proxy degraded. Nothing about
-  it is cheap to widen — shortening the force-release window trades a wedged
-  proxy for interleaved turns.
+  for the life of the process. Three things keep that a trade rather than a
+  hole, and a caller of this queue owes all three: the runtime work is torn
+  down on cancellation rather than merely unawaited (the chat route aborts and
+  disposes its turn the moment the signal fires, bounded well under the cancel
+  grace, a full minute before the slot is given away); a turn owns its own
+  backend session, so an orphan and its replacement share a runtime but never
+  session state; and an unsettled orphan is counted in `inspect().orphaned`
+  and marks the proxy degraded on `/health`, because a run of them means the
+  runtime is ignoring abort *and* dispose and the answer is a restart an
+  operator can only reach for if the proxy says so. Shortening the window
+  trades a wedged proxy for overlapping turns and lengthening it trades the
+  other way; neither is free.
 - **A browser origin is refused unless it is allowed.** The proxy listens on loopback and runs an agent, so a wildcard `Access-Control-Allow-Origin` would let any page spend a turn — a missing response header does not stop a simple request. `ALLOWED_ORIGINS` defaults to the extension schemes; a request with no `Origin` is not a page and is left alone.
 - `packages/olc/README.md` has the options, endpoints, build outputs and known limits.
 

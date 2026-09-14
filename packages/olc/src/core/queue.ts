@@ -26,6 +26,25 @@
  * than one that guards a turn nobody is waiting for. The orphan's late `finally` is
  * identity-guarded so it cannot clear state that now belongs to a newer task.
  *
+ * What keeps that from being a hole rather than a trade, and what has to stay true
+ * of any caller that uses this queue:
+ *
+ * - The runtime work is *torn down* on cancellation, not merely unawaited. The chat
+ *   route abandons its turn the moment the signal aborts — `turn.abort()` then
+ *   `turn.dispose()`, bounded well under `cancelGraceMs` — a full minute before the
+ *   slot is given away. Force release is about a promise nobody can wait on any
+ *   longer, not about a session left running on purpose.
+ * - A turn owns its own backend session (`session.create()` per turn), so an orphan
+ *   and its replacement never share session state. What they can share is the
+ *   runtime process, which is why an orphan is counted rather than forgotten.
+ * - `inspect().orphaned` is non-zero for as long as one has not settled, and
+ *   `/health` reports the proxy degraded while it is. A run of orphans means the
+ *   runtime is ignoring both abort and dispose, and the answer to that is a restart,
+ *   which is a thing an operator can only do if the proxy says so.
+ *
+ * Shortening `forceReleaseMs` trades a wedged proxy for overlapping turns; lengthening
+ * it trades the other way. Neither is free, and neither is a bug.
+ *
  * A caller can also leave. Its `signal` is honoured at both stages, because they are
  * not the same problem: a request still queued has started nothing, so it is simply
  * dropped and nothing runs on its behalf. A request already running is cancelled the

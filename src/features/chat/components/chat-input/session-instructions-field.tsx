@@ -1,5 +1,5 @@
 import { ScrollText } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -23,12 +23,6 @@ export const SessionInstructionsField = () => {
     useChatSessions()
   const [draft, setDraft] = useState("")
   const [saving, setSaving] = useState(false)
-  /** Read after an await, where the rendered `currentSessionId` is the one
-   * that was open when the write started rather than the one open now. */
-  const openSessionId = useRef(currentSessionId)
-  useEffect(() => {
-    openSessionId.current = currentSessionId
-  }, [currentSessionId])
 
   const saved =
     sessions.find((s) => s.id === currentSessionId)?.systemPrompt ?? ""
@@ -41,19 +35,23 @@ export const SessionInstructionsField = () => {
   const hasPrompt = saved.trim().length > 0
   const dirty = draft !== saved
 
+  /**
+   * The box is updated before the write, not after it.
+   *
+   * Nothing this writes may land after the await: the chat can change while a
+   * write is in flight, and a draft written back then belongs to a chat that
+   * is no longer open — the previous chat's instructions, sitting dirty in
+   * the new chat's box, one Save away from being stored there. Which chat is
+   * open is known here and unknowable after the await, so the field is
+   * settled here and the store's own `saved` value re-syncs it either way.
+   */
   const write = async (value: string) => {
     if (saving) return
     const sessionId = currentSessionId
+    setDraft(value)
     setSaving(true)
     try {
       await setSessionSystemPrompt(sessionId, value)
-      /**
-       * The chat can change while the write is in flight, and the field
-       * belongs to whichever chat is open when it lands. Writing the saved
-       * value back unconditionally put the previous chat's instructions in
-       * the new chat's box, dirty, one Save away from being stored there.
-       */
-      if (openSessionId.current === sessionId) setDraft(value)
     } finally {
       setSaving(false)
     }
